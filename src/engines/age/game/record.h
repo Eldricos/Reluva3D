@@ -48,11 +48,11 @@ public:
     bool hasPassed(const std::string& city, int lesson) const;
 
 private:
-    std::filesystem::path path_;
-    std::map<std::string, int> places_;   // "sf blitz 3 p" -> best place
-    std::map<std::string, bool> lessons_; // "sf 4"
-    std::map<std::string, float> times_;  // as places_, the best time
-    std::string last_;                    // "sf blitz 3"
+    std::filesystem::path _path;
+    std::map<std::string, int> _places;   // "sf blitz 3 p" -> best place
+    std::map<std::string, bool> _lessons; // "sf 4"
+    std::map<std::string, float> _times;  // as places_, the best time
+    std::string _last;                    // "sf blitz 3"
 };
 
 // The drivers (the main menu's SELECT DRIVER): each a name, a level and
@@ -69,22 +69,22 @@ public:
     static constexpr const char* kFileName = "drivers.txt";
     Error load(const std::filesystem::path& folder);
     Error save() const;
-    const std::vector<DriverEntry>& drivers() const { return drivers_; }
-    int current() const { return current_; }
+    const std::vector<DriverEntry>& drivers() const { return _drivers; }
+    int current() const { return _current; }
     void setCurrent(int index);
-    const DriverEntry& driver() const { return drivers_[size_t(current_)]; }
+    const DriverEntry& driver() const { return _drivers[size_t(_current)]; }
     // A name already taken (letters' case aside).
     bool has(const std::string& name) const;
     // A new driver, made current; its record starts empty.
     Error add(const std::string& name, bool professional);
     // Gone, with its record (not the last driver).
     Error remove(int index);
-    const std::filesystem::path& folder() const { return folder_; }
+    const std::filesystem::path& folder() const { return _folder; }
 
 private:
-    std::filesystem::path folder_;
-    std::vector<DriverEntry> drivers_;
-    int current_ = 0;
+    std::filesystem::path _folder;
+    std::vector<DriverEntry> _drivers;
+    int _current = 0;
 };
 
 // What unlocks a car or one of its paint jobs, as its picture says
@@ -93,7 +93,7 @@ struct UnlockRule {
     std::string car;
     int paintJob = -1; // -1: the car itself
     std::string city;
-    RaceKind kind = RaceKind::Checkpoint; // CrashCourse: pass `lesson`
+    RaceKind kind = RaceKind::kCheckpoint; // CrashCourse: pass `lesson`
     int count = 0;                        // races to place in; 0 all of them
     int lesson = -1;
 };

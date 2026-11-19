@@ -51,9 +51,9 @@ public:
     void stop();
 
 private:
-    audio::Mixer* mixer_ = nullptr;
-    EngineSoundSetup setup_;
-    std::vector<audio::SoundHandle> playing_; // one per sample, kNoSound if missing
+    audio::Mixer* _mixer = nullptr;
+    EngineSoundSetup _setup;
+    std::vector<audio::SoundHandle> _playing; // one per sample, kNoSound if missing
 };
 
 // A police siren (aud/cardata/opponent/policesiren.csv, or the player's
@@ -76,13 +76,13 @@ public:
     void stop();
 
 private:
-    audio::Mixer* mixer_ = nullptr;
-    std::vector<SirenSample> samples_;
-    std::vector<std::shared_ptr<audio::Sound>> sounds_;
-    audio::SoundHandle playing_ = audio::kNoSound;
-    int current_ = -1;
-    float left_ = 0;   // seconds before the next sample
-    size_t turns_ = 0; // which of a sample's ways on to take, in turn
+    audio::Mixer* _mixer = nullptr;
+    std::vector<SirenSample> _samples;
+    std::vector<std::shared_ptr<audio::Sound>> _sounds;
+    audio::SoundHandle _playing = audio::kNoSound;
+    int _current = -1;
+    float _left = 0;   // seconds before the next sample
+    size_t _turns = 0; // which of a sample's ways on to take, in turn
 };
 
 // The tyres' sounds on each kind of surface (aud/cardata/player/
@@ -137,25 +137,25 @@ private:
     SoundPtr load(const std::string& wave) const;
     void loop(audio::SoundHandle& handle, const SoundPtr& sound, float volume, float pitch);
 
-    audio::Mixer* mixer_ = nullptr;
-    const SearchSet* files_ = nullptr;
-    EngineSoundSetup car_;
-    SoundPtr horn_, clutch_;
-    audio::SoundHandle hornPlaying_ = audio::kNoSound;
-    int lastGear_ = 1;
+    audio::Mixer* _mixer = nullptr;
+    const SearchSet* _files = nullptr;
+    EngineSoundSetup _car;
+    SoundPtr _horn, _clutch;
+    audio::SoundHandle _hornPlaying = audio::kNoSound;
+    int _lastGear = 1;
 
-    SurfaceSounds surfaces_;
-    std::vector<SoundPtr> rolling_;               // per surface
-    std::vector<std::vector<SoundPtr>> skidding_; // per surface, per skid
-    audio::SoundHandle rollPlaying_ = audio::kNoSound, skidPlaying_ = audio::kNoSound;
-    int rollSurface_ = -1, skidSurface_ = -1, skidSample_ = -1;
+    SurfaceSounds _surfaces;
+    std::vector<SoundPtr> _rolling;               // per surface
+    std::vector<std::vector<SoundPtr>> _skidding; // per surface, per skid
+    audio::SoundHandle _rollPlaying = audio::kNoSound, _skidPlaying = audio::kNoSound;
+    int _rollSurface = -1, _skidSurface = -1, _skidSample = -1;
 
-    ImpactSounds wall_;
-    std::vector<SoundPtr> wallSounds_;
-    float impactWait_ = 0; // seconds before another knock is heard
+    ImpactSounds _wall;
+    std::vector<SoundPtr> _wallSounds;
+    float _impactWait = 0; // seconds before another knock is heard
 
-    SoundPtr suspension_;
-    float bumpMin_ = 2, bumpMax_ = 3, bumpMinVolume = 0.85f, bumpMaxVolume = 0.9f, bumpWait_ = 0;
+    SoundPtr _suspension;
+    float _bumpMin = 2, _bumpMax = 3, _bumpMinVolume = 0.85f, _bumpMaxVolume = 0.9f, _bumpWait = 0;
 };
 
 } // namespace reluva::age

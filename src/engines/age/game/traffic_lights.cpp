@@ -12,11 +12,11 @@
 namespace reluva::age {
 
 void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
-    lights_.clear();
-    index_.clear();
-    clock_ = 0; // each start the same, so a replay's lights change as they did
-    models_ = settings.trafficLights;
-    junctions_.assign(map.junctions.size(), {});
+    _lights.clear();
+    _index.clear();
+    _clock = 0; // each start the same, so a replay's lights change as they did
+    _models = settings.trafficLights;
+    _junctions.assign(map.junctions.size(), {});
     // Each junction's controlled road slots, for their phases.
     std::vector<std::set<uint32_t>> slots(map.junctions.size());
     for (const AiRoad& road : map.roads)
@@ -25,9 +25,9 @@ void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
                 slots[e.junction].insert(e.slot);
     for (size_t j = 0; j < map.junctions.size(); ++j) {
         const bool crossroads = map.junctions[j].roads.size() == 4;
-        junctions_[j].phases = crossroads ? 2 : std::max(2, int(slots[j].size()));
+        _junctions[j].phases = crossroads ? 2 : std::max(2, int(slots[j].size()));
         // Out of step with each other, the same each time.
-        junctions_[j].offset = float((j * 7919) % 97) / 97 * 60;
+        _junctions[j].offset = float((j * 7919) % 97) / 97 * 60;
     }
     for (const AiRoad& road : map.roads) {
         for (int end = 0; end < 2; ++end) {
@@ -55,26 +55,26 @@ void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
             const Vec3 x = normalized(-across);
             const Vec3 y{0, 1, 0};
             l.axes = {x, y, cross(x, y)};
-            index_[key(l.road, l.end)] = lights_.size();
-            lights_.push_back(l);
+            _index[key(l.road, l.end)] = _lights.size();
+            _lights.push_back(l);
         }
     }
 }
 
 Signal TrafficLights::signalOf(const Light& l) const {
-    const Junction& j = junctions_[l.junction];
+    const Junction& j = _junctions[l.junction];
     const float step = kGreen + kYellow + kAllRed;
-    const float t = std::fmod(clock_ + j.offset, step * float(j.phases));
+    const float t = std::fmod(_clock + j.offset, step * float(j.phases));
     const int current = int(t / step);
     const float into = t - float(current) * step;
     if (current != l.phase || into >= kGreen + kYellow)
-        return Signal::Red;
-    return into < kGreen ? Signal::Green : Signal::Yellow;
+        return Signal::kRed;
+    return into < kGreen ? Signal::kGreen : Signal::kYellow;
 }
 
 Signal TrafficLights::signal(uint32_t road, int end) const {
-    const auto it = index_.find(key(road, end));
-    return it == index_.end() ? Signal::Green : signalOf(lights_[it->second]);
+    const auto it = _index.find(key(road, end));
+    return it == _index.end() ? Signal::kGreen : signalOf(_lights[it->second]);
 }
 
 void TrafficLights::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light,
@@ -83,9 +83,9 @@ void TrafficLights::draw(gfx::Renderer3D& renderer, ModelCache& models, const Sc
     const char* const glows[3] = {"GREENGLOW", "YELLOWGLOW", "REDGLOW"};
     const std::string when = night ? "NIGHT" : "DAY";
     for (bool translucent : {false, true})
-        for (const Light& l : lights_) {
+        for (const Light& l : _lights) {
             const float d = length(l.at - eye);
-            const std::string& name = models_[size_t(l.model)];
+            const std::string& name = _models[size_t(l.model)];
             const ModelCache::Model& m = models.get(name);
             if (!m.ok || l.down || d > distance || !frustum.visible(l.at + Vec3{0, 4, 0}, 8))
                 continue;
@@ -102,7 +102,7 @@ void TrafficLights::draw(gfx::Renderer3D& renderer, ModelCache& models, const Sc
             const gfx::Mat4 at = matrixOf(l.axes, l.at);
             drawModelMesh(renderer, models.part(name, glows[int(s)] + when), at, light, true);
             // The pedestrians' signal: walk while the road has red.
-            const std::string walk = (s == Signal::Red ? "WALK_" : "NOWALK_") + when;
+            const std::string walk = (s == Signal::kRed ? "WALK_" : "NOWALK_") + when;
             drawModelMesh(renderer, models.part(name, walk), at, light, true);
         }
 }

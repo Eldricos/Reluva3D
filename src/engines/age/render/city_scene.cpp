@@ -71,62 +71,62 @@ std::vector<CityInfo> findCities(const SearchSet& files) {
     return cities;
 }
 
-CityScene::CityScene(gfx::Renderer3D& renderer, const SearchSet& files) : renderer_(renderer), files_(files) {
-    textures_ = std::make_unique<TextureCache>(renderer_, files_);
-    models_ = std::make_unique<ModelCache>(renderer_, *textures_, files_);
+CityScene::CityScene(gfx::Renderer3D& renderer, const SearchSet& files) : _renderer(renderer), _files(files) {
+    _textures = std::make_unique<TextureCache>(_renderer, _files);
+    _models = std::make_unique<ModelCache>(_renderer, *_textures, _files);
 }
 
 CityScene::~CityScene() {
     unload();
-    models_.reset();
-    textures_.reset();
+    _models.reset();
+    _textures.reset();
 }
 
 void CityScene::unload() {
-    if (cityMesh_)
-        renderer_.destroyMesh(cityMesh_);
-    destroyModelMesh(renderer_, skyMesh_);
-    cityMesh_ = 0;
-    batches_.clear();
-    placed_.clear();
-    beacons_.clear();
-    pvs_ = Pvs{};
-    blockBounds_.clear();
-    viewBlock_ = blocksDrawn_ = 0;
-    instances_.clear();
-    notes_.clear();
-    psdl_ = Psdl{};
-    mesh_ = CityMesh{};
-    models_->clear();
-    textures_->clear();
+    if (_cityMesh)
+        _renderer.destroyMesh(_cityMesh);
+    destroyModelMesh(_renderer, _skyMesh);
+    _cityMesh = 0;
+    _batches.clear();
+    _placed.clear();
+    _beacons.clear();
+    _pvs = Pvs{};
+    _blockBounds.clear();
+    _viewBlock = _blocksDrawn = 0;
+    _instances.clear();
+    _notes.clear();
+    _psdl = Psdl{};
+    _mesh = CityMesh{};
+    _models->clear();
+    _textures->clear();
 }
 
 Error CityScene::load(const std::string& map) {
     unload();
-    map_ = map;
-    loadedAt_ = std::chrono::steady_clock::now();
+    _map = map;
+    _loadedAt = std::chrono::steady_clock::now();
     std::vector<uint8_t> data;
-    if (Error err = files_.read("city/" + map + ".psdl", data))
+    if (Error err = _files.read("city/" + map + ".psdl", data))
         return err;
-    if (Error err = readPsdl(data, psdl_))
+    if (Error err = readPsdl(data, _psdl))
         return Error::fail("city/" + map + ".psdl: " + err.message);
 
     // Start on the road nearest the city's middle, facing along it.
-    start = {(psdl_.min[0] + psdl_.max[0]) / 2, psdl_.max[1] + 40, (psdl_.min[2] + psdl_.max[2]) / 2};
+    start = {(_psdl.min[0] + _psdl.max[0]) / 2, _psdl.max[1] + 40, (_psdl.min[2] + _psdl.max[2]) / 2};
     startYaw = 0;
     float nearest = -1;
-    const size_t last = psdl_.vertices.empty() ? 0 : psdl_.vertices.size() - 1;
-    for (const PsdlBlock& block : psdl_.blocks)
+    const size_t last = _psdl.vertices.empty() ? 0 : _psdl.vertices.size() - 1;
+    for (const PsdlBlock& block : _psdl.blocks)
         for (const PsdlAttribute& a : block.attributes) {
-            if (a.type != psdlattr::RoadStrip || a.words.size() < 8 || psdl_.vertices.empty())
+            if (a.type != psdlattr::kRoadStrip || a.words.size() < 8 || _psdl.vertices.empty())
                 continue;
             auto middle = [&](size_t section) {
-                const Vec3 l = psdl_.vertices[std::min<size_t>(a.words[section * 4 + 1], last)];
-                const Vec3 r = psdl_.vertices[std::min<size_t>(a.words[section * 4 + 2], last)];
+                const Vec3 l = _psdl.vertices[std::min<size_t>(a.words[section * 4 + 1], last)];
+                const Vec3 r = _psdl.vertices[std::min<size_t>(a.words[section * 4 + 2], last)];
                 return Vec3{(l[0] + r[0]) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2};
             };
             const Vec3 m = middle(0), next = middle(1);
-            const float dx = m[0] - psdl_.center[0], dz = m[2] - psdl_.center[2];
+            const float dx = m[0] - _psdl.center[0], dz = m[2] - _psdl.center[2];
             if (nearest < 0 || dx * dx + dz * dz < nearest) {
                 nearest = dx * dx + dz * dz;
                 start = m;
@@ -134,57 +134,57 @@ Error CityScene::load(const std::string& map) {
             }
         }
 
-    buildCityMesh(psdl_, mesh_);
+    buildCityMesh(_psdl, _mesh);
     // The water under the bridges (city/<map>.water), in the first animated
     // water texture the city names (San Francisco's s_ocean-0007, London's
     // s_thames-0009).
-    if (!files_.read("city/" + map + ".water", data)) {
+    if (!_files.read("city/" + map + ".water", data)) {
         CityWater water;
         if (Error err = parseCityWater(textOf(data), water)) {
-            notes_.push_back("city/" + map + ".water: " + err.message);
+            _notes.push_back("city/" + map + ".water: " + err.message);
         } else {
-            for (size_t t = 0; t < psdl_.textures.size(); ++t) {
-                std::string base = psdl_.textures[t];
+            for (size_t t = 0; t < _psdl.textures.size(); ++t) {
+                std::string base = _psdl.textures[t];
                 if (const size_t dash = base.rfind('-'); dash != std::string::npos)
                     base.resize(dash);
-                if (files_.has("tune/" + base + ".movie")) {
-                    addCityWater(psdl_, water, uint32_t(t + 1), mesh_);
+                if (_files.has("tune/" + base + ".movie")) {
+                    addCityWater(_psdl, water, uint32_t(t + 1), _mesh);
                     break;
                 }
             }
         }
     }
     // The road markings (city/<map>/decals.pathset).
-    if (!files_.read("city/" + map + "/decals.pathset", data)) {
+    if (!_files.read("city/" + map + "/decals.pathset", data)) {
         std::vector<PathsetPath> decals;
         readPathset(data, decals);
-        addCityDecals(decals, mesh_);
+        addCityDecals(decals, _mesh);
     }
     std::vector<uint32_t> indices;
-    for (const CityMesh::Batch& b : mesh_.batches) {
+    for (const CityMesh::Batch& b : _mesh.batches) {
         Batch out{uint32_t(indices.size()), uint32_t(b.indices.size()), 0, false};
         if (!b.texture.empty())
-            out.texture = textures_->get(b.texture, out.translucent);
+            out.texture = _textures->get(b.texture, out.translucent);
         indices.insert(indices.end(), b.indices.begin(), b.indices.end());
-        batches_.push_back(out);
+        _batches.push_back(out);
     }
-    if (!mesh_.vertices.empty() && renderer_.createMesh(mesh_.vertices, indices, cityMesh_))
-        cityMesh_ = 0;
+    if (!_mesh.vertices.empty() && _renderer.createMesh(_mesh.vertices, indices, _cityMesh))
+        _cityMesh = 0;
     char note[160];
-    std::snprintf(note, sizeof note, "%zu blocks, %zu triangles in %zu textures", psdl_.blocks.size() - 1,
-                  indices.size() / 3, batches_.size());
-    notes_.push_back(note);
+    std::snprintf(note, sizeof note, "%zu blocks, %zu triangles in %zu textures", _psdl.blocks.size() - 1,
+                  indices.size() / 3, _batches.size());
+    _notes.push_back(note);
 
     // Each block's outline, for finding the eye's; and what can be seen
     // from each.
-    blockBounds_.resize(psdl_.blocks.size());
-    for (size_t i = 1; i < psdl_.blocks.size(); ++i) {
-        BlockBounds& bb = blockBounds_[i];
+    _blockBounds.resize(_psdl.blocks.size());
+    for (size_t i = 1; i < _psdl.blocks.size(); ++i) {
+        BlockBounds& bb = _blockBounds[i];
         bool any = false;
-        for (const auto& [v, beyond] : psdl_.blocks[i].perimeter) {
-            if (v >= psdl_.vertices.size())
+        for (const auto& [v, beyond] : _psdl.blocks[i].perimeter) {
+            if (v >= _psdl.vertices.size())
                 continue;
-            const Vec3& p = psdl_.vertices[v];
+            const Vec3& p = _psdl.vertices[v];
             bb.outline.push_back({p[0], p[2]});
             bb.minX = any ? std::min(bb.minX, p[0]) : p[0];
             bb.maxX = any ? std::max(bb.maxX, p[0]) : p[0];
@@ -195,23 +195,23 @@ Error CityScene::load(const std::string& map) {
             any = true;
         }
     }
-    if (!files_.read("city/" + map + ".cpvs", data)) {
-        if (Error err = readCpvs(data, pvs_))
-            notes_.push_back("city/" + map + ".cpvs: " + err.message);
-        else if (pvs_.blocks != psdl_.blocks.size())
-            pvs_ = Pvs{}, notes_.push_back("city/" + map + ".cpvs is for another city's blocks");
+    if (!_files.read("city/" + map + ".cpvs", data)) {
+        if (Error err = readCpvs(data, _pvs))
+            _notes.push_back("city/" + map + ".cpvs: " + err.message);
+        else if (_pvs.blocks != _psdl.blocks.size())
+            _pvs = Pvs{}, _notes.push_back("city/" + map + ".cpvs is for another city's blocks");
         else
-            notes_.push_back("visibility from " + std::to_string(pvs_.rows.size()) + " blocks");
+            _notes.push_back("visibility from " + std::to_string(_pvs.rows.size()) + " blocks");
     }
-    blocksDrawn_ = psdl_.blocks.size() - 1;
+    _blocksDrawn = _psdl.blocks.size() - 1;
 
     // The models placed in it.
-    if (!files_.read("city/" + map + ".inst", data))
-        if (Error err = readInstances(data, instances_))
-            notes_.push_back("city/" + map + ".inst: " + err.message);
+    if (!_files.read("city/" + map + ".inst", data))
+        if (Error err = readInstances(data, _instances))
+            _notes.push_back("city/" + map + ".inst: " + err.message);
     size_t missing = 0;
-    for (const Instance& inst : instances_) {
-        const ModelCache::Model& m = models_->get(inst.model);
+    for (const Instance& inst : _instances) {
+        const ModelCache::Model& m = _models->get(inst.model);
         if (!m.ok) {
             ++missing;
             continue;
@@ -225,36 +225,36 @@ Error CityScene::load(const std::string& map) {
                                               inst.matrix[3 * a + 1] * inst.matrix[3 * a + 1] +
                                               inst.matrix[3 * a + 2] * inst.matrix[3 * a + 2]));
         p.radius *= scale;
-        placed_.push_back(p);
+        _placed.push_back(p);
         // The models placed inside it (xrefs: a landmark's warning lights,
         // awnings, doors), in its own coordinates.
         for (const PkgXref& x : m.xrefs) {
             const gfx::Mat4 xMatrix = gfx::multiply(matrix, instanceMatrix(x.matrix));
             const std::string lower = fs::toLower(x.name);
             if (lower == "sp_light_red_f" || lower == "sp_light_white_f") {
-                beacons_.push_back({gfx::transformPoint(xMatrix, {0, 0, 0}), lower == "sp_light_red_f"
+                _beacons.push_back({gfx::transformPoint(xMatrix, {0, 0, 0}), lower == "sp_light_red_f"
                                                                                  ? std::array<float, 3>{1, 0.15f, 0.1f}
                                                                                  : std::array<float, 3>{1, 1, 0.9f}});
                 continue;
             }
-            const ModelCache::Model& xm = models_->get(x.name);
+            const ModelCache::Model& xm = _models->get(x.name);
             if (!xm.ok)
                 continue;
-            placed_.push_back({&xm, xMatrix, gfx::transformPoint(xMatrix, xm.center), xm.radius * scale, inst.block});
+            _placed.push_back({&xm, xMatrix, gfx::transformPoint(xMatrix, xm.center), xm.radius * scale, inst.block});
         }
     }
-    std::snprintf(note, sizeof note, "%zu placed models (%zu not loaded)", placed_.size(), missing);
-    notes_.push_back(note);
+    std::snprintf(note, sizeof note, "%zu placed models (%zu not loaded)", _placed.size(), missing);
+    _notes.push_back(note);
 
     // The sky: city/<map>.sky names its dome model.
-    sky_.clear();
-    if (!files_.read("city/" + map + ".sky", data)) {
+    _sky.clear();
+    if (!_files.read("city/" + map + ".sky", data)) {
         const std::string text = textOf(data);
-        sky_ = text.substr(0, text.find_first_of(" \t\r\n"));
+        _sky = text.substr(0, text.find_first_of(" \t\r\n"));
     }
     // Fog for each lighting: colour (0-255), start, end, a description.
-    fogs_.clear();
-    if (!files_.read("city/" + map + "_fog.csv", data)) {
+    _fogs.clear();
+    if (!_files.read("city/" + map + "_fog.csv", data)) {
         const std::string text = textOf(data);
         size_t at = text.find('\n'); // the header
         while (at != std::string::npos && at + 1 < text.size()) {
@@ -263,96 +263,96 @@ Error CityScene::load(const std::string& map) {
             at = eol;
             float v[5];
             if (std::sscanf(line.c_str(), "%f,%f,%f,%f,%f", &v[0], &v[1], &v[2], &v[3], &v[4]) == 5)
-                fogs_.push_back({{v[0] / 255, v[1] / 255, v[2] / 255}, v[3], v[4]});
+                _fogs.push_back({{v[0] / 255, v[1] / 255, v[2] / 255}, v[3], v[4]});
         }
     }
-    setLighting(lighting_);
+    setLighting(_lighting);
     return Error::success();
 }
 
 void CityScene::relightCity() {
-    if (!cityMesh_)
+    if (!_cityMesh)
         return;
     // Each vertex: the ambient colour and each of the three lights by how
     // squarely its face is turned to it, at most 1 (as Direct3D lights
     // vertices).
-    for (gfx::Vertex& v : mesh_.vertices) {
+    for (gfx::Vertex& v : _mesh.vertices) {
         for (size_t c = 0; c < 3; ++c) {
-            float sum = cityLights_.ambient[c];
+            float sum = _cityLights.ambient[c];
             for (size_t k = 0; k < 3; ++k) {
-                const gfx::Vec3& d = cityLights_.direction[k];
+                const gfx::Vec3& d = _cityLights.direction[k];
                 const float facing = v.normal[0] * d[0] + v.normal[1] * d[1] + v.normal[2] * d[2];
-                sum += cityLights_.color[k][c] * std::max(0.0f, facing);
+                sum += _cityLights.color[k][c] * std::max(0.0f, facing);
             }
             v.color[c] = uint8_t(std::lround(std::clamp(sum, 0.0f, 1.0f) * 255));
         }
         v.color[3] = 255;
     }
-    renderer_.destroyMesh(cityMesh_);
-    cityMesh_ = 0;
+    _renderer.destroyMesh(_cityMesh);
+    _cityMesh = 0;
     std::vector<uint32_t> indices;
-    for (const CityMesh::Batch& b : mesh_.batches)
+    for (const CityMesh::Batch& b : _mesh.batches)
         indices.insert(indices.end(), b.indices.begin(), b.indices.end());
-    if (renderer_.createMesh(mesh_.vertices, indices, cityMesh_))
-        cityMesh_ = 0;
+    if (_renderer.createMesh(_mesh.vertices, indices, _cityMesh))
+        _cityMesh = 0;
     rebuildIndices();
 }
 
 std::string CityScene::lightingName() const {
-    return std::string(kWeathers[lighting_ % 4]) + " " + kTimes[lighting_ / 4];
+    return std::string(kWeathers[_lighting % 4]) + " " + kTimes[_lighting / 4];
 }
 
 void CityScene::setLighting(int index) {
-    lighting_ = ((index % 16) + 16) % 16;
+    _lighting = ((index % 16) + 16) % 16;
     char name[64];
-    std::snprintf(name, sizeof name, "city/%s.lt%02d", map_.c_str(), lighting_);
-    light_ = SceneLight{};
-    cityLights_ = CityLights{};
+    std::snprintf(name, sizeof name, "city/%s.lt%02d", _map.c_str(), _lighting);
+    _light = SceneLight{};
+    _cityLights = CityLights{};
     std::vector<uint8_t> data;
     TuneNode root;
-    if (!files_.read(name, data) && !parseTune(textOf(data), root) && !root.children.empty()) {
+    if (!_files.read(name, data) && !parseTune(textOf(data), root) && !root.children.empty()) {
         const TuneNode& l = root.children.front();
         // Models, cars and people are lit as the city's surfaces are
         // (relightCity): the ambient colour and the three lights, each by
         // how squarely a surface faces it, as Direct3D lights vertices.
-        light_.direction = towards(l.number("KeyHeading"), l.number("KeyPitch"));
-        light_.fillDirection = {towards(l.number("Fill1Heading"), l.number("Fill1Pitch")),
+        _light.direction = towards(l.number("KeyHeading"), l.number("KeyPitch"));
+        _light.fillDirection = {towards(l.number("Fill1Heading"), l.number("Fill1Pitch")),
                                 towards(l.number("Fill2Heading"), l.number("Fill2Pitch"))};
         const uint32_t ambient = uint32_t(int32_t(l.number("Ambient")));
         for (size_t c = 0; c < 3; ++c) {
-            light_.directed[c] = l.number("KeyColor", c);
-            light_.fill[0][c] = l.number("Fill1Color", c);
-            light_.fill[1][c] = l.number("Fill2Color", c);
-            light_.ambient[c] = float(ambient >> (16 - 8 * c) & 0xff) / 255;
+            _light.directed[c] = l.number("KeyColor", c);
+            _light.fill[0][c] = l.number("Fill1Color", c);
+            _light.fill[1][c] = l.number("Fill2Color", c);
+            _light.ambient[c] = float(ambient >> (16 - 8 * c) & 0xff) / 255;
         }
         // The city's own surfaces get the three lights as they are (see
         // relightCity).
         const char* const names[] = {"Key", "Fill1", "Fill2"};
         for (size_t k = 0; k < 3; ++k) {
             const std::string n = names[k];
-            cityLights_.direction[k] = towards(l.number(n + "Heading"), l.number(n + "Pitch"));
+            _cityLights.direction[k] = towards(l.number(n + "Heading"), l.number(n + "Pitch"));
             for (size_t c = 0; c < 3; ++c)
-                cityLights_.color[k][c] = l.number(n + "Color", c);
+                _cityLights.color[k][c] = l.number(n + "Color", c);
         }
         for (size_t c = 0; c < 3; ++c)
-            cityLights_.ambient[c] = float(ambient >> (16 - 8 * c) & 0xff) / 255;
+            _cityLights.ambient[c] = float(ambient >> (16 - 8 * c) & 0xff) / 255;
     }
     // The fog (city/<map>_fog.csv), a line for each time and weather.
-    if (size_t(lighting_) < fogs_.size()) {
-        light_.fogColor = fogs_[size_t(lighting_)].color;
-        light_.fogStart = fogs_[size_t(lighting_)].start;
-        light_.fogEnd = fogs_[size_t(lighting_)].end;
+    if (size_t(_lighting) < _fogs.size()) {
+        _light.fogColor = _fogs[size_t(_lighting)].color;
+        _light.fogStart = _fogs[size_t(_lighting)].start;
+        _light.fogEnd = _fogs[size_t(_lighting)].end;
     }
     relightCity();
     // The sky dome: one paint job for each time and weather, in the same order.
-    destroyModelMesh(renderer_, skyMesh_);
+    destroyModelMesh(_renderer, _skyMesh);
     std::vector<uint8_t> pkgData;
     Pkg pkg;
-    const std::string file = "geometry/" + sky_ + ".pkg";
-    if (!sky_.empty() && !files_.read(file, pkgData) && !readPkg(pkgData, pkg)) {
+    const std::string file = "geometry/" + _sky + ".pkg";
+    if (!_sky.empty() && !_files.read(file, pkgData) && !readPkg(pkgData, pkg)) {
         const auto levels = modelLevels(pkg);
-        buildModelMesh(renderer_, *textures_, files_, file, pkg, levels.empty() ? "" : levels.front(),
-                       pkg.paintJobs ? uint32_t(lighting_) % pkg.paintJobs : 0, false, skyMesh_);
+        buildModelMesh(_renderer, *_textures, _files, file, pkg, levels.empty() ? "" : levels.front(),
+                       pkg.paintJobs ? uint32_t(_lighting) % pkg.paintJobs : 0, false, _skyMesh);
     }
 }
 
@@ -365,23 +365,23 @@ void CityScene::drawCloudShadows() {
     constexpr float kDayTile = 240;   // metres the tile covers
     constexpr float kNightTile = 116; // 4 pools of 29 m
     constexpr float kDrift = 2.5f;    // m/s, with the wind (High, by day)
-    if (!cityMesh_ || cloudShadows_ <= 0)
+    if (!_cityMesh || _cloudShadows <= 0)
         return;
     const bool night = lampsLit();
     const float kTile = night ? kNightTile : kDayTile;
     bool translucent = false;
-    const gfx::TextureId clouds = textures_->get(night ? "shadmap_nite" : "shadmap_day", translucent, true);
+    const gfx::TextureId clouds = _textures->get(night ? "shadmap_nite" : "shadmap_day", translucent, true);
     if (!clouds)
         return;
     const float drift =
-        cloudShadows_ >= 2 && !night
-            ? kDrift / kTile * std::chrono::duration<float>(std::chrono::steady_clock::now() - loadedAt_).count()
+        _cloudShadows >= 2 && !night
+            ? kDrift / kTile * std::chrono::duration<float>(std::chrono::steady_clock::now() - _loadedAt).count()
             : 0;
-    for (const Batch& b : batches_) {
+    for (const Batch& b : _batches) {
         if (b.translucent)
             continue;
         gfx::DrawCall call;
-        call.mesh = cityMesh_;
+        call.mesh = _cityMesh;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
         call.texture = clouds;
@@ -396,38 +396,38 @@ void CityScene::drawCloudShadows() {
         call.state.depthWrite = false;
         call.state.depthBias = false;
         call.state.cull = gfx::Cull::kNone;
-        renderer_.draw(call);
+        _renderer.draw(call);
     }
 }
 
 size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool models, bool again) {
-    textures_->setTime(
-        std::chrono::duration<float>(std::chrono::steady_clock::now() - loadedAt_).count());
+    _textures->setTime(
+        std::chrono::duration<float>(std::chrono::steady_clock::now() - _loadedAt).count());
     // What can be seen from the eye's block, again when it's in another.
     const size_t from = visibility() ? blockAt({eye[0], eye[1], eye[2]}) : 0;
-    const float moved = std::hypot(eye[0] - detailFrom_[0], eye[1] - detailFrom_[1], eye[2] - detailFrom_[2]);
-    if (!again && (from != viewBlock_ || moved > kDetailStep)) {
-        viewBlock_ = from;
-        detailFrom_ = {eye[0], eye[1], eye[2]};
+    const float moved = std::hypot(eye[0] - _detailFrom[0], eye[1] - _detailFrom[1], eye[2] - _detailFrom[2]);
+    if (!again && (from != _viewBlock || moved > kDetailStep)) {
+        _viewBlock = from;
+        _detailFrom = {eye[0], eye[1], eye[2]};
         rebuildIndices();
     }
 
     // The sky round the eye, behind everything.
-    if (skyMesh_.mesh && skyShown_) {
+    if (_skyMesh.mesh && _skyShown) {
         gfx::Mat4 at = gfx::identity();
         at[12] = eye[0];
         at[13] = eye[1];
         at[14] = eye[2];
-        for (const ModelDraw& d : skyMesh_.draws) {
+        for (const ModelDraw& d : _skyMesh.draws) {
             gfx::DrawCall call;
-            call.mesh = skyMesh_.mesh;
+            call.mesh = _skyMesh.mesh;
             call.firstIndex = d.firstIndex;
             call.indexCount = d.indexCount;
             call.model = at;
             call.texture = d.texture;
             call.state.depthTest = call.state.depthWrite = false;
             call.state.cull = gfx::Cull::kNone;
-            renderer_.draw(call);
+            _renderer.draw(call);
         }
     }
 
@@ -436,15 +436,15 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
     auto visible = [&](const gfx::Vec3& c, float radius) { return frustum.visible(c, radius); };
 
     // The city, opaque then translucent, then the models.
-    for (int pass = 0; pass < 2 && cityMesh_; ++pass)
-        for (const Batch& b : batches_) {
+    for (int pass = 0; pass < 2 && _cityMesh; ++pass)
+        for (const Batch& b : _batches) {
             if (b.translucent != (pass == 1))
                 continue;
             gfx::DrawCall call;
-            call.mesh = cityMesh_;
+            call.mesh = _cityMesh;
             call.firstIndex = b.firstIndex;
             call.indexCount = b.indexCount;
-            call.texture = textures_->frame(b.texture);
+            call.texture = _textures->frame(b.texture);
             call.rgbSource = gfx::ColorSource::kVertex; // lit by relightCity
             call.state.cull = gfx::Cull::kNone;
             call.state.depthBias = pass == 1;
@@ -454,35 +454,35 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
                 call.state.depthWrite = false;
                 call.state.alphaTest = gfx::AlphaTest::kGt0;
             }
-            applyFog(call, light_);
-            renderer_.draw(call);
+            applyFog(call, _light);
+            _renderer.draw(call);
         }
     drawCloudShadows();
     if (!models)
         return 0;
     std::vector<std::pair<const Placed*, const ModelMesh*>> shown;
-    for (const Placed& p : placed_) {
-        if (viewBlock_ && !pvs_.sees(viewBlock_, p.block))
+    for (const Placed& p : _placed) {
+        if (_viewBlock && !_pvs.sees(_viewBlock, p.block))
             continue;
         const float dx = p.center[0] - eye[0], dy = p.center[1] - eye[1], dz = p.center[2] - eye[2];
         const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-        if (distance - p.radius > std::min(kModelDistance, modelDistance_) || !visible(p.center, p.radius))
+        if (distance - p.radius > std::min(kModelDistance, _modelDistance) || !visible(p.center, p.radius))
             continue;
         // Finer levels nearer, by how large the model looks.
-        const float size = distance / std::max(1.0f, p.radius) / std::max(0.1f, detail_);
+        const float size = distance / std::max(1.0f, p.radius) / std::max(0.1f, _detail);
         const size_t levels = p.model->levels.size();
         const size_t level = std::min<size_t>(levels - 1, size < 10 ? 0 : size < 25 ? 1 : size < 60 ? 2 : 3);
         shown.push_back({&p, &p.model->levels[level]});
     }
     for (const auto& [p, mesh] : shown)
-        drawModelMesh(renderer_, *mesh, p->matrix, light_, false, textures_.get());
+        drawModelMesh(_renderer, *mesh, p->matrix, _light, false, _textures.get());
     for (const auto& [p, mesh] : shown)
-        drawModelMesh(renderer_, *mesh, p->matrix, light_, true, textures_.get());
+        drawModelMesh(_renderer, *mesh, p->matrix, _light, true, _textures.get());
     return shown.size();
 }
 
 void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const gfx::Vec3& eye) {
-    if (lights.empty() || !cityMesh_)
+    if (lights.empty() || !_cityMesh)
         return;
     auto distance = [&](const gfx::DynamicLight& l) {
         const float dx = l.origin[0] - eye[0], dy = l.origin[1] - eye[1], dz = l.origin[2] - eye[2];
@@ -492,12 +492,12 @@ void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const g
               [&](const gfx::DynamicLight& a, const gfx::DynamicLight& b) { return distance(a) < distance(b); });
     if (lights.size() > size_t(gfx::kMaxDynamicLights))
         lights.resize(size_t(gfx::kMaxDynamicLights));
-    renderer_.setDynamicLights(lights);
-    for (const Batch& b : batches_) {
+    _renderer.setDynamicLights(lights);
+    for (const Batch& b : _batches) {
         if (b.translucent)
             continue;
         gfx::DrawCall call;
-        call.mesh = cityMesh_;
+        call.mesh = _cityMesh;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
         call.dynamicLights = true;
@@ -507,20 +507,20 @@ void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const g
         call.state.depthEqual = true;
         call.state.depthWrite = false;
         call.state.cull = gfx::Cull::kNone;
-        renderer_.draw(call);
+        _renderer.draw(call);
     }
 }
 
 void CityScene::hide(const std::function<bool(const Vec3& a, const Vec3& b, const Vec3& c)>& drop) {
-    if (!cityMesh_)
+    if (!_cityMesh)
         return;
-    for (CityMesh::Batch& b : mesh_.batches) {
+    for (CityMesh::Batch& b : _mesh.batches) {
         std::vector<uint32_t> kept;
         std::vector<uint16_t> keptBlocks;
         for (size_t i = 0; i + 2 < b.indices.size(); i += 3) {
-            const auto& p0 = mesh_.vertices[b.indices[i]].pos;
-            const auto& p1 = mesh_.vertices[b.indices[i + 1]].pos;
-            const auto& p2 = mesh_.vertices[b.indices[i + 2]].pos;
+            const auto& p0 = _mesh.vertices[b.indices[i]].pos;
+            const auto& p1 = _mesh.vertices[b.indices[i + 1]].pos;
+            const auto& p2 = _mesh.vertices[b.indices[i + 2]].pos;
             if (!drop({p0[0], p0[1], p0[2]}, {p1[0], p1[1], p1[2]}, {p2[0], p2[1], p2[2]})) {
                 kept.insert(kept.end(), {b.indices[i], b.indices[i + 1], b.indices[i + 2]});
                 keptBlocks.push_back(i / 3 < b.blocks.size() ? b.blocks[i / 3] : 0);
@@ -533,25 +533,25 @@ void CityScene::hide(const std::function<bool(const Vec3& a, const Vec3& b, cons
 }
 
 void CityScene::rebuildIndices() {
-    if (!cityMesh_)
+    if (!_cityMesh)
         return;
     std::vector<uint32_t> indices;
-    batches_.clear();
-    std::vector<bool> drawn(psdl_.blocks.size(), false);
+    _batches.clear();
+    std::vector<bool> drawn(_psdl.blocks.size(), false);
     // Blocks far enough off for their roads' low-detail textures.
-    std::vector<bool> far(psdl_.blocks.size(), false);
-    for (size_t i = 1; i < blockBounds_.size() && i < far.size(); ++i) {
-        const BlockBounds& bb = blockBounds_[i];
-        far[i] = std::hypot((bb.minX + bb.maxX) / 2 - detailFrom_[0], (bb.minZ + bb.maxZ) / 2 - detailFrom_[2]) >
+    std::vector<bool> far(_psdl.blocks.size(), false);
+    for (size_t i = 1; i < _blockBounds.size() && i < far.size(); ++i) {
+        const BlockBounds& bb = _blockBounds[i];
+        far[i] = std::hypot((bb.minX + bb.maxX) / 2 - _detailFrom[0], (bb.minZ + bb.maxZ) / 2 - _detailFrom[2]) >
                  kLowDetail;
     }
-    for (const CityMesh::Batch& b : mesh_.batches) {
+    for (const CityMesh::Batch& b : _mesh.batches) {
         Batch out{uint32_t(indices.size()), 0, 0, false};
         if (!b.texture.empty())
-            out.texture = textures_->get(b.texture, out.translucent);
+            out.texture = _textures->get(b.texture, out.translucent);
         for (size_t t = 0; t * 3 + 2 < b.indices.size(); ++t) {
             const uint16_t block = t < b.blocks.size() ? b.blocks[t] : 0;
-            if (viewBlock_ && block != 0 && !pvs_.sees(viewBlock_, block)) // 0: no block (decals), always
+            if (_viewBlock && block != 0 && !_pvs.sees(_viewBlock, block)) // 0: no block (decals), always
                 continue;
             const bool isFar = block < far.size() && far[block];
             if ((b.detail == 1 && isFar) || (b.detail == 2 && !isFar))
@@ -562,17 +562,17 @@ void CityScene::rebuildIndices() {
                            b.indices.begin() + std::ptrdiff_t(t * 3 + 3));
         }
         out.indexCount = uint32_t(indices.size()) - out.firstIndex;
-        batches_.push_back(out);
+        _batches.push_back(out);
     }
-    blocksDrawn_ = size_t(std::count(drawn.begin(), drawn.end(), true));
-    renderer_.setMeshIndices(cityMesh_, indices);
+    _blocksDrawn = size_t(std::count(drawn.begin(), drawn.end(), true));
+    _renderer.setMeshIndices(_cityMesh, indices);
 }
 
 void CityScene::drawBeacons(const FlareDrawer& flares, const Vec3& eye) const {
     constexpr float kSize = 3, kDistance = 1500;
     if (!lampsLit())
         return;
-    for (const Beacon& b : beacons_) {
+    for (const Beacon& b : _beacons) {
         const Vec3 d{b.at[0] - eye[0], b.at[1] - eye[1], b.at[2] - eye[2]};
         if (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < kDistance * kDistance)
             flares.draw(b.at, kSize, b.color, eye);
@@ -582,8 +582,8 @@ void CityScene::drawBeacons(const FlareDrawer& flares, const Vec3& eye) const {
 size_t CityScene::blockAt(const Vec3& p) const {
     size_t best = 0;
     float bestFloor = 0;
-    for (size_t i = 1; i < blockBounds_.size(); ++i) {
-        const BlockBounds& bb = blockBounds_[i];
+    for (size_t i = 1; i < _blockBounds.size(); ++i) {
+        const BlockBounds& bb = _blockBounds[i];
         if (bb.outline.size() < 3 || p[0] < bb.minX || p[0] > bb.maxX || p[2] < bb.minZ || p[2] > bb.maxZ ||
             p[1] < bb.minY - 1 || p[1] > bb.maxY + 30)
             continue;

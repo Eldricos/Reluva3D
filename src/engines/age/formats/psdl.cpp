@@ -55,14 +55,14 @@ struct Reader {
 // Attributes whose subtype 0 means the count follows as a word.
 bool counted(uint8_t type) {
     switch (type) {
-    case psdlattr::RoadStrip:
-    case psdlattr::SidewalkStrip:
-    case psdlattr::RectStrip:
-    case psdlattr::RoadFan:
-    case psdlattr::Fan:
-    case psdlattr::DividedRoad:
-    case psdlattr::Tunnel:
-    case psdlattr::Roof: return true;
+    case psdlattr::kRoadStrip:
+    case psdlattr::kSidewalkStrip:
+    case psdlattr::kRectStrip:
+    case psdlattr::kRoadFan:
+    case psdlattr::kFan:
+    case psdlattr::kDividedRoad:
+    case psdlattr::kTunnel:
+    case psdlattr::kRoof: return true;
     default: return false;
     }
 }
@@ -71,19 +71,19 @@ bool counted(uint8_t type) {
 
 size_t psdlAttributeLength(uint8_t type, uint16_t count) {
     switch (type) {
-    case psdlattr::RoadStrip: return size_t(count) * 4;
-    case psdlattr::SidewalkStrip:
-    case psdlattr::RectStrip: return size_t(count) * 2;
-    case psdlattr::Sliver:
-    case psdlattr::Crosswalk:
-    case psdlattr::FacadeBound: return 4;
-    case psdlattr::RoadFan:
-    case psdlattr::Fan:
-    case psdlattr::Roof: return size_t(count) + 2;
-    case psdlattr::DividedRoad: return size_t(count) * 6 + 2;
-    case psdlattr::Tunnel: return count;
-    case psdlattr::Texture: return 1;
-    case psdlattr::Facade: return 6;
+    case psdlattr::kRoadStrip: return size_t(count) * 4;
+    case psdlattr::kSidewalkStrip:
+    case psdlattr::kRectStrip: return size_t(count) * 2;
+    case psdlattr::kSliver:
+    case psdlattr::kCrosswalk:
+    case psdlattr::kFacadeBound: return 4;
+    case psdlattr::kRoadFan:
+    case psdlattr::kFan:
+    case psdlattr::kRoof: return size_t(count) + 2;
+    case psdlattr::kDividedRoad: return size_t(count) * 6 + 2;
+    case psdlattr::kTunnel: return count;
+    case psdlattr::kTexture: return 1;
+    case psdlattr::kFacade: return 6;
     default: return 0;
     }
 }
@@ -152,7 +152,7 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
             a.count = a.subtype;
             if (a.subtype == 0 && counted(a.type))
                 a.count = r.u16();
-            if (a.type > psdlattr::Roof)
+            if (a.type > psdlattr::kRoof)
                 return Error::fail("block " + std::to_string(b) + ": unknown attribute type " +
                                    std::to_string(a.type));
             const size_t n = psdlAttributeLength(a.type, a.count);
@@ -163,7 +163,7 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
                 w = r.u16();
             // After the attribute marked last, only stray texture
             // attributes follow (98 blocks of the two cities).
-            if (last && a.type != psdlattr::Texture)
+            if (last && a.type != psdlattr::kTexture)
                 return Error::fail("block " + std::to_string(b) + ": attributes after the last");
             last = last || (header & kLastAttribute);
             block.attributes.push_back(std::move(a));

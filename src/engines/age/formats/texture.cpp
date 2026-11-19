@@ -22,10 +22,10 @@ uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | 
 
 const char* formatName(uint16_t format) {
     switch (format) {
-    case texformat::Palette: return "8-bit palette";
-    case texformat::PaletteAlpha: return "8-bit palette with alpha";
-    case texformat::Rgb: return "24-bit";
-    case texformat::Rgba: return "32-bit with alpha";
+    case texformat::kPalette: return "8-bit palette";
+    case texformat::kPaletteAlpha: return "8-bit palette with alpha";
+    case texformat::kRgb: return "24-bit";
+    case texformat::kRgba: return "32-bit with alpha";
     default: return "unknown";
     }
 }
@@ -43,10 +43,10 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
 
     size_t bytesPerPixel = 0, palette = 0;
     switch (out.format) {
-    case texformat::Palette:
-    case texformat::PaletteAlpha: bytesPerPixel = 1, palette = kPaletteSize; break;
-    case texformat::Rgb: bytesPerPixel = 3; break;
-    case texformat::Rgba: bytesPerPixel = 4; break;
+    case texformat::kPalette:
+    case texformat::kPaletteAlpha: bytesPerPixel = 1, palette = kPaletteSize; break;
+    case texformat::kRgb: bytesPerPixel = 3; break;
+    case texformat::kRgba: bytesPerPixel = 4; break;
     default: return Error::fail("unknown texture format " + std::to_string(out.format));
     }
     // Every level is checked to fit; only the first is decoded.
@@ -70,7 +70,7 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
         dst[0] = palette ? p[2] : p[0];
         dst[1] = p[1];
         dst[2] = palette ? p[0] : p[2];
-        dst[3] = out.format == texformat::PaletteAlpha || out.format == texformat::Rgba ? p[3] : 255;
+        dst[3] = out.format == texformat::kPaletteAlpha || out.format == texformat::kRgba ? p[3] : 255;
     }
     return Error::success();
 }

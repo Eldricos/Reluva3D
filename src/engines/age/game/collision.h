@@ -45,7 +45,7 @@ public:
     void add(const Vec3& a, const Vec3& b, const Vec3& c, Surface surface = {});
     // Files the triangles into the grid; call after adding them all.
     void build(float cellSize = 8);
-    size_t size() const { return triangles_.size(); }
+    size_t size() const { return _triangles.size(); }
     // A few more triangles, replaced as they move (a drawbridge's leaves),
     // checked along with those in the grid.
     void setMoving(const std::vector<std::array<Vec3, 3>>& triangles, Surface surface = {});
@@ -53,16 +53,16 @@ public:
     // built again).
     template <typename F>
     void removeIf(F&& drop) {
-        std::erase_if(triangles_, [&](const Triangle& t) { return drop(t.a, t.b, t.c); });
-        build(cellSize_);
+        std::erase_if(_triangles, [&](const Triangle& t) { return drop(t.a, t.b, t.c); });
+        build(_cellSize);
     }
     // The same by surface (a prop's triangles).
     template <typename F>
     void removeSurfaces(F&& drop) {
-        std::erase_if(triangles_, [&](const Triangle& t) { return drop(t.surface); });
-        build(cellSize_);
+        std::erase_if(_triangles, [&](const Triangle& t) { return drop(t.surface); });
+        build(_cellSize);
     }
-    float cellSize() const { return cellSize_; }
+    float cellSize() const { return _cellSize; }
 
     struct RayHit {
         float distance = 0;
@@ -88,12 +88,12 @@ private:
     template <typename F>
     void forEachNear(float x0, float z0, float x1, float z1, F&& f) const;
 
-    std::vector<Triangle> triangles_;
-    std::vector<Triangle> moving_;
-    std::unordered_map<Cell, std::vector<uint32_t>> grid_;
-    float cellSize_ = 8;
-    mutable std::vector<uint32_t> seen_; // per triangle, the query that last saw it
-    mutable uint32_t query_ = 0;
+    std::vector<Triangle> _triangles;
+    std::vector<Triangle> _moving;
+    std::unordered_map<Cell, std::vector<uint32_t>> _grid;
+    float _cellSize = 8;
+    mutable std::vector<uint32_t> _seen; // per triangle, the query that last saw it
+    mutable uint32_t _query = 0;
 };
 
 } // namespace reluva::age

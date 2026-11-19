@@ -52,11 +52,11 @@ constexpr FrontEnd::Rect kCityBox{453, 10, 164, 24};
 
 const char* kindStem(RaceKind k) {
     switch (k) {
-    case RaceKind::Blitz: return "blitz";
-    case RaceKind::Circuit: return "circuit";
-    case RaceKind::Checkpoint: return "race";
-    case RaceKind::CrashCourse: return "crash";
-    case RaceKind::Cruise:
+    case RaceKind::kBlitz: return "blitz";
+    case RaceKind::kCircuit: return "circuit";
+    case RaceKind::kCheckpoint: return "race";
+    case RaceKind::kCrashCourse: return "crash";
+    case RaceKind::kCruise:
         return "roam";
     }
     return "race";
@@ -101,31 +101,31 @@ Error parseWidgets(const std::string& csv, std::vector<Widget>& out) {
 
 const image::Image* MenuPictures::jpg(const std::string& name) {
     const std::string key = "jpg/" + lowerCase(name);
-    auto it = cache_.find(key);
-    if (it == cache_.end()) {
+    auto it = _cache.find(key);
+    if (it == _cache.end()) {
         std::unique_ptr<image::Image> im;
         std::vector<uint8_t> data;
         for (const char* ext : {".jpg", ".JPG"})
-            if (!files_.read("jpg/" + name + ext, data)) {
+            if (!_files.read("jpg/" + name + ext, data)) {
                 auto decoded = std::make_unique<image::Image>();
                 if (!image::decode(data, *decoded))
                     im = std::move(decoded);
                 break;
             }
-        it = cache_.emplace(key, std::move(im)).first;
+        it = _cache.emplace(key, std::move(im)).first;
     }
     return it->second.get();
 }
 
 const image::Image* MenuPictures::texture(const std::string& name) {
     const std::string key = "tex/" + lowerCase(name);
-    auto it = cache_.find(key);
-    if (it == cache_.end()) {
+    auto it = _cache.find(key);
+    if (it == _cache.end()) {
         std::unique_ptr<image::Image> im;
         Tex tex;
-        if (!loadTexture(files_, name, tex))
+        if (!loadTexture(_files, name, tex))
             im = std::make_unique<image::Image>(std::move(tex.image));
-        it = cache_.emplace(key, std::move(im)).first;
+        it = _cache.emplace(key, std::move(im)).first;
     }
     return it->second.get();
 }
@@ -169,14 +169,14 @@ void drawButtonState(Surface& overlay, const image::Image& im, int x, int y, int
 
 FrontEnd::FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
                    const GameStrings& strings, const PlayerRecord& record)
-    : files_(files), cities_(cities), cars_(cars), strings_(strings), record_(record), pictures_(files) {
+    : _files(files), _cities(cities), _cars(cars), _strings(strings), _record(record), _pictures(files) {
     std::vector<uint8_t> data;
     if (!files.read("tune/widget.csv", data))
-        ok_ = !parseWidgets(std::string(data.begin(), data.end()), widgets_) && pictures_.jpg("main_bk") &&
+        _ok = !parseWidgets(std::string(data.begin(), data.end()), _widgets) && _pictures.jpg("main_bk") &&
               !cities.empty() && !cars.empty();
     // The race menu's CHANGE (texture/race_chg, 25 x 122 a state) isn't in
     // widget.csv: up the right of the time, weather and densities.
-    widgets_.push_back({"Single Race Menu", "race_chg", 612, 247, 25, 122, "5 State"});
+    _widgets.push_back({"Single Race Menu", "race_chg", 612, 247, 25, 122, "5 State"});
     // The garage's bars: each car's .info figures against the most.
     for (const CarInfo& car : cars) {
         std::array<float, 4> f{};
@@ -188,8 +188,8 @@ FrontEnd::FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, 
                     f[size_t(k)] = std::strtof(text.c_str() + at + std::strlen(keys[k]), nullptr);
         }
         for (size_t k = 0; k < 4; ++k)
-            most_[k] = std::max(most_[k], f[k]);
-        figures_.push_back(f);
+            _most[k] = std::max(_most[k], f[k]);
+        _figures.push_back(f);
     }
     refresh();
 }
@@ -197,62 +197,62 @@ FrontEnd::FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, 
 const Widget* FrontEnd::widget(const std::string& name) const {
     static const char* const kMenus[] = {"Main Menu", "Single Race Menu",   "Crash Course",    "Garage Menu",
                                          "",          "Crash Course Intro", "Vehicle Showcase"};
-    const std::string menu = kMenus[int(screen_)];
-    for (const Widget& w : widgets_)
+    const std::string menu = kMenus[int(_screen)];
+    for (const Widget& w : _widgets)
         if (w.menu == menu && w.name == name)
             return &w;
     // The navigation bar, top right of every screen.
-    for (const Widget& w : widgets_)
+    for (const Widget& w : _widgets)
         if (w.menu == "Navigation Bar" && w.name == name)
             return &w;
     return nullptr;
 }
 
 bool FrontEnd::raceOpen(int index) const {
-    if (openAll || cities_.empty())
+    if (openAll || _cities.empty())
         return true;
-    const std::string& map = cities_[size_t(choice_.city)].map;
-    const RaceUnlocking u = raceUnlocking(files_, map);
-    return age::raceOpen(record_, map, choice_.kind, index, choice_.professional, u.group, u.mustPlace);
+    const std::string& map = _cities[size_t(_choice.city)].map;
+    const RaceUnlocking u = raceUnlocking(_files, map);
+    return age::raceOpen(_record, map, _choice.kind, index, _choice.professional, u.group, u.mustPlace);
 }
 
 bool FrontEnd::carOpen(int car) const { return paintOpen(car, -1); }
 
 bool FrontEnd::paintOpen(int car, int paintJob) const {
-    if (openAll || car < 0 || size_t(car) >= cars_.size())
+    if (openAll || car < 0 || size_t(car) >= _cars.size())
         return true;
-    const SearchSet& files = files_;
+    const SearchSet& files = _files;
     return unlocked(
-        record_, cars_[size_t(car)].base, paintJob, choice_.professional,
+        _record, _cars[size_t(car)].base, paintJob, _choice.professional,
         [&files](const std::string& city, RaceKind kind) { return int(raceNames(files, city, kind).size()); });
 }
 
 void FrontEnd::refresh() {
-    if (cities_.empty())
+    if (_cities.empty())
         return;
-    const std::string& map = cities_[size_t(choice_.city)].map;
-    raceNames_ = raceNames(files_, map, choice_.kind);
-    choice_.race = std::clamp(choice_.race, 0, std::max(0, int(raceNames_.size()) - 1));
-    if (!raceNames_.empty())
-        loadRace(files_, map, choice_.kind, choice_.race, race_);
+    const std::string& map = _cities[size_t(_choice.city)].map;
+    _raceNames = raceNames(_files, map, _choice.kind);
+    _choice.race = std::clamp(_choice.race, 0, std::max(0, int(_raceNames.size()) - 1));
+    if (!_raceNames.empty())
+        loadRace(_files, map, _choice.kind, _choice.race, _race);
     // Another race (or level): its own conditions again.
-    const std::string key = map + " " + std::to_string(int(choice_.kind)) + " " + std::to_string(choice_.race) +
-                            (choice_.professional ? " p" : " a");
-    if (key != conditionsFor_) {
-        conditionsFor_ = key;
-        choice_.conditions = raceConditions();
-        choice_.changed = false;
+    const std::string key = map + " " + std::to_string(int(_choice.kind)) + " " + std::to_string(_choice.race) +
+                            (_choice.professional ? " p" : " a");
+    if (key != _conditionsFor) {
+        _conditionsFor = key;
+        _choice.conditions = raceConditions();
+        _choice.changed = false;
     }
-    if (!cars_.empty())
-        paintJobs_ = std::max(1, int(cars_[size_t(choice_.car)].colors.size()));
-    choice_.paintJob = std::clamp(choice_.paintJob, 0, paintJobs_ - 1);
+    if (!_cars.empty())
+        _paintJobs = std::max(1, int(_cars[size_t(_choice.car)].colors.size()));
+    _choice.paintJob = std::clamp(_choice.paintJob, 0, _paintJobs - 1);
 }
 
 FrontEnd::Choice::Conditions FrontEnd::raceConditions() const {
     Choice::Conditions c;
-    if (raceNames_.empty())
+    if (_raceNames.empty())
         return c;
-    const RaceSettings& s = race_.settings[choice_.professional ? 1 : 0];
+    const RaceSettings& s = _race.settings[_choice.professional ? 1 : 0];
     c.laps = std::max(1, s.laps);
     c.opponents = std::min(std::max(0, s.opponents), mostOpponents());
     c.timeOfDay = std::clamp(s.timeOfDay, 0, 3);
@@ -267,28 +267,28 @@ bool FrontEnd::conditionsOpen() const {
     // The game's help: a race's conditions (and a circuit's laps and
     // opponents) open once it's been placed in, 1st-3rd as an Amateur,
     // 1st as a Professional; a cruise's always.
-    if (choice_.kind == RaceKind::Cruise || openAll)
+    if (_choice.kind == RaceKind::kCruise || openAll)
         return true;
-    if (choice_.kind == RaceKind::CrashCourse || cities_.empty())
+    if (_choice.kind == RaceKind::kCrashCourse || _cities.empty())
         return false;
-    const std::string& map = cities_[size_t(choice_.city)].map;
-    const int pro = record_.bestPlace(map, choice_.kind, choice_.race, true);
-    if (choice_.professional)
+    const std::string& map = _cities[size_t(_choice.city)].map;
+    const int pro = _record.bestPlace(map, _choice.kind, _choice.race, true);
+    if (_choice.professional)
         return pro == 1;
-    const int amateur = record_.bestPlace(map, choice_.kind, choice_.race, false);
+    const int amateur = _record.bestPlace(map, _choice.kind, _choice.race, false);
     const int best = amateur > 0 && pro > 0 ? std::min(amateur, pro) : std::max(amateur, pro);
     return best >= 1 && best <= 3;
 }
 
-int FrontEnd::mostOpponents() const { return int(race_.opponents[choice_.professional ? 1 : 0].size()); }
+int FrontEnd::mostOpponents() const { return int(_race.opponents[_choice.professional ? 1 : 0].size()); }
 
 std::vector<FrontEnd::Item> FrontEnd::items() const {
     std::vector<Item> list = screenItems();
     // The navigation bar: Options, Help (the game's help file, when it's
     // in the game's folder), Minimise and Exit.
-    if (screen_ != Screen::Splash) {
+    if (_screen != Screen::kSplash) {
         list.push_back({"mnav_opt", true, true, "MNAV_OPT", 5});
-        list.push_back({"mnav_help", true, files_.has("MM2HELP.HLP"), "mnav_hlp", 3});
+        list.push_back({"mnav_help", true, _files.has("MM2HELP.HLP"), "mnav_hlp", 3});
         list.push_back({"mnav_stow", true, true, "mnav_sto", 3});
         list.push_back({"mnav_exit", true, true, "mnav_ext", 3});
     }
@@ -296,21 +296,21 @@ std::vector<FrontEnd::Item> FrontEnd::items() const {
 }
 
 std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
-    switch (screen_) {
-    case Screen::Main:
+    switch (_screen) {
+    case Screen::kMain:
         return {{"dvrcc", true},
                 {"main_sp", true},
                 {"main_mp", true, multiplayer},
                 {"main_qck", true, quickRace()},
                 {"DRIVER NAME", false},
-                {"dvrnew", true, roster_ != nullptr, "DVRNEW", 4},
-                {"dvrdel", true, roster_ != nullptr, "DVRDEL", 4},
-                {"dvrsts", true, roster_ != nullptr, "DVRSTS", 4},
+                {"dvrnew", true, _roster != nullptr, "DVRNEW", 4},
+                {"dvrdel", true, _roster != nullptr, "DVRDEL", 4},
+                {"dvrsts", true, _roster != nullptr, "DVRSTS", 4},
                 // RACE RECORDS and INSTANT REPLAY overlap where widget.csv
                 // puts them: the replay's drawn last, over the records'.
-                {"race_rec", true, roster_ != nullptr, "RACE_REC", 4},
+                {"race_rec", true, _roster != nullptr, "RACE_REC", 4},
                 {"main_rpl", true, true, "main_rpl", 4}};
-    case Screen::Races:
+    case Screen::kRaces:
         // LAPS (a circuit's) and OPPONENTS change with Left/Right; CHANGE
         // (texture/race_chg) the rest.
         return {{"cruise", true},
@@ -318,37 +318,37 @@ std::vector<FrontEnd::Item> FrontEnd::screenItems() const {
                 {"cp", true},
                 {"circuit", true},
                 {"RACE NAME", false},
-                {"LAPS", false, choice_.kind == RaceKind::Circuit && conditionsOpen()},
+                {"LAPS", false, _choice.kind == RaceKind::kCircuit && conditionsOpen()},
                 {"OPPONENTS", false, mostOpponents() > 0 && conditionsOpen()},
                 {"RACE LOCALE", false},
-                {"race_chg", true, !raceNames_.empty() && conditionsOpen(), "race_chg", 5},
+                {"race_chg", true, !_raceNames.empty() && conditionsOpen(), "race_chg", 5},
                 {"race_veh", true}};
-    case Screen::CrashCourse: return {{"city", false}, {"CRASH NAME", false}, {"host_dn", true}};
-    case Screen::Garage:
+    case Screen::kCrashCourse: return {{"city", false}, {"CRASH NAME", false}, {"host_dn", true}};
+    case Screen::kGarage:
         return {{"VEHICLES", false},
                 {"CAR COLOR", false},
                 {"TRANSMISSION", false},
                 {"veh_show", true, true, "veh_show", 4},
                 {"vesel_godrive", true}};
-    case Screen::CrashIntro:
+    case Screen::kCrashIntro:
         // widget.csv's row for its BACK is garbled: the navigation bar's.
         return {{"cci_lon", true, true, "cci_lon", 4},
                 {"cci_sf", true, true, "cci_sf", 4},
                 {"mnav_prev", true, true, "mnav_prv", 4}};
-    case Screen::Showcase:
+    case Screen::kShowcase:
         return {{"opt_done", true, true, "opt_done", 4}};
-    case Screen::Splash: return {};
+    case Screen::kSplash: return {};
     }
     return {};
 }
 
 void FrontEnd::go(Screen s) {
-    screen_ = s;
-    focus_ = 0;
-    if (s == Screen::CrashCourse)
-        choice_.kind = RaceKind::CrashCourse;
-    else if (s == Screen::Races && choice_.kind == RaceKind::CrashCourse)
-        choice_.kind = RaceKind::Blitz;
+    _screen = s;
+    _focus = 0;
+    if (s == Screen::kCrashCourse)
+        _choice.kind = RaceKind::kCrashCourse;
+    else if (s == Screen::kRaces && _choice.kind == RaceKind::kCrashCourse)
+        _choice.kind = RaceKind::kBlitz;
     refresh();
 }
 
@@ -357,78 +357,78 @@ void FrontEnd::activate(const Item& item, Action& action) {
         return;
     const std::string& w = item.widget;
     if (w == "dvrcc")
-        go(Screen::CrashIntro);
+        go(Screen::kCrashIntro);
     else if (w == "cci_lon" || w == "cci_sf") {
         // London's cab company or San Francisco's stunt school.
-        for (size_t i = 0; i < cities_.size(); ++i)
-            if ((cities_[i].map == "london") == (w == "cci_lon"))
-                choice_.city = int(i);
-        go(Screen::CrashCourse);
-    } else if (w == "mnav_prev" && screen_ == Screen::CrashIntro)
-        go(Screen::Main);
+        for (size_t i = 0; i < _cities.size(); ++i)
+            if ((_cities[i].map == "london") == (w == "cci_lon"))
+                _choice.city = int(i);
+        go(Screen::kCrashCourse);
+    } else if (w == "mnav_prev" && _screen == Screen::kCrashIntro)
+        go(Screen::kMain);
     else if (w == "veh_show")
-        go(Screen::Showcase);
-    else if (w == "opt_done" && screen_ == Screen::Showcase) {
-        screen_ = Screen::Garage;
-        focus_ = 3;
+        go(Screen::kShowcase);
+    else if (w == "opt_done" && _screen == Screen::kShowcase) {
+        _screen = Screen::kGarage;
+        _focus = 3;
     } else if (w == "main_sp")
-        go(Screen::Races);
+        go(Screen::kRaces);
     else if (w == "main_mp")
-        action = Action::Multiplayer;
+        action = Action::kMultiplayer;
     else if (w == "mnav_help")
-        action = Action::Help;
+        action = Action::kHelp;
     else if (w == "mnav_stow")
-        action = Action::Minimise;
+        action = Action::kMinimise;
     else if (w == "mnav_opt")
-        action = Action::Options;
+        action = Action::kOptions;
     else if (w == "main_rpl")
-        action = Action::Replays;
+        action = Action::kReplays;
     else if (w == "dvrnew")
-        action = Action::NewDriver;
+        action = Action::kNewDriver;
     else if (w == "dvrdel")
-        action = Action::DeleteDriver;
+        action = Action::kDeleteDriver;
     else if (w == "dvrsts")
-        action = Action::DriverStats;
+        action = Action::kDriverStats;
     else if (w == "race_rec")
-        action = Action::RaceRecords;
+        action = Action::kRaceRecords;
     else if (w == "main_qck") {
         // Quick Race: "Choose your vehicle and you're off! Quick Race starts
         // you in the last race you ran."
         std::string map;
-        RaceKind kind = RaceKind::Blitz;
+        RaceKind kind = RaceKind::kBlitz;
         int index = 0;
-        if (!record_.lastRace(map, kind, index))
+        if (!_record.lastRace(map, kind, index))
             return;
-        for (size_t i = 0; i < cities_.size(); ++i)
-            if (cities_[i].map == map)
-                choice_.city = int(i);
-        choice_.kind = kind;
-        choice_.race = index;
+        for (size_t i = 0; i < _cities.size(); ++i)
+            if (_cities[i].map == map)
+                _choice.city = int(i);
+        _choice.kind = kind;
+        _choice.race = index;
         refresh();
-        afterGarage_ = Screen::Main;
-        screen_ = Screen::Garage;
-        focus_ = 0;
-        action = Action::Changed;
+        _afterGarage = Screen::kMain;
+        _screen = Screen::kGarage;
+        _focus = 0;
+        action = Action::kChanged;
     } else if (w == "mnav_exit")
-        action = Action::Quit;
+        action = Action::kQuit;
     else if (w == "cruise" || w == "blitz" || w == "cp" || w == "circuit") {
-        choice_.kind = w == "cruise"  ? RaceKind::Cruise
-                       : w == "blitz" ? RaceKind::Blitz
-                       : w == "cp"    ? RaceKind::Checkpoint
-                                      : RaceKind::Circuit;
+        _choice.kind = w == "cruise"  ? RaceKind::kCruise
+                       : w == "blitz" ? RaceKind::kBlitz
+                       : w == "cp"    ? RaceKind::kCheckpoint
+                                      : RaceKind::kCircuit;
         refresh();
-        action = Action::Changed;
+        action = Action::kChanged;
     } else if (w == "race_veh" || w == "host_dn") {
-        if (raceNames_.empty() || !raceOpen(choice_.race))
+        if (_raceNames.empty() || !raceOpen(_choice.race))
             return;
-        afterGarage_ = screen_;
-        screen_ = Screen::Garage;
-        focus_ = 0;
-        action = Action::Changed;
+        _afterGarage = _screen;
+        _screen = Screen::kGarage;
+        _focus = 0;
+        action = Action::kChanged;
     } else if (w == "vesel_godrive") {
-        action = carOpen(choice_.car) && paintOpen(choice_.car, choice_.paintJob) ? Action::Start : Action::Locked;
+        action = carOpen(_choice.car) && paintOpen(_choice.car, _choice.paintJob) ? Action::kStart : Action::kLocked;
     } else if (w == "race_chg") {
-        action = Action::RaceOptions;
+        action = Action::kRaceOptions;
     }
 }
 
@@ -436,34 +436,34 @@ void FrontEnd::change(const Item& item, int step) {
     auto wrap = [](int v, int n) { return n > 0 ? (v % n + n) % n : 0; };
     const std::string& w = item.widget;
     if (w == "RACE NAME" || w == "CRASH NAME") {
-        choice_.race = wrap(choice_.race + step, int(raceNames_.size()));
+        _choice.race = wrap(_choice.race + step, int(_raceNames.size()));
     } else if (w == "LAPS") {
-        choice_.conditions.laps = std::clamp(choice_.conditions.laps + step, 1, 20);
+        _choice.conditions.laps = std::clamp(_choice.conditions.laps + step, 1, 20);
         conditionsChanged();
         return;
     } else if (w == "OPPONENTS") {
-        choice_.conditions.opponents = std::clamp(choice_.conditions.opponents + step, 0, mostOpponents());
+        _choice.conditions.opponents = std::clamp(_choice.conditions.opponents + step, 0, mostOpponents());
         conditionsChanged();
         return;
     } else if (w == "RACE LOCALE" || w == "city") {
-        choice_.city = wrap(choice_.city + step, int(cities_.size()));
+        _choice.city = wrap(_choice.city + step, int(_cities.size()));
     } else if (w == "DRIVER NAME") {
         // The next driver (their level comes with them).
-        if (roster_ && !roster_->drivers().empty()) {
-            roster_->setCurrent((roster_->current() + step + int(roster_->drivers().size())) %
-                                int(roster_->drivers().size()));
-            roster_->save();
-            choice_.professional = roster_->driver().professional;
-            driverChanged_ = true;
+        if (_roster && !_roster->drivers().empty()) {
+            _roster->setCurrent((_roster->current() + step + int(_roster->drivers().size())) %
+                                int(_roster->drivers().size()));
+            _roster->save();
+            _choice.professional = _roster->driver().professional;
+            _driverChanged = true;
         } else
-            choice_.professional = !choice_.professional;
+            _choice.professional = !_choice.professional;
     } else if (w == "VEHICLES") {
-        choice_.car = wrap(choice_.car + step, int(cars_.size()));
-        choice_.paintJob = 0;
+        _choice.car = wrap(_choice.car + step, int(_cars.size()));
+        _choice.paintJob = 0;
     } else if (w == "CAR COLOR") {
-        choice_.paintJob = wrap(choice_.paintJob + step, paintJobs_);
+        _choice.paintJob = wrap(_choice.paintJob + step, _paintJobs);
     } else if (w == "TRANSMISSION") {
-        choice_.manual = !choice_.manual;
+        _choice.manual = !_choice.manual;
     }
     refresh();
 }
@@ -476,7 +476,7 @@ bool FrontEnd::hit(const Item& item, int x, int y) {
         return false;
     int width = w->w, height = w->h;
     if (item.button)
-        if (const image::Image* im = pictures_.texture(item.pictureName())) {
+        if (const image::Image* im = _pictures.texture(item.pictureName())) {
             const int states = statesOf(item, *w);
             width = im->w;
             height = im->h / states;
@@ -485,24 +485,24 @@ bool FrontEnd::hit(const Item& item, int x, int y) {
 }
 
 FrontEnd::Action FrontEnd::handle(const Event& ev) {
-    Action action = Action::None;
-    if (screen_ == Screen::Splash) {
+    Action action = Action::kNone;
+    if (_screen == Screen::kSplash) {
         // Any key or click goes on to the main menu.
         if (ev.type == EventType::kKeyDown || (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)) {
-            go(Screen::Main);
-            action = Action::Changed;
+            go(Screen::kMain);
+            action = Action::kChanged;
         }
         return action;
     }
     const auto list = items();
     if (list.empty())
         return action;
-    focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
+    _focus = std::clamp(_focus, 0, int(list.size()) - 1);
     if (ev.type == EventType::kMouseMove) {
         // Pointed at: focused (and its word said), as the game's are.
         for (size_t i = 0; i < list.size(); ++i)
             if (list[i].enabled && hit(list[i], ev.mouseX, ev.mouseY)) {
-                focus_ = int(i);
+                _focus = int(i);
                 break;
             }
         return action;
@@ -510,18 +510,18 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         for (size_t i = 0; i < list.size(); ++i)
             if (hit(list[i], ev.mouseX, ev.mouseY)) {
-                focus_ = int(i);
+                _focus = int(i);
                 if (list[i].button)
                     activate(list[i], action);
                 else {
                     // A field: its right half steps on, its left back.
                     const Widget* w = widget(list[i].widget);
                     change(list[i], w && ev.mouseX < w->x + w->w / 2 ? -1 : 1); // the city's box: on
-                    if (driverChanged_) {
-                        driverChanged_ = false;
-                        return Action::DriverChanged;
+                    if (_driverChanged) {
+                        _driverChanged = false;
+                        return Action::kDriverChanged;
                     }
-                    action = Action::Changed;
+                    action = Action::kChanged;
                 }
                 return action;
             }
@@ -529,14 +529,14 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     }
     if (ev.type != EventType::kKeyDown)
         return action;
-    const Item& item = list[size_t(focus_)];
+    const Item& item = list[size_t(_focus)];
     switch (ev.key) {
     case key::kUp:
     case key::kDown: {
         const int step = ev.key == key::kDown ? 1 : -1;
         for (size_t tries = 0; tries < list.size(); ++tries) {
-            focus_ = (focus_ + step + int(list.size())) % int(list.size());
-            if (list[size_t(focus_)].enabled)
+            _focus = (_focus + step + int(list.size())) % int(list.size());
+            if (list[size_t(_focus)].enabled)
                 break;
         }
         break;
@@ -545,41 +545,41 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     case key::kRight:
         if (!item.button) {
             change(item, ev.key == key::kRight ? 1 : -1);
-            if (driverChanged_) {
-                driverChanged_ = false;
-                return Action::DriverChanged;
+            if (_driverChanged) {
+                _driverChanged = false;
+                return Action::kDriverChanged;
             }
-            action = Action::Changed;
+            action = Action::kChanged;
         }
         break;
     case key::kReturn:
     case key::kKpEnter:
         if (item.button)
             activate(item, action);
-        else if (screen_ == Screen::Races && item.widget == "RACE LOCALE")
-            action = Action::CityChoice; // the game's Race Locales
-        else if (screen_ == Screen::Races)
+        else if (_screen == Screen::kRaces && item.widget == "RACE LOCALE")
+            action = Action::kCityChoice; // the game's Race Locales
+        else if (_screen == Screen::kRaces)
             activate({"race_veh", true}, action);
-        else if (screen_ == Screen::CrashCourse)
+        else if (_screen == Screen::kCrashCourse)
             activate({"host_dn", true}, action);
-        else if (screen_ == Screen::Garage)
+        else if (_screen == Screen::kGarage)
             activate({"vesel_godrive", true}, action);
         break;
     case key::kEscape:
-        if (screen_ == Screen::Garage)
-            go(afterGarage_);
-        else if (screen_ == Screen::Showcase) {
-            screen_ = Screen::Garage;
-            focus_ = 3;
-        } else if (screen_ == Screen::CrashCourse)
-            go(Screen::CrashIntro);
-        else if (screen_ != Screen::Main)
-            go(Screen::Main);
+        if (_screen == Screen::kGarage)
+            go(_afterGarage);
+        else if (_screen == Screen::kShowcase) {
+            _screen = Screen::kGarage;
+            _focus = 3;
+        } else if (_screen == Screen::kCrashCourse)
+            go(Screen::kCrashIntro);
+        else if (_screen != Screen::kMain)
+            go(Screen::kMain);
         else {
-            action = Action::Quit; // "Quit?"
+            action = Action::kQuit; // "Quit?"
             break;
         }
-        action = Action::Changed;
+        action = Action::kChanged;
         break;
     case 'u': openAll = !openAll; break;
     default: break;
@@ -614,35 +614,35 @@ void FrontEnd::bar(Surface& o, const std::string& name, float share) const {
 }
 
 FrontEnd::Rect FrontEnd::carWindow() const {
-    return screen_ == Screen::Garage ? kCarWindow : screen_ == Screen::Showcase ? Rect{0, 0, 640, 480} : Rect{};
+    return _screen == Screen::kGarage ? kCarWindow : _screen == Screen::kShowcase ? Rect{0, 0, 640, 480} : Rect{};
 }
 
 void FrontEnd::draw(Surface& o) {
     std::fill(o.pixels.begin(), o.pixels.end(), 0);
-    if (cities_.empty() || cars_.empty())
+    if (_cities.empty() || _cars.empty())
         return;
-    const std::string& map = cities_[size_t(choice_.city)].map;
+    const std::string& map = _cities[size_t(_choice.city)].map;
     const std::string city = map == "london" ? "london" : "sf";
     const char* background = "main_bk";
-    switch (screen_) {
-    case Screen::Main: background = "main_bk"; break;
-    case Screen::Races: background = "race_bk"; break;
-    case Screen::CrashCourse: background = map == "london" ? "cclon_bk" : "ccsf_bk"; break;
-    case Screen::Garage: background = "veh_bk"; break;
-    case Screen::Splash: background = "splash"; break;
-    case Screen::CrashIntro:
+    switch (_screen) {
+    case Screen::kMain: background = "main_bk"; break;
+    case Screen::kRaces: background = "race_bk"; break;
+    case Screen::kCrashCourse: background = map == "london" ? "cclon_bk" : "ccsf_bk"; break;
+    case Screen::kGarage: background = "veh_bk"; break;
+    case Screen::kSplash: background = "splash"; break;
+    case Screen::kCrashIntro:
         background = "ilon_bk";
         break;
-    case Screen::Showcase:
+    case Screen::kShowcase:
         background = "";
         break; // the car, the whole screen
     }
-    if (screen_ == Screen::Splash) {
-        if (const image::Image* bg = pictures_.jpg(background))
+    if (_screen == Screen::kSplash) {
+        if (const image::Image* bg = _pictures.jpg(background))
             drawPicture(o, *bg, 0, 0, o.w, o.h);
         return;
     }
-    if (const image::Image* bg = pictures_.jpg(background))
+    if (const image::Image* bg = _pictures.jpg(background))
         drawPicture(o, *bg, 0, 0, o.w, o.h);
 
     // The buttons, each in its state: 0 normal, 1 focused (and for the
@@ -653,16 +653,16 @@ void FrontEnd::draw(Surface& o) {
         const Widget* w = widget(item.widget);
         if (!w)
             continue;
-        const bool focused = int(i) == focus_;
+        const bool focused = int(i) == _focus;
         if (item.button) {
-            const image::Image* im = pictures_.texture(item.pictureName());
+            const image::Image* im = _pictures.texture(item.pictureName());
             if (!im)
                 continue;
             const int states = statesOf(item, *w);
-            bool chosen = (item.widget == "cruise" && choice_.kind == RaceKind::Cruise) ||
-                          (item.widget == "blitz" && choice_.kind == RaceKind::Blitz) ||
-                          (item.widget == "cp" && choice_.kind == RaceKind::Checkpoint) ||
-                          (item.widget == "circuit" && choice_.kind == RaceKind::Circuit);
+            bool chosen = (item.widget == "cruise" && _choice.kind == RaceKind::kCruise) ||
+                          (item.widget == "blitz" && _choice.kind == RaceKind::kBlitz) ||
+                          (item.widget == "cp" && _choice.kind == RaceKind::kCheckpoint) ||
+                          (item.widget == "circuit" && _choice.kind == RaceKind::kCircuit);
             const int state = !item.enabled ? states - 1 : states == 5 && chosen ? 2 : focused ? 1 : 0;
             drawButtonState(o, *im, w->x, w->y, states, state);
         } else if (focused) {
@@ -674,55 +674,55 @@ void FrontEnd::draw(Surface& o) {
     // The description box: the focused button's picture (jpg/mn_*), or
     // the race's or lesson's.
     std::string desc;
-    if (screen_ == Screen::Main) {
+    if (_screen == Screen::kMain) {
         static const std::map<std::string, std::string> kDesc{
             {"dvrcc", "mn_cc"},     {"main_sp", "mn_sp"},     {"main_mp", "mn_mp"}, {"main_qck", "mn_qck"},
             {"dvrnew", "mn_new"},   {"dvrdel", "mn_del"},     {"dvrsts", "mn_sts"}, {"race_rec", "mn_rec"},
             {"main_rpl", "mn_rpl"}, {"DRIVER NAME", "mn_drv"}};
-        if (auto it = kDesc.find(list[size_t(focus_)].widget); it != kDesc.end())
+        if (auto it = kDesc.find(list[size_t(_focus)].widget); it != kDesc.end())
             desc = it->second;
         // The driver, and every driver in the box below (the chosen one lit).
-        const std::string name = roster_ ? roster_->driver().name : std::string("Player");
-        text(o, "DRIVER NAME", name + " (" + (choice_.professional ? "Professional" : "Amateur") + ")");
-        if (roster_)
-            for (size_t i = 0; i < roster_->drivers().size() && i < 14; ++i) {
-                const DriverEntry& d = roster_->drivers()[i];
+        const std::string name = _roster ? _roster->driver().name : std::string("Player");
+        text(o, "DRIVER NAME", name + " (" + (_choice.professional ? "Professional" : "Amateur") + ")");
+        if (_roster)
+            for (size_t i = 0; i < _roster->drivers().size() && i < 14; ++i) {
+                const DriverEntry& d = _roster->drivers()[i];
                 font::drawText(o, 184, 186 + int(i) * 14, d.name + (d.professional ? " (Pro)" : ""),
-                               int(i) == roster_->current() ? Color{255, 255, 120} : Color{200, 200, 255});
+                               int(i) == _roster->current() ? Color{255, 255, 120} : Color{200, 200, 255});
             }
-    } else if (screen_ == Screen::Races) {
-        desc = choice_.kind == RaceKind::Blitz     ? "race_btz"
-               : choice_.kind == RaceKind::Circuit ? "race_cir"
-               : choice_.kind == RaceKind::Cruise  ? "race_rom"
+    } else if (_screen == Screen::kRaces) {
+        desc = _choice.kind == RaceKind::kBlitz     ? "race_btz"
+               : _choice.kind == RaceKind::kCircuit ? "race_cir"
+               : _choice.kind == RaceKind::kCruise  ? "race_rom"
                                                    : "race_cp";
         // The race's map (a cruise's, the whole city's), its name and its
         // numbers.
         const std::string mapPic = city + "_map" +
-                                   (choice_.kind == RaceKind::Checkpoint ? "race" : kindStem(choice_.kind)) +
-                                   (choice_.kind == RaceKind::Cruise ? std::string() : std::to_string(choice_.race));
-        if (const image::Image* m = pictures_.jpg(mapPic))
+                                   (_choice.kind == RaceKind::kCheckpoint ? "race" : kindStem(_choice.kind)) +
+                                   (_choice.kind == RaceKind::kCruise ? std::string() : std::to_string(_choice.race));
+        if (const image::Image* m = _pictures.jpg(mapPic))
             if (const Widget* w = widget("race map"))
                 drawPicture(o, *m, w->x, w->y, w->w, w->h);
-        std::string name = raceNames_.empty() ? "" : raceNames_[size_t(choice_.race)];
-        if (!raceOpen(choice_.race))
+        std::string name = _raceNames.empty() ? "" : _raceNames[size_t(_choice.race)];
+        if (!raceOpen(_choice.race))
             name += " (locked)";
         text(o, "RACE NAME", name);
-        if (!raceNames_.empty()) {
-            const Choice::Conditions& c = choice_.conditions;
-            text(o, "LAPS", choice_.kind == RaceKind::Circuit ? std::to_string(c.laps) : "-");
+        if (!_raceNames.empty()) {
+            const Choice::Conditions& c = _choice.conditions;
+            text(o, "LAPS", _choice.kind == RaceKind::kCircuit ? std::to_string(c.laps) : "-");
             text(o, "OPPONENTS", std::to_string(c.opponents));
             // mmlang.dll's words: Morning, Noon, Sunset, Night; Sunny,
             // Cloudy, Foggy, Raining.
             static const char* const kTimes[] = {"Morning", "Noon", "Sunset", "Night"};
             static const char* const kWeathers[] = {"Sunny", "Cloudy", "Foggy", "Raining"};
-            text(o, "TIME", strings_.get(357 + uint32_t(c.timeOfDay & 3), kTimes[c.timeOfDay & 3]));
-            text(o, "WEATHER", strings_.get(361 + uint32_t(c.weather & 3), kWeathers[c.weather & 3]));
+            text(o, "TIME", _strings.get(357 + uint32_t(c.timeOfDay & 3), kTimes[c.timeOfDay & 3]));
+            text(o, "WEATHER", _strings.get(361 + uint32_t(c.weather & 3), kWeathers[c.weather & 3]));
             bar(o, "PEDESTRIAN DENSITY", c.hidePeds ? 0 : c.peds);
             bar(o, "TRAFFIC DENSITY", c.traffic);
             bar(o, "COP DENSITY", std::min(1.0f, float(c.cops) / 4));
-            if (choice_.changed && choice_.kind != RaceKind::Cruise) // as the game's records say: not recorded
+            if (_choice.changed && _choice.kind != RaceKind::kCruise) // as the game's records say: not recorded
                 font::drawText(o, 404, 186, "Changed: not recorded", {255, 160, 120});
-            const int best = record_.bestPlace(map, choice_.kind, choice_.race, choice_.professional);
+            const int best = _record.bestPlace(map, _choice.kind, _choice.race, _choice.professional);
             if (best > 0)
                 font::drawText(o, 404, 170,
                                "Best: " + std::to_string(best) +
@@ -732,18 +732,18 @@ void FrontEnd::draw(Surface& o) {
                                                 : "th"),
                                {150, 255, 150});
         }
-        text(o, "RACE LOCALE", cities_[size_t(choice_.city)].name);
-    } else if (screen_ == Screen::CrashCourse) {
-        desc = (map == "london" ? "lon_cc" : "sf_cc") + std::to_string(choice_.race);
-        std::string name = raceNames_.empty() ? "" : raceNames_[size_t(choice_.race)];
-        if (!raceOpen(choice_.race))
+        text(o, "RACE LOCALE", _cities[size_t(_choice.city)].name);
+    } else if (_screen == Screen::kCrashCourse) {
+        desc = (map == "london" ? "lon_cc" : "sf_cc") + std::to_string(_choice.race);
+        std::string name = _raceNames.empty() ? "" : _raceNames[size_t(_choice.race)];
+        if (!raceOpen(_choice.race))
             name += " (locked)";
         text(o, "CRASH NAME", name);
         // The lessons passed, ticked on the curriculum (texture/cc_smchk:
         // blank, a tick, a cross).
-        const image::Image* tick = pictures_.texture("cc_smchk");
+        const image::Image* tick = _pictures.texture("cc_smchk");
         for (int i = 0; i < 13; ++i)
-            if (record_.hasPassed(map, i)) {
+            if (_record.hasPassed(map, i)) {
                 if (tick)
                     drawButtonState(o, *tick, kPassColumn - tick->w / 2, kCurriculumRows[i] - 2, 3, 1);
                 else
@@ -752,14 +752,14 @@ void FrontEnd::draw(Surface& o) {
         // (The city: the background names its school; the heading's box,
         // where it went, is under the navigation bar now.)
         font::drawText(o, 300, 380, "Left/Right: the city, the lesson   Enter: the garage", {200, 200, 255});
-    } else if (screen_ == Screen::Showcase) {
+    } else if (_screen == Screen::kShowcase) {
         // The car alone, turning; its name and description.
-        const CarInfo& car = cars_[size_t(choice_.car)];
+        const CarInfo& car = _cars[size_t(_choice.car)];
         font::drawText(o, 40, 40, car.description, {255, 230, 140}, 2);
         std::string upper = car.base;
         for (char& c : upper)
             c = char(std::toupper(static_cast<unsigned char>(c)));
-        if (const image::Image* d = pictures_.texture(upper + "_DESC")) {
+        if (const image::Image* d = _pictures.texture(upper + "_DESC")) {
             image::Image flipped = *d; // stored upside down
             const size_t row = size_t(d->w) * 4;
             for (int y = 0; y < d->h; ++y)
@@ -767,27 +767,27 @@ void FrontEnd::draw(Surface& o) {
                             flipped.rgba.begin() + std::ptrdiff_t(size_t(y) * row));
             drawPicture(o, flipped, 40, 396, 219, 69);
         }
-    } else if (screen_ == Screen::Garage) {
-        const CarInfo& car = cars_[size_t(choice_.car)];
-        const bool open = carOpen(choice_.car), paint = paintOpen(choice_.car, choice_.paintJob);
+    } else if (_screen == Screen::kGarage) {
+        const CarInfo& car = _cars[size_t(_choice.car)];
+        const bool open = carOpen(_choice.car), paint = paintOpen(_choice.car, _choice.paintJob);
         text(o, "VEHICLES", car.description);
-        std::string color = size_t(choice_.paintJob) < car.colors.size() ? car.colors[size_t(choice_.paintJob)]
-                                                                         : std::to_string(choice_.paintJob + 1);
+        std::string color = size_t(_choice.paintJob) < car.colors.size() ? car.colors[size_t(_choice.paintJob)]
+                                                                         : std::to_string(_choice.paintJob + 1);
         text(o, "CAR COLOR", color + (paint ? "" : " (locked)"));
-        text(o, "TRANSMISSION", choice_.manual ? "Manual" : "Automatic");
-        const auto& f = figures_[size_t(choice_.car)];
+        text(o, "TRANSMISSION", _choice.manual ? "Manual" : "Automatic");
+        const auto& f = _figures[size_t(_choice.car)];
         const char* const bars[4] = {"HORSEPOWER", "TOP SPEED", "DURABILITY", "MASS"};
         for (size_t k = 0; k < 4; ++k)
-            bar(o, bars[k], most_[k] > 0 ? f[k] / most_[k] : 0);
+            bar(o, bars[k], _most[k] > 0 ? f[k] / _most[k] : 0);
         // Locked: the lock and its picture's words (jpg/<car>_lck<n>, _p
         // for a professional's); else the car's own description.
         if (!open || !paint) {
             const std::string pic =
-                car.base + "_lck" + (open ? std::to_string(choice_.paintJob) : "") + (choice_.professional ? "_p" : "");
-            const image::Image* words = pictures_.jpg(pic);
-            if (!words && choice_.professional)
-                words = pictures_.jpg(car.base + "_lck" + (open ? std::to_string(choice_.paintJob) : ""));
-            if (const image::Image* lock = pictures_.texture("LOCKED"))
+                car.base + "_lck" + (open ? std::to_string(_choice.paintJob) : "") + (_choice.professional ? "_p" : "");
+            const image::Image* words = _pictures.jpg(pic);
+            if (!words && _choice.professional)
+                words = _pictures.jpg(car.base + "_lck" + (open ? std::to_string(_choice.paintJob) : ""));
+            if (const image::Image* lock = _pictures.texture("LOCKED"))
                 if (const Widget* w = widget("Locked Sign"))
                     drawPicture(o, *lock, w->x - lock->w / 2, w->y - lock->h / 2);
             if (words)
@@ -797,7 +797,7 @@ void FrontEnd::draw(Surface& o) {
             for (char& c : upper)
                 c = char(std::toupper(static_cast<unsigned char>(c)));
             // Stored upside down (unlike the HUD's pictures).
-            if (const image::Image* d = pictures_.texture(upper + "_DESC")) {
+            if (const image::Image* d = _pictures.texture(upper + "_DESC")) {
                 image::Image flipped = *d;
                 const size_t row = size_t(d->w) * 4;
                 for (int y = 0; y < d->h; ++y)
@@ -813,7 +813,7 @@ void FrontEnd::draw(Surface& o) {
         desc.clear();
     }
     if (!desc.empty())
-        if (const image::Image* d = pictures_.jpg(desc))
+        if (const image::Image* d = _pictures.jpg(desc))
             drawPicture(o, *d, 40, 396);
     font::drawText(o, 4, o.h - 12,
                    std::string("Up/Down, Left/Right, Enter, Esc; U: everything open (") + (openAll ? "on" : "off") +

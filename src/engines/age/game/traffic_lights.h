@@ -15,7 +15,7 @@
 
 namespace reluva::age {
 
-enum class Signal { Green, Yellow, Red };
+enum class Signal { kGreen, kYellow, kRed };
 
 // The traffic lights the game puts up at road ends: where an end's
 // control is 1 (docs/formats/age/bai.md), at its two points (on the
@@ -27,14 +27,14 @@ public:
     static constexpr float kGreen = 12, kYellow = 3, kAllRed = 1; // seconds
 
     void build(const AiRoadMap& map, const AiMapSettings& settings);
-    void update(float dt) { clock_ += dt; }
-    void setClock(float seconds) { clock_ = seconds; }
+    void update(float dt) { _clock += dt; }
+    void setClock(float seconds) { _clock = seconds; }
 
     // The light for traffic arriving at road `road`'s end `end` (0 at its
     // last point, 1 at its first); Green where there's none.
     Signal signal(uint32_t road, int end) const;
-    bool has(uint32_t road, int end) const { return index_.count(key(road, end)) > 0; }
-    size_t count() const { return lights_.size(); }
+    bool has(uint32_t road, int end) const { return _index.count(key(road, end)) > 0; }
+    size_t count() const { return _lights.size(); }
     // Where light `i` stands (its model, the point it's stood on, its
     // axes), and knocking it down (it's no longer drawn; its signal goes
     // on, for the traffic).
@@ -43,8 +43,8 @@ public:
         Vec3 at{};
         Mat3 axes;
     };
-    Placement placement(size_t i) const { return {models_[size_t(lights_[i].model)], lights_[i].at, lights_[i].axes}; }
-    void knockDown(size_t i) { lights_[i].down = true; }
+    Placement placement(size_t i) const { return {_models[size_t(_lights[i].model)], _lights[i].at, _lights[i].axes}; }
+    void knockDown(size_t i) { _lights[i].down = true; }
 
     // The models with the glows for each light's state (the night glows,
     // larger, when `night`), within `distance` of the eye.
@@ -67,11 +67,11 @@ private:
     static uint64_t key(uint32_t road, int end) { return uint64_t(road) << 1 | uint64_t(end & 1); }
     Signal signalOf(const Light& l) const;
 
-    std::vector<Light> lights_;
-    std::vector<Junction> junctions_;
-    std::map<uint64_t, size_t> index_;
-    std::array<std::string, 2> models_;
-    float clock_ = 0;
+    std::vector<Light> _lights;
+    std::vector<Junction> _junctions;
+    std::map<uint64_t, size_t> _index;
+    std::array<std::string, 2> _models;
+    float _clock = 0;
 };
 
 } // namespace reluva::age

@@ -45,55 +45,55 @@ void CollisionWorld::add(const Vec3& a, const Vec3& b, const Vec3& c, Surface su
     const Vec3 n = normalized(cross(b - a, c - a));
     if (length(n) < 0.5f)
         return; // degenerate
-    triangles_.push_back({a, b, c, n, surface});
+    _triangles.push_back({a, b, c, n, surface});
 }
 
 void CollisionWorld::setMoving(const std::vector<std::array<Vec3, 3>>& triangles, Surface surface) {
-    moving_.clear();
+    _moving.clear();
     for (const auto& t : triangles) {
         const Vec3 n = normalized(cross(t[1] - t[0], t[2] - t[0]));
         if (length(n) >= 0.5f)
-            moving_.push_back({t[0], t[1], t[2], n, surface});
+            _moving.push_back({t[0], t[1], t[2], n, surface});
     }
 }
 
 void CollisionWorld::build(float cellSize) {
-    cellSize_ = cellSize;
-    grid_.clear();
-    for (uint32_t i = 0; i < triangles_.size(); ++i) {
-        const Triangle& t = triangles_[i];
-        const int x0 = int(std::floor(std::min({t.a[0], t.b[0], t.c[0]}) / cellSize_));
-        const int x1 = int(std::floor(std::max({t.a[0], t.b[0], t.c[0]}) / cellSize_));
-        const int z0 = int(std::floor(std::min({t.a[2], t.b[2], t.c[2]}) / cellSize_));
-        const int z1 = int(std::floor(std::max({t.a[2], t.b[2], t.c[2]}) / cellSize_));
+    _cellSize = cellSize;
+    _grid.clear();
+    for (uint32_t i = 0; i < _triangles.size(); ++i) {
+        const Triangle& t = _triangles[i];
+        const int x0 = int(std::floor(std::min({t.a[0], t.b[0], t.c[0]}) / _cellSize));
+        const int x1 = int(std::floor(std::max({t.a[0], t.b[0], t.c[0]}) / _cellSize));
+        const int z0 = int(std::floor(std::min({t.a[2], t.b[2], t.c[2]}) / _cellSize));
+        const int z1 = int(std::floor(std::max({t.a[2], t.b[2], t.c[2]}) / _cellSize));
         for (int ix = x0; ix <= x1; ++ix)
             for (int iz = z0; iz <= z1; ++iz)
-                grid_[cellOf(ix, iz)].push_back(i);
+                _grid[cellOf(ix, iz)].push_back(i);
     }
-    seen_.assign(triangles_.size(), 0);
-    query_ = 0;
+    _seen.assign(_triangles.size(), 0);
+    _query = 0;
 }
 
 template <typename F>
 void CollisionWorld::forEachNear(float x0, float z0, float x1, float z1, F&& f) const {
-    if (++query_ == 0) { // wrapped: forget every stamp
-        std::fill(seen_.begin(), seen_.end(), 0);
-        query_ = 1;
+    if (++_query == 0) { // wrapped: forget every stamp
+        std::fill(_seen.begin(), _seen.end(), 0);
+        _query = 1;
     }
-    const int ix0 = int(std::floor(x0 / cellSize_)), ix1 = int(std::floor(x1 / cellSize_));
-    const int iz0 = int(std::floor(z0 / cellSize_)), iz1 = int(std::floor(z1 / cellSize_));
+    const int ix0 = int(std::floor(x0 / _cellSize)), ix1 = int(std::floor(x1 / _cellSize));
+    const int iz0 = int(std::floor(z0 / _cellSize)), iz1 = int(std::floor(z1 / _cellSize));
     for (int ix = ix0; ix <= ix1; ++ix)
         for (int iz = iz0; iz <= iz1; ++iz) {
-            auto it = grid_.find(cellOf(ix, iz));
-            if (it == grid_.end())
+            auto it = _grid.find(cellOf(ix, iz));
+            if (it == _grid.end())
                 continue;
             for (uint32_t i : it->second)
-                if (seen_[i] != query_) {
-                    seen_[i] = query_;
-                    f(triangles_[i]);
+                if (_seen[i] != _query) {
+                    _seen[i] = _query;
+                    f(_triangles[i]);
                 }
         }
-    for (const Triangle& t : moving_)
+    for (const Triangle& t : _moving)
         if (std::max({t.a[0], t.b[0], t.c[0]}) >= x0 && std::min({t.a[0], t.b[0], t.c[0]}) <= x1 &&
             std::max({t.a[2], t.b[2], t.c[2]}) >= z0 && std::min({t.a[2], t.b[2], t.c[2]}) <= z1)
             f(t);

@@ -19,19 +19,19 @@ namespace reluva::age {
 // docs/formats/age/psdl.md.
 
 namespace psdlattr {
-constexpr uint8_t RoadStrip = 0;     // sections of 4: sidewalk, road, road, sidewalk
-constexpr uint8_t SidewalkStrip = 1; // pairs: inner (road side), outer
-constexpr uint8_t RectStrip = 2;     // pairs
-constexpr uint8_t Sliver = 3;        // top height, texture scale, left, right
-constexpr uint8_t Crosswalk = 4;     // 4 vertices
-constexpr uint8_t RoadFan = 5;       // a triangle fan of road (intersections)
-constexpr uint8_t Fan = 6;           // a triangle fan (ground, plazas)
-constexpr uint8_t FacadeBound = 7;   // angle, height, left, right: not drawn
-constexpr uint8_t DividedRoad = 8;   // two words, then sections of 6
-constexpr uint8_t Tunnel = 9;        // flags and two heights (and an outline's edges): walls, railings, ceilings
-constexpr uint8_t Texture = 10;      // sets the texture for what follows
-constexpr uint8_t Facade = 11;       // bottom, top, u repeat, v repeat, left, right
-constexpr uint8_t Roof = 12;         // height, then a triangle fan
+constexpr uint8_t kRoadStrip = 0;     // sections of 4: sidewalk, road, road, sidewalk
+constexpr uint8_t kSidewalkStrip = 1; // pairs: inner (road side), outer
+constexpr uint8_t kRectStrip = 2;     // pairs
+constexpr uint8_t kSliver = 3;        // top height, texture scale, left, right
+constexpr uint8_t kCrosswalk = 4;     // 4 vertices
+constexpr uint8_t kRoadFan = 5;       // a triangle fan of road (intersections)
+constexpr uint8_t kFan = 6;           // a triangle fan (ground, plazas)
+constexpr uint8_t kFacadeBound = 7;   // angle, height, left, right: not drawn
+constexpr uint8_t kDividedRoad = 8;   // two words, then sections of 6
+constexpr uint8_t kTunnel = 9;        // flags and two heights (and an outline's edges): walls, railings, ceilings
+constexpr uint8_t kTexture = 10;      // sets the texture for what follows
+constexpr uint8_t kFacade = 11;       // bottom, top, u repeat, v repeat, left, right
+constexpr uint8_t kRoof = 12;         // height, then a triangle fan
 } // namespace psdlattr
 
 struct PsdlAttribute {
@@ -51,10 +51,10 @@ struct PsdlBlock {
 
 // A block's flags (psdl.md).
 namespace psdlblock {
-constexpr uint8_t Covered = 0x2;  // under a roof: a tunnel, the Underground
-constexpr uint8_t Plain = 0x4;    // no road: ground, buildings (the blocks before Psdl::firstRoadBlock)
-constexpr uint8_t Road = 0x8;     // part of a road between junctions
-constexpr uint8_t Junction = 0x10; // a junction (as the .bai road map's junctions)
+constexpr uint8_t kCovered = 0x2;  // under a roof: a tunnel, the Underground
+constexpr uint8_t kPlain = 0x4;    // no road: ground, buildings (the blocks before Psdl::firstRoadBlock)
+constexpr uint8_t kRoad = 0x8;     // part of a road between junctions
+constexpr uint8_t kJunction = 0x10; // a junction (as the .bai road map's junctions)
 } // namespace psdlblock
 
 // A road between two junctions, from the data after the city's bounds:

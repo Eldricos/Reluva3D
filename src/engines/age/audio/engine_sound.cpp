@@ -109,38 +109,38 @@ Error EngineSound::start(audio::Mixer& mixer, const SearchSet& files, const std:
     const std::string table = "aud/cardata/player/" + car + ".csv";
     if (Error err = files.read(table, data))
         return err;
-    if (Error err = readEngineSound(std::string(data.begin(), data.end()), setup_))
+    if (Error err = readEngineSound(std::string(data.begin(), data.end()), _setup))
         return Error::fail(table + ": " + err.message);
-    mixer_ = &mixer;
-    for (const EngineSample& s : setup_.samples) {
+    _mixer = &mixer;
+    for (const EngineSample& s : _setup.samples) {
         auto sound = std::make_shared<audio::Sound>();
         bool ok = (!files.read("aud/aud22/engines/" + s.wave + ".22k.wav", data) ||
                    !files.read("aud/aud11/" + s.wave + ".11k.wav", data)) &&
                   !audio::decodeSound(data, *sound);
-        playing_.push_back(ok ? mixer.play(sound, audio::SoundType::kEffects, 0, 0, true) : audio::kNoSound);
+        _playing.push_back(ok ? mixer.play(sound, audio::SoundType::kEffects, 0, 0, true) : audio::kNoSound);
     }
     return Error::success();
 }
 
 void EngineSound::update(float rpm, float throttle, float gain, float pan) {
-    for (size_t i = 0; i < playing_.size(); ++i) {
-        if (playing_[i] == audio::kNoSound)
+    for (size_t i = 0; i < _playing.size(); ++i) {
+        if (_playing[i] == audio::kNoSound)
             continue;
         float volume, pitch;
-        engineSampleMix(setup_.samples[i], rpm, throttle, volume, pitch);
-        mixer_->setVolume(playing_[i], int(volume * gain * audio::kMaxVolume));
-        mixer_->setPan(playing_[i], int(std::clamp(pan, -1.0f, 1.0f) * audio::kMaxPan));
-        mixer_->setPitch(playing_[i], pitch);
+        engineSampleMix(_setup.samples[i], rpm, throttle, volume, pitch);
+        _mixer->setVolume(_playing[i], int(volume * gain * audio::kMaxVolume));
+        _mixer->setPan(_playing[i], int(std::clamp(pan, -1.0f, 1.0f) * audio::kMaxPan));
+        _mixer->setPitch(_playing[i], pitch);
     }
 }
 
 void EngineSound::stop() {
-    if (mixer_)
-        for (audio::SoundHandle h : playing_)
+    if (_mixer)
+        for (audio::SoundHandle h : _playing)
             if (h != audio::kNoSound)
-                mixer_->stop(h);
-    playing_.clear();
-    mixer_ = nullptr;
+                _mixer->stop(h);
+    _playing.clear();
+    _mixer = nullptr;
 }
 
 Error readSirenTable(std::string_view csv, std::vector<SirenSample>& out) {
@@ -173,58 +173,58 @@ Error readSirenTable(std::string_view csv, std::vector<SirenSample>& out) {
 
 Error SirenSound::load(audio::Mixer& mixer, const SearchSet& files, const std::string& table) {
     stop();
-    samples_.clear();
-    sounds_.clear();
+    _samples.clear();
+    _sounds.clear();
     std::vector<uint8_t> data;
     if (Error err = files.read(table, data))
         return err;
-    if (Error err = readSirenTable(std::string(data.begin(), data.end()), samples_))
+    if (Error err = readSirenTable(std::string(data.begin(), data.end()), _samples))
         return Error::fail(table + ": " + err.message);
-    mixer_ = &mixer;
-    for (const SirenSample& s : samples_) {
+    _mixer = &mixer;
+    for (const SirenSample& s : _samples) {
         auto sound = std::make_shared<audio::Sound>();
         const bool ok = (!files.read("aud/aud22/sirens/" + s.wave + ".22k.wav", data) ||
                          !files.read("aud/aud11/" + s.wave + ".11k.wav", data)) &&
                         !audio::decodeSound(data, *sound);
-        sounds_.push_back(ok ? sound : nullptr);
+        _sounds.push_back(ok ? sound : nullptr);
     }
     return Error::success();
 }
 
 void SirenSound::update(float dt, float volume) {
-    if (!mixer_ || samples_.empty())
+    if (!_mixer || _samples.empty())
         return;
     if (volume <= 0) {
         stop();
         return;
     }
-    left_ -= dt;
-    if (current_ < 0 || left_ <= 0) {
+    _left -= dt;
+    if (_current < 0 || _left <= 0) {
         // On to the next sample (the first to start with).
         int next = 0;
-        if (current_ >= 0) {
-            const SirenSample& s = samples_[size_t(current_)];
-            next = s.next.empty() ? current_ : s.next[turns_++ % s.next.size()].second;
+        if (_current >= 0) {
+            const SirenSample& s = _samples[size_t(_current)];
+            next = s.next.empty() ? _current : s.next[_turns++ % s.next.size()].second;
         }
-        current_ = std::clamp(next, 0, int(samples_.size()) - 1);
-        const SirenSample& s = samples_[size_t(current_)];
-        left_ = s.next.empty() ? 1e9f : std::max(0.2f, s.next[turns_ % s.next.size()].first);
-        if (playing_ != audio::kNoSound)
-            mixer_->stop(playing_);
-        const auto& sound = sounds_[size_t(current_)];
-        playing_ = sound ? mixer_->play(sound, audio::SoundType::kEffects, 0, 0, true) : audio::kNoSound;
+        _current = std::clamp(next, 0, int(_samples.size()) - 1);
+        const SirenSample& s = _samples[size_t(_current)];
+        _left = s.next.empty() ? 1e9f : std::max(0.2f, s.next[_turns % s.next.size()].first);
+        if (_playing != audio::kNoSound)
+            _mixer->stop(_playing);
+        const auto& sound = _sounds[size_t(_current)];
+        _playing = sound ? _mixer->play(sound, audio::SoundType::kEffects, 0, 0, true) : audio::kNoSound;
     }
-    if (playing_ != audio::kNoSound)
-        mixer_->setVolume(playing_, int(std::clamp(volume, 0.0f, 1.0f) * samples_[size_t(current_)].volume *
+    if (_playing != audio::kNoSound)
+        _mixer->setVolume(_playing, int(std::clamp(volume, 0.0f, 1.0f) * _samples[size_t(_current)].volume *
                                         float(audio::kMaxVolume)));
 }
 
 void SirenSound::stop() {
-    if (mixer_ && playing_ != audio::kNoSound)
-        mixer_->stop(playing_);
-    playing_ = audio::kNoSound;
-    current_ = -1;
-    left_ = 0;
+    if (_mixer && _playing != audio::kNoSound)
+        _mixer->stop(_playing);
+    _playing = audio::kNoSound;
+    _current = -1;
+    _left = 0;
 }
 
 Error readSurfaceSounds(std::string_view csv, SurfaceSounds& out) {
@@ -303,12 +303,12 @@ Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds>& out) {
 }
 
 CarSounds::SoundPtr CarSounds::load(const std::string& wave) const {
-    if (wave.empty() || wave == "NOSOUND" || !files_)
+    if (wave.empty() || wave == "NOSOUND" || !_files)
         return nullptr;
     std::vector<uint8_t> data;
     for (const char* folder : {"", "engines/", "horns/", "surfaces/", "impacts/", "suspension/"})
-        if (!files_->read("aud/aud22/" + std::string(folder) + wave + ".22k.wav", data) ||
-            (!*folder && !files_->read("aud/aud11/" + wave + ".11k.wav", data))) {
+        if (!_files->read("aud/aud22/" + std::string(folder) + wave + ".22k.wav", data) ||
+            (!*folder && !_files->read("aud/aud11/" + wave + ".11k.wav", data))) {
             auto sound = std::make_shared<audio::Sound>();
             if (!audio::decodeSound(data, *sound))
                 return sound;
@@ -318,44 +318,44 @@ CarSounds::SoundPtr CarSounds::load(const std::string& wave) const {
 
 Error CarSounds::start(audio::Mixer& mixer, const SearchSet& files, const std::string& car, bool wet) {
     stop();
-    mixer_ = &mixer;
-    files_ = &files;
+    _mixer = &mixer;
+    _files = &files;
     std::vector<uint8_t> data;
     auto text = [&](const std::string& name) {
         return files.read(name, data) ? std::string() : std::string(data.begin(), data.end());
     };
-    Error first = readEngineSound(text("aud/cardata/player/" + car + ".csv"), car_);
-    horn_ = load(car_.horn);
-    clutch_ = load(car_.clutch);
-    lastGear_ = 1;
+    Error first = readEngineSound(text("aud/cardata/player/" + car + ".csv"), _car);
+    _horn = load(_car.horn);
+    _clutch = load(_car.clutch);
+    _lastGear = 1;
     if (Error err = readSurfaceSounds(
-            text(std::string("aud/cardata/player/default_surface") + (wet ? "wet" : "dry") + ".csv"), surfaces_);
+            text(std::string("aud/cardata/player/default_surface") + (wet ? "wet" : "dry") + ".csv"), _surfaces);
         err && !first)
         first = err;
-    rolling_.clear();
-    skidding_.clear();
-    for (const SurfaceSound& s : surfaces_.surfaces) {
-        rolling_.push_back(load(s.wave));
-        skidding_.emplace_back();
+    _rolling.clear();
+    _skidding.clear();
+    for (const SurfaceSound& s : _surfaces.surfaces) {
+        _rolling.push_back(load(s.wave));
+        _skidding.emplace_back();
         for (const SkidSample& k : s.skids)
-            skidding_.back().push_back(load(k.wave));
+            _skidding.back().push_back(load(k.wave));
     }
     std::vector<ImpactSounds> impacts;
     if (Error err = readImpactSounds(text("aud/cardata/player/default_impacts.csv"), impacts); err && !first)
         first = err;
-    wall_ = impacts.empty() ? ImpactSounds{} : impacts.front(); // WALL, the city's walls and other cars
-    wallSounds_.clear();
-    for (const ImpactSample& s : wall_.samples)
-        wallSounds_.push_back(load(s.wave));
+    _wall = impacts.empty() ? ImpactSounds{} : impacts.front(); // WALL, the city's walls and other cars
+    _wallSounds.clear();
+    for (const ImpactSample& s : _wall.samples)
+        _wallSounds.push_back(load(s.wave));
     // suspensionaudio.csv: a heading, then the sample, velocities and volumes.
     const auto lines = linesOf(text("aud/cardata/player/suspensionaudio.csv"));
     if (lines.size() > 1) {
         const auto f = fields(lines[1]);
-        suspension_ = f.empty() ? nullptr : load(f[0]);
-        bumpMin_ = number(f, 1);
-        bumpMax_ = number(f, 2);
-        bumpMinVolume = number(f, 3);
-        bumpMaxVolume = number(f, 4);
+        _suspension = f.empty() ? nullptr : load(f[0]);
+        _bumpMin = number(f, 1);
+        _bumpMax = number(f, 2);
+        _bumpMinVolume = number(f, 3);
+        _bumpMaxVolume = number(f, 4);
     }
     return first;
 }
@@ -363,24 +363,24 @@ Error CarSounds::start(audio::Mixer& mixer, const SearchSet& files, const std::s
 void CarSounds::loop(audio::SoundHandle& handle, const SoundPtr& sound, float volume, float pitch) {
     if (volume <= 0.01f || !sound) {
         if (handle != audio::kNoSound)
-            mixer_->stop(handle);
+            _mixer->stop(handle);
         handle = audio::kNoSound;
         return;
     }
     if (handle == audio::kNoSound)
-        handle = mixer_->play(sound, audio::SoundType::kEffects, 0, 0, true);
-    mixer_->setVolume(handle, int(std::clamp(volume, 0.0f, 1.0f) * float(audio::kMaxVolume)));
-    mixer_->setPitch(handle, pitch);
+        handle = _mixer->play(sound, audio::SoundType::kEffects, 0, 0, true);
+    _mixer->setVolume(handle, int(std::clamp(volume, 0.0f, 1.0f) * float(audio::kMaxVolume)));
+    _mixer->setPitch(handle, pitch);
 }
 
 void CarSounds::update(float dt, const CarSim& car, bool horn) {
-    if (!mixer_)
+    if (!_mixer)
         return;
     // The horn, held; the clutch on changing gear.
-    loop(hornPlaying_, horn_, horn ? car_.hornVolume : 0, 1);
-    if (car.gear != lastGear_ && clutch_)
-        mixer_->play(clutch_, audio::SoundType::kEffects, int(car_.clutchVolume * float(audio::kMaxVolume)));
-    lastGear_ = car.gear;
+    loop(_hornPlaying, _horn, horn ? _car.hornVolume : 0, 1);
+    if (car.gear != _lastGear && _clutch)
+        _mixer->play(_clutch, audio::SoundType::kEffects, int(_car.clutchVolume * float(audio::kMaxVolume)));
+    _lastGear = car.gear;
 
     // The tyres: on the surface most of the wheels touching are on.
     int counts[256] = {};
@@ -395,18 +395,18 @@ void CarSounds::update(float dt, const CarSim& car, bool horn) {
     int surface = -1;
     if (touching) {
         surface = int(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
-        if (size_t(surface) >= surfaces_.surfaces.size())
+        if (size_t(surface) >= _surfaces.surfaces.size())
             surface = 0;
     }
     const float speed = length(car.velocity);
-    if (surface != rollSurface_) {
-        loop(rollPlaying_, nullptr, 0, 1); // another recording
-        rollSurface_ = surface;
+    if (surface != _rollSurface) {
+        loop(_rollPlaying, nullptr, 0, 1); // another recording
+        _rollSurface = surface;
     }
-    if (surface >= 0 && !surfaces_.surfaces.empty()) {
-        const SurfaceSound& s = surfaces_.surfaces[size_t(surface)];
+    if (surface >= 0 && !_surfaces.surfaces.empty()) {
+        const SurfaceSound& s = _surfaces.surfaces[size_t(surface)];
         const float f = std::clamp(speed / s.maxSpeed, 0.0f, 1.0f);
-        loop(rollPlaying_, rolling_[size_t(surface)], speed < 1 ? 0 : s.minVolume + (s.maxVolume - s.minVolume) * f,
+        loop(_rollPlaying, _rolling[size_t(surface)], speed < 1 ? 0 : s.minVolume + (s.maxVolume - s.minVolume) * f,
              s.minPitch + (s.maxPitch - s.minPitch) * f);
         // The skid whose slip range takes in the tyres', louder as they
         // slide more.
@@ -414,64 +414,64 @@ void CarSounds::update(float dt, const CarSim& car, bool horn) {
         for (size_t k = 0; k < s.skids.size(); ++k)
             if (slip >= s.skids[k].minSlip && slip <= s.skids[k].maxSlip)
                 sample = int(k);
-        if (surface != skidSurface_ || sample != skidSample_) {
-            loop(skidPlaying_, nullptr, 0, 1);
-            skidSurface_ = surface;
-            skidSample_ = sample;
+        if (surface != _skidSurface || sample != _skidSample) {
+            loop(_skidPlaying, nullptr, 0, 1);
+            _skidSurface = surface;
+            _skidSample = sample;
         }
         if (sample >= 0 && speed > 2) {
             const float from = s.skids.front().minSlip;
             const float g = std::clamp((slip - from) / std::max(0.01f, 1 - from), 0.0f, 1.0f);
-            loop(skidPlaying_, skidding_[size_t(surface)][size_t(sample)],
+            loop(_skidPlaying, _skidding[size_t(surface)][size_t(sample)],
                  s.minSkidVolume + (s.maxSkidVolume - s.minSkidVolume) * g, 1);
         } else {
-            loop(skidPlaying_, nullptr, 0, 1);
+            loop(_skidPlaying, nullptr, 0, 1);
         }
     } else {
-        loop(rollPlaying_, nullptr, 0, 1);
-        loop(skidPlaying_, nullptr, 0, 1);
+        loop(_rollPlaying, nullptr, 0, 1);
+        loop(_skidPlaying, nullptr, 0, 1);
     }
 
     // Knocks: the WALL sample for how hard (an impulse, kg m/s, read as the
     // table's force), louder within its range.
-    impactWait_ = std::max(0.0f, impactWait_ - dt);
-    if (impactWait_ <= 0 && !wall_.samples.empty() && car.impact >= wall_.samples.front().minForce) {
-        for (size_t k = 0; k < wall_.samples.size(); ++k) {
-            const ImpactSample& s = wall_.samples[k];
-            if (car.impact < s.minForce || car.impact > s.maxForce || !wallSounds_[k])
+    _impactWait = std::max(0.0f, _impactWait - dt);
+    if (_impactWait <= 0 && !_wall.samples.empty() && car.impact >= _wall.samples.front().minForce) {
+        for (size_t k = 0; k < _wall.samples.size(); ++k) {
+            const ImpactSample& s = _wall.samples[k];
+            if (car.impact < s.minForce || car.impact > s.maxForce || !_wallSounds[k])
                 continue;
             const float g = std::clamp((car.impact - s.minForce) / std::max(1.0f, s.maxForce - s.minForce), 0.0f, 1.0f);
             const audio::SoundHandle h =
-                mixer_->play(wallSounds_[k], audio::SoundType::kEffects,
+                _mixer->play(_wallSounds[k], audio::SoundType::kEffects,
                              int((s.minVolume + (s.maxVolume - s.minVolume) * g) * float(audio::kMaxVolume)));
             if (h != audio::kNoSound)
-                mixer_->setPitch(h, s.pitch);
-            impactWait_ = 0.25f;
+                _mixer->setPitch(h, s.pitch);
+            _impactWait = 0.25f;
             break;
         }
     }
 
     // The suspension bottoming out or a wheel landing.
-    bumpWait_ = std::max(0.0f, bumpWait_ - dt);
+    _bumpWait = std::max(0.0f, _bumpWait - dt);
     float bump = 0;
     for (const CarSim::Wheel& w : car.wheels)
         bump = std::max(bump, w.bump);
-    if (suspension_ && bumpWait_ <= 0 && bump >= bumpMin_) {
-        const float g = std::clamp((bump - bumpMin_) / std::max(0.01f, bumpMax_ - bumpMin_), 0.0f, 1.0f);
-        mixer_->play(suspension_, audio::SoundType::kEffects,
-                     int((bumpMinVolume + (bumpMaxVolume - bumpMinVolume) * g) * float(audio::kMaxVolume)));
-        bumpWait_ = 0.3f;
+    if (_suspension && _bumpWait <= 0 && bump >= _bumpMin) {
+        const float g = std::clamp((bump - _bumpMin) / std::max(0.01f, _bumpMax - _bumpMin), 0.0f, 1.0f);
+        _mixer->play(_suspension, audio::SoundType::kEffects,
+                     int((_bumpMinVolume + (_bumpMaxVolume - _bumpMinVolume) * g) * float(audio::kMaxVolume)));
+        _bumpWait = 0.3f;
     }
 }
 
 void CarSounds::stop() {
-    if (mixer_)
-        for (audio::SoundHandle* h : {&hornPlaying_, &rollPlaying_, &skidPlaying_})
+    if (_mixer)
+        for (audio::SoundHandle* h : {&_hornPlaying, &_rollPlaying, &_skidPlaying})
             if (*h != audio::kNoSound)
-                mixer_->stop(*h);
-    hornPlaying_ = rollPlaying_ = skidPlaying_ = audio::kNoSound;
-    rollSurface_ = skidSurface_ = skidSample_ = -1;
-    mixer_ = nullptr;
+                _mixer->stop(*h);
+    _hornPlaying = _rollPlaying = _skidPlaying = audio::kNoSound;
+    _rollSurface = _skidSurface = _skidSample = -1;
+    _mixer = nullptr;
 }
 
 } // namespace reluva::age

@@ -24,15 +24,15 @@ namespace reluva::age {
 
 struct GoldEvent {
     enum class Kind : uint8_t {
-        Got,       // picked up where it started
-        Recovered, // picked up where it was dropped
-        Dropped,   // knocked loose (or the car went out of the city)
-        Delivered, // to the side's base: a point
-        Returned,  // lay too long, or fell out of the city: back where it started
-        TimeUp,
-        PointLimit,
+        kGot,       // picked up where it started
+        kRecovered, // picked up where it was dropped
+        kDropped,   // knocked loose (or the car went out of the city)
+        kDelivered, // to the side's base: a point
+        kReturned,  // lay too long, or fell out of the city: back where it started
+        kTimeUp,
+        kPointLimit,
     };
-    Kind kind = Kind::Got;
+    Kind kind = Kind::kGot;
     uint8_t player = kNoPlayer;
     uint8_t side = 0; // the player's side then
     uint32_t seq = 0;
@@ -59,20 +59,20 @@ public:
 
     // A player's side: its team in the team modes, else itself.
     uint8_t sideOf(const Car& car) const { return teams() ? car.team : car.id; }
-    bool teams() const { return mode_ != GoldMode::FreeForAll; }
-    GoldMode mode() const { return mode_; }
+    bool teams() const { return _mode != GoldMode::kFreeForAll; }
+    GoldMode mode() const { return _mode; }
 
-    uint8_t holder() const { return holder_; }
-    const Vec3& goldPosition() const { return gold_; }
+    uint8_t holder() const { return _holder; }
+    const Vec3& goldPosition() const { return _gold; }
     // The base a side delivers to (in a free-for-all, everyone's hideout).
     Vec3 base(uint8_t side) const;
-    const Vec3& home() const { return home_; }
+    const Vec3& home() const { return _home; }
     int score(uint8_t side) const;
-    const std::map<uint8_t, int>& scores() const { return scores_; }
-    bool over() const { return over_; }
+    const std::map<uint8_t, int>& scores() const { return _scores; }
+    bool over() const { return _over; }
     // The events since `seq` (the last one seen), oldest first.
     std::vector<GoldEvent> eventsAfter(uint32_t seq) const;
-    uint32_t lastEvent() const { return eventSeq_; }
+    uint32_t lastEvent() const { return _eventSeq; }
 
     // As the host sends it, and as a player reads it.
     std::vector<uint8_t> encode() const;
@@ -82,22 +82,22 @@ private:
     void event(GoldEvent::Kind kind, uint8_t player, uint8_t side);
     void restAt(const Vec3& at, bool atHome);
 
-    GoldMode mode_ = GoldMode::FreeForAll;
-    GoldLimit limit_ = GoldLimit::None;
-    int limitValue_ = 0;
-    std::vector<Vec3> points_;
-    Vec3 home_{}, gold_{};
-    std::array<Vec3, 2> bases_{};
-    uint8_t holder_ = kNoPlayer;
-    bool atHome_ = true;
-    float restingFor_ = 0;            // seconds it's lain away from home
-    uint8_t lastDropper_ = kNoPlayer; // can't pick it straight up again
-    float dropperWait_ = 0;
-    float holderSafe_ = 0; // a new holder can't be knocked loose at once
-    std::map<uint8_t, int> scores_;
-    bool over_ = false;
-    std::vector<GoldEvent> events_; // the last few
-    uint32_t eventSeq_ = 0;
+    GoldMode _mode = GoldMode::kFreeForAll;
+    GoldLimit _limit = GoldLimit::kNone;
+    int _limitValue = 0;
+    std::vector<Vec3> _points;
+    Vec3 _home{}, _gold{};
+    std::array<Vec3, 2> _bases{};
+    uint8_t _holder = kNoPlayer;
+    bool _atHome = true;
+    float _restingFor = 0;            // seconds it's lain away from home
+    uint8_t _lastDropper = kNoPlayer; // can't pick it straight up again
+    float _dropperWait = 0;
+    float _holderSafe = 0; // a new holder can't be knocked loose at once
+    std::map<uint8_t, int> _scores;
+    bool _over = false;
+    std::vector<GoldEvent> _events; // the last few
+    uint32_t _eventSeq = 0;
 };
 
 // A computer player's mind: where to drive, as a path along the roads for
@@ -106,7 +106,7 @@ private:
 // cruise it drives from place to place.
 class GoldBot {
 public:
-    void start(uint32_t seed) { *this = GoldBot(), seed_ = seed; }
+    void start(uint32_t seed) { *this = GoldBot(), _seed = seed; }
     // Where it wants to be: `chasing` when that's another side's car.
     static Vec3 goal(uint8_t id, uint8_t team, const GoldGame& gold, const std::vector<GoldGame::Car>& cars,
                      bool& chasing);
@@ -119,20 +119,20 @@ public:
     // Hardly moved for six seconds with its goal still away: the caller
     // puts it back on the road (the nearest point of `roads`) and calls
     // unstuck().
-    bool stuck() const { return stillFor_ > 6; }
+    bool stuck() const { return _stillFor > 6; }
     void unstuck() {
-        stillFor_ = 0;
-        replanIn_ = 0;
+        _stillFor = 0;
+        _replanIn = 0;
     }
 
 private:
-    uint32_t seed_ = 1;
-    float replanIn_ = 0;
-    Vec3 planned_{};
-    bool planning_ = false;
-    size_t place_ = 0;
-    Vec3 still_{};       // where it was when it last moved 4 m
-    float stillFor_ = 0; // and how long ago
+    uint32_t _seed = 1;
+    float _replanIn = 0;
+    Vec3 _planned{};
+    bool _planning = false;
+    size_t _place = 0;
+    Vec3 _still{};       // where it was when it last moved 4 m
+    float _stillFor = 0; // and how long ago
 };
 
 // The game's points for Cops & Robbers: race/<city>/multicopwaypoints.csv.

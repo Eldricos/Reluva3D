@@ -97,35 +97,35 @@ Error GameMusic::startTrack(const SearchSet& files, audio::Mixer& mixer, size_t 
 }
 
 Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed) {
-    if (performance_ && !menu_ && mixer_ == &mixer && race == race_ && seed == seed_) {
-        still_ = 0;
-        idle_ = wasPaused_ = false;
+    if (_performance && !_menu && _mixer == &mixer && race == _race && seed == _seed) {
+        _still = 0;
+        _idle = _wasPaused = false;
         return Error::success();
     }
     stop();
-    race_ = race;
-    seed_ = seed;
+    _race = race;
+    _seed = seed;
     const std::vector<MusicSet> sets = readSets(files, race);
     if (sets.empty())
         return Error::fail(std::string(race ? "singlerace" : "singleroam") + ".csv: no music");
-    set_ = sets[seed % sets.size()];
+    _set = sets[seed % sets.size()];
     const SearchSet* source = &files;
-    performance_ = std::make_shared<audio::DmPerformance>(
+    _performance = std::make_shared<audio::DmPerformance>(
         mixer.outputRate(),
         [source](const std::string& name, std::vector<uint8_t>& out) {
             return !source->read("aud/dmusic/" + name, out);
         },
         seed);
-    mixer_ = &mixer;
+    _mixer = &mixer;
     // Every segment the tune may switch to, read now rather than mid-race.
-    for (const std::string* seg : {&set_.back, &set_.idle, &set_.idleCops, &set_.cops, &set_.pause, &set_.results})
+    for (const std::string* seg : {&_set.back, &_set.idle, &_set.idleCops, &_set.cops, &_set.pause, &_set.results})
         if (!seg->empty())
-            performance_->prepare(*seg + ".sgt");
-    mixer.addStream(performance_, audio::SoundType::kMusic);
-    still_ = 0;
-    idle_ = wasChased_ = wasPaused_ = false;
-    wanted_.clear();
-    want(set_.start);
+            _performance->prepare(*seg + ".sgt");
+    mixer.addStream(_performance, audio::SoundType::kMusic);
+    _still = 0;
+    _idle = _wasChased = _wasPaused = false;
+    _wanted.clear();
+    want(_set.start);
     return Error::success();
 }
 
@@ -150,71 +150,71 @@ Error GameMusic::startMenu(const SearchSet& files, audio::Mixer& mixer) {
             segment = lines[1];
     }
     const SearchSet* source = &files;
-    performance_ = std::make_shared<audio::DmPerformance>(
+    _performance = std::make_shared<audio::DmPerformance>(
         mixer.outputRate(),
         [source](const std::string& name, std::vector<uint8_t>& out) {
             return !source->read("aud/dmusic/" + name, out);
         },
         1);
-    mixer_ = &mixer;
-    mixer.addStream(performance_, audio::SoundType::kMusic);
-    wanted_ = segment;
-    menu_ = true;
-    return performance_->play(segment + ".sgt");
+    _mixer = &mixer;
+    mixer.addStream(_performance, audio::SoundType::kMusic);
+    _wanted = segment;
+    _menu = true;
+    return _performance->play(segment + ".sgt");
 }
 
 void GameMusic::stop() {
-    if (mixer_ && performance_)
-        mixer_->removeStream(performance_.get());
-    performance_.reset();
-    mixer_ = nullptr;
-    menu_ = false;
-    wanted_.clear();
+    if (_mixer && _performance)
+        _mixer->removeStream(_performance.get());
+    _performance.reset();
+    _mixer = nullptr;
+    _menu = false;
+    _wanted.clear();
 }
 
 void GameMusic::want(const std::string& segment) {
-    if (!performance_ || segment.empty() || segment == wanted_)
+    if (!_performance || segment.empty() || segment == _wanted)
         return;
-    wanted_ = segment;
-    performance_->play(segment + ".sgt");
+    _wanted = segment;
+    _performance->play(segment + ".sgt");
 }
 
 void GameMusic::bigAir() {
-    if (performance_ && !menu_ && !set_.airStyle.empty() && !set_.airMotif.empty())
-        performance_->playMotif(set_.airStyle + ".sty", set_.airMotif,
-                                set_.airBand.empty() ? "" : set_.airBand + ".bnd");
+    if (_performance && !_menu && !_set.airStyle.empty() && !_set.airMotif.empty())
+        _performance->playMotif(_set.airStyle + ".sty", _set.airMotif,
+                                _set.airBand.empty() ? "" : _set.airBand + ".bnd");
 }
 
 void GameMusic::update(float dt, const State& s) {
-    if (!performance_)
+    if (!_performance)
         return;
     if (s.finished) {
-        want(set_.results);
+        want(_set.results);
         return;
     }
     if (s.paused) {
-        want(set_.pause);
-        wasPaused_ = true;
+        want(_set.pause);
+        _wasPaused = true;
         return;
     }
-    still_ = s.speed < kStopped ? still_ + dt : 0;
-    const bool wasIdle = idle_;
-    if (still_ > kIdleAfter)
-        idle_ = true;
+    _still = s.speed < kStopped ? _still + dt : 0;
+    const bool wasIdle = _idle;
+    if (_still > kIdleAfter)
+        _idle = true;
     else if (s.speed > kMoving)
-        idle_ = false;
-    if (idle_) {
-        want(s.chased ? set_.idleCops : set_.idle);
+        _idle = false;
+    if (_idle) {
+        want(s.chased ? _set.idleCops : _set.idle);
     } else if (s.chased || s.lastStretch) {
         // The race's last stretch speeds up too: the chase segment (see
         // docs/engines/age-footage.md).
-        want(set_.cops);
-    } else if (wasIdle || wasChased_ || wasPaused_) {
+        want(_set.cops);
+    } else if (wasIdle || _wasChased || _wasPaused) {
         // On the move again, out of a chase or back from the pause.
-        want(set_.back);
+        want(_set.back);
     }
-    wasChased_ = s.chased || s.lastStretch;
-    wasPaused_ = false;
+    _wasChased = s.chased || s.lastStretch;
+    _wasPaused = false;
 }
 
 } // namespace reluva::age

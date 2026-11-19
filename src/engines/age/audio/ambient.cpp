@@ -110,7 +110,7 @@ float ambientGain(const Ambience& a, float distance) {
 
 Error AmbientSounds::load(const SearchSet& files, const std::string& map, audio::Mixer* mixer, uint32_t seed) {
     clear();
-    random_.seed(seed);
+    _random.seed(seed);
     std::vector<uint8_t> data;
     if (Error err = files.read("aud/ambient/" + map + "ambientcontainer.csv", data))
         return err;
@@ -119,18 +119,18 @@ Error AmbientSounds::load(const SearchSet& files, const std::string& map, audio:
         if (files.read("aud/ambient/" + name + ".csv", data) ||
             parseAmbience(std::string(data.begin(), data.end()), a) || a.points.empty())
             continue;
-        ambiences_.push_back(std::move(a));
+        _ambiences.push_back(std::move(a));
     }
-    mixer_ = mixer;
-    for (size_t i = 0; i < ambiences_.size(); ++i)
-        for (const AmbientSample& s : ambiences_[i].samples) {
+    _mixer = mixer;
+    for (size_t i = 0; i < _ambiences.size(); ++i)
+        for (const AmbientSample& s : _ambiences[i].samples) {
             // Those played when something happens aren't the ambience's.
             if (!s.active || s.type == 3)
                 continue;
             Voice v;
             v.ambience = i;
             v.sample = &s;
-            if (mixer_) {
+            if (_mixer) {
                 auto sound = std::make_shared<audio::Sound>();
                 if ((!files.read("aud/aud22/Amb3D/" + s.name + ".22k.wav", data) ||
                      !files.read("aud/aud22/" + s.name + ".22k.wav", data) ||
@@ -138,20 +138,20 @@ Error AmbientSounds::load(const SearchSet& files, const std::string& map, audio:
                     !audio::decodeSound(data, *sound))
                     v.sound = sound;
             }
-            v.wait = std::uniform_real_distribution<float>(0, std::max(s.high, 0.1f))(random_);
-            voices_.push_back(std::move(v));
+            v.wait = std::uniform_real_distribution<float>(0, std::max(s.high, 0.1f))(_random);
+            _voices.push_back(std::move(v));
         }
     return Error::success();
 }
 
 void AmbientSounds::clear() {
-    if (mixer_)
-        for (Voice& v : voices_)
+    if (_mixer)
+        for (Voice& v : _voices)
             if (v.handle != audio::kNoSound)
-                mixer_->stop(v.handle);
-    voices_.clear();
-    ambiences_.clear();
-    mixer_ = nullptr;
+                _mixer->stop(v.handle);
+    _voices.clear();
+    _ambiences.clear();
+    _mixer = nullptr;
 }
 
 void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, const Vec3& velocity) {
@@ -159,7 +159,7 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
     constexpr float kMostPan = 0.8f; // of the way to one side: some of it heard in both ears
     std::vector<float> gains;
     std::vector<Vec3> nearestAt;
-    for (const Ambience& a : ambiences_) {
+    for (const Ambience& a : _ambiences) {
         float nearest = 1e30f;
         Vec3 at = listener;
         for (const Vec3& p : a.points)
@@ -177,39 +177,39 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
         const AmbientSample& s = *v.sample;
         if (speed < s.minSpeed || speed > s.maxSpeed)
             return 0.0f;
-        const int area = ambiences_[v.ambience].area;
+        const int area = _ambiences[v.ambience].area;
         if ((area == 1 && !below) || (area == 2 && below))
             return 0.0f;
-        return gains[v.ambience] * s.volume * gain_;
+        return gains[v.ambience] * s.volume * _gain;
     };
     // The loops heard, the most important (then the loudest) first, up to
     // the most that play; one-shots take what's left.
     std::vector<size_t> loops;
-    for (size_t i = 0; i < voices_.size(); ++i)
-        if (voices_[i].sample->type == 0 && voices_[i].sound && gainOf(voices_[i]) > 0.01f)
+    for (size_t i = 0; i < _voices.size(); ++i)
+        if (_voices[i].sample->type == 0 && _voices[i].sound && gainOf(_voices[i]) > 0.01f)
             loops.push_back(i);
     std::stable_sort(loops.begin(), loops.end(), [&](size_t a, size_t b) {
-        const int pa = ambiences_[voices_[a].ambience].priority, pb = ambiences_[voices_[b].ambience].priority;
-        return pa != pb ? pa > pb : gainOf(voices_[a]) > gainOf(voices_[b]);
+        const int pa = _ambiences[_voices[a].ambience].priority, pb = _ambiences[_voices[b].ambience].priority;
+        return pa != pb ? pa > pb : gainOf(_voices[a]) > gainOf(_voices[b]);
     });
     if (loops.size() > kMostVoices)
         loops.resize(kMostVoices);
     size_t busy = 0;
-    for (size_t i = 0; i < voices_.size(); ++i) {
-        Voice& v = voices_[i];
+    for (size_t i = 0; i < _voices.size(); ++i) {
+        Voice& v = _voices[i];
         if (v.sample->type == 0)
             busy += std::find(loops.begin(), loops.end(), i) != loops.end();
-        else if (mixer_ && v.handle != audio::kNoSound && mixer_->isPlaying(v.handle))
+        else if (_mixer && v.handle != audio::kNoSound && _mixer->isPlaying(v.handle))
             ++busy;
     }
-    for (size_t i = 0; i < voices_.size(); ++i) {
-        Voice& v = voices_[i];
+    for (size_t i = 0; i < _voices.size(); ++i) {
+        Voice& v = _voices[i];
         const float gain = gainOf(v);
         const int volume = int(std::clamp(gain, 0.0f, 1.0f) * audio::kMaxVolume);
         // From where its nearest point is: to the side it's on (less so
         // within its least distance, where it's all round), and higher
         // coming nearer.
-        const Ambience& a = ambiences_[v.ambience];
+        const Ambience& a = _ambiences[v.ambience];
         Vec3 to = nearestAt[v.ambience] - listener;
         to[1] = 0;
         const float away = length(to);
@@ -225,38 +225,38 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
             v.heard.pitch = std::clamp((kSound + closing) / kSound, 0.5f, 2.0f);
         }
         auto place = [&] {
-            if (mixer_ && v.handle != audio::kNoSound) {
-                mixer_->setVolume(v.handle, volume);
-                mixer_->setPan(v.handle, v.heard.pan);
-                mixer_->setPitch(v.handle, v.heard.pitch);
+            if (_mixer && v.handle != audio::kNoSound) {
+                _mixer->setVolume(v.handle, volume);
+                _mixer->setPan(v.handle, v.heard.pan);
+                _mixer->setPitch(v.handle, v.heard.pitch);
             }
         };
         if (v.sample->type == 0) {
             // A loop, while it's heard (and among those that play).
-            if (!mixer_ || !v.sound)
+            if (!_mixer || !v.sound)
                 continue;
             const bool heard = std::find(loops.begin(), loops.end(), i) != loops.end();
             if (heard && v.handle == audio::kNoSound)
-                v.handle = mixer_->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, true);
+                v.handle = _mixer->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, true);
             else if (!heard && v.handle != audio::kNoSound) {
-                mixer_->stop(v.handle);
+                _mixer->stop(v.handle);
                 v.handle = audio::kNoSound;
             }
             place();
             continue;
         }
         // A one-shot, now and then while it's heard.
-        if (mixer_ && v.handle != audio::kNoSound && !mixer_->isPlaying(v.handle))
+        if (_mixer && v.handle != audio::kNoSound && !_mixer->isPlaying(v.handle))
             v.handle = audio::kNoSound;
         place();
         v.wait -= dt;
         if (v.wait > 0)
             continue;
         const float low = std::max(0.5f, v.sample->low), high = std::max(low, v.sample->high);
-        v.wait = std::uniform_real_distribution<float>(low, high)(random_);
-        if (gain > 0.01f && mixer_ && v.sound && v.handle == audio::kNoSound && busy < kMostVoices) {
-            v.handle = mixer_->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, false);
-            mixer_->setPitch(v.handle, v.heard.pitch);
+        v.wait = std::uniform_real_distribution<float>(low, high)(_random);
+        if (gain > 0.01f && _mixer && v.sound && v.handle == audio::kNoSound && busy < kMostVoices) {
+            v.handle = _mixer->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, false);
+            _mixer->setPitch(v.handle, v.heard.pitch);
             ++busy;
         }
     }
@@ -264,8 +264,8 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
 
 size_t AmbientSounds::playing() const {
     size_t n = 0;
-    for (const Voice& v : voices_)
-        if (v.handle != audio::kNoSound && (!mixer_ || mixer_->isPlaying(v.handle)))
+    for (const Voice& v : _voices)
+        if (v.handle != audio::kNoSound && (!_mixer || _mixer->isPlaying(v.handle)))
             ++n;
     return n;
 }

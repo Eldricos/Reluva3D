@@ -56,22 +56,22 @@ std::string iniValue(const std::string& text, const std::string& key) {
 // .cinfo keys.
 const char* fileStem(RaceKind k) {
     switch (k) {
-    case RaceKind::Blitz: return "blitz";
-    case RaceKind::Circuit: return "circuit";
-    case RaceKind::Checkpoint: return "race";
-    case RaceKind::CrashCourse: return "crash";
-    case RaceKind::Cruise:
+    case RaceKind::kBlitz: return "blitz";
+    case RaceKind::kCircuit: return "circuit";
+    case RaceKind::kCheckpoint: return "race";
+    case RaceKind::kCrashCourse: return "crash";
+    case RaceKind::kCruise:
         return "roam";
     }
     return "race";
 }
 const char* infoKey(RaceKind k) {
     switch (k) {
-    case RaceKind::Blitz: return "Blitz";
-    case RaceKind::Circuit: return "Circuit";
-    case RaceKind::Checkpoint: return "Checkpoint";
-    case RaceKind::CrashCourse: return "Crash Course";
-    case RaceKind::Cruise:
+    case RaceKind::kBlitz: return "Blitz";
+    case RaceKind::kCircuit: return "Circuit";
+    case RaceKind::kCheckpoint: return "Checkpoint";
+    case RaceKind::kCrashCourse: return "Crash Course";
+    case RaceKind::kCruise:
         return "Cruise";
     }
     return "Checkpoint";
@@ -87,7 +87,7 @@ std::string raceStem(RaceKind kind, int index) { return fileStem(kind) + std::to
 
 std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional) {
     // A cruise's police patrol as roam.aimap says (the stunt has none).
-    if (kind == RaceKind::Cruise)
+    if (kind == RaceKind::kCruise)
         return "race/" + city + "/" +
                (index == kStuntRace       ? "accel0"
                 : index == kPrototypeRace ? "stunt0"
@@ -111,7 +111,7 @@ RaceUnlocking raceUnlocking(const SearchSet& files, const std::string& city) {
 
 std::vector<std::string> raceNames(const SearchSet& files, const std::string& city, RaceKind kind) {
     std::vector<uint8_t> data;
-    if (kind == RaceKind::CrashCourse) {
+    if (kind == RaceKind::kCrashCourse) {
         // As many as there are crash<n>data.csv; named in mmlang.dll.
         GameStrings strings;
         strings.load(files);
@@ -121,7 +121,7 @@ std::vector<std::string> raceNames(const SearchSet& files, const std::string& ci
             names.push_back(strings.get(i < strings::kLessonCount ? first + i : 0, "Lesson " + std::to_string(i + 1)));
         return names;
     }
-    if (kind == RaceKind::Cruise) {
+    if (kind == RaceKind::kCruise) {
         // mmlang.dll's words for them.
         GameStrings strings;
         strings.load(files);
@@ -260,7 +260,7 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
     out.name = size_t(index) < names.size() ? names[size_t(index)] : "";
     const std::string dir = "race/" + city + "/";
     std::vector<uint8_t> data;
-    if (kind == RaceKind::Cruise) {
+    if (kind == RaceKind::kCruise) {
         // No table: Reluva's own conditions to start from (the race menu
         // changes them). The cruise starts where the race page puts it;
         // the stunt along accel0's points, the last the end of the pier.
@@ -296,7 +296,7 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
     if (Error err = parseRaceSettings(textOf(data), index, out.settings))
         return Error::fail(table + ": " + err.message);
     const std::string stem = dir + fileStem(kind) + std::to_string(index);
-    if (kind == RaceKind::CrashCourse) {
+    if (kind == RaceKind::kCrashCourse) {
         // The lesson's own row names its checkpoints' file; its aimap its
         // opponents' paths (the car to follow...), the same at both levels.
         if (Error err = files.read(stem + "data.csv", data))

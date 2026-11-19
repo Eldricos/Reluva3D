@@ -74,33 +74,33 @@ uint32_t padKey(int button, bool driving, const GameOptions& options) {
     }
     switch (button) {
     case pad::kSouth:
-        return keyOf(Control::Handbrake, options);
+        return keyOf(Control::kHandbrake, options);
     case pad::kEast:
-        return keyOf(Control::Horn, options);
+        return keyOf(Control::kHorn, options);
     case pad::kWest:
-        return keyOf(Control::Reverse, options);
+        return keyOf(Control::kReverse, options);
     case pad::kNorth:
-        return keyOf(Control::ChangeCamera, options);
+        return keyOf(Control::kChangeCamera, options);
     case pad::kLeftShoulder:
-        return keyOf(Control::ShiftDown, options);
+        return keyOf(Control::kShiftDown, options);
     case pad::kRightShoulder:
-        return keyOf(Control::ShiftUp, options);
+        return keyOf(Control::kShiftUp, options);
     case pad::kBack:
-        return keyOf(Control::MapToggle, options);
+        return keyOf(Control::kMapToggle, options);
     case pad::kStart:
         return key::kEscape;
     case pad::kLeftStick:
-        return keyOf(Control::ThrillCam, options);
+        return keyOf(Control::kThrillCam, options);
     case pad::kRightStick:
-        return keyOf(Control::LookBack, options);
+        return keyOf(Control::kLookBack, options);
     case pad::kDpadUp:
-        return keyOf(Control::NextCheckpoint, options);
+        return keyOf(Control::kNextCheckpoint, options);
     case pad::kDpadDown:
-        return keyOf(Control::RearViewMirror, options);
+        return keyOf(Control::kRearViewMirror, options);
     case pad::kDpadLeft:
-        return keyOf(Control::LookLeft, options);
+        return keyOf(Control::kLookLeft, options);
     case pad::kDpadRight:
-        return keyOf(Control::LookRight, options);
+        return keyOf(Control::kLookRight, options);
     default:
         return 0;
     }

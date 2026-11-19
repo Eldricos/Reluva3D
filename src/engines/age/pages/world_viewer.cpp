@@ -25,49 +25,49 @@ enum : uint32_t { kMoveForward = 1, kMoveBack = 2, kMoveLeft = 4, kMoveRight = 8
 
 } // namespace
 
-WorldViewer::WorldViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx.files)) {}
+WorldViewer::WorldViewer(ViewerContext& ctx) : Page(ctx), _cities(findCities(ctx.files)) {}
 
 WorldViewer::~WorldViewer() { deactivate(); }
 
 void WorldViewer::deactivate() {
-    scene_.reset();
-    renderer_ = nullptr;
+    _scene.reset();
+    _renderer = nullptr;
 }
 
 void WorldViewer::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
-        renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
+    if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
+        _renderer = nullptr;
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The World page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    scene_ = std::make_unique<CityScene>(*renderer_, ctx_.files);
-    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
-    load(index_);
+    _scene = std::make_unique<CityScene>(*_renderer, _ctx.files);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
+    load(_index);
 }
 
 void WorldViewer::load(int index) {
-    index_ = index;
-    const CityInfo& city = cities_[size_t(index)];
+    _index = index;
+    const CityInfo& city = _cities[size_t(index)];
     setTitle(city.name + " (" + city.map + ")");
-    scene_->textures().setHalvings(textureHalvings());
-    error_ = scene_->load(city.map).message;
-    scene_->setLighting(lighting_);
+    _scene->textures().setHalvings(textureHalvings());
+    _error = _scene->load(city.map).message;
+    _scene->setLighting(_lighting);
     resetView();
 }
 
 void WorldViewer::resetView() {
     // A car's height above the start, facing along the road.
-    eye_ = {scene_->start[0], scene_->start[1] + 2.5f, scene_->start[2]};
-    yaw_ = scene_->startYaw;
-    pitch_ = -0.05f;
+    _eye = {_scene->start[0], _scene->start[1] + 2.5f, _scene->start[2]};
+    _yaw = _scene->startYaw;
+    _pitch = -0.05f;
 }
 
 void WorldViewer::handleEvent(const Event& ev) {
-    if (!renderer_ || cities_.empty())
+    if (!_renderer || _cities.empty())
         return;
     auto moveKey = [](uint32_t k) -> uint32_t {
         switch (k) {
@@ -86,98 +86,98 @@ void WorldViewer::handleEvent(const Event& ev) {
     };
     if (ev.type == EventType::kKeyDown) {
         if (const uint32_t m = moveKey(ev.key)) {
-            keys_ |= m;
+            _keys |= m;
             return;
         }
-        const int n = int(cities_.size());
+        const int n = int(_cities.size());
         if (ev.key == key::kLeft || ev.key == key::kRight) {
-            load((index_ + (ev.key == key::kRight ? 1 : n - 1)) % n);
+            load((_index + (ev.key == key::kRight ? 1 : n - 1)) % n);
         } else if (ev.key == 't') {
-            lighting_ = (lighting_ + 1) % 16;
-            scene_->setLighting(lighting_);
+            _lighting = (_lighting + 1) % 16;
+            _scene->setLighting(_lighting);
         } else if (ev.key == 'm') {
-            showModels_ = !showModels_;
+            _showModels = !_showModels;
         } else if (ev.key == 'v') {
-            scene_->setVisibility(!scene_->visibility());
+            _scene->setVisibility(!_scene->visibility());
         } else if (ev.key == 'i') {
-            showInfo_ = !showInfo_;
+            _showInfo = !_showInfo;
         } else if (ev.key == 'r') {
             resetView();
         }
     } else if (ev.type == EventType::kKeyUp) {
-        keys_ &= ~moveKey(ev.key);
+        _keys &= ~moveKey(ev.key);
     } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
-        dragging_ = true;
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+        _dragging = true;
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
     } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
-        dragging_ = false;
-    } else if (ev.type == EventType::kMouseMove && dragging_) {
-        yaw_ -= float(ev.mouseX - lastX_) * 0.005f;
-        pitch_ = std::clamp(pitch_ - float(ev.mouseY - lastY_) * 0.005f, -1.5f, 1.5f);
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+        _dragging = false;
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
+        _yaw -= float(ev.mouseX - _lastX) * 0.005f;
+        _pitch = std::clamp(_pitch - float(ev.mouseY - _lastY) * 0.005f, -1.5f, 1.5f);
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
     }
 }
 
 void WorldViewer::drawInfo(const std::string& stats) {
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     const int lh = font::kLineHeight;
-    const CityInfo& city = cities_[size_t(index_)];
-    font::drawText(overlay_, 4, 4,
-                   city.name + "  (Left/Right: city; " + scene_->lightingName() + ", T: time and weather)",
+    const CityInfo& city = _cities[size_t(_index)];
+    font::drawText(_overlay, 4, 4,
+                   city.name + "  (Left/Right: city; " + _scene->lightingName() + ", T: time and weather)",
                    {150, 200, 255});
     int y = 4 + lh;
-    if (!error_.empty()) {
-        font::drawText(overlay_, 4, y, error_, {255, 120, 120});
+    if (!_error.empty()) {
+        font::drawText(_overlay, 4, y, _error, {255, 120, 120});
         return;
     }
-    if (!showInfo_)
+    if (!_showInfo)
         return;
-    std::vector<std::string> lines = scene_->notes();
+    std::vector<std::string> lines = _scene->notes();
     lines.push_back(stats);
     char pos[160];
     std::snprintf(pos, sizeof pos, "at %.0f %.0f %.0f; W/A/S/D, Space/C, Shift, drag to look; M models, R start",
-                  eye_[0], eye_[1], eye_[2]);
+                  _eye[0], _eye[1], _eye[2]);
     lines.push_back(pos);
-    if (scene_->viewBlock())
-        std::snprintf(pos, sizeof pos, "in block %zu: %zu blocks can be seen (V: visibility off)", scene_->viewBlock(),
-                      scene_->blocksDrawn());
+    if (_scene->viewBlock())
+        std::snprintf(pos, sizeof pos, "in block %zu: %zu blocks can be seen (V: visibility off)", _scene->viewBlock(),
+                      _scene->blocksDrawn());
     else
-        std::snprintf(pos, sizeof pos, "%zu blocks drawn (V: visibility %s)", scene_->blocksDrawn(),
-                      scene_->visibility() ? "on, but not in a block" : "off");
+        std::snprintf(pos, sizeof pos, "%zu blocks drawn (V: visibility %s)", _scene->blocksDrawn(),
+                      _scene->visibility() ? "on, but not in a block" : "off");
     lines.push_back(pos);
-    for (const std::string& m : scene_->textures().missing())
+    for (const std::string& m : _scene->textures().missing())
         if (lines.size() < 12)
             lines.push_back("missing texture: " + m);
     for (const std::string& line : lines) {
-        font::drawText(overlay_, 4, y, line, {230, 230, 230});
+        font::drawText(_overlay, 4, y, line, {230, 230, 230});
         y += lh;
     }
 }
 
 void WorldViewer::update(uint64_t nowMs) {
-    if (!renderer_ || cities_.empty())
+    if (!_renderer || _cities.empty())
         return;
-    const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000) : 0;
-    lastMs_ = nowMs;
-    const gfx::Vec3 forward{-std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_), -std::cos(pitch_) * std::cos(yaw_)};
-    const gfx::Vec3 right{std::cos(yaw_), 0, -std::sin(yaw_)};
-    const float step = kSpeed * (keys_ & kMoveFast ? 4 : 1) * dt;
+    const float dt = _lastMs ? std::min(0.1f, float(nowMs - _lastMs) / 1000) : 0;
+    _lastMs = nowMs;
+    const gfx::Vec3 forward{-std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch), -std::cos(_pitch) * std::cos(_yaw)};
+    const gfx::Vec3 right{std::cos(_yaw), 0, -std::sin(_yaw)};
+    const float step = kSpeed * (_keys & kMoveFast ? 4 : 1) * dt;
     for (size_t k = 0; k < 3; ++k) {
-        eye_[k] += forward[k] * step * (float(bool(keys_ & kMoveForward)) - float(bool(keys_ & kMoveBack)));
-        eye_[k] += right[k] * step * (float(bool(keys_ & kMoveRight)) - float(bool(keys_ & kMoveLeft)));
+        _eye[k] += forward[k] * step * (float(bool(_keys & kMoveForward)) - float(bool(_keys & kMoveBack)));
+        _eye[k] += right[k] * step * (float(bool(_keys & kMoveRight)) - float(bool(_keys & kMoveLeft)));
     }
-    eye_[1] += step * (float(bool(keys_ & kMoveUp)) - float(bool(keys_ & kMoveDown)));
+    _eye[1] += step * (float(bool(_keys & kMoveUp)) - float(bool(_keys & kMoveDown)));
 
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(kFov, float(kFrameW) / float(kFrameH), 0.5f, kFar),
-                                             gfx::lookAlong(eye_, forward, {0, 1, 0}));
-    renderer_->beginFrame(viewProj, eye_, {150, 170, 200});
-    const size_t drawn = scene_->draw(viewProj, eye_, showModels_);
+                                             gfx::lookAlong(_eye, forward, {0, 1, 0}));
+    _renderer->beginFrame(viewProj, _eye, {150, 170, 200});
+    const size_t drawn = _scene->draw(viewProj, _eye, _showModels);
     char stats[80];
-    std::snprintf(stats, sizeof stats, "%zu of %zu placed models drawn", drawn, scene_->placedCount());
+    std::snprintf(stats, sizeof stats, "%zu of %zu placed models drawn", drawn, _scene->placedCount());
     drawInfo(stats);
-    renderer_->endFrame(&overlay_);
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::age

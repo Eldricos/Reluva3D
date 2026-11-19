@@ -65,14 +65,14 @@ public:
     // leaf, near the road): taken out where the leaves are.
     bool inGap(const Vec3& a, const Vec3& b, const Vec3& c) const;
 
-    size_t boats() const { return boats_.size(); }
-    size_t bridges() const { return bridges_.size(); }
-    size_t trains() const { return trains_.size(); }
+    size_t boats() const { return _boats.size(); }
+    size_t bridges() const { return _bridges.size(); }
+    size_t trains() const { return _trains.size(); }
     // Where a train's first carriage is, and how fast it's going.
-    Vec3 trainPosition(size_t train) const { return trains_[train].carriages.front().center; }
-    float trainSpeed(size_t train) const { return trains_[train].speed; }
+    Vec3 trainPosition(size_t train) const { return _trains[train].carriages.front().center; }
+    float trainSpeed(size_t train) const { return _trains[train].speed; }
     // 0 down .. 1 up, for a bridge.
-    float raised(size_t bridge) const { return bridges_[bridge].raised; }
+    float raised(size_t bridge) const { return _bridges[bridge].raised; }
 
 private:
     struct Boat {
@@ -125,14 +125,14 @@ private:
     void placeTrain(Train& t);
     Mat3 leafAxes(const Bridge& b, const Leaf& l, Vec3& center) const;
 
-    std::vector<Boat> boats_;
-    std::vector<Bridge> bridges_;
-    std::vector<Train> trains_;
-    audio::Mixer* mixer_ = nullptr;
-    std::shared_ptr<audio::Sound> trainSound_;
-    audio::SoundHandle trainPlaying_ = audio::kNoSound;
-    std::map<std::string, Bounds> bounds_;
-    float clock_ = 0;
+    std::vector<Boat> _boats;
+    std::vector<Bridge> _bridges;
+    std::vector<Train> _trains;
+    audio::Mixer* _mixer = nullptr;
+    std::shared_ptr<audio::Sound> _trainSound;
+    audio::SoundHandle _trainPlaying = audio::kNoSound;
+    std::map<std::string, Bounds> _bounds;
+    float _clock = 0;
 };
 
 } // namespace reluva::age

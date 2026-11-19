@@ -116,7 +116,7 @@ public:
     // Advances by `dt` seconds in fixed steps.
     void step(const CarControls& controls, const CollisionWorld& world, float dt);
 
-    const CarSetup& setup() const { return setup_; }
+    const CarSetup& setup() const { return _setup; }
     // Weight carried besides the car's own (Cops & Robbers' gold), kg.
     float ballast = 0;
     // The Control Options: auto reverse ("your vehicle goes into reverse
@@ -125,7 +125,7 @@ public:
     // turns.
     bool autoReverse = false; // the player's car takes the option's
     float steerRate = 1;
-    float mass() const { return setup_.mass + ballast; }
+    float mass() const { return _setup.mass + ballast; }
     Vec3 position{};          // of the body's origin
     Mat3 orientation;         // the body's axes: X right, Y up, Z back (cars face -Z)
     Vec3 velocity{}, angularVelocity{};
@@ -163,15 +163,15 @@ private:
     void collideBody(const CollisionWorld& world);
     Vec3 inverseInertiaTimes(const Vec3& torque) const;
 
-    CarSetup setup_;
-    float leftover_ = 0;     // time not stepped yet
-    float shiftTimer_ = 0;   // no drive while changing gear
-    float steerAngle_ = 0;   // eased towards the controls
-    float stuckFor_ = 0;     // seconds turned over
-    bool reverseHeld_ = false;
-    float blockedFor_ = 0;    // seconds the throttle's been held without going anywhere
-    bool backingOut_ = false; // auto reverse: backing away while the throttle's held
-    Vec3 stuckAt_{};         // where it was when it turned over
+    CarSetup _setup;
+    float _leftover = 0;     // time not stepped yet
+    float _shiftTimer = 0;   // no drive while changing gear
+    float _steerAngle = 0;   // eased towards the controls
+    float _stuckFor = 0;     // seconds turned over
+    bool _reverseHeld = false;
+    float _blockedFor = 0;    // seconds the throttle's been held without going anywhere
+    bool _backingOut = false; // auto reverse: backing away while the throttle's held
+    Vec3 _stuckAt{};         // where it was when it turned over
 };
 
 // Two cars bumping: each is three spheres along its length; where they

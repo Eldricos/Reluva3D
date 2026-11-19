@@ -40,32 +40,32 @@ void shownSize(const winhelp::Picture& p, int& w, int& h) {
 } // namespace
 
 Error HelpViewer::load(const SearchSet& files) {
-    if (Error err = files.read("MM2HELP.HLP", file_))
+    if (Error err = files.read("MM2HELP.HLP", _file))
         return err;
-    if (Error err = winhelp::readHelp(file_, topics_))
+    if (Error err = winhelp::readHelp(_file, _topics))
         return Error::fail("MM2HELP.HLP: " + err.message);
-    list_.clear();
-    for (size_t i = 0; i < topics_.size(); ++i)
-        if (!topics_[i].title.empty() && !winhelp::plainText(topics_[i].text).empty())
-            list_.push_back(int(i));
+    _list.clear();
+    for (size_t i = 0; i < _topics.size(); ++i)
+        if (!_topics[i].title.empty() && !winhelp::plainText(_topics[i].text).empty())
+            _list.push_back(int(i));
     return Error::success();
 }
 
 void HelpViewer::open() {
-    open_ = loaded();
-    reading_ = -1;
-    back_.clear();
+    _open = loaded();
+    _reading = -1;
+    _back.clear();
 }
 
 int HelpViewer::visibleRows() const { return (kBottom - kTop) / kRow; }
 
 const winhelp::Picture* HelpViewer::picture(int number) const {
-    auto it = pictures_.find(number);
-    if (it == pictures_.end()) {
+    auto it = _pictures.find(number);
+    if (it == _pictures.end()) {
         winhelp::Picture p;
-        if (winhelp::readPicture(file_, number, p))
+        if (winhelp::readPicture(_file, number, p))
             p = winhelp::Picture{}; // not read: nothing shown
-        it = pictures_.emplace(number, std::move(p)).first;
+        it = _pictures.emplace(number, std::move(p)).first;
     }
     return it->second.width > 0 ? &it->second : nullptr;
 }
@@ -77,14 +77,14 @@ int HelpViewer::pictureLines(const winhelp::Picture& p) const {
 }
 
 void HelpViewer::openTopic(int index, bool remember) {
-    if (index < 0 || index >= int(topics_.size()))
+    if (index < 0 || index >= int(_topics.size()))
         return;
-    if (remember && reading_ >= 0)
-        back_.push_back(reading_);
-    reading_ = index;
+    if (remember && _reading >= 0)
+        _back.push_back(_reading);
+    _reading = index;
     layOut();
-    line_ = 0;
-    link_ = links_.empty() ? -1 : 0;
+    _line = 0;
+    _link = _links.empty() ? -1 : 0;
 }
 
 void HelpViewer::layOut() {
@@ -92,9 +92,9 @@ void HelpViewer::layOut() {
     // between words, each character with its link; a tab moves on to the
     // next column (a table's second goes on under it); a picture on lines
     // of its own.
-    lines_.clear();
-    links_.clear();
-    const std::string& text = topics_[size_t(reading_)].text;
+    _lines.clear();
+    _links.clear();
+    const std::string& text = _topics[size_t(_reading)].text;
     size_t at = 0;
     while (at <= text.size()) {
         size_t end = text.find('\n', at);
@@ -112,14 +112,14 @@ void HelpViewer::layOut() {
                 if (const winhelp::Picture* p = picture(number)) {
                     Line l;
                     l.picture = number;
-                    lines_.push_back(l);
+                    _lines.push_back(l);
                     for (int k = 1; k < pictureLines(*p); ++k)
-                        lines_.emplace_back();
+                        _lines.emplace_back();
                 }
             } else if (c == winhelp::kLinkMark) {
                 const size_t close = text.find(c, i + 1);
-                links_.push_back(std::atoi(text.c_str() + i + 1));
-                link = int(links_.size()) - 1;
+                _links.push_back(std::atoi(text.c_str() + i + 1));
+                link = int(_links.size()) - 1;
                 i = close == std::string::npos ? end : close;
             } else if (c == winhelp::kLinkEnd) {
                 link = -1;
@@ -138,11 +138,11 @@ void HelpViewer::layOut() {
             }
         }
         const size_t indent = firstStop; // a wrapped line goes on under the first tab's column
-        if (para.text.empty() && (lines_.empty() || lines_.back().picture < 0))
-            lines_.emplace_back();
+        if (para.text.empty() && (_lines.empty() || _lines.back().picture < 0))
+            _lines.emplace_back();
         while (!para.text.empty()) {
             if (para.text.size() <= size_t(kColumns)) {
-                lines_.push_back(para);
+                _lines.push_back(para);
                 break;
             }
             size_t cut = para.text.rfind(' ', size_t(kColumns));
@@ -151,7 +151,7 @@ void HelpViewer::layOut() {
             Line l;
             l.text = para.text.substr(0, cut);
             l.link.assign(para.link.begin(), para.link.begin() + std::ptrdiff_t(cut));
-            lines_.push_back(l);
+            _lines.push_back(l);
             const size_t from = para.text[cut] == ' ' ? cut + 1 : cut;
             para.text = std::string(indent, ' ') + para.text.substr(from);
             para.link.erase(para.link.begin(), para.link.begin() + std::ptrdiff_t(from));
@@ -162,43 +162,43 @@ void HelpViewer::layOut() {
 }
 
 void HelpViewer::scroll(int lines) {
-    if (reading_ >= 0) {
-        line_ = std::clamp(line_ + lines, 0, std::max(0, int(lines_.size()) - visibleRows()));
+    if (_reading >= 0) {
+        _line = std::clamp(_line + lines, 0, std::max(0, int(_lines.size()) - visibleRows()));
         return;
     }
-    row_ = std::clamp(row_ + lines, 0, int(list_.size()) - 1);
-    if (row_ < top_)
-        top_ = row_;
-    if (row_ >= top_ + visibleRows())
-        top_ = row_ - visibleRows() + 1;
+    _row = std::clamp(_row + lines, 0, int(_list.size()) - 1);
+    if (_row < _top)
+        _top = _row;
+    if (_row >= _top + visibleRows())
+        _top = _row - visibleRows() + 1;
 }
 
 void HelpViewer::showLink(int link) {
-    for (int i = 0; i < int(lines_.size()); ++i)
-        if (std::find(lines_[size_t(i)].link.begin(), lines_[size_t(i)].link.end(), link) !=
-            lines_[size_t(i)].link.end()) {
-            if (i < line_ || i >= line_ + visibleRows())
-                line_ = std::clamp(i - visibleRows() / 3, 0, std::max(0, int(lines_.size()) - visibleRows()));
+    for (int i = 0; i < int(_lines.size()); ++i)
+        if (std::find(_lines[size_t(i)].link.begin(), _lines[size_t(i)].link.end(), link) !=
+            _lines[size_t(i)].link.end()) {
+            if (i < _line || i >= _line + visibleRows())
+                _line = std::clamp(i - visibleRows() / 3, 0, std::max(0, int(_lines.size()) - visibleRows()));
             return;
         }
 }
 
 void HelpViewer::follow(int link) {
-    if (link >= 0 && link < int(links_.size()))
-        openTopic(links_[size_t(link)]);
+    if (link >= 0 && link < int(_links.size()))
+        openTopic(_links[size_t(link)]);
 }
 
 void HelpViewer::handle(const Event& ev) {
-    if (!open_)
+    if (!_open)
         return;
     const int page = visibleRows() - 1;
     auto back = [&] {
-        if (!back_.empty()) {
-            const int to = back_.back();
-            back_.pop_back();
+        if (!_back.empty()) {
+            const int to = _back.back();
+            _back.pop_back();
             openTopic(to, false);
         } else {
-            reading_ = -1;
+            _reading = -1;
         }
     };
     if (ev.type == EventType::kMouseWheel) {
@@ -207,22 +207,22 @@ void HelpViewer::handle(const Event& ev) {
     }
     if (ev.type == EventType::kMouseDown) {
         if (ev.button == MouseButton::kRight) {
-            if (reading_ >= 0)
+            if (_reading >= 0)
                 back();
             else
-                open_ = false;
+                _open = false;
         } else if (ev.button == MouseButton::kLeft && ev.mouseY >= kTop && ev.mouseY < kBottom) {
             const int row = (ev.mouseY - kTop) / kRow;
-            if (reading_ < 0) {
-                const int at = top_ + row;
-                if (at < int(list_.size())) {
-                    row_ = at;
-                    back_.clear();
-                    openTopic(list_[size_t(at)], false);
+            if (_reading < 0) {
+                const int at = _top + row;
+                if (at < int(_list.size())) {
+                    _row = at;
+                    _back.clear();
+                    openTopic(_list[size_t(at)], false);
                 }
-            } else if (line_ + row < int(lines_.size())) {
+            } else if (_line + row < int(_lines.size())) {
                 // A link's words clicked.
-                const Line& l = lines_[size_t(line_ + row)];
+                const Line& l = _lines[size_t(_line + row)];
                 const int column = (ev.mouseX - kLeft) / font::kAdvance;
                 if (column >= 0 && column < int(l.link.size()) && l.link[size_t(column)] >= 0)
                     follow(l.link[size_t(column)]);
@@ -253,33 +253,33 @@ void HelpViewer::handle(const Event& ev) {
         scroll(100000);
         break;
     case key::kTab: // the next link (Shift: the one before)
-        if (reading_ >= 0 && !links_.empty()) {
-            const int n = int(links_.size());
-            link_ = ((link_ < 0 ? 0 : link_) + ((ev.mods & keymod::kShift) ? n - 1 : 1)) % n;
-            showLink(link_);
+        if (_reading >= 0 && !_links.empty()) {
+            const int n = int(_links.size());
+            _link = ((_link < 0 ? 0 : _link) + ((ev.mods & keymod::kShift) ? n - 1 : 1)) % n;
+            showLink(_link);
         }
         break;
     case key::kReturn:
     case key::kKpEnter:
     case key::kRight:
-        if (reading_ < 0) {
-            back_.clear();
-            openTopic(list_[size_t(row_)], false);
+        if (_reading < 0) {
+            _back.clear();
+            openTopic(_list[size_t(_row)], false);
         } else if (ev.key != key::kRight) {
-            follow(link_);
+            follow(_link);
         }
         break;
     case key::kEscape:
-        if (reading_ >= 0) {
-            reading_ = -1;
-            back_.clear();
+        if (_reading >= 0) {
+            _reading = -1;
+            _back.clear();
         } else {
-            open_ = false;
+            _open = false;
         }
         break;
     case key::kBackspace:
     case key::kLeft:
-        if (reading_ >= 0)
+        if (_reading >= 0)
             back();
         break;
     default:
@@ -288,20 +288,20 @@ void HelpViewer::handle(const Event& ev) {
 }
 
 void HelpViewer::draw(Surface& o) const {
-    if (!open_)
+    if (!_open)
         return;
     fill(o, 0, 0, kFrameW, kFrameH, {10, 12, 40}, 235);
     fill(o, 0, 0, kFrameW, 40, {30, 30, 90}, 255);
-    const std::string heading = reading_ >= 0 ? topics_[size_t(reading_)].title : std::string("Midtown Madness 2 Help");
+    const std::string heading = _reading >= 0 ? _topics[size_t(_reading)].title : std::string("Midtown Madness 2 Help");
     font::drawText(o, kLeft, 12, heading, {255, 230, 140}, 2);
     const int rows = visibleRows();
-    if (reading_ < 0) {
-        for (int i = 0; i < rows && top_ + i < int(list_.size()); ++i) {
-            const int t = top_ + i;
-            const bool chosen = t == row_;
+    if (_reading < 0) {
+        for (int i = 0; i < rows && _top + i < int(_list.size()); ++i) {
+            const int t = _top + i;
+            const bool chosen = t == _row;
             if (chosen)
                 fill(o, kLeft - 4, kTop + i * kRow - 2, kFrameW - 2 * kLeft + 8, kRow, {60, 60, 140}, 255);
-            font::drawText(o, kLeft, kTop + i * kRow, topics_[size_t(list_[size_t(t)])].title,
+            font::drawText(o, kLeft, kTop + i * kRow, _topics[size_t(_list[size_t(t)])].title,
                            chosen ? Color{255, 255, 120} : Color{210, 210, 255});
         }
         font::drawText(o, kLeft, kFrameH - 20, "Up/Down, Enter: read   Esc: close", {150, 200, 255});
@@ -309,14 +309,14 @@ void HelpViewer::draw(Surface& o) const {
     }
     // Pictures first (one starting above the top shows its lower part),
     // clipped to the page; then the words, links coloured.
-    for (int i = std::max(0, line_ - kPictureHeight / kRow - 1); i < line_ + rows && i < int(lines_.size()); ++i) {
-        const Line& l = lines_[size_t(i)];
+    for (int i = std::max(0, _line - kPictureHeight / kRow - 1); i < _line + rows && i < int(_lines.size()); ++i) {
+        const Line& l = _lines[size_t(i)];
         const winhelp::Picture* p = l.picture >= 0 ? picture(l.picture) : nullptr;
         if (!p)
             continue;
         int w = 0, h = 0;
         shownSize(*p, w, h);
-        const int y0 = kTop + (i - line_) * kRow, x0 = kLeft;
+        const int y0 = kTop + (i - _line) * kRow, x0 = kLeft;
         for (int y = std::max(0, kTop - y0); y < h && y0 + y < kBottom; ++y) {
             uint8_t* to = o.row(y0 + y) + x0 * 4;
             const int sy = y * p->height / h;
@@ -326,8 +326,8 @@ void HelpViewer::draw(Surface& o) const {
             }
         }
     }
-    for (int i = 0; i < rows && line_ + i < int(lines_.size()); ++i) {
-        const Line& l = lines_[size_t(line_ + i)];
+    for (int i = 0; i < rows && _line + i < int(_lines.size()); ++i) {
+        const Line& l = _lines[size_t(_line + i)];
         const int y = kTop + i * kRow;
         // Runs of the same link (or none) drawn together.
         for (size_t a = 0; a < l.text.size();) {
@@ -335,7 +335,7 @@ void HelpViewer::draw(Surface& o) const {
             while (b < l.text.size() && l.link[b] == l.link[a])
                 ++b;
             const int link = l.link[a];
-            const Color c = link < 0 ? kText : link == link_ ? kChosen : kLink;
+            const Color c = link < 0 ? kText : link == _link ? kChosen : kLink;
             const int x = kLeft + int(a) * font::kAdvance;
             font::drawText(o, x, y, l.text.substr(a, b - a), c);
             if (link >= 0) // underlined
@@ -344,7 +344,7 @@ void HelpViewer::draw(Surface& o) const {
         }
     }
     char where[64];
-    std::snprintf(where, sizeof where, "%d/%zu", std::min(line_ + rows, int(lines_.size())), lines_.size());
+    std::snprintf(where, sizeof where, "%d/%zu", std::min(_line + rows, int(_lines.size())), _lines.size());
     font::drawText(o, kFrameW - kLeft - int(font::length(where)) * font::kAdvance, kFrameH - 20, where,
                    {150, 150, 200});
     font::drawText(o, kLeft, kFrameH - 20, "Tab: next link  Enter: follow  Backspace: back  Esc: topics",

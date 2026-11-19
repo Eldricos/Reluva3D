@@ -16,12 +16,12 @@ namespace reluva::age {
 class GameStrings {
 public:
     Error load(const SearchSet& files);
-    bool loaded() const { return !strings_.empty(); }
+    bool loaded() const { return !_strings.empty(); }
     // The string, or `fallback` if there's none.
     std::string get(uint32_t id, const std::string& fallback = {}) const;
 
 private:
-    std::map<uint32_t, std::string> strings_;
+    std::map<uint32_t, std::string> _strings;
 };
 
 namespace strings {

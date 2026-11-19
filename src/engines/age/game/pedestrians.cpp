@@ -36,7 +36,7 @@ std::vector<float> distances(const std::vector<Vec3>& points) {
 Error Pedestrians::setup(gfx::Renderer3D& renderer, const SearchSet& files, const AiRoadMap& map,
                          const AiMapSettings& settings, bool rain, uint32_t seed) {
     unload();
-    rng_.seed(seed);
+    _rng.seed(seed);
     // Every sidewalk's middle line.
     for (const AiRoad& road : map.roads)
         for (const AiRoadSide& side : road.sides) {
@@ -50,7 +50,7 @@ Error Pedestrians::setup(gfx::Renderer3D& renderer, const SearchSet& files, cons
                 continue;
             if (!side.curb.empty() && !side.outerEdge.empty())
                 w.width = std::max(0.5f, flat(side.curb.front() - side.outerEdge.front()));
-            walks_.push_back(std::move(w));
+            _walks.push_back(std::move(w));
         }
     Error first = Error::success();
     for (const auto& pair : settings.peds) {
@@ -63,15 +63,15 @@ Error Pedestrians::setup(gfx::Renderer3D& renderer, const SearchSet& files, cons
             continue;
         }
         if (model->move("WALK") >= 0)
-            models_.push_back(std::move(model));
+            _models.push_back(std::move(model));
     }
-    return models_.empty() ? first : Error::success();
+    return _models.empty() ? first : Error::success();
 }
 
 void Pedestrians::unload() {
-    peds_.clear();
-    models_.clear();
-    walks_.clear();
+    _peds.clear();
+    _models.clear();
+    _walks.clear();
 }
 
 void Pedestrians::startMove(Ped& p, int move) {
@@ -80,7 +80,7 @@ void Pedestrians::startMove(Ped& p, int move) {
 }
 
 void Pedestrians::placeOnWalk(Ped& p) {
-    const Walk& w = walks_[size_t(p.walk)];
+    const Walk& w = _walks[size_t(p.walk)];
     Vec3 heading;
     const Vec3 c = pointAlong(w.points, w.at, p.s, &heading);
     if (!p.ahead)
@@ -93,62 +93,62 @@ void Pedestrians::placeOnWalk(Ped& p) {
 void Pedestrians::nextWalk(Ped& p) {
     // On round the corner along a sidewalk that starts or ends near here,
     // else back the way it came.
-    const Walk& w = walks_[size_t(p.walk)];
+    const Walk& w = _walks[size_t(p.walk)];
     const Vec3 here = p.ahead ? w.points.back() : w.points.front();
     std::vector<std::pair<int, bool>> ways;
-    for (size_t i = 0; i < walks_.size(); ++i) {
+    for (size_t i = 0; i < _walks.size(); ++i) {
         if (int(i) == p.walk)
             continue;
-        if (flat(walks_[i].points.front() - here) < kCorner)
+        if (flat(_walks[i].points.front() - here) < kCorner)
             ways.push_back({int(i), true});
-        if (flat(walks_[i].points.back() - here) < kCorner)
+        if (flat(_walks[i].points.back() - here) < kCorner)
             ways.push_back({int(i), false});
     }
     if (ways.empty()) {
         p.ahead = !p.ahead;
         return;
     }
-    const auto [walk, ahead] = ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(rng_)];
+    const auto [walk, ahead] = ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(_rng)];
     p.walk = walk;
     p.ahead = ahead;
-    p.s = ahead ? 0 : walks_[size_t(walk)].at.back();
+    p.s = ahead ? 0 : _walks[size_t(walk)].at.back();
 }
 
 void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser>& cars, const CollisionWorld& world,
                          bool fill) {
-    if (models_.empty() || walks_.empty())
+    if (_models.empty() || _walks.empty())
         return;
-    for (size_t i = 0; i < peds_.size();) {
-        if (flat(peds_[i].position - focus) > kForget) {
-            peds_[i] = peds_.back();
-            peds_.pop_back();
+    for (size_t i = 0; i < _peds.size();) {
+        if (flat(_peds[i].position - focus) > kForget) {
+            _peds[i] = _peds.back();
+            _peds.pop_back();
         } else {
             ++i;
         }
     }
-    const size_t wanted = size_t(std::lround(std::clamp(density_, 0.0f, 1.0f) * kPedsAtFull));
-    std::uniform_int_distribution<size_t> anyWalk(0, walks_.size() - 1);
+    const size_t wanted = size_t(std::lround(std::clamp(_density, 0.0f, 1.0f) * kPedsAtFull));
+    std::uniform_int_distribution<size_t> anyWalk(0, _walks.size() - 1);
     std::uniform_real_distribution<float> unit(0, 1);
-    for (int tries = fill ? 4000 : 100; tries > 0 && peds_.size() < std::min<size_t>(wanted, 60); --tries) {
+    for (int tries = fill ? 4000 : 100; tries > 0 && _peds.size() < std::min<size_t>(wanted, 60); --tries) {
         Ped p;
-        p.walk = int(anyWalk(rng_));
-        const Walk& w = walks_[size_t(p.walk)];
-        p.s = unit(rng_) * w.at.back();
-        p.ahead = unit(rng_) < 0.5f;
-        p.side = (unit(rng_) - 0.5f) * 0.5f;
+        p.walk = int(anyWalk(_rng));
+        const Walk& w = _walks[size_t(p.walk)];
+        p.s = unit(_rng) * w.at.back();
+        p.ahead = unit(_rng) < 0.5f;
+        p.side = (unit(_rng) - 0.5f) * 0.5f;
         placeOnWalk(p);
         const float d = flat(p.position - focus);
         if (d > kSpawnFar || d < (fill ? 5 : kSpawnNear))
             continue;
-        p.model = int(rng_() % models_.size());
-        p.paintJob = rng_() % std::max(1u, models_[size_t(p.model)]->paintJobs());
-        startMove(p, models_[size_t(p.model)]->move("WALK"));
-        p.time = unit(rng_);
-        peds_.push_back(p);
+        p.model = int(_rng() % _models.size());
+        p.paintJob = _rng() % std::max(1u, _models[size_t(p.model)]->paintJobs());
+        startMove(p, _models[size_t(p.model)]->move("WALK"));
+        p.time = unit(_rng);
+        _peds.push_back(p);
     }
 
-    for (Ped& p : peds_) {
-        const PedModel& model = *models_[size_t(p.model)];
+    for (Ped& p : _peds) {
+        const PedModel& model = *_models[size_t(p.model)];
         p.time += dt;
         if (p.walking) {
             // A car coming at it: dive to the side away from its way.
@@ -181,12 +181,12 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
                 p.idle -= dt;
                 continue;
             }
-            const Walk& w = walks_[size_t(p.walk)];
+            const Walk& w = _walks[size_t(p.walk)];
             const float speed = std::fabs(model.moveAt(p.move).travel[2]);
             p.s += (p.ahead ? speed : -speed) * dt;
             if (p.s > w.at.back() || p.s < 0) {
                 nextWalk(p);
-                p.s = std::clamp(p.s, 0.0f, walks_[size_t(p.walk)].at.back());
+                p.s = std::clamp(p.s, 0.0f, _walks[size_t(p.walk)].at.back());
             }
             placeOnWalk(p);
             continue;
@@ -199,7 +199,7 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
             startMove(p, mv.next);
         } else if (p.move == model.move("STAND") && p.time > 1) {
             // Up again: back to the nearest point of its sidewalk.
-            const Walk& w = walks_[size_t(p.walk)];
+            const Walk& w = _walks[size_t(p.walk)];
             float best = 1e9f;
             for (size_t i = 0; i < w.points.size(); ++i) {
                 const float d = flat(w.points[i] - p.position);
@@ -221,10 +221,10 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
 
 void Pedestrians::draw(const gfx::Mat4& viewProj, const Vec3& eye, const SceneLight& light) const {
     const ViewFrustum frustum(viewProj);
-    for (const Ped& p : peds_) {
+    for (const Ped& p : _peds) {
         if (length(p.position - eye) > kDrawDistance || !frustum.visible(p.position + Vec3{0, 1, 0}, 1.2f))
             continue;
-        models_[size_t(p.model)]->draw(matrixOf(Mat3::rotationY(p.yaw), p.position), p.move, p.time, p.paintJob, light);
+        _models[size_t(p.model)]->draw(matrixOf(Mat3::rotationY(p.yaw), p.position), p.move, p.time, p.paintJob, light);
     }
 }
 

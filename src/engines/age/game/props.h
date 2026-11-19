@@ -80,7 +80,7 @@ Error parseBangerData(const std::string& text, BangerData& out);
 // pushed and are no longer in the way. See docs/engines/age-traffic.md.
 class Props {
 public:
-    void clear() { props_.clear(); }
+    void clear() { _props.clear(); }
     // city/<map>/props.pathset's props, and a race's own
     // (race/<map>/<variant>.pathset: "circuit0"...).
     void load(const SearchSet& files, const std::string& map, const std::string& variant = "");
@@ -95,7 +95,7 @@ public:
     using ModelBox = std::function<bool(const std::string& model, Vec3& low, Vec3& high)>;
     void prepare(const SearchSet& files, ModelCache& models);
     void prepare(const SearchSet& files, const ModelBox& box);
-    bool prepared() const { return prepared_; }
+    bool prepared() const { return _prepared; }
     // Their triangles into `world` (any put there before taken out first).
     void collide(CollisionWorld& world) const;
     // The props the cars broke loose come away (out of `world`; a traffic
@@ -113,9 +113,9 @@ public:
         std::string texture;
         Vec3 at, velocity;
     };
-    std::vector<Burst> takeBursts() { return std::move(bursts_); }
+    std::vector<Burst> takeBursts() { return std::move(_bursts); }
 
-    size_t count() const { return props_.size(); }
+    size_t count() const { return _props.size(); }
     size_t loose() const;
     // Pieces of props come apart, and those come to rest; the lowest
     // height any of them is at (for tests).
@@ -157,10 +157,10 @@ private:
         std::string texture;
     };
     int addEffect(const BangerData& b, const Vec3& middle);
-    std::vector<Prop> props_;
-    std::vector<Effect> effects_;
-    std::vector<Burst> bursts_;
-    bool prepared_ = false;
+    std::vector<Prop> _props;
+    std::vector<Effect> _effects;
+    std::vector<Burst> _bursts;
+    bool _prepared = false;
 };
 
 } // namespace reluva::age

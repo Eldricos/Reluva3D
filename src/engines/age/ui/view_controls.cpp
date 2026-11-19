@@ -28,36 +28,36 @@ Vec3 flatNormal(Vec3 v) {
 } // namespace
 
 bool ViewControls::press(Control c, bool down) {
-    if (c == Control::CameraPan) {
+    if (c == Control::kCameraPan) {
         panning = down;
         return true;
     }
     if (!down)
         return false;
     switch (c) {
-    case Control::ThrillCam:
+    case Control::kThrillCam:
         thrill = !thrill;
         thrillPlaced = false;
         return true;
-    case Control::LookLeft:
+    case Control::kLookLeft:
         look = kPi / 2;
         return true;
-    case Control::LookRight:
+    case Control::kLookRight:
         look = -kPi / 2;
         return true;
-    case Control::LookBack:
+    case Control::kLookBack:
         look = kPi;
         return true;
-    case Control::LookForward:
+    case Control::kLookForward:
         look = 0;
         return true;
-    case Control::WideAngle:
+    case Control::kWideAngle:
         wide = !wide;
         return true;
-    case Control::Dashboard:
+    case Control::kDashboard:
         dashboard = !dashboard;
         return true;
-    case Control::OpponentPosition:
+    case Control::kOpponentPosition:
         opponent = !opponent;
         return true;
     default:
@@ -99,17 +99,17 @@ CameraView ViewControls::apply(const CameraView& view, const CarCamera& cam, con
 }
 
 bool CdPlayer::press(Control c, GameMusic& music, const SearchSet& files, audio::Mixer* mixer) {
-    if (c != Control::CdToggle && c != Control::CdPlay && c != Control::CdPrev && c != Control::CdNext)
+    if (c != Control::kCdToggle && c != Control::kCdPlay && c != Control::kCdPrev && c != Control::kCdNext)
         return false;
     if (tracks.empty())
         tracks = GameMusic::trackNames(files);
-    if (c == Control::CdToggle) {
+    if (c == Control::kCdToggle) {
         shown = !shown;
         return true;
     }
     if (!mixer || tracks.empty())
         return true;
-    if (c == Control::CdPlay) {
+    if (c == Control::kCdPlay) {
         if (playing) {
             music.stop();
             playing = false;
@@ -119,7 +119,7 @@ bool CdPlayer::press(Control c, GameMusic& music, const SearchSet& files, audio:
         }
         return true;
     }
-    const int step = c == Control::CdNext ? 1 : -1;
+    const int step = c == Control::kCdNext ? 1 : -1;
     track = (track + tracks.size() + size_t(step + int(tracks.size()))) % tracks.size();
     music.startTrack(files, *mixer, track);
     playing = chosen = true;

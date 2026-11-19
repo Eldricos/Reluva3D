@@ -24,14 +24,14 @@ public:
     Error setup(gfx::Renderer3D& renderer, const SearchSet& files, const AiRoadMap& map,
                 const AiMapSettings& settings, bool rain, uint32_t seed);
     void unload();
-    void clear() { peds_.clear(); }
+    void clear() { _peds.clear(); }
     // 0..1: how many there are about the focus (1 = kPedsAtFull).
-    void setDensity(float density) { density_ = density; }
+    void setDensity(float density) { _density = density; }
 
     void update(float dt, const Vec3& focus, const std::vector<RoadUser>& cars, const CollisionWorld& world,
                 bool fill = false);
     void draw(const gfx::Mat4& viewProj, const Vec3& eye, const SceneLight& light) const;
-    size_t count() const { return peds_.size(); }
+    size_t count() const { return _peds.size(); }
 
     static constexpr int kPedsAtFull = 300;
 
@@ -59,11 +59,11 @@ private:
     void placeOnWalk(Ped& p);
     void nextWalk(Ped& p);
 
-    std::vector<std::unique_ptr<PedModel>> models_;
-    std::vector<Walk> walks_;
-    std::vector<Ped> peds_;
-    std::mt19937 rng_;
-    float density_ = 0;
+    std::vector<std::unique_ptr<PedModel>> _models;
+    std::vector<Walk> _walks;
+    std::vector<Ped> _peds;
+    std::mt19937 _rng;
+    float _density = 0;
 };
 
 } // namespace reluva::age

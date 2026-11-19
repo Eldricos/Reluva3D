@@ -20,7 +20,7 @@ constexpr float kMph = 2.23694f;
 } // namespace
 
 bool HudPictures::load(const SearchSet& files) {
-    images_.clear();
+    _images.clear();
     std::vector<std::string> names{"SPEED_TICKS",    "DAMAGE",         "DAMAGE_LABLE",  "DIGI_COLON",
                                    "DIGITAC_GEAR_D", "DIGITAC_GEAR_N", "DIGITAC_GEAR_R"};
     for (int d = 0; d < 10; ++d) {
@@ -29,17 +29,17 @@ bool HudPictures::load(const SearchSet& files) {
         if (d > 0 && d < 9)
             names.push_back("DIGITAC_GEAR_" + std::to_string(d));
     }
-    ok_ = true;
+    _ok = true;
     for (const std::string& n : names) {
         Tex tex;
         if (loadTexture(files, n, tex))
-            ok_ = false;
+            _ok = false;
         else
-            images_[n] = std::move(tex.image);
+            _images[n] = std::move(tex.image);
     }
     // The clock's digits have no alpha: on the game's screens their black
     // is see-through, so their brightness is taken as it.
-    for (auto& [name, im] : images_)
+    for (auto& [name, im] : _images)
         if (name.rfind("DIGI_", 0) == 0)
             for (size_t i = 0; i + 3 < im.rgba.size(); i += 4) {
                 uint8_t* p = &im.rgba[i];
@@ -51,16 +51,16 @@ bool HudPictures::load(const SearchSet& files) {
     for (const char* n : {"CD_BG", "CD_PLAY_DN", "CD_STOP_DN", "CD_PREV", "CD_NEXT"}) {
         Tex t;
         if (!loadTexture(files, n, t))
-            cd_[n] = std::move(t.image);
+            _cd[n] = std::move(t.image);
     }
     Tex places;
-    places_ = loadTexture(files, "opp_icon", places) ? image::Image{} : std::move(places.image);
-    return ok_;
+    _places = loadTexture(files, "opp_icon", places) ? image::Image{} : std::move(places.image);
+    return _ok;
 }
 
 const image::Image* HudPictures::get(const std::string& name) const {
-    auto it = images_.find(name);
-    return it == images_.end() ? nullptr : &it->second;
+    auto it = _images.find(name);
+    return it == _images.end() ? nullptr : &it->second;
 }
 
 void HudPictures::blit(Surface& overlay, const image::Image& im, int x, int y, int w, int h, float share,
@@ -88,7 +88,7 @@ void HudPictures::blit(Surface& overlay, const image::Image& im, int x, int y, i
 }
 
 void HudPictures::gauges(Surface& overlay, const CarSim& sim, float damage) const {
-    if (!ok_)
+    if (!_ok)
         return;
     // The speed in three places ending at x 144, its top at y 366 (no
     // leading zeros).
@@ -127,8 +127,8 @@ bool HudPictures::cdPlayer(Surface& overlay, int x, int y, bool playing, int pre
     // The buttons' places in CD_BG: play, stop, then previous and next.
     constexpr int kButtonY = 73, kPlayX = 18, kStopX = 48, kPrevX = 98, kNextX = 128;
     auto get = [&](const char* n) -> const image::Image* {
-        auto it = cd_.find(n);
-        return it == cd_.end() ? nullptr : &it->second;
+        auto it = _cd.find(n);
+        return it == _cd.end() ? nullptr : &it->second;
     };
     const image::Image* bg = get("CD_BG");
     if (!bg)
@@ -146,14 +146,14 @@ bool HudPictures::cdPlayer(Surface& overlay, int x, int y, bool playing, int pre
 bool HudPictures::place(Surface& overlay, int place, int x, int y, int size) const {
     // Four by four cells, row by row from the top: 1-4, 5-8, then $; each
     // stored upside down (the game draws them flipped).
-    if (places_.w < 4 || place < 1 || place > 9 || size <= 0)
+    if (_places.w < 4 || place < 1 || place > 9 || size <= 0)
         return false;
-    const int cell = places_.w / 4, cx = (place - 1) % 4 * cell, cy = (place - 1) / 4 * cell;
+    const int cell = _places.w / 4, cx = (place - 1) % 4 * cell, cy = (place - 1) / 4 * cell;
     for (int yy = std::max(0, y - size / 2); yy < std::min(overlay.h, y - size / 2 + size); ++yy) {
         const int sy = cy + cell - 1 - std::min(cell - 1, (yy - (y - size / 2)) * cell / size);
         uint8_t* row = overlay.row(yy);
         for (int xx = std::max(0, x - size / 2); xx < std::min(overlay.w, x - size / 2 + size); ++xx) {
-            const uint8_t* s = places_.pixel(cx + std::min(cell - 1, (xx - (x - size / 2)) * cell / size), sy);
+            const uint8_t* s = _places.pixel(cx + std::min(cell - 1, (xx - (x - size / 2)) * cell / size), sy);
             if (s[3] < 128)
                 continue;
             uint8_t* d = row + xx * 4;
@@ -167,7 +167,7 @@ bool HudPictures::place(Surface& overlay, int place, int x, int y, int size) con
 }
 
 void HudPictures::clock(Surface& overlay, float seconds, int centre, int y) const {
-    if (!ok_)
+    if (!_ok)
         return;
     const int hundredths = std::max(0, int(seconds * 100));
     char text[16];

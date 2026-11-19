@@ -61,32 +61,32 @@ Error loadDashSetup(const SearchSet& files, const std::string& car, DashSetup& o
 }
 
 bool Dashboard::load(const SearchSet& files, ModelCache& models, TextureCache& textures, const std::string& car) {
-    ok_ = false;
-    model_ = car + "_dash";
-    if (!files.has("geometry/" + model_ + ".pkg") || loadDashSetup(files, car, setup_))
+    _ok = false;
+    _model = car + "_dash";
+    if (!files.has("geometry/" + _model + ".pkg") || loadDashSetup(files, car, _setup))
         return false;
     auto mtx = [&](const char* part, Mtx& out) {
         std::vector<uint8_t> data;
         out = Mtx{};
-        if (!files.read("geometry/" + model_ + "_" + part + ".mtx", data))
+        if (!files.read("geometry/" + _model + "_" + part + ".mtx", data))
             readMtx(data, out);
     };
-    mtx("speed_needle", speed_);
-    mtx("tach_needle", tach_);
-    mtx("damage_needle", damage_);
-    mtx("wheel", wheel_);
-    mtx("gear_indicator", gear_);
+    mtx("speed_needle", _speed);
+    mtx("tach_needle", _tach);
+    mtx("damage_needle", _damage);
+    mtx("wheel", _wheel);
+    mtx("gear_indicator", _gear);
     bool translucent;
-    drive_ = textures.get("d", translucent);
-    neutral_ = textures.get("n", translucent);
-    reverse_ = textures.get("r", translucent);
-    ok_ = models.part(model_, "dash").mesh != 0;
-    return ok_;
+    _drive = textures.get("d", translucent);
+    _neutral = textures.get("n", translucent);
+    _reverse = textures.get("r", translucent);
+    _ok = models.part(_model, "dash").mesh != 0;
+    return _ok;
 }
 
 void Dashboard::draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim& sim, float damage, const Vec3& eye,
                      const Vec3& forward, const Vec3& up, float aspect, const SceneLight& light) const {
-    if (!ok_)
+    if (!_ok)
         return;
     const Vec3 back = normalized(forward * -1.0f);
     const Vec3 right = normalized(cross(up, back));
@@ -102,7 +102,7 @@ void Dashboard::draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim
     // Made for 4:3: stretched across to fill a wider view.
     const float widen = std::max(1.0f, aspect / (4.0f / 3));
     auto part = [&](const char* name, const Vec3& at, const Vec3& pivot, float angle, gfx::TextureId texture = 0) {
-        ModelMesh m = models.part(model_, name);
+        ModelMesh m = models.part(_model, name);
         if (texture)
             for (ModelDraw& d : m.draws)
                 d.texture = texture;
@@ -118,22 +118,22 @@ void Dashboard::draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim
     const float hurt = std::clamp(damage, 0.0f, 1.0f);
     // The steering wheel: a quarter turn at full lock, times WheelFact.
     const float lock = std::max(0.01f, s.front.steeringLimit);
-    const float steer = std::clamp(sim.wheels[0].steer / lock, -1.0f, 1.0f) * kPi / 2 * setup_.wheelFact;
-    part("roof", setup_.roofPos, {}, 0);
-    part("dash", setup_.dashPos, {}, 0);
-    part("speed_needle", setup_.dashPos, speed_.pivot + setup_.speedPivot,
-         setup_.speedRotMin + speed * (setup_.speedRotMax - setup_.speedRotMin));
-    part("tach_needle", setup_.dashPos, tach_.pivot + setup_.tachPivot,
-         setup_.rpmRotMin + revs * (setup_.rpmRotMax - setup_.rpmRotMin));
-    part("damage_needle", setup_.dashPos, damage_.pivot + setup_.damagePivot,
-         setup_.damageRotMin + hurt * (setup_.damageRotMax - setup_.damageRotMin));
+    const float steer = std::clamp(sim.wheels[0].steer / lock, -1.0f, 1.0f) * kPi / 2 * _setup.wheelFact;
+    part("roof", _setup.roofPos, {}, 0);
+    part("dash", _setup.dashPos, {}, 0);
+    part("speed_needle", _setup.dashPos, _speed.pivot + _setup.speedPivot,
+         _setup.speedRotMin + speed * (_setup.speedRotMax - _setup.speedRotMin));
+    part("tach_needle", _setup.dashPos, _tach.pivot + _setup.tachPivot,
+         _setup.rpmRotMin + revs * (_setup.rpmRotMax - _setup.rpmRotMin));
+    part("damage_needle", _setup.dashPos, _damage.pivot + _setup.damagePivot,
+         _setup.damageRotMin + hurt * (_setup.damageRotMax - _setup.damageRotMin));
     // The gear: texture/r backing up, n standing in first, d driving.
     const bool standing = sim.gear == 1 && std::fabs(sim.forwardSpeed()) < 0.5f;
-    part("gear_indicator", setup_.dashPos, gear_.pivot + setup_.gearPivot, 0,
-         sim.gear < 0 ? reverse_
-         : standing   ? neutral_
-                      : drive_);
-    part("wheel", setup_.dashPos + setup_.wheelPos, wheel_.pivot + setup_.wheelPivot, steer);
+    part("gear_indicator", _setup.dashPos, _gear.pivot + _setup.gearPivot, 0,
+         sim.gear < 0 ? _reverse
+         : standing   ? _neutral
+                      : _drive);
+    part("wheel", _setup.dashPos + _setup.wheelPos, _wheel.pivot + _setup.wheelPivot, steer);
 }
 
 } // namespace reluva::age

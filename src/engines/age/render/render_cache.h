@@ -23,7 +23,7 @@ namespace reluva::age {
 
 class TextureCache {
 public:
-    TextureCache(gfx::Renderer3D& renderer, const SearchSet& files) : renderer_(renderer), files_(files) {}
+    TextureCache(gfx::Renderer3D& renderer, const SearchSet& files) : _renderer(renderer), _files(files) {}
     ~TextureCache() { clear(); }
     TextureCache(const TextureCache&) = delete;
     TextureCache& operator=(const TextureCache&) = delete;
@@ -38,15 +38,15 @@ public:
     void clear();
     // A texture's size in pixels (after get()); false if it isn't loaded.
     bool size(const std::string& name, int& width, int& height) const;
-    const std::vector<std::string>& missing() const { return missing_; }
+    const std::vector<std::string>& missing() const { return _missing; }
     // Textures loaded from now on are halved this many times (the Texture
     // Quality), but for those flagged texflag::FullDetail and down to
     // 16 pixels at least.
-    void setHalvings(int n) { halvings_ = n; }
+    void setHalvings(int n) { _halvings = n; }
 
     // Seconds into the animations, and the frame a texture shows then (the
     // texture itself if it isn't animated).
-    void setTime(float seconds) { time_ = seconds; }
+    void setTime(float seconds) { _time = seconds; }
     gfx::TextureId frame(gfx::TextureId id) const;
 
 private:
@@ -62,14 +62,14 @@ private:
     };
     gfx::TextureId create(const Tex& tex, bool& translucent);
 
-    gfx::Renderer3D& renderer_;
-    const SearchSet& files_;
-    std::map<std::string, Entry> textures_; // by lower-case name
-    std::map<gfx::TextureId, Animation> animations_;
-    std::vector<gfx::TextureId> frameIds_; // every animation frame, to destroy
-    std::vector<std::string> missing_;
-    float time_ = 0;
-    int halvings_ = 0;
+    gfx::Renderer3D& _renderer;
+    const SearchSet& _files;
+    std::map<std::string, Entry> _textures; // by lower-case name
+    std::map<gfx::TextureId, Animation> _animations;
+    std::vector<gfx::TextureId> _frameIds; // every animation frame, to destroy
+    std::vector<std::string> _missing;
+    float _time = 0;
+    int _halvings = 0;
 };
 
 // One draw of a model: a group's triangles with its shader.
@@ -147,7 +147,7 @@ public:
     bool visible(const gfx::Vec3& center, float radius) const;
 
 private:
-    std::array<std::array<float, 4>, 5> planes_{};
+    std::array<std::array<float, 4>, 5> _planes{};
 };
 
 // Models by name for a city, every level uploaded the first time it's
@@ -164,7 +164,7 @@ public:
     };
 
     ModelCache(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files)
-        : renderer_(renderer), textures_(textures), files_(files) {}
+        : _renderer(renderer), _textures(textures), _files(files) {}
     ~ModelCache() { clear(); }
     ModelCache(const ModelCache&) = delete;
     ModelCache& operator=(const ModelCache&) = delete;
@@ -180,12 +180,12 @@ public:
     void clear();
 
 private:
-    gfx::Renderer3D& renderer_;
-    TextureCache& textures_;
-    const SearchSet& files_;
-    std::map<std::string, std::unique_ptr<Model>> models_;
-    std::map<std::string, std::unique_ptr<ModelMesh>> parts_;
-    std::map<std::string, std::pair<bool, Vec3>> origins_;
+    gfx::Renderer3D& _renderer;
+    TextureCache& _textures;
+    const SearchSet& _files;
+    std::map<std::string, std::unique_ptr<Model>> _models;
+    std::map<std::string, std::unique_ptr<ModelMesh>> _parts;
+    std::map<std::string, std::pair<bool, Vec3>> _origins;
 };
 
 // Glows drawn as soft discs facing the camera (texture/lt_glow.tga), as
@@ -200,9 +200,9 @@ public:
     void draw(const Vec3& at, float size, const std::array<float, 3>& color, const Vec3& eye) const;
 
 private:
-    gfx::Renderer3D& renderer_;
-    gfx::MeshId quad_ = 0;
-    gfx::TextureId texture_ = 0;
+    gfx::Renderer3D& _renderer;
+    gfx::MeshId _quad = 0;
+    gfx::TextureId _texture = 0;
 };
 
 } // namespace reluva::age

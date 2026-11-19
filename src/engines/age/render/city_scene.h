@@ -44,17 +44,17 @@ public:
     // 0-15: time (morning, noon, evening, night) x 4 + weather (clear,
     // cloudy, foggy, rainy), as .lt00-.lt15 and the sky dome's paint jobs.
     void setLighting(int index);
-    int lighting() const { return lighting_; }
+    int lighting() const { return _lighting; }
     std::string lightingName() const;
-    const SceneLight& light() const { return light_; }
+    const SceneLight& light() const { return _light; }
     // Lamps lit: in the evening and at night, and in fog and rain.
-    bool lampsLit() const { return lighting_ / 4 >= 2 || lighting_ % 4 >= 2; }
+    bool lampsLit() const { return _lighting / 4 >= 2 || _lighting % 4 >= 2; }
     // The warning lights the landmarks' xrefs mark (`sp_light_red_f`,
     // `sp_light_white_f`: a tiny untextured triangle each), as flares
     // while the lamps are lit (pkg.md).
     void drawBeacons(const FlareDrawer& flares, const Vec3& eye) const;
-    size_t beacons() const { return beacons_.size(); }
-    bool night() const { return lighting_ / 4 == 3; }
+    size_t beacons() const { return _beacons.size(); }
+    bool night() const { return _lighting / 4 == 3; }
 
     // Draws the sky round `eye`, the city, then (if `models`) the placed
     // models in view; returns how many models were drawn. Between
@@ -72,33 +72,33 @@ public:
 
     // Culling by the city's visibility file (on by default, where there is
     // one).
-    void setVisibility(bool on) { visibilityOn_ = on; }
+    void setVisibility(bool on) { _visibilityOn = on; }
     // The Graphics Options: the textured sky (else the fog's colour behind
     // the city), how far placed models are drawn, and their detail (1 the
     // finest: a level is chosen as if they were 1/detail further away).
-    void setSkyShown(bool on) { skyShown_ = on; }
+    void setSkyShown(bool on) { _skyShown = on; }
     // Cloud Shadows (the Graphics Options): 0 none, 1 low (still), 2 high
     // (drifting with the wind by day). At night, the night tile's pools.
-    void setCloudShadows(int level) { cloudShadows_ = level; }
-    void setModelDistance(float metres) { modelDistance_ = metres; }
-    void setModelDetail(float detail) { detail_ = detail; }
-    bool visibility() const { return visibilityOn_ && !pvs_.empty(); }
+    void setCloudShadows(int level) { _cloudShadows = level; }
+    void setModelDistance(float metres) { _modelDistance = metres; }
+    void setModelDetail(float detail) { _detail = detail; }
+    bool visibility() const { return _visibilityOn && !_pvs.empty(); }
     // The block the eye was last in (0: none, or visibility off), and how
     // many blocks were drawn from it.
-    size_t viewBlock() const { return viewBlock_; }
-    size_t blocksDrawn() const { return blocksDrawn_; }
+    size_t viewBlock() const { return _viewBlock; }
+    size_t blocksDrawn() const { return _blocksDrawn; }
     // The block `p` stands in (on or over its ground, up to 30 m above its
     // highest point), or 0.
     size_t blockAt(const Vec3& p) const;
 
     // What was loaded, for the pages' info and the collision world.
-    const std::vector<std::string>& notes() const { return notes_; }
-    const Psdl& psdl() const { return psdl_; }
-    const CityMesh& mesh() const { return mesh_; }
-    const std::vector<Instance>& instances() const { return instances_; }
-    size_t placedCount() const { return placed_.size(); }
-    TextureCache& textures() { return *textures_; }
-    ModelCache& models() { return *models_; }
+    const std::vector<std::string>& notes() const { return _notes; }
+    const Psdl& psdl() const { return _psdl; }
+    const CityMesh& mesh() const { return _mesh; }
+    const std::vector<Instance>& instances() const { return _instances; }
+    size_t placedCount() const { return _placed.size(); }
+    TextureCache& textures() { return *_textures; }
+    ModelCache& models() { return *_models; }
 
     // On the road nearest the city's middle, at its height, and the turn
     // (about Y) that faces along it.
@@ -140,39 +140,39 @@ private:
     // viewBlock_ (all of them for 0).
     void rebuildIndices();
 
-    gfx::Renderer3D& renderer_;
-    const SearchSet& files_;
-    std::unique_ptr<TextureCache> textures_;
-    std::unique_ptr<ModelCache> models_;
-    std::string map_;
-    Psdl psdl_;
-    CityMesh mesh_;
-    std::vector<Instance> instances_;
-    std::vector<std::string> notes_;
-    gfx::MeshId cityMesh_ = 0;
-    std::vector<Batch> batches_;
-    std::vector<Placed> placed_;
+    gfx::Renderer3D& _renderer;
+    const SearchSet& _files;
+    std::unique_ptr<TextureCache> _textures;
+    std::unique_ptr<ModelCache> _models;
+    std::string _map;
+    Psdl _psdl;
+    CityMesh _mesh;
+    std::vector<Instance> _instances;
+    std::vector<std::string> _notes;
+    gfx::MeshId _cityMesh = 0;
+    std::vector<Batch> _batches;
+    std::vector<Placed> _placed;
     struct Beacon {
         Vec3 at{};
         std::array<float, 3> color{};
     };
-    std::vector<Beacon> beacons_;
-    Pvs pvs_;
-    std::vector<BlockBounds> blockBounds_;
-    bool visibilityOn_ = true;
+    std::vector<Beacon> _beacons;
+    Pvs _pvs;
+    std::vector<BlockBounds> _blockBounds;
+    bool _visibilityOn = true;
     void drawCloudShadows();
-    bool skyShown_ = true;
-    int cloudShadows_ = 2;
-    float modelDistance_ = 900, detail_ = 1;
-    size_t viewBlock_ = 0, blocksDrawn_ = 0;
-    Vec3 detailFrom_{1e9f, 0, 0}; // where the roads' detail was last chosen from
-    std::chrono::steady_clock::time_point loadedAt_; // the animations' clock starts
-    CityLights cityLights_;
-    std::vector<Fog> fogs_;
-    std::string sky_;
-    ModelMesh skyMesh_;
-    int lighting_ = 4;
-    SceneLight light_;
+    bool _skyShown = true;
+    int _cloudShadows = 2;
+    float _modelDistance = 900, _detail = 1;
+    size_t _viewBlock = 0, _blocksDrawn = 0;
+    Vec3 _detailFrom{1e9f, 0, 0}; // where the roads' detail was last chosen from
+    std::chrono::steady_clock::time_point _loadedAt; // the animations' clock starts
+    CityLights _cityLights;
+    std::vector<Fog> _fogs;
+    std::string _sky;
+    ModelMesh _skyMesh;
+    int _lighting = 4;
+    SceneLight _light;
 };
 
 // A city instance's matrix (three axes and a position) as a 4x4.

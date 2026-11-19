@@ -73,10 +73,10 @@ int goldMassIndex(int kg) {
 
 NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityInfo>& cities,
                    const std::vector<CarInfo>& cars, const GameStrings& strings)
-    : sys_(sys), files_(files), cities_(cities), cars_(cars), strings_(strings), pictures_(files) {
+    : _sys(sys), _files(files), _cities(cities), _cars(cars), _strings(strings), _pictures(files) {
     std::vector<uint8_t> data;
     if (!files.read("tune/widget.csv", data))
-        ok_ = !parseWidgets(std::string(data.begin(), data.end()), widgets_) && pictures_.jpg("sess_bk") &&
+        _ok = !parseWidgets(std::string(data.begin(), data.end()), _widgets) && _pictures.jpg("sess_bk") &&
               !cities.empty() && !cars.empty();
     // Reluva's own: how many computer players, below Max Players and
     // drawn as it is.
@@ -84,107 +84,107 @@ NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityIn
         Widget bots = *max;
         bots.name = kBotsField;
         bots.y += 52;
-        widgets_.push_back(bots);
+        _widgets.push_back(bots);
     }
     if (!cars.empty())
-        myCar_ = cars.front().base;
+        _myCar = cars.front().base;
 }
 
 NetMenus::~NetMenus() { leave(); }
 
 RaceKind NetMenus::raceKind(NetMode mode) {
-    return mode == NetMode::Circuit      ? RaceKind::Circuit
-           : mode == NetMode::Checkpoint ? RaceKind::Checkpoint
-                                         : RaceKind::Blitz;
+    return mode == NetMode::kCircuit      ? RaceKind::kCircuit
+           : mode == NetMode::kCheckpoint ? RaceKind::kCheckpoint
+                                         : RaceKind::kBlitz;
 }
 
 std::string NetMenus::modeName(NetMode mode) const {
     switch (mode) {
-    case NetMode::Cruise:
-        return strings_.get(80, "Cruise");
-    case NetMode::Blitz:
-        return strings_.get(7, "Blitz Race");
-    case NetMode::Checkpoint:
-        return strings_.get(6, "Checkpoint Race");
-    case NetMode::Circuit:
-        return strings_.get(5, "Circuit Race");
-    case NetMode::CopsRobbers:
-        return strings_.get(79, "Cops & Robbers");
+    case NetMode::kCruise:
+        return _strings.get(80, "Cruise");
+    case NetMode::kBlitz:
+        return _strings.get(7, "Blitz Race");
+    case NetMode::kCheckpoint:
+        return _strings.get(6, "Checkpoint Race");
+    case NetMode::kCircuit:
+        return _strings.get(5, "Circuit Race");
+    case NetMode::kCopsRobbers:
+        return _strings.get(79, "Cops & Robbers");
     }
     return {};
 }
 
 std::string NetMenus::goldModeName(GoldMode mode) const {
     switch (mode) {
-    case GoldMode::FreeForAll:
-        return strings_.get(8, "Free-For-All");
-    case GoldMode::CopsAndRobbers:
-        return strings_.get(9, "Cops & Robbers");
-    case GoldMode::RobberTeams:
-        return strings_.get(10, "Robbers Teams");
+    case GoldMode::kFreeForAll:
+        return _strings.get(8, "Free-For-All");
+    case GoldMode::kCopsAndRobbers:
+        return _strings.get(9, "Cops & Robbers");
+    case GoldMode::kRobberTeams:
+        return _strings.get(10, "Robbers Teams");
     }
     return {};
 }
 
 std::string NetMenus::teamName(uint8_t team) const {
     // The game's words: COPS, ROBBERS, BLUE, RED.
-    const NetSettings& s = session_ ? session_->settings() : settings_;
-    if (s.gold == GoldMode::CopsAndRobbers)
-        return team ? strings_.get(122, "COPS") : strings_.get(123, "ROBBERS");
-    return team ? strings_.get(124, "BLUE") : strings_.get(125, "RED");
+    const NetSettings& s = _session ? _session->settings() : _settings;
+    if (s.gold == GoldMode::kCopsAndRobbers)
+        return team ? _strings.get(122, "COPS") : _strings.get(123, "ROBBERS");
+    return team ? _strings.get(124, "BLUE") : _strings.get(125, "RED");
 }
 
 std::string NetMenus::carFor(const NetPlayer& p) const {
-    const NetSettings& s = session_ ? session_->settings() : settings_;
-    if (s.mode == NetMode::CopsRobbers && s.gold == GoldMode::CopsAndRobbers && p.team == 1)
-        for (const CarInfo& c : cars_)
+    const NetSettings& s = _session ? _session->settings() : _settings;
+    if (s.mode == NetMode::kCopsRobbers && s.gold == GoldMode::kCopsAndRobbers && p.team == 1)
+        for (const CarInfo& c : _cars)
             if (c.base == "vpcop")
                 return c.base;
-    for (const CarInfo& c : cars_)
+    for (const CarInfo& c : _cars)
         if (c.base == p.car)
             return c.base;
-    return cars_.empty() ? std::string() : cars_.front().base;
+    return _cars.empty() ? std::string() : _cars.front().base;
 }
 
 std::string NetMenus::goldMassName(int kg) const {
     static const char* const kNames[3] = {"Weightless", "Quarter Ton", "Half Ton"};
     const int at = goldMassIndex(kg);
-    return strings_.get(uint32_t(506 + at), kNames[at]);
+    return _strings.get(uint32_t(506 + at), kNames[at]);
 }
 
 std::string NetMenus::timeLimitName(int minutes) const {
     for (int i = 0; i < 4; ++i)
         if (kTimeLimits[i] == minutes)
-            return strings_.get(uint32_t(510 + i), std::to_string(minutes) + " minutes");
+            return _strings.get(uint32_t(510 + i), std::to_string(minutes) + " minutes");
     return std::to_string(minutes) + " minutes";
 }
 
 std::string NetMenus::noticeText(const NetNotice& n) const {
     switch (n.kind) {
-    case NetNotice::Kind::Joined:
-        return n.name + " " + strings_.get(42, "has joined");
-    case NetNotice::Kind::Left:
-        return n.name + " " + strings_.get(38, "has left the game");
-    case NetNotice::Kind::HostQuit:
-        return strings_.get(40, "The Host has quit");
-    case NetNotice::Kind::Ejected:
-        return strings_.get(44, "You have been ejected");
-    case NetNotice::Kind::BackToLobby:
-        return strings_.get(73, "**Session returning to Lobby**");
-    case NetNotice::Kind::Started:
+    case NetNotice::Kind::kJoined:
+        return n.name + " " + _strings.get(42, "has joined");
+    case NetNotice::Kind::kLeft:
+        return n.name + " " + _strings.get(38, "has left the game");
+    case NetNotice::Kind::kHostQuit:
+        return _strings.get(40, "The Host has quit");
+    case NetNotice::Kind::kEjected:
+        return _strings.get(44, "You have been ejected");
+    case NetNotice::Kind::kBackToLobby:
+        return _strings.get(73, "**Session returning to Lobby**");
+    case NetNotice::Kind::kStarted:
         return {};
-    case NetNotice::Kind::HostMoved: // the game's words for the new host's own screen
-        if (session_ && session_->isHost())
-            return strings_.get(39, "You are now the Host");
+    case NetNotice::Kind::kHostMoved: // the game's words for the new host's own screen
+        if (_session && _session->isHost())
+            return _strings.get(39, "You are now the Host");
         return n.name + " is the host now";
-    case NetNotice::Kind::Suspect:
-        if (session_ && session_->me() && session_->me()->name == n.name && !session_->isHost())
-            return strings_.get(46, "You are a cheater");
-        return n.name + " " + strings_.get(41, "is a cheater");
-    case NetNotice::Kind::Refused:
+    case NetNotice::Kind::kSuspect:
+        if (_session && _session->me() && _session->me()->name == n.name && !_session->isHost())
+            return _strings.get(46, "You are a cheater");
+        return n.name + " " + _strings.get(41, "is a cheater");
+    case NetNotice::Kind::kRefused:
         switch (n.reason) {
         case kRefusedVersion:
-            return strings_.get(83, "ERROR: Network versions do not match.");
+            return _strings.get(83, "ERROR: Network versions do not match.");
         case kRefusedFull:
             return "The session is full";
         case kRefusedPlaying: // older hosts' word
@@ -201,69 +201,69 @@ std::string NetMenus::noticeText(const NetNotice& n) const {
 void NetMenus::say(const std::string& s, bool system) {
     if (s.empty())
         return;
-    lines_.push_back({s, nowMs_, system});
-    while (lines_.size() > kLinesKept)
-        lines_.pop_front();
+    _lines.push_back({s, _nowMs, system});
+    while (_lines.size() > kLinesKept)
+        _lines.pop_front();
 }
 
 void NetMenus::message(const std::string& text, const std::string& picture) {
-    message_ = text;
-    messagePicture_ = picture;
+    _message = text;
+    _messagePicture = picture;
 }
 
 void NetMenus::enter() {
     leave();
-    go(Screen::Sessions);
+    go(Screen::kSessions);
 }
 
 void NetMenus::leave() {
-    if (session_)
-        session_->leave();
-    session_.reset();
-    mapper_.reset(); // the router's port closed again
-    local_.reset();
-    browser_.reset();
-    sys_.setTextInput(false);
+    if (_session)
+        _session->leave();
+    _session.reset();
+    _mapper.reset(); // the router's port closed again
+    _local.reset();
+    _browser.reset();
+    _sys.setTextInput(false);
 }
 
 void NetMenus::showLobby() {
-    if (session_)
-        go(Screen::Lobby);
+    if (_session)
+        go(Screen::kLobby);
     else
-        go(Screen::Sessions);
+        go(Screen::kSessions);
 }
 
 void NetMenus::carChosen(const std::string& car, int paintJob) {
-    myCar_ = car;
-    myPaint_ = paintJob;
-    if (session_)
-        session_->setCar(car, uint8_t(paintJob));
+    _myCar = car;
+    _myPaint = paintJob;
+    if (_session)
+        _session->setCar(car, uint8_t(paintJob));
     showLobby();
 }
 
 std::string NetMenus::menuName() const {
-    switch (screen_) {
-    case Screen::Sessions:
+    switch (_screen) {
+    case Screen::kSessions:
         return "Net Select Menu";
-    case Screen::Address:
+    case Screen::kAddress:
         return "Enter an Address";
-    case Screen::Password:
+    case Screen::kPassword:
         return "Enter a valid password";
-    case Screen::HostOptions:
+    case Screen::kHostOptions:
         return "Host Options";
-    case Screen::HostRace:
+    case Screen::kHostRace:
         return "Host Race Menu";
-    case Screen::Lobby:
+    case Screen::kLobby:
         return "Network Arena";
-    case Screen::Eject:
+    case Screen::kEject:
         return "eject_DLG";
     }
     return {};
 }
 
 int NetMenus::originX() const {
-    return screen_ == Screen::Address || screen_ == Screen::Password || screen_ == Screen::HostOptions ||
-                   screen_ == Screen::Eject
+    return _screen == Screen::kAddress || _screen == Screen::kPassword || _screen == Screen::kHostOptions ||
+                   _screen == Screen::kEject
                ? kDialogX
                : 0;
 }
@@ -273,7 +273,7 @@ int NetMenus::originY() const { return originX() ? kDialogY : 0; }
 const Widget* NetMenus::widget(const std::string& name) const { return widget(name, menuName()); }
 
 const Widget* NetMenus::widget(const std::string& name, const std::string& menu) const {
-    for (const Widget& w : widgets_)
+    for (const Widget& w : _widgets)
         if (w.menu == menu && w.name == name)
             return &w;
     return nullptr;
@@ -296,8 +296,8 @@ std::vector<NetMenus::Item> NetMenus::items() const {
         return i;
     };
     const Item cancel = button("dlg_cancel", "dlg_can", 4), done = button("dlg_done", "dlg_done", 4);
-    switch (screen_) {
-    case Screen::Sessions:
+    switch (_screen) {
+    case Screen::kSessions:
         // TCP/IP only: the zone, IPX, serial and modem are the past's.
         // (The zone's picture has five states, though widget.csv says four.)
         return {button("sess_zn", "sess_zn", 5, false),
@@ -310,24 +310,24 @@ std::vector<NetMenus::Item> NetMenus::items() const {
                 button("sess_jn", "sess_jn", 4),
                 field("textscroll"),
                 button("mnav_prev", "mnav_prv", 4)};
-    case Screen::Address:
+    case Screen::kAddress:
         return {field("TCP/IP Address", true), cancel, done};
-    case Screen::Password:
+    case Screen::kPassword:
         return {field("Password", true), cancel, done};
-    case Screen::HostOptions:
+    case Screen::kHostOptions:
         return {field("Password", true), field("Max Players"), field(kBotsField), cancel, done};
-    case Screen::HostRace: {
+    case Screen::kHostRace: {
         std::vector<Item> list = {button("cruise_m", "cruise_m", 5), button("blitz_m", "blitz_m", 5),
                                   button("cp_m", "cp_m", 5), button("circt_m", "circt_m", 5),
                                   button("cops_m", "cops_m", 5)};
-        if (hasRace(settings_.mode))
+        if (hasRace(_settings.mode))
             list.push_back(field("RACE NAME"));
-        if (settings_.mode == NetMode::Circuit)
+        if (_settings.mode == NetMode::kCircuit)
             list.push_back(field("LAPS"));
-        if (settings_.mode == NetMode::CopsRobbers) {
+        if (_settings.mode == NetMode::kCopsRobbers) {
             for (const char* b : {"free_cr", "cpsvr_cr", "robrs_cr", "none_cr", "time_cr", "point_cr"})
                 list.push_back(button(b, b, 5));
-            if (settings_.limit != GoldLimit::None)
+            if (_settings.limit != GoldLimit::kNone)
                 list.push_back(field("LIMIT VALUE"));
             list.push_back(field("GOLD MASS"));
         }
@@ -336,28 +336,28 @@ std::vector<NetMenus::Item> NetMenus::items() const {
         list.push_back(button("aren_strt", "host_dn", 4));
         return list;
     }
-    case Screen::Lobby: {
-        const bool host = session_ && session_->isHost();
-        const NetPlayer* me = session_ ? session_->me() : nullptr;
-        const NetSettings& s = session_ ? session_->settings() : settings_;
+    case Screen::kLobby: {
+        const bool host = _session && _session->isHost();
+        const NetPlayer* me = _session ? _session->me() : nullptr;
+        const NetSettings& s = _session ? _session->settings() : _settings;
         std::vector<Item> list = {field("Chat Entry", true)};
         if (s.teams()) {
-            const bool copr = s.gold == GoldMode::CopsAndRobbers;
+            const bool copr = s.gold == GoldMode::kCopsAndRobbers;
             list.push_back(button("lobb_red", copr ? "lobb_rob" : "lobb_red", 5));
             list.push_back(button("lobb_blu", copr ? "lobb_cop" : "lobb_blu", 5));
         }
-        list.push_back(button("lobb_ejt", "lobb_ejt", 4, host && session_->players().size() > 1));
+        list.push_back(button("lobb_ejt", "lobb_ejt", 4, host && _session->players().size() > 1));
         list.push_back(button("lobb_hst", "lobb_hst", 4, host));
         // A cop drives the police car: no choosing.
-        const bool cop = me && s.mode == NetMode::CopsRobbers && s.gold == GoldMode::CopsAndRobbers && me->team == 1;
+        const bool cop = me && s.mode == NetMode::kCopsRobbers && s.gold == GoldMode::kCopsAndRobbers && me->team == 1;
         list.push_back(button("mpst_veh", "lobb_veh", 4, !cop));
         if (host)
-            list.push_back(button("lobb_rdy", "lobb_srt", 5, session_->everyoneReady()));
+            list.push_back(button("lobb_rdy", "lobb_srt", 5, _session->everyoneReady()));
         else
             list.push_back(button("lobb_rdy", me && me->ready ? "lobb_rdy" : "lobb_nr", 5, me != nullptr));
         return list;
     }
-    case Screen::Eject:
+    case Screen::kEject:
         return {field("ejectlist"), done};
     }
     return {};
@@ -365,87 +365,87 @@ std::vector<NetMenus::Item> NetMenus::items() const {
 
 bool NetMenus::typing() const {
     const auto list = items();
-    return messagePicture_.empty() && focus_ >= 0 && size_t(focus_) < list.size() && list[size_t(focus_)].text;
+    return _messagePicture.empty() && _focus >= 0 && size_t(_focus) < list.size() && list[size_t(_focus)].text;
 }
 
 void NetMenus::go(Screen s) {
-    screen_ = s;
-    focus_ = 0;
+    _screen = s;
+    _focus = 0;
     const auto list = items();
     // The first control that's there to use; on the sessions screen, Host.
     for (size_t i = 0; i < list.size(); ++i)
-        if (list[i].enabled && (s != Screen::Sessions || list[i].widget == "sess_hst")) {
-            focus_ = int(i);
+        if (list[i].enabled && (s != Screen::kSessions || list[i].widget == "sess_hst")) {
+            _focus = int(i);
             break;
         }
-    if (s == Screen::Sessions && !browser_) {
+    if (s == Screen::kSessions && !_browser) {
         std::unique_ptr<net::UdpSocket> socket;
-        if (!sys_.openUdp(0, socket) && socket) {
-            browser_ = std::make_unique<NetBrowser>(std::move(socket));
-            browser_->setBroadcasts(sys_.broadcastAddresses());
+        if (!_sys.openUdp(0, socket) && socket) {
+            _browser = std::make_unique<NetBrowser>(std::move(socket));
+            _browser->setBroadcasts(_sys.broadcastAddresses());
         } else
             message("The network is not available");
     }
-    if (s == Screen::HostRace)
+    if (s == Screen::kHostRace)
         refreshRaces();
-    sys_.setTextInput(typing());
+    _sys.setTextInput(typing());
 }
 
 void NetMenus::refreshRaces() {
-    raceNames_.clear();
-    if (cities_.empty())
+    _raceNames.clear();
+    if (_cities.empty())
         return;
-    settings_.city = uint8_t(std::min<size_t>(settings_.city, cities_.size() - 1));
-    if (hasRace(settings_.mode))
-        raceNames_ = raceNames(files_, cities_[settings_.city].map, raceKind(settings_.mode));
-    settings_.race = uint8_t(std::min<size_t>(settings_.race, raceNames_.empty() ? 0 : raceNames_.size() - 1));
+    _settings.city = uint8_t(std::min<size_t>(_settings.city, _cities.size() - 1));
+    if (hasRace(_settings.mode))
+        _raceNames = raceNames(_files, _cities[_settings.city].map, raceKind(_settings.mode));
+    _settings.race = uint8_t(std::min<size_t>(_settings.race, _raceNames.empty() ? 0 : _raceNames.size() - 1));
 }
 
 void NetMenus::startHosting() {
     std::unique_ptr<net::UdpSocket> socket;
-    if (Error err = sys_.openUdp(kNetPort, socket); err || !socket) {
+    if (Error err = _sys.openUdp(kNetPort, socket); err || !socket) {
         // No network (or the port's taken): a game on this computer alone,
         // against computer players.
-        local_ = net::LoopbackNetwork::create();
-        socket = local_->open(kNetPort);
+        _local = net::LoopbackNetwork::create();
+        socket = _local->open(kNetPort);
         message("Playing on this computer only: " + (err ? err.message : std::string("no network")));
     }
-    browser_.reset();
-    session_ = NetSession::host(std::move(socket), netName_, settings_, password_);
-    session_->setCar(myCar_, uint8_t(myPaint_));
+    _browser.reset();
+    _session = NetSession::host(std::move(socket), _netName, _settings, _password);
+    _session->setCar(_myCar, uint8_t(_myPaint));
     // The computer players: the game's names for opponents, in cars from
     // the list.
-    for (int i = 0; i < bots_; ++i) {
-        const std::string car = cars_[(size_t(i) * 5 + 3) % cars_.size()].base;
-        session_->addBot(strings_.get(uint32_t(13 + i), "Opponent " + std::to_string(i + 1)), car);
+    for (int i = 0; i < _bots; ++i) {
+        const std::string car = _cars[(size_t(i) * 5 + 3) % _cars.size()].base;
+        _session->addBot(_strings.get(uint32_t(13 + i), "Opponent " + std::to_string(i + 1)), car);
     }
-    lines_.clear();
-    lastChatSeq_ = 0;
-    go(Screen::Lobby);
+    _lines.clear();
+    _lastChatSeq = 0;
+    go(Screen::kLobby);
 }
 
 void NetMenus::joinAddress(const net::Address& address) {
     std::unique_ptr<net::UdpSocket> socket;
-    if (Error err = sys_.openUdp(0, socket); err || !socket) {
+    if (Error err = _sys.openUdp(0, socket); err || !socket) {
         message("The network is not available");
         return;
     }
-    session_ = NetSession::join(std::move(socket), address, netName_, password_);
-    session_->setCar(myCar_, uint8_t(myPaint_));
-    lines_.clear();
-    lastChatSeq_ = 0;
-    go(Screen::Lobby);
+    _session = NetSession::join(std::move(socket), address, _netName, _password);
+    _session->setCar(_myCar, uint8_t(_myPaint));
+    _lines.clear();
+    _lastChatSeq = 0;
+    go(Screen::kLobby);
 }
 
 std::string* NetMenus::textOf(const std::string& w) {
     if (w == "NET NAME")
-        return &netName_;
+        return &_netName;
     if (w == "TCP/IP Address")
-        return &address_;
+        return &_address;
     if (w == "Password")
-        return &password_;
+        return &_password;
     if (w == "Chat Entry")
-        return &chat_;
+        return &_chat;
     return nullptr;
 }
 
@@ -454,94 +454,94 @@ void NetMenus::activate(const Item& item, Action& action) {
         return;
     const std::string& w = item.widget;
     if (w == "sess_hst") {
-        editing_ = false;
-        password_.clear();
-        go(Screen::HostOptions);
+        _editing = false;
+        _password.clear();
+        go(Screen::kHostOptions);
     } else if (w == "sess_jn") {
-        const auto& found = browser_ ? browser_->sessions() : std::vector<NetBrowser::Found>{};
-        if (chosenSession_ < found.size()) {
-            const auto& f = found[chosenSession_];
-            password_.clear();
+        const auto& found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
+        if (_chosenSession < found.size()) {
+            const auto& f = found[_chosenSession];
+            _password.clear();
             if (f.password) {
-                pendingJoin_ = f.address;
-                go(Screen::Password);
+                _pendingJoin = f.address;
+                go(Screen::kPassword);
             } else
                 joinAddress(f.address);
         } else
-            go(Screen::Address);
+            go(Screen::kAddress);
     } else if (w == "mnav_prev") {
         leave();
-        action = Action::Back;
+        action = Action::kBack;
     } else if (w == "dlg_cancel") {
-        go(screen_ == Screen::Eject ? Screen::Lobby : Screen::Sessions);
+        go(_screen == Screen::kEject ? Screen::kLobby : Screen::kSessions);
     } else if (w == "dlg_done") {
-        if (screen_ == Screen::Address && address_.empty()) {
-            go(Screen::Sessions); // "or leave blank to search for available session"
+        if (_screen == Screen::kAddress && _address.empty()) {
+            go(Screen::kSessions); // "or leave blank to search for available session"
             return;
         }
-        if (screen_ == Screen::Address) {
-            const auto [host, port] = net::splitHostPort(address_, kNetPort);
+        if (_screen == Screen::kAddress) {
+            const auto [host, port] = net::splitHostPort(_address, kNetPort);
             net::Address a;
             a.port = port;
-            if (!net::parseAddress(address_, kNetPort, a) && !sys_.resolveHost(host, a.ip)) {
+            if (!net::parseAddress(_address, kNetPort, a) && !_sys.resolveHost(host, a.ip)) {
                 message("Can't find " + host);
                 return;
             }
-            password_.clear();
+            _password.clear();
             joinAddress(a);
-        } else if (screen_ == Screen::Password) {
-            joinAddress(pendingJoin_);
-        } else if (screen_ == Screen::HostOptions) {
-            settings_.maxPlayers = std::clamp<uint8_t>(settings_.maxPlayers, 2, kMaxNetPlayers);
-            go(Screen::HostRace);
-        } else if (screen_ == Screen::Eject && session_) {
+        } else if (_screen == Screen::kPassword) {
+            joinAddress(_pendingJoin);
+        } else if (_screen == Screen::kHostOptions) {
+            _settings.maxPlayers = std::clamp<uint8_t>(_settings.maxPlayers, 2, kMaxNetPlayers);
+            go(Screen::kHostRace);
+        } else if (_screen == Screen::kEject && _session) {
             std::vector<uint8_t> ids;
-            for (const NetPlayer& p : session_->players())
-                if (p.id != session_->myId())
+            for (const NetPlayer& p : _session->players())
+                if (p.id != _session->myId())
                     ids.push_back(p.id);
-            if (ejectChoice_ < ids.size())
-                session_->eject(ids[ejectChoice_]);
-            go(Screen::Lobby);
+            if (_ejectChoice < ids.size())
+                _session->eject(ids[_ejectChoice]);
+            go(Screen::kLobby);
         }
     } else if (w == "cruise_m" || w == "blitz_m" || w == "cp_m" || w == "circt_m" || w == "cops_m") {
-        settings_.mode = w == "cruise_m"  ? NetMode::Cruise
-                         : w == "blitz_m" ? NetMode::Blitz
-                         : w == "cp_m"    ? NetMode::Checkpoint
-                         : w == "circt_m" ? NetMode::Circuit
-                                          : NetMode::CopsRobbers;
+        _settings.mode = w == "cruise_m"  ? NetMode::kCruise
+                         : w == "blitz_m" ? NetMode::kBlitz
+                         : w == "cp_m"    ? NetMode::kCheckpoint
+                         : w == "circt_m" ? NetMode::kCircuit
+                                          : NetMode::kCopsRobbers;
         refreshRaces();
     } else if (w == "free_cr" || w == "cpsvr_cr" || w == "robrs_cr") {
-        settings_.gold = w == "free_cr"    ? GoldMode::FreeForAll
-                         : w == "cpsvr_cr" ? GoldMode::CopsAndRobbers
-                                           : GoldMode::RobberTeams;
+        _settings.gold = w == "free_cr"    ? GoldMode::kFreeForAll
+                         : w == "cpsvr_cr" ? GoldMode::kCopsAndRobbers
+                                           : GoldMode::kRobberTeams;
     } else if (w == "none_cr" || w == "time_cr" || w == "point_cr") {
-        settings_.limit = w == "none_cr" ? GoldLimit::None : w == "time_cr" ? GoldLimit::Time : GoldLimit::Points;
-        settings_.limitValue = uint16_t(settings_.limit == GoldLimit::Time ? 10 : 5);
+        _settings.limit = w == "none_cr" ? GoldLimit::kNone : w == "time_cr" ? GoldLimit::kTime : GoldLimit::kPoints;
+        _settings.limitValue = uint16_t(_settings.limit == GoldLimit::kTime ? 10 : 5);
     } else if (w == "aren_strt") {
-        if (editing_ && session_) {
-            session_->setSettings(settings_);
-            go(Screen::Lobby);
+        if (_editing && _session) {
+            _session->setSettings(_settings);
+            go(Screen::kLobby);
         } else
             startHosting();
     } else if (w == "lobb_red" || w == "lobb_blu") {
-        if (session_)
-            session_->setTeam(w == "lobb_blu" ? 1 : 0);
+        if (_session)
+            _session->setTeam(w == "lobb_blu" ? 1 : 0);
     } else if (w == "lobb_ejt") {
-        ejectChoice_ = 0;
-        go(Screen::Eject);
+        _ejectChoice = 0;
+        go(Screen::kEject);
     } else if (w == "lobb_hst") {
-        if (session_)
-            settings_ = session_->settings();
-        editing_ = true;
-        go(Screen::HostRace);
+        if (_session)
+            _settings = _session->settings();
+        _editing = true;
+        go(Screen::kHostRace);
     } else if (w == "mpst_veh") {
-        action = Action::Garage;
-    } else if (w == "lobb_rdy" && session_) {
-        if (session_->isHost()) {
-            if (Error err = session_->start(nowMs_))
+        action = Action::kGarage;
+    } else if (w == "lobb_rdy" && _session) {
+        if (_session->isHost()) {
+            if (Error err = _session->start(_nowMs))
                 message(err.message);
-        } else if (const NetPlayer* me = session_->me())
-            session_->setReady(!me->ready);
+        } else if (const NetPlayer* me = _session->me())
+            _session->setReady(!me->ready);
     }
 }
 
@@ -549,42 +549,42 @@ void NetMenus::change(const Item& item, int step) {
     auto wrap = [](int v, int n) { return n > 0 ? (v % n + n) % n : 0; };
     const std::string& w = item.widget;
     if (w == "textscroll") {
-        const size_t n = browser_ ? browser_->sessions().size() : 0;
-        chosenSession_ = size_t(wrap(int(chosenSession_) + step, int(n)));
+        const size_t n = _browser ? _browser->sessions().size() : 0;
+        _chosenSession = size_t(wrap(int(_chosenSession) + step, int(n)));
     } else if (w == "Max Players") {
-        settings_.maxPlayers = uint8_t(std::clamp(settings_.maxPlayers + step, 2, kMaxNetPlayers));
-        bots_ = std::min(bots_, settings_.maxPlayers - 1);
+        _settings.maxPlayers = uint8_t(std::clamp(_settings.maxPlayers + step, 2, kMaxNetPlayers));
+        _bots = std::min(_bots, _settings.maxPlayers - 1);
     } else if (w == kBotsField) {
-        bots_ = std::clamp(bots_ + step, 0, settings_.maxPlayers - 1);
+        _bots = std::clamp(_bots + step, 0, _settings.maxPlayers - 1);
     } else if (w == "RACE NAME") {
-        settings_.race = uint8_t(wrap(settings_.race + step, int(raceNames_.size())));
+        _settings.race = uint8_t(wrap(_settings.race + step, int(_raceNames.size())));
     } else if (w == "LAPS") {
-        settings_.laps = uint8_t(std::clamp(settings_.laps + step, 1, 20));
+        _settings.laps = uint8_t(std::clamp(_settings.laps + step, 1, 20));
     } else if (w == "LIMIT VALUE") {
         // The game's time limits (mmlang.dll: 5, 10, 20, 30 minutes); the
         // points are deliveries, 1-50.
-        if (settings_.limit == GoldLimit::Time) {
+        if (_settings.limit == GoldLimit::kTime) {
             int at = 0;
             for (int i = 0; i < 4; ++i)
-                if (kTimeLimits[i] <= settings_.limitValue)
+                if (kTimeLimits[i] <= _settings.limitValue)
                     at = i;
-            settings_.limitValue = uint16_t(kTimeLimits[std::clamp(at + step, 0, 3)]);
+            _settings.limitValue = uint16_t(kTimeLimits[std::clamp(at + step, 0, 3)]);
         } else
-            settings_.limitValue = uint16_t(std::clamp(settings_.limitValue + step, 1, 50));
+            _settings.limitValue = uint16_t(std::clamp(_settings.limitValue + step, 1, 50));
     } else if (w == "GOLD MASS") {
         // The game's three: Weightless, Quarter Ton, Half Ton.
-        settings_.goldMass = uint16_t(kGoldMasses[std::clamp(goldMassIndex(settings_.goldMass) + step, 0, 2)]);
+        _settings.goldMass = uint16_t(kGoldMasses[std::clamp(goldMassIndex(_settings.goldMass) + step, 0, 2)]);
     } else if (w == "RACE LOCALE") {
-        settings_.city = uint8_t(wrap(settings_.city + step, int(cities_.size())));
+        _settings.city = uint8_t(wrap(_settings.city + step, int(_cities.size())));
         refreshRaces();
     } else if (w == "TIME") {
-        settings_.timeOfDay = uint8_t(wrap(settings_.timeOfDay + step, 4));
+        _settings.timeOfDay = uint8_t(wrap(_settings.timeOfDay + step, 4));
     } else if (w == "WEATHER") {
-        settings_.weather = uint8_t(wrap(settings_.weather + step, 4));
+        _settings.weather = uint8_t(wrap(_settings.weather + step, 4));
     } else if (w == "PEDESTRIAN DENSITY") {
-        settings_.peds = std::clamp(std::round(settings_.peds * 10 + float(step)) / 10, 0.0f, 1.0f);
-    } else if (w == "ejectlist" && session_) {
-        ejectChoice_ = size_t(wrap(int(ejectChoice_) + step, int(session_->players().size()) - 1));
+        _settings.peds = std::clamp(std::round(_settings.peds * 10 + float(step)) / 10, 0.0f, 1.0f);
+    } else if (w == "ejectlist" && _session) {
+        _ejectChoice = size_t(wrap(int(_ejectChoice) + step, int(_session->players().size()) - 1));
     }
 }
 
@@ -596,7 +596,7 @@ bool NetMenus::hit(const Item& item, int x, int y) const {
         return false;
     int width = w->w, height = w->h;
     if (item.button)
-        if (const image::Image* im = pictures_.texture(item.picture)) {
+        if (const image::Image* im = _pictures.texture(item.picture)) {
             width = im->w;
             height = im->h / item.states;
         }
@@ -604,28 +604,28 @@ bool NetMenus::hit(const Item& item, int x, int y) const {
 }
 
 NetMenus::Action NetMenus::handle(const Event& ev) {
-    Action action = Action::None;
-    if (!messagePicture_.empty()) {
+    Action action = Action::kNone;
+    if (!_messagePicture.empty()) {
         // A message: any key or click puts it away.
         if (ev.type == EventType::kKeyDown || (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)) {
-            message_.clear();
-            messagePicture_.clear();
+            _message.clear();
+            _messagePicture.clear();
         }
-        sys_.setTextInput(typing());
+        _sys.setTextInput(typing());
         return action;
     }
-    if (session_ && session_->joining()) {
+    if (_session && _session->joining()) {
         if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
             leave();
-            go(Screen::Sessions);
+            go(Screen::kSessions);
         }
         return action;
     }
     const auto list = items();
     if (list.empty())
         return action;
-    focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
-    const Item& item = list[size_t(focus_)];
+    _focus = std::clamp(_focus, 0, int(list.size()) - 1);
+    const Item& item = list[size_t(_focus)];
     if (ev.type == EventType::kTextInput && item.text) {
         if (std::string* t = textOf(item.widget))
             for (const char* c = ev.text; *c; ++c)
@@ -635,7 +635,7 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         // The Host Race Menu's arrows step their values.
-        if (screen_ == Screen::HostRace) {
+        if (_screen == Screen::kHostRace) {
             static const std::pair<const char*, const char*> kArrows[] = {{"RACE UP", "RACE NAME"},
                                                                           {"RACE DOWN", "RACE NAME"},
                                                                           {"LIMIT VALUE UP", "LIMIT VALUE"},
@@ -664,19 +664,19 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
         }
         for (size_t i = 0; i < list.size(); ++i)
             if (hit(list[i], ev.mouseX, ev.mouseY)) {
-                focus_ = int(i);
+                _focus = int(i);
                 if (list[i].button)
                     activate(list[i], action);
                 else if (list[i].widget == "textscroll") {
                     const Widget* w = widget("textscroll");
                     const int row = (ev.mouseY - w->y - 4) / kRow - 1;
-                    if (row >= 0 && browser_ && size_t(row) < browser_->sessions().size())
-                        chosenSession_ = size_t(row);
+                    if (row >= 0 && _browser && size_t(row) < _browser->sessions().size())
+                        _chosenSession = size_t(row);
                 } else if (!list[i].text) {
                     const Widget* w = widget(list[i].widget);
                     change(list[i], w && ev.mouseX < w->x + originX() + w->w / 2 ? -1 : 1);
                 }
-                sys_.setTextInput(typing());
+                _sys.setTextInput(typing());
                 return action;
             }
         return action;
@@ -688,8 +688,8 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
     case key::kDown: {
         const int step = ev.key == key::kDown ? 1 : -1;
         for (size_t tries = 0; tries < list.size(); ++tries) {
-            focus_ = (focus_ + step + int(list.size())) % int(list.size());
-            if (list[size_t(focus_)].enabled)
+            _focus = (_focus + step + int(list.size())) % int(list.size());
+            if (list[size_t(_focus)].enabled)
                 break;
         }
         break;
@@ -708,64 +708,64 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
         if (item.button)
             activate(item, action);
         else if (item.widget == "Chat Entry") {
-            if (session_ && !chat_.empty())
-                session_->say(chat_);
-            chat_.clear();
+            if (_session && !_chat.empty())
+                _session->say(_chat);
+            _chat.clear();
         } else if (item.widget == "textscroll")
             activate(list[7], action); // join the one chosen
-        else if (screen_ == Screen::Address || screen_ == Screen::Password || screen_ == Screen::HostOptions ||
-                 screen_ == Screen::Eject)
+        else if (_screen == Screen::kAddress || _screen == Screen::kPassword || _screen == Screen::kHostOptions ||
+                 _screen == Screen::kEject)
             activate(list.back(), action); // done
-        else if (screen_ == Screen::HostRace)
+        else if (_screen == Screen::kHostRace)
             activate(list.back(), action); // done
         break;
     case key::kEscape:
-        switch (screen_) {
-        case Screen::Sessions:
+        switch (_screen) {
+        case Screen::kSessions:
             leave();
-            action = Action::Back;
+            action = Action::kBack;
             break;
-        case Screen::Address:
-        case Screen::Password:
-        case Screen::HostOptions:
-            go(Screen::Sessions);
+        case Screen::kAddress:
+        case Screen::kPassword:
+        case Screen::kHostOptions:
+            go(Screen::kSessions);
             break;
-        case Screen::HostRace:
-            go(editing_ ? Screen::Lobby : Screen::HostOptions);
+        case Screen::kHostRace:
+            go(_editing ? Screen::kLobby : Screen::kHostOptions);
             break;
-        case Screen::Eject:
-            go(Screen::Lobby);
+        case Screen::kEject:
+            go(Screen::kLobby);
             break;
-        case Screen::Lobby:
+        case Screen::kLobby:
             leave();
-            go(Screen::Sessions);
+            go(Screen::kSessions);
             break;
         }
         break;
     default:
         break;
     }
-    sys_.setTextInput(typing());
+    _sys.setTextInput(typing());
     return action;
 }
 
 NetMenus::Action NetMenus::update(uint64_t nowMs) {
-    nowMs_ = nowMs;
-    Action action = Action::None;
-    if (browser_ && !session_)
-        browser_->update(nowMs);
-    if (!session_)
+    _nowMs = nowMs;
+    Action action = Action::kNone;
+    if (_browser && !_session)
+        _browser->update(nowMs);
+    if (!_session)
         return action;
-    session_->update(nowMs);
+    _session->update(nowMs);
     // Hosting on the network (from the start, or taken over): the router
     // asked to pass the port on, for players on the Internet.
-    if (session_->isHost() && !local_ && !mapper_) {
-        mapper_ = std::make_unique<net::PortMapper>(net::PortMapper::through(sys_), kNetPort);
-        mapperSaid_ = false;
+    if (_session->isHost() && !_local && !_mapper) {
+        _mapper = std::make_unique<net::PortMapper>(net::PortMapper::through(_sys), kNetPort);
+        _mapperSaid = false;
     }
-    if (mapper_ && mapper_->done() && !mapperSaid_) {
-        mapperSaid_ = true;
-        const net::PortMapping m = mapper_->result();
+    if (_mapper && _mapper->done() && !_mapperSaid) {
+        _mapperSaid = true;
+        const net::PortMapping m = _mapper->result();
         if (m.way == net::PortMapping::Way::kNone)
             say(m.why + ": for players on the Internet, pass UDP port " + std::to_string(kNetPort) +
                     " on to this computer by hand",
@@ -777,42 +777,42 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
                                   : "this computer's Internet address"),
                 true);
     }
-    for (const NetNotice& n : session_->takeNotices()) {
+    for (const NetNotice& n : _session->takeNotices()) {
         say(noticeText(n), true);
         switch (n.kind) {
-        case NetNotice::Kind::Started:
-            action = Action::Load;
+        case NetNotice::Kind::kStarted:
+            action = Action::kLoad;
             break;
-        case NetNotice::Kind::BackToLobby:
-            action = Action::Lobby;
+        case NetNotice::Kind::kBackToLobby:
+            action = Action::kLobby;
             break;
-        case NetNotice::Kind::Ejected:
+        case NetNotice::Kind::kEjected:
             message({}, "boot_dlg");
             break;
-        case NetNotice::Kind::Refused:
+        case NetNotice::Kind::kRefused:
             if (n.reason == kRefusedPassword) {
                 message({}, "badp_dlg"); // the game's "Incorrect password"
                 break;
             }
             message(noticeText(n));
             break;
-        case NetNotice::Kind::HostQuit:
+        case NetNotice::Kind::kHostQuit:
             message(noticeText(n));
             break;
         default:
             break;
         }
     }
-    for (const NetChatLine& c : session_->chat())
-        if (c.seq > lastChatSeq_) {
-            lastChatSeq_ = c.seq;
+    for (const NetChatLine& c : _session->chat())
+        if (c.seq > _lastChatSeq) {
+            _lastChatSeq = c.seq;
             say(c.from + ": " + c.text, false);
         }
-    if (session_->closed()) {
-        session_.reset();
-        mapper_.reset();
-        go(Screen::Sessions);
-        action = Action::Lobby;
+    if (_session->closed()) {
+        _session.reset();
+        _mapper.reset();
+        go(Screen::kSessions);
+        action = Action::kLobby;
     }
     return action;
 }
@@ -824,7 +824,7 @@ void NetMenus::text(Surface& o, const std::string& name, const std::string& s, C
 }
 
 void NetMenus::drawDialog(Surface& o, const std::string& picture, const std::string& title) const {
-    if (const image::Image* im = pictures_.jpg(picture))
+    if (const image::Image* im = _pictures.jpg(picture))
         drawPicture(o, *im, kDialogX, kDialogY);
     else {
         // No picture of its own (the address box's isn't shipped): a
@@ -837,67 +837,67 @@ void NetMenus::drawDialog(Surface& o, const std::string& picture, const std::str
 }
 
 void NetMenus::drawHostRace(Surface& o) const {
-    const std::string city = cities_.empty() ? "sf" : cityPicture(cities_[settings_.city].map);
+    const std::string city = _cities.empty() ? "sf" : cityPicture(_cities[_settings.city].map);
     // The race's map, else the city's.
     std::string map = city == "london" ? "mapr_lon" : "mapr_sf";
-    if (hasRace(settings_.mode)) {
-        const RaceKind k = raceKind(settings_.mode);
+    if (hasRace(_settings.mode)) {
+        const RaceKind k = raceKind(_settings.mode);
         map = city + "_map" +
-              (k == RaceKind::Blitz     ? "blitz"
-               : k == RaceKind::Circuit ? "circuit"
+              (k == RaceKind::kBlitz     ? "blitz"
+               : k == RaceKind::kCircuit ? "circuit"
                                         : "race") +
-              std::to_string(settings_.race);
+              std::to_string(_settings.race);
     }
-    if (const image::Image* m = pictures_.jpg(map))
+    if (const image::Image* m = _pictures.jpg(map))
         if (const Widget* w = widget("race map"))
             drawPicture(o, *m, w->x, w->y, w->w, w->h);
-    if (hasRace(settings_.mode))
+    if (hasRace(_settings.mode))
         text(o, "RACE NAME",
-             raceNames_.empty() ? "" : raceNames_[std::min<size_t>(settings_.race, raceNames_.size() - 1)]);
-    if (settings_.mode == NetMode::Circuit)
-        text(o, "LAPS", std::to_string(settings_.laps));
-    if (settings_.mode == NetMode::CopsRobbers) {
-        if (settings_.limit != GoldLimit::None)
+             _raceNames.empty() ? "" : _raceNames[std::min<size_t>(_settings.race, _raceNames.size() - 1)]);
+    if (_settings.mode == NetMode::kCircuit)
+        text(o, "LAPS", std::to_string(_settings.laps));
+    if (_settings.mode == NetMode::kCopsRobbers) {
+        if (_settings.limit != GoldLimit::kNone)
             text(o, "LIMIT VALUE",
-                 settings_.limit == GoldLimit::Time ? timeLimitName(settings_.limitValue)
-                                                    : std::to_string(settings_.limitValue) + " pts");
-        text(o, "GOLD MASS", goldMassName(settings_.goldMass));
+                 _settings.limit == GoldLimit::kTime ? timeLimitName(_settings.limitValue)
+                                                    : std::to_string(_settings.limitValue) + " pts");
+        text(o, "GOLD MASS", goldMassName(_settings.goldMass));
     }
-    text(o, "RACE LOCALE", cities_.empty() ? "" : cities_[settings_.city].name);
-    text(o, "TIME", kTimes[settings_.timeOfDay & 3]);
-    text(o, "WEATHER", kWeathers[settings_.weather & 3]);
+    text(o, "RACE LOCALE", _cities.empty() ? "" : _cities[_settings.city].name);
+    text(o, "TIME", kTimes[_settings.timeOfDay & 3]);
+    text(o, "WEATHER", kWeathers[_settings.weather & 3]);
     if (const Widget* w = widget("PEDESTRIAN DENSITY")) {
         // Over the background's grid of cells.
-        const Box b{w->x + 8, w->y + 2, int(float(w->w - 26) * settings_.peds), w->h - 10};
+        const Box b{w->x + 8, w->y + 2, int(float(w->w - 26) * _settings.peds), w->h - 10};
         fillBox(o, b, {255, 200, 40});
     }
     static const char* const kDesc[] = {"race_hrm", "race_hbt", "race_hcp", "race_hct", "race_cop"};
-    if (const image::Image* d = pictures_.jpg(kDesc[int(settings_.mode)]))
+    if (const image::Image* d = _pictures.jpg(kDesc[int(_settings.mode)]))
         drawPicture(o, *d, 40, 396);
 }
 
 void NetMenus::drawLobby(Surface& o) const {
-    if (!session_)
+    if (!_session)
         return;
-    const NetSettings& s = session_->settings();
-    const std::string city = s.city < cities_.size() ? cities_[s.city].name : "";
+    const NetSettings& s = _session->settings();
+    const std::string city = s.city < _cities.size() ? _cities[s.city].name : "";
     // The host's settings.
-    std::vector<std::string> lines = {session_->sessionName(), modeName(s.mode)};
+    std::vector<std::string> lines = {_session->sessionName(), modeName(s.mode)};
     if (hasRace(s.mode)) {
-        const auto names = s.city < cities_.size() ? raceNames(files_, cities_[s.city].map, raceKind(s.mode))
+        const auto names = s.city < _cities.size() ? raceNames(_files, _cities[s.city].map, raceKind(s.mode))
                                                    : std::vector<std::string>{};
         lines.push_back(s.race < names.size() ? names[s.race] : "");
-        if (s.mode == NetMode::Circuit)
+        if (s.mode == NetMode::kCircuit)
             lines.push_back(std::to_string(s.laps) + " laps");
     }
-    if (s.mode == NetMode::CopsRobbers) {
+    if (s.mode == NetMode::kCopsRobbers) {
         lines.push_back(goldModeName(s.gold));
-        lines.push_back(s.limit == GoldLimit::None   ? std::string("No limit")
-                        : s.limit == GoldLimit::Time ? timeLimitName(s.limitValue)
+        lines.push_back(s.limit == GoldLimit::kNone   ? std::string("No limit")
+                        : s.limit == GoldLimit::kTime ? timeLimitName(s.limitValue)
                                                      : std::to_string(s.limitValue) + " points");
-        lines.push_back(strings_.get(335, "Gold Mass") + ": " + goldMassName(s.goldMass));
+        lines.push_back(_strings.get(335, "Gold Mass") + ": " + goldMassName(s.goldMass));
     }
-    lines.push_back(strings_.get(87, "Locale:") + " " + city);
+    lines.push_back(_strings.get(87, "Locale:") + " " + city);
     lines.push_back(std::string(kTimes[s.timeOfDay & 3]) + ", " + kWeathers[s.weather & 3]);
     for (size_t i = 0; i < lines.size() && i < 8; ++i)
         font::drawText(o, kSettingsBox.x + 4, kSettingsBox.y + 2 + int(i) * kRow, lines[i],
@@ -910,9 +910,9 @@ void NetMenus::drawLobby(Surface& o) const {
                                  : "Player          Car                           Ready  Ping",
                        {150, 200, 255});
         y += kRow + 2;
-        for (const NetPlayer& p : session_->players()) {
+        for (const NetPlayer& p : _session->players()) {
             std::string car = carFor(p);
-            for (const CarInfo& c : cars_)
+            for (const CarInfo& c : _cars)
                 if (c.base == car)
                     car = c.description;
             // The host marked with a star; it's ready when it starts.
@@ -924,14 +924,14 @@ void NetMenus::drawLobby(Surface& o) const {
             else
                 std::snprintf(row, sizeof row, "%-15.15s %-29.29s %-6s %d", name.c_str(), car.c_str(), ready.c_str(),
                               int(p.ping));
-            font::drawText(o, w->x + 6, y, row, p.id == session_->myId() ? Color{255, 255, 120} : Color{230, 230, 230});
+            font::drawText(o, w->x + 6, y, row, p.id == _session->myId() ? Color{255, 255, 120} : Color{230, 230, 230});
             y += kRow;
         }
     }
     // You.
-    if (const NetPlayer* me = session_->me()) {
+    if (const NetPlayer* me = _session->me()) {
         std::string car = carFor(*me);
-        for (const CarInfo& c : cars_)
+        for (const CarInfo& c : _cars)
             if (c.base == car)
                 car = c.description;
         font::drawText(o, kYouBox.x, kYouBox.y + 2, me->name, {255, 255, 120});
@@ -940,86 +940,86 @@ void NetMenus::drawLobby(Surface& o) const {
             font::drawText(o, kYouBox.x, kYouBox.y + 2 + 2 * kRow, teamName(me->team), {255, 200, 120});
     }
     if (s.teams())
-        if (const image::Image* label = pictures_.jpg("lobb_tem"))
+        if (const image::Image* label = _pictures.jpg("lobb_tem"))
             drawPicture(o, *label, 474, 190);
     // The chat (and who's come and gone).
     const int shown = kChatBox.h / kRow;
     int y = kChatBox.y;
-    for (size_t i = lines_.size() > size_t(shown) ? lines_.size() - size_t(shown) : 0; i < lines_.size(); ++i) {
-        font::drawText(o, kChatBox.x, y, lines_[i].text.substr(0, 58),
-                       lines_[i].system ? Color{255, 200, 120} : Color{230, 230, 230});
+    for (size_t i = _lines.size() > size_t(shown) ? _lines.size() - size_t(shown) : 0; i < _lines.size(); ++i) {
+        font::drawText(o, kChatBox.x, y, _lines[i].text.substr(0, 58),
+                       _lines[i].system ? Color{255, 200, 120} : Color{230, 230, 230});
         y += kRow;
     }
     // The map: the race's, else the city's.
-    const std::string pic = s.city < cities_.size() ? cityPicture(cities_[s.city].map) : "sf";
+    const std::string pic = s.city < _cities.size() ? cityPicture(_cities[s.city].map) : "sf";
     std::string map = pic == "london" ? "mapr_lon" : "mapr_sf";
     if (hasRace(s.mode)) {
         const RaceKind k = raceKind(s.mode);
         map = pic + "_map" +
-              (k == RaceKind::Blitz     ? "blitz"
-               : k == RaceKind::Circuit ? "circuit"
+              (k == RaceKind::kBlitz     ? "blitz"
+               : k == RaceKind::kCircuit ? "circuit"
                                         : "race") +
               std::to_string(s.race);
     }
-    if (const image::Image* m = pictures_.jpg(map))
+    if (const image::Image* m = _pictures.jpg(map))
         if (const Widget* w = widget("race map"))
             drawPicture(o, *m, w->x, w->y, w->w, w->h);
     // The description: the host settings button's, else the event's.
     const auto list = items();
-    const std::string focused = size_t(focus_) < list.size() ? list[size_t(focus_)].widget : "";
+    const std::string focused = size_t(_focus) < list.size() ? list[size_t(_focus)].widget : "";
     static const char* const kDesc[] = {"race_hrm", "race_hbt", "race_hcp", "race_hct", "race_cop"};
-    if (const image::Image* d = pictures_.jpg(focused == "lobb_hst" ? "lobb_set" : kDesc[int(s.mode)]))
+    if (const image::Image* d = _pictures.jpg(focused == "lobb_hst" ? "lobb_set" : kDesc[int(s.mode)]))
         drawPicture(o, *d, 40, 396);
     // Waiting for the players to be ready (the game's words).
-    if (session_->isHost()) {
+    if (_session->isHost()) {
         int waiting = 0;
-        for (const NetPlayer& p : session_->players())
-            waiting += p.id != session_->myId() && !p.ready ? 1 : 0;
+        for (const NetPlayer& p : _session->players())
+            waiting += p.id != _session->myId() && !p.ready ? 1 : 0;
         if (waiting > 0)
             font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6,
-                           strings_.get(uint32_t(30 + std::min(waiting, 7)), "Waiting for players"), {255, 120, 120});
-    } else if (!session_->joining()) {
-        font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6, strings_.get(432, "waiting for host to start..."),
+                           _strings.get(uint32_t(30 + std::min(waiting, 7)), "Waiting for players"), {255, 120, 120});
+    } else if (!_session->joining()) {
+        font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6, _strings.get(432, "waiting for host to start..."),
                        {150, 200, 255});
     }
 }
 
 void NetMenus::draw(Surface& o, uint64_t nowMs) {
-    nowMs_ = nowMs;
+    _nowMs = nowMs;
     std::fill(o.pixels.begin(), o.pixels.end(), 0);
     // The screen under a dialog.
-    const Screen under = screen_ == Screen::Address || screen_ == Screen::Password || screen_ == Screen::HostOptions
-                             ? Screen::Sessions
-                         : screen_ == Screen::Eject ? Screen::Lobby
-                                                    : screen_;
-    const bool host = session_ && session_->isHost();
-    const char* background = under == Screen::Sessions   ? "sess_bk"
-                             : under == Screen::HostRace ? "host_bk"
+    const Screen under = _screen == Screen::kAddress || _screen == Screen::kPassword || _screen == Screen::kHostOptions
+                             ? Screen::kSessions
+                         : _screen == Screen::kEject ? Screen::kLobby
+                                                    : _screen;
+    const bool host = _session && _session->isHost();
+    const char* background = under == Screen::kSessions   ? "sess_bk"
+                             : under == Screen::kHostRace ? "host_bk"
                              : host                      ? "lobbh_bk"
                                                          : "lobbj_bk";
-    if (const image::Image* bg = pictures_.jpg(background))
+    if (const image::Image* bg = _pictures.jpg(background))
         drawPicture(o, *bg, 0, 0, o.w, o.h);
     // Cops & Robbers' choices, on their own panel, under their buttons.
-    if (under == Screen::HostRace && settings_.mode == NetMode::CopsRobbers)
-        if (const image::Image* panel = pictures_.jpg("host_cr"))
+    if (under == Screen::kHostRace && _settings.mode == NetMode::kCopsRobbers)
+        if (const image::Image* panel = _pictures.jpg("host_cr"))
             drawPicture(o, *panel, kCopsPanel.x, kCopsPanel.y);
 
-    const Screen was = screen_;
-    const int keepFocus = focus_;
-    if (under != screen_) {
+    const Screen was = _screen;
+    const int keepFocus = _focus;
+    if (under != _screen) {
         // Draw the screen beneath as it is, without a focus.
-        screen_ = under;
-        focus_ = -1;
+        _screen = under;
+        _focus = -1;
     }
     for (int pass = 0; pass < (under != was ? 2 : 1); ++pass) {
         if (pass == 1) {
-            screen_ = was;
-            focus_ = keepFocus;
-            if (was == Screen::Eject)
+            _screen = was;
+            _focus = keepFocus;
+            if (was == Screen::kEject)
                 drawDialog(o, "ejct_dlg", "EJECT PLAYER");
-            else if (was == Screen::HostOptions)
+            else if (was == Screen::kHostOptions)
                 drawDialog(o, "host_dlg", "HOST OPTIONS");
-            else if (was == Screen::Password)
+            else if (was == Screen::kPassword)
                 drawDialog(o, "pass_dlg", "PASSWORD");
             else
                 drawDialog(o, "tcp_dlg", "ENTER AN ADDRESS");
@@ -1030,22 +1030,22 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             const Widget* w = widget(item.widget);
             if (!w)
                 continue;
-            const bool focused = int(i) == focus_;
+            const bool focused = int(i) == _focus;
             if (item.button) {
-                const image::Image* im = pictures_.texture(item.picture);
+                const image::Image* im = _pictures.texture(item.picture);
                 if (!im)
                     continue;
                 bool chosen = item.widget == "sess_tcp";
-                if (screen_ == Screen::HostRace) {
+                if (_screen == Screen::kHostRace) {
                     static const char* const kModes[] = {"cruise_m", "blitz_m", "cp_m", "circt_m", "cops_m"};
                     static const char* const kGold[] = {"free_cr", "cpsvr_cr", "robrs_cr"};
                     static const char* const kLimits[] = {"none_cr", "time_cr", "point_cr"};
-                    chosen = item.widget == kModes[int(settings_.mode)] || item.widget == kGold[int(settings_.gold)] ||
-                             item.widget == kLimits[int(settings_.limit)];
+                    chosen = item.widget == kModes[int(_settings.mode)] || item.widget == kGold[int(_settings.gold)] ||
+                             item.widget == kLimits[int(_settings.limit)];
                 }
-                if (screen_ == Screen::Lobby && session_ && session_->me())
-                    chosen = (item.widget == "lobb_red" && session_->me()->team == 0) ||
-                             (item.widget == "lobb_blu" && session_->me()->team == 1);
+                if (_screen == Screen::kLobby && _session && _session->me())
+                    chosen = (item.widget == "lobb_red" && _session->me()->team == 0) ||
+                             (item.widget == "lobb_blu" && _session->me()->team == 1);
                 const int state = !item.enabled                            ? item.states - 1
                                   : item.states == 5 && chosen && !focused ? 2
                                   : focused                                ? 1
@@ -1056,12 +1056,12 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             }
         }
         // Each screen's words.
-        switch (screen_) {
-        case Screen::Sessions: {
-            text(o, "NET NAME", netName_ + (focus_ == 5 && (nowMs / 400) % 2 ? "_" : ""));
+        switch (_screen) {
+        case Screen::kSessions: {
+            text(o, "NET NAME", _netName + (_focus == 5 && (nowMs / 400) % 2 ? "_" : ""));
             font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6, "TCP/IP", {255, 230, 140});
             if (const Widget* w = widget("textscroll")) {
-                const auto& found = browser_ ? browser_->sessions() : std::vector<NetBrowser::Found>{};
+                const auto& found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
                 int y = w->y + 4;
                 font::drawText(o, w->x + 6, y, "Session          Players  Event           Ping", {150, 200, 255});
                 y += kRow;
@@ -1077,53 +1077,53 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
                                   : !f.sameVersion ? " (other version)"
                                                    : "");
                     font::drawText(o, w->x + 6, y, row,
-                                   i == chosenSession_ ? Color{255, 255, 120} : Color{230, 230, 230});
+                                   i == _chosenSession ? Color{255, 255, 120} : Color{230, 230, 230});
                     y += kRow;
                 }
             }
-            if (const image::Image* d = pictures_.jpg("mpst_tcp"))
+            if (const image::Image* d = _pictures.jpg("mpst_tcp"))
                 drawPicture(o, *d, 40, 396);
             break;
         }
-        case Screen::Address:
+        case Screen::kAddress:
             // The game's own words are on jpg/tcp_dlg; the port's Reluva's.
             font::drawText(o, kDialogX + 72, kDialogY + 118, "Port " + std::to_string(kNetPort) + " unless given",
                            {200, 200, 255});
-            text(o, "TCP/IP Address", address_ + ((nowMs / 400) % 2 && focus_ == 0 ? "_" : ""));
+            text(o, "TCP/IP Address", _address + ((nowMs / 400) % 2 && _focus == 0 ? "_" : ""));
             break;
-        case Screen::Password:
-        case Screen::HostOptions: {
-            std::string stars(password_.size(), '*');
-            text(o, "Password", stars + ((nowMs / 400) % 2 && focus_ == 0 ? "_" : ""));
-            if (screen_ == Screen::HostOptions) {
-                text(o, "Max Players", std::to_string(settings_.maxPlayers));
+        case Screen::kPassword:
+        case Screen::kHostOptions: {
+            std::string stars(_password.size(), '*');
+            text(o, "Password", stars + ((nowMs / 400) % 2 && _focus == 0 ? "_" : ""));
+            if (_screen == Screen::kHostOptions) {
+                text(o, "Max Players", std::to_string(_settings.maxPlayers));
                 if (const Widget* w = widget(kBotsField)) {
                     // Its label and box, as the dialog draws Max Players'.
                     const std::string label = "COMPUTER PLAYERS";
                     font::drawText(o, kDialogX + w->x - 12 - int(label.size()) * font::kAdvance, kDialogY + w->y + 10,
                                    label, {230, 230, 255});
                     fillBox(o, {kDialogX + w->x, kDialogY + w->y, w->w, w->h - 8}, {0, 0, 20});
-                    text(o, kBotsField, std::to_string(bots_));
+                    text(o, kBotsField, std::to_string(_bots));
                 }
             }
             break;
         }
-        case Screen::HostRace:
+        case Screen::kHostRace:
             drawHostRace(o);
             break;
-        case Screen::Lobby:
+        case Screen::kLobby:
             drawLobby(o);
-            text(o, "Chat Entry", chat_ + ((nowMs / 400) % 2 && focus_ == 0 ? "_" : ""), {255, 255, 255});
+            text(o, "Chat Entry", _chat + ((nowMs / 400) % 2 && _focus == 0 ? "_" : ""), {255, 255, 255});
             break;
-        case Screen::Eject:
-            if (session_) {
+        case Screen::kEject:
+            if (_session) {
                 int y = kEjectList.y;
                 size_t k = 0;
-                for (const NetPlayer& p : session_->players()) {
-                    if (p.id == session_->myId())
+                for (const NetPlayer& p : _session->players()) {
+                    if (p.id == _session->myId())
                         continue;
                     font::drawText(o, kEjectList.x, y, p.name,
-                                   k == ejectChoice_ ? Color{255, 255, 120} : Color{230, 230, 230});
+                                   k == _ejectChoice ? Color{255, 255, 120} : Color{230, 230, 230});
                     y += kRow;
                     ++k;
                 }
@@ -1131,18 +1131,18 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             break;
         }
     }
-    screen_ = was;
-    focus_ = keepFocus;
+    _screen = was;
+    _focus = keepFocus;
 
     // Joining: "Retrieving game settings..."
-    if (session_ && session_->joining())
-        if (const image::Image* d = pictures_.jpg("rtrv_dlg"))
+    if (_session && _session->joining())
+        if (const image::Image* d = _pictures.jpg("rtrv_dlg"))
             drawPicture(o, *d, kDialogX, kMessageY);
-    if (!messagePicture_.empty()) {
-        if (const image::Image* d = pictures_.jpg(messagePicture_))
+    if (!_messagePicture.empty()) {
+        if (const image::Image* d = _pictures.jpg(_messagePicture))
             drawPicture(o, *d, kDialogX, kMessageY);
-        if (!message_.empty())
-            font::drawText(o, kDialogX + 80, kMessageY + 30, message_.substr(0, 38), {255, 255, 255});
+        if (!_message.empty())
+            font::drawText(o, kDialogX + 80, kMessageY + 30, _message.substr(0, 38), {255, 255, 255});
     }
     font::drawText(o, 4, o.h - 12, "Up/Down, Left/Right, Enter, Esc; type in the boxes", {200, 200, 200});
 }

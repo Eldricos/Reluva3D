@@ -23,19 +23,19 @@ namespace reluva::age {
 
 class NetMenus {
 public:
-    enum class Screen { Sessions, Address, Password, HostOptions, HostRace, Lobby, Eject };
+    enum class Screen { kSessions, kAddress, kPassword, kHostOptions, kHostRace, kLobby, kEject };
     enum class Action {
-        None,
-        Back,   // out to the main menu
-        Garage, // the player wants to choose a car
-        Load,   // the host started: load the game
-        Lobby,  // the game's over: back in the lobby
+        kNone,
+        kBack,   // out to the main menu
+        kGarage, // the player wants to choose a car
+        kLoad,   // the host started: load the game
+        kLobby,  // the game's over: back in the lobby
     };
 
     NetMenus(System& sys, const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
              const GameStrings& strings);
     ~NetMenus();
-    bool loaded() const { return ok_; }
+    bool loaded() const { return _ok; }
 
     // From the main menu: the sessions on the local network.
     void enter();
@@ -44,8 +44,8 @@ public:
     Action update(uint64_t nowMs);
     void draw(Surface& overlay, uint64_t nowMs);
 
-    Screen screen() const { return screen_; }
-    NetSession* session() { return session_.get(); }
+    Screen screen() const { return _screen; }
+    NetSession* session() { return _session.get(); }
     // Back from the garage, with the car chosen, or from the game.
     void carChosen(const std::string& car, int paintJob);
     void showLobby();
@@ -57,13 +57,13 @@ public:
         uint64_t atMs = 0;
         bool system = false; // the game's words, not a player's
     };
-    const std::deque<Line>& lines() const { return lines_; }
+    const std::deque<Line>& lines() const { return _lines; }
     // A notice to show, from the game's strings where it has one.
     std::string noticeText(const NetNotice& n) const;
     // The race of the session's settings: its kind (Cruise and Cops &
     // Robbers have none).
     static bool hasRace(NetMode mode) {
-        return mode == NetMode::Blitz || mode == NetMode::Checkpoint || mode == NetMode::Circuit;
+        return mode == NetMode::kBlitz || mode == NetMode::kCheckpoint || mode == NetMode::kCircuit;
     }
     static RaceKind raceKind(NetMode mode);
     std::string modeName(NetMode mode) const;
@@ -107,39 +107,39 @@ private:
     void drawLobby(Surface& o) const;
     void drawHostRace(Surface& o) const;
 
-    System& sys_;
-    const SearchSet& files_;
-    const std::vector<CityInfo>& cities_;
-    const std::vector<CarInfo>& cars_;
-    const GameStrings& strings_;
-    mutable MenuPictures pictures_;
-    std::vector<Widget> widgets_;
-    bool ok_ = false;
+    System& _sys;
+    const SearchSet& _files;
+    const std::vector<CityInfo>& _cities;
+    const std::vector<CarInfo>& _cars;
+    const GameStrings& _strings;
+    mutable MenuPictures _pictures;
+    std::vector<Widget> _widgets;
+    bool _ok = false;
 
-    Screen screen_ = Screen::Sessions;
-    int focus_ = 0;
-    std::unique_ptr<NetSession> session_;
+    Screen _screen = Screen::kSessions;
+    int _focus = 0;
+    std::unique_ptr<NetSession> _session;
     // Hosting on the network: the router asked to pass the port on, and
     // whether what came of it has been said.
-    std::unique_ptr<net::PortMapper> mapper_;
-    bool mapperSaid_ = false;
-    std::unique_ptr<NetBrowser> browser_;
-    size_t chosenSession_ = 0;
-    std::string netName_ = "Player", address_, password_, chat_;
-    NetSettings settings_; // the host's, as edited
-    bool editing_ = false; // the host's settings from the lobby (else hosting anew)
-    std::vector<std::string> raceNames_;
-    size_t ejectChoice_ = 0;
-    net::Address pendingJoin_; // a session that wants a password first
-    uint32_t lastChatSeq_ = 0;
-    std::string message_, messagePicture_; // a dialog over the screen, until a key
-    std::deque<Line> lines_;
-    uint64_t nowMs_ = 0;
-    std::string myCar_ = "vpbug";
-    int bots_ = 0;                                // computer players to host with
-    std::shared_ptr<net::LoopbackNetwork> local_; // hosting with no network: this computer only
+    std::unique_ptr<net::PortMapper> _mapper;
+    bool _mapperSaid = false;
+    std::unique_ptr<NetBrowser> _browser;
+    size_t _chosenSession = 0;
+    std::string _netName = "Player", _address, _password, _chat;
+    NetSettings _settings; // the host's, as edited
+    bool _editing = false; // the host's settings from the lobby (else hosting anew)
+    std::vector<std::string> _raceNames;
+    size_t _ejectChoice = 0;
+    net::Address _pendingJoin; // a session that wants a password first
+    uint32_t _lastChatSeq = 0;
+    std::string _message, _messagePicture; // a dialog over the screen, until a key
+    std::deque<Line> _lines;
+    uint64_t _nowMs = 0;
+    std::string _myCar = "vpbug";
+    int _bots = 0;                                // computer players to host with
+    std::shared_ptr<net::LoopbackNetwork> _local; // hosting with no network: this computer only
     static constexpr const char* kBotsField = "Computer Players";
-    int myPaint_ = 0;
+    int _myPaint = 0;
 };
 
 } // namespace reluva::age

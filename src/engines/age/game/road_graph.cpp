@@ -20,26 +20,26 @@ float flatDistance(const Vec3& a, const Vec3& b) {
 } // namespace
 
 uint32_t RoadGraph::add(const Vec3& p) {
-    nodes_.push_back(p);
-    links_.emplace_back();
-    return uint32_t(nodes_.size() - 1);
+    _nodes.push_back(p);
+    _links.emplace_back();
+    return uint32_t(_nodes.size() - 1);
 }
 
 void RoadGraph::join(uint32_t a, uint32_t b, float weight) {
     if (a == b)
         return;
-    const float d = length(nodes_[a] - nodes_[b]) * weight;
-    links_[a].push_back({b, d});
-    links_[b].push_back({a, d});
+    const float d = length(_nodes[a] - _nodes[b]) * weight;
+    _links[a].push_back({b, d});
+    _links[b].push_back({a, d});
 }
 
 size_t RoadGraph::penalizeBlocked(const CollisionWorld& world, float penalty) {
     size_t blocked = 0;
-    for (uint32_t a = 0; a < links_.size(); ++a)
-        for (auto& [b, cost] : links_[a]) {
+    for (uint32_t a = 0; a < _links.size(); ++a)
+        for (auto& [b, cost] : _links[a]) {
             if (b < a)
                 continue; // each join once, both ways set together
-            const Vec3 from = nodes_[a] + Vec3{0, 0.8f, 0}, to = nodes_[b] + Vec3{0, 0.8f, 0};
+            const Vec3 from = _nodes[a] + Vec3{0, 0.8f, 0}, to = _nodes[b] + Vec3{0, 0.8f, 0};
             const float span = length(to - from);
             CollisionWorld::RayHit hit;
             // A wall (not the road rising over a hump) short of the far end.
@@ -48,7 +48,7 @@ size_t RoadGraph::penalizeBlocked(const CollisionWorld& world, float penalty) {
                 continue;
             ++blocked;
             cost *= penalty;
-            for (auto& [c, back] : links_[b])
+            for (auto& [c, back] : _links[b])
                 if (c == a)
                     back *= penalty;
         }
@@ -57,14 +57,14 @@ size_t RoadGraph::penalizeBlocked(const CollisionWorld& world, float penalty) {
 
 size_t RoadGraph::edgeCount() const {
     size_t n = 0;
-    for (const auto& l : links_)
+    for (const auto& l : _links)
         n += l.size();
     return n / 2;
 }
 
 void RoadGraph::build(const Psdl& psdl) {
-    nodes_.clear();
-    links_.clear();
+    _nodes.clear();
+    _links.clear();
     if (psdl.vertices.empty())
         return;
     const size_t last = psdl.vertices.size() - 1;
@@ -82,9 +82,9 @@ void RoadGraph::build(const Psdl& psdl) {
             // Road strips' sections are 4 words (the curbs are the middle
             // two); divided roads' 6 after 2 (the curbs are 1 and 4).
             size_t first = 0, stride = 0, left = 0, right = 0;
-            if (a.type == psdlattr::RoadStrip)
+            if (a.type == psdlattr::kRoadStrip)
                 first = 0, stride = 4, left = 1, right = 2;
-            else if (a.type == psdlattr::DividedRoad)
+            else if (a.type == psdlattr::kDividedRoad)
                 first = 2, stride = 6, left = 1, right = 4;
             if (stride) {
                 uint32_t previous = 0;
@@ -101,7 +101,7 @@ void RoadGraph::build(const Psdl& psdl) {
                 }
                 if (any)
                     ends.push_back(previous);
-            } else if (a.type == psdlattr::RoadFan) {
+            } else if (a.type == psdlattr::kRoadFan) {
                 for (uint16_t w : a.words) {
                     fanSum += vertex(w);
                     fanPoints.push_back(vertex(w));
@@ -122,19 +122,19 @@ void RoadGraph::build(const Psdl& psdl) {
     for (const Fan& f : fans) {
         const uint32_t n = add(f.middle);
         for (uint32_t e : ends)
-            if (flatDistance(nodes_[e], f.middle) < f.radius + 4 && std::fabs(nodes_[e][1] - f.middle[1]) < 4)
+            if (flatDistance(_nodes[e], f.middle) < f.radius + 4 && std::fabs(_nodes[e][1] - f.middle[1]) < 4)
                 join(n, e);
     }
     // Roads continuing from one block into the next.
     for (size_t i = 0; i < ends.size(); ++i)
         for (size_t j = i + 1; j < ends.size(); ++j)
-            if (length(nodes_[ends[i]] - nodes_[ends[j]]) < 3)
+            if (length(_nodes[ends[i]] - _nodes[ends[j]]) < 3)
                 join(ends[i], ends[j]);
 }
 
 void RoadGraph::build(const AiRoadMap& map) {
-    nodes_.clear();
-    links_.clear();
+    _nodes.clear();
+    _links.clear();
     std::vector<uint32_t> junctions;
     for (const AiJunction& j : map.junctions)
         junctions.push_back(add(j.center));
@@ -169,15 +169,15 @@ void RoadGraph::build(const AiRoadMap& map) {
 bool RoadGraph::nearestNode(const Vec3& p, Vec3& out, float reach) const {
     const int n = nearest(p, reach);
     if (n >= 0)
-        out = nodes_[size_t(n)];
+        out = _nodes[size_t(n)];
     return n >= 0;
 }
 
 int RoadGraph::nearest(const Vec3& p, float reach) const {
     int best = -1;
     float bestDistance = reach;
-    for (size_t i = 0; i < nodes_.size(); ++i) {
-        const float d = flatDistance(nodes_[i], p) + std::fabs(nodes_[i][1] - p[1]) * 2;
+    for (size_t i = 0; i < _nodes.size(); ++i) {
+        const float d = flatDistance(_nodes[i], p) + std::fabs(_nodes[i][1] - p[1]) * 2;
         if (d < bestDistance) {
             bestDistance = d;
             best = int(i);
@@ -191,24 +191,24 @@ std::vector<Vec3> RoadGraph::route(const Vec3& a, const Vec3& b, float reach) co
     if (from < 0 || to < 0 || from == to)
         return {b};
     // A* by distance.
-    const size_t n = nodes_.size();
+    const size_t n = _nodes.size();
     std::vector<float> cost(n, std::numeric_limits<float>::max());
     std::vector<int> came(n, -1);
     using Item = std::pair<float, uint32_t>;
     std::priority_queue<Item, std::vector<Item>, std::greater<Item>> open;
     cost[size_t(from)] = 0;
-    open.push({length(nodes_[size_t(from)] - nodes_[size_t(to)]), uint32_t(from)});
+    open.push({length(_nodes[size_t(from)] - _nodes[size_t(to)]), uint32_t(from)});
     while (!open.empty()) {
         const uint32_t at = open.top().second;
         open.pop();
         if (int(at) == to)
             break;
-        for (const auto& [next, d] : links_[at]) {
+        for (const auto& [next, d] : _links[at]) {
             const float c = cost[at] + d;
             if (c < cost[next]) {
                 cost[next] = c;
                 came[next] = int(at);
-                open.push({c + length(nodes_[next] - nodes_[size_t(to)]), next});
+                open.push({c + length(_nodes[next] - _nodes[size_t(to)]), next});
             }
         }
     }
@@ -216,7 +216,7 @@ std::vector<Vec3> RoadGraph::route(const Vec3& a, const Vec3& b, float reach) co
         return {b};
     std::vector<Vec3> out{b};
     for (int at = came[size_t(to)]; at >= 0 && at != from; at = came[size_t(at)])
-        out.push_back(nodes_[size_t(at)]);
+        out.push_back(_nodes[size_t(at)]);
     std::reverse(out.begin(), out.end());
     return out;
 }

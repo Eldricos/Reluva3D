@@ -28,9 +28,9 @@ bool readAt(std::ifstream& in, uint64_t offset, uint8_t* out, size_t size) {
 } // namespace
 
 Error ArArchive::open(const std::filesystem::path& path) {
-    path_ = path;
-    entries_.clear();
-    byName_.clear();
+    _path = path;
+    _entries.clear();
+    _byName.clear();
     const std::string where = path.string();
 
     std::ifstream in(path, std::ios::binary | std::ios::ate);
@@ -53,7 +53,7 @@ Error ArArchive::open(const std::filesystem::path& path) {
         (namesSize && !readAt(in, kHeaderSize + dirSize, names.data(), namesSize)))
         return Error::fail("Cannot read " + where);
 
-    entries_.reserve(count);
+    _entries.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
         const uint8_t* d = &dir[i * kEntrySize];
         const uint32_t nameAt = le32(d);
@@ -71,23 +71,23 @@ Error ArArchive::open(const std::filesystem::path& path) {
             continue; // a folder
         if (uint64_t(e.offset) + e.storedSize > fileSize)
             return Error::fail(where + ": " + e.name + " runs past the end of the file");
-        if (byName_.try_emplace(normalizeArchiveName(e.name), entries_.size()).second)
-            entries_.push_back(std::move(e));
+        if (_byName.try_emplace(normalizeArchiveName(e.name), _entries.size()).second)
+            _entries.push_back(std::move(e));
     }
     return Error::success();
 }
 
 std::vector<std::string> ArArchive::list() const {
     std::vector<std::string> names;
-    names.reserve(entries_.size());
-    for (const Entry& e : entries_)
+    names.reserve(_entries.size());
+    for (const Entry& e : _entries)
         names.push_back(e.name);
     return names;
 }
 
 const ArArchive::Entry* ArArchive::entry(std::string_view name) const {
-    auto it = byName_.find(normalizeArchiveName(name));
-    return it == byName_.end() ? nullptr : &entries_[it->second];
+    auto it = _byName.find(normalizeArchiveName(name));
+    return it == _byName.end() ? nullptr : &_entries[it->second];
 }
 
 bool ArArchive::has(std::string_view name) const { return entry(name) != nullptr; }
@@ -95,14 +95,14 @@ bool ArArchive::has(std::string_view name) const { return entry(name) != nullptr
 Error ArArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
     const Entry* e = entry(name);
     if (!e)
-        return Error::fail(std::string(name) + " not found in " + path_.string());
+        return Error::fail(std::string(name) + " not found in " + _path.string());
     return read(*e, out);
 }
 
 Error ArArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
-    const std::string where = path_.string() + ": " + e.name;
+    const std::string where = _path.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
-    std::ifstream in(path_, std::ios::binary);
+    std::ifstream in(_path, std::ios::binary);
     std::vector<uint8_t> raw(e.storedSize);
     if (!in || (e.storedSize && !readAt(in, e.offset, raw.data(), raw.size())))
         return Error::fail(where + ": truncated");

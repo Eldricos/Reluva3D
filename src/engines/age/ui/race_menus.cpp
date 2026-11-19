@@ -59,70 +59,70 @@ void darken(Surface& o, int x, int y, int w, int h, uint8_t alpha) {
 } // namespace
 
 void RaceViewer::playVoice(const std::string& clip) {
-    if (!ctx_.mixer)
+    if (!_ctx.mixer)
         return;
     std::vector<uint8_t> data;
-    if (ctx_.files.read("aud/aud22/" + clip + ".22k.wav", data) &&
-        ctx_.files.read("aud/aud11/" + clip + ".11k.wav", data))
+    if (_ctx.files.read("aud/aud22/" + clip + ".22k.wav", data) &&
+        _ctx.files.read("aud/aud11/" + clip + ".11k.wav", data))
         return;
     auto sound = std::make_shared<audio::Sound>();
     if (!audio::decodeSound(data, *sound)) {
-        ctx_.mixer->stopType(audio::SoundType::kSpeech);
-        ctx_.mixer->play(sound, audio::SoundType::kSpeech);
+        _ctx.mixer->stopType(audio::SoundType::kSpeech);
+        _ctx.mixer->play(sound, audio::SoundType::kSpeech);
     }
 }
 
 bool RaceViewer::playMovie(float dt) {
-    if (!front_ || front_->screen() != FrontEnd::Screen::Splash) {
+    if (!_front || _front->screen() != FrontEnd::Screen::kSplash) {
         endMovie();
         return false;
     }
-    if (!movieTried_) {
+    if (!_movieTried) {
         // Played by FFmpeg where Reluva was built with it; otherwise, or
         // if it won't open, the splash picture stands in, as with the
         // game's "No Movie" shortcut.
-        movieTried_ = true;
+        _movieTried = true;
         std::vector<uint8_t> data;
         std::string error;
-        if (!ctx_.files.read("logos.avi", data))
-            movie_ = video::Movie::open(std::move(data), error);
-        if (!movie_)
+        if (!_ctx.files.read("logos.avi", data))
+            _movie = video::Movie::open(std::move(data), error);
+        if (!_movie)
             return false;
-        movieTime_ = 0;
-        if (ctx_.mixer && movie_->sound().frames())
-            movieSound_ = ctx_.mixer->play(std::make_shared<audio::Sound>(movie_->sound()), audio::SoundType::kMusic);
+        _movieTime = 0;
+        if (_ctx.mixer && _movie->sound().frames())
+            _movieSound = _ctx.mixer->play(std::make_shared<audio::Sound>(_movie->sound()), audio::SoundType::kMusic);
     }
-    if (!movie_)
+    if (!_movie)
         return false;
     // Kept with its sound while that plays.
-    if (ctx_.mixer && movieSound_ != audio::kNoSound && ctx_.mixer->isPlaying(movieSound_))
-        movieTime_ = ctx_.mixer->position(movieSound_) / double(movie_->sound().rate);
+    if (_ctx.mixer && _movieSound != audio::kNoSound && _ctx.mixer->isPlaying(_movieSound))
+        _movieTime = _ctx.mixer->position(_movieSound) / double(_movie->sound().rate);
     else
-        movieTime_ += dt;
-    if (!movie_->frameAt(movieTime_, movieFrame_)) {
+        _movieTime += dt;
+    if (!_movie->frameAt(_movieTime, _movieFrame)) {
         endMovie();
-        front_->leaveSplash();
+        _front->leaveSplash();
         return false;
     }
     return true;
 }
 
 void RaceViewer::endMovie() {
-    if (ctx_.mixer && movieSound_ != audio::kNoSound)
-        ctx_.mixer->stop(movieSound_);
-    movieSound_ = audio::kNoSound;
-    movie_.reset();
+    if (_ctx.mixer && _movieSound != audio::kNoSound)
+        _ctx.mixer->stop(_movieSound);
+    _movieSound = audio::kNoSound;
+    _movie.reset();
 }
 
 void RaceViewer::menuSounds() {
     // The menus' tune while they're up; a word as a button's pointed at.
-    if (!front_ || !ctx_.mixer)
+    if (!_front || !_ctx.mixer)
         return;
-    if (!music_.playingMenu())
-        music_.startMenu(ctx_.files, *ctx_.mixer);
-    const std::string focus = netMenus_ ? std::string() : front_->focusedWidget();
-    if (focus != lastFocus_) {
-        lastFocus_ = focus;
+    if (!_music.playingMenu())
+        _music.startMenu(_ctx.files, *_ctx.mixer);
+    const std::string focus = _netMenus ? std::string() : _front->focusedWidget();
+    if (focus != _lastFocus) {
+        _lastFocus = focus;
         for (const auto& [widget, clip] : kVoices)
             if (focus == widget)
                 playVoice(clip);
@@ -130,21 +130,21 @@ void RaceViewer::menuSounds() {
 }
 
 bool RaceViewer::nextRaceOpen() const {
-    if (raceIndex_ + 1 >= int(raceNames_.size()))
+    if (_raceIndex + 1 >= int(_raceNames.size()))
         return false;
-    if (lesson() && judge_.result() != LessonJudge::Result::Passed)
+    if (lesson() && _judge.result() != LessonJudge::Result::kPassed)
         return false;
-    return raceIsOpen(raceIndex_ + 1);
+    return raceIsOpen(_raceIndex + 1);
 }
 
 void RaceViewer::instantReplay(ReplayReturn back) {
-    if (recording_.empty())
+    if (_recording.empty())
         return;
-    replayReturn_ = back;
-    replayOfThisRace_ = true;
-    replaySaved_ = false;
-    paused_ = results_ = false;
-    startReplay(recording_);
+    _replayReturn = back;
+    _replayOfThisRace = true;
+    _replaySaved = false;
+    _paused = _results = false;
+    startReplay(_recording);
 }
 
 void RaceViewer::pauseEvent(const Event& ev) {
@@ -154,40 +154,40 @@ void RaceViewer::pauseEvent(const Event& ev) {
         const int i = (ev.mouseY - kPauseTop + kPauseStep / 4) / kPauseStep;
         if (ev.mouseY < kPauseTop - kPauseStep / 4 || i >= kPauseItems || ev.mouseX < 100 || ev.mouseX >= kFrameW - 100)
             return;
-        pauseFocus_ = i;
+        _pauseFocus = i;
         key = key::kReturn;
     } else if (ev.type != EventType::kKeyDown)
         return;
     switch (key) {
     case key::kUp:
-        pauseFocus_ = (pauseFocus_ + kPauseItems - 1) % kPauseItems;
+        _pauseFocus = (_pauseFocus + kPauseItems - 1) % kPauseItems;
         break;
     case key::kDown:
-        pauseFocus_ = (pauseFocus_ + 1) % kPauseItems;
+        _pauseFocus = (_pauseFocus + 1) % kPauseItems;
         break;
     case key::kEscape:
-        paused_ = false;
+        _paused = false;
         break;
     case key::kReturn:
     case key::kKpEnter:
-        switch (pauseFocus_) {
+        switch (_pauseFocus) {
         case kResume:
-            paused_ = false;
+            _paused = false;
             break;
         case kRestart:
-            paused_ = false;
-            life_.stop();
+            _paused = false;
+            _life.stop();
             startRace();
             break;
         case kReplay:
-            instantReplay(ReplayReturn::Race);
+            instantReplay(ReplayReturn::kRace);
             break;
         case kOptions:
-            if (game_)
-                game_->open(GameMenus::Screen::Options);
+            if (_game)
+                _game->open(GameMenus::Screen::kOptions);
             break;
         case kQuitRace:
-            paused_ = false;
+            _paused = false;
             endRace();
             break;
         }
@@ -206,7 +206,7 @@ void RaceViewer::resultsEvent(const Event& ev) {
         if (ev.mouseY < kResultTop || b >= kResultButtons || !enabled(b) || ev.mouseX < kResultX ||
             ev.mouseX >= kResultX + 230)
             return;
-        resultsFocus_ = b;
+        _resultsFocus = b;
         key = key::kReturn;
     } else if (ev.type != EventType::kKeyDown)
         return;
@@ -215,46 +215,46 @@ void RaceViewer::resultsEvent(const Event& ev) {
     case key::kDown: {
         const int step = ev.key == key::kDown ? 1 : kResultButtons - 1;
         do
-            resultsFocus_ = (resultsFocus_ + step) % kResultButtons;
-        while (!enabled(resultsFocus_));
+            _resultsFocus = (_resultsFocus + step) % kResultButtons;
+        while (!enabled(_resultsFocus));
         break;
     }
     case 'r': // as in the lessons: R restarts
-        results_ = false;
-        life_.stop();
+        _results = false;
+        _life.stop();
         startRace();
         break;
     case key::kEscape:
-        results_ = false;
+        _results = false;
         endRace();
         break;
     case key::kReturn:
     case key::kKpEnter:
-        switch (resultsFocus_) {
+        switch (_resultsFocus) {
         case kResRestart:
-            results_ = false;
-            life_.stop();
+            _results = false;
+            _life.stop();
             startRace();
             break;
         case kResNext:
             if (nextRaceOpen()) {
-                results_ = false;
-                conditionsChanged_ = false; // the next race's own
-                ++raceIndex_;
-                life_.stop();
+                _results = false;
+                _conditionsChanged = false; // the next race's own
+                ++_raceIndex;
+                _life.stop();
                 startRace();
             }
             break;
         case kResReplay:
-            instantReplay(ReplayReturn::Results);
+            instantReplay(ReplayReturn::kResults);
             break;
         case kResMenu:
-            results_ = false;
+            _results = false;
             endRace();
             break;
         case kResExit:
-            if (game_)
-                game_->open(GameMenus::Screen::Quit);
+            if (_game)
+                _game->open(GameMenus::Screen::kQuit);
             break;
         }
         break;
@@ -265,102 +265,102 @@ void RaceViewer::resultsEvent(const Event& ev) {
 
 void RaceViewer::drawPauseMenu() {
     // The race stopped behind, darkened; the game's in-race words.
-    darken(overlay_, 0, 0, kFrameW, kFrameH, 140);
+    darken(_overlay, 0, 0, kFrameW, kFrameH, 140);
     const uint32_t ids[kPauseItems] = {473, uint32_t(lesson() ? 653 : 464), 465, 466, 468};
     const char* const fallback[kPauseItems] = {"Resume Driving", lesson() ? "Restart Lesson" : "Restart Race",
                                                "Instant Replay", "Options", "Quit to Race Menu"};
-    drawCentred(strings_.get(463, "MAIN MENU"), 120, {255, 230, 140}, 3);
+    drawCentred(_strings.get(463, "MAIN MENU"), 120, {255, 230, 140}, 3);
     for (int i = 0; i < kPauseItems; ++i)
-        drawCentred(strings_.get(ids[i], fallback[i]), kPauseTop + i * kPauseStep,
-                    i == pauseFocus_ ? Color{255, 255, 120} : Color{220, 220, 255}, 2);
+        drawCentred(_strings.get(ids[i], fallback[i]), kPauseTop + i * kPauseStep,
+                    i == _pauseFocus ? Color{255, 255, 120} : Color{220, 220, 255}, 2);
 }
 
 void RaceViewer::drawResults() {
     // The game's results screen: who finished where (or the lesson's
     // verdict) in its box, its buttons down the right.
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
-    if (!menuPictures_)
-        menuPictures_ = std::make_unique<MenuPictures>(ctx_.files);
-    MenuPictures& pictures = *menuPictures_;
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
+    if (!_menuPictures)
+        _menuPictures = std::make_unique<MenuPictures>(_ctx.files);
+    MenuPictures& pictures = *_menuPictures;
     if (const image::Image* bg = pictures.jpg(lesson() ? "crshi_bk" : "rshi_bk"))
-        drawPicture(overlay_, *bg, 0, 0, kFrameW, kFrameH);
+        drawPicture(_overlay, *bg, 0, 0, kFrameW, kFrameH);
     int y = kBoxY;
-    font::drawText(overlay_, kBoxX, y, race_.name, {255, 230, 140}, 2);
+    font::drawText(_overlay, kBoxX, y, _race.name, {255, 230, 140}, 2);
     y += 24;
-    font::drawText(overlay_, kBoxX, y, raceKindName(race_.kind) + std::string(", ") + cities_[size_t(city_)].name,
+    font::drawText(_overlay, kBoxX, y, raceKindName(_race.kind) + std::string(", ") + _cities[size_t(_city)].name,
                    {180, 200, 255});
     y += 20;
-    font::drawText(overlay_, kBoxX, y, outcome_, {255, 255, 120});
+    font::drawText(_overlay, kBoxX, y, _outcome, {255, 255, 120});
     y += 24;
     char line[120];
     if (lesson()) {
-        const bool passed = judge_.result() == LessonJudge::Result::Passed;
-        font::drawText(overlay_, kBoxX, y, passed ? strings_.get(651, "Pass") : "Failed",
+        const bool passed = _judge.result() == LessonJudge::Result::kPassed;
+        font::drawText(_overlay, kBoxX, y, passed ? _strings.get(651, "Pass") : "Failed",
                        passed ? Color{120, 255, 120} : Color{255, 120, 120}, 2);
         y += 26;
-        std::snprintf(line, sizeof line, "Time %s", clockText(std::max(0.0f, clock_)).c_str());
-        font::drawText(overlay_, kBoxX, y, line, {230, 230, 230});
-        if (judge_.penalty() > 0) {
-            std::snprintf(line, sizeof line, "Penalty %.0f s", judge_.penalty());
-            font::drawText(overlay_, kBoxX, y + 16, line, {255, 160, 120});
+        std::snprintf(line, sizeof line, "Time %s", clockText(std::max(0.0f, _clock)).c_str());
+        font::drawText(_overlay, kBoxX, y, line, {230, 230, 230});
+        if (_judge.penalty() > 0) {
+            std::snprintf(line, sizeof line, "Penalty %.0f s", _judge.penalty());
+            font::drawText(_overlay, kBoxX, y + 16, line, {255, 160, 120});
         }
     } else {
         std::vector<const Racer*> order;
-        for (const Racer& r : racers_)
+        for (const Racer& r : _racers)
             order.push_back(&r);
         std::stable_sort(order.begin(), order.end(),
                          [&](const Racer* a, const Racer* b) { return progressOf(*a) > progressOf(*b); });
         // The rows come in one a second, as the game's do; its opponents
         // go by their places on the grid ("Opponent 1"...: strings 13-20).
-        const size_t shown = size_t(resultsTime_) + 1;
+        const size_t shown = size_t(_resultsTime) + 1;
         for (size_t i = 0; i < order.size() && i < shown && y < kBoxY + 290; ++i) {
             const Racer& r = *order[i];
-            const size_t slot = size_t(order[i] - racers_.data());
-            const std::string name = r.player || netGame_ || slot < 1 || slot > 8
+            const size_t slot = size_t(order[i] - _racers.data());
+            const std::string name = r.player || _netGame || slot < 1 || slot > 8
                                          ? r.name
-                                         : strings_.get(uint32_t(12 + slot), "Opponent " + std::to_string(slot));
+                                         : _strings.get(uint32_t(12 + slot), "Opponent " + std::to_string(slot));
             std::snprintf(line, sizeof line, "%zu. %-30.30s %s", i + 1, name.c_str(),
-                          r.finishTime >= 0 ? clockText(r.finishTime).c_str() : strings_.get(499, "DNF").c_str());
-            font::drawText(overlay_, kBoxX, y, line, r.player ? Color{255, 255, 120} : Color{230, 230, 230});
+                          r.finishTime >= 0 ? clockText(r.finishTime).c_str() : _strings.get(499, "DNF").c_str());
+            font::drawText(_overlay, kBoxX, y, line, r.player ? Color{255, 255, 120} : Color{230, 230, 230});
             y += 16;
         }
     }
-    if (!beatenAll_.empty())
-        font::drawText(overlay_, kBoxX, kBoxY + 290, beatenAll_, {120, 255, 120});
+    if (!_beatenAll.empty())
+        font::drawText(_overlay, kBoxX, kBoxY + 290, _beatenAll, {120, 255, 120});
     // What the race opened, in the box beside the description (as on the
     // game's screens), wrapped.
-    if (!unlockMessage_.empty()) {
+    if (!_unlockMessage.empty()) {
         constexpr int kX = 290, kY = 404;
         constexpr size_t kWide = 44;
-        std::istringstream words(unlockMessage_);
+        std::istringstream words(_unlockMessage);
         std::string word, text;
         int lineY = kY;
         while (words >> word) {
             if (!text.empty() && text.size() + 1 + word.size() > kWide) {
-                font::drawText(overlay_, kX, lineY, text, {255, 255, 120});
+                font::drawText(_overlay, kX, lineY, text, {255, 255, 120});
                 lineY += font::kLineHeight + 2;
                 text.clear();
             }
             text += (text.empty() ? "" : " ") + word;
         }
         if (!text.empty())
-            font::drawText(overlay_, kX, lineY, text, {255, 255, 120});
+            font::drawText(_overlay, kX, lineY, text, {255, 255, 120});
     }
     // Bottom left, the event's description, or the lesson's.
-    const std::string& map = cities_[size_t(city_)].map;
-    const std::string desc = lesson() ? (map == "london" ? "lon_cc" : "sf_cc") + std::to_string(raceIndex_)
-                             : race_.kind == RaceKind::Blitz   ? "race_btz"
-                             : race_.kind == RaceKind::Circuit ? "race_cir"
+    const std::string& map = _cities[size_t(_city)].map;
+    const std::string desc = lesson() ? (map == "london" ? "lon_cc" : "sf_cc") + std::to_string(_raceIndex)
+                             : _race.kind == RaceKind::kBlitz   ? "race_btz"
+                             : _race.kind == RaceKind::kCircuit ? "race_cir"
                                                                : "race_cp";
     if (const image::Image* d = pictures.jpg(desc))
-        drawPicture(overlay_, *d, 40, 396);
+        drawPicture(_overlay, *d, 40, 396);
     for (int b = 0; b < kResultButtons; ++b) {
         const image::Image* im = pictures.texture(kResultPictures[b]);
         if (!im)
             continue;
         const bool enabled = b != kResNext || nextRaceOpen();
-        const int state = !enabled ? 3 : b == resultsFocus_ ? 1 : 0;
-        drawButtonState(overlay_, *im, kResultX + (230 - im->w), kResultTop + b * kResultStep, im->h / kResultState,
+        const int state = !enabled ? 3 : b == _resultsFocus ? 1 : 0;
+        drawButtonState(_overlay, *im, kResultX + (230 - im->w), kResultTop + b * kResultStep, im->h / kResultState,
                         state);
     }
 }

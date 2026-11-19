@@ -43,11 +43,11 @@ bool clearBetween(const CollisionWorld& world, const Vec3& a, const Vec3& b) {
 Error Police::setup(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                     const AiMapSettings& settings, int count, audio::Mixer* mixer, const std::string& sirenTable) {
     clear();
-    rng_.seed(7); // the same turns each time, so a replay's police drive as they did
-    noticeDistance_ = settings.copChaseDistance > 0 ? settings.copChaseDistance : kNotice;
+    _rng.seed(7); // the same turns each time, so a replay's police drive as they did
+    _noticeDistance = settings.copChaseDistance > 0 ? settings.copChaseDistance : kNotice;
     Error first = Error::success();
     for (const auto& p : settings.police) {
-        if (count >= 0 && int(cops_.size()) >= count)
+        if (count >= 0 && int(_cops.size()) >= count)
             break;
         Cop cop;
         cop.car = std::make_unique<CarActor>();
@@ -57,39 +57,39 @@ Error Police::setup(gfx::Renderer3D& renderer, TextureCache& textures, const Sea
             continue;
         }
         cop.car->sim.reset(cop.car->setup, p.position + Vec3{0, 0.5f, 0}, headingToYaw(p.heading));
-        cops_.push_back(std::move(cop));
+        _cops.push_back(std::move(cop));
     }
-    mixer_ = mixer;
-    if (mixer_) {
-        if (Error err = siren_.load(*mixer_, files, sirenTable); err && !first)
+    _mixer = mixer;
+    if (_mixer) {
+        if (Error err = _siren.load(*_mixer, files, sirenTable); err && !first)
             first = err;
         std::vector<uint8_t> data;
         auto sound = std::make_shared<audio::Sound>();
         if ((!files.read("aud/aud22/arrest.22k.wav", data) || !files.read("aud/aud11/arrest.11k.wav", data)) &&
             !audio::decodeSound(data, *sound))
-            arrest_ = sound;
+            _arrest = sound;
     }
     return first;
 }
 
 void Police::clear() {
-    siren_.stop();
-    cops_.clear();
-    busted_ = false;
-    bustTimer_ = 0;
+    _siren.stop();
+    _cops.clear();
+    _busted = false;
+    _bustTimer = 0;
 }
 
 void Police::forgive() {
-    for (Cop& c : cops_) {
+    for (Cop& c : _cops) {
         c.chasing = false;
         c.car->siren = 0;
     }
-    busted_ = false;
-    bustTimer_ = 0;
+    _busted = false;
+    _bustTimer = 0;
 }
 
 void Police::chaseAll() {
-    for (Cop& c : cops_) {
+    for (Cop& c : _cops) {
         c.chasing = true;
         c.patrolling = false;
         c.settled = c.reroute = c.behind = 0;
@@ -98,7 +98,7 @@ void Police::chaseAll() {
 
 int Police::patrolling() const {
     int n = 0;
-    for (const Cop& c : cops_)
+    for (const Cop& c : _cops)
         n += c.patrolling && !c.chasing;
     return n;
 }
@@ -108,9 +108,9 @@ void Police::startPatrol(Cop& cop, float speedLimit) {
     // turning at random (not back along the same road where there's a
     // choice).
     cop.patrolling = false;
-    if (!lanes_ || lanes_->lanes().empty())
+    if (!_lanes || _lanes->lanes().empty())
         return;
-    const auto& lanes = lanes_->lanes();
+    const auto& lanes = _lanes->lanes();
     const CarSim& sim = cop.car->sim;
     Vec3 ahead = -sim.orientation.z;
     ahead[1] = 0;
@@ -144,10 +144,10 @@ void Police::startPatrol(Cop& cop, float speedLimit) {
             path.push_back(l.points[i]);
             cop.laneEnds.push_back(i + 1 == l.points.size() ? lane : -1);
         }
-        const std::vector<uint32_t> ways = lanes_->waysOn(lane);
+        const std::vector<uint32_t> ways = _lanes->waysOn(lane);
         if (ways.empty())
             break;
-        lane = int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(rng_)]);
+        lane = int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(_rng)]);
         from = 0;
     }
     if (path.size() < 2)
@@ -167,7 +167,7 @@ CarControls Police::patrol(Cop& cop, const std::vector<RoadUser>& traffic, float
     // A light that isn't green at the next lane end still ahead (the
     // driver counts a point reached some way short of it), in braking
     // distance.
-    const auto& lanes = lanes_->lanes();
+    const auto& lanes = _lanes->lanes();
     const size_t first = cop.driver.next() > 4 ? cop.driver.next() - 4 : 0;
     for (size_t k = first; k < cop.laneEnds.size() && k < cop.driver.next() + 40; ++k) {
         if (cop.laneEnds[k] < 0)
@@ -178,8 +178,8 @@ CarControls Police::patrol(Cop& cop, const std::vector<RoadUser>& traffic, float
         if (d < 1)
             continue; // passed
         const TrafficLane& l = lanes[size_t(cop.laneEnds[k])];
-        if (lights_ && l.control == 1 && lights_->has(l.road, l.toEnd) &&
-            lights_->signal(l.road, l.toEnd) != Signal::Green && d < speed * speed / 12 + 10 && (d > 2 || speed < 4))
+        if (_lights && l.control == 1 && _lights->has(l.road, l.toEnd) &&
+            _lights->signal(l.road, l.toEnd) != Signal::kGreen && d < speed * speed / 12 + 10 && (d > 2 || speed < 4))
             stop = true;
         break;
     }
@@ -209,24 +209,24 @@ CarControls Police::patrol(Cop& cop, const std::vector<RoadUser>& traffic, float
 
 int Police::chasing() const {
     int n = 0;
-    for (const Cop& c : cops_)
+    for (const Cop& c : _cops)
         n += c.chasing;
     return n;
 }
 
 void Police::update(float dt, CarSim& player, const CollisionWorld& world, const RoadGraph& roads, float speedLimit,
                     const std::vector<RoadUser>& traffic) {
-    clock_ += dt;
+    _clock += dt;
     const float playerSpeed = std::fabs(player.forwardSpeed());
     float nearestChase = 1e9f;
-    for (Cop& cop : cops_) {
+    for (Cop& cop : _cops) {
         CarSim& sim = cop.car->sim;
         const float d = flatDistance(sim.position, player.position);
         // Run into, or sped past.
         const Vec3 before = sim.velocity;
         collideCars(player, sim);
         const bool hit = length(sim.velocity - before) > 1.5f;
-        if (!cop.chasing && (hit || (d < noticeDistance_ && playerSpeed > speedLimit * 1.5f))) {
+        if (!cop.chasing && (hit || (d < _noticeDistance && playerSpeed > speedLimit * 1.5f))) {
             cop.chasing = true;
             cop.patrolling = false;
             cop.settled = 0;
@@ -234,7 +234,7 @@ void Police::update(float dt, CarSim& player, const CollisionWorld& world, const
             cop.behind = 0;
         }
         CarControls c;
-        if (!cop.chasing && lanes_) {
+        if (!cop.chasing && _lanes) {
             // On patrol, a new one at the end of the last (or after a chase).
             if (!cop.patrolling || cop.driver.finished())
                 startPatrol(cop, speedLimit);
@@ -289,55 +289,55 @@ void Police::update(float dt, CarSim& player, const CollisionWorld& world, const
             }
         }
         sim.step(c, world, dt);
-        cop.car->lamps = {lampsLit_, c.brake > 0 && sim.forwardSpeed() > 0.5f, sim.gear < 0};
+        cop.car->lamps = {_lampsLit, c.brake > 0 && sim.forwardSpeed() > 0.5f, sim.gear < 0};
         if (cop.chasing) {
             cop.behind = d > kGiveUp ? cop.behind + dt : 0;
             if (cop.behind > 8)
                 cop.chasing = false;
         }
-        cop.car->siren = cop.chasing ? 1 + int(clock_ * 4) % 2 : 0;
+        cop.car->siren = cop.chasing ? 1 + int(_clock * 4) % 2 : 0;
         if (cop.chasing)
             nearestChase = std::min(nearestChase, d);
     }
     // Busted: held stopped beside a chasing car.
     if (nearestChase < kBeside && playerSpeed < 2)
-        bustTimer_ += dt;
+        _bustTimer += dt;
     else
-        bustTimer_ = std::max(0.0f, bustTimer_ - dt);
-    if (bustTimer_ >= kBustTime && !busted_) {
-        busted_ = true;
-        if (mixer_ && arrest_)
-            mixer_->play(arrest_, audio::SoundType::kEffects);
+        _bustTimer = std::max(0.0f, _bustTimer - dt);
+    if (_bustTimer >= kBustTime && !_busted) {
+        _busted = true;
+        if (_mixer && _arrest)
+            _mixer->play(_arrest, audio::SoundType::kEffects);
     }
     // The siren of the nearest chasing car, quieter with distance.
-    siren_.update(dt, nearestChase < kSirenHeard ? (1 - nearestChase / kSirenHeard) * 0.8f : 0.0f);
+    _siren.update(dt, nearestChase < kSirenHeard ? (1 - nearestChase / kSirenHeard) * 0.8f : 0.0f);
 }
 
 void Police::draw(const SceneLight& light) const {
-    for (const Cop& c : cops_)
+    for (const Cop& c : _cops)
         c.car->draw(light);
 }
 
 void Police::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {
-    for (const Cop& c : cops_)
+    for (const Cop& c : _cops)
         c.car->drawFlares(flares, eye);
 }
 
 void Police::headlightPools(std::vector<gfx::DynamicLight>& out) const {
     gfx::DynamicLight l;
-    for (const Cop& c : cops_)
+    for (const Cop& c : _cops)
         if (c.car->headlightPool(l))
             out.push_back(l);
 }
 
 void Police::users(std::vector<RoadUser>& out) const {
-    for (const Cop& c : cops_)
+    for (const Cop& c : _cops)
         out.push_back({c.car->sim.position, c.car->sim.velocity});
 }
 
 std::vector<CarSim*> Police::cars() {
     std::vector<CarSim*> out;
-    for (Cop& c : cops_)
+    for (Cop& c : _cops)
         out.push_back(&c.car->sim);
     return out;
 }

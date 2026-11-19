@@ -41,8 +41,8 @@ public:
     // Patrolling the lanes (stopping at the lights) while not chasing,
     // rather than waiting; none of them without a network.
     void setPatrols(const TrafficNetwork* lanes, const TrafficLights* lights) {
-        lanes_ = lanes;
-        lights_ = lights;
+        _lanes = lanes;
+        _lights = lights;
     }
 
     // `speedLimit` m/s: a player going half as fast again past a cop is
@@ -52,17 +52,17 @@ public:
     void draw(const SceneLight& light) const;
     void drawFlares(const FlareDrawer& flares, const Vec3& eye) const;
     // Their headlights on (evening, night, fog, rain).
-    void setLampsLit(bool lit) { lampsLit_ = lit; }
+    void setLampsLit(bool lit) { _lampsLit = lit; }
     void headlightPools(std::vector<gfx::DynamicLight>& out) const;
 
-    bool busted() const { return busted_; }
+    bool busted() const { return _busted; }
     // The player put back somewhere else: the chases end.
     void forgive();
     // Every car after the player at once (Crash Course's cop chases).
     void chaseAll();
     int chasing() const;
     int patrolling() const;
-    size_t count() const { return cops_.size(); }
+    size_t count() const { return _cops.size(); }
     void users(std::vector<RoadUser>& out) const;
     // Their simulations, to bump into the other cars and the traffic.
     std::vector<CarSim*> cars();
@@ -86,17 +86,17 @@ private:
     void startPatrol(Cop& cop, float speedLimit);
     CarControls patrol(Cop& cop, const std::vector<RoadUser>& traffic, float dt);
 
-    std::vector<Cop> cops_;
-    audio::Mixer* mixer_ = nullptr;
-    SirenSound siren_;
-    std::shared_ptr<audio::Sound> arrest_; // played when busted
-    const TrafficNetwork* lanes_ = nullptr;
-    const TrafficLights* lights_ = nullptr;
-    std::mt19937 rng_{7};
-    float noticeDistance_ = kNotice;
-    float bustTimer_ = 0, clock_ = 0;
-    bool busted_ = false;
-    bool lampsLit_ = false;
+    std::vector<Cop> _cops;
+    audio::Mixer* _mixer = nullptr;
+    SirenSound _siren;
+    std::shared_ptr<audio::Sound> _arrest; // played when busted
+    const TrafficNetwork* _lanes = nullptr;
+    const TrafficLights* _lights = nullptr;
+    std::mt19937 _rng{7};
+    float _noticeDistance = kNotice;
+    float _bustTimer = 0, _clock = 0;
+    bool _busted = false;
+    bool _lampsLit = false;
 };
 
 } // namespace reluva::age

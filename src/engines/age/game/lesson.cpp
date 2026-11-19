@@ -37,18 +37,18 @@ constexpr uint32_t kPass = 651;
 } // namespace
 
 void LessonJudge::start(const LessonSettings& lesson) {
-    lesson_ = lesson;
-    result_ = Result::Going;
-    penalty_ = 0;
-    touchesAtStart_ = -1;
-    upToSpeed_ = destroyed_ = false;
+    _lesson = lesson;
+    _result = Result::kGoing;
+    _penalty = 0;
+    _touchesAtStart = -1;
+    _upToSpeed = _destroyed = false;
     switch (lesson.event) {
-    case LessonEvent::Jump: show(msg::kTakeTheJump); break;
-    case LessonEvent::Follow: show(msg::kFollowThatCar); break;
-    case LessonEvent::CopChase: show(msg::kEvade); break;
-    case LessonEvent::MinimumSpeed: show(lesson.extra[0] > 0 ? msg::kMaintain : msg::kGo); break;
-    case LessonEvent::NoTouching: show(msg::kDontTouch); break;
-    case LessonEvent::Destroy:
+    case LessonEvent::kJump: show(msg::kTakeTheJump); break;
+    case LessonEvent::kFollow: show(msg::kFollowThatCar); break;
+    case LessonEvent::kCopChase: show(msg::kEvade); break;
+    case LessonEvent::kMinimumSpeed: show(lesson.extra[0] > 0 ? msg::kMaintain : msg::kGo); break;
+    case LessonEvent::kNoTouching: show(msg::kDontTouch); break;
+    case LessonEvent::kDestroy:
         show(msg::kDestroy);
         break;
     default: show(msg::kGo); break;
@@ -58,97 +58,97 @@ void LessonJudge::start(const LessonSettings& lesson) {
 float LessonJudge::timeLeft(float clock) const {
     // A follow lesson isn't timed: its TimeLimit (36 s in Straight, With
     // Chaser) is no clock, as the footage shows its car followed for 88 s.
-    if (lesson_.event == LessonEvent::Follow)
+    if (_lesson.event == LessonEvent::kFollow)
         return -1;
-    return lesson_.timeLimit > 0 ? lesson_.timeLimit - std::max(0.0f, clock) - penalty_ : -1;
+    return _lesson.timeLimit > 0 ? _lesson.timeLimit - std::max(0.0f, clock) - _penalty : -1;
 }
 
 LessonJudge::Result LessonJudge::step(const Frame& f) {
-    messageFor_ = std::max(0.0f, messageFor_ - f.dt);
-    if (result_ != Result::Going || f.clock < 0)
-        return result_;
-    if (touchesAtStart_ < 0)
-        touchesAtStart_ = f.carTouches;
-    const LessonEvent e = lesson_.event;
+    _messageFor = std::max(0.0f, _messageFor - f.dt);
+    if (_result != Result::kGoing || f.clock < 0)
+        return _result;
+    if (_touchesAtStart < 0)
+        _touchesAtStart = f.carTouches;
+    const LessonEvent e = _lesson.event;
 
     // Failing.
     if (f.busted || f.wrecked) {
         fail(msg::kGameOver);
-        return result_;
+        return _result;
     }
-    if (e == LessonEvent::Destroy && !destroyed_) {
+    if (e == LessonEvent::kDestroy && !_destroyed) {
         // The car rammed into submission before it gets away or the time's
         // up; then done, or (police about) away from them to the end.
         if (f.targetDone) {
             fail(msg::kReachedDestination);
-        } else if (lesson_.timeLimit > 0 && timeLeft(f.clock) <= 0) {
+        } else if (_lesson.timeLimit > 0 && timeLeft(f.clock) <= 0) {
             fail(msg::kDestroyTimesUp);
         } else if (f.targetStopped) {
-            destroyed_ = true;
+            _destroyed = true;
             if (f.police > 0) {
                 show(msg::kLoseTheTail);
             } else {
-                result_ = Result::Passed;
+                _result = Result::kPassed;
                 show(msg::kDidIt);
             }
         }
-        return result_;
+        return _result;
     }
-    if (e == LessonEvent::MinimumSpeed && lesson_.extra[0] > 0) {
-        if (f.checkpoint && f.speedMph < lesson_.extra[0]) {
+    if (e == LessonEvent::kMinimumSpeed && _lesson.extra[0] > 0) {
+        if (f.checkpoint && f.speedMph < _lesson.extra[0]) {
             fail(msg::kTooSlow);
-            return result_;
+            return _result;
         }
-        if (!upToSpeed_ && f.speedMph >= lesson_.extra[0]) {
-            upToSpeed_ = true;
+        if (!_upToSpeed && f.speedMph >= _lesson.extra[0]) {
+            _upToSpeed = true;
             show(msg::kUpToSpeed);
         }
     }
-    if (e == LessonEvent::NoTouching && f.carTouches > touchesAtStart_) {
+    if (e == LessonEvent::kNoTouching && f.carTouches > _touchesAtStart) {
         fail(msg::kScraped);
-        return result_;
+        return _result;
     }
-    if (e == LessonEvent::Follow && f.targetDistance > kEscape) {
+    if (e == LessonEvent::kFollow && f.targetDistance > kEscape) {
         fail(msg::kEscaped);
-        return result_;
+        return _result;
     }
     const float left = timeLeft(f.clock);
-    if (e != LessonEvent::Follow && lesson_.timeLimit > 0 && left <= 0) {
-        fail(e == LessonEvent::CopChase     ? msg::kChaseTimesUp
-             : e == LessonEvent::Destroy    ? msg::kDestroyTimesUp
-             : e == LessonEvent::NoTouching ? msg::kTouchTimesUp
+    if (e != LessonEvent::kFollow && _lesson.timeLimit > 0 && left <= 0) {
+        fail(e == LessonEvent::kCopChase     ? msg::kChaseTimesUp
+             : e == LessonEvent::kDestroy    ? msg::kDestroyTimesUp
+             : e == LessonEvent::kNoTouching ? msg::kTouchTimesUp
                                             : msg::kTimesUp);
-        return result_;
+        return _result;
     }
 
     // Passing: at the end (following, once the car's there with the player
     // near; chased, once the police are lost).
-    if (e == LessonEvent::Follow) {
+    if (e == LessonEvent::kFollow) {
         if (f.targetDone && f.targetDistance >= 0 && f.targetDistance <= kEscape) {
-            result_ = Result::Passed;
+            _result = Result::kPassed;
             show(msg::kYouWon);
         }
-        return result_;
+        return _result;
     }
     if (!f.finished)
-        return result_;
-    if ((e == LessonEvent::CopChase || e == LessonEvent::Destroy) && f.chasing > 0) {
-        if (messageFor_ <= 0)
+        return _result;
+    if ((e == LessonEvent::kCopChase || e == LessonEvent::kDestroy) && f.chasing > 0) {
+        if (_messageFor <= 0)
             show(msg::kLoseThem);
-        return result_;
+        return _result;
     }
-    result_ = Result::Passed;
+    _result = Result::kPassed;
     switch (e) {
-    case LessonEvent::Jump: show(msg::kGoodJumping); break;
-    case LessonEvent::CopChase: show(msg::kSurvived); break;
-    case LessonEvent::MinimumSpeed: show(msg::kGreatDriving); break;
-    case LessonEvent::NoTouching: show(msg::kTouchWon); break;
-    case LessonEvent::Destroy:
+    case LessonEvent::kJump: show(msg::kGoodJumping); break;
+    case LessonEvent::kCopChase: show(msg::kSurvived); break;
+    case LessonEvent::kMinimumSpeed: show(msg::kGreatDriving); break;
+    case LessonEvent::kNoTouching: show(msg::kTouchWon); break;
+    case LessonEvent::kDestroy:
         show(msg::kSurvived);
         break;
     default: show(msg::kPass); break;
     }
-    return result_;
+    return _result;
 }
 
 } // namespace reluva::age

@@ -35,120 +35,120 @@ Vec3 flat(Vec3 v) {
 } // namespace
 
 void PathDriver::start(std::vector<Vec3> path, int laps, float skill, size_t loopFrom) {
-    path_ = std::move(path);
-    loopFrom_ = std::min(loopFrom, path_.empty() ? 0 : path_.size() - 1);
-    laps_ = laps;
-    lap_ = 0;
-    index_ = 0;
-    passed_ = 0;
-    skill_ = skill;
-    finished_ = path_.empty();
-    stuckTime_ = reverseTime_ = lostTime_ = 0;
-    best_ = 1e9f;
-    resetsHere_ = 0;
+    _path = std::move(path);
+    _loopFrom = std::min(loopFrom, _path.empty() ? 0 : _path.size() - 1);
+    _laps = laps;
+    _lap = 0;
+    _index = 0;
+    _passed = 0;
+    _skill = skill;
+    _finished = _path.empty();
+    _stuckTime = _reverseTime = _lostTime = 0;
+    _best = 1e9f;
+    _resetsHere = 0;
 }
 
 Vec3 PathDriver::resetPoint() const {
-    if (path_.empty())
+    if (_path.empty())
         return {};
-    if (resetsHere_ >= 2)
-        return path_[index_];
-    return path_[index_ > 0 ? index_ - 1 : 0];
+    if (_resetsHere >= 2)
+        return _path[_index];
+    return _path[_index > 0 ? _index - 1 : 0];
 }
 
 float PathDriver::resetYaw() const {
-    if (path_.empty())
+    if (_path.empty())
         return 0;
     // Facing the point after the one it's put at.
-    const size_t to = resetsHere_ >= 2 ? (index_ + 1 < path_.size() ? index_ + 1 : loopFrom_) : index_;
-    const Vec3 d = flat(path_[to] - resetPoint());
+    const size_t to = _resetsHere >= 2 ? (_index + 1 < _path.size() ? _index + 1 : _loopFrom) : _index;
+    const Vec3 d = flat(_path[to] - resetPoint());
     return length(d) > 0.1f ? std::atan2(-d[0], -d[2]) : 0;
 }
 
 void PathDriver::resetDone() {
-    stuckTime_ = reverseTime_ = lostTime_ = 0;
-    best_ = 1e9f;
-    if (++resetsHere_ < 3)
+    _stuckTime = _reverseTime = _lostTime = 0;
+    _best = 1e9f;
+    if (++_resetsHere < 3)
         return;
     // Put on the point it couldn't reach: on to the next.
-    resetsHere_ = 0;
-    ++passed_;
-    if (++index_ >= path_.size()) {
-        if (laps_ > 0 && ++lap_ < laps_)
-            index_ = loopFrom_;
+    _resetsHere = 0;
+    ++_passed;
+    if (++_index >= _path.size()) {
+        if (_laps > 0 && ++_lap < _laps)
+            _index = _loopFrom;
         else
-            finished_ = true;
+            _finished = true;
     }
 }
 
 void PathDriver::follow(std::vector<Vec3> path, float skill) {
-    const float stuck = stuckTime_, reverse = reverseTime_;
-    const int resets = resetsHere_;
+    const float stuck = _stuckTime, reverse = _reverseTime;
+    const int resets = _resetsHere;
     start(std::move(path), 0, skill);
-    stuckTime_ = stuck;
-    reverseTime_ = reverse;
-    resetsHere_ = resets;
+    _stuckTime = stuck;
+    _reverseTime = reverse;
+    _resetsHere = resets;
 }
 
 CarControls PathDriver::drive(const CarSim& car, float dt) {
     CarControls c;
-    if (finished_ || path_.empty()) {
+    if (_finished || _path.empty()) {
         c.brake = std::fabs(car.forwardSpeed()) > 1 ? 1.0f : 0.0f;
         return c;
     }
     const Vec3 pos = car.position;
     const Vec3 forward = normalized(flat(-car.orientation.z));
     const Vec3 right = normalized(flat(car.orientation.x));
-    const size_t n = path_.size();
-    auto point = [&](size_t i) { return path_[std::min(i, n - 1)]; };
+    const size_t n = _path.size();
+    auto point = [&](size_t i) { return _path[std::min(i, n - 1)]; };
 
     // Reached (or passed) the next point: on to the one after.
-    const Vec3 previous = index_ > 0 ? point(index_ - 1) : pos;
-    Vec3 target = point(index_);
+    const Vec3 previous = _index > 0 ? point(_index - 1) : pos;
+    Vec3 target = point(_index);
     const Vec3 segment = normalized(flat(target - previous));
     const float distance = length(flat(target - pos));
     if (distance < kReach || (distance < 40 && dot(flat(pos - target), segment) > 0)) {
-        ++index_;
-        ++passed_;
-        if (index_ >= n) {
-            if (laps_ > 0 && ++lap_ < laps_) {
-                index_ = loopFrom_;
+        ++_index;
+        ++_passed;
+        if (_index >= n) {
+            if (_laps > 0 && ++_lap < _laps) {
+                _index = _loopFrom;
             } else {
-                finished_ = true;
+                _finished = true;
                 return c;
             }
         }
-        target = point(index_);
-        best_ = 1e9f;
-        lostTime_ = 0;
-        resetsHere_ = 0;
+        target = point(_index);
+        _best = 1e9f;
+        _lostTime = 0;
+        _resetsHere = 0;
     }
     const float nearNow = length(flat(target - pos));
-    if (nearNow < best_ - 2) {
-        best_ = nearNow;
-        lostTime_ = 0;
+    if (nearNow < _best - 2) {
+        _best = nearNow;
+        _lostTime = 0;
     } else {
-        lostTime_ += dt;
+        _lostTime += dt;
     }
 
     // The way ahead: where the car is on the path (its nearest point on
     // the way to the target), then the points after, laps unrolled.
     std::vector<Vec3> ahead;
     {
-        const Vec3 from = index_ > 0 ? point(index_ - 1) : pos;
+        const Vec3 from = _index > 0 ? point(_index - 1) : pos;
         const Vec3 ab = flat(target - from);
         const float t = dot(ab, ab) > 1e-4f ? std::clamp(dot(flat(pos - from), ab) / dot(ab, ab), 0.0f, 1.0f) : 1;
         ahead.push_back(from + (target - from) * t);
         float along = 0;
-        size_t i = index_;
-        int lapsLeft = laps_ > 0 ? laps_ - lap_ - 1 : 0;
+        size_t i = _index;
+        int lapsLeft = _laps > 0 ? _laps - _lap - 1 : 0;
         for (int steps = 0; steps < 64 && along < kLookFar; ++steps) {
             along += length(flat(point(i) - ahead.back()));
             ahead.push_back(point(i));
             if (++i >= n) {
                 if (lapsLeft-- <= 0)
                     break;
-                i = loopFrom_;
+                i = _loopFrom;
             }
         }
     }
@@ -219,7 +219,7 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
     // Speed: the car's top speed, less for each corner ahead (as fast as
     // an arc that fits the corner's legs can be driven), braking in time
     // for the slowest; and slowly while pointing well off the way.
-    const float top = std::min(setup.highSpeed * skill_, limit_);
+    const float top = std::min(setup.highSpeed * _skill, _limit);
     float wanted = top;
     {
         // Each point's distance along the way, and each leg's heading.
@@ -257,19 +257,19 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
         wanted = std::min(wanted, 9.0f);
 
     // Stuck against something: back out, steering the other way.
-    if (reverseTime_ > 0) {
-        reverseTime_ -= dt;
+    if (_reverseTime > 0) {
+        _reverseTime -= dt;
         c.brake = 1;
         c.steer = -c.steer;
-        stuckTime_ += dt;
+        _stuckTime += dt;
         return c;
     }
     if (std::fabs(speed) < 1.5f) {
-        stuckTime_ += dt;
-        if (stuckTime_ > 2.5f && std::fmod(stuckTime_, 4.0f) < dt * 2)
-            reverseTime_ = 1.2f;
+        _stuckTime += dt;
+        if (_stuckTime > 2.5f && std::fmod(_stuckTime, 4.0f) < dt * 2)
+            _reverseTime = 1.2f;
     } else {
-        stuckTime_ = 0;
+        _stuckTime = 0;
     }
 
     if (speed < wanted - 1)

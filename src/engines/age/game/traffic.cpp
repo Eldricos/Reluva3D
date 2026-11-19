@@ -71,11 +71,11 @@ Vec3 pointAlong(const std::vector<Vec3>& points, const std::vector<float>& at, f
 }
 
 void TrafficNetwork::build(const AiRoadMap& map, const AiMapSettings& settings) {
-    lanes_.clear();
-    leaving_.assign(map.junctions.size(), {});
-    roadsAt_.clear();
+    _lanes.clear();
+    _leaving.assign(map.junctions.size(), {});
+    _roadsAt.clear();
     for (const AiJunction& j : map.junctions)
-        roadsAt_.push_back(j.roads.size());
+        _roadsAt.push_back(j.roads.size());
     for (const AiRoad& road : map.roads) {
         float speed = settings.speedLimit > 0 ? settings.speedLimit : road.speedLimit;
         bool spawns = true;
@@ -124,37 +124,37 @@ void TrafficNetwork::build(const AiRoadMap& map, const AiMapSettings& settings) 
                 // Across the road from side 0's middle outwards, or from
                 // a one-way road's left: which is left as driven depends on
                 // the way it runs.
-                const int me = int(lanes_.size());
+                const int me = int(_lanes.size());
                 if (previous >= 0) {
                     const Vec3 heading = lane.points[1] - lane.points[0];
-                    const Vec3 toPrevious = lanes_[size_t(previous)].points.front() - lane.points.front();
+                    const Vec3 toPrevious = _lanes[size_t(previous)].points.front() - lane.points.front();
                     const bool previousOnRight = heading[0] * toPrevious[2] - heading[2] * toPrevious[0] > 0;
                     (previousOnRight ? lane.right : lane.left) = previous;
-                    (previousOnRight ? lanes_[size_t(previous)].left : lanes_[size_t(previous)].right) = me;
+                    (previousOnRight ? _lanes[size_t(previous)].left : _lanes[size_t(previous)].right) = me;
                 }
                 previous = me;
-                leaving_[lane.from].push_back(uint32_t(lanes_.size()));
-                lanes_.push_back(std::move(lane));
+                _leaving[lane.from].push_back(uint32_t(_lanes.size()));
+                _lanes.push_back(std::move(lane));
             }
         }
     }
 }
 
 void Traffic::setup(const SearchSet& files, const AiRoadMap& map, const AiMapSettings& settings, uint32_t seed) {
-    network_.build(map, settings);
-    holders_.assign(network_.junctions(), {});
+    _network.build(map, settings);
+    _holders.assign(_network.junctions(), {});
     clear();
-    kinds_.clear();
-    rng_.seed(seed);
+    _kinds.clear();
+    _rng.seed(seed);
     for (const auto& a : settings.ambients)
         if (files.has("geometry/" + a.model + ".pkg"))
-            kinds_[size_t(kindOf(files, a.model))].upTo = a.upTo;
-    ambient_ = kinds_.size();
+            _kinds[size_t(kindOf(files, a.model))].upTo = a.upTo;
+    _ambient = _kinds.size();
     // The lanes in pieces of up to 20 m.
-    pieces_.clear();
-    near_.clear();
-    nearFrom_ = {1e9f, 0, 1e9f};
-    const auto& lanes = network_.lanes();
+    _pieces.clear();
+    _near.clear();
+    _nearFrom = {1e9f, 0, 1e9f};
+    const auto& lanes = _network.lanes();
     for (uint32_t li = 0; li < lanes.size(); ++li) {
         const TrafficLane& l = lanes[li];
         if (!l.spawns || l.share <= 0)
@@ -167,34 +167,34 @@ void Traffic::setup(const SearchSet& files, const AiRoadMap& map, const AiMapSet
             p.to = l.length() * float(k + 1) / float(n);
             p.middle = pointAlong(l.points, l.at, (p.from + p.to) / 2);
             p.weight = (p.to - p.from) * l.share;
-            pieces_.push_back(p);
+            _pieces.push_back(p);
         }
     }
 }
 
 void Traffic::findNear(const Vec3& focus) {
     // Again once the focus has moved on a little.
-    if (flat(focus - nearFrom_) < kNearAgain)
+    if (flat(focus - _nearFrom) < kNearAgain)
         return;
-    nearFrom_ = focus;
-    near_.clear();
-    nearLane_ = 0;
-    for (uint32_t i = 0; i < pieces_.size(); ++i)
-        if (flat(pieces_[i].middle - focus) < kForget) {
-            near_.push_back(i);
-            nearLane_ += pieces_[i].weight;
+    _nearFrom = focus;
+    _near.clear();
+    _nearLane = 0;
+    for (uint32_t i = 0; i < _pieces.size(); ++i)
+        if (flat(_pieces[i].middle - focus) < kForget) {
+            _near.push_back(i);
+            _nearLane += _pieces[i].weight;
         }
 }
 
 size_t Traffic::carsWanted(const Vec3& focus) {
     findNear(focus);
-    const float cars = std::clamp(density_, 0.0f, 1.0f) * nearLane_ / kLaneAtFull;
-    return std::min<size_t>(size_t(std::lround(cars)), size_t(std::max(0, carLimit_)));
+    const float cars = std::clamp(_density, 0.0f, 1.0f) * _nearLane / kLaneAtFull;
+    return std::min<size_t>(size_t(std::lround(cars)), size_t(std::max(0, _carLimit)));
 }
 
 int Traffic::kindOf(const SearchSet& files, const std::string& model) {
-    for (size_t i = 0; i < kinds_.size(); ++i)
-        if (kinds_[i].model == model)
+    for (size_t i = 0; i < _kinds.size(); ++i)
+        if (_kinds[i].model == model)
             return int(i);
     Kind k;
     k.model = model;
@@ -213,8 +213,8 @@ int Traffic::kindOf(const SearchSet& files, const std::string& model) {
         // A parked car without settings (London's sp_pcar): its body's size.
         k.size = high - low;
     }
-    kinds_.push_back(k);
-    return int(kinds_.size()) - 1;
+    _kinds.push_back(k);
+    return int(_kinds.size()) - 1;
 }
 
 bool Traffic::besideLane(const Vec3& a, const Vec3& b) const {
@@ -224,7 +224,7 @@ bool Traffic::besideLane(const Vec3& a, const Vec3& b) const {
     if (flat(dir) < 1e-3f)
         return false;
     dir = dir * (1 / flat(dir));
-    for (const TrafficLane& l : network_.lanes())
+    for (const TrafficLane& l : _network.lanes())
         for (size_t i = 0; i + 1 < l.points.size(); ++i) {
             Vec3 seg = l.points[i + 1] - l.points[i];
             seg[1] = 0;
@@ -244,15 +244,15 @@ bool Traffic::besideLane(const Vec3& a, const Vec3& b) const {
 
 void Traffic::park(const SearchSet& files, const std::vector<PathsetPath>& lines,
                    const std::vector<std::string>& models) {
-    std::erase_if(cars_, [](const Car& c) { return c.parked; });
-    parked_ = 0;
+    std::erase_if(_cars, [](const Car& c) { return c.parked; });
+    _parked = 0;
     std::vector<int> pool;
     for (const std::string& m : models)
         if (files.has("geometry/" + m + ".pkg"))
             pool.push_back(kindOf(files, m));
     if (pool.empty())
-        for (size_t i = 0; i < ambient_; ++i)
-            if (kinds_[i].mass <= 3000)
+        for (size_t i = 0; i < _ambient; ++i)
+            if (_kinds[i].mass <= 3000)
                 pool.push_back(int(i));
     for (const PathsetPath& l : lines) {
         if (l.points.size() < 2)
@@ -273,21 +273,21 @@ void Traffic::park(const SearchSet& files, const std::vector<PathsetPath>& lines
         const bool curb = besideLane(l.points.front(), l.points.back());
         const float gap = curb ? std::clamp(float(l.end >> 8 & 0xff) / 10, 0.5f, 30.0f) : 1;
         for (float s = gap / 2;;) {
-            const int kind = own >= 0 ? own : pool[rng_() % pool.size()];
-            const float len = kinds_[size_t(kind)].size[curb ? 2 : 0];
+            const int kind = own >= 0 ? own : pool[_rng() % pool.size()];
+            const float len = _kinds[size_t(kind)].size[curb ? 2 : 0];
             if (s + len > at.back())
                 break;
-            if (rng_() % 6 != 0) { // a space left here and there
+            if (_rng() % 6 != 0) { // a space left here and there
                 Car c;
                 c.kind = kind;
-                c.paintJob = uint32_t(rng_() % 8);
+                c.paintJob = uint32_t(_rng() % 8);
                 c.parked = true;
                 Vec3 along;
                 c.position = pointAlong(l.points, at, s + len / 2, &along);
                 c.heading = curb ? along : normalized(cross(along, Vec3{0, 1, 0}));
                 c.yaw = yawOf(c.heading);
-                cars_.push_back(std::move(c));
-                ++parked_;
+                _cars.push_back(std::move(c));
+                ++_parked;
             }
             s += len + gap;
         }
@@ -295,20 +295,20 @@ void Traffic::park(const SearchSet& files, const std::vector<PathsetPath>& lines
 }
 
 int Traffic::pickKind() {
-    const float r = std::uniform_real_distribution<float>(0, 1)(rng_);
-    for (size_t i = 0; i < ambient_; ++i)
-        if (r < kinds_[i].upTo)
+    const float r = std::uniform_real_distribution<float>(0, 1)(_rng);
+    for (size_t i = 0; i < _ambient; ++i)
+        if (r < _kinds[i].upTo)
             return int(i);
-    return int(ambient_) - 1;
+    return int(_ambient) - 1;
 }
 
 std::vector<uint32_t> TrafficNetwork::waysOn(int lane) const {
-    const TrafficLane& l = lanes_[size_t(lane)];
-    const auto& out = leaving_[l.to];
+    const TrafficLane& l = _lanes[size_t(lane)];
+    const auto& out = _leaving[l.to];
     std::vector<uint32_t> ways;
     for (int pass = 0; pass < 3 && ways.empty(); ++pass)
         for (uint32_t k : out)
-            if ((pass == 2 || lanes_[k].road != l.road) && (pass > 0 || lanes_[k].open))
+            if ((pass == 2 || _lanes[k].road != l.road) && (pass > 0 || _lanes[k].open))
                 ways.push_back(k);
     return ways;
 }
@@ -316,14 +316,14 @@ std::vector<uint32_t> TrafficNetwork::waysOn(int lane) const {
 int Traffic::pickNext(int lane) {
     // On to another road, an open one if there is (back along the same
     // road only if that's the only way).
-    const std::vector<uint32_t> ways = network_.waysOn(lane);
+    const std::vector<uint32_t> ways = _network.waysOn(lane);
     if (ways.empty())
         return -1;
-    return int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(rng_)]);
+    return int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(_rng)]);
 }
 
 void Traffic::startOn(Car& c, int lane, float s) {
-    const TrafficLane& l = network_.lanes()[size_t(lane)];
+    const TrafficLane& l = _network.lanes()[size_t(lane)];
     c.lane = lane;
     c.crossing = false;
     c.path = l.points;
@@ -335,7 +335,7 @@ void Traffic::startOn(Car& c, int lane, float s) {
     // Which way the next lane turns from this one.
     c.turn = 0;
     if (c.nextLane >= 0) {
-        const TrafficLane& n = network_.lanes()[size_t(c.nextLane)];
+        const TrafficLane& n = _network.lanes()[size_t(c.nextLane)];
         const Vec3 d0 = normalized(l.points.back() - l.points[l.points.size() - 2]);
         const Vec3 d1 = normalized(n.points[1] - n.points[0]);
         const float y = d0[2] * d1[0] - d0[0] * d1[2]; // < 0 turning right
@@ -346,8 +346,8 @@ void Traffic::startOn(Car& c, int lane, float s) {
 void Traffic::enterJunction(Car& c) {
     // A curve from the end of this lane to the start of the next, as long
     // as the gap between, slowed for how sharply it turns.
-    const TrafficLane& from = network_.lanes()[size_t(c.lane)];
-    const TrafficLane& to = network_.lanes()[size_t(c.nextLane)];
+    const TrafficLane& from = _network.lanes()[size_t(c.lane)];
+    const TrafficLane& to = _network.lanes()[size_t(c.nextLane)];
     const Vec3 p0 = from.points.back(), p1 = to.points.front();
     Vec3 d0 = normalized(from.points.back() - from.points[from.points.size() - 2]);
     Vec3 d1 = normalized(to.points[1] - to.points[0]);
@@ -370,11 +370,11 @@ bool Traffic::tryHold(Car& c, uint32_t junction) {
     // A junction is taken by the cars from one road at a time, or at a
     // crossroads from two opposite roads (the junction lists its roads in
     // order round it), as a green light would let them.
-    auto& h = holders_[junction];
-    const TrafficLane& mine = network_.lanes()[size_t(c.lane)];
-    const bool crossroads = network_.roadsAt(junction) == 4;
+    auto& h = _holders[junction];
+    const TrafficLane& mine = _network.lanes()[size_t(c.lane)];
+    const bool crossroads = _network.roadsAt(junction) == 4;
     for (size_t lane : h) {
-        const TrafficLane& other = network_.lanes()[lane];
+        const TrafficLane& other = _network.lanes()[lane];
         const bool together = other.road == mine.road || (crossroads && other.toSlot % 2 == mine.toSlot % 2);
         if (!together && c.waited < kHoldLimit)
             return false;
@@ -387,10 +387,10 @@ bool Traffic::tryHold(Car& c, uint32_t junction) {
 bool Traffic::mayEnter(Car& c, bool canStop) {
     // A red light (or amber where it can stop), a give-way end until it's
     // stopped, then its turn at the junction.
-    const TrafficLane& l = network_.lanes()[size_t(c.lane)];
-    if (lights_ && l.control == 1 && lights_->has(l.road, l.toEnd)) {
-        const Signal s = lights_->signal(l.road, l.toEnd);
-        if (s == Signal::Red || (s == Signal::Yellow && canStop))
+    const TrafficLane& l = _network.lanes()[size_t(c.lane)];
+    if (_lights && l.control == 1 && _lights->has(l.road, l.toEnd)) {
+        const Signal s = _lights->signal(l.road, l.toEnd);
+        if (s == Signal::kRed || (s == Signal::kYellow && canStop))
             return false;
     } else if (l.control == 0 && !c.gaveWay) {
         if (c.speed > 0.5f || c.at.back() - c.s > 4)
@@ -402,11 +402,11 @@ bool Traffic::mayEnter(Car& c, bool canStop) {
 
 void Traffic::changeLane(Car& c, const std::vector<RoadUser>& others) {
     // Into a lane beside going the same way, if there's room there.
-    const TrafficLane& l = network_.lanes()[size_t(c.lane)];
+    const TrafficLane& l = _network.lanes()[size_t(c.lane)];
     for (int to : {l.left, l.right}) {
         if (to < 0)
             continue;
-        const TrafficLane& n = network_.lanes()[size_t(to)];
+        const TrafficLane& n = _network.lanes()[size_t(to)];
         const float s = c.s * n.length() / std::max(1.0f, l.length());
         Vec3 heading;
         const Vec3 p = pointAlong(n.points, n.at, s, &heading);
@@ -416,7 +416,7 @@ void Traffic::changeLane(Car& c, const std::vector<RoadUser>& others) {
             const float along = rel[0] * heading[0] + rel[2] * heading[2];
             return along > -15 && along < 20 && flat(rel - heading * along) < 2.5f;
         };
-        for (const Car& o : cars_)
+        for (const Car& o : _cars)
             clear = clear && (&o == &c || !blocks(o.position));
         for (const RoadUser& u : others)
             clear = clear && !blocks(u.position);
@@ -436,7 +436,7 @@ void Traffic::changeLane(Car& c, const std::vector<RoadUser>& others) {
 void Traffic::release(Car& c) {
     if (c.holding < 0)
         return;
-    auto& h = holders_[size_t(c.holding)];
+    auto& h = _holders[size_t(c.holding)];
     const auto it = std::find(h.begin(), h.end(), size_t(c.lane));
     if (it != h.end())
         h.erase(it);
@@ -452,15 +452,15 @@ void Traffic::place(Car& c) {
 
 void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& others, const CollisionWorld& world,
                      bool fill) {
-    if (ambient_ == 0 || network_.lanes().empty())
+    if (_ambient == 0 || _network.lanes().empty())
         return;
-    clock_ += dt;
+    _clock += dt;
     // Leave out those far away.
-    for (size_t i = 0; i < cars_.size();) {
-        if (!cars_[i].parked && flat(cars_[i].position - focus) > kForget) {
-            release(cars_[i]);
-            cars_[i] = std::move(cars_.back());
-            cars_.pop_back();
+    for (size_t i = 0; i < _cars.size();) {
+        if (!_cars[i].parked && flat(_cars[i].position - focus) > kForget) {
+            release(_cars[i]);
+            _cars[i] = std::move(_cars.back());
+            _cars.pop_back();
         } else {
             ++i;
         }
@@ -468,27 +468,27 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
     // Start new ones, out of sight unless filling: on a piece of lane
     // within reach, each as likely as its length (and its lane's share).
     const size_t wanted = carsWanted(focus);
-    const auto& lanes = network_.lanes();
+    const auto& lanes = _network.lanes();
     std::vector<float> upTo;
     if (count() < wanted) {
-        upTo.reserve(near_.size());
+        upTo.reserve(_near.size());
         float sum = 0;
-        for (uint32_t i : near_)
-            upTo.push_back(sum += pieces_[i].weight);
+        for (uint32_t i : _near)
+            upTo.push_back(sum += _pieces[i].weight);
     }
     for (int tries = fill ? 4000 : 200; tries > 0 && count() < wanted && !upTo.empty() && upTo.back() > 0; --tries) {
-        const float pick = std::uniform_real_distribution<float>(0, upTo.back())(rng_);
+        const float pick = std::uniform_real_distribution<float>(0, upTo.back())(_rng);
         const Piece& piece =
-            pieces_[near_[size_t(std::upper_bound(upTo.begin(), upTo.end(), pick) - upTo.begin()) % near_.size()]];
+            _pieces[_near[size_t(std::upper_bound(upTo.begin(), upTo.end(), pick) - upTo.begin()) % _near.size()]];
         const size_t li = piece.lane;
         const TrafficLane& l = lanes[li];
-        const float s = std::uniform_real_distribution<float>(piece.from, piece.to)(rng_);
+        const float s = std::uniform_real_distribution<float>(piece.from, piece.to)(_rng);
         const Vec3 p = pointAlong(l.points, l.at, s);
         const float d = flat(p - focus);
         if (d > kSpawnFar || d < (fill ? 25 : kSpawnNear))
             continue;
         bool clear = true;
-        for (const Car& o : cars_)
+        for (const Car& o : _cars)
             clear = clear && (o.parked || flat(o.position - p) > 14);
         for (const RoadUser& u : others)
             clear = clear && flat(u.position - p) > 20;
@@ -496,16 +496,16 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
             continue;
         Car c;
         c.kind = pickKind();
-        c.paintJob = uint32_t(rng_() % 8);
-        const float heavy = kinds_[size_t(c.kind)].mass > 3000 ? 0.75f : 1;
-        c.pace = std::uniform_real_distribution<float>(0.85f, 1.05f)(rng_) * heavy;
+        c.paintJob = uint32_t(_rng() % 8);
+        const float heavy = _kinds[size_t(c.kind)].mass > 3000 ? 0.75f : 1;
+        c.pace = std::uniform_real_distribution<float>(0.85f, 1.05f)(_rng) * heavy;
         startOn(c, int(li), s);
         c.speed = c.maxSpeed * 0.8f;
         place(c);
-        cars_.push_back(std::move(c));
+        _cars.push_back(std::move(c));
     }
 
-    for (Car& c : cars_) {
+    for (Car& c : _cars) {
         if (c.parked && !c.loose) {
             if (!c.settled) { // stood on the ground at its line (not a deck above)
                 CollisionWorld::RayHit hit;
@@ -553,7 +553,7 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
                 }
             };
             // A parked car only when it stands out into the lane.
-            for (const Car& o : cars_)
+            for (const Car& o : _cars)
                 if (&o != &c && !ghosting)
                     consider(o.position, o.loose ? 0 : o.speed, o.parked && !o.loose ? 1.6f : 2.2f);
             for (const RoadUser& u : others)
@@ -565,12 +565,12 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
             }
         }
         bool atLine = false; // held at the end of its lane (a light, giving way, its turn)
-        if (!c.crossing && c.holding >= 0 && lights_) {
+        if (!c.crossing && c.holding >= 0 && _lights) {
             // Given its turn on green but not there yet: a red light it can
             // still stop for takes it back.
-            const TrafficLane& l = network_.lanes()[size_t(c.lane)];
+            const TrafficLane& l = _network.lanes()[size_t(c.lane)];
             const float left = c.at.back() - c.s;
-            if (l.control == 1 && lights_->signal(l.road, l.toEnd) == Signal::Red &&
+            if (l.control == 1 && _lights->signal(l.road, l.toEnd) == Signal::kRed &&
                 left > c.speed * c.speed / (2 * kBrake))
                 release(c);
         }
@@ -583,7 +583,7 @@ void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& o
             }
         }
         // Held up behind something slow: round it, where it can.
-        c.laneWait = laneChanges_ && !c.crossing && nearest < 25 && nearestSpeed < c.maxSpeed - 3
+        c.laneWait = _laneChanges && !c.crossing && nearest < 25 && nearestSpeed < c.maxSpeed - 3
                          ? c.laneWait + dt
                          : 0;
         if (c.laneWait > 1.5f && c.shiftLeft <= 0 && c.holding < 0 && c.s > 10 && c.at.back() - c.s > 40) {
@@ -643,8 +643,8 @@ float Traffic::collide(const std::vector<Vec3>& spheres, float radius, float ma,
     float reach = 0; // how far the spheres are from `position`
     for (const Vec3& p : spheres)
         reach = std::max(reach, flat(p - position) + radius);
-    for (Car& c : cars_) {
-        const Kind& k = kinds_[size_t(c.kind)];
+    for (Car& c : _cars) {
+        const Kind& k = _kinds[size_t(c.kind)];
         if (flat(c.position - position) > k.size[2] + reach + 4)
             continue;
         const Mat3 turn = Mat3::rotationY(c.yaw);
@@ -707,13 +707,13 @@ float Traffic::collide(const std::vector<Vec3>& spheres, float radius, float ma,
 }
 
 void Traffic::parkedPlaces(std::vector<std::pair<Vec3, Vec3>>& out) const {
-    for (const Car& c : cars_)
+    for (const Car& c : _cars)
         if (c.parked)
             out.push_back({c.position, c.loose ? Mat3::rotationY(c.yaw) * Vec3{0, 0, -1} : c.heading});
 }
 
 void Traffic::users(std::vector<RoadUser>& out) const {
-    for (const Car& c : cars_)
+    for (const Car& c : _cars)
         if (!c.parked || c.loose) // parked ones are at the side of the road
             out.push_back({c.position, c.loose ? c.velocity : c.heading * c.speed});
 }
@@ -721,10 +721,10 @@ void Traffic::users(std::vector<RoadUser>& out) const {
 void Traffic::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light,
                    const gfx::Mat4& viewProj, const Vec3& eye, bool night, const FlareDrawer* flares) {
     const ViewFrustum frustum(viewProj);
-    const bool blink = int(clock_ * 3) % 2 == 0;
+    const bool blink = int(_clock * 3) % 2 == 0;
     for (bool translucent : {false, true})
-        for (const Car& c : cars_) {
-            const std::string& name = kinds_[size_t(c.kind)].model;
+        for (const Car& c : _cars) {
+            const std::string& name = _kinds[size_t(c.kind)].model;
             const ModelCache::Model& m = models.get(name, c.paintJob);
             if (!m.ok)
                 continue;
@@ -769,7 +769,7 @@ void Traffic::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLig
 }
 
 void Traffic::headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye, float distance) const {
-    for (const Car& c : cars_)
+    for (const Car& c : _cars)
         if (!c.loose && !c.parked && length(c.position - eye) < distance)
             out.push_back({c.position + c.heading * 9.0f + Vec3{0, 1, 0}, 11, {0.55f, 0.5f, 0.4f}});
 }

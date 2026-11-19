@@ -31,7 +31,7 @@ class Dashboard {
 public:
     // False if the car has none.
     bool load(const SearchSet& files, ModelCache& models, TextureCache& textures, const std::string& car);
-    bool loaded() const { return ok_; }
+    bool loaded() const { return _ok; }
     // `eye`, `forward`, `up`: the camera; `aspect` the view's width over
     // its height (it's made for 4:3, and stretched across to fill a wider view);
     // `damage` 0..1. Clears the depth first, so it's over everything drawn.
@@ -39,11 +39,11 @@ public:
               const Vec3& forward, const Vec3& up, float aspect, const SceneLight& light) const;
 
 private:
-    std::string model_;
-    DashSetup setup_;
-    Mtx speed_{}, tach_{}, damage_{}, wheel_{}, gear_{};
-    gfx::TextureId drive_ = 0, neutral_ = 0, reverse_ = 0; // the gear indicator's: texture/d, n and r
-    bool ok_ = false;
+    std::string _model;
+    DashSetup _setup;
+    Mtx _speed{}, _tach{}, _damage{}, _wheel{}, _gear{};
+    gfx::TextureId _drive = 0, _neutral = 0, _reverse = 0; // the gear indicator's: texture/d, n and r
+    bool _ok = false;
 };
 
 } // namespace reluva::age

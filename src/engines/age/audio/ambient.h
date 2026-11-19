@@ -63,9 +63,9 @@ public:
     // none: all in the middle) and its velocity (for Doppler).
     void update(float dt, const Vec3& listener, const Vec3& right = {}, const Vec3& velocity = {});
     // All of them louder or quieter (the Audio Options' ambient: 0 off).
-    void setGain(float gain) { gain_ = gain; }
+    void setGain(float gain) { _gain = gain; }
 
-    const std::vector<Ambience>& ambiences() const { return ambiences_; }
+    const std::vector<Ambience>& ambiences() const { return _ambiences; }
     // How many sounds are playing (for tests), and a voice's pan and pitch
     // as last set.
     size_t playing() const;
@@ -73,7 +73,7 @@ public:
         int pan = 0;
         float pitch = 1;
     };
-    Heard heard(size_t voice) const { return voice < voices_.size() ? voices_[voice].heard : Heard{}; }
+    Heard heard(size_t voice) const { return voice < _voices.size() ? _voices[voice].heard : Heard{}; }
     // At most this many play at once.
     static constexpr size_t kMostVoices = 8;
 
@@ -86,11 +86,11 @@ private:
         float wait = 0; // a one-shot's seconds to its next play
         Heard heard;
     };
-    std::vector<Ambience> ambiences_;
-    std::vector<Voice> voices_;
-    audio::Mixer* mixer_ = nullptr;
-    std::mt19937 random_;
-    float gain_ = 1;
+    std::vector<Ambience> _ambiences;
+    std::vector<Voice> _voices;
+    audio::Mixer* _mixer = nullptr;
+    std::mt19937 _random;
+    float _gain = 1;
 };
 
 } // namespace reluva::age

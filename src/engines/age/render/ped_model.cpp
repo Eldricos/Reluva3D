@@ -129,15 +129,15 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
     std::vector<std::pair<std::vector<Adjunct>, std::vector<uint32_t>>> packets;
     std::istringstream in(text);
     std::string line;
-    enum class In { None, Material, Packet } block = In::None;
+    enum class In { kNone, kMaterial, kPacket } block = In::kNone;
     while (std::getline(in, line)) {
         const auto w = wordsOf(line);
         if (w.empty())
             continue;
         const std::string& k = w[0];
-        if (block == In::Material) {
+        if (block == In::kMaterial) {
             if (k == "}")
-                block = In::None;
+                block = In::kNone;
             else if (k == "adjuncts:")
                 ranges.back().adjuncts = size_t(num(w, 1));
             else if (k == "primitives:")
@@ -148,11 +148,11 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
                 out.materials.back().diffuse = {num(w, 1), num(w, 2), num(w, 3), 1};
             continue;
         }
-        if (k == "}" && block == In::Packet) {
+        if (k == "}" && block == In::kPacket) {
             packets.push_back({adj, tris});
             adj.clear();
             tris.clear();
-            block = In::None;
+            block = In::kNone;
         } else if (k == "adj" && w.size() >= 5) {
             adj.push_back({std::atoi(w[1].c_str()), std::atoi(w[2].c_str()), std::atoi(w[4].c_str())});
         } else if (k == "tri" && w.size() >= 4) {
@@ -171,9 +171,9 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
             out.materials.push_back({});
             out.materials.back().name = w[1];
             ranges.push_back({});
-            block = In::Material;
+            block = In::kMaterial;
         } else if (k == "packet") {
-            block = In::Packet;
+            block = In::kPacket;
         }
     }
     if (out.materials.empty())
@@ -289,9 +289,9 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
     std::vector<gfx::Vertex> vertices;
     std::vector<uint32_t> indices;
     for (const auto& m : mesh.materials) {
-        corners_ += m.corners.size();
-        ranges_.push_back({uint32_t(indices.size()), uint32_t(m.indices.size())});
-        const uint32_t base = uint32_t(corners_ - m.corners.size());
+        _corners += m.corners.size();
+        _ranges.push_back({uint32_t(indices.size()), uint32_t(m.indices.size())});
+        const uint32_t base = uint32_t(_corners - m.corners.size());
         for (uint32_t i : m.indices)
             indices.push_back(base + i);
     }
@@ -303,7 +303,7 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
             anim.channels < int(3 + 3 * skeleton.bones.size()))
             continue;
         Move out;
-        out.firstFrame = int(vertices.size() / std::max<size_t>(1, corners_));
+        out.firstFrame = int(vertices.size() / std::max<size_t>(1, _corners));
         out.frames = anim.frames;
         // How far the root goes across the ground, as a speed.
         if (anim.frames > 1) {
@@ -329,15 +329,15 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
                     vertices.push_back(v);
                 }
         }
-        moveIndex_[m.name] = int(moves_.size());
-        moves_.push_back(out);
+        _moveIndex[m.name] = int(_moves.size());
+        _moves.push_back(out);
     }
     for (const PedMove& m : moves) {
-        const auto it = moveIndex_.find(m.name), next = moveIndex_.find(m.next);
-        if (it != moveIndex_.end())
-            moves_[size_t(it->second)].next = next != moveIndex_.end() ? next->second : it->second;
+        const auto it = _moveIndex.find(m.name), next = _moveIndex.find(m.next);
+        if (it != _moveIndex.end())
+            _moves[size_t(it->second)].next = next != _moveIndex.end() ? next->second : it->second;
     }
-    if (moves_.empty())
+    if (_moves.empty())
         return Error::fail(model + ": none of its moves could be read");
 
     // Colours: the package's paint jobs. Its groups are the materials in
@@ -379,43 +379,43 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
             const PkgShader* s = shaderOf[i] >= 0 ? pkg.shader(job, uint32_t(shaderOf[i])) : nullptr;
             colors.push_back(s ? s->diffuse : mesh.materials[i].diffuse);
         }
-        paints_.push_back(colors);
+        _paints.push_back(colors);
     }
-    renderer_ = &renderer;
-    return renderer.createMesh(vertices, indices, mesh_);
+    _renderer = &renderer;
+    return renderer.createMesh(vertices, indices, _mesh);
 }
 
 void PedModel::unload() {
-    if (renderer_ && mesh_)
-        renderer_->destroyMesh(mesh_);
-    renderer_ = nullptr;
-    mesh_ = 0;
-    corners_ = 0;
-    ranges_.clear();
-    paints_.clear();
-    moves_.clear();
-    moveIndex_.clear();
+    if (_renderer && _mesh)
+        _renderer->destroyMesh(_mesh);
+    _renderer = nullptr;
+    _mesh = 0;
+    _corners = 0;
+    _ranges.clear();
+    _paints.clear();
+    _moves.clear();
+    _moveIndex.clear();
 }
 
 int PedModel::move(const std::string& name) const {
-    const auto it = moveIndex_.find(name);
-    return it == moveIndex_.end() ? -1 : it->second;
+    const auto it = _moveIndex.find(name);
+    return it == _moveIndex.end() ? -1 : it->second;
 }
 
 void PedModel::draw(const gfx::Mat4& model, int move, float time, uint32_t paintJob, const SceneLight& light) const {
-    if (!mesh_ || move < 0 || size_t(move) >= moves_.size())
+    if (!_mesh || move < 0 || size_t(move) >= _moves.size())
         return;
-    const Move& m = moves_[size_t(move)];
+    const Move& m = _moves[size_t(move)];
     const float f = std::max(0.0f, time) * kFrameRate;
     const int a = int(f) % m.frames, b = (a + 1) % m.frames;
-    const auto& colors = paints_[paintJob % paints_.size()];
-    for (size_t i = 0; i < ranges_.size(); ++i) {
+    const auto& colors = _paints[paintJob % _paints.size()];
+    for (size_t i = 0; i < _ranges.size(); ++i) {
         gfx::DrawCall call;
-        call.mesh = mesh_;
-        call.firstIndex = ranges_[i].first;
-        call.indexCount = ranges_[i].second;
-        call.vertexOffset = int32_t(size_t(m.firstFrame + a) * corners_);
-        call.oldVertexOffset = int32_t(size_t(m.firstFrame + b) * corners_);
+        call.mesh = _mesh;
+        call.firstIndex = _ranges[i].first;
+        call.indexCount = _ranges[i].second;
+        call.vertexOffset = int32_t(size_t(m.firstFrame + a) * _corners);
+        call.oldVertexOffset = int32_t(size_t(m.firstFrame + b) * _corners);
         call.backLerp = f - std::floor(f);
         call.model = model;
         call.color = colors[std::min(i, colors.size() - 1)];
@@ -426,7 +426,7 @@ void PedModel::draw(const gfx::Mat4& model, int move, float time, uint32_t paint
         call.fillLight = light.fill;
         call.fillDirection = light.fillDirection;
         applyFog(call, light);
-        renderer_->draw(call);
+        _renderer->draw(call);
     }
 }
 

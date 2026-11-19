@@ -26,82 +26,82 @@ ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
     for (const std::string& n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("geometry/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".pkg") == 0)
-            names_.push_back(n);
+            _names.push_back(n);
     }
 }
 
 ModelViewer::~ModelViewer() { deactivate(); }
 
 void ModelViewer::deactivate() {
-    if (renderer_)
-        destroyModelMesh(*renderer_, mesh_);
-    textures_.reset();
-    renderer_ = nullptr;
+    if (_renderer)
+        destroyModelMesh(*_renderer, _mesh);
+    _textures.reset();
+    _renderer = nullptr;
 }
 
 void ModelViewer::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
-        renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
+    if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
+        _renderer = nullptr;
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The Models page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    textures_ = std::make_unique<TextureCache>(*renderer_, ctx_.files);
-    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
-    show(index_);
+    _textures = std::make_unique<TextureCache>(*_renderer, _ctx.files);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
+    show(_index);
 }
 
 void ModelViewer::show(int index) {
-    index_ = index;
-    const std::string& name = names_[size_t(index)];
-    setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
-    destroyModelMesh(*renderer_, mesh_);
-    textures_->clear();
-    error_.clear();
-    level_ = 0;
-    paintJob_ = 0;
+    _index = index;
+    const std::string& name = _names[size_t(index)];
+    setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(_names.size()) + ")");
+    destroyModelMesh(*_renderer, _mesh);
+    _textures->clear();
+    _error.clear();
+    _level = 0;
+    _paintJob = 0;
     std::vector<uint8_t> data;
-    if (Error err = ctx_.files.read(name, data))
-        error_ = err.message;
-    else if (Error e = readPkg(data, pkg_))
-        error_ = e.message;
-    if (!error_.empty()) {
-        pkg_ = Pkg{};
-        levels_.clear();
+    if (Error err = _ctx.files.read(name, data))
+        _error = err.message;
+    else if (Error e = readPkg(data, _pkg))
+        _error = e.message;
+    if (!_error.empty()) {
+        _pkg = Pkg{};
+        _levels.clear();
         return;
     }
-    levels_ = modelLevels(pkg_);
+    _levels = modelLevels(_pkg);
     build();
     // Frame the finest level.
-    center_ = mesh_.center;
-    radius_ = std::max(0.1f, mesh_.radius);
+    _center = _mesh.center;
+    _radius = std::max(0.1f, _mesh.radius);
     resetView();
 }
 
 void ModelViewer::build() {
-    destroyModelMesh(*renderer_, mesh_);
-    const std::string level = levels_.empty() ? std::string() : levels_[size_t(level_)];
-    if (Error err = buildModelMesh(*renderer_, *textures_, ctx_.files, names_[size_t(index_)], pkg_, level, paintJob_,
-                                   showLights_, mesh_))
-        error_ = err.message;
+    destroyModelMesh(*_renderer, _mesh);
+    const std::string level = _levels.empty() ? std::string() : _levels[size_t(_level)];
+    if (Error err = buildModelMesh(*_renderer, *_textures, _ctx.files, _names[size_t(_index)], _pkg, level, _paintJob,
+                                   _showLights, _mesh))
+        _error = err.message;
 }
 
 void ModelViewer::resetView() {
     // From the front left, a little above: the cars face -z.
-    yaw_ = -2.4f;
-    pitch_ = 0.3f;
-    distance_ = radius_ * 2.4f;
+    _yaw = -2.4f;
+    _pitch = 0.3f;
+    _distance = _radius * 2.4f;
 }
 
 void ModelViewer::handleEvent(const Event& ev) {
-    if (!renderer_ || names_.empty())
+    if (!_renderer || _names.empty())
         return;
     if (ev.type == EventType::kKeyDown) {
-        const int n = static_cast<int>(names_.size());
-        int i = index_;
+        const int n = static_cast<int>(_names.size());
+        int i = _index;
         if (ev.key == key::kLeft)
             i = (i + n - 1) % n;
         else if (ev.key == key::kRight)
@@ -117,111 +117,111 @@ void ModelViewer::handleEvent(const Event& ev) {
         else if (ev.key == key::kUp || ev.key == key::kDown) {
             // The first model of the next (or previous) kind.
             const int step = ev.key == key::kDown ? 1 : n - 1;
-            const std::string kind = kindOf(names_[size_t(i)]);
+            const std::string kind = kindOf(_names[size_t(i)]);
             do
                 i = (i + step) % n;
-            while (i != index_ && kindOf(names_[size_t(i)]) == kind);
+            while (i != _index && kindOf(_names[size_t(i)]) == kind);
             if (ev.key == key::kUp)
-                while (i > 0 && kindOf(names_[size_t(i - 1)]) == kindOf(names_[size_t(i)]))
+                while (i > 0 && kindOf(_names[size_t(i - 1)]) == kindOf(_names[size_t(i)]))
                     --i;
-        } else if (ev.key == 'l' && levels_.size() > 1) {
-            level_ = (level_ + 1) % int(levels_.size());
+        } else if (ev.key == 'l' && _levels.size() > 1) {
+            _level = (_level + 1) % int(_levels.size());
             build();
-        } else if (ev.key == 'p' && pkg_.paintJobs > 1) {
-            paintJob_ = (paintJob_ + 1) % pkg_.paintJobs;
+        } else if (ev.key == 'p' && _pkg.paintJobs > 1) {
+            _paintJob = (_paintJob + 1) % _pkg.paintJobs;
             build();
         } else if (ev.key == 'g') {
-            showLights_ = !showLights_;
+            _showLights = !_showLights;
             build();
         } else if (ev.key == 'r') {
             resetView();
         } else if (ev.key == 'i') {
-            showInfo_ = !showInfo_;
+            _showInfo = !_showInfo;
         } else if (ev.key == '+' || ev.key == '=') {
-            distance_ = std::max(radius_ * 0.2f, distance_ * 0.9f);
+            _distance = std::max(_radius * 0.2f, _distance * 0.9f);
         } else if (ev.key == '-') {
-            distance_ /= 0.9f;
+            _distance /= 0.9f;
         }
-        if (i != index_)
+        if (i != _index)
             show(i);
     } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
-        dragging_ = true;
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+        _dragging = true;
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
     } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
-        dragging_ = false;
-    } else if (ev.type == EventType::kMouseMove && dragging_) {
-        yaw_ -= float(ev.mouseX - lastX_) * 0.01f;
-        pitch_ = std::clamp(pitch_ + float(ev.mouseY - lastY_) * 0.01f, -1.5f, 1.5f);
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+        _dragging = false;
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
+        _yaw -= float(ev.mouseX - _lastX) * 0.01f;
+        _pitch = std::clamp(_pitch + float(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
     } else if (ev.type == EventType::kMouseWheel) {
-        distance_ = std::max(radius_ * 0.2f, distance_ * std::pow(0.9f, float(ev.wheelY)));
+        _distance = std::max(_radius * 0.2f, _distance * std::pow(0.9f, float(ev.wheelY)));
     }
 }
 
 void ModelViewer::drawInfo() {
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     const int lh = font::kLineHeight;
     std::vector<std::pair<std::string, Color>> lines;
     const Color white{230, 230, 230}, blue{150, 200, 255}, red{255, 120, 120};
-    lines.push_back({names_[size_t(index_)] + "  (" + std::to_string(index_ + 1) + "/" +
-                         std::to_string(names_.size()) + ")",
+    lines.push_back({_names[size_t(_index)] + "  (" + std::to_string(_index + 1) + "/" +
+                         std::to_string(_names.size()) + ")",
                      blue});
-    if (!error_.empty()) {
-        lines.push_back({error_, red});
-    } else if (showInfo_) {
+    if (!_error.empty()) {
+        lines.push_back({_error, red});
+    } else if (_showInfo) {
         std::string lv;
-        for (size_t i = 0; i < levels_.size(); ++i)
-            lv += (i ? " " : "") + (int(i) == level_ ? "[" + levels_[i] + "]" : levels_[i]);
+        for (size_t i = 0; i < _levels.size(); ++i)
+            lv += (i ? " " : "") + (int(i) == _level ? "[" + _levels[i] + "]" : _levels[i]);
         char buf[200];
         std::snprintf(buf, sizeof buf,
                       "level %s (L), paint job %u of %u (P), lit parts %s (G); %zu vertices, %zu triangles",
-                      lv.empty() ? "-" : lv.c_str(), paintJob_ + 1, std::max(pkg_.paintJobs, 1u),
-                      showLights_ ? "shown" : "hidden", mesh_.vertices, mesh_.triangles);
+                      lv.empty() ? "-" : lv.c_str(), _paintJob + 1, std::max(_pkg.paintJobs, 1u),
+                      _showLights ? "shown" : "hidden", _mesh.vertices, _mesh.triangles);
         lines.push_back({buf, white});
         std::string parts;
-        for (const PkgMesh& m : pkg_.meshes)
-            if (isLightPart(m.part()) ? showLights_
-                                      : levels_.empty() || m.level() == levels_[size_t(level_)] || !isLevel(m.level()))
+        for (const PkgMesh& m : _pkg.meshes)
+            if (isLightPart(m.part()) ? _showLights
+                                      : _levels.empty() || m.level() == _levels[size_t(_level)] || !isLevel(m.level()))
                 parts += (parts.empty() ? "" : " ") + m.name;
         lines.push_back({"meshes: " + parts, white});
-        std::snprintf(buf, sizeof buf, "%u shaders a paint job; %zu placed models", pkg_.shadersPerJob,
-                      pkg_.xrefs.size());
+        std::snprintf(buf, sizeof buf, "%u shaders a paint job; %zu placed models", _pkg.shadersPerJob,
+                      _pkg.xrefs.size());
         lines.push_back({buf, white});
-        for (const PkgXref& x : pkg_.xrefs)
+        for (const PkgXref& x : _pkg.xrefs)
             if (lines.size() < 12)
                 lines.push_back({"  " + x.name + " at " + std::to_string(x.matrix[9]) + " " +
                                      std::to_string(x.matrix[10]) + " " + std::to_string(x.matrix[11]),
                                  white});
-        for (const std::string& m : textures_->missing())
+        for (const std::string& m : _textures->missing())
             lines.push_back({"missing texture: " + m, red});
     }
     int y = 4;
     for (const auto& [line, color] : lines) {
         if (y > kFrameH - lh)
             break;
-        font::drawText(overlay_, 4, y, line, color);
+        font::drawText(_overlay, 4, y, line, color);
         y += lh;
     }
 }
 
 void ModelViewer::update(uint64_t) {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    const gfx::Vec3 offset{std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_), std::cos(pitch_) * std::cos(yaw_)};
-    const gfx::Vec3 eye{center_[0] + offset[0] * distance_, center_[1] + offset[1] * distance_,
-                        center_[2] + offset[2] * distance_};
+    const gfx::Vec3 offset{std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch), std::cos(_pitch) * std::cos(_yaw)};
+    const gfx::Vec3 eye{_center[0] + offset[0] * _distance, _center[1] + offset[1] * _distance,
+                        _center[2] + offset[2] * _distance};
     const gfx::Mat4 viewProj = gfx::multiply(
-        gfx::perspective(0.8f, float(kFrameW) / float(kFrameH), std::max(0.01f, radius_ * 0.01f), radius_ * 50),
+        gfx::perspective(0.8f, float(kFrameW) / float(kFrameH), std::max(0.01f, _radius * 0.01f), _radius * 50),
         gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
-    renderer_->beginFrame(viewProj, eye, {70, 74, 82});
+    _renderer->beginFrame(viewProj, eye, {70, 74, 82});
     // Opaque first, then the translucent over them.
     const SceneLight light;
-    drawModelMesh(*renderer_, mesh_, gfx::identity(), light, false);
-    drawModelMesh(*renderer_, mesh_, gfx::identity(), light, true);
+    drawModelMesh(*_renderer, _mesh, gfx::identity(), light, false);
+    drawModelMesh(*_renderer, _mesh, gfx::identity(), light, true);
     drawInfo();
-    renderer_->endFrame(&overlay_);
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::age

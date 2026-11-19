@@ -26,47 +26,47 @@ namespace reluva::age {
 class GameMenus {
 public:
     enum class Screen {
-        None,
-        Options,
-        Audio,
-        Graphics,
-        Control,
-        Customize,
-        About,
-        Defaults,        // odef_dlg: restore the defaults?
-        DuplicateKey,    // ctrl_dlg
-        Quit,            // quit_dlg
-        ReplayList,      // rpl_bk: choose a replay file
-        ReplayName,      // REDIT_BK: save as, or rename
-        ReplayAsk,       // "Do you want to save this replay?"
-        NewDriver,       // newp_dlg: Create a New Driver
-        DuplicateDriver, // dupp_dlg
-        DeleteDriver,    // delp_dlg: are you sure?
-        LastDriver,      // lstp_dlg: you cannot delete your only driver
-        DriverStats,     // drec_dlg: Driver's Stats
-        RaceRecords,     // hoff_dlg: Race Records
-        RaceOptions,     // Renv_dlg: Change Race Options
-        CitySelection,   // cenv_dlg: Race Locales
-        Locked,          // lock_dlg: you cannot pick a locked vehicle
+        kNone,
+        kOptions,
+        kAudio,
+        kGraphics,
+        kControl,
+        kCustomize,
+        kAbout,
+        kDefaults,        // odef_dlg: restore the defaults?
+        kDuplicateKey,    // ctrl_dlg
+        kQuit,            // quit_dlg
+        kReplayList,      // rpl_bk: choose a replay file
+        kReplayName,      // REDIT_BK: save as, or rename
+        kReplayAsk,       // "Do you want to save this replay?"
+        kNewDriver,       // newp_dlg: Create a New Driver
+        kDuplicateDriver, // dupp_dlg
+        kDeleteDriver,    // delp_dlg: are you sure?
+        kLastDriver,      // lstp_dlg: you cannot delete your only driver
+        kDriverStats,     // drec_dlg: Driver's Stats
+        kRaceRecords,     // hoff_dlg: Race Records
+        kRaceOptions,     // Renv_dlg: Change Race Options
+        kCitySelection,   // cenv_dlg: Race Locales
+        kLocked,          // lock_dlg: you cannot pick a locked vehicle
     };
     enum class Action {
-        None,
-        Closed,        // back to whatever opened it
-        Quit,          // leave the game
-        LoadReplay,    // play replayFile()
-        SaveReplay,    // save the replay played as replayName()
-        DriverChanged, // a driver added or deleted: the current one's record to read
+        kNone,
+        kClosed,        // back to whatever opened it
+        kQuit,          // leave the game
+        kLoadReplay,    // play replayFile()
+        kSaveReplay,    // save the replay played as replayName()
+        kDriverChanged, // a driver added or deleted: the current one's record to read
     };
 
     GameMenus(System& sys, const SearchSet& files, const GameStrings& strings, audio::Mixer* mixer,
               std::filesystem::path savePath);
-    bool loaded() const { return ok_; }
+    bool loaded() const { return _ok; }
 
     void open(Screen s);
-    Screen screen() const { return screen_; }
-    bool isOpen() const { return screen_ != Screen::None; }
+    Screen screen() const { return _screen; }
+    bool isOpen() const { return _screen != Screen::kNone; }
     // A dialog over the menu that opened it (drawn first).
-    bool isDialog() const { return isOpen() && overlay(screen_); }
+    bool isDialog() const { return isOpen() && overlay(_screen); }
     Action handle(const Event& ev);
     void draw(Surface& overlay, uint64_t nowMs);
     bool typing() const;
@@ -77,21 +77,21 @@ public:
     // The drivers and their records, for the driver dialogs (and the
     // cities, for the records' tables).
     void setDrivers(DriverRoster* roster, PlayerRecord* record, const std::vector<CityInfo>* cities) {
-        roster_ = roster;
-        record_ = record;
-        cities_ = cities;
+        _roster = roster;
+        _record = record;
+        _cities = cities;
     }
     // The race menu's choice, for Change Race Options and Race Locales.
-    void setFrontEnd(FrontEnd* front) { front_ = front; }
-    const std::filesystem::path& replayFile() const { return replayFile_; }
+    void setFrontEnd(FrontEnd* front) { _front = front; }
+    const std::filesystem::path& replayFile() const { return _replayFile; }
     // A recording to say now (the time or weather chosen, an alert), once.
-    std::string takeVoice() { return std::exchange(voice_, std::string()); }
-    const std::string& replayName() const { return name_; }
+    std::string takeVoice() { return std::exchange(_voice, std::string()); }
+    const std::string& replayName() const { return _name; }
 
 private:
-    enum class Kind { Button, Check, Bar, Choice, List, Label, Text };
+    enum class Kind { kButton, kCheck, kBar, kChoice, kList, kLabel, kText };
     struct Item {
-        Kind kind = Kind::Button;
+        Kind kind = Kind::kButton;
         std::string widget;  // widget.csv's name
         std::string picture; // a button's or check's texture
         int states = 4;
@@ -118,51 +118,51 @@ private:
     Action done(); // the options kept, saved and put in force
     Action cancel();
 
-    System& sys_;
-    const SearchSet& files_;
-    const GameStrings& strings_;
-    audio::Mixer* mixer_;
-    std::filesystem::path savePath_;
-    mutable MenuPictures pictures_;
-    std::vector<Widget> widgets_;
-    bool ok_ = false;
+    System& _sys;
+    const SearchSet& _files;
+    const GameStrings& _strings;
+    audio::Mixer* _mixer;
+    std::filesystem::path _savePath;
+    mutable MenuPictures _pictures;
+    std::vector<Widget> _widgets;
+    bool _ok = false;
 
-    Screen screen_ = Screen::None;
-    Screen under_ = Screen::None; // the screen a dialog is over
-    int focus_ = 0;
-    GameOptions edit_;         // as changed on the screens
-    GameOptions entered_;      // as they were when the Options opened
-    int row_ = 0, column_ = 0; // Customize Controls: the control and which of its two keys
-    int listTop_ = 0;          // and the first shown
-    bool waitingForKey_ = false;
-    uint64_t openedMs_ = 0, nowMs_ = 0;
-    std::vector<ReplayEntry> replays_;
-    size_t replayRow_ = 0;
-    std::filesystem::path replayFile_;
-    std::string name_;            // the replay's name being typed
+    Screen _screen = Screen::kNone;
+    Screen _under = Screen::kNone; // the screen a dialog is over
+    int _focus = 0;
+    GameOptions _edit;         // as changed on the screens
+    GameOptions _entered;      // as they were when the Options opened
+    int _row = 0, _column = 0; // Customize Controls: the control and which of its two keys
+    int _listTop = 0;          // and the first shown
+    bool _waitingForKey = false;
+    uint64_t _openedMs = 0, _nowMs = 0;
+    std::vector<ReplayEntry> _replays;
+    size_t _replayRow = 0;
+    std::filesystem::path _replayFile;
+    std::string _name;            // the replay's name being typed
     bool overlay(Screen s) const; // a dialog over whatever's beneath (drawn already)
     void drawReplayList(Surface& o) const;
 
     // The driver dialogs (game_menus_drivers.cpp).
-    DriverRoster* roster_ = nullptr;
-    PlayerRecord* record_ = nullptr;
-    const std::vector<CityInfo>* cities_ = nullptr;
-    std::string newName_;
-    bool newPro_ = false;
-    std::array<bool, 8> filters_{true, true, false, true, true, true, true, true};
-    std::vector<std::string> table_; // the stats' or records' lines
-    size_t tableRow_ = 0;
+    DriverRoster* _roster = nullptr;
+    PlayerRecord* _record = nullptr;
+    const std::vector<CityInfo>* _cities = nullptr;
+    std::string _newName;
+    bool _newPro = false;
+    std::array<bool, 8> _filters{true, true, false, true, true, true, true, true};
+    std::vector<std::string> _table; // the stats' or records' lines
+    size_t _tableRow = 0;
     // The dialogs over a menu kept in game_menus_drivers.cpp: the drivers',
     // and the race menu's.
-    bool driverScreen(Screen s) const { return s >= Screen::NewDriver && s <= Screen::Locked; }
-    FrontEnd* front_ = nullptr;
-    FrontEnd::Choice::Conditions conditions_; // as Change Race Options changes them
-    size_t cityRow_ = 0;
-    int barInset() const { return screen_ == Screen::RaceOptions ? 20 : 23; }
+    bool driverScreen(Screen s) const { return s >= Screen::kNewDriver && s <= Screen::kLocked; }
+    FrontEnd* _front = nullptr;
+    FrontEnd::Choice::Conditions _conditions; // as Change Race Options changes them
+    size_t _cityRow = 0;
+    int barInset() const { return _screen == Screen::kRaceOptions ? 20 : 23; }
     void drawConditionIcons(Surface& o, const std::string& w, bool focused) const;
     void stepCondition(const std::string& w, int dir);
     void sayCondition(bool time);
-    std::string voice_;
+    std::string _voice;
     float raceShare(const std::string& w) const;
     void setRaceShare(const std::string& w, float v);
     std::string driverMenuName() const;

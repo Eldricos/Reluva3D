@@ -57,21 +57,21 @@ Error loadDamageSetup(const SearchSet& files, const std::string& car, DamageSetu
 // A car's damage: knocks over the threshold add what they're over it.
 class CarDamage {
 public:
-    void reset() { damage_ = 0; }
-    void set(float damage) { damage_ = damage; } // as another player's machine says
+    void reset() { _damage = 0; }
+    void set(float damage) { _damage = damage; } // as another player's machine says
     // An impulse (kg m/s); what it added.
     float knock(const DamageSetup& setup, float impulse);
     void update(const DamageSetup& setup, float dt);
-    float damage() const { return damage_; }
+    float damage() const { return _damage; }
     // 0..1 of the way to wrecked.
     float fraction(const DamageSetup& setup) const {
-        return setup.maxDamage > 0 ? std::min(1.0f, damage_ / setup.maxDamage) : 0;
+        return setup.maxDamage > 0 ? std::min(1.0f, _damage / setup.maxDamage) : 0;
     }
-    bool smoking(const DamageSetup& setup) const { return damage_ >= setup.medDamage; }
-    bool wrecked(const DamageSetup& setup) const { return damage_ >= setup.maxDamage; }
+    bool smoking(const DamageSetup& setup) const { return _damage >= setup.medDamage; }
+    bool wrecked(const DamageSetup& setup) const { return _damage >= setup.maxDamage; }
 
 private:
-    float damage_ = 0;
+    float _damage = 0;
 };
 
 class SmokePuffs;
@@ -128,11 +128,11 @@ public:
     void wheels(float dt, const CarSim& car);
     void update(float dt);
     void clear() {
-        puffs_.clear();
-        spews_.clear();
-        wheelOwed_.clear();
+        _puffs.clear();
+        _spews.clear();
+        _wheelOwed.clear();
     }
-    size_t count() const { return puffs_.size(); }
+    size_t count() const { return _puffs.size(); }
     void draw(const Vec3& eye) const;
 
 private:
@@ -149,21 +149,21 @@ private:
         Look look;
         float left = 0, owed = 0;
     };
-    gfx::Renderer3D& renderer_;
-    TextureCache& textures_;
-    gfx::MeshId quad_ = 0;
-    Look smoke_;
-    std::map<std::string, Look> looks_;
-    std::vector<Puff> puffs_;
-    std::vector<Spew> spews_;
+    gfx::Renderer3D& _renderer;
+    TextureCache& _textures;
+    gfx::MeshId _quad = 0;
+    Look _smoke;
+    std::map<std::string, Look> _looks;
+    std::vector<Puff> _puffs;
+    std::vector<Spew> _spews;
     struct WheelEffect {
         BirthRule rule;
         Look look;
         bool loaded = false;
     };
-    std::array<WheelEffect, 8> wheelEffects_;
-    std::map<const CarSim*, std::array<float, 8>> wheelOwed_; // particles owed, per wheel and threshold
-    std::minstd_rand random_{7};
+    std::array<WheelEffect, 8> _wheelEffects;
+    std::map<const CarSim*, std::array<float, 8>> _wheelOwed; // particles owed, per wheel and threshold
+    std::minstd_rand _random{7};
 };
 
 } // namespace reluva::age

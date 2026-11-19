@@ -43,7 +43,7 @@ public:
     Error startTrack(const SearchSet& files, audio::Mixer& mixer, size_t track);
     // The menus' tune: aud/dmusic/csv_files/ui.csv's segment (UI.sgt).
     Error startMenu(const SearchSet& files, audio::Mixer& mixer);
-    bool playingMenu() const { return menu_ && performance_; }
+    bool playingMenu() const { return _menu && _performance; }
     void stop();
 
     struct State {
@@ -58,20 +58,20 @@ public:
     void bigAir();
 
     // The segment playing or about to (for tests and the page's notes).
-    const std::string& segment() const { return wanted_; }
+    const std::string& segment() const { return _wanted; }
 
 private:
     void want(const std::string& segment);
 
-    audio::Mixer* mixer_ = nullptr;
-    std::shared_ptr<audio::DmPerformance> performance_;
-    MusicSet set_;
-    std::string wanted_;
-    float still_ = 0; // seconds stopped
-    bool idle_ = false, wasChased_ = false, wasPaused_ = false;
-    bool menu_ = false;
-    bool race_ = false;
-    uint32_t seed_ = 0;
+    audio::Mixer* _mixer = nullptr;
+    std::shared_ptr<audio::DmPerformance> _performance;
+    MusicSet _set;
+    std::string _wanted;
+    float _still = 0; // seconds stopped
+    bool _idle = false, _wasChased = false, _wasPaused = false;
+    bool _menu = false;
+    bool _race = false;
+    uint32_t _seed = 0;
 };
 
 } // namespace reluva::age

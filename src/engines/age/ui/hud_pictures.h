@@ -23,7 +23,7 @@ class HudPictures {
 public:
     // False if they aren't there.
     bool load(const SearchSet& files);
-    bool loaded() const { return ok_; }
+    bool loaded() const { return _ok; }
 
     // The speed, gear, revs and damage (0..1), bottom left of a 640 x 480
     // overlay.
@@ -45,10 +45,10 @@ private:
     void blit(Surface& overlay, const image::Image& im, int x, int y, int w, int h, float share = 1,
               int from = -1) const;
 
-    std::map<std::string, image::Image> images_;
-    image::Image places_; // opp_icon
-    std::map<std::string, image::Image> cd_; // CD_BG and its buttons
-    bool ok_ = false;
+    std::map<std::string, image::Image> _images;
+    image::Image _places; // opp_icon
+    std::map<std::string, image::Image> _cd; // CD_BG and its buttons
+    bool _ok = false;
 };
 
 } // namespace reluva::age

@@ -64,7 +64,7 @@ constexpr ControlInfo kInfo[kControls] = {
     {309, "Enter Chat Msg", 'y', 0},
 };
 
-const char* kNames[kControls] = {
+const char* g_kNames[kControls] = {
     "throttle",     "brakes",   "left",      "right",    "handbrake",   "horn", "shiftup",   "shiftdown", "reverse",
     "transmission", "camera",   "mapzoom",   "fullmap",  "maptoggle",   "hud",  "mirror",    "nextcheck", "prevcheck",
     "thrill",       "lookleft", "lookright", "lookback", "lookforward", "wide", "dashboard", "rotatemap", "cd",
@@ -138,8 +138,8 @@ std::string keyName(uint32_t k) {
 }
 
 const std::array<Resolution, 5>& resolutions() {
-    static const std::array<Resolution, 5> r{{{640, 480}, {800, 600}, {1024, 768}, {1280, 960}, {1600, 1200}}};
-    return r;
+    static const std::array<Resolution, 5> kR{{{640, 480}, {800, 600}, {1024, 768}, {1280, 960}, {1600, 1200}}};
+    return kR;
 }
 
 void GameOptions::resetAudio() {
@@ -179,20 +179,20 @@ void GameOptions::resetControls() {
 
 Control GameOptions::controlOf(uint32_t key) const {
     if (key == 0)
-        return Control::Count;
+        return Control::kCount;
     for (int i = 0; i < kControls; ++i)
         if (keys[size_t(i)][0] == key || keys[size_t(i)][1] == key)
             return Control(i);
-    return Control::Count;
+    return Control::kCount;
 }
 
 Control GameOptions::otherWith(uint32_t key, Control except) const {
     if (key == 0)
-        return Control::Count;
+        return Control::kCount;
     for (int i = 0; i < kControls; ++i)
         if (Control(i) != except && (keys[size_t(i)][0] == key || keys[size_t(i)][1] == key))
             return Control(i);
-    return Control::Count;
+    return Control::kCount;
 }
 
 std::string GameOptions::text() const {
@@ -206,7 +206,7 @@ std::string GameOptions::text() const {
       << textureQuality << "\ncloudshadows " << cloudShadows << "\nautoreverse " << autoReverse << "\nforcefeedback "
       << forceFeedback << "\nstartincar " << startInCar << "\nsteering " << steering << "\n";
     for (int i = 0; i < kControls; ++i)
-        o << "key " << kNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
+        o << "key " << g_kNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
 }
 
@@ -268,12 +268,12 @@ Error GameOptions::parse(const std::string& text) {
             std::string second;
             l >> second;
             for (int i = 0; i < kControls; ++i)
-                if (value == kNames[i])
+                if (value == g_kNames[i])
                     keys[size_t(i)] = {uint32_t(std::strtoul(second.c_str(), nullptr, 10)), 0};
             uint32_t other = 0;
             if (l >> other)
                 for (int i = 0; i < kControls; ++i)
-                    if (value == kNames[i])
+                    if (value == g_kNames[i])
                         keys[size_t(i)][1] = other;
         }
     }

@@ -32,28 +32,28 @@ constexpr int kScreenH = 480;
 class AgeEngine : public Engine {
 public:
     AgeEngine(System& system, GameTarget target, const GameInfo& game)
-        : sys_(system), target_(std::move(target)), game_(game) {}
+        : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
         std::vector<std::string> warnings;
         // Damaged archives don't stop the viewer; the Files page lists what
         // went wrong.
-        if (Error err = mountGame(files_, target_.path, warnings))
+        if (Error err = mountGame(_files, _target.path, warnings))
             return err;
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRgbA32))
+        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRgbA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::kRgbA32);
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRgbA32);
 
         // One mixer for every page's sounds; without audio output, none.
-        audio::Mixer mixer(sys_.audioRate());
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System& sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
 
-        ViewerContext ctx{sys_, screen_, files_, game_, warnings, audioOut ? &mixer : nullptr, target_.savePath};
+        ViewerContext ctx{_sys, _screen, _files, _game, warnings, audioOut ? &mixer : nullptr, _target.savePath};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<RaceViewer>(ctx));
         pages.push_back(std::make_unique<DriveViewer>(ctx));
@@ -65,14 +65,14 @@ public:
         while (page < pages.size() && pages[page]->count() == 0)
             ++page;
         if (page == pages.size())
-            return Error::fail("No files found in " + target_.path.string());
+            return Error::fail("No files found in " + _target.path.string());
         pages[page]->activate();
         // Leaving a 3D page: its renderer goes, the framebuffer comes back.
         auto switchTo = [&](size_t next) -> Error {
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRgbA32))
+                if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRgbA32))
                     return err;
             page = next;
             pages[page]->activate();
@@ -88,7 +88,7 @@ public:
 
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
+            while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 const bool pageKey = pages[page]->takesKey(ev);
@@ -107,20 +107,20 @@ public:
                 if (pages[page]->wantsToQuit())
                     return Error::success();
             }
-            pages[page]->update(sys_.getMillis());
-            sys_.updateScreen(screen_);
+            pages[page]->update(_sys.getMillis());
+            _sys.updateScreen(_screen);
             // 3D pages are paced by presenting (vsync); the rest needn't spin.
             if (!pages[page]->uses3D())
-                sys_.delayMillis(10);
+                _sys.delayMillis(10);
         }
     }
 
 private:
-    System& sys_;
-    GameTarget target_;
-    const GameInfo& game_;
-    SearchSet files_;
-    Surface screen_;
+    System& _sys;
+    GameTarget _target;
+    const GameInfo& _game;
+    SearchSet _files;
+    Surface _screen;
 };
 
 class AgeMetaEngine : public MetaEngine {
@@ -144,8 +144,8 @@ public:
 } // namespace
 
 const MetaEngine& ageMetaEngine() {
-    static const AgeMetaEngine instance;
-    return instance;
+    static const AgeMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

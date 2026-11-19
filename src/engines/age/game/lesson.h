@@ -18,7 +18,7 @@ public:
     static constexpr float kEscape = 120;    // metres behind the car to follow, and it's escaped
     static constexpr float kMessageTime = 3; // seconds a message shows
 
-    enum class Result { Going, Passed, Failed };
+    enum class Result { kGoing, kPassed, kFailed };
 
     // What happened this frame.
     struct Frame {
@@ -39,36 +39,36 @@ public:
 
     void start(const LessonSettings& lesson);
     Result step(const Frame& f);
-    Result result() const { return result_; }
+    Result result() const { return _result; }
 
     // Seconds added (none: the penalties' messages, 216, belong to a
     // group of the game's no lesson uses).
-    float penalty() const { return penalty_; }
+    float penalty() const { return _penalty; }
     // Seconds left (penalties counted), or -1 with no limit.
     float timeLeft(float clock) const;
     // The message to show now (0: none), and the minimum speed for
     // MinimumSpeed lessons' "Maintain %.0f".
-    uint32_t message() const { return messageFor_ > 0 ? message_ : 0; }
-    float minimumSpeed() const { return lesson_.extra[0]; }
+    uint32_t message() const { return _messageFor > 0 ? _message : 0; }
+    float minimumSpeed() const { return _lesson.extra[0]; }
     // A Destroy lesson's car has been rammed into submission.
-    bool destroyed() const { return destroyed_; }
+    bool destroyed() const { return _destroyed; }
 
 private:
     void show(uint32_t id) {
-        message_ = id;
-        messageFor_ = kMessageTime;
+        _message = id;
+        _messageFor = kMessageTime;
     }
     void fail(uint32_t id) {
-        result_ = Result::Failed;
+        _result = Result::kFailed;
         show(id);
     }
 
-    LessonSettings lesson_;
-    Result result_ = Result::Going;
-    float penalty_ = 0, messageFor_ = 0;
-    uint32_t message_ = 0;
-    int touchesAtStart_ = -1;
-    bool upToSpeed_ = false, destroyed_ = false;
+    LessonSettings _lesson;
+    Result _result = Result::kGoing;
+    float _penalty = 0, _messageFor = 0;
+    uint32_t _message = 0;
+    int _touchesAtStart = -1;
+    bool _upToSpeed = false, _destroyed = false;
 };
 
 } // namespace reluva::age

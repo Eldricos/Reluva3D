@@ -11,108 +11,108 @@ namespace reluva::age {
 
 Error CityLife::load(const SearchSet& files, const std::string& map) {
     stop();
-    roads_ = AiRoadMap{};
-    city_ = AiMapSettings{};
-    map_ = map;
+    _roads = AiRoadMap{};
+    _city = AiMapSettings{};
+    _map = map;
     std::vector<uint8_t> data;
     if (Error err = files.read("city/" + map + ".bai", data))
         return err;
-    if (Error err = readBai(data, roads_))
+    if (Error err = readBai(data, _roads))
         return Error::fail("city/" + map + ".bai: " + err.message);
     if (!files.read("city/" + map + ".aimap", data))
-        parseAiMap(std::string(data.begin(), data.end()), city_);
+        parseAiMap(std::string(data.begin(), data.end()), _city);
     // The road blocks' street furniture rules.
-    blockRules_.clear();
+    _blockRules.clear();
     Psdl psdl;
     if (!files.read("city/" + map + ".psdl", data) && !readPsdl(data, psdl))
         for (const PsdlBlock& b : psdl.blocks)
-            blockRules_.push_back(b.extra);
+            _blockRules.push_back(b.extra);
     return Error::success();
 }
 
 Error CityLife::start(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                       const AiMapSettings& settings, const Options& options, audio::Mixer* mixer) {
     stop();
-    current_ = settings;
-    carTouches_ = 0;
-    traffic_.setup(files, roads_, settings, options.seed);
-    traffic_.setDensity(options.traffic);
-    lights_.build(roads_, settings);
-    traffic_.setLights(&lights_);
-    traffic_.setLaneChanges(options.laneChanges || settings.laneChanges);
+    _current = settings;
+    _carTouches = 0;
+    _traffic.setup(files, _roads, settings, options.seed);
+    _traffic.setDensity(options.traffic);
+    _lights.build(_roads, settings);
+    _traffic.setLights(&_lights);
+    _traffic.setLaneChanges(options.laneChanges || settings.laneChanges);
     // London's parked cars have their own models; San Francisco's lines
     // name none, so they're the traffic's.
     std::vector<std::string> parked;
-    if (map_ == "london")
+    if (_map == "london")
         parked = {"sp_pcar01_l", "sp_pcar02_l", "sp_pcar03_l"};
-    traffic_.park(files, readCityPaths(files, map_, "parkedcar", options.variant), parked);
-    Error first = peds_.setup(renderer, files, roads_, settings, options.rain, options.seed + 1);
-    peds_.setDensity(options.peds);
+    _traffic.park(files, readCityPaths(files, _map, "parkedcar", options.variant), parked);
+    Error first = _peds.setup(renderer, files, _roads, settings, options.rain, options.seed + 1);
+    _peds.setDensity(options.peds);
     // San Francisco's police sound as the game's computer-driven ones do;
     // London's with its own two-tone siren (the player's table for there:
     // the opponents' has only the American ones).
-    const std::string siren = map_ == "london" ? "aud/cardata/player/londonpolicesiren.csv"
+    const std::string siren = _map == "london" ? "aud/cardata/player/londonpolicesiren.csv"
                                                : "aud/cardata/opponent/policesiren.csv";
-    if (Error err = police_.setup(renderer, textures, files, settings, options.cops, mixer, siren); err && !first)
+    if (Error err = _police.setup(renderer, textures, files, settings, options.cops, mixer, siren); err && !first)
         first = err;
-    police_.setPatrols(options.patrols ? &traffic_.network() : nullptr, &lights_);
-    gizmos_.load(files, map_, options.variant, mixer);
-    ambient_.load(files, map_, mixer, options.seed + 2);
+    _police.setPatrols(options.patrols ? &_traffic.network() : nullptr, &_lights);
+    _gizmos.load(files, _map, options.variant, mixer);
+    _ambient.load(files, _map, mixer, options.seed + 2);
     // The props and the traffic lights, to knock down: their shapes once
     // the models are at hand (the first draw), in the world after.
-    files_ = &files;
-    props_.load(files, map_, options.variant);
-    props_.addStreetProps(files, map_, roads_, blockRules_);
-    props_.addLights(lights_);
-    propsInWorld_ = false;
+    _files = &files;
+    _props.load(files, _map, options.variant);
+    _props.addStreetProps(files, _map, _roads, _blockRules);
+    _props.addLights(_lights);
+    _propsInWorld = false;
     return first;
 }
 
 void CityLife::stop() {
-    gizmos_.clear();
-    ambient_.clear();
-    traffic_.clear();
-    peds_.unload();
-    police_.clear();
+    _gizmos.clear();
+    _ambient.clear();
+    _traffic.clear();
+    _peds.unload();
+    _police.clear();
 }
 
 void CityLife::setLamps(bool lit, bool night) {
-    lampsLit_ = lit;
-    night_ = night;
-    police_.setLampsLit(lit);
+    _lampsLit = lit;
+    _night = night;
+    _police.setLampsLit(lit);
 }
 
 void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& others, CollisionWorld& world,
                       const RoadGraph& roads, bool fill) {
-    lights_.update(dt);
-    gizmos_.update(dt, world, player.position);
-    ambient_.update(dt, player.position, player.orientation.x, player.velocity);
-    if (props_.prepared() && !propsInWorld_) {
-        props_.collide(world);
-        propsInWorld_ = true;
+    _lights.update(dt);
+    _gizmos.update(dt, world, player.position);
+    _ambient.update(dt, player.position, player.orientation.x, player.velocity);
+    if (_props.prepared() && !_propsInWorld) {
+        _props.collide(world);
+        _propsInWorld = true;
     }
     {
         std::vector<CarSim*> drivers{&player};
         drivers.insert(drivers.end(), others.begin(), others.end());
-        for (CarSim* c : police_.cars())
+        for (CarSim* c : _police.cars())
             drivers.push_back(c);
-        props_.update(dt, drivers, world, lights_);
+        _props.update(dt, drivers, world, _lights);
     }
     // The police keep behind what's ahead on patrol: the traffic and the
     // other cars.
     std::vector<RoadUser> ahead{{player.position, player.velocity}};
     for (CarSim* c : others)
         ahead.push_back({c->position, c->velocity});
-    traffic_.users(ahead);
-    gizmos_.users(ahead); // open bridges, trains
-    police_.users(ahead); // each other (a car never counts itself: it's not ahead of itself)
+    _traffic.users(ahead);
+    _gizmos.users(ahead); // open bridges, trains
+    _police.users(ahead); // each other (a car never counts itself: it's not ahead of itself)
     const Vec3 beforePolice = player.velocity; // the police move the player only by running into it
-    police_.update(dt, player, world, roads, current_.speedLimit, ahead);
+    _police.update(dt, player, world, roads, _current.speedLimit, ahead);
     if (length(player.velocity - beforePolice) > 0.05f)
-        ++carTouches_;
+        ++_carTouches;
     // Every driven car bumps the traffic and the trains; the police bump
     // the opponents; the trains shove the traffic aside.
-    std::vector<CarSim*> cops = police_.cars();
+    std::vector<CarSim*> cops = _police.cars();
     // The player's knocks against the traffic and the trains, as an
     // impulse for its sounds.
     // The knock is on the side it was pushed away from.
@@ -123,54 +123,54 @@ void CityLife::update(float dt, CarSim& player, const std::vector<CarSim*>& othe
             player.knock(change * player.setup().mass, player.position - normalized(push) * 2);
     };
     Vec3 before = player.velocity;
-    const float traffic = traffic_.collide(player);
-    carTouches_ += traffic > 0;
+    const float traffic = _traffic.collide(player);
+    _carTouches += traffic > 0;
     knocked(traffic, before);
     before = player.velocity;
-    knocked(gizmos_.collide(player), before);
+    knocked(_gizmos.collide(player), before);
     for (CarSim* c : others) {
-        traffic_.collide(*c);
-        gizmos_.collide(*c);
+        _traffic.collide(*c);
+        _gizmos.collide(*c);
     }
     for (CarSim* c : cops) {
-        traffic_.collide(*c);
-        gizmos_.collide(*c);
+        _traffic.collide(*c);
+        _gizmos.collide(*c);
         for (CarSim* o : others)
             collideCars(*c, *o);
     }
-    gizmos_.push(traffic_);
+    _gizmos.push(_traffic);
     std::vector<RoadUser> users{{player.position, player.velocity}};
     for (CarSim* c : others)
         users.push_back({c->position, c->velocity});
-    police_.users(users);
-    gizmos_.users(users); // open bridges, trains
-    traffic_.update(dt, player.position, users, world, fill);
-    traffic_.users(users);
-    peds_.update(dt, player.position, users, world, fill);
+    _police.users(users);
+    _gizmos.users(users); // open bridges, trains
+    _traffic.update(dt, player.position, users, world, fill);
+    _traffic.users(users);
+    _peds.update(dt, player.position, users, world, fill);
 }
 
 void CityLife::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
                     const Vec3& eye, const FlareDrawer* flares) {
-    if (!props_.prepared() && files_)
-        props_.prepare(*files_, models);
-    props_.draw(renderer, models, light, viewProj, eye);
-    lights_.draw(renderer, models, light, viewProj, eye, night_);
-    gizmos_.draw(renderer, models, light, viewProj, eye);
-    traffic_.draw(renderer, models, light, viewProj, eye, lampsLit_, flares);
-    peds_.draw(viewProj, eye, light);
-    police_.draw(light);
+    if (!_props.prepared() && _files)
+        _props.prepare(*_files, models);
+    _props.draw(renderer, models, light, viewProj, eye);
+    _lights.draw(renderer, models, light, viewProj, eye, _night);
+    _gizmos.draw(renderer, models, light, viewProj, eye);
+    _traffic.draw(renderer, models, light, viewProj, eye, _lampsLit, flares);
+    _peds.draw(viewProj, eye, light);
+    _police.draw(light);
     if (flares) {
-        police_.drawFlares(*flares, eye);
-        if (night_)
-            props_.drawGlows(*flares, eye);
+        _police.drawFlares(*flares, eye);
+        if (_night)
+            _props.drawGlows(*flares, eye);
     }
 }
 
 void CityLife::headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye) const {
-    if (!lampsLit_)
+    if (!_lampsLit)
         return;
-    traffic_.headlightPools(out, eye);
-    police_.headlightPools(out);
+    _traffic.headlightPools(out, eye);
+    _police.headlightPools(out);
 }
 
 } // namespace reluva::age

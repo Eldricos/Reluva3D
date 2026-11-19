@@ -57,16 +57,16 @@ Error parseHudMapSetup(std::string_view text, HudMapSetup& out) {
 
 bool HudMap::load(gfx::Renderer3D& renderer, const SearchSet& files, ModelCache& models, const std::string& map) {
     unload();
-    renderer_ = &renderer;
+    _renderer = &renderer;
     std::vector<uint8_t> data;
     if (!files.read("tune/" + map + ".mmHudMap", data))
-        parseHudMapSetup(std::string(data.begin(), data.end()), setup_);
+        parseHudMapSetup(std::string(data.begin(), data.end()), _setup);
     else
-        setup_ = HudMapSetup{};
-    model_ = "hudmap_" + map;
-    zoomIn_ = setup_.zoomIn;
-    full_ = false;
-    distance_ = targetDistance();
+        _setup = HudMapSetup{};
+    _model = "hudmap_" + map;
+    _zoomIn = _setup.zoomIn;
+    _full = false;
+    _distance = targetDistance();
     // A square, 1 across, for the ocean under the map.
     std::vector<gfx::Vertex> v(4);
     const float corners[4][2] = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}};
@@ -76,58 +76,58 @@ bool HudMap::load(gfx::Renderer3D& renderer, const SearchSet& files, ModelCache&
         v[i].normal[1] = 1;
         v[i].color[0] = v[i].color[1] = v[i].color[2] = v[i].color[3] = 255;
     }
-    renderer.createMesh(v, {0, 1, 2, 0, 2, 3}, quad_);
-    ok_ = models.get(model_).ok;
-    return ok_;
+    renderer.createMesh(v, {0, 1, 2, 0, 2, 3}, _quad);
+    _ok = models.get(_model).ok;
+    return _ok;
 }
 
 void HudMap::unload() {
-    if (renderer_ && quad_)
-        renderer_->destroyMesh(quad_);
-    quad_ = 0;
-    renderer_ = nullptr;
-    ok_ = false;
+    if (_renderer && _quad)
+        _renderer->destroyMesh(_quad);
+    _quad = 0;
+    _renderer = nullptr;
+    _ok = false;
 }
 
 float HudMap::targetDistance() const {
-    if (full_)
-        return zoomIn_ ? setup_.zoomInDistFS : setup_.zoomOutDistFS;
-    return zoomIn_ ? setup_.zoomInDist : setup_.zoomOutDist;
+    if (_full)
+        return _zoomIn ? _setup.zoomInDistFS : _setup.zoomOutDistFS;
+    return _zoomIn ? _setup.zoomInDist : _setup.zoomOutDist;
 }
 
 float HudMap::iconLength() const {
     // From the near height's length to the far's.
-    const float nearD = full_ ? setup_.zoomInDistFS : setup_.zoomInDist;
-    const float farD = full_ ? setup_.zoomOutDistFS : setup_.zoomOutDist;
-    const float lo = full_ ? setup_.iconScaleMinFS : setup_.iconScaleMin;
-    const float hi = full_ ? setup_.iconScaleMaxFS : setup_.iconScaleMax;
-    const float t = farD > nearD ? std::clamp((distance_ - nearD) / (farD - nearD), 0.0f, 1.0f) : 0;
+    const float nearD = _full ? _setup.zoomInDistFS : _setup.zoomInDist;
+    const float farD = _full ? _setup.zoomOutDistFS : _setup.zoomOutDist;
+    const float lo = _full ? _setup.iconScaleMinFS : _setup.iconScaleMin;
+    const float hi = _full ? _setup.iconScaleMaxFS : _setup.iconScaleMax;
+    const float t = farD > nearD ? std::clamp((_distance - nearD) / (farD - nearD), 0.0f, 1.0f) : 0;
     return lo + (hi - lo) * t;
 }
 
 void HudMap::update(float dt) {
-    distance_ += (targetDistance() - distance_) * std::min(1.0f, setup_.approachRate * dt);
+    _distance += (targetDistance() - _distance) * std::min(1.0f, _setup.approachRate * dt);
 }
 
 void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& center, const Vec3& forward,
                   const std::vector<HudMapIcon>& icons, int frameW, int frameH) const {
-    if (!ok_ || !shown())
+    if (!_ok || !shown())
         return;
     int x, y, w, h;
-    if (full_) {
+    if (_full) {
         h = int(float(frameH) * kFullScreen);
         w = h;
         x = (frameW - w) / 2;
         y = (frameH - h) / 2;
     } else {
-        x = int(setup_.left * float(frameW));
-        y = int(setup_.top * float(frameH));
+        x = int(_setup.left * float(frameW));
+        y = int(_setup.top * float(frameH));
         // The game draws it a little smaller than its Size: 124 x 110 of
         // 0.21 x 0.25 at 640 x 480, 245 x 165 at 1280 x 720 (from its own
         // screens).
-        w = std::min(frameW - x, int(setup_.width * kShown * float(frameW)));
-        h = std::min(frameH - y, int(setup_.height * kShown * float(frameH)));
-        if (size_ == 1) {
+        w = std::min(frameW - x, int(_setup.width * kShown * float(frameW)));
+        h = std::min(frameH - y, int(_setup.height * kShown * float(frameH)));
+        if (_size == 1) {
             constexpr float kLarger = 1.6f;
             const int right = x + w, bottom = y + h;
             w = int(float(w) * kLarger);
@@ -140,9 +140,9 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
         return;
     // From above, the way the player faces up the map (or north, not
     // rotating).
-    Vec3 up = rotating_ ? Vec3{forward[0], 0, forward[2]} : Vec3{0, 0, -1};
+    Vec3 up = _rotating ? Vec3{forward[0], 0, forward[2]} : Vec3{0, 0, -1};
     up = length(up) > 1e-4f ? normalized(up) : Vec3{0, 0, -1};
-    const Vec3 eye{center[0], distance_, center[2]};
+    const Vec3 eye{center[0], _distance, center[2]};
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(kFov * 3.14159265f / 180, float(w) / float(h), 1, 1e5f),
                                              gfx::lookAlong(eye, {0, -1, 0}, up));
     renderer.clearDepth();
@@ -164,10 +164,10 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
     // The ocean, as far as can be seen, then the map.
     ModelDraw whole;
     whole.indexCount = 6;
-    const float reach = distance_ * 4;
-    flat(quad_, whole, matrixOf(Mat3{{reach, 0, 0}, {0, 1, 0}, {0, 0, reach}}, {center[0], 0, center[2]}),
-         {setup_.ocean[0], setup_.ocean[1], setup_.ocean[2], 1});
-    const ModelCache::Model& map = models.get(model_);
+    const float reach = _distance * 4;
+    flat(_quad, whole, matrixOf(Mat3{{reach, 0, 0}, {0, 1, 0}, {0, 0, reach}}, {center[0], 0, center[2]}),
+         {_setup.ocean[0], _setup.ocean[1], _setup.ocean[2], 1});
+    const ModelCache::Model& map = models.get(_model);
     for (const ModelDraw& d : map.levels.front().draws)
         flat(map.levels.front().mesh, d, gfx::identity(), d.color);
     // The icons, the dots under the cars.

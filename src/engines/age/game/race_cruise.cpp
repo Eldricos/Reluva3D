@@ -41,112 +41,112 @@ void RaceViewer::startCruise() {
     // The cruise starts at one of the city's Cops & Robbers places (as a
     // multiplayer cruise does), picked by the car, so a replay starts in
     // the same place; the stunt at its first point.
-    cruiseHold_ = 0;
-    stuntMessage_ = 0;
-    stuntMessageFor_ = 0;
+    _cruiseHold = 0;
+    _stuntMessage = 0;
+    _stuntMessageFor = 0;
     if (stunt()) {
         // Faced along the road: the file's first heading is some 25
         // degrees off it, towards the buildings.
-        if (race_.waypoints.size() > 1) {
-            const Vec3 a = race_.waypoints[0].position, b = race_.waypoints[1].position;
-            race_.waypoints[0].heading = std::atan2(b[0] - a[0], -(b[2] - a[2])) * 180 / kPi;
+        if (_race.waypoints.size() > 1) {
+            const Vec3 a = _race.waypoints[0].position, b = _race.waypoints[1].position;
+            _race.waypoints[0].heading = std::atan2(b[0] - a[0], -(b[2] - a[2])) * 180 / kPi;
         }
         // The end of the pier: on along the last leg until there's no
         // ground under it (some 140 m past the last point).
-        pierEnd_ = {};
-        if (race_.waypoints.size() > 1) {
-            const Vec3 a = race_.waypoints[race_.waypoints.size() - 2].position, b = race_.waypoints.back().position;
+        _pierEnd = {};
+        if (_race.waypoints.size() > 1) {
+            const Vec3 a = _race.waypoints[_race.waypoints.size() - 2].position, b = _race.waypoints.back().position;
             const float len = std::hypot(b[0] - a[0], b[2] - a[2]);
             for (float d = 0; d < 500 && len > 0; d += 1) {
                 const Vec3 p{b[0] + (b[0] - a[0]) / len * d, b[1] + 20, b[2] + (b[2] - a[2]) / len * d};
                 CollisionWorld::RayHit hit;
-                if (!world_.raycast(p, {0, -1, 0}, 30, hit))
+                if (!_world.raycast(p, {0, -1, 0}, 30, hit))
                     break;
-                pierEnd_ = {p[0], b[1], p[2]};
+                _pierEnd = {p[0], b[1], p[2]};
             }
         }
         return;
     }
-    if (race_.index == kPrototypeRace && !race_.waypoints.empty()) {
-        race_.waypoints.resize(1); // its one point: the start
+    if (_race.index == kPrototypeRace && !_race.waypoints.empty()) {
+        _race.waypoints.resize(1); // its one point: the start
         return;
     }
     std::vector<Waypoint> places;
-    loadGoldPoints(ctx_.files, cities_[size_t(city_)].map, places);
-    Waypoint start{scene_->start, -scene_->startYaw * 180 / kPi, 0};
+    loadGoldPoints(_ctx.files, _cities[size_t(_city)].map, places);
+    Waypoint start{_scene->start, -_scene->startYaw * 180 / kPi, 0};
     if (!places.empty())
-        start = places[size_t(car_ * 7 + level_) % places.size()];
-    race_.waypoints = {start};
+        start = places[size_t(_car * 7 + _level) % places.size()];
+    _race.waypoints = {start};
 }
 
 void RaceViewer::stepCruise(float dt) {
-    Racer& player = racers_.front();
+    Racer& player = _racers.front();
     CarSim& sim = player.car->sim;
     if (cruising()) {
         // No end. Busted or wrecked: a moment to see it, then back where
         // the cruise started, mended.
-        if (cruiseHold_ > 0) {
-            cruiseHold_ -= dt;
-            if (cruiseHold_ <= 0) {
-                const Waypoint& w = race_.waypoints[0];
+        if (_cruiseHold > 0) {
+            _cruiseHold -= dt;
+            if (_cruiseHold <= 0) {
+                const Waypoint& w = _race.waypoints[0];
                 sim.reset(player.car->setup, w.position + Vec3{0, 0.5f, 0}, headingToYaw(w.heading));
-                wear_.mend(*player.car);
-                if (smoke_)
-                    smoke_->clear();
-                life_.police().forgive();
-                outcome_.clear();
-                cameraReset_ = true;
-                fill_ = true;
+                _wear.mend(*player.car);
+                if (_smoke)
+                    _smoke->clear();
+                _life.police().forgive();
+                _outcome.clear();
+                _cameraReset = true;
+                _fill = true;
             }
-        } else if (life_.police().busted()) {
-            outcome_ = "Busted!";
-            cruiseHold_ = kBustedHold;
-        } else if (wear_.wrecked()) {
-            outcome_ = "Wrecked!";
-            cruiseHold_ = kWreckedHold;
+        } else if (_life.police().busted()) {
+            _outcome = "Busted!";
+            _cruiseHold = kBustedHold;
+        } else if (_wear.wrecked()) {
+            _outcome = "Wrecked!";
+            _cruiseHold = kWreckedHold;
         }
         return;
     }
 
     // The stunt: flat out down to the pier through the checkpoints, then
     // stopped short of its end without going over into the water.
-    if (state_ == State::Finished)
+    if (_state == State::kFinished)
         return;
-    if (clock_ >= 0 && clock_ - dt < 0) {
-        stuntMessage_ = 203; // "Put the pedal to the metal!"
-        stuntMessageFor_ = LessonJudge::kMessageTime;
+    if (_clock >= 0 && _clock - dt < 0) {
+        _stuntMessage = 203; // "Put the pedal to the metal!"
+        _stuntMessageFor = LessonJudge::kMessageTime;
     }
-    stuntMessageFor_ = std::max(0.0f, stuntMessageFor_ - dt);
-    float lowest = race_.waypoints.front().position[1];
-    for (const Waypoint& w : race_.waypoints)
+    _stuntMessageFor = std::max(0.0f, _stuntMessageFor - dt);
+    float lowest = _race.waypoints.front().position[1];
+    for (const Waypoint& w : _race.waypoints)
         lowest = std::min(lowest, w.position[1]);
     if (sim.position[1] < lowest - kFallenIn) {
-        outcome_ = "You fell in!";
-        state_ = State::Finished;
-    } else if (life_.police().busted() || wear_.wrecked()) {
-        outcome_ = life_.police().busted() ? "Busted!" : "Wrecked!";
-        state_ = State::Finished;
-    } else if (player.next >= targets_.size() && std::fabs(sim.forwardSpeed()) < kStopped) {
-        player.finishTime = clock_;
+        _outcome = "You fell in!";
+        _state = State::kFinished;
+    } else if (_life.police().busted() || _wear.wrecked()) {
+        _outcome = _life.police().busted() ? "Busted!" : "Wrecked!";
+        _state = State::kFinished;
+    } else if (player.next >= _targets.size() && std::fabs(sim.forwardSpeed()) < kStopped) {
+        player.finishTime = _clock;
         char shortOf[64];
-        std::snprintf(shortOf, sizeof shortOf, "  %.0f m from the end", flatDistance(sim.position, pierEnd_));
-        outcome_ = strings_.get(204, "Great job! You can stop on a dime!") + "  " + clockText(clock_) + shortOf;
-        state_ = State::Finished;
+        std::snprintf(shortOf, sizeof shortOf, "  %.0f m from the end", flatDistance(sim.position, _pierEnd));
+        _outcome = _strings.get(204, "Great job! You can stop on a dime!") + "  " + clockText(_clock) + shortOf;
+        _state = State::kFinished;
     }
 }
 
 void RaceViewer::drawCruiseHud() {
     // As the game's cruise: no words but the police after you and why the
     // car's about to be put back.
-    const Racer& player = racers_.front();
-    if (!outcome_.empty())
-        drawCentred(outcome_, kFrameH / 2 - 40, {255, 120, 90}, 4);
-    if (life_.police().chasing() > 0 && cruiseHold_ <= 0)
-        font::drawText(overlay_, 4, kFrameH - 150, "POLICE CHASING", {255, 90, 90}, 2); // above the speedometer
-    if (hudShown_)
-        drawSpeedometer(overlay_, player.car->sim,
-                        hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
-                        wear_.fraction(), pictures_);
+    const Racer& player = _racers.front();
+    if (!_outcome.empty())
+        drawCentred(_outcome, kFrameH / 2 - 40, {255, 120, 90}, 4);
+    if (_life.police().chasing() > 0 && _cruiseHold <= 0)
+        font::drawText(_overlay, 4, kFrameH - 150, "POLICE CHASING", {255, 90, 90}, 2); // above the speedometer
+    if (_hudShown)
+        drawSpeedometer(_overlay, player.car->sim,
+                        _hudMap.loaded() ? int(_hudMap.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
+                        _wear.fraction(), _pictures);
 }
 
 } // namespace reluva::age

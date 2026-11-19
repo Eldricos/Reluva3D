@@ -64,25 +64,25 @@ public:
     // False if the city has none.
     bool load(gfx::Renderer3D& renderer, const SearchSet& files, ModelCache& models, const std::string& map);
     void unload();
-    bool loaded() const { return ok_; }
-    const HudMapSetup& setup() const { return setup_; }
+    bool loaded() const { return _ok; }
+    const HudMapSetup& setup() const { return _setup; }
 
-    void toggleZoom() { zoomIn_ = !zoomIn_; }
-    void toggleFullScreen() { full_ = !full_; }
-    bool fullScreen() const { return full_; }
+    void toggleZoom() { _zoomIn = !_zoomIn; }
+    void toggleFullScreen() { _full = !_full; }
+    bool fullScreen() const { return _full; }
     // The corner map's sizes, then off (the game's Map Toggle: "toggle
     // between two different sizes of city map, or turn the map on and
     // off"); full screen shows either way. The larger is Reluva's: 1.6
     // times, its bottom right corner kept.
-    void toggleShown() { size_ = (size_ + 1) % 3; }
-    bool shown() const { return size_ < 2 || full_; }
+    void toggleShown() { _size = (_size + 1) % 3; }
+    bool shown() const { return _size < 2 || _full; }
     // Turned with the player (the Rotating Map), else north up.
-    void toggleRotating() { rotating_ = !rotating_; }
-    bool rotating() const { return rotating_; }
+    void toggleRotating() { _rotating = !_rotating; }
+    bool rotating() const { return _rotating; }
     // Eases the height towards the zoom's.
     void update(float dt);
     // The height it's seen from now.
-    float distance() const { return distance_; }
+    float distance() const { return _distance; }
 
     // Over the frame drawn so far (frameW x frameH pixels), about `center`
     // facing `forward`; leaves the whole frame as the viewport after.
@@ -93,13 +93,13 @@ private:
     float targetDistance() const;
     float iconLength() const;
 
-    gfx::Renderer3D* renderer_ = nullptr;
-    HudMapSetup setup_;
-    std::string model_;
-    gfx::MeshId quad_ = 0; // the ocean
-    bool ok_ = false, zoomIn_ = false, full_ = false, rotating_ = true;
-    int size_ = 0; // 0 the corner's, 1 larger, 2 off
-    float distance_ = 0;
+    gfx::Renderer3D* _renderer = nullptr;
+    HudMapSetup _setup;
+    std::string _model;
+    gfx::MeshId _quad = 0; // the ocean
+    bool _ok = false, _zoomIn = false, _full = false, _rotating = true;
+    int _size = 0; // 0 the corner's, 1 larger, 2 off
+    float _distance = 0;
 };
 
 } // namespace reluva::age

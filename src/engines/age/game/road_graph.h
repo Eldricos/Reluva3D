@@ -39,17 +39,17 @@ public:
     // `reach`: how far from a road a and b may be (60 m by default).
     std::vector<Vec3> route(const Vec3& a, const Vec3& b, float reach = 60) const;
 
-    size_t nodeCount() const { return nodes_.size(); }
+    size_t nodeCount() const { return _nodes.size(); }
     size_t edgeCount() const;
-    const std::vector<Vec3>& nodes() const { return nodes_; }
+    const std::vector<Vec3>& nodes() const { return _nodes; }
 
 private:
     uint32_t add(const Vec3& p);
     void join(uint32_t a, uint32_t b, float weight = 1);
     int nearest(const Vec3& p, float reach = 60) const;
 
-    std::vector<Vec3> nodes_;
-    std::vector<std::vector<std::pair<uint32_t, float>>> links_; // neighbour, distance
+    std::vector<Vec3> _nodes;
+    std::vector<std::vector<std::pair<uint32_t, float>>> _links; // neighbour, distance
 };
 
 } // namespace reluva::age

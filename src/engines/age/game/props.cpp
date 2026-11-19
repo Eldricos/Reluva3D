@@ -214,8 +214,8 @@ Error parseBangerData(const std::string& text, BangerData& out) {
 }
 
 void Props::load(const SearchSet& files, const std::string& map, const std::string& variant) {
-    props_.clear();
-    prepared_ = false;
+    _props.clear();
+    _prepared = false;
     std::vector<uint8_t> data;
     std::vector<PathsetPath> paths;
     if (!files.read("city/" + map + "/props.pathset", data))
@@ -232,7 +232,7 @@ void Props::load(const SearchSet& files, const std::string& map, const std::stri
         prop.at = p.at;
         const Vec3 x = p.along, y{0, 1, 0};
         prop.axes = {x, y, cross(x, y)};
-        props_.push_back(prop);
+        _props.push_back(prop);
     }
 }
 
@@ -249,9 +249,9 @@ void Props::addStreetProps(const SearchSet& files, const std::string& map, const
         prop.at = p.at;
         const Vec3 x = p.along, y{0, 1, 0};
         prop.axes = {x, y, cross(x, y)};
-        props_.push_back(prop);
+        _props.push_back(prop);
     }
-    prepared_ = false;
+    _prepared = false;
 }
 
 void Props::addLights(const TrafficLights& lights) {
@@ -262,9 +262,9 @@ void Props::addLights(const TrafficLights& lights) {
         prop.at = pl.at;
         prop.axes = pl.axes;
         prop.light = int(i);
-        props_.push_back(prop);
+        _props.push_back(prop);
     }
-    prepared_ = false;
+    _prepared = false;
 }
 
 void Props::prepare(const SearchSet& files, ModelCache& models) {
@@ -281,16 +281,16 @@ void Props::prepare(const SearchSet& files, ModelCache& models) {
 int Props::addEffect(const BangerData& b, const Vec3& middle) {
     if (!b.bursts())
         return -1;
-    effects_.push_back({b.particles, middle + b.particlesAt, "fxpt" + std::to_string(b.texNumber)});
-    return int(effects_.size() - 1);
+    _effects.push_back({b.particles, middle + b.particlesAt, "fxpt" + std::to_string(b.texNumber)});
+    return int(_effects.size() - 1);
 }
 
 void Props::prepare(const SearchSet& files, const ModelBox& box) {
     std::map<std::string, std::pair<BangerData, bool>> banger;
-    effects_.clear();
+    _effects.clear();
     std::map<std::string, int> effectOf; // a model's or piece's, shared
-    for (size_t i = 0; i < props_.size(); ++i) {
-        Prop& p = props_[i];
+    for (size_t i = 0; i < _props.size(); ++i) {
+        Prop& p = _props[i];
         Vec3 low, high;
         if (!box(p.model, low, high))
             continue;
@@ -379,12 +379,12 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
             }
         }
     }
-    prepared_ = true;
+    _prepared = true;
 }
 
 void Props::collide(CollisionWorld& world) const {
     world.removeSurfaces([](const CollisionSurface& s) { return s.prop >= 0; });
-    for (const Prop& p : props_)
+    for (const Prop& p : _props)
         if (!p.loose)
             for (const auto& t : p.triangles)
                 world.add(t[0], t[1], t[2], p.surface);
@@ -395,17 +395,17 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
     bool changed = false;
     for (CarSim* car : cars) {
         for (int32_t id : car->broke) {
-            if (id < 0 || size_t(id) >= props_.size() || props_[size_t(id)].loose)
+            if (id < 0 || size_t(id) >= _props.size() || _props[size_t(id)].loose)
                 continue;
-            Prop& p = props_[size_t(id)];
+            Prop& p = _props[size_t(id)];
             p.loose = true;
             changed = true;
             if (p.light >= 0)
                 lights.knockDown(size_t(p.light));
             // What flies out: from its middle, and from each piece.
             if (p.effect >= 0) {
-                const Effect& e = effects_[size_t(p.effect)];
-                bursts_.push_back({e.rule, e.texture, p.at + p.axes * e.at, car->velocity * 0.3f});
+                const Effect& e = _effects[size_t(p.effect)];
+                _bursts.push_back({e.rule, e.texture, p.at + p.axes * e.at, car->velocity * 0.3f});
             }
             // Come apart, where it has pieces: each from where it was, off
             // the way it was pushed, turning, a little up.
@@ -423,8 +423,8 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
                     piece.spin = axis * (2 + float(k)) + Vec3{0, 0.5f * float(k % 2 ? 1 : -1), 0};
                     piece.resting = false;
                     if (piece.effect >= 0) {
-                        const Effect& e = effects_[size_t(piece.effect)];
-                        bursts_.push_back({e.rule, e.texture, piece.position + p.axes * e.at, piece.velocity * 0.5f});
+                        const Effect& e = _effects[size_t(piece.effect)];
+                        _bursts.push_back({e.rule, e.texture, piece.position + p.axes * e.at, piece.velocity * 0.5f});
                     }
                 }
             }
@@ -441,9 +441,9 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
     }
     if (changed)
         world.removeSurfaces([&](const CollisionSurface& s) {
-            return s.prop >= 0 && size_t(s.prop) < props_.size() && props_[size_t(s.prop)].loose;
+            return s.prop >= 0 && size_t(s.prop) < _props.size() && _props[size_t(s.prop)].loose;
         });
-    for (Prop& p : props_) {
+    for (Prop& p : _props) {
         if (!p.loose)
             continue;
         for (Prop::Piece& piece : p.pieces) {
@@ -491,7 +491,7 @@ void Props::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight
                  const Vec3& eye) const {
     const ViewFrustum frustum(viewProj);
     for (bool translucent : {false, true})
-        for (const Prop& p : props_) {
+        for (const Prop& p : _props) {
             if (p.light >= 0 && !p.loose)
                 continue; // TrafficLights draws those standing
             const Vec3 at = p.at + p.moved;
@@ -515,7 +515,7 @@ void Props::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight
 size_t Props::pieces(size_t* resting, float* lowest) const {
     size_t n = 0, still = 0;
     float low = 1e30f;
-    for (const Prop& p : props_)
+    for (const Prop& p : _props)
         if (p.apart)
             for (const Prop::Piece& piece : p.pieces) {
                 ++n;
@@ -530,7 +530,7 @@ size_t Props::pieces(size_t* resting, float* lowest) const {
 }
 
 size_t Props::loose() const {
-    return size_t(std::count_if(props_.begin(), props_.end(), [](const Prop& p) { return p.loose; }));
+    return size_t(std::count_if(_props.begin(), _props.end(), [](const Prop& p) { return p.loose; }));
 }
 
 void Props::drawGlows(const FlareDrawer& flares, const Vec3& eye) const {
@@ -538,7 +538,7 @@ void Props::drawGlows(const FlareDrawer& flares, const Vec3& eye) const {
     // smaller ones.
     constexpr float kSize = 2, kDistance = 600;
     constexpr std::array<float, 3> kColor{1, 0.9f, 0.7f};
-    for (const Prop& p : props_) {
+    for (const Prop& p : _props) {
         if (p.loose)
             continue;
         for (const Vec3& g : p.glows) {

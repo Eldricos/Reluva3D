@@ -51,18 +51,18 @@ struct TrafficLane {
 class TrafficNetwork {
 public:
     void build(const AiRoadMap& map, const AiMapSettings& settings);
-    const std::vector<TrafficLane>& lanes() const { return lanes_; }
-    const std::vector<uint32_t>& leaving(uint32_t junction) const { return leaving_[junction]; }
+    const std::vector<TrafficLane>& lanes() const { return _lanes; }
+    const std::vector<uint32_t>& leaving(uint32_t junction) const { return _leaving[junction]; }
     // The ways on from a lane's end: open lanes onto other roads, else
     // any onto other roads, else any (back along the same road).
     std::vector<uint32_t> waysOn(int lane) const;
-    size_t roadsAt(uint32_t junction) const { return roadsAt_[junction]; }
-    size_t junctions() const { return leaving_.size(); }
+    size_t roadsAt(uint32_t junction) const { return _roadsAt[junction]; }
+    size_t junctions() const { return _leaving.size(); }
 
 private:
-    std::vector<TrafficLane> lanes_;
-    std::vector<std::vector<uint32_t>> leaving_;
-    std::vector<size_t> roadsAt_;
+    std::vector<TrafficLane> _lanes;
+    std::vector<std::vector<uint32_t>> _leaving;
+    std::vector<size_t> _roadsAt;
 };
 
 // Where a path is `s` along it, and which way it's heading there.
@@ -81,18 +81,18 @@ public:
     // tune/vehicle/<model>.aiVehicleData for each kind the aimap lists.
     void setup(const SearchSet& files, const AiRoadMap& map, const AiMapSettings& settings, uint32_t seed);
     void clear() {
-        cars_.clear();
-        parked_ = 0;
+        _cars.clear();
+        _parked = 0;
     }
     // How full the lanes about the focus are: 1 a lane at capacity, a car
     // every kLaneAtFull metres (about 2,000 cars an hour at the city's
     // 15 m/s); the aimaps' [Density] and the races' Ambient. Never more
     // than carLimit() cars.
-    void setDensity(float density) { density_ = density; }
-    float density() const { return density_; }
+    void setDensity(float density) { _density = density; }
+    float density() const { return _density; }
     // The lights they stop for (none: every junction is taken in turns).
-    void setLights(const TrafficLights* lights) { lights_ = lights; }
-    void setLaneChanges(bool on) { laneChanges_ = on; }
+    void setLights(const TrafficLights* lights) { _lights = lights; }
+    void setLaneChanges(bool on) { _laneChanges = on; }
     // Cars parked along `lines` (race/<city>/<city>_parkedcar.pathset): nose
     // to tail beside a road, facing from a line's first point to its last,
     // else side by side; a line's own model, else one of `models` (none
@@ -120,17 +120,17 @@ public:
     // `distance` of `eye`.
     void headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye, float distance = 120) const;
 
-    size_t count() const { return cars_.size() - parked_; } // those driving
-    size_t parked() const { return parked_; }
+    size_t count() const { return _cars.size() - _parked; } // those driving
+    size_t parked() const { return _parked; }
     // Where the parked cars stand and which way they face (knocked or not).
     void parkedPlaces(std::vector<std::pair<Vec3, Vec3>>& out) const;
     void users(std::vector<RoadUser>& out) const; // for others to keep clear of
-    const TrafficNetwork& network() const { return network_; }
+    const TrafficNetwork& network() const { return _network; }
 
     static constexpr float kLaneAtFull = 25;
     static constexpr int kMostCars = 160;
-    void setCarLimit(int cars) { carLimit_ = cars; }
-    int carLimit() const { return carLimit_; }
+    void setCarLimit(int cars) { _carLimit = cars; }
+    int carLimit() const { return _carLimit; }
     // How many cars the density asks for about `focus`: the lane there
     // (within 340 m, by each lane's share) over kLaneAtFull, times it.
     size_t carsWanted(const Vec3& focus);
@@ -186,15 +186,15 @@ private:
     void changeLane(Car& c, const std::vector<RoadUser>& others);
     void release(Car& c);
 
-    TrafficNetwork network_;
-    std::vector<Kind> kinds_;
-    size_t ambient_ = 0; // the first kinds: the aimap's, the rest parked only
-    size_t parked_ = 0;
-    std::vector<Car> cars_;
-    std::vector<std::vector<size_t>> holders_; // per junction: lanes the cars crossing it came from
-    std::mt19937 rng_;
-    float density_ = 0;
-    int carLimit_ = kMostCars;
+    TrafficNetwork _network;
+    std::vector<Kind> _kinds;
+    size_t _ambient = 0; // the first kinds: the aimap's, the rest parked only
+    size_t _parked = 0;
+    std::vector<Car> _cars;
+    std::vector<std::vector<size_t>> _holders; // per junction: lanes the cars crossing it came from
+    std::mt19937 _rng;
+    float _density = 0;
+    int _carLimit = kMostCars;
     // The lanes in short pieces, for the lane near the focus and where to
     // start cars: those within reach of where it was last looked at.
     struct Piece {
@@ -203,14 +203,14 @@ private:
         Vec3 middle{};
         float weight = 0; // its length times its lane's share
     };
-    std::vector<Piece> pieces_;
-    std::vector<uint32_t> near_; // pieces within reach of nearFrom_
-    Vec3 nearFrom_{1e9f, 0, 1e9f};
-    float nearLane_ = 0; // their weights' sum
+    std::vector<Piece> _pieces;
+    std::vector<uint32_t> _near; // pieces within reach of nearFrom_
+    Vec3 _nearFrom{1e9f, 0, 1e9f};
+    float _nearLane = 0; // their weights' sum
     void findNear(const Vec3& focus);
-    const TrafficLights* lights_ = nullptr;
-    bool laneChanges_ = false;
-    float clock_ = 0;
+    const TrafficLights* _lights = nullptr;
+    bool _laneChanges = false;
+    float _clock = 0;
 };
 
 } // namespace reluva::age

@@ -43,7 +43,7 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
     const size_t lastVertex = psdl.vertices.empty() ? 0 : psdl.vertices.size() - 1;
     for (const PsdlBlock& block : psdl.blocks)
         for (const PsdlAttribute& a : block.attributes) {
-            if (a.type != psdlattr::FacadeBound || a.words.size() < 4 || psdl.vertices.empty())
+            if (a.type != psdlattr::kFacadeBound || a.words.size() < 4 || psdl.vertices.empty())
                 continue;
             const Vec3 l = psdl.vertices[std::min<size_t>(a.words[2], lastVertex)];
             const Vec3 r = psdl.vertices[std::min<size_t>(a.words[3], lastVertex)];

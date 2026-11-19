@@ -16,19 +16,19 @@ namespace reluva::age {
 
 // The pixel formats .tex files use. See docs/formats/age/tex.md.
 namespace texformat {
-constexpr uint16_t Palette = 1;       // 8-bit indices, 256 BGRA colours, opaque
-constexpr uint16_t PaletteAlpha = 14; // the same, the colours' alpha used
-constexpr uint16_t Rgb = 17;          // 24-bit: R, G, B
-constexpr uint16_t Rgba = 18;         // 32-bit: R, G, B, A
+constexpr uint16_t kPalette = 1;       // 8-bit indices, 256 BGRA colours, opaque
+constexpr uint16_t kPaletteAlpha = 14; // the same, the colours' alpha used
+constexpr uint16_t kRgb = 17;          // 24-bit: R, G, B
+constexpr uint16_t kRgba = 18;         // 32-bit: R, G, B, A
 } // namespace texformat
 
 // A .tex file's header and its first (largest) level, decoded to RGBA.
 // A texture's flags, as far as they're known (tex.md).
 namespace texflag {
-constexpr uint32_t Clamp = 0x1; // its coordinates kept within it, not repeated
+constexpr uint32_t kClamp = 0x1; // its coordinates kept within it, not repeated
 // Reluva's reading: kept at full size whatever the Texture Quality (on
 // what's seen closest: cars' backs, dashboards, the roads, particles).
-constexpr uint32_t FullDetail = 0x8000;
+constexpr uint32_t kFullDetail = 0x8000;
 } // namespace texflag
 
 struct Tex {

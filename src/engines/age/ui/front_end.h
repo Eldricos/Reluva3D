@@ -34,13 +34,13 @@ Error parseWidgets(const std::string& csv, std::vector<Widget>& out);
 // buttons (stacks of 4 or 5 states, one above another), read once.
 class MenuPictures {
 public:
-    explicit MenuPictures(const SearchSet& files) : files_(files) {}
+    explicit MenuPictures(const SearchSet& files) : _files(files) {}
     const image::Image* jpg(const std::string& name);
     const image::Image* texture(const std::string& name);
 
 private:
-    const SearchSet& files_;
-    std::map<std::string, std::unique_ptr<image::Image>> cache_;
+    const SearchSet& _files;
+    std::map<std::string, std::unique_ptr<image::Image>> _cache;
 };
 
 // Draws `im` (scaled to w x h when given) over the overlay, blending by
@@ -57,11 +57,11 @@ public:
     // (logos.avi) when it can't be played (see RaceViewer::movie_).
     // CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
     // car alone, the whole screen.
-    enum class Screen { Main, Races, CrashCourse, Garage, Splash, CrashIntro, Showcase };
+    enum class Screen { kMain, kRaces, kCrashCourse, kGarage, kSplash, kCrashIntro, kShowcase };
     // What the menus have chosen.
     struct Choice {
         int city = 0;
-        RaceKind kind = RaceKind::Blitz;
+        RaceKind kind = RaceKind::kBlitz;
         int race = 0;
         bool professional = false;
         int car = 0, paintJob = 0;
@@ -81,56 +81,56 @@ public:
     // The chosen race's conditions as its file has them.
     Choice::Conditions raceConditions() const;
     // After the conditions are changed (the dialog).
-    void conditionsChanged() { choice_.changed = !(choice_.conditions == raceConditions()); }
+    void conditionsChanged() { _choice.changed = !(_choice.conditions == raceConditions()); }
     int mostOpponents() const;
     // Whether the race's conditions may be changed (the game's help: once
     // placed in it; a cruise's always).
     bool conditionsOpen() const;
     enum class Action {
-        None,
-        Changed,
-        Start,
-        Multiplayer,
-        Options,
-        Quit,
-        Replays,
-        NewDriver,     // the main menu's CREATE NEW DRIVER
-        DeleteDriver,  // DELETE THIS DRIVER
-        DriverStats,   // DRIVER'S STATS
-        RaceRecords,   // RACE RECORDS
-        DriverChanged, // another driver chosen: their record to read
-        RaceOptions,   // the race menu's CHANGE: Change Race Options
-        CityChoice,    // Enter on LOCATION: Race Locales
-        Locked,        // GO DRIVE with a locked car: "You cannot pick a locked vehicle"
-        Help,          // the navigation bar's Help
-        Minimise,      // and its Minimise
+        kNone,
+        kChanged,
+        kStart,
+        kMultiplayer,
+        kOptions,
+        kQuit,
+        kReplays,
+        kNewDriver,     // the main menu's CREATE NEW DRIVER
+        kDeleteDriver,  // DELETE THIS DRIVER
+        kDriverStats,   // DRIVER'S STATS
+        kRaceRecords,   // RACE RECORDS
+        kDriverChanged, // another driver chosen: their record to read
+        kRaceOptions,   // the race menu's CHANGE: Change Race Options
+        kCityChoice,    // Enter on LOCATION: Race Locales
+        kLocked,        // GO DRIVE with a locked car: "You cannot pick a locked vehicle"
+        kHelp,          // the navigation bar's Help
+        kMinimise,      // and its Minimise
     };
     // The drivers, for the main menu's SELECT DRIVER (Left/Right chooses).
-    void setDrivers(DriverRoster* roster) { roster_ = roster; }
+    void setDrivers(DriverRoster* roster) { _roster = roster; }
 
     FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
              const GameStrings& strings, const PlayerRecord& record);
-    bool loaded() const { return ok_; }
+    bool loaded() const { return _ok; }
 
     Action handle(const Event& ev);
     void draw(Surface& overlay);
 
-    Screen screen() const { return screen_; }
+    Screen screen() const { return _screen; }
     // Past the splash to the main menu (after the opening movie).
     void leaveSplash() {
-        if (screen_ == Screen::Splash)
-            go(Screen::Main);
+        if (_screen == Screen::kSplash)
+            go(Screen::kMain);
     }
     // Back from a race: to the screen it was chosen on (refreshed, for
     // what's been unlocked).
-    void afterRace() { go(afterGarage_); }
+    void afterRace() { go(_afterGarage); }
     // The choice looked at again (another driver's record, say).
     void refreshChoice() { refresh(); }
-    Choice& choice() { return choice_; }
+    Choice& choice() { return _choice; }
     // The control with the focus (for the menus' voices).
     std::string focusedWidget() const {
         const auto list = items();
-        return focus_ >= 0 && size_t(focus_) < list.size() ? list[size_t(focus_)].widget : std::string();
+        return _focus >= 0 && size_t(_focus) < list.size() ? list[size_t(_focus)].widget : std::string();
     }
     // Where the garage shows the car (in the overlay's pixels), to draw it
     // there in 3D; empty off the garage.
@@ -145,9 +145,9 @@ public:
     // The garage alone (for the multiplayer lobby's car): Esc goes back
     // to the main menu, GO DRIVE starts.
     void showGarage() {
-        afterGarage_ = Screen::Main;
-        screen_ = Screen::Garage;
-        focus_ = 0;
+        _afterGarage = Screen::kMain;
+        _screen = Screen::kGarage;
+        _focus = 0;
         refresh();
     }
     bool raceOpen(int index) const;
@@ -179,35 +179,35 @@ private:
     void bar(Surface& o, const std::string& widget, float share) const;
     bool hit(const Item& item, int x, int y);
 
-    const SearchSet& files_;
-    const std::vector<CityInfo>& cities_;
-    const std::vector<CarInfo>& cars_;
-    const GameStrings& strings_;
-    const PlayerRecord& record_;
-    DriverRoster* roster_ = nullptr;
-    bool driverChanged_ = false;
-    std::string conditionsFor_; // the race the conditions are of
+    const SearchSet& _files;
+    const std::vector<CityInfo>& _cities;
+    const std::vector<CarInfo>& _cars;
+    const GameStrings& _strings;
+    const PlayerRecord& _record;
+    DriverRoster* _roster = nullptr;
+    bool _driverChanged = false;
+    std::string _conditionsFor; // the race the conditions are of
     bool quickRace() const {
         std::string map;
         RaceKind kind;
         int index = 0;
-        return record_.lastRace(map, kind, index);
+        return _record.lastRace(map, kind, index);
     }
-    MenuPictures pictures_;
-    std::vector<Widget> widgets_;
-    bool ok_ = false;
+    MenuPictures _pictures;
+    std::vector<Widget> _widgets;
+    bool _ok = false;
 
-    Screen screen_ = Screen::Splash;
-    Screen afterGarage_ = Screen::Races; // where the garage goes back to
-    int focus_ = 0;
-    Choice choice_;
-    std::vector<std::string> raceNames_;
-    RaceDefinition race_;
-    int paintJobs_ = 1;
+    Screen _screen = Screen::kSplash;
+    Screen _afterGarage = Screen::kRaces; // where the garage goes back to
+    int _focus = 0;
+    Choice _choice;
+    std::vector<std::string> _raceNames;
+    RaceDefinition _race;
+    int _paintJobs = 1;
     // The .info figures (Horsepower, Top Speed, Durability, Mass) of each
     // car, for the garage's bars, and the most of each.
-    std::vector<std::array<float, 4>> figures_;
-    std::array<float, 4> most_{};
+    std::vector<std::array<float, 4>> _figures;
+    std::array<float, 4> _most{};
 };
 
 } // namespace reluva::age

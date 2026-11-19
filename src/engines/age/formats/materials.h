@@ -45,10 +45,10 @@ public:
     CollisionSurface surface(const PhysicsMaterial& m) const;
 
 private:
-    std::vector<PhysicsMaterial> materials_;
-    std::map<std::string, size_t> byName_;
-    std::map<std::string, std::string> textures_; // lower-case texture -> material
-    PhysicsMaterial default_;
+    std::vector<PhysicsMaterial> _materials;
+    std::map<std::string, size_t> _byName;
+    std::map<std::string, std::string> _textures; // lower-case texture -> material
+    PhysicsMaterial _default;
 };
 
 } // namespace reluva::age

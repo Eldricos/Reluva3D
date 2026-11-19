@@ -34,9 +34,9 @@ Error PhysicsMaterials::load(const SearchSet& files) {
 }
 
 Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
-    materials_.clear();
-    byName_.clear();
-    textures_.clear();
+    _materials.clear();
+    _byName.clear();
+    _textures.clear();
     std::istringstream in{std::string(mtl)};
     std::string line;
     PhysicsMaterial* m = nullptr;
@@ -46,8 +46,8 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
         if (!(words >> word))
             continue;
         if (word == "mtl") {
-            materials_.push_back({});
-            m = &materials_.back();
+            _materials.push_back({});
+            m = &_materials.back();
             words >> m->name;
         } else if (word == "}") {
             m = nullptr;
@@ -85,11 +85,11 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
     }
     if (m)
         return Error::fail("materials: a material isn't closed");
-    for (size_t i = 0; i < materials_.size(); ++i)
-        byName_[lower(materials_[i].name)] = i;
+    for (size_t i = 0; i < _materials.size(); ++i)
+        _byName[lower(_materials[i].name)] = i;
     // "_default" is what textures not listed (or listed "none") are.
-    if (auto it = byName_.find("_default"); it != byName_.end())
-        default_ = materials_[it->second];
+    if (auto it = _byName.find("_default"); it != _byName.end())
+        _default = _materials[it->second];
     std::istringstream rows{std::string(csv)};
     bool header = true;
     while (std::getline(rows, line)) {
@@ -101,30 +101,30 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
             continue;
         }
         const std::string physics = lower(line.substr(comma + 1));
-        if (physics != "none" && byName_.count(physics))
-            textures_[lower(line.substr(0, comma))] = physics;
+        if (physics != "none" && _byName.count(physics))
+            _textures[lower(line.substr(0, comma))] = physics;
     }
     return Error::success();
 }
 
 const PhysicsMaterial& PhysicsMaterials::byName(const std::string& name) const {
-    const auto it = byName_.find(lower(name));
-    return it == byName_.end() ? default_ : materials_[it->second];
+    const auto it = _byName.find(lower(name));
+    return it == _byName.end() ? _default : _materials[it->second];
 }
 
 const PhysicsMaterial& PhysicsMaterials::forTexture(const std::string& texture) const {
     const std::string key = lower(texture);
-    auto it = textures_.find(key);
-    if (it == textures_.end())
-        it = textures_.find(withoutFrame(key));
-    return it == textures_.end() ? default_ : byName(it->second);
+    auto it = _textures.find(key);
+    if (it == _textures.end())
+        it = _textures.find(withoutFrame(key));
+    return it == _textures.end() ? _default : byName(it->second);
 }
 
 CollisionSurface PhysicsMaterials::surface(const PhysicsMaterial& m) const {
     // Relative to the default material (0.9, the roads'), so roads stay
     // what Reluva's driving was tuned on.
     CollisionSurface s;
-    s.friction *= m.friction / std::max(0.01f, default_.friction);
+    s.friction *= m.friction / std::max(0.01f, _default.friction);
     s.sound = uint8_t(std::max(0, m.sound));
     s.drag = m.drag;
     s.depth = m.depth;

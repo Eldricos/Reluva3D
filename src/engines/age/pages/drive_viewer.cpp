@@ -80,7 +80,7 @@ void applyGraphicsOptions(CityScene& scene, CityLife& life) {
     static const float kDetail[4] = {0.4f, 0.6f, 0.8f, 1.0f};
     scene.setSkyShown(o.texturedSky);
     scene.setCloudShadows(o.cloudShadows);
-    CarActor::reflections = o.vehicleReflections;
+    CarActor::g_reflections = o.vehicleReflections;
     scene.setVisibility(o.smartRendering);
     scene.setModelDistance(300 + 600 * o.visibility);
     scene.setModelDetail(kDetail[std::clamp(o.objectDetail, 0, 3)]);
@@ -100,19 +100,19 @@ void applyControlOptions(CarSim& sim) {
 
 uint32_t driveKeyOf(uint32_t k) {
     switch (controlOf(k)) {
-    case Control::Throttle:
+    case Control::kThrottle:
         return kDriveThrottle;
-    case Control::Brakes:
+    case Control::kBrakes:
         return kDriveBrake;
-    case Control::SteerLeft:
+    case Control::kSteerLeft:
         return kDriveLeft;
-    case Control::SteerRight:
+    case Control::kSteerRight:
         return kDriveRight;
-    case Control::Handbrake:
+    case Control::kHandbrake:
         return kDriveHandbrake;
-    case Control::Horn:
+    case Control::kHorn:
         return kDriveHorn;
-    case Control::Reverse:
+    case Control::kReverse:
         return kDriveReverse;
     default: return 0;
     }
@@ -193,147 +193,147 @@ void drawRearMirror(gfx::Renderer3D& renderer, const CarSim& sim, float farClip,
     renderer.clearDepth();
 }
 
-DriveViewer::DriveViewer(ViewerContext& ctx) : Page(ctx), cities_(findCities(ctx.files)), cars_(findCars(ctx.files)) {}
+DriveViewer::DriveViewer(ViewerContext& ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {}
 
 DriveViewer::~DriveViewer() { deactivate(); }
 
 void DriveViewer::deactivate() {
-    siren_.stop();
-    life_.stop();
-    engine_.stop();
-    music_.stop();
-    car_.unload();
-    flares_.reset();
-    smoke_.reset();
-    hudMap_.unload();
-    scene_.reset();
-    renderer_ = nullptr;
+    _siren.stop();
+    _life.stop();
+    _engine.stop();
+    _music.stop();
+    _car.unload();
+    _flares.reset();
+    _smoke.reset();
+    _hudMap.unload();
+    _scene.reset();
+    _renderer = nullptr;
 }
 
 void DriveViewer::activate() {
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
-        renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
+    if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
+        _renderer = nullptr;
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The Drive page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    scene_ = std::make_unique<CityScene>(*renderer_, ctx_.files);
-    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
-    applySoundOptions(loadOptions(ctx_.savePath), ctx_.mixer);
-    keys_ = 0;
-    lastMs_ = 0;
-    loadCity(city_);
+    _scene = std::make_unique<CityScene>(*_renderer, _ctx.files);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
+    applySoundOptions(loadOptions(_ctx.savePath), _ctx.mixer);
+    _keys = 0;
+    _lastMs = 0;
+    loadCity(_city);
 }
 
 void DriveViewer::loadCity(int index) {
-    city_ = index;
-    car_.unload();
-    flares_.reset();
-    smoke_.reset();
-    scene_->textures().setHalvings(textureHalvings());
-    error_ = scene_->load(cities_[size_t(city_)].map).message;
-    flares_ = std::make_unique<FlareDrawer>(*renderer_, scene_->textures());
-    smoke_ = std::make_unique<SmokePuffs>(*renderer_, scene_->textures());
-    smoke_->loadWheelEffects(ctx_.files);
-    hudMap_.load(*renderer_, ctx_.files, scene_->models(), cities_[size_t(city_)].map);
-    pictures_.load(ctx_.files);
-    scene_->setLighting(lighting_);
-    boundsUsed_ = buildCityCollision(ctx_.files, scene_->psdl(), scene_->mesh(), scene_->instances(), world_);
-    roads_.build(scene_->psdl());
-    if (Error err = life_.load(ctx_.files, cities_[size_t(city_)].map); err && error_.empty())
-        error_ = err.message;
-    loadCar(carIndex_);
+    _city = index;
+    _car.unload();
+    _flares.reset();
+    _smoke.reset();
+    _scene->textures().setHalvings(textureHalvings());
+    _error = _scene->load(_cities[size_t(_city)].map).message;
+    _flares = std::make_unique<FlareDrawer>(*_renderer, _scene->textures());
+    _smoke = std::make_unique<SmokePuffs>(*_renderer, _scene->textures());
+    _smoke->loadWheelEffects(_ctx.files);
+    _hudMap.load(*_renderer, _ctx.files, _scene->models(), _cities[size_t(_city)].map);
+    _pictures.load(_ctx.files);
+    _scene->setLighting(_lighting);
+    _boundsUsed = buildCityCollision(_ctx.files, _scene->psdl(), _scene->mesh(), _scene->instances(), _world);
+    _roads.build(_scene->psdl());
+    if (Error err = _life.load(_ctx.files, _cities[size_t(_city)].map); err && _error.empty())
+        _error = err.message;
+    loadCar(_carIndex);
     startLife();
 }
 
 void DriveViewer::cutBridgeGaps() {
     // What the city has across the drawbridges' gaps goes: the leaves are
     // the road there.
-    auto inGap = [&](const Vec3& a, const Vec3& b, const Vec3& c) { return life_.gizmos().inGap(a, b, c); };
-    scene_->hide(inGap);
-    world_.removeIf(inGap);
+    auto inGap = [&](const Vec3& a, const Vec3& b, const Vec3& c) { return _life.gizmos().inGap(a, b, c); };
+    _scene->hide(inGap);
+    _world.removeIf(inGap);
 }
 
 void DriveViewer::startLife() {
     // The city's settings and cruising's (race/<city>/roam.aimap: the
     // police).
-    if (!life_.loaded())
+    if (!_life.loaded())
         return;
-    AiMapSettings settings = life_.citySettings();
+    AiMapSettings settings = _life.citySettings();
     std::vector<uint8_t> data;
-    if (!ctx_.files.read("race/" + cities_[size_t(city_)].map + "/roam.aimap", data))
+    if (!_ctx.files.read("race/" + _cities[size_t(_city)].map + "/roam.aimap", data))
         parseAiMap(std::string(data.begin(), data.end()), settings);
     CityLife::Options o;
-    o.traffic = kTrafficLevels[trafficLevel_];
-    o.peds = kPedLevels[trafficLevel_] * pedestrianShare();
-    o.cops = cops_ ? -1 : 0;
-    o.rain = lighting_ % 4 == 3;
+    o.traffic = kTrafficLevels[_trafficLevel];
+    o.peds = kPedLevels[_trafficLevel] * pedestrianShare();
+    o.cops = _cops ? -1 : 0;
+    o.rain = _lighting % 4 == 3;
     o.laneChanges = true; // as San Francisco's cruising says
     o.patrols = true;
-    if (Error err = life_.start(*renderer_, scene_->textures(), ctx_.files, settings, o, ctx_.mixer);
-        err && error_.empty())
-        error_ = err.message;
+    if (Error err = _life.start(*_renderer, _scene->textures(), _ctx.files, settings, o, _ctx.mixer);
+        err && _error.empty())
+        _error = err.message;
     cutBridgeGaps();
-    fill_ = true;
+    _fill = true;
 }
 
 void DriveViewer::loadCar(int index) {
-    carIndex_ = index;
-    const CarInfo& car = cars_[size_t(carIndex_)];
-    setTitle(car.description + " in " + cities_[size_t(city_)].name);
-    if (Error err = car_.load(*renderer_, scene_->textures(), ctx_.files, car.base, paintJob_))
-        error_ = err.message;
-    paintJob_ %= car_.paintJobs;
-    engine_.stop();
-    if (ctx_.mixer)
-        if (Error err = engine_.start(*ctx_.mixer, ctx_.files, car.base))
-            error_ = err.message;
+    _carIndex = index;
+    const CarInfo& car = _cars[size_t(_carIndex)];
+    setTitle(car.description + " in " + _cities[size_t(_city)].name);
+    if (Error err = _car.load(*_renderer, _scene->textures(), _ctx.files, car.base, _paintJob))
+        _error = err.message;
+    _paintJob %= _car.paintJobs;
+    _engine.stop();
+    if (_ctx.mixer)
+        if (Error err = _engine.start(*_ctx.mixer, _ctx.files, car.base))
+            _error = err.message;
     startSounds();
     // The cruising music (aud/dmusic), once for the drive.
-    if (ctx_.mixer && music_.segment().empty())
-        if (Error err = music_.start(ctx_.files, *ctx_.mixer, false, uint32_t(city_ * 5 + carIndex_)))
-            error_ = "music: " + err.message;
+    if (_ctx.mixer && _music.segment().empty())
+        if (Error err = _music.start(_ctx.files, *_ctx.mixer, false, uint32_t(_city * 5 + _carIndex)))
+            _error = "music: " + err.message;
     // A police car's siren: the player's table for the city.
-    siren_.stop();
-    sirenOn_ = false;
-    if (ctx_.mixer && car_.hasSiren())
-        siren_.load(*ctx_.mixer, ctx_.files,
-                    "aud/cardata/player/" + std::string(cities_[size_t(city_)].map == "london" ? "london" : "sf") +
+    _siren.stop();
+    _sirenOn = false;
+    if (_ctx.mixer && _car.hasSiren())
+        _siren.load(*_ctx.mixer, _ctx.files,
+                    "aud/cardata/player/" + std::string(_cities[size_t(_city)].map == "london" ? "london" : "sf") +
                         "policesiren.csv");
-    cameras_ = loadCarCameras(ctx_.files, car.base);
-    camera_ = std::min(camera_, int(cameras_.size()) - 1);
-    dash_.load(ctx_.files, scene_->models(), scene_->textures(), car.base);
-    wear_.load(ctx_.files, car.base, car_);
+    _cameras = loadCarCameras(_ctx.files, car.base);
+    _camera = std::min(_camera, int(_cameras.size()) - 1);
+    _dash.load(_ctx.files, _scene->models(), _scene->textures(), car.base);
+    _wear.load(_ctx.files, car.base, _car);
     resetCar();
 }
 
 void DriveViewer::startSounds() {
-    sounds_.stop();
-    if (ctx_.mixer)
-        sounds_.start(*ctx_.mixer, ctx_.files, cars_[size_t(carIndex_)].base, lighting_ % 4 == 3);
+    _sounds.stop();
+    if (_ctx.mixer)
+        _sounds.start(*_ctx.mixer, _ctx.files, _cars[size_t(_carIndex)].base, _lighting % 4 == 3);
 }
 
 void DriveViewer::resetCar() {
     // On the road nearest the middle, a little above it.
-    car_.sim.reset(car_.setup, scene_->start + Vec3{0, 0.5f, 0}, scene_->startYaw);
-    wear_.mend(car_);
-    wrecked_ = 0;
-    if (smoke_)
-        smoke_->clear();
-    cameraReset_ = true;
-    fill_ = true;
+    _car.sim.reset(_car.setup, _scene->start + Vec3{0, 0.5f, 0}, _scene->startYaw);
+    _wear.mend(_car);
+    _wrecked = 0;
+    if (_smoke)
+        _smoke->clear();
+    _cameraReset = true;
+    _fill = true;
 }
 
 void DriveViewer::handleEvent(const Event& ev) {
-    if (!renderer_ || cars_.empty())
+    if (!_renderer || _cars.empty())
         return;
     // A game controller: its sticks and triggers drive, its buttons press
     // keys.
     if (ev.type == EventType::kPadAxis) {
-        pad_.axis(ev.pad, ev.value);
+        _pad.axis(ev.pad, ev.value);
         return;
     }
     if (ev.type == EventType::kPadDown || ev.type == EventType::kPadUp) {
@@ -343,261 +343,261 @@ void DriveViewer::handleEvent(const Event& ev) {
     }
     if (ev.type == EventType::kKeyDown) {
         const Control control = controlOf(ev.key);
-        if (control == Control::Horn && car_.hasSiren()) { // a police car's horn is its siren
-            sirenOn_ = !sirenOn_;
+        if (control == Control::kHorn && _car.hasSiren()) { // a police car's horn is its siren
+            _sirenOn = !_sirenOn;
             return;
         }
         if (const uint32_t d = driveKeyOf(ev.key)) {
-            keys_ |= d;
+            _keys |= d;
             return;
         }
         if (ev.key == key::kF1) {
-            view_.controlsList = !view_.controlsList; // stops the drive while it's up
-            keys_ = 0;
+            _view.controlsList = !_view.controlsList; // stops the drive while it's up
+            _keys = 0;
             return;
         }
-        if (control == Control::RotatingMap) {
-            hudMap_.toggleRotating();
+        if (control == Control::kRotatingMap) {
+            _hudMap.toggleRotating();
             return;
         }
-        if (cd_.press(control, music_, ctx_.files, ctx_.mixer))
+        if (_cd.press(control, _music, _ctx.files, _ctx.mixer))
             return;
-        if (view_.press(control, true)) {
-            cameraReset_ = cameraReset_ || control == Control::ThrillCam;
+        if (_view.press(control, true)) {
+            _cameraReset = _cameraReset || control == Control::kThrillCam;
             return;
         }
-        const int cars = int(cars_.size()), cities = int(cities_.size());
+        const int cars = int(_cars.size()), cities = int(_cities.size());
         if (ev.key == key::kPageUp || ev.key == key::kPageDown) {
-            paintJob_ = 0;
-            loadCar((carIndex_ + (ev.key == key::kPageDown ? 1 : cars - 1)) % cars);
+            _paintJob = 0;
+            loadCar((_carIndex + (ev.key == key::kPageDown ? 1 : cars - 1)) % cars);
         } else if (ev.key == key::kHome || ev.key == key::kEnd) {
-            loadCity((city_ + (ev.key == key::kEnd ? 1 : cities - 1)) % cities);
-        } else if (control == Control::ChangeCamera) {
-            camera_ = (camera_ + 1) % int(cameras_.size());
-            cameraReset_ = true;
-            blend_.start(lastView_, cameras_[size_t(camera_)].blendTime);
-        } else if (control == Control::Transmission) {
-            manual_ = !manual_;
-        } else if (control == Control::ShiftUp || control == Control::ShiftDown) {
-            shift_ = control == Control::ShiftUp ? 1 : -1;
-        } else if (control == Control::MapZoom) {
-            hudMap_.toggleZoom();
-        } else if (control == Control::FullScreenMap) {
-            hudMap_.toggleFullScreen();
-        } else if (control == Control::MapToggle) {
-            hudMap_.toggleShown();
-        } else if (control == Control::HudToggle) {
-            hudShown_ = !hudShown_;
-        } else if (control == Control::RearViewMirror) {
-            mirror_ = !mirror_;
+            loadCity((_city + (ev.key == key::kEnd ? 1 : cities - 1)) % cities);
+        } else if (control == Control::kChangeCamera) {
+            _camera = (_camera + 1) % int(_cameras.size());
+            _cameraReset = true;
+            _blend.start(_lastView, _cameras[size_t(_camera)].blendTime);
+        } else if (control == Control::kTransmission) {
+            _manual = !_manual;
+        } else if (control == Control::kShiftUp || control == Control::kShiftDown) {
+            _shift = control == Control::kShiftUp ? 1 : -1;
+        } else if (control == Control::kMapZoom) {
+            _hudMap.toggleZoom();
+        } else if (control == Control::kFullScreenMap) {
+            _hudMap.toggleFullScreen();
+        } else if (control == Control::kMapToggle) {
+            _hudMap.toggleShown();
+        } else if (control == Control::kHudToggle) {
+            _hudShown = !_hudShown;
+        } else if (control == Control::kRearViewMirror) {
+            _mirror = !_mirror;
             // The page's own keys, on function keys clear of the game's controls
             // (F4 is the game's restart).
         } else if (ev.key == key::kF1 + 7) {
-            ++paintJob_;
-            loadCar(carIndex_);
+            ++_paintJob;
+            loadCar(_carIndex);
         } else if (ev.key == key::kF1 + 4) {
-            const bool rain = lighting_ % 4 == 3;
-            lighting_ = (lighting_ + 1) % 16;
-            scene_->setLighting(lighting_);
-            if (rain != (lighting_ % 4 == 3)) {
+            const bool rain = _lighting % 4 == 3;
+            _lighting = (_lighting + 1) % 16;
+            _scene->setLighting(_lighting);
+            if (rain != (_lighting % 4 == 3)) {
                 startLife(); // the pedestrians dressed for the weather
                 startSounds(); // the tyres on wet roads
             }
         } else if (ev.key == key::kF1 + 5) {
-            trafficLevel_ = (trafficLevel_ + 1) % 4;
-            life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
-            life_.setPedDensity(kPedLevels[trafficLevel_] * pedestrianShare());
+            _trafficLevel = (_trafficLevel + 1) % 4;
+            _life.setTrafficDensity(kTrafficLevels[_trafficLevel]);
+            _life.setPedDensity(kPedLevels[_trafficLevel] * pedestrianShare());
         } else if (ev.key == key::kF1 + 6) {
-            cops_ = !cops_;
+            _cops = !_cops;
             startLife();
         } else if (ev.key == key::kF1 + 3) {
             resetCar();
-            life_.police().forgive();
+            _life.police().forgive();
         } else if (ev.key == key::kF1 + 8) {
-            showInfo_ = !showInfo_;
+            _showInfo = !_showInfo;
         }
     } else if (ev.type == EventType::kKeyUp) {
-        keys_ &= ~driveKeyOf(ev.key);
-        view_.press(controlOf(ev.key), false);
+        _keys &= ~driveKeyOf(ev.key);
+        _view.press(controlOf(ev.key), false);
     }
 }
 
 void DriveViewer::drawHud() {
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     const int lh = font::kLineHeight;
-    const CarInfo& car = cars_[size_t(carIndex_)];
+    const CarInfo& car = _cars[size_t(_carIndex)];
     int y = 4;
     auto line = [&](const std::string& s, Color c) {
-        font::drawText(overlay_, 4, y, s, c);
+        font::drawText(_overlay, 4, y, s, c);
         y += lh;
     };
-    std::string color = paintJob_ < car.colors.size() ? car.colors[paintJob_] : std::to_string(paintJob_ + 1);
-    line(car.description + " (" + color + ", F8)  in " + cities_[size_t(city_)].name + ", " + scene_->lightingName(),
+    std::string color = _paintJob < car.colors.size() ? car.colors[_paintJob] : std::to_string(_paintJob + 1);
+    line(car.description + " (" + color + ", F8)  in " + _cities[size_t(_city)].name + ", " + _scene->lightingName(),
          {150, 200, 255});
-    if (!error_.empty())
-        line(error_, {255, 120, 120});
-    if (showInfo_) {
+    if (!_error.empty())
+        line(_error, {255, 120, 120});
+    if (_showInfo) {
         const char* const cameraNames[] = {"near", "far", "in the car"};
-        line(std::string("camera: ") + cameraNames[std::min(camera_, 2)] +
+        line(std::string("camera: ") + cameraNames[std::min(_camera, 2)] +
                  " (C); Up/Down, Left/Right, Space; Enter horn; " +
-                 (manual_ ? "manual (T), A/Z gears" : "automatic (T)") +
+                 (_manual ? "manual (T), A/Z gears" : "automatic (T)") +
                  "; PageUp/Down car, Home/End city, F5 time, F4 reset; map: E zoom, Q full screen, Tab on/off; "
                  "H HUD; Backspace mirror",
              {230, 230, 230});
         char life[160];
         std::snprintf(life, sizeof life, "%s (F6): %zu cars, %zu people; %zu police (F7), %d on patrol%s",
-                      kTrafficNames[trafficLevel_], life_.traffic().count(), life_.pedestrians().count(),
-                      life_.police().count(), life_.police().patrolling(), car_.hasSiren() ? "; Enter siren" : "");
+                      kTrafficNames[_trafficLevel], _life.traffic().count(), _life.pedestrians().count(),
+                      _life.police().count(), _life.police().patrolling(), _car.hasSiren() ? "; Enter siren" : "");
         line(life, {230, 230, 230});
         char buf[160];
-        const Vec3& p = car_.sim.position;
+        const Vec3& p = _car.sim.position;
         std::snprintf(buf, sizeof buf, "%zu collision triangles (%zu placed models' bounds); at %.0f %.0f %.0f",
-                      world_.size(), boundsUsed_, p[0], p[1], p[2]);
+                      _world.size(), _boundsUsed, p[0], p[1], p[2]);
         line(buf, {230, 230, 230});
     }
-    if (const int chasing = life_.police().chasing()) {
+    if (const int chasing = _life.police().chasing()) {
         const std::string how = chasing > 1 ? " (" + std::to_string(chasing) + ")" : "";
-        font::drawText(overlay_, 4, kFrameH - 24, "POLICE CHASING" + how, {255, 90, 90}, 2);
+        font::drawText(_overlay, 4, kFrameH - 24, "POLICE CHASING" + how, {255, 90, 90}, 2);
     }
-    if (busted_ > 0)
-        font::drawText(overlay_, kFrameW / 2 - 120, kFrameH / 2 - 40, "BUSTED!", {255, 80, 80}, 6);
-    else if (wrecked_ > 0)
-        font::drawText(overlay_, kFrameW / 2 - 140, kFrameH / 2 - 40, "WRECKED!", {255, 150, 60}, 6);
-    if (hudShown_)
-        drawSpeedometer(overlay_, car_.sim,
-                        hudMap_.loaded() ? int(hudMap_.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
-                        wear_.fraction(), pictures_);
+    if (_busted > 0)
+        font::drawText(_overlay, kFrameW / 2 - 120, kFrameH / 2 - 40, "BUSTED!", {255, 80, 80}, 6);
+    else if (_wrecked > 0)
+        font::drawText(_overlay, kFrameW / 2 - 140, kFrameH / 2 - 40, "WRECKED!", {255, 150, 60}, 6);
+    if (_hudShown)
+        drawSpeedometer(_overlay, _car.sim,
+                        _hudMap.loaded() ? int(_hudMap.setup().left * float(kFrameW)) - 8 : kFrameW - 8,
+                        _wear.fraction(), _pictures);
 }
 
 void DriveViewer::update(uint64_t nowMs) {
-    if (!renderer_ || cars_.empty())
+    if (!_renderer || _cars.empty())
         return;
     // Still while F1's list of the controls is up.
-    const float dt = lastMs_ && !view_.controlsList ? std::min(0.1f, float(nowMs - lastMs_) / 1000) : 0;
-    lastMs_ = nowMs;
+    const float dt = _lastMs && !_view.controlsList ? std::min(0.1f, float(nowMs - _lastMs) / 1000) : 0;
+    _lastMs = nowMs;
 
-    CarControls controls = controlsOf(keys_);
-    pad_.apply(controls);
-    if (wear_.wrecked())
+    CarControls controls = controlsOf(_keys);
+    _pad.apply(controls);
+    if (_wear.wrecked())
         controls.throttle = 0; // the engine's dead
-    controls.shift = shift_;
-    shift_ = 0;
-    car_.sim.manual = manual_;
-    applyControlOptions(car_.sim);
-    car_.sim.step(controls, world_, dt);
+    controls.shift = _shift;
+    _shift = 0;
+    _car.sim.manual = _manual;
+    applyControlOptions(_car.sim);
+    _car.sim.step(controls, _world, dt);
     // Fallen out of the city (or sunk): back to the start.
-    if (car_.sim.position[1] < scene_->psdl().min[1] - 50)
+    if (_car.sim.position[1] < _scene->psdl().min[1] - 50)
         resetCar();
-    engine_.update(car_.sim.rpm, car_.sim.gear > 0 || manual_ ? controls.throttle : controls.brake);
+    _engine.update(_car.sim.rpm, _car.sim.gear > 0 || _manual ? controls.throttle : controls.brake);
     {
         GameMusic::State music;
-        music.speed = std::fabs(car_.sim.forwardSpeed());
-        music.chased = life_.police().chasing() > 0;
-        music_.update(dt, music);
+        music.speed = std::fabs(_car.sim.forwardSpeed());
+        music.chased = _life.police().chasing() > 0;
+        _music.update(dt, music);
         // A second off the ground: the tune's big-air motif, once a jump.
         {
-            const CarSim& air = car_.sim;
+            const CarSim& air = _car.sim;
             const bool off =
                 std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel& w) { return w.contact; });
-            airFor_ = off ? airFor_ + dt : 0;
-            if (airFor_ >= kBigAir && !airPlayed_) {
-                music_.bigAir();
-                airPlayed_ = true;
+            _airFor = off ? _airFor + dt : 0;
+            if (_airFor >= kBigAir && !_airPlayed) {
+                _music.bigAir();
+                _airPlayed = true;
             }
-            airPlayed_ = airPlayed_ && off;
+            _airPlayed = _airPlayed && off;
         }
     }
-    car_.lamps = {scene_->lampsLit(), controls.brake > 0 && car_.sim.forwardSpeed() > 0.5f, car_.sim.gear < 0};
-    clock_ += dt;
-    car_.siren = sirenOn_ ? 1 + int(clock_ * 4) % 2 : 0;
-    siren_.update(dt, sirenOn_ ? 0.9f : 0.0f);
-    life_.setLamps(scene_->lampsLit(), scene_->night());
-    life_.update(dt, car_.sim, {}, world_, roads_, fill_);
+    _car.lamps = {_scene->lampsLit(), controls.brake > 0 && _car.sim.forwardSpeed() > 0.5f, _car.sim.gear < 0};
+    _clock += dt;
+    _car.siren = _sirenOn ? 1 + int(_clock * 4) % 2 : 0;
+    _siren.update(dt, _sirenOn ? 0.9f : 0.0f);
+    _life.setLamps(_scene->lampsLit(), _scene->night());
+    _life.update(dt, _car.sim, {}, _world, _roads, _fill);
     // What flies out of the props knocked down: coins, papers, leaves.
-    for (const Props::Burst& b : life_.takeBursts())
-        if (smoke_)
-            smoke_->burst(b.rule, b.at, b.velocity, smoke_->look(b.texture));
-    fill_ = false;
-    sounds_.update(dt, car_.sim, (keys_ & kDriveHorn) && !car_.hasSiren());
-    wear_.update(dt, car_, smoke_.get());
-    if (smoke_)
-        smoke_->wheels(dt, car_.sim);
+    for (const Props::Burst& b : _life.takeBursts())
+        if (_smoke)
+            _smoke->burst(b.rule, b.at, b.velocity, _smoke->look(b.texture));
+    _fill = false;
+    _sounds.update(dt, _car.sim, (_keys & kDriveHorn) && !_car.hasSiren());
+    _wear.update(dt, _car, _smoke.get());
+    if (_smoke)
+        _smoke->wheels(dt, _car.sim);
     // A knock shakes the game controller.
-    if (const float shake = padRumble(car_.sim.impact); shake > 0 && currentOptions().forceFeedback)
-        ctx_.sys.rumble(shake, shake * 0.6f, 200);
-    car_.sim.impact = 0;
-    if (smoke_)
-        smoke_->update(dt);
+    if (const float shake = padRumble(_car.sim.impact); shake > 0 && currentOptions().forceFeedback)
+        _ctx.sys.rumble(shake, shake * 0.6f, 200);
+    _car.sim.impact = 0;
+    if (_smoke)
+        _smoke->update(dt);
     // Wrecked: a moment to see it, then back to the start, mended.
-    if (wrecked_ > 0) {
-        wrecked_ -= dt;
-        if (wrecked_ <= 0)
+    if (_wrecked > 0) {
+        _wrecked -= dt;
+        if (_wrecked <= 0)
             resetCar();
-    } else if (wear_.wrecked()) {
-        wrecked_ = 4;
+    } else if (_wear.wrecked()) {
+        _wrecked = 4;
     }
     // Busted: a moment to see it, then back to the start.
-    if (busted_ > 0) {
-        busted_ -= dt;
-        if (busted_ <= 0) {
+    if (_busted > 0) {
+        _busted -= dt;
+        if (_busted <= 0) {
             resetCar();
-            life_.police().forgive();
+            _life.police().forgive();
         }
-    } else if (life_.police().busted()) {
-        busted_ = 3;
+    } else if (_life.police().busted()) {
+        _busted = 3;
     }
 
-    const CarCamera& cam = cameras_[size_t(camera_)];
+    const CarCamera& cam = _cameras[size_t(_camera)];
     const CameraView view =
-        view_.apply(blend_.apply(updateCarCamera(cam, car_.sim, dt, cameraPos_, cameraReset_), dt), cam, car_.sim, dt);
-    lastView_ = view;
-    cameraReset_ = false;
+        _view.apply(_blend.apply(updateCarCamera(cam, _car.sim, dt, _cameraPos, _cameraReset), dt), cam, _car.sim, dt);
+    _lastView = view;
+    _cameraReset = false;
     const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(view_.fov(cam.fov) * kPi / 180, float(kFrameW) / float(kFrameH), cam.nearClip,
+        gfx::multiply(gfx::perspective(_view.fov(cam.fov) * kPi / 180, float(kFrameW) / float(kFrameH), cam.nearClip,
                                        currentOptions().farClip()),
                       gfx::lookAlong(view.eye, normalized(view.target - view.eye), view.up));
-    renderer_->beginFrame(viewProj, view.eye, {150, 170, 200});
-    applyGraphicsOptions(*scene_, life_);
-    scene_->draw(viewProj, view.eye, true);
-    if (scene_->lampsLit() && headlightPoolsOn()) {
+    _renderer->beginFrame(viewProj, view.eye, {150, 170, 200});
+    applyGraphicsOptions(*_scene, _life);
+    _scene->draw(viewProj, view.eye, true);
+    if (_scene->lampsLit() && headlightPoolsOn()) {
         std::vector<gfx::DynamicLight> pools;
         gfx::DynamicLight mine;
-        if (car_.headlightPool(mine))
+        if (_car.headlightPool(mine))
             pools.push_back(mine);
-        life_.headlightPools(pools, view.eye);
-        scene_->drawDynamicLights(pools, view.eye);
+        _life.headlightPools(pools, view.eye);
+        _scene->drawDynamicLights(pools, view.eye);
     }
-    life_.draw(*renderer_, scene_->models(), scene_->light(), viewProj, view.eye, flares_.get());
-    scene_->drawBeacons(*flares_, view.eye);
-    const bool inside = cam.inside && !view_.thrill;
+    _life.draw(*_renderer, _scene->models(), _scene->light(), viewProj, view.eye, _flares.get());
+    _scene->drawBeacons(*_flares, view.eye);
+    const bool inside = cam.inside && !_view.thrill;
     if (!inside) {
-        car_.draw(scene_->light());
-        car_.drawFlares(*flares_, view.eye);
+        _car.draw(_scene->light());
+        _car.drawFlares(*_flares, view.eye);
     }
-    if (smoke_)
-        smoke_->draw(view.eye);
-    if (inside && dash_.loaded() && view_.showDashboard() && view_.look == 0) {
-        dash_.draw(*renderer_, scene_->models(), car_.sim, wear_.fraction(), view.eye,
-                   normalized(view.target - view.eye), view.up, float(kFrameW) / float(kFrameH), scene_->light());
+    if (_smoke)
+        _smoke->draw(view.eye);
+    if (inside && _dash.loaded() && _view.showDashboard() && _view.look == 0) {
+        _dash.draw(*_renderer, _scene->models(), _car.sim, _wear.fraction(), view.eye,
+                   normalized(view.target - view.eye), view.up, float(kFrameW) / float(kFrameH), _scene->light());
     }
-    if (mirror_)
-        drawRearMirror(*renderer_, car_.sim, currentOptions().farClip(), [&](const gfx::Mat4& vp, const Vec3& eye) {
-            scene_->draw(vp, eye, true, true);
-            life_.draw(*renderer_, scene_->models(), scene_->light(), vp, eye);
+    if (_mirror)
+        drawRearMirror(*_renderer, _car.sim, currentOptions().farClip(), [&](const gfx::Mat4& vp, const Vec3& eye) {
+            _scene->draw(vp, eye, true, true);
+            _life.draw(*_renderer, _scene->models(), _scene->light(), vp, eye);
         });
     // The map: the player, the police.
-    hudMap_.update(dt);
+    _hudMap.update(dt);
     std::vector<HudMapIcon> icons;
-    for (CarSim* c : life_.police().cars())
+    for (CarSim* c : _life.police().cars())
         icons.push_back({c->position, -c->orientation.z, hudcolor::kPolice, false});
-    icons.push_back({car_.sim.position, -car_.sim.orientation.z, hudcolor::kPlayer, false});
-    hudMap_.draw(*renderer_, scene_->models(), car_.sim.position, -car_.sim.orientation.z, icons, kFrameW, kFrameH);
+    icons.push_back({_car.sim.position, -_car.sim.orientation.z, hudcolor::kPlayer, false});
+    _hudMap.draw(*_renderer, _scene->models(), _car.sim.position, -_car.sim.orientation.z, icons, kFrameW, kFrameH);
     drawHud();
-    cd_.update(dt);
-    cd_.draw(overlay_, pictures_);
-    if (view_.controlsList)
-        drawControlsList(overlay_, currentOptions(), [&](Control c) { return controlFallbackName(c); });
-    renderer_->endFrame(&overlay_);
+    _cd.update(dt);
+    _cd.draw(_overlay, _pictures);
+    if (_view.controlsList)
+        drawControlsList(_overlay, currentOptions(), [&](Control c) { return controlFallbackName(c); });
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::age

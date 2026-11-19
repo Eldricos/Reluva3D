@@ -21,7 +21,7 @@ namespace reluva::age {
 // Cruise: the race menu's driving about the city, with no race; and,
 // under it where the city has one, the game's "Stunt Mode: Acceleration"
 // (race/<city>/accel0waypoints.csv). See docs/engines/age-racing.md.
-enum class RaceKind { Blitz, Circuit, Checkpoint, CrashCourse, Cruise };
+enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
 // A Cruise's "races": the cruise itself, then the stunt where there's one.
 // Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
 // unfinished "Stunt Prototype" (stunt0: a start and an aimap).
@@ -48,21 +48,21 @@ struct Waypoint {
 // What a Crash Course lesson asks (its Event column), as Reluva reads the
 // lessons' names and messages (docs/engines/age-racing.md).
 enum class LessonEvent : int {
-    Jump = 0,         // the checkpoints in time, over a jump
-    Follow = 2,       // keep up with a car for the time, or to its end
-    CopChase = 3,     // police after you from the start; lose them before the end
-    MinimumSpeed = 4, // each checkpoint at extra[0] mph or more
-    NoTouching = 5,   // through the traffic without touching a car
-    Gates = 7,        // the checkpoints in time (slaloms, turns)
-    Destroy = 8,      // ram the car into submission (then, with police, lose them)
-    Map = 9,          // the checkpoints in time, finding the way
+    kJump = 0,         // the checkpoints in time, over a jump
+    kFollow = 2,       // keep up with a car for the time, or to its end
+    kCopChase = 3,     // police after you from the start; lose them before the end
+    kMinimumSpeed = 4, // each checkpoint at extra[0] mph or more
+    kNoTouching = 5,   // through the traffic without touching a car
+    kGates = 7,        // the checkpoints in time (slaloms, turns)
+    kDestroy = 8,      // ram the car into submission (then, with police, lose them)
+    kMap = 9,          // the checkpoints in time, finding the way
 };
 
 // A lesson's row of race/<city>/crash<n>data.csv: Filename, Event,
 // Checkpoints, TimeLimit, AmbDensity and five "extra" columns.
 struct LessonSettings {
     std::string file; // its checkpoints: race/<city>/<file>.csv
-    LessonEvent event = LessonEvent::Gates;
+    LessonEvent event = LessonEvent::kGates;
     int checkpoints = 1;
     float timeLimit = 0; // seconds; 0 none
     float ambient = 0;   // traffic density
@@ -70,7 +70,7 @@ struct LessonSettings {
 };
 
 struct RaceDefinition {
-    RaceKind kind = RaceKind::Blitz;
+    RaceKind kind = RaceKind::kBlitz;
     int index = 0;
     std::string name;
     std::array<RaceSettings, 2> settings{}; // amateur, professional

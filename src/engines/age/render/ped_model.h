@@ -93,19 +93,19 @@ public:
                const std::vector<std::string>& moves);
     void unload();
     int move(const std::string& name) const; // -1 if it hasn't one
-    const Move& moveAt(int index) const { return moves_[size_t(index)]; }
-    uint32_t paintJobs() const { return uint32_t(paints_.size()); }
+    const Move& moveAt(int index) const { return _moves[size_t(index)]; }
+    uint32_t paintJobs() const { return uint32_t(_paints.size()); }
     // `time` seconds into a move (looped by its frames).
     void draw(const gfx::Mat4& model, int move, float time, uint32_t paintJob, const SceneLight& light) const;
 
 private:
-    gfx::Renderer3D* renderer_ = nullptr;
-    gfx::MeshId mesh_ = 0;
-    size_t corners_ = 0; // a frame's
-    std::vector<std::pair<uint32_t, uint32_t>> ranges_;    // each material's indices: first, count
-    std::vector<std::vector<std::array<float, 4>>> paints_; // each paint job's colour for each material
-    std::vector<Move> moves_;
-    std::map<std::string, int> moveIndex_;
+    gfx::Renderer3D* _renderer = nullptr;
+    gfx::MeshId _mesh = 0;
+    size_t _corners = 0; // a frame's
+    std::vector<std::pair<uint32_t, uint32_t>> _ranges;    // each material's indices: first, count
+    std::vector<std::vector<std::array<float, 4>>> _paints; // each paint job's colour for each material
+    std::vector<Move> _moves;
+    std::map<std::string, int> _moveIndex;
 };
 
 } // namespace reluva::age

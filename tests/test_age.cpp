@@ -270,7 +270,7 @@ void testTex() {
     // 2x2 palette texture, two levels (2x2 and 1x1): index 1 is
     // B=10 G=20 R=30 with alpha 40, which only format 14 uses.
     Bytes pal;
-    pal.bytes(texHeader(2, 2, texformat::Palette, 2, 0x10001));
+    pal.bytes(texHeader(2, 2, texformat::kPalette, 2, 0x10001));
     for (int i = 0; i < 256; ++i)
         pal.u8(i == 1 ? 10 : 0).u8(i == 1 ? 20 : 0).u8(i == 1 ? 30 : 0).u8(i == 1 ? 40 : 255);
     pal.u8(0).u8(1).u8(1).u8(0).u8(1);
@@ -278,21 +278,21 @@ void testTex() {
     CHECK(!decodeTex(pal.v, tex));
     CHECK(tex.image.w == 2 && tex.image.h == 2 && tex.levels == 2 && tex.flags == 0x10001);
     CHECK(tex.image.rgba == (std::vector<uint8_t>{0, 0, 0, 255, 30, 20, 10, 255, 30, 20, 10, 255, 0, 0, 0, 255}));
-    pal.v[4] = texformat::PaletteAlpha;
+    pal.v[4] = texformat::kPaletteAlpha;
     CHECK(!decodeTex(pal.v, tex) && tex.image.pixel(1, 0)[3] == 40);
     pal.v.pop_back(); // the 1x1 level cut short
     CHECK(decodeTex(pal.v, tex));
 
     // 24-bit and 32-bit: R, G, B(, A) in the file, unlike the palettes.
     Bytes rgb;
-    rgb.bytes(texHeader(1, 1, texformat::Rgb, 1, 0)).u8(1).u8(2).u8(3);
+    rgb.bytes(texHeader(1, 1, texformat::kRgb, 1, 0)).u8(1).u8(2).u8(3);
     CHECK(!decodeTex(rgb.v, tex) && tex.image.rgba == (std::vector<uint8_t>{1, 2, 3, 255}));
     Bytes rgba;
-    rgba.bytes(texHeader(1, 1, texformat::Rgba, 1, 0)).u8(1).u8(2).u8(3).u8(4);
+    rgba.bytes(texHeader(1, 1, texformat::kRgba, 1, 0)).u8(1).u8(2).u8(3).u8(4);
     CHECK(!decodeTex(rgba.v, tex) && tex.image.rgba == (std::vector<uint8_t>{1, 2, 3, 4}));
 
     CHECK(decodeTex(texHeader(1, 1, 99, 1, 0), tex)); // unknown format
-    CHECK(decodeTex(texHeader(0, 1, texformat::Rgb, 1, 0), tex));
+    CHECK(decodeTex(texHeader(0, 1, texformat::kRgb, 1, 0), tex));
     CHECK(decodeTex(toBytes("short"), tex));
 }
 
@@ -465,7 +465,7 @@ void testPsdl() {
     CHECK(psdl.blocks[1].attributes.size() == 4 && psdl.blocks[1].flags == 4 && psdl.blocks[0].extra == 205);
     if (psdl.blocks.size() == 2 && psdl.blocks[1].attributes.size() > 1) {
         const PsdlAttribute& roof = psdl.blocks[1].attributes[1];
-        CHECK(roof.type == psdlattr::Roof && roof.count == 3 && roof.words == (std::vector<uint16_t>{0, 0, 1, 2, 3}));
+        CHECK(roof.type == psdlattr::kRoof && roof.count == 3 && roof.words == (std::vector<uint16_t>{0, 0, 1, 2, 3}));
     }
     CHECK(psdl.min == (Vec3{-1, -2, -3}) && psdl.center == (Vec3{1, 2, 3}) && psdl.radius == 9);
 
@@ -496,7 +496,7 @@ void testPsdl() {
     CHECK(readPsdl(buildPsdl({0x80 | 10 << 3, 1, 12 << 3 | 3, 0, 0, 1, 2, 3}), psdl));
     CHECK(readPsdl(buildPsdl({0x80 | 11 << 3, 0, 1, 2}), psdl));
     CHECK(readPsdl(buildPsdl({0x80 | 13 << 3}), psdl));
-    CHECK(psdlAttributeLength(psdlattr::DividedRoad, 2) == 14 && psdlAttributeLength(psdlattr::Tunnel, 5) == 5);
+    CHECK(psdlAttributeLength(psdlattr::kDividedRoad, 2) == 14 && psdlAttributeLength(psdlattr::kTunnel, 5) == 5);
 
     // The roads after the bounds: flags, a word, lanes each side and where
     // they are across, a byte each end, eight vertices, then the blocks
@@ -1010,18 +1010,18 @@ void testDashboardFiles(const std::filesystem::path& tmp) {
         CarCamera inside;
         inside.inside = true;
         const CameraView ahead{{0, 1, 0}, {0, 1, -1}, {0, 1, 0}};
-        CHECK(vc.press(Control::ThrillCam, true) && vc.thrill);
+        CHECK(vc.press(Control::kThrillCam, true) && vc.thrill);
         CameraView t = vc.apply(ahead, cams[0], still, 0.05f);
         CHECK(t.eye[2] < -30 && t.target[2] > t.eye[2]);
-        vc.press(Control::ThrillCam, true);
-        CHECK(vc.press(Control::LookBack, true));
+        vc.press(Control::kThrillCam, true);
+        CHECK(vc.press(Control::kLookBack, true));
         t = vc.apply(ahead, inside, still, 0.05f);
         CHECK(t.target[2] - t.eye[2] > 0.9f);
-        CHECK(vc.press(Control::WideAngle, true) && vc.fov(70) > 90 && !vc.showDashboard());
-        CHECK(!vc.press(Control::Throttle, true));
-        vc.press(Control::LookForward, true);
+        CHECK(vc.press(Control::kWideAngle, true) && vc.fov(70) > 90 && !vc.showDashboard());
+        CHECK(!vc.press(Control::kThrottle, true));
+        vc.press(Control::kLookForward, true);
         CameraView behind{{0, 2, 4}, {0, 1, 0}, {0, 1, 0}};
-        vc.press(Control::CameraPan, true);
+        vc.press(Control::kCameraPan, true);
         for (int i = 0; i < 10; ++i)
             t = vc.apply(behind, cams[0], still, 0.1f);
         CHECK(std::fabs(t.eye[0]) > 2 &&
@@ -1034,7 +1034,7 @@ void testLessons() {
     CHECK(!parseLessonSettings("Filename,Event,Checkpoints,TimeLimit,AmbDensity,extra,extra,extra,extra,etra,\r\n"
                                "corner0waypoints,4,1,0,0,50,0,0,0,0,0\r\n",
                                l));
-    CHECK(l.file == "corner0waypoints" && l.event == LessonEvent::MinimumSpeed && l.timeLimit == 0 && l.extra[0] == 50);
+    CHECK(l.file == "corner0waypoints" && l.event == LessonEvent::kMinimumSpeed && l.timeLimit == 0 && l.extra[0] == 50);
     LessonSettings none;
     CHECK(parseLessonSettings("Filename,Event\r\n", none));
     // A lesson's checkpoints' fifth column is a radius whatever it's called.
@@ -1051,15 +1051,15 @@ void testLessons() {
     CHECK(j.message() == 232 && j.minimumSpeed() == 50);
     f.clock = 1;
     f.speedMph = 55;
-    CHECK(j.step(f) == R::Going && j.message() == 237); // up to speed
+    CHECK(j.step(f) == R::kGoing && j.message() == 237); // up to speed
     f.checkpoint = true;
     f.speedMph = 40;
-    CHECK(j.step(f) == R::Failed && j.message() == 238);
+    CHECK(j.step(f) == R::kFailed && j.message() == 238);
 
     // Destroy: rammed into submission, done; with police, then lose them
     // at the end; the car at its destination first fails.
     LessonSettings destroy;
-    destroy.event = LessonEvent::Destroy;
+    destroy.event = LessonEvent::kDestroy;
     destroy.timeLimit = 100;
     j.start(destroy);
     CHECK(j.message() == 619);
@@ -1067,38 +1067,38 @@ void testLessons() {
     f.dt = 0.1f;
     f.clock = 5;
     f.finished = true; // the checkpoint's no use yet
-    CHECK(j.step(f) == R::Going);
+    CHECK(j.step(f) == R::kGoing);
     f.targetStopped = true;
-    CHECK(j.step(f) == R::Passed && j.message() == 620);
+    CHECK(j.step(f) == R::kPassed && j.message() == 620);
     j.start(destroy);
     f.police = 6;
     f.finished = false;
-    CHECK(j.step(f) == R::Going && j.message() == 652); // "Get going!  Lose the tail"
+    CHECK(j.step(f) == R::kGoing && j.message() == 652); // "Get going!  Lose the tail"
     f.finished = true;
     f.chasing = 1;
-    CHECK(j.step(f) == R::Going);
+    CHECK(j.step(f) == R::kGoing);
     f.chasing = 0;
-    CHECK(j.step(f) == R::Passed && j.message() == 196);
+    CHECK(j.step(f) == R::kPassed && j.message() == 196);
     j.start(destroy);
     f = {};
     f.clock = 5;
     f.targetDone = true;
-    CHECK(j.step(f) == R::Failed && j.message() == 621);
+    CHECK(j.step(f) == R::kFailed && j.message() == 621);
 
     // No touching: a car touched after the start fails.
     LessonSettings touch;
-    touch.event = LessonEvent::NoTouching;
+    touch.event = LessonEvent::kNoTouching;
     j.start(touch);
     f = {};
     f.carTouches = 2; // before the start
     f.clock = 1;
-    CHECK(j.step(f) == R::Going);
+    CHECK(j.step(f) == R::kGoing);
     f.carTouches = 3;
-    CHECK(j.step(f) == R::Failed && j.message() == 230);
+    CHECK(j.step(f) == R::kFailed && j.message() == 230);
 
     // Cop chase: the end counts once the police are lost; busted fails.
     LessonSettings chase;
-    chase.event = LessonEvent::CopChase;
+    chase.event = LessonEvent::kCopChase;
     chase.timeLimit = 100;
     j.start(chase);
     f = {};
@@ -1106,40 +1106,40 @@ void testLessons() {
     f.clock = 10;
     f.finished = true;
     f.chasing = 2;
-    CHECK(j.step(f) == R::Going && j.message() == 197);
+    CHECK(j.step(f) == R::kGoing && j.message() == 197);
     f.chasing = 0;
-    CHECK(j.step(f) == R::Passed && j.message() == 196);
+    CHECK(j.step(f) == R::kPassed && j.message() == 196);
     j.start(chase);
     f.busted = true;
-    CHECK(j.step(f) == R::Failed);
+    CHECK(j.step(f) == R::kFailed);
 
     // Follow: escaped fails; kept up with to its end passes, however long
     // (its TimeLimit isn't a clock).
     LessonSettings follow;
-    follow.event = LessonEvent::Follow;
+    follow.event = LessonEvent::kFollow;
     follow.timeLimit = 36;
     j.start(follow);
     f = {};
     f.clock = 5;
     f.targetDistance = 50;
-    CHECK(j.step(f) == R::Going);
+    CHECK(j.step(f) == R::kGoing);
     f.targetDistance = LessonJudge::kEscape + 1;
-    CHECK(j.step(f) == R::Failed && j.message() == 222);
+    CHECK(j.step(f) == R::kFailed && j.message() == 222);
     j.start(follow);
     f.targetDistance = 30;
     f.clock = 88;
-    CHECK(j.step(f) == R::Going && j.timeLeft(f.clock) < 0);
+    CHECK(j.step(f) == R::kGoing && j.timeLeft(f.clock) < 0);
     f.targetDone = true;
-    CHECK(j.step(f) == R::Passed && j.message() == 221);
+    CHECK(j.step(f) == R::kPassed && j.message() == 221);
 
     // Gates: in time, or not.
     LessonSettings gates;
-    gates.event = LessonEvent::Gates;
+    gates.event = LessonEvent::kGates;
     gates.timeLimit = 22;
     j.start(gates);
     f = {};
     f.clock = 22.5f;
-    CHECK(j.step(f) == R::Failed && j.message() == 244);
+    CHECK(j.step(f) == R::kFailed && j.message() == 244);
 }
 
 void testWidgets() {
@@ -1157,34 +1157,34 @@ void testWidgets() {
 void testRecord() {
     PlayerRecord r;
     CHECK(!r.parse("# a comment\nrace sf checkpoint 2 a 3\nrace sf checkpoint 2 a 1\nlesson london 3\nnonsense\n"));
-    CHECK(r.bestPlace("sf", RaceKind::Checkpoint, 2, false) == 1 &&
-          r.bestPlace("sf", RaceKind::Checkpoint, 2, true) == 0);
-    r.raced("sf", RaceKind::Checkpoint, 2, false, 4); // not better
-    CHECK(r.bestPlace("sf", RaceKind::Checkpoint, 2, false) == 1);
+    CHECK(r.bestPlace("sf", RaceKind::kCheckpoint, 2, false) == 1 &&
+          r.bestPlace("sf", RaceKind::kCheckpoint, 2, true) == 0);
+    r.raced("sf", RaceKind::kCheckpoint, 2, false, 4); // not better
+    CHECK(r.bestPlace("sf", RaceKind::kCheckpoint, 2, false) == 1);
     CHECK(r.hasPassed("london", 3) && !r.hasPassed("sf", 3));
     PlayerRecord again;
-    CHECK(!again.parse(r.text()) && again.bestPlace("sf", RaceKind::Checkpoint, 2, false) == 1 &&
+    CHECK(!again.parse(r.text()) && again.bestPlace("sf", RaceKind::kCheckpoint, 2, false) == 1 &&
           again.hasPassed("london", 3));
 
     // Races open three at a time, each group once every race before is
     // placed 3rd or better; lessons one after another.
     PlayerRecord p;
-    CHECK(raceOpen(p, "sf", RaceKind::Blitz, 2, false, 3, 3) && !raceOpen(p, "sf", RaceKind::Blitz, 3, false, 3, 3));
+    CHECK(raceOpen(p, "sf", RaceKind::kBlitz, 2, false, 3, 3) && !raceOpen(p, "sf", RaceKind::kBlitz, 3, false, 3, 3));
     for (int i = 0; i < 3; ++i)
-        p.raced("sf", RaceKind::Blitz, i, false, i == 2 ? 4 : 2);
-    CHECK(!raceOpen(p, "sf", RaceKind::Blitz, 3, false, 3, 3));
-    p.raced("sf", RaceKind::Blitz, 2, true, 3); // a professional's result counts for amateurs
-    CHECK(raceOpen(p, "sf", RaceKind::Blitz, 5, false, 3, 3) && !raceOpen(p, "sf", RaceKind::Blitz, 6, false, 3, 3));
-    CHECK(!raceOpen(p, "sf", RaceKind::Blitz, 3, true, 3, 3));
+        p.raced("sf", RaceKind::kBlitz, i, false, i == 2 ? 4 : 2);
+    CHECK(!raceOpen(p, "sf", RaceKind::kBlitz, 3, false, 3, 3));
+    p.raced("sf", RaceKind::kBlitz, 2, true, 3); // a professional's result counts for amateurs
+    CHECK(raceOpen(p, "sf", RaceKind::kBlitz, 5, false, 3, 3) && !raceOpen(p, "sf", RaceKind::kBlitz, 6, false, 3, 3));
+    CHECK(!raceOpen(p, "sf", RaceKind::kBlitz, 3, true, 3, 3));
     // Lessons in any order; the Final once the three Midterms are passed.
-    CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 0, false, 3, 3) &&
-          raceOpen(p, "sf", RaceKind::CrashCourse, 11, false, 3, 3) &&
-          !raceOpen(p, "sf", RaceKind::CrashCourse, 12, false, 3, 3));
+    CHECK(raceOpen(p, "sf", RaceKind::kCrashCourse, 0, false, 3, 3) &&
+          raceOpen(p, "sf", RaceKind::kCrashCourse, 11, false, 3, 3) &&
+          !raceOpen(p, "sf", RaceKind::kCrashCourse, 12, false, 3, 3));
     p.passed("sf", 3);
     p.passed("sf", 7);
-    CHECK(!raceOpen(p, "sf", RaceKind::CrashCourse, 12, false, 3, 3));
+    CHECK(!raceOpen(p, "sf", RaceKind::kCrashCourse, 12, false, 3, 3));
     p.passed("sf", 11);
-    CHECK(raceOpen(p, "sf", RaceKind::CrashCourse, 12, false, 3, 3));
+    CHECK(raceOpen(p, "sf", RaceKind::kCrashCourse, 12, false, 3, 3));
 
     // Unlocking, as the pictures say.
     const RaceCount twelve = [](const std::string&, RaceKind) { return 12; };
@@ -1192,7 +1192,7 @@ void testRecord() {
     CHECK(unlocked(u, "vpbug", -1, false, twelve)); // no rule: open
     CHECK(!unlocked(u, "vpauditt", -1, false, twelve));
     for (int i = 0; i < 6; ++i)
-        u.raced("sf", RaceKind::Checkpoint, i, false, 3);
+        u.raced("sf", RaceKind::kCheckpoint, i, false, 3);
     CHECK(unlocked(u, "vpauditt", -1, false, twelve) && !unlocked(u, "vpauditt", -1, true, twelve));
     CHECK(!unlocked(u, "vpauditt", 4, false, twelve)); // all twelve for the paint job
     CHECK(!unlocked(u, "vp4x4", -1, false, twelve));
@@ -1715,12 +1715,12 @@ void testTrafficLights() {
         const Signal n = lights.signal(0, 0), e = lights.signal(1, 0);
         const Signal so = lights.signal(2, 0), w = lights.signal(3, 0);
         CHECK(n == so && e == w);
-        greenTogether += n == Signal::Green;
-        conflicts += n != Signal::Red && e != Signal::Red;
-        ambers += n == Signal::Yellow;
+        greenTogether += n == Signal::kGreen;
+        conflicts += n != Signal::kRed && e != Signal::kRed;
+        ambers += n == Signal::kYellow;
     }
     CHECK(conflicts == 0 && greenTogether > 40 && ambers > 8);
-    CHECK(lights.signal(7, 0) == Signal::Green); // no light: as green
+    CHECK(lights.signal(7, 0) == Signal::kGreen); // no light: as green
 
     // No lights where the ends say none (control 3) or there are no points.
     const auto plain = buildBai({{{0, 0, 0}, {100, 0, 0}, 0, 1, 1, 0, 3, 3}}, {{0, 0, 0}, {100, 0, 0}});
@@ -1771,7 +1771,7 @@ void testTrafficRules(const std::filesystem::path& tmp) {
     float red = -1;
     for (float t = 0; t < 60 && red < 0; t += 0.5f) {
         lights.setClock(t);
-        if (lights.signal(0, 0) == Signal::Red && lights.signal(1, 0) == Signal::Red)
+        if (lights.signal(0, 0) == Signal::kRed && lights.signal(1, 0) == Signal::kRed)
             red = t;
     }
     CHECK(red >= 0);
@@ -1801,14 +1801,14 @@ void testTrafficRules(const std::filesystem::path& tmp) {
     for (const RoadUser& c : u)
         roadOf.push_back(c.position[2] > 0 ? 0 : 1);
     float green = red;
-    while (lights.signal(0, 0) != Signal::Green && green < red + 60)
+    while (lights.signal(0, 0) != Signal::kGreen && green < red + 60)
         lights.setClock(green += 0.5f);
     for (int i = 0; i < 40; ++i) // 2 s, the lights held
         t.update(0.05f, {100, 0, -15}, {}, flat);
     u.clear();
     t.users(u);
     for (size_t i = 0; i < u.size(); ++i)
-        CHECK((length(u[i].velocity) > 2) == (lights.signal(roadOf[i], 0) == Signal::Green));
+        CHECK((length(u[i].velocity) > 2) == (lights.signal(roadOf[i], 0) == Signal::kGreen));
 
     // Held up behind something stopped in its lane: round it in the other.
     AiMapSettings quick = s;
@@ -2416,7 +2416,7 @@ static void testNetSession() {
     // is one too many.
     auto network = net::LoopbackNetwork::create();
     NetSettings settings;
-    settings.mode = NetMode::Circuit;
+    settings.mode = NetMode::kCircuit;
     settings.maxPlayers = 3;
     auto host = NetSession::host(network->open(kNetPort), "Hosting", settings);
     NetBrowser browser(network->open(0));
@@ -2433,7 +2433,7 @@ static void testNetSession() {
     };
     run(300);
     CHECK(browser.sessions().size() == 1 && browser.sessions()[0].name == "Hosting" &&
-          browser.sessions()[0].players == 1 && browser.sessions()[0].mode == NetMode::Circuit);
+          browser.sessions()[0].players == 1 && browser.sessions()[0].mode == NetMode::kCircuit);
     const net::Address at0 = browser.sessions()[0].address;
     auto ann = NetSession::join(network->open(0), at0, "Ann");
     auto bob = NetSession::join(network->open(0), at0, "Bob");
@@ -2441,17 +2441,17 @@ static void testNetSession() {
     CHECK(ann->joining());
     run(600);
     CHECK(ann->myId() == 1 && bob->myId() == 2 && host->players().size() == 3);
-    CHECK(ann->players().size() == 3 && ann->settings().mode == NetMode::Circuit && ann->sessionName() == "Hosting");
+    CHECK(ann->players().size() == 3 && ann->settings().mode == NetMode::kCircuit && ann->sessionName() == "Hosting");
     // The host sides them to even up the teams; a player's own status
     // doesn't undo it until they choose.
     CHECK(host->player(1)->team == 1 && host->player(2)->team == 0 && ann->me()->team == 1);
     auto joined = host->takeNotices();
-    CHECK(joined.size() == 2 && joined[0].kind == NetNotice::Kind::Joined && joined[0].name == "Ann");
+    CHECK(joined.size() == 2 && joined[0].kind == NetNotice::Kind::kJoined && joined[0].name == "Ann");
     auto carl = NetSession::join(network->open(0), at0, "Carl");
     players.push_back(carl.get());
     run(300);
     auto refused = carl->takeNotices();
-    CHECK(carl->closed() && refused.size() == 1 && refused[0].kind == NetNotice::Kind::Refused &&
+    CHECK(carl->closed() && refused.size() == 1 && refused[0].kind == NetNotice::Kind::kRefused &&
           refused[0].reason == kRefusedFull);
     players.pop_back();
 
@@ -2476,16 +2476,16 @@ static void testNetSession() {
     run(800);
     bool started = false;
     for (const NetNotice& n : ann->takeNotices())
-        started = started || n.kind == NetNotice::Kind::Started;
-    CHECK(started && ann->phase() == NetSession::Phase::Loading && ann->round() == host->round() &&
+        started = started || n.kind == NetNotice::Kind::kStarted;
+    CHECK(started && ann->phase() == NetSession::Phase::kLoading && ann->round() == host->round() &&
           ann->seed() == host->seed());
     host->setLoaded();
     ann->setLoaded();
     run(800);
-    CHECK(host->phase() == NetSession::Phase::Loading); // Bob's still loading
+    CHECK(host->phase() == NetSession::Phase::kLoading); // Bob's still loading
     bob->setLoaded();
     run(800);
-    CHECK(host->phase() == NetSession::Phase::Playing && bob->phase() == NetSession::Phase::Playing);
+    CHECK(host->phase() == NetSession::Phase::kPlaying && bob->phase() == NetSession::Phase::kPlaying);
     run(3000);
     CHECK(ann->counting() && std::fabs(ann->clock(t) - host->clock(t)) < 0.1f && host->clock(t) > 0.5f);
 
@@ -2514,7 +2514,7 @@ static void testNetSession() {
     // Back to the lobby: a new round, nobody ready.
     host->backToLobby();
     run(800);
-    CHECK(ann->phase() == NetSession::Phase::Lobby && ann->round() == host->round() && !host->player(1)->ready &&
+    CHECK(ann->phase() == NetSession::Phase::kLobby && ann->round() == host->round() && !host->player(1)->ready &&
           !host->everyoneReady());
     network->setDropFilter(nullptr);
 
@@ -2536,7 +2536,7 @@ static void testNetSession() {
     ann->setLoaded();
     bob->setLoaded();
     run(800);
-    CHECK(host->phase() == NetSession::Phase::Playing); // nobody waited for the computer player
+    CHECK(host->phase() == NetSession::Phase::kPlaying); // nobody waited for the computer player
     run(3200);
     NetCarState botCar;
     botCar.clock = host->clock(t);
@@ -2557,12 +2557,12 @@ static void testNetSession() {
     run(300);
     bool left = false;
     for (const NetNotice& n : ann->takeNotices())
-        left = left || (n.kind == NetNotice::Kind::Left && n.name == "Bob");
+        left = left || (n.kind == NetNotice::Kind::kLeft && n.name == "Bob");
     CHECK(left && host->players().size() == 2);
     host->eject(1);
     run(300);
     auto ejected = ann->takeNotices();
-    CHECK(ann->closed() && !ejected.empty() && ejected.back().kind == NetNotice::Kind::Ejected &&
+    CHECK(ann->closed() && !ejected.empty() && ejected.back().kind == NetNotice::Kind::kEjected &&
           host->players().size() == 1);
     auto dan = NetSession::join(network->open(0), at0, "Dan");
     players = {dan.get()};
@@ -2573,7 +2573,7 @@ static void testNetSession() {
         dan->update(t);
     }
     auto quit = dan->takeNotices();
-    CHECK(dan->closed() && !quit.empty() && quit.back().kind == NetNotice::Kind::HostQuit);
+    CHECK(dan->closed() && !quit.empty() && quit.back().kind == NetNotice::Kind::kHostQuit);
     // And a host whose player goes quiet drops it.
     for (int i = 0; i < 700; ++i) {
         t += 10;
@@ -2589,9 +2589,9 @@ static void testGoldGame() {
     points[3].position = {-500, 0, 0};
     points[4].position = {0, 0, -500};
     NetSettings s;
-    s.mode = NetMode::CopsRobbers;
-    s.gold = GoldMode::CopsAndRobbers;
-    s.limit = GoldLimit::Points;
+    s.mode = NetMode::kCopsRobbers;
+    s.gold = GoldMode::kCopsAndRobbers;
+    s.limit = GoldLimit::kPoints;
     s.limitValue = 2;
     GoldGame g;
     g.start(s, points, 7);
@@ -2608,14 +2608,14 @@ static void testGoldGame() {
         g.step(clock, dt, {a, b}, -100);
     };
     step(0.1f);
-    CHECK(g.holder() == 1 && g.eventsAfter(0).size() == 1 && g.eventsAfter(0)[0].kind == GoldEvent::Kind::Got);
+    CHECK(g.holder() == 1 && g.eventsAfter(0).size() == 1 && g.eventsAfter(0)[0].kind == GoldEvent::Kind::kGot);
     a.position = g.home() + Vec3{40, 0, 0};
     step(2);
     b.position = a.position + Vec3{3, 0, 0};
     b.velocity = {-10, 0, 0};
     step(0.1f);
     CHECK(g.holder() == kNoPlayer && g.eventsAfter(1).size() == 1 &&
-          g.eventsAfter(1)[0].kind == GoldEvent::Kind::Dropped && g.eventsAfter(1)[0].player == 1);
+          g.eventsAfter(1)[0].kind == GoldEvent::Kind::kDropped && g.eventsAfter(1)[0].player == 1);
     b.position = a.position + Vec3{30, 0, 0};
     step(0.1f);
     CHECK(g.holder() == kNoPlayer); // A's waiting
@@ -2623,7 +2623,7 @@ static void testGoldGame() {
     b.velocity = {};
     a.position[2] += 20;
     step(0.1f);
-    CHECK(g.holder() == 2 && g.eventsAfter(2)[0].kind == GoldEvent::Kind::Recovered);
+    CHECK(g.holder() == 2 && g.eventsAfter(2)[0].kind == GoldEvent::Kind::kRecovered);
 
     // B delivers it to its base: a point, the gold home again; twice is
     // the limit.
@@ -2634,7 +2634,7 @@ static void testGoldGame() {
     step(0.1f);
     b.position = g.base(1);
     step(0.1f);
-    CHECK(g.score(1) == 2 && g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::PointLimit);
+    CHECK(g.score(1) == 2 && g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::kPointLimit);
 
     // As the players get it.
     GoldGame copy;
@@ -2643,23 +2643,23 @@ static void testGoldGame() {
     CHECK(!copy.decode({1, 2}));
 
     // Free-for-all, against the clock: each for themselves, one hideout.
-    s.gold = GoldMode::FreeForAll;
-    s.limit = GoldLimit::Time;
+    s.gold = GoldMode::kFreeForAll;
+    s.limit = GoldLimit::kTime;
     s.limitValue = 1;
     g.start(s, points, 3);
     CHECK(!g.teams() && g.sideOf(a) == 1 && g.sideOf(b) == 2);
     g.step(30, 0.1f, {a, b}, -100);
     CHECK(!g.over());
     g.step(61, 0.1f, {a, b}, -100);
-    CHECK(g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::TimeUp);
+    CHECK(g.over() && g.eventsAfter(g.lastEvent() - 1)[0].kind == GoldEvent::Kind::kTimeUp);
 
     // A computer player's goal: the gold lying, home with it, after the
     // nearest threat to a teammate who has it, after another side's car
     // that has it.
     {
         NetSettings t2 = s;
-        t2.gold = GoldMode::RobberTeams;
-        t2.limit = GoldLimit::None;
+        t2.gold = GoldMode::kRobberTeams;
+        t2.limit = GoldLimit::kNone;
         GoldGame h;
         h.start(t2, points, 5);
         GoldGame::Car me{1, 0, h.base(1), {}}, mate{2, 0, h.base(1) + Vec3{40, 0, 0}, {}},
@@ -2736,13 +2736,13 @@ static void testTextureQuality(const std::filesystem::path& tmp) {
     // Two 64x64 textures, one flagged to keep its detail, and a 16x16.
     auto tex = [&](const char* name, int size, uint32_t flags) {
         Bytes b;
-        b.bytes(texHeader(uint16_t(size), uint16_t(size), texformat::Rgb, 1, flags));
+        b.bytes(texHeader(uint16_t(size), uint16_t(size), texformat::kRgb, 1, flags));
         for (int i = 0; i < size * size * 3; ++i)
             b.u8(uint8_t(i));
         test::writeFile(tmp / "texture" / (std::string(name) + ".tex"), b.v);
     };
     tex("plain", 64, 0);
-    tex("near", 64, texflag::FullDetail);
+    tex("near", 64, texflag::kFullDetail);
     tex("tiny", 16, 0);
     SearchSet files;
     auto loose = std::make_unique<DirectoryArchive>();
@@ -2773,8 +2773,8 @@ static void testPadInput() {
     CHECK(c.steer == -1 && c.throttle == pad.throttle && c.brake == 1);
     // Buttons: the controls' keys while driving, the menus' keys otherwise.
     GameOptions o;
-    CHECK(padKey(pad::kSouth, true, o) == o.keys[size_t(Control::Handbrake)][0]);
-    CHECK(padKey(pad::kRightShoulder, true, o) == o.keys[size_t(Control::ShiftUp)][0]);
+    CHECK(padKey(pad::kSouth, true, o) == o.keys[size_t(Control::kHandbrake)][0]);
+    CHECK(padKey(pad::kRightShoulder, true, o) == o.keys[size_t(Control::kShiftUp)][0]);
     CHECK(padKey(pad::kStart, true, o) == key::kEscape && padKey(pad::kSouth, false, o) == key::kReturn);
     CHECK(padKey(pad::kDpadDown, false, o) == key::kDown && padKey(pad::kGuide, true, o) == 0);
     Event ev, k;
@@ -2789,18 +2789,18 @@ static void testPadInput() {
 static void testOptions(const std::filesystem::path& tmp) {
     // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
-    CHECK(o.controlOf(key::kUp) == Control::Throttle && o.controlOf('w') == Control::WideAngle &&
-          o.controlOf(' ') == Control::Handbrake && o.controlOf(key::kReturn) == Control::Horn &&
-          o.controlOf('q') == Control::FullScreenMap && o.controlOf(key::kTab) == Control::MapToggle &&
-          o.controlOf('h') == Control::HudToggle && o.controlOf(key::kBackspace) == Control::RearViewMirror &&
-          o.controlOf('s') == Control::NextCheckpoint && o.controlOf('a') == Control::ShiftUp &&
-          o.controlOf('v') == Control::ThrillCam && o.controlOf(key::kKp0 + 2) == Control::LookBack &&
-          o.controlOf('f') == Control::RotatingMap && o.controlOf('5') == Control::CdNext &&
-          o.controlOf('i') == Control::OpponentPosition && o.keys[size_t(Control::CameraPan)][0] == 0);
-    CHECK(controlStringId(Control::Throttle) == 280 && controlStringId(Control::RearViewMirror) == 305 &&
+    CHECK(o.controlOf(key::kUp) == Control::kThrottle && o.controlOf('w') == Control::kWideAngle &&
+          o.controlOf(' ') == Control::kHandbrake && o.controlOf(key::kReturn) == Control::kHorn &&
+          o.controlOf('q') == Control::kFullScreenMap && o.controlOf(key::kTab) == Control::kMapToggle &&
+          o.controlOf('h') == Control::kHudToggle && o.controlOf(key::kBackspace) == Control::kRearViewMirror &&
+          o.controlOf('s') == Control::kNextCheckpoint && o.controlOf('a') == Control::kShiftUp &&
+          o.controlOf('v') == Control::kThrillCam && o.controlOf(key::kKp0 + 2) == Control::kLookBack &&
+          o.controlOf('f') == Control::kRotatingMap && o.controlOf('5') == Control::kCdNext &&
+          o.controlOf('i') == Control::kOpponentPosition && o.keys[size_t(Control::kCameraPan)][0] == 0);
+    CHECK(controlStringId(Control::kThrottle) == 280 && controlStringId(Control::kRearViewMirror) == 305 &&
           keyName(key::kUp) == "Up" && keyName('w') == "W" && keyName(key::kF1 + 2) == "F3");
-    CHECK(o.otherWith('z', Control::Throttle) == Control::ShiftDown &&
-          o.otherWith('z', Control::ShiftDown) == Control::Count);
+    CHECK(o.otherWith('z', Control::kThrottle) == Control::kShiftDown &&
+          o.otherWith('z', Control::kShiftDown) == Control::kCount);
 
     // Changed, saved and read back.
     o.music = false;
@@ -2811,16 +2811,16 @@ static void testOptions(const std::filesystem::path& tmp) {
     o.textureQuality = 2;
     o.cloudShadows = 1;
     o.startInCar = true;
-    o.keys[size_t(Control::Horn)] = {'g', 'j'};
+    o.keys[size_t(Control::kHorn)] = {'g', 'j'};
     CHECK(!o.save(tmp));
     GameOptions back;
     CHECK(!back.load(tmp));
     CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
           std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 &&
           back.textureQuality == 2 && back.cloudShadows == 1 && back.startInCar &&
-          back.controlOf('j') == Control::Horn && back.controlOf(key::kReturn) == Control::Count);
+          back.controlOf('j') == Control::kHorn && back.controlOf(key::kReturn) == Control::kCount);
     back.resetControls();
-    CHECK(back.controlOf(key::kReturn) == Control::Horn && !back.startInCar && !back.music); // the audio stays
+    CHECK(back.controlOf(key::kReturn) == Control::kHorn && !back.startInCar && !back.music); // the audio stays
     GameOptions none;
     CHECK(!none.load(tmp / "nothing") && none.music); // no file yet: the defaults
     CHECK(GameOptions().farClip() == 4000 && o.steerRate() == 1);
@@ -2858,7 +2858,7 @@ static void testReplays(const std::filesystem::path& tmp) {
     Replay r;
     r.name = "Mini: a race / of mine";
     r.city = "london";
-    r.kind = int(RaceKind::Circuit);
+    r.kind = int(RaceKind::kCircuit);
     r.race = 3;
     r.level = 1;
     r.car = "vpbug";
@@ -2884,7 +2884,7 @@ static void testReplays(const std::filesystem::path& tmp) {
     // Written and read back as it was.
     Replay back;
     CHECK(!decodeReplay(encodeReplay(r), back));
-    CHECK(back.name == r.name && back.city == "london" && back.kind == int(RaceKind::Circuit) && back.race == 3 &&
+    CHECK(back.name == r.name && back.city == "london" && back.kind == int(RaceKind::kCircuit) && back.race == 3 &&
           back.level == 1 && back.car == "vpbug" && back.paint == 2 && back.autoReverse &&
           std::fabs(back.steerRate - 1.25f) < 1e-6f && back.pedestrians == 0 && back.frames.size() == 130 &&
           back.frames[5].flags == kReplayManual && back.frames[4].shift == 0 && back.frames[6].keys == 6 &&
@@ -2937,22 +2937,22 @@ static void testDrivers(const std::filesystem::path& tmp) {
     // Before there were drivers: the record that was is the first's.
     PlayerRecord old;
     CHECK(!old.load(tmp));
-    old.raced("sf", RaceKind::Blitz, 2, false, 1, 61.5f);
-    old.raced("sf", RaceKind::Blitz, 2, false, 3, 70.0f); // the best kept
-    old.setLastRace("london", RaceKind::Circuit, 4);
+    old.raced("sf", RaceKind::kBlitz, 2, false, 1, 61.5f);
+    old.raced("sf", RaceKind::kBlitz, 2, false, 3, 70.0f); // the best kept
+    old.setLastRace("london", RaceKind::kCircuit, 4);
     CHECK(!old.save());
     DriverRoster roster;
     CHECK(!roster.load(tmp));
     CHECK(roster.drivers().size() == 1 && roster.driver().name == "Player" && roster.driver().file == "record.txt");
     PlayerRecord first;
     first.load(tmp, roster.driver().file);
-    CHECK(first.bestPlace("sf", RaceKind::Blitz, 2, false) == 1 &&
-          std::fabs(first.bestTime("sf", RaceKind::Blitz, 2, false) - 61.5f) < 0.01f &&
-          first.bestTime("sf", RaceKind::Blitz, 3, false) < 0);
+    CHECK(first.bestPlace("sf", RaceKind::kBlitz, 2, false) == 1 &&
+          std::fabs(first.bestTime("sf", RaceKind::kBlitz, 2, false) - 61.5f) < 0.01f &&
+          first.bestTime("sf", RaceKind::kBlitz, 3, false) < 0);
     std::string city;
-    RaceKind kind = RaceKind::Blitz;
+    RaceKind kind = RaceKind::kBlitz;
     int index = 0;
-    CHECK(first.lastRace(city, kind, index) && city == "london" && kind == RaceKind::Circuit && index == 4);
+    CHECK(first.lastRace(city, kind, index) && city == "london" && kind == RaceKind::kCircuit && index == 4);
 
     // A new driver: theirs alone, a record of their own; no name twice.
     CHECK(!roster.add("Bob", true) && roster.current() == 1 && roster.driver().professional &&
@@ -2960,8 +2960,8 @@ static void testDrivers(const std::filesystem::path& tmp) {
     CHECK(roster.add("bob", false) && roster.has("BOB") && roster.drivers().size() == 2);
     PlayerRecord bob;
     bob.load(tmp, roster.driver().file);
-    CHECK(bob.bestPlace("sf", RaceKind::Blitz, 2, false) == 0 && !bob.lastRace(city, kind, index));
-    bob.raced("sf", RaceKind::Blitz, 2, true, 2, 55);
+    CHECK(bob.bestPlace("sf", RaceKind::kBlitz, 2, false) == 0 && !bob.lastRace(city, kind, index));
+    bob.raced("sf", RaceKind::kBlitz, 2, true, 2, 55);
     CHECK(!bob.save() && !roster.save());
     DriverRoster again;
     again.load(tmp);
@@ -2985,23 +2985,23 @@ static void testCruise(const std::filesystem::path& tmp) {
     auto loose = std::make_unique<DirectoryArchive>();
     CHECK(!loose->open(tmp));
     files.add(std::move(loose), 1);
-    const auto sf = raceNames(files, "sf", RaceKind::Cruise), london = raceNames(files, "london", RaceKind::Cruise);
+    const auto sf = raceNames(files, "sf", RaceKind::kCruise), london = raceNames(files, "london", RaceKind::kCruise);
     CHECK(sf.size() == 2 && sf[0] == "Cruise" && sf[1] == "Stunt Mode: Acceleration");
     CHECK(london.size() == 1);
     RaceDefinition cruise, stunt;
-    CHECK(!loadRace(files, "london", RaceKind::Cruise, kCruiseRace, cruise));
+    CHECK(!loadRace(files, "london", RaceKind::kCruise, kCruiseRace, cruise));
     CHECK(cruise.waypoints.empty() && cruise.settings[0].cops == 4 && cruise.opponents[0].empty());
-    CHECK(!loadRace(files, "sf", RaceKind::Cruise, kStuntRace, stunt));
+    CHECK(!loadRace(files, "sf", RaceKind::kCruise, kStuntRace, stunt));
     CHECK(stunt.waypoints.size() == 2 && std::fabs(stunt.waypoints[1].radius - 15) < 0.01f &&
           stunt.settings[1].cops == 0);
-    CHECK(raceAiMapName("sf", RaceKind::Cruise, kCruiseRace, true) == "race/sf/roam.aimap_p");
+    CHECK(raceAiMapName("sf", RaceKind::kCruise, kCruiseRace, true) == "race/sf/roam.aimap_p");
     PlayerRecord record;
-    CHECK(raceOpen(record, "sf", RaceKind::Cruise, kStuntRace, false, 3, 3));
-    record.setLastRace("sf", RaceKind::Cruise, kStuntRace);
+    CHECK(raceOpen(record, "sf", RaceKind::kCruise, kStuntRace, false, 3, 3));
+    record.setLastRace("sf", RaceKind::kCruise, kStuntRace);
     std::string city;
-    RaceKind kind = RaceKind::Blitz;
+    RaceKind kind = RaceKind::kBlitz;
     int index = 0;
-    CHECK(record.lastRace(city, kind, index) && kind == RaceKind::Cruise && index == kStuntRace);
+    CHECK(record.lastRace(city, kind, index) && kind == RaceKind::kCruise && index == kStuntRace);
 }
 
 // The gaps closed: a password proved, not sent; joining a game already
@@ -3013,7 +3013,7 @@ static void testNetSessionMore() {
 
     auto network = net::LoopbackNetwork::create();
     NetSettings settings;
-    settings.mode = NetMode::Cruise;
+    settings.mode = NetMode::kCruise;
     auto host = NetSession::host(network->open(kNetPort), "Hosting", settings, "swordfish");
     const net::Address at{0x7f000001, kNetPort};
     std::vector<NetSession*> players;
@@ -3048,14 +3048,14 @@ static void testNetSessionMore() {
     ann->setLoaded();
     bob->setLoaded();
     run(3500);
-    CHECK(host->phase() == NetSession::Phase::Playing && host->clock(t) > 0.2f);
+    CHECK(host->phase() == NetSession::Phase::kPlaying && host->clock(t) > 0.2f);
     auto carl = NetSession::join(network->open(0), at, "Carl", "swordfish");
     players.push_back(carl.get());
     run(600);
     bool started = false;
     for (const NetNotice& n : carl->takeNotices())
-        started = started || n.kind == NetNotice::Kind::Started;
-    CHECK(carl->myId() == 3 && started && carl->phase() == NetSession::Phase::Playing && carl->counting() &&
+        started = started || n.kind == NetNotice::Kind::kStarted;
+    CHECK(carl->myId() == 3 && started && carl->phase() == NetSession::Phase::kPlaying && carl->counting() &&
           std::fabs(carl->clock(t) - host->clock(t)) < 0.1f);
     carl->setLoaded();
 
@@ -3098,7 +3098,7 @@ static void testNetSessionMore() {
     run(300);
     bool cheat = false;
     for (const NetNotice& n : ann->takeNotices())
-        cheat = cheat || (n.kind == NetNotice::Kind::Suspect && n.name == "Bob");
+        cheat = cheat || (n.kind == NetNotice::Kind::kSuspect && n.name == "Bob");
     CHECK(host->player(2)->cheater && ann->player(2)->cheater && cheat);
 
     // The host leaves: Ann (in longest) takes over, the others follow her,
@@ -3109,10 +3109,10 @@ static void testNetSessionMore() {
     run(300);
     bool moved = false;
     for (const NetNotice& n : bob->takeNotices())
-        moved = moved || (n.kind == NetNotice::Kind::HostMoved && n.name == "Ann");
+        moved = moved || (n.kind == NetNotice::Kind::kHostMoved && n.name == "Ann");
     CHECK(moved && ann->isHost() && !bob->isHost() && !bob->closed() && bob->hostId() == 1 &&
           ann->players().size() == 3);
-    CHECK(ann->phase() == NetSession::Phase::Playing && ann->clock(t) > before);
+    CHECK(ann->phase() == NetSession::Phase::kPlaying && ann->clock(t) > before);
     bob->say("still here");
     run(1500);
     CHECK(!ann->chat().empty() && ann->chat().back().text == "still here" && carl->chat().back().text == "still here");

@@ -32,7 +32,7 @@ public:
     // refl_showroom), and whether cars show reflections (the Graphics
     // Options' Vehicle Reflections).
     gfx::TextureId reflectionMap = 0;
-    static inline bool reflections = true;
+    static inline bool g_reflections = true;
 
     CarSetup setup;
     CarSim sim;
@@ -46,7 +46,7 @@ public:
     struct Lamps {
         bool head = false, brake = false, reverse = false;
     } lamps;
-    bool hasSiren() const { return sirens_[0].mesh || !sirenLamps_.empty(); }
+    bool hasSiren() const { return _sirens[0].mesh || !_sirenLamps.empty(); }
     // Flares at its headlights (its HEADLIGHT squares) when they're on, and
     // at its sirens, seen from `eye`.
     void drawFlares(const FlareDrawer& flares, const Vec3& eye) const;
@@ -59,14 +59,14 @@ public:
     void mend();
 
 private:
-    gfx::Renderer3D* renderer_ = nullptr;
-    ModelMesh body_;
-    std::vector<gfx::TextureId> clean_, damaged_; // each body draw's textures (damaged_ 0: none)
-    std::array<ModelMesh, 4> wheels_;
-    std::array<ModelMesh, 2> sirens_; // SIREN0, SIREN1
-    ModelMesh head_, tail_, brake_, reverse_;
-    std::vector<Vec3> headlights_;              // HEADLIGHT0, 1 squares
-    std::vector<std::pair<Vec3, std::array<float, 3>>> sirenLamps_; // SRN squares: where, colour
+    gfx::Renderer3D* _renderer = nullptr;
+    ModelMesh _body;
+    std::vector<gfx::TextureId> _clean, _damaged; // each body draw's textures (damaged_ 0: none)
+    std::array<ModelMesh, 4> _wheels;
+    std::array<ModelMesh, 2> _sirens; // SIREN0, SIREN1
+    ModelMesh _head, _tail, _brake, _reverse;
+    std::vector<Vec3> _headlights;              // HEADLIGHT0, 1 squares
+    std::vector<std::pair<Vec3, std::array<float, 3>>> _sirenLamps; // SRN squares: where, colour
 };
 
 // A car's cameras (tune/camera): near and far following it, and in it.

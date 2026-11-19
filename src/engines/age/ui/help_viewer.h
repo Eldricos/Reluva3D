@@ -23,18 +23,18 @@ class HelpViewer {
 public:
     // Reads the help; false (and why) if it isn't there or can't be read.
     Error load(const SearchSet& files);
-    bool loaded() const { return !list_.empty(); }
+    bool loaded() const { return !_list.empty(); }
 
     void open();
-    bool isOpen() const { return open_; }
+    bool isOpen() const { return _open; }
     void handle(const Event& ev); // closes itself on Esc from the list
     void draw(Surface& overlay) const;
 
     // For tests: the topic being read (-1: the list), its links (each the
     // topic it goes to), the one chosen.
-    int reading() const { return reading_; }
-    const std::vector<int>& links() const { return links_; }
-    int chosenLink() const { return link_; }
+    int reading() const { return _reading; }
+    const std::vector<int>& links() const { return _links; }
+    int chosenLink() const { return _link; }
 
 private:
     // A line of the topic as it's laid out: its characters, each one's link
@@ -53,18 +53,18 @@ private:
     const winhelp::Picture* picture(int number) const;
     int pictureLines(const winhelp::Picture& p) const;
 
-    std::vector<uint8_t> file_;                        // the help, for its pictures
-    std::vector<winhelp::Topic> topics_;               // every topic (links go to any)
-    std::vector<int> list_;                            // those listed: with a title and text
-    mutable std::map<int, winhelp::Picture> pictures_; // read when first shown
-    bool open_ = false;
-    int row_ = 0, top_ = 0; // the list's chosen topic, and its first shown
-    int reading_ = -1;      // the topic open, or -1 for the list
-    std::vector<int> back_; // the topics read before, for Backspace
-    std::vector<Line> lines_;
-    std::vector<int> links_; // the topic's links' targets
-    int link_ = -1;          // the link chosen (Tab)
-    int line_ = 0;           // the first line shown
+    std::vector<uint8_t> _file;                        // the help, for its pictures
+    std::vector<winhelp::Topic> _topics;               // every topic (links go to any)
+    std::vector<int> _list;                            // those listed: with a title and text
+    mutable std::map<int, winhelp::Picture> _pictures; // read when first shown
+    bool _open = false;
+    int _row = 0, _top = 0; // the list's chosen topic, and its first shown
+    int _reading = -1;      // the topic open, or -1 for the list
+    std::vector<int> _back; // the topics read before, for Backspace
+    std::vector<Line> _lines;
+    std::vector<int> _links; // the topic's links' targets
+    int _link = -1;          // the link chosen (Tab)
+    int _line = 0;           // the first line shown
 };
 
 } // namespace reluva::age

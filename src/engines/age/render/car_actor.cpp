@@ -25,7 +25,7 @@ gfx::Mat4 matrixOf(const Mat3& r, const Vec3& p) {
 Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                      const std::string& car, uint32_t paintJob) {
     unload();
-    renderer_ = &renderer;
+    _renderer = &renderer;
     if (Error err = loadCarSetup(files, car, setup))
         return err;
     // The body without its wheels, which are drawn where the simulation
@@ -40,30 +40,30 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     paintJobs = std::max(1u, pkg.paintJobs);
     paintJob %= paintJobs;
     auto isWheel = [](const std::string& part) { return part.rfind("WHL", 0) == 0; };
-    buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, body_,
+    buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, _body,
                    [&](const std::string& part) { return !isWheel(part); });
-    clean_.clear();
-    damaged_.clear();
-    for (const ModelDraw& d : body_.draws) {
+    _clean.clear();
+    _damaged.clear();
+    for (const ModelDraw& d : _body.draws) {
         bool translucent;
-        clean_.push_back(d.texture);
-        damaged_.push_back(d.textureName.empty() ? 0 : textures.get(d.textureName + "_dmg", translucent, true));
+        _clean.push_back(d.texture);
+        _damaged.push_back(d.textureName.empty() ? 0 : textures.get(d.textureName + "_dmg", translucent, true));
     }
     for (int i = 0; i < 4; ++i) {
         const std::string name = "WHL" + std::to_string(i);
-        buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, wheels_[size_t(i)],
+        buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, _wheels[size_t(i)],
                        [&](const std::string& part) { return part == name; }, false);
     }
     auto lamp = [&](const char* part, ModelMesh& out) {
         buildModelMesh(renderer, textures, files, file, pkg, "", paintJob, true, out,
                        [&](const std::string& p) { return p == part; });
     };
-    lamp("HLIGHT", head_);
-    lamp("TLIGHT", tail_);
-    lamp("BLIGHT", brake_);
-    lamp("RLIGHT", reverse_);
-    headlights_.clear();
-    sirenLamps_.clear();
+    lamp("HLIGHT", _head);
+    lamp("TLIGHT", _tail);
+    lamp("BLIGHT", _brake);
+    lamp("RLIGHT", _reverse);
+    _headlights.clear();
+    _sirenLamps.clear();
     for (const PkgMesh& m : pkg.meshes) {
         const std::string part = m.part();
         std::vector<uint8_t> placement;
@@ -72,95 +72,95 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             files.read("geometry/" + car + "_" + part + ".mtx", placement) || readMtx(placement, mtx))
             continue;
         if (part[0] == 'H') {
-            headlights_.push_back(mtx.origin);
+            _headlights.push_back(mtx.origin);
         } else if (!m.groups.empty()) {
             const PkgShader* sh = pkg.shader(paintJob, m.groups.front().shader);
-            sirenLamps_.push_back({mtx.origin, sh ? std::array<float, 3>{sh->diffuse[0], sh->diffuse[1], sh->diffuse[2]}
+            _sirenLamps.push_back({mtx.origin, sh ? std::array<float, 3>{sh->diffuse[0], sh->diffuse[1], sh->diffuse[2]}
                                                   : std::array<float, 3>{1, 1, 1}});
         }
     }
     for (int i = 0; i < 2; ++i)
-        lamp(i == 0 ? "SIREN0" : "SIREN1", sirens_[size_t(i)]);
+        lamp(i == 0 ? "SIREN0" : "SIREN1", _sirens[size_t(i)]);
     bool translucent = false;
     reflectionMap = textures.get("refl_dc", translucent, true);
     return Error::success();
 }
 
 void CarActor::unload() {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    destroyModelMesh(*renderer_, body_);
-    for (ModelMesh& w : wheels_)
-        destroyModelMesh(*renderer_, w);
-    for (ModelMesh& m : sirens_)
-        destroyModelMesh(*renderer_, m);
-    for (ModelMesh* m : {&head_, &tail_, &brake_, &reverse_})
-        destroyModelMesh(*renderer_, *m);
-    renderer_ = nullptr;
+    destroyModelMesh(*_renderer, _body);
+    for (ModelMesh& w : _wheels)
+        destroyModelMesh(*_renderer, w);
+    for (ModelMesh& m : _sirens)
+        destroyModelMesh(*_renderer, m);
+    for (ModelMesh* m : {&_head, &_tail, &_brake, &_reverse})
+        destroyModelMesh(*_renderer, *m);
+    _renderer = nullptr;
 }
 
 void CarActor::draw(const SceneLight& light) const {
-    if (!renderer_)
+    if (!_renderer)
         return;
     const gfx::Mat4 carMatrix = matrixOf(sim.orientation, sim.position);
     for (bool translucent : {false, true}) {
-        drawModelMesh(*renderer_, body_, carMatrix, light, translucent);
-        if (!translucent && reflections)
-            drawModelReflection(*renderer_, body_, carMatrix, light, reflectionMap, kReflection);
+        drawModelMesh(*_renderer, _body, carMatrix, light, translucent);
+        if (!translucent && g_reflections)
+            drawModelReflection(*_renderer, _body, carMatrix, light, reflectionMap, kReflection);
         for (int i = 0; i < 4; ++i) {
             const CarSim::Wheel& w = sim.wheels[size_t(i)];
             const AxleSetup& axle = i < 2 ? setup.front : setup.back;
             const Vec3 at = setup.wheels[size_t(i)] + Vec3{0, w.compression - axle.suspensionExtent, 0};
             // Steered about the vertical, rolling about the axle.
             const Mat3 turn = Mat3::rotationY(w.steer) * Mat3::rotation({1, 0, 0}, -w.spin);
-            drawModelMesh(*renderer_, wheels_[size_t(i)], gfx::multiply(carMatrix, matrixOf(turn, at)), light,
+            drawModelMesh(*_renderer, _wheels[size_t(i)], gfx::multiply(carMatrix, matrixOf(turn, at)), light,
                           translucent);
         }
         if (siren > 0)
-            drawModelMesh(*renderer_, sirens_[size_t(siren - 1) % 2], carMatrix, light, translucent);
+            drawModelMesh(*_renderer, _sirens[size_t(siren - 1) % 2], carMatrix, light, translucent);
         if (lamps.head) {
-            drawModelMesh(*renderer_, head_, carMatrix, light, translucent);
-            drawModelMesh(*renderer_, tail_, carMatrix, light, translucent);
+            drawModelMesh(*_renderer, _head, carMatrix, light, translucent);
+            drawModelMesh(*_renderer, _tail, carMatrix, light, translucent);
         }
         if (lamps.brake) {
-            drawModelMesh(*renderer_, brake_, carMatrix, light, translucent);
-            drawModelMesh(*renderer_, tail_, carMatrix, light, translucent);
+            drawModelMesh(*_renderer, _brake, carMatrix, light, translucent);
+            drawModelMesh(*_renderer, _tail, carMatrix, light, translucent);
         }
         if (lamps.reverse)
-            drawModelMesh(*renderer_, reverse_, carMatrix, light, translucent);
+            drawModelMesh(*_renderer, _reverse, carMatrix, light, translucent);
     }
 }
 
 void CarActor::dent(const Vec3& at, float radius) {
-    for (size_t i = 0; i < body_.draws.size() && i < damaged_.size(); ++i)
-        if (damaged_[i] && length(body_.draws[i].center - at) <= radius)
-            body_.draws[i].texture = damaged_[i];
+    for (size_t i = 0; i < _body.draws.size() && i < _damaged.size(); ++i)
+        if (_damaged[i] && length(_body.draws[i].center - at) <= radius)
+            _body.draws[i].texture = _damaged[i];
 }
 
 void CarActor::mend() {
-    for (size_t i = 0; i < body_.draws.size() && i < clean_.size(); ++i)
-        body_.draws[i].texture = clean_[i];
+    for (size_t i = 0; i < _body.draws.size() && i < _clean.size(); ++i)
+        _body.draws[i].texture = _clean[i];
 }
 
 void CarActor::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {
-    if (!renderer_)
+    if (!_renderer)
         return;
     const Vec3 toEye = normalized(eye - sim.position);
     // Headlights seen from in front of the car.
     const float facing = dot(-sim.orientation.z, toEye);
     if (lamps.head && facing > 0)
-        for (const Vec3& h : headlights_)
+        for (const Vec3& h : _headlights)
             flares.draw(sim.position + sim.orientation * h, 1.6f, {facing, facing * 0.95f, facing * 0.8f}, eye);
     // The sirens lit (the first half, then the second: blue, then red),
     // from all round.
     if (siren > 0)
-        for (size_t i = 0; i < sirenLamps_.size(); ++i)
-            if ((i < sirenLamps_.size() / 2) == (siren == 1))
-                flares.draw(sim.position + sim.orientation * sirenLamps_[i].first, 2.0f, sirenLamps_[i].second, eye);
+        for (size_t i = 0; i < _sirenLamps.size(); ++i)
+            if ((i < _sirenLamps.size() / 2) == (siren == 1))
+                flares.draw(sim.position + sim.orientation * _sirenLamps[i].first, 2.0f, _sirenLamps[i].second, eye);
 }
 
 bool CarActor::headlightPool(gfx::DynamicLight& out) const {
-    if (!renderer_ || !lamps.head)
+    if (!_renderer || !lamps.head)
         return false;
     out = {sim.position - sim.orientation.z * 10.0f + sim.orientation.y * 1.0f, 13, {0.6f, 0.55f, 0.45f}};
     return true;

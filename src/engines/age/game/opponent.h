@@ -26,37 +26,37 @@ public:
     void follow(std::vector<Vec3> path, float skill);
     CarControls drive(const CarSim& car, float dt);
     // At most this fast (metres a second), as a patrolling police car.
-    void setSpeedLimit(float limit) { limit_ = limit; }
+    void setSpeedLimit(float limit) { _limit = limit; }
 
-    bool finished() const { return finished_; }
-    int lap() const { return lap_; }
-    size_t next() const { return index_; }
+    bool finished() const { return _finished; }
+    int lap() const { return _lap; }
+    size_t next() const { return _index; }
     // How many of the path's points it's gone on from, laps unrolled.
-    size_t passed() const { return passed_; }
-    int laps() const { return laps_; }
-    size_t loopFrom() const { return loopFrom_; }
-    const std::vector<Vec3>& path() const { return path_; }
+    size_t passed() const { return _passed; }
+    int laps() const { return _laps; }
+    size_t loopFrom() const { return _loopFrom; }
+    const std::vector<Vec3>& path() const { return _path; }
     // Stuck for long, or 8 s without getting nearer the next point: the
     // caller puts the car back at `resetPoint` facing `resetYaw`, and
     // calls resetDone(). After two at the same point the third puts it on
     // that point, and it goes on to the next.
-    bool wantsReset() const { return stuckTime_ > 6 || lostTime_ > 8; }
+    bool wantsReset() const { return _stuckTime > 6 || _lostTime > 8; }
     Vec3 resetPoint() const;
     float resetYaw() const;
     void resetDone();
 
 private:
-    std::vector<Vec3> path_;
-    int laps_ = 0, lap_ = 0;
-    size_t index_ = 0, loopFrom_ = 0, passed_ = 0;
-    float skill_ = 1;
-    float limit_ = 1e9f;
-    bool finished_ = false;
-    float stuckTime_ = 0, reverseTime_ = 0;
+    std::vector<Vec3> _path;
+    int _laps = 0, _lap = 0;
+    size_t _index = 0, _loopFrom = 0, _passed = 0;
+    float _skill = 1;
+    float _limit = 1e9f;
+    bool _finished = false;
+    float _stuckTime = 0, _reverseTime = 0;
     // Circling without getting nearer the target: the nearest it's been,
     // and for how long it hasn't got 2 m nearer.
-    float best_ = 1e9f, lostTime_ = 0;
-    int resetsHere_ = 0; // at the current point: after two, the next reset skips it
+    float _best = 1e9f, _lostTime = 0;
+    int _resetsHere = 0; // at the current point: after two, the next reset skips it
 };
 
 // Where along a driver's path (as passed() counts its points) it's

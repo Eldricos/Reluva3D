@@ -26,9 +26,9 @@ class CityLife {
 public:
     // city/<map>.bai and city/<map>.aimap.
     Error load(const SearchSet& files, const std::string& map);
-    const AiMapSettings& citySettings() const { return city_; }
-    const AiRoadMap& roadMap() const { return roads_; }
-    bool loaded() const { return !roads_.roads.empty(); }
+    const AiMapSettings& citySettings() const { return _city; }
+    const AiRoadMap& roadMap() const { return _roads; }
+    bool loaded() const { return !_roads.roads.empty(); }
 
     struct Options {
         float traffic = 0, peds = 0; // densities, 0..1
@@ -44,8 +44,8 @@ public:
     Error start(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
                 const AiMapSettings& settings, const Options& options, audio::Mixer* mixer);
     void stop();
-    void setTrafficDensity(float d) { traffic_.setDensity(d); }
-    void setPedDensity(float d) { peds_.setDensity(d); }
+    void setTrafficDensity(float d) { _traffic.setDensity(d); }
+    void setPedDensity(float d) { _peds.setDensity(d); }
     // Evening, night, fog or rain: the cars' headlights on; `night`: the
     // traffic lights' night glows.
     void setLamps(bool lit, bool night);
@@ -63,38 +63,38 @@ public:
 
     // How many times the player has run into a car (the traffic's or the
     // police's) since starting.
-    int carTouches() const { return carTouches_; }
+    int carTouches() const { return _carTouches; }
 
-    Traffic& traffic() { return traffic_; }
-    Pedestrians& pedestrians() { return peds_; }
-    Police& police() { return police_; }
-    const TrafficLights& lights() const { return lights_; }
-    const Gizmos& gizmos() const { return gizmos_; }
+    Traffic& traffic() { return _traffic; }
+    Pedestrians& pedestrians() { return _peds; }
+    Police& police() { return _police; }
+    const TrafficLights& lights() const { return _lights; }
+    const Gizmos& gizmos() const { return _gizmos; }
     // The city's ambient sounds (aud/ambient).
-    const AmbientSounds& ambient() const { return ambient_; }
-    void setAmbientGain(float gain) { ambient_.setGain(gain); }
+    const AmbientSounds& ambient() const { return _ambient; }
+    void setAmbientGain(float gain) { _ambient.setGain(gain); }
     // The props (city/<map>/props.pathset) and traffic lights, which cars
     // can knock down.
-    const Props& props() const { return props_; }
+    const Props& props() const { return _props; }
     // What flew out of the props knocked down since last asked.
-    std::vector<Props::Burst> takeBursts() { return props_.takeBursts(); }
+    std::vector<Props::Burst> takeBursts() { return _props.takeBursts(); }
 
 private:
-    AiRoadMap roads_;
-    std::vector<uint8_t> blockRules_; // each PSDL block's street furniture rule (0 none)
-    std::string map_;
-    AiMapSettings city_, current_;
-    Traffic traffic_;
-    Pedestrians peds_;
-    Police police_;
-    TrafficLights lights_;
-    Gizmos gizmos_;
-    AmbientSounds ambient_;
-    bool lampsLit_ = false, night_ = false;
-    int carTouches_ = 0;
-    Props props_;
-    const SearchSet* files_ = nullptr;
-    bool propsInWorld_ = false;
+    AiRoadMap _roads;
+    std::vector<uint8_t> _blockRules; // each PSDL block's street furniture rule (0 none)
+    std::string _map;
+    AiMapSettings _city, _current;
+    Traffic _traffic;
+    Pedestrians _peds;
+    Police _police;
+    TrafficLights _lights;
+    Gizmos _gizmos;
+    AmbientSounds _ambient;
+    bool _lampsLit = false, _night = false;
+    int _carTouches = 0;
+    Props _props;
+    const SearchSet* _files = nullptr;
+    bool _propsInWorld = false;
 };
 
 } // namespace reluva::age

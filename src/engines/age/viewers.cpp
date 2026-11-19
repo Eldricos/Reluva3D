@@ -38,10 +38,10 @@ std::string formatSize(uint64_t size) {
 
 // --- Page ------------------------------------------------------------------------------
 
-void Page::clear(uint8_t r, uint8_t g, uint8_t b) { fill(0, 0, ctx_.screen.w, ctx_.screen.h, r, g, b); }
+void Page::clear(uint8_t r, uint8_t g, uint8_t b) { fill(0, 0, _ctx.screen.w, _ctx.screen.h, r, g, b); }
 
 void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
-    Surface& s = ctx_.screen;
+    Surface& s = _ctx.screen;
     const int x0 = std::max(x, 0), y0 = std::max(y, 0);
     const int x1 = std::min(x + w, s.w), y1 = std::min(y + h, s.h);
     for (int yy = y0; yy < y1; ++yy) {
@@ -55,10 +55,10 @@ void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
     }
 }
 
-void Page::text(int x, int y, const std::string& s, Color c) { font::drawText(ctx_.screen, x, y, s, c); }
+void Page::text(int x, int y, const std::string& s, Color c) { font::drawText(_ctx.screen, x, y, s, c); }
 
 void Page::setTitle(const std::string& detail) {
-    ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name + " - " + name() + ": " + detail);
+    _ctx.sys.setWindowTitle(std::string("Reluva - ") + _ctx.game.name + " - " + name() + ": " + detail);
 }
 
 std::string kindOf(const std::string& name) {
@@ -132,48 +132,48 @@ FileViewer::FileViewer(ViewerContext& ctx) : Page(ctx) {
             }
         }
         const std::string top = topFolder(n);
-        if (!top.empty() && std::find(folders_.begin(), folders_.end(), top) == folders_.end())
-            folders_.push_back(top);
-        files_.push_back(std::move(r));
+        if (!top.empty() && std::find(_folders.begin(), _folders.end(), top) == _folders.end())
+            _folders.push_back(top);
+        _files.push_back(std::move(r));
     }
-    std::sort(folders_.begin(), folders_.end());
+    std::sort(_folders.begin(), _folders.end());
     applyFolder();
 }
 
 void FileViewer::applyFolder() {
-    shown_.clear();
-    for (size_t i = 0; i < files_.size(); ++i)
-        if (folder_ < 0 || topFolder(files_[i].name) == folders_[size_t(folder_)])
-            shown_.push_back(i);
-    selected_ = top_ = 0;
+    _shown.clear();
+    for (size_t i = 0; i < _files.size(); ++i)
+        if (_folder < 0 || topFolder(_files[i].name) == _folders[size_t(_folder)])
+            _shown.push_back(i);
+    _selected = _top = 0;
 }
 
-int FileViewer::rows() const { return (ctx_.screen.h - 4 * font::kLineHeight) / font::kLineHeight; }
+int FileViewer::rows() const { return (_ctx.screen.h - 4 * font::kLineHeight) / font::kLineHeight; }
 
 void FileViewer::activate() {
-    setTitle(std::to_string(files_.size()) + " files in " + std::to_string(ctx_.files.size()) + " archives");
+    setTitle(std::to_string(_files.size()) + " files in " + std::to_string(_ctx.files.size()) + " archives");
     draw();
 }
 
 bool FileViewer::takesKey(const Event& ev) const {
-    return viewing_ && ev.type == EventType::kKeyDown && ev.key == key::kEscape;
+    return _viewing && ev.type == EventType::kKeyDown && ev.key == key::kEscape;
 }
 
 void FileViewer::open() {
-    if (shown_.empty())
+    if (_shown.empty())
         return;
-    const Row& r = files_[shown_[size_t(selected_)]];
+    const Row& r = _files[_shown[size_t(_selected)]];
     std::vector<uint8_t> data;
-    if (Error err = ctx_.files.read(r.name, data)) {
-        lines_ = {err.message};
-        isText_ = true;
+    if (Error err = _ctx.files.read(r.name, data)) {
+        _lines = {err.message};
+        _isText = true;
     } else {
-        lines_ = fileLines(data, isText_);
+        _lines = fileLines(data, _isText);
     }
-    viewing_ = true;
-    viewName_ = r.name;
-    lineTop_ = 0;
-    setTitle(viewName_);
+    _viewing = true;
+    _viewName = r.name;
+    _lineTop = 0;
+    setTitle(_viewName);
 }
 
 void FileViewer::handleEvent(const Event& ev) {
@@ -196,15 +196,15 @@ void FileViewer::handleEvent(const Event& ev) {
     else if (ev.key == key::kEnd)
         step = 1 << 30;
 
-    if (viewing_) {
+    if (_viewing) {
         if (ev.type == EventType::kKeyDown && (ev.key == key::kEscape || ev.key == key::kBackspace)) {
-            viewing_ = false;
-            lines_.clear();
+            _viewing = false;
+            _lines.clear();
             activate();
             return;
         }
-        const int last = std::max(0, static_cast<int>(lines_.size()) - (page - 1));
-        lineTop_ = std::clamp(lineTop_ + step, 0, last);
+        const int last = std::max(0, static_cast<int>(_lines.size()) - (page - 1));
+        _lineTop = std::clamp(_lineTop + step, 0, last);
         draw();
         return;
     }
@@ -214,26 +214,26 @@ void FileViewer::handleEvent(const Event& ev) {
         draw();
         return;
     }
-    if (ev.type == EventType::kKeyDown && (ev.key == key::kLeft || ev.key == key::kRight) && !folders_.empty()) {
-        const int n = static_cast<int>(folders_.size()) + 1; // with "all" as -1
-        folder_ = (folder_ + 1 + (ev.key == key::kRight ? 1 : n - 1)) % n - 1;
+    if (ev.type == EventType::kKeyDown && (ev.key == key::kLeft || ev.key == key::kRight) && !_folders.empty()) {
+        const int n = static_cast<int>(_folders.size()) + 1; // with "all" as -1
+        _folder = (_folder + 1 + (ev.key == key::kRight ? 1 : n - 1)) % n - 1;
         applyFolder();
         draw();
         return;
     }
-    if (shown_.empty())
+    if (_shown.empty())
         return;
     // The wheel scrolls the list; keys move the selection, the list following.
-    const int count = static_cast<int>(shown_.size());
+    const int count = static_cast<int>(_shown.size());
     if (ev.type == EventType::kMouseWheel) {
-        top_ = std::clamp(top_ + step, 0, std::max(0, count - page));
-        selected_ = std::clamp(selected_, top_, std::min(count, top_ + page) - 1);
+        _top = std::clamp(_top + step, 0, std::max(0, count - page));
+        _selected = std::clamp(_selected, _top, std::min(count, _top + page) - 1);
     } else {
-        selected_ = static_cast<int>(std::clamp<int64_t>(int64_t(selected_) + step, 0, count - 1));
-        if (selected_ < top_)
-            top_ = selected_;
-        else if (selected_ >= top_ + page)
-            top_ = selected_ - page + 1;
+        _selected = static_cast<int>(std::clamp<int64_t>(int64_t(_selected) + step, 0, count - 1));
+        if (_selected < _top)
+            _top = _selected;
+        else if (_selected >= _top + page)
+            _top = _selected - page + 1;
     }
     draw();
 }
@@ -242,38 +242,38 @@ void FileViewer::draw() {
     clear(16, 18, 24);
     const int lh = font::kLineHeight;
     const int page = rows();
-    if (viewing_) {
-        text(4, 4, viewName_ + (isText_ ? "" : " (hex)"), {150, 200, 255});
+    if (_viewing) {
+        text(4, 4, _viewName + (_isText ? "" : " (hex)"), {150, 200, 255});
         text(4, 4 + lh,
-             "line " + std::to_string(lineTop_ + 1) + " of " + std::to_string(lines_.size()) +
+             "line " + std::to_string(_lineTop + 1) + " of " + std::to_string(_lines.size()) +
                  "; Up/Down, PageUp/PageDown, Home/End scroll; Esc or Backspace goes back",
              {150, 150, 150});
-        for (int i = 0; i < page && lineTop_ + i < static_cast<int>(lines_.size()); ++i)
-            text(4, 3 * lh + i * lh, lines_[size_t(lineTop_ + i)]);
+        for (int i = 0; i < page && _lineTop + i < static_cast<int>(_lines.size()); ++i)
+            text(4, 3 * lh + i * lh, _lines[size_t(_lineTop + i)]);
         return;
     }
 
     std::string order;
-    for (const Archive* a : ctx_.files.archives()) {
+    for (const Archive* a : _ctx.files.archives()) {
         if (!order.empty())
             order += ", ";
         order += std::filesystem::path(a->describe()).filename().string();
     }
     text(4, 4, "Search path, first match wins: " + order, {150, 200, 255});
     text(4, 4 + lh,
-         "Folder (Left/Right): " + (folder_ < 0 ? std::string("all") : folders_[size_t(folder_)]) + ", " +
-             std::to_string(shown_.size()) + " files; Enter opens",
+         "Folder (Left/Right): " + (_folder < 0 ? std::string("all") : _folders[size_t(_folder)]) + ", " +
+             std::to_string(_shown.size()) + " files; Enter opens",
          {150, 200, 255});
-    if (!ctx_.warnings.empty())
+    if (!_ctx.warnings.empty())
         text(4, 4 + 2 * lh,
-             std::to_string(ctx_.warnings.size()) + " problems, the first: " + ctx_.warnings.front(),
+             std::to_string(_ctx.warnings.size()) + " problems, the first: " + _ctx.warnings.front(),
              {255, 120, 120});
-    const int sourceX = ctx_.screen.w - 18 * font::kAdvance;
-    for (int i = 0; i < page && top_ + i < static_cast<int>(shown_.size()); ++i) {
-        const Row& r = files_[shown_[size_t(top_ + i)]];
+    const int sourceX = _ctx.screen.w - 18 * font::kAdvance;
+    for (int i = 0; i < page && _top + i < static_cast<int>(_shown.size()); ++i) {
+        const Row& r = _files[_shown[size_t(_top + i)]];
         const int y = 4 * lh + i * lh;
-        if (top_ + i == selected_)
-            fill(0, y - 1, ctx_.screen.w, lh, 50, 60, 90);
+        if (_top + i == _selected)
+            fill(0, y - 1, _ctx.screen.w, lh, 50, 60, 90);
         text(4, y, r.name);
         const std::string size = formatSize(r.size);
         text(sourceX - 2 * font::kAdvance - static_cast<int>(size.size()) * font::kAdvance, y, size,
