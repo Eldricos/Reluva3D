@@ -55,7 +55,7 @@ endif()
 if(STEP STREQUAL "release")
     set(record "release: ${release}\n")
 elseif(STEP STREQUAL "packages")
-    record_run(packages "^textures +[0-9]+ decoded" unreal check "${game_dir}")
+    record_run(packages "textures +[0-9]+ decoded" unreal check "${game_dir}")
 elseif(STEP STREQUAL "points")
     record_run(points "attachment points against" unreal points "${game_dir}")
 elseif(STEP STREQUAL "scripts")
@@ -75,15 +75,15 @@ elseif(STEP STREQUAL "scripts")
     list(LENGTH files count)
     string(APPEND record "classes' text: ${sum} | ${count} files\n")
 elseif(STEP STREQUAL "levels")
-    record_run(levels "natives missing" unreal run "${game_dir}" -all 20)
+    record_run(levels "maps ran" unreal run "${game_dir}" -all 20)
 elseif(STEP STREQUAL "play")
     # Its saves and settings in the build, not the game's folder.
     set(dir "${OUTPUT}/play/files")
     file(REMOVE_RECURSE "${dir}")
     file(MAKE_DIRECTORY "${dir}")
-    record_run(saved "^where:" unreal play "${game_dir}" M04_KiraL1 saves "${dir}" config "${dir}"
+    record_run(saved "where: weapon" unreal play "${game_dir}" M04_KiraL1 saves "${dir}" config "${dir}"
         play wait 6 press 2 wait 2 where savegame QuickSave travel "?load=QuickSave.dsa" wait 2 where)
-    record_run(settings "^prop " unreal play "${game_dir}" M04_KiraL1 config "${dir}"
+    record_run(settings "prop DS9" unreal play "${game_dir}" M04_KiraL1 config "${dir}"
         play wait 1 console "set Engine.PlayerPawn MouseSensitivity 5" travel M01_SiskoL1A wait 1
         prop DS9_SiskoEVA0 MouseSensitivity)
 else()
