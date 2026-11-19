@@ -14,7 +14,8 @@ namespace reluva::settings {
 // ([reluva]), for an engine's games ([engine:<id>]) or for one game (its own
 // section); a game gets them merged (Config::settingsFor). A setting not set
 // anywhere is Reluva's default, which is how Reluva has always played.
-//
+// Each constant is a key; the comment beside it, its values.
+
 // Display (applied by the frontend, System::setDisplayOptions):
 constexpr const char *kFullscreen = "fullscreen";          // "1": start in full screen (default "0")
 constexpr const char *kWindowScale = "window_scale";       // "" (default): leave the window as it is;
@@ -25,9 +26,12 @@ constexpr const char *kVsync = "vsync";                    // "0": don't wait fo
 // Sound (applied by each engine to its Mixer):
 constexpr const char *kMasterVolume = "master_volume"; // percent, 0..200 (default 100)
 
+/** The display settings in `settings`, each one unset at its default. A flag is on for any value but "0". */
 DisplayOptions display(const std::map<std::string, std::string> &settings);
-// A percentage setting (0..200, `fallback` when unset or not a number) on
-// the Mixer's scale (audio::kMaxVolume is 100%).
+/**
+ * A percentage setting (0..200; `fallbackPercent` when unset or not a
+ * number) on the Mixer's scale, where audio::kMaxVolume is 100%.
+ */
 int volume(const std::map<std::string, std::string> &settings, const char *key, int fallbackPercent = 100);
 
 } // namespace reluva::settings

@@ -13,12 +13,20 @@
 
 namespace reluva {
 
-// A .zip archive (also .pk3 and the like), read from its central directory.
-// Files stored uncompressed or with deflate are supported, checked against
-// their CRC-32 when read; encrypted entries, multi-disk and Zip64 archives
-// are not. Folder entries are left out of list().
+/**
+ * A .zip archive (also .pk3 and the like), read from its central directory.
+ * Files stored uncompressed or with deflate are supported, checked against
+ * their CRC-32 when read; encrypted entries, multi-disk and Zip64 archives
+ * are not. Folder entries are left out of list().
+ *
+ * Only the directory is read by open(): each file's data is read from the
+ * archive on disk when asked for, so the file must stay where it is. Each
+ * read opens the file anew, so one archive can be read from several
+ * threads at once.
+ */
 class ZipArchive : public Archive {
 public:
+    /** A file in the central directory. */
     struct Entry {
         std::string name;    // as stored
         uint16_t method = 0; // 0 stored, 8 deflate
@@ -28,6 +36,7 @@ public:
         uint32_t localHeader = 0; // file offset of the local header
     };
 
+    /** Reads the archive's directory; fails if it isn't a zip archive Reluva reads. */
     Error open(const std::filesystem::path &path);
 
     std::vector<std::string> list() const override;
@@ -35,29 +44,38 @@ public:
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return _path.string(); }
 
+    /** Every file, in the directory's order: no folders, and only the first of a name. */
     const std::vector<Entry> &entries() const { return _entries; }
+    /** The entry of a name (matched as normalizeArchiveName does), or nullptr. */
     const Entry *entry(std::string_view name) const;
+    /** One entry's file, unpacked and its CRC-32 checked. */
     Error read(const Entry &entry, std::vector<uint8_t> &out) const;
-    // The same, but a stored (uncompressed) entry whose CRC-32 doesn't
-    // match is read as it is, `crcOk` false: for games whose own readers
-    // never checked, and whose copies have entries damaged that way.
+    /**
+     * The same, but a stored (uncompressed) entry whose CRC-32 doesn't
+     * match is read as it is, `crcOk` false: for games whose own readers
+     * never checked, and whose copies have entries damaged that way.
+     */
     Error readUnchecked(const Entry &entry, std::vector<uint8_t> &out, bool &crcOk) const;
 
 private:
     std::filesystem::path _path;
     std::vector<Entry> _entries;
-    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> index in _entries
 };
 
-// CRC-32 as zip uses it (polynomial 0xedb88320), continuing from `crc`.
+/** CRC-32 as zip uses it (polynomial 0xedb88320), continuing from `crc` (0 to start). */
 uint32_t crc32(const uint8_t *data, size_t size, uint32_t crc = 0);
 
-// Inflate raw deflate data (no zlib header) whose size is known. Fails if
-// the data is damaged or doesn't come to exactly `size` bytes.
+/**
+ * Inflates raw deflate data (no zlib header) whose size is known. Fails if
+ * the data is damaged or doesn't come to exactly `size` bytes.
+ */
 Error inflateRaw(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out);
 
-// The same for a zlib stream (RFC 1950: a 2-byte header, deflate data and
-// an Adler-32 of the result, which is checked).
+/**
+ * The same for a zlib stream (RFC 1950: a 2-byte header, deflate data and
+ * an Adler-32 of the result, which is checked).
+ */
 Error inflateZlib(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out);
 
 } // namespace reluva

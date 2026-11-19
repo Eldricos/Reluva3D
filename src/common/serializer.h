@@ -12,26 +12,46 @@
 
 namespace reluva {
 
-// Saving and loading with the same code: each sync call writes a value
-// when saving and reads it back into the same variable when loading, so a
-// saved game's layout is written once. Values are little-endian, in the
-// number of bytes asked for (signed ones sign-extended when read); strings
-// and vectors are preceded by their length (32 bits). Once a read runs out
-// or a length is implausible, err() is set and the rest reads as zeros.
+/**
+ * Saving and loading with the same code: each sync call writes a value
+ * when saving and reads it back into the same variable when loading, so a
+ * saved game's layout is written once:
+ *
+ *     void Player::sync(Serializer &s) {
+ *         s.syncAsSint32(_health);
+ *         s.syncString(_name);
+ *     }
+ *
+ * Values are little-endian, in the number of bytes asked for (signed ones
+ * sign-extended when read); strings and vectors are preceded by their
+ * length (32 bits). Once a read runs out or a length is implausible, err()
+ * is set and the rest reads as zeros.
+ */
 class Serializer {
 public:
-    // Loading from `in`, or saving to `out` (the other nullptr).
+    /** Loading from `in`, or saving to `out` (the other nullptr). Neither is owned. */
     Serializer(ReadStream *in, MemoryWriteStream *out) : _in(in), _out(out) {}
 
-    // The layout's version, for data saved before a field was added.
+    /**
+     * The layout's version, which the caller saves and sets on loading:
+     * code syncing a field added later checks it, for games saved before.
+     */
+    ///@{
     void setVersion(uint32_t version) { _version = version; }
     uint32_t version() const { return _version; }
+    ///@}
 
+    /** Which way it's going. */
+    ///@{
     bool isLoading() const { return _in != nullptr; }
     bool isSaving() const { return _out != nullptr; }
+    ///@}
+    /** Whether loading has failed: the data ran out, or didn't make sense. */
     bool err() const { return _failed || (_in && _in->err()); }
+    /** Marks the load failed, for a value the caller finds impossible. */
     void fail() { _failed = true; }
 
+    /** Bytes as they are. */
     void syncBytes(void *data, uint32_t size) {
         if (_in) {
             if (_in->read(data, size) != size)
@@ -41,6 +61,7 @@ public:
         }
     }
 
+    /** An integer of any type kept in `bytes` bytes (1 to 8): cut short when saved, extended when loaded. */
     template<typename T>
     void syncAsInt(T &value, int bytes) {
         uint8_t buffer[8] = {};
@@ -61,6 +82,8 @@ public:
         }
     }
 
+    /** A value in its own size (a bool in a byte). */
+    ///@{
     void syncAsByte(uint8_t &value) { syncAsInt(value, 1); }
     void syncAsBool(bool &value) {
         uint8_t b = value ? 1 : 0;
@@ -72,15 +95,17 @@ public:
     void syncAsUint32(uint32_t &value) { syncAsInt(value, 4); }
     void syncAsSint32(int32_t &value) { syncAsInt(value, 4); }
     void syncAsUint64(uint64_t &value) { syncAsInt(value, 8); }
-    // An int in 32 bits.
+    ///@}
+    /** An int in 32 bits. */
     void syncAsInt(int &value) { syncAsInt(value, 4); }
-    // A double's bits, as they are.
+    /** A double's bits, as they are. */
     void syncAsDouble(double &value) {
         uint64_t bits = 0;
         std::memcpy(&bits, &value, sizeof bits);
         syncAsInt(bits, 8);
         std::memcpy(&value, &bits, sizeof bits);
     }
+    /** A string, after its length; a load fails on a length over 1 MiB. */
     void syncString(std::string &value) {
         uint32_t size = uint32_t(value.size());
         syncAsUint32(size);
@@ -94,7 +119,10 @@ public:
         if (size)
             syncBytes(value.data(), size);
     }
-    // A vector, each element with sync(serializer, element).
+    /**
+     * A vector, after its length, each element with sync(serializer,
+     * element); a load fails on a length over 16 Mi elements.
+     */
     template<typename T, typename F>
     void syncVector(std::vector<T> &values, F sync) {
         uint32_t size = uint32_t(values.size());
@@ -112,8 +140,10 @@ public:
             sync(*this, value);
         }
     }
-    // A count the layout fixes, stored to check it: a load whose count
-    // differs fails.
+    /**
+     * A count the layout fixes, stored to check it: a load whose count
+     * differs fails.
+     */
     void syncCount(uint32_t count) {
         uint32_t stored = count;
         syncAsUint32(stored);

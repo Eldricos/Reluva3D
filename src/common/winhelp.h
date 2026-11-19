@@ -21,6 +21,7 @@ constexpr char kPictureMark = '\x01'; // kPictureMark, the picture's number (|bm
 constexpr char kLinkMark = '\x02';    // kLinkMark, the topic's index, kLinkMark, its words, kLinkEnd
 constexpr char kLinkEnd = '\x03';
 
+/** A help topic: a page of the help file. */
 struct Topic {
     std::string title;
     // Paragraphs separated by blank lines; a table's cells by tabs, its
@@ -28,16 +29,19 @@ struct Topic {
     // the marks above for pictures and links (plainText() leaves them out).
     std::string text;
 };
+/** A topic's text without the picture and link marks: the pictures dropped, the links' words kept. */
 std::string plainText(const std::string &text);
 
+/** Every topic of a .hlp file, in the file's order. Windows 3.0's help files fail: only 3.1's on are read. */
 Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out);
 
-/** A picture (|bm<n>: the help compiler's own form of a bitmap), as RGBA. */
+/** A picture (`|bm<n>`: the help compiler's own form of a bitmap), as RGBA. */
 struct Picture {
     int width = 0;
     int height = 0;
     std::vector<uint8_t> rgba;
 };
+/** Picture `number` of a .hlp file (the `<n>` of `|bm<n>`). */
 Error readPicture(const std::vector<uint8_t> &file, int number, Picture &out);
 
 /**
