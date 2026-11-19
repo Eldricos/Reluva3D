@@ -20,49 +20,57 @@ namespace reluva::nfs {
 
 class GameHost;
 
-// The game itself: the retail nfs3.exe in the x86 interpreter
-// (host/game_host.h), started when the page is first shown and running
-// on a thread of its own from then on. Its frames are shown here, its
-// sound goes to the mixer, and the keyboard and mouse go to it. Esc goes
-// to the game too: Ctrl+F5 goes back to the launcher. With a GPU, what the
-// game draws through THRASH is drawn with it (thrash_gpu.h); without, in
-// software into the frames shown.
+/**
+ * The game itself: the retail nfs3.exe in the x86 interpreter
+ * (host/game_host.h), started when the page is first shown and running
+ * on a thread of its own from then on. Its frames are shown here, its
+ * sound goes to the mixer, and the keyboard and mouse go to it. Esc goes
+ * to the game too: Ctrl+F5 goes back to the launcher. With a GPU, what the
+ * game draws through THRASH is drawn with it (thrash_gpu.h); without, in
+ * software into the frames shown.
+ */
 class PlayPage : public Page {
 public:
-    // With a GPU, frames are drawn `renderScale` times the game's 640x480.
-    // Textures are bilinear-filtered, as the game's renderer DLLs ask for,
-    // unless `smoothTextures` is false (point-sampled, GPU and software).
-    // With `network`, the game's sockets are the machine's, for its
-    // network play over TCP and IPX; `serial` and `modem` (as reluva.ini's
-    // "listen:port" or "host:port") make its COM ports and its modem links
-    // over TCP too. With `fillMovies`, the black lines the game
-    // leaves between a movie's are filled in.
-    // A game controller connected at the start is offered to the game as a
-    // joystick unless `offerJoystick` is false: a wheel as a wheel, with
-    // the forces the game asks for (force feedback, or a pad's rumble)
-    // unless `forceFeedback` is false. `wheelPedals` ("accelerator,brake",
-    // axis numbers) is for a wheel SDL has no layout for. `glide`: the
-    // game's own voodoo2a.dll draws, on Reluva's Glide stand-in
-    // (GameHost::Options::glide), rather than THRASH natively: on the GPU
-    // when there is one, in software with `glideSoftware`; `glideDll` a
-    // THRASH DLL file outside the install to run instead (the CD's Voodoo3
-    // patch DLL, on Glide 3); `glideBoard` the board Glide stands in for
-    // ("voodoo1" for the install's voodooa.dll; GameHost::Options::glideBoard).
-    // `direct3d`: the game is told its renderer is d3da.dll and takes its
-    // Direct3D path (no fog, the clouds' constant alpha, the dimming by the
-    // effects intensity), drawn natively as d3da's device draws (bilinear,
-    // undithered; docs/engines/nfs/games/nfs3/formats/hrz.md, The Direct3D renderer).
+    /**
+     * With a GPU, frames are drawn `renderScale` times the game's 640x480.
+     * Textures are bilinear-filtered, as the game's renderer DLLs ask for,
+     * unless `smoothTextures` is false (point-sampled, GPU and software).
+     * With `network`, the game's sockets are the machine's, for its
+     * network play over TCP and IPX; `serial` and `modem` (as reluva.ini's
+     * "listen:port" or "host:port") make its COM ports and its modem links
+     * over TCP too. With `fillMovies`, the black lines the game
+     * leaves between a movie's are filled in.
+     * A game controller connected at the start is offered to the game as a
+     * joystick unless `offerJoystick` is false: a wheel as a wheel, with
+     * the forces the game asks for (force feedback, or a pad's rumble)
+     * unless `forceFeedback` is false. `wheelPedals` ("accelerator,brake",
+     * axis numbers) is for a wheel SDL has no layout for. `glide`: the
+     * game's own voodoo2a.dll draws, on Reluva's Glide stand-in
+     * (GameHost::Options::glide), rather than THRASH natively: on the GPU
+     * when there is one, in software with `glideSoftware`; `glideDll` a
+     * THRASH DLL file outside the install to run instead (the CD's Voodoo3
+     * patch DLL, on Glide 3); `glideBoard` the board Glide stands in for
+     * ("voodoo1" for the install's voodooa.dll; GameHost::Options::glideBoard).
+     * `direct3d`: the game is told its renderer is d3da.dll and takes its
+     * Direct3D path (no fog, the clouds' constant alpha, the dimming by the
+     * effects intensity), drawn natively as d3da's device draws (bilinear,
+     * undithered; docs/engines/nfs/games/nfs3/formats/hrz.md, The Direct3D renderer).
+     */
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer, int renderScale = 2,
              bool smoothTextures = true, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
              std::string modem = {}, bool glide = false, bool direct3d = false, bool glideSoftware = false,
              std::string glideDll = {}, std::string glideBoard = {});
-    // Network races with positional updates (reluva.ini's
-    // positionalupdates=on; GameHost::Options::positionalUpdates). Set
-    // before the page is first shown; every player needs the same.
+    /**
+     * Network races with positional updates (reluva.ini's
+     * positionalupdates=on; GameHost::Options::positionalUpdates). Set
+     * before the page is first shown; every player needs the same.
+     */
     void setPositionalUpdates(bool on) { _positionalUpdates = on; }
-    // The keys named at the foot of the screen shown until the game's
-    // first frame.
+    /**
+     * The keys named at the foot of the screen shown until the game's
+     * first frame.
+     */
     void setKeysLine(std::string line) { _keysLine = std::move(line); }
     ~PlayPage() override;
     const char *name() const override { return "Play"; }
@@ -76,7 +84,7 @@ public:
     void handleEvent(const Event &ev) override;
     void draw(Surface &screen) override;
     bool tick(uint64_t nowMs) override;
-    // Starts the game, if it isn't running (activate() does this).
+    /** Starts the game, if it isn't running (activate() does this). */
     void start();
 
 private:
@@ -87,7 +95,7 @@ private:
     // stopped when the page is left or the game ends.
     void passForces();
     void stopForces();
-    // The title, how the run is going and the log's last lines (mutex_ held).
+    // The title, how the run is going and the log's last lines (_mutex held).
     void drawStatus(Surface &screen);
 
     GameFolders _folders;
@@ -138,7 +146,7 @@ private:
         std::shared_ptr<const Surface> software; // comparing: the software rasterizer's of the same flip
     };
     std::deque<Pending> _pending;
-    bool _thrashLatest = false; // whether the last frame was THRASH's (else frame_)
+    bool _thrashLatest = false; // whether the last frame was THRASH's (else _frame)
     // The screen as DirectDraw last left it (a loading screen's picture),
     // shown over THRASH's frames until a page flip covers all of it: clear
     // (alpha 0) where flips have shown THRASH's frame since.

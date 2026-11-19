@@ -14,13 +14,18 @@
 
 namespace reluva::nfs::page {
 
+/** The space left at the screen's edges, in pixels. */
 constexpr int kMargin = 16;
+/** The pages' colours. */
+///@{
 constexpr Color kBackground{16, 20, 32};
 constexpr Color kTitleColor{255, 200, 64};
 constexpr Color kLabelColor{150, 160, 180};
 constexpr Color kTextColor{230, 230, 230};
 constexpr Color kWarnColor{255, 120, 100};
+///@}
 
+/** Fills a rectangle with an opaque colour, clipped to the surface (RGBA32). */
 inline void fill(Surface &s, int x0, int y0, int w, int h, Color c) {
     for (int y = std::max(y0, 0); y < std::min(y0 + h, s.h); ++y) {
         uint8_t *p = s.row(y) + std::max(x0, 0) * 4;
@@ -33,11 +38,12 @@ inline void fill(Surface &s, int x0, int y0, int w, int h, Color c) {
     }
 }
 
+/** Fills the whole surface with the background colour. */
 inline void clear(Surface &s) {
     fill(s, 0, 0, s.w, s.h, kBackground);
 }
 
-// A line of text with the built-in font, cut to fit the screen.
+/** A line of text with the built-in font, cut to fit the screen. */
 inline void text(Surface &s, int x, int y, const std::string &utf8, Color c) {
     const size_t room = static_cast<size_t>(std::max(0, s.w - x - kMargin) / font::kAdvance);
     font::drawText(s, x, y, font::length(utf8) > room ? utf8.substr(0, room) : utf8, c);

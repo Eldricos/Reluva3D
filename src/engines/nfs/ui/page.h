@@ -18,8 +18,10 @@
 namespace reluva::nfs {
 
 /** The window's size for the 2D pages: the game's own 640x480. */
+///@{
 constexpr int kScreenWidth = 640;
 constexpr int kScreenHeight = 480;
+///@}
 
 /**
  * What fills the engine's window: the game (PlayPage), or one of the data
@@ -31,6 +33,7 @@ constexpr int kScreenHeight = 480;
 class Page {
 public:
     virtual ~Page() = default;
+    /** The page's name, for the window's title. */
     virtual const char *name() const = 0;
     /** Whether there's anything to show; pages without are skipped. */
     virtual bool empty() const { return false; }
@@ -52,10 +55,15 @@ public:
     virtual Error failure() const { return Error::success(); }
     /** Whether the page is drawing with the GPU (else draw() is used). */
     virtual bool uses3D() const { return false; }
+    /**
+     * An event runPages doesn't take itself (Esc, and Tab in the data
+     * viewer, are its). Unless overridden, key presses go to handleKey().
+     */
     virtual void handleEvent(const Event &ev) {
         if (ev.type == EventType::kKeyDown)
             handleKey(ev.key, ev.mods);
     }
+    /** A key pressed, with the modifiers held. */
     virtual void handleKey(uint32_t /*key*/, uint16_t /*mods*/) {}
     /** 2D pages: draws the page into the screen, after any event. */
     virtual void draw(Surface & /*screen*/) {}

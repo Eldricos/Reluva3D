@@ -45,7 +45,7 @@ namespace reluva::nfs {
 
 namespace page {
 
-// A viewer page's title line and, at the bottom, its keys.
+/** A viewer page's title line and, at the bottom, its keys. */
 inline void frame(Surface &s, const std::string &title, const std::string &keys) {
     clear(s);
     text(s, kMargin, 8, title, kTitleColor);
@@ -63,6 +63,7 @@ inline void frame(Surface &s, const std::string &title, const std::string &keys)
 // reluva.ini's texturefilter=point holds them point-sampled (makePages).
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): a reluva.ini setting every viewer page reads
 inline bool g_pagesPointSampled = false;
+/** The texture parameters the 3D pages use; `clamp` for a texture that doesn't repeat. */
 inline gfx::TextureParams glideTextureParams(bool clamp = false) {
     gfx::TextureParams params;
     params.clamp = clamp;
@@ -71,9 +72,10 @@ inline gfx::TextureParams glideTextureParams(bool clamp = false) {
     return params;
 }
 
-// What the engine found: the folders, the CD's files, tracks and cars.
+/** What the engine found: the folders, the CD's files, tracks and cars. */
 class InfoPage : public Page {
 public:
+    /** Lists what's in `folders` once. */
     InfoPage(const char *gameName, GameFolders folders);
     const char *name() const override { return "Info"; }
     void handleKey(uint32_t, uint16_t) override {}
@@ -88,11 +90,14 @@ private:
     std::vector<std::string> _movies;
 };
 
-// Every picture in every .fsh/.qfs, loose or in a .viv.
-//   Up/Down: bank   PageUp/PageDown: 10 banks   Left/Right: picture
-//   Home/End: first/last picture   B: background   A: alpha on/off
+/**
+ * Every picture in every .fsh/.qfs, loose or in a .viv.
+ *   Up/Down: bank   PageUp/PageDown: 10 banks   Left/Right: picture
+ *   Home/End: first/last picture   B: background   A: alpha on/off
+ */
 class TexturePage : public Page {
 public:
+    /** Shows the .fsh and .qfs files of `files`, which must outlive the page. */
     explicit TexturePage(const GameFiles &files);
     const char *name() const override { return "Textures"; }
     bool empty() const override { return _banks.empty(); }
@@ -115,13 +120,16 @@ private:
     bool _alpha = true;
 };
 
-// Each car's cockpit (dash.qfs): the dash, the steering wheel, the gear
-// indicator and the speedometer and tachometer needles, drawn as the game
-// draws them.
-//   Left/Right: car   Space: sweep the needles and wheel   Up/Down: move
-//   the needles (paused)   A/D: steer   G: next gear
+/**
+ * Each car's cockpit (dash.qfs): the dash, the steering wheel, the gear
+ * indicator and the speedometer and tachometer needles, drawn as the game
+ * draws them.
+ *   Left/Right: car   Space: sweep the needles and wheel   Up/Down: move
+ *   the needles (paused)   A/D: steer   G: next gear
+ */
 class CockpitPage : public Page {
 public:
+    /** Shows the dash.qfs files of `files`, which must outlive the page. */
     explicit CockpitPage(const GameFiles &files);
     const char *name() const override { return "Cockpits"; }
     bool empty() const override { return _dashes.empty(); }
@@ -157,11 +165,14 @@ private:
     uint64_t _lastMs = 0;
 };
 
-// The front-end string tables, in the game's own font.
-//   Left/Right: language   Up/Down: line   PageUp/PageDown: page
-//   Home/End: first/last   F: the game's font or Reluva's
+/**
+ * The front-end string tables, in the game's own font.
+ *   Left/Right: language   Up/Down: line   PageUp/PageDown: page
+ *   Home/End: first/last   F: the game's font or Reluva's
+ */
 class StringPage : public Page {
 public:
+    /** Shows the string tables of `files`, which must outlive the page. */
     explicit StringPage(const GameFiles &files);
     const char *name() const override { return "Strings"; }
     bool empty() const override { return _tables.empty(); }
@@ -182,10 +193,13 @@ private:
     bool _gameFont = true;
 };
 
-// Every font, with all its characters.
-//   Left/Right: font   +/-: size
+/**
+ * Every font, with all its characters.
+ *   Left/Right: font   +/-: size
+ */
 class FontPage : public Page {
 public:
+    /** Shows the .ffn files of `files`, which must outlive the page. */
     explicit FontPage(const GameFiles &files);
     const char *name() const override { return "Fonts"; }
     bool empty() const override { return _fonts.empty(); }
@@ -203,14 +217,17 @@ private:
     int _scale = 1;
 };
 
-// Every model (cars, traffic, police, the front end's track models) in 3D,
-// with its skin, drawn by its triangles' flags (two-sided, unlit) and with
-// the game's reflection of a track's sky.
-//   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
-//   L: detail level   T: textures   C: back faces   E: reflection's sky
-//   Space: spin   R: reset
+/**
+ * Every model (cars, traffic, police, the front end's track models) in 3D,
+ * with its skin, drawn by its triangles' flags (two-sided, unlit) and with
+ * the game's reflection of a track's sky.
+ *   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
+ *   L: detail level   T: textures   C: back faces   E: reflection's sky
+ *   Space: spin   R: reset
+ */
 class CarPage : public Page {
 public:
+    /** Shows the .fce files of `files`, which must outlive the page. */
     explicit CarPage(const GameFiles &files);
     ~CarPage() override;
     const char *name() const override { return "Cars"; }
@@ -254,13 +271,13 @@ private:
     // The reflection (0x49db70, 0x43400f): the triangles without
     // kNoReflection again, added over the model with source alpha, their
     // sphere-map coordinates from the normals as the camera sees them,
-    // remade each frame. Its runs index envMesh_.
+    // remade each frame. Its runs index _envMesh.
     gfx::MeshId _envMesh = 0;
     std::vector<gfx::Vertex> _envVertices;
     std::vector<std::array<float, 3>> _envNormals; // in the world
     std::vector<std::vector<Run>> _envRuns;
     std::vector<std::pair<std::string, gfx::TextureId>> _skies; // a track's sphere maps: name, texture
-    int _sky = 0;                                               // which, or skies_.size() for no reflection
+    int _sky = 0;                                               // which, or _skies.size() for no reflection
     void loadSkies();
     std::vector<int> _partLevels; // 0 high, 1 medium, 2 small, 3 tiny
     int _level = 0;               // 0-3, or 4 for all
@@ -277,27 +294,33 @@ private:
     uint64_t _lastMs = 0;
 };
 
-// The tracks in 3D, with their textures, objects, lane markings and sky.
-//   PageUp/PageDown: track   W/S/A/D: move   arrows or drag: look
-//   Space/C: up/down   Shift: faster   N/B: next/previous block
-//   1/2/3/4: road detail (4: by distance, as the game)   K: all blocks, not
-//   only those the game draws from here   H: day, night, weather   T: textures
-//   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
-//   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
-//   I: the game's effects intensity (100, 75, 50, 25%), which only the
-//   Direct3D look (Shift+Y) applies: lights, glows, added particles and
-//   clouds, rain and snow dimmed
-//   P: a wall hit at the nearest virtual-road wall ahead, its particles as
-//   the game makes them for that side's code (Shift+P: a fast hit, 40;
-//   else 18); held, it repeats
-//   E: the camera's car's headlights (off, low, high; Shift+E the z-buffer
-//   and projection, off by default as in nfs host; Ctrl+E the game's light
-//   test)   J: computer cars (Shift+J stops them)
-//   Z: the cars' reflections (the game's option at 0x6fbc24)
-//   Q: the Special Effects option: High, Low, Off (no track lights, rain
-//   flares or fog beams)   Y: fog   M: lights and sounds   U: mirrored
+/**
+ * The tracks in 3D, with their textures, objects, lane markings and sky.
+ *   PageUp/PageDown: track   W/S/A/D: move   arrows or drag: look
+ *   Space/C: up/down   Shift: faster   N/B: next/previous block
+ *   1/2/3/4: road detail (4: by distance, as the game)   K: all blocks, not
+ *   only those the game draws from here   H: day, night, weather   T: textures
+ *   V: vertex light   L: lanes   O: objects   G: the virtual road's walls and edges
+ *   X: next texture set (two, then their 8-bit versions)   F: back faces   R: start
+ *   I: the game's effects intensity (100, 75, 50, 25%), which only the
+ *   Direct3D look (Shift+Y) applies: lights, glows, added particles and
+ *   clouds, rain and snow dimmed
+ *   P: a wall hit at the nearest virtual-road wall ahead, its particles as
+ *   the game makes them for that side's code (Shift+P: a fast hit, 40;
+ *   else 18); held, it repeats
+ *   E: the camera's car's headlights (off, low, high; Shift+E the z-buffer
+ *   and projection, off by default as in nfs host; Ctrl+E the game's light
+ *   test)   J: computer cars (Shift+J stops them)
+ *   Z: the cars' reflections (the game's option at 0x6fbc24)
+ *   Q: the Special Effects option: High, Low, Off (no track lights, rain
+ *   flares or fog beams)   Y: fog   M: lights and sounds   U: mirrored
+ */
 class TrackPage : public Page {
 public:
+    /**
+     * Shows the install's tracks, read from `files`, which must outlive the
+     * page. `mixer` plays the track's sounds; null for none.
+     */
     TrackPage(const GameFiles &files, const GameFolders &folders, audio::Mixer *mixer = nullptr);
     ~TrackPage() override;
     const char *name() const override { return "Tracks"; }
@@ -336,7 +359,7 @@ private:
         std::vector<Track::ExtraObject::Key> keys;
         int keyDelay = 0;
         std::vector<Batch> batches;
-        // in track_.extraObjects
+        // in _track.extraObjects
         size_t group = 0;
         size_t object = 0;
     };
@@ -497,7 +520,7 @@ private:
     bool _particlesHeld = false;       // RELUVA_NFS_TRACK_PARTICLES: a dump's, held as it has them
     std::vector<WallHit> _pendingHits; // made at the next tick
     std::string _hitText;
-    std::map<std::string, gfx::TextureId> _particlePictures;            // by picture name, owned by textures_
+    std::map<std::string, gfx::TextureId> _particlePictures;            // by picture name, owned by _textures
     std::map<gfx::TextureId, std::array<int, 2>> _particlePictureSizes; // their widths and heights
     gfx::MeshId _particleMesh = 0;
     // This frame's particles: runs of the mesh's quads drawn alike.
@@ -593,7 +616,7 @@ private:
     bool _lightTest = true; // Ctrl+E: the game's test of each block against each light (0x41bf30)
     gfx::MeshId _lightMesh = 0;
     size_t _lightCapacity = 0;            // vertices the mesh holds
-    gfx::TextureId _headlightPicture = 0; // owned by textures_
+    gfx::TextureId _headlightPicture = 0; // owned by _textures
     struct LightRun {
         gfx::TextureId texture = 0;
         bool picture = false; // the projected picture, else a texture's colour floor
@@ -624,6 +647,7 @@ private:
         // left-handed coordinates).
         std::vector<gfx::Vertex> vertices;
         std::vector<std::array<float, 3>> normals;
+        /** Where one detail's vertices are in the model's mesh. */
         struct Detail {
             // vertices: from first, the body's, then the lights'
             uint32_t first = 0;
@@ -636,7 +660,7 @@ private:
             uint32_t envLights = 0;
         };
         std::array<Detail, 4> details{};
-        gfx::TextureId skin = 0; // owned by textures_
+        gfx::TextureId skin = 0; // owned by _textures
         std::array<float, 3> halfSize{1.183f, 0.669f, 2.40644f};
         // Its wheels' places (parts 1-4: x right, z forward), for the strips.
         std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
@@ -657,7 +681,7 @@ private:
         // (skinTexel); the textures made, by primary colour.
         image::Image skinImage;
         Model colours;                          // only the colour lists, for primaryFor/secondaryFor
-        std::map<size_t, gfx::TextureId> skins; // owned by textures_
+        std::map<size_t, gfx::TextureId> skins; // owned by _textures
     };
     // The Corvette, the police Corvette, then any other car a dump's
     // set-up names (RELUVA_NFS_TRACK_CARS_SETUP), by its serial number.
@@ -720,7 +744,7 @@ private:
     std::vector<uint8_t> _speedsForward;
     std::vector<uint8_t> _speedsBackward;
     std::string _carError;
-    gfx::TextureId _glow3Picture = 0; // sfx.fsh glw3, the cars' glows; owned by textures_
+    gfx::TextureId _glow3Picture = 0; // sfx.fsh glw3, the cars' glows; owned by _textures
     gfx::MeshId _carGlowMesh = 0;
     gfx::MeshId _carFlareMesh = 0;
     gfx::MeshId _carBeamMesh = 0;
@@ -767,7 +791,7 @@ private:
     // 3 and 7, cop4 on 8, cop1 on the others) with its .art pages, one run
     // of triangles a page; its half height (+0x2C).
     struct OfficerRun {
-        gfx::TextureId texture = 0; // owned by textures_
+        gfx::TextureId texture = 0; // owned by _textures
         uint32_t first = 0;
         uint32_t count = 0;
     };
@@ -776,7 +800,7 @@ private:
     float _officerHalfHeight = 0;
     std::vector<gfx::Vertex> _officerVertices;
     // The triangles that reflect (not fce flag 1; only cop2's), as indices
-    // into officerVertices_, strong (flag 2) or not, and their mesh.
+    // into _officerVertices, strong (flag 2) or not, and their mesh.
     std::vector<uint32_t> _officerEnvFrom;
     std::vector<bool> _officerEnvStrong;
     gfx::MeshId _officerEnvMesh = 0;
@@ -804,7 +828,7 @@ private:
     gfx::MeshId _shadowMesh = 0;
     uint32_t _shadowQuads = 0;
     uint32_t _shadowCapacity = 0;
-    gfx::TextureId _shadowPicture = 0; // owned by textures_
+    gfx::TextureId _shadowPicture = 0; // owned by _textures
     void drawShadows(const gfx::DrawCall &base);
     void carRows(ComputerCar &car) const;
     // The cars' colours and glows for this frame (prepareCars), before
@@ -828,7 +852,7 @@ private:
     struct MovingFrame {
         gfx::Mat4 model{};
         std::vector<Batch> batches;
-        int moving = -1; // in moving_
+        int moving = -1; // in _moving
     };
     std::vector<MovingFrame> _movingFrame;
     long long _fixedStep = -1; // RELUVA_NFS_TRACK_STEP: the moving objects at that game step
@@ -855,15 +879,18 @@ private:
     uint64_t _lastMs = 0;
 };
 
-// Every sound in every bank (.bnk), loose or in a .viv: speech, engines,
-// effects. Without audio output the sounds are only listed.
-//   Up/Down: sound   PageUp/PageDown: bank   Home/End: first/last sound
-//   Space/Enter: play   S: stop   P: play as selected on/off
-//   Left/Right: a sound with a bend range (most): its bend, or for a car's
-//   sounds its revs; others: the pitch, a semitone (sounds with a loop loop
-//   until stopped)
+/**
+ * Every sound in every bank (.bnk), loose or in a .viv: speech, engines,
+ * effects. Without audio output the sounds are only listed.
+ *   Up/Down: sound   PageUp/PageDown: bank   Home/End: first/last sound
+ *   Space/Enter: play   S: stop   P: play as selected on/off
+ *   Left/Right: a sound with a bend range (most): its bend, or for a car's
+ *   sounds its revs; others: the pitch, a semitone (sounds with a loop loop
+ *   until stopped)
+ */
 class SoundPage : public Page {
 public:
+    /** Lists the .bnk files of `files`, which must outlive the page; `mixer` null for no sound. */
     SoundPage(const GameFiles &files, audio::Mixer *mixer);
     const char *name() const override { return "Sounds"; }
     bool empty() const override { return _banks.empty(); }
@@ -903,14 +930,17 @@ private:
     std::string engineText() const; // the revs, bend and pitch, for the header
 };
 
-// The music streams (.mus), played as their Pathfinder map (.map) leads
-// from segment to segment by an intensity, or in the linear order (.lin).
-//   Up/Down: stream   Space: play/stop   Left/Right: intensity
-//   L: map or linear order   N: next segment now   Home: first segment
-//   0-9: an event for the next segment (the game's: 1 a pursuit, 4-9 the
-//   track's zones)
+/**
+ * The music streams (.mus), played as their Pathfinder map (.map) leads
+ * from segment to segment by an intensity, or in the linear order (.lin).
+ *   Up/Down: stream   Space: play/stop   Left/Right: intensity
+ *   L: map or linear order   N: next segment now   Home: first segment
+ *   0-9: an event for the next segment (the game's: 1 a pursuit, 4-9 the
+ *   track's zones)
+ */
 class MusicPage : public Page {
 public:
+    /** Lists the .mus files of `files`, which must outlive the page; `mixer` null for no sound. */
     MusicPage(const GameFiles &files, audio::Mixer *mixer);
     const char *name() const override { return "Music"; }
     bool empty() const override { return _streams.empty(); }
@@ -953,13 +983,16 @@ private:
     std::shared_ptr<audio::Sound> decodeSection(int section);
 };
 
-// The movies (.mad) with their sound.
-//   Up/Down: movie   Space: pause   Left/Right: 5 seconds back/on
-//   Home: start   PageUp/PageDown: frame by frame (paused)
-//   G: shown as the game shows it (its decoder, then its display modes 3,
-//   2 or 1, mad.md) or by Reluva's plain conversion
+/**
+ * The movies (.mad) with their sound.
+ *   Up/Down: movie   Space: pause   Left/Right: 5 seconds back/on
+ *   Home: start   PageUp/PageDown: frame by frame (paused)
+ *   G: shown as the game shows it (its decoder, then its display modes 3,
+ *   2 or 1, mad.md) or by Reluva's plain conversion
+ */
 class MoviePage : public Page {
 public:
+    /** Lists the .mad files of `files`, which must outlive the page; `mixer` null for no sound. */
     MoviePage(const GameFiles &files, audio::Mixer *mixer);
     const char *name() const override { return "Movies"; }
     bool empty() const override { return _movies.empty(); }
@@ -989,18 +1022,20 @@ private:
     Surface _picture;
     bool _paused = false;
     // The clock: the audio's position while it plays, else time since
-    // startMs_ from startFrame_.
+    // _startMs from _startFrame.
     int _startFrame = 0;
     uint64_t _startMs = 0;
     uint64_t _nowMs = 0;
     audio::SoundHandle _playing = audio::kNoSound;
 };
 
-// Every page, in Tab order, those with nothing to show left out. The
-// mixer plays the pages' sounds; null without audio output. The game
-// writes under `saveFolder`. `settings` are the game's section of
-// reluva.ini, for the Play page (makePlayPage) and texturefilter (point:
-// the viewer's textures point-sampled too).
+/**
+ * Every page, in Tab order, those with nothing to show left out. The
+ * mixer plays the pages' sounds; null without audio output. The game
+ * writes under `saveFolder`. `settings` are the game's section of
+ * reluva.ini, for the Play page (makePlayPage) and texturefilter (point:
+ * the viewer's textures point-sampled too).
+ */
 std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
                                              audio::Mixer *mixer = nullptr,
                                              const std::filesystem::path &saveFolder = {},

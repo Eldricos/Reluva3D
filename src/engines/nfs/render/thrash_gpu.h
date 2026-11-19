@@ -12,28 +12,36 @@
 
 namespace reluva::nfs {
 
-// Draws THRASH's frames (host/thrash_native.h, ThrashFrame) with the GPU
-// renderer: screen space triangles in their batches, in order, without
-// depth (the game draws back to front for the software renderer).
+/**
+ * Draws THRASH's frames (host/thrash_native.h, ThrashFrame) with the GPU
+ * renderer: screen space triangles in their batches, in order, without
+ * depth (the game draws back to front for the software renderer).
+ */
 class ThrashGpu {
 public:
-    // The renderer to draw with; null when it's gone (its textures and
-    // mesh with it). Textures are made again from the copies kept.
+    /**
+     * The renderer to draw with; null when it's gone (its textures and
+     * mesh with it). Textures are made again from the copies kept.
+     */
     void setRenderer(gfx::Renderer3D *renderer);
-    // Textures made or changed, as a frame brings them.
+    /** Textures made or changed, as a frame brings them. */
     void updateTextures(const ThrashFrame &frame);
-    // Draws frames in order, each over what the one before left (with the
-    // textures each brought, applied as it's reached), and shows the
-    // result once, with `overlay` on top if given.
+    /**
+     * Draws frames in order, each over what the one before left (with the
+     * textures each brought, applied as it's reached), and shows the
+     * result once, with `overlay` on top if given.
+     */
     void draw(const std::vector<const ThrashFrame *> &frames, const Surface *overlay);
+    /** The same for one frame. */
     void draw(const ThrashFrame &frame, const Surface *overlay) {
         draw(std::vector<const ThrashFrame *>{&frame}, overlay);
     }
-    // The next frame drawn, kept for capture() (RGBA, the renderer's size).
+    /** The next frame drawn, kept for capture() (RGBA, the renderer's size). */
     void captureNext() {
         if (_renderer)
             _renderer->captureNextFrame();
     }
+    /** The frame captureNext() kept; false without a renderer, or if none was kept since the last call. */
     bool capture(std::vector<uint8_t> &rgba) { return _renderer && _renderer->takeCapture(rgba); }
     // Point-sampled textures (else bilinear, as both DLLs ask for), unless a
     // batch says (ThrashFrame::Batch::filter, d3da's).
