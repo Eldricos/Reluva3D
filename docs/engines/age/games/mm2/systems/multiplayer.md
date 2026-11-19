@@ -97,7 +97,9 @@ PLAYERS the way that one is.
   They're sided like anyone, always ready, and in the lobby's list like
   anyone; the host can eject one.
 - **Where they're driven.** The host's machine drives them and sends
-  their cars on as its own, so everyone sees them alike.
+  their cars on as its own, so everyone sees them alike. If the host leaves,
+  the player who takes over drives them on
+  ([network-protocol.md](network-protocol.md#joining-late-leaving-taking-over)).
 - **In a race** they drive through the race's checkpoints, laps
   unrolled, along the roads as the single player's opponents do, at 0.9
   of their cars' top speed.
