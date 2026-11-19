@@ -314,12 +314,13 @@ void testTextureQuality(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("age.unit.driving",
-    {
-        {"collision", [](const std::filesystem::path &) { testCollision(); }},
-        {"car sim", [](const std::filesystem::path &) { testCarSim(); }},
-        {"engine sound", [](const std::filesystem::path &) { testEngineSound(); }},
-        {"car files", [](const std::filesystem::path &) { testCarFiles(); }},
-        {"pad input", [](const std::filesystem::path &) { testPadInput(); }},
-        {"texture quality", [](const std::filesystem::path &tmp) { testTextureQuality(tmp); }},
-    });
+static const reluva::test::Suite
+    kSuite("age.unit.driving",
+           {
+               {"collision", [](const std::filesystem::path &) { testCollision(); }},
+               {"car sim", [](const std::filesystem::path &) { testCarSim(); }},
+               {"engine sound", [](const std::filesystem::path &) { testEngineSound(); }},
+               {"car files", [](const std::filesystem::path &) { testCarFiles(); }},
+               {"pad input", [](const std::filesystem::path &) { testPadInput(); }},
+               {"texture quality", [](const std::filesystem::path &tmp) { testTextureQuality(tmp); }},
+           });

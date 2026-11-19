@@ -440,9 +440,9 @@ void testGoldGame() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("age.unit.network",
-    {
-        {"net session", [](const std::filesystem::path &) { testNetSession(); }},
-        {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
-        {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
-    });
+static const reluva::test::Suite
+    kSuite("age.unit.network", {
+                                   {"net session", [](const std::filesystem::path &) { testNetSession(); }},
+                                   {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
+                                   {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
+                               });

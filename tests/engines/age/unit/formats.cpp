@@ -828,25 +828,26 @@ void testDashboardFiles(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("age.unit.formats",
-    {
-        {"archive", [](const std::filesystem::path &tmp) { testArchive(tmp); }},
-        {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
-        {"file lines", [](const std::filesystem::path &) { testFileLines(); }},
-        {"tex", [](const std::filesystem::path &) { testTex(); }},
-        {"pkg", [](const std::filesystem::path &) { testPkg(); }},
-        {"names", [](const std::filesystem::path &) { testNames(); }},
-        {"psdl", [](const std::filesystem::path &) { testPsdl(); }},
-        {"instances", [](const std::filesystem::path &) { testInstances(); }},
-        {"tune", [](const std::filesystem::path &) { testTune(); }},
-        {"bound", [](const std::filesystem::path &) { testBound(); }},
-        {"sidewalk markers", [](const std::filesystem::path &) { testSidewalkMarkers(); }},
-        {"race files", [](const std::filesystem::path &) { testRaceFiles(); }},
-        {"bai", [](const std::filesystem::path &) { testBai(); }},
-        {"ai map", [](const std::filesystem::path &) { testAiMap(); }},
-        {"ped files", [](const std::filesystem::path &) { testPedFiles(); }},
-        {"pathset", [](const std::filesystem::path &) { testPathset(); }},
-        {"tunnels", [](const std::filesystem::path &) { testTunnels(); }},
-        {"city extras", [](const std::filesystem::path &) { testCityExtras(); }},
-        {"dashboard files", [](const std::filesystem::path &tmp) { testDashboardFiles(tmp); }},
-    });
+static const reluva::test::Suite
+    kSuite("age.unit.formats",
+           {
+               {"archive", [](const std::filesystem::path &tmp) { testArchive(tmp); }},
+               {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
+               {"file lines", [](const std::filesystem::path &) { testFileLines(); }},
+               {"tex", [](const std::filesystem::path &) { testTex(); }},
+               {"pkg", [](const std::filesystem::path &) { testPkg(); }},
+               {"names", [](const std::filesystem::path &) { testNames(); }},
+               {"psdl", [](const std::filesystem::path &) { testPsdl(); }},
+               {"instances", [](const std::filesystem::path &) { testInstances(); }},
+               {"tune", [](const std::filesystem::path &) { testTune(); }},
+               {"bound", [](const std::filesystem::path &) { testBound(); }},
+               {"sidewalk markers", [](const std::filesystem::path &) { testSidewalkMarkers(); }},
+               {"race files", [](const std::filesystem::path &) { testRaceFiles(); }},
+               {"bai", [](const std::filesystem::path &) { testBai(); }},
+               {"ai map", [](const std::filesystem::path &) { testAiMap(); }},
+               {"ped files", [](const std::filesystem::path &) { testPedFiles(); }},
+               {"pathset", [](const std::filesystem::path &) { testPathset(); }},
+               {"tunnels", [](const std::filesystem::path &) { testTunnels(); }},
+               {"city extras", [](const std::filesystem::path &) { testCityExtras(); }},
+               {"dashboard files", [](const std::filesystem::path &tmp) { testDashboardFiles(tmp); }},
+           });

@@ -26,6 +26,6 @@ void testDetection(const std::filesystem::path &tmp) {
 } // namespace
 
 static const reluva::test::Suite kSuite("age.unit.detection",
-    {
-        {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
-    });
+                                        {
+                                            {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
+                                        });

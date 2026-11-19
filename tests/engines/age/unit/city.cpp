@@ -777,18 +777,18 @@ void testAmbient(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("age.unit.city",
-    {
-        {"path driver", [](const std::filesystem::path &) { testPathDriver(); }},
-        {"road graph", [](const std::filesystem::path &) { testRoadGraph(); }},
-        {"traffic", [](const std::filesystem::path &tmp) { testTraffic(tmp); }},
-        {"traffic lights", [](const std::filesystem::path &) { testTrafficLights(); }},
-        {"traffic rules", [](const std::filesystem::path &tmp) { testTrafficRules(tmp); }},
-        {"siren table", [](const std::filesystem::path &) { testSirenTable(); }},
-        {"speed limit", [](const std::filesystem::path &) { testSpeedLimit(); }},
-        {"gizmos", [](const std::filesystem::path &tmp) { testGizmos(tmp); }},
-        {"parked cars", [](const std::filesystem::path &tmp) { testParkedCars(tmp); }},
-        {"trains", [](const std::filesystem::path &tmp) { testTrains(tmp); }},
-        {"props", [](const std::filesystem::path &tmp) { testProps(tmp); }},
-        {"ambient", [](const std::filesystem::path &tmp) { testAmbient(tmp); }},
-    });
+static const reluva::test::Suite
+    kSuite("age.unit.city", {
+                                {"path driver", [](const std::filesystem::path &) { testPathDriver(); }},
+                                {"road graph", [](const std::filesystem::path &) { testRoadGraph(); }},
+                                {"traffic", [](const std::filesystem::path &tmp) { testTraffic(tmp); }},
+                                {"traffic lights", [](const std::filesystem::path &) { testTrafficLights(); }},
+                                {"traffic rules", [](const std::filesystem::path &tmp) { testTrafficRules(tmp); }},
+                                {"siren table", [](const std::filesystem::path &) { testSirenTable(); }},
+                                {"speed limit", [](const std::filesystem::path &) { testSpeedLimit(); }},
+                                {"gizmos", [](const std::filesystem::path &tmp) { testGizmos(tmp); }},
+                                {"parked cars", [](const std::filesystem::path &tmp) { testParkedCars(tmp); }},
+                                {"trains", [](const std::filesystem::path &tmp) { testTrains(tmp); }},
+                                {"props", [](const std::filesystem::path &tmp) { testProps(tmp); }},
+                                {"ambient", [](const std::filesystem::path &tmp) { testAmbient(tmp); }},
+                            });

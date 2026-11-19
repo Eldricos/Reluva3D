@@ -442,21 +442,21 @@ int cmdCheck(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("age",
-                         {
-                             {"ar-list", "<file.ar> [name filter]", "list a Midtown Madness 2 .ar archive's files", cmdArList},
-                             {"ar-extract", "<file.ar> <output dir> [name filter]",
-                              "extract a Midtown Madness 2 .ar archive's files", cmdArExtract},
-                             {"tex-info", "<file.tex | game folder> [out.tga]",
-                              "a Midtown Madness 2 texture's header, and the image as a TGA", cmdTexInfo},
-                             {"pkg-info", "<file.pkg | game folder> [out.obj]", "what a Midtown Madness 2 model holds, as an OBJ",
-                              cmdPkgInfo},
-                             {"check", "<game folder>",
-                              "read every texture, model, city, road map, placement list, path set and visibility "
-                              "file of a Midtown Madness 2 install",
-                              cmdCheck},
-                             {"psdl-info", "<game folder> <city> [out.obj]", "what a Midtown Madness 2 city's .psdl holds",
-                              cmdPsdlInfo},
-                         });
+const Commands kCommands(
+    "age",
+    {
+        {"ar-list", "<file.ar> [name filter]", "list a Midtown Madness 2 .ar archive's files", cmdArList},
+        {"ar-extract", "<file.ar> <output dir> [name filter]", "extract a Midtown Madness 2 .ar archive's files",
+         cmdArExtract},
+        {"tex-info", "<file.tex | game folder> [out.tga]",
+         "a Midtown Madness 2 texture's header, and the image as a TGA", cmdTexInfo},
+        {"pkg-info", "<file.pkg | game folder> [out.obj]", "what a Midtown Madness 2 model holds, as an OBJ",
+         cmdPkgInfo},
+        {"check", "<game folder>",
+         "read every texture, model, city, road map, placement list, path set and visibility "
+         "file of a Midtown Madness 2 install",
+         cmdCheck},
+        {"psdl-info", "<game folder> <city> [out.obj]", "what a Midtown Madness 2 city's .psdl holds", cmdPsdlInfo},
+    });
 
 } // namespace

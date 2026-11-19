@@ -488,13 +488,13 @@ void testCruise(const std::filesystem::path &tmp) {
 } // namespace
 
 static const reluva::test::Suite kSuite("age.unit.game",
-    {
-        {"lessons", [](const std::filesystem::path &) { testLessons(); }},
-        {"record", [](const std::filesystem::path &) { testRecord(); }},
-        {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
-        {"music", [](const std::filesystem::path &tmp) { testMusic(tmp); }},
-        {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
-        {"replays", [](const std::filesystem::path &tmp) { testReplays(tmp); }},
-        {"drivers", [](const std::filesystem::path &tmp) { testDrivers(tmp); }},
-        {"cruise", [](const std::filesystem::path &tmp) { testCruise(tmp); }},
-    });
+                                        {
+                                            {"lessons", [](const std::filesystem::path &) { testLessons(); }},
+                                            {"record", [](const std::filesystem::path &) { testRecord(); }},
+                                            {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
+                                            {"music", [](const std::filesystem::path &tmp) { testMusic(tmp); }},
+                                            {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
+                                            {"replays", [](const std::filesystem::path &tmp) { testReplays(tmp); }},
+                                            {"drivers", [](const std::filesystem::path &tmp) { testDrivers(tmp); }},
+                                            {"cruise", [](const std::filesystem::path &tmp) { testCruise(tmp); }},
+                                        });

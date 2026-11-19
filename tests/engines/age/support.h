@@ -135,8 +135,8 @@ inline std::string repeatedText() {
 // Little-endian writers for building files.
 // repeatedText(), raw-deflated by zlib.
 inline const std::vector<uint8_t> kDeflated = {0x2b, 0x49, 0xad, 0x28, 0x29, 0x2d, 0x4a, 0x2d, 0xd6, 0x4f,
-                                        0xca, 0x2f, 0x4a, 0x07, 0x13, 0x69, 0x39, 0xf9, 0xf9, 0x45,
-                                        0x86, 0x5c, 0x25, 0xa3, 0x12, 0xe8, 0x12, 0x00};
+                                               0xca, 0x2f, 0x4a, 0x07, 0x13, 0x69, 0x39, 0xf9, 0xf9, 0x45,
+                                               0x86, 0x5c, 0x25, 0xa3, 0x12, 0xe8, 0x12, 0x00};
 
 struct Bytes {
     std::vector<uint8_t> v;
@@ -173,7 +173,7 @@ inline std::vector<uint8_t> texHeader(int w, int h, int format, int levels, uint
 
 // A mesh section's contents: one group of one triangle list.
 inline std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std::vector<uint16_t> &indices,
-                                 uint32_t vertexCount = 3) {
+                                        uint32_t vertexCount = 3) {
     Bytes b;
     b.u32(1).u32(vertexCount).u32(uint32_t(indices.size())).u32(1).u32(fvf);
     b.u32(1).u32(shader).u32(3).u32(vertexCount);
@@ -193,9 +193,9 @@ inline std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std
 // A city of one block (by default with two perimeter edges), then `tail`
 // (its roads) after the bounds.
 inline std::vector<uint8_t> buildPsdl(const std::vector<uint16_t> &attributes, uint32_t version = 2,
-                               const std::vector<std::pair<uint16_t, uint16_t>> &perimeter = {{0, 0}, {1, 5}},
-                               const std::vector<std::string> &textures = {"r2_f", "swalk_f"},
-                               const std::vector<uint8_t> &tail = {}) {
+                                      const std::vector<std::pair<uint16_t, uint16_t>> &perimeter = {{0, 0}, {1, 5}},
+                                      const std::vector<std::string> &textures = {"r2_f", "swalk_f"},
+                                      const std::vector<uint8_t> &tail = {}) {
     Bytes b;
     b.str("PSD0").u32(version).u32(6);
     const float v[6][3] = {{0, 0, 0}, {10, 0, 0}, {10, 0, 10}, {0, 0, 10}, {0, 0.15f, -2}, {10, 0.15f, -2}};
