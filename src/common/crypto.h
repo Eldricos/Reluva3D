@@ -46,8 +46,8 @@ Tag poly1305(const Key &key, const uint8_t *data, size_t size);
 std::vector<uint8_t> seal(const Key &key, const Nonce &nonce, const uint8_t *aad, size_t aadSize, const uint8_t *plain,
                           size_t size);
 /**
- * The other way: false, `plain` untouched, if the tag doesn't match (the
- * datagram was changed, or isn't under this key).
+ * The other way: false, `plain` untouched, if the tag doesn't match:
+ * tampered with on the way, or sealed under another key.
  */
 bool open(const Key &key, const Nonce &nonce, const uint8_t *aad, size_t aadSize, const uint8_t *sealed, size_t size,
           std::vector<uint8_t> &plain);
