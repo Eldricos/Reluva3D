@@ -1005,6 +1005,15 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
             continue;
         const std::string stateName = st.package->objectName(st.exportIndex + 1);
         VmState *state = a->cls ? _vm.findState(a->cls, _vm.name(stateName)) : nullptr;
+        // The events it had disabled (Disable('Tick')): those its state and
+        // class would listen for that the saved mask leaves out.
+        if (const VmState *in = state ? state : a->cls) {
+            a->disabled.clear();
+            const uint64_t listens = (in->probeMask | a->cls->probeMask) & in->ignoreMask;
+            for (int k = 0; k < 64; ++k)
+                if ((listens >> k & 1) && !(f.probeMask >> k & 1))
+                    a->disabled.insert(_vm.name(probeEvent(k)));
+        }
         if (!state || state == a->cls)
             continue;
         a->state = state;
@@ -1059,7 +1068,14 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
             for (size_t k = 0; k < 4; ++k)
                 if (VmObject *o = t[k].asObject(); o && !o->deleted)
                     _touching[a].push_back(o);
-    // The C3D mesh states: the layers on the body and the face channels.
+    // The C3D mesh states: the layers on the body and the face channels,
+    // and what each holds (held things are attached once, when picked up or
+    // put away, so a save's are all there is of them).
+    std::map<std::string, VmObject *> byName;
+    for (VmObject *a : _actors)
+        if (!a->deleted)
+            byName[fs::toLower(_vm.nameText(a->name))] = a;
+    auto pointName = [&](const std::string &point) { return point.empty() ? 0 : _vm.name(point); };
     for (VmObject *a : _actors) {
         const Value *ms = prop(a, "C3DOurMeshState");
         VmObject *o = ms ? ms->asObject() : nullptr;
@@ -1068,6 +1084,9 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
         MeshState m;
         if (readMeshState(*o->package, o->exportIndex, m))
             continue;
+        for (const MeshStateAttachment &at : m.attachments)
+            if (auto it = byName.find(fs::toLower(at.child)); it != byName.end())
+                attach(it->second, a, pointName(at.parentPoint), pointName(at.childPoint));
         for (const MeshStateGroup &g : m.groups) {
             const bool active = !g.sequence.empty() && fs::toLower(g.sequence) != "nonactive";
             if (g.group.rfind("sk", 0) == 0) {

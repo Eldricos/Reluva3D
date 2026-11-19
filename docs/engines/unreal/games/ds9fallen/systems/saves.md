@@ -23,8 +23,11 @@ packages). With `bBegunPlay` set, nothing begins again; instead
   (`LatentFloat`); one waiting in any other latent function makes the
   call again (a move, a `FinishAnim`: its properties have what it needs);
 - each actor's body layers and face channels come from its C3D mesh
-  state; what it was touching from its `Touching`, so it isn't touched
-  again;
+  state, and so do the actors it holds (attached once, as a phaser put
+  away at the belt, so the save is all there is of them); what it was
+  touching from its `Touching`, so it isn't touched again;
+- the events each actor had disabled (`Disable('Tick')`) are those its
+  state and class listen for that its saved probe mask leaves out;
 - the dialogue's counts come from the saved table, by key;
 - the sounds that were playing start again where they'd got to; the
   music becomes the player's `CurrentMusic` again, from where it was;
@@ -38,10 +41,10 @@ his EVA suit on the Ke'el Tul with 91 health and his phaser drawn. The
 speech trigger he'd just stepped on was waiting in its state code, so the
 scene goes on (Worf: "Sir, Chief O'Brien was injured during the initial
 assault..."), and then he walks on. No script accesses None in 20 seconds.
-Not restored: the IK targets, bones' adjustments and attachments in the
-mesh states (the scripts set them again each tick), the probe masks (what
-events each state ignores, which the states themselves give), and the
-dialogue's lines under way (none in the example).
+Its security officer's phaser goes back to her belt clip. Not restored:
+the IK requests and targets in the mesh states (`CTV_Player` sets them
+again every tick), and the dialogue's lines under way (none in the
+example, and what the engine's lists hold isn't worked out).
 
 **Saving** writes the original's format ([save.md](../formats/save.md),
 `game_save_write.cpp`): QuickSave.dsa, else the level's title and the

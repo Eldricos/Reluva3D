@@ -48,6 +48,12 @@ struct LevelExtras {
 Error readLevelExtras(const Package &package, LevelExtras &out);
 
 /**
+ * The engine's probe event at a bit of a state frame's mask (Core's names
+ * from 300 on, The Fallen's in the place of some of the probes), "" past 63.
+ */
+const char *probeEvent(int bit);
+
+/**
  * A C3DMESHSTATE: an actor's animation groups (its mesh's own, FullBody,
  * LowerTorso, UpperTorso, then its face channels sk3...) as the engine
  * keeps them.
@@ -77,9 +83,19 @@ struct MeshStateGroup {
     std::string bone;               // its InheritBone: what its clears turn
     std::array<int32_t, 3> clear{}; // ClearYaw, ClearPitch, ClearRoll (fairly sure)
 };
+/**
+ * An actor held by the mesh state's own (C3DAttach): its name, its point
+ * and the holder's point.
+ */
+struct MeshStateAttachment {
+    std::string child;
+    std::string childPoint;
+    std::string parentPoint;
+};
 struct MeshState {
     std::string mesh;
     std::vector<MeshStateGroup> groups;
+    std::vector<MeshStateAttachment> attachments;
 };
 Error readMeshState(const Package &package, int exportIndex, MeshState &out);
 
@@ -88,6 +104,11 @@ Error readMeshState(const Package &package, int exportIndex, MeshState &out);
  * (from the start of its count to the end of the last).
  */
 bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
+/**
+ * Where a C3D mesh state's attachments are in its export's data (from the
+ * start of their count to the end of the last).
+ */
+bool meshStateAttachmentSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
 /**
  * Where, in a Level object's data, the model reference starts and the
  * reach list ends (copied as they are into a saved game's).

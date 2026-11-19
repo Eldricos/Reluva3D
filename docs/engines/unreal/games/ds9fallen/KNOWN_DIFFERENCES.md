@@ -31,13 +31,9 @@ there, dividing by 0) are reported and carried on from, not fixed
 - **Settings aren't written.** A console command's `set` (the options
   windows) changes a setting for as long as the VM runs; the `.ini` files
   aren't written ([script-vm.md](systems/script-vm.md)).
-- **Saved games:** not restored on loading are the IK targets, bones'
-  adjustments and attachments in the mesh states (the scripts set them
-  again each tick), the probe masks, and the dialogue's lines under way;
-  not written on saving are the dialogue's lines under way, the IK
-  targets and bone adjustments of new mesh states, and the Level's
-  model and reach list renumbered ([saves.md](systems/saves.md),
-  [save.md](formats/save.md)).
+- **Saved games:** the dialogue's lines under way are neither restored
+  nor written, and the Level's model and reach list aren't renumbered
+  ([saves.md](systems/saves.md), [save.md](formats/save.md)).
 - **The player's own swimming** is Reluva's, falling once out of the
   water ([movement.md](systems/movement.md)).
 - **The AI's paths:** jumping and dropping reaches aren't done

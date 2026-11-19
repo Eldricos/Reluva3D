@@ -29,25 +29,6 @@ namespace reluva::unreal {
 
 namespace {
 
-// The engine's probe events, by their bit in a state frame's mask (Core's
-// names from 300 on, The Fallen's in the place of some of the probes).
-const char *const kProbes[64] = {"Spawned",      "Destroyed",       "GainedChild",     "LostChild",
-                                 "Probe4",       "Probe5",          "Trigger",         "UnTrigger",
-                                 "Timer",        "HitWall",         "Falling",         "Landed",
-                                 "ZoneChange",   "Touch",           "UnTouch",         "Bump",
-                                 "BeginState",   "EndState",        "BaseChange",      "Attach",
-                                 "Detach",       "ActorEntered",    "ActorLeaving",    "KillCredit",
-                                 "AnimEnd",      "EndedRotation",   "InterpolateEnd",  "EncroachingOn",
-                                 "EncroachedBy", "FootZoneChange",  "HeadZoneChange",  "PainTimer",
-                                 "SpeechTimer",  "MayFall",         "Probe34",         "C3DAnimEnd",
-                                 "C3DPreRender", "ChangePhysics",   "ChestZoneChange", "C3DSpeechEvent",
-                                 "Tick",         "PlayerTick",      "Expired",         "Probe39",
-                                 "SeePlayer",    "EnemyNotVisible", "HearNoise",       "UpdateEyeHeight",
-                                 "SeeMonster",   "SeeFriend",       "SpecialHandling", "BotDesireability",
-                                 "Probe48",      "Probe49",         "Probe50",         "Probe51",
-                                 "Probe52",      "Probe53",         "Probe54",         "Probe55",
-                                 "Probe56",      "Probe57",         "Probe58",         "Probe59"};
-
 constexpr uint32_t kClassTransient = 0x8;
 constexpr uint32_t kActorFlags = 0x00070001 | objflag::kHasStack;
 constexpr uint32_t kObjectFlags = 0x00070000;
@@ -139,7 +120,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     }
     // Their exports: the map's by their own numbers, the rest added, named
     // as the level names them (made unique), in their outer.
-    std::set<std::pair<int32_t, std::string>> taken; // outer, lower-case name
+    std::set<std::pair<int32_t, std::string>> taken;    // outer, lower-case name
+    std::map<const VmObject *, std::string> savedNames; // those renamed or new
     for (size_t i = 0; i < _map.exports().size(); ++i)
         taken.insert({_map.exports()[i].package, fs::toLower(_map.name(_map.exports()[i].objectName))});
     auto classImport = [&](const VmClass *c) { return w.import(c->package->name() + "." + c->name, "Core", "Class"); };
@@ -159,6 +141,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         for (int n = 1; taken.count({outer, fs::toLower(name)}); ++n)
             name = _vm.nameText(o->name) + "_" + std::to_string(n);
         taken.insert({outer, fs::toLower(name)});
+        savedNames[o] = name;
         refs[o] = w.addExport(classImport(o->cls), outer, name, o->isActor ? kActorFlags : kObjectFlags);
     }
 
@@ -352,7 +335,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             probe = ~0ull;
         for (NameId n : a->disabled)
             for (int k = 0; k < 64; ++k)
-                if (fs::toLower(_vm.nameText(n)) == fs::toLower(kProbes[k]))
+                if (fs::toLower(_vm.nameText(n)) == fs::toLower(probeEvent(k)))
                     probe &= ~(1ull << k);
         b.u32(uint32_t(probe));
         b.u32(uint32_t(probe >> 32));
@@ -376,8 +359,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     };
 
     // A C3D mesh state for each saved actor with a C3D mesh and none the
-    // map gave it (one spawned): new, its groups as below, no IK targets,
-    // bone adjustments or attachments (the scripts set them again).
+    // map gave it (one spawned): new, its groups and what it holds as below,
+    // no IK requests or targets (the scripts set them again each tick).
     std::map<const VmObject *, int32_t> newMeshStates;
     for (VmObject *a : saved) {
         if (!a->isActor || a->package == &_map || !usesC3DMesh(a))
@@ -403,11 +386,10 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         m.i32(5);
         m.i32(-1);
         writeMeshGroups(m, a);
-        for (int k = 0; k < 2; ++k) { // bone adjustments, attachments
-            m.i32(0);
-            m.i32(0);
-            m.i32(10);
-        }
+        m.i32(0); // the IK chains' targets
+        m.i32(0);
+        m.i32(10);
+        writeMeshAttachments(m, a, savedNames);
         const std::string owner = _vm.nameText(a->name);
         m.u16(uint16_t(owner.size()));
         m.bytes(owner.data(), owner.size());
@@ -418,18 +400,27 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     for (VmObject *o : saved) {
         const int32_t ref = refs[o];
         if (o->package == &_map && !o->isActor) {
-            // A mesh state: its groups as the actor's animation has them.
+            // A mesh state: its groups as the actor's animation has them,
+            // and what the actor holds.
             if (o->cls && fs::toLower(o->cls->name) == "c3dmeshstate")
                 if (const Value *outer = prop(o, "Outer"); outer && outer->asObject() && outer->o->isActor) {
                     std::vector<uint8_t> data;
                     size_t begin = 0;
                     size_t end = 0;
-                    if (!_map.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end)) {
+                    size_t heldBegin = 0;
+                    size_t heldEnd = 0;
+                    if (!_map.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end) &&
+                        meshStateAttachmentSpan(data, heldBegin, heldEnd)) {
                         ByteWriter g;
                         writeMeshGroups(g, outer->o);
-                        std::vector<uint8_t> out(data.begin(), data.begin() + std::ptrdiff_t(begin));
+                        ByteWriter held;
+                        writeMeshAttachments(held, outer->o, savedNames);
+                        const auto at = [&](size_t k) { return data.begin() + std::ptrdiff_t(k); };
+                        std::vector<uint8_t> out(data.begin(), at(begin));
                         out.insert(out.end(), g.data.begin(), g.data.end());
-                        out.insert(out.end(), data.begin() + std::ptrdiff_t(end), data.end());
+                        out.insert(out.end(), at(end), at(heldBegin));
+                        out.insert(out.end(), held.data.begin(), held.data.end());
+                        out.insert(out.end(), at(heldEnd), data.end());
                         w.setData(ref, std::move(out));
                     }
                 }
@@ -691,6 +682,35 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
 // text, pause, next and return keys, tag, event, condition; a name; a
 // camera; the animations and faces); nothing under way; its faces; its
 // cameras; and a count.
+// What an actor holds, as its mesh state keeps it: each held actor's name
+// (as the save names it), its point and the holder's, and an identity
+// matrix with the flags the original's saves have (7).
+void ScriptLevel::writeMeshAttachments(ByteWriter &b, const VmObject *parent,
+                                       const std::map<const VmObject *, std::string> &names) {
+    std::vector<std::pair<const VmObject *, const Attachment *>> held;
+    for (const auto &[child, at] : _attachments)
+        if (at.parent == parent && !child->deleted)
+            held.emplace_back(child, &at);
+    b.i32(int32_t(held.size()));
+    b.i32(int32_t(held.size()));
+    b.i32(10);
+    auto str16 = [&](const std::string &text) {
+        b.u16(uint16_t(text.size()));
+        b.bytes(text.data(), text.size());
+    };
+    auto pointText = [&](NameId point) { return point ? _vm.nameText(point) : std::string(); };
+    for (const auto &[child, at] : held) {
+        const auto name = names.find(child);
+        str16(name != names.end() ? name->second : _vm.nameText(child->name));
+        str16(pointText(at->childPoint));
+        str16(pointText(at->parentPoint));
+        for (int row = 0; row < 4; ++row)
+            for (int col = 0; col < 3; ++col)
+                b.f32(row == col ? 1.0f : 0.0f);
+        b.i32(7);
+    }
+}
+
 void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
     loadDialog();
     b.i32(1);

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The package reader: compact indices, the name, import and export tables, tagged properties, finding packages and games, map extensions, dialogue tables.
+// The package reader: compact indices, the name, import and export tables, tagged properties, finding packages and games, map extensions, dialogue tables, saved games' mesh states.
 //
 //   reluva-tests unreal.unit.packages
 
+#include "engines/unreal/formats/game_save.h"
 #include "tests/engines/unreal/support.h"
 
 using namespace reluva;
@@ -181,6 +182,94 @@ void testDialogTable() {
     CHECK(!dialogKeyMatches("GEN", "GENHAL"));
 }
 
+// A C3D mesh state as Engine.dll writes one (0x10327230): one IK request,
+// one group, one chain's target and one held actor, then the owner.
+void testMeshState() {
+    PackageWriter w;
+    w.version = 73;
+    Bytes d;
+    endProps(d, w);
+    auto str16 = [&](const std::string &s) {
+        d.u16(int(s.size()));
+        for (char c : s)
+            d.u8(c);
+    };
+    auto array = [&](int n) {
+        d.i32(n);
+        d.i32(n);
+        d.i32(10);
+    };
+    auto matrix = [&] {
+        for (int k = 0; k < 12; ++k)
+            d.f32(k % 4 == 0 ? 1.0f : 0.0f);
+        d.i32(7);
+    };
+    d.u32(0xFFFFDE80u);
+    d.i32(2);
+    d.i32(22);
+    str16("BajSecurityFeMale");
+    d.i32(0);
+    d.i32(1); // an IK request: an i32, chain, an i32, target, a vector, a rotator
+    d.i32(1);
+    d.i32(5);
+    d.i32(1);
+    str16("RightHand");
+    d.i32(1);
+    str16("DS9_Phaser0");
+    for (int k = 0; k < 6; ++k)
+        d.i32(0);
+    d.i32(-1);
+    const size_t groupsAt = d.b.size();
+    array(1);
+    str16("UpperTorso");
+    str16("MelRunPnchL");
+    d.i32(0);
+    d.f32(0.25f);
+    d.i32(1);
+    d.i32(3);
+    for (int k = 0; k < 8; ++k)
+        d.f32(1);
+    str16("NONACTIVE");
+    for (int k = 0; k < 3; ++k)
+        d.f32(0);
+    str16("Bip01 Spine");
+    for (int k = 0; k < 3; ++k)
+        d.i32(0);
+    const size_t groupsEnd = d.b.size();
+    array(1); // a chain's target: its name, three i32, a matrix, a weight
+    str16("RightArm");
+    d.i32(0);
+    d.i32(1);
+    d.i32(0);
+    matrix();
+    d.f32(1);
+    const size_t heldAt = d.b.size();
+    array(1);
+    str16("BAJ_Phaser_Actor0");
+    str16("RightHand");
+    str16("BeltClip");
+    matrix();
+    const size_t heldEnd = d.b.size();
+    str16("DS9_Bajoran_Security_Female0");
+    const int32_t cls = w.addImport("Core", "Class", w.addImport("Core", "Package", 0, "Engine"), "C3DMESHSTATE");
+    const std::vector<uint8_t> data = d.b;
+    w.addExport(cls, 0, "C3DMESHSTATE0", d.b);
+    Package p;
+    CHECK(!p.openMemory(w.build(), "Save"));
+    MeshState m;
+    CHECK(!readMeshState(p, 0, m));
+    CHECK(m.mesh == "BajSecurityFeMale" && m.groups.size() == 1 && m.attachments.size() == 1);
+    if (m.groups.size() == 1)
+        CHECK(m.groups[0].group == "UpperTorso" && m.groups[0].sequence == "MelRunPnchL" && m.groups[0].state == 3 &&
+              m.groups[0].bone == "Bip01 Spine");
+    if (m.attachments.size() == 1)
+        CHECK(m.attachments[0].child == "BAJ_Phaser_Actor0" && m.attachments[0].childPoint == "RightHand" &&
+              m.attachments[0].parentPoint == "BeltClip");
+    size_t begin = 0;
+    size_t end = 0;
+    CHECK(meshStateGroupSpan(data, begin, end) && begin == groupsAt && end == groupsEnd);
+    CHECK(meshStateAttachmentSpan(data, begin, end) && begin == heldAt && end == heldEnd);
+}
 } // namespace
 
 static const reluva::test::Suite kSuite(
@@ -192,4 +281,5 @@ static const reluva::test::Suite kSuite(
         {"search paths and detection", [](const std::filesystem::path &tmp) { testSearchPathsAndDetection(tmp); }},
         {"map extension", [](const std::filesystem::path &tmp) { testMapExtension(tmp); }},
         {"dialog table", [](const std::filesystem::path &) { testDialogTable(); }},
+        {"mesh state", [](const std::filesystem::path &) { testMeshState(); }},
     });

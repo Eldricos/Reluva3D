@@ -1197,6 +1197,8 @@ private:
     };
     std::vector<TrackedSound> _trackedSounds;
     void writeMeshGroups(ByteWriter &b, VmObject *actor);
+    void writeMeshAttachments(ByteWriter &b, const VmObject *parent,
+                              const std::map<const VmObject *, std::string> &names);
     bool usesC3DMesh(VmObject *actor);
     int _meshStates = 1000;    // new C3D mesh states' numbers (their names)
     VmObject _meshStateMarker; // stands for an actor's new mesh state while it's written

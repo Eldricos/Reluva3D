@@ -44,25 +44,38 @@ buffers) aren't in it. `reluva-tool unreal save <file>` reads one.
     seconds);
   - an i32 (0).
 - **The C3D mesh states** (`C3DMESHSTATE`, one an actor with a C3D mesh,
-  its `C3DOurMeshState`): no properties; 0xFFFFDE80, 2, 22 (the C3D
-  library's version); the mesh's name; an i32; the IK targets; an i32;
-  then the animation groups (FullBody, LowerTorso, UpperTorso, then the
-  face's channels sk3...): each its name and sequence (`NONACTIVE` for
-  none), an i32 source, the frame (f32), the type (a body group's `Boned`:
-  1 true, 2 false; 4 a face channel), the state (a body group's mode, as
-  Engine.dll keeps it: 0 held still, 1 playing once, 2 fading in to play
-  once, 3 looping, 4 fading in to loop, 5 tweening, 6 fading out; a face
-  channel's 5 while tweening), rate, weight, the tween's from-frame and
-  from-weight, the fade's time gone, an f32 (its time gone a tick
-  before), its length, an f32, a pending tween (a sequence, frame, weight
-  and time), its InheritBone (the bone its clears turn) and three i32:
-  by where they fall in the engine's group state, ClearYaw, ClearPitch
-  and ClearRoll (fairly sure: no save of the original's to hand has one
-  set). Reluva writes and reads a layer by these: a punch saved as it
-  fades in (UpperTorso's `MelRunPnchL`, a third in, all three clears)
-  comes back the same. Then the bones' adjustments,
-  what's attached, the owner's name. Its strings are a 16-bit length and
-  the letters; its arrays a count, the count again and a growth step.
+  its `C3DOurMeshState`; written by Engine.dll at 0x10327230, the C3D
+  library's part at 0x10496820): no properties; 0xFFFFDE80, 2, 22 (the C3D
+  library's version); the mesh's name; an i32; the scripts' IK requests
+  (`C3DIKUNREAL`, each an i32, the chain's name, an i32, a target actor's
+  name, a vector and a rotator; its growth step 5); an i32 (-1); then:
+  - the animation groups (FullBody, LowerTorso, UpperTorso, then the
+    face's channels sk3...): each its name and sequence (`NONACTIVE` for
+    none), an i32 source, the frame (f32), the type (a body group's
+    `Boned`: 1 true, 2 false; 4 a face channel), the state (a body
+    group's mode, as Engine.dll keeps it: 0 held still, 1 playing once,
+    2 fading in to play once, 3 looping, 4 fading in to loop, 5
+    tweening, 6 fading out; a face channel's 5 while tweening), rate,
+    weight, the tween's from-frame and from-weight, the fade's time gone,
+    an f32 (its time gone a tick before), its length, an f32, a pending
+    tween (a sequence, frame, weight and time), its InheritBone (the bone
+    its clears turn) and three i32: by where they fall in the engine's
+    group state, ClearYaw, ClearPitch and ClearRoll (fairly sure: no save
+    of the original's to hand has one set). Reluva writes and reads a
+    layer by these: a punch saved as it fades in (UpperTorso's
+    `MelRunPnchL`, a third in, all three clears) comes back the same;
+  - each IK chain's target (`C3DIKTARGET`, eight for a Male skeleton):
+    the chain's name, three i32, a matrix and the weight (f32);
+  - the actors attached (`C3DATTACHSTATE`): each the held actor's name,
+    its own point, the holder's point (C3DAttach's ThisPt and ObjPt) and
+    a matrix (identity, flags 7, in every save to hand);
+  - the owner's name.
+
+  Its strings are a 16-bit length and the letters; its arrays a count,
+  the count again and a growth step (10 but for the IK requests); a matrix 12 floats (three axes
+  and a place) and an i32 of flags. All 118 of the example's read to
+  their ends so, and its one attachment is a security officer's phaser
+  at her belt (`BAJ_Phaser_Actor0`, `RightHand` to `BeltClip`).
 - **CTVE_MultiMesh** objects: the effects' particle pools (2,285 in the
   example), each in its effect actor.
 
@@ -128,8 +141,10 @@ is the map's data as it is; the rest comes from the running level.
     waiting in anything else, the offset is the call's own statement, to
     be made again.
 - **The map's mesh states** get their groups from the actor's animation,
-  layers and face channels (the rest, IK targets and all, as the map has
-  it); a spawned actor with a C3D mesh gets a new one.
+  layers and face channels, and their attachments from what it holds
+  (the rest, IK requests and targets, as the map has them); a spawned
+  actor with a C3D mesh gets a new one, with no IK requests or targets
+  (the scripts set those again every tick).
 - **The Level object:** the actor list (the LevelInfo, none, the rest);
   the URL (`DS9`, the map, `Name=Player`, the player's class); the
   model and reach list as the map's; the time; the ghosts; the dialogue
@@ -153,9 +168,10 @@ is the map's data as it is; the rest comes from the running level.
   - the cameras: each line's CAMERA in the tables' order, one with no
     place keeping the one before's, the same ones once.
 - **Not written:** the dialogue's lines under way (the engine's two lists
-  are left empty), the IK targets and bone adjustments of new mesh
-  states, and the Level's model and reach list renumbered (the map's own
-  numbering is kept, so references are a byte longer here and there).
+  are left empty: what their fields mean isn't worked out, and no save of
+  the original's to hand has one), and the Level's model and reach list
+  renumbered (the map's own numbering is kept, so references are a byte
+  longer here and there).
 
 ## Sources and checks
 
