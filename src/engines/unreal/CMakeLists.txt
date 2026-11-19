@@ -85,3 +85,12 @@ reluva_add_engine_tests(unreal
         ${tests}/engine.cpp
     TOPICS
         unit.packages unit.textures unit.sounds unit.levels unit.meshes unit.script engine)
+
+# Its engine test with the game's own files (tests/engines/unreal/gamedata.cmake):
+# RELUVA_DS9FALLEN=<the game's folder> ctest -L gamedata. See docs/DEVELOPMENT.md
+# (Engine tests).
+reluva_add_gamedata_test(unreal
+    GAME ds9fallen
+    ENV RELUVA_DS9FALLEN
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release packages points scripts levels play)

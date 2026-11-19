@@ -331,11 +331,11 @@ int cmdUeRun(int argc, char **argv) {
         std::printf("%-20s player %s; ", name.c_str(), who.c_str());
         std::printf(
             "%5zu actors (%zu after %.0f s), game %s; %d drawn as nothing, %d lights at brightness 0; "
-            "start %.0f ms, %.0f s run %.0f ms; %llu calls, %d None accessed, %zu errors, %zu natives missing\n",
+            "started in %.3f s, %.0f s run in %.3f s; %llu calls, %d None accessed, %zu errors, %zu natives missing\n",
             before, level.actors().size(), double(seconds), level.game() ? level.game()->cls->name.c_str() : "none",
-            hidden, dark, std::chrono::duration<double, std::milli>(t1 - t0).count(), double(seconds),
-            std::chrono::duration<double, std::milli>(t2 - t1).count(), (unsigned long long)vm.stats.calls,
-            vm.stats.accessedNone, vm.stats.errors.size(), vm.stats.missingNatives.size());
+            hidden, dark, std::chrono::duration<double>(t1 - t0).count(), double(seconds),
+            std::chrono::duration<double>(t2 - t1).count(), (unsigned long long)vm.stats.calls, vm.stats.accessedNone,
+            vm.stats.errors.size(), vm.stats.missingNatives.size());
         // Movement against the level: how actors moved, and where the player is.
         const auto &m = level.movement;
         std::string where;
@@ -726,16 +726,17 @@ int cmdUePlay(int argc, char **argv) {
                 for (int x = 0; x < f.w; ++x)
                     std::fwrite(f.row(y) + x * 4, 1, 3, out);
             std::fclose(out);
-            std::printf("shot %s at %.3f s: %d draws, %d triangles, drawn in %.0f ms\n", file.c_str(),
+            std::printf("shot %s at %.3f s: %d draws, %d triangles, drawn in %.3f s\n", file.c_str(),
                         double(page.playTime()), renderer.lastDraws(), renderer.lastTriangles(),
-                        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
             continue;
         } else {
             std::fprintf(stderr, "unknown step %s\n", step.c_str());
             return 2;
         }
-        std::printf("%s: %.0f ms\n", step.c_str(),
-                    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        // (Timings as " in <n> s", which the game-files test takes out.)
+        std::printf("%s done in %.3f s\n", step.c_str(),
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
     }
     page.deactivate();
     return 0;
