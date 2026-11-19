@@ -164,4 +164,11 @@ the video settings' `defer` warning, the `uiScript` commands other than
   and without `;`, the mouse and keys, `startgame`. `reluva-tool idtech3
   sp-menus <base>` runs the game's own menus with keys and mouse moves
   (`-mouse frame dx dy`), reporting the menus open, the focus, the
-  commands and what's drawn; it hasn't been run on the game's files yet.
+  commands and what's drawn (`-pictures file` writes the last frame's
+  pictures). On 1.02a's files it reads all 21 menus; the main, New Game
+  and in-game menus, drawn from those pictures, look as the original's
+  do, but for the logo's model; the datapad's mission page is its black
+  frame and buttons, without the owner draws. A game-data step
+  (`jk2-sp-menus`) records the way from the main menu through New Game,
+  Jedi Knight and Begin Game to `map kejim_post`, and the in-game menu
+  and the datapad opened.

@@ -247,9 +247,10 @@ behind the DLL's own tables.
    text and values drawn, their scripts run, the focus moved by mouse and
    keys; New Game's Begin starts `kejim_post`, Esc opens the in-game menu
    and `datapad` the datapad. The Play page runs them for Jedi Outcast,
-   after the opening logos. Next: checked against the game's own files,
-   then the list boxes (saved games), key binding, the owner draws, the
-   logo's model and the datapad's pages.
+   after the opening logos; on the game's own files the main, New Game
+   and in-game menus look as the original's (a game-data step,
+   `jk2-sp-menus`). Next: the list boxes (saved games), key binding, the
+   owner draws, the logo's model and the datapad's pages.
 9. **Single player complete**: saved games (Raven's chunks, shared with
    Elite Force in `raven/savegame`), dynamic music (`ext_data/dms.dat`),
    speech with lip sync, all 26 levels played through; a game-files step

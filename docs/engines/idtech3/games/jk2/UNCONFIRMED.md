@@ -28,8 +28,8 @@ What Reluva does that hasn't been checked against the running original.
   against the retail game ([systems/network.md](systems/network.md)).
 - Single player's menus place text, colour the focused item and draw
   multi values and sliders as Team Arena's menu code does, not traced in
-  `jk2sp.exe`; they haven't yet been run on the game's own menu files
-  nor compared with the original's screens
+  `jk2sp.exe`; drawn from the game's own menus they look right, but
+  haven't been compared pixel by pixel with the original's screens
   ([systems/sp-menus.md](systems/sp-menus.md)).
 
 ## Seen running, not traced in the code

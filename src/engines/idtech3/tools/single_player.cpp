@@ -381,7 +381,7 @@ void printPictures(int frame, const reluva::idtech3::SpMenuHost &ui, bool fullsc
 int runJediMenus(const reluva::SearchSet &set, reluva::idtech3::CvarStore &cvars,
                  reluva::idtech3::KeyBindings &bindings, const std::string &menu, int frames,
                  const std::vector<std::pair<int, int32_t>> &keys,
-                 const std::vector<std::pair<int, std::array<int32_t, 2>>> &moves) {
+                 const std::vector<std::pair<int, std::array<int32_t, 2>>> &moves, const std::string &picturesPath) {
     namespace q3 = reluva::idtech3;
     q3::jk2::SpMenus ui(set, cvars);
     ui.bindings = &bindings;
@@ -436,6 +436,14 @@ int runJediMenus(const reluva::SearchSet &set, reluva::idtech3::CvarStore &cvars
         if (f == 0 || f == frames - 1)
             printPictures(f, ui, ui.fullscreen());
     }
+    if (!picturesPath.empty()) {
+        // The last frame's pictures, a line each: "x y w h s1 t1 s2 t2 r g b a shader".
+        std::ofstream out(picturesPath);
+        for (const auto &p : ui.pictures())
+            out << p.x << ' ' << p.y << ' ' << p.w << ' ' << p.h << ' ' << p.s1 << ' ' << p.t1 << ' ' << p.s2 << ' '
+                << p.t2 << ' ' << p.color[0] << ' ' << p.color[1] << ' ' << p.color[2] << ' ' << p.color[3] << ' '
+                << ui.shaders().name(p.shader) << '\n';
+    }
     return 0;
 }
 
@@ -463,6 +471,7 @@ int cmdSpMenus(int argc, char **argv) {
     std::string menu = "main";
     std::vector<std::pair<int, int32_t>> keys;                 // (frame, key)
     std::vector<std::pair<int, std::array<int32_t, 2>>> moves; // (frame, (dx, dy)): Jedi Outcast's
+    std::string picturesPath; // -pictures file: Jedi Outcast's last frame's pictures written there
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -478,6 +487,8 @@ int cmdSpMenus(int argc, char **argv) {
                 k = std::atoi(argv[i + 2]);
             keys.emplace_back(std::atoi(argv[i + 1]), k);
             i += 2;
+        } else if (std::strcmp(argv[i], "-pictures") == 0 && i + 1 < argc) {
+            picturesPath = argv[++i];
         } else if (std::strcmp(argv[i], "-mouse") == 0 && i + 3 < argc) {
             moves.push_back({std::atoi(argv[i + 1]), {std::atoi(argv[i + 2]), std::atoi(argv[i + 3])}});
             i += 3;
@@ -509,7 +520,7 @@ int cmdSpMenus(int argc, char **argv) {
         cvars.set(name, value);
     q3::KeyBindings bindings;
     if (dllPath.empty() && set.has("ui/menus.txt"))
-        return runJediMenus(set, cvars, bindings, menu, frames, keys, moves);
+        return runJediMenus(set, cvars, bindings, menu, frames, keys, moves, picturesPath);
     if (dllPath.empty()) {
         std::fprintf(stderr, "efuix86.dll isn't beside %s; give it with -dll\n", argv[2]);
         return 1;

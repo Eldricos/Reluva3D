@@ -64,6 +64,10 @@
 #   jk2-sp-yavin-assault  yavin_swamp, yavin_canyon and yavin_courtyard by
 #                 the tour; yavin_final by the tour, then its route
 #                 (Desann's fight), to the game's end.
+#   jk2-sp-menus  the single-player menus, run as jk2sp.exe runs them:
+#                 the main menu, the mouse onto Load, New Game by Enter,
+#                 Jedi Knight and Begin Game clicked, to "map kejim_post";
+#                 then the in-game menu and the datapad opened (sp-menus)
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -124,6 +128,11 @@ elseif(STEP STREQUAL "jk2-game")
                -set g_maxForceRank 7 -clientcmd "team free")
     record_run(ffa_bespin-mapchange "game code" idtech3 net-run "${base}" ffa_bespin -loopback 160 -set sv_pure 0
                -set g_maxForceRank 7 -clientcmd "team free" -mapchange ffa_deathstar)
+elseif(STEP STREQUAL "jk2-sp-menus")
+    record_run(new-game "command: map" idtech3 sp-menus "${base}" -frames 8 -mouse 1 -10 -110 -key 2 UPARROW
+               -key 3 ENTER -mouse 4 50 175 -key 5 MOUSE1 -mouse 6 130 155 -key 7 MOUSE1)
+    record_run(ingame "menus read" idtech3 sp-menus "${base}" -menu ingame -frames 1)
+    record_run(datapad "menus read" idtech3 sp-menus "${base}" -menu datapad -frames 1)
 elseif(STEP STREQUAL "jk2-single-player")
     record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame -saveload)
 elseif(STEP STREQUAL "jk2-sp-tour")
