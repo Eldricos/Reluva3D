@@ -606,6 +606,27 @@ public:
  */
 ```
 
+Members that one sentence covers (a pair of getters, a run of `readLE16`,
+`readLE32`...) share one block, put before a `///@{` ... `///@}` group,
+rather than each repeating it:
+
+```cpp
+/** The size it was made with, in pixels. */
+///@{
+int width() const { return _width; }
+int height() const { return _height; }
+///@}
+```
+
+Data members keep plain `//` comments beside them. A class's blocks say
+how to use it; how it works inside goes in `//` comments in the `.cpp`.
+
+`tools/check-doxygen.py` lists the public classes, functions, enums and
+type aliases in headers that have no block
+([DEVELOPMENT.md](DEVELOPMENT.md#code-style)). In a block, write a
+placeholder in backticks (`` `<name>` ``): bare, Doxygen takes it for an
+HTML tag.
+
 ---
 
 ## Special Keywords

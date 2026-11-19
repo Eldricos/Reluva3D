@@ -91,7 +91,7 @@ Notes for developers. Building and running are covered in the
 
 Code follows [CODING_GUIDE.md](CODING_GUIDE.md); how the existing code
 was brought in line is in [code-style-migration.md](code-style-migration.md).
-Five tools check it; the first three need version 18 of their LLVM
+Six tools check it; the first three need version 18 of their LLVM
 program (another lays code out differently):
 
 - **`python3 tools/format.py`** formats with clang-format
@@ -121,12 +121,22 @@ program (another lays code out differently):
   the author and reviewer to judge. With `--changed` it looks only at the
   lines added.
 
-Before a pull request, run `format.py`, `tidy.py`, `split_members.py` and
-`comments.py` with `--changed`, and `check-headers.py`, which looks at
-every file. CI's "Code style" job does the same, and fails on an
-unformatted file, a clang-tidy finding or members declared together in a
-changed file, or a file without its license lines; what `comments.py`
-flags shows as a warning on the pull request's lines, without failing it.
+- **`python3 tools/check-doxygen.py`** builds the API pages with Doxygen
+  (the `Doxyfile` at the top; Ubuntu: `apt install doxygen`) into
+  `build-docs/html/`, and lists the public classes, functions, enums and
+  type aliases in headers without a Doxygen block, and blocks Doxygen
+  can't read. Every header, the ones named, or `--changed` (the headers
+  changed since the branch left `main`); `--summary` gives a count per
+  folder instead.
+
+Before a pull request, run `format.py`, `tidy.py`, `split_members.py`,
+`comments.py` and `check-doxygen.py` with `--changed`, and
+`check-headers.py`, which looks at every file. CI's "Code style" job does
+the same, and fails on an unformatted file, a clang-tidy finding or
+members declared together in a changed file, or a file without its
+license lines; what `comments.py` flags shows as a warning on the pull
+request's lines, without failing it. `check-doxygen.py` runs in the
+"Docs" job, its findings in changed headers warnings too.
 A name that has to stay as it is (see the guide's Naming: Exceptions)
 gets a `// NOLINT(<check>): reason`, or `// NOLINTNEXTLINE(<check>): reason`
 on the line before when the reason is long. Generated files and `third_party/`

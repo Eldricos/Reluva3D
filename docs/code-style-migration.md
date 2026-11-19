@@ -346,8 +346,10 @@ by hand too, and the Windows and macOS builds in CI find what's missed.
 - **Doxygen comments: as each file is worked on**, as decided. New code
   has them from the start; a file's plain `//` comments on its public
   classes, methods and structures become Doxygen blocks when someone
-  works on that file. Nothing checks this: no tool can tell a comment
-  that should be Doxygen from one that shouldn't.
+  works on that file. `tools/check-doxygen.py` lists the public
+  declarations still without a block (with `--summary`, a count per
+  folder), and CI shows those in the headers a change touches as
+  warnings.
 
 **A branch made before the split** catches up as from the renames, with
 the commits before (`ccd6d12`) and after (`ef4b761`) it:
@@ -364,4 +366,4 @@ git merge main                        # the rest, as usual
 
 After that the migration is done: what's left is keeping to the guide,
 which CI checks for formatting, clang-tidy and members, and Doxygen as
-files are worked on.
+files are worked on (warnings only).
