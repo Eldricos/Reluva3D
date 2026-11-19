@@ -36,6 +36,13 @@ void putWindowCounts(Bytes &b, const std::vector<std::pair<uint32_t, uint32_t>> 
 // A text font: colour (stored red, blue, green), flags, "own", the .fnt.
 void putFont(Bytes &b, uint8_t r, uint8_t g, uint8_t bl, const std::string &file);
 
+// A .fnt as docs/formats/botf/fnt.md describes: the header (line height,
+// space advance, 120 advances) and a 16-bit TGA sheet of framed cells, in
+// rows of 10, 26, 26, 32 and 26. Glyph i is a cell of width 2 + i % 4 filled
+// with colour 0x0400 + i, except one pixel left as background; the first
+// cell of rows 2-5 is a pixel wider than its advance says, as in the game.
+Bytes makeFont(int lineHeight, int rowsToDraw = 5);
+
 // lexicon.dic holding the words, numbered from 0.
 Bytes makeLexicon(const std::vector<std::string> &words);
 

@@ -3,6 +3,7 @@
 
 #include "tests/engines/botf/unit/helpers.h"
 
+#include <algorithm>
 #include <fstream>
 
 namespace reluva::botf::test {
@@ -89,6 +90,69 @@ Bytes makeLexicon(const std::vector<std::string> &words) {
         put32(f, offsets[i]);
         put32(f, uint32_t(words[i].size() + 1));
     }
+    return f;
+}
+
+Bytes makeFont(int lineHeight, int rowsToDraw) {
+    const int rows[5] = {10, 26, 26, 32, 26};
+    std::vector<uint16_t> advances;
+    int sheetW = 0;
+    for (int r = 0, i = 0; r < 5; ++r) {
+        int x = 1;
+        for (int k = 0; k < rows[r]; ++k, ++i) {
+            const int cell = 2 + i % 4 + (r > 0 && k == 0 ? 1 : 0);
+            advances.push_back(uint16_t(2 + i % 4 + 1));
+            x += cell + 1;
+        }
+        sheetW = std::max(sheetW, x);
+    }
+    const int sheetH = 5 * lineHeight + 1;
+    std::vector<uint16_t> px(size_t(sheetW) * sheetH, 0); // top row first
+    auto at = [&](int x, int y) -> uint16_t & { return px[size_t(y) * sheetW + x]; };
+    const uint16_t frame = 0x03f1;
+    for (int r = 0, i = 0; r < 5; ++r) {
+        for (int x = 0; x < sheetW; ++x)
+            at(x, r * lineHeight) = at(x, (r + 1) * lineHeight) = frame;
+        int x = 1;
+        for (int k = 0; k < rows[r]; ++k, ++i) {
+            const int cell = 2 + i % 4 + (r > 0 && k == 0 ? 1 : 0);
+            for (int y = r * lineHeight; y <= (r + 1) * lineHeight; ++y)
+                at(x - 1, y) = at(x + cell, y) = frame;
+            if (r < rowsToDraw)
+                for (int y = r * lineHeight + 1; y < (r + 1) * lineHeight; ++y)
+                    for (int cx = 0; cx < cell; ++cx)
+                        if (!(cx == 0 && y == r * lineHeight + 1))
+                            at(x + cx, y) = uint16_t(0x0400 + i);
+            x += cell + 1;
+        }
+    }
+    if (rowsToDraw < 5) // a full-height frame-coloured column splits a cell
+        for (int y = 4 * lineHeight + 1; y < 5 * lineHeight; ++y)
+            at(2, y) = frame;
+    Bytes f(260, 0);
+    f[0] = uint8_t(lineHeight);
+    f[1] = 1;
+    f[2] = 4;
+    f[3] = 1;
+    set32(f, 4, 10 | 120u << 16);
+    set32(f, 8, uint32_t(sheetW) | uint32_t(sheetH) << 16);
+    set32(f, 12, uint32_t(px.size() * 2));
+    f[16] = 1;
+    f[17] = 6;
+    f[18] = 86;
+    for (int i = 0; i < 120; ++i) {
+        f[20 + 2 * size_t(i)] = uint8_t(advances[size_t(i)]);
+        f[21 + 2 * size_t(i)] = uint8_t(advances[size_t(i)] >> 8);
+    }
+    Bytes tga = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    put16(tga, uint32_t(sheetW));
+    put16(tga, uint32_t(sheetH));
+    tga.push_back(16);
+    tga.push_back(1); // rows from the bottom up
+    for (int y = sheetH - 1; y >= 0; --y)
+        for (int x = 0; x < sheetW; ++x)
+            put16(tga, at(x, y));
+    f.insert(f.end(), tga.begin(), tga.end());
     return f;
 }
 

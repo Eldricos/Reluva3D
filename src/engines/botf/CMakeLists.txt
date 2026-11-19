@@ -15,7 +15,11 @@ reluva_add_engine(botf
         formats/menu_file.cpp
         formats/snd_archive.cpp
         formats/text_table.cpp
-        formats/window_layout.cpp)
+        formats/window_layout.cpp
+        ui/assets.cpp
+        ui/empire_screen.cpp
+        ui/layout_screen.cpp
+        ui/setup_screen.cpp)
 
 # Its reluva-tool commands (reluva-tool help botf lists them).
 reluva_add_engine_tools(botf
@@ -34,9 +38,11 @@ reluva_add_engine_tests(botf
         ${tests}/unit/archives.cpp
         ${tests}/unit/fonts.cpp
         ${tests}/unit/tables.cpp
+        ${tests}/unit/layouts.cpp
+        ${tests}/unit/screens.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.archives unit.fonts unit.tables engine)
+        unit.detection unit.archives unit.fonts unit.tables unit.layouts unit.screens engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):
