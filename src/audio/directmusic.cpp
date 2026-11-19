@@ -376,8 +376,7 @@ int dmMusicToMidi(uint16_t value, int mode, const DmChord &chord) {
         if (accidental > 7)
             accidental -= 16;
         const int root = (mode & kChordRoot) ? chord.chordRoot : chord.scaleRoot;
-        // The scale's notes as semitones above the chord's root, over
-        // three octaves.
+        // The scale's notes as semitones above `root`, over four octaves.
         std::vector<int> scale;
         for (int i = 0; i < 48; ++i) {
             const int pitch = ((i - (root - chord.scaleRoot)) % 24 + 24) % 24; // into the two-octave pattern
