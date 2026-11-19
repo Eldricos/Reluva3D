@@ -9,24 +9,27 @@ The session protocol between copies of Reluva, passwords, joining late, the host
 ## The protocol
 
 Every datagram is `RM`, a type byte and its fields, little-endian:
-strings are a length byte and their bytes, floats IEEE.
+strings are a length byte and their bytes, floats IEEE, keys 32 bytes.
+Only the first five below and the Challenge go as they are; every other
+message goes sealed inside a Sealed datagram ([Encryption](#encryption)).
 
 | Type | From | Fields |
 |---|---|---|
 | Query | anyone, broadcast | version, the asker's time (ms) |
 | Info | host | version, session name, event, city, players, most, flags (playing, password), the asker's time back |
-| Join | player | version, net name, the password's proof (none until challenged) |
-| Challenge | host | 16 bytes, for a session with a password |
-| Welcome / Refuse | host | the player's id / why (version, full, password) |
+| Join | player | version, net name, the password's proof (none until challenged), the player's public key |
+| Challenge | host | 16 bytes, and the host's public key, for a session with a password |
+| Welcome / Refuse | host | the player's id, the host's public key and, with a password, the host's proof / why (version, full, password) |
 | Status | player, 4 a second | round, name, car, paint, team, flags (ready, loaded, team chosen), ping, its time, a chat line and its number |
-| Lobby | host, 4 a second to each | phase, round, seed, session name, settings, the player's id, every player (with the address the host reaches it at, and whether it's been called a cheater), the last 8 chat lines, the player's chat taken, the player's time back and how long the host held it |
+| Lobby | host, 4 a second to each | phase, round, seed, session name, settings, the player's id, every player (with the address the host reaches it at, whether it's been called a cheater, and its public key), the last 8 chat lines, the player's chat taken, the player's time back and how long the host held it |
 | Car | player, 20 a second | its race clock, position, velocity, rotation (4 x int16), front wheels' angle, wheels' compression (cm), lamps (head, brake, reverse, siren), next checkpoint, finish time, engine revs, throttle, damage, how many dents and the last four (in 5 cm steps), times put back |
 | Cars | host, 20 a second to each | every other car's newest state |
 | Game | host, 10 a second | the race clock, over, the game's state (Cops & Robbers' gold, as `GoldGame::encode` writes it; in a race each player's next checkpoint and finish as the host counts them) |
 | Leave / Kick / Bye | player / host / host | a player going, ejected, the host going (and who's to take over) |
+| Sealed | anyone in the session | from (id), to (id), a 64-bit count, then one of the messages above sealed |
 
-The version is 2 (version 1 sent the password itself, and had none of
-the Car fields after the finish time).
+The version is 3 (version 2 sent everything in the clear, version 1 the
+password itself and none of the Car fields after the finish time).
 
 - **Nothing depends on one datagram.** Each message is sent again and
   again, the newest replacing the last. A chat line is sent until the
@@ -53,12 +56,50 @@ the Car fields after the finish time).
 
 A password isn't sent. A player joining a session that has one is sent a
 challenge: 16 bytes the host hasn't used before (MD5 of a secret of its
-own, a count and the time). The player answers with HMAC-MD5 (RFC 2104,
-keyed by the password) of the challenge and its net name, and the host
-checks it with its own copy. Each challenge is good for one answer. A
-wrong answer is refused as the game's "Incorrect password" (`badp_dlg`).
-That keeps the password off the network; it isn't encryption: the game
-itself goes in the clear.
+own, a count and the time), with the host's public key. The player
+answers with HMAC-MD5 (RFC 2104, keyed by the password) of the
+challenge, its net name, its own public key and the host's, and the
+host checks it with its own copy. Each challenge is good for one answer.
+A wrong answer is refused as the game's "Incorrect password"
+(`badp_dlg`).
+
+The host proves it too: its Welcome carries HMAC-MD5 of the challenge,
+"host" and the two keys. A player that asked with a password and gets a
+welcome whose proof is wrong leaves, as for a wrong password: whoever
+answered doesn't know it.
+
+Since both proofs cover both public keys, nobody between the two can put
+keys of their own in place of theirs without knowing the password.
+
+## Encryption
+
+Everything after the Welcome goes sealed, so nobody on the way can read
+the chat or the game, or change a message or send one of their own:
+
+- **Keys.** Each machine makes an X25519 key pair for the session
+  ([common/crypto.md](../../../../../common/crypto.md)). A player's public key goes in
+  its Join, the host's in its Welcome (and Challenge), and the Lobby
+  passes on every player's, so any two players share a secret, and a
+  player taking over as host already has one with each of the others.
+- **Each pair's keys.** From two players' shared secret, a ChaCha20 block
+  under it (nonce `RMkeys` and zeros) gives two keys: its first half for
+  messages from the lower id to the higher, its second the other way.
+- **A Sealed datagram.** `RM`, the Sealed type, the sender's id, the
+  receiver's, and a count the sender never uses twice (its 13 bytes the
+  associated data, and the count, after four zero bytes, the nonce),
+  then the message sealed with ChaCha20-Poly1305. One that doesn't open
+  under the pair's key is dropped, and so is any message that should be
+  sealed and isn't.
+- **Each count is taken once.** The receiver keeps the highest count it
+  has opened from each sender and which of the 64 before it it has seen;
+  a count seen already, or older than those, is dropped. So a datagram
+  recorded and sent again (an old lobby, a Kick) does nothing.
+- **Who it's from.** The host takes a sealed message only from the
+  address the player joined from, and with the player's own id; a player
+  only from the host.
+- **Without a password,** nothing says whose a public key is: the keys
+  keep out anyone who's only listening, not someone who can stand between
+  a player and the host from the start. A password closes that.
 
 ## Joining late, leaving, taking over
 
@@ -167,5 +208,5 @@ passed on by hand. The mapping is taken away when the host leaves
 
 ## Sources and checks
 
-- **Where the facts come from:** Reluva's own design (the original's is DirectPlay); UPnP's and NAT-PMP's published specifications for the router.
-- **How it was checked:** `age.unit.network` and `common.unit.portmap`.
+- **Where the facts come from:** Reluva's own design (the original's is DirectPlay); UPnP's and NAT-PMP's published specifications for the router; RFC 7748 and RFC 8439 for the encryption.
+- **How it was checked:** `age.unit.network` (with a test that listens in: the chat isn't on the wire, and a datagram sent again, changed, or made up in the clear does nothing), `common.unit.crypto` and `common.unit.portmap`.

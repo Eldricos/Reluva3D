@@ -9,6 +9,7 @@
 
 #include "engines/age/game/net_session.h"
 
+#include "common/crypto.h"
 #include "common/md5.h"
 
 #include <algorithm>
@@ -35,7 +36,15 @@ enum Msg : uint8_t {
     kKick,      // the host ejects the player
     kBye,       // the host is going: who's host now (or none)
     kChallenge, // the host's: prove the password with this
+    kSealed,    // any of the others but the first five and the challenge, encrypted
 };
+
+// Sent as they are: what finding a session and joining it need, before
+// there's a key. Everything else goes sealed (kSealed).
+bool sentClear(uint8_t type) {
+    return type == kQuery || type == kInfo || type == kJoin || type == kWelcome || type == kRefuse ||
+           type == kChallenge;
+}
 
 constexpr uint64_t kLobbyEveryMs = 250;
 constexpr uint64_t kStatusEveryMs = 250;
@@ -184,11 +193,29 @@ NetCarState readCar(Reader &r) {
 
 // The proof of a password: HMAC-MD5 of the host's challenge and the
 // player's name, keyed by the password.
+// The password proved: HMAC-MD5 of the host's challenge, who proves it
+// (the player's name, or "host" for the host's answer) and both keys, so
+// a go-between can't put keys of its own in either's place.
 std::array<uint8_t, 16> passwordProof(const std::string &password, const std::array<uint8_t, 16> &nonce,
-                                      const std::string &name) {
+                                      const std::string &name, const crypto::Key &playerKey,
+                                      const crypto::Key &hostKey) {
     std::vector<uint8_t> message(nonce.begin(), nonce.end());
     message.insert(message.end(), name.begin(), name.begin() + std::ptrdiff_t(std::min<size_t>(name.size(), 255)));
+    message.insert(message.end(), playerKey.begin(), playerKey.end());
+    message.insert(message.end(), hostKey.begin(), hostKey.end());
     return hmacMd5(password.data(), password.size(), message.data(), message.size());
+}
+
+void writeKey(Writer &w, const crypto::Key &k) {
+    for (uint8_t b : k)
+        w.u8(b);
+}
+
+crypto::Key readKey(Reader &r) {
+    crypto::Key k;
+    for (uint8_t &b : k)
+        b = r.u8();
+    return k;
 }
 
 void writeSettings(Writer &w, const NetSettings &s) {
@@ -320,6 +347,8 @@ bool carStateAt(const std::deque<NetCarState> &states, float clock, NetCarState 
 struct NetSession::Peer {
     net::Address address;
     uint8_t id = 0;
+    std::array<uint8_t, 16> nonce{}; // the challenge it answered, for its welcome again
+    bool proved = false;
     uint64_t heardMs = 0;
     uint32_t chatTaken = 0; // the player's chat lines the host has
     uint32_t echo = 0;      // the time in its last status
@@ -338,6 +367,9 @@ std::unique_ptr<NetSession> NetSession::host(std::unique_ptr<net::UdpSocket> soc
     s->_settings = settings;
     s->_myId = 0;
     s->_hostId = 0;
+    s->_secretKey = crypto::randomKey();
+    s->_publicKey = crypto::x25519Public(s->_secretKey);
+    s->_publics[0] = s->_publicKey;
     std::random_device random;
     for (uint8_t &b : s->_secret)
         b = uint8_t(random());
@@ -358,6 +390,8 @@ std::unique_ptr<NetSession> NetSession::join(std::unique_ptr<net::UdpSocket> soc
     s->_password = password;
     s->_wish.name = name;
     s->_wish.car = "vpbug";
+    s->_secretKey = crypto::randomKey();
+    s->_publicKey = crypto::x25519Public(s->_secretKey);
     return s;
 }
 
@@ -587,7 +621,7 @@ void NetSession::eject(uint8_t id) {
     for (const auto &peer : _peers)
         if (peer->id == id)
             for (int i = 0; i < 2; ++i)
-                _socket->send(peer->address, Writer(kKick).out);
+                sendTo(peer->address, peer->id, Writer(kKick).out);
     dropPlayer(id, true);
 }
 
@@ -611,12 +645,12 @@ void NetSession::leave() {
         w.u8(left >= 2 || (left == 1 && bots) ? successor : kNoPlayer);
         for (const auto &peer : _peers)
             for (int i = 0; i < 3; ++i)
-                _socket->send(peer->address, w.out);
+                sendTo(peer->address, peer->id, w.out);
     } else if (_myId != kNoPlayer) {
         Writer w(kLeave);
         w.u8(_myId);
         for (int i = 0; i < 3; ++i)
-            _socket->send(_hostAddress, w.out);
+            sendTo(_hostAddress, _hostId, w.out);
     }
     _closed = true;
 }
@@ -679,6 +713,7 @@ void NetSession::update(uint64_t nowMs) {
             if (_haveProof)
                 for (uint8_t b : _proof)
                     w.u8(b);
+            writeKey(w, _publicKey);
             _socket->send(_hostAddress, w.out);
         }
         return;
@@ -696,14 +731,133 @@ void NetSession::update(uint64_t nowMs) {
         _lastCarsMs = nowMs;
         Writer w(kCar);
         writeCar(w, _myCar);
-        _socket->send(_hostAddress, w.out);
+        sendTo(_hostAddress, _hostId, w.out);
     }
+}
+
+void NetSession::sendWelcome(const Peer &peer) {
+    Writer w(kWelcome);
+    w.u8(peer.id);
+    writeKey(w, _publicKey);
+    // With a password, the host proves it too, over both keys.
+    w.u8(peer.proved ? 16 : 0);
+    if (peer.proved) {
+        const auto key = _publics.find(peer.id);
+        for (uint8_t b : passwordProof(_password, peer.nonce, "host",
+                                       key != _publics.end() ? key->second : crypto::Key{}, _publicKey))
+            w.u8(b);
+    }
+    _socket->send(peer.address, w.out);
+}
+
+NetSession::Link *NetSession::link(uint8_t id) {
+    // The keys either way between us and player `id`, from X25519 of our
+    // secret and its public key: the first half of a ChaCha20 block under
+    // the shared secret for the lower id's messages to the higher, the
+    // second the other way.
+    const auto pub = _publics.find(id);
+    if (pub == _publics.end() || id == _myId)
+        return nullptr;
+    Link &l = _links[id];
+    if (l.ready && l.with == pub->second)
+        return &l;
+    const crypto::Key shared = crypto::x25519(_secretKey, pub->second);
+    if (shared == crypto::Key{}) // a key of small order: no secret at all
+        return nullptr;
+    const crypto::Nonce label = {'R', 'M', 'k', 'e', 'y', 's'};
+    const std::array<uint8_t, 64> keys = crypto::chacha20Block(shared, label, 0);
+    crypto::Key low;
+    crypto::Key high;
+    std::copy_n(keys.begin(), 32, low.begin());
+    std::copy_n(keys.begin() + 32, 32, high.begin());
+    l = Link{};
+    l.with = pub->second;
+    l.send = _myId < id ? low : high;
+    l.recv = _myId < id ? high : low;
+    l.ready = true;
+    return &l;
+}
+
+void NetSession::sendTo(const net::Address &to, uint8_t toId, const std::vector<uint8_t> &message) {
+    if (sentClear(typeOf(message))) {
+        _socket->send(to, message);
+        return;
+    }
+    Link *l = link(toId);
+    if (!l)
+        return; // no key for it: nothing goes in the clear
+    // RM, kSealed, from, to, a count never used before under this key:
+    // the header's sent as it is and covered by the tag.
+    const uint64_t count = ++_sent;
+    Writer w(kSealed);
+    w.u8(_myId);
+    w.u8(toId);
+    w.u32(uint32_t(count));
+    w.u32(uint32_t(count >> 32));
+    crypto::Nonce nonce{};
+    for (size_t i = 0; i < 8; ++i)
+        nonce[4 + i] = uint8_t(count >> (8 * i));
+    const std::vector<uint8_t> sealed =
+        crypto::seal(l->send, nonce, w.out.data(), w.out.size(), message.data(), message.size());
+    w.out.insert(w.out.end(), sealed.begin(), sealed.end());
+    _socket->send(to, w.out);
+}
+
+bool NetSession::unseal(const std::vector<uint8_t> &data, std::vector<uint8_t> &plain, uint8_t &sender) {
+    constexpr size_t kHeader = 13;
+    if (data.size() < kHeader + 16 || data[4] != _myId)
+        return false;
+    sender = data[3];
+    uint64_t count = 0;
+    for (size_t i = 0; i < 8; ++i)
+        count |= uint64_t(data[5 + i]) << (8 * i);
+    Link *l = link(sender);
+    if (!l || count == 0)
+        return false;
+    // Each count is taken once: the newest 64 are remembered, older ones
+    // turned down (a datagram sent again by someone listening in).
+    if (count <= l->newest && (l->newest - count >= 64 || ((l->seen >> (l->newest - count)) & 1)))
+        return false;
+    crypto::Nonce nonce{};
+    for (size_t i = 0; i < 8; ++i)
+        nonce[4 + i] = data[5 + i];
+    if (!crypto::open(l->recv, nonce, data.data(), kHeader, data.data() + kHeader, data.size() - kHeader, plain))
+        return false;
+    const uint8_t type = typeOf(plain);
+    if (type == 0 || type == kSealed || sentClear(type))
+        return false;
+    if (count > l->newest) {
+        const uint64_t shift = count - l->newest;
+        l->seen = shift >= 64 ? 0 : l->seen << shift;
+        l->newest = count;
+    }
+    l->seen |= uint64_t(1) << (l->newest - count);
+    return true;
 }
 
 void NetSession::receive(uint64_t nowMs) {
     net::Address from;
     std::vector<uint8_t> data;
     for (int n = 0; n < 512 && _socket->receive(from, data); ++n) {
+        // Opened, from whom it says: the host takes a player's only from
+        // the address it joined from, and a player only the host's.
+        if (typeOf(data) == kSealed) {
+            uint8_t sender = kNoPlayer;
+            std::vector<uint8_t> plain;
+            if (!unseal(data, plain, sender))
+                continue;
+            if (_host) {
+                const auto it =
+                    std::find_if(_peers.begin(), _peers.end(), [&](const auto &p) { return p->address == from; });
+                if (it == _peers.end() || (*it)->id != sender)
+                    continue;
+            } else if (sender != _hostId) {
+                continue;
+            }
+            data = std::move(plain);
+        } else if (!sentClear(typeOf(data))) {
+            continue; // the rest come sealed
+        }
         if (_host)
             handleHost(from, data, nowMs);
         else if (from == _hostAddress)
@@ -745,16 +899,22 @@ void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t>
         std::array<uint8_t, 16> proof{};
         for (size_t i = 0; i < proofSize && i < proof.size(); ++i)
             proof[i] = r.u8();
-        if (!r.ok)
+        const crypto::Key key = readKey(r);
+        if (peer && r.ok) { // asked again: the welcome was lost
+            sendWelcome(*peer);
             return;
-        if (peer) { // asked again: the welcome was lost
-            Writer w(kWelcome);
-            w.u8(peer->id);
-            _socket->send(from, w.out);
+        }
+        if (!r.ok) { // another version's: say so
+            if (version != kNetVersion) {
+                Writer w(kRefuse);
+                w.u8(uint8_t(kRefusedVersion));
+                _socket->send(from, w.out);
+            }
             return;
         }
         // A password isn't sent: the host asks the player to prove it
         // (HMAC-MD5 of a challenge it hasn't used before, and the name).
+        std::array<uint8_t, 16> nonce{}; // the challenge answered, if there was one
         int refused = version != kNetVersion                    ? kRefusedVersion
                       : _players.size() >= _settings.maxPlayers ? kRefusedFull
                                                                 : 0;
@@ -773,10 +933,12 @@ void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t>
                 Writer w(kChallenge);
                 for (uint8_t b : c.nonce)
                     w.u8(b);
+                writeKey(w, _publicKey);
                 _socket->send(from, w.out);
                 return;
             }
-            const bool right = passwordProof(_password, it->second.nonce, name) == proof;
+            const bool right = passwordProof(_password, it->second.nonce, name, key, _publicKey) == proof;
+            nonce = it->second.nonce;
             _challenges.erase(it);
             if (!right)
                 refused = kRefusedPassword;
@@ -794,6 +956,10 @@ void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t>
         p->address = from;
         p->id = id;
         p->heardMs = nowMs;
+        p->nonce = nonce;
+        p->proved = !_password.empty();
+        _publics[id] = key;
+        const Peer &joined = *p;
         _peers.push_back(std::move(p));
         NetPlayer player;
         player.id = id;
@@ -804,9 +970,7 @@ void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t>
         // Joining a game already going: loaded in when its machine's ready.
         _players.push_back(player);
         notice(NetNotice::Kind::kJoined, player.name);
-        Writer w(kWelcome);
-        w.u8(id);
-        _socket->send(from, w.out);
+        sendWelcome(joined);
         _lastLobbyMs = 0;
         return;
     }
@@ -891,6 +1055,8 @@ void NetSession::sendLobby(uint64_t nowMs) {
             w.u16(p.ping);
             w.u32(p.address.ip);
             w.u16(p.address.port);
+            const auto key = _publics.find(p.id);
+            writeKey(w, key != _publics.end() ? key->second : crypto::Key{});
         }
         w.u8(uint8_t(_chat.size()));
         for (const NetChatLine &c : _chat) {
@@ -901,7 +1067,7 @@ void NetSession::sendLobby(uint64_t nowMs) {
         w.u32(peer->chatTaken);
         w.u32(peer->echo);
         w.u16(uint16_t(std::min<uint64_t>(nowMs - peer->echoAtMs, 65535))); // how long it was held
-        _socket->send(peer->address, w.out);
+        sendTo(peer->address, peer->id, w.out);
     }
 }
 
@@ -913,7 +1079,7 @@ void NetSession::sendGame(uint64_t nowMs) {
     w.out.insert(w.out.end(), _gameState.begin(),
                  _gameState.begin() + std::ptrdiff_t(std::min<size_t>(_gameState.size(), 1200)));
     for (const auto &peer : _peers)
-        _socket->send(peer->address, w.out);
+        sendTo(peer->address, peer->id, w.out);
 }
 
 void NetSession::relayCars() {
@@ -931,7 +1097,7 @@ void NetSession::relayCars() {
             w.u8(id);
             writeCar(w, *s);
         }
-        _socket->send(peer->address, w.out);
+        sendTo(peer->address, peer->id, w.out);
     }
 }
 
@@ -948,7 +1114,7 @@ void NetSession::sendStatus(uint64_t nowMs) {
     w.u32(uint32_t(nowMs));
     w.u32(_outbox.empty() ? 0 : _outSeq + 1);
     w.str(_outbox.empty() ? std::string() : _outbox.front());
-    _socket->send(_hostAddress, w.out);
+    sendTo(_hostAddress, _hostId, w.out);
 }
 
 void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs) {
@@ -957,15 +1123,36 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
     const uint8_t type = typeOf(data);
     if (_myId == kNoPlayer) {
         if (type == kWelcome) {
-            _myId = r.u8();
+            const uint8_t id = r.u8();
+            const crypto::Key hostKey = readKey(r);
+            std::array<uint8_t, 16> hostProof{};
+            const uint8_t proofSize = r.u8();
+            for (size_t i = 0; i < proofSize && i < hostProof.size(); ++i)
+                hostProof[i] = r.u8();
+            if (!r.ok)
+                return;
+            // Asked to prove the password, the host must prove it too: a
+            // host that can't isn't the one we meant, whatever it says.
+            if (_haveChallenge && passwordProof(_password, _challengeNonce, "host", _publicKey, hostKey) != hostProof) {
+                _closed = true;
+                notice(NetNotice::Kind::kRefused, {}, kRefusedPassword);
+                return;
+            }
+            _myId = id;
+            _publics[_hostId] = hostKey;
+            _publics[_myId] = _publicKey;
             _lastHeardMs = nowMs;
             _lastStatusMs = 0;
         } else if (type == kChallenge) {
             std::array<uint8_t, 16> nonce{};
-            if (data.size() < r.at + nonce.size())
+            for (uint8_t &b : nonce)
+                b = r.u8();
+            const crypto::Key hostKey = readKey(r);
+            if (!r.ok)
                 return;
-            std::copy_n(data.begin() + std::ptrdiff_t(r.at), nonce.size(), nonce.begin());
-            _proof = passwordProof(_password, nonce, _wish.name.substr(0, 255));
+            _challengeNonce = nonce;
+            _haveChallenge = true;
+            _proof = passwordProof(_password, nonce, _wish.name.substr(0, 255), _publicKey, hostKey);
             _haveProof = true;
             _joinSentMs = 0; // answered at once
         } else if (type == kRefuse) {
@@ -984,6 +1171,7 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
         const NetSettings settings = readSettings(r);
         const uint8_t you = r.u8();
         std::vector<NetPlayer> players(r.u8());
+        std::vector<crypto::Key> keys; // each player's, to reach them if one of us takes over
         for (NetPlayer &p : players) {
             p.id = r.u8();
             p.name = r.str();
@@ -998,6 +1186,7 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
             p.ping = r.u16();
             p.address.ip = r.u32();
             p.address.port = r.u16();
+            keys.push_back(readKey(r));
         }
         std::vector<NetChatLine> lines(r.u8());
         for (NetChatLine &c : lines) {
@@ -1024,6 +1213,9 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
         for (const NetPlayer &p : players) // newly called a cheater
             if (const NetPlayer *was = player(p.id); p.cheater && was && !was->cheater)
                 notice(NetNotice::Kind::kSuspect, p.name);
+        for (size_t i = 0; i < players.size(); ++i)
+            if (keys[i] != crypto::Key{} && players[i].id != _myId)
+                _publics[players[i].id] = keys[i];
         _players = std::move(players);
         if (const NetPlayer *me = player(_myId); me && !_teamChosen)
             _wish.team = me->team; // the host put us on a side

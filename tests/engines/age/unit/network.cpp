@@ -548,11 +548,95 @@ void testNetBotsOutliveHost() {
     CHECK(cal->closed());
 }
 
+// A socket that keeps a copy of everything sent through it: someone
+// listening in. It can also send as its owner.
+class TapSocket : public net::UdpSocket {
+public:
+    TapSocket(std::unique_ptr<net::UdpSocket> inner, std::vector<std::pair<net::Address, std::vector<uint8_t>>> &log)
+        : _inner(std::move(inner)), _log(log) {}
+    uint16_t port() const override { return _inner->port(); }
+    bool send(const net::Address &to, const std::vector<uint8_t> &data) override {
+        _log.push_back({to, data});
+        return _inner->send(to, data);
+    }
+    bool receive(net::Address &from, std::vector<uint8_t> &data) override { return _inner->receive(from, data); }
+    bool forge(const net::Address &to, const std::vector<uint8_t> &data) { return _inner->send(to, data); }
+
+private:
+    std::unique_ptr<net::UdpSocket> _inner;
+    std::vector<std::pair<net::Address, std::vector<uint8_t>>> &_log;
+};
+
+// Everything after joining goes sealed: the chat isn't to be read on the
+// wire, and a datagram sent again, changed, or made up in the clear does
+// nothing.
+void testNetSealed() {
+    auto network = net::LoopbackNetwork::create();
+    std::vector<std::pair<net::Address, std::vector<uint8_t>>> wire;
+    auto hostTap = std::make_unique<TapSocket>(network->open(kNetPort), wire);
+    TapSocket *hostSocket = hostTap.get();
+    NetSettings settings;
+    settings.mode = NetMode::kCircuit;
+    settings.laps = 3;
+    auto host = NetSession::host(std::move(hostTap), "Hosting", settings);
+    auto bob = NetSession::join(std::make_unique<TapSocket>(network->open(0), wire), {0x7f000001, kNetPort}, "Bob");
+    uint64_t t = 1000;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            host->update(t);
+            bob->update(t);
+        }
+    };
+    run(600);
+    CHECK(bob->myId() == 1);
+    const std::string secret = "meet at the pier";
+    bob->say(secret);
+    run(1000);
+    CHECK(!host->chat().empty() && host->chat().back().text == secret);
+    bool clear = false;
+    size_t sealed = 0;
+    for (const auto &[to, data] : wire) {
+        clear = clear || std::search(data.begin(), data.end(), secret.begin(), secret.end()) != data.end();
+        sealed += data.size() > 2 && data[2] == 15 ? 1 : 0;
+    }
+    CHECK(!clear && sealed > 10);
+
+    // An old lobby sent again doesn't put the old laps back.
+    std::vector<uint8_t> oldLobby;
+    net::Address bobAt;
+    for (const auto &[to, data] : wire)
+        if (to.port != kNetPort && data.size() > 2 && data[2] == 15) {
+            oldLobby = data;
+            bobAt = to;
+        }
+    settings.laps = 5;
+    host->setSettings(settings);
+    run(500);
+    CHECK(bob->settings().laps == 5);
+    hostSocket->forge(bobAt, oldLobby);
+    bob->update(t);
+    CHECK(bob->settings().laps == 5);
+    // Nor does one changed on the way, nor an ejection made up in the clear.
+    std::vector<uint8_t> changed = wire.back().second;
+    for (auto it = wire.rbegin(); it != wire.rend(); ++it)
+        if (it->first == bobAt) {
+            changed = it->second;
+            break;
+        }
+    changed[changed.size() / 2] ^= 0x20;
+    hostSocket->forge(bobAt, changed);
+    hostSocket->forge(bobAt, {'R', 'M', 12}); // kKick, unsealed
+    run(100);
+    CHECK(!bob->closed() && bob->settings().laps == 5);
+}
+
 static const reluva::test::Suite
     kSuite("age.unit.network",
            {
                {"net session", [](const std::filesystem::path &) { testNetSession(); }},
                {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
                {"bots outlive the host", [](const std::filesystem::path &) { testNetBotsOutliveHost(); }},
+               {"sealed", [](const std::filesystem::path &) { testNetSealed(); }},
                {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
            });

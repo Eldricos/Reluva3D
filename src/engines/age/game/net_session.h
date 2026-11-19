@@ -10,6 +10,7 @@
 // to the others. It's Reluva's own protocol: the original's (DirectPlay)
 // isn't spoken. See docs/engines/age/games/mm2/systems/network-protocol.md.
 
+#include "common/crypto.h"
 #include "common/net.h"
 #include "common/types.h"
 #include "engines/age/vecmath.h"
@@ -26,7 +27,7 @@ namespace reluva::age {
 
 constexpr uint16_t kNetPort = 28520; // where a host listens
 constexpr int kMaxNetPlayers = 8;
-constexpr uint8_t kNetVersion = 2;
+constexpr uint8_t kNetVersion = 3;
 constexpr uint8_t kNoPlayer = 255;
 
 /** The Host Race Menu's events and its Cops & Robbers choices. */
@@ -220,8 +221,22 @@ public:
 private:
     NetSession() = default;
     struct Peer; // a player's address and when it was last heard (host)
+    // The keys between us and another, and the counts taken from it.
+    struct Link {
+        crypto::Key with{}; // its public key, as they were made from
+        crypto::Key send{};
+        crypto::Key recv{};
+        uint64_t newest = 0; // the highest count opened
+        uint64_t seen = 0;   // bit n: newest - n was opened
+        bool ready = false;
+    };
 
     void receive(uint64_t nowMs);
+    void sendWelcome(const Peer &peer);
+    Link *link(uint8_t id);
+    /** Sent sealed to player `toId` (or as it is, if it's sent so), else not at all. */
+    void sendTo(const net::Address &to, uint8_t toId, const std::vector<uint8_t> &message);
+    bool unseal(const std::vector<uint8_t> &data, std::vector<uint8_t> &plain, uint8_t &sender);
     void handleHost(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs);
     void handlePlayer(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs);
     void sendLobby(uint64_t nowMs);
@@ -273,6 +288,11 @@ private:
     std::array<uint8_t, 16> _secret{}; // the host's own, for its challenges
     std::map<uint8_t, int> _rejected;
     std::map<std::string, float> _topSpeeds;
+    crypto::Key _secretKey{}; // this session's, made at its start
+    crypto::Key _publicKey{};
+    std::map<uint8_t, crypto::Key> _publics; // every player's public key, by id
+    std::map<uint8_t, Link> _links;
+    uint64_t _sent = 0; // sealed datagrams sent, for each one's nonce
     uint64_t _loadingSinceMs = 0;
     uint64_t _goMs = 0; // when the race clock reaches 0
 
@@ -283,6 +303,8 @@ private:
     uint64_t _joinStartMs = 0;
     std::array<uint8_t, 16> _proof{}; // the password, proved for the host's challenge
     bool _haveProof = false;
+    std::array<uint8_t, 16> _challengeNonce{}; // the host's challenge, for its proof back
+    bool _haveChallenge = false;
     std::deque<std::string> _outbox; // chat not yet taken by the host
     uint32_t _outSeq = 0;            // the sequence number of outbox_.front()
     bool _teamChosen = false;        // else the team's the host's choice

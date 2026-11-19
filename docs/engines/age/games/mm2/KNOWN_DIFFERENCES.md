@@ -42,8 +42,7 @@ None yet.
 - **No police radio**: the game has no recordings for one, and Reluva
   plays none ([police.md](systems/police.md)).
 - **Multiplayer's gaps**: no hole punching between two players both
-  behind routers, messages in the clear
-  ([multiplayer.md](systems/multiplayer.md#not-done)).
+  behind routers ([multiplayer.md](systems/multiplayer.md#not-done)).
 - **Some dialogs aren't drawn** where their pictures aren't shipped:
   Cops & Robbers Settings, `xassign_dlg`, Control Warning
   ([menus.md](systems/menus.md#not-drawn)).

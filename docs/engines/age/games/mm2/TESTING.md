@@ -18,7 +18,7 @@ files built in the tests and needing no game files, so they run in CI:
 | `age.unit.driving` | The cars: collision, the simulation, engine sounds, their files, a game controller, texture quality |
 | `age.unit.city` | The city's life: opponents along their paths, the road graph, traffic, its lights and rules, police sirens, speed limits, boats and bridges, parked cars, trains, props, ambient sounds |
 | `age.unit.game` | The game: lessons, the player's record, the menus' layout, music, options, replays, drivers, cruising |
-| `age.unit.network` | Multiplayer: the session (finding, joining, passwords, joining late, a new host) and Cops & Robbers |
+| `age.unit.network` | Multiplayer: the session (finding, joining, passwords, joining late, a new host and the computer players kept, the host's checks, everything sealed) and Cops & Robbers |
 
 The shared code the game uses has its own suites:
 `common.unit.directmusic` (DLS and DirectMusic),
