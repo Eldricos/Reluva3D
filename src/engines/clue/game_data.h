@@ -15,13 +15,18 @@
 
 namespace reluva::clue {
 
-// Which of the CD's languages to use. An install has only the one it was
-// installed with, in Data/Classic.
+/**
+ * Which of the CD's languages to use. An install has only the one it was
+ * installed with, in Data/Classic.
+ */
 enum class Language { kUS, kUK };
 
-// What each release calls the game: the UK's is Cluedo (its own files say
-// "exit Cluedo?"; Clue.exe names itself "Clue / Cluedo"), sold as Cluedo:
-// Murder at Blackwell Grange.
+/**
+ * What each release calls the game, its full title and its mansion: the
+ * UK's is Cluedo (its own files say "exit Cluedo?"; Clue.exe names itself
+ * "Clue / Cluedo"), sold as Cluedo: Murder at Blackwell Grange.
+ */
+///@{
 inline const char *gameName(Language l) {
     return l == Language::kUK ? "Cluedo" : "Clue";
 }
@@ -31,32 +36,51 @@ inline const char *gameTitle(Language l) {
 inline const char *mansionName(Language l) {
     return l == Language::kUK ? "Blackwell Grange" : "Boddy Mansion";
 }
+///@}
 
-// The game's files, wherever they are: an install (Data/Classic/...) or the
-// CD (Data/LangIndepend, Data/ClueSpecific and Data/US or Data/UK). Files in
-// the game folder itself come first, as the original's dialogInfo.res does
-// and as the 2.2 patch's files do when copied there.
+/**
+ * The game's files, wherever they are: an install (Data/Classic/...) or the
+ * CD (Data/LangIndepend, Data/ClueSpecific and Data/US or Data/UK). Files in
+ * the game folder itself come first, as the original's dialogInfo.res does
+ * and as the 2.2 patch's files do when copied there.
+ *
+ * What it reads is kept, and stays good while it lives; it isn't for
+ * several threads at once.
+ */
 class GameData {
 public:
+    /** Lists the files; fails if the folder holds neither an install nor the CD. */
     Error open(const std::filesystem::path &gameDir, Language language);
+    /** The language it was opened with. */
     Language language() const { return _language; }
 
-    // Every file, by lower-case name, and the folders searched in order.
+    /** Every file, by lower-case name, and the folders searched in order. */
+    ///@{
     const std::map<std::string, std::filesystem::path> &files() const { return _files; }
     const std::vector<std::filesystem::path> &folders() const { return _folders; }
-    const std::filesystem::path *find(std::string_view fileName) const; // ignoring case
-    // Files with an extension (".res", ".wav", ...), in name order.
+    ///@}
+    /** A file by name, ignoring case; nullptr if there's none. */
+    const std::filesystem::path *find(std::string_view fileName) const;
+    /** Files with an extension (".res", ".wav", ...), in name order. */
     std::vector<std::filesystem::path> withExtension(std::string_view ext) const;
 
-    // The resource drive named (c_scarlet), opening its .res for images, .a
-    // for animations or .o for objects; nullptr if there's none or it's damaged.
+    /**
+     * The resource drive named (c_scarlet), opening its .res for images, .a
+     * for animations or .o for objects (`kind` 'I', 'A' or 'O'); nullptr if
+     * there's none or it's damaged.
+     */
     const DataDrive *drive(std::string_view driveName, char kind) const;
-    // An image or animation by its full name ("c_scarlet:Imsidlee_01"),
-    // decoded once and kept; nullptr if missing or damaged.
+    /**
+     * An image, animation or object by its full name ("c_scarlet:Imsidlee_01",
+     * "ballroom:Oblcouch_ad"), decoded once and kept; nullptr if missing or
+     * damaged.
+     */
+    ///@{
     const Image *image(std::string_view fullName) const;
     const Animation *animation(std::string_view fullName) const;
-    const ObjectDef *object(std::string_view fullName) const; // "ballroom:Oblcouch_ad"
-    // Why the last of those failed.
+    const ObjectDef *object(std::string_view fullName) const;
+    ///@}
+    /** Why the last of those failed. */
     const std::string &lastError() const { return _lastError; }
 
 private:
