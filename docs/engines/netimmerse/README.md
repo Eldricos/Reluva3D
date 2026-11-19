@@ -14,6 +14,16 @@ A page goes in a game's folder when it was worked out from that game, and
 moves up to this folder once another game is found to share it. So far
 everything was read from LEGO Alpha Team.
 
+## Where it stands
+
+Only LEGO Alpha Team is recognised so far, and it plays through: see
+[games/legoalphateam/](games/legoalphateam/README.md#where-it-stands).
+
+## Using it
+
+The game's page says how to add it and play it:
+[LEGO Alpha Team](games/legoalphateam/README.md#using-it).
+
 ## This folder
 
 | Page | Covers |
