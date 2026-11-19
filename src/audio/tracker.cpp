@@ -1095,10 +1095,10 @@ private:
     void nextRow();
     void startRow();
     void trigger(Channel &ch);
-    void keyOff(Channel &ch);
+    void keyOff(Channel &ch) const;
     void rowEffect(Channel &ch);
     void tickEffect(Channel &ch);
-    int memory(Channel &ch, uint8_t fx, int p);
+    int memory(Channel &ch, uint8_t fx, int p) const;
     int slide(int p, bool tick0) const;
     void portamento(Channel &ch, double delta) const;
     void tonePorta(Channel &ch) const;
@@ -1106,7 +1106,7 @@ private:
     void tremolo(Channel &ch) const;
     double periodOf(int note, const TrackerSample &s) const;
     const TrackerSample *resolve(int instrument, int &note, const TrackerInstrument *&ins) const;
-    void mixChannel(Channel &ch, std::vector<double> &mix, size_t frames);
+    void mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) const;
 
     const TrackerModule &_m;
     const int _rate;
@@ -1178,7 +1178,7 @@ void Player::nextRow() {
         enterOrder(_order + 1, 0);
 }
 
-int Player::memory(Channel &ch, uint8_t fx, int p) {
+int Player::memory(Channel &ch, uint8_t fx, int p) const {
     int slot = fx;
     bool uses = _m.effectMemory;
     switch (fx) {
@@ -1281,7 +1281,7 @@ const TrackerSample *Player::resolve(int instrument, int &note, const TrackerIns
     return smp;
 }
 
-void Player::keyOff(Channel &ch) {
+void Player::keyOff(Channel &ch) const {
     ch.keyOn = false;
     if (!ch.ins) { // plain samples: only a sustain loop outlives the key
         if (!(ch.smp && ch.smp->sustain))
@@ -1646,7 +1646,7 @@ void Player::startRow() {
 
 // Mixes a channel's tick: envelopes, fadeout, volumes, pan and pitch, then
 // its sample resampled with linear interpolation.
-void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
+void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) const {
     if (!ch.playing || !ch.smp || ch.smp->data.empty())
         return;
     const TrackerSample &s = *ch.smp;

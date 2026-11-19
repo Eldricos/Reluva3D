@@ -2413,7 +2413,7 @@ Mat43 LayeredPoser::Impl::cleared(const Mat43 &over, const Mat43 &parentWorld, c
     return out;
 }
 
-void LayeredPoser::setPlacement(const std::array<Vec3f, 3> &skeletonInActor) {
+void LayeredPoser::setPlacement(const std::array<Vec3f, 3> &skeletonInActor) const {
     // The actor's axis k in the skeleton: the k-th parts of where the
     // skeleton's axes go.
     for (size_t k = 0; k < 3; ++k)

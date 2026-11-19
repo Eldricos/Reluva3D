@@ -300,7 +300,7 @@ private:
     }
     SparkData *child() { return _count < _limit ? &_sparks[_count++] : nullptr; }
     uint8_t near31(uint8_t v, uint8_t mask) { return uint8_t(((fractalRandom().next() & 31) + v) & mask); }
-    void wander15(SparkData &s) {
+    void wander15(SparkData &s) const {
         if (fractalRandom().next() & 1)
             s.x = uint8_t(((fractalRandom().next() & 15) + s.x - 7) & _um);
         if (fractalRandom().next() & 1)

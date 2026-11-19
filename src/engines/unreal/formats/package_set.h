@@ -44,7 +44,7 @@ public:
     // Adds one package, from disk or from memory (tests); the first of a
     // name wins, as with the search path.
     void addFile(const std::filesystem::path &file);
-    void addMemory(std::string name, std::string extension, std::vector<uint8_t> data);
+    void addMemory(const std::string &name, const std::string &extension, std::vector<uint8_t> data);
     // A package found later (a saved game of the original's, opened as the
     // level it is): added under its file's name, which it returns.
     std::string addLater(const std::filesystem::path &file) const;

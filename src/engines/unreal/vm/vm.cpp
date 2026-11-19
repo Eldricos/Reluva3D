@@ -1974,7 +1974,7 @@ Value Vm::callEvent(VmObject *self, std::string_view function, std::vector<Value
     return f->doesNothing ? Value() : invoke(f, self, std::move(args));
 }
 
-VmState *Vm::findState(VmClass *cls, NameId stateName) {
+VmState *Vm::findState(VmClass *cls, NameId stateName) const {
     const bool autoState = lower(nameText(stateName)) == "auto";
     for (VmClass *c = cls; c; c = c->parent()) {
         if (autoState) {

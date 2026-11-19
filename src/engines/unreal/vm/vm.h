@@ -362,7 +362,7 @@ public:
     // Where scripts are running: " in Class.Function", for natives' errors.
     std::string where() const;
     // A state of a class or its parents, by name; null if none.
-    VmState *findState(VmClass *cls, NameId name);
+    VmState *findState(VmClass *cls, NameId name) const;
     // How many objects of each class have been given made-up names
     // ("DS9_Hud0"...): a saved game's carry on from where it left off.
     std::map<const VmClass *, int> &nameCounts() { return _nameCounts; }

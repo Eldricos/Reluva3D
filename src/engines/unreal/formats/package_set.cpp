@@ -207,7 +207,7 @@ std::string PackageSet::addLater(const std::filesystem::path &file) const {
     return name;
 }
 
-void PackageSet::addMemory(std::string name, std::string extension, std::vector<uint8_t> data) {
+void PackageSet::addMemory(const std::string &name, const std::string &extension, std::vector<uint8_t> data) {
     Entry e;
     e.name = name;
     e.extension = fs::toLower(extension);
