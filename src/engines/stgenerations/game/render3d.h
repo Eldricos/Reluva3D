@@ -16,7 +16,7 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// A viewpoint in world units (not fixed point).
+/** A viewpoint in world units (not fixed point). */
 struct Camera {
     double x = 0;
     double y = 0;
@@ -29,7 +29,7 @@ struct Camera {
     double pitch = 0;
 };
 
-// A sprite to draw this frame, such as an actor.
+/** A sprite to draw this frame, such as an actor. */
 struct SpriteDraw {
     // Centre of the bottom edge, in world units.
     double x;
@@ -48,41 +48,49 @@ struct SpriteDraw {
     uint16_t object = 0;
 };
 
-// A software renderer for GAME.LV2 levels, drawing into a CLUT8 surface in
-// the level's palette.
-//
-// It follows the original's camera model: a 90 degree horizontal field of
-// view with the same scale vertically, and looking up and down done by
-// shearing rather than rotating. Rather than the original's sorted spans
-// it uses a depth buffer, which gives the same picture for these levels.
-//
-// Lighting is the original's too: each surface is drawn through one of 8
-// colour tables that blend the palette toward a fog colour (black in every
-// level seen so far). There is no distance fog in the original; the level
-// of each surface comes from the level data and its light group.
+/**
+ * A software renderer for GAME.LV2 levels, drawing into a CLUT8 surface in
+ * the level's palette.
+ *
+ * It follows the original's camera model: a 90 degree horizontal field of
+ * view with the same scale vertically, and looking up and down done by
+ * shearing rather than rotating. Rather than the original's sorted spans
+ * it uses a depth buffer, which gives the same picture for these levels.
+ *
+ * Lighting is the original's too: each surface is drawn through one of 8
+ * colour tables that blend the palette toward a fog colour (black in every
+ * level seen so far). There is no distance fog in the original; the level
+ * of each surface comes from the level data and its light group.
+ */
 class LevelRenderer {
 public:
+    /** A renderer for `level`, which must outlive it. */
     explicit LevelRenderer(const LevelFile &level);
     ~LevelRenderer();
 
-    // Draw the view from camera; time (ms) drives animated textures.
+    /** Draws the view from camera; time (ms) drives animated textures. */
     void render(const Camera &camera, Canvas &dst, uint32_t time);
 
-    // A starting point until the scripts can place the player: the middle
-    // of the largest floor at the height with the most floor area, not
-    // counting each height's largest piece (usually scenery around the play
-    // area).
+    /**
+     * A starting point until the scripts can place the player: the middle
+     * of the largest floor at the height with the most floor area, not
+     * counting each height's largest piece (usually scenery around the play
+     * area).
+     */
     Camera getStartCamera(double eyeHeight) const;
 
-    // Draw only walls, flats and billboards in these zones, as the original
-    // does (see Walker::getActiveZones()). All zones are drawn by default.
+    /**
+     * Draws only walls, flats and billboards in these zones, as the original
+     * does (see Walker::getActiveZones()). All zones are drawn by default.
+     */
     void setVisibleZones(uint64_t zones) { _zones = zones; }
 
-    // Without the sky, the background is the fog colour.
+    /** Without the sky, the background is the fog colour. */
     void setSkyEnabled(bool enabled) { _skyEnabled = enabled; }
 
-    // What the next frame shows at a point (the original's pick, 0x4BC770).
+    /** What the next frame shows at a point (the original's pick, 0x4BC770). */
     struct Pick {
+        /** What kind of thing it is. */
         enum Kind { kNone, kWall, kFlat, kBillboard, kSprite };
         Kind kind = kNone;
         // Index into the level's walls, flats or billboards, or into the sprites.
@@ -92,54 +100,66 @@ public:
         // Distance ahead of the camera.
         double depth = 0;
     };
-    // Find what is drawn at (x, y) in the frames to come; x < 0 stops.
+    /** Finds what is drawn at (x, y) in the frames to come; x < 0 stops. */
     void setPickPoint(int x, int y) {
         _pickX = x;
         _pickY = y;
     }
-    // What the last frame showed at the pick point.
+    /** What the last frame showed at the pick point. */
     const Pick &getPick() const { return _pick; }
 
-    // The world point that shows at pixel (x, y) of a w x h view, depth
-    // ahead of camera: the inverse of the projection render() uses.
+    /**
+     * The world point that shows at pixel (x, y) of a w x h view, depth
+     * ahead of camera: the inverse of the projection render() uses.
+     */
     static void unproject(const Camera &camera, int w, int h, double x, double y, double depth, double &worldX,
                           double &worldY, double &worldZ);
 
-    // Mark walls drawn as seen, for the automap: like the original's
-    // painter (0x4C8602), set LevelFile::kWallOnMap on each wall that
-    // shows. walls is the level's own table, or null to stop.
+    /**
+     * Marks walls drawn as seen, for the automap: like the original's
+     * painter (0x4C8602), sets LevelFile::kWallOnMap on each wall that
+     * shows. walls is the level's own table, or null to stop.
+     */
     void setMapWalls(std::vector<LevelFile::Wall> *walls) { _mapWalls = walls; }
 
-    // Sprites to draw in the next frames; the vector must stay alive.
+    /** Sprites to draw in the next frames; the vector must stay alive. */
     void setSprites(const std::vector<SpriteDraw> *sprites) { _sprites = sprites; }
 
-    // Turn lighting off to see the textures' own colours.
+    /** Lighting, on by default; off shows the textures' own colours. */
+    ///@{
     void setLightingEnabled(bool enabled) { _lighting = enabled; }
     bool isLightingEnabled() const { return _lighting; }
+    ///@}
 
-    // Set a light group's brightness in percent (100, the default, is fully
-    // on), as the scripts do.
+    /**
+     * Sets a light group's brightness in percent (100, the default, is fully
+     * on), as the scripts do.
+     */
     void setGroupBrightness(int16_t group, int percent);
-    // Back to the brightness the level gives it.
+    /** Back to the brightness the level gives it. */
     void resetGroupBrightness(int16_t group) { _groupBrightness.erase(group); }
-    // Save or load the groups' brightness.
+    /** Saves or loads the groups' brightness. */
     void syncLights(Serializer &s);
 
     // The first palette entry that see-through things blend; the rest up to 0xFE do too.
     static const int kBlendFirst = 0xF0;
     static const int kBlendColors = 15;
 
-    // The original's blend table (0x4BD620): for each of the palette
-    // entries 0xF0-0xFE drawn over each background colour, the entry
-    // nearest their average.
+    /**
+     * Builds the original's blend table (0x4BD620): for each of the palette
+     * entries 0xF0-0xFE drawn over each background colour, the entry
+     * nearest their average.
+     */
     static void buildBlendTable(const Palette &palette, uint8_t table[kBlendColors][256]);
 
-    // Rebuild the shade tables for a new fog colour.
+    /** Rebuilds the shade tables for a new fog colour. */
     void setFogColor(uint8_t r, uint8_t g, uint8_t b);
 
-    // Build the original's shade tables (0x4BFC60): table n maps each
-    // colour to the palette entry nearest to it blended n/8 of the way
-    // toward the fog colour. Table 0 is the identity.
+    /**
+     * Builds the original's shade tables (0x4BFC60): table n maps each
+     * colour to the palette entry nearest to it blended n/8 of the way
+     * toward the fog colour. Table 0 is the identity.
+     */
     static void buildShadeTables(const Palette &palette, uint8_t r, uint8_t g, uint8_t b,
                                  uint8_t tables[LevelFile::kLightLevels][256]);
 

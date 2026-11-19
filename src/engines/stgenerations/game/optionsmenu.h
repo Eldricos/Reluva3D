@@ -17,7 +17,7 @@
 
 namespace reluva::stgenerations {
 
-// The player's settings, as the original's SGENS.CFG holds them.
+/** The player's settings, as the original's SGENS.CFG holds them. */
 struct GameSettings {
     static const int kMaxVolume = 29;
     int musicVolume = 20;
@@ -30,26 +30,32 @@ struct GameSettings {
     KeyMap awayKeys = KeyMap::awayDefaults();
     KeyMap starshipKeys = KeyMap::starshipDefaults();
 
+    /** Whether every setting is the same. */
+    ///@{
     bool operator==(const GameSettings &o) const {
         return musicVolume == o.musicVolume && effectsVolume == o.effectsVolume && difficulty == o.difficulty &&
                largeWindow == o.largeWindow && subtitles == o.subtitles && lookspring == o.lookspring &&
                awayKeys == o.awayKeys && starshipKeys == o.starshipKeys;
     }
     bool operator!=(const GameSettings &o) const { return !(*this == o); }
+    ///@}
 };
 
-// The options screen (sgens.exe 0x47DCBB, run by 0x481221): CAPTAINS.BMP
-// with Load, Save, New, Quit, Settings and Controls down the left, the
-// picture area to the right where each opens its 320 x 360 panel, and
-// Return to Game, or Accept and Cancel while a panel is open.
-//
-// Every bitmap comes from OPTIONS.DAT. Buttons are strips of frames counted
-// from the bottom: 0 dim, 1 normal, 2 lit.
-//
-// The engine runs it: it passes the mouse and keys in, draws it, plays
-// the sounds it asks for and acts on its result.
+/**
+ * The options screen (sgens.exe 0x47DCBB, run by 0x481221): CAPTAINS.BMP
+ * with Load, Save, New, Quit, Settings and Controls down the left, the
+ * picture area to the right where each opens its 320 x 360 panel, and
+ * Return to Game, or Accept and Cancel while a panel is open.
+ *
+ * Every bitmap comes from OPTIONS.DAT. Buttons are strips of frames counted
+ * from the bottom: 0 dim, 1 normal, 2 lit.
+ *
+ * The engine runs it: it passes the mouse and keys in, draws it, plays
+ * the sounds it asks for and acts on its result.
+ */
 class OptionsMenu {
 public:
+    /** What the player chose. */
     enum Result {
         kNone,
         kReturn,  // back to the game
@@ -58,6 +64,7 @@ public:
         kSave,    // save the game in getSlot() as getSaveName()
         kQuit     // credits, then quit
     };
+    /** The panel open in the picture area; kPanelMain for none. */
     enum Panel {
         kPanelMain = 0,
         kPanelLoad = 1,
@@ -67,7 +74,7 @@ public:
         kPanelNew = 5,
         kPanelControls = 6
     };
-    // A saved-game slot as the Load and Save panels list it.
+    /** A saved-game slot as the Load and Save panels list it. */
     struct Slot {
         bool used = false;
         std::string name;
@@ -77,43 +84,57 @@ public:
     // The automatic save: the Load panel's bottom row.
     static const int kAutoSaveSlot = 9;
 
-    // Sounds by the original's numbers: X_1000..1003, M_2000..2002.
+    /** Plays a sound by the original's numbers: X_1000..1003, M_2000..2002. */
     typedef std::function<void(int id)> SoundCallback;
 
+    /** A menu with OPTIONS.DAT's art from `resources`, which must outlive it. */
     explicit OptionsMenu(const ResourceManager &resources);
 
-    // Load the screen; false if OPTIONS.DAT doesn't have it.
+    /** Loads the screen; false if OPTIONS.DAT doesn't have it. */
     bool load();
+    /** The screen's palette, CAPTAINS.BMP's. */
     const Palette &getPalette() const { return _palette; }
 
-    // Show the main panel. canReturn: there is a game to go back to;
-    // canSave: it can be saved; canChangeDifficulty: no mission is running
-    // (the original allows it on the bridge only).
+    /**
+     * Shows the main panel. canReturn: there is a game to go back to;
+     * canSave: it can be saved; canChangeDifficulty: no mission is running
+     * (the original allows it on the bridge only).
+     */
     void open(const GameSettings &settings, bool canReturn, bool canSave, bool canChangeDifficulty);
-    // Saving now saves the start of a space combat: the Save panel says so.
+    /** Saving now saves the start of a space combat: the Save panel says so. */
     void setEncounter(bool encounter) { _encounter = encounter; }
-    // The saved games, kSlots of them and then the automatic one.
+    /** The saved games, kSlots of them and then the automatic one. */
     void setSlots(const std::vector<Slot> &slots) { _slots = slots; }
+    /** What plays the menu's sounds. */
     void setSoundCallback(SoundCallback callback) { _sound = std::move(callback); }
 
-    // button: the virtual key of the mouse button, 1 left, 2 right, 4 middle.
+    /**
+     * The mouse and keys, as the engine passes them in; a mouse button is
+     * its virtual key: 1 left, 2 right, 4 middle.
+     */
+    ///@{
     void mouseDown(int x, int y, int button = 1);
     void mouseMove(int x, int y);
     void mouseUp(int x, int y);
     void keyDown(const KeyState &key);
+    ///@}
 
+    /** Draws the screen, in its palette. */
     void draw(Canvas &screen) const;
 
+    /** The panel open. */
     Panel getPanel() const { return _panel; }
-    // What the player chose, once; kNone until then.
+    /** What the player chose, once; kNone until then. */
     Result takeResult();
+    /** The slot chosen on the Load or Save panel, or -1. */
     int getSlot() const { return _selected; }
+    /** The name typed for a saved game. */
     const std::string &getSaveName() const { return _editName; }
-    // A saved game's name is being typed in.
+    /** A saved game's name is being typed in. */
     bool isTyping() const { return _panel == kPanelSave && _selected >= 0; }
-    // The settings, as last accepted.
+    /** The settings, as last accepted. */
     const GameSettings &getSettings() const { return _settings; }
-    // True once after the settings were changed.
+    /** True once after the settings were changed. */
     bool takeSettingsChanged();
 
 private:
