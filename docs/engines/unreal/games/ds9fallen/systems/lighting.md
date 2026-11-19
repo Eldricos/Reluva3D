@@ -151,7 +151,15 @@ a curve. Not it: the video's levels (its black is 0, its range decoded as
 it's flagged); Direct3D's blending (texture x lightmap, the lightmaps
 scaled by their brightest colour when uploaded, `CacheMaxColor`, which
 cancels out); its 16-bit textures (palette colours scaled by 1.05 before
-being cut to 5 bits, if anything brighter). Not found yet.
+being cut to 5 bits, if anything brighter). Read again in D3DDrv.dll and
+Render.dll (November 2026): lightmaps are blended by plain MODULATE
+(0x10009aab), not MODULATE2X; their 7-bit texels are 1x either way
+(shifted once in 32-bit mode, 0x10002ca0; a table to 5 bits in 16-bit,
+0x10003574); no constant scales a light's colour; the 16-bit cut comes
+to 2-3% brighter at most. So the Direct3D path is 1.00 to 1.03x
+Reluva's, and the gain isn't in it. The recording may come from another
+renderer (OpenGLDrv sets no gamma ramp at all; SoftDrv and GlideDrv
+not read).
 
 ### Actors' lighting
 
@@ -475,6 +483,13 @@ against the same views here, matched shot for shot in cut scenes:
   display curve (above) both show as in the recording, the stars with
   about half its bright pixels (theirs larger, brighter blobs: a lower
   resolution scaled up, where ours filters one-texel stars down).
+- How Render.dll lights a surface (its surface drawing, from
+  0x10b226a0): with no lightmap, it isn't lit at all: drawn full bright
+  as an unlit one (0x10b22d82; Reluva too). With a lightmap whose list of
+  lights is empty, its texels are the zone's ambient and any dynamic
+  lights (0x10b08070): the light manager starts every texel at the
+  surface's own zone's ambient, adds the lights in the list, then those
+  in the surface's dynamic list.
 - Not found: what lights the credits station (CM_SpaceStation). Half
   its hull surfaces have lightmaps whose list of lights is empty (or
   none at all): the level's last lighting build reached none of their
@@ -483,7 +498,12 @@ against the same views here, matched shot for shot in cut scenes:
   outward faces of its rings, behind the windows, are evenly bright
   while the undersides and the hub, with empty lists alike, are dark;
   neither "no lights means unlit" nor "an empty list means unlit"
-  matches (each lights faces the recording leaves dark). The same
+  matches (each lights faces the recording leaves dark), and by the code
+  above only a dynamic light could light the empty ones: the level has
+  no zone but the LevelInfo (ambient 1, effectively black), and no
+  dynamic light near the station. Its lights seem to have been moved
+  after its last lighting build (Light85 is 17,000 units from where it
+  was when built, yet still in 35 lists). The same
   station in CM_Worf_Endgame is lit by its lights and comes within
   about 20% of the recording (bluer there).
 

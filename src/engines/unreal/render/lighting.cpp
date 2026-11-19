@@ -544,12 +544,10 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
 
     for (size_t s = 0; s < model.surfs.size(); ++s) {
         const BspSurf &surf = model.surfs[s];
-        if (points[s].empty() || (surf.polyFlags & (polyflag::kUnlit | polyflag::kInvisible)))
+        // With no lightmap the original draws a surface full bright, as an
+        // unlit one (its texture alone, Render.dll 0x10b22d82).
+        if (points[s].empty() || (surf.polyFlags & (polyflag::kUnlit | polyflag::kInvisible)) || surf.lightMap < 0)
             continue;
-        if (surf.lightMap < 0) {
-            useAmbient(s);
-            continue;
-        }
         const LightMapIndex &m = model.lightMaps[size_t(surf.lightMap)];
         ++atlas.stats.lightmaps;
         if (m.uClamp + 2 > pageSize || m.vClamp + 2 > pageSize || m.uClamp <= 0 || m.vClamp <= 0) {

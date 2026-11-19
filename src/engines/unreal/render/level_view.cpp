@@ -377,7 +377,10 @@ void LevelView::load(int index) {
                     {_batches.size(), uint32_t(indices.size()), uint32_t(p->points.size() - 2) * 3});
             const gfx::Vec3 n = toWorld(p->normal);
             const float facing = n[0] * light[0] + n[1] * light[1] + n[2] * light[2];
-            const auto shade = uint8_t((flags & polyflag::kUnlit) ? 255 : 150 + int(90 * facing));
+            // Lit by lightmaps, a surface with none is full bright, as the
+            // original draws it; without them, shaded by facing to show its shape.
+            const bool fullBright = (flags & polyflag::kUnlit) || (_hasLightmaps && page < 0);
+            const auto shade = uint8_t(fullBright ? 255 : 150 + int(90 * facing));
             for (size_t k = 0; k < p->points.size(); ++k) {
                 gfx::Vertex v{};
                 const gfx::Vec3 w = toWorld(p->points[k]);
