@@ -37,6 +37,19 @@ Adventure has got, and the settings.
     Right Path" on the first Adventure card, and choosing it starts that
     mission.
 
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter
+([running.md](running.md)); saving is the game's own. Its `Game.txt` goes
+through Reluva's C and C++ run-time stand-ins (`src/emulation/x86/msvcrt.cpp`,
+`src/emulation/x86/runtime/msvcp60.cpp`). What it writes in its install
+folder goes to the game's save folder of Reluva's instead, and is read back
+from there first (`GameProcess::setSaveFolder`,
+`src/engines/netimmerse/alphateam/game_process.h`), so the install is left
+as it was. That quitting Reluva asks
+first, and doesn't save, is in
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 ## Sources and checks
 
 - **Where the facts come from:** `at-run -files`, and LoadComp's `DDInfo`

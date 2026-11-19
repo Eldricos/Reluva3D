@@ -13,7 +13,7 @@ checked.
 
 ## How it works
 
-## Classes
+### Classes
 
 An actor's class is found by following class references: the export's
 class (often imported from Engine.u or the game's own packages), then each
@@ -21,7 +21,7 @@ class's super reference in the package defining it, until the name
 matches (`isA()`). So The Fallen's own mover classes count as movers
 whatever they're called.
 
-## Movers
+### Movers
 
 Movers (doors, lifts, anything that moves) are brushes kept out of the
 level's BSP: each is drawn from its own polygons, wherever it is. From
@@ -52,7 +52,7 @@ its BSP usually empty; its Polys reference is read from there. The BSP
 isn't used for movers, so one that doesn't hold together is dropped
 rather than refusing the mover.
 
-### Polys
+#### Polys
 
 | Type | Meaning |
 |---|---|
@@ -74,7 +74,7 @@ rather than refusing the mover.
 Texture coordinates as for the level's surfaces:
 `((v - base) . U + panU, (v - base) . V + panV)` in texels.
 
-### Drawing
+#### Drawing
 
 The Maps page draws movers where they're saved; O moves every mover to
 its next keyframe over its MoveTime (straight lines, as the default
@@ -85,7 +85,7 @@ and the lights that move; any other keeps the light it has where it
 starts (its lightmaps' light lists in the original; here worked out at
 its vertices when the level is read) and carries it as it moves.
 
-## The sky zone
+### The sky zone
 
 A level's sky is a small room elsewhere in the map holding a SkyZoneInfo
 actor. Where a zone's walls have the fake backdrop flag (0x80), the
@@ -97,7 +97,7 @@ behind them stays hidden and the sky shows). K turns it off (backdrops
 then drawn a plain colour). With several sky zones the first is used;
 the original picks per zone.
 
-## Sprites
+### Sprites
 
 Actors with `DrawType` 1 (sprite), 5 (vertical sprite: turns only about
 the vertical) or 7 (sprite, animated once) show their `Texture` facing
@@ -131,7 +131,7 @@ after the actor's class (DS9_SparkNode). That leaves 16 sprites in The Fallen's
 (FX.spark03, a fire texture), snow spawners' flake, a mine's halo (a wet texture) and a blinking smoke marker (a FliTexture,
 below). Their fire, wet and FLC textures play ([texture.md](../formats/texture.md#animated-textures)).
 
-## Class defaults
+### Class defaults
 
 A placed actor stores only the properties that differ from its class's
 defaults, and a class only those that differ from its parent's. So an
@@ -149,7 +149,7 @@ its own over its class's defaults over each parent's
 (`ClassDefaults::actorProperties()`), each property's object references
 read in the package it came from.
 
-## Styles and MultiTexture
+### Styles and MultiTexture
 
 An actor's `Style` (`ERenderStyle`): The Fallen adds two to UE1's four,
 drawn as the original's Direct3D renderer blends them:
@@ -184,8 +184,11 @@ unlit, crossfading the two (`CTV_TransporterBeamIn`).
 
 ## In Reluva
 
-`formats/actors.cpp` reads them and the Maps page draws them;
+`src/engines/unreal/formats/actors.cpp` reads them and the data viewer's
+Maps page (`render/level_view.cpp`) draws them;
 `formats/class_defaults.cpp` reads the classes' defaults (above).
+`reluva-tool unreal check` reads every map's movers, sky zones and
+sprites, and counts the classes whose defaults were found.
 
 ## Sources and checks
 

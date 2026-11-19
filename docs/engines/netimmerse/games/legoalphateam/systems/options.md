@@ -30,6 +30,15 @@ and the advanced options.
     backdrop, environment animation, shadows) are the game's own
     business: nothing of ours is involved.
 
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)); the options are the game's own. Reluva's stand-ins carry them
+out: the display mode and the gamma ramp in its DirectDraw
+(`src/emulation/x86/directx/`), the gains in its A3D
+(`src/emulation/x86/a3d.cpp`). Gamma and brightness applied to each
+frame, and the display modes, are in
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 ## Sources and checks
 
 - **How it was checked:** each option set in the game in Reluva, one by

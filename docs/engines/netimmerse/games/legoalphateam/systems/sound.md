@@ -32,6 +32,13 @@ engine's mixer.
     Mission One's skills and interface sounds load and play, placed
     around the camera.
 
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)). Its A3D sound goes to Reluva's stand-in
+(`src/emulation/x86/a3d.cpp`, [a3d.md](../../../../../common/x86/a3d.md)),
+which plays it through the engine's mixer. What it doesn't do of A3D is
+in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 ## Sources and checks
 
 - **How it was checked:** Mission One's skills and interface sounds load

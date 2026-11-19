@@ -166,6 +166,12 @@ the guided tour at the Adventure's start.
     clicked again every 40 frames until the training moves on),
     `point:x,y`, `key:vk`, `drag:x,y,x2,y2`, or `buttons`.
 
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)): the way into a mission and the tour are the game's own.
+`reluva-tool netimmerse at-run` (`src/engines/netimmerse/tools/run.cpp`)
+plays the routes above and traces the game.
+
 ## Sources and checks
 
 - **Where the facts come from:** the game's own code, traced as it ran

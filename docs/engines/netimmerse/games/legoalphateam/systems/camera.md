@@ -172,6 +172,14 @@ its shots there.
     way; `-point` first puts it where it's meant to be. A menu that's open
     takes the next click to close it.
 
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)): the camera is the game's own. What Reluva supplies is the
+processor it runs on; the FPU's precision, Direct3D's single precision,
+is also in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+`reluva-tool netimmerse at-run` (`src/engines/netimmerse/tools/run.cpp`)
+plays the route above and traces the game (`-watch`).
+
 ## Sources and checks
 
 - **Where the facts come from:** the game's own code, traced with

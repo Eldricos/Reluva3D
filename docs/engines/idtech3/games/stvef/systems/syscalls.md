@@ -629,6 +629,15 @@ zero vector, its sound), 32 `S_UpdateEntityPosition(entityNum, origin)`
 inWater)` (the player, the view's origin and axes), 34
 `S_RegisterSound(name)`, 35 `S_StartBackgroundTrack(intro, loop)`.
 
+## In Reluva
+
+The engine's side of the calls is in `src/engines/idtech3/eliteforce/`:
+`UiHost` (`ui_host.cpp`) for `vm/ui.qvm`, `GameHost` (`game_host.cpp`)
+for `vm/qagame.qvm`, and `CgameHost` (`cgame_host.cpp`) for
+`vm/cgame.qvm`, each in Elite Force's numbering. The bot library's
+calls are in `game_bots.cpp`. Calls a host doesn't handle yet are
+counted (`unhandled()`).
+
 ## Sources and checks
 
 - **Where the facts come from:** the game's own QVMs (English Windows release),

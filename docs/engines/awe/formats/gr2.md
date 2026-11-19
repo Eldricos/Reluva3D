@@ -437,54 +437,6 @@ Orientations are then normalised. A control's track does it exactly
 `GrannyEvaluateCurveAtT`'s own normalising is only close (a result
 seen was 3·10⁻⁵ short of unit length); its direction is the same.
 
-#### In Reluva
-
-`Curve::evaluate` takes the loop state (`CurveLoop`), and the Animator
-gives each slot's (`Animator::Slot::loop`). It computes the B-spline in
-doubles, as the DLL's x87 code keeps more than floats. It rounds the
-filled-in knots to floats, as the DLL does.
-
-There is one deliberate difference. A base animation's root bone (the
-skeleton's first, with no parent) is evaluated without wrapping round.
-It carries the character along: a walk's root moves the whole loop's
-distance. The game takes that motion out of the pose: its base
-animations' track groups accumulate it, and `GrannyUpdateModelMatrix`
-moves the model. Reluva instead takes out the distance the root moves in
-one loop (`Actor::motion`). Wrapping round, the root would swing back
-toward its start over the loop's last piece.
-
-Only what the pose carries is taken out. The walks' and runs' track
-masks leave `GrannyRootBone`, which carries the motion, at weight 0, so
-in the pose they're played with it stays at rest and the body doesn't
-go along at all: there's nothing to take out (`Motion::carried`, the
-drift with the slot's mask applied; the full drift still sets the
-pace). Taking out the full drift from such a walk held the body back
-through each loop, then let it jump a stride ahead as the loop began
-again.
-
-It's taken out of each animation as it's blended, at its own point of
-its loop (`Animator::carryBack`), not of the character as a whole: from
-the highest bone between `GrannyRootBone` and `Bip01` that the animation
-moves. Taking it out of the whole character by the newest base alone, as
-Reluva did, threw the body forward or back whenever two walks or a walk
-and an idle faded into each other: a click while walking, a walk's end,
-a turn handing over to the walk (up to 330 units in a frame, measured on
-the pelvis). A turn's step aside (`rotater180`'s 115 units) is taken out
-before the turn is: taken out after, it put the body up to twice that
-off the spot by the turn's end, then snapped it back.
-
-A bone an animation has no track for isn't moved by it at all, as
-Granny binds only the tracks there are; with nothing else playing on it,
-it's at rest. The talks have tracks for the head and jaw alone (11 to 15
-of a character's 83 to 99 bones) and no mask: blending their missing
-bones' rest pose in at the talk's weight pulled the body toward the
-bind pose ("A-pose") as each line began.
-
-Before this, Reluva never wrapped round, and kept only a curve's first
-four values. On `poirot_walk`, looping, it was off by up to 239 units
-(the root, near the end) and 0.003 in an orientation. Scale/shear curves
-with more than one knot would have lost five of their nine values.
-
 #### Verification
 
 `reluva-tool awe files-check <game> -gr2 -curves` evaluates every curve of
@@ -718,6 +670,67 @@ full install (1,803 files) there are 278 Bink textures, from 64×64 to
 1024×1024 (and 512×256, 1024×256): 251 with flags 4 and 27 with flags 5.
 None differs. Run alone, a 512×512 texture takes about 11 ms natively
 against 2.2 s in the interpreter, a 1024×1024 one 85 ms against 8.6 s.
+
+## In Reluva
+
+`src/engines/awe/formats/gr2.cpp` reads the container (`Gr2File`),
+`oodle1.cpp` decompresses its sections, `bink_texture.cpp` decodes the
+textures and `curves.cpp` expands the compressed curves. `model.cpp`
+builds a model and its animations from them (`loadModel`,
+`loadAnimation`). `granny_dll.cpp` runs the game's own `granny2.dll`,
+only to check the decoders against it. The data viewer's Models page
+shows the models, posed by their animations. `reluva-tool awe gr2-info`
+lists a file's sections and elements, `awe model-dump` poses a model,
+and `awe files-check -gr2` checks the files (see "Verification" in each
+part above).
+
+### Evaluating curves
+
+`Curve::evaluate` takes the loop state (`CurveLoop`), and the Animator
+gives each slot's (`Animator::Slot::loop`). It computes the B-spline in
+doubles, as the DLL's x87 code keeps more than floats. It rounds the
+filled-in knots to floats, as the DLL does.
+
+There is one deliberate difference. A base animation's root bone (the
+skeleton's first, with no parent) is evaluated without wrapping round.
+It carries the character along: a walk's root moves the whole loop's
+distance. The game takes that motion out of the pose: its base
+animations' track groups accumulate it, and `GrannyUpdateModelMatrix`
+moves the model. Reluva instead takes out the distance the root moves in
+one loop (`Actor::motion`). Wrapping round, the root would swing back
+toward its start over the loop's last piece.
+
+Only what the pose carries is taken out. The walks' and runs' track
+masks leave `GrannyRootBone`, which carries the motion, at weight 0, so
+in the pose they're played with it stays at rest and the body doesn't
+go along at all: there's nothing to take out (`Motion::carried`, the
+drift with the slot's mask applied; the full drift still sets the
+pace). Taking out the full drift from such a walk held the body back
+through each loop, then let it jump a stride ahead as the loop began
+again.
+
+It's taken out of each animation as it's blended, at its own point of
+its loop (`Animator::carryBack`), not of the character as a whole: from
+the highest bone between `GrannyRootBone` and `Bip01` that the animation
+moves. Taking it out of the whole character by the newest base alone, as
+Reluva did, threw the body forward or back whenever two walks or a walk
+and an idle faded into each other: a click while walking, a walk's end,
+a turn handing over to the walk (up to 330 units in a frame, measured on
+the pelvis). A turn's step aside (`rotater180`'s 115 units) is taken out
+before the turn is: taken out after, it put the body up to twice that
+off the spot by the turn's end, then snapped it back.
+
+A bone an animation has no track for isn't moved by it at all, as
+Granny binds only the tracks there are; with nothing else playing on it,
+it's at rest. The talks have tracks for the head and jaw alone (11 to 15
+of a character's 83 to 99 bones) and no mask: blending their missing
+bones' rest pose in at the talk's weight pulled the body toward the
+bind pose ("A-pose") as each line began.
+
+Before this, Reluva never wrapped round, and kept only a curve's first
+four values. On `poirot_walk`, looping, it was off by up to 239 units
+(the root, near the end) and 0.003 in an orientation. Scale/shear curves
+with more than one knot would have lost five of their nine values.
 
 ## Sources and checks
 
