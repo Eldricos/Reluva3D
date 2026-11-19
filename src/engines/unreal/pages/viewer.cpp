@@ -34,29 +34,29 @@ constexpr int kScreenH = 480;
 class UnrealViewer : public Engine {
 public:
     UnrealViewer(System &system, GameTarget target, const GameInfo &game)
-        : sys_(system), target_(std::move(target)), game_(game) {}
+        : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
         std::vector<std::string> warnings;
-        if (Error err = packages_.open(target_.path, game_.iniName, &warnings))
+        if (Error err = _packages.open(_target.path, _game.iniName, &warnings))
             return err;
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
 
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System &sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
 
-        ViewContext ctx{sys_, screen_, packages_, game_, warnings, audioOut ? &mixer : nullptr};
-        if (!target_.savePath.empty())
-            ctx.saveFolder = target_.savePath / "Saves";
-        ctx.gameFolder = target_.path;
+        ViewContext ctx{_sys, _screen, _packages, _game, warnings, audioOut ? &mixer : nullptr};
+        if (!_target.savePath.empty())
+            ctx.saveFolder = _target.savePath / "Saves";
+        ctx.gameFolder = _target.path;
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<LevelView>(ctx));
         pages.push_back(std::make_unique<MeshViewer>(ctx));
@@ -71,7 +71,7 @@ public:
         while (first < pages.size() && pages[first]->count() == 0)
             ++first;
         if (first == pages.size())
-            return Error::fail("No packages found in " + target_.path.string());
+            return Error::fail("No packages found in " + _target.path.string());
         // The game's intro plays first, as the original's does; then the
         // first page.
         size_t page = first;
@@ -109,7 +109,7 @@ public:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+                if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
                     return err;
             page = next;
             pages[page]->activate();
@@ -118,7 +118,7 @@ public:
 
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
+            while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->ownsKey(ev.key))
@@ -135,7 +135,7 @@ public:
                 pages[page]->handleEvent(ev);
             }
             const auto t0 = std::chrono::steady_clock::now();
-            pages[page]->update(sys_.getMillis());
+            pages[page]->update(_sys.getMillis());
             const auto t1 = std::chrono::steady_clock::now();
             if (intro && !moviePage->playing()) {
                 intro = false;
@@ -143,7 +143,7 @@ public:
                     if (Error err = switchTo(first))
                         return err;
             }
-            sys_.updateScreen(screen_);
+            _sys.updateScreen(_screen);
             if (!benchMap.empty()) {
                 const auto t2 = std::chrono::steady_clock::now();
                 benchUpdate.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
@@ -173,16 +173,16 @@ public:
             }
             // 3D pages are paced by presenting (vsync); the rest needn't spin.
             if (!pages[page]->uses3D())
-                sys_.delayMillis(10);
+                _sys.delayMillis(10);
         }
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
-    const GameInfo &game_;
-    PackageSet packages_;
-    Surface screen_;
+    System &_sys;
+    GameTarget _target;
+    const GameInfo &_game;
+    PackageSet _packages;
+    Surface _screen;
 };
 
 class UnrealMetaViewer : public MetaViewer {

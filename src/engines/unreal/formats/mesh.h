@@ -238,7 +238,7 @@ public:
         // space, about its origin; C3DRemoveRotation: the bone's yaw (Y),
         // pitch (X) and/or roll (Z) away from its bind pose taken out).
         struct Op {
-            enum Kind { Own, Space, Remove } kind = Own;
+            enum Kind { kOwn, kSpace, kRemove } kind = kOwn;
             std::string bone;
             int axis = 0;
             float radians = 0;

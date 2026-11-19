@@ -49,21 +49,21 @@ float soundSeconds(const PackageSet &packages, const Package &package, int expor
 } // namespace
 
 VmObject *ScriptLevel::currentMusic() {
-    const Value *v = player_ && !player_->deleted ? prop(player_, "CurrentMusic") : nullptr;
+    const Value *v = _player && !_player->deleted ? prop(_player, "CurrentMusic") : nullptr;
     return v ? v->asObject() : nullptr;
 }
 
 void ScriptLevel::musicEnded(VmObject *sound) {
-    if (Value *v = player_ && !player_->deleted ? prop(player_, "CurrentMusic") : nullptr; v && v->asObject() == sound)
+    if (Value *v = _player && !_player->deleted ? prop(_player, "CurrentMusic") : nullptr; v && v->asObject() == sound)
         v->o = nullptr;
 }
 
 bool ScriptLevel::streamedSound(VmObject *sound) {
     if (!sound || !sound->package || sound->exportIndex < 0)
         return false;
-    auto it = streamed_.find(sound);
-    if (it == streamed_.end())
-        it = streamed_.emplace(sound, streamedFile(vm_.packages(), *sound->package, sound->exportIndex).has_value())
+    auto it = _streamed.find(sound);
+    if (it == _streamed.end())
+        it = _streamed.emplace(sound, streamedFile(_vm.packages(), *sound->package, sound->exportIndex).has_value())
                  .first;
     return it->second;
 }
@@ -81,12 +81,12 @@ std::string ScriptLevel::soundName(VmObject *sound) {
 }
 
 bool ScriptLevel::listenerAt(Vec &at) {
-    if (!player_ || player_->deleted)
+    if (!_player || _player->deleted)
         return false;
-    VmObject *from = player_;
-    if (const Value *v = prop(player_, "ViewTarget"); v && v->asObject() && !v->asObject()->deleted)
+    VmObject *from = _player;
+    if (const Value *v = prop(_player, "ViewTarget"); v && v->asObject() && !v->asObject()->deleted)
         from = v->asObject();
-    else if (const Value *c = prop(player_, "Camera"); c && c->asObject() && !c->asObject()->deleted)
+    else if (const Value *c = prop(_player, "Camera"); c && c->asObject() && !c->asObject()->deleted)
         from = c->asObject();
     const Value *l = prop(from, "Location");
     if (!l)
@@ -110,10 +110,10 @@ bool ScriptLevel::hearsSound(VmObject *source, float radius, float &volume) {
     float r2 = radius * radius / 1.3f;
     if (d2 >= r2)
         return false;
-    if (!vm_.isA(source, "SpecialEvent") && !vm_.isA(source, "Keypoint") && worldBetween(ear, at)) {
+    if (!_vm.isA(source, "SpecialEvent") && !_vm.isA(source, "Keypoint") && worldBetween(ear, at)) {
         volume *= 0.35f;
         const Value *i = prop(source, "Instigator");
-        if (!i || i->asObject() != player_) {
+        if (!i || i->asObject() != _player) {
             r2 *= 0.6f;
             if (d2 >= r2)
                 return false;
@@ -136,7 +136,7 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
     if (!owner)
         return;
     auto loud = [&](VmObject *a) {
-        return a && (vm_.isA(a, "PlayerPawn") || vm_.isA(a, "Weapon") || vm_.isA(a, "Projectile"));
+        return a && (_vm.isA(a, "PlayerPawn") || _vm.isA(a, "Weapon") || _vm.isA(a, "Projectile"));
     };
     if (!loud(maker) && !loud(owner))
         return;
@@ -144,15 +144,15 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
     if (!at)
         return;
     const Vec from = Vm::vectorOf(*at);
-    const NameId hear = vm_.name("HearNoise");
+    const NameId hear = _vm.name("HearNoise");
     ++noise.made;
-    const std::vector<VmObject *> now = actors_;
+    const std::vector<VmObject *> now = _actors;
     for (VmObject *p : now) {
-        if (p == maker || p == owner || p->deleted || !vm_.isA(p, "Pawn"))
+        if (p == maker || p == owner || p->deleted || !_vm.isA(p, "Pawn"))
             continue;
         if (const Value *b = prop(p, "bIsPlayer"); b && b->asBool())
             continue;
-        if (p->disabled.count(hear) || !vm_.findFunction(p, hear))
+        if (p->disabled.count(hear) || !_vm.findFunction(p, hear))
             continue;
         const Value *loc = prop(p, "Location");
         if (!loc)
@@ -168,14 +168,14 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
             if (ratio >= 1)
                 continue;
         }
-        if (vm_.isA(p, "CTVE_Pawn")) {
+        if (_vm.isA(p, "CTVE_Pawn")) {
             const Value *e = prop(p, "Enemy");
             if (!e || e->asObject() != maker)
                 if (Value *c = prop(p, "DLG_Command"))
                     *c = Value::stringValue("FHE");
         }
         ++noise.heard;
-        vm_.callEvent(p, "HearNoise", {Value::floatValue(1 - ratio), Value::objectValue(maker)});
+        _vm.callEvent(p, "HearNoise", {Value::floatValue(1 - ratio), Value::objectValue(maker)});
     }
 }
 
@@ -185,10 +185,10 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
 // in seconds. Read once a sound.
 const std::vector<ScriptLevel::LipWord> &ScriptLevel::lipWordsOf(const Package *package, int exportIndex) {
     const auto key = std::make_pair(package, exportIndex);
-    auto it = lipWords_.find(key);
-    if (it != lipWords_.end())
+    auto it = _lipWords.find(key);
+    if (it != _lipWords.end())
         return it->second;
-    std::vector<LipWord> &out = lipWords_[key];
+    std::vector<LipWord> &out = _lipWords[key];
     EmbeddedFile file;
     if (readEmbeddedFile(*package, exportIndex, file) || file.isPlaceholder() || file.data.size() < 10)
         return out;
@@ -237,15 +237,15 @@ const std::vector<ScriptLevel::LipWord> &ScriptLevel::lipWordsOf(const Package *
 // (whose mouth closes), unless that one was played not to be overridden.
 void ScriptLevel::lipSyncPlay(VmObject *actor, int slot, bool noOverride, const Package *package, int exportIndex) {
     if (slot != 0)
-        for (LipChannel &c : lipChannels_)
+        for (LipChannel &c : _lipChannels)
             if (c.actor == actor && c.slot == slot && c.words) {
                 if (c.noOverride)
                     return;
                 lipSyncStop(c);
             }
-    lipChannels_.erase(
-        std::remove_if(lipChannels_.begin(), lipChannels_.end(), [](const LipChannel &c) { return !c.words; }),
-        lipChannels_.end());
+    _lipChannels.erase(
+        std::remove_if(_lipChannels.begin(), _lipChannels.end(), [](const LipChannel &c) { return !c.words; }),
+        _lipChannels.end());
     const std::vector<LipWord> &words = lipWordsOf(package, exportIndex);
     if (words.empty())
         return;
@@ -255,15 +255,15 @@ void ScriptLevel::lipSyncPlay(VmObject *actor, int slot, bool noOverride, const 
     c.noOverride = noOverride;
     c.words = &words;
     const Value *offset = prop(actor, "StartTimeOffset");
-    c.start = lipLast_ - (offset ? offset->asFloat() : 0);
-    c.seconds = soundSeconds(vm_.packages(), *package, exportIndex);
-    lipChannels_.push_back(c);
+    c.start = _lipLast - (offset ? offset->asFloat() : 0);
+    c.seconds = soundSeconds(_vm.packages(), *package, exportIndex);
+    _lipChannels.push_back(c);
 }
 
 // The driver's StopSound: the mouth closed, C3DSpeechEvent(0, 0).
 void ScriptLevel::lipSyncStop(LipChannel &c) {
     if (c.actor && !c.actor->deleted)
-        vm_.callEvent(c.actor, "C3DSpeechEvent", {Value::intValue(0), Value::floatValue(0)});
+        _vm.callEvent(c.actor, "C3DSpeechEvent", {Value::intValue(0), Value::floatValue(0)});
     c.words = nullptr;
 }
 
@@ -350,18 +350,18 @@ bool mouthShape(uint32_t c, int &shape, float &weight) {
 // is the one: at most one C3DSpeechEvent a sound an update, to the actor
 // that played it; a letter with no shape uses the update up all the same.
 void ScriptLevel::lipSyncUpdate() {
-    const Value *t = levelInfo_ ? prop(levelInfo_, "TimeSeconds") : nullptr;
-    const double now = t ? double(t->asFloat()) : time_;
-    if (!player_ || player_->deleted)
+    const Value *t = _levelInfo ? prop(_levelInfo, "TimeSeconds") : nullptr;
+    const double now = t ? double(t->asFloat()) : _time;
+    if (!_player || _player->deleted)
         return;
-    for (LipChannel &c : lipChannels_) {
+    for (LipChannel &c : _lipChannels) {
         if (!c.words)
             continue;
         if (!c.actor || c.actor->deleted) {
             c.words = nullptr;
             continue;
         }
-        const float from = float(lipLast_ - c.start), to = float(now - c.start);
+        const float from = float(_lipLast - c.start), to = float(now - c.start);
         if (from >= c.seconds) {
             lipSyncStop(c);
             continue;
@@ -388,19 +388,19 @@ void ScriptLevel::lipSyncUpdate() {
         int shape = 0;
         float weight = 0;
         if (code >= 0 && mouthShape(uint32_t(code), shape, weight))
-            vm_.callEvent(c.actor, "C3DSpeechEvent", {Value::intValue(shape), Value::floatValue(weight)});
+            _vm.callEvent(c.actor, "C3DSpeechEvent", {Value::intValue(shape), Value::floatValue(weight)});
     }
-    lipChannels_.erase(
-        std::remove_if(lipChannels_.begin(), lipChannels_.end(), [](const LipChannel &c) { return !c.words; }),
-        lipChannels_.end());
-    lipLast_ = now;
+    _lipChannels.erase(
+        std::remove_if(_lipChannels.begin(), _lipChannels.end(), [](const LipChannel &c) { return !c.words; }),
+        _lipChannels.end());
+    _lipLast = now;
 }
 
 void ScriptLevel::trackSound(const SoundRequest &r, float seconds) {
-    auto &list = trackedSounds_;
+    auto &list = _trackedSounds;
     list.erase(std::remove_if(list.begin(), list.end(),
                               [&](const TrackedSound &t) {
-                                  return t.start + t.seconds < time_ || (t.request.actor && t.request.actor->deleted) ||
+                                  return t.start + t.seconds < _time || (t.request.actor && t.request.actor->deleted) ||
                                          (r.slot != 0 && t.request.actor == r.actor && t.request.slot == r.slot &&
                                           !t.request.noOverride);
                               }),
@@ -411,12 +411,12 @@ void ScriptLevel::trackSound(const SoundRequest &r, float seconds) {
                 return; // its slot's kept by one played not to be overridden
     if (list.size() >= 64)
         list.erase(list.begin());
-    list.push_back({r, time_, seconds});
+    list.push_back({r, _time, seconds});
 }
 
 void ScriptLevel::trackMusic(VmObject *actor, float startSeconds) {
-    musicActor_ = actor;
-    musicStart_ = time_ - startSeconds;
+    _musicActor = actor;
+    _musicStart = _time - startSeconds;
 }
 
 void registerSoundNatives(Vm &vm) {

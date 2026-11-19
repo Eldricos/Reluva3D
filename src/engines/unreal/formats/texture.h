@@ -18,24 +18,24 @@
 namespace reluva::unreal {
 
 // How a texture's pixels are stored (its Format property).
-enum class TextureFormat : uint8_t { P8 = 0, RGBA7 = 1, RGB16 = 2, DXT1 = 3, RGB8 = 4, RGBA8 = 5 };
+enum class TextureFormat : uint8_t { kP8 = 0, kRgbA7 = 1, kRgB16 = 2, kDxT1 = 3, kRgB8 = 4, kRgbA8 = 5 };
 const char *formatName(uint8_t format);
 
 // Surface and texture flags (a texture's PolyFlags, a level surface's).
 namespace polyflag {
-constexpr uint32_t Invisible = 0x00000001;
-constexpr uint32_t Masked = 0x00000002;
-constexpr uint32_t Translucent = 0x00000004;
-constexpr uint32_t NotSolid = 0x00000008;
-constexpr uint32_t Environment = 0x00000010;
-constexpr uint32_t Semisolid = 0x00000020;
-constexpr uint32_t Modulated = 0x00000040;
-constexpr uint32_t FakeBackdrop = 0x00000080;
-constexpr uint32_t TwoSided = 0x00000100;
-constexpr uint32_t NoSmooth = 0x00000800;
-constexpr uint32_t Unlit = 0x00400000;
-constexpr uint32_t Portal = 0x04000000;
-constexpr uint32_t Mirrored = 0x08000000;
+constexpr uint32_t kInvisible = 0x00000001;
+constexpr uint32_t kMasked = 0x00000002;
+constexpr uint32_t kTranslucent = 0x00000004;
+constexpr uint32_t kNotSolid = 0x00000008;
+constexpr uint32_t kEnvironment = 0x00000010;
+constexpr uint32_t kSemisolid = 0x00000020;
+constexpr uint32_t kModulated = 0x00000040;
+constexpr uint32_t kFakeBackdrop = 0x00000080;
+constexpr uint32_t kTwoSided = 0x00000100;
+constexpr uint32_t kNoSmooth = 0x00000800;
+constexpr uint32_t kUnlit = 0x00400000;
+constexpr uint32_t kPortal = 0x04000000;
+constexpr uint32_t kMirrored = 0x08000000;
 } // namespace polyflag
 
 struct Palette {

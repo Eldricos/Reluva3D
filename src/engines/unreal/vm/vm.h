@@ -44,10 +44,10 @@ struct VmStruct;
 // A name, interned for the whole VM: names compare without case.
 using NameId = int32_t;
 
-enum class VType : uint8_t { None, Byte, Int, Bool, Float, Name, String, Object, Struct };
+enum class VType : uint8_t { kNone, kByte, kInt, kBool, kFloat, kName, kString, kObject, kStruct };
 
 struct Value {
-    VType type = VType::None;
+    VType type = VType::kNone;
     int32_t i = 0;                // Byte, Int, Bool (0 or 1), Name
     float f = 0;                  // Float
     VmObject *o = nullptr;        // Object; a class object for class values
@@ -95,13 +95,13 @@ struct Value {
     // reading, and the rest, out of line. (Byte to Name takes in Float,
     // so it's tested first.)
     int32_t asInt() const {
-        return type == VType::Float ? int32_t(f) : (type >= VType::Byte && type <= VType::Name) ? i : asIntSlow();
+        return type == VType::kFloat ? int32_t(f) : (type >= VType::kByte && type <= VType::kName) ? i : asIntSlow();
     }
     float asFloat() const {
-        return type == VType::Float ? f : (type >= VType::Byte && type <= VType::Bool) ? float(i) : asFloatSlow();
+        return type == VType::kFloat ? f : (type >= VType::kByte && type <= VType::kBool) ? float(i) : asFloatSlow();
     }
     bool asBool() const {
-        return type == VType::Float ? f != 0 : (type >= VType::Byte && type <= VType::Name) ? i != 0 : asBoolSlow();
+        return type == VType::kFloat ? f != 0 : (type >= VType::kByte && type <= VType::kName) ? i != 0 : asBoolSlow();
     }
     inline VmObject *asObject() const;
     int32_t asIntSlow() const;
@@ -112,7 +112,7 @@ struct Value {
 struct VmProperty {
     std::string name;
     NameId nameId = 0;
-    VType type = VType::None;
+    VType type = VType::kNone;
     bool isClass = false;           // a ClassProperty: holds classes
     VmClass *objectClass = nullptr; // Object: the class of what it holds; Class: the meta class
     const VmStruct *structType = nullptr;
@@ -125,7 +125,7 @@ struct VmProperty {
 };
 
 struct VmStruct {
-    enum class Kind { Struct, Function, State, Class } kind = Kind::Struct;
+    enum class Kind { kStruct, kFunction, kState, kClass } kind = Kind::kStruct;
     std::string name;
     NameId nameId = 0;
     const Package *package = nullptr; // where it's defined; its code's references are into this
@@ -146,8 +146,8 @@ struct VmStruct {
 private:
     // findProperty's index by name, the most derived of each; built again
     // when properties are added.
-    mutable std::unordered_map<NameId, VmProperty *> byName_;
-    mutable size_t indexed_ = 0;
+    mutable std::unordered_map<NameId, VmProperty *> _byName;
+    mutable size_t _indexed = 0;
 };
 
 struct VmFunction : VmStruct {
@@ -221,7 +221,7 @@ struct VmObject {
 };
 
 inline VmObject *Value::asObject() const {
-    return type == VType::Object && o && !o->deleted ? o : nullptr;
+    return type == VType::kObject && o && !o->deleted ? o : nullptr;
 }
 
 // A native function's call: its arguments (by parameter, converted to
@@ -250,7 +250,7 @@ public:
     Vm(const Vm &) = delete;
     Vm &operator=(const Vm &) = delete;
 
-    const PackageSet &packages() const { return packages_; }
+    const PackageSet &packages() const { return _packages; }
 
     NameId name(std::string_view text);
     const std::string &nameText(NameId id) const;
@@ -276,7 +276,7 @@ public:
     void applyProperties(VmObject *object, const Package &package, const PropertyList &props);
     // A tagged property's value as a property's type.
     Value valueOf(const VmProperty &p, const Package &package, const Property &data);
-    const std::vector<std::unique_ptr<VmObject>> &objects() const { return objects_; }
+    const std::vector<std::unique_ptr<VmObject>> &objects() const { return _objects; }
 
     // Calls a function by name on an object (an event the engine sends):
     // its state's version first, then its class's. Returns its result, or
@@ -365,7 +365,7 @@ public:
     VmState *findState(VmClass *cls, NameId name);
     // How many objects of each class have been given made-up names
     // ("DS9_Hud0"...): a saved game's carry on from where it left off.
-    std::map<const VmClass *, int> &nameCounts() { return nameCounts_; }
+    std::map<const VmClass *, int> &nameCounts() { return _nameCounts; }
 
 private:
     friend class Interpreter;
@@ -379,22 +379,22 @@ private:
     void scanNatives();
     Value readStruct(const VmStruct &st, const Package &package, Reader &r);
     Value readValue(const VmProperty &p, const Package &package, Reader &r);
-    float pendingLatent_ = -1;
-    std::vector<const VmStruct *> running_; // the code running, innermost last
-    std::map<int, VmFunction *> nativeFunctions_;
-    bool nativesScanned_ = false;
-    std::map<NameId, const VmStruct *> coreStructs_;
-    std::map<const VmClass *, int> nameCounts_;
-    std::map<NameId, std::unique_ptr<VmClass>> intrinsics_;
+    float _pendingLatent = -1;
+    std::vector<const VmStruct *> _running; // the code running, innermost last
+    std::map<int, VmFunction *> _nativeFunctions;
+    bool _nativesScanned = false;
+    std::map<NameId, const VmStruct *> _coreStructs;
+    std::map<const VmClass *, int> _nameCounts;
+    std::map<NameId, std::unique_ptr<VmClass>> _intrinsics;
 
-    const PackageSet &packages_;
-    std::vector<std::string> names_;
+    const PackageSet &_packages;
+    std::vector<std::string> _names;
     // By lower-case text, looked up by a string_view without a copy.
     struct NameHash {
         using is_transparent = void;
         size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }
     };
-    std::unordered_map<std::string, NameId, NameHash, std::equal_to<>> nameIds_;
+    std::unordered_map<std::string, NameId, NameHash, std::equal_to<>> _nameIds;
 
 public:
     // VmObject::find's literals: (class, the literal's address) to a slot, -1 none.
@@ -411,22 +411,22 @@ public:
     std::unordered_map<LiteralKey, int, LiteralHash> literalSlots;
 
 private:
-    std::map<std::pair<const Package *, int>, std::unique_ptr<VmStruct>> structs_;
+    std::map<std::pair<const Package *, int>, std::unique_ptr<VmStruct>> _structs;
     using IniFile = std::map<std::string, std::map<std::string, std::string>>; // section, key (lower case): value
-    std::map<std::string, IniFile> iniFiles_;
-    IniFile configSet_; // settings changed while running (setConfig)
+    std::map<std::string, IniFile> _iniFiles;
+    IniFile _configSet; // settings changed while running (setConfig)
     const IniFile &iniFileAt(const std::filesystem::path &file);
-    std::map<std::pair<const Package *, int>, VmProperty *> properties_;
-    std::deque<VmProperty> propertyStore_;
-    std::deque<std::vector<NameId>> enumStore_;
-    std::map<std::pair<const Package *, int>, VmObject *> exportObjects_;
-    std::vector<std::unique_ptr<VmObject>> objects_;
+    std::map<std::pair<const Package *, int>, VmProperty *> _properties;
+    std::deque<VmProperty> _propertyStore;
+    std::deque<std::vector<NameId>> _enumStore;
+    std::map<std::pair<const Package *, int>, VmObject *> _exportObjects;
+    std::vector<std::unique_ptr<VmObject>> _objects;
 
-    std::map<std::string, NativeFn> natives_;
-    int nativeGeneration_ = 0;
-    const VmStruct *vectorStruct_ = nullptr;
-    const VmStruct *rotatorStruct_ = nullptr;
-    int depth_ = 0;
+    std::map<std::string, NativeFn> _natives;
+    int _nativeGeneration = 0;
+    const VmStruct *_vectorStruct = nullptr;
+    const VmStruct *_rotatorStruct = nullptr;
+    int _depth = 0;
 };
 
 // The natives of Core's Object (operators, maths, strings, states).

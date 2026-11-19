@@ -112,7 +112,7 @@ void ScriptLevel::chainSparkTick(VmObject *spark, float seconds) {
     };
     auto setVec = [&](const char *name, const Vec &v) {
         if (Value *p = prop(spark, name))
-            vm_.setVector(*p, v[0], v[1], v[2]);
+            _vm.setVector(*p, v[0], v[1], v[2]);
     };
     if (b("bGrows")) {
         float g = f("Growth") + seconds * f("GrowthRate");
@@ -183,7 +183,7 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
     };
     auto setVec = [&](const char *name, const Vec &v) {
         if (Value *p = prop(base, name))
-            vm_.setVector(*p, v[0], v[1], v[2]);
+            _vm.setVector(*p, v[0], v[1], v[2]);
     };
     auto setFloat = [&](const char *name, float v) {
         if (Value *p = prop(base, name))
@@ -215,7 +215,7 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
         const Value *waves = prop(spark, "WaveLengths");
         const float sinScale = float(waves ? waves->asInt() : 0) * 6.28f;
         if (Value *p = prop(spark, "Alter"))
-            vm_.setVector(*p, alter[0], alter[1], alter[2]);
+            _vm.setVector(*p, alter[0], alter[1], alter[2]);
         if (Value *p = prop(spark, "SinScale"))
             *p = Value::floatValue(sinScale);
         setVec("AxisScale", alter);
@@ -234,7 +234,7 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
 // ripples: WaveLength waves a unit along it, travelling WaveTravelVelocity
 // a second.
 void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
-    const VmProperty *list = beam->cls->findProperty(vm_.name("BeamSectionList"));
+    const VmProperty *list = beam->cls->findProperty(_vm.name("BeamSectionList"));
     if (!list)
         return;
     auto f = [&](const char *name) {
@@ -268,7 +268,7 @@ void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
             at = add(at, mul(side, amplitude * std::sin(phase)));
         }
         if (Value *l = prop(section, "Location"))
-            vm_.setVector(*l, at[0], at[1], at[2]);
+            _vm.setVector(*l, at[0], at[1], at[2]);
         if (Value *r = prop(section, "Rotation"); r && rotation)
             *r = *rotation;
         if (Value *s = prop(section, "AxisScale")) {
@@ -282,7 +282,7 @@ void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
                 x = std::clamp(reach, 0.0f, 1.0f) * scale[0];
             }
             (void)now;
-            vm_.setVector(*s, x, thick(scale[1]), thick(scale[2]));
+            _vm.setVector(*s, x, thick(scale[1]), thick(scale[2]));
         }
     }
     if (Value *count = prop(beam, "FrameCount"))
@@ -320,9 +320,9 @@ void ScriptLevel::sparkTick(VmObject *sparks, float seconds) {
         if (Value *p = prop(o, name))
             *p = v;
     };
-    if (auto it = sparkFlash_.find(sparks); it != sparkFlash_.end() && (it->second -= seconds) <= 0) {
+    if (auto it = _sparkFlash.find(sparks); it != _sparkFlash.end() && (it->second -= seconds) <= 0) {
         set(sparks, "LightType", Value::byteValue(0));
-        sparkFlash_.erase(it);
+        _sparkFlash.erase(it);
     }
     Value *delay = prop(sparks, "BurstDelay");
     if (!delay || delay->asFloat() > 0)
@@ -343,17 +343,17 @@ void ScriptLevel::sparkTick(VmObject *sparks, float seconds) {
     const int count = least + int(frand() * float(most - least + 1) * 0.999f);
     auto vary = [](float base, float by) { return base + (frand() * 2 - 1) * by; };
     for (int k = 0; k < count; ++k) {
-        VmObject *mm = newCopy(vm_, sparks);
+        VmObject *mm = newCopy(_vm, sparks);
         if (!mm)
             break;
         const Vec v = add(add(mul(x, f("Speed")), mul(y, (frand() * 2 - 1) * f("RangeWidth"))),
                           mul(z, (frand() * 2 - 1) * f("RangeHeight")));
         const float life = std::max(0.05f, vary(f("SparkLife"), f("SparkLifeVariance")));
-        set(mm, "Location", vm_.vectorValue(from[0], from[1], from[2]));
-        set(mm, "Velocity", vm_.vectorValue(v[0], v[1], v[2]));
-        set(mm, "Acceleration", vm_.vectorValue(gravity[0], gravity[1], gravity[2]));
+        set(mm, "Location", _vm.vectorValue(from[0], from[1], from[2]));
+        set(mm, "Velocity", _vm.vectorValue(v[0], v[1], v[2]));
+        set(mm, "Acceleration", _vm.vectorValue(gravity[0], gravity[1], gravity[2]));
         const auto rot = rotatorOf(v);
-        set(mm, "Rotation", vm_.rotatorValue(rot[0], rot[1], rot[2]));
+        set(mm, "Rotation", _vm.rotatorValue(rot[0], rot[1], rot[2]));
         const float size = std::max(0.01f, vary(f("Size"), f("SizeVariance")));
         set(mm, "DrawScale", Value::floatValue(size));
         // Its size kept in Phase: the engine's spark physics flickers it
@@ -368,7 +368,7 @@ void ScriptLevel::sparkTick(VmObject *sparks, float seconds) {
     if (const Value *light = prop(sparks, "bLightFX"); light && light->asBool() && count > 0)
         if (const Value *saved = prop(sparks, "saveLightType"); saved && saved->asInt() != 0) {
             set(sparks, "LightType", Value::byteValue(saved->asInt()));
-            sparkFlash_[sparks] = 0.1f;
+            _sparkFlash[sparks] = 0.1f;
         }
 }
 
@@ -415,13 +415,13 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     if (wind && destWind) {
         if (frand() < f("WindActivity") * seconds * 10) {
             const float angle = frand() * 6.2831853f, strength = frand() * lateral;
-            vm_.setVector(*destWind, std::cos(angle) * strength, std::sin(angle) * strength, fall);
+            _vm.setVector(*destWind, std::cos(angle) * strength, std::sin(angle) * strength, fall);
         }
         Vec w = Vm::vectorOf(*wind);
         const Vec d = Vm::vectorOf(*destWind);
         const float k = std::min(1.0f, seconds * 0.5f);
         w = {w[0] + (d[0] - w[0]) * k, w[1] + (d[1] - w[1]) * k, fall};
-        vm_.setVector(*wind, w[0], w[1], w[2]);
+        _vm.setVector(*wind, w[0], w[1], w[2]);
     }
     const Vec windNow = wind ? Vm::vectorOf(*wind) : Vec{0, 0, fall};
 
@@ -434,14 +434,14 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     };
     std::vector<Block> blocks;
     const Value *numBlocks = prop(weather, "NumBlocks");
-    if (const VmProperty *list = weather->cls->findProperty(vm_.name("Block")); list && numBlocks) {
+    if (const VmProperty *list = weather->cls->findProperty(_vm.name("Block")); list && numBlocks) {
         const int n = std::clamp(numBlocks->asInt(), 0, list->arrayDim);
         for (int k = 0; k < n; ++k) {
             const Value &v = weather->values[size_t(list->slot + k)];
             if (!v.st)
                 continue;
             auto field = [&](const char *name) -> const Value * {
-                const VmProperty *p = v.st->findProperty(vm_.name(name));
+                const VmProperty *p = v.st->findProperty(_vm.name(name));
                 return p && size_t(p->slot) < v.fields.size() ? &v.fields[size_t(p->slot)] : nullptr;
             };
             auto ff = [&](const char *name) {
@@ -476,7 +476,7 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
         const Vec p = l ? Vm::vectorOf(*l) : Vec{};
         const float dx = p[0] - seed[0], dy = p[1] - seed[1];
         if (fill || dx * dx + dy * dy > range * range * 1.44f)
-            vm_.callEvent(mm, "Delete");
+            _vm.callEvent(mm, "Delete");
         else
             ++alive;
     }
@@ -504,13 +504,13 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
             drop = at[2] - hit[2];
         if (drop <= 1)
             continue;
-        VmObject *mm = newCopy(vm_, weather);
+        VmObject *mm = newCopy(_vm, weather);
         if (!mm)
             break;
         ++k;
-        set(mm, "Location", vm_.vectorValue(at[0], at[1], at[2]));
-        set(mm, "Velocity", vm_.vectorValue(v[0], v[1], v[2]));
-        set(mm, "Acceleration", vm_.vectorValue(0, 0, 0));
+        set(mm, "Location", _vm.vectorValue(at[0], at[1], at[2]));
+        set(mm, "Velocity", _vm.vectorValue(v[0], v[1], v[2]));
+        set(mm, "Acceleration", _vm.vectorValue(0, 0, 0));
         if (rotation)
             set(mm, "Rotation", *rotation);
         set(mm, "LifeSpan", Value::floatValue(drop / -speed));
@@ -526,7 +526,7 @@ std::array<float, 3> ScriptLevel::waterLine(const std::array<float, 3> &start, c
         const Value r = regionAt(p);
         if (!r.st)
             return false;
-        const VmProperty *zp = r.st->findProperty(vm_.name("Zone"));
+        const VmProperty *zp = r.st->findProperty(_vm.name("Zone"));
         VmObject *zone = zp && size_t(zp->slot) < r.fields.size() ? r.fields[size_t(zp->slot)].asObject() : nullptr;
         const Value *w = zone ? prop(zone, "bWaterZone") : nullptr;
         return w && w->asBool();
@@ -560,7 +560,7 @@ VmObject *ScriptLevel::attachDecal(VmObject *decal, float distance, const Vec &d
     const Vec out{ax[0][0], ax[0][1], ax[0][2]};
     const Vec from = add(at, mul(out, 2)), to = sub(at, mul(out, std::max(distance, 1.0f)));
     Vec where{}, n{};
-    if (trace(decal, from, to, {}, false, where, n) != levelInfo_)
+    if (trace(decal, from, to, {}, false, where, n) != _levelInfo)
         return nullptr;
     VmObject *surfaceTex = surfaceTexture(from, to);
     Decal d;
@@ -578,11 +578,11 @@ VmObject *ScriptLevel::attachDecal(VmObject *decal, float distance, const Vec &d
         d.texture = {t->o->package, t->o->exportIndex};
     const Value *scale = prop(decal, "DrawScale");
     d.scale = scale ? scale->asFloat() : 1;
-    decals_[decal] = d;
+    _decals[decal] = d;
     if (surfaceTex)
         return surfaceTex;
     const Value *t = prop(decal, "Texture");
-    return t && t->asObject() ? t->o : levelInfo_;
+    return t && t->asObject() ? t->o : _levelInfo;
 }
 
 void registerEffectNatives(Vm &vm) {

@@ -414,7 +414,7 @@ void registerCoreNatives(Vm &vm) {
     });
     reg("IsInState", [=](NativeCall &c) {
         bool in = false;
-        for (VmStruct *s = c.self ? c.self->state : nullptr; s && s->kind == VmStruct::Kind::State; s = s->super)
+        for (VmStruct *s = c.self ? c.self->state : nullptr; s && s->kind == VmStruct::Kind::kState; s = s->super)
             in = in || s->nameId == c.i(0);
         c.result = B(in);
     });
@@ -463,7 +463,7 @@ void registerCoreNatives(Vm &vm) {
     });
     reg("SetPropertyText", [=](NativeCall &c) {
         if (Value *v = c.self ? c.self->find(c.vm, c.s(0)) : nullptr) {
-            if (v->type == VType::Object)
+            if (v->type == VType::kObject)
                 v->o = c.vm.findObject(c.s(1));
             else
                 c.vm.assign(*v, Value::stringValue(c.s(1)));

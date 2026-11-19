@@ -18,7 +18,7 @@ namespace reluva::unreal {
 
 class LevelCollision {
 public:
-    explicit LevelCollision(const Model &model) : model_(model) {}
+    explicit LevelCollision(const Model &model) : _model(model) {}
 
     // Whether a point is in solid space.
     bool solid(const Vec3f &point) const;
@@ -53,10 +53,10 @@ private:
     bool hull(int32_t node, std::vector<Plane> &planes) const;
     // Each node's hull, built once when first asked for.
     const std::vector<Plane> *hullOf(int32_t node) const;
-    mutable std::vector<std::vector<Plane>> hulls_;
-    mutable std::vector<uint8_t> hullState_; // 0 not built, 1 built, 2 none
+    mutable std::vector<std::vector<Plane>> _hulls;
+    mutable std::vector<uint8_t> _hullState; // 0 not built, 1 built, 2 none
 
-    const Model &model_;
+    const Model &_model;
 };
 
 } // namespace reluva::unreal

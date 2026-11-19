@@ -54,13 +54,13 @@ float factor(gfx::Blend f, float src, float dst, float srcA, float dstA) {
 
 } // namespace
 
-SoftRenderer3D::SoftRenderer3D(int width, int height) : w_(width), h_(height) {
-    color_.create(w_, h_, PixelFormat::kRGBA32);
-    frame_.create(w_, h_, PixelFormat::kRGBA32);
-    depth_.assign(size_t(w_) * size_t(h_), 1.0f);
-    stencil_.assign(size_t(w_) * size_t(h_), 0);
-    vw_ = w_;
-    vh_ = h_;
+SoftRenderer3D::SoftRenderer3D(int width, int height) : _w(width), _h(height) {
+    _color.create(_w, _h, PixelFormat::kRGBA32);
+    _frame.create(_w, _h, PixelFormat::kRGBA32);
+    _depth.assign(size_t(_w) * size_t(_h), 1.0f);
+    _stencil.assign(size_t(_w) * size_t(_h), 0);
+    _vw = _w;
+    _vh = _h;
 }
 
 Error SoftRenderer3D::createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
@@ -73,19 +73,19 @@ Error SoftRenderer3D::createTexture(int width, int height, const uint8_t *rgba, 
     t.clamp = params.clamp;
     t.nearest = params.nearest;
     t.rgba.assign(rgba, rgba + size_t(width) * size_t(height) * 4);
-    out = nextId_++;
-    textures_[out] = std::move(t);
+    out = _nextId++;
+    _textures[out] = std::move(t);
     return Error::success();
 }
 
 void SoftRenderer3D::destroyTexture(gfx::TextureId id) {
-    textures_.erase(id);
+    _textures.erase(id);
 }
 
 Error SoftRenderer3D::updateTextures(const std::vector<gfx::TextureRegion> &regions) {
     for (const gfx::TextureRegion &r : regions) {
-        auto it = textures_.find(r.texture);
-        if (it == textures_.end() || !r.rgba)
+        auto it = _textures.find(r.texture);
+        if (it == _textures.end() || !r.rgba)
             continue;
         Texture &t = it->second;
         for (int y = 0; y < r.h && r.y + y < t.h; ++y)
@@ -97,8 +97,8 @@ Error SoftRenderer3D::updateTextures(const std::vector<gfx::TextureRegion> &regi
 
 Error SoftRenderer3D::createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
                                  gfx::MeshId &out) {
-    out = nextId_++;
-    Mesh &m = meshes_[out];
+    out = _nextId++;
+    Mesh &m = _meshes[out];
     m.vertexMesh = out;
     m.vertices = vertices;
     m.indices = indices;
@@ -106,88 +106,88 @@ Error SoftRenderer3D::createMesh(const std::vector<gfx::Vertex> &vertices, const
 }
 
 Error SoftRenderer3D::createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t> &indices, gfx::MeshId &out) {
-    if (!meshes_.count(vertices))
+    if (!_meshes.count(vertices))
         return Error::fail("no such mesh");
-    out = nextId_++;
-    Mesh &m = meshes_[out];
+    out = _nextId++;
+    Mesh &m = _meshes[out];
     m.vertexMesh = vertices;
     m.indices = indices;
     return Error::success();
 }
 
 Error SoftRenderer3D::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t> &indices) {
-    auto it = meshes_.find(id);
-    if (it == meshes_.end())
+    auto it = _meshes.find(id);
+    if (it == _meshes.end())
         return Error::fail("no such mesh");
     it->second.indices = indices;
     return Error::success();
 }
 
 void SoftRenderer3D::destroyMesh(gfx::MeshId id) {
-    meshes_.erase(id);
+    _meshes.erase(id);
 }
 
 void SoftRenderer3D::beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) {
-    viewProj_ = viewProj;
-    eye_ = eye;
-    vx_ = vy_ = 0;
-    vw_ = w_;
-    vh_ = h_;
-    depthRange_ = 1;
-    draws_ = triangles_ = 0;
+    _viewProj = viewProj;
+    _eye = eye;
+    _vx = _vy = 0;
+    _vw = _w;
+    _vh = _h;
+    _depthRange = 1;
+    _draws = _triangles = 0;
     if (!drawing) // nothing will be drawn or looked at: no need to clear
         return;
-    for (int y = 0; y < h_; ++y) {
-        uint8_t *p = color_.row(y);
-        for (int x = 0; x < w_; ++x) {
+    for (int y = 0; y < _h; ++y) {
+        uint8_t *p = _color.row(y);
+        for (int x = 0; x < _w; ++x) {
             p[x * 4] = clear.r;
             p[x * 4 + 1] = clear.g;
             p[x * 4 + 2] = clear.b;
             p[x * 4 + 3] = 255;
         }
     }
-    std::fill(depth_.begin(), depth_.end(), 1.0f);
-    std::fill(stencil_.begin(), stencil_.end(), uint8_t(0));
-    stencilMode_ = StencilMode::kNone;
+    std::fill(_depth.begin(), _depth.end(), 1.0f);
+    std::fill(_stencil.begin(), _stencil.end(), uint8_t(0));
+    _stencilMode = StencilMode::kNone;
 }
 
 void SoftRenderer3D::setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye) {
-    viewProj_ = viewProj;
-    eye_ = eye;
+    _viewProj = viewProj;
+    _eye = eye;
 }
 
 void SoftRenderer3D::setViewport(int x, int y, int w, int h) {
-    vx_ = x;
-    vy_ = y;
-    vw_ = w > 0 ? w : w_;
-    vh_ = h > 0 ? h : h_;
+    _vx = x;
+    _vy = y;
+    _vw = w > 0 ? w : _w;
+    _vh = h > 0 ? h : _h;
 }
 
 void SoftRenderer3D::clearDepth() {
-    std::fill(depth_.begin(), depth_.end(), 1.0f);
+    std::fill(_depth.begin(), _depth.end(), 1.0f);
 }
 
 void SoftRenderer3D::clearDepthAndStencil() {
     clearDepth();
-    std::fill(stencil_.begin(), stencil_.end(), uint8_t(0));
+    std::fill(_stencil.begin(), _stencil.end(), uint8_t(0));
 }
 
 void SoftRenderer3D::draw(const gfx::DrawCall &call) {
     if (!drawing)
         return;
-    auto mit = meshes_.find(call.mesh);
-    if (mit == meshes_.end())
+    auto mit = _meshes.find(call.mesh);
+    if (mit == _meshes.end())
         return;
     const Mesh &mesh = mit->second;
-    auto vit = meshes_.find(mesh.vertexMesh);
-    if (vit == meshes_.end())
+    auto vit = _meshes.find(mesh.vertexMesh);
+    if (vit == _meshes.end())
         return;
     const std::vector<gfx::Vertex> &verts = vit->second.vertices;
     const Texture *tex = nullptr;
-    if (auto t = textures_.find(call.texture); call.texture && t != textures_.end())
+    if (auto t = _textures.find(call.texture); call.texture && t != _textures.end())
         tex = &t->second;
-    ++draws_;
-    const gfx::Mat4 mvp = gfx::multiply(viewProj_, call.model);
+    ++_draws;
+    const gfx::Mat4 mvp = gfx::multiply(_viewProj, call.model);
     const gfx::Mat4 &m = call.model;
     auto vertexAt = [&](uint32_t index, ClipVertex &out) {
         const size_t i = size_t(int64_t(index) + call.vertexOffset);
@@ -266,7 +266,7 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
             if (call.vertexLightCount > 0) {
                 const float inv = len > 0 ? 1 / len : 0;
                 const float nx = wn[0] * inv, ny = wn[1] * inv, nz = wn[2] * inv;
-                const float vx = out.wx - eye_[0], vy = out.wy - eye_[1], vz = out.wz - eye_[2];
+                const float vx = out.wx - _eye[0], vy = out.wy - _eye[1], vz = out.wz - _eye[2];
                 const float view2 = vx * vx + vy * vy + vz * vz;
                 float sum[3] = {0, 0, 0};
                 for (int i = 0; i < call.vertexLightCount && i < gfx::kMaxVertexLights; ++i) {
@@ -355,8 +355,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
             if (c.w <= 1e-6f)
                 continue;
             const float iw = 1 / c.w;
-            s.push_back({float(vx_) + (c.x * iw * 0.5f + 0.5f) * float(vw_),
-                         float(vy_) + (0.5f - c.y * iw * 0.5f) * float(vh_), c.z * iw * depthRange_, iw, c});
+            s.push_back({float(_vx) + (c.x * iw * 0.5f + 0.5f) * float(_vw),
+                         float(_vy) + (0.5f - c.y * iw * 0.5f) * float(_vh), c.z * iw * _depthRange, iw, c});
         }
         for (size_t k = 2; k < s.size(); ++k) {
             const Screen *v0 = &s[0];
@@ -373,18 +373,18 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                 std::swap(v1, v2);
                 area = -area;
             }
-            ++triangles_;
+            ++_triangles;
             // Within the viewport (a HUD portrait's), as a GPU keeps to it.
-            const int x0 = std::max(std::max(0, vx_), int(std::floor(std::min({v0->x, v1->x, v2->x}))));
-            const int x1 = std::min(std::min(w_, vx_ + vw_) - 1, int(std::ceil(std::max({v0->x, v1->x, v2->x}))));
-            const int y0 = std::max(std::max(0, vy_), int(std::floor(std::min({v0->y, v1->y, v2->y}))));
-            const int y1 = std::min(std::min(h_, vy_ + vh_) - 1, int(std::ceil(std::max({v0->y, v1->y, v2->y}))));
+            const int x0 = std::max(std::max(0, _vx), int(std::floor(std::min({v0->x, v1->x, v2->x}))));
+            const int x1 = std::min(std::min(_w, _vx + _vw) - 1, int(std::ceil(std::max({v0->x, v1->x, v2->x}))));
+            const int y0 = std::max(std::max(0, _vy), int(std::floor(std::min({v0->y, v1->y, v2->y}))));
+            const int y1 = std::min(std::min(_h, _vy + _vh) - 1, int(std::ceil(std::max({v0->y, v1->y, v2->y}))));
             auto edge = [](const Screen &p, const Screen &q, float x, float y) {
                 return (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x);
             };
             const float inv = 1 / area;
             for (int y = y0; y <= y1; ++y) {
-                uint8_t *row = color_.row(y);
+                uint8_t *row = _color.row(y);
                 for (int x = x0; x <= x1; ++x) {
                     const float px = float(x) + 0.5f, py = float(y) + 0.5f;
                     const float w0 = edge(*v1, *v2, px, py), w1 = edge(*v2, *v0, px, py), w2 = edge(*v0, *v1, px, py);
@@ -392,14 +392,14 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                         continue;
                     const float b0 = w0 * inv, b1 = w1 * inv, b2 = w2 * inv;
                     const float z = b0 * v0->z + b1 * v1->z + b2 * v2->z;
-                    float &d = depth_[size_t(y) * size_t(w_) + size_t(x)];
+                    float &d = _depth[size_t(y) * size_t(_w) + size_t(x)];
                     if (call.state.depthTest && (call.state.depthEqual ? std::fabs(z - d) > 1e-5f : z > d))
                         continue;
-                    uint8_t &mark = stencil_[size_t(y) * size_t(w_) + size_t(x)];
-                    if ((stencilMode_ == StencilMode::kLevelInside && mark != stencilLevel_) ||
-                        (stencilMode_ == StencilMode::kLevelMark && mark != stencilLevel_ - 1) ||
-                        (stencilMode_ == StencilMode::kUnmark && mark != stencilLevel_) ||
-                        (stencilMode_ == StencilMode::kOnce && mark))
+                    uint8_t &mark = _stencil[size_t(y) * size_t(_w) + size_t(x)];
+                    if ((_stencilMode == StencilMode::kLevelInside && mark != stencilLevel) ||
+                        (_stencilMode == StencilMode::kLevelMark && mark != stencilLevel - 1) ||
+                        (_stencilMode == StencilMode::kUnmark && mark != stencilLevel) ||
+                        (_stencilMode == StencilMode::kOnce && mark))
                         continue;
                     const float iw = b0 * v0->invW + b1 * v1->invW + b2 * v2->invW;
                     auto attr = [&](float ClipVertex::*f) {
@@ -414,7 +414,7 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     if (lit) {
                         const float px = attr(&ClipVertex::wx), py = attr(&ClipVertex::wy), pz = attr(&ClipVertex::wz);
                         float sum[3] = {0, 0, 0};
-                        for (const gfx::DynamicLight &l : lights_) {
+                        for (const gfx::DynamicLight &l : _lights) {
                             const float dx = px - l.origin[0], dy = py - l.origin[1], dz = pz - l.origin[2];
                             const float f = std::clamp(
                                 1 - std::sqrt(dx * dx + dy * dy + dz * dz) / std::max(l.radius, 1e-3f), 0.0f, 1.0f);
@@ -428,8 +428,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     if (call.volumeLights) {
                         const gfx::Vec3 at{attr(&ClipVertex::wx), attr(&ClipVertex::wy), attr(&ClipVertex::wz)};
                         float sum[3] = {0, 0, 0}, fog = 0;
-                        for (const gfx::DynamicLight &l : volumes_) {
-                            const float f = gfx::volumeGlow(eye_, at, l);
+                        for (const gfx::DynamicLight &l : _volumes) {
+                            const float f = gfx::volumeGlow(_eye, at, l);
                             for (int k = 0; k < 3; ++k)
                                 sum[k] += l.color[size_t(k)] * f;
                             fog += l.fog * f;
@@ -466,9 +466,9 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                             src[k] *= texel[k] / 255.0f;
                     }
                     if (call.fogDistance > 0) { // alpha by depth in the view, for a fog pass
-                        const float depth = viewProj_[3] * attr(&ClipVertex::wx) +
-                                            viewProj_[7] * attr(&ClipVertex::wy) +
-                                            viewProj_[11] * attr(&ClipVertex::wz) + viewProj_[15];
+                        const float depth = _viewProj[3] * attr(&ClipVertex::wx) +
+                                            _viewProj[7] * attr(&ClipVertex::wy) +
+                                            _viewProj[11] * attr(&ClipVertex::wz) + _viewProj[15];
                         src[3] = std::clamp(depth / call.fogDistance, 0.0f, 1.0f);
                     }
                     float alpha = src[3];
@@ -489,11 +489,11 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     }
                     if (call.state.depthWrite)
                         d = z;
-                    if (stencilMode_ == StencilMode::kLevelMark)
-                        mark = stencilLevel_;
-                    else if (stencilMode_ == StencilMode::kUnmark)
-                        mark = uint8_t(stencilLevel_ - 1);
-                    else if (stencilMode_ == StencilMode::kOnce)
+                    if (_stencilMode == StencilMode::kLevelMark)
+                        mark = stencilLevel;
+                    else if (_stencilMode == StencilMode::kUnmark)
+                        mark = uint8_t(stencilLevel - 1);
+                    else if (_stencilMode == StencilMode::kOnce)
                         mark = 1;
                 }
             }
@@ -506,12 +506,12 @@ void SoftRenderer3D::endFrame(const Surface *overlay) {
         return;
     std::array<uint8_t, 256> curve{};
     for (int i = 0; i < 256; ++i)
-        curve[size_t(i)] = uint8_t(std::clamp(std::pow(float(i) / 255.0f, 1 / gamma_), 0.0f, 1.0f) * 255.0f + 0.5f);
-    for (int y = 0; y < h_; ++y) {
-        const uint8_t *in = color_.row(y);
-        uint8_t *out = frame_.row(y);
-        const uint8_t *over = overlay && overlay->w == w_ && overlay->h == h_ ? overlay->row(y) : nullptr;
-        for (int x = 0; x < w_; ++x)
+        curve[size_t(i)] = uint8_t(std::clamp(std::pow(float(i) / 255.0f, 1 / _gamma), 0.0f, 1.0f) * 255.0f + 0.5f);
+    for (int y = 0; y < _h; ++y) {
+        const uint8_t *in = _color.row(y);
+        uint8_t *out = _frame.row(y);
+        const uint8_t *over = overlay && overlay->w == _w && overlay->h == _h ? overlay->row(y) : nullptr;
+        for (int x = 0; x < _w; ++x)
             for (int k = 0; k < 3; ++k) {
                 float c = float(curve[in[x * 4 + k]]);
                 if (over) {
@@ -522,9 +522,9 @@ void SoftRenderer3D::endFrame(const Surface *overlay) {
                 out[x * 4 + 3] = 255;
             }
     }
-    lastDraws_ = draws_;
-    lastTriangles_ = triangles_;
-    ++frames_;
+    _lastDraws = _draws;
+    _lastTriangles = _triangles;
+    ++_frames;
 }
 
 } // namespace reluva::tools

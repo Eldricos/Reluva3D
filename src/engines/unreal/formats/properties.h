@@ -19,28 +19,28 @@
 namespace reluva::unreal {
 
 enum class PropertyType : uint8_t {
-    None = 0,
-    Byte = 1,
-    Int = 2,
-    Bool = 3,
-    Float = 4,
-    Object = 5,
-    Name = 6,
-    String = 7,
-    Class = 8,
-    Array = 9,
-    Struct = 10,
-    Vector = 11,
-    Rotator = 12,
-    Str = 13,
-    Map = 14,
-    FixedArray = 15,
+    kNone = 0,
+    kByte = 1,
+    kInt = 2,
+    kBool = 3,
+    kFloat = 4,
+    kObject = 5,
+    kName = 6,
+    kString = 7,
+    kClass = 8,
+    kArray = 9,
+    kStruct = 10,
+    kVector = 11,
+    kRotator = 12,
+    kStr = 13,
+    kMap = 14,
+    kFixedArray = 15,
 };
 const char *typeName(PropertyType type);
 
 struct Property {
     std::string name;
-    PropertyType type = PropertyType::None;
+    PropertyType type = PropertyType::kNone;
     int arrayIndex = 0;
     std::string structName; // Struct properties: the struct's name ("Vector", "Rotator"...)
     bool boolValue = false; // Bool properties keep their value in the tag

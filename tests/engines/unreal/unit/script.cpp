@@ -22,41 +22,41 @@ void testScript() {
     Bytes prop;
     endProps(prop, w);
     prop.index(0), prop.index(0);          // super, next
-    prop.i32(1), prop.u32(propflag::Edit); // array size, flags
+    prop.i32(1), prop.u32(propflag::kEdit); // array size, flags
     prop.index(w.name("Lamp"));            // category
     const int32_t count = w.addExport(intProp, 0, "Count", prop.b);
     Bytes code;
-    code.u8(token::Let), code.u8(token::LocalVariable), code.index(count), code.u8(token::IntConst), code.i32(5);
-    code.u8(token::JumpIfNot), code.u16(26), code.u8(token::True);
-    code.u8(token::VirtualFunction), code.index(w.name("Lamp")), code.u8(token::IntZero),
-        code.u8(token::EndFunctionParms);
-    code.u8(0x9a), code.u8(token::IntZero), code.u8(token::IntOne), code.u8(token::EndFunctionParms);
-    code.u8(token::Return), code.u8(token::Nothing);
+    code.u8(token::kLet), code.u8(token::kLocalVariable), code.index(count), code.u8(token::kIntConst), code.i32(5);
+    code.u8(token::kJumpIfNot), code.u16(26), code.u8(token::kTrue);
+    code.u8(token::kVirtualFunction), code.index(w.name("Lamp")), code.u8(token::kIntZero),
+        code.u8(token::kEndFunctionParms);
+    code.u8(0x9a), code.u8(token::kIntZero), code.u8(token::kIntOne), code.u8(token::kEndFunctionParms);
+    code.u8(token::kReturn), code.u8(token::kNothing);
     Bytes fn;
     endProps(fn, w);
     fn.index(0), fn.index(0), fn.index(0), fn.index(count); // super, next, script text, children
     fn.index(w.name("Lamp")), fn.i32(10), fn.i32(100);      // friendly name, line, text position
     fn.i32(28);                                             // script size in memory
     fn.b.insert(fn.b.end(), code.b.begin(), code.b.end());
-    fn.u16(0), fn.u8(0), fn.u32(funcflag::Defined | funcflag::Event); // native, precedence, flags
+    fn.u16(0), fn.u8(0), fn.u32(funcflag::kDefined | funcflag::kEvent); // native, precedence, flags
     w.addExport(function, 0, "Light", fn.b);
     Package p;
     CHECK(!p.openMemory(w.build(), "Script"));
     ScriptObject o;
     const Error err = readScriptObject(p, 0, o);
-    CHECK(!err && o.kind == ScriptObject::Kind::Property && o.arrayDim == 1 && o.propertyFlags == propflag::Edit);
-    CHECK(!readScriptObject(p, 1, o) && o.kind == ScriptObject::Kind::Function && o.trailing == 0);
-    CHECK(o.children == count && o.line == 10 && o.functionFlags == (funcflag::Defined | funcflag::Event));
+    CHECK(!err && o.kind == ScriptObject::Kind::kProperty && o.arrayDim == 1 && o.propertyFlags == propflag::kEdit);
+    CHECK(!readScriptObject(p, 1, o) && o.kind == ScriptObject::Kind::kFunction && o.trailing == 0);
+    CHECK(o.children == count && o.line == 10 && o.functionFlags == (funcflag::kDefined | funcflag::kEvent));
     const Code &c = o.code;
     CHECK(c.size == 28 && c.statements.size() == 5);
     if (c.statements.size() == 5) {
         const Expr &let = c.exprs[size_t(c.statements[0])];
-        CHECK(let.token == token::Let && let.args.size() == 2 && let.offset == 0);
+        CHECK(let.token == token::kLet && let.args.size() == 2 && let.offset == 0);
         CHECK(c.exprs[size_t(let.args[0])].ref == count && c.exprs[size_t(let.args[1])].value == 5);
         const Expr &jump = c.exprs[size_t(c.statements[1])];
         CHECK(jump.offset == 11 && jump.value == 26); // the reference counts 4 bytes, as in memory
         const Expr &call = c.exprs[size_t(c.statements[2])];
-        CHECK(call.token == token::VirtualFunction && p.name(call.ref) == "Lamp" && call.args.size() == 2);
+        CHECK(call.token == token::kVirtualFunction && p.name(call.ref) == "Lamp" && call.args.size() == 2);
         const Expr &native = c.exprs[size_t(c.statements[3])];
         CHECK(native.native == 0x9a && native.offset == 22 && native.args.size() == 3);
         CHECK(c.exprs[size_t(c.statements[4])].offset == 26);
@@ -116,7 +116,7 @@ void testVm() {
         for (int i = 0; i < 16; ++i)
             cls.u8(0);
         cls.index(0), cls.index(0), cls.index(0), cls.index(w.name("System"));
-        tag(cls, w, "Total", PropertyType::Int, 4);
+        tag(cls, w, "Total", PropertyType::kInt, 4);
         cls.i32(10);
         endProps(cls, w);
     }
@@ -124,30 +124,30 @@ void testVm() {
     w.addExport(intProp, counter, "Count", property(total, 0));
     w.addExport(intProp, counter, "Total", property(setCount, 0));
     Bytes setCode; // Count = N; return;
-    setCode.u8(token::Let), setCode.u8(token::InstanceVariable), setCode.index(count), setCode.u8(token::LocalVariable),
+    setCode.u8(token::kLet), setCode.u8(token::kInstanceVariable), setCode.index(count), setCode.u8(token::kLocalVariable),
         setCode.index(n);
-    setCode.u8(token::Return), setCode.u8(token::Nothing);
+    setCode.u8(token::kReturn), setCode.u8(token::kNothing);
     Bytes fn;
     endProps(fn, w);
     structPart(fn, wait, n, "SetCount", setCode, 13);
-    fn.u16(0), fn.u8(0), fn.u32(funcflag::Defined);
+    fn.u16(0), fn.u8(0), fn.u32(funcflag::kDefined);
     w.addExport(function, counter, "SetCount", fn.b);
-    w.addExport(intProp, setCount, "N", property(0, propflag::Parm));
+    w.addExport(intProp, setCount, "N", property(0, propflag::kParm));
     Bytes waitFn;
     endProps(waitFn, w);
     structPart(waitFn, running, s, "Wait", Bytes{}, 0);
-    waitFn.u16(0), waitFn.u8(0), waitFn.u32(funcflag::Native | funcflag::Latent);
+    waitFn.u16(0), waitFn.u8(0), waitFn.u32(funcflag::kNative | funcflag::kLatent);
     w.addExport(function, counter, "Wait", waitFn.b);
-    w.addExport(floatProp, wait, "S", property(0, propflag::Parm));
+    w.addExport(floatProp, wait, "S", property(0, propflag::kParm));
     Bytes stateCode; // Count = 1; Wait(1.0); Count = 2; stop; labels
-    stateCode.u8(token::Let), stateCode.u8(token::InstanceVariable), stateCode.index(count),
-        stateCode.u8(token::IntOne);
-    stateCode.u8(token::FinalFunction), stateCode.index(wait), stateCode.u8(token::FloatConst), stateCode.f32(1),
-        stateCode.u8(token::EndFunctionParms);
-    stateCode.u8(token::Let), stateCode.u8(token::InstanceVariable), stateCode.index(count),
-        stateCode.u8(token::IntConstByte), stateCode.u8(2);
-    stateCode.u8(token::Stop);
-    stateCode.u8(token::LabelTable), stateCode.index(w.name("Begin")), stateCode.u32(0),
+    stateCode.u8(token::kLet), stateCode.u8(token::kInstanceVariable), stateCode.index(count),
+        stateCode.u8(token::kIntOne);
+    stateCode.u8(token::kFinalFunction), stateCode.index(wait), stateCode.u8(token::kFloatConst), stateCode.f32(1),
+        stateCode.u8(token::kEndFunctionParms);
+    stateCode.u8(token::kLet), stateCode.u8(token::kInstanceVariable), stateCode.index(count),
+        stateCode.u8(token::kIntConstByte), stateCode.u8(2);
+    stateCode.u8(token::kStop);
+    stateCode.u8(token::kLabelTable), stateCode.index(w.name("Begin")), stateCode.u32(0),
         stateCode.index(w.name("None")), stateCode.u32(0);
     Bytes st;
     endProps(st, w);

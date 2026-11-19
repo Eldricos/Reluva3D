@@ -48,15 +48,15 @@ gfx::Mat4 rotation(const Rotator &r) {
 }
 
 // The surface flags that change how a triangle is drawn.
-constexpr uint32_t kDrawFlags = polyflag::Masked | polyflag::Translucent | polyflag::Modulated | polyflag::Unlit;
+constexpr uint32_t kDrawFlags = polyflag::kMasked | polyflag::kTranslucent | polyflag::kModulated | polyflag::kUnlit;
 
 } // namespace
 
 const char *meshTurnName(MeshTurn turn) {
     switch (turn) {
-    case MeshTurn::FloatCopy:
+    case MeshTurn::kFloatCopy:
         return "turned onto their float copy";
-    case MeshTurn::Reverse:
+    case MeshTurn::kReverse:
         return "turned the opposite way";
     default:
         return "as stored";
@@ -69,10 +69,10 @@ namespace {
 // mesh's turn (imported meshes: as `turn` says, then the quarter turns of
 // yaw) and RotOrigin.
 Vec3f turnScaled(const Mesh &mesh, Vec3f s, MeshTurn turn, int yawQuarters) {
-    if (mesh.importAxes && turn != MeshTurn::None) {
+    if (mesh.importAxes && turn != MeshTurn::kNone) {
         // The opposite turn is the transpose (the turn's rows as columns).
         const auto &m = *mesh.importAxes;
-        const bool t = turn == MeshTurn::Reverse;
+        const bool t = turn == MeshTurn::kReverse;
         auto at = [&](size_t row, size_t col) { return t ? m[col][row] : m[row][col]; };
         s = {at(0, 0) * s[0] + at(0, 1) * s[1] + at(0, 2) * s[2], at(1, 0) * s[0] + at(1, 1) * s[1] + at(1, 2) * s[2],
              at(2, 0) * s[0] + at(2, 1) * s[1] + at(2, 2) * s[2]};
@@ -106,7 +106,7 @@ Error buildMeshTopology(const Mesh &mesh, MeshTopology &out) {
     std::map<std::tuple<int32_t, float, float>, uint32_t> cornerOf;
     std::map<std::pair<int32_t, uint32_t>, std::vector<uint32_t>> groups;
     for (const MeshTri &t : mesh.tris) {
-        if (t.polyFlags & polyflag::Invisible)
+        if (t.polyFlags & polyflag::kInvisible)
             continue;
         auto &list = groups[{t.textureIndex, t.polyFlags & kDrawFlags}];
         for (size_t k = 0; k < 3; ++k) {
@@ -259,11 +259,11 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
     for (const GpuMesh::Batch &batch : mesh.batches) {
         GpuMesh::Batch b = batch;
         if (style == kStyleTranslucent)
-            b.polyFlags |= polyflag::Translucent;
+            b.polyFlags |= polyflag::kTranslucent;
         else if (style == kStyleModulated)
-            b.polyFlags |= polyflag::Modulated;
+            b.polyFlags |= polyflag::kModulated;
         else if (style == kStyleMasked)
-            b.polyFlags |= polyflag::Masked;
+            b.polyFlags |= polyflag::kMasked;
         gfx::DrawCall call;
         call.mesh = mesh.mesh;
         call.firstIndex = b.firstIndex;
@@ -277,7 +277,7 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
             b.textureIndex >= 0 && size_t(b.textureIndex) < textures.size() ? textures[size_t(b.textureIndex)] : 0;
         call.state.cull = gfx::Cull::kNone;
         call.color = {exposure, exposure, exposure, 1};
-        if (b.polyFlags & polyflag::Unlit) {
+        if (b.polyFlags & polyflag::kUnlit) {
             call.rgbSource = gfx::ColorSource::kConstant;
         } else {
             call.rgbSource = gfx::ColorSource::kLighting;
@@ -313,7 +313,7 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
                     call.color[k] *= pass->second ? std::max(pass->glow, 0.0f) : std::max(pass->glow, 0.01f);
             }
         }
-        if (b.polyFlags & polyflag::Masked)
+        if (b.polyFlags & polyflag::kMasked)
             call.state.alphaTest = gfx::AlphaTest::kGe128;
         if (style == kStyleBlended) {
             call.state.src = gfx::Blend::kSrcAlpha;
@@ -330,11 +330,11 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
             call.state.src = gfx::Blend::kZero;
             call.state.dst = gfx::Blend::kSrcColor;
             call.state.depthWrite = false;
-        } else if (b.polyFlags & polyflag::Translucent) {
+        } else if (b.polyFlags & polyflag::kTranslucent) {
             call.state.src = gfx::Blend::kOne;
             call.state.dst = gfx::Blend::kOneMinusSrcColor;
             call.state.depthWrite = false;
-        } else if (b.polyFlags & polyflag::Modulated) {
+        } else if (b.polyFlags & polyflag::kModulated) {
             call.state.src = gfx::Blend::kDstColor;
             call.state.dst = gfx::Blend::kSrcColor;
             call.state.depthWrite = false;
@@ -342,7 +342,7 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
             call.color = {1, 1, 1, 1};
         }
         renderer.draw(call);
-        if (fog && !(b.polyFlags & (polyflag::Translucent | polyflag::Modulated)) && style != kStyleBlended &&
+        if (fog && !(b.polyFlags & (polyflag::kTranslucent | polyflag::kModulated)) && style != kStyleBlended &&
             style != kStyleSubtractive) {
             if (fog->volumes)
                 drawVolumeOver(renderer, call);
@@ -355,7 +355,7 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
 void drawMeshShadow(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &placement, const MeshPose &pose,
                     const ShadowShade &shade) {
     for (const GpuMesh::Batch &b : mesh.batches) {
-        if (b.polyFlags & (polyflag::Translucent | polyflag::Modulated))
+        if (b.polyFlags & (polyflag::kTranslucent | polyflag::kModulated))
             continue;
         gfx::DrawCall call;
         call.mesh = mesh.mesh;

@@ -139,7 +139,7 @@ std::vector<uint8_t> meshData(PackageWriter &w, bool lod, int32_t textureRef, in
         o.index(0);
         o.index(3); // wedges: vertex, u, v
         o.u16(0), o.u8(0), o.u8(0), o.u16(1), o.u8(128), o.u8(0), o.u16(2), o.u8(0), o.u8(128);
-        o.index(1), o.u32(polyflag::Masked), o.i32(0); // a material
+        o.index(1), o.u32(polyflag::kMasked), o.i32(0); // a material
         o.index(0);
         o.i32(3), o.i32(0);
         for (int i = 0; i < 6; ++i)
@@ -169,7 +169,7 @@ void testMeshes() {
         CHECK(m.lod == lod && m.frameVerts == 3 && m.animFrames == 2 && m.verts.size() == 6 && m.vertexBytes == 4);
         CHECK((m.verts[0] == Vec3f{-3, 0, 0}) && (m.verts[5] == Vec3f{0, 10, 5}));
         CHECK(m.tris.size() == 1 && m.tris[0].vertex[2] == 2 && m.tris[0].uv[1][0] == 0.5f);
-        CHECK(m.tris[0].polyFlags == (lod ? polyflag::Masked : 0u));
+        CHECK(m.tris[0].polyFlags == (lod ? polyflag::kMasked : 0u));
         CHECK(m.textures.size() == 1 && m.textures[0] == 2 && (m.scale == Vec3f{2, 2, 2}) && m.trailingBytes == 0);
         const MeshAnimSeq *wave = m.findAnim("wave");
         CHECK(wave && wave->numFrames == 2 && wave->rate == 10);
@@ -343,16 +343,16 @@ void testClassDefaultsAndMeshActors() {
     w.addExport(texClass, 0, "Skin", {});
     Bytes cls;
     classRecord(cls, w, "Lamp");
-    tag(cls, w, "DrawType", PropertyType::Byte, 1);
+    tag(cls, w, "DrawType", PropertyType::kByte, 1);
     cls.u8(2);
-    tag(cls, w, "Mesh", PropertyType::Object, 1);
+    tag(cls, w, "Mesh", PropertyType::kObject, 1);
     cls.index(meshRef);
-    tag(cls, w, "DrawScale", PropertyType::Float, 4);
+    tag(cls, w, "DrawScale", PropertyType::kFloat, 4);
     cls.f32(2);
     endProps(cls, w);
     const int32_t lampClass = w.addExport(0, 0, "Lamp", cls.b);
     Bytes actor;
-    tag(actor, w, "Location", PropertyType::Struct, 12, 0, "Vector");
+    tag(actor, w, "Location", PropertyType::kStruct, 12, 0, "Vector");
     actor.vec(1, 2, 3);
     endProps(actor, w);
     w.addExport(lampClass, 0, "Lamp0", actor.b);

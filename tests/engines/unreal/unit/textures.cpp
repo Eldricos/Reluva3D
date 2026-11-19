@@ -50,9 +50,9 @@ void testCompressedTexture() {
     PackageWriter w;
     const int32_t cls = w.addImport("Engine", "Class", 0, "Texture");
     Bytes o;
-    tag(o, w, "bHasComp", PropertyType::Bool, 0);
+    tag(o, w, "bHasComp", PropertyType::kBool, 0);
     o.b.back() |= 0x80;
-    tag(o, w, "CompFormat", PropertyType::Byte, 1);
+    tag(o, w, "CompFormat", PropertyType::kByte, 1);
     o.u8(3);
     endProps(o, w);
     o.index(1);
@@ -93,7 +93,7 @@ void testProceduralTextures() {
     const int32_t wet = w.addImport("Fire", "Class", 0, "WetTexture");
     auto empty = [&](int32_t ref, const char *prop, int width, int height) {
         Bytes o;
-        tag(o, w, prop, PropertyType::Object, 1);
+        tag(o, w, prop, PropertyType::kObject, 1);
         o.index(ref);
         endProps(o, w);
         o.index(1);
@@ -135,7 +135,7 @@ void testAnimatedTextures() {
     const int32_t ice = w.addImport("Fire", "Class", 0, "IceTexture");
     const int32_t brick = w.addImport("Engine", "Texture", walls, "Brick");
     auto start = [&](Bytes &o) {
-        tag(o, w, "Palette", PropertyType::Object, 1);
+        tag(o, w, "Palette", PropertyType::kObject, 1);
         o.index(pal);
     };
     auto mips = [](Bytes &o, int width, int height) {
@@ -179,9 +179,9 @@ void testAnimatedTextures() {
     w.addExport(fire, 0, "Flame", fb.b);
     Bytes wb;
     start(wb);
-    tag(wb, w, "NumDrops", PropertyType::Int, 4);
+    tag(wb, w, "NumDrops", PropertyType::kInt, 4);
     wb.i32(1);
-    tag(wb, w, "Drops", PropertyType::Struct, 8, 0, "ADrop");
+    tag(wb, w, "Drops", PropertyType::kStruct, 8, 0, "ADrop");
     for (int b : {1, 200, 2, 2, 0, 0, 0, 16}) // a spot rising and falling
         wb.u8(b);
     endProps(wb, w);
@@ -191,13 +191,13 @@ void testAnimatedTextures() {
     // game second; frame-rate synced, each frame a 120th of one: 2 pixels a
     // second at 30 frames.
     Bytes ib;
-    tag(ib, w, "SourceTexture", PropertyType::Object, 1);
+    tag(ib, w, "SourceTexture", PropertyType::kObject, 1);
     ib.index(brick);
-    tag(ib, w, "GlassTexture", PropertyType::Object, 1);
+    tag(ib, w, "GlassTexture", PropertyType::kObject, 1);
     ib.index(brick);
-    tag(ib, w, "HorizPanSpeed", PropertyType::Byte, 1);
+    tag(ib, w, "HorizPanSpeed", PropertyType::kByte, 1);
     ib.u8(132);
-    tag(ib, w, "MoveIce", PropertyType::Bool, 0);
+    tag(ib, w, "MoveIce", PropertyType::kBool, 0);
     ib.b.back() |= 0x80;
     endProps(ib, w);
     mips(ib, 4, 2);

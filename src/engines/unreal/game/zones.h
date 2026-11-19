@@ -31,7 +31,7 @@ public:
     // coordinates to clip space, column-major): every bit when the level
     // has no portals or the eye is in solid, outside it.
     uint64_t visible(const Vec3f &eye, const std::array<float, 16> &clipFromWorld) const;
-    size_t portalCount() const { return portals_.size(); }
+    size_t portalCount() const { return _portals.size(); }
 
 private:
     struct Node {
@@ -40,14 +40,14 @@ private:
         uint8_t zone[2] = {};
         int32_t leaf[2] = {};
     };
-    std::vector<Node> nodes_;
+    std::vector<Node> _nodes;
     struct Portal {
         uint8_t zone[2] = {};
         std::vector<Vec3f> points;
         Vec3f min{}, max{};
     };
-    std::vector<Portal> portals_;
-    std::array<std::vector<uint32_t>, 64> byZone_; // the portals on each zone
+    std::vector<Portal> _portals;
+    std::array<std::vector<uint32_t>, 64> _byZone; // the portals on each zone
 };
 
 } // namespace reluva::unreal

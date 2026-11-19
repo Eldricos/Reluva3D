@@ -108,7 +108,7 @@ void ScriptLevel::startAnim(VmObject *a, NameId sequence, float rate, float twee
     Value *seqValue = prop(a, "AnimSequence");
     if (!seqValue)
         return;
-    const MeshAnimSeq *s = findAnim(vm_, a, sequence);
+    const MeshAnimSeq *s = findAnim(_vm, a, sequence);
     if (!s)
         return;
     auto get = [&](const char *name) {
@@ -179,7 +179,7 @@ void ScriptLevel::tweenAnim(VmObject *a, NameId sequence, float seconds) {
         return;
     noteTweenFrom(a, seconds > 0);
     seqValue->i = sequence;
-    const MeshAnimSeq *s = findAnim(vm_, a, sequence);
+    const MeshAnimSeq *s = findAnim(_vm, a, sequence);
     const float n = s ? float(std::max(1, s->numFrames)) : 1;
     for (const char *b : {"bAnimFinished", "bAnimLoop", "bAnimNotify"})
         if (Value *p = prop(a, b))
@@ -198,21 +198,21 @@ void ScriptLevel::tweenAnim(VmObject *a, NameId sequence, float seconds) {
 // isn't kept).
 void ScriptLevel::noteTweenFrom(VmObject *a, bool tweening) {
     if (!tweening) {
-        tweenFrom_.erase(a);
+        _tweenFrom.erase(a);
         return;
     }
     const Value *seq = prop(a, "AnimSequence");
     const Value *frame = prop(a, "AnimFrame");
     if (!seq || !seq->i || !frame)
         return;
-    if (frame->asFloat() < 0 && tweenFrom_.count(a))
+    if (frame->asFloat() < 0 && _tweenFrom.count(a))
         return;
-    tweenFrom_[a] = {seq->i, std::max(0.0f, frame->asFloat()), boolOf(prop(a, "bAnimLoop"))};
+    _tweenFrom[a] = {seq->i, std::max(0.0f, frame->asFloat()), boolOf(prop(a, "bAnimLoop"))};
 }
 
 const ScriptLevel::TweenFrom *ScriptLevel::tweenFromOf(VmObject *a) const {
-    auto it = tweenFrom_.find(a);
-    return it == tweenFrom_.end() ? nullptr : &it->second;
+    auto it = _tweenFrom.find(a);
+    return it == _tweenFrom.end() ? nullptr : &it->second;
 }
 
 bool ScriptLevel::animating(VmObject *a) {
@@ -237,13 +237,13 @@ float ScriptLevel::rateNow(VmObject *a, float rate, float minRate) {
 }
 
 void ScriptLevel::waitForAnim(VmObject *a) {
-    animWaits_[a] = a->stateSerial;
+    _animWaits[a] = a->stateSerial;
 }
 
 void ScriptLevel::updateHead(VmObject *a) {
-    auto it = pawnClasses_.find(a->cls);
-    if (it == pawnClasses_.end())
-        it = pawnClasses_.emplace(a->cls, vm_.isA(a, "Pawn")).first;
+    auto it = _pawnClasses.find(a->cls);
+    if (it == _pawnClasses.end())
+        it = _pawnClasses.emplace(a->cls, _vm.isA(a, "Pawn")).first;
     if (!it->second)
         return;
     // (The event itself returns at once for a pawn not drawn in the last
@@ -254,15 +254,15 @@ void ScriptLevel::updateHead(VmObject *a) {
     VmObject *m = mesh ? mesh->asObject() : nullptr;
     if (!m)
         return;
-    auto c3d = c3dMeshes_.find(m);
-    if (c3d == c3dMeshes_.end()) {
-        const MeshInfo *info = meshInfoOf(vm_, a);
-        c3d = c3dMeshes_.emplace(m, info && info->c3d).first;
+    auto c3d = _c3dMeshes.find(m);
+    if (c3d == _c3dMeshes.end()) {
+        const MeshInfo *info = meshInfoOf(_vm, a);
+        c3d = _c3dMeshes.emplace(m, info && info->c3d).first;
     }
     if (!c3d->second)
         return;
-    if (const Value *drawn = prop(a, "LastRenderTime"); drawn && levelInfo_)
-        if (const Value *now = prop(levelInfo_, "TimeSeconds"); now && drawn->asFloat() < now->asFloat() - 4)
+    if (const Value *drawn = prop(a, "LastRenderTime"); drawn && _levelInfo)
+        if (const Value *now = prop(_levelInfo, "TimeSeconds"); now && drawn->asFloat() < now->asFloat() - 4)
             return; // what the event would do first: not drawn lately
     // The engine works the pose out afresh from the animation each frame
     // before sending this, so the head the event asks after
@@ -270,7 +270,7 @@ void ScriptLevel::updateHead(VmObject *a) {
     // it by what's left from there. The last tick's turns, kept for
     // drawing in between, go first.
     clearStaleBoneOps(a);
-    vm_.callEvent(a, "UpdateHeadAnimation");
+    _vm.callEvent(a, "UpdateHeadAnimation");
 }
 
 void ScriptLevel::animate(VmObject *a, float dt) {
@@ -310,7 +310,7 @@ void ScriptLevel::animate(VmObject *a, float dt) {
             if (rate->f == 0) {
                 if (Value *f = prop(a, "bAnimFinished"))
                     f->i = 1;
-                vm_.callEvent(a, "AnimEnd");
+                _vm.callEvent(a, "AnimEnd");
                 endAnimWait(a, true);
                 break;
             }
@@ -324,7 +324,7 @@ void ScriptLevel::animate(VmObject *a, float dt) {
         }
         const float next = frame->f + r * left;
         // The nearest notification passed (old, next].
-        const MeshAnimSeq *s = boolOf(prop(a, "bAnimNotify")) ? findAnim(vm_, a, seqValue->i) : nullptr;
+        const MeshAnimSeq *s = boolOf(prop(a, "bAnimNotify")) ? findAnim(_vm, a, seqValue->i) : nullptr;
         const MeshAnimSeq::Notify *note = nullptr;
         if (s)
             for (const MeshAnimSeq::Notify &n : s->notifies) {
@@ -336,8 +336,8 @@ void ScriptLevel::animate(VmObject *a, float dt) {
             left = std::fabs((next - note->time) * left / (next - old));
             frame->f = note->time;
             if (!note->function.empty())
-                if (VmFunction *fn = vm_.findFunction(a, vm_.name(note->function)))
-                    vm_.invoke(fn, a, {});
+                if (VmFunction *fn = _vm.findFunction(a, _vm.name(note->function)))
+                    _vm.invoke(fn, a, {});
             continue;
         }
         if (reversed ? next <= 0 : next >= 1) {
@@ -345,10 +345,10 @@ void ScriptLevel::animate(VmObject *a, float dt) {
                 left = std::fabs((next - (reversed ? 0.0f : 1.0f)) * left / (next - old));
                 frame->f = reversed ? 1.0f : 0.0f;
                 if (reversed ? old > 0 : old < 1) {
-                    if (animWaits_.count(a))
+                    if (_animWaits.count(a))
                         if (Value *f = prop(a, "bAnimFinished"))
                             f->i = 1;
-                    vm_.callEvent(a, "AnimEnd");
+                    _vm.callEvent(a, "AnimEnd");
                     endAnimWait(a, true);
                 }
                 continue;
@@ -357,7 +357,7 @@ void ScriptLevel::animate(VmObject *a, float dt) {
             rate->f = 0;
             if (Value *f = prop(a, "bAnimFinished"))
                 f->i = 1;
-            vm_.callEvent(a, "AnimEnd");
+            _vm.callEvent(a, "AnimEnd");
             endAnimWait(a, true);
             break;
         }
@@ -371,34 +371,34 @@ void ScriptLevel::animate(VmObject *a, float dt) {
 // A latent FinishAnim waiting on this actor ends: at the end of its
 // animation (or a loop of it), or at once if it isn't animating.
 void ScriptLevel::endAnimWait(VmObject *a, bool ended) {
-    auto it = animWaits_.find(a);
-    if (it == animWaits_.end())
+    auto it = _animWaits.find(a);
+    if (it == _animWaits.end())
         return;
     if (!ended && animating(a))
         return;
     if (a->latent && a->stateSerial == it->second)
         a->sleeping = 0;
-    animWaits_.erase(it);
+    _animWaits.erase(it);
 }
 
 // --- The Fallen's layers and face channels ---------------------------------------------------
 
 const std::map<NameId, ScriptLevel::AnimLayer> *ScriptLevel::layersOf(VmObject *a) const {
-    auto it = layers_.find(a);
-    return it == layers_.end() || it->second.empty() ? nullptr : &it->second;
+    auto it = _layers.find(a);
+    return it == _layers.end() || it->second.empty() ? nullptr : &it->second;
 }
 
 const ScriptLevel::SkinChannels *ScriptLevel::skinsOf(VmObject *a) const {
-    auto it = skins_.find(a);
-    return it == skins_.end() || it->second.empty() ? nullptr : &it->second;
+    auto it = _skins.find(a);
+    return it == _skins.end() || it->second.empty() ? nullptr : &it->second;
 }
 
 // C3DPlayAnim, C3DLoopAnim: as PlayAnim and LoopAnim, on a part of the
 // skeleton, fading in over the tween.
 void ScriptLevel::playLayer(VmObject *a, NameId group, NameId sequence, float rate, float tween, bool loop, NameId bone,
                             float minRate, std::array<bool, 3> clear) {
-    const MeshAnimSeq *s = findAnim(vm_, a, sequence);
-    AnimLayer &l = layers_[a][group];
+    const MeshAnimSeq *s = findAnim(_vm, a, sequence);
+    AnimLayer &l = _layers[a][group];
     const float n = s ? float(std::max(1, s->numFrames)) : 1;
     // Its InheritBone and clears, as the engine keeps them: set only when
     // a bone is given, else as they were. (The part the layer poses is its
@@ -428,7 +428,7 @@ void ScriptLevel::playLayer(VmObject *a, NameId group, NameId sequence, float ra
     }
     l.sequence = sequence;
     l.bone = bone;
-    l.rest = fs::toLower(vm_.nameText(group)).find("lower") != std::string::npos;
+    l.rest = fs::toLower(_vm.nameText(group)).find("lower") != std::string::npos;
     l.loop = loop;
     l.frame = 0;
     l.finished = !s;
@@ -448,7 +448,7 @@ void ScriptLevel::playLayer(VmObject *a, NameId group, NameId sequence, float ra
 void ScriptLevel::tweenLayer(VmObject *a, NameId group, NameId sequence, float seconds, NameId bone,
                              std::array<bool, 3> clear) {
     playLayer(a, group, sequence, 0, seconds, false, bone, 0, clear);
-    AnimLayer &l = layers_[a][group];
+    AnimLayer &l = _layers[a][group];
     l.rate = 0;
     l.finished = false;
     if (seconds <= 0)
@@ -458,8 +458,8 @@ void ScriptLevel::tweenLayer(VmObject *a, NameId group, NameId sequence, float s
 // C3DTweenOutAnim: the part fades back to the actor's own animation, and
 // the layer goes.
 void ScriptLevel::tweenOutLayer(VmObject *a, NameId group, float seconds) {
-    auto it = layers_.find(a);
-    if (it == layers_.end())
+    auto it = _layers.find(a);
+    if (it == _layers.end())
         return;
     auto l = it->second.find(group);
     if (l == it->second.end())
@@ -471,38 +471,38 @@ void ScriptLevel::tweenOutLayer(VmObject *a, NameId group, float seconds) {
 }
 
 void ScriptLevel::stopLayerLooping(VmObject *a, NameId group) {
-    auto it = layers_.find(a);
-    if (it == layers_.end())
+    auto it = _layers.find(a);
+    if (it == _layers.end())
         return;
     if (auto l = it->second.find(group); l != it->second.end())
         l->second.loop = false;
 }
 
 bool ScriptLevel::layerAnimating(VmObject *a, NameId group) {
-    auto it = layers_.find(a);
-    if (it == layers_.end())
+    auto it = _layers.find(a);
+    if (it == _layers.end())
         return false;
     auto l = it->second.find(group);
     return l != it->second.end() && !l->second.finished && (l->second.rate != 0 || l->second.weightRate > 0);
 }
 
 void ScriptLevel::waitForLayer(VmObject *a, NameId group) {
-    layerWaits_[a] = {group, a->stateSerial};
+    _layerWaits[a] = {group, a->stateSerial};
 }
 
 void ScriptLevel::endLayerWait(VmObject *a, NameId group) {
-    auto it = layerWaits_.find(a);
-    if (it == layerWaits_.end() || it->second.first != group)
+    auto it = _layerWaits.find(a);
+    if (it == _layerWaits.end() || it->second.first != group)
         return;
     if (a->latent && a->stateSerial == it->second.second)
         a->sleeping = 0;
-    layerWaits_.erase(it);
+    _layerWaits.erase(it);
 }
 
 void ScriptLevel::animateLayers(VmObject *a, float dt) {
     // The face's channels: a tween asked for last tick starts; a tween
     // runs its time out. Their frames don't move.
-    if (auto it = skins_.find(a); it != skins_.end())
+    if (auto it = _skins.find(a); it != _skins.end())
         for (auto &[tag, c] : it->second) {
             if (c.pending) {
                 c.pending = false;
@@ -516,8 +516,8 @@ void ScriptLevel::animateLayers(VmObject *a, float dt) {
                 }
             }
         }
-    auto it = layers_.find(a);
-    if (it == layers_.end())
+    auto it = _layers.find(a);
+    if (it == _layers.end())
         return;
     std::vector<NameId> ended, gone;
     for (auto &[group, l] : it->second) {
@@ -540,15 +540,15 @@ void ScriptLevel::animateLayers(VmObject *a, float dt) {
         }
         if (l.weightRate > 0)
             continue; // tweening in: its time starts once it's there
-        const MeshAnimSeq *s = findAnim(vm_, a, l.sequence);
+        const MeshAnimSeq *s = findAnim(_vm, a, l.sequence);
         const float end = 1.0f;
         const float from = l.frame, to = from + l.rate * dt; // Rate multiplies time: not by speed
         if (to < end) {
             l.frame = to;
-            notifyBetween(vm_, a, s, from, to);
+            notifyBetween(_vm, a, s, from, to);
             continue;
         }
-        notifyBetween(vm_, a, s, from, end);
+        notifyBetween(_vm, a, s, from, end);
         if (l.loop) {
             l.frame = std::fmod(to - end, 1.0f); // round again; no C3DAnimEnd for a loop
             continue;
@@ -567,7 +567,7 @@ void ScriptLevel::animateLayers(VmObject *a, float dt) {
     for (NameId group : ended) {
         if (a->deleted)
             return;
-        vm_.callEvent(a, "C3DAnimEnd", {Value::nameValue(group)});
+        _vm.callEvent(a, "C3DAnimEnd", {Value::nameValue(group)});
         endLayerWait(a, group);
     }
 }
@@ -577,14 +577,14 @@ void ScriptLevel::animateLayers(VmObject *a, float dt) {
 // UpperTorso, come first: Pawn's Phonemes, Blink, EyeBrows and Mouth are
 // sk3 to sk6), the number going up while another channel has the name.
 NameId ScriptLevel::newSkinChannel(VmObject *a) {
-    SkinChannels &list = skins_[a];
+    SkinChannels &list = _skins[a];
     auto taken = [&](NameId n) {
         return std::any_of(list.begin(), list.end(), [&](const auto &c) { return c.first == n; });
     };
     size_t k = 3 + list.size();
-    NameId tag = vm_.name("sk" + std::to_string(k));
+    NameId tag = _vm.name("sk" + std::to_string(k));
     while (taken(tag))
-        tag = vm_.name("sk" + std::to_string(++k));
+        tag = _vm.name("sk" + std::to_string(++k));
     list.push_back({tag, SkinChannel{}});
     return tag;
 }
@@ -608,9 +608,9 @@ ScriptLevel::SkinChannel *channelOf(std::map<VmObject *, ScriptLevel::SkinChanne
 // in the new sequence). C3DTweenSkinAnimDelay: the same, from the
 // channel's next tick (the last asked before then wins).
 void ScriptLevel::setSkin(VmObject *a, NameId tag, NameId sequence, float frame, float weight, float tween, int how) {
-    SkinChannel *c = channelOf(skins_, a, tag);
+    SkinChannel *c = channelOf(_skins, a, tag);
     if (!c) {
-        vm_.reportError("Couldn't find AnimGroupState with this tag: " + vm_.nameText(tag));
+        _vm.reportError("Couldn't find AnimGroupState with this tag: " + _vm.nameText(tag));
         return;
     }
     if (how == 2) {
@@ -631,7 +631,7 @@ void ScriptLevel::setSkin(VmObject *a, NameId tag, NameId sequence, float frame,
 }
 
 void ScriptLevel::clearSkin(VmObject *a, NameId tag) {
-    if (auto it = skins_.find(a); it != skins_.end())
+    if (auto it = _skins.find(a); it != _skins.end())
         it->second.erase(
             std::remove_if(it->second.begin(), it->second.end(), [&](const auto &c) { return c.first == tag; }),
             it->second.end());
@@ -640,9 +640,9 @@ void ScriptLevel::clearSkin(VmObject *a, NameId tag) {
 // C3DCopySkinAnimState: each of this actor's channels takes the state of
 // the other's of the same tag, if it has one; none made or removed.
 void ScriptLevel::copySkins(VmObject *to, VmObject *from) {
-    auto mine = skins_.find(to);
-    auto theirs = skins_.find(from);
-    if (mine == skins_.end() || theirs == skins_.end())
+    auto mine = _skins.find(to);
+    auto theirs = _skins.find(from);
+    if (mine == _skins.end() || theirs == _skins.end())
         return;
     for (auto &[tag, c] : mine->second)
         for (const auto &[t, o] : theirs->second)
@@ -651,7 +651,7 @@ void ScriptLevel::copySkins(VmObject *to, VmObject *from) {
 }
 
 bool ScriptLevel::usesC3DMesh(VmObject *a) {
-    const MeshInfo *info = meshInfoOf(vm_, a);
+    const MeshInfo *info = meshInfoOf(_vm, a);
     return info && info->c3d;
 }
 

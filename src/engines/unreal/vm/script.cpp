@@ -15,23 +15,23 @@ namespace {
 // disk; jumps and the stored script size use the second.
 class Decoder {
 public:
-    Decoder(const Package &package, Reader &r, Code &code) : package_(package), r_(r), code_(code) {}
+    Decoder(const Package &package, Reader &r, Code &code) : _package(package), _r(r), _code(code) {}
 
-    uint32_t at() const { return mem_; }
-    bool failed() const { return !error_.empty() || !r_.ok(); }
-    const std::string &error() const { return error_; }
+    uint32_t at() const { return _mem; }
+    bool failed() const { return !_error.empty() || !_r.ok(); }
+    const std::string &error() const { return _error; }
 
     // One expression; its index in code_.exprs, or -1.
     int expr() {
         if (failed())
             return -1;
-        const uint32_t start = mem_;
+        const uint32_t start = _mem;
         const uint8_t t = u8();
-        const int index = int(code_.exprs.size());
-        code_.exprs.push_back({});
-        code_.exprs.back().token = t;
-        code_.exprs.back().offset = start;
-        auto self = [&]() -> Expr & { return code_.exprs[size_t(index)]; };
+        const int index = int(_code.exprs.size());
+        _code.exprs.push_back({});
+        _code.exprs.back().token = t;
+        _code.exprs.back().offset = start;
+        auto self = [&]() -> Expr & { return _code.exprs[size_t(index)]; };
         auto arg = [&] {
             const int a = expr();
             self().args.push_back(a);
@@ -42,154 +42,154 @@ public:
             for (int n = 0; n < 64 && !failed(); ++n) {
                 const int a = expr();
                 self().args.push_back(a);
-                if (a < 0 || code_.exprs[size_t(a)].token == token::EndFunctionParms)
+                if (a < 0 || _code.exprs[size_t(a)].token == token::kEndFunctionParms)
                     return;
             }
             fail("a call's arguments don't end");
         };
         using namespace token;
-        if (t >= FirstNative || (t >= ExtendedNative && t < FirstNative)) {
-            self().native = t >= FirstNative ? t : (t - ExtendedNative) * 256 + u8();
+        if (t >= kFirstNative || (t >= kExtendedNative && t < kFirstNative)) {
+            self().native = t >= kFirstNative ? t : (t - kExtendedNative) * 256 + u8();
             params();
             return index;
         }
-        if (t >= FirstConversion && t <= LastConversion) {
+        if (t >= kFirstConversion && t <= kLastConversion) {
             arg();
             return index;
         }
         switch (t) {
-        case LocalVariable:
-        case InstanceVariable:
-        case DefaultVariable:
-        case ObjectConst:
-        case NativeParm:
+        case kLocalVariable:
+        case kInstanceVariable:
+        case kDefaultVariable:
+        case kObjectConst:
+        case kNativeParm:
             self().ref = ref();
             break;
-        case NameConst:
+        case kNameConst:
             self().ref = name();
             break;
-        case Return:
-        case GotoLabel:
-        case EatString:
-        case BoolVariable:
+        case kReturn:
+        case kGotoLabel:
+        case kEatString:
+        case kBoolVariable:
             arg();
             break;
-        case Switch:
+        case kSwitch:
             self().size = u8();
             arg();
             break;
-        case Jump:
+        case kJump:
             self().value = u16();
             break;
-        case JumpIfNot:
-            self().value = u16();
-            arg();
-            break;
-        case Assert:
+        case kJumpIfNot:
             self().value = u16();
             arg();
             break;
-        case Case:
+        case kAssert:
+            self().value = u16();
+            arg();
+            break;
+        case kCase:
             self().value = u16();
             if (self().value != 0xffff)
                 arg();
             break;
-        case Stop:
-        case Nothing:
-        case EndFunctionParms:
-        case Self:
-        case IntZero:
-        case IntOne:
-        case True:
-        case False:
-        case NoObject:
-        case IteratorPop:
-        case IteratorNext:
+        case kStop:
+        case kNothing:
+        case kEndFunctionParms:
+        case kSelf:
+        case kIntZero:
+        case kIntOne:
+        case kTrue:
+        case kFalse:
+        case kNoObject:
+        case kIteratorPop:
+        case kIteratorNext:
             break;
-        case LabelTable:
+        case kLabelTable:
             for (int n = 0; n < 1024 && !failed(); ++n) {
                 const int32_t label = name();
                 const uint32_t offset = u32();
-                if (fs::toLower(package_.name(label)) == "none")
+                if (fs::toLower(_package.name(label)) == "none")
                     break;
                 self().labels.push_back({label, offset});
             }
             break;
-        case Let:
-        case LetBool:
-        case DynArrayElement:
-        case ArrayElement:
+        case kLet:
+        case kLetBool:
+        case kDynArrayElement:
+        case kArrayElement:
             arg();
             arg();
             break;
-        case New:
+        case kNew:
             for (int k = 0; k < 4; ++k)
                 arg();
             break;
-        case Context:
-        case ClassContext:
+        case kContext:
+        case kClassContext:
             arg();
             self().value = u16();
             self().size = u8();
             arg();
             break;
-        case MetaCast:
-        case DynamicCast:
-        case StructMember:
+        case kMetaCast:
+        case kDynamicCast:
+        case kStructMember:
             self().ref = ref();
             arg();
             break;
-        case Skip:
+        case kSkip:
             self().value = u16();
             arg();
             break;
-        case VirtualFunction:
-        case GlobalFunction:
+        case kVirtualFunction:
+        case kGlobalFunction:
             self().ref = name();
             params();
             break;
-        case FinalFunction:
+        case kFinalFunction:
             self().ref = ref();
             params();
             break;
-        case IntConst:
+        case kIntConst:
             self().value = int32_t(u32());
             break;
-        case FloatConst:
+        case kFloatConst:
             self().f[0] = f32();
             break;
-        case StringConst: {
+        case kStringConst: {
             std::string s;
             for (uint8_t c; (c = u8()) != 0 && !failed();)
                 s += char(c);
             self().text = std::move(s);
             break;
         }
-        case UnicodeStringConst: {
+        case kUnicodeStringConst: {
             std::string s;
             for (uint16_t c; (c = u16()) != 0 && !failed();)
                 s += c < 0x80 ? char(c) : '?';
             self().text = std::move(s);
             break;
         }
-        case RotationConst:
+        case kRotationConst:
             for (int32_t &v : self().rot)
                 v = int32_t(u32());
             break;
-        case VectorConst:
+        case kVectorConst:
             for (float &v : self().f)
                 v = f32();
             break;
-        case ByteConst:
-        case IntConstByte:
+        case kByteConst:
+        case kIntConstByte:
             self().value = u8();
             break;
-        case Iterator:
+        case kIterator:
             arg();
             self().value = u16();
             break;
-        case StructCmpEq:
-        case StructCmpNe:
+        case kStructCmpEq:
+        case kStructCmpNe:
             self().ref = ref();
             arg();
             arg();
@@ -205,44 +205,44 @@ public:
     }
 
     void fail(const std::string &why) {
-        if (error_.empty())
-            error_ = why;
+        if (_error.empty())
+            _error = why;
     }
 
 private:
     uint8_t u8() {
-        mem_ += 1;
-        return r_.u8();
+        _mem += 1;
+        return _r.u8();
     }
     uint16_t u16() {
-        mem_ += 2;
-        return r_.u16();
+        _mem += 2;
+        return _r.u16();
     }
     uint32_t u32() {
-        mem_ += 4;
-        return r_.u32();
+        _mem += 4;
+        return _r.u32();
     }
     float f32() {
-        mem_ += 4;
-        return r_.f32();
+        _mem += 4;
+        return _r.f32();
     }
     int32_t ref() {
-        mem_ += 4;
-        return r_.index();
+        _mem += 4;
+        return _r.index();
     }
     int32_t name() {
-        mem_ += 4;
-        const int32_t n = r_.index();
-        if (n < 0 || size_t(n) >= package_.names().size())
+        _mem += 4;
+        const int32_t n = _r.index();
+        if (n < 0 || size_t(n) >= _package.names().size())
             fail("name " + std::to_string(n) + " out of range");
         return n;
     }
 
-    const Package &package_;
-    Reader &r_;
-    Code &code_;
-    uint32_t mem_ = 0;
-    std::string error_;
+    const Package &_package;
+    Reader &_r;
+    Code &_code;
+    uint32_t _mem = 0;
+    std::string _error;
 };
 
 } // namespace
@@ -298,12 +298,12 @@ Error readScriptObject(const Package &package, int index, ScriptObject &out) {
         return Error::success();
     };
     if (cls == "const") {
-        out.kind = ScriptObject::Kind::Const;
+        out.kind = ScriptObject::Kind::kConst;
         out.constValue = r.string(package.version());
         return done();
     }
     if (cls == "enum") {
-        out.kind = ScriptObject::Kind::Enum;
+        out.kind = ScriptObject::Kind::kEnum;
         const int32_t n = r.index();
         if (n < 0 || n > 256)
             return Error::fail(what + ": " + std::to_string(n) + " names");
@@ -312,11 +312,11 @@ Error readScriptObject(const Package &package, int index, ScriptObject &out) {
         return done();
     }
     if (cls.size() > 8 && cls.compare(cls.size() - 8, 8, "property") == 0) {
-        out.kind = ScriptObject::Kind::Property;
+        out.kind = ScriptObject::Kind::kProperty;
         out.arrayDim = r.i32();
         out.propertyFlags = r.u32();
         out.category = r.index();
-        if (out.propertyFlags & propflag::Net)
+        if (out.propertyFlags & propflag::kNet)
             out.repOffset = r.u16();
         if (cls == "byteproperty" || cls == "objectproperty" || cls == "structproperty" || cls == "arrayproperty" ||
             cls == "fixedarrayproperty" || cls == "classproperty")
@@ -328,10 +328,10 @@ Error readScriptObject(const Package &package, int index, ScriptObject &out) {
         return done();
     }
     // Structs, functions, states and classes.
-    out.kind = cls == "function" ? ScriptObject::Kind::Function
-               : cls == "state"  ? ScriptObject::Kind::State
-               : cls == "class"  ? ScriptObject::Kind::Class
-                                 : ScriptObject::Kind::Struct;
+    out.kind = cls == "function" ? ScriptObject::Kind::kFunction
+               : cls == "state"  ? ScriptObject::Kind::kState
+               : cls == "class"  ? ScriptObject::Kind::kClass
+                                 : ScriptObject::Kind::kStruct;
     out.scriptText = r.index();
     out.children = r.index();
     out.friendlyName = r.index();
@@ -342,21 +342,21 @@ Error readScriptObject(const Package &package, int index, ScriptObject &out) {
         return Error::fail(what + ": runs past the end");
     if (Error err = decodeCode(package, r, scriptSize, out.code))
         return Error::fail(what + ": " + err.message);
-    if (out.kind == ScriptObject::Kind::Function) {
+    if (out.kind == ScriptObject::Kind::kFunction) {
         out.native = r.u16();
         out.operatorPrecedence = r.u8();
         out.functionFlags = r.u32();
-        if (out.functionFlags & funcflag::Net)
+        if (out.functionFlags & funcflag::kNet)
             out.repOffset = r.u16();
         return done();
     }
-    if (out.kind == ScriptObject::Kind::Struct)
+    if (out.kind == ScriptObject::Kind::kStruct)
         return done();
     out.probeMask = r.u64();
     out.ignoreMask = r.u64();
     out.labelTableOffset = r.u16();
     out.stateFlags = r.u32();
-    if (out.kind == ScriptObject::Kind::State)
+    if (out.kind == ScriptObject::Kind::kState)
         return done();
     out.classFlags = r.u32();
     r.bytes(out.guid.data(), out.guid.size());

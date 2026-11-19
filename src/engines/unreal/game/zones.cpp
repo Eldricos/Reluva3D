@@ -76,11 +76,11 @@ Rect screenRect(const std::vector<Vec3f> &points, const std::array<float, 16> &m
 } // namespace
 
 void ZoneVisibility::build(const Model &model) {
-    nodes_.clear();
-    portals_.clear();
-    for (auto &list : byZone_)
+    _nodes.clear();
+    _portals.clear();
+    for (auto &list : _byZone)
         list.clear();
-    nodes_.reserve(model.nodes.size());
+    _nodes.reserve(model.nodes.size());
     for (const BspNode &n : model.nodes) {
         Node node;
         node.plane = n.plane;
@@ -90,7 +90,7 @@ void ZoneVisibility::build(const Model &model) {
         node.zone[1] = n.zone[1];
         node.leaf[0] = n.leaf[0];
         node.leaf[1] = n.leaf[1];
-        nodes_.push_back(node);
+        _nodes.push_back(node);
     }
     auto add = [&](const BspNode &n, int a, int b) {
         Portal p;
@@ -109,16 +109,16 @@ void ZoneVisibility::build(const Model &model) {
                 p.max[c] = std::max(p.max[c], pt[c]);
             }
         }
-        byZone_[p.zone[0]].push_back(uint32_t(portals_.size()));
-        byZone_[p.zone[1]].push_back(uint32_t(portals_.size()));
-        portals_.push_back(std::move(p));
+        _byZone[p.zone[0]].push_back(uint32_t(_portals.size()));
+        _byZone[p.zone[1]].push_back(uint32_t(_portals.size()));
+        _portals.push_back(std::move(p));
     };
     for (const BspNode &n : model.nodes) {
         if (n.vertexCount < 3 || size_t(n.surf) >= model.surfs.size())
             continue;
         const uint32_t flags = model.surfs[size_t(n.surf)].polyFlags;
         // A portal: a polygon of a surface flagged as one, between two zones.
-        if (flags & polyflag::Portal) {
+        if (flags & polyflag::kPortal) {
             if ((n.zone[0] & 63) != (n.zone[1] & 63))
                 add(n, n.zone[0], n.zone[1]);
             continue;
@@ -126,7 +126,7 @@ void ZoneVisibility::build(const Model &model) {
         // A window: a solid surface seen through (glass, a grating, an
         // invisible wall) with another zone beyond its solid: found by
         // going through it until out of the solid again.
-        if (!(flags & (polyflag::Translucent | polyflag::Masked | polyflag::Modulated | polyflag::Invisible)))
+        if (!(flags & (polyflag::kTranslucent | polyflag::kMasked | polyflag::kModulated | polyflag::kInvisible)))
             continue;
         Vec3f centre{};
         int count = 0;
@@ -162,8 +162,8 @@ int ZoneVisibility::zoneAt(const Vec3f &p, bool *solid) const {
     int zone = 0;
     bool inSolid = true;
     int32_t n = 0;
-    for (size_t guard = 0; guard <= nodes_.size() && n >= 0 && size_t(n) < nodes_.size(); ++guard) {
-        const Node &node = nodes_[size_t(n)];
+    for (size_t guard = 0; guard <= _nodes.size() && n >= 0 && size_t(n) < _nodes.size(); ++guard) {
+        const Node &node = _nodes[size_t(n)];
         const bool front = node.plane[0] * p[0] + node.plane[1] * p[1] + node.plane[2] * p[2] - node.plane[3] >= 0;
         zone = node.zone[front ? 1 : 0];
         n = front ? node.front : node.back;
@@ -180,8 +180,8 @@ int ZoneVisibility::zoneAt(const Vec3f &p, bool *solid) const {
 
 int ZoneVisibility::leafAt(const Vec3f &p) const {
     int32_t n = 0;
-    for (size_t guard = 0; guard <= nodes_.size() && n >= 0 && size_t(n) < nodes_.size(); ++guard) {
-        const Node &node = nodes_[size_t(n)];
+    for (size_t guard = 0; guard <= _nodes.size() && n >= 0 && size_t(n) < _nodes.size(); ++guard) {
+        const Node &node = _nodes[size_t(n)];
         const bool front = node.plane[0] * p[0] + node.plane[1] * p[1] + node.plane[2] * p[2] - node.plane[3] >= 0;
         const int32_t next = front ? node.front : node.back;
         if (next <= 0)
@@ -192,7 +192,7 @@ int ZoneVisibility::leafAt(const Vec3f &p) const {
 }
 
 uint64_t ZoneVisibility::visible(const Vec3f &eye, const std::array<float, 16> &clipFromWorld) const {
-    if (portals_.empty())
+    if (_portals.empty())
         return ~uint64_t(0);
     bool solid = false;
     const int start = zoneAt(eye, &solid);
@@ -208,8 +208,8 @@ uint64_t ZoneVisibility::visible(const Vec3f &eye, const std::array<float, 16> &
         const int z = queue[step];
         queued &= ~(uint64_t(1) << z);
         const Rect through = view[size_t(z)];
-        for (const uint32_t i : byZone_[size_t(z)]) {
-            const Portal &p = portals_[i];
+        for (const uint32_t i : _byZone[size_t(z)]) {
+            const Portal &p = _portals[i];
             const int other = p.zone[0] == z ? p.zone[1] : p.zone[0];
             const bool near = eye[0] >= p.min[0] - kPortalMargin && eye[0] <= p.max[0] + kPortalMargin &&
                               eye[1] >= p.min[1] - kPortalMargin && eye[1] <= p.max[1] + kPortalMargin &&

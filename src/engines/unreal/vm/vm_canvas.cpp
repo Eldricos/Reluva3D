@@ -34,22 +34,22 @@ const Font *ScriptLevel::fontOf(VmObject *font) {
     if (!font || !font->package || font->exportIndex < 0)
         return nullptr;
     const auto key = std::make_pair(font->package, font->exportIndex);
-    auto it = fonts_.find(key);
-    if (it == fonts_.end()) {
+    auto it = _fonts.find(key);
+    if (it == _fonts.end()) {
         auto f = std::make_shared<Font>();
-        if (readFont(vm_.packages(), *font->package, font->exportIndex, *f))
+        if (readFont(_vm.packages(), *font->package, font->exportIndex, *f))
             f.reset();
-        it = fonts_.emplace(key, std::move(f)).first;
+        it = _fonts.emplace(key, std::move(f)).first;
     }
     return it->second.get();
 }
 
 VmObject *ScriptLevel::canvas() {
-    if (!canvas_ || canvas_->deleted) {
-        VmClass *cls = vm_.findClass("Canvas");
-        canvas_ = cls ? vm_.create(cls) : nullptr;
+    if (!_canvas || _canvas->deleted) {
+        VmClass *cls = _vm.findClass("Canvas");
+        _canvas = cls ? _vm.create(cls) : nullptr;
     }
-    return canvas_;
+    return _canvas;
 }
 
 // A frame's HUD, as UGameEngine::Draw: the canvas made ready (its Reset,
@@ -58,13 +58,13 @@ VmObject *ScriptLevel::canvas() {
 // hand it to its HUD, then the console's PostRender. What the scripts draw
 // is in hud().
 void ScriptLevel::renderHud(const HudView &view) {
-    hud_ = {};
-    hudView_ = hudFrame_ = view;
-    hudFrameClear_ = false;
+    _hud = {};
+    _hudView = _hudFrame = view;
+    _hudFrameClear = false;
     VmObject *c = canvas();
-    if (!c || !player_ || player_->deleted)
+    if (!c || !_player || _player->deleted)
         return;
-    vm_.callEvent(c, "Reset");
+    _vm.callEvent(c, "Reset");
     auto setFloat = [&](const char *name, float v) {
         if (Value *p = prop(c, name))
             *p = Value::floatValue(v);
@@ -81,8 +81,8 @@ void ScriptLevel::renderHud(const HudView &view) {
     setFloat("OrgY", 0);
     setFloat("CurX", 0);
     setFloat("CurY", 0);
-    vm_.callEvent(player_, "PreRender", {Value::objectValue(c)});
-    vm_.callEvent(player_, "PostRender", {Value::objectValue(c)});
+    _vm.callEvent(_player, "PreRender", {Value::objectValue(c)});
+    _vm.callEvent(_player, "PostRender", {Value::objectValue(c)});
     // Then the console's (its messages; the UWindow menus while they're
     // open), on the same canvas as the HUD left it (the engine doesn't
     // reset it in between), its frame the screen.
@@ -90,20 +90,20 @@ void ScriptLevel::renderHud(const HudView &view) {
         for (const auto &[name, size] : {std::pair{"FrameX", view.width}, std::pair{"FrameY", view.height}})
             if (Value *p = prop(con, name))
                 *p = Value::floatValue(float(size));
-        hudFrame_ = view;
-        vm_.callEvent(con, "PostRender", {Value::objectValue(c)});
+        _hudFrame = view;
+        _vm.callEvent(con, "PostRender", {Value::objectValue(c)});
     }
 }
 
 void ScriptLevel::trackFli(VmObject *tex) {
-    if (!tex || flis_.count(tex) || !tex->package)
+    if (!tex || _flis.count(tex) || !tex->package)
         return;
     Fli f;
-    if (auto anim = openAnimatedTexture(vm_.packages(), *tex->package, tex->exportIndex)) {
+    if (auto anim = openAnimatedTexture(_vm.packages(), *tex->package, tex->exportIndex)) {
         f.frames = anim->frames();
         f.frameSeconds = anim->frameSeconds() > 0 ? anim->frameSeconds() : f.frameSeconds;
     }
-    flis_[tex] = f;
+    _flis[tex] = f;
 }
 
 // An FliTexture played as Engine.dll's UFliTexture::Tick plays it:
@@ -114,7 +114,7 @@ void ScriptLevel::trackFli(VmObject *tex) {
 // with bFinishAtEnd on its last frame. FrameNum is 1 + 30 x FrameTime,
 // whole frames: a frame shows 1/30 s at Rate 1.
 void ScriptLevel::tickFlis(float seconds) {
-    for (auto &[tex, f] : flis_) {
+    for (auto &[tex, f] : _flis) {
         Value *mode = prop(tex, "Mode");
         if (!mode || f.frames <= 0)
             continue;

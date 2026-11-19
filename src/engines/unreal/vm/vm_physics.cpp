@@ -172,10 +172,10 @@ Value *ScriptLevel::prop(VmObject *a, const char *name) {
     if (!a || !a->cls)
         return nullptr;
     const SlotKey key{a->cls, name};
-    auto it = slots_.find(key);
-    if (it == slots_.end()) {
-        VmProperty *p = a->cls->findProperty(vm_.name(name));
-        it = slots_.emplace(key, p ? p->slot : -1).first;
+    auto it = _slots.find(key);
+    if (it == _slots.end()) {
+        VmProperty *p = a->cls->findProperty(_vm.name(name));
+        it = _slots.emplace(key, p ? p->slot : -1).first;
     }
     return it->second >= 0 && size_t(it->second) < a->values.size() ? &a->values[size_t(it->second)] : nullptr;
 }
@@ -183,11 +183,11 @@ Value *ScriptLevel::prop(VmObject *a, const char *name) {
 // Where a class's collision properties are in its values, found once: the
 // actor loops below read them for every other actor on every move.
 const ScriptLevel::CollideSlots &ScriptLevel::collideSlots(VmObject *a) {
-    auto it = collideSlots_.find(a->cls);
-    if (it == collideSlots_.end()) {
+    auto it = _collideSlots.find(a->cls);
+    if (it == _collideSlots.end()) {
         CollideSlots c;
         auto slot = [&](const char *name) {
-            const VmProperty *p = a->cls->findProperty(vm_.name(name));
+            const VmProperty *p = a->cls->findProperty(_vm.name(name));
             return p ? p->slot : -1;
         };
         c.location = slot("Location");
@@ -199,8 +199,8 @@ const ScriptLevel::CollideSlots &ScriptLevel::collideSlots(VmObject *a) {
         c.isPlayer = slot("bIsPlayer");
         c.owner = slot("Owner");
         c.base = slot("Base");
-        c.mover = vm_.isA(a, "Mover");
-        it = collideSlots_.emplace(a->cls, c).first;
+        c.mover = _vm.isA(a, "Mover");
+        it = _collideSlots.emplace(a->cls, c).first;
     }
     return it->second;
 }
@@ -208,31 +208,31 @@ const ScriptLevel::CollideSlots &ScriptLevel::collideSlots(VmObject *a) {
 // Every actor with its class's collision slots (those the loops below go
 // through), made again each tick and added to as actors are spawned.
 const std::vector<std::pair<VmObject *, const ScriptLevel::CollideSlots *>> &ScriptLevel::colliders() {
-    if (collidersTick_ != ticks_ + 1 || collidersCount_ != actors_.size()) {
-        if (collidersTick_ != ticks_ + 1 || collidersCount_ > actors_.size())
-            colliders_.clear();
-        for (size_t i = colliders_.empty() ? 0 : collidersCount_; i < actors_.size(); ++i)
-            colliders_.push_back({actors_[i], &collideSlots(actors_[i])});
-        collidersTick_ = ticks_ + 1;
-        collidersCount_ = actors_.size();
+    if (_collidersTick != _ticks + 1 || _collidersCount != _actors.size()) {
+        if (_collidersTick != _ticks + 1 || _collidersCount > _actors.size())
+            _colliders.clear();
+        for (size_t i = _colliders.empty() ? 0 : _collidersCount; i < _actors.size(); ++i)
+            _colliders.push_back({_actors[i], &collideSlots(_actors[i])});
+        _collidersTick = _ticks + 1;
+        _collidersCount = _actors.size();
     }
-    return colliders_;
+    return _colliders;
 }
 
 const std::vector<std::pair<VmObject *, const ScriptLevel::CollideSlots *>> &ScriptLevel::collidingActors() {
     const auto &all = colliders();
-    if (collidingDirty_ || collidingTick_ != ticks_ + 1 || collidingCount_ != all.size()) {
-        colliding_.clear();
+    if (_collidingDirty || _collidingTick != _ticks + 1 || _collidingCount != all.size()) {
+        _colliding.clear();
         for (const auto &c : all) {
             const int slot = c.second->collideActors;
             if (slot >= 0 && size_t(slot) < c.first->values.size() && c.first->values[size_t(slot)].asBool())
-                colliding_.push_back(c);
+                _colliding.push_back(c);
         }
-        collidingTick_ = ticks_ + 1;
-        collidingCount_ = all.size();
-        collidingDirty_ = false;
+        _collidingTick = _ticks + 1;
+        _collidingCount = all.size();
+        _collidingDirty = false;
     }
-    return colliding_;
+    return _colliding;
 }
 
 namespace {
@@ -259,12 +259,12 @@ Vec ScriptLevel::extentOf(VmObject *a) {
 // --- The world -----------------------------------------------------------------------------
 
 bool ScriptLevel::clear(const Vec &point, const Vec &extent, VmObject *self) {
-    if (collision_ && (extent[0] > 0 || extent[2] > 0 ? collision_->solid(Vec3f{point[0], point[1], point[2]},
+    if (_collision && (extent[0] > 0 || extent[2] > 0 ? _collision->solid(Vec3f{point[0], point[1], point[2]},
                                                                           Vec3f{extent[0], extent[1], extent[2]})
-                                                      : collision_->solid(Vec3f{point[0], point[1], point[2]})))
+                                                      : _collision->solid(Vec3f{point[0], point[1], point[2]})))
         return false;
     // Movers that block it count too.
-    for (VmObject *m : movers_)
+    for (VmObject *m : _movers)
         if (m != self && !m->deleted && boolOf(prop(m, "bCollideActors")) &&
             (boolOf(prop(m, "bBlockActors")) || boolOf(prop(m, "bBlockPlayers"))) && moverOverlaps(m, point, extent)) {
             return false;
@@ -275,10 +275,10 @@ bool ScriptLevel::clear(const Vec &point, const Vec &extent, VmObject *self) {
 bool ScriptLevel::findSpot(const Vec &e, Vec &at) {
     // SinglePointCheck without actors: the level's geometry alone.
     auto fits = [&](const Vec &p, const Vec &ext) {
-        if (!collision_)
+        if (!_collision)
             return true;
-        return ext[0] > 0 || ext[2] > 0 ? !collision_->solid(Vec3f{p[0], p[1], p[2]}, Vec3f{ext[0], ext[1], ext[2]})
-                                        : !collision_->solid(Vec3f{p[0], p[1], p[2]});
+        return ext[0] > 0 || ext[2] > 0 ? !_collision->solid(Vec3f{p[0], p[1], p[2]}, Vec3f{ext[0], ext[1], ext[2]})
+                                        : !_collision->solid(Vec3f{p[0], p[1], p[2]});
     };
     // The spot itself in solid: nowhere.
     if (!fits(at, {0, 0, 0}))
@@ -346,7 +346,7 @@ bool ScriptLevel::place(VmObject *a, const Vec &point, bool spawning) {
             return false;
         }
     }
-    vm_.setVector(*loc, at[0], at[1], at[2]);
+    _vm.setVector(*loc, at[0], at[1], at[2]);
     updateRegion(a);
     return true;
 }
@@ -366,9 +366,9 @@ bool ScriptLevel::resize(VmObject *a, float r, float h, bool alignToFloor, bool 
         at[2] -= h - h0;
     *rv = Value::floatValue(r);
     *hv = Value::floatValue(h);
-    collidersTick_ = -1;
+    _collidersTick = -1;
     if (!boolOf(prop(a, "bCollideWorld")) || clear(at, {r, r, h}, a)) {
-        vm_.setVector(*loc, at[0], at[1], at[2]);
+        _vm.setVector(*loc, at[0], at[1], at[2]);
         updateRegion(a);
         return true;
     }
@@ -401,7 +401,7 @@ bool ScriptLevel::pickWallAdjust(VmObject *pawn) {
         Vec where{}, n{};
         if (trace(pawn, from, aside, e, false, where, n) || trace(pawn, aside, beyond, e, false, where, n))
             continue;
-        vm_.setVector(*dest, aside[0], aside[1], aside[2]);
+        _vm.setVector(*dest, aside[0], aside[1], aside[2]);
         return true;
     }
     return false;
@@ -409,8 +409,8 @@ bool ScriptLevel::pickWallAdjust(VmObject *pawn) {
 
 // A mover's box where it is now: its brush's box through its placement.
 bool ScriptLevel::brushBox(VmObject *m, Vec &min, Vec &max) {
-    auto it = m->package == &map_ ? brushes_.find(m->exportIndex) : brushes_.end();
-    if (it == brushes_.end())
+    auto it = m->package == &_map ? _brushes.find(m->exportIndex) : _brushes.end();
+    if (it == _brushes.end())
         return false;
     const BrushBox &b = it->second;
     const Vec loc = vecOf(prop(m, "Location"));
@@ -471,8 +471,8 @@ struct ScriptLevel::MoverSpace {
 };
 
 bool ScriptLevel::moverSpace(VmObject *m, MoverSpace &space) {
-    auto it = m->package == &map_ ? brushes_.find(m->exportIndex) : brushes_.end();
-    if (it == brushes_.end() || !it->second.collision)
+    auto it = m->package == &_map ? _brushes.find(m->exportIndex) : _brushes.end();
+    if (it == _brushes.end() || !it->second.collision)
         return false;
     space.b = &it->second;
     space.loc = vecOf(prop(m, "Location"));
@@ -487,8 +487,8 @@ bool ScriptLevel::moverSpace(VmObject *m, MoverSpace &space) {
 // behind it) from blocking things across the level: CM04_Lab's refused
 // 301 placings 2000 units from one.
 bool ScriptLevel::moverNear(VmObject *m, const Vec &start, const Vec &delta, const Vec &e) {
-    auto it = m->package == &map_ ? brushes_.find(m->exportIndex) : brushes_.end();
-    if (it == brushes_.end() || it->second.radius <= 0)
+    auto it = m->package == &_map ? _brushes.find(m->exportIndex) : _brushes.end();
+    if (it == _brushes.end() || it->second.radius <= 0)
         return true;
     const Vec c = vecOf(prop(m, "Location"));
     const float len2 = dot(delta, delta);
@@ -558,9 +558,9 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     const float asked = length(delta);
     const Vec dir = asked > 0 ? mul(delta, 1 / asked) : Vec{0, 0, 0};
     const Vec reach = asked > 0 ? add(delta, mul(dir, 2)) : delta;
-    if (collideWorld && collision_ && asked > 0) {
+    if (collideWorld && _collision && asked > 0) {
         auto sweep = [&] {
-            return collision_->trace(Vec3f{start[0], start[1], start[2]},
+            return _collision->trace(Vec3f{start[0], start[1], start[2]},
                                      Vec3f{start[0] + reach[0], start[1] + reach[1], start[2] + reach[2]},
                                      Vec3f{e[0], e[1], e[2]});
         };
@@ -576,13 +576,13 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
             if (h.startSolid) {
                 time = 0;
                 n = mul(dir, -1);
-                by = levelInfo_;
+                by = _levelInfo;
             }
         }
         if (!h.startSolid && h.time < time) {
             time = h.time;
             n = {h.normal[0], h.normal[1], h.normal[2]};
-            by = levelInfo_;
+            by = _levelInfo;
         }
     }
     // Actors and movers that block it.
@@ -627,30 +627,30 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
             end = add(start, sub(mul(reach, time), mul(dir, 2)));
             time = (along - 2) / asked;
         }
-        if (by == levelInfo_)
+        if (by == _levelInfo)
             ++movement.blockedByWorld;
         else
             ++movement.blockedByActors;
     }
-    vm_.setVector(*locValue, end[0], end[1], end[2]);
+    _vm.setVector(*locValue, end[0], end[1], end[2]);
     out.time = time;
     out.normal = n;
     out.actor = by;
     // Then, as the engine: what it bumped told (Bump2 then Bump, the other
     // first), what it touches, and last its zone.
-    if (by && by != levelInfo_) {
+    if (by && by != _levelInfo) {
         const Vec hitAt = end;
-        vm_.callEvent(by, "Bump2",
-                      {Value::objectValue(a), vm_.vectorValue(hitAt[0], hitAt[1], hitAt[2]),
-                       vm_.vectorValue(-n[0], -n[1], -n[2])});
+        _vm.callEvent(by, "Bump2",
+                      {Value::objectValue(a), _vm.vectorValue(hitAt[0], hitAt[1], hitAt[2]),
+                       _vm.vectorValue(-n[0], -n[1], -n[2])});
         if (!a->deleted)
-            vm_.callEvent(a, "Bump2",
-                          {Value::objectValue(by), vm_.vectorValue(hitAt[0], hitAt[1], hitAt[2]),
-                           vm_.vectorValue(n[0], n[1], n[2])});
+            _vm.callEvent(a, "Bump2",
+                          {Value::objectValue(by), _vm.vectorValue(hitAt[0], hitAt[1], hitAt[2]),
+                           _vm.vectorValue(n[0], n[1], n[2])});
         if (!by->deleted && !a->deleted)
-            vm_.callEvent(by, "Bump", {Value::objectValue(a)});
+            _vm.callEvent(by, "Bump", {Value::objectValue(a)});
         if (!a->deleted && !by->deleted)
-            vm_.callEvent(a, "Bump", {Value::objectValue(by)});
+            _vm.callEvent(a, "Bump", {Value::objectValue(by)});
     }
     if (collideActors && !a->deleted)
         updateTouching(a);
@@ -659,15 +659,15 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     Value *region = prop(a, "Region");
     VmObject *oldZone = region && !region->fields.empty() ? region->fields[0].asObject() : nullptr;
     const Vec now = vecOf(locValue);
-    if (region && hasModel_)
-        vm_.assign(*region, regionAt(now));
+    if (region && _hasModel)
+        _vm.assign(*region, regionAt(now));
     VmObject *newZone = region && !region->fields.empty() ? region->fields[0].asObject() : nullptr;
     if (newZone != oldZone && newZone) {
         ++movement.zoneChanges;
         if (oldZone)
-            vm_.callEvent(oldZone, "ActorLeaving", {Value::objectValue(a)});
-        vm_.callEvent(a, "ZoneChange", {Value::objectValue(newZone)});
-        vm_.callEvent(newZone, "ActorEntered", {Value::objectValue(a)});
+            _vm.callEvent(oldZone, "ActorLeaving", {Value::objectValue(a)});
+        _vm.callEvent(a, "ZoneChange", {Value::objectValue(newZone)});
+        _vm.callEvent(newZone, "ActorEntered", {Value::objectValue(a)});
     }
     if (!a->deleted)
         updateBodyRegions(a, true);
@@ -683,10 +683,10 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
 void ScriptLevel::hitWall(VmObject *a, const MoveHit &h) {
     if (a->deleted || !h.hit() || !h.actor)
         return;
-    if (h.actor != levelInfo_ && vm_.isA(h.actor, "Pawn"))
+    if (h.actor != _levelInfo && _vm.isA(h.actor, "Pawn"))
         return;
     Vec n = h.normal;
-    if (vm_.isA(a, "Pawn")) {
+    if (_vm.isA(a, "Pawn")) {
         const Vec accel = vecOf(prop(a, "Acceleration"));
         if (length(accel) == 0)
             return;
@@ -695,12 +695,12 @@ void ScriptLevel::hitWall(VmObject *a, const MoveHit &h) {
         // too, and the event gets that).
         const bool walking = prop(a, "Physics") && prop(a, "Physics")->asInt() == kPhysWalking;
         Vec toward =
-            normalOf(vm_.isA(a, "CTVE_Pawn") ? accel : sub(vecOf(prop(a, "Destination")), vecOf(prop(a, "Location"))));
+            normalOf(_vm.isA(a, "CTVE_Pawn") ? accel : sub(vecOf(prop(a, "Destination")), vecOf(prop(a, "Location"))));
         if (walking)
             toward[2] = 0, n[2] = 0;
         if (dot(toward, n) > floatOf(prop(a, "MinHitWall")))
             return;
-        VmFunction *f = vm_.findFunction(a, vm_.name("HitWall"));
+        VmFunction *f = _vm.findFunction(a, _vm.name("HitWall"));
         const bool own = f && f->qualified != "Actor.HitWall";
         if (!own && prop(a, "Physics") && prop(a, "Physics")->asInt() != kPhysFalling) {
             if (Value *t = prop(a, "MoveTimer"))
@@ -710,7 +710,7 @@ void ScriptLevel::hitWall(VmObject *a, const MoveHit &h) {
             return;
         }
     }
-    vm_.callEvent(a, "HitWall", {vm_.vectorValue(n[0], n[1], n[2]), Value::objectValue(h.actor)});
+    _vm.callEvent(a, "HitWall", {_vm.vectorValue(n[0], n[1], n[2]), Value::objectValue(h.actor)});
 }
 
 // Two walls: the move's rest along the second, or along the crease where
@@ -743,7 +743,7 @@ ScriptLevel::MoveHit ScriptLevel::moveSmooth(VmObject *a, const Vec &delta) {
     if (!h.hit() || a->deleted)
         return h;
     // The second wall: HitWall as it is (the engine's moveSmooth).
-    vm_.callEvent(a, "HitWall", {vm_.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
+    _vm.callEvent(a, "HitWall", {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
     if (a->deleted)
         return h;
     adjust = twoWallAdjust(normalOf(delta), adjust, h.normal, first, h.time);
@@ -753,7 +753,7 @@ ScriptLevel::MoveHit ScriptLevel::moveSmooth(VmObject *a, const Vec &delta) {
 void ScriptLevel::updateTouching(VmObject *a) {
     const Vec p = vecOf(prop(a, "Location"));
     const float r = floatOf(prop(a, "CollisionRadius")), h = floatOf(prop(a, "CollisionHeight"));
-    std::vector<VmObject *> &now = touching_[a];
+    std::vector<VmObject *> &now = _touching[a];
     std::vector<VmObject *> touching;
     for (const auto &[o, slots] : collidingActors()) {
         if (o == a || o->deleted)
@@ -771,26 +771,26 @@ void ScriptLevel::updateTouching(VmObject *a) {
     const std::vector<VmObject *> was = now;
     for (VmObject *o : was)
         if (std::find(touching.begin(), touching.end(), o) == touching.end()) {
-            auto &theirs = touching_[o];
+            auto &theirs = _touching[o];
             theirs.erase(std::remove(theirs.begin(), theirs.end(), a), theirs.end());
             now.erase(std::remove(now.begin(), now.end(), o), now.end());
-            vm_.callEvent(a, "UnTouch", {Value::objectValue(o)});
-            vm_.callEvent(o, "UnTouch", {Value::objectValue(a)});
+            _vm.callEvent(a, "UnTouch", {Value::objectValue(o)});
+            _vm.callEvent(o, "UnTouch", {Value::objectValue(a)});
         }
     for (VmObject *o : touching)
         if (std::find(now.begin(), now.end(), o) == now.end() && !a->deleted && !o->deleted) {
             now.push_back(o);
-            touching_[o].push_back(a);
+            _touching[o].push_back(a);
             ++movement.touches;
-            vm_.callEvent(o, "Touch", {Value::objectValue(a)});
-            vm_.callEvent(a, "Touch", {Value::objectValue(o)});
+            _vm.callEvent(o, "Touch", {Value::objectValue(a)});
+            _vm.callEvent(a, "Touch", {Value::objectValue(o)});
         }
     // The first four, where scripts see them.
     for (VmObject *x : {a}) {
         Value *t = prop(x, "Touching");
         if (!t)
             continue;
-        const auto &list = touching_[x];
+        const auto &list = _touching[x];
         for (size_t k = 0; k < 4; ++k)
             t[k] = Value::objectValue(k < list.size() ? list[k] : nullptr);
     }
@@ -804,32 +804,32 @@ int ScriptLevel::surfaceAt(const Vec &start, const Vec &end) {
     const int node = nodeAt(start, end, at);
     if (node < 0)
         return -1;
-    const int32_t surf = model_.nodes[size_t(node)].surf;
-    return surf >= 0 && size_t(surf) < model_.surfs.size() ? surf : -1;
+    const int32_t surf = _model.nodes[size_t(node)].surf;
+    return surf >= 0 && size_t(surf) < _model.surfs.size() ? surf : -1;
 }
 
 // The BSP node whose polygon a line from start to end hits (of the
 // coplanar nodes sharing the plane it stopped at, the one holding the hit
 // point), and where; -1 if none.
 int ScriptLevel::nodeAt(const Vec &start, const Vec &end, Vec &where) {
-    if (!collision_)
+    if (!_collision)
         return -1;
-    const LevelCollision::Hit hit = collision_->trace({start[0], start[1], start[2]}, {end[0], end[1], end[2]});
+    const LevelCollision::Hit hit = _collision->trace({start[0], start[1], start[2]}, {end[0], end[1], end[2]});
     if (!hit.hit() || hit.node < 0)
         return -1;
     where = {hit.location[0], hit.location[1], hit.location[2]};
     const Vec3f &p = hit.location;
     auto holds = [&](const BspNode &n) {
-        if (n.vertexCount < 3 || size_t(n.vertPool) + n.vertexCount > model_.verts.size())
+        if (n.vertexCount < 3 || size_t(n.vertPool) + n.vertexCount > _model.verts.size())
             return false;
         int sign = 0;
         for (int k = 0; k < n.vertexCount; ++k) {
-            const int32_t ia = model_.verts[size_t(n.vertPool + k)].point;
-            const int32_t ib = model_.verts[size_t(n.vertPool + (k + 1) % n.vertexCount)].point;
-            if (ia < 0 || ib < 0 || size_t(ia) >= model_.points.size() || size_t(ib) >= model_.points.size())
+            const int32_t ia = _model.verts[size_t(n.vertPool + k)].point;
+            const int32_t ib = _model.verts[size_t(n.vertPool + (k + 1) % n.vertexCount)].point;
+            if (ia < 0 || ib < 0 || size_t(ia) >= _model.points.size() || size_t(ib) >= _model.points.size())
                 return false;
-            const Vec3f &a = model_.points[size_t(ia)];
-            const Vec3f &b = model_.points[size_t(ib)];
+            const Vec3f &a = _model.points[size_t(ia)];
+            const Vec3f &b = _model.points[size_t(ib)];
             const float ex = b[0] - a[0], ey = b[1] - a[1], ez = b[2] - a[2];
             const float px = p[0] - a[0], py = p[1] - a[1], pz = p[2] - a[2];
             const float side =
@@ -844,8 +844,8 @@ int ScriptLevel::nodeAt(const Vec &start, const Vec &end, Vec &where) {
         return true;
     };
     int32_t found = hit.node;
-    for (int32_t at = hit.node, guard = 0; at >= 0 && size_t(at) < model_.nodes.size() && guard < 1000; ++guard) {
-        const BspNode &n = model_.nodes[size_t(at)];
+    for (int32_t at = hit.node, guard = 0; at >= 0 && size_t(at) < _model.nodes.size() && guard < 1000; ++guard) {
+        const BspNode &n = _model.nodes[size_t(at)];
         if (holds(n)) {
             found = at;
             break;
@@ -865,16 +865,16 @@ bool ScriptLevel::nodeSideExtent(const Vec &start, const Vec &end, const Vec &si
     const int node = nodeAt(start, end, at);
     if (node < 0)
         return false;
-    const BspNode &n = model_.nodes[size_t(node)];
+    const BspNode &n = _model.nodes[size_t(node)];
     lo = 1e30f, hi = -1e30f;
     for (int k = 0; k < n.vertexCount; ++k) {
         const size_t v = size_t(n.vertPool + k);
-        if (v >= model_.verts.size())
+        if (v >= _model.verts.size())
             return false;
-        const int32_t pi = model_.verts[v].point;
-        if (pi < 0 || size_t(pi) >= model_.points.size())
+        const int32_t pi = _model.verts[v].point;
+        if (pi < 0 || size_t(pi) >= _model.points.size())
             return false;
-        const Vec3f &p = model_.points[size_t(pi)];
+        const Vec3f &p = _model.points[size_t(pi)];
         const float d = (p[0] - at[0]) * side[0] + (p[1] - at[1]) * side[1] + (p[2] - at[2]) * side[2];
         lo = std::min(lo, d);
         hi = std::max(hi, d);
@@ -887,42 +887,42 @@ VmObject *ScriptLevel::surfaceTexture(const Vec &start, const Vec &end) {
     const int surf = surfaceAt(start, end);
     if (surf < 0)
         return nullptr;
-    ObjectRef tex = vm_.packages().resolve(map_, model_.surfs[size_t(surf)].texture);
-    if (auto it = surfaceSwaps_.surfaces.find(surf); it != surfaceSwaps_.surfaces.end())
+    ObjectRef tex = _vm.packages().resolve(_map, _model.surfs[size_t(surf)].texture);
+    if (auto it = _surfaceSwaps.surfaces.find(surf); it != _surfaceSwaps.surfaces.end())
         tex = it->second;
-    else if (auto w = surfaceSwaps_.world.find({tex.package, tex.exportIndex}); tex && w != surfaceSwaps_.world.end())
+    else if (auto w = _surfaceSwaps.world.find({tex.package, tex.exportIndex}); tex && w != _surfaceSwaps.world.end())
         tex = w->second;
-    return tex ? vm_.objectAt(*tex.package, tex.exportIndex + 1) : nullptr;
+    return tex ? _vm.objectAt(*tex.package, tex.exportIndex + 1) : nullptr;
 }
 
 void ScriptLevel::swapSurfaceTexture(int surf, VmObject *texture, bool wholeWorld) {
-    if (surf < 0 || size_t(surf) >= model_.surfs.size() || !texture || !texture->package || texture->exportIndex < 0)
+    if (surf < 0 || size_t(surf) >= _model.surfs.size() || !texture || !texture->package || texture->exportIndex < 0)
         return;
     const ObjectRef to{texture->package, texture->exportIndex};
     if (wholeWorld) {
         // Every surface with the texture this one has now.
-        ObjectRef from = vm_.packages().resolve(map_, model_.surfs[size_t(surf)].texture);
-        if (auto it = surfaceSwaps_.surfaces.find(surf); it != surfaceSwaps_.surfaces.end())
+        ObjectRef from = _vm.packages().resolve(_map, _model.surfs[size_t(surf)].texture);
+        if (auto it = _surfaceSwaps.surfaces.find(surf); it != _surfaceSwaps.surfaces.end())
             from = it->second;
         if (from)
-            surfaceSwaps_.world[{from.package, from.exportIndex}] = to;
+            _surfaceSwaps.world[{from.package, from.exportIndex}] = to;
     } else {
-        surfaceSwaps_.surfaces[surf] = to;
+        _surfaceSwaps.surfaces[surf] = to;
     }
-    ++surfaceSwaps_.serial;
+    ++_surfaceSwaps.serial;
 }
 
 bool ScriptLevel::inSolid(const Vec &p) {
-    return collision_ && collision_->solid(Vec3f{p[0], p[1], p[2]});
+    return _collision && _collision->solid(Vec3f{p[0], p[1], p[2]});
 }
 
 bool ScriptLevel::worldBetween(const Vec &start, const Vec &end, float slack) {
     // An end inside solid (an ambient sound placed in a wall or ceiling)
     // sounds from the wall's face: nothing between.
-    if (!collision_ || collision_->solid(Vec3f{end[0], end[1], end[2]}))
+    if (!_collision || _collision->solid(Vec3f{end[0], end[1], end[2]}))
         return false;
     const LevelCollision::Hit h =
-        collision_->trace(Vec3f{start[0], start[1], start[2]}, Vec3f{end[0], end[1], end[2]}, Vec3f{0, 0, 0});
+        _collision->trace(Vec3f{start[0], start[1], start[2]}, Vec3f{end[0], end[1], end[2]}, Vec3f{0, 0, 0});
     const Vec d = sub(end, start);
     const float length = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
     return h.hit() && h.time * length < length - slack;
@@ -933,13 +933,13 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
     float time = 1;
     VmObject *by = nullptr;
     Vec n{};
-    if (collision_) {
-        const LevelCollision::Hit h = collision_->trace(
+    if (_collision) {
+        const LevelCollision::Hit h = _collision->trace(
             Vec3f{start[0], start[1], start[2]}, Vec3f{end[0], end[1], end[2]}, Vec3f{extent[0], extent[1], extent[2]});
         if (h.hit()) {
             time = h.time;
             n = {h.normal[0], h.normal[1], h.normal[2]};
-            by = levelInfo_;
+            by = _levelInfo;
         }
     }
     // Movers count as the world; other actors only if asked.
@@ -969,7 +969,7 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
             for (const auto &[o, cs] : collidingActors())
                 check(o, *cs);
         else
-            for (VmObject *o : movers_)
+            for (VmObject *o : _movers)
                 check(o, collideSlots(o));
     }
     hitLocation = add(start, mul(sub(end, start), time));
@@ -996,7 +996,7 @@ void ScriptLevel::rotate(VmObject *a, float dt) {
     } else {
         return;
     }
-    *rot = vm_.rotatorValue(r[0], r[1], r[2]);
+    *rot = _vm.rotatorValue(r[0], r[1], r[2]);
 }
 
 void ScriptLevel::moveBrush(VmObject *m, float dt) {
@@ -1021,12 +1021,12 @@ void ScriptLevel::moveBrush(VmObject *m, float dt) {
     const float f = glide ? a * a * (3 - 2 * a) : a;
     const Vec now = add(from, mul(sub(target, from), f));
     const Vec before = vecOf(prop(m, "Location"));
-    *prop(m, "Location") = vm_.vectorValue(now[0], now[1], now[2]);
+    *prop(m, "Location") = _vm.vectorValue(now[0], now[1], now[2]);
     if (Value *r = prop(m, "Rotation")) {
         std::array<int32_t, 3> rr{};
         for (size_t k = 0; k < 3; ++k)
             rr[k] = fromRot[k] + int32_t(float((baseRot[k] + keyR[k]) - fromRot[k]) * f);
-        *r = vm_.rotatorValue(rr[0], rr[1], rr[2]);
+        *r = _vm.rotatorValue(rr[0], rr[1], rr[2]);
     }
     // What stands on it goes with it.
     const Vec moved = sub(now, before);
@@ -1037,26 +1037,26 @@ void ScriptLevel::moveBrush(VmObject *m, float dt) {
     if (a >= 1) {
         if (Value *v = prop(m, "bInterpolating"))
             v->i = 0;
-        vm_.callEvent(m, "InterpolateEnd", {Value::objectValue(nullptr)});
+        _vm.callEvent(m, "InterpolateEnd", {Value::objectValue(nullptr)});
     }
 }
 
 // Steering towards a pawn's goal (MoveTo, TurnTo...): its acceleration
 // and desired rotation, and whether it's there (its latent call then ends).
 void ScriptLevel::steer(VmObject *a, float dt) {
-    auto it = goals_.find(a);
-    if (it == goals_.end())
+    auto it = _goals.find(a);
+    if (it == _goals.end())
         return;
     Goal &g = it->second;
     auto finish = [&] {
         if (Value *acc = prop(a, "Acceleration"))
-            vm_.setVector(*acc, 0, 0, 0);
+            _vm.setVector(*acc, 0, 0, 0);
         if (a->latent && a->stateSerial == g.stateSerial)
             a->sleeping = 0; // the latent call ends: its code carries on next tick
-        goals_.erase(it);
+        _goals.erase(it);
     };
     if (a->deleted || a->stateSerial != g.stateSerial) { // its state changed: the call was abandoned
-        goals_.erase(it);
+        _goals.erase(it);
         return;
     }
     g.timeLeft -= dt;
@@ -1065,29 +1065,29 @@ void ScriptLevel::steer(VmObject *a, float dt) {
     if (g.target && g.target->deleted)
         return finish();
     switch (g.kind) {
-    case Goal::Kind::Land:
+    case Goal::Kind::kLand:
         if (!prop(a, "Physics") || prop(a, "Physics")->asInt() != kPhysFalling || g.timeLeft <= 0)
             finish();
         return;
-    case Goal::Kind::Rotation: {
+    case Goal::Kind::kRotation: {
         const auto r = Vm::rotatorOf(*prop(a, "Rotation"));
         const auto want = prop(a, "DesiredRotation") ? Vm::rotatorOf(*prop(a, "DesiredRotation")) : r;
         if ((std::abs(angleDiff(r[1], want[1])) < 2000 && std::abs(angleDiff(r[0], want[0])) < 2000) || g.timeLeft <= 0)
             finish();
         return;
     }
-    case Goal::Kind::Turn: {
+    case Goal::Kind::kTurn: {
         const int32_t yaw = yawOf(sub(dest, here));
         if (Value *d = prop(a, "DesiredRotation")) {
             auto want = Vm::rotatorOf(*d);
-            *d = vm_.rotatorValue(want[0], yaw, want[2]);
+            *d = _vm.rotatorValue(want[0], yaw, want[2]);
         }
         const auto r = Vm::rotatorOf(*prop(a, "Rotation"));
         if (std::abs(angleDiff(r[1], yaw)) < 2000 || g.timeLeft <= 0)
             finish();
         return;
     }
-    case Goal::Kind::Move: {
+    case Goal::Kind::kMove: {
         Vec to = sub(dest, here);
         const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
         if (physics == kPhysWalking || physics == kPhysSimpleWalking)
@@ -1103,7 +1103,7 @@ void ScriptLevel::steer(VmObject *a, float dt) {
         const float rate = floatOf(prop(a, "AccelRate"), 500);
         if (Value *acc = prop(a, "Acceleration")) {
             const Vec d = mul(normalOf(to), rate);
-            vm_.setVector(*acc, d[0], d[1], d[2]);
+            _vm.setVector(*acc, d[0], d[1], d[2]);
         }
         if (Value *d = prop(a, "DesiredRotation")) {
             auto want = Vm::rotatorOf(*d);
@@ -1113,9 +1113,9 @@ void ScriptLevel::steer(VmObject *a, float dt) {
                     g.focusActor && !g.focusActor->deleted ? vecOf(prop(g.focusActor, "Location")) : g.focus;
                 faces = sub(focus, here);
                 if (Value *f = prop(a, "Focus"))
-                    vm_.setVector(*f, focus[0], focus[1], focus[2]);
+                    _vm.setVector(*f, focus[0], focus[1], focus[2]);
             }
-            *d = vm_.rotatorValue(want[0], yawOf(faces), want[2]);
+            *d = _vm.rotatorValue(want[0], yawOf(faces), want[2]);
         }
         if (Value *s = prop(a, "DesiredSpeed"))
             s->f = g.speed;
@@ -1127,7 +1127,7 @@ void ScriptLevel::steer(VmObject *a, float dt) {
 void ScriptLevel::setGoal(VmObject *pawn, const Goal &goal) {
     Goal g = goal;
     g.stateSerial = pawn->stateSerial;
-    goals_[pawn] = g;
+    _goals[pawn] = g;
 }
 
 void ScriptLevel::physics(VmObject *a, float dt) {
@@ -1136,8 +1136,8 @@ void ScriptLevel::physics(VmObject *a, float dt) {
     Value *physicsValue = prop(a, "Physics");
     const int physics = physicsValue ? physicsValue->asInt() : 0;
     if (physics != kPhysFalling)
-        fallers_.erase(a);
-    if (physics != kPhysClambering && clambers_.count(a))
+        _fallers.erase(a);
+    if (physics != kPhysClambering && _clambers.count(a))
         endClamber(a);
     steer(a, dt);
     // Turning, as the engine's performPhysics, after the move: an actor
@@ -1145,7 +1145,7 @@ void ScriptLevel::physics(VmObject *a, float dt) {
     // axis: fallenPhysics); a pawn as physicsRotation has it (not
     // climbing walls; Newtonian ones newtonianRotation); a player's pawn
     // as its input says (UpdateRotation). Then a pawn's MoveTimer.
-    const bool pawn = vm_.isA(a, "Pawn");
+    const bool pawn = _vm.isA(a, "Pawn");
     const Vec velocityBefore = vecOf(prop(a, "Velocity"));
     move(a, physics, dt);
     if (a->deleted)
@@ -1175,28 +1175,28 @@ void ScriptLevel::physics(VmObject *a, float dt) {
 // decoration or pawn). True if it didn't move.
 bool ScriptLevel::outOfWorld(VmObject *a, int physics) {
     constexpr int kPhysNewtonian = 17;
-    if (!hasModel_ || (physics != kPhysWalking && physics != kPhysFalling && physics != kPhysFlying &&
+    if (!_hasModel || (physics != kPhysWalking && physics != kPhysFalling && physics != kPhysFlying &&
                        physics != kPhysProjectile && physics != kPhysNewtonian))
         return false;
     const Value *region = prop(a, "Region");
     if (!region || region->fields.size() < 3 || region->fields[2].asInt() != 0)
         return false;
-    const bool pawn = vm_.isA(a, "Pawn");
+    const bool pawn = _vm.isA(a, "Pawn");
     // The Fallen's player has walking and falling of its own
     // (ACTVE_PlayerPawn::physWalking, physFalling), which don't look at the
     // zone: no FellOutOfWorld for it.
-    if ((physics == kPhysWalking || physics == kPhysFalling) && vm_.isA(a, "CTVE_PlayerPawn"))
+    if ((physics == kPhysWalking || physics == kPhysFalling) && _vm.isA(a, "CTVE_PlayerPawn"))
         return false;
     auto log = [&](const char *what) {
-        if (vm_.logger)
-            vm_.logger(vm_.objectName(a) + what);
+        if (_vm.logger)
+            _vm.logger(_vm.objectName(a) + what);
     };
     if (physics == kPhysWalking || physics == kPhysFalling) {
         if (physics == kPhysWalking && !pawn)
             return false;
-        if (pawn || vm_.isA(a, "Inventory") || vm_.isA(a, "Decoration"))
+        if (pawn || _vm.isA(a, "Inventory") || _vm.isA(a, "Decoration"))
             log(" fell out of the world!");
-        vm_.callEvent(a, "FellOutOfWorld");
+        _vm.callEvent(a, "FellOutOfWorld");
         return true;
     }
     if (physics == kPhysProjectile) {
@@ -1230,13 +1230,13 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
     case kPhysSimpleWalking:
         // Only a plain pawn's (APawn::physSimpleWalking: the leeches);
         // The Fallen's own pawns don't move in it.
-        if (!vm_.isA(a, "CTVE_Pawn") && vm_.isA(a, "Pawn"))
+        if (!_vm.isA(a, "CTVE_Pawn") && _vm.isA(a, "Pawn"))
             simpleWalk(a, dt);
         break;
     case kPhysWalking:
-        if (vm_.isA(a, "CTVE_PlayerPawn"))
+        if (_vm.isA(a, "CTVE_PlayerPawn"))
             walkPlayer(a, dt);
-        else if (vm_.isA(a, "CTVE_Pawn")) {
+        else if (_vm.isA(a, "CTVE_Pawn")) {
             // A step's rise or drop eased out of how it's drawn (PrePivot),
             // a tenth of a second or so.
             const float z0 = vecOf(prop(a, "Location"))[2];
@@ -1248,13 +1248,13 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
                     po[2] += z0 - vecOf(prop(a, "Location"))[2];
                 if (po[2] != 0) {
                     po[2] -= po[2] * std::min(10 * dt, 1.0f);
-                    vm_.setVector(*pivot, po[0], po[1], po[2]);
+                    _vm.setVector(*pivot, po[0], po[1], po[2]);
                     const Vec orig = vecOf(prop(a, "OriginalPrePivot"));
                     if (Value *pp = prop(a, "PrePivot"))
-                        vm_.setVector(*pp, orig[0] + po[0], orig[1] + po[1], orig[2] + po[2]);
+                        _vm.setVector(*pp, orig[0] + po[0], orig[1] + po[1], orig[2] + po[2]);
                 }
             }
-        } else if (vm_.isA(a, "Pawn"))
+        } else if (_vm.isA(a, "Pawn"))
             walkPawn(a, dt, 8);
         break;
     case kPhysFalling: {
@@ -1262,10 +1262,10 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
         // fallen from FallHeight, which its scripts set only while rising
         // in a jump (nor does the engine), so Reluva sets it as a fall
         // starts.
-        if (fallers_.insert(a).second)
+        if (_fallers.insert(a).second)
             if (Value *from = prop(a, "FallHeight"))
                 *from = Value::floatValue(vecOf(prop(a, "Location"))[2]);
-        if (vm_.isA(a, "CTVE_PlayerPawn"))
+        if (_vm.isA(a, "CTVE_PlayerPawn"))
             fallPlayer(a, dt);
         else
             fall(a, dt);
@@ -1275,10 +1275,10 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
     }
     case kPhysSwimming:
     case kPhysFlying: {
-        if (!vm_.isA(a, "Pawn"))
+        if (!_vm.isA(a, "Pawn"))
             break; // a pawn's physics only
         const bool swim = physics == kPhysSwimming;
-        if (swim && !vm_.isA(a, "PlayerPawn")) {
+        if (swim && !_vm.isA(a, "PlayerPawn")) {
             swimPawn(a, dt, false);
             break;
         }
@@ -1288,18 +1288,18 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
             VmObject *z = r && !r->fields.empty() ? r->fields[0].asObject() : nullptr;
             if (!z || !boolOf(prop(z, "bWaterZone"))) {
                 physicsValue->i = kPhysFalling;
-                vm_.callEvent(a, "Falling");
+                _vm.callEvent(a, "Falling");
             }
         }
         break;
     }
     case kPhysProjectile: {
         v = add(v, mul(accel, dt));
-        vm_.setVector(*velocityValue, v[0], v[1], v[2]);
+        _vm.setVector(*velocityValue, v[0], v[1], v[2]);
         const MoveHit h = moveActor(a, mul(v, dt));
-        if (h.hit() && !a->deleted && h.actor == levelInfo_)
-            vm_.callEvent(a, "HitWall",
-                          {vm_.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(levelInfo_)});
+        if (h.hit() && !a->deleted && h.actor == _levelInfo)
+            _vm.callEvent(a, "HitWall",
+                          {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(_levelInfo)});
         break;
     }
     case kPhysClambering:
@@ -1355,7 +1355,7 @@ void ScriptLevel::simpleWalk(VmObject *a, float dt) {
     if (acc) {
         Vec ac = vecOf(acc);
         ac[2] = 0;
-        vm_.setVector(*acc, ac[0], ac[1], ac[2]);
+        _vm.setVector(*acc, ac[0], ac[1], ac[2]);
     }
     if (Value *r = prop(a, "AccelRate"))
         *r = Value::floatValue(300);
@@ -1366,15 +1366,15 @@ void ScriptLevel::simpleWalk(VmObject *a, float dt) {
     v = mul(Vec{std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)}, speed);
     if (Value *old = prop(a, "OldLocation")) {
         const Vec l = vecOf(prop(a, "Location"));
-        vm_.setVector(*old, l[0], l[1], l[2]);
+        _vm.setVector(*old, l[0], l[1], l[2]);
     }
-    vm_.setVector(*vel, v[0], v[1], v[2]);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
     const Vec extent{floatOf(prop(a, "CollisionRadius"), 17), floatOf(prop(a, "CollisionRadius"), 17),
                      floatOf(prop(a, "CollisionHeight"), 17)};
     auto fall = [&] {
         if (Value *ph = prop(a, "Physics"))
             ph->i = kPhysFalling;
-        vm_.callEvent(a, "Falling");
+        _vm.callEvent(a, "Falling");
     };
     const Vec here = vecOf(prop(a, "Location"));
     const Vec dest = add(here, mul(v, dt));
@@ -1386,7 +1386,7 @@ void ScriptLevel::simpleWalk(VmObject *a, float dt) {
         const float t = length(sub(at, probeTop)) / 20;
         const Vec floorPt{dest[0], dest[1], dest[2] + 10 - 20 * t + 2};
         v = mul(normalOf(sub(floorPt, here)), speed);
-        vm_.setVector(*vel, v[0], v[1], v[2]);
+        _vm.setVector(*vel, v[0], v[1], v[2]);
         const MoveHit h = moveActor(a, mul(v, dt));
         if (!a->deleted && h.hit()) {
             if (floorPt[2] < dest[2]) {
@@ -1408,7 +1408,7 @@ void ScriptLevel::simpleWalk(VmObject *a, float dt) {
         return;
     }
     if (n[2] < 0.6f)
-        vm_.callEvent(a, "HitWall", {vm_.vectorValue(n[0], n[1], n[2]), Value::objectValue(by)});
+        _vm.callEvent(a, "HitWall", {_vm.vectorValue(n[0], n[1], n[2]), Value::objectValue(by)});
 }
 
 // An AI pawn's turn after its move (APawn::physicsRotation): set to turn
@@ -1458,7 +1458,7 @@ void ScriptLevel::pawnRotation(VmObject *a, float dt, const Vec &velocityBefore)
     } else {
         r[2] = 0;
     }
-    *rot = vm_.rotatorValue(r[0], r[1], r[2]);
+    *rot = _vm.rotatorValue(r[0], r[1], r[2]);
 }
 
 // The water line between a point in the water and one out of it, found by
@@ -1491,14 +1491,14 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
     const ZoneFeel z = zoneFeel(a);
     const Vec start = vecOf(prop(a, "Location"));
     if (Value *old = prop(a, "OldLocation"))
-        vm_.setVector(*old, start[0], start[1], start[2]);
+        _vm.setVector(*old, start[0], start[1], start[2]);
     if (Value *t = prop(a, "bJustTeleported"))
         *t = Value::boolValue(false);
     Vec accel = vecOf(prop(a, "Acceleration"));
     Vec v = vecOf(vel);
     const float most = floatOf(prop(a, "WaterSpeed"), 200);
     calcVelocity(a, v, accel, dt, most, z.fluidFriction, true, false, true, z.gravity);
-    vm_.setVector(*vel, v[0], v[1], v[2]);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
     Vec delta = mul(add(v, z.velocity), dt);
     const Vec desired = normalOf(delta);
     const float minHitWall = floatOf(prop(a, "MinHitWall"));
@@ -1524,9 +1524,9 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
         if (!h.hit())
             break;
         if (dot(desired, h.normal) < minHitWall) {
-            if (vm_.findFunction(a, vm_.name("HitWall")))
-                vm_.callEvent(a, "HitWall",
-                              {vm_.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
+            if (_vm.findFunction(a, _vm.name("HitWall")))
+                _vm.callEvent(a, "HitWall",
+                              {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
             break;
         }
         delta = sub(delta, mul(h.normal, dot(delta, h.normal)));
@@ -1536,7 +1536,7 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
     const Vec here = vecOf(prop(a, "Location"));
     if (!fish) {
         const Vec moved = mul(sub(here, start), 1 / dt);
-        vm_.setVector(*vel, moved[0], moved[1], moved[2]);
+        _vm.setVector(*vel, moved[0], moved[1], moved[2]);
         return;
     }
     v = vecOf(vel);
@@ -1546,23 +1546,23 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
     if (d > 20)
         pull = mul(to, floatOf(prop(a, "AccelRate"), 500) / d);
     if (Value *p = prop(a, "LastSeenPos"))
-        vm_.setVector(*p, pull[0], pull[1], pull[2]);
+        _vm.setVector(*p, pull[0], pull[1], pull[2]);
     v = add(v, mul(pull, dt));
     if (length(v) > most)
         v = mul(normalOf(v), most);
-    vm_.setVector(*vel, v[0], v[1], v[2]);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
     if (Value *r = prop(a, "Rotation"); r && length(v) > 1e-3f)
-        *r = vm_.rotatorValue(int32_t(std::lround(std::atan2(v[2], std::hypot(v[0], v[1])) * 32768 / 3.14159265f)) &
+        *r = _vm.rotatorValue(int32_t(std::lround(std::atan2(v[2], std::hypot(v[0], v[1])) * 32768 / 3.14159265f)) &
                                   0xffff,
                               int32_t(std::lround(std::atan2(v[1], v[0]) * 32768 / 3.14159265f)) & 0xffff, 0);
 }
 
 void ScriptLevel::calcVelocity(VmObject *a, Vec &v, Vec &accel, float dt, float maxSpeed, float friction, bool fluid,
                                bool brake, bool buoyant, const Vec &gravity) {
-    const bool player = vm_.isA(a, "CTVE_PlayerPawn");
+    const bool player = _vm.isA(a, "CTVE_PlayerPawn");
     const float f = std::max(fluid ? 1.0f : 0.0f, friction);
     const float rate = floatOf(prop(a, "AccelRate"), 500);
-    bool slow = vm_.isA(a, "PlayerPawn") && boolOf(prop(a, "bIsWalking"));
+    bool slow = _vm.isA(a, "PlayerPawn") && boolOf(prop(a, "bIsWalking"));
     if (player) {
         slow = boolOf(prop(a, "bIsWalking")) || boolOf(prop(a, "bIsCrouching"));
         const bool fwd = boolOf(prop(a, "bWasForward")), back = boolOf(prop(a, "bWasBack"));
@@ -1599,7 +1599,7 @@ void ScriptLevel::calcVelocity(VmObject *a, Vec &v, Vec &accel, float dt, float 
         v = sub(v, mul(sub(v, mul(dir, length(v))), dt * f));
     }
     v = add(mul(v, 1 - (fluid ? dt * friction : 0.0f)), mul(accel, dt));
-    if (!vm_.isA(a, "PlayerPawn") && prop(a, "DesiredSpeed"))
+    if (!_vm.isA(a, "PlayerPawn") && prop(a, "DesiredSpeed"))
         maxSpeed *= floatOf(prop(a, "DesiredSpeed"), 1);
     if (buoyant && !player)
         v = add(v,
@@ -1669,7 +1669,7 @@ int ScriptLevel::physicsOf(VmObject *a) {
 void ScriptLevel::setBase(VmObject *a, VmObject *base) {
     if (Value *b = prop(a, "Base"); b && b->asObject() != base) {
         b->o = base;
-        vm_.callEvent(a, "BaseChange");
+        _vm.callEvent(a, "BaseChange");
     }
 }
 
@@ -1683,7 +1683,7 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     const Vec start = vecOf(prop(a, "Location"));
     const ZoneFeel z = zoneFeel(a);
     Vec accel = vecOf(accelValue);
-    if (Value *b = prop(a, "Base"); b && b->asObject() && vm_.isA(b->o, "Pawn")) {
+    if (Value *b = prop(a, "Base"); b && b->asObject() && _vm.isA(b->o, "Pawn")) {
         Vec away = sub(start, vecOf(prop(b->o, "Location")));
         away[2] = 0;
         accel = add(accel, mul(normalOf(away), 100));
@@ -1692,7 +1692,7 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     Vec v = vecOf(vel);
     calcVelocity(a, v, accel, dt, floatOf(prop(a, "GroundSpeed"), 320), z.groundFriction, false, true, false,
                  z.gravity);
-    vm_.setVector(*vel, v[0], v[1], v[2]);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
     Vec moving = add(v, z.velocity);
     if (length(moving) > z.terminal)
         moving = mul(normalOf(moving), z.terminal);
@@ -1741,7 +1741,7 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
         const float flatSpeed = std::sqrt(vNow[0] * vNow[0] + vNow[1] * vNow[1]);
         const float slid = std::sqrt(delta[0] * delta[0] + delta[1] * delta[1]) * remaining / dt;
         if (h.normal[2] < 0.65f)
-            vm_.callEvent(a, "HitWall", {vm_.vectorValue(into, flatSpeed, slid), Value::objectValue(h.actor)});
+            _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(h.actor)});
         (void)was;
         if (a->deleted || physicsOf(a) != kPhysWalking || into < -0.8f)
             break;
@@ -1763,9 +1763,9 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
             stepped = true;
     }
     if (floor.hit()) {
-        setBase(a, floor.actor == levelInfo_ ? levelInfo_ : floor.actor);
+        setBase(a, floor.actor == _levelInfo ? _levelInfo : floor.actor);
         if (floorValue)
-            vm_.setVector(*floorValue, floor.normal[0], floor.normal[1], floor.normal[2]);
+            _vm.setVector(*floorValue, floor.normal[0], floor.normal[1], floor.normal[2]);
         const Vec here = vecOf(prop(a, "Location"));
         if (Value *t = prop(a, "FloorTexture"))
             *t =
@@ -1773,11 +1773,11 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     }
     if ((!floor.hit() || floor.normal[2] < 0.65f) && !stepped) {
         if (floorValue)
-            vm_.setVector(*floorValue, 0, 0, 0);
+            _vm.setVector(*floorValue, 0, 0, 0);
         moveActor(a, mul(down, -floor.time));
         if (Value *b = prop(a, "Base"))
             b->o = nullptr;
-        vm_.callEvent(a, "Falling");
+        _vm.callEvent(a, "Falling");
         if (!a->deleted && physicsOf(a) == kPhysWalking)
             prop(a, "Physics")->i = kPhysFalling;
         if (Value *t = prop(a, "PushToAutoDuckTimer"))
@@ -1786,7 +1786,7 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     }
     if (!stepped) {
         const Vec moved = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
-        vm_.setVector(*vel, moved[0], moved[1], moved[2]);
+        _vm.setVector(*vel, moved[0], moved[1], moved[2]);
         if (length(moved) > 10)
             if (Value *t = prop(a, "PushToAutoDuckTimer"))
                 *t = Value::floatValue(0);
@@ -1803,19 +1803,19 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     const ZoneFeel z = zoneFeel(a);
     Vec accel = vecOf(accelValue);
     const Vec start = vecOf(prop(a, "Location"));
-    if (Value *b = prop(a, "Base"); b && b->asObject() && vm_.isA(b->o, "Pawn")) {
+    if (Value *b = prop(a, "Base"); b && b->asObject() && _vm.isA(b->o, "Pawn")) {
         Vec away = sub(start, vecOf(prop(b->o, "Location")));
         away[2] = 0;
         accel = add(accel, mul(normalOf(away), 100));
     }
     Vec v = vecOf(vel);
     v[2] = 0, accel[2] = 0;
-    vm_.setVector(*accelValue, accel[0], accel[1], 0);
+    _vm.setVector(*accelValue, accel[0], accel[1], 0);
     calcVelocity(a, v, accel, dt, floatOf(prop(a, "GroundSpeed"), 320), z.groundFriction, false, true, false,
                  z.gravity);
-    vm_.setVector(*vel, v[0], v[1], v[2]);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
     Vec desired = v;
-    if (vm_.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 90000)
+    if (_vm.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 90000)
         desired = add(desired, mul(z.velocity, 25 * dt));
     desired[2] = 0;
     const Vec gravDir{0, 0, z.gravity[2] > 0 ? 1.0f : -1.0f};
@@ -1826,7 +1826,7 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     for (int it = 0; it < maxIterations && remaining > 0 && !a->deleted; ++it) {
         const Vec old = vecOf(prop(a, "Location"));
         float tick = remaining;
-        if (remaining > 0.05f && (vm_.isA(a, "PlayerPawn") || dot(desired, desired) * remaining * remaining > 400))
+        if (remaining > 0.05f && (_vm.isA(a, "PlayerPawn") || dot(desired, desired) * remaining * remaining > 400))
             tick = std::min(0.05f, remaining * 0.5f);
         remaining -= tick;
         const Vec delta = mul(desired, tick);
@@ -1842,7 +1842,7 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
                     Vec moved = sub(vecOf(prop(a, "Location")), old);
                     moved[2] = 0;
                     remaining += tick * (1 - std::min(1.0f, length(moved) / length(delta)));
-                    vm_.callEvent(a, "Falling");
+                    _vm.callEvent(a, "Falling");
                     if (remaining > 0.01f && !a->deleted)
                         fall(a, remaining);
                     return;
@@ -1874,9 +1874,9 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
         // No floor (or too steep): a pawn that can't jump, or is walking,
         // stays where it was and gives its move up; else it falls.
         if (!boolOf(prop(a, "bCanJump")) || boolOf(prop(a, "bIsWalking"))) {
-            vm_.setVector(*vel, 0, 0, 0);
-            vm_.setVector(*accelValue, 0, 0, 0);
-            vm_.setVector(*prop(a, "Location"), old[0], old[1], old[2]);
+            _vm.setVector(*vel, 0, 0, 0);
+            _vm.setVector(*accelValue, 0, 0, 0);
+            _vm.setVector(*prop(a, "Location"), old[0], old[1], old[2]);
             updateRegion(a);
             if (Value *t = prop(a, "MoveTimer"))
                 *t = Value::floatValue(-1);
@@ -1887,14 +1887,14 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
         remaining += tick * (1 - std::min(1.0f, length(delta) > 0 ? length(moved) / length(delta) : 1.0f));
         if (Value *b = prop(a, "Base"))
             b->o = nullptr;
-        vm_.callEvent(a, "Falling");
+        _vm.callEvent(a, "Falling");
         if (a->deleted)
             return;
         if (physicsOf(a) == kPhysWalking)
             prop(a, "Physics")->i = kPhysFalling;
         Vec soFar = mul(sub(vecOf(prop(a, "Location")), start), 1 / std::max(1e-4f, dt - remaining));
         soFar[2] = 0;
-        vm_.setVector(*vel, soFar[0], soFar[1], 0);
+        _vm.setVector(*vel, soFar[0], soFar[1], 0);
         if (remaining > 0.01f)
             fall(a, remaining);
         return;
@@ -1902,31 +1902,31 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     if (a->deleted)
         return;
     Vec moved = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
-    vm_.setVector(*vel, moved[0], moved[1], 0);
+    _vm.setVector(*vel, moved[0], moved[1], 0);
 }
 
 // Landing (processLanded): Landed, then walking (a pawn) or still, and
 // the rest of the tick walked.
 void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remaining) {
     ++movement.landings;
-    const bool player = vm_.isA(a, "CTVE_PlayerPawn");
+    const bool player = _vm.isA(a, "CTVE_PlayerPawn");
     if (player)
         if (Value *f = prop(a, "FloorNormal"))
-            vm_.setVector(*f, n[0], n[1], n[2]);
-    vm_.callEvent(a, "Landed", {vm_.vectorValue(n[0], n[1], n[2])});
+            _vm.setVector(*f, n[0], n[1], n[2]);
+    _vm.callEvent(a, "Landed", {_vm.vectorValue(n[0], n[1], n[2])});
     if (a->deleted)
         return;
-    const bool pawn = vm_.isA(a, "Pawn");
+    const bool pawn = _vm.isA(a, "Pawn");
     if (player || physicsOf(a) == kPhysFalling) {
         prop(a, "Physics")->i = pawn ? kPhysWalking : kPhysNone;
         setBase(a, on);
         if (!pawn)
-            vm_.setVector(*prop(a, "Velocity"), 0, 0, 0);
+            _vm.setVector(*prop(a, "Velocity"), 0, 0, 0);
     }
     if (pawn && physicsOf(a) == kPhysWalking && !a->deleted) {
         Value *accel = prop(a, "Acceleration");
         const Vec dir = normalOf(vecOf(accel));
-        vm_.setVector(*accel, dir[0], dir[1], dir[2]);
+        _vm.setVector(*accel, dir[0], dir[1], dir[2]);
         if (remaining > 0.01f) {
             if (player)
                 walkPlayer(a, remaining);
@@ -1960,7 +1960,7 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
     }
     if (length(v) > z.terminal)
         v = mul(normalOf(v), z.terminal);
-    vm_.setVector(*vel, v[0], v[1], v[2]);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
     Vec delta = mul(add(v, z.velocity), dt);
     float remaining = 1;
     Vec lastN{};
@@ -1976,8 +1976,8 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
             return;
         }
         if (it == 1) {
-            vm_.callEvent(a, "HitWall",
-                          {vm_.vectorValue(dot(h.normal, dir), flatSpeed, 0), Value::objectValue(h.actor)});
+            _vm.callEvent(a, "HitWall",
+                          {_vm.vectorValue(dot(h.normal, dir), flatSpeed, 0), Value::objectValue(h.actor)});
             if (a->deleted || physicsOf(a) != kPhysFalling)
                 return;
             delta = mul(sub(delta, mul(h.normal, dot(delta, h.normal))), 1 - h.time);
@@ -1990,7 +1990,7 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
     if (a->deleted || physicsOf(a) != kPhysFalling)
         return;
     const Vec moved = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
-    vm_.setVector(*vel, moved[0], moved[1], moved[2]);
+    _vm.setVector(*vel, moved[0], moved[1], moved[2]);
 }
 
 // Everything else falling (AActor::physFalling): steps of at most 0.1 s,
@@ -2002,7 +2002,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
     Value *accelValue = prop(a, "Acceleration");
     const Vec savedAccel = vecOf(accelValue);
     const ZoneFeel z = zoneFeel(a);
-    const bool pawn = vm_.isA(a, "Pawn");
+    const bool pawn = _vm.isA(a, "Pawn");
     Vec accel = savedAccel;
     float boundSpeed = 0;
     if (pawn) {
@@ -2032,7 +2032,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
             accel = mul(normalOf(accel), maxAccel);
     }
     const bool bounce = boolOf(prop(a, "bBounce"));
-    const bool zoneMoves = !pawn || vm_.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 40000;
+    const bool zoneMoves = !pawn || _vm.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 40000;
     float remaining = dt;
     int bounces = 0;
     for (int it = 0; it < 8 && remaining > 0 && !a->deleted; ++it) {
@@ -2060,7 +2060,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
             if (s > boundSpeed)
                 v[0] *= boundSpeed / s, v[1] *= boundSpeed / s;
         }
-        vm_.setVector(*vel, v[0], v[1], v[2]);
+        _vm.setVector(*vel, v[0], v[1], v[2]);
         const Vec adjusted = mul(zoneMoves ? add(v, z.velocity) : v, tick);
         MoveHit h = moveActor(a, adjusted);
         if (a->deleted || physicsOf(a) != kPhysFalling)
@@ -2078,7 +2078,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                 remaining += tick * (1 - h.time);
                 if (h.time > 0.1f && h.time * tick > 0.003f) {
                     const Vec landedV = mul(sub(vecOf(prop(a, "Location")), old), 1 / (tick * h.time));
-                    vm_.setVector(*vel, landedV[0], landedV[1], landedV[2]);
+                    _vm.setVector(*vel, landedV[0], landedV[1], landedV[2]);
                 }
                 landed(a, h.normal, h.actor, remaining);
                 break;
@@ -2119,11 +2119,11 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                 nv = sub(mul(nv, 2), oldV);
             if (length(nv) > z.terminal)
                 nv = mul(normalOf(nv), z.terminal);
-            vm_.setVector(*vel, nv[0], nv[1], nv[2]);
+            _vm.setVector(*vel, nv[0], nv[1], nv[2]);
         }
     }
     if (!a->deleted)
-        vm_.setVector(*accelValue, savedAccel[0], savedAccel[1], savedAccel[2]);
+        _vm.setVector(*accelValue, savedAccel[0], savedAccel[1], savedAccel[2]);
 }
 
 // Swimming and flying (APawn::physSwimming, physFlying): calcVelocity in
@@ -2136,8 +2136,8 @@ void ScriptLevel::swimOrFly(VmObject *a, float dt, bool swim) {
     Vec v = vecOf(vel);
     calcVelocity(a, v, accel, dt, floatOf(prop(a, swim ? "WaterSpeed" : "AirSpeed"), swim ? 200 : 320), z.fluidFriction,
                  true, swim, swim, z.gravity);
-    vm_.setVector(*vel, v[0], v[1], v[2]);
-    const bool zoneMoves = swim || vm_.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 90000;
+    _vm.setVector(*vel, v[0], v[1], v[2]);
+    const bool zoneMoves = swim || _vm.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 90000;
     const Vec delta = mul(zoneMoves ? add(v, z.velocity) : v, dt);
     MoveHit h = moveActor(a, delta);
     if (a->deleted)
@@ -2164,7 +2164,7 @@ void ScriptLevel::swimOrFly(VmObject *a, float dt, bool swim) {
     if (a->deleted)
         return;
     const Vec moved = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
-    vm_.setVector(*vel, moved[0], moved[1], moved[2]);
+    _vm.setVector(*vel, moved[0], moved[1], moved[2]);
 }
 
 // --- Natives ---------------------------------------------------------------------------------
@@ -2408,14 +2408,14 @@ void registerMovementNatives(Vm &vm) {
     });
     reg("Pawn.TurnTo", [=](NativeCall &c) {
         ScriptLevel::Goal g;
-        g.kind = ScriptLevel::Goal::Kind::Turn;
+        g.kind = ScriptLevel::Goal::Kind::kTurn;
         g.point = Vm::vectorOf(c.args[0]);
         g.timeLeft = 3;
         goal(c, g);
     });
     reg("Pawn.TurnToward", [=](NativeCall &c) {
         ScriptLevel::Goal g;
-        g.kind = ScriptLevel::Goal::Kind::Turn;
+        g.kind = ScriptLevel::Goal::Kind::kTurn;
         g.target = c.o(0);
         g.timeLeft = 3;
         if (!g.target)
@@ -2424,12 +2424,12 @@ void registerMovementNatives(Vm &vm) {
     });
     reg("Pawn.WaitForLanding", [=](NativeCall &c) {
         ScriptLevel::Goal g;
-        g.kind = ScriptLevel::Goal::Kind::Land;
+        g.kind = ScriptLevel::Goal::Kind::kLand;
         goal(c, g);
     });
     reg("Pawn.FinishRotation", [=](NativeCall &c) {
         ScriptLevel::Goal g;
-        g.kind = ScriptLevel::Goal::Kind::Rotation;
+        g.kind = ScriptLevel::Goal::Kind::kRotation;
         g.timeLeft = 3;
         goal(c, g);
     });

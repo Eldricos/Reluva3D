@@ -103,11 +103,11 @@ std::string iniValue(std::string_view ini, std::string_view section, std::string
 
 Error PackageSet::open(const std::filesystem::path &gameDir, std::string_view iniName,
                        std::vector<std::string> *warnings) {
-    entries_.clear();
-    paths_.clear();
-    mapExtensions_ = {".unr"};
-    ini_.clear();
-    gameDir_ = gameDir;
+    _entries.clear();
+    _paths.clear();
+    _mapExtensions = {".unr"};
+    _ini.clear();
+    _gameDir = gameDir;
     const auto systemDir = fs::findDirectory(gameDir, "System");
     if (!systemDir)
         return Error::fail("No System folder in " + gameDir.string());
@@ -117,16 +117,16 @@ Error PackageSet::open(const std::filesystem::path &gameDir, std::string_view in
         const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         auto paths = parseSearchPaths(text);
         if (!paths.empty()) {
-            paths_ = std::move(paths);
-            ini_ = file;
+            _paths = std::move(paths);
+            _ini = file;
         }
     };
     // The game's own settings, else the defaults it makes them from.
     for (std::string_view name : {iniName, std::string_view("Default.ini")})
-        if (paths_.empty() && !name.empty())
+        if (_paths.empty() && !name.empty())
             if (auto file = fs::findFile(*systemDir, name))
                 readIni(*file);
-    if (paths_.empty()) {
+    if (_paths.empty()) {
         std::error_code ec;
         std::vector<std::filesystem::path> inis;
         for (std::filesystem::directory_iterator it(*systemDir, ec), end; !ec && it != end; it.increment(ec))
@@ -135,14 +135,14 @@ Error PackageSet::open(const std::filesystem::path &gameDir, std::string_view in
         std::sort(inis.begin(), inis.end());
         for (const auto &f : inis) {
             readIni(f);
-            if (!paths_.empty())
+            if (!_paths.empty())
                 break;
         }
     }
-    if (paths_.empty())
-        paths_ = defaultSearchPaths();
+    if (_paths.empty())
+        _paths = defaultSearchPaths();
 
-    for (const std::string &p : paths_) {
+    for (const std::string &p : _paths) {
         std::string spec = p;
         std::replace(spec.begin(), spec.end(), '\\', '/');
         const size_t slash = spec.rfind('/');
@@ -157,8 +157,8 @@ Error PackageSet::open(const std::filesystem::path &gameDir, std::string_view in
         const std::string ext = pattern.substr(1);
         const std::string lastFolder = fs::toLower(std::filesystem::path(folder).filename().string());
         if (lastFolder == "maps" &&
-            std::find(mapExtensions_.begin(), mapExtensions_.end(), ext) == mapExtensions_.end())
-            mapExtensions_.push_back(ext);
+            std::find(_mapExtensions.begin(), _mapExtensions.end(), ext) == _mapExtensions.end())
+            _mapExtensions.push_back(ext);
         const auto dir = resolveFolder(*systemDir, folder);
         if (!dir) {
             if (warnings)
@@ -174,7 +174,7 @@ Error PackageSet::open(const std::filesystem::path &gameDir, std::string_view in
         for (const auto &f : files)
             addFile(f);
     }
-    if (entries_.empty())
+    if (_entries.empty())
         return Error::fail("No packages found from " + systemDir->string());
     return Error::success();
 }
@@ -185,24 +185,24 @@ void PackageSet::addFile(const std::filesystem::path &file) {
     e.name = name;
     e.extension = fs::toLower(file.extension().string());
     e.file = file;
-    entries_.try_emplace(fs::toLower(name), std::move(e));
+    _entries.try_emplace(fs::toLower(name), std::move(e));
 }
 
 std::string PackageSet::addLater(const std::filesystem::path &file) const {
     const std::string name = file.stem().string();
-    auto it = entries_.find(fs::toLower(name));
-    if (it != entries_.end() && it->second.file != file) {
+    auto it = _entries.find(fs::toLower(name));
+    if (it != _entries.end() && it->second.file != file) {
         // Another file of the name (a save again, or a package): this one.
         it->second.file = file;
         it->second.package.reset();
         it->second.tried = false;
         it->second.error.clear();
-    } else if (it == entries_.end()) {
+    } else if (it == _entries.end()) {
         Entry e;
         e.name = name;
         e.extension = fs::toLower(file.extension().string());
         e.file = file;
-        entries_.emplace(fs::toLower(name), std::move(e));
+        _entries.emplace(fs::toLower(name), std::move(e));
     }
     return name;
 }
@@ -212,12 +212,12 @@ void PackageSet::addMemory(std::string name, std::string extension, std::vector<
     e.name = name;
     e.extension = fs::toLower(extension);
     e.memory = std::move(data);
-    entries_.try_emplace(fs::toLower(name), std::move(e));
+    _entries.try_emplace(fs::toLower(name), std::move(e));
 }
 
 const Package *PackageSet::get(std::string_view name) const {
-    auto it = entries_.find(fs::toLower(name));
-    if (it == entries_.end())
+    auto it = _entries.find(fs::toLower(name));
+    if (it == _entries.end())
         return nullptr;
     const Entry &e = it->second;
     if (!e.tried) {
@@ -233,8 +233,8 @@ const Package *PackageSet::get(std::string_view name) const {
 }
 
 std::string PackageSet::error(std::string_view name) const {
-    auto it = entries_.find(fs::toLower(name));
-    if (it == entries_.end())
+    auto it = _entries.find(fs::toLower(name));
+    if (it == _entries.end())
         return "No package " + std::string(name);
     return it->second.error;
 }
@@ -284,25 +284,25 @@ ObjectRef PackageSet::resolve(const Package &from, int32_t ref) const {
 std::vector<std::string> PackageSet::names(std::string_view extension) const {
     std::vector<std::string> out;
     const std::string ext = fs::toLower(extension);
-    for (const auto &[key, e] : entries_)
+    for (const auto &[key, e] : _entries)
         if (ext.empty() || e.extension == ext)
             out.push_back(e.name);
     return out;
 }
 
 std::string PackageSet::extension(std::string_view name) const {
-    auto it = entries_.find(fs::toLower(name));
-    return it == entries_.end() ? std::string() : it->second.extension;
+    auto it = _entries.find(fs::toLower(name));
+    return it == _entries.end() ? std::string() : it->second.extension;
 }
 
 bool PackageSet::isMap(std::string_view name) const {
     const std::string ext = extension(name);
-    return !ext.empty() && std::find(mapExtensions_.begin(), mapExtensions_.end(), ext) != mapExtensions_.end();
+    return !ext.empty() && std::find(_mapExtensions.begin(), _mapExtensions.end(), ext) != _mapExtensions.end();
 }
 
 std::vector<std::string> PackageSet::mapNames() const {
     std::vector<std::string> out;
-    for (const auto &[key, e] : entries_)
+    for (const auto &[key, e] : _entries)
         if (isMap(key))
             out.push_back(e.name);
     return out;

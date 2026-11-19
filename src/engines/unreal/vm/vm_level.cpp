@@ -49,25 +49,25 @@ Error readLevelActors(const Package &map, std::vector<int32_t> &out) {
     return r.ok() ? Error::success() : Error::fail(map.name() + ": the actor list runs past the end");
 }
 
-ScriptLevel::ScriptLevel(Vm &vm, const Package &map) : vm_(vm), map_(map) {
-    vm_.level = this;
-    registerEngineNatives(vm_);
+ScriptLevel::ScriptLevel(Vm &vm, const Package &map) : _vm(vm), _map(map) {
+    _vm.level = this;
+    registerEngineNatives(_vm);
     reseedEffectRandom();
     reseedEffectPhysicsRandom();
     reseedCoreRandom();
 }
 
 ScriptLevel::~ScriptLevel() {
-    if (vm_.level == this)
-        vm_.level = nullptr;
+    if (_vm.level == this)
+        _vm.level = nullptr;
 }
 
 Error ScriptLevel::load() {
-    hasModel_ = findLevelModel(map_, &model_) >= 0 && !model_.nodes.empty();
-    if (hasModel_)
-        collision_ = std::make_unique<LevelCollision>(model_);
+    _hasModel = findLevelModel(_map, &_model) >= 0 && !_model.nodes.empty();
+    if (_hasModel)
+        _collision = std::make_unique<LevelCollision>(_model);
     // Movers' brushes' boxes, for colliding with them where they've moved.
-    for (const Mover &m : findMovers(vm_.packages(), map_, nullptr)) {
+    for (const Mover &m : findMovers(_vm.packages(), _map, nullptr)) {
         BrushBox b;
         b.min = {1e30f, 1e30f, 1e30f};
         b.max = {-1e30f, -1e30f, -1e30f};
@@ -90,19 +90,19 @@ Error ScriptLevel::load() {
                 const float dx = v[0] - m.prePivot[0], dy = v[1] - m.prePivot[1], dz = v[2] - m.prePivot[2];
                 b.radius = std::max(b.radius, std::sqrt(dx * dx + dy * dy + dz * dz) * scale);
             }
-        for (size_t i = 0; i < map_.exports().size(); ++i)
-            if (map_.path(int32_t(i) + 1) == m.name) {
-                brushes_[int(i)] = b;
+        for (size_t i = 0; i < _map.exports().size(); ++i)
+            if (_map.path(int32_t(i) + 1) == m.name) {
+                _brushes[int(i)] = b;
                 break;
             }
     }
     std::vector<int32_t> refs;
-    if (Error err = readLevelActors(map_, refs))
+    if (Error err = readLevelActors(_map, refs))
         return err;
     // A saved game's ghosts (actors out of the level for now) are made too.
     std::set<int32_t> ghostRefs;
-    if (!readLevelExtras(map_, saved_))
-        for (int32_t g : saved_.ghosts)
+    if (!readLevelExtras(_map, _saved))
+        for (int32_t g : _saved.ghosts)
             if (g > 0 && ghostRefs.insert(g).second)
                 refs.push_back(g);
     // First every actor, so they can refer to each other; then their
@@ -113,11 +113,11 @@ Error ScriptLevel::load() {
         if (ref <= 0)
             continue;
         const int index = ref - 1;
-        const Export &e = map_.exports()[size_t(index)];
-        const ObjectRef cref = vm_.packages().resolve(map_, e.classRef);
-        VmClass *cls = cref ? vm_.classAt(*cref.package, cref.exportIndex) : nullptr;
+        const Export &e = _map.exports()[size_t(index)];
+        const ObjectRef cref = _vm.packages().resolve(_map, e.classRef);
+        VmClass *cls = cref ? _vm.classAt(*cref.package, cref.exportIndex) : nullptr;
         if (!cls) {
-            vm_.reportError("the level's actor " + map_.path(ref) + " has no class that loads");
+            _vm.reportError("the level's actor " + _map.path(ref) + " has no class that loads");
             continue;
         }
         // UnrealEd keeps its viewports' cameras in the level as Camera
@@ -128,40 +128,40 @@ Error ScriptLevel::load() {
         for (const VmClass *c = cls; c && !camera; c = c->parent())
             camera = lowerText(c->name) == "camera";
         if (camera) {
-            ++editorCameras_;
+            ++_editorCameras;
             continue;
         }
-        VmObject *a = vm_.create(cls, vm_.name(map_.objectName(ref)));
-        vm_.adopt(map_, index, a);
+        VmObject *a = _vm.create(cls, _vm.name(_map.objectName(ref)));
+        _vm.adopt(_map, index, a);
         level.push_back(a);
         made.push_back({a, index});
-        (ghostRefs.count(ref) ? ghosts_ : actors_).push_back(a);
+        (ghostRefs.count(ref) ? _ghosts : _actors).push_back(a);
     }
     for (const auto &[a, index] : made) {
         std::vector<uint8_t> data;
         PropertyList props;
-        if (Error err = map_.readExport(index, data)) {
-            vm_.reportError(err.message);
+        if (Error err = _map.readExport(index, data)) {
+            _vm.reportError(err.message);
             continue;
         }
-        Reader r(data, size_t(map_.exports()[size_t(index)].serialOffset));
+        Reader r(data, size_t(_map.exports()[size_t(index)].serialOffset));
         StateFrame frame;
-        if (Error err = beginObject(map_, index, r, props, &frame)) {
-            vm_.reportError(err.message);
+        if (Error err = beginObject(_map, index, r, props, &frame)) {
+            _vm.reportError(err.message);
             continue;
         }
         if (frame.has)
-            savedFrames_[a] = frame;
-        vm_.applyProperties(a, map_, props);
-        localizedSet_ += vm_.applyLocalizedActor(a, map_.name());
-        if (!levelInfo_ && vm_.isA(a, "LevelInfo"))
-            levelInfo_ = a;
+            _savedFrames[a] = frame;
+        _vm.applyProperties(a, _map, props);
+        _localizedSet += _vm.applyLocalizedActor(a, _map.name());
+        if (!_levelInfo && _vm.isA(a, "LevelInfo"))
+            _levelInfo = a;
         // A mover's brush's own BSP (UnrealEd builds one for each), to
         // collide with it where it's moved to.
-        if (vm_.isA(a, "Mover"))
-            movers_.push_back(a);
-        if (auto it = brushes_.find(index); it != brushes_.end())
-            if (Value *brush = a->find(vm_, "Brush"); brush && brush->asObject() && brush->o->package) {
+        if (_vm.isA(a, "Mover"))
+            _movers.push_back(a);
+        if (auto it = _brushes.find(index); it != _brushes.end())
+            if (Value *brush = a->find(_vm, "Brush"); brush && brush->asObject() && brush->o->package) {
                 auto model = std::make_shared<Model>();
                 if (!readModel(*brush->o->package, brush->o->exportIndex, *model, false) && !model->nodes.empty()) {
                     it->second.collision = std::make_shared<LevelCollision>(*model);
@@ -169,24 +169,24 @@ Error ScriptLevel::load() {
                 }
             }
     }
-    if (!levelInfo_)
-        return Error::fail(map_.name() + ": no LevelInfo among its actors");
-    const std::vector<int> levels = map_.exportsOfClass("Level");
-    levelObject_ = levels.empty() ? nullptr : vm_.objectAt(map_, levels.front() + 1);
+    if (!_levelInfo)
+        return Error::fail(_map.name() + ": no LevelInfo among its actors");
+    const std::vector<int> levels = _map.exportsOfClass("Level");
+    _levelObject = levels.empty() ? nullptr : _vm.objectAt(_map, levels.front() + 1);
     for (VmObject *a : level)
-        if (Value *v = a->find(vm_, "Outer"))
-            v->o = levelObject_;
-    for (VmObject *a : actors_)
+        if (Value *v = a->find(_vm, "Outer"))
+            v->o = _levelObject;
+    for (VmObject *a : _actors)
         init(a);
     loadPaths();
     return Error::success();
 }
 
 void ScriptLevel::init(VmObject *a) {
-    if (Value *v = a->find(vm_, "Level"))
-        v->o = levelInfo_;
-    if (Value *v = a->find(vm_, "XLevel"))
-        v->o = levelObject_;
+    if (Value *v = a->find(_vm, "Level"))
+        v->o = _levelInfo;
+    if (Value *v = a->find(_vm, "XLevel"))
+        v->o = _levelObject;
 }
 
 // The level's start, as UGameEngine::LoadMap: the game type spawned (while
@@ -197,67 +197,67 @@ void ScriptLevel::init(VmObject *a) {
 // those spawned on the way: SetInitialState, PreBeginPlay, BeginPlay, its
 // zone (ZoneChange if it's in a ZoneInfo's), PostBeginPlay, its base.
 void ScriptLevel::beginPlay(const std::string &defaultGame) {
-    vm_.holdEvents = true;
-    if (Value *v = levelInfo_->find(vm_, "bHighDetailMode"))
+    _vm.holdEvents = true;
+    if (Value *v = _levelInfo->find(_vm, "bHighDetailMode"))
         *v = Value::boolValue(true);
     // The game type: the level's own, else the default.
     VmClass *gameClass = nullptr;
-    if (Value *v = levelInfo_->find(vm_, "DefaultGameType"); v && v->asObject() && v->o->asClass)
+    if (Value *v = _levelInfo->find(_vm, "DefaultGameType"); v && v->asObject() && v->o->asClass)
         gameClass = v->o->asClass;
     if (!gameClass)
-        gameClass = vm_.findClass(defaultGame);
+        gameClass = _vm.findClass(defaultGame);
     if (gameClass) {
-        game_ = spawn(gameClass, nullptr, 0, nullptr, nullptr);
-        if (Value *v = levelInfo_->find(vm_, "Game"))
-            v->o = game_;
+        _game = spawn(gameClass, nullptr, 0, nullptr, nullptr);
+        if (Value *v = _levelInfo->find(_vm, "Game"))
+            v->o = _game;
     } else {
-        vm_.reportError("no game type " + defaultGame);
+        _vm.reportError("no game type " + defaultGame);
     }
     for (const char *field : {"TimeSeconds", "NoPauseTimeSeconds"})
-        if (Value *v = levelInfo_->find(vm_, field))
+        if (Value *v = _levelInfo->find(_vm, field))
             v->f = 0;
     // Those placed as ghosts (The Fallen's bIsGhost: a guard who arrives
     // later, an effect for a scene) set aside before anything starts, until
     // an event brings them back (GhostActors, MakeGhost), when they start
     // as if spawned.
     {
-        const std::vector<VmObject *> placed = actors_;
+        const std::vector<VmObject *> placed = _actors;
         for (VmObject *a : placed)
-            if (const Value *ghost = a != game_ ? prop(a, "bIsGhost") : nullptr; ghost && ghost->asBool()) {
+            if (const Value *ghost = a != _game ? prop(a, "bIsGhost") : nullptr; ghost && ghost->asBool()) {
                 makeGhost(a, true);
-                ++placedGhosts_;
+                ++_placedGhosts;
             }
     }
-    for (VmObject *a : actors_)
+    for (VmObject *a : _actors)
         if (Value *v = prop(a, "Touching"))
             for (size_t k = 0; k < 4; ++k)
                 v[k] = Value::objectValue(nullptr);
-    if (Value *v = levelInfo_->find(vm_, "bBegunPlay"))
+    if (Value *v = _levelInfo->find(_vm, "bBegunPlay"))
         *v = Value::boolValue(true);
-    if (Value *v = levelInfo_->find(vm_, "bStartup"))
+    if (Value *v = _levelInfo->find(_vm, "bStartup"))
         *v = Value::boolValue(true);
-    vm_.holdEvents = false;
-    if (game_) {
+    _vm.holdEvents = false;
+    if (_game) {
         Value error = Value::stringValue("");
-        if (VmFunction *f = vm_.findFunction(game_, vm_.name("InitGame")))
-            vm_.invoke(f, game_, {Value::stringValue(options_), error}, {nullptr, &error});
+        if (VmFunction *f = _vm.findFunction(_game, _vm.name("InitGame")))
+            _vm.invoke(f, _game, {Value::stringValue(_options), error}, {nullptr, &error});
     }
     auto pass = [&](auto &&each) {
-        for (size_t i = 0; i < actors_.size(); ++i)
-            if (VmObject *a = actors_[i]; !a->deleted)
+        for (size_t i = 0; i < _actors.size(); ++i)
+            if (VmObject *a = _actors[i]; !a->deleted)
                 each(a);
     };
-    pass([&](VmObject *a) { vm_.callEvent(a, "SetInitialState"); });
-    pass([&](VmObject *a) { vm_.callEvent(a, "PreBeginPlay"); });
+    pass([&](VmObject *a) { _vm.callEvent(a, "SetInitialState"); });
+    pass([&](VmObject *a) { _vm.callEvent(a, "PreBeginPlay"); });
     pass([&](VmObject *a) {
-        vm_.callEvent(a, "BeginPlay");
+        _vm.callEvent(a, "BeginPlay");
         if (Value *v = prop(a, "bHasBegunPlay"))
             *v = Value::boolValue(true);
     });
     pass([&](VmObject *a) { startZone(a); });
-    pass([&](VmObject *a) { vm_.callEvent(a, "PostBeginPlay"); });
+    pass([&](VmObject *a) { _vm.callEvent(a, "PostBeginPlay"); });
     pass([&](VmObject *a) { startBase(a); });
-    if (Value *v = levelInfo_->find(vm_, "bStartup"))
+    if (Value *v = _levelInfo->find(_vm, "bStartup"))
         *v = Value::boolValue(false);
 }
 
@@ -266,12 +266,12 @@ void ScriptLevel::beginPlay(const std::string &defaultGame) {
 void ScriptLevel::startZone(VmObject *a) {
     Value *region = prop(a, "Region");
     const Value *location = prop(a, "Location");
-    if (!region || !location || !hasModel_)
+    if (!region || !location || !_hasModel)
         return;
-    vm_.assign(*region, regionAt(Vm::vectorOf(*location)));
+    _vm.assign(*region, regionAt(Vm::vectorOf(*location)));
     VmObject *zone = !region->fields.empty() ? region->fields[0].asObject() : nullptr;
-    if (zone && zone != levelInfo_)
-        vm_.callEvent(a, "ZoneChange", {Value::objectValue(zone)});
+    if (zone && zone != _levelInfo)
+        _vm.callEvent(a, "ZoneChange", {Value::objectValue(zone)});
     if (!a->deleted)
         updateBodyRegions(a, false);
 }
@@ -283,7 +283,7 @@ void ScriptLevel::startZone(VmObject *a) {
 void ScriptLevel::startBase(VmObject *a) {
     if (const Value *t = prop(a, "AttachTag"); t && t->i != 0) {
         VmObject *onto = nullptr;
-        for (VmObject *b : actors_)
+        for (VmObject *b : _actors)
             if (const Value *tag = b != a && !b->deleted ? prop(b, "Tag") : nullptr; tag && tag->i == t->i)
                 onto = b;
         if (onto)
@@ -296,17 +296,17 @@ void ScriptLevel::startBase(VmObject *a) {
     if (!base || base->asObject() || !world || !world->asBool() || !physics ||
         (physics->asInt() != 0 && physics->asInt() != 5))
         return;
-    if (!vm_.isA(a, "Decoration") && !vm_.isA(a, "Inventory") && !vm_.isA(a, "Pawn"))
+    if (!_vm.isA(a, "Decoration") && !_vm.isA(a, "Inventory") && !_vm.isA(a, "Pawn"))
         return;
     const MoveHit h = testMove(a, {0, 0, -8});
-    if (h.hit() && h.actor && h.actor != levelInfo_)
+    if (h.hit() && h.actor && h.actor != _levelInfo)
         setBase(a, h.actor);
 }
 
 VmObject *ScriptLevel::login(const std::string &playerClass, const std::string &playerName, std::string &error,
                              const std::string &portal) {
     error.clear();
-    if (!game_) {
+    if (!_game) {
         error = "no game type to log in to";
         return nullptr;
     }
@@ -318,9 +318,9 @@ VmObject *ScriptLevel::login(const std::string &playerClass, const std::string &
     {
         VmObject *chosen = nullptr;
         bool matched = false;
-        const NameId portalName = portal.empty() ? 0 : vm_.name(portal);
-        for (VmObject *a : actors_) {
-            if (a->deleted || !vm_.isA(a, "CTVE_PlayerStart"))
+        const NameId portalName = portal.empty() ? 0 : _vm.name(portal);
+        for (VmObject *a : _actors) {
+            if (a->deleted || !_vm.isA(a, "CTVE_PlayerStart"))
                 continue;
             const Value *p = prop(a, "Player");
             if (!p || !p->asObject() || !p->o->asClass)
@@ -342,26 +342,26 @@ VmObject *ScriptLevel::login(const std::string &playerClass, const std::string &
             cls = prop(chosen, "Player")->o->asClass;
     }
     if (!cls && !playerClass.empty())
-        cls = vm_.findClass(playerClass);
+        cls = _vm.findClass(playerClass);
     if (!cls)
-        cls = vm_.findClass("PLYR.DS9_Sisko");
+        cls = _vm.findClass("PLYR.DS9_Sisko");
     if (!cls) {
         error = "no player class";
         return nullptr;
     }
-    VmFunction *login = vm_.findFunction(game_, vm_.name("Login"));
+    VmFunction *login = _vm.findFunction(_game, _vm.name("Login"));
     if (!login) {
-        error = game_->cls->name + " has no Login";
+        error = _game->cls->name + " has no Login";
         return nullptr;
     }
-    const std::string options = "?Name=" + playerName + "?Class=" + cls->package->name() + "." + cls->name + options_;
+    const std::string options = "?Name=" + playerName + "?Class=" + cls->package->name() + "." + cls->name + _options;
     Value message = Value::stringValue("");
     const Value pawn =
-        vm_.invoke(login, game_,
+        _vm.invoke(login, _game,
                    {Value::stringValue(portal), Value::stringValue(options), message, Value::objectValue(cls->object)},
                    {nullptr, nullptr, &message, nullptr});
-    player_ = pawn.asObject();
-    if (!player_) {
+    _player = pawn.asObject();
+    if (!_player) {
         error = "Login refused: " + (message.s.empty() ? std::string("no reason given") : message.s);
         return nullptr;
     }
@@ -373,51 +373,51 @@ VmObject *ScriptLevel::login(const std::string &playerClass, const std::string &
     // TravelPostAccept, last first; the player's TravelPostAccept;
     // PostLogin.
     attachViewport();
-    vm_.callEvent(player_, "Possess");
-    if (Value *v = prop(player_, "bAdmin"))
+    _vm.callEvent(_player, "Possess");
+    if (Value *v = prop(_player, "bAdmin"))
         *v = Value::boolValue(true);
-    vm_.callEvent(player_, "TravelPreAccept");
-    const std::vector<VmObject *> travelled = acceptTravel(incomingTravel_);
+    _vm.callEvent(_player, "TravelPreAccept");
+    const std::vector<VmObject *> travelled = acceptTravel(_incomingTravel);
     for (auto it = travelled.rbegin(); it != travelled.rend(); ++it)
         if (!(*it)->deleted)
-            vm_.callEvent(*it, "TravelPreAccept");
-    vm_.callEvent(game_, "AcceptInventory", {Value::objectValue(player_)});
+            _vm.callEvent(*it, "TravelPreAccept");
+    _vm.callEvent(_game, "AcceptInventory", {Value::objectValue(_player)});
     for (auto it = travelled.rbegin(); it != travelled.rend(); ++it)
         if (!(*it)->deleted)
-            vm_.callEvent(*it, "TravelPostAccept");
-    vm_.callEvent(player_, "TravelPostAccept");
-    vm_.callEvent(game_, "PostLogin", {Value::objectValue(player_)});
-    if (carriedPlayedTime_ >= 0)
-        if (Value *v = prop(player_, "GamePlayedTime"))
-            *v = Value::floatValue(carriedPlayedTime_);
-    return player_;
+            _vm.callEvent(*it, "TravelPostAccept");
+    _vm.callEvent(_player, "TravelPostAccept");
+    _vm.callEvent(_game, "PostLogin", {Value::objectValue(_player)});
+    if (_carriedPlayedTime >= 0)
+        if (Value *v = prop(_player, "GamePlayedTime"))
+            *v = Value::floatValue(_carriedPlayedTime);
+    return _player;
 }
 
 // The engine's side of the player: a viewport (a class with no script,
 // made up as a kind of Player) with the .ini's console.
 void ScriptLevel::attachViewport() {
-    VmClass *playerBase = vm_.findClass("Engine.Player");
-    VmClass *viewportClass = vm_.defineIntrinsic("Viewport", playerBase);
-    VmObject *viewport = vm_.create(viewportClass, vm_.name("Viewport0"));
-    if (Value *v = viewport->find(vm_, "Actor"))
-        v->o = player_;
-    if (VmClass *consoleClass = vm_.findClass(iniSetting(vm_.packages(), "Engine.Engine", "Console"))) {
-        VmObject *console = vm_.create(consoleClass, 0, viewport);
-        if (Value *v = viewport->find(vm_, "Console"))
+    VmClass *playerBase = _vm.findClass("Engine.Player");
+    VmClass *viewportClass = _vm.defineIntrinsic("Viewport", playerBase);
+    VmObject *viewport = _vm.create(viewportClass, _vm.name("Viewport0"));
+    if (Value *v = viewport->find(_vm, "Actor"))
+        v->o = _player;
+    if (VmClass *consoleClass = _vm.findClass(iniSetting(_vm.packages(), "Engine.Engine", "Console"))) {
+        VmObject *console = _vm.create(consoleClass, 0, viewport);
+        if (Value *v = viewport->find(_vm, "Console"))
             v->o = console;
-        if (Value *v = console->find(vm_, "Viewport"))
+        if (Value *v = console->find(_vm, "Viewport"))
             v->o = viewport;
     }
-    if (Value *v = player_->find(vm_, "Player"))
+    if (Value *v = _player->find(_vm, "Player"))
         v->o = viewport;
 }
 
 Value ScriptLevel::regionAt(const std::array<float, 3> &p) {
     int zone = 0, leaf = -1;
-    if (hasModel_) {
+    if (_hasModel) {
         int32_t n = 0;
-        for (int guard = 0; guard < 100000 && n >= 0 && size_t(n) < model_.nodes.size(); ++guard) {
-            const BspNode &node = model_.nodes[size_t(n)];
+        for (int guard = 0; guard < 100000 && n >= 0 && size_t(n) < _model.nodes.size(); ++guard) {
+            const BspNode &node = _model.nodes[size_t(n)];
             const bool front = node.plane[0] * p[0] + node.plane[1] * p[1] + node.plane[2] * p[2] - node.plane[3] >= 0;
             zone = node.zone[front ? 1 : 0];
             leaf = node.leaf[front ? 1 : 0];
@@ -427,23 +427,23 @@ Value ScriptLevel::regionAt(const std::array<float, 3> &p) {
         }
     }
     Value v;
-    Value *saved = levelInfo_ ? levelInfo_->find(vm_, "Region") : nullptr;
-    if (saved && saved->type == VType::Struct) {
+    Value *saved = _levelInfo ? _levelInfo->find(_vm, "Region") : nullptr;
+    if (saved && saved->type == VType::kStruct) {
         v = *saved;
         if (const VmStruct *st = v.st) {
             VmObject *zoneActor =
-                size_t(zone) < model_.zones.size() ? vm_.objectAt(map_, model_.zones[size_t(zone)].actor) : nullptr;
+                size_t(zone) < _model.zones.size() ? _vm.objectAt(_map, _model.zones[size_t(zone)].actor) : nullptr;
             // A zone with no ZoneInfo of its own (or outside them all) is
             // the level's: LevelInfo is the default zone, as in UE1.
             // Scripts read Region.Zone everywhere (the player's ViewFlash,
             // UnderWaterSounds, HandleWalking took None 150,000 times).
             if (!zoneActor)
-                zoneActor = levelInfo_;
-            if (VmProperty *f = st->findProperty(vm_.name("Zone")))
+                zoneActor = _levelInfo;
+            if (VmProperty *f = st->findProperty(_vm.name("Zone")))
                 v.fields[size_t(f->slot)] = Value::objectValue(zoneActor);
-            if (VmProperty *f = st->findProperty(vm_.name("iLeaf")))
+            if (VmProperty *f = st->findProperty(_vm.name("iLeaf")))
                 v.fields[size_t(f->slot)] = Value::intValue(leaf);
-            if (VmProperty *f = st->findProperty(vm_.name("ZoneNumber")))
+            if (VmProperty *f = st->findProperty(_vm.name("ZoneNumber")))
                 v.fields[size_t(f->slot)] = Value::byteValue(zone);
         }
     }
@@ -456,7 +456,7 @@ void ScriptLevel::litActors(std::vector<LitActor> &out) {
         const Value *v = prop(a, name);
         return v ? uint8_t(v->asInt()) : otherwise;
     };
-    for (VmObject *a : actors_) {
+    for (VmObject *a : _actors) {
         if (a->deleted)
             continue;
         const Value *type = prop(a, "LightType");
@@ -507,25 +507,25 @@ void ScriptLevel::makeNoise(VmObject *maker, float loudness) {
     auto isPawn = [&](VmObject *a) {
         if (!a || a->deleted)
             return false;
-        auto it = pawnClasses_.find(a->cls);
-        if (it == pawnClasses_.end())
-            it = pawnClasses_.emplace(a->cls, vm_.isA(a, "Pawn")).first;
+        auto it = _pawnClasses.find(a->cls);
+        if (it == _pawnClasses.end())
+            it = _pawnClasses.emplace(a->cls, _vm.isA(a, "Pawn")).first;
         return it->second;
     };
     if (!isPawn(maker) && !isPawn(instigator) && !isPawn(owner))
         return;
     ++noise.made;
-    const std::vector<VmObject *> now = actors_;
+    const std::vector<VmObject *> now = _actors;
     for (VmObject *p : now) {
-        if (p == maker || p == owner || p == instigator || p == player_ || p->deleted)
+        if (p == maker || p == owner || p == instigator || p == _player || p->deleted)
             continue;
         if (!isPawn(p))
             continue;
         const Value *health = prop(p, "Health");
         if (health && health->asInt() <= 0)
             continue;
-        float &quiet = noiseQuiet_[p];
-        if (quiet > time_)
+        float &quiet = _noiseQuiet[p];
+        if (quiet > _time)
             continue;
         const Value *loc = prop(p, "Location");
         if (!loc)
@@ -542,19 +542,19 @@ void ScriptLevel::makeNoise(VmObject *maker, float loudness) {
             heard *= 0.5f;
         if (heard < need)
             continue;
-        quiet = time_ + 0.2f;
+        quiet = _time + 0.2f;
         ++noise.heard;
-        vm_.callEvent(p, "HearNoise", {Value::floatValue(heard), Value::objectValue(maker)});
+        _vm.callEvent(p, "HearNoise", {Value::floatValue(heard), Value::objectValue(maker)});
     }
 }
 
 void ScriptLevel::updateRegion(VmObject *a) {
-    if (!a || !hasModel_)
+    if (!a || !_hasModel)
         return;
     Value *location = prop(a, "Location");
     Value *region = prop(a, "Region");
     if (location && region)
-        vm_.assign(*region, regionAt(Vm::vectorOf(*location)));
+        _vm.assign(*region, regionAt(Vm::vectorOf(*location)));
     updateBodyRegions(a, false);
 }
 
@@ -567,7 +567,7 @@ void ScriptLevel::updateBodyRegions(VmObject *a, bool events) {
     Value *foot = prop(a, "FootRegion");
     Value *head = prop(a, "HeadRegion");
     const Value *location = prop(a, "Location");
-    if (!foot || !head || !location || !hasModel_)
+    if (!foot || !head || !location || !_hasModel)
         return;
     const auto at = Vm::vectorOf(*location);
     const Value *h = prop(a, "CollisionHeight");
@@ -583,7 +583,7 @@ void ScriptLevel::updateBodyRegions(VmObject *a, bool events) {
     // (CTVE_PlayerPawn's) ChestHeight up its standing height (its height
     // when swimming); the head at its eyes. (Engine.dll was read as giving
     // the player no head region, but its scripts read one throughout.)
-    const bool player = vm_.isA(a, "CTVE_PlayerPawn");
+    const bool player = _vm.isA(a, "CTVE_PlayerPawn");
     float chestZ = 0;
     if (player) {
         const Value *stand = prop(a, "StandCollisionHeight");
@@ -599,15 +599,15 @@ void ScriptLevel::updateBodyRegions(VmObject *a, bool events) {
         if (!p.region)
             continue;
         const VmObject *before = !p.region->fields.empty() ? p.region->fields[0].asObject() : nullptr;
-        vm_.assign(*p.region, regionAt({at[0], at[1], p.z}));
+        _vm.assign(*p.region, regionAt({at[0], at[1], p.z}));
         VmObject *now = !p.region->fields.empty() ? p.region->fields[0].asObject() : nullptr;
         if (events && now && before && now != before && !a->deleted)
-            vm_.callEvent(a, p.event, {Value::objectValue(now)});
+            _vm.callEvent(a, p.event, {Value::objectValue(now)});
     }
 }
 
 bool ScriptLevel::paused() const {
-    const Value *v = levelInfo_ ? levelInfo_->find(vm_, "Pauser") : nullptr;
+    const Value *v = _levelInfo ? _levelInfo->find(_vm, "Pauser") : nullptr;
     return v && !v->s.empty();
 }
 
@@ -621,26 +621,26 @@ bool ScriptLevel::paused() const {
 // input (its axes 0) and only bAlwaysTick actors tick.
 void ScriptLevel::tick(float seconds) {
     const bool stopped = paused();
-    if (const Value *d = levelInfo_->find(vm_, "TimeDilation"); d && d->asFloat() > 0)
+    if (const Value *d = _levelInfo->find(_vm, "TimeDilation"); d && d->asFloat() > 0)
         seconds *= d->asFloat();
     if (!stopped) {
-        time_ += seconds;
-        if (Value *v = levelInfo_->find(vm_, "TimeSeconds"))
+        _time += seconds;
+        if (Value *v = _levelInfo->find(_vm, "TimeSeconds"))
             v->f += seconds;
     }
-    if (Value *v = levelInfo_->find(vm_, "NoPauseTimeSeconds"))
+    if (Value *v = _levelInfo->find(_vm, "NoPauseTimeSeconds"))
         v->f += seconds;
     seconds = std::clamp(seconds, 0.005f, 0.4f);
-    if (Value *v = levelInfo_->find(vm_, "DeltaTime"))
+    if (Value *v = _levelInfo->find(_vm, "DeltaTime"))
         v->f = seconds;
     // As ULevel::Tick: each actor in the level's order, those spawned on
     // the way too; one whose owner hasn't ticked yet waits for it, ticked
     // in a pass after (and another, while those passes get anywhere).
     std::vector<VmObject *> later;
     bool progress = false;
-    for (size_t i = 0; i < actors_.size(); ++i) {
-        VmObject *a = actors_[i];
-        if (a->deleted || a == levelInfo_)
+    for (size_t i = 0; i < _actors.size(); ++i) {
+        VmObject *a = _actors[i];
+        if (a->deleted || a == _levelInfo)
             continue;
         progress |= tickActor(a, seconds, stopped, later);
     }
@@ -649,37 +649,37 @@ void ScriptLevel::tick(float seconds) {
         pass.swap(later);
         progress = false;
         for (VmObject *a : pass)
-            if (!a->deleted && ticked_[a] != tickedFlag_)
+            if (!a->deleted && _ticked[a] != _tickedFlag)
                 progress |= tickActor(a, seconds, stopped, later);
     }
-    tickedFlag_ = !tickedFlag_;
+    _tickedFlag = !_tickedFlag;
     // What's attached (C3DAttach) goes where its holder now is.
     placeAttached();
     // The console ticks as the client does, paused or not (its UWindow
     // menus).
     if (VmObject *con = console())
-        vm_.callEvent(con, "Tick", {Value::floatValue(seconds)});
+        _vm.callEvent(con, "Tick", {Value::floatValue(seconds)});
     // The dialogue, paused or not.
     tickDialog(seconds);
     // The audio driver's update: the mouths that follow the sounds.
     lipSyncUpdate();
     tickFlis(seconds);
-    ++ticks_;
-    for (VmObject *a : actors_)
+    ++_ticks;
+    for (VmObject *a : _actors)
         if (a->deleted)
-            ticked_.erase(a);
-    actors_.erase(std::remove_if(actors_.begin(), actors_.end(), [](VmObject *a) { return a->deleted; }),
-                  actors_.end());
+            _ticked.erase(a);
+    _actors.erase(std::remove_if(_actors.begin(), _actors.end(), [](VmObject *a) { return a->deleted; }),
+                  _actors.end());
 }
 
 void ScriptLevel::zonesRendered(uint64_t zones, int cameraZone) {
-    const float now = levelInfo_ ? pf(levelInfo_, "TimeSeconds") : 0;
-    for (size_t z = 0; z < zoneRenderTime_.size(); ++z)
+    const float now = _levelInfo ? pf(_levelInfo, "TimeSeconds") : 0;
+    for (size_t z = 0; z < _zoneRenderTime.size(); ++z)
         if ((zones >> z) & 1)
-            zoneRenderTime_[z] = now;
+            _zoneRenderTime[z] = now;
     if (cameraZone >= 0)
-        cameraZone_ = cameraZone;
-    renderedTick_ = ticks_;
+        _cameraZone = cameraZone;
+    _renderedTick = _ticks;
 }
 
 // The Fallen's sleep (the engine's ShutDown), at the top of AActor::Tick:
@@ -702,30 +702,30 @@ bool ScriptLevel::sleeping(VmObject *a) {
     // CTVE_DllObject: no Next), whatever it's drawn as.
     const auto emptyMultiMesh = [&] {
         VmObject *m = objectProp(a, "MultiMesh");
-        const Value *next = m ? m->find(vm_, "Next") : nullptr;
+        const Value *next = m ? m->find(_vm, "Next") : nullptr;
         return m && (!next || !next->asObject());
     };
     // No view (all seen), or a cut scene being skipped (the engine's
     // bFastForward, FastForward's).
-    if (!levelInfo_ || renderedTick_ < ticks_ - 2 || fastForward())
+    if (!_levelInfo || _renderedTick < _ticks - 2 || fastForward())
         return false;
     if (pb(a, "bMustNotShutDown") || pf(a, "LifeSpan") != 0)
         return false;
     const Value *region = prop(a, "Region");
     const int zone = region && region->fields.size() > 2 ? region->fields[2].asInt() : 0;
-    if (zone <= 0 || zone >= int(zoneRenderTime_.size()))
+    if (zone <= 0 || zone >= int(_zoneRenderTime.size()))
         return false;
     Value *drawn = prop(a, "LastRenderTime");
     Value *stasis = prop(a, "bForceStasis");
     if (!drawn || !stasis)
         return false;
-    const float now = pf(levelInfo_, "TimeSeconds");
+    const float now = pf(_levelInfo, "TimeSeconds");
     const int drawType = int(pf(a, "DrawType"));
-    const bool byZone = pb(a, "bHidden") || pb(a, "bWakeWhenSeeZone") || (drawType == 0 && !vm_.isA(a, "Decal")) ||
+    const bool byZone = pb(a, "bHidden") || pb(a, "bWakeWhenSeeZone") || (drawType == 0 && !_vm.isA(a, "Decal")) ||
                         (drawType == 2 && !objectProp(a, "Mesh")) ||
                         ((drawType == 1 || drawType == 7) && !objectProp(a, "Texture")) || emptyMultiMesh();
     if (byZone)
-        *drawn = Value::floatValue(cameraZone_ <= 0 ? now : zoneRenderTime_[size_t(zone)]);
+        *drawn = Value::floatValue(_cameraZone <= 0 ? now : _zoneRenderTime[size_t(zone)]);
     const float elapsed = now - drawn->asFloat();
     if (!stasis->asBool()) {
         if (elapsed < 5)
@@ -743,7 +743,7 @@ bool ScriptLevel::sleeping(VmObject *a) {
         *stasis = Value::boolValue(false);
         return false;
     }
-    if (elapsed <= 6 + std::uniform_real_distribution<float>(0, 1)(sleepRandom_))
+    if (elapsed <= 6 + std::uniform_real_distribution<float>(0, 1)(_sleepRandom))
         return true;
     if (mayShutDown(a, now, zone)) {
         *drawn = Value::floatValue(now - 5);
@@ -759,16 +759,16 @@ bool ScriptLevel::sleeping(VmObject *a) {
 // not while the player can see it (its zone drawn in the last 5 seconds
 // and nothing of the world between).
 bool ScriptLevel::mayShutDown(VmObject *a, float now, int zone) {
-    if (pb(a, "bAskMeBeforeShuttingDown") && !vm_.callEvent(a, "CanIShutYouDown").asBool())
+    if (pb(a, "bAskMeBeforeShuttingDown") && !_vm.callEvent(a, "CanIShutYouDown").asBool())
         return false;
     if (a->deleted)
         return false;
     if (pb(a, "bWakeWhenSeePlayer") && !pb(a, "bWakeWhenSeeZone")) {
-        if (now - zoneRenderTime_[size_t(zone)] >= 5)
+        if (now - _zoneRenderTime[size_t(zone)] >= 5)
             return true;
-        if (!player_)
+        if (!_player)
             return true;
-        return !lineOfSight(a, pv(player_, "Location"), pv(a, "Location"));
+        return !lineOfSight(a, pv(_player, "Location"), pv(a, "Location"));
     }
     return true;
 }
@@ -781,12 +781,12 @@ bool ScriptLevel::mayShutDown(VmObject *a, float now, int zone) {
 bool ScriptLevel::tickActor(VmObject *a, float seconds, bool stopped, std::vector<VmObject *> &later) {
     if (const Value *st = prop(a, "bStatic"); st && st->asBool())
         return false;
-    if (stopped && a != player_) {
+    if (stopped && a != _player) {
         const Value *always = prop(a, "bAlwaysTick");
         if (!always || !always->asBool())
             return false;
     }
-    if (a == player_) {
+    if (a == _player) {
         // The input axes, as the engine sets them each frame: those
         // the keys are bound to (DefUser.ini's MoveForward is "Axis
         // aBaseY Speed=+300", TurnRight "Axis aBaseX Speed=+150"...),
@@ -810,43 +810,43 @@ bool ScriptLevel::tickActor(VmObject *a, float seconds, bool stopped, std::vecto
             {"aBaseZ", 0},
         };
         for (const auto &[axis, value] : axes)
-            if (Value *v = a->find(vm_, axis))
+            if (Value *v = a->find(_vm, axis))
                 v->f = value;
         controls.mouseX = controls.mouseY = 0; // the mouse's movement goes into one tick
         for (const auto &[button, held] : {std::pair{"bExtra1", controls.jump}, std::pair{"bDuck", controls.duck},
                                            std::pair{"bFire", controls.fire}})
-            if (Value *v = a->find(vm_, button))
+            if (Value *v = a->find(_vm, button))
                 v->i = held && !stopped ? 1 : 0;
         if (stopped) {
-            vm_.callEvent(a, "PlayerInput", {Value::floatValue(seconds)});
+            _vm.callEvent(a, "PlayerInput", {Value::floatValue(seconds)});
             return false;
         }
     }
     if (sleeping(a))
         return false;
     if (const Value *o = prop(a, "Owner"))
-        if (VmObject *owner = o->asObject(); owner && !owner->deleted && ticked_[owner] != tickedFlag_) {
+        if (VmObject *owner = o->asObject(); owner && !owner->deleted && _ticked[owner] != _tickedFlag) {
             later.push_back(a);
             return false;
         }
-    ticked_[a] = tickedFlag_;
+    _ticked[a] = _tickedFlag;
     animate(a, seconds);
     if (a->deleted)
         return true;
-    if (a == player_) {
-        vm_.callEvent(a, "PlayerInput", {Value::floatValue(seconds)});
+    if (a == _player) {
+        _vm.callEvent(a, "PlayerInput", {Value::floatValue(seconds)});
         if (Value *old = prop(a, "OldLocation"))
             if (const Value *at = prop(a, "Location"))
-                vm_.assign(*old, *at);
-        vm_.callEvent(a, "PlayerTick", {Value::floatValue(seconds)});
+                _vm.assign(*old, *at);
+        _vm.callEvent(a, "PlayerTick", {Value::floatValue(seconds)});
     }
-    vm_.tick(a, seconds, a != player_);
+    _vm.tick(a, seconds, a != _player);
     // A life span running out: Expired, then gone. Any but 0 counts down
     // (one below 0 at once).
     if (Value *life = a->deleted ? nullptr : prop(a, "LifeSpan"); life && life->asFloat() != 0) {
         life->f -= seconds;
         if (life->f <= 0.0001f) {
-            vm_.callEvent(a, "Expired");
+            _vm.callEvent(a, "Expired");
             destroy(a);
             return true;
         }
@@ -857,21 +857,21 @@ bool ScriptLevel::tickActor(VmObject *a, float seconds, bool stopped, std::vecto
     // and in The Fallen the arms' IK, which puts the weapon in hand.
     if (!a->deleted)
         if (const Value *p = prop(a, "bIsPlayer"); p && p->asBool())
-            vm_.callEvent(a, "UpdateEyeHeight", {Value::floatValue(seconds)});
+            _vm.callEvent(a, "UpdateEyeHeight", {Value::floatValue(seconds)});
     if (!a->deleted)
         moveMultiMeshes(a, seconds);
     // The engine only counts PainTime down (a full tick, a pawn): its
     // scripts set it (in water, UnderWaterTime; in a pain zone, 0.01) and
     // PainTimer does the drowning or the zone's harm, then sets it again.
     if (!a->deleted && !stopped) {
-        auto it = pawnClasses_.find(a->cls);
-        if (it == pawnClasses_.end())
-            it = pawnClasses_.emplace(a->cls, vm_.isA(a, "Pawn")).first;
+        auto it = _pawnClasses.find(a->cls);
+        if (it == _pawnClasses.end())
+            it = _pawnClasses.emplace(a->cls, _vm.isA(a, "Pawn")).first;
         if (Value *pain = it->second ? prop(a, "PainTime") : nullptr; pain && pain->asFloat() > 0) {
             *pain = Value::floatValue(pain->asFloat() - seconds);
             if (pain->asFloat() < 0.001f) {
                 *pain = Value::floatValue(0);
-                vm_.callEvent(a, "PainTimer");
+                _vm.callEvent(a, "PainTimer");
             }
         }
     }
@@ -880,38 +880,38 @@ bool ScriptLevel::tickActor(VmObject *a, float seconds, bool stopped, std::vecto
 
 VmObject *ScriptLevel::spawn(VmClass *cls, VmObject *owner, NameId tag, const Value *location, const Value *rotation) {
     if (!cls || (cls->classFlags & 0x1)) { // abstract
-        vm_.reportError("Spawn of " + std::string(cls ? "abstract class " + cls->name : "no class"));
+        _vm.reportError("Spawn of " + std::string(cls ? "abstract class " + cls->name : "no class"));
         return nullptr;
     }
-    VmObject *a = vm_.create(cls, 0, levelObject_);
+    VmObject *a = _vm.create(cls, 0, _levelObject);
     if (!a->isActor) {
         a->deleted = true;
-        vm_.reportError("Spawn of " + cls->name + ", not an actor");
+        _vm.reportError("Spawn of " + cls->name + ", not an actor");
         return nullptr;
     }
-    actors_.push_back(a);
-    ticked_[a] = !tickedFlag_; // not ticked yet this time
+    _actors.push_back(a);
+    _ticked[a] = !_tickedFlag; // not ticked yet this time
     init(a);
-    if (Value *v = a->find(vm_, "Owner"))
+    if (Value *v = a->find(_vm, "Owner"))
         v->o = owner;
-    if (Value *v = a->find(vm_, "Tag"))
+    if (Value *v = a->find(_vm, "Tag"))
         v->i = tag ? tag : cls->nameId;
     // Where it fits, if it collides with the world (or bCollideWhenPlacing);
     // as SpawnActor does, if it fits nowhere near it isn't spawned.
     if (location && !place(a, Vm::vectorOf(*location), true)) {
         a->deleted = true;
-        actors_.erase(std::remove(actors_.begin(), actors_.end(), a), actors_.end());
+        _actors.erase(std::remove(_actors.begin(), _actors.end(), a), _actors.end());
         ++movement.spawnsRefused;
-        if (vm_.logger)
-            vm_.logger("Log: SpawnActor failed because of collision at the spawn location [" + cls->name + "]");
+        if (_vm.logger)
+            _vm.logger("Log: SpawnActor failed because of collision at the spawn location [" + cls->name + "]");
         return nullptr;
     }
     if (rotation)
-        if (Value *v = a->find(vm_, "Rotation"))
-            vm_.assign(*v, *rotation);
+        if (Value *v = a->find(_vm, "Rotation"))
+            _vm.assign(*v, *rotation);
     updateRegion(a);
     if (owner && !owner->deleted)
-        vm_.callEvent(owner, "GainedChild", {Value::objectValue(a)});
+        _vm.callEvent(owner, "GainedChild", {Value::objectValue(a)});
     startAsSpawned(a);
     return a->deleted ? nullptr : a;
 }
@@ -922,13 +922,13 @@ void ScriptLevel::startAsSpawned(VmObject *a) {
     for (const char *event : {"SetInitialState", "Spawned", "PreBeginPlay", "BeginPlay"}) {
         if (a->deleted)
             return;
-        vm_.callEvent(a, event);
+        _vm.callEvent(a, event);
     }
     if (a->deleted)
         return;
     updateRegion(a);
     if (!a->deleted)
-        vm_.callEvent(a, "PostBeginPlay");
+        _vm.callEvent(a, "PostBeginPlay");
     if (Value *v = prop(a, "bHasBegunPlay"))
         *v = Value::boolValue(true);
 }
@@ -936,24 +936,24 @@ void ScriptLevel::startAsSpawned(VmObject *a) {
 void ScriptLevel::destroy(VmObject *a) {
     if (!a || a->deleted)
         return;
-    vm_.callEvent(a, "Destroyed");
-    if (Value *owner = a->find(vm_, "Owner"); owner && owner->asObject())
-        vm_.callEvent(owner->o, "LostChild", {Value::objectValue(a)});
-    if (Value *v = a->find(vm_, "bDeleteMe"))
+    _vm.callEvent(a, "Destroyed");
+    if (Value *owner = a->find(_vm, "Owner"); owner && owner->asObject())
+        _vm.callEvent(owner->o, "LostChild", {Value::objectValue(a)});
+    if (Value *v = a->find(_vm, "bDeleteMe"))
         v->i = 1;
     a->deleted = true;
-    bends_.erase(a);
-    ghosts_.erase(std::remove(ghosts_.begin(), ghosts_.end(), a), ghosts_.end());
-    decals_.erase(a);
-    sparkFlash_.erase(a);
-    clambers_.erase(a);
-    noiseQuiet_.erase(a);
+    _bends.erase(a);
+    _ghosts.erase(std::remove(_ghosts.begin(), _ghosts.end(), a), _ghosts.end());
+    _decals.erase(a);
+    _sparkFlash.erase(a);
+    _clambers.erase(a);
+    _noiseQuiet.erase(a);
 }
 
 void ScriptLevel::makeGhost(VmObject *a, bool ghost) {
     if (!a || a->deleted)
         return;
-    const bool now = std::find(ghosts_.begin(), ghosts_.end(), a) != ghosts_.end();
+    const bool now = std::find(_ghosts.begin(), _ghosts.end(), a) != _ghosts.end();
     // (bIsGhost may say so already: placed as one.)
     if (ghost == now)
         return;
@@ -962,9 +962,9 @@ void ScriptLevel::makeGhost(VmObject *a, bool ghost) {
         // Destroyed, not bDeleteMe): EndState; no base, and nothing based
         // on it; its own actors without an owner; done touching (UnTouch
         // both ways); its owner's LostChild.
-        vm_.callEvent(a, "EndState");
+        _vm.callEvent(a, "EndState");
         setBase(a, nullptr);
-        const std::vector<VmObject *> others = actors_;
+        const std::vector<VmObject *> others = _actors;
         for (VmObject *o : others) {
             if (o == a || o->deleted)
                 continue;
@@ -973,28 +973,28 @@ void ScriptLevel::makeGhost(VmObject *a, bool ghost) {
             if (Value *w = prop(o, "Owner"); w && w->asObject() == a)
                 w->o = nullptr;
         }
-        const std::vector<VmObject *> touched = touching_[a];
+        const std::vector<VmObject *> touched = _touching[a];
         for (VmObject *o : touched) {
-            auto &theirs = touching_[o];
+            auto &theirs = _touching[o];
             theirs.erase(std::remove(theirs.begin(), theirs.end(), a), theirs.end());
-            vm_.callEvent(a, "UnTouch", {Value::objectValue(o)});
-            vm_.callEvent(o, "UnTouch", {Value::objectValue(a)});
+            _vm.callEvent(a, "UnTouch", {Value::objectValue(o)});
+            _vm.callEvent(o, "UnTouch", {Value::objectValue(a)});
         }
-        touching_.erase(a);
+        _touching.erase(a);
         if (Value *t = prop(a, "Touching"))
             for (size_t k = 0; k < 4; ++k)
                 t[k] = Value::objectValue(nullptr);
         if (const Value *w = prop(a, "Owner"); w && w->asObject() && !w->o->deleted)
-            vm_.callEvent(w->o, "LostChild", {Value::objectValue(a)});
-        actors_.erase(std::remove(actors_.begin(), actors_.end(), a), actors_.end());
-        ghosts_.push_back(a);
+            _vm.callEvent(w->o, "LostChild", {Value::objectValue(a)});
+        _actors.erase(std::remove(_actors.begin(), _actors.end(), a), _actors.end());
+        _ghosts.push_back(a);
     } else {
-        ghosts_.erase(std::remove(ghosts_.begin(), ghosts_.end(), a), ghosts_.end());
-        actors_.push_back(a);
+        _ghosts.erase(std::remove(_ghosts.begin(), _ghosts.end(), a), _ghosts.end());
+        _actors.push_back(a);
     }
     if (Value *v = prop(a, "bIsGhost"))
         *v = Value::boolValue(ghost);
-    collidersTick_ = -1;
+    _collidersTick = -1;
     // Back, as SpawnActor takes it again: one placed as a ghost starts as
     // if spawned; one that began play already gets only its zone
     // (ZoneChange if a ZoneInfo's) and base again.
@@ -1013,7 +1013,7 @@ void ScriptLevel::tickActor(VmObject *a, float seconds) {
         return;
     animate(a, seconds);
     if (!a->deleted)
-        vm_.tick(a, seconds);
+        _vm.tick(a, seconds);
 }
 
 namespace {

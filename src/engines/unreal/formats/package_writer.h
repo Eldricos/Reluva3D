@@ -53,27 +53,27 @@ public:
                      const std::string &className);
     // A new export; returns its reference (index + 1).
     int32_t addExport(int32_t classRef, int32_t outerRef, const std::string &objectName, uint32_t flags);
-    void setFlags(int32_t ref, uint32_t flags) { exports_[size_t(ref - 1)].e.flags = flags; }
+    void setFlags(int32_t ref, uint32_t flags) { _exports[size_t(ref - 1)].e.flags = flags; }
     // An export's data, in place of what the base has.
     void setData(int32_t ref, std::vector<uint8_t> data);
     // Left out: written with no data (an object the level no longer has).
     void drop(int32_t ref);
-    size_t exportCount() const { return exports_.size(); }
+    size_t exportCount() const { return _exports.size(); }
 
     Error write(const std::string &path) const;
 
 private:
-    const Package &base_;
-    std::vector<NameEntry> names_;
-    std::map<std::string, int32_t> nameIndex_; // lower case
-    std::vector<Import> imports_;
-    std::map<std::string, int32_t> importIndex_; // "classpackage.classname path", lower case
+    const Package &_base;
+    std::vector<NameEntry> _names;
+    std::map<std::string, int32_t> _nameIndex; // lower case
+    std::vector<Import> _imports;
+    std::map<std::string, int32_t> _importIndex; // "classpackage.classname path", lower case
     struct Out {
         Export e;
         bool replaced = false, dropped = false;
         std::vector<uint8_t> data;
     };
-    std::vector<Out> exports_;
+    std::vector<Out> _exports;
 };
 
 } // namespace reluva::unreal

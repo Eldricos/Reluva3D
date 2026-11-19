@@ -174,10 +174,10 @@ std::string command(NativeCall &c, const std::string &text) {
 } // namespace
 
 VmObject *ScriptLevel::console() {
-    if (!player_ || player_->deleted)
+    if (!_player || _player->deleted)
         return nullptr;
-    const Value *viewport = player_->find(vm_, "Player");
-    const Value *con = viewport && viewport->asObject() ? viewport->o->find(vm_, "Console") : nullptr;
+    const Value *viewport = _player->find(_vm, "Player");
+    const Value *con = viewport && viewport->asObject() ? viewport->o->find(_vm, "Console") : nullptr;
     return con ? con->asObject() : nullptr;
 }
 

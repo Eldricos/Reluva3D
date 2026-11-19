@@ -25,7 +25,7 @@ class AnimatedTexture {
 public:
     virtual ~AnimatedTexture() = default;
     // The current picture (RGBA, the texture's size).
-    const image::Image &image() const { return image_; }
+    const image::Image &image() const { return _image; }
     // Moves on by `seconds`; true if the picture changed.
     virtual bool advance(float seconds) = 0;
     // What it is: "fire", "water", "wave", "wet", "ice", "FLC".
@@ -43,7 +43,7 @@ public:
     }
 
 protected:
-    image::Image image_;
+    image::Image _image;
 };
 
 // Whether a texture class is one AnimatedTexture plays.

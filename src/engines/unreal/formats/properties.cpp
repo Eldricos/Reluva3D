@@ -56,7 +56,7 @@ uint8_t PropertyList::byte(std::string_view name, uint8_t fallback, int arrayInd
 
 bool PropertyList::boolean(std::string_view name, bool fallback, int arrayIndex) const {
     const Property *p = find(name, arrayIndex);
-    return p && p->type == PropertyType::Bool ? p->boolValue : fallback;
+    return p && p->type == PropertyType::kBool ? p->boolValue : fallback;
 }
 
 int32_t PropertyList::object(std::string_view name, int arrayIndex) const {
@@ -102,7 +102,7 @@ std::string PropertyList::string(std::string_view name, int version, int arrayIn
     const Property *p = find(name, arrayIndex);
     if (!p)
         return {};
-    if (p->type == PropertyType::String) {
+    if (p->type == PropertyType::kString) {
         // A fixed-size buffer, NUL-terminated.
         std::string s(p->data.begin(), p->data.end());
         return s.substr(0, s.find('\0'));
@@ -130,7 +130,7 @@ Error readProperties(const Package &package, Reader &r, PropertyList &out) {
         Property p;
         p.name = name;
         p.type = static_cast<PropertyType>(info & 15);
-        if (p.type == PropertyType::Struct) {
+        if (p.type == PropertyType::kStruct) {
             const int32_t s = r.index();
             p.structName = package.name(s);
         }
@@ -161,7 +161,7 @@ Error readProperties(const Package &package, Reader &r, PropertyList &out) {
             size = r.u32();
             break;
         }
-        if (p.type == PropertyType::Bool) {
+        if (p.type == PropertyType::kBool) {
             p.boolValue = (info & 0x80) != 0;
             size = 0;
         } else if (info & 0x80) {
@@ -190,7 +190,7 @@ Error beginObject(const Package &package, int index, Reader &r, PropertyList &ou
     const Export &e = package.exports()[size_t(index)];
     if (e.classRef == 0)
         return Error::fail(package.name(e.objectName) + " is a class");
-    if (e.flags & objflag::HasStack) {
+    if (e.flags & objflag::kHasStack) {
         // The state the object is in: its node and state node, the
         // events it ignores, its latent action, and where in the node's
         // code it is (only when it's in one).
@@ -214,34 +214,34 @@ std::string describe(const Package &package, const Property &p) {
     Reader r(p.data);
     char buf[128];
     switch (p.type) {
-    case PropertyType::Bool:
+    case PropertyType::kBool:
         return p.boolValue ? "true" : "false";
-    case PropertyType::Byte:
+    case PropertyType::kByte:
         return p.data.empty() ? "?" : std::to_string(p.data[0]);
-    case PropertyType::Int:
+    case PropertyType::kInt:
         return std::to_string(r.i32());
-    case PropertyType::Float:
+    case PropertyType::kFloat:
         std::snprintf(buf, sizeof buf, "%g", double(r.f32()));
         return buf;
-    case PropertyType::Object:
-    case PropertyType::Class: {
+    case PropertyType::kObject:
+    case PropertyType::kClass: {
         const int32_t ref = r.index();
         return ref == 0 ? "None" : package.className(ref) + "'" + package.path(ref) + "'";
     }
-    case PropertyType::Name:
+    case PropertyType::kName:
         return package.name(r.index());
-    case PropertyType::Str:
+    case PropertyType::kStr:
         return "\"" + r.string(package.version()) + "\"";
-    case PropertyType::String: {
+    case PropertyType::kString: {
         const std::string s(p.data.begin(), p.data.end());
         return "\"" + s.substr(0, s.find('\0')) + "\"";
     }
     default:
         break;
     }
-    if ((p.type == PropertyType::Struct && (p.structName == "Vector" || p.structName == "Rotator")) ||
-        p.type == PropertyType::Vector || p.type == PropertyType::Rotator) {
-        const bool rot = p.structName == "Rotator" || p.type == PropertyType::Rotator;
+    if ((p.type == PropertyType::kStruct && (p.structName == "Vector" || p.structName == "Rotator")) ||
+        p.type == PropertyType::kVector || p.type == PropertyType::kRotator) {
+        const bool rot = p.structName == "Rotator" || p.type == PropertyType::kRotator;
         if (p.data.size() >= 12) {
             if (rot) {
                 const int32_t a = r.i32(), b = r.i32(), c = r.i32();

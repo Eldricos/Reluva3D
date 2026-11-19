@@ -98,7 +98,7 @@ float ScriptLevel::defaultRadius(VmObject *a) {
     for (const VmClass *c = a->cls; c; c = c->parent())
         if (c->name.size() == 15 && std::equal(c->name.begin(), c->name.end(), "ctve_playerpawn",
                                                [](char p, char q) { return std::tolower((unsigned char)p) == q; }))
-            if (VmProperty *p = c->findProperty(vm_.name("CollisionRadius")); p && size_t(p->slot) < c->defaults.size())
+            if (VmProperty *p = c->findProperty(_vm.name("CollisionRadius")); p && size_t(p->slot) < c->defaults.size())
                 return c->defaults[size_t(p->slot)].asFloat();
     return climbFloat(a, "CollisionRadius", 17);
 }
@@ -125,9 +125,9 @@ float ScriptLevel::testStepUp(VmObject *a, float stepHeight, float height, const
     const Sweep down = sweep(a, on.at, add(on.at, {0, 0, -(climbed + 1)}), extent);
     if (!down.hit() || down.normal[2] <= 0.65f)
         return 0;
-    set("LedgeItem", Value::intValue(down.actor == levelInfo_ ? 0 : -1));
+    set("LedgeItem", Value::intValue(down.actor == _levelInfo ? 0 : -1));
     set("LedgeHeight", Value::floatValue(down.at[2] - extent[2]));
-    set("LedgeNormal", vm_.vectorValue(down.normal[0], down.normal[1], down.normal[2]));
+    set("LedgeNormal", _vm.vectorValue(down.normal[0], down.normal[1], down.normal[2]));
     if (height != 0) {
         const Sweep room = sweep(a, down.at, add(down.at, {0, 0, 2 * (height - extent[2])}), extent);
         set("HeadRoom", Value::floatValue(extent[2] + (height - extent[2]) * room.time));
@@ -217,7 +217,7 @@ bool ScriptLevel::testForLedge(VmObject *a, const Vec &hitNormal, const Vec &dir
     const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
     const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
     bool noAction = false;
-    if (VmObject *li = levelInfo_)
+    if (VmObject *li = _levelInfo)
         if (const Value *v = prop(li, "bNoActionLevel"))
             noAction = v->asBool();
     if (!(std::fabs(hitNormal[2]) < 0.1f && dot(f, hitNormal) < -0.85f && dot(x, hitNormal) < -0.85f && !crouching &&
@@ -253,7 +253,7 @@ void ScriptLevel::forceDuck(VmObject *a) {
         *o = Value::floatValue(height);
     if (Value *f = prop(a, "ForceDuckLocation")) {
         const Vec at = Vm::vectorOf(*prop(a, "Location"));
-        vm_.setVector(*f, at[0], at[1], at[2] + duck - height);
+        _vm.setVector(*f, at[0], at[1], at[2] + duck - height);
     }
     if (Value *c = prop(a, "bIsCrouching"))
         *c = Value::boolValue(true);
@@ -356,9 +356,9 @@ bool ScriptLevel::askClimb(VmObject *a, const Vec &wallNormal, int physics) {
     const Value before = r ? *r : Value{};
     if (r) {
         const auto f = facing(mul(wallNormal, -1));
-        *r = vm_.rotatorValue(f[0], f[1], f[2]);
+        *r = _vm.rotatorValue(f[0], f[1], f[2]);
     }
-    const bool yes = vm_.callEvent(a, "ChangePhysics", {Value::byteValue(physics)}).asBool();
+    const bool yes = _vm.callEvent(a, "ChangePhysics", {Value::byteValue(physics)}).asBool();
     if (!yes && r && !a->deleted)
         *r = before;
     return yes;
@@ -368,7 +368,7 @@ bool ScriptLevel::askClimb(VmObject *a, const Vec &wallNormal, int physics) {
 // the move to go): a ledge to pull up onto (Clambering), else a ladder
 // (Climbing). True if its scripts took it.
 bool ScriptLevel::climbBlocked(VmObject *a, VmObject *by, const Vec &hitNormal, const Vec &left) {
-    if (by != levelInfo_ || !vm_.isA(a, "CTVE_PlayerPawn"))
+    if (by != _levelInfo || !_vm.isA(a, "CTVE_PlayerPawn"))
         return false;
     if (testForLedge(a, hitNormal, left))
         return askClimb(a, hitNormal, kPhysClambering) || true;
@@ -386,7 +386,7 @@ bool ScriptLevel::climbBlocked(VmObject *a, VmObject *by, const Vec &hitNormal, 
 // put there with the box's top at the ledge.
 void ScriptLevel::climbCheck(VmObject *a, bool falling, float dt) {
     (void)dt;
-    if (!falling || !vm_.isA(a, "CTVE_PlayerPawn"))
+    if (!falling || !_vm.isA(a, "CTVE_PlayerPawn"))
         return;
     const Value *loc = prop(a, "Location");
     if (!loc)
@@ -443,11 +443,11 @@ void ScriptLevel::setLocation(VmObject *a, const Vec &to) {
     if (!loc)
         return;
     const Vec from = Vm::vectorOf(*loc);
-    vm_.setVector(*loc, to[0], to[1], to[2]);
+    _vm.setVector(*loc, to[0], to[1], to[2]);
     updateRegion(a);
     if (Value *off = prop(a, "LocationOffset")) {
         const Vec o = sub(Vm::vectorOf(*off), sub(to, from));
-        vm_.setVector(*off, o[0], o[1], o[2]);
+        _vm.setVector(*off, o[0], o[1], o[2]);
     }
 }
 
@@ -464,7 +464,7 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
         if (a->deleted)
             return;
         const Vec v = mul(sub(Vm::vectorOf(*loc), old), 1 / dt);
-        vm_.setVector(*velocity, v[0], v[1], v[2]);
+        _vm.setVector(*velocity, v[0], v[1], v[2]);
     };
 
     if (physics == kPhysClimbing) {
@@ -479,17 +479,17 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
                 Value *v = prop(a, "Velocity");
                 if (v) {
                     Vec now = Vm::vectorOf(*v);
-                    vm_.setVector(*v, now[0], now[1], 0);
+                    _vm.setVector(*v, now[0], now[1], 0);
                 }
-                vm_.callEvent(a, "Landed", {vm_.vectorValue(h.normal[0], h.normal[1], h.normal[2])});
+                _vm.callEvent(a, "Landed", {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2])});
                 return;
             }
         } else if (d[2] > 0) {
             const MoveHit h = moveActor(a, mul(x, 4));
             if (!a->deleted && h.hit() && testForLedge(a, h.normal, mul(x, 4)) &&
-                vm_.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysClambering)}).asBool())
+                _vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysClambering)}).asBool())
                 return;
-        } else if (vm_.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysFalling)}).asBool()) {
+        } else if (_vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysFalling)}).asBool()) {
             return;
         }
         moved();
@@ -504,7 +504,7 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
         const Vec n = flat(mul(x, -1));
         Vec p = Vm::vectorOf(*loc);
         if (!hangLedge(a, n, p)) {
-            vm_.callEvent(a, "Falling");
+            _vm.callEvent(a, "Falling");
         } else {
             const float radius = climbFloat(a, "CollisionRadius", 17), hand = climbFloat(a, "HandCollisionHeight", 4);
             d = mul(d, sweep(a, p, add(p, d), {radius, radius, hand}).time);
@@ -521,16 +521,16 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
     // 4 units forward; once clear (or 4 over), Landed with what it felt
     // (its scripts set the rise to 0); then forward at 120 a second until
     // something stops it, when it walks. Blocked going up: it falls.
-    vm_.setVector(*velocity, 0, 0, 0);
+    _vm.setVector(*velocity, 0, 0, 0);
     if (Value *ac = prop(a, "Acceleration"))
-        vm_.setVector(*ac, 0, 0, 0);
+        _vm.setVector(*ac, 0, 0, 0);
     const float rise = climbFloat(a, "DodgeClickTimer", 0);
     if (rise > 0) {
         const MoveHit up = moveActor(a, {0, 0, rise * dt});
         if (a->deleted)
             return;
         if (up.hit()) {
-            vm_.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysFalling)});
+            _vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysFalling)});
             return;
         }
     }
@@ -540,11 +540,11 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
     if (rise > 0) {
         const MoveHit ahead = moveActor(a, mul(x, 4));
         if (!a->deleted && (!ahead.hit() || over > 4))
-            vm_.callEvent(a, "Landed", {vm_.vectorValue(ahead.normal[0], ahead.normal[1], ahead.normal[2])});
+            _vm.callEvent(a, "Landed", {_vm.vectorValue(ahead.normal[0], ahead.normal[1], ahead.normal[2])});
     } else {
         const MoveHit on = moveActor(a, mul(x, 120 * dt));
         if (!a->deleted && on.hit())
-            vm_.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysWalking)});
+            _vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysWalking)});
     }
 }
 
@@ -556,12 +556,12 @@ std::array<float, 3> ScriptLevel::Clamber::to(float height) const {
 // A pull up ended (its scripts walk again as its animation ends): on the
 // ledge, wherever the animation had got to.
 void ScriptLevel::endClamber(VmObject *a) {
-    auto it = clambers_.find(a);
-    if (it == clambers_.end())
+    auto it = _clambers.find(a);
+    if (it == _clambers.end())
         return;
     const float height = prop(a, "CollisionHeight") ? prop(a, "CollisionHeight")->asFloat() : 49.5f;
     const Vec to = it->second.to(height);
-    clambers_.erase(it);
+    _clambers.erase(it);
     if (clear(to, extentOf(a), a))
         setLocation(a, to);
 }

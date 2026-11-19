@@ -188,7 +188,7 @@ inline void tag(Bytes &o, PackageWriter &w, const std::string &name, PropertyTyp
     o.index(w.name(name));
     int code = size <= 1 ? 0 : size == 2 ? 1 : size == 4 ? 2 : size == 12 ? 3 : size == 16 ? 4 : 5;
     o.u8(int(type) | code << 4 | (arrayIndex ? 0x80 : 0));
-    if (type == PropertyType::Struct)
+    if (type == PropertyType::kStruct)
         o.index(w.name(structName));
     if (code == 5)
         o.u8(int(size));
@@ -213,13 +213,13 @@ inline std::vector<uint8_t> texturePackage() {
         pal.u8(i), pal.u8(255 - i), pal.u8(7), pal.u8(0);
     const int32_t palRef = w.addExport(palClass, 0, "BrickPal", pal.b);
     Bytes tex;
-    tag(tex, w, "Palette", PropertyType::Object, 1);
+    tag(tex, w, "Palette", PropertyType::kObject, 1);
     tex.index(palRef);
-    tag(tex, w, "USize", PropertyType::Int, 4);
+    tag(tex, w, "USize", PropertyType::kInt, 4);
     tex.i32(4);
-    tag(tex, w, "VSize", PropertyType::Int, 4);
+    tag(tex, w, "VSize", PropertyType::kInt, 4);
     tex.i32(2);
-    tag(tex, w, "bMasked", PropertyType::Bool, 0);
+    tag(tex, w, "bMasked", PropertyType::kBool, 0);
     tex.b.back() |= 0x80;
     endProps(tex, w);
     tex.index(1); // one mipmap

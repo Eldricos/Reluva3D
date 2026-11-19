@@ -46,7 +46,7 @@ struct ViewContext {
     const std::vector<std::string> &warnings;
     audio::Mixer *mixer = nullptr; // none if the system has no audio
     // How imported-model meshes are turned, on both 3D pages (M changes it).
-    MeshTurn meshTurn = MeshTurn::Reverse;
+    MeshTurn meshTurn = MeshTurn::kReverse;
     int meshYawQuarters = kImportYawQuarters; // and about Z (Y changes it)
     // Where the game's saved games go (GameTarget::savePath's "Saves");
     // empty: none can be saved.
@@ -64,7 +64,7 @@ struct ViewContext {
 
 class Page {
 public:
-    explicit Page(ViewContext &ctx) : ctx_(ctx) {}
+    explicit Page(ViewContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
     virtual const char *name() const = 0;
@@ -84,7 +84,7 @@ protected:
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
     void setTitle(const std::string &detail);
 
-    ViewContext &ctx_;
+    ViewContext &_ctx;
 };
 
 } // namespace reluva::unreal

@@ -23,16 +23,16 @@ void testModel() {
     const int32_t lightClass = w.addImport("Engine", "Class", 0, "Light");
     const int32_t zoneClass = w.addImport("Engine", "Class", 0, "ZoneInfo");
     Bytes la;
-    tag(la, w, "Location", PropertyType::Struct, 12, 0, "Vector");
+    tag(la, w, "Location", PropertyType::kStruct, 12, 0, "Vector");
     la.vec(0, 0, 64);
-    tag(la, w, "LightBrightness", PropertyType::Byte, 1);
+    tag(la, w, "LightBrightness", PropertyType::kByte, 1);
     la.u8(128);
-    tag(la, w, "LightRadius", PropertyType::Byte, 1);
+    tag(la, w, "LightRadius", PropertyType::kByte, 1);
     la.u8(9); // 250 units
     endProps(la, w);
     const int32_t light = w.addExport(lightClass, 0, "Light0", la.b);
     Bytes za;
-    tag(za, w, "AmbientBrightness", PropertyType::Byte, 1);
+    tag(za, w, "AmbientBrightness", PropertyType::kByte, 1);
     za.u8(16);
     endProps(za, w);
     const int32_t zone = w.addExport(zoneClass, 0, "ZoneInfo0", za.b);
@@ -193,7 +193,7 @@ void testModel() {
               lenient.hasLighting() && lenient.lightMaps.size() == 1);
     }
     // Invisible surfaces aren't drawn.
-    m.surfs[0].polyFlags = polyflag::Invisible;
+    m.surfs[0].polyFlags = polyflag::kInvisible;
     CHECK(levelPolygons(m).empty());
 }
 
@@ -237,19 +237,19 @@ void testActors() {
     const int32_t modelRef = w.addExport(modelClass, 0, "Model5", model.b);
 
     Bytes mover;
-    tag(mover, w, "Location", PropertyType::Struct, 12, 0, "Vector");
+    tag(mover, w, "Location", PropertyType::kStruct, 12, 0, "Vector");
     mover.vec(10, 20, 30);
-    tag(mover, w, "KeyPos", PropertyType::Struct, 12, 1, "Vector");
+    tag(mover, w, "KeyPos", PropertyType::kStruct, 12, 1, "Vector");
     mover.vec(0, 0, 64);
-    tag(mover, w, "MoveTime", PropertyType::Float, 4);
+    tag(mover, w, "MoveTime", PropertyType::kFloat, 4);
     mover.f32(2);
-    tag(mover, w, "Brush", PropertyType::Object, 1);
+    tag(mover, w, "Brush", PropertyType::kObject, 1);
     mover.index(modelRef);
     endProps(mover, w);
     w.addExport(elevatorClass, 0, "ElevatorMover0", mover.b);
 
     Bytes sky;
-    tag(sky, w, "Location", PropertyType::Struct, 12, 0, "Vector");
+    tag(sky, w, "Location", PropertyType::kStruct, 12, 0, "Vector");
     sky.vec(1000, 2000, 3000);
     endProps(sky, w);
     w.addExport(skyClass, 0, "SkyZoneInfo0", sky.b);
@@ -305,7 +305,7 @@ void testZoneVisibility() {
     n.vertexCount = 4;
     m.nodes.push_back(n);
     BspSurf s;
-    s.polyFlags = polyflag::Portal;
+    s.polyFlags = polyflag::kPortal;
     m.surfs.push_back(s);
     for (const Vec3f &p : {Vec3f{0, -50, -50}, Vec3f{0, 50, -50}, Vec3f{0, 50, 50}, Vec3f{0, -50, 50}}) {
         m.verts.push_back({int32_t(m.points.size()), 0});

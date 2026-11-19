@@ -13,32 +13,32 @@ namespace reluva::unreal {
 // --- Reader -----------------------------------------------------------------------------
 
 void Reader::seek(size_t absolute) {
-    if (absolute < base_ || absolute > base_ + size_) {
-        ok_ = false;
-        pos_ = size_;
+    if (absolute < _base || absolute > _base + _size) {
+        _ok = false;
+        _pos = _size;
         return;
     }
-    pos_ = absolute - base_;
+    _pos = absolute - _base;
 }
 
 void Reader::skip(size_t n) {
     if (n > remaining()) {
-        ok_ = false;
-        pos_ = size_;
+        _ok = false;
+        _pos = _size;
         return;
     }
-    pos_ += n;
+    _pos += n;
 }
 
 bool Reader::bytes(void *out, size_t n) {
     if (n > remaining()) {
-        ok_ = false;
-        pos_ = size_;
+        _ok = false;
+        _pos = _size;
         std::memset(out, 0, n);
         return false;
     }
-    std::memcpy(out, data_ + pos_, n);
-    pos_ += n;
+    std::memcpy(out, _data + _pos, n);
+    _pos += n;
     return true;
 }
 
@@ -106,7 +106,7 @@ std::string Reader::string(int version) {
             s.pop_back();
         return s;
     }
-    while (ok_) {
+    while (_ok) {
         const char c = static_cast<char>(u8());
         if (c == '\0')
             break;
@@ -129,35 +129,35 @@ Error Package::open(const std::filesystem::path &file) {
     std::vector<uint8_t> data(size > 0 ? size_t(size) : 0);
     if (!data.empty() && !in.read(reinterpret_cast<char *>(data.data()), std::streamsize(data.size())))
         return Error::fail("Can't read " + file.string());
-    file_ = file;
-    name_ = file.stem().string();
-    memory_.clear();
+    _file = file;
+    _name = file.stem().string();
+    _memory.clear();
     if (Error err = parse(data))
         return Error::fail(file.filename().string() + ": " + err.message);
     return Error::success();
 }
 
 Error Package::openMemory(std::vector<uint8_t> data, std::string name) {
-    file_.clear();
-    name_ = std::move(name);
+    _file.clear();
+    _name = std::move(name);
     if (Error err = parse(data))
-        return Error::fail(name_ + ": " + err.message);
-    memory_ = std::move(data);
+        return Error::fail(_name + ": " + err.message);
+    _memory = std::move(data);
     return Error::success();
 }
 
 Error Package::parse(const std::vector<uint8_t> &data) {
-    stream_.reset();
-    names_.clear();
-    imports_.clear();
-    exports_.clear();
-    fileSize_ = data.size();
+    _stream.reset();
+    _names.clear();
+    _imports.clear();
+    _exports.clear();
+    _fileSize = data.size();
     Reader r(data);
     if (r.u32() != kPackageTag || !r.ok())
         return Error::fail("not an Unreal package");
-    version_ = r.u16();
-    licensee_ = r.u16();
-    flags_ = r.u32();
+    _version = r.u16();
+    _licensee = r.u16();
+    _flags = r.u32();
     const uint32_t nameCount = r.u32(), nameOffset = r.u32();
     const uint32_t exportCount = r.u32(), exportOffset = r.u32();
     const uint32_t importCount = r.u32(), importOffset = r.u32();
@@ -170,17 +170,17 @@ Error Package::parse(const std::vector<uint8_t> &data) {
             return Error::fail("table counts larger than the file");
 
     r.seek(nameOffset);
-    names_.resize(nameCount);
-    for (NameEntry &n : names_) {
-        n.name = r.string(version_);
+    _names.resize(nameCount);
+    for (NameEntry &n : _names) {
+        n.name = r.string(_version);
         n.flags = r.u32();
     }
     if (!r.ok())
         return Error::fail("name table runs past the end");
 
     r.seek(importOffset);
-    imports_.resize(importCount);
-    for (Import &i : imports_) {
+    _imports.resize(importCount);
+    for (Import &i : _imports) {
         i.classPackage = r.index();
         i.className = r.index();
         i.package = r.i32();
@@ -190,8 +190,8 @@ Error Package::parse(const std::vector<uint8_t> &data) {
         return Error::fail("import table runs past the end");
 
     r.seek(exportOffset);
-    exports_.resize(exportCount);
-    for (Export &e : exports_) {
+    _exports.resize(exportCount);
+    for (Export &e : _exports) {
         e.classRef = r.index();
         e.superRef = r.index();
         e.package = r.i32();
@@ -205,32 +205,32 @@ Error Package::parse(const std::vector<uint8_t> &data) {
     }
     if (!r.ok())
         return Error::fail("export table runs past the end or points outside the file");
-    byName_.clear();
-    for (size_t i = 0; i < exports_.size(); ++i)
-        byName_[fs::toLower(name(exports_[i].objectName))].push_back(int(i));
+    _byName.clear();
+    for (size_t i = 0; i < _exports.size(); ++i)
+        _byName[fs::toLower(name(_exports[i].objectName))].push_back(int(i));
     return Error::success();
 }
 
 const std::string &Package::name(int32_t index) const {
-    static const std::string none;
-    return index >= 0 && size_t(index) < names_.size() ? names_[size_t(index)].name : none;
+    static const std::string kNone;
+    return index >= 0 && size_t(index) < _names.size() ? _names[size_t(index)].name : kNone;
 }
 
 std::string Package::objectName(int32_t ref) const {
-    if (isExport(ref) && size_t(exportIndex(ref)) < exports_.size())
-        return name(exports_[size_t(exportIndex(ref))].objectName);
-    if (isImport(ref) && size_t(importIndex(ref)) < imports_.size())
-        return name(imports_[size_t(importIndex(ref))].objectName);
+    if (isExport(ref) && size_t(exportIndex(ref)) < _exports.size())
+        return name(_exports[size_t(exportIndex(ref))].objectName);
+    if (isImport(ref) && size_t(importIndex(ref)) < _imports.size())
+        return name(_imports[size_t(importIndex(ref))].objectName);
     return {};
 }
 
 std::string Package::className(int32_t ref) const {
-    if (isExport(ref) && size_t(exportIndex(ref)) < exports_.size()) {
-        const int32_t cls = exports_[size_t(exportIndex(ref))].classRef;
+    if (isExport(ref) && size_t(exportIndex(ref)) < _exports.size()) {
+        const int32_t cls = _exports[size_t(exportIndex(ref))].classRef;
         return cls == 0 ? "Class" : objectName(cls);
     }
-    if (isImport(ref) && size_t(importIndex(ref)) < imports_.size())
-        return name(imports_[size_t(importIndex(ref))].className);
+    if (isImport(ref) && size_t(importIndex(ref)) < _imports.size())
+        return name(_imports[size_t(importIndex(ref))].className);
     return {};
 }
 
@@ -240,10 +240,10 @@ std::string Package::path(int32_t ref) const {
     for (int depth = 0; ref != 0 && depth < 64; ++depth) {
         const std::string n = objectName(ref);
         out = out.empty() ? n : n + "." + out;
-        if (isExport(ref) && size_t(exportIndex(ref)) < exports_.size())
-            ref = exports_[size_t(exportIndex(ref))].package;
-        else if (isImport(ref) && size_t(importIndex(ref)) < imports_.size())
-            ref = imports_[size_t(importIndex(ref))].package;
+        if (isExport(ref) && size_t(exportIndex(ref)) < _exports.size())
+            ref = _exports[size_t(exportIndex(ref))].package;
+        else if (isImport(ref) && size_t(importIndex(ref)) < _imports.size())
+            ref = _imports[size_t(importIndex(ref))].package;
         else
             break;
     }
@@ -253,9 +253,9 @@ std::string Package::path(int32_t ref) const {
 std::string Package::importPackage(int index) const {
     int32_t ref = -index - 1;
     for (int depth = 0; depth < 64; ++depth) {
-        if (!isImport(ref) || size_t(importIndex(ref)) >= imports_.size())
+        if (!isImport(ref) || size_t(importIndex(ref)) >= _imports.size())
             return {};
-        const Import &imp = imports_[size_t(importIndex(ref))];
+        const Import &imp = _imports[size_t(importIndex(ref))];
         if (imp.package == 0)
             return name(imp.objectName);
         ref = imp.package;
@@ -264,9 +264,9 @@ std::string Package::importPackage(int index) const {
 }
 
 const std::vector<int> &Package::exportsNamed(std::string_view objectName) const {
-    static const std::vector<int> none;
-    auto it = byName_.find(fs::toLower(objectName));
-    return it == byName_.end() ? none : it->second;
+    static const std::vector<int> kNone;
+    auto it = _byName.find(fs::toLower(objectName));
+    return it == _byName.end() ? kNone : it->second;
 }
 
 int Package::findExport(std::string_view objectName, std::string_view className) const {
@@ -280,30 +280,30 @@ int Package::findExport(std::string_view objectName, std::string_view className)
 std::vector<int> Package::exportsOfClass(std::string_view className) const {
     const std::string wanted = fs::toLower(className);
     std::vector<int> out;
-    for (size_t i = 0; i < exports_.size(); ++i)
+    for (size_t i = 0; i < _exports.size(); ++i)
         if (fs::toLower(this->className(int32_t(i) + 1)) == wanted)
             out.push_back(int(i));
     return out;
 }
 
 Error Package::readExport(int index, std::vector<uint8_t> &out) const {
-    if (index < 0 || size_t(index) >= exports_.size())
+    if (index < 0 || size_t(index) >= _exports.size())
         return Error::fail("no export " + std::to_string(index));
-    const Export &e = exports_[size_t(index)];
+    const Export &e = _exports[size_t(index)];
     out.resize(size_t(e.serialSize));
     if (e.serialSize == 0)
         return Error::success();
-    if (!memory_.empty()) {
-        std::memcpy(out.data(), memory_.data() + e.serialOffset, out.size());
+    if (!_memory.empty()) {
+        std::memcpy(out.data(), _memory.data() + e.serialOffset, out.size());
         return Error::success();
     }
-    std::lock_guard<std::mutex> lock(streamMutex_);
-    if (!stream_)
-        stream_ = std::make_unique<std::ifstream>(file_, std::ios::binary);
-    stream_->clear();
-    stream_->seekg(e.serialOffset);
-    if (!stream_->read(reinterpret_cast<char *>(out.data()), std::streamsize(out.size())))
-        return Error::fail("Can't read " + name(e.objectName) + " from " + file_.string());
+    std::lock_guard<std::mutex> lock(_streamMutex);
+    if (!_stream)
+        _stream = std::make_unique<std::ifstream>(_file, std::ios::binary);
+    _stream->clear();
+    _stream->seekg(e.serialOffset);
+    if (!_stream->read(reinterpret_cast<char *>(out.data()), std::streamsize(out.size())))
+        return Error::fail("Can't read " + name(e.objectName) + " from " + _file.string());
     return Error::success();
 }
 

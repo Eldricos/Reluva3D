@@ -33,33 +33,33 @@ Vec sub(const Vec &a, const Vec &b) {
 // A node's settings, as its properties (and its class's defaults) hold them.
 class Node {
 public:
-    Node(Vm &vm, VmObject *o) : vm_(vm), obj(o) {}
+    Node(Vm &vm, VmObject *o) : vm(vm), obj(o) {}
     float f(const char *name) const {
-        const Value *v = obj->find(vm_, name);
+        const Value *v = obj->find(vm, name);
         return v ? v->asFloat() : 0;
     }
     int i(const char *name) const {
-        const Value *v = obj->find(vm_, name);
+        const Value *v = obj->find(vm, name);
         return v ? v->asInt() : 0;
     }
     bool b(const char *name) const {
-        const Value *v = obj->find(vm_, name);
+        const Value *v = obj->find(vm, name);
         return v && v->asBool();
     }
     Vec vec(const char *name) const {
-        const Value *v = obj->find(vm_, name);
+        const Value *v = obj->find(vm, name);
         return v ? Vm::vectorOf(*v) : Vec{};
     }
     Rot rot(const char *name) const {
-        const Value *v = obj->find(vm_, name);
+        const Value *v = obj->find(vm, name);
         return v ? Vm::rotatorOf(*v) : Rot{};
     }
     VmObject *next() const {
-        const Value *v = obj->find(vm_, "Next");
+        const Value *v = obj->find(vm, "Next");
         return v ? v->asObject() : nullptr;
     }
 
-    Vm &vm_;
+    Vm &vm;
     VmObject *obj;
 };
 
@@ -101,7 +101,7 @@ Vec turned(const Vec &v, const Rot &r) {
 // The node's focal actor: the one it found before if that's still tagged
 // FocusActorTag, else the first actor so tagged (kept in FocalActor).
 VmObject *focalActor(const Node &n) {
-    Vm &vm = n.vm_;
+    Vm &vm = n.vm;
     Value *kept = n.obj->find(vm, "FocalActor");
     VmObject *focal = kept ? kept->asObject() : nullptr;
     const int tag = n.i("FocusActorTag");
@@ -125,7 +125,7 @@ VmObject *focalActor(const Node &n) {
 // (ComputeRotation), by its Focus; then rolled by RollDegrees, changing
 // evenly to the next node's.
 Rot nodeFacing(const Node &n, float alpha, const Vec &pos) {
-    Vm &vm = n.vm_;
+    Vm &vm = n.vm;
     VmObject *nextObj = n.next();
     int roll = 0;
     Rot r{};

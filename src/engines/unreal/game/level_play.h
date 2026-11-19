@@ -40,7 +40,7 @@ public:
     // most `maxTicks` at once, so when the scripts can't keep up the game
     // runs slower than real time rather than falling ever further behind.
     void advance(float seconds, int maxTicks = 4);
-    ScriptLevel::Controls &controls() { return level_->controls; }
+    ScriptLevel::Controls &controls() { return _level->controls; }
     // A key bound to an exec function pressed: the player's Jump, Fire...
     void press(const char *exec);
     // A key pressed or let go ("2", "F1"), as the player's .ini binds it
@@ -102,11 +102,11 @@ public:
         float radius = 0, volume = 0, pitch = 1;
     };
     void ambientSounds(std::vector<Ambient> &out);
-    VmObject *currentMusic() { return level_->currentMusic(); }
-    bool streamed(VmObject *sound) { return level_->streamedSound(sound); }
-    std::vector<std::pair<VmObject *, int>> takeSoundStops() { return std::exchange(level_->soundStops(), {}); }
-    const ScriptLevel::Music &music() { return level_->music(); }
-    void musicEnded(VmObject *sound) { level_->musicEnded(sound); }
+    VmObject *currentMusic() { return _level->currentMusic(); }
+    bool streamed(VmObject *sound) { return _level->streamedSound(sound); }
+    std::vector<std::pair<VmObject *, int>> takeSoundStops() { return std::exchange(_level->soundStops(), {}); }
+    const ScriptLevel::Music &music() { return _level->music(); }
+    void musicEnded(VmObject *sound) { _level->musicEnded(sound); }
     // The audio settings (the .ini's AudioDevice: MasterVolume,
     // SFXVolume, MusicVolume, SpeechVolume 0-255; UseStereo,
     // ReverseStereo) as the options leave them; the master volume as
@@ -228,21 +228,21 @@ public:
     // faces only move on pawns drawn in the last few seconds).
     void drawn(VmObject *actor);
     // The zones drawn this frame (bit n, zone n), the view in `cameraZone`.
-    void zonesDrawn(uint64_t zones, int cameraZone) { level_->zonesRendered(zones, cameraZone); }
+    void zonesDrawn(uint64_t zones, int cameraZone) { _level->zonesRendered(zones, cameraZone); }
     // It's about to be drawn: C3DPreRender, as The Fallen's engine sends
     // (the player's weapon works out its tip and the crosshair).
     void preRender(VmObject *actor);
 
-    Vm &vm() { return *vm_; }
-    ScriptLevel &level() { return *level_; }
-    VmObject *player() const { return player_; }
+    Vm &vm() { return *_vm; }
+    ScriptLevel &level() { return *_level; }
+    VmObject *player() const { return _player; }
     // The live actor an object reference in the level's package names
     // (a placed light...); null if none or destroyed.
     VmObject *actorAt(int32_t ref);
-    const Package &map() const { return map_; }
-    const std::string &loginError() const { return loginError_; }
-    float time() const { return time_; }     // seconds played
-    float behind() const { return behind_; } // real seconds not yet played (it's slower than real time)
+    const Package &map() const { return _map; }
+    const std::string &loginError() const { return _loginError; }
+    float time() const { return _time; }     // seconds played
+    float behind() const { return _behind; } // real seconds not yet played (it's slower than real time)
     int health();
     // The level's title (from its .int, as CTVE_Document sets it) and its
     // objectives that are active now (LevelInfo's Objective_State 0).
@@ -253,54 +253,54 @@ public:
 private:
     ObjectRef refOf(const Value *v) const;
     std::string inputSetting(const std::string &key) const;
-    std::map<std::string, std::string> aliases_; // the input aliases, by name (lower case)
+    std::map<std::string, std::string> _aliases; // the input aliases, by name (lower case)
     // Where each property look() reads is in a class's values, found
     // once per class (looking properties up by name for every actor every
     // frame took as long as the scripts' ticks).
     enum Field {
-        Location,
-        PrePivot,
-        Rotation,
-        DrawScale,
-        DrawType,
-        Hidden,
-        MeshField,
-        Skin,
-        Texture,
-        MultiSkins,
-        AnimSequence,
-        AnimFrame,
-        AnimRate,
-        AnimLoop,
-        Style,
-        ScaleGlow,
-        LastRenderTime,
-        Unlit,
-        RenderInitial,
-        Region,
-        AmbientSoundField,
-        SoundRadius,
-        SoundVolume,
-        SoundPitch,
-        CoronaField,
-        AmbientGlow,
-        SpecularField,
-        MultiTextureOn,
-        FieldCount
+        kLocation,
+        kPrePivot,
+        kRotation,
+        kDrawScale,
+        kDrawType,
+        kHidden,
+        kMeshField,
+        kSkin,
+        kTexture,
+        kMultiSkins,
+        kAnimSequence,
+        kAnimFrame,
+        kAnimRate,
+        kAnimLoop,
+        kStyle,
+        kScaleGlow,
+        kLastRenderTime,
+        kUnlit,
+        kRenderInitial,
+        kRegion,
+        kAmbientSoundField,
+        kSoundRadius,
+        kSoundVolume,
+        kSoundPitch,
+        kCoronaField,
+        kAmbientGlow,
+        kSpecularField,
+        kMultiTextureOn,
+        kFieldCount
     };
-    const std::array<int, FieldCount> &slotsOf(const VmClass *cls);
-    int regionZoneField_ = -1; // ZoneNumber's place in PointRegion
-    std::unordered_map<const VmClass *, std::array<int, FieldCount>> slots_;
+    const std::array<int, kFieldCount> &slotsOf(const VmClass *cls);
+    int _regionZoneField = -1; // ZoneNumber's place in PointRegion
+    std::unordered_map<const VmClass *, std::array<int, kFieldCount>> _slots;
     struct AmbientKind {
         bool known = false, keypoint = false;
     };
-    std::unordered_map<const VmClass *, AmbientKind> ambientKinds_;
-    std::array<NameId, FieldCount> names_{};
+    std::unordered_map<const VmClass *, AmbientKind> _ambientKinds;
+    std::array<NameId, kFieldCount> _names{};
 
-    const PackageSet &packages_;
-    const Package &map_;
-    std::unique_ptr<Vm> vm_;
-    std::unique_ptr<ScriptLevel> level_;
+    const PackageSet &_packages;
+    const Package &_map;
+    std::unique_ptr<Vm> _vm;
+    std::unique_ptr<ScriptLevel> _level;
     struct WallKey {
         std::array<uint32_t, 6> bits;
         bool operator==(const WallKey &o) const { return bits == o.bits; }
@@ -313,10 +313,10 @@ private:
             return h;
         }
     };
-    std::unordered_map<WallKey, bool, WallHash> walls_; // wallBetween's answers
-    VmObject *player_ = nullptr;
-    std::string loginError_;
-    float time_ = 0, owed_ = 0, behind_ = 0;
+    std::unordered_map<WallKey, bool, WallHash> _walls; // wallBetween's answers
+    VmObject *_player = nullptr;
+    std::string _loginError;
+    float _time = 0, _owed = 0, _behind = 0;
 };
 
 } // namespace reluva::unreal

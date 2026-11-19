@@ -44,7 +44,7 @@ public:
 
 class ClassDefaults {
 public:
-    explicit ClassDefaults(const PackageSet &packages) : packages_(packages) {}
+    explicit ClassDefaults(const PackageSet &packages) : _packages(packages) {}
 
     // A class export's own default properties; nullptr if they weren't found.
     const PropertyList *defaults(const Package &package, int classExport);
@@ -52,13 +52,13 @@ public:
     // An actor's properties with its classes' defaults under them.
     Error actorProperties(const Package &package, int exportIndex, ActorProperties &out);
 
-    int found() const { return found_; }
-    int missing() const { return missing_; }
+    int found() const { return _found; }
+    int missing() const { return _missing; }
 
 private:
-    const PackageSet &packages_;
-    std::map<std::pair<const Package *, int>, std::optional<PropertyList>> cache_;
-    int found_ = 0, missing_ = 0;
+    const PackageSet &_packages;
+    std::map<std::pair<const Package *, int>, std::optional<PropertyList>> _cache;
+    int _found = 0, _missing = 0;
 };
 
 } // namespace reluva::unreal

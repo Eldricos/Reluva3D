@@ -43,7 +43,7 @@ constexpr float kEyeHeight = 27; // above a PlayerStart's location, roughly a pl
 // none, the lights' units being the original's (lighting.md).
 constexpr float kExposure = 1;
 
-enum Held { Forward, Back, Left, Right, Up, Down, Fast, TurnLeft, TurnRight, LookUp, LookDown, Fire, HeldCount };
+enum Held { kForward, kBack, kLeft, kRight, kUp, kDown, kFast, kTurnLeft, kTurnRight, kLookUp, kLookDown, kFire, kHeldCount };
 
 // Unreal's axes are left-handed (X forward, Y right, Z up); the renderer's
 // are right-handed, so Y is negated on the way in.
@@ -64,15 +64,15 @@ std::array<float, 3> spriteTint(const std::array<float, 3> &filter, float glow) 
 }
 
 // The surface flags that change how a polygon is drawn, for grouping.
-constexpr uint32_t kDrawFlags = polyflag::Masked | polyflag::Translucent | polyflag::Modulated |
-                                polyflag::FakeBackdrop | polyflag::Unlit | polyflag::TwoSided | polyflag::Mirrored;
+constexpr uint32_t kDrawFlags = polyflag::kMasked | polyflag::kTranslucent | polyflag::kModulated |
+                                polyflag::kFakeBackdrop | polyflag::kUnlit | polyflag::kTwoSided | polyflag::kMirrored;
 
 // UE1's flag for a surface in a fog zone (PF_RenderFog), kept on the
 // level's batches for the volume lights' pass.
 constexpr uint32_t kRenderFog = 0x40000000;
 
 bool blended(uint32_t flags) {
-    return flags & (polyflag::Translucent | polyflag::Modulated);
+    return flags & (polyflag::kTranslucent | polyflag::kModulated);
 }
 
 // Column-major 4x4 matrices for placing movers (gfx3d.h's conventions).
@@ -122,7 +122,7 @@ Vec3f lightAt(const LevelLights &lights, const Vec3f &p, const Vec3f &n) {
 
 } // namespace
 
-LevelView::LevelView(ViewContext &ctx) : Page(ctx), names_(ctx.packages.mapNames()) {
+LevelView::LevelView(ViewContext &ctx) : Page(ctx), _names(ctx.packages.mapNames()) {
 }
 
 LevelView::~LevelView() {
@@ -131,61 +131,61 @@ LevelView::~LevelView() {
 
 void LevelView::deactivate() {
     unload();
-    renderer_ = nullptr;
+    _renderer = nullptr;
 }
 
 void LevelView::unload() {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    if (mesh_)
-        renderer_->destroyMesh(mesh_);
-    if (moverMesh_)
-        renderer_->destroyMesh(moverMesh_);
-    mesh_ = moverMesh_ = 0;
-    movers_.clear();
-    if (spriteQuad_)
-        renderer_->destroyMesh(spriteQuad_);
-    spriteQuad_ = 0;
-    sprites_.clear();
-    for (const GpuMesh &g : gpuMeshes_)
+    if (_mesh)
+        _renderer->destroyMesh(_mesh);
+    if (_moverMesh)
+        _renderer->destroyMesh(_moverMesh);
+    _mesh = _moverMesh = 0;
+    _movers.clear();
+    if (_spriteQuad)
+        _renderer->destroyMesh(_spriteQuad);
+    _spriteQuad = 0;
+    _sprites.clear();
+    for (const GpuMesh &g : _gpuMeshes)
         if (g.mesh)
-            renderer_->destroyMesh(g.mesh);
-    gpuMeshes_.clear();
-    meshes_.clear();
-    posedTopology_.clear();
-    liveMeshes_.clear(); // indexes into meshes_
-    meshActors_.clear();
-    jump_ = -1;
-    sky_.reset();
-    for (gfx::TextureId t : textures_)
-        renderer_->destroyTexture(t);
-    textures_.clear();
-    batches_.clear();
-    tints_.clear();
-    surfRanges_.clear();
-    swappedBatches_.clear();
-    swappedSerial_ = -1;
-    animatedLightmaps_.clear();
-    animatedTextures_.clear();
-    animatedSince_.clear();
-    uniqueByRef_.clear();
-    actorFades_.clear();
-    changingLights_.clear();
-    lightmapPages_.clear();
-    textureCache_.clear();
-    seeThroughTextures_.clear();
-    hudFlis_.clear();
-    lights_ = {};
-    shadows_.clear();
+            _renderer->destroyMesh(g.mesh);
+    _gpuMeshes.clear();
+    _meshes.clear();
+    _posedTopology.clear();
+    _liveMeshes.clear(); // indexes into meshes_
+    _meshActors.clear();
+    _jump = -1;
+    _sky.reset();
+    for (gfx::TextureId t : _textures)
+        _renderer->destroyTexture(t);
+    _textures.clear();
+    _batches.clear();
+    _tints.clear();
+    _surfRanges.clear();
+    _swappedBatches.clear();
+    _swappedSerial = -1;
+    _animatedLightmaps.clear();
+    _animatedTextures.clear();
+    _animatedSince.clear();
+    _uniqueByRef.clear();
+    _actorFades.clear();
+    _changingLights.clear();
+    _lightmapPages.clear();
+    _textureCache.clear();
+    _seeThroughTextures.clear();
+    _hudFlis.clear();
+    _lights = {};
+    _shadows.clear();
     stopPlay();
-    posers_.clear();
+    _posers.clear();
 }
 
 void LevelView::activate() {
     gfx::Renderer3D *device = nullptr;
-    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, device)) {
-        renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
+    if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, device)) {
+        _renderer = nullptr;
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Maps page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -193,41 +193,41 @@ void LevelView::activate() {
         setTitle("3D rendering not available");
         return;
     }
-    recorder_ = std::make_unique<TextureUseRecorder>(*device);
-    renderer_ = recorder_.get();
-    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
-    overlayTop_ = overlayBottom_ = 0;
-    load(index_);
+    _recorder = std::make_unique<TextureUseRecorder>(*device);
+    _renderer = _recorder.get();
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
+    _overlayTop = _overlayBottom = 0;
+    load(_index);
 }
 
 void LevelView::load(int index) {
     unload();
-    index_ = index;
-    error_.clear();
-    info_.clear();
-    const std::string &name = names_[size_t(index)];
-    setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
-    info_.push_back(name + ctx_.packages.extension(name) + "  " + std::to_string(index + 1) + "/" +
-                    std::to_string(names_.size()));
+    _index = index;
+    _error.clear();
+    _info.clear();
+    const std::string &name = _names[size_t(index)];
+    setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(_names.size()) + ")");
+    _info.push_back(name + _ctx.packages.extension(name) + "  " + std::to_string(index + 1) + "/" +
+                    std::to_string(_names.size()));
 
-    start_ = {0, 0, 0};
-    startYaw_ = 0;
+    _start = {0, 0, 0};
+    _startYaw = 0;
     using Clock = std::chrono::steady_clock;
     const auto t0 = Clock::now();
     auto ms = [](Clock::time_point a, Clock::time_point b) {
         return std::chrono::duration<double, std::milli>(b - a).count();
     };
-    const Package *pkg = ctx_.packages.get(name);
+    const Package *pkg = _ctx.packages.get(name);
     Model model;
     std::string modelError;
-    zones_ = {};
-    zonesSeen_ = ~uint64_t(0);
+    _zones = {};
+    _zonesSeen = ~uint64_t(0);
     if (!pkg) {
-        error_ = ctx_.packages.error(name);
+        _error = _ctx.packages.error(name);
     } else if (findLevelModel(*pkg, &model, &modelError) < 0) {
-        error_ = modelError.empty() ? "No level geometry (a Model with BSP nodes) found" : modelError;
+        _error = modelError.empty() ? "No level geometry (a Model with BSP nodes) found" : modelError;
     }
-    if (!error_.empty()) {
+    if (!_error.empty()) {
         toStart();
         return;
     }
@@ -239,8 +239,8 @@ void LevelView::load(int index) {
     LevelStart start;
     std::string startError;
     bool started = false;
-    if (runScripts_) {
-        if (Error err = runLevelStart(ctx_.packages, *pkg, defaultGameType(ctx_.packages), 1.0f, start))
+    if (_runScripts) {
+        if (Error err = runLevelStart(_ctx.packages, *pkg, defaultGameType(_ctx.packages), 1.0f, start))
             startError = err.message;
         else
             started = true;
@@ -248,13 +248,13 @@ void LevelView::load(int index) {
     const ScriptedActors *scripted = started ? &start.changed : nullptr;
 
     // The lightmaps, lit from the level's lights, as textures.
-    lights_ = gatherLights(ctx_.packages, *pkg, model, scripted);
-    shadows_.clear();
-    staticLightRefs_.clear();
+    _lights = gatherLights(_ctx.packages, *pkg, model, scripted);
+    _shadows.clear();
+    _staticLightRefs.clear();
     for (const int32_t ref : model.lights)
         if (ref)
-            staticLightRefs_.insert(ref);
-    const LevelLights &lights = lights_;
+            _staticLightRefs.insert(ref);
+    const LevelLights &lights = _lights;
     const auto tLights = Clock::now();
     LightmapAtlas atlas = buildLightmaps(model, lights);
     const auto tLightmaps = Clock::now();
@@ -264,40 +264,40 @@ void LevelView::load(int index) {
         params.clamp = true;
         params.mipmaps = false;
         gfx::TextureId id = 0;
-        if (renderer_->createTexture(page.w, page.h, page.rgba.data(), params, id))
+        if (_renderer->createTexture(page.w, page.h, page.rgba.data(), params, id))
             id = 0;
         else
-            textures_.push_back(id);
+            _textures.push_back(id);
         pages.push_back(id);
     }
-    hasLightmaps_ = !atlas.pages.empty();
-    lightmapPages_ = pages;
-    changingLights_ = lights.animated;
-    lightLevels_.clear();
-    mapLevels_.clear();
-    for (const LightSource &l : changingLights_) {
-        lightLevels_.push_back(l.startsOff ? 0.0f : lightLevel(l, 0));
-        mapLevels_.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
+    _hasLightmaps = !atlas.pages.empty();
+    _lightmapPages = pages;
+    _changingLights = lights.animated;
+    _lightLevels.clear();
+    _mapLevels.clear();
+    for (const LightSource &l : _changingLights) {
+        _lightLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, 0));
+        _mapLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
     }
-    animatedLightmaps_ = std::move(atlas.animated);
-    staleLightmaps_.assign(animatedLightmaps_.size(), false);
-    lightTime_ = 0;
+    _animatedLightmaps = std::move(atlas.animated);
+    _staleLightmaps.assign(_animatedLightmaps.size(), false);
+    _lightTime = 0;
 
     // Group the polygons by texture, drawing flags and lightmap page.
     const std::vector<Polygon> polys = levelPolygons(model);
     // And by the zones they're seen from, to leave out those not seen.
-    zones_.build(model);
-    leafLights_.clear();
+    _zones.build(model);
+    _leafLights.clear();
     for (const Leaf &l : model.leaves)
-        leafLights_.push_back(l.permeating);
-    volumes_.clear();
-    for (const LightSource &l : lights_.unique)
+        _leafLights.push_back(l.permeating);
+    _volumes.clear();
+    for (const LightSource &l : _lights.unique)
         if (l.volumeRadius > 0 && (l.volumeFog > 0 || l.volumeColor[0] + l.volumeColor[1] + l.volumeColor[2] > 0))
-            volumes_.push_back(&l);
+            _volumes.push_back(&l);
     // The surfaces in fog zones (bFogZone): those volume lights show on.
     uint64_t fogZones = 0;
-    for (size_t z = 0; z < lights_.zoneFog.size() && z < 64; ++z)
-        if (lights_.zoneFog[z])
+    for (size_t z = 0; z < _lights.zoneFog.size() && z < 64; ++z)
+        if (_lights.zoneFog[z])
             fogZones |= uint64_t(1) << z;
     std::map<std::tuple<bool, int32_t, uint32_t, int, uint64_t>, std::vector<const Polygon *>> groups;
     for (const Polygon &p : polys) {
@@ -305,10 +305,10 @@ void LevelView::load(int index) {
         uint32_t flags = s.polyFlags & kDrawFlags;
         if (p.zones & fogZones)
             flags |= kRenderFog;
-        int page = blended(flags) || (flags & polyflag::FakeBackdrop) ? -1 : atlas.surfs[size_t(p.surf)].page;
-        if (flags & polyflag::Mirrored) // a mirror: a batch of its own, for its plane
+        int page = blended(flags) || (flags & polyflag::kFakeBackdrop) ? -1 : atlas.surfs[size_t(p.surf)].page;
+        if (flags & polyflag::kMirrored) // a mirror: a batch of its own, for its plane
             page = -2 - p.surf;
-        groups[{blended(flags), s.texture, flags, page, zones_.portalCount() ? p.zones : ~uint64_t(0)}].push_back(&p);
+        groups[{blended(flags), s.texture, flags, page, _zones.portalCount() ? p.zones : ~uint64_t(0)}].push_back(&p);
     }
 
     std::vector<gfx::Vertex> vertices;
@@ -328,13 +328,13 @@ void LevelView::load(int index) {
     };
     auto textureFor = [&](const Package &from, int32_t ref,
                           uint32_t flags) -> std::pair<gfx::TextureId, std::array<int, 2>> {
-        const ObjectRef tex = ctx_.packages.resolve(from, ref);
+        const ObjectRef tex = _ctx.packages.resolve(from, ref);
         if (!tex && ref != 0) {
             ++missing;
             if (firstMissing.empty())
                 firstMissing = from.path(ref);
         }
-        return textureOf(tex, (flags & polyflag::Masked) != 0);
+        return textureOf(tex, (flags & polyflag::kMasked) != 0);
     };
     const gfx::Vec3 light = [] {
         const float l = std::sqrt(0.3f * 0.3f + 0.5f * 0.5f + 0.8f * 0.8f);
@@ -346,7 +346,7 @@ void LevelView::load(int index) {
         batch.polyFlags = flags;
         batch.zones = zones;
         batch.lightmap = page >= 0 ? pages[size_t(page)] : 0;
-        if ((flags & polyflag::Mirrored) && !group.empty() && !group[0]->points.empty()) {
+        if ((flags & polyflag::kMirrored) && !group.empty() && !group[0]->points.empty()) {
             batch.mirrorNormal = toWorld(group[0]->normal);
             const gfx::Vec3 on = toWorld(group[0]->points[0]);
             batch.mirrorD =
@@ -355,15 +355,15 @@ void LevelView::load(int index) {
         batch.firstIndex = uint32_t(indices.size());
         const auto [textureId, size] = textureFor(*pkg, textureRef, flags);
         batch.texture = textureId;
-        batch.textureRef = ctx_.packages.resolve(*pkg, textureRef);
+        batch.textureRef = _ctx.packages.resolve(*pkg, textureRef);
         for (const Polygon *p : group) {
             const auto base = uint32_t(vertices.size());
             if (p->points.size() >= 3)
-                surfRanges_[p->surf].push_back(
-                    {batches_.size(), uint32_t(indices.size()), uint32_t(p->points.size() - 2) * 3});
+                _surfRanges[p->surf].push_back(
+                    {_batches.size(), uint32_t(indices.size()), uint32_t(p->points.size() - 2) * 3});
             const gfx::Vec3 n = toWorld(p->normal);
             const float facing = n[0] * light[0] + n[1] * light[1] + n[2] * light[2];
-            const auto shade = uint8_t((flags & polyflag::Unlit) ? 255 : 150 + int(90 * facing));
+            const auto shade = uint8_t((flags & polyflag::kUnlit) ? 255 : 150 + int(90 * facing));
             for (size_t k = 0; k < p->points.size(); ++k) {
                 gfx::Vertex v{};
                 const gfx::Vec3 w = toWorld(p->points[k]);
@@ -387,7 +387,7 @@ void LevelView::load(int index) {
             }
         }
         // A translucent surface the lights reach: its tint's samples.
-        if ((flags & polyflag::Translucent) && !(flags & polyflag::Unlit) && hasLightmaps_) {
+        if ((flags & polyflag::kTranslucent) && !(flags & polyflag::kUnlit) && _hasLightmaps) {
             std::vector<TintSample> samples;
             for (const Polygon *p : group) {
                 const LightmapPlacement &pl = atlas.surfs[size_t(p->surf)];
@@ -406,8 +406,8 @@ void LevelView::load(int index) {
                     const int y = std::clamp(int(uv[1] * float(atlas.pageSize)), 0, img.h - 1);
                     TintSample t;
                     t.at = q;
-                    for (size_t a = 0; a < animatedLightmaps_.size() && t.anim < 0; ++a) {
-                        const AnimatedLightmap &m = animatedLightmaps_[a];
+                    for (size_t a = 0; a < _animatedLightmaps.size() && t.anim < 0; ++a) {
+                        const AnimatedLightmap &m = _animatedLightmaps[a];
                         if (m.page == pl.page && x >= m.x && x < m.x + m.w && y >= m.y && y < m.y + m.h) {
                             t.anim = int(a);
                             t.texel = size_t(y - m.y) * size_t(m.w) + size_t(x - m.x);
@@ -419,22 +419,22 @@ void LevelView::load(int index) {
                 }
             }
             if (!samples.empty()) {
-                batch.tint = int(tints_.size());
-                tints_.push_back(std::move(samples));
+                batch.tint = int(_tints.size());
+                _tints.push_back(std::move(samples));
             }
         }
         batch.indexCount = uint32_t(indices.size()) - batch.firstIndex;
         if (batch.indexCount)
-            batches_.push_back(batch);
+            _batches.push_back(batch);
     }
     if (!indices.empty())
-        if (Error err = renderer_->createMesh(vertices, indices, mesh_))
-            error_ = err.message;
+        if (Error err = _renderer->createMesh(vertices, indices, _mesh))
+            _error = err.message;
 
     // The movers: each brush's polygons in its own coordinates, grouped by
     // texture and flags, lit (without shadows) where it starts.
     std::vector<std::string> moverErrors;
-    std::vector<Mover> movers = findMovers(ctx_.packages, *pkg, &moverErrors);
+    std::vector<Mover> movers = findMovers(_ctx.packages, *pkg, &moverErrors);
     vertices.clear();
     indices.clear();
     for (Mover &m : movers) {
@@ -452,7 +452,7 @@ void LevelView::load(int index) {
         d.built = place;
         std::map<std::pair<int32_t, uint32_t>, std::vector<const Poly *>> moverGroups;
         for (const Poly &p : d.mover.polys)
-            if (p.vertices.size() >= 3 && !(p.polyFlags & (polyflag::Invisible | polyflag::Portal)))
+            if (p.vertices.size() >= 3 && !(p.polyFlags & (polyflag::kInvisible | polyflag::kPortal)))
                 moverGroups[{p.texture, p.polyFlags & kDrawFlags}].push_back(&p);
         for (const auto &[key, group] : moverGroups) {
             Batch batch;
@@ -482,7 +482,7 @@ void LevelView::load(int index) {
                         float(size[1]);
                     std::copy(p->normal.begin(), p->normal.end(), vx.normal);
                     const gfx::Vec3 w = gfx::transformPoint(place, v);
-                    const Vec3f light = (key.second & polyflag::Unlit)
+                    const Vec3f light = (key.second & polyflag::kUnlit)
                                             ? Vec3f{1, 1, 1}
                                             : lightAt(lights, Vec3f{w[0], -w[1], w[2]}, normal);
                     for (size_t k = 0; k < 3; ++k)
@@ -500,21 +500,21 @@ void LevelView::load(int index) {
             if (batch.indexCount)
                 d.batches.push_back(batch);
         }
-        movers_.push_back(std::move(d));
+        _movers.push_back(std::move(d));
     }
     if (!indices.empty())
-        if (Error err = renderer_->createMesh(vertices, indices, moverMesh_))
-            error_ = err.message;
-    sky_ = findSkyZone(ctx_.packages, *pkg);
+        if (Error err = _renderer->createMesh(vertices, indices, _moverMesh))
+            _error = err.message;
+    _sky = findSkyZone(_ctx.packages, *pkg);
     // Each zone's sky, as ZoneInfo.LinkToSkybox links it: the SkyZoneInfo
     // tagged the zone's Event, else the first there is. The view shows its
     // own zone's (CM_ArdPrison's two: the sun for CM07A, a moon for CM07B).
-    zoneSkies_.clear();
-    if (sky_) {
-        ClassDefaults defaults(ctx_.packages);
+    _zoneSkies.clear();
+    if (_sky) {
+        ClassDefaults defaults(_ctx.packages);
         std::vector<std::pair<std::string, Vec3f>> skies;
         for (size_t i = 0; i < pkg->exports().size(); ++i) {
-            if (pkg->exports()[i].classRef == 0 || !isA(ctx_.packages, *pkg, int(i), "SkyZoneInfo"))
+            if (pkg->exports()[i].classRef == 0 || !isA(_ctx.packages, *pkg, int(i), "SkyZoneInfo"))
                 continue;
             ActorProperties props;
             std::array<float, 3> at{};
@@ -522,8 +522,8 @@ void LevelView::load(int index) {
                 skies.emplace_back(fs::toLower(props.nameValue("Tag")), Vec3f{at[0], at[1], at[2]});
         }
         for (const Zone &z : model.zones) {
-            std::optional<Vec3f> sky = sky_;
-            const ObjectRef zone = z.actor ? ctx_.packages.resolve(*pkg, z.actor) : ObjectRef{};
+            std::optional<Vec3f> sky = _sky;
+            const ObjectRef zone = z.actor ? _ctx.packages.resolve(*pkg, z.actor) : ObjectRef{};
             ActorProperties props;
             if (zone && !defaults.actorProperties(*zone.package, zone.exportIndex, props)) {
                 const std::string event = fs::toLower(props.nameValue("Event"));
@@ -534,19 +534,19 @@ void LevelView::load(int index) {
                             break;
                         }
             }
-            zoneSkies_.push_back(sky);
+            _zoneSkies.push_back(sky);
         }
     }
 
     // Actors drawn as meshes: each mesh read and uploaded once; its skins
     // by texture index (MultiSkins, else Skin, else the mesh's own); lit
     // by the level's lights where it stands.
-    ClassDefaults defaults(ctx_.packages);
+    ClassDefaults defaults(_ctx.packages);
     MeshActorStats meshStats;
     std::map<std::pair<const Package *, int>, int> meshIndex; // -1: unreadable
     int badMeshes = 0, borrowed = 0;
     std::string firstBadMesh;
-    const std::vector<MeshActor> meshActors = findMeshActors(ctx_.packages, *pkg, defaults, &meshStats, scripted);
+    const std::vector<MeshActor> meshActors = findMeshActors(_ctx.packages, *pkg, defaults, &meshStats, scripted);
     // The animations each mesh's actors play, and the idles that may stand
     // in for a one-frame pose (below).
     std::map<std::pair<const Package *, int>, std::set<std::string>> wanted;
@@ -568,31 +568,31 @@ void LevelView::load(int index) {
                 for (const std::string &seq : wanted[{a.mesh.package, a.mesh.exportIndex}]) {
                     if (mesh.findAnim(seq))
                         continue;
-                    if (!ctx_.animationSets) {
+                    if (!_ctx.animationSets) {
                         const auto t0 = Clock::now();
-                        ctx_.sets();
-                        animationSetsMs_ =
+                        _ctx.sets();
+                        _animationSetsMs =
                             int(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - t0).count());
                     }
-                    borrowed += borrowNamedAnimation(*a.mesh.package, a.mesh.exportIndex, ctx_.sets(), seq, mesh);
+                    borrowed += borrowNamedAnimation(*a.mesh.package, a.mesh.exportIndex, _ctx.sets(), seq, mesh);
                 }
             if (!err)
-                err = uploadMesh(*renderer_, mesh, gpu, ctx_.meshTurn, ctx_.meshYawQuarters);
+                err = uploadMesh(*_renderer, mesh, gpu, _ctx.meshTurn, _ctx.meshYawQuarters);
             int at = -1;
             if (err) {
                 ++badMeshes;
                 if (firstBadMesh.empty())
                     firstBadMesh = err.message;
             } else {
-                at = int(meshes_.size());
-                meshes_.push_back(std::move(mesh));
-                gpuMeshes_.push_back(gpu);
+                at = int(_meshes.size());
+                _meshes.push_back(std::move(mesh));
+                _gpuMeshes.push_back(gpu);
             }
             it = meshIndex.emplace(std::make_pair(a.mesh.package, a.mesh.exportIndex), at).first;
         }
         if (it->second < 0)
             continue;
-        const Mesh &mesh = meshes_[size_t(it->second)];
+        const Mesh &mesh = _meshes[size_t(it->second)];
         MeshDraw d;
         d.mesh = size_t(it->second);
         d.label = a.name + " (" + a.mesh.package->path(a.mesh.exportIndex + 1) +
@@ -606,7 +606,7 @@ void LevelView::load(int index) {
             if (!tex)
                 tex = a.skin;
             if (!tex && k < mesh.textures.size())
-                tex = ctx_.packages.resolve(*a.mesh.package, mesh.textures[k]);
+                tex = _ctx.packages.resolve(*a.mesh.package, mesh.textures[k]);
             d.textures.push_back(textureOf(tex).first);
         }
         d.light = meshLightAt(a.location);
@@ -629,12 +629,12 @@ void LevelView::load(int index) {
                     d.anim = int(k);
         }
         d.startFraction = a.animFrame;
-        meshActors_.push_back(std::move(d));
+        _meshActors.push_back(std::move(d));
     }
 
     // Actors drawn as sprites, on one square turned to face the camera.
     SpriteActorStats spriteStats;
-    for (const SpriteActor &a : findSpriteActors(ctx_.packages, *pkg, defaults, &spriteStats, scripted)) {
+    for (const SpriteActor &a : findSpriteActors(_ctx.packages, *pkg, defaults, &spriteStats, scripted)) {
         const auto [texture, size] = textureOf(a.texture);
         if (!texture)
             continue;
@@ -665,7 +665,7 @@ void LevelView::load(int index) {
             spriteTint({a.colorFilter[0], a.colorFilter[1], a.colorFilter[2]}, a.scaleGlow);
         for (size_t k = 0; k < 3; ++k)
             d.color[k] = light[k] * tint[k];
-        sprites_.push_back(d);
+        _sprites.push_back(d);
     }
     {
         // A square of side 1 across X (right) and Y (up), its texture
@@ -679,15 +679,15 @@ void LevelView::load(int index) {
                        {0, 0, 1},
                        {255, 255, 255, 255}};
         }
-        if (Error err = renderer_->createMesh(quad, {0, 1, 2, 0, 2, 3}, spriteQuad_))
-            sprites_.clear();
+        if (Error err = _renderer->createMesh(quad, {0, 1, 2, 0, 2, 3}, _spriteQuad))
+            _sprites.clear();
     }
     const auto tMesh = Clock::now();
 
     // Start at the first PlayerStart, or above the level's middle.
     for (int i = 0; i < 3; ++i)
-        start_[size_t(i)] = (model.boundsMin[size_t(i)] + model.boundsMax[size_t(i)]) / 2;
-    start_ = toWorld(start_);
+        _start[size_t(i)] = (model.boundsMin[size_t(i)] + model.boundsMax[size_t(i)]) / 2;
+    _start = toWorld(_start);
     for (int i : pkg->exportsOfClass("PlayerStart")) {
         std::vector<uint8_t> data;
         PropertyList props;
@@ -698,10 +698,10 @@ void LevelView::load(int index) {
         if (beginObject(*pkg, i, r, props) || !props.vector("Location", loc))
             continue;
         loc[2] += kEyeHeight;
-        start_ = toWorld(loc);
+        _start = toWorld(loc);
         Rotator rot;
         if (props.rotator("Rotation", rot))
-            startYaw_ = -float(rot.yaw) * 2 * kPi / 65536; // negated with Y
+            _startYaw = -float(rot.yaw) * 2 * kPi / 65536; // negated with Y
         break;
     }
     toStart();
@@ -710,50 +710,50 @@ void LevelView::load(int index) {
     std::snprintf(line, sizeof line,
                   "version %d/%d: %zu nodes, %zu surfaces, %zu polygons, %zu triangles in %zu batches", pkg->version(),
                   pkg->licensee(), model.nodes.size(), model.surfs.size(), polys.size(), indices.size() / 3,
-                  batches_.size());
-    info_.push_back(line);
-    std::snprintf(line, sizeof line, "%zu textures%s%s", textures_.size(), missing ? ", missing or undecodable: " : "",
+                  _batches.size());
+    _info.push_back(line);
+    std::snprintf(line, sizeof line, "%zu textures%s%s", _textures.size(), missing ? ", missing or undecodable: " : "",
                   missing ? std::to_string(missing).c_str() : "");
-    info_.push_back(missing ? std::string(line) + " (first: " + firstMissing + ")" : std::string(line));
+    _info.push_back(missing ? std::string(line) + " (first: " + firstMissing + ")" : std::string(line));
     if (!model.hasLighting()) {
-        info_.push_back("No lightmaps: " + model.lightingError);
+        _info.push_back("No lightmaps: " + model.lightingError);
     } else {
         const LightmapAtlas::Stats &st = atlas.stats;
         std::snprintf(line, sizeof line,
                       "lightmaps: %d surfaces (%d lit) on %zu pages, %zu lights (%d unreadable, %zu pulsing or "
                       "flickering over %zu lightmaps), %d grids off fit",
                       st.lightmaps, st.lit, atlas.pages.size(), lights.unique.size(), lights.unreadable,
-                      changingLights_.size(), animatedLightmaps_.size(), st.badFit);
-        info_.push_back(line);
+                      _changingLights.size(), _animatedLightmaps.size(), st.badFit);
+        _info.push_back(line);
     }
     std::snprintf(line, sizeof line,
                   "loaded in %.0f ms: model %.0f, light actors %.0f, lightmaps %.0f, textures and mesh %.0f",
                   ms(t0, tMesh), ms(t0, tModel), ms(tModel, tLights), ms(tLights, tLightmaps), ms(tLightmaps, tMesh));
-    info_.push_back(line);
-    std::snprintf(line, sizeof line, "%zu movers%s; sky zone: %s", movers_.size(),
+    _info.push_back(line);
+    std::snprintf(line, sizeof line, "%zu movers%s; sky zone: %s", _movers.size(),
                   moverErrors.empty() ? "" : (", " + std::to_string(moverErrors.size()) + " unreadable").c_str(),
-                  sky_ ? "yes" : "none");
-    info_.push_back(moverErrors.empty() ? std::string(line) : std::string(line) + " (first: " + moverErrors[0] + ")");
+                  _sky ? "yes" : "none");
+    _info.push_back(moverErrors.empty() ? std::string(line) : std::string(line) + " (first: " + moverErrors[0] + ")");
     std::snprintf(line, sizeof line,
                   "%zu actors drawn as %zu meshes (%d with the mesh from class defaults, %d hidden, %d meshes "
                   "unreadable); class defaults found %d, not %d",
-                  meshActors_.size(), meshes_.size(), meshStats.fromDefaults, meshStats.hidden, badMeshes,
+                  _meshActors.size(), _meshes.size(), meshStats.fromDefaults, meshStats.hidden, badMeshes,
                   defaults.found(), defaults.missing());
-    info_.push_back(line);
-    const auto turned = std::count_if(meshes_.begin(), meshes_.end(), [](const Mesh &m) { return bool(m.importAxes); });
+    _info.push_back(line);
+    const auto turned = std::count_if(_meshes.begin(), _meshes.end(), [](const Mesh &m) { return bool(m.importAxes); });
     if (turned)
-        info_.push_back(std::to_string(turned) + " imported meshes turned from their packed vertices: drawn " +
-                        meshTurnName(ctx_.meshTurn) + " (M changes), then " +
-                        std::to_string(ctx_.meshYawQuarters * 90) + " degrees of yaw (Y changes)");
+        _info.push_back(std::to_string(turned) + " imported meshes turned from their packed vertices: drawn " +
+                        meshTurnName(_ctx.meshTurn) + " (M changes), then " +
+                        std::to_string(_ctx.meshYawQuarters * 90) + " degrees of yaw (Y changes)");
     if (borrowed)
-        info_.push_back(std::to_string(borrowed) + " animations given to characters from " +
-                        std::to_string(ctx_.animationSets ? ctx_.animationSets->size() : 0) +
-                        " shared animation sets (read in " + std::to_string(animationSetsMs_) + " ms)");
+        _info.push_back(std::to_string(borrowed) + " animations given to characters from " +
+                        std::to_string(_ctx.animationSets ? _ctx.animationSets->size() : 0) +
+                        " shared animation sets (read in " + std::to_string(_animationSetsMs) + " ms)");
     if (!firstBadMesh.empty())
-        info_.push_back("First unreadable mesh: " + firstBadMesh);
+        _info.push_back("First unreadable mesh: " + firstBadMesh);
     std::snprintf(line, sizeof line, "%zu sprites (%d editor icons and %d hidden left out); %zu animated textures",
-                  sprites_.size(), spriteStats.editorOnly, spriteStats.hidden, animatedTextures_.size());
-    info_.push_back(line);
+                  _sprites.size(), spriteStats.editorOnly, spriteStats.hidden, _animatedTextures.size());
+    _info.push_back(line);
     if (started) {
         std::snprintf(
             line, sizeof line,
@@ -763,51 +763,51 @@ void LevelView::load(int index) {
             start.milliseconds, start.player.empty() ? ("none, " + start.loginError).c_str() : start.player.c_str(),
             start.lights, start.hidden, start.shown, start.drawTypes, start.removed, start.errors, start.missingNatives,
             start.accessedNone);
-        info_.push_back(line);
+        _info.push_back(line);
     } else {
-        info_.push_back(runScripts_ ? "scripts didn't start: " + startError : "scripts off (P turns them on)");
+        _info.push_back(_runScripts ? "scripts didn't start: " + startError : "scripts off (P turns them on)");
     }
-    info_.push_back(
+    _info.push_back(
         "Not drawn yet: light effects' patterns across surfaces (a torch's waver, water's shimmer: as brightness only)");
 }
 
 bool LevelView::watchActor(const std::string &name) {
-    if (!play_)
+    if (!_play)
         return false;
-    for (VmObject *a : play_->level().actors()) {
-        if (a->deleted || fs::toLower(play_->vm().nameText(a->name)) != fs::toLower(name))
+    for (VmObject *a : _play->level().actors()) {
+        if (a->deleted || fs::toLower(_play->vm().nameText(a->name)) != fs::toLower(name))
             continue;
         LevelPlay::Look look;
-        if (!play_->look(a, look))
+        if (!_play->look(a, look))
             return false;
         // In front of it, a little above, looking back at it.
-        const Value *radius = a->find(play_->vm(), "CollisionRadius");
+        const Value *radius = a->find(_play->vm(), "CollisionRadius");
         const float back = std::max(60.0f, (radius ? radius->asFloat() : 20) * 4);
         const Vec3f ahead = rotationAxes(look.rotation)[0];
         const Vec3f eye{look.location[0] + ahead[0] * back, look.location[1] + ahead[1] * back,
                         look.location[2] + back * 0.3f};
-        pos_ = toWorld(eye);
+        _pos = toWorld(eye);
         const gfx::Vec3 d{look.location[0] - eye[0], -(look.location[1] - eye[1]), look.location[2] - eye[2]};
-        yaw_ = std::atan2(d[1], d[0]);
-        pitch_ = std::atan2(d[2], std::sqrt(d[0] * d[0] + d[1] * d[1]));
-        freeCam_ = true;
+        _yaw = std::atan2(d[1], d[0]);
+        _pitch = std::atan2(d[2], std::sqrt(d[0] * d[0] + d[1] * d[1]));
+        _freeCam = true;
         return true;
     }
     return false;
 }
 
 void LevelView::placeCamera(const Vec3f &at, float yaw, float pitch) {
-    pos_ = toWorld(at);
-    yaw_ = -yaw * kPi / 180;
-    pitch_ = pitch * kPi / 180;
+    _pos = toWorld(at);
+    _yaw = -yaw * kPi / 180;
+    _pitch = pitch * kPi / 180;
 }
 
 std::vector<std::pair<std::string, Vec3f>> LevelView::actorPlaces(const std::string &classPart) {
     std::vector<std::pair<std::string, Vec3f>> out;
-    if (!play_)
+    if (!_play)
         return out;
-    Vm &vm = play_->vm();
-    for (VmObject *a : play_->level().actors()) {
+    Vm &vm = _play->vm();
+    for (VmObject *a : _play->level().actors()) {
         if (a->deleted || !a->cls || a->cls->name.find(classPart) == std::string::npos)
             continue;
         const Value *at = a->find(vm, "Location");
@@ -818,18 +818,18 @@ std::vector<std::pair<std::string, Vec3f>> LevelView::actorPlaces(const std::str
 }
 
 bool LevelView::teleportPlayer(const std::string &name, const Vec3f &offset, float yaw) {
-    if (!play_ || !play_->player())
+    if (!_play || !_play->player())
         return false;
-    Vm &vm = play_->vm();
-    for (VmObject *a : play_->level().actors()) {
+    Vm &vm = _play->vm();
+    for (VmObject *a : _play->level().actors()) {
         if (a->deleted || fs::toLower(vm.nameText(a->name)) != fs::toLower(name))
             continue;
         const Value *at = a->find(vm, "Location");
         if (!at)
             return false;
         const auto l = Vm::vectorOf(*at);
-        VmObject *p = play_->player();
-        play_->level().setLocation(p, {l[0] + offset[0], l[1] + offset[1], l[2] + offset[2]});
+        VmObject *p = _play->player();
+        _play->level().setLocation(p, {l[0] + offset[0], l[1] + offset[1], l[2] + offset[2]});
         const int32_t units = int32_t(std::lround(yaw * 65536 / 360)) & 0xffff;
         for (const char *rot : {"Rotation", "ViewRotation"})
             if (Value *r = p->find(vm, rot))
@@ -846,12 +846,12 @@ bool LevelView::teleportPlayer(const std::string &name, const Vec3f &offset, flo
 }
 
 bool LevelView::callFunction(const std::string &name, const std::string &function) {
-    if (!play_)
+    if (!_play)
         return false;
-    Vm &vm = play_->vm();
+    Vm &vm = _play->vm();
     const bool player = fs::toLower(name) == "player";
-    for (VmObject *a : play_->level().actors())
-        if (!a->deleted && (player ? a == play_->player() : fs::toLower(vm.nameText(a->name)) == fs::toLower(name))) {
+    for (VmObject *a : _play->level().actors())
+        if (!a->deleted && (player ? a == _play->player() : fs::toLower(vm.nameText(a->name)) == fs::toLower(name))) {
             vm.callEvent(a, function.c_str());
             return true;
         }
@@ -859,17 +859,17 @@ bool LevelView::callFunction(const std::string &name, const std::string &functio
 }
 
 std::string LevelView::consoleCommand(const std::string &command) {
-    if (!play_ || !play_->player())
+    if (!_play || !_play->player())
         return "no player";
-    const Value v = play_->vm().callEvent(play_->player(), "ConsoleCommand", {Value::stringValue(command)});
+    const Value v = _play->vm().callEvent(_play->player(), "ConsoleCommand", {Value::stringValue(command)});
     return v.s;
 }
 
 std::string LevelView::describeActor(const std::string &name) {
-    if (!play_)
+    if (!_play)
         return "not playing";
-    Vm &vm = play_->vm();
-    for (VmObject *a : play_->level().actors()) {
+    Vm &vm = _play->vm();
+    for (VmObject *a : _play->level().actors()) {
         if (a->deleted || fs::toLower(vm.nameText(a->name)) != fs::toLower(name))
             continue;
         auto num = [&](const char *p) {
@@ -896,7 +896,7 @@ std::string LevelView::describeActor(const std::string &name) {
                       flag("bHidden") ? ", hidden" : "", a->disabled.empty() ? "" : ", some events disabled",
                       int(num("DrawType")), int(num("Style")), double(num("DrawScale")), double(num("ScaleGlow")),
                       object("Mesh").c_str(), object("Skin").c_str(), object("Texture").c_str(),
-                      play_->level().multiMeshes(a).size());
+                      _play->level().multiMeshes(a).size());
         std::string out = buf;
         if (num("LightType") != 0 || num("LightBrightness") != 0) {
             char light[160];
@@ -908,7 +908,7 @@ std::string LevelView::describeActor(const std::string &name) {
         }
         // Its layers (C3DPlayAnim): group, sequence, frame, weight and its
         // change a second, rate; loop, held at its end, clears.
-        if (const auto *layers = play_->level().layersOf(a))
+        if (const auto *layers = _play->level().layersOf(a))
             for (const auto &[group, l] : *layers) {
                 char layer[256];
                 std::snprintf(layer, sizeof layer, "; layer %s: %s at %.2f, weight %.2f (%+.2f/s), rate %.2f%s%s%s%s%s",
@@ -925,38 +925,38 @@ std::string LevelView::describeActor(const std::string &name) {
 }
 
 std::string LevelView::describeView() {
-    if (!play_)
+    if (!_play)
         return "not playing";
     char buf[200];
     auto deg = [](int32_t r) { return double(int16_t(r & 0xffff)) * 360 / 65536; };
     std::snprintf(buf, sizeof buf, "at %.1f %.1f %.1f, pitch %.1f yaw %.1f roll %.1f, fov %.1f",
-                  double(view_.location[0]), double(view_.location[1]), double(view_.location[2]),
-                  deg(view_.rotation.pitch), deg(view_.rotation.yaw), deg(view_.rotation.roll), double(view_.fov));
+                  double(_view.location[0]), double(_view.location[1]), double(_view.location[2]),
+                  deg(_view.rotation.pitch), deg(_view.rotation.yaw), deg(_view.rotation.roll), double(_view.fov));
     std::string out = buf;
-    const std::array<float, 3> at{view_.location[0], view_.location[1], view_.location[2]};
-    if (play_->level().inSolid(at))
+    const std::array<float, 3> at{_view.location[0], _view.location[1], _view.location[2]};
+    if (_play->level().inSolid(at))
         out += ", in solid";
     // How many actors are asleep (unseen for 5 seconds: bForceStasis).
     size_t asleep = 0;
-    for (VmObject *a : play_->level().actors())
-        if (const Value *v = a->deleted ? nullptr : a->find(play_->vm(), "bForceStasis"); v && v->asBool())
+    for (VmObject *a : _play->level().actors())
+        if (const Value *v = a->deleted ? nullptr : a->find(_play->vm(), "bForceStasis"); v && v->asBool())
             ++asleep;
     out += ", " + std::to_string(asleep) + " actors asleep";
     return out;
 }
 
 std::string LevelView::actorProperty(const std::string &name, const std::string &property) {
-    if (!play_)
+    if (!_play)
         return "not playing";
-    Vm &vm = play_->vm();
+    Vm &vm = _play->vm();
     // "player": the player's pawn, whatever it's called.
     const bool player = fs::toLower(name) == "player";
-    for (VmObject *a : play_->level().actors())
-        if (!a->deleted && (player ? a == play_->player() : fs::toLower(vm.nameText(a->name)) == fs::toLower(name))) {
+    for (VmObject *a : _play->level().actors())
+        if (!a->deleted && (player ? a == _play->player() : fs::toLower(vm.nameText(a->name)) == fs::toLower(name))) {
             const Value *v = a->find(vm, property);
             if (!v)
                 return "no such property";
-            if (v->type != VType::Struct || v->fields.empty())
+            if (v->type != VType::kStruct || v->fields.empty())
                 return vm.toString(*v);
             std::string out = "(";
             for (const Value &f : v->fields)
@@ -968,9 +968,9 @@ std::string LevelView::actorProperty(const std::string &name, const std::string 
 
 std::vector<std::string> LevelView::linesSaid() {
     std::vector<std::string> out;
-    if (!play_)
+    if (!_play)
         return out;
-    ScriptLevel &level = play_->level();
+    ScriptLevel &level = _play->level();
     for (size_t k = 0; k < level.linesSaid().size(); ++k) {
         const int i = level.linesSaid()[k];
         const DialogLine &l = level.dialogLines()[size_t(i)];
@@ -982,14 +982,14 @@ std::vector<std::string> LevelView::linesSaid() {
 }
 
 float LevelView::playTime() const {
-    return play_ ? play_->time() : 0;
+    return _play ? _play->time() : 0;
 }
 
 std::string LevelView::describePlayer() {
-    if (!play_ || !play_->player())
+    if (!_play || !_play->player())
         return "no player";
-    Vm &vm = play_->vm();
-    VmObject *p = play_->player();
+    Vm &vm = _play->vm();
+    VmObject *p = _play->player();
     auto vec = [&](const char *name) {
         const Value *v = p->find(vm, name);
         if (!v)
@@ -1014,27 +1014,27 @@ std::string LevelView::describePlayer() {
                 weapon += " (" + std::to_string(n->asInt()) + ")";
     }
     return "weapon " + weapon + ", at " + vec("Location") + ", yaw " + std::to_string(yaw) + ", velocity " +
-           vec("Velocity") + ", state " + play_->playerState() + ", physics " +
+           vec("Velocity") + ", state " + _play->playerState() + ", physics " +
            std::to_string(physics ? physics->asInt() : -1) + ", anim " +
            (seq ? vm.nameText(seq->i) : std::string("?")) + buf;
 }
 
 bool LevelView::selectMap(const std::string &name) {
-    for (size_t i = 0; i < names_.size(); ++i)
-        if (fs::toLower(names_[i]) == fs::toLower(name)) {
-            if (renderer_)
+    for (size_t i = 0; i < _names.size(); ++i)
+        if (fs::toLower(_names[i]) == fs::toLower(name)) {
+            if (_renderer)
                 load(int(i));
             else
-                index_ = int(i);
+                _index = int(i);
             return true;
         }
     return false;
 }
 
 void LevelView::toStart() {
-    pos_ = start_;
-    yaw_ = startYaw_;
-    pitch_ = 0;
+    _pos = _start;
+    _yaw = _startYaw;
+    _pitch = 0;
 }
 
 namespace {
@@ -1090,246 +1090,246 @@ int inputKey(uint32_t k) {
 } // namespace
 
 bool LevelView::viewerKeys() const {
-    return !game_ || kDeveloperKeys;
+    return !_game || kDeveloperKeys;
 }
 
 void LevelView::handleEvent(const Event &ev) {
-    if (!renderer_ || names_.empty())
+    if (!_renderer || _names.empty())
         return;
     // Playing with the game's view, each key goes to the game's console
     // first, as the engine hands them on: while its menus show, it takes
     // the arrows and Enter, and the page leaves them be.
-    if (play_ && !freeCam_ && (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp) && !ev.repeat &&
+    if (_play && !_freeCam && (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp) && !ev.repeat &&
         !(ev.type == EventType::kKeyDown && ev.key == 'v'))
         if (const int k = inputKey(ev.key)) {
             // The menu's keys (Enter, the arrows) are the game's whatever
             // KeyEvent answers: the HUD's says false having acted on Enter.
-            const bool menuKey = play_->menuShowing() && (k == 13 || (k >= 37 && k <= 40));
-            if ((play_->consoleKey(k, ev.type == EventType::kKeyDown) || menuKey) && ev.type == EventType::kKeyDown) {
-                for (bool &h : held_)
+            const bool menuKey = _play->menuShowing() && (k == 13 || (k >= 37 && k <= 40));
+            if ((_play->consoleKey(k, ev.type == EventType::kKeyDown) || menuKey) && ev.type == EventType::kKeyDown) {
+                for (bool &h : _held)
                     h = false;
                 return;
             }
         }
     auto hold = [&](uint32_t k, bool down) {
-        if (play_ && !freeCam_) // playing, the arrows turn and look, and Ctrl or F fires
+        if (_play && !_freeCam) // playing, the arrows turn and look, and Ctrl or F fires
             switch (k) {
             case key::kLeft:
-                held_[TurnLeft] = down;
+                _held[kTurnLeft] = down;
                 return true;
             case key::kRight:
-                held_[TurnRight] = down;
+                _held[kTurnRight] = down;
                 return true;
             case key::kUp:
-                held_[LookUp] = down;
+                _held[kLookUp] = down;
                 return true;
             case key::kDown:
-                held_[LookDown] = down;
+                _held[kLookDown] = down;
                 return true;
             case key::kLCtrl:
             case key::kRCtrl:
             case 'f':
-                held_[Fire] = down;
+                _held[kFire] = down;
                 return true;
             default:
                 break;
             }
         switch (k) {
         case 'w':
-            held_[Forward] = down;
+            _held[kForward] = down;
             return true;
         case 's':
-            held_[Back] = down;
+            _held[kBack] = down;
             return true;
         case 'a':
-            held_[Left] = down;
+            _held[kLeft] = down;
             return true;
         case 'd':
-            held_[Right] = down;
+            _held[kRight] = down;
             return true;
         case key::kSpace:
         case 'e':
-            held_[Up] = down;
+            _held[kUp] = down;
             return true;
         case 'c':
         case 'q':
-            held_[Down] = down;
+            _held[kDown] = down;
             return true;
         case key::kLShift:
         case key::kRShift:
-            held_[Fast] = down;
+            _held[kFast] = down;
             return true;
         default:
             return false;
         }
     };
     if (ev.type == EventType::kKeyUp) {
-        if (play_ && !freeCam_ && ev.key >= key::kF1 && ev.key < key::kF1 + 12)
-            play_->pressKey("F" + std::to_string(ev.key - key::kF1 + 1), false);
+        if (_play && !_freeCam && ev.key >= key::kF1 && ev.key < key::kF1 + 12)
+            _play->pressKey("F" + std::to_string(ev.key - key::kF1 + 1), false);
         hold(ev.key, false);
     } else if (ev.type == EventType::kKeyDown) {
-        if (play_ && !ev.repeat && ev.key == 'v' && viewerKeys()) { // the camera let loose, or back to the game's
-            freeCam_ = !freeCam_;
-            for (bool &h : held_)
+        if (_play && !ev.repeat && ev.key == 'v' && viewerKeys()) { // the camera let loose, or back to the game's
+            _freeCam = !_freeCam;
+            for (bool &h : _held)
                 h = false;
             return;
         }
-        if (play_ && !freeCam_ && !ev.repeat) { // the keys bound to exec functions
+        if (_play && !_freeCam && !ev.repeat) { // the keys bound to exec functions
             if (ev.key == key::kSpace)
-                play_->press("Jump");
+                _play->press("Jump");
             else if (ev.key == key::kLCtrl || ev.key == key::kRCtrl || ev.key == 'f')
-                play_->press("Fire");
+                _play->press("Fire");
             else if (ev.key >= '0' && ev.key <= '9') // the weapons, as the game binds them
-                play_->pressKey(std::string(1, char(ev.key)));
+                _play->pressKey(std::string(1, char(ev.key)));
             else if (ev.key >= key::kF1 && ev.key < key::kF1 + 12) // the communicator, the tricorder...
-                play_->pressKey("F" + std::to_string(ev.key - key::kF1 + 1));
+                _play->pressKey("F" + std::to_string(ev.key - key::kF1 + 1));
             else if (ev.key == key::kEscape) { // the game's menu (ShowMenu)
-                play_->pressKey("Escape");
+                _play->pressKey("Escape");
                 return;
             }
         }
         if (hold(ev.key, true) || ev.repeat || !viewerKeys())
             return;
         if (ev.key == key::kReturn || ev.key == key::kKpEnter) {
-            for (bool &h : held_)
+            for (bool &h : _held)
                 h = false;
-            if (play_)
+            if (_play)
                 stopPlay();
             else
                 startPlay();
             return;
         }
-        const int n = int(names_.size());
+        const int n = int(_names.size());
         if (ev.key == key::kLeft || ev.key == key::kRight)
-            load((index_ + (ev.key == key::kLeft ? n - 1 : 1)) % n);
+            load((_index + (ev.key == key::kLeft ? n - 1 : 1)) % n);
         else if (ev.key == 'r')
             toStart();
         else if (ev.key == 'i')
-            showInfo_ = !showInfo_;
+            _showInfo = !_showInfo;
         else if (ev.key == 't')
-            textured_ = !textured_;
+            _textured = !_textured;
         else if (ev.key == 'l')
-            lightmaps_ = !lightmaps_;
+            _lightmaps = !_lightmaps;
         else if (ev.key == '[')
-            lightScale_ = std::max(0.1f, lightScale_ / 1.25f);
+            _lightScale = std::max(0.1f, _lightScale / 1.25f);
         else if (ev.key == ']')
-            lightScale_ = std::min(8.0f, lightScale_ * 1.25f);
+            _lightScale = std::min(8.0f, _lightScale * 1.25f);
         else if (ev.key == '-')
-            displayGamma_ = std::max(0.5f, displayGamma_ - 0.05f);
+            _displayGamma = std::max(0.5f, _displayGamma - 0.05f);
         else if (ev.key == '=')
-            displayGamma_ = std::min(2.5f, displayGamma_ + 0.05f);
+            _displayGamma = std::min(2.5f, _displayGamma + 0.05f);
         else if (ev.key == 'k')
-            showSky_ = !showSky_;
+            _showSky = !_showSky;
         else if (ev.key == 'z')
-            zoneCulling_ = !zoneCulling_;
+            _zoneCulling = !_zoneCulling;
         else if (ev.key == 'n')
-            animate_ = !animate_;
+            _animate = !_animate;
         else if (ev.key == 'g' || ev.key == 'h')
             jumpToMeshActor(ev.key == 'h');
         else if (ev.key == 'm' || ev.key == 'y') {
             if (ev.key == 'm')
-                ctx_.meshTurn = MeshTurn((int(ctx_.meshTurn) + 1) % 3);
+                _ctx.meshTurn = MeshTurn((int(_ctx.meshTurn) + 1) % 3);
             else
-                ctx_.meshYawQuarters = (ctx_.meshYawQuarters + 1) % 4;
+                _ctx.meshYawQuarters = (_ctx.meshYawQuarters + 1) % 4;
             // Kept where it is: only the meshes need uploading again, but
             // the level loads quickly enough to just load it again.
-            const auto pos = pos_;
-            const float yaw = yaw_, pitch = pitch_;
-            load(index_);
-            pos_ = pos;
-            yaw_ = yaw;
-            pitch_ = pitch;
+            const auto pos = _pos;
+            const float yaw = _yaw, pitch = _pitch;
+            load(_index);
+            _pos = pos;
+            _yaw = yaw;
+            _pitch = pitch;
         } else if (ev.key == 'p') {
-            runScripts_ = !runScripts_;
-            const auto pos = pos_;
-            const float yaw = yaw_, pitch = pitch_;
-            load(index_);
-            pos_ = pos;
-            yaw_ = yaw;
-            pitch_ = pitch;
+            _runScripts = !_runScripts;
+            const auto pos = _pos;
+            const float yaw = _yaw, pitch = _pitch;
+            load(_index);
+            _pos = pos;
+            _yaw = yaw;
+            _pitch = pitch;
         } else if (ev.key == 'o')
-            for (MoverDraw &m : movers_)
+            for (MoverDraw &m : _movers)
                 if (m.key == m.target && m.mover.numKeys > 1) {
                     m.target = (m.key + 1) % m.mover.numKeys;
                     m.t = 0;
                 }
-    } else if (play_ && !freeCam_ && play_->windowsOpen() &&
+    } else if (_play && !_freeCam && _play->windowsOpen() &&
                (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)) {
         // The game's windows (the options) open: the mouse is theirs, its
         // pointer where the page's is, its buttons keys 1 and 2.
-        play_->consoleMouse(float(ev.mouseX), float(ev.mouseY));
+        _play->consoleMouse(float(ev.mouseX), float(ev.mouseY));
         if (ev.type != EventType::kMouseMove && (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight))
-            play_->consoleKey(ev.button == MouseButton::kLeft ? 1 : 2, ev.type == EventType::kMouseDown);
-    } else if (play_ && !freeCam_ && play_->menuShowing() &&
+            _play->consoleKey(ev.button == MouseButton::kLeft ? 1 : 2, ev.type == EventType::kMouseDown);
+    } else if (_play && !_freeCam && _play->menuShowing() &&
                (ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) &&
                (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight)) {
         // The HUD's menus: the buttons as the game binds them (LeftMouse
         // Fire selects, RightMouse AltFire steps the choice), not a drag.
         const bool left = ev.button == MouseButton::kLeft, down = ev.type == EventType::kMouseDown;
-        if (!play_->consoleKey(left ? 1 : 2, down))
-            play_->pressKey(left ? "LeftMouse" : "RightMouse", down);
+        if (!_play->consoleKey(left ? 1 : 2, down))
+            _play->pressKey(left ? "LeftMouse" : "RightMouse", down);
     } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
-        dragging_ = true;
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+        _dragging = true;
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
     } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
-        dragging_ = false;
-    } else if (ev.type == EventType::kMouseMove && dragging_ && play_ && !freeCam_) {
+        _dragging = false;
+    } else if (ev.type == EventType::kMouseMove && _dragging && _play && !_freeCam) {
         // Playing, the mouse's movement goes to the player's input.
-        mouseDx_ += float(ev.mouseX - lastX_);
-        mouseDy_ -= float(ev.mouseY - lastY_);
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::kMouseMove && dragging_) {
-        yaw_ -= float(ev.mouseX - lastX_) * 0.005f;
-        pitch_ = std::clamp(pitch_ - float(ev.mouseY - lastY_) * 0.005f, -1.55f, 1.55f);
-        lastX_ = ev.mouseX;
-        lastY_ = ev.mouseY;
+        _mouseDx += float(ev.mouseX - _lastX);
+        _mouseDy -= float(ev.mouseY - _lastY);
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
+        _yaw -= float(ev.mouseX - _lastX) * 0.005f;
+        _pitch = std::clamp(_pitch - float(ev.mouseY - _lastY) * 0.005f, -1.55f, 1.55f);
+        _lastX = ev.mouseX;
+        _lastY = ev.mouseY;
     }
 }
 
 void LevelView::update(uint64_t nowMs) {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
-    lastMs_ = nowMs;
+    const float dt = _lastMs ? std::min(0.1f, float(nowMs - _lastMs) / 1000.0f) : 0.0f;
+    _lastMs = nowMs;
 
-    if (play_) {
+    if (_play) {
         const auto playFrom = std::chrono::steady_clock::now();
         updatePlay(dt);
-        frameTimes_.play =
+        _frameTimes.play =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - playFrom).count();
         // Its sounds, heard from the game's camera.
-        if (ctx_.mixer && !audio_)
-            audio_ = std::make_unique<LevelAudio>(*ctx_.mixer, ctx_.packages);
-        if (audio_)
-            audio_->update(*play_, view_.location, view_.rotation, dt);
-        if (play_->quitAsked())
+        if (_ctx.mixer && !_audio)
+            _audio = std::make_unique<LevelAudio>(*_ctx.mixer, _ctx.packages);
+        if (_audio)
+            _audio->update(*_play, _view.location, _view.rotation, dt);
+        if (_play->quitAsked())
             stopPlay();
-        else if (const std::string url = play_->takeTravel(); !url.empty())
+        else if (const std::string url = _play->takeTravel(); !url.empty())
             travel(url);
     }
-    if (!play_ || freeCam_) { // flying: not playing, or playing with the camera let loose (V)
-        if (!play_)
-            fov_ = 90; // Unreal's default field of view, across
-        const gfx::Vec3 f{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
-        const gfx::Vec3 r{std::sin(yaw_), -std::cos(yaw_), 0};
-        const float step = kSpeed * (held_[Fast] ? 3.0f : 1.0f) * dt;
+    if (!_play || _freeCam) { // flying: not playing, or playing with the camera let loose (V)
+        if (!_play)
+            _fov = 90; // Unreal's default field of view, across
+        const gfx::Vec3 f{std::cos(_pitch) * std::cos(_yaw), std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch)};
+        const gfx::Vec3 r{std::sin(_yaw), -std::cos(_yaw), 0};
+        const float step = kSpeed * (_held[kFast] ? 3.0f : 1.0f) * dt;
         for (size_t k = 0; k < 3; ++k) {
-            pos_[k] += f[k] * step * float(held_[Forward] - held_[Back]);
-            pos_[k] += r[k] * step * float(held_[Right] - held_[Left]);
+            _pos[k] += f[k] * step * float(_held[kForward] - _held[kBack]);
+            _pos[k] += r[k] * step * float(_held[kRight] - _held[kLeft]);
         }
-        pos_[2] += step * float(held_[Up] - held_[Down]);
+        _pos[2] += step * float(_held[kUp] - _held[kDown]);
     }
-    const gfx::Vec3 forward{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
-    const gfx::Vec3 right{std::sin(yaw_), -std::cos(yaw_), 0};
+    const gfx::Vec3 forward{std::cos(_pitch) * std::cos(_yaw), std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch)};
+    const gfx::Vec3 right{std::sin(_yaw), -std::cos(_yaw), 0};
 
     const float aspect = float(kFrameW) / float(kFrameH);
-    const float fovY = 2 * std::atan(std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360) / aspect);
+    const float fovY = 2 * std::atan(std::tan(std::clamp(_fov, 1.0f, 170.0f) * kPi / 360) / aspect);
     gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(fovY, aspect, 4, 65536), gfx::lookAlong(pos_, forward, {0, 0, 1}));
+        gfx::multiply(gfx::perspective(fovY, aspect, 4, 65536), gfx::lookAlong(_pos, forward, {0, 0, 1}));
     // Movers between keyframes, at their own pace.
-    for (MoverDraw &m : movers_)
+    for (MoverDraw &m : _movers)
         if (m.key != m.target) {
             m.t += dt / std::max(0.05f, m.mover.moveTime);
             if (m.t >= 1) {
@@ -1340,60 +1340,60 @@ void LevelView::update(uint64_t nowMs) {
 
     updateLightmaps(dt);
     updateAnimatedTextures(dt);
-    gatherDynamicLights(pos_);
+    gatherDynamicLights(_pos);
     // The Fallen's distance fog: the camera's zone's (DistanceFogging, the
     // depth at which all is its DistanceFogColor), growing evenly from the
     // camera (Direct3D's linear table fog from 0 to it); nothing beyond it
     // is drawn (Render.dll's SetDistanceClipping puts the far plane there),
     // but the sky.
-    fog_ = {};
-    if (play_)
-        fog_.distance = play_->distanceFog(Vec3f{pos_[0], -pos_[1], pos_[2]}, fog_.color);
-    if (fog_.distance > 0)
-        viewProj = gfx::multiply(gfx::perspective(fovY, aspect, 4, std::max(fog_.distance, 8.0f)),
-                                 gfx::lookAlong(pos_, forward, {0, 0, 1}));
+    _fog = {};
+    if (_play)
+        _fog.distance = _play->distanceFog(Vec3f{_pos[0], -_pos[1], _pos[2]}, _fog.color);
+    if (_fog.distance > 0)
+        viewProj = gfx::multiply(gfx::perspective(fovY, aspect, 4, std::max(_fog.distance, 8.0f)),
+                                 gfx::lookAlong(_pos, forward, {0, 0, 1}));
 
     // The renderer raises colours to 1 / its gamma.
-    renderer_->setGamma(1 / displayGamma_);
+    _renderer->setGamma(1 / _displayGamma);
     const gfx::Mat4 proj = gfx::perspective(fovY, aspect, 4, 65536);
-    const bool sky = sky_ && showSky_;
+    const bool sky = _sky && _showSky;
     if (sky) {
         // The sky first: the level seen from the sky zone, looking the
         // same way; then the view, from scratch, with the backdrop
         // surfaces leaving it showing.
-        Vec3f skyAt = *sky_;
-        if (const int z = zones_.zoneAt(Vec3f{pos_[0], -pos_[1], pos_[2]});
-            z >= 0 && size_t(z) < zoneSkies_.size() && zoneSkies_[size_t(z)])
-            skyAt = *zoneSkies_[size_t(z)];
+        Vec3f skyAt = *_sky;
+        if (const int z = _zones.zoneAt(Vec3f{_pos[0], -_pos[1], _pos[2]});
+            z >= 0 && size_t(z) < _zoneSkies.size() && _zoneSkies[size_t(z)])
+            skyAt = *_zoneSkies[size_t(z)];
         const gfx::Vec3 eye = toWorld(skyAt);
         const gfx::Mat4 skyView = gfx::multiply(proj, gfx::lookAlong(eye, forward, {0, 0, 1}));
         seeZonesFrom(eye, skyView, false);
-        renderer_->beginFrame(skyView, eye, {20, 24, 40});
-        drawBatches(levelBatches(), mesh_, gfx::identity(), true);
+        _renderer->beginFrame(skyView, eye, {20, 24, 40});
+        drawBatches(levelBatches(), _mesh, gfx::identity(), true);
         drawSurfaceSwaps();
-        renderer_->clearDepth();
-        renderer_->setView(viewProj, pos_);
+        _renderer->clearDepth();
+        _renderer->setView(viewProj, _pos);
     } else {
-        renderer_->beginFrame(viewProj, pos_, {20, 24, 40});
+        _renderer->beginFrame(viewProj, _pos, {20, 24, 40});
     }
-    seeZonesFrom(pos_, viewProj, true);
-    if (animate_)
-        animTime_ += dt;
-    if (play_)
-        coronaDt_ = dt;
+    seeZonesFrom(_pos, viewProj, true);
+    if (_animate)
+        _animTime += dt;
+    if (_play)
+        _coronaDt = dt;
     // The last frame's posed meshes, drawn by now.
-    for (const GpuMesh &g : posedMeshes_)
+    for (const GpuMesh &g : _posedMeshes)
         if (g.mesh)
-            renderer_->destroyMesh(g.mesh);
-    posedMeshes_.clear();
-    drawMirrors(proj, gfx::lookAlong(pos_, forward, {0, 0, 1}), viewProj, pos_, forward, right, 0, nullptr);
+            _renderer->destroyMesh(g.mesh);
+    _posedMeshes.clear();
+    drawMirrors(proj, gfx::lookAlong(_pos, forward, {0, 0, 1}), viewProj, _pos, forward, right, 0, nullptr);
     // Backdrop surfaces: with the sky, only their depth, hiding what's
     // behind them; without it, a plain colour.
-    for (const Batch &b : batches_) {
-        if (!(b.polyFlags & polyflag::FakeBackdrop) || !(b.zones & zonesSeen_))
+    for (const Batch &b : _batches) {
+        if (!(b.polyFlags & polyflag::kFakeBackdrop) || !(b.zones & _zonesSeen))
             continue;
         gfx::DrawCall call;
-        call.mesh = mesh_;
+        call.mesh = _mesh;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
         call.state.cull = gfx::Cull::kNone;
@@ -1402,19 +1402,19 @@ void LevelView::update(uint64_t nowMs) {
             call.state.src = gfx::Blend::kZero;
             call.state.dst = gfx::Blend::kOne;
         }
-        renderer_->draw(call);
+        _renderer->draw(call);
     }
-    drawWorld(forward, right, pos_);
-    if (play_)
+    drawWorld(forward, right, _pos);
+    if (_play)
         drawScreenFlash(forward, right);
-    if (play_ && !freeCam_)
+    if (_play && !_freeCam)
         drawGameHud();
     drawOverlay(nowMs);
-    if (play_)
+    if (_play)
         drawPlayHud();
     const auto endFrom = std::chrono::steady_clock::now();
-    renderer_->endFrame(&overlay_);
-    frameTimes_.endFrame =
+    _renderer->endFrame(&_overlay);
+    _frameTimes.endFrame =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - endFrom).count();
 }
 
@@ -1423,15 +1423,15 @@ void LevelView::update(uint64_t nowMs) {
 // tiles they drew, in screen pixels: cut out where see-through, translucent ones added,
 // modulated ones multiplied in.
 void LevelView::drawGameHud() {
-    const int w = renderer_->width(), h = renderer_->height();
+    const int w = _renderer->width(), h = _renderer->height();
     ScriptLevel::HudView v;
-    v.location = {view_.location[0], view_.location[1], view_.location[2]};
-    v.rotation = {view_.rotation.pitch, view_.rotation.yaw, view_.rotation.roll};
-    v.fov = view_.fov;
+    v.location = {_view.location[0], _view.location[1], _view.location[2]};
+    v.rotation = {_view.rotation.pitch, _view.rotation.yaw, _view.rotation.roll};
+    v.fov = _view.fov;
     v.width = w;
     v.height = h;
-    play_->level().renderHud(v);
-    const ScriptLevel::Hud &hud = play_->level().hud();
+    _play->level().renderHud(v);
+    const ScriptLevel::Hud &hud = _play->level().hud();
     gfx::Mat4 pixels = gfx::identity();
     pixels[0] = 2.0f / float(w);
     pixels[5] = -2.0f / float(h);
@@ -1454,23 +1454,23 @@ void LevelView::drawGameHud() {
             const gfx::Vec3 side{-toWorld(axes[1])[0], -toWorld(axes[1])[1], -toWorld(axes[1])[2]};
             const float aspect = float(v.width) / float(std::max(1, v.height));
             const float fovY = 2 * std::atan(std::tan(std::clamp(v.fov, 1.0f, 170.0f) * kPi / 360) / aspect);
-            renderer_->setViewport(v.x, v.y, v.width, v.height);
-            renderer_->setView(gfx::multiply(gfx::perspective(fovY, aspect, 1, 65536), gfx::lookAlong(eye, ahead, up)),
+            _renderer->setViewport(v.x, v.y, v.width, v.height);
+            _renderer->setView(gfx::multiply(gfx::perspective(fovY, aspect, 1, 65536), gfx::lookAlong(eye, ahead, up)),
                                eye);
             if (a.clearZ)
-                renderer_->clearDepth();
+                _renderer->clearDepth();
             sprites.clear();
             drawLiveActor(a.actor, sprites, &a);
             drawSprites(sprites, ahead, side);
             flat = false;
         }
-        renderer_->setViewport(0, 0, w, h);
+        _renderer->setViewport(0, 0, w, h);
     };
     for (size_t i = 0; i < hud.tiles.size(); ++i) {
         if (next < hud.actors.size() && hud.actors[next].afterTiles <= i)
             drawActorsUpTo(i);
         if (!flat) {
-            renderer_->setView(pixels, gfx::Vec3{0, 0, 0});
+            _renderer->setView(pixels, gfx::Vec3{0, 0, 0});
             flat = true;
         }
         const ScriptLevel::HudTile &t = hud.tiles[i];
@@ -1479,7 +1479,7 @@ void LevelView::drawGameHud() {
         if (!id)
             continue;
         gfx::DrawCall call;
-        call.mesh = spriteQuad_;
+        call.mesh = _spriteQuad;
         call.indexCount = 6;
         call.model = gfx::identity();
         // The quad's corners are -0.5..0.5 with v down from its top.
@@ -1505,7 +1505,7 @@ void LevelView::drawGameHud() {
             call.state.src = gfx::Blend::kDstColor;
             call.state.dst = gfx::Blend::kSrcColor;
         }
-        renderer_->draw(call);
+        _renderer->draw(call);
     }
     drawActorsUpTo(hud.tiles.size());
 }
@@ -1515,10 +1515,10 @@ void LevelView::drawGameHud() {
 std::pair<gfx::TextureId, std::array<int, 2>> LevelView::hudFliTexture(const ObjectRef &tex, int frame,
                                                                        bool seeThrough) {
     auto key = std::make_tuple(tex.package, tex.exportIndex, seeThrough);
-    auto it = hudFlis_.find(key);
-    if (it == hudFlis_.end()) {
+    auto it = _hudFlis.find(key);
+    if (it == _hudFlis.end()) {
         HudFli f;
-        f.anim = openAnimatedTexture(ctx_.packages, *tex.package, tex.exportIndex);
+        f.anim = openAnimatedTexture(_ctx.packages, *tex.package, tex.exportIndex);
         if (f.anim) {
             f.anim->showFrame(frame, seeThrough);
             f.frame = frame;
@@ -1526,19 +1526,19 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::hudFliTexture(const Obj
             gfx::TextureParams params;
             params.nearest = true;
             params.mipmaps = false;
-            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), params, f.id))
-                textures_.push_back(f.id);
+            if (!_renderer->createTexture(img.w, img.h, img.rgba.data(), params, f.id))
+                _textures.push_back(f.id);
             else
                 f.id = 0;
         }
-        it = hudFlis_.emplace(key, std::move(f)).first;
+        it = _hudFlis.emplace(key, std::move(f)).first;
     }
     HudFli &f = it->second;
     if (!f.anim || !f.id)
         return textureOf(tex);
     if (f.frame != frame && f.anim->showFrame(frame, seeThrough)) {
         const image::Image &img = f.anim->image();
-        renderer_->updateTextures({{f.id, 0, 0, img.w, img.h, img.rgba.data()}});
+        _renderer->updateTextures({{f.id, 0, 0, img.w, img.h, img.rgba.data()}});
     }
     f.frame = frame;
     return {f.id, {std::max(1, f.anim->image().w), std::max(1, f.anim->image().h)}};
@@ -1549,19 +1549,19 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::hudFliTexture(const Obj
 std::pair<gfx::TextureId, std::array<int, 2>> LevelView::hudTexture(const ObjectRef &tex, bool seeThrough) {
     if (!seeThrough)
         return textureOf(tex);
-    auto it = seeThroughTextures_.find({tex.package, tex.exportIndex});
-    if (it == seeThroughTextures_.end()) {
+    auto it = _seeThroughTextures.find({tex.package, tex.exportIndex});
+    if (it == _seeThroughTextures.end()) {
         image::Image img;
         gfx::TextureId id = 0;
         gfx::TextureParams params;
         params.nearest = true;
         params.mipmaps = false;
-        if (!decodeTexture(ctx_.packages, *tex.package, tex.exportIndex, img, nullptr, true) &&
-            !renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id))
-            textures_.push_back(id);
+        if (!decodeTexture(_ctx.packages, *tex.package, tex.exportIndex, img, nullptr, true) &&
+            !_renderer->createTexture(img.w, img.h, img.rgba.data(), params, id))
+            _textures.push_back(id);
         else
             id = 0;
-        it = seeThroughTextures_
+        it = _seeThroughTextures
                  .emplace(std::make_pair(tex.package, tex.exportIndex),
                           std::make_pair(id, std::array<int, 2>{std::max(1, img.w), std::max(1, img.h)}))
                  .first;
@@ -1583,7 +1583,7 @@ void LevelView::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::V
             const gfx::Vec3 u = d.oriented ? d.up : d.vertical ? gfx::Vec3{0, 0, 1} : up;
             const gfx::Vec3 r = d.oriented ? d.right : right;
             gfx::DrawCall call;
-            call.mesh = spriteQuad_;
+            call.mesh = _spriteQuad;
             call.indexCount = 6;
             call.model = gfx::identity();
             for (size_t k = 0; k < 3; ++k) {
@@ -1595,7 +1595,7 @@ void LevelView::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::V
             call.state.depthBias = d.oriented;
             if (d.onTop)
                 call.state.depthTest = false;
-            call.texture = textured_ ? d.texture : 0;
+            call.texture = _textured ? d.texture : 0;
             call.color = {d.color[0], d.color[1], d.color[2], 1};
             call.state.cull = gfx::Cull::kNone;
             if (d.style == kStyleTranslucent) {
@@ -1610,7 +1610,7 @@ void LevelView::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::V
             } else {
                 call.state.alphaTest = gfx::AlphaTest::kGe128; // masked: index 0 see-through
             }
-            renderer_->draw(call);
+            _renderer->draw(call);
         }
 }
 
@@ -1621,22 +1621,22 @@ void LevelView::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::V
 // while takes that time at once. Their own pace allows one step for it.
 void LevelView::updateAnimatedTextures(float dt) {
     std::vector<gfx::TextureRegion> regions;
-    animatedSince_.resize(animatedTextures_.size(), 0);
-    const std::unordered_set<gfx::TextureId> *used = recorder_ ? &recorder_->used() : nullptr;
-    for (size_t i = 0; i < animatedTextures_.size(); ++i) {
-        const auto &[id, anim] = animatedTextures_[i];
-        animatedSince_[i] += dt;
+    _animatedSince.resize(_animatedTextures.size(), 0);
+    const std::unordered_set<gfx::TextureId> *used = _recorder ? &_recorder->used() : nullptr;
+    for (size_t i = 0; i < _animatedTextures.size(); ++i) {
+        const auto &[id, anim] = _animatedTextures[i];
+        _animatedSince[i] += dt;
         if (used && !used->count(id))
             continue;
-        const float since = animatedSince_[i];
-        animatedSince_[i] = 0;
+        const float since = _animatedSince[i];
+        _animatedSince[i] = 0;
         if (anim->advance(since))
             regions.push_back({id, 0, 0, anim->image().w, anim->image().h, anim->image().rgba.data()});
     }
-    if (recorder_)
-        recorder_->used().clear();
+    if (_recorder)
+        _recorder->used().clear();
     if (!regions.empty())
-        renderer_->updateTextures(regions);
+        _renderer->updateTextures(regions);
 }
 
 // A changing light's share of its brightness now: its curve; while
@@ -1644,18 +1644,18 @@ void LevelView::updateAnimatedTextures(float dt) {
 // LightType and LightBrightness: a TriggerLight fading, a light turned
 // off, or destroyed).
 float LevelView::liveLightLevel(const LightSource &l, bool whole) {
-    if (!play_ && l.startsOff)
+    if (!_play && l.startsOff)
         return 0; // as the level starts: its scripts haven't turned it on
-    if (!play_ || !l.scripted || !l.ref)
-        return lightLevel(l, l.type, lightTime_, whole);
-    VmObject *a = play_->actorAt(l.ref);
+    if (!_play || !l.scripted || !l.ref)
+        return lightLevel(l, l.type, _lightTime, whole);
+    VmObject *a = _play->actorAt(l.ref);
     if (!a)
         return 0;
-    Vm &vm = play_->vm();
+    Vm &vm = _play->vm();
     const Value *type = a->find(vm, "LightType");
     const Value *brightness = a->find(vm, "LightBrightness");
     const float share = brightness && l.brightness ? float(brightness->asInt()) / float(l.brightness) : 1;
-    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, lightTime_, whole) * share, 0.0f, 2.0f);
+    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, _lightTime, whole) * share, 0.0f, 2.0f);
 }
 
 // Redraws the lightmaps that pulsing, flickering... lights reach, where
@@ -1665,44 +1665,44 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
 // pattern, which lightPattern gives texel by texel (mapLevels_). Only
 // lightmaps in a zone seen are drawn; the others are drawn when it is.
 void LevelView::updateLightmaps(float dt) {
-    lightTime_ += dt;
-    std::vector<bool> changed(changingLights_.size(), false);
-    patternNow_.resize(changingLights_.size());
-    for (size_t i = 0; i < changingLights_.size(); ++i) {
-        lightLevels_[i] = liveLightLevel(changingLights_[i]);
-        const float level = liveLightLevel(changingLights_[i], false);
-        const bool pattern = hasLightPattern(changingLights_[i]) && level > 0;
+    _lightTime += dt;
+    std::vector<bool> changed(_changingLights.size(), false);
+    _patternNow.resize(_changingLights.size());
+    for (size_t i = 0; i < _changingLights.size(); ++i) {
+        _lightLevels[i] = liveLightLevel(_changingLights[i]);
+        const float level = liveLightLevel(_changingLights[i], false);
+        const bool pattern = hasLightPattern(_changingLights[i]) && level > 0;
         if (pattern)
-            patternNow_[i] = patternNow(changingLights_[i], lightTime_);
-        if (pattern || std::fabs(level - mapLevels_[i]) * 255 >= 1) {
-            mapLevels_[i] = level;
+            _patternNow[i] = patternNow(_changingLights[i], _lightTime);
+        if (pattern || std::fabs(level - _mapLevels[i]) * 255 >= 1) {
+            _mapLevels[i] = level;
             changed[i] = true;
         }
     }
-    staleLightmaps_.resize(animatedLightmaps_.size(), false);
+    _staleLightmaps.resize(_animatedLightmaps.size(), false);
     std::vector<std::vector<uint8_t>> pixels;
     std::vector<gfx::TextureRegion> regions;
-    for (size_t k = 0; k < animatedLightmaps_.size(); ++k) {
-        const AnimatedLightmap &m = animatedLightmaps_[k];
-        const bool redraw = staleLightmaps_[k] ||
+    for (size_t k = 0; k < _animatedLightmaps.size(); ++k) {
+        const AnimatedLightmap &m = _animatedLightmaps[k];
+        const bool redraw = _staleLightmaps[k] ||
                             std::any_of(m.lights.begin(), m.lights.end(),
                                         [&](const AnimatedLightmap::Light &l) { return changed[size_t(l.index)]; });
-        if (!redraw || size_t(m.page) >= lightmapPages_.size() || !lightmapPages_[size_t(m.page)])
+        if (!redraw || size_t(m.page) >= _lightmapPages.size() || !_lightmapPages[size_t(m.page)])
             continue;
-        if (m.zone >= 0 && m.zone < 64 && !((zonesSeen_ >> m.zone) & 1)) {
-            staleLightmaps_[k] = true;
+        if (m.zone >= 0 && m.zone < 64 && !((_zonesSeen >> m.zone) & 1)) {
+            _staleLightmaps[k] = true;
             continue;
         }
-        staleLightmaps_[k] = false;
+        _staleLightmaps[k] = false;
         pixels.emplace_back();
-        m.draw(mapLevels_, pixels.back(), &changingLights_, &patternNow_);
-        regions.push_back({lightmapPages_[size_t(m.page)], m.x, m.y, m.w, m.h, nullptr});
+        m.draw(_mapLevels, pixels.back(), &_changingLights, &_patternNow);
+        regions.push_back({_lightmapPages[size_t(m.page)], m.x, m.y, m.w, m.h, nullptr});
     }
     if (regions.empty())
         return;
     for (size_t i = 0; i < regions.size(); ++i)
         regions[i].rgba = pixels[i].data();
-    renderer_->updateTextures(regions);
+    _renderer->updateTextures(regions);
 }
 
 // The idle loop a character placed in pose `anim` plays (see load()).
@@ -1713,21 +1713,21 @@ std::string LevelView::idleFor(const std::string &anim) {
 // Puts the camera before the next placed mesh (or the next whose mesh is
 // posed from bones: the characters), looking at it along X.
 void LevelView::jumpToMeshActor(bool skeletalOnly) {
-    const int n = int(meshActors_.size());
+    const int n = int(_meshActors.size());
     for (int step = 1; step <= n; ++step) {
-        const int i = (jump_ + step) % n;
-        const MeshDraw &d = meshActors_[size_t(i)];
+        const int i = (_jump + step) % n;
+        const MeshDraw &d = _meshActors[size_t(i)];
         if (skeletalOnly && !d.skeletal)
             continue;
-        jump_ = i;
+        _jump = i;
         // Back from it by its size as placed (The Fallen's Arachnids are
         // drawn at 0.03 of their mesh: backing off by the mesh's own size
         // went through the walls).
-        const GpuMesh &g = gpuMeshes_[d.mesh];
+        const GpuMesh &g = _gpuMeshes[d.mesh];
         const float back = std::clamp(g.radius * std::fabs(d.drawScale) * 3, 30.0f, 400.0f);
-        pos_ = {d.at[0] - back, d.at[1], d.at[2] + back * 0.25f};
-        yaw_ = 0;
-        pitch_ = -0.24f;
+        _pos = {d.at[0] - back, d.at[1], d.at[2] + back * 0.25f};
+        _yaw = 0;
+        _pitch = -0.24f;
         return;
     }
 }
@@ -1765,33 +1765,33 @@ gfx::Mat4 LevelView::moverPlacement(const Mover &m, const Vec3f &location, const
 // drawBatches to leave out the rest.
 void LevelView::seeZonesFrom(const gfx::Vec3 &eye, const gfx::Mat4 &viewProj, bool mainView) {
     const Vec3f at{eye[0], -eye[1], eye[2]}; // Unreal's coordinates have y the other way
-    if (!zoneCulling_) {
-        zonesSeen_ = ~uint64_t(0);
+    if (!_zoneCulling) {
+        _zonesSeen = ~uint64_t(0);
     } else {
         gfx::Mat4 flip = gfx::identity();
         flip[5] = -1;
-        zonesSeen_ = zones_.visible(at, gfx::multiply(viewProj, flip));
+        _zonesSeen = _zones.visible(at, gfx::multiply(viewProj, flip));
     }
     // The zones' render times (The Fallen's sleep); the view's zone, the
     // main view's only (not the sky's).
-    if (play_)
-        play_->zonesDrawn(zonesSeen_, mainView ? zones_.zoneAt(at) : -1);
+    if (_play)
+        _play->zonesDrawn(_zonesSeen, mainView ? _zones.zoneAt(at) : -1);
 }
 
 // The level's batches, playing: with the textures the scripts have swapped
 // for others everywhere (SetSurfaceTexture's bReplaceAllWorld).
 const std::vector<LevelView::Batch> &LevelView::levelBatches() {
-    if (!play_ || play_->level().surfaceSwaps().world.empty())
-        return batches_;
-    const ScriptLevel::SurfaceSwaps &swaps = play_->level().surfaceSwaps();
-    if (swappedSerial_ != swaps.serial) {
-        swappedSerial_ = swaps.serial;
-        swappedBatches_ = batches_;
-        for (Batch &b : swappedBatches_)
+    if (!_play || _play->level().surfaceSwaps().world.empty())
+        return _batches;
+    const ScriptLevel::SurfaceSwaps &swaps = _play->level().surfaceSwaps();
+    if (_swappedSerial != swaps.serial) {
+        _swappedSerial = swaps.serial;
+        _swappedBatches = _batches;
+        for (Batch &b : _swappedBatches)
             if (auto it = swaps.world.find({b.textureRef.package, b.textureRef.exportIndex}); it != swaps.world.end())
-                b.texture = textureOf(it->second, nullptr, (b.polyFlags & polyflag::Masked) != 0).first;
+                b.texture = textureOf(it->second, nullptr, (b.polyFlags & polyflag::kMasked) != 0).first;
     }
-    return swappedBatches_;
+    return _swappedBatches;
 }
 
 // One surface's texture swapped (SetSurfaceTexture): its polygons drawn
@@ -1799,39 +1799,39 @@ const std::vector<LevelView::Batch> &LevelView::levelBatches() {
 // coordinates are the old texture's, so a new one of another size would
 // be stretched; The Fallen's switches swap textures of one size.
 void LevelView::drawSurfaceSwaps() {
-    if (!play_)
+    if (!_play)
         return;
-    for (const auto &[surf, tex] : play_->level().surfaceSwaps().surfaces) {
-        auto it = surfRanges_.find(surf);
-        if (it == surfRanges_.end())
+    for (const auto &[surf, tex] : _play->level().surfaceSwaps().surfaces) {
+        auto it = _surfRanges.find(surf);
+        if (it == _surfRanges.end())
             continue;
         for (const SurfRange &r : it->second) {
-            if (r.batch >= batches_.size())
+            if (r.batch >= _batches.size())
                 continue;
-            Batch b = batches_[r.batch];
+            Batch b = _batches[r.batch];
             b.firstIndex = r.firstIndex;
             b.indexCount = r.indexCount;
-            b.texture = textureOf(tex, nullptr, (b.polyFlags & polyflag::Masked) != 0).first;
-            drawBatches({b}, mesh_, gfx::identity(), true, true);
+            b.texture = textureOf(tex, nullptr, (b.polyFlags & polyflag::kMasked) != 0).first;
+            drawBatches({b}, _mesh, gfx::identity(), true, true);
         }
     }
 }
 
 Vec3f LevelView::tintOf(int tint) const {
-    const std::vector<TintSample> &samples = tints_[size_t(tint)];
+    const std::vector<TintSample> &samples = _tints[size_t(tint)];
     Vec3f sum{};
     for (const TintSample &t : samples) {
         Vec3f light = t.light;
         if (t.anim >= 0) {
-            const AnimatedLightmap &m = animatedLightmaps_[size_t(t.anim)];
+            const AnimatedLightmap &m = _animatedLightmaps[size_t(t.anim)];
             light = m.base[t.texel];
             for (const AnimatedLightmap::Light &l : m.lights) {
-                const float level = size_t(l.index) < mapLevels_.size() ? mapLevels_[size_t(l.index)] : 1;
+                const float level = size_t(l.index) < _mapLevels.size() ? _mapLevels[size_t(l.index)] : 1;
                 for (size_t k = 0; k < 3; ++k)
                     light[k] += l.share[t.texel][k] * level;
             }
         }
-        for (const LightSource &l : dynamic_) {
+        for (const LightSource &l : _dynamic) {
             const float dist = lightDistance(l, t.at);
             if (dist < l.radius)
                 for (size_t k = 0; k < 3; ++k)
@@ -1852,27 +1852,27 @@ Vec3f LevelView::tintOf(int tint) const {
 void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, bool levelLit,
                             bool over, const MeshLight *moverLight) {
     auto lit = [&](const Batch &b) {
-        return levelLit && lightmaps_ && b.lightmap && !blended(b.polyFlags) &&
-               !(b.polyFlags & (polyflag::FakeBackdrop | polyflag::Unlit));
+        return levelLit && _lightmaps && b.lightmap && !blended(b.polyFlags) &&
+               !(b.polyFlags & (polyflag::kFakeBackdrop | polyflag::kUnlit));
     };
     for (const Batch &b : batches) {
-        if ((b.polyFlags & polyflag::FakeBackdrop) || !(b.zones & zonesSeen_))
+        if ((b.polyFlags & polyflag::kFakeBackdrop) || !(b.zones & _zonesSeen))
             continue;
-        if (&b == mirrorThrough_) // the mirror the view is through
+        if (&b == _mirrorThrough) // the mirror the view is through
             continue;
         gfx::DrawCall call;
         call.mesh = mesh;
         call.model = model;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
-        if ((b.polyFlags & polyflag::Mirrored) && !blended(b.polyFlags) && mirrorLevel_ < 3 &&
-            renderer_->hasStencil()) {
+        if ((b.polyFlags & polyflag::kMirrored) && !blended(b.polyFlags) && _mirrorLevel < 3 &&
+            _renderer->hasStencil()) {
             // An opaque mirror shows only what it reflects: its depth, to
             // hide what's behind it.
             call.state.src = gfx::Blend::kZero;
             call.state.dst = gfx::Blend::kOne;
             call.state.cull = gfx::Cull::kNone;
-            renderer_->draw(call);
+            _renderer->draw(call);
             continue;
         }
         // One-sided, as UE1's surfaces are (their back, the way our
@@ -1884,14 +1884,14 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
         // A mover's polygons (its brush's) wind the other way round: from
         // inside M04_WorfL1a's turbolift, culled as the level's, all that
         // showed was its brush's untextured outer faces from behind.
-        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::kNone
+        call.state.cull = (b.polyFlags & polyflag::kTwoSided) ? gfx::Cull::kNone
                           : moverLight                       ? gfx::Cull::kBack
                                                              : gfx::Cull::kFront;
-        call.texture = textured_ ? b.texture : 0;
+        call.texture = _textured ? b.texture : 0;
         // With a lightmap the second pass lights it; else the vertex colours
         // (shading by facing, or a mover's light).
         call.rgbSource = lit(b) ? gfx::ColorSource::kConstant : gfx::ColorSource::kVertex;
-        if (moverLight && !(b.polyFlags & polyflag::Unlit) && !blended(b.polyFlags)) {
+        if (moverLight && !(b.polyFlags & polyflag::kUnlit) && !blended(b.polyFlags)) {
             call.rgbSource = gfx::ColorSource::kLighting;
             call.ambientLight = moverLight->ambient;
             call.directedLight = moverLight->directed;
@@ -1903,57 +1903,57 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
                     call.vertexLights[size_t(i)] = moverLight->lights[size_t(i)];
             }
         }
-        if (!(b.polyFlags & polyflag::Modulated)) // those multiply what's there, so stay as they are
+        if (!(b.polyFlags & polyflag::kModulated)) // those multiply what's there, so stay as they are
             call.color = {kExposure, kExposure, kExposure, 1};
-        if (b.tint >= 0 && lightmaps_) {
+        if (b.tint >= 0 && _lightmaps) {
             const Vec3f t = tintOf(b.tint);
-            call.color = {kExposure * t[0] * lightScale_, kExposure * t[1] * lightScale_,
-                          kExposure * t[2] * lightScale_, 1};
+            call.color = {kExposure * t[0] * _lightScale, kExposure * t[1] * _lightScale,
+                          kExposure * t[2] * _lightScale, 1};
         }
-        if (b.polyFlags & polyflag::Masked)
+        if (b.polyFlags & polyflag::kMasked)
             call.state.alphaTest = gfx::AlphaTest::kGe128;
         if (over) // drawn over what's there already
             call.state.depthEqual = true;
-        if (b.polyFlags & polyflag::Translucent) {
+        if (b.polyFlags & polyflag::kTranslucent) {
             call.state.src = gfx::Blend::kOne;
             call.state.dst = gfx::Blend::kOneMinusSrcColor;
             call.state.depthWrite = false;
-        } else if (b.polyFlags & polyflag::Modulated) {
+        } else if (b.polyFlags & polyflag::kModulated) {
             call.state.src = gfx::Blend::kDstColor;
             call.state.dst = gfx::Blend::kSrcColor;
             call.state.depthWrite = false;
             call.rgbSource = gfx::ColorSource::kConstant;
         }
-        renderer_->draw(call);
+        _renderer->draw(call);
         if (lit(b)) {
             // The lightmap over it, doubled (dst * src * 2).
             gfx::DrawCall light = call;
             light.texture = b.lightmap;
             light.texGen = gfx::TexGen::kUv2;
             light.rgbSource = gfx::ColorSource::kConstant;
-            light.color = {lightScale_, lightScale_, lightScale_, 1};
+            light.color = {_lightScale, _lightScale, _lightScale, 1};
             light.state.src = gfx::Blend::kDstColor;
             light.state.dst = gfx::Blend::kSrcColor;
             light.state.depthEqual = true;
             light.state.depthWrite = false;
             light.state.alphaTest = gfx::AlphaTest::kNone;
-            renderer_->draw(light);
+            _renderer->draw(light);
         }
         // The lights that move and change (a spark's flash, an
         // explosion's) added over it: its texture times their light, as
         // UE1 adds dynamic light to the lightmap's.
-        if (!dynamic_.empty() && !over && !blended(b.polyFlags) && !(b.polyFlags & polyflag::Unlit) && call.texture) {
+        if (!_dynamic.empty() && !over && !blended(b.polyFlags) && !(b.polyFlags & polyflag::kUnlit) && call.texture) {
             gfx::DrawCall dyn = call;
             dyn.dynamicLightsTextured = true;
             dyn.state.src = gfx::Blend::kOne;
             dyn.state.dst = gfx::Blend::kOne;
             dyn.state.depthEqual = true;
             dyn.state.depthWrite = false;
-            renderer_->draw(dyn);
+            _renderer->draw(dyn);
         }
         // The zone's distance fog over it, last.
-        if (fog_.distance > 0 && !over && !blended(b.polyFlags))
-            drawFogOver(*renderer_, call, fog_);
+        if (_fog.distance > 0 && !over && !blended(b.polyFlags))
+            drawFogOver(*_renderer, call, _fog);
     }
 }
 
@@ -1965,11 +1965,11 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
 // added, and what's there dimmed by its VolumeFog times that (blended
 // One, OneMinusSrcAlpha).
 void LevelView::drawVolumes(const gfx::Vec3 &eye) {
-    if (volumes_.empty() || !lightmaps_)
+    if (_volumes.empty() || !_lightmaps)
         return;
     const Vec3f e{eye[0], -eye[1], eye[2]};
     std::vector<std::pair<float, const LightSource *>> near;
-    for (const LightSource *l : volumes_) {
+    for (const LightSource *l : _volumes) {
         const float dx = l->position[0] - e[0], dy = l->position[1] - e[1], dz = l->position[2] - e[2];
         near.push_back({std::sqrt(dx * dx + dy * dy + dz * dz) - l->volumeRadius, l});
     }
@@ -1982,8 +1982,8 @@ void LevelView::drawVolumes(const gfx::Vec3 &eye) {
                           {l.volumeColor[0] * kExposure, l.volumeColor[1] * kExposure, l.volumeColor[2] * kExposure},
                           l.volumeFog});
     }
-    renderer_->setVolumeLights(lights);
-    volumesOver(levelBatches(), mesh_, gfx::identity(), gfx::Cull::kFront, true);
+    _renderer->setVolumeLights(lights);
+    volumesOver(levelBatches(), _mesh, gfx::identity(), gfx::Cull::kFront, true);
 }
 
 // The volume lights over batches drawn (the level's in fog zones, flagged
@@ -1991,24 +1991,24 @@ void LevelView::drawVolumes(const gfx::Vec3 &eye) {
 void LevelView::volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, gfx::Cull cull,
                             bool flagged) {
     for (const Batch &b : batches) {
-        if ((flagged && !(b.polyFlags & kRenderFog)) || (b.polyFlags & polyflag::FakeBackdrop) ||
-            blended(b.polyFlags) || !(b.zones & zonesSeen_) || &b == mirrorThrough_)
+        if ((flagged && !(b.polyFlags & kRenderFog)) || (b.polyFlags & polyflag::kFakeBackdrop) ||
+            blended(b.polyFlags) || !(b.zones & _zonesSeen) || &b == _mirrorThrough)
             continue;
         gfx::DrawCall call;
         call.mesh = mesh;
         call.model = model;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
-        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::kNone : cull;
-        drawVolumeOver(*renderer_, call);
+        call.state.cull = (b.polyFlags & polyflag::kTwoSided) ? gfx::Cull::kNone : cull;
+        drawVolumeOver(*_renderer, call);
     }
 }
 
 bool LevelView::inFogZone(const Vec3f &at) const {
-    if (volumes_.empty() || !lightmaps_)
+    if (_volumes.empty() || !_lightmaps)
         return false;
-    const int z = zones_.zoneAt(at);
-    return z >= 0 && size_t(z) < lights_.zoneFog.size() && lights_.zoneFog[size_t(z)];
+    const int z = _zones.zoneAt(at);
+    return z >= 0 && size_t(z) < _lights.zoneFog.size() && _lights.zoneFog[size_t(z)];
 }
 
 // The lit actors that aren't the level's own lights (those are in its
@@ -2016,13 +2016,13 @@ bool LevelView::inFogZone(const Vec3f &at) const {
 // lightmaps): their light as it is now, the nearest kMaxDynamicLights to
 // the eye given to the renderer.
 void LevelView::gatherDynamicLights(const gfx::Vec3 &eye) {
-    dynamic_.clear();
-    if (!play_)
+    _dynamic.clear();
+    if (!_play)
         return;
-    play_->level().litActors(litScratch_);
-    const Package *map = &play_->map();
-    for (const ScriptLevel::LitActor &a : litScratch_) {
-        if (a.isStatic || (a.actor->package == map && staticLightRefs_.count(a.actor->exportIndex + 1)))
+    _play->level().litActors(_litScratch);
+    const Package *map = &_play->map();
+    for (const ScriptLevel::LitActor &a : _litScratch) {
+        if (a.isStatic || (a.actor->package == map && _staticLightRefs.count(a.actor->exportIndex + 1)))
             continue;
         LightSource l;
         l.position = {a.location[0], a.location[1], a.location[2]};
@@ -2031,87 +2031,87 @@ void LevelView::gatherDynamicLights(const gfx::Vec3 &eye) {
         l.effect = a.effect;
         l.period = float(std::max<uint8_t>(a.period, 1)) / 35;
         l.phase = float(a.phase) / 256;
-        const float level = lightLevel(l, lightTime_);
+        const float level = lightLevel(l, _lightTime);
         if (level <= 0)
             continue;
         // As the level's lights: the original lights with them the same way.
-        const Vec3f c = lightColor(a.hue, a.saturation, a.brightness, lights_.levelBrightness);
+        const Vec3f c = lightColor(a.hue, a.saturation, a.brightness, _lights.levelBrightness);
         l.color = {c[0] * level, c[1] * level, c[2] * level};
         l.key = a.actor;
-        dynamic_.push_back(l);
+        _dynamic.push_back(l);
     }
     const Vec3f e{eye[0], -eye[1], eye[2]};
     auto dist2 = [&](const LightSource &l) {
         const float dx = l.position[0] - e[0], dy = l.position[1] - e[1], dz = l.position[2] - e[2];
         return dx * dx + dy * dy + dz * dz;
     };
-    if (dynamic_.size() > size_t(gfx::kMaxDynamicLights)) {
-        std::partial_sort(dynamic_.begin(), dynamic_.begin() + gfx::kMaxDynamicLights, dynamic_.end(),
+    if (_dynamic.size() > size_t(gfx::kMaxDynamicLights)) {
+        std::partial_sort(_dynamic.begin(), _dynamic.begin() + gfx::kMaxDynamicLights, _dynamic.end(),
                           [&](const LightSource &a, const LightSource &b) { return dist2(a) < dist2(b); });
-        dynamic_.resize(size_t(gfx::kMaxDynamicLights));
+        _dynamic.resize(size_t(gfx::kMaxDynamicLights));
     }
     std::vector<gfx::DynamicLight> lights;
-    for (const LightSource &l : dynamic_)
+    for (const LightSource &l : _dynamic)
         lights.push_back({toWorld(l.position), l.radius, {l.color[0], l.color[1], l.color[2]}});
-    renderer_->setDynamicLights(lights);
+    _renderer->setDynamicLights(lights);
 }
 
 void LevelView::drawOverlay(uint64_t nowMs) {
-    ++frames_;
-    if (nowMs - fpsStart_ >= 1000) {
-        fps_ = float(frames_) * 1000.0f / float(nowMs - fpsStart_);
-        fpsStart_ = nowMs;
-        frames_ = 0;
+    ++_frames;
+    if (nowMs - _fpsStart >= 1000) {
+        _fps = float(_frames) * 1000.0f / float(nowMs - _fpsStart);
+        _fpsStart = nowMs;
+        _frames = 0;
     }
     // Only the rows drawn last frame are cleared: the box at the top, the
     // play lines at the bottom (clearing all 2.7 MB a frame cost a tenth).
     const size_t rowBytes = size_t(kFrameW) * 4;
-    const size_t top = std::min(size_t(std::clamp(overlayTop_, 0, kFrameH)) * rowBytes, overlay_.pixels.size());
-    const size_t bottom = std::min(size_t(std::clamp(overlayBottom_, 0, kFrameH)) * rowBytes, overlay_.pixels.size());
-    std::fill(overlay_.pixels.begin() + ptrdiff_t(bottom), overlay_.pixels.end(), uint8_t(0));
-    overlayBottom_ = kFrameH;
+    const size_t top = std::min(size_t(std::clamp(_overlayTop, 0, kFrameH)) * rowBytes, _overlay.pixels.size());
+    const size_t bottom = std::min(size_t(std::clamp(_overlayBottom, 0, kFrameH)) * rowBytes, _overlay.pixels.size());
+    std::fill(_overlay.pixels.begin() + ptrdiff_t(bottom), _overlay.pixels.end(), uint8_t(0));
+    _overlayBottom = kFrameH;
     // A cut scene's black bars are the HUD's own (CTV_Hud.RenderLetterBox,
     // with the subtitles drawn over them).
-    if (!showInfo_ && error_.empty()) {
-        std::fill(overlay_.pixels.begin(), overlay_.pixels.begin() + ptrdiff_t(top), uint8_t(0));
-        overlayTop_ = 0;
-        overlayLines_.clear();
+    if (!_showInfo && _error.empty()) {
+        std::fill(_overlay.pixels.begin(), _overlay.pixels.begin() + ptrdiff_t(top), uint8_t(0));
+        _overlayTop = 0;
+        _overlayLines.clear();
         return;
     }
-    std::vector<std::string> lines = info_;
-    const size_t errorLine = error_.empty() ? size_t(-1) : lines.size();
-    if (!error_.empty())
-        lines.push_back(error_);
-    if (!playError_.empty())
-        lines.push_back("Can't play: " + playError_);
+    std::vector<std::string> lines = _info;
+    const size_t errorLine = _error.empty() ? size_t(-1) : lines.size();
+    if (!_error.empty())
+        lines.push_back(_error);
+    if (!_playError.empty())
+        lines.push_back("Can't play: " + _playError);
     lines.push_back(
-        !play_ ? "Enter plays the level"
-        : freeCam_
+        !_play ? "Enter plays the level"
+        : _freeCam
             ? "Playing, the camera loose (V back to the game's): W/S/A/D, Space/C and drag fly it"
             : "Playing (Enter stops): W/S move, A/D step aside, arrows turn and look, drag to look, Space "
               "jumps, C crouches, Ctrl or F fires, 0-9 pick weapons, F1-F12 as the game binds them, Esc the game's menu, V lets "
               "the camera loose");
     char where[240];
     // Shown in Unreal's own coordinates.
-    const std::string zones = !zones_.portalCount()        ? "no zone portals"
-                              : !zoneCulling_              ? "all zones drawn (Z)"
-                              : zonesSeen_ == ~uint64_t(0) ? "all zones seen"
-                              : std::popcount(zonesSeen_) == 1
+    const std::string zones = !_zones.portalCount()        ? "no zone portals"
+                              : !_zoneCulling              ? "all zones drawn (Z)"
+                              : _zonesSeen == ~uint64_t(0) ? "all zones seen"
+                              : std::popcount(_zonesSeen) == 1
                                   ? "1 zone seen (Z draws all)"
-                                  : std::to_string(std::popcount(zonesSeen_)) + " zones seen (Z draws all)";
+                                  : std::to_string(std::popcount(_zonesSeen)) + " zones seen (Z draws all)";
     std::snprintf(where, sizeof where,
-                  "at %.0f %.0f %.0f, %.0f fps; lightmaps %s, brightness x%.2f, display gamma %.2f; %s", pos_[0],
-                  -pos_[1], pos_[2], fps_,
-                  !hasLightmaps_ ? "none"
-                  : lightmaps_   ? "on"
+                  "at %.0f %.0f %.0f, %.0f fps; lightmaps %s, brightness x%.2f, display gamma %.2f; %s", _pos[0],
+                  -_pos[1], _pos[2], _fps,
+                  !_hasLightmaps ? "none"
+                  : _lightmaps   ? "on"
                                  : "off",
-                  lightScale_, displayGamma_, zones.c_str());
+                  _lightScale, _displayGamma, zones.c_str());
     lines.push_back(where);
-    if (jump_ >= 0 && size_t(jump_) < meshActors_.size()) {
-        const MeshDraw &d = meshActors_[size_t(jump_)];
+    if (_jump >= 0 && size_t(_jump) < _meshActors.size()) {
+        const MeshDraw &d = _meshActors[size_t(_jump)];
         std::snprintf(where, sizeof where,
-                      "mesh actor %d of %zu: %s, at %.0f %.0f %.0f (G next, H next posed from bones)", jump_ + 1,
-                      meshActors_.size(), d.label.c_str(), d.at[0], -d.at[1], d.at[2]);
+                      "mesh actor %d of %zu: %s, at %.0f %.0f %.0f (G next, H next posed from bones)", _jump + 1,
+                      _meshActors.size(), d.label.c_str(), d.at[0], -d.at[1], d.at[2]);
         lines.push_back(where);
     }
     const int lh = font::kLineHeight;
@@ -2123,32 +2123,32 @@ void LevelView::drawOverlay(uint64_t nowMs) {
     // The box is kept from frame to frame (nothing else draws up there):
     // only the lines that changed (the place and the frame rate, mostly)
     // are drawn again. Drawing all its text each frame cost a twentieth.
-    const bool same = boxW == overlayBoxW_ && boxH == overlayTop_ && lines.size() == overlayLines_.size() &&
-                      errorLine == overlayErrorLine_ && bottom >= top;
+    const bool same = boxW == _overlayBoxW && boxH == _overlayTop && lines.size() == _overlayLines.size() &&
+                      errorLine == _overlayErrorLine && bottom >= top;
     auto band = [&](int from, int to) {
         for (int y = std::max(0, from); y < std::min(to, boxH); ++y) {
-            uint8_t *p = overlay_.row(y);
+            uint8_t *p = _overlay.row(y);
             std::fill(p, p + size_t(kFrameW) * 4, uint8_t(0));
             for (int x = 0; x < boxW; ++x)
                 p[x * 4 + 3] = 150;
         }
     };
     if (!same) {
-        std::fill(overlay_.pixels.begin(), overlay_.pixels.begin() + ptrdiff_t(top), uint8_t(0));
+        std::fill(_overlay.pixels.begin(), _overlay.pixels.begin() + ptrdiff_t(top), uint8_t(0));
         band(0, boxH);
-        overlayLines_.assign(lines.size(), std::string(1, '\0'));
+        _overlayLines.assign(lines.size(), std::string(1, '\0'));
     }
-    overlayTop_ = boxH;
-    overlayBoxW_ = boxW;
-    overlayErrorLine_ = errorLine;
+    _overlayTop = boxH;
+    _overlayBoxW = boxW;
+    _overlayErrorLine = errorLine;
     for (size_t i = 0; i < lines.size(); ++i) {
-        if (overlayLines_[i] == lines[i])
+        if (_overlayLines[i] == lines[i])
             continue;
         if (same)
             band(3 + int(i) * lh, 3 + int(i + 1) * lh);
-        font::drawText(overlay_, 4, 3 + int(i) * lh, lines[i],
+        font::drawText(_overlay, 4, 3 + int(i) * lh, lines[i],
                        i == errorLine ? Color{255, 120, 120} : Color{230, 230, 230});
-        overlayLines_[i] = lines[i];
+        _overlayLines[i] = lines[i];
     }
 }
 
@@ -2156,14 +2156,14 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
                                                                    bool masked) {
     if (!tex)
         return {0, {64, 64}};
-    auto it = textureCache_.find({tex.package, tex.exportIndex, masked});
-    if (it == textureCache_.end()) {
+    auto it = _textureCache.find({tex.package, tex.exportIndex, masked});
+    if (it == _textureCache.end()) {
         image::Image img;
         gfx::TextureId id = 0;
         TextureInfo ti;
         // A masked surface leaves colour 0 out whether or not its texture
         // is marked masked (CM_SpaceStation's windows, an FLC over the hull).
-        if (decodeTexture(ctx_.packages, *tex.package, tex.exportIndex, img, &ti, masked)) {
+        if (decodeTexture(_ctx.packages, *tex.package, tex.exportIndex, img, &ti, masked)) {
             if (unreadable)
                 *unreadable = true;
         } else {
@@ -2171,7 +2171,7 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
             // change (so without mipmaps, which updates don't redo).
             std::unique_ptr<AnimatedTexture> anim;
             if (isAnimatedTextureClass(tex.package->className(tex.exportIndex + 1)))
-                anim = openAnimatedTexture(ctx_.packages, *tex.package, tex.exportIndex);
+                anim = openAnimatedTexture(_ctx.packages, *tex.package, tex.exportIndex);
             if (anim && masked && anim->frames() > 0)
                 anim->showFrame(1, true);
             if (anim && anim->image().w == img.w && anim->image().h == img.h)
@@ -2179,17 +2179,17 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
             else
                 anim.reset();
             gfx::TextureParams params;
-            params.nearest = (ti.polyFlags & polyflag::NoSmooth) != 0;
+            params.nearest = (ti.polyFlags & polyflag::kNoSmooth) != 0;
             params.mipmaps = !anim;
-            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id)) {
-                textures_.push_back(id);
+            if (!_renderer->createTexture(img.w, img.h, img.rgba.data(), params, id)) {
+                _textures.push_back(id);
                 if (anim)
-                    animatedTextures_.push_back({id, std::move(anim)});
+                    _animatedTextures.push_back({id, std::move(anim)});
             } else {
                 id = 0;
             }
         }
-        it = textureCache_
+        it = _textureCache
                  .emplace(std::make_tuple(tex.package, tex.exportIndex, masked),
                           std::make_pair(id, std::array<int, 2>{std::max(1, img.w), std::max(1, img.h)}))
                  .first;
@@ -2226,7 +2226,7 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
         const float dist = lightDistance(l, at);
         if (dist >= l.radius || straight <= 0)
             return;
-        if (play_ && play_->wallBetween(at, l.position))
+        if (_play && _play->wallBetween(at, l.position))
             return;
         const float amount = lightFalloff(dist / l.radius) * level;
         sum += amount;
@@ -2235,9 +2235,9 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
             toward[k] += dv[k] / straight * amount;
         }
     };
-    for (const LightSource &l : lights_.unique)
+    for (const LightSource &l : _lights.unique)
         add(l, levelOf(l));
-    for (const LightSource &l : dynamic_)
+    for (const LightSource &l : _dynamic)
         add(l, 1);
     // At most the texture's own colour where the light falls full on it,
     // as the lightmaps are: ambient and directed together under kMaxLight.
@@ -2264,17 +2264,17 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
 // the movers and the actors (or, not playing, the placed meshes and
 // sprites), from `eye` looking along `forward`.
 void LevelView::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye) {
-    drawBatches(levelBatches(), mesh_, gfx::identity(), true);
+    drawBatches(levelBatches(), _mesh, gfx::identity(), true);
     drawSurfaceSwaps();
     drawVolumes(eye);
-    for (size_t i = 0; i < movers_.size(); ++i) {
-        const MoverDraw &m = movers_[i];
-        VmObject *live = play_ && i < moverActors_.size() ? moverActors_[i] : nullptr;
+    for (size_t i = 0; i < _movers.size(); ++i) {
+        const MoverDraw &m = _movers[i];
+        VmObject *live = _play && i < _moverActors.size() ? _moverActors[i] : nullptr;
         LevelPlay::Look look;
         // Lit where it is now, by the lights as they are now.
         Vec3f at;
         gfx::Mat4 place;
-        if (live && play_->look(live, look)) {
+        if (live && _play->look(live, look)) {
             at = look.location;
             place = moverPlacement(m.mover, look.location, look.rotation);
         } else {
@@ -2289,20 +2289,20 @@ void LevelView::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, cons
         // from every light reaching them, without shadows).
         const bool baked = !m.mover.dynamicLight;
         const MeshLight light = baked ? MeshLight{} : dynamicMoverLight(at, m.reach);
-        drawBatches(m.batches, moverMesh_, place, false, false, baked ? nullptr : &light);
+        drawBatches(m.batches, _moverMesh, place, false, false, baked ? nullptr : &light);
         if (inFogZone(at))
-            volumesOver(m.batches, moverMesh_, place, gfx::Cull::kBack, false);
+            volumesOver(m.batches, _moverMesh, place, gfx::Cull::kBack, false);
     }
-    if (play_) {
+    if (_play) {
         drawLiveActors(forward, right);
     } else {
-        for (const MeshDraw &d : meshActors_) {
-            const Mesh &mesh = meshes_[d.mesh];
+        for (const MeshDraw &d : _meshActors) {
+            const Mesh &mesh = _meshes[d.mesh];
             const MeshAnimSeq *anim = d.anim >= 0 ? &mesh.anims[size_t(d.anim)] : nullptr;
-            drawMesh(*renderer_, gpuMeshes_[d.mesh], d.placement, poseAt(mesh, anim, animTime_, d.startFraction),
-                     textured_ ? d.textures : std::vector<gfx::TextureId>{}, d.light, kExposure);
+            drawMesh(*_renderer, _gpuMeshes[d.mesh], d.placement, poseAt(mesh, anim, _animTime, d.startFraction),
+                     _textured ? d.textures : std::vector<gfx::TextureId>{}, d.light, kExposure);
         }
-        drawSprites(sprites_, forward, right);
+        drawSprites(_sprites, forward, right);
     }
 }
 
@@ -2320,11 +2320,11 @@ void LevelView::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, cons
 void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const gfx::Mat4 &viewProj,
                             const gfx::Vec3 &eye, const gfx::Vec3 &forward, const gfx::Vec3 &right, int level,
                             const Batch *through) {
-    if (!renderer_->hasStencil() || level >= 3)
+    if (!_renderer->hasStencil() || level >= 3)
         return;
     int drawn = 0;
     for (const Batch &m : levelBatches()) {
-        if (!(m.polyFlags & polyflag::Mirrored) || &m == through || !(m.zones & zonesSeen_) || drawn >= 4)
+        if (!(m.polyFlags & polyflag::kMirrored) || &m == through || !(m.zones & _zonesSeen) || drawn >= 4)
             continue;
         const gfx::Vec3 n = m.mirrorNormal;
         const float side = n[0] * eye[0] + n[1] * eye[1] + n[2] * eye[2] - m.mirrorD;
@@ -2333,16 +2333,16 @@ void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
         ++drawn;
         // Where the mirror is: marked a level up.
         gfx::DrawCall mark;
-        mark.mesh = mesh_;
+        mark.mesh = _mesh;
         mark.firstIndex = m.firstIndex;
         mark.indexCount = m.indexCount;
         mark.state.src = gfx::Blend::kZero;
         mark.state.dst = gfx::Blend::kOne;
         mark.state.depthWrite = false;
         mark.state.cull = gfx::Cull::kNone;
-        renderer_->setStencilLevel(uint8_t(level + 1));
-        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kLevelMark);
-        renderer_->draw(mark);
+        _renderer->setStencilLevel(uint8_t(level + 1));
+        _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kLevelMark);
+        _renderer->draw(mark);
         // The world reflected in the plane: x - 2 (n.x - d) n.
         gfx::Mat4 reflect = gfx::identity();
         for (size_t c = 0; c < 3; ++c)
@@ -2374,33 +2374,33 @@ void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
             return gfx::Vec3{v[0] - k * n[0], v[1] - k * n[1], v[2] - k * n[2]};
         };
         const gfx::Vec3 mirrorForward = turn(forward), mirrorRight = turn(right);
-        renderer_->setView(mirrorViewProj, mirrorEye);
-        renderer_->setMirrored((level + 1) % 2 == 1);
-        const int saved = mirrorLevel_;
-        const Batch *savedThrough = mirrorThrough_;
-        mirrorLevel_ = level + 1;
-        mirrorThrough_ = &m;
+        _renderer->setView(mirrorViewProj, mirrorEye);
+        _renderer->setMirrored((level + 1) % 2 == 1);
+        const int saved = _mirrorLevel;
+        const Batch *savedThrough = _mirrorThrough;
+        _mirrorLevel = level + 1;
+        _mirrorThrough = &m;
         // The mirrors seen in it first, then its world, only where it is.
         drawMirrors(proj, mirrorView, mirrorViewProj, mirrorEye, mirrorForward, mirrorRight, level + 1, &m);
-        renderer_->setStencilLevel(uint8_t(level + 1));
-        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kLevelInside);
+        _renderer->setStencilLevel(uint8_t(level + 1));
+        _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kLevelInside);
         drawWorld(mirrorForward, mirrorRight, mirrorEye);
-        mirrorLevel_ = saved;
-        mirrorThrough_ = savedThrough;
+        _mirrorLevel = saved;
+        _mirrorThrough = savedThrough;
         // Back to the view it's in: the mark lowered where the mirror is,
         // whatever's in front of it, and the depth forgotten.
-        renderer_->setMirrored(level % 2 == 1);
-        renderer_->setView(viewProj, eye);
+        _renderer->setMirrored(level % 2 == 1);
+        _renderer->setView(viewProj, eye);
         mark.state.depthTest = false;
-        renderer_->setStencilLevel(uint8_t(level + 1));
-        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kUnmark);
-        renderer_->draw(mark);
-        renderer_->clearDepth();
+        _renderer->setStencilLevel(uint8_t(level + 1));
+        _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kUnmark);
+        _renderer->draw(mark);
+        _renderer->clearDepth();
         if (level > 0) {
-            renderer_->setStencilLevel(uint8_t(level));
-            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kLevelInside);
+            _renderer->setStencilLevel(uint8_t(level));
+            _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kLevelInside);
         } else {
-            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
+            _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
         }
     }
 }
@@ -2430,12 +2430,12 @@ MeshLight LevelView::dynamicMoverLight(const Vec3f &at, float reach) const {
         const float share = reach > l.radius ? l.radius / reach : 1.0f;
         found.push_back({&l, level, float(l.brightness) * level * (1 - near / l.radius) * share});
     };
-    const int leaf = zones_.leafAt(at);
-    if (leaf >= 0 && size_t(leaf) < leafLights_.size() && leafLights_[size_t(leaf)] >= 0)
-        for (size_t i = size_t(leafLights_[size_t(leaf)]); i < lights_.sources.size() && lights_.sources[i].radius > 0;
+    const int leaf = _zones.leafAt(at);
+    if (leaf >= 0 && size_t(leaf) < _leafLights.size() && _leafLights[size_t(leaf)] >= 0)
+        for (size_t i = size_t(_leafLights[size_t(leaf)]); i < _lights.sources.size() && _lights.sources[i].radius > 0;
              ++i)
-            consider(lights_.sources[i], levelOf(lights_.sources[i]));
-    for (const LightSource &l : dynamic_)
+            consider(_lights.sources[i], levelOf(_lights.sources[i]));
+    for (const LightSource &l : _dynamic)
         consider(l, 1);
     // The renderer takes six: the most of them.
     std::stable_sort(found.begin(), found.end(),
@@ -2449,9 +2449,9 @@ MeshLight LevelView::dynamicMoverLight(const Vec3f &at, float reach) const {
             v.color[k] = found[i].l->color[k] * found[i].level;
         light.lights.push_back(v);
     }
-    const int zone = zones_.zoneAt(at);
+    const int zone = _zones.zoneAt(at);
     const Vec3f ambient =
-        zone >= 0 && size_t(zone) < lights_.zoneAmbient.size() ? lights_.zoneAmbient[size_t(zone)] : Vec3f{};
+        zone >= 0 && size_t(zone) < _lights.zoneAmbient.size() ? _lights.zoneAmbient[size_t(zone)] : Vec3f{};
     light.ambient = {ambient[0], ambient[1], ambient[2]};
     light.directed = {0, 0, 0};
     light.perVertex = true;
@@ -2479,9 +2479,9 @@ MeshLight LevelView::moverLightAt(const Vec3f &at, float reach, size_t *reaching
         const float share = reach > l.radius ? l.radius / reach : 1.0f;
         found.push_back({&l, level, float(l.brightness) * level * (1 - near / l.radius) * share});
     };
-    for (const LightSource &l : lights_.unique)
+    for (const LightSource &l : _lights.unique)
         consider(l, levelOf(l));
-    for (const LightSource &l : dynamic_)
+    for (const LightSource &l : _dynamic)
         consider(l, 1);
     std::stable_sort(found.begin(), found.end(),
                      [](const Candidate &a, const Candidate &b) { return a.importance > b.importance; });
@@ -2496,9 +2496,9 @@ MeshLight LevelView::moverLightAt(const Vec3f &at, float reach, size_t *reaching
             v.color[k] = found[i].l->color[k] * found[i].level;
         light.lights.push_back(v);
     }
-    const int zone = zones_.zoneAt(at);
+    const int zone = _zones.zoneAt(at);
     const Vec3f ambient =
-        zone >= 0 && size_t(zone) < lights_.zoneAmbient.size() ? lights_.zoneAmbient[size_t(zone)] : Vec3f{};
+        zone >= 0 && size_t(zone) < _lights.zoneAmbient.size() ? _lights.zoneAmbient[size_t(zone)] : Vec3f{};
     light.ambient = {ambient[0], ambient[1], ambient[2]};
     light.directed = {0, 0, 0};
     light.perVertex = true;
@@ -2517,10 +2517,10 @@ void LevelView::drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, co
                               const std::vector<gfx::TextureId> &skins, const MeshLight &light,
                               const LevelPlay::Look &look) {
     const LevelPlay::Look::MultiTexture &m = look.multi;
-    MeshFog fog = fog_;
+    MeshFog fog = _fog;
     fog.volumes = inFogZone(look.location);
     if (!m.on) {
-        drawMesh(*renderer_, gpu, placement, pose, skins, light, kExposure, look.style, &fog);
+        drawMesh(*_renderer, gpu, placement, pose, skins, light, kExposure, look.style, &fog);
         return;
     }
     const gfx::Vec3 filter{m.colorFilter[0], m.colorFilter[1], m.colorFilter[2]};
@@ -2528,13 +2528,13 @@ void LevelView::drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, co
     one.glow = m.oneGlow;
     one.unlit = m.oneUnlit;
     one.unlitColor = filter;
-    drawMesh(*renderer_, gpu, placement, pose, skins, light, kExposure, m.oneStyle, &fog, &one);
+    drawMesh(*_renderer, gpu, placement, pose, skins, light, kExposure, m.oneStyle, &fog, &one);
     MeshPass two;
     two.second = true;
     two.glow = m.twoGlow;
     two.unlit = m.twoUnlit;
     two.unlitColor = filter;
-    two.texture = m.two && textured_ ? textureOf(m.two).first : 0;
+    two.texture = m.two && _textured ? textureOf(m.two).first : 0;
     two.envMap = m.envMap;
     // World units to the mesh's own (its placement's scale).
     float scale = 0;
@@ -2547,7 +2547,7 @@ void LevelView::drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, co
         two.fatness = (float(m.twoFatness) / 16 - 8) / scale;
     MeshFog over = fog; // the volume lights once, over the first pass
     over.volumes = false;
-    drawMesh(*renderer_, gpu, placement, pose, skins, light, kExposure, m.twoStyle, &over, &two);
+    drawMesh(*_renderer, gpu, placement, pose, skins, light, kExposure, m.twoStyle, &over, &two);
 }
 
 // An actor's light as the original's renderer works it out (Render.dll's
@@ -2593,24 +2593,24 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
     bool fresh = true;
     float step = 1;
     if (who) {
-        ActorFade &f = actorFades_[who];
+        ActorFade &f = _actorFades[who];
         fresh = f.time < 0;
-        step = fresh ? 1 : std::clamp((lightTime_ - f.time) * 768 / 255, 0.0f, 1.0f);
-        f.time = lightTime_;
+        step = fresh ? 1 : std::clamp((_lightTime - f.time) * 768 / 255, 0.0f, 1.0f);
+        f.time = _lightTime;
         fade = &f;
     }
     // The level's lights by their actor (ref); those that move by theirs.
-    const int leaf = zones_.leafAt(at);
+    const int leaf = _zones.leafAt(at);
     std::map<int32_t, const LightSource *> byRef;
-    if (leaf >= 0 && size_t(leaf) < leafLights_.size() && leafLights_[size_t(leaf)] >= 0)
-        for (size_t i = size_t(leafLights_[size_t(leaf)]); i < lights_.sources.size() && lights_.sources[i].ref; ++i)
-            byRef[lights_.sources[i].ref] = &lights_.sources[i];
-    if (uniqueByRef_.empty())
-        for (const LightSource &u : lights_.unique)
+    if (leaf >= 0 && size_t(leaf) < _leafLights.size() && _leafLights[size_t(leaf)] >= 0)
+        for (size_t i = size_t(_leafLights[size_t(leaf)]); i < _lights.sources.size() && _lights.sources[i].ref; ++i)
+            byRef[_lights.sources[i].ref] = &_lights.sources[i];
+    if (_uniqueByRef.empty())
+        for (const LightSource &u : _lights.unique)
             if (u.ref)
-                uniqueByRef_.emplace(u.ref, &u);
+                _uniqueByRef.emplace(u.ref, &u);
     auto level = [&](int32_t ref, uint64_t key) {
-        if (auto it = uniqueByRef_.find(ref); it != uniqueByRef_.end())
+        if (auto it = _uniqueByRef.find(ref); it != _uniqueByRef.end())
             consider(*it->second, levelOf(*it->second), false, key);
     };
     if (fade)
@@ -2623,7 +2623,7 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
         (void)l;
         level(ref, uint64_t(ref));
     }
-    for (const LightSource &l : dynamic_)
+    for (const LightSource &l : _dynamic)
         consider(l, 1, true, (uint64_t(1) << 63) | uint64_t(uintptr_t(l.key)));
     std::stable_sort(found.begin(), found.end(),
                      [](const Candidate &a, const Candidate &b) { return a.importance > b.importance; });
@@ -2636,7 +2636,7 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
         if (c.importance >= threshold && (c.isStatic ? still : total) < 3) {
             // A distance fog light (LightEffect 20) needs no line to the
             // actor (no light in the game is one).
-            const bool sees = c.moves || c.l->effect == 20 || !play_ || !play_->wallBetween(at, c.l->position);
+            const bool sees = c.moves || c.l->effect == 20 || !_play || !_play->wallBetween(at, c.l->position);
             if (sees) {
                 taken = true;
                 ++total;
@@ -2663,11 +2663,11 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
     }
     if (fade)
         fade->lights = std::move(next);
-    const int zone = zones_.zoneAt(at);
+    const int zone = _zones.zoneAt(at);
     const Vec3f zoneAmbient =
-        zone >= 0 && size_t(zone) < lights_.zoneActorAmbient.size() ? lights_.zoneActorAmbient[size_t(zone)] : Vec3f{};
+        zone >= 0 && size_t(zone) < _lights.zoneActorAmbient.size() ? _lights.zoneActorAmbient[size_t(zone)] : Vec3f{};
     const float glow =
-        look.ambientGlow == 255 ? 0.25f + 0.2f * std::sin(8 * lightTime_) : float(look.ambientGlow) / 255;
+        look.ambientGlow == 255 ? 0.25f + 0.2f * std::sin(8 * _lightTime) : float(look.ambientGlow) / 255;
     // bUnlit: no lights, half of them all round instead (1.4 x ScaleGlow
     // x 0.5).
     const float unlit = look.unlit ? 0.7f * look.scaleGlow : 0;
@@ -2685,34 +2685,34 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
 // --- Playing --------------------------------------------------------------------------------
 
 Error LevelView::saveGame(const std::string &name) {
-    if (!play_)
+    if (!_play)
         return Error::fail("not playing");
-    return play_->level().saveGame(name);
+    return _play->level().saveGame(name);
 }
 
 void LevelView::travel(const std::string &url, bool items) {
     const std::string lower = fs::toLower(url);
-    if (items && play_)
-        play_->level().travelItems() = true;
+    if (items && _play)
+        _play->level().travelItems() = true;
     // What goes with the player, as the engine has it: its played time
     // always; on "?RESTART" what it came into this level with, else with
     // ClientTravel's bItems its pawn and inventory (the travel text), else
     // nothing. (A saved game loaded has its own.)
-    pendingTravel_.clear();
-    pendingPlayedTime_ = -1;
-    if (play_ && lower.find("?load=") == std::string::npos) {
-        ScriptLevel &level = play_->level();
-        if (VmObject *p = play_->player())
-            if (const Value *t = p->find(play_->vm(), "GamePlayedTime"))
-                pendingPlayedTime_ = t->asFloat();
+    _pendingTravel.clear();
+    _pendingPlayedTime = -1;
+    if (_play && lower.find("?load=") == std::string::npos) {
+        ScriptLevel &level = _play->level();
+        if (VmObject *p = _play->player())
+            if (const Value *t = p->find(_play->vm(), "GamePlayedTime"))
+                _pendingPlayedTime = t->asFloat();
         if (lower.find("?restart") != std::string::npos)
-            pendingTravel_ = level.incomingTravel();
+            _pendingTravel = level.incomingTravel();
         else if (level.travelItems())
-            pendingTravel_ = level.exportTravel();
+            _pendingTravel = level.exportTravel();
     }
     // "?RESTART": the map again, from where it began.
     if (lower.rfind("?restart", 0) == 0) {
-        const std::string portal = portal_;
+        const std::string portal = _portal;
         startPlay(portal);
         return;
     }
@@ -2720,22 +2720,22 @@ void LevelView::travel(const std::string &url, bool items) {
     if (const size_t load = lower.find("?load="); load != std::string::npos) {
         std::string name = url.substr(load + 6);
         name = name.substr(0, name.find('?'));
-        const std::filesystem::path file = ctx_.saveFolder / name;
+        const std::filesystem::path file = _ctx.saveFolder / name;
         ScriptLevel::SaveInfo info;
-        if (ctx_.saveFolder.empty() || ScriptLevel::readSaveInfo(file, info)) {
+        if (_ctx.saveFolder.empty() || ScriptLevel::readSaveInfo(file, info)) {
             // None there: the game's word for it (its quick load).
-            if (play_)
-                play_->hudEvent(1010);
+            if (_play)
+                _play->hudEvent(1010);
             return;
         }
         // The original's: the save is the level itself, opened as a map.
         if (info.byGame) {
-            const std::string level = ctx_.packages.addLater(file);
-            if (std::find(names_.begin(), names_.end(), level) == names_.end())
-                names_.push_back(level);
+            const std::string level = _ctx.packages.addLater(file);
+            if (std::find(_names.begin(), _names.end(), level) == _names.end())
+                _names.push_back(level);
             if (!selectMap(level)) {
                 stopPlay();
-                playError_ = "load " + name + ": doesn't open";
+                _playError = "load " + name + ": doesn't open";
                 return;
             }
             startPlay({});
@@ -2743,7 +2743,7 @@ void LevelView::travel(const std::string &url, bool items) {
         }
         if (!selectMap(info.map)) {
             stopPlay();
-            playError_ = "load " + name + ": no map " + info.map;
+            _playError = "load " + name + ": no map " + info.map;
             return;
         }
         startPlay({}, file);
@@ -2757,7 +2757,7 @@ void LevelView::travel(const std::string &url, bool items) {
         map = map.substr(0, dot);
     if (!selectMap(map)) {
         stopPlay();
-        playError_ = "travel to " + url + ": no map " + map;
+        _playError = "travel to " + url + ": no map " + map;
         return;
     }
     startPlay(portal);
@@ -2765,18 +2765,18 @@ void LevelView::travel(const std::string &url, bool items) {
 
 void LevelView::startPlay(const std::string &portal, const std::filesystem::path &saved) {
     stopPlay();
-    const Package *pkg = names_.empty() ? nullptr : ctx_.packages.get(names_[size_t(index_)]);
-    if (!pkg || !error_.empty())
+    const Package *pkg = _names.empty() ? nullptr : _ctx.packages.get(_names[size_t(_index)]);
+    if (!pkg || !_error.empty())
         return;
-    auto play = std::make_unique<LevelPlay>(ctx_.packages, *pkg);
-    play->level().incomingTravel() = std::exchange(pendingTravel_, std::string());
-    play->level().carriedPlayedTime() = std::exchange(pendingPlayedTime_, -1.0f);
-    if (Error err = play->start(portal, saved, ctx_.saveFolder)) {
-        playError_ = err.message;
+    auto play = std::make_unique<LevelPlay>(_ctx.packages, *pkg);
+    play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
+    play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
+    if (Error err = play->start(portal, saved, _ctx.saveFolder)) {
+        _playError = err.message;
         return;
     }
     if (!play->player()) {
-        playError_ = "no player logged in: " + play->loginError();
+        _playError = "no player logged in: " + play->loginError();
         return;
     }
     // Each mover's live actor, by its path in the map.
@@ -2784,94 +2784,94 @@ void LevelView::startPlay(const std::string &portal, const std::filesystem::path
     for (VmObject *a : play->level().actors())
         if (a->package == pkg && a->exportIndex >= 0)
             byPath[pkg->path(a->exportIndex + 1)] = a;
-    moverActors_.clear();
-    for (const MoverDraw &m : movers_) {
+    _moverActors.clear();
+    for (const MoverDraw &m : _movers) {
         auto it = byPath.find(m.mover.name);
-        moverActors_.push_back(it == byPath.end() ? nullptr : it->second);
+        _moverActors.push_back(it == byPath.end() ? nullptr : it->second);
     }
-    playError_.clear();
-    portal_ = portal;
-    playClock_ = 0;
-    held_[Fast] = false;
-    play_ = std::move(play);
+    _playError.clear();
+    _portal = portal;
+    _playClock = 0;
+    _held[kFast] = false;
+    _play = std::move(play);
 }
 
 void LevelView::stopPlay() {
-    shadows_.clear(); // keyed by the play's actors
-    freeCam_ = false;
-    if (renderer_)
-        for (const GpuMesh &g : posedMeshes_)
+    _shadows.clear(); // keyed by the play's actors
+    _freeCam = false;
+    if (_renderer)
+        for (const GpuMesh &g : _posedMeshes)
             if (g.mesh)
-                renderer_->destroyMesh(g.mesh);
-    posedMeshes_.clear();
-    if (audio_)
-        audio_->reset();
-    play_.reset();
-    moverActors_.clear();
+                _renderer->destroyMesh(g.mesh);
+    _posedMeshes.clear();
+    if (_audio)
+        _audio->reset();
+    _play.reset();
+    _moverActors.clear();
     // The live actors' meshes stay uploaded (in meshes_), for playing again.
 }
 
 void LevelView::updatePlay(float dt) {
-    ScriptLevel::Controls &c = play_->controls();
-    if (freeCam_) { // the keys fly the camera: the player stands
+    ScriptLevel::Controls &c = _play->controls();
+    if (_freeCam) { // the keys fly the camera: the player stands
         c = {};
-        play_->advance(dt);
-        playClock_ += dt;
-        view_ = play_->view();
+        _play->advance(dt);
+        _playClock += dt;
+        _view = _play->view();
         return;
     }
-    c.forward = float(held_[Forward] - held_[Back]);
-    c.strafe = float(held_[Right] - held_[Left]);
-    c.turn = float(held_[TurnRight] - held_[TurnLeft]);
-    c.lookUp = float(held_[LookUp] - held_[LookDown]);
-    c.mouseX += mouseDx_;
-    c.mouseY += mouseDy_;
-    c.jump = held_[Up];
-    c.duck = held_[Down]; // C, as the game binds it (Duck)
-    c.fire = held_[Fire];
-    mouseDx_ = mouseDy_ = 0;
-    play_->advance(dt);
-    playClock_ += dt;
+    c.forward = float(_held[kForward] - _held[kBack]);
+    c.strafe = float(_held[kRight] - _held[kLeft]);
+    c.turn = float(_held[kTurnRight] - _held[kTurnLeft]);
+    c.lookUp = float(_held[kLookUp] - _held[kLookDown]);
+    c.mouseX += _mouseDx;
+    c.mouseY += _mouseDy;
+    c.jump = _held[kUp];
+    c.duck = _held[kDown]; // C, as the game binds it (Duck)
+    c.fire = _held[kFire];
+    _mouseDx = _mouseDy = 0;
+    _play->advance(dt);
+    _playClock += dt;
     // The camera where the game puts it.
-    view_ = play_->view();
-    pos_ = toWorld(view_.location);
+    _view = _play->view();
+    _pos = toWorld(_view.location);
     // The way it looks, from its rotation's direction: the game's camera
     // writes the same direction with the yaw turned round and the pitch
     // past straight up when it's ahead of the player (CTVE_Camera), which
     // taken as yaw and pitch alone looks straight down.
-    const Vec3f f = rotationAxes(view_.rotation)[0];
-    yaw_ = std::atan2(-f[1], f[0]); // negated with Y
-    pitch_ = std::clamp(std::asin(std::clamp(f[2], -1.0f, 1.0f)), -1.55f, 1.55f);
-    fov_ = view_.fov;
+    const Vec3f f = rotationAxes(_view.rotation)[0];
+    _yaw = std::atan2(-f[1], f[0]); // negated with Y
+    _pitch = std::clamp(std::asin(std::clamp(f[2], -1.0f, 1.0f)), -1.55f, 1.55f);
+    _fov = _view.fov;
 }
 
 int LevelView::liveMesh(const ObjectRef &ref, const std::string &anim) {
-    auto it = liveMeshes_.find({ref.package, ref.exportIndex});
-    if (it == liveMeshes_.end()) {
+    auto it = _liveMeshes.find({ref.package, ref.exportIndex});
+    if (it == _liveMeshes.end()) {
         Mesh mesh;
         GpuMesh gpu;
         int at = -1;
         if (!readMesh(*ref.package, ref.exportIndex, mesh) &&
-            !uploadMesh(*renderer_, mesh, gpu, ctx_.meshTurn, ctx_.meshYawQuarters)) {
-            at = int(meshes_.size());
-            meshes_.push_back(std::move(mesh));
-            gpuMeshes_.push_back(gpu);
+            !uploadMesh(*_renderer, mesh, gpu, _ctx.meshTurn, _ctx.meshYawQuarters)) {
+            at = int(_meshes.size());
+            _meshes.push_back(std::move(mesh));
+            _gpuMeshes.push_back(gpu);
         }
-        it = liveMeshes_.emplace(std::make_pair(ref.package, ref.exportIndex), at).first;
+        it = _liveMeshes.emplace(std::make_pair(ref.package, ref.exportIndex), at).first;
     }
     const int at = it->second;
     if (at < 0 || anim.empty())
         return at;
     // A character's animation from the shared sets, the first time it plays
     // one its mesh doesn't have: borrowed, and the mesh uploaded again.
-    Mesh &mesh = meshes_[size_t(at)];
+    Mesh &mesh = _meshes[size_t(at)];
     if (mesh.bones && !mesh.findAnim(anim) &&
-        borrowNamedAnimation(*ref.package, ref.exportIndex, ctx_.sets(), anim, mesh)) {
+        borrowNamedAnimation(*ref.package, ref.exportIndex, _ctx.sets(), anim, mesh)) {
         GpuMesh gpu;
-        if (!uploadMesh(*renderer_, mesh, gpu, ctx_.meshTurn, ctx_.meshYawQuarters)) {
-            if (gpuMeshes_[size_t(at)].mesh)
-                renderer_->destroyMesh(gpuMeshes_[size_t(at)].mesh);
-            gpuMeshes_[size_t(at)] = gpu;
+        if (!uploadMesh(*_renderer, mesh, gpu, _ctx.meshTurn, _ctx.meshYawQuarters)) {
+            if (_gpuMeshes[size_t(at)].mesh)
+                _renderer->destroyMesh(_gpuMeshes[size_t(at)].mesh);
+            _gpuMeshes[size_t(at)] = gpu;
         }
     }
     return at;
@@ -2883,12 +2883,12 @@ void LevelView::drawLiveActors(const gfx::Vec3 &forward, const gfx::Vec3 &right)
     std::vector<SpriteDraw> sprites;
     // Only those that may be seen: not hidden, in a zone seen (the rest
     // aren't drawn, so their scripts aren't asked to get them ready).
-    for (VmObject *a : play_->level().actors())
-        if (play_->mayBeSeen(a, zonesSeen_))
+    for (VmObject *a : _play->level().actors())
+        if (_play->mayBeSeen(a, _zonesSeen))
             drawLiveActor(a, sprites);
     addDecals(sprites);
-    if (mirrorLevel_ == 0) // not in a mirror: their fading goes by the camera's view
-        addCoronas(sprites, forward, coronaDt_);
+    if (_mirrorLevel == 0) // not in a mirror: their fading goes by the camera's view
+        addCoronas(sprites, forward, _coronaDt);
     drawSprites(sprites, forward, right);
 }
 
@@ -2900,10 +2900,10 @@ void LevelView::drawLiveActors(const gfx::Vec3 &forward, const gfx::Vec3 &right)
 // picking things up (ClientFlash). Drawn as one quad before the camera,
 // its colour the fog, its alpha the scale.
 void LevelView::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
-    VmObject *p = play_ ? play_->player() : nullptr;
-    if (!p || !spriteQuad_)
+    VmObject *p = _play ? _play->player() : nullptr;
+    if (!p || !_spriteQuad)
         return;
-    Vm &vm = play_->vm();
+    Vm &vm = _play->vm();
     const Value *scaleV = p->find(vm, "FlashScale");
     const Value *fogV = p->find(vm, "FlashFog");
     if (!scaleV || !fogV)
@@ -2916,16 +2916,16 @@ void LevelView::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right
         return;
     const gfx::Vec3 up{right[1] * forward[2] - right[2] * forward[1], right[2] * forward[0] - right[0] * forward[2],
                        right[0] * forward[1] - right[1] * forward[0]};
-    const float d = 16, size = 2 * d * std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360) * 1.5f;
+    const float d = 16, size = 2 * d * std::tan(std::clamp(_fov, 1.0f, 170.0f) * kPi / 360) * 1.5f;
     gfx::DrawCall call;
-    call.mesh = spriteQuad_;
+    call.mesh = _spriteQuad;
     call.indexCount = 6;
     call.model = gfx::identity();
     for (size_t k = 0; k < 3; ++k) {
         call.model[k] = right[k] * size;
         call.model[4 + k] = up[k] * size;
         call.model[8 + k] = -forward[k];
-        call.model[12 + k] = pos_[k] + forward[k] * d;
+        call.model[12 + k] = _pos[k] + forward[k] * d;
     }
     call.texture = 0;
     call.rgbSource = call.alphaSource = gfx::ColorSource::kConstant;
@@ -2941,12 +2941,12 @@ void LevelView::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right
     call.state.depthTest = false;
     call.state.depthWrite = false;
     call.state.cull = gfx::Cull::kNone;
-    renderer_->draw(call);
+    _renderer->draw(call);
     if (s > 1 && f[0] + f[1] + f[2] >= 0.01f) {
         call.color = {f[0], f[1], f[2], 1};
         call.state.src = gfx::Blend::kOne;
         call.state.dst = gfx::Blend::kOne;
-        renderer_->draw(call);
+        _renderer->draw(call);
     }
 }
 
@@ -2961,41 +2961,41 @@ void LevelView::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right
 // light's hue made whiter by its saturation, times the glow (its
 // brightness not used).
 void LevelView::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, float dt) {
-    play_->coronas(coronaScratch_);
-    const Vec3f eye{pos_[0], -pos_[1], pos_[2]};
-    const float tanHalf = std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360);
+    _play->coronas(_coronaScratch);
+    const Vec3f eye{_pos[0], -_pos[1], _pos[2]};
+    const float tanHalf = std::tan(std::clamp(_fov, 1.0f, 170.0f) * kPi / 360);
     // The level's lights reaching the camera's leaf.
     std::set<int32_t> permeating;
-    if (const int leaf = zones_.leafAt(eye);
-        leaf >= 0 && size_t(leaf) < leafLights_.size() && leafLights_[size_t(leaf)] >= 0)
-        for (size_t i = size_t(leafLights_[size_t(leaf)]); i < lights_.sources.size() && lights_.sources[i].ref; ++i)
-            permeating.insert(lights_.sources[i].ref);
+    if (const int leaf = _zones.leafAt(eye);
+        leaf >= 0 && size_t(leaf) < _leafLights.size() && _leafLights[size_t(leaf)] >= 0)
+        for (size_t i = size_t(_leafLights[size_t(leaf)]); i < _lights.sources.size() && _lights.sources[i].ref; ++i)
+            permeating.insert(_lights.sources[i].ref);
     // Every glow down by the frame's time.
-    for (auto it = coronaFade_.begin(); it != coronaFade_.end();) {
+    for (auto it = _coronaFade.begin(); it != _coronaFade.end();) {
         it->second -= dt;
-        it = it->second < 0 ? coronaFade_.erase(it) : std::next(it);
+        it = it->second < 0 ? _coronaFade.erase(it) : std::next(it);
     }
-    for (const LevelPlay::Corona &c : coronaScratch_) {
+    for (const LevelPlay::Corona &c : _coronaScratch) {
         const bool candidate = c.isStatic ? permeating.count(c.ref) != 0
                                           : std::sqrt((c.location[0] - eye[0]) * (c.location[0] - eye[0]) +
                                                       (c.location[1] - eye[1]) * (c.location[1] - eye[1]) +
                                                       (c.location[2] - eye[2]) * (c.location[2] - eye[2])) < c.radius;
-        if (candidate && !play_->wallBetween(c.location, eye)) {
-            auto it = coronaFade_.find(c.actor);
-            if (it != coronaFade_.end())
+        if (candidate && !_play->wallBetween(c.location, eye)) {
+            auto it = _coronaFade.find(c.actor);
+            if (it != _coronaFade.end())
                 it->second = std::min(1.0f, it->second + 2 * dt);
-            else if (coronaFade_.size() < 32)
-                coronaFade_[c.actor] = std::min(1.0f, 2 * dt);
+            else if (_coronaFade.size() < 32)
+                _coronaFade[c.actor] = std::min(1.0f, 2 * dt);
         }
     }
-    for (const LevelPlay::Corona &c : coronaScratch_) {
-        auto it = coronaFade_.find(c.actor);
-        if (it == coronaFade_.end())
+    for (const LevelPlay::Corona &c : _coronaScratch) {
+        auto it = _coronaFade.find(c.actor);
+        if (it == _coronaFade.end())
             continue;
         const float fade = it->second;
         const gfx::Vec3 at = toWorld(c.location);
         const float depth =
-            (at[0] - pos_[0]) * forward[0] + (at[1] - pos_[1]) * forward[1] + (at[2] - pos_[2]) * forward[2];
+            (at[0] - _pos[0]) * forward[0] + (at[1] - _pos[1]) * forward[1] + (at[2] - _pos[2]) * forward[2];
         if (fade <= 0 || depth <= 1)
             continue;
         const auto [texture, size] = textureOf(c.texture);
@@ -3031,9 +3031,9 @@ void LevelView::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &fo
 // one light onto the floor under it, darkest close to its feet, its
 // strength easing in and out as it moves between lights.
 void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
-    if (mirrorLevel_ > 0) // in a mirror: the stencil is the mirror's
+    if (_mirrorLevel > 0) // in a mirror: the stencil is the mirror's
         return;
-    Vm &vm = play_->vm();
+    Vm &vm = _play->vm();
     const Value *casts = a->find(vm, "bProjectsShadows");
     if (!casts || !casts->asBool())
         return;
@@ -3072,16 +3072,16 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     // steep, and facing the camera.
     std::array<float, 3> hit{}, normal{};
     const std::array<float, 3> top{from[0], from[1], from[2]}, down{from[0], from[1], from[2] - 4 * height};
-    if (!play_->level().trace(nullptr, top, down, {0, 0, 0}, false, hit, normal) || normal[2] < 0.7f)
+    if (!_play->level().trace(nullptr, top, down, {0, 0, 0}, false, hit, normal) || normal[2] < 0.7f)
         return;
-    const Vec3f eye{pos_[0], -pos_[1], pos_[2]};
+    const Vec3f eye{_pos[0], -_pos[1], _pos[2]};
     if ((hit[0] - eye[0]) * normal[0] + (hit[1] - eye[1]) * normal[1] + (hit[2] - eye[2]) * normal[2] > 0)
         return;
     // Fainter far off: 900 / its depth in the view, at most 3.5.
-    const gfx::Vec3 forward{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
+    const gfx::Vec3 forward{std::cos(_pitch) * std::cos(_yaw), std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch)};
     const gfx::Vec3 hw = toWorld(Vec3f{hit[0], hit[1], hit[2]});
     const float depth =
-        (hw[0] - pos_[0]) * forward[0] + (hw[1] - pos_[1]) * forward[1] + (hw[2] - pos_[2]) * forward[2];
+        (hw[0] - _pos[0]) * forward[0] + (hw[1] - _pos[1]) * forward[1] + (hw[2] - _pos[2]) * forward[2];
     if (depth <= 0)
         return;
     const float nearness = std::min(900 / depth, 3.5f);
@@ -3092,11 +3092,11 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     // times 1 - distance / radius, less in a brighter zone), the one it had
     // kept unless another gives 0.02 more.
     const Vec3f floor{hit[0], hit[1], hit[2]};
-    const int zone = zones_.zoneAt(floor);
-    const float ambient = zone >= 0 && size_t(zone) < lights_.zoneAmbientBrightness.size()
-                              ? float(lights_.zoneAmbientBrightness[size_t(zone)]) / 255
+    const int zone = _zones.zoneAt(floor);
+    const float ambient = zone >= 0 && size_t(zone) < _lights.zoneAmbientBrightness.size()
+                              ? float(_lights.zoneAmbientBrightness[size_t(zone)]) / 255
                               : 0;
-    ShadowState &state = shadows_[caster];
+    ShadowState &state = _shadows[caster];
     auto amountOf = [&](const LightSource &l) {
         const float dx = l.position[0] - floor[0], dy = l.position[1] - floor[1], dz = l.position[2] - floor[2];
         const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
@@ -3106,8 +3106,8 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     };
     int best = -1;
     float bestAmount = 0.01f, keptAmount = 0;
-    for (size_t i = 0; i < lights_.unique.size(); ++i) {
-        const float amount = amountOf(lights_.unique[i]);
+    for (size_t i = 0; i < _lights.unique.size(); ++i) {
+        const float amount = amountOf(_lights.unique[i]);
         if (int(i) == state.light)
             keptAmount = amount;
         if (amount > bestAmount) {
@@ -3124,10 +3124,10 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     // changes it fades out before the new one fades in; after 3 s unseen,
     // or to or from a light that moves, it jumps.
     const float target = best >= 0 ? std::min(amount * nearness, 1.0f) : 0;
-    const float now = play_->time();
+    const float now = _play->time();
     const float since = state.seen ? now - state.lastSeen : 1e9f;
     const float step = std::clamp(since * 1.3f, 0.0f, 1.0f);
-    auto still = [&](int i) { return i < 0 || lights_.unique[size_t(i)].isStatic; };
+    auto still = [&](int i) { return i < 0 || _lights.unique[size_t(i)].isStatic; };
     if (state.seen && since <= 3 && still(state.light) && still(best)) {
         if (best == state.light) {
             state.strength = std::min(state.strength + step, target);
@@ -3148,7 +3148,7 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     // half its distance across: a light low beside it casts no endless
     // shadow.
     const Vec3f n{normal[0], normal[1], normal[2]};
-    Vec3f light = lights_.unique[size_t(state.light)].position;
+    Vec3f light = _lights.unique[size_t(state.light)].position;
     const Vec3f rel{light[0] - from[0], light[1] - from[1], light[2] - from[2]};
     const float above = rel[0] * n[0] + rel[1] * n[1] + rel[2] * n[2];
     const float across = std::sqrt(std::max(0.0f, rel[0] * rel[0] + rel[1] * rel[1] + rel[2] * rel[2] - above * above));
@@ -3170,9 +3170,9 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     shade.strength = std::min(glow * state.strength * 50, 35.0f);
     shade.most = 0.8f;
     const gfx::Mat4 flatten = planarShadow(shade.light, nw, d);
-    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kOnce);
-    drawMeshShadow(*renderer_, lastMesh_.gpu, gfx::multiply(flatten, lastMesh_.placement), lastMesh_.pose, shade);
-    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
+    _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kOnce);
+    drawMeshShadow(*_renderer, _lastMesh.gpu, gfx::multiply(flatten, _lastMesh.placement), _lastMesh.pose, shade);
+    _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
 }
 
 // One of the level's actors, as it looks now: a mesh drawn, a sprite kept
@@ -3189,7 +3189,7 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
         look.style = uint8_t(hud->style);
         look.scaleGlow = hud->scaleGlow;
     };
-    if (!play_->look(a, look))
+    if (!_play->look(a, look))
         return;
     asAsked();
     if (look.hidden && !evenHidden)
@@ -3198,7 +3198,7 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
     // asks to be drawn itself as well.
     if (!hud) {
         std::vector<LevelPlay::Copy> copies;
-        if (play_->copies(a, copies)) {
+        if (_play->copies(a, copies)) {
             drawCopies(a, look, copies, sprites);
             if (!look.renderInitial)
                 return;
@@ -3207,9 +3207,9 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
     if (look.drawType == kDrawMesh && look.mesh) {
         // About to be drawn: its scripts get their say first, and it's
         // drawn as they leave it.
-        play_->preRender(a);
+        _play->preRender(a);
         look = {};
-        if (!play_->look(a, look))
+        if (!_play->look(a, look))
             return;
         asAsked();
         if ((look.hidden && !evenHidden) || look.drawType != kDrawMesh || !look.mesh)
@@ -3219,7 +3219,7 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
         const int at = liveMesh(look.mesh, look.animSequence);
         if (at < 0)
             return;
-        const Mesh &mesh = meshes_[size_t(at)];
+        const Mesh &mesh = _meshes[size_t(at)];
         const MeshAnimSeq *anim = mesh.findAnim(look.animSequence);
         MeshPose pose = poseAtFraction(mesh, anim, look.animFrame, look.animLoop);
         // Tweening into it: from the frame it was showing to its first.
@@ -3234,22 +3234,22 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
             if (!tex)
                 tex = look.skin;
             if (!tex && k < mesh.textures.size())
-                tex = ctx_.packages.resolve(*look.mesh.package, mesh.textures[k]);
+                tex = _ctx.packages.resolve(*look.mesh.package, mesh.textures[k]);
             if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
                 tex = look.texture;
-            skins.push_back(textured_ ? textureOf(tex).first : 0);
+            skins.push_back(_textured ? textureOf(tex).first : 0);
         }
-        play_->drawn(a);
+        _play->drawn(a);
         const gfx::Mat4 placement = meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot);
         const MeshLight light = meshLightAt(look.location, &look, a);
-        lastMesh_ = {};
+        _lastMesh = {};
         if ((look.layers.empty() && look.adjust.empty() && look.faces.empty()) || !mesh.bones ||
             !drawLayered(a, look, at, placement, skins, light)) {
-            lastMesh_ = {};
-            drawActorMesh(gpuMeshes_[size_t(at)], placement, pose, skins, light, look);
-            lastMesh_ = {true, gpuMeshes_[size_t(at)], placement, pose};
+            _lastMesh = {};
+            drawActorMesh(_gpuMeshes[size_t(at)], placement, pose, skins, light, look);
+            _lastMesh = {true, _gpuMeshes[size_t(at)], placement, pose};
         }
-        if (!hud && lastMesh_.set && look.style == 1)
+        if (!hud && _lastMesh.set && look.style == 1)
             drawShadow(a, look.location);
     } else if ((look.drawType == kDrawSprite || look.drawType == kDrawVerticalSprite ||
                 look.drawType == kDrawSpriteAnimOnce) &&
@@ -3257,7 +3257,7 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
         const auto [texture, size] = textureOf(look.texture);
         if (!texture)
             return;
-        play_->drawn(a);
+        _play->drawn(a);
         SpriteDraw d;
         d.texture = texture;
         d.at = toWorld(Vec3f{look.location[0] - look.prePivot[0], look.location[1] - look.prePivot[1],
@@ -3279,22 +3279,22 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
 void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                            std::vector<SpriteDraw> &sprites) {
     constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
-    play_->drawn(a);
+    _play->drawn(a);
     if (look.drawType == kDrawMesh && look.mesh) {
         const int at = liveMesh(look.mesh, look.animSequence);
         if (at < 0)
             return;
-        const Mesh &mesh = meshes_[size_t(at)];
+        const Mesh &mesh = _meshes[size_t(at)];
         std::vector<gfx::TextureId> skins;
         for (size_t k = 0; k < std::max<size_t>(mesh.textures.size(), 8); ++k) {
             ObjectRef tex = k < look.multiSkins.size() ? look.multiSkins[k] : ObjectRef{};
             if (!tex)
                 tex = look.skin;
             if (!tex && k < mesh.textures.size())
-                tex = ctx_.packages.resolve(*look.mesh.package, mesh.textures[k]);
+                tex = _ctx.packages.resolve(*look.mesh.package, mesh.textures[k]);
             if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
                 tex = look.texture;
-            skins.push_back(textured_ ? textureOf(tex).first : 0);
+            skins.push_back(_textured ? textureOf(tex).first : 0);
         }
         const MeshPose pose = poseAtFraction(mesh, mesh.findAnim(look.animSequence), look.animFrame, look.animLoop);
         for (const LevelPlay::Copy &c : copies) {
@@ -3305,7 +3305,7 @@ void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
                 light.ambient[k] *= c.scaleGlow;
                 light.directed[k] *= c.scaleGlow;
             }
-            drawMesh(*renderer_, gpuMeshes_[size_t(at)], placement, pose, skins, light, kExposure, c.style, &fog_);
+            drawMesh(*_renderer, _gpuMeshes[size_t(at)], placement, pose, skins, light, kExposure, c.style, &_fog);
         }
     } else if (look.drawType == kDrawSprite || look.drawType == kDrawVerticalSprite ||
                look.drawType == kDrawSpriteAnimOnce) {
@@ -3330,7 +3330,7 @@ void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
 // size by their scale, multiplying what's under it (grey leaves it as it
 // is: marks, scorches, footprints).
 void LevelView::addDecals(std::vector<SpriteDraw> &sprites) {
-    for (const ScriptLevel::Decal &d : play_->decals()) {
+    for (const ScriptLevel::Decal &d : _play->decals()) {
         const auto [texture, size] = textureOf(d.texture);
         if (!texture)
             continue;
@@ -3362,24 +3362,24 @@ float LevelView::tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &a
 // animation it hasn't): drawn as its own animation alone then.
 bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at, const gfx::Mat4 &placement,
                             const std::vector<gfx::TextureId> &skins, const MeshLight &light) {
-    auto it = posers_.find({look.mesh.package, look.mesh.exportIndex});
-    if (it == posers_.end()) {
+    auto it = _posers.find({look.mesh.package, look.mesh.exportIndex});
+    if (it == _posers.end()) {
         Poser p;
-        p.poser = LayeredPoser::open(*look.mesh.package, look.mesh.exportIndex, ctx_.sets());
+        p.poser = LayeredPoser::open(*look.mesh.package, look.mesh.exportIndex, _ctx.sets());
         if (p.poser) {
             // Where its skeleton's axes go as it's drawn.
-            const Mesh &m = meshes_[size_t(at)];
-            const Vec3f zero = placeMeshVertex(m, m.origin, ctx_.meshTurn, ctx_.meshYawQuarters);
+            const Mesh &m = _meshes[size_t(at)];
+            const Vec3f zero = placeMeshVertex(m, m.origin, _ctx.meshTurn, _ctx.meshYawQuarters);
             std::array<Vec3f, 3> axes{};
             for (size_t k = 0; k < 3; ++k) {
                 Vec3f step = m.origin;
                 step[k] += m.scale[k] != 0 ? 1 / m.scale[k] : 0;
-                const Vec3f to = placeMeshVertex(m, step, ctx_.meshTurn, ctx_.meshYawQuarters);
+                const Vec3f to = placeMeshVertex(m, step, _ctx.meshTurn, _ctx.meshYawQuarters);
                 axes[k] = {to[0] - zero[0], to[1] - zero[1], to[2] - zero[2]};
             }
             p.poser->setPlacement(axes);
         }
-        it = posers_.emplace(std::make_pair(look.mesh.package, look.mesh.exportIndex), std::move(p)).first;
+        it = _posers.emplace(std::make_pair(look.mesh.package, look.mesh.exportIndex), std::move(p)).first;
     }
     Poser &p = it->second;
     if (!p.poser)
@@ -3408,15 +3408,15 @@ bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at
     // it: it has worked this pose out already for the scripts' bone
     // queries this tick, IK and all, and keeps it.
     LayeredPoser *poser = p.poser.get();
-    if (play_ && actor && ctx_.meshTurn == MeshTurn::Reverse && ctx_.meshYawQuarters == kImportYawQuarters)
-        if (LayeredPoser *shared = play_->level().poserOf(actor))
+    if (_play && actor && _ctx.meshTurn == MeshTurn::kReverse && _ctx.meshYawQuarters == kImportYawQuarters)
+        if (LayeredPoser *shared = _play->level().poserOf(actor))
             poser = shared;
     std::vector<Vec3f> verts;
     if ((layers.empty() && look.adjust.empty() && faces.empty()) ||
         !poser->pose({look.animSequence, look.animLoop}, look.animFrame, layers, verts, &look.adjust, &faces))
         return false;
     // Tweening into its animation: from the pose it was in.
-    const Mesh &own = meshes_[size_t(at)];
+    const Mesh &own = _meshes[size_t(at)];
     if (const MeshAnimSeq *anim = own.findAnim(look.animSequence);
         anim && look.animFrame < 0 && !look.tweenFrom.empty()) {
         std::vector<Vec3f> old;
@@ -3431,29 +3431,29 @@ bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at
     }
     // One frame of the mesh: its vertices swapped for the posed ones while
     // it's uploaded.
-    Mesh &mesh = meshes_[size_t(at)];
+    Mesh &mesh = _meshes[size_t(at)];
     if (verts.size() != size_t(mesh.frameVerts))
         return false;
     std::swap(mesh.verts, verts);
     const int32_t frames = mesh.animFrames;
     mesh.animFrames = 1;
     GpuMesh gpu;
-    auto topology = posedTopology_.find(at);
-    if (topology == posedTopology_.end()) {
+    auto topology = _posedTopology.find(at);
+    if (topology == _posedTopology.end()) {
         MeshTopology t;
         buildMeshTopology(mesh, t); // none: the upload below fails as uploadMesh's would
-        topology = posedTopology_.emplace(at, std::move(t)).first;
+        topology = _posedTopology.emplace(at, std::move(t)).first;
     }
     const Error err = topology->second.indices.empty()
                           ? Error::fail("the mesh has no visible triangles")
-                          : uploadMesh(*renderer_, mesh, topology->second, gpu, ctx_.meshTurn, ctx_.meshYawQuarters);
+                          : uploadMesh(*_renderer, mesh, topology->second, gpu, _ctx.meshTurn, _ctx.meshYawQuarters);
     mesh.animFrames = frames;
     std::swap(mesh.verts, verts);
     if (err)
         return false;
-    posedMeshes_.push_back(gpu);
+    _posedMeshes.push_back(gpu);
     drawActorMesh(gpu, placement, MeshPose{}, skins, light, look);
-    lastMesh_ = {true, gpu, placement, MeshPose{}};
+    _lastMesh = {true, gpu, placement, MeshPose{}};
     return true;
 }
 
@@ -3461,30 +3461,30 @@ bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at
 // the info, drawOverlay).
 void LevelView::drawPlayHud() {
     char line[200];
-    const std::string title = play_->title();
+    const std::string title = _play->title();
     std::snprintf(line, sizeof line, "%s%s%s  health %d  %s  %.0f s played%s%s", title.c_str(),
-                  title.empty() ? "" : "  ", play_->player()->cls->name.c_str(), play_->health(),
-                  play_->playerState().c_str(), double(play_->time()), view_.letterbox ? "  (cut scene)" : "",
-                  play_->behind() > 1 ? ("  " + std::to_string(int(play_->behind())) + " s behind real time").c_str()
+                  title.empty() ? "" : "  ", _play->player()->cls->name.c_str(), _play->health(),
+                  _play->playerState().c_str(), double(_play->time()), _view.letterbox ? "  (cut scene)" : "",
+                  _play->behind() > 1 ? ("  " + std::to_string(int(_play->behind())) + " s behind real time").c_str()
                                       : "");
     const int y = kFrameH - font::kLineHeight - 4;
     const int width = std::min(kFrameW, int(font::length(line)) * font::kAdvance + 8);
     // With the game's own HUD drawn, between its panels at the bottom
     // corners, and its objectives and subtitles are its own.
-    const bool gameHud = !play_->level().hud().tiles.empty();
+    const bool gameHud = !_play->level().hud().tiles.empty();
     const int left = gameHud ? std::max(0, (kFrameW - width) / 2) : 0;
-    overlayBottom_ = std::min(overlayBottom_, std::max(0, y - 2));
+    _overlayBottom = std::min(_overlayBottom, std::max(0, y - 2));
     for (int yy = y - 2; yy < kFrameH; ++yy) {
-        uint8_t *p = overlay_.row(yy);
+        uint8_t *p = _overlay.row(yy);
         for (int x = left; x < std::min(kFrameW, left + width); ++x)
             p[x * 4 + 3] = std::max<uint8_t>(p[x * 4 + 3], 150);
     }
-    font::drawText(overlay_, left + 4, y, line, Color{230, 230, 230});
+    font::drawText(_overlay, left + 4, y, line, Color{230, 230, 230});
     if (gameHud)
         return;
     // The objectives active now, above it.
     int above = y - 2;
-    const std::vector<std::string> objectives = play_->activeObjectives();
+    const std::vector<std::string> objectives = _play->activeObjectives();
     if (!objectives.empty()) {
         std::string list = "Objectives:";
         for (const std::string &o : objectives)
@@ -3494,13 +3494,13 @@ void LevelView::drawPlayHud() {
             list = list.substr(0, columns - 3) + "...";
         above -= font::kLineHeight + 2;
         const int w = std::min(kFrameW, int(font::length(list)) * font::kAdvance + 8);
-        overlayBottom_ = std::min(overlayBottom_, std::max(0, above - 1));
+        _overlayBottom = std::min(_overlayBottom, std::max(0, above - 1));
         for (int yy = above - 1; yy < above + font::kLineHeight; ++yy) {
-            uint8_t *p = overlay_.row(yy);
+            uint8_t *p = _overlay.row(yy);
             for (int x = 0; x < w; ++x)
                 p[x * 4 + 3] = std::max<uint8_t>(p[x * 4 + 3], 150);
         }
-        font::drawText(overlay_, 4, above, list.c_str(), Color{160, 200, 255});
+        font::drawText(_overlay, 4, above, list.c_str(), Color{160, 200, 255});
     }
     drawSubtitles(above - 6);
 }
@@ -3508,15 +3508,15 @@ void LevelView::drawPlayHud() {
 // The lines being said, above the status line: who says it (the main
 // characters by name, the rest by their code) and the line, wrapped.
 void LevelView::drawSubtitles(int bottom) {
-    static const std::map<std::string, std::string> names = {
+    static const std::map<std::string, std::string> kNames = {
         {"KRA", "Kira"},   {"SKO", "Sisko"}, {"WRF", "Worf"},   {"OBN", "O'Brien"}, {"DAX", "Dax"},
         {"BSR", "Bashir"}, {"ODO", "Odo"},   {"OBK", "Obanak"}, {"GRK", "Garak"},   {"CPU", "Computer"},
     };
     const size_t columns = size_t(kFrameW - 16) / size_t(font::kAdvance);
     std::vector<std::string> rows;
-    for (const ScriptLevel::Subtitle &s : play_->level().subtitles()) {
-        auto it = names.find(s.speaker);
-        std::string text = (it != names.end() ? it->second : s.speaker) + ": " + s.text;
+    for (const ScriptLevel::Subtitle &s : _play->level().subtitles()) {
+        auto it = kNames.find(s.speaker);
+        std::string text = (it != kNames.end() ? it->second : s.speaker) + ": " + s.text;
         while (!text.empty()) {
             size_t cut = text.size() <= columns ? text.size() : text.rfind(' ', columns);
             if (cut == std::string::npos || cut == 0)
@@ -3527,16 +3527,16 @@ void LevelView::drawSubtitles(int bottom) {
     }
     int y = bottom - int(rows.size()) * font::kLineHeight;
     if (!rows.empty())
-        overlayBottom_ = std::min(overlayBottom_, std::max(0, y - 1));
+        _overlayBottom = std::min(_overlayBottom, std::max(0, y - 1));
     for (const std::string &row : rows) {
         const int width = int(font::length(row.c_str())) * font::kAdvance + 8;
         const int x = std::max(0, (kFrameW - width) / 2);
         for (int yy = std::max(0, y - 1); yy < std::min(kFrameH, y + font::kLineHeight); ++yy) {
-            uint8_t *p = overlay_.row(yy);
+            uint8_t *p = _overlay.row(yy);
             for (int xx = x; xx < std::min(kFrameW, x + width); ++xx)
                 p[xx * 4 + 3] = std::max<uint8_t>(p[xx * 4 + 3], 170);
         }
-        font::drawText(overlay_, x + 4, y, row.c_str(), Color{255, 240, 160});
+        font::drawText(_overlay, x + 4, y, row.c_str(), Color{255, 240, 160});
         y += font::kLineHeight;
     }
 }

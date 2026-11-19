@@ -36,7 +36,7 @@ struct GpuMesh {
 // nothing (the packed vertices as stored), the turn onto the float copy,
 // or the opposite turn. The opposite is what stands The Fallen's chairs
 // and people up (CM05_Kira); the others are kept for comparing.
-enum class MeshTurn { None, FloatCopy, Reverse };
+enum class MeshTurn { kNone, kFloatCopy, kReverse };
 const char *meshTurnName(MeshTurn turn);
 
 // What uploading a mesh needs of its triangles alone (each vertex and
@@ -54,20 +54,20 @@ Error buildMeshTopology(const Mesh &mesh, MeshTopology &out);
 // (each 16384 of yaw): with only the turn above, The Fallen's face their
 // right; 3 (three quarters, i.e. a quarter turn back) faces them ahead.
 constexpr int kImportYawQuarters = 3;
-Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, GpuMesh &out, MeshTurn turn = MeshTurn::Reverse,
+Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, GpuMesh &out, MeshTurn turn = MeshTurn::kReverse,
                  int yawQuarters = kImportYawQuarters);
 // The same with its topology already worked out.
 Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, const MeshTopology &topology, GpuMesh &out,
-                 MeshTurn turn = MeshTurn::Reverse, int yawQuarters = kImportYawQuarters);
+                 MeshTurn turn = MeshTurn::kReverse, int yawQuarters = kImportYawQuarters);
 
 // Where a mesh's packed vertex is, as uploadMesh places it (by Scale and
 // Origin, the import turn, RotOrigin), before the actor's own placement;
 // and a point or vector already in the skeleton's units (Scale applied,
 // from the origin: type 2 attachment points, the precomputed places)
 // turned the same way. Unreal's axes.
-Vec3f placeMeshVertex(const Mesh &mesh, const Vec3f &packed, MeshTurn turn = MeshTurn::Reverse,
+Vec3f placeMeshVertex(const Mesh &mesh, const Vec3f &packed, MeshTurn turn = MeshTurn::kReverse,
                       int yawQuarters = kImportYawQuarters);
-Vec3f placeMeshScaled(const Mesh &mesh, const Vec3f &v, MeshTurn turn = MeshTurn::Reverse,
+Vec3f placeMeshScaled(const Mesh &mesh, const Vec3f &v, MeshTurn turn = MeshTurn::kReverse,
                       int yawQuarters = kImportYawQuarters);
 
 // Where an actor puts its mesh: Location + PrePivot, turned by Rotation,

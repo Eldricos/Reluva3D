@@ -14,9 +14,9 @@
 namespace reluva::unreal {
 
 LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
-    : packages_(packages), map_(map), vm_(std::make_unique<Vm>(packages)),
-      level_(std::make_unique<ScriptLevel>(*vm_, map)) {
-    const char *names[FieldCount] = {"Location",
+    : _packages(packages), _map(map), _vm(std::make_unique<Vm>(packages)),
+      _level(std::make_unique<ScriptLevel>(*_vm, map)) {
+    const char *names[kFieldCount] = {"Location",
                                      "PrePivot",
                                      "Rotation",
                                      "DrawScale",
@@ -44,29 +44,29 @@ LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
                                      "AmbientGlow",
                                      "Specular",
                                      "bMultiTextureOn"};
-    for (size_t k = 0; k < FieldCount; ++k)
-        names_[k] = vm_->name(names[k]);
+    for (size_t k = 0; k < kFieldCount; ++k)
+        _names[k] = _vm->name(names[k]);
 }
 
 Error LevelPlay::start(const std::string &portal, const std::filesystem::path &saved,
                        const std::filesystem::path &saveFolder) {
-    if (Error err = level_->load())
+    if (Error err = _level->load())
         return err;
-    level_->setSaveFolder(saveFolder);
+    _level->setSaveFolder(saveFolder);
     if (!saved.empty()) {
-        if (Error err = level_->restore(saved))
+        if (Error err = _level->restore(saved))
             return err;
-        player_ = level_->player();
+        _player = _level->player();
         return Error::success();
     }
     // A saved game of the original's: the map is its package.
-    if (level_->savedByGame()) {
-        player_ = level_->resumeSavedGame(iniSetting(packages_, "URL", "Name"), loginError_);
+    if (_level->savedByGame()) {
+        _player = _level->resumeSavedGame(iniSetting(_packages, "URL", "Name"), _loginError);
         return Error::success();
     }
-    level_->beginPlay(defaultGameType(packages_));
-    player_ =
-        level_->login(iniSetting(packages_, "URL", "Class"), iniSetting(packages_, "URL", "Name"), loginError_, portal);
+    _level->beginPlay(defaultGameType(_packages));
+    _player =
+        _level->login(iniSetting(_packages, "URL", "Class"), iniSetting(_packages, "URL", "Name"), _loginError, portal);
     return Error::success();
 }
 
@@ -74,41 +74,41 @@ void LevelPlay::advance(float seconds, int maxTicks) {
     // A cut scene fast-forwarded: as many ticks as fit in a frame's time
     // (a twentieth of a second of the scripts' running), however few were
     // owed, until the game turns it off.
-    if (level_->fastForward()) {
+    if (_level->fastForward()) {
         const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
-        for (int ticks = 0; ticks < 300 && level_->fastForward() && std::chrono::steady_clock::now() < until; ++ticks) {
-            level_->tick(kTick);
-            time_ += kTick;
+        for (int ticks = 0; ticks < 300 && _level->fastForward() && std::chrono::steady_clock::now() < until; ++ticks) {
+            _level->tick(kTick);
+            _time += kTick;
         }
-        owed_ = 0;
+        _owed = 0;
         return;
     }
-    owed_ += std::max(0.0f, seconds);
+    _owed += std::max(0.0f, seconds);
     int ticks = 0;
-    while (owed_ >= kTick && ticks < maxTicks) {
-        level_->tick(kTick);
-        owed_ -= kTick;
-        time_ += kTick;
+    while (_owed >= kTick && ticks < maxTicks) {
+        _level->tick(kTick);
+        _owed -= kTick;
+        _time += kTick;
         ++ticks;
     }
     // What's left over a tick is dropped: the game slows down instead.
-    if (owed_ >= kTick) {
-        behind_ += owed_ - std::fmod(owed_, kTick);
-        owed_ = std::fmod(owed_, kTick);
+    if (_owed >= kTick) {
+        _behind += _owed - std::fmod(_owed, kTick);
+        _owed = std::fmod(_owed, kTick);
     }
 }
 
 void LevelPlay::press(const char *exec) {
-    if (!player_ || player_->deleted)
+    if (!_player || _player->deleted)
         return;
-    if (VmFunction *f = vm_->findFunction(player_, vm_->name(exec)))
-        vm_->invoke(f, player_, {Value::floatValue(0)});
+    if (VmFunction *f = _vm->findFunction(_player, _vm->name(exec)))
+        _vm->invoke(f, _player, {Value::floatValue(0)});
 }
 
 // A setting of the player's [Engine.Input]: as the game last set it (the
 // controls page), else User.ini's, else DefUser.ini's.
 std::string LevelPlay::inputSetting(const std::string &key) const {
-    const std::string *v = vm_->configSetting("Engine.Input", key);
+    const std::string *v = _vm->configSetting("Engine.Input", key);
     return v ? *v : std::string();
 }
 
@@ -119,7 +119,7 @@ bool LevelPlay::pressKey(const std::string &key, bool down) {
     // is down; an exec function is called as the key goes down, with its
     // argument if it has one ("SwitchWeapon 2"); axes are left out (the
     // page's own controls steer).
-    if (aliases_.empty())
+    if (_aliases.empty())
         for (int k = 0; k < 64; ++k) {
             const std::string a = inputSetting("Aliases[" + std::to_string(k) + "]");
             const size_t c = a.find("Command=\""), n = a.find("Alias=");
@@ -129,7 +129,7 @@ bool LevelPlay::pressKey(const std::string &key, bool down) {
             std::string alias = a.substr(n + 6);
             alias = alias.substr(0, alias.find_first_of(",)"));
             if (cEnd != std::string::npos)
-                aliases_[fs::toLower(alias)] = a.substr(c + 9, cEnd - c - 9);
+                _aliases[fs::toLower(alias)] = a.substr(c + 9, cEnd - c - 9);
         }
     std::vector<std::string> commands;
     auto split = [&](const std::string &binding, auto &self, int depth) -> void {
@@ -144,8 +144,8 @@ bool LevelPlay::pressKey(const std::string &key, bool down) {
             command.erase(command.find_last_not_of(' ') + 1);
             if (command.empty())
                 continue;
-            auto alias = aliases_.find(fs::toLower(command));
-            if (alias != aliases_.end() && depth < 4)
+            auto alias = _aliases.find(fs::toLower(command));
+            if (alias != _aliases.end() && depth < 4)
                 self(alias->second, self, depth + 1);
             else
                 commands.push_back(command);
@@ -161,99 +161,99 @@ bool LevelPlay::pressKey(const std::string &key, bool down) {
             continue;
         any = true;
         if (fs::toLower(verb) == "button") {
-            if (player_ && !player_->deleted)
-                if (Value *v = player_->find(*vm_, rest.substr(0, rest.find(' '))))
+            if (_player && !_player->deleted)
+                if (Value *v = _player->find(*_vm, rest.substr(0, rest.find(' '))))
                     v->i = down ? 1 : 0;
             continue;
         }
-        if (!down || !player_ || player_->deleted)
+        if (!down || !_player || _player->deleted)
             continue;
-        VmFunction *f = vm_->findFunction(player_, vm_->name(verb));
+        VmFunction *f = _vm->findFunction(_player, _vm->name(verb));
         if (!f)
             continue;
         std::vector<Value> args;
         if (!rest.empty() && !f->params.empty()) {
             const VmProperty *p = f->params[0];
             switch (p->type) {
-            case VType::Byte:
-            case VType::Int:
+            case VType::kByte:
+            case VType::kInt:
                 args.push_back(Value::intValue(std::atoi(rest.c_str())));
                 break;
-            case VType::Float:
+            case VType::kFloat:
                 args.push_back(Value::floatValue(std::strtof(rest.c_str(), nullptr)));
                 break;
-            case VType::Name:
-                args.push_back(Value::nameValue(vm_->name(rest)));
+            case VType::kName:
+                args.push_back(Value::nameValue(_vm->name(rest)));
                 break;
-            case VType::String:
+            case VType::kString:
                 args.push_back(Value::stringValue(rest));
                 break;
             default:
                 break;
             }
         }
-        vm_->invoke(f, player_, args);
+        _vm->invoke(f, _player, args);
     }
     return any;
 }
 
 bool LevelPlay::consoleKey(int inputKey, bool down) {
-    if (!player_ || player_->deleted)
+    if (!_player || _player->deleted)
         return false;
-    VmObject *console = level_->console();
+    VmObject *console = _level->console();
     if (!console)
         return false;
     if (down)
-        level_->keysDown().insert(inputKey);
+        _level->keysDown().insert(inputKey);
     else
-        level_->keysDown().erase(inputKey);
+        _level->keysDown().erase(inputKey);
     // EInputAction: 1 pressed, 3 let go.
-    return vm_
+    return _vm
         ->callEvent(console, "KeyEvent",
                     {Value::byteValue(inputKey), Value::byteValue(down ? 1 : 3), Value::floatValue(0)})
         .asBool();
 }
 
 bool LevelPlay::paused() const {
-    return level_->paused();
+    return _level->paused();
 }
 
 bool LevelPlay::windowsOpen() const {
-    VmObject *console = level_->console();
-    const Value *v = console ? console->find(*vm_, "bUWindowActive") : nullptr;
+    VmObject *console = _level->console();
+    const Value *v = console ? console->find(*_vm, "bUWindowActive") : nullptr;
     return v && v->asBool();
 }
 
 void LevelPlay::consoleMouse(float x, float y) {
-    if (VmObject *console = level_->console()) {
-        if (Value *v = console->find(*vm_, "MouseX"))
+    if (VmObject *console = _level->console()) {
+        if (Value *v = console->find(*_vm, "MouseX"))
             *v = Value::floatValue(x);
-        if (Value *v = console->find(*vm_, "MouseY"))
+        if (Value *v = console->find(*_vm, "MouseY"))
             *v = Value::floatValue(y);
     }
 }
 
 bool LevelPlay::menuShowing() const {
-    const Value *v = player_ && !player_->deleted ? player_->find(*vm_, "bShowMenu") : nullptr;
+    const Value *v = _player && !_player->deleted ? _player->find(*_vm, "bShowMenu") : nullptr;
     return v && v->asBool();
 }
 
 std::string LevelPlay::takeTravel() {
-    return std::exchange(level_->travel(), std::string());
+    return std::exchange(_level->travel(), std::string());
 }
 
 bool LevelPlay::quitAsked() const {
-    return level_->quitAsked();
+    return _level->quitAsked();
 }
 
 std::vector<ScriptLevel::SoundRequest> LevelPlay::takeSounds() {
-    return std::exchange(level_->soundRequests(), {});
+    return std::exchange(_level->soundRequests(), {});
 }
 
 bool LevelPlay::locationOf(VmObject *actor, Vec3f &out) {
     if (!actor || actor->deleted)
         return false;
-    const Value *v = actor->find(*vm_, "Location");
+    const Value *v = actor->find(*_vm, "Location");
     if (!v)
         return false;
     const auto l = Vm::vectorOf(*v);
@@ -264,7 +264,7 @@ bool LevelPlay::locationOf(VmObject *actor, Vec3f &out) {
 bool LevelPlay::velocityOf(VmObject *actor, Vec3f &out) {
     if (!actor || actor->deleted)
         return false;
-    const Value *v = actor->find(*vm_, "Velocity");
+    const Value *v = actor->find(*_vm, "Velocity");
     if (!v)
         return false;
     const auto l = Vm::vectorOf(*v);
@@ -274,25 +274,25 @@ bool LevelPlay::velocityOf(VmObject *actor, Vec3f &out) {
 
 Vec3f LevelPlay::viewerVelocity() {
     Vec3f out{};
-    if (!player_)
+    if (!_player)
         return out;
-    const Value *target = player_->find(*vm_, "ViewTarget");
-    VmObject *viewer = target && target->asObject() ? target->asObject() : player_;
+    const Value *target = _player->find(*_vm, "ViewTarget");
+    VmObject *viewer = target && target->asObject() ? target->asObject() : _player;
     velocityOf(viewer, out);
     return out;
 }
 
 LevelPlay::Room LevelPlay::roomAt(const Vec3f &at) {
     Room room;
-    const Value region = level_->regionAt({at[0], at[1], at[2]});
+    const Value region = _level->regionAt({at[0], at[1], at[2]});
     VmObject *zone = !region.fields.empty() ? region.fields[0].asObject() : nullptr;
     if (!zone)
         return room;
-    const Value *water = zone->find(*vm_, "bWaterZone");
+    const Value *water = zone->find(*_vm, "bWaterZone");
     if (water && water->asBool())
         return {22, 0.5f};
-    const Value *type = zone->find(*vm_, "ZoneRoomType");
-    const Value *factor = zone->find(*vm_, "ZoneRoomFactor");
+    const Value *type = zone->find(*_vm, "ZoneRoomType");
+    const Value *factor = zone->find(*_vm, "ZoneRoomFactor");
     room.type = type ? type->asInt() : 0;
     room.level = room.type && factor ? factor->asFloat() : 0;
     return room;
@@ -308,18 +308,18 @@ void LevelPlay::ambientSounds(std::vector<Ambient> &out) {
     const std::string factorSetting = audioSetting("AmbientFactor");
     const float factor = factorSetting.empty() ? 0.7f : std::strtof(factorSetting.c_str(), nullptr);
     float bus = 1;
-    if (VmObject *info = level_->levelInfo())
-        if (const Value *v = info->find(*vm_, "AmbientBus"))
+    if (VmObject *info = _level->levelInfo())
+        if (const Value *v = info->find(*_vm, "AmbientBus"))
             bus = float(v->asInt()) / 128;
-    for (VmObject *a : level_->actors()) {
+    for (VmObject *a : _level->actors()) {
         if (a->deleted || !a->cls)
             continue;
-        const std::array<int, FieldCount> &slot = slotsOf(a->cls);
+        const std::array<int, kFieldCount> &slot = slotsOf(a->cls);
         auto at = [&](Field f) -> const Value * {
             const int k = slot[size_t(f)];
             return k >= 0 && size_t(k) < a->values.size() ? &a->values[size_t(k)] : nullptr;
         };
-        const Value *s = at(AmbientSoundField);
+        const Value *s = at(kAmbientSoundField);
         VmObject *sound = s ? s->asObject() : nullptr;
         if (!sound || !sound->package || sound->exportIndex < 0)
             continue;
@@ -327,63 +327,63 @@ void LevelPlay::ambientSounds(std::vector<Ambient> &out) {
             const Value *v = at(f);
             return v ? v->asInt() : otherwise;
         };
-        const int volume = byte(SoundVolume, 128);
+        const int volume = byte(kSoundVolume, 128);
         if (volume <= 0)
             continue;
         Ambient am;
         am.actor = a;
         am.sound = {sound->package, sound->exportIndex};
-        am.streamed = level_->streamedSound(sound);
+        am.streamed = _level->streamedSound(sound);
         am.music = ScriptLevel::soundName(sound).find("MUSIC") != std::string::npos;
         locationOf(a, am.at);
-        am.radius = 25.0f * float(byte(SoundRadius, 32) + 1);
+        am.radius = 25.0f * float(byte(kSoundRadius, 32) + 1);
         am.volume = 2 * float(volume) * factor / 255;
-        auto &kinds = ambientKinds_[a->cls];
+        auto &kinds = _ambientKinds[a->cls];
         if (!kinds.known) {
-            kinds = {true, vm_->isA(a, "Keypoint")};
+            kinds = {true, _vm->isA(a, "Keypoint")};
         }
         if (kinds.keypoint)
             am.volume *= bus;
-        if (const Value *t = a->find(*vm_, "LightType"); t && t->asInt() != 0)
-            if (const Value *b = a->find(*vm_, "LightBrightness"))
+        if (const Value *t = a->find(*_vm, "LightType"); t && t->asInt() != 0)
+            if (const Value *b = a->find(*_vm, "LightBrightness"))
                 am.volume *= float(b->asInt()) / 255;
-        am.pitch = float(byte(SoundPitch, 64)) / 64;
+        am.pitch = float(byte(kSoundPitch, 64)) / 64;
         out.push_back(am);
     }
 }
 
 std::string LevelPlay::audioSetting(const std::string &key) {
-    const std::string *device = vm_->configSetting("Engine.Engine", "AudioDevice");
-    const std::string *v = device ? vm_->configSetting(*device, key) : nullptr;
+    const std::string *device = _vm->configSetting("Engine.Engine", "AudioDevice");
+    const std::string *v = device ? _vm->configSetting(*device, key) : nullptr;
     return v ? *v : std::string();
 }
 
 float LevelPlay::masterVolume() {
-    if (level_->masterVolume() >= 0)
-        return level_->masterVolume();
+    if (_level->masterVolume() >= 0)
+        return _level->masterVolume();
     const std::string v = audioSetting("MasterVolume");
     return v.empty() ? 255 : std::strtof(v.c_str(), nullptr);
 }
 
 bool LevelPlay::takeKillSounds() {
-    return std::exchange(level_->killSounds(), false);
+    return std::exchange(_level->killSounds(), false);
 }
 
 void LevelPlay::hudEvent(int code) {
-    if (const Value *hud = player_ && !player_->deleted ? player_->find(*vm_, "myHUD") : nullptr;
+    if (const Value *hud = _player && !_player->deleted ? _player->find(*_vm, "myHUD") : nullptr;
         hud && hud->asObject())
-        vm_->callEvent(hud->o, "HudEvent", {Value::intValue(code)});
+        _vm->callEvent(hud->o, "HudEvent", {Value::intValue(code)});
 }
 
 bool LevelPlay::copies(VmObject *actor, std::vector<Copy> &out) {
     out.clear();
     if (!actor || actor->deleted)
         return false;
-    Vm &vm = *vm_;
+    Vm &vm = *_vm;
     const Value *base = actor->find(vm, "MultiMesh");
     if (!base || !base->asObject())
         return false;
-    for (VmObject *mm : level_->multiMeshes(actor)) {
+    for (VmObject *mm : _level->multiMeshes(actor)) {
         Copy c;
         if (const Value *v = mm->find(vm, "Location")) {
             const auto l = Vm::vectorOf(*v);
@@ -415,7 +415,7 @@ bool LevelPlay::copies(VmObject *actor, std::vector<Copy> &out) {
 
 std::vector<ScriptLevel::Decal> LevelPlay::decals() const {
     std::vector<ScriptLevel::Decal> out;
-    for (const auto &[actor, d] : level_->decals())
+    for (const auto &[actor, d] : _level->decals())
         if (!actor->deleted)
             out.push_back(d);
     return out;
@@ -423,26 +423,26 @@ std::vector<ScriptLevel::Decal> LevelPlay::decals() const {
 
 LevelPlay::View LevelPlay::view() {
     View v;
-    if (!player_ || player_->deleted)
+    if (!_player || _player->deleted)
         return v;
-    Vm &vm = *vm_;
+    Vm &vm = *_vm;
     // PlayerCalcView(out Actor ViewActor, out Vector CameraLocation, out Rotator CameraRotation)
     Value actor = Value::objectValue(nullptr);
     Value where = vm.vectorValue(0, 0, 0), turned = vm.rotatorValue(0, 0, 0);
-    if (const Value *loc = player_->find(vm, "Location"))
+    if (const Value *loc = _player->find(vm, "Location"))
         where = *loc;
-    if (const Value *rot = player_->find(vm, "ViewRotation"))
+    if (const Value *rot = _player->find(vm, "ViewRotation"))
         turned = *rot;
-    if (VmFunction *f = vm.findFunction(player_, vm.name("PlayerCalcView")))
-        vm.invoke(f, player_, {actor, where, turned}, {&actor, &where, &turned});
+    if (VmFunction *f = vm.findFunction(_player, vm.name("PlayerCalcView")))
+        vm.invoke(f, _player, {actor, where, turned}, {&actor, &where, &turned});
     const auto l = Vm::vectorOf(where);
     const auto r = Vm::rotatorOf(turned);
     v.location = {l[0], l[1], l[2]};
     v.rotation = {r[0], r[1], r[2]};
     v.actor = actor.asObject();
-    if (const Value *fov = player_->find(vm, "FovAngle"); fov && fov->asFloat() > 1)
+    if (const Value *fov = _player->find(vm, "FovAngle"); fov && fov->asFloat() > 1)
         v.fov = fov->asFloat();
-    if (const Value *hud = player_->find(vm, "myHUD"); hud && hud->asObject())
+    if (const Value *hud = _player->find(vm, "myHUD"); hud && hud->asObject())
         if (const Value *bars = hud->o->find(vm, "bLetterBox"))
             v.letterbox = bars->asBool();
     return v;
@@ -455,18 +455,18 @@ ObjectRef LevelPlay::refOf(const Value *v) const {
 }
 
 // Where each property look() reads is in a class's values, found once.
-const std::array<int, LevelPlay::FieldCount> &LevelPlay::slotsOf(const VmClass *cls) {
-    auto it = slots_.find(cls);
-    if (it == slots_.end()) {
-        std::array<int, FieldCount> slots{};
-        for (size_t k = 0; k < FieldCount; ++k) {
-            const VmProperty *p = cls->findProperty(names_[k]);
+const std::array<int, LevelPlay::kFieldCount> &LevelPlay::slotsOf(const VmClass *cls) {
+    auto it = _slots.find(cls);
+    if (it == _slots.end()) {
+        std::array<int, kFieldCount> slots{};
+        for (size_t k = 0; k < kFieldCount; ++k) {
+            const VmProperty *p = cls->findProperty(_names[k]);
             slots[k] = p ? p->slot : -1;
-            if (k == Region && p && p->structType && regionZoneField_ < 0)
-                if (const VmProperty *z = p->structType->findProperty(vm_->name("ZoneNumber")))
-                    regionZoneField_ = z->slot;
+            if (k == kRegion && p && p->structType && _regionZoneField < 0)
+                if (const VmProperty *z = p->structType->findProperty(_vm->name("ZoneNumber")))
+                    _regionZoneField = z->slot;
         }
-        it = slots_.emplace(cls, slots).first;
+        it = _slots.emplace(cls, slots).first;
     }
     return it->second;
 }
@@ -474,15 +474,15 @@ const std::array<int, LevelPlay::FieldCount> &LevelPlay::slotsOf(const VmClass *
 bool LevelPlay::mayBeSeen(VmObject *a, uint64_t zones) {
     if (!a || a->deleted || !a->cls)
         return false;
-    const std::array<int, FieldCount> &slot = slotsOf(a->cls);
+    const std::array<int, kFieldCount> &slot = slotsOf(a->cls);
     auto at = [&](Field f) -> const Value * {
         const int k = slot[size_t(f)];
         return k >= 0 && size_t(k) < a->values.size() ? &a->values[size_t(k)] : nullptr;
     };
-    if (const Value *v = at(Hidden); v && v->asBool())
+    if (const Value *v = at(kHidden); v && v->asBool())
         return false;
-    if (const Value *r = at(Region); r && regionZoneField_ >= 0 && size_t(regionZoneField_) < r->fields.size()) {
-        const int zone = r->fields[size_t(regionZoneField_)].asInt();
+    if (const Value *r = at(kRegion); r && _regionZoneField >= 0 && size_t(_regionZoneField) < r->fields.size()) {
+        const int zone = r->fields[size_t(_regionZoneField)].asInt();
         if (zone >= 0 && zone < 64 && !((zones >> zone) & 1))
             return false;
     }
@@ -496,20 +496,20 @@ bool LevelPlay::wallBetween(const Vec3f &from, const Vec3f &to) {
     WallKey key{};
     std::memcpy(key.bits.data(), from.data(), 12);
     std::memcpy(key.bits.data() + 3, to.data(), 12);
-    if (auto it = walls_.find(key); it != walls_.end())
+    if (auto it = _walls.find(key); it != _walls.end())
         return it->second;
-    if (walls_.size() > 200000)
-        walls_.clear();
-    const bool wall = level_->worldBetween({from[0], from[1], from[2]}, {to[0], to[1], to[2]}, 24);
-    walls_.emplace(key, wall);
+    if (_walls.size() > 200000)
+        _walls.clear();
+    const bool wall = _level->worldBetween({from[0], from[1], from[2]}, {to[0], to[1], to[2]}, 24);
+    _walls.emplace(key, wall);
     return wall;
 }
 
 // The zone's own if it sets one, else the level's (LevelInfo's: M03's
 // tunnels have ZoneInfos of their own, the fog only on LevelInfo).
 float LevelPlay::distanceFog(const Vec3f &at, std::array<float, 3> &color) {
-    Vm &vm = *vm_;
-    const Value region = level_->regionAt({at[0], at[1], at[2]});
+    Vm &vm = *_vm;
+    const Value region = _level->regionAt({at[0], at[1], at[2]});
     VmObject *zone = nullptr;
     if (region.st)
         if (const VmProperty *f = region.st->findProperty(vm.name("Zone")); f && size_t(f->slot) < region.fields.size())
@@ -521,7 +521,7 @@ float LevelPlay::distanceFog(const Vec3f &at, std::array<float, 3> &color) {
     // The camera's zone's own (its ZoneInfo's, or for a zone without one
     // the LevelInfo's), as Render.dll's SetDistanceFogging reads it.
     if (!zone)
-        zone = level_->levelInfo();
+        zone = _level->levelInfo();
     const float distance = fogOf(zone);
     if (distance <= 0)
         return 0;
@@ -538,41 +538,41 @@ float LevelPlay::distanceFog(const Vec3f &at, std::array<float, 3> &color) {
 
 void LevelPlay::coronas(std::vector<Corona> &out) {
     out.clear();
-    for (VmObject *a : level_->actors()) {
+    for (VmObject *a : _level->actors()) {
         if (a->deleted || !a->cls)
             continue;
-        const std::array<int, FieldCount> &slot = slotsOf(a->cls);
+        const std::array<int, kFieldCount> &slot = slotsOf(a->cls);
         auto at = [&](Field f) -> const Value * {
             const int k = slot[size_t(f)];
             return k >= 0 && size_t(k) < a->values.size() ? &a->values[size_t(k)] : nullptr;
         };
-        const Value *on = at(CoronaField);
+        const Value *on = at(kCoronaField);
         if (!on || !on->asBool())
             continue;
         Corona c;
         c.actor = a;
         // Its Skin, drawn: Render.dll takes no corona from a light without
         // one (not its Texture, a sprite's or an editor icon).
-        c.texture = refOf(at(Skin));
+        c.texture = refOf(at(kSkin));
         if (!c.texture)
             continue;
-        if (const Value *v = at(Location)) {
+        if (const Value *v = at(kLocation)) {
             const auto l = Vm::vectorOf(*v);
             c.location = {l[0], l[1], l[2]};
         }
-        if (const Value *v = at(DrawScale))
+        if (const Value *v = at(kDrawScale))
             c.drawScale = v->asFloat();
-        if (const Value *r = at(Region); r && regionZoneField_ >= 0 && size_t(regionZoneField_) < r->fields.size())
-            c.zone = r->fields[size_t(regionZoneField_)].asInt();
-        if (const Value *v = a->find(*vm_, "LightHue"))
+        if (const Value *r = at(kRegion); r && _regionZoneField >= 0 && size_t(_regionZoneField) < r->fields.size())
+            c.zone = r->fields[size_t(_regionZoneField)].asInt();
+        if (const Value *v = a->find(*_vm, "LightHue"))
             c.hue = uint8_t(v->asInt());
-        if (const Value *v = a->find(*vm_, "LightSaturation"))
+        if (const Value *v = a->find(*_vm, "LightSaturation"))
             c.saturation = uint8_t(v->asInt());
-        if (const Value *v = a->find(*vm_, "LightRadius"))
+        if (const Value *v = a->find(*_vm, "LightRadius"))
             c.radius = 25.0f * float(v->asInt() + 1);
-        if (const Value *v = a->find(*vm_, "bStatic"))
+        if (const Value *v = a->find(*_vm, "bStatic"))
             c.isStatic = v->asBool();
-        c.ref = a->exportIndex >= 0 && a->package == &map_ ? a->exportIndex + 1 : 0;
+        c.ref = a->exportIndex >= 0 && a->package == &_map ? a->exportIndex + 1 : 0;
         out.push_back(c);
     }
 }
@@ -580,8 +580,8 @@ void LevelPlay::coronas(std::vector<Corona> &out) {
 bool LevelPlay::look(VmObject *a, Look &out) {
     if (!a || a->deleted || !a->cls)
         return false;
-    Vm &vm = *vm_;
-    const std::array<int, FieldCount> &slot = slotsOf(a->cls);
+    Vm &vm = *_vm;
+    const std::array<int, kFieldCount> &slot = slotsOf(a->cls);
     auto at = [&](Field f) -> Value * {
         const int k = slot[size_t(f)];
         return k >= 0 && size_t(k) < a->values.size() ? &a->values[size_t(k)] : nullptr;
@@ -592,39 +592,39 @@ bool LevelPlay::look(VmObject *a, Look &out) {
             to = {p[0], p[1], p[2]};
         }
     };
-    vec(Location, out.location);
-    vec(PrePivot, out.prePivot);
-    if (const Value *v = at(Rotation)) {
+    vec(kLocation, out.location);
+    vec(kPrePivot, out.prePivot);
+    if (const Value *v = at(kRotation)) {
         const auto r = Vm::rotatorOf(*v);
         out.rotation = {r[0], r[1], r[2]};
     }
-    if (const Value *v = at(DrawScale))
+    if (const Value *v = at(kDrawScale))
         out.drawScale = v->asFloat();
-    if (const Value *v = at(DrawType))
+    if (const Value *v = at(kDrawType))
         out.drawType = v->asInt();
-    if (const Value *v = at(Hidden))
+    if (const Value *v = at(kHidden))
         out.hidden = v->asBool();
-    out.mesh = refOf(at(MeshField));
-    out.skin = refOf(at(Skin));
-    out.texture = refOf(at(Texture));
-    if (const int k = slot[MultiSkins]; k >= 0)
+    out.mesh = refOf(at(kMeshField));
+    out.skin = refOf(at(kSkin));
+    out.texture = refOf(at(kTexture));
+    if (const int k = slot[kMultiSkins]; k >= 0)
         for (size_t i = 0; i < out.multiSkins.size() && size_t(k) + i < a->values.size(); ++i)
             out.multiSkins[i] = refOf(&a->values[size_t(k) + i]); // an array property's elements follow each other
-    if (const Value *v = at(AnimSequence))
+    if (const Value *v = at(kAnimSequence))
         out.animSequence = v->i ? vm.nameText(v->i) : std::string();
-    if (const Value *v = at(AnimFrame))
+    if (const Value *v = at(kAnimFrame))
         out.animFrame = v->asFloat();
-    if (const Value *v = at(AnimRate))
+    if (const Value *v = at(kAnimRate))
         out.animRate = v->asFloat();
-    if (const Value *v = at(AnimLoop))
+    if (const Value *v = at(kAnimLoop))
         out.animLoop = v->asBool();
-    if (const Value *v = at(Style))
+    if (const Value *v = at(kStyle))
         out.style = uint8_t(v->asInt());
-    if (const Value *v = at(ScaleGlow))
+    if (const Value *v = at(kScaleGlow))
         out.scaleGlow = v->asFloat();
-    if (const Value *v = at(Unlit))
+    if (const Value *v = at(kUnlit))
         out.unlit = v->asBool();
-    if (const Value *v = at(AmbientGlow))
+    if (const Value *v = at(kAmbientGlow))
         out.ambientGlow = uint8_t(v->asInt());
     out.colorFilter = {1, 1, 1};
     if (const Value *c = a->find(vm, "ColorFilter")) {
@@ -632,7 +632,7 @@ bool LevelPlay::look(VmObject *a, Look &out) {
         out.colorFilter = {f[0], f[1], f[2]};
     }
     out.multi = {};
-    if (const Value *on = at(MultiTextureOn); on && on->asBool()) {
+    if (const Value *on = at(kMultiTextureOn); on && on->asBool()) {
         Look::MultiTexture &m = out.multi;
         m.on = true;
         auto flag = [&](const char *n) {
@@ -658,19 +658,19 @@ bool LevelPlay::look(VmObject *a, Look &out) {
         m.twoUnlit = flag("bMultiTextureTwoUnlit");
         m.colorFilter = out.colorFilter;
     }
-    if (const Value *v = at(SpecularField))
+    if (const Value *v = at(kSpecularField))
         out.specular = v->asFloat();
-    if (const Value *v = at(RenderInitial))
+    if (const Value *v = at(kRenderInitial))
         out.renderInitial = v->asBool();
     out.tweenFrom.clear();
     if (out.animFrame < 0)
-        if (const ScriptLevel::TweenFrom *from = level_->tweenFromOf(a)) {
+        if (const ScriptLevel::TweenFrom *from = _level->tweenFromOf(a)) {
             out.tweenFrom = vm.nameText(from->sequence);
             out.tweenFromFrame = from->frame;
             out.tweenFromLoop = from->loop;
         }
     out.layers.clear();
-    if (const auto *layers = level_->layersOf(a))
+    if (const auto *layers = _level->layersOf(a))
         for (const auto &[group, l] : *layers) {
             if (!l.sequence || (l.weight <= 0 && !l.fromSequence))
                 continue;
@@ -689,7 +689,7 @@ bool LevelPlay::look(VmObject *a, Look &out) {
                                   vm.nameText(group), l.weightRate != 0 ? l.shown : nullptr, l.weightRate < 0});
         }
     out.faces.clear();
-    if (const auto *skins = level_->skinsOf(a))
+    if (const auto *skins = _level->skinsOf(a))
         for (const auto &[tag, c] : *skins) {
             // One held at its first frame does nothing.
             if (!c.sequence || (!c.tweening && c.frame == 0))
@@ -702,40 +702,40 @@ bool LevelPlay::look(VmObject *a, Look &out) {
             }
             out.faces.push_back(f);
         }
-    out.adjust = level_->boneAdjust(a);
+    out.adjust = _level->boneAdjust(a);
     return true;
 }
 
 void LevelPlay::drawn(VmObject *a) {
-    auto it = a ? slots_.find(a->cls) : slots_.end();
-    if (it == slots_.end())
+    auto it = a ? _slots.find(a->cls) : _slots.end();
+    if (it == _slots.end())
         return;
-    const int k = it->second[LastRenderTime];
+    const int k = it->second[kLastRenderTime];
     if (k >= 0 && size_t(k) < a->values.size())
-        if (const Value *now = level_->levelInfo()->find(*vm_, "TimeSeconds"))
+        if (const Value *now = _level->levelInfo()->find(*_vm, "TimeSeconds"))
             a->values[size_t(k)] = Value::floatValue(now->asFloat());
 }
 
 void LevelPlay::preRender(VmObject *a) {
     if (a && !a->deleted)
-        vm_->callEvent(a, "C3DPreRender");
+        _vm->callEvent(a, "C3DPreRender");
 }
 
 int LevelPlay::health() {
-    const Value *v = player_ ? player_->find(*vm_, "Health") : nullptr;
+    const Value *v = _player ? _player->find(*_vm, "Health") : nullptr;
     return v ? v->asInt() : 0;
 }
 
 std::string LevelPlay::title() {
-    const Value *v = level_->levelInfo() ? level_->levelInfo()->find(*vm_, "Title") : nullptr;
+    const Value *v = _level->levelInfo() ? _level->levelInfo()->find(*_vm, "Title") : nullptr;
     return v ? v->s : std::string();
 }
 
 std::vector<std::string> LevelPlay::activeObjectives() {
     std::vector<std::string> out;
-    VmObject *info = level_->levelInfo();
-    const VmProperty *titles = info ? info->cls->findProperty(vm_->name("Objective_Title")) : nullptr;
-    const VmProperty *states = info ? info->cls->findProperty(vm_->name("Objective_State")) : nullptr;
+    VmObject *info = _level->levelInfo();
+    const VmProperty *titles = info ? info->cls->findProperty(_vm->name("Objective_Title")) : nullptr;
+    const VmProperty *states = info ? info->cls->findProperty(_vm->name("Objective_State")) : nullptr;
     if (!titles || !states)
         return out;
     for (int k = 0; k < titles->arrayDim && k < states->arrayDim; ++k) {
@@ -747,12 +747,12 @@ std::vector<std::string> LevelPlay::activeObjectives() {
 }
 
 VmObject *LevelPlay::actorAt(int32_t ref) {
-    VmObject *a = ref ? vm_->objectAt(map_, ref) : nullptr;
+    VmObject *a = ref ? _vm->objectAt(_map, ref) : nullptr;
     return a && !a->deleted ? a : nullptr;
 }
 
 std::string LevelPlay::playerState() {
-    return player_ && player_->state ? player_->state->name : std::string("none");
+    return _player && _player->state ? _player->state->name : std::string("none");
 }
 
 } // namespace reluva::unreal

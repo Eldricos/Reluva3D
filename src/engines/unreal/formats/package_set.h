@@ -66,10 +66,10 @@ public:
     // folder (The Fallen's are .dsm), or .unr.
     bool isMap(std::string_view name) const;
     std::vector<std::string> mapNames() const;
-    const std::vector<std::string> &searchPaths() const { return paths_; }
-    std::filesystem::path iniFile() const { return ini_; }
+    const std::vector<std::string> &searchPaths() const { return _paths; }
+    std::filesystem::path iniFile() const { return _ini; }
     // The game folder open() was given (empty for sets built by hand).
-    const std::filesystem::path &gameDir() const { return gameDir_; }
+    const std::filesystem::path &gameDir() const { return _gameDir; }
 
 private:
     struct Entry {
@@ -81,11 +81,11 @@ private:
         mutable bool tried = false;
         mutable std::string error;
     };
-    mutable std::map<std::string, Entry> entries_; // by lower-case name (nodes stay put: packages keep their places)
-    std::vector<std::string> paths_;
-    std::vector<std::string> mapExtensions_{".unr"};
-    std::filesystem::path ini_;
-    std::filesystem::path gameDir_;
+    mutable std::map<std::string, Entry> _entries; // by lower-case name (nodes stay put: packages keep their places)
+    std::vector<std::string> _paths;
+    std::vector<std::string> _mapExtensions{".unr"};
+    std::filesystem::path _ini;
+    std::filesystem::path _gameDir;
 };
 
 } // namespace reluva::unreal

@@ -30,10 +30,10 @@ class NativeTable {
 public:
     explicit NativeTable(const PackageSet &packages);
     const NativeFunction *find(int native) const;
-    size_t size() const { return natives_.size(); }
+    size_t size() const { return _natives.size(); }
 
 private:
-    std::map<int, NativeFunction> natives_;
+    std::map<int, NativeFunction> _natives;
 };
 
 // A class (its declarations, functions, states and defaults), a struct, a

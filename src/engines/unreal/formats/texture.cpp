@@ -155,7 +155,7 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
     const Mip *mip = mips.empty() ? nullptr : &mips[0];
     if ((!mip || mip->size == 0) && !compMips.empty()) {
         mip = &compMips[0];
-        ti.format = props.byte("CompFormat", uint8_t(TextureFormat::DXT1));
+        ti.format = props.byte("CompFormat", uint8_t(TextureFormat::kDxT1));
         ti.fromComp = true;
     }
     ti.mipCount = int(mips.size());
@@ -200,7 +200,7 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
     out.h = ti.height;
     out.rgba.assign(pixels * 4, 0);
     switch (static_cast<TextureFormat>(ti.format)) {
-    case TextureFormat::P8: {
+    case TextureFormat::kP8: {
         if (size_t(size) < pixels)
             return Error::fail(what + ": " + std::to_string(size) + " bytes for " + std::to_string(pixels) + " pixels");
         const ObjectRef pal = packages.resolve(package, paletteRef);
@@ -215,14 +215,14 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
             std::copy_n(palette.rgba.data() + size_t(c) * 4, 3, p);
             // The palettes' alpha isn't used for P8 textures; masked ones
             // see through colour 0.
-            p[3] = (seeThroughZero || ti.masked || (ti.polyFlags & polyflag::Masked)) && c == 0 ? 0 : 255;
+            p[3] = (seeThroughZero || ti.masked || (ti.polyFlags & polyflag::kMasked)) && c == 0 ? 0 : 255;
         }
         return Error::success();
     }
-    case TextureFormat::DXT1:
+    case TextureFormat::kDxT1:
         decodeDxt1(src, size_t(size), ti.width, ti.height, out);
         return Error::success();
-    case TextureFormat::RGBA8:
+    case TextureFormat::kRgbA8:
         if (size_t(size) < pixels * 4)
             return Error::fail(what + ": too little data for RGBA8");
         // Stored blue, green, red, alpha.
@@ -234,7 +234,7 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
             p[3] = src[i * 4 + 3];
         }
         return Error::success();
-    case TextureFormat::RGB8:
+    case TextureFormat::kRgB8:
         if (size_t(size) < pixels * 3)
             return Error::fail(what + ": too little data for RGB8");
         for (size_t i = 0; i < pixels; ++i) {

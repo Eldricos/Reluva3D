@@ -37,37 +37,37 @@ public:
     Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t> &indices) override;
     void destroyMesh(gfx::MeshId id) override;
 
-    int width() const override { return w_; }
-    int height() const override { return h_; }
+    int width() const override { return _w; }
+    int height() const override { return _h; }
     std::string deviceName() const override { return "software (reluva-tool)"; }
 
     void beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) override;
     void draw(const gfx::DrawCall &call) override;
     void setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye) override;
     void setDynamicLights(const std::vector<gfx::DynamicLight> &lights) override {
-        lights_.assign(lights.begin(),
+        _lights.assign(lights.begin(),
                        lights.begin() + std::ptrdiff_t(std::min<size_t>(lights.size(), gfx::kMaxDynamicLights)));
     }
-    void setVolumeLights(const std::vector<gfx::DynamicLight> &lights) override { volumes_ = lights; }
+    void setVolumeLights(const std::vector<gfx::DynamicLight> &lights) override { _volumes = lights; }
     void setViewport(int x, int y, int w, int h) override;
-    void setDepthRange(float maxDepth) override { depthRange_ = maxDepth; }
+    void setDepthRange(float maxDepth) override { _depthRange = maxDepth; }
     void clearDepth() override;
     void clearDepthAndStencil() override;
     bool hasStencil() const override { return true; }
-    void setStencilMode(StencilMode mode) override { stencilMode_ = mode; }
-    void setStencilLevel(uint8_t level) override { stencilLevel_ = level; }
-    uint8_t stencilLevel_ = 1;
-    bool capture_ = false;
+    void setStencilMode(StencilMode mode) override { _stencilMode = mode; }
+    void setStencilLevel(uint8_t level) override { stencilLevel = level; }
+    uint8_t stencilLevel = 1;
+    bool capture = false;
     void setMirrored(bool) override {}
-    void setGamma(float gamma) override { gamma_ = gamma; }
+    void setGamma(float gamma) override { _gamma = gamma; }
     void endFrame(const Surface *overlay) override;
     // Every finished frame is kept (frame()), so the next one is too.
-    void captureNextFrame() override { capture_ = true; }
+    void captureNextFrame() override { capture = true; }
     bool takeCapture(std::vector<uint8_t> &rgba) override {
-        if (!capture_ || frame_.pixels.empty())
+        if (!capture || _frame.pixels.empty())
             return false;
-        capture_ = false;
-        rgba = frame_.pixels;
+        capture = false;
+        rgba = _frame.pixels;
         return true;
     }
 
@@ -75,14 +75,14 @@ public:
     // cost nothing).
     bool drawing = true;
     // The last finished frame (RGBA32), and how many frames there were.
-    const Surface &frame() const { return frame_; }
-    int frames() const { return frames_; }
+    const Surface &frame() const { return _frame; }
+    int frames() const { return _frames; }
     // Draw calls and triangles drawn in the last frame.
-    int lastDraws() const { return lastDraws_; }
-    int lastTriangles() const { return lastTriangles_; }
+    int lastDraws() const { return _lastDraws; }
+    int lastTriangles() const { return _lastTriangles; }
 
 private:
-    std::vector<gfx::DynamicLight> lights_, volumes_;
+    std::vector<gfx::DynamicLight> _lights, _volumes;
     struct Texture {
         int w = 0, h = 0;
         bool clamp = false, nearest = false;
@@ -94,19 +94,19 @@ private:
         std::vector<uint32_t> indices;
     };
 
-    int w_, h_;
-    Surface color_, frame_;
-    std::vector<float> depth_;
-    std::vector<uint8_t> stencil_; // marks, cleared each frame
-    StencilMode stencilMode_ = StencilMode::kNone;
-    std::map<gfx::TextureId, Texture> textures_;
-    std::map<gfx::MeshId, Mesh> meshes_;
-    uint32_t nextId_ = 1;
-    gfx::Mat4 viewProj_ = gfx::identity();
-    gfx::Vec3 eye_{};
-    int vx_ = 0, vy_ = 0, vw_ = 0, vh_ = 0; // the viewport
-    float depthRange_ = 1, gamma_ = 1;
-    int frames_ = 0, draws_ = 0, triangles_ = 0, lastDraws_ = 0, lastTriangles_ = 0;
+    int _w, _h;
+    Surface _color, _frame;
+    std::vector<float> _depth;
+    std::vector<uint8_t> _stencil; // marks, cleared each frame
+    StencilMode _stencilMode = StencilMode::kNone;
+    std::map<gfx::TextureId, Texture> _textures;
+    std::map<gfx::MeshId, Mesh> _meshes;
+    uint32_t _nextId = 1;
+    gfx::Mat4 _viewProj = gfx::identity();
+    gfx::Vec3 _eye{};
+    int _vx = 0, _vy = 0, _vw = 0, _vh = 0; // the viewport
+    float _depthRange = 1, _gamma = 1;
+    int _frames = 0, _draws = 0, _triangles = 0, _lastDraws = 0, _lastTriangles = 0;
 };
 
 } // namespace reluva::tools

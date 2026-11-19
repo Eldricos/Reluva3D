@@ -8,11 +8,11 @@
 namespace reluva::unreal {
 
 const std::vector<GameInfo> &games() {
-    static const std::vector<GameInfo> list = {
+    static const std::vector<GameInfo> kList = {
         {"ds9fallen", "Star Trek: Deep Space Nine - The Fallen", "DS9.ini"},
         {"ue1", "Unreal Engine 1 game", ""},
     };
-    return list;
+    return kList;
 }
 
 const GameInfo *findGame(std::string_view gameId) {
@@ -33,7 +33,7 @@ namespace {
 // TODO: add The Fallen's other releases (other patch levels, languages,
 // Mac) from owned copies. Until then they're found by name below.
 const std::vector<GameVariant> &detectionTable() {
-    static const std::vector<GameVariant> table = {
+    static const std::vector<GameVariant> kTable = {
         // Windows install, packages of versions 71-73 (reported October 2026).
         {"ds9fallen",
          "Star Trek: Deep Space Nine - The Fallen",
@@ -42,14 +42,14 @@ const std::vector<GameVariant> &detectionTable() {
          {{"System/DS9.exe", "0bbf37d2d1b0d023fafb3f727f975507", 604291},
           {"System/Engine.u", "4127f15b637f34af3a23efc7758b9d47", 4356401}}},
     };
-    return table;
+    return kTable;
 }
 
 // The Fallen's executable is System/DS9.exe; its settings are
 // System/DS9.ini (TrekCore's support pages tell players to edit it),
 // made from System/Default.ini when the game first runs.
 const std::vector<GameVariant> &fallbackTable() {
-    static const std::vector<GameVariant> table = {
+    static const std::vector<GameVariant> kTable = {
         {"ds9fallen",
          "Star Trek: Deep Space Nine - The Fallen (unknown release)",
          "",
@@ -61,7 +61,7 @@ const std::vector<GameVariant> &fallbackTable() {
          "windows",
          {{"System/Core.u", "", -1}, {"System/Engine.u", "", -1}, {"System/DS9.exe", "", -1}}},
     };
-    return table;
+    return kTable;
 }
 
 } // namespace

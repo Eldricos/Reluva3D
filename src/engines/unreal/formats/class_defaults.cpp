@@ -9,14 +9,14 @@ namespace reluva::unreal {
 
 const PropertyList *ClassDefaults::defaults(const Package &package, int classExport) {
     const auto key = std::make_pair(&package, classExport);
-    auto it = cache_.find(key);
-    if (it == cache_.end()) {
+    auto it = _cache.find(key);
+    if (it == _cache.end()) {
         std::optional<PropertyList> found;
         ScriptObject cls;
-        if (!readScriptObject(package, classExport, cls) && cls.kind == ScriptObject::Kind::Class)
+        if (!readScriptObject(package, classExport, cls) && cls.kind == ScriptObject::Kind::kClass)
             found = std::move(cls.defaults);
-        ++(found ? found_ : missing_);
-        it = cache_.emplace(key, std::move(found)).first;
+        ++(found ? _found : _missing);
+        it = _cache.emplace(key, std::move(found)).first;
     }
     return it->second ? &*it->second : nullptr;
 }
@@ -36,7 +36,7 @@ Error ClassDefaults::actorProperties(const Package &package, int index, ActorPro
     const Package *pkg = &package;
     int32_t cls = package.exports()[size_t(index)].classRef;
     for (int depth = 0; depth < 32 && cls != 0; ++depth) {
-        const ObjectRef def = packages_.resolve(*pkg, cls);
+        const ObjectRef def = _packages.resolve(*pkg, cls);
         if (!def)
             break;
         if (const PropertyList *d = defaults(*def.package, def.exportIndex))
@@ -71,7 +71,7 @@ float ActorProperties::number(std::string_view name, float fallback) const {
 
 bool ActorProperties::boolean(std::string_view name, bool fallback) const {
     const Property *p = find(name);
-    return p && p->type == PropertyType::Bool ? p->boolValue : fallback;
+    return p && p->type == PropertyType::kBool ? p->boolValue : fallback;
 }
 
 bool ActorProperties::vector(std::string_view name, std::array<float, 3> &out, int arrayIndex) const {

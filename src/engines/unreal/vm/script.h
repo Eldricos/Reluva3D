@@ -21,78 +21,78 @@ namespace reluva::unreal {
 
 // Property flags (a property's PropertyFlags).
 namespace propflag {
-constexpr uint32_t Edit = 0x1, Const = 0x2, Input = 0x4, ExportObject = 0x8, OptionalParm = 0x10, Net = 0x20,
-                   ConstRef = 0x40, Parm = 0x80, OutParm = 0x100, SkipParm = 0x200, ReturnParm = 0x400,
-                   CoerceParm = 0x800, Native = 0x1000, Transient = 0x2000, Config = 0x4000, Localized = 0x8000,
-                   Travel = 0x10000, EditConst = 0x20000, GlobalConfig = 0x40000;
+constexpr uint32_t kEdit = 0x1, kConst = 0x2, kInput = 0x4, kExportObject = 0x8, kOptionalParm = 0x10, kNet = 0x20,
+                   kConstRef = 0x40, kParm = 0x80, kOutParm = 0x100, kSkipParm = 0x200, kReturnParm = 0x400,
+                   kCoerceParm = 0x800, kNative = 0x1000, kTransient = 0x2000, kConfig = 0x4000, kLocalized = 0x8000,
+                   kTravel = 0x10000, kEditConst = 0x20000, kGlobalConfig = 0x40000;
 } // namespace propflag
 
 // Function flags (a function's FunctionFlags).
 namespace funcflag {
-constexpr uint32_t Final = 0x1, Defined = 0x2, Iterator = 0x4, Latent = 0x8, PreOperator = 0x10, Singular = 0x20,
-                   Net = 0x40, NetReliable = 0x80, Simulated = 0x100, Exec = 0x200, Native = 0x400, Event = 0x800,
-                   Operator = 0x1000, Static = 0x2000;
+constexpr uint32_t kFinal = 0x1, kDefined = 0x2, kIterator = 0x4, kLatent = 0x8, kPreOperator = 0x10, kSingular = 0x20,
+                   kNet = 0x40, kNetReliable = 0x80, kSimulated = 0x100, kExec = 0x200, kNative = 0x400, kEvent = 0x800,
+                   kOperator = 0x1000, kStatic = 0x2000;
 } // namespace funcflag
 
 // The bytecode's tokens (the first byte of each expression).
 namespace token {
 enum : uint8_t {
-    LocalVariable = 0x00,
-    InstanceVariable = 0x01,
-    DefaultVariable = 0x02,
-    Return = 0x04,
-    Switch = 0x05,
-    Jump = 0x06,
-    JumpIfNot = 0x07,
-    Stop = 0x08,
-    Assert = 0x09,
-    Case = 0x0a,
-    Nothing = 0x0b,
-    LabelTable = 0x0c,
-    GotoLabel = 0x0d,
-    EatString = 0x0e,
-    Let = 0x0f,
-    DynArrayElement = 0x10,
-    New = 0x11,
-    ClassContext = 0x12,
-    MetaCast = 0x13,
-    LetBool = 0x14,
-    EndFunctionParms = 0x16,
-    Self = 0x17,
-    Skip = 0x18,
-    Context = 0x19,
-    ArrayElement = 0x1a,
-    VirtualFunction = 0x1b,
-    FinalFunction = 0x1c,
-    IntConst = 0x1d,
-    FloatConst = 0x1e,
-    StringConst = 0x1f,
-    ObjectConst = 0x20,
-    NameConst = 0x21,
-    RotationConst = 0x22,
-    VectorConst = 0x23,
-    ByteConst = 0x24,
-    IntZero = 0x25,
-    IntOne = 0x26,
-    True = 0x27,
-    False = 0x28,
-    NativeParm = 0x29,
-    NoObject = 0x2a,
-    IntConstByte = 0x2c,
-    BoolVariable = 0x2d,
-    DynamicCast = 0x2e,
-    Iterator = 0x2f,
-    IteratorPop = 0x30,
-    IteratorNext = 0x31,
-    StructCmpEq = 0x32,
-    StructCmpNe = 0x33,
-    UnicodeStringConst = 0x34,
-    StructMember = 0x36,
-    GlobalFunction = 0x38,
-    FirstConversion = 0x39,
-    LastConversion = 0x5f, // each one expression to convert
-    ExtendedNative = 0x60, // 0x60-0x6f: native (token - 0x60) * 256 + the next byte
-    FirstNative = 0x70,    // 0x70-0xff: native function `token`
+    kLocalVariable = 0x00,
+    kInstanceVariable = 0x01,
+    kDefaultVariable = 0x02,
+    kReturn = 0x04,
+    kSwitch = 0x05,
+    kJump = 0x06,
+    kJumpIfNot = 0x07,
+    kStop = 0x08,
+    kAssert = 0x09,
+    kCase = 0x0a,
+    kNothing = 0x0b,
+    kLabelTable = 0x0c,
+    kGotoLabel = 0x0d,
+    kEatString = 0x0e,
+    kLet = 0x0f,
+    kDynArrayElement = 0x10,
+    kNew = 0x11,
+    kClassContext = 0x12,
+    kMetaCast = 0x13,
+    kLetBool = 0x14,
+    kEndFunctionParms = 0x16,
+    kSelf = 0x17,
+    kSkip = 0x18,
+    kContext = 0x19,
+    kArrayElement = 0x1a,
+    kVirtualFunction = 0x1b,
+    kFinalFunction = 0x1c,
+    kIntConst = 0x1d,
+    kFloatConst = 0x1e,
+    kStringConst = 0x1f,
+    kObjectConst = 0x20,
+    kNameConst = 0x21,
+    kRotationConst = 0x22,
+    kVectorConst = 0x23,
+    kByteConst = 0x24,
+    kIntZero = 0x25,
+    kIntOne = 0x26,
+    kTrue = 0x27,
+    kFalse = 0x28,
+    kNativeParm = 0x29,
+    kNoObject = 0x2a,
+    kIntConstByte = 0x2c,
+    kBoolVariable = 0x2d,
+    kDynamicCast = 0x2e,
+    kIterator = 0x2f,
+    kIteratorPop = 0x30,
+    kIteratorNext = 0x31,
+    kStructCmpEq = 0x32,
+    kStructCmpNe = 0x33,
+    kUnicodeStringConst = 0x34,
+    kStructMember = 0x36,
+    kGlobalFunction = 0x38,
+    kFirstConversion = 0x39,
+    kLastConversion = 0x5f, // each one expression to convert
+    kExtendedNative = 0x60, // 0x60-0x6f: native (token - 0x60) * 256 + the next byte
+    kFirstNative = 0x70,    // 0x70-0xff: native function `token`
 };
 } // namespace token
 
@@ -124,7 +124,7 @@ Error decodeCode(const Package &package, Reader &r, uint32_t scriptSize, Code &o
 
 // A UField subclass's export, read: which kind it is and what it stores.
 struct ScriptObject {
-    enum class Kind { Const, Enum, Property, Struct, Function, State, Class } kind = Kind::Const;
+    enum class Kind { kConst, kEnum, kProperty, kStruct, kFunction, kState, kClass } kind = Kind::kConst;
     std::string className; // the export's class ("IntProperty", "Function"...)
     int32_t super = 0, next = 0;
 

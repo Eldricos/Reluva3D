@@ -48,32 +48,32 @@ std::string startMap(const PackageSet &packages) {
 class UnrealEngine : public Engine {
 public:
     UnrealEngine(System &system, GameTarget target, const GameInfo &game)
-        : sys_(system), target_(std::move(target)), game_(game) {}
+        : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
         std::vector<std::string> warnings;
-        if (Error err = packages_.open(target_.path, game_.iniName, &warnings))
+        if (Error err = _packages.open(_target.path, _game.iniName, &warnings))
             return err;
-        const std::string map = startMap(packages_);
+        const std::string map = startMap(_packages);
         if (map.empty())
             return Error::fail("The game's .ini names no level to start in ([URL] LocalMap)");
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
 
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System &sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
 
-        ViewContext ctx{sys_, screen_, packages_, game_, warnings, audioOut ? &mixer : nullptr};
-        if (!target_.savePath.empty())
-            ctx.saveFolder = target_.savePath / "Saves";
-        ctx.gameFolder = target_.path;
+        ViewContext ctx{_sys, _screen, _packages, _game, warnings, audioOut ? &mixer : nullptr};
+        if (!_target.savePath.empty())
+            ctx.saveFolder = _target.savePath / "Saves";
+        ctx.gameFolder = _target.path;
 
         // The intro first, while there's one; Esc, Space or Enter skip it.
         MoviePlayer movies(ctx);
@@ -82,17 +82,17 @@ public:
             if (movies.play("intro.avi"))
                 while (movies.playing()) {
                     Event ev;
-                    while (sys_.pollEvent(ev)) {
+                    while (_sys.pollEvent(ev)) {
                         if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                             return Error::success();
                         movies.handleEvent(ev);
                     }
-                    movies.update(sys_.getMillis());
-                    sys_.updateScreen(screen_);
-                    sys_.delayMillis(5);
+                    movies.update(_sys.getMillis());
+                    _sys.updateScreen(_screen);
+                    _sys.delayMillis(5);
                 }
             movies.deactivate();
-            if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+            if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
                 return err;
         }
 
@@ -102,24 +102,24 @@ public:
         level.travel(map);
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
+            while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !level.ownsKey(ev.key))
                     return Error::success();
                 level.handleEvent(ev);
             }
-            level.update(sys_.getMillis());
-            sys_.updateScreen(screen_);
+            level.update(_sys.getMillis());
+            _sys.updateScreen(_screen);
         }
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
-    const GameInfo &game_;
-    PackageSet packages_;
-    Surface screen_;
+    System &_sys;
+    GameTarget _target;
+    const GameInfo &_game;
+    PackageSet _packages;
+    Surface _screen;
 };
 
 class UnrealMetaEngine : public MetaEngine {

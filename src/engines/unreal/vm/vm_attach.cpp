@@ -130,15 +130,15 @@ ScriptLevel::ActorMesh *ScriptLevel::actorMesh(VmObject *a) {
     VmObject *m = meshValue ? meshValue->asObject() : nullptr;
     if (!m || !m->package)
         return nullptr;
-    auto it = actorMeshes_.find(m);
-    if (it == actorMeshes_.end()) {
+    auto it = _actorMeshes.find(m);
+    if (it == _actorMeshes.end()) {
         auto am = std::make_shared<ActorMesh>();
         if (readMesh(*m->package, m->exportIndex, am->mesh)) {
             am.reset();
         } else if (am->mesh.bones) {
-            if (!animationSets_)
-                animationSets_ = sharedAnimationSets(vm_.packages());
-            am->poser = LayeredPoser::open(*m->package, m->exportIndex, *animationSets_);
+            if (!_animationSets)
+                _animationSets = sharedAnimationSets(_vm.packages());
+            am->poser = LayeredPoser::open(*m->package, m->exportIndex, *_animationSets);
             const Mesh &mesh = am->mesh;
             const Vec zero = placeMeshVertex(mesh, mesh.origin);
             for (size_t k = 0; k < 3; ++k) {
@@ -149,7 +149,7 @@ ScriptLevel::ActorMesh *ScriptLevel::actorMesh(VmObject *a) {
             if (am->poser)
                 am->poser->setPlacement({am->skeleton[0], am->skeleton[1], am->skeleton[2]});
         }
-        it = actorMeshes_.emplace(m, std::move(am)).first;
+        it = _actorMeshes.emplace(m, std::move(am)).first;
     }
     return it->second.get();
 }
@@ -159,7 +159,7 @@ std::shared_ptr<const std::vector<std::array<float, 12>>> ScriptLevel::shownPose
     const Value *seqValue = prop(a, "AnimSequence");
     if (!m || !m->poser || !seqValue || !seqValue->i)
         return nullptr;
-    const std::string seq = vm_.nameText(seqValue->i);
+    const std::string seq = _vm.nameText(seqValue->i);
     const Value *frameValue = prop(a, "AnimFrame");
     std::vector<std::string> names;
     const std::vector<LayeredPoser::Layer> layers = posedLayers(a, *m, names);
@@ -184,8 +184,8 @@ std::vector<LayeredPoser::Layer> ScriptLevel::posedLayers(VmObject *a, ActorMesh
             continue;
         // Its group's bones (the mesh's lists), else the bone's and those
         // under it (or all but those).
-        const std::string groupName = vm_.nameText(group);
-        const std::string boneName = l.bone ? vm_.nameText(l.bone) : std::string();
+        const std::string groupName = _vm.nameText(group);
+        const std::string boneName = l.bone ? _vm.nameText(l.bone) : std::string();
         const std::pair<std::string, bool> key{groupName + "|" + boneName, l.rest};
         auto part = m.parts.find(key);
         if (part == m.parts.end()) {
@@ -200,10 +200,10 @@ std::vector<LayeredPoser::Layer> ScriptLevel::posedLayers(VmObject *a, ActorMesh
             continue;
         // What it replaced first, held under it.
         if (l.fromSequence) {
-            names.push_back(vm_.nameText(l.fromSequence));
+            names.push_back(_vm.nameText(l.fromSequence));
             layers.push_back({names.back(), l.fromFrame, &part->second, l.fromWeight, {}, l.fromLoop, groupIndex, -1});
         }
-        names.push_back(vm_.nameText(l.sequence));
+        names.push_back(_vm.nameText(l.sequence));
         layers.push_back({names.back(), l.frame, &part->second, l.weight, l.clear, l.loop, groupIndex, clearBone,
                           l.weightRate != 0 ? l.shown.get() : nullptr, l.weightRate < 0});
     }
@@ -214,13 +214,13 @@ std::vector<LayeredPoser::Layer> ScriptLevel::posedLayers(VmObject *a, ActorMesh
 // worked out once a tick: posed from its bones with its layers, else
 // between its frames.
 const std::vector<ScriptLevel::Vec> *ScriptLevel::posedVertices(VmObject *a, ActorMesh &m) {
-    auto &[tick, verts] = posed_[a];
-    if (tick == ticks_ + 1 && !verts.empty())
+    auto &[tick, verts] = _posed[a];
+    if (tick == _ticks + 1 && !verts.empty())
         return &verts;
-    tick = ticks_ + 1;
+    tick = _ticks + 1;
     verts.clear();
     const Value *seqValue = prop(a, "AnimSequence");
-    const std::string seq = seqValue && seqValue->i ? vm_.nameText(seqValue->i) : std::string();
+    const std::string seq = seqValue && seqValue->i ? _vm.nameText(seqValue->i) : std::string();
     const Value *frameValue = prop(a, "AnimFrame");
     const float frame = frameValue ? frameValue->asFloat() : 0;
     if (m.poser && !seq.empty()) {
@@ -375,7 +375,7 @@ bool ScriptLevel::attachFrame(VmObject *a, ActorMesh &m, const MeshAttachPoint &
 bool ScriptLevel::attachPointAt(VmObject *a, NameId name, bool precomputed, bool world, Vec &location, Rot &rotation) {
     ActorMesh *m = a ? actorMesh(a) : nullptr;
     const MeshAttachPoint *point =
-        m ? findPoint(precomputed ? m->mesh.precomputedPoints : m->mesh.attachPoints, vm_.nameText(name)) : nullptr;
+        m ? findPoint(precomputed ? m->mesh.precomputedPoints : m->mesh.attachPoints, _vm.nameText(name)) : nullptr;
     Vec at{};
     Axes axes{}, raw{};
     if (!point || !attachFrame(a, *m, *point, at, axes, &raw))
@@ -400,9 +400,9 @@ bool ScriptLevel::attachPointAt(VmObject *a, NameId name, bool precomputed, bool
 // as it's drawn (the heads ask after their bones every tick, and posing it
 // took as long as the rest of their scripts). None if it can't be posed.
 const std::vector<std::array<float, 12>> *ScriptLevel::posedSkeleton(VmObject *a, ActorMesh &m) {
-    auto &[tick, worlds] = posedBones_[a];
-    if (tick != ticks_ + 1 || worlds.empty()) {
-        tick = ticks_ + 1;
+    auto &[tick, worlds] = _posedBones[a];
+    if (tick != _ticks + 1 || worlds.empty()) {
+        tick = _ticks + 1;
         worlds.clear();
         const Value *seqValue = prop(a, "AnimSequence");
         const Value *frameValue = prop(a, "AnimFrame");
@@ -411,7 +411,7 @@ const std::vector<std::array<float, 12>> *ScriptLevel::posedSkeleton(VmObject *a
         std::vector<std::string> names;
         const std::vector<LayeredPoser::Layer> layers = posedLayers(a, m, names);
         const LayeredPoser::Adjust adjust = adjustOf(a, m);
-        if (!m.poser->skeleton({vm_.nameText(seqValue->i), pb(a, "bAnimLoop")}, frameValue ? frameValue->asFloat() : 0,
+        if (!m.poser->skeleton({_vm.nameText(seqValue->i), pb(a, "bAnimLoop")}, frameValue ? frameValue->asFloat() : 0,
                                layers, worlds, &adjust))
             worlds.clear();
     }
@@ -425,12 +425,12 @@ bool ScriptLevel::boneAt(VmObject *a, NameId bone, BonePlace place, Vec &locatio
     const Value *seqValue = prop(a, "AnimSequence");
     if (!seqValue || !seqValue->i)
         return false;
-    const std::string name = vm_.nameText(bone);
+    const std::string name = _vm.nameText(bone);
     const std::vector<std::array<float, 12>> *posed = posedSkeleton(a, *m);
     if (!posed)
         return false;
     const std::vector<std::array<float, 12>> &worlds = *posed;
-    if (place == BonePlace::Local || place == BonePlace::InParent) {
+    if (place == BonePlace::kLocal || place == BonePlace::kInParent) {
         // Engine.dll's: the bone in the skeleton's own space, only its axes
         // swapped to Unreal's (no Location, Rotation, DrawScale, mesh Scale
         // or PrePivot). LocalPosRel the same place, and its turn from its
@@ -440,7 +440,7 @@ bool ScriptLevel::boneAt(VmObject *a, NameId bone, BonePlace place, Vec &locatio
             return false;
         const std::array<float, 12> &w = worlds[size_t(b)];
         std::array<float, 12> r = w;
-        if (place == BonePlace::InParent) {
+        if (place == BonePlace::kInParent) {
             const std::vector<std::array<float, 12>> binds = m->poser->bindSkeleton();
             if (size_t(b) >= binds.size())
                 return false;
@@ -463,14 +463,14 @@ bool ScriptLevel::boneAt(VmObject *a, NameId bone, BonePlace place, Vec &locatio
     // The bone where it is; for WorldRel its axes turned only as from its
     // bind pose (Bind^-1 x posed, as Engine.dll's
     // execC3DGetJointWorldPosRel), its place as it is.
-    const NameId key = vm_.name(name);
+    const NameId key = _vm.name(name);
     auto found = m->boneIndex.find(key);
     if (found == m->boneIndex.end())
         found = m->boneIndex.emplace(key, m->poser->boneIndex(name)).first;
     if (found->second < 0 || size_t(found->second) >= worlds.size())
         return false;
     std::array<float, 12> w = worlds[size_t(found->second)];
-    if (place == BonePlace::WorldRel) {
+    if (place == BonePlace::kWorldRel) {
         const std::vector<std::array<float, 12>> binds = m->poser->bindSkeleton();
         if (size_t(found->second) >= binds.size())
             return false;
@@ -506,7 +506,7 @@ bool ScriptLevel::boneAt(VmObject *a, NameId bone, BonePlace place, Vec &locatio
 
 bool ScriptLevel::hasBone(VmObject *a, NameId bone) {
     ActorMesh *m = a ? actorMesh(a) : nullptr;
-    return m && m->poser && m->poser->hasBone(vm_.nameText(bone));
+    return m && m->poser && m->poser->hasBone(_vm.nameText(bone));
 }
 
 int ScriptLevel::attachPointCount(VmObject *a) {
@@ -516,24 +516,24 @@ int ScriptLevel::attachPointCount(VmObject *a) {
 
 void ScriptLevel::attach(VmObject *child, VmObject *parent, NameId parentPoint, NameId childPoint) {
     if (child && parent && child != parent)
-        attachments_[child] = {parent, parentPoint, childPoint};
+        _attachments[child] = {parent, parentPoint, childPoint};
 }
 
 void ScriptLevel::detach(VmObject *child, VmObject *parent) {
-    auto it = attachments_.find(child);
-    if (it != attachments_.end() && (!parent || it->second.parent == parent))
-        attachments_.erase(it);
+    auto it = _attachments.find(child);
+    if (it != _attachments.end() && (!parent || it->second.parent == parent))
+        _attachments.erase(it);
 }
 
 // Each attached actor turned so its point's axes are its holder's point's,
 // and moved so the points meet: its rotation's axes are its point's (in its
 // own space) undone, then the holder's point's; its location what's left.
 void ScriptLevel::placeAttached() {
-    for (auto it = attachments_.begin(); it != attachments_.end();) {
+    for (auto it = _attachments.begin(); it != _attachments.end();) {
         VmObject *child = it->first;
         const Attachment &at = it->second;
         if (child->deleted || !at.parent || at.parent->deleted) {
-            it = attachments_.erase(it);
+            it = _attachments.erase(it);
             continue;
         }
         ++it;
@@ -544,12 +544,12 @@ void ScriptLevel::placeAttached() {
         auto pointOf = [&](ActorMesh *mm, NameId name) -> const MeshAttachPoint * {
             if (!mm || mm->mesh.attachPoints.empty())
                 return nullptr;
-            return name ? findPoint(mm->mesh.attachPoints, vm_.nameText(name)) : &mm->mesh.attachPoints.front();
+            return name ? findPoint(mm->mesh.attachPoints, _vm.nameText(name)) : &mm->mesh.attachPoints.front();
         };
         const MeshAttachPoint *pp = pointOf(pm, at.parentPoint);
         const MeshAttachPoint *cp = pointOf(cm, at.childPoint);
         if (!pp || !cp) {
-            attachments_.erase(child);
+            _attachments.erase(child);
             continue;
         }
         Vec where{}, mine{};
@@ -570,10 +570,10 @@ void ScriptLevel::placeAttached() {
         for (size_t j = 0; j < 3; ++j)
             loc = sub(loc, mul(frame[j], mine[j] * ds));
         if (Value *l = prop(child, "Location"))
-            *l = vm_.vectorValue(loc[0], loc[1], loc[2]);
+            *l = _vm.vectorValue(loc[0], loc[1], loc[2]);
         if (Value *r = prop(child, "Rotation")) {
             const Rot rot = rotOf(frame);
-            *r = vm_.rotatorValue(rot[0], rot[1], rot[2]);
+            *r = _vm.rotatorValue(rot[0], rot[1], rot[2]);
         }
     }
 }
@@ -610,26 +610,26 @@ int limbOf(const std::string &chain, bool &place) {
 
 // The pose kept for the tick, gone once the scripts bend the bones.
 void ScriptLevel::forgetPose(VmObject *a) {
-    posed_.erase(a);
-    posedBones_.erase(a);
+    _posed.erase(a);
+    _posedBones.erase(a);
 }
 
 // The scripts' bone turns: kept in order for this tick (a tick's first
 // starts the list afresh), as the engine applies each to the pose at once
 // and works the pose out again next frame.
 ScriptLevel::Bends::Op &ScriptLevel::newBoneOp(VmObject *a) {
-    Bends &b = bends_[a];
-    if (b.opsTick != int64_t(ticks_)) {
+    Bends &b = _bends[a];
+    if (b.opsTick != int64_t(_ticks)) {
         b.ops.clear();
-        b.opsTick = int64_t(ticks_);
+        b.opsTick = int64_t(_ticks);
     }
     forgetPose(a);
     return b.ops.emplace_back();
 }
 
 void ScriptLevel::clearStaleBoneOps(VmObject *a) {
-    auto it = bends_.find(a);
-    if (it == bends_.end() || it->second.opsTick == int64_t(ticks_) || it->second.ops.empty())
+    auto it = _bends.find(a);
+    if (it == _bends.end() || it->second.opsTick == int64_t(_ticks) || it->second.ops.empty())
         return;
     it->second.ops.clear();
     forgetPose(a);
@@ -652,19 +652,19 @@ void ScriptLevel::removeBoneTurn(VmObject *a, NameId bone, bool yaw, bool pitch,
 
 void ScriptLevel::ikOnBase(VmObject *a, NameId chain, bool onBase) {
     bool place = false;
-    const int l = limbOf(vm_.nameText(chain), place);
+    const int l = limbOf(_vm.nameText(chain), place);
     if (l < 0)
         return;
-    bends_[a].limbs[size_t(l)].onBase = onBase;
+    _bends[a].limbs[size_t(l)].onBase = onBase;
     forgetPose(a);
 }
 
 bool ScriptLevel::setIk(VmObject *a, NameId chain, const Vec *at, const Axes *axes, float weight) {
     bool place = false;
-    const int l = limbOf(vm_.nameText(chain), place);
+    const int l = limbOf(_vm.nameText(chain), place);
     if (l < 0)
         return false;
-    Bends::Ik &ik = bends_[a].limbs[size_t(l)];
+    Bends::Ik &ik = _bends[a].limbs[size_t(l)];
     if (at) {
         ik.place = true;
         ik.at = *at;
@@ -681,9 +681,9 @@ bool ScriptLevel::setIk(VmObject *a, NameId chain, const Vec *at, const Axes *ax
 
 void ScriptLevel::clearIk(VmObject *a, NameId chain) {
     bool place = false;
-    const int l = limbOf(vm_.nameText(chain), place);
-    auto it = bends_.find(a);
-    if (l < 0 || it == bends_.end())
+    const int l = limbOf(_vm.nameText(chain), place);
+    auto it = _bends.find(a);
+    if (l < 0 || it == _bends.end())
         return;
     Bends::Ik &ik = it->second.limbs[size_t(l)];
     (place ? ik.place : ik.turn) = false;
@@ -696,7 +696,7 @@ LayeredPoser *ScriptLevel::poserOf(VmObject *a) {
 }
 
 LayeredPoser::Adjust ScriptLevel::boneAdjust(VmObject *a) {
-    if (!a || bends_.find(a) == bends_.end())
+    if (!a || _bends.find(a) == _bends.end())
         return {};
     ActorMesh *m = actorMesh(a);
     return m && m->poser ? adjustOf(a, *m) : LayeredPoser::Adjust{};
@@ -708,8 +708,8 @@ LayeredPoser::Adjust ScriptLevel::boneAdjust(VmObject *a) {
 // the mesh posed without them.
 LayeredPoser::Adjust ScriptLevel::adjustOf(VmObject *a, ActorMesh &m) {
     LayeredPoser::Adjust out;
-    auto it = bends_.find(a);
-    if (it == bends_.end() || !m.poser)
+    auto it = _bends.find(a);
+    if (it == _bends.end() || !m.poser)
         return out;
     Bends &b = it->second;
     // The limbs' points, once a tick: from the pose without the reaches,
@@ -720,14 +720,14 @@ LayeredPoser::Adjust ScriptLevel::adjustOf(VmObject *a, ActorMesh &m) {
     for (size_t l = 0; l < 4; ++l)
         if ((b.limbs[l].place || b.limbs[l].turn) && m.poser->hasChain(kLimbs[l].placeChain)) {
             Bends::Effector &e = b.effectors[l];
-            e.tick = ticks_ + 1;
+            e.tick = _ticks + 1;
             e.offset = {};
             for (size_t k = 0; k < 3; ++k)
                 e.axes[k] = {kScriptAxes[k][0], kScriptAxes[k][1], kScriptAxes[k][2]};
         }
     bool measured = false;
     for (size_t l = 0; l < 4 && !measured; ++l)
-        if ((b.limbs[l].place || b.limbs[l].turn) && b.effectors[l].tick != ticks_ + 1) {
+        if ((b.limbs[l].place || b.limbs[l].turn) && b.effectors[l].tick != _ticks + 1) {
             if (!measureEffectors(a, m, b, nullptr))
                 return out;
             measured = true;
@@ -739,18 +739,18 @@ LayeredPoser::Adjust ScriptLevel::adjustOf(VmObject *a, ActorMesh &m) {
     }
     // This tick's turns (or the last tick's, until the next one's scripts run).
     const Axes &sk = m.skeleton;
-    if (b.opsTick == int64_t(ticks_) || b.opsTick + 1 == int64_t(ticks_))
+    if (b.opsTick == int64_t(_ticks) || b.opsTick + 1 == int64_t(_ticks))
         for (const Bends::Op &op : b.ops) {
             LayeredPoser::Adjust::Op o;
-            o.bone = vm_.nameText(op.bone);
+            o.bone = _vm.nameText(op.bone);
             if (op.kind == 0) {
-                o.kind = LayeredPoser::Adjust::Op::Own;
+                o.kind = LayeredPoser::Adjust::Op::kOwn;
                 o.axis = op.axis;
                 o.radians = op.degrees * 3.14159265f / 180;
             } else if (op.kind == 1) {
                 // Where each of the skeleton's axes goes: into the actor's
                 // space, turned there, and back.
-                o.kind = LayeredPoser::Adjust::Op::Space;
+                o.kind = LayeredPoser::Adjust::Op::kSpace;
                 const Axes turn = axesOf(op.rotation);
                 for (size_t k = 0; k < 3; ++k) {
                     Vec turned{};
@@ -759,7 +759,7 @@ LayeredPoser::Adjust ScriptLevel::adjustOf(VmObject *a, ActorMesh &m) {
                     o.turn[k] = vec3(within(turned, sk));
                 }
             } else {
-                o.kind = LayeredPoser::Adjust::Op::Remove;
+                o.kind = LayeredPoser::Adjust::Op::kRemove;
                 o.remove = op.remove;
             }
             out.ops.push_back(o);
@@ -777,7 +777,7 @@ LayeredPoser::Adjust ScriptLevel::adjustOf(VmObject *a, ActorMesh &m) {
         if (!ik.place && !ik.turn)
             continue;
         const Bends::Effector &e = b.effectors[l];
-        if (e.tick != ticks_ + 1)
+        if (e.tick != _ticks + 1)
             continue;
         LayeredPoser::Adjust::Reach r;
         r.bone = kLimbs[l].bone;
@@ -817,7 +817,7 @@ bool ScriptLevel::measureEffectors(VmObject *a, ActorMesh &m, Bends &b, const La
     const Value *frameValue = prop(a, "AnimFrame");
     if (!seqValue || !seqValue->i)
         return false;
-    const std::string seqName = vm_.nameText(seqValue->i);
+    const std::string seqName = _vm.nameText(seqValue->i);
     const LayeredPoser::Anim seq{seqName, pb(a, "bAnimLoop")};
     const float frame = frameValue ? frameValue->asFloat() : 0;
     std::vector<std::string> names;
@@ -836,7 +836,7 @@ bool ScriptLevel::measureEffectors(VmObject *a, ActorMesh &m, Bends &b, const La
         Axes axes{};
         if (!m.poser->boneInSkeleton(seq, frame, layers, kLimbs[l].bone, origin, bone, adjust))
             continue; // no such limb
-        e.tick = ticks_ + 1;
+        e.tick = _ticks + 1;
         const int pointBone =
             point && point->type == 1 && point->triangle >= 0 && size_t(point->triangle) < m.mesh.tris.size()
                 ? m.poser->mainBone(m.mesh.tris[size_t(point->triangle)].vertex)
@@ -884,18 +884,18 @@ void registerAttachNatives(Vm &vm) {
     // Reluva may have no skeleton for a mesh the engine poses (so what starts there starts at
     // the actor).
     const std::pair<const char *, ScriptLevel::BonePlace> joints[] = {
-        {"Actor.C3DGetJointWorldPos", ScriptLevel::BonePlace::World},
-        {"Actor.C3DGetJointLocalPos", ScriptLevel::BonePlace::Local},
-        {"Actor.C3DGetJointWorldPosRel", ScriptLevel::BonePlace::WorldRel},
-        {"Actor.C3DGetJointLocalPosRel", ScriptLevel::BonePlace::InParent},
+        {"Actor.C3DGetJointWorldPos", ScriptLevel::BonePlace::kWorld},
+        {"Actor.C3DGetJointLocalPos", ScriptLevel::BonePlace::kLocal},
+        {"Actor.C3DGetJointWorldPosRel", ScriptLevel::BonePlace::kWorldRel},
+        {"Actor.C3DGetJointLocalPosRel", ScriptLevel::BonePlace::kInParent},
     };
     for (const auto &[joint, place] : joints) {
-        const bool world = place == ScriptLevel::BonePlace::World;
+        const bool world = place == ScriptLevel::BonePlace::kWorld;
         reg(joint, [=](NativeCall &c) {
             ScriptLevel::Vec at{};
             ScriptLevel::Rot r{};
             const bool found = c.vm.level && c.self && c.vm.level->boneAt(c.self, c.i(0), place, at, r);
-            if (found || place == ScriptLevel::BonePlace::World)
+            if (found || place == ScriptLevel::BonePlace::kWorld)
                 answer(c, found, at, r, 1, 2, world);
         });
     }

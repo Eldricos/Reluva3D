@@ -524,7 +524,7 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
 
     for (size_t s = 0; s < model.surfs.size(); ++s) {
         const BspSurf &surf = model.surfs[s];
-        if (points[s].empty() || (surf.polyFlags & (polyflag::Unlit | polyflag::Invisible)))
+        if (points[s].empty() || (surf.polyFlags & (polyflag::kUnlit | polyflag::kInvisible)))
             continue;
         if (surf.lightMap < 0) {
             useAmbient(s);

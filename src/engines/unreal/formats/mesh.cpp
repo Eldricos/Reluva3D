@@ -1015,11 +1015,11 @@ const MeshAnimSeq *Mesh::findAnim(std::string_view name) const {
 namespace {
 
 void readAttachPoints(const std::vector<uint8_t> &data, Mesh &out) {
-    static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
+    static const uint8_t kAnchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
     size_t at = std::string::npos;
-    for (size_t i = 0; i + sizeof anchor + 12 <= data.size(); ++i)
-        if (std::memcmp(data.data() + i, anchor, sizeof anchor) == 0)
-            at = i + sizeof anchor;
+    for (size_t i = 0; i + sizeof kAnchor + 12 <= data.size(); ++i)
+        if (std::memcmp(data.data() + i, kAnchor, sizeof kAnchor) == 0)
+            at = i + sizeof kAnchor;
     if (at == std::string::npos)
         return;
     auto i32 = [&](size_t p) {
@@ -1956,11 +1956,11 @@ LayeredPoser::~LayeredPoser() = default;
 // names (u16 length, text), just before the two empty (0, 0, 10) arrays
 // the attachment points follow. Empty if not found.
 std::vector<std::string> findGroupNames(const std::vector<uint8_t> &data) {
-    static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
+    static const uint8_t kAnchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
     const std::vector<uint8_t> &d = data;
     size_t at = std::string::npos;
-    for (size_t i = 0; i + sizeof anchor <= d.size(); ++i)
-        if (std::memcmp(d.data() + i, anchor, sizeof anchor) == 0)
+    for (size_t i = 0; i + sizeof kAnchor <= d.size(); ++i)
+        if (std::memcmp(d.data() + i, kAnchor, sizeof kAnchor) == 0)
             at = i;
     auto u32 = [&](size_t q) {
         uint32_t v;
@@ -2391,7 +2391,7 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43> &local, const Adjust &adjus
         if (i < 0)
             continue;
         const size_t b = size_t(i);
-        if (op.kind == Adjust::Op::Own) {
+        if (op.kind == Adjust::Op::kOwn) {
             if (op.axis < 0 || op.axis > 2)
                 continue;
             Vec3f axis{};
@@ -2401,7 +2401,7 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43> &local, const Adjust &adjus
         }
         const std::vector<Mat43> world = worlds(local);
         Mat43 w{};
-        if (op.kind == Adjust::Op::Space) {
+        if (op.kind == Adjust::Op::kSpace) {
             Mat43 turn{};
             for (size_t k = 0; k < 3; ++k)
                 setRow(turn, k, op.turn[k]);

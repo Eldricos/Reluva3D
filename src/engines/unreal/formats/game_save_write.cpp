@@ -49,7 +49,7 @@ const char *const kProbes[64] = {"Spawned",      "Destroyed",       "GainedChild
                                  "Probe56",      "Probe57",         "Probe58",         "Probe59"};
 
 constexpr uint32_t kClassTransient = 0x8;
-constexpr uint32_t kActorFlags = 0x00070001 | objflag::HasStack;
+constexpr uint32_t kActorFlags = 0x00070001 | objflag::kHasStack;
 constexpr uint32_t kObjectFlags = 0x00070000;
 
 bool transientClass(const VmClass *c) {
@@ -63,13 +63,13 @@ bool sameValue(const Value &a, const Value &b) {
     if (a.type != b.type)
         return false;
     switch (a.type) {
-    case VType::Float:
+    case VType::kFloat:
         return a.f == b.f || (std::isnan(a.f) && std::isnan(b.f));
-    case VType::Object:
+    case VType::kObject:
         return a.asObject() == b.asObject();
-    case VType::String:
+    case VType::kString:
         return a.s == b.s;
-    case VType::Struct:
+    case VType::kStruct:
         if (a.fields.size() != b.fields.size())
             return false;
         for (size_t k = 0; k < a.fields.size(); ++k)
@@ -84,11 +84,11 @@ bool sameValue(const Value &a, const Value &b) {
 } // namespace
 
 Error ScriptLevel::writeGameSave(const std::string &path) {
-    PackageWriter w(map_);
-    const int version = map_.version();
-    if (!levelInfo_ || levelInfo_->package != &map_)
+    PackageWriter w(_map);
+    const int version = _map.version();
+    if (!_levelInfo || _levelInfo->package != &_map)
         return Error::fail("the level has no LevelInfo of its map's");
-    const int32_t levelOuter = map_.exports()[size_t(levelInfo_->exportIndex)].package;
+    const int32_t levelOuter = _map.exports()[size_t(_levelInfo->exportIndex)].package;
 
     // What's saved: the level's actors and ghosts, and every object they
     // lead to that the level made, or that's one of the map's own; not the
@@ -96,8 +96,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // classes.
     VmObject *viewport = nullptr;
     VmObject *console = nullptr;
-    if (player_)
-        if (const Value *v = prop(player_, "Player"); v && v->asObject()) {
+    if (_player)
+        if (const Value *v = prop(_player, "Player"); v && v->asObject()) {
             viewport = v->o;
             if (const Value *c = prop(viewport, "Console"))
                 console = c->asObject();
@@ -106,8 +106,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     std::vector<VmObject *> saved;
     std::deque<VmObject *> todo;
     auto wanted = [&](VmObject *o) {
-        return o && !o->deleted && !o->asClass && o->cls && o != viewport && o != console && o != canvas_ &&
-               (!o->package || o->package == &map_) && (o->package || o->cls->package) && !transientClass(o->cls);
+        return o && !o->deleted && !o->asClass && o->cls && o != viewport && o != console && o != _canvas &&
+               (!o->package || o->package == &_map) && (o->package || o->cls->package) && !transientClass(o->cls);
     };
     auto add = [&](VmObject *o) {
         if (wanted(o) && !refs.count(o)) {
@@ -116,14 +116,14 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             todo.push_back(o);
         }
     };
-    for (VmObject *a : actors_)
+    for (VmObject *a : _actors)
         add(a);
-    for (VmObject *g : ghosts_)
+    for (VmObject *g : _ghosts)
         add(g);
     std::function<void(const Value &)> scan = [&](const Value &v) {
-        if (v.type == VType::Object)
+        if (v.type == VType::kObject)
             add(v.asObject());
-        else if (v.type == VType::Struct)
+        else if (v.type == VType::kStruct)
             for (const Value &f : v.fields)
                 scan(f);
     };
@@ -132,7 +132,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         todo.pop_front();
         // The map's own objects that aren't actors (its models, mesh
         // states) are kept as they are: what they lead to is too.
-        if (o->package == &map_ && !o->isActor)
+        if (o->package == &_map && !o->isActor)
             continue;
         for (const Value &v : o->values)
             scan(v);
@@ -140,11 +140,11 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // Their exports: the map's by their own numbers, the rest added, named
     // as the level names them (made unique), in their outer.
     std::set<std::pair<int32_t, std::string>> taken; // outer, lower-case name
-    for (size_t i = 0; i < map_.exports().size(); ++i)
-        taken.insert({map_.exports()[i].package, fs::toLower(map_.name(map_.exports()[i].objectName))});
+    for (size_t i = 0; i < _map.exports().size(); ++i)
+        taken.insert({_map.exports()[i].package, fs::toLower(_map.name(_map.exports()[i].objectName))});
     auto classImport = [&](const VmClass *c) { return w.import(c->package->name() + "." + c->name, "Core", "Class"); };
     for (VmObject *o : saved)
-        if (o->package == &map_)
+        if (o->package == &_map)
             refs[o] = o->exportIndex + 1;
     for (VmObject *o : saved) {
         if (o->package)
@@ -153,11 +153,11 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         if (!o->isActor)
             if (const Value *v = prop(o, "Outer"); v && v->asObject() && refs.count(v->o) && refs[v->o] > 0)
                 outer = refs[v->o];
-        std::string name = vm_.nameText(o->name);
+        std::string name = _vm.nameText(o->name);
         if (name.empty() || name == "None")
             name = o->cls->name;
         for (int n = 1; taken.count({outer, fs::toLower(name)}); ++n)
-            name = vm_.nameText(o->name) + "_" + std::to_string(n);
+            name = _vm.nameText(o->name) + "_" + std::to_string(n);
         taken.insert({outer, fs::toLower(name)});
         refs[o] = w.addExport(classImport(o->cls), outer, name, o->isActor ? kActorFlags : kObjectFlags);
     }
@@ -172,7 +172,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         }
         if (auto it = refs.find(o); it != refs.end())
             return it->second;
-        if (o->package && o->package != &map_ && o->exportIndex >= 0) {
+        if (o->package && o->package != &_map && o->exportIndex >= 0) {
             const Package &p = *o->package;
             const Export &e = p.exports()[size_t(o->exportIndex)];
             std::string classPackage = "Core", className = "Object";
@@ -196,28 +196,28 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     std::function<void(ByteWriter &, const VmProperty &, const Value &)> valueBytes =
         [&](ByteWriter &b, const VmProperty &p, const Value &v) {
             switch (p.type) {
-            case VType::Byte:
+            case VType::kByte:
                 b.u8(uint8_t(v.asInt()));
                 break;
-            case VType::Int:
+            case VType::kInt:
                 b.i32(v.asInt());
                 break;
-            case VType::Bool:
+            case VType::kBool:
                 b.u8(v.asBool() ? 1 : 0);
                 break;
-            case VType::Float:
+            case VType::kFloat:
                 b.f32(v.asFloat());
                 break;
-            case VType::Name:
-                b.index(w.name(v.i ? vm_.nameText(v.i) : "None"));
+            case VType::kName:
+                b.index(w.name(v.i ? _vm.nameText(v.i) : "None"));
                 break;
-            case VType::String:
+            case VType::kString:
                 b.string(v.s);
                 break;
-            case VType::Object:
+            case VType::kObject:
                 b.index(refOf(v.o));
                 break;
-            case VType::Struct:
+            case VType::kStruct:
                 if (p.structType)
                     for (const VmProperty *f : p.structType->properties)
                         for (int k = 0; k < f->arrayDim; ++k) {
@@ -241,7 +241,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                     order.push_back(p);
         }
         for (const VmProperty *p : order) {
-            if (p->flags & propflag::Transient)
+            if (p->flags & propflag::kTransient)
                 continue;
             if (fs::toLower(p->name) == "outer" || fs::toLower(p->name) == "class" || fs::toLower(p->name) == "name")
                 continue;
@@ -250,15 +250,15 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                 if (slot >= o->values.size())
                     continue;
                 Value v = o->values[slot];
-                if (v.type == VType::Object && refOf(v.asObject()) == 0)
+                if (v.type == VType::kObject && refOf(v.asObject()) == 0)
                     v.o = nullptr;
                 const Value &d = slot < c->defaults.size() ? c->defaults[slot] : p->zero();
-                if (sameValue(v, d) || (v.type == VType::Object && !v.o && !d.asObject()))
+                if (sameValue(v, d) || (v.type == VType::kObject && !v.o && !d.asObject()))
                     continue;
-                if (p->type == VType::None)
+                if (p->type == VType::kNone)
                     continue;
                 b.index(w.name(p->name));
-                if (p->type == VType::Bool) {
+                if (p->type == VType::kBool) {
                     b.u8(uint8_t(3 | (v.asBool() ? 0x80 : 0)));
                     continue;
                 }
@@ -266,25 +266,25 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                 valueBytes(data, *p, v);
                 uint8_t type = 0;
                 switch (p->type) {
-                case VType::Byte:
+                case VType::kByte:
                     type = 1;
                     break;
-                case VType::Int:
+                case VType::kInt:
                     type = 2;
                     break;
-                case VType::Float:
+                case VType::kFloat:
                     type = 4;
                     break;
-                case VType::Object:
+                case VType::kObject:
                     type = 5;
                     break;
-                case VType::Name:
+                case VType::kName:
                     type = 6;
                     break;
-                case VType::String:
+                case VType::kString:
                     type = 13;
                     break;
-                case VType::Struct:
+                case VType::kStruct:
                     type = 10;
                     break;
                 default:
@@ -300,7 +300,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                                    : n < 65536 ? 6
                                                : 7;
                 b.u8(uint8_t(type | sizeCode << 4 | (k > 0 ? 0x80 : 0)));
-                if (p->type == VType::Struct)
+                if (p->type == VType::kStruct)
                     b.index(w.name(p->structType ? p->structType->name : "None"));
                 if (sizeCode == 5)
                     b.u8(uint8_t(n));
@@ -330,7 +330,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     auto stateRef = [&](const VmState *s) -> int32_t {
         if (!s)
             return 0;
-        if (s->kind == VmStruct::Kind::Class)
+        if (s->kind == VmStruct::Kind::kClass)
             return classImport(static_cast<const VmClass *>(s));
         const VmClass *owner = s->owner;
         if (!owner || !owner->package)
@@ -351,7 +351,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             probe = ~0ull;
         for (NameId n : a->disabled)
             for (int k = 0; k < 64; ++k)
-                if (fs::toLower(vm_.nameText(n)) == fs::toLower(kProbes[k]))
+                if (fs::toLower(_vm.nameText(n)) == fs::toLower(kProbes[k]))
                     probe &= ~(1ull << k);
         b.u32(uint32_t(probe));
         b.u32(uint32_t(probe >> 32));
@@ -378,13 +378,13 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // bone adjustments or attachments (the scripts set them again).
     std::map<const VmObject *, int32_t> newMeshStates;
     for (VmObject *a : saved) {
-        if (!a->isActor || a->package == &map_ || !usesC3DMesh(a))
+        if (!a->isActor || a->package == &_map || !usesC3DMesh(a))
             continue;
         const Value *ms = prop(a, "C3DOurMeshState");
         if (ms && ms->asObject() && refs.count(ms->o))
             continue;
         const int32_t ref = w.addExport(w.import("Engine.C3DMESHSTATE", "Core", "Class"), refs[a],
-                                        "C3DMESHSTATE" + std::to_string(++meshStates_), kObjectFlags);
+                                        "C3DMESHSTATE" + std::to_string(++_meshStates), kObjectFlags);
         newMeshStates[a] = ref;
         ByteWriter m;
         m.index(w.name("None"));
@@ -392,7 +392,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         m.i32(2);
         m.i32(22);
         const Value *mesh = prop(a, "Mesh");
-        const std::string meshName = mesh && mesh->asObject() ? vm_.nameText(mesh->o->name) : "";
+        const std::string meshName = mesh && mesh->asObject() ? _vm.nameText(mesh->o->name) : "";
         m.u16(uint16_t(meshName.size()));
         m.bytes(meshName.data(), meshName.size());
         m.i32(0);
@@ -406,7 +406,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             m.i32(0);
             m.i32(10);
         }
-        const std::string owner = vm_.nameText(a->name);
+        const std::string owner = _vm.nameText(a->name);
         m.u16(uint16_t(owner.size()));
         m.bytes(owner.data(), owner.size());
         w.setData(ref, std::move(m.data));
@@ -415,13 +415,13 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // The objects' data.
     for (VmObject *o : saved) {
         const int32_t ref = refs[o];
-        if (o->package == &map_ && !o->isActor) {
+        if (o->package == &_map && !o->isActor) {
             // A mesh state: its groups as the actor's animation has them.
             if (o->cls && fs::toLower(o->cls->name) == "c3dmeshstate")
                 if (const Value *outer = prop(o, "Outer"); outer && outer->asObject() && outer->o->isActor) {
                     std::vector<uint8_t> data;
                     size_t begin = 0, end = 0;
-                    if (!map_.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end)) {
+                    if (!_map.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end)) {
                         ByteWriter g;
                         writeMeshGroups(g, outer->o);
                         std::vector<uint8_t> out(data.begin(), data.begin() + std::ptrdiff_t(begin));
@@ -439,9 +439,9 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         if (auto it = newMeshStates.find(o); it != newMeshStates.end())
             if ((meshState = prop(o, "C3DOurMeshState"))) {
                 meshStateWas = *meshState;
-                refs[&meshStateMarker_] = it->second;
-                meshState->type = VType::Object;
-                meshState->o = &meshStateMarker_;
+                refs[&_meshStateMarker] = it->second;
+                meshState->type = VType::kObject;
+                meshState->o = &_meshStateMarker;
             }
         if (o->isActor) {
             if (o->latent && o->sleeping > 0)
@@ -457,21 +457,21 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     }
 
     // The Level object.
-    const std::vector<int> levels = map_.exportsOfClass("Level");
+    const std::vector<int> levels = _map.exportsOfClass("Level");
     if (levels.empty())
-        return Error::fail(map_.name() + ": no Level object");
+        return Error::fail(_map.name() + ": no Level object");
     std::vector<uint8_t> mapLevel;
-    if (Error err = map_.readExport(levels.front(), mapLevel))
+    if (Error err = _map.readExport(levels.front(), mapLevel))
         return err;
     size_t modelBegin = 0, reachEnd = 0;
     if (!levelModelSpan(mapLevel, version, modelBegin, reachEnd))
-        return Error::fail(map_.name() + ": its Level object doesn't read");
+        return Error::fail(_map.name() + ": its Level object doesn't read");
     ByteWriter L;
     L.index(w.name("None"));
     // The actors: the LevelInfo, the builder brush's place (none), the rest.
-    std::vector<int32_t> list{refs[levelInfo_], 0};
-    for (VmObject *a : actors_)
-        if (a != levelInfo_ && refs.count(a) && refs[a] > 0)
+    std::vector<int32_t> list{refs[_levelInfo], 0};
+    for (VmObject *a : _actors)
+        if (a != _levelInfo && refs.count(a) && refs[a] > 0)
             list.push_back(refs[a]);
     L.i32(int32_t(list.size()));
     L.i32(int32_t(list.size()));
@@ -480,11 +480,11 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // The URL.
     L.string("DS9");
     L.string("");
-    L.string(map_.name());
+    L.string(_map.name());
     L.string("");
     std::vector<std::string> options{"Name=Player"};
-    if (player_ && player_->cls && player_->cls->package)
-        options.push_back("Class=" + player_->cls->package->name() + "." + player_->cls->name);
+    if (_player && _player->cls && _player->cls->package)
+        options.push_back("Class=" + _player->cls->package->name() + "." + _player->cls->name);
     L.index(int32_t(options.size()));
     for (const std::string &op : options)
         L.string(op);
@@ -492,15 +492,15 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     L.i32(1);
     // The model and the reach list, as the map has them.
     L.bytes(mapLevel.data() + modelBegin, reachEnd - modelBegin);
-    const Value *now = prop(levelInfo_, "TimeSeconds");
-    L.f32(now ? now->asFloat() : time_);
+    const Value *now = prop(_levelInfo, "TimeSeconds");
+    L.f32(now ? now->asFloat() : _time);
     L.index(0); // first deleted
     for (int k = 0; k < 16; ++k)
         L.index(0); // text blocks
     L.index(0);     // travel
     // The ghosts.
     std::vector<int32_t> ghosts;
-    for (VmObject *g : ghosts_)
+    for (VmObject *g : _ghosts)
         if (refs.count(g) && refs[g] > 0)
             ghosts.push_back(refs[g]);
     L.index(int32_t(ghosts.size()));
@@ -519,8 +519,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     for (size_t k = 0; k < list.size(); ++k)
         listIndex[list[k]] = int(k);
     int none = 0;
-    for (const TrackedSound &t : trackedSounds_) {
-        if (t.start + t.seconds < time_ || !t.request.actor || !refs.count(t.request.actor) || !t.request.sound)
+    for (const TrackedSound &t : _trackedSounds) {
+        if (t.start + t.seconds < _time || !t.request.actor || !refs.count(t.request.actor) || !t.request.sound)
             continue;
         const int32_t actor = refs[t.request.actor];
         const int index = listIndex.count(actor) ? listIndex[actor] : 0;
@@ -529,9 +529,9 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         sounds.push_back(
             {actor, id, pathOf(t.request.sound), t.request.volume, t.request.radius, t.request.pitch, t.start});
     }
-    if (VmObject *music = currentMusic(); music && music->package && musicActor_ && refs.count(musicActor_))
-        sounds.push_back({refs[musicActor_], -16 * ++none, pathOf({music->package, music->exportIndex}), music_.volume,
-                          1e6f, 1, musicStart_});
+    if (VmObject *music = currentMusic(); music && music->package && _musicActor && refs.count(_musicActor))
+        sounds.push_back({refs[_musicActor], -16 * ++none, pathOf({music->package, music->exportIndex}), _music.volume,
+                          1e6f, 1, _musicStart});
     L.index(int32_t(sounds.size()));
     for (const Entry &e : sounds) {
         L.index(e.actor);
@@ -569,8 +569,8 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
     std::vector<G> groups;
     G full;
     full.group = "FullBody";
-    if (const Value *s = prop(a, "AnimSequence"); s && s->i && vm_.nameText(s->i) != "None") {
-        full.sequence = vm_.nameText(s->i);
+    if (const Value *s = prop(a, "AnimSequence"); s && s->i && _vm.nameText(s->i) != "None") {
+        full.sequence = _vm.nameText(s->i);
         full.source = 1;
         full.type = 1;
         full.state = 1;
@@ -584,11 +584,11 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
         G g;
         g.group = part;
         if (layers)
-            if (auto it = layers->find(vm_.name(part)); it != layers->end() && it->second.sequence) {
+            if (auto it = layers->find(_vm.name(part)); it != layers->end() && it->second.sequence) {
                 // Its mode as the engine keeps it, and a fade's time gone
                 // and length.
                 const AnimLayer &l = it->second;
-                g.sequence = vm_.nameText(l.sequence);
+                g.sequence = _vm.nameText(l.sequence);
                 g.source = 1;
                 g.type = 1;
                 if (l.weightRate < 0)
@@ -608,7 +608,7 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
                     const float done = l.weightRate > 0 ? l.weight : 1 - l.weight;
                     g.elapsed = std::clamp(done, 0.0f, 1.0f) * g.duration;
                 }
-                g.bone = l.bone ? vm_.nameText(l.bone) : "";
+                g.bone = l.bone ? _vm.nameText(l.bone) : "";
                 for (size_t k = 0; k < 3; ++k)
                     g.clear[k] = l.clear[k] ? 1 : 0;
             }
@@ -617,9 +617,9 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
     if (const SkinChannels *skins = skinsOf(a))
         for (const auto &[tag, c] : *skins) {
             G g;
-            g.group = vm_.nameText(tag);
+            g.group = _vm.nameText(tag);
             if (c.sequence) {
-                g.sequence = vm_.nameText(c.sequence);
+                g.sequence = _vm.nameText(c.sequence);
                 g.type = 4;
                 g.state = c.tweening ? 5 : 0;
                 g.frame = c.frame;
@@ -630,7 +630,7 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
                 g.duration = c.duration;
             }
             if (c.pending) {
-                g.pending = vm_.nameText(c.pendingSequence);
+                g.pending = _vm.nameText(c.pendingSequence);
                 g.pendingFrame = c.pendingFrame;
                 g.pendingWeight = c.pendingWeight;
                 g.pendingTween = c.pendingTween;
@@ -676,16 +676,16 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
     loadDialog();
     b.i32(1);
     for (size_t t = 0; t < 3; ++t) {
-        b.index(int32_t(dialogHeaders_[t].size()));
-        for (const auto &[id, word] : dialogHeaders_[t]) {
+        b.index(int32_t(_dialogHeaders[t].size()));
+        for (const auto &[id, word] : _dialogHeaders[t]) {
             b.u16(uint16_t(id));
             b.string(word);
         }
     }
-    const size_t n = dialogLines_.size();
+    const size_t n = _dialogLines.size();
     std::vector<int> place(n, 0xFFFF);
-    for (size_t k = 0; k < dialogOrder_.size(); ++k)
-        place[size_t(dialogOrder_[k])] = int(k);
+    for (size_t k = 0; k < _dialogOrder.size(); ++k)
+        place[size_t(_dialogOrder[k])] = int(k);
     // Their cameras, in the tables' order: each CAMERA read in turn (one
     // with no place keeping the one before's), the same ones once.
     struct Camera {
@@ -698,8 +698,8 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
     {
         Camera c;
         for (size_t i = 0; i < n; ++i) {
-            const std::string &cam = dialogLines_[i].camera;
-            if (cam.empty() || dialogRecs_[i].flags == 0)
+            const std::string &cam = _dialogLines[i].camera;
+            if (cam.empty() || _dialogRecs[i].flags == 0)
                 continue;
             c.flags = 0;
             c.v[6] = 90;
@@ -751,13 +751,13 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
     }
     auto nameOr = [&](const std::string &s) { return w.name(s.empty() ? "None" : s); };
     b.index(int32_t(n));
-    for (const int i : dialogOrder_) {
-        const DialogLine &l = dialogLines_[size_t(i)];
-        const DialogRec &r = dialogRecs_[size_t(i)];
+    for (const int i : _dialogOrder) {
+        const DialogLine &l = _dialogLines[size_t(i)];
+        const DialogRec &r = _dialogRecs[size_t(i)];
         const bool general = fs::toLower(l.table) == "gen_dialogue";
         b.u16(uint16_t((general ? 2 : 0) | (r.runOn ? 1 : 0)));
         b.u16(uint16_t(r.group));
-        b.u16(uint16_t(std::min(dialogPlays_[size_t(i)], 0xFFFF)));
+        b.u16(uint16_t(std::min(_dialogPlays[size_t(i)], 0xFFFF)));
         b.u16(uint16_t(place[size_t(i)]));
         b.u16(uint16_t(l.row + 1));
         b.u16(uint16_t(r.next >= 0 ? place[size_t(r.next)] : 0xFFFF));
@@ -785,8 +785,8 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
     }
     b.index(0); // lines being said
     b.index(0); // lines waiting
-    b.index(int32_t(dialogHeaders_[3].size()));
-    for (const auto &[id, word] : dialogHeaders_[3]) {
+    b.index(int32_t(_dialogHeaders[3].size()));
+    for (const auto &[id, word] : _dialogHeaders[3]) {
         b.u16(uint16_t(id));
         b.string(word);
     }

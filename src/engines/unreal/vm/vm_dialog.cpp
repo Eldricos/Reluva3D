@@ -52,15 +52,15 @@ uint32_t le32(const uint8_t *p) {
 // none. Their header rows give each line type's priority (Types: 1 DIE,
 // 2 CIN, 3 the hails...) and the faces' order (Faces).
 void ScriptLevel::loadDialog() {
-    if (dialogLoaded_)
+    if (_dialogLoaded)
         return;
-    dialogLoaded_ = true;
-    dialogLines_.clear();
-    const std::string map = upper(map_.name());
+    _dialogLoaded = true;
+    _dialogLines.clear();
+    const std::string map = upper(_map.name());
     if (map == "ENTRY")
         return;
     std::string own;
-    if (const Value *file = levelInfo_ ? prop(levelInfo_, "DialogFile") : nullptr; file && !file->s.empty())
+    if (const Value *file = _levelInfo ? prop(_levelInfo, "DialogFile") : nullptr; file && !file->s.empty())
         own = upper(file->s);
     else if (map.size() >= 3 && map[0] == 'M' && std::isdigit(uint8_t(map[1])) && std::isdigit(uint8_t(map[2])))
         own = map.substr(0, 3) + "_DIALOGUE";
@@ -74,7 +74,7 @@ void ScriptLevel::loadDialog() {
             continue;
         for (const DialogLine &l : all)
             if (upper(l.table) == table)
-                dialogLines_.push_back(l);
+                _dialogLines.push_back(l);
         // Its header rows.
         std::error_code ec;
         for (const auto &entry : std::filesystem::directory_iterator(intFolder(), ec)) {
@@ -91,12 +91,12 @@ void ScriptLevel::loadDialog() {
                 // row's its group, the others' their place in the row.
                 int place = 0;
                 auto keep = [&](size_t table, const std::string &word, int id) {
-                    dialogHeaders_[table].push_back({id, word});
+                    _dialogHeaders[table].push_back({id, word});
                 };
                 if (cells.size() >= 3 && same(cells[0], "Types")) {
                     std::istringstream types(cells[2]);
                     for (std::string t; types >> t;) {
-                        dialogGroups_[upper(t)] = std::atoi(cells[1].c_str());
+                        _dialogGroups[upper(t)] = std::atoi(cells[1].c_str());
                         keep(1, t, std::atoi(cells[1].c_str()));
                     }
                 } else if (cells.size() >= 3 && (same(cells[0], "Missions") || same(cells[0], "Speakers"))) {
@@ -106,17 +106,17 @@ void ScriptLevel::loadDialog() {
                 } else if (cells.size() >= 3 && same(cells[0], "Faces")) {
                     std::istringstream faces(cells[2]);
                     for (std::string f; faces >> f;) {
-                        if (std::find(dialogFaces_.begin(), dialogFaces_.end(), upper(f)) == dialogFaces_.end())
-                            dialogFaces_.push_back(upper(f));
+                        if (std::find(_dialogFaces.begin(), _dialogFaces.end(), upper(f)) == _dialogFaces.end())
+                            _dialogFaces.push_back(upper(f));
                         keep(3, f, ++place);
                     }
                 }
             }
         }
     }
-    const size_t n = dialogLines_.size();
-    dialogPlays_.assign(n, 0);
-    dialogRecs_.assign(n, {});
+    const size_t n = _dialogLines.size();
+    _dialogPlays.assign(n, 0);
+    _dialogRecs.assign(n, {});
     auto noted = [](const std::string &s) { return !s.empty() && s.front() == '(' ? std::string() : s; };
     // MISSION TYPE SPEAKER ID, as the tables name a line, as a key.
     // (As the engine rewrites it: a short ID stays short, "GENHALOBN64"
@@ -128,14 +128,14 @@ void ScriptLevel::loadDialog() {
         return k.substr(3, 3) + k.substr(6, 3) + "???" + k.substr(9) + k.substr(0, 3);
     };
     for (size_t i = 0; i < n; ++i) {
-        const DialogLine &l = dialogLines_[i];
-        DialogRec &r = dialogRecs_[i];
+        const DialogLine &l = _dialogLines[i];
+        DialogRec &r = _dialogRecs[i];
         std::string id = l.lineId;
         id.resize(3, ' ');
         r.key = upper(l.type) + upper(l.speaker) + (l.listener.empty() ? "___" : upper(l.listener)) + upper(id) +
                 upper(l.mission);
-        auto g = dialogGroups_.find(upper(l.type));
-        r.group = g != dialogGroups_.end() ? g->second : 9;
+        auto g = _dialogGroups.find(upper(l.type));
+        r.group = g != _dialogGroups.end() ? g->second : 9;
         r.tag = noted(l.tag);
         r.event = noted(l.event);
         r.condition = noted(l.condition);
@@ -183,22 +183,22 @@ void ScriptLevel::loadDialog() {
     }
     // A line runs on to the next in the tables when it's of the same type
     // and the next number: that's its next line, whatever NEXTLINE says.
-    auto number = [&](size_t i) { return std::atoi(dialogLines_[i].lineId.c_str()); };
+    auto number = [&](size_t i) { return std::atoi(_dialogLines[i].lineId.c_str()); };
     for (size_t i = 0; i + 1 < n; ++i)
-        if (same(dialogLines_[i].type, dialogLines_[i + 1].type) && number(i + 1) == number(i) + 1 &&
-            !dialogLines_[i + 1].lineId.empty() && std::isdigit(uint8_t(dialogLines_[i + 1].lineId[0]))) {
-            dialogRecs_[i + 1].runOn = true;
-            dialogRecs_[i].next = int(i + 1);
-            dialogRecs_[i].nextPattern.clear();
+        if (same(_dialogLines[i].type, _dialogLines[i + 1].type) && number(i + 1) == number(i) + 1 &&
+            !_dialogLines[i + 1].lineId.empty() && std::isdigit(uint8_t(_dialogLines[i + 1].lineId[0]))) {
+            _dialogRecs[i + 1].runOn = true;
+            _dialogRecs[i].next = int(i + 1);
+            _dialogRecs[i].nextPattern.clear();
         }
-    dialogOrder_.resize(n);
+    _dialogOrder.resize(n);
     for (size_t i = 0; i < n; ++i)
-        dialogOrder_[i] = int(i);
-    std::stable_sort(dialogOrder_.begin(), dialogOrder_.end(),
-                     [&](int a, int b) { return dialogRecs_[size_t(a)].key < dialogRecs_[size_t(b)].key; });
+        _dialogOrder[i] = int(i);
+    std::stable_sort(_dialogOrder.begin(), _dialogOrder.end(),
+                     [&](int a, int b) { return _dialogRecs[size_t(a)].key < _dialogRecs[size_t(b)].key; });
     // NEXTLINE and RETURNLINE resolved now where only one line fits; a
     // default link (marked) that nothing fits is dropped.
-    for (DialogRec &r : dialogRecs_)
+    for (DialogRec &r : _dialogRecs)
         for (auto [pat, to] : {std::pair{&r.nextPattern, &r.next}, std::pair{&r.backPattern, &r.back}}) {
             if (pat->empty())
                 continue;
@@ -207,7 +207,7 @@ void ScriptLevel::loadDialog() {
                 pat->erase(0, 1);
             int found = -1, count = 0;
             for (size_t i = 0; i < n && count < 2; ++i)
-                if (keyFits(*pat, dialogRecs_[i].key))
+                if (keyFits(*pat, _dialogRecs[i].key))
                     found = int(i), ++count;
             if (count == 1)
                 *to = found;
@@ -230,26 +230,26 @@ bool ScriptLevel::keyFits(const std::string &pattern, const std::string &key, bo
 
 const std::vector<DialogLine> &ScriptLevel::dialogLines() {
     loadDialog();
-    return dialogLines_;
+    return _dialogLines;
 }
 
 VmObject *ScriptLevel::dialogInput() {
-    const Value *v = levelInfo_ ? prop(levelInfo_, "DialogInput") : nullptr;
+    const Value *v = _levelInfo ? prop(_levelInfo, "DialogInput") : nullptr;
     VmObject *o = v ? v->asObject() : nullptr;
     return o && !o->deleted ? o : nullptr;
 }
 
 // The player's speaker code ("KRA").
 std::string ScriptLevel::playerSpeaker() {
-    const Value *tag = player_ ? prop(player_, "Speaker_Tag") : nullptr;
-    return tag && tag->i ? vm_.nameText(tag->i) : std::string();
+    const Value *tag = _player ? prop(_player, "Speaker_Tag") : nullptr;
+    return tag && tag->i ? _vm.nameText(tag->i) : std::string();
 }
 
 // Whether a line is for whoever the player plays (CheckMissionType): a cut
 // scene's always; a G mission's; one of the player's own letter (K, S,
 // W); an M mission's for Sisko and Worf.
 bool ScriptLevel::missionFits(int index) {
-    const DialogLine &l = dialogLines_[size_t(index)];
+    const DialogLine &l = _dialogLines[size_t(index)];
     if (same(l.type, "CIN"))
         return true;
     const char m = l.mission.empty() ? 0 : char(std::toupper(uint8_t(l.mission[0])));
@@ -311,16 +311,16 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
         } else if (term.size() >= 2) {
             cls = term[0], property = term[1], at = 2;
         }
-        if (at + 2 > term.size() || !vm_.findClass(cls))
+        if (at + 2 > term.size() || !_vm.findClass(cls))
             return -1;
-        if (!vm_.isA(actor, cls))
+        if (!_vm.isA(actor, cls))
             return -1;
         const Value *v = prop(actor, property.c_str());
         if (!v)
             return -1;
         const std::string &op = term[at];
         const std::string &want = term[at + 1];
-        if (v->type == VType::Float || v->type == VType::Int || v->type == VType::Byte) {
+        if (v->type == VType::kFloat || v->type == VType::kInt || v->type == VType::kByte) {
             const float a = v->asFloat(), b = std::strtof(want.c_str(), nullptr);
             if (op == "<")
                 return a < b;
@@ -336,7 +336,7 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
                 return a != b;
             return -1;
         }
-        const std::string a = upper(vm_.toString(*v));
+        const std::string a = upper(_vm.toString(*v));
         if (op == "=" || op == "==")
             return a == upper(want);
         if (op == "!=")
@@ -367,7 +367,7 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
     };
     std::string event = name;
     std::vector<Value> values;
-    static const char *const known[] = {"ObjectiveCompleted",
+    static const char *const kNown[] = {"ObjectiveCompleted",
                                         "PlayerFaceEnemy",
                                         "EnemyIsA",
                                         "EnemyIsIntelligent",
@@ -393,7 +393,7 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
                                         "PlayerHoldingWeapon",
                                         "LowAmmo",
                                         "DS9Phase"};
-    if (std::none_of(std::begin(known), std::end(known), [&](const char *k) { return same(name, k); })) {
+    if (std::none_of(std::begin(kNown), std::end(kNown), [&](const char *k) { return same(name, k); })) {
         ++dialog.unknownConditions;
         return -1;
     }
@@ -407,9 +407,9 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
             return -1;
     } else if (same(name, "LowAmmo")) {
         if (!args.empty() && isNumber(args[0]) && std::strtof(args[0].c_str(), nullptr) != 0)
-            values = {Value::nameValue(vm_.name("None")), Value::floatValue(std::strtof(args[0].c_str(), nullptr))};
+            values = {Value::nameValue(_vm.name("None")), Value::floatValue(std::strtof(args[0].c_str(), nullptr))};
         else if (args.size() >= 2)
-            values = {Value::nameValue(vm_.name(args[0])), Value::floatValue(float(std::atoi(args[1].c_str())))};
+            values = {Value::nameValue(_vm.name(args[0])), Value::floatValue(float(std::atoi(args[1].c_str())))};
         else
             return -1;
     } else {
@@ -420,12 +420,12 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
         if (same(name, "ObjectiveCompleted") &&
             (args.empty() || std::atoi(args[0].c_str()) < 1 || std::atoi(args[0].c_str()) > 9))
             return -1;
-        VmFunction *f = vm_.findFunction(input, vm_.name(event));
+        VmFunction *f = _vm.findFunction(input, _vm.name(event));
         if (!f)
             return -1;
         size_t given = 0;
         for (const VmProperty *p : f->params) {
-            if (p->type == VType::Object) {
+            if (p->type == VType::kObject) {
                 VmObject *who = actor;
                 if (same(name, "PlayerFaceEnemy")) {
                     const Value *e = actor ? prop(actor, "Enemy") : nullptr;
@@ -438,20 +438,20 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
                 return -1;
             const std::string &arg = args[given++];
             switch (p->type) {
-            case VType::Byte:
-            case VType::Int:
+            case VType::kByte:
+            case VType::kInt:
                 values.push_back(Value::intValue(std::atoi(arg.c_str())));
                 break;
-            case VType::Float:
+            case VType::kFloat:
                 values.push_back(Value::floatValue(std::strtof(arg.c_str(), nullptr)));
                 break;
-            case VType::Bool:
+            case VType::kBool:
                 values.push_back(Value::boolValue(same(arg, "true")));
                 break;
-            case VType::Name:
-                values.push_back(Value::nameValue(vm_.name(arg)));
+            case VType::kName:
+                values.push_back(Value::nameValue(_vm.name(arg)));
                 break;
-            case VType::String:
+            case VType::kString:
                 values.push_back(Value::stringValue(arg));
                 break;
             default:
@@ -460,7 +460,7 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
             }
         }
     }
-    const bool met = vm_.callEvent(input, event, values).asBool();
+    const bool met = _vm.callEvent(input, event, values).asBool();
     return (negate ? !met : met) ? 1 : 0;
 }
 
@@ -480,22 +480,22 @@ bool ScriptLevel::testCondition(const std::string &condition) {
 int ScriptLevel::bestLine(const std::string &pattern, NameId filterTag, VmObject *caller, int *count) {
     loadDialog();
     std::vector<int> fits;
-    for (const int i : dialogOrder_)
-        if (!dialogRecs_[size_t(i)].runOn && keyFits(pattern, dialogRecs_[size_t(i)].key))
+    for (const int i : _dialogOrder)
+        if (!_dialogRecs[size_t(i)].runOn && keyFits(pattern, _dialogRecs[size_t(i)].key))
             fits.push_back(i);
     if (count)
         *count = int(fits.size());
     if (fits.size() == 1)
         return fits[0];
-    const std::string want = filterTag && !same(vm_.nameText(filterTag), "None") ? vm_.nameText(filterTag) : "";
+    const std::string want = filterTag && !same(_vm.nameText(filterTag), "None") ? _vm.nameText(filterTag) : "";
     std::string callerTag;
     if (const Value *t = caller ? prop(caller, "Dialogue_Tag") : nullptr; t && t->i)
-        callerTag = vm_.nameText(t->i);
+        callerTag = _vm.nameText(t->i);
     int best = -1;
     double bestScore = 0;
     for (const int i : fits) {
-        const DialogRec &r = dialogRecs_[size_t(i)];
-        const DialogLine &l = dialogLines_[size_t(i)];
+        const DialogRec &r = _dialogRecs[size_t(i)];
+        const DialogLine &l = _dialogLines[size_t(i)];
         double score = 0;
         if (!want.empty()) {
             if (!same(r.tag, want))
@@ -514,10 +514,10 @@ int ScriptLevel::bestLine(const std::string &pattern, NameId filterTag, VmObject
         }
         score -= 10000.0 * (std::atoi(l.lineId.c_str()) / 100);
         if (same(l.type, "PAN")) {
-            dialogRandom_ = dialogRandom_ * 1103515245u + 12345u;
-            score -= double((dialogRandom_ >> 16) % 15);
+            _dialogRandom = _dialogRandom * 1103515245u + 12345u;
+            score -= double((_dialogRandom >> 16) % 15);
         } else {
-            score -= dialogPlays_[size_t(i)];
+            score -= _dialogPlays[size_t(i)];
         }
         if (best < 0 || score >= bestScore)
             best = i, bestScore = score;
@@ -532,12 +532,12 @@ int ScriptLevel::findDialogLine(const std::string &type, NameId filterTag, NameI
                                 const std::string &lineId, int &index, VmObject *caller) {
     loadDialog();
     index = -1;
-    auto given = [&](NameId n) { return n != 0 && !same(vm_.nameText(n), "None"); };
-    std::string by = given(speaker) ? upper(vm_.nameText(speaker)) : "";
+    auto given = [&](NameId n) { return n != 0 && !same(_vm.nameText(n), "None"); };
+    std::string by = given(speaker) ? upper(_vm.nameText(speaker)) : "";
     if (by.empty())
         if (const Value *t = caller ? prop(caller, "Speaker_Tag") : nullptr; t && given(t->i))
-            by = upper(vm_.nameText(t->i));
-    const std::string to = given(listener) ? upper(vm_.nameText(listener)) : "";
+            by = upper(_vm.nameText(t->i));
+    const std::string to = given(listener) ? upper(_vm.nameText(listener)) : "";
     if (by.empty() && to.empty() && lineId.empty() && !given(filterTag))
         return 0;
     auto three = [](std::string s) {
@@ -554,10 +554,10 @@ int ScriptLevel::findDialogLine(const std::string &type, NameId filterTag, NameI
 
 bool ScriptLevel::dialogLineSpecial(int index) {
     loadDialog();
-    if (index < 0 || size_t(index) >= dialogLines_.size() || dialogPlays_[size_t(index)] > 0)
+    if (index < 0 || size_t(index) >= _dialogLines.size() || _dialogPlays[size_t(index)] > 0)
         return false;
-    const DialogRec &r = dialogRecs_[size_t(index)];
-    if (std::atoi(dialogLines_[size_t(index)].lineId.c_str()) >= 800)
+    const DialogRec &r = _dialogRecs[size_t(index)];
+    if (std::atoi(_dialogLines[size_t(index)].lineId.c_str()) >= 800)
         return false;
     return (!r.tag.empty() && r.tag.size() != 3) || !r.condition.empty();
 }
@@ -572,13 +572,13 @@ int ScriptLevel::startDialog(VmObject *self, const std::string &type, NameId fil
     if (t.size() != 3)
         return 0;
     VmObject *caller = self;
-    const bool tagged = filterTag && !same(vm_.nameText(filterTag), "None");
+    const bool tagged = filterTag && !same(_vm.nameText(filterTag), "None");
     if (t == "HAL" && !tagged) {
-        const std::string to = listener && !same(vm_.nameText(listener), "None") ? vm_.nameText(listener) : "";
+        const std::string to = listener && !same(_vm.nameText(listener), "None") ? _vm.nameText(listener) : "";
         if (to.size() != 3)
             return 0;
         t = "HOP";
-        caller = player_;
+        caller = _player;
     }
     int index = -1;
     findDialogLine(t, filterTag, listener, speaker, lineId, index, caller);
@@ -588,15 +588,15 @@ int ScriptLevel::startDialog(VmObject *self, const std::string &type, NameId fil
         return 0;
     // A new hail cuts the first hail-type line playing.
     if (t[0] == 'H')
-        for (DialogThread &p : dialogThreads_)
-            if (!p.queued && upper(dialogLines_[size_t(p.line)].type)[0] == 'H') {
+        for (DialogThread &p : _dialogThreads)
+            if (!p.queued && upper(_dialogLines[size_t(p.line)].type)[0] == 'H') {
                 endLine(p, true);
                 break;
             }
-    dialogThreads_.erase(
-        std::remove_if(dialogThreads_.begin(), dialogThreads_.end(), [](const DialogThread &p) { return p.line < 0; }),
-        dialogThreads_.end());
-    const int id = nextDialogThread_++;
+    _dialogThreads.erase(
+        std::remove_if(_dialogThreads.begin(), _dialogThreads.end(), [](const DialogThread &p) { return p.line < 0; }),
+        _dialogThreads.end());
+    const int id = _nextDialogThread++;
     if (!startLine(id, index, caller))
         return 0;
     ++dialog.started;
@@ -607,16 +607,16 @@ int ScriptLevel::startDialog(VmObject *self, const std::string &type, NameId fil
 // voice-over or the communicator's, V or H) whom the player's
 // GetSpeakerActor names for its code.
 VmObject *ScriptLevel::speakerFor(int index, VmObject *caller) {
-    const DialogLine &l = dialogLines_[size_t(index)];
-    const DialogRec &r = dialogRecs_[size_t(index)];
+    const DialogLine &l = _dialogLines[size_t(index)];
+    const DialogRec &r = _dialogRecs[size_t(index)];
     const Value *code = caller && !caller->deleted ? prop(caller, "Speaker_Tag") : nullptr;
-    if (!(r.flags & 48) && code && same(vm_.nameText(code->i), l.speaker))
+    if (!(r.flags & 48) && code && same(_vm.nameText(code->i), l.speaker))
         return caller;
-    if (!player_ || player_->deleted)
+    if (!_player || _player->deleted)
         return nullptr;
-    VmObject *a = vm_.callEvent(player_, "GetSpeakerActor",
-                                {Value::nameValue(vm_.name(l.speaker)),
-                                 Value::nameValue(r.tag.empty() ? vm_.name("None") : vm_.name(r.tag)),
+    VmObject *a = _vm.callEvent(_player, "GetSpeakerActor",
+                                {Value::nameValue(_vm.name(l.speaker)),
+                                 Value::nameValue(r.tag.empty() ? _vm.name("None") : _vm.name(r.tag)),
                                  Value::boolValue((r.flags & 48) != 0)})
                       .asObject();
     return a && !a->deleted ? a : nullptr;
@@ -630,7 +630,7 @@ VmObject *ScriptLevel::speakerFor(int index, VmObject *caller) {
 // matter less are dropped.
 int ScriptLevel::startLine(int thread, int index, VmObject *caller, int back, const std::string &backPattern) {
     if (!missionFits(index)) {
-        const std::string key = dialogRecs_[size_t(index)].key;
+        const std::string key = _dialogRecs[size_t(index)].key;
         const std::string me = upper(playerSpeaker());
         int swapped = -1;
         for (char letter : {me.empty() ? char(0) : me[0], char('M')}) {
@@ -638,8 +638,8 @@ int ScriptLevel::startLine(int thread, int index, VmObject *caller, int back, co
                 continue;
             std::string want = key;
             want[want.size() - 3] = letter;
-            for (size_t i = 0; i < dialogRecs_.size() && swapped < 0; ++i)
-                if (dialogRecs_[i].key == want)
+            for (size_t i = 0; i < _dialogRecs.size() && swapped < 0; ++i)
+                if (_dialogRecs[i].key == want)
                     swapped = int(i);
             if (swapped >= 0)
                 break;
@@ -649,15 +649,15 @@ int ScriptLevel::startLine(int thread, int index, VmObject *caller, int back, co
         index = swapped;
     }
     VmObject *speaker = speakerFor(index, caller);
-    const int group = dialogRecs_[size_t(index)].group;
-    const std::string type = upper(dialogLines_[size_t(index)].type);
+    const int group = _dialogRecs[size_t(index)].group;
+    const std::string type = upper(_dialogLines[size_t(index)].type);
     bool queue = false;
     if (speaker)
-        for (DialogThread &p : dialogThreads_) {
+        for (DialogThread &p : _dialogThreads) {
             if (p.queued || p.speaker != speaker || p.line < 0)
                 continue;
-            const int playing = dialogRecs_[size_t(p.line)].group;
-            const std::string playingType = upper(dialogLines_[size_t(p.line)].type);
+            const int playing = _dialogRecs[size_t(p.line)].group;
+            const std::string playingType = upper(_dialogLines[size_t(p.line)].type);
             if (playing < group && playingType != "HUD")
                 return 0;
             if (group < playing || playingType == type || playingType == "HUD")
@@ -665,12 +665,12 @@ int ScriptLevel::startLine(int thread, int index, VmObject *caller, int back, co
             else
                 queue = true;
         }
-    dialogThreads_.erase(std::remove_if(dialogThreads_.begin(), dialogThreads_.end(),
+    _dialogThreads.erase(std::remove_if(_dialogThreads.begin(), _dialogThreads.end(),
                                         [&](const DialogThread &p) {
                                             return p.line < 0 || (p.queued && p.speaker == speaker && speaker &&
-                                                                  dialogRecs_[size_t(p.line)].group > group);
+                                                                  _dialogRecs[size_t(p.line)].group > group);
                                         }),
-                         dialogThreads_.end());
+                         _dialogThreads.end());
     DialogThread t;
     t.id = thread;
     t.self = caller;
@@ -679,10 +679,10 @@ int ScriptLevel::startLine(int thread, int index, VmObject *caller, int back, co
     t.backPattern = backPattern;
     t.line = index;
     t.queued = queue;
-    dialogThreads_.push_back(t);
+    _dialogThreads.push_back(t);
     if (queue)
         return 2;
-    beginLine(dialogThreads_.back(), index);
+    beginLine(_dialogThreads.back(), index);
     return 1;
 }
 
@@ -691,11 +691,11 @@ int ScriptLevel::startLine(int thread, int index, VmObject *caller, int back, co
 // second; 3.5 seconds if it has none.
 float ScriptLevel::lineSeconds(const DialogLine &l) {
     const std::string key = l.table + "." + l.record;
-    auto known = dialogSeconds_.find(key);
-    if (known != dialogSeconds_.end())
+    auto known = _dialogSeconds.find(key);
+    if (known != _dialogSeconds.end())
         return known->second;
     float seconds = 3.5f;
-    if (const Package *p = vm_.packages().get(l.table)) {
+    if (const Package *p = _vm.packages().get(l.table)) {
         const int e = p->findExport(l.record, "Sound");
         std::vector<uint8_t> data;
         if (e >= 0 && !p->readExport(e, data)) {
@@ -716,7 +716,7 @@ float ScriptLevel::lineSeconds(const DialogLine &l) {
                 seconds = float(bytes) / float(rate);
         }
     }
-    dialogSeconds_[key] = seconds;
+    _dialogSeconds[key] = seconds;
     return seconds;
 }
 
@@ -724,12 +724,12 @@ float ScriptLevel::lineSeconds(const DialogLine &l) {
 // if none has them, or it's of a more important type, or as important and
 // said nearer the camera.
 void ScriptLevel::writeLineFields(DialogThread &t) {
-    const DialogRec &r = dialogRecs_[size_t(t.line)];
-    auto current = std::find_if(dialogThreads_.begin(), dialogThreads_.end(), [&](const DialogThread &o) {
-        return o.id == currentThread_ && !o.queued && o.line >= 0;
+    const DialogRec &r = _dialogRecs[size_t(t.line)];
+    auto current = std::find_if(_dialogThreads.begin(), _dialogThreads.end(), [&](const DialogThread &o) {
+        return o.id == _currentThread && !o.queued && o.line >= 0;
     });
-    if (current != dialogThreads_.end() && current->id != t.id) {
-        const int theirs = dialogRecs_[size_t(current->line)].group;
+    if (current != _dialogThreads.end() && current->id != t.id) {
+        const int theirs = _dialogRecs[size_t(current->line)].group;
         bool take = r.group < theirs;
         if (r.group == theirs) {
             Vec eye{};
@@ -746,16 +746,16 @@ void ScriptLevel::writeLineFields(DialogThread &t) {
         if (!take)
             return;
     }
-    currentThread_ = t.id;
-    if (Value *v = prop(levelInfo_, "Talker"))
+    _currentThread = t.id;
+    if (Value *v = prop(_levelInfo, "Talker"))
         *v = Value::objectValue(t.speaker);
-    if (Value *v = prop(levelInfo_, "Listener"))
+    if (Value *v = prop(_levelInfo, "Listener"))
         *v = Value::objectValue(t.listener);
-    if (Value *v = prop(levelInfo_, "CurrentLineType"))
-        *v = Value::nameValue(vm_.name(dialogLines_[size_t(t.line)].type));
-    if (Value *v = prop(levelInfo_, "CurrentLineIndex"))
+    if (Value *v = prop(_levelInfo, "CurrentLineType"))
+        *v = Value::nameValue(_vm.name(_dialogLines[size_t(t.line)].type));
+    if (Value *v = prop(_levelInfo, "CurrentLineIndex"))
         *v = Value::intValue(t.line);
-    if (Value *v = prop(levelInfo_, "CurrentLineFlags"))
+    if (Value *v = prop(_levelInfo, "CurrentLineFlags"))
         *v = Value::intValue(r.flags);
 }
 
@@ -768,17 +768,17 @@ void ScriptLevel::writeLineFields(DialogThread &t) {
 // fields, its animations (while the pawn's frozen) and face, and the line
 // on the HUD (not a note in brackets).
 void ScriptLevel::beginLine(DialogThread &t, int index) {
-    const DialogLine &l = dialogLines_[size_t(index)];
-    const DialogRec &r = dialogRecs_[size_t(index)];
-    ++dialogPlays_[size_t(index)];
-    if (dialogSaid_.size() >= 256) {
-        dialogSaid_.erase(dialogSaid_.begin());
-        dialogSaidAt_.erase(dialogSaidAt_.begin());
+    const DialogLine &l = _dialogLines[size_t(index)];
+    const DialogRec &r = _dialogRecs[size_t(index)];
+    ++_dialogPlays[size_t(index)];
+    if (_dialogSaid.size() >= 256) {
+        _dialogSaid.erase(_dialogSaid.begin());
+        _dialogSaidAt.erase(_dialogSaidAt.begin());
     }
-    dialogSaid_.push_back(index);
-    dialogSaidAt_.push_back(float(time_));
-    currentLine_ = index;
-    currentSpeaker_ = t.speaker;
+    _dialogSaid.push_back(index);
+    _dialogSaidAt.push_back(float(_time));
+    _currentLine = index;
+    _currentSpeaker = t.speaker;
     ++dialog.lines;
     t.line = index;
     t.queued = false;
@@ -787,19 +787,19 @@ void ScriptLevel::beginLine(DialogThread &t, int index) {
     t.phoneme = 0;
     const std::string type = upper(l.type);
     t.hudClock = type == "HUD";
-    const Value *dt = prop(levelInfo_, "DeltaTime");
+    const Value *dt = prop(_levelInfo, "DeltaTime");
     t.timeLeft = (dt ? dt->asFloat() : 0) + t.seconds + std::max(0.0f, l.pause) + 0.25f;
     if (r.back >= 0 || !r.backPattern.empty())
         t.back = r.back, t.backPattern = r.backPattern;
     VmObject *speaker = t.speaker;
-    if (const Package *p = vm_.packages().get(l.table))
+    if (const Package *p = _vm.packages().get(l.table))
         if (const int e = p->findExport(l.record, "Sound"); e >= 0) {
             const float volume = type == "DIE" || type == "PAN" || type == "FSE" || type == "BAT" ? 1.4f
                                  : type == "EXG"                                                  ? 0.3f
                                                                                                   : 0.65f;
             if (speaker)
-                vm_.callEvent(speaker, "PlaySpeech",
-                              {Value::objectValue(vm_.objectAt(*p, e + 1)), Value::floatValue(volume),
+                _vm.callEvent(speaker, "PlaySpeech",
+                              {Value::objectValue(_vm.objectAt(*p, e + 1)), Value::floatValue(volume),
                                Value::boolValue((r.flags & 16) != 0), Value::boolValue(type == "HUD")});
             else {
                 SoundRequest q;
@@ -807,28 +807,28 @@ void ScriptLevel::beginLine(DialogThread &t, int index) {
                 q.slot = 5; // SLOT_Talk
                 q.volume = volume;
                 q.speech = true;
-                if (soundRequests_.size() >= 256)
-                    soundRequests_.erase(soundRequests_.begin());
-                soundRequests_.push_back(q);
+                if (_soundRequests.size() >= 256)
+                    _soundRequests.erase(_soundRequests.begin());
+                _soundRequests.push_back(q);
             }
         }
-    if (!speaker || !vm_.isA(speaker, "Pawn"))
+    if (!speaker || !_vm.isA(speaker, "Pawn"))
         return;
     // The listener.
     t.listener = nullptr;
     if (type[0] != 'H') {
         const bool letterbox = [&] {
-            const Value *hud = player_ ? prop(player_, "myHUD") : nullptr;
-            return hud && hud->asObject() && vm_.callEvent(hud->o, "IsLetterBoxOn").asBool();
+            const Value *hud = _player ? prop(_player, "myHUD") : nullptr;
+            return hud && hud->asObject() && _vm.callEvent(hud->o, "IsLetterBoxOn").asBool();
         }();
         const auto from = Vm::vectorOf(*prop(speaker, "Location"));
         float best = 800;
         bool coded = false;
-        for (VmObject *a : actors_) {
-            if (a == speaker || a->deleted || !vm_.isA(a, "Pawn"))
+        for (VmObject *a : _actors) {
+            if (a == speaker || a->deleted || !_vm.isA(a, "Pawn"))
                 continue;
             const Value *code = prop(a, "Speaker_Tag");
-            const bool hasCode = !l.listener.empty() && code && same(vm_.nameText(code->i), l.listener);
+            const bool hasCode = !l.listener.empty() && code && same(_vm.nameText(code->i), l.listener);
             if ((letterbox || coded) && !hasCode)
                 continue;
             const auto at = Vm::vectorOf(*prop(a, "Location"));
@@ -849,24 +849,24 @@ void ScriptLevel::beginLine(DialogThread &t, int index) {
         writeLineFields(t);
     for (const auto &[who, anim] : {std::pair{t.speaker, l.speakerAnim}, std::pair{t.listener, l.listenerAnim}})
         if (who && !anim.empty() && !who->deleted && who->state && same(who->state->name, "Frozen"))
-            vm_.callEvent(who, "PlayDialogAnim",
-                          {Value::nameValue(vm_.name(anim)), Value::floatValue(1), Value::floatValue(0.3f)});
+            _vm.callEvent(who, "PlayDialogAnim",
+                          {Value::nameValue(_vm.name(anim)), Value::floatValue(1), Value::floatValue(0.3f)});
     for (const auto &[who, face] : {std::pair{t.speaker, l.speakerFace}, std::pair{t.listener, l.listenerFace}}) {
         if (!who || face.empty() || who->deleted)
             continue;
-        const auto f = std::find(dialogFaces_.begin(), dialogFaces_.end(), upper(face));
-        if (f == dialogFaces_.end())
+        const auto f = std::find(_dialogFaces.begin(), _dialogFaces.end(), upper(face));
+        if (f == _dialogFaces.end())
             continue;
         if (Value *v = prop(who, "FacialExpression"))
-            v->i = int(f - dialogFaces_.begin());
+            v->i = int(f - _dialogFaces.begin());
         if (Value *v = prop(who, "FacialTimer"))
-            *v = Value::floatValue(time_ + t.timeLeft + 0.5f);
+            *v = Value::floatValue(_time + t.timeLeft + 0.5f);
     }
-    const Value *hud = player_ ? prop(player_, "myHUD") : nullptr;
+    const Value *hud = _player ? prop(_player, "myHUD") : nullptr;
     if (hud && hud->asObject() && !l.text.empty() && !note)
-        vm_.callEvent(hud->o, "HudText",
+        _vm.callEvent(hud->o, "HudText",
                       {Value::stringValue(l.text), Value::floatValue(t.seconds + std::max(0.0f, l.pause)),
-                       Value::nameValue(vm_.name(l.speaker)), Value::objectValue(t.speaker)});
+                       Value::nameValue(_vm.name(l.speaker)), Value::objectValue(t.speaker)});
 }
 
 // A line over: the level's fields cleared if they were its, its voice
@@ -880,27 +880,27 @@ void ScriptLevel::endLine(DialogThread &t, bool cut) {
     const int line = t.line;
     if (line < 0)
         return;
-    const DialogRec &r = dialogRecs_[size_t(line)];
-    if (currentThread_ == t.id) {
-        currentThread_ = 0;
-        if (Value *v = prop(levelInfo_, "Talker"))
+    const DialogRec &r = _dialogRecs[size_t(line)];
+    if (_currentThread == t.id) {
+        _currentThread = 0;
+        if (Value *v = prop(_levelInfo, "Talker"))
             *v = Value::objectValue(nullptr);
-        if (Value *v = prop(levelInfo_, "Listener"))
+        if (Value *v = prop(_levelInfo, "Listener"))
             *v = Value::objectValue(nullptr);
-        if (Value *v = prop(levelInfo_, "CurrentLineType"))
-            *v = Value::nameValue(vm_.name("None"));
-        if (Value *v = prop(levelInfo_, "CurrentLineIndex"))
+        if (Value *v = prop(_levelInfo, "CurrentLineType"))
+            *v = Value::nameValue(_vm.name("None"));
+        if (Value *v = prop(_levelInfo, "CurrentLineIndex"))
             *v = Value::intValue(-1);
-        if (Value *v = prop(levelInfo_, "CurrentLineFlags"))
+        if (Value *v = prop(_levelInfo, "CurrentLineFlags"))
             *v = Value::intValue(0);
     }
     VmObject *speaker = t.speaker && !t.speaker->deleted ? t.speaker : nullptr;
     if (speaker) {
-        if (soundStops_.size() >= 256)
-            soundStops_.erase(soundStops_.begin());
-        soundStops_.push_back({speaker, 5});
+        if (_soundStops.size() >= 256)
+            _soundStops.erase(_soundStops.begin());
+        _soundStops.push_back({speaker, 5});
         // Its voice stopped (the driver's StopSound: the mouth closed).
-        for (LipChannel &c : lipChannels_)
+        for (LipChannel &c : _lipChannels)
             if (c.actor == speaker && c.slot == 5)
                 lipSyncStop(c);
     }
@@ -911,9 +911,9 @@ void ScriptLevel::endLine(DialogThread &t, bool cut) {
         std::istringstream words(r.event);
         for (std::string w; words >> w;) {
             if (w.size() > 1 && w[0] == '-')
-                vm_.callEvent(input, "DoSpecialEvent", {Value::stringValue(w.substr(1))});
+                _vm.callEvent(input, "DoSpecialEvent", {Value::stringValue(w.substr(1))});
             else
-                vm_.callEvent(input, "DoEvent", {Value::nameValue(vm_.name(w))});
+                _vm.callEvent(input, "DoEvent", {Value::nameValue(_vm.name(w))});
         }
     }
     if (t.speaker && t.speaker->deleted)
@@ -926,12 +926,12 @@ void ScriptLevel::endLine(DialogThread &t, bool cut) {
         t.back = -1;
         t.backPattern.clear();
         if (back >= 0 &&
-            !(same(dialogLines_[size_t(back)].type, "HCL") && same(dialogLines_[size_t(line)].type, "HCL")))
+            !(same(_dialogLines[size_t(back)].type, "HCL") && same(_dialogLines[size_t(line)].type, "HCL")))
             next = back;
     }
     if (next < 0)
         return;
-    pendingLines_.push_back({t.id, next, t.self, t.back, t.backPattern});
+    _pendingLines.push_back({t.id, next, t.self, t.back, t.backPattern});
 }
 
 // Each tick: the lines' clocks run (a HUD line's while paused too); lines
@@ -939,29 +939,29 @@ void ScriptLevel::endLine(DialogThread &t, bool cut) {
 // (The mouths follow the voices: vm_sound.cpp's lip-sync.)
 void ScriptLevel::tickDialog(float seconds) {
     const bool stopped = paused();
-    for (size_t k = 0; k < dialogThreads_.size(); ++k) {
-        DialogThread &t = dialogThreads_[k];
+    for (size_t k = 0; k < _dialogThreads.size(); ++k) {
+        DialogThread &t = _dialogThreads[k];
         if (t.queued || t.line < 0 || (stopped && !t.hudClock))
             continue;
         t.timeLeft -= seconds;
         t.elapsed += seconds;
         if (t.timeLeft <= 0)
-            endLine(dialogThreads_[k], false);
+            endLine(_dialogThreads[k], false);
     }
-    dialogThreads_.erase(
-        std::remove_if(dialogThreads_.begin(), dialogThreads_.end(), [](const DialogThread &p) { return p.line < 0; }),
-        dialogThreads_.end());
+    _dialogThreads.erase(
+        std::remove_if(_dialogThreads.begin(), _dialogThreads.end(), [](const DialogThread &p) { return p.line < 0; }),
+        _dialogThreads.end());
     // The lines that follow, in their threads.
     std::vector<PendingLine> pending;
-    pending.swap(pendingLines_);
+    pending.swap(_pendingLines);
     for (const PendingLine &p : pending)
         startLine(p.thread, p.line, p.caller, p.back, p.backPattern);
     // Those waiting, once their speaker is free.
-    for (size_t k = 0; k < dialogThreads_.size(); ++k) {
-        DialogThread &t = dialogThreads_[k];
+    for (size_t k = 0; k < _dialogThreads.size(); ++k) {
+        DialogThread &t = _dialogThreads[k];
         if (!t.queued)
             continue;
-        const bool busy = std::any_of(dialogThreads_.begin(), dialogThreads_.end(), [&](const DialogThread &o) {
+        const bool busy = std::any_of(_dialogThreads.begin(), _dialogThreads.end(), [&](const DialogThread &o) {
             return !o.queued && o.line >= 0 && o.speaker == t.speaker;
         });
         if (!busy)
@@ -971,17 +971,17 @@ void ScriptLevel::tickDialog(float seconds) {
 
 // IsDialogThreadPlaying: a line of it said or waiting.
 bool ScriptLevel::dialogPlaying(int thread) const {
-    return std::any_of(dialogThreads_.begin(), dialogThreads_.end(),
+    return std::any_of(_dialogThreads.begin(), _dialogThreads.end(),
                        [&](const DialogThread &t) { return t.id == thread && t.line >= 0; }) ||
-           std::any_of(pendingLines_.begin(), pendingLines_.end(),
+           std::any_of(_pendingLines.begin(), _pendingLines.end(),
                        [&](const PendingLine &p) { return p.thread == thread; });
 }
 
 std::vector<ScriptLevel::Subtitle> ScriptLevel::subtitles() const {
     std::vector<Subtitle> out;
-    for (const DialogThread &t : dialogThreads_)
+    for (const DialogThread &t : _dialogThreads)
         if (!t.queued && t.line >= 0 && t.elapsed < t.seconds) {
-            const DialogLine &l = dialogLines_[size_t(t.line)];
+            const DialogLine &l = _dialogLines[size_t(t.line)];
             out.push_back({l.speaker, l.text, l.type});
         }
     return out;
@@ -993,9 +993,9 @@ std::vector<ScriptLevel::Subtitle> ScriptLevel::subtitles() const {
 // view, D the distance. V and H (most lines') aren't known, so those lines
 // leave the camera to the scripts. Reluva's reading of the column.
 bool ScriptLevel::dialogueCamera(std::array<float, 3> &at, std::array<int32_t, 3> &rotation, float &fov, float &dist) {
-    if (currentLine_ < 0 || size_t(currentLine_) >= dialogLines_.size())
+    if (_currentLine < 0 || size_t(_currentLine) >= _dialogLines.size())
         return false;
-    std::string cam = dialogLines_[size_t(currentLine_)].camera;
+    std::string cam = _dialogLines[size_t(_currentLine)].camera;
     const size_t open = cam.find('('), close = cam.rfind(')');
     if (open == std::string::npos || close == std::string::npos || close < open)
         return false;
@@ -1031,7 +1031,7 @@ bool ScriptLevel::dialogueCamera(std::array<float, 3> &at, std::array<int32_t, 3
     rotation = {units(v[3]), units(v[4]), units(v[5])};
     at = {v[0], v[1], v[2]};
     if (relative) {
-        VmObject *s = currentSpeaker_;
+        VmObject *s = _currentSpeaker;
         if (!s || s->deleted)
             return false;
         const auto loc = Vm::vectorOf(*prop(s, "Location"));
@@ -1069,7 +1069,7 @@ enum : int32_t {
 } // namespace
 
 void ScriptLevel::dialogTick(VmObject *input, float dt) {
-    VmObject *player = player_;
+    VmObject *player = _player;
     if (!player || player->deleted)
         return;
     auto obj = [&](VmObject *o, const char *name) -> VmObject * {
@@ -1087,23 +1087,23 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
     };
     auto text = [&](VmObject *o, const char *name) {
         const Value *v = o ? prop(o, name) : nullptr;
-        return v ? upper(vm_.toString(*v)) : std::string();
+        return v ? upper(_vm.toString(*v)) : std::string();
     };
-    if (VmObject *hud = obj(player, "myHUD"); hud && vm_.callEvent(hud, "IsLetterBoxOn").asBool())
+    if (VmObject *hud = obj(player, "myHUD"); hud && _vm.callEvent(hud, "IsLetterBoxOn").asBool())
         return;
     if (VmObject *start = obj(player, "PlayerStart"); start && flag(start, "bNoAutoTriggerDialog"))
         return;
-    const float now = time_;
-    const bool noAction = flag(levelInfo_, "bNoActionLevel");
+    const float now = _time;
+    const bool noAction = flag(_levelInfo, "bNoActionLevel");
     const auto here = Vm::vectorOf(*prop(player, "Location"));
     const float playerHealth = num(player, "Health");
     std::uniform_real_distribution<float> unit(0, 1);
-    auto frand = [&] { return unit(barkRandom_); };
-    const NameId none = vm_.name("None");
+    auto frand = [&] { return unit(_barkRandom); };
+    const NameId none = _vm.name("None");
 
-    const std::vector<VmObject *> pawns = actors_;
+    const std::vector<VmObject *> pawns = _actors;
     for (VmObject *p : pawns) {
-        if (p == player || p->deleted || !vm_.isA(p, "CTVE_Pawn") || flag(p, "bIsPlayer"))
+        if (p == player || p->deleted || !_vm.isA(p, "CTVE_Pawn") || flag(p, "bIsPlayer"))
             continue;
         const Value *code = prop(p, "Speaker_Tag");
         if (!code || code->i == 0 || code->i == none)
@@ -1141,9 +1141,9 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
                 if (frand() > 0.3f)
                     pick("PAN", kPAN);
                 else // a breath instead (FS_MaleBreath)
-                    vm_.callEvent(p, "PlayFoleySound", {Value::intValue(15)}), decided = true;
+                    _vm.callEvent(p, "PlayFoleySound", {Value::intValue(15)}), decided = true;
             } else if (open(kFSE) && enemy && enemy != oldEnemy && num(enemy, "Health") > 0 &&
-                       vm_.callEvent(p, "IsActorAnEnemy", {Value::objectValue(enemy)}).asBool() &&
+                       _vm.callEvent(p, "IsActorAnEnemy", {Value::objectValue(enemy)}).asBool() &&
                        !(flag(enemy, "bIsPlayer") && friendly)) {
                 pick("FSE", kFSE);
             } else if (open(kLSE) && !enemy && oldEnemy && num(oldEnemy, "Health") > 0 &&
@@ -1171,7 +1171,7 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
                     if (open(kLED) && dist < 300 && chance(4, 4))
                         pick("LED", kLED);
                     decided = true;
-                } else if (input && vm_.callEvent(input, "PawnSurrenderOrPray", {Value::objectValue(p)}).asBool()) {
+                } else if (input && _vm.callEvent(input, "PawnSurrenderOrPray", {Value::objectValue(p)}).asBool()) {
                     if (open(kSUR) && dist < 300 && chance(4, 4))
                         pick("SUR", kSUR);
                     decided = true;
@@ -1186,7 +1186,7 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
                         if (open(kBAT) && flag(p, "bIsAttacking") && enemy && num(enemy, "Health") > 0 && !friendly)
                             pick("BAT", kBAT);
                         else if (open(kINT) &&
-                                 same(vm_.nameText(prop(p, "AnimSequence") ? prop(p, "AnimSequence")->i : 0),
+                                 same(_vm.nameText(prop(p, "AnimSequence") ? prop(p, "AnimSequence")->i : 0),
                                       "InterrogateBajoran"))
                             pick("INT", kINT);
                     }
@@ -1203,7 +1203,7 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
         if (Value *v = prop(p, "DLG_OldEnemy"))
             *v = Value::objectValue(obj(p, "Enemy"));
         if (Value *v = prop(p, "DLG_OldCommand"))
-            *v = Value::stringValue(prop(p, "DLG_Command") ? vm_.toString(*prop(p, "DLG_Command")) : std::string());
+            *v = Value::stringValue(prop(p, "DLG_Command") ? _vm.toString(*prop(p, "DLG_Command")) : std::string());
     }
 }
 
@@ -1212,15 +1212,15 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
 // within 75); on a no-action level the player looking at it too.
 bool ScriptLevel::talksToPlayer(VmObject *p, float dist, bool noAction) {
     const Value *e = prop(p, "Enemy");
-    if ((e && e->asObject()) || !player_ || dist > 200 || dist <= 0)
+    if ((e && e->asObject()) || !_player || dist > 200 || dist <= 0)
         return false;
-    const Value *h = prop(player_, "Health");
+    const Value *h = prop(_player, "Health");
     if (!h || h->asFloat() <= 0)
         return false;
-    const auto v = Vm::vectorOf(*prop(player_, "Velocity"));
+    const auto v = Vm::vectorOf(*prop(_player, "Velocity"));
     if (std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) > 200)
         return false;
-    const auto from = Vm::vectorOf(*prop(player_, "Location")), to = Vm::vectorOf(*prop(p, "Location"));
+    const auto from = Vm::vectorOf(*prop(_player, "Location")), to = Vm::vectorOf(*prop(p, "Location"));
     const std::array<float, 3> dir{(to[0] - from[0]) / dist, (to[1] - from[1]) / dist, (to[2] - from[2]) / dist};
     auto facing = [&](VmObject *a) {
         const auto r = Vm::rotatorOf(*prop(a, "Rotation"));
@@ -1229,7 +1229,7 @@ bool ScriptLevel::talksToPlayer(VmObject *p, float dist, bool noAction) {
     };
     const float pawnDot = facing(p);
     if (noAction)
-        return facing(player_) >= 0.7f && (pawnDot < -0.7f || (dist < 75 && pawnDot < 0.7f));
+        return facing(_player) >= 0.7f && (pawnDot < -0.7f || (dist < 75 && pawnDot < 0.7f));
     return pawnDot < -0.7f || (dist < 75 && pawnDot < -0.3f);
 }
 
@@ -1242,27 +1242,27 @@ void ScriptLevel::sayOwnLine(VmObject *p, const std::string &type, int32_t bit, 
     auto failed = [&](float ago) {
         if (!(flags->asInt() & bit))
             if (Value *v = prop(p, "DLG_LastAttemptedSpeakTime"))
-                *v = Value::floatValue(time_ - ago);
+                *v = Value::floatValue(_time - ago);
     };
     const Value *obstruction = prop(p, "ObstructionFactor");
     if (dist >= (1.2f - (obstruction ? obstruction->asFloat() : 0)) * 800) {
-        const auto eye = Vm::vectorOf(*prop(player_, "Location"));
+        const auto eye = Vm::vectorOf(*prop(_player, "Location"));
         const auto at = Vm::vectorOf(*prop(p, "Location"));
-        if (!lineOfSight(player_, eye, at)) {
+        if (!lineOfSight(_player, eye, at)) {
             failed(0);
             return;
         }
     }
-    const std::string speaker = vm_.nameText(prop(p, "Speaker_Tag")->i);
+    const std::string speaker = _vm.nameText(prop(p, "Speaker_Tag")->i);
     if (!hasDialogLines(type, speaker)) {
         *flags = Value::intValue(flags->asInt() | bit);
         return;
     }
     // A talk to the player waits while one plays or a hail's on.
-    const Value *lineType = prop(levelInfo_, "CurrentLineType");
-    const std::string current = lineType ? upper(vm_.nameText(lineType->i)) : "";
-    const bool talking = std::any_of(dialogThreads_.begin(), dialogThreads_.end(), [&](const DialogThread &t) {
-        return !t.queued && t.line >= 0 && same(dialogLines_[size_t(t.line)].type, "TTP");
+    const Value *lineType = prop(_levelInfo, "CurrentLineType");
+    const std::string current = lineType ? upper(_vm.nameText(lineType->i)) : "";
+    const bool talking = std::any_of(_dialogThreads.begin(), _dialogThreads.end(), [&](const DialogThread &t) {
+        return !t.queued && t.line >= 0 && same(_dialogLines[size_t(t.line)].type, "TTP");
     });
     if (type == "TTP" && (talking || current == "HAL" || current == "HOP" || current == "HBO" || current == "HCL")) {
         failed(3);
@@ -1286,15 +1286,15 @@ void ScriptLevel::sayOwnLine(VmObject *p, const std::string &type, int32_t bit, 
     // Then as any line: StartLine's rules for a busy speaker.
     playOwnLine(p, index);
     if (Value *v = prop(p, "DLG_LastSpeakTime"))
-        *v = Value::floatValue(time_);
+        *v = Value::floatValue(_time);
     if (Value *v = prop(p, "DLG_LastSpokenLine"))
         *v = Value::intValue(index);
 }
 
 bool ScriptLevel::hasDialogLines(const std::string &type, const std::string &speaker) {
     loadDialog();
-    for (size_t i = 0; i < dialogLines_.size(); ++i)
-        if (same(dialogLines_[i].type, type) && same(dialogLines_[i].speaker, speaker))
+    for (size_t i = 0; i < _dialogLines.size(); ++i)
+        if (same(_dialogLines[i].type, type) && same(_dialogLines[i].speaker, speaker))
             return true;
     return false;
 }
@@ -1308,7 +1308,7 @@ int ScriptLevel::ownLine(VmObject *pawn, const std::string &type) {
 }
 
 void ScriptLevel::playOwnLine(VmObject *pawn, int index) {
-    if (startLine(nextDialogThread_++, index, pawn))
+    if (startLine(_nextDialogThread++, index, pawn))
         ++dialog.barks;
 }
 

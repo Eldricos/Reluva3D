@@ -288,13 +288,13 @@ std::vector<Polygon> levelPolygons(const Model &model) {
         if (node.vertexCount < 3)
             continue;
         const BspSurf &s = model.surfs[size_t(node.surf)];
-        if (s.polyFlags & (polyflag::Invisible | polyflag::Portal))
+        if (s.polyFlags & (polyflag::kInvisible | polyflag::kPortal))
             continue;
         Polygon p;
         p.surf = node.surf;
         p.normal = model.vectors[size_t(s.normal)];
         p.zones = uint64_t(1) << (node.zone[1] & 63);
-        if (node.zone[1] == 0 || (s.polyFlags & (polyflag::TwoSided | polyflag::NotSolid | polyflag::Semisolid)))
+        if (node.zone[1] == 0 || (s.polyFlags & (polyflag::kTwoSided | polyflag::kNotSolid | polyflag::kSemisolid)))
             p.zones |= uint64_t(1) << (node.zone[0] & 63);
         const Vec3f &base = model.points[size_t(s.base)];
         const Vec3f &tu = model.vectors[size_t(s.textureU)];

@@ -31,7 +31,7 @@ public:
     // stopped or another started). The decoded sounds are kept.
     void reset();
 
-    size_t playingCount() const { return playing_.size() + ambient_.size() + (music_ ? 1 : 0); }
+    size_t playingCount() const { return _playing.size() + _ambient.size() + (_music ? 1 : 0); }
     // What's playing, a line each (its kind and sound), then how many
     // one-off sounds have started and the last few.
     std::vector<std::string> describe() const;
@@ -60,19 +60,19 @@ private:
     float behind(const Vec3f &at) const;
     static float reverbTail(const audio::Sound &sound);
 
-    LevelPlay::Room room_;        // where the listener is
-    audio::Mixer::Reverb reverb_; // that room's reverb on a positional sound
-    Vec3f viewerVelocity_{};
-    float dopplerSpeed_ = 35000;
+    LevelPlay::Room _room;        // where the listener is
+    audio::Mixer::Reverb _reverb; // that room's reverb on a positional sound
+    Vec3f _viewerVelocity{};
+    float _dopplerSpeed = 35000;
 
-    audio::Mixer &mixer_;
-    const PackageSet &packages_;
-    std::map<std::pair<const Package *, int>, std::shared_ptr<const audio::Sound>> sounds_; // null: unreadable
+    audio::Mixer &_mixer;
+    const PackageSet &_packages;
+    std::map<std::pair<const Package *, int>, std::shared_ptr<const audio::Sound>> _sounds; // null: unreadable
 
-    Vec3f listener_{}, right_{0, 1, 0}, forward_{1, 0, 0}, up_{0, 0, 1};
-    bool stereo_ = true, reverse_ = false, surround_ = false;
-    int channels_ = 16;
-    float musicSetting_ = 1; // MusicVolume / 255
+    Vec3f _listener{}, _right{0, 1, 0}, _forward{1, 0, 0}, _up{0, 0, 1};
+    bool _stereo = true, _reverse = false, _surround = false;
+    int _channels = 16;
+    float _musicSetting = 1; // MusicVolume / 255
 
     struct Playing {
         audio::SoundHandle handle = audio::kNoSound;
@@ -88,9 +88,9 @@ private:
         float tail = 0; // its reverb's tail once it has ended (seconds)
         ObjectRef sound;
     };
-    std::vector<Playing> playing_;
-    std::vector<std::string> recent_; // the last one-off sounds started, oldest first
-    size_t started_ = 0;
+    std::vector<Playing> _playing;
+    std::vector<std::string> _recent; // the last one-off sounds started, oldest first
+    size_t _started = 0;
     struct Ambient {
         audio::SoundHandle handle = audio::kNoSound;
         std::pair<const Package *, int> sound{};
@@ -99,18 +99,18 @@ private:
         float radius = 0;
         Vec3f at{};
     };
-    std::map<VmObject *, Ambient> ambient_;
-    std::vector<LevelPlay::Ambient> ambientNow_;
+    std::map<VmObject *, Ambient> _ambient;
+    std::vector<LevelPlay::Ambient> _ambientNow;
 
-    audio::SoundHandle music_ = audio::kNoSound;
-    VmObject *musicSound_ = nullptr;
-    float musicVolume_ = 1;
-    bool musicStreamed_ = true;
+    audio::SoundHandle _music = audio::kNoSound;
+    VmObject *_musicSound = nullptr;
+    float _musicVolume = 1;
+    bool _musicStreamed = true;
     struct Fade {
         audio::SoundHandle handle;
         float volume, left; // its loudness (0-1) and seconds to go
     };
-    std::vector<Fade> fading_;
+    std::vector<Fade> _fading;
 };
 
 } // namespace reluva::unreal

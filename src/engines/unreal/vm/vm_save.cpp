@@ -41,28 +41,28 @@ int saveVersion(const char *magic) {
 
 class Out {
 public:
-    void u8(uint8_t v) { s_.push_back(char(v)); }
+    void u8(uint8_t v) { _s.push_back(char(v)); }
     void i32(int32_t v) { raw(&v, 4); }
     void f32(float v) { raw(&v, 4); }
     void i64(int64_t v) { raw(&v, 8); }
     void str(const std::string &v) {
         i32(int32_t(v.size()));
-        s_ += v;
+        _s += v;
     }
     void vec(const std::array<float, 3> &v) {
         for (float f : v)
             f32(f);
     }
-    const std::string &data() const { return s_; }
+    const std::string &data() const { return _s; }
 
 private:
-    void raw(const void *p, size_t n) { s_.append(static_cast<const char *>(p), n); }
-    std::string s_;
+    void raw(const void *p, size_t n) { _s.append(static_cast<const char *>(p), n); }
+    std::string _s;
 };
 
 class In {
 public:
-    explicit In(std::string data) : d_(std::move(data)) {}
+    explicit In(std::string data) : _d(std::move(data)) {}
     uint8_t u8() {
         uint8_t v = 0;
         raw(&v, 1);
@@ -85,12 +85,12 @@ public:
     }
     std::string str() {
         const int32_t n = i32();
-        if (n < 0 || size_t(n) > d_.size() - at_) {
-            ok_ = false;
+        if (n < 0 || size_t(n) > _d.size() - _at) {
+            _ok = false;
             return {};
         }
-        std::string v = d_.substr(at_, size_t(n));
-        at_ += size_t(n);
+        std::string v = _d.substr(_at, size_t(n));
+        _at += size_t(n);
         return v;
     }
     std::array<float, 3> vec() { return {f32(), f32(), f32()}; }
@@ -98,39 +98,39 @@ public:
     // the file can't hold that many.
     int32_t count(size_t least = 1) {
         const int32_t n = i32();
-        if (n < 0 || size_t(n) * least > d_.size() - at_) {
-            ok_ = false;
+        if (n < 0 || size_t(n) * least > _d.size() - _at) {
+            _ok = false;
             return 0;
         }
         return n;
     }
-    bool ok() const { return ok_; }
+    bool ok() const { return _ok; }
 
 private:
     void raw(void *p, size_t n) {
-        if (n > d_.size() - at_) {
-            ok_ = false;
+        if (n > _d.size() - _at) {
+            _ok = false;
             std::memset(p, 0, n);
             return;
         }
-        std::memcpy(p, d_.data() + at_, n);
-        at_ += n;
+        std::memcpy(p, _d.data() + _at, n);
+        _at += n;
     }
-    std::string d_;
-    size_t at_ = 0;
-    bool ok_ = true;
+    std::string _d;
+    size_t _at = 0;
+    bool _ok = true;
 };
 
 // How an object reference is written.
 enum RefKind : uint8_t {
-    RefNone,
-    RefSaved,    // one of the saved objects, by its number
-    RefPackage,  // an object of a package (a texture, a mesh): its package and export
-    RefClass,    // a class, by its package and name (or its name, made up by the engine)
-    RefViewport, // the player's viewport, console and canvas: the new level's own
-    RefConsole,
-    RefCanvas,
-    RefMapExport, // one of the map's objects that isn't an actor (its Level)
+    kRefNone,
+    kRefSaved,    // one of the saved objects, by its number
+    kRefPackage,  // an object of a package (a texture, a mesh): its package and export
+    kRefClass,    // a class, by its package and name (or its name, made up by the engine)
+    kRefViewport, // the player's viewport, console and canvas: the new level's own
+    kRefConsole,
+    kRefCanvas,
+    kRefMapExport, // one of the map's objects that isn't an actor (its Level)
 };
 
 std::string qualifiedName(const VmClass *c) {
@@ -184,9 +184,9 @@ Error ScriptLevel::readSaveInfo(const std::filesystem::path &file, SaveInfo &out
 std::vector<ScriptLevel::SaveInfo> ScriptLevel::savedGames() const {
     std::vector<SaveInfo> out;
     std::error_code ec;
-    if (saveFolder_.empty())
+    if (_saveFolder.empty())
         return out;
-    for (const auto &entry : std::filesystem::directory_iterator(saveFolder_, ec)) {
+    for (const auto &entry : std::filesystem::directory_iterator(_saveFolder, ec)) {
         const std::string ext = fs::toLower(entry.path().extension().string());
         SaveInfo info;
         if ((ext == ".dss" || ext == ".dsa") && !readSaveInfo(entry.path(), info))
@@ -201,34 +201,34 @@ std::vector<ScriptLevel::SaveInfo> ScriptLevel::savedGames() const {
 // The level saved, in Reluva's own format: "QuickSave" to QuickSave.dsa,
 // anything else as the game names its saves.
 Error ScriptLevel::saveGame(const std::string &slot) {
-    if (saveFolder_.empty())
+    if (_saveFolder.empty())
         return Error::fail("no folder to save games in");
     std::error_code ec;
-    std::filesystem::create_directories(saveFolder_, ec);
+    std::filesystem::create_directories(_saveFolder, ec);
     std::filesystem::path file;
     std::string description;
     if (fs::toLower(slot) == "quicksave") {
-        file = saveFolder_ / "QuickSave.dsa";
+        file = _saveFolder / "QuickSave.dsa";
         description = "QuickSave";
     } else {
         // Named as the game names them: the level's title (else its name),
         // spaces as underscores, then the seconds played, counting up past
         // any already there.
-        if (const Value *title = levelInfo_->find(vm_, "Title"); title && !title->s.empty())
+        if (const Value *title = _levelInfo->find(_vm, "Title"); title && !title->s.empty())
             description = title->s;
         else
-            description = map_.name();
+            description = _map.name();
         std::string base = description.substr(0, 64);
         std::replace(base.begin(), base.end(), ' ', '_');
-        const Value *played = player_ ? prop(player_, "GamePlayedTime") : nullptr;
+        const Value *played = _player ? prop(_player, "GamePlayedTime") : nullptr;
         int n = played ? int(played->asFloat()) : 0;
-        while (std::filesystem::exists(saveFolder_ / (base + "-" + std::to_string(n) + ".dsa"), ec))
+        while (std::filesystem::exists(_saveFolder / (base + "-" + std::to_string(n) + ".dsa"), ec))
             ++n;
-        file = saveFolder_ / (base + "-" + std::to_string(n) + ".dsa");
+        file = _saveFolder / (base + "-" + std::to_string(n) + ".dsa");
     }
     // As the original saves it, so the original loads it too (Reluva's
     // own format, below, stays for its older saves).
-    if (!reluvaFormat_)
+    if (!reluvaFormat)
         return writeGameSave(file.string());
 
     // The objects: the level's actors and what they lead to that the level
@@ -236,18 +236,18 @@ Error ScriptLevel::saveGame(const std::string &slot) {
     // and canvas, which a loaded level makes anew).
     VmObject *viewport = nullptr;
     VmObject *console = nullptr;
-    if (player_)
-        if (const Value *v = player_->find(vm_, "Player"); v && v->asObject()) {
+    if (_player)
+        if (const Value *v = _player->find(_vm, "Player"); v && v->asObject()) {
             viewport = v->o;
-            if (const Value *c = viewport->find(vm_, "Console"))
+            if (const Value *c = viewport->find(_vm, "Console"))
                 console = c->asObject();
         }
     std::vector<VmObject *> saved;
     std::map<const VmObject *, int> ids;
-    auto mapActor = [&](const VmObject *o) { return o->package == &map_ && o->isActor && o->exportIndex >= 0; };
+    auto mapActor = [&](const VmObject *o) { return o->package == &_map && o->isActor && o->exportIndex >= 0; };
     auto wanted = [&](const VmObject *o) {
         return o && !o->deleted && !o->asClass && o->cls && (!o->package || mapActor(o)) && o != viewport &&
-               o != console && o != canvas_ && (o->package || o->cls->package);
+               o != console && o != _canvas && (o->package || o->cls->package);
     };
     auto add = [&](VmObject *o) {
         if (wanted(o) && !ids.count(o)) {
@@ -255,12 +255,12 @@ Error ScriptLevel::saveGame(const std::string &slot) {
             saved.push_back(o);
         }
     };
-    for (VmObject *a : actors_)
+    for (VmObject *a : _actors)
         add(a);
-    for (VmObject *g : ghosts_)
+    for (VmObject *g : _ghosts)
         add(g);
     std::function<void(const Value &)> follow = [&](const Value &v) {
-        if (v.type == VType::Object)
+        if (v.type == VType::kObject)
             add(v.o);
         for (const Value &f : v.fields)
             follow(f);
@@ -270,65 +270,65 @@ Error ScriptLevel::saveGame(const std::string &slot) {
             follow(v);
 
     Out out;
-    out.str(map_.name());
+    out.str(_map.name());
     out.str(description);
     out.i64(int64_t(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())));
     auto ref = [&](const VmObject *o) {
         if (!o || o->deleted) {
-            out.u8(RefNone);
+            out.u8(kRefNone);
         } else if (auto it = ids.find(o); it != ids.end()) {
-            out.u8(RefSaved);
+            out.u8(kRefSaved);
             out.i32(it->second);
         } else if (o == viewport) {
-            out.u8(RefViewport);
+            out.u8(kRefViewport);
         } else if (o == console) {
-            out.u8(RefConsole);
-        } else if (o == canvas_) {
-            out.u8(RefCanvas);
+            out.u8(kRefConsole);
+        } else if (o == _canvas) {
+            out.u8(kRefCanvas);
         } else if (o->asClass) {
-            out.u8(RefClass);
+            out.u8(kRefClass);
             out.str(qualifiedName(o->asClass));
-        } else if (o->package == &map_ && o->exportIndex >= 0) {
-            out.u8(RefMapExport);
+        } else if (o->package == &_map && o->exportIndex >= 0) {
+            out.u8(kRefMapExport);
             out.i32(o->exportIndex);
         } else if (o->package && o->exportIndex >= 0) {
-            out.u8(RefPackage);
+            out.u8(kRefPackage);
             out.str(o->package->name());
             out.i32(o->exportIndex);
         } else {
-            out.u8(RefNone);
+            out.u8(kRefNone);
         }
     };
     std::function<void(const Value &)> value = [&](const Value &v) {
         out.u8(uint8_t(v.type));
         switch (v.type) {
-        case VType::Byte:
-        case VType::Int:
-        case VType::Bool:
+        case VType::kByte:
+        case VType::kInt:
+        case VType::kBool:
             out.i32(v.i);
             break;
-        case VType::Name:
-            out.str(v.i ? vm_.nameText(v.i) : std::string());
+        case VType::kName:
+            out.str(v.i ? _vm.nameText(v.i) : std::string());
             break;
-        case VType::Float:
+        case VType::kFloat:
             out.f32(v.f);
             break;
-        case VType::String:
+        case VType::kString:
             out.str(v.s);
             break;
-        case VType::Object:
+        case VType::kObject:
             ref(v.o);
             break;
-        case VType::Struct:
+        case VType::kStruct:
             out.i32(int32_t(v.fields.size()));
             for (const Value &f : v.fields)
                 value(f);
             break;
-        case VType::None:
+        case VType::kNone:
             break;
         }
     };
-    auto name = [&](NameId n) { out.str(n ? vm_.nameText(n) : std::string()); };
+    auto name = [&](NameId n) { out.str(n ? _vm.nameText(n) : std::string()); };
 
     out.i32(int32_t(saved.size()));
     for (const VmObject *o : saved) {
@@ -347,7 +347,7 @@ Error ScriptLevel::saveGame(const std::string &slot) {
             value(v);
         name(o->state ? o->state->nameId : 0);
         int depth = -1, d = 0;
-        for (const VmStruct *s = o->state; s && s->kind == VmStruct::Kind::State; s = s->super, ++d)
+        for (const VmStruct *s = o->state; s && s->kind == VmStruct::Kind::kState; s = s->super, ++d)
             if (s == o->codeState)
                 depth = d;
         out.i32(depth);
@@ -365,18 +365,18 @@ Error ScriptLevel::saveGame(const std::string &slot) {
 
     // The level's own records.
     auto has = [&](const VmObject *o) { return ids.count(o) > 0; };
-    out.i32(int32_t(std::count_if(actors_.begin(), actors_.end(), has)));
-    for (VmObject *a : actors_)
+    out.i32(int32_t(std::count_if(_actors.begin(), _actors.end(), has)));
+    for (VmObject *a : _actors)
         if (has(a))
             out.i32(ids[a]);
-    out.i32(int32_t(std::count_if(ghosts_.begin(), ghosts_.end(), has)));
-    for (VmObject *g : ghosts_)
+    out.i32(int32_t(std::count_if(_ghosts.begin(), _ghosts.end(), has)));
+    for (VmObject *g : _ghosts)
         if (has(g))
             out.i32(ids[g]);
-    ref(player_);
-    ref(game_);
-    out.f32(time_);
-    out.i32(ticks_);
+    ref(_player);
+    ref(_game);
+    out.f32(_time);
+    out.i32(_ticks);
     auto keyed = [&](const auto &table, auto &&write) {
         out.i32(int32_t(std::count_if(table.begin(), table.end(), [&](const auto &e) { return has(e.first); })));
         for (const auto &[o, entry] : table)
@@ -385,12 +385,12 @@ Error ScriptLevel::saveGame(const std::string &slot) {
                 write(entry);
             }
     };
-    keyed(touching_, [&](const std::vector<VmObject *> &list) {
+    keyed(_touching, [&](const std::vector<VmObject *> &list) {
         out.i32(int32_t(list.size()));
         for (VmObject *t : list)
             ref(t);
     });
-    keyed(goals_, [&](const Goal &g) {
+    keyed(_goals, [&](const Goal &g) {
         out.u8(uint8_t(g.kind));
         out.vec(g.point);
         ref(g.target);
@@ -401,12 +401,12 @@ Error ScriptLevel::saveGame(const std::string &slot) {
         out.f32(g.timeLeft);
         out.i32(g.stateSerial);
     });
-    out.i32(int32_t(std::count_if(fallers_.begin(), fallers_.end(), has)));
-    for (VmObject *f : fallers_)
+    out.i32(int32_t(std::count_if(_fallers.begin(), _fallers.end(), has)));
+    for (VmObject *f : _fallers)
         if (has(f))
             out.i32(ids[f]);
-    keyed(animWaits_, [&](int serial) { out.i32(serial); });
-    keyed(layers_, [&](const std::map<NameId, AnimLayer> &groups) {
+    keyed(_animWaits, [&](int serial) { out.i32(serial); });
+    keyed(_layers, [&](const std::map<NameId, AnimLayer> &groups) {
         out.i32(int32_t(groups.size()));
         for (const auto &[group, l] : groups) {
             name(group);
@@ -428,7 +428,7 @@ Error ScriptLevel::saveGame(const std::string &slot) {
             out.u8(l.fromLoop);
         }
     });
-    keyed(skins_, [&](const SkinChannels &channels) {
+    keyed(_skins, [&](const SkinChannels &channels) {
         out.i32(int32_t(channels.size()));
         for (const auto &[tag, s] : channels) {
             name(tag);
@@ -447,19 +447,19 @@ Error ScriptLevel::saveGame(const std::string &slot) {
             out.f32(s.pendingTween);
         }
     });
-    keyed(layerWaits_, [&](const std::pair<NameId, int> &w) {
+    keyed(_layerWaits, [&](const std::pair<NameId, int> &w) {
         name(w.first);
         out.i32(w.second);
     });
-    keyed(attachments_, [&](const Attachment &a) {
+    keyed(_attachments, [&](const Attachment &a) {
         ref(a.parent);
         name(a.parentPoint);
         name(a.childPoint);
     });
-    keyed(bends_, [&](const Bends &b) {
+    keyed(_bends, [&](const Bends &b) {
         // This tick's turns, kept so a frame drawn before the scripts next
         // run shows them.
-        const bool current = b.opsTick == int64_t(ticks_) || b.opsTick + 1 == int64_t(ticks_);
+        const bool current = b.opsTick == int64_t(_ticks) || b.opsTick + 1 == int64_t(_ticks);
         out.i32(current ? int32_t(b.ops.size()) : 0);
         if (current)
             for (const Bends::Op &op : b.ops) {
@@ -483,12 +483,12 @@ Error ScriptLevel::saveGame(const std::string &slot) {
         }
         // The effectors are worked out again from the next tick's animation.
     });
-    out.u8(dialogLoaded_);
-    out.i32(int32_t(dialogPlays_.size()));
-    for (int n : dialogPlays_)
+    out.u8(_dialogLoaded);
+    out.i32(int32_t(_dialogPlays.size()));
+    for (int n : _dialogPlays)
         out.i32(n);
-    out.i32(int32_t(dialogThreads_.size()));
-    for (const DialogThread &t : dialogThreads_) {
+    out.i32(int32_t(_dialogThreads.size()));
+    for (const DialogThread &t : _dialogThreads) {
         out.i32(t.id);
         out.i32(t.line);
         ref(t.self);
@@ -502,22 +502,22 @@ Error ScriptLevel::saveGame(const std::string &slot) {
         out.i32(t.back);
         out.str(t.backPattern);
     }
-    out.i32(nextDialogThread_);
-    out.i32(int32_t(dialogRandom_));
-    out.i32(int32_t(surfaceSwaps_.surfaces.size()));
-    for (const auto &[surf, tex] : surfaceSwaps_.surfaces) {
+    out.i32(_nextDialogThread);
+    out.i32(int32_t(_dialogRandom));
+    out.i32(int32_t(_surfaceSwaps.surfaces.size()));
+    for (const auto &[surf, tex] : _surfaceSwaps.surfaces) {
         out.i32(surf);
         out.str(tex.package->name());
         out.i32(tex.exportIndex);
     }
-    out.i32(int32_t(surfaceSwaps_.world.size()));
-    for (const auto &[from, to] : surfaceSwaps_.world) {
+    out.i32(int32_t(_surfaceSwaps.world.size()));
+    for (const auto &[from, to] : _surfaceSwaps.world) {
         out.str(from.first->name());
         out.i32(from.second);
         out.str(to.package->name());
         out.i32(to.exportIndex);
     }
-    const auto &counts = vm_.nameCounts();
+    const auto &counts = _vm.nameCounts();
     out.i32(int32_t(counts.size()));
     for (const auto &[cls, n] : counts) {
         out.str(qualifiedName(cls));
@@ -528,9 +528,9 @@ Error ScriptLevel::saveGame(const std::string &slot) {
     // engine keeps across a load, its packages staying loaded: the HUD's
     // places (SetHudData), the FLC textures' playing (Mode, FrameNum).
     std::vector<const VmObject *> textures;
-    for (const auto &o : vm_.objects())
-        if (o->package && o->package != &map_ && o->exportIndex >= 0 && !o->asClass && !o->deleted && o->cls &&
-            vm_.isA(o.get(), "Texture"))
+    for (const auto &o : _vm.objects())
+        if (o->package && o->package != &_map && o->exportIndex >= 0 && !o->asClass && !o->deleted && o->cls &&
+            _vm.isA(o.get(), "Texture"))
             textures.push_back(o.get());
     out.i32(int32_t(textures.size()));
     for (const VmObject *t : textures) {
@@ -567,13 +567,13 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
     if (!version)
         return Error::fail(file.string() + ": not a saved game of Reluva's");
     In in(data.substr(8));
-    if (in.str() != map_.name())
+    if (in.str() != _map.name())
         return Error::fail(file.string() + ": saved on another map");
     in.str();
     in.i64();
 
     std::map<int, VmObject *> byExport;
-    for (VmObject *a : actors_)
+    for (VmObject *a : _actors)
         if (a->exportIndex >= 0)
             byExport[a->exportIndex] = a;
     std::vector<VmObject *> objects;
@@ -588,42 +588,42 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         } else {
             const std::string cls = in.str();
             const std::string objName = in.str();
-            if (VmClass *c = vm_.findClass(cls))
-                o = vm_.create(c, vm_.name(objName));
+            if (VmClass *c = _vm.findClass(cls))
+                o = _vm.create(c, _vm.name(objName));
         }
         if (!o)
             return Error::fail(file.string() + ": an object that can't be made again");
         objects.push_back(o);
         kept.insert(o);
     }
-    for (VmObject *a : actors_)
+    for (VmObject *a : _actors)
         if (!kept.count(a))
             a->deleted = true;
 
     VmObject *viewport = nullptr; // made once the player is known
     auto ref = [&]() -> VmObject * {
         switch (in.u8()) {
-        case RefSaved: {
+        case kRefSaved: {
             const int32_t id = in.i32();
             return id >= 0 && size_t(id) < objects.size() ? objects[size_t(id)] : nullptr;
         }
-        case RefPackage: {
+        case kRefPackage: {
             const std::string package = in.str();
             const int32_t index = in.i32();
-            const Package *p = vm_.packages().get(package);
-            return p ? vm_.objectAt(*p, index + 1) : nullptr;
+            const Package *p = _vm.packages().get(package);
+            return p ? _vm.objectAt(*p, index + 1) : nullptr;
         }
-        case RefClass: {
-            VmClass *c = vm_.findClass(in.str());
+        case kRefClass: {
+            VmClass *c = _vm.findClass(in.str());
             return c ? c->object : nullptr;
         }
-        case RefMapExport:
-            return vm_.objectAt(map_, in.i32() + 1);
-        case RefViewport:
+        case kRefMapExport:
+            return _vm.objectAt(_map, in.i32() + 1);
+        case kRefViewport:
             return reinterpret_cast<VmObject *>(1); // put right once it's made
-        case RefConsole:
+        case kRefConsole:
             return reinterpret_cast<VmObject *>(2);
-        case RefCanvas:
+        case kRefCanvas:
             return reinterpret_cast<VmObject *>(3);
         default:
             return nullptr;
@@ -639,23 +639,23 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         Value &to = keep ? v : read;
         to.type = type;
         switch (type) {
-        case VType::Byte:
-        case VType::Int:
-        case VType::Bool:
+        case VType::kByte:
+        case VType::kInt:
+        case VType::kBool:
             to.i = in.i32();
             break;
-        case VType::Name: {
+        case VType::kName: {
             const std::string text = in.str();
-            to.i = text.empty() ? 0 : vm_.name(text);
+            to.i = text.empty() ? 0 : _vm.name(text);
             break;
         }
-        case VType::Float:
+        case VType::kFloat:
             to.f = in.f32();
             break;
-        case VType::String:
+        case VType::kString:
             to.s = in.str();
             break;
-        case VType::Object:
+        case VType::kObject:
             to.o = ref();
             if (reinterpret_cast<uintptr_t>(to.o) <= 3 && to.o) {
                 if (keep)
@@ -664,7 +664,7 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
                     to.o = nullptr;
             }
             break;
-        case VType::Struct: {
+        case VType::kStruct: {
             const int32_t fields = in.count(1);
             if (size_t(fields) != to.fields.size())
                 to.fields.resize(size_t(fields));
@@ -672,13 +672,13 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
                 value(f, keep);
             break;
         }
-        case VType::None:
+        case VType::kNone:
             break;
         }
     };
     auto name = [&]() -> NameId {
         const std::string text = in.str();
-        return text.empty() ? 0 : vm_.name(text);
+        return text.empty() ? 0 : _vm.name(text);
     };
     for (VmObject *o : objects) {
         const int32_t count = in.count(1);
@@ -687,11 +687,11 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         for (Value &v : o->values)
             value(v, true);
         const NameId stateName = name();
-        o->state = stateName ? vm_.findState(o->cls, stateName) : nullptr;
+        o->state = stateName ? _vm.findState(o->cls, stateName) : nullptr;
         const int32_t depth = in.i32();
         o->codeState = nullptr;
         int d = 0;
-        for (VmStruct *s = o->state; s && s->kind == VmStruct::Kind::State; s = s->super, ++d)
+        for (VmStruct *s = o->state; s && s->kind == VmStruct::Kind::kState; s = s->super, ++d)
             if (d == depth)
                 o->codeState = static_cast<VmState *>(s);
         o->codeAt = in.i32();
@@ -708,22 +708,22 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         o->timerLoop = in.u8() != 0;
     }
 
-    actors_.clear();
+    _actors.clear();
     for (int32_t k = in.count(4); k > 0; --k) {
         const int32_t id = in.i32();
         if (id >= 0 && size_t(id) < objects.size())
-            actors_.push_back(objects[size_t(id)]);
+            _actors.push_back(objects[size_t(id)]);
     }
-    ghosts_.clear();
+    _ghosts.clear();
     for (int32_t k = in.count(4); k > 0; --k) {
         const int32_t id = in.i32();
         if (id >= 0 && size_t(id) < objects.size())
-            ghosts_.push_back(objects[size_t(id)]);
+            _ghosts.push_back(objects[size_t(id)]);
     }
-    player_ = ref();
-    game_ = ref();
-    time_ = in.f32();
-    ticks_ = in.i32();
+    _player = ref();
+    _game = ref();
+    _time = in.f32();
+    _ticks = in.i32();
     auto object = [&]() -> VmObject * {
         const int32_t id = in.i32();
         return id >= 0 && size_t(id) < objects.size() ? objects[size_t(id)] : nullptr;
@@ -734,14 +734,14 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
             read(o);
         }
     };
-    touching_.clear();
+    _touching.clear();
     keyed([&](VmObject *o) {
-        std::vector<VmObject *> &list = touching_[o];
+        std::vector<VmObject *> &list = _touching[o];
         for (int32_t k = in.count(1); k > 0; --k)
             if (VmObject *t = ref())
                 list.push_back(t);
     });
-    goals_.clear();
+    _goals.clear();
     keyed([&](VmObject *o) {
         Goal g;
         g.kind = Goal::Kind(in.u8());
@@ -753,15 +753,15 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         g.speed = in.f32();
         g.timeLeft = in.f32();
         g.stateSerial = in.i32();
-        goals_[o] = g;
+        _goals[o] = g;
     });
-    fallers_.clear();
+    _fallers.clear();
     for (int32_t k = in.count(4); k > 0; --k)
         if (VmObject *o = object())
-            fallers_.insert(o);
-    animWaits_.clear();
-    keyed([&](VmObject *o) { animWaits_[o] = in.i32(); });
-    layers_.clear();
+            _fallers.insert(o);
+    _animWaits.clear();
+    keyed([&](VmObject *o) { _animWaits[o] = in.i32(); });
+    _layers.clear();
     keyed([&](VmObject *o) {
         for (int32_t k = in.count(4); k > 0; --k) {
             const NameId group = name();
@@ -784,10 +784,10 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
                 l.fromWeight = in.f32();
                 l.fromLoop = in.u8() != 0;
             }
-            layers_[o][group] = l;
+            _layers[o][group] = l;
         }
     });
-    skins_.clear();
+    _skins.clear();
     keyed([&](VmObject *o) {
         for (int32_t k = in.count(4); k > 0; --k) {
             const NameId tag = name();
@@ -805,25 +805,25 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
             s.pendingFrame = in.f32();
             s.pendingWeight = in.f32();
             s.pendingTween = in.f32();
-            skins_[o].push_back({tag, s});
+            _skins[o].push_back({tag, s});
         }
     });
-    layerWaits_.clear();
+    _layerWaits.clear();
     keyed([&](VmObject *o) {
         const NameId group = name();
-        layerWaits_[o] = {group, in.i32()};
+        _layerWaits[o] = {group, in.i32()};
     });
-    attachments_.clear();
+    _attachments.clear();
     keyed([&](VmObject *o) {
         Attachment a;
         a.parent = ref();
         a.parentPoint = name();
         a.childPoint = name();
-        attachments_[o] = a;
+        _attachments[o] = a;
     });
-    bends_.clear();
+    _bends.clear();
     keyed([&](VmObject *o) {
-        Bends &b = bends_[o];
+        Bends &b = _bends[o];
         for (int32_t k = in.count(4); k > 0; --k) {
             Bends::Op op;
             op.kind = in.i32();
@@ -836,7 +836,7 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
                 r = in.u8() != 0;
             b.ops.push_back(op);
         }
-        b.opsTick = int64_t(ticks_);
+        b.opsTick = int64_t(_ticks);
         for (Bends::Ik &ik : b.limbs) {
             ik.place = in.u8() != 0;
             ik.turn = in.u8() != 0;
@@ -852,10 +852,10 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
     const int32_t plays = in.count(4);
     for (int32_t k = 0; k < plays; ++k) {
         const int32_t p = in.i32();
-        if (size_t(k) < dialogPlays_.size())
-            dialogPlays_[size_t(k)] = p;
+        if (size_t(k) < _dialogPlays.size())
+            _dialogPlays[size_t(k)] = p;
     }
-    dialogThreads_.clear();
+    _dialogThreads.clear();
     for (int32_t k = in.count(4); k > 0; --k) {
         DialogThread t;
         t.id = in.i32();
@@ -871,65 +871,65 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         t.back = in.i32();
         t.backPattern = in.str();
         t.phoneme = 0;
-        if (t.line >= 0 && size_t(t.line) < dialogLines_.size())
-            dialogThreads_.push_back(t);
+        if (t.line >= 0 && size_t(t.line) < _dialogLines.size())
+            _dialogThreads.push_back(t);
     }
-    nextDialogThread_ = in.i32();
-    dialogRandom_ = uint32_t(in.i32());
-    surfaceSwaps_ = {};
+    _nextDialogThread = in.i32();
+    _dialogRandom = uint32_t(in.i32());
+    _surfaceSwaps = {};
     auto packageRef = [&]() -> ObjectRef {
-        const Package *p = vm_.packages().get(in.str());
+        const Package *p = _vm.packages().get(in.str());
         const int32_t index = in.i32();
         return p ? ObjectRef{p, index} : ObjectRef{};
     };
     for (int32_t k = in.count(12); k > 0; --k) {
         const int32_t surf = in.i32();
         if (const ObjectRef tex = packageRef())
-            surfaceSwaps_.surfaces[surf] = tex;
+            _surfaceSwaps.surfaces[surf] = tex;
     }
     for (int32_t k = in.count(16); k > 0; --k) {
         const ObjectRef from = packageRef(), to = packageRef();
         if (from && to)
-            surfaceSwaps_.world[{from.package, from.exportIndex}] = to;
+            _surfaceSwaps.world[{from.package, from.exportIndex}] = to;
     }
-    surfaceSwaps_.serial = 1;
+    _surfaceSwaps.serial = 1;
     for (int32_t k = in.count(8); k > 0; --k) {
         const std::string cls = in.str();
         const int32_t count = in.i32();
-        if (VmClass *c = vm_.findClass(cls))
-            vm_.nameCounts()[c] = std::max(vm_.nameCounts()[c], count);
+        if (VmClass *c = _vm.findClass(cls))
+            _vm.nameCounts()[c] = std::max(_vm.nameCounts()[c], count);
     }
     for (int32_t k = in.count(12); k > 0 && in.ok(); --k) {
         const std::string package = in.str();
         const int32_t index = in.i32();
-        const Package *p = vm_.packages().get(package);
-        VmObject *t = p ? vm_.objectAt(*p, index + 1) : nullptr;
+        const Package *p = _vm.packages().get(package);
+        VmObject *t = p ? _vm.objectAt(*p, index + 1) : nullptr;
         const int32_t count = in.count(1);
         const bool fits = t && size_t(count) == t->values.size();
         Value scratch;
         for (int32_t v = 0; v < count && in.ok(); ++v)
             value(fits ? t->values[size_t(v)] : scratch, fits);
     }
-    if (!in.ok() || !player_ || !game_)
+    if (!in.ok() || !_player || !_game)
         return Error::fail(file.string() + ": cut short");
 
     // The engine's side of the player, made anew, and what pointed at the
     // old one pointed at it.
     attachViewport();
-    if (const Value *v = player_->find(vm_, "Player"))
+    if (const Value *v = _player->find(_vm, "Player"))
         viewport = v->asObject();
     VmObject *console = this->console();
     for (Value *v : clientRefs) {
         const auto which = reinterpret_cast<uintptr_t>(v->o);
         v->o = which == 1 ? viewport : which == 2 ? console : canvas();
     }
-    if (Value *v = player_->find(vm_, "bJustLoaded"))
+    if (Value *v = _player->find(_vm, "bJustLoaded"))
         *v = Value::boolValue(true);
-    if (Value *v = levelInfo_->find(vm_, "Pauser"))
+    if (Value *v = _levelInfo->find(_vm, "Pauser"))
         *v = Value::stringValue("");
-    collidersTick_ = -1;
-    posed_.clear();
-    posedBones_.clear();
+    _collidersTick = -1;
+    _posed.clear();
+    _posedBones.clear();
     return Error::success();
 }
 
@@ -975,7 +975,7 @@ void registerSaveNatives(Vm &vm) {
 // --- The original's saved games ---------------------------------------------------------
 
 bool ScriptLevel::savedByGame() const {
-    const Value *begun = levelInfo_ ? levelInfo_->find(vm_, "bBegunPlay") : nullptr;
+    const Value *begun = _levelInfo ? _levelInfo->find(_vm, "bBegunPlay") : nullptr;
     return begun && begun->asBool();
 }
 
@@ -988,21 +988,21 @@ bool ScriptLevel::savedByGame() const {
 // taking up the saved pawn (GameInfo.Login reuses a PlayerPawn without a
 // player), and the game's unpaused.
 VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::string &error) {
-    vm_.holdEvents = false;
-    if (const Value *g = prop(levelInfo_, "Game"))
-        game_ = g->asObject();
-    if (const Value *t = prop(levelInfo_, "TimeSeconds"))
-        time_ = t->asFloat();
-    lipLast_ = time_;
+    _vm.holdEvents = false;
+    if (const Value *g = prop(_levelInfo, "Game"))
+        _game = g->asObject();
+    if (const Value *t = prop(_levelInfo, "TimeSeconds"))
+        _time = t->asFloat();
+    _lipLast = _time;
     // The states.
-    for (const auto &[a, f] : savedFrames_) {
+    for (const auto &[a, f] : _savedFrames) {
         if (a->deleted || !f.stateNode)
             continue;
-        const ObjectRef st = vm_.packages().resolve(map_, f.stateNode);
+        const ObjectRef st = _vm.packages().resolve(_map, f.stateNode);
         if (!st)
             continue;
         const std::string stateName = st.package->objectName(st.exportIndex + 1);
-        VmState *state = a->cls ? vm_.findState(a->cls, vm_.name(stateName)) : nullptr;
+        VmState *state = a->cls ? _vm.findState(a->cls, _vm.name(stateName)) : nullptr;
         if (!state || state == a->cls)
             continue;
         a->state = state;
@@ -1012,13 +1012,13 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
         if (!f.node || f.offset < 0)
             continue;
         // Its code: the state of that name in the class the node is in.
-        const ObjectRef node = vm_.packages().resolve(map_, f.node);
+        const ObjectRef node = _vm.packages().resolve(_map, f.node);
         if (!node)
             continue;
         const std::string path = node.package->path(node.exportIndex + 1);
         const std::string owner = path.substr(0, path.find('.'));
         VmState *code = nullptr;
-        for (VmStruct *s = state; s && s->kind == VmStruct::Kind::State; s = s->super)
+        for (VmStruct *s = state; s && s->kind == VmStruct::Kind::kState; s = s->super)
             if (auto *ss = static_cast<VmState *>(s); ss->owner && fs::toLower(ss->owner->name) == fs::toLower(owner)) {
                 code = ss;
                 break;
@@ -1050,13 +1050,13 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
     }
     // What each actor was touching (its Touching), so nothing it's in
     // already is touched again.
-    for (VmObject *a : actors_)
+    for (VmObject *a : _actors)
         if (const Value *t = prop(a, "Touching"))
             for (size_t k = 0; k < 4; ++k)
                 if (VmObject *o = t[k].asObject(); o && !o->deleted)
-                    touching_[a].push_back(o);
+                    _touching[a].push_back(o);
     // The C3D mesh states: the layers on the body and the face channels.
-    for (VmObject *a : actors_) {
+    for (VmObject *a : _actors) {
         const Value *ms = prop(a, "C3DOurMeshState");
         VmObject *o = ms ? ms->asObject() : nullptr;
         if (!o || !o->package || o->exportIndex < 0)
@@ -1069,7 +1069,7 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
             if (g.group.rfind("sk", 0) == 0) {
                 SkinChannel c;
                 if (active)
-                    c.sequence = vm_.name(g.sequence);
+                    c.sequence = _vm.name(g.sequence);
                 c.frame = g.frame;
                 c.weight = g.weight;
                 c.fromFrame = g.fromFrame;
@@ -1079,18 +1079,18 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
                 c.tweening = g.state == 5;
                 if (!g.pendingSequence.empty() && fs::toLower(g.pendingSequence) != "nonactive") {
                     c.pending = true;
-                    c.pendingSequence = vm_.name(g.pendingSequence);
+                    c.pendingSequence = _vm.name(g.pendingSequence);
                     c.pendingFrame = g.pendingFrame;
                     c.pendingWeight = g.pendingWeight;
                     c.pendingTween = g.pendingTween;
                 }
-                skins_[a].push_back({vm_.name(g.group), c});
+                _skins[a].push_back({_vm.name(g.group), c});
             } else if (active && (g.type == 1 || g.type == 2) && fs::toLower(g.group) != "fullbody") {
                 // A body group, by its mode: looping or not, held, a tween,
                 // fading in or out (its time gone of its length).
                 AnimLayer l;
-                l.sequence = vm_.name(g.sequence);
-                l.bone = g.bone.empty() ? 0 : vm_.name(g.bone);
+                l.sequence = _vm.name(g.sequence);
+                l.bone = g.bone.empty() ? 0 : _vm.name(g.bone);
                 l.rest = fs::toLower(g.group) == "lowertorso";
                 l.frame = g.frame;
                 l.rate = g.state == 5 ? 0 : g.rate;
@@ -1107,38 +1107,38 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
                 }
                 for (size_t k = 0; k < 3; ++k)
                     l.clear[k] = g.clear[k] != 0;
-                layers_[a][vm_.name(g.group)] = l;
+                _layers[a][_vm.name(g.group)] = l;
             }
         }
     }
     // How often each line's been said.
     loadDialog();
     std::map<std::string, int> said;
-    for (const LevelExtras::Line &l : saved_.lines)
+    for (const LevelExtras::Line &l : _saved.lines)
         if (l.said > 0)
             said[l.key] = l.said;
-    for (size_t i = 0; i < dialogRecs_.size(); ++i)
-        if (auto it = said.find(dialogRecs_[i].key); it != said.end())
-            dialogPlays_[i] = it->second;
+    for (size_t i = 0; i < _dialogRecs.size(); ++i)
+        if (auto it = said.find(_dialogRecs[i].key); it != said.end())
+            _dialogPlays[i] = it->second;
     // The sounds playing (the music's the player's CurrentMusic, which the
     // page starts again from the HUD's StartTimeOffset).
-    for (const LevelExtras::Sound &snd : saved_.sounds) {
-        VmObject *a = snd.actor > 0 ? vm_.objectAt(map_, snd.actor) : nullptr;
+    for (const LevelExtras::Sound &snd : _saved.sounds) {
+        VmObject *a = snd.actor > 0 ? _vm.objectAt(_map, snd.actor) : nullptr;
         const size_t dot = snd.path.find('.');
-        const Package *p = dot == std::string::npos ? nullptr : vm_.packages().get(snd.path.substr(0, dot));
+        const Package *p = dot == std::string::npos ? nullptr : _vm.packages().get(snd.path.substr(0, dot));
         const std::string name = snd.path.substr(snd.path.rfind('.') + 1);
         const int e = p ? p->findExport(name, "Sound") : -1;
         if (!a || e < 0)
             continue;
-        VmObject *sound = vm_.objectAt(*p, e + 1);
+        VmObject *sound = _vm.objectAt(*p, e + 1);
         if (soundName(sound).find("MUSIC") != std::string::npos || streamedSound(sound)) {
             // Music: the player's, from where it was.
-            if (const Value *who = prop(levelInfo_, "Player"); who && who->asObject())
+            if (const Value *who = prop(_levelInfo, "Player"); who && who->asObject())
                 if (Value *v = prop(who->o, "CurrentMusic"))
                     v->o = sound;
-            music_.volume = snd.volume;
-            music_.startSeconds = std::max(0.0f, time_ - snd.start);
-            ++music_.serial;
+            _music.volume = snd.volume;
+            _music.startSeconds = std::max(0.0f, _time - snd.start);
+            ++_music.serial;
             continue;
         }
         SoundRequest r;
@@ -1149,13 +1149,13 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
         r.volume = snd.volume;
         r.radius = snd.radius;
         r.pitch = snd.pitch;
-        r.startSeconds = std::max(0.0f, time_ - snd.start);
-        soundRequests_.push_back(r);
+        r.startSeconds = std::max(0.0f, _time - snd.start);
+        _soundRequests.push_back(r);
     }
     // The player, back.
-    if (Value *v = prop(levelInfo_, "Pauser"))
+    if (Value *v = prop(_levelInfo, "Pauser"))
         *v = Value::stringValue("");
-    options_ = "?load";
+    _options = "?load";
     VmObject *player = login({}, playerName, error, {});
     if (player)
         if (Value *v = prop(player, "bJustLoaded"))

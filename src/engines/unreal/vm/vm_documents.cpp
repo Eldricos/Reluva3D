@@ -34,7 +34,7 @@ std::string trimmed(std::string s) {
 // The game's int folder: beside System (its text files: dialogue tables,
 // documents, the maps' strings), else System itself.
 std::filesystem::path ScriptLevel::intFolder() const {
-    const std::filesystem::path system = vm_.packages().iniFile().parent_path();
+    const std::filesystem::path system = _vm.packages().iniFile().parent_path();
     for (const std::filesystem::path &folder : {system.parent_path() / "int", system.parent_path() / "Int"}) {
         std::error_code ec;
         if (std::filesystem::is_directory(folder, ec))
@@ -50,8 +50,8 @@ std::filesystem::path ScriptLevel::intFolder() const {
 const std::vector<std::pair<std::string, std::string>> *ScriptLevel::intSection(const std::string &file,
                                                                                 const std::string &section) {
     const std::string fileKey = fs::toLower(file);
-    auto it = intFiles_.find(fileKey);
-    if (it == intFiles_.end()) {
+    auto it = _intFiles.find(fileKey);
+    if (it == _intFiles.end()) {
         IntFile parsed;
         std::error_code ec;
         for (const auto &entry : std::filesystem::directory_iterator(intFolder(), ec)) {
@@ -77,7 +77,7 @@ const std::vector<std::pair<std::string, std::string>> *ScriptLevel::intSection(
             }
             break;
         }
-        it = intFiles_.emplace(fileKey, std::move(parsed)).first;
+        it = _intFiles.emplace(fileKey, std::move(parsed)).first;
     }
     auto found = it->second.find(fs::toLower(section));
     return found == it->second.end() ? nullptr : &found->second;
@@ -111,17 +111,17 @@ void registerDocumentNatives(Vm &vm) {
                 continue;
             Value &v = c.self->values[size_t(p->slot)];
             switch (p->type) {
-            case VType::Byte:
-            case VType::Int:
+            case VType::kByte:
+            case VType::kInt:
                 v = Value::intValue(std::atoi(value.c_str()));
                 break;
-            case VType::Float:
+            case VType::kFloat:
                 v = Value::floatValue(std::strtof(value.c_str(), nullptr));
                 break;
-            case VType::Bool:
+            case VType::kBool:
                 v = Value::boolValue(fs::toLower(value) == "true" || value == "1");
                 break;
-            case VType::String:
+            case VType::kString:
                 v = Value::stringValue(value);
                 break;
             default:

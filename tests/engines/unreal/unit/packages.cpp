@@ -54,25 +54,25 @@ void testPackageTables() {
 void testProperties() {
     PackageWriter w;
     Bytes o;
-    tag(o, w, "Count", PropertyType::Int, 4);
+    tag(o, w, "Count", PropertyType::kInt, 4);
     o.i32(-7);
-    tag(o, w, "Scale", PropertyType::Float, 4);
+    tag(o, w, "Scale", PropertyType::kFloat, 4);
     o.f32(1.5f);
-    tag(o, w, "bOn", PropertyType::Bool, 0);
+    tag(o, w, "bOn", PropertyType::kBool, 0);
     o.b.back() |= 0x80; // the value, in the info byte
-    tag(o, w, "Kind", PropertyType::Byte, 1);
+    tag(o, w, "Kind", PropertyType::kByte, 1);
     o.u8(3);
-    tag(o, w, "Tag", PropertyType::Name, 1);
+    tag(o, w, "Tag", PropertyType::kName, 1);
     o.index(w.name("Door"));
-    tag(o, w, "Location", PropertyType::Struct, 12, 0, "Vector");
+    tag(o, w, "Location", PropertyType::kStruct, 12, 0, "Vector");
     o.vec(1, 2, 3);
-    tag(o, w, "Rotation", PropertyType::Struct, 12, 0, "Rotator");
+    tag(o, w, "Rotation", PropertyType::kStruct, 12, 0, "Rotator");
     o.i32(0), o.i32(16384), o.i32(0);
-    tag(o, w, "Slots", PropertyType::Int, 4, 2);
+    tag(o, w, "Slots", PropertyType::kInt, 4, 2);
     o.i32(42);
     Bytes s;
     s.str("hello", 69);
-    tag(o, w, "Message", PropertyType::Str, s.b.size());
+    tag(o, w, "Message", PropertyType::kStr, s.b.size());
     o.bytes(s.b);
     endProps(o, w);
     o.u8(0xAB); // the class's own data
@@ -83,7 +83,7 @@ void testProperties() {
     w.addExport(0, 0, "Plain", o.b);
     const int32_t cls = w.addImport("Engine", "Class", 0, "Actor");
     w.exports[0].classRef = cls;
-    w.addExport(cls, 0, "Stacked", withStack.b, objflag::HasStack);
+    w.addExport(cls, 0, "Stacked", withStack.b, objflag::kHasStack);
     Package p;
     CHECK(!p.openMemory(w.build(), "Props"));
     for (int i = 0; i < 2; ++i) {

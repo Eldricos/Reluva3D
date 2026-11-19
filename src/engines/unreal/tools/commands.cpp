@@ -443,15 +443,15 @@ int cmdUeRun(int argc, char** argv) {
 // renderer, so a page's frames can be saved and looked at.
 class HeadlessSystem : public reluva::System {
 public:
-    explicit HeadlessSystem(reluva::tools::SoftRenderer3D& renderer) : renderer_(renderer) {}
+    explicit HeadlessSystem(reluva::tools::SoftRenderer3D& renderer) : _renderer(renderer) {}
     reluva::Error initGraphics(int, int, reluva::PixelFormat) override { return reluva::Error::success(); }
     void setPalette(const reluva::Color*, int, int) override {}
     void updateScreen(const reluva::Surface&) override {}
-    void setWindowTitle(const std::string& title) override { title_ = title; }
+    void setWindowTitle(const std::string& title) override { _title = title; }
     reluva::Error init3D(int width, int height, reluva::gfx::Renderer3D*& out) override {
-        if (width != renderer_.width() || height != renderer_.height())
+        if (width != _renderer.width() || height != _renderer.height())
             return reluva::Error::fail("the software renderer is another size");
-        out = &renderer_;
+        out = &_renderer;
         return reluva::Error::success();
     }
     bool pollEvent(reluva::Event&) override { return false; }
@@ -460,11 +460,11 @@ public:
     reluva::Error startAudio(AudioCallback) override { return reluva::Error::fail("no audio"); }
     void stopAudio() override {}
     int audioRate() const override { return 0; }
-    const std::string& title() const { return title_; }
+    const std::string& title() const { return _title; }
 
 private:
-    reluva::tools::SoftRenderer3D& renderer_;
-    std::string title_;
+    reluva::tools::SoftRenderer3D& _renderer;
+    std::string _title;
 };
 
 // play <game folder> <map> [step...]: the Maps page on that map, driven
@@ -1501,8 +1501,8 @@ int cmdUeCheck(int argc, char** argv) {
                 if (!err && o.trailing)
                     err = reluva::Error::fail(pkg->path(int32_t(i) + 1) + ": " + std::to_string(o.trailing) +
                                               " bytes left over");
-                const bool coded = o.kind == ScriptObject::Kind::Function || o.kind == ScriptObject::Kind::State ||
-                                   o.kind == ScriptObject::Kind::Class || o.kind == ScriptObject::Kind::Struct;
+                const bool coded = o.kind == ScriptObject::Kind::kFunction || o.kind == ScriptObject::Kind::kState ||
+                                   o.kind == ScriptObject::Kind::kClass || o.kind == ScriptObject::Kind::kStruct;
                 record(coded ? "scripts (classes, structs, functions, states)" : "scripts (properties, enums, constants)",
                        err);
                 if (!err && coded && !o.code.statements.empty())

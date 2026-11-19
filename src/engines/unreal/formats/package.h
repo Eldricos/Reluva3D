@@ -27,7 +27,7 @@ constexpr uint32_t kPackageTag = 0x9E2A83C1;
 
 // Object flags that change how an export's data starts.
 namespace objflag {
-constexpr uint32_t HasStack = 0x02000000; // a state frame comes before the properties
+constexpr uint32_t kHasStack = 0x02000000; // a state frame comes before the properties
 } // namespace objflag
 
 // Reads little-endian values from a buffer, bounds-checked: reading past
@@ -37,14 +37,14 @@ constexpr uint32_t HasStack = 0x02000000; // a state frame comes before the prop
 // offsets the file stores).
 class Reader {
 public:
-    Reader(const uint8_t *data, size_t size, size_t base = 0) : data_(data), size_(size), base_(base) {}
+    Reader(const uint8_t *data, size_t size, size_t base = 0) : _data(data), _size(size), _base(base) {}
     explicit Reader(const std::vector<uint8_t> &data, size_t base = 0) : Reader(data.data(), data.size(), base) {}
 
-    bool ok() const { return ok_; }
-    void fail() { ok_ = false; }
-    size_t pos() const { return base_ + pos_; }
-    size_t end() const { return base_ + size_; }
-    size_t remaining() const { return size_ - pos_; }
+    bool ok() const { return _ok; }
+    void fail() { _ok = false; }
+    size_t pos() const { return _base + _pos; }
+    size_t end() const { return _base + _size; }
+    size_t remaining() const { return _size - _pos; }
     void seek(size_t absolute);
     void skip(size_t n);
 
@@ -63,10 +63,10 @@ public:
     std::string string(int version);
 
 private:
-    const uint8_t *data_;
-    size_t size_, base_;
-    size_t pos_ = 0;
-    bool ok_ = true;
+    const uint8_t *_data;
+    size_t _size, _base;
+    size_t _pos = 0;
+    bool _ok = true;
 };
 
 struct NameEntry {
@@ -114,16 +114,16 @@ public:
     // The same from a whole file in memory (kept).
     Error openMemory(std::vector<uint8_t> data, std::string name);
 
-    const std::string &name() const { return name_; }
-    const std::filesystem::path &file() const { return file_; }
-    int version() const { return version_; }
-    int licensee() const { return licensee_; }
-    uint32_t flags() const { return flags_; }
-    uint64_t fileSize() const { return fileSize_; }
+    const std::string &name() const { return _name; }
+    const std::filesystem::path &file() const { return _file; }
+    int version() const { return _version; }
+    int licensee() const { return _licensee; }
+    uint32_t flags() const { return _flags; }
+    uint64_t fileSize() const { return _fileSize; }
 
-    const std::vector<NameEntry> &names() const { return names_; }
-    const std::vector<Import> &imports() const { return imports_; }
-    const std::vector<Export> &exports() const { return exports_; }
+    const std::vector<NameEntry> &names() const { return _names; }
+    const std::vector<Import> &imports() const { return _imports; }
+    const std::vector<Export> &exports() const { return _exports; }
 
     // A name table entry; "" when out of range.
     const std::string &name(int32_t index) const;
@@ -150,19 +150,19 @@ public:
 private:
     Error parse(const std::vector<uint8_t> &data);
 
-    std::string name_;
-    std::filesystem::path file_;
-    std::vector<uint8_t> memory_; // the whole file, for packages opened from memory
-    int version_ = 0, licensee_ = 0;
-    uint32_t flags_ = 0;
-    uint64_t fileSize_ = 0;
-    std::vector<NameEntry> names_;
-    std::vector<Import> imports_;
-    std::vector<Export> exports_;
-    std::unordered_map<std::string, std::vector<int>> byName_; // lower-case name -> exports
+    std::string _name;
+    std::filesystem::path _file;
+    std::vector<uint8_t> _memory; // the whole file, for packages opened from memory
+    int _version = 0, _licensee = 0;
+    uint32_t _flags = 0;
+    uint64_t _fileSize = 0;
+    std::vector<NameEntry> _names;
+    std::vector<Import> _imports;
+    std::vector<Export> _exports;
+    std::unordered_map<std::string, std::vector<int>> _byName; // lower-case name -> exports
     // The file, kept open for reading exports (opened on first use).
-    mutable std::unique_ptr<std::ifstream> stream_;
-    mutable std::mutex streamMutex_;
+    mutable std::unique_ptr<std::ifstream> _stream;
+    mutable std::mutex _streamMutex;
 };
 
 } // namespace reluva::unreal

@@ -99,35 +99,35 @@ Error readReachSpecs(const Package &map, std::vector<RawReachSpec> &out) {
 
 void ScriptLevel::loadPaths() {
     std::vector<RawReachSpec> raw;
-    if (readReachSpecs(map_, raw))
+    if (readReachSpecs(_map, raw))
         raw.clear(); // no paths: the pawns go nowhere by them
-    reachSpecs_.clear();
-    reachSpecs_.reserve(raw.size());
+    _reachSpecs.clear();
+    _reachSpecs.reserve(raw.size());
     for (const RawReachSpec &s : raw)
-        reachSpecs_.push_back({s.distance, s.start ? vm_.objectAt(map_, s.start) : nullptr,
-                               s.end ? vm_.objectAt(map_, s.end) : nullptr, s.radius, s.height, s.flags, s.pruned});
+        _reachSpecs.push_back({s.distance, s.start ? _vm.objectAt(_map, s.start) : nullptr,
+                               s.end ? _vm.objectAt(_map, s.end) : nullptr, s.radius, s.height, s.flags, s.pruned});
     // In the level's own order: LevelInfo's NavigationPointList, each to
     // its nextNavigationPoint (saved with the map); any others after.
-    navigationPoints_.clear();
+    _navigationPoints.clear();
     std::set<VmObject *> seen;
-    const Value *head = prop(levelInfo_, "NavigationPointList");
+    const Value *head = prop(_levelInfo, "NavigationPointList");
     for (VmObject *n = head ? head->asObject() : nullptr; n && !seen.count(n) && seen.size() < 100000;) {
         seen.insert(n);
-        navigationPoints_.push_back(n);
+        _navigationPoints.push_back(n);
         const Value *next = prop(n, "nextNavigationPoint");
         n = next ? next->asObject() : nullptr;
     }
-    for (VmObject *a : actors_)
-        if (vm_.isA(a, "NavigationPoint") && !seen.count(a))
-            navigationPoints_.push_back(a);
-    navState_.assign(navigationPoints_.size(), {});
-    navIndex_.clear();
-    for (size_t i = 0; i < navigationPoints_.size(); ++i)
-        navIndex_[navigationPoints_[i]] = i;
+    for (VmObject *a : _actors)
+        if (_vm.isA(a, "NavigationPoint") && !seen.count(a))
+            _navigationPoints.push_back(a);
+    _navState.assign(_navigationPoints.size(), {});
+    _navIndex.clear();
+    for (size_t i = 0; i < _navigationPoints.size(); ++i)
+        _navIndex[_navigationPoints[i]] = i;
 }
 
 const std::vector<VmObject *> &ScriptLevel::navigationPoints() {
-    return navigationPoints_;
+    return _navigationPoints;
 }
 
 bool ScriptLevel::lineOfSight(VmObject *self, const Vec &from, const Vec &to) {
@@ -206,7 +206,7 @@ ScriptLevel::MoveHit ScriptLevel::testMove(VmObject *a, const Vec &delta) {
         out.normal = n;
         out.actor = by;
     }
-    vm_.setVector(*loc, end[0], end[1], end[2]);
+    _vm.setVector(*loc, end[0], end[1], end[2]);
     return out;
 }
 
@@ -230,7 +230,7 @@ int ScriptLevel::walkMove(VmObject *pawn, Vec delta, float threshold, float &flo
         testMove(pawn, mul(delta, 1 - h.time));
         const MoveHit down = testMove(pawn, {0, 0, -stepHeight});
         if (down.hit() && down.normal[2] < 0.7f) {
-            vm_.setVector(*loc, start[0], start[1], start[2]);
+            _vm.setVector(*loc, start[0], start[1], start[2]);
             return 0;
         }
     }
@@ -239,7 +239,7 @@ int ScriptLevel::walkMove(VmObject *pawn, Vec delta, float threshold, float &flo
         return -1;
     floorZ = floor.normal[2];
     if (floor.normal[2] < 0.7f) {
-        vm_.setVector(*loc, start[0], start[1], start[2]);
+        _vm.setVector(*loc, start[0], start[1], start[2]);
         return -1;
     }
     if (length(sub(vecOf(loc), start)) < threshold)
@@ -343,7 +343,7 @@ bool ScriptLevel::actorReachableRaw(VmObject *pawn, VmObject *a, bool knowVisibl
     if (!a || a->deleted)
         return false;
     const Vec here = pv(pawn, "Location"), there = pv(a, "Location");
-    const bool other = vm_.isA(a, "Pawn");
+    const bool other = _vm.isA(a, "Pawn");
     const float d2 = dist2(here, there);
     if (!other && d2 > kNear2)
         return false;
@@ -367,9 +367,9 @@ bool ScriptLevel::actorReachableRaw(VmObject *pawn, VmObject *a, bool knowVisibl
             g = std::max(g, std::sqrt(d2) - 800);
         goal = a;
     } else {
-        if (vm_.isA(a, "Inventory") || vm_.isA(a, "Trigger"))
+        if (_vm.isA(a, "Inventory") || _vm.isA(a, "Trigger"))
             g = pf(a, "CollisionRadius") + r - 2;
-        if (pb(a, "bBlockActors") || vm_.isA(a, "WarpZoneMarker"))
+        if (pb(a, "bBlockActors") || _vm.isA(a, "WarpZoneMarker"))
             goal = a;
     }
     Vec dest = there, fit = there;
@@ -395,11 +395,11 @@ bool ScriptLevel::specFits(VmObject *pawn, const ReachSpec &s) {
 }
 
 const ScriptLevel::ReachSpec *ScriptLevel::specAt(VmObject *node, const char *list, int k) {
-    const VmProperty *p = node->cls ? node->cls->findProperty(vm_.name(list)) : nullptr;
+    const VmProperty *p = node->cls ? node->cls->findProperty(_vm.name(list)) : nullptr;
     if (!p || size_t(p->slot + k) >= node->values.size())
         return nullptr;
     const int i = node->values[size_t(p->slot + k)].asInt();
-    return i >= 0 && size_t(i) < reachSpecs_.size() ? &reachSpecs_[size_t(i)] : nullptr;
+    return i >= 0 && size_t(i) < _reachSpecs.size() ? &_reachSpecs[size_t(i)] : nullptr;
 }
 
 // A spec's way blocked by a mover the pawn can't open (expandAnchor,
@@ -410,7 +410,7 @@ bool ScriptLevel::moverAllows(VmObject *pawn, const ReachSpec &s) {
         return false;
     Vec at{}, n{};
     VmObject *by = trace(pawn, pv(s.end, "Location"), pv(s.start, "Location"), {}, false, at, n);
-    if (!by || by == levelInfo_ || !vm_.isA(by, "Mover"))
+    if (!by || by == _levelInfo || !_vm.isA(by, "Mover"))
         return true;
     return pb(pawn, "bCanOpenDoors") && (pb(pawn, "bIsPlayer") || !pb(by, "bPlayerOnly"));
 }
@@ -426,14 +426,14 @@ bool ScriptLevel::canMoveTo(VmObject *pawn, VmObject *from, VmObject *to) {
 }
 
 void ScriptLevel::clearPaths(VmObject *pawn) {
-    for (size_t i = 0; i < navigationPoints_.size(); ++i) {
-        NavState &st = navState_[i];
-        VmObject *n = navigationPoints_[i];
+    for (size_t i = 0; i < _navigationPoints.size(); ++i) {
+        NavState &st = _navState[i];
+        VmObject *n = _navigationPoints[i];
         st.visited = 10000000;
         st.endPoint = false;
         st.previous = -1;
         st.bestPathWeight = 0;
-        st.cost = pb(n, "bSpecialCost") ? vm_.callEvent(n, "SpecialCost", {Value::objectValue(pawn)}).asInt()
+        st.cost = pb(n, "bSpecialCost") ? _vm.callEvent(n, "SpecialCost", {Value::objectValue(pawn)}).asInt()
                                         : int(pf(n, "ExtraCost"));
     }
 }
@@ -445,8 +445,8 @@ void ScriptLevel::clearPaths(VmObject *pawn) {
 VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point, bool singlePath, bool clear) {
     if (!pawn || (!goal && !point))
         return nullptr;
-    const std::vector<VmObject *> &nav = navigationPoints_;
-    if (nav.empty() || reachSpecs_.empty()) {
+    const std::vector<VmObject *> &nav = _navigationPoints;
+    if (nav.empty() || _reachSpecs.empty()) {
         ++paths.failed;
         return nullptr;
     }
@@ -466,16 +466,16 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
     };
     std::vector<Cand> starts, dests;
     bool startAnchor = false, endAnchor = false;
-    if (goal && navIndex_.count(goal)) {
-        dests.push_back({navIndex_[goal], 0});
+    if (goal && _navIndex.count(goal)) {
+        dests.push_back({_navIndex[goal], 0});
         endAnchor = true;
     }
     if (VmObject *mt = prop(pawn, "MoveTarget") ? prop(pawn, "MoveTarget")->asObject() : nullptr;
-        mt && navIndex_.count(mt)) {
+        mt && _navIndex.count(mt)) {
         const Vec m = pv(mt, "Location");
-        const float lim = vm_.isA(mt, "InventorySpot") ? 2 * r * r : r * r;
+        const float lim = _vm.isA(mt, "InventorySpot") ? 2 * r * r : r * r;
         if (std::fabs(m[2] - here[2]) < 50 && flat2(m, here) < lim) {
-            starts.push_back({navIndex_[mt], 0});
+            starts.push_back({_navIndex[mt], 0});
             startAnchor = true;
         }
     }
@@ -523,32 +523,32 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
         if (startDist < std::max(int(r), 48) && std::fabs(p[2] - here[2]) < 50) {
             startAnchor = true;
         } else {
-            navState_[starts.front().node].endPoint = true;
-            navState_[starts.front().node].bestPathWeight = startDist;
+            _navState[starts.front().node].endPoint = true;
+            _navState[starts.front().node].bestPathWeight = startDist;
         }
     }
     const size_t first = starts.front().node;
     if (startAnchor) {
         VmObject *anchor = nav[first];
-        bool direct = goal && navIndex_.count(goal) && canMoveTo(pawn, anchor, goal);
+        bool direct = goal && _navIndex.count(goal) && canMoveTo(pawn, anchor, goal);
         if (!direct && dist2(to, pv(anchor, "Location")) < kNear2 && lineOfSight(pawn, pv(anchor, "Location"), to)) {
             Vec fit = pv(anchor, "Location");
             if (findSpot(extentOf(pawn), fit)) {
-                vm_.setVector(*prop(pawn, "Location"), fit[0], fit[1], fit[2]);
+                _vm.setVector(*prop(pawn, "Location"), fit[0], fit[1], fit[2]);
                 direct = pointReachable(pawn, to, false);
                 restore();
             }
         }
         if (direct) {
             ++paths.straight;
-            return goal && navIndex_.count(goal) ? goal : anchor;
+            return goal && _navIndex.count(goal) ? goal : anchor;
         }
-        navState_[first].cost = 1000000;
+        _navState[first].cost = 1000000;
         for (int k = 0; k < 16; ++k) {
             const ReachSpec *s = specAt(anchor, "Paths", k);
-            if (!s || !s->end || !navIndex_.count(s->end) || !specFits(pawn, *s) || !moverAllows(pawn, *s))
+            if (!s || !s->end || !_navIndex.count(s->end) || !specFits(pawn, *s) || !moverAllows(pawn, *s))
                 continue;
-            NavState &e = navState_[navIndex_[s->end]];
+            NavState &e = _navState[_navIndex[s->end]];
             e.endPoint = true;
             e.bestPathWeight = s->distance;
         }
@@ -563,7 +563,7 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
             Vec fit = p;
             if (!findSpot(extentOf(pawn), fit))
                 continue;
-            vm_.setVector(*prop(pawn, "Location"), fit[0], fit[1], fit[2]);
+            _vm.setVector(*prop(pawn, "Location"), fit[0], fit[1], fit[2]);
             const bool ok = point ? pointReachable(pawn, to, true) : actorReachableRaw(pawn, goal, true);
             restore();
             if (ok) {
@@ -587,7 +587,7 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
     // into each node, each costing its distance and the node's cost (and
     // a start's own distance), to the first start reached.
     const size_t end = dests[0].node;
-    navState_[end].visited = dests[0].key;
+    _navState[end].visited = dests[0].key;
     std::vector<size_t> open{end};
     const bool player = pb(pawn, "bIsPlayer");
     int popped = 0;
@@ -597,7 +597,7 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
         open.erase(open.begin());
         if (++popped > 1000 || (singlePath && popped > 4))
             break;
-        NavState &st = navState_[i];
+        NavState &st = _navState[i];
         if (st.endPoint) {
             best = int(i);
             break;
@@ -607,16 +607,16 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
             continue;
         for (int k = 0; k < 16; ++k) {
             const ReachSpec *s = specAt(node, "upstreamPaths", k);
-            if (!s || !s->start || !navIndex_.count(s->start) || !specFits(pawn, *s))
+            if (!s || !s->start || !_navIndex.count(s->start) || !specFits(pawn, *s))
                 continue;
-            const size_t j = navIndex_[s->start];
-            NavState &o = navState_[j];
+            const size_t j = _navIndex[s->start];
+            NavState &o = _navState[j];
             const int w = st.visited + s->distance + o.cost + (o.endPoint ? o.bestPathWeight : 0);
             if (o.visited > w) {
                 open.erase(std::remove(open.begin(), open.end(), j), open.end());
                 o.previous = int(i);
                 o.visited = w;
-                auto it = std::find_if(open.begin(), open.end(), [&](size_t q) { return navState_[q].visited >= w; });
+                auto it = std::find_if(open.begin(), open.end(), [&](size_t q) { return _navState[q].visited >= w; });
                 open.insert(it, j);
             }
         }
@@ -631,11 +631,11 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
     // A better start than the nearest: closer to the goal overall, or
     // behind the pawn against the way it was going.
     if (!startAnchor && !singlePath) {
-        const int total = navState_[first].visited + startDist;
+        const int total = _navState[first].visited + startDist;
         std::vector<std::pair<int, size_t>> better;
         for (size_t k = 1; k < starts.size(); ++k) {
             const size_t i = starts[k].node;
-            const int w = navState_[i].visited + int(std::sqrt(float(starts[k].key)));
+            const int w = _navState[i].visited + int(std::sqrt(float(starts[k].key)));
             const Vec p = pv(nav[i], "Location");
             if (w < total && std::fabs(p[2] - here[2]) < 120 &&
                 (dot(sub(pv(bestPath, "Location"), here), sub(p, here)) < 0 ||
@@ -654,12 +654,12 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
         restore();
     }
     // RouteCache: the way from there to the end.
-    const VmProperty *cacheProp = pawn->cls ? pawn->cls->findProperty(vm_.name("RouteCache")) : nullptr;
+    const VmProperty *cacheProp = pawn->cls ? pawn->cls->findProperty(_vm.name("RouteCache")) : nullptr;
     int at = best;
     for (int k = 0; cacheProp && k < 16 && size_t(cacheProp->slot + k) < pawn->values.size(); ++k) {
         pawn->values[size_t(cacheProp->slot + k)] = Value::objectValue(at >= 0 ? nav[size_t(at)] : nullptr);
         if (at >= 0)
-            at = navState_[size_t(at)].previous;
+            at = _navState[size_t(at)].previous;
     }
     ++paths.found;
     return bestPath;
@@ -668,10 +668,10 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
 // HandleSpecial: a node with its own way (a lift, a door) names what to
 // go for instead (SpecialHandling); the pawn's SpecialGoal.
 VmObject *ScriptLevel::handleSpecial(VmObject *pawn, VmObject *result) {
-    VmFunction *f = result ? vm_.findFunction(result, vm_.name("SpecialHandling")) : nullptr;
+    VmFunction *f = result ? _vm.findFunction(result, _vm.name("SpecialHandling")) : nullptr;
     if (!f || f->qualified == "Actor.SpecialHandling")
         return result;
-    VmObject *g = vm_.callEvent(result, "SpecialHandling", {Value::objectValue(pawn)}).asObject();
+    VmObject *g = _vm.callEvent(result, "SpecialHandling", {Value::objectValue(pawn)}).asObject();
     if (!g || g == result)
         return g;
     if (!pb(pawn, "bCanDoSpecial"))
@@ -703,12 +703,12 @@ VmObject *ScriptLevel::findPathNative(VmObject *pawn, VmObject *goal, const Vec 
 bool ScriptLevel::actorReachable(VmObject *pawn, VmObject *a) {
     if (!a)
         return false;
-    if (vm_.isA(a, "Inventory"))
+    if (_vm.isA(a, "Inventory"))
         if (VmObject *m = prop(a, "myMarker") ? prop(a, "myMarker")->asObject() : nullptr)
             a = m;
-    if (navIndex_.count(a) && !reachSpecs_.empty() &&
-        pf(pawn, "CollisionRadius") <= pf(levelInfo_, "LargestRadius", 40) &&
-        pf(pawn, "CollisionHeight") <= pf(levelInfo_, "LargestHeight", 80)) {
+    if (_navIndex.count(a) && !_reachSpecs.empty() &&
+        pf(pawn, "CollisionRadius") <= pf(_levelInfo, "LargestRadius", 40) &&
+        pf(pawn, "CollisionHeight") <= pf(_levelInfo, "LargestHeight", 80)) {
         const Vec here = pv(pawn, "Location");
         const float zLim = std::max(pf(pawn, "CollisionHeight"), 50.0f),
                     rLim = std::max(pf(pawn, "CollisionRadius"), 48.0f);
@@ -718,12 +718,12 @@ bool ScriptLevel::actorReachable(VmObject *pawn, VmObject *a) {
         };
         bool any = false;
         VmObject *mt = prop(pawn, "MoveTarget") ? prop(pawn, "MoveTarget")->asObject() : nullptr;
-        if (mt && navIndex_.count(mt) && near(mt)) {
+        if (mt && _navIndex.count(mt) && near(mt)) {
             any = true;
             if (mt == a || canMoveTo(pawn, mt, a))
                 return true;
         }
-        for (VmObject *n : navigationPoints_)
+        for (VmObject *n : _navigationPoints)
             if (!n->deleted && near(n)) {
                 any = true;
                 if (n == a || canMoveTo(pawn, n, a))
@@ -739,7 +739,7 @@ bool ScriptLevel::actorReachable(VmObject *pawn, VmObject *a) {
 // cached for all (kept while asked about within 250 of where first; its
 // place moved only when asked 50 off; widened, never narrowed).
 const std::vector<std::pair<float, VmObject *>> &ScriptLevel::closestNodes(Vec at, float radius) {
-    ClosestCache &c = closest_;
+    ClosestCache &c = _closest;
     auto distOf = [&](VmObject *n) { return length(sub(pv(n, "Location"), at)); };
     if (c.filled && dist2(c.center, at) < 62500) {
         bool stale = false;
@@ -750,7 +750,7 @@ const std::vector<std::pair<float, VmObject *>> &ScriptLevel::closestNodes(Vec a
             at = c.last;
         }
         if (radius > c.radius) {
-            for (VmObject *n : navigationPoints_)
+            for (VmObject *n : _navigationPoints)
                 if (!n->deleted && distOf(n) <= radius &&
                     std::none_of(c.nodes.begin(), c.nodes.end(), [&](const auto &e) { return e.second == n; }))
                     c.nodes.push_back({distOf(n), n});
@@ -769,7 +769,7 @@ const std::vector<std::pair<float, VmObject *>> &ScriptLevel::closestNodes(Vec a
     c.filled = true;
     c.center = c.last = at;
     c.radius = radius;
-    for (VmObject *n : navigationPoints_)
+    for (VmObject *n : _navigationPoints)
         if (!n->deleted && distOf(n) <= radius)
             c.nodes.push_back({distOf(n), n});
     std::sort(c.nodes.begin(), c.nodes.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
