@@ -97,8 +97,9 @@ void testStreamedSounds() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("unreal.unit.sounds", {
-    {"sounds", [](const std::filesystem::path &) { testSounds(); }},
-    {"sound errors", [](const std::filesystem::path &) { testSoundErrors(); }},
-    {"streamed sounds", [](const std::filesystem::path &) { testStreamedSounds(); }},
-});
+static const reluva::test::Suite
+    kSuite("unreal.unit.sounds", {
+                                     {"sounds", [](const std::filesystem::path &) { testSounds(); }},
+                                     {"sound errors", [](const std::filesystem::path &) { testSoundErrors(); }},
+                                     {"streamed sounds", [](const std::filesystem::path &) { testStreamedSounds(); }},
+                                 });

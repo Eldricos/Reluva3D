@@ -22,7 +22,6 @@
 
 namespace reluva::unreal {
 
-
 // --- PackageViewer ----------------------------------------------------------------------
 
 PackageViewer::PackageViewer(ViewContext &ctx) : Page(ctx), _names(ctx.packages.names()) {

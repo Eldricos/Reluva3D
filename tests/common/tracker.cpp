@@ -26,26 +26,30 @@ namespace trackertest {
 
 using Bytes = std::vector<uint8_t>;
 
-void put16(Bytes& b, size_t at, unsigned v) {
+void put16(Bytes &b, size_t at, unsigned v) {
     if (b.size() < at + 2)
         b.resize(at + 2);
     b[at] = uint8_t(v), b[at + 1] = uint8_t(v >> 8);
 }
-void put32(Bytes& b, size_t at, uint32_t v) {
+void put32(Bytes &b, size_t at, uint32_t v) {
     put16(b, at, v & 0xffff);
     put16(b, at + 2, v >> 16);
 }
-void putText(Bytes& b, size_t at, const char* s) {
+void putText(Bytes &b, size_t at, const char *s) {
     for (size_t i = 0; s[i]; ++i) {
         if (b.size() <= at + i)
             b.resize(at + i + 1);
         b[at + i] = uint8_t(s[i]);
     }
 }
-void align16(Bytes& b) { b.resize((b.size() + 15) / 16 * 16); }
+void align16(Bytes &b) {
+    b.resize((b.size() + 15) / 16 * 16);
+}
 
 constexpr int kFrames = 300; // the sample's length
-int square(int i) { return i / 8 % 2 ? 48 : -48; }
+int square(int i) {
+    return i / 8 % 2 ? 48 : -48;
+}
 
 struct Note {
     int row, channel;      // rows count on across patterns: row 64 is pattern 1's first
@@ -55,18 +59,18 @@ struct Note {
 };
 
 // 4-channel M.K.; notes are periods.
-Bytes mod(const std::vector<int>& orders, int patterns, const std::vector<Note>& notes) {
+Bytes mod(const std::vector<int> &orders, int patterns, const std::vector<Note> &notes) {
     Bytes b(1084 + size_t(patterns) * 1024);
     putText(b, 0, "test");
     b[42] = kFrames / 2 >> 8, b[43] = kFrames / 2 & 255; // sample 1: length in words
-    b[45] = 64;                                           // volume
-    b[49] = 1;                                            // loop length 1 word: none
+    b[45] = 64;                                          // volume
+    b[49] = 1;                                           // loop length 1 word: none
     b[950] = uint8_t(orders.size());
     b[951] = 127;
     for (size_t i = 0; i < orders.size(); ++i)
         b[952 + i] = uint8_t(orders[i]);
     putText(b, 1080, "M.K.");
-    for (const Note& n : notes) {
+    for (const Note &n : notes) {
         const size_t at = 1084 + size_t(n.row / 64) * 1024 + size_t(n.row % 64) * 16 + size_t(n.channel) * 4;
         const int sample = n.note ? 1 : 0;
         b[at] = uint8_t(n.note >> 8);
@@ -80,7 +84,7 @@ Bytes mod(const std::vector<int>& orders, int patterns, const std::vector<Note>&
 }
 
 // Unsigned 8-bit sample, looping when `loop`.
-Bytes s3m(const std::vector<int>& orders, int patterns, const std::vector<Note>& notes, int speed, int tempo,
+Bytes s3m(const std::vector<int> &orders, int patterns, const std::vector<Note> &notes, int speed, int tempo,
           bool loop) {
     Bytes b(0x60);
     putText(b, 0, "test");
@@ -119,7 +123,7 @@ Bytes s3m(const std::vector<int>& orders, int patterns, const std::vector<Note>&
         const size_t start = b.size();
         b.resize(start + 2);
         for (int row = 0; row < 64; ++row) {
-            for (const Note& n : notes) {
+            for (const Note &n : notes) {
                 if (n.row != p * 64 + row)
                     continue;
                 b.push_back(uint8_t(n.channel | (n.note ? 32 : 0) | (n.volume >= 0 ? 64 : 0) | (n.fx ? 128 : 0)));
@@ -143,7 +147,7 @@ Bytes s3m(const std::vector<int>& orders, int patterns, const std::vector<Note>&
 
 // 2 channels, linear slides, one instrument with a looping 16-bit sample;
 // `envelope`: a volume envelope falling from 64 to 0 over 10 ticks.
-Bytes xm(const std::vector<int>& orders, int patterns, const std::vector<Note>& notes, bool envelope) {
+Bytes xm(const std::vector<int> &orders, int patterns, const std::vector<Note> &notes, bool envelope) {
     Bytes b(60 + 276);
     putText(b, 0, "Extended Module: test");
     b[37] = 0x1A;
@@ -165,8 +169,8 @@ Bytes xm(const std::vector<int>& orders, int patterns, const std::vector<Note>& 
         put16(b, h + 5, 64);
         for (int row = 0; row < 64; ++row)
             for (int c = 0; c < 2; ++c) {
-                const Note* found = nullptr;
-                for (const Note& n : notes)
+                const Note *found = nullptr;
+                for (const Note &n : notes)
                     if (n.row == p * 64 + row && n.channel == c)
                         found = &n;
                 if (!found) {
@@ -210,7 +214,7 @@ Bytes xm(const std::vector<int>& orders, int patterns, const std::vector<Note>& 
 
 // Instrument mode, linear slides, one instrument mapping every note to a
 // looping IT 2.14-compressed 8-bit sample.
-Bytes it(const std::vector<int>& orders, int patterns, const std::vector<Note>& notes) {
+Bytes it(const std::vector<int> &orders, int patterns, const std::vector<Note> &notes) {
     Bytes b(0xC0);
     putText(b, 0, "IMPMtest");
     put16(b, 0x20, unsigned(orders.size()));
@@ -258,7 +262,7 @@ Bytes it(const std::vector<int>& orders, int patterns, const std::vector<Note>& 
         b.resize(h + 8);
         put16(b, h + 2, 64);
         for (int row = 0; row < 64; ++row) {
-            for (const Note& n : notes) {
+            for (const Note &n : notes) {
                 if (n.row != p * 64 + row)
                     continue;
                 const bool real = n.note && n.note < 254;
@@ -283,7 +287,7 @@ Bytes it(const std::vector<int>& orders, int patterns, const std::vector<Note>& 
 }
 
 // The loudest sample in frames [from, to).
-int peak(const audio::Sound& s, size_t from, size_t to) {
+int peak(const audio::Sound &s, size_t from, size_t to) {
     int p = 0;
     for (size_t i = from * 2; i < std::min(to * 2, s.samples.size()); ++i)
         p = std::max(p, std::abs(int(s.samples[i])));
@@ -352,8 +356,7 @@ void testTracker() {
     const Bytes xmBytes = xm({0}, 1, {{0, 0, 61}, {8, 0, 255}}, false);
     CHECK(!loadTrackerModule(xmBytes, m));
     CHECK(trackerFormat(m) == "XM" && m.instruments.size() == 1 && m.samples.size() == 1 && m.linearSlides);
-    CHECK(m.samples[0].data.size() == kFrames && m.samples[0].data[8] == 48 * 256 &&
-          m.samples[0].data[0] == -48 * 256);
+    CHECK(m.samples[0].data.size() == kFrames && m.samples[0].data[8] == 48 * 256 && m.samples[0].data[0] == -48 * 256);
     CHECK(!renderTrackerModule(m, 44100, 0, 60, s));
     CHECK(s.frames() == kPattern && peak(s, 7 * kRow, 8 * kRow) > 1000 && peak(s, 8 * kRow + 1, kPattern) == 0);
     // A volume column of 32 halves it; the envelope silences it after 10 ticks.
@@ -384,13 +387,13 @@ void testTracker() {
     // Garbage and truncations of the modules: an error or a module, never a crash.
     Bytes junk(4000);
     uint32_t seed = 1;
-    for (uint8_t& b : junk)
+    for (uint8_t &b : junk)
         b = uint8_t((seed = seed * 1103515245 + 12345) >> 16);
     CHECK(bool(loadTrackerModule(junk, m)));
     CHECK(bool(loadTrackerModule({}, m)));
     CHECK(bool(loadTrackerModule(Bytes(modBytes.begin(), modBytes.begin() + 1500), m))); // patterns cut
     CHECK(!loadTrackerModule(Bytes(modBytes.begin(), modBytes.end() - 100), m));         // a sample cut: kept
-    for (const Bytes* whole : {&modBytes, &s3mBytes, &xmBytes, &itBytes})
+    for (const Bytes *whole : {&modBytes, &s3mBytes, &xmBytes, &itBytes})
         for (size_t n = 0; n < whole->size(); n += 7) {
             Bytes cut(whole->begin(), whole->begin() + long(n));
             for (size_t i = 0x40; i < cut.size(); i += 61) // and some bytes changed

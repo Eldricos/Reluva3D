@@ -418,11 +418,13 @@ void testRotatorFromAxes() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("unreal.unit.meshes", {
-    {"meshes", [](const std::filesystem::path &) { testMeshes(); }},
-    {"animation set", [](const std::filesystem::path &) { testAnimationSet(); }},
-    {"imported mesh block", [](const std::filesystem::path &) { testImportedMeshBlock(); }},
-    {"class defaults and mesh actors", [](const std::filesystem::path &) { testClassDefaultsAndMeshActors(); }},
-    {"animation pose", [](const std::filesystem::path &) { testAnimationPose(); }},
-    {"rotator from axes", [](const std::filesystem::path &) { testRotatorFromAxes(); }},
-});
+static const reluva::test::Suite kSuite(
+    "unreal.unit.meshes",
+    {
+        {"meshes", [](const std::filesystem::path &) { testMeshes(); }},
+        {"animation set", [](const std::filesystem::path &) { testAnimationSet(); }},
+        {"imported mesh block", [](const std::filesystem::path &) { testImportedMeshBlock(); }},
+        {"class defaults and mesh actors", [](const std::filesystem::path &) { testClassDefaultsAndMeshActors(); }},
+        {"animation pose", [](const std::filesystem::path &) { testAnimationPose(); }},
+        {"rotator from axes", [](const std::filesystem::path &) { testRotatorFromAxes(); }},
+    });

@@ -21,9 +21,9 @@ void testScript() {
     const int32_t function = w.addImport("Core", "Class", 0, "Function");
     Bytes prop;
     endProps(prop, w);
-    prop.index(0), prop.index(0);          // super, next
+    prop.index(0), prop.index(0);           // super, next
     prop.i32(1), prop.u32(propflag::kEdit); // array size, flags
-    prop.index(w.name("Lamp"));            // category
+    prop.index(w.name("Lamp"));             // category
     const int32_t count = w.addExport(intProp, 0, "Count", prop.b);
     Bytes code;
     code.u8(token::kLet), code.u8(token::kLocalVariable), code.index(count), code.u8(token::kIntConst), code.i32(5);
@@ -124,8 +124,8 @@ void testVm() {
     w.addExport(intProp, counter, "Count", property(total, 0));
     w.addExport(intProp, counter, "Total", property(setCount, 0));
     Bytes setCode; // Count = N; return;
-    setCode.u8(token::kLet), setCode.u8(token::kInstanceVariable), setCode.index(count), setCode.u8(token::kLocalVariable),
-        setCode.index(n);
+    setCode.u8(token::kLet), setCode.u8(token::kInstanceVariable), setCode.index(count),
+        setCode.u8(token::kLocalVariable), setCode.index(n);
     setCode.u8(token::kReturn), setCode.u8(token::kNothing);
     Bytes fn;
     endProps(fn, w);
@@ -221,7 +221,8 @@ void testVm() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("unreal.unit.script", {
-    {"script", [](const std::filesystem::path &) { testScript(); }},
-    {"vm", [](const std::filesystem::path &) { testVm(); }},
-});
+static const reluva::test::Suite kSuite("unreal.unit.script",
+                                        {
+                                            {"script", [](const std::filesystem::path &) { testScript(); }},
+                                            {"vm", [](const std::filesystem::path &) { testVm(); }},
+                                        });

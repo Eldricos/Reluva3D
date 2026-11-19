@@ -725,7 +725,7 @@ VmFunction *Vm::loadFunction(const Package &package, int index, VmStruct *outer)
     f->outer = outer;
     const VmClass *owner = outer->kind == VmStruct::Kind::kClass   ? static_cast<VmClass *>(outer)
                            : outer->kind == VmStruct::Kind::kState ? static_cast<VmState *>(outer)->owner
-                                                                  : nullptr;
+                                                                   : nullptr;
     f->qualified = (owner ? owner->name : outer->name) + "." + f->name;
     _structs.emplace(key, std::move(owned));
     loadStruct(*f, so);

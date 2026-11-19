@@ -29,7 +29,8 @@ namespace {
 
 void write(const std::filesystem::path &file, const std::vector<uint8_t> &data) {
     std::filesystem::create_directories(file.parent_path());
-    std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
 }
 
 void writeText(const std::filesystem::path &file, const std::string &text) {

@@ -361,7 +361,17 @@ public:
     // only where it's level; Unmark lowers it from level to level - 1; Once
     // (at level 1 only) draws only where not marked yet, marking it
     // (overlapping shadows darkening once).
-    enum class StencilMode : uint8_t { kNone, kMark, kInside, kSkyMark, kSkyInside, kLevelMark, kLevelInside, kOnce, kUnmark };
+    enum class StencilMode : uint8_t {
+        kNone,
+        kMark,
+        kInside,
+        kSkyMark,
+        kSkyInside,
+        kLevelMark,
+        kLevelInside,
+        kOnce,
+        kUnmark
+    };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
     // The level the level modes work at (1 by default, again each frame).

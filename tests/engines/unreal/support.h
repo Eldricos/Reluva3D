@@ -48,7 +48,6 @@
 
 namespace reluva::unreal::test_data {
 
-
 // Little-endian output, with the engine's compact integers.
 struct Bytes {
     std::vector<uint8_t> b;
@@ -184,7 +183,7 @@ struct PackageWriter {
 
 // A property tag for a value of `size` bytes (sizes the short codes cover).
 inline void tag(Bytes &o, PackageWriter &w, const std::string &name, PropertyType type, size_t size, int arrayIndex = 0,
-         const std::string &structName = {}) {
+                const std::string &structName = {}) {
     o.index(w.name(name));
     int code = size <= 1 ? 0 : size == 2 ? 1 : size == 4 ? 2 : size == 12 ? 3 : size == 16 ? 4 : 5;
     o.u8(int(type) | code << 4 | (arrayIndex ? 0x80 : 0));
@@ -199,7 +198,6 @@ inline void tag(Bytes &o, PackageWriter &w, const std::string &name, PropertyTyp
 inline void endProps(Bytes &o, PackageWriter &w) {
     o.index(w.name("None"));
 }
-
 
 inline std::vector<uint8_t> texturePackage() {
     PackageWriter w;

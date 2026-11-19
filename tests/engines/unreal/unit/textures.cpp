@@ -280,9 +280,11 @@ void testAnimatedTextures() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("unreal.unit.textures", {
-    {"textures", [](const std::filesystem::path &) { testTextures(); }},
-    {"compressed texture", [](const std::filesystem::path &) { testCompressedTexture(); }},
-    {"procedural textures", [](const std::filesystem::path &) { testProceduralTextures(); }},
-    {"animated textures", [](const std::filesystem::path &) { testAnimatedTextures(); }},
-});
+static const reluva::test::Suite
+    kSuite("unreal.unit.textures",
+           {
+               {"textures", [](const std::filesystem::path &) { testTextures(); }},
+               {"compressed texture", [](const std::filesystem::path &) { testCompressedTexture(); }},
+               {"procedural textures", [](const std::filesystem::path &) { testProceduralTextures(); }},
+               {"animated textures", [](const std::filesystem::path &) { testAnimatedTextures(); }},
+           });

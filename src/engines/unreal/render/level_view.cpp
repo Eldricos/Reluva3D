@@ -43,7 +43,21 @@ constexpr float kEyeHeight = 27; // above a PlayerStart's location, roughly a pl
 // none, the lights' units being the original's (lighting.md).
 constexpr float kExposure = 1;
 
-enum Held { kForward, kBack, kLeft, kRight, kUp, kDown, kFast, kTurnLeft, kTurnRight, kLookUp, kLookDown, kFire, kHeldCount };
+enum Held {
+    kForward,
+    kBack,
+    kLeft,
+    kRight,
+    kUp,
+    kDown,
+    kFast,
+    kTurnLeft,
+    kTurnRight,
+    kLookUp,
+    kLookDown,
+    kFire,
+    kHeldCount
+};
 
 // Unreal's axes are left-handed (X forward, Y right, Z up); the renderer's
 // are right-handed, so Y is negated on the way in.
@@ -1254,7 +1268,8 @@ void LevelView::handleEvent(const Event &ev) {
                     m.t = 0;
                 }
     } else if (_play && !_freeCam && _play->windowsOpen() &&
-               (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)) {
+               (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown ||
+                ev.type == EventType::kMouseUp)) {
         // The game's windows (the options) open: the mouse is theirs, its
         // pointer where the page's is, its buttons keys 1 and 2.
         _play->consoleMouse(float(ev.mouseX), float(ev.mouseY));
@@ -1885,8 +1900,8 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
         // inside M04_WorfL1a's turbolift, culled as the level's, all that
         // showed was its brush's untextured outer faces from behind.
         call.state.cull = (b.polyFlags & polyflag::kTwoSided) ? gfx::Cull::kNone
-                          : moverLight                       ? gfx::Cull::kBack
-                                                             : gfx::Cull::kFront;
+                          : moverLight                        ? gfx::Cull::kBack
+                                                              : gfx::Cull::kFront;
         call.texture = _textured ? b.texture : 0;
         // With a lightmap the second pass lights it; else the vertex colours
         // (shading by facing, or a mover's light).

@@ -57,7 +57,7 @@ using reluva::tool::hexdump;
 using reluva::tool::parseNumber;
 using reluva::tool::readFile;
 
-bool openUnrealPackage(const char* file, reluva::unreal::Package& pkg) {
+bool openUnrealPackage(const char *file, reluva::unreal::Package &pkg) {
     if (reluva::Error err = pkg.open(file)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return false;
@@ -67,12 +67,12 @@ bool openUnrealPackage(const char* file, reluva::unreal::Package& pkg) {
 
 // An export by number, or by name (its own or its dotted path).
 // Classes and packages (texture groups) share names with what's in them.
-bool isContainerClass(const std::string& cls) {
+bool isContainerClass(const std::string &cls) {
     const std::string c = reluva::fs::toLower(cls);
     return c == "class" || c == "package";
 }
 
-int findUnrealExport(const reluva::unreal::Package& pkg, const std::string& which) {
+int findUnrealExport(const reluva::unreal::Package &pkg, const std::string &which) {
     if (!which.empty() && std::all_of(which.begin(), which.end(), [](char c) { return std::isdigit(uint8_t(c)); }))
         return std::atoi(which.c_str()) < int(pkg.exports().size()) ? std::atoi(which.c_str()) : -1;
     const std::string wanted = reluva::fs::toLower(which);
@@ -94,7 +94,7 @@ int findUnrealExport(const reluva::unreal::Package& pkg, const std::string& whic
 
 // A saved game of the original's (a .dsa package): its Level object's
 // extras (ghosts, dialogue said, sounds playing) and its C3D mesh states.
-int cmdUeSave(int argc, char** argv) {
+int cmdUeSave(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool unreal save <saved game .dsa>\n");
         return 2;
@@ -108,15 +108,15 @@ int cmdUeSave(int argc, char** argv) {
         return 1;
     }
     int said = 0;
-    for (const auto& l : x.lines)
+    for (const auto &l : x.lines)
         said += l.said > 0;
     std::printf("map %s, portal %s; %zu actors, %zu ghosts; %zu dialogue lines (%d said); %zu sounds playing\n",
                 x.urlMap.c_str(), x.urlPortal.c_str(), x.actors.size(), x.ghosts.size(), x.lines.size(), said,
                 x.sounds.size());
-    for (const auto& l : x.lines)
+    for (const auto &l : x.lines)
         if (l.said > 0)
             std::printf("  said %dx: %s\n", l.said, l.key.c_str());
-    for (const auto& s : x.sounds)
+    for (const auto &s : x.sounds)
         std::printf("  sound %s on %s, id %d, volume %.2f, radius %.0f, pitch %.2f, from %.2f s\n", s.path.c_str(),
                     pkg.path(s.actor).c_str(), s.id, s.volume, s.radius, s.pitch, s.start);
     int states = 0, failed = 0;
@@ -129,7 +129,7 @@ int cmdUeSave(int argc, char** argv) {
         ++states;
         if (m.groups.size() > 1) {
             std::printf("  %s (%s):", pkg.path(i + 1).c_str(), m.mesh.c_str());
-            for (const auto& g : m.groups)
+            for (const auto &g : m.groups)
                 std::printf(" %s=%s@%.3f/t%d/s%d/w%.2f", g.group.c_str(), g.sequence.c_str(), g.frame, g.type, g.state,
                             g.weight);
             std::printf("\n");
@@ -139,7 +139,7 @@ int cmdUeSave(int argc, char** argv) {
     return 0;
 }
 
-int cmdUeInfo(int argc, char** argv) {
+int cmdUeInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool unreal info <package>\n");
         return 2;
@@ -153,23 +153,23 @@ int cmdUeInfo(int argc, char** argv) {
                 pkg.exports().size());
     std::map<std::string, std::pair<int, long long>> classes;
     for (size_t i = 0; i < pkg.exports().size(); ++i) {
-        auto& c = classes[pkg.className(int32_t(i) + 1)];
+        auto &c = classes[pkg.className(int32_t(i) + 1)];
         ++c.first;
         c.second += pkg.exports()[i].serialSize;
     }
     std::printf("\nExports by class:\n");
-    for (const auto& [cls, n] : classes)
+    for (const auto &[cls, n] : classes)
         std::printf("  %6d  %-28s %12lld bytes\n", n.first, cls.c_str(), n.second);
     std::map<std::string, int> from;
     for (size_t i = 0; i < pkg.imports().size(); ++i)
         ++from[pkg.importPackage(int(i))];
     std::printf("\nImports by package:\n");
-    for (const auto& [p, n] : from)
+    for (const auto &[p, n] : from)
         std::printf("  %6d  %s\n", n, p.c_str());
     return 0;
 }
 
-int cmdUeExports(int argc, char** argv) {
+int cmdUeExports(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool unreal exports <package> [class or name filter]\n");
         return 2;
@@ -179,7 +179,7 @@ int cmdUeExports(int argc, char** argv) {
         return 1;
     const std::string filter = argc == 4 ? reluva::fs::toLower(argv[3]) : "";
     for (size_t i = 0; i < pkg.exports().size(); ++i) {
-        const auto& e = pkg.exports()[i];
+        const auto &e = pkg.exports()[i];
         const std::string cls = pkg.className(int32_t(i) + 1), path = pkg.path(int32_t(i) + 1);
         if (!filter.empty() && reluva::fs::toLower(cls + " " + path).find(filter) == std::string::npos)
             continue;
@@ -189,7 +189,7 @@ int cmdUeExports(int argc, char** argv) {
     return 0;
 }
 
-int cmdUeProps(int argc, char** argv) {
+int cmdUeProps(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool unreal props <package> <export number | name | Group.Name>\n");
         return 2;
@@ -208,7 +208,7 @@ int cmdUeProps(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const Export& e = pkg.exports()[size_t(index)];
+    const Export &e = pkg.exports()[size_t(index)];
     std::printf("%d: %s %s, %d bytes at %d, flags %08x\n", index, pkg.className(index + 1).c_str(),
                 pkg.path(index + 1).c_str(), e.serialSize, e.serialOffset, e.flags);
     // A class: its own layout (script.md), its defaults read with it.
@@ -220,7 +220,7 @@ int cmdUeProps(int argc, char** argv) {
         }
         std::printf("  class flags %08x, within %s, config %s; defaults:\n", o.classFlags,
                     o.within ? pkg.path(o.within).c_str() : "-", o.configName ? pkg.name(o.configName).c_str() : "-");
-        for (const Property& p : o.defaults.items)
+        for (const Property &p : o.defaults.items)
             std::printf("  %s%s (%s) = %s\n", p.name.c_str(),
                         p.arrayIndex ? ("[" + std::to_string(p.arrayIndex) + "]").c_str() : "",
                         p.structName.empty() ? typeName(p.type) : p.structName.c_str(), describe(pkg, p).c_str());
@@ -230,7 +230,7 @@ int cmdUeProps(int argc, char** argv) {
     PropertyList props;
     if (reluva::Error err = beginObject(pkg, index, r, props))
         std::printf("Properties: %s\n", err.message.c_str());
-    for (const Property& p : props.items)
+    for (const Property &p : props.items)
         std::printf("  %s%s (%s) = %s\n", p.name.c_str(),
                     p.arrayIndex ? ("[" + std::to_string(p.arrayIndex) + "]").c_str() : "",
                     p.structName.empty() ? typeName(p.type) : p.structName.c_str(), describe(pkg, p).c_str());
@@ -250,7 +250,7 @@ int cmdUeProps(int argc, char** argv) {
 // spawned, the start-up events sent, then `seconds` of ticks at 30 a
 // second. Reports what the scripts did and what's missing: errors,
 // natives not written yet, None accessed. -all: every map, totalled.
-int cmdUeRun(int argc, char** argv) {
+int cmdUeRun(int argc, char **argv) {
     if (argc < 4 || argc > 5) {
         std::fprintf(stderr, "usage: reluva-tool unreal run <game folder> <map | -all> [seconds]\n");
         return 2;
@@ -272,8 +272,8 @@ int cmdUeRun(int argc, char** argv) {
     ScriptLevel::MovementStats moved;
     ScriptLevel::PathStats paths;
     ScriptLevel::DialogStats said;
-    for (const std::string& name : maps) {
-        const Package* map = set.get(name);
+    for (const std::string &name : maps) {
+        const Package *map = set.get(name);
         if (!map) {
             std::printf("%s: %s\n", name.c_str(), set.error(name).c_str());
             ++failed;
@@ -281,7 +281,7 @@ int cmdUeRun(int argc, char** argv) {
         }
         Vm vm(set);
         std::vector<std::string> logs;
-        vm.logger = [&](const std::string& line) { logs.push_back(line); };
+        vm.logger = [&](const std::string &line) { logs.push_back(line); };
         ScriptLevel level(vm, *map);
         const auto t0 = std::chrono::steady_clock::now();
         if (reluva::Error err = level.load()) {
@@ -291,7 +291,7 @@ int cmdUeRun(int argc, char** argv) {
         }
         const size_t before = level.actors().size();
         std::string loginError;
-        VmObject* player = nullptr;
+        VmObject *player = nullptr;
         if (level.savedByGame()) { // a saved game of the original's
             player = level.resumeSavedGame(iniSetting(set, "URL", "Name"), loginError);
         } else {
@@ -305,39 +305,39 @@ int cmdUeRun(int argc, char** argv) {
         ++ran;
         // What changed that shows: actors hidden or gone, lights out.
         int hidden = 0, dark = 0;
-        for (VmObject* a : level.actors()) {
-            if (Value* v = a->find(vm, "DrawType"); v && v->i == 0)
+        for (VmObject *a : level.actors()) {
+            if (Value *v = a->find(vm, "DrawType"); v && v->i == 0)
                 ++hidden;
             if (vm.isA(a, "Light"))
-                if (Value* v = a->find(vm, "LightBrightness"); v && v->i == 0)
+                if (Value *v = a->find(vm, "LightBrightness"); v && v->i == 0)
                     ++dark;
         }
         // The player as it is after the run: its state and HUD.
         std::string who = "none: " + loginError;
         if (player) {
-            const Value* hud = player->find(vm, "myHUD");
+            const Value *hud = player->find(vm, "myHUD");
             who = player->cls->name + " (state " + (player->state ? player->state->name : std::string("none")) +
                   ", HUD " + (hud && hud->asObject() ? hud->o->cls->name : std::string("none")) + ")";
         }
         std::printf("%-20s player %s; ", name.c_str(), who.c_str());
-        std::printf("%5zu actors (%zu after %.0f s), game %s; %d drawn as nothing, %d lights at brightness 0; "
-                    "start %.0f ms, %.0f s run %.0f ms; %llu calls, %d None accessed, %zu errors, %zu natives missing\n",
-                    before, level.actors().size(), double(seconds),
-                    level.game() ? level.game()->cls->name.c_str() : "none", hidden, dark,
-                    std::chrono::duration<double, std::milli>(t1 - t0).count(), double(seconds),
-                    std::chrono::duration<double, std::milli>(t2 - t1).count(), (unsigned long long)vm.stats.calls,
-                    vm.stats.accessedNone, vm.stats.errors.size(), vm.stats.missingNatives.size());
+        std::printf(
+            "%5zu actors (%zu after %.0f s), game %s; %d drawn as nothing, %d lights at brightness 0; "
+            "start %.0f ms, %.0f s run %.0f ms; %llu calls, %d None accessed, %zu errors, %zu natives missing\n",
+            before, level.actors().size(), double(seconds), level.game() ? level.game()->cls->name.c_str() : "none",
+            hidden, dark, std::chrono::duration<double, std::milli>(t1 - t0).count(), double(seconds),
+            std::chrono::duration<double, std::milli>(t2 - t1).count(), (unsigned long long)vm.stats.calls,
+            vm.stats.accessedNone, vm.stats.errors.size(), vm.stats.missingNatives.size());
         // Movement against the level: how actors moved, and where the player is.
-        const auto& m = level.movement;
+        const auto &m = level.movement;
         std::string where;
         if (player)
-            if (const Value* phys = player->find(vm, "Physics"))
+            if (const Value *phys = player->find(vm, "Physics"))
                 where = ", the player's physics " + std::to_string(phys->asInt());
         std::printf("%-20s movement: %d moves, blocked %d by the world and %d by actors, %d steps, %d landings, "
                     "%d touches, %d zone changes, %d placings refused (%d spawns), %d moves to a goal given up%s\n",
                     "", m.moves, m.blockedByWorld, m.blockedByActors, m.steps, m.landings, m.touches, m.zoneChanges,
                     m.refused, m.spawnsRefused, m.gaveUp, where.c_str());
-        const auto& pf = level.paths;
+        const auto &pf = level.paths;
         if (pf.straight + pf.found + pf.failed > 0)
             std::printf("%-20s paths: %zu navigation points, %zu reaches; %d ways found straight, %d along paths, "
                         "%d not (%d with no point near, %d none near the goal, %d no way between)\n",
@@ -345,7 +345,7 @@ int cmdUeRun(int argc, char** argv) {
                         pf.failed, pf.noStart, pf.noEnd, pf.noRoute);
         if (level.noise.made > 0)
             std::printf("%-20s noise: %d made, heard %d times\n", "", level.noise.made, level.noise.heard);
-        const auto& dg = level.dialog;
+        const auto &dg = level.dialog;
         if (dg.started + dg.notFound + dg.barks > 0)
             std::printf("%-20s dialogue: %zu lines read; %d started (%d lines said), %d with no line to say, "
                         "%d conditions not known, %d of the AI's own\n",
@@ -353,7 +353,8 @@ int cmdUeRun(int argc, char** argv) {
                         dg.barks);
         placedGhosts += level.placedGhosts();
         localizedSet += level.localizedSet();
-        ghostsBack += level.placedGhosts() - int(std::count_if(level.ghosts().begin(), level.ghosts().end(), [](const VmObject* g) { return !g->deleted; }));
+        ghostsBack += level.placedGhosts() - int(std::count_if(level.ghosts().begin(), level.ghosts().end(),
+                                                               [](const VmObject *g) { return !g->deleted; }));
         said.started += dg.started;
         said.lines += dg.lines;
         said.notFound += dg.notFound;
@@ -374,17 +375,17 @@ int cmdUeRun(int argc, char** argv) {
         calls += vm.stats.calls;
         statements += vm.stats.statements;
         accessedNone += vm.stats.accessedNone;
-        for (const auto& [k, v] : vm.stats.missingNatives)
+        for (const auto &[k, v] : vm.stats.missingNatives)
             missing[k] += v;
-        for (const auto& [k, v] : vm.stats.errors)
+        for (const auto &[k, v] : vm.stats.errors)
             errors[k] += v;
-        for (const auto& [k, v] : vm.stats.noneAt)
+        for (const auto &[k, v] : vm.stats.noneAt)
             noneAt[k] += v;
         if (!all) {
             // The scripts' log, repeated lines counted.
             std::vector<std::pair<std::string, int>> lines;
-            for (const std::string& l : logs) {
-                auto it = std::find_if(lines.begin(), lines.end(), [&](const auto& e) { return e.first == l; });
+            for (const std::string &l : logs) {
+                auto it = std::find_if(lines.begin(), lines.end(), [&](const auto &e) { return e.first == l; });
                 if (it == lines.end())
                     lines.push_back({l, 1});
                 else
@@ -397,9 +398,9 @@ int cmdUeRun(int argc, char** argv) {
                 std::printf("  log: ... %zu more lines\n", lines.size() - 40);
         }
     }
-    auto top = [](const std::map<std::string, int>& m, size_t n) {
+    auto top = [](const std::map<std::string, int> &m, size_t n) {
         std::vector<std::pair<int, std::string>> v;
-        for (const auto& [k, c] : m)
+        for (const auto &[k, c] : m)
             v.push_back({c, k});
         std::sort(v.rbegin(), v.rend());
         if (v.size() > n)
@@ -419,22 +420,22 @@ int cmdUeRun(int argc, char** argv) {
     std::printf("dialogue: %d started (%d lines said), %d with no line to say, %d of the AI's own\n", said.started,
                 said.lines, said.notFound, said.barks);
     std::printf("natives not written yet (%zu, by calls):\n", missing.size());
-    for (const auto& [n, k] : top(missing, all ? 60 : 40))
+    for (const auto &[n, k] : top(missing, all ? 60 : 40))
         std::printf("  %7d %s\n", n, k.c_str());
     // Script errors in full; None accessed (mostly scripts looking for a
     // player, as none has joined) the most common.
     std::map<std::string, int> none, other;
-    for (const auto& [k, n] : errors)
+    for (const auto &[k, n] : errors)
         (k.rfind("Accessed None", 0) == 0 ? none : other)[k] = n;
     std::printf("errors (%zu kinds):\n", other.size());
-    for (const auto& [n, k] : top(other, 1000))
+    for (const auto &[n, k] : top(other, 1000))
         std::printf("  %7d %s\n", n, k.c_str());
     std::printf("None accessed (%zu places, the most):\n", none.size());
-    for (const auto& [n, k] : top(none, all ? 15 : 10))
+    for (const auto &[n, k] : top(none, all ? 15 : 10))
         std::printf("  %7d %s\n", n, k.c_str());
     // Where in them (the context expression's offset, as script lists the code).
     std::printf("None accessed, by place in the code (the most):\n");
-    for (const auto& [n, k] : top(noneAt, all ? 20 : 10))
+    for (const auto &[n, k] : top(noneAt, all ? 20 : 10))
         std::printf("  %7d %s\n", n, k.c_str());
     return failed ? 1 : 0;
 }
@@ -443,27 +444,27 @@ int cmdUeRun(int argc, char** argv) {
 // renderer, so a page's frames can be saved and looked at.
 class HeadlessSystem : public reluva::System {
 public:
-    explicit HeadlessSystem(reluva::tools::SoftRenderer3D& renderer) : _renderer(renderer) {}
+    explicit HeadlessSystem(reluva::tools::SoftRenderer3D &renderer) : _renderer(renderer) {}
     reluva::Error initGraphics(int, int, reluva::PixelFormat) override { return reluva::Error::success(); }
-    void setPalette(const reluva::Color*, int, int) override {}
-    void updateScreen(const reluva::Surface&) override {}
-    void setWindowTitle(const std::string& title) override { _title = title; }
-    reluva::Error init3D(int width, int height, reluva::gfx::Renderer3D*& out) override {
+    void setPalette(const reluva::Color *, int, int) override {}
+    void updateScreen(const reluva::Surface &) override {}
+    void setWindowTitle(const std::string &title) override { _title = title; }
+    reluva::Error init3D(int width, int height, reluva::gfx::Renderer3D *&out) override {
         if (width != _renderer.width() || height != _renderer.height())
             return reluva::Error::fail("the software renderer is another size");
         out = &_renderer;
         return reluva::Error::success();
     }
-    bool pollEvent(reluva::Event&) override { return false; }
+    bool pollEvent(reluva::Event &) override { return false; }
     uint64_t getMillis() const override { return 0; }
     void delayMillis(uint32_t) override {}
     reluva::Error startAudio(AudioCallback) override { return reluva::Error::fail("no audio"); }
     void stopAudio() override {}
     int audioRate() const override { return 0; }
-    const std::string& title() const { return _title; }
+    const std::string &title() const { return _title; }
 
 private:
-    reluva::tools::SoftRenderer3D& _renderer;
+    reluva::tools::SoftRenderer3D &_renderer;
     std::string _title;
 };
 
@@ -484,11 +485,13 @@ private:
 // <actor> <function> ("player": the player's pawn),
 // drag <dx> <dy>, click <x> <y> (the left button, there), shot <file.ppm>
 // (the next frame, saved).
-int cmdUePlay(int argc, char** argv) {
+int cmdUePlay(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool unreal play <game folder> <map> [play | wait <s> | hold <key> <s> | "
-                             "teleport <actor> <dx> <dy> <dz> <yaw> | camera <x> <y> <z> <yaw> <pitch> | places <class> | where | view | lines | actor <name> | prop <actor> <property> | call <actor> <function> | console <command> | down <key> | up <key> | press <key> | travel <url> [items] | saves <dir> | watch <actor> | "
-                             "drag <dx> <dy> | click <x> <y> | shot <file.ppm>]...\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool unreal play <game folder> <map> [play | wait <s> | hold <key> <s> | "
+            "teleport <actor> <dx> <dy> <dz> <yaw> | camera <x> <y> <z> <yaw> <pitch> | places <class> | where | view | lines | actor <name> | prop <actor> <property> | call <actor> <function> | console <command> | down <key> | up <key> | press <key> | travel <url> [items] | saves <dir> | watch <actor> | "
+            "drag <dx> <dy> | click <x> <y> | shot <file.ppm>]...\n");
         return 2;
     }
     using namespace reluva::unreal;
@@ -503,7 +506,7 @@ int cmdUePlay(int argc, char** argv) {
     reluva::Surface screen;
     screen.create(960, 720, reluva::PixelFormat::kRGBA32);
     std::vector<std::string> warnings;
-    const GameInfo* game = findGame("ds9fallen");
+    const GameInfo *game = findGame("ds9fallen");
     // The sound mixed offline, a frame's worth each frame, for wav.
     reluva::audio::Mixer mixer(22050);
     std::vector<int16_t> heard;
@@ -522,14 +525,21 @@ int cmdUePlay(int argc, char** argv) {
         heard.resize(at + 735 * 2); // a thirtieth of a second at 22050 Hz, stereo
         mixer.mix(heard.data() + at, 735);
     };
-    auto keyOf = [](const std::string& k) -> uint32_t {
-        if (k == "left") return reluva::key::kLeft;
-        if (k == "right") return reluva::key::kRight;
-        if (k == "up") return reluva::key::kUp;
-        if (k == "down") return reluva::key::kDown;
-        if (k == "space") return reluva::key::kSpace;
-        if (k == "enter") return reluva::key::kReturn;
-        if (k == "escape") return reluva::key::kEscape;
+    auto keyOf = [](const std::string &k) -> uint32_t {
+        if (k == "left")
+            return reluva::key::kLeft;
+        if (k == "right")
+            return reluva::key::kRight;
+        if (k == "up")
+            return reluva::key::kUp;
+        if (k == "down")
+            return reluva::key::kDown;
+        if (k == "space")
+            return reluva::key::kSpace;
+        if (k == "enter")
+            return reluva::key::kReturn;
+        if (k == "escape")
+            return reluva::key::kEscape;
         if (k.size() >= 2 && (k[0] == 'f' || k[0] == 'F') && std::isdigit(uint8_t(k[1])))
             return reluva::key::kF1 + uint32_t(std::atoi(k.c_str() + 1) - 1);
         return k.empty() ? 0 : uint32_t(k[0]);
@@ -560,13 +570,13 @@ int cmdUePlay(int argc, char** argv) {
                 frame();
             send(reluva::EventType::kKeyUp, key);
         } else if (step == "sounds") {
-            for (const std::string& s : page.sounds())
+            for (const std::string &s : page.sounds())
                 std::printf("  %s\n", s.c_str());
         } else if (step == "wav" && i + 1 < argc) {
             // What was heard since the last wav (or the start), as a WAVE
             // file, and how loud each second of it was.
             const std::string file = argv[++i];
-            std::FILE* out = std::fopen(file.c_str(), "wb");
+            std::FILE *out = std::fopen(file.c_str(), "wb");
             if (!out) {
                 std::fprintf(stderr, "can't write %s\n", file.c_str());
                 return 1;
@@ -616,7 +626,8 @@ int cmdUePlay(int argc, char** argv) {
                                             float(std::atof(argv[i + 3]))};
             const float yaw = float(std::atof(argv[i + 4]));
             i += 4;
-            std::printf("teleport %s: %s\n", who.c_str(), page.teleportPlayer(who, off, yaw) ? "there" : "no such actor");
+            std::printf("teleport %s: %s\n", who.c_str(),
+                        page.teleportPlayer(who, off, yaw) ? "there" : "no such actor");
             frame();
         } else if (step == "camera" && i + 5 < argc) {
             const reluva::unreal::Vec3f at{float(std::atof(argv[i + 1])), float(std::atof(argv[i + 2])),
@@ -625,7 +636,7 @@ int cmdUePlay(int argc, char** argv) {
             i += 5;
             frame();
         } else if (step == "places" && i + 1 < argc) {
-            for (const auto& [name, at] : page.actorPlaces(argv[++i]))
+            for (const auto &[name, at] : page.actorPlaces(argv[++i]))
                 std::printf("  place %s %.1f %.1f %.1f\n", name.c_str(), double(at[0]), double(at[1]), double(at[2]));
         } else if (step == "console" && i + 1 < argc) {
             const std::string command = argv[++i];
@@ -633,7 +644,8 @@ int cmdUePlay(int argc, char** argv) {
             frame();
         } else if (step == "call" && i + 2 < argc) {
             const std::string who = argv[++i], what = argv[++i];
-            std::printf("call %s.%s: %s\n", who.c_str(), what.c_str(), page.callFunction(who, what) ? "done" : "no such actor");
+            std::printf("call %s.%s: %s\n", who.c_str(), what.c_str(),
+                        page.callFunction(who, what) ? "done" : "no such actor");
             frame();
         } else if (step == "actor" && i + 1 < argc) {
             const std::string who = argv[++i];
@@ -644,7 +656,7 @@ int cmdUePlay(int argc, char** argv) {
         } else if (step == "view") {
             std::printf("view: %s\n", page.describeView().c_str());
         } else if (step == "lines") {
-            for (const std::string& l : page.linesSaid())
+            for (const std::string &l : page.linesSaid())
                 std::printf("  line %s\n", l.c_str());
         } else if (step == "where") {
             std::printf("where: %s\n", page.describePlayer().c_str());
@@ -688,8 +700,8 @@ int cmdUePlay(int argc, char** argv) {
             renderer.drawing = true;
             frame();
             renderer.drawing = false;
-            const reluva::Surface& f = renderer.frame();
-            std::FILE* out = std::fopen(file.c_str(), "wb");
+            const reluva::Surface &f = renderer.frame();
+            std::FILE *out = std::fopen(file.c_str(), "wb");
             if (!out) {
                 std::fprintf(stderr, "can't write %s\n", file.c_str());
                 return 1;
@@ -717,7 +729,7 @@ int cmdUePlay(int argc, char** argv) {
 // Compiled UnrealScript as text (script_text.h): one class, struct,
 // function or state, or (-all) every class of every package written to
 // <dir>/<package>/<class>.uc.
-int cmdUeScript(int argc, char** argv) {
+int cmdUeScript(int argc, char **argv) {
     const bool all = argc == 5 && std::strcmp(argv[3], "-all") == 0;
     if (argc != 4 && !all) {
         std::fprintf(stderr, "usage: reluva-tool unreal script <game folder> <class | Class.Function | -all <dir>>\n");
@@ -732,8 +744,8 @@ int cmdUeScript(int argc, char** argv) {
     const NativeTable natives(set);
     if (all) {
         int written = 0, failed = 0;
-        for (const std::string& name : set.names()) {
-            const Package* p = set.get(name);
+        for (const std::string &name : set.names()) {
+            const Package *p = set.get(name);
             if (!p)
                 continue;
             for (size_t i = 0; i < p->exports().size(); ++i) {
@@ -742,7 +754,7 @@ int cmdUeScript(int argc, char** argv) {
                 const std::filesystem::path dir = std::filesystem::path(argv[4]) / name;
                 std::filesystem::create_directories(dir);
                 const std::string text = scriptText(set, *p, int(i), natives);
-                std::FILE* f = std::fopen((dir / (p->objectName(int32_t(i) + 1) + ".uc")).string().c_str(), "wb");
+                std::FILE *f = std::fopen((dir / (p->objectName(int32_t(i) + 1) + ".uc")).string().c_str(), "wb");
                 if (!f) {
                     ++failed;
                     continue;
@@ -757,10 +769,10 @@ int cmdUeScript(int argc, char** argv) {
         return failed ? 1 : 0;
     }
     // The export by its path; a class over anything else of the name.
-    const Package* found = nullptr;
+    const Package *found = nullptr;
     int index = -1;
-    for (const std::string& name : set.names()) {
-        const Package* p = set.get(name);
+    for (const std::string &name : set.names()) {
+        const Package *p = set.get(name);
         const int at = p ? findUnrealExport(*p, argv[3]) : -1;
         if (at < 0 || !isScriptClass(p->className(at + 1)))
             continue;
@@ -783,12 +795,13 @@ int cmdUeScript(int argc, char** argv) {
 // Maps an export's data after its properties: where lazy arrays sit (each
 // starts with the file offset just past it, so it can be told anywhere),
 // what the mesh reader makes of it, and the bytes at its start and end.
-int cmdUeProbe(int argc, char** argv) {
+int cmdUeProbe(int argc, char **argv) {
     const bool all = argc == 5 && std::strcmp(argv[4], "-all") == 0;
     // -at <offset> <bytes>: just those bytes, offsets from the properties' end.
     const bool range = argc == 7 && std::strcmp(argv[4], "-at") == 0;
     if (argc != 4 && !all && !range) {
-        std::fprintf(stderr, "usage: reluva-tool unreal probe <package | game folder> <export> [-all | -at <offset> <bytes>]\n");
+        std::fprintf(
+            stderr, "usage: reluva-tool unreal probe <package | game folder> <export> [-all | -at <offset> <bytes>]\n");
         return 2;
     }
     const size_t rangeAt = range ? size_t(std::strtoull(argv[5], nullptr, 10)) : 0;
@@ -797,7 +810,7 @@ int cmdUeProbe(int argc, char** argv) {
     // A package file, or a game folder whose packages are searched for the export.
     Package own;
     PackageSet set;
-    const Package* found = nullptr;
+    const Package *found = nullptr;
     int index = -1;
     if (std::filesystem::is_directory(argv[2])) {
         if (reluva::Error err = set.open(argv[2], "DS9.ini")) {
@@ -806,8 +819,8 @@ int cmdUeProbe(int argc, char** argv) {
         }
         // A class found is kept only until something else of the name is
         // (the mesh ARD_AmmoCrate is in another package than its class).
-        for (const std::string& name : set.names()) {
-            const Package* p = set.get(name);
+        for (const std::string &name : set.names()) {
+            const Package *p = set.get(name);
             const int at = p ? findUnrealExport(*p, argv[3]) : -1;
             if (at < 0 || (found && isContainerClass(p->className(at + 1))))
                 continue;
@@ -824,14 +837,14 @@ int cmdUeProbe(int argc, char** argv) {
         std::fprintf(stderr, "No export %s\n", argv[3]);
         return 1;
     }
-    const Package& pkg = *found;
+    const Package &pkg = *found;
     std::printf("In %s\n", pkg.file().string().c_str());
     std::vector<uint8_t> data;
     if (reluva::Error err = pkg.readExport(index, data)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const Export& e = pkg.exports()[size_t(index)];
+    const Export &e = pkg.exports()[size_t(index)];
     const size_t base = size_t(e.serialOffset), end = base + data.size();
     Reader r(data, base);
     PropertyList props;
@@ -842,7 +855,7 @@ int cmdUeProbe(int argc, char** argv) {
                 "(+0 below)\n",
                 index, pkg.className(index + 1).c_str(), pkg.path(index + 1).c_str(), pkg.version(), data.size(), base,
                 props.items.size(), end - start, start);
-    for (const Property& p : props.items)
+    for (const Property &p : props.items)
         std::printf("  %s (%s) = %s\n", p.name.c_str(), p.structName.empty() ? typeName(p.type) : p.structName.c_str(),
                     describe(pkg, p).c_str());
 
@@ -854,7 +867,8 @@ int cmdUeProbe(int argc, char** argv) {
         const size_t first = a.pos();
         if (!a.ok() || n < 0 || stop < first || stop > end)
             continue;
-        if (n == 0 ? stop != first : ((stop - first) % size_t(n) != 0 || (stop - first) / size_t(n) > 64 || stop == first))
+        if (n == 0 ? stop != first
+                   : ((stop - first) % size_t(n) != 0 || (stop - first) / size_t(n) > 64 || stop == first))
             continue;
         std::printf("  +%zu: %d x %zu bytes, ends at +%zu\n", p - start, n, n ? (stop - first) / size_t(n) : 0,
                     stop - start);
@@ -868,8 +882,9 @@ int cmdUeProbe(int argc, char** argv) {
             std::printf("  %d vertices x %d frames, %zu triangles, %zu animations (%d left out); import block %zu "
                         "bytes, %s\n",
                         m.frameVerts, m.animFrames, m.tris.size(), m.anims.size(), m.droppedAnims, m.importBlock,
-                        !m.importAxes ? "no turn" : m.importAxesGuessed ? "no float copy (usual turn taken)"
-                                                                        : "turned as its float copy");
+                        !m.importAxes         ? "no turn"
+                        : m.importAxesGuessed ? "no float copy (usual turn taken)"
+                                              : "turned as its float copy");
         if (!err && m.keyFrames)
             std::printf("  %d of its %d frames of vertices found (the first is shown for all)\n", m.keyFrames,
                         m.animFrames);
@@ -889,12 +904,13 @@ int cmdUeProbe(int argc, char** argv) {
         }
         if (!err && m.bones)
             std::printf("  posed from %d bones (%s)\n", m.bones,
-                        m.bonesAnimated ? "every frame, from their animation keys" : "the pose they're bound in, for all frames");
+                        m.bonesAnimated ? "every frame, from their animation keys"
+                                        : "the pose they're bound in, for all frames");
         if (!range && !(!err && m.bones))
-            for (const std::string& l : describeMeshLayout(pkg, index))
+            for (const std::string &l : describeMeshLayout(pkg, index))
                 std::printf("%s\n", l.c_str());
         if (!range)
-            for (const std::string& l : describeBones(pkg, index))
+            for (const std::string &l : describeBones(pkg, index))
                 std::printf("%s\n", l.c_str());
     }
 
@@ -938,7 +954,7 @@ struct PointsCheck {
     int places = 0, within5 = 0, triangleX = 0, boneX = 0;
     double miss = 0; // units, all together
 };
-PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print) {
+PointsCheck checkAttachPoints(const reluva::unreal::PackageSet &set, bool print) {
     using namespace reluva::unreal;
     PointsCheck out;
     const std::vector<AnimationSet> sets = findAnimationSets(set);
@@ -953,7 +969,7 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
     };
     // A point's axes (rows) in a frame (rows), and how well they match
     // others: the rows' dot products summed, 3 for the same.
-    auto inFrame = [&](const std::array<Vec3f, 3>& axes, const std::array<Vec3f, 3>& frame) {
+    auto inFrame = [&](const std::array<Vec3f, 3> &axes, const std::array<Vec3f, 3> &frame) {
         std::array<Vec3f, 3> out{};
         for (size_t r = 0; r < 3; ++r) {
             for (size_t j = 0; j < 3; ++j)
@@ -963,13 +979,13 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
         }
         return out;
     };
-    auto match = [&](const std::array<Vec3f, 3>& a, const std::array<Vec3f, 3>& b) {
+    auto match = [&](const std::array<Vec3f, 3> &a, const std::array<Vec3f, 3> &b) {
         return dot(a[0], b[0]) + dot(a[1], b[1]) + dot(a[2], b[2]);
     };
     // The axes as one (rows' dot products summed: 3 the same) and the X
     // axis alone, either way (the barrel's line, for a gun's tip).
-    for (const std::string& name : set.names()) {
-        const Package* pkg = set.get(name);
+    for (const std::string &name : set.names()) {
+        const Package *pkg = set.get(name);
         if (!pkg)
             continue;
         for (size_t i = 0; i < pkg->exports().size(); ++i) {
@@ -981,17 +997,17 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
             const auto poser = LayeredPoser::open(*pkg, int(i), sets);
             if (!poser)
                 continue;
-            auto skeletonOf = [&](const Vec3f& packed) {
+            auto skeletonOf = [&](const Vec3f &packed) {
                 return Vec3f{(packed[0] - m.origin[0]) * m.scale[0], (packed[1] - m.origin[1]) * m.scale[1],
                              (packed[2] - m.origin[2]) * m.scale[2]};
             };
-            for (const MeshAttachPoint& pre : m.precomputedPoints) {
+            for (const MeshAttachPoint &pre : m.precomputedPoints) {
                 // <Animation><Point>Loc: the longest point name that ends it.
                 if (pre.name.size() < 4 || pre.name.substr(pre.name.size() - 3) != "Loc")
                     continue;
                 const std::string stem = pre.name.substr(0, pre.name.size() - 3);
-                const MeshAttachPoint* point = nullptr;
-                for (const MeshAttachPoint& p : m.attachPoints)
+                const MeshAttachPoint *point = nullptr;
+                for (const MeshAttachPoint &p : m.attachPoints)
                     if (p.type == 1 && p.triangle >= 0 && size_t(p.triangle) < m.tris.size() &&
                         stem.size() > p.name.size() && stem.substr(stem.size() - p.name.size()) == p.name &&
                         (!point || p.name.size() > point->name.size()))
@@ -999,7 +1015,7 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
                 if (!point)
                     continue;
                 const std::string anim = stem.substr(0, stem.size() - point->name.size());
-                const MeshTri& t = m.tris[size_t(point->triangle)];
+                const MeshTri &t = m.tris[size_t(point->triangle)];
                 const int bone = poser->mainBone(t.vertex);
                 // The frame where the point comes nearest the place.
                 float best = 1e30f, at = 0;
@@ -1008,7 +1024,7 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
                 // Engine.dll's frame (TriFrame): from corner 0, X to corner 2,
                 // Y the normal, Z = X x Y; the point's offset along those, its
                 // turn after (a kind 7 point is no turn and no offset).
-                auto engineFrame = [&](const std::vector<Vec3f>& vs, Vec3f& origin) {
+                auto engineFrame = [&](const std::vector<Vec3f> &vs, Vec3f &origin) {
                     Vec3f c[3];
                     for (size_t k = 0; k < 3; ++k)
                         c[k] = skeletonOf(vs[size_t(t.vertex[k])]);
@@ -1036,8 +1052,8 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
                 }
                 if (best >= 1e30f) {
                     if (print)
-                        std::printf("%-24s %-24s no animation %s\n", pkg->objectName(int32_t(i) + 1).c_str(), pre.name.c_str(),
-                                anim.c_str());
+                        std::printf("%-24s %-24s no animation %s\n", pkg->objectName(int32_t(i) + 1).c_str(),
+                                    pre.name.c_str(), anim.c_str());
                     continue;
                 }
                 poser->pose(anim, at, {}, verts);
@@ -1064,17 +1080,18 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet& set, bool print)
                 out.triangleX += xTriangle >= 0.95f;
                 out.boneX += xBone >= 0.95f;
                 if (print)
-                    std::printf("%-22s %-20s %5.1f off (%5.1f %5.1f %5.1f) at %.2f; axes by the triangle %5.2f (X %.2f), "
-                                "by %s %5.2f (X %.2f)\n",
-                                pkg->objectName(int32_t(i) + 1).c_str(), pre.name.c_str(), std::sqrt(best), miss[0],
-                                miss[1], miss[2], at, byTriangle, xTriangle, poser->boneName(bone).c_str(), byBone, xBone);
+                    std::printf(
+                        "%-22s %-20s %5.1f off (%5.1f %5.1f %5.1f) at %.2f; axes by the triangle %5.2f (X %.2f), "
+                        "by %s %5.2f (X %.2f)\n",
+                        pkg->objectName(int32_t(i) + 1).c_str(), pre.name.c_str(), std::sqrt(best), miss[0], miss[1],
+                        miss[2], at, byTriangle, xTriangle, poser->boneName(bone).c_str(), byBone, xBone);
             }
         }
     }
     return out;
 }
 
-void printPointsCheck(const PointsCheck& c) {
+void printPointsCheck(const PointsCheck &c) {
     if (c.places)
         std::printf("attachment points against %d precomputed places: %.1f units off on average, %d within 5; the X "
                     "axis along the place's (within 0.95) taken in the triangle's axes %d, in its bone's %d\n",
@@ -1083,7 +1100,7 @@ void printPointsCheck(const PointsCheck& c) {
 
 // trace <game folder> <map> x y z x2 y2 z2 [ex ey ez]: a box (half
 // sizes, none for a line) swept through a level's BSP: where it stops.
-int cmdUeTrace(int argc, char** argv) {
+int cmdUeTrace(int argc, char **argv) {
     if (argc != 10 && argc != 13) {
         std::fprintf(stderr, "usage: reluva-tool unreal trace <game folder> <map> x y z x2 y2 z2 [ex ey ez]\n");
         return 2;
@@ -1094,7 +1111,7 @@ int cmdUeTrace(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const Package* pkg = set.get(argv[3]);
+    const Package *pkg = set.get(argv[3]);
     Model model;
     std::string error;
     if (!pkg || findLevelModel(*pkg, &model, &error) < 0) {
@@ -1106,16 +1123,18 @@ int cmdUeTrace(int argc, char** argv) {
     const Vec3f e = argc == 13 ? Vec3f{f(10), f(11), f(12)} : Vec3f{};
     LevelCollision col(model);
     const auto h = col.trace(a, b, e);
-    std::printf("hit %d startSolid %d time %.4f at %.2f %.2f %.2f normal %.3f %.3f %.3f node %d; start solid box %d, end %d\n",
-                h.hit(), h.startSolid, double(h.time), double(h.location[0]), double(h.location[1]), double(h.location[2]),
-                double(h.normal[0]), double(h.normal[1]), double(h.normal[2]), h.node, col.solid(a, e), col.solid(b, e));
+    std::printf(
+        "hit %d startSolid %d time %.4f at %.2f %.2f %.2f normal %.3f %.3f %.3f node %d; start solid box %d, end %d\n",
+        h.hit(), h.startSolid, double(h.time), double(h.location[0]), double(h.location[1]), double(h.location[2]),
+        double(h.normal[0]), double(h.normal[1]), double(h.normal[2]), h.node, col.solid(a, e), col.solid(b, e));
     // The node hit: its flags, and its surface's polygon flags and brush.
     if (h.node >= 0 && size_t(h.node) < model.nodes.size()) {
-        const BspNode& n = model.nodes[size_t(h.node)];
+        const BspNode &n = model.nodes[size_t(h.node)];
         const bool surf = n.surf >= 0 && size_t(n.surf) < model.surfs.size();
         std::printf("node %d: flags %02x, surface %d, poly flags %08x, brush %s\n", h.node, unsigned(n.flags), n.surf,
                     surf ? model.surfs[size_t(n.surf)].polyFlags : 0u,
-                    surf && model.surfs[size_t(n.surf)].actor > 0 ? pkg->path(model.surfs[size_t(n.surf)].actor).c_str() : "-");
+                    surf && model.surfs[size_t(n.surf)].actor > 0 ? pkg->path(model.surfs[size_t(n.surf)].actor).c_str()
+                                                                  : "-");
     }
     return 0;
 }
@@ -1125,9 +1144,10 @@ int cmdUeTrace(int argc, char** argv) {
 // 30 to 110 units over the floor, room over it) or catch one in a jump
 // (115 to 160 up): each with the place to stand (Unreal's coordinates)
 // and the way to face, for trying them with play's teleport.
-int cmdUeLedges(int argc, char** argv) {
+int cmdUeLedges(int argc, char **argv) {
     if (argc < 4 || argc > 6) {
-        std::fprintf(stderr, "usage: reluva-tool unreal ledges <game folder> <map> [max | ladders | lights <effect>]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool unreal ledges <game folder> <map> [max | ladders | lights <effect>]\n");
         return 2;
     }
     using namespace reluva::unreal;
@@ -1136,7 +1156,7 @@ int cmdUeLedges(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const Package* pkg = set.get(argv[3]);
+    const Package *pkg = set.get(argv[3]);
     Model model;
     std::string error;
     if (!pkg || findLevelModel(*pkg, &model, &error) < 0) {
@@ -1153,13 +1173,13 @@ int cmdUeLedges(int argc, char** argv) {
         if (ref <= 0)
             continue;
         std::string cls = pkg->className(ref);
-        for (char& ch : cls)
+        for (char &ch : cls)
             ch = char(std::tolower(static_cast<unsigned char>(ch)));
         if (cls.find("h20zone") != std::string::npos || cls.find("waterzone") != std::string::npos ||
             cls.find("lavazone") != std::string::npos)
             water |= uint64_t(1) << z;
     }
-    auto wet = [&](const Vec3f& p) {
+    auto wet = [&](const Vec3f &p) {
         bool solid = false;
         const int z = zv.zoneAt(p, &solid);
         return !solid && z >= 0 && z < 64 && ((water >> z) & 1);
@@ -1169,7 +1189,7 @@ int cmdUeLedges(int argc, char** argv) {
         const int want = std::atoi(argv[5]);
         const LevelLights lights = gatherLights(set, *pkg, model);
         int count = 0;
-        for (const LightSource& l : lights.unique)
+        for (const LightSource &l : lights.unique)
             if (l.effect == want) {
                 ++count;
                 std::printf("light %s at %.1f %.1f %.1f radius %.0f colour %.2f %.2f %.2f%s\n",
@@ -1186,11 +1206,11 @@ int cmdUeLedges(int argc, char** argv) {
             PropertyList props;
             if (beginObject(*pkg, int(i), r, props))
                 continue;
-            const Property* e = props.find("LightEffect");
+            const Property *e = props.find("LightEffect");
             if (e && !e->data.empty() && e->data[0] == want) {
-                const Property* t = props.find("LightType");
-                std::printf("actor %s (%s): LightType %d\n", pkg->path(int(i) + 1).c_str(), pkg->className(int(i) + 1).c_str(),
-                            t && !t->data.empty() ? t->data[0] : 0);
+                const Property *t = props.find("LightType");
+                std::printf("actor %s (%s): LightType %d\n", pkg->path(int(i) + 1).c_str(),
+                            pkg->className(int(i) + 1).c_str(), t && !t->data.empty() ? t->data[0] : 0);
             }
         }
         std::printf("%d found\n", count);
@@ -1199,9 +1219,9 @@ int cmdUeLedges(int argc, char** argv) {
     // "ladders": each upright polygon with a ladder texture (TexTag
     // TT_Ladder), its width along the wall.
     if (argc == 5 && std::string(argv[4]) == "ladders") {
-        std::map<std::pair<const Package*, int>, bool> isLadder;
+        std::map<std::pair<const Package *, int>, bool> isLadder;
         int count = 0;
-        for (const BspNode& n : model.nodes) {
+        for (const BspNode &n : model.nodes) {
             if (std::fabs(n.plane[2]) > 0.1f || n.vertexCount < 3 || n.surf < 0 || size_t(n.surf) >= model.surfs.size())
                 continue;
             const ObjectRef t = set.resolve(*pkg, model.surfs[size_t(n.surf)].texture);
@@ -1214,7 +1234,7 @@ int cmdUeLedges(int argc, char** argv) {
                     Reader r(data, size_t(t.package->exports()[size_t(t.exportIndex)].serialOffset));
                     PropertyList props;
                     if (!beginObject(*t.package, t.exportIndex, r, props))
-                        if (const Property* tag = props.find("TexTag"); tag && !tag->data.empty())
+                        if (const Property *tag = props.find("TexTag"); tag && !tag->data.empty())
                             it->second = tag->data[0] == 1; // a byte
                 }
             }
@@ -1224,7 +1244,7 @@ int cmdUeLedges(int argc, char** argv) {
             float lo = 1e30f, hi = -1e30f, zlo = 1e30f, zhi = -1e30f;
             const Vec3f side{-n.plane[1], n.plane[0], 0};
             for (int k = 0; k < n.vertexCount; ++k) {
-                const Vec3f& q = model.points[size_t(model.verts[size_t(n.vertPool + k)].point)];
+                const Vec3f &q = model.points[size_t(model.verts[size_t(n.vertPool + k)].point)];
                 for (size_t a = 0; a < 3; ++a)
                     c[a] += q[a] / float(n.vertexCount);
                 const float d = q[0] * side[0] + q[1] * side[1];
@@ -1232,9 +1252,9 @@ int cmdUeLedges(int argc, char** argv) {
             }
             ++count;
             const bool inWater = wet({c[0] + n.plane[0] * 20, c[1] + n.plane[1] * 20, zlo + 10});
-            std::printf("ladder %.1f %.1f %.1f normal %.2f %.2f width %.1f from %.1f to %.1f%s\n", double(c[0]), double(c[1]),
-                        double(c[2]), double(n.plane[0]), double(n.plane[1]), double(hi - lo), double(zlo), double(zhi),
-                        inWater ? ", its foot in water" : "");
+            std::printf("ladder %.1f %.1f %.1f normal %.2f %.2f width %.1f from %.1f to %.1f%s\n", double(c[0]),
+                        double(c[1]), double(c[2]), double(n.plane[0]), double(n.plane[1]), double(hi - lo),
+                        double(zlo), double(zhi), inWater ? ", its foot in water" : "");
         }
         std::printf("%d found\n", count);
         return 0;
@@ -1247,7 +1267,7 @@ int cmdUeLedges(int argc, char** argv) {
     const Vec3f stand{R, R, H};
     int found = 0;
     std::set<std::tuple<int, int, int>> seen;
-    for (const BspNode& n : model.nodes) {
+    for (const BspNode &n : model.nodes) {
         if (n.plane[2] < 0.9f || n.vertexCount < 3 || found >= most)
             continue;
         Vec3f c{};
@@ -1283,12 +1303,13 @@ int cmdUeLedges(int argc, char** argv) {
                 if (!under.hit() && !under.startSolid && floorThere.hit() && floorThere.normal[2] > 0.7f && gap < 60 &&
                     seen.insert(std::make_tuple(int(foot[0] / 64), int(foot[1] / 64), 100 + d)).second) {
                     ++found;
-                    std::printf("duck %.1f %.1f %.1f yaw %d wall %.1f\n", double(foot[0]), double(foot[1]), double(foot[2]),
-                                d * 45, double(gap));
+                    std::printf("duck %.1f %.1f %.1f yaw %d wall %.1f\n", double(foot[0]), double(foot[1]),
+                                double(foot[2]), d * 45, double(gap));
                     continue;
                 }
             }
-            if (!wall.hit() || std::fabs(wall.normal[2]) > 0.1f || -(wall.normal[0] * dir[0] + wall.normal[1] * dir[1]) < 0.9f)
+            if (!wall.hit() || std::fabs(wall.normal[2]) > 0.1f ||
+                -(wall.normal[0] * dir[0] + wall.normal[1] * dir[1]) < 0.9f)
                 continue;
             // The top: down from high over the wall, just past its face.
             const Vec3f past{wall.location[0] + dir[0] * (R + 12), wall.location[1] + dir[1] * (R + 12), feet + 175};
@@ -1305,16 +1326,18 @@ int cmdUeLedges(int argc, char** argv) {
                     surface += 1;
                 const Vec3f overWater{foot[0], foot[1], surface + 20};
                 const bool open = !col.solid(overWater, {R, R, 18});
-                std::printf("swim %.1f %.1f %.1f yaw %d rise %.1f over water %.1f%s\n", double(foot[0]), double(foot[1]),
-                            double(foot[2]), d * 45, double(rise), double(top.location[2] - surface),
+                std::printf("swim %.1f %.1f %.1f yaw %d rise %.1f over water %.1f%s\n", double(foot[0]),
+                            double(foot[1]), double(foot[2]), d * 45, double(rise), double(top.location[2] - surface),
                             open ? "" : " (no room over the water)");
                 continue;
             }
             if (steps) {
-                if (rise >= 8 && rise <= 24 && seen.insert(std::make_tuple(int(foot[0] / 64), int(foot[1] / 64), 300 + d)).second) {
+                if (rise >= 8 && rise <= 24 &&
+                    seen.insert(std::make_tuple(int(foot[0] / 64), int(foot[1] / 64), 300 + d)).second) {
                     ++found;
-                    std::printf("step %.1f %.1f %.1f yaw %d rise %.1f wall at %.1f %.1f\n", double(foot[0]), double(foot[1]),
-                                double(foot[2]), d * 45, double(rise), double(wall.location[0]), double(wall.location[1]));
+                    std::printf("step %.1f %.1f %.1f yaw %d rise %.1f wall at %.1f %.1f\n", double(foot[0]),
+                                double(foot[1]), double(foot[2]), d * 45, double(rise), double(wall.location[0]),
+                                double(wall.location[1]));
                 }
                 continue;
             }
@@ -1337,7 +1360,7 @@ int cmdUeLedges(int argc, char** argv) {
     return 0;
 }
 
-int cmdUePoints(int argc, char** argv) {
+int cmdUePoints(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool unreal points <game folder>\n");
         return 2;
@@ -1351,10 +1374,12 @@ int cmdUePoints(int argc, char** argv) {
     return 0;
 }
 
-int cmdUeExtract(int argc, char** argv) {
+int cmdUeExtract(int argc, char **argv) {
     if (argc != 5 && argc != 6) {
-        std::fprintf(stderr, "usage: reluva-tool unreal extract <game folder> <package name> <export> [steps] (writes <export>.tga or .wav...;\n"
-                             "  a fire or water texture as it is after [steps] frames at 35 a second, a second in by default)\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool unreal extract <game folder> <package name> <export> [steps] (writes <export>.tga or .wav...;\n"
+            "  a fire or water texture as it is after [steps] frames at 35 a second, a second in by default)\n");
         return 2;
     }
     using namespace reluva::unreal;
@@ -1363,7 +1388,7 @@ int cmdUeExtract(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const Package* pkg = set.get(argv[3]);
+    const Package *pkg = set.get(argv[3]);
     if (!pkg) {
         std::fprintf(stderr, "%s\n", set.error(argv[3]).c_str());
         return 1;
@@ -1404,7 +1429,8 @@ int cmdUeExtract(int argc, char** argv) {
             tga.push_back(img.rgba[i]);
             tga.push_back(img.rgba[i + 3]);
         }
-        std::ofstream(base + ".tga", std::ios::binary).write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+        std::ofstream(base + ".tga", std::ios::binary)
+            .write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
         std::printf("Wrote %s.tga (%dx%d)\n", base.c_str(), img.w, img.h);
         return 0;
     }
@@ -1421,7 +1447,8 @@ int cmdUeExtract(int argc, char** argv) {
             return 0;
         }
         const std::string name = base + "." + reluva::fs::toLower(f.format);
-        std::ofstream(name, std::ios::binary).write(reinterpret_cast<const char*>(f.data.data()), std::streamsize(f.data.size()));
+        std::ofstream(name, std::ios::binary)
+            .write(reinterpret_cast<const char *>(f.data.data()), std::streamsize(f.data.size()));
         std::printf("Wrote %s (%zu bytes)\n", name.c_str(), f.data.size());
         return 0;
     }
@@ -1432,7 +1459,7 @@ int cmdUeExtract(int argc, char** argv) {
 // Opens every package on a game's search path and decodes every texture,
 // sound and level model, reporting what fails: the check to run on a new
 // game or release.
-int cmdUeCheck(int argc, char** argv) {
+int cmdUeCheck(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool unreal check <game folder> [-v]\n");
         return 2;
@@ -1442,8 +1469,8 @@ int cmdUeCheck(int argc, char** argv) {
     std::vector<std::string> warnings;
     PackageSet set;
     std::string ini;
-    for (const reluva::DetectedGame& g : detect("unreal", argv[2]))
-        if (const GameInfo* info = findGame(g.gameId)) {
+    for (const reluva::DetectedGame &g : detect("unreal", argv[2]))
+        if (const GameInfo *info = findGame(g.gameId)) {
             ini = info->iniName;
             std::printf("Detected: %s\n", g.description.c_str());
         }
@@ -1452,9 +1479,9 @@ int cmdUeCheck(int argc, char** argv) {
         return 1;
     }
     std::printf("Search paths from %s:\n", set.iniFile().empty() ? "(defaults)" : set.iniFile().string().c_str());
-    for (const std::string& p : set.searchPaths())
+    for (const std::string &p : set.searchPaths())
         std::printf("  %s\n", p.c_str());
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::printf("warning: %s\n", w.c_str());
 
     std::map<std::string, int> versions;
@@ -1464,13 +1491,13 @@ int cmdUeCheck(int argc, char** argv) {
     };
     std::map<std::string, Tally> tallies;
     std::map<std::string, std::pair<int, std::string>> meshTurns; // turn: how many, an example
-    std::map<std::string, bool> meshReads;     // placed actors' meshes: whether they read
-    std::map<std::string, int> meshBones;      // and how many bones they're posed from
-    std::map<std::string, int> animPlayed;     // "mesh anim": 0 not found, 1 its own, 2 borrowed
+    std::map<std::string, bool> meshReads;                        // placed actors' meshes: whether they read
+    std::map<std::string, int> meshBones;                         // and how many bones they're posed from
+    std::map<std::string, int> animPlayed;                        // "mesh anim": 0 not found, 1 its own, 2 borrowed
     std::optional<std::vector<AnimationSet>> animationSets;
-    std::map<std::string, int> unreadPlaced;   // those that don't: how many actors use them
-    auto record = [&](const std::string& what, const reluva::Error& err) {
-        Tally& t = tallies[what];
+    std::map<std::string, int> unreadPlaced; // those that don't: how many actors use them
+    auto record = [&](const std::string &what, const reluva::Error &err) {
+        Tally &t = tallies[what];
         if (!err) {
             ++t.ok;
             return;
@@ -1483,8 +1510,8 @@ int cmdUeCheck(int argc, char** argv) {
     long long lightTotals[4] = {};
     ClassDefaults classDefaults(set);
     std::map<std::string, int> spriteTextures; // placed sprites by texture
-    for (const std::string& name : set.names()) {
-        const Package* pkg = set.get(name);
+    for (const std::string &name : set.names()) {
+        const Package *pkg = set.get(name);
         if (!pkg) {
             ++unopened;
             std::printf("can't open %s: %s\n", name.c_str(), set.error(name).c_str());
@@ -1503,7 +1530,8 @@ int cmdUeCheck(int argc, char** argv) {
                                               " bytes left over");
                 const bool coded = o.kind == ScriptObject::Kind::kFunction || o.kind == ScriptObject::Kind::kState ||
                                    o.kind == ScriptObject::Kind::kClass || o.kind == ScriptObject::Kind::kStruct;
-                record(coded ? "scripts (classes, structs, functions, states)" : "scripts (properties, enums, constants)",
+                record(coded ? "scripts (classes, structs, functions, states)"
+                             : "scripts (properties, enums, constants)",
                        err);
                 if (!err && coded && !o.code.statements.empty())
                     ++tallies["scripts with bytecode"].ok;
@@ -1530,7 +1558,7 @@ int cmdUeCheck(int argc, char** argv) {
                         changes += anim->advance(1.0f / 6);
                     const std::string kind = anim ? anim->kind() : cls;
                     record("animated textures (" + kind + ")",
-                           !anim ? reluva::Error::fail(why)
+                           !anim          ? reluva::Error::fail(why)
                            : changes == 0 ? reluva::Error::fail(pkg->path(int32_t(i) + 1) + ": doesn't change")
                                           : reluva::Error::success());
                 }
@@ -1557,8 +1585,9 @@ int cmdUeCheck(int argc, char** argv) {
                         const uint32_t size = uint32_t(f.data[at + 4]) | uint32_t(f.data[at + 5]) << 8 |
                                               uint32_t(f.data[at + 6]) << 16 | uint32_t(f.data[at + 7]) << 24;
                         if (std::memcmp(&f.data[at], "smpl", 4) == 0 && size >= 36 && at + 8 + 36 <= f.data.size()) {
-                            const uint8_t* q = &f.data[at + 8 + 28];
-                            const uint32_t loops = uint32_t(q[0]) | uint32_t(q[1]) << 8 | uint32_t(q[2]) << 16 | uint32_t(q[3]) << 24;
+                            const uint8_t *q = &f.data[at + 8 + 28];
+                            const uint32_t loops =
+                                uint32_t(q[0]) | uint32_t(q[1]) << 8 | uint32_t(q[2]) << 16 | uint32_t(q[3]) << 24;
                             if (loops > 0)
                                 ++tallies["sounds with a loop of their own (smpl)"].ok;
                             break;
@@ -1596,24 +1625,26 @@ int cmdUeCheck(int argc, char** argv) {
                 // Which way imported-model meshes' float copies are turned
                 // from their packed vertices (rows), and an example of each.
                 if (!err && m.importBlock) {
-                    std::string turn = !m.importAxes ? "none (standard vertices, no turn)" : "none to fit (usual turn taken)";
+                    std::string turn =
+                        !m.importAxes ? "none (standard vertices, no turn)" : "none to fit (usual turn taken)";
                     if (m.importAxes && !m.importAxesGuessed) {
                         turn.clear();
-                        for (const auto& row : *m.importAxes) {
+                        for (const auto &row : *m.importAxes) {
                             char buf[64];
                             std::snprintf(buf, sizeof buf, "%s(%g %g %g)", turn.empty() ? "" : " ", double(row[0]),
                                           double(row[1]), double(row[2]));
                             turn += buf;
                         }
                     }
-                    auto& [n, example] = meshTurns[turn];
+                    auto &[n, example] = meshTurns[turn];
                     if (n++ == 0)
                         example = pkg->path(int32_t(i) + 1);
                     if (m.keyFrames)
                         ++tallies["meshes keyframed (first frame shown)"].ok;
                     if (m.bones)
                         ++tallies[m.bonesAnimated ? "meshes posed from bones (animated)"
-                                                  : "meshes posed from bones (bound pose shown)"].ok;
+                                                  : "meshes posed from bones (bound pose shown)"]
+                              .ok;
                 }
             }
         }
@@ -1627,8 +1658,7 @@ int cmdUeCheck(int argc, char** argv) {
             record("levels", err);
             if (at >= 0) {
                 std::printf("%-24s %6zu nodes %6zu surfaces %7zu points  %zu polygons drawn\n", name.c_str(),
-                            model.nodes.size(), model.surfs.size(), model.points.size(),
-                            levelPolygons(model).size());
+                            model.nodes.size(), model.surfs.size(), model.points.size(), levelPolygons(model).size());
                 // The lighting: whether it reads, and how the lightmaps'
                 // sample grids lined up with their surfaces (lighting.md).
                 reluva::Error lerr;
@@ -1638,18 +1668,19 @@ int cmdUeCheck(int argc, char** argv) {
                 } else {
                     const LevelLights lights = gatherLights(set, *pkg, model);
                     const LightmapAtlas atlas = buildLightmaps(model, lights);
-                    const LightmapAtlas::Stats& st = atlas.stats;
+                    const LightmapAtlas::Stats &st = atlas.stats;
                     size_t animatedTexels = 0;
-                    for (const AnimatedLightmap& m : atlas.animated)
+                    for (const AnimatedLightmap &m : atlas.animated)
                         animatedTexels += size_t(m.w) * size_t(m.h);
                     std::printf("    changing lights: %zu (pulse, flicker...) over %zu lightmaps, %zu texels\n",
                                 lights.animated.size(), atlas.animated.size(), animatedTexels);
-                    std::printf("    lighting: %zu zones, %zu lightmaps (%d used, %d lit), %zu light bytes, %zu lights "
-                                "(%d unreadable), %zu leaves, %zu bytes after; grids placed by bounds %d, off fit %d, too "
-                                "large %d; %zu pages\n",
-                                model.zones.size(), model.lightMaps.size(), st.lightmaps, st.lit,
-                                model.lightBits.size(), model.lights.size(), lights.unreadable, model.leaves.size(),
-                                model.trailingBytes, st.fromBounds, st.badFit, st.tooLarge, atlas.pages.size());
+                    std::printf(
+                        "    lighting: %zu zones, %zu lightmaps (%d used, %d lit), %zu light bytes, %zu lights "
+                        "(%d unreadable), %zu leaves, %zu bytes after; grids placed by bounds %d, off fit %d, too "
+                        "large %d; %zu pages\n",
+                        model.zones.size(), model.lightMaps.size(), st.lightmaps, st.lit, model.lightBits.size(),
+                        model.lights.size(), lights.unreadable, model.leaves.size(), model.trailingBytes, st.fromBounds,
+                        st.badFit, st.tooLarge, atlas.pages.size());
                     lightTotals[0] += st.lightmaps;
                     lightTotals[1] += st.lit;
                     lightTotals[2] += st.fromBounds;
@@ -1663,7 +1694,7 @@ int cmdUeCheck(int argc, char** argv) {
                 std::vector<std::string> moverErrors;
                 const std::vector<Mover> movers = findMovers(set, *pkg, &moverErrors);
                 size_t moverPolys = 0;
-                for (const Mover& m : movers)
+                for (const Mover &m : movers)
                     moverPolys += m.polys.size();
                 const auto skyAt = findSkyZone(set, *pkg);
                 std::printf("    movers: %zu (%zu polygons), %zu unreadable; sky zone: %s\n", movers.size(), moverPolys,
@@ -1672,7 +1703,7 @@ int cmdUeCheck(int argc, char** argv) {
                 MeshActorStats meshStats;
                 // Placed actors whose mesh doesn't read: which meshes matter most.
                 int meshless = 0, skeletal = 0;
-                for (const MeshActor& a : findMeshActors(set, *pkg, classDefaults, &meshStats)) {
+                for (const MeshActor &a : findMeshActors(set, *pkg, classDefaults, &meshStats)) {
                     if (!a.mesh)
                         continue;
                     const std::string mesh = a.mesh.package->path(a.mesh.exportIndex + 1);
@@ -1703,7 +1734,7 @@ int cmdUeCheck(int argc, char** argv) {
                                           ? 2
                                           : 0;
                                 const std::string lower = reluva::fs::toLower(a.animSequence);
-                                if (!how && std::none_of(m.otherAnims.begin(), m.otherAnims.end(), [&](const auto& s) {
+                                if (!how && std::none_of(m.otherAnims.begin(), m.otherAnims.end(), [&](const auto &s) {
                                         return reluva::fs::toLower(s.name) == lower;
                                     }))
                                     how = 3; // its mesh doesn't list it at all
@@ -1725,7 +1756,7 @@ int cmdUeCheck(int argc, char** argv) {
                 tallies["mesh actors"].ok += meshStats.meshes;
                 // Sprites, by the texture they show.
                 SpriteActorStats spriteStats;
-                for (const SpriteActor& a : findSpriteActors(set, *pkg, classDefaults, &spriteStats)) {
+                for (const SpriteActor &a : findSpriteActors(set, *pkg, classDefaults, &spriteStats)) {
                     reluva::image::Image img;
                     const reluva::Error terr = decodeTexture(set, *a.texture.package, a.texture.exportIndex, img);
                     ++spriteTextures[a.texture.package->path(a.texture.exportIndex + 1) + " (" +
@@ -1736,13 +1767,13 @@ int cmdUeCheck(int argc, char** argv) {
                 }
                 std::printf("    sprites: %d (%d editor icons, %d hidden)\n", spriteStats.sprites,
                             spriteStats.editorOnly, spriteStats.hidden);
-                for (const std::string& e : moverErrors)
+                for (const std::string &e : moverErrors)
                     record("movers", reluva::Error::fail(name + ": " + e));
             }
         }
     }
     std::printf("\n%zu packages (%d wouldn't open); versions/licensee:", set.names().size(), unopened);
-    for (const auto& [v, n] : versions)
+    for (const auto &[v, n] : versions)
         std::printf(" %s x%d", v.c_str(), n);
     std::printf("\n");
     if (lightTotals[0])
@@ -1752,13 +1783,13 @@ int cmdUeCheck(int argc, char** argv) {
                 classDefaults.found(), classDefaults.missing());
     if (!spriteTextures.empty()) {
         std::printf("sprites' textures:");
-        for (const auto& [texture, n] : spriteTextures)
+        for (const auto &[texture, n] : spriteTextures)
             std::printf(" %s x%d;", texture.c_str(), n);
         std::printf("\n");
     }
     if (!unreadPlaced.empty()) {
         std::vector<std::pair<int, std::string>> byUse;
-        for (const auto& [mesh, n] : unreadPlaced)
+        for (const auto &[mesh, n] : unreadPlaced)
             byUse.push_back({n, mesh});
         std::sort(byUse.rbegin(), byUse.rend());
         std::printf("meshes placed in levels that don't read, most used first:");
@@ -1766,13 +1797,13 @@ int cmdUeCheck(int argc, char** argv) {
             std::printf("%s %s (%d)", k ? "," : "", byUse[k].second.c_str(), byUse[k].first);
         std::printf("%s\n", byUse.size() > 15 ? (", and " + std::to_string(byUse.size() - 15) + " more").c_str() : "");
     }
-    for (const auto& [turn, t] : meshTurns)
+    for (const auto &[turn, t] : meshTurns)
         std::printf("meshes with an imported-model block, float copy %s: %d (e.g. %s)\n", turn.c_str(), t.first,
                     t.second.c_str());
     printPointsCheck(checkAttachPoints(set, false));
-    for (const auto& [what, t] : tallies) {
+    for (const auto &[what, t] : tallies) {
         std::printf("%-9s %6d decoded, %6d failed\n", what.c_str(), t.ok, t.failed);
-        for (const std::string& ex : t.examples)
+        for (const std::string &ex : t.examples)
             std::printf("    %s\n", ex.c_str());
     }
     return 0;

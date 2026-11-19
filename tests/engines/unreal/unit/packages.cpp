@@ -183,11 +183,13 @@ void testDialogTable() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("unreal.unit.packages", {
-    {"compact index", [](const std::filesystem::path &) { testCompactIndex(); }},
-    {"package tables", [](const std::filesystem::path &) { testPackageTables(); }},
-    {"properties", [](const std::filesystem::path &) { testProperties(); }},
-    {"search paths and detection", [](const std::filesystem::path &) { testSearchPathsAndDetection(); }},
-    {"map extension", [](const std::filesystem::path &) { testMapExtension(); }},
-    {"dialog table", [](const std::filesystem::path &) { testDialogTable(); }},
-});
+static const reluva::test::Suite
+    kSuite("unreal.unit.packages",
+           {
+               {"compact index", [](const std::filesystem::path &) { testCompactIndex(); }},
+               {"package tables", [](const std::filesystem::path &) { testPackageTables(); }},
+               {"properties", [](const std::filesystem::path &) { testProperties(); }},
+               {"search paths and detection", [](const std::filesystem::path &) { testSearchPathsAndDetection(); }},
+               {"map extension", [](const std::filesystem::path &) { testMapExtension(); }},
+               {"dialog table", [](const std::filesystem::path &) { testDialogTable(); }},
+           });

@@ -12,9 +12,9 @@ namespace reluva::audio {
 // A decoded sound: signed 16-bit samples, interleaved when stereo. Every
 // decoder in audio produces one.
 struct Sound {
-    int rate = 0;     // samples per second
-    int channels = 0; // 1 or 2
-    int format = 0;   // the source's format: a WAV format tag (1 PCM, 0x11 IMA ADPCM), or a kFormat* below
+    int rate = 0;        // samples per second
+    int channels = 0;    // 1 or 2
+    int format = 0;      // the source's format: a WAV format tag (1 PCM, 0x11 IMA ADPCM), or a kFormat* below
     int sourceBits = 16; // its samples' size as stored (8 for 8-bit PCM), before decoding
     std::vector<int16_t> samples;
     // The part played over and over when it loops, in frames: from

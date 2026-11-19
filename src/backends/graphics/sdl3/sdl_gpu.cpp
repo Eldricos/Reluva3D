@@ -874,7 +874,7 @@ SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
             op.pass_op = _stencilMode == StencilMode::kLevelMark ? SDL_GPU_STENCILOP_INCREMENT_AND_CLAMP
                          : _stencilMode == StencilMode::kUnmark  ? SDL_GPU_STENCILOP_DECREMENT_AND_CLAMP
                          : _stencilMode == StencilMode::kOnce    ? SDL_GPU_STENCILOP_REPLACE
-                                                                : SDL_GPU_STENCILOP_KEEP;
+                                                                 : SDL_GPU_STENCILOP_KEEP;
             op.compare_op = _stencilMode == StencilMode::kOnce ? SDL_GPU_COMPAREOP_NOT_EQUAL : SDL_GPU_COMPAREOP_EQUAL;
         }
         info.depth_stencil_state.enable_stencil_test = true;

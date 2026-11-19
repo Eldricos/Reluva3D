@@ -396,9 +396,10 @@ void testCollision() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("unreal.unit.levels", {
-    {"model", [](const std::filesystem::path &) { testModel(); }},
-    {"actors", [](const std::filesystem::path &) { testActors(); }},
-    {"zone visibility", [](const std::filesystem::path &) { testZoneVisibility(); }},
-    {"collision", [](const std::filesystem::path &) { testCollision(); }},
-});
+static const reluva::test::Suite
+    kSuite("unreal.unit.levels", {
+                                     {"model", [](const std::filesystem::path &) { testModel(); }},
+                                     {"actors", [](const std::filesystem::path &) { testActors(); }},
+                                     {"zone visibility", [](const std::filesystem::path &) { testZoneVisibility(); }},
+                                     {"collision", [](const std::filesystem::path &) { testCollision(); }},
+                                 });

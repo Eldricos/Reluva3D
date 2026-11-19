@@ -172,9 +172,10 @@ private:
     void functionText(int index, const ScriptObject &f, int indent) {
         std::string head;
         const std::pair<uint32_t, const char *> words[] = {
-            {funcflag::kStatic, "static"},     {funcflag::kFinal, "final"},          {funcflag::kSimulated, "simulated"},
-            {funcflag::kSingular, "singular"}, {funcflag::kLatent, "latent"},        {funcflag::kIterator, "iterator"},
-            {funcflag::kExec, "exec"},         {funcflag::kNetReliable, "reliable"},
+            {funcflag::kStatic, "static"},       {funcflag::kFinal, "final"},
+            {funcflag::kSimulated, "simulated"}, {funcflag::kSingular, "singular"},
+            {funcflag::kLatent, "latent"},       {funcflag::kIterator, "iterator"},
+            {funcflag::kExec, "exec"},           {funcflag::kNetReliable, "reliable"},
         };
         if (f.functionFlags & funcflag::kNative)
             head += f.native ? "native(" + std::to_string(f.native) + ") " : "native ";
