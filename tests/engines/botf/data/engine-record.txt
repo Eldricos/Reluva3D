@@ -1,0 +1,3 @@
+# The record of botf.engine (tests/engines/botf/engine.cpp).
+# Written by `reluva-tests botf.engine --update`; review its diff before committing.
+detect.games: 0
