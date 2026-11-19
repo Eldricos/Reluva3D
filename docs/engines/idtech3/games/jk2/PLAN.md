@@ -227,7 +227,8 @@ behind the DLL's own tables.
    to `cairn_dock1` by the tour, nothing new needed. `cairn_dock1`, a
    stealth level whose alarms end in a capture, plays to `doom_comm` by
    the tour with the game's `notarget` cheat, so no guard raises one.
-   Next: the next levels the same way, and a console on the page.
+   `doom_comm` plays to `doom_detention` by the tour, nothing new
+   needed. Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
