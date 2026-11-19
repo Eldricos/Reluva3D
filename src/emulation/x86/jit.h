@@ -9,44 +9,49 @@
 
 namespace reluva::x86 {
 
-// Native code for the decoded-instruction cache's blocks (Cpu::runCached),
-// on x86-64 Windows and Linux. The commonest instructions that set no
-// flags (moves, LEA, PUSH, POP) become the host's own instructions, on the
-// emulated registers and memory where the Cpu keeps them; every other is
-// a direct call to its handler, as the interpreter's loop would make it.
-// Either way an instruction does what its handler does, step for step:
-// the registers it writes and in what order, the memory check and the
-// note of writes to code pages; so the two agree to the instruction, and a
-// fault leaves the same state.
-//
-// The emulated eip and the instruction's start (for faults) are stored
-// only where something reads them: before each handler called, at a
-// fault, and at the block's end.
-//
-// A block's code ends in a jump to the dispatch, which does what
-// runCached's loop does between blocks where all is ready: unless the run
-// is over (eip at its return address or a native), or asked to stop, it
-// finds the next block, and if that's there with its bytes unchanged
-// since checked (the code epoch), made in this generation and within the
-// instruction limit, counts it and jumps to its code. A native function
-// at eip is called from there too (Layout::callNative), and the dispatch
-// goes on after it. Anything else goes back to runCached, which sees to it.
-//
-// The code lives in one buffer of executable memory, which says how to
-// unwind through it (C++ exceptions, the faults, pass through it):
-// RtlAddFunctionTable on Windows, __register_frame on Linux. Every block's
-// code runs in the frame its entry made (rbx the Cpu, r12 the memory, r13
-// the code pages' marks, 32 bytes of argument space); the dispatch leaves
-// it through that frame's epilogue.
+/**
+ * Native code for the decoded-instruction cache's blocks (Cpu::runCached),
+ * on x86-64 Windows and Linux. The commonest instructions (moves, LEA,
+ * PUSH, POP, the arithmetic of Kind::kAlu, jumps, calls and returns, the
+ * commonest x87 ones) become the host's own instructions, on the emulated
+ * registers and memory where the Cpu keeps them; every other is a direct
+ * call to its handler, as the interpreter's loop would make it. Either way
+ * an instruction does what its handler does, step for step: the registers
+ * it writes and in what order, the memory check and the note of writes to
+ * code pages; so the two agree to the instruction, and a fault leaves the
+ * same state.
+ *
+ * The emulated eip and the instruction's start (for faults) are stored
+ * only where something reads them: before each handler called, at a
+ * fault, and at the block's end.
+ *
+ * A block's code ends in a jump to the dispatch, which does what
+ * runCached's loop does between blocks where all is ready: unless the run
+ * is over (eip at its return address or a native), or asked to stop, it
+ * finds the next block, and if that's there with its bytes unchanged
+ * since checked (the code epoch), made in this generation and within the
+ * instruction limit, counts it and jumps to its code. A native function
+ * at eip is called from there too (Layout::callNative), and the dispatch
+ * goes on after it. Anything else goes back to runCached, which sees to it.
+ *
+ * The code lives in one buffer of executable memory, which says how to
+ * unwind through it (C++ exceptions, the faults, pass through it):
+ * RtlAddFunctionTable on Windows, __register_frame on Linux. Every block's
+ * code runs in the frame its entry made (rbx the Cpu, r12 the memory, r13
+ * the code pages' marks, 32 bytes of argument space); the dispatch leaves
+ * it through that frame's epilogue.
+ */
 class Jit {
 public:
-    // Whether this build and system can make native code.
+    /** Whether this build and system can make native code. */
     static bool supported();
-    // Whether instructions with flags can be made (Kind::Alu): the host's
-    // LAHF in 64-bit mode, which a few of the first x86-64 processors lack.
+    /**
+     * Whether instructions with flags can be made (Kind::kAlu): the host's
+     * LAHF in 64-bit mode, which a few of the first x86-64 processors lack.
+     */
     static bool flagsOps();
 
-    // Where the Cpu keeps what the code reads and writes.
+    /** Where the Cpu keeps what the code reads and writes. */
     struct Layout {
         // offsets into the Cpu
         size_t reg;
@@ -91,13 +96,15 @@ public:
         uint32_t blockSize;
         uint32_t blockMask;
     };
+    /** Makes the buffer and the code every block shares; see ready(). */
     explicit Jit(const Layout &layout);
     ~Jit();
     Jit(const Jit &) = delete;
     Jit &operator=(const Jit &) = delete;
+    /** Whether the buffer was made: if not, compile() makes nothing. */
     bool ready() const { return _base != nullptr; }
 
-    // An instruction, as decoded (Cpu::Cached), with what it becomes.
+    /** What an instruction, as decoded (Cpu::Cached), becomes. */
     enum class Kind : uint8_t {
         kCall,      // its handler, called
         kMovRegRm,  // reg <- r/m (size 1 or 4)
@@ -106,8 +113,8 @@ public:
         kMovRegImm, // rm <- imm (4)
         kLea,       // reg <- the address
         kPushReg,   // push rm
-        kPushImm,
-        kPopReg, // pop rm
+        kPushImm,   // push imm
+        kPopReg,    // pop rm
         // With flags (Jit::flagsOps: where the host has LAHF). `alu` is
         // the operation: 0-7 ADD OR ADC SBB AND SUB XOR CMP, 8 TEST, 9
         // INC, 10 DEC, 11 SHL, 12 SHR, 13 SAR (32 bits, by imm 1 to 31);
@@ -135,10 +142,11 @@ public:
         kFArith,    // st(0) <- st(0) op the memory operand
         kFArithSt0, // st(0) <- st(0) op st(i)
         kFArithSti, // st(i) <- st(i) op st(0)
-        kFxch,
-        kFCom,     // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
-        kFnstswAx, // AX <- the status word, with top
+        kFxch,      // st(0) <-> st(i)
+        kFCom,      // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
+        kFnstswAx,  // AX <- the status word, with top
     };
+    /** An instruction to compile: what it becomes, and its decoded operands. */
     struct Op {
         Kind kind = Kind::kCall;
         uint8_t size = 4;
@@ -156,28 +164,37 @@ public:
         uint32_t disp = 0;
         uint32_t imm = 0;
         uint32_t start = 0;            // its address
-        const void *handler = nullptr; // for Call
-        const void *entry = nullptr;   // its Cached, for Call
+        const void *handler = nullptr; // for kCall
+        const void *entry = nullptr;   // its Cached, for kCall
     };
-    // Code for a block of `count` instructions (after a 16-byte header: its
-    // copy of the entries and their count, which the dispatch and the
-    // links read for the count's record), ending at `end` (where eip
-    // goes on if the last doesn't say), with `entries` (the Cpu's decoded
-    // instructions, `entrySize` bytes each) copied for the handlers it calls
-    // and for the count's record: the code depends on nothing in the table,
-    // so a jump to it stays good while the bytes it was made from are (the
-    // code epoch). nullptr if there's no room (reset() makes it).
+    /**
+     * Code for a block of `count` instructions (after a 16-byte header: the
+     * address of its copy of the entries, and their count, which the
+     * dispatch and the links read for the count's record), ending at `end`
+     * (where eip goes on if the last doesn't say), with `entries` (the Cpu's
+     * decoded instructions, `entrySize` bytes each) copied for the handlers
+     * it calls and for the count's record: the code depends on nothing in
+     * the table, so a jump to it stays good while the bytes it was made from
+     * are (the code epoch).
+     * @return The code; nullptr if there's no room (reset() makes it) or no
+     *         buffer.
+     */
     const uint8_t *compile(const Op *ops, int count, uint32_t end, const void *entries, size_t entrySize);
-    // Runs code compile() made, for the Cpu.
+    /** Runs code compile() made, for the Cpu. */
     void run(void *cpu, const uint8_t *code) const { _entry(cpu, code); }
-    // Forgets all the code made (none may be running): the generation moves
-    // on, so code kept from an older one is known to be gone.
+    /**
+     * Forgets all the code made (none may be running): the generation moves
+     * on, so code kept from an older one is known to be gone.
+     */
     void reset();
+    /** 1 at first, and one more at each reset(). */
     uint32_t generation() const { return _generation; }
-    // What the dispatch knows of the block in table slot `slot`: where it
-    // starts, the code epoch its bytes were last checked in, its code
-    // (nullptr: none to run) and its count. The Cpu sets it as it checks,
-    // makes and runs blocks; reset() takes all the code away.
+    /**
+     * What the dispatch knows of the block in table slot `slot`: where it
+     * starts, the code epoch its bytes were last checked in, its code
+     * (nullptr: none to run) and its count. The Cpu sets it as it checks,
+     * makes and runs blocks; reset() takes all the code away.
+     */
     void setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t *code, uint32_t count);
 
 private:
@@ -190,7 +207,7 @@ private:
     const uint8_t *_dispatch = nullptr; // where each block's code goes at its end
     // The dispatch's index of the table, 16 bytes a slot: a 32nd of the
     // blocks' size, so it stays in the processor's caches where the table
-    // doesn't (its first read had been half the dispatch's time).
+    // doesn't (reading the table took half the dispatch's time).
     struct Entry {
         // code: an offset into the buffer
         uint32_t start = 0xffffffffu;
