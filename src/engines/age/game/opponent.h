@@ -30,17 +30,24 @@ public:
      * computer player changing its mind as it goes).
      */
     void follow(std::vector<Vec3> path, float skill);
+    /** The controls for the car this step; once finished (or with no path), it brakes to a stop. */
     CarControls drive(const CarSim &car, float dt);
     /** At most this fast (metres a second), as a patrolling police car. */
     void setSpeedLimit(float limit) { _limit = limit; }
 
+    /** Whether it has driven the whole path (every lap); true for an empty one. */
     bool finished() const { return _finished; }
+    /** The lap it's on, from 0. */
     int lap() const { return _lap; }
+    /** The index of the point it's heading for. */
     size_t next() const { return _index; }
     /** How many of the path's points it's gone on from, laps unrolled. */
     size_t passed() const { return _passed; }
+    /** As start() was given: 0 for once through. */
     int laps() const { return _laps; }
+    /** The point each lap after the first starts again from. */
     size_t loopFrom() const { return _loopFrom; }
+    /** The path as start() or follow() gave it. */
     const std::vector<Vec3> &path() const { return _path; }
     /**
      * Stuck for long, or 8 s without getting nearer the next point: the
@@ -49,8 +56,11 @@ public:
      * that point, and it goes on to the next.
      */
     bool wantsReset() const { return _stuckTime > 6 || _lostTime > 8; }
+    /** Where to put the car back: the point it last passed, or the next one on the third reset there. */
     Vec3 resetPoint() const;
+    /** The way to face there, in radians (0 facing -z): towards the point after it. */
     float resetYaw() const;
+    /** Tells it the car has been put back. */
     void resetDone();
 
 private:

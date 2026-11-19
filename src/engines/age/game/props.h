@@ -53,7 +53,9 @@ struct StreetPropKind {
     float maxLerp = 0;
     std::vector<std::string> models; // one picked for each
 };
+/** propdefs.csv's kinds by name, its header line skipped and rows short of fields left out. */
 std::map<std::string, StreetPropKind> parsePropDefs(const std::string &text);
+/** proprules.csv's rules by name (n01left...): the kinds each puts along a side, empty columns skipped. */
 std::map<std::string, std::vector<std::string>> parsePropRules(const std::string &text);
 /**
  * Each road's sides by its blocks' rule (`blockRules[block]`, 0 none):
@@ -80,8 +82,10 @@ struct BangerData {
     int texNumber = 0;
     std::vector<Vec3> glows; // GlowOffset: its lamps, from its middle
     float elasticity = 0.5f; // Elasticity: 0.5 for nearly all (a car bounces off more above that)
+    /** Whether anything flies out when it breaks. */
     bool bursts() const { return texNumber > 0 && (particles.initialBlast > 0 || particles.spewRate > 0); }
 };
+/** Reads a .dgBangerData's text; fails if it has no dgBangerData block. */
 Error parseBangerData(const std::string &text, BangerData &out);
 
 /**
@@ -92,6 +96,7 @@ Error parseBangerData(const std::string &text, BangerData &out);
  */
 class Props {
 public:
+    /** Takes every prop away. */
     void clear() { _props.clear(); }
     /**
      * city/<map>/props.pathset's props, and a race's own
@@ -106,13 +111,16 @@ public:
                         const std::vector<uint8_t> &blockRules);
     /** The traffic lights, as poles. */
     void addLights(const TrafficLights &lights);
+    /** A model's bounds, false if there's no such model. */
+    using ModelBox = std::function<bool(const std::string &model, Vec3 &low, Vec3 &high)>;
+    /** As the other prepare(), with the models' bounds from @p models. */
+    void prepare(const SearchSet &files, ModelCache &models);
     /**
      * Their shapes and banger data, once the models are at hand
-     * (`box`: a model's bounds, false if there's no such model).
+     * (`box`: a model's bounds; a prop whose model has none is left as it is).
      */
-    using ModelBox = std::function<bool(const std::string &model, Vec3 &low, Vec3 &high)>;
-    void prepare(const SearchSet &files, ModelCache &models);
     void prepare(const SearchSet &files, const ModelBox &box);
+    /** Whether prepare() has run since props were last added. */
     bool prepared() const { return _prepared; }
     /** Their triangles into `world` (any put there before taken out first). */
     void collide(CollisionWorld &world) const;
@@ -121,6 +129,10 @@ public:
      * light out of `lights`), then the loose ones fall.
      */
     void update(float dt, const std::vector<CarSim *> &cars, CollisionWorld &world, TrafficLights &lights);
+    /**
+     * Those within 300 m of the eye, standing, fallen or in pieces; traffic
+     * lights only once knocked (TrafficLights draws them standing).
+     */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye) const;
 
@@ -136,9 +148,12 @@ public:
         Vec3 at;
         Vec3 velocity;
     };
+    /** The bursts since last asked; they're the caller's to show. */
     std::vector<Burst> takeBursts() { return std::move(_bursts); }
 
+    /** The props, traffic lights among them. */
     size_t count() const { return _props.size(); }
+    /** The props knocked down. */
     size_t loose() const;
     /**
      * Pieces of props come apart, and those come to rest; the lowest

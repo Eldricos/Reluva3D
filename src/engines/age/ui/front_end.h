@@ -34,6 +34,10 @@ struct Widget {
     int h = 0;
     std::string desc;
 };
+/**
+ * Reads widget.csv, skipping its header line and lines of fewer than 8 fields.
+ * @return A failure when no widget was read.
+ */
 Error parseWidgets(const std::string &csv, std::vector<Widget> &out);
 
 /**
@@ -42,8 +46,11 @@ Error parseWidgets(const std::string &csv, std::vector<Widget> &out);
  */
 class MenuPictures {
 public:
+    /** @param files Read from as pictures are first asked for; must outlive this. */
     explicit MenuPictures(const SearchSet &files) : _files(files) {}
+    /** jpg/<name>.jpg (or .JPG), decoded; nullptr if it isn't there or doesn't decode. */
     const image::Image *jpg(const std::string &name);
+    /** The texture `name`, loaded; nullptr if it doesn't load. */
     const image::Image *texture(const std::string &name);
 
 private:
@@ -53,9 +60,15 @@ private:
 
 /**
  * Draws `im` (scaled to w x h when given) over the overlay, blending by
- * its alpha; or one state of a stacked button.
+ * its alpha.
+ * @param w The width to scale to; 0 keeps the picture's (and likewise `h`).
  */
 void drawPicture(Surface &overlay, const image::Image &im, int x, int y, int w = 0, int h = 0);
+/**
+ * Draws one state of a stacked button: band `state` of `states` equal
+ * bands, top first.
+ * @param state Clamped to 0 to states - 1.
+ */
 void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int states, int state);
 
 /**
@@ -104,12 +117,14 @@ public:
     Choice::Conditions raceConditions() const;
     /** After the conditions are changed (the dialog). */
     void conditionsChanged() { _choice.changed = !(_choice.conditions == raceConditions()); }
+    /** The most opponents the chosen race can have, at the chosen level (amateur or professional). */
     int mostOpponents() const;
     /**
      * Whether the race's conditions may be changed (the game's help: once
      * placed in it; a cruise's always).
      */
     bool conditionsOpen() const;
+    /** What a key or click on the menus asks of the screen they run on. */
     enum class Action {
         kNone,
         kChanged,
@@ -132,13 +147,21 @@ public:
     /** The drivers, for the main menu's SELECT DRIVER (Left/Right chooses). */
     void setDrivers(DriverRoster *roster) { _roster = roster; }
 
+    /**
+     * Reads widget.csv and each car's .info figures (for the garage's bars),
+     * starting at the splash. The arguments must outlive the menus.
+     */
     FrontEnd(const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
              const GameStrings &strings, const PlayerRecord &record);
+    /** Whether widget.csv and jpg/main_bk read and there are cities and cars to choose. */
     bool loaded() const { return _ok; }
 
+    /** A key, click or pointer move on the current screen. */
     Action handle(const Event &ev);
+    /** Draws the current screen over the whole overlay, clearing it first. */
     void draw(Surface &overlay);
 
+    /** The screen shown. */
     Screen screen() const { return _screen; }
     /** Past the splash to the main menu (after the opening movie). */
     void leaveSplash() {
@@ -152,22 +175,24 @@ public:
     void afterRace() { go(_afterGarage); }
     /** The choice looked at again (another driver's record, say). */
     void refreshChoice() { refresh(); }
+    /** What the menus have chosen, to read or set. */
     Choice &choice() { return _choice; }
     /** The control with the focus (for the menus' voices). */
     std::string focusedWidget() const {
         const auto list = items();
         return _focus >= 0 && size_t(_focus) < list.size() ? list[size_t(_focus)].widget : std::string();
     }
-    /**
-     * Where the garage shows the car (in the overlay's pixels), to draw it
-     * there in 3D; empty off the garage.
-     */
+    /** A rectangle in the overlay's pixels. */
     struct Rect {
         int x = 0;
         int y = 0;
         int w = 0;
         int h = 0;
     };
+    /**
+     * Where the car is shown, to draw it there in 3D: the garage's window,
+     * the whole screen on the showcase, else empty.
+     */
     Rect carWindow() const;
     // "U": everything open, whatever the record says.
     bool openAll = false;
@@ -183,8 +208,15 @@ public:
         _focus = 0;
         refresh();
     }
+    /** Whether race `index` of the chosen city, kind and level is unlocked (always with openAll). */
     bool raceOpen(int index) const;
+    /** Whether the car is unlocked (always with openAll or a car out of range). */
     bool carOpen(int car) const;
+    /**
+     * Whether the car's paint job is unlocked (always with openAll or a car
+     * out of range).
+     * @param paintJob -1 for the car itself.
+     */
     bool paintOpen(int car, int paintJob) const;
 
 private:

@@ -22,7 +22,9 @@
 
 namespace reluva::age {
 
+/** Something that happened to the gold, for the screen and the announcer to say. */
 struct GoldEvent {
+    /** What happened; the last two end the game. */
     enum class Kind : uint8_t {
         kGot,       // picked up where it started
         kRecovered, // picked up where it was dropped
@@ -38,8 +40,13 @@ struct GoldEvent {
     uint32_t seq = 0;
 };
 
+/**
+ * The gold, the bases and the scores: the host steps the rules, and every
+ * player keeps a copy from what the host sends.
+ */
 class GoldGame {
 public:
+    /** A car as the rules see it. */
     struct Car {
         uint8_t id = 0;
         uint8_t team = 0;
@@ -52,35 +59,52 @@ public:
     };
 
     /**
-     * The places to play between; the seed picks the gold's home and the
-     * bases from them.
+     * Starts afresh among the places to play between; the seed picks the
+     * gold's home and the bases from them, as on every machine.
      */
     void start(const NetSettings &settings, const std::vector<Waypoint> &points, uint32_t seed);
     /**
-     * The host: a step of the rules with every car where it is. `floor`:
-     * below this the gold has left the city.
+     * The host: a step of the rules with every car where it is. Does
+     * nothing once the game's over.
+     * @param clock The race clock, seconds, for the time limit.
+     * @param dt Seconds since the last step.
+     * @param floor The height below which the gold has left the city.
      */
     void step(float clock, float dt, const std::vector<Car> &cars, float floor);
 
     /** A player's side: its team in the team modes, else itself. */
     uint8_t sideOf(const Car &car) const { return teams() ? car.team : car.id; }
+    /** Whether players are on two sides, rather than each for themselves. */
     bool teams() const { return _mode != GoldMode::kFreeForAll; }
+    /** Who goes after the gold, as the host chose. */
     GoldMode mode() const { return _mode; }
 
+    /** The player who has the gold, or kNoPlayer while it lies. */
     uint8_t holder() const { return _holder; }
+    /** Where the gold is: lying, or with the car that has it. */
     const Vec3 &goldPosition() const { return _gold; }
     /** The base a side delivers to (in a free-for-all, everyone's hideout). */
     Vec3 base(uint8_t side) const;
+    /** Where the gold starts, and goes back to after a point or a while lying. */
     const Vec3 &home() const { return _home; }
+    /** A side's points; 0 for one that has none. */
     int score(uint8_t side) const;
+    /** Every side's points, by side, for the sides that have scored. */
     const std::map<uint8_t, int> &scores() const { return _scores; }
+    /** Whether the time or point limit has been reached. */
     bool over() const { return _over; }
-    /** The events since `seq` (the last one seen), oldest first. */
+    /** The events since `seq` (the last one seen), oldest first: of the last six at most. */
     std::vector<GoldEvent> eventsAfter(uint32_t seq) const;
+    /** The latest event's number, counting from 1; 0 before any. */
     uint32_t lastEvent() const { return _eventSeq; }
 
-    /** As the host sends it, and as a player reads it. */
+    /** The game as the host sends it (NetSession::setGameState). */
     std::vector<uint8_t> encode() const;
+    /**
+     * The game as a player reads it from the host's, keeping the limit and
+     * places of its own start().
+     * @return False, leaving the game as it was, if the data doesn't read.
+     */
     bool decode(const std::vector<uint8_t> &data);
 
 private:
@@ -114,6 +138,7 @@ private:
  */
 class GoldBot {
 public:
+    /** Starts afresh; the seed picks its places in a cruise. */
     void start(uint32_t seed) { *this = GoldBot(), _seed = seed; }
     /** Where it wants to be: `chasing` when that's another side's car. */
     static Vec3 goal(uint8_t id, uint8_t team, const GoldGame &gold, const std::vector<GoldGame::Car> &cars,
@@ -132,6 +157,7 @@ public:
      * unstuck().
      */
     bool stuck() const { return _stillFor > 6; }
+    /** Back on the road: starts the count afresh and plans a new path at once. */
     void unstuck() {
         _stillFor = 0;
         _replanIn = 0;

@@ -29,8 +29,11 @@ public:
      * driver's own file.
      */
     Error load(const std::filesystem::path &folder, const std::string &file = kFileName);
+    /** Writes it back to the file it was loaded from; fails if it was loaded with no folder. */
     Error save() const;
+    /** Reads a record's text over what it held; lines it doesn't know are skipped, so it never fails. */
     Error parse(const std::string &text);
+    /** The record as its file holds it: a line a race's best place, best time, lesson passed, and the last race. */
     std::string text() const;
 
     /**
@@ -43,6 +46,7 @@ public:
     float bestTime(const std::string &city, RaceKind kind, int index, bool professional) const;
     /** The last race run (Quick Race starts it again). */
     void setLastRace(const std::string &city, RaceKind kind, int index);
+    /** The last race run; false if there's none (or it doesn't read). */
     bool lastRace(std::string &city, RaceKind &kind, int &index) const;
     /** The best place, 0 if never finished. */
     int bestPlace(const std::string &city, RaceKind kind, int index, bool professional) const;
@@ -52,7 +56,9 @@ public:
      */
     int placedIn(const std::string &city, RaceKind kind, bool professional, int place) const;
 
+    /** A Crash Course lesson passed. */
     void passed(const std::string &city, int lesson);
+    /** Whether a Crash Course lesson has been passed. */
     bool hasPassed(const std::string &city, int lesson) const;
 
 private:
@@ -63,32 +69,44 @@ private:
     std::string _last;                    // "sf blitz 3"
 };
 
+/** A driver: a name, a level (amateur or professional) and a record of their own. */
+struct DriverEntry {
+    std::string name;
+    bool professional = false;
+    std::string file; // its record's, in the save folder
+};
+
 /**
  * The drivers (the main menu's SELECT DRIVER): each a name, a level and
  * a record of their own. Kept in drivers.txt beside the records: a line
  * a driver, its record's file, a or p, its name. The first, from before
  * there were drivers, keeps record.txt.
  */
-struct DriverEntry {
-    std::string name;
-    bool professional = false;
-    std::string file; // its record's, in the save folder
-};
 class DriverRoster {
 public:
     static constexpr const char *kFileName = "drivers.txt";
+    /**
+     * Reads drivers.txt from the save folder; never fails. With no file (or
+     * no drivers in it), one driver, "Player", an amateur keeping record.txt.
+     */
     Error load(const std::filesystem::path &folder);
+    /** Writes drivers.txt, with which is current; fails with no save folder. */
     Error save() const;
+    /** The drivers, in drivers.txt's order; never empty once loaded. */
     const std::vector<DriverEntry> &drivers() const { return _drivers; }
+    /** The current driver's index into drivers(). */
     int current() const { return _current; }
+    /** Makes a driver current; an index out of range is clamped. */
     void setCurrent(int index);
+    /** The current driver; only once loaded. */
     const DriverEntry &driver() const { return _drivers[size_t(_current)]; }
     /** A name already taken (letters' case aside). */
     bool has(const std::string &name) const;
-    /** A new driver, made current; its record starts empty. */
+    /** A new driver, made current; its record starts empty. Fails if the name is empty or taken. */
     Error add(const std::string &name, bool professional);
     /** Gone, with its record (not the last driver). */
     Error remove(int index);
+    /** The save folder, where drivers.txt and the records are. */
     const std::filesystem::path &folder() const { return _folder; }
 
 private:
@@ -109,6 +127,7 @@ struct UnlockRule {
     int count = 0;                         // races to place in; 0 all of them
     int lesson = -1;
 };
+/** Every car and paint job that has to be unlocked, and how. */
 const std::vector<UnlockRule> &unlockRules();
 
 /** How many races of a kind a city has. */
@@ -136,6 +155,7 @@ struct Reward {
     int paintJob = 0;
     std::string message;
 };
+/** The rewards in a _rewards.csv's text, its header line skipped and lines short of fields left out. */
 std::vector<Reward> parseRewards(const std::string &text);
 
 /** What it takes, in words (as the pictures put it), for a menu. */

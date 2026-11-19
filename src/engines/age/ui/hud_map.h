@@ -40,6 +40,10 @@ struct HudMapSetup {
     float iconScaleMaxFS = 18;
     Vec3 ocean{0.084f, 0.7f, 0.94f}; // Ocean Color
 };
+/**
+ * Reads a .mmHudMap, keeping the defaults for what it doesn't say.
+ * @return A failure if it doesn't parse or is empty.
+ */
 Error parseHudMapSetup(std::string_view text, HudMapSetup &out);
 
 /**
@@ -80,12 +84,18 @@ public:
 
     /** False if the city has none. */
     bool load(gfx::Renderer3D &renderer, const SearchSet &files, ModelCache &models, const std::string &map);
+    /** Frees the ocean's mesh from the renderer; nothing is drawn after. */
     void unload();
+    /** Whether the last load() found the city's map. */
     bool loaded() const { return _ok; }
+    /** The city's .mmHudMap, as loaded. */
     const HudMapSetup &setup() const { return _setup; }
 
+    /** Near or far (eased to by update()). */
     void toggleZoom() { _zoomIn = !_zoomIn; }
+    /** The map full screen, or back in its corner. */
     void toggleFullScreen() { _full = !_full; }
+    /** Whether the map is full screen. */
     bool fullScreen() const { return _full; }
     /**
      * The corner map's sizes, then off (the game's Map Toggle: "toggle
@@ -94,9 +104,11 @@ public:
      * times, its bottom right corner kept.
      */
     void toggleShown() { _size = (_size + 1) % 3; }
+    /** Whether the map is drawn: in its corner, or full screen. */
     bool shown() const { return _size < 2 || _full; }
     /** Turned with the player (the Rotating Map), else north up. */
     void toggleRotating() { _rotating = !_rotating; }
+    /** Whether the map turns with the player (else north is up). */
     bool rotating() const { return _rotating; }
     /** Eases the height towards the zoom's. */
     void update(float dt);

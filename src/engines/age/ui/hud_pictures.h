@@ -25,6 +25,7 @@ class HudPictures {
 public:
     /** False if they aren't there. */
     bool load(const SearchSet &files);
+    /** Whether the last load() found the pictures. */
     bool loaded() const { return _ok; }
 
     /**

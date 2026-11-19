@@ -56,11 +56,14 @@ enum class Control : int {
     kCount
 };
 constexpr int kControls = int(Control::kCount);
-uint32_t controlStringId(Control c); // its name in mmlang.dll
+/** The control's name's string number in mmlang.dll. */
+uint32_t controlStringId(Control c);
+/** The control's English name, for when mmlang.dll isn't there. */
 const char *controlFallbackName(Control c);
 /** A key's name, as Customize Controls shows it ("Up", "A", "Space"). */
 std::string keyName(uint32_t key);
 
+/** The player's options, as the Options menus set them and options.txt keeps them. */
 struct GameOptions {
     static constexpr const char *kFileName = "options.txt";
 
@@ -97,35 +100,53 @@ struct GameOptions {
     // Two keys for each control (0: none).
     std::array<std::array<uint32_t, 2>, kControls> keys{};
 
+    /** What drives (controller). */
     enum : int { kKeyboardOnly = 0, kJoystick = 1, kGamePad = 2, kSteeringWheel = 3 };
 
+    /** The defaults, the keys the game's own (its help file's). */
     GameOptions() { resetControls(); }
+    /** The Audio Options back to their defaults. */
     void resetAudio();
+    /** The Graphics Options back to their defaults. */
     void resetGraphics();
-    void resetControls(); // the keys too
+    /** The Control Options back to their defaults, the keys too. */
+    void resetControls();
 
+    /**
+     * Reads options.txt from the save folder.
+     * @return Success, keeping the defaults, when there's no folder or no file yet.
+     */
     Error load(const std::filesystem::path &folder);
+    /** Writes options.txt into the save folder, making the folder if need be; fails with no folder. */
     Error save(const std::filesystem::path &folder) const;
+    /**
+     * Reads options.txt's text over the defaults: numbers out of range are
+     * clamped, and lines it doesn't know are skipped, so it never fails.
+     */
     Error parse(const std::string &text);
+    /** The options as options.txt holds them: a line a setting, then a line a control's keys. */
     std::string text() const;
 
-    /** The control a key is bound to, Control::Count if none. */
+    /** The control a key is bound to, Control::kCount if none (or the key is 0). */
     Control controlOf(uint32_t key) const;
     /**
-     * Another control with this key, Control::Count if none (for the
+     * Another control with this key, Control::kCount if none (for the
      * "duplicate key" warning).
      */
     Control otherWith(uint32_t key, Control except) const;
 
-    /** What the options mean in numbers. */
+    /** How far the city is drawn, in metres: 800 to 4000 by the visibility. */
     float farClip() const { return 800 + visibility * 3200; }
+    /** How fast the wheels turn as steered: 0.5 to 1.5 times the car's own, by the sensitivity. */
     float steerRate() const { return 0.5f + steering; }
 };
 
+/** A screen size, in pixels. */
 struct Resolution {
     int w;
     int h;
 };
+/** The screen sizes the Graphics Options offer, from 640x480 to 1600x1200. */
 const std::array<Resolution, 5> &resolutions();
 
 /**
@@ -141,6 +162,7 @@ GameOptions loadOptions(const std::filesystem::path &folder);
  * the race screen loads them and the menus change them.
  */
 const GameOptions &currentOptions();
+/** Puts @p options in force (they're copied). */
 void setCurrentOptions(const GameOptions &options);
 
 } // namespace reluva::age

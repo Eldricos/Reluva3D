@@ -67,13 +67,20 @@ std::string kindOf(const std::string &name);
  */
 std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText);
 
+/** The Files page: every file in the search path, and one opened as text or a hex dump. */
 class FileViewer : public Page {
 public:
+    /** Lists the search path's files, with their archives and sizes, once. */
     explicit FileViewer(ScreenContext &ctx);
+    /** The page's name in the window's title. */
     const char *name() const override { return "Files"; }
+    /** The files found: with none, the page is skipped. */
     size_t count() const override { return _files.size(); }
+    /** Titles the page with the counts of files and archives and draws the list. */
     void activate() override;
+    /** The keys in the header's comment. */
     void handleEvent(const Event &ev) override;
+    /** Esc while a file is open, which goes back to the list instead of leaving. */
     bool takesKey(const Event &ev) const override;
 
 private:
@@ -103,12 +110,18 @@ private:
     int _lineTop = 0;
 };
 
+/** The Textures page: every texture, one at a time, over a checkerboard. */
 class TextureViewer : public Page {
 public:
+    /** Lists texture/*.tex and .tga and jpg/*.jpg, once. */
     explicit TextureViewer(ScreenContext &ctx);
+    /** The page's name in the window's title. */
     const char *name() const override { return "Textures"; }
+    /** The textures found: with none, the page is skipped. */
     size_t count() const override { return _names.size(); }
+    /** Reads and shows the texture last shown (the first, at first). */
     void activate() override;
+    /** The keys in the header's comment. */
     void handleEvent(const Event &ev) override;
 
 private:
@@ -123,17 +136,27 @@ private:
     std::string _error;
 };
 
+/** The Models page: every model, its parts placed, turned and zoomed with the mouse. */
 class ModelViewer : public Page {
 public:
+    /** Lists geometry/*.pkg, once. */
     explicit ModelViewer(ScreenContext &ctx);
+    /** Frees the model's mesh and textures, as deactivate() does. */
     ~ModelViewer() override;
+    /** The page's name in the window's title. */
     const char *name() const override { return "Models"; }
+    /** The models found: with none, the page is skipped. */
     size_t count() const override { return _names.size(); }
+    /** Starts 3D rendering and shows the model last shown; without 3D, says why. */
     void activate() override;
+    /** Frees the model's mesh and textures. */
     void deactivate() override;
+    /** The keys and mouse in the header's comment. */
     void handleEvent(const Event &ev) override;
+    /** Draws the model, then the info over it. */
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
+    /** Whether 3D rendering started: without it the page says so, paced as 2D. */
+    bool uses3D() const override { return _renderer != nullptr; }
 
 private:
     void show(int index);
@@ -173,15 +196,24 @@ private:
  */
 class WorldViewer : public Page {
 public:
+    /** Finds the cities, once; nothing is loaded until the page is shown. */
     explicit WorldViewer(ScreenContext &ctx);
+    /** Frees the city, as deactivate() does. */
     ~WorldViewer() override;
+    /** The page's name in the window's title. */
     const char *name() const override { return "World"; }
+    /** The cities found: with none, the page is skipped. */
     size_t count() const override { return _cities.size(); }
+    /** Starts 3D rendering and loads the city last shown; without 3D, says why. */
     void activate() override;
+    /** Frees the city. */
     void deactivate() override;
+    /** The keys and mouse in the header's comment. */
     void handleEvent(const Event &ev) override;
+    /** Moves by the keys held for the time since the last frame (at most 0.1 s) and draws the city. */
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
+    /** Whether 3D rendering started: without it the page says so, paced as 2D. */
+    bool uses3D() const override { return _renderer != nullptr; }
 
 private:
     void load(int index);
@@ -215,15 +247,28 @@ private:
  */
 class DriveViewer : public Page {
 public:
+    /** Finds the cities and cars, once; nothing is loaded until the page is shown. */
     explicit DriveViewer(ScreenContext &ctx);
+    /** Stops the sounds and frees the city and car, as deactivate() does. */
     ~DriveViewer() override;
+    /** The page's name in the window's title. */
     const char *name() const override { return "Drive"; }
+    /** The cars found, or 0 (the page skipped) without a city to drive them in. */
     size_t count() const override { return _cities.empty() ? 0 : _cars.size(); }
+    /** Starts 3D rendering and loads the city and car last driven; without 3D, says why. */
     void activate() override;
+    /** Stops the sounds, the traffic and the music and frees the city and car. */
     void deactivate() override;
+    /** The keys in the header's comment, and the game's view controls. */
     void handleEvent(const Event &ev) override;
+    /**
+     * Steps the car, the city's life and the sounds by the time since the
+     * last frame (at most 0.1 s; none while the list of controls is up) and
+     * draws it all.
+     */
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
+    /** Whether 3D rendering started: without it the page says so, paced as 2D. */
+    bool uses3D() const override { return _renderer != nullptr; }
 
 private:
     void loadCity(int index);

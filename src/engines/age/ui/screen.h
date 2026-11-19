@@ -54,6 +54,7 @@
 
 namespace reluva::age {
 
+/** What every page is given: the system, the screen and the game's files and settings; it outlives the pages. */
 struct ScreenContext {
     System &sys;
     Surface &screen; // RGBA32
@@ -65,24 +66,33 @@ struct ScreenContext {
     bool openingPlayed = false;               // the opening movie has played: no splash picture after it
 };
 
+/** A screen runPages() shows: the game itself, or one of the data viewer's pages. */
 class Page {
 public:
+    /** Keeps `ctx`, which must outlive the page. */
     explicit Page(ScreenContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
+    /** The page's name, for the window's title. */
     virtual const char *name() const = 0;
-    virtual size_t count() const = 0; // pages with nothing to show are skipped
-    virtual void activate() = 0;      // redraw and retitle after switching here
-    virtual void deactivate() {}      // before switching away
+    /** How many things it has to show; pages with nothing to show are skipped. */
+    virtual size_t count() const = 0;
+    /** Redraws and retitles after switching here. */
+    virtual void activate() = 0;
+    /** Before switching away, and for every page as runPages() returns. */
+    virtual void deactivate() {}
+    /** An event that runPages() hasn't taken for itself. */
     virtual void handleEvent(const Event &ev) = 0;
+    /** Called every frame. */
     virtual void update(uint64_t /*nowMs*/) {}
-    // Pages that draw with System::init3D; the engine puts the 2D
-    // framebuffer back when leaving one.
+    /**
+     * Whether the page draws with System::init3D; the engine puts the 2D
+     * framebuffer back when leaving one.
+     */
     virtual bool uses3D() const { return false; }
-    // Whether Esc and Tab (which otherwise leave and switch pages) go to
-    // the page instead.
+    /** Whether Esc and Tab (which otherwise leave and switch pages) go to the page instead. */
     virtual bool takesKey(const Event & /*ev*/) const { return false; }
-    // The player asked to leave the game (its Quit dialog).
+    /** Whether the player asked to leave the game (its Quit dialog). */
     virtual bool wantsToQuit() const { return false; }
 
 protected:
@@ -104,17 +114,19 @@ constexpr int kScreenH = 480;
  */
 Error runPages(System &sys, Surface &screen, std::vector<std::unique_ptr<Page>> &pages, bool tabs);
 
-// A car the menus offer (tune/<car>.info), if its simulation and model
-// are there.
+/** A car the menus offer (tune/<car>.info), if its simulation and model are there. */
 struct CarInfo {
     std::string base;        // "vpbug"
     std::string description; // "VW New Beetle"
     std::vector<std::string> colors;
 };
+/** Every car the menus can offer, in the order the files list them. */
 std::vector<CarInfo> findCars(const SearchSet &files);
 
-// The driving keys held, as the Drive page and the race screen read them: Up/W
-// throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
+/**
+ * The driving keys held, as bits, as the Drive page and the race screen read them: Up/W
+ * throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
+ */
 enum DriveKeys : uint32_t {
     kDriveThrottle = 1,
     kDriveBrake = 2,
@@ -124,54 +136,77 @@ enum DriveKeys : uint32_t {
     kDriveHorn = 32,
     kDriveReverse = 64
 };
-// The race screen's events in its menu's order (Blitz, Circuit, Checkpoint,
-// Crash Course, Cruise).
+/**
+ * The race screen's events in its menu's order (Blitz, Circuit, Checkpoint,
+ * Crash Course, Cruise); an index out of range is held to the nearest end.
+ */
 RaceKind racePageKind(int index);
 constexpr int kRacePageKinds = 5;
-// What a key is bound to (the Control Options' keys).
+/** What a key is bound to (the Control Options' keys); Control::kCount for nothing. */
 Control controlOf(uint32_t key);
-// The player's car takes the Control Options (auto reverse, steering).
+/** The player's car takes the Control Options (auto reverse, steering). */
 void applyControlOptions(CarSim &sim);
-// The scene and the city's life take the Graphics and Audio Options:
-// the sky, smart rendering (the .cpvs), how far and how finely models are
-// drawn, the ambient sounds. Cheap: called every frame.
+/**
+ * The scene and the city's life take the Graphics and Audio Options:
+ * the sky, smart rendering (the .cpvs), how far and how finely models are
+ * drawn, the ambient sounds. Cheap: called every frame.
+ */
 void applyGraphicsOptions(CityScene &scene, CityLife &life);
-// How many times the city's textures are halved (the Texture Quality:
-// none at Very High, three at Low). Taken when a city is loaded.
+/**
+ * How many times the city's textures are halved (the Texture Quality:
+ * none at Very High, three at Low). Taken when a city is loaded.
+ */
 int textureHalvings();
-// The share of pedestrians the options leave (Show Pedestrians).
+/** The share of pedestrians the options leave (Show Pedestrians): 0 or 1. */
 float pedestrianShare();
-// Headlights lighting the road (the Lighting Quality).
+/** Whether headlights light the road (the Lighting Quality). */
 bool headlightPoolsOn();
+/** The DriveKeys bit a key is bound to, or 0 for none. */
 uint32_t driveKeyOf(uint32_t key);
+/** The car's controls from the DriveKeys held: full throttle, brake and lock, or none. */
 CarControls controlsOf(uint32_t keys);
 
-// The speed, gear and revs, bottom right of an RGBA overlay.
-// The speed, gear, revs and (`damage` 0..1) damage: with the game's
-// pictures, if loaded, along the bottom left of the map (which starts at
-// x = `right`); else as text, bottom right, ending there.
+/**
+ * The speed, gear, revs and (`damage` 0..1) damage: with the game's
+ * pictures, if loaded, along the bottom left of the map (which starts at
+ * x = `right`); else as text, bottom right, ending there.
+ */
 void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damage, const HudPictures &pictures);
-// The game's rear-view mirror, top right of the frame (x 447, y 0, 193 x 77
-// at 640 x 480, as on its screens): what's behind the car, flipped as a
-// mirror shows it. `world` draws the world for a view; the view and the
-// viewport are the whole frame's again after (the caller's view to set).
+/**
+ * The game's rear-view mirror, top right of the frame (x 447, y 0, 193 x 77
+ * at 640 x 480, as on its screens): what's behind the car, flipped as a
+ * mirror shows it. `world` draws the world for a view; the view and the
+ * viewport are the whole frame's again after (the caller's view to set).
+ */
 void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
                     const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world);
 
-// A race (Blitz, Circuit, Checkpoint) from the game's race files, against
-// opponents driving their recorded paths. Keys in the header's comment.
+/**
+ * The game: its menus, and a race (Blitz, Circuit, Checkpoint) from the game's race files, against
+ * opponents driving their recorded paths; the Crash Course, Cruise and multiplayer too.
+ */
 class RaceScreen : public Page {
 public:
+    /** Finds the cities and cars; nothing's loaded until activate(). */
     explicit RaceScreen(ScreenContext &ctx);
     ~RaceScreen() override;
+    /** "Race". */
     const char *name() const override { return "Race"; }
+    /** 1, or 0 if there's no city or no car to race with. */
     size_t count() const override { return _cities.empty() || _cars.empty() ? 0 : 1; }
+    /** Starts 3D rendering, loads the menus and the city; without 3D, says so on the screen. */
     void activate() override;
+    /** Leaves any session and lets go of the city, the cars and the renderer. */
     void deactivate() override;
+    /** A key, click or typing, for the menus or the race. */
     void handleEvent(const Event &ev) override;
+    /** Steps the race, the session and the menus, and draws the frame. */
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
+    /** Whether 3D rendering started; without it, it says so, paced as 2D. */
+    bool uses3D() const override { return _renderer != nullptr; }
+    /** Esc in the game's menus and in a race, and Tab (the Map Toggle) in a race. */
     bool takesKey(const Event &ev) const override;
+    /** Whether the player chose to quit from the game's menus. */
     bool wantsToQuit() const override { return _quit; }
 
 private:

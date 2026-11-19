@@ -17,6 +17,7 @@ namespace reluva::age {
  * grouped by texture.
  */
 struct CityMesh {
+    /** The triangles drawn with one texture. */
     struct Batch {
         std::string texture;           // "" for none
         std::vector<uint32_t> indices; // every three a triangle
@@ -32,8 +33,10 @@ struct CityMesh {
     std::vector<Batch> batches;
 };
 
+/** The PSDL's blocks as triangles, in place of what `out` held. */
 void buildCityMesh(const Psdl &psdl, CityMesh &out);
 
+struct PathsetPath;
 /**
  * city/<map>/decals.pathset: road markings (crossings, zigzags, cable
  * car rails), each a path named for its texture whose points go in pairs,
@@ -42,7 +45,6 @@ void buildCityMesh(const Psdl &psdl, CityMesh &out);
  * it in its block (its first word), whatever height the file gives it.
  * See docs/engines/age/games/mm2/formats/pathset.md.
  */
-struct PathsetPath;
 void addCityDecals(const std::vector<PathsetPath> &paths, CityMesh &out);
 
 /**
@@ -53,6 +55,10 @@ struct CityWater {
     float height = 0;
     std::vector<uint16_t> blocks;
 };
+/**
+ * Reads a .water file's words.
+ * @return A failure if it's empty, a word isn't a number or a block is past 65535.
+ */
 Error parseCityWater(const std::string &text, CityWater &out);
 
 /**

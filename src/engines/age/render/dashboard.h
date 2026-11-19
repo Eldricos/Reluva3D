@@ -36,6 +36,10 @@ struct DashSetup {
     float damageRotMin = 0;
     float damageRotMax = 3;
 };
+/**
+ * Reads tune/<car>_dash.asnode (or .asNode).
+ * @return A failure if the car has none or it doesn't read.
+ */
 Error loadDashSetup(const SearchSet &files, const std::string &car, DashSetup &out);
 
 /**
@@ -47,6 +51,7 @@ class Dashboard {
 public:
     /** False if the car has none. */
     bool load(const SearchSet &files, ModelCache &models, TextureCache &textures, const std::string &car);
+    /** Whether the last load() found a dashboard. */
     bool loaded() const { return _ok; }
     /**
      * `eye`, `forward`, `up`: the camera; `aspect` the view's width over

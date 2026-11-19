@@ -21,8 +21,10 @@
 
 namespace reluva::age {
 
+/** Textures by name, read and uploaded the first time each is asked for. */
 class TextureCache {
 public:
+    /** Nothing loaded yet; `renderer` and `files` must outlive the cache. */
     TextureCache(gfx::Renderer3D &renderer, const SearchSet &files) : _renderer(renderer), _files(files) {}
     ~TextureCache() { clear(); }
     TextureCache(const TextureCache &) = delete;
@@ -37,9 +39,11 @@ public:
      * A texture not found is 0, and listed as missing unless `optional`.
      */
     gfx::TextureId get(const std::string &name, bool &translucent, bool optional = false);
+    /** Frees every texture from the renderer and forgets the missing ones. */
     void clear();
     /** A texture's size in pixels (after get()); false if it isn't loaded. */
     bool size(const std::string &name, int &width, int &height) const;
+    /** The textures not found, but for those asked for as `optional`. */
     const std::vector<std::string> &missing() const { return _missing; }
     /**
      * Textures loaded from now on are halved this many times (the Texture
@@ -48,11 +52,9 @@ public:
      */
     void setHalvings(int n) { _halvings = n; }
 
-    /**
-     * Seconds into the animations, and the frame a texture shows then (the
-     * texture itself if it isn't animated).
-     */
+    /** Seconds into the animations, for frame(). */
     void setTime(float seconds) { _time = seconds; }
+    /** The frame a texture shows at the time set (the texture itself if it isn't animated). */
     gfx::TextureId frame(gfx::TextureId id) const;
 
 private:
@@ -96,6 +98,7 @@ struct ModelDraw {
     Vec3 center{};           // of its vertices' bounds
 };
 
+/** A model's level of detail, uploaded as one mesh with a draw per group. */
 struct ModelMesh {
     gfx::MeshId mesh = 0;
     std::vector<ModelDraw> draws;
@@ -122,6 +125,7 @@ Error buildModelMesh(gfx::Renderer3D &renderer, TextureCache &textures, const Se
                      const std::string &pkgName, const Pkg &pkg, const std::string &level, uint32_t paintJob,
                      bool lights, ModelMesh &out,
                      const std::function<bool(const std::string &part)> &includePart = nullptr, bool placeParts = true);
+/** Frees the mesh from the renderer and empties it. */
 void destroyModelMesh(gfx::Renderer3D &renderer, ModelMesh &mesh);
 
 /** The light a scene is drawn with. */
@@ -167,7 +171,9 @@ void drawModelReflection(gfx::Renderer3D &renderer, const ModelMesh &mesh, const
  */
 class ViewFrustum {
 public:
+    /** The planes of the view `viewProj` draws. */
     explicit ViewFrustum(const gfx::Mat4 &viewProj);
+    /** Whether any of the sphere may be in view (it isn't wholly outside a plane). */
     bool visible(const gfx::Vec3 &center, float radius) const;
 
 private:
@@ -180,6 +186,7 @@ private:
  */
 class ModelCache {
 public:
+    /** A model as loaded: ok false if its .pkg didn't read or had no mesh. */
     struct Model {
         bool ok = false;
         std::vector<ModelMesh> levels; // finest first
@@ -189,13 +196,18 @@ public:
         std::vector<PkgXref> xrefs; // models placed inside it
     };
 
+    /** Nothing loaded yet; the arguments must outlive the cache. */
     ModelCache(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files)
         : _renderer(renderer), _textures(textures), _files(files) {}
     ~ModelCache() { clear(); }
     ModelCache(const ModelCache &) = delete;
     ModelCache &operator=(const ModelCache &) = delete;
 
-    /** geometry/<name>.pkg */
+    /**
+     * A model, geometry/<name>.pkg, loaded the first time it's asked for; a
+     * reference that holds until clear().
+     * @param paintJob Taken modulo the model's paint jobs.
+     */
     const Model &get(const std::string &name, uint32_t paintJob = 0);
     /**
      * One of its lit parts (a traffic light's REDGLOWDAY_H, a car's
@@ -207,6 +219,7 @@ public:
      * if it hasn't one.
      */
     bool partOrigin(const std::string &name, const std::string &part, Vec3 &out);
+    /** Frees every model and part from the renderer. */
     void clear();
 
 private:
@@ -224,6 +237,7 @@ private:
  */
 class FlareDrawer {
 public:
+    /** Uploads the disc's square and loads its texture; `renderer` must outlive this. */
     explicit FlareDrawer(gfx::Renderer3D &renderer, TextureCache &textures);
     ~FlareDrawer();
     FlareDrawer(const FlareDrawer &) = delete;

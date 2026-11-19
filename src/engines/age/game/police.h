@@ -41,6 +41,7 @@ public:
     Error setup(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
                 const AiMapSettings &settings, int count, audio::Mixer *mixer,
                 const std::string &sirenTable = "aud/cardata/opponent/policesiren.csv");
+    /** Takes the cars away, the siren stopped and the bust undone. */
     void clear();
     /**
      * Patrolling the lanes (stopping at the lights) while not chasing,
@@ -57,22 +58,30 @@ public:
      */
     void update(float dt, CarSim &player, const CollisionWorld &world, const RoadGraph &roads, float speedLimit,
                 const std::vector<RoadUser> &traffic = {});
+    /** The cars, as their CarActors draw them. */
     void draw(const SceneLight &light) const;
+    /** Flares at their headlights, when on, and at their sirens. */
     void drawFlares(const FlareDrawer &flares, const Vec3 &eye) const;
     /** Their headlights on (evening, night, fog, rain). */
     void setLampsLit(bool lit) { _lampsLit = lit; }
+    /** Adds where their headlights light the road, for those with them on. */
     void headlightPools(std::vector<gfx::DynamicLight> &out) const;
 
+    /** Whether the player has been held stopped beside a chasing car for kBustTime; until forgive(). */
     bool busted() const { return _busted; }
     /** The player put back somewhere else: the chases end. */
     void forgive();
     /** Every car after the player at once (Crash Course's cop chases). */
     void chaseAll();
+    /** How many are chasing the player. */
     int chasing() const;
+    /** How many are patrolling the lanes, not chasing. */
     int patrolling() const;
+    /** The police cars that loaded. */
     size_t count() const { return _cops.size(); }
+    /** Adds every car to @p out, for the traffic to keep clear of. */
     void users(std::vector<RoadUser> &out) const;
-    /** Their simulations, to bump into the other cars and the traffic. */
+    /** Their simulations, to bump into the other cars and the traffic; good until the next setup() or clear(). */
     std::vector<CarSim *> cars();
 
 private:

@@ -15,6 +15,7 @@
 
 namespace reluva::age {
 
+/** What a light shows the traffic arriving at it. */
 enum class Signal { kGreen, kYellow, kRed };
 
 /**
@@ -31,8 +32,14 @@ public:
     static constexpr float kYellow = 3;
     static constexpr float kAllRed = 1;
 
+    /**
+     * A light at each controlled road end, with the settings' models; the
+     * clock starts at 0, so the lights change the same way each time.
+     */
     void build(const AiRoadMap &map, const AiMapSettings &settings);
+    /** Runs the lights' clock on by @p dt seconds. */
     void update(float dt) { _clock += dt; }
+    /** Sets the lights' clock, in seconds since build(). */
     void setClock(float seconds) { _clock = seconds; }
 
     /**
@@ -40,19 +47,19 @@ public:
      * last point, 1 at its first); Green where there's none.
      */
     Signal signal(uint32_t road, int end) const;
+    /** Whether a road's end (as for signal()) has a light. */
     bool has(uint32_t road, int end) const { return _index.count(key(road, end)) > 0; }
+    /** The lights, one a controlled road end. */
     size_t count() const { return _lights.size(); }
-    /**
-     * Where light `i` stands (its model, the point it's stood on, its
-     * axes), and knocking it down (it's no longer drawn; its signal goes
-     * on, for the traffic).
-     */
+    /** Where a light stands: its model, the point it's stood on, its axes. */
     struct Placement {
         std::string model;
         Vec3 at{};
         Mat3 axes;
     };
+    /** Where light `i` (below count()) stands. */
     Placement placement(size_t i) const { return {_models[size_t(_lights[i].model)], _lights[i].at, _lights[i].axes}; }
+    /** Knocks light `i` down: it's no longer drawn, but its signal goes on, for the traffic. */
     void knockDown(size_t i) { _lights[i].down = true; }
 
     /**

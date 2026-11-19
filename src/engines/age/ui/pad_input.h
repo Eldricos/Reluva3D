@@ -31,6 +31,7 @@ struct PadDrive {
     void axis(int axis, float value);
     /** Added to the keys' controls: a stick pushed further than the keys steer wins, the pedals the more pressed. */
     void apply(CarControls &c) const;
+    /** Whether the stick and both triggers are at rest. */
     bool idle() const { return steer == 0 && throttle == 0 && brake == 0; }
 };
 
@@ -54,7 +55,12 @@ float padRumble(float impact);
 /** A knock's shake of the controller (System::setGamepadForce), stopped once it's had its time. */
 class PadShaker {
 public:
+    /**
+     * Starts a shake of 200 ms, in place of any under way.
+     * @param strength 0 to 1 (clamped), as padRumble gives.
+     */
     void knock(System &sys, float strength, uint64_t nowMs);
+    /** Stops the shake once its time is up; called each frame. */
     void update(System &sys, uint64_t nowMs);
 
 private:

@@ -21,6 +21,7 @@
 
 namespace reluva::age {
 
+/** A pair of wheels' suspension, steering, brakes and tyres, from the .vehCarSim. */
 struct AxleSetup {
     float suspensionExtent = 0.15f; // metres the wheel travels each way
     float suspensionFactor = 1;     // spring stiffness, 1 = holds the car at mid travel
@@ -33,6 +34,7 @@ struct AxleSetup {
     float rolling = 0.015f; // TireDragCoefLong: rolling resistance, a share of the load
 };
 
+/** What a car is, as its files say: the numbers Reluva's simulation drives it by. */
 struct CarSetup {
     std::string name; // "vpbug"
     float mass = 1000;
@@ -109,6 +111,7 @@ struct CarSetup {
  */
 Error loadCarSetup(const SearchSet &files, const std::string &car, CarSetup &out);
 
+/** What the driver does this step: the player's keys or a computer driver's. */
 struct CarControls {
     float throttle = 0; // 0..1
     float brake = 0;    // 0..1; held when stopped, reverses
@@ -118,8 +121,10 @@ struct CarControls {
     bool reverse = false; // pressed when stopped: into reverse, or out of it
 };
 
+/** A car moving: Reluva's simulation of its body, wheels and gearbox in the city. */
 class CarSim {
 public:
+    /** A wheel's state, as the last step left it. */
     struct Wheel {
         bool contact = false;
         float compression = 0; // metres up from fully extended
@@ -131,10 +136,16 @@ public:
         float bump = 0;           // how fast its suspension last moved, m/s (for the suspension's sound)
     };
 
+    /**
+     * Stands the car still at @p position, its wheels on the ground there, in
+     * first gear at idle; knocks and ballast are kept.
+     * @param yaw Radians, 0 facing -Z.
+     */
     void reset(const CarSetup &setup, const Vec3 &position, float yaw);
     /** Advances by `dt` seconds in fixed steps. */
     void step(const CarControls &controls, const CollisionWorld &world, float dt);
 
+    /** The setup reset() gave it. */
     const CarSetup &setup() const { return _setup; }
     // Weight carried besides the car's own (Cops & Robbers' gold), kg.
     float ballast = 0;
@@ -144,6 +155,7 @@ public:
     // turns.
     bool autoReverse = false; // the player's car takes the option's
     float steerRate = 1;
+    /** In kg, the ballast with it. */
     float mass() const { return _setup.mass + ballast; }
     Vec3 position{};  // of the body's origin
     Mat3 orientation; // the body's axes: X right, Y up, Z back (cars face -Z)

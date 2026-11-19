@@ -28,7 +28,12 @@ public:
     /** geometry/<car>.pkg and its simulation's files (loadCarSetup). */
     Error load(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files, const std::string &car,
                uint32_t paintJob);
+    /** Frees the model's meshes from the renderer; nothing is drawn after. */
     void unload();
+    /**
+     * Draws the body (with its reflections, if g_reflections), the wheels
+     * where the simulation has them, and the lit sirens and lamps.
+     */
     void draw(const SceneLight &light) const;
     // Its reflection map (texture/refl_dc.tga, set at load; the garage's
     // refl_showroom), and whether cars show reflections (the Graphics
@@ -52,6 +57,7 @@ public:
         bool brake = false;
         bool reverse = false;
     } lamps;
+    /** Whether the model has a light bar (SIREN0) or SRN squares: a police car. */
     bool hasSiren() const { return _sirens[0].mesh || !_sirenLamps.empty(); }
     /**
      * Flares at its headlights (its HEADLIGHT squares) when they're on, and
@@ -66,6 +72,7 @@ public:
      * them; mend() puts them back.
      */
     void dent(const Vec3 &at, float radius);
+    /** Puts back every texture dent() damaged. */
     void mend();
 
 private:
@@ -138,12 +145,13 @@ struct CarCamera {
     float nearClip = 0.1f;
     float blendTime = 0;
 };
+/**
+ * The car's cameras from tune/camera/<car>_near.camTrackCS, _far.camTrackCS
+ * and .camPovCS, in that order, leaving out those that don't read.
+ */
 std::vector<CarCamera> loadCarCameras(const SearchSet &files, const std::string &car);
 
-/**
- * Where a camera puts the eye for a car this frame; `follow` keeps a
- * following camera's position between frames (`reset` jumps it there).
- */
+/** A view: where the eye is, what it looks at and which way is up. */
 struct CameraView {
     Vec3 eye{};
     Vec3 target{};
@@ -159,6 +167,11 @@ struct CameraFollow {
     bool swinging = false;
     float slope = 0; // the hill's sine it's tilted by
 };
+/**
+ * Where a camera puts the eye for a car this frame; `follow` keeps a
+ * following camera's position between frames (`reset` jumps it there).
+ * An in-car camera neither reads nor changes it.
+ */
 CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, CameraFollow &follow, bool reset);
 /**
  * A change of camera blended over the new one's BlendTime: start() with
@@ -168,10 +181,12 @@ struct CameraBlend {
     CameraView from;
     float left = 0;
     float total = 0;
+    /** Starts a blend from `last`, the view before the change, over `seconds`. */
     void start(const CameraView &last, float seconds) {
         from = last;
         left = total = seconds;
     }
+    /** The view `dt` seconds on, eased from the old towards `to`; `to` itself once the blend is over. */
     CameraView apply(const CameraView &to, float dt);
 };
 

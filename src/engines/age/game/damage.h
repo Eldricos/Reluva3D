@@ -65,23 +65,31 @@ struct DamageSetup {
     Vec3 smokeOffset2{};
     SmokeRule smoke;
 };
+/** Reads a .vehCarDamage's text; fields it leaves out keep their defaults. */
 Error parseDamageSetup(std::string_view text, DamageSetup &out);
+/** Reads the car's .vehCarDamage; without one, @p out holds the defaults and the error says why. */
 Error loadDamageSetup(const SearchSet &files, const std::string &car, DamageSetup &out);
 
 /** A car's damage: knocks over the threshold add what they're over it. */
 class CarDamage {
 public:
+    /** Mends it: no damage. */
     void reset() { _damage = 0; }
-    void set(float damage) { _damage = damage; } // as another player's machine says
+    /** Sets the damage, as another player's machine says. */
+    void set(float damage) { _damage = damage; }
     /** An impulse (kg m/s); what it added. */
     float knock(const DamageSetup &setup, float impulse);
+    /** Mends it by the setup's RegenerateRate over @p dt seconds, down to 0. */
     void update(const DamageSetup &setup, float dt);
+    /** In the setup's units: impulse over the threshold, up to MaxDamage. */
     float damage() const { return _damage; }
     /** 0..1 of the way to wrecked. */
     float fraction(const DamageSetup &setup) const {
         return setup.maxDamage > 0 ? std::min(1.0f, _damage / setup.maxDamage) : 0;
     }
+    /** At MedDamage or more. */
     bool smoking(const DamageSetup &setup) const { return _damage >= setup.medDamage; }
+    /** At MaxDamage. */
     bool wrecked(const DamageSetup &setup) const { return _damage >= setup.maxDamage; }
 
 private:
@@ -102,6 +110,7 @@ struct CarWear {
 
     /** Its setup (the defaults without one), mended. */
     void load(const SearchSet &files, const std::string &car, CarActor &actor);
+    /** No damage, no puffs owed, and the body's dents gone. */
     void mend(CarActor &actor);
     /**
      * After the car's step: its knock (sim.impact) damages it and dents the
@@ -110,7 +119,9 @@ struct CarWear {
     void update(float dt, CarActor &actor, SmokePuffs *smoke);
     /** Its smoke alone, at the damage it has (another player's car). */
     void puff(float dt, const CarActor &actor, SmokePuffs *smoke);
+    /** 0..1 of the way to wrecked. */
     float fraction() const { return damage.fraction(setup); }
+    /** At its setup's MaxDamage. */
     bool wrecked() const { return damage.wrecked(setup); }
 };
 
@@ -121,6 +132,7 @@ struct CarWear {
  */
 class SmokePuffs {
 public:
+    /** Draws with @p renderer and @p textures, which must outlive it. */
     SmokePuffs(gfx::Renderer3D &renderer, TextureCache &textures);
     ~SmokePuffs();
     SmokePuffs(const SmokePuffs &) = delete;
@@ -134,9 +146,13 @@ public:
         gfx::TextureId texture = 0;
         int grid = 1;
     };
+    /** A particle texture's look, loaded the first time it's asked for. */
     Look look(const std::string &texture);
 
-    /** One particle (the smoke's look by default). */
+    /**
+     * One particle (the smoke's look by default), carried at half the car's
+     * velocity; none past 600 alive.
+     */
     void emit(const BirthRule &rule, const Vec3 &at, const Vec3 &carVelocity, const Look *look = nullptr);
     /**
      * A rule's InitialBlast at once (at least one), then its SpewRate for
@@ -149,14 +165,19 @@ public:
      * materials' effect numbers (see docs/engines/age/games/mm2/systems/damage.md).
      */
     void loadWheelEffects(const SearchSet &files);
+    /** Throws up the particles of what the car's wheels slip, or roll, on. */
     void wheels(float dt, const CarSim &car);
+    /** Moves, grows and fades the particles over @p dt seconds; keeps the spews going. */
     void update(float dt);
+    /** Drops every particle, spew and what the wheels owe. */
     void clear() {
         _puffs.clear();
         _spews.clear();
         _wheelOwed.clear();
     }
+    /** The particles alive. */
     size_t count() const { return _puffs.size(); }
+    /** Each particle as a billboard facing @p eye, fading out over its life. */
     void draw(const Vec3 &eye) const;
 
 private:
