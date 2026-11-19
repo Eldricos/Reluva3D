@@ -177,7 +177,7 @@ int Arcade::random(int n) {
     return n > 0 ? r % n : 0;
 }
 
-// ---- Loading ------------------------------------------------------------------------------
+// Loading
 
 bool Arcade::loadSound(const std::string &name, std::vector<uint8_t> &data) const {
     auto s = _resources.openFile("SOUND/" + text::toUpper(name) + ".RAW");
@@ -395,7 +395,7 @@ bool Arcade::takePaletteChanged() {
     return c;
 }
 
-// ---- The frame loop -------------------------------------------------------------------------
+// The frame loop
 
 bool Arcade::update(uint32_t millis, Point aim, bool leftPressed, bool rightPressed) {
     _aim = aim;
@@ -498,7 +498,7 @@ void Arcade::finishFrame() {
     }
 }
 
-// ---- Targets --------------------------------------------------------------------------------
+// Targets
 
 void Arcade::updateTargets() {
     _targetUnderSight = -1;
@@ -601,7 +601,7 @@ void Arcade::destroyTarget(int index) {
         _winCountdown = kWinCountdown;
 }
 
-// ---- The player's weapons ---------------------------------------------------------------------
+// The player's weapons
 
 void Arcade::firePhaser() {
     int launchY = _rect.top + _rect.height() * 3 / 4;
@@ -699,7 +699,7 @@ void Arcade::torpedoImpact(int x, int y) {
     }
 }
 
-// ---- The plan door (type 6) -------------------------------------------------------------------
+// The plan door (type 6)
 
 void Arcade::updateDoor(bool leftPressed) {
     if (!_door.frameCount())
@@ -749,7 +749,7 @@ void Arcade::updateDoor(bool leftPressed) {
     }
 }
 
-// ---- HUD, shake and beams ----------------------------------------------------------------------
+// HUD, shake and beams
 
 void Arcade::drawHud() {
     // The shield indicator on the cockpit panel (blinking every tenth frame).
