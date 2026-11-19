@@ -104,6 +104,25 @@ the game's edge data for colliding with the bound's edges, and a grid
 for finding polygons. Reluva works its own out from the `.bnd` (an 8 m
 grid) and doesn't read it.
 
+Counted again over all 184 files and their 19,727 edges, with each
+polygon's normal worked out from its `.bnd` vertices, the rest of what
+doesn't fit the rule above is:
+
+- **Edges three or four polygons share** (188, where a bound's pieces
+  meet): the number is one pair's half-angle cosine (131) or 2 (57),
+  so the game takes one pair of them.
+- **Shared edges with a number of 0** (108 of the 8,800 or so shared by
+  two): 68 between polygons at right angles, 9 between flat ones, 31
+  others. They're treated as if one polygon's edge; which shared edges
+  get 0, and why, isn't settled *(inferred)*.
+- **Others** (21 shared, 6 of one polygon) have numbers that fit neither
+  reading; several of those edges' vectors are straight up (0, 1, 0),
+  which 1,145 edges have, most of them of a flat polygon facing up.
+
+Every file's layout and sizes fit; what's left open is only which edges
+the game marks 0 or leaves out, which matters only to the game's own
+edge collision, not to reading the file.
+
 ## Sources and checks
 
 They're text. Every line of all 525 starts with one of `version:`,
