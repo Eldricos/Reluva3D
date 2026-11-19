@@ -43,7 +43,8 @@ public:
     struct Car {
         uint8_t id = 0;
         uint8_t team = 0;
-        Vec3 position{}, velocity{};
+        Vec3 position{};
+        Vec3 velocity{};
         // Put back (fallen out, stuck) in the last moments: it drops the
         // gold it had where it was, and can't take it or ram it loose for
         // a while, so a car can't be "put back" onto the gold or its base.
@@ -86,7 +87,8 @@ private:
     GoldLimit _limit = GoldLimit::kNone;
     int _limitValue = 0;
     std::vector<Vec3> _points;
-    Vec3 _home{}, _gold{};
+    Vec3 _home{};
+    Vec3 _gold{};
     std::array<Vec3, 2> _bases{};
     uint8_t _holder = kNoPlayer;
     bool _atHome = true;

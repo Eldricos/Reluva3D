@@ -20,7 +20,8 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kStopped = 0.5;  // m/s: stopped, at the end of the pier
 constexpr float kFallenIn = 3;   // metres below the lowest point: in the water

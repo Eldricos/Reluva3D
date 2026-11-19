@@ -22,12 +22,17 @@ namespace {
 
 // The dialogs' corner (tune/menu.csv: 120, 75, 400 x 330), and a message
 // box's (120, 202, 400 x 76).
-constexpr int kDialogX = 120, kDialogY = 75, kMessageY = 202;
+constexpr int kDialogX = 120;
+constexpr int kDialogY = 75;
+constexpr int kMessageY = 202;
 // Boxes drawn on the backgrounds, not controls (measured on the jpg/
 // pictures): the lobby's host settings, its "you" and its chat; the
 // heading's box; the eject dialog's list.
 struct Box {
-    int x, y, w, h;
+    int x;
+    int y;
+    int w;
+    int h;
 };
 constexpr Box kSettingsBox{38, 66, 222, 114};
 constexpr Box kYouBox{276, 214, 180, 46};

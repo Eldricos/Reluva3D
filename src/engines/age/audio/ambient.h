@@ -22,8 +22,10 @@ struct AmbientSample {
     float low = 0;    // a one-shot's seconds between plays: from `low`
     float high = 0;   // to `high`
     bool active = true;
-    float minSpeed = 0, maxSpeed = 1e9f; // heard while the listener goes this fast (m/s)
-    bool doppler = false;                // its pitch shifted by the listener's coming and going
+    // heard while the listener goes this fast (m/s)
+    float minSpeed = 0;
+    float maxSpeed = 1e9f;
+    bool doppler = false; // its pitch shifted by the listener's coming and going
 };
 
 // aud/ambient/<name>.csv: a sound heard near a set of points (the city's

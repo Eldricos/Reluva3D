@@ -15,7 +15,9 @@ namespace reluva::age {
 
 namespace {
 
-constexpr float kSpawnNear = 70, kSpawnFar = 120, kForget = 140;
+constexpr float kSpawnNear = 70;
+constexpr float kSpawnFar = 120;
+constexpr float kForget = 140;
 constexpr float kDrawDistance = 120;
 constexpr float kCorner = 12;      // metres to another sidewalk's end to walk on along it
 constexpr float kLookAhead = 1.6f; // seconds ahead a car is seen coming

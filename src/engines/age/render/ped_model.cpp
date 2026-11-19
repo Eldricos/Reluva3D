@@ -122,10 +122,14 @@ Error parsePedMesh(const std::string &text, PedMesh &out) {
     std::vector<std::array<float, 2>> uvs;
     std::vector<int> perBone;
     struct Adjunct {
-        int v = 0, n = 0, t = 0;
+        int v = 0;
+        int n = 0;
+        int t = 0;
     };
     struct Range {
-        size_t adjuncts = 0, triangles = 0, packets = 1;
+        size_t adjuncts = 0;
+        size_t triangles = 0;
+        size_t packets = 1;
     };
     std::vector<Range> ranges; // each material's share of the one list
     std::vector<Adjunct> adj;  // the one list, or the packet's

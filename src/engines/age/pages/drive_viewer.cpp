@@ -18,7 +18,8 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
 constexpr float kBigAir = 1;     // seconds off the ground that count as big air (Reluva's)
 constexpr float kMph = 2.23694f; // miles an hour per metre a second

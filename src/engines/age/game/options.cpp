@@ -26,7 +26,8 @@ GameOptions &current() {
 struct ControlInfo {
     uint32_t stringId;
     const char *name;
-    uint32_t first, second;
+    uint32_t first;
+    uint32_t second;
 };
 constexpr ControlInfo kInfo[kControls] = {
     {280, "Throttle", key::kUp, 0},

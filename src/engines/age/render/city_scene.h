@@ -107,7 +107,8 @@ public:
 
 private:
     struct Batch {
-        uint32_t firstIndex, indexCount;
+        uint32_t firstIndex;
+        uint32_t indexCount;
         gfx::TextureId texture;
         bool translucent;
     };
@@ -119,7 +120,12 @@ private:
         uint16_t block;
     };
     struct BlockBounds {
-        float minX, minZ, maxX, maxZ, minY, maxY;
+        float minX;
+        float minZ;
+        float maxX;
+        float maxZ;
+        float minY;
+        float maxY;
         std::vector<std::pair<float, float>> outline; // x, z
     };
 
@@ -130,7 +136,8 @@ private:
     };
     struct Fog {
         gfx::Vec3 color;
-        float start, end;
+        float start;
+        float end;
     };
 
     void unload();
@@ -163,8 +170,10 @@ private:
     void drawCloudShadows();
     bool _skyShown = true;
     int _cloudShadows = 2;
-    float _modelDistance = 900, _detail = 1;
-    size_t _viewBlock = 0, _blocksDrawn = 0;
+    float _modelDistance = 900;
+    float _detail = 1;
+    size_t _viewBlock = 0;
+    size_t _blocksDrawn = 0;
     Vec3 _detailFrom{1e9f, 0, 0};                    // where the roads' detail was last chosen from
     std::chrono::steady_clock::time_point _loadedAt; // the animations' clock starts
     CityLights _cityLights;

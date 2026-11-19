@@ -28,7 +28,8 @@ struct AxleSetup {
     float steeringLimit = 0.4f; // radians at full lock
     float brakeCoef = 0.6f;
     float handbrakeCoef = 0;
-    float staticFriction = 3, slidingFriction = 2.7f;
+    float staticFriction = 3;
+    float slidingFriction = 2.7f;
     float rolling = 0.015f; // TireDragCoefLong: rolling resistance, a share of the load
 };
 
@@ -40,24 +41,34 @@ struct CarSetup {
     // constant, one with the turning and one with its square (AngCDamp,
     // AngVelDamp, AngVel2Damp), read as a torque of the car's mass times
     // that; yaw's isn't used (see docs/engines/age-driving.md).
-    Vec3 angDampC{}, angDampV{}, angDampV2{};
+    Vec3 angDampC{};
+    Vec3 angDampV{};
+    Vec3 angDampV2{};
     // Speed-sensitive steering: the lock falls with the speed above
     // SSSThreshold (mph) as much as SSSValue says (1: Reluva's 1/(1+v/25),
     // 0: none, the Minis').
-    float sssValue = 1, sssThreshold = 0;
+    float sssValue = 1;
+    float sssThreshold = 0;
     // The full lock's share at a speed (m/s).
     float lockAt(float speed) const;
     Vec3 centerOfGravity{};
-    float boundFriction = 0.5f, boundElasticity = 0.5f;
+    float boundFriction = 0.5f;
+    float boundElasticity = 0.5f;
     int drivetrain = 0; // 0: rear wheels driven, 1: front, 2: all four
     // Aero: drag and down force, newtons per (metre a second) squared.
-    float drag = 0.5f, down = 0;
+    float drag = 0.5f;
+    float down = 0;
 
-    float maxHorsePower = 250, idleRpm = 750, optRpm = 5800, maxRpm = 8500;
+    float maxHorsePower = 250;
+    float idleRpm = 750;
+    float optRpm = 5800;
+    float maxRpm = 8500;
     int gears = 6;
     // Speeds (metres a second) at the top of first gear, top gear and
     // reverse: Trans's Low, High and Reverse, read as miles an hour.
-    float lowSpeed = 9, highSpeed = 40, reverseSpeed = 13;
+    float lowSpeed = 9;
+    float highSpeed = 40;
+    float reverseSpeed = 13;
     float gearChangeTime = 0.8f;
     // tune/vehicle/<car>.vehStuck: turned over (tilted past stuckTilt) and
     // moving slower than stuckSpeed (metres a second), no further than
@@ -65,15 +76,21 @@ struct CarSetup {
     // turned by stuckTurn. Turn is read as how far over counts (90 or 180
     // degrees for most cars, 42 for the double-decker), two thirds of it
     // up to 90 (so 60 degrees for most); Rotation as the turn (0 for all).
-    float stuckTime = 2, stuckDistance = 1.25f, stuckSpeed = 1.75f;
-    float stuckTilt = 1.0472f, stuckTurn = 0;
+    float stuckTime = 2;
+    float stuckDistance = 1.25f;
+    float stuckSpeed = 1.75f;
+    float stuckTilt = 1.0472f;
+    float stuckTurn = 0;
     // tune/vehicle/<car>.vehGyro: help turning round, read as turning
     // (radians a second squared, at full steering) added while the
     // handbrake's held (Spin180), backing (Reverse180) or the back wheels
     // slide (Drift). Pitch and Roll are 0 for all.
-    float gyroSpin = 0, gyroReverse = 0, gyroDrift = 0;
+    float gyroSpin = 0;
+    float gyroReverse = 0;
+    float gyroDrift = 0;
 
-    AxleSetup front, back;
+    AxleSetup front;
+    AxleSetup back;
     // Front left, front right, back left, back right: each wheel's centre
     // at rest and its radius.
     std::array<Vec3, 4> wheels{};
@@ -128,7 +145,8 @@ public:
     float mass() const { return _setup.mass + ballast; }
     Vec3 position{};  // of the body's origin
     Mat3 orientation; // the body's axes: X right, Y up, Z back (cars face -Z)
-    Vec3 velocity{}, angularVelocity{};
+    Vec3 velocity{};
+    Vec3 angularVelocity{};
     float rpm = 0;
     int gear = 1; // -1 reverse, 1.. forward
     // Manual gears: the controls' shift changes gear, and the throttle

@@ -61,8 +61,10 @@ std::vector<PropPlacement> placeStreetProps(const AiRoadMap &roads, const std::v
 struct BangerData {
     float mass = 100;
     float impulseLimit2 = 0; // ImpulseLimit2: the square of the impulse that breaks it loose
-    Vec3 size{}, cg{};       // its box's size, and its middle from the prop's foot
-    int parts = 0;           // NumParts: its break pieces (<model>_BREAK01... in its .pkg)
+    // its box's size, and its middle from the prop's foot
+    Vec3 size{};
+    Vec3 cg{};
+    int parts = 0; // NumParts: its break pieces (<model>_BREAK01... in its .pkg)
     // What flies out when it breaks (its BirthRule block, with its
     // Position from its middle), as texture/fxpt<TexNumber>: 0 none.
     BirthRule particles;
@@ -111,7 +113,8 @@ public:
     struct Burst {
         BirthRule rule;
         std::string texture;
-        Vec3 at, velocity;
+        Vec3 at;
+        Vec3 velocity;
     };
     std::vector<Burst> takeBursts() { return std::move(_bursts); }
 
@@ -133,15 +136,22 @@ private:
         float height = 1;
         // Loose: falling over about `axis` through `at`, sliding.
         bool loose = false;
-        Vec3 axis{1, 0, 0}, slide{};
-        float angle = 0, spin = 0, fallTo = 0;
+        Vec3 axis{1, 0, 0};
+        Vec3 slide{};
+        float angle = 0;
+        float spin = 0;
+        float fallTo = 0;
         Vec3 moved{};
         // Its break pieces (BREAK01...), each on its own once it comes
         // apart: a body falling and tumbling to rest on the ground.
         struct Piece {
             std::string part;
-            Vec3 cg{}, size{}; // from the banger data
-            Vec3 position{}, velocity{}, spin{};
+            // from the banger data
+            Vec3 cg{};
+            Vec3 size{};
+            Vec3 position{};
+            Vec3 velocity{};
+            Vec3 spin{};
             Mat3 orientation;
             bool resting = false;
             int effect = -1; // its particles (effects_)

@@ -28,7 +28,8 @@ struct ReplayFrame {
     // A game controller's: the stick's steering (-127..127) and the
     // triggers (0..255), 0 when there's none.
     int8_t padSteer = 0;
-    uint8_t padThrottle = 0, padBrake = 0;
+    uint8_t padThrottle = 0;
+    uint8_t padBrake = 0;
 };
 enum : uint8_t { kReplayManual = 1 };
 
@@ -46,8 +47,13 @@ struct Replay {
     // The conditions it was run in, when changed from the race's own
     // (laps, opponents, time, weather, police; traffic, pedestrians).
     bool changed = false;
-    int laps = 1, opponents = 0, timeOfDay = 0, weather = 0, cops = 0;
-    float traffic = 0, peds = 0;
+    int laps = 1;
+    int opponents = 0;
+    int timeOfDay = 0;
+    int weather = 0;
+    int cops = 0;
+    float traffic = 0;
+    float peds = 0;
     // Its name, as saved.
     std::string name;
     std::vector<ReplayFrame> frames;
@@ -71,8 +77,10 @@ Error saveReplay(const std::filesystem::path &saveFolder, const Replay &replay);
 Error loadReplay(const std::filesystem::path &file, Replay &out);
 struct ReplayEntry {
     std::filesystem::path file;
-    std::string name, city;
-    int kind = 0, race = 0;
+    std::string name;
+    std::string city;
+    int kind = 0;
+    int race = 0;
     float duration = 0;
 };
 // Every replay saved, by name.

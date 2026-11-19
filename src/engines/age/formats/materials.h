@@ -21,10 +21,14 @@ namespace reluva::age {
 // docs/engines/age-driving.md.
 struct PhysicsMaterial {
     std::string name;
-    float elasticity = 0.9f, friction = 0.9f;
-    int sound = 0;                          // which surface of the car sound tables
-    float drag = 0;                         // slows a wheel on it
-    float width = 0, height = 0, depth = 0; // depth: deep water (100) sinks a car
+    float elasticity = 0.9f;
+    float friction = 0.9f;
+    int sound = 0;  // which surface of the car sound tables
+    float drag = 0; // slows a wheel on it
+    // depth: deep water (100) sinks a car
+    float width = 0;
+    float height = 0;
+    float depth = 0;
     // ptxindex and ptxthreshold: the wheels' particles (see CollisionSurface).
     std::array<int, 2> particles{-1, -1};
     std::array<float, 2> particleSlip{0.25f, 0.5f};

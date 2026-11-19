@@ -23,7 +23,8 @@ namespace reluva::age {
 // Something on the road that traffic slows for and keeps clear of: the
 // player, opponents, police.
 struct RoadUser {
-    Vec3 position{}, velocity{};
+    Vec3 position{};
+    Vec3 velocity{};
     bool solid = false; // never driven through, even after a long wait (an open bridge)
 };
 
@@ -34,16 +35,20 @@ struct TrafficLane {
     uint32_t road = 0;
     int side = 0;
     std::vector<Vec3> points;
-    std::vector<float> at;     // distance along it to each point
-    uint32_t from = 0, to = 0; // junctions
-    uint32_t toSlot = 0;       // the road's place in the list of junction `to`
-    int toEnd = 0;             // the road's end it arrives at (0 its last point, 1 its first)
-    uint16_t control = 3;      // that end's: 1 lights, 0 give way, 3 none (as read: see bai.md)
-    int left = -1, right = -1; // the lanes beside it going the same way
-    float speed = 15;          // m/s
-    bool spawns = true;        // traffic starts on it (a race's exceptions leave some out)
-    float share = 1;           // of the traffic's density on it (a race's exception: 0 or 1)
-    bool open = true;          // traffic goes on it: not a road the road map flags 0x2 (bai.md)
+    std::vector<float> at; // distance along it to each point
+    // junctions
+    uint32_t from = 0;
+    uint32_t to = 0;
+    uint32_t toSlot = 0;  // the road's place in the list of junction `to`
+    int toEnd = 0;        // the road's end it arrives at (0 its last point, 1 its first)
+    uint16_t control = 3; // that end's: 1 lights, 0 give way, 3 none (as read: see bai.md)
+    // the lanes beside it going the same way
+    int left = -1;
+    int right = -1;
+    float speed = 15;   // m/s
+    bool spawns = true; // traffic starts on it (a race's exceptions leave some out)
+    float share = 1;    // of the traffic's density on it (a race's exception: 0 or 1)
+    bool open = true;   // traffic goes on it: not a road the road map flags 0x2 (bai.md)
     float length() const { return at.empty() ? 0 : at.back(); }
 };
 
@@ -149,11 +154,14 @@ private:
         int kind = 0;
         uint32_t paintJob = 0;
         // On a lane, or on the curve across a junction to `nextLane`.
-        int lane = -1, nextLane = -1;
+        int lane = -1;
+        int nextLane = -1;
         bool crossing = false;
         std::vector<Vec3> path;
         std::vector<float> at;
-        float s = 0, speed = 0, maxSpeed = 15;
+        float s = 0;
+        float speed = 0;
+        float maxSpeed = 15;
         float pace = 1;       // its share of the speed limit (lorries and buses slower)
         int holding = -1;     // the junction it may cross (or is crossing)
         float waited = 0;     // seconds held up
@@ -163,17 +171,21 @@ private:
         // Changing lanes: where it was, moved onto the new lane over the
         // time left; and which side it's indicating, for how long.
         Vec3 shift{};
-        float shiftLeft = 0, laneWait = 0;
+        float shiftLeft = 0;
+        float laneWait = 0;
         int indicate = 0;
         float indicateTime = 0;
         bool braking = false;
         // Its place: from the path while driven, its own once knocked.
-        Vec3 position{}, heading{0, 0, -1};
+        Vec3 position{};
+        Vec3 heading{0, 0, -1};
         float yaw = 0;
         bool loose = false;
         Vec3 velocity{};
         float spin = 0;
-        bool parked = false, settled = false; // settled: stood on the ground
+        // settled: stood on the ground
+        bool parked = false;
+        bool settled = false;
     };
 
     int pickKind();
@@ -199,7 +211,9 @@ private:
     // start cars: those within reach of where it was last looked at.
     struct Piece {
         uint32_t lane = 0;
-        float from = 0, to = 0; // metres along the lane
+        // metres along the lane
+        float from = 0;
+        float to = 0;
         Vec3 middle{};
         float weight = 0; // its length times its lane's share
     };

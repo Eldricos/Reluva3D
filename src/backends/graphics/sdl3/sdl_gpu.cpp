@@ -47,9 +47,9 @@ struct VertexUniforms {
     DeformUniforms deforms[2];
     float fillColor[2][4];
     float fillDir[2][4];
-    float matAmbient[4];  // w: 1 to light as Direct3D does
+    float matAmbient[4]; // w: 1 to light as Direct3D does
     float matEmissive[4];
-    float linearFog[4];   // x, y: where the fog starts and is complete (y 0: none)
+    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none)
 };
 struct FragmentUniforms {
     float params[4];

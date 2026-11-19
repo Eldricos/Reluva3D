@@ -360,7 +360,7 @@ Error readDmSegment(const std::vector<uint8_t> &data, DmSegment &out) {
 int dmMusicToMidi(uint16_t value, int mode, const DmChord &chord) {
     int key = 0;
     if (!(mode & (kScaleIntervals | kChordIntervals))) {
-        // Fixed: the value is the key, over the chord's or key's root.
+        // Neither scale nor chord intervals: the value is the key, over the chord's or key's root.
         key = value;
         if (mode & kChordRoot)
             key += chord.chordRoot % 12;

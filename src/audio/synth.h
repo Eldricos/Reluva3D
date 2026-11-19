@@ -45,24 +45,41 @@ private:
     struct Channel {
         const DlsCollection *collection = nullptr;
         const DlsInstrument *instrument = nullptr;
-        float volume = 100 / 127.0f, expression = 1, pan = 0.5f, modWheel = 0, bend = 0;
+        float volume = 100 / 127.0f;
+        float expression = 1;
+        float pan = 0.5f;
+        float modWheel = 0;
+        float bend = 0;
         int transpose = 0;
         bool sustain = false;
     };
     // An envelope's times (seconds) and sustain (0-1).
     struct Envelope {
-        float delay = 0, attack = 0, hold = 0, decay = 0, sustain = 1, release = 0;
+        float delay = 0;
+        float attack = 0;
+        float hold = 0;
+        float decay = 0;
+        float sustain = 1;
+        float release = 0;
     };
     struct Articulation {
-        Envelope volume, pitch;
+        Envelope volume;
+        Envelope pitch;
         float pitchEnvelopeCents = 0;
-        float lfoFrequency = 5, lfoDelay = 0, lfoPitchCents = 0, lfoGainDb = 0, lfoModPitchCents = 0;
+        float lfoFrequency = 5;
+        float lfoDelay = 0;
+        float lfoPitchCents = 0;
+        float lfoGainDb = 0;
+        float lfoModPitchCents = 0;
         float keyTrack = 100; // cents per key
         float tuneCents = 0;
-        float gainDb = 0, pan = 0; // pan -0.5..0.5
+        // pan -0.5..0.5
+        float gainDb = 0;
+        float pan = 0;
     };
     struct Voice {
-        int channel = 0, key = 0;
+        int channel = 0;
+        int key = 0;
         const DlsWave *wave = nullptr;
         DlsSampleInfo info;
         Articulation art;

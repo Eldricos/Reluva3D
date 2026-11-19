@@ -38,8 +38,7 @@ struct PadDrive {
  * while a replay plays back its own), and each button pressed or let go
  * since the last poll as the key event it stands for, into `keys`.
  */
-void pollPad(System &sys, PadDrive &pad, bool driving, bool axes, const GameOptions &options,
-             std::vector<Event> &keys);
+void pollPad(System &sys, PadDrive &pad, bool driving, bool axes, const GameOptions &options, std::vector<Event> &keys);
 
 /**
  * The key a button (GamepadButton) stands for while driving (a control's

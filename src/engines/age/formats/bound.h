@@ -31,7 +31,8 @@ namespace reluva::age {
 // See docs/formats/age/bnd.md.
 struct BoundMaterial {
     std::string name; // also a city physics material's (grass, water...: materials.h)
-    float elasticity = 0.1f, friction = 0.5f;
+    float elasticity = 0.1f;
+    float friction = 0.5f;
 };
 
 struct BoundPolygon {

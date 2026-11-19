@@ -48,7 +48,9 @@ inline Vec3 normalized(const Vec3 &a) {
 
 // A rotation (or any 3x3 matrix) as its three columns: where X, Y and Z go.
 struct Mat3 {
-    Vec3 x{1, 0, 0}, y{0, 1, 0}, z{0, 0, 1};
+    Vec3 x{1, 0, 0};
+    Vec3 y{0, 1, 0};
+    Vec3 z{0, 0, 1};
 
     Vec3 operator*(const Vec3 &v) const { return x * v[0] + y * v[1] + z * v[2]; }
     // The transpose's product: a world direction in this frame.

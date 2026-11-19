@@ -17,10 +17,22 @@ namespace reluva::age {
 // (camera space: x right, y up, z back), the needles' and wheel's pivots
 // and how far each turns. See docs/engines/age-driving.md.
 struct DashSetup {
-    Vec3 dashPos{}, roofPos{}, wheelPos{};
-    Vec3 speedPivot{}, tachPivot{}, damagePivot{}, wheelPivot{}, gearPivot{}; // the *PivotOffset numbers
+    Vec3 dashPos{};
+    Vec3 roofPos{};
+    Vec3 wheelPos{};
+    // the *PivotOffset numbers
+    Vec3 speedPivot{};
+    Vec3 tachPivot{};
+    Vec3 damagePivot{};
+    Vec3 wheelPivot{};
+    Vec3 gearPivot{};
     float wheelFact = 0.9f;
-    float rpmRotMin = 0, rpmRotMax = 3, speedRotMin = 0, speedRotMax = 3, damageRotMin = 0, damageRotMax = 3;
+    float rpmRotMin = 0;
+    float rpmRotMax = 3;
+    float speedRotMin = 0;
+    float speedRotMax = 3;
+    float damageRotMin = 0;
+    float damageRotMax = 3;
 };
 Error loadDashSetup(const SearchSet &files, const std::string &car, DashSetup &out);
 
@@ -41,8 +53,15 @@ public:
 private:
     std::string _model;
     DashSetup _setup;
-    Mtx _speed{}, _tach{}, _damage{}, _wheel{}, _gear{};
-    gfx::TextureId _drive = 0, _neutral = 0, _reverse = 0; // the gear indicator's: texture/d, n and r
+    Mtx _speed{};
+    Mtx _tach{};
+    Mtx _damage{};
+    Mtx _wheel{};
+    Mtx _gear{};
+    // the gear indicator's: texture/d, n and r
+    gfx::TextureId _drive = 0;
+    gfx::TextureId _neutral = 0;
+    gfx::TextureId _reverse = 0;
     bool _ok = false;
 };
 

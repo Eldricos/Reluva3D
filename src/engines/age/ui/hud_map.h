@@ -18,14 +18,24 @@ namespace reluva::age {
 // tune/<city>.mmHudMap: where the HUD's map goes and how near it looks.
 // See docs/engines/age-driving.md.
 struct HudMapSetup {
-    float width = 0.21f, height = 0.25f; // Size: shares of the screen
-    float left = 0.78f, top = 0.75f;     // Pos: its top left corner, likewise
-    bool zoomIn = false;                 // starting near
-    float approachRate = 1.2f;           // a second, towards a new zoom
+    // Size: shares of the screen
+    float width = 0.21f;
+    float height = 0.25f;
+    // Pos: its top left corner, likewise
+    float left = 0.78f;
+    float top = 0.75f;
+    bool zoomIn = false;       // starting near
+    float approachRate = 1.2f; // a second, towards a new zoom
     // Heights it's seen from (metres), near and far, and its icons' lengths
     // (metres) there; the FS ones full screen.
-    float zoomInDist = 577, zoomOutDist = 1195, iconScaleMin = 34, iconScaleMax = 52.4f;
-    float zoomInDistFS = 786, zoomOutDistFS = 1581, iconScaleMinFS = 15, iconScaleMaxFS = 18;
+    float zoomInDist = 577;
+    float zoomOutDist = 1195;
+    float iconScaleMin = 34;
+    float iconScaleMax = 52.4f;
+    float zoomInDistFS = 786;
+    float zoomOutDistFS = 1581;
+    float iconScaleMinFS = 15;
+    float iconScaleMaxFS = 18;
     Vec3 ocean{0.084f, 0.7f, 0.94f}; // Ocean Color
 };
 Error parseHudMapSetup(std::string_view text, HudMapSetup &out);
@@ -35,7 +45,8 @@ Error parseHudMapSetup(std::string_view text, HudMapSetup &out);
 // job 0-8: RED_DOT, BLUE_DOT, GREEN_DOT, GREY_DOT, YELLOW_DOT, FINISH_DOT,
 // GOLD_DOT, BANK_DOT, HIDEOUT_DOT).
 struct HudMapIcon {
-    Vec3 position{}, forward{0, 0, -1};
+    Vec3 position{};
+    Vec3 forward{0, 0, -1};
     int color = 0;
     bool dot = false;
 };
@@ -97,7 +108,10 @@ private:
     HudMapSetup _setup;
     std::string _model;
     gfx::MeshId _quad = 0; // the ocean
-    bool _ok = false, _zoomIn = false, _full = false, _rotating = true;
+    bool _ok = false;
+    bool _zoomIn = false;
+    bool _full = false;
+    bool _rotating = true;
     int _size = 0; // 0 the corner's, 1 larger, 2 off
     float _distance = 0;
 };

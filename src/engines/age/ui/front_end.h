@@ -24,8 +24,12 @@ struct CarInfo;
 // A control of the game's menus (tune/widget.csv: menu, its id, the
 // control's name, its id, x, y, width, height and a description).
 struct Widget {
-    std::string menu, name;
-    int x = 0, y = 0, w = 0, h = 0;
+    std::string menu;
+    std::string name;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
     std::string desc;
 };
 Error parseWidgets(const std::string &csv, std::vector<Widget> &out);
@@ -64,14 +68,20 @@ public:
         RaceKind kind = RaceKind::kBlitz;
         int race = 0;
         bool professional = false;
-        int car = 0, paintJob = 0;
+        int car = 0;
+        int paintJob = 0;
         bool manual = false;
         // The race's conditions: as its file has them, or changed on the
         // race menu (LAPS, OPPONENTS, and CHANGE: the game's Change Race
         // Options). A race run changed isn't recorded.
         struct Conditions {
-            int laps = 1, opponents = 0, timeOfDay = 0, weather = 0, cops = 0;
-            float traffic = 0, peds = 0;
+            int laps = 1;
+            int opponents = 0;
+            int timeOfDay = 0;
+            int weather = 0;
+            int cops = 0;
+            float traffic = 0;
+            float peds = 0;
             bool hidePeds = false;
             bool operator==(const Conditions &) const = default;
         };
@@ -135,7 +145,10 @@ public:
     // Where the garage shows the car (in the overlay's pixels), to draw it
     // there in 3D; empty off the garage.
     struct Rect {
-        int x = 0, y = 0, w = 0, h = 0;
+        int x = 0;
+        int y = 0;
+        int w = 0;
+        int h = 0;
     };
     Rect carWindow() const;
     // "U": everything open, whatever the record says.

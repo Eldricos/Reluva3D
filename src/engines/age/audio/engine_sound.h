@@ -19,15 +19,26 @@ namespace reluva::age {
 // docs/engines/age-driving.md.
 struct EngineSample {
     std::string wave; // aud/aud22/engines/<wave>.22k.wav
-    float minVolume = 0, maxVolume = 1;
-    float fadeInStart = 0, fadeInEnd = 0, fadeOutStart = 1e9f, fadeOutEnd = 1e9f; // RPM
-    float minPitch = 1, maxPitch = 1;
-    float pitchStart = 0, pitchEnd = 1; // RPM
+    float minVolume = 0;
+    float maxVolume = 1;
+    // RPM
+    float fadeInStart = 0;
+    float fadeInEnd = 0;
+    float fadeOutStart = 1e9f;
+    float fadeOutEnd = 1e9f;
+    float minPitch = 1;
+    float maxPitch = 1;
+    // RPM
+    float pitchStart = 0;
+    float pitchEnd = 1;
 };
 
 struct EngineSoundSetup {
-    std::string horn, clutch; // the clutch's: played on changing gear
-    float hornVolume = 1, clutchVolume = 1;
+    // the clutch's: played on changing gear
+    std::string horn;
+    std::string clutch;
+    float hornVolume = 1;
+    float clutchVolume = 1;
     std::vector<EngineSample> samples;
 };
 
@@ -91,13 +102,18 @@ private:
 // number is its physics material's sound (materials.h).
 struct SkidSample {
     std::string wave;
-    float minSlip = 0, maxSlip = 1;
+    float minSlip = 0;
+    float maxSlip = 1;
 };
 struct SurfaceSound {
     std::string wave; // NOSOUND for none
     float maxSpeed = 125;
-    float minVolume = 0, maxVolume = 0, minPitch = 1, maxPitch = 1;
-    float minSkidVolume = 0.5f, maxSkidVolume = 0.9f;
+    float minVolume = 0;
+    float maxVolume = 0;
+    float minPitch = 1;
+    float maxPitch = 1;
+    float minSkidVolume = 0.5f;
+    float maxSkidVolume = 0.9f;
     std::vector<SkidSample> skids;
 };
 struct SurfaceSounds {
@@ -110,7 +126,11 @@ Error readSurfaceSounds(std::string_view csv, SurfaceSounds &out);
 // hit (WALL, LIGHT, SIGN...), samples by how hard.
 struct ImpactSample {
     std::string wave;
-    float minVolume = 1, maxVolume = 1, minForce = 0, maxForce = 1e9f, pitch = 1;
+    float minVolume = 1;
+    float maxVolume = 1;
+    float minForce = 0;
+    float maxForce = 1e9f;
+    float pitch = 1;
 };
 struct ImpactSounds {
     std::string name; // "WALL"
@@ -140,22 +160,30 @@ private:
     audio::Mixer *_mixer = nullptr;
     const SearchSet *_files = nullptr;
     EngineSoundSetup _car;
-    SoundPtr _horn, _clutch;
+    SoundPtr _horn;
+    SoundPtr _clutch;
     audio::SoundHandle _hornPlaying = audio::kNoSound;
     int _lastGear = 1;
 
     SurfaceSounds _surfaces;
     std::vector<SoundPtr> _rolling;               // per surface
     std::vector<std::vector<SoundPtr>> _skidding; // per surface, per skid
-    audio::SoundHandle _rollPlaying = audio::kNoSound, _skidPlaying = audio::kNoSound;
-    int _rollSurface = -1, _skidSurface = -1, _skidSample = -1;
+    audio::SoundHandle _rollPlaying = audio::kNoSound;
+    audio::SoundHandle _skidPlaying = audio::kNoSound;
+    int _rollSurface = -1;
+    int _skidSurface = -1;
+    int _skidSample = -1;
 
     ImpactSounds _wall;
     std::vector<SoundPtr> _wallSounds;
     float _impactWait = 0; // seconds before another knock is heard
 
     SoundPtr _suspension;
-    float _bumpMin = 2, _bumpMax = 3, _bumpMinVolume = 0.85f, _bumpMaxVolume = 0.9f, _bumpWait = 0;
+    float _bumpMin = 2;
+    float _bumpMax = 3;
+    float _bumpMinVolume = 0.85f;
+    float _bumpMaxVolume = 0.9f;
+    float _bumpWait = 0;
 };
 
 } // namespace reluva::age

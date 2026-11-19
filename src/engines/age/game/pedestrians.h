@@ -45,8 +45,10 @@ private:
         int model = 0;
         uint32_t paintJob = 0;
         int walk = 0;
-        bool ahead = true;     // along the walk's points, else back
-        float s = 0, side = 0; // along it, and across it (share of its width)
+        bool ahead = true; // along the walk's points, else back
+        // along it, and across it (share of its width)
+        float s = 0;
+        float side = 0;
         Vec3 position{};
         float yaw = 0;
         int move = 0;

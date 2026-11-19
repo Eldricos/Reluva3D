@@ -65,12 +65,17 @@ struct GameOptions {
     static constexpr const char *kFileName = "options.txt";
 
     // Audio Options.
-    bool soundFx = true, commentary = true, music = true, ambient = true;
+    bool soundFx = true;
+    bool commentary = true;
+    bool music = true;
+    bool ambient = true;
     float effectsVolume = 1;  // Sound FX Volume, 0..1
     float musicVolume = 0.8f; // Music/City Volume
     float balance = 0;        // -1 left .. 1 right
     // Graphics Options.
-    bool texturedSky = true, pedestrians = true, smartRendering = true;
+    bool texturedSky = true;
+    bool pedestrians = true;
+    bool smartRendering = true;
     bool vehicleReflections = true;
     bool fullScreen = false;
     int resolution = 0;        // into resolutions()
@@ -109,7 +114,8 @@ struct GameOptions {
 };
 
 struct Resolution {
-    int w, h;
+    int w;
+    int h;
 };
 const std::array<Resolution, 5> &resolutions();
 

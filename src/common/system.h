@@ -160,8 +160,8 @@ public:
     // For asking a router to pass a port on (common/portmap.h): one HTTP
     // exchange over TCP, and the default gateways. Called from a thread of
     // its own; none without a network.
-    virtual bool httpExchange(const net::Address & /*to*/, const std::string & /*request*/,
-                              std::string & /*response*/, uint32_t & /*localIp*/, int /*timeoutMs*/) {
+    virtual bool httpExchange(const net::Address & /*to*/, const std::string & /*request*/, std::string & /*response*/,
+                              uint32_t & /*localIp*/, int /*timeoutMs*/) {
         return false;
     }
     virtual std::vector<uint32_t> gateways() { return {}; }

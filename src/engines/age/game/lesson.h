@@ -30,7 +30,8 @@ public:
         float impact = 0;   // the player's hardest knock this frame
         int carTouches = 0; // times it's run into a car since the start
         int chasing = 0;    // police chasing it
-        bool busted = false, wrecked = false;
+        bool busted = false;
+        bool wrecked = false;
         float targetDistance = -1;  // metres to the car to follow (-1: none)
         bool targetDone = false;    // that car has reached its end
         bool targetStopped = false; // the car to destroy is wrecked, over or stopped
@@ -65,10 +66,12 @@ private:
 
     LessonSettings _lesson;
     Result _result = Result::kGoing;
-    float _penalty = 0, _messageFor = 0;
+    float _penalty = 0;
+    float _messageFor = 0;
     uint32_t _message = 0;
     int _touchesAtStart = -1;
-    bool _upToSpeed = false, _destroyed = false;
+    bool _upToSpeed = false;
+    bool _destroyed = false;
 };
 
 } // namespace reluva::age

@@ -22,10 +22,14 @@ namespace {
 
 // The tables' box, inside the stats' and records' dialogs (measured on
 // jpg/drec_dlg and hoff_dlg), and a line's height.
-constexpr int kTableX = 26, kTableY = 64, kTableRows = 16, kTableRow = 14;
+constexpr int kTableX = 26;
+constexpr int kTableY = 64;
+constexpr int kTableRows = 16;
+constexpr int kTableRow = 14;
 // Where those two go: tune/menu.csv puts them at (50, 37), but they're 460
 // high; up to fit.
-constexpr int kBigX = 50, kBigY = 10;
+constexpr int kBigX = 50;
+constexpr int kBigY = 10;
 
 const RaceKind kKinds[3] = {RaceKind::kBlitz, RaceKind::kCircuit, RaceKind::kCheckpoint};
 
@@ -189,7 +193,9 @@ namespace {
 // behind a cloud, rain. Their names say sun, fog, snow and rain.
 const char *const kTimeIcons[4] = {"RENV_IMORN", "RENV_INOON", "RENV_ISUNS", "RENV_INITE"};
 const char *const kWeatherIcons[4] = {"RENV_ISUN", "RENV_IFOG", "RENV_ISNOW", "RENV_IRAIN"};
-constexpr int kIconW = 28, kIconH = 21, kIconStep = 31;
+constexpr int kIconW = 28;
+constexpr int kIconH = 21;
+constexpr int kIconStep = 31;
 } // namespace
 
 void GameMenus::drawConditionIcons(Surface &o, const std::string &w, bool focused) const {

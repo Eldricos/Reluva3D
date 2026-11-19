@@ -58,7 +58,9 @@ private:
     std::vector<int> _list;                            // those listed: with a title and text
     mutable std::map<int, winhelp::Picture> _pictures; // read when first shown
     bool _open = false;
-    int _row = 0, _top = 0; // the list's chosen topic, and its first shown
+    // the list's chosen topic, and its first shown
+    int _row = 0;
+    int _top = 0;
     int _reading = -1;      // the topic open, or -1 for the list
     std::vector<int> _back; // the topics read before, for Backspace
     std::vector<Line> _lines;

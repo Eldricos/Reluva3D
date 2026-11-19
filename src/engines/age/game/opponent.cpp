@@ -15,8 +15,11 @@ constexpr float kBraking = 7;    // metres a second a second the driver plans to
 constexpr float kCornerGrip = 7; // metres a second a second it takes a corner at (speed squared over radius)
 constexpr float kSlowest = 6;    // m/s it takes even the tightest corner at
 constexpr float kBrakeEarly = 6; // metres before a corner it means to be down to its speed
-constexpr float kLookBase = 8, kLookPerSpeed = 0.6f, kLookMost = 35; // metres ahead it steers for
-constexpr float kLookFar = 160;                                      // metres of the way ahead it plans for
+// metres ahead it steers for
+constexpr float kLookBase = 8;
+constexpr float kLookPerSpeed = 0.6f;
+constexpr float kLookMost = 35;
+constexpr float kLookFar = 160; // metres of the way ahead it plans for
 constexpr float kSpurClose = 3; // metres: back where it was two points ago, a spur's been driven
 constexpr float kLookLeast = 4;
 constexpr float kLookLeastTime = 0.4f; // seconds ahead it steers for, at the least

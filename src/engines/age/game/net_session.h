@@ -37,9 +37,13 @@ enum class GoldLimit : uint8_t { kNone, kTime, kPoints };
 // What the host chose (the Host Race Menu and Host Options).
 struct NetSettings {
     NetMode mode = NetMode::kCruise;
-    uint8_t city = 0, race = 0, laps = 3;
-    uint8_t timeOfDay = 1, weather = 0; // as the race files number them
-    float peds = 0.5f;                  // pedestrian density, 0-1
+    uint8_t city = 0;
+    uint8_t race = 0;
+    uint8_t laps = 3;
+    // as the race files number them
+    uint8_t timeOfDay = 1;
+    uint8_t weather = 0;
+    float peds = 0.5f; // pedestrian density, 0-1
     GoldMode gold = GoldMode::kFreeForAll;
     GoldLimit limit = GoldLimit::kPoints;
     uint16_t limitValue = 5; // minutes, or points
@@ -54,7 +58,8 @@ struct NetPlayer {
     std::string car; // its base name ("vpbug")
     uint8_t paint = 0;
     uint8_t team = 0; // in the team modes: 0 or 1
-    bool ready = false, loaded = false;
+    bool ready = false;
+    bool loaded = false;
     bool bot = false;  // a computer player, driven on the host's machine
     uint16_t ping = 0; // milliseconds there and back, as it last said
     // Where the host reaches it, passed on so another can take over as
@@ -65,13 +70,15 @@ struct NetPlayer {
 
 struct NetChatLine {
     uint32_t seq = 0;
-    std::string from, text;
+    std::string from;
+    std::string text;
 };
 
 // A car's state as its driver sends it, many times a second.
 struct NetCarState {
     float clock = 0; // the race clock when it was so
-    Vec3 position{}, velocity{};
+    Vec3 position{};
+    Vec3 velocity{};
     std::array<float, 4> rotation{0, 0, 0, 1}; // a quaternion (x, y, z, w)
     float steer = 0;                           // the front wheels' angle, radians
     std::array<float, 4> compression{};        // each wheel's, metres
@@ -79,7 +86,8 @@ struct NetCarState {
     uint16_t next = 0;                         // its next checkpoint
     float finishTime = -1;                     // when it finished, if it has
     // For its sound and look on the others' machines.
-    float rpm = 0, throttle = 0;
+    float rpm = 0;
+    float throttle = 0;
     float damage = 0;             // 0..1 of the way to wrecked
     uint8_t dents = 0;            // how many times its body's been dented (counting on, round past 255)
     std::array<Vec3, 4> dentAt{}; // the last four, the newest first, in the car's frame
@@ -213,13 +221,16 @@ private:
     bool silentTooLong(uint64_t heardMs, uint64_t nowMs) const;
 
     std::unique_ptr<net::UdpSocket> _socket;
-    bool _host = false, _closed = false;
+    bool _host = false;
+    bool _closed = false;
     uint8_t _hostId = 0;
     net::Address _hostAddress;
-    std::string _sessionName, _password;
+    std::string _sessionName;
+    std::string _password;
     uint8_t _myId = kNoPlayer;
     Phase _phase = Phase::kLobby;
-    uint32_t _round = 1, _seed = 0;
+    uint32_t _round = 1;
+    uint32_t _seed = 0;
     NetSettings _settings;
     std::vector<NetPlayer> _players;
     std::deque<NetChatLine> _chat;
@@ -246,7 +257,9 @@ private:
 
     // A player's.
     NetPlayer _wish; // our name, car, team and readiness, as we last asked
-    uint64_t _lastHeardMs = 0, _joinSentMs = 0, _joinStartMs = 0;
+    uint64_t _lastHeardMs = 0;
+    uint64_t _joinSentMs = 0;
+    uint64_t _joinStartMs = 0;
     std::array<uint8_t, 16> _proof{}; // the password, proved for the host's challenge
     bool _haveProof = false;
     std::deque<std::string> _outbox; // chat not yet taken by the host
@@ -258,7 +271,11 @@ private:
     float _clockOffset = 0; // the host's clock minus ours, in seconds
     bool _clockKnown = false;
 
-    uint64_t _nowMs = 0, _lastLobbyMs = 0, _lastStatusMs = 0, _lastGameMs = 0, _lastCarsMs = 0;
+    uint64_t _nowMs = 0;
+    uint64_t _lastLobbyMs = 0;
+    uint64_t _lastStatusMs = 0;
+    uint64_t _lastGameMs = 0;
+    uint64_t _lastCarsMs = 0;
 };
 
 // Sessions found on the local network (a broadcast to kNetPort), or at
@@ -269,8 +286,12 @@ public:
         net::Address address;
         std::string name;
         NetMode mode = NetMode::kCruise;
-        uint8_t city = 0, players = 0, maxPlayers = 0;
-        bool playing = false, password = false, sameVersion = true;
+        uint8_t city = 0;
+        uint8_t players = 0;
+        uint8_t maxPlayers = 0;
+        bool playing = false;
+        bool password = false;
+        bool sameVersion = true;
         uint16_t ping = 0;
         uint64_t heardMs = 0;
     };

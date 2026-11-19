@@ -34,7 +34,8 @@ Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out);
 
 // A picture (|bm<n>: the help compiler's own form of a bitmap), as RGBA.
 struct Picture {
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     std::vector<uint8_t> rgba;
 };
 Error readPicture(const std::vector<uint8_t> &file, int number, Picture &out);

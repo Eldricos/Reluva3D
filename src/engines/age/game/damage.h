@@ -24,18 +24,28 @@ struct TuneNode;
 // .dgBangerData (its BirthRule block) and tune/effects/*.asBirthRule have
 // them.
 struct BirthRule {
-    Vec3 positionVar{};                    // metres either way
-    Vec3 velocity{0, 1, 0}, velocityVar{}; // metres a second, and how far either way
-    float life = 1, lifeVar = 0;           // seconds
-    float radius = 0.4f, radiusVar = 0;    // metres
-    float dRadius = 0;                     // growth, metres a frame (at 30 frames a second)
-    float drag = 0;                        // slowing, a share of the speed a second
-    float dAlpha = 0;                      // fading, in 255ths a frame
-    float gravity = 0;                     // metres a second squared, up
-    int initialBlast = 0;                  // particles at once
-    float spewRate = 0, spewTime = 0;      // then a second, for that long (0: no end)
+    Vec3 positionVar{}; // metres either way
+    // metres a second, and how far either way
+    Vec3 velocity{0, 1, 0};
+    Vec3 velocityVar{};
+    // seconds
+    float life = 1;
+    float lifeVar = 0;
+    // metres
+    float radius = 0.4f;
+    float radiusVar = 0;
+    float dRadius = 0;    // growth, metres a frame (at 30 frames a second)
+    float drag = 0;       // slowing, a share of the speed a second
+    float dAlpha = 0;     // fading, in 255ths a frame
+    float gravity = 0;    // metres a second squared, up
+    int initialBlast = 0; // particles at once
+    // then a second, for that long (0: no end)
+    float spewRate = 0;
+    float spewTime = 0;
     std::array<float, 4> color{1, 1, 1, 1};
-    int frame = 0, frameEnd = 0; // TexFrameStart, TexFrameEnd
+    // TexFrameStart, TexFrameEnd
+    int frame = 0;
+    int frameEnd = 0;
 };
 using SmokeRule = BirthRule;
 // From a rule's block (the fields above; the others aren't used).
@@ -43,12 +53,14 @@ BirthRule parseBirthRule(const TuneNode &n);
 
 // tune/vehicle/<car>.vehCarDamage: see docs/engines/age-driving.md.
 struct DamageSetup {
-    float maxDamage = 300000;           // wrecked
-    float medDamage = 150000;           // smoking
-    float impactThreshold = 1500;       // knocks below this (kg m/s) do nothing
-    float regenerateRate = 0;           // a second
-    float textureRadius = 2.7f;         // TextelDamageRadius: metres round a knock that look damaged
-    Vec3 smokeOffset{}, smokeOffset2{}; // car-relative
+    float maxDamage = 300000;     // wrecked
+    float medDamage = 150000;     // smoking
+    float impactThreshold = 1500; // knocks below this (kg m/s) do nothing
+    float regenerateRate = 0;     // a second
+    float textureRadius = 2.7f;   // TextelDamageRadius: metres round a knock that look damaged
+    // car-relative
+    Vec3 smokeOffset{};
+    Vec3 smokeOffset2{};
     SmokeRule smoke;
 };
 Error parseDamageSetup(std::string_view text, DamageSetup &out);
@@ -137,17 +149,26 @@ public:
 
 private:
     struct Puff {
-        Vec3 position, velocity;
-        float age = 0, life = 1, radius = 0.4f, grow = 0, gravity = 0, drag = 0, fade = 0;
+        Vec3 position;
+        Vec3 velocity;
+        float age = 0;
+        float life = 1;
+        float radius = 0.4f;
+        float grow = 0;
+        float gravity = 0;
+        float drag = 0;
+        float fade = 0;
         std::array<float, 4> color;
         int frame = 0;
         Look look;
     };
     struct Spew {
         BirthRule rule;
-        Vec3 at, velocity;
+        Vec3 at;
+        Vec3 velocity;
         Look look;
-        float left = 0, owed = 0;
+        float left = 0;
+        float owed = 0;
     };
     gfx::Renderer3D &_renderer;
     TextureCache &_textures;

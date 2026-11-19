@@ -72,11 +72,13 @@ private:
         std::unique_ptr<CarActor> car;
         PathDriver driver;
         bool chasing = false;
-        float reroute = 0;            // seconds to the next route to the player at the latest
-        Vec3 routedTo{};              // where the player was then
-        float behind = 0;             // seconds left far behind
-        float stuck = 0, backing = 0; // seconds stopped while ramming, and backing out
-        float settled = 0;            // seconds waiting (after a moment, far ones aren't simulated)
+        float reroute = 0; // seconds to the next route to the player at the latest
+        Vec3 routedTo{};   // where the player was then
+        float behind = 0;  // seconds left far behind
+        // seconds stopped while ramming, and backing out
+        float stuck = 0;
+        float backing = 0;
+        float settled = 0; // seconds waiting (after a moment, far ones aren't simulated)
         // Patrolling: the lanes it follows as one path, and for each of its
         // points the lane whose end it is (-1 for the rest).
         bool patrolling = false;
@@ -94,7 +96,8 @@ private:
     const TrafficLights *_lights = nullptr;
     std::mt19937 _rng{7};
     float _noticeDistance = kNotice;
-    float _bustTimer = 0, _clock = 0;
+    float _bustTimer = 0;
+    float _clock = 0;
     bool _busted = false;
     bool _lampsLit = false;
 };

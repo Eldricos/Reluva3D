@@ -16,8 +16,12 @@ namespace reluva::age {
 
 namespace {
 
-constexpr uint32_t kFvfXyz = 0x2, kFvfPositionMask = 0xe, kFvfNormal = 0x10, kFvfPointSize = 0x20, kFvfDiffuse = 0x40,
-                   kFvfSpecular = 0x80;
+constexpr uint32_t kFvfXyz = 0x2;
+constexpr uint32_t kFvfPositionMask = 0xe;
+constexpr uint32_t kFvfNormal = 0x10;
+constexpr uint32_t kFvfPointSize = 0x20;
+constexpr uint32_t kFvfDiffuse = 0x40;
+constexpr uint32_t kFvfSpecular = 0x80;
 constexpr uint32_t kTriangleList = 3;   // the only primitive type the game's models use
 constexpr uint32_t kByteColours = 0x80; // in the shaders' header
 

@@ -44,7 +44,9 @@ public:
     // Its lamps: headlights and tail lights, brake lights, reversing
     // lights (HLIGHT, TLIGHT, BLIGHT, RLIGHT).
     struct Lamps {
-        bool head = false, brake = false, reverse = false;
+        bool head = false;
+        bool brake = false;
+        bool reverse = false;
     } lamps;
     bool hasSiren() const { return _sirens[0].mesh || !_sirenLamps.empty(); }
     // Flares at its headlights (its HEADLIGHT squares) when they're on, and
@@ -61,10 +63,15 @@ public:
 private:
     gfx::Renderer3D *_renderer = nullptr;
     ModelMesh _body;
-    std::vector<gfx::TextureId> _clean, _damaged; // each body draw's textures (damaged_ 0: none)
+    // each body draw's textures (damaged_ 0: none)
+    std::vector<gfx::TextureId> _clean;
+    std::vector<gfx::TextureId> _damaged;
     std::array<ModelMesh, 4> _wheels;
     std::array<ModelMesh, 2> _sirens; // SIREN0, SIREN1
-    ModelMesh _head, _tail, _brake, _reverse;
+    ModelMesh _head;
+    ModelMesh _tail;
+    ModelMesh _brake;
+    ModelMesh _reverse;
     std::vector<Vec3> _headlights;                                  // HEADLIGHT0, 1 squares
     std::vector<std::pair<Vec3, std::array<float, 3>>> _sirenLamps; // SRN squares: where, colour
 };
@@ -74,44 +81,63 @@ struct CarCamera {
     bool inside = false; // in the car (camPovCS), else following it (camTrackCS)
     Vec3 offset{0, 1, 4};
     Vec3 lookAt{0, 1.5f, 0};
-    float minDistance = 3, maxDistance = 6;
+    float minDistance = 3;
+    float maxDistance = 6;
     float fov = 70; // degrees
     // How fast a following one catches the car up (a share of the way a
     // second): across, from MinAppXZPos at MinSpeed to MaxAppXZPos at
     // MaxSpeed (m/s), the rate rising by at most AppInc a second and
     // falling by AppDec; up and down, AppYPos.
-    float approachSlow = 6, approachFast = 6, slowSpeed = 0, fastSpeed = 35;
-    float approachRise = 1e9f, approachFall = 1e9f, approachUp = 6;
+    float approachSlow = 6;
+    float approachFast = 6;
+    float slowSpeed = 0;
+    float fastSpeed = 35;
+    float approachRise = 1e9f;
+    float approachFall = 1e9f;
+    float approachUp = 6;
     // Drifting (steering past MinHardSteer for DriftDelay seconds), the
     // rate is FrontRate of itself, letting the car swing out.
-    float hardSteer = 0.8f, driftDelay = 0.3f, driftRate = 1;
+    float hardSteer = 0.8f;
+    float driftDelay = 0.3f;
+    float driftRate = 1;
     // Up and down hills it tilts with the car, the slope's sine kept
     // within HillMin..HillMax, easing HillLerp of the way a frame (at 30).
-    float hillMin = 0, hillMax = 0, hillLerp = 0;
+    float hillMin = 0;
+    float hillMax = 0;
+    float hillLerp = 0;
     // Backing for RevDelay seconds (ReverseOn), it swings round to look
     // the way the car goes, at RevOnApp's rate, and back at RevOffApp's.
     bool reverse = false;
-    float reverseDelay = 2, reverseOn = 2, reverseOff = 4;
+    float reverseDelay = 2;
+    float reverseOn = 2;
+    float reverseOff = 4;
     // Backing (not yet swung round), the rate is RearRate of itself.
     float rearRate = 1;
     // Its bearing round the car turns at most AppRot degrees a second (not
     // swinging round); moves under AppPosMin metres and AppRotMin radians
     // are left alone; it looks LookAbove metres over TrackTo.
-    float turnRate = 1e9f, stillMove = 0, stillTurn = 0, lookAbove = 0;
+    float turnRate = 1e9f;
+    float stillMove = 0;
+    float stillTurn = 0;
+    float lookAbove = 0;
     // SteerOn: turned with the steering past SteerMin, SteerAmt degrees at
     // full lock (off for every car).
     bool steerOn = false;
-    float steerMin = 0.5f, steerAmount = 0;
+    float steerMin = 0.5f;
+    float steerAmount = 0;
     // CameraNear: the near clip, metres; BlendTime: seconds a change to
     // this camera blends over.
-    float nearClip = 0.1f, blendTime = 0;
+    float nearClip = 0.1f;
+    float blendTime = 0;
 };
 std::vector<CarCamera> loadCarCameras(const SearchSet &files, const std::string &car);
 
 // Where a camera puts the eye for a car this frame; `follow` keeps a
 // following camera's position between frames (`reset` jumps it there).
 struct CameraView {
-    Vec3 eye{}, target{}, up{0, 1, 0};
+    Vec3 eye{};
+    Vec3 target{};
+    Vec3 up{0, 1, 0};
 };
 // What a following camera keeps from frame to frame.
 struct CameraFollow {
@@ -119,7 +145,8 @@ struct CameraFollow {
     float rate = 0;       // its approach rate now
     float hardFor = 0;    // seconds steered hard
     float backingFor = 0; // seconds going backwards
-    bool backwards = false, swinging = false;
+    bool backwards = false;
+    bool swinging = false;
     float slope = 0; // the hill's sine it's tilted by
 };
 CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, CameraFollow &follow, bool reset);
@@ -127,7 +154,8 @@ CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, Ca
 // the view before it, then each frame's view through apply().
 struct CameraBlend {
     CameraView from;
-    float left = 0, total = 0;
+    float left = 0;
+    float total = 0;
     void start(const CameraView &last, float seconds) {
         from = last;
         left = total = seconds;

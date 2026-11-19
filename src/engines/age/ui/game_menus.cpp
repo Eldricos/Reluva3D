@@ -21,13 +21,22 @@ namespace {
 
 // Where the dialogs go (tune/menu.csv's places for dialogs of their
 // size): the 300 x 225 ones, and the 400 x 76 message boxes.
-constexpr int kSmallX = 170, kSmallY = 127, kBoxX = 120, kBoxY = 202, kDialogY = 75;
-constexpr int kReplayRow = 14, kReplayRows = 11; // the replay list's (in jpg/rpl_bk's box)
+constexpr int kSmallX = 170;
+constexpr int kSmallY = 127;
+constexpr int kBoxX = 120;
+constexpr int kBoxY = 202;
+constexpr int kDialogY = 75;
+// the replay list's (in jpg/rpl_bk's box)
+constexpr int kReplayRow = 14;
+constexpr int kReplayRows = 11;
 // The bars' grid on the option screens' backgrounds, within their
 // widget's box (measured on jpg/aud_bk, gfx_bk, ctrl_bk).
-constexpr int kBarInset = 23, kBarWidth = 137;
+constexpr int kBarInset = 23;
+constexpr int kBarWidth = 137;
 // Customize Controls' list: its rows and columns (on jpg/cuss_bk's box).
-constexpr int kListRow = 18, kKeyColumn = 160, kSecondColumn = 230;
+constexpr int kListRow = 18;
+constexpr int kKeyColumn = 160;
+constexpr int kSecondColumn = 230;
 constexpr int kListShown = 19; // controls shown at once from y 62 (the list scrolls)
 // The About screen's credits scroll by at this many pixels a second.
 constexpr float kCreditsSpeed = 30;

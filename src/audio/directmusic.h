@@ -29,7 +29,9 @@ namespace reluva::audio {
 constexpr int kDmPulsesPerQuarter = 768; // music time ticks per quarter note
 
 struct DmTimeSig {
-    int beatsPerMeasure = 4, beat = 4, gridsPerBeat = 4;
+    int beatsPerMeasure = 4;
+    int beat = 4;
+    int gridsPerBeat = 4;
     int beatTicks() const { return beat > 0 ? kDmPulsesPerQuarter * 4 / beat : kDmPulsesPerQuarter / 64; }
     int measureTicks() const { return beatsPerMeasure * beatTicks(); }
     // A grid position to ticks (Microsoft's formula: whole beats, then
@@ -39,14 +41,17 @@ struct DmTimeSig {
 
 // A reference to another file (DMRF): its name and file name.
 struct DmReference {
-    std::string name, file;
+    std::string name;
+    std::string file;
 };
 
 struct DmInstrument {
     uint32_t patch = 0; // MSB << 16 | LSB << 8 | program, and bit 31 for drums
     int channel = 0;
     uint32_t flags = 0;
-    int pan = 64, volume = 100, transpose = 0;
+    int pan = 64;
+    int volume = 100;
+    int transpose = 0;
     DmReference dls;
 };
 
@@ -59,18 +64,26 @@ struct DmBand {
 struct DmNote {
     int grid = 0;
     uint32_t variations = 0;
-    int duration = 0, offset = 0;
+    int duration = 0;
+    int offset = 0;
     uint16_t musicValue = 0;
-    int velocity = 100, timeRange = 0, durationRange = 0, velocityRange = 0;
+    int velocity = 100;
+    int timeRange = 0;
+    int durationRange = 0;
+    int velocityRange = 0;
     int playMode = 16; // 16: the part's
 };
 
 struct DmCurve {
     int grid = 0; // or, in a sequence track, ticks
     uint32_t variations = 0;
-    int duration = 0, offset = 0;
-    int startValue = 0, endValue = 0;
-    int type = 0, shape = 0, cc = 0;
+    int duration = 0;
+    int offset = 0;
+    int startValue = 0;
+    int endValue = 0;
+    int type = 0;
+    int shape = 0;
+    int cc = 0;
     int channel = 0; // in a sequence track
 };
 
@@ -89,7 +102,9 @@ struct DmPart {
 struct DmPartRef {
     size_t part = 0; // into DmStyle::parts
     int channel = 0;
-    int lockId = 0, subChordLevel = 0, randomVariation = 1;
+    int lockId = 0;
+    int subChordLevel = 0;
+    int randomVariation = 1;
 };
 
 // DMUS_EMBELLISHT bits.
@@ -98,7 +113,10 @@ enum : int { kDmFill = 1, kDmBreak = 2, kDmIntro = 4, kDmEnd = 8, kDmMotif = 16 
 struct DmPattern {
     std::string name;
     DmTimeSig timeSig;
-    int grooveBottom = 1, grooveTop = 100, embellishment = 0, measures = 1;
+    int grooveBottom = 1;
+    int grooveTop = 100;
+    int embellishment = 0;
+    int measures = 1;
     std::vector<DmPartRef> parts;
 };
 
@@ -113,7 +131,12 @@ struct DmStyle {
 
 // DMUS_COMMANDT: groove, fill, intro, break, end, end and intro.
 struct DmCommand {
-    int time = 0, measure = 0, beat = 0, command = 0, groove = 0, grooveRange = 0;
+    int time = 0;
+    int measure = 0;
+    int beat = 0;
+    int command = 0;
+    int groove = 0;
+    int grooveRange = 0;
 };
 
 // A chord, as its first subchord: semitones above its root (bit 0 the
@@ -121,17 +144,28 @@ struct DmCommand {
 // C major 7 over the C major scale (docs/formats/directmusic.md).
 struct DmChord {
     int time = 0;
-    uint32_t chordPattern = 0x891, scalePattern = 0xab5ab5;
-    int chordRoot = 0, scaleRoot = 0;
+    uint32_t chordPattern = 0x891;
+    uint32_t scalePattern = 0xab5ab5;
+    int chordRoot = 0;
+    int scaleRoot = 0;
 };
 
 struct DmSequenceEvent {
-    int time = 0, duration = 0, channel = 0, status = 0, data1 = 0, data2 = 0;
+    int time = 0;
+    int duration = 0;
+    int channel = 0;
+    int status = 0;
+    int data1 = 0;
+    int data2 = 0;
 };
 
 struct DmSegment {
     std::string name;
-    int repeats = 0, length = 0, playStart = 0, loopStart = 0, loopEnd = 0;
+    int repeats = 0;
+    int length = 0;
+    int playStart = 0;
+    int loopStart = 0;
+    int loopEnd = 0;
     DmReference style;
     std::vector<DmBand> bands;
     std::vector<DmCommand> commands;
@@ -184,7 +218,9 @@ private:
     struct Event {
         double tick = 0; // performance ticks
         int kind = 0;    // 0 note off, 1 note on, 2 controller, 3 pitch bend
-        int channel = 0, data1 = 0, data2 = 0;
+        int channel = 0;
+        int data1 = 0;
+        int data2 = 0;
         float value = 0;
     };
     struct Playing {

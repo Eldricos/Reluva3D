@@ -242,7 +242,8 @@ Error readPeStrings(const std::vector<uint8_t> &file, const PeImage &image, std:
     // 12 and 14), then 8-byte entries: a name or id, and an offset (from
     // the resources' start) with the top bit set for a subdirectory.
     struct Entry {
-        uint32_t id, offset;
+        uint32_t id;
+        uint32_t offset;
     };
     auto entries = [&](uint32_t at) {
         std::vector<Entry> list;

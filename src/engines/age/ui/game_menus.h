@@ -130,12 +130,15 @@ private:
     Screen _screen = Screen::kNone;
     Screen _under = Screen::kNone; // the screen a dialog is over
     int _focus = 0;
-    GameOptions _edit;         // as changed on the screens
-    GameOptions _entered;      // as they were when the Options opened
-    int _row = 0, _column = 0; // Customize Controls: the control and which of its two keys
-    int _listTop = 0;          // and the first shown
+    GameOptions _edit;    // as changed on the screens
+    GameOptions _entered; // as they were when the Options opened
+    // Customize Controls: the control and which of its two keys
+    int _row = 0;
+    int _column = 0;
+    int _listTop = 0; // and the first shown
     bool _waitingForKey = false;
-    uint64_t _openedMs = 0, _nowMs = 0;
+    uint64_t _openedMs = 0;
+    uint64_t _nowMs = 0;
     std::vector<ReplayEntry> _replays;
     size_t _replayRow = 0;
     std::filesystem::path _replayFile;

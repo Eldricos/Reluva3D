@@ -27,17 +27,23 @@ struct AiRoadSide {
     std::vector<std::vector<Vec3>> lanes;
     std::vector<float> laneOffsets;        // each lane's distance from the road's middle line
     std::vector<std::vector<Vec3>> tracks; // tram, then train lines
-    uint16_t trams = 0, trains = 0;
-    uint16_t kind = 0;                           // 0-3, meaning not known yet
-    std::vector<Vec3> sidewalk, curb, outerEdge; // the sidewalk's middle and its two edges
-    std::array<float, 11> widths{};              // after the lane offsets: see docs/formats/age/bai.md
+    uint16_t trams = 0;
+    uint16_t trains = 0;
+    uint16_t kind = 0; // 0-3, meaning not known yet
+    // the sidewalk's middle and its two edges
+    std::vector<Vec3> sidewalk;
+    std::vector<Vec3> curb;
+    std::vector<Vec3> outerEdge;
+    std::array<float, 11> widths{}; // after the lane offsets: see docs/formats/age/bai.md
 };
 
 struct AiRoadEnd {
     uint32_t junction = 0;
     uint16_t control = 0; // 0, 1 or 3: likely what the road meets there (stop sign, lights), not known yet
     uint32_t slot = 0;    // where the road is in the junction's list
-    Vec3 a{}, b{};        // two points at the end, zero at most first ends
+    // two points at the end, zero at most first ends
+    Vec3 a{};
+    Vec3 b{};
 };
 
 struct AiRoad {

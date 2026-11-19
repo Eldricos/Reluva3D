@@ -13,8 +13,12 @@ namespace reluva::winhelp {
 namespace {
 
 constexpr uint32_t kMagic = 0x00035F3F;
-constexpr uint16_t kTreeMagic = 0x293B, kSystemMagic = 0x036C;
-constexpr size_t kFileHeader = 9, kTreeHeader = 38, kLinkHeader = 21, kBlockHeader = 12;
+constexpr uint16_t kTreeMagic = 0x293B;
+constexpr uint16_t kSystemMagic = 0x036C;
+constexpr size_t kFileHeader = 9;
+constexpr size_t kTreeHeader = 38;
+constexpr size_t kLinkHeader = 21;
+constexpr size_t kBlockHeader = 12;
 constexpr uint32_t kDecompressedBlock = 0x4000; // a compressed topic block, unpacked
 enum : uint8_t { kTopicHeader = 0x02, kDisplay = 0x20, kTable = 0x23 };
 

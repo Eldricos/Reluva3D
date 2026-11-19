@@ -60,7 +60,9 @@ constexpr uint8_t kJunction = 0x10; // a junction (as the .bai road map's juncti
 // A road between two junctions, from the data after the city's bounds:
 // one for each road of the .bai road map, in the same order.
 struct PsdlRoad {
-    uint16_t flags = 0, extra = 0;    // meanings not known
+    // meanings not known
+    uint16_t flags = 0;
+    uint16_t extra = 0;
     uint8_t lanes[2] = {0, 0};        // each side's: the .bai's side 1, then side 0
     std::vector<float> lanePositions; // across the road, 0-1, one for each lane
     uint8_t ends[2] = {0, 0};         // a byte for each end, bits 0 and 7 used; meaning not known
@@ -74,7 +76,9 @@ struct Psdl {
     std::vector<std::string> textures; // a texture attribute's index 1 is textures[0]
     std::vector<PsdlBlock> blocks;     // blocks[0] is the unused block 0
     uint32_t firstRoadBlock = 0;       // the plain blocks (no roads) come before it
-    Vec3 min{}, max{}, center{};
+    Vec3 min{};
+    Vec3 max{};
+    Vec3 center{};
     float radius = 0;
     std::vector<PsdlRoad> roads;
 

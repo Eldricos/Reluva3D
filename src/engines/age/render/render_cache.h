@@ -53,7 +53,8 @@ private:
     struct Entry {
         gfx::TextureId id = 0;
         bool translucent = false;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
     };
     struct Animation {
         std::vector<gfx::TextureId> frames;
@@ -74,10 +75,13 @@ private:
 
 // One draw of a model: a group's triangles with its shader.
 struct ModelDraw {
-    uint32_t firstIndex = 0, indexCount = 0;
+    uint32_t firstIndex = 0;
+    uint32_t indexCount = 0;
     gfx::TextureId texture = 0;
     std::array<float, 4> color{1, 1, 1, 1}; // its shader's diffuse colour
-    Vec3 ambient{1, 1, 1}, emissive{};      // and ambient and emissive ones
+    // and ambient and emissive ones
+    Vec3 ambient{1, 1, 1};
+    Vec3 emissive{};
     bool translucent = false;
     bool lit = true;         // by the light (the mesh has normals), else as coloured
     bool glow = false;       // added to what's behind (a light's halo)
@@ -89,10 +93,13 @@ struct ModelDraw {
 struct ModelMesh {
     gfx::MeshId mesh = 0;
     std::vector<ModelDraw> draws;
-    size_t vertices = 0, triangles = 0;
+    size_t vertices = 0;
+    size_t triangles = 0;
     Vec3 center{}; // of the bounds
     float radius = 0;
-    Vec3 low{}, high{}; // the bounds
+    // the bounds
+    Vec3 low{};
+    Vec3 high{};
 };
 
 // The levels of detail a model has, finest first ("H", "M", "L", "VL").
@@ -115,10 +122,12 @@ struct SceneLight {
     gfx::Vec3 directed{0.6f, 0.6f, 0.6f};
     gfx::Vec3 direction{-0.4f, 0.8f, -0.45f}; // towards the light
     // The lighting file's two fill lights (none by default).
-    std::array<gfx::Vec3, 2> fill{}, fillDirection{};
+    std::array<gfx::Vec3, 2> fill{};
+    std::array<gfx::Vec3, 2> fillDirection{};
     // Fog: none before fogStart metres, all fogColor from fogEnd (0: none).
     gfx::Vec3 fogColor{};
-    float fogStart = 0, fogEnd = 0;
+    float fogStart = 0;
+    float fogEnd = 0;
 };
 
 // The light's fog on a draw: mixed in towards the fog colour, or (for an

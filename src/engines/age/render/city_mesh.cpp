@@ -27,9 +27,16 @@ constexpr int kArchSteps = 8;     // pieces across a curved tunnel ceiling
 // A tunnel attribute's flags (psdl.md): which sides have walls, the
 // ceiling, and which ends of a curved ceiling are closed.
 namespace tunnelflag {
-constexpr uint16_t kLeft = 0x1, kRight = 0x2, kFascia = 0x4, kFlatCeiling = 0x8, kClosedStartLeft = 0x10,
-                   kClosedEndLeft = 0x20, kClosedStartRight = 0x40, kClosedEndRight = 0x80, kCurvedCeiling = 0x100;
-}
+constexpr uint16_t kLeft = 0x1;
+constexpr uint16_t kRight = 0x2;
+constexpr uint16_t kFascia = 0x4;
+constexpr uint16_t kFlatCeiling = 0x8;
+constexpr uint16_t kClosedStartLeft = 0x10;
+constexpr uint16_t kClosedEndLeft = 0x20;
+constexpr uint16_t kClosedStartRight = 0x40;
+constexpr uint16_t kClosedEndRight = 0x80;
+constexpr uint16_t kCurvedCeiling = 0x100;
+} // namespace tunnelflag
 
 float length(const Vec3 &a, const Vec3 &b) {
     const float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
@@ -244,7 +251,8 @@ private:
     // junction's flat ceiling).
     struct Tunnel {
         uint16_t flags = 0;
-        float first = 0, second = 0;
+        float first = 0;
+        float second = 0;
         uint32_t texture = 0;
         bool curved() const { return flags & tunnelflag::kCurvedCeiling; }
         float wall() const { return curved() ? std::min(first, second) : first; }

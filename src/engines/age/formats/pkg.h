@@ -47,7 +47,10 @@ struct PkgShader {
     // Colours (R, G, B, A), 1 = full. Shaders with byte colours store
     // diffuse, ambient and emissive; those with float colours all four.
     // Glows (a light's halo) have no diffuse or ambient, only emissive.
-    std::array<float, 4> diffuse{1, 1, 1, 1}, ambient{1, 1, 1, 1}, specular{}, emissive{};
+    std::array<float, 4> diffuse{1, 1, 1, 1};
+    std::array<float, 4> ambient{1, 1, 1, 1};
+    std::array<float, 4> specular{};
+    std::array<float, 4> emissive{};
     float shininess = 0;
 };
 
@@ -61,7 +64,8 @@ struct Pkg {
     std::vector<PkgMesh> meshes;
     // shaders[job * shadersPerJob + group.shader]: each paint job (a car's
     // colours) has its own set.
-    uint32_t paintJobs = 0, shadersPerJob = 0;
+    uint32_t paintJobs = 0;
+    uint32_t shadersPerJob = 0;
     std::vector<PkgShader> shaders;
     bool hasOffset = false;
     Vec3 offset{};
@@ -85,9 +89,11 @@ bool bodyBounds(const Pkg &pkg, Vec3 &low, Vec3 &high);
 
 // A part's placement (.mtx, next to the model: <model>_<part>.mtx).
 struct Mtx {
-    Vec3 min{}, max{}; // the part's bounds as modelled
-    Vec3 pivot{};      // what it turns about (needles, the steering wheel)
-    Vec3 origin{};     // where it goes in the model
+    // the part's bounds as modelled
+    Vec3 min{};
+    Vec3 max{};
+    Vec3 pivot{};  // what it turns about (needles, the steering wheel)
+    Vec3 origin{}; // where it goes in the model
 };
 
 Error readMtx(const std::vector<uint8_t> &data, Mtx &out);

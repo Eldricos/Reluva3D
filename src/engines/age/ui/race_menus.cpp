@@ -21,19 +21,25 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 
 // The pause menu: mmlang.dll's words.
 enum PauseItem { kResume, kRestart, kReplay, kOptions, kQuitRace, kPauseItems };
-constexpr int kPauseTop = 180, kPauseStep = 34;
+constexpr int kPauseTop = 180;
+constexpr int kPauseStep = 34;
 // The results' buttons (texture/RESULT_*, four states 90 high).
 enum ResultButton { kResRestart, kResNext, kResReplay, kResMenu, kResExit, kResultButtons };
 const char *const kResultPictures[kResultButtons] = {"RESULT_RESTART", "RESULT_NEXTRACE", "RESULT_REPLAY",
                                                      "RESULT_RACEMENU", "RESULT_EXITW"};
 // Where they go: down the results screens' right side, under the logo.
-constexpr int kResultX = 410, kResultTop = 92, kResultStep = 76, kResultState = 90;
+constexpr int kResultX = 410;
+constexpr int kResultTop = 92;
+constexpr int kResultStep = 76;
+constexpr int kResultState = 90;
 // The results' box (measured on jpg/rshi_bk and crshi_bk).
-constexpr int kBoxX = 46, kBoxY = 74;
+constexpr int kBoxX = 46;
+constexpr int kBoxY = 74;
 
 // The menus' voices: which control says which word (aud/aud22/UI*.wav).
 const std::pair<const char *, const char *> kVoices[] = {

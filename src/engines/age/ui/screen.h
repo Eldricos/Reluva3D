@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-
 #pragma once
 
 // The game's screens: what the race screen (the game) and the data
@@ -265,7 +264,12 @@ private:
     int _loadedCity = -1;
 
     // The menu's choices.
-    int _field = 0, _city = 0, _kind = 0, _raceIndex = 0, _level = 0, _car = 0;
+    int _field = 0;
+    int _city = 0;
+    int _kind = 0;
+    int _raceIndex = 0;
+    int _level = 0;
+    int _car = 0;
     std::vector<std::string> _raceNames;
 
     State _state = State::kMenu;
@@ -288,7 +292,7 @@ private:
     CameraBlend _blend;      // a change of camera, blended
     ViewControls _view;      // the game's view controls (Thrill Cam, looking round...)
     PadDrive _pad;           // a game controller's sticks and triggers
-    PadShaker _shaker;    // a knock felt through it
+    PadShaker _shaker;       // a knock felt through it
     CdPlayer _cd;            // the CD player
     float _airFor = 0;       // seconds the player's car has been off the ground
     bool _airPlayed = false; // the big-air motif, this jump
@@ -304,8 +308,10 @@ private:
     float _sunkFor = 0;
     float _resultsTime = 0; // seconds the results have been up     // and "Sleep with the fishes!", after a car's sunk
     int _lastLap = 0;
-    std::vector<float> _lapEnds;     // the clock at each of the player's laps' ends
-    float _splitFor = 0, _split = 0; // the time shown after a checkpoint, and for how long yet
+    std::vector<float> _lapEnds; // the clock at each of the player's laps' ends
+    // the time shown after a checkpoint, and for how long yet
+    float _splitFor = 0;
+    float _split = 0;
     bool _splitIsLap = false;
     float _targetStill = 0;     // seconds the car to destroy has stood still
     std::string _unlockMessage; // the results screen's: what the race opened
@@ -325,9 +331,11 @@ private:
     bool _openAll = false;  // U: every race and car open, whatever the record says
     bool _recorded = false; // this race's result is in the record
 
-    std::unique_ptr<FrontEnd> _front; // the game's menus, when their files are there
+    std::unique_ptr<FrontEnd> _front;   // the game's menus, when their files are there
     std::unique_ptr<CarActor> _showCar; // the garage's car
-    int _showCarIndex = -1, _showPaint = -1, _paint = 0;
+    int _showCarIndex = -1;
+    int _showPaint = -1;
+    int _paint = 0;
 
     bool raceIsOpen(int index) const;
     bool carIsOpen(int car) const;
@@ -374,8 +382,10 @@ private:
 
     // The race's own menus (race_menus.cpp): paused (Esc), and the
     // game's results screens; the menus' music and voices.
-    bool _paused = false, _results = false;
-    int _pauseFocus = 0, _resultsFocus = 0;
+    bool _paused = false;
+    bool _results = false;
+    int _pauseFocus = 0;
+    int _resultsFocus = 0;
     std::string _lastFocus; // the menu control last spoken for
     std::unique_ptr<MenuPictures> _menuPictures;
     void pauseEvent(const Event &ev);

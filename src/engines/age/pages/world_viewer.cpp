@@ -15,7 +15,8 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr float kFov = 1.0f; // radians, vertically
 constexpr float kFar = 4000; // metres
 constexpr float kSpeed = 40; // metres a second, four times with Shift

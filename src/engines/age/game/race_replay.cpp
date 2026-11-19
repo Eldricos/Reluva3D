@@ -19,15 +19,21 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr int kMaxStepsPerUpdate = 16; // a replay catching up after a slow frame
-constexpr float kTvAhead = 45, kTvSide = 10, kTvHeight = 4, kTvLeave = 70, kTvFov = 45;
+constexpr float kTvAhead = 45;
+constexpr float kTvSide = 10;
+constexpr float kTvHeight = 4;
+constexpr float kTvLeave = 70;
+constexpr float kTvFov = 45;
 constexpr float kDiverged = 0.05f; // metres from where the recording had the car
 
 // The bar's buttons, in mmlang.dll's REPLAY MENU words.
 enum Button { kPlay, kStep, kRew, kCam, kSave, kQuit, kButtons };
 // The bar: its top, and where its first word starts.
-constexpr int kBarY = 88, kBarFirstX = 110;
+constexpr int kBarY = 88;
+constexpr int kBarFirstX = 110;
 constexpr double kRewind = 5; // seconds Rew goes back
 
 std::string clockText(float seconds) {

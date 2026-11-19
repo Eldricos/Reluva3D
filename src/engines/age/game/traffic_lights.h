@@ -24,7 +24,10 @@ enum class Signal { kGreen, kYellow, kRed };
 // time. Reluva's timing; see docs/engines/age-traffic.md.
 class TrafficLights {
 public:
-    static constexpr float kGreen = 12, kYellow = 3, kAllRed = 1; // seconds
+    // seconds
+    static constexpr float kGreen = 12;
+    static constexpr float kYellow = 3;
+    static constexpr float kAllRed = 1;
 
     void build(const AiRoadMap &map, const AiMapSettings &settings);
     void update(float dt) { _clock += dt; }
@@ -53,8 +56,10 @@ public:
 
 private:
     struct Light {
-        uint32_t road = 0, junction = 0;
-        int end = 0, phase = 0;
+        uint32_t road = 0;
+        uint32_t junction = 0;
+        int end = 0;
+        int phase = 0;
         int model = 0;     // 0 narrow, 1 wide
         bool down = false; // knocked down
         Vec3 at{};

@@ -22,7 +22,8 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr float kCountdown = 3;
 constexpr float kNetDelay = 0.1f; // seconds behind: the others' cars are drawn between states received
 constexpr float kRaceOn = 60;     // seconds the others have to finish after the first

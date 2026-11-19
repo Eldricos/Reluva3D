@@ -22,7 +22,9 @@ struct DlsSampleInfo {
     int fineTune = 0;   // cents
     int32_t gain = 0;   // 1/655360 dB (DLS's units), 0 as recorded
     bool looped = false;
-    uint32_t loopStart = 0, loopLength = 0; // in samples
+    // in samples
+    uint32_t loopStart = 0;
+    uint32_t loopLength = 0;
 };
 
 struct DlsWave {
@@ -34,13 +36,20 @@ struct DlsWave {
 
 // One connection: a source (and a control) scaled into a destination.
 struct DlsConnection {
-    uint16_t source = 0, control = 0, destination = 0, transform = 0;
+    uint16_t source = 0;
+    uint16_t control = 0;
+    uint16_t destination = 0;
+    uint16_t transform = 0;
     int32_t scale = 0;
 };
 
 struct DlsRegion {
-    int keyLow = 0, keyHigh = 127, velocityLow = 0, velocityHigh = 127;
-    uint16_t options = 0, keyGroup = 0;
+    int keyLow = 0;
+    int keyHigh = 127;
+    int velocityLow = 0;
+    int velocityHigh = 127;
+    uint16_t options = 0;
+    uint16_t keyGroup = 0;
     uint32_t wave = 0; // into DlsCollection::waves
     bool hasInfo = false;
     DlsSampleInfo info;                      // overrides the wave's own when hasInfo

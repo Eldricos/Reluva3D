@@ -16,7 +16,8 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 
 bool isLevel(const std::string &level) {
     return level == "H" || level == "M" || level == "L" || level == "VL";

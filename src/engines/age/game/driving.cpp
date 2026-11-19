@@ -42,7 +42,6 @@ std::string iniValue(const std::string &text, const std::string &key) {
 
 } // namespace
 
-
 std::vector<CarInfo> findCars(const SearchSet &files) {
     std::vector<CarInfo> cars;
     for (const std::string &n : files.list()) {

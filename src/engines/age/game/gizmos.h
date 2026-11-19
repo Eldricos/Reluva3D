@@ -31,13 +31,18 @@ public:
     Gizmos(const Gizmos &) = delete;
     Gizmos &operator=(const Gizmos &) = delete;
     // Seconds of a drawbridge's cycle: down, rising, up, falling.
-    static constexpr float kDown = 74, kRising = 8, kUp = 40, kFalling = 8;
+    static constexpr float kDown = 74;
+    static constexpr float kRising = 8;
+    static constexpr float kUp = 40;
+    static constexpr float kFalling = 8;
     static constexpr float kRaised = 0.5f; // radians a leaf rises to
     // A train: its carriages (as London's aimap's commented-out
     // "[Subway] va_ug_l 3" has it), top speed (m/s), acceleration and
     // braking (m/s^2), and seconds standing at each end of its line.
     static constexpr int kCarriages = 3;
-    static constexpr float kTrainSpeed = 14, kTrainAccel = 1, kTrainStand = 15;
+    static constexpr float kTrainSpeed = 14;
+    static constexpr float kTrainAccel = 1;
+    static constexpr float kTrainStand = 15;
 
     // The city's files, and a race's (<city>_bridge_<variant>.pathset...)
     // over them where it has its own: a path in both, the same model
@@ -80,23 +85,29 @@ private:
         std::vector<Vec3> points; // closed (back to the first) unless going back and forth
         std::vector<float> at;
         bool backAndForth = false;
-        float speed = 2, s = 0, sway = 0; // sway: where in its bobbing it is
+        // sway: where in its bobbing it is
+        float speed = 2;
+        float s = 0;
+        float sway = 0;
         int way = 1;
         float window = 3; // metres either side its heading is taken over
         Vec3 position{};
         Mat3 axes;
     };
     struct Leaf {
-        Vec3 hinge{}, tip{}; // down
+        // down
+        Vec3 hinge{};
+        Vec3 tip{};
         float width = 8;
     };
     struct Bridge {
         std::string model;
         std::vector<Leaf> leaves;
-        bool inactive = false,
-             standing = false; // standing: modelled about its middle (a gate)
-        float lift = 0;        // up off the path for a standing one
-        float offset = 0;      // seconds into the cycle at clock 0
+        // standing: modelled about its middle (a gate)
+        bool inactive = false;
+        bool standing = false;
+        float lift = 0;   // up off the path for a standing one
+        float offset = 0; // seconds into the cycle at clock 0
         float raised = 0;
     };
     struct Carriage {
@@ -107,9 +118,15 @@ private:
         std::string model;
         std::vector<Vec3> points;
         std::vector<float> at;
-        float length = 15, width = 3, height = 3, gap = 0.6f, lift = 0; // a carriage's
-        float u = 0;                                                    // its end nearer the line's start, along it
-        float speed = 0, standing = 0;
+        // a carriage's
+        float length = 15;
+        float width = 3;
+        float height = 3;
+        float gap = 0.6f;
+        float lift = 0;
+        float u = 0; // its end nearer the line's start, along it
+        float speed = 0;
+        float standing = 0;
         int way = 1;
         std::vector<Carriage> carriages;
         float span() const { return float(kCarriages) * length + float(kCarriages - 1) * gap; }
@@ -118,7 +135,8 @@ private:
         std::vector<Vec3> spheres(float radius) const;
     };
     struct Bounds {
-        Vec3 low{}, high{};
+        Vec3 low{};
+        Vec3 high{};
     };
     Bounds boundsOf(const SearchSet &files, const std::string &model);
     void advance(float dt);

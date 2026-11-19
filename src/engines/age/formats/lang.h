@@ -27,7 +27,9 @@ private:
 namespace strings {
 // The Crash Course lessons' names, one after another from these, in the
 // order of race/<city>/crash<n>data.csv: London's, then San Francisco's.
-constexpr uint32_t kLondonLessons = 532, kSfLessons = 545, kLessonCount = 13;
+constexpr uint32_t kLondonLessons = 532;
+constexpr uint32_t kSfLessons = 545;
+constexpr uint32_t kLessonCount = 13;
 } // namespace strings
 
 } // namespace reluva::age

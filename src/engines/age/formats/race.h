@@ -25,15 +25,22 @@ enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
 // A Cruise's "races": the cruise itself, then the stunt where there's one.
 // Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
 // unfinished "Stunt Prototype" (stunt0: a start and an aimap).
-constexpr int kCruiseRace = 0, kStuntRace = 1, kPrototypeRace = 2;
+constexpr int kCruiseRace = 0;
+constexpr int kStuntRace = 1;
+constexpr int kPrototypeRace = 2;
 const char *raceKindName(RaceKind kind); // "Blitz"...
 
 // One difficulty's columns of a race's row.
 struct RaceSettings {
     int carType = 0;
-    int timeOfDay = 0, weather = 0; // as the 16 lightings: time * 4 + weather
-    int opponents = 0, cops = 0;
-    float ambient = 0, peds = 0; // traffic and pedestrian densities
+    // as the 16 lightings: time * 4 + weather
+    int timeOfDay = 0;
+    int weather = 0;
+    int opponents = 0;
+    int cops = 0;
+    // traffic and pedestrian densities
+    float ambient = 0;
+    float peds = 0;
     int laps = 0;
     float timeLimit = 0; // seconds
     int difficulty = 0;
@@ -92,7 +99,8 @@ struct RaceDefinition {
 
 // The .cinfo's MustPlace and UnlockGroup (record.h's raceOpen).
 struct RaceUnlocking {
-    int mustPlace = 3, group = 3;
+    int mustPlace = 3;
+    int group = 3;
 };
 RaceUnlocking raceUnlocking(const SearchSet &files, const std::string &city);
 

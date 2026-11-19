@@ -17,7 +17,10 @@ constexpr float kPi = 3.14159265358979f;
 // perform a big stunt"): stood ahead of the car, off to one side and a
 // little up, it watches the car go by, and moves on ahead once the car's
 // past it or far from it.
-constexpr float kThrillAhead = 35, kThrillSide = 8, kThrillUp = 3, kThrillFar = 80;
+constexpr float kThrillAhead = 35;
+constexpr float kThrillSide = 8;
+constexpr float kThrillUp = 3;
+constexpr float kThrillFar = 80;
 constexpr float kPanRate = 1.2f; // radians a second round the car, Camera Pan held
 
 Vec3 flatNormal(Vec3 v) {

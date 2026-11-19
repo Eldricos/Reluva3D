@@ -31,12 +31,14 @@ public:
     bool loaded() const { return !_roads.roads.empty(); }
 
     struct Options {
-        float traffic = 0, peds = 0; // densities, 0..1
-        int cops = -1;               // how many of the settings' police (-1: all)
-        bool rain = false;           // the pedestrians dressed for it
-        bool laneChanges = false;    // traffic changes lanes (else as the settings say)
-        bool patrols = false;        // the police patrol the lanes rather than wait
-        std::string variant;         // a race's own path sets ("circuit0"...), over the city's
+        // densities, 0..1
+        float traffic = 0;
+        float peds = 0;
+        int cops = -1;            // how many of the settings' police (-1: all)
+        bool rain = false;        // the pedestrians dressed for it
+        bool laneChanges = false; // traffic changes lanes (else as the settings say)
+        bool patrols = false;     // the police patrol the lanes rather than wait
+        std::string variant;      // a race's own path sets ("circuit0"...), over the city's
         uint32_t seed = 1;
     };
     // Starts afresh with `settings` (the city's, or a race's read over
@@ -83,14 +85,16 @@ private:
     AiRoadMap _roads;
     std::vector<uint8_t> _blockRules; // each PSDL block's street furniture rule (0 none)
     std::string _map;
-    AiMapSettings _city, _current;
+    AiMapSettings _city;
+    AiMapSettings _current;
     Traffic _traffic;
     Pedestrians _peds;
     Police _police;
     TrafficLights _lights;
     Gizmos _gizmos;
     AmbientSounds _ambient;
-    bool _lampsLit = false, _night = false;
+    bool _lampsLit = false;
+    bool _night = false;
     int _carTouches = 0;
     Props _props;
     const SearchSet *_files = nullptr;

@@ -19,7 +19,8 @@ namespace reluva::age {
 struct PathsetPath {
     std::string name;  // as stored: a model, maybe after "open:" or "inactive:"
     std::string model; // without the prefix
-    bool open = false, inactive = false;
+    bool open = false;
+    bool inactive = false;
     uint32_t start = 0;        // the second word: the point it starts at, it seems
     std::vector<uint32_t> ids; // each point's first word (PSDL blocks, it seems)
     std::vector<Vec3> points;

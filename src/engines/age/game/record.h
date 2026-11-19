@@ -114,7 +114,9 @@ bool unlocked(const PlayerRecord &record, const std::string &car, int paintJob, 
 // or all of them (a lesson's number for crash), the car and its paint job
 // (0: the car itself).
 struct Reward {
-    std::string kind, which, car;
+    std::string kind;
+    std::string which;
+    std::string car;
     int paintJob = 0;
     std::string message;
 };

@@ -13,13 +13,21 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
-constexpr int kLeft = 24, kTop = 52, kBottom = kFrameH - 30, kRow = 14;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
+constexpr int kLeft = 24;
+constexpr int kTop = 52;
+constexpr int kBottom = kFrameH - 30;
+constexpr int kRow = 14;
 constexpr int kColumns = (kFrameW - 2 * kLeft) / font::kAdvance; // characters on a line
 constexpr int kTab = 24;                                         // a table's second column
 constexpr size_t kBullet = 3; // characters before a tab that are a list's bullet (or number)
-constexpr int kPictureWidth = kFrameW - 2 * kLeft, kPictureHeight = 300; // the most a picture's shown at
-const Color kText{235, 235, 235}, kLink{120, 230, 140}, kChosen{255, 255, 120};
+// the most a picture's shown at
+constexpr int kPictureWidth = kFrameW - 2 * kLeft;
+constexpr int kPictureHeight = 300;
+const Color kText{235, 235, 235};
+const Color kLink{120, 230, 140};
+const Color kChosen{255, 255, 120};
 
 void fill(Surface &o, int x, int y, int w, int h, Color c, uint8_t alpha) {
     for (int yy = std::max(0, y); yy < std::min(o.h, y + h); ++yy)

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-
 #pragma once
 
 // The Angel Game Engine data viewer's pages. Tab switches pages; Esc
@@ -89,10 +88,12 @@ private:
     std::vector<std::string> _folders; // top-level folders, for Left/Right
     int _folder = -1;                  // index into folders_, -1: all
     std::vector<size_t> _shown;        // files_ indices in the folder
-    int _selected = 0, _top = 0;
+    int _selected = 0;
+    int _top = 0;
 
     // The open file, if any.
-    bool _viewing = false, _isText = false;
+    bool _viewing = false;
+    bool _isText = false;
     std::string _viewName;
     std::vector<std::string> _lines;
     int _lineTop = 0;
@@ -151,9 +152,14 @@ private:
 
     Vec3 _center{};
     float _radius = 1;
-    float _yaw = 0, _pitch = 0, _distance = 1;
-    bool _dragging = false, _showInfo = true, _showLights = false;
-    int _lastX = 0, _lastY = 0;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _distance = 1;
+    bool _dragging = false;
+    bool _showInfo = true;
+    bool _showLights = false;
+    int _lastX = 0;
+    int _lastY = 0;
 };
 
 // A city flown through: its streets and buildings from the PSDL, the
@@ -185,9 +191,13 @@ private:
     std::string _error;
 
     gfx::Vec3 _eye{};
-    float _yaw = 0, _pitch = 0;
-    bool _dragging = false, _showInfo = true, _showModels = true;
-    int _lastX = 0, _lastY = 0;
+    float _yaw = 0;
+    float _pitch = 0;
+    bool _dragging = false;
+    bool _showInfo = true;
+    bool _showModels = true;
+    int _lastX = 0;
+    int _lastY = 0;
     uint64_t _lastMs = 0;
     uint32_t _keys = 0; // movement keys held, bit per kMove*
 };
@@ -218,7 +228,8 @@ private:
 
     std::vector<CityInfo> _cities;
     std::vector<CarInfo> _cars;
-    int _city = 0, _carIndex = 0;
+    int _city = 0;
+    int _carIndex = 0;
     uint32_t _paintJob = 0;
     gfx::Renderer3D *_renderer = nullptr;
     std::unique_ptr<CityScene> _scene;
@@ -242,7 +253,7 @@ private:
     CameraBlend _blend;      // a change of camera, blended
     ViewControls _view;      // the game's view controls (Thrill Cam, looking round...)
     PadDrive _pad;           // a game controller's sticks and triggers
-    PadShaker _shaker;    // a knock felt through it
+    PadShaker _shaker;       // a knock felt through it
     CdPlayer _cd;            // the CD player
     float _airFor = 0;       // seconds the player's car has been off the ground
     bool _airPlayed = false; // the big-air motif, this jump

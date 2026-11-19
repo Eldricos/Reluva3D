@@ -18,18 +18,34 @@ constexpr uint32_t kGameOver = 245;
 constexpr uint32_t kTimesUp = 244;
 constexpr uint32_t kGo = 243;
 // Cop chase.
-constexpr uint32_t kEvade = 193, kSurvived = 196, kLoseThem = 197, kChaseTimesUp = 198;
+constexpr uint32_t kEvade = 193;
+constexpr uint32_t kSurvived = 196;
+constexpr uint32_t kLoseThem = 197;
+constexpr uint32_t kChaseTimesUp = 198;
 // Jump.
-constexpr uint32_t kTakeTheJump = 206, kGoodJumping = 209;
+constexpr uint32_t kTakeTheJump = 206;
+constexpr uint32_t kGoodJumping = 209;
 // Destroy ("Bonnie & Collide", 616-623; 210-216, under the same name,
 // are drive-cleanly messages no lesson uses), and the tail to lose after.
-constexpr uint32_t kDestroy = 619, kDidIt = 620, kReachedDestination = 621, kDestroyTimesUp = 623, kLoseTheTail = 652;
+constexpr uint32_t kDestroy = 619;
+constexpr uint32_t kDidIt = 620;
+constexpr uint32_t kReachedDestination = 621;
+constexpr uint32_t kDestroyTimesUp = 623;
+constexpr uint32_t kLoseTheTail = 652;
 // Follow.
-constexpr uint32_t kFollowThatCar = 220, kYouWon = 221, kEscaped = 222;
+constexpr uint32_t kFollowThatCar = 220;
+constexpr uint32_t kYouWon = 221;
+constexpr uint32_t kEscaped = 222;
 // No touching.
-constexpr uint32_t kDontTouch = 227, kTouchTimesUp = 228, kTouchWon = 229, kScraped = 230;
+constexpr uint32_t kDontTouch = 227;
+constexpr uint32_t kTouchTimesUp = 228;
+constexpr uint32_t kTouchWon = 229;
+constexpr uint32_t kScraped = 230;
 // Minimum speed.
-constexpr uint32_t kMaintain = 232, kGreatDriving = 234, kUpToSpeed = 237, kTooSlow = 238;
+constexpr uint32_t kMaintain = 232;
+constexpr uint32_t kGreatDriving = 234;
+constexpr uint32_t kUpToSpeed = 237;
+constexpr uint32_t kTooSlow = 238;
 // Passed (the results' "Pass").
 constexpr uint32_t kPass = 651;
 } // namespace msg

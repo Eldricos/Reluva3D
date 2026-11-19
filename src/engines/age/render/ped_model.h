@@ -31,7 +31,8 @@ Error parseSkeleton(const std::string &text, Skeleton &out);
 // Frames of 3 + 3 * bones values: the root's position, then each bone's
 // turn about X, Y and Z (radians).
 struct PedAnimation {
-    int frames = 0, channels = 0;
+    int frames = 0;
+    int channels = 0;
     std::vector<float> values;
     const float *frame(int f) const { return values.data() + size_t(f) * size_t(channels); }
 };
@@ -39,7 +40,9 @@ Error readPedAnimation(const std::vector<uint8_t> &data, PedAnimation &out);
 
 // A move: an animation and the move that follows it.
 struct PedMove {
-    std::string name, animation, next;
+    std::string name;
+    std::string animation;
+    std::string next;
 };
 Error parsePedMoves(const std::string &csv, std::vector<PedMove> &out);
 
@@ -47,7 +50,8 @@ Error parsePedMoves(const std::string &csv, std::vector<PedMove> &out);
 // texture coordinates) and the triangles of each material.
 struct PedMesh {
     struct Corner {
-        Vec3 position{}, normal{};
+        Vec3 position{};
+        Vec3 normal{};
         float uv[2]{};
         int bone = 0;
     };
@@ -78,9 +82,11 @@ public:
     static constexpr float kFrameRate = 20; // frames a second (assumed)
 
     struct Move {
-        int firstFrame = 0, frames = 0; // in the mesh, in frames of corners()
-        Vec3 travel{};                  // metres a second it carries the walker (in its own space)
-        int next = -1;                  // the move after it
+        // in the mesh, in frames of corners()
+        int firstFrame = 0;
+        int frames = 0;
+        Vec3 travel{}; // metres a second it carries the walker (in its own space)
+        int next = -1; // the move after it
     };
 
     PedModel() = default;

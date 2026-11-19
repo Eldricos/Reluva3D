@@ -47,15 +47,20 @@ public:
 
 private:
     std::vector<Vec3> _path;
-    int _laps = 0, _lap = 0;
-    size_t _index = 0, _loopFrom = 0, _passed = 0;
+    int _laps = 0;
+    int _lap = 0;
+    size_t _index = 0;
+    size_t _loopFrom = 0;
+    size_t _passed = 0;
     float _skill = 1;
     float _limit = 1e9f;
     bool _finished = false;
-    float _stuckTime = 0, _reverseTime = 0;
+    float _stuckTime = 0;
+    float _reverseTime = 0;
     // Circling without getting nearer the target: the nearest it's been,
     // and for how long it hasn't got 2 m nearer.
-    float _best = 1e9f, _lostTime = 0;
+    float _best = 1e9f;
+    float _lostTime = 0;
     int _resetsHere = 0; // at the current point: after two, the next reset skips it
 };
 

@@ -37,10 +37,14 @@ enum Msg : uint8_t {
     kChallenge, // the host's: prove the password with this
 };
 
-constexpr uint64_t kLobbyEveryMs = 250, kStatusEveryMs = 250, kGameEveryMs = 100, kCarsEveryMs = 50;
+constexpr uint64_t kLobbyEveryMs = 250;
+constexpr uint64_t kStatusEveryMs = 250;
+constexpr uint64_t kGameEveryMs = 100;
+constexpr uint64_t kCarsEveryMs = 50;
 constexpr uint64_t kTimeoutMs = 5000;         // silent this long: gone
 constexpr uint64_t kLoadingTimeoutMs = 60000; // while the game loads (a city takes a while)
-constexpr uint64_t kJoinEveryMs = 500, kJoinTimeoutMs = 5000;
+constexpr uint64_t kJoinEveryMs = 500;
+constexpr uint64_t kJoinTimeoutMs = 5000;
 constexpr size_t kChatKept = 8;
 constexpr size_t kStatesKept = 32;
 constexpr float kFastest = 110;               // m/s no car goes (the fastest top out near 70)

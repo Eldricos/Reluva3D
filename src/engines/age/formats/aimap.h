@@ -23,11 +23,14 @@ struct AiMapSettings {
         float upTo = 1;    // cumulative share: picked when a random 0-1 is below this
     };
     struct PedPair {
-        std::string good, bad; // models in fine and in rainy weather
+        // models in fine and in rainy weather
+        std::string good;
+        std::string bad;
     };
     struct RoadException {
         int road = 0;
-        float density = 0, speedLimit = 0;
+        float density = 0;
+        float speedLimit = 0;
     };
     struct Police {
         std::string model;
@@ -36,8 +39,10 @@ struct AiMapSettings {
         std::vector<float> rest; // four more values, not known yet
     };
     struct Opponent {
-        std::string model, path; // the car and its .opp file
-        float skill = 1;         // 0.7 to 1
+        // the car and its .opp file
+        std::string model;
+        std::string path;
+        float skill = 1; // 0.7 to 1
     };
 
     float speedLimit = 15;
@@ -53,7 +58,8 @@ struct AiMapSettings {
     std::vector<RoadException> exceptions;
     std::vector<Police> police;
     std::vector<Opponent> opponents;
-    bool policeGiven = false, opponentsGiven = false;
+    bool policeGiven = false;
+    bool opponentsGiven = false;
 };
 
 // Reads `text` over `out` (so a race's file can follow the city's).

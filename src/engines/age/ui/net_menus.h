@@ -125,14 +125,19 @@ private:
     bool _mapperSaid = false;
     std::unique_ptr<NetBrowser> _browser;
     size_t _chosenSession = 0;
-    std::string _netName = "Player", _address, _password, _chat;
+    std::string _netName = "Player";
+    std::string _address;
+    std::string _password;
+    std::string _chat;
     NetSettings _settings; // the host's, as edited
     bool _editing = false; // the host's settings from the lobby (else hosting anew)
     std::vector<std::string> _raceNames;
     size_t _ejectChoice = 0;
     net::Address _pendingJoin; // a session that wants a password first
     uint32_t _lastChatSeq = 0;
-    std::string _message, _messagePicture; // a dialog over the screen, until a key
+    // a dialog over the screen, until a key
+    std::string _message;
+    std::string _messagePicture;
     std::deque<Line> _lines;
     uint64_t _nowMs = 0;
     std::string _myCar = "vpbug";
