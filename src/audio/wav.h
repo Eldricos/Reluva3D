@@ -15,6 +15,15 @@ namespace reluva::audio {
 // Star Trek: New Worlds; see docs/engines/newworlds/wav.md).
 Error decodeWav(const std::vector<uint8_t> &data, Sound &out);
 
+/**
+ * Microsoft IMA ADPCM blocks (WAV format 0x11) without a WAV file around
+ * them, as Birth of the Federation's .snd archives keep them.
+ * @param blockAlign Bytes a block, for every channel.
+ * @param frameLimit Frames to keep at most; 0 keeps them all.
+ */
+Error decodeImaAdpcm(const uint8_t *data, size_t size, int channels, int rate, size_t blockAlign, size_t frameLimit,
+                     Sound &out);
+
 // A 16-bit PCM WAV file of the sound, for checking it elsewhere.
 std::vector<uint8_t> encodePcmWav(const Sound &sound);
 
