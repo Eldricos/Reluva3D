@@ -194,7 +194,7 @@ int cmdX86Run(int argc, char **argv) {
         return failed(e);
     std::printf("%s returned 0x%08x after %llu instructions\n", exportName.c_str(), result,
                 (unsigned long long)(cpu.executed() - before));
-    // If it's a pointer, what it points at (a table of the DLL's functions?).
+    // If it's a pointer, what it points at (a table of the DLL's functions, say).
     if (cpu.valid(result, 4)) {
         for (uint32_t i = 0; i < 64 && cpu.valid(result + 4 * i, 4); ++i) {
             const uint32_t v = cpu.read32(result + 4 * i);
