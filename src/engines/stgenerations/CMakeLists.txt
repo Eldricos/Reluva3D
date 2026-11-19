@@ -50,6 +50,14 @@ reluva_add_engine(stgenerations
         game/vm.cpp
         game/walker.cpp)
 
+# Its data viewer, the resource viewer, for reluva-viewer only: reluva, which
+# players get, doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
+reluva_add_engine_viewers(stgenerations
+    ACCESSOR stgenerationsMetaViewer
+    SOURCES
+        pages/meta_viewer.cpp
+        pages/resource_viewer.cpp)
+
 # Its reluva-tool commands (reluva-tool help stgenerations lists them).
 reluva_add_engine_tools(stgenerations
     SOURCES

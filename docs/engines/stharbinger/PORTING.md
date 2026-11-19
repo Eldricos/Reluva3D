@@ -67,7 +67,7 @@ for this one ([README.md](README.md#settings)):
 | `--debug` | *Developer: debug keys* (`debug=1`): F2, F10, the detailed title bar |
 | `--debug N` | *Developer: console output* (`debug_level=N`) |
 | `--scene NAME` | `start_scene=NAME` in the game's section of `reluva.ini` |
-| `--mode viewer`, `--mode video --scene DIR/NAME.SMK` | *Developer: start with* (`start_mode=viewer`, or `start_mode=video` with `start_scene=DIR/NAME.SMK`) |
+| `--mode viewer`, `--mode video --scene DIR/NAME.SMK` | `reluva-viewer <entry>` (the scene viewer), with `start_mode=video` and `start_scene=DIR/NAME.SMK` in the game's section of `reluva.ini` for one video |
 | `--info` | `reluva-tool stharbinger info <game folder>`; `files` for the parts and files found |
 | `--engine`, `--list-engines`, `--help` | Not needed: Reluva detects the engine; `reluva-tool` lists the engines and commands |
 | Alt+Enter | The same |
@@ -145,7 +145,7 @@ Commit ids are STDS9H's.
 
 | Date | Commits | What it established | Now in |
 |---|---|---|---|
-| 20 October | `1de95f3` | The archives (including the scripts inside disc 1's `SSE/SSE.ALL`), backgrounds, palettes, animations, sounds, scene scripts and name lists; a scene viewer; the Python tools | [formats/](formats/), [the viewer](README.md#developer-settings), [tools/stharbinger-re/](../../../tools/stharbinger-re/README.md) |
+| 20 October | `1de95f3` | The archives (including the scripts inside disc 1's `SSE/SSE.ALL`), backgrounds, palettes, animations, sounds, scene scripts and name lists; a scene viewer; the Python tools | [formats/](formats/), [the viewer](README.md#the-scene-viewer), [tools/stharbinger-re/](../../../tools/stharbinger-re/README.md) |
 | 20 October | `e77e703` | Disc 1's real layout: an `ART` folder beside `DS9` and `SSE`; ISO 9660 `;1` suffixes | [formats/discs.md](formats/discs.md) |
 | 20 October | `5067f32`, `bb38385` | The scene interpreter as DEEP.EXE runs it: 20 ms steps, timers, variables, hotspots, animations, sounds, fades; four commands misnamed in the first listings (`DEATH`, `CDCHANGE`, the fades the right way round) and `SOUND`'s keywords read from DEEP.EXE's tables | [systems/script-reference.md](systems/script-reference.md), [research/interpreter.md](research/interpreter.md) |
 | 20 October | `ec1b81f`, `e2bbb3b` | Dialogue records and every dialogue command; speech and lip-sync; the reply menu's font, colours and placement | [systems/script-reference.md](systems/script-reference.md), [formats/scripts.md](formats/scripts.md), [research/dialogue.md](research/dialogue.md) |

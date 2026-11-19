@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import numpy as np, sys
 rec=np.fromfile(sys.argv[1],dtype=np.int16).astype(np.float32)
 sr=8000; N=len(rec)

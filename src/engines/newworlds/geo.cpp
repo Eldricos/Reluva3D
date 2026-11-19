@@ -228,7 +228,8 @@ TileSides tileSides(const GeoModel &geo, int rotation) {
     std::vector<std::pair<float, float>> side[4]; // (position along the side, height)
     for (const auto &part : geo.parts)
         for (const auto &v : part.vertices) {
-            float x = v.x, y = v.y;
+            float x = v.x;
+            float y = v.y;
             for (int k = 0; k < rotation; ++k) {
                 const float t = x;
                 x = -y;

@@ -1,6 +1,6 @@
 # Murder on the Orient Express: puzzle screens
 
-> **Status:** done · **Code:** `src/engines/awe/pages/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -144,7 +144,7 @@ solving gives the locket again (in the game as in Reluva).
 Reluva had kept the tags at the last move and nothing to say the box was
 open, so coming back to it, or loading there, left it one move from
 giving the locket again; it now removes them, and keeps the box open
-until a new place (`boxOpenedHere_`). The route's search (`awe game-run
+until a new place (`_boxOpenedHere`). The route's search (`awe game-run
 -solve`), which loads its saves all the time, had gone round taking
 lockets.
 

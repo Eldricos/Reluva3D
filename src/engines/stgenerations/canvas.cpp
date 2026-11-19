@@ -14,36 +14,36 @@ Canvas &Canvas::operator=(Canvas &&other) noexcept {
         w = other.w;
         h = other.h;
         pitch = other.pitch;
-        format_ = other.format_;
-        pixels_ = std::move(other.pixels_);
-        other.pixels_.clear();
+        _format = other._format;
+        _pixels = std::move(other._pixels);
+        other._pixels.clear();
         other.w = other.h = other.pitch = 0;
     }
     return *this;
 }
 
 void Canvas::create(int width, int height, Format format) {
-    format_ = format;
+    _format = format;
     if (width <= 0 || height <= 0) {
         free();
-        format_ = format;
+        _format = format;
         return;
     }
     w = width;
     h = height;
     pitch = width * bytesPerPixel();
-    pixels_.assign(size_t(height) * size_t(pitch), 0);
+    _pixels.assign(size_t(height) * size_t(pitch), 0);
 }
 
 void Canvas::free() {
-    pixels_.clear();
-    pixels_.shrink_to_fit();
+    _pixels.clear();
+    _pixels.shrink_to_fit();
     w = h = pitch = 0;
 }
 
 uint32_t Canvas::getPixel(int x, int y) const {
     const uint8_t *p = static_cast<const uint8_t *>(getBasePtr(x, y));
-    if (format_ == kClut8)
+    if (_format == kClut8)
         return *p;
     uint32_t v;
     std::memcpy(&v, p, 4);
@@ -54,7 +54,7 @@ void Canvas::setPixel(int x, int y, uint32_t color) {
     if (x < 0 || y < 0 || x >= w || y >= h)
         return;
     uint8_t *p = static_cast<uint8_t *>(getBasePtr(x, y));
-    if (format_ == kClut8)
+    if (_format == kClut8)
         *p = uint8_t(color);
     else
         std::memcpy(p, &color, 4);
@@ -65,7 +65,7 @@ void Canvas::fillRect(Rect r, uint32_t color) {
     if (r.isEmpty())
         return;
     for (int y = r.top; y < r.bottom; y++) {
-        if (format_ == kClut8) {
+        if (_format == kClut8) {
             std::memset(getBasePtr(r.left, y), int(color & 0xFF), size_t(r.width()));
         } else {
             for (int x = r.left; x < r.right; x++)
@@ -95,8 +95,10 @@ void Canvas::vLine(int x, int y1, int y2, uint32_t color) {
 
 void Canvas::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     // Bresenham's.
-    const int dx = std::abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-    const int dy = -std::abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    const int dx = std::abs(x1 - x0);
+    const int sx = x0 < x1 ? 1 : -1;
+    const int dy = -std::abs(y1 - y0);
+    const int sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
     while (true) {
         setPixel(x0, y0, color);
@@ -117,7 +119,8 @@ void Canvas::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
 void Canvas::fillPolygon(const Point *points, int count, uint32_t color) {
     if (count < 3)
         return;
-    int minY = points[0].y, maxY = points[0].y;
+    int minY = points[0].y;
+    int maxY = points[0].y;
     for (int i = 1; i < count; i++) {
         minY = std::min(minY, points[i].y);
         maxY = std::max(maxY, points[i].y);
@@ -129,7 +132,8 @@ void Canvas::fillPolygon(const Point *points, int count, uint32_t color) {
         const double sampleY = y + 0.5;
         crossings.clear();
         for (int i = 0; i < count; i++) {
-            const Point &a = points[i], &b = points[(i + 1) % count];
+            const Point &a = points[i];
+            const Point &b = points[(i + 1) % count];
             if ((a.y <= sampleY) == (b.y <= sampleY))
                 continue;
             const double t = (sampleY - a.y) / double(b.y - a.y);

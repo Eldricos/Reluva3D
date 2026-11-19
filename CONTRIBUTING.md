@@ -30,3 +30,27 @@ that format or mechanic, with how sure it is: see
 For a small change the commit message may give more detail, but the docs
 must say the same: nobody should need the commit history to find where a
 fact came from. This record shows the work was done independently.
+
+## Code
+
+Write code as [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md) says: its
+layout, names and comments (why, not what), and Doxygen comments on
+public classes, methods and structures (turn a file's plain comments into
+them when you work on it). The tools that check it, and how to run them
+before a pull request, are in
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#code-style): `tools/format.py`,
+`tools/tidy.py`, `tools/split_members.py` and `tools/comments.py`, each
+with `--changed`, and `tools/check-headers.py` (every file's license
+lines). CI runs the same checks on what a pull request changes.
+AI coding tools get the same rules, in brief, from [AGENTS.md](AGENTS.md).
+
+## Commits and pull requests
+
+Write commits, branches and pull requests as
+[docs/COMMIT_STANDARD.md](docs/COMMIT_STANDARD.md) says: subjects as
+`<scope>: <what changed>`, a body that says why and where the facts came
+from, and a `Signed-off-by:` on every commit (`git commit -s`), which says
+the change was written from the sources this page allows. A pull request
+fills in its template. CI checks the commits with
+`tools/check-commits.py`; run it before pushing with
+`python3 tools/check-commits.py origin/main..HEAD`.

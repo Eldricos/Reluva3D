@@ -26,10 +26,17 @@ reluva_add_engine(idtech3
         botlib/character.cpp
         client/bindings.cpp
         client/joystick_input.cpp
+        client/menu_layer.cpp
+        client/menu_page.cpp
+        client/page.cpp
+        client/play_page.cpp
         client/player_input.cpp
         client/scene.cpp
         client/scene_drawer.cpp
         client/server_browser.cpp
+        client/session.cpp
+        client/sp_play_page.cpp
+        client/start_page.cpp
         eliteforce/cgame_host.cpp
         eliteforce/game_bots.cpp
         eliteforce/game_host.cpp
@@ -48,17 +55,6 @@ reluva_add_engine(idtech3
         formats/mdr.cpp
         formats/player_animation.cpp
         formats/shader.cpp
-        pages/file_viewer.cpp
-        pages/map_viewer.cpp
-        pages/menu_layer.cpp
-        pages/menu_viewer.cpp
-        pages/model_viewer.cpp
-        pages/page.cpp
-        pages/play_viewer.cpp
-        pages/sp_play_viewer.cpp
-        pages/start_page.cpp
-        pages/texture_viewer.cpp
-        pages/world_viewer.cpp
         raven/ambient_sets.cpp
         raven/savegame.cpp
         render/light_grid.cpp
@@ -71,6 +67,18 @@ reluva_add_engine(idtech3
         vm/vm_services.cpp
         wire/message.cpp
         wire/netchan.cpp)
+
+# Its data viewer, in reluva-viewer only: the game's pages and the
+# developer tools, pages showing what the game's files hold.
+reluva_add_engine_viewers(idtech3
+    ACCESSOR idTech3MetaViewer
+    SOURCES
+        pages/file_viewer.cpp
+        pages/map_viewer.cpp
+        pages/model_viewer.cpp
+        pages/texture_viewer.cpp
+        pages/viewer.cpp
+        pages/world_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool lists them).
 reluva_add_engine_tools(idtech3

@@ -105,5 +105,5 @@ SDK documentation, through Reluva's mixer:
 
 ## Additions outside the game
 
-- **F12** pauses the game and opens Reluva's data viewer, which the
-  original doesn't have.
+- Reluva's data viewer, which the original doesn't have: a separate
+  program, `reluva-viewer`, which the game doesn't open.

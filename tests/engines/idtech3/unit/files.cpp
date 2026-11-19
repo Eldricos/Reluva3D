@@ -45,7 +45,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
@@ -59,6 +59,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -262,7 +263,8 @@ static void testModList(const std::filesystem::path &tmp) {
 // A mod's files over the game's: the install's, then the home folder's.
 static void testMountMod(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
-    const std::filesystem::path install = tmp / "install", home = tmp / "home";
+    const std::filesystem::path install = tmp / "install";
+    const std::filesystem::path home = tmp / "home";
     auto zip = [](const char *name, const char *text) { return test::buildZip({{name, test::toBytes(text), {}}}); };
     test::writeFile(install / "BaseEF" / "pak0.pk3", zip("a.txt", "base"));
     test::writeFile(install / "BaseEF" / "pak1.pk3", zip("b.txt", "base"));
@@ -292,7 +294,7 @@ static void testMountMod(const std::filesystem::path &tmp) {
     CHECK(modSavePath(home, "MyMod") == home / "mods" / "MyMod" && modSavePath(home, "") == home);
 }
 
-static const reluva::test::Suite suite(
+static const reluva::test::Suite kSuite(
     "idtech3.unit.files",
     {
         {"filesystem and detection", [](const std::filesystem::path &tmp) { testFilesystemAndDetection(tmp / "fs"); }},

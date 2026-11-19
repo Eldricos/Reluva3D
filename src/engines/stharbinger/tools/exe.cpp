@@ -35,21 +35,29 @@ using reluva::tool::Bytes;
 // A 32-bit LE executable: its objects as loaded, and its fixups.
 struct LeObject {
     int n = 0;
-    uint32_t vsize = 0, base = 0, flags = 0, first = 0, count = 0;
+    uint32_t vsize = 0;
+    uint32_t base = 0;
+    uint32_t flags = 0;
+    uint32_t first = 0;
+    uint32_t count = 0;
     bool code = false;
     Bytes image;
 };
 
 struct Fixup {
-    uint32_t source, target;
+    uint32_t source;
+    uint32_t target;
     int type;
 };
 
 struct LeFile {
     long long mz = 0; // the program's own MZ stub (-1 if none was found)
     size_t le = 0;
-    uint32_t pageSize = 0, npages = 0, lastPage = 0;
-    uint32_t entryObject = 0, entryOffset = 0;
+    uint32_t pageSize = 0;
+    uint32_t npages = 0;
+    uint32_t lastPage = 0;
+    uint32_t entryObject = 0;
+    uint32_t entryOffset = 0;
     std::vector<LeObject> objects;
     std::vector<Fixup> fixups;
 
@@ -81,10 +89,10 @@ long long findMzBefore(const Bytes &d, long long end) {
 bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
     // The LE header: "LE", byte and word order 0, format level 0, a CPU
     // type 1..4; then the MZ stub whose e_lfanew points to it.
-    static const uint8_t sig[8] = {'L', 'E', 0, 0, 0, 0, 0, 0};
+    static const uint8_t kSig[8] = {'L', 'E', 0, 0, 0, 0, 0, 0};
     bool found = false;
     for (size_t i = 0; i + 8 <= d.size() && !found; ++i) {
-        if (std::memcmp(&d[i], sig, 8) != 0)
+        if (std::memcmp(&d[i], kSig, 8) != 0)
             continue;
         const uint16_t cpu = u16(d, i + 8);
         if (cpu >= 1 && cpu <= 4) {
@@ -146,7 +154,8 @@ bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
 
     // The fixups: per page, records of (source type, flags, source offset or
     // a list of them, target object, target offset).
-    const size_t fpt = h + u32(d, h + 0x68), frt = h + u32(d, h + 0x6c);
+    const size_t fpt = h + u32(d, h + 0x68);
+    const size_t frt = h + u32(d, h + 0x6c);
     std::map<uint32_t, std::pair<const LeObject *, uint32_t>> pageObject;
     for (const LeObject &o : le.objects)
         for (uint32_t k = 0; k < o.count; ++k)
@@ -166,7 +175,8 @@ bool loadLe(const Bytes &d, LeFile &le, std::string &error) {
                 error = "fixup table runs past the end of the file";
                 return false;
             }
-            const uint8_t src = d[p], fl = d[p + 1];
+            const uint8_t src = d[p];
+            const uint8_t fl = d[p + 1];
             p += 2;
             uint8_t cnt = 0;
             int16_t srcoff = 0;
@@ -246,21 +256,21 @@ std::vector<FoundString> findStrings(const LeObject &obj, size_t minLength = 4) 
 
 // What the debug messages say of the function they come from.
 std::optional<std::string> functionName(const std::string &s) {
-    static const std::regex func(R"(^\s*([A-Za-z_][A-Za-z0-9_]{2,}):\s)");
-    static const std::regex in(R"(^\s*In ([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)\b)"); // "In Load_Dialogues: ..."
-    static const std::regex directive(R"(^\s*([A-Z][a-z]+(?: [A-Z][a-z]+)+) / (cc[A-Za-z]+))"); // ".../ ccSUB"
-    static const std::regex bare(R"(^\s*([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)$)");              // "Load_Directive_List"
+    static const std::regex kFunc(R"(^\s*([A-Za-z_][A-Za-z0-9_]{2,}):\s)");
+    static const std::regex kIn(R"(^\s*In ([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)\b)"); // "In Load_Dialogues: ..."
+    static const std::regex kDirective(R"(^\s*([A-Z][a-z]+(?: [A-Z][a-z]+)+) / (cc[A-Za-z]+))"); // ".../ ccSUB"
+    static const std::regex kBare(R"(^\s*([A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+)$)"); // "Load_Directive_List"
     std::smatch m;
-    if (std::regex_search(s, m, func) || std::regex_search(s, m, in))
+    if (std::regex_search(s, m, kFunc) || std::regex_search(s, m, kIn))
         return m[1].str();
-    if (std::regex_search(s, m, directive)) {
+    if (std::regex_search(s, m, kDirective)) {
         std::string name = m[1].str();
         std::replace(name.begin(), name.end(), ' ', '_');
         return name + "/" + m[2].str();
     }
     // (Python's "$" also takes a line end before the end.)
     const std::string trimmed = !s.empty() && s.back() == '\n' ? s.substr(0, s.size() - 1) : s;
-    if (std::regex_search(trimmed, m, bare))
+    if (std::regex_search(trimmed, m, kBare))
         return m[1].str();
     return std::nullopt;
 }
@@ -274,18 +284,18 @@ std::string strip(const std::string &s) {
 }
 
 std::string category(const std::string &s) {
-    static const std::regex file(
+    static const std::regex kFile(
         R"((^|[\\/])[\w\-]+\.(cmp|rle|raw|pal|smk|dat|all|lst|cat|mus|vce|ini|dig|mgd|sav|cfg|txt|ani|pcx|fnt|exe)$|^\.\w{2,3}$|\\)",
         std::regex::icase);
-    static const std::regex format(R"(%[-0-9.]*[dsxufcl])");
-    static const std::regex runtime(R"(watcom|copyright|dos/4g|run-time|stack overflow|floating)", std::regex::icase);
-    if (std::regex_search(strip(s), file))
+    static const std::regex kFormat(R"(%[-0-9.]*[dsxufcl])");
+    static const std::regex kRuntime(R"(watcom|copyright|dos/4g|run-time|stack overflow|floating)", std::regex::icase);
+    if (std::regex_search(strip(s), kFile))
         return "file";
     if (functionName(s))
         return "debug";
-    if (s.find('%') != std::string::npos && std::regex_search(s, format))
+    if (s.find('%') != std::string::npos && std::regex_search(s, kFormat))
         return "format";
-    if (std::regex_search(s, runtime))
+    if (std::regex_search(s, kRuntime))
         return "runtime";
     return "text";
 }
@@ -548,7 +558,8 @@ int cmdExeDisasm(int argc, char **argv) {
     if (std::ifstream in(namesFile); in) {
         std::string line;
         while (std::getline(in, line)) {
-            char addr[64] = {}, name[256] = {};
+            char addr[64] = {};
+            char name[256] = {};
             if (std::sscanf(line.c_str(), "%63s %255s", addr, name) == 2)
                 names[uint32_t(std::strtoul(addr, nullptr, 16))] = name;
         }
@@ -601,7 +612,7 @@ int cmdExeDisasm(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "stharbinger",
     {
         {"exe-strings", "<DEEP.EXE> <out folder>",

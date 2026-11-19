@@ -56,7 +56,8 @@ std::filesystem::path modSavePath(const std::filesystem::path &savePath, std::st
 // hold a .pk3 of their own, in Windows' order (fs::windowsNameLess); each
 // with the first 48 bytes of its description.txt, or its name.
 struct ModFolder {
-    std::string name, description;
+    std::string name;
+    std::string description;
 };
 std::vector<ModFolder> listMods(const std::filesystem::path &install, std::string_view baseDir);
 // Into a buffer of `size` bytes as they write it: each mod's name and

@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Renders the mansion as the game would (state-0 frames, near walls see-through, characters at
 // their start), finds the camera that best matches a frame (PPM, lighting off), and writes for
 // each pixel the item drawn last there, with each item's world place.
 #include "engines/clue/game_data.h"
 #include "engines/clue/formats/level.h"
 #include "engines/clue/game/mansion.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -15,7 +19,7 @@ static std::vector<uint8_t> readPpm(const char* f, int& w, int& h) {
     std::vector<uint8_t> d(size_t(w) * h * 3); in.read((char*)d.data(), d.size()); return d;
 }
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     DataDrive f; f.open(*data.find("clue.lvl")); Level lvl; parseLevel(f, lvl);
     Mansion m; m.build(data, lvl);
     int w, h; auto target = readPpm(argv[2], w, h);
@@ -26,7 +30,7 @@ int main(int argc, char** argv) {
         std::fill(id.begin(), id.end(), -1); std::fill(img.begin(), img.end(), 0);
         for (size_t i : m.drawOrder()) {
             const auto& it = m.items()[i];
-            if (it.object->type == ObjectDef::TileNumber) continue;
+            if (it.object->type == ObjectDef::kTileNumber) continue;
             const int op = it.layer == 4 ? 128 : 255;
             for (const auto& p : (*it.frames)[0]) {
                 const auto& px = p.image->pixels;

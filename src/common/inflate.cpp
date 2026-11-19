@@ -53,7 +53,9 @@ struct Inflater {
     int decode(const Huffman &h) {
         // Codes of each length follow the shorter ones', most significant
         // bit first.
-        int code = 0, first = 0, index = 0;
+        int code = 0;
+        int first = 0;
+        int index = 0;
         for (int len = 1; len <= kMaxBits; ++len) {
             code |= bit();
             const int count = h.count[size_t(len)];
@@ -137,7 +139,7 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
     out.clear();
     consumed = 0;
     Inflater in{data, dataSize, 0, 0, 0, false, out, maxSize};
-    static const Huffman fixedLit = [] {
+    static const Huffman kFixedLit = [] {
         std::array<uint8_t, 288> l{};
         for (size_t i = 0; i < 288; ++i)
             l[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
@@ -145,7 +147,7 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
         build(h, l.data(), 288);
         return h;
     }();
-    static const Huffman fixedDist = [] {
+    static const Huffman kFixedDist = [] {
         std::array<uint8_t, 30> l;
         l.fill(5);
         Huffman h;
@@ -171,13 +173,15 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
             out.insert(out.end(), data + in.pos, data + in.pos + len);
             in.pos += len;
         } else if (type == 1) {
-            if (!codes(in, fixedLit, fixedDist))
+            if (!codes(in, kFixedLit, kFixedDist))
                 return Error::fail("Damaged deflate data");
         } else if (type == 2) {
             // The block's own codes: their lengths, coded with a code
             // whose lengths come first, in this order.
             static constexpr uint8_t kOrder[19] = {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
-            const int nlen = int(in.bits(5)) + 257, ndist = int(in.bits(5)) + 1, ncode = int(in.bits(4)) + 4;
+            const int nlen = int(in.bits(5)) + 257;
+            const int ndist = int(in.bits(5)) + 1;
+            const int ncode = int(in.bits(4)) + 4;
             if (nlen > 286 || ndist > 30)
                 return Error::fail("Damaged deflate data");
             std::array<uint8_t, 320> lengths{};
@@ -212,7 +216,8 @@ Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &
                 while (repeat--)
                     lengths[size_t(i++)] = value;
             }
-            Huffman lit, dist;
+            Huffman lit;
+            Huffman dist;
             if (!build(lit, lengths.data(), nlen) || !build(dist, lengths.data() + nlen, ndist) ||
                 !codes(in, lit, dist))
                 return Error::fail("Damaged deflate data");

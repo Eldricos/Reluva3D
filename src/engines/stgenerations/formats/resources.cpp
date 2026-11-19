@@ -62,25 +62,25 @@ std::filesystem::path findDataDir(const std::filesystem::path &root, const char 
 // An archive opened once, searched by name too.
 class SharedArchive : public Archive {
 public:
-    explicit SharedArchive(std::shared_ptr<ZipArchive> zip) : zip_(std::move(zip)) {}
-    std::vector<std::string> list() const override { return zip_->list(); }
-    bool has(std::string_view name) const override { return zip_->has(name); }
+    explicit SharedArchive(std::shared_ptr<ZipArchive> zip) : _zip(std::move(zip)) {}
+    std::vector<std::string> list() const override { return _zip->list(); }
+    bool has(std::string_view name) const override { return _zip->has(name); }
     // Stored files whatever their CRC says, as ResourceManager::open reads them.
     Error read(std::string_view name, std::vector<uint8_t> &out) const override {
-        const ZipArchive::Entry *e = zip_->entry(name);
+        const ZipArchive::Entry *e = _zip->entry(name);
         if (!e)
-            return Error::fail(zip_->describe() + ": no " + std::string(name));
+            return Error::fail(_zip->describe() + ": no " + std::string(name));
         bool crcOk = true;
-        Error err = zip_->readUnchecked(*e, out, crcOk);
+        Error err = _zip->readUnchecked(*e, out, crcOk);
         if (!err && !crcOk)
-            log::warning("%s:%s is damaged (its CRC doesn't match); played as it is", zip_->describe().c_str(),
+            log::warning("%s:%s is damaged (its CRC doesn't match); played as it is", _zip->describe().c_str(),
                          e->name.c_str());
         return err;
     }
-    std::string describe() const override { return zip_->describe(); }
+    std::string describe() const override { return _zip->describe(); }
 
 private:
-    std::shared_ptr<ZipArchive> zip_;
+    std::shared_ptr<ZipArchive> _zip;
 };
 
 } // namespace

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 """Dump the dialogue script of Star Trek: DS9 Harbinger as readable text and CSV.
 
     python3 harbinger_dialogue.py CCQ.ALL CCF.ALL OUT_DIR

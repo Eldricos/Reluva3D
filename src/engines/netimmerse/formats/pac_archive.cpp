@@ -32,10 +32,10 @@ int64_t PacArchive::unixTime(uint64_t fileTime) {
 }
 
 Error PacArchive::open(const std::filesystem::path &path) {
-    path_ = path;
-    entries_.clear();
-    byName_.clear();
-    dataStart_ = 0;
+    _path = path;
+    _entries.clear();
+    _byName.clear();
+    _dataStart = 0;
     const std::string where = path.string();
 
     std::ifstream in(path, std::ios::binary | std::ios::ate);
@@ -65,7 +65,7 @@ Error PacArchive::open(const std::filesystem::path &path) {
         return Error::fail("Cannot read " + where);
 
     size_t pos = 0;
-    entries_.reserve(count);
+    _entries.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
         const std::string which = where + ": file " + std::to_string(i);
         const void *zero = std::memchr(dir.data() + pos, 0, dir.size() - pos);
@@ -91,8 +91,8 @@ Error PacArchive::open(const std::filesystem::path &path) {
             return Error::fail(which + " (" + e.name + ") lies outside the archive's data");
         // Names are unique in the archives seen; should one repeat, the
         // first is the one found by name.
-        byName_.emplace(normalizeArchiveName(e.name), entries_.size());
-        entries_.push_back(std::move(e));
+        _byName.emplace(normalizeArchiveName(e.name), _entries.size());
+        _entries.push_back(std::move(e));
     }
     // Then the subdirectories' count (each a name and a directory of its
     // own, DDDirectory::Restore reads): 0 in every archive.
@@ -101,21 +101,21 @@ Error PacArchive::open(const std::filesystem::path &path) {
     if (const uint32_t subdirectories = le32(dir.data() + pos))
         return Error::fail(where + ": " + std::to_string(subdirectories) +
                            " subdirectories, which no archive seen has");
-    dataStart_ = dataStart;
+    _dataStart = dataStart;
     return Error::success();
 }
 
 std::vector<std::string> PacArchive::list() const {
     std::vector<std::string> names;
-    names.reserve(entries_.size());
-    for (const Entry &e : entries_)
+    names.reserve(_entries.size());
+    for (const Entry &e : _entries)
         names.push_back(e.name);
     return names;
 }
 
 const PacArchive::Entry *PacArchive::entry(std::string_view name) const {
-    auto it = byName_.find(normalizeArchiveName(name));
-    return it == byName_.end() ? nullptr : &entries_[it->second];
+    auto it = _byName.find(normalizeArchiveName(name));
+    return it == _byName.end() ? nullptr : &_entries[it->second];
 }
 
 bool PacArchive::has(std::string_view name) const {
@@ -125,14 +125,14 @@ bool PacArchive::has(std::string_view name) const {
 Error PacArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
     const Entry *e = entry(name);
     if (!e)
-        return Error::fail(std::string(name) + " not found in " + path_.string());
+        return Error::fail(std::string(name) + " not found in " + _path.string());
     return read(*e, out);
 }
 
 Error PacArchive::read(const Entry &e, std::vector<uint8_t> &out) const {
-    const std::string where = path_.string() + ": " + e.name;
+    const std::string where = _path.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
-    std::ifstream in(path_, std::ios::binary);
+    std::ifstream in(_path, std::ios::binary);
     out.resize(e.size);
     in.seekg(std::streamoff(e.offset));
     if (!in || (e.size && !in.read(reinterpret_cast<char *>(out.data()), std::streamsize(e.size))))

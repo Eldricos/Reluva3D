@@ -41,7 +41,8 @@ inline Bytes zlibStored(const Bytes &data) {
     put16(z, uint32_t(data.size()));
     put16(z, uint32_t(~data.size() & 0xffff));
     z.insert(z.end(), data.begin(), data.end());
-    uint32_t a = 1, b = 0;
+    uint32_t a = 1;
+    uint32_t b = 0;
     for (uint8_t v : data) {
         a = (a + v) % 65521;
         b = (b + a) % 65521;
@@ -216,7 +217,12 @@ inline Bytes objectRecord(const char *name, uint8_t type, const std::vector<std:
 
 struct TestPlacement {
     uint8_t flags;
-    int tag, object, x, y, id, layer;
+    int tag;
+    int object;
+    int x;
+    int y;
+    int id;
+    int layer;
     std::vector<std::pair<int, int>> timings;
 };
 

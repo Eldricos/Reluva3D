@@ -1116,13 +1116,13 @@ on all-completed
 } // namespace
 
 const std::vector<MissionScript> &missionScripts() {
-    static const std::vector<MissionScript> scripts = [] {
+    static const std::vector<MissionScript> kParsed = [] {
         std::vector<MissionScript> s;
         if (Error err = parseMissionScripts(kScripts, s))
             s.clear(); // the tests parse it, so this doesn't happen
         return s;
     }();
-    return scripts;
+    return kParsed;
 }
 
 } // namespace reluva::newworlds

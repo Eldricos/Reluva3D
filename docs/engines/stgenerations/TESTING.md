@@ -47,6 +47,13 @@ checksums, counts and summary lines. The play steps run the game's code,
 (see [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)); keep a baseline
 of your own there.
 
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/stgenerations/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
+
 ## A playthrough by hand
 
 ### Still to check
@@ -117,7 +124,7 @@ With a copy of the 2 CD English release (installed, and both CDs):
 - **Against STG-Engine itself:** STG-Engine, built from its `main` and run
   headless on the same files, went into the first away mission, walked a
   few steps and quick-saved. That save, copied in as `stg.s00`, loads in
-  this engine (F7 in a mission, its quick load, or the menu): the 3D
+  this engine (from the game's menu, or F7 in the data viewer): the 3D
   view it shows is the same as STG-Engine's when it saved, pixel for
   pixel, the console's status line aside. So STG-Engine's saves carry
   over, and the port draws a mission as STG-Engine did.

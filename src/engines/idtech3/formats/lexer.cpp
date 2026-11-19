@@ -6,31 +6,31 @@
 namespace reluva::idtech3 {
 
 bool Lexer::skipSpace(bool crossLines) {
-    while (pos_ < text_.size()) {
-        const char c = text_[pos_];
+    while (_pos < _text.size()) {
+        const char c = _text[_pos];
         if (c == '\n') {
             if (!crossLines)
                 return false;
-            ++line_;
-            ++pos_;
+            ++_line;
+            ++_pos;
         } else if (static_cast<unsigned char>(c) <= ' ') {
-            ++pos_;
-        } else if (c == '/' && pos_ + 1 < text_.size() && text_[pos_ + 1] == '/') {
-            while (pos_ < text_.size() && text_[pos_] != '\n')
-                ++pos_;
-        } else if (c == '/' && pos_ + 1 < text_.size() && text_[pos_ + 1] == '*') {
+            ++_pos;
+        } else if (c == '/' && _pos + 1 < _text.size() && _text[_pos + 1] == '/') {
+            while (_pos < _text.size() && _text[_pos] != '\n')
+                ++_pos;
+        } else if (c == '/' && _pos + 1 < _text.size() && _text[_pos + 1] == '*') {
             // A block comment counts as crossing the lines it spans.
-            const size_t close = text_.find("*/", pos_ + 2);
-            const size_t stop = close == std::string_view::npos ? text_.size() : close + 2;
-            for (size_t i = pos_; i < stop; ++i)
-                if (text_[i] == '\n') {
+            const size_t close = _text.find("*/", _pos + 2);
+            const size_t stop = close == std::string_view::npos ? _text.size() : close + 2;
+            for (size_t i = _pos; i < stop; ++i)
+                if (_text[i] == '\n') {
                     if (!crossLines) {
-                        pos_ = i;
+                        _pos = i;
                         return false;
                     }
-                    ++line_;
+                    ++_line;
                 }
-            pos_ = stop;
+            _pos = stop;
         } else {
             break;
         }
@@ -39,38 +39,38 @@ bool Lexer::skipSpace(bool crossLines) {
 }
 
 std::optional<std::string_view> Lexer::next(bool crossLines) {
-    if (!skipSpace(crossLines) || pos_ >= text_.size())
+    if (!skipSpace(crossLines) || _pos >= _text.size())
         return std::nullopt;
-    if (text_[pos_] == '"') {
-        const size_t start = ++pos_;
-        while (pos_ < text_.size() && text_[pos_] != '"') {
-            if (text_[pos_] == '\n')
-                ++line_;
-            ++pos_;
+    if (_text[_pos] == '"') {
+        const size_t start = ++_pos;
+        while (_pos < _text.size() && _text[_pos] != '"') {
+            if (_text[_pos] == '\n')
+                ++_line;
+            ++_pos;
         }
-        std::string_view tok = text_.substr(start, pos_ - start);
-        if (pos_ < text_.size())
-            ++pos_; // closing quote
+        std::string_view tok = _text.substr(start, _pos - start);
+        if (_pos < _text.size())
+            ++_pos; // closing quote
         return tok;
     }
-    const size_t start = pos_;
-    while (pos_ < text_.size() && static_cast<unsigned char>(text_[pos_]) > ' ')
-        ++pos_;
-    return text_.substr(start, pos_ - start);
+    const size_t start = _pos;
+    while (_pos < _text.size() && static_cast<unsigned char>(_text[_pos]) > ' ')
+        ++_pos;
+    return _text.substr(start, _pos - start);
 }
 
 std::optional<std::string_view> Lexer::peek(bool crossLines) {
-    const size_t pos = pos_;
-    const int line = line_;
+    const size_t pos = _pos;
+    const int line = _line;
     auto tok = next(crossLines);
-    pos_ = pos;
-    line_ = line;
+    _pos = pos;
+    _line = line;
     return tok;
 }
 
 void Lexer::skipLine() {
-    while (pos_ < text_.size() && text_[pos_] != '\n')
-        ++pos_;
+    while (_pos < _text.size() && _text[_pos] != '\n')
+        ++_pos;
 }
 
 bool Lexer::skipBlock() {
@@ -86,7 +86,7 @@ bool Lexer::skipBlock() {
 
 bool Lexer::atEnd() {
     skipSpace(true);
-    return pos_ >= text_.size();
+    return _pos >= _text.size();
 }
 
 } // namespace reluva::idtech3

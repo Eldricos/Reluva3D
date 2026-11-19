@@ -26,19 +26,20 @@ class WalkGrid {
 public:
     static constexpr int kSize = 64;
     struct Cell {
-        int a = -1, b = -1;
+        int a = -1;
+        int b = -1;
         bool valid() const { return a >= 0 && b >= 0; }
         bool operator==(const Cell &o) const { return a == o.a && b == o.b; }
     };
 
     // From a CAMR record; false if it has no grid.
     bool load(const Ac2Record &camr);
-    bool empty() const { return size_ <= 0; }
-    int cellSize() const { return size_; }
-    uint8_t at(int a, int b) const { return inside(a, b) ? cells_[size_t(a * kSize + b)] : 1; }
+    bool empty() const { return _size <= 0; }
+    int cellSize() const { return _size; }
+    uint8_t at(int a, int b) const { return inside(a, b) ? _cells[size_t(a * kSize + b)] : 1; }
     void set(Cell c, uint8_t value) {
         if (inside(c.a, c.b))
-            cells_[size_t(c.a * kSize + c.b)] = value;
+            _cells[size_t(c.a * kSize + c.b)] = value;
     }
     static bool inside(int a, int b) { return a >= 0 && b >= 0 && a < kSize && b < kSize; }
 
@@ -65,7 +66,9 @@ public:
     // heading of the turn into each. Returns how many, or 0 or less if
     // there's no path.
     struct Point {
-        double a = 0, b = 0, heading = 0;
+        double a = 0;
+        double b = 0;
+        double heading = 0;
     };
     int search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point> &out) const;
     // The x87's precision the search follows: 24 bits, as in the game
@@ -73,8 +76,8 @@ public:
     static void setSinglePrecision(bool on);
 
 private:
-    int size_ = 0;
-    std::array<uint8_t, kSize * kSize> cells_{};
+    int _size = 0;
+    std::array<uint8_t, kSize * kSize> _cells{};
 };
 
 } // namespace reluva::awe

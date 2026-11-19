@@ -6,7 +6,7 @@
 namespace reluva::stharbinger {
 
 bool Font::load(SeekableReadStream &stream) {
-    glyphs_.clear();
+    _glyphs.clear();
     int count = stream.readUint16LE();
     if (stream.err() || count <= 0 || count > 224)
         return false;
@@ -17,20 +17,20 @@ bool Font::load(SeekableReadStream &stream) {
         int length = stream.readByte();
         g.bits.resize(length);
         if (length && stream.read(g.bits.data(), uint32_t(length)) != uint32_t(length)) {
-            glyphs_.clear();
+            _glyphs.clear();
             return false;
         }
         g.pitch = g.height ? length / g.height : 0;
-        glyphs_.push_back(std::move(g));
+        _glyphs.push_back(std::move(g));
     }
     return true;
 }
 
 const Font::Glyph *Font::getGlyph(char c) const {
     int index = int(uint8_t(c)) - 0x20;
-    if (index < 0 || index >= int(glyphs_.size()))
+    if (index < 0 || index >= int(_glyphs.size()))
         index = 0;
-    return glyphs_.empty() ? nullptr : &glyphs_[index];
+    return _glyphs.empty() ? nullptr : &_glyphs[index];
 }
 
 int Font::getStringWidth(const std::string &text) const {

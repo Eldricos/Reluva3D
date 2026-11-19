@@ -24,19 +24,18 @@ reluva_add_engine(awe
         game/dialogue.cpp
         game/game_paths.cpp
         game/picking.cpp
+        game/scene_autoplay.cpp
+        game/scene_cursor.cpp
+        game/scene_interface.cpp
+        game/scene_inventory.cpp
+        game/scene_options.cpp
+        game/scene_outdoors.cpp
+        game/scene_page.cpp
+        game/scene_puzzles.cpp
+        game/scene_saves.cpp
         game/script.cpp
         game/story.cpp
         game/walk_grid.cpp
-        pages/model_viewer.cpp
-        pages/scene_autoplay.cpp
-        pages/scene_cursor.cpp
-        pages/scene_interface.cpp
-        pages/scene_inventory.cpp
-        pages/scene_options.cpp
-        pages/scene_outdoors.cpp
-        pages/scene_puzzles.cpp
-        pages/scene_saves.cpp
-        pages/viewers.cpp
         render/lighting.cpp
         render/model_draw.cpp
         render/movie_player.cpp
@@ -44,13 +43,22 @@ reluva_add_engine(awe
         render/shadows.cpp
         render/sprite.cpp
         ui/dialogue_box.cpp
-        ui/game_text.cpp)
+        ui/game_text.cpp
+        ui/page.cpp)
 # Characters are skinned and lit on every core (common/parallel.h).
 find_package(Threads REQUIRED)
 target_link_libraries(reluva_engine_awe PUBLIC Threads::Threads)
 # The path-finder and the compressed curves match the game's arithmetic
 # only without fused multiply-adds: off everywhere but Visual Studio (the
 # top CMakeLists.txt), which doesn't fuse unless asked.
+
+# Its data viewer (pages/), in reluva-viewer only: the game's scenes with
+# the scene browser, models, movies, pictures, text and sounds.
+reluva_add_engine_viewers(awe
+    ACCESSOR aweMetaViewer
+    SOURCES
+        pages/model_viewer.cpp
+        pages/viewers.cpp)
 
 # Its reluva-tool commands (reluva-tool help awe lists them). They play the
 # game in a window with -3d (the SDL backend's renderer), so the

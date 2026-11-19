@@ -19,24 +19,33 @@ namespace reluva::netimmerse {
 // docs/engines/netimmerse/games/legoalphateam/formats/ddf.md.
 struct DdfFont {
     struct Glyph {
-        int x = 0, y = 0; // its top-left corner on its page
-        int above = 0;    // rows from its top down to the baseline
-        int below = 0;    // rows under the baseline (negative: it ends above it)
-        int left = 0;     // its left edge from the pen (negative: left of it)
-        int right = 0;    // its right edge from the pen
-        int advance = 0;  // how far the pen moves after it
+        // its top-left corner on its page
+        int x = 0;
+        int y = 0;
+        int above = 0;   // rows from its top down to the baseline
+        int below = 0;   // rows under the baseline (negative: it ends above it)
+        int left = 0;    // its left edge from the pen (negative: left of it)
+        int right = 0;   // its right edge from the pen
+        int advance = 0; // how far the pen moves after it
         int page = 0;
         int width() const { return right - left; }
         int height() const { return above + below; }
     };
     std::string name; // the Windows font's ("Arial")
-    int pageWidth = 0, pageHeight = 0, pages = 0;
-    int first = 0, last = -1; // the characters drawn (Windows-1252)
+    int pageWidth = 0;
+    int pageHeight = 0;
+    int pages = 0;
+    // the characters drawn (Windows-1252)
+    int first = 0;
+    int last = -1;
     // Each page's characters are drawn at a size of their own (the second
     // page, 128 to 255, smaller): its rows above and below the baseline.
     // The game scales each page to the same height on screen.
-    std::vector<int> pageAscent, pageDescent;
-    int lineHeight = 0, descent = 0; // the first page's: the font's line
+    std::vector<int> pageAscent;
+    std::vector<int> pageDescent;
+    // the first page's: the font's line
+    int lineHeight = 0;
+    int descent = 0;
     // The space isn't in the font: the game's text window moves the pen by
     // a width of its own (UITextWin, 18/35 of the size it was made with).
     // The viewer's choice: a quarter of the line.

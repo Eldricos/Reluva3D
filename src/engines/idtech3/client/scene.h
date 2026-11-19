@@ -22,8 +22,14 @@ namespace reluva::idtech3 {
 // 2D: a part of a shader stretched over a rectangle of the screen (in
 // 640x480), tinted.
 struct Picture {
-    float x, y, w, h;
-    float s1, t1, s2, t2;
+    float x;
+    float y;
+    float w;
+    float h;
+    float s1;
+    float t1;
+    float s2;
+    float t2;
     int32_t shader; // in the program's shaders
     std::array<float, 4> color;
     // Degrees turned about the top-right corner (x + w, y), as the
@@ -46,9 +52,15 @@ struct SceneEntity {
 // the world.
 struct View {
     std::vector<uint8_t> refdef;
-    size_t firstEntity = 0, entityCount = 0; // in entities
-    size_t firstPoly = 0, polyCount = 0;     // in polys
-    size_t firstLight = 0, lightCount = 0;   // in lights
+    // in entities
+    size_t firstEntity = 0;
+    size_t entityCount = 0;
+    // in polys
+    size_t firstPoly = 0;
+    size_t polyCount = 0;
+    // in lights
+    size_t firstLight = 0;
+    size_t lightCount = 0;
     // The pictures drawn before it: it goes over them and under the rest,
     // as the original draws in the order asked.
     size_t picturesBefore = 0;
@@ -61,7 +73,8 @@ struct Scene {
     // (AddLightToScene: origin, intensity, which is the radius it
     // reaches, and colour).
     struct Poly {
-        int32_t shader = 0, vertexCount = 0;
+        int32_t shader = 0;
+        int32_t vertexCount = 0;
         std::vector<uint8_t> vertices;
     };
     std::vector<Poly> polys;

@@ -17,16 +17,23 @@ reluva_add_engine(clue
         game/netplay.cpp
         game/play.cpp
         game/rules.cpp
+        ui/frontend.cpp
+        ui/frontend_net.cpp
+        ui/movie.cpp
+        ui/ui.cpp)
+
+# Its data viewer (the mansion, videos, animations, images, sounds, text),
+# in reluva-viewer.
+reluva_add_engine_viewers(clue
+    ACCESSOR clueMetaViewer
+    SOURCES
+        pages/viewer.cpp
         pages/animation_viewer.cpp
         pages/image_viewer.cpp
         pages/mansion_viewer.cpp
         pages/sound_viewer.cpp
         pages/text_viewer.cpp
-        pages/video_viewer.cpp
-        ui/frontend.cpp
-        ui/frontend_net.cpp
-        ui/movie.cpp
-        ui/ui.cpp)
+        pages/video_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help clue lists them).
 reluva_add_engine_tools(clue
@@ -37,8 +44,8 @@ reluva_add_engine_tools(clue
 
 # Its tests (tests/engines/clue/), in reluva-tests: the unit tests by topic,
 # on files built in the tests, and the engine test, without game files (a
-# small install of its own played through, its record in
-# data/engine-record.txt). See docs/DEVELOPMENT.md (Tests).
+# small install of its own played through, and its data viewer; its record
+# in data/engine-record.txt). See docs/DEVELOPMENT.md (Tests).
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/clue)
 reluva_add_engine_tests(clue
     SOURCES
@@ -61,4 +68,4 @@ reluva_add_gamedata_test(clue
     GAME clue
     ENV RELUVA_CLUE
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files levels boards play)
+    STEPS release files levels boards play viewer)

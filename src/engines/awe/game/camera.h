@@ -15,10 +15,13 @@
 namespace reluva::awe {
 
 struct SceneCamera {
-    float fovY = 0.785f, nearPlane = 10, farPlane = 10000; // vertical, radians
-    float position[3] = {0, 0, 0};                         // the point the camera turns about
-    float elevAzimRoll[3] = {0, 0, 0};                     // radians
-    float offset[3] = {0, 0, 0};                           // from that point, in the camera's axes
+    // vertical, radians
+    float fovY = 0.785f;
+    float nearPlane = 10;
+    float farPlane = 10000;
+    float position[3] = {0, 0, 0};     // the point the camera turns about
+    float elevAzimRoll[3] = {0, 0, 0}; // radians
+    float offset[3] = {0, 0, 0};       // from that point, in the camera's axes
 
     static SceneCamera fromRecord(const Ac2Record &camr);
 

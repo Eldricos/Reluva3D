@@ -35,15 +35,18 @@ public:
     // and y forward negative, as the original's), 0 when not analog.
     struct Frame {
         std::vector<std::pair<int32_t, bool>> keys;
-        int32_t x = 0, y = 0;
+        int32_t x = 0;
+        int32_t y = 0;
     };
     Frame frame(const CvarStore &cvars);
 
 private:
-    uint32_t buttons_ = 0, lastButtons_ = 0; // JOY1 to JOY32 held
-    std::array<int32_t, 4> axes_{};          // -32768 to 32767
-    uint8_t hat_ = 0;
-    uint32_t lastWays_ = 0; // the axes' and hat's keys held (the original's bits)
+    // JOY1 to JOY32 held
+    uint32_t _buttons = 0;
+    uint32_t _lastButtons = 0;
+    std::array<int32_t, 4> _axes{}; // -32768 to 32767
+    uint8_t _hat = 0;
+    uint32_t _lastWays = 0; // the axes' and hat's keys held (the original's bits)
 };
 
 } // namespace reluva::idtech3

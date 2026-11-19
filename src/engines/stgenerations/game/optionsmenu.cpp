@@ -14,10 +14,15 @@ namespace {
 const char *const kArchive = "OPTIONS.DAT";
 
 // The panels' corner on the screen.
-const int kPanelX = 227, kPanelY = 29;
+const int kPanelX = 227;
+const int kPanelY = 29;
 // Slot rows on the Load and Save panels, within the panel, as OPTSAVE.BMP draws them.
-const int kSlotTop = 33, kSlotPitch = 30, kSlotHeight = 26;
-const int kSlotNameX = 31, kSlotDateX = 232, kSlotRight = 309;
+const int kSlotTop = 33;
+const int kSlotPitch = 30;
+const int kSlotHeight = 26;
+const int kSlotNameX = 31;
+const int kSlotDateX = 232;
+const int kSlotRight = 309;
 const int kMaxNameLength = 48;
 // The volume sliders, within the Settings panel.
 const Rect kEffectsSlider(106, 126, 318, 144);
@@ -25,7 +30,8 @@ const Rect kMusicSlider(106, 157, 318, 175);
 const int kSliderSteps = 30;
 
 // The selected key cell's highlight, KEYHIGH.BMP, from the cell (0x483C8B).
-const int kKeyHighX = -3, kKeyHighY = -6;
+const int kKeyHighX = -3;
+const int kKeyHighY = -6;
 
 } // namespace
 
@@ -73,7 +79,9 @@ bool OptionsMenu::load() {
         return false;
     _palette = decoder.getPalette();
     for (int i = 0; i < 256; i++) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         _palette.getColor(i, r, g, b);
         _dim[i] = _palette.findBestColor(r * 2 / 5, g * 2 / 5, b * 2 / 5);
     }
@@ -210,20 +218,20 @@ void OptionsMenu::mouseUp(int x, int y) {
 void OptionsMenu::keyDown(const KeyState &key) {
     if (_captureCell >= 0) {
         // The original takes Escape as a key here too; this lets it cancel.
-        if (key.keycode == reluva::key::Escape)
+        if (key.keycode == reluva::key::kEscape)
             _captureCell = -1;
         else
             assignKey(KeyMap::virtualKey(key.keycode));
         return;
     }
-    if (key.keycode == reluva::key::Escape) {
+    if (key.keycode == reluva::key::kEscape) {
         if (_panel != kPanelMain)
             cancel();
         else if (_canReturn)
             click(kReturnButton);
         return;
     }
-    if (key.keycode == reluva::key::Return) {
+    if (key.keycode == reluva::key::kReturn) {
         if (_panel != kPanelMain)
             accept();
         else if (_canReturn)
@@ -231,7 +239,7 @@ void OptionsMenu::keyDown(const KeyState &key) {
         return;
     }
     if (_panel == kPanelSave && _selected >= 0) {
-        if (key.keycode == reluva::key::Backspace) {
+        if (key.keycode == reluva::key::kBackspace) {
             if (!_editName.empty())
                 _editName.pop_back();
         } else if (key.ascii >= 32 && key.ascii < 127 && (int)_editName.size() < kMaxNameLength &&
@@ -255,7 +263,8 @@ void OptionsMenu::openPanel(Panel panel) {
 
 Rect OptionsMenu::cellRect(int cell) {
     int action = cell / 2;
-    int x = (action < 10 ? 84 : 252) + 34 * (cell % 2), y = 37 + 30 * (action % 10);
+    int x = (action < 10 ? 84 : 252) + 34 * (cell % 2);
+    int y = 37 + 30 * (action % 10);
     return Rect(x, y, x + 32, y + 26);
 }
 
@@ -420,7 +429,8 @@ void OptionsMenu::cancel() {
 }
 
 bool OptionsMenu::clickPanel(int x, int y, bool drag) {
-    int px = x - kPanelX, py = y - kPanelY;
+    int px = x - kPanelX;
+    int py = y - kPanelY;
     if (_panel == kPanelSettings) {
         for (int i = 0; i < 2; i++) {
             const Rect &slider = i == 0 ? kEffectsSlider : kMusicSlider;

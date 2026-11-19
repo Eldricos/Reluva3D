@@ -8,7 +8,8 @@
 #   third_party/.clang-format    code from other projects
 #   <build folder>/.clang-format written by CMake: SDL3 and Dear ImGui,
 #                                which CMake downloads into _deps/
-# src/backends/sdl3/ is Reluva's own code and is formatted.
+# src/backends/graphics/sdl3/ and src/backends/platform/sdl3/ are Reluva's own
+# code and are formatted.
 
 # Generated (each names the script that writes it)
 src/backends/graphics/sdl3/shaders/compiled.h

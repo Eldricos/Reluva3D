@@ -9,15 +9,17 @@
 #include "common/types.h"
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 namespace reluva::audio {
 
 // What a sound is, for the per-type volumes (a game's music, speech and
 // effects settings).
-enum class SoundType { Music, Speech, Effects };
+enum class SoundType { kMusic, kSpeech, kEffects };
 constexpr int kSoundTypes = 3;
 
 // A playing sound, as returned by Mixer::play; 0 is never one.
@@ -38,9 +40,9 @@ constexpr int kMaxPan = 127; // pan runs -127 (left) .. 127 (right)
 // Thread-safe.
 class SoundStream {
 public:
-    SoundStream(int rate, int channels) : rate_(rate), channels_(channels) {}
-    int rate() const { return rate_; }
-    int channels() const { return channels_; }
+    SoundStream(int rate, int channels) : _rate(rate), _channels(channels) {}
+    int rate() const { return _rate; }
+    int channels() const { return _channels; }
     // Adds interleaved samples (whole frames).
     void push(const int16_t *samples, size_t count);
     // No more will come: the stream ends once what's queued has played.
@@ -50,11 +52,48 @@ public:
 
 private:
     friend class Mixer;
-    const int rate_, channels_;
-    mutable std::mutex mutex_;
-    std::vector<int16_t> samples_; // queued, oldest first
-    size_t read_ = 0;              // samples_ before this have been taken
-    bool ended_ = false;
+    const int _rate;
+    const int _channels;
+    mutable std::mutex _mutex;
+    std::vector<int16_t> _samples; // queued, oldest first
+    size_t _read = 0;              // samples_ before this have been taken
+    bool _ended = false;
+};
+
+// Sound made as it plays at the output's rate (an emulated sound card's
+// mix of its buffers, say), pulled by the mixer on the audio thread
+// (Mixer::playOutput): it resamples, as such a card would, and plays until
+// stopped.
+class OutputStream {
+public:
+    virtual ~OutputStream() = default;
+    // Fills `frames` stereo frames (interleaved signed 16-bit) at `rate`
+    // frames a second. Runs on the audio thread.
+    virtual void read(int16_t *out, int frames, int rate) = 0;
+};
+
+// Sounds played one after another with nothing between them: a queue
+// the engine fills (ahead of time) while the mixer reads it. Each sound's
+// last frame leads into the next one's first, so music in pieces plays as
+// one. Each sound is tagged with a number of the engine's, for telling
+// which is playing.
+class SoundQueue : public OutputStream {
+public:
+    void push(std::shared_ptr<const Sound> sound, int tag);
+    // The tag of the sound playing (-1: none left), and how many sounds are
+    // queued with it.
+    int playing() const;
+    size_t queued() const;
+    void read(int16_t *out, int frames, int rate) override;
+
+private:
+    struct Entry {
+        std::shared_ptr<const Sound> sound;
+        int tag;
+    };
+    mutable std::mutex _mutex;
+    std::deque<Entry> _queue;
+    double _position = 0; // in the first sound's frames
 };
 
 // Mixes any number of decoded sounds and streams into the System's stereo output:
@@ -79,6 +118,8 @@ public:
     // and again whenever it runs dry.
     SoundHandle playStream(std::shared_ptr<SoundStream> stream, SoundType type, int volume = kMaxVolume, int pan = 0,
                            int prebufferMs = 100);
+    // Starts an OutputStream, which plays until stopped.
+    SoundHandle playOutput(std::shared_ptr<OutputStream> stream, SoundType type, int volume = kMaxVolume);
     void stop(SoundHandle handle);
     void stopType(SoundType type);
     void stopAll();
@@ -100,8 +141,8 @@ public:
 
     void setVolume(SoundHandle handle, int volume);
     void setPan(SoundHandle handle, int pan);
-    // Its speed and pitch together: 1 as recorded, 2 an octave up.
-    void setPitch(SoundHandle handle, double pitch);
+    // Plays a sound faster or slower (and higher or lower) by `factor`.
+    void setRate(SoundHandle handle, double factor);
     // How muffled it is, 0 (as recorded) to 1: a low-pass filter whose
     // cutoff falls to about a kilohertz (a sound heard through a wall).
     void setMuffle(SoundHandle handle, float muffle);
@@ -129,7 +170,7 @@ public:
     void setMasterVolume(int volume);
     int masterVolume() const;
 
-    int outputRate() const { return outputRate_; }
+    int outputRate() const { return _outputRate; }
 
     // Fills `frames` stereo frames (interleaved signed 16-bit) with every
     // playing sound; silence when none is. The System's audio callback.
@@ -141,31 +182,31 @@ private:
         std::shared_ptr<const Sound> sound; // or
         std::shared_ptr<Stream> stream;
         SoundType type;
-        int volume, pan;
+        int volume;
+        int pan;
         bool loop;
         bool paused = false;
         double position = 0; // in the sound's frames
-        double pitch = 1;
         float muffle = 0;
         double lowL = 0, lowR = 0; // the low-pass filter's last output
         bool done = false;
         // A stream's: the frames either side of `position`, and the next.
-        int16_t cur[2] = {0, 0}, next[2] = {0, 0};
+        int16_t cur[2] = {0, 0};
+        int16_t next[2] = {0, 0};
         bool primed = false;
         // A SoundStream's (playStream), instead of a sound or a stream.
         std::shared_ptr<SoundStream> queue = nullptr;
         size_t prebuffer = 0; // frames it waits for
         bool waiting = true;  // it has run dry
+        // An OutputStream's (playOutput), instead of the others.
+        std::shared_ptr<OutputStream> output = nullptr;
+        double rate = 1; // a factor on a sound's own rate (setRate)
         // A biquad's coefficients and its state per side (x1 x2 y1 y2).
         struct Biquad {
             double a0 = 1, a1 = 0, a2 = 0, b1 = 0, b2 = 0;
             double state[2][4] = {};
             double run(int side, double x);
         };
-        void mixSound(Channel &c, int frames, int64_t gain);
-        void mixStream(Channel &c, int frames, int64_t gain);
-        void mixQueue(Channel &c, int frames, int64_t gain);
-        static bool readFrame(Stream &s, int16_t frame[2]);
         Filter filter = Filter::None;
         float filterHz = 0;
         Biquad biquad;
@@ -183,22 +224,45 @@ private:
         std::shared_ptr<ReverbState> reverb; // none: dry
         double tailLeft = -1;                // output frames of reverb tail still to go (-1: not begun)
     };
+    void mixOutput(Channel &c, int frames, int64_t gain);
+    std::vector<int16_t> _outputBuffer; // an OutputStream's frames, before mixing
+    void mixSound(Channel &c, int frames, int64_t gain);
+    void mixStream(Channel &c, int frames, int64_t gain);
+    void mixQueue(Channel &c, int frames, int64_t gain);
+    static bool readFrame(Stream &s, int16_t frame[2]);
     void setUpReverb(Channel &c, const Reverb &r) const;
+    static void reverbFrame(Channel::ReverbState &rv, double &l, double &r);
     Channel *find(SoundHandle handle);
     const Channel *find(SoundHandle handle) const;
 
-    const int outputRate_;
-    mutable std::mutex mutex_;
-    std::vector<Channel> channels_;
-    SoundHandle nextHandle_ = 1;
-    int typeVolume_[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
-    int masterVolume_ = kMaxVolume;
-    bool allPaused_ = false;
-    std::vector<int32_t> accumulator_; // mix()'s working buffer, stereo
+    const int _outputRate;
+    mutable std::mutex _mutex;
+    std::vector<Channel> _channels;
+    SoundHandle _nextHandle = 1;
+    int _typeVolume[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
+    int _masterVolume = kMaxVolume;
+    bool _allPaused = false;
+    std::vector<int32_t> _accumulator; // mix()'s working buffer, stereo
 };
 
 // Starts the System's audio output with the mixer as its source. The mixer
 // must outlive the output: call sys.stopAudio() before destroying it.
 Error startMixerOutput(System &sys, Mixer &mixer);
+
+// What a Pro Logic decoder model (prologic.h) makes of the mixer's stereo
+// on the way out; an engine's surround= setting.
+enum class Surround {
+    kOff,        // stereo, as mixed (the default; any other setting value)
+    kProLogic,   // "prologic": decoded, to a 4.0 or 5.1 device when the default has 4 channels or more
+    kPassive,    // "passive": as ProLogic with the passive matrix alone
+    kHeadphones, // "headphones": decoded and folded back to stereo
+};
+Surround surroundFromSetting(const std::string &value);
+
+// startMixerOutput through the decoder. ProLogic and Passive open 6
+// channels when the device has 6 or more, 4 when it has 4 or 5, and fall
+// back to plain stereo otherwise. `channels`, when given, gets the count
+// opened.
+Error startMixerOutput(System &sys, Mixer &mixer, Surround surround, int *channels = nullptr);
 
 } // namespace reluva::audio

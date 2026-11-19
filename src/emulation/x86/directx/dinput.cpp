@@ -31,13 +31,22 @@ const char *const kZAxis = "{a36d02e2-c9f3-11cf-bfc7-444553540000}";
 const char *const kButton = "{a36d02f0-c9f3-11cf-bfc7-444553540000}";
 const char *const kKey = "{55728220-d33c-11cf-bfc7-444553540000}";
 
-constexpr uint32_t kOk = 0, kNoEffect = 1, kBufferOverflow = 1;
-constexpr uint32_t kErrInvalidParam = 0x80070057u, kErrNotAcquired = 0x8007000cu, kErrDeviceNotReg = 0x80040154u,
-                   kErrNotFound = 0x80070002u, kErrUnsupported = 0x80004001u;
+constexpr uint32_t kOk = 0;
+constexpr uint32_t kNoEffect = 1;
+constexpr uint32_t kBufferOverflow = 1;
+constexpr uint32_t kErrInvalidParam = 0x80070057u;
+constexpr uint32_t kErrNotAcquired = 0x8007000cu;
+constexpr uint32_t kErrDeviceNotReg = 0x80040154u;
+constexpr uint32_t kErrNotFound = 0x80070002u;
+constexpr uint32_t kErrUnsupported = 0x80004001u;
 // Data format object types (DIDFT_).
-constexpr uint32_t kTypeAxis = 0x3, kTypeButton = 0xc, kTypeAnyInstance = 0xffff, kTypeOptional = 0x80000000u;
+constexpr uint32_t kTypeAxis = 0x3;
+constexpr uint32_t kTypeButton = 0xc;
+constexpr uint32_t kTypeAnyInstance = 0xffff;
+constexpr uint32_t kTypeOptional = 0x80000000u;
 constexpr uint32_t kRelativeAxes = 2; // DIDF_RELAXIS
-constexpr uint32_t kDevTypeMouse = 2, kDevTypeKeyboard = 3;
+constexpr uint32_t kDevTypeMouse = 2;
+constexpr uint32_t kDevTypeKeyboard = 3;
 
 const std::vector<ComInterface::Method> kUnknown = {{"QueryInterface", 2}, {"AddRef", 0}, {"Release", 0}};
 std::vector<ComInterface::Method> with(std::vector<ComInterface::Method> m) {
@@ -111,7 +120,7 @@ public:
     bool acquired = false;
     // The data format: each object's place in the program's data.
     struct Object {
-        enum class Kind { Axis, Button, Key } kind;
+        enum class Kind { kAxis, kButton, kKey } kind;
         int index;       // axis 0-2, button 0-7, key scan code
         uint32_t offset; // in the data
     };
@@ -119,15 +128,21 @@ public:
     uint32_t dataSize = 0;
     bool relative = true;
     // The device's state.
-    int axes[3]{}, motion[3]{}; // position; movement since last read
+    // position; movement since last read
+    int axes[3]{};
+    int motion[3]{};
     bool buttons[8]{};
     bool keys[256]{};
     // Buffered changes (DIDEVICEOBJECTDATA's offset, data, time, sequence).
     struct Event {
-        uint32_t offset, data, time, sequence;
+        uint32_t offset;
+        uint32_t data;
+        uint32_t time;
+        uint32_t sequence;
     };
     std::deque<Event> buffer;
-    uint32_t bufferSize = 0, sequence = 0;
+    uint32_t bufferSize = 0;
+    uint32_t sequence = 0;
     bool overflowed = false;
 
     const ComInterface *query(const std::string &iid) override {
@@ -140,18 +155,18 @@ public:
     void hear(const Win32Process::RawInput &r) {
         using Kind = Win32Process::RawInput::Kind;
         if (mouse) {
-            if (r.kind == Kind::Motion) {
-                change(Object::Kind::Axis, 0, r.a);
-                change(Object::Kind::Axis, 1, r.b);
-            } else if (r.kind == Kind::Wheel) {
-                change(Object::Kind::Axis, 2, r.a);
-            } else if (r.kind == Kind::Button && r.a >= 0 && r.a < 8) {
+            if (r.kind == Kind::kMotion) {
+                change(Object::Kind::kAxis, 0, r.a);
+                change(Object::Kind::kAxis, 1, r.b);
+            } else if (r.kind == Kind::kWheel) {
+                change(Object::Kind::kAxis, 2, r.a);
+            } else if (r.kind == Kind::kButton && r.a >= 0 && r.a < 8) {
                 buttons[r.a] = r.b != 0;
-                record(Object::Kind::Button, r.a, r.b ? 0x80 : 0);
+                record(Object::Kind::kButton, r.a, r.b ? 0x80 : 0);
             }
-        } else if (r.kind == Kind::Key && r.a >= 0 && r.a < 256) {
+        } else if (r.kind == Kind::kKey && r.a >= 0 && r.a < 256) {
             keys[r.a] = r.b != 0;
-            record(Object::Kind::Key, r.a, r.b ? 0x80 : 0);
+            record(Object::Kind::kKey, r.a, r.b ? 0x80 : 0);
         }
     }
     void change(Object::Kind kind, int axis, int by) {
@@ -179,22 +194,28 @@ public:
     uint32_t setFormat(Cpu &c, uint32_t p) {
         if (!c.valid(p, 24))
             return kErrInvalidParam;
-        const uint32_t objSize = c.read32(p + 4), flags = c.read32(p + 8), count = c.read32(p + 16),
-                       list = c.read32(p + 20);
+        const uint32_t objSize = c.read32(p + 4);
+        const uint32_t flags = c.read32(p + 8);
+        const uint32_t count = c.read32(p + 16);
+        const uint32_t list = c.read32(p + 20);
         if (!c.valid(list, objSize * count))
             return kErrInvalidParam;
         std::vector<Object> found;
-        bool usedAxes[3]{}, usedButtons[8]{}, usedKeys[256]{};
+        bool usedAxes[3]{};
+        bool usedButtons[8]{};
+        bool usedKeys[256]{};
         for (uint32_t i = 0; i < count; ++i) {
             const uint32_t o = list + i * objSize;
-            const uint32_t guidPtr = c.read32(o), offset = c.read32(o + 4), type = c.read32(o + 8);
+            const uint32_t guidPtr = c.read32(o);
+            const uint32_t offset = c.read32(o + 4);
+            const uint32_t type = c.read32(o + 8);
             const std::string guid = guidPtr ? ComHost::guid(c, guidPtr) : std::string();
             const uint32_t instance = (type >> 8) & 0xffff;
             const bool any = instance == kTypeAnyInstance;
             int index = -1;
             Object::Kind kind;
             if (mouse && (guid == kXAxis || guid == kYAxis || guid == kZAxis || (guid.empty() && (type & kTypeAxis)))) {
-                kind = Object::Kind::Axis;
+                kind = Object::Kind::kAxis;
                 index = guid == kXAxis ? 0 : guid == kYAxis ? 1 : guid == kZAxis ? 2 : any ? -1 : int(instance);
                 if (index < 0)
                     for (int a = 0; a < 3 && index < 0; ++a)
@@ -205,7 +226,7 @@ public:
                 if (index >= 0)
                     usedAxes[index] = true;
             } else if (mouse && (guid == kButton || (guid.empty() && (type & kTypeButton)))) {
-                kind = Object::Kind::Button;
+                kind = Object::Kind::kButton;
                 index = any ? -1 : int(instance);
                 if (index < 0)
                     for (int b = 0; b < 8 && index < 0; ++b)
@@ -216,7 +237,7 @@ public:
                 if (index >= 0)
                     usedButtons[index] = true;
             } else if (!mouse && (guid == kKey || (guid.empty() && (type & kTypeButton)))) {
-                kind = Object::Kind::Key;
+                kind = Object::Kind::kKey;
                 index = any ? -1 : int(instance);
                 if (index < 0)
                     for (int k = 0; k < 256 && index < 0; ++k)
@@ -227,7 +248,7 @@ public:
                 if (index >= 0)
                     usedKeys[index] = true;
             } else {
-                kind = Object::Kind::Key;
+                kind = Object::Kind::kKey;
             }
             if (index < 0) {
                 if (type & kTypeOptional)
@@ -287,7 +308,8 @@ public:
         // GetDeviceState(size, data): the objects' state at their offsets;
         // relative axes give the movement since the last read.
         if (m == "GetDeviceState") {
-            const uint32_t size = c.arg(1), p = c.arg(2);
+            const uint32_t size = c.arg(1);
+            const uint32_t p = c.arg(2);
             if (!acquired)
                 return kErrNotAcquired;
             if (!c.valid(p, size) || size < dataSize)
@@ -295,13 +317,13 @@ public:
             std::memset(c.memory().data() + p, 0, size);
             for (const Object &o : objects) {
                 switch (o.kind) {
-                case Object::Kind::Axis:
+                case Object::Kind::kAxis:
                     c.write32(p + o.offset, uint32_t(relative ? motion[o.index] : axes[o.index]));
                     break;
-                case Object::Kind::Button:
+                case Object::Kind::kButton:
                     c.write8(p + o.offset, buttons[o.index] ? 0x80 : 0);
                     break;
-                case Object::Kind::Key:
+                case Object::Kind::kKey:
                     c.write8(p + o.offset, keys[o.index] ? 0x80 : 0);
                     break;
                 }
@@ -313,7 +335,10 @@ public:
         // oldest changes, removed unless DIGDD_PEEK (1); with no data, as
         // many as the count says are dropped.
         if (m == "GetDeviceData") {
-            const uint32_t objSize = c.arg(1), p = c.arg(2), countAt = c.arg(3), flags = c.arg(4);
+            const uint32_t objSize = c.arg(1);
+            const uint32_t p = c.arg(2);
+            const uint32_t countAt = c.arg(3);
+            const uint32_t flags = c.arg(4);
             if (!acquired)
                 return kErrNotAcquired;
             if (!c.valid(countAt, 4) || (p && objSize < 16))
@@ -341,7 +366,8 @@ public:
         }
         // Properties: the buffer's size (1) and the axes' mode (2).
         if (m == "SetProperty" || m == "GetProperty") {
-            const uint32_t which = c.arg(1), p = c.arg(2);
+            const uint32_t which = c.arg(1);
+            const uint32_t p = c.arg(2);
             if (!c.valid(p, 20))
                 return kErrInvalidParam;
             const bool set = m == "SetProperty";
@@ -378,6 +404,7 @@ public:
                 return f;
         return nullptr;
     }
+    // NOLINTNEXTLINE(readability-make-member-function-const): creates a device and registers it
     std::shared_ptr<Device> make(const std::string &guid) {
         if (guid != kSysMouse && guid != kSysKeyboard)
             return nullptr;
@@ -415,7 +442,9 @@ public:
         }
         // EnumDevices(type, callback(DIDEVICEINSTANCEA*, context), context, flags)
         if (m == "EnumDevices") {
-            const uint32_t type = c.arg(1) & 0xff, callback = c.arg(2), context = c.arg(3);
+            const uint32_t type = c.arg(1) & 0xff;
+            const uint32_t callback = c.arg(2);
+            const uint32_t context = c.arg(3);
             const uint32_t desc = s->process.memory().alloc(580);
             for (bool isMouse : {true, false}) {
                 const uint32_t devType = isMouse ? kDevTypeMouse : kDevTypeKeyboard;
@@ -448,8 +477,8 @@ public:
 
 DirectInput::~DirectInput() = default;
 
-DirectInput::DirectInput(Win32Process &process) : s_(std::make_unique<State>(process)) {
-    State *s = s_.get();
+DirectInput::DirectInput(Win32Process &process) : _s(std::make_unique<State>(process)) {
+    State *s = _s.get();
     for (ComInterface *f : {&s->directInput, &s->directInput2, &s->directInput7, &s->device, &s->device2, &s->device7})
         s->com.define(*f);
     auto make = [s] {

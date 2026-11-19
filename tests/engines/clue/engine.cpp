@@ -9,9 +9,10 @@
 // drawn), finds it as the launcher does, and plays it through the engine:
 // the intro, New Game, one player and two computer players set up, the
 // game started, saved from the Esc menu, left, and loaded again from the
-// main menu. What happens goes into a record (counts and checksums of the
-// screens, the titles, the saved games), compared with
-// tests/engines/clue/data/engine-record.txt.
+// main menu. Then its data viewer, as reluva-viewer runs it: every page
+// with something to show, and Esc to leave. What happens goes into a
+// record (counts and checksums of the screens, the titles, the saved
+// games), compared with tests/engines/clue/data/engine-record.txt.
 //
 //   reluva-tests clue.engine [--update]
 
@@ -19,6 +20,7 @@
 #include "engines/clue/formats/level.h"
 #include "engines/clue/game/rules.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/engines/clue/support.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -63,22 +65,23 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
 
 private:
-    size_t next_ = 0;
+    size_t _next = 0;
 };
 
 // The dialogs the game goes through, by their numbers in dialogInfo.res
 // (frontend.cpp), each a column of buttons named by their numbers: button
 // i of a dialog from (40, 40 + 36i) to (240, 70 + 36i). The setup's name
 // box (10) and the save window's (10-17) are text boxes beside them.
-constexpr int kOk = 10001, kReturn = 10000;
+constexpr int kOk = 10001;
+constexpr int kReturn = 10000;
 const std::map<int, std::vector<int>> kDialogs = {
     {1, {0, 1, 2, 3, 5, 7}},                        // the main menu: New Game is 1, Load Game 3, Exit 7
     {2, {0, 1, kReturn}},                           // a game here (0) or over a network (1)
@@ -138,7 +141,8 @@ void putBe24(Bytes &b, uint32_t v) {
 // A 160x120 Cinepak frame of one strip: a V1 codebook of two colours that
 // change with `n`, and every block from it, in a check pattern.
 Bytes cinepakFrame(int n) {
-    constexpr int kW = 160, kH = 120;
+    constexpr int kW = 160;
+    constexpr int kH = 120;
     Bytes codebook;
     for (int e = 0; e < 2; ++e) {
         const uint8_t y = uint8_t(e ? 200 - 20 * n : 40 + 20 * n);
@@ -210,7 +214,10 @@ Bytes movie(int frames) {
     put32(astrf, 44100);
     put16(astrf, 2);
     put16(astrf, 16);
-    Bytes vstrl, astrl, hdrl, movi;
+    Bytes vstrl;
+    Bytes astrl;
+    Bytes hdrl;
+    Bytes movi;
     putChunk(vstrl, "strh", vstrh);
     putChunk(vstrl, "strf", vstrf);
     putChunk(astrl, "strh", astrh);
@@ -275,7 +282,7 @@ void makeInstall(const std::filesystem::path &dir) {
 
 Event key(uint32_t k) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = k;
     return e;
 }
@@ -283,16 +290,16 @@ Event key(uint32_t k) {
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
-    e.clicks = type == EventType::MouseDown ? 1 : 0;
+    e.clicks = type == EventType::kMouseDown ? 1 : 0;
     return e;
 }
 
 Event typed(const char *text) {
     Event e;
-    e.type = EventType::TextInput;
+    e.type = EventType::kTextInput;
     std::snprintf(e.text, sizeof e.text, "%s", text);
     return e;
 }
@@ -307,7 +314,8 @@ std::string listSaves(const std::filesystem::path &dir) {
             // A saved game: its name, and a checksum of the rest (the
             // game as it was).
             std::ifstream in(it->path(), std::ios::binary);
-            std::string tag, name;
+            std::string tag;
+            std::string name;
             if (it->path().extension() == ".sav" && std::getline(in, tag) && saveio::getString(in, name)) {
                 const std::vector<uint8_t> rest((std::istreambuf_iterator<char>(in)), {});
                 what += " (" + tag + ", \"" + name + "\", " + Hash().bytes(rest).hex() + ")";
@@ -340,17 +348,20 @@ void engineTest(const std::filesystem::path &tmp) {
     PlayingSystem sys;
     uint64_t t = 2000;
     const auto click = [&](int dialog, int id, int dx = 0, int dy = 0) {
-        const int x = dx + 140, y = dy + 55 + 36 * buttonRow(dialog, id);
-        sys.inputs.push_back({t, mouse(EventType::MouseMove, x, y)});
-        sys.inputs.push_back({t + 20, mouse(EventType::MouseDown, x, y)});
-        sys.inputs.push_back({t + 40, mouse(EventType::MouseUp, x, y)});
+        const int x = dx + 140;
+        const int y = dy + 55 + 36 * buttonRow(dialog, id);
+        sys.inputs.push_back({t, mouse(EventType::kMouseMove, x, y)});
+        sys.inputs.push_back({t + 20, mouse(EventType::kMouseDown, x, y)});
+        sys.inputs.push_back({t + 40, mouse(EventType::kMouseUp, x, y)});
         t += 1500;
     };
-    constexpr int kOverX = 205, kOverY = 11; // the Esc menu's windows, over the game
-    click(1, 1);                             // New Game
-    click(2, 0);                             // here
-    click(17, 5);                            // Miss Scarlet
-    click(18, 0);                            // a person
+    // the Esc menu's windows, over the game
+    constexpr int kOverX = 205;
+    constexpr int kOverY = 11;
+    click(1, 1);  // New Game
+    click(2, 0);  // here
+    click(17, 5); // Miss Scarlet
+    click(18, 0); // a person
     click(18, kOk);
     click(17, 6); // Colonel Mustard
     click(19, 1); // a computer player
@@ -360,21 +371,21 @@ void engineTest(const std::filesystem::path &tmp) {
     click(20, kOk);
     click(17, 29); // Start
     t += 3000;     // loading, the deal
-    sys.inputs.push_back({t, key(key::Escape)});
+    sys.inputs.push_back({t, key(key::kEscape)});
     t += 1000;
     click(35, 0, kOverX, kOverY); // Save
     click(36, 2, kOverX, kOverY); // the first slot
     sys.inputs.push_back({t, typed("Test")});
     t += 500;
     click(36, 1, kOverX, kOverY); // Save
-    sys.inputs.push_back({t, key(key::Escape)});
+    sys.inputs.push_back({t, key(key::kEscape)});
     t += 1000;
     click(35, 3, kOverX, kOverY); // Exit
     click(44, kOk, kOverX, kOverY);
     click(1, 3); // Load Game
     click(3, 0); // the first slot
     t += 3000;
-    sys.inputs.push_back({t, Event{EventType::ReturnToLauncher}});
+    sys.inputs.push_back({t, Event{EventType::kReturnToLauncher}});
 
     auto game = engine->create(sys, target);
     const Error err = game->run();
@@ -387,13 +398,45 @@ void engineTest(const std::filesystem::path &tmp) {
     rec.add("run.titles", titles);
     rec.add("run.files", listSaves(tmp / "save"));
 
+    // The viewer: the mansion scrolled, its whole house and back; Tab to the
+    // videos (the deal, then the intro), the animations, the images and the
+    // text (the install has no sounds, so their page is passed over); Tab
+    // round to the mansion, and Esc leaves, ending the run.
+    if (const MetaViewer *viewer = findViewer("clue")) {
+        PlayingSystem vsys;
+        uint64_t vt = 1000;
+        const auto press = [&](uint32_t k, uint64_t wait) {
+            vsys.inputs.push_back({vt, key(k)});
+            vt += wait;
+        };
+        for (const uint32_t k : {uint32_t(key::kRight), uint32_t('m'), uint32_t(key::kEscape), uint32_t(key::kTab),
+                                 uint32_t(key::kRight), uint32_t(key::kTab), uint32_t(key::kRight), uint32_t(key::kTab),
+                                 uint32_t(key::kRight), uint32_t(key::kTab), uint32_t(key::kDown), uint32_t(key::kTab)})
+            press(k, 500);
+        press(key::kEscape, 500);
+        // Esc should have ended it: this only stops a run that didn't.
+        const uint64_t stop = vt + 5000;
+        vsys.inputs.push_back({stop, Event{EventType::kReturnToLauncher}});
+        auto run = viewer->create(vsys, target);
+        const Error verr = run->run();
+        rec.add("viewer.result", verr ? "error: " + verr.message : std::string("ok"));
+        rec.add("viewer.left", vsys.getMillis() < stop ? "by Esc" : "not by Esc");
+        rec.add("viewer.screens", std::to_string(vsys.shown) + " " + vsys.screens.hex());
+        std::string vtitles;
+        for (const std::string &title : vsys.titles)
+            vtitles += (vtitles.empty() ? "" : " / ") + title;
+        rec.add("viewer.titles", vtitles);
+    } else {
+        test::fail("clue has no viewer");
+    }
+
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/clue/data/engine-record.txt", "clue.engine",
               "tests/engines/clue/engine.cpp");
 }
 
 } // namespace
 
-static const reluva::test::Suite suite("clue.engine",
-                                       {
-                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("clue.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

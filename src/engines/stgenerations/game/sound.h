@@ -51,7 +51,9 @@ public:
         int positionMode;
         // The billboard or actor followed.
         uint16_t object;
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         // Silent at this distance and beyond.
         double radius;
         // Before it starts, or for fades, in ms.
@@ -59,7 +61,8 @@ public:
         // Times played: 0 or 1 once, kForever forever.
         int32_t repeats;
         // Pause between repeats in ms, chosen at random in the range; 0 loops seamlessly.
-        uint32_t minGap, maxGap;
+        uint32_t minGap;
+        uint32_t maxGap;
         uint32_t flags;
     };
 
@@ -78,7 +81,9 @@ public:
     typedef std::function<bool(int mode, uint16_t object, double &x, double &y, double &z)> ObjectLocator;
 
     struct Listener {
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         // Direction of view; 0 looks along +x, pi/2 along +y.
         double yaw;
     };

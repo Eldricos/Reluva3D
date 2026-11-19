@@ -7,7 +7,9 @@
 // a video on disc 2), finds and imports them as the launcher does, and plays
 // the import through the engine: the opening video with its sound, a scene
 // with an animation and a sound, a click on a hotspot that changes scene,
-// then back to the launcher. What happens goes into a record (counts and
+// then back to the launcher. The same import is then opened in
+// reluva-viewer's scene viewer, stepped through with its keys, and in its
+// one-video mode. What happens goes into a record (counts and
 // checksums of the screens, the palette, the sound and the files written),
 // compared with tests/engines/stharbinger/data/engine-record.txt.
 //
@@ -15,6 +17,7 @@
 
 #include "common/headless_system.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/common/data/smacker_videos.h"
 #include "tests/engines/stharbinger/fixtures.h"
 #include "tests/support/record.h"
@@ -43,9 +46,13 @@ public:
         Event event;
     };
     std::vector<Input> inputs;
-    Hash screens, palettes, sound;
-    int shown = 0, paletteSets = 0;
-    int64_t soundFrames = 0, soundPeak = 0;
+    Hash screens;
+    Hash palettes;
+    Hash sound;
+    int shown = 0;
+    int paletteSets = 0;
+    int64_t soundFrames = 0;
+    int64_t soundPeak = 0;
     std::vector<std::string> titles;
 
     void updateScreen(const Surface &s) override {
@@ -62,45 +69,52 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
     void delayMillis(uint32_t ms) override {
         HeadlessSystem::delayMillis(ms);
-        if (!audio_)
+        if (!_audio)
             return;
-        pending_ += int64_t(ms) * 44100;
-        const int frames = int(pending_ / 1000);
-        pending_ %= 1000;
+        _pending += int64_t(ms) * 44100;
+        const int frames = int(_pending / 1000);
+        _pending %= 1000;
         std::vector<int16_t> buf(size_t(frames) * 2);
-        audio_(buf.data(), frames);
+        _audio(buf.data(), frames);
         sound.bytes(buf.data(), buf.size() * 2);
         soundFrames += frames;
         for (int16_t v : buf)
             soundPeak = std::max<int64_t>(soundPeak, v < 0 ? -int64_t(v) : v);
     }
     Error startAudio(AudioCallback cb) override {
-        audio_ = std::move(cb);
+        _audio = std::move(cb);
         return Error::success();
     }
-    void stopAudio() override { audio_ = nullptr; }
+    void stopAudio() override { _audio = nullptr; }
     int audioRate() const override { return 44100; }
 
 private:
-    size_t next_ = 0;
-    AudioCallback audio_;
-    int64_t pending_ = 0;
+    size_t _next = 0;
+    AudioCallback _audio;
+    int64_t _pending = 0;
 };
 
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
+    return e;
+}
+
+Event keyDown(uint32_t key) {
+    Event e;
+    e.type = EventType::kKeyDown;
+    e.key = key;
     return e;
 }
 
@@ -108,7 +122,8 @@ Event mouse(EventType type, int x, int y) {
 struct Packed {
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
     void archive(const std::string &name, const std::vector<std::vector<uint8_t>> &entries) {
-        std::vector<uint8_t> all, lst;
+        std::vector<uint8_t> all;
+        std::vector<uint8_t> lst;
         for (const auto &e : entries) {
             putU32(lst, uint32_t(all.size()));
             all.insert(all.end(), e.begin(), e.end());
@@ -119,7 +134,8 @@ struct Packed {
     }
     // SSE.ALL, .LST and .CAT holding them, as disc 1's installer archive.
     void write(const std::filesystem::path &dir) {
-        std::vector<uint8_t> all, lst;
+        std::vector<uint8_t> all;
+        std::vector<uint8_t> lst;
         std::string cat = std::to_string(files.size()) + "\r\n";
         for (const auto &[name, data] : files) {
             putU32(lst, uint32_t(all.size()));
@@ -136,7 +152,8 @@ struct Packed {
 void makeDiscs(const std::filesystem::path &cd1, const std::filesystem::path &cd2) {
     // Scene S0: the opening video (ACTIONSEQ 28, on disc 2), an animation and
     // a sound, a hotspot to S1. S1 counts its visits.
-    ScriptBuilder s0, s1;
+    ScriptBuilder s0;
+    ScriptBuilder s1;
     s0.cmd(kCmdScene, {sym(0)})
         .cmd(kCmdActionSeq, {num(28), var(0)})
         .cmd(kCmdAnimDef, {sym(0), sym(kAnimModeClear)})
@@ -229,23 +246,53 @@ void engineTest(const std::filesystem::path &tmp) {
                       library,
                       tmp / "saves",
                       {{"start_scene", "S0"}, {"music_volume", "100"}}};
-    PlayingSystem sys;
-    sys.inputs = {{2000, mouse(EventType::MouseMove, 150, 150)},
-                  {2020, mouse(EventType::MouseDown, 150, 150)},
-                  {3000, Event{EventType::ReturnToLauncher}}};
-    auto game = engine->create(sys, target);
-    const Error err = game->run();
-    rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
-    rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
-    rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
-    rec.add("run.palettes", std::to_string(sys.paletteSets) + " " + sys.palettes.hex());
-    rec.add("run.sound",
-            std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " + sys.sound.hex());
-    std::string titles;
-    for (const std::string &t : sys.titles)
-        titles += (titles.empty() ? "" : " / ") + t;
-    rec.add("run.titles", titles);
+    auto play = [&](const std::string &what, const MetaEngine *game, const MetaViewer *viewer,
+                    const std::map<std::string, std::string> &settings, std::vector<PlayingSystem::Input> inputs) {
+        GameTarget t = target;
+        t.settings = settings;
+        PlayingSystem sys;
+        sys.inputs = std::move(inputs);
+        auto run = game ? game->create(sys, t) : viewer->create(sys, t);
+        const Error err = run->run();
+        rec.add(what + ".result", err ? "error: " + err.message : std::string("ok"));
+        rec.add(what + ".size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
+        rec.add(what + ".screens", std::to_string(sys.shown) + " " + sys.screens.hex());
+        rec.add(what + ".palettes", std::to_string(sys.paletteSets) + " " + sys.palettes.hex());
+        rec.add(what + ".sound", std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) +
+                                     " " + sys.sound.hex());
+        std::string titles;
+        for (const std::string &title : sys.titles)
+            titles += (titles.empty() ? "" : " / ") + title;
+        rec.add(what + ".titles", titles);
+    };
+    play("run", engine, nullptr, target.settings,
+         {{2000, mouse(EventType::kMouseMove, 150, 150)},
+          {2020, mouse(EventType::kMouseDown, 150, 150)},
+          {3000, Event{EventType::kReturnToLauncher}}});
     rec.add("run.files", listFiles(tmp / "saves"));
+
+    // The game ignores the viewer's one-video mode and its video's name:
+    // it starts at the opening, as with no developer settings.
+    play("run.videomode", engine, nullptr, {{"start_mode", "video"}, {"start_scene", "INTRO/VNM.SMK"}},
+         {{1000, Event{EventType::kReturnToLauncher}}});
+
+    // reluva-viewer: the scene viewer from S0, its keys in turn (the next
+    // background, an animation, a sound, the hotspots, the next scene), Esc
+    // back to the viewer's list; then one video, and one that isn't there.
+    const MetaViewer *viewer = findViewer("stharbinger");
+    if (!viewer)
+        return rec.fail("viewer", "stharbinger has no viewer"),
+               rec.check(RELUVA_SOURCE_DIR "/tests/engines/stharbinger/data/engine-record.txt", "stharbinger.engine",
+                         "tests/engines/stharbinger/engine.cpp");
+    play("viewer", nullptr, viewer, {{"start_scene", "S0"}},
+         {{200, keyDown(key::kRight)},
+          {400, keyDown('a')},
+          {600, keyDown('s')},
+          {800, keyDown('h')},
+          {1000, keyDown(key::kDown)},
+          {1200, keyDown(key::kEscape)}});
+    play("viewer.video", nullptr, viewer, {{"start_mode", "video"}, {"start_scene", "INTRO/VNM.SMK"}}, {});
+    play("viewer.novideo", nullptr, viewer, {{"start_mode", "video"}, {"start_scene", "INTRO/NONE.SMK"}}, {});
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/stharbinger/data/engine-record.txt", "stharbinger.engine",
               "tests/engines/stharbinger/engine.cpp");
@@ -253,7 +300,7 @@ void engineTest(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("stharbinger.engine",
-                                       {
-                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("stharbinger.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

@@ -12,6 +12,11 @@ Notes for developers. Building and running are covered in the
   (`./build/reluva` on Linux and macOS, `build\Release\reluva.exe` with
   Visual Studio's generator). There's no need to `cd build`.
 - **After pulling,** `git pull && cmake --build build` rebuilds what changed.
+- **Release builds for players** turn the developer keys off:
+  `-DRELUVA_DEVELOPER_KEYS=OFF` leaves out the games' debug keys and the
+  launcher's *Developer:* settings (`src/common/developer.h`). They're on
+  by default, for working on the engines and for the tests. The data
+  viewer is never in `reluva` either way ([below](#the-data-viewer)).
 - **SDL and Dear ImGui** are fetched and built by CMake. The first configure
   needs internet access and takes a few minutes; later ones reuse them.
   `-DRELUVA_USE_SYSTEM_SDL=ON` uses an installed SDL3 instead, found through
@@ -21,10 +26,36 @@ Notes for developers. Building and running are covered in the
 
 | Program | What it's for |
 |---|---|
-| `reluva` | The launcher and games |
+| `reluva` | The launcher and games: what players get, with no developer tools |
+| `reluva-viewer` | The engines' data viewers and the testbed ([below](#the-data-viewer)) |
 | `reluva-tool` | Developer commands for studying game data and running game code outside the window ([below](#reluva-tool)) |
 | `reluva-render-check` | The 3D renderer's check against reference frames (below) |
 | `reluva-tests` | Every test that needs no game files: the shared code's and each enabled engine's (below) |
+
+## The data viewer
+
+- **Kept out of the game.** Each engine's viewer is a library of its own,
+  `reluva_engine_<engine>_viewers`, which `reluva-viewer`, `reluva-tool`
+  and `reluva-tests` link and `reluva` doesn't: so nothing a player runs
+  can open it, and the game's code can't come to rely on it.
+- **Adding one.** Put the viewer's pages in the engine's `pages/` folder,
+  and declare them in its `CMakeLists.txt`:
+
+  ```cmake
+  reluva_add_engine_viewers(clue
+      ACCESSOR clueMetaViewer
+      SOURCES
+          pages/viewer.cpp
+          pages/image_viewer.cpp)
+  ```
+
+  `clueMetaViewer()` returns the engine's `MetaViewer`
+  (`src/engines/viewer.h`), whose `create` makes an `Engine` that runs
+  the viewer as a game is run. The game's own code never includes a
+  viewer's header.
+- **Running it.** `reluva-viewer` shows the launcher's games, each opened
+  in its engine's viewer; `reluva-viewer <name>` or
+  `reluva-viewer <folder>` opens one directly.
 
 ## reluva-tool
 
@@ -41,7 +72,7 @@ Notes for developers. Building and running are covered in the
   are in `src/devtools/`. Each engine's are in
   its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
   are built only with the engine.
-- **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
+- **Adding one.** Write it as `int cmdName(int argc, char **argv)` (its
   name is `argv[1]`, its arguments start at `argv[2]`, with or without the
   engine's name before it), and add it to the table at the end of its
   file, with its arguments and a description:
@@ -58,10 +89,10 @@ Notes for developers. Building and running are covered in the
 
 ## Code style
 
-Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
-existing code in line is [code-style-migration.md](code-style-migration.md).
-Two tools check it, both needing version 18 of their LLVM program
-(another lays code out differently):
+Code follows [CODING_GUIDE.md](CODING_GUIDE.md); how the existing code
+was brought in line is in [code-style-migration.md](code-style-migration.md).
+Five tools check it; the first three need version 18 of their LLVM
+program (another lays code out differently):
 
 - **`python3 tools/format.py`** formats with clang-format
   (`.clang-format`): every file, the ones named
@@ -70,10 +101,35 @@ Two tools check it, both needing version 18 of their LLVM program
 - **`python3 tools/tidy.py`** checks with clang-tidy (`.clang-tidy`: names,
   `nullptr`, `override`, const-correctness...): every file, the ones named,
   or `--changed`. It makes a compile database in `build-tidy/` with every
-  engine enabled. `--fix --checks=-*,<check>` applies one check's fixes.
+  engine enabled. `--fix --checks=-*,<check>` applies one check's fixes;
+  `--rename-declared-in <folder>` renames what that folder declares to the
+  guide's names, with every use (`--dry-run` lists them first).
+- **`python3 tools/split_members.py`** lists class and struct members
+  declared several to a line (`int x, y;`), which clang-tidy splits only
+  for local variables; `--fix` splits them. Reads `tidy.py`'s compile
+  database (run `tidy.py` first) with libclang's Python bindings
+  (Ubuntu: `apt install python3-clang-18`; else
+  `pip install clang==18.1.8`).
 
-Run both with `--changed` before a pull request. CI's "Code style" job
-does the same, so far only reporting. Generated files and `third_party/`
+- **`python3 tools/check-headers.py`** lists source files without the
+  license and copyright lines every file starts with; `--fix` adds them.
+
+- **`python3 tools/comments.py`** flags comments that break the guide's
+  Comments rules in ways a script can be sure of: commented-out code,
+  history ("Fixed: …", "previously"), Doxygen tags that say only the
+  name, and a bare `TODO`. Whether a comment only repeats the code is for
+  the author and reviewer to judge. With `--changed` it looks only at the
+  lines added.
+
+Before a pull request, run `format.py`, `tidy.py`, `split_members.py` and
+`comments.py` with `--changed`, and `check-headers.py`, which looks at
+every file. CI's "Code style" job does the same, and fails on an
+unformatted file, a clang-tidy finding or members declared together in a
+changed file, or a file without its license lines; what `comments.py`
+flags shows as a warning on the pull request's lines, without failing it.
+A name that has to stay as it is (see the guide's Naming: Exceptions)
+gets a `// NOLINT(<check>): reason`, or `// NOLINTNEXTLINE(<check>): reason`
+on the line before when the reason is long. Generated files and `third_party/`
 are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and
@@ -117,6 +173,9 @@ or rename go in `.git-blame-ignore-revs`; run
   lists the file in `reluva_add_engine_tests` (`reluva_add_tests` for
   `common`), and the suite's topic in `TOPICS`, so ctest runs it. The
   `tests.coverage` test fails if a suite is missing from `TOPICS`.
+- **From a window.** `reluva-viewer`'s **Tests...** button opens a
+  window of the build's tests, the game-files steps beside the games in
+  the launcher's list (see [below](#the-tests-window)).
 - **CI.** The workflow (`.github/workflows/ci.yml`) builds and runs the
   tests on Linux, macOS and Windows for every push and pull request (macOS
   is off for now: its job has `if: false`, as no macOS runner is available
@@ -132,10 +191,12 @@ Each engine can have two engine tests, besides its unit tests. They test the
 engine as a whole, so a change anywhere (in `src/common/`, say) that alters
 what an engine does is caught, even where no unit test looks. Elite Force
 (`idtech3`) has both, as do Harbinger (`stharbinger`, see
-[its TESTING.md](engines/stharbinger/TESTING.md)) and Murder on the Orient
+[its TESTING.md](engines/stharbinger/TESTING.md)), Murder on the Orient
 Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/games/motoe/TESTING.md)),
-and LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
-[its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)).
+LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
+[its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)), and
+Need for Speed III (`nfs`, `RELUVA_NFS3`, see
+[its TESTING.md](engines/nfs/games/nfs3/TESTING.md)).
 
 ### The basic engine test: no game files
 
@@ -177,8 +238,15 @@ and LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
   ```
 
   On Windows: `set RELUVA_STVEF=C:\Games\EliteForce`, then
-  `ctest --test-dir build -C Release -L gamedata`. Without the variable the
-  steps show as skipped, so a plain `ctest` stays green for everyone.
+  `ctest --test-dir build -C Release -L gamedata`.
+- **Or from the launcher's list.** Without the variable, a step takes the
+  game's folder from the launcher's entry for it (`reluva.ini`), so a game
+  added in the launcher needs nothing set: `ctest --test-dir build -L
+  gamedata` runs every game you've added. Where there are several entries
+  for one game (two releases, say), name the one to use with
+  `RELUVA_GAMEDATA_TARGET=<its name>`; `RELUVA_CONFIG` points at another
+  `reluva.ini`. With neither the variable nor an entry the steps show as
+  skipped, so a plain `ctest` stays green for everyone.
 - **Elite Force's steps** (`tests/engines/idtech3/gamedata.cmake`, ctest
   `idtech3.gamedata.<step>`):
 
@@ -221,10 +289,46 @@ and LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
   ```
 
   Afterwards, run with `RELUVA_GAMEDATA_RECORDS=~/ef-records` (and without
-  `UPDATE`) to compare against it.
+  `UPDATE`) to compare against it. For several engines at once,
+  `RELUVA_GAMEDATA_RECORDS_ROOT=~/records` keeps each engine's in a folder
+  of its own (`~/records/idtech3/`).
 - **Repeatable runs.** The game code reads a clock that moves only with the
   game (`reluva-tool idtech3 sp-run -fixedclock`). Floating point is the same on
   every run.
+
+### The Tests window
+
+`reluva-viewer`, run from its build folder, has a **Tests...** button: a
+window that runs the build's tests through `ctest`, as the command line
+does, with the game-files steps on the games in the launcher's list.
+
+- **Picking.** Tick games, then the engines' game-files steps to run on
+  them, and any of the tests that need no game files (by area, or one by
+  one), then **Run Selected**. **Run All** runs every test, and every
+  step on every game in the list. **Test Game**, beside the list, runs
+  every step on the selected game.
+- **Records.** What the steps compare with: the committed records; a
+  baseline of your own (`RELUVA_GAMEDATA_RECORDS_ROOT`, a folder per
+  engine, in the launcher's folder by default), compared with or made
+  anew; or this run's written over the committed ones, which asks first.
+  A baseline made from the command line with `RELUVA_GAMEDATA_RECORDS`
+  (one engine's records in one folder) isn't found by the window, which
+  looks in a folder per engine: make each engine's again in the window,
+  with **Make my baseline**, before the changes it's to check. Each
+  engine's `TESTING.md` says so too.
+- **Two releases of one game** (two entries for it) run one after the
+  other, as each step reads the game's folder from one variable.
+- **Results.** Each test's result and time as it ends; a failure's
+  output when it's picked, and for a game-files step a button opening
+  its output folder (`build/gamedata/<engine>/`, the previous run's
+  beside it). **Stop** asks `ctest` to stop, then makes it.
+- **How it knows them.** The build writes its tests to
+  `build/reluva-tests.txt` (`reluva_finish_tests`). The window plans the
+  `ctest` runs (`src/devtools/test_runs.h`, tested as
+  `devtools.unit.test_runs`) and runs them on a thread of its own
+  (`src/devtools/ctest_runner.h`), so a run goes on while a game or a
+  viewer is open. A copy of `reluva-viewer` outside its build folder has
+  no tests, and says so.
 
 ### Adding them to a new engine
 
@@ -324,12 +428,13 @@ on. Keep it off.
 - **VS Code** opens the folder directly, with the *CMake Tools* and *C/C++*
   extensions. CLion and Qt Creator open `CMakeLists.txt` directly.
 - **Visual Studio.** To pass command-line arguments to `reluva.exe` (e.g. to
-  start a game directly):
+  start a game directly, by its name in the launcher's list) or to
+  `reluva-viewer.exe` (a game in its viewer, or the testbed):
   1. In Solution Explorer, right-click `CMakeLists.txt` and choose **Add
      Debug Configuration** (or **Debug and Launch Settings**), then
-     **reluva.exe**.
-  2. In the `launch.vs.json` that opens, add an `args` line to the
-     `reluva.exe` entry:
+     **reluva.exe** or **reluva-viewer.exe**.
+  2. In the `launch.vs.json` that opens, add an `args` line to that
+     program's entry; for `reluva-viewer.exe`, the testbed:
 
      ```json
      "args": [ "testbed" ]

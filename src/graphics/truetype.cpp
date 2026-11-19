@@ -22,61 +22,65 @@ Font::Font() = default;
 Font::~Font() = default;
 
 Error Font::load(std::vector<uint8_t> data) {
-    data_.clear();
-    glyphs_.clear();
-    info_ = std::make_unique<Info>();
+    _data.clear();
+    _glyphs.clear();
+    _info = std::make_unique<Info>();
     const int offset = stbtt_GetFontOffsetForIndex(data.data(), 0);
-    if (data.size() < 12 || offset < 0 || !stbtt_InitFont(&info_->font, data.data(), offset)) {
-        info_.reset();
+    if (data.size() < 12 || offset < 0 || !stbtt_InitFont(&_info->font, data.data(), offset)) {
+        _info.reset();
         return Error::fail("Not a TrueType font");
     }
-    data_ = std::move(data);
+    _data = std::move(data);
     // stbtt keeps a pointer to the data: point it at our copy.
-    stbtt_InitFont(&info_->font, data_.data(), offset);
-    stbtt_GetFontVMetrics(&info_->font, &ascent_, &descent_, &lineGap_);
+    stbtt_InitFont(&_info->font, _data.data(), offset);
+    stbtt_GetFontVMetrics(&_info->font, &_ascent, &_descent, &_lineGap);
     return Error::success();
 }
 
 float Font::scale(float pixels) const {
-    return info_ ? stbtt_ScaleForPixelHeight(&info_->font, pixels) : 0;
+    return _info ? stbtt_ScaleForPixelHeight(&_info->font, pixels) : 0;
 }
 
 int Font::lineHeight(float pixels) const {
-    return int(std::ceil(float(ascent_ - descent_ + lineGap_) * scale(pixels)));
+    return int(std::ceil(float(_ascent - _descent + _lineGap) * scale(pixels)));
 }
 
 float Font::sizeForPoints(float points) const {
-    if (!info_)
+    if (!_info)
         return points;
     const float em = points * 96.0f / 72.0f;
-    return em * stbtt_ScaleForMappingEmToPixels(&info_->font, 1.0f) * float(ascent_ - descent_);
+    return em * stbtt_ScaleForMappingEmToPixels(&_info->font, 1.0f) * float(_ascent - _descent);
 }
 
 int Font::ascent(float pixels) const {
-    return int(std::lround(float(ascent_) * scale(pixels)));
+    return int(std::lround(float(_ascent) * scale(pixels)));
 }
 
 const Font::Glyph &Font::glyph(uint32_t cp, float pixels) {
     const auto key = std::make_pair(cp, int(pixels * 16));
-    auto it = glyphs_.find(key);
-    if (it != glyphs_.end())
+    auto it = _glyphs.find(key);
+    if (it != _glyphs.end())
         return it->second;
-    Glyph &g = glyphs_[key];
-    if (!info_)
+    Glyph &g = _glyphs[key];
+    if (!_info)
         return g;
     const float s = scale(pixels);
-    int advance = 0, bearing = 0;
-    stbtt_GetCodepointHMetrics(&info_->font, int(cp), &advance, &bearing);
+    int advance = 0;
+    int bearing = 0;
+    stbtt_GetCodepointHMetrics(&_info->font, int(cp), &advance, &bearing);
     g.advance = float(advance) * s;
-    int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-    stbtt_GetCodepointBitmapBox(&info_->font, int(cp), s, s, &x0, &y0, &x1, &y1);
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+    stbtt_GetCodepointBitmapBox(&_info->font, int(cp), s, s, &x0, &y0, &x1, &y1);
     g.width = std::max(0, x1 - x0);
     g.height = std::max(0, y1 - y0);
     g.xoff = x0;
     g.yoff = y0;
     if (g.width && g.height) {
         g.coverage.resize(size_t(g.width) * size_t(g.height));
-        stbtt_MakeCodepointBitmap(&info_->font, g.coverage.data(), g.width, g.height, g.width, s, s, int(cp));
+        stbtt_MakeCodepointBitmap(&_info->font, g.coverage.data(), g.width, g.height, g.width, s, s, int(cp));
     }
     return g;
 }
@@ -89,13 +93,14 @@ int Font::width(std::string_view utf8, float pixels) {
 }
 
 int Font::draw(Surface &dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha) {
-    if (dst.format != PixelFormat::RGBA32)
+    if (dst.format != PixelFormat::kRGBA32)
         return x;
     const int baseline = y + ascent(pixels);
     float pen = float(x);
     for (size_t i = 0; i < utf8.size();) {
         const Glyph &g = glyph(text::nextUtf8(utf8, i), pixels);
-        const int gx = int(std::lround(pen)) + g.xoff, gy = baseline + g.yoff;
+        const int gx = int(std::lround(pen)) + g.xoff;
+        const int gy = baseline + g.yoff;
         for (int r = 0; r < g.height; r++) {
             const int dy = gy + r;
             if (dy < 0 || dy >= dst.h)

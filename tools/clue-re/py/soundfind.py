@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import numpy as np, glob, os, sys
 rec=np.fromfile(sys.argv[1],dtype=np.int16).astype(np.float32)
 names=sys.argv[2:]

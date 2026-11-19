@@ -56,7 +56,8 @@ void printChunks(const Bytes &d, size_t begin, size_t end, int depth) {
     while (p < end) {
         const uint16_t tag = rd16(d, p);
         const uint32_t size = rd32(d, p + 2);
-        const size_t payload = p + 6, payloadEnd = payload + size;
+        const size_t payload = p + 6;
+        const size_t payloadEnd = payload + size;
         const bool container = tilesIntoChunks(d, payload, payloadEnd);
         std::printf("%*s%06zx tag 0x%04x size %u%s", depth * 2, "", p, tag, size, container ? "  {" : "");
         if (!container)
@@ -159,14 +160,14 @@ int cmdTable(int argc, char **argv) {
     return 0;
 }
 
-const Commands
-    commands("", {
-                     {"hexdump", "<file> [offset] [length]",
-                      "show a file's bytes as hex and text; the offset may be hex (0x..) or negative (from the end)",
-                      cmdHexdump},
-                     {"chunks", "<file>", "try to read any file as a (u16 tag, u32 size) chunk tree", cmdChunks},
-                     {"words", "<file> [offset] [count]", "show 4-byte values as hex, integer and float", cmdWords},
-                     {"table", "<file> [values per row] [offset]", "show 4-byte values compactly, N per row", cmdTable},
-                 });
+const Commands kCommands(
+    "",
+    {
+        {"hexdump", "<file> [offset] [length]",
+         "show a file's bytes as hex and text; the offset may be hex (0x..) or negative (from the end)", cmdHexdump},
+        {"chunks", "<file>", "try to read any file as a (u16 tag, u32 size) chunk tree", cmdChunks},
+        {"words", "<file> [offset] [count]", "show 4-byte values as hex, integer and float", cmdWords},
+        {"table", "<file> [values per row] [offset]", "show 4-byte values compactly, N per row", cmdTable},
+    });
 
 } // namespace

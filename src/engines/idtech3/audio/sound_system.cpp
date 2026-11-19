@@ -23,21 +23,21 @@ constexpr float kSeparation = 0.5f;
 std::shared_ptr<const audio::Sound> SoundSystem::find(const std::string &name) {
     if (name.empty())
         return nullptr;
-    if (auto sound = sounds_.find(name))
+    if (auto sound = _sounds.find(name))
         return sound;
-    missing_.insert(name);
+    _missing.insert(name);
     return nullptr;
 }
 
 std::pair<float, float> SoundSystem::spatialize(const Vec3f &origin) const {
-    Vec3f d{origin[0] - listenerOrigin_[0], origin[1] - listenerOrigin_[1], origin[2] - listenerOrigin_[2]};
+    Vec3f d{origin[0] - _listenerOrigin[0], origin[1] - _listenerOrigin[1], origin[2] - _listenerOrigin[2]};
     float dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
     if (dist > 1e-4f)
         for (float &c : d)
             c /= dist;
     const float volume = std::clamp(1 - std::max(dist - kFullVolumeDistance, 0.0f) * kAttenuation, 0.0f, 1.0f);
     // The listener's right is opposite its left axis.
-    const Vec3f &left = listenerAxes_[1];
+    const Vec3f &left = _listenerAxes[1];
     const float pan = std::clamp(-(d[0] * left[0] + d[1] * left[1] + d[2] * left[2]), -1.0f, 1.0f);
     return {volume, dist > 1e-4f ? pan : 0.0f};
 }
@@ -45,9 +45,9 @@ std::pair<float, float> SoundSystem::spatialize(const Vec3f &origin) const {
 float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f> &origin, int entity,
                          std::optional<float> ownVolume) {
     // The listener's own sounds are heard as they are.
-    if (!origin && entity == listener_) {
-        mixer_.setVolume(handle, audio::kMaxVolume);
-        mixer_.setPan(handle, 0);
+    if (!origin && entity == _listener) {
+        _mixer.setVolume(handle, audio::kMaxVolume);
+        _mixer.setPan(handle, 0);
         return 1;
     }
     // At its spot, or where its entity was last said to be: the map's
@@ -56,7 +56,7 @@ float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f> &
     Vec3f at{};
     if (origin)
         at = *origin;
-    else if (const auto it = entities_.find(entity); it != entities_.end())
+    else if (const auto it = _entities.find(entity); it != _entities.end())
         at = it->second;
     auto [volume, pan] = spatialize(at);
     if (ownVolume)
@@ -69,15 +69,15 @@ float SoundSystem::place(audio::SoundHandle handle, const std::optional<Vec3f> &
     const float left = volume * std::max(0.0f, kSeparation - (1 - kSeparation) * pan);
     const float loudest = std::max(left, right);
     const float balance = loudest <= 0 ? 0 : right >= left ? 1 - left / right : -(1 - right / left);
-    mixer_.setVolume(handle, int(loudest * float(audio::kMaxVolume)));
-    mixer_.setPan(handle, int(balance * float(audio::kMaxPan)));
+    _mixer.setVolume(handle, int(loudest * float(audio::kMaxVolume)));
+    _mixer.setPan(handle, int(balance * float(audio::kMaxPan)));
     return volume;
 }
 
 bool SoundSystem::allowed(int entity, bool local, const std::string &name, const std::optional<Vec3f> &origin) const {
     // Local sounds count as the listener's.
-    const auto owner = [&](const Playing &p) { return p.local ? listener_ : p.entity; };
-    const int who = local ? listener_ : entity;
+    const auto owner = [&](const Playing &p) { return p.local ? _listener : p.entity; };
+    const int who = local ? _listener : entity;
     // Sounds placed at a spot (shots, impacts, often all on the world's
     // number) are only repeats at the same spot.
     auto samePlace = [&](const Playing &p) {
@@ -90,9 +90,9 @@ bool SoundSystem::allowed(int entity, bool local, const std::string &name, const
             d2 += ((*p.origin)[k] - (*origin)[k]) * ((*p.origin)[k] - (*origin)[k]);
         return d2 < 1;
     };
-    for (const Playing &p : playing_)
-        if (p.handle != audio::kNoSound && owner(p) == who && p.name == name && nowMs_ - p.startMs < 50 &&
-            samePlace(p) && mixer_.isPlaying(p.handle))
+    for (const Playing &p : _playing)
+        if (p.handle != audio::kNoSound && owner(p) == who && p.name == name && _nowMs - p.startMs < 50 &&
+            samePlace(p) && _mixer.isPlaying(p.handle))
             return false;
     return true;
 }
@@ -111,14 +111,14 @@ void SoundSystem::startSound(const std::optional<Vec3f> &origin, int entity, int
         note(name, entity, what + (!sound ? "not found" : "skipped as a repeat"));
         return;
     }
-    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
+    const audio::SoundHandle handle = _mixer.play(sound, audio::SoundType::kEffects, 0);
     if (handle == audio::kNoSound)
         return;
     char volume[48];
     std::snprintf(volume, sizeof volume, "played at volume %.2f (listener %d)", place(handle, origin, entity),
-                  listener_);
+                  _listener);
     note(name, entity, what + volume);
-    playing_.push_back({handle, entity, channel, origin, false, name, nowMs_, std::nullopt});
+    _playing.push_back({handle, entity, channel, origin, false, name, _nowMs, std::nullopt});
 }
 
 void SoundSystem::startLocalSound(const std::string &name, int channel) {
@@ -131,17 +131,17 @@ void SoundSystem::startLocalSound(const std::string &name, int channel) {
                      : "skipped as a repeat"));
     if (!ok)
         return;
-    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
+    const audio::SoundHandle handle = _mixer.play(sound, audio::SoundType::kEffects);
     if (handle != audio::kNoSound)
-        playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_, std::nullopt});
+        _playing.push_back({handle, -1, channel, std::nullopt, true, name, _nowMs, std::nullopt});
 }
 
 void SoundSystem::note(const std::string &name, int entity, std::string line) {
     // Each sound asked for in the last two seconds, by name and entity:
     // how often, and what became of the last.
-    starts_.push_back({nowMs_, name, entity, std::move(line)});
-    while (!starts_.empty() && starts_.front().ms + 2000 < nowMs_)
-        starts_.pop_front();
+    _starts.push_back({_nowMs, name, entity, std::move(line)});
+    while (!_starts.empty() && _starts.front().ms + 2000 < _nowMs)
+        _starts.pop_front();
 }
 
 std::vector<std::string> SoundSystem::recent() const {
@@ -151,7 +151,7 @@ std::vector<std::string> SoundSystem::recent() const {
         uint64_t lastMs = 0;
     };
     std::map<std::pair<std::string, int>, Summary> by;
-    for (const Start &s : starts_) {
+    for (const Start &s : _starts) {
         Summary &sum = by[{s.name, s.entity}];
         ++sum.count;
         sum.last = &s.line;
@@ -171,26 +171,26 @@ std::vector<std::string> SoundSystem::recent() const {
 std::vector<std::string> SoundSystem::loopingNow() const {
     // Every loop the client game asked for this frame, and whether it plays.
     std::vector<std::string> out;
-    for (const auto &[key, origin] : loopsAdded_)
+    for (const auto &[key, origin] : _loopsAdded)
         out.push_back((key.second.empty() ? std::string("(no name)") : key.second) + " (entity " +
-                      std::to_string(key.first) + (loops_.count(key) ? ")" : ", not found)"));
+                      std::to_string(key.first) + (_loops.count(key) ? ")" : ", not found)"));
     return out;
 }
 
 void SoundSystem::clearLoopingSounds() {
-    loopsAdded_.clear();
+    _loopsAdded.clear();
 }
 
 void SoundSystem::addLoopingSound(int entity, const Vec3f &origin, const std::string &name) {
-    loopsAdded_[{entity, name}] = origin;
+    _loopsAdded[{entity, name}] = origin;
 }
 
 void SoundSystem::updateEntityPosition(int entity, const Vec3f &origin) {
-    entities_[entity] = origin;
+    _entities[entity] = origin;
 }
 
 void SoundSystem::addAmbientLoop(int entity, const Vec3f &origin, float volume, const std::string &name) {
-    ambientAdded_[{entity, name}] = {origin, volume};
+    _ambientAdded[{entity, name}] = {origin, volume};
 }
 
 void SoundSystem::startAmbientSound(int entity, const Vec3f &origin, float volume, const std::string &name) {
@@ -198,104 +198,104 @@ void SoundSystem::startAmbientSound(int entity, const Vec3f &origin, float volum
     note(name, entity, name + " (ambient, entity " + std::to_string(entity) + "): " + (sound ? "played" : "not found"));
     if (!sound)
         return;
-    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
+    const audio::SoundHandle handle = _mixer.play(sound, audio::SoundType::kEffects, 0);
     if (handle == audio::kNoSound)
         return;
     place(handle, origin, entity, volume);
-    playing_.push_back({handle, entity, 0, origin, false, name, nowMs_, volume});
+    _playing.push_back({handle, entity, 0, origin, false, name, _nowMs, volume});
 }
 
 void SoundSystem::respatialize(int entity, const Vec3f &origin, const std::array<Vec3f, 3> &axes) {
-    listener_ = entity;
-    listenerOrigin_ = origin;
-    listenerAxes_ = axes;
+    _listener = entity;
+    _listenerOrigin = origin;
+    _listenerAxes = axes;
 }
 
 void SoundSystem::startBackgroundTrack(const std::string &intro, const std::string &loop) {
     stopBackgroundTrack();
-    musicLoop_ = find(loop);
+    _musicLoop = find(loop);
     auto first = find(intro);
-    musicIntro_ = first != nullptr;
+    _musicIntro = first != nullptr;
     if (!first)
-        first = musicLoop_;
+        first = _musicLoop;
     if (first)
-        music_ = mixer_.play(first, audio::SoundType::Music, audio::kMaxVolume, 0, !musicIntro_);
+        _music = _mixer.play(first, audio::SoundType::kMusic, audio::kMaxVolume, 0, !_musicIntro);
 }
 
 void SoundSystem::stopBackgroundTrack() {
-    if (music_ != audio::kNoSound)
-        mixer_.stop(music_);
-    music_ = audio::kNoSound;
-    musicLoop_.reset();
-    musicIntro_ = false;
+    if (_music != audio::kNoSound)
+        _mixer.stop(_music);
+    _music = audio::kNoSound;
+    _musicLoop.reset();
+    _musicIntro = false;
 }
 
 void SoundSystem::endFrame() {
     // Finished sounds go; the rest follow their entities and the listener.
-    playing_.erase(
-        std::remove_if(playing_.begin(), playing_.end(),
-                       [&](const Playing &p) { return p.handle == audio::kNoSound || !mixer_.isPlaying(p.handle); }),
-        playing_.end());
-    for (const Playing &p : playing_)
+    _playing.erase(
+        std::remove_if(_playing.begin(), _playing.end(),
+                       [&](const Playing &p) { return p.handle == audio::kNoSound || !_mixer.isPlaying(p.handle); }),
+        _playing.end());
+    for (const Playing &p : _playing)
         if (!p.local)
             place(p.handle, p.origin, p.entity, p.volume);
 
     // Looping sounds: new ones start, those not added this frame stop.
-    for (auto it = loops_.begin(); it != loops_.end();) {
-        if (!loopsAdded_.count(it->first)) {
-            mixer_.stop(it->second);
-            it = loops_.erase(it);
+    for (auto it = _loops.begin(); it != _loops.end();) {
+        if (!_loopsAdded.count(it->first)) {
+            _mixer.stop(it->second);
+            it = _loops.erase(it);
         } else {
             ++it;
         }
     }
-    for (const auto &[key, origin] : loopsAdded_) {
-        auto it = loops_.find(key);
-        if (it == loops_.end()) {
+    for (const auto &[key, origin] : _loopsAdded) {
+        auto it = _loops.find(key);
+        if (it == _loops.end()) {
             const auto sound = find(key.second);
             if (!sound)
                 continue;
-            const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0, 0, true);
+            const audio::SoundHandle handle = _mixer.play(sound, audio::SoundType::kEffects, 0, 0, true);
             if (handle == audio::kNoSound)
                 continue;
-            it = loops_.emplace(key, handle).first;
+            it = _loops.emplace(key, handle).first;
         }
         place(it->second, origin, key.first);
     }
-    for (auto it = ambientLoops_.begin(); it != ambientLoops_.end();) {
-        if (!ambientAdded_.count(it->first)) {
-            mixer_.stop(it->second);
-            it = ambientLoops_.erase(it);
+    for (auto it = _ambientLoops.begin(); it != _ambientLoops.end();) {
+        if (!_ambientAdded.count(it->first)) {
+            _mixer.stop(it->second);
+            it = _ambientLoops.erase(it);
         } else {
             ++it;
         }
     }
-    for (const auto &[key, at] : ambientAdded_) {
-        auto it = ambientLoops_.find(key);
-        if (it == ambientLoops_.end()) {
+    for (const auto &[key, at] : _ambientAdded) {
+        auto it = _ambientLoops.find(key);
+        if (it == _ambientLoops.end()) {
             const auto sound = find(key.second);
             if (!sound)
                 continue;
-            const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0, 0, true);
+            const audio::SoundHandle handle = _mixer.play(sound, audio::SoundType::kEffects, 0, 0, true);
             if (handle == audio::kNoSound)
                 continue;
-            it = ambientLoops_.emplace(key, handle).first;
+            it = _ambientLoops.emplace(key, handle).first;
         }
         place(it->second, at.first, key.first, at.second);
     }
-    ambientAdded_.clear();
+    _ambientAdded.clear();
 
     // The music: the loop once the intro is over.
-    if (musicIntro_ && music_ != audio::kNoSound && !mixer_.isPlaying(music_)) {
-        musicIntro_ = false;
-        music_ =
-            musicLoop_ ? mixer_.play(musicLoop_, audio::SoundType::Music, audio::kMaxVolume, 0, true) : audio::kNoSound;
+    if (_musicIntro && _music != audio::kNoSound && !_mixer.isPlaying(_music)) {
+        _musicIntro = false;
+        _music = _musicLoop ? _mixer.play(_musicLoop, audio::SoundType::kMusic, audio::kMaxVolume, 0, true)
+                            : audio::kNoSound;
     }
 }
 
 void SoundSystem::setVolumes(float effects, float music) {
-    mixer_.setTypeVolume(audio::SoundType::Effects, int(std::clamp(effects, 0.0f, 1.0f) * float(audio::kMaxVolume)));
-    mixer_.setTypeVolume(audio::SoundType::Music, int(std::clamp(music, 0.0f, 1.0f) * float(audio::kMaxVolume)));
+    _mixer.setTypeVolume(audio::SoundType::kEffects, int(std::clamp(effects, 0.0f, 1.0f) * float(audio::kMaxVolume)));
+    _mixer.setTypeVolume(audio::SoundType::kMusic, int(std::clamp(music, 0.0f, 1.0f) * float(audio::kMaxVolume)));
 }
 
 void SoundSystem::stopAll() {
@@ -304,18 +304,18 @@ void SoundSystem::stopAll() {
 }
 
 void SoundSystem::stopSounds() {
-    for (const Playing &p : playing_)
+    for (const Playing &p : _playing)
         if (p.handle != audio::kNoSound)
-            mixer_.stop(p.handle);
-    playing_.clear();
-    for (const auto &[key, handle] : loops_)
-        mixer_.stop(handle);
-    loops_.clear();
-    loopsAdded_.clear();
-    for (const auto &[key, handle] : ambientLoops_)
-        mixer_.stop(handle);
-    ambientLoops_.clear();
-    ambientAdded_.clear();
+            _mixer.stop(p.handle);
+    _playing.clear();
+    for (const auto &[key, handle] : _loops)
+        _mixer.stop(handle);
+    _loops.clear();
+    _loopsAdded.clear();
+    for (const auto &[key, handle] : _ambientLoops)
+        _mixer.stop(handle);
+    _ambientLoops.clear();
+    _ambientAdded.clear();
 }
 
 } // namespace reluva::idtech3

@@ -37,7 +37,9 @@ void Screen::drawCentered(const Canvas &image) {
     // Truecolour: map each pixel onto the current palette.
     for (int sy = 0; sy < image.h; sy++) {
         for (int sx = 0; sx < image.w; sx++) {
-            uint8_t r, g, b;
+            uint8_t r;
+            uint8_t g;
+            uint8_t b;
             argbToRgb(image.getPixel(sx, sy), r, g, b);
             _surface.setPixel(x + sx, y + sy, _palette.findBestColor(r, g, b));
         }

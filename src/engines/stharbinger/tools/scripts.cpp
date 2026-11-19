@@ -211,7 +211,7 @@ Keywords listKeywords(const std::vector<const char *> &names) {
 }
 
 const std::map<Key, Keywords> &fixedKeywords() {
-    static const std::map<Key, Keywords> table = [] {
+    static const std::map<Key, Keywords> kTable = [] {
         const Keywords anim = listKeywords({"loop", "cycle", "forward", "backward", "start", "stop", "nonstop", "toend",
                                             "move", "nomove", "animon", "animoff", "allframe", "oneframe"});
         const Keywords cursors =
@@ -232,7 +232,7 @@ const std::map<Key, Keywords> &fixedKeywords() {
             t[{0x86, slot}] = anim;
         return t;
     }();
-    return table;
+    return kTable;
 }
 
 // Slots the cross-reference vote gets wrong, because labels and dialogues
@@ -387,7 +387,8 @@ const char *typeTag(uint8_t t) {
 }
 
 struct Use {
-    int op, slot;
+    int op;
+    int slot;
     uint32_t value;
 };
 
@@ -539,7 +540,8 @@ SlotKinds learnSlotKinds(const std::vector<SceneSymbols> &scenes) {
     }
     SlotKinds out;
     for (const auto &[key, c] : votes) {
-        int best = -1, n = 0;
+        int best = -1;
+        int n = 0;
         for (const auto &[kind, count] : c.items)
             if (kind >= 0 && count > n) {
                 best = kind;
@@ -615,8 +617,10 @@ std::string stripAscii(const std::string &s) {
 
 // The global CCQ/CCF line list split into per-dialogue blocks, in CCB order.
 bool dialogueBlocks(Resources &res, std::vector<Block> &blocks) {
-    bool haveQ = false, haveF = false;
-    const std::string ccq = wholeArchive(res, "CCQ", haveQ), ccf = wholeArchive(res, "CCF", haveF);
+    bool haveQ = false;
+    bool haveF = false;
+    const std::string ccq = wholeArchive(res, "CCQ", haveQ);
+    const std::string ccf = wholeArchive(res, "CCF", haveF);
     if (!haveQ || !haveF)
         return false;
     const std::vector<std::string> texts = splitOn(ccq, '\0');
@@ -655,12 +659,12 @@ std::string lineNote(const Block *block, size_t n) {
 
 class Writer {
 public:
-    Writer(const SceneSymbols *sym, const SlotKinds &slots) : sym_(sym), slots_(slots) {}
+    Writer(const SceneSymbols *sym, const SlotKinds &slots) : _sym(sym), _slots(slots) {}
 
     std::string arg(int op, const Argument &a) {
-        if (a.type == kArgSymbol && sym_) {
+        if (a.type == kArgSymbol && _sym) {
             total++;
-            const std::string name = sym_->resolve(op, a.slot, a.value, slots_);
+            const std::string name = _sym->resolve(op, a.slot, a.value, _slots);
             if (!name.empty()) {
                 resolved++;
                 return latin1(name);
@@ -671,7 +675,7 @@ public:
 
     void write(std::vector<std::string> &out, const DirectiveList &list, const std::string &indent) {
         for (const Directive &d : list) {
-            if (d.command == kCmdLabel && sym_) {
+            if (d.command == kCmdLabel && _sym) {
                 std::string label = "?";
                 if (!d.args.empty()) {
                     Argument first = d.args[0];
@@ -690,11 +694,12 @@ public:
         }
     }
 
-    int resolved = 0, total = 0;
+    int resolved = 0;
+    int total = 0;
 
 private:
-    const SceneSymbols *sym_;
-    const SlotKinds &slots_;
+    const SceneSymbols *_sym;
+    const SlotKinds &_slots;
 };
 
 std::vector<std::string> sceneHeader(const SceneSymbols &sym) {
@@ -721,7 +726,8 @@ struct Owner {
 };
 
 std::vector<std::string> argumentReference(const std::vector<Owner> &owners, const SlotKinds &slots) {
-    std::map<Key, Counter<std::string>> types, examples;
+    std::map<Key, Counter<std::string>> types;
+    std::map<Key, Counter<std::string>> examples;
     for (const Owner &o : owners)
         for (const DirectiveList *list : o.lists)
             for (const Directive &d : *list)
@@ -854,7 +860,8 @@ int cmdScript(int argc, char **argv) {
     }
 
     summary.push_back(text::format("CC: %u scene slots, %u scripts", ccSlots, unsigned(scenes.size())));
-    int resolved = 0, total = 0;
+    int resolved = 0;
+    int total = 0;
     for (const Scene &s : scenes) {
         const SceneSymbols *sym = symbolsOf(s.slot);
         const std::string name = sym && !sym->name.empty() ? sym->name : text::format("SCENE%02d", s.slot);
@@ -963,7 +970,7 @@ int cmdScript(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "stharbinger",
     {
         {"script", "<game folder> <out folder>",

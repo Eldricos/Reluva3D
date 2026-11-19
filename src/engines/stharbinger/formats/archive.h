@@ -30,7 +30,7 @@ public:
     static std::shared_ptr<LstArchive> create(std::vector<uint8_t> all, const std::vector<uint8_t> &lst,
                                               const std::vector<uint8_t> &cat = std::vector<uint8_t>());
 
-    uint32_t size() const { return uint32_t(offsets_.size()) - 1; }
+    uint32_t size() const { return uint32_t(_offsets.size()) - 1; }
     uint32_t entrySize(uint32_t index) const;
     // A stream over entry `index` (sharing the archive buffer), or nullptr.
     std::unique_ptr<MemoryReadStream> getEntry(uint32_t index) const;
@@ -42,7 +42,7 @@ public:
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
-    std::string describe() const override { return description_; }
+    std::string describe() const override { return _description; }
     // A stream over a member, or nullptr.
     std::unique_ptr<MemoryReadStream> openMember(std::string_view name) const;
 
@@ -51,25 +51,25 @@ private:
     using Reader = bool (*)(const void *source, const std::string &name, std::vector<uint8_t> &out);
     static std::shared_ptr<LstArchive> open(const void *source, Reader reader, const std::string &base);
 
-    std::string description_;
+    std::string _description;
 
-    std::shared_ptr<const std::vector<uint8_t>> data_;
-    std::vector<uint32_t> offsets_;          // size() + 1 bounds
-    std::vector<std::string> names_;         // from the .CAT, may be empty
-    std::map<std::string, uint32_t> byName_; // normalized name -> index
+    std::shared_ptr<const std::vector<uint8_t>> _data;
+    std::vector<uint32_t> _offsets;          // size() + 1 bounds
+    std::vector<std::string> _names;         // from the .CAT, may be empty
+    std::map<std::string, uint32_t> _byName; // normalized name -> index
 };
 
 // An archive kept elsewhere too (a cache of LstArchives), in a SearchSet.
 class SharedArchive : public Archive {
 public:
-    explicit SharedArchive(std::shared_ptr<const Archive> archive) : archive_(std::move(archive)) {}
-    std::vector<std::string> list() const override { return archive_->list(); }
-    bool has(std::string_view name) const override { return archive_->has(name); }
-    Error read(std::string_view name, std::vector<uint8_t> &out) const override { return archive_->read(name, out); }
-    std::string describe() const override { return archive_->describe(); }
+    explicit SharedArchive(std::shared_ptr<const Archive> archive) : _archive(std::move(archive)) {}
+    std::vector<std::string> list() const override { return _archive->list(); }
+    bool has(std::string_view name) const override { return _archive->has(name); }
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override { return _archive->read(name, out); }
+    std::string describe() const override { return _archive->describe(); }
 
 private:
-    std::shared_ptr<const Archive> archive_;
+    std::shared_ptr<const Archive> _archive;
 };
 
 // A file of a search set as a stream, or nullptr if it isn't there.

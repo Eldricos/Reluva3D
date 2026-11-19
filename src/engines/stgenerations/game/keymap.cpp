@@ -124,60 +124,60 @@ int KeyMap::virtualKey(uint32_t key) {
         return 'A' + (key - 'a');
     if (key >= '0' && key <= '9')
         return key;
-    if (key >= reluva::key::Kp0 && key <= (reluva::key::Kp0 + 9))
-        return 0x60 + (key - reluva::key::Kp0);
-    if (key >= reluva::key::F1 && key <= (reluva::key::F1 + 11))
-        return 0x70 + (key - reluva::key::F1);
+    if (key >= reluva::key::kKp0 && key <= (reluva::key::kKp0 + 9))
+        return 0x60 + (key - reluva::key::kKp0);
+    if (key >= reluva::key::kF1 && key <= (reluva::key::kF1 + 11))
+        return 0x70 + (key - reluva::key::kF1);
     switch (key) {
-    case reluva::key::Backspace:
+    case reluva::key::kBackspace:
         return 0x08;
-    case reluva::key::Tab:
+    case reluva::key::kTab:
         return 0x09;
-    case reluva::key::Return:
-    case reluva::key::KpEnter:
+    case reluva::key::kReturn:
+    case reluva::key::kKpEnter:
         return 0x0D;
-    case reluva::key::LShift:
-    case reluva::key::RShift:
+    case reluva::key::kLShift:
+    case reluva::key::kRShift:
         return 0x10;
-    case reluva::key::LCtrl:
-    case reluva::key::RCtrl:
+    case reluva::key::kLCtrl:
+    case reluva::key::kRCtrl:
         return 0x11;
-    case reluva::key::LAlt:
-    case reluva::key::RAlt:
+    case reluva::key::kLAlt:
+    case reluva::key::kRAlt:
         return 0x12;
-    case reluva::key::Escape:
+    case reluva::key::kEscape:
         return 0x1B;
-    case reluva::key::Space:
+    case reluva::key::kSpace:
         return 0x20;
-    case reluva::key::PageUp:
+    case reluva::key::kPageUp:
         return 0x21;
-    case reluva::key::PageDown:
+    case reluva::key::kPageDown:
         return 0x22;
-    case reluva::key::End:
+    case reluva::key::kEnd:
         return 0x23;
-    case reluva::key::Home:
+    case reluva::key::kHome:
         return 0x24;
-    case reluva::key::Left:
+    case reluva::key::kLeft:
         return 0x25;
-    case reluva::key::Up:
+    case reluva::key::kUp:
         return 0x26;
-    case reluva::key::Right:
+    case reluva::key::kRight:
         return 0x27;
-    case reluva::key::Down:
+    case reluva::key::kDown:
         return 0x28;
-    case reluva::key::Insert:
+    case reluva::key::kInsert:
         return 0x2D;
-    case reluva::key::Delete:
+    case reluva::key::kDelete:
         return 0x2E;
-    case reluva::key::KpMultiply:
+    case reluva::key::kKpMultiply:
         return 0x6A;
-    case reluva::key::KpPlus:
+    case reluva::key::kKpPlus:
         return 0x6B;
-    case reluva::key::KpMinus:
+    case reluva::key::kKpMinus:
         return 0x6D;
-    case reluva::key::KpPeriod:
+    case reluva::key::kKpPeriod:
         return 0x6E;
-    case reluva::key::KpDivide:
+    case reluva::key::kKpDivide:
         return 0x6F;
     case ';':
         return 0xBA;

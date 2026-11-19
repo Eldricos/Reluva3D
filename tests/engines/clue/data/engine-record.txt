@@ -6,3 +6,7 @@ run.size: 640x480
 run.screens: 3902 06b260bebc08cd45
 run.titles: Clue: Murder at Boddy Mansion
 run.files: saves/slot1.sav (reluva-clue-save 1, "Test", abb6368d65cca631)
+viewer.result: ok
+viewer.left: by Esc
+viewer.screens: 700 795df32a0c83b073
+viewer.titles: Clue: Boddy Mansion / Clue videos: deal.avi / Clue videos: Intro.avi / Clue animations: floors:Awood / Clue animations: floors:Ahw / Clue images: test:Ib / Clue images: test:Ia / Clue text: TickerStrings.txt / Clue: Boddy Mansion

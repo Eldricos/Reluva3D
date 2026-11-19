@@ -26,8 +26,8 @@ CvarStore::Cvar &CvarStore::create(std::string_view name, std::string_view defau
     if (Cvar *cv = findMutable(name)) {
         // The game code registering a variable the user made: it's the
         // code's now, with the code's default.
-        if (cv->flags & UserCreated) {
-            cv->flags &= ~UserCreated;
+        if (cv->flags & kUserCreated) {
+            cv->flags &= ~kUserCreated;
             cv->defaultValue = defaultValue;
         }
         cv->flags |= flags;
@@ -39,22 +39,22 @@ CvarStore::Cvar &CvarStore::create(std::string_view name, std::string_view defau
     cv.defaultValue = defaultValue;
     cv.flags = flags;
     cv.modificationCount = 1;
-    cv.handle = int32_t(cvars_.size()) + 1;
-    byName_[lower(name)] = cvars_.size();
-    cvars_.push_back(std::move(cv));
-    ++changes_;
-    return cvars_.back();
+    cv.handle = int32_t(_cvars.size()) + 1;
+    _byName[lower(name)] = _cvars.size();
+    _cvars.push_back(std::move(cv));
+    ++_changes;
+    return _cvars.back();
 }
 
 void CvarStore::set(std::string_view name, std::string_view value, bool force) {
     Cvar *cv = findMutable(name);
     if (!cv) {
-        create(name, value, UserCreated);
+        create(name, value, kUserCreated);
         return;
     }
-    if (!force && (cv->flags & (ReadOnly | Init)))
+    if (!force && (cv->flags & (kReadOnly | kInit)))
         return;
-    if (!force && (cv->flags & Latch)) {
+    if (!force && (cv->flags & kLatch)) {
         cv->hasLatched = cv->value != value;
         cv->latched = cv->hasLatched ? std::string(value) : std::string();
         return;
@@ -65,11 +65,11 @@ void CvarStore::set(std::string_view name, std::string_view value, bool force) {
         return;
     cv->value = value;
     ++cv->modificationCount;
-    ++changes_;
+    ++_changes;
 }
 
 void CvarStore::applyLatched() {
-    for (Cvar &cv : cvars_)
+    for (Cvar &cv : _cvars)
         if (cv.hasLatched)
             set(cv.name, std::string(cv.latched), true);
 }
@@ -96,17 +96,17 @@ bool CvarStore::NoCase::operator()(std::string_view a, std::string_view b) const
 }
 
 const CvarStore::Cvar *CvarStore::find(std::string_view name) const {
-    const auto it = byName_.find(name);
-    return it == byName_.end() ? nullptr : &cvars_[it->second];
+    const auto it = _byName.find(name);
+    return it == _byName.end() ? nullptr : &_cvars[it->second];
 }
 
 CvarStore::Cvar *CvarStore::findMutable(std::string_view name) {
-    const auto it = byName_.find(name);
-    return it == byName_.end() ? nullptr : &cvars_[it->second];
+    const auto it = _byName.find(name);
+    return it == _byName.end() ? nullptr : &_cvars[it->second];
 }
 
 const CvarStore::Cvar *CvarStore::byHandle(int32_t handle) const {
-    return handle >= 1 && size_t(handle) <= cvars_.size() ? &cvars_[size_t(handle) - 1] : nullptr;
+    return handle >= 1 && size_t(handle) <= _cvars.size() ? &_cvars[size_t(handle) - 1] : nullptr;
 }
 
 std::string CvarStore::string(std::string_view name) const {

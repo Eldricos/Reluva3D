@@ -20,7 +20,7 @@ namespace reluva::newworlds {
 // are named placeholders (vm-checklist.md).
 
 // The colony's six materials, in the NEW WORLDS panel's order.
-enum Material { Dilithium, Polycomp, Thermoconc, Transalumin, Nitrium, Duranium, kMaterials };
+enum Material { kDilithium, kPolycomp, kThermoconc, kTransalumin, kNitrium, kDuranium, kMaterials };
 using Stock = std::array<int, kMaterials>;
 const char *materialName(int m); // "DILITHIUM", ...
 
@@ -53,11 +53,15 @@ struct ColonyMap {
 struct ColonyStructure {
     int id = 0;
     std::string type;
-    float x = 0, y = 0;           // its middle, world units
-    float progress = 1;           // 0 when ordered, 1 built
-    bool started = true;          // its cost paid (it waits for materials if not)
-    int deposit = 0;              // a mine's ore kind
-    int blockX = -1, blockY = -1; // a mine's deposit block
+    // its middle, world units
+    float x = 0;
+    float y = 0;
+    float progress = 1;  // 0 when ordered, 1 built
+    bool started = true; // its cost paid (it waits for materials if not)
+    int deposit = 0;     // a mine's ore kind
+    // a mine's deposit block
+    int blockX = -1;
+    int blockY = -1;
     bool exhausted = false;
 };
 
@@ -65,14 +69,14 @@ class Economy {
 public:
     Economy(char side, Stock start, int crew, int capacity, ColonyMap map);
 
-    const Stock &stock() const { return stock_; }
-    int crew() const { return crew_; }
-    int capacity() const { return capacity_; }
+    const Stock &stock() const { return _stock; }
+    int crew() const { return _crew; }
+    int capacity() const { return _capacity; }
     float powerSupply() const;
     float powerDemand() const;
     float demandMet() const; // 0-1
-    const std::vector<ColonyStructure> &structures() const { return structures_; }
-    const std::array<float, kOres> &oreStock() const { return ore_; } // raw ore waiting at the processor
+    const std::vector<ColonyStructure> &structures() const { return _structures; }
+    const std::array<float, kOres> &oreStock() const { return _ore; } // raw ore waiting at the processor
 
     // A building already standing (the starting colony).
     int addBuilt(const std::string &type, float x, float y);
@@ -93,16 +97,20 @@ public:
 private:
     bool has(const std::string &type) const;
 
-    char side_;
-    Stock stock_;
-    int crew_, capacity_;
-    ColonyMap map_;
-    std::vector<ColonyStructure> structures_;
-    std::array<float, kOres> ore_{};
-    std::array<float, kMaterials> made_{};                     // fractions of materials refined
-    std::vector<std::pair<std::pair<int, int>, float>> mined_; // blocks' ore taken so far
-    double clock_ = 0, lastPowerWarning_ = -1e9, lastShortWarning_ = -1e9, crewTimer_ = 0;
-    int nextId_ = 1;
+    char _side;
+    Stock _stock;
+    int _crew;
+    int _capacity;
+    ColonyMap _map;
+    std::vector<ColonyStructure> _structures;
+    std::array<float, kOres> _ore{};
+    std::array<float, kMaterials> _made{};                     // fractions of materials refined
+    std::vector<std::pair<std::pair<int, int>, float>> _mined; // blocks' ore taken so far
+    double _clock = 0;
+    double _lastPowerWarning = -1e9;
+    double _lastShortWarning = -1e9;
+    double _crewTimer = 0;
+    int _nextId = 1;
 };
 
 } // namespace reluva::newworlds

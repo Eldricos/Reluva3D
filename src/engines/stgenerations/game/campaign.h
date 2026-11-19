@@ -6,6 +6,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include "common/text.h"
@@ -110,7 +111,7 @@ public:
     void setFlag(int flag, bool value);
 
     // Random choices (JumpRandom); returns 0..count-1. Defaults to the first.
-    void setRandom(std::function<int(int count)> random) { _random = random; }
+    void setRandom(std::function<int(int count)> random) { _random = std::move(random); }
 
     void sync(Serializer &s);
 
@@ -133,19 +134,23 @@ private:
     size_t _line = 0;
     bool _running = false;
     std::set<int> _flags;
-    std::set<int> _played, _won, _lost;
+    std::set<int> _played;
+    std::set<int> _won;
+    std::set<int> _lost;
     std::set<std::string> _destroyed;
     std::set<std::string> _objectFlags;
     std::vector<std::pair<std::string, int>> _stack;
     // The activity running, with where to go after it.
-    std::string _wonSection, _lostSection;
+    std::string _wonSection;
+    std::string _lostSection;
     int _mission = 0;
     int _combat = 0;
     // Set by restartSection() in a combat: next() starts it again.
     bool _replayCombat = false;
     bool _clue = false;
     // The states the bridge's context button leads to.
-    std::string _onTransport, _onTactical;
+    std::string _onTransport;
+    std::string _onTactical;
     // SDTimer's deadline, a stardate.
     double _deadline = 0;
     std::function<int(int)> _random;

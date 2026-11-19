@@ -123,12 +123,18 @@ languages and patched releases haven't been tried.
 
 None of these changes what the game does.
 
-- **Data viewers.** Besides the Scenes page, where the game is played (N
-  starts one), the engine has pages for looking at the install: Models
-  (textured and animated, the mouse to turn and zoom), Movies, Pictures,
-  Text and Sounds. Tab moves between them; the window's title names the
-  page, what it shows and the frames shown in the last second. See
-  [README.md](README.md#using-it).
+- **Data viewer.** `reluva-viewer`, not the game, has pages for looking
+  at the install: the Scenes page (the scenes' files browsed, a game
+  started with N), Models (textured and animated, the mouse to turn and
+  zoom), Movies, Pictures, Text and Sounds. Tab moves between them; the
+  window's title names the page, what it shows and the frames shown in
+  the last second. See [README.md](README.md#using-it).
+- **The frame rate in the game's title.** The window is titled
+  "Agatha Christie: Murder on the Orient Express", then the frames shown
+  in the last second. The original's title is its command line (WinMain
+  `0x4018f0`, `CreateWindowExW` at `0x401a13`), which the installer's
+  shortcut gives; the install doesn't hold the shortcut, so the name is
+  the one its readme gives the game *(inferred)*.
 - **Screenshots.** F12 saves the screen as a TGA, under `screenshots/` in
   the game's save folder.
 - **Frame time.** `RELUVA_PERF=1` writes where a frame's time goes, every

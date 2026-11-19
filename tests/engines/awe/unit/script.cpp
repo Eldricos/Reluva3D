@@ -189,7 +189,8 @@ void testItemSlots() {
 }
 
 void testStory() {
-    int major = 0, minor = 0;
+    int major = 0;
+    int minor = 0;
     CHECK(parseActName("06a", major, minor) && major == 6 && minor == 1 && actName(major, minor) == "06a");
     CHECK(!parseActName("a", major, minor));
     const Table t =
@@ -293,9 +294,9 @@ void testStory() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.script",
-                                       {
-                                           {"runner", [](const std::filesystem::path &) { testScript(); }},
-                                           {"item slots", [](const std::filesystem::path &) { testItemSlots(); }},
-                                           {"story", [](const std::filesystem::path &) { testStory(); }},
-                                       });
+static const reluva::test::Suite kSuite("awe.unit.script",
+                                        {
+                                            {"runner", [](const std::filesystem::path &) { testScript(); }},
+                                            {"item slots", [](const std::filesystem::path &) { testItemSlots(); }},
+                                            {"story", [](const std::filesystem::path &) { testStory(); }},
+                                        });

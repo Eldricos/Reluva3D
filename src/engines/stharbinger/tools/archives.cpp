@@ -96,12 +96,12 @@ void savePng(const stdfs::path &path, int w, int h, const uint8_t *pixels, const
 
 audio::RawStream::Format rawFormat(const std::string &name) {
     if (name == "s8")
-        return audio::RawStream::Format::S8;
+        return audio::RawStream::Format::kS8;
     if (name == "s16")
-        return audio::RawStream::Format::S16LE;
+        return audio::RawStream::Format::kS16LE;
     if (name == "s16be")
-        return audio::RawStream::Format::S16BE;
-    return audio::RawStream::Format::U8;
+        return audio::RawStream::Format::kS16BE;
+    return audio::RawStream::Format::kU8;
 }
 
 std::string formatName(stharbinger::RawFormat f) {
@@ -155,9 +155,14 @@ Rgb falseColourPalette() {
             pal.insert(pal.end(), 3, uint8_t(16 * i));
             continue;
         }
-        const double h = std::fmod(i * 0.618033988749895, 1.0), s = 0.65, v = 0.95;
+        const double h = std::fmod(i * 0.618033988749895, 1.0);
+        const double s = 0.65;
+        const double v = 0.95;
         const int k = int(h * 6);
-        const double f = h * 6 - k, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+        const double f = h * 6 - k;
+        const double p = v * (1 - s);
+        const double q = v * (1 - f * s);
+        const double t = v * (1 - (1 - f) * s);
         const double rgb[6][3] = {{v, t, p}, {q, v, p}, {p, v, t}, {p, q, v}, {t, p, v}, {v, p, q}};
         for (double c : rgb[k % 6])
             pal.push_back(uint8_t(int(c * 255)));
@@ -178,7 +183,8 @@ std::optional<stdfs::path> sibling(const stdfs::path &path, const std::string &e
 
 struct Entry {
     std::string name;
-    uint32_t start, end;
+    uint32_t start;
+    uint32_t end;
 };
 
 // NAME.LST's offsets into NAME.ALL, with NAME.CAT's names; what doesn't
@@ -266,7 +272,8 @@ std::string phonemeWords(const std::vector<uint8_t> &clip) {
 long findLeHeader(const std::vector<uint8_t> &d) {
     for (size_t o = 0; o + 12 <= d.size(); o++)
         if (d[o] == 'L' && d[o + 1] == 'E' && !std::memcmp(&d[o + 2], "\0\0\0\0\0\0", 6)) {
-            const int cpu = readLE16(&d[o + 8]), os = readLE16(&d[o + 10]);
+            const int cpu = readLE16(&d[o + 8]);
+            const int os = readLE16(&d[o + 10]);
             if (cpu >= 1 && cpu <= 4 && os >= 1 && os <= 4)
                 return long(o);
         }
@@ -307,7 +314,8 @@ std::string identifyExe(const std::vector<uint8_t> &d) {
 // --- Sound statistics -----------------------------------------------------------
 
 double entropy(const std::vector<uint8_t> &d, size_t start = 0, size_t step = 1) {
-    size_t counts[256] = {}, n = 0;
+    size_t counts[256] = {};
+    size_t n = 0;
     for (size_t i = start; i < d.size(); i += step, n++)
         counts[d[i]]++;
     double e = 0;
@@ -320,8 +328,13 @@ double entropy(const std::vector<uint8_t> &d, size_t start = 0, size_t step = 1)
 }
 
 struct RawStats {
-    double entropy = 0, nearMid = 0, nearEdge = 0, oddNearZero = 0;
-    std::string autoFormat, guess, first16;
+    double entropy = 0;
+    double nearMid = 0;
+    double nearEdge = 0;
+    double oddNearZero = 0;
+    std::string autoFormat;
+    std::string guess;
+    std::string first16;
 };
 
 RawStats rawStats(const std::vector<uint8_t> &d) {
@@ -331,7 +344,10 @@ RawStats rawStats(const std::vector<uint8_t> &d) {
     for (uint8_t b : d)
         hist[b]++;
     st.entropy = entropy(d);
-    size_t mid = 0, edge = 0, oddEdge = 0, odd = 0;
+    size_t mid = 0;
+    size_t edge = 0;
+    size_t oddEdge = 0;
+    size_t odd = 0;
     for (int v = 0x70; v < 0x90; v++)
         mid += hist[v];
     for (int v = 0; v < 0x10; v++)
@@ -410,7 +426,8 @@ std::string choosePalette(const std::string &stemIn, const std::map<std::string,
 // byte differs from the next, how often the pair below is the same.
 int guessWidth(const std::vector<uint8_t> &d, std::vector<std::pair<double, int>> *top = nullptr) {
     const size_t n = d.size();
-    const int lo = 32, hi = int(std::min<size_t>(2048, n / 4));
+    const int lo = 32;
+    const int hi = int(std::min<size_t>(2048, n / 4));
     std::vector<size_t> edges;
     for (size_t i = 0; i + 1 < n; i++)
         if (d[i] != d[i + 1])
@@ -421,7 +438,8 @@ int guessWidth(const std::vector<uint8_t> &d, std::vector<std::pair<double, int>
     std::vector<std::pair<double, int>> scores;
     for (int w = lo; w <= hi; w++) {
         const size_t lim = n - size_t(w) - 1;
-        size_t t = 0, m = 0;
+        size_t t = 0;
+        size_t m = 0;
         for (size_t k = 0; k < edges.size(); k += step) {
             const size_t i = edges[k];
             if (i < lim) {
@@ -466,21 +484,22 @@ struct Options {
 
 struct Root {
     std::string label;
-    stdfs::path root, out;
+    stdfs::path root;
+    stdfs::path out;
 };
 
 class Extractor {
 public:
-    Extractor(stdfs::path out, Options options) : out_(std::move(out)), options_(std::move(options)) {}
+    Extractor(stdfs::path out, Options options) : _out(std::move(out)), _options(std::move(options)) {}
 
     void run(const std::vector<stharbinger::GamePart> &parts) {
         for (size_t i = 0; i < parts.size(); i++) {
             const auto &p = parts[i];
             const std::string label = "disc" + std::to_string(p.disc >= 0 ? p.disc + 1 : int(i) + 1);
-            roots_.push_back({label, p.folder, out_ / label});
+            _roots.push_back({label, p.folder, _out / label});
         }
-        if (options_.wants("archive")) {
-            const std::vector<Root> discs = roots_;
+        if (_options.wants("archive")) {
+            const std::vector<Root> discs = _roots;
             for (const Root &r : discs)
                 unpackArchives(r.label, r.root, r.out, 0);
         }
@@ -496,23 +515,38 @@ private:
         size_t emptyClips = 0;
     };
     struct ExeInfo {
-        std::string file, type;
+        std::string file;
+        std::string type;
         size_t size;
     };
     struct CmpInfo {
-        std::string file, palette, dims, first16, error;
-        size_t size = 0, outSize = 0;
+        std::string file;
+        std::string palette;
+        std::string dims;
+        std::string first16;
+        std::string error;
+        size_t size = 0;
+        size_t outSize = 0;
         uint32_t header = 0;
         bool headerMatches = false;
     };
     struct RleFrameInfo {
-        int frame, key, w, h, x, y;
+        int frame;
+        int key;
+        int w;
+        int h;
+        int x;
+        int y;
         size_t bytes;
     };
     struct RleInfo {
-        std::string file, palette, magic, error;
+        std::string file;
+        std::string palette;
+        std::string magic;
+        std::string error;
         size_t size = 0;
-        int countField = 0, framesFound = 0;
+        int countField = 0;
+        int framesFound = 0;
         long trailing = 0;
         std::vector<std::string> issues;
         std::vector<RleFrameInfo> frames;
@@ -523,9 +557,13 @@ private:
         RawStats stats;
     };
     struct MapInfo {
-        std::string file, palette, values, topWidths;
+        std::string file;
+        std::string palette;
+        std::string values;
+        std::string topWidths;
         size_t size = 0;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         long remainder = 0;
     };
     struct PalInfo {
@@ -551,7 +589,7 @@ private:
             std::vector<Entry> entries;
             if (!readArchive(lst, data, entries, info.issues)) {
                 info.issues.push_back("cannot be read");
-                archives_.push_back(info);
+                _archives.push_back(info);
                 continue;
             }
             info.entries = entries.size();
@@ -566,12 +604,12 @@ private:
                         info.emptyClips++;
                         continue;
                     }
-                    const std::string fmt = options_.rawFormat == "auto"
+                    const std::string fmt = _options.rawFormat == "auto"
                                                 ? formatName(stharbinger::detectRawFormat(clip))
-                                                : options_.rawFormat;
-                    saveWav(dest / text::format("clip_%03zu.wav", i), clip, options_.rawRate, fmt);
+                                                : _options.rawFormat;
+                    saveWav(dest / text::format("clip_%03zu.wav", i), clip, _options.rawRate, fmt);
                     if (i < 2)
-                        raws_.push_back({text::format("%s#%zu", info.file.c_str(), i), clip.size(), rawStats(clip)});
+                        _raws.push_back({text::format("%s#%zu", info.file.c_str(), i), clip.size(), rawStats(clip)});
                 }
             } else if (hasPart(rel, "PHONEMES")) {
                 std::string transcript;
@@ -588,14 +626,14 @@ private:
                     save(dest / e.name, d);
                     const std::string kind = identifyExe(d);
                     if (!kind.empty())
-                        exes_.push_back(
+                        _exes.push_back(
                             {label + ":" + (rel.parent_path() / rel.stem() / e.name).generic_string(), kind, d.size()});
                 }
-                roots_.push_back({label, dest, dest});
+                _roots.push_back({label, dest, dest});
                 if (depth < 3)
                     unpackArchives(label, dest, dest, depth + 1);
             }
-            archives_.push_back(info);
+            _archives.push_back(info);
             std::string issues;
             for (const std::string &s : info.issues)
                 issues += (issues.empty() ? "" : "; ") + s;
@@ -610,7 +648,7 @@ private:
             stdfs::path path;
         };
         std::vector<File> files;
-        for (const Root &r : roots_) {
+        for (const Root &r : _roots) {
             std::vector<stdfs::path> found;
             std::error_code ec;
             for (stdfs::recursive_directory_iterator it(r.root, ec), end; !ec && it != end; it.increment(ec))
@@ -642,13 +680,13 @@ private:
                                                : "";
             if (ext == ".DAT" && upper(f.path.parent_path().filename().string()) == "MAPS")
                 kind = "map";
-            if (kind.empty() || !options_.wants(kind))
+            if (kind.empty() || !_options.wants(kind))
                 continue;
             stdfs::path outbase = f.root->out / f.path.lexically_relative(f.root->root);
             outbase.replace_extension();
             if (!seen.insert(upper(outbase.string())).second)
                 continue;
-            if (options_.limit && counts[kind] >= options_.limit)
+            if (_options.limit && counts[kind] >= _options.limit)
                 continue;
             counts[kind]++;
             std::vector<uint8_t> d;
@@ -663,9 +701,9 @@ private:
                     convertRle(file, d, outbase, pal, name);
             } else if (kind == "raw") {
                 RawInfo r{file, d.size(), rawStats(d)};
-                saveWav(outbase.string() + ".wav", d, options_.rawRate,
-                        options_.rawFormat == "auto" ? r.stats.autoFormat : options_.rawFormat);
-                raws_.push_back(r);
+                saveWav(outbase.string() + ".wav", d, _options.rawRate,
+                        _options.rawFormat == "auto" ? r.stats.autoFormat : _options.rawFormat);
+                _raws.push_back(r);
             } else if (kind == "pal") {
                 bool six = false;
                 const Rgb pal = vgaPalette(d, &six);
@@ -674,10 +712,10 @@ private:
                     for (int x = 0; x < 256; x++)
                         img[size_t(y) * 256 + x] = uint8_t((y / 16) * 16 + x / 16);
                 savePng(outbase.string() + ".png", 256, 256, img.data(), pal);
-                pals_.push_back({file, six});
+                _pals.push_back({file, six});
             } else {
-                const auto it = options_.mapPalettes.find(upper(f.path.stem().string()));
-                const bool known = it != options_.mapPalettes.end() && palettes.count(it->second);
+                const auto it = _options.mapPalettes.find(upper(f.path.stem().string()));
+                const bool known = it != _options.mapPalettes.end() && palettes.count(it->second);
                 convertMap(file, d, outbase, known ? palettes[it->second] : falseColourPalette(),
                            known ? it->second : "false colour");
             }
@@ -698,7 +736,7 @@ private:
         c.palette = palName.empty() ? "grey" : palName;
         if (d.size() < 6) {
             c.error = "too short";
-            cmps_.push_back(c);
+            _cmps.push_back(c);
             return;
         }
         c.header = readLE32(d.data());
@@ -706,13 +744,14 @@ private:
         std::vector<uint8_t> pixels;
         if (!decompressDCL(d.data() + 4, uint32_t(d.size() - 4), pixels)) {
             c.error = "DCL: corrupt or truncated";
-            cmps_.push_back(c);
+            _cmps.push_back(c);
             return;
         }
         c.outSize = pixels.size();
         c.first16 = hexBytes(pixels.data(), pixels.size());
         static const int kSizes[][2] = {{640, 480}, {640, 400}, {320, 200}, {640, 350}};
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         size_t tail = 0;
         for (const auto &s : kSizes) {
             const size_t n = size_t(s[0]) * size_t(s[1]);
@@ -730,7 +769,7 @@ private:
         if (!w) {
             save(outbase.string() + ".bin", pixels);
             c.error = "unknown dimensions; raw output written to .bin";
-            cmps_.push_back(c);
+            _cmps.push_back(c);
             return;
         }
         Rgb use = pal;
@@ -740,7 +779,7 @@ private:
         }
         savePng(outbase.string() + ".png", w, h, pixels.data(), use);
         c.dims = text::format("%dx%d", w, h);
-        cmps_.push_back(c);
+        _cmps.push_back(c);
     }
 
     void convertRle(const std::string &file, const std::vector<uint8_t> &d, const stdfs::path &outbase, const Rgb &pal,
@@ -751,7 +790,7 @@ private:
         r.palette = palName.empty() ? "grey" : palName;
         if (d.size() < 10) {
             r.error = "too short";
-            rles_.push_back(r);
+            _rles.push_back(r);
             return;
         }
         r.magic = hexBytes(d.data(), 8);
@@ -774,7 +813,7 @@ private:
         uint8_t header[8];
         if (!anim.loadWithHeader(stream, header)) {
             r.error = "cannot be decoded";
-            rles_.push_back(r);
+            _rles.push_back(r);
             return;
         }
         for (int i = 0; i < anim.frameCount(); i++) {
@@ -784,7 +823,8 @@ private:
                 continue;
             // Drawn twice, over 0 and over 255: a pixel the frame writes is the
             // same in both; the rest is transparent.
-            Surface a, b;
+            Surface a;
+            Surface b;
             draw::create(a, f.w, f.h, 0);
             draw::create(b, f.w, f.h, 255);
             anim.drawFrameAt(i, a, 0, 0);
@@ -803,7 +843,7 @@ private:
                 anim.frameCount() == 1 ? outbase.string() + ".png" : outbase.string() + text::format("_%03d.png", i);
             save(name, image::encodePng(img));
         }
-        rles_.push_back(r);
+        _rles.push_back(r);
     }
 
     void convertMap(const std::string &file, const std::vector<uint8_t> &d, const stdfs::path &outbase, const Rgb &pal,
@@ -830,14 +870,14 @@ private:
             m.palette = palName;
             savePng(outbase.string() + ".png", m.width, m.height, d.data(), pal);
         }
-        maps_.push_back(m);
+        _maps.push_back(m);
     }
 
     void writeReport() {
         std::string r;
         auto add = [&](const std::string &s) { r += s + "\n"; };
         add("== Archives");
-        for (const ArchiveInfo &a : archives_) {
+        for (const ArchiveInfo &a : _archives) {
             std::string issues;
             for (const std::string &s : a.issues)
                 issues += (issues.empty() ? "" : "; ") + s;
@@ -846,20 +886,21 @@ private:
                              a.emptyClips ? text::format(", %zu empty clips", a.emptyClips).c_str() : ""));
         }
         add("\n== Executables found inside archives");
-        if (exes_.empty())
+        if (_exes.empty())
             add(text::format("  %-50s %8s  %s", "(none)", "", ""));
-        for (const ExeInfo &e : exes_)
+        for (const ExeInfo &e : _exes)
             add(text::format("  %-50s %8zu  %s", e.file.c_str(), e.size, e.type.c_str()));
 
-        size_t ok = 0, headerOk = 0;
+        size_t ok = 0;
+        size_t headerOk = 0;
         std::map<size_t, int> sizes;
-        for (const CmpInfo &c : cmps_) {
+        for (const CmpInfo &c : _cmps) {
             ok += !c.dims.empty();
             headerOk += c.headerMatches;
             sizes[c.outSize]++;
         }
-        add(text::format("\n== CMP backgrounds: %zu converted, %zu failed", ok, cmps_.size() - ok));
-        add(text::format("  header u32 == file size - 4: %zu of %zu", headerOk, cmps_.size()));
+        add(text::format("\n== CMP backgrounds: %zu converted, %zu failed", ok, _cmps.size() - ok));
+        add(text::format("  header u32 == file size - 4: %zu of %zu", headerOk, _cmps.size()));
         std::vector<std::pair<int, size_t>> bySize;
         for (const auto &[s, n] : sizes)
             bySize.push_back({n, s});
@@ -869,21 +910,23 @@ private:
             sizeList += text::format("%s%zu x%d", i ? ", " : "", bySize[i].second, bySize[i].first);
         add("  decompressed sizes: " + sizeList);
         int shown = 0;
-        for (const CmpInfo &c : cmps_)
+        for (const CmpInfo &c : _cmps)
             if (!c.error.empty() && shown++ < 15)
                 add("  FAIL " + c.file + ": " + c.error);
 
-        size_t frames = 0, chained = 0, countOk = 0;
+        size_t frames = 0;
+        size_t chained = 0;
+        size_t countOk = 0;
         std::map<std::string, int> magics;
-        for (const RleInfo &x : rles_) {
+        for (const RleInfo &x : _rles) {
             frames += x.frames.size();
             chained += x.trailing == 0;
             countOk += x.countField == x.framesFound;
             magics[x.magic]++;
         }
-        add(text::format("\n== RLE animations: %zu files, %zu frames", rles_.size(), frames));
-        add(text::format("  frames chain exactly to end of file: %zu of %zu", chained, rles_.size()));
-        add(text::format("  frame-count field matches frames found: %zu of %zu", countOk, rles_.size()));
+        add(text::format("\n== RLE animations: %zu files, %zu frames", _rles.size(), frames));
+        add(text::format("  frames chain exactly to end of file: %zu of %zu", chained, _rles.size()));
+        add(text::format("  frame-count field matches frames found: %zu of %zu", countOk, _rles.size()));
         std::vector<std::pair<int, std::string>> byMagic;
         for (const auto &[m, n] : magics)
             byMagic.push_back({n, m});
@@ -893,7 +936,7 @@ private:
             magicList += text::format("%s%s x%d", i ? "; " : "", byMagic[i].second.c_str(), byMagic[i].first);
         add("  distinct 8-byte magics: " + magicList);
         shown = 0;
-        for (const RleInfo &x : rles_) {
+        for (const RleInfo &x : _rles) {
             std::string issues = x.error;
             for (const std::string &s : x.issues)
                 issues += (issues.empty() ? "" : "; ") + s;
@@ -905,7 +948,7 @@ private:
         // Most common first (in the order first seen among equals).
         std::vector<std::pair<std::string, int>> formats;
         size_t odd16 = 0;
-        for (const RawInfo &x : raws_) {
+        for (const RawInfo &x : _raws) {
             auto it = std::find_if(formats.begin(), formats.end(),
                                    [&](const auto &f) { return f.first == x.stats.autoFormat; });
             if (it == formats.end())
@@ -921,8 +964,8 @@ private:
             formatList += text::format("%s%s x%d", formatList.empty() ? "" : ", ", f.c_str(), n);
         add("  auto-detected formats: " + formatList);
         add(text::format("  odd-sized files detected as 16-bit: %zu", odd16));
-        for (size_t i = 0; i < raws_.size() && i < 12; i++) {
-            const RawInfo &x = raws_[i];
+        for (size_t i = 0; i < _raws.size() && i < 12; i++) {
+            const RawInfo &x = _raws[i];
             add(text::format("  %-45s ent=%-5.2f mid=%-6.3f edge=%-6.3f odd16=%-6.3f %s | %s",
                              stdfs::path(x.file).filename().string().c_str(), x.stats.entropy, x.stats.nearMid,
                              x.stats.nearEdge, x.stats.oddNearZero, x.stats.autoFormat.c_str(),
@@ -930,28 +973,28 @@ private:
         }
 
         add("\n== Map grids");
-        for (const MapInfo &m : maps_) {
+        for (const MapInfo &m : _maps) {
             add(text::format("  %s: %zu bytes, width %d, height %d, remainder %ld; other candidates %s", m.file.c_str(),
                              m.size, m.width, m.height, m.remainder, m.topWidths.c_str()));
             add("     palette: " + m.palette);
             add("     most common values: " + m.values);
         }
         bool allSix = true;
-        for (const PalInfo &p : pals_)
+        for (const PalInfo &p : _pals)
             allSix = allSix && p.sixBit;
-        add(text::format("\n== Palettes: %zu, all 6-bit VGA: %s", pals_.size(), allSix ? "True" : "False"));
+        add(text::format("\n== Palettes: %zu, all 6-bit VGA: %s", _pals.size(), allSix ? "True" : "False"));
 
         std::vector<std::string> errors;
-        for (const CmpInfo &c : cmps_)
+        for (const CmpInfo &c : _cmps)
             if (!c.error.empty())
                 errors.push_back(c.file + ": " + c.error);
-        for (const RleInfo &x : rles_)
+        for (const RleInfo &x : _rles)
             if (!x.error.empty())
                 errors.push_back(x.file + ": " + x.error);
         add(text::format("\n== Errors: %zu", errors.size()));
         for (size_t i = 0; i < errors.size() && i < 40; i++)
             add("  " + errors[i]);
-        saveText(out_ / "report.txt", r);
+        saveText(_out / "report.txt", r);
 
         auto csv = [](std::string v) {
             if (v.find_first_of(",\"\n") == std::string::npos)
@@ -962,37 +1005,37 @@ private:
             return out + "\"";
         };
         std::string cmp = "file,size,header_u32,out_size,dims,palette,first16,error\n";
-        for (const CmpInfo &c : cmps_)
+        for (const CmpInfo &c : _cmps)
             cmp += csv(c.file) + "," + std::to_string(c.size) + "," + std::to_string(c.header) + "," +
                    std::to_string(c.outSize) + "," + c.dims + "," + csv(c.palette) + "," + c.first16 + "," +
                    csv(c.error) + "\n";
-        saveText(out_ / "cmp.csv", cmp);
+        saveText(_out / "cmp.csv", cmp);
         std::string rle = "file,frame,key,w,h,x,y,data_bytes\n";
-        for (const RleInfo &x : rles_)
+        for (const RleInfo &x : _rles)
             for (const RleFrameInfo &f : x.frames)
                 rle +=
                     csv(x.file) + text::format(",%d,%d,%d,%d,%d,%d,%zu\n", f.frame, f.key, f.w, f.h, f.x, f.y, f.bytes);
-        saveText(out_ / "rle_frames.csv", rle);
+        saveText(_out / "rle_frames.csv", rle);
         std::string raw = "file,size,auto,entropy,near_0x80,near_0x00_0xFF,odd_bytes_near_0,first16\n";
-        for (const RawInfo &x : raws_)
+        for (const RawInfo &x : _raws)
             raw += csv(x.file) +
                    text::format(",%zu,%s,%.2f,%.3f,%.3f,%.3f,", x.size, x.stats.autoFormat.c_str(), x.stats.entropy,
                                 x.stats.nearMid, x.stats.nearEdge, x.stats.oddNearZero) +
                    x.stats.first16 + "\n";
-        saveText(out_ / "raw.csv", raw);
-        std::printf("\n%s\nFull report: %s\n", r.substr(0, 4000).c_str(), (out_ / "report.txt").string().c_str());
+        saveText(_out / "raw.csv", raw);
+        std::printf("\n%s\nFull report: %s\n", r.substr(0, 4000).c_str(), (_out / "report.txt").string().c_str());
     }
 
-    stdfs::path out_;
-    Options options_;
-    std::vector<Root> roots_;
-    std::vector<ArchiveInfo> archives_;
-    std::vector<ExeInfo> exes_;
-    std::vector<CmpInfo> cmps_;
-    std::vector<RleInfo> rles_;
-    std::vector<RawInfo> raws_;
-    std::vector<MapInfo> maps_;
-    std::vector<PalInfo> pals_;
+    stdfs::path _out;
+    Options _options;
+    std::vector<Root> _roots;
+    std::vector<ArchiveInfo> _archives;
+    std::vector<ExeInfo> _exes;
+    std::vector<CmpInfo> _cmps;
+    std::vector<RleInfo> _rles;
+    std::vector<RawInfo> _raws;
+    std::vector<MapInfo> _maps;
+    std::vector<PalInfo> _pals;
 };
 
 std::vector<stharbinger::GamePart> partsOf(const char *folder) {
@@ -1105,16 +1148,19 @@ int cmdMapPalettes(int argc, char **argv) {
                 maps.emplace(upper(p.stem().string()), d);
         }
     }
-    const int tile = 200, cols = 8;
+    const int tile = 200;
+    const int cols = 8;
     for (const auto &[name, d] : maps) {
         const int w = guessWidth(d);
         if (!w || pals.empty())
             continue;
         const int h = int(d.size() / size_t(w));
         const int step = std::max(1, (std::max(w, h) + tile - 1) / tile);
-        const int tw = (w + step - 1) / step, th = (h + step - 1) / step;
+        const int tw = (w + step - 1) / step;
+        const int th = (h + step - 1) / step;
         const int rows = (int(pals.size()) + cols - 1) / cols;
-        const int sw = cols * (tw + 4), sh = rows * (th + 4);
+        const int sw = cols * (tw + 4);
+        const int sh = rows * (th + 4);
         image::Image sheet;
         sheet.w = sw;
         sheet.h = sh;
@@ -1124,7 +1170,8 @@ int cmdMapPalettes(int argc, char **argv) {
         std::string index;
         int i = 0;
         for (const auto &[pname, pal] : pals) {
-            const int ox = (i % cols) * (tw + 4), oy = (i / cols) * (th + 4);
+            const int ox = (i % cols) * (tw + 4);
+            const int oy = (i / cols) * (th + 4);
             for (int y = 0; y < th; y++)
                 for (int x = 0; x < tw; x++) {
                     const uint8_t v = d[size_t(y * step) * size_t(w) + size_t(x * step)];
@@ -1141,7 +1188,7 @@ int cmdMapPalettes(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "stharbinger",
     {
         {"extract", "<out folder> <game folder> [options]",

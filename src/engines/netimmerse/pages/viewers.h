@@ -4,9 +4,8 @@
 #pragma once
 
 // The NetImmerse engine's data viewer: pages showing what LEGO Alpha Team's
-// archives hold, opened with F12 over the game (or alone without its
-// program). Tab moves to the next page, Esc returns. Its use is described in
-// docs/engines/netimmerse/README.md.
+// archives hold, opened in reluva-viewer (viewer.cpp). Tab moves to the next
+// page, Esc leaves. Its use is described in docs/engines/netimmerse/README.md.
 //
 // Archives: what each .pac archive holds.
 // Models:   every .FIN model in 3D. Left/Right step, PageUp/PageDown jump
@@ -62,7 +61,7 @@ struct ViewerContext {
 
 class Page {
 public:
-    explicit Page(ViewerContext &ctx) : ctx_(ctx) {}
+    explicit Page(ViewerContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
     // Whether the page has anything to show; empty ones are skipped.
@@ -80,7 +79,7 @@ protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230}, int scale = 1);
 
-    ViewerContext &ctx_;
+    ViewerContext &_ctx;
 };
 
 // What each archive holds.
@@ -94,15 +93,15 @@ public:
     void update(uint64_t) override;
 
 private:
-    std::vector<std::pair<std::string, std::string>> lines_; // archive, what it holds
-    std::vector<std::string> errors_;
+    std::vector<std::pair<std::string, std::string>> _lines; // archive, what it holds
+    std::vector<std::string> _errors;
 };
 
 class ModelPage : public Page {
 public:
     explicit ModelPage(ViewerContext &ctx);
     ~ModelPage() override;
-    bool empty() const override { return names_.empty(); }
+    bool empty() const override { return _names.empty(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
@@ -121,32 +120,41 @@ private:
     gfx::TextureId glowTexture();
     float clipTicks() const; // where the animation is
 
-    std::vector<std::string> names_; // the models in Fin.pac
-    int index_ = 0;
-    gfx::Renderer3D *renderer_ = nullptr;
-    Surface overlay_;
-    FinFile model_;
-    std::vector<Item> items_;
-    std::map<uint32_t, size_t> itemOf_;              // by shape id
-    std::map<std::string, gfx::TextureId> textures_; // by image name, lower case; 0 if it couldn't be read
-    gfx::TextureId glow_ = 0;
-    std::string error_;
-    std::vector<std::string> info_;
-    gfx::Vec3 centre_{}, home_{};
-    float radius_ = 1, yaw_ = 0.8f, pitch_ = 0.5f, distance_ = 1;
-    bool dragging_ = false, showInfo_ = true, useTextures_ = true, useLightmaps_ = true, showBackdrop_ = true;
-    bool showHidden_ = false; // the effects the game shows on events
-    int lightMode_ = 0;       // G: 0 off, 1 marked, 2 marked and lighting the shapes
-    unsigned hiddenCount_ = 0;
-    int lastX_ = 0, lastY_ = 0;
+    std::vector<std::string> _names; // the models in Fin.pac
+    int _index = 0;
+    gfx::Renderer3D *_renderer = nullptr;
+    Surface _overlay;
+    FinFile _model;
+    std::vector<Item> _items;
+    std::map<uint32_t, size_t> _itemOf;              // by shape id
+    std::map<std::string, gfx::TextureId> _textures; // by image name, lower case; 0 if it couldn't be read
+    gfx::TextureId _glow = 0;
+    std::string _error;
+    std::vector<std::string> _info;
+    gfx::Vec3 _centre{};
+    gfx::Vec3 _home{};
+    float _radius = 1;
+    float _yaw = 0.8f;
+    float _pitch = 0.5f;
+    float _distance = 1;
+    bool _dragging = false;
+    bool _showInfo = true;
+    bool _useTextures = true;
+    bool _useLightmaps = true;
+    bool _showBackdrop = true;
+    bool _showHidden = false; // the effects the game shows on events
+    int _lightMode = 0;       // G: 0 off, 1 marked, 2 marked and lighting the shapes
+    unsigned _hiddenCount = 0;
+    int _lastX = 0;
+    int _lastY = 0;
     // Animation: the actor's tracks by node, the clips (0: the whole
     // timeline), where in the clip it is and whether it's playing.
-    const FinActor *actor_ = nullptr;
-    std::map<uint32_t, size_t> trackOf_;
-    std::map<uint32_t, std::vector<const FinMaterialAnimator *>> animatorsOf_; // by material
-    std::map<uint32_t, const FinFlip *> flipOf_;                               // by texture property
-    std::map<const FinFlip *, uint16_t> flipNumber_; // in the file's order, as clips' lists number them
-    std::map<uint32_t, uint16_t> morphNumber_;       // likewise, by id
+    const FinActor *_actor = nullptr;
+    std::map<uint32_t, size_t> _trackOf;
+    std::map<uint32_t, std::vector<const FinMaterialAnimator *>> _animatorsOf; // by material
+    std::map<uint32_t, const FinFlip *> _flipOf;                               // by texture property
+    std::map<const FinFlip *, uint16_t> _flipNumber; // in the file's order, as clips' lists number them
+    std::map<uint32_t, uint16_t> _morphNumber;       // likewise, by id
     // Where the tracks and morph shapes a clip doesn't move were left, as
     // the game leaves them: by node, the pose (and whether it's shown); by
     // morph shape, the weights.
@@ -154,73 +162,75 @@ private:
         gfx::Mat4 local;
         bool shown = true;
     };
-    std::map<uint32_t, HeldPose> heldPose_;
-    std::map<uint32_t, std::vector<float>> heldWeights_;
+    std::map<uint32_t, HeldPose> _heldPose;
+    std::map<uint32_t, std::vector<float>> _heldWeights;
     // Whether the clip moves what it lists by number (the whole timeline:
     // everything).
     bool clipMoves(const std::vector<uint16_t> FinActor::Clip::*list, size_t number) const;
-    std::vector<FinActor::Clip> clips_;
-    int clip_ = 0;
-    float clipTime_ = 0; // seconds into the clip
-    bool playing_ = true;
-    uint64_t lastMs_ = 0;
-    float posedTicks_ = -1;
+    std::vector<FinActor::Clip> _clips;
+    int _clip = 0;
+    float _clipTime = 0; // seconds into the clip
+    bool _playing = true;
+    uint64_t _lastMs = 0;
+    float _posedTicks = -1;
     // The clip's sound: started as the clip starts (and as it comes round
     // again, unless the sound loops itself).
     void clipSound();
     void stopClipSound();
-    audio::SoundHandle clipSound_ = audio::kNoSound;
-    int soundClip_ = -1;
-    long soundPass_ = -1;
-    std::map<std::string, std::shared_ptr<const audio::Sound>> sounds_; // by name; nullptr if missing
+    audio::SoundHandle _clipSound = audio::kNoSound;
+    int _soundClip = -1;
+    long _soundPass = -1;
+    std::map<std::string, std::shared_ptr<const audio::Sound>> _sounds; // by name; nullptr if missing
     // The actor's footprint on the floor (F).
-    bool showFootprint_ = false;
-    gfx::MeshId footprint_ = 0;
-    uint32_t footprintCount_ = 0;
+    bool _showFootprint = false;
+    gfx::MeshId _footprint = 0;
+    uint32_t _footprintCount = 0;
 };
 
 class TexturePage : public Page {
 public:
     explicit TexturePage(ViewerContext &ctx);
-    bool empty() const override { return entries_.empty(); }
-    void activate() override { show(index_); }
+    bool empty() const override { return _entries.empty(); }
+    void activate() override { show(_index); }
     void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:
     struct Entry {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void show(int index);
-    std::vector<Entry> entries_;
-    int index_ = 0;
+    std::vector<Entry> _entries;
+    int _index = 0;
 };
 
 class FontPage : public Page {
 public:
     explicit FontPage(ViewerContext &ctx);
-    bool empty() const override { return entries_.empty(); }
-    void activate() override { show(index_); }
+    bool empty() const override { return _entries.empty(); }
+    void activate() override { show(_index); }
     void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:
     struct Entry {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void show(int index);
-    std::vector<Entry> entries_;
-    int index_ = 0;
-    bool showPages_ = false;
-    DdfFont font_;
-    std::vector<image::Image> pages_;
-    std::string error_;
+    std::vector<Entry> _entries;
+    int _index = 0;
+    bool _showPages = false;
+    DdfFont _font;
+    std::vector<image::Image> _pages;
+    std::string _error;
 };
 
 class SoundPage : public Page {
 public:
     explicit SoundPage(ViewerContext &ctx);
-    bool empty() const override { return entries_.empty(); }
+    bool empty() const override { return _entries.empty(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
@@ -228,34 +238,37 @@ public:
 
 private:
     struct Entry {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void select(int index);
     void play();
-    std::vector<Entry> entries_;
-    int index_ = 0;
-    bool autoPlay_ = false;
-    audio::SoundHandle playing_ = audio::kNoSound;
-    std::shared_ptr<const audio::Sound> sound_;
-    std::string info_;
+    std::vector<Entry> _entries;
+    int _index = 0;
+    bool _autoPlay = false;
+    audio::SoundHandle _playing = audio::kNoSound;
+    std::shared_ptr<const audio::Sound> _sound;
+    std::string _info;
 };
 
 class TextPage : public Page {
 public:
     explicit TextPage(ViewerContext &ctx);
-    bool empty() const override { return files_.empty(); }
-    void activate() override { show(index_); }
+    bool empty() const override { return _files.empty(); }
+    void activate() override { show(_index); }
     void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:
     struct File {
-        std::string archive, name;
+        std::string archive;
+        std::string name;
     };
     void show(int index);
-    std::vector<File> files_;
-    std::vector<std::string> lines_;
-    int index_ = 0, scroll_ = 0;
+    std::vector<File> _files;
+    std::vector<std::string> _lines;
+    int _index = 0;
+    int _scroll = 0;
 };
 
 } // namespace reluva::netimmerse

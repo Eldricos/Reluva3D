@@ -29,7 +29,8 @@ public:
     // What's on the screen: the primary surface as of the last flip or
     // blit onto it, as 0xAARRGGBB, `width` × `height`.
     struct Frame {
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         std::vector<uint32_t> pixels;
         uint64_t number = 0; // counts the frames shown
     };
@@ -40,7 +41,9 @@ public:
     // The display modes offered (width, height, bits per pixel); the
     // desktop's comes from the process.
     struct Mode {
-        int width, height, bits;
+        int width;
+        int height;
+        int bits;
     };
     std::vector<Mode> modes = {{640, 480, 16}, {800, 600, 16}, {1024, 768, 16},
                                {640, 480, 32}, {800, 600, 32}, {1024, 768, 32}};
@@ -50,7 +53,7 @@ public:
     // How a draw's triangles are drawn: on this thread (One), or by rows on
     // as many threads as there are processors, each at its own pace (Auto
     // and Always, which are now the same). It's the same either way.
-    enum class DrawThreads { One, Auto, Always } drawThreads = DrawThreads::Auto;
+    enum class DrawThreads { kOne, kAuto, kAlways } drawThreads = DrawThreads::kAuto;
     // Frames shown a flip late: at a flip the frame before is shown, its
     // drawing finished by then, and this one's drawing goes on while the
     // program works out the next. The program needn't wait for the drawing
@@ -61,7 +64,7 @@ public:
     struct State;
 
 private:
-    std::unique_ptr<State> s_;
+    std::unique_ptr<State> _s;
 };
 
 } // namespace reluva::x86

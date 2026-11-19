@@ -14,9 +14,13 @@ namespace reluva::soft3d {
 
 // A vertex after projection to the screen.
 struct ScreenVertex {
-    float x, y;  // pixels; pixel centres are at +0.5
-    float invZ;  // 1 / view-space depth: larger is nearer
-    float u, v;  // texture coordinates
+    // pixels; pixel centres are at +0.5
+    float x;
+    float y;
+    float invZ; // 1 / view-space depth: larger is nearer
+    // texture coordinates
+    float u;
+    float v;
     float s = 1; // light level, interpolated for smooth shading
 };
 
@@ -27,8 +31,8 @@ struct ScreenVertex {
 class Rasterizer {
 public:
     void begin(Surface &target) {
-        target_ = &target;
-        depth_.assign(size_t(target.w) * size_t(target.h), 0.0f);
+        _target = &target;
+        _depth.assign(size_t(target.w) * size_t(target.h), 0.0f);
     }
 
     // shade(u, v, rgba), or shade(u, v, light, rgba), sets the pixel's colour
@@ -47,17 +51,20 @@ public:
             std::swap(v1, v2);
             area = -area;
         }
-        const int w = target_->w, h = target_->h;
+        const int w = _target->w;
+        const int h = _target->h;
         const int x0 = std::max(0, int(std::floor(std::min({v0->x, v1->x, v2->x}))));
         const int x1 = std::min(w - 1, int(std::ceil(std::max({v0->x, v1->x, v2->x}))));
         const int y0 = std::max(0, int(std::floor(std::min({v0->y, v1->y, v2->y}))));
         const int y1 = std::min(h - 1, int(std::ceil(std::max({v0->y, v1->y, v2->y}))));
-        const bool tl0 = topLeft(*v1, *v2), tl1 = topLeft(*v2, *v0), tl2 = topLeft(*v0, *v1);
+        const bool tl0 = topLeft(*v1, *v2);
+        const bool tl1 = topLeft(*v2, *v0);
+        const bool tl2 = topLeft(*v0, *v1);
         const float inv = 1.0f / area;
         for (int y = y0; y <= y1; ++y) {
             const float py = float(y) + 0.5f;
-            uint8_t *row = target_->row(y);
-            float *depthRow = &depth_[size_t(y) * size_t(w)];
+            uint8_t *row = _target->row(y);
+            float *depthRow = &_depth[size_t(y) * size_t(w)];
             for (int x = x0; x <= x1; ++x) {
                 const float px = float(x) + 0.5f;
                 const float w0 = edge(*v1, *v2, px, py);
@@ -65,7 +72,9 @@ public:
                 const float w2 = edge(*v0, *v1, px, py);
                 if (w0 < 0 || w1 < 0 || w2 < 0 || (w0 == 0 && !tl0) || (w1 == 0 && !tl1) || (w2 == 0 && !tl2))
                     continue;
-                const float b0 = w0 * inv, b1 = w1 * inv, b2 = w2 * inv;
+                const float b0 = w0 * inv;
+                const float b1 = w1 * inv;
+                const float b2 = w2 * inv;
                 const float invZ = b0 * v0->invZ + b1 * v1->invZ + b2 * v2->invZ;
                 if (invZ <= depthRow[x])
                     continue;
@@ -93,12 +102,13 @@ private:
     // With y pointing down: a top edge is horizontal with the inside below it,
     // a left edge has the inside to its right.
     static bool topLeft(const ScreenVertex &p, const ScreenVertex &q) {
-        const float dx = q.x - p.x, dy = q.y - p.y;
+        const float dx = q.x - p.x;
+        const float dy = q.y - p.y;
         return dy < 0 || (dy == 0 && dx > 0);
     }
 
-    Surface *target_ = nullptr;
-    std::vector<float> depth_;
+    Surface *_target = nullptr;
+    std::vector<float> _depth;
 };
 
 } // namespace reluva::soft3d

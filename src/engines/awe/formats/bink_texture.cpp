@@ -16,103 +16,106 @@ namespace {
 // next. Out-of-range reads give 0, as the DLL's zeroed padding does.
 class RangeDecoder {
 public:
-    RangeDecoder(const std::vector<uint8_t> &in, size_t at) : in_(in), pos_(at + 1) {
+    RangeDecoder(const std::vector<uint8_t> &in, size_t at) : _in(in), _pos(at + 1) {
         const uint32_t first = byte(at);
-        code_ = first >> 1;
+        _code = first >> 1;
         // The DLL keeps the held-back bit in the low bit of a pointer to
         // the stream; it starts as that bit plus the address, so the
         // address's parity counts (relative to the input, which the DLL
         // is given aligned).
-        bit_ = (first + uint32_t(at)) & 1;
+        _bit = (first + uint32_t(at)) & 1;
     }
 
     // A value in [0, total): call update() with its interval after.
     uint32_t decode(uint32_t total) {
         normalize();
-        scale_ = range_ / total;
-        return std::min(code_ / scale_, total - 1);
+        _scale = _range / total;
+        return std::min(_code / _scale, total - 1);
     }
     // The same for a total of 1 << bits.
     uint32_t decodeShift(int bits) {
         normalize();
-        scale_ = range_ >> bits;
-        return std::min(code_ / scale_, (1u << bits) - 1);
+        _scale = _range >> bits;
+        return std::min(_code / _scale, (1u << bits) - 1);
     }
     void update(uint32_t start, uint32_t size, uint32_t total) {
-        code_ -= scale_ * start;
-        range_ = start + size < total ? scale_ * size : range_ - scale_ * start;
+        _code -= _scale * start;
+        _range = start + size < total ? _scale * size : _range - _scale * start;
     }
     // A value in [0, n), all equally likely.
     uint32_t uniform(uint32_t n) {
         normalize();
-        const uint32_t r = range_ / n;
-        const uint32_t v = std::min(code_ / r, n - 1);
-        code_ -= v * r;
-        range_ = v + 1 < n ? r : range_ - v * r;
+        const uint32_t r = _range / n;
+        const uint32_t v = std::min(_code / r, n - 1);
+        _code -= v * r;
+        _range = v + 1 < n ? r : _range - v * r;
         return v;
     }
 
 private:
-    uint32_t byte(size_t at) const { return at < in_.size() ? in_[at] : 0; }
+    uint32_t byte(size_t at) const { return at < _in.size() ? _in[at] : 0; }
     void normalize() {
-        while (range_ <= 0x800000) {
-            const uint32_t b = byte(pos_++);
-            code_ = ((code_ * 2 + bit_) << 7) | (b >> 1);
-            bit_ = b & 1;
-            range_ <<= 8;
+        while (_range <= 0x800000) {
+            const uint32_t b = byte(_pos++);
+            _code = ((_code * 2 + _bit) << 7) | (b >> 1);
+            _bit = b & 1;
+            _range <<= 8;
         }
     }
 
-    const std::vector<uint8_t> &in_;
-    size_t pos_;
-    uint32_t code_ = 0, range_ = 0x80, scale_ = 1, bit_ = 0;
+    const std::vector<uint8_t> &_in;
+    size_t _pos;
+    uint32_t _code = 0;
+    uint32_t _range = 0x80;
+    uint32_t _scale = 1;
+    uint32_t _bit = 0;
 };
 
 // Raw bits, least significant first, from little-endian 32-bit words.
 class BitReader {
 public:
-    BitReader(const std::vector<uint8_t> &in, size_t at) : in_(in), pos_(at) {}
+    BitReader(const std::vector<uint8_t> &in, size_t at) : _in(in), _pos(at) {}
 
     uint32_t bit() {
-        if (count_ == 0) {
+        if (_count == 0) {
             const uint32_t w = word();
-            buf_ = w >> 1;
-            count_ = 31;
+            _buf = w >> 1;
+            _count = 31;
             return w & 1;
         }
-        const uint32_t b = buf_ & 1;
-        buf_ >>= 1;
-        count_--;
+        const uint32_t b = _buf & 1;
+        _buf >>= 1;
+        _count--;
         return b;
     }
     uint32_t bits(int n) {
         const uint32_t mask = (1u << n) - 1;
-        if (count_ < n) {
+        if (_count < n) {
             const uint32_t w = word();
-            const uint32_t v = ((w << count_) | buf_) & mask;
-            buf_ = w >> (n - count_);
-            count_ += 32 - n;
+            const uint32_t v = ((w << _count) | _buf) & mask;
+            _buf = w >> (n - _count);
+            _count += 32 - n;
             return v;
         }
-        const uint32_t v = buf_ & mask;
-        buf_ >>= n;
-        count_ -= n;
+        const uint32_t v = _buf & mask;
+        _buf >>= n;
+        _count -= n;
         return v;
     }
 
 private:
     uint32_t word() {
         uint32_t w = 0;
-        for (int k = 0; k < 4; k++, pos_++)
-            if (pos_ < in_.size())
-                w |= uint32_t(in_[pos_]) << (8 * k);
+        for (int k = 0; k < 4; k++, _pos++)
+            if (_pos < _in.size())
+                w |= uint32_t(_in[_pos]) << (8 * k);
         return w;
     }
 
-    const std::vector<uint8_t> &in_;
-    size_t pos_;
-    uint32_t buf_ = 0;
-    int count_ = 0;
+    const std::vector<uint8_t> &_in;
+    size_t _pos;
+    uint32_t _buf = 0;
+    int _count = 0;
 };
 
 // An adaptive model of up to `symbols` values, each first sent through
@@ -123,125 +126,133 @@ class Model {
 public:
     static constexpr int kNew = -1; // decode(): a new value, for the caller to read and set()
 
-    Model(uint32_t largest, uint32_t symbols) : symbols_(uint16_t(symbols)) {
+    Model(uint32_t largest, uint32_t symbols) : _symbols(uint16_t(symbols)) {
         const size_t n = (symbols + 5) & ~3u;
-        cdf_.assign(n + 6, 0);
-        freq_.assign(n, 0);
-        values_.assign(n, 0);
+        _cdf.assign(n + 6, 0);
+        _freq.assign(n, 0);
+        _values.assign(n, 0);
         for (int i = 1; i <= 5; i++)
-            cdf_[size_t(i)] = 0xc000;
-        cdf_[0] = 0x8000;
-        freq_[0] = 4;
-        total_ = 4;
-        threshold_ = 8;
-        step_ = 4;
-        limit_ = uint16_t(std::clamp<uint32_t>(largest << 5, 0x100, 0x3b38));
+            _cdf[size_t(i)] = 0xc000;
+        _cdf[0] = 0x8000;
+        _freq[0] = 4;
+        _total = 4;
+        _threshold = 8;
+        _step = 4;
+        _limit = uint16_t(std::clamp<uint32_t>(largest << 5, 0x100, 0x3b38));
         const uint32_t s = 2 * largest;
-        stepLimit_ = uint16_t(s < 0x80 ? 0x80 : std::min<uint32_t>(s, limit_ / 2u - 0x20));
+        _stepLimit = uint16_t(s < 0x80 ? 0x80 : std::min<uint32_t>(s, _limit / 2u - 0x20));
     }
 
     // The next value, or kNew.
     int decode(RangeDecoder &rc) {
-        if (total_ >= threshold_) {
-            if (threshold_ >= limit_)
+        if (_total >= _threshold) {
+            if (_threshold >= _limit)
                 rescale();
             rebuild();
-            for (size_t i = size_t(inTable_) + 2; i <= size_t(inTable_) + 6; i++)
-                cdf_[i] = 0xc000;
+            for (size_t i = size_t(_inTable) + 2; i <= size_t(_inTable) + 6; i++)
+                _cdf[i] = 0xc000;
         }
         const uint32_t v = rc.decodeShift(14) + 0x8000;
         // The interval holding v: the last start at or below it.
         size_t i = 0;
-        while (i < inTable_ && cdf_[i + 1] <= v)
+        while (i < _inTable && _cdf[i + 1] <= v)
             i++;
-        rc.update(cdf_[i] - 0x8000u, uint32_t(cdf_[i + 1] - cdf_[i]), 0x4000);
-        freq_[i]++;
-        total_++;
+        rc.update(_cdf[i] - 0x8000u, uint32_t(_cdf[i + 1] - _cdf[i]), 0x4000);
+        _freq[i]++;
+        _total++;
         if (i > 0)
-            return values_[i];
+            return _values[i];
         // The escape: one of the values added since the table was built,
         // or a new one.
-        if (used_ != inTable_ && rc.uniform(2)) {
-            const size_t k = rc.uniform(uint32_t(used_ - inTable_)) + inTable_ + 1u;
-            freq_[k] += 2;
-            total_ += 2;
-            return values_[k];
+        if (_used != _inTable && rc.uniform(2)) {
+            const size_t k = rc.uniform(uint32_t(_used - _inTable)) + _inTable + 1u;
+            _freq[k] += 2;
+            _total += 2;
+            return _values[k];
         }
-        used_++;
-        freq_[used_] += 2;
-        total_ += 2;
-        if (used_ == symbols_) {
-            total_ = uint16_t(total_ - freq_[0]);
-            freq_[0] = 0;
+        _used++;
+        _freq[_used] += 2;
+        _total += 2;
+        if (_used == _symbols) {
+            _total = uint16_t(_total - _freq[0]);
+            _freq[0] = 0;
         }
         return kNew;
     }
     // The value of the symbol decode() just added.
-    void set(uint32_t v) { values_[used_] = uint16_t(v); }
+    void set(uint32_t v) { _values[_used] = uint16_t(v); }
 
 private:
     void rebuild() {
-        const uint32_t scale = 0x20000u / std::max<uint32_t>(total_, 1);
-        uint32_t at = 0x8000 + ((freq_[0] * scale) >> 3);
-        cdf_[0] = 0x8000;
-        cdf_[1] = uint16_t(at);
-        for (size_t i = 1; i <= used_; i++) {
-            at += (freq_[i] * scale) >> 3;
-            cdf_[i + 1] = uint16_t(at);
+        const uint32_t scale = 0x20000u / std::max<uint32_t>(_total, 1);
+        uint32_t at = 0x8000 + ((_freq[0] * scale) >> 3);
+        _cdf[0] = 0x8000;
+        _cdf[1] = uint16_t(at);
+        for (size_t i = 1; i <= _used; i++) {
+            at += (_freq[i] * scale) >> 3;
+            _cdf[i + 1] = uint16_t(at);
         }
-        if (2u * step_ > stepLimit_) {
-            threshold_ = uint16_t(total_ + stepLimit_);
+        if (2u * _step > _stepLimit) {
+            _threshold = uint16_t(_total + _stepLimit);
         } else {
-            step_ = uint16_t(step_ * 2);
-            threshold_ = uint16_t(total_ + step_);
+            _step = uint16_t(_step * 2);
+            _threshold = uint16_t(_total + _step);
         }
-        inTable_ = used_;
-        cdf_[size_t(used_) + 1] = 0xc000;
+        _inTable = _used;
+        _cdf[size_t(_used) + 1] = 0xc000;
     }
     // Halves the counts, dropping values seen at most once (the last
     // value takes a dropped one's place), and moves the commonest value
     // to the end.
     void rescale() {
-        freq_[0] >>= 1;
-        total_ = freq_[0];
+        _freq[0] >>= 1;
+        _total = _freq[0];
         uint32_t best = 0;
         size_t bestAt = 0;
-        for (size_t i = 1; i <= used_; i++) {
+        for (size_t i = 1; i <= _used; i++) {
             bool dropped = false;
-            while (freq_[i] <= 1) {
-                if (i >= used_) {
-                    freq_[i] = 0;
-                    used_--;
+            while (_freq[i] <= 1) {
+                if (i >= _used) {
+                    _freq[i] = 0;
+                    _used--;
                     dropped = true;
                     break;
                 }
-                freq_[i] = freq_[used_];
-                freq_[used_] = 0;
-                values_[i] = values_[used_];
-                used_--;
+                _freq[i] = _freq[_used];
+                _freq[_used] = 0;
+                _values[i] = _values[_used];
+                _used--;
             }
             if (dropped)
                 break;
-            freq_[i] >>= 1;
-            total_ = uint16_t(total_ + freq_[i]);
-            if (freq_[i] > best) {
-                best = freq_[i];
+            _freq[i] >>= 1;
+            _total = uint16_t(_total + _freq[i]);
+            if (_freq[i] > best) {
+                best = _freq[i];
                 bestAt = i;
             }
         }
-        if (best && used_ && bestAt != used_) {
-            std::swap(freq_[used_], freq_[bestAt]);
-            std::swap(values_[used_], values_[bestAt]);
+        if (best && _used && bestAt != _used) {
+            std::swap(_freq[_used], _freq[bestAt]);
+            std::swap(_values[_used], _values[bestAt]);
         }
-        if (used_ != symbols_ && freq_[0] == 0) {
-            freq_[0] = 1;
-            total_++;
+        if (_used != _symbols && _freq[0] == 0) {
+            _freq[0] = 1;
+            _total++;
         }
     }
 
-    std::vector<uint16_t> cdf_, freq_, values_;
-    uint16_t total_ = 0, threshold_ = 0, stepLimit_ = 0, step_ = 0, limit_ = 0;
-    uint16_t used_ = 0, inTable_ = 0, symbols_ = 0;
+    std::vector<uint16_t> _cdf;
+    std::vector<uint16_t> _freq;
+    std::vector<uint16_t> _values;
+    uint16_t _total = 0;
+    uint16_t _threshold = 0;
+    uint16_t _stepLimit = 0;
+    uint16_t _step = 0;
+    uint16_t _limit = 0;
+    uint16_t _used = 0;
+    uint16_t _inTable = 0;
+    uint16_t _symbols = 0;
 };
 
 // The number of bits in v, at most 15.
@@ -285,7 +296,8 @@ void decodeLowest(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h)
         fill(p, stride, w, h, s.bits.bits(16));
         return;
     }
-    const uint32_t largest = s.bits.bits(16), symbols = largest + 1;
+    const uint32_t largest = s.bits.bits(16);
+    const uint32_t symbols = largest + 1;
     Model model(largest, symbols);
     int32_t left = int32_t(s.bits.bits(16));
     p[0] = int16_t(left);
@@ -316,9 +328,11 @@ void decodeBand(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h) {
         fill(p, stride, w, h, s.bits.bits(16) * uint32_t(quant));
         return;
     }
-    const uint32_t largest = s.bits.bits(16), symbols = largest + 1;
+    const uint32_t largest = s.bits.bits(16);
+    const uint32_t symbols = largest + 1;
     std::vector<Model> models(size_t(bitLength(largest * uint32_t(quant))) + 1, Model(largest, symbols));
-    Model runs(63, 64), zeroRuns(255, 256);
+    Model runs(63, 64);
+    Model zeroRuns(255, 256);
     auto value = [&](uint32_t context) {
         Model &model = models[std::min(size_t(bitLength(context)), models.size() - 1)];
         const int32_t v = signedValue(s, model, symbols);
@@ -335,8 +349,13 @@ void decodeBand(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h) {
     first = int32_t(uint32_t(first) * uint32_t(quant));
     *out = int16_t(first);
     const int16_t *up = out++;
-    int32_t a = first, b = first, c = first;
-    uint32_t rows = h, left = w - 1, coded = 0, zeros = 0;
+    int32_t a = first;
+    int32_t b = first;
+    int32_t c = first;
+    uint32_t rows = h;
+    uint32_t left = w - 1;
+    uint32_t coded = 0;
+    uint32_t zeros = 0;
     bool rowDone = w == 1;
     for (;;) {
         if (rowDone) {
@@ -430,14 +449,17 @@ size_t decodePlane(const std::vector<uint8_t> &in, size_t at, int16_t *p, uint32
                 v |= uint32_t(in[i + size_t(k)]) << (8 * k);
         return v;
     };
-    const uint32_t rangeBytes = u32(at), bitBytes = u32(at + 4);
+    const uint32_t rangeBytes = u32(at);
+    const uint32_t bitBytes = u32(at + 4);
     RangeDecoder rc(in, at + 8);
     BitReader bits(in, at + 8 + rangeBytes);
     Streams s{rc, bits};
     decodeLowest(s, p, size_t(w) * 16, w >> 4, h >> 4);
     for (uint32_t scale = 16; scale >= 2; scale /= 2) {
-        const size_t stride = size_t(w) * scale, below = stride / 2;
-        const uint32_t bw = w / scale, bh = h / scale;
+        const size_t stride = size_t(w) * scale;
+        const size_t below = stride / 2;
+        const uint32_t bw = w / scale;
+        const uint32_t bh = h / scale;
         decodeBand(s, p + bw, stride, bw, bh);
         decodeBand(s, p + below, stride, bw, bh);
         decodeBand(s, p + below + bw, stride, bw, bh);
@@ -546,7 +568,8 @@ Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector
         return Error::fail("Bink texture kind " + std::to_string(flags) + " isn't supported");
     if (width * height <= 256)
         return Error::fail("Small Bink textures (stored raw) aren't supported");
-    const uint32_t w = (uint32_t(width) + 15) & ~15u, h = (uint32_t(height) + 15) & ~15u;
+    const uint32_t w = (uint32_t(width) + 15) & ~15u;
+    const uint32_t h = (uint32_t(height) + 15) & ~15u;
     const int planes = flags & 1 ? 4 : 3;
     std::vector<int16_t> plane[4];
     std::vector<uint8_t> rowFlags(h);
@@ -569,7 +592,9 @@ Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector
     for (uint32_t y = 0; y < uint32_t(height); y++)
         for (uint32_t x = 0; x < uint32_t(width); x++) {
             const size_t i = size_t(y) * w + x;
-            const int32_t luma = plane[0][i], co = plane[1][i], cg = plane[2][i];
+            const int32_t luma = plane[0][i];
+            const int32_t co = plane[1][i];
+            const int32_t cg = plane[2][i];
             const int32_t g = luma - (co + cg) / 4;
             uint8_t *px = &rgba[(size_t(y) * size_t(width) + x) * 4];
             px[0] = clampByte(co + g);

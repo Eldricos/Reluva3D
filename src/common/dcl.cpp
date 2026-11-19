@@ -48,25 +48,27 @@ struct Huffman {
 
 class Decoder {
 public:
-    Decoder(const uint8_t *src, uint32_t size) : src_(src), size_(size) {}
+    Decoder(const uint8_t *src, uint32_t size) : _src(src), _size(size) {}
 
     // Returns -1 when the input runs out.
     int bits(int need) {
-        uint32_t val = bitBuf_;
-        while (bitCnt_ < need) {
-            if (pos_ >= size_)
+        uint32_t val = _bitBuf;
+        while (_bitCnt < need) {
+            if (_pos >= _size)
                 return -1;
-            val |= uint32_t(src_[pos_++]) << bitCnt_;
-            bitCnt_ += 8;
+            val |= uint32_t(_src[_pos++]) << _bitCnt;
+            _bitCnt += 8;
         }
-        bitBuf_ = val >> need;
-        bitCnt_ -= need;
+        _bitBuf = val >> need;
+        _bitCnt -= need;
         return int(val & ((1u << need) - 1));
     }
 
     // Codes are stored bit-inverted, first bit first (blast.c's decode()).
     int decode(const Huffman &h) {
-        int code = 0, first = 0, index = 0;
+        int code = 0;
+        int first = 0;
+        int index = 0;
         for (int len = 1; len <= kMaxBits; len++) {
             int bit = bits(1);
             if (bit < 0)
@@ -83,16 +85,19 @@ public:
     }
 
 private:
-    const uint8_t *src_;
-    uint32_t size_, pos_ = 0;
-    uint32_t bitBuf_ = 0;
-    int bitCnt_ = 0;
+    const uint8_t *_src;
+    uint32_t _size;
+    uint32_t _pos = 0;
+    uint32_t _bitBuf = 0;
+    int _bitCnt = 0;
 };
 
 } // namespace
 
 bool decompressDCL(const uint8_t *src, uint32_t srcSize, std::vector<uint8_t> &out) {
-    static Huffman litCode, lenCode, distCode;
+    static Huffman litCode;
+    static Huffman lenCode;
+    static Huffman distCode;
     static bool built = false;
     if (!built) {
         litCode.construct(kLitLen, sizeof(kLitLen));

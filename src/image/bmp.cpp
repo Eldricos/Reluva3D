@@ -16,7 +16,9 @@ namespace reluva::image {
 
 namespace {
 
-constexpr uint32_t kRgb = 0, kRle8 = 1, kBitfields = 3;
+constexpr uint32_t kRgb = 0;
+constexpr uint32_t kRle8 = 1;
+constexpr uint32_t kBitfields = 3;
 
 uint16_t le16(const uint8_t *p) {
     return uint16_t(p[0] | p[1] << 8);
@@ -53,7 +55,8 @@ uint8_t extract(uint32_t pixel, uint32_t mask) {
 }
 
 void decodeRle8(const uint8_t *p, const uint8_t *end, Surface &s, bool bottomUp) {
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     auto put = [&](uint8_t color) {
         if (x < s.w && y < s.h)
             s.row(bottomUp ? s.h - 1 - y : y)[x] = color;
@@ -112,7 +115,9 @@ Error decodeInfo(const uint8_t *data, size_t size, size_t info, const uint8_t *p
     if (width <= 0 || width > 8192 || height == 0 || height > 8192)
         return Error::fail("BMP: a size of " + std::to_string(width) + "x" + std::to_string(height));
 
-    uint32_t rMask = 0x7C00, gMask = 0x03E0, bMask = 0x001F;
+    uint32_t rMask = 0x7C00;
+    uint32_t gMask = 0x03E0;
+    uint32_t bMask = 0x001F;
     if (bits == 32)
         rMask = 0xFF0000, gMask = 0xFF00, bMask = 0xFF;
     size_t paletteAt = info + headerSize;
@@ -142,9 +147,9 @@ Error decodeInfo(const uint8_t *data, size_t size, size_t info, const uint8_t *p
         }
         out.paletteColors = count;
         paletteAt += size_t(count) * 4;
-        out.surface.create(width, height, PixelFormat::CLUT8);
+        out.surface.create(width, height, PixelFormat::kCLUT8);
     } else if (bits == 16 || bits == 24 || bits == 32) {
-        out.surface.create(width, height, PixelFormat::RGBA32);
+        out.surface.create(width, height, PixelFormat::kRGBA32);
     } else {
         return Error::fail("BMP: " + std::to_string(bits) + " bits per pixel isn't read");
     }

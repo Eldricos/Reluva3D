@@ -11,7 +11,7 @@ namespace reluva::stgenerations {
 // The mission transitions' blends (the display's slots 0x64, 0x68 and 0x6C),
 // on 8-bit surfaces of the same size. Amounts are in 1024ths: how much of
 // each row is changed.
-namespace Dissolve {
+namespace dissolve {
 
 // 0x40BC05: speckles of a colour over the surface. Style 1 sets single
 // pixels at random, style 2 short streaks (a sixteenth of the width) on
@@ -25,6 +25,6 @@ void speckle(Canvas &surface, uint8_t colour, int amount, int style, RandomSourc
 // picture, not the second.
 void crossfade(Canvas &surface, const Canvas &from, const Canvas &to, int amount, RandomSource &random);
 
-} // namespace Dissolve
+} // namespace dissolve
 
 } // namespace reluva::stgenerations

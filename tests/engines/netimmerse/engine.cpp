@@ -6,12 +6,12 @@
 // install of its own (.pac archives holding two .FIN models, a texture, a
 // .DDF font with its page, a .DDS sound, a puzzle and the locale's text,
 // built as docs/engines/netimmerse/games/legoalphateam/formats/ describes them), checks that
-// the engine recognises an install, and then, as there's no LEGOATeam.exe
-// in it, runs the engine's data viewer on it as the launcher would: every
-// page in turn, stepping through what each shows and playing the sound,
-// then Esc back to the launcher. What happens goes into a record (counts,
-// the window's titles, and checksums of the screens and the sound),
-// compared with tests/engines/netimmerse/data/engine-record.txt.
+// the engine recognises an install, and that the game, as there's no
+// LEGOATeam.exe in it, says so. Then it runs the engine's data viewer on it
+// as reluva-viewer would: every page in turn, stepping through what each
+// shows and playing the sound, then Esc back to the list. What happens goes
+// into a record (counts, the window's titles, and checksums of the screens
+// and the sound), compared with tests/engines/netimmerse/data/engine-record.txt.
 //
 // The game itself (its program in the x86 emulator) needs the game's own
 // files: that's the game-files test, tests/engines/netimmerse/gamedata.cmake.
@@ -21,6 +21,7 @@
 #include "graphics/gfx3d.h"
 #include "common/headless_system.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/engines/netimmerse/fixtures.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -43,14 +44,19 @@ namespace {
 // between compilers' maths don't change the record.
 class RecordingRenderer : public gfx::Renderer3D {
 public:
-    Hash textures, meshes, draws;
-    int textureCount = 0, meshCount = 0, frames = 0, drawCount = 0;
+    Hash textures;
+    Hash meshes;
+    Hash draws;
+    int textureCount = 0;
+    int meshCount = 0;
+    int frames = 0;
+    int drawCount = 0;
 
     Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
                         gfx::TextureId &out) override {
         textures.i32(width).i32(height).bytes(rgba, size_t(width) * size_t(height) * 4).i32(params.clamp);
         ++textureCount;
-        out = gfx::TextureId(++next_);
+        out = gfx::TextureId(++_next);
         return Error::success();
     }
     void destroyTexture(gfx::TextureId) override {}
@@ -59,12 +65,12 @@ public:
         mesh(vertices);
         meshes.bytes(indices.data(), indices.size() * 4);
         ++meshCount;
-        out = gfx::MeshId(++next_);
+        out = gfx::MeshId(++_next);
         return Error::success();
     }
     Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &indices, gfx::MeshId &out) override {
         meshes.bytes(indices.data(), indices.size() * 4);
-        out = gfx::MeshId(++next_);
+        out = gfx::MeshId(++_next);
         return Error::success();
     }
     Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &indices) override {
@@ -107,7 +113,7 @@ public:
     bool takeCapture(std::vector<uint8_t> &) override { return false; }
 
 private:
-    uint32_t next_ = 0;
+    uint32_t _next = 0;
     static int32_t rounded(float v) { return int32_t(std::lround(double(v) * 1000)); }
     void matrix(const gfx::Mat4 &m) {
         for (float v : m)
@@ -134,9 +140,11 @@ public:
         Event event;
     };
     std::vector<Input> inputs;
-    Hash screens, sound;
+    Hash screens;
+    Hash sound;
     int shown = 0;
-    int64_t soundFrames = 0, soundPeak = 0;
+    int64_t soundFrames = 0;
+    int64_t soundPeak = 0;
     std::vector<std::string> titles;
 
     void updateScreen(const Surface &s) override {
@@ -150,21 +158,21 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
     void delayMillis(uint32_t ms) override {
         HeadlessSystem::delayMillis(ms);
-        if (!audio_)
+        if (!_audio)
             return;
-        pending_ += int64_t(ms) * audioRate();
-        const int frames = int(pending_ / 1000);
-        pending_ %= 1000;
+        _pending += int64_t(ms) * audioRate();
+        const int frames = int(_pending / 1000);
+        _pending %= 1000;
         std::vector<int16_t> buf(size_t(frames) * 2);
-        audio_(buf.data(), frames);
+        _audio(buf.data(), frames);
         sound.bytes(buf.data(), buf.size() * 2);
         soundFrames += frames;
         for (int16_t v : buf)
@@ -177,20 +185,20 @@ public:
         return Error::success();
     }
     Error startAudio(AudioCallback cb) override {
-        audio_ = std::move(cb);
+        _audio = std::move(cb);
         return Error::success();
     }
-    void stopAudio() override { audio_ = nullptr; }
+    void stopAudio() override { _audio = nullptr; }
 
 private:
-    size_t next_ = 0;
-    AudioCallback audio_;
-    int64_t pending_ = 0;
+    size_t _next = 0;
+    AudioCallback _audio;
+    int64_t _pending = 0;
 };
 
 Event keyDown(int key) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = key;
     return e;
 }
@@ -265,8 +273,9 @@ void engineTest(const std::filesystem::path &tmp) {
                   "tests/engines/netimmerse/engine.cpp");
     };
     const MetaEngine *engine = findEngine("netimmerse");
-    if (!engine)
-        return test::fail("netimmerse isn't registered");
+    const MetaViewer *viewer = findViewer("netimmerse");
+    if (!engine || !viewer)
+        return test::fail("netimmerse or its viewer isn't registered");
 
     // Recognised: by its program and its behaviours' archive, as a release
     // not in the table (only the English retail CD's archive is).
@@ -280,28 +289,38 @@ void engineTest(const std::filesystem::path &tmp) {
     const auto found = engine->detect(withProgram);
     rec.add("detect.program", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
 
+    // The game can't be played without its program: an error saying it's
+    // missing, not the viewer.
+    GameTarget target{"legoalphateam", "netimmerse", "legoalphateam", "LEGO Alpha Team", install, tmp / "saves", {}};
+    {
+        PlayingSystem sys;
+        const Error err = engine->create(sys, target)->run();
+        CHECK(err);
+        CHECK(err.message.find("LEGOATeam.exe") != std::string::npos);
+        CHECK(sys.shown == 0);
+    }
+
     // The data viewer, page by page: archives, models, textures, fonts,
     // sounds, text.
-    GameTarget target{"legoalphateam", "netimmerse", "legoalphateam", "LEGO Alpha Team", install, tmp / "saves", {}};
     PlayingSystem sys;
     sys.inputs = {
-        {100, keyDown(key::Tab)},    // models
-        {150, keyDown('h')},         // its hidden parts shown
-        {200, keyDown(key::Right)},  // the next model
-        {250, keyDown(' ')},         // its animation paused
-        {300, keyDown(key::Tab)},    // textures
-        {400, keyDown(key::Tab)},    // fonts
-        {450, keyDown('p')},         // its pages
-        {500, keyDown(key::Tab)},    // sounds
-        {550, keyDown(key::Space)},  // played
-        {800, keyDown(key::Tab)},    // text
-        {850, keyDown(key::Right)},  // the next file
-        {900, keyDown(key::Down)},   // scrolled
-        {1000, keyDown(key::Tab)},   // back to the archives
-        {1100, keyDown(key::Escape)} // to the launcher
+        {100, keyDown(key::kTab)},    // models
+        {150, keyDown('h')},          // its hidden parts shown
+        {200, keyDown(key::kRight)},  // the next model
+        {250, keyDown(' ')},          // its animation paused
+        {300, keyDown(key::kTab)},    // textures
+        {400, keyDown(key::kTab)},    // fonts
+        {450, keyDown('p')},          // its pages
+        {500, keyDown(key::kTab)},    // sounds
+        {550, keyDown(key::kSpace)},  // played
+        {800, keyDown(key::kTab)},    // text
+        {850, keyDown(key::kRight)},  // the next file
+        {900, keyDown(key::kDown)},   // scrolled
+        {1000, keyDown(key::kTab)},   // back to the archives
+        {1100, keyDown(key::kEscape)} // to reluva-viewer's list
     };
-    auto game = engine->create(sys, target);
-    const Error err = game->run();
+    auto pages = viewer->create(sys, target);
+    const Error err = pages->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
@@ -316,9 +335,9 @@ void engineTest(const std::filesystem::path &tmp) {
     finish();
 }
 
-const test::Suite suite("netimmerse.engine", {
-                                                 {"the data viewer on an install of its own",
-                                                  [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                             });
+const test::Suite kSuite("netimmerse.engine", {
+                                                  {"the data viewer on an install of its own",
+                                                   [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                              });
 
 } // namespace

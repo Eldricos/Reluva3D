@@ -24,6 +24,10 @@ const char *formatName(int format) {
         return "IMA ADPCM";
     case kFormatMp3:
         return "MP3";
+    case kFormatEaXa:
+        return "EA-XA";
+    case kFormatMicroTalk:
+        return "MicroTalk";
     default:
         return "?";
     }

@@ -6,6 +6,7 @@
 
 #include "tests/engines/awe/fixtures.h"
 
+#include <algorithm>
 #include <filesystem>
 
 using namespace reluva;
@@ -140,7 +141,8 @@ std::vector<uint8_t> makeGr2() {
         s.d.insert(s.d.end(), str, str + std::strlen(str) + 1);
     while (s.d.size() % 8)
         s.d.push_back(0);
-    const size_t type = s.d.size(), floatType = type + 4 * 32;
+    const size_t type = s.d.size();
+    const size_t floatType = type + 4 * 32;
     auto member = [&](uint32_t t) {
         s.u32(t);
         for (int i = 0; i < 7; i++)
@@ -176,7 +178,8 @@ std::vector<uint8_t> makeGr2() {
     f.u32(0), f.u32(0);              // root object
     f.u32(0x80000013);
     f.u32(0), f.u32(0), f.u32(0), f.u32(0);
-    const uint32_t fixupAt = headerSize, dataAt = fixupAt + uint32_t(fixups.size()) * 12;
+    const uint32_t fixupAt = headerSize;
+    const uint32_t dataAt = fixupAt + uint32_t(fixups.size()) * 12;
     for (uint32_t v : {0u, dataAt, uint32_t(s.d.size()), uint32_t(s.d.size()), 4u, 0u, 0u, fixupAt,
                        uint32_t(fixups.size()), dataAt, 0u})
         f.u32(v);
@@ -334,7 +337,8 @@ void testCurves() {
     periodic.knots = {0, 1, 2, 3, 4};
     periodic.controls = {0, 5, 2, 7, 9};
     loop.duration = 4;
-    float start = 0, end = 0;
+    float start = 0;
+    float end = 0;
     periodic.evaluate(0, 1, &start, loop);
     periodic.evaluate(4, 1, &end, loop);
     CHECK(std::fabs(start - end) < 1e-5f && std::fabs(end - 9) > 1);
@@ -382,24 +386,24 @@ void testCompressedCurves() {
     auto near = [](float a, float b) { return std::fabs(a - b) < 1e-6f; };
 
     CurveData d;
-    d.format = uint8_t(CurveFormat::DaIdentity);
+    d.format = uint8_t(CurveFormat::kDaIdentity);
     d.dimension = 9;
     Curve c = expand(d);
     CHECK(c.knots == std::vector<float>{0} && c.controls == identity);
 
     d = CurveData();
-    d.format = uint8_t(CurveFormat::DaConstant32f);
+    d.format = uint8_t(CurveFormat::kDaConstant32f);
     d.controls = {0.5f, 0.25f, -1, 2};
     c = expand(d);
     CHECK(c.knots == std::vector<float>{0} && c.controls == d.controls);
 
-    d.format = uint8_t(CurveFormat::D3Constant32f);
+    d.format = uint8_t(CurveFormat::kD3Constant32f);
     d.controls = {1.5f, -33, 246};
     c = expand(d);
     CHECK(c.knots == std::vector<float>{0} && c.controls == d.controls);
 
     d = CurveData();
-    d.format = uint8_t(CurveFormat::DaK32fC32f);
+    d.format = uint8_t(CurveFormat::kDaK32fC32f);
     d.degree = 2;
     d.knots = {0, 0.5f};
     d.controls = {1, 2, 3, 4, 5, 6, 7}; // the 7th isn't a whole set
@@ -408,15 +412,16 @@ void testCompressedCurves() {
 
     // D3K8uC8u and D3K16uC16u: 1/32 a step for the knots (32.0f is
     // 0x42000000), each control value * scale + offset.
-    for (CurveFormat f : {CurveFormat::D3K8uC8u, CurveFormat::D3K16uC16u}) {
+    for (CurveFormat f : {CurveFormat::kD3K8uC8u, CurveFormat::kD3K16uC16u}) {
         d = CurveData();
         d.format = uint8_t(f);
         d.degree = 1;
         d.packed = 0x4200;
-        const float scales[3] = {0.5f, 1, 2}, offsets[3] = {-1, 0, 10};
+        const float scales[3] = {0.5f, 1, 2};
+        const float offsets[3] = {-1, 0, 10};
         std::copy(scales, scales + 3, d.controlScales);
         std::copy(offsets, offsets + 3, d.controlOffsets);
-        const uint16_t big = f == CurveFormat::D3K16uC16u ? 1000 : 200;
+        const uint16_t big = f == CurveFormat::kD3K16uC16u ? 1000 : 200;
         d.knotsControls = {0, 16, 2, 3, 4, big, 0, 1};
         c = expand(d);
         CHECK(c.degree == 1);
@@ -427,9 +432,10 @@ void testCompressedCurves() {
     // D4nK8uC7u and D4nK16uC15u: unit quaternions, three components
     // stored and the fourth rebuilt. Table entry 7 (√½/4 a step from 0)
     // for x, y and w, entry 0 (2√½ over the steps, from -√½) for z.
-    for (CurveFormat f : {CurveFormat::D4nK8uC7u, CurveFormat::D4nK16uC15u}) {
-        const bool wide = f == CurveFormat::D4nK16uC15u;
-        const uint16_t top = wide ? 0x8000 : 0x80, most = wide ? 0x7fff : 0x7f;
+    for (CurveFormat f : {CurveFormat::kD4nK8uC7u, CurveFormat::kD4nK16uC15u}) {
+        const bool wide = f == CurveFormat::kD4nK16uC15u;
+        const uint16_t top = wide ? 0x8000 : 0x80;
+        const uint16_t most = wide ? 0x7fff : 0x7f;
         d = CurveData();
         d.format = uint8_t(f);
         d.degree = 2;
@@ -457,7 +463,7 @@ void testCompressedCurves() {
     }
 
     d = CurveData();
-    d.format = uint8_t(CurveFormat::D9I3K8uC8u);
+    d.format = uint8_t(CurveFormat::kD9I3K8uC8u);
     CHECK(expandCurve(d, identity, c).message.find("D9I3K8uC8u") != std::string::npos);
 }
 
@@ -519,12 +525,12 @@ void testBinkTexture() {
 } // namespace
 
 static const reluva::test::Suite
-    suite("awe.unit.formats", {
-                                  {"text", [](const std::filesystem::path &) { testText(); }},
-                                  {"ac2", [](const std::filesystem::path &) { testAc2(); }},
-                                  {"gr2", [](const std::filesystem::path &) { testGr2(); }},
-                                  {"oodle1", [](const std::filesystem::path &) { testOodle1(); }},
-                                  {"curves", [](const std::filesystem::path &) { testCurves(); }},
-                                  {"compressed curves", [](const std::filesystem::path &) { testCompressedCurves(); }},
-                                  {"bink textures", [](const std::filesystem::path &) { testBinkTexture(); }},
-                              });
+    kSuite("awe.unit.formats", {
+                                   {"text", [](const std::filesystem::path &) { testText(); }},
+                                   {"ac2", [](const std::filesystem::path &) { testAc2(); }},
+                                   {"gr2", [](const std::filesystem::path &) { testGr2(); }},
+                                   {"oodle1", [](const std::filesystem::path &) { testOodle1(); }},
+                                   {"curves", [](const std::filesystem::path &) { testCurves(); }},
+                                   {"compressed curves", [](const std::filesystem::path &) { testCompressedCurves(); }},
+                                   {"bink textures", [](const std::filesystem::path &) { testBinkTexture(); }},
+                               });

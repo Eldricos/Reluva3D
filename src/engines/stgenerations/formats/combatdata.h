@@ -27,13 +27,21 @@ namespace reluva::stgenerations {
 //     plane distances (f32)
 struct Model3D {
     struct Vertex {
-        float x, y, z;
+        float x;
+        float y;
+        float z;
         // Texture coordinates, 0..1 across the texture.
-        float u, v;
+        float u;
+        float v;
     };
     struct Triangle {
-        uint16_t material, a, b, c;
-        float nx, ny, nz;
+        uint16_t material;
+        uint16_t a;
+        uint16_t b;
+        uint16_t c;
+        float nx;
+        float ny;
+        float nz;
     };
     struct Part {
         std::vector<Vertex> vertices;
@@ -41,7 +49,8 @@ struct Model3D {
         bool textured = false;
     };
     std::vector<Part> parts;
-    float extent[3] = {}, centre[3] = {};
+    float extent[3] = {};
+    float centre[3] = {};
     // Half the largest extent.
     float radius = 0;
 
@@ -64,7 +73,8 @@ struct CombatMaterial {
 
 // A true-colour picture: textures (.IMG = GIF, .LBM) and the console's .RAS.
 struct CombatImage {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     // 0xAARRGGBB; alpha 0 where see-through.
     std::vector<uint32_t> pixels;
 
@@ -87,7 +97,8 @@ bool loadStandardPalette(SeekableReadStream &stream, uint32_t palette[256]);
 // torpedoes and phaser beams, in STANDARD.PAL. Chunks of 'SPRT', 'LIST',
 // 'TIME' (ms a frame) and 'COMP' (a frame, packed one of four ways).
 struct SprAnimation {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     uint32_t frameMillis = 100;
     // Palette indices; 0 is see-through.
     std::vector<std::vector<uint8_t>> frames;
@@ -115,19 +126,31 @@ struct ShipClass {
     struct SystemInfo {
         // -1: the ship doesn't have it. Photon tubes: torpedoes a salvo.
         int max = -1;
-        int charge = 0, discharge = 0, repair = 0;
+        int charge = 0;
+        int discharge = 0;
+        int repair = 0;
         // Systems 1..12: cumulative threshold for random hits, and % for an aimed hit.
-        int threshold = 0, aimed = 0;
+        int threshold = 0;
+        int aimed = 0;
         // Weapons: the octants (0..7) the bank or tube fires into.
         int arcs = 0;
     };
     std::string token;
-    int maxSpeed = 500, agility = 50, hitPoints = 100, closeRadius = 5000, destruct = 50;
-    int phasers = 0, photons = 0, shields = 0, torpedoes = 0;
+    int maxSpeed = 500;
+    int agility = 50;
+    int hitPoints = 100;
+    int closeRadius = 5000;
+    int destruct = 50;
+    int phasers = 0;
+    int photons = 0;
+    int shields = 0;
+    int torpedoes = 0;
     SystemInfo systems[kSystemCount];
     // % of a hit leaking past each shield, by shield energy 120, 110 .. 0.
     int bleed[5][13] = {};
-    int phaserRange = 20000, photonRange = 30000, photonDamage = 30;
+    int phaserRange = 20000;
+    int photonRange = 30000;
+    int photonDamage = 30;
     // Spread, in degrees, of a salvo of 1..10 torpedoes.
     int cone[10] = {};
 
@@ -137,7 +160,11 @@ struct ShipClass {
 // A ship line of SCn.MIS (parser 0x4A36A4).
 struct MissionShip {
     std::string type;
-    int x = 0, y = 0, z = 0, yaw = 0, pitch = 0;
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    int yaw = 0;
+    int pitch = 0;
     std::string ai;
     int wave = 1;
 };
@@ -147,7 +174,10 @@ bool loadCombatMission(const std::string &text, std::vector<MissionShip> &ships)
 // A font (.MET): the cells of ASCII 32..127 in a .RAS strip, big endian.
 struct MetFont {
     struct Cell {
-        int x, y, w, h;
+        int x;
+        int y;
+        int w;
+        int h;
     };
     Cell cells[96] = {};
 

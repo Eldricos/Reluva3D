@@ -33,7 +33,9 @@ using namespace reluva::clue::testing;
 
 static void testDepth() {
     // Separate in x or y: the further on is in front.
-    const WorldBox a{0, 0, 16, 16, 50}, beyondX{16, 0, 16, 16, 50}, beyondY{0, 20, 16, 16, 50};
+    const WorldBox a{0, 0, 16, 16, 50};
+    const WorldBox beyondX{16, 0, 16, 16, 50};
+    const WorldBox beyondY{0, 20, 16, 16, 50};
     CHECK(compareDepth(beyondX, a) == 1 && compareDepth(a, beyondX) == -1);
     CHECK(compareDepth(beyondY, a) == 1 && compareDepth(a, beyondY) == -1);
     CHECK(compareDepth(a, WorldBox{8, 8, 16, 16, 50}) == 0);
@@ -46,8 +48,11 @@ static void testDepth() {
 
     // A long wall in front of a small object whose centre is nearer the
     // camera than the wall's: the boxes say the wall goes last.
-    const WorldBox wall{0, 48, 128, 16, 100}, thing{100, 20, 16, 16, 50}, far{1000, 1000, 16, 16, 50};
-    const ScreenRect over{0, 0, 100, 100}, away{5000, 5000, 10, 10};
+    const WorldBox wall{0, 48, 128, 16, 100};
+    const WorldBox thing{100, 20, 16, 16, 50};
+    const WorldBox far{1000, 1000, 16, 16, 50};
+    const ScreenRect over{0, 0, 100, 100};
+    const ScreenRect away{5000, 5000, 10, 10};
     std::vector<size_t> order = depthOrder({wall, thing, far}, {over, over, away});
     CHECK(order.size() == 3);
     const auto pos = [&](size_t i) { return std::find(order.begin(), order.end(), i) - order.begin(); };
@@ -90,7 +95,7 @@ static void testMansion(const std::filesystem::path &tmp) {
         levelFile({"test:Obench", "test:Ofloor", "test:Obroken"},
                   {{0x40, 0, 0, 200, 100, 1, 5, {}}, {0x40, 0, 1, 0, 0, -1, 1, {}}, {0x40, 0, 2, 0, 0, 1, 5, {}}}));
     GameData data;
-    CHECK(!data.open(tmp, Language::US));
+    CHECK(!data.open(tmp, Language::kUS));
     DataDrive file;
     Level level;
     Mansion m;
@@ -126,7 +131,7 @@ static void testMansion(const std::filesystem::path &tmp) {
         actor.flat = true;
         CHECK(m.insertionPoint(actor) == 1);
         Surface s;
-        s.create(640, 480, PixelFormat::RGBA32);
+        s.create(640, 480, PixelFormat::kRGBA32);
         MansionLook look;
         look.characters = false;
         m.draw(s, 0, 0, look, 0, {actor}); // drawn, whatever its place
@@ -153,21 +158,21 @@ static void testMansion(const std::filesystem::path &tmp) {
                         sum += s.pixels[size_t(y) * size_t(s.pitch) + size_t(x) * 4 + size_t(c)];
             return sum;
         };
-        const int solid = benchPixel(MansionLook::InFront::Solid, 190, 90, false);
+        const int solid = benchPixel(MansionLook::InFront::kSolid, 190, 90, false);
         CHECK(solid > 0);
-        CHECK(benchPixel(MansionLook::InFront::Hidden, 190, 90, false) == 0);
-        const int faded = benchPixel(MansionLook::InFront::SeeThrough, 190, 90, false);
+        CHECK(benchPixel(MansionLook::InFront::kHidden, 190, 90, false) == 0);
+        const int faded = benchPixel(MansionLook::InFront::kSeeThrough, 190, 90, false);
         CHECK(faded > 0 && faded < solid);
-        CHECK(benchPixel(MansionLook::InFront::Hidden, 190, 90, true) == solid);
-        CHECK(benchPixel(MansionLook::InFront::Hidden, 260, 90, false) == solid); // the bench behind it
-        CHECK(benchPixel(MansionLook::InFront::Hidden, -10, 90, false) == solid); // more than 208 away
+        CHECK(benchPixel(MansionLook::InFront::kHidden, 190, 90, true) == solid);
+        CHECK(benchPixel(MansionLook::InFront::kHidden, 260, 90, false) == solid); // the bench behind it
+        CHECK(benchPixel(MansionLook::InFront::kHidden, -10, 90, false) == solid); // more than 208 away
     }
     std::filesystem::remove_all(tmp);
 }
 
 static const reluva::test::Suite
-    suite("clue.unit.mansion", {
-                                   {"depth and hot spots", [](const std::filesystem::path &) { testDepth(); }},
-                                   {"lighting", [](const std::filesystem::path &) { testLighting(); }},
-                                   {"mansion", [](const std::filesystem::path &tmp) { testMansion(tmp / "mansion"); }},
-                               });
+    kSuite("clue.unit.mansion", {
+                                    {"depth and hot spots", [](const std::filesystem::path &) { testDepth(); }},
+                                    {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+                                    {"mansion", [](const std::filesystem::path &tmp) { testMansion(tmp / "mansion"); }},
+                                });

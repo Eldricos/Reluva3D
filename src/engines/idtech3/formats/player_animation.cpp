@@ -40,15 +40,17 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
             line.resize(comment);
         }
         std::istringstream words(line);
-        int first = 0, count = 0, loop = 0;
+        int first = 0;
+        int count = 0;
+        int loop = 0;
         float fps = 0;
         if (!(words >> first >> count >> loop >> fps))
             continue; // sex, soundpath, blank lines
         PlayerAnimation a;
         a.name = name;
-        a.part = name.rfind("TORSO_", 0) == 0  ? PlayerAnimation::Part::Torso
-                 : name.rfind("LEGS_", 0) == 0 ? PlayerAnimation::Part::Legs
-                                               : PlayerAnimation::Part::Both;
+        a.part = name.rfind("TORSO_", 0) == 0  ? PlayerAnimation::Part::kTorso
+                 : name.rfind("LEGS_", 0) == 0 ? PlayerAnimation::Part::kLegs
+                                               : PlayerAnimation::Part::kBoth;
         a.first = first;
         a.count = std::max(count, 1);
         a.loop = loop;
@@ -56,16 +58,17 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
         out.push_back(a);
     }
     // The legs model has no torso frames: its animations come that much earlier.
-    int firstTorso = -1, firstLegs = -1;
+    int firstTorso = -1;
+    int firstLegs = -1;
     for (const PlayerAnimation &a : out) {
-        if (a.part == PlayerAnimation::Part::Torso && firstTorso < 0)
+        if (a.part == PlayerAnimation::Part::kTorso && firstTorso < 0)
             firstTorso = a.first;
-        if (a.part == PlayerAnimation::Part::Legs && firstLegs < 0)
+        if (a.part == PlayerAnimation::Part::kLegs && firstLegs < 0)
             firstLegs = a.first;
     }
     if (firstTorso >= 0 && firstLegs > firstTorso)
         for (PlayerAnimation &a : out)
-            if (a.part == PlayerAnimation::Part::Legs)
+            if (a.part == PlayerAnimation::Part::kLegs)
                 a.first -= firstLegs - firstTorso;
     return out;
 }

@@ -17,11 +17,18 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint32_t kErrorBufferOverflow = 111, kErrorInsufficientBuffer = 122;
+constexpr uint32_t kErrorBufferOverflow = 111;
+constexpr uint32_t kErrorInsufficientBuffer = 122;
 constexpr uint32_t kEventHandles = 0x7fd00000;
 
 struct SystemTime { // SYSTEMTIME
-    int year, month, dayOfWeek, day, hour, minute, second;
+    int year;
+    int month;
+    int dayOfWeek;
+    int day;
+    int hour;
+    int minute;
+    int second;
 };
 
 SystemTime now() {
@@ -138,7 +145,8 @@ void Win32Process::addSystemStandIns() {
         const uint32_t p = c.arg(0);
         if (!c.valid(p, 32))
             return 0u;
-        const uint32_t total = 256u << 20, free = std::min(memory().freeBytes(), total);
+        const uint32_t total = 256u << 20;
+        const uint32_t free = std::min(memory().freeBytes(), total);
         c.write32(p, 32);
         c.write32(p + 4, uint32_t(100 - uint64_t(free) * 100 / total)); // dwMemoryLoad
         c.write32(p + 8, total);
@@ -151,7 +159,8 @@ void Win32Process::addSystemStandIns() {
     });
     stdcall(k, "GetComputerNameA", 2, [this](Cpu &c) {
         static const std::string kName = "RELUVA";
-        const uint32_t buffer = c.arg(0), size = c.arg(1);
+        const uint32_t buffer = c.arg(0);
+        const uint32_t size = c.arg(1);
         if (!c.valid(size, 4))
             return 0u;
         if (c.read32(size) < kName.size() + 1 || !c.valid(buffer, uint32_t(kName.size() + 1))) {
@@ -166,7 +175,9 @@ void Win32Process::addSystemStandIns() {
     // a × b ÷ c with a 64-bit product, rounded half away from zero; -1 if c
     // is 0 or the result doesn't fit.
     stdcall(k, "MulDiv", 3, [](Cpu &c) {
-        const int64_t a = int32_t(c.arg(0)), b = int32_t(c.arg(1)), d = int32_t(c.arg(2));
+        const int64_t a = int32_t(c.arg(0));
+        const int64_t b = int32_t(c.arg(1));
+        const int64_t d = int32_t(c.arg(2));
         if (d == 0)
             return 0xffffffffu;
         const int64_t p = a * b;
@@ -198,7 +209,7 @@ void Win32Process::addSystemStandIns() {
         if (inThread()) {
             threadSleep(c.arg(0));
         } else {
-            slept_ += c.arg(0);
+            _slept += c.arg(0);
             runThreads();
         }
         return 0u;
@@ -214,8 +225,8 @@ void Win32Process::addSystemStandIns() {
         stdcall(k, name, 1, [](Cpu &) { return 0u; });
     // CreateEventA(attributes, manual reset, initially set, name).
     stdcall(k, "CreateEventA", 4, [this](Cpu &c) {
-        const uint32_t handle = kEventHandles + nextEvent_++;
-        events_[handle] = {c.arg(1) != 0, c.arg(2) != 0, false};
+        const uint32_t handle = kEventHandles + _nextEvent++;
+        _events[handle] = {c.arg(1) != 0, c.arg(2) != 0, false};
         return handle;
     });
     stdcall(k, "SetEvent", 1, [this](Cpu &c) {
@@ -223,13 +234,13 @@ void Win32Process::addSystemStandIns() {
         return 1u;
     });
     stdcall(k, "ResetEvent", 1, [this](Cpu &c) {
-        if (auto it = events_.find(c.arg(0)); it != events_.end())
+        if (auto it = _events.find(c.arg(0)); it != _events.end())
             it->second.set = false;
         return 1u;
     });
     stdcall(k, "WaitForSingleObject", 2, [this](Cpu &c) {
-        auto it = events_.find(c.arg(0));
-        if (it == events_.end() || !it->second.tracked)
+        auto it = _events.find(c.arg(0));
+        if (it == _events.end() || !it->second.tracked)
             return 0u; // WAIT_OBJECT_0
         if (!it->second.set)
             return 0x102u; // WAIT_TIMEOUT
@@ -242,7 +253,8 @@ void Win32Process::addSystemStandIns() {
     // picture or 0 for the default, buffer, its size): the characters
     // written with the terminator, or with a size of 0 those needed.
     auto formatted = [this](Cpu &c, const std::string &text) {
-        const uint32_t buffer = c.arg(4), size = c.arg(5);
+        const uint32_t buffer = c.arg(4);
+        const uint32_t size = c.arg(5);
         const uint32_t n = uint32_t(text.size() + 1);
         if (size == 0)
             return n;
@@ -254,14 +266,15 @@ void Win32Process::addSystemStandIns() {
         return n;
     };
     stdcall(k, "GetDateFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : now();
+        const SystemTime t =
+            c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now(); // (not Win32Process::now, the threads' clock)
         const std::string picture = c.arg(3)         ? c.string(c.arg(3))
                                     : (c.arg(1) & 2) ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
                                                      : "M/d/yyyy";
         return formatted(c, formatPicture(picture, t));
     });
     stdcall(k, "GetTimeFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : now();
+        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now();
         const uint32_t flags = c.arg(1);
         std::string picture;
         if (c.arg(3)) {
@@ -278,13 +291,16 @@ void Win32Process::addSystemStandIns() {
 }
 
 void Win32Process::trackEvent(uint32_t handle) {
-    if (auto it = events_.find(handle); it != events_.end())
+    if (auto it = _events.find(handle); it != _events.end())
         it->second.tracked = true;
 }
 
-void Win32Process::setEvent(uint32_t handle) {
-    if (auto it = events_.find(handle); it != events_.end())
+bool Win32Process::setEvent(uint32_t handle) {
+    if (auto it = _events.find(handle); it != _events.end()) {
         it->second.set = true;
+        return true;
+    }
+    return setHostEvent(handle);
 }
 
 } // namespace reluva::x86

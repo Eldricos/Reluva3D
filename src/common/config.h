@@ -43,8 +43,8 @@ public:
     std::map<std::string, std::string> settingsFor(const std::string &target) const;
 
 private:
-    std::filesystem::path path_;
-    std::map<std::string, std::map<std::string, std::string>> sections_;
+    std::filesystem::path _path;
+    std::map<std::string, std::map<std::string, std::string>> _sections;
 };
 
 } // namespace reluva

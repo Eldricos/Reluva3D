@@ -22,7 +22,7 @@ Adventure has got, and the settings.
     from a mission's menu), and as an Adventure moves on. Quitting
     Reluva stops the game where it is, so it saves nothing then: closing
     the window or pressing Ctrl+F5 (back to the launcher) while the game
-    runs (or while its data viewer is open over it) asks first, "Keep
+    runs asks first, "Keep
     playing" or "Quit" ("Return to launcher") (`System::confirmQuit`, a
     message box in the SDL backend).
   - Two things in our run-time had to be fixed for it. The `ofstream`

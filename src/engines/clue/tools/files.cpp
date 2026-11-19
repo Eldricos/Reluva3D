@@ -66,7 +66,8 @@ int cmdClueExtract(int argc, char **argv) {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     const std::string filter = argc > 4 ? reluva::fs::toLower(argv[4]) : "";
-    int written = 0, failed = 0;
+    int written = 0;
+    int failed = 0;
     for (const auto &e : drive.entries()) {
         if (!filter.empty() && reluva::fs::toLower(e.name).find(filter) == std::string::npos)
             continue;
@@ -99,12 +100,17 @@ int cmdClueCheck(int argc, char **argv) {
     }
     const bool uk = argc > 3 && std::strcmp(argv[3], "-uk") == 0;
     reluva::clue::GameData data;
-    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::UK : reluva::clue::Language::US)) {
+    if (reluva::Error err = data.open(argv[2], uk ? reluva::clue::Language::kUK : reluva::clue::Language::kUS)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
     std::printf("%zu files in %zu folders\n", data.files().size(), data.folders().size());
-    int images = 0, imageFails = 0, anims = 0, animFails = 0, refs = 0, refFails = 0;
+    int images = 0;
+    int imageFails = 0;
+    int anims = 0;
+    int animFails = 0;
+    int refs = 0;
+    int refFails = 0;
     std::map<int, int> versions;
     for (const auto &path : data.withExtension(".res")) {
         const std::string drive = path.stem().string();
@@ -149,7 +155,8 @@ int cmdClueCheck(int argc, char **argv) {
             }
         }
     }
-    int objects = 0, objectFails = 0;
+    int objects = 0;
+    int objectFails = 0;
     for (const auto &path : data.withExtension(".o")) {
         const std::string drive = path.stem().string();
         const reluva::clue::DataDrive *d = data.drive(drive, 'O');
@@ -165,7 +172,8 @@ int cmdClueCheck(int argc, char **argv) {
             }
         }
     }
-    int placements = 0, buildProblems = 0;
+    int placements = 0;
+    int buildProblems = 0;
     bool levelOk = false;
     if (const std::filesystem::path *lvl = data.find("clue.lvl")) {
         reluva::clue::DataDrive file;
@@ -188,7 +196,9 @@ int cmdClueCheck(int argc, char **argv) {
         std::printf("  no clue.lvl\n");
     }
     // dialogInfo.res: every font, background and control picture it names.
-    int dialogs = 0, controls = 0, missing = 0;
+    int dialogs = 0;
+    int controls = 0;
+    int missing = 0;
     bool resiOk = false;
     if (const std::filesystem::path *path = data.find("dialogInfo.res")) {
         std::ifstream in(*path, std::ios::binary);
@@ -216,10 +226,10 @@ int cmdClueCheck(int argc, char **argv) {
                 check(d.background, "dialog " + std::to_string(d.id));
                 for (const auto &c : d.controls) {
                     ++controls;
-                    const bool picture = c.type == reluva::clue::ResiControl::Image ||
-                                         c.type == reluva::clue::ResiControl::ImageButton ||
-                                         c.type == reluva::clue::ResiControl::Slider ||
-                                         c.type == reluva::clue::ResiControl::ScrollKnob;
+                    const bool picture = c.type == reluva::clue::ResiControl::kImage ||
+                                         c.type == reluva::clue::ResiControl::kImageButton ||
+                                         c.type == reluva::clue::ResiControl::kSlider ||
+                                         c.type == reluva::clue::ResiControl::kScrollKnob;
                     check(picture ? c.text : c.animation,
                           "dialog " + std::to_string(d.id) + " control " + std::to_string(c.id));
                 }
@@ -242,15 +252,15 @@ int cmdClueCheck(int argc, char **argv) {
 // A level's object names and placements: a summary, or each one with -v.
 
 const Commands
-    commands("clue",
-             {
-                 {"list", "<file.res | file.a | file.o | file.lvl>", "list a Clue .res, .a, .o or .lvl file's entries",
-                  cmdClueList},
-                 {"extract", "<file.res> <output dir> [name filter]",
-                  "write a Clue .res file's images as 32-bit TGA files", cmdClueExtract},
-                 {"check", "<game folder> [-uk]",
-                  "decode every image, animation, object and level of a Clue install or CD, and build its mansion",
-                  cmdClueCheck},
-             });
+    kCommands("clue",
+              {
+                  {"list", "<file.res | file.a | file.o | file.lvl>", "list a Clue .res, .a, .o or .lvl file's entries",
+                   cmdClueList},
+                  {"extract", "<file.res> <output dir> [name filter]",
+                   "write a Clue .res file's images as 32-bit TGA files", cmdClueExtract},
+                  {"check", "<game folder> [-uk]",
+                   "decode every image, animation, object and level of a Clue install or CD, and build its mansion",
+                   cmdClueCheck},
+              });
 
 } // namespace

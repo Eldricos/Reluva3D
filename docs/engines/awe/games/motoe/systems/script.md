@@ -260,7 +260,7 @@ characters' verbs (`anim`, `turn`, `look`, `rotate`, `animate`, `pause`,
 `resume`, `loop`, `attach`, `detach`: [characters.md](characters.md)).
 It logs the rest in its info panel and ends them at once.
 
-Items are used as above (`src/engines/awe/pages/scene_inventory.cpp`), picked
+Items are used as above (`src/engines/awe/game/scene_inventory.cpp`), picked
 up from the inventory window (`scene_interface.cpp`, with the bar, the
 window's pages and the cards: [interface.md](interface.md#in-reluva)).
 

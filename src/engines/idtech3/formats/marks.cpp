@@ -41,7 +41,8 @@ void clip(std::vector<Vec3f> &poly, const ClipPlane &plane) {
     for (size_t i = 0; i < poly.size(); ++i) {
         const Vec3f &a = poly[i];
         const Vec3f &b = poly[(i + 1) % poly.size()];
-        const float da = dot(plane.normal, a) - plane.dist, db = dot(plane.normal, b) - plane.dist;
+        const float da = dot(plane.normal, a) - plane.dist;
+        const float db = dot(plane.normal, b) - plane.dist;
         if (da >= 0)
             out.push_back(a);
         if ((da >= 0) != (db >= 0)) {
@@ -64,18 +65,18 @@ MarkSurfaces::MarkSurfaces(const Bsp &bsp, float subdivisions) {
     const std::vector<PatchGrid> grids = buildPatchGrids(bsp, subdivisions);
     for (int si = world.firstSurface; si < world.firstSurface + world.numSurfaces; ++si) {
         const BspSurface &s = bsp.surfaces[size_t(si)];
-        if (s.type != SurfaceType::Planar && s.type != SurfaceType::TriangleSoup && s.type != SurfaceType::Patch)
+        if (s.type != SurfaceType::kPlanar && s.type != SurfaceType::kTriangleSoup && s.type != SurfaceType::kPatch)
             continue;
         if (s.shader >= 0 && size_t(s.shader) < bsp.shaders.size() &&
             (bsp.shaders[size_t(s.shader)].surfaceFlags &
-             (surfaceflags::Sky | surfaceflags::NoImpact | surfaceflags::NoMarks)))
+             (surfaceflags::kSky | surfaceflags::kNoImpact | surfaceflags::kNoMarks)))
             continue;
         const BspVertex *v = &bsp.vertices[size_t(s.firstVertex)];
         const BspVertex *verts = v;
         const int32_t *idx = nullptr;
         std::vector<int32_t> patchIdx;
         size_t indexCount = 0;
-        if (s.type == SurfaceType::Patch) {
+        if (s.type == SurfaceType::kPatch) {
             patchVerts.clear();
             patchIndices.clear();
             triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
@@ -87,7 +88,7 @@ MarkSurfaces::MarkSurfaces(const Bsp &bsp, float subdivisions) {
             idx = &bsp.indices[size_t(s.firstIndex)];
             indexCount = size_t(s.numIndices);
         }
-        Surface surface{{1e30f, 1e30f, 1e30f}, {-1e30f, -1e30f, -1e30f}, triangles_.size(), 0};
+        Surface surface{{1e30f, 1e30f, 1e30f}, {-1e30f, -1e30f, -1e30f}, _triangles.size(), 0};
         for (size_t i = 0; i + 2 < indexCount; i += 3) {
             Triangle t;
             Vec3f normalSum{};
@@ -108,11 +109,11 @@ MarkSurfaces::MarkSurfaces(const Bsp &bsp, float subdivisions) {
             if (dot(t.normal, normalSum) < 0)
                 for (float &c : t.normal)
                     c = -c;
-            triangles_.push_back(t);
+            _triangles.push_back(t);
         }
-        surface.count = triangles_.size() - surface.first;
+        surface.count = _triangles.size() - surface.first;
         if (surface.count)
-            surfaces_.push_back(surface);
+            _surfaces.push_back(surface);
     }
 }
 
@@ -126,7 +127,9 @@ void MarkSurfaces::mark(const std::vector<Vec3f> &polygon, const Vec3f &projecti
     const Vec3f dir = normalized(projection);
     // The volume the mark reaches: the polygon swept its projection's
     // length both ways.
-    Vec3f mins{1e30f, 1e30f, 1e30f}, maxs{-1e30f, -1e30f, -1e30f}, center{};
+    Vec3f mins{1e30f, 1e30f, 1e30f};
+    Vec3f maxs{-1e30f, -1e30f, -1e30f};
+    Vec3f center{};
     for (const Vec3f &p : polygon)
         for (size_t c = 0; c < 3; ++c) {
             mins[c] = std::min(mins[c], std::min(p[c] - projection[c], p[c] + projection[c]));
@@ -152,14 +155,14 @@ void MarkSurfaces::mark(const std::vector<Vec3f> &polygon, const Vec3f &projecti
     planes.push_back({{-dir[0], -dir[1], -dir[2]}, -(mid + depth)});
 
     std::vector<Vec3f> poly;
-    for (const Surface &s : surfaces_) {
+    for (const Surface &s : _surfaces) {
         bool outside = false;
         for (size_t c = 0; c < 3 && !outside; ++c)
             outside = s.maxs[c] < mins[c] || s.mins[c] > maxs[c];
         if (outside)
             continue;
         for (size_t ti = s.first; ti < s.first + s.count; ++ti) {
-            const Triangle &t = triangles_[ti];
+            const Triangle &t = _triangles[ti];
             // Only surfaces the mark comes at from the front.
             if (dot(t.normal, dir) > -0.1f)
                 continue;

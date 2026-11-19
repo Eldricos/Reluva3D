@@ -23,16 +23,16 @@ namespace reluva::awe {
 class NullRenderer : public gfx::Renderer3D {
 public:
     Error createTexture(int, int, const uint8_t *, const gfx::TextureParams &, gfx::TextureId &out) override {
-        out = gfx::TextureId(++next_);
+        out = gfx::TextureId(++_next);
         return Error::success();
     }
     void destroyTexture(gfx::TextureId) override {}
     Error createMesh(const std::vector<gfx::Vertex> &, const std::vector<uint32_t> &, gfx::MeshId &out) override {
-        out = gfx::MeshId(++next_);
+        out = gfx::MeshId(++_next);
         return Error::success();
     }
     Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &, gfx::MeshId &out) override {
-        out = gfx::MeshId(++next_);
+        out = gfx::MeshId(++_next);
         return Error::success();
     }
     Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &) override { return Error::success(); }
@@ -56,7 +56,7 @@ public:
     bool takeCapture(std::vector<uint8_t> &) override { return false; }
 
 private:
-    uint32_t next_ = 0;
+    uint32_t _next = 0;
 };
 
 // A System with no window: the last frame shown is kept, events come from

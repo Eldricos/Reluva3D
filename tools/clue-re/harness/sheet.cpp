@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Draws each named animation's frames (all layers) in a row on a sheet, with its size.
 #include "engines/clue/game_data.h"
 #include "image/image.h"
@@ -6,7 +9,7 @@
 #include <algorithm>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     const int W = 1600; int y = 0; std::vector<std::pair<int,const Animation*>> rows;
     image::Image sheet; sheet.w = W; sheet.h = 4000; sheet.rgba.assign(size_t(W) * 4000 * 4, 60);
     for (int a = 3; a < argc; ++a) {

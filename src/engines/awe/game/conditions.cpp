@@ -90,7 +90,8 @@ bool testClause(std::string_view clause, const GameState &state) {
     } else if (word == "act" || word == "chapter") {
         // "act [<|>]06a" by number, then letter (0x407d84); "chapter" by
         // number alone.
-        int major = 0, minor = 0;
+        int major = 0;
+        int minor = 0;
         if (state.act.size() >= 2) {
             major = std::atoi(state.act.substr(0, state.act.size() - 1).c_str());
             minor = std::toupper(uint8_t(state.act.back())) - 0x40;
@@ -190,7 +191,9 @@ bool testClause(std::string_view clause, const GameState &state) {
     } else if (word == "talk") {
         // talk <name> <act> <code> (0x408636 -> 0x439f60).
         if (w.size() >= 4) {
-            const std::string name = fs::toLower(w[1]), act = fs::toLower(w[2]), code = fs::toLower(w[3]);
+            const std::string name = fs::toLower(w[1]);
+            const std::string act = fs::toLower(w[2]);
+            const std::string code = fs::toLower(w[3]);
             auto letter = [](char c) { return std::toupper(uint8_t(c)) - 'A'; };
             if (code.size() == 1) {
                 result = state.partTold && state.partTold(name, act, letter(code[0]));

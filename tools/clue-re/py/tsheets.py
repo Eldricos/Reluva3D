@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import numpy as np, glob, sys
 from PIL import Image, ImageDraw
 v=sys.argv[1]

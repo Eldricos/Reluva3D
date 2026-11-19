@@ -83,7 +83,8 @@ int cmdGeoInfo(int argc, char **argv) {
     std::printf("%zu faces (%zu corners), %zu part(s)\n", m.faces.size(), corners, m.parts.size());
     for (size_t pi = 0; pi < m.parts.size(); ++pi) {
         const auto &part = m.parts[pi];
-        float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
+        float lo[3] = {1e30f, 1e30f, 1e30f};
+        float hi[3] = {-1e30f, -1e30f, -1e30f};
         for (const auto &v : part.vertices) {
             const float c[3] = {v.x, v.y, v.z};
             for (int i = 0; i < 3; ++i) {
@@ -133,7 +134,10 @@ int cmdGeoInfo(int argc, char **argv) {
     // Test: is the second value an index into the face's part's first normal
     // list, giving the face's normal? Compare with the normal worked out from
     // the corners (Newell's method), either way round.
-    unsigned same = 0, opposite = 0, other = 0, outOfRange = 0;
+    unsigned same = 0;
+    unsigned opposite = 0;
+    unsigned other = 0;
+    unsigned outOfRange = 0;
     for (size_t i = 1; i < m.faces.size(); ++i) {
         const auto &face = m.faces[i];
         const auto &part = m.parts[face.part];
@@ -195,8 +199,10 @@ int cmdGeoFaces(int argc, char **argv) {
         std::printf("face %u at 0x%zx: (%u, %u, %u, %u)\n", i, p, rd32(d, p), rd32(d, p + 4), n, rd32(d, p + 12));
         p += 16;
         for (uint32_t k = 0; k < n; ++k, p += 32) {
-            float u, v;
-            const uint32_t ub = rd32(d, p + 4), vb = rd32(d, p + 8);
+            float u;
+            float v;
+            const uint32_t ub = rd32(d, p + 4);
+            const uint32_t vb = rd32(d, p + 8);
             std::memcpy(&u, &ub, 4);
             std::memcpy(&v, &vb, 4);
             std::printf("    v %-4u uv %9.4f %9.4f  rest %u %u %u %u %u\n", rd32(d, p), double(u / 65536),
@@ -235,7 +241,9 @@ int cmdGeoSlots(int argc, char **argv) {
             Slot &sl = slots[f.corners.back().extra[4]];
             ++sl.faces;
             const auto &vs = geo.parts[f.part].vertices;
-            double nx = 0, ny = 0, nz = 0;
+            double nx = 0;
+            double ny = 0;
+            double nz = 0;
             for (size_t i = 0; i < f.corners.size(); ++i) {
                 const auto &p = vs[f.corners[i].vertex];
                 const auto &q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
@@ -296,14 +304,16 @@ int cmdGeoSheet(int argc, char **argv) {
     std::vector<std::string> names;
     for (const auto &a : archives)
         for (const auto &e : a->entries()) {
-            std::string folder, stem, ext;
+            std::string folder;
+            std::string stem;
+            std::string ext;
             nw::splitName(e.name, folder, stem, ext);
             // Variants: damaged (_d, _ad), low detail (_l), shadow (_s) and
             // placement outline (_p).
             const bool variant =
                 stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
                                     stem.ends_with("_p") || (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
-            if (e.tag == nw::cattag::Geometry && e.name.find("/lod/") == std::string::npos && !variant &&
+            if (e.tag == nw::cattag::kGeometry && e.name.find("/lod/") == std::string::npos && !variant &&
                 e.name.find(filter) != std::string::npos)
                 names.push_back(e.name);
         }
@@ -311,15 +321,15 @@ int cmdGeoSheet(int argc, char **argv) {
         std::fprintf(stderr, "no models match %s\n", filter.c_str());
         return 1;
     }
-    const int kCellW = large ? 320 : 200, kCellH = large ? 240 : 150, kPerRow = large ? 1 : 4,
-              kViews = turntable ? 8
-                       : large   ? 4
-                                 : 2;
+    const int kCellW = large ? 320 : 200;
+    const int kCellH = large ? 240 : 150;
+    const int kPerRow = large ? 1 : 4;
+    const int kViews = turntable ? 8 : large ? 4 : 2;
     const int rows = int((names.size() + size_t(kPerRow) - 1) / size_t(kPerRow));
     reluva::Surface sheet;
-    sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::RGBA32);
+    sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::kRGBA32);
     reluva::Surface cell;
-    cell.create(kCellW, kCellH, reluva::PixelFormat::RGBA32);
+    cell.create(kCellW, kCellH, reluva::PixelFormat::kRGBA32);
     nw::Rasterizer raster;
     for (size_t i = 0; i < names.size(); ++i) {
         nw::TexturedModel m;
@@ -327,17 +337,20 @@ int cmdGeoSheet(int argc, char **argv) {
         for (int view = 0; view < kViews; ++view) {
             for (size_t p = 0; p < cell.pixels.size(); p += 4)
                 cell.pixels[p] = 0, cell.pixels[p + 1] = 0, cell.pixels[p + 2] = 24, cell.pixels[p + 3] = 255;
-            static constexpr float kYaw[4] = {0.6f, 2.7f, 1.6f, 4.2f}, kPitch[4] = {0.35f, 0.9f, 0.15f, 0.35f};
+            static constexpr float kYaw[4] = {0.6f, 2.7f, 1.6f, 4.2f};
+            static constexpr float kPitch[4] = {0.35f, 0.9f, 0.15f, 0.35f};
             if (ok)
                 nw::drawModelView(cell, raster, m, turntable ? float(view) * 0.7854f : kYaw[view],
                                   turntable ? 0.35f : kPitch[view]);
             if (view == 0) {
-                std::string folder, stem, ext;
+                std::string folder;
+                std::string stem;
+                std::string ext;
                 nw::splitName(names[i], folder, stem, ext);
                 reluva::font::drawText(cell, 3, 3, ok ? stem : stem + " ?", {255, 230, 80});
             }
-            const int x0 = int(i % size_t(kPerRow)) * kViews * kCellW + view * kCellW,
-                      y0 = int(i / size_t(kPerRow)) * kCellH;
+            const int x0 = int(i % size_t(kPerRow)) * kViews * kCellW + view * kCellW;
+            const int y0 = int(i / size_t(kPerRow)) * kCellH;
             for (int y = 0; y < kCellH; ++y)
                 std::memcpy(sheet.row(y0 + y) + x0 * 4, cell.row(y), size_t(kCellW) * 4);
         }
@@ -371,11 +384,13 @@ int cmdGeoTextures(int argc, char **argv) {
         archives.push_back(std::move(cat));
     }
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
-    unsigned models = 0, without = 0, short_ = 0;
+    unsigned models = 0;
+    unsigned without = 0;
+    unsigned shortOfTextures = 0;
     std::vector<uint8_t> data;
     for (const auto &cat : archives)
         for (const auto &e : cat->entries()) {
-            if (e.tag != nw::cattag::Geometry)
+            if (e.tag != nw::cattag::kGeometry)
                 continue;
             ++models;
             // How many textures the faces number: the highest number + 1.
@@ -392,7 +407,7 @@ int cmdGeoTextures(int argc, char **argv) {
             if (found == 0)
                 ++without;
             else if (tooFew)
-                ++short_;
+                ++shortOfTextures;
             if (!all && !tooFew)
                 continue;
             std::printf("%s: needs %u, found", e.name.c_str(), needed);
@@ -402,7 +417,9 @@ int cmdGeoTextures(int argc, char **argv) {
                 std::printf(" none");
             if (tooFew) {
                 // Textures in the same folder whose names start like the model's.
-                std::string folder, stem, ext;
+                std::string folder;
+                std::string stem;
+                std::string ext;
                 nw::splitName(e.name, folder, stem, ext);
                 const size_t prefix = std::min<size_t>(3, stem.size());
                 std::printf("; similar:");
@@ -415,7 +432,8 @@ int cmdGeoTextures(int argc, char **argv) {
             }
             std::printf("\n");
         }
-    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without, short_);
+    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without,
+                shortOfTextures);
     return 0;
 }
 
@@ -425,7 +443,8 @@ int cmdGeoSurvey(int argc, char **argv) {
         return 2;
     }
     std::map<std::string, std::vector<std::string>> failures;
-    unsigned total = 0, ok = 0;
+    unsigned total = 0;
+    unsigned ok = 0;
     std::vector<uint8_t> d;
     for (int a = 2; a < argc; ++a) {
         reluva::newworlds::CatArchive cat;
@@ -434,7 +453,7 @@ int cmdGeoSurvey(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Geometry || cat.read(e, d))
+            if (e.tag != reluva::newworlds::cattag::kGeometry || cat.read(e, d))
                 continue;
             ++total;
             reluva::newworlds::GeoModel m;
@@ -492,10 +511,11 @@ int cmdMdlInfo(int argc, char **argv) {
             return 1;
         }
         std::map<std::string, unsigned> states;
-        unsigned count = 0, failed = 0;
+        unsigned count = 0;
+        unsigned failed = 0;
         std::vector<uint8_t> data;
         for (const auto &e : cat.entries()) {
-            if (e.tag != nw::cattag::Mdl)
+            if (e.tag != nw::cattag::kMdl)
                 continue;
             ++count;
             nw::MdlModel m;
@@ -548,7 +568,7 @@ int cmdMdlInfo(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "newworlds",
     {
         {"geo-info", "<file.geo> [out.obj]", "decode a model; optionally export it as OBJ", cmdGeoInfo},

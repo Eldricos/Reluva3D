@@ -81,22 +81,22 @@ float evaluate(const Wave &wave, float time) {
     const float f = x - std::floor(x);
     float v = 0;
     switch (wave.func) {
-    case WaveFunc::Sin:
+    case WaveFunc::kSin:
         v = std::sin(f * kTau);
         break;
-    case WaveFunc::Triangle:
+    case WaveFunc::kTriangle:
         v = f < 0.25f ? 4 * f : f < 0.75f ? 2 - 4 * f : 4 * f - 4;
         break;
-    case WaveFunc::Square:
+    case WaveFunc::kSquare:
         v = f < 0.5f ? 1.0f : -1.0f;
         break;
-    case WaveFunc::Sawtooth:
+    case WaveFunc::kSawtooth:
         v = f;
         break;
-    case WaveFunc::InverseSawtooth:
+    case WaveFunc::kInverseSawtooth:
         v = 1 - f;
         break;
-    case WaveFunc::Noise: {
+    case WaveFunc::kNoise: {
         // Smoothly interpolated values in -1..1 at whole numbers.
         auto hash = [](float n) {
             const float h = std::sin(n * 12.9898f) * 43758.5453f;

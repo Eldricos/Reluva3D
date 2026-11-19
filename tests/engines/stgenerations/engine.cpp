@@ -18,6 +18,7 @@
 #include "engines/registry.h"
 #include "engines/stgenerations/game/generations.h"
 #include "engines/stgenerations/game/random.h"
+#include "engines/stgenerations/pages/resource_viewer.h"
 #include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/tools/scripted_system.h"
 #include "tests/engines/stgenerations/support.h"
@@ -89,7 +90,16 @@ Bytes makeMovie(int frames) {
         b.insert(b.end(), body.begin(), body.end());
         return b;
     };
-    Bytes avih, vstrh, vstrf, astrh, astrf, hdrl, vstrl, astrl, movi, avi;
+    Bytes avih;
+    Bytes vstrh;
+    Bytes vstrf;
+    Bytes astrh;
+    Bytes astrf;
+    Bytes hdrl;
+    Bytes vstrl;
+    Bytes astrl;
+    Bytes movi;
+    Bytes avi;
     le(avih, 100000, 4);
     avih.resize(56);
     tag(vstrh, "vids");
@@ -289,7 +299,8 @@ void engineTest(const std::filesystem::path &tmp) {
     std::map<uint64_t, std::string> marks; // what each moment shows
     std::vector<std::pair<uint64_t, std::string>> seen;
     int frames = 0;
-    std::string last, cursorSeen = "never shown";
+    std::string last;
+    std::string cursorSeen = "never shown";
     sys.onFrame = [&](const Surface &s, uint64_t ms) {
         ++frames;
         last = hashOf(s);
@@ -304,7 +315,7 @@ void engineTest(const std::filesystem::path &tmp) {
         }
     };
     marks[2000] = "title";
-    sys.key(3000, key::Space); // the title skipped: the menu
+    sys.key(3000, key::kSpace); // the title skipped: the menu
     marks[3500] = "menu";
     sys.click(4000, 165, 101); // New
     marks[4500] = "new game?";
@@ -353,7 +364,8 @@ void engineTest(const std::filesystem::path &tmp) {
         rec.add(std::string("save.") + name, fileHash(tmp / "saves" / name));
     rec.add("settings", fileHash(tmp / "saves/settings.ini"));
 
-    // The resource viewer: the settings' volumes reach the mixer there too.
+    // The data viewer (reluva-viewer's): the settings' volumes reach the
+    // mixer there too.
     {
         ScriptedSystem viewer;
         audio::Mixer mixer(viewer.audioRate());
@@ -361,16 +373,15 @@ void engineTest(const std::filesystem::path &tmp) {
         Platform platform(viewer, &mixer, tmp / "viewer-saves");
         Options o;
         o.gameDir = game;
-        o.viewer = true;
         o.musicVolume = 128;
         o.speechVolume = 64;
         viewer.quit(500);
-        Generations g(&platform, o);
+        ResourceViewer g(&platform, o);
         const Error verr = g.run();
         rec.add("viewer", verr ? "failed: " + verr.message : std::string("ok"));
-        rec.add("viewer.volumes", std::to_string(mixer.typeVolume(audio::SoundType::Music)) + " music, " +
-                                      std::to_string(mixer.typeVolume(audio::SoundType::Speech)) + " speech, " +
-                                      std::to_string(mixer.typeVolume(audio::SoundType::Effects)) + " effects");
+        rec.add("viewer.volumes", std::to_string(mixer.typeVolume(audio::SoundType::kMusic)) + " music, " +
+                                      std::to_string(mixer.typeVolume(audio::SoundType::kSpeech)) + " speech, " +
+                                      std::to_string(mixer.typeVolume(audio::SoundType::kEffects)) + " effects");
     }
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/stgenerations/data/engine-record.txt", "stgenerations.engine",
@@ -380,6 +391,6 @@ void engineTest(const std::filesystem::path &tmp) {
 } // namespace
 
 static const reluva::test::Suite
-    suite("stgenerations.engine", {
-                                      {"import and play", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                  });
+    kSuite("stgenerations.engine", {
+                                       {"import and play", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                   });

@@ -13,21 +13,25 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr int32_t kVersion = 15;
-constexpr size_t kHeaderSize = 108, kFrameSize = 56, kTagSize = 112, kSurfaceSize = 108, kShaderSize = 68;
+constexpr size_t kHeaderSize = 108;
+constexpr size_t kFrameSize = 56;
+constexpr size_t kTagSize = 112;
+constexpr size_t kSurfaceSize = 108;
+constexpr size_t kShaderSize = 68;
 constexpr float kXyzScale = 1.0f / 64;
 constexpr float kTau = 6.28318530718f;
 
 class Reader {
 public:
-    Reader(const std::vector<uint8_t> &d, size_t at) : d_(d), at_(at) {}
+    Reader(const std::vector<uint8_t> &d, size_t at) : _d(d), _at(at) {}
     int32_t i32() {
-        const uint8_t *p = &d_[at_];
-        at_ += 4;
+        const uint8_t *p = &_d[_at];
+        _at += 4;
         return static_cast<int32_t>(uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24);
     }
     int16_t i16() {
-        const uint8_t *p = &d_[at_];
-        at_ += 2;
+        const uint8_t *p = &_d[_at];
+        _at += 2;
         return static_cast<int16_t>(uint16_t(p[0] | p[1] << 8));
     }
     float f32() {
@@ -44,16 +48,16 @@ public:
     }
     std::string name(size_t size) {
         size_t len = 0;
-        while (len < size && d_[at_ + len])
+        while (len < size && _d[_at + len])
             ++len;
-        std::string s(reinterpret_cast<const char *>(&d_[at_]), len);
-        at_ += size;
+        std::string s(reinterpret_cast<const char *>(&_d[_at]), len);
+        _at += size;
         return s;
     }
 
 private:
-    const std::vector<uint8_t> &d_;
-    size_t at_;
+    const std::vector<uint8_t> &_d;
+    size_t _at;
 };
 
 bool fits(size_t size, int64_t offset, int64_t count, size_t record) {
@@ -82,9 +86,13 @@ Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
         return Error::fail("Unsupported MD3 version " + std::to_string(version));
     out.name = h.name(64);
     h.i32(); // flags
-    const int32_t numFrames = h.i32(), numTags = h.i32(), numSurfaces = h.i32();
+    const int32_t numFrames = h.i32();
+    const int32_t numTags = h.i32();
+    const int32_t numSurfaces = h.i32();
     h.i32(); // skins, unused
-    const int32_t ofsFrames = h.i32(), ofsTags = h.i32(), ofsSurfaces = h.i32();
+    const int32_t ofsFrames = h.i32();
+    const int32_t ofsTags = h.i32();
+    const int32_t ofsSurfaces = h.i32();
     if (numFrames < 1 || numTags < 0 || numSurfaces < 0 || !fits(data.size(), ofsFrames, numFrames, kFrameSize) ||
         !fits(data.size(), ofsTags, int64_t(numFrames) * numTags, kTagSize))
         return Error::fail("MD3 frames or tags lie outside the file");
@@ -127,8 +135,14 @@ Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
         // surface with both (0 frames, every offset 0), and the original
         // draws the chair.
         sr.i32(); // frames
-        const int32_t numShaders = sr.i32(), numVerts = sr.i32(), numTris = sr.i32();
-        const int32_t ofsTris = sr.i32(), ofsShaders = sr.i32(), ofsSt = sr.i32(), ofsXyz = sr.i32(), ofsEnd = sr.i32();
+        const int32_t numShaders = sr.i32();
+        const int32_t numVerts = sr.i32();
+        const int32_t numTris = sr.i32();
+        const int32_t ofsTris = sr.i32();
+        const int32_t ofsShaders = sr.i32();
+        const int32_t ofsSt = sr.i32();
+        const int32_t ofsXyz = sr.i32();
+        const int32_t ofsEnd = sr.i32();
         if (numVerts < 0 || numTris < 0 || numShaders < 0 || ofsEnd < 0 ||
             !fits(data.size(), at + ofsShaders, numShaders, kShaderSize) ||
             !fits(data.size(), at + ofsTris, numTris, 12) || !fits(data.size(), at + ofsSt, numVerts, 8) ||
@@ -162,7 +176,8 @@ Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
             for (float &c : v.pos)
                 c = xr.i16() * kXyzScale;
             const uint16_t n = static_cast<uint16_t>(xr.i16());
-            const float lat = float((n >> 8) & 0xff) * kTau / 256, lng = float(n & 0xff) * kTau / 256;
+            const float lat = float((n >> 8) & 0xff) * kTau / 256;
+            const float lng = float(n & 0xff) * kTau / 256;
             v.normal = {std::cos(lat) * std::sin(lng), std::sin(lat) * std::sin(lng), std::cos(lng)};
             surf.vertices.push_back(v);
         }
@@ -182,7 +197,7 @@ std::map<std::string, std::string> parseSkin(std::string_view text) {
         std::string line(text.substr(start, end - start));
         start = end + 1;
         // Trim spaces, tabs and carriage returns around both halves.
-        auto trim = [](std::string s) {
+        auto trim = [](const std::string &s) {
             const size_t a = s.find_first_not_of(" \t\r\"");
             const size_t b = s.find_last_not_of(" \t\r\"");
             return a == std::string::npos ? std::string() : s.substr(a, b - a + 1);

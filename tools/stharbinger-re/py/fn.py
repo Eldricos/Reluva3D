@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 """Which function of DEEP.EXE each address is in, from the list of function
 starts and the handler names in docs/engines/stharbinger/research/.
 

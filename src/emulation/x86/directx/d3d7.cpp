@@ -170,7 +170,8 @@ std::optional<uint32_t> DirectDraw::invoke3d(const ComInterface &iface, int inde
     const std::string_view m = iface.methods[size_t(index)].name;
     // EnumDevices(callback(description, name, D3DDEVICEDESC7*, context), context)
     if (m == "EnumDevices") {
-        const uint32_t callback = c.arg(1), context = c.arg(2);
+        const uint32_t callback = c.arg(1);
+        const uint32_t context = c.arg(2);
         const uint32_t desc = s->process.memory().alloc(236 + 256);
         for (const DeviceKind &k : kDevices) {
             if (k.hardware && emulationOnly)
@@ -189,7 +190,8 @@ std::optional<uint32_t> DirectDraw::invoke3d(const ComInterface &iface, int inde
     }
     // EnumZBufferFormats(device iid, callback(DDPIXELFORMAT*, context), context)
     if (m == "EnumZBufferFormats") {
-        const uint32_t callback = c.arg(2), context = c.arg(3);
+        const uint32_t callback = c.arg(2);
+        const uint32_t context = c.arg(3);
         const uint32_t pf = s->process.memory().alloc(32);
         for (int bits : {16, 24, 32}) {
             PixelFormat f = zFormat(bits == 24 ? 32 : bits);
@@ -222,7 +224,8 @@ std::optional<uint32_t> DirectDraw::invoke3d(const ComInterface &iface, int inde
     }
     // CreateVertexBuffer(D3DVERTEXBUFFERDESC*, out, flags)
     if (m == "CreateVertexBuffer") {
-        const uint32_t desc = c.arg(1), out = c.arg(2);
+        const uint32_t desc = c.arg(1);
+        const uint32_t out = c.arg(2);
         if (!c.valid(desc, 16) || !c.valid(out, 4))
             return kDDErrInvalidParams;
         auto vb = std::make_shared<VertexBuffer>();
@@ -620,7 +623,8 @@ std::optional<uint32_t> Device::invoke(const ComInterface &iface, int index, Cpu
     // Load(dest, destPoint, src, srcRect, flags): copies a texture and its
     // mip levels.
     if (m == "Load") {
-        std::shared_ptr<Surface> dest = s->com.shared<Surface>(c.arg(1)), src = s->com.shared<Surface>(c.arg(3));
+        std::shared_ptr<Surface> dest = s->com.shared<Surface>(c.arg(1));
+        std::shared_ptr<Surface> src = s->com.shared<Surface>(c.arg(3));
         if (!dest || !src)
             return kDDErrInvalidParams;
         Surface *d = dest.get();

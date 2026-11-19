@@ -106,8 +106,11 @@ bool hasSuffixIgnoreCase(std::string_view s, std::string_view suffix) {
 }
 
 bool matchGlob(std::string_view s, std::string_view pattern) {
-    size_t i = 0, p = 0;
-    size_t star = std::string_view::npos, mark = 0; // the last '*' and where it was tried from
+    size_t i = 0;
+    size_t p = 0;
+    // the last '*' and where it was tried from
+    size_t star = std::string_view::npos;
+    size_t mark = 0;
     while (i < s.size()) {
         if (p < pattern.size() && pattern[p] == '*') {
             star = p++;
@@ -160,7 +163,8 @@ std::vector<std::string> split(std::string_view s, char sep) {
 }
 
 std::string trim(std::string_view s) {
-    size_t b = 0, e = s.size();
+    size_t b = 0;
+    size_t e = s.size();
     while (b < e && std::isspace(static_cast<unsigned char>(s[b])))
         b++;
     while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1])))

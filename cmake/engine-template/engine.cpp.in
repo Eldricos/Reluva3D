@@ -28,16 +28,16 @@ public:
     @CLASS@Engine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
+        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
             return err;
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
-        screen.create(kWidth, kHeight, PixelFormat::CLUT8);
+        screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
         for (bool running = true; running;) {
             Event ev;
             while (_sys.pollEvent(ev))
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
-                    (ev.type == EventType::KeyDown && ev.key == key::Escape))
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
                     running = false;
             _sys.updateScreen(screen);
             _sys.delayMillis(1);

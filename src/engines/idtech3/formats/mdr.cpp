@@ -29,7 +29,11 @@ constexpr size_t kFrameHeader = 40;    // bounds, local origin, radius
 constexpr size_t kFrameNameSize = 16;  // after them, in frames that aren't packed
 constexpr size_t kBoneSize = 48;       // 3 x 4 floats
 constexpr size_t kPackedBoneSize = 24; // 12 16-bit numbers
-constexpr size_t kLodSize = 12, kSurfaceSize = 168, kVertexHeader = 24, kWeightSize = 20, kTagSize = 36;
+constexpr size_t kLodSize = 12;
+constexpr size_t kSurfaceSize = 168;
+constexpr size_t kVertexHeader = 24;
+constexpr size_t kWeightSize = 20;
+constexpr size_t kTagSize = 36;
 constexpr int kMaxBones = 128;
 
 uint32_t u32(const std::vector<uint8_t> &d, size_t at) {
@@ -86,8 +90,13 @@ Error parseMdr(const std::vector<uint8_t> &data, Md3Model &out, int lod) {
     if (i32(data, 4) != kVersion)
         return Error::fail("Unsupported MDR version " + std::to_string(i32(data, 4)));
     out.name = name(data, 8, 64);
-    const int32_t numFrames = i32(data, 72), numBones = i32(data, 76), ofsFrames = i32(data, 80);
-    const int32_t numLods = i32(data, 84), ofsLods = i32(data, 88), numTags = i32(data, 92), ofsTags = i32(data, 96);
+    const int32_t numFrames = i32(data, 72);
+    const int32_t numBones = i32(data, 76);
+    const int32_t ofsFrames = i32(data, 80);
+    const int32_t numLods = i32(data, 84);
+    const int32_t ofsLods = i32(data, 88);
+    const int32_t numTags = i32(data, 92);
+    const int32_t ofsTags = i32(data, 96);
     if (numFrames < 1 || numBones < 1 || numBones > kMaxBones || numLods < 1)
         return Error::fail("MDR model with bad counts");
 
@@ -146,8 +155,10 @@ Error parseMdr(const std::vector<uint8_t> &data, Md3Model &out, int lod) {
         Md3Surface surface;
         surface.name = fs::toLower(name(data, at + 4, 64));
         surface.shaders.push_back(name(data, at + 68, 64));
-        const int32_t numVerts = i32(data, at + 140), ofsVerts = i32(data, at + 144);
-        const int32_t numTriangles = i32(data, at + 148), ofsTriangles = i32(data, at + 152);
+        const int32_t numVerts = i32(data, at + 140);
+        const int32_t ofsVerts = i32(data, at + 144);
+        const int32_t numTriangles = i32(data, at + 148);
+        const int32_t ofsTriangles = i32(data, at + 152);
         const int32_t ofsEnd = i32(data, at + 164);
         if (numVerts < 0 || numTriangles < 0 || ofsEnd <= 0)
             return Error::fail("MDR surface with bad counts");

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 """A range of DEEP.EXE as data: each relocated dword (a pointer) with what it
 points to (a string, when it is one), every other byte as it is. For reading
 tables of pointers, such as jump tables and the video table.

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 cmake_minimum_required(VERSION 3.24)
 project(reluva VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -44,6 +47,10 @@ endif()
 
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
 option(RELUVA_BUILD_TESTS "Build unit tests" ON)
+# The games' debug keys and the launcher's "Developer:" settings, for
+# working on the engines: release builds for players turn them off
+# (src/common/developer.h).
+option(RELUVA_DEVELOPER_KEYS "Build in the games' debug keys and developer settings" ON)
 if(RELUVA_BUILD_TESTS)
     enable_testing()
 endif()
@@ -129,6 +136,7 @@ add_subdirectory(src/emulation)
 add_library(reluva_shared INTERFACE)
 target_link_libraries(reluva_shared INTERFACE reluva_common reluva_audio reluva_graphics reluva_image reluva_video
                                               reluva_emulation)
+target_compile_definitions(reluva_shared INTERFACE RELUVA_DEVELOPER_KEYS=$<BOOL:${RELUVA_DEVELOPER_KEYS}>)
 
 # --- engines: talk only to the shared code (reluva_shared) ---------------------
 # Each engine's own CMakeLists.txt (src/engines/<engine>/) declares it; the
@@ -145,7 +153,7 @@ add_subdirectory(src/backends)
 add_subdirectory(src/gui)
 # reluva: the program (src/base/)
 add_subdirectory(src/base)
-# reluva-render-check and reluva-tool (src/devtools/)
+# reluva-viewer, reluva-render-check and reluva-tool (src/devtools/)
 add_subdirectory(src/devtools)
 
 # --- tests ----------------------------------------------------------------------
@@ -157,6 +165,26 @@ reluva_add_tests(common
         ${PROJECT_SOURCE_DIR}/tests/common/jit.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/windows.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/indeo.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/x86_more.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/mmx.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/drives.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/mixer.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/ea_audio.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/prologic.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide_more.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide_boards.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/glide_gpu.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/sockets.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/sdl_controller.cpp
     TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
-        unit.jit unit.windows unit.indeo)
+        unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.prologic
+        unit.glide unit.glide_more unit.glide_boards unit.glide_gpu unit.sockets unit.sdl_controller)
+# reluva-viewer's Tests window's planning (src/devtools/test_runs.h).
+reluva_add_tests(devtools
+    SOURCES ${PROJECT_SOURCE_DIR}/tests/devtools/test_runs.cpp
+    TOPICS unit.test_runs)
 reluva_finish_tests()
+if(RELUVA_BUILD_TESTS)
+    target_link_libraries(reluva-tests PRIVATE reluva_test_runs)
+endif()

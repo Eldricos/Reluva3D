@@ -22,12 +22,24 @@ namespace reluva::awe {
 
 // A row of a dialogue table.
 struct DialogueLine {
-    std::string name, act, part, thread, nest; // as written ("02a", "a", "1", "a")
-    std::string speaker, target;               // "antoinette"; whom they face ("antoinette up")
+    // as written ("02a", "a", "1", "a")
+    std::string name;
+    std::string act;
+    std::string part;
+    std::string thread;
+    std::string nest;
+    // "antoinette"; whom they face ("antoinette up")
+    std::string speaker;
+    std::string target;
     std::string text;
     std::string condition; // when it can be said
-    std::string repeat, optional, notes;
-    std::string before, event, after; // commands: Prevent, Event, Povent
+    std::string repeat;
+    std::string optional;
+    std::string notes;
+    // commands: Prevent, Event, Povent
+    std::string before;
+    std::string event;
+    std::string after;
     float duration = 0;
 
     // Codes as the loader makes them (0x438f00). A part: a letter from 0
@@ -35,7 +47,9 @@ struct DialogueLine {
     // character's digit added (z1: 26); a number n as n + 0x5f (1: 0x60).
     // A nest: a letter from 0, a second letter's place added; a number
     // n + 0x5f.
-    int partCode = 0, threadCode = 0, nestCode = 0;
+    int partCode = 0;
+    int threadCode = 0;
+    int nestCode = 0;
     int repeatCode = -1; // Repeat's letter, else -1
     int alternative = 0; // 0, or one more than the line before if that has the same nest
 
@@ -57,14 +71,20 @@ int dialogueNestCode(std::string_view s);
 // number. `gen` is the default (a character was clicked; cantalk: on).
 struct TalkArgs {
     std::string name;
-    int part = 100, thread = -1, nest = -1, number = -1;
-    bool gen = false, plus = false, greet = true;
+    int part = 100;
+    int thread = -1;
+    int nest = -1;
+    int number = -1;
+    bool gen = false;
+    bool plus = false;
+    bool greet = true;
 };
 TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen);
 
 // A conversation's part (one Name and Conver.), its threads in order.
 struct DialoguePart {
-    std::string name, act;
+    std::string name;
+    std::string act;
     int code = 0;
     struct Thread {
         int code = 0;
@@ -83,16 +103,16 @@ public:
     // Adds a table's rows: a new part whenever the Name or Conver.
     // changes, a new thread whenever the Thread does (0x438f00).
     void add(const Table &table);
-    void clear() { parts_.clear(); }
+    void clear() { _parts.clear(); }
     // The first part of that name and code; null if none.
     DialoguePart *find(std::string_view name, int code);
-    std::vector<DialoguePart> &parts() { return parts_; }
-    const std::vector<DialoguePart> &parts() const { return parts_; }
+    std::vector<DialoguePart> &parts() { return _parts; }
+    const std::vector<DialoguePart> &parts() const { return _parts; }
     // All the lines of a conversation, in table order.
     std::vector<const DialogueLine *> conversation(std::string_view name) const;
 
 private:
-    std::vector<DialoguePart> parts_;
+    std::vector<DialoguePart> _parts;
 };
 
 // What a conversation needs from the game around it.
@@ -133,7 +153,7 @@ class DialogueManager {
 public:
     DialogueManager(GameState &state, ScriptHost &scripts, DialogueHost &host);
 
-    DialogueBook &book() { return book_; }
+    DialogueBook &book() { return _book; }
 
     // "talk <name> <code> [options]" (0x40ba25 -> 0x43a630): part, thread
     // and nest from the code's letters (-1 for none), `gen` to offer the
@@ -160,7 +180,7 @@ public:
     void wheel(int steps, int x, int y);
     // Whether the wheel chose last and the mouse hasn't moved since: the
     // cursor is hidden then (0x43d7f0).
-    bool wheelChoosing() const { return wheelX_ != -1 && wheelY_ != -1; }
+    bool wheelChoosing() const { return _wheelX != -1 && _wheelY != -1; }
     // The middle button (the wheel pressed): the highlighted choice taken
     // (0x43d890).
     void middleClick();
@@ -169,7 +189,7 @@ public:
     bool choose(int i);
     // Whether a choice or a click would be taken now (no box sliding, no
     // Prevent or pause under way).
-    bool ready() const { return slide_ == 0 && !waitPrevent_ && !pending_ && pause_ < 0; }
+    bool ready() const { return _slide == 0 && !_waitPrevent && !_pending && _pause < 0; }
     // Whether a click now would end the line being said (click()).
     bool lineSkippable() const;
 
@@ -178,20 +198,20 @@ public:
     void leaveScene(const std::string &scene);
 
     // What to draw.
-    bool active() const { return active_; }
+    bool active() const { return _active; }
     bool boxShown() const;
-    int boxTop() const { return int(boxY_); }
-    int boxHeight() const { return boxHeight_; }
-    int window() const { return window_; } // 0: dialoguewin01, 1: dialoguewin02
-    bool choosing() const { return choosing_; }
+    int boxTop() const { return int(_boxY); }
+    int boxHeight() const { return _boxHeight; }
+    int window() const { return _window; } // 0: dialoguewin01, 1: dialoguewin02
+    bool choosing() const { return _choosing; }
     // The line being said and its colour (fonts.txt's: 8 Antoinette, 9 and
     // 10 the others).
     const DialogueLine *line() const;
-    int colour() const { return colour_; }
+    int colour() const { return _colour; }
     // Whether the line's text is drawn now (0x43cf90): not while its
     // Prevent or a Povent runs, nothing is pending, nor in the pause before
     // the next line. The box is drawn empty meanwhile.
-    bool lineShown() const { return !waitPrevent_ && !pending_ && pause_ < 0 && povent_.idle(); }
+    bool lineShown() const { return !_waitPrevent && !_pending && _pause < 0 && _povent.idle(); }
     struct Choice {
         std::string text;
         DialoguePart *part;
@@ -200,18 +220,21 @@ public:
         // act 8's evidence), else empty.
         std::string picture;
     };
-    const std::vector<Choice> &choices() const { return choices_; }
-    int highlighted() const { return highlighted_; }
+    const std::vector<Choice> &choices() const { return _choices; }
+    int highlighted() const { return _highlighted; }
     // Where each choice is, from the box's drawing, for the mouse: its
     // text row, and its picture if it has one; a picture is tried before
     // the rows (0x43c810).
     struct ChoiceArea {
-        int x = 0, y = 0, w = 0, h = 0;
+        int x = 0;
+        int y = 0;
+        int w = 0;
+        int h = 0;
         int choice = -1;
         bool picture = false;
     };
-    void setChoiceAreas(std::vector<ChoiceArea> areas) { choiceAreas_ = std::move(areas); }
-    const std::vector<ChoiceArea> &choiceAreas() const { return choiceAreas_; }
+    void setChoiceAreas(std::vector<ChoiceArea> areas) { _choiceAreas = std::move(areas); }
+    const std::vector<ChoiceArea> &choiceAreas() const { return _choiceAreas; }
 
     // For a log.
     std::function<void(const std::string &line)> onLog;
@@ -239,41 +262,61 @@ private:
     void end(bool keepBox);
     void finishTalk();
     void showBox();
-    void log(const std::string &s) {
+    void log(const std::string &s) const {
         if (onLog)
             onLog(s);
     }
 
-    GameState &state_;
-    DialogueHost &host_;
-    DialogueBook book_;
-    ScriptRunner prevent_, events_, povent_;
-    ScriptRunner *caller_ = nullptr; // the runner whose "talk" this is
+    GameState &_state;
+    DialogueHost &_host;
+    DialogueBook _book;
+    ScriptRunner _prevent;
+    ScriptRunner _events;
+    ScriptRunner _povent;
+    ScriptRunner *_caller = nullptr; // the runner whose "talk" this is
 
-    DialoguePart *part_ = nullptr;
-    int thread_ = -1, line_ = -1; // indices into part_
-    bool active_ = false, choosing_ = false, playing_ = false;
-    bool firstOffer_ = true, plus_ = false, goOn_ = false, gen_ = false, greet_ = true;
-    int number_ = -1, lastAlternative_ = -1;
-    bool dry_ = false; // a dry run (cantalk)
-    bool waitPrevent_ = false, voice_ = false, showWhilePovent_ = true;
-    float textLeft_ = 0, lineTime_ = 0, pause_ = -1;
-    int pending_ = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu
-    int colour_ = 8;
-    std::string lastSpeaker_;
-    std::string speaker_; // whose line plays
-    int level_ = -1;      // the voice's last level
-    std::string prefix_;  // gen_<npc>_
-    std::vector<std::string> turned_;
+    DialoguePart *_part = nullptr;
+    // indices into part_
+    int _thread = -1;
+    int _line = -1;
+    bool _active = false;
+    bool _choosing = false;
+    bool _playing = false;
+    bool _firstOffer = true;
+    bool _plus = false;
+    bool _goOn = false;
+    bool _gen = false;
+    bool _greet = true;
+    int _number = -1;
+    int _lastAlternative = -1;
+    bool _dry = false; // a dry run (cantalk)
+    bool _waitPrevent = false;
+    bool _voice = false;
+    bool _showWhilePovent = true;
+    float _textLeft = 0;
+    float _lineTime = 0;
+    float _pause = -1;
+    int _pending = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu
+    int _colour = 8;
+    std::string _lastSpeaker;
+    std::string _speaker; // whose line plays
+    int _level = -1;      // the voice's last level
+    std::string _prefix;  // gen_<npc>_
+    std::vector<std::string> _turned;
     // The box.
-    float boxY_ = 768;
-    int boxHeight_ = 160, window_ = 0, slide_ = 0; // slide: 1 in, 2 out
+    float _boxY = 768;
+    // slide: 1 in, 2 out
+    int _boxHeight = 160;
+    int _window = 0;
+    int _slide = 0;
     // Choices.
-    std::vector<Choice> choices_;
-    std::vector<ChoiceArea> choiceAreas_;
-    int highlighted_ = -1;
-    int wheelX_ = -1, wheelY_ = -1; // where the mouse was when the wheel chose
-    unsigned random_ = 1;
+    std::vector<Choice> _choices;
+    std::vector<ChoiceArea> _choiceAreas;
+    int _highlighted = -1;
+    // where the mouse was when the wheel chose
+    int _wheelX = -1;
+    int _wheelY = -1;
+    unsigned _random = 1;
     int rand();
 };
 

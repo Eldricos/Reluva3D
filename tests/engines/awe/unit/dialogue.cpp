@@ -192,8 +192,8 @@ void testDialogue() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.dialogue",
-                                       {
-                                           {"book", [](const std::filesystem::path &) { testDialogueBook(); }},
-                                           {"manager", [](const std::filesystem::path &) { testDialogue(); }},
-                                       });
+static const reluva::test::Suite kSuite("awe.unit.dialogue",
+                                        {
+                                            {"book", [](const std::filesystem::path &) { testDialogueBook(); }},
+                                            {"manager", [](const std::filesystem::path &) { testDialogue(); }},
+                                        });

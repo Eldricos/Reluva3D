@@ -11,7 +11,7 @@ static uint32_t rd32(const std::vector<uint8_t> &d, size_t o) {
 }
 
 Error StringTable::parse(const std::vector<uint8_t> &data) {
-    strings_.clear();
+    _strings.clear();
     if (data.size() < 4)
         return Error::fail("string table too small");
     const uint32_t count = rd32(data, 0);
@@ -35,7 +35,7 @@ Error StringTable::parse(const std::vector<uint8_t> &data) {
         }
         if (!terminated)
             return Error::fail("string " + std::to_string(i) + " (id " + std::to_string(id) + ") is not terminated");
-        strings_.push_back({id, text::utf16leToUtf8(units.data(), units.size())});
+        _strings.push_back({id, text::utf16leToUtf8(units.data(), units.size())});
     }
     if (pos != data.size())
         return Error::fail("string table has " + std::to_string(data.size() - pos) + " bytes after its last string");
@@ -43,7 +43,7 @@ Error StringTable::parse(const std::vector<uint8_t> &data) {
 }
 
 const std::string *StringTable::find(uint32_t id) const {
-    for (const String &s : strings_)
+    for (const String &s : _strings)
         if (s.id == id)
             return &s.text;
     return nullptr;

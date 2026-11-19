@@ -20,16 +20,37 @@ namespace reluva::idtech3 {
 // Elite Force's taken to be the same: ASCII for printable keys, then its
 // own list from 128.
 namespace q3key {
-constexpr int32_t Tab = 9, Enter = 13, Escape = 27, Space = 32, Backspace = 127;
-constexpr int32_t Pause = 131, Up = 132, Down = 133, Left = 134, Right = 135;
-constexpr int32_t Alt = 136, Ctrl = 137, Shift = 138, Insert = 139, Delete = 140;
-constexpr int32_t PageDown = 141, PageUp = 142, Home = 143, End = 144, F1 = 145;
-constexpr int32_t KpEnter = 169;
+constexpr int32_t kTab = 9;
+constexpr int32_t kEnter = 13;
+constexpr int32_t kEscape = 27;
+constexpr int32_t kSpace = 32;
+constexpr int32_t kBackspace = 127;
+constexpr int32_t kPause = 131;
+constexpr int32_t kUp = 132;
+constexpr int32_t kDown = 133;
+constexpr int32_t kLeft = 134;
+constexpr int32_t kRight = 135;
+constexpr int32_t kAlt = 136;
+constexpr int32_t kCtrl = 137;
+constexpr int32_t kShift = 138;
+constexpr int32_t kInsert = 139;
+constexpr int32_t kDelete = 140;
+constexpr int32_t kPageDown = 141;
+constexpr int32_t kPageUp = 142;
+constexpr int32_t kHome = 143;
+constexpr int32_t kEnd = 144;
+constexpr int32_t kF1 = 145;
+constexpr int32_t kKpEnter = 169;
 // Added to a character's code for typed text, as against keys.
-constexpr int32_t CharFlag = 1024;
-constexpr int32_t Mouse1 = 178, Mouse2 = 179, Mouse3 = 180, Mouse4 = 181, Mouse5 = 182;
-constexpr int32_t WheelDown = 183, WheelUp = 184;
-constexpr int32_t Count = 256;
+constexpr int32_t kCharFlag = 1024;
+constexpr int32_t kMouse1 = 178;
+constexpr int32_t kMouse2 = 179;
+constexpr int32_t kMouse3 = 180;
+constexpr int32_t kMouse4 = 181;
+constexpr int32_t kMouse5 = 182;
+constexpr int32_t kWheelDown = 183;
+constexpr int32_t kWheelUp = 184;
+constexpr int32_t kCount = 256;
 } // namespace q3key
 
 // The game's number for a key or mouse button (0 for none).
@@ -63,7 +84,7 @@ public:
     bool changed = false;
 
 private:
-    std::array<std::string, q3key::Count> commands_;
+    std::array<std::string, q3key::kCount> _commands;
 };
 
 // A command line split into words as the original's console does: at

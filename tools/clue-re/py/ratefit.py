@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import numpy as np,sys
 rec=np.fromfile('a_gp.raw',dtype=np.int16).astype(np.float64); sr=8000
 def best(name,t0,dur=3.0,win=1.0):

@@ -20,6 +20,13 @@
 
 namespace reluva::clue {
 
+// The game's screen: 640x480, RGBA32.
+constexpr int kScreenW = 640;
+constexpr int kScreenH = 480;
+
+// Fills (x, y, w, h), clipped to the surface, opaque.
+void fillRect(Surface &s, int x, int y, int w, int h, Color c);
+
 // A font of the game's: frame n of its animation is character n
 // (Windows-1252), drawn as its glyph image in its cell.
 class BitmapFont {
@@ -27,7 +34,7 @@ public:
     // Packed: each glyph's ink a pixel after the last's (the ticker), not
     // by the glyphs' cells.
     BitmapFont(const GameData &data, const ResiFont &font, bool packed = false);
-    int lineHeight() const { return lineHeight_; }
+    int lineHeight() const { return _lineHeight; }
     int width(std::string_view line) const;
     void draw(Surface &s, int x, int y, std::string_view line) const;
 
@@ -37,8 +44,8 @@ private:
         int dx = 0; // where its image goes from the pen
         int advance = 0;
     };
-    std::array<Glyph, 256> glyphs_{};
-    int lineHeight_ = 0;
+    std::array<Glyph, 256> _glyphs{};
+    int _lineHeight = 0;
 };
 
 // The game's fonts, by their number in dialogInfo.res.
@@ -48,11 +55,14 @@ public:
     const BitmapFont *get(int id) const; // nullptr if there's no such font
 
 private:
-    std::map<int, std::unique_ptr<BitmapFont>> fonts_;
+    std::map<int, std::unique_ptr<BitmapFont>> _fonts;
 };
 
 struct UiRect {
-    int x = 0, y = 0, w = 0, h = 0;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
     bool contains(int px, int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
 };
 
@@ -73,12 +83,12 @@ class DialogView {
 public:
     DialogView(const GameData &data, const Fonts &fonts, const ResiDialog &dialog, int x = 0, int y = 0);
 
-    const ResiDialog &info() const { return dialog_; }
+    const ResiDialog &info() const { return _dialog; }
     void setVisible(int id, bool visible);
     void setGroupVisible(int group, bool visible); // every control of that group
     bool visible(int id) const;
     void setEnabled(int id, bool enabled);
-    void setText(int id, std::string text); // a Text's, a TextButton's or an Edit's
+    void setText(int id, const std::string &text); // a Text's, a TextButton's or an Edit's
     // By its place in the dialog, for controls without an id of their own (9999).
     void setTextAt(size_t index, std::string text);
     void setVisibleAt(size_t index, bool visible);
@@ -108,22 +118,31 @@ public:
 
 private:
     struct State {
-        bool visible = true, enabled = true, chosen = false;
+        bool visible = true;
+        bool enabled = true;
+        bool chosen = false;
         bool textSet = false;
         std::string text;
-        int value = 0, scroll = 0;
+        int value = 0;
+        int scroll = 0;
     };
     const ResiControl *hit(int mx, int my) const;
     UiRect rectOf(const ResiControl &c) const;
     std::vector<std::string> wrapped(const ResiControl &c) const;
 
-    const GameData &data_;
-    const Fonts &fonts_;
-    const ResiDialog &dialog_;
-    int x_, y_;
-    int width_ = 0, height_ = 0; // the dialog's size, for controls reaching to its edges
-    std::vector<State> state_;   // one per control
-    int hover_ = -1, pressed_ = -1, focus_ = -1, dragging_ = -1;
+    const GameData &_data;
+    const Fonts &_fonts;
+    const ResiDialog &_dialog;
+    int _x;
+    int _y;
+    // the dialog's size, for controls reaching to its edges
+    int _width = 0;
+    int _height = 0;
+    std::vector<State> _state; // one per control
+    int _hover = -1;
+    int _pressed = -1;
+    int _focus = -1;
+    int _dragging = -1;
 };
 
 } // namespace reluva::clue

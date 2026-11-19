@@ -13,8 +13,8 @@ namespace reluva::x86 {
 void ComHost::define(ComInterface &iface) {
     if (iface.vtable)
         return;
-    Cpu &c = process_.cpu();
-    iface.vtable = process_.memory().alloc(uint32_t(iface.methods.size() * 4));
+    Cpu &c = _process.cpu();
+    iface.vtable = _process.memory().alloc(uint32_t(iface.methods.size() * 4));
     for (size_t i = 0; i < iface.methods.size(); ++i) {
         const int index = int(i);
         const uint32_t pop = 4u * uint32_t(1 + iface.methods[i].args);
@@ -28,42 +28,42 @@ void ComHost::define(ComInterface &iface) {
 }
 
 uint32_t ComHost::pointer(const std::shared_ptr<ComObject> &object, const ComInterface &iface) {
-    auto &mine = byObject_[object.get()];
+    auto &mine = _byObject[object.get()];
     for (const auto &[i, p] : mine)
         if (i == &iface)
             return p;
-    const uint32_t p = process_.memory().alloc(8);
-    process_.cpu().write32(p, iface.vtable);
-    pointers_[p] = {object, &iface};
+    const uint32_t p = _process.memory().alloc(8);
+    _process.cpu().write32(p, iface.vtable);
+    _pointers[p] = {object, &iface};
     mine.push_back({&iface, p});
     return p;
 }
 
 ComObject *ComHost::object(uint32_t pointer) const {
-    auto it = pointers_.find(pointer);
-    return it == pointers_.end() ? nullptr : it->second.object.get();
+    auto it = _pointers.find(pointer);
+    return it == _pointers.end() ? nullptr : it->second.object.get();
 }
 
 void ComHost::release(ComObject *object) {
-    auto found = byObject_.find(object);
-    if (found == byObject_.end())
+    auto found = _byObject.find(object);
+    if (found == _byObject.end())
         return;
     // Freed lowest first, as walking pointers_ in order did (the heap's
     // later blocks depend on it).
     std::vector<uint32_t> gone;
     for (const auto &[i, p] : found->second)
         gone.push_back(p);
-    byObject_.erase(found);
+    _byObject.erase(found);
     std::sort(gone.begin(), gone.end());
     for (uint32_t p : gone) {
-        process_.memory().free(p);
-        pointers_.erase(p); // the object may go with its last pointer: last
+        _process.memory().free(p);
+        _pointers.erase(p); // the object may go with its last pointer: last
     }
 }
 
 uint32_t ComHost::dispatch(const ComInterface &iface, int index, Cpu &c) {
-    auto it = pointers_.find(c.arg(0));
-    if (it == pointers_.end()) {
+    auto it = _pointers.find(c.arg(0));
+    if (it == _pointers.end()) {
         c.abort(iface.name + "::" + iface.methods[size_t(index)].name + " called on something that isn't one");
         return kEFail;
     }

@@ -45,7 +45,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
@@ -99,19 +99,22 @@ static std::vector<uint8_t> buildAas(bool scramble) {
     // Areas 0 (dummy) to 3: number, faces, mins, maxs, center.
     for (int a = 0; a < 4; ++a) {
         i32(lumps[7], a), i32(lumps[7], 0), i32(lumps[7], 0);
-        const float x0 = float(a - 1) * 100, x1 = float(a) * 100;
+        const float x0 = float(a - 1) * 100;
+        const float x1 = float(a) * 100;
         for (float v : {x0, -50.0f, 0.0f, x1, 50.0f, 50.0f, (x0 + x1) / 2, 0.0f, 25.0f})
             f32(lumps[7], v);
     }
     // Settings: grounded, standing; reachabilities: area 1 -> 2 (index 1),
     // 2 -> 1 and 2 -> 3 (2, 3), 3 -> 2 (4); index 0 a dummy.
-    const int first[4] = {0, 1, 2, 4}, count[4] = {0, 1, 2, 1};
+    const int first[4] = {0, 1, 2, 4};
+    const int count[4] = {0, 1, 2, 1};
     for (int a = 0; a < 4; ++a)
         for (int v : {0, 1, 2, a == 0 ? 0 : 1, 0, count[a], first[a]})
             i32(lumps[8], v);
     struct R {
         int to;
-        float x0, x1;
+        float x0;
+        float x1;
     };
     const R reach[] = {{0, 0, 0}, {2, 95, 105}, {1, 105, 95}, {3, 195, 205}, {2, 205, 195}};
     for (const R &r : reach) {
@@ -152,21 +155,22 @@ static void testAas() {
         CHECK(aas.pointArea({50, 0, 10}) == 1 && aas.pointArea({150, 0, 10}) == 2 && aas.pointArea({250, 0, 10}) == 3);
         // Area 1 to 3: two reachabilities (10 each), crossing area 2 from
         // 105 to 195 (90 units walked, 0.33 a unit: 29), plus 1 for the goal.
-        int time = 0, reach = 0;
-        CHECK(aas.route(1, nullptr, 3, tfl::Default, time, reach));
+        int time = 0;
+        int reach = 0;
+        CHECK(aas.route(1, nullptr, 3, tfl::kDefault, time, reach));
         CHECK(reach == 1 && time == 1 + 10 + 10 + 29);
         // From a point: plus walking to the reachability's start.
         const Vec3f at{35, 0, 0};
-        CHECK(aas.travelTime(1, at, 3, tfl::Default) == time + 19);
-        CHECK(aas.route(3, nullptr, 1, tfl::Default, time, reach) && reach == 4);
-        CHECK(aas.route(2, nullptr, 2, tfl::Default, time, reach) && time == 1);
+        CHECK(aas.travelTime(1, at, 3, tfl::kDefault) == time + 19);
+        CHECK(aas.route(3, nullptr, 1, tfl::kDefault, time, reach) && reach == 4);
+        CHECK(aas.route(2, nullptr, 2, tfl::kDefault, time, reach) && time == 1);
         // Without walking, no way.
-        CHECK(!aas.route(1, nullptr, 3, tfl::Jump | tfl::Air, time, reach));
+        CHECK(!aas.route(1, nullptr, 3, tfl::kJump | tfl::kAir, time, reach));
         // Area 2 turned off: no way through.
         aas.enableArea(2, false);
-        CHECK(!aas.route(1, nullptr, 3, tfl::Default, time, reach));
+        CHECK(!aas.route(1, nullptr, 3, tfl::kDefault, time, reach));
         aas.enableArea(2, true);
-        CHECK(aas.route(1, nullptr, 3, tfl::Default, time, reach));
+        CHECK(aas.route(1, nullptr, 3, tfl::kDefault, time, reach));
         std::vector<int> areas;
         std::vector<Vec3f> points;
         CHECK(aas.traceAreas({50, 0, 0}, {250, 0, 0}, areas, &points, 10) == 3);
@@ -286,7 +290,7 @@ static void testBotAi() {
             return false;
         return true;
     };
-    CHECK(lib.setup() == blerr::None && lib.loadMap("test") == blerr::None);
+    CHECK(lib.setup() == blerr::kNone && lib.loadMap("test") == blerr::kNone);
     BotEntityState item;
     item.type = 2;
     item.modelIndex = 3;
@@ -297,16 +301,16 @@ static void testBotAi() {
     }
     lib.updateEntityItems();
     const int gs = lib.allocGoalState(0);
-    CHECK(lib.loadItemWeights(gs, "w.c") == blerr::None);
-    CHECK(lib.chooseLtgItem(gs, {50, 0, 0}, inv, tfl::Default));
+    CHECK(lib.loadItemWeights(gs, "w.c") == blerr::kNone);
+    CHECK(lib.chooseLtgItem(gs, {50, 0, 0}, inv, tfl::kDefault));
     BotGoal goal;
-    CHECK(lib.topGoal(gs, goal) && goal.area == 2 && goal.entity == 5 && (goal.flags & goalflag::Item));
+    CHECK(lib.topGoal(gs, goal) && goal.area == 2 && goal.entity == 5 && (goal.flags & goalflag::kItem));
     CHECK(lib.goalName(goal.number) == "Armor");
     // Avoided for a while once chosen.
     lib.popGoal(gs);
-    CHECK(!lib.chooseLtgItem(gs, {50, 0, 0}, inv, tfl::Default));
+    CHECK(!lib.chooseLtgItem(gs, {50, 0, 0}, inv, tfl::kDefault));
     const int ws = lib.allocWeaponState();
-    CHECK(lib.loadWeaponWeights(ws, "w.c") == blerr::None);
+    CHECK(lib.loadWeaponWeights(ws, "w.c") == blerr::kNone);
     inv[3] = 1;
     CHECK(lib.chooseBestFightWeapon(ws, inv) == 2);
 
@@ -316,21 +320,21 @@ static void testBotAi() {
     BotInitMove init;
     init.origin = {30, 0, 0};
     init.client = 1;
-    init.presence = presence::Normal;
-    init.orMoveFlags = moveflag::OnGround;
+    init.presence = presence::kNormal;
+    init.orMoveFlags = moveflag::kOnGround;
     lib.initMoveState(ms, init);
     BotGoal far;
     far.area = 3;
     far.origin = {250, 0, 0};
-    const BotMoveResult r = lib.moveToGoal(ms, far, tfl::Default);
-    CHECK(!r.failure && (r.travelType & travel::TypeMask) == travel::Walk);
+    const BotMoveResult r = lib.moveToGoal(ms, far, tfl::kDefault);
+    CHECK(!r.failure && (r.travelType & travel::kTypeMask) == travel::kWalk);
     const BotInput in = lib.getInput(1, 0.1f);
     CHECK(in.dir[0] > 0.99f && in.speed == 400);
     // In the goal's area: straight to it, slower when close.
     lib.resetInput(1);
     init.origin = {240, 0, 0};
     lib.initMoveState(ms, init);
-    lib.moveToGoal(ms, far, tfl::Default);
+    lib.moveToGoal(ms, far, tfl::kDefault);
     CHECK(lib.getInput(1, 0.1f).speed == 40);
 
     // Predicting a move: a floor where a standing player's origin is 24
@@ -349,18 +353,18 @@ static void testBotAi() {
         return t;
     };
     BotClientMove cm;
-    CHECK(lib.predictClientMovement(cm, 1, {50, 0, 200}, presence::Normal, false, {}, {}, 0, 50, 0.1f,
-                                    stopevent::HitGround, 0));
+    CHECK(lib.predictClientMovement(cm, 1, {50, 0, 200}, presence::kNormal, false, {}, {}, 0, 50, 0.1f,
+                                    stopevent::kHitGround, 0));
     // (On the ground counts from 10 units above it, as the original's.)
-    CHECK(cm.stopEvent == stopevent::HitGround && cm.endPos[2] >= 24 && cm.endPos[2] <= 34 && cm.frames > 3);
+    CHECK(cm.stopEvent == stopevent::kHitGround && cm.endPos[2] >= 24 && cm.endPos[2] <= 34 && cm.frames > 3);
     // Running along +x for half a second on the floor.
-    CHECK(lib.predictClientMovement(cm, 1, {50, 0, 24}, presence::Normal, true, {}, {400, 0, 0}, 5, 5, 0.1f, 0, 0));
-    CHECK(cm.stopEvent == stopevent::None && cm.endPos[0] > 100 && cm.velocity[0] > 250 &&
+    CHECK(lib.predictClientMovement(cm, 1, {50, 0, 24}, presence::kNormal, true, {}, {400, 0, 0}, 5, 5, 0.1f, 0, 0));
+    CHECK(cm.stopEvent == stopevent::kNone && cm.endPos[0] > 100 && cm.velocity[0] > 250 &&
           std::fabs(cm.endPos[2] - 24) < 1);
     // Entering area 3 on the way.
-    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::Normal, true, {320, 0, 0}, {400, 0, 0}, 20, 20, 0.1f,
-                                    stopevent::EnterArea, 3));
-    CHECK(cm.stopEvent == stopevent::EnterArea && cm.endArea == 3 && std::fabs(cm.endPos[0] - 200) < 1);
+    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::kNormal, true, {320, 0, 0}, {400, 0, 0}, 20, 20,
+                                    0.1f, stopevent::kEnterArea, 3));
+    CHECK(cm.stopEvent == stopevent::kEnterArea && cm.endArea == 3 && std::fabs(cm.endPos[0] - 200) < 1);
 }
 
 static void testBotChat() {
@@ -417,11 +421,11 @@ static void testBotChat() {
     CHECK(chat.nextConsoleMessage(cs)->text == "second");
 }
 
-static const reluva::test::Suite suite("idtech3.unit.bots",
-                                       {
-                                           {"aas", [](const std::filesystem::path &) { testAas(); }},
-                                           {"bot script", [](const std::filesystem::path &) { testBotScript(); }},
-                                           {"bot character", [](const std::filesystem::path &) { testBotCharacter(); }},
-                                           {"bot ai", [](const std::filesystem::path &) { testBotAi(); }},
-                                           {"bot chat", [](const std::filesystem::path &) { testBotChat(); }},
-                                       });
+static const reluva::test::Suite
+    kSuite("idtech3.unit.bots", {
+                                    {"aas", [](const std::filesystem::path &) { testAas(); }},
+                                    {"bot script", [](const std::filesystem::path &) { testBotScript(); }},
+                                    {"bot character", [](const std::filesystem::path &) { testBotCharacter(); }},
+                                    {"bot ai", [](const std::filesystem::path &) { testBotAi(); }},
+                                    {"bot chat", [](const std::filesystem::path &) { testBotChat(); }},
+                                });

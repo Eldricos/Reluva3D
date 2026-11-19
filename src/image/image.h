@@ -13,7 +13,8 @@ namespace reluva::image {
 // A decoded picture: rows top to bottom, 4 bytes per pixel in memory order
 // R, G, B, A (opaque formats get A = 255).
 struct Image {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     std::vector<uint8_t> rgba;
 
     uint8_t *pixel(int x, int y) { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }

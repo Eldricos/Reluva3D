@@ -35,7 +35,7 @@ static void testDialog(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp / "Data" / "Classic");
     GameData data;
-    CHECK(!data.open(tmp, Language::US));
+    CHECK(!data.open(tmp, Language::kUS));
     Resi resi;
     CHECK(!parseResi(resiFile(), resi));
     const Fonts fonts(data, resi); // its animation isn't there: a font without glyphs
@@ -52,27 +52,27 @@ static void testDialog(const std::filesystem::path &tmp) {
         e.type = type;
         e.mouseX = x;
         e.mouseY = y;
-        e.button = MouseButton::Left;
+        e.button = MouseButton::kLeft;
         return view.handleEvent(e);
     };
-    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 200) == 10001);
-    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 240) == -1);
+    CHECK(mouse(EventType::kMouseDown, 300, 200) == -1 && mouse(EventType::kMouseUp, 300, 200) == 10001);
+    CHECK(mouse(EventType::kMouseDown, 300, 200) == -1 && mouse(EventType::kMouseUp, 300, 240) == -1);
     view.setEnabled(10001, false);
-    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 200) == -1);
+    CHECK(mouse(EventType::kMouseDown, 300, 200) == -1 && mouse(EventType::kMouseUp, 300, 200) == -1);
     // Typing goes to the edit box that has the focus.
     view.focus(10);
     Event typed;
-    typed.type = EventType::TextInput;
+    typed.type = EventType::kTextInput;
     std::snprintf(typed.text, sizeof typed.text, "Jo\xc3\xa9"); // é, kept as Windows-1252
     view.handleEvent(typed);
     CHECK(view.text(10) == "Jo\xe9");
     Event back;
-    back.type = EventType::KeyDown;
-    back.key = key::Backspace;
+    back.type = EventType::kKeyDown;
+    back.key = key::kBackspace;
     view.handleEvent(back);
     CHECK(view.text(10) == "Jo");
     Surface s;
-    s.create(640, 480, PixelFormat::RGBA32);
+    s.create(640, 480, PixelFormat::kRGBA32);
     view.draw(s); // without its pictures: nothing to draw, nothing to fail
     std::filesystem::remove_all(tmp);
 }
@@ -80,18 +80,18 @@ static void testDialog(const std::filesystem::path &tmp) {
 // The original's Prefs.ini, as the install has it.
 static void testOriginalPrefs() {
     Preferences p;
-    CHECK(!p.on[Preferences::AutoNotes] && p.musicVolume == 50); // the original's defaults
+    CHECK(!p.on[Preferences::kAutoNotes] && p.musicVolume == 50); // the original's defaults
     const std::vector<uint8_t> file{1, 0, 1, 1, 1, 0, 1, 0, 3, 0, 0, 0, 10, 0, 0, 0};
     CHECK(p.loadOriginal(file));
-    CHECK(p.on[Preferences::SuggestMovies] && !p.on[Preferences::Lighting] && p.on[Preferences::AutoNotes] &&
-          !p.on[Preferences::WalkAnimations] && p.on[Preferences::MansionWalls]);
+    CHECK(p.on[Preferences::kSuggestMovies] && !p.on[Preferences::kLighting] && p.on[Preferences::kAutoNotes] &&
+          !p.on[Preferences::kWalkAnimations] && p.on[Preferences::kMansionWalls]);
     CHECK(p.musicVolume == 30 && p.masterVolume == 100);
     CHECK(!p.loadOriginal({1, 2, 3}));
 }
 
 static const reluva::test::Suite
-    suite("clue.unit.frontend",
-          {
-              {"dialog", [](const std::filesystem::path &tmp) { testDialog(tmp / "dialog"); }},
-              {"original preferences", [](const std::filesystem::path &) { testOriginalPrefs(); }},
-          });
+    kSuite("clue.unit.frontend",
+           {
+               {"dialog", [](const std::filesystem::path &tmp) { testDialog(tmp / "dialog"); }},
+               {"original preferences", [](const std::filesystem::path &) { testOriginalPrefs(); }},
+           });

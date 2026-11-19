@@ -19,7 +19,8 @@ struct Location {
     // The game class the original builds for it (0x4331FA).
     int type;
     // Where PROCEED.BMP goes on its BRIEFING.BMP (0x461F24): the top left.
-    int proceedX, proceedY;
+    int proceedX;
+    int proceedY;
 };
 
 const std::vector<Location> &getLocations();

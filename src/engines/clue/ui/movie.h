@@ -25,31 +25,31 @@ public:
     // isn't an AVI or its video isn't Cinepak.
     Error open(std::vector<uint8_t> data);
 
-    int width() const { return decoder_.width(); }
-    int height() const { return decoder_.height(); }
+    int width() const { return _decoder.width(); }
+    int height() const { return _decoder.height(); }
     std::string videoCodec() const; // "cvid"
-    size_t frameCount() const { return size_t(decoder_.frameCount()); }
+    size_t frameCount() const { return size_t(_decoder.frameCount()); }
     double framesPerSecond() const;
     double durationSeconds() const;
 
-    bool hasAudio() const { return decoder_.hasAudio(); }
+    bool hasAudio() const { return _decoder.hasAudio(); }
     // The sound track as samples (8- or 16-bit PCM, mono or stereo).
     Error audio(audio::Sound &out) const;
 
     // Show the frame due `seconds` after the start (decoding the ones
     // before it; going back starts again from the first).
     Error seek(double seconds);
-    size_t frameShown() const { return shown_; }
-    const image::Image &picture() const { return picture_; }
+    size_t frameShown() const { return _shown; }
+    const image::Image &picture() const { return _picture; }
     bool finished(double seconds) const { return seconds >= durationSeconds(); }
 
 private:
     Error restart();
 
-    std::vector<uint8_t> data_;
-    avi::Decoder decoder_;
-    image::Image picture_;
-    size_t shown_ = 0;
+    std::vector<uint8_t> _data;
+    avi::Decoder _decoder;
+    image::Image _picture;
+    size_t _shown = 0;
 };
 
 } // namespace reluva::clue

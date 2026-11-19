@@ -27,7 +27,8 @@ bool readValue(BotScript &s, float &value) {
 // "return w;" or "return balance(w, min, max);" (the middle value used).
 bool readReturn(BotScript &s, FuzzySwitch &f) {
     if (s.check("balance")) {
-        float lo = 0, hi = 0;
+        float lo = 0;
+        float hi = 0;
         if (!s.expect("(") || !readValue(s, f.weight) || !s.expect(",") || !readValue(s, lo) || !s.expect(",") ||
             !readValue(s, hi) || !s.expect(")"))
             return false;
@@ -108,7 +109,7 @@ bool readStructure(BotScript &s, std::map<std::string, Field> &out) {
         return false;
     BotToken t;
     while (s.next(t) && !t.is("}")) {
-        if (t.type != BotToken::Type::Name) {
+        if (t.type != BotToken::Type::kName) {
             s.fail("expected a field name, found " + t.text);
             return false;
         }
@@ -129,7 +130,7 @@ bool readStructure(BotScript &s, std::map<std::string, Field> &out) {
             s.fail("field " + t.text + " without a value");
             return false;
         }
-        if (v.type == BotToken::Type::String) {
+        if (v.type == BotToken::Type::kString) {
             f.text = v.text;
         } else {
             s.unread(v);

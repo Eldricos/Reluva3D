@@ -48,7 +48,7 @@ public:
 // find the object and call it.
 class ComHost {
 public:
-    explicit ComHost(Win32Process &process) : process_(process) {}
+    explicit ComHost(Win32Process &process) : _process(process) {}
 
     // Builds `iface`'s vtable (once; it must outlive the host).
     void define(ComInterface &iface);
@@ -71,23 +71,28 @@ public:
     // Writes a GUID given that way.
     static void writeGuid(Cpu &c, uint32_t address, const std::string &guid);
 
-    Win32Process &process() { return process_; }
+    Win32Process &process() { return _process; }
 
 private:
     struct Entry {
         std::shared_ptr<ComObject> object;
         const ComInterface *iface;
     };
-    Win32Process &process_;
-    std::map<uint32_t, Entry> pointers_; // interface pointer -> object
+    Win32Process &_process;
+    std::map<uint32_t, Entry> _pointers; // interface pointer -> object
     // The same, by object: its pointers (each interface's), to find them
     // without walking every one made.
-    std::unordered_map<const ComObject *, std::vector<std::pair<const ComInterface *, uint32_t>>> byObject_;
+    std::unordered_map<const ComObject *, std::vector<std::pair<const ComInterface *, uint32_t>>> _byObject;
     uint32_t dispatch(const ComInterface &iface, int index, Cpu &c);
     void release(ComObject *object);
 };
 
-constexpr uint32_t kSOk = 0, kSFalse = 1, kENoInterface = 0x80004002u, kEInvalidArg = 0x80070057u,
-                   kEOutOfMemory = 0x8007000eu, kENotImpl = 0x80004001u, kEFail = 0x80004005u;
+constexpr uint32_t kSOk = 0;
+constexpr uint32_t kSFalse = 1;
+constexpr uint32_t kENoInterface = 0x80004002u;
+constexpr uint32_t kEInvalidArg = 0x80070057u;
+constexpr uint32_t kEOutOfMemory = 0x8007000eu;
+constexpr uint32_t kENotImpl = 0x80004001u;
+constexpr uint32_t kEFail = 0x80004005u;
 
 } // namespace reluva::x86

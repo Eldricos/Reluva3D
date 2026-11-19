@@ -54,24 +54,24 @@ public:
     // False when no more events are pending.
     bool pollEvent(InputEvent &event);
     // The player closed the window or went back to the launcher.
-    bool quitRequested() const { return quit_; }
+    bool quitRequested() const { return _quit; }
 
     uint32_t getMillis() const;
     void delayMillis(uint32_t ms);
 
-    audio::Mixer *getMixer() { return mixer_; }
+    audio::Mixer *getMixer() { return _mixer; }
 
     // The folder for saved games and settings, made if needed, with a
     // separator at the end; the game adds its own subfolders.
     std::string getSavePath();
 
 private:
-    System &system_;
-    audio::Mixer *mixer_;
-    std::filesystem::path saveDir_;
-    Surface screen_;
-    bool graphics_ = false;
-    bool quit_ = false;
+    System &_system;
+    audio::Mixer *_mixer;
+    std::filesystem::path _saveDir;
+    Surface _screen;
+    bool _graphics = false;
+    bool _quit = false;
 };
 
 } // namespace reluva::stharbinger

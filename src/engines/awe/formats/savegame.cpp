@@ -20,24 +20,24 @@ constexpr uint32_t tag(const char (&s)[5]) {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t> &d) : d_(d) {}
-    bool fail() const { return fail_; }
-    bool atEnd() const { return pos_ >= d_.size(); }
-    size_t pos() const { return pos_; }
+    explicit Reader(const std::vector<uint8_t> &d) : _d(d) {}
+    bool fail() const { return _fail; }
+    bool atEnd() const { return _pos >= _d.size(); }
+    size_t pos() const { return _pos; }
     uint32_t u32() {
         if (!need(4))
             return 0;
         uint32_t v;
-        std::memcpy(&v, d_.data() + pos_, 4);
-        pos_ += 4;
+        std::memcpy(&v, _d.data() + _pos, 4);
+        _pos += 4;
         return v;
     }
     int s16() {
         if (!need(2))
             return 0;
         int16_t v;
-        std::memcpy(&v, d_.data() + pos_, 2);
-        pos_ += 2;
+        std::memcpy(&v, _d.data() + _pos, 2);
+        _pos += 2;
         return v;
     }
     int s32() { return int32_t(u32()); }
@@ -52,8 +52,8 @@ public:
         if (!need(2 * n))
             return {};
         std::vector<uint16_t> units(n);
-        std::memcpy(units.data(), d_.data() + pos_, 2 * n);
-        pos_ += 2 * n;
+        std::memcpy(units.data(), _d.data() + _pos, 2 * n);
+        _pos += 2 * n;
         size_t len = 0;
         while (len < n && units[len])
             len++;
@@ -62,13 +62,13 @@ public:
 
 private:
     bool need(size_t n) {
-        if (pos_ + n > d_.size())
-            fail_ = true;
-        return !fail_;
+        if (_pos + n > _d.size())
+            _fail = true;
+        return !_fail;
     }
-    const std::vector<uint8_t> &d_;
-    size_t pos_ = 0;
-    bool fail_ = false;
+    const std::vector<uint8_t> &_d;
+    size_t _pos = 0;
+    bool _fail = false;
 };
 
 class Writer {
@@ -324,7 +324,8 @@ std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_
     // BITMAPFILEHEADER, BITMAPINFOHEADER, then BGR rows bottom first, each
     // padded to 4 bytes: as D3DX's BMP writer (0x448d24) writes an
     // R8G8B8 surface, the only colour format it writes.
-    const uint32_t stride = (uint32_t(width) * 3 + 3) & ~3u, imageSize = stride * uint32_t(height);
+    const uint32_t stride = (uint32_t(width) * 3 + 3) & ~3u;
+    const uint32_t imageSize = stride * uint32_t(height);
     std::vector<uint8_t> out(54 + imageSize, 0);
     auto put32 = [&](size_t at, uint32_t v) { std::memcpy(out.data() + at, &v, 4); };
     auto put16 = [&](size_t at, uint16_t v) { std::memcpy(out.data() + at, &v, 2); };

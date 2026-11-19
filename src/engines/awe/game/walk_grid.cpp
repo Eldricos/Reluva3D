@@ -10,29 +10,29 @@
 namespace reluva::awe {
 
 bool WalkGrid::load(const Ac2Record &camr) {
-    size_ = 0;
-    cells_.fill(0);
+    _size = 0;
+    _cells.fill(0);
     const Ac2Value *grid = camr.field("grid");
     if (!grid || camr.i("cellSize") <= 0)
         return false;
     // The game reads size x size bytes into its 64-wide array as they come.
-    const size_t n = std::min(grid->bytes.size(), cells_.size());
-    std::copy(grid->bytes.begin(), grid->bytes.begin() + std::ptrdiff_t(n), cells_.begin());
-    size_ = camr.i("cellSize");
+    const size_t n = std::min(grid->bytes.size(), _cells.size());
+    std::copy(grid->bytes.begin(), grid->bytes.begin() + std::ptrdiff_t(n), _cells.begin());
+    _size = camr.i("cellSize");
     return true;
 }
 
 void WalkGrid::centre(Cell c, float &x, float &z) const {
-    x = float((c.a - 32) * size_ + size_ / 2);
-    z = float((32 - c.b) * size_ - size_ / 2);
+    x = float((c.a - 32) * _size + _size / 2);
+    z = float((32 - c.b) * _size - _size / 2);
 }
 
 WalkGrid::Cell WalkGrid::cellAt(float x, float z) const {
     Cell c;
     for (int i = 0; i < kSize; i++) {
-        if (float((i - 32) * size_) <= x && x <= float((i - 31) * size_))
+        if (float((i - 32) * _size) <= x && x <= float((i - 31) * _size))
             c.a = i;
-        if (float((31 - i) * size_) <= z && z <= float((32 - i) * size_))
+        if (float((31 - i) * _size) <= z && z <= float((32 - i) * _size))
             c.b = i;
     }
     if (!c.valid())
@@ -64,10 +64,11 @@ namespace {
 // doubles. `Real` does the same: a double, rounded after each of those
 // operations when `single` is on. At 53 bits (single off) it's a double.
 
-bool single = true;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the x87 precision the game set, for every Real calculation
+bool g_single = true;
 
 double x87(double v) {
-    return single ? double(float(v)) : v;
+    return g_single ? double(float(v)) : v;
 }
 
 struct Real {
@@ -139,14 +140,14 @@ bool below(Real a, Real b) {
 // code repeated after every angle sum).
 Real normalize(Real v) {
     // 0x42e820, made at start-up, at 53 bits.
-    static const Real almostTwoPi = kTwoPi.v - 1e-8;
+    static const Real kAlmostTwoPi = kTwoPi.v - 1e-8;
     if (!below(v, kTwoPi))
         do
             v -= kTwoPi;
         while (!below(v, kTwoPi));
     while (below(v, 0))
         v += kTwoPi;
-    if (below(v, 1e-8) || !(below(v, almostTwoPi) || v == almostTwoPi))
+    if (below(v, 1e-8) || !(below(v, kAlmostTwoPi) || v == kAlmostTwoPi))
         v = 0;
     return v;
 }
@@ -160,7 +161,7 @@ Real runtimeAcos(Real x) {
 // a table at each precision.
 int distance(int i, int j) {
     static std::vector<int> tables[2];
-    std::vector<int> &t = tables[single];
+    std::vector<int> &t = tables[g_single];
     if (t.empty()) {
         t.resize(size_t(kWindow * kWindow));
         for (int a = 0; a < kWindow; a++)
@@ -176,11 +177,17 @@ constexpr int kMoves[8][2] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {1, -1}, {1, 1},
 
 // A turn then a straight line (0x431790's record: a part each).
 struct Turn {
-    bool clockwise = false;                           // round the circle, in (a, b)
-    Real cx = 0, cy = 0;                              // the circle's centre
-    Real start = 0;                                   // where on the circle it starts (an angle)
-    Real arc = 0;                                     // the turn's length
-    Real lineX = 0, lineY = 0, heading = 0, line = 0; // the straight part
+    bool clockwise = false; // round the circle, in (a, b)
+    // the circle's centre
+    Real cx = 0;
+    Real cy = 0;
+    Real start = 0; // where on the circle it starts (an angle)
+    Real arc = 0;   // the turn's length
+    // the straight part
+    Real lineX = 0;
+    Real lineY = 0;
+    Real heading = 0;
+    Real line = 0;
 };
 
 // From (x0, y0) facing `heading`, round a circle on one side until
@@ -192,7 +199,8 @@ bool turnTowards(Real x0, Real y0, Real x1, Real y1, bool clockwise, Real headin
     t.start = h;
     t.cx = x0 - cos(h) * kTurnRadius;
     t.cy = y0 - sin(h) * kTurnRadius;
-    const Real dx = x1 - t.cx, dy = y1 - t.cy;
+    const Real dx = x1 - t.cx;
+    const Real dy = y1 - t.cy;
     const Real d = sqrt(dy * dy + dx * dx);
     if (below(d, kTurnRadius))
         return false;
@@ -234,7 +242,8 @@ bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowT
     if (!below(0, length))
         return true;
     for (Real s = 0;;) {
-        Real x, y;
+        Real x;
+        Real y;
         if (s < t.arc || s == t.arc) {
             const Real angle = (t.clockwise ? -s : s) / kTurnRadius + t.start;
             x = cos(angle) * kTurnRadius + t.cx;
@@ -245,7 +254,10 @@ bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowT
             y = sin(t.heading) * along + t.lineY;
         }
         const Real half = kWidth * 0.5;
-        const int a1 = int(half + x), b1 = int(half + y), a0 = int(x - half), b0 = int(y - half);
+        const int a1 = int(half + x);
+        const int b1 = int(half + y);
+        const int a0 = int(x - half);
+        const int b0 = int(y - half);
         if (a0 < 0 || b0 < 0 || a1 >= WalkGrid::kSize || b1 >= WalkGrid::kSize)
             return false;
         for (const WalkGrid::Cell c : {WalkGrid::Cell{int(x), int(y)}, WalkGrid::Cell{a1, b1}, WalkGrid::Cell{a0, b1},
@@ -261,7 +273,7 @@ bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowT
 } // namespace
 
 void WalkGrid::setSinglePrecision(bool on) {
-    single = on;
+    g_single = on;
 }
 
 int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point> &out) const {
@@ -271,23 +283,32 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
         return 0;
 
     // 0x42f1f0: A* over a window of 192 x 192 cells round both ends.
-    const int da = to.a - from.a, db = to.b - from.b;
+    const int da = to.a - from.a;
+    const int db = to.b - from.b;
     if (std::abs(da) > 128 || std::abs(db) > 128)
         return -2;
     const int offA = 96 - (std::abs(da) / 2 + std::min(from.a, to.a));
     const int offB = 96 - (std::abs(db) / 2 + std::min(from.b, to.b));
-    const int startA = from.a + offA, startB = from.b + offB, goalA = to.a + offA, goalB = to.b + offB;
+    const int startA = from.a + offA;
+    const int startB = from.b + offB;
+    const int goalA = to.a + offA;
+    const int goalB = to.b + offB;
     struct Node {
-        uint32_t g = 0, f = 0;
-        bool open = false, seen = false;
-        int parent = -1;          // a window cell
-        int prev = -1, next = -1; // the open list's order
+        uint32_t g = 0;
+        uint32_t f = 0;
+        bool open = false;
+        bool seen = false;
+        int parent = -1; // a window cell
+        // the open list's order
+        int prev = -1;
+        int next = -1;
     };
     std::vector<Node> nodes(size_t(kWindow * kWindow));
     auto at = [](int a, int b) { return a * kWindow + b; };
     // The open list: nodes join at its end, and the first with the least
     // estimate leaves it.
-    int head = at(startA, startB), tail = head;
+    int head = at(startA, startB);
+    int tail = head;
     Node &start = nodes[size_t(head)];
     start.f = uint32_t(distance(std::abs(to.a - from.a), std::abs(to.b - from.b)));
     start.open = start.seen = true;
@@ -305,9 +326,11 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
         (b.prev >= 0 ? nodes[size_t(b.prev)].next : head) = b.next;
         (b.next >= 0 ? nodes[size_t(b.next)].prev : tail) = b.prev;
         b.open = false;
-        const int a = best / kWindow, bb = best % kWindow;
+        const int a = best / kWindow;
+        const int bb = best % kWindow;
         for (int m = 0; m < 8; m++) {
-            const int na = a + kMoves[m][0], nb = bb + kMoves[m][1];
+            const int na = a + kMoves[m][0];
+            const int nb = bb + kMoves[m][1];
             if (na < 0 || na >= kWindow || nb < 0 || nb >= kWindow ||
                 blocked({na - offA, nb - offB}, openThrees, allowTwos))
                 continue;

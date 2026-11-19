@@ -6,7 +6,6 @@
 #include "common/events.h"
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -43,8 +42,6 @@ public:
     bool frame(std::vector<uint32_t> &pixels, int &width, int &height);
     // How many frames the game has shown (flipped) so far.
     uint64_t framesShown();
-    // Holds the game at its next frame (or lets it go on).
-    void pause(bool paused);
     // Whether the program has stopped: by itself (`ended`) or with an error
     // (`error`).
     bool finished(bool &ended, std::string &error);
@@ -55,21 +52,27 @@ private:
     void work();
     void drain(); // on the game's thread: applies the queued input
 
-    std::filesystem::path dir_;
-    std::filesystem::path saveDir_;
-    audio::Mixer *mixer_;
-    GameProcess *game_ = nullptr; // the game thread's, while it runs
-    std::thread thread_;
-    std::mutex mutex_;
-    std::condition_variable resume_;
-    std::deque<Event> events_;
-    std::vector<uint32_t> frame_;
-    int width_ = 0, height_ = 0;
-    uint64_t frameNumber_ = 0, frameTaken_ = 0;
-    std::chrono::steady_clock::time_point nextFlip_{}; // the next vertical blank a flip may show at
-    bool paused_ = false, stopping_ = false, finished_ = false, ended_ = false;
-    std::string error_, output_;
-    float pendingX_ = 0, pendingY_ = 0; // fractions of a pixel of movement not passed on yet
+    std::filesystem::path _dir;
+    std::filesystem::path _saveDir;
+    audio::Mixer *_mixer;
+    GameProcess *_game = nullptr; // the game thread's, while it runs
+    std::thread _thread;
+    std::mutex _mutex;
+    std::deque<Event> _events;
+    std::vector<uint32_t> _frame;
+    int _width = 0;
+    int _height = 0;
+    uint64_t _frameNumber = 0;
+    uint64_t _frameTaken = 0;
+    std::chrono::steady_clock::time_point _nextFlip{}; // the next vertical blank a flip may show at
+    bool _stopping = false;
+    bool _finished = false;
+    bool _ended = false;
+    std::string _error;
+    std::string _output;
+    // fractions of a pixel of movement not passed on yet
+    float _pendingX = 0;
+    float _pendingY = 0;
 };
 
 } // namespace reluva::netimmerse::alphateam

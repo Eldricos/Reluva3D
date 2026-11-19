@@ -20,8 +20,11 @@ namespace reluva::idtech3::botlib {
 struct BotMatch {
     static constexpr int kVariables = 8;
     std::string text;
-    int type = 0, subtype = 0;
-    std::array<int, kVariables> offset{}, length{}; // offset -1: not set
+    int type = 0;
+    int subtype = 0;
+    // offset -1: not set
+    std::array<int, kVariables> offset{};
+    std::array<int, kVariables> length{};
     BotMatch() { offset.fill(-1); }
 };
 
@@ -88,7 +91,9 @@ private:
         std::vector<std::string> strings; // alternatives
     };
     struct Template {
-        int context = 0, type = 0, subtype = 0;
+        int context = 0;
+        int type = 0;
+        int subtype = 0;
         std::vector<Piece> pieces;
     };
     struct Synonyms {
@@ -97,8 +102,9 @@ private:
         float total = 0;
     };
     struct ReplyKey {
-        enum Kind { String, Name, BotNames, Female, Male, Genderless, Match } kind = String;
-        bool must = false, mustNot = false;
+        enum Kind { kString, kName, kBotNames, kFemale, kMale, kGenderless, kMatch } kind = kString;
+        bool must = false;
+        bool mustNot = false;
         std::string text;
         std::vector<Piece> match;
     };
@@ -113,7 +119,8 @@ private:
     };
     struct State {
         int gender = 0;
-        std::string name, message;
+        std::string name;
+        std::string message;
         std::shared_ptr<std::vector<ChatType>> chat;
         std::deque<ConsoleMessage> console;
         int nextHandle = 0;
@@ -131,13 +138,13 @@ private:
     static BotMatch withVariables(BotMatch match, const std::vector<const char *> &vars);
     float now() const { return time ? time() : 0; }
 
-    std::vector<Synonyms> synonyms_;
-    std::vector<std::pair<std::string, std::vector<std::string>>> randoms_;
-    std::vector<Template> templates_;
-    std::vector<Reply> replies_;
-    std::vector<std::unique_ptr<State>> states_;
-    std::vector<std::pair<std::string, std::shared_ptr<std::vector<ChatType>>>> chatFiles_; // "file|name"
-    std::mt19937 random_{12345};
+    std::vector<Synonyms> _synonyms;
+    std::vector<std::pair<std::string, std::vector<std::string>>> _randoms;
+    std::vector<Template> _templates;
+    std::vector<Reply> _replies;
+    std::vector<std::unique_ptr<State>> _states;
+    std::vector<std::pair<std::string, std::shared_ptr<std::vector<ChatType>>>> _chatFiles; // "file|name"
+    std::mt19937 _random{12345};
 };
 
 } // namespace reluva::idtech3::botlib

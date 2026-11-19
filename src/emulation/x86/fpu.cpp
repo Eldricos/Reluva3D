@@ -17,7 +17,10 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint16_t C0 = 1u << 8, C1 = 1u << 9, C2 = 1u << 10, C3 = 1u << 14;
+constexpr uint16_t kC0 = 1u << 8;
+constexpr uint16_t kC1 = 1u << 9;
+constexpr uint16_t kC2 = 1u << 10;
+constexpr uint16_t kC3 = 1u << 14;
 constexpr uint16_t kTopMask = 7u << 11;
 
 double fromExtended(const uint8_t *p) {
@@ -34,6 +37,40 @@ double fromExtended(const uint8_t *p) {
     else
         v = std::ldexp(double(mantissa), exponent - 16383 - 63);
     return negative ? -v : v;
+}
+
+// A 64-bit integer as an 80-bit value, exactly (its mantissa holds 64 bits).
+void integerToExtended(int64_t v, uint8_t *p) {
+    uint64_t mantissa = v < 0 ? uint64_t(0) - uint64_t(v) : uint64_t(v);
+    uint16_t se = v < 0 ? 0x8000 : 0;
+    if (mantissa) {
+        int shift = 0;
+        while (!(mantissa & 0x8000000000000000ull)) {
+            mantissa <<= 1;
+            ++shift;
+        }
+        se |= uint16_t(16383 + 63 - shift);
+    }
+    std::memcpy(p, &mantissa, 8);
+    p[8] = uint8_t(se);
+    p[9] = uint8_t(se >> 8);
+}
+
+// The 80-bit value as a 64-bit integer, if it is one exactly.
+bool extendedToInteger(const uint8_t *p, int64_t &out) {
+    uint64_t mantissa;
+    std::memcpy(&mantissa, p, 8);
+    const uint16_t se = uint16_t(p[8] | p[9] << 8);
+    const int exponent = (se & 0x7fff) - 16383 - 63; // value = mantissa * 2^exponent
+    if (!mantissa || exponent > 0 || exponent < -63 || (se & 0x7fff) == 0x7fff)
+        return false;
+    if (exponent < 0 && (mantissa & ((uint64_t(1) << -exponent) - 1)))
+        return false;
+    const uint64_t magnitude = exponent < 0 ? mantissa >> -exponent : mantissa;
+    if (magnitude > uint64_t(INT64_MAX) + ((se & 0x8000) ? 1 : 0))
+        return false;
+    out = (se & 0x8000) ? int64_t(uint64_t(0) - magnitude) : int64_t(magnitude);
+    return true;
 }
 
 void toExtended(double v, uint8_t *p) {
@@ -58,24 +95,45 @@ void toExtended(double v, uint8_t *p) {
 
 } // namespace
 
+void Cpu::exchangeExtras(int i) {
+    const unsigned a = fpu.top & 7u;
+    const unsigned b = unsigned(fpu.top + i) & 7u;
+    std::swap(fpu.exact[a], fpu.exact[b]);
+    const unsigned va = (fpu.exactValid >> a) & 1u;
+    const unsigned vb = (fpu.exactValid >> b) & 1u;
+    fpu.exactValid = uint8_t((fpu.exactValid & ~((1u << a) | (1u << b))) | (vb << a) | (va << b));
+    std::swap(fpu.mm[a], fpu.mm[b]); // an MMX value moves with its register
+    std::swap(fpu.mmDouble[a], fpu.mmDouble[b]);
+    const unsigned ma = (fpu.mmValid >> a) & 1u;
+    const unsigned mb = (fpu.mmValid >> b) & 1u;
+    fpu.mmValid = uint8_t((fpu.mmValid & ~((1u << a) | (1u << b))) | (mb << a) | (ma << b));
+}
+
+void Cpu::copyExact(int to, int from) {
+    const unsigned t = unsigned(fpu.top + to) & 7;
+    const unsigned f = unsigned(fpu.top + from) & 7;
+    fpu.exact[t] = fpu.exact[f];
+    fpu.exactValid = uint8_t((fpu.exactValid & ~(1u << t)) | (((fpu.exactValid >> f) & 1u) << t));
+}
+
 void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     uint16_t c = 0;
     if (std::isnan(a) || std::isnan(b))
-        c = C3 | C2 | C0;
+        c = kC3 | kC2 | kC0;
     else if (a < b)
-        c = C0;
+        c = kC0;
     else if (a == b)
-        c = C3;
+        c = kC3;
     if (setEflags) {
         eflags &= ~(ZF | PF | CF | OF | SF | AF);
-        if (c & C3)
+        if (c & kC3)
             eflags |= ZF;
-        if (c & C2)
+        if (c & kC2)
             eflags |= PF;
-        if (c & C0)
+        if (c & kC0)
             eflags |= CF;
     } else {
-        fpu.status = uint16_t((fpu.status & ~(C3 | C2 | C1 | C0)) | c);
+        fpu.status = uint16_t((fpu.status & ~(kC3 | kC2 | kC1 | kC0)) | c);
     }
 }
 
@@ -108,8 +166,8 @@ int64_t toInteger(double v, int bits) {
 
 void Cpu::x87(uint8_t op) {
     decodeModrm();
-    const int r = d_.regField;
-    const uint32_t a = d_.address;
+    const int r = _d.regField;
+    const uint32_t a = _d.address;
     auto arith = [&](int kind, double &dst, double x, double y) {
         // dst = x op y for the eight arithmetic forms (2, 3 compare x, y)
         switch (kind) {
@@ -207,13 +265,15 @@ void Cpu::x87(uint8_t op) {
         fpu.tags = 0xff;
         fpu.top = 0;
     };
-    auto setC = [&](uint16_t bits) { fpu.status = uint16_t((fpu.status & ~(C3 | C2 | C1 | C0)) | bits); };
+    auto setC = [&](uint16_t bits) { fpu.status = uint16_t((fpu.status & ~(kC3 | kC2 | kC1 | kC0)) | bits); };
     auto fcmov = [&](bool cond) {
-        if (cond)
-            st(0) = st(d_.rm);
+        if (cond) {
+            st(0) = st(_d.rm);
+            copyExact(0, _d.rm);
+        }
     };
 
-    if (d_.memoryOperand) {
+    if (_d.memoryOperand) {
         switch (op) {
         case 0xd8:
             arith(r, st(0), st(0), loadFloat());
@@ -276,12 +336,27 @@ void Cpu::x87(uint8_t op) {
                 store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4);
                 fpuPop();
                 return;
-            case 5:
-                fpuPush(fromExtended(at(a, 10)));
+            case 5: { // FLD m80: the mantissa kept whole, for MMX
+                const uint8_t *e = at(a, 10);
+                fpuPush(fromExtended(e));
+                std::memcpy(&fpu.mm[fpu.top], e, 8);
+                std::memcpy(&fpu.mmDouble[fpu.top], &st(0), 8);
+                fpu.mmValid |= uint8_t(1u << fpu.top);
                 return;
-            case 7:
-                toExtended(fpuPop(), atWrite(a, 10));
+            }
+            case 7: { // FSTP m80 (an MMX register's 64 bits whole)
+                uint8_t *e = atWrite(a, 10);
+                uint64_t doubleBits;
+                std::memcpy(&doubleBits, &st(0), 8);
+                const bool mmx = ((fpu.mmValid >> fpu.top) & 1) && fpu.mmDouble[fpu.top] == doubleBits;
+                toExtended(fpuPop(), e);
+                if (mmx) {
+                    if (doubleBits >> 32 == 0xfff84d4du) // written by MMX: exponent and sign all ones
+                        e[8] = e[9] = 0xff;
+                    std::memcpy(e, &fpu.mm[(fpu.top - 1) & 7], 8);
+                }
                 return;
+            }
             }
             break;
         case 0xdd:
@@ -301,14 +376,40 @@ void Cpu::x87(uint8_t op) {
                 return;
             case 4: { // FRSTOR
                 loadEnvironment();
-                for (int i = 0; i < 8; ++i)
-                    st(i) = fromExtended(at(a + 28 + 10 * uint32_t(i), 10));
+                for (int i = 0; i < 8; ++i) {
+                    const uint8_t *e = at(a + 28 + 10 * uint32_t(i), 10);
+                    st(i) = fromExtended(e);
+                    const unsigned phys = unsigned(fpu.top + i) & 7u;
+                    int64_t v;
+                    const bool exact = extendedToInteger(e, v);
+                    fpu.exact[phys] = exact ? v : 0;
+                    fpu.exactValid = uint8_t((fpu.exactValid & ~(1u << phys)) | (exact ? 1u << phys : 0u));
+                    // Its mantissa whole, for MMX (a double has only 53 bits of it).
+                    std::memcpy(&fpu.mm[phys], e, 8);
+                    std::memcpy(&fpu.mmDouble[phys], &st(i), 8);
+                    fpu.mmValid |= uint8_t(1u << phys);
+                }
                 return;
             }
             case 6: { // FNSAVE
                 storeEnvironment();
-                for (int i = 0; i < 8; ++i)
-                    toExtended(st(i), atWrite(a + 28 + 10 * uint32_t(i), 10));
+                for (int i = 0; i < 8; ++i) {
+                    const unsigned phys = unsigned(fpu.top + i) & 7u;
+                    uint64_t doubleBits;
+                    std::memcpy(&doubleBits, &st(i), 8);
+                    if (((fpu.mmValid >> phys) & 1) && fpu.mmDouble[phys] == doubleBits) { // an MMX register's
+                        // Written by MMX: its exponent and sign all ones; loaded by
+                        // FRSTOR: the double's exponent and sign, the mantissa whole.
+                        uint8_t *e = atWrite(a + 28 + 10 * uint32_t(i), 10);
+                        toExtended(st(i), e);
+                        if (doubleBits >> 32 == 0xfff84d4du)
+                            e[8] = e[9] = 0xff;
+                        std::memcpy(e, &fpu.mm[phys], 8);
+                    } else if (((fpu.exactValid >> phys) & 1) && double(fpu.exact[phys]) == st(i))
+                        integerToExtended(fpu.exact[phys], atWrite(a + 28 + 10 * uint32_t(i), 10));
+                    else
+                        toExtended(st(i), atWrite(a + 28 + 10 * uint32_t(i), 10));
+                }
                 init();
                 return;
             }
@@ -333,20 +434,27 @@ void Cpu::x87(uint8_t op) {
                 store16(toInteger(roundByMode(st(0), fpu.control), 16));
                 fpuPop();
                 return;
-            case 5:
-                fpuPush(double(int64_t(load64())));
+            case 5: { // FILD m64: exactly, besides the double
+                const int64_t v = int64_t(load64());
+                fpuPush(double(v));
+                fpu.exact[fpu.top] = v;
+                fpu.exactValid |= uint8_t(1u << fpu.top);
                 return;
-            case 7:
-                store64(uint64_t(toInteger(roundByMode(st(0), fpu.control), 64)));
+            }
+            case 7: { // FISTP m64: the exact integer if st(0) still is it
+                const bool exact = ((fpu.exactValid >> fpu.top) & 1) && double(fpu.exact[fpu.top]) == st(0);
+                store64(exact ? uint64_t(fpu.exact[fpu.top])
+                              : uint64_t(toInteger(roundByMode(st(0), fpu.control), 64)));
                 fpuPop();
                 return;
+            }
             }
             break;
         }
         fault("x87 instruction " + std::to_string(op) + " /" + std::to_string(r) + " (memory) not implemented");
     }
 
-    const int i = d_.rm;
+    const int i = _d.rm;
     const uint8_t modrm = uint8_t(0xc0 | r << 3 | i);
     switch (op) {
     case 0xd8:
@@ -380,10 +488,12 @@ void Cpu::x87(uint8_t op) {
     case 0xd9:
         if (r == 0) {
             fpuPush(st(i));
+            copyExact(0, i + 1);
             return;
         }
         if (r == 1) { // FXCH
             std::swap(st(0), st(i));
+            exchangeExtras(i);
             return;
         }
         switch (modrm) {
@@ -400,19 +510,19 @@ void Cpu::x87(uint8_t op) {
             return;
         case 0xe5: { // FXAM
             const double v = st(0);
-            uint16_t c = std::signbit(v) ? C1 : 0;
+            uint16_t c = std::signbit(v) ? kC1 : 0;
             if (fpu.tags & (1u << fpu.top))
-                c |= C3 | C0;
+                c |= kC3 | kC0;
             else if (std::isnan(v))
-                c |= C0;
+                c |= kC0;
             else if (std::isinf(v))
-                c |= C2 | C0;
+                c |= kC2 | kC0;
             else if (v == 0.0)
-                c |= C3;
+                c |= kC3;
             else if (!std::isnormal(v))
-                c |= C3 | C2;
+                c |= kC3 | kC2;
             else
-                c |= C2;
+                c |= kC2;
             setC(c);
             return;
         }
@@ -467,11 +577,12 @@ void Cpu::x87(uint8_t op) {
         }
         case 0xf5:   // FPREM1
         case 0xf8: { // FPREM
-            const double x = st(0), y = st(1);
+            const double x = st(0);
+            const double y = st(1);
             const double q = modrm == 0xf8 ? std::trunc(x / y) : std::nearbyint(x / y);
             st(0) = modrm == 0xf8 ? std::fmod(x, y) : std::remainder(x, y);
             const uint64_t qi = std::isfinite(q) ? uint64_t(std::fabs(q)) : 0;
-            setC(uint16_t(((qi & 4) ? C0 : 0) | ((qi & 2) ? C3 : 0) | ((qi & 1) ? C1 : 0)));
+            setC(uint16_t(((qi & 4) ? kC0 : 0) | ((qi & 2) ? kC3 : 0) | ((qi & 1) ? kC1 : 0)));
             return;
         }
         case 0xf6:
@@ -575,9 +686,11 @@ void Cpu::x87(uint8_t op) {
             return; // FFREE
         case 2:
             st(i) = st(0);
+            copyExact(i, 0);
             return; // FST st(i)
         case 3:
             st(i) = st(0);
+            copyExact(i, 0);
             fpuPop();
             return; // FSTP st(i)
         case 4:

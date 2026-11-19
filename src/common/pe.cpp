@@ -104,8 +104,12 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
         const auto e = size_t(at(rva));
         if (const int64_t n = at(r.u32(e + 12)); n >= 0)
             out.exportName = r.str(size_t(n));
-        const uint32_t base = r.u32(e + 16), count = r.u32(e + 20), named = r.u32(e + 24);
-        const int64_t functions = at(r.u32(e + 28)), names = at(r.u32(e + 32)), ordinals = at(r.u32(e + 36));
+        const uint32_t base = r.u32(e + 16);
+        const uint32_t count = r.u32(e + 20);
+        const uint32_t named = r.u32(e + 24);
+        const int64_t functions = at(r.u32(e + 28));
+        const int64_t names = at(r.u32(e + 32));
+        const int64_t ordinals = at(r.u32(e + 36));
         if (functions >= 0 && count < 65536) {
             for (uint32_t i = 0; i < count; ++i) {
                 PeImage::Export x;
@@ -134,7 +138,9 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
     if (const auto [rva, size] = dir(1); rva && at(rva) >= 0) {
         (void)size;
         for (size_t d = size_t(at(rva)); r.ok(d, 20) && out.imports.size() < 256; d += 20) {
-            const uint32_t lookup = r.u32(d), nameRva = r.u32(d + 12), iat = r.u32(d + 16);
+            const uint32_t lookup = r.u32(d);
+            const uint32_t nameRva = r.u32(d + 12);
+            const uint32_t iat = r.u32(d + 16);
             if (!lookup && !nameRva && !iat)
                 break;
             PeImage::ImportedDll dll;
@@ -165,7 +171,8 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
     // Base relocations: blocks of a page's RVA, the block's size, then
     // 16-bit entries (type in the top 4 bits; type 0 pads).
     if (const auto [rva, size] = dir(5); rva && at(rva) >= 0) {
-        size_t b = size_t(at(rva)), end = b + size;
+        size_t b = size_t(at(rva));
+        size_t end = b + size;
         while (b + 8 <= end && r.ok(b, 8)) {
             const uint32_t blockSize = r.u32(b + 4);
             if (blockSize < 8)
@@ -180,10 +187,47 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
         }
     }
     out.hasTls = dir(9).first != 0;
+    out.resourceRva = dir(2).first;
+    out.resourceSize = dir(2).second;
     for (int i = 0; i < int(dirCount); ++i)
         if (dir(i).first && i != 0 && i != 1 && i != 5 && i != 9)
             out.otherDirectories.emplace_back(kDirectories[i]);
     return Error::success();
+}
+
+std::vector<uint8_t> findResource(const PeImage &pe, const std::vector<uint8_t> &file, uint32_t type) {
+    // Three levels of directories: type, name, language. Each directory:
+    // 16 bytes, then 8-byte entries (named ones first); an entry's high bit
+    // marks a subdirectory. Offsets count from the resource section's start.
+    const Reader r{file};
+    const int64_t base = pe.resourceRva ? pe.fileOffset(pe.resourceRva) : -1;
+    if (base < 0)
+        return {};
+    auto entries = [&](uint32_t dirOffset, bool matchType) -> int64_t {
+        const size_t at = size_t(base) + dirOffset;
+        const uint32_t count = uint32_t(r.u16(at + 12)) + r.u16(at + 14);
+        for (uint32_t i = 0; i < count && i < 4096; ++i) {
+            const uint32_t id = r.u32(at + 16 + 8 * i);
+            const uint32_t target = r.u32(at + 20 + 8 * i);
+            if (!matchType || (!(id & 0x80000000u) && id == type))
+                return target;
+        }
+        return -1;
+    };
+    int64_t e = entries(0, true);
+    for (int level = 0; level < 2 && e >= 0; ++level) {
+        if (!(e & 0x80000000u))
+            return {};
+        e = entries(uint32_t(e) & 0x7fffffffu, false);
+    }
+    if (e < 0 || (e & 0x80000000u))
+        return {};
+    const size_t data = size_t(base) + size_t(e);
+    const int64_t at = pe.fileOffset(r.u32(data));
+    const uint32_t size = r.u32(data + 4);
+    if (at < 0 || !r.ok(size_t(at), size))
+        return {};
+    return std::vector<uint8_t>(file.begin() + at, file.begin() + at + size);
 }
 
 } // namespace reluva

@@ -126,9 +126,12 @@ public:
         std::string image;
         uint32_t msPerFrame = 100;
         int hitFrame = 0;
-        int16_t damage = 0, power = 0;
-        int swingSound = -1, swingVolume = -1;
-        int hitSound = -1, hitVolume = -1;
+        int16_t damage = 0;
+        int16_t power = 0;
+        int swingSound = -1;
+        int swingVolume = -1;
+        int hitSound = -1;
+        int hitVolume = -1;
     };
     const Punch &getPunch() const { return _punch; }
     // The punch starts: its swing sounds.
@@ -140,9 +143,13 @@ public:
     // the like hold a charge (0x449DCD); each use costs the power level,
     // which is also the damage of what they fire.
     struct Item {
-        int16_t kind = 0, b = 0, c = 0;
-        int32_t charge = 0, maxCharge = 0;
-        int32_t level = 0, maxLevel = 0;
+        int16_t kind = 0;
+        int16_t b = 0;
+        int16_t c = 0;
+        int32_t charge = 0;
+        int32_t maxCharge = 0;
+        int32_t level = 0;
+        int32_t maxLevel = 0;
         // SET_ITEM_SETTING: how long the muzzle flashes, in ms.
         int32_t setting = 0;
     };
@@ -227,7 +234,9 @@ public:
         // SET_TRANSITION_STYLE (0x95): 1 pixels, 2 streaks.
         int style = 1;
         // The speckles' colour (SET_TRANSITION_COLOUR, 0x94).
-        uint8_t r = 0, g = 0, b = 0;
+        uint8_t r = 0;
+        uint8_t g = 0;
+        uint8_t b = 0;
     };
     TransitionView getTransitionView() const;
     bool isInTransition() const { return _transition.active; }
@@ -237,9 +246,11 @@ public:
     // freezes the player for a cutscene.
     struct Motion {
         double speed = 1.5;
-        int turnRate = 15, lookRate = 10;
+        int turnRate = 15;
+        int lookRate = 10;
         double accel = 1.0;
-        int turnAccel = 10, lookAccel = 10;
+        int turnAccel = 10;
+        int lookAccel = 10;
         double jump = 13.9;
     };
     const Motion &getMotion() const { return _motion; }
@@ -309,7 +320,9 @@ private:
     };
 
     struct Position {
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         int16_t heading;
     };
 
@@ -372,7 +385,9 @@ private:
     std::vector<int16_t> _array;
 
     // Textures as loaded, for RESET_DEFAULT.
-    std::vector<uint16_t> _wallTextures, _flatTextures, _billboardTextures;
+    std::vector<uint16_t> _wallTextures;
+    std::vector<uint16_t> _flatTextures;
+    std::vector<uint16_t> _billboardTextures;
     Actors *_actors;
     std::unique_ptr<MissionSound> _sound;
     std::unique_ptr<Projectiles> _projectiles;
@@ -392,21 +407,28 @@ private:
         bool active = false;
         bool ending = false;
         // TRANSITION_TELEPORT: the player moves at the darkest point.
-        bool teleport = false, moved = false;
-        double x = 0, y = 0, z = 0;
+        bool teleport = false;
+        bool moved = false;
+        double x = 0;
+        double y = 0;
+        double z = 0;
         int16_t heading = 0;
         uint32_t phase[3] = {};
         uint32_t elapsed = 0;
     };
     uint8_t _transitionColour[3] = {};
-    uint32_t _environmentPeriod = 0, _environmentElapsed = 0;
+    uint32_t _environmentPeriod = 0;
+    uint32_t _environmentElapsed = 0;
     uint16_t _environmentSource = 0;
-    uint16_t _wornItem = 0, _gaugeItem = 0;
+    uint16_t _wornItem = 0;
+    uint16_t _gaugeItem = 0;
     int _spin = 0;
     ViewOverlay _viewOverlay;
     std::vector<int32_t> _outcomes;
     Transition _transition;
-    int _transitionSound = -1, _transitionVolume = 64, _transitionStyle = 1;
+    int _transitionSound = -1;
+    int _transitionVolume = 64;
+    int _transitionStyle = 1;
     Motion _motion;
     uint16_t _controls = 0x5F;
     // LOW_GRAVITY (0xB5) is on (game+0x148).
@@ -417,16 +439,23 @@ private:
     static const uint32_t kLowGravitySaveVersion = 6;
     int _difficulty = 1;
     // SET_FALL_DAMAGE: the defaults are 1 and 32.0 (game+0x270, +0x26C).
-    double _fallMultiplier = 1, _fallDivisor = 32.0;
+    double _fallMultiplier = 1;
+    double _fallDivisor = 32.0;
     struct Push {
         bool active = false;
-        double x = 0, y = 0, strength = 0;
-        uint32_t ramp = 0, hold = 0, end = 0, elapsed = 0;
+        double x = 0;
+        double y = 0;
+        double strength = 0;
+        uint32_t ramp = 0;
+        uint32_t hold = 0;
+        uint32_t end = 0;
+        uint32_t elapsed = 0;
     };
     Push _push;
     // ENGAGE (0x73): the object told when the player walks 3 units off.
     uint16_t _engaged = 0;
-    double _engagedX = 0, _engagedY = 0;
+    double _engagedX = 0;
+    double _engagedY = 0;
     // LIFT_SETUP (0x5E): by lift object, its flat group and heights (16.16).
     struct Lift {
         uint16_t flat = 0;
@@ -446,7 +475,9 @@ private:
     int _passingFlat = -1;
     // SET_FLAT_GROUPS's pools: the surface's two sides and the bottom (flat object ids).
     struct Pool {
-        uint16_t below = 0, above = 0, bottom = 0;
+        uint16_t below = 0;
+        uint16_t above = 0;
+        uint16_t bottom = 0;
     };
     std::vector<Pool> _pools;
     // Per flat: 1 a surface from above, 2 from below, 3 a pool's bottom; its surface.

@@ -29,22 +29,26 @@ struct Error {
 };
 
 struct Color {
-    uint8_t r = 0, g = 0, b = 0;
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
 };
 
 enum class PixelFormat {
-    CLUT8,  // 8-bit palette indices, colours set with System::setPalette
-    RGBA32, // 4 bytes per pixel in memory order R, G, B, A
+    kCLUT8,  // 8-bit palette indices, colours set with System::setPalette
+    kRGBA32, // 4 bytes per pixel in memory order R, G, B, A
 };
 
 inline int bytesPerPixel(PixelFormat f) {
-    return f == PixelFormat::CLUT8 ? 1 : 4;
+    return f == PixelFormat::kCLUT8 ? 1 : 4;
 }
 
 // A simple owned pixel buffer, used as the game's framebuffer.
 struct Surface {
-    int w = 0, h = 0, pitch = 0;
-    PixelFormat format = PixelFormat::CLUT8;
+    int w = 0;
+    int h = 0;
+    int pitch = 0;
+    PixelFormat format = PixelFormat::kCLUT8;
     std::vector<uint8_t> pixels;
 
     void create(int width, int height, PixelFormat fmt) {

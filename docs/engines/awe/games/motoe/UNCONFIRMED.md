@@ -58,6 +58,13 @@ capture's video range read as full range. What's left after that:
   camera's `238`, `23a` and `1240`: nothing in the executable reads them, so what they
   were for can't be told. [formats/ac2.md](formats/ac2.md).
 
+- **The window's title.** The original's is its command line (WinMain
+  `0x4018f0`, `CreateWindowExW` at `0x401a13`; the same text names its
+  registry key), which the installer's shortcut supplies. The install
+  doesn't hold the shortcut, so Reluva titles the window with the name
+  the readme gives the game, "Agatha Christie: Murder on the Orient
+  Express". [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md#additions-outside-the-game).
+
 ## Guessed
 
 None: the one guess, the place of a camera's roll in its rotation, has

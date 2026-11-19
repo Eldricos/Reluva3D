@@ -19,17 +19,21 @@
 # with the code it uses (src/engines/engine.h, the tests' and tools'
 # frameworks).
 #
-# The "style" job checks the code against docs/CODING_GUIDE.md:
-# formatting (tools/format.py, clang-format 18) on every file, and
-# clang-tidy 18 (tools/tidy.py) on the files the push or pull request
-# changes. For now it only reports (docs/code-style-migration.md): its
-# steps may fail without failing the run, and the counts are in the run's
-# summary.
+# The "style" job checks the code against docs/CODING_GUIDE.md and fails
+# the run on anything that isn't: formatting (tools/format.py, clang-format
+# 18) on every file (fix: python3 tools/format.py --changed, and commit),
+# and clang-tidy 18 (tools/tidy.py: names, nullptr, const...) on the files
+# the push or pull request changes (python3 tools/tidy.py --changed shows
+# the same). The counts are in the run's summary.
 #
 # The "docs" job checks the documentation against
 # docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
 # pages, status lines, names) and markdownlint (headings; its rules are in
 # .markdownlint-cli2.jsonc).
+#
+# The "commits" job checks a pull request's commits and branch name against
+# docs/COMMIT_STANDARD.md (tools/check-commits.py): subjects, bodies,
+# sign-offs, and that no game file is committed.
 
 name: CI
 
@@ -196,7 +200,9 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRELUVA_ENGINES_FILE=$PWD/engines-ci.cfg
       - name: Build
-        # Warnings fail it: a new engine should start clean.
+        # Warnings fail it: a new engine should start clean. bash with
+        # pipefail, so a failed build fails here and not at the tests.
+        shell: bash
         run: |
           cmake --build build 2>&1 | tee build.log
           if grep -E "src/engines/template_check|tests/engines/template_check" build.log | grep -q "warning:"; then
@@ -221,7 +227,7 @@ jobs:
         run: npx --yes markdownlint-cli2@0.23.3
 
   style:
-    name: Code style (report only)
+    name: Code style
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -231,16 +237,13 @@ jobs:
       - name: Packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build clang-format-18 clang-tidy-18
+          sudo apt-get install -y ninja-build clang-format-18 clang-tidy-18 python3-clang-18
       - name: Formatting
-        # Report only until the code is formatted (Phase 2 of the plan).
-        continue-on-error: true
         # bash with pipefail (not the default's plain -e), so | tee keeps
         # the check's exit status.
         shell: bash
         run: python3 tools/format.py --check | tee format.txt
       - name: clang-tidy (changed files)
-        continue-on-error: true
         shell: bash
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
@@ -251,6 +254,32 @@ jobs:
           # window system needs none of its packages.
           python3 tools/tidy.py --changed "$BASE" --cmake -G Ninja \
             -DSDL_UNIX_CONSOLE_BUILD=ON -DSDL_X11=OFF -DSDL_WAYLAND=OFF | tee tidy.txt
+      - name: Members one to a declaration (changed files)
+        # clang-tidy splits only local variables; this, members too. Uses
+        # the compile database the step before made.
+        if: always()
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
+          python3 tools/split_members.py --changed "$BASE" | tee members.txt
+      - name: Comments (changed lines)
+        # Warnings on the pull request's lines, not a failure: a script
+        # can be wrong about a comment.
+        if: always()
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
+          python3 tools/comments.py --changed "$BASE" --github | tee comments.txt
+      - name: License lines
+        # Every source file, not only the changed ones: a file is never
+        # without them.
+        if: always()
+        shell: bash
+        run: python3 tools/check-headers.py | tee headers.txt
       - name: Summary
         if: always()
         run: |
@@ -261,4 +290,25 @@ jobs:
             echo '```'
             grep -E '^ *[0-9]+  [a-z]|findings|No C\+\+ files' tidy.txt 2> /dev/null || echo "not run"
             echo '```'
+            echo "### Members one to a declaration (tools/split_members.py)"
+            tail -n 1 members.txt 2> /dev/null || echo "not run"
+            echo "### Comments (tools/comments.py, warnings only)"
+            tail -n 1 comments.txt 2> /dev/null || echo "not run"
+            echo "### License lines (tools/check-headers.py)"
+            tail -n 1 headers.txt 2> /dev/null || echo "not run"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  commits:
+    name: Commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Commits and branch
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.head_ref }}
+        run: python3 tools/check-commits.py "$BASE..$HEAD" --branch "$BRANCH"

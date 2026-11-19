@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 # Which engines are built, and how an engine declares itself.
 #
 # engines.cfg (at the top of the repository) lists the engines, one per
@@ -5,8 +8,9 @@
 # is one (git ignores it), overrides any of its lines for one machine;
 # -DRELUVA_ENGINES_FILE=<file> reads another file instead of engines.cfg.
 # An engine is a folder src/engines/<engine>/ with a CMakeLists.txt that
-# calls reluva_add_engine() (and reluva_add_engine_test() for its tests).
-# The testbed is always built: the launcher and `reluva testbed` use it.
+# calls reluva_add_engine() (and reluva_add_engine_viewers() for its data
+# viewer, reluva_add_engine_test() for its tests).
+# The testbed is always built: reluva-viewer (`reluva-viewer testbed`) uses it.
 
 set(RELUVA_ENGINES_FILE "${PROJECT_SOURCE_DIR}/engines.cfg" CACHE FILEPATH
     "The list of engines to build (<engine>=enabled or disabled, one per line)")
@@ -25,6 +29,24 @@ function(reluva_add_engine name)
     target_link_libraries(${target} PUBLIC reluva_shared PRIVATE reluva_warnings)
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_TARGETS ${target})
     set_property(GLOBAL APPEND PROPERTY RELUVA_ENGINE_ACCESSORS ${E_ACCESSOR})
+endfunction()
+
+# reluva_add_engine_viewers(<engine> ACCESSOR <function> SOURCES <files>...)
+#   The engine's data viewer, in a library of its own,
+#   reluva_engine_<engine>_viewers, using the engine's. <function> returns
+#   its MetaViewer (`const MetaViewer& <function>()`, src/engines/viewer.h).
+#   reluva-viewer, reluva-tool and reluva-tests link it; reluva, the program
+#   players get, doesn't.
+function(reluva_add_engine_viewers name)
+    cmake_parse_arguments(V "" "ACCESSOR" "SOURCES" ${ARGN})
+    if(NOT V_ACCESSOR OR NOT V_SOURCES)
+        message(FATAL_ERROR "reluva_add_engine_viewers(${name}) needs ACCESSOR and SOURCES")
+    endif()
+    set(target reluva_engine_${name}_viewers)
+    add_library(${target} STATIC ${V_SOURCES})
+    target_link_libraries(${target} PUBLIC reluva_engine_${name} PRIVATE reluva_warnings)
+    set_property(GLOBAL APPEND PROPERTY RELUVA_VIEWER_TARGETS ${target})
+    set_property(GLOBAL APPEND PROPERTY RELUVA_VIEWER_ACCESSORS ${V_ACCESSOR})
 endfunction()
 
 # reluva_add_tests(<area> SOURCES <files>... TOPICS <topic>... [LABELS <labels>...])
@@ -62,18 +84,36 @@ function(reluva_finish_tests)
         ${PROJECT_SOURCE_DIR}/tests/support/main.cpp
         ${PROJECT_SOURCE_DIR}/tests/support/record.cpp
         ${sources})
-    target_link_libraries(reluva-tests PRIVATE reluva_engines reluva_backend_sockets reluva_warnings)
+    # The engines' viewers, which some engine tests open; and the SDL
+    # backend, for the tests of its game controllers (SDL's virtual
+    # joysticks) and GPU compute (the Glide stand-in's GPU renderer, skipped
+    # without a GPU): tests/common/.
+    target_link_libraries(reluva-tests PRIVATE reluva_viewers reluva_backend_sockets reluva_backend_sdl3
+                                               reluva_warnings)
     # Test files include their data and helpers from the repository's top
     # ("tests/engines/idtech3/fixtures.h") and find committed records through
     # RELUVA_SOURCE_DIR.
     target_include_directories(reluva-tests PRIVATE ${PROJECT_SOURCE_DIR})
     target_compile_definitions(reluva-tests PRIVATE RELUVA_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    # reluva-tests.txt in the build: every ctest test, a line each, for
+    # reluva-viewer's Tests window (src/devtools/test_runs.h), tab-separated:
+    #     <name> <labels, comma-separated> <engine> <game id> <variable>
+    # the last three for the game-files steps only.
+    set(list "")
     foreach(topic IN LISTS topics)
         get_property(labels GLOBAL PROPERTY RELUVA_TEST_LABELS_${topic})
         add_test(NAME ${topic} COMMAND reluva-tests ${topic})
         set_tests_properties(${topic} PROPERTIES LABELS "${labels}")
+        list(JOIN labels "," joined)
+        string(APPEND list "${topic}\t${joined}\n")
     endforeach()
     add_test(NAME tests.coverage COMMAND reluva-tests --covered-by ${topics})
+    string(APPEND list "tests.coverage\t\n")
+    get_property(gamedata GLOBAL PROPERTY RELUVA_GAMEDATA_TESTS)
+    foreach(line IN LISTS gamedata)
+        string(APPEND list "${line}\n")
+    endforeach()
+    file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/reluva-tests.txt" CONTENT "${list}" @ONLY)
 endfunction()
 
 # reluva_add_engine_tools(<engine> [WITH_SDL] SOURCES <file>...)
@@ -97,7 +137,8 @@ function(reluva_finish_tool)
     get_property(sources GLOBAL PROPERTY RELUVA_TOOL_SOURCES)
     get_property(with_sdl GLOBAL PROPERTY RELUVA_TOOL_WITH_SDL)
     add_executable(reluva-tool ${ARGN} ${sources})
-    target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_backend_sockets reluva_warnings)
+    # The viewers too: a command may open one (and it's a developer's program).
+    target_link_libraries(reluva-tool PRIVATE reluva_viewers reluva_backend_sockets reluva_warnings)
     if(with_sdl)
         target_link_libraries(reluva-tool PRIVATE reluva_backend_sdl3)
     endif()
@@ -112,11 +153,15 @@ endfunction()
 #     HELPERS  cmake/ReluvaGamedata.cmake, the helpers every such script
 #              shares (running the tool, keeping and comparing records);
 #     STEP     the step;
+#     ENGINE, GAME  the engine and <game id>, as the launcher stores the
+#              game (its detection's id), to find the game's folder in
+#              the launcher's list;
 #     RECORDS  the folder of committed records,
 #              tests/engines/<engine>/data/gamedata/;
 #     OUTPUT   a folder in the build for each step's full output.
 #   The game's folder comes from the environment variable <variable> when
-#   the tests run; without it the steps print "SKIPPED:" and count as
+#   the tests run, or else from the launcher's entry for the game
+#   (reluva.ini); without either the steps print "SKIPPED:" and count as
 #   skipped, so anyone can run ctest. See docs/DEVELOPMENT.md (Engine tests).
 function(reluva_add_gamedata_test name)
     if(NOT RELUVA_BUILD_TESTS)
@@ -130,6 +175,7 @@ function(reluva_add_gamedata_test name)
                 -DTOOL=$<TARGET_FILE:reluva-tool>
                 -DHELPERS=${PROJECT_SOURCE_DIR}/cmake/ReluvaGamedata.cmake
                 -DSTEP=${step}
+                -DENGINE=${name}
                 -DGAME=${G_GAME}
                 -DGAME_ENV=${G_ENV}
                 -DRECORDS=${PROJECT_SOURCE_DIR}/tests/engines/${name}/data/gamedata
@@ -139,6 +185,8 @@ function(reluva_add_gamedata_test name)
             LABELS "gamedata;${name}"
             SKIP_REGULAR_EXPRESSION "SKIPPED:"
             TIMEOUT 3600)
+        set_property(GLOBAL APPEND PROPERTY RELUVA_GAMEDATA_TESTS
+            "${test}\tgamedata,${name}\t${name}\t${G_GAME}\t${G_ENV}")
     endforeach()
 endfunction()
 
@@ -208,7 +256,7 @@ function(reluva_configure_engines)
         endif()
         if(engine STREQUAL "testbed")
             if(DEFINED RELUVA_ENGINE_STATE_testbed AND RELUVA_ENGINE_STATE_testbed STREQUAL "disabled")
-                message(WARNING "The testbed is always built (the launcher and `reluva testbed` use it)")
+                message(WARNING "The testbed is always built (reluva-viewer uses it)")
             endif()
             continue()
         endif()
@@ -241,4 +289,18 @@ function(reluva_configure_engines)
     add_library(reluva_engines STATIC "${PROJECT_SOURCE_DIR}/src/engines/registry.cpp")
     target_include_directories(reluva_engines PRIVATE "${PROJECT_BINARY_DIR}/generated")
     target_link_libraries(reluva_engines PUBLIC reluva_shared ${targets} PRIVATE reluva_warnings)
+
+    # reluva_viewers: the engines' viewers (reluva_add_engine_viewers), with
+    # a registry of their own, so that reluva can be linked without them.
+    get_property(accessors GLOBAL PROPERTY RELUVA_VIEWER_ACCESSORS)
+    set(content "// Generated by cmake/ReluvaEngines.cmake from engines.cfg. Do not edit.\n")
+    foreach(a IN LISTS accessors)
+        string(APPEND content "RELUVA_VIEWER(${a})\n")
+    endforeach()
+    file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/generated/engines/viewer_list.inc" CONTENT "${content}" @ONLY)
+
+    get_property(targets GLOBAL PROPERTY RELUVA_VIEWER_TARGETS)
+    add_library(reluva_viewers STATIC "${PROJECT_SOURCE_DIR}/src/engines/viewer_registry.cpp")
+    target_include_directories(reluva_viewers PRIVATE "${PROJECT_BINARY_DIR}/generated")
+    target_link_libraries(reluva_viewers PUBLIC reluva_engines ${targets} PRIVATE reluva_warnings)
 endfunction()

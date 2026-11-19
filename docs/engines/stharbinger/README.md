@@ -65,6 +65,12 @@ what remains is checking it against the original
 In STDS9H it was checked on the real discs; the port to Reluva passes all of
 STDS9H's tests and Reluva's own, but hasn't been played on the discs yet.
 
+**Left to clean up:** `Game::playVideoFile`
+(`src/engines/stharbinger/game/game_video.cpp`) only serves the viewer's
+one-video mode, but stays in the game's library, and so in `reluva`,
+because it drives `Game`'s own video state. Moving it to `pages/` means
+giving the viewer a way to start and run a `Game`'s video.
+
 ## Using it
 
 ### Adding the game
@@ -115,17 +121,23 @@ game does.
 
 **These exist in the engine for studying the game, and aren't part of it.**
 They show in the launcher's lists with *Developer:* before them, and are off
-unless set. (In time, Reluva's developer tools will move out of the engines;
-these will go with them.)
+unless set. The launcher's two, and the keys they turn on, are only in
+builds with `RELUVA_DEVELOPER_KEYS` on (the default; release builds turn it
+off, [DEVELOPMENT.md](../../DEVELOPMENT.md#build-folders)).
 
 | Setting | `reluva.ini` key | What it does |
 |---|---|---|
-| Developer: start with | `start_mode` | `game` (the default); `viewer`, the scene viewer (below); or `video`, one video on its own |
-| (no launcher entry) | `start_scene` | The scene to start in (its name, e.g. `BRIDGE`, or CC.ALL slot), with every variable at 0, so later scenes may not behave as in a playthrough; for `start_mode=video`, the video in DS9 (`INTRO/VNM.SMK`). Set it in the game's section of `reluva.ini` |
+| (no launcher entry) | `start_scene` | The scene to start in (its name, e.g. `BRIDGE`, or CC.ALL slot), with every variable at 0, so later scenes may not behave as in a playthrough; in the scene viewer (below), the scene it opens on, or with `start_mode=video`, the video in DS9 (`INTRO/VNM.SMK`). Set it in the game's section of `reluva.ini` |
+| (no launcher entry) | `start_mode` | For the scene viewer only: `video` plays the video named by `start_scene` on its own instead. The game then starts as usual, ignoring `start_scene` |
 | Developer: debug keys | `debug` | **F2** shows the hotspot rectangles (green on, red off), **F10** prints the variables that are set, and the title bar names the scene, the hotspot under the mouse and anything skipped |
 | Developer: console output | `debug_level` | How much the engine prints (0 to 3), with the debug keys on |
 
-**The scene viewer** shows a scene's resources without running its script:
+### The scene viewer
+
+The engine's data viewer, in `reluva-viewer` rather than the game
+(`reluva-viewer <name>` or `reluva-viewer <folder>`; see the main
+[README](../../../README.md)): it shows a scene's resources without running
+its script.
 
 | Key | Action |
 |---|---|
@@ -135,7 +147,7 @@ these will go with them.)
 | A, Shift+A | next / previous animation |
 | S, Shift+S | next / previous sound |
 | Space | stop animation and sound |
-| Esc, Q | quit |
+| Esc, Q | back to `reluva-viewer`'s list |
 
 ### Saved games
 
@@ -169,17 +181,17 @@ Reluva's now.
 |---|---|
 | `stharbinger.cpp` | The `MetaEngine` (detection, importing both CDs, the settings) and the `Engine` |
 | `detection.*` | The game's parts in a folder: CDs, an install |
-| `harbinger.*` | The game's data and options, and which part runs: the game, the scene viewer or one video |
+| `harbinger.*` | The game's data and options, and running the game |
 | `platform.*` | The game's side of Reluva's `System`: its 8-bit screen, the player's input as the game takes it, the time, the mixer, its save folder |
 | `formats/` | The game's files: archives and the search path over the discs, scripts, name lists, backgrounds, animations, sound, dialogues, fonts |
 | `game/` | The game: the scene scripts, conversations, videos and cursors, the action sequences, the menu and saved games, credits and deck map |
-| `pages/` | The scene viewer |
+| `pages/` | The scene viewer, and the viewer's `MetaViewer` (`meta_viewer.cpp`): built for `reluva-viewer` only, never into `reluva` |
 | `tools/` | Its `reluva-tool` commands ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools)) |
 
-Shared code it uses from `src/common/`: the Smacker decoder
-([smacker.md](../../common/video/smacker.md)), PKWARE DCL
-([dcl.md](../../common/dcl.md)), byte streams, 8-bit drawing and palettes,
-and the mixer's streams.
+Shared code it uses: the Smacker decoder (`src/video/`,
+[smacker.md](../../common/video/smacker.md)), PKWARE DCL and byte streams
+(`src/common/`, [dcl.md](../../common/dcl.md)), 8-bit drawing and palettes
+(`src/graphics/`), and the mixer and its streams (`src/audio/`).
 
 ## Tests
 
@@ -187,3 +199,27 @@ and the mixer's streams.
   (`tests/engines/stharbinger/`); see [TESTING.md](TESTING.md).
 - The game-files test: `RELUVA_STHARBINGER=<the game's folder> ctest -L
   gamedata` ([DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)).
+
+## Terms
+
+- **STDS9H:** the stand-alone engine for this game the engine was first
+  written as, before it came to Reluva ([PORTING.md](PORTING.md)).
+- **DEEP.EXE:** the game's program, installed from disc 1's `SSE/SSE.ALL`
+  ([formats/executable.md](formats/executable.md)).
+- **DOS/4GW, LE:** the DOS extender that runs `DEEP.EXE`, and the 32-bit
+  executable format it loads.
+- **Directive:** one command of a scene or dialogue script, with its
+  arguments ([formats/scripts.md](formats/scripts.md)).
+- **Name lists, `CCS`:** each scene's lists of the names its scripts use
+  (`CA` to `CV`), and its list of every symbol, which speaker codes come
+  from ([formats/scripts.md](formats/scripts.md)).
+- **`ACTIONSEQ`:** the script command that starts videos, action sequences
+  and other special functions
+  ([systems/script-reference.md](systems/script-reference.md)).
+- **Action sequence:** one of the game's arcade fights, played over a video
+  ([formats/action-sequences.md](formats/action-sequences.md)).
+- **Work buffer:** the picture of the scene the renderer keeps from step to
+  step, animations erased and drawn on it
+  ([systems/script-reference.md](systems/script-reference.md)).
+- **Talker:** a speaker whose mouth animation follows the phonemes while
+  they speak ([systems/script-reference.md](systems/script-reference.md)).

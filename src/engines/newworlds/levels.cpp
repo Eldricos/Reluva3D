@@ -30,10 +30,12 @@ bool sameName(std::string_view a, std::string_view b) {
 
 // "F1,2,Power Corrupts" -> a level; false if the line isn't one.
 bool parseLine(std::string_view line, Level &out) {
-    const size_t a = line.find(','), b = a == std::string_view::npos ? a : line.find(',', a + 1);
+    const size_t a = line.find(',');
+    const size_t b = a == std::string_view::npos ? a : line.find(',', a + 1);
     if (b == std::string_view::npos)
         return false;
-    const std::string_view name = trim(line.substr(0, a)), players = trim(line.substr(a + 1, b - a - 1));
+    const std::string_view name = trim(line.substr(0, a));
+    const std::string_view players = trim(line.substr(a + 1, b - a - 1));
     if (name.empty() || players.empty())
         return false;
     int n = 0;

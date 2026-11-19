@@ -25,7 +25,7 @@ public:
     Font &operator=(const Font &) = delete;
 
     Error load(std::vector<uint8_t> data);
-    bool loaded() const { return !data_.empty(); }
+    bool loaded() const { return !_data.empty(); }
 
     // Sizes are in pixels from the top of the tallest letters to the bottom
     // of the lowest (the font's ascent minus its descent).
@@ -48,18 +48,23 @@ public:
 
 private:
     struct Glyph {
-        int width = 0, height = 0, xoff = 0, yoff = 0;
+        int width = 0;
+        int height = 0;
+        int xoff = 0;
+        int yoff = 0;
         float advance = 0;
         std::vector<uint8_t> coverage;
     };
     const Glyph &glyph(uint32_t codepoint, float pixels);
     float scale(float pixels) const;
 
-    std::vector<uint8_t> data_;
+    std::vector<uint8_t> _data;
     struct Info;
-    std::unique_ptr<Info> info_;
-    int ascent_ = 0, descent_ = 0, lineGap_ = 0;
-    std::map<std::pair<uint32_t, int>, Glyph> glyphs_; // (code point, size in 1/16 pixel)
+    std::unique_ptr<Info> _info;
+    int _ascent = 0;
+    int _descent = 0;
+    int _lineGap = 0;
+    std::map<std::pair<uint32_t, int>, Glyph> _glyphs; // (code point, size in 1/16 pixel)
 };
 
 } // namespace reluva::ttf

@@ -14,15 +14,15 @@ namespace reluva::test {
 Hash &Hash::bytes(const void *data, size_t size) {
     const auto *p = static_cast<const uint8_t *>(data);
     for (size_t i = 0; i < size; ++i) {
-        h_ ^= p[i];
-        h_ *= 0x100000001b3ull;
+        _h ^= p[i];
+        _h *= 0x100000001b3ull;
     }
     return *this;
 }
 
 std::string Hash::hex() const {
     char out[17];
-    std::snprintf(out, sizeof out, "%016llx", static_cast<unsigned long long>(h_));
+    std::snprintf(out, sizeof out, "%016llx", static_cast<unsigned long long>(_h));
     return out;
 }
 
@@ -39,7 +39,7 @@ std::vector<std::string> readLines(const std::filesystem::path &path) {
 } // namespace
 
 void Record::check(const std::filesystem::path &path, const std::string &suite, const std::string &source) const {
-    for (const std::string &line : lines_)
+    for (const std::string &line : _lines)
         if (line.find(": FAILED ") != std::string::npos)
             test::fail(line);
 
@@ -48,9 +48,9 @@ void Record::check(const std::filesystem::path &path, const std::string &suite, 
         std::ofstream out(path);
         out << "# The record of " << suite << " (" << source << ").\n"
             << "# Written by `reluva-tests " << suite << " --update`; review its diff before committing.\n";
-        for (const std::string &line : lines_)
+        for (const std::string &line : _lines)
             out << line << "\n";
-        std::printf("Record written to %s (%zu lines)\n", path.string().c_str(), lines_.size());
+        std::printf("Record written to %s (%zu lines)\n", path.string().c_str(), _lines.size());
         return;
     }
 
@@ -58,9 +58,9 @@ void Record::check(const std::filesystem::path &path, const std::string &suite, 
     if (want.empty())
         return test::fail("no record at " + path.string() + ": make one with reluva-tests " + suite + " --update");
     int differ = 0;
-    const size_t n = std::max(want.size(), lines_.size());
+    const size_t n = std::max(want.size(), _lines.size());
     for (size_t i = 0; i < n; ++i) {
-        const std::string got = i < lines_.size() ? lines_[i] : "(nothing)";
+        const std::string got = i < _lines.size() ? _lines[i] : "(nothing)";
         const std::string expected = i < want.size() ? want[i] : "(nothing)";
         if (got == expected) {
             std::printf("  ok    %s\n", got.c_str());

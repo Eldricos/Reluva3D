@@ -19,9 +19,9 @@ bool BitmapDecoder::loadDIB(SeekableReadStream &stream) {
 }
 
 bool BitmapDecoder::load(SeekableReadStream &stream, bool file) {
-    surface_.free();
-    paletteColors_ = 0;
-    palette_ = Palette();
+    _surface.free();
+    _paletteColors = 0;
+    _palette = Palette();
     const std::vector<uint8_t> data = stream.readAll();
     image::Bitmap bmp;
     const Error err = file ? image::decodeBmp(data, bmp) : image::decodeDib(data.data(), data.size(), bmp);
@@ -31,17 +31,17 @@ bool BitmapDecoder::load(SeekableReadStream &stream, bool file) {
     }
     const Surface &s = bmp.surface;
     if (bmp.indexed()) {
-        surface_.create(s.w, s.h, Canvas::kClut8);
+        _surface.create(s.w, s.h, Canvas::kClut8);
         for (int y = 0; y < s.h; y++)
-            std::memcpy(surface_.getBasePtr(0, y), s.row(y), size_t(s.w));
-        palette_ = bmp.palette;
-        paletteColors_ = uint16_t(bmp.paletteColors);
+            std::memcpy(_surface.getBasePtr(0, y), s.row(y), size_t(s.w));
+        _palette = bmp.palette;
+        _paletteColors = uint16_t(bmp.paletteColors);
     } else {
-        surface_.create(s.w, s.h, Canvas::kArgb32);
+        _surface.create(s.w, s.h, Canvas::kArgb32);
         for (int y = 0; y < s.h; y++) {
             const uint8_t *p = s.row(y);
             for (int x = 0; x < s.w; x++)
-                surface_.setPixel(x, y, argb(p[x * 4], p[x * 4 + 1], p[x * 4 + 2]));
+                _surface.setPixel(x, y, argb(p[x * 4], p[x * 4 + 1], p[x * 4 + 2]));
         }
     }
     return true;

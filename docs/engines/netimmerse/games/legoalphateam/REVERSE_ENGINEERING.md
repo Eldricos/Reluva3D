@@ -60,8 +60,8 @@ the original running.
 - **`reluva-tool netimmerse fin-check`** reads every model in `Fin.pac`, counts each
   class and each field's values, and checks that every byte is consumed:
   a wrong field size shows as a model not read to its end.
-- **The data viewer** (F12 in the game, or the engine without
-  `LEGOATeam.exe`) draws what was decoded. Models with their textures,
+- **The data viewer** (`reluva-viewer <name>` or
+  `reluva-viewer <folder>`) draws what was decoded. Models with their textures,
   animations, morphs, lights and flip-books were compared by eye with the
   game's own frames.
 - **Fonts (`.DDF`, [formats/ddf.md](formats/ddf.md)), textures (TGA),

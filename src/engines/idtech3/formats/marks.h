@@ -16,7 +16,9 @@ namespace reluva::idtech3 {
 // Surface flags (the shaders' surfaceparms, as compiled into the map)
 // that keep marks off a surface.
 namespace surfaceflags {
-constexpr int32_t Sky = 0x4, NoImpact = 0x10, NoMarks = 0x20;
+constexpr int32_t kSky = 0x4;
+constexpr int32_t kNoImpact = 0x10;
+constexpr int32_t kNoMarks = 0x20;
 } // namespace surfaceflags
 
 // Where a mark (a scorch, a bullet hole) lands on the level: the client
@@ -33,7 +35,9 @@ public:
     explicit MarkSurfaces(const Bsp &bsp, float subdivisions = 4);
 
     struct Fragment {
-        int32_t firstPoint = 0, numPoints = 0; // in the points handed back
+        // in the points handed back
+        int32_t firstPoint = 0;
+        int32_t numPoints = 0;
     };
     // The surfaces facing against `projection` within its reach of the
     // polygon (both ways), each triangle clipped to the polygon's edges
@@ -42,7 +46,7 @@ public:
     void mark(const std::vector<Vec3f> &polygon, const Vec3f &projection, size_t maxPoints, size_t maxFragments,
               std::vector<Vec3f> &points, std::vector<Fragment> &fragments) const;
 
-    size_t triangleCount() const { return triangles_.size(); }
+    size_t triangleCount() const { return _triangles.size(); }
 
 private:
     struct Triangle {
@@ -50,11 +54,14 @@ private:
         Vec3f normal; // the way the surface faces
     };
     struct Surface {
-        Vec3f mins, maxs;
-        size_t first = 0, count = 0; // in triangles_
+        Vec3f mins;
+        Vec3f maxs;
+        // in _triangles
+        size_t first = 0;
+        size_t count = 0;
     };
-    std::vector<Triangle> triangles_;
-    std::vector<Surface> surfaces_;
+    std::vector<Triangle> _triangles;
+    std::vector<Surface> _surfaces;
 };
 
 } // namespace reluva::idtech3

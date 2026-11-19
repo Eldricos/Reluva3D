@@ -21,12 +21,12 @@ public:
 
     Error parse(const std::vector<uint8_t> &data);
 
-    const std::vector<String> &strings() const { return strings_; }
+    const std::vector<String> &strings() const { return _strings; }
     // Text for an id, or nullptr if there's none.
     const std::string *find(uint32_t id) const;
 
 private:
-    std::vector<String> strings_;
+    std::vector<String> _strings;
 };
 
 } // namespace reluva::newworlds

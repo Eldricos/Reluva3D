@@ -6,10 +6,12 @@
 // it from its CDs, its settings, making an Engine to run it) and its Engine.
 // The game itself is Harbinger (harbinger.h) and Game (game/game.h).
 
+#include "common/developer.h"
 #include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/log.h"
 #include "common/settings.h"
+#include "common/text.h"
 #include "engines/engine.h"
 #include "engines/stharbinger/detection.h"
 #include "engines/stharbinger/harbinger.h"
@@ -56,10 +58,12 @@ constexpr const char *kMusicVolume = "music_volume";
 constexpr const char *kSpeechVolume = "speech_volume";
 constexpr const char *kEffectsVolume = "effects_volume";
 // Developer settings: not part of the game. A start scene (start_scene, a
-// scene's name or CC.ALL slot; or the video for start_mode=video, e.g.
-// INTRO/VNM.SMK) has no place in the launcher: it's set in reluva.ini.
-constexpr const char *kStartMode = "start_mode";
+// scene's name or CC.ALL slot) has no place in the launcher: it's set in
+// reluva.ini.
 constexpr const char *kStartScene = "start_scene";
+// The viewer's (pages/meta_viewer.cpp): with start_mode=video, start_scene
+// names a video for reluva-viewer to play, not a scene.
+constexpr const char *kStartMode = "start_mode";
 constexpr const char *kDebug = "debug";
 constexpr const char *kDebugLevel = "debug_level";
 
@@ -130,33 +134,33 @@ void addNotes(ImportPlan &plan, const std::vector<GamePart> &parts) {
 
 class StharbingerEngine : public Engine {
 public:
-    StharbingerEngine(System &system, const GameTarget &target) : sys_(system), target_(target) {}
+    StharbingerEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
         Options options;
-        for (const GamePart &part : findGameParts(target_.path))
+        for (const GamePart &part : findGameParts(_target.path))
             options.paths.push_back(part.folder.string());
         if (options.paths.empty())
-            return Error::fail("Harbinger isn't found in " + target_.path.string() + " any more");
-        options.original = flag(target_, kOriginal);
-        options.debug = flag(target_, kDebug);
-        options.mode = setting(target_, kStartMode);
-        options.startScene = setting(target_, kStartScene);
-        log::setDebugLevel(options.debug ? std::atoi(setting(target_, kDebugLevel).c_str()) : 0);
+            return Error::fail("Harbinger isn't found in " + _target.path.string() + " any more");
+        options.original = flag(_target, kOriginal);
+        options.debug = kDeveloperKeys && flag(_target, kDebug);
+        if (!text::equalsIgnoreCase(setting(_target, kStartMode), "video"))
+            options.startScene = setting(_target, kStartScene);
+        log::setDebugLevel(options.debug ? std::atoi(setting(_target, kDebugLevel).c_str()) : 0);
 
         // The sound: the game's three kinds at the player's volumes.
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        mixer.setTypeVolume(audio::SoundType::Music, settings::volume(target_.settings, kMusicVolume));
-        mixer.setTypeVolume(audio::SoundType::Speech, settings::volume(target_.settings, kSpeechVolume));
-        mixer.setTypeVolume(audio::SoundType::Effects, settings::volume(target_.settings, kEffectsVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        mixer.setTypeVolume(audio::SoundType::kMusic, settings::volume(_target.settings, kMusicVolume));
+        mixer.setTypeVolume(audio::SoundType::kSpeech, settings::volume(_target.settings, kSpeechVolume));
+        mixer.setTypeVolume(audio::SoundType::kEffects, settings::volume(_target.settings, kEffectsVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System &sys;
             ~AudioOff() { sys.stopAudio(); }
-        } audioOff{sys_};
+        } audioOff{_sys};
 
-        Platform platform(sys_, audioOut ? &mixer : nullptr, target_.savePath);
+        Platform platform(_sys, audioOut ? &mixer : nullptr, _target.savePath);
         try {
             Harbinger game(&platform, options);
             game.run();
@@ -169,8 +173,8 @@ public:
     }
 
 private:
-    System &sys_;
-    GameTarget target_;
+    System &_sys;
+    GameTarget _target;
 };
 
 class StharbingerMetaEngine : public MetaEngine {
@@ -245,7 +249,7 @@ public:
     }
 
     std::vector<GameOption> engineOptions() const override {
-        return {
+        std::vector<GameOption> options = {
             {kOriginal,
              "Play exactly as the original",
              "Leaves out what Reluva adds: Esc for the game menu (and back), Y/N/Enter/Esc for its\n"
@@ -256,26 +260,26 @@ public:
             volumeOption(kMusicVolume, "Music volume", "The action sequences' music and the videos' soundtracks"),
             volumeOption(kSpeechVolume, "Speech volume", "The conversations and the action sequences' voices"),
             volumeOption(kEffectsVolume, "Effects volume", "Every other sound"),
-            // Developer settings (docs/engines/stharbinger/README.md): not
-            // part of the game, for studying it.
-            {kStartMode,
-             "Developer: start with",
-             "The scene viewer shows a scene's backgrounds, animations and sounds without its script.\n"
-             "Which scene (or video) to start with is start_scene in reluva.ini.",
-             true,
-             {{"game", "The game"}, {"viewer", "The scene viewer"}, {"video", "One video (start_scene)"}}},
-            {kDebug,
-             "Developer: debug keys",
-             "F2 shows the hotspots, F10 prints the variables that are set, and the title bar\n"
-             "names the scene, the hotspot under the mouse and anything skipped.",
-             false,
-             {}},
-            {kDebugLevel,
-             "Developer: console output",
-             "How much the engine prints, with the debug keys on.",
-             true,
-             {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "All"}}},
         };
+        // Developer settings (docs/engines/stharbinger/README.md): not part
+        // of the game, for studying it; not in release builds.
+        if (!kDeveloperKeys)
+            return options;
+        options.insert(options.end(),
+                       {
+                           {kDebug,
+                            "Developer: debug keys",
+                            "F2 shows the hotspots, F10 prints the variables that are set, and the title bar\n"
+                            "names the scene, the hotspot under the mouse and anything skipped.",
+                            false,
+                            {}},
+                           {kDebugLevel,
+                            "Developer: console output",
+                            "How much the engine prints, with the debug keys on.",
+                            true,
+                            {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "All"}}},
+                       });
+        return options;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
@@ -290,8 +294,8 @@ public:
 namespace reluva {
 
 const MetaEngine &stharbingerMetaEngine() {
-    static const stharbinger::StharbingerMetaEngine instance;
-    return instance;
+    static const stharbinger::StharbingerMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva

@@ -30,7 +30,8 @@ struct DialogueItem {
     DirectiveList script;
 
     struct SubItem {
-        uint16_t a = 0, b = 0;
+        uint16_t a = 0;
+        uint16_t b = 0;
         DirectiveList script;
     };
     std::vector<SubItem> subItems;
@@ -41,7 +42,8 @@ typedef std::vector<DialogueItem> DialogueGroup;
 struct Dialogue {
     int index = -1;
     std::string name;
-    DirectiveList listA, listB;
+    DirectiveList listA;
+    DirectiveList listB;
     std::vector<DialogueGroup> npcLines;
     std::vector<DialogueGroup> choices;
 

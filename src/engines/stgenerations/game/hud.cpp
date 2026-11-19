@@ -339,7 +339,8 @@ void Hud::update(uint32_t ms, double playerX, double playerY) {
         for (Button &button : panel.buttons)
             runAnimation(button.animation, button.frame, ms);
         // Every frame until the script closes it.
-        double dx = playerX - panel.x, dy = playerY - panel.y;
+        double dx = playerX - panel.x;
+        double dy = playerY - panel.y;
         if (dx * dx + dy * dy > 2.0 * 2.0)
             events.push_back({panel.owner, kEventWalkedAway});
     }

@@ -28,9 +28,15 @@ bool loadPAL(SeekableReadStream &stream, Palette &palette);
 class RleAnimation {
 public:
     struct Frame {
-        uint8_t key = 0;                          // header byte 0, purpose unknown
-        int w = 0, h = 0, x = 0, y = 0;           // size and position
-        int16_t muzzleX[3] = {}, muzzleY[3] = {}; // arcade sprites: gun positions in the frame
+        uint8_t key = 0; // header byte 0, purpose unknown
+        // size and position
+        int w = 0;
+        int h = 0;
+        int x = 0;
+        int y = 0;
+        // arcade sprites: gun positions in the frame
+        int16_t muzzleX[3] = {};
+        int16_t muzzleY[3] = {};
         std::vector<uint8_t> data;
     };
 
@@ -40,8 +46,8 @@ public:
     // Loads any RLE file and returns its 8 header bytes (arcade sprites).
     bool loadWithHeader(SeekableReadStream &stream, uint8_t header[8]);
 
-    int frameCount() const { return int(frames_.size()); }
-    const Frame &getFrame(int i) const { return frames_[i]; }
+    int frameCount() const { return int(_frames.size()); }
+    const Frame &getFrame(int i) const { return _frames[i]; }
 
     // Draws frame `i` at its own position plus (dx, dy), leaving skipped pixels alone.
     void drawFrame(int i, Surface &dst, int dx = 0, int dy = 0) const;
@@ -51,7 +57,7 @@ public:
 private:
     bool parse(const uint8_t *data, uint32_t size, bool checkHeader);
 
-    std::vector<Frame> frames_;
+    std::vector<Frame> _frames;
 };
 
 // A phaser beam (DEEP.EXE 0x27215): a line drawn as vertical runs that taper
@@ -63,11 +69,14 @@ void drawPhaserBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color)
 // downward, stopping at `bottom`. `random(n)` gives 0..n-1.
 template<class Random>
 void drawEnemyBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color, int streak, int bottom, Random random) {
-    int dx = std::abs(x1 - x0), dy = std::abs(y1 - y0);
-    int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
     int len = std::max(1, std::max(dx, dy));
     int err = dx - dy;
-    int x = x0, y = y0;
+    int x = x0;
+    int y = y0;
     for (int i = 0; i <= len; i++) {
         int band = i < len / 3 ? 0 : (i < 2 * len / 3 ? 1 : 2);
         int width = 1 + band * 2;

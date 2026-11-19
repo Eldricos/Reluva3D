@@ -98,7 +98,8 @@ int cmdX86Run(int argc, char **argv) {
     }
     std::string exportName;
     std::vector<std::string> callArgs;
-    int tableSlots = 128, traceCount = 16;
+    int tableSlots = 128;
+    int traceCount = 16;
     uint64_t limit = 2000000000ull;
     uint32_t memoryMb = 512;
     for (int a = 3; a < argc; ++a) {
@@ -213,7 +214,7 @@ int cmdX86Run(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "",
     {
         {"pe-info", "<file.dll|file.exe>",

@@ -42,7 +42,9 @@ struct SkinnedModel {
         std::vector<gfx::Vertex> verts; // lit, when lit
         std::vector<gfx::Vertex> shine; // the specular's, when any
         bool shiny = false;
-        gfx::MeshId id = 0, shineId = 0; // on the GPU, once uploaded
+        // on the GPU, once uploaded
+        gfx::MeshId id = 0;
+        gfx::MeshId shineId = 0;
     };
     std::vector<Mesh> meshes;
     const class GpuModel *owner = nullptr; // whose meshes the ids are
@@ -67,7 +69,7 @@ public:
     GpuModel(const GpuModel &) = delete;
     GpuModel &operator=(const GpuModel &) = delete;
 
-    const Model &model() const { return model_; }
+    const Model &model() const { return _model; }
     // Skins the model for `pose` and draws it placed by `placement`
     // (meshes made for the frame go into `frameMeshes`, for the caller to
     // destroy after the frame). Untextured meshes (the face's bone boxes)
@@ -94,9 +96,9 @@ private:
                     std::vector<gfx::MeshId> &frameMeshes);
     void shadowPass(gfx::MeshId mesh, uint32_t indexCount, const gfx::Mat4 &model);
 
-    gfx::Renderer3D &renderer_;
-    Model model_;
-    std::vector<gfx::TextureId> textures_;
+    gfx::Renderer3D &_renderer;
+    Model _model;
+    std::vector<gfx::TextureId> _textures;
 };
 
 // The rest pose, or an animation's pose at `time` (looping).

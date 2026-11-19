@@ -61,7 +61,7 @@ sounds, see [wav.md](wav.md)). The other sides' GUI archives (`kligui`,
 
 ## In Reluva
 
-The data viewer's fonts page (**Tab**) shows each font's characters and some
+The data viewer's fonts page (`reluva-viewer`, **Tab**) shows each font's characters and some
 sample text: **Left/Right** picks a font, **+/-** change the size and **B**
 outlines each glyph's box. On the strings page, **F** switches between
 Reluva's built-in font and the game's fonts.

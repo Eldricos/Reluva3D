@@ -245,7 +245,8 @@ void MissionSound::playCue(int number, uint16_t requester) {
         if (n)
             cue.used[0] = true;
     } else {
-        size_t first = 0, last = n;
+        size_t first = 0;
+        size_t last = n;
         if (cue.flags & 0x10) {
             if (n)
                 picked.push_back(cue.members[0]);
@@ -403,12 +404,15 @@ bool MissionSound::placeVoice(Voice &voice, const Listener &listener, int &volum
     if (d.positionMode == kPositionNone)
         return true;
 
-    double x = d.x, y = d.y, z = d.z;
+    double x = d.x;
+    double y = d.y;
+    double z = d.z;
     if (d.positionMode != kPositionFixed && (!_locator || !_locator(d.positionMode, d.object, x, y, z)))
         return true;
     // 0x41E583: fade linearly to nothing at the radius, and pan by the
     // direction from the player, less so up close.
-    double dx = x - listener.x, dy = y - listener.y;
+    double dx = x - listener.x;
+    double dy = y - listener.y;
     double distance = quickDistance(dx, dy, z - listener.z);
     if (distance >= d.radius || volume <= kAudibleVolume) {
         volume = 0;
@@ -426,7 +430,8 @@ bool MissionSound::placeVoice(Voice &voice, const Listener &listener, int &volum
 
 void MissionSound::stealChannel() {
     // Eight channels: a new sound takes the lowest priority, oldest one.
-    int playing = 0, victim = -1;
+    int playing = 0;
+    int victim = -1;
     for (size_t i = 0; i < _voices.size(); i++) {
         const Voice &v = *_voices[i];
         if (!v.started || v.waiting || !_mixer || !_mixer->isSoundHandleActive(v.handle))

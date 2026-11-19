@@ -21,17 +21,17 @@ public:
     // From its BITMAPINFOHEADER on.
     bool loadDIB(SeekableReadStream &stream);
 
-    const Canvas &getSurface() const { return surface_; }
-    const Palette &getPalette() const { return palette_; }
-    bool hasPalette() const { return !surface_.empty() && surface_.isClut8(); }
-    uint16_t getPaletteColorCount() const { return paletteColors_; }
+    const Canvas &getSurface() const { return _surface; }
+    const Palette &getPalette() const { return _palette; }
+    bool hasPalette() const { return !_surface.empty() && _surface.isClut8(); }
+    uint16_t getPaletteColorCount() const { return _paletteColors; }
 
 private:
     bool load(SeekableReadStream &stream, bool file);
 
-    Canvas surface_;
-    Palette palette_;
-    uint16_t paletteColors_ = 0;
+    Canvas _surface;
+    Palette _palette;
+    uint16_t _paletteColors = 0;
 };
 
 } // namespace reluva::stgenerations

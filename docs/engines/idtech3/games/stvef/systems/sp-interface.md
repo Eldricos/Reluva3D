@@ -295,7 +295,7 @@ levelshot the game ships is a `.jpg` (`levelshots/voy1.jpg`... in
 pak0.pk3; single player has them for 16 levels, none for the rest: borg2, voy2...).
 The held capture is the screen as the last level ended (kept for the
 next level's loading screen), so levels reached by a level change
-without a levelshot get that. Reluva's (`sp_play_viewer.cpp`,
+without a levelshot get that. Reluva's (`sp_play_page.cpp`,
 `levelShot`) does the same; reading only the `.tga` made its autosaves'
 pictures black.
 

@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 #include "engines/clue/game_data.h"
 #include <cstdio>
 #include <fstream>
 #include <string>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     const Animation* a = data.animation(argv[2]);
     const std::string text = argv[3];
     std::ofstream o(argv[4]);

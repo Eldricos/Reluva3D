@@ -35,26 +35,22 @@ int toMixerVolume(int volume) {
 
 } // namespace
 
-bool Generations::startFrontEnd() {
-    if (_options.viewer)
-        return false;
+Error Generations::startFrontEnd() {
     _menu.reset(new OptionsMenu(_resources));
     if (!_menu->load()) {
-        log::warning("OPTIONS.DAT has no menu; starting the resource viewer");
         _menu.reset();
-        return false;
+        return Error::fail("The game's menu (CAPTAINS.BMP in OPTIONS.DAT) wasn't found in the game's folders");
     }
     std::unique_ptr<SeekableReadStream> script = _resources.open({"STELLAR.DAT", "DESIGN/STATES.INI"});
     if (!script) {
-        log::warning("STELLAR.DAT (on disc 1) wasn't found, so there's no story to play; starting the resource viewer");
         _menu.reset();
-        return false;
+        return Error::fail("STELLAR.DAT (on disc 1) wasn't found, so there's no story to play: "
+                           "import the game with its CDs");
     }
     std::vector<uint8_t> text = script->readAll();
     if (!_campaign.load(std::string(text.begin(), text.end()))) {
-        log::warning("DESIGN/STATES.INI has no [Start]; starting the resource viewer");
         _menu.reset();
-        return false;
+        return Error::fail("The story (DESIGN/STATES.INI in STELLAR.DAT) has no [Start] section");
     }
     _campaign.setRandom([this](int count) { return (int)_random.getRandomNumber(count - 1); });
     _bridge.reset(new Bridge(_resources, _mixer, _campaign, _random));
@@ -88,7 +84,7 @@ bool Generations::startFrontEnd() {
             log::warning("The story has no section [%s]; story=list names them", story.c_str());
         } else {
             startStoryAt(story);
-            return true;
+            return Error::success();
         }
     }
 
@@ -96,7 +92,7 @@ bool Generations::startFrontEnd() {
     // menu comes first, so a game can be loaded.
     showIntro();
     openMenu(false);
-    return true;
+    return Error::success();
 }
 
 void Generations::startStoryAt(const std::string &section) {
@@ -515,7 +511,8 @@ void Generations::handleMenuEvent(const Event &event) {
 std::vector<OptionsMenu::Slot> Generations::listSaves() {
     std::vector<OptionsMenu::Slot> slots(OptionsMenu::kAutoSaveSlot + 1);
     for (int i = 0; i < (int)slots.size(); i++) {
-        std::string description, date;
+        std::string description;
+        std::string date;
         if (readSaveHeader(i, description, date)) {
             slots[i].used = true;
             slots[i].name = description;
@@ -658,13 +655,16 @@ bool Generations::loadCredits(std::vector<RollLine> &lines) {
     uint32_t pe = u32(0x3C);
     if (u32(pe) != 0x4550)
         return false;
-    uint32_t sections = u16(pe + 6), base = u32(pe + 52);
+    uint32_t sections = u16(pe + 6);
+    uint32_t base = u32(pe + 52);
     size_t table = pe + 24 + u16(pe + 20);
     // A virtual address to a file offset, or 0.
     auto offset = [&](uint32_t va) -> size_t {
         for (uint32_t i = 0; i < sections; i++) {
             size_t s = table + 40 * i;
-            uint32_t start = base + u32(s + 12), size = std::max(u32(s + 8), u32(s + 16)), raw = u32(s + 20);
+            uint32_t start = base + u32(s + 12);
+            uint32_t size = std::max(u32(s + 8), u32(s + 16));
+            uint32_t raw = u32(s + 20);
             if (va >= start && va - start < size && raw + (va - start) < data.size())
                 return raw + (va - start);
         }
@@ -681,7 +681,8 @@ bool Generations::loadCredits(std::vector<RollLine> &lines) {
     };
 
     size_t records = offset(0x5401CC);
-    std::string heading, name;
+    std::string heading;
+    std::string name;
     if (!records || !text(u32(records), heading) || heading != "Producer")
         return false;
     for (int i = 0; i < 1000; i++) {

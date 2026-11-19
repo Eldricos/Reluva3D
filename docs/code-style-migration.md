@@ -12,10 +12,10 @@ breaking the build, the tests or anyone's work in progress.
 | `.clang-format`, `.clang-tidy` follow the guide | Done |
 | Source layout: shared code by subject, a CMakeLists.txt per library, the same layout inside each engine | Done (newworlds' inside waits; see below) |
 | Phase 1: tooling and CI | Done |
-| Phase 2: formatting | Next |
-| Phase 3: small clang-tidy fixes | To do |
-| Phase 4: identifier renames | To do |
-| Phase 5: hand work and enforcement | To do |
+| Phase 2: formatting | Done |
+| Phase 3: small clang-tidy fixes | Done |
+| Phase 4: identifier renames | Done |
+| Phase 5: hand work | Done (Doxygen goes on as files are worked on) |
 
 ## Decisions
 
@@ -27,14 +27,14 @@ breaking the build, the tests or anyone's work in progress.
 | Fall through | `[[fallthrough]];`. A `// fall through` comment works only with GCC. |
 | Line length | 120 columns (`ColumnLimit: 120`). |
 | Short functions | Allowed on one line when defined inside their class (`int health() const { return _health; }`), and for short lambdas. |
+| Acronyms | Keep their capitals, as ScummVM: `kRGBA32`, `kCLUT8`, `HUDScreen`. |
 | Doxygen | New code uses it; existing `//` comments are converted as each file is worked on. |
 | Layout | ScummVM's subject folders under `src/` (Option C), the same layout inside every engine (A), a CMakeLists.txt per library (E). |
 
 Still open, as additions to the guide when wanted: include order (most
 files have their own header, then the project's, then the system's;
-stgenerations puts system headers first), acronyms in names (`kRgba32` or
-`kRGBA32`), C-style casts or `static_cast` (the code has about 1,000 and
-280), `enum` or `enum class` (122 and 58), and the names that must match
+stgenerations puts system headers first), C-style casts or
+`static_cast` (the code has about 1,000 and 280), `enum` or `enum class` (122 and 58), and the names that must match
 something outside Reluva (Win32 and MSVC exports in
 `src/emulation/x86/runtime/msvcp60.cpp`, QVM system calls in the idtech3
 test programs).
@@ -92,9 +92,9 @@ hand if they belong to a subject (graphics, here). Then build.
 branch (as `tools/check-docs.py` notes). When it's merged, sort its files
 into the folders above with a third list.
 
-## Where the code is today
+## Where the code was at the start
 
-The code follows one consistent style, not yet the guide's. Measured
+Before phase 1 the code followed one consistent style, not the guide's. Measured
 with clang-format and clang-tidy 18 on 665 source files; clang-tidy
 didn't see newworlds, which is disabled (expect about 10% more).
 
@@ -128,6 +128,9 @@ and the license header in every file.
   `:593`), constants (`idtech3/eliteforce/game_bots.cpp:166`,
   `idtech3/eliteforce/ui_host.cpp:88`, `idtech3/pages/play_viewer.cpp:44`,
   `newworlds/briefing.cpp:67`) and a field (`newworlds/economy.h:96`).
+  The NFS III merge brought 10 more: unused `this` captures in
+  `nfs/host/directx.cpp` (9) and a constant in
+  `graphics/glide/gpu_renderer.cpp`.
 - `src/emulation/x86/runtime/msvcp60.cpp` defines `THISCALL` and `EXPORT`
   without the `RELUVA_` prefix.
 - **A test suite's cases** (`Suite suite("name", { {...}, });`, and a tool
@@ -178,57 +181,187 @@ can check a mechanical commit by running its command again.
 - CI's "Code style" job: formatting of every file, clang-tidy of the
   changed ones, counts in the run's summary; it reports without failing
   the run.
-- `.git-blame-ignore-revs`, empty until Phase 2.
+- `.git-blame-ignore-revs`, filled in Phase 2.
 - The new-engine template in the guide's style: an engine made from it
   has nothing for either tool to report, builds without warnings, and
   passes its tests. Its classes have Doxygen comments, its registration
   objects are `kSuite` and `kCommands` (the other files' follow in Phase 4).
 - `awe/formats/savegame.cpp` fixed for Clang.
 
-### Phase 2: Formatting (whitespace only)
+### Phase 2: Formatting (done)
 
-1. clang-format one area per commit: `src/common` and the other shared
-   libraries, then backends, gui, base and devtools, then each engine, then
-   `tests/`.
-2. **Proof nothing changed:** for every file, the old and new text with
-   all whitespace removed are identical (apart from added
-   `// namespace x` comments). A script checks it; then CI as usual.
-3. Announce it; for an open branch, run `python3 tools/format.py` on the
-   branch before merging `main`, so both sides have the same formatting.
-4. The commits go in `.git-blame-ignore-revs`, and the "Code style" job's
-   formatting step starts failing the run (remove its
-   `continue-on-error`).
+- clang-format over all 641 files that needed it, in 11 commits: the
+  shared libraries, the backends and programs, each engine, the tests.
+  Whitespace only: for each commit, `python3 tools/format.py --verify
+  <commit>~1` (checked out at the commit) finds the same text once
+  whitespace, line continuations and namespace closing comments are taken
+  out. A dry run first found 14 files where clang-format did more (split
+  long strings, re-sorted `using` declarations), so `.clang-format` now
+  keeps both as written. Built, and all 99 tests pass, as before.
+- The commits are in `.git-blame-ignore-revs`. **Merge this branch with a
+  merge commit (or rebase), not a squash merge**: a squash makes new
+  commits, whose hashes aren't the ones listed, and `git blame` would show
+  the formatting again (it can be fixed afterwards by listing the squashed
+  commit instead).
+- CI's "Code style" job now fails the run on an unformatted file.
 
-### Phase 3: Small clang-tidy fixes
+**A branch made before the formatting** (the nfs, age and boggle
+engines among them) catches up in four steps, so the reformatting itself
+causes no conflicts. The commits named are the last one before the
+formatting, `fe53fda185`, and the last formatting commit, `53d91d0401`:
 
-`readability-isolate-declaration` (1,474), `performance-unnecessary-value-param`
-(19), `readability-make-member-function-const` (16): each applied with
-`run-clang-tidy -fix` for that check alone, one check per commit, built
-and tested after each. `int a, *b;` must become `int a;` and `int *b;`:
-check those by eye.
+```text
+git merge fe53fda185          # main up to the formatting: real conflicts only
+python3 tools/relocate.py tools/relocations/2026-11-src-layout.txt
+python3 tools/relocate.py tools/relocations/2026-11-engine-layout.txt
+git add -A && git commit -m "Layout as main"
+python3 tools/format.py               # the branch formatted as main was
+git commit -am "Format: as main"
+git merge -s ours 53d91d0401  # the formatting: already done, keep ours
+git merge main                        # the rest, as usual
+```
 
-### Phase 4: Identifier renames
+`-s ours` is right only for that merge: the formatting commits change
+nothing but layout, which `tools/format.py` has just applied to the
+branch. Tried on copies of the boggle and stharbinger branches: conflicts
+only in the first merge (8 and 2, real ones), none after, and every file
+formatted. Merging `main` in one go instead, or formatting before the
+first merge, gives far more conflicts (47 and 118 on the nfs branch).
 
-clang-tidy renames a declaration and every use it sees.
+### Phase 3: Small clang-tidy fixes (done)
 
-| Risk | Handling |
-| --- | --- |
-| Code the compile doesn't see: disabled engines, `#ifdef _WIN32`/`__APPLE__` (19 blocks in 7 files) | Every engine enabled for the run; those files checked by hand; Windows CI |
-| A header fixed from many `.cpp` files | `run-clang-tidy -fix` applies each fix once |
-| A new name that clashes (`End` becomes `kEnd` beside an existing `kEnd`) | It doesn't compile, so it can't pass unnoticed; fixed by hand in the same PR |
-| Names that must match outside code: `msvcp60.cpp`'s exports, QVM system calls | Left out (`NOLINT`) before the run |
-| Names in strings (save files, settings keys) | Not changed by renaming code; the game-files tests (`ctest -L gamedata`) check, run by whoever has each game |
-| Macros pasting names (`RELUVA_BY_OP`, `CHECK`) | Search for `##` and `#x` by hand |
+Each made by `python3 tools/tidy.py --fix --checks=-*,<check>` and
+`tools/format.py`, a commit per check, with hand changes in commits of
+their own. Built with GCC and Clang and all 99 tests pass.
 
-One engine per PR, smallest first: testbed, netimmerse, stharbinger,
-stgenerations, clue, awe, newworlds, idtech3; then the shared libraries,
-backends and programs, then `tests/`. Within a PR, a commit per kind
-(members, enum values, constants, functions). Then naming warnings fail
-CI for changed files.
+- **One variable per declaration** (`readability-isolate-declaration`):
+  1,678 statements in 281 files (newworlds included this time). Pointers,
+  references and arrays split correctly; initializers run in the same
+  order. By hand after: 11 comments that described a whole group, left on
+  its last variable, moved above the group.
+- **`const` methods** (`readability-make-member-function-const`): 9 of 16.
+  The check only sees an object's own fields, so the other 7 would have
+  been `const` while changing what the object manages through pointers
+  (`Surface::setPixel` writes the surface's pixels); they stay non-`const`
+  with a `NOLINTNEXTLINE` saying why.
+- **`const &` parameters** (`performance-unnecessary-value-param`): 16
+  now take a `const` reference, 3 that are stored are moved. Checked for
+  aliasing (a caller passing what the function changes): none.
+- **The NFS III merge**, written before phase 3, got the same fixes
+  afterwards: 755 declarations split (13 comments placed by hand), 3
+  methods made `const` and 3 left with a reason (`Pokes::apply`,
+  `Win32Process::signalEventWhen` and `setHostEvent`), 9 parameters, and
+  the `CHECK_EQ` macro in `tests/common/mmx.cpp` split by hand (clang-tidy
+  can't fix inside a macro). The three checks now find nothing anywhere.
+- **Not covered:** about 780 class and struct members still declared
+  several to a line (`int x, y;`, mostly in headers); no clang-tidy check
+  splits members. Phase 5 split them. Code compiled only on Windows or
+  macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks; Phase 4
+  renamed it by hand.
 
-### Phase 5: Hand work and enforcement
+### Phase 4: Identifier renames (done)
 
-- Doxygen comments, as each file is worked on.
-- The 8 non-`const` globals: `g_` prefix, or gone.
-- The "Code style" job's clang-tidy step fails the run too;
-  `CONTRIBUTING.md` points to the guide and the tools.
+5,131 names renamed to the guide's, in every engine and the shared code:
+private and protected members `_name`, enum values and constants
+`kName`, functions and variables camel case, globals `g_name`.
+
+**How.** `tools/tidy.py --rename-declared-in <folder>` renames only what
+a folder *declares*, with every use: clang-tidy can't limit its fixes
+that way, so the tool exports them and keeps those whose declaration is
+in the folder. One commit per area (the 9 engines, the shared code, the
+shared tests), each made by the command in its message, built and tested
+before it was committed. The commands are listed in
+`tools/renames/2026-11-identifiers.txt`.
+
+**By hand, before them** (so the renames themselves needed no hand fix):
+- the guide's exceptions, as ignored patterns in `.clang-tidy` (the
+  standard library's `value_type` and the like, the compiler runtime's
+  `__register_frame`, the x86 registers and flags, a formula's notation in
+  a local);
+- acronyms, which clang-tidy would mangle (`CLUT8` would be `kCluT8`):
+  `kCLUT8`, `kRGBA32`, `kS16LE`, `kS16BE`, `kInterDC`, `kIntraDC`, clue's
+  `kUK` and `kUS`, `kOpPush32`;
+- names whose new form would be a keyword (`short_`, `long_`), and three
+  whose new form would hide another name: two found by the compiler
+  (idtech3's `add`, Glide's `ncc`) and one that compiled but would have
+  changed which `kScripts` newworlds parses (found because the types
+  happened to differ).
+
+**Proof nothing changed.** The code before and after the renames, built
+the same way, compared object file by object file (machine code without
+symbol names, and data): every object of the program is identical (400
+of 456). The other 56 are tests, and every difference is accounted for:
+433 instructions that pass a test check's line number (lines moved), 238
+`CHECK` messages with the new names in them, and 299 compiler-made type
+names of lambdas, which include the renamed `suite` variable.
+
+**After them:** `tools/clue-re`'s harness (not built by CMake) renamed to
+match and building again (its README's build command was out of date
+since the library split); the 9 globals the code needs documented with a
+`NOLINT` each; 9 code names quoted in the docs updated. clang-tidy finds
+nothing anywhere, so CI's "Code style" job now fails on a clang-tidy
+finding in a changed file, as on an unformatted one. The rename commits
+are in `.git-blame-ignore-revs`.
+
+**A branch made before the renames** catches up as from the formatting,
+with the commits before (`18f1ed0`) and after (`afc8e38`) the renames:
+
+```text
+git merge 18f1ed0                     # main up to the renames: real conflicts only
+grep -v '^#' tools/renames/2026-11-identifiers.txt | while read -r args; do
+    python3 tools/tidy.py $args || break; done
+python3 tools/format.py --changed 18f1ed0
+cmake --build build && ctest --test-dir build    # fix what it finds in the branch's own code
+git commit -am "Rename: as main"
+git diff --stat afc8e38               # only files the branch changed may differ
+git merge -s ours afc8e38             # the renames: already done, keep ours
+git merge main                        # the rest, as usual
+```
+
+The renames include the branch's own uses of what they rename. A branch
+adding an engine also renames that engine's own names:
+`python3 tools/tidy.py --rename-declared-in src/engines/<it> --rename-declared-in tests/engines/<it> src/engines/<it> tests/engines/<it>`.
+
+clang-tidy runs on Linux, so it renames nothing Linux doesn't compile:
+code under `#ifdef _WIN32` or `__APPLE__`, without SSE2 (Apple Silicon),
+and the engine template in `cmake/engine-template/`. Those were done by
+hand on main (`42be944`); a branch with such code of its own renames it
+by hand too, and the Windows and macOS builds in CI find what's missed.
+
+### Phase 5: Members, Doxygen, CONTRIBUTING.md
+
+- **Members one to a declaration (done).** `tools/split_members.py`
+  finds class and struct members, and namespace-scope variables, declared
+  several to a line (clang-tidy's readability-isolate-declaration does only
+  local variables) and splits them: 1,596 declarations in 321 files
+  (`ef4b761`; more than the 780 estimated, which counted headers only). A
+  comment after one is about all its names, so it went on a line of its
+  own above them. Generated files are left to their scripts; the Windows-
+  and macOS-only code had none. Every non-test object file is
+  byte-identical before and after (GCC Release, every engine); the 17
+  test objects that differ do so only in line numbers (`__LINE__` in the
+  checks, 1,336 instructions). CI's "Code style" job now also fails on
+  members declared together in a changed file.
+- **`CONTRIBUTING.md` (done)** points to the guide and the style tools.
+- **Doxygen comments: as each file is worked on**, as decided. New code
+  has them from the start; a file's plain `//` comments on its public
+  classes, methods and structures become Doxygen blocks when someone
+  works on that file. Nothing checks this: no tool can tell a comment
+  that should be Doxygen from one that shouldn't.
+
+**A branch made before the split** catches up as from the renames, with
+the commits before (`ccd6d12`) and after (`ef4b761`) it:
+
+```text
+git merge ccd6d12                     # main up to the split: real conflicts only
+python3 tools/tidy.py --changed ccd6d12   # (only for its compile database)
+python3 tools/split_members.py --fix
+cmake --build build && ctest --test-dir build
+git commit -am "Split: as main"
+git merge -s ours ef4b761             # the split: already done, keep ours
+git merge main                        # the rest, as usual
+```
+
+After that the migration is done: what's left is keeping to the guide,
+which CI checks for formatting, clang-tidy and members, and Doxygen as
+files are worked on.

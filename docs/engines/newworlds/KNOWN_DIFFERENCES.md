@@ -1,7 +1,8 @@
 # Known differences from the original (Star Trek: New Worlds)
 
-Reluva doesn't run the whole game yet: it opens as a data viewer, with a
-first playable layer on a mission's map ([README](README.md#where-it-stands)).
+Reluva can't play the game yet: it can be looked at in the data viewer
+(`reluva-viewer`), which has a first playable layer on a mission's map
+([README](README.md#where-it-stands)).
 These are the differences known so far.
 
 ## By choice
@@ -33,5 +34,5 @@ These are the differences known so far.
 
 ## Additions outside the game
 
-- **The data viewer:** pages for the game's missions, models, maps, sounds,
+- **The data viewer** (`reluva-viewer`): pages for the game's missions, models, maps, sounds,
   strings and fonts, with their own keys ([README](README.md#using-it)).

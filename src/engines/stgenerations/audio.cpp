@@ -11,34 +11,34 @@
 namespace reluva::stgenerations {
 
 SoundStream::SoundStream(std::shared_ptr<const audio::Sound> sound, int loops)
-    : sound_(std::move(sound)), loops_(loops) {
+    : _sound(std::move(sound)), _loops(loops) {
 }
 
 int SoundStream::read(int16_t *out, int samples) {
-    const size_t total = sound_->samples.size();
+    const size_t total = _sound->samples.size();
     int done = 0;
     while (done < samples && total > 0 && !ended()) {
-        const size_t n = std::min(size_t(samples - done), total - pos_);
-        std::copy_n(sound_->samples.data() + pos_, n, out + done);
+        const size_t n = std::min(size_t(samples - done), total - _pos);
+        std::copy_n(_sound->samples.data() + _pos, n, out + done);
         done += int(n);
-        pos_ += n;
-        if (pos_ >= total) {
-            ++played_;
-            if (loops_ == 0 || played_ < loops_)
-                pos_ = 0;
+        _pos += n;
+        if (_pos >= total) {
+            ++_played;
+            if (_loops == 0 || _played < _loops)
+                _pos = 0;
         }
     }
     return done;
 }
 
 bool SoundStream::ended() const {
-    return sound_->samples.empty() || (loops_ != 0 && played_ >= loops_);
+    return _sound->samples.empty() || (_loops != 0 && _played >= _loops);
 }
 
 uint32_t SoundStream::lengthMs() const {
-    if (!sound_->rate)
+    if (!_sound->rate)
         return 0;
-    return uint32_t(uint64_t(sound_->frames()) * 1000 / uint64_t(sound_->rate));
+    return uint32_t(uint64_t(_sound->frames()) * 1000 / uint64_t(_sound->rate));
 }
 
 std::unique_ptr<SoundStream> makeWavStream(SeekableReadStream &file) {
@@ -57,11 +57,11 @@ std::unique_ptr<audio::Stream> makeLooping(std::unique_ptr<SoundStream> stream, 
 }
 
 std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int rate, uint8_t flags) {
-    audio::RawStream::Format format = audio::RawStream::Format::U8;
+    audio::RawStream::Format format = audio::RawStream::Format::kU8;
     if (flags & kRaw16Bits)
-        format = (flags & kRawLittleEndian) ? audio::RawStream::Format::S16LE : audio::RawStream::Format::S16BE;
+        format = (flags & kRawLittleEndian) ? audio::RawStream::Format::kS16LE : audio::RawStream::Format::kS16BE;
     else if (!(flags & kRawUnsigned))
-        format = audio::RawStream::Format::S8;
+        format = audio::RawStream::Format::kS8;
     return std::make_unique<audio::RawStream>(std::move(data), format, rate, (flags & kRawStereo) != 0);
 }
 
@@ -98,11 +98,11 @@ bool readWavInfo(SeekableReadStream &file, WavInfo &info) {
 audio::SoundType Mixer::toType(SoundType type) {
     switch (type) {
     case kMusicSoundType:
-        return audio::SoundType::Music;
+        return audio::SoundType::kMusic;
     case kSpeechSoundType:
-        return audio::SoundType::Speech;
+        return audio::SoundType::kSpeech;
     default:
-        return audio::SoundType::Effects;
+        return audio::SoundType::kEffects;
     }
 }
 
@@ -110,8 +110,8 @@ void Mixer::playStream(SoundType type, SoundHandle *handle, std::unique_ptr<audi
                        uint8_t volume, int8_t balance) {
     (void)id;
     SoundHandle h;
-    if (stream && enabled_)
-        h.val = mixer_.play(std::shared_ptr<audio::Stream>(std::move(stream)), toType(type), toVolume(volume),
+    if (stream && _enabled)
+        h.val = _mixer.play(std::shared_ptr<audio::Stream>(std::move(stream)), toType(type), toVolume(volume),
                             std::clamp<int>(balance, -audio::kMaxPan, audio::kMaxPan));
     if (handle)
         *handle = h;
@@ -119,15 +119,15 @@ void Mixer::playStream(SoundType type, SoundHandle *handle, std::unique_ptr<audi
 
 void Mixer::setVolumeForSoundType(SoundType type, int volume) {
     volume = std::clamp(volume, 0, kMaxMixerVolume);
-    typeVolume_[type] = volume;
+    _typeVolume[type] = volume;
     // Plain sounds share the effects' volume in Reluva's mixer; the game
     // plays none.
     if (type != kPlainSoundType)
-        mixer_.setTypeVolume(toType(type), volume * audio::kMaxVolume / kMaxMixerVolume);
+        _mixer.setTypeVolume(toType(type), volume * audio::kMaxVolume / kMaxMixerVolume);
 }
 
 int Mixer::getVolumeForSoundType(SoundType type) const {
-    return typeVolume_[type];
+    return _typeVolume[type];
 }
 
 } // namespace reluva::stgenerations

@@ -69,26 +69,26 @@ static void testNetplay(bool lossy) {
     auto bob = Session::join(network->open(0), at, "Bob");
     all = {host.get(), anne.get(), bob.get()};
     run(3000);
-    CHECK(anne->state() == Session::State::Lobby && bob->state() == Session::State::Lobby);
+    CHECK(anne->state() == Session::State::kLobby && bob->state() == Session::State::kLobby);
     CHECK(anne->me() != bob->me() && anne->me() > 0);
     // Taking suspects; the host sets a computer player and the variant.
-    host->take(Scarlet);
-    anne->take(Mustard);
-    bob->take(Scarlet); // taken: refused
+    host->take(kScarlet);
+    anne->take(kMustard);
+    bob->take(kScarlet); // taken: refused
     run(2000);
     CHECK(!host->canStart()); // Bob has no suspect yet
-    bob->take(White);
-    host->setSeat(Plum, Seat::Computer, 2);
-    host->setSeat(Mustard, Seat::Computer, 0); // Anne's: not the host's to change
+    bob->take(kWhite);
+    host->setSeat(kPlum, Seat::kComputer, 2);
+    host->setSeat(kMustard, Seat::kComputer, 0); // Anne's: not the host's to change
     host->setNoDieRoll(true);
     run(2000);
     for (Session *s : all) {
         const Lobby &l = s->lobby();
-        CHECK(l.seats[Scarlet].kind == Seat::Human && l.seats[Scarlet].owner == 0 &&
-              l.seats[Scarlet].name == "Hostess");
-        CHECK(l.seats[Mustard].kind == Seat::Human && l.seats[Mustard].name == "Anne");
-        CHECK(l.seats[White].kind == Seat::Human && l.seats[White].name == "Bob");
-        CHECK(l.seats[Plum].kind == Seat::Computer && l.seats[Plum].level == 2 && l.noDieRoll);
+        CHECK(l.seats[kScarlet].kind == Seat::kHuman && l.seats[kScarlet].owner == 0 &&
+              l.seats[kScarlet].name == "Hostess");
+        CHECK(l.seats[kMustard].kind == Seat::kHuman && l.seats[kMustard].name == "Anne");
+        CHECK(l.seats[kWhite].kind == Seat::kHuman && l.seats[kWhite].name == "Bob");
+        CHECK(l.seats[kPlum].kind == Seat::kComputer && l.seats[kPlum].level == 2 && l.noDieRoll);
     }
     // Chat goes to everyone, said by its speaker.
     std::string line;
@@ -102,25 +102,25 @@ static void testNetplay(bool lossy) {
     CHECK(host->canStart());
     host->start(4242);
     run(1000);
-    CHECK(anne->state() == Session::State::Playing && anne->seed() == 4242 && bob->lobby().started);
+    CHECK(anne->state() == Session::State::kPlaying && anne->seed() == 4242 && bob->lobby().started);
     Command c;
-    c.type = Command::RoomWalk; // a walk about the room, to a world point
-    c.seat = Mustard;
+    c.type = Command::kRoomWalk; // a walk about the room, to a world point
+    c.seat = kMustard;
     c.args = {1900, -2100};
     anne->submit(c);
-    c.type = Command::Walk;
-    c.seat = Mustard;
+    c.type = Command::kWalk;
+    c.seat = kMustard;
     c.args = {3, 28, 12, 28, 13, -1, 4};
     anne->submit(c);
-    c.type = Command::Roll;
-    c.seat = Scarlet;
+    c.type = Command::kRoll;
+    c.seat = kScarlet;
     c.args.clear();
     host->submit(c);
-    c.seat = White; // Bob's, sent by Anne
+    c.seat = kWhite; // Bob's, sent by Anne
     anne->submit(c);
     for (int k = 0; k < 20; ++k) {
-        c.type = Command::Show;
-        c.seat = White;
+        c.type = Command::kShow;
+        c.seat = kWhite;
         c.args = {int16_t(k)};
         bob->submit(c);
     }
@@ -131,7 +131,7 @@ static void testNetplay(bool lossy) {
             got[i].push_back(c);
     CHECK(got[0].size() == 23);
     CHECK(std::any_of(got[0].begin(), got[0].end(), [](const Command &k) {
-        return k.type == Command::RoomWalk && k.args == std::vector<int16_t>{1900, -2100};
+        return k.type == Command::kRoomWalk && k.args == std::vector<int16_t>{1900, -2100};
     }));
     for (size_t i = 1; i < all.size(); ++i) {
         CHECK(got[i].size() == got[0].size());
@@ -142,28 +142,28 @@ static void testNetplay(bool lossy) {
     // Bob's shows in the order he sent them.
     int expect = 0;
     for (const Command &k : got[0])
-        if (k.type == Command::Show)
+        if (k.type == Command::kShow)
             CHECK(k.args[0] == expect++);
     // Bob goes quiet: the host gives Mrs. White to the computer, for everyone.
     all = {host.get(), anne.get()};
     run(int(Channel::kTimeoutMs) + 2000);
-    CHECK(host->nextLeft() == White);
+    CHECK(host->nextLeft() == kWhite);
     bool takenOver = false;
     while (anne->nextCommand(c))
-        takenOver = takenOver || (c.type == Command::TakeOver && c.seat == White);
+        takenOver = takenOver || (c.type == Command::kTakeOver && c.seat == kWhite);
     CHECK(takenOver);
     // The host gone: Anne's session is lost.
     host->leave();
     run(1000);
-    CHECK(anne->state() == Session::State::Lost);
+    CHECK(anne->state() == Session::State::kLost);
     Command decoded;
     size_t offset = 0;
-    const Bytes bytes = encodeCommand({Command::Accuse, 2, {1, 2, 3}});
-    CHECK(decodeCommand(bytes, offset, decoded) && decoded.type == Command::Accuse && decoded.args.size() == 3);
+    const Bytes bytes = encodeCommand({Command::kAccuse, 2, {1, 2, 3}});
+    CHECK(decodeCommand(bytes, offset, decoded) && decoded.type == Command::kAccuse && decoded.args.size() == 3);
 }
 
-static const reluva::test::Suite suite("clue.unit.network",
-                                       {
-                                           {"network", [](const std::filesystem::path &) { testNetplay(false); }},
-                                           {"lossy network", [](const std::filesystem::path &) { testNetplay(true); }},
-                                       });
+static const reluva::test::Suite kSuite("clue.unit.network",
+                                        {
+                                            {"network", [](const std::filesystem::path &) { testNetplay(false); }},
+                                            {"lossy network", [](const std::filesystem::path &) { testNetplay(true); }},
+                                        });

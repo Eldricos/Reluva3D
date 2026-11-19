@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 #include "engines/clue/game_data.h"
 #include <cstdio>
 using namespace reluva; using namespace reluva::clue;
 int main(int argc, char** argv) {
-    GameData data; data.open(argv[1], Language::US);
+    GameData data; data.open(argv[1], Language::kUS);
     for (int a = 2; a < argc; ++a) {
         const ObjectDef* o = data.object(argv[a]);
         if (!o) { std::printf("%s: none\n", argv[a]); continue; }

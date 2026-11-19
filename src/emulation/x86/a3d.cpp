@@ -31,9 +31,11 @@ const char *const kIidListener = "{c398e563-d90b-11d1-90fb-006008a1f441}"; // it
 constexpr uint32_t kClassNotRegistered = 0x80040154u;
 // Play modes; GetStatus's bits.
 constexpr uint32_t kLooped = 1;
-constexpr uint32_t kStatusPlaying = 0x1, kStatusLooping = 0x4;
+constexpr uint32_t kStatusPlaying = 0x1;
+constexpr uint32_t kStatusLooping = 0x4;
 // Lock's flags.
-constexpr uint32_t kFromWriteCursor = 0x1, kEntireBuffer = 0x2;
+constexpr uint32_t kFromWriteCursor = 0x1;
+constexpr uint32_t kEntireBuffer = 0x2;
 
 const std::vector<ComInterface::Method> kUnknown = {{"QueryInterface", 2}, {"AddRef", 0}, {"Release", 0}};
 std::vector<ComInterface::Method> with(std::vector<ComInterface::Method> m) {
@@ -264,17 +266,24 @@ struct A3d::State {
     Win32Process &process;
     Cpu &cpu;
     ComHost com;
-    ComInterface a3d = makeA3d(), listener = makeListener(), geom = makeGeom(), material = makeMaterial(),
-                 source = makeSource();
+    ComInterface a3d = makeA3d();
+    ComInterface listener = makeListener();
+    ComInterface geom = makeGeom();
+    ComInterface material = makeMaterial();
+    ComInterface source = makeSource();
     audio::Mixer *mixer = nullptr;
     // The listener, for the sources' gains and pans.
-    float listenerPos[3]{}, listenerFront[3]{0, 0, -1}, listenerTop[3]{0, 1, 0};
-    float outputGain = 1, unitsPerMeter = 1, distanceModelScale = 1;
+    float listenerPos[3]{};
+    float listenerFront[3]{0, 0, -1};
+    float listenerTop[3]{0, 1, 0};
+    float outputGain = 1;
+    float unitsPerMeter = 1;
+    float distanceModelScale = 1;
     bool leftHanded = false; // SetCoordinateSystem: A3D_RIGHT_HANDED_CS 0, A3D_LEFT_HANDED_CS 1
     size_t made = 0;
     std::vector<std::weak_ptr<ComObject>> sources;
     explicit State(Win32Process &p) : process(p), cpu(p.cpu()), com(p) {}
-    uint32_t now() { return process.milliseconds ? process.milliseconds() : 0; }
+    uint32_t now() const { return process.milliseconds ? process.milliseconds() : 0; }
     void update();
 };
 
@@ -286,14 +295,29 @@ public:
     A3d::State *s = nullptr;
     uint32_t type = 0;
     // WAVEFORMATEX.
-    uint16_t formatTag = 1, channels = 1, blockAlign = 2, bitsPerSample = 16;
-    uint32_t rate = 22050, bytesPerSecond = 44100;
-    uint32_t data = 0, size = 0; // in the process's memory
-    bool playing = false, looped = false;
-    bool formatSet = false;                             // SetWaveFormat called, or the format copied (DuplicateSource)
-    uint32_t startMs = 0, startPos = 0, stoppedPos = 0; // where it was when last started, or stopped
-    uint32_t fed = 0;                                   // how far it's been handed to the mixer
-    float gain = 1, pitch = 1, position[3]{}, minDistance = 1, maxDistance = 1e9f, priority = 0.5f;
+    uint16_t formatTag = 1;
+    uint16_t channels = 1;
+    uint16_t blockAlign = 2;
+    uint16_t bitsPerSample = 16;
+    uint32_t rate = 22050;
+    uint32_t bytesPerSecond = 44100;
+    // in the process's memory
+    uint32_t data = 0;
+    uint32_t size = 0;
+    bool playing = false;
+    bool looped = false;
+    bool formatSet = false; // SetWaveFormat called, or the format copied (DuplicateSource)
+    // where it was when last started, or stopped
+    uint32_t startMs = 0;
+    uint32_t startPos = 0;
+    uint32_t stoppedPos = 0;
+    uint32_t fed = 0; // how far it's been handed to the mixer
+    float gain = 1;
+    float pitch = 1;
+    float position[3]{};
+    float minDistance = 1;
+    float maxDistance = 1e9f;
+    float priority = 0.5f;
     bool muteBeyondMax = false; // past its maximum distance: silent, or kept at the level there
     float distanceScale = 1;    // how fast it fades with distance: 1 as in the world, 2 twice as fast
     std::vector<std::pair<uint32_t, uint32_t>> events; // wave events: offset, event handle
@@ -384,7 +408,7 @@ public:
         if (playing && s->mixer && formatTag == 1 && (bitsPerSample == 8 || bitsPerSample == 16) && channels >= 1 &&
             channels <= 2) {
             stream = std::make_shared<audio::SoundStream>(int(rate), int(channels));
-            sound = s->mixer->playStream(stream, audio::SoundType::Effects, volume(), pan(), 200);
+            sound = s->mixer->playStream(stream, audio::SoundType::kEffects, volume(), pan(), 200);
         }
     }
     void stop() {
@@ -430,7 +454,8 @@ public:
         const float side = s->leftHanded ? -1.0f : 1.0f;
         const float right[3] = {side * (f[1] * u[2] - f[2] * u[1]), side * (f[2] * u[0] - f[0] * u[2]),
                                 side * (f[0] * u[1] - f[1] * u[0])};
-        double dx = 0, d = 0;
+        double dx = 0;
+        double d = 0;
         for (int i = 0; i < 3; ++i) {
             const double r = double(position[i] - s->listenerPos[i]);
             dx += r * double(right[i]);
@@ -440,6 +465,7 @@ public:
             return 0;
         return int(std::clamp(dx / std::sqrt(d), -1.0, 1.0) * audio::kMaxPan * 0.8);
     }
+    // NOLINTNEXTLINE(readability-make-member-function-const): sets its sound's volume and pan
     void heard() {
         if (sound != audio::kNoSound && s->mixer) {
             s->mixer->setVolume(sound, volume());
@@ -474,7 +500,8 @@ public:
             return kSOk;
         }
         if (m == "LoadWaveData") { // (data, bytes): a copy of it
-            const uint32_t from = c.arg(1), bytes = c.arg(2);
+            const uint32_t from = c.arg(1);
+            const uint32_t bytes = c.arg(2);
             if (data)
                 s->process.memory().free(data);
             size = bytes;
@@ -521,7 +548,8 @@ public:
         // Lock(offset, bytes, &p1, &n1, &p2, &n2, flags): the part asked
         // for, in two pieces when it wraps round the end.
         if (m == "Lock") {
-            uint32_t offset = c.arg(1), bytes = c.arg(2);
+            uint32_t offset = c.arg(1);
+            uint32_t bytes = c.arg(2);
             const uint32_t flags = c.arg(7);
             if (flags & kFromWriteCursor)
                 offset = cursor();
@@ -822,8 +850,8 @@ void A3d::State::update() {
 
 A3d::~A3d() = default;
 
-A3d::A3d(Win32Process &process) : s_(std::make_unique<State>(process)) {
-    State *s = s_.get();
+A3d::A3d(Win32Process &process) : _s(std::make_unique<State>(process)) {
+    State *s = _s.get();
     for (ComInterface *f : {&s->a3d, &s->listener, &s->geom, &s->material, &s->source})
         s->com.define(*f);
     // Called for each sound every frame, and writing no memory: the
@@ -847,12 +875,12 @@ A3d::A3d(Win32Process &process) : s_(std::make_unique<State>(process)) {
 }
 
 size_t A3d::sourcesMade() const {
-    return s_->made;
+    return _s->made;
 }
 
 size_t A3d::sourcesPlaying() const {
     size_t n = 0;
-    for (const auto &w : s_->sources)
+    for (const auto &w : _s->sources)
         if (auto source = w.lock())
             n += static_cast<Source *>(source.get())->playing;
     return n;

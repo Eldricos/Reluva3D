@@ -21,7 +21,7 @@ namespace reluva::awe {
 
 class MoviePlayer {
 public:
-    explicit MoviePlayer(audio::Mixer *mixer) : mixer_(mixer) {}
+    explicit MoviePlayer(audio::Mixer *mixer) : _mixer(mixer) {}
     ~MoviePlayer() { stop(); }
     MoviePlayer(const MoviePlayer &) = delete;
     MoviePlayer &operator=(const MoviePlayer &) = delete;
@@ -35,34 +35,34 @@ public:
     void stop();
     // Pauses (the sound stopped) or goes on from the frame shown.
     void pause(bool paused, uint64_t nowMs);
-    bool paused() const { return paused_; }
+    bool paused() const { return _paused; }
 
-    bool loaded() const { return movie_ != nullptr; }
+    bool loaded() const { return _movie != nullptr; }
     // Every frame shown and the time of the last gone by.
     bool done(uint64_t nowMs) const;
-    const image::Image &frame() const { return frame_; }
-    const bink::Movie *movie() const { return movie_.get(); }
+    const image::Image &frame() const { return _frame; }
+    const bink::Movie *movie() const { return _movie.get(); }
     double fps() const; // the movie's frames a second (0 with none)
-    bool hasSound() const { return soundtrack_ != nullptr; }
+    bool hasSound() const { return _soundtrack != nullptr; }
     // The frame to decode next, and the movie's time in seconds (by the
     // frames shown).
-    size_t next() const { return next_; }
+    size_t next() const { return _next; }
     double seconds() const;
     // A decoding error, if any frame had one.
-    const std::string &error() const { return error_; }
+    const std::string &error() const { return _error; }
 
 private:
     void playSound(double fromSeconds);
 
-    audio::Mixer *mixer_;
-    std::unique_ptr<bink::Movie> movie_;
-    image::Image frame_;
-    std::shared_ptr<audio::Sound> soundtrack_;
-    audio::SoundHandle sound_ = audio::kNoSound;
-    size_t next_ = 0;
-    uint64_t startMs_ = 0; // when frame 0 was due
-    bool paused_ = false;
-    std::string error_;
+    audio::Mixer *_mixer;
+    std::unique_ptr<bink::Movie> _movie;
+    image::Image _frame;
+    std::shared_ptr<audio::Sound> _soundtrack;
+    audio::SoundHandle _sound = audio::kNoSound;
+    size_t _next = 0;
+    uint64_t _startMs = 0; // when frame 0 was due
+    bool _paused = false;
+    std::string _error;
 };
 
 } // namespace reluva::awe

@@ -60,7 +60,8 @@ Error parseGmf(const std::vector<uint8_t> &data, GmfMap &out) {
             if (!r.has(p, 6) || r.u16(p) != types[k] || !r.has(p + 6, r.u16(p + 2)))
                 return Error::fail("type-" + std::to_string(types[k]) + " record " + std::to_string(i) + " at " +
                                    hex(p) + " doesn't fit");
-            const size_t body = p + 6, length = r.u16(p + 2);
+            const size_t body = p + 6;
+            const size_t length = r.u16(p + 2);
             if (types[k] == kTile) {
                 if (length < kGridOffset + 64 || r.u32(body) != i)
                     return Error::fail("tile record " + std::to_string(i) + " at " + hex(p) + " is malformed");
@@ -142,7 +143,8 @@ int tileAt(const GmfMap &map, int tx, int ty) {
 
 std::vector<size_t> tileModelOrder(const std::vector<std::string> &geoNames) {
     auto stem = [](const std::string &name) {
-        const size_t slash = name.rfind('/'), dot = name.rfind('.');
+        const size_t slash = name.rfind('/');
+        const size_t dot = name.rfind('.');
         const size_t from = slash == std::string::npos ? 0 : slash + 1;
         return name.substr(from, (dot == std::string::npos || dot < from ? name.size() : dot) - from);
     };

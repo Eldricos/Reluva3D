@@ -41,7 +41,9 @@ using image::Image;
 using image::decode;
 using image::encodeTga;
 
-constexpr int kWidth = 320, kHeight = 240, kCell = 80;
+constexpr int kWidth = 320;
+constexpr int kHeight = 240;
+constexpr int kCell = 80;
 constexpr Color kClear{16, 16, 16};
 
 // Pixels to clip space: x right, y down, z (0 near, 1 far) as given.
@@ -57,33 +59,37 @@ gfx::Mat4 pixelProjection() {
 }
 
 struct Rgba {
-    uint8_t r, g, b, a;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
 };
 
 // A probe: the average of the 6x6 block around (x, y), and how far each
 // channel may stray from the reference's.
 struct Probe {
     const char *what;
-    int x, y;
+    int x;
+    int y;
     int tolerance = 12;
     bool needsStencil = false;
 };
 
 class Scene {
 public:
-    explicit Scene(gfx::Renderer3D &r) : r_(r) {}
+    explicit Scene(gfx::Renderer3D &r) : _r(r) {}
     ~Scene() {
-        for (gfx::MeshId m : meshes_)
-            r_.destroyMesh(m);
-        for (gfx::TextureId t : textures_)
-            r_.destroyTexture(t);
+        for (gfx::MeshId m : _meshes)
+            _r.destroyMesh(m);
+        for (gfx::TextureId t : _textures)
+            _r.destroyTexture(t);
     }
 
     gfx::TextureId texture(int w, int h, const std::vector<Rgba> &pixels, gfx::TextureParams params) {
         gfx::TextureId id = 0;
-        if (Error err = r_.createTexture(w, h, reinterpret_cast<const uint8_t *>(pixels.data()), params, id))
+        if (Error err = _r.createTexture(w, h, reinterpret_cast<const uint8_t *>(pixels.data()), params, id))
             std::fprintf(stderr, "createTexture: %s\n", err.message.c_str());
-        textures_.push_back(id);
+        _textures.push_back(id);
         return id;
     }
 
@@ -92,8 +98,10 @@ public:
     // to (u1, v1); `flip` winds it the other way round.
     gfx::MeshId quad(float x0, float y0, float x1, float y1, float z, const std::array<Rgba, 4> &colors, float u0 = 0,
                      float v0 = 0, float u1 = 1, float v1 = 1, bool flip = false, gfx::Vec3 normal = {0, 0, 1}) {
-        const float xs[4] = {x0, x1, x1, x0}, ys[4] = {y0, y0, y1, y1};
-        const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
+        const float xs[4] = {x0, x1, x1, x0};
+        const float ys[4] = {y0, y0, y1, y1};
+        const float us[4] = {u0, u1, u1, u0};
+        const float vs[4] = {v0, v0, v1, v1};
         std::vector<gfx::Vertex> v(4);
         for (int i = 0; i < 4; ++i) {
             v[size_t(i)] = {{xs[i], ys[i], z},
@@ -120,9 +128,9 @@ public:
 
     gfx::MeshId mesh(const std::vector<gfx::Vertex> &v, const std::vector<uint32_t> &idx) {
         gfx::MeshId id = 0;
-        if (Error err = r_.createMesh(v, idx, id))
+        if (Error err = _r.createMesh(v, idx, id))
             std::fprintf(stderr, "createMesh: %s\n", err.message.c_str());
-        meshes_.push_back(id);
+        _meshes.push_back(id);
         return id;
     }
 
@@ -132,19 +140,24 @@ public:
         gfx::DrawCall c;
         c.mesh = mesh;
         c.indexCount = indices;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Vertex;
-        c.state.cull = gfx::Cull::None;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kVertex;
+        c.state.cull = gfx::Cull::kNone;
         return c;
     }
 
 private:
-    gfx::Renderer3D &r_;
-    std::vector<gfx::MeshId> meshes_;
-    std::vector<gfx::TextureId> textures_;
+    gfx::Renderer3D &_r;
+    std::vector<gfx::MeshId> _meshes;
+    std::vector<gfx::TextureId> _textures;
 };
 
-constexpr Rgba kRed{255, 0, 0, 255}, kGreen{0, 255, 0, 255}, kBlue{0, 0, 255, 255}, kWhite{255, 255, 255, 255},
-    kGrey{64, 64, 64, 255}, kMagenta{255, 0, 255, 255}, kBlack{0, 0, 0, 255};
+constexpr Rgba kRed{255, 0, 0, 255};
+constexpr Rgba kGreen{0, 255, 0, 255};
+constexpr Rgba kBlue{0, 0, 255, 255};
+constexpr Rgba kWhite{255, 255, 255, 255};
+constexpr Rgba kGrey{64, 64, 64, 255};
+constexpr Rgba kMagenta{255, 0, 255, 255};
+constexpr Rgba kBlack{0, 0, 0, 255};
 
 // The cell at column c, row r: its top left corner.
 float cx(int c) {
@@ -202,7 +215,7 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         const gfx::TextureId t = s.texture(2, 2, {kRed, kGreen, kBlue, kWhite}, p);
         gfx::DrawCall c = Scene::call(s.quad(cx(0), cy(0), cx(1), cy(1), 0.5f, kWhite));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         r.draw(c);
     }
     // (1,0) Vertex colours, blended across.
@@ -211,8 +224,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
     {
         r.draw(Scene::call(s.quad(cx(2), cy(0), cx(3), cy(1), 0.5f, kGrey)));
         gfx::DrawCall c = Scene::call(s.quad(cx(2), cy(0), cx(2) + 40, cy(1), 0.4f, Rgba{128, 64, 0, 255}));
-        c.state.src = Blend::One;
-        c.state.dst = Blend::One;
+        c.state.src = Blend::kOne;
+        c.state.dst = Blend::kOne;
         c.state.depthWrite = false;
         r.draw(c);
     }
@@ -220,10 +233,10 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
     {
         r.draw(Scene::call(s.quad(cx(3), cy(0), cx(4), cy(1), 0.5f, kBlue)));
         gfx::DrawCall c = Scene::call(s.quad(cx(3), cy(0), cx(4), cy(1), 0.4f, kWhite));
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         c.color = {1, 1, 1, 0.5f};
-        c.state.src = Blend::SrcAlpha;
-        c.state.dst = Blend::OneMinusSrcAlpha;
+        c.state.src = Blend::kSrcAlpha;
+        c.state.dst = Blend::kOneMinusSrcAlpha;
         c.state.depthWrite = false;
         r.draw(c);
     }
@@ -238,8 +251,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         const gfx::TextureId t = s.texture(2, 1, {Rgba{255, 255, 0, 255}, Rgba{0, 255, 255, 0}}, p);
         gfx::DrawCall c = Scene::call(s.quad(cx(0), cy(1), cx(1), cy(2), 0.4f, kWhite));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
-        c.state.alphaTest = gfx::AlphaTest::Ge128;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
+        c.state.alphaTest = gfx::AlphaTest::kGe128;
         r.draw(c);
     }
     // (1,1) Depth: a nearer red left half drawn first, then a farther green
@@ -250,18 +263,19 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         gfx::DrawCall c = Scene::call(s.quad(cx(1), cy(1) + 40, cx(2), cy(2), 0.2f, kBlue));
         c.state.depthEqual = true;
         c.state.depthWrite = false;
-        c.state.src = Blend::One;
-        c.state.dst = Blend::One;
+        c.state.src = Blend::kOne;
+        c.state.dst = Blend::kOne;
         r.draw(c);
     }
     // (2,1) Culling of back faces: the same triangles wound both ways.
     {
-        const float x = cx(2), y = cy(1);
+        const float x = cx(2);
+        const float y = cy(1);
         gfx::DrawCall a =
             Scene::call(s.triangle({x + 4, y + 10, 0.5f}, {x + 36, y + 10, 0.5f}, {x + 4, y + 70, 0.5f}, kGreen), 3);
         gfx::DrawCall b =
             Scene::call(s.triangle({x + 44, y + 10, 0.5f}, {x + 44, y + 70, 0.5f}, {x + 76, y + 10, 0.5f}, kRed), 3);
-        a.state.cull = b.state.cull = gfx::Cull::Back;
+        a.state.cull = b.state.cull = gfx::Cull::kBack;
         r.draw(a);
         r.draw(b);
     }
@@ -273,8 +287,8 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
             gfx::DrawCall c =
                 Scene::call(s.quad(cx(3) + 40.0f * float(half), cy(1), cx(3) + 40.0f * float(half + 1), cy(2), 0.5f,
                                    {kWhite, kWhite, kWhite, kWhite}, 0, 0, 1, 1, false, normal));
-            c.rgbSource = gfx::ColorSource::Lighting;
-            c.alphaSource = gfx::ColorSource::Constant;
+            c.rgbSource = gfx::ColorSource::kLighting;
+            c.alphaSource = gfx::ColorSource::kConstant;
             c.ambientLight = {0.2f, 0.2f, 0.2f};
             c.directedLight = {0.6f, 0.6f, 0.6f};
             c.lightDirection = {0, 0, 1};
@@ -292,7 +306,7 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         gfx::DrawCall c =
             Scene::call(s.quad(cx(0), cy(2), cx(1), cy(3), 0.5f, {kWhite, kWhite, kWhite, kWhite}, 0, 0, 8, 8));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         r.draw(c);
     }
     // (1,2) Texture coordinate rows: the four-colour texture shifted half
@@ -305,27 +319,27 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         const gfx::TextureId t = s.texture(2, 2, {kRed, kGreen, kBlue, kWhite}, p);
         gfx::DrawCall c = Scene::call(s.quad(cx(1), cy(2), cx(2), cy(3), 0.5f, kWhite));
         c.texture = t;
-        c.rgbSource = c.alphaSource = gfx::ColorSource::Constant;
+        c.rgbSource = c.alphaSource = gfx::ColorSource::kConstant;
         c.postRow0 = {1, 0, 0.5f};
         r.draw(c);
     }
     // (2,2) The stencil: the middle marked (drawn red), then green drawn
     // over the whole cell only inside the mark.
     if (r.hasStencil()) {
-        r.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+        r.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
         r.draw(Scene::call(s.quad(cx(2) + 20, cy(2) + 20, cx(2) + 60, cy(2) + 60, 0.5f, kRed)));
-        r.setStencilMode(gfx::Renderer3D::StencilMode::Inside);
+        r.setStencilMode(gfx::Renderer3D::StencilMode::kInside);
         gfx::DrawCall c = Scene::call(s.quad(cx(2), cy(2), cx(3), cy(3), 0.1f, kGreen));
         r.draw(c);
-        r.setStencilMode(gfx::Renderer3D::StencilMode::None);
+        r.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     }
     // (3,2) A vertex deform: a quad over the left 30 pixels moved 30 to the
     // right (by a constant wave).
     {
         gfx::DrawCall c = Scene::call(s.quad(cx(3), cy(2), cx(3) + 30, cy(3), 0.5f, kBlue));
-        c.deforms[0].type = gfx::Deform::Type::Move;
+        c.deforms[0].type = gfx::Deform::Type::kMove;
         c.deforms[0].vector = {30, 0, 0};
-        c.deforms[0].wave = {gfx::WaveFunc::Sin, 1, 0, 0, 0};
+        c.deforms[0].wave = {gfx::WaveFunc::kSin, 1, 0, 0, 0};
         r.draw(c);
     }
 }
@@ -364,7 +378,8 @@ std::array<int, 3> average(const Image &img, int x, int y) {
     int n = 0;
     for (int dy = -3; dy < 3; ++dy)
         for (int dx = -3; dx < 3; ++dx) {
-            const int px = std::clamp(x + dx, 0, img.w - 1), py = std::clamp(y + dy, 0, img.h - 1);
+            const int px = std::clamp(x + dx, 0, img.w - 1);
+            const int py = std::clamp(y + dy, 0, img.h - 1);
             const uint8_t *p = img.pixel(px, py);
             for (int c = 0; c < 3; ++c)
                 sum[size_t(c)] += p[c];
@@ -399,7 +414,8 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
             std::printf("  skip  %-48s (no stencil buffer)\n", p.what);
             continue;
         }
-        const auto g = average(got, p.x, p.y), w = average(want, p.x, p.y);
+        const auto g = average(got, p.x, p.y);
+        const auto w = average(want, p.x, p.y);
         int worst = 0;
         for (int c = 0; c < 3; ++c)
             worst = std::max(worst, std::abs(g[size_t(c)] - w[size_t(c)]));
@@ -418,7 +434,8 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
     diff.rgba.assign(got.rgba.size(), 0);
     for (int y = 0; y < kHeight; ++y)
         for (int x = 0; x < kWidth; ++x) {
-            const uint8_t *g = got.pixel(x, y), *w = want.pixel(x, y);
+            const uint8_t *g = got.pixel(x, y);
+            const uint8_t *w = want.pixel(x, y);
             int worst = 0;
             for (int c = 0; c < 3; ++c)
                 worst = std::max(worst, std::abs(int(g[c]) - int(w[c])));
@@ -427,12 +444,14 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
             d[3] = 255;
         }
     constexpr int kBlock = 4;
-    int off = 0, blocks = 0;
+    int off = 0;
+    int blocks = 0;
     for (int by = 0; by < kHeight; by += kBlock)
         for (int bx = 0; bx < kWidth; bx += kBlock) {
             int worst = 0;
             for (int c = 0; c < 3; ++c) {
-                int sg = 0, sw = 0;
+                int sg = 0;
+                int sw = 0;
                 for (int y = by; y < by + kBlock; ++y)
                     for (int x = bx; x < bx + kBlock; ++x) {
                         sg += got.pixel(x, y)[c];
@@ -456,7 +475,8 @@ bool compare(const char *name, const Image &got, const Image &want, const std::v
 } // namespace
 
 int main(int argc, char **argv) {
-    std::filesystem::path refDir, outDir;
+    std::filesystem::path refDir;
+    std::filesystem::path outDir;
     bool update = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];

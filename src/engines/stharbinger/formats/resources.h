@@ -37,8 +37,8 @@ public:
     // Adds a game directory; earlier directories take precedence.
     void addGamePath(const std::string &nativePath);
 
-    const SearchSet &getSearchSet() const { return search_; }
-    bool hasFile(const std::string &name) const { return search_.has(name); }
+    const SearchSet &getSearchSet() const { return _search; }
+    bool hasFile(const std::string &name) const { return _search.has(name); }
     std::unique_ptr<SeekableReadStream> openFile(const std::string &name) const;
 
     // NAME.ALL/.LST(/.CAT), cached; nullptr if missing.
@@ -48,9 +48,9 @@ public:
 
     // Loads a background. If PALETTES/NAME.PAL exists it is loaded into `palette`
     // and `paletteLoaded` is set; otherwise the current palette stays, as in the game.
-    bool loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded);
-    bool loadAnimation(const std::string &name, RleAnimation &anim);
-    bool loadSound(const std::string &name, std::vector<uint8_t> &data);
+    bool loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) const;
+    bool loadAnimation(const std::string &name, RleAnimation &anim) const;
+    bool loadSound(const std::string &name, std::vector<uint8_t> &data) const;
 
     // Loads dialogue `index` (CCB.ALL order) with its text (CCQ, CCF, CCR).
     bool loadDialogue(int index, Dialogue &dialogue, std::string &error);
@@ -70,21 +70,24 @@ public:
 
     // The 269 credits lines, read from DEEP.EXE (pointer table at 0x55464 in its
     // data object). Empty if the executable is not found.
-    std::vector<std::string> loadCredits();
+    std::vector<std::string> loadCredits() const;
 
     // Reads every scene slot that has a script. Returns false (with `error`) if the
     // script archives cannot be found.
     bool loadScenes(std::vector<Scene> &scenes, std::string &error);
 
 private:
-    SearchSet search_;
-    int nextPriority_ = 0;
-    std::map<std::string, std::shared_ptr<LstArchive>> archives_;
+    SearchSet _search;
+    int _nextPriority = 0;
+    std::map<std::string, std::shared_ptr<LstArchive>> _archives;
     void loadLinkTables();
-    bool linkLoaded_ = false;
-    std::vector<std::string> linkScenes_, linkVariables_, linkDialogues_;
-    std::string speechName_;
-    std::shared_ptr<LstArchive> speechArchive_, phonemeArchive_;
+    bool _linkLoaded = false;
+    std::vector<std::string> _linkScenes;
+    std::vector<std::string> _linkVariables;
+    std::vector<std::string> _linkDialogues;
+    std::string _speechName;
+    std::shared_ptr<LstArchive> _speechArchive;
+    std::shared_ptr<LstArchive> _phonemeArchive;
 };
 
 } // namespace reluva::stharbinger

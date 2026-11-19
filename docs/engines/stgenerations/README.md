@@ -35,6 +35,14 @@ port. It hasn't been played through from start to finish in Reluva yet;
 that, and the few effects not yet compared with the original
 ([UNCONFIRMED.md](UNCONFIRMED.md)), are what's left.
 
+**Left to clean up:** some of the resource viewer's state is still in
+`Generations` (`src/engines/stgenerations/game/`), and so in `reluva`,
+because the game shares it: the image and sound indexes every save holds,
+the floor-plan page the game passes through to reach the 3D view, and
+leaving a mission for the list. Moving it out means taking the level,
+mission and 3D-walk core out of `Generations` into a class of its own
+that the game and `ResourceViewer` both use.
+
 ## Using it
 
 ### Adding the game
@@ -133,11 +141,14 @@ game.
 
 ### Developer settings
 
-Not part of the game, for studying it:
+Not part of the game, for studying it. The launcher's settings here, and
+the 3D view's **L** (lighting off) and **Shift+C** (walk through walls)
+with its readout of the position on the HUD's text line, are only in
+builds with `RELUVA_DEVELOPER_KEYS` on (the default; release builds turn
+it off, [DEVELOPMENT.md](../../DEVELOPMENT.md#build-folders)):
 
 | Setting | Where | What it does |
 |---|---|---|
-| Start with | launcher | The game, or the resource viewer (every image, sound, level, overlay and sprite set in the game's files; [PORTING.md](PORTING.md#the-resource-viewer) has its keys) |
 | Console output, about | launcher | Messages as the game runs, and which topics (files and archives, the missions' scripts, sound) |
 | `story=<section>` | reluva.ini | Start the story at a section of `STATES.INI`, as if a new game had got there (`story=Amargosa2`; `story=list` prints them with console output on) |
 | `combat=<n>` | reluva.ini | Start in space combat n (1-25) |
@@ -178,6 +189,7 @@ difficulty again in the menu.
 | `canvas.cpp`, `audio.cpp`, `debug.cpp` | The game's drawing surface, its sound calls on Reluva's mixer, its debug output |
 | `formats/` | The game's files: archives, bitmaps, fonts, overlays, sprite sets, levels, scripts, space combat's data |
 | `game/` | The game: the front end, the story, the bridge, missions and their scripts, actors, the HUD, space combat, the 3D renderers |
+| `pages/` | The resource viewer, `reluva-viewer`'s and never the game's: `ResourceViewer`, the game (`Generations`) without its front end and with the viewer's pages and keys ([PORTING.md](PORTING.md#the-resource-viewer)) |
 | `tools/` | `reluva-tool stgenerations` commands (`reluva-tool help stgenerations` lists them) |
 
 Shared code it brought to `src/common/`: Cinepak and AVI

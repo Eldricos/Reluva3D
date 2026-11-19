@@ -20,7 +20,7 @@ struct Bitmap {
     Surface surface;       // CLUT8 or RGBA32, rows top to bottom
     Palette palette;       // for CLUT8: the file's colours, the rest black
     int paletteColors = 0; // how many the file holds (0 for RGBA32)
-    bool indexed() const { return surface.format == PixelFormat::CLUT8; }
+    bool indexed() const { return surface.format == PixelFormat::kCLUT8; }
 };
 
 // A .bmp file (its BITMAPFILEHEADER first).

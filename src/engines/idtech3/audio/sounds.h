@@ -20,7 +20,7 @@ namespace reluva::idtech3 {
 // rather than tried again.
 class SoundLibrary {
 public:
-    explicit SoundLibrary(const SearchSet &files) : files_(files) {}
+    explicit SoundLibrary(const SearchSet &files) : _files(files) {}
 
     // The sound, or nullptr (missing or undecodable).
     std::shared_ptr<const audio::Sound> get(std::string_view name);
@@ -28,14 +28,14 @@ public:
     // (.wav, .mp3): the games ask for "x.wav" where only "x.mp3" is shipped.
     std::shared_ptr<const audio::Sound> find(std::string_view name);
 
-    size_t loaded() const { return sounds_.size(); }
+    size_t loaded() const { return _sounds.size(); }
     // Names that failed, with why.
-    const std::vector<std::string> &problems() const { return problems_; }
+    const std::vector<std::string> &problems() const { return _problems; }
 
 private:
-    const SearchSet &files_;
-    std::unordered_map<std::string, std::shared_ptr<const audio::Sound>> sounds_; // by normalized name
-    std::vector<std::string> problems_;
+    const SearchSet &_files;
+    std::unordered_map<std::string, std::shared_ptr<const audio::Sound>> _sounds; // by normalized name
+    std::vector<std::string> _problems;
 };
 
 } // namespace reluva::idtech3

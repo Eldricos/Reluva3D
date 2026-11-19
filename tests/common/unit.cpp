@@ -118,7 +118,8 @@ static void testConfig(const std::filesystem::path &tmp) {
     c.set(Config::engineSection("eng"), settings::kWindowScale, "auto");
     c.set("foo", settings::kWindowScale, "3");
     CHECK(c.targets().size() == 2 && Config::isEngineSection(Config::engineSection("eng")));
-    auto foo = c.settingsFor("foo"), bar = c.settingsFor("bar");
+    auto foo = c.settingsFor("foo");
+    auto bar = c.settingsFor("bar");
     CHECK(foo[settings::kVsync] == "0" && foo[settings::kSmooth] == "0" && foo[settings::kWindowScale] == "3");
     CHECK(bar[settings::kSmooth] == "1" && bar.count(settings::kWindowScale) == 0);
     c.unset("foo", settings::kWindowScale);
@@ -157,7 +158,7 @@ static void testFont() {
     using namespace reluva;
     CHECK(font::length("Caf\xc3\xa9 \xe2\x80\x99") == 6); // é and ’ are one character each
     Surface s;
-    s.create(20, 12, PixelFormat::RGBA32);
+    s.create(20, 12, PixelFormat::kRGBA32);
     const int end = font::drawText(s, 1, 1, "I|", {255, 0, 0});
     CHECK(end == 1 + 2 * font::kAdvance);
     // 'I' has its middle column set from row 1 to 5 and a bar on row 0.
@@ -244,7 +245,7 @@ static void testMixer() {
     std::vector<int16_t> out(40);
     Mixer m(22050);
     // A sound at the output rate plays sample for sample, then stops and frees its channel.
-    const SoundHandle a = m.play(make(22050, 1, std::vector<int16_t>(10, 1000)), SoundType::Effects);
+    const SoundHandle a = m.play(make(22050, 1, std::vector<int16_t>(10, 1000)), SoundType::kEffects);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 12);
     CHECK(out[0] == 1000 && out[1] == 1000 && out[18] == 1000 && out[19] == 1000 && out[20] == 0 && out[23] == 0);
@@ -252,36 +253,36 @@ static void testMixer() {
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[7] == 0); // silence with nothing playing
     // Two sounds add up, and clamp at 16 bits.
-    m.play(make(22050, 1, {30000, 1000}), SoundType::Effects);
-    m.play(make(22050, 1, {30000, -3000}), SoundType::Music);
+    m.play(make(22050, 1, {30000, 1000}), SoundType::kEffects);
+    m.play(make(22050, 1, {30000, -3000}), SoundType::kMusic);
     m.mix(out.data(), 2);
     CHECK(out[0] == 32767 && out[2] == -2000 && out[3] == -2000);
     // Volumes: the sound's and its type's multiply.
-    m.setTypeVolume(SoundType::Music, kMaxVolume / 2);
-    m.play(make(22050, 1, {1000}), SoundType::Music, kMaxVolume / 2);
+    m.setTypeVolume(SoundType::kMusic, kMaxVolume / 2);
+    m.play(make(22050, 1, {1000}), SoundType::kMusic, kMaxVolume / 2);
     m.mix(out.data(), 1);
-    CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::Music) == 128);
-    m.setTypeVolume(SoundType::Music, kMaxVolume);
+    CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::kMusic) == 128);
+    m.setTypeVolume(SoundType::kMusic, kMaxVolume);
     // Pan: full right silences the left.
-    m.play(make(22050, 1, {1000}), SoundType::Speech, kMaxVolume, kMaxPan);
+    m.play(make(22050, 1, {1000}), SoundType::kSpeech, kMaxVolume, kMaxPan);
     m.mix(out.data(), 1);
     CHECK(out[0] == 0 && out[1] == 1000);
     // Resampling: an 11025 Hz ramp at 22050 Hz gets a frame in between each.
-    const SoundHandle r = m.play(make(11025, 1, {0, 100, 200, 300}), SoundType::Effects);
+    const SoundHandle r = m.play(make(11025, 1, {0, 100, 200, 300}), SoundType::kEffects);
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 50 && out[4] == 100 && out[6] == 150 && m.position(r) == 2.0);
     m.stopAll();
     // Stereo keeps its channels; a loop repeats until stopped.
-    const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::Music, kMaxVolume, 0, true);
+    const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::kMusic, kMaxVolume, 0, true);
     m.mix(out.data(), 5);
     CHECK(out[0] == 10 && out[1] == -10 && out[2] == 20 && out[3] == -20 && out[4] == 10 && out[8] == 10);
-    CHECK(m.isPlaying(l) && m.isTypePlaying(SoundType::Music) && !m.isTypePlaying(SoundType::Speech));
-    m.stopType(SoundType::Music);
+    CHECK(m.isPlaying(l) && m.isTypePlaying(SoundType::kMusic) && !m.isTypePlaying(SoundType::kSpeech));
+    m.stopType(SoundType::kMusic);
     m.mix(out.data(), 2);
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
-    CHECK(m.play(std::shared_ptr<const Sound>(), SoundType::Effects) == kNoSound &&
-          m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+    CHECK(m.play(std::shared_ptr<const Sound>(), SoundType::kEffects) == kNoSound &&
+          m.play(make(22050, 1, {}), SoundType::kEffects) == kNoSound);
 }
 
 // Raw deflate streams made with zlib (window bits -15): a stored block, one
@@ -301,7 +302,8 @@ static const char kDynamic[] =
 static void testInflateAndWise(const std::filesystem::path &tmp) {
     struct Case {
         const char *data;
-        size_t size, outSize;
+        size_t size;
+        size_t outSize;
         uint32_t crc;
     };
     const Case cases[] = {{kStored, sizeof kStored - 1, 13, 0x69348c2d},
@@ -519,7 +521,9 @@ static void testNet() {
 
     // Two sockets in memory: one to the other, and a broadcast.
     auto network = net::LoopbackNetwork::create();
-    auto server = network->open(27960), other = network->open(27961), client = network->open(0);
+    auto server = network->open(27960);
+    auto other = network->open(27961);
+    auto client = network->open(0);
     CHECK(server && client && other && client->port() == 27962 && !network->open(27960));
     CHECK(client->send({0x7f000001u, 27960}, {1, 2, 3}));
     net::Address from;
@@ -567,7 +571,7 @@ static void testImage() {
 
     // Blending half-transparent red over black.
     Surface s;
-    s.create(2, 1, PixelFormat::RGBA32);
+    s.create(2, 1, PixelFormat::kRGBA32);
     img.w = 1;
     img.h = 1;
     img.rgba = {255, 0, 0, 128};
@@ -575,7 +579,7 @@ static void testImage() {
     image::blit(s, img, 5, 5); // clipped away
     CHECK(s.row(0)[0] == 0 && s.row(0)[4] == 128 && s.row(0)[7] == 255);
     // And opaque red, half see-through, over black.
-    s.create(1, 1, PixelFormat::RGBA32);
+    s.create(1, 1, PixelFormat::kRGBA32);
     img.rgba = {255, 0, 0, 255};
     image::blit(s, img, 0, 0, 128);
     CHECK(s.row(0)[0] == 128 && s.row(0)[1] == 0);
@@ -801,7 +805,8 @@ static void testDcl() {
 }
 
 static void testDrawAndPalette() {
-    Surface dst, src;
+    Surface dst;
+    Surface src;
     draw::create(dst, 4, 4);
     draw::create(src, 3, 3, 7);
     *draw::at(src, 1, 1) = 0;
@@ -827,15 +832,15 @@ static void testDrawAndPalette() {
 static void testAudioStreams() {
     using namespace reluva::audio;
     int16_t buf[5];
-    RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::U8, 22050);
+    RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::kU8, 22050);
     CHECK(u8.read(buf, 4) == 2 && buf[0] == 0 && buf[1] == 127 << 8 && u8.ended());
-    RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::S16LE, 22050);
+    RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::kS16LE, 22050);
     CHECK(s16.read(buf, 4) == 1 && buf[0] == -32768);
-    RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::S16BE, 22050);
+    RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::kS16BE, 22050);
     CHECK(be.read(buf, 4) == 1 && buf[0] == 0x1234);
-    RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::S8, 22050, false, 3);
+    RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::kS8, 22050, false, 3);
     CHECK(s8.read(buf, 5) == 3 && buf[2] == -256 && s8.ended());
-    RawStream forever(std::vector<uint8_t>{0x90}, RawStream::Format::U8, 22050, false, 0);
+    RawStream forever(std::vector<uint8_t>{0x90}, RawStream::Format::kU8, 22050, false, 0);
     CHECK(forever.read(buf, 5) == 5 && !forever.ended());
 
     QueuingStream q(22050, false);
@@ -845,7 +850,7 @@ static void testAudioStreams() {
     q.queue({4});
     q.finish();
     CHECK(!q.ended() && q.read(buf, 5) == 1 && buf[0] == 4 && q.ended());
-    RawStream whole(std::vector<uint8_t>(5000, 0x80), RawStream::Format::U8, 22050);
+    RawStream whole(std::vector<uint8_t>(5000, 0x80), RawStream::Format::kU8, 22050);
     CHECK(readAll(whole).size() == 5000);
 }
 
@@ -854,34 +859,35 @@ static void testMixerStreams() {
     std::vector<int16_t> out(2 * 64);
     Mixer m(22050);
     // A stream plays to its end, then frees its channel.
-    const SoundHandle a = m.play(
-        std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8, 22050), SoundType::Effects);
+    const SoundHandle a =
+        m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::kU8, 22050),
+               SoundType::kEffects);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 64);
     CHECK(out[0] == 64 << 8 && out[0] == out[1] && m.position(a) == 64.0);
     m.mix(out.data(), 64);
     CHECK(!m.isPlaying(a) && out[2 * 63] == 0);
     // Type and master volumes, and twice as loud.
-    m.setTypeVolume(SoundType::Speech, kMaxVolume / 2);
-    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8, 22050),
-           SoundType::Speech);
+    m.setTypeVolume(SoundType::kSpeech, kMaxVolume / 2);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::kU8, 22050),
+           SoundType::kSpeech);
     m.mix(out.data(), 8);
     CHECK(out[0] == (64 << 8) / 2);
     m.stopAll();
     m.setMasterVolume(kMaxBoostVolume);
-    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xa0), RawStream::Format::U8, 22050),
-           SoundType::Music);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xa0), RawStream::Format::kU8, 22050),
+           SoundType::kMusic);
     m.mix(out.data(), 8);
     CHECK(out[0] == (32 << 8) * 2 && m.masterVolume() == kMaxBoostVolume);
     m.stopAll();
     m.setMasterVolume(kMaxVolume);
-    m.setTypeVolume(SoundType::Effects, kMaxBoostVolume + 100);
-    CHECK(m.typeVolume(SoundType::Effects) == kMaxBoostVolume);
+    m.setTypeVolume(SoundType::kEffects, kMaxBoostVolume + 100);
+    CHECK(m.typeVolume(SoundType::kEffects) == kMaxBoostVolume);
     // A decoded sound follows the master volume too.
     auto sound = std::make_shared<Sound>();
     sound->rate = 22050, sound->channels = 1, sound->samples = {1000, 1000};
     m.setMasterVolume(kMaxVolume / 2);
-    m.play(std::shared_ptr<const Sound>(sound), SoundType::Music);
+    m.play(std::shared_ptr<const Sound>(sound), SoundType::kMusic);
     m.mix(out.data(), 1);
     CHECK(out[0] == 500);
     m.stopAll();
@@ -890,7 +896,7 @@ static void testMixerStreams() {
     // so each sample is heard twice (interpolated).
     auto q = std::make_shared<QueuingStream>(11025, false);
     q->queue({0, 1000, 2000});
-    const SoundHandle h = m.play(q, SoundType::Music);
+    const SoundHandle h = m.play(q, SoundType::kMusic);
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 500 && out[4] == 1000 && out[6] == 1500);
     q->finish();
@@ -1019,17 +1025,18 @@ static void testX86Disassembler() {
     CHECK(c.hasTarget && c.target == 0x10000 && !x86::disassemble(cases[0].bytes.data(), 1, 0).hasTarget);
     // Not instructions: one byte, to show as data; cut short too.
     const uint8_t bad[] = {0x0f, 0xff, 0x8f, 0xc8, 0xe8, 0x00};
-    const x86::Instruction b0 = x86::disassemble(bad, 2, 0), b1 = x86::disassemble(bad + 2, 2, 0),
-                           b2 = x86::disassemble(bad + 4, 2, 0);
+    const x86::Instruction b0 = x86::disassemble(bad, 2, 0);
+    const x86::Instruction b1 = x86::disassemble(bad + 2, 2, 0);
+    const x86::Instruction b2 = x86::disassemble(bad + 4, 2, 0);
     CHECK(!b0.valid && b0.size == 1 && b0.mnemonic == "db" && b0.operands == "0xf");
     CHECK(!b1.valid && b1.size == 1 && !b2.valid && b2.size == 1);
 }
 
-static const reluva::test::Suite hashesSuite("common.unit.hashes",
-                                             {
-                                                 {"md5", [](const std::filesystem::path &) { testMd5(); }},
-                                                 {"md4", [](const std::filesystem::path &) { testMd4(); }},
-                                             });
+static const reluva::test::Suite kHashesSuite("common.unit.hashes",
+                                              {
+                                                  {"md5", [](const std::filesystem::path &) { testMd5(); }},
+                                                  {"md4", [](const std::filesystem::path &) { testMd4(); }},
+                                              });
 
 // BMPs keeping their palette indices (image/bmp.h): 8-bit stored bottom
 // up, RLE8, 4-bit, 24-bit, and a DIB without the file header.
@@ -1165,7 +1172,7 @@ static void testSerializer() {
     CHECK(r.err());
 }
 
-static const reluva::test::Suite filesSuite(
+static const reluva::test::Suite kFilesSuite(
     "common.unit.files",
     {
         {"filesystem and detection", [](const std::filesystem::path &tmp) { testFsAndDetection(tmp / "fs"); }},
@@ -1176,21 +1183,21 @@ static const reluva::test::Suite filesSuite(
     });
 
 static const reluva::test::Suite
-    archivesSuite("common.unit.archives",
-                  {
-                      {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
-                      {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
-                      {"dcl", [](const std::filesystem::path &) { testDcl(); }},
-                      {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},
-                  });
+    kArchivesSuite("common.unit.archives",
+                   {
+                       {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
+                       {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
+                       {"dcl", [](const std::filesystem::path &) { testDcl(); }},
+                       {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},
+                   });
 
 static const reluva::test::Suite
-    textSuite("common.unit.text", {
-                                      {"utf16", [](const std::filesystem::path &) { testUtf16(); }},
-                                      {"windows-1252", [](const std::filesystem::path &) { testWindows1252(); }},
-                                      {"font", [](const std::filesystem::path &) { testFont(); }},
-                                      {"strings", [](const std::filesystem::path &) { testTextHelpers(); }},
-                                  });
+    kTextSuite("common.unit.text", {
+                                       {"utf16", [](const std::filesystem::path &) { testUtf16(); }},
+                                       {"windows-1252", [](const std::filesystem::path &) { testWindows1252(); }},
+                                       {"font", [](const std::filesystem::path &) { testFont(); }},
+                                       {"strings", [](const std::filesystem::path &) { testTextHelpers(); }},
+                                   });
 
 // A paused sound keeps its place and plays on from there; it still counts
 // as playing, and can be stopped while paused.
@@ -1200,7 +1207,7 @@ static void testMixerPause() {
     s->rate = 22050, s->channels = 1, s->samples = {1, 2, 3, 4};
     std::vector<int16_t> out(8);
     Mixer m(22050);
-    const SoundHandle h = m.play(std::shared_ptr<const Sound>(s), SoundType::Effects);
+    const SoundHandle h = m.play(std::shared_ptr<const Sound>(s), SoundType::kEffects);
     m.mix(out.data(), 1);
     CHECK(out[0] == 1 && !m.isPaused(h));
     m.setPaused(h, true);
@@ -1214,7 +1221,7 @@ static void testMixerPause() {
     CHECK(!m.isPlaying(h) && !m.isPaused(h));
     m.setPaused(kNoSound, true); // nothing to pause
     // Everything paused: silence, and the sound plays on afterwards.
-    const SoundHandle g = m.play(std::shared_ptr<const Sound>(s), SoundType::Music);
+    const SoundHandle g = m.play(std::shared_ptr<const Sound>(s), SoundType::kMusic);
     m.setAllPaused(true);
     m.mix(out.data(), 2);
     CHECK(out[0] == 0 && m.allPaused() && m.position(g) == 0.0);
@@ -1224,14 +1231,14 @@ static void testMixerPause() {
 }
 
 static const reluva::test::Suite
-    audioSuite("common.unit.audio", {
-                                        {"wav", [](const std::filesystem::path &) { testWav(); }},
-                                        {"mp3", [](const std::filesystem::path &) { testMp3(); }},
-                                        {"mixer", [](const std::filesystem::path &) { testMixer(); }},
-                                        {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
-                                        {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
-                                        {"mixer pause", [](const std::filesystem::path &) { testMixerPause(); }},
-                                    });
+    kAudioSuite("common.unit.audio", {
+                                         {"wav", [](const std::filesystem::path &) { testWav(); }},
+                                         {"mp3", [](const std::filesystem::path &) { testMp3(); }},
+                                         {"mixer", [](const std::filesystem::path &) { testMixer(); }},
+                                         {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
+                                         {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
+                                         {"mixer pause", [](const std::filesystem::path &) { testMixerPause(); }},
+                                     });
 
 // Cursors (graphics/cursor.h): made from palette indices or a surface,
 // scaled with their hotspot, and drawn by a backend that has to.
@@ -1250,7 +1257,7 @@ static void testCursors() {
 
     // From a CLUT8 surface: the same.
     Surface s;
-    s.create(3, 2, PixelFormat::CLUT8);
+    s.create(3, 2, PixelFormat::kCLUT8);
     std::copy_n(pixels, 3, s.row(0));
     std::copy_n(pixels + 4, 3, s.row(1));
     Color colors[256] = {};
@@ -1259,7 +1266,7 @@ static void testCursors() {
     CHECK(cursor::fromSurface(s, colors, 0, 1, 1) == c);
     // From RGBA32: as it is.
     Surface rgba;
-    rgba.create(2, 1, PixelFormat::RGBA32);
+    rgba.create(2, 1, PixelFormat::kRGBA32);
     rgba.row(0)[0] = 9, rgba.row(0)[3] = 128;
     const Cursor r = cursor::fromSurface(rgba, nullptr, -1, 0, 0);
     CHECK(r.w == 2 && r.pixel(0, 0)[0] == 9 && r.pixel(0, 0)[3] == 128 && r.pixel(1, 0)[3] == 0);
@@ -1285,7 +1292,7 @@ static void testCursors() {
     // Drawn with the hotspot at (0, 0), so its top left is off the surface:
     // clipped, see-through pixels left as they were.
     Surface target;
-    target.create(4, 4, PixelFormat::RGBA32);
+    target.create(4, 4, PixelFormat::kRGBA32);
     for (auto &b : target.pixels)
         b = 50;
     cursor::draw(target, c, 0, 0);
@@ -1304,14 +1311,14 @@ static void testCursors() {
 }
 
 static const reluva::test::Suite
-    imageSuite("common.unit.image",
-               {
-                   {"image", [](const std::filesystem::path &) { testImage(); }},
-                   {"3d math", [](const std::filesystem::path &) { testGfxMath(); }},
-                   {"8-bit drawing and palettes", [](const std::filesystem::path &) { testDrawAndPalette(); }},
-                   {"cursors", [](const std::filesystem::path &) { testCursors(); }},
-                   {"bmp with its palette", [](const std::filesystem::path &) { testBmp(); }},
-               });
+    kImageSuite("common.unit.image",
+                {
+                    {"image", [](const std::filesystem::path &) { testImage(); }},
+                    {"3d math", [](const std::filesystem::path &) { testGfxMath(); }},
+                    {"8-bit drawing and palettes", [](const std::filesystem::path &) { testDrawAndPalette(); }},
+                    {"cursors", [](const std::filesystem::path &) { testCursors(); }},
+                    {"bmp with its palette", [](const std::filesystem::path &) { testBmp(); }},
+                });
 
 // Cinepak frames and an AVI holding them, built here: an 8 x 4 picture
 // of two blocks, the first V1 (one 2x2 cell per quarter), the second V4.
@@ -1380,7 +1387,7 @@ static void testCinepak() {
     const Bytes f = firstFrame();
     CHECK(decoder.decode(f.data(), uint32_t(f.size())));
     const reluva::Surface &p = decoder.surface();
-    CHECK(p.w == 8 && p.h == 4 && p.format == reluva::PixelFormat::RGBA32);
+    CHECK(p.w == 8 && p.h == 4 && p.format == reluva::PixelFormat::kRGBA32);
     // V1: each luma sample covers 2 x 2 pixels.
     CHECK(grey(p, 0, 0, 10) && grey(p, 1, 1, 10) && grey(p, 2, 0, 20) && grey(p, 0, 2, 30) && grey(p, 3, 3, 40));
     // V4: four 2 x 2 cells, each pixel its own sample.
@@ -1398,7 +1405,8 @@ static void testCinepak() {
 
 static void testAvi() {
     using namespace cinepak_test;
-    const Bytes video1 = firstFrame(), video2 = secondFrame();
+    const Bytes video1 = firstFrame();
+    const Bytes video2 = secondFrame();
     auto tag = [](Bytes &b, const char *t) { b.insert(b.end(), t, t + 4); };
     auto riff = [&](Bytes &b, const char *t, const Bytes &body) {
         tag(b, t);
@@ -1413,7 +1421,16 @@ static void testAvi() {
         b.insert(b.end(), body.begin(), body.end());
         return b;
     };
-    Bytes avih, vstrh, vstrf, astrh, astrf, hdrl, vstrl, astrl, movi, avi;
+    Bytes avih;
+    Bytes vstrh;
+    Bytes vstrf;
+    Bytes astrh;
+    Bytes astrf;
+    Bytes hdrl;
+    Bytes vstrl;
+    Bytes astrl;
+    Bytes movi;
+    Bytes avi;
     le(avih, 50000, 4);
     avih.resize(56);
     tag(vstrh, "vids");
@@ -1551,23 +1568,23 @@ static void testBinkAudio() {
     }
 }
 
-static const reluva::test::Suite videoSuite("common.unit.video",
-                                            {
-                                                {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
-                                                {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
-                                                {"avi", [](const std::filesystem::path &) { testAvi(); }},
-                                                {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
-                                                {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},
-                                            });
+static const reluva::test::Suite kVideoSuite("common.unit.video",
+                                             {
+                                                 {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
+                                                 {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
+                                                 {"avi", [](const std::filesystem::path &) { testAvi(); }},
+                                                 {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
+                                                 {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},
+                                             });
 
-static const reluva::test::Suite netSuite("common.unit.net",
-                                          {
-                                              {"network", [](const std::filesystem::path &) { testNet(); }},
-                                          });
+static const reluva::test::Suite kNetSuite("common.unit.net",
+                                           {
+                                               {"network", [](const std::filesystem::path &) { testNet(); }},
+                                           });
 
 static const reluva::test::Suite
-    x86Suite("common.unit.x86", {
-                                    {"instructions", [](const std::filesystem::path &) { testX86Instructions(); }},
-                                    {"test dll", [](const std::filesystem::path &) { testX86Dll(); }},
-                                    {"disassembler", [](const std::filesystem::path &) { testX86Disassembler(); }},
-                                });
+    kX86Suite("common.unit.x86", {
+                                     {"instructions", [](const std::filesystem::path &) { testX86Instructions(); }},
+                                     {"test dll", [](const std::filesystem::path &) { testX86Dll(); }},
+                                     {"disassembler", [](const std::filesystem::path &) { testX86Disassembler(); }},
+                                 });

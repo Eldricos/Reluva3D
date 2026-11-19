@@ -10,11 +10,13 @@ namespace reluva::netimmerse {
 
 namespace {
 
-constexpr size_t kNameOffset = 4, kNameSize = 64;
+constexpr size_t kNameOffset = 4;
+constexpr size_t kNameSize = 64;
 constexpr size_t kMetricsOffset = 68;
 // After the five sizes at 68: each page's ascent and descent, then the
 // characters' records.
-constexpr size_t kPagesOffset = 78, kGlyphSize = 18;
+constexpr size_t kPagesOffset = 78;
+constexpr size_t kGlyphSize = 18;
 constexpr int kMaxPages = 16;
 
 int16_t s16(const std::vector<uint8_t> &d, size_t at) {
@@ -113,16 +115,20 @@ int DdfFont::draw(Surface &surface, const std::vector<image::Image> &pageImages,
         }
         // Scaled to the line, as the game scales each page (nearest texel).
         const double s = pageScale(g->page);
-        if (g->page < static_cast<int>(pageImages.size()) && surface.format == PixelFormat::RGBA32) {
+        if (g->page < static_cast<int>(pageImages.size()) && surface.format == PixelFormat::kRGBA32) {
             const image::Image &page = pageImages[g->page];
-            const int top = baseline - int(std::lround(g->above * s)), left = int(std::lround(g->left * s));
-            const int rows = int(std::lround(g->height() * s)), cols = int(std::lround(g->width() * s));
+            const int top = baseline - int(std::lround(g->above * s));
+            const int left = int(std::lround(g->left * s));
+            const int rows = int(std::lround(g->height() * s));
+            const int cols = int(std::lround(g->width() * s));
             for (int row = 0; row < rows; row++) {
-                int sy = g->y + int(row / s), dy = top + row;
+                int sy = g->y + int(row / s);
+                int dy = top + row;
                 if (sy < 0 || sy >= page.h || dy < 0 || dy >= surface.h)
                     continue;
                 for (int col = 0; col < cols; col++) {
-                    int sx = g->x + int(col / s), dx = x + left + col;
+                    int sx = g->x + int(col / s);
+                    int dx = x + left + col;
                     if (sx < 0 || sx >= page.w || dx < 0 || dx >= surface.w)
                         continue;
                     int a = page.pixel(sx, sy)[3];

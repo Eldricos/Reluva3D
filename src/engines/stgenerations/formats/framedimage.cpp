@@ -16,7 +16,9 @@ void FramedImage::set(const BitmapDecoder &decoder, const Palette &palette, int 
     firstPixel = *(const uint8_t *)s.getBasePtr(0, s.h - 1);
     const Palette &own = decoder.getPalette();
     for (int i = 0; i < 256; i++) {
-        uint8_t r, g, b;
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
         own.getColor(i, r, g, b);
         remap[i] = palette.findBestColor(r, g, b);
     }

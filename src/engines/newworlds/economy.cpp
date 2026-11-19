@@ -74,11 +74,11 @@ const BuildingType *buildingType(std::string_view id) {
 }
 
 Economy::Economy(char side, Stock start, int crew, int capacity, ColonyMap map)
-    : side_(side), stock_(start), crew_(crew), capacity_(capacity), map_(std::move(map)) {
+    : _side(side), _stock(start), _crew(crew), _capacity(capacity), _map(std::move(map)) {
 }
 
 bool Economy::has(const std::string &type) const {
-    return std::any_of(structures_.begin(), structures_.end(),
+    return std::any_of(_structures.begin(), _structures.end(),
                        [&](const ColonyStructure &s) { return s.type == type && s.progress >= 1; });
 }
 
@@ -88,14 +88,14 @@ bool Economy::available(const BuildingType &t) const {
 
 bool Economy::affordable(const BuildingType &t) const {
     for (int m = 0; m < kMaterials; ++m)
-        if (stock_[size_t(m)] < t.cost[size_t(m)])
+        if (_stock[size_t(m)] < t.cost[size_t(m)])
             return false;
     return true;
 }
 
 float Economy::powerSupply() const {
     float p = 0;
-    for (const ColonyStructure &s : structures_)
+    for (const ColonyStructure &s : _structures)
         if (const BuildingType *t = buildingType(s.type); t && s.progress >= 1 && t->power > 0)
             p += t->power;
     return p;
@@ -103,7 +103,7 @@ float Economy::powerSupply() const {
 
 float Economy::powerDemand() const {
     float p = 0;
-    for (const ColonyStructure &s : structures_)
+    for (const ColonyStructure &s : _structures)
         if (const BuildingType *t = buildingType(s.type); t && s.progress >= 1 && t->power < 0 && !s.exhausted)
             p -= t->power;
     return p;
@@ -116,10 +116,10 @@ float Economy::demandMet() const {
 
 int Economy::addBuilt(const std::string &type, float x, float y) {
     ColonyStructure s;
-    s.id = nextId_++;
+    s.id = _nextId++;
     s.type = type;
     s.x = x, s.y = y;
-    structures_.push_back(s);
+    _structures.push_back(s);
     return s.id;
 }
 
@@ -128,33 +128,33 @@ int Economy::order(const std::string &type, float x, float y, int tx, int ty) {
     if (!t || !available(*t))
         return 0;
     ColonyStructure s;
-    s.id = nextId_++;
+    s.id = _nextId++;
     s.type = type;
     s.x = x, s.y = y;
     s.progress = 0;
     s.started = false;
     if (t->onDeposit) {
-        s.deposit = map_.depositKind ? map_.depositKind(tx, ty) : 0;
+        s.deposit = _map.depositKind ? _map.depositKind(tx, ty) : 0;
         s.blockX = tx / 2, s.blockY = ty / 2;
         if (s.deposit == 0)
             return 0;
     }
-    structures_.push_back(s);
+    _structures.push_back(s);
     return s.id;
 }
 
 std::vector<ScriptEvent> Economy::advance(double seconds) {
     std::vector<ScriptEvent> out;
-    clock_ += seconds;
+    _clock += seconds;
     const float met = demandMet();
-    if (met < 1 && clock_ - lastPowerWarning_ >= kWarnEvery) {
+    if (met < 1 && _clock - _lastPowerWarning >= kWarnEvery) {
         out.push_back({"power-low", {}});
-        lastPowerWarning_ = clock_;
+        _lastPowerWarning = _clock;
     }
     // Construction: paid for when it starts, then up over kBuildSeconds,
     // slower without full power.
     bool waiting = false;
-    for (ColonyStructure &s : structures_) {
+    for (ColonyStructure &s : _structures) {
         if (s.progress >= 1)
             continue;
         const BuildingType *t = buildingType(s.type);
@@ -164,35 +164,35 @@ std::vector<ScriptEvent> Economy::advance(double seconds) {
                 continue;
             }
             for (int m = 0; m < kMaterials; ++m)
-                stock_[size_t(m)] -= t->cost[size_t(m)];
+                _stock[size_t(m)] -= t->cost[size_t(m)];
             s.started = true;
         }
         s.progress = float(std::min(1.0, s.progress + seconds / kBuildSeconds * std::max(0.25f, met)));
         if (s.progress >= 1) {
-            capacity_ += t->capacity;
+            _capacity += t->capacity;
             out.push_back({"built", {s.type}});
         }
     }
-    if (waiting && clock_ - lastShortWarning_ >= kWarnEvery) {
+    if (waiting && _clock - _lastShortWarning >= kWarnEvery) {
         out.push_back({"short-resources", {}});
-        lastShortWarning_ = clock_;
+        _lastShortWarning = _clock;
     }
     // Mining: each working station digs its block's ore for the processor.
     const bool processor = has("resource-processor");
-    for (ColonyStructure &s : structures_) {
+    for (ColonyStructure &s : _structures) {
         if (s.type != "mining-station" || s.progress < 1 || s.exhausted || !processor)
             continue;
-        auto it = std::find_if(mined_.begin(), mined_.end(),
+        auto it = std::find_if(_mined.begin(), _mined.end(),
                                [&](const auto &m) { return m.first == std::pair{s.blockX, s.blockY}; });
-        if (it == mined_.end()) {
-            mined_.push_back({{s.blockX, s.blockY}, 0});
-            it = mined_.end() - 1;
+        if (it == _mined.end()) {
+            _mined.push_back({{s.blockX, s.blockY}, 0});
+            it = _mined.end() - 1;
         }
         const float held =
-            (map_.depositAmount ? float(map_.depositAmount(s.blockX * 2, s.blockY * 2)) : 100) * kOrePerUnit;
+            (_map.depositAmount ? float(_map.depositAmount(s.blockX * 2, s.blockY * 2)) : 100) * kOrePerUnit;
         const float take = std::min(kMineRate * met * float(seconds), held - it->second);
         it->second += take;
-        ore_[size_t(s.deposit - 1)] += take;
+        _ore[size_t(s.deposit - 1)] += take;
         if (it->second >= held) {
             s.exhausted = true;
             out.push_back({"mine-exhausted", {}, s.blockY * 8 + 4, s.blockX * 8 + 4});
@@ -203,21 +203,21 @@ std::vector<ScriptEvent> Economy::advance(double seconds) {
     if (processor) {
         float budget = kRefineRate * met * float(seconds);
         for (int k = 0; k < kOres && budget > 0; ++k) {
-            const float use = std::min(budget, ore_[size_t(k)]);
-            ore_[size_t(k)] -= use;
+            const float use = std::min(budget, _ore[size_t(k)]);
+            _ore[size_t(k)] -= use;
             budget -= use;
-            made_[size_t(k)] += use;
-            const int whole = int(made_[size_t(k)]);
-            stock_[size_t(k)] += whole;
-            made_[size_t(k)] -= float(whole);
+            _made[size_t(k)] += use;
+            const int whole = int(_made[size_t(k)]);
+            _stock[size_t(k)] += whole;
+            _made[size_t(k)] -= float(whole);
         }
     }
     // The crew grows towards the capacity.
-    crewTimer_ += seconds;
-    while (crewTimer_ >= kCrewSeconds) {
-        crewTimer_ -= kCrewSeconds;
-        if (crew_ < capacity_)
-            ++crew_;
+    _crewTimer += seconds;
+    while (_crewTimer >= kCrewSeconds) {
+        _crewTimer -= kCrewSeconds;
+        if (_crew < _capacity)
+            ++_crew;
     }
     return out;
 }

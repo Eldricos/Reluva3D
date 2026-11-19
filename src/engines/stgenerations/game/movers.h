@@ -79,8 +79,14 @@ private:
         int index;
         int mode;
         // The original geometry.
-        int32_t x1, y1, x2, y2;
-        int32_t top, bottom, vStart, vLength;
+        int32_t x1;
+        int32_t y1;
+        int32_t x2;
+        int32_t y2;
+        int32_t top;
+        int32_t bottom;
+        int32_t vStart;
+        int32_t vLength;
         int32_t height;
     };
     struct Leader {
@@ -93,7 +99,8 @@ private:
         uint16_t rate = 0x4000;
         uint16_t wait = 0x100;
         int position = 0;
-        int state = kIdle, lastState = kIdle;
+        int state = kIdle;
+        int lastState = kIdle;
         uint32_t counter = 0;
         uint32_t flags = 0;
     };

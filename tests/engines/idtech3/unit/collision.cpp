@@ -45,7 +45,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
@@ -106,7 +106,8 @@ static void testServerWorld() {
         s.contents = n % 3 ? 1 : 0x2000000;
         s.owner = n % 7 == 0 ? n - 1 : -1;
         shapes[n] = s;
-        Vec3f lo{}, hi{};
+        Vec3f lo{};
+        Vec3f hi{};
         world.link(n, s, lo, hi);
         CHECK(lo[0] == s.origin[0] + s.mins[0] - 1 && hi[2] == s.origin[2] + s.maxs[2] + 1);
     }
@@ -121,19 +122,24 @@ static void testServerWorld() {
                 return false;
         return true;
     };
-    bool boxesAgree = true, movesAgree = true, pointsAgree = true;
+    bool boxesAgree = true;
+    bool movesAgree = true;
+    bool pointsAgree = true;
     for (int k = 0; k < 300; ++k) {
         const Vec3f lo{r(-1100, 1000), r(-1100, 1000), r(-300, 200)};
         const Vec3f hi{lo[0] + r(0, 300), lo[1] + r(0, 300), lo[2] + r(0, 100)};
-        std::vector<int32_t> found, expected;
+        std::vector<int32_t> found;
+        std::vector<int32_t> expected;
         world.entitiesInBox(lo, hi, found);
         for (const int32_t n : world.linked())
             if (touches(n, lo, hi))
                 expected.push_back(n);
         boxesAgree &= found == expected;
         // A move: the nearest entity it meets, as by trying every one.
-        const Vec3f a{r(-1000, 1000), r(-1000, 1000), 0}, b{r(-1000, 1000), r(-1000, 1000), 0};
-        const Vec3f mins{-16, -16, -24}, maxs{16, 16, 32};
+        const Vec3f a{r(-1000, 1000), r(-1000, 1000), 0};
+        const Vec3f b{r(-1000, 1000), r(-1000, 1000), 0};
+        const Vec3f mins{-16, -16, -24};
+        const Vec3f maxs{16, 16, 32};
         const int32_t pass = int32_t(rng() % 200);
         int32_t hit = 0;
         const TraceResult t = world.trace(a, mins, maxs, b, pass, 1, hit);
@@ -143,7 +149,8 @@ static void testServerWorld() {
             const EntityShape &s = shapes[n];
             if (n == pass || s.owner == pass || (shapes.count(pass) && shapes[pass].owner == n) || !(s.contents & 1))
                 continue;
-            Vec3f boxMin = s.mins, boxMax = s.maxs;
+            Vec3f boxMin = s.mins;
+            Vec3f boxMax = s.maxs;
             for (int i = 0; i < 3; ++i) {
                 boxMin[size_t(i)] += s.origin[size_t(i)];
                 boxMax[size_t(i)] += s.origin[size_t(i)];
@@ -196,7 +203,7 @@ static void testPatchCollision() {
     // z = 0, or (bent) its middle row raised to 64, an arch along y.
     for (bool bent : {false, true}) {
         Bsp bsp;
-        bsp.shaders.push_back({"curve", 0, contents::Solid});
+        bsp.shaders.push_back({"curve", 0, contents::kSolid});
         for (int y = 0; y < 3; ++y)
             for (int x = 0; x < 3; ++x) {
                 BspVertex v;
@@ -204,7 +211,7 @@ static void testPatchCollision() {
                 bsp.vertices.push_back(v);
             }
         BspSurface surf;
-        surf.type = SurfaceType::Patch;
+        surf.type = SurfaceType::kPatch;
         surf.numVertices = 9;
         surf.patchWidth = surf.patchHeight = 3;
         bsp.surfaces.push_back(surf);
@@ -212,22 +219,23 @@ static void testPatchCollision() {
         model.numSurfaces = 1;
         bsp.models.push_back(model);
         CollisionWorld world(bsp);
-        const Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
+        const Vec3f mins{-15, -15, -24};
+        const Vec3f maxs{15, 15, 32};
         // Dropped onto its middle: stopped with the box's bottom on it.
-        TraceResult t = world.trace({0, 0, 200}, {0, 0, -200}, mins, maxs, 0, contents::Solid);
+        TraceResult t = world.trace({0, 0, 200}, {0, 0, -200}, mins, maxs, 0, contents::kSolid);
         const float top = bent ? 32.0f : 0.0f; // the arch's height there: half the raised row's
         CHECK(t.fraction < 1 && !t.startSolid && std::fabs(t.endPos[2] - (top + 24.5f)) < 1);
         CHECK(t.normal[2] > 0.9f);
         // From below, too: both sides stop.
-        t = world.trace({0, 0, -200}, {0, 0, 200}, {}, {}, 0, contents::Solid);
+        t = world.trace({0, 0, -200}, {0, 0, 200}, {}, {}, 0, contents::kSolid);
         CHECK(t.fraction < 1 && std::fabs(t.endPos[2] - (top - 0.5f)) < 1);
         // A point passing beside it isn't stopped, nor other contents.
-        CHECK(world.trace({100, 0, 200}, {100, 0, -200}, {}, {}, 0, contents::Solid).fraction == 1);
-        CHECK(world.trace({0, 0, 200}, {0, 0, -200}, {}, {}, 0, contents::Water).fraction == 1);
+        CHECK(world.trace({100, 0, 200}, {100, 0, -200}, {}, {}, 0, contents::kSolid).fraction == 1);
+        CHECK(world.trace({0, 0, 200}, {0, 0, -200}, {}, {}, 0, contents::kWater).fraction == 1);
         if (bent) {
             // Walking into the arch's slope from the side: stopped, the
             // normal leaning back towards the walker.
-            t = world.trace({0, -100, 8}, {0, 100, 8}, {}, {}, 0, contents::Solid);
+            t = world.trace({0, -100, 8}, {0, 100, 8}, {}, {}, 0, contents::kSolid);
             CHECK(t.fraction < 1 && t.normal[1] < -0.3f);
         }
     }
@@ -238,52 +246,54 @@ static void testCollision() {
     const CollisionWorld world(*bsp);
     const Vec3f zero{};
     // A point falling onto the floor stops an eighth above it.
-    TraceResult t = world.trace({0, 0, 100}, {0, 0, -100}, zero, zero, 0, contents::Solid);
+    TraceResult t = world.trace({0, 0, 100}, {0, 0, -100}, zero, zero, 0, contents::kSolid);
     CHECK(!t.startSolid && near(t.endPos[2], 0.125f) && near(t.fraction, 99.875f / 200));
-    CHECK(t.normal[2] == 1 && t.contents == contents::Solid && near(t.dist, 0));
+    CHECK(t.normal[2] == 1 && t.contents == contents::kSolid && near(t.dist, 0));
     // A player's box (feet 24 below its origin) stops with its feet there.
-    t = world.trace({0, 0, 100}, {0, 0, -100}, {-15, -15, -24}, {15, 15, 32}, 0, contents::Solid);
+    t = world.trace({0, 0, 100}, {0, 0, -100}, {-15, -15, -24}, {15, 15, 32}, 0, contents::kSolid);
     CHECK(near(t.endPos[2], 24.125f));
     // Nothing beyond the floor's edge; nothing for a mask without solid.
-    CHECK(world.trace({1000, 0, 100}, {1000, 0, -100}, zero, zero, 0, contents::Solid).fraction == 1);
-    CHECK(world.trace({0, 0, 100}, {0, 0, -100}, zero, zero, 0, contents::Water).fraction == 1);
+    CHECK(world.trace({1000, 0, 100}, {1000, 0, -100}, zero, zero, 0, contents::kSolid).fraction == 1);
+    CHECK(world.trace({0, 0, 100}, {0, 0, -100}, zero, zero, 0, contents::kWater).fraction == 1);
     // Starting inside: startSolid; staying inside: allSolid.
-    t = world.trace({0, 0, -10}, {0, 0, -1000}, zero, zero, 0, contents::Solid);
+    t = world.trace({0, 0, -10}, {0, 0, -1000}, zero, zero, 0, contents::kSolid);
     CHECK(t.startSolid && !t.allSolid);
-    t = world.trace({0, 0, -10}, {0, 0, -20}, zero, zero, 0, contents::Solid);
+    t = world.trace({0, 0, -10}, {0, 0, -20}, zero, zero, 0, contents::kSolid);
     CHECK(t.startSolid && t.allSolid && t.fraction == 0);
     // Sideways into the door (model 1, in its own coordinates).
-    t = world.trace({-100, 0, 64}, {100, 0, 64}, zero, zero, 1, contents::Solid);
+    t = world.trace({-100, 0, 64}, {100, 0, 64}, zero, zero, 1, contents::kSolid);
     CHECK(near(t.endPos[0], -8.125f) && t.normal[0] == -1);
-    CHECK(world.pointContents({0, 0, -32}, 0) == contents::Solid && world.pointContents({0, 0, 32}, 0) == 0);
-    CHECK(world.pointContents({0, 0, 64}, 1) == contents::Solid);
-    Vec3f mins, maxs;
+    CHECK(world.pointContents({0, 0, -32}, 0) == contents::kSolid && world.pointContents({0, 0, 32}, 0) == 0);
+    CHECK(world.pointContents({0, 0, 64}, 1) == contents::kSolid);
+    Vec3f mins;
+    Vec3f maxs;
     CHECK(world.modelBounds(1, mins, maxs) && maxs[2] == 128 && !world.modelBounds(2, mins, maxs));
     // The door standing at x = 200 turned a quarter (yaw 90): it now lies
     // across x (136 to 264) and is thin along y (-8 to 8). A move along y
     // at x = 240 hits it, the plane turned back to the world's; one along
     // x at y = 40 misses, where the unturned door would have stopped it.
-    const Vec3f at{200, 0, 0}, quarter{0, 90, 0};
-    t = world.transformedTrace({240, -100, 64}, {240, 100, 64}, zero, zero, 1, contents::Solid, at, quarter);
+    const Vec3f at{200, 0, 0};
+    const Vec3f quarter{0, 90, 0};
+    t = world.transformedTrace({240, -100, 64}, {240, 100, 64}, zero, zero, 1, contents::kSolid, at, quarter);
     CHECK(t.fraction < 1 && near(t.endPos[1], -8.125f) && near(t.endPos[0], 240) && near(t.normal[1], -1) &&
           near(t.normal[0], 0));
-    t = world.transformedTrace({100, 40, 64}, {300, 40, 64}, zero, zero, 1, contents::Solid, at, quarter);
+    t = world.transformedTrace({100, 40, 64}, {300, 40, 64}, zero, zero, 1, contents::kSolid, at, quarter);
     CHECK(t.fraction == 1 && near(t.endPos[0], 300));
-    t = world.transformedTrace({100, 40, 64}, {300, 40, 64}, zero, zero, 1, contents::Solid, at, zero);
+    t = world.transformedTrace({100, 40, 64}, {300, 40, 64}, zero, zero, 1, contents::kSolid, at, zero);
     CHECK(t.fraction < 1 && near(t.endPos[0], 191.875f)); // unturned, for comparison
     // An uneven box (4 either side, 0 to 8 up) is moved by its middle.
-    t = world.transformedTrace({240, -100, 60}, {240, 100, 60}, {-4, -4, 0}, {4, 4, 8}, 1, contents::Solid, at,
+    t = world.transformedTrace({240, -100, 60}, {240, 100, 60}, {-4, -4, 0}, {4, 4, 8}, 1, contents::kSolid, at,
                                quarter);
     CHECK(near(t.endPos[1], -12.125f));
-    CHECK(world.transformedPointContents({240, 0, 64}, 1, at, quarter) == contents::Solid);
+    CHECK(world.transformedPointContents({240, 0, 64}, 1, at, quarter) == contents::kSolid);
     CHECK(world.transformedPointContents({200, 40, 64}, 1, at, quarter) == 0);
-    CHECK(world.transformedPointContents({200, 40, 64}, 1, at, zero) == contents::Solid);
+    CHECK(world.transformedPointContents({200, 40, 64}, 1, at, zero) == contents::kSolid);
     // Quake III's axes: yaw 90 turns forward to +y, left to -x.
     const auto axes = CollisionWorld::turnAxes(quarter);
     CHECK(near(axes[0][1], 1) && near(axes[1][0], -1) && near(axes[2][2], 1));
     // A box entity.
-    t = CollisionWorld::traceBox({0, 0, 100}, {0, 0, -100}, zero, zero, {-16, -16, 0}, {16, 16, 32}, contents::Body);
-    CHECK(near(t.endPos[2], 32.125f) && t.contents == contents::Body);
+    t = CollisionWorld::traceBox({0, 0, 100}, {0, 0, -100}, zero, zero, {-16, -16, 0}, {16, 16, 32}, contents::kBody);
+    CHECK(near(t.endPos[2], 32.125f) && t.contents == contents::kBody);
 }
 
 void testMarks() {
@@ -299,7 +309,7 @@ void testMarks() {
     }
     bsp.indices = {0, 1, 2, 0, 2, 3};
     BspSurface floor;
-    floor.type = SurfaceType::Planar;
+    floor.type = SurfaceType::kPlanar;
     floor.numVertices = 4;
     floor.numIndices = 6;
     bsp.surfaces.push_back(floor);
@@ -340,7 +350,7 @@ void testMarks() {
     marks.mark(square, {0, 0, -20}, 4, 128, points, fragments);
     CHECK(points.size() <= 4);
     // A surface that takes no marks.
-    bsp.shaders[0].surfaceFlags = surfaceflags::NoMarks;
+    bsp.shaders[0].surfaceFlags = surfaceflags::kNoMarks;
     MarkSurfaces none(bsp);
     CHECK(none.triangleCount() == 0);
 }
@@ -366,11 +376,11 @@ void testAreaPortals() {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.collision",
-          {
-              {"traces", [](const std::filesystem::path &) { testCollision(); }},
-              {"patch collision", [](const std::filesystem::path &) { testPatchCollision(); }},
-              {"server world", [](const std::filesystem::path &) { testServerWorld(); }},
-              {"area portals", [](const std::filesystem::path &) { testAreaPortals(); }},
-              {"marks", [](const std::filesystem::path &) { testMarks(); }},
-          });
+    kSuite("idtech3.unit.collision",
+           {
+               {"traces", [](const std::filesystem::path &) { testCollision(); }},
+               {"patch collision", [](const std::filesystem::path &) { testPatchCollision(); }},
+               {"server world", [](const std::filesystem::path &) { testServerWorld(); }},
+               {"area portals", [](const std::filesystem::path &) { testAreaPortals(); }},
+               {"marks", [](const std::filesystem::path &) { testMarks(); }},
+           });

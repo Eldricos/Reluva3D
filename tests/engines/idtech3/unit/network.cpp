@@ -45,7 +45,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"
@@ -59,6 +59,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -129,12 +130,12 @@ static void testDownloads(const std::filesystem::path &tmp) {
     // Refused while downloads are off.
     {
         ef::NetClient client(network->open(0), {0x7f000001u, 27960}, "\\name\\One", 81);
-        for (int i = 0; i < 40 && client.state() != ef::NetClient::State::Primed; ++i)
+        for (int i = 0; i < 40 && client.state() != ef::NetClient::State::kPrimed; ++i)
             tick(client);
         client.download("BaseEF/zz_custom.pk3");
-        for (int i = 0; i < 20 && client.state() != ef::NetClient::State::Disconnected; ++i)
+        for (int i = 0; i < 20 && client.state() != ef::NetClient::State::kDisconnected; ++i)
             tick(client);
-        CHECK(client.state() == ef::NetClient::State::Disconnected);
+        CHECK(client.state() == ef::NetClient::State::kDisconnected);
         client.disconnect();
         for (int i = 0; i < 4; ++i)
             tick(client);
@@ -143,9 +144,9 @@ static void testDownloads(const std::filesystem::path &tmp) {
     cvars.set("sv_allowDownload", "1");
     // (A port of its own: the first's is still the server's to send to.)
     ef::NetClient client(network->open(30000), {0x7f000001u, 27960}, "\\name\\Two", 82);
-    for (int i = 0; i < 40 && client.state() != ef::NetClient::State::Primed; ++i)
+    for (int i = 0; i < 40 && client.state() != ef::NetClient::State::kPrimed; ++i)
         tick(client);
-    CHECK(client.state() == ef::NetClient::State::Primed && client.takeNewGamestate());
+    CHECK(client.state() == ef::NetClient::State::kPrimed && client.takeNewGamestate());
     client.download("BaseEF/zz_custom.pk3");
     std::string name;
     std::vector<uint8_t> data;
@@ -225,9 +226,9 @@ static void testPureServer(const std::filesystem::path &tmp) {
     const size_t linkedAtStart = game.linked().size();
     auto inLevel = [&] { return game.linked().size() > linkedAtStart; };
     ef::NetClient good(network->open(0), {0x7f000001u, 27960}, "\\name\\Good", 71);
-    for (int i = 0; i < 40 && good.state() != ef::NetClient::State::Primed; ++i)
+    for (int i = 0; i < 40 && good.state() != ef::NetClient::State::kPrimed; ++i)
         tick(good);
-    CHECK(good.state() == ef::NetClient::State::Primed);
+    CHECK(good.state() == ef::NetClient::State::kPrimed);
     good.setLoaded();
     play(good, 20);
     CHECK(!inLevel()); // no answer, not in the level
@@ -238,13 +239,13 @@ static void testPureServer(const std::filesystem::path &tmp) {
     CHECK(inLevel());
 
     ef::NetClient bad(network->open(30001), {0x7f000001u, 27960}, "\\name\\Bad", 72);
-    for (int i = 0; i < 40 && bad.state() != ef::NetClient::State::Primed; ++i)
+    for (int i = 0; i < 40 && bad.state() != ef::NetClient::State::kPrimed; ++i)
         tick(bad);
     bad.addClientCommand("cp 1 2 @ 3 4");
     bad.setLoaded();
-    for (int i = 0; i < 40 && bad.state() != ef::NetClient::State::Disconnected; ++i)
+    for (int i = 0; i < 40 && bad.state() != ef::NetClient::State::kDisconnected; ++i)
         play(bad, 1);
-    CHECK(bad.state() == ef::NetClient::State::Disconnected);
+    CHECK(bad.state() == ef::NetClient::State::kDisconnected);
     CHECK(server.pure());
     std::filesystem::remove_all(tmp);
 }
@@ -362,9 +363,9 @@ static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets
         CHECK(!server.frame(now));
         now += 50;
     };
-    for (int i = 0; i < 40 && client.state() != ef::NetClient::State::Primed; ++i)
+    for (int i = 0; i < 40 && client.state() != ef::NetClient::State::kPrimed; ++i)
         tick();
-    CHECK(client.state() == ef::NetClient::State::Primed && client.takeNewGamestate());
+    CHECK(client.state() == ef::NetClient::State::kPrimed && client.takeNewGamestate());
     CHECK(client.configstrings().count(12) && client.configstrings().at(12) == "borg2");
     CHECK(client.configstrings().at(0).find("\\protocol\\24") != std::string::npos);
     CHECK(server.players().size() == 1 && server.players()[0].second == "Remote");
@@ -382,7 +383,7 @@ static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets
         for (auto &snap : client.takeSnapshots())
             got.push_back(std::move(snap));
     }
-    CHECK(client.state() == ef::NetClient::State::Active && got.size() > 20);
+    CHECK(client.state() == ef::NetClient::State::kActive && got.size() > 20);
     CHECK(game.linked().count(4) && game.entityVec(4, 272)[0] > 100); // moved by its commands
     // What it has is what the server has (the door's state, every byte).
     if (!got.empty()) {
@@ -431,7 +432,7 @@ static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets
         bool restartSent = false;
         for (const std::string &c : client.serverCommands())
             restartSent = restartSent || c == "map_restart";
-        CHECK(restartSent && client.state() == ef::NetClient::State::Active && !got.empty() &&
+        CHECK(restartSent && client.state() == ef::NetClient::State::kActive && !got.empty() &&
               (got.back().snapFlags & 4) != flagBefore);
         // Its moves still count: it has the level's new id.
         CHECK(client.configstrings().count(1) &&
@@ -457,7 +458,7 @@ static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets
         client.setLoaded();
         got.clear();
         play(10);
-        CHECK(!got.empty() && game.linked().count(4) && client.state() == ef::NetClient::State::Active);
+        CHECK(!got.empty() && game.linked().count(4) && client.state() == ef::NetClient::State::kActive);
         // A public server (dedicated 2) tells the masters it's there.
         auto master = network->open(27953);
         cvars.set("sv_master1", "127.0.0.1");
@@ -488,17 +489,17 @@ static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets
     // Another joins, and the server shuts down: it's told so.
     if (!systemSockets) {
         ef::NetClient second(network->open(0), {0x7f000001u, serverPort}, "\\name\\Second", 78);
-        for (int i = 0; i < 20 && second.state() != ef::NetClient::State::Primed; ++i) {
+        for (int i = 0; i < 20 && second.state() != ef::NetClient::State::kPrimed; ++i) {
             second.frame(now);
             CHECK(!server.receive(now));
             CHECK(!game.runFrame());
             CHECK(!server.frame(now));
             now += 50;
         }
-        CHECK(second.state() == ef::NetClient::State::Primed);
+        CHECK(second.state() == ef::NetClient::State::kPrimed);
         serverOwned.reset();
         second.frame(now);
-        CHECK(second.state() == ef::NetClient::State::Disconnected && second.message() == "Server shut down");
+        CHECK(second.state() == ef::NetClient::State::kDisconnected && second.message() == "Server shut down");
     }
     std::filesystem::remove_all(tmp);
 }
@@ -538,7 +539,8 @@ static void testNetMessages() {
     CHECK(scrambled != d && std::equal(d.begin(), d.begin() + 6, scrambled.begin()));
     reluva::idtech3::wire::Netchan::unscramble(scrambled);
     CHECK(scrambled == d);
-    reluva::idtech3::wire::Netchan client(true, 1234), server(false, 0);
+    reluva::idtech3::wire::Netchan client(true, 1234);
+    reluva::idtech3::wire::Netchan server(false, 0);
     std::vector<uint8_t> big(2700);
     for (size_t i = 0; i < big.size(); ++i)
         big[i] = uint8_t(i * 31);
@@ -566,7 +568,8 @@ static void testNetDeltas() {
         std::memcpy(&i, &v, 4);
         put(s, at, i);
     };
-    std::vector<uint8_t> a(kNetEntityStateSize, 0), b;
+    std::vector<uint8_t> a(kNetEntityStateSize, 0);
+    std::vector<uint8_t> b;
     put(a, 0, 17);
     put(a, 4, 1);
     putF(a, 24, 100.25f);
@@ -590,7 +593,8 @@ static void testNetDeltas() {
     CHECK(r.bits(10) == 17 && !readEntityDelta(r, 17, zero, out) && out == a);
     CHECK(r.bits(10) == 17 && readEntityDelta(r, 17, a, out) && out.empty());
 
-    std::vector<uint8_t> p(kNetPlayerStateSize, 0), q;
+    std::vector<uint8_t> p(kNetPlayerStateSize, 0);
+    std::vector<uint8_t> q;
     put(p, 0, 123456);
     putF(p, 20, 12.5f);
     put(p, 16, -5);         // pm_time, signed
@@ -608,7 +612,8 @@ static void testNetDeltas() {
     put(p, 48, 0);
     CHECK(q == p && !pr.overflowed());
 
-    GameHost::UserCommand c0, c1;
+    GameHost::UserCommand c0;
+    GameHost::UserCommand c1;
     c1.serverTime = 5000;
     c1.angles = {-1000, 16384, 0};
     c1.forward = 127;
@@ -622,7 +627,8 @@ static void testNetDeltas() {
     writeUserCommand(cw, c0, c1);
     writeUserCommand(cw, c1, c2);
     MessageReader cr(cw.bytes());
-    const GameHost::UserCommand r1 = readUserCommand(cr, c0), r2 = readUserCommand(cr, r1);
+    const GameHost::UserCommand r1 = readUserCommand(cr, c0);
+    const GameHost::UserCommand r2 = readUserCommand(cr, r1);
     CHECK(r1.serverTime == 5000 && r1.angles[0] == (-1000 & 0xffff) && r1.angles[1] == 16384 && r1.forward == 127 &&
           r1.right == -127 && r1.buttons == 33 && r1.weapon == 4);
     CHECK(r2.serverTime == 5016 && r2.forward == -127 && r2.right == -127);
@@ -668,7 +674,8 @@ static void testPureCheck(const std::filesystem::path &tmp) {
     CHECK(w.size() == 7 && w[0] == "cp" && w[3] == "@");
     if (w.size() == 7) {
         CHECK(std::atoi(w[1].c_str()) == pakChecksum(*code, feed) && w[1] == w[2]);
-        const int32_t a = std::atoi(w[4].c_str()), b = std::atoi(w[5].c_str());
+        const int32_t a = std::atoi(w[4].c_str());
+        const int32_t b = std::atoi(w[5].c_str());
         CHECK(std::atoi(w[6].c_str()) == (feed ^ a ^ b ^ 2));
     }
     // Only the paks the server says it has.
@@ -769,18 +776,18 @@ static void testServerBrowser() {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.network",
-          {
-              {"messages", [](const std::filesystem::path &) { testNetMessages(); }},
-              {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
-              {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
-              {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
-              {"downloads", [](const std::filesystem::path &tmp) { testDownloads(tmp / "downloads"); }},
-              {"pure server", [](const std::filesystem::path &tmp) { testPureServer(tmp / "pure"); }},
-              {"snapshot culling", [](const std::filesystem::path &tmp) { testSnapshotCulling(tmp / "culling"); }},
-              {"network play", [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay", false); }},
-              {"network play over sockets",
-               [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-udp", true); }},
-              {"network play at a rate",
-               [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-rate", false, true); }},
-          });
+    kSuite("idtech3.unit.network",
+           {
+               {"messages", [](const std::filesystem::path &) { testNetMessages(); }},
+               {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
+               {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
+               {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
+               {"downloads", [](const std::filesystem::path &tmp) { testDownloads(tmp / "downloads"); }},
+               {"pure server", [](const std::filesystem::path &tmp) { testPureServer(tmp / "pure"); }},
+               {"snapshot culling", [](const std::filesystem::path &tmp) { testSnapshotCulling(tmp / "culling"); }},
+               {"network play", [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay", false); }},
+               {"network play over sockets",
+                [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-udp", true); }},
+               {"network play at a rate",
+                [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-rate", false, true); }},
+           });

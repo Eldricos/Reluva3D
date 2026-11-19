@@ -21,10 +21,19 @@ namespace reluva::idtech3::botlib {
 
 // The bot library's error codes (0: none), as the game reads them.
 namespace blerr {
-constexpr int None = 0, LibraryNotSetup = 1, InvalidEntityNumber = 2, NoAasFile = 3, CannotOpenAasFile = 4,
-              WrongAasFileId = 5, WrongAasFileVersion = 6, CannotReadAasLump = 7, CannotLoadInitialChat = 8,
-              CannotLoadItemWeights = 9, CannotLoadItemConfig = 10, CannotLoadWeaponWeights = 11,
-              CannotLoadWeaponConfig = 12;
+constexpr int kNone = 0;
+constexpr int kLibraryNotSetup = 1;
+constexpr int kInvalidEntityNumber = 2;
+constexpr int kNoAasFile = 3;
+constexpr int kCannotOpenAasFile = 4;
+constexpr int kWrongAasFileId = 5;
+constexpr int kWrongAasFileVersion = 6;
+constexpr int kCannotReadAasLump = 7;
+constexpr int kCannotLoadInitialChat = 8;
+constexpr int kCannotLoadItemWeights = 9;
+constexpr int kCannotLoadItemConfig = 10;
+constexpr int kCannotLoadWeaponWeights = 11;
+constexpr int kCannotLoadWeaponConfig = 12;
 } // namespace blerr
 
 // What a bot does this frame (the elementary actions), which the game
@@ -32,9 +41,23 @@ constexpr int None = 0, LibraryNotSetup = 1, InvalidEntityNumber = 2, NoAasFile 
 // older ones (read from the game's conversion; docs/engines/idtech3/games/stvef/systems/syscalls.md):
 // jumping and moving up share a bit, as do crouching and moving down.
 namespace action {
-constexpr int Attack = 0x1, Use = 0x2, Respawn = 0x4, Jump = 0x8, MoveUp = 0x8, Crouch = 0x10, MoveDown = 0x10,
-              MoveForward = 0x20, MoveBack = 0x40, MoveLeft = 0x80, MoveRight = 0x100, DelayedJump = 0x200,
-              Talk = 0x400, Gesture = 0x800, Walk = 0x1000, AltAttack = 0x2000, JumpedLastFrame = 0x10000000;
+constexpr int kAttack = 0x1;
+constexpr int kUse = 0x2;
+constexpr int kRespawn = 0x4;
+constexpr int kJump = 0x8;
+constexpr int kMoveUp = 0x8;
+constexpr int kCrouch = 0x10;
+constexpr int kMoveDown = 0x10;
+constexpr int kMoveForward = 0x20;
+constexpr int kMoveBack = 0x40;
+constexpr int kMoveLeft = 0x80;
+constexpr int kMoveRight = 0x100;
+constexpr int kDelayedJump = 0x200;
+constexpr int kTalk = 0x400;
+constexpr int kGesture = 0x800;
+constexpr int kWalk = 0x1000;
+constexpr int kAltAttack = 0x2000;
+constexpr int kJumpedLastFrame = 0x10000000;
 } // namespace action
 
 struct BotInput {
@@ -50,11 +73,17 @@ struct BotInput {
 struct BotGoal {
     Vec3f origin{};
     int area = 0;
-    Vec3f mins{}, maxs{};
-    int entity = 0, number = 0, flags = 0, itemInfo = 0;
+    Vec3f mins{};
+    Vec3f maxs{};
+    int entity = 0;
+    int number = 0;
+    int flags = 0;
+    int itemInfo = 0;
 };
 namespace goalflag {
-constexpr int Item = 1, Roam = 2, Dropped = 4;
+constexpr int kItem = 1;
+constexpr int kRoam = 2;
+constexpr int kDropped = 4;
 } // namespace goalflag
 
 // How moving went this frame, for the game.
@@ -63,25 +92,46 @@ struct BotMoveResult {
     int type = 0;
     bool blocked = false;
     int blockEntity = 0;
-    int travelType = 0, flags = 0, weapon = 0;
-    Vec3f moveDir{}, idealViewAngles{};
+    int travelType = 0;
+    int flags = 0;
+    int weapon = 0;
+    Vec3f moveDir{};
+    Vec3f idealViewAngles{};
 };
 namespace moveflag {
-constexpr int BarrierJump = 1, OnGround = 2, Swimming = 4, AgainstLadder = 8, WaterJump = 16, Teleported = 32,
-              Walk = 512;
+constexpr int kBarrierJump = 1;
+constexpr int kOnGround = 2;
+constexpr int kSwimming = 4;
+constexpr int kAgainstLadder = 8;
+constexpr int kWaterJump = 16;
+constexpr int kTeleported = 32;
+constexpr int kWalk = 512;
 } // namespace moveflag
 namespace moveresult {
-constexpr int MovementView = 1, SwimView = 2, Waiting = 4, MovementViewSet = 8, MovementWeapon = 16,
-              OnTopOfObstacle = 32, OnTopOfFuncBob = 64, OnTopOfElevator = 128;
-constexpr int TypeInSolidArea = 7, TypeElevatorUp = 2; // result types
+constexpr int kMovementView = 1;
+constexpr int kSwimView = 2;
+constexpr int kWaiting = 4;
+constexpr int kMovementViewSet = 8;
+constexpr int kMovementWeapon = 16;
+constexpr int kOnTopOfObstacle = 32;
+constexpr int kOnTopOfFuncBob = 64;
+constexpr int kOnTopOfElevator = 128;
+// result types
+constexpr int kTypeInSolidArea = 7;
+constexpr int kTypeElevatorUp = 2;
 } // namespace moveresult
 namespace movetype {
-constexpr int Walk = 1, Crouch = 2, Jump = 4;
+constexpr int kWalk = 1;
+constexpr int kCrouch = 2;
+constexpr int kJump = 4;
 } // namespace movetype
 // The state the game sets each frame before moving (bot_initmove_t).
 struct BotInitMove {
-    Vec3f origin{}, velocity{}, viewOffset{};
-    int entity = 0, client = 0;
+    Vec3f origin{};
+    Vec3f velocity{};
+    Vec3f viewOffset{};
+    int entity = 0;
+    int client = 0;
     float thinkTime = 0;
     int presence = 0;
     Vec3f viewAngles{};
@@ -90,9 +140,20 @@ struct BotInitMove {
 
 // Why a movement prediction stopped (what the game asked to stop at).
 namespace stopevent {
-constexpr int None = 0, HitGround = 1, LeaveGround = 2, EnterWater = 4, EnterSlime = 8, EnterLava = 16,
-              HitGroundDamage = 32, Gap = 64, TouchJumpPad = 128, TouchTeleporter = 256, EnterArea = 512,
-              HitGroundArea = 1024, HitBoundingBox = 2048, TouchClusterPortal = 4096;
+constexpr int kNone = 0;
+constexpr int kHitGround = 1;
+constexpr int kLeaveGround = 2;
+constexpr int kEnterWater = 4;
+constexpr int kEnterSlime = 8;
+constexpr int kEnterLava = 16;
+constexpr int kHitGroundDamage = 32;
+constexpr int kGap = 64;
+constexpr int kTouchJumpPad = 128;
+constexpr int kTouchTeleporter = 256;
+constexpr int kEnterArea = 512;
+constexpr int kHitGroundArea = 1024;
+constexpr int kHitBoundingBox = 2048;
+constexpr int kTouchClusterPortal = 4096;
 } // namespace stopevent
 
 // Where a player moving as given ends up (aas_clientmove_t).
@@ -105,33 +166,70 @@ struct BotClientMove {
     float traceFraction = 1;
     Vec3f traceEnd{};
     int traceEntity = 0;
-    int presence = 0, stopEvent = 0, endContents = 0;
+    int presence = 0;
+    int stopEvent = 0;
+    int endContents = 0;
     float time = 0;
     int frames = 0;
 };
 
 // Contents the bot library traces against (Quake III's numbers).
 namespace contents {
-constexpr int Solid = 1, Lava = 8, Slime = 16, Water = 32, PlayerClip = 0x10000, Body = 0x2000000;
+constexpr int kSolid = 1;
+constexpr int kLava = 8;
+constexpr int kSlime = 16;
+constexpr int kWater = 32;
+constexpr int kPlayerClip = 0x10000;
+constexpr int kBody = 0x2000000;
 } // namespace contents
 
 // An entity as the game describes it to the bot library each frame.
 struct BotEntityState {
-    int type = 0, flags = 0;
-    Vec3f origin{}, angles{}, oldOrigin{}, mins{}, maxs{};
-    int groundEnt = 0, solid = 0, modelIndex = 0, modelIndex2 = 0, frame = 0, event = 0, eventParm = 0, powerups = 0,
-        weapon = 0, legsAnim = 0, torsoAnim = 0;
+    int type = 0;
+    int flags = 0;
+    Vec3f origin{};
+    Vec3f angles{};
+    Vec3f oldOrigin{};
+    Vec3f mins{};
+    Vec3f maxs{};
+    int groundEnt = 0;
+    int solid = 0;
+    int modelIndex = 0;
+    int modelIndex2 = 0;
+    int frame = 0;
+    int event = 0;
+    int eventParm = 0;
+    int powerups = 0;
+    int weapon = 0;
+    int legsAnim = 0;
+    int torsoAnim = 0;
 };
 
 // And as the bot library tells the game about it.
 struct BotEntityInfo {
     bool valid = false;
-    int type = 0, flags = 0;
-    float lastTime = 0, updateTime = 0;
+    int type = 0;
+    int flags = 0;
+    float lastTime = 0;
+    float updateTime = 0;
     int number = 0;
-    Vec3f origin{}, angles{}, oldOrigin{}, lastVisOrigin{}, mins{}, maxs{};
-    int groundEnt = 0, solid = 0, modelIndex = 0, modelIndex2 = 0, frame = 0, event = 0, eventParm = 0, powerups = 0,
-        weapon = 0, legsAnim = 0, torsoAnim = 0;
+    Vec3f origin{};
+    Vec3f angles{};
+    Vec3f oldOrigin{};
+    Vec3f lastVisOrigin{};
+    Vec3f mins{};
+    Vec3f maxs{};
+    int groundEnt = 0;
+    int solid = 0;
+    int modelIndex = 0;
+    int modelIndex2 = 0;
+    int frame = 0;
+    int event = 0;
+    int eventParm = 0;
+    int powerups = 0;
+    int weapon = 0;
+    int legsAnim = 0;
+    int torsoAnim = 0;
 };
 
 // The engine side of Quake III's bot library, as Elite Force's game code
@@ -141,7 +239,9 @@ struct BotEntityInfo {
 // be_ai_char.c); new code.
 class BotLibrary {
 public:
-    static constexpr int kMaxClients = 64, kMaxEntities = 1024, kMaxUserMove = 400;
+    static constexpr int kMaxClients = 64;
+    static constexpr int kMaxEntities = 1024;
+    static constexpr int kMaxUserMove = 400;
 
     // Reads a file of the game's (pk3s and folders), for the scripts and maps.
     std::function<bool(const std::string &path, std::vector<uint8_t> &data)> readFile;
@@ -171,27 +271,27 @@ public:
 
     int setup();
     int shutdown();
-    bool isSetup() const { return setup_; }
-    void setLibVar(const std::string &name, const std::string &value) { libVars_[name] = value; }
+    bool isSetup() const { return _setup; }
+    void setLibVar(const std::string &name, const std::string &value) { _libVars[name] = value; }
     std::string libVar(const std::string &name) const;
-    void addGlobalDefine(const std::string &text) { defines_.push_back(text); }
+    void addGlobalDefine(const std::string &text) { _defines.push_back(text); }
     // Loads maps/<name>.aas.
     int loadMap(const std::string &mapName);
     int startFrame(float time);
     int updateEntity(int number, const BotEntityState *state);
-    float time() const { return time_; }
+    float time() const { return _time; }
 
-    AasWorld &aas() { return aas_; }
-    bool aasInitialized() const { return aas_.loaded(); }
+    AasWorld &aas() { return _aas; }
+    bool aasInitialized() const { return _aas.loaded(); }
     const BotEntityInfo &entityInfo(int number) const;
 
     // A loader for the bot scripts: paths under botfiles/.
     BotScript::Loader scriptLoader() const;
-    const std::vector<std::string> &globalDefines() const { return defines_; }
-    BotCharacters &characters() { return characters_; }
+    const std::vector<std::string> &globalDefines() const { return _defines; }
+    BotCharacters &characters() { return _characters; }
 
     // Elementary actions.
-    BotInput &input(int client) { return inputs_[size_t(std::clamp(client, 0, kMaxClients - 1))]; }
+    BotInput &input(int client) { return _inputs[size_t(std::clamp(client, 0, kMaxClients - 1))]; }
     void say(int client, const std::string &text) { command(client, "say " + text); }
     void sayTeam(int client, const std::string &text) { command(client, "say_team " + text); }
     void command(int client, const std::string &text);
@@ -220,7 +320,7 @@ public:
     bool chooseNbgItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags,
                        const BotGoal *ltg, float maxTime);
     static bool touchingGoal(const Vec3f &origin, const BotGoal &goal);
-    bool itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal);
+    bool itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal) const;
     int levelItemGoal(int index, const std::string &name, BotGoal &goal) const;
     float avoidGoalTime(int handle, int number) const;
     void removeFromAvoidGoals(int handle, int number);
@@ -260,7 +360,9 @@ public:
 
 private:
     struct LevelItem {
-        int number = 0, itemInfo = 0, flags = 0;
+        int number = 0;
+        int itemInfo = 0;
+        int flags = 0;
         float weight = 0;
         Vec3f origin{};
         int goalArea = 0;
@@ -269,7 +371,8 @@ private:
         float timeout = 0;
     };
     struct GoalState {
-        int client = 0, lastArea = 0;
+        int client = 0;
+        int lastArea = 0;
         std::shared_ptr<WeightConfig> weights;
         std::vector<int> weightIndex; // per item info
         std::vector<BotGoal> stack;
@@ -280,10 +383,22 @@ private:
         std::vector<int> weightIndex; // per weapon
     };
     struct MoveState {
-        Vec3f origin{}, velocity{}, viewOffset{}, viewAngles{}, lastOrigin{};
-        int entity = 0, client = 0, presence = 0, moveFlags = 0;
+        Vec3f origin{};
+        Vec3f velocity{};
+        Vec3f viewOffset{};
+        Vec3f viewAngles{};
+        Vec3f lastOrigin{};
+        int entity = 0;
+        int client = 0;
+        int presence = 0;
+        int moveFlags = 0;
         float thinkTime = 0;
-        int area = 0, lastArea = 0, lastGoalArea = 0, lastReach = 0, reachArea = 0, jumpReach = 0;
+        int area = 0;
+        int lastArea = 0;
+        int lastGoalArea = 0;
+        int lastReach = 0;
+        int reachArea = 0;
+        int jumpReach = 0;
         float reachTime = 0;
         std::map<int, std::pair<float, int>> avoidReach; // reachability -> until when, tries
     };
@@ -324,25 +439,26 @@ private:
     BotMoveResult travel(MoveState &ms, const AasReach &reach, bool finishing);
     int entityOnTopOf(const MoveState &ms) const;
 
-    bool setup_ = false;
-    std::map<std::string, std::string> libVars_;
-    std::vector<std::string> defines_;
-    AasWorld aas_;
-    float time_ = 0;
-    int frames_ = 0;
-    std::vector<BotEntityInfo> entities_ = std::vector<BotEntityInfo>(size_t(kMaxEntities));
-    std::array<BotInput, kMaxClients> inputs_{};
-    BotCharacters characters_;
-    bool configsLoaded_ = false;
-    std::vector<ItemInfo> items_;
-    std::vector<WeaponInfo> weapons_;
-    std::map<std::string, std::shared_ptr<WeightConfig>> weightFiles_;
-    std::vector<LevelItem> levelItems_;
-    std::vector<Spot> mapLocations_, campSpots_;
-    std::vector<std::unique_ptr<GoalState>> goalStates_;
-    std::vector<std::unique_ptr<WeaponState>> weaponStates_;
-    std::vector<std::unique_ptr<MoveState>> moveStates_;
-    std::map<int, std::string> modelTypes_; // brush model number -> its entity's class
+    bool _setup = false;
+    std::map<std::string, std::string> _libVars;
+    std::vector<std::string> _defines;
+    AasWorld _aas;
+    float _time = 0;
+    int _frames = 0;
+    std::vector<BotEntityInfo> _entities = std::vector<BotEntityInfo>(size_t(kMaxEntities));
+    std::array<BotInput, kMaxClients> _inputs{};
+    BotCharacters _characters;
+    bool _configsLoaded = false;
+    std::vector<ItemInfo> _items;
+    std::vector<WeaponInfo> _weapons;
+    std::map<std::string, std::shared_ptr<WeightConfig>> _weightFiles;
+    std::vector<LevelItem> _levelItems;
+    std::vector<Spot> _mapLocations;
+    std::vector<Spot> _campSpots;
+    std::vector<std::unique_ptr<GoalState>> _goalStates;
+    std::vector<std::unique_ptr<WeaponState>> _weaponStates;
+    std::vector<std::unique_ptr<MoveState>> _moveStates;
+    std::map<int, std::string> _modelTypes; // brush model number -> its entity's class
     // Lifts, as the original's movement sees them: where the mover with
     // brush model `model` is now; whether it's down (its top below the
     // reachability's start); the middle of its top at the start's height;

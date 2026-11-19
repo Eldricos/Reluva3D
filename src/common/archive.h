@@ -45,11 +45,11 @@ public:
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
-    std::string describe() const override { return dir_.string(); }
+    std::string describe() const override { return _dir.string(); }
 
 private:
-    std::filesystem::path dir_;
-    std::unordered_map<std::string, std::filesystem::path> files_; // normalized name -> file
+    std::filesystem::path _dir;
+    std::unordered_map<std::string, std::filesystem::path> _files; // normalized name -> file
 };
 
 // Several archives searched as one, like a game's search path: a name is
@@ -58,7 +58,7 @@ private:
 class SearchSet {
 public:
     void add(std::unique_ptr<Archive> archive, int priority);
-    void clear() { members_.clear(); }
+    void clear() { _members.clear(); }
 
     bool has(std::string_view name) const { return find(name) != nullptr; }
     // The archive a name would be read from, or nullptr.
@@ -68,7 +68,7 @@ public:
     // of the archive that would supply it.
     std::vector<std::string> list() const;
 
-    size_t size() const { return members_.size(); }
+    size_t size() const { return _members.size(); }
     // The archives in search order (highest priority first).
     std::vector<const Archive *> archives() const;
 
@@ -77,7 +77,7 @@ private:
         std::unique_ptr<Archive> archive;
         int priority;
     };
-    std::vector<Member> members_; // kept in search order
+    std::vector<Member> _members; // kept in search order
 };
 
 } // namespace reluva

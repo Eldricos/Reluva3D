@@ -17,7 +17,7 @@
 using namespace reluva;
 using namespace reluva::stgenerations;
 
-static void stg_font_format() {
+static void stgFontFormat() {
     // Built to the layout seen in COMMON.DAT:FONTS/ACTION.FNT: header, then
     // glyphs of code, size (w*h+2), width, height and pixels.
     MemoryWriteStream glyphs;
@@ -73,7 +73,7 @@ static void stg_font_format() {
     CHECK(!font.load(badStream));
 }
 
-static void stg_subtitles() {
+static void stgSubtitles() {
     // Loose files on a CD, beside the installed game.
     stgtest::TempDir dir;
     dir.writeFile("disc1/GENS/SOUNDS/RIKE0107.WAV", "RIFF");
@@ -85,7 +85,7 @@ static void stg_subtitles() {
     CHECK(resources.loadSubtitle({"", "SOUNDS/MISC0001.WAV"}).empty());
 }
 
-static void stg_overlay_format() {
+static void stgOverlayFormat() {
     // Width 4, 4 rows = two frames of 2 rows. Rows are int16 runs: negative
     // skips transparent pixels, positive is followed by pixels padded to even.
     std::vector<std::vector<int>> rows = {
@@ -147,7 +147,7 @@ static void stg_overlay_format() {
     CHECK(!overlay.load(badStream));
 }
 
-static void stg_sprite_format() {
+static void stgSpriteFormat() {
     // Two frames: 2 columns x 3 rows and 1 column x 2 rows, stored
     // column-major, bottom row first, 0xFF transparent, then 3 bytes of
     // per-column tables per column.
@@ -200,7 +200,7 @@ static void stg_sprite_format() {
     CHECK(!sprites.load(truncated));
 }
 
-static void stg_script_container() {
+static void stgScriptContainer() {
     // One object with one state whose enter block does "push 5, push 7, SET_GLOBAL".
     const uint16_t code[] = {1, 9, 0x8000, 2, 0xFFFF, 0x0002, 5, 0x0002, 7, 0x0019, 0, 0x3000, 0x2000, 0x1000};
     const uint8_t sections[6][2] = {{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}};
@@ -243,11 +243,11 @@ static void stg_script_container() {
 }
 
 static const reluva::test::Suite
-    suite("stgenerations.unit.formats",
-          {
-              {"stg font format", [](const std::filesystem::path &) { stg_font_format(); }},
-              {"stg subtitles", [](const std::filesystem::path &) { stg_subtitles(); }},
-              {"stg overlay format", [](const std::filesystem::path &) { stg_overlay_format(); }},
-              {"stg sprite format", [](const std::filesystem::path &) { stg_sprite_format(); }},
-              {"stg script container", [](const std::filesystem::path &) { stg_script_container(); }},
-          });
+    kSuite("stgenerations.unit.formats",
+           {
+               {"stg font format", [](const std::filesystem::path &) { stgFontFormat(); }},
+               {"stg subtitles", [](const std::filesystem::path &) { stgSubtitles(); }},
+               {"stg overlay format", [](const std::filesystem::path &) { stgOverlayFormat(); }},
+               {"stg sprite format", [](const std::filesystem::path &) { stgSpriteFormat(); }},
+               {"stg script container", [](const std::filesystem::path &) { stgScriptContainer(); }},
+           });

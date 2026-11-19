@@ -32,7 +32,8 @@ constexpr uint16_t kCp1252[32] = {0x20ac, 0xfffd, 0x201a, 0x0192, 0x201e, 0x2026
 
 std::string decodeText(const std::vector<uint8_t> &data) {
     size_t start = 0;
-    bool bigEndian = false, utf16 = false;
+    bool bigEndian = false;
+    bool utf16 = false;
     if (data.size() >= 2 && data[0] == 0xff && data[1] == 0xfe) {
         utf16 = true, start = 2;
     } else if (data.size() >= 2 && data[0] == 0xfe && data[1] == 0xff) {
@@ -60,7 +61,9 @@ Table parseTable(std::string_view text) {
     Table t;
     std::vector<std::string> row;
     std::string cell;
-    bool quoted = false, rowHasText = false, first = true;
+    bool quoted = false;
+    bool rowHasText = false;
+    bool first = true;
     auto endCell = [&] {
         rowHasText |= !trim(cell).empty();
         row.push_back(std::string(trim(cell)));
@@ -111,9 +114,9 @@ int Table::column(std::string_view heading) const {
 }
 
 const std::string &Table::cell(size_t row, int col) const {
-    static const std::string none;
+    static const std::string kNone;
     if (row >= rows.size() || col < 0 || size_t(col) >= rows[row].size())
-        return none;
+        return kNone;
     return rows[row][size_t(col)];
 }
 

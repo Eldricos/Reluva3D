@@ -35,7 +35,9 @@ const uint8_t kZigzag8x8[64] = {
 const uint8_t kDirect4x4[16] = {0, 1, 4, 8, 5, 2, 3, 6, 9, 12, 13, 10, 7, 11, 14, 15};
 
 struct Scans {
-    uint8_t vertical[64], horizontal[64]; // down each column in turn; along each row
+    // down each column in turn; along each row
+    uint8_t vertical[64];
+    uint8_t horizontal[64];
     Scans() {
         for (int i = 0; i < 64; ++i) {
             vertical[i] = uint8_t((i % 8) * 8 + i / 8);
@@ -54,8 +56,23 @@ int toSigned(uint32_t v) {
 // `round` halves the results (rounding), as the second pass does.
 void slant8(const int (&s)[8], int (&d)[8], bool round) {
     // The inputs in the order the butterflies take them.
-    const int s1 = s[0], s4 = s[1], s8 = s[2], s5 = s[3], s2 = s[4], s6 = s[5], s3 = s[6], s7 = s[7];
-    int t1, t2, t3, t4, t5, t6, t7, t8, t;
+    const int s1 = s[0];
+    const int s4 = s[1];
+    const int s8 = s[2];
+    const int s5 = s[3];
+    const int s2 = s[4];
+    const int s6 = s[5];
+    const int s3 = s[6];
+    const int s7 = s[7];
+    int t1;
+    int t2;
+    int t3;
+    int t4;
+    int t5;
+    int t6;
+    int t7;
+    int t8;
+    int t;
     // Reflections a, b = 1/2, 7/8 and 1/2, 5/4; butterflies.
     t4 = s5 + ((s4 * 4 - s5 + 4) >> 3);
     t5 = s4 + ((-s4 - s5 * 4 + 4) >> 3);
@@ -87,8 +104,12 @@ void slant8(const int (&s)[8], int (&d)[8], bool round) {
 }
 
 void slant4(const int (&s)[4], int (&d)[4], bool round) {
-    const int s1 = s[0], s4 = s[1], s2 = s[2], s3 = s[3];
-    int t1 = s1 + s2, t2 = s1 - s2;
+    const int s1 = s[0];
+    const int s4 = s[1];
+    const int s2 = s[2];
+    const int s3 = s[3];
+    int t1 = s1 + s2;
+    int t2 = s1 - s2;
     int t4 = ((s4 + s3 * 2 + 2) >> 2) + s4;
     int t3 = ((s4 * 2 - s3 + 2) >> 2) - s3;
     int t = t1 - t4;
@@ -109,7 +130,8 @@ void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const u
     case 0: { // 2D slant 8x8: columns, then rows
         int tmp[64];
         for (int c = 0; c < 8; ++c) {
-            int s[8], d[8] = {};
+            int s[8];
+            int d[8] = {};
             if (cols[c]) {
                 for (int r = 0; r < 8; ++r)
                     s[r] = in[r * 8 + c];
@@ -119,7 +141,8 @@ void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const u
                 tmp[r * 8 + c] = d[r];
         }
         for (int r = 0; r < 8; ++r, out += pitch) {
-            int s[8], d[8] = {};
+            int s[8];
+            int d[8] = {};
             bool any = false;
             for (int c = 0; c < 8; ++c)
                 any |= (s[c] = tmp[r * 8 + c]) != 0;
@@ -132,7 +155,8 @@ void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const u
     }
     case 1: // slant along each row only
         for (int r = 0; r < 8; ++r, out += pitch) {
-            int s[8], d[8] = {};
+            int s[8];
+            int d[8] = {};
             bool any = false;
             for (int c = 0; c < 8; ++c)
                 any |= (s[c] = in[r * 8 + c]) != 0;
@@ -144,7 +168,8 @@ void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const u
         break;
     case 2: // slant down each column only
         for (int c = 0; c < 8; ++c) {
-            int s[8], d[8] = {};
+            int s[8];
+            int d[8] = {};
             if (cols[c]) {
                 for (int r = 0; r < 8; ++r)
                     s[r] = in[r * 8 + c];
@@ -162,7 +187,8 @@ void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const u
     case 4: { // 2D slant 4x4
         int tmp[16];
         for (int c = 0; c < 4; ++c) {
-            int s[4], d[4] = {};
+            int s[4];
+            int d[4] = {};
             if (cols[c]) {
                 for (int r = 0; r < 4; ++r)
                     s[r] = in[r * 4 + c];
@@ -172,7 +198,8 @@ void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const u
                 tmp[r * 4 + c] = d[r];
         }
         for (int r = 0; r < 4; ++r, out += pitch) {
-            int s[4], d[4] = {};
+            int s[4];
+            int d[4] = {};
             bool any = false;
             for (int c = 0; c < 4; ++c)
                 any |= (s[c] = tmp[r * 4 + c]) != 0;
@@ -277,7 +304,8 @@ struct Indeo5Decoder::Bits {
     int symbol(const uint8_t *xbits, int rows) {
         if (rows == 1 && xbits[0] == 0) // a single symbol: coded as one bit
             return bit() ? -1 : 0;
-        int row = 0, first = 0;
+        int row = 0;
+        int first = 0;
         while (row < rows - 1 && bit()) {
             first += 1 << xbits[row];
             ++row;
@@ -293,14 +321,14 @@ struct Indeo5Decoder::Bits {
 Indeo5Decoder::Indeo5Decoder() = default;
 
 void Indeo5Decoder::layOut(int width, int height, int lumaBands, int chromaBands, int tileSize) {
-    const bool same = planes_[0].width == width && planes_[0].height == height && lumaBands_ == lumaBands &&
-                      chromaBands_ == chromaBands && int(planes_[0].bands.size()) == lumaBands;
-    lumaBands_ = lumaBands;
-    chromaBands_ = chromaBands;
-    tileSize_ = tileSize;
+    const bool same = _planes[0].width == width && _planes[0].height == height && _lumaBands == lumaBands &&
+                      _chromaBands == chromaBands && int(_planes[0].bands.size()) == lumaBands;
+    _lumaBands = lumaBands;
+    _chromaBands = chromaBands;
+    _tileSize = tileSize;
     if (!same) {
         for (int p = 0; p < 3; ++p) {
-            Plane &plane = planes_[size_t(p)];
+            Plane &plane = _planes[size_t(p)];
             plane.width = p ? (width + 3) >> 2 : width;
             plane.height = p ? (height + 3) >> 2 : height;
             const int count = p ? chromaBands : lumaBands;
@@ -318,24 +346,26 @@ void Indeo5Decoder::layOut(int width, int height, int lumaBands, int chromaBands
                 band.alignedHeight = (bh + align - 1) / align * align;
             }
         }
-        decoded_ = false;
+        _decoded = false;
     }
 }
 
 Error Indeo5Decoder::decodeGop(Bits &b) {
-    gopFlags_ = int(b.get(8));
-    if (gopFlags_ & 1)
+    _gopFlags = int(b.get(8));
+    if (_gopFlags & 1)
         b.get(16); // the header's size
-    if (gopFlags_ & 0x20)
+    if (_gopFlags & 0x20)
         return Error::fail("Indeo 5: a password-protected picture");
-    const int tileSize = (gopFlags_ & 0x40) ? 64 << b.get(2) : 0;
+    const int tileSize = (_gopFlags & 0x40) ? 64 << b.get(2) : 0;
     if (tileSize > 256)
         return Error::fail("Indeo 5: tiles of " + std::to_string(tileSize));
-    const int lumaBands = int(b.get(2)) * 3 + 1, chromaBands = int(b.get(1)) * 3 + 1;
+    const int lumaBands = int(b.get(2)) * 3 + 1;
+    const int chromaBands = int(b.get(1)) * 3 + 1;
     const bool scalable = lumaBands != 1 || chromaBands != 1;
     if (scalable && (lumaBands != 4 || chromaBands != 1))
         return Error::fail("Indeo 5: unsupported bands");
-    int width, height;
+    int width;
+    int height;
     const uint32_t sizeIndex = b.get(4);
     if (sizeIndex == 15) {
         height = int(b.get(13));
@@ -344,16 +374,16 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
         width = kPictureSizes[sizeIndex * 2] * 4;
         height = kPictureSizes[sizeIndex * 2 + 1] * 4;
     }
-    if (gopFlags_ & 2)
+    if (_gopFlags & 2)
         return Error::fail("Indeo 5: YV12 pictures aren't supported");
     if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
         return Error::fail("Indeo 5: a picture of " + std::to_string(width) + "x" + std::to_string(height));
     layOut(width, height, lumaBands, chromaBands, tileSize);
-    scalable_ = scalable;
+    _scalable = scalable;
 
     for (int p = 0; p < 2; ++p)
         for (int i = 0; i < (p ? chromaBands : lumaBands); ++i) {
-            Band &band = planes_[size_t(p)].bands[size_t(i)];
+            Band &band = _planes[size_t(p)].bands[size_t(i)];
             band.halfPel = b.bit();
             const bool mbSame = b.bit();
             band.blkSize = 8 >> b.bit();
@@ -362,8 +392,8 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
                 return Error::fail("Indeo 5: 4x4 luma blocks aren't supported");
             if (b.bit())
                 return Error::fail("Indeo 5: extended transforms aren't supported");
-            static const Transform kTransforms[5] = {Transform::Slant8x8, Transform::RowSlant8, Transform::ColSlant8,
-                                                     Transform::Put8x8, Transform::Slant4x4};
+            static const Transform kTransforms[5] = {Transform::kSlant8x8, Transform::kRowSlant8, Transform::kColSlant8,
+                                                     Transform::kPut8x8, Transform::kSlant4x4};
             const uint8_t *const kScanOf[5] = {kZigzag8x8, kScans.vertical, kScans.horizontal, kScans.horizontal,
                                                kDirect4x4};
             const int which = (p << 2) + i;
@@ -391,9 +421,9 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
                 return Error::fail("Indeo 5: no end marker in the GOP header");
         }
     // The second chroma plane is coded as the first.
-    for (size_t i = 0; i < planes_[1].bands.size(); ++i) {
-        const Band &from = planes_[1].bands[i];
-        Band &to = planes_[2].bands[i];
+    for (size_t i = 0; i < _planes[1].bands.size(); ++i) {
+        const Band &from = _planes[1].bands[i];
+        Band &to = _planes[2].bands[i];
         to.mbSize = from.mbSize;
         to.blkSize = from.blkSize;
         to.halfPel = from.halfPel;
@@ -408,7 +438,8 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
     // Tiles: a chroma tile is a quarter of a luma one each way; with four
     // luma bands, each band's tiles are half as big again.
     for (int p = 0; p < 3; ++p) {
-        int tw = tileSize ? tileSize : width, th = tileSize ? tileSize : height;
+        int tw = tileSize ? tileSize : width;
+        int th = tileSize ? tileSize : height;
         if (p) {
             tw = (tw + 3) >> 2;
             th = (th + 3) >> 2;
@@ -418,7 +449,7 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
         }
         if (tw <= 0 || th <= 0)
             return Error::fail("Indeo 5: empty tiles");
-        for (Band &band : planes_[size_t(p)].bands) {
+        for (Band &band : _planes[size_t(p)].bands) {
             band.tiles.clear();
             for (int y = 0; y < band.height; y += th)
                 for (int x = 0; x < band.width; x += tw) {
@@ -434,9 +465,9 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
         }
     }
     // Other bands inherit from the first luma band's macroblocks.
-    const std::vector<Tile> &first = planes_[0].bands[0].tiles;
+    const std::vector<Tile> &first = _planes[0].bands[0].tiles;
     for (int p = 0; p < 3; ++p)
-        for (Band &band : planes_[size_t(p)].bands) {
+        for (Band &band : _planes[size_t(p)].bands) {
             if (!p && !band.number)
                 continue;
             if (band.tiles.size() != first.size())
@@ -448,7 +479,7 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
             }
         }
 
-    if (gopFlags_ & 8) {
+    if (_gopFlags & 8) {
         if (b.get(3))
             return Error::fail("Indeo 5: alignment bits aren't zero");
         if (b.bit())
@@ -465,42 +496,42 @@ Error Indeo5Decoder::decodeGop(Bits &b) {
 Error Indeo5Decoder::decodePictureHeader(Bits &b) {
     if (b.get(5) != 0x1f)
         return Error::fail("Indeo 5: no picture start code");
-    prevFrameType_ = frameType_;
-    frameType_ = int(b.get(3));
-    if (frameType_ > kNull) {
-        frameType_ = kIntra;
-        return Error::fail("Indeo 5: frame type " + std::to_string(frameType_));
+    _prevFrameType = _frameType;
+    _frameType = int(b.get(3));
+    if (_frameType > kNull) {
+        _frameType = kIntra;
+        return Error::fail("Indeo 5: frame type " + std::to_string(_frameType));
     }
     b.get(8); // the frame's number
-    if (frameType_ == kIntra) {
+    if (_frameType == kIntra) {
         if (Error err = decodeGop(b)) {
-            gopValid_ = false;
+            _gopValid = false;
             return err;
         }
-        gopValid_ = true;
+        _gopValid = true;
     }
-    if (frameType_ == kInterScalable && !scalable_)
+    if (_frameType == kInterScalable && !_scalable)
         return Error::fail("Indeo 5: a scalable frame in a stream that isn't");
-    if (frameType_ != kNull) {
-        frameFlags_ = int(b.get(8));
-        if (frameFlags_ & 1)
+    if (_frameType != kNull) {
+        _frameFlags = int(b.get(8));
+        if (_frameFlags & 1)
             b.get(24); // the header's size
-        if (frameFlags_ & 0x10)
+        if (_frameFlags & 0x10)
             b.get(16);          // a checksum
-        if (frameFlags_ & 0x20) // an extension: lengths, then that many bytes, to a 0
+        if (_frameFlags & 0x20) // an extension: lengths, then that many bytes, to a 0
             for (uint32_t n; (n = b.get(8)) && !b.overrun;)
                 b.pos += size_t(n) * 8;
         // The macroblock code: the default (7), another fixed one, or its own.
-        mbCodebook_ = 7;
-        if (frameFlags_ & 0x40) {
-            mbCodebook_ = int(b.get(3));
-            if (mbCodebook_ == 7) {
-                mbOwnRows_ = int(b.get(4));
-                if (!mbOwnRows_)
+        _mbCodebook = 7;
+        if (_frameFlags & 0x40) {
+            _mbCodebook = int(b.get(3));
+            if (_mbCodebook == 7) {
+                _mbOwnRows = int(b.get(4));
+                if (!_mbOwnRows)
                     return Error::fail("Indeo 5: an empty Huffman code");
-                for (int i = 0; i < mbOwnRows_; ++i)
-                    mbOwnCodebook_[size_t(i)] = uint8_t(b.get(4));
-                mbCodebook_ = 8;
+                for (int i = 0; i < _mbOwnRows; ++i)
+                    _mbOwnCodebook[size_t(i)] = uint8_t(b.get(4));
+                _mbCodebook = 8;
             }
         }
         b.get(3); // meaning unknown
@@ -510,32 +541,32 @@ Error Indeo5Decoder::decodePictureHeader(Bits &b) {
 }
 
 void Indeo5Decoder::switchBuffers() {
-    switch (prevFrameType_) {
+    switch (_prevFrameType) {
     case kIntra:
     case kInter:
-        bufSwitch_ ^= 1;
-        dstBuf_ = bufSwitch_;
-        refBuf_ = bufSwitch_ ^ 1;
+        _bufSwitch ^= 1;
+        _dstBuf = _bufSwitch;
+        _refBuf = _bufSwitch ^ 1;
         break;
     case kInterScalable:
-        if (!interScalable_) {
-            ref2Buf_ = 2;
-            interScalable_ = true;
+        if (!_interScalable) {
+            _ref2Buf = 2;
+            _interScalable = true;
         }
-        std::swap(dstBuf_, ref2Buf_);
-        refBuf_ = ref2Buf_;
+        std::swap(_dstBuf, _ref2Buf);
+        _refBuf = _ref2Buf;
         break;
     default:
         break;
     }
-    switch (frameType_) {
+    switch (_frameType) {
     case kIntra:
-        bufSwitch_ = 0;
+        _bufSwitch = 0;
         [[fallthrough]];
     case kInter:
-        interScalable_ = false;
-        dstBuf_ = bufSwitch_;
-        refBuf_ = bufSwitch_ ^ 1;
+        _interScalable = false;
+        _dstBuf = _bufSwitch;
+        _refBuf = _bufSwitch ^ 1;
         break;
     default:
         break;
@@ -548,33 +579,33 @@ Error Indeo5Decoder::decode(const uint8_t *data, size_t size) {
     Bits b{data, size};
     if (Error err = decodePictureHeader(b))
         return err;
-    if (!gopValid_)
+    if (!_gopValid)
         return Error::fail("Indeo 5: no key frame yet");
     switchBuffers();
-    if (frameType_ == kNull)
+    if (_frameType == kNull)
         return Error::success();
-    for (Plane &plane : planes_)
+    for (Plane &plane : _planes)
         for (Band &band : plane.bands) {
             auto buffer = [&](int i) -> int16_t * {
-                if (lumaBands_ <= 1 && i == 2)
+                if (_lumaBands <= 1 && i == 2)
                     return nullptr;
                 std::vector<int16_t> &buf = band.bufs[size_t(i)];
                 if (buf.empty())
                     buf.assign(size_t(band.pitch) * size_t(band.alignedHeight), 0);
                 return buf.data();
             };
-            band.buf = buffer(dstBuf_);
-            band.ref = buffer(refBuf_);
+            band.buf = buffer(_dstBuf);
+            band.ref = buffer(_refBuf);
             if (!band.buf || !band.ref)
                 return Error::fail("Indeo 5: no buffer for a band");
             if (Error err = decodeBand(b, band)) {
-                decoded_ = false;
+                _decoded = false;
                 return err;
             }
         }
     if (b.overrun)
         return Error::fail("Indeo 5: a frame cut short");
-    decoded_ = true;
+    _decoded = true;
     return Error::success();
 }
 
@@ -582,7 +613,7 @@ Error Indeo5Decoder::decodeBand(Bits &b, Band &band) {
     const int flags = int(b.get(8));
     if (flags & 1)
         return Error::fail("Indeo 5: an empty band");
-    if (frameFlags_ & 0x80)
+    if (_frameFlags & 0x80)
         b.get(24); // the band's size
     band.inheritMv = flags & 2;
     band.inheritQDelta = flags & 8;
@@ -654,12 +685,13 @@ Error Indeo5Decoder::decodeMacroblocks(Bits &b, Band &band, Tile &tile) {
     const std::vector<Macroblock> *ref = tile.ref;
     if (!ref && ((band.qDeltaPresent && band.inheritQDelta) || band.inheritMv))
         return Error::fail("Indeo 5: nothing to inherit from");
-    const uint8_t *xbits = mbCodebook_ == 8 ? mbOwnCodebook_.data() : kMacroblockCodebooks[mbCodebook_].xbits;
-    const int rows = mbCodebook_ == 8 ? mbOwnRows_ : kMacroblockCodebooks[mbCodebook_].rows;
+    const uint8_t *xbits = _mbCodebook == 8 ? _mbOwnCodebook.data() : kMacroblockCodebooks[_mbCodebook].xbits;
+    const int rows = _mbCodebook == 8 ? _mbOwnRows : kMacroblockCodebooks[_mbCodebook].rows;
     auto value = [&]() { return toSigned(uint32_t(std::max(0, b.symbol(xbits, rows)))); };
-    const int mvScale = (planes_[0].bands[0].mbSize >> 3) - (band.mbSize >> 3);
+    const int mvScale = (_planes[0].bands[0].mbSize >> 3) - (band.mbSize >> 3);
     const bool firstBand = !band.plane && !band.number;
-    int mvX = 0, mvY = 0;
+    int mvX = 0;
+    int mvY = 0;
     size_t i = 0;
     for (int y = tile.y; y < tile.y + tile.height; y += band.mbSize)
         for (int x = tile.x; x < tile.x + tile.width; x += band.mbSize, ++i) {
@@ -673,12 +705,12 @@ Error Indeo5Decoder::decodeMacroblocks(Bits &b, Band &band, Tile &tile) {
                 mb.mvY = int8_t(mvScale ? scaleMv(from->mvY, mvScale) : from->mvY);
             };
             if (b.bit()) { // empty: inter, no blocks coded
-                if (frameType_ == kIntra)
+                if (_frameType == kIntra)
                     return Error::fail("Indeo 5: an empty macroblock in a key frame");
                 mb.type = 1;
                 mb.cbp = 0;
                 mb.qDelta = 0;
-                if (firstBand && (frameFlags_ & 8))
+                if (firstBand && (_frameFlags & 8))
                     mb.qDelta = int8_t(value());
                 mb.mvX = mb.mvY = 0;
                 if (band.inheritMv && from)
@@ -686,7 +718,7 @@ Error Indeo5Decoder::decodeMacroblocks(Bits &b, Band &band, Tile &tile) {
             } else {
                 if (band.inheritMv && from)
                     mb.type = from->type;
-                else if (frameType_ == kIntra)
+                else if (_frameType == kIntra)
                     mb.type = 0;
                 else
                     mb.type = uint8_t(b.bit());
@@ -696,7 +728,7 @@ Error Indeo5Decoder::decodeMacroblocks(Bits &b, Band &band, Tile &tile) {
                     if (band.inheritQDelta) {
                         if (from)
                             mb.qDelta = from->qDelta;
-                    } else if (mb.cbp || (firstBand && (frameFlags_ & 8))) {
+                    } else if (mb.cbp || (firstBand && (_frameFlags & 8))) {
                         mb.qDelta = int8_t(value());
                     }
                 }
@@ -714,7 +746,8 @@ Error Indeo5Decoder::decodeMacroblocks(Bits &b, Band &band, Tile &tile) {
             if (mb.type) {
                 // The block it copies must be within the reference.
                 const int s = band.halfPel;
-                const int dx = mb.mvX >> s, dy = mb.mvY >> s;
+                const int dx = mb.mvX >> s;
+                const int dy = mb.mvY >> s;
                 if (x + dx < 0 || y + dy < 0 || x + dx + band.mbSize + (mb.mvX & s) > band.pitch ||
                     y + dy + band.mbSize + (mb.mvY & s) > band.alignedHeight)
                     return Error::fail("Indeo 5: a motion vector outside the picture");
@@ -738,8 +771,9 @@ Error Indeo5Decoder::decodeBlocks(Bits &b, Band &band, Tile &tile) {
     const uint8_t *xbits = band.codebook == 8 ? band.ownCodebook.data() : kBlockCodebooks[band.codebook].xbits;
     const int rows = band.codebook == 8 ? band.ownRows : kBlockCodebooks[band.codebook].rows;
     const int kind = int(band.transform);
-    const bool twoD = band.transform == Transform::Slant8x8 || band.transform == Transform::Slant4x4;
-    const int size = band.blkSize, coeffs = size * size;
+    const bool twoD = band.transform == Transform::kSlant8x8 || band.transform == Transform::kSlant4x4;
+    const int size = band.blkSize;
+    const int coeffs = size * size;
     const int blocks = band.mbSize != size ? 4 : 1;
     const ptrdiff_t pitch = band.pitch;
     const int bufSize = band.pitch * band.alignedHeight;
@@ -750,7 +784,9 @@ Error Indeo5Decoder::decodeBlocks(Bits &b, Band &band, Tile &tile) {
         int quant = std::clamp(band.globalQuant + mb.qDelta, 0, 23);
         quant = (intra ? band.intraScale : band.interScale)[quant];
         const uint16_t *base = intra ? band.intraBase : band.interBase;
-        int mvX = mb.mvX, mvY = mb.mvY, mcType = 0;
+        int mvX = mb.mvX;
+        int mvY = mb.mvY;
+        int mcType = 0;
         if (!intra && band.halfPel) {
             mcType = ((mvY & 1) << 1) | (mvX & 1);
             mvX >>= 1;
@@ -781,19 +817,22 @@ Error Indeo5Decoder::decodeBlocks(Bits &b, Band &band, Tile &tile) {
             }
             int32_t coef[64] = {};
             uint8_t cols[8] = {};
-            int scanPos = -1, sym = 0;
+            int scanPos = -1;
+            int sym = 0;
             while (scanPos <= coeffs) {
                 sym = b.symbol(xbits, rows);
                 if (sym < 0 || b.overrun)
                     return Error::fail("Indeo 5: a bad block symbol");
                 if (sym == map.endOfBlock)
                     break;
-                int run, val;
+                int run;
+                int val;
                 if (sym == map.escape) {
                     // Run and value given in full: the run, then the
                     // value's low six bits and its high bits.
                     run = b.symbol(xbits, rows) + 1;
-                    const int lo = b.symbol(xbits, rows), hi = b.symbol(xbits, rows);
+                    const int lo = b.symbol(xbits, rows);
+                    const int hi = b.symbol(xbits, rows);
                     if (run < 1 || lo < 0 || hi < 0)
                         return Error::fail("Indeo 5: a bad escape");
                     val = toSigned(uint32_t(hi << 6 | lo));
@@ -831,7 +870,7 @@ Error Indeo5Decoder::decodeBlocks(Bits &b, Band &band, Tile &tile) {
 Error Indeo5Decoder::emptyTile(Band &band, Tile &tile) {
     const std::vector<Macroblock> *ref = tile.ref;
     const bool clearFirst = !band.qDeltaPresent && !band.plane && !band.number;
-    const int mvScale = (planes_[0].bands[0].mbSize >> 3) - (band.mbSize >> 3);
+    const int mvScale = (_planes[0].bands[0].mbSize >> 3) - (band.mbSize >> 3);
     bool moved = false;
     size_t i = 0;
     for (int y = tile.y; y < tile.y + tile.height; y += band.mbSize)
@@ -855,7 +894,8 @@ Error Indeo5Decoder::emptyTile(Band &band, Tile &tile) {
                     mb.mvY = int8_t(mvScale ? scaleMv(from.mvY, mvScale) : from.mvY);
                     moved |= mb.mvX || mb.mvY;
                     const int s = band.halfPel;
-                    const int dx = mb.mvX >> s, dy = mb.mvY >> s;
+                    const int dx = mb.mvX >> s;
+                    const int dy = mb.mvY >> s;
                     if (x + dx < 0 || y + dy < 0 || x + dx + band.mbSize + (mb.mvX & s) > band.pitch ||
                         y + dy + band.mbSize + (mb.mvY & s) > band.alignedHeight)
                         return Error::fail("Indeo 5: a motion vector outside the picture");
@@ -864,9 +904,12 @@ Error Indeo5Decoder::emptyTile(Band &band, Tile &tile) {
         }
     const ptrdiff_t pitch = band.pitch;
     if (band.inheritMv && moved) {
-        const int size = band.blkSize, blocks = band.mbSize != size ? 4 : 1;
+        const int size = band.blkSize;
+        const int blocks = band.mbSize != size ? 4 : 1;
         for (const Macroblock &mb : tile.mbs) {
-            int mvX = mb.mvX, mvY = mb.mvY, mcType = 0;
+            int mvX = mb.mvX;
+            int mvY = mb.mvY;
+            int mcType = 0;
             if (band.halfPel) {
                 mcType = ((mvY & 1) << 1) | (mvX & 1);
                 mvX >>= 1;
@@ -888,9 +931,9 @@ Error Indeo5Decoder::emptyTile(Band &band, Tile &tile) {
 }
 
 void Indeo5Decoder::output(int p, std::vector<uint8_t> &out) const {
-    const Plane &plane = planes_[size_t(p)];
+    const Plane &plane = _planes[size_t(p)];
     out.assign(size_t(plane.width) * size_t(plane.height), 128);
-    if (plane.bands.empty() || !plane.bands[0].buf || !decoded_)
+    if (plane.bands.empty() || !plane.bands[0].buf || !_decoded)
         return;
     if (p == 0 && plane.bands.size() == 4) {
         recompose53(out);
@@ -907,8 +950,9 @@ void Indeo5Decoder::output(int p, std::vector<uint8_t> &out) const {
 // 5/3 filters: each band's samples spread over a 2x2 block, the edges
 // repeated.
 void Indeo5Decoder::recompose53(std::vector<uint8_t> &out) const {
-    const Plane &plane = planes_[0];
-    ptrdiff_t pitch = plane.bands[0].pitch, backPitch = 0;
+    const Plane &plane = _planes[0];
+    ptrdiff_t pitch = plane.bands[0].pitch;
+    ptrdiff_t backPitch = 0;
     const int16_t *b0 = plane.bands[0].buf;
     const int16_t *b1 = plane.bands[1].buf;
     const int16_t *b2 = plane.bands[2].buf;
@@ -919,12 +963,21 @@ void Indeo5Decoder::recompose53(std::vector<uint8_t> &out) const {
     for (int y = 0; y < plane.height; y += 2) {
         if (y + 2 >= plane.height)
             pitch = 0;
-        int b0_1 = b0[0], b0_2 = b0[pitch];
-        int b1_1 = b1[backPitch], b1_2 = b1[0];
+        int b0_1 = b0[0];
+        int b0_2 = b0[pitch];
+        int b1_1 = b1[backPitch];
+        int b1_2 = b1[0];
         int b1_3 = b1_1 - b1_2 * 6 + b1[pitch];
-        int b2_2 = b2[0], b2_3 = b2_2, b2_5 = b2[pitch], b2_6 = b2_5;
-        int b3_2 = b3[backPitch], b3_3 = b3_2, b3_5 = b3[0], b3_6 = b3_5;
-        int b3_8 = b3_2 - b3_5 * 6 + b3[pitch], b3_9 = b3_8;
+        int b2_2 = b2[0];
+        int b2_3 = b2_2;
+        int b2_5 = b2[pitch];
+        int b2_6 = b2_5;
+        int b3_2 = b3[backPitch];
+        int b3_3 = b3_2;
+        int b3_5 = b3[0];
+        int b3_6 = b3_5;
+        int b3_8 = b3_2 - b3_5 * 6 + b3[pitch];
+        int b3_9 = b3_8;
         for (int x = 0, i = 0; x < w; x += 2, ++i) {
             if (x + 2 >= w) {
                 --b0;
@@ -944,11 +997,15 @@ void Indeo5Decoder::recompose53(std::vector<uint8_t> &out) const {
             b3_8 = b3_9;
 
             // LL: low-pass both ways.
-            int tmp0 = b0_1, tmp2 = b0_2;
+            int tmp0 = b0_1;
+            int tmp2 = b0_2;
             b0_1 = b0[i + 1];
             b0_2 = b0[pitch + i + 1];
             int tmp1 = tmp0 + b0_1;
-            int p0 = tmp0 * 16, p1 = tmp1 * 8, p2 = (tmp0 + tmp2) * 8, p3 = (tmp1 + tmp2 + b0_2) * 4;
+            int p0 = tmp0 * 16;
+            int p1 = tmp1 * 8;
+            int p2 = (tmp0 + tmp2) * 8;
+            int p3 = (tmp1 + tmp2 + b0_2) * 4;
             // HL: high-pass down, low-pass across.
             tmp0 = b1_2;
             tmp1 = b1_1;
@@ -1006,15 +1063,20 @@ void Indeo5Decoder::yuv(std::vector<uint8_t> &y, std::vector<uint8_t> &cb, std::
 }
 
 void Indeo5Decoder::rgba(uint8_t *out, int pitch) const {
-    std::vector<uint8_t> y, cb, cr;
+    std::vector<uint8_t> y;
+    std::vector<uint8_t> cb;
+    std::vector<uint8_t> cr;
     yuv(y, cb, cr);
-    const int w = width(), h = height(), cw = planes_[1].width;
+    const int w = width();
+    const int h = height();
+    const int cw = _planes[1].width;
     for (int row = 0; row < h; ++row) {
         uint8_t *d = out + ptrdiff_t(row) * pitch;
         for (int x = 0; x < w; ++x, d += 4) {
             const size_t c = size_t(row >> 2) * size_t(cw) + size_t(x >> 2);
             const int l = (int(y[size_t(row) * size_t(w) + size_t(x)]) - 16) * 298;
-            const int u = int(cb[c]) - 128, v = int(cr[c]) - 128;
+            const int u = int(cb[c]) - 128;
+            const int v = int(cr[c]) - 128;
             d[0] = uint8_t(std::clamp((l + 409 * v + 128) >> 8, 0, 255));
             d[1] = uint8_t(std::clamp((l - 100 * u - 208 * v + 128) >> 8, 0, 255));
             d[2] = uint8_t(std::clamp((l + 516 * u + 128) >> 8, 0, 255));

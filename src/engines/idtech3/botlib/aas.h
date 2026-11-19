@@ -23,38 +23,99 @@ namespace reluva::idtech3::botlib {
 
 // How a bot gets from one area to the next.
 namespace travel {
-constexpr int Invalid = 1, Walk = 2, Crouch = 3, BarrierJump = 4, Jump = 5, Ladder = 6, WalkOffLedge = 7, Swim = 8,
-              WaterJump = 9, Teleport = 10, Elevator = 11, RocketJump = 12, BfgJump = 13, GrappleHook = 14,
-              DoubleJump = 15, RampJump = 16, StrafeJump = 17, JumpPad = 18, FuncBob = 19;
-constexpr int TypeMask = 0xffffff;
+constexpr int kInvalid = 1;
+constexpr int kWalk = 2;
+constexpr int kCrouch = 3;
+constexpr int kBarrierJump = 4;
+constexpr int kJump = 5;
+constexpr int kLadder = 6;
+constexpr int kWalkOffLedge = 7;
+constexpr int kSwim = 8;
+constexpr int kWaterJump = 9;
+constexpr int kTeleport = 10;
+constexpr int kElevator = 11;
+constexpr int kRocketJump = 12;
+constexpr int kBfgJump = 13;
+constexpr int kGrappleHook = 14;
+constexpr int kDoubleJump = 15;
+constexpr int kRampJump = 16;
+constexpr int kStrafeJump = 17;
+constexpr int kJumpPad = 18;
+constexpr int kFuncBob = 19;
+constexpr int kTypeMask = 0xffffff;
 } // namespace travel
 
 // Travel flags: which kinds of travel and which areas a route may use.
 namespace tfl {
-constexpr int Invalid = 0x1, Walk = 0x2, Crouch = 0x4, BarrierJump = 0x8, Jump = 0x10, Ladder = 0x20,
-              WalkOffLedge = 0x80, Swim = 0x100, WaterJump = 0x200, Teleport = 0x400, Elevator = 0x800,
-              RocketJump = 0x1000, BfgJump = 0x2000, GrappleHook = 0x4000, DoubleJump = 0x8000, RampJump = 0x10000,
-              StrafeJump = 0x20000, JumpPad = 0x40000, Air = 0x80000, Water = 0x100000, Slime = 0x200000,
-              Lava = 0x400000, DoNotEnter = 0x800000, FuncBob = 0x1000000, Flight = 0x2000000, Bridge = 0x4000000,
-              NotTeam1 = 0x8000000, NotTeam2 = 0x10000000;
-constexpr int Default = Walk | Crouch | BarrierJump | Jump | Ladder | WalkOffLedge | Swim | WaterJump | Teleport |
-                        Elevator | Air | Water | JumpPad | FuncBob;
+constexpr int kInvalid = 0x1;
+constexpr int kWalk = 0x2;
+constexpr int kCrouch = 0x4;
+constexpr int kBarrierJump = 0x8;
+constexpr int kJump = 0x10;
+constexpr int kLadder = 0x20;
+constexpr int kWalkOffLedge = 0x80;
+constexpr int kSwim = 0x100;
+constexpr int kWaterJump = 0x200;
+constexpr int kTeleport = 0x400;
+constexpr int kElevator = 0x800;
+constexpr int kRocketJump = 0x1000;
+constexpr int kBfgJump = 0x2000;
+constexpr int kGrappleHook = 0x4000;
+constexpr int kDoubleJump = 0x8000;
+constexpr int kRampJump = 0x10000;
+constexpr int kStrafeJump = 0x20000;
+constexpr int kJumpPad = 0x40000;
+constexpr int kAir = 0x80000;
+constexpr int kWater = 0x100000;
+constexpr int kSlime = 0x200000;
+constexpr int kLava = 0x400000;
+constexpr int kDoNotEnter = 0x800000;
+constexpr int kFuncBob = 0x1000000;
+constexpr int kFlight = 0x2000000;
+constexpr int kBridge = 0x4000000;
+constexpr int kNotTeam1 = 0x8000000;
+constexpr int kNotTeam2 = 0x10000000;
+constexpr int kDefault = kWalk | kCrouch | kBarrierJump | kJump | kLadder | kWalkOffLedge | kSwim | kWaterJump |
+                         kTeleport | kElevator | kAir | kWater | kJumpPad | kFuncBob;
 } // namespace tfl
 
 // What an area holds (its settings' contents) and its flags.
 namespace areacontents {
-constexpr int Water = 1, Lava = 2, Slime = 4, ClusterPortal = 8, TelePortal = 16, RoutePortal = 32, Teleporter = 64,
-              JumpPad = 128, DoNotEnter = 256, ViewPortal = 512, Mover = 1024, NotTeam1 = 2048, NotTeam2 = 4096;
-constexpr int ModelNumShift = 24;
+constexpr int kWater = 1;
+constexpr int kLava = 2;
+constexpr int kSlime = 4;
+constexpr int kClusterPortal = 8;
+constexpr int kTelePortal = 16;
+constexpr int kRoutePortal = 32;
+constexpr int kTeleporter = 64;
+constexpr int kJumpPad = 128;
+constexpr int kDoNotEnter = 256;
+constexpr int kViewPortal = 512;
+constexpr int kMover = 1024;
+constexpr int kNotTeam1 = 2048;
+constexpr int kNotTeam2 = 4096;
+constexpr int kModelNumShift = 24;
 } // namespace areacontents
 namespace areaflag {
-constexpr int Grounded = 1, Ladder = 2, Liquid = 4, Disabled = 8, Bridge = 16;
+constexpr int kGrounded = 1;
+constexpr int kLadder = 2;
+constexpr int kLiquid = 4;
+constexpr int kDisabled = 8;
+constexpr int kBridge = 16;
 } // namespace areaflag
 namespace presence {
-constexpr int None = 1, Normal = 2, Crouch = 4;
+constexpr int kNone = 1;
+constexpr int kNormal = 2;
+constexpr int kCrouch = 4;
 } // namespace presence
 namespace faceflag {
-constexpr int Solid = 1, Ladder = 2, Ground = 4, Gap = 8, Liquid = 16, LiquidSurface = 32, Bridge = 64;
+constexpr int kSolid = 1;
+constexpr int kLadder = 2;
+constexpr int kGround = 4;
+constexpr int kGap = 8;
+constexpr int kLiquid = 16;
+constexpr int kLiquidSurface = 32;
+constexpr int kBridge = 64;
 } // namespace faceflag
 
 struct AasPlane {
@@ -63,22 +124,39 @@ struct AasPlane {
     int type = 0;
 };
 struct AasFace {
-    int plane = 0, flags = 0, numEdges = 0, firstEdge = 0, frontArea = 0, backArea = 0;
+    int plane = 0;
+    int flags = 0;
+    int numEdges = 0;
+    int firstEdge = 0;
+    int frontArea = 0;
+    int backArea = 0;
 };
 struct AasArea {
-    int numFaces = 0, firstFace = 0;
-    Vec3f mins{}, maxs{}, center{};
+    int numFaces = 0;
+    int firstFace = 0;
+    Vec3f mins{};
+    Vec3f maxs{};
+    Vec3f center{};
 };
 struct AasAreaSettings {
-    int contents = 0, flags = 0, presence = 0, cluster = 0, clusterArea = 0;
-    int numReach = 0, firstReach = 0; // its reachabilities
+    int contents = 0;
+    int flags = 0;
+    int presence = 0;
+    int cluster = 0;
+    int clusterArea = 0;
+    // its reachabilities
+    int numReach = 0;
+    int firstReach = 0;
 };
 // A way from one area into another: from `start` (in this area) to
 // `end` (in `area`), of a kind (travel::), taking `time` hundredths of a
 // second.
 struct AasReach {
-    int area = 0, face = 0, edge = 0;
-    Vec3f start{}, end{};
+    int area = 0;
+    int face = 0;
+    int edge = 0;
+    Vec3f start{};
+    Vec3f end{};
     int travelType = 0;
     int time = 0;
 };
@@ -91,16 +169,16 @@ class AasWorld {
 public:
     // Reads a .aas file (version 4, or 5 with its header scrambled).
     Error load(const std::vector<uint8_t> &data);
-    bool loaded() const { return loaded_; }
-    int32_t bspChecksum() const { return bspChecksum_; }
+    bool loaded() const { return _loaded; }
+    int32_t bspChecksum() const { return _bspChecksum; }
 
-    int areaCount() const { return int(areas_.size()); }
-    const AasArea &area(int n) const { return areas_[size_t(n)]; }
-    const AasAreaSettings &settings(int n) const { return settings_[size_t(n)]; }
-    const std::vector<AasReach> &reachabilities() const { return reach_; }
-    const std::vector<AasFace> &faces() const { return faces_; }
-    const std::vector<int> &faceIndex() const { return faceIndex_; }
-    const std::vector<AasPlane> &planes() const { return planes_; }
+    int areaCount() const { return int(_areas.size()); }
+    const AasArea &area(int n) const { return _areas[size_t(n)]; }
+    const AasAreaSettings &settings(int n) const { return _settings[size_t(n)]; }
+    const std::vector<AasReach> &reachabilities() const { return _reach; }
+    const std::vector<AasFace> &faces() const { return _faces; }
+    const std::vector<int> &faceIndex() const { return _faceIndex; }
+    const std::vector<AasPlane> &planes() const { return _planes; }
     bool validArea(int n) const { return n > 0 && n < areaCount(); }
 
     // The area a point is in, 0 if in solid.
@@ -112,10 +190,10 @@ public:
     // The box of a player standing (presence::Normal) or crouching.
     static void presenceBox(int presenceType, Vec3f &mins, Vec3f &maxs);
 
-    bool grounded(int a) const { return validArea(a) && (settings(a).flags & areaflag::Grounded); }
-    bool swim(int a) const { return validArea(a) && (settings(a).flags & areaflag::Liquid); }
-    bool crouchOnly(int a) const { return validArea(a) && !(settings(a).presence & presence::Normal); }
-    bool ladder(int a) const { return validArea(a) && (settings(a).flags & areaflag::Ladder); }
+    bool grounded(int a) const { return validArea(a) && (settings(a).flags & areaflag::kGrounded); }
+    bool swim(int a) const { return validArea(a) && (settings(a).flags & areaflag::kLiquid); }
+    bool crouchOnly(int a) const { return validArea(a) && !(settings(a).presence & presence::kNormal); }
+    bool ladder(int a) const { return validArea(a) && (settings(a).flags & areaflag::kLadder); }
 
     static int travelFlagForType(int travelType);
     // The travel flags entering an area needs (its liquid or air, do not
@@ -148,20 +226,21 @@ private:
     const RouteTable &table(int goalArea, int travelFlags);
     bool usable(const AasReach &r, int travelFlags) const;
 
-    bool loaded_ = false;
-    int32_t bspChecksum_ = 0;
-    std::vector<Vec3f> vertexes_;
-    std::vector<AasPlane> planes_;
-    std::vector<std::pair<int, int>> edges_;
-    std::vector<int> edgeIndex_, faceIndex_;
-    std::vector<AasFace> faces_;
-    std::vector<AasArea> areas_;
-    std::vector<AasAreaSettings> settings_;
-    std::vector<AasReach> reach_;
-    std::vector<AasNode> nodes_;
-    std::vector<int> reachArea_;                       // the area each reachability leaves from
-    std::vector<std::vector<int>> into_;               // per area, the reachabilities leading into it
-    std::map<std::pair<int, int>, RouteTable> tables_; // by goal area and travel flags
+    bool _loaded = false;
+    int32_t _bspChecksum = 0;
+    std::vector<Vec3f> _vertexes;
+    std::vector<AasPlane> _planes;
+    std::vector<std::pair<int, int>> _edges;
+    std::vector<int> _edgeIndex;
+    std::vector<int> _faceIndex;
+    std::vector<AasFace> _faces;
+    std::vector<AasArea> _areas;
+    std::vector<AasAreaSettings> _settings;
+    std::vector<AasReach> _reach;
+    std::vector<AasNode> _nodes;
+    std::vector<int> _reachArea;                       // the area each reachability leaves from
+    std::vector<std::vector<int>> _into;               // per area, the reachabilities leading into it
+    std::map<std::pair<int, int>, RouteTable> _tables; // by goal area and travel flags
 };
 
 } // namespace reluva::idtech3::botlib

@@ -35,7 +35,7 @@ public:
     // Where what the program writes in its install folder goes, and is
     // read back from first (GameTarget::savePath). Without one, writing
     // isn't allowed.
-    void setSaveFolder(std::filesystem::path dir) { saveDir_ = std::move(dir); }
+    void setSaveFolder(std::filesystem::path dir) { _saveDir = std::move(dir); }
 
     // Reads and loads LEGOATeam.exe and every DLL it needs from the game
     // folder, in an order where each comes after those it imports from.
@@ -45,23 +45,23 @@ public:
     // Runs the program from its entry point.
     Error run(uint32_t &exitCode);
 
-    x86::Cpu &cpu() { return *cpu_; }
-    x86::Win32Process &process() { return *process_; }
-    x86::DirectX &directX() { return *directX_; }
-    x86::A3d &a3d() { return *a3d_; }
+    x86::Cpu &cpu() { return *_cpu; }
+    x86::Win32Process &process() { return *_process; }
+    x86::DirectX &directX() { return *_directX; }
+    x86::A3d &a3d() { return *_a3d; }
     // Module names in the order they were loaded (the program last).
-    const std::vector<std::string> &loadOrder() const { return order_; }
+    const std::vector<std::string> &loadOrder() const { return _order; }
 
 private:
-    std::filesystem::path dir_;
-    std::filesystem::path saveDir_;
-    std::unique_ptr<x86::Cpu> cpu_;
-    std::unique_ptr<x86::Win32Process> process_;
-    std::unique_ptr<x86::DirectX> directX_;
-    std::unique_ptr<x86::DirectInput> directInput_;
-    std::unique_ptr<x86::A3d> a3d_;
-    std::vector<std::string> order_;
-    std::vector<const x86::Win32Process::Module *> modules_;
+    std::filesystem::path _dir;
+    std::filesystem::path _saveDir;
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    std::unique_ptr<x86::DirectX> _directX;
+    std::unique_ptr<x86::DirectInput> _directInput;
+    std::unique_ptr<x86::A3d> _a3d;
+    std::vector<std::string> _order;
+    std::vector<const x86::Win32Process::Module *> _modules;
 };
 
 } // namespace reluva::netimmerse::alphateam

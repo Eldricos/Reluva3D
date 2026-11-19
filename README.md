@@ -7,8 +7,8 @@ their engines, in the spirit of ScummVM. Games aren't included: you point
 Reluva at your own copy, and it plays it on Windows, Linux or macOS. There's
 no emulator of the old computer and no original engine, and nothing to
 install from the game's CD. Where a game's logic is its own compiled code
-(LEGO Alpha Team's, Elite Force's game DLLs), Reluva runs that code and
-supplies the parts of Windows it calls.
+(LEGO Alpha Team's, Elite Force's game DLLs, Need for Speed III's whole
+program), Reluva runs that code and supplies the parts of Windows it calls.
 
 ## Games
 
@@ -23,6 +23,7 @@ Each engine is a module that can run a family of games.
 | `awe` | Agatha Christie: Murder on the Orient Express (English 1.0); later, AWE's other Agatha Christie games | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
 | `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
 | `netimmerse` | LEGO Alpha Team (English, Windows); later, other NetImmerse games | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
+| `nfs` | Need for Speed III: Hot Pursuit (US "Classics" CD); later, High Stakes | Playable: the retail game hosted, from its menus through every race type, single player and network (TCP, IPX, serial, modem); a data viewer of its files | [docs/engines/nfs](docs/engines/nfs/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -114,8 +115,16 @@ Each engine is a module that can run a family of games.
       generation finished."* in the **Output** window, with "CMake" chosen
       in its dropdown.
 3. **Build and run.**
-   1. In the toolbar, choose **x64-Release** for a fast build (or
-      **x64-Debug** for debugging).
+   1. In the toolbar, the configuration dropdown lists the project's
+      presets (`CMakePresets.json`): choose **x64 Release (fast)** to play
+      (**x64 Debug** for debugging, which runs games' own code several
+      times slower). **x64 Release, Clang (fastest)** builds the x86
+      emulator to faster code still; it needs **C++ Clang Compiler for
+      Windows** and **MSBuild support for LLVM (clang-cl) toolset**, ticked
+      under **Individual components** in the installer. If the dropdown
+      shows Visual Studio's own **x64-Debug** and **x64-Release** instead,
+      turn on **Tools > Options > CMake > General > Use CMakePresets.json**
+      and reopen the folder.
    2. In **Select Startup Item**, next to the green ▶ button, choose
       **reluva.exe**.
    3. Press **F5** to build and run under the debugger, or **Ctrl+F5** to
@@ -165,6 +174,7 @@ stharbinger=enabled
 newworlds=disabled
 stgenerations=enabled
 clue=enabled
+nfs=enabled
 ```
 
 - **Leaving an engine out.** Set it to `disabled` (say, one that doesn't
@@ -239,17 +249,33 @@ In a game:
 - **Ctrl+F5** returns to the launcher.
 - **Alt+Enter** toggles fullscreen.
 
-What each game's pages and keys are is in its engine's docs.
+What each game's keys are is in its engine's docs.
+
+### The data viewer
+
+`reluva-viewer` is for working on the engines: it shows what a game's
+files hold (models, textures, maps, sounds, text) in its engine's
+viewer, from the same list of games as the launcher. `reluva`, the program
+players get, has none of it. Each engine's docs list its viewer's pages
+and keys.
 
 ### From the command line
 
 | Command | What it does |
 |---|---|
 | `reluva <name>` | Starts a game from the launcher's list directly, by its entry's name |
-| `reluva testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
+| `reluva-viewer` | The data viewer, with the launcher's list of games |
+| `reluva-viewer <name>` | A game from the launcher's list in its engine's data viewer |
+| `reluva-viewer <folder>` | The game in a folder in its engine's data viewer, without adding it |
+| `reluva-viewer testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
+| `reluva-viewer --list` | Lists the engines that have a data viewer |
 | `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
 | `reluva --detect <folders...>` | Lists the games found in each folder |
 | `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |
+
+From a build folder, `reluva-viewer`'s **Tests...** button runs the
+build's tests, including the game-files tests on the games in its list
+([DEVELOPMENT.md](docs/DEVELOPMENT.md#the-tests-window)).
 
 ### Where Reluva keeps its files
 
@@ -281,13 +307,15 @@ src/
                      settings, case-insensitive file lookup, byte streams, detection, archives
                      (folders, .zip/.pk3) and search sets, PKWARE DCL, Wise installers, PE files,
                      text, hashes, logging
-  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
+  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM,
+                     EA-XA and MicroTalk; a Dolby Pro Logic decoder model
   video/             video decoders: Bink, Smacker, Cinepak and Indeo 5 in AVI
   graphics/          surfaces and 8-bit drawing, palettes, fonts (built-in and TrueType),
-                     cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/)
+                     cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/),
+                     GPU compute, and the Glide stand-in's pipeline (glide/)
   image/             pictures (TGA, JPEG, PNG, BMP)
   emulation/x86/     an x86 emulator (with a JIT on x86-64) and stand-ins for Windows,
-                     DirectX and A3D, for games' native code
+                     DirectX, A3D and Glide, for games' native code
   backends/          the only code that touches SDL or the system: platform/sdl3/ (window,
                      input, audio), graphics/sdl3/ (2D and 3D on SDL's GPU API),
                      networking/sockets/
@@ -315,6 +343,8 @@ never include SDL.
 
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): working on Reluva.
 - [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md): how its code is written.
+- [docs/COMMIT_STANDARD.md](docs/COMMIT_STANDARD.md): how its commits and
+  pull requests are written.
 - [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md): how its
   docs are laid out, named and written.
 - [docs/common/](docs/common/): formats and components shared by engines.
@@ -336,12 +366,22 @@ engine that runs a game.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first: only clean-room work is
 accepted. Code follows [docs/CODING_GUIDE.md](docs/CODING_GUIDE.md), and
-docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md).
+docs follow [docs/DOCUMENTATION_STANDARD.md](docs/DOCUMENTATION_STANDARD.md),
+and commits and pull requests
+[docs/COMMIT_STANDARD.md](docs/COMMIT_STANDARD.md).
 
 ## License
 
+Copyright (C) 2026 The Reluva contributors.
+
 Reluva is free software, licensed under the GNU General Public License,
-version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+version 3 or (at your option) any later version. [LICENSE](LICENSE) is the
+license's text, as the Free Software Foundation publishes it; it isn't
+changed. Each source file says the same in its first lines
+(`SPDX-License-Identifier: GPL-3.0-or-later` and the copyright line), as
+the license's "How to Apply These Terms" asks; `tools/check-headers.py`
+checks that every file does. Code in `third_party/` keeps its own
+licenses.
 
 The Indeo 5 decoder (`src/video/indeo5*`) is derived from FFmpeg's
 LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL

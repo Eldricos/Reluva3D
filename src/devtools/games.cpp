@@ -40,7 +40,8 @@ int cmdImport(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool import <source folder> [destination folder] [-patch file]...\n");
         return 1;
     }
-    std::vector<std::string> patches, positional;
+    std::vector<std::string> patches;
+    std::vector<std::string> positional;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-patch") == 0 && i + 1 < argc)
             patches.emplace_back(argv[++i]);
@@ -87,13 +88,13 @@ int cmdImport(int argc, char **argv) {
     return cmdDetect(3, detectArgs);
 }
 
-const Commands commands("",
-                        {
-                            {"detect", "<folder>", "what the launcher finds in a folder (Add Game)", cmdDetect},
-                            {"import", "<source folder> [destination folder] [-patch file]...",
-                             "import a game as Import Game does: list what a folder holds to import, or copy it to a "
-                             "destination, applying patches",
-                             cmdImport},
-                        });
+const Commands kCommands("",
+                         {
+                             {"detect", "<folder>", "what the launcher finds in a folder (Add Game)", cmdDetect},
+                             {"import", "<source folder> [destination folder] [-patch file]...",
+                              "import a game as Import Game does: list what a folder holds to import, or copy it to a "
+                              "destination, applying patches",
+                              cmdImport},
+                         });
 
 } // namespace

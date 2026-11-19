@@ -35,23 +35,23 @@ public:
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
-    std::string describe() const override { return path_.string(); }
+    std::string describe() const override { return _path.string(); }
 
     // In the directory's order, which is the data's.
-    const std::vector<Entry> &entries() const { return entries_; }
+    const std::vector<Entry> &entries() const { return _entries; }
     const Entry *entry(std::string_view name) const;
     Error read(const Entry &entry, std::vector<uint8_t> &out) const;
     // Where the first file's data starts, as the header gives it.
-    uint32_t dataStart() const { return dataStart_; }
+    uint32_t dataStart() const { return _dataStart; }
 
     // A FILETIME as Unix time (seconds since 1970), 0 if before 1970.
     static int64_t unixTime(uint64_t fileTime);
 
 private:
-    std::filesystem::path path_;
-    std::vector<Entry> entries_;
-    std::unordered_map<std::string, size_t> byName_; // normalized name -> entries_ index
-    uint32_t dataStart_ = 0;
+    std::filesystem::path _path;
+    std::vector<Entry> _entries;
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
+    uint32_t _dataStart = 0;
 };
 
 } // namespace reluva::netimmerse

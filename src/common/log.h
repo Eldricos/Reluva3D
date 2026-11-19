@@ -43,7 +43,7 @@ public:
 
 private:
     struct State;
-    std::unique_ptr<State> s_;
+    std::unique_ptr<State> _s;
 };
 
 } // namespace reluva

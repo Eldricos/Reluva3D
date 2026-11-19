@@ -15,10 +15,16 @@ using Vec3f = std::array<float, 3>;
 
 // Content flags (the shaders' surfaceparms, as the games use them).
 namespace contents {
-constexpr int32_t Solid = 1;
-constexpr int32_t Lava = 8, Slime = 16, Water = 32, Fog = 64;
-constexpr int32_t PlayerClip = 0x10000, MonsterClip = 0x20000;
-constexpr int32_t Body = 0x2000000, Corpse = 0x4000000, Trigger = 0x40000000;
+constexpr int32_t kSolid = 1;
+constexpr int32_t kLava = 8;
+constexpr int32_t kSlime = 16;
+constexpr int32_t kWater = 32;
+constexpr int32_t kFog = 64;
+constexpr int32_t kPlayerClip = 0x10000;
+constexpr int32_t kMonsterClip = 0x20000;
+constexpr int32_t kBody = 0x2000000;
+constexpr int32_t kCorpse = 0x4000000;
+constexpr int32_t kTrigger = 0x40000000;
 } // namespace contents
 
 struct TraceResult {
@@ -70,13 +76,13 @@ public:
     void boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<int> &leafs) const;
     // The area a leaf is in (-1: none, as solid leaves).
     int leafArea(int leaf) const {
-        return leaf >= 0 && size_t(leaf) < bsp_.leafs.size() ? bsp_.leafs[size_t(leaf)].area : -1;
+        return leaf >= 0 && size_t(leaf) < _bsp.leafs.size() ? _bsp.leafs[size_t(leaf)].area : -1;
     }
     // How many areas the map is cut into (by its area portals).
-    int areaCount() const { return areaCount_; }
+    int areaCount() const { return _areaCount; }
     bool modelBounds(int model, Vec3f &mins, Vec3f &maxs) const;
-    int modelCount() const { return int(bsp_.models.size()); }
-    const Bsp &bsp() const { return bsp_; }
+    int modelCount() const { return int(_bsp.models.size()); }
+    const Bsp &bsp() const { return _bsp; }
 
     // A box of given contents, for entities that aren't brush models;
     // traced in the same way.
@@ -96,34 +102,43 @@ private:
     struct Facet {
         std::array<BspPlane, 11> planes{}; // its plane both ways, 3 edges, 6 box sides
         int planeCount = 0;
-        Vec3f mins{}, maxs{};
+        Vec3f mins{};
+        Vec3f maxs{};
         void add(const BspPlane &p) { planes[size_t(planeCount++)] = p; }
     };
     // Neighbouring facets (as tessellated, a run along a row) under one
     // box, and runs of those under another, so a trace skips most of a
     // big curve at once.
     struct FacetGroup {
-        Vec3f mins{}, maxs{};
-        size_t first = 0, count = 0; // facets, or (for the outer level) runs
+        Vec3f mins{};
+        Vec3f maxs{};
+        // facets, or (for the outer level) runs
+        size_t first = 0;
+        size_t count = 0;
     };
     static constexpr size_t kFacetRun = 16;
     struct PatchCollide {
-        int32_t contents = 0, surfaceFlags = 0;
-        Vec3f mins{}, maxs{};
-        size_t firstFacet = 0, numFacets = 0;
-        size_t firstGroup = 0, numGroups = 0; // outer groups, in groups_
+        int32_t contents = 0;
+        int32_t surfaceFlags = 0;
+        Vec3f mins{};
+        Vec3f maxs{};
+        size_t firstFacet = 0;
+        size_t numFacets = 0;
+        // outer groups, in _groups
+        size_t firstGroup = 0;
+        size_t numGroups = 0;
     };
-    std::vector<FacetGroup> runs_;   // facets, kFacetRun at most each
-    std::vector<FacetGroup> groups_; // runs, kFacetRun at most each
+    std::vector<FacetGroup> _runs;   // facets, kFacetRun at most each
+    std::vector<FacetGroup> _groups; // runs, kFacetRun at most each
 
-    const Bsp &bsp_;
-    mutable std::vector<uint32_t> checked_;        // per brush: the trace that last tested it
-    mutable std::vector<uint32_t> checkedPatches_; // per surface, likewise
-    mutable uint32_t traceCount_ = 0;
-    int areaCount_ = 0; // the highest area a leaf is in, + 1
-    std::vector<Facet> facets_;
-    std::vector<int> patchOf_; // per surface: its PatchCollide, -1 none
-    std::vector<PatchCollide> patches_;
+    const Bsp &_bsp;
+    mutable std::vector<uint32_t> _checked;        // per brush: the trace that last tested it
+    mutable std::vector<uint32_t> _checkedPatches; // per surface, likewise
+    mutable uint32_t _traceCount = 0;
+    int _areaCount = 0; // the highest area a leaf is in, + 1
+    std::vector<Facet> _facets;
+    std::vector<int> _patchOf; // per surface: its PatchCollide, -1 none
+    std::vector<PatchCollide> _patches;
 };
 
 // Which of a map's areas join up, as the original keeps it: areas meet
@@ -140,9 +155,9 @@ public:
 
 private:
     void flood();
-    int count_ = 0;
-    std::vector<int> open_;  // count_ x count_: times each portal is open
-    std::vector<int> group_; // by area: areas with the same are connected
+    int _count = 0;
+    std::vector<int> _open;  // _count x _count: times each portal is open
+    std::vector<int> _group; // by area: areas with the same are connected
 };
 
 } // namespace reluva::idtech3

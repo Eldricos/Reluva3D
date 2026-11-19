@@ -25,8 +25,10 @@ bool containsPoint(const std::vector<LevelFile::Vertex> &vertices, const LevelFi
     bool inside = false;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
-        double xi = fromFixed(vertices[flat.vertices[i]].x), yi = fromFixed(vertices[flat.vertices[i]].y);
-        double xj = fromFixed(vertices[flat.vertices[j]].x), yj = fromFixed(vertices[flat.vertices[j]].y);
+        double xi = fromFixed(vertices[flat.vertices[i]].x);
+        double yi = fromFixed(vertices[flat.vertices[i]].y);
+        double xj = fromFixed(vertices[flat.vertices[j]].x);
+        double yj = fromFixed(vertices[flat.vertices[j]].y);
         if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
             inside = !inside;
     }
@@ -40,11 +42,16 @@ bool nearPolygon(const std::vector<LevelFile::Vertex> &vertices, const LevelFile
         return true;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
-        double xi = fromFixed(vertices[flat.vertices[i]].x), yi = fromFixed(vertices[flat.vertices[i]].y);
-        double xj = fromFixed(vertices[flat.vertices[j]].x), yj = fromFixed(vertices[flat.vertices[j]].y);
-        double ex = xj - xi, ey = yj - yi, length2 = ex * ex + ey * ey;
+        double xi = fromFixed(vertices[flat.vertices[i]].x);
+        double yi = fromFixed(vertices[flat.vertices[i]].y);
+        double xj = fromFixed(vertices[flat.vertices[j]].x);
+        double yj = fromFixed(vertices[flat.vertices[j]].y);
+        double ex = xj - xi;
+        double ey = yj - yi;
+        double length2 = ex * ex + ey * ey;
         double t = length2 > 0 ? std::max(0.0, std::min(1.0, ((x - xi) * ex + (y - yi) * ey) / length2)) : 0;
-        double dx = xi + ex * t - x, dy = yi + ey * t - y;
+        double dx = xi + ex * t - x;
+        double dy = yi + ey * t - y;
         if (dx * dx + dy * dy <= margin * margin)
             return true;
     }
@@ -162,7 +169,8 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
 
     hit.t = 2;
     hit.wall = hit.obstacle = -1;
-    double low = _feet + _stepHeight, high = getEye() + _headroom;
+    double low = _feet + _stepHeight;
+    double high = getEye() + _headroom;
     const std::vector<LevelFile::Wall> &walls = _level.getWalls();
     for (const WallLine &w : *_walls) {
         // Like the original, only walls that are drawn get in the way, and
@@ -178,7 +186,9 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
             continue;
 
         // The wall's line, approached from its solid side.
-        double nx = w.nx, ny = w.ny, d = w.d;
+        double nx = w.nx;
+        double ny = w.ny;
+        double d = w.d;
         double side0 = nx * x + ny * y + d;
         bool facing = true;
         if (side0 < 0) {
@@ -197,8 +207,10 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
             double side1 = nx * (x + dx) + ny * (y + dy) + d;
             if (side1 < r && side0 > side1) {
                 double t = std::max(0.0, (side0 - r) / (side0 - side1));
-                double qx = x + dx * t - nx * r, qy = y + dy * t - ny * r;
-                double wx = w.x2 - w.x1, wy = w.y2 - w.y1;
+                double qx = x + dx * t - nx * r;
+                double qy = y + dy * t - ny * r;
+                double wx = w.x2 - w.x1;
+                double wy = w.y2 - w.y1;
                 double wl2 = wx * wx + wy * wy;
                 double s = wl2 > 0 ? ((qx - w.x1) * wx + (qy - w.y1) * wy) / wl2 : -1;
                 if (s >= 0 && s <= 1 && t < hit.t) {
@@ -218,7 +230,8 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
         const double ends[2][2] = {{w.x1, w.y1}, {w.x2, w.y2}};
         double post = std::max(0.0, _radius - kPostSlack);
         for (const auto &end : ends) {
-            double px = x - end[0], py = y - end[1];
+            double px = x - end[0];
+            double py = y - end[1];
             double b = 2 * (dx * px + dy * py);
             double c = px * px + py * py - post * post;
             if (b >= 0)
@@ -234,7 +247,8 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
             }
             if (t < 0 || t > 1 || t >= hit.t)
                 continue;
-            double cx = px + dx * t, cy = py + dy * t;
+            double cx = px + dx * t;
+            double cy = py + dy * t;
             double cl = std::sqrt(cx * cx + cy * cy);
             if (cl == 0)
                 continue;
@@ -253,7 +267,8 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
                 continue;
             // As a wall end, with the two radii combined.
             double r = _radius + o.radius;
-            double px = x - o.x, py = y - o.y;
+            double px = x - o.x;
+            double py = y - o.y;
             double b = 2 * (dx * px + dy * py);
             if (b >= 0)
                 continue;
@@ -269,7 +284,8 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
             }
             if (t < 0 || t > 1 || t >= hit.t)
                 continue;
-            double cx = px + dx * t, cy = py + dy * t;
+            double cx = px + dx * t;
+            double cy = py + dy * t;
             double cl = std::sqrt(cx * cx + cy * cy);
             if (cl == 0)
                 continue;
@@ -304,9 +320,11 @@ void Walker::collideAndSlide(double dx, double dy) {
     double t = std::max(0.0, hit.t - kSkin / length);
     _x += dx * t;
     _y += dy * t;
-    double restX = dx * (1 - t), restY = dy * (1 - t);
+    double restX = dx * (1 - t);
+    double restY = dy * (1 - t);
     double along = restX * hit.slideX + restY * hit.slideY;
-    double sx = hit.slideX * along, sy = hit.slideY * along;
+    double sx = hit.slideX * along;
+    double sy = hit.slideY * along;
 
     Hit second;
     if (!sweep(_x, _y, sx, sy, second)) {
@@ -434,8 +452,11 @@ void Walker::duck() {
 }
 
 bool Walker::lineOfSight(double ax, double ay, double az, double bx, double by, double bz, uint64_t zones) const {
-    const double kSlack = 0.25, kFlatMargin = 0.5;
-    double dx = bx - ax, dy = by - ay, dz = bz - az;
+    const double kSlack = 0.25;
+    const double kFlatMargin = 0.5;
+    double dx = bx - ax;
+    double dy = by - ay;
+    double dz = bz - az;
     double length = std::sqrt(dx * dx + dy * dy);
     if (length == 0 && dz == 0)
         return false;
@@ -443,21 +464,26 @@ bool Walker::lineOfSight(double ax, double ay, double az, double bx, double by, 
         return false;
 
     const std::vector<LevelFile::Wall> &walls = _level.getWalls();
-    double lowZ = std::min(az, bz), highZ = std::max(az, bz);
+    double lowZ = std::min(az, bz);
+    double highZ = std::max(az, bz);
     for (const WallLine &w : *_walls) {
         if (!(walls[w.index].flags & LevelFile::kFlagVisible) || w.passable || !(w.zones & zones))
             continue;
         if (highZ < w.bottom - kSlack || lowZ > w.top + kSlack)
             continue;
         // a and b strictly on opposite sides of the wall's line...
-        double sa = w.nx * ax + w.ny * ay + w.d, sb = w.nx * bx + w.ny * by + w.d;
+        double sa = w.nx * ax + w.ny * ay + w.d;
+        double sb = w.nx * bx + w.ny * by + w.d;
         if ((sa > 0) == (sb > 0) || sa == 0 || sb == 0)
             continue;
         // ...and the wall, a little longer at each end, across the line of sight.
-        double ex = w.x2 - w.x1, ey = w.y2 - w.y1, wallLength = std::sqrt(ex * ex + ey * ey);
+        double ex = w.x2 - w.x1;
+        double ey = w.y2 - w.y1;
+        double wallLength = std::sqrt(ex * ex + ey * ey);
         if (wallLength == 0)
             continue;
-        double px = ex / wallLength * kSlack, py = ey / wallLength * kSlack;
+        double px = ex / wallLength * kSlack;
+        double py = ey / wallLength * kSlack;
         double s1 = dx * (w.y1 - py - ay) - dy * (w.x1 - px - ax);
         double s2 = dx * (w.y2 + py - ay) - dy * (w.x2 + px - ax);
         if ((s1 > 0) == (s2 > 0))

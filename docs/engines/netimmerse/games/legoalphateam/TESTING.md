@@ -28,10 +28,11 @@ Run by `ctest` (and CI) with everything else, or alone with
 - **`netimmerse.engine`** (`tests/engines/netimmerse/engine.cpp`), the
   basic engine test. It makes a small install of its own: `.pac` archives
   holding two models, a texture, a font with its page, a sound, a puzzle
-  and the locale's text. It checks that an install is recognised, then
-  runs the engine on it as the launcher would. With no `LEGOATeam.exe`
-  that's the data viewer: every page in turn, stepping through what each
-  shows, showing a model's hidden parts, playing the sound, then Esc. What
+  and the locale's text. It checks that an install is recognised, and
+  that the game, with no `LEGOATeam.exe`, returns an error saying so. Then
+  it opens the data viewer on it as `reluva-viewer` does: every page in
+  turn, stepping through what each shows, showing a model's hidden parts,
+  playing the sound, then Esc. What
   happens (the screens, the 3D renderer's textures, meshes and draws, the
   sound, the window's titles) goes into a record,
   `tests/engines/netimmerse/data/engine-record.txt`. If a change is meant
@@ -91,6 +92,13 @@ frame kept. A step passes when its record is the one committed.
 
   and afterwards run with `RELUVA_GAMEDATA_RECORDS=~/at-records` (and
   without `UPDATE`) to compare against it.
+
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/netimmerse/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
 
 ### What the automated checks don't cover
 
@@ -205,7 +213,8 @@ before M3010, M0040 before M3060.
 ### In Reluva, around the game
 
 - [ ] The window's title shows the frames a second.
-- [ ] F12 opens the data viewer and pauses the game; Esc goes back.
+- [ ] `reluva-viewer` opens the data viewer on the game's folder; Esc goes
+      back to its list.
 - [ ] Closing the window or Ctrl+F5 while playing asks first.
 - [ ] Alt+Tab away and back while playing.
 

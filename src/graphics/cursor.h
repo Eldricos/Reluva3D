@@ -15,8 +15,10 @@ namespace reluva {
 // the point in it that is the mouse's position (its hotspot), all in the
 // game's pixels. The backend scales it as it scales the game's picture.
 struct Cursor {
-    int w = 0, h = 0;
-    int hotX = 0, hotY = 0;
+    int w = 0;
+    int h = 0;
+    int hotX = 0;
+    int hotY = 0;
     std::vector<uint8_t> rgba;
 
     bool empty() const { return w <= 0 || h <= 0 || rgba.size() < size_t(w) * size_t(h) * 4; }

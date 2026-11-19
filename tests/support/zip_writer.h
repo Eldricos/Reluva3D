@@ -27,7 +27,8 @@ inline std::vector<uint8_t> toBytes(const std::string &s) {
 }
 
 inline std::vector<uint8_t> buildZip(const std::vector<ZipFile> &files, const std::string &comment = {}) {
-    std::vector<uint8_t> out, dir;
+    std::vector<uint8_t> out;
+    std::vector<uint8_t> dir;
     auto put16 = [](std::vector<uint8_t> &v, uint32_t x) {
         v.push_back(uint8_t(x));
         v.push_back(uint8_t(x >> 8));

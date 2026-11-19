@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import sys,struct,collections,glob,os; sys.path.insert(0,'tools')
 from ddrv import load, entries
 from lvl import level

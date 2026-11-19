@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Fragment shader for gfx::Renderer3D draw calls: texture times colour,
-// with an optional alpha test; or (params.y) the light the dynamic lights
+// with an optional alpha test and table fog; or (params.y) the light the dynamic lights
 // cast on the pixel, fading linearly to nothing at each one's radius, alone
 // (1) or times the texture (3). Resource sets follow SDL_gpu.h: a fragment
 // shader's textures are set 2, its uniform buffers set 3.
@@ -12,6 +12,7 @@ layout(location = 0) in vec2 inUv;
 layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec3 inWorld;
 layout(location = 3) in vec2 inFog;
+layout(location = 4) in float inFogW;
 
 layout(location = 0) out vec4 outColor;
 
@@ -21,6 +22,8 @@ layout(set = 3, binding = 0) uniform Fragment {
     vec4 params; // x: alpha test (0 none, 1 > 0, 2 < 0.5, 3 >= 0.5), y: dynamic lights instead (1),
                  // times the texture (3), the brightness pass (2, z: 1 / gamma), or volume lights (4),
                  // w: a fog volume pass (1)
+    vec4 fog;    // rgb: table fog's colour, w: its value (0 none; DrawCall::tableFog)
+    vec4 blend;  // x, y: blendOut's factors (y 0: none)
     vec4 lightCount; // x; yzw: the camera, for volume lights
     vec4 lightPos[16]; // xyz, w: radius
     vec4 lightColor[16];
@@ -54,18 +57,32 @@ float volumeGlow(vec3 eye, vec3 at, vec4 l) {
     return ((s2 - s1) * (1.0 - b2 / r2) - (s2 * s2 * s2 - s1 * s1 * s1) / (3.0 * r2)) * 3.0 / (4.0 * l.w);
 }
 
+// A blend the pipeline does as (one, one minus source alpha), for fewer
+// pipelines (blend.y > 0): the source's factor applied here (blend.x: 0
+// zero, 1 one, 2 its alpha), and the destination's as one minus the alpha
+// put out (blend.y: 1 zero, 2 one, 3 one minus the source's alpha).
+vec4 blendOut(vec4 c) {
+    int d = int(blend.y + 0.5);
+    if (d == 0)
+        return c;
+    int s = int(blend.x + 0.5);
+    float fs = s == 0 ? 0.0 : (s == 1 ? 1.0 : c.a);
+    float fd = d == 1 ? 0.0 : (d == 2 ? 1.0 : 1.0 - c.a);
+    return vec4(c.rgb * fs, 1.0 - fd);
+}
+
 void main() {
     if (params.y > 3.5) {
         // The volume lights' glow and fog, blended over drawn geometry.
         vec3 sum = vec3(0.0);
-        float fog = 0.0;
+        float hidden = 0.0;
         int n = int(lightCount.x + 0.5);
         for (int i = 0; i < n; ++i) {
             float g = volumeGlow(lightCount.yzw, inWorld, lightPos[i]);
             sum += lightColor[i].rgb * g;
-            fog += lightColor[i].a * g;
+            hidden += lightColor[i].a * g;
         }
-        outColor = vec4(sum, min(fog, 1.0));
+        outColor = blendOut(vec4(sum, min(hidden, 1.0)));
         return;
     }
     if (params.y > 2.5) {
@@ -74,7 +91,7 @@ void main() {
         int test = int(params.x + 0.5);
         if ((test == 1 && t.a <= 0.0) || (test == 2 && t.a >= 0.5) || (test == 3 && t.a < 0.5))
             discard;
-        outColor = vec4(t.rgb * dynamicLight(), 1.0);
+        outColor = blendOut(vec4(t.rgb * dynamicLight(), 1.0));
         return;
     }
     if (params.y > 1.5) {
@@ -83,7 +100,7 @@ void main() {
         return;
     }
     if (params.y > 0.5) {
-        outColor = vec4(dynamicLight(), 1.0);
+        outColor = blendOut(vec4(dynamicLight(), 1.0));
         return;
     }
     if (params.w > 0.5) {
@@ -95,5 +112,10 @@ void main() {
     int test = int(params.x + 0.5);
     if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5))
         discard;
-    outColor = c;
+    if (fog.w > 0.0) {
+        float d = 1.0 / fog.w;
+        float f = clamp((1.0 - exp(-d * inFogW)) / (1.0 - exp(-d * 52428.8)), 0.0, 1.0);
+        c.rgb = mix(c.rgb, fog.rgb, f);
+    }
+    outColor = blendOut(c);
 }

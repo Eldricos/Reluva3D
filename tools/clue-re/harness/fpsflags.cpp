@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 #include "engines/clue/game_data.h"
 #include "engines/clue/formats/resources.h"
 #include <cstdio>
 #include <map>
 using namespace reluva::clue;
 int main(int, char** argv) {
-    GameData data; if (data.open(argv[1], Language::US)) return 1;
+    GameData data; if (data.open(argv[1], Language::kUS)) return 1;
     std::map<std::pair<int,int>, int> hist; std::map<std::pair<int,int>, std::string> ex;
     for (auto& path : data.withExtension(".a")) {
         DataDrive d; if (d.open(path)) continue;

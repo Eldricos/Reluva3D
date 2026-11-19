@@ -72,10 +72,11 @@ None yet.
   vsync). The game's own menus are unchanged.
 * Alt+Enter switches between a window and full screen; Ctrl+F5 goes back to
   the launcher.
-* The developer settings (start with the scene viewer or one video, a
-  start scene, the debug keys F2 and F10 and the detailed title bar,
-  console output) are off unless set
-  ([README.md](README.md#developer-settings)).
+* The developer settings (a start scene, the debug keys F2 and F10 and
+  the detailed title bar, console output) are off unless set
+  ([README.md](README.md#developer-settings)). The scene viewer and the
+  one-video mode are in `reluva-viewer`, not the game
+  ([README.md](README.md#the-scene-viewer)).
 * Saved games and the original's settings file live in the game's own
   folder of Reluva's (`games/<entry>/savegame/` and `games/<entry>/dlas.ds9`)
   instead of the game's install folder. The file format is the original's.

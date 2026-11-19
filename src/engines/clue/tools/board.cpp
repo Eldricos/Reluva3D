@@ -49,7 +49,8 @@ int cmdClueLevel(int argc, char **argv) {
     const bool verbose = argc > 3 && std::strcmp(argv[3], "-v") == 0;
     std::printf("\"%s\": %zu object names, %zu placements\n", level.title.c_str(), level.objects.size(),
                 level.placements.size());
-    std::map<int, int> layers, flags;
+    std::map<int, int> layers;
+    std::map<int, int> flags;
     for (const auto &pl : level.placements) {
         ++layers[pl.layer];
         ++flags[pl.flags];
@@ -94,7 +95,10 @@ int cmdClueBoard(int argc, char **argv) {
     }
     static const char *const kRooms[] = {"Hall",         "Lounge",        "Dining Room", "Kitchen", "Ballroom",
                                          "Conservatory", "Billiard Room", "Library",     "Study"};
-    int x0 = 1 << 20, y0 = 1 << 20, x1 = -x0, y1 = -y0;
+    int x0 = 1 << 20;
+    int y0 = 1 << 20;
+    int x1 = -x0;
+    int y1 = -y0;
     const auto extend = [&](const reluva::clue::Square &s) {
         x0 = std::min(x0, s.x), y0 = std::min(y0, s.y), x1 = std::max(x1, s.x), y1 = std::max(y1, s.y);
     };
@@ -137,13 +141,19 @@ int cmdClueBoard(int argc, char **argv) {
     // Games of six computer players on it, alternately with the die and without.
     const int games = argc > 3 ? std::atoi(argv[3]) : 0;
     // Or all of one level, so many of them: "novice 3", "expert 5" ...
-    int onlyLevel = -1, players = 6;
+    int onlyLevel = -1;
+    int players = 6;
     if (argc > 5) {
         const std::string lv = argv[4];
         onlyLevel = lv == "novice" ? 0 : lv == "normal" ? 1 : 2;
         players = std::clamp(std::atoi(argv[5]), 3, 6);
     }
-    int turns = 0, unfinished = 0, wrong = 0, suggestions = 0, selfNamed = 0, within12 = 0;
+    int turns = 0;
+    int unfinished = 0;
+    int wrong = 0;
+    int suggestions = 0;
+    int selfNamed = 0;
+    int within12 = 0;
     // As a recording can show it: games whose first 15 suggestions have no
     // one naming itself.
     int noSelfIn15 = 0;
@@ -162,21 +172,23 @@ int cmdClueBoard(int argc, char **argv) {
         for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
             ai[size_t(s)].reset(game, s, uint32_t(g * 31 + s), onlyLevel >= 0 ? onlyLevel : (s + g) % 3);
         const int turnsBefore = turns;
-        int steps = 0, early = 0, earlySelf = 0;
-        for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
+        int steps = 0;
+        int early = 0;
+        int earlySelf = 0;
+        for (; game.phase() != Game::Phase::kOver && steps < 100000; ++steps) {
             ComputerPlayer &me = ai[size_t(game.turn())];
             reluva::Error e;
             switch (me.decide(game)) {
-            case ComputerPlayer::Action::Roll:
+            case ComputerPlayer::Action::kRoll:
                 game.rollDie();
                 break;
-            case ComputerPlayer::Action::Passage:
+            case ComputerPlayer::Action::kPassage:
                 e = game.takePassage();
                 break;
-            case ComputerPlayer::Action::Walk:
+            case ComputerPlayer::Action::kWalk:
                 e = game.walk(me.chooseWalk(game));
                 break;
-            case ComputerPlayer::Action::Suggest: {
+            case ComputerPlayer::Action::kSuggest: {
                 const auto a = me.chooseSuggestion(game);
                 ++suggestions;
                 selfNamed += a.suspect == game.turn();
@@ -185,24 +197,24 @@ int cmdClueBoard(int argc, char **argv) {
                     earlySelf += a.suspect == game.turn();
                 }
                 e = game.suggest(a.suspect, a.weapon);
-                if (!e && game.phase() == Game::Phase::Disprove)
+                if (!e && game.phase() == Game::Phase::kDisprove)
                     e = game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn()));
                 for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
                     if (playing[size_t(s)])
                         ai[size_t(s)].observe(game);
                 break;
             }
-            case ComputerPlayer::Action::Accuse: {
+            case ComputerPlayer::Action::kAccuse: {
                 const auto a = me.chooseAccusation();
                 const int accuser = game.turn();
                 e = game.accuse(a);
-                if (!e && game.phase() != Game::Phase::Over)
+                if (!e && game.phase() != Game::Phase::kOver)
                     for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
                         if (playing[size_t(s)])
                             ai[size_t(s)].observeAccusation(a, accuser);
                 break;
             }
-            case ComputerPlayer::Action::EndTurn:
+            case ComputerPlayer::Action::kEndTurn:
                 e = game.endTurn();
                 ++turns;
                 break;
@@ -212,7 +224,7 @@ int cmdClueBoard(int argc, char **argv) {
                 break;
             }
         }
-        unfinished += game.phase() != Game::Phase::Over;
+        unfinished += game.phase() != Game::Phase::kOver;
         within12 += game.winner() >= 0 && turns - turnsBefore < 12 * players;
         noSelfIn15 += early == 15 && earlySelf == 0;
         if (game.winner() >= 0)
@@ -235,11 +247,11 @@ int cmdClueBoard(int argc, char **argv) {
 }
 
 const Commands
-    commands("clue", {
-                         {"level", "<clue.lvl> [-v]", "a Clue level's placements (each one with -v)", cmdClueLevel},
-                         {"board", "<clue.lvl> [games [novice|normal|expert players]]",
-                          "the board a Clue level lays out; with a number, that many games of computer players on it",
-                          cmdClueBoard},
-                     });
+    kCommands("clue", {
+                          {"level", "<clue.lvl> [-v]", "a Clue level's placements (each one with -v)", cmdClueLevel},
+                          {"board", "<clue.lvl> [games [novice|normal|expert players]]",
+                           "the board a Clue level lays out; with a number, that many games of computer players on it",
+                           cmdClueBoard},
+                      });
 
 } // namespace

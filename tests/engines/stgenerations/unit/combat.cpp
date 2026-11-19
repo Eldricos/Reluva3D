@@ -66,7 +66,7 @@ const uint8_t kPatternGif[] = {
 
 } // namespace
 
-static void combat_gif_textures() {
+static void combatGifTextures() {
     // 3 x 2, four colours.
     const uint8_t small[] = {0x47, 0x49, 0x46, 0x38, 0x37, 0x61, 0x03, 0x00, 0x02, 0x00, 0x81, 0x00,
                              0x00, 0xff, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
@@ -100,7 +100,7 @@ static void combat_gif_textures() {
     CHECK(same);
 }
 
-static void combat_ras_and_model() {
+static void combatRasAndModel() {
     // A 3 x 1 rasterfile; its second colour is the see-through one.
     Bytes ras;
     be(ras, 0x59A66A95, 4);
@@ -125,7 +125,10 @@ static void combat_ras_and_model() {
     uint32_t parts = (uint32_t)block.size();
     block[8] = (uint8_t)parts;
     Bytes part(44, 0);
-    Bytes verts, uvs, faces, normals;
+    Bytes verts;
+    Bytes uvs;
+    Bytes faces;
+    Bytes normals;
     const float v[3][3] = {{0, 0, 0}, {10, 0, 0}, {0, 20, 5}};
     for (int i = 0; i < 3; i++) {
         for (int k = 0; k < 3; k++)
@@ -175,7 +178,7 @@ static void combat_ras_and_model() {
     CHECK(model.parts[0].triangles[0].nz == -1.0f);
 }
 
-static void combat_ship_classes_and_missions() {
+static void combatShipClassesAndMissions() {
     // A made-up class: a header, 27 systems, two shields' leak tables,
     // the phasers, the photons and the torpedo cones.
     std::string text = "# comment\nxyz 1000 80 50 3000 40 2 1 2 50\n";
@@ -217,11 +220,13 @@ static void combat_ship_classes_and_missions() {
     CHECK_EQUAL(ships[2].ai, std::string("standard-7"));
 }
 
-static void combat_projection() {
+static void combatProjection() {
     CombatRenderer r;
     r.setViewport(200, 100, 90);
     r.setCamera(Vec3(0, 0, 0), Mat3());
-    double x, y, depth;
+    double x;
+    double y;
+    double depth;
     CHECK(r.project(Vec3(0, 0, 100), x, y, depth));
     CHECK(x == 100 && y == 50);
     CHECK(r.project(Vec3(100, 50, 100), x, y, depth));
@@ -238,7 +243,9 @@ namespace {
 // A bridge that only remembers what it's asked.
 struct FakeBridge : public CampaignWorld {
     std::vector<std::string> commands;
-    bool shown = false, audioEmpty = true, warping = false;
+    bool shown = false;
+    bool audioEmpty = true;
+    bool warping = false;
     double stardate = 100;
     void bridgeCommand(const std::string &command, const std::vector<std::string> &args) override {
         commands.push_back(command + (args.empty() ? "" : " " + args[0]));
@@ -267,7 +274,7 @@ const char *const kBridgeScript =
 
 } // namespace
 
-static void campaign_drives_the_bridge() {
+static void campaignDrivesTheBridge() {
     typedef Campaign::Action A;
     FakeBridge bridge;
     Campaign c;
@@ -333,7 +340,7 @@ static void campaign_drives_the_bridge() {
     CHECK_EQUAL(a.number, 4);
 }
 
-static void combat_shield_materials() {
+static void combatShieldMaterials() {
     // One triangle facing the camera, then the same seen from behind.
     Model3D model;
     model.parts.resize(1);
@@ -380,13 +387,13 @@ static void combat_shield_materials() {
     CHECK_EQUAL(middle(), 0x0000FFu);
 }
 
-static const reluva::test::Suite suite(
+static const reluva::test::Suite kSuite(
     "stgenerations.unit.combat",
     {
-        {"combat gif textures", [](const std::filesystem::path &) { combat_gif_textures(); }},
-        {"combat ras and model", [](const std::filesystem::path &) { combat_ras_and_model(); }},
-        {"combat ship classes and missions", [](const std::filesystem::path &) { combat_ship_classes_and_missions(); }},
-        {"combat projection", [](const std::filesystem::path &) { combat_projection(); }},
-        {"campaign drives the bridge", [](const std::filesystem::path &) { campaign_drives_the_bridge(); }},
-        {"combat shield materials", [](const std::filesystem::path &) { combat_shield_materials(); }},
+        {"combat gif textures", [](const std::filesystem::path &) { combatGifTextures(); }},
+        {"combat ras and model", [](const std::filesystem::path &) { combatRasAndModel(); }},
+        {"combat ship classes and missions", [](const std::filesystem::path &) { combatShipClassesAndMissions(); }},
+        {"combat projection", [](const std::filesystem::path &) { combatProjection(); }},
+        {"campaign drives the bridge", [](const std::filesystem::path &) { campaignDrivesTheBridge(); }},
+        {"combat shield materials", [](const std::filesystem::path &) { combatShieldMaterials(); }},
     });

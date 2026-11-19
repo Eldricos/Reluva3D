@@ -4,8 +4,10 @@
 # reluva_audio: the mixer, streams and decoders (WAV, MP3, ADPCM, ...).
 add_library(reluva_audio STATIC
     decode.cpp
+    ea_audio.cpp
     mixer.cpp
     mp3.cpp
+    prologic.cpp
     stream.cpp
     wav.cpp)
 target_link_libraries(reluva_audio PUBLIC reluva_common PRIVATE reluva_warnings)

@@ -33,15 +33,15 @@ public:
     std::string hex() const;
 
 private:
-    uint64_t h_ = 0xcbf29ce484222325ull;
+    uint64_t _h = 0xcbf29ce484222325ull;
 };
 
 // The run's record: "step: value" lines, in order.
 class Record {
 public:
-    void add(const std::string &step, const std::string &value) { lines_.push_back(step + ": " + value); }
+    void add(const std::string &step, const std::string &value) { _lines.push_back(step + ": " + value); }
     void add(const std::string &step, int64_t value) { add(step, std::to_string(value)); }
-    const std::vector<std::string> &lines() const { return lines_; }
+    const std::vector<std::string> &lines() const { return _lines; }
     // A step that couldn't be done at all: a line saying so, and a failure.
     void fail(const std::string &step, const std::string &why) { add(step, "FAILED " + why); }
 
@@ -52,7 +52,7 @@ public:
     void check(const std::filesystem::path &path, const std::string &suite, const std::string &source) const;
 
 private:
-    std::vector<std::string> lines_;
+    std::vector<std::string> _lines;
 };
 
 } // namespace reluva::test

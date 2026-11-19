@@ -15,14 +15,14 @@ namespace reluva::stharbinger {
 
 void Resources::addGamePath(const std::string &nativePath) {
     // Each folder gets a block of priorities below the previous one.
-    const int priority = nextPriority_;
-    nextPriority_ -= 10;
+    const int priority = _nextPriority;
+    _nextPriority -= 10;
 
     auto dir = [&](const std::filesystem::path &path, int depth, int prio) {
         auto folder = std::make_unique<DirectoryArchive>();
         if (folder->open(path, depth))
             return;
-        search_.add(std::move(folder), prio);
+        _search.add(std::move(folder), prio);
     };
     auto isDir = [](const std::filesystem::path &path, const char *name) {
         return fs::findDirectory(path, name).has_value();
@@ -49,7 +49,7 @@ void Resources::addGamePath(const std::string &nativePath) {
         if (!artDir.open(*art, 0)) {
             if (auto all = LstArchive::open(artDir, "ART")) {
                 all->setPrefix("ART/");
-                search_.add(std::make_unique<SharedArchive>(all), priority - 4);
+                _search.add(std::make_unique<SharedArchive>(all), priority - 4);
             }
         }
     }
@@ -58,10 +58,10 @@ void Resources::addGamePath(const std::string &nativePath) {
         if (!sseDir->open(*sse, 0)) {
             // The installer's archive of the program files, scripts included.
             auto all = LstArchive::open(*sseDir, "SSE");
-            search_.add(std::move(sseDir), priority - 2);
+            _search.add(std::move(sseDir), priority - 2);
             if (all) {
                 if (all->has("CC.ALL"))
-                    search_.add(std::make_unique<SharedArchive>(all), priority - 3);
+                    _search.add(std::make_unique<SharedArchive>(all), priority - 3);
                 else
                     log::warning("%s/SSE.ALL holds no CC.ALL", sse->string().c_str());
             }
@@ -70,25 +70,25 @@ void Resources::addGamePath(const std::string &nativePath) {
 }
 
 std::unique_ptr<SeekableReadStream> Resources::openFile(const std::string &name) const {
-    return stharbinger::openFile(search_, name);
+    return stharbinger::openFile(_search, name);
 }
 
 std::shared_ptr<LstArchive> Resources::getArchive(const std::string &name) {
     std::string key = text::toUpper(name);
-    auto it = archives_.find(key);
-    if (it != archives_.end())
+    auto it = _archives.find(key);
+    if (it != _archives.end())
         return it->second;
-    auto archive = LstArchive::open(search_, key);
-    archives_[key] = archive;
+    auto archive = LstArchive::open(_search, key);
+    _archives[key] = archive;
     return archive;
 }
 
 bool Resources::hasResource(ListKind kind, const std::string &name) const {
     std::string path = getResourcePath(kind, name);
-    return !path.empty() && search_.has(path);
+    return !path.empty() && _search.has(path);
 }
 
-bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) {
+bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) const {
     paletteLoaded = false;
     auto stream = openFile(getResourcePath(kListBackgrounds, name));
     if (!stream)
@@ -104,12 +104,12 @@ bool Resources::loadBackground(const std::string &name, Surface &surface, Palett
     return true;
 }
 
-bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) {
+bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) const {
     auto stream = openFile(getResourcePath(kListAnims, name));
     return stream && anim.load(*stream);
 }
 
-bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) {
+bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) const {
     auto stream = openFile(getResourcePath(kListSounds, name));
     if (!stream)
         return false;
@@ -155,12 +155,12 @@ bool Resources::loadDialogue(int index, Dialogue &dialogue, std::string &error) 
 bool Resources::openSpeech(const std::string &dialogueName) {
     // Speech archives are large: keep only the current dialogue's in memory.
     std::string name = text::toUpper(dialogueName);
-    if (name != speechName_) {
-        speechName_ = name;
-        speechArchive_ = LstArchive::open(search_, "DIALOGUE/" + name + "/" + name);
-        phonemeArchive_ = LstArchive::open(search_, "PHONEMES/" + name + "/" + name);
+    if (name != _speechName) {
+        _speechName = name;
+        _speechArchive = LstArchive::open(_search, "DIALOGUE/" + name + "/" + name);
+        _phonemeArchive = LstArchive::open(_search, "PHONEMES/" + name + "/" + name);
     }
-    return speechArchive_ && phonemeArchive_;
+    return _speechArchive && _phonemeArchive;
 }
 
 namespace {
@@ -176,23 +176,23 @@ bool readEntry(const std::shared_ptr<LstArchive> &archive, int line, std::vector
 } // namespace
 
 bool Resources::loadSpeech(int line, std::vector<uint8_t> &data) {
-    return readEntry(speechArchive_, line, data);
+    return readEntry(_speechArchive, line, data);
 }
 
 bool Resources::loadPhonemes(int line, std::vector<uint8_t> &data) {
-    return readEntry(phonemeArchive_, line, data);
+    return readEntry(_phonemeArchive, line, data);
 }
 
 void Resources::loadLinkTables() {
-    if (linkLoaded_)
+    if (_linkLoaded)
         return;
-    linkLoaded_ = true;
+    _linkLoaded = true;
     if (auto s = openFile("DS9.LCC")) {
         std::vector<uint8_t> d = s->readAll();
         for (std::string line : text::split(std::string(d.begin(), d.end()), '\n')) {
             line = text::trim(line);
             if (!line.empty())
-                linkScenes_.push_back(line);
+                _linkScenes.push_back(line);
         }
     }
     // u16 count, then NUL-terminated names.
@@ -204,28 +204,28 @@ void Resources::loadLinkTables() {
         for (uint16_t i = 0; i < count && !s->eos(); i++)
             out.push_back(s->readCString());
     };
-    readNames("DS9.LVM", linkVariables_);
-    readNames("DS9.LDM", linkDialogues_);
-    if (linkScenes_.empty() || linkVariables_.empty())
+    readNames("DS9.LVM", _linkVariables);
+    readNames("DS9.LDM", _linkDialogues);
+    if (_linkScenes.empty() || _linkVariables.empty())
         log::warning("DS9.LCC/DS9.LVM not found: saved games will not be compatible with the original");
 }
 
 const std::vector<std::string> &Resources::getLinkScenes() {
     loadLinkTables();
-    return linkScenes_;
+    return _linkScenes;
 }
 
 const std::vector<std::string> &Resources::getLinkVariables() {
     loadLinkTables();
-    return linkVariables_;
+    return _linkVariables;
 }
 
 const std::vector<std::string> &Resources::getLinkDialogues() {
     loadLinkTables();
-    return linkDialogues_;
+    return _linkDialogues;
 }
 
-std::vector<std::string> Resources::loadCredits() {
+std::vector<std::string> Resources::loadCredits() const {
     // DEEP.EXE is the DOS/4GW extender followed by the game: an MZ stub whose
     // e_lfanew points to an LE header. LE data page offsets are relative to that
     // stub. The credits are a table of 269 offsets into the data object, each to
@@ -240,7 +240,8 @@ std::vector<std::string> Resources::loadCredits() {
     }
     std::vector<uint8_t> exe = s->readAll();
     auto u32 = [&](size_t o) -> uint32_t { return o + 4 <= exe.size() ? readLE32(&exe[o]) : 0; };
-    size_t mz = 0, le = 0;
+    size_t mz = 0;
+    size_t le = 0;
     for (size_t i = 0; i + 0x40 <= exe.size(); i++) {
         if (exe[i] != 'M' || exe[i + 1] != 'Z')
             continue;
@@ -261,7 +262,9 @@ std::vector<std::string> Resources::loadCredits() {
     size_t dataPages = mz + u32(le + 0x80);
     for (uint32_t i = 0; i < numObjects; i++) {
         size_t o = objects + i * 24;
-        uint32_t size = u32(o), base = u32(o + 4), firstPage = u32(o + 12);
+        uint32_t size = u32(o);
+        uint32_t base = u32(o + 4);
+        uint32_t firstPage = u32(o + 12);
         if (kTableAddress < base || kTableAddress >= base + size)
             continue;
         size_t start = dataPages + size_t(firstPage - 1) * pageSize;

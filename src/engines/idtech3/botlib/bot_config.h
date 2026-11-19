@@ -27,7 +27,8 @@ struct FuzzySwitch {
     int index = 0;    // inventory slot tested
     int value = 0;    // applies below this (the default: always)
     float weight = 0; // what it returns, unless it switches further
-    std::unique_ptr<FuzzySwitch> child, next;
+    std::unique_ptr<FuzzySwitch> child;
+    std::unique_ptr<FuzzySwitch> next;
 };
 struct WeightConfig {
     std::string file;
@@ -42,10 +43,15 @@ std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader &load, co
 
 // Item descriptions (items.c): `iteminfo "classname" { name ... }`.
 struct ItemInfo {
-    std::string classname, name, model;
-    int modelIndex = 0, type = 0, index = 0;
+    std::string classname;
+    std::string name;
+    std::string model;
+    int modelIndex = 0;
+    int type = 0;
+    int index = 0;
     float respawnTime = 0;
-    Vec3f mins{}, maxs{};
+    Vec3f mins{};
+    Vec3f maxs{};
 };
 bool readItemConfig(const BotScript::Loader &load, const std::string &file, std::vector<ItemInfo> &out,
                     std::string *error = nullptr);
@@ -53,18 +59,45 @@ bool readItemConfig(const BotScript::Loader &load, const std::string &file, std:
 // Weapon and projectile descriptions (weapons.c): `weaponinfo { ... }`
 // and `projectileinfo { ... }`, each weapon with its projectile's.
 struct ProjectileInfo {
-    std::string name, model;
-    int flags = 0, damage = 0, visDamage = 0, damageType = 0, healthInc = 0;
-    float gravity = 0, radius = 0, push = 0, detonation = 0, bounce = 0, bounceFric = 0, bounceStop = 0;
+    std::string name;
+    std::string model;
+    int flags = 0;
+    int damage = 0;
+    int visDamage = 0;
+    int damageType = 0;
+    int healthInc = 0;
+    float gravity = 0;
+    float radius = 0;
+    float push = 0;
+    float detonation = 0;
+    float bounce = 0;
+    float bounceFric = 0;
+    float bounceStop = 0;
 };
 struct WeaponInfo {
     bool valid = false;
     int number = 0;
-    std::string name, model, projectile;
-    int level = 0, weaponIndex = 0, flags = 0, numProjectiles = 0, ammoAmount = 0, ammoIndex = 0;
-    float hspread = 0, vspread = 0, speed = 0, acceleration = 0, extraZVelocity = 0, activate = 0, reload = 0,
-          spinUp = 0, spinDown = 0;
-    Vec3f recoil{}, offset{}, angleOffset{};
+    std::string name;
+    std::string model;
+    std::string projectile;
+    int level = 0;
+    int weaponIndex = 0;
+    int flags = 0;
+    int numProjectiles = 0;
+    int ammoAmount = 0;
+    int ammoIndex = 0;
+    float hspread = 0;
+    float vspread = 0;
+    float speed = 0;
+    float acceleration = 0;
+    float extraZVelocity = 0;
+    float activate = 0;
+    float reload = 0;
+    float spinUp = 0;
+    float spinDown = 0;
+    Vec3f recoil{};
+    Vec3f offset{};
+    Vec3f angleOffset{};
     ProjectileInfo proj;
 };
 bool readWeaponConfig(const BotScript::Loader &load, const std::string &file, std::vector<WeaponInfo> &out,

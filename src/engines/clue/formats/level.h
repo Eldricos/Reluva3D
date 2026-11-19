@@ -28,13 +28,13 @@ struct ObjectDef {
     // What an object is, by its type byte, as far as the objects of each
     // type tell (3, 5, 9 and 12 are all furniture of some kind).
     enum Type : uint8_t {
-        Wall = 0,
-        Floor = 1,
-        Furniture = 5,
-        Character = 6,
-        SecretPassage = 8,
-        TileNumber = 11,
-        Drapes = 12
+        kWall = 0,
+        kFloor = 1,
+        kFurniture = 5,
+        kCharacter = 6,
+        kSecretPassage = 8,
+        kTileNumber = 11,
+        kDrapes = 12
     };
     struct State {
         // 0 the usual one; 1-16 a character's eight idle and eight "mult"
@@ -60,10 +60,12 @@ Error parseObject(const std::vector<uint8_t> &record, ObjectDef &out);
 
 // An object placed in the mansion.
 struct Placement {
-    uint8_t flags = 0;    // 0x40 always; 0x02: tag given; 0x20: timings given
-    uint16_t tag = 0;     // when flags has 0x02; not understood
-    uint16_t object = 0;  // into Level::objects
-    int16_t x = 0, y = 0; // the object's anchor in the world
+    uint8_t flags = 0;   // 0x40 always; 0x02: tag given; 0x20: timings given
+    uint16_t tag = 0;    // when flags has 0x02; not understood
+    uint16_t object = 0; // into Level::objects
+    // the object's anchor in the world
+    int16_t x = 0;
+    int16_t y = 0;
     // The height it stands at above the floor: -1 for floors, 1 for most
     // things, more for what hangs on walls (lamps 88-97, pictures) or tops
     // a door (its lintel 119-121, the frames being 161 high).
@@ -77,7 +79,9 @@ struct Level {
     std::string title;                // "Unnamed"
     std::vector<std::string> objects; // "ballroom:Oblcouch_ad", by number
     std::vector<Placement> placements;
-    std::vector<uint8_t> info, workspace; // the level editor's, it seems
+    // the level editor's, it seems
+    std::vector<uint8_t> info;
+    std::vector<uint8_t> workspace;
 };
 // clue.lvl is a DDRV archive of /World.dat, /Objects.dat, /Info.dat and
 // /Workspace.dat.

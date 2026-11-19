@@ -73,8 +73,10 @@ gfx::Vec3 SceneCamera::eye() const {
 void SceneCamera::ray(float sx, float sy, int width, int height, gfx::Vec3 &from, gfx::Vec3 &dir) const {
     // The ray through the pixel, in the camera's axes (looking down -Z),
     // turned to the world's.
-    const float aspect = float(width) / float(height), t = std::tan(fovY / 2);
-    const float nx = 2 * sx / float(width) - 1, ny = 1 - 2 * sy / float(height);
+    const float aspect = float(width) / float(height);
+    const float t = std::tan(fovY / 2);
+    const float nx = 2 * sx / float(width) - 1;
+    const float ny = 1 - 2 * sy / float(height);
     Mat4 turn = rotationY(elevAzimRoll[1]);
     turn = gfx::multiply(turn, rotationX(elevAzimRoll[0]));
     turn = gfx::multiply(turn, rotationZ(elevAzimRoll[2]));
@@ -83,7 +85,8 @@ void SceneCamera::ray(float sx, float sy, int width, int height, gfx::Vec3 &from
 }
 
 bool SceneCamera::floorAt(float sx, float sy, int width, int height, float &x, float &z) const {
-    gfx::Vec3 from, dir;
+    gfx::Vec3 from;
+    gfx::Vec3 dir;
     ray(sx, sy, width, height, from, dir);
     if (dir[1] >= 0)
         return false; // it doesn't come down to the floor

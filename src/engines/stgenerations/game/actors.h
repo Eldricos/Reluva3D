@@ -150,8 +150,15 @@ public:
     // distances. kKeep / kKeep32 (0x8000 / 0x80000000) leave a value as it is.
     static const uint32_t kKeep32 = 0x80000000;
     struct Wander {
-        int guardMode = kKeep, guardTarget = kKeep, minTurn = kKeep, maxTurn = kKeep;
-        uint32_t inner = kKeep32, home = kKeep32, outer = kKeep32, minWalk = kKeep32, maxWalk = kKeep32;
+        int guardMode = kKeep;
+        int guardTarget = kKeep;
+        int minTurn = kKeep;
+        int maxTurn = kKeep;
+        uint32_t inner = kKeep32;
+        uint32_t home = kKeep32;
+        uint32_t outer = kKeep32;
+        uint32_t minWalk = kKeep32;
+        uint32_t maxWalk = kKeep32;
     };
     void setWander(uint16_t id, const Wander &wander);
     // Saves from before guard targets (they wandered about the player).
@@ -184,7 +191,11 @@ public:
     struct Shot {
         uint16_t shooter;
         int weapon;
-        double x, y, z, yaw, pitch;
+        double x;
+        double y;
+        double z;
+        double yaw;
+        double pitch;
     };
     // Move the shots fired since the last call into shots.
     void takeShots(std::vector<Shot> &shots);

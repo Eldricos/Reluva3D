@@ -57,39 +57,44 @@ struct TextureParams {
 
 // Blend factors for result = src * srcFactor + dst * dstFactor.
 enum class Blend : uint8_t {
-    Zero,
-    One,
-    SrcColor,
-    OneMinusSrcColor,
-    DstColor,
-    OneMinusDstColor,
-    SrcAlpha,
-    OneMinusSrcAlpha,
-    DstAlpha,
-    OneMinusDstAlpha,
+    kZero,
+    kOne,
+    kSrcColor,
+    kOneMinusSrcColor,
+    kDstColor,
+    kOneMinusDstColor,
+    kSrcAlpha,
+    kOneMinusSrcAlpha,
+    kDstAlpha,
+    kOneMinusDstAlpha,
 };
-enum class Cull : uint8_t { None, Back, Front };
+enum class Cull : uint8_t { kNone, kBack, kFront };
 // Discard fragments by their alpha: none, alpha > 0, alpha < 0.5, alpha >= 0.5.
-enum class AlphaTest : uint8_t { None, Gt0, Lt128, Ge128 };
+enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128 };
 
 struct DrawState {
-    Blend src = Blend::One, dst = Blend::Zero; // One/Zero: opaque
-    bool depthTest = true;                     // passes when nearer or equal
+    // One/Zero: opaque
+    Blend src = Blend::kOne;
+    Blend dst = Blend::kZero;
+    bool depthTest = true;   // passes when nearer or equal
     bool depthEqual = false; // with depthTest: passes only when equal, for extra passes over drawn geometry
     bool depthWrite = true;
     bool depthBias = false; // pulled towards the camera, for decals on walls
-    Cull cull = Cull::Back;
-    AlphaTest alphaTest = AlphaTest::None;
+    Cull cull = Cull::kBack;
+    AlphaTest alphaTest = AlphaTest::kNone;
 
     bool operator==(const DrawState &) const = default;
 };
 
 // A periodic function of time: base + amplitude * f(phase + time * frequency),
 // f with period 1 and values in -1..1 (sawtooths 0..1).
-enum class WaveFunc : uint8_t { Sin, Triangle, Square, Sawtooth, InverseSawtooth, Noise };
+enum class WaveFunc : uint8_t { kSin, kTriangle, kSquare, kSawtooth, kInverseSawtooth, kNoise };
 struct Wave {
-    WaveFunc func = WaveFunc::Sin;
-    float base = 0, amplitude = 0, phase = 0, frequency = 0;
+    WaveFunc func = WaveFunc::kSin;
+    float base = 0;
+    float amplitude = 0;
+    float phase = 0;
+    float frequency = 0;
 };
 // The wave's value at `time` seconds, as the GPU computes it too.
 float evaluate(const Wave &wave, float time);
@@ -97,7 +102,7 @@ float evaluate(const Wave &wave, float time);
 // Where texture coordinates come from: the first or second set, a
 // reflection of the camera off the surface (environment mapping), or the
 // position's dot products with two vectors.
-enum class TexGen : uint8_t { Uv, Uv2, Environment, Vector };
+enum class TexGen : uint8_t { kUv, kUv2, kEnvironment, kVector };
 // Where colour and alpha come from (times DrawCall::color). Lighting: the
 // draw call's ambient light, plus its directed light times how much the
 // normal faces the light's direction (alpha 1).
@@ -105,11 +110,11 @@ enum class TexGen : uint8_t { Uv, Uv2, Environment, Vector };
 // shadowReach|, shadowMax) at each vertex, its place in the world (after
 // the model matrix, divided by its w): a projected shadow, darkest where
 // it falls close to its caster.
-enum class ColorSource : uint8_t { Constant, Vertex, OneMinusVertex, Lighting, Shadow };
+enum class ColorSource : uint8_t { kConstant, kVertex, kOneMinusVertex, kLighting, kShadow };
 
 // Moves vertices on the GPU each frame.
 struct Deform {
-    enum class Type : uint8_t { None, Wave, Bulge, Move, Normal } type = Type::None;
+    enum class Type : uint8_t { kNone, kWave, kBulge, kMove, kNormal } type = Type::kNone;
     // Wave: along the normal by the wave's value, its phase offset by
     // (x + y + z) * spread. Move: by `vector` times the wave's value.
     // Normal: the positions stay; each normal is pushed along x, y and z
@@ -120,7 +125,9 @@ struct Deform {
     float spread = 0;
     Vec3 vector{};
     // Bulge: along the normal by height * sin(u * width + time * speed).
-    float width = 0, height = 0, speed = 0;
+    float width = 0;
+    float height = 0;
+    float speed = 0;
 };
 
 // A light added for a frame (a shot, an explosion): it brightens what's
@@ -133,7 +140,7 @@ struct DynamicLight {
 };
 constexpr int kMaxDynamicLights = 16;
 
-// A light on a mesh's vertices (ColorSource::Lighting with
+// A light on a mesh's vertices (ColorSource::kLighting with
 // vertexLightCount > 0): UE1's actor lighting, worked out per vertex.
 struct VertexLight {
     Vec3 position{};
@@ -166,7 +173,8 @@ inline float volumeGlow(const Vec3 &eye, const Vec3 &at, const DynamicLight &l) 
 
 struct DrawCall {
     MeshId mesh = 0;
-    uint32_t firstIndex = 0, indexCount = 0;
+    uint32_t firstIndex = 0;
+    uint32_t indexCount = 0;
     int32_t vertexOffset = 0; // added to every index, e.g. to pick an animation frame's vertices
     // Positions and normals blended towards those this many vertices on
     // instead (another animation frame's), by `backLerp` (0: none).
@@ -176,22 +184,30 @@ struct DrawCall {
     // positions (Vector, turbulence) use the mesh's own coordinates.
     Mat4 model = identity();
     TextureId texture = 0; // 0: white
-    TexGen texGen = TexGen::Uv;
-    Vec3 texVector0{}, texVector1{}; // TexGen::Vector's two vectors
+    TexGen texGen = TexGen::kUv;
+    // TexGen::Vector's two vectors
+    Vec3 texVector0{};
+    Vec3 texVector1{};
     // Texture coordinates go through rows (pre) then a turbulence, then
     // rows (post): each pair of rows maps (u, v) to (row0 . (u, v, 1),
     // row1 . (u, v, 1)). Turbulence adds amplitude * sin(2 pi (p + phase))
     // with p = (x + z) / 1024 to u and p = y / 1024 to v.
-    std::array<float, 3> preRow0{1, 0, 0}, preRow1{0, 1, 0};
-    float turbAmplitude = 0, turbPhase = 0;
-    std::array<float, 3> postRow0{1, 0, 0}, postRow1{0, 1, 0};
+    std::array<float, 3> preRow0{1, 0, 0};
+    std::array<float, 3> preRow1{0, 1, 0};
+    float turbAmplitude = 0;
+    float turbPhase = 0;
+    std::array<float, 3> postRow0{1, 0, 0};
+    std::array<float, 3> postRow1{0, 1, 0};
     // The fragment is texture * colour, the colour's RGB and alpha each
     // from the constant, the vertex colour, or one minus it, times the
     // constant. Components may exceed 1 (results are clamped).
     std::array<float, 4> color{1, 1, 1, 1};
-    ColorSource rgbSource = ColorSource::Constant, alphaSource = ColorSource::Constant;
-    Vec3 ambientLight{}, directedLight{}; // for ColorSource::Lighting, 1 = full
-    Vec3 lightDirection{0, 0, 1};         // towards the light, in world space
+    ColorSource rgbSource = ColorSource::kConstant;
+    ColorSource alphaSource = ColorSource::kConstant;
+    // for ColorSource::Lighting, 1 = full
+    Vec3 ambientLight{};
+    Vec3 directedLight{};
+    Vec3 lightDirection{0, 0, 1}; // towards the light, in world space
     // Instead of the directed light, these lights: each vertex gets
     // min(1, ambientLight + vertexLightScale x the sum over them of colour
     // x (1 - distance / radius) x (max(0, (cos + 1)^2 - 1.5) + 6 x
@@ -200,19 +216,30 @@ struct DrawCall {
     // vertex and the light mirrored in the vertex's plane.
     std::array<VertexLight, kMaxVertexLights> vertexLights{};
     int vertexLightCount = 0;
-    float vertexLightScale = 1, specular = 0;
+    float vertexLightScale = 1;
+    float specular = 0;
     // The lights as UE1 lights surfaces instead (movers): min(1, ambient +
     // the sum of colour x (1 - 3 f^2 + 2 f^3) x max(0, cos)), f = distance /
     // radius; a cylinder light 1 - f^2 by its distance across.
     bool surfaceLighting = false;
-    Vec3 shadowLight{}; // for ColorSource::Shadow
-    float shadowReach = 0, shadowStrength = 0, shadowMax = 0;
+    Vec3 shadowLight{}; // for ColorSource::kShadow
+    float shadowReach = 0;
+    float shadowStrength = 0;
+    float shadowMax = 0;
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
     // fogDistance measured by depth in the view instead (Direct3D's table
     // fog, as UE1's renderer uses).
     bool fogByViewDepth = false;
+    // > 0: the fragment's colour is blended towards tableFogColor by a 3D
+    // card's table fog, (1 - e^(-w / tableFog)) / (1 - e^(-52428.8 /
+    // tableFog)) clamped to 0..1, w from the vertices' uv2[0] (their
+    // distance along the view), as THRASH's renderers fog; or with
+    // tableFogFromDepth, w the depth along the view as projected.
+    float tableFog = 0;
+    std::array<float, 3> tableFogColor{};
+    bool tableFogFromDepth = false;
     // > 0: the fragment's alpha is instead how fogged it is in a fog
     // volume, as Quake 3 has it: by its distance along the view axis
     // over fogDepth, scaled down by how far it is under the volume's
@@ -284,6 +311,15 @@ public:
     // The GPU and driver doing the work, for diagnostics.
     virtual std::string deviceName() const = 0;
 
+    // Whether frames begin with what the last one left (true), as a
+    // software renderer's buffer does, rather than cleared (the default).
+    virtual void setKeepFrame(bool keep) { (void)keep; }
+    // That nothing reads the frame's alpha (no DstAlpha blend factors): the
+    // renderer may then leave it other than the blend factors say, and
+    // draw the blends of the source alpha (source factor zero, one or
+    // SrcAlpha; destination zero, one or OneMinusSrcAlpha) with one
+    // pipeline state, which costs less to switch between. Off by default.
+    virtual void setFrameAlphaUnused(bool unused) { (void)unused; }
     // A frame: begin, any number of draws (in order), end. `viewProj` maps
     // world positions to clip space; `eye` is the camera's position.
     virtual void beginFrame(const Mat4 &viewProj, const Vec3 &eye, Color clear) = 0;
@@ -325,7 +361,7 @@ public:
     // only where it's level; Unmark lowers it from level to level - 1; Once
     // (at level 1 only) draws only where not marked yet, marking it
     // (overlapping shadows darkening once).
-    enum class StencilMode : uint8_t { None, Mark, Inside, SkyMark, SkyInside, LevelMark, LevelInside, Once, Unmark };
+    enum class StencilMode : uint8_t { kNone, kMark, kInside, kSkyMark, kSkyInside, kLevelMark, kLevelInside, kOnce, kUnmark };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
     // The level the level modes work at (1 by default, again each frame).

@@ -27,7 +27,8 @@ using namespace reluva::tool;
 bool writeBmp(const std::string &path, int w, int h, const uint8_t *palette, int paletteCount, const uint8_t *pixels,
               bool swapRB) {
     const int stride = (w + 3) & ~3;
-    const uint32_t paletteBytes = 256 * 4, dataOffset = 14 + 40 + paletteBytes;
+    const uint32_t paletteBytes = 256 * 4;
+    const uint32_t dataOffset = 14 + 40 + paletteBytes;
     const uint32_t fileSize = dataOffset + uint32_t(stride * h);
     Bytes out;
     auto p16 = [&](uint32_t v) {
@@ -55,14 +56,17 @@ bool writeBmp(const std::string &path, int w, int h, const uint8_t *palette, int
     p32(256);
     p32(0);
     for (int i = 0; i < 256; ++i) {
-        uint8_t c0 = 0, c1 = 0, c2 = 0;
+        uint8_t c0 = 0;
+        uint8_t c1 = 0;
+        uint8_t c2 = 0;
         if (i < paletteCount) {
             c0 = palette[i * 4];
             c1 = palette[i * 4 + 1];
             c2 = palette[i * 4 + 2];
         }
         // BMP palettes are stored blue, green, red, 0.
-        uint8_t r = swapRB ? c2 : c0, b = swapRB ? c0 : c2;
+        uint8_t r = swapRB ? c2 : c0;
+        uint8_t b = swapRB ? c0 : c2;
         out.push_back(b);
         out.push_back(c1);
         out.push_back(r);
@@ -126,7 +130,9 @@ int cmdLbpInfo(int argc, char **argv) {
     std::printf("palette entries that look like key colours (magenta or bright green):\n ");
     for (unsigned i = 0; i < paletteCount; ++i) {
         const uint8_t *e = &d[8 + size_t(i) * 4];
-        const uint8_t r = e[2], g = e[1], b = e[0];
+        const uint8_t r = e[2];
+        const uint8_t g = e[1];
+        const uint8_t b = e[0];
         if ((r > 200 && b > 200 && g < 60) || (g > 150 && r < 40 && b < 40))
             std::printf(" %u=%s(%u px)", i, colour(i).c_str(), hist[i]);
     }
@@ -163,7 +169,8 @@ int cmdTexSurvey(int argc, char **argv) {
         Bytes firstBytes;
     };
     std::map<std::string, Group> groups;
-    unsigned total = 0, decoded = 0;
+    unsigned total = 0;
+    unsigned decoded = 0;
     std::vector<uint8_t> data;
     for (int a = 2; a < argc; ++a) {
         reluva::newworlds::CatArchive cat;
@@ -172,7 +179,7 @@ int cmdTexSurvey(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Texture)
+            if (e.tag != reluva::newworlds::cattag::kTexture)
                 continue;
             if (cat.read(e, data))
                 continue;
@@ -191,10 +198,13 @@ int cmdTexSurvey(int argc, char **argv) {
                 std::snprintf(key, sizeof key, "%s format %u, u32@4 %u: palette doesn't fit", ok ? "OK  " : "FAIL",
                               format, pal);
             } else {
-                const uint32_t f0 = rd32(data, hdr), w = rd32(data, hdr + 4), h = rd32(data, hdr + 8);
+                const uint32_t f0 = rd32(data, hdr);
+                const uint32_t w = rd32(data, hdr + 4);
+                const uint32_t h = rd32(data, hdr + 8);
                 if (f0 == 1 && hdr + 16 <= data.size()) {
                     // Colour-keyed: u32 1, key index, width, height.
-                    const uint32_t kw = rd32(data, hdr + 8), kh = rd32(data, hdr + 12);
+                    const uint32_t kw = rd32(data, hdr + 8);
+                    const uint32_t kh = rd32(data, hdr + 12);
                     const size_t layers = format == 6 ? 2 : 1;
                     const bool fits = size_t(kw) * kh * layers == data.size() - hdr - 16;
                     std::snprintf(key, sizeof key, "%s format %u, palette %u, colour-keyed, size %s",
@@ -245,7 +255,9 @@ int cmdTexKeys(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool newworlds tex-keys <file.cat>...\n");
         return 2;
     }
-    unsigned total = 0, keyIsCorner = 0, cornerLooksKey = 0;
+    unsigned total = 0;
+    unsigned keyIsCorner = 0;
+    unsigned cornerLooksKey = 0;
     std::vector<uint8_t> d;
     std::printf("%-44s %3s %4s %-8s %6s  %-14s %s\n", "texture", "fmt", "key", "colour", "px", "corners",
                 "corner colour");
@@ -256,7 +268,7 @@ int cmdTexKeys(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Texture || cat.read(e, d))
+            if (e.tag != reluva::newworlds::cattag::kTexture || cat.read(e, d))
                 continue;
             reluva::newworlds::Texture tex;
             if (reluva::newworlds::decodeTexture(d, tex) || !tex.colourKeyed)
@@ -264,7 +276,8 @@ int cmdTexKeys(int argc, char **argv) {
             ++total;
             const uint32_t pal = rd32(d, 4);
             const size_t idx = 8 + size_t(pal) * 4 + 16;
-            const size_t w = size_t(tex.width), h = size_t(tex.height);
+            const size_t w = size_t(tex.width);
+            const size_t h = size_t(tex.height);
             const uint8_t corners[4] = {d[idx], d[idx + w - 1], d[idx + (h - 1) * w], d[idx + h * w - 1]};
             auto colour = [&](unsigned i) {
                 char buf[16];
@@ -311,18 +324,22 @@ int cmdGroundTextures(int argc, char **argv) {
     }
     std::vector<uint8_t> data;
     for (const auto &e : cat.entries()) {
-        std::string folder, stem, ext;
+        std::string folder;
+        std::string stem;
+        std::string ext;
         nw::splitName(e.name, folder, stem, ext);
         static const char *const kScenery[] = {"tree", "tree_s", "rock", "frn_spec", "bush"};
-        if (e.tag != nw::cattag::Geometry || e.name.find("/map/") == std::string::npos ||
+        if (e.tag != nw::cattag::kGeometry || e.name.find("/map/") == std::string::npos ||
             e.name.find("/lod/") != std::string::npos ||
             std::any_of(std::begin(kScenery), std::end(kScenery), [&](const char *n) { return stem == n; }))
             continue;
         std::vector<std::string> planet;
         for (const auto &t : cat.entries()) {
-            std::string tf, ts, te;
+            std::string tf;
+            std::string ts;
+            std::string te;
             nw::splitName(t.name, tf, ts, te);
-            if (t.tag == nw::cattag::Texture && tf == folder && (te == "mp0" || te == "lbp"))
+            if (t.tag == nw::cattag::kTexture && tf == folder && (te == "mp0" || te == "lbp"))
                 planet.push_back(ts);
         }
         nw::GeoModel m;
@@ -344,16 +361,16 @@ int cmdGroundTextures(int argc, char **argv) {
 }
 
 const Commands
-    commands("newworlds",
-             {
-                 {"lbp-info", "<file> [output prefix]",
-                  "decode a texture, show its key and colours, write <out>.bmp and <out>_alpha.bmp", cmdLbpInfo},
-                 {"tex-survey", "<file.cat>...", "group every texture by header layout", cmdTexSurvey},
-                 {"tex-keys", "<file.cat>...", "compare each colour key with the image corners", cmdTexKeys},
-                 {"ground-textures", "<planet.cat>",
-                  "show the textures the map viewer gives each ground tile model's slots, with each slot's face "
-                  "count",
-                  cmdGroundTextures},
-             });
+    kCommands("newworlds",
+              {
+                  {"lbp-info", "<file> [output prefix]",
+                   "decode a texture, show its key and colours, write <out>.bmp and <out>_alpha.bmp", cmdLbpInfo},
+                  {"tex-survey", "<file.cat>...", "group every texture by header layout", cmdTexSurvey},
+                  {"tex-keys", "<file.cat>...", "compare each colour key with the image corners", cmdTexKeys},
+                  {"ground-textures", "<planet.cat>",
+                   "show the textures the map viewer gives each ground tile model's slots, with each slot's face "
+                   "count",
+                   cmdGroundTextures},
+              });
 
 } // namespace

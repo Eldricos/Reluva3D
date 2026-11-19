@@ -100,7 +100,8 @@ inline std::vector<uint8_t> nameList(const std::vector<std::string> &names, cons
 // Writes NAME.ALL and NAME.LST with one entry per scene slot.
 inline void writeArchive(const std::filesystem::path &dir, const std::string &name,
                          const std::vector<std::vector<uint8_t>> &entries) {
-    std::vector<uint8_t> all, lst;
+    std::vector<uint8_t> all;
+    std::vector<uint8_t> lst;
     for (const auto &e : entries) {
         putU32(lst, uint32_t(all.size()));
         all.insert(all.end(), e.begin(), e.end());
@@ -114,7 +115,8 @@ inline void writeArchive(const std::filesystem::path &dir, const std::string &na
 inline std::vector<uint8_t> makeRle() {
     std::vector<uint8_t> file = {0x00, 0x00, 0x01, 0x01, 0x0A, 0xFF, 0x00, 0x00, 0x03, 0x00};
     for (uint8_t color = 1; color <= 3; color++) {
-        std::vector<uint8_t> hdr(25, 0), body = {0x40, 0x01, color};
+        std::vector<uint8_t> hdr(25, 0);
+        std::vector<uint8_t> body = {0x40, 0x01, color};
         hdr[1] = 1;
         hdr[3] = 1;
         hdr[21] = uint8_t(body.size());

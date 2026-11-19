@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import struct, sys, glob, collections, zlib, os
 def load(p):
     d=open(p,'rb').read()

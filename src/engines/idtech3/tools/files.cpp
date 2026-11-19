@@ -87,7 +87,7 @@ int cmdFileShow(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"pk3-list", "<game folder> [name filter]",
