@@ -30,7 +30,7 @@ const GameInfo *findGame(std::string_view gameId) {
 // copies. Until then they're found by fallbackTable().
 const std::vector<GameVariant> &detectionTable() {
     static const std::vector<GameVariant> kTable = {
-        // English Windows release, Midtown2.exe 1.00.3200 (October 2026).
+        // English Windows release, Midtown2.exe 1.00.3200.
         {"mm2",
          "Midtown Madness 2",
          "en",

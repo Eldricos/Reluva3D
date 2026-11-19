@@ -407,6 +407,6 @@ the two cities as above, and no code from anywhere was used.
 
 Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
 kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
-the tunnels' flag 0x4000. The program's
-own handling of these is encrypted (see ../../engines/age.md), so they're
-for observation of the game running.
+the tunnels' flag 0x4000. The program's own handling of these is
+encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)),
+so they're for observation of the game running.
