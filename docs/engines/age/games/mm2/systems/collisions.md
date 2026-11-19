@@ -6,7 +6,9 @@
 
 What the city's surfaces are made of, and how cars collide with the city, its bounds and its placed models. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## What the city is made of
+## How it works
+
+### What the city is made of
 
 `city/materials.mtl` is blocks of `mtl <name> { ... }`: **elasticity**,
 **friction**, **effect**, **sound**, **drag**, **width**, **height**,
@@ -52,7 +54,7 @@ texture; their radii (1-2 m, for clouds) are halved. **width** (water
 tyre's foot, and **height** (grass 0.04) lifts it: Reluva's reading of
 them.
 
-## The city's collisions
+### The city's collisions
 
 `buildCityCollision`:
 
@@ -68,6 +70,16 @@ In a grid of 8 m cells. The tunnels' walls and ceilings and the
 bridges' railings are among the city's surfaces ([psdl.md](../formats/psdl.md)),
 so they're collided with; the water under the bridges and the roads'
 far-off low-detail copies aren't.
+
+## In Reluva
+
+- `buildCityCollision` (`src/engines/age/game/city_collision.{h,cpp}`)
+  puts the city's surfaces into a `CollisionWorld`
+  (`src/engines/age/game/collision.{h,cpp}`).
+- `PhysicsMaterials` (`src/engines/age/formats/materials.{h,cpp}`) reads
+  `materials.mtl` and `materials.csv`.
+- The pairing of the particle indices with the `tune/effects` rules is
+  Reluva's (above).
 
 ## Sources and checks
 

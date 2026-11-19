@@ -2,6 +2,8 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/instances.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
+## Overview
+
 The models a city places (buildings, lamp posts, bridges, signs):
 `city/sf.inst` (3,763) and `city/london.inst` (1,997) in `mm2core.ar`.
 Read by `src/engines/age/formats/instances.cpp`.
@@ -33,6 +35,12 @@ ties).
 |---|---|---|
 | records | 3,763 | 1,997 |
 | short form | 211 | 544 |
+
+## In Reluva
+
+Read by `src/engines/age/formats/instances.cpp` (`readInstances`);
+`render/city_scene.cpp` places the models, which the World page shows
+(M hides them). `reluva-tool age check` reads both files.
 
 ## Sources and checks
 

@@ -28,11 +28,11 @@ with the engine's.
 | UnrealScript | classes, states, functions, properties, enums, constants and their bytecode read (every one of The Fallen's), and written out as text (`unreal script`) ([script.md](formats/script.md)). A VM runs them: classes loaded, objects, the interpreter with states, latent code and timers, and every native the game's scripts call, Core's, Engine's and The Fallen's own; every map runs (`unreal run`) ([script-vm.md](systems/script-vm.md), [level.md](systems/level.md)) |
 | Game | started: the level's scripts run live with the player logged in, moving and colliding against the level ([movement.md](systems/movement.md), [collision.md](systems/collision.md)), steered from the keyboard and mouse and seen from the game's own camera, cut scenes included ([playing.md](systems/playing.md), [splines.md](systems/splines.md)). Actors' animations play on the scripts' timing, with their notifications. The AI finds its way along the level's paths ([ai.md](systems/ai.md)); the characters' lines play from the dialogue tables ([dialogue-tables.md](formats/dialogue-tables.md), [dialogue.md](systems/dialogue.md)), shown as they're said: cut scenes, hails over the communicator (requests for supplies, beamed down in the beam-down zones; reports, signing off) and the AI's own lines (spotting the player, losing them, chatter); the documents, the level's objectives and title and its actors' strings (messages, tricorder readings) read from `int/` ([int.md](formats/int.md), [documents.md](systems/documents.md)). The game's own HUD is drawn (its panels, numbers, communicator; [font.md](formats/font.md), [hud.md](systems/hud.md)), and its menus work: the title, credits, main menu and info pad, New Game travelling to the opening, the UWindow options window with the mouse ([menus.md](systems/menus.md)); games saved and loaded, in the original's own format ([saves.md](systems/saves.md), [save.md](formats/save.md)); sound: effects heard from where they are (muffled through walls), ambient sounds, the music (the MP3s) and the dialogue's voices ([sound.md](systems/sound.md)); the effects: particles, sparks, electric arcs, beams, rain and snow, decals ([effects.md](systems/effects.md)). No native a map calls is left unwritten; The Fallen's own physics modes work: the player climbs ladders, hangs from ledges and pulls up onto them ([climbing.md](systems/climbing.md)), and each kind of effect moves its particles |
 
-**First check against the retail data** (October 2026): all 175 packages
-open (versions 71-73), all 3801 palettes and 2868 of 2930 sounds decode.
-A second run, after fixes, read all 74 maps (`.dsm`; the largest,
-M03_KiraL2, 25619 BSP nodes) and they draw in the Maps page; 182
-textures are procedural with no stored pixels (now shown as stand-ins,
+**Checked against the retail data** (October 2026): all 175 packages
+open (versions 71-73), all 3801 palettes and 2868 of 2930 sounds decode,
+and all 74 maps read (`.dsm`; the largest, M03_KiraL2, 25619 BSP nodes)
+and draw in the Maps page; 182 textures are procedural with no stored
+pixels (shown as stand-ins,
 [texture.md](formats/texture.md)) and the 62 sounds that fail
 are empty placeholders for the music in the install's `mp3` folder
 ([sound.md](formats/sound.md)). How to check again is in
@@ -52,8 +52,8 @@ M10_WorfL1A, the slowest map, runs 20 seconds of play in about 12.5 to
 M03_KiraL2 takes about 5 (November 2026). The scripts alone
 (`unreal run -all`) take at most 2.9 s for a map's 20 s, and 128 s for
 all 74 maps. What's left most is posing and lighting the characters for
-drawing, the HUD's scripts and the viewer's own text. The work done so
-far is in [systems/playing.md](systems/playing.md#in-reluva).
+drawing, the HUD's scripts and the viewer's own text. What Reluva does
+for speed is in [systems/playing.md](systems/playing.md#in-reluva).
 
 - **The GPU path** (November 2026): `RELUVA_BENCH="<map> <seconds>"`
   starts `reluva <target>` straight into that map, plays it, and
@@ -69,18 +69,18 @@ far is in [systems/playing.md](systems/playing.md#in-reluva).
   2.6 ms of every 60th. So on a real GPU Reluva's own work is about
   11 ms a frame on M04, about 30 on M10.
 - Water and wet textures (`Water::render`, a quarter of M10's frame
-  work in `unreal play`) now wrap with a step rather than a remainder per
-  pixel: the same frames (74 textures hashed over 40 steps each),
-  about 6% off M10's 20 s in `unreal play`.
-- Since then (M04_KiraL1, the rifle drawn, 9 s): a character's pose,
+  work in `unreal play`) wrap with a step rather than a remainder per
+  pixel: the same frames (74 textures hashed over 40 steps each), and
+  worth about 6% of M10's 20 s in `unreal play`.
+- On M04_KiraL1 (the rifle drawn, 9 s): a character's pose,
   IK and all, is kept in its mesh's poser (the last 8, by everything
   it's made from), and the drawing poses with the level's poser, so
   the pose its scripts asked after this tick is drawn as it is. The
   scripts' own queries still pose it about three times a tick for the
   player: they change its bone turns and IK targets between them. The
   viewer's info box keeps its text and draws only the lines that
-  changed (5% of the time before). Together about a tenth less time,
-  the frames the same to the pixel.
+  changed. The two are worth about a tenth of the time, the frames the
+  same to the pixel.
 - The HUD is the game's own `PostRender` script once a frame (4%);
   only a faster VM makes it cheaper.
 

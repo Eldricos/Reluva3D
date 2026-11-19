@@ -41,7 +41,7 @@ opponents, traffic, the police, replays. This is how New Worlds is done.
   part to get right.
 
 **B. Hosted.** Run the retail `nfs3.exe` in the x86 interpreter, as
-Elite Force's single-player DLLs are run (`docs/engines/x86.md`):
+Elite Force's single-player DLLs are run ([docs/common/x86/](../../../../common/x86/README.md)):
 
 - THRASH is implemented natively on `gfx::Renderer3D` (a GPU backend
   for the game's own draw calls).
@@ -68,7 +68,7 @@ fallback, reusing all of the data layer.
 ## Phases
 
 Each phase ends with something runnable and with its findings written
-under `docs/formats/nfs/`, as CONTRIBUTING.md asks.
+under [formats/](formats/) and [systems/](systems/), as CONTRIBUTING.md asks.
 
 ### Phase 0: skeleton and detection (done)
 
@@ -109,7 +109,7 @@ What was planned:
 
 ### Phase 1: archives, images, text (done)
 
-What was built, with each format written up in `docs/formats/nfs/`:
+What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Readers** for each format, checked against every retail file:
   - [viv.md](formats/viv.md): archives, as an `Archive`;
@@ -141,7 +141,7 @@ What was planned:
 - VIV reader as an `Archive`, so it joins a `SearchSet` like a pk3.
 - RefPack decompressor, SHPI/FSH decoder (palettes, the 8/16/32-bit
   types used), `text.*` string tables, `FNTF` fonts.
-- `reluva-tool viv-list`, `viv-extract`, `fsh-dump` (to TGA).
+- `reluva-tool nfs viv-list`, `viv-extract`, `fsh-dump` (to TGA).
 - Unit tests with small synthetic files (RefPack's three copy forms, a
   hand-built BIGF).
 - Viewer pages: **Textures** (every FSH/QFS with its name), **Strings**,
@@ -151,7 +151,7 @@ What was planned:
 
 ### Phase 2: models and tracks in 3D (done)
 
-What was built, with each format written up in `docs/formats/nfs/`:
+What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Readers**, each checked on every retail file (`reluva-tool nfs survey`):
   - [fce.md](formats/fce.md): car and object models;
@@ -331,7 +331,7 @@ What was built, with each format written up in `docs/formats/nfs/`:
   draws them: the needles' angles, the wheel turning with the steering
   and the speed. They sweep or are set with the keys. A frame from the
   game in `reluva-tool nfs host` agrees with the page.
-- **Tools:** `reluva-tool fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
+- **Tools:** `reluva-tool nfs fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
   `reluva-tool nfs survey` now also reads models, tracks, `.col` and `.hrz` files.
 - **Unit tests** on hand-built data for each reader.
 
@@ -360,13 +360,13 @@ What was planned:
   road, collision), HRZ (sky, fog). A **Track** page flies through each of
   the nine tracks on the GPU renderer, with the sky, day/night and
   weather variants, and the track's objects.
-- `reluva-tool frd-check` validates all nine tracks.
+- `reluva-tool nfs frd-check` validates all nine tracks.
 - Done when all nine tracks and all cars draw correctly against
   screenshots from the original.
 
 ### Phase 3: sound and video (done)
 
-What was built, with each format written up in `docs/formats/nfs/`:
+What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Decoders**, each checked on every retail file (`reluva-tool nfs survey`):
   - [bnk.md](formats/bnk.md): sound banks. Their codecs are in
@@ -391,7 +391,7 @@ What was built, with each format written up in `docs/formats/nfs/`:
   ([mad.md](formats/mad.md)), which matches frames captured from
   the game; key G switches to its other modes or a plain conversion.
 - **The engine** starts the mixer's audio output for the pages.
-- **Tools:** `reluva-tool bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`,
+- **Tools:** `reluva-tool nfs bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`,
   `mad-info`, `mad-frames`, `mad-wav`. `reluva-tool nfs survey` now also covers
   banks, streams, maps and movies.
 - **Unit tests** on hand-built data, and the MicroTalk decoder against
@@ -1627,7 +1627,8 @@ references.
 ### Merged into main (November 2026, done)
 
 The branch was merged into main after main's reorganisation, following
-docs/code-style-migration.md for a branch made before it:
+[DEVELOPMENT.md](../../../../DEVELOPMENT.md#a-branch-made-before-the-reorganisation)
+for a branch made before it:
 
 - **The layout.** The engine is in the standard layout
   (`src/engines/nfs/`: `formats/`, `render/`, `pages/`, `host/`,

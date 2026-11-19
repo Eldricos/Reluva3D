@@ -270,7 +270,7 @@ does the state verbs itself (`tag`, `removetag`, `add`, `remove`,
 `GameState`, the one
 [conditions](../formats/ac2.md#conditions) test. The rest go to a `ScriptHost`.
 
-For now the Scenes page is that host. A click on a hotspot runs its
+The Scenes page is that host. A click on a hotspot runs its
 script, or the first of its conditional scripts whose condition holds.
 It does `walk` and `run` (along the game's paths, to cells, walk points
 or characters), `talk` (with the dialogue manager: [dialogue.md](dialogue.md)),

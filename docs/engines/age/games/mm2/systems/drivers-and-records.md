@@ -6,13 +6,15 @@
 
 Drivers, their stats and race records, and changing a race's conditions. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Drivers and records
+## How it works
+
+### Drivers and records
 
 The main menu's **SELECT DRIVER**: the driver's name and level in its
 box (Left/Right goes to another), and every driver in the grid below it.
 Each driver has their own level (Amateur or Professional, chosen when
 they're created) and their own record
-([record-and-unlocking.md](record-and-unlocking.md#the-record-and-unlocking)). The buttons
+([record-and-unlocking.md](record-and-unlocking.md#how-it-works)). The buttons
 beside it (`texture/DVRNEW`, `DVRDEL`, `DVRSTS`, `RACE_REC`) open:
 
 - **Create a New Driver** (`jpg/newp_dlg`): the name, AMATEUR or
@@ -40,7 +42,7 @@ at (50, 10) rather than `menu.csv`'s (50, 37).
 **Quick Race** (`main_qck`, "Quick Race starts you in the last race you
 ran") goes to the garage for the driver's last race, then starts it.
 
-## Changing a race
+### Changing a race
 
 The Single Race Menu's own boxes hold the race's conditions, as its
 file has them. As the game's help says, they can be changed once the
@@ -93,6 +95,15 @@ pick a locked vehicle".
 In a circuit, Change Race Options' pedestrian density and Hide
 Pedestrians aren't available: "there are no pedestrians in a Circuit
 Race", the help says, and the circuits' Peds columns are all 0.
+
+## In Reluva
+
+`GameMenus` (`src/engines/age/ui/game_menus.h`,
+`src/engines/age/ui/game_menus_drivers.cpp`) draws these menus; the
+drivers and their records are `DriverRoster` and `PlayerRecord`
+([record-and-unlocking.md](record-and-unlocking.md)). The game's
+professional points aren't kept, so Race Records' check for them isn't
+available.
 
 ## Sources and checks
 

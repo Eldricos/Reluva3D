@@ -312,5 +312,5 @@ after some steps).
 - **How it was checked:** `reluva-tool unreal check`, October 2026: all
   3801 palettes read and 4029 of 4211 textures decode. The other 182 were
   procedural textures (FireTexture, WetTexture...: force fields, cloaks,
-  turret beams, explosion waves) that store no pixels at all; they now get
+  turret beams, explosion waves) that store no pixels at all; they get
   a stand-in (above).

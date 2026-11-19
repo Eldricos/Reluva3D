@@ -30,9 +30,9 @@ known.
   scripts scale their beams' sections along X as they're drawn.
 - **A mesh with no skin of its own** (no MultiSkins, Skin, or texture
   in the mesh) takes the actor's `Texture`, as UE1 does: the
-  transporter's strips (`Texture = StripTexture`), impact flares.
-  Before, they were drawn plain white: big white slabs over a beam-down,
-  a white square where a rifle shot hit.
+  transporter's strips (`Texture = StripTexture`), impact flares. Drawn
+  plain white, they'd be big white slabs over a beam-down, a white
+  square where a rifle shot hit.
 - **Copies by physics mode** (`moveMultiMeshes`), as Engine.dll's
   `phys*` functions for The Fallen's modes do it (read November 2026).
   Each walks the copies from the base's `Next` itself. Most fade only
@@ -142,8 +142,6 @@ known.
     below 0) or glows up and down (`bCycleFade`, turning at `MaxGlow` and
     `MinGlow`). Growing or travelling sets `bUpdate`; with it, it's laid
     out again. Its physics (Spark) then places the segments.
-  - Before, Reluva laid the segments itself each tick, jolting them only
-    on updates, so an arc held still between them.
 - **Beams** (`UpdateBeamSections`): the sections start at `BeamOrigin`,
   each `BeamSectionAxesX` further on, turned as the beam, with a wave if
   it has one. Their thickness jitters by `SectionAxisYZRandomFactor`. The

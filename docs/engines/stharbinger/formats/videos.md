@@ -13,6 +13,12 @@ Smacker (SMK2/SMK4) files in `DS9\INTRO`, `DS9\MOVIES` and `DS9\TRANS`, shown
 Smacker, read by Reluva's shared decoder: see
 [smacker.md](../../../common/video/smacker.md).
 
+## In Reluva
+
+`Game::playVideoFile` (`src/engines/stharbinger/game/game_video.cpp`) plays
+them with `src/video/smacker.h`. The data viewer can play one video on its
+own (`start_mode=video` in reluva.ini, the video named in `start_scene`).
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

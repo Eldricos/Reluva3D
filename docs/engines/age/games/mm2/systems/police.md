@@ -6,7 +6,7 @@
 
 The police: patrolling, chasing, busting, and their sirens. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Police
+## How it works
 
 - **Starting** where the aimap puts them (their models too: `vpcop`, and
   in some Crash Course lessons sports cars, `vpauditt`, `vpdb7`,
@@ -82,6 +82,14 @@ it), and their lines about the police car itself
 files' form) is the way for a Crash Course lesson (San Francisco's
 lesson 5, London's lesson 10, whose `crash<n>data.csv` names it), not a
 patrol.
+
+## In Reluva
+
+`Police` (`src/engines/age/game/police.{h,cpp}`); the sirens are
+`SirenSound` (`src/engines/age/audio/engine_sound.{h,cpp}`). How they patrol,
+chase and bust is Reluva's, written to match the recordings. There's no
+police radio, as the game has none to play
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
 ## Sources and checks
 

@@ -73,6 +73,12 @@ Every mission, loaded, run past Go and solved by the game's own solutions.
 - Single Missions lists only the missions an Adventure has reached ("Select
   a Mission to Revisit").
 
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)): the missions and their solutions are the game's own.
+`reluva-tool netimmerse at-run -solved` and `at-sweep`
+(`src/engines/netimmerse/tools/run.cpp`) run them, as above.
+
 ## Sources and checks
 
 ### Against recordings of the original

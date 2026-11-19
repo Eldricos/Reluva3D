@@ -17,7 +17,8 @@ and what reads them. -->
 
 <!-- The header, records and tables, as tables: offset, size, field. Name a
 field only when its meaning is known; else give its offset and the values
-seen. -->
+seen. Each record or part of the file is a ### here, never a ## of its
+own; an address goes on its first line, not in the heading. -->
 
 | Offset | Size | Field |
 |---|---|---|
@@ -30,8 +31,10 @@ system page of its own. -->
 
 ## In Reluva
 
-<!-- Where it's read (file, class), what the viewer shows, the reluva-tool
-commands for it. -->
+<!-- Where it's read (the file from the repository's root, the class), what
+the viewer shows, the commands (reluva-tool <engine> <command>), and what's
+done differently (also in KNOWN_DIFFERENCES.md). Not done yet: say so in
+a line. -->
 
 ## Sources and checks
 

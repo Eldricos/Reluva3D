@@ -303,8 +303,8 @@ just taken (`0x41b9b0`), and `used` if one is used up (`0x41ba20`). The
 list is saved with the game: each item's slot and page, as `0x41c730`
 writes them, and a list with two of a name loads as two.
 
-(Reluva first kept one item to a name, and lost the second glass and
-spout: the olive oil of 06B could then never be poured.) The item in hand is what the cursor
+(Kept one item to a name, the second glass and spout would be lost, and
+the olive oil of 06B could never be poured.) The item in hand is what the cursor
 shows and what a click uses, on what the game's pick finds there
 ([../formats/ac2.md](../formats/ac2.md#the-mouse-picking-and-cursors)). In the data viewer,
 F9 shows Reluva's info panel in a game (I is the inventory's).

@@ -98,9 +98,9 @@ save folder help.
    can't read 1.2's saves, nor 1.2's the Expansion's.
    - With the setting on, the Load menu lists only Expansion saves. With it
      off, only 1.2 saves.
-   - Expansion saves made before this separation existed should move to the
-     game's save folder's `expansion/saves/` the first time single player
-     starts.
+   - Expansion saves found among 1.2's (in the game's save folder's
+     `saves/`) move to its `expansion/saves/` the first time single player
+     starts, and 1.2's found there move back.
 6. With the setting off: the game is plain 1.2, with no Expansion maps or
    menus.
 

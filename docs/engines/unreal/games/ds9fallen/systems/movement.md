@@ -63,7 +63,7 @@ here anew). The Fallen's ledge and ladder tests (`TestForLedge`,
   As SpawnActor does, an actor that fits nowhere isn't spawned (`Spawn`
   returns None, and the log says so). Over all maps' first 3 seconds,
   that's 4 times: a Cardassian hypospray 60 units wide where nothing that
-  wide fits, and the like. Before, it was left at the world's origin.
+  wide fits, and the like.
   Starts are placed for the
   default pawn height (40), and The Fallen's characters are taller (Worf
   is 52), so a player starting on a lift begins a little into its floor
@@ -94,8 +94,7 @@ Physics each tick, after the actor's scripts:
   30% when walking or crouching.
   - The player's is ×0.5 strafing while walking or crouching (else ×0.8),
     ×0.8 backing, ×0.75 crawling.
-  - Others' are times `DesiredSpeed`, which the player's isn't. Before,
-    Reluva held the player to `DesiredSpeed` too, a third of its run.
+  - Others' are times `DesiredSpeed`, which the player's isn't.
 
 The Fallen added its own modes (past 10): the player's climbing,
 free flight, fish, interpolation and one for each kind of effect.

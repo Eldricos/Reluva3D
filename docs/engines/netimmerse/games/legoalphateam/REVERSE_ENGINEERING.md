@@ -104,10 +104,10 @@ internals, only of what the program calls.
     the logic (for example the camera's choice of view: `DDIcam`, the
     camera director in `LoadComp.dll`, and its `FindNewBase`
     ([systems/camera.md](systems/camera.md)), or why `AutoLoadPuzzle` shows a black screen).
-- **Where ours was wrong**, the trace pointed at the stand-in that
-  answered differently from Windows or DirectX. Examples: A3D's
-  `GetWaveFormat` answering success for an empty source (sounds loaded
-  silent), Direct3D 7's single-precision FPU (the camera framed the skull
+- **Where Reluva's stand-in differs**, the trace points at the stand-in
+  that answers differently from Windows or DirectX. Examples: A3D's
+  `GetWaveFormat` answering success for an empty source (sounds load
+  silent), Direct3D 7's single-precision FPU (the camera frames the skull
   door wrongly), RDTSC across `Sleep` (the game's processor-speed test),
   and MSVCRT's text mode (the save's CR-LF line ends).
 

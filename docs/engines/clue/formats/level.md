@@ -178,7 +178,7 @@ two from trading places for ever. Reluva draws the flat things first
 below everything, as in its order), then the rest in that order, its
 pass run until nothing moves; suspects walking go in by the same test.
 Views of the ballroom and the billiard room drawn this way match the
-recordings' frames, as the order Reluva used before this was read did.
+recordings' frames.
 
 ## In Reluva
 

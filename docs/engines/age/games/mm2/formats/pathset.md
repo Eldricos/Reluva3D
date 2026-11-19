@@ -2,6 +2,8 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/pathset.cpp` · **Checked on:** the English release, 101 files · **Confidence:** confirmed unless marked
 
+## Overview
+
 Binary lists of paths, each a model name and its points. A city's
 moving things use them: `race/<city>/<city>_ferry.pathset`,
 `_sailboat` (boats and ducks), `_bridge` (drawbridges and a gate),
@@ -80,7 +82,24 @@ points), `blitz11.pathset` (whose second path also has a nonsense end
 word) and `london_bridge_blitz10.pathset`. Reluva keeps the whole paths
 before the break.
 
-## What Reluva does with them
+### Counts
+
+| File | Paths |
+|---|---|
+| `sf_ferry` | 1 (a car ferry, 30 points) |
+| `sf_sailboat` | 16: sailboards, four sailboat loops, 7 ducks |
+| `sf_bridge` | 1 (`inactive:giz_chinagate_f`) |
+| `london_ferry` | 6 car ferries |
+| `london_sailboat` | 16: tugs, water taxis, 9 ducks |
+| `london_bridge` | 4: Tower Bridge (`giz_bridge01_l`), two Waterloo spans, `open:giz_bridge02_l` |
+| `sf_parkedcar` | 55 lines |
+| `london_parkedcar` | 91 lines |
+| `london_train` | 8 paths |
+| `city/london/decals` | 79 strips |
+| `race/london/circuit0` | 21 barricade lines |
+| `race/london/circuitX` | 73 barricade lines |
+
+## Behaviour
 
 The ferry, sailboat, bridge, parked-car and train files, for the Drive
 and Race pages
@@ -209,22 +228,15 @@ rather than 9, so the two sides' lights alternate. How the game spaces
 them round corners, and whether it keeps them off driveways and out of
 each other's way, isn't known.
 
-## Counts
+## In Reluva
 
-| File | Paths |
-|---|---|
-| `sf_ferry` | 1 (a car ferry, 30 points) |
-| `sf_sailboat` | 16: sailboards, four sailboat loops, 7 ducks |
-| `sf_bridge` | 1 (`inactive:giz_chinagate_f`) |
-| `london_ferry` | 6 car ferries |
-| `london_sailboat` | 16: tugs, water taxis, 9 ducks |
-| `london_bridge` | 4: Tower Bridge (`giz_bridge01_l`), two Waterloo spans, `open:giz_bridge02_l` |
-| `sf_parkedcar` | 55 lines |
-| `london_parkedcar` | 91 lines |
-| `london_train` | 8 paths |
-| `city/london/decals` | 79 strips |
-| `race/london/circuit0` | 21 barricade lines |
-| `race/london/circuitX` | 73 barricade lines |
+Read by `src/engines/age/formats/pathset.cpp` (`readPathset`, and
+`readCityPaths` for a city's file with a race's over it). The boats,
+bridges and trains are `game/gizmos.cpp`'s, the parked cars
+`game/city_life.cpp`'s and `game/traffic.cpp`'s, the props and the street
+furniture rules `game/props.cpp`'s, the decals `render/city_scene.cpp`'s,
+and the ambient sounds' `.csv` files `audio/ambient.cpp`'s.
+`reluva-tool age check` reads every path set.
 
 ## Sources and checks
 

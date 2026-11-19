@@ -565,9 +565,9 @@ Range and speed (the last two `f64`) and the maintenance cost were
 confirmed on the whole Let's Play series (38 parts): every ship class whose
 range or speed the screens show, 19 of them, agrees (Galaxy and Nebula
 classes short, Oberth long, Destroyer II speed 2, Heavy Destroyer speed 3),
-and the maintenance costs read from the stills (23, 73, 115, 134) agree. An
-earlier guess, range at 276, was wrong: the Galaxy class shows "Short" with
-the same 0 there as medium-range ships.
+and the maintenance costs read from the stills (23, 73, 115, 134) agree.
+Range isn't at 276: the Galaxy class shows "Short" with the same 0 there as
+medium-range ships.
 
 ### Buildings on screen
 

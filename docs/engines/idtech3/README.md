@@ -35,6 +35,11 @@ How each part works with Elite Force, in full: [games/stvef/](games/stvef/README
 in; in `reluva` they do nothing. They could go if the viewer ran the
 game's pages another way.
 
+## Using it
+
+Each game's page says how to add it and play it, and the data viewer's
+pages: [Elite Force](games/stvef/README.md#using-it).
+
 ## This folder
 
 | Doc | What's in it |
@@ -84,6 +89,13 @@ Code that isn't specific to id Tech 3 goes in `src/common/` so any engine
 can use it: zip archives, the `Archive`/`SearchSet` file system, image
 decoding, audio. The engine never touches SDL; it uses `System`, like
 every engine.
+
+## Tests
+
+- `reluva-tests idtech3` runs its unit tests and its engine test
+  (`tests/engines/idtech3/`).
+- A game-files test, with your own copy of the game: see
+  [games/stvef/TESTING.md](games/stvef/TESTING.md#automated-checks).
 
 ## Terms
 

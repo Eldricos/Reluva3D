@@ -182,7 +182,7 @@ are stored in the models. All 1,260 names are in `Map.pac`, `LMap.pac` or
 
 ### Animation
 
-Every object of every class now reads to exactly its end. `reluva-tool netimmerse fin-check` also checks the actors' tracks against
+Every object of every class reads to exactly its end. `reluva-tool netimmerse fin-check` also checks the actors' tracks against
 the 3ds nodes (below). The viewer plays all of it.
 
 **How it was worked out.** Each class's objects were split out and dumped
@@ -371,7 +371,7 @@ NiObjectNET's fields, then the animation's settings, as
 
 - an animation type (4 bytes, the first read with NiObjectNET's fields);
 - four bytes (1, 1, 0, 1), the last whether the scene graph updates. With
-  the type's last three bytes these are the "seven bytes" read before;
+  the type's last three bytes these make seven bytes;
 - the cycle type: 0 loop, 1 back and forth, 2 clamp (2, or 0 in four);
 - the default display time (0);
 - frequency, phase, and the begin and end key times.
@@ -516,7 +516,7 @@ This is how the layout was worked out (October 2026):
   where 1 to 5 fields failed to fit.
 - **Testing each hypothesis.** Each one was tested by whether every object
   of the class then ended exactly where the next began. All 21 classes that
-  are read now do so for every object in every file. `reluva-tool netimmerse fin-check`
+  are read do so for every object in every file. `reluva-tool netimmerse fin-check`
   repeats the check, and also checks that every link points at an object of
   the right kind and that every image named is in the archives.
 

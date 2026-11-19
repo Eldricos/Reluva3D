@@ -59,8 +59,8 @@ in `reluva-viewer`, the viewer shows these pages (keys in
     - depth written unless an `NiZBufferProperty` says otherwise;
     - shapes that blend drawn after the rest, the farthest first.
 
-    Before this, blended closed shapes showed their insides: the
-    skeletons' heads, whose skull texture blends, looked as if their
+    Drawn in any order, blended closed shapes show their insides: the
+    skeletons' heads, whose skull texture blends, look as if their
     normals were wrong.
   - **Hidden objects** (effects the game shows on events) and the
     characters' far-away stand-ins are left out unless H shows them.

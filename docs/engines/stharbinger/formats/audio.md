@@ -18,6 +18,14 @@ Nothing in the file says which. Detection: if every even byte is 0, or the odd b
 are much more predictable than the even bytes (byte entropy differs by more than 1
 bit), the file is 16-bit; otherwise it is 8-bit unsigned.
 
+## In Reluva
+
+`detectRawFormat` (`src/engines/stharbinger/formats/audio.h`) tells the two
+formats apart and `makeRawStream` plays them. The data viewer plays each
+scene's sounds. `reluva-tool stharbinger extract <out folder> <game folder>`
+writes them out as `.wav`, and `probe-raw <out folder> <file.raw>` writes one
+in several formats and rates, to tell them apart by ear.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.
