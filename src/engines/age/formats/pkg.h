@@ -19,6 +19,7 @@ namespace reluva::age {
 
 using Vec3 = std::array<float, 3>;
 
+/** A mesh's vertex, as read whatever format it was stored in. */
 struct PkgVertex {
     Vec3 pos{};
     Vec3 normal{}; // zero when the mesh has none
@@ -32,6 +33,7 @@ struct PkgGroup {
     std::vector<uint16_t> indices; // every three a triangle
 };
 
+/** One of a model's named meshes: a part at one level of detail. */
 struct PkgMesh {
     std::string name; // e.g. "BODY_H"
     uint32_t fvf = 0; // Direct3D's flexible vertex format the vertices were stored in
@@ -39,9 +41,11 @@ struct PkgMesh {
 
     /** "BODY_H" -> part "BODY", level "H"; a mesh named just "H" has part "". */
     std::string part() const;
+    /** "BODY_H" -> "H": the level of detail, H the finest, then M, L, VL; a name without '_' is all level. */
     std::string level() const;
 };
 
+/** How a group is drawn: its texture and colours. */
 struct PkgShader {
     std::string texture; // empty: none
     // Colours (R, G, B, A), 1 = full. Shaders with byte colours store
@@ -60,6 +64,7 @@ struct PkgXref {
     std::array<float, 12> matrix{}; // three axes, then the position
 };
 
+/** A model read from a .pkg file. */
 struct Pkg {
     std::vector<PkgMesh> meshes;
     // shaders[job * shadersPerJob + group.shader]: each paint job (a car's
@@ -71,10 +76,16 @@ struct Pkg {
     Vec3 offset{};
     std::vector<PkgXref> xrefs;
 
+    /** The first mesh with this name (case counts); nullptr if there is none. */
     const PkgMesh *mesh(std::string_view name) const;
+    /** A group's shader in a paint job; nullptr if either is out of range. */
     const PkgShader *shader(uint32_t paintJob, uint32_t index) const;
 };
 
+/**
+ * Reads a PKG3 model: its shaders, offset, xrefs and meshes.
+ * @return A failure naming the section that didn't read; other versions of PKG aren't read.
+ */
 Error readPkg(const std::vector<uint8_t> &data, Pkg &out);
 
 /**
@@ -100,6 +111,10 @@ struct Mtx {
     Vec3 origin{}; // where it goes in the model
 };
 
+/**
+ * Reads a part's placement: four vectors, 48 bytes.
+ * @return A failure if the file is any other size.
+ */
 Error readMtx(const std::vector<uint8_t> &data, Mtx &out);
 
 } // namespace reluva::age

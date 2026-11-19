@@ -17,7 +17,9 @@ namespace reluva::age {
  */
 class GameStrings {
 public:
+    /** Reads mmlang.dll's string tables, forgetting any read before. */
     Error load(const SearchSet &files);
+    /** Whether load() found any strings. */
     bool loaded() const { return !_strings.empty(); }
     /** The string, or `fallback` if there's none. */
     std::string get(uint32_t id, const std::string &fallback = {}) const;

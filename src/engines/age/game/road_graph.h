@@ -15,14 +15,15 @@
 namespace reluva::age {
 
 /**
- * The city's roads as a graph, built from its PSDL: points along each road
- * strip's middle, joined along it, and each intersection (a road fan's
- * middle) joined to the road ends that meet it. Reluva's own, for routing
- * opponents between the points of their paths; the game's road maps for
- * its drivers (.bai, .aimap) aren't read yet.
+ * The city's roads as a graph, for routing cars between points: from the
+ * PSDL's road strips and fans (points along each strip's middle, joined
+ * along it, and each fan's middle joined to the road ends that meet it),
+ * for opponents' paths; or from the road map (.bai), for computer players
+ * in multiplayer.
  */
 class RoadGraph {
 public:
+    /** Builds it afresh from the PSDL's road strips and road fans. */
     void build(const Psdl &psdl);
     /**
      * From the road map instead (city/<map>.bai): every road's middle line
@@ -47,8 +48,11 @@ public:
      */
     std::vector<Vec3> route(const Vec3 &a, const Vec3 &b, float reach = 60) const;
 
+    /** How many road points there are. */
     size_t nodeCount() const { return _nodes.size(); }
+    /** How many joins there are, each counted once. */
     size_t edgeCount() const;
+    /** The road points. */
     const std::vector<Vec3> &nodes() const { return _nodes; }
 
 private:

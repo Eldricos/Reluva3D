@@ -19,6 +19,7 @@ struct Pvs {
     size_t blocks = 0;                      // the PSDL's blocks, block 0 included
     std::vector<std::vector<uint8_t>> rows; // rows[b - 1]: block b's, unpacked
 
+    /** Whether no table was read: sees() then says yes to every block. */
     bool empty() const { return rows.empty(); }
     /**
      * Whether `to` can be seen from `from` (both 1-based); true when either
@@ -27,6 +28,10 @@ struct Pvs {
     bool sees(size_t from, size_t to) const;
 };
 
+/**
+ * Reads a .cpvs file, unpacking each block's row.
+ * @return A failure if it isn't a PVS0 file or a row runs past its end.
+ */
 Error readCpvs(const std::vector<uint8_t> &data, Pvs &out);
 
 } // namespace reluva::age

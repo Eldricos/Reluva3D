@@ -35,15 +35,20 @@ struct EngineSample {
     float pitchEnd = 1;
 };
 
+/** A car's engine sound table: its horn and clutch sounds and its engine samples. */
 struct EngineSoundSetup {
-    // the clutch's: played on changing gear
     std::string horn;
-    std::string clutch;
+    std::string clutch; // played on changing gear
     float hornVolume = 1;
     float clutchVolume = 1;
     std::vector<EngineSample> samples;
 };
 
+/**
+ * Reads an engine sound table: a heading, the horn and clutch line, another
+ * heading, then as many sample lines as that line says.
+ * @return A failure if the table is shorter than three lines or has no samples.
+ */
 Error readEngineSound(std::string_view csv, EngineSoundSetup &out);
 
 /**
@@ -67,6 +72,7 @@ public:
      * from a way off.
      */
     void update(float rpm, float throttle, float gain = 1, float pan = 0);
+    /** Stops every sample; start() again to hear them. */
     void stop();
 
 private:
@@ -86,14 +92,24 @@ struct SirenSample {
     float volume = 1;
     std::vector<std::pair<float, int>> next; // seconds to play, then the sample to go on to
 };
+/**
+ * Reads a siren table, skipping anything before its first sample.
+ * @return A failure if it has no samples.
+ */
 Error readSirenTable(std::string_view csv, std::vector<SirenSample> &out);
 
+/** A siren's samples played in turn, as its table hands one over to the next. */
 class SirenSound {
 public:
     ~SirenSound() { stop(); }
+    /**
+     * Reads the table and its recordings (aud/aud22/sirens/, else aud/aud11/);
+     * a sample whose recording is missing plays as silence.
+     */
     Error load(audio::Mixer &mixer, const SearchSet &files, const std::string &table);
     /** Plays at `volume` (0..1); 0 stops it, and it starts afresh next time. */
     void update(float dt, float volume);
+    /** Stops it; the next update() starts again from the first sample. */
     void stop();
 
 private:
@@ -117,6 +133,7 @@ struct SkidSample {
     float minSlip = 0;
     float maxSlip = 1;
 };
+/** One surface's rolling sound, by speed, and its skids. */
 struct SurfaceSound {
     std::string wave; // NOSOUND for none
     float maxSpeed = 125;
@@ -128,10 +145,15 @@ struct SurfaceSound {
     float maxSkidVolume = 0.9f;
     std::vector<SkidSample> skids;
 };
+/** The sounds of every surface, by its number. */
 struct SurfaceSounds {
     int tunnel = 0; // the surface used in tunnels (not used yet)
     std::vector<SurfaceSound> surfaces;
 };
+/**
+ * Reads a surface table: the tunnel's surface, then each surface's line and its skids.
+ * @return A failure if it has no surfaces.
+ */
 Error readSurfaceSounds(std::string_view csv, SurfaceSounds &out);
 
 /**
@@ -146,11 +168,16 @@ struct ImpactSample {
     float maxForce = 1e9f;
     float pitch = 1;
 };
+/** One kind of thing hit, and its samples. */
 struct ImpactSounds {
     std::string name; // "WALL"
     int id = 0;
     std::vector<ImpactSample> samples;
 };
+/**
+ * Reads an impact table, up to its ENDOFDATA.
+ * @return A failure if it has no kinds of thing hit.
+ */
 Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds> &out);
 
 /**
@@ -166,6 +193,7 @@ public:
     Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car, bool wet);
     /** Follows the car (its gear, wheels and impact); `horn` held sounds it. */
     void update(float dt, const CarSim &car, bool horn);
+    /** Stops the horn, rolling and skidding sounds. */
     void stop();
 
 private:

@@ -24,6 +24,11 @@ struct Instance {
     std::array<float, 12> matrix{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
 };
 
+/**
+ * Reads a .inst file's placements, each with its whole matrix or (when
+ * only turned about the vertical) its heading and position.
+ * @return A failure naming the byte where a placement is cut short.
+ */
 Error readInstances(const std::vector<uint8_t> &data, std::vector<Instance> &out);
 
 } // namespace reluva::age

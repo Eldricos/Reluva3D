@@ -32,7 +32,8 @@ enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
 constexpr int kCruiseRace = 0;
 constexpr int kStuntRace = 1;
 constexpr int kPrototypeRace = 2;
-const char *raceKindName(RaceKind kind); // "Blitz"...
+/** The kind's name, in English: "Blitz", "Crash Course"... */
+const char *raceKindName(RaceKind kind);
 
 /** One difficulty's columns of a race's row. */
 struct RaceSettings {
@@ -50,6 +51,7 @@ struct RaceSettings {
     int difficulty = 0;
 };
 
+/** A race's checkpoint (or a stunt's point), the first its start. */
 struct Waypoint {
     Vec3 position{};
     float heading = 0; // degrees: 0 faces -Z, 90 faces +X
@@ -84,6 +86,7 @@ struct LessonSettings {
     std::array<float, 5> extra{};
 };
 
+/** Everything a race is started from: its kind, name, settings, checkpoints and opponents. */
 struct RaceDefinition {
     RaceKind kind = RaceKind::kBlitz;
     int index = 0;
@@ -112,11 +115,20 @@ struct RaceUnlocking {
     int mustPlace = 3;
     int group = 3;
 };
+/** The city's unlocking rules; the defaults where its .cinfo or a key is missing. */
 RaceUnlocking raceUnlocking(const SearchSet &files, const std::string &city);
 
 /** How many races of a kind a city has, and their names (.cinfo). */
 std::vector<std::string> raceNames(const SearchSet &files, const std::string &city, RaceKind kind);
 
+/**
+ * Reads a race's settings, checkpoints and opponents' paths (a lesson's
+ * from its row and aimap). A Cruise has no table: Reluva's own settings,
+ * its traffic as roam.aimap's, and the stunt's points.
+ * @param index The race's number, or for a Cruise kCruiseRace, kStuntRace or kPrototypeRace.
+ * @return A failure if its table or checkpoints don't read; an opponent's
+ *         path that doesn't is left out.
+ */
 Error loadRace(const SearchSet &files, const std::string &city, RaceKind kind, int index, RaceDefinition &out);
 
 /**
@@ -135,7 +147,15 @@ Error parseRaceSettings(const std::string &csv, int index, std::array<RaceSettin
  * (Crash Course's files call it "poly count" too, but it varies).
  */
 Error parseWaypoints(const std::string &csv, std::vector<Waypoint> &out, bool radius = false);
+/**
+ * Reads an opponent's .opp file: its start, then its path.
+ * @return A failure if there is no path after the start.
+ */
 Error parseOpponentPath(const std::string &csv, RaceDefinition::Opponent &out);
+/**
+ * Reads a lesson's crash<n>data.csv: its heading and one row.
+ * @return A failure if the row or its file name is missing.
+ */
 Error parseLessonSettings(const std::string &csv, LessonSettings &out);
 
 /** A waypoint heading (degrees) as a turn about Y, as CarSim::reset takes. */

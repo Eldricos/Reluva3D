@@ -58,12 +58,19 @@ public:
      * start segment's name less "Start" ("Enemy", "SunRoof"...).
      */
     static std::vector<std::string> trackNames(const SearchSet &files);
+    /**
+     * Plays one of trackNames()' tunes.
+     * @return A failure if there is no such track.
+     */
     Error startTrack(const SearchSet &files, audio::Mixer &mixer, size_t track);
     /** The menus' tune: aud/dmusic/csv_files/ui.csv's segment (UI.sgt). */
     Error startMenu(const SearchSet &files, audio::Mixer &mixer);
+    /** Whether the menus' tune is the one playing. */
     bool playingMenu() const { return _menu && _performance; }
+    /** Stops the music; start() then plays its tune from the beginning. */
     void stop();
 
+    /** What's going on in the game, as the music follows it. */
     struct State {
         float speed = 0;     // the player's, m/s
         bool chased = false; // police after the player
@@ -71,6 +78,11 @@ public:
         bool finished = false;    // the race is over: the results
         bool lastStretch = false; // a race's final lap, or only the finish left
     };
+    /**
+     * Switches to the segment for the state: the results, the pause, idle
+     * (with or without the police) after 4 s stopped, the chase
+     * (and a race's last stretch), or the return to the road after any of those.
+     */
     void update(float dt, const State &state);
     /** A big jump: the tune's big-air motif over it. */
     void bigAir();

@@ -32,15 +32,19 @@ inline Vec3 &operator+=(Vec3 &a, const Vec3 &b) {
 inline Vec3 &operator-=(Vec3 &a, const Vec3 &b) {
     return a = a - b;
 }
+/** The dot product. */
 inline float dot(const Vec3 &a, const Vec3 &b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
+/** The cross product, right-handed. */
 inline Vec3 cross(const Vec3 &a, const Vec3 &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
+/** The vector's length. */
 inline float length(const Vec3 &a) {
     return std::sqrt(dot(a, a));
 }
+/** The vector at length 1; zero for a vector too short to have a direction. */
 inline Vec3 normalized(const Vec3 &a) {
     const float l = length(a);
     return l > 1e-9f ? a * (1 / l) : Vec3{0, 0, 0};
@@ -56,6 +60,7 @@ struct Mat3 {
     /** The transpose's product: a world direction in this frame. */
     Vec3 inverseTimes(const Vec3 &v) const { return {dot(x, v), dot(y, v), dot(z, v)}; }
 
+    /** Turned by `angle` (radians) about +Y, right-handed: +Z towards +X. */
     static Mat3 rotationY(float angle) {
         const float c = std::cos(angle);
         const float s = std::sin(angle);

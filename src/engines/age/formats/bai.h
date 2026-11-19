@@ -39,6 +39,7 @@ struct AiRoadSide {
     std::array<float, 11> widths{}; // after the lane offsets: see docs/engines/age/games/mm2/formats/bai.md
 };
 
+/** A road's end: the junction it meets there, and its place in that junction's list. */
 struct AiRoadEnd {
     uint32_t junction = 0;
     uint16_t control = 0; // 0, 1 or 3: likely what the road meets there (stop sign, lights), not known yet
@@ -48,6 +49,7 @@ struct AiRoadEnd {
     Vec3 b{};
 };
 
+/** A road between two junctions, along its middle line's points. */
 struct AiRoad {
     uint16_t id = 0;
     uint16_t flags = 0;           // meaning not known yet
@@ -60,6 +62,7 @@ struct AiRoad {
     std::array<AiRoadEnd, 2> ends{};
 };
 
+/** Where roads meet. */
 struct AiJunction {
     uint16_t id = 0;
     uint16_t block = 0; // its PSDL block
@@ -67,11 +70,20 @@ struct AiJunction {
     std::vector<uint32_t> roads; // in order round it
 };
 
+/**
+ * A city's .bai: its roads and junctions. A road's ends index `junctions`
+ * and a junction's `roads` index `roads` (both checked when read).
+ */
 struct AiRoadMap {
     std::vector<AiRoad> roads;
     std::vector<AiJunction> junctions;
 };
 
+/**
+ * Reads a .bai file; the table after the junctions isn't read.
+ * @return A failure if it isn't a CAI1 map, is cut short, has its roads out
+ *         of order, or a road or junction names one that isn't there.
+ */
 Error readBai(const std::vector<uint8_t> &data, AiRoadMap &out);
 
 } // namespace reluva::age

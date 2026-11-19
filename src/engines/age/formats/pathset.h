@@ -27,8 +27,13 @@ struct PathsetPath {
     std::vector<uint32_t> ids; // each point's first word (PSDL blocks, it seems)
     std::vector<Vec3> points;
     uint32_t end = 0; // the last word: low byte 1 or 2, high byte 8-120
+    /**
+     * Whether it runs back and forth along its points (end's low byte 1)
+     * rather than round them (2), as Reluva reads it.
+     */
     bool backAndForth() const { return (end & 0xff) == 1; }
-    float speed() const { return float(end >> 8 & 0xff) / 10; } // m/s, as Reluva reads it
+    /** Its speed in m/s, as Reluva reads end's second byte (tenths of a metre a second); a guess. */
+    float speed() const { return float(end >> 8 & 0xff) / 10; }
 };
 
 /** Reads as many whole paths as there are (one retail file stops short). */

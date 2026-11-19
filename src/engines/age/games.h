@@ -20,8 +20,9 @@ struct GameInfo {
     const char *name;   // shown to the user
 };
 
-/** Every game the engine knows; nullptr if `gameId` isn't one. */
+/** Every game the engine knows. */
 const std::vector<GameInfo> &games();
+/** The game with this id; nullptr if `gameId` isn't one. */
 const GameInfo *findGame(std::string_view gameId);
 
 /** The detection table for every game, for MetaEngine::detect. */

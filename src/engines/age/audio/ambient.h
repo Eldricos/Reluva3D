@@ -43,6 +43,10 @@ struct Ambience {
     std::vector<AmbientSample> samples;
     std::vector<Vec3> points; // VECTORPOINTS
 };
+/**
+ * Reads an ambience: its distances, its samples, and after VECTORPOINTS its points.
+ * @return A failure if the distances or the samples are missing.
+ */
 Error parseAmbience(const std::string &text, Ambience &out);
 /** aud/ambient/<city>ambientcontainer.csv: the city's ambiences, by name. */
 std::vector<std::string> parseAmbientContainer(const std::string &text);
@@ -65,7 +69,14 @@ public:
     AmbientSounds(const AmbientSounds &) = delete;
     AmbientSounds &operator=(const AmbientSounds &) = delete;
 
+    /**
+     * Reads the city's ambiences and their recordings; an ambience that
+     * doesn't read, or has no points, is left out.
+     * @param mixer Plays them; nullptr keeps them silent.
+     * @param seed Picks when the one-shots first play.
+     */
     Error load(const SearchSet &files, const std::string &map, audio::Mixer *mixer, uint32_t seed = 1);
+    /** Stops every sound and forgets the ambiences. */
     void clear();
     /**
      * Round the listener: where it is, its right (for each sound's pan;
@@ -75,18 +86,18 @@ public:
     /** All of them louder or quieter (the Audio Options' ambient: 0 off). */
     void setGain(float gain) { _gain = gain; }
 
+    /** The ambiences read, those with points only. */
     const std::vector<Ambience> &ambiences() const { return _ambiences; }
-    /**
-     * How many sounds are playing (for tests), and a voice's pan and pitch
-     * as last set.
-     */
+    /** How many sounds are playing (for tests). */
     size_t playing() const;
+    /** A voice's pan (as the mixer's, -audio::kMaxPan..audio::kMaxPan) and pitch as last set. */
     struct Heard {
         int pan = 0;
         float pitch = 1;
     };
+    /** What a voice was last set to; one out of range reads as the middle at pitch 1. */
     Heard heard(size_t voice) const { return voice < _voices.size() ? _voices[voice].heard : Heard{}; }
-    // At most this many play at once.
+    /** At most this many play at once. */
     static constexpr size_t kMostVoices = 8;
 
 private:

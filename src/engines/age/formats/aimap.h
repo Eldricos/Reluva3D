@@ -20,26 +20,31 @@ namespace reluva::age {
  * the values given. See docs/engines/age/games/mm2/formats/aimap.md.
  */
 struct AiMapSettings {
+    /** A traffic car's model and its chance of being picked. */
     struct Ambient {
         std::string model; // geometry/<model>.pkg, tune/vehicle/<model>.aiVehicleData
         float upTo = 1;    // cumulative share: picked when a random 0-1 is below this
     };
+    /** A pedestrian, as one model in fine weather and another in the rain. */
     struct PedPair {
         // models in fine and in rainy weather
         std::string good;
         std::string bad;
     };
+    /** A road's own share of the traffic (0 keeps it off) and speed limit (above 0 replaces the default). */
     struct RoadException {
         int road = 0;
         float density = 0;
         float speedLimit = 0;
     };
+    /** A police car's model and where it starts. */
     struct Police {
         std::string model;
         Vec3 position{};
         float heading = 0;       // degrees, as waypoints'
         std::vector<float> rest; // four more values, not known yet
     };
+    /** An opponent: its car, the path it drives and its skill. */
     struct Opponent {
         // the car and its .opp file
         std::string model;

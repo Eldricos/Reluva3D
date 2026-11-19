@@ -42,6 +42,7 @@ struct CollisionSurface {
 class CollisionWorld {
 public:
     using Surface = CollisionSurface;
+    /** A triangle and its surface. */
     struct Triangle {
         Vec3 a;
         Vec3 b;
@@ -50,9 +51,11 @@ public:
         Surface surface;
     };
 
+    /** Adds a triangle, found only after build(); one with no area is left out. */
     void add(const Vec3 &a, const Vec3 &b, const Vec3 &c, Surface surface = {});
     /** Files the triangles into the grid; call after adding them all. */
     void build(float cellSize = 8);
+    /** The triangles added, not counting the moving ones. */
     size_t size() const { return _triangles.size(); }
     /**
      * A few more triangles, replaced as they move (a drawbridge's leaves),
@@ -74,13 +77,14 @@ public:
         std::erase_if(_triangles, [&](const Triangle &t) { return drop(t.surface); });
         build(_cellSize);
     }
+    /** The grid's cells' width, in metres. */
     float cellSize() const { return _cellSize; }
 
+    /** Where a ray met a triangle. */
     struct RayHit {
         float distance = 0;
-        // the normal facing back along the ray
         Vec3 point{};
-        Vec3 normal{};
+        Vec3 normal{}; // facing back along the ray
         Surface surface;
     };
     /**
@@ -89,6 +93,7 @@ public:
      */
     bool raycast(const Vec3 &origin, const Vec3 &direction, float maxDistance, RayHit &hit) const;
 
+    /** How a sphere overlaps a triangle: the way out and how far. */
     struct Contact {
         Vec3 normal{}; // out of the triangle, towards the sphere's centre
         float depth = 0;

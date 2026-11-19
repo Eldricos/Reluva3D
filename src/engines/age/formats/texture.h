@@ -22,7 +22,6 @@ constexpr uint16_t kRgb = 17;          // 24-bit: R, G, B
 constexpr uint16_t kRgba = 18;         // 32-bit: R, G, B, A
 } // namespace texformat
 
-// A .tex file's header and its first (largest) level, decoded to RGBA.
 // A texture's flags, as far as they're known (tex.md).
 namespace texflag {
 constexpr uint32_t kClamp = 0x1; // its coordinates kept within it, not repeated
@@ -33,6 +32,7 @@ constexpr uint32_t kClamp = 0x1; // its coordinates kept within it, not repeated
 constexpr uint32_t kFullDetail = 0x8000;
 } // namespace texflag
 
+/** A .tex file's header and its first (largest) level, decoded to RGBA. */
 struct Tex {
     uint16_t format = 0;
     uint16_t levels = 0; // mipmap levels stored, each half the last
@@ -40,6 +40,10 @@ struct Tex {
     image::Image image;
 };
 
+/**
+ * Reads a .tex file's header and decodes its first level.
+ * @return A failure if it is empty, cut short or of a format not in texformat.
+ */
 Error decodeTex(const std::vector<uint8_t> &data, Tex &out);
 
 /**

@@ -54,6 +54,7 @@ public:
      */
     Error load(const SearchSet &files, const std::string &map, const std::string &variant = "",
                audio::Mixer *mixer = nullptr);
+    /** Stops the trains' sound and forgets everything loaded. */
     void clear();
 
     /**
@@ -61,6 +62,7 @@ public:
      * moving triangles); the trains are heard from `listener`.
      */
     void update(float dt, CollisionWorld &world, const Vec3 &listener = {});
+    /** Draws those within 1200 m of `eye` and in view, at the level of detail their distance calls for. */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye) const;
     /**
@@ -82,11 +84,15 @@ public:
      */
     bool inGap(const Vec3 &a, const Vec3 &b, const Vec3 &c) const;
 
+    /** How many boats (ferries, tugs, sailboards, ducks...) were loaded. */
     size_t boats() const { return _boats.size(); }
+    /** How many drawbridges and gates were loaded. */
     size_t bridges() const { return _bridges.size(); }
+    /** How many trains were loaded. */
     size_t trains() const { return _trains.size(); }
-    /** Where a train's first carriage is, and how fast it's going. */
+    /** Where a train's first carriage is. */
     Vec3 trainPosition(size_t train) const { return _trains[train].carriages.front().center; }
+    /** How fast a train is going, in m/s. */
     float trainSpeed(size_t train) const { return _trains[train].speed; }
     /** 0 down .. 1 up, for a bridge. */
     float raised(size_t bridge) const { return _bridges[bridge].raised; }

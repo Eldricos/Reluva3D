@@ -37,18 +37,25 @@ struct BoundMaterial {
     float friction = 0.5f;
 };
 
+/** A triangle or quad of the shape's vertices, and its material (an index into Bound::materials). */
 struct BoundPolygon {
     std::array<uint32_t, 4> vertices{};
     uint32_t count = 3; // 3 or 4
     uint32_t material = 0;
 };
 
+/** A model's collision shape, as a .bnd or .bbnd holds it. */
 struct Bound {
     std::vector<Vec3> vertices;
     std::vector<BoundMaterial> materials;
     std::vector<BoundPolygon> polygons;
 };
 
+/**
+ * Reads a .bnd; the counts it gives are ignored, the lines themselves read.
+ * @return A failure naming a bad vertex or polygon line, a material left
+ *         open, or a polygon naming a vertex that isn't there.
+ */
 Error readBound(std::string_view text, Bound &out);
 
 /**

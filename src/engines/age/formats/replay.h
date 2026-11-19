@@ -20,6 +20,7 @@
 
 namespace reluva::age {
 
+/** One frame of the player's driving: how long it stepped and what was held. */
 struct ReplayFrame {
     float dt = 0;      // seconds the frame stepped
     uint16_t keys = 0; // the driving keys held (kDrive* bits)
@@ -31,8 +32,10 @@ struct ReplayFrame {
     uint8_t padThrottle = 0;
     uint8_t padBrake = 0;
 };
+/** A frame's flags: kReplayManual, the gears changed by hand. */
 enum : uint8_t { kReplayManual = 1 };
 
+/** A race as it was started and driven, enough to run it again. */
 struct Replay {
     // What the race was started with.
     std::string city; // its map ("sf")
@@ -62,19 +65,31 @@ struct Replay {
     static constexpr size_t kMarkEvery = 60;
     std::vector<Vec3> marks;
 
+    /** The frames' time added up, in seconds. */
     float duration() const;
+    /** Whether it has no frames. */
     bool empty() const { return frames.empty(); }
 };
 
+/** The replay as Reluva's .rpl file holds it, in the latest version. */
 std::vector<uint8_t> encodeReplay(const Replay &replay);
+/**
+ * Reads a .rpl file's bytes, of any version up to the latest; what older
+ * versions lack keeps its default.
+ * @return A failure if it isn't a replay, is of a later version or is cut
+ *         short; `out` is then left as it was.
+ */
 Error decodeReplay(const std::vector<uint8_t> &data, Replay &out);
 
 /** The save folder's replays/. */
 std::filesystem::path replayFolder(const std::filesystem::path &saveFolder);
 /** A name as a file's: letters, digits, spaces, - and _ (else _). */
 std::string replayFileName(const std::string &name);
+/** Writes the replay to replays/, under its name's file, making the folder if needed and replacing any file there. */
 Error saveReplay(const std::filesystem::path &saveFolder, const Replay &replay);
+/** Reads a .rpl file. */
 Error loadReplay(const std::filesystem::path &file, Replay &out);
+/** A saved replay as the list of them shows it. */
 struct ReplayEntry {
     std::filesystem::path file;
     std::string name;
@@ -85,7 +100,9 @@ struct ReplayEntry {
 };
 /** Every replay saved, by name. */
 std::vector<ReplayEntry> listReplays(const std::filesystem::path &saveFolder);
+/** Saves the replay under a new name, deleting its old file if the new one's is another. */
 Error renameReplay(const std::filesystem::path &saveFolder, const ReplayEntry &entry, const std::string &name);
+/** Deletes the replay's file. */
 Error deleteReplay(const ReplayEntry &entry);
 
 } // namespace reluva::age

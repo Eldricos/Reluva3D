@@ -20,6 +20,7 @@ public:
     static constexpr float kEscape = 120;    // metres behind the car to follow, and it's escaped
     static constexpr float kMessageTime = 3; // seconds a message shows
 
+    /** How the lesson stands; once passed or failed it stays so. */
     enum class Result { kGoing, kPassed, kFailed };
 
     /** What happened this frame. */
@@ -40,8 +41,11 @@ public:
         int police = 0;             // police in the lesson
     };
 
+    /** Starts judging a lesson afresh, with its opening message. */
     void start(const LessonSettings &lesson);
+    /** Judges a frame; before the start (a clock below 0) only the message's time runs. */
     Result step(const Frame &f);
+    /** How the lesson stands, as the last step() left it. */
     Result result() const { return _result; }
 
     /**
@@ -51,11 +55,9 @@ public:
     float penalty() const { return _penalty; }
     /** Seconds left (penalties counted), or -1 with no limit. */
     float timeLeft(float clock) const;
-    /**
-     * The message to show now (0: none), and the minimum speed for
-     * MinimumSpeed lessons' "Maintain %.0f".
-     */
+    /** The message to show now (0: none). */
     uint32_t message() const { return _messageFor > 0 ? _message : 0; }
+    /** The minimum speed in mph, for MinimumSpeed lessons' "Maintain %.0f". */
     float minimumSpeed() const { return _lesson.extra[0]; }
     /** A Destroy lesson's car has been rammed into submission. */
     bool destroyed() const { return _destroyed; }
