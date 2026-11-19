@@ -21,29 +21,32 @@
 
 namespace reluva::age {
 
+/** The game's textures uploaded once each, by name. */
 class TextureCache {
 public:
+    /** Reads from `files` and uploads to `renderer`, which must outlive it. */
     TextureCache(gfx::Renderer3D &renderer, const SearchSet &files) : _renderer(renderer), _files(files) {}
     ~TextureCache() { clear(); }
     TextureCache(const TextureCache &) = delete;
     TextureCache &operator=(const TextureCache &) = delete;
 
     /**
-     * A shader's texture by name (see loadTexture); 0 if it can't be
-     * found, which is remembered in missing(). `translucent` says whether
-     * any of its pixels aren't opaque.
-     * Animated ones (water: tune/<name>.movie, frames <name>-0001...)
+     * A shader's texture by name (see loadTexture). `translucent` says
+     * whether any of its pixels aren't opaque.
+     * Animated ones (water: `tune/<name>.movie`, frames `<name>-0001`...)
      * have all their frames loaded; get() gives the one named, or the first.
-     * A texture not found is 0, and listed as missing unless `optional`.
+     * A texture not found is 0, and listed in missing() unless `optional`.
      */
     gfx::TextureId get(const std::string &name, bool &translucent, bool optional = false);
+    /** Lets every texture go. */
     void clear();
     /** A texture's size in pixels (after get()); false if it isn't loaded. */
     bool size(const std::string &name, int &width, int &height) const;
+    /** The names of the textures get() couldn't find. */
     const std::vector<std::string> &missing() const { return _missing; }
     /**
      * Textures loaded from now on are halved this many times (the Texture
-     * Quality), but for those flagged texflag::FullDetail and down to
+     * Quality), but for those flagged texflag::kFullDetail and down to
      * 16 pixels at least.
      */
     void setHalvings(int n) { _halvings = n; }
@@ -52,8 +55,10 @@ public:
      * Seconds into the animations, and the frame a texture shows then (the
      * texture itself if it isn't animated).
      */
+    ///@{
     void setTime(float seconds) { _time = seconds; }
     gfx::TextureId frame(gfx::TextureId id) const;
+    ///@}
 
 private:
     struct Entry {
@@ -96,6 +101,7 @@ struct ModelDraw {
     Vec3 center{};           // of its vertices' bounds
 };
 
+/** One level of a model, uploaded: its mesh, its draws and its bounds. */
 struct ModelMesh {
     gfx::MeshId mesh = 0;
     std::vector<ModelDraw> draws;
@@ -114,14 +120,17 @@ std::vector<std::string> modelLevels(const Pkg &pkg);
 /**
  * Uploads the meshes of one level of `pkg` (and those not named by level;
  * the lit parts, as isLightPart says, only if `lights`), each part placed
- * by its geometry/<model>_<part>.mtx unless `placeParts` is false (to
+ * by its `geometry/<model>_<part>.mtx` unless `placeParts` is false (to
  * place them when drawing, as a car's wheels). `pkgName` is the file it
- * came from. `includePart`, if given, picks the parts.
+ * came from. `includePart`, if given, picks the parts; without it, a
+ * prop's break pieces are left out. Nothing to upload leaves `out` empty,
+ * which isn't an error.
  */
 Error buildModelMesh(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
                      const std::string &pkgName, const Pkg &pkg, const std::string &level, uint32_t paintJob,
                      bool lights, ModelMesh &out,
                      const std::function<bool(const std::string &part)> &includePart = nullptr, bool placeParts = true);
+/** Lets a mesh go, and empties it. */
 void destroyModelMesh(gfx::Renderer3D &renderer, ModelMesh &mesh);
 
 /** The light a scene is drawn with. */
@@ -167,7 +176,9 @@ void drawModelReflection(gfx::Renderer3D &renderer, const ModelMesh &mesh, const
  */
 class ViewFrustum {
 public:
+    /** The planes of a view and projection's product. */
     explicit ViewFrustum(const gfx::Mat4 &viewProj);
+    /** Whether any of a sphere is inside them. */
     bool visible(const gfx::Vec3 &center, float radius) const;
 
 private:
@@ -180,6 +191,7 @@ private:
  */
 class ModelCache {
 public:
+    /** A model as it's been uploaded; `ok` false if it couldn't be. */
     struct Model {
         bool ok = false;
         std::vector<ModelMesh> levels; // finest first
@@ -189,13 +201,17 @@ public:
         std::vector<PkgXref> xrefs; // models placed inside it
     };
 
+    /** Reads from `files`; the renderer and the textures must outlive it. */
     ModelCache(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files)
         : _renderer(renderer), _textures(textures), _files(files) {}
     ~ModelCache() { clear(); }
     ModelCache(const ModelCache &) = delete;
     ModelCache &operator=(const ModelCache &) = delete;
 
-    /** geometry/<name>.pkg */
+    /**
+     * `geometry/<name>.pkg`, in a paint job (wrapped round the model's). A
+     * model that isn't there is kept too, not `ok`.
+     */
     const Model &get(const std::string &name, uint32_t paintJob = 0);
     /**
      * One of its lit parts (a traffic light's REDGLOWDAY_H, a car's
@@ -207,6 +223,7 @@ public:
      * if it hasn't one.
      */
     bool partOrigin(const std::string &name, const std::string &part, Vec3 &out);
+    /** Lets every model and part go. */
     void clear();
 
 private:
@@ -224,6 +241,7 @@ private:
  */
 class FlareDrawer {
 public:
+    /** Makes the quad they're drawn with; `renderer` must outlive it. */
     explicit FlareDrawer(gfx::Renderer3D &renderer, TextureCache &textures);
     ~FlareDrawer();
     FlareDrawer(const FlareDrawer &) = delete;

@@ -17,7 +17,9 @@ namespace reluva::age {
  */
 class GameStrings {
 public:
+    /** Reads mmlang.dll's tables. Fails if there's no such file, or it isn't a Windows DLL. */
     Error load(const SearchSet &files);
+    /** Whether load() found any strings. */
     bool loaded() const { return !_strings.empty(); }
     /** The string, or `fallback` if there's none. */
     std::string get(uint32_t id, const std::string &fallback = {}) const;
@@ -29,7 +31,7 @@ private:
 namespace strings {
 /**
  * The Crash Course lessons' names, one after another from these, in the
- * order of race/<city>/crash<n>data.csv: London's, then San Francisco's.
+ * order of `race/<city>/crash<n>data.csv`: London's, then San Francisco's.
  */
 constexpr uint32_t kLondonLessons = 532;
 constexpr uint32_t kSfLessons = 545;

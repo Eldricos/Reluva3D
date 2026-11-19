@@ -25,10 +25,15 @@ public:
     CarActor &operator=(const CarActor &) = delete;
     ~CarActor() { unload(); }
 
-    /** geometry/<car>.pkg and its simulation's files (loadCarSetup). */
+    /**
+     * `geometry/<car>.pkg` and its simulation's files (loadCarSetup), in a
+     * paint job (wrapped round the model's). Fails if either won't read.
+     */
     Error load(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files, const std::string &car,
                uint32_t paintJob);
+    /** Lets its meshes go. */
     void unload();
+    /** Draws the body, its wheels and the lamps and sirens lit. */
     void draw(const SceneLight &light) const;
     // Its reflection map (texture/refl_dc.tga, set at load; the garage's
     // refl_showroom), and whether cars show reflections (the Graphics
@@ -52,6 +57,7 @@ public:
         bool brake = false;
         bool reverse = false;
     } lamps;
+    /** Whether it has a siren to light (a police car). */
     bool hasSiren() const { return _sirens[0].mesh || !_sirenLamps.empty(); }
     /**
      * Flares at its headlights (its HEADLIGHT squares) when they're on, and
@@ -62,16 +68,18 @@ public:
     bool headlightPool(gfx::DynamicLight &out) const;
     /**
      * Damage: the body's parts within `radius` of a point (in the car's
-     * frame) take their damaged textures (<texture>_dmg), where they have
+     * frame) take their damaged textures (`<texture>_dmg`), where they have
      * them; mend() puts them back.
      */
+    ///@{
     void dent(const Vec3 &at, float radius);
     void mend();
+    ///@}
 
 private:
     gfx::Renderer3D *_renderer = nullptr;
     ModelMesh _body;
-    // each body draw's textures (damaged_ 0: none)
+    // each body draw's textures (_damaged 0: none)
     std::vector<gfx::TextureId> _clean;
     std::vector<gfx::TextureId> _damaged;
     std::array<ModelMesh, 4> _wheels;
@@ -138,12 +146,13 @@ struct CarCamera {
     float nearClip = 0.1f;
     float blendTime = 0;
 };
+/**
+ * A car's cameras: near and far following it, and in it, those it has; a
+ * following camera of Reluva's defaults if it has none.
+ */
 std::vector<CarCamera> loadCarCameras(const SearchSet &files, const std::string &car);
 
-/**
- * Where a camera puts the eye for a car this frame; `follow` keeps a
- * following camera's position between frames (`reset` jumps it there).
- */
+/** Where a camera puts the eye, and what it looks at. */
 struct CameraView {
     Vec3 eye{};
     Vec3 target{};
@@ -159,6 +168,10 @@ struct CameraFollow {
     bool swinging = false;
     float slope = 0; // the hill's sine it's tilted by
 };
+/**
+ * Where a camera puts the eye for a car this frame; `follow` keeps a
+ * following camera's position between frames (`reset` jumps it there).
+ */
 CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, CameraFollow &follow, bool reset);
 /**
  * A change of camera blended over the new one's BlendTime: start() with
@@ -168,11 +181,14 @@ struct CameraBlend {
     CameraView from;
     float left = 0;
     float total = 0;
+    /** Starts a blend from `last`, over `seconds`; and each frame's view, `to` blended into. */
+    ///@{
     void start(const CameraView &last, float seconds) {
         from = last;
         left = total = seconds;
     }
     CameraView apply(const CameraView &to, float dt);
+    ///@}
 };
 
 /** The 4x4 of a rotation and a position. */

@@ -36,18 +36,32 @@ struct PhysicsMaterial {
     std::array<float, 2> particleSlip{0.25f, 0.5f};
 };
 
+/**
+ * The city's physics materials, by name and by texture. A name or texture
+ * not listed is "_default", the roads' material.
+ */
 class PhysicsMaterials {
 public:
-    /** Both files; without them every surface is the default. */
+    /**
+     * Reads both files. Fails if there's no materials.mtl; without
+     * materials.csv every texture is the default.
+     */
     Error load(const SearchSet &files);
+    /**
+     * Reads the two files' text. Fails on a material not closed. A texture
+     * listed as "none", or as a material that isn't there, is the default.
+     */
     Error parse(std::string_view mtl, std::string_view csv);
 
     /**
      * The material by name (default if there's none such), and a texture's
-     * (by name, with or without an animation frame: "s_thames-0009").
+     * (by name, with or without an animation frame: "s_thames-0009"). Names
+     * are matched ignoring case.
      */
+    ///@{
     const PhysicsMaterial &byName(const std::string &name) const;
     const PhysicsMaterial &forTexture(const std::string &texture) const;
+    ///@}
     /**
      * As a collision surface: friction relative to the default material's
      * (so roads keep CollisionSurface's), its sound, drag and depth.

@@ -7,7 +7,8 @@
 // the sessions found and the net name, joining by address, the host's
 // options and race settings, and the lobby with its players, teams, chat
 // and readiness. They run a NetSession (net_session.h). See
-// docs/engines/age/games/mm2/systems/multiplayer.md and docs/engines/age/games/mm2/systems/multiplayer.md.
+// docs/engines/age/games/mm2/systems/menus.md and
+// docs/engines/age/games/mm2/systems/multiplayer.md.
 
 #include "common/system.h"
 #include "engines/age/ui/front_end.h"
@@ -21,9 +22,12 @@
 
 namespace reluva::age {
 
+/** The multiplayer menus, and the session they run. */
 class NetMenus {
 public:
+    /** A screen of the menus. */
     enum class Screen { kSessions, kAddress, kPassword, kHostOptions, kHostRace, kLobby, kEject };
+    /** What handle() and update() ask of the caller. */
     enum class Action {
         kNone,
         kBack,   // out to the main menu
@@ -32,24 +36,34 @@ public:
         kLobby,  // the game's over: back in the lobby
     };
 
+    /** Reads widget.csv; what it's given must outlive it. */
     NetMenus(System &sys, const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
              const GameStrings &strings);
     ~NetMenus();
+    /** Whether the menus' files are there. */
     bool loaded() const { return _ok; }
 
     /** From the main menu: the sessions on the local network. */
     void enter();
+    /** Takes a key or click; what the caller is to do about it. */
     Action handle(const Event &ev);
     /** The session's news (call every frame, in the menus or the game). */
     Action update(uint64_t nowMs);
+    /** Draws the screen over the 640 x 480 overlay. */
     void draw(Surface &overlay, uint64_t nowMs);
 
+    /** The screen showing, and the session (nullptr while in none). */
+    ///@{
     Screen screen() const { return _screen; }
     NetSession *session() { return _session.get(); }
+    ///@}
     /** Back from the garage, with the car chosen, or from the game. */
+    ///@{
     void carChosen(const std::string &car, int paintJob);
     void showLobby();
-    void leave(); // out of the session
+    ///@}
+    /** Leaves the session. */
+    void leave();
     /**
      * What's been said and what's happened (joined, left), newest last,
      * for the game's screen.
@@ -59,22 +73,28 @@ public:
         uint64_t atMs = 0;
         bool system = false; // the game's words, not a player's
     };
+    /** The lines, oldest first. */
     const std::deque<Line> &lines() const { return _lines; }
     /** A notice to show, from the game's strings where it has one. */
     std::string noticeText(const NetNotice &n) const;
     /**
-     * The race of the session's settings: its kind (Cruise and Cops &
-     * Robbers have none).
+     * Whether an event is a race, and its kind (Cruise and Cops & Robbers
+     * have none).
      */
+    ///@{
     static bool hasRace(NetMode mode) {
         return mode == NetMode::kBlitz || mode == NetMode::kCheckpoint || mode == NetMode::kCircuit;
     }
     static RaceKind raceKind(NetMode mode);
+    ///@}
+    /** The menus' words for a setting, from the game's strings where it has them. */
+    ///@{
     std::string modeName(NetMode mode) const;
     std::string goldMassName(int kg) const;
     std::string timeLimitName(int minutes) const;
     std::string goldModeName(GoldMode mode) const;
     std::string teamName(uint8_t team) const; // in the session's mode
+    ///@}
     /** The car a player drives: its own, but the police car for a cop. */
     std::string carFor(const NetPlayer &p) const;
 

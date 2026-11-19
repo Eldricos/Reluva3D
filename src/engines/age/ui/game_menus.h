@@ -23,8 +23,10 @@
 
 namespace reluva::age {
 
+/** The Options and the main menu's dialogs (see the top of this file). */
 class GameMenus {
 public:
+    /** A screen or dialog of them; kNone while none is open. */
     enum class Screen {
         kNone,
         kOptions,
@@ -49,6 +51,7 @@ public:
         kCitySelection,   // cenv_dlg: Race Locales
         kLocked,          // lock_dlg: you cannot pick a locked vehicle
     };
+    /** What handle() asks of the caller. */
     enum class Action {
         kNone,
         kClosed,        // back to whatever opened it
@@ -58,17 +61,29 @@ public:
         kDriverChanged, // a driver added or deleted: the current one's record to read
     };
 
+    /**
+     * Reads widget.csv; `files`, `strings` and `sys` must outlive it.
+     * @param savePath Where the options and the replays are saved.
+     */
     GameMenus(System &sys, const SearchSet &files, const GameStrings &strings, audio::Mixer *mixer,
               std::filesystem::path savePath);
+    /** Whether the menus' files are there. */
     bool loaded() const { return _ok; }
 
+    /** Opens a screen, the options as they are now to change. */
     void open(Screen s);
+    /** The screen open, and whether one is. */
+    ///@{
     Screen screen() const { return _screen; }
     bool isOpen() const { return _screen != Screen::kNone; }
+    ///@}
     /** A dialog over the menu that opened it (drawn first). */
     bool isDialog() const { return isOpen() && overlay(_screen); }
+    /** Takes a key or click; what the caller is to do about it. */
     Action handle(const Event &ev);
+    /** Draws the screen open over the 640 x 480 overlay. */
     void draw(Surface &overlay, uint64_t nowMs);
+    /** Whether keys are being typed into it (a name, or a key to bind). */
     bool typing() const;
     /** After a replay: ask whether to save it, under this name. */
     void askToSaveReplay(const std::string &name);
@@ -85,9 +100,11 @@ public:
     }
     /** The race menu's choice, for Change Race Options and Race Locales. */
     void setFrontEnd(FrontEnd *front) { _front = front; }
+    /** The replay chosen to play (Action::kLoadReplay). */
     const std::filesystem::path &replayFile() const { return _replayFile; }
     /** A recording to say now (the time or weather chosen, an alert), once. */
     std::string takeVoice() { return std::exchange(_voice, std::string()); }
+    /** The name typed for the replay to save (Action::kSaveReplay). */
     const std::string &replayName() const { return _name; }
 
 private:

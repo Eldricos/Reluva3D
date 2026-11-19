@@ -8,7 +8,8 @@
 // reached by address. The host keeps the session (its settings, the
 // players, the chat, when the game starts) and passes each car's state on
 // to the others. It's Reluva's own protocol: the original's (DirectPlay)
-// isn't spoken. See docs/engines/age/games/mm2/systems/network-protocol.md.
+// isn't spoken. See
+// docs/engines/age/games/mm2/systems/network-protocol.md.
 
 #include "common/net.h"
 #include "common/types.h"
@@ -29,9 +30,11 @@ constexpr int kMaxNetPlayers = 8;
 constexpr uint8_t kNetVersion = 2;
 constexpr uint8_t kNoPlayer = 255;
 
-/** The Host Race Menu's events and its Cops & Robbers choices. */
+/** The Host Race Menu's events. */
 enum class NetMode : uint8_t { kCruise, kBlitz, kCheckpoint, kCircuit, kCopsRobbers };
+/** Cops & Robbers' games: everyone for themselves, or in two teams. */
 enum class GoldMode : uint8_t { kFreeForAll, kCopsAndRobbers, kRobberTeams };
+/** What ends a game of Cops & Robbers: nothing, a time, or a score. */
 enum class GoldLimit : uint8_t { kNone, kTime, kPoints };
 
 /** What the host chose (the Host Race Menu and Host Options). */
@@ -49,9 +52,11 @@ struct NetSettings {
     uint16_t limitValue = 5; // minutes, or points
     uint16_t goldMass = 454; // kg the car carrying the gold takes on (the game's Half Ton)
     uint8_t maxPlayers = kMaxNetPlayers;
+    /** Whether it's Cops & Robbers in teams. */
     bool teams() const { return mode == NetMode::kCopsRobbers && gold != GoldMode::kFreeForAll; }
 };
 
+/** A player in the session, as the lobby lists them. */
 struct NetPlayer {
     uint8_t id = 0;
     std::string name;
@@ -68,6 +73,7 @@ struct NetPlayer {
     bool cheater = false; // the host has turned down too much of what its machine said
 };
 
+/** A line of the lobby's and the game's chat. */
 struct NetChatLine {
     uint32_t seq = 0;
     std::string from;
@@ -95,20 +101,24 @@ struct NetCarState {
     // then is no trick.
     uint8_t resets = 0;
 };
+/** NetCarState::lamps: the lamps lit. */
 enum : uint8_t { kLampHead = 1, kLampBrake = 2, kLampReverse = 4, kLampSiren = 8 };
 
-/** A rotation as a quaternion and back. */
+/** A rotation as a quaternion (x, y, z, w; of length 1) and back. */
+///@{
 std::array<float, 4> quaternionOf(const Mat3 &m);
 Mat3 matrixOfQuaternion(const std::array<float, 4> &q);
+///@}
 /**
  * A car's state at `clock` from the ones received (in clock order):
  * between the two either side, or carried on from the last for up to
- * half a second. False if there's nothing to go on.
+ * half a second; the first, before it. False if there's nothing to go on.
  */
 bool carStateAt(const std::deque<NetCarState> &states, float clock, NetCarState &out);
 
 /** Something that happened, for the menus and the game to say. */
 struct NetNotice {
+    /** What happened. */
     enum class Kind {
         kJoined,      // `name` has joined
         kLeft,        // `name` has left the game
@@ -124,11 +134,17 @@ struct NetNotice {
     std::string name;
     int reason = 0; // Refused: kRefused*
 };
+/**
+ * Why a player wasn't let in (NetNotice::reason): another version, the
+ * session full, the game going (only older hosts say so), the wrong
+ * password, or no answer.
+ */
 enum : int { kRefusedVersion = 1, kRefusedFull = 2, kRefusedPlaying = 3, kRefusedPassword = 4, kRefusedTimeout = 5 };
 
 /** A session as the host or a player sees it. */
 class NetSession {
 public:
+    /** Where the session is: in the lobby, loading the game, or playing it. */
     enum class Phase : uint8_t { kLobby, kLoading, kPlaying };
 
     /** Hosts a session on `socket` (bound to the port players reach). */
@@ -147,29 +163,54 @@ public:
      */
     void leave();
 
+    /** Whether we're the host, and the host's player id. */
+    ///@{
     bool isHost() const { return _host; }
     uint8_t hostId() const { return _hostId; }
+    ///@}
+    /** Whether we've asked to join and the host hasn't let us in yet. */
     bool joining() const { return !_host && _myId == kNoPlayer && !_closed; }
-    bool closed() const { return _closed; } // left, refused, ejected or the host gone
+    /** Whether it's over for us: left, refused, ejected or the host gone. */
+    bool closed() const { return _closed; }
+    /** Our player id (kNoPlayer while joining), and where the session is. */
+    ///@{
     uint8_t myId() const { return _myId; }
     Phase phase() const { return _phase; }
+    ///@}
     /** Each start begins a new round; the game it starts goes by its seed. */
+    ///@{
     uint32_t round() const { return _round; }
     uint32_t seed() const { return _seed; }
+    ///@}
+    /** What the host chose, and the players, as the host last said. */
+    ///@{
     const NetSettings &settings() const { return _settings; }
     const std::vector<NetPlayer> &players() const { return _players; }
+    ///@}
+    /** A player by id, or ourselves; nullptr if there's no such player. */
+    ///@{
     const NetPlayer *player(uint8_t id) const;
     const NetPlayer *me() const { return player(_myId); }
+    ///@}
+    /** The last eight chat lines, oldest first. */
     const std::deque<NetChatLine> &chat() const { return _chat; }
+    /** What's happened since last asked, oldest first. */
     std::vector<NetNotice> takeNotices();
+    /** The session's name: the host's. */
     const std::string &sessionName() const { return _sessionName; }
 
     /** The lobby. Any player: their car, team, readiness and chat. */
+    ///@{
     void setCar(const std::string &car, uint8_t paint);
     void setTeam(uint8_t team);
     void setReady(bool ready);
     void say(const std::string &text);
-    /** The host: the settings, ejecting a player, starting and ending. */
+    ///@}
+    /**
+     * The host: the settings (in the lobby only), ejecting a player,
+     * starting and ending.
+     */
+    ///@{
     void setSettings(const NetSettings &settings);
     void eject(uint8_t id);
     /**
@@ -181,15 +222,18 @@ public:
     bool everyoneReady() const; // every player but the host
     Error start(uint64_t nowMs);
     void backToLobby();
+    ///@}
 
     /**
      * The game. Each says when it's loaded; the host then counts down
      * three seconds for everyone: clock() is the race clock (negative in
      * the countdown) or 0 until then.
      */
+    ///@{
     void setLoaded();
     bool counting() const { return _goMs != 0 || _clockKnown; }
     float clock(uint64_t nowMs) const;
+    ///@}
     /** Our car, sent on to the others. */
     void sendCar(const NetCarState &state);
     /** The host: a computer player's car, sent on as anyone's. */
@@ -205,9 +249,11 @@ public:
      * The host's word on the game (the gold, the scores; the race over),
      * passed to everyone as it is.
      */
+    ///@{
     void setGameState(const std::vector<uint8_t> &state, bool over);
     const std::vector<uint8_t> &gameState() const { return _gameState; }
     bool over() const { return _over; }
+    ///@}
 
 private:
     NetSession() = default;
@@ -275,7 +321,7 @@ private:
     std::array<uint8_t, 16> _proof{}; // the password, proved for the host's challenge
     bool _haveProof = false;
     std::deque<std::string> _outbox; // chat not yet taken by the host
-    uint32_t _outSeq = 0;            // the sequence number of outbox_.front()
+    uint32_t _outSeq = 0;            // the chat lines the host has taken: _outbox.front() is the next
     bool _teamChosen = false;        // else the team's the host's choice
     uint32_t _lastPhaseRound = 0;
     uint64_t _echoMs = 0; // the host's echo of our last status's time
@@ -296,6 +342,7 @@ private:
  */
 class NetBrowser {
 public:
+    /** A session that answered. */
     struct Found {
         net::Address address;
         std::string name;
@@ -309,12 +356,15 @@ public:
         uint16_t ping = 0;
         uint64_t heardMs = 0;
     };
+    /** Asks and listens on `socket`, which it then owns. */
     explicit NetBrowser(std::unique_ptr<net::UdpSocket> socket) : _socket(std::move(socket)) {}
     /** Where else to broadcast (System::broadcastAddresses). */
     void setBroadcasts(std::vector<uint32_t> addresses) { _broadcasts = std::move(addresses); }
-    /** Asks again every second; forgets what's stopped answering. */
+    /** Asks again every second; forgets what hasn't answered for 4 s. */
     void update(uint64_t nowMs);
+    /** Asks this address too, each time. */
     void ask(const net::Address &address) { _asked.push_back(address); }
+    /** The sessions that have answered. */
     const std::vector<Found> &sessions() const { return _found; }
 
 private:

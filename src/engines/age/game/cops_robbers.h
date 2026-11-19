@@ -22,7 +22,9 @@
 
 namespace reluva::age {
 
+/** Something that happened to the gold, for the messages and the announcer. */
 struct GoldEvent {
+    /** What happened. */
     enum class Kind : uint8_t {
         kGot,       // picked up where it started
         kRecovered, // picked up where it was dropped
@@ -35,11 +37,17 @@ struct GoldEvent {
     Kind kind = Kind::kGot;
     uint8_t player = kNoPlayer;
     uint8_t side = 0; // the player's side then
-    uint32_t seq = 0;
+    uint32_t seq = 0; // counting from 1, the game's events in order
 };
 
+/**
+ * A game of Cops & Robbers: where the gold and the bases are, who has the
+ * gold, the scores. The host runs the rules (step) and sends the state;
+ * the other players read it.
+ */
 class GoldGame {
 public:
+    /** A player's car, as the rules see it. */
     struct Car {
         uint8_t id = 0;
         uint8_t team = 0;
@@ -64,24 +72,45 @@ public:
 
     /** A player's side: its team in the team modes, else itself. */
     uint8_t sideOf(const Car &car) const { return teams() ? car.team : car.id; }
+    /** Whether it's played in teams, and its mode. */
+    ///@{
     bool teams() const { return _mode != GoldMode::kFreeForAll; }
     GoldMode mode() const { return _mode; }
+    ///@}
 
+    /** The player who has the gold (kNoPlayer while it lies), and where the gold is. */
+    ///@{
     uint8_t holder() const { return _holder; }
     const Vec3 &goldPosition() const { return _gold; }
+    ///@}
     /** The base a side delivers to (in a free-for-all, everyone's hideout). */
     Vec3 base(uint8_t side) const;
+    /** Where the gold starts, and goes back to. */
     const Vec3 &home() const { return _home; }
+    /** A side's points (0 before its first), and every side's that has any. */
+    ///@{
     int score(uint8_t side) const;
     const std::map<uint8_t, int> &scores() const { return _scores; }
+    ///@}
+    /** Whether the time or point limit has been reached. */
     bool over() const { return _over; }
-    /** The events since `seq` (the last one seen), oldest first. */
+    /**
+     * The events since `seq` (the last one seen), oldest first; only the
+     * last six are kept.
+     */
     std::vector<GoldEvent> eventsAfter(uint32_t seq) const;
+    /** The last event's number. */
     uint32_t lastEvent() const { return _eventSeq; }
 
-    /** As the host sends it, and as a player reads it. */
+    /**
+     * The state as the host sends it, and as a player reads it (the limit
+     * and the places, set by start(), are kept). decode() is false, and
+     * changes nothing, for another message or one cut short.
+     */
+    ///@{
     std::vector<uint8_t> encode() const;
     bool decode(const std::vector<uint8_t> &data);
+    ///@}
 
 private:
     void event(GoldEvent::Kind kind, uint8_t player, uint8_t side);
@@ -114,6 +143,7 @@ private:
  */
 class GoldBot {
 public:
+    /** Starts afresh; the seed picks a cruise's places. */
     void start(uint32_t seed) { *this = GoldBot(), _seed = seed; }
     /** Where it wants to be: `chasing` when that's another side's car. */
     static Vec3 goal(uint8_t id, uint8_t team, const GoldGame &gold, const std::vector<GoldGame::Car> &cars,
@@ -131,11 +161,13 @@ public:
      * puts it back on the road (the nearest point of `roads`) and calls
      * unstuck().
      */
+    ///@{
     bool stuck() const { return _stillFor > 6; }
     void unstuck() {
         _stillFor = 0;
         _replanIn = 0;
     }
+    ///@}
 
 private:
     uint32_t _seed = 1;
@@ -147,11 +179,14 @@ private:
     float _stillFor = 0; // and how long ago
 };
 
-/** The game's points for Cops & Robbers: race/<city>/multicopwaypoints.csv. */
+/**
+ * The game's points for Cops & Robbers: `race/<city>/multicopwaypoints.csv`.
+ * Fails without the file, or with fewer than two points in it.
+ */
 Error loadGoldPoints(const SearchSet &files, const std::string &city, std::vector<Waypoint> &out);
 
 /**
- * The announcer's lines: aud/spchdata/CNR<CITY>.csv, each event's name
+ * The announcer's lines: `aud/spchdata/CNR<CITY>.csv`, each event's name
  * (BLUETEAMHASGOLD, ROBGETLOOT...) and the recordings it may play.
  */
 std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::string &csv);
