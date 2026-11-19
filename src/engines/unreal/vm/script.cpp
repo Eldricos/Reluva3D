@@ -21,7 +21,7 @@ public:
     bool failed() const { return !_error.empty() || !_r.ok(); }
     const std::string &error() const { return _error; }
 
-    // One expression; its index in code_.exprs, or -1.
+    // One expression; its index in _code.exprs, or -1.
     int expr() {
         if (failed())
             return -1;

@@ -759,8 +759,11 @@ public:
     ///@}
 
     /**
-     * Saved games (vm_save.cpp), in the folder the page gives: Reluva's
-     * own files, under the game's names (QuickSave.dsa, Save<n>.dss).
+     * A saved game (vm_save.cpp), in the folder the page gives: written as
+     * the original saves them (or in Reluva's own format, with
+     * reluvaFormat), under the game's names: QuickSave.dsa, or the level's
+     * title and the seconds played ("Bajoran_Ship_-_Ke'el_Tul-97.dsa").
+     * .dss files are listed too.
      */
     struct SaveInfo {
         std::filesystem::path file;

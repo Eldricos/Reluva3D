@@ -63,8 +63,8 @@ std::string unquoted(std::string s) {
 // Rows of tab-separated columns: the record's speaker code and number,
 // mission, type, speaker, listener, line ID, line, direction, pause, next
 // line, return line, tag, event, condition, camera, the speaker's and
-// listener's animations and faces. Rows without a record (the header,
-// the Missions and Speakers lines, blank spacers) are left out.
+// listener's animations and faces. Rows without a record (the header, the
+// Missions, Speakers, Types and Faces lines, blank spacers) are left out.
 void parseDialogTable(const std::string &text, const std::string &table, std::vector<DialogLine> &out) {
     size_t at = 0;
     int rowNumber = -1; // the rows that aren't blank, from 0 (as the engine numbers them)

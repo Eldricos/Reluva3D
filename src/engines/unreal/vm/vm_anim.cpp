@@ -381,7 +381,7 @@ void ScriptLevel::endAnimWait(VmObject *a, bool ended) {
     _animWaits.erase(it);
 }
 
-// --- The Fallen's layers and face channels ---------------------------------------------------
+// The Fallen's layers and face channels.
 
 const std::map<NameId, ScriptLevel::AnimLayer> *ScriptLevel::layersOf(VmObject *a) const {
     auto it = _layers.find(a);

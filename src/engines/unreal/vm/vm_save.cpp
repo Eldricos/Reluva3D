@@ -974,7 +974,7 @@ void registerSaveNatives(Vm &vm) {
     });
 }
 
-// --- The original's saved games ---------------------------------------------------------
+// The original's saved games.
 
 bool ScriptLevel::savedByGame() const {
     const Value *begun = _levelInfo ? _levelInfo->find(_vm, "bBegunPlay") : nullptr;

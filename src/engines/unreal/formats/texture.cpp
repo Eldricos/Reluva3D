@@ -180,8 +180,8 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
             return Error::fail(described + ": no pixels stored" + (props.find("bHasComp") ? "" : ", and no bHasComp"));
         std::string standIn;
         // Fire, water and FLC textures: their animation's first picture.
-        // (Wet and ice ones show their source texture, undistorted, as
-        // before; scripted ones too, as only their script draws on them.)
+        // (Wet and ice ones show their source texture, undistorted, below;
+        // scripted ones too, as only their script draws on them.)
         if (fs::toLower(cls) != "wettexture" && fs::toLower(cls) != "icetexture" && isAnimatedTextureClass(cls)) {
             std::string why;
             if (auto anim = openAnimatedTexture(packages, package, index, &why)) {

@@ -116,7 +116,7 @@ void reseedEffectPhysicsRandom() {
     random().seed(24680);
 }
 
-// --- An effect's copies ---------------------------------------------------------------------
+// An effect's copies.
 
 // A copy's field, read and written.
 float ScriptLevel::copyFloat(VmObject *mm, const char *name, float otherwise) {
@@ -1086,7 +1086,7 @@ float ScriptLevel::copyAgeBefore(VmObject *mm, float age, float dt) {
     return std::max(0.0f, age - dt / it->second);
 }
 
-// --- Actors moved by The Fallen's modes -----------------------------------------------------
+// Actors moved by The Fallen's modes.
 
 // The modes that move the actor itself.
 void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
