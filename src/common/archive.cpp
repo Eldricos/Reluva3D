@@ -3,6 +3,8 @@
 
 #include "common/archive.h"
 
+#include "common/fs.h"
+
 #include <algorithm>
 #include <fstream>
 #include <map>
@@ -26,17 +28,23 @@ std::string normalizeArchiveName(std::string_view name) {
 
 // --- DirectoryArchive ------------------------------------------------------------
 
-Error DirectoryArchive::open(const std::filesystem::path &dir) {
+Error DirectoryArchive::open(const std::filesystem::path &dir, int maxDepth) {
     _dir = dir;
     _files.clear();
     std::error_code ec;
     if (!std::filesystem::is_directory(dir, ec))
         return Error::fail("Not a folder: " + dir.string());
     for (std::filesystem::recursive_directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+        if (maxDepth >= 0 && it.depth() >= maxDepth && it->is_directory(ec))
+            it.disable_recursion_pending();
         if (!it->is_regular_file(ec))
             continue;
         const std::string rel = it->path().lexically_relative(dir).generic_string();
-        _files.emplace(normalizeArchiveName(rel), it->path());
+        std::string key = normalizeArchiveName(rel);
+        const std::string_view plain = fs::withoutIsoVersion(key);
+        if (plain.size() != key.size())
+            key = std::string(plain);
+        _files.emplace(std::move(key), it->path());
     }
     if (ec)
         return Error::fail("Cannot list " + dir.string() + ": " + ec.message());
@@ -48,6 +56,9 @@ std::vector<std::string> DirectoryArchive::list() const {
     names.reserve(_files.size());
     for (const auto &[key, path] : _files)
         names.push_back(path.lexically_relative(_dir).generic_string());
+    // In one order on every system (the map's is the library's own).
+    std::sort(names.begin(), names.end(),
+              [](const std::string &a, const std::string &b) { return fs::windowsNameLess(a, b); });
     return names;
 }
 

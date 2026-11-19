@@ -76,7 +76,7 @@ private:
 
 class SmokePuffs;
 
-// A driven car's damage, as the Drive and Race pages keep it.
+// A driven car's damage, as the Drive page and the race screen keep it.
 struct CarWear {
     DamageSetup setup;
     CarDamage damage;

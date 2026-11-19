@@ -14,7 +14,7 @@ namespace reluva::newworlds {
 
 // The briefings' star systems: glblgame.cat's geo/solsys/ models, one per
 // system (karazin, taal, ...), and the planet pictures in lbp/txr/solsys/.
-// See docs/formats/newworlds/geo.md#star-systems.
+// See docs/engines/newworlds/geo.md#star-systems.
 
 // The system a mission's string table names most often, among the models'
 // names (compared as letters only, ignoring case: "F'Thorc" is fthorc);
@@ -39,7 +39,8 @@ struct StarSystemLayout {
     // Per face: the texture number to draw it with (a planet's back faces
     // take the planet's), or -1 for a face not to draw; and the body it's
     // part of, or -1 for the starfield.
-    std::vector<int> faceSlot, faceBody;
+    std::vector<int> faceSlot;
+    std::vector<int> faceBody;
 };
 StarSystemLayout readStarSystem(const GeoModel &model);
 

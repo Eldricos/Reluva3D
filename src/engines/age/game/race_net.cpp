@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Race page's multiplayer games: a session's Cruise, Blitz,
+// The race screen's multiplayer games: a session's Cruise, Blitz,
 // Checkpoint, Circuit or Cops & Robbers. Each player drives their own car
 // on their own machine and sends where it is; the others' cars are drawn
 // where they were a tenth of a second ago, between the states that came.
 // The host keeps the clock, says when it's over, and runs the gold. See
 // docs/engines/age-multiplayer.md.
 
-#include "engines/age/viewers.h"
+#include "engines/age/ui/screen.h"
 
 #include "audio/decode.h"
 #include "graphics/font.h"
@@ -50,7 +50,7 @@ float yawTowards(const Vec3 &from, const Vec3 &to) {
 
 } // namespace
 
-void RaceViewer::netUpdate(uint64_t nowMs) {
+void RaceScreen::netUpdate(uint64_t nowMs) {
     switch (_net->update(nowMs)) {
     case NetMenus::Action::kLoad:
         startNetGame();
@@ -68,7 +68,7 @@ void RaceViewer::netUpdate(uint64_t nowMs) {
     }
 }
 
-Vec3 RaceViewer::gridSlot(const Vec3 &centre, float yaw, size_t slot) const {
+Vec3 RaceScreen::gridSlot(const Vec3 &centre, float yaw, size_t slot) const {
     // Two abreast, 8 m between rows, set down on the ground.
     const Vec3 local{slot % 2 ? 2.5f : -2.5f, 0, float(slot / 2) * 8};
     Vec3 at = centre + Mat3::rotationY(yaw) * local;
@@ -78,7 +78,7 @@ Vec3 RaceViewer::gridSlot(const Vec3 &centre, float yaw, size_t slot) const {
     return at + Vec3{0, 0.5f, 0};
 }
 
-void RaceViewer::startNetGame() {
+void RaceScreen::startNetGame() {
     NetSession *session = _net ? _net->session() : nullptr;
     if (!session || !session->me())
         return;
@@ -99,7 +99,7 @@ void RaceViewer::startNetGame() {
     const bool racing = NetMenus::hasRace(set.mode);
     if (racing) {
         const RaceKind kind = NetMenus::raceKind(set.mode);
-        _kind = kind == RaceKind::kBlitz ? 0 : kind == RaceKind::kCircuit ? 1 : 2; // the Race page's order
+        _kind = kind == RaceKind::kBlitz ? 0 : kind == RaceKind::kCircuit ? 1 : 2; // the race screen's order
         _raceIndex = set.race;
         if (Error err = loadRace(_ctx.files, map, kind, _raceIndex, _race))
             _error = err.message;
@@ -265,7 +265,7 @@ void RaceViewer::startNetGame() {
     setTitle(_race.name + " (" + _net->modeName(set.mode) + ", " + _cities[size_t(_city)].name + ")");
 }
 
-void RaceViewer::endNetGame() {
+void RaceScreen::endNetGame() {
     _netGame = false;
     _chatting = false;
     _ctx.sys.setTextInput(false);
@@ -277,7 +277,7 @@ void RaceViewer::endNetGame() {
     _scene->setLighting(4);
 }
 
-void RaceViewer::driveRemote(Racer &r, float dt) {
+void RaceScreen::driveRemote(Racer &r, float dt) {
     // Where its driver's car was a moment ago.
     NetSession *session = _net ? _net->session() : nullptr;
     if (!session)
@@ -322,7 +322,7 @@ void RaceViewer::driveRemote(Racer &r, float dt) {
     }
 }
 
-void RaceViewer::checkProgress(Racer &r, const NetCarState &s) {
+void RaceScreen::checkProgress(Racer &r, const NetCarState &s) {
     // Through its next checkpoint if the way it went since it was last
     // seen passes within the checkpoint's reach (a little wider than its
     // own machine's count).
@@ -352,7 +352,7 @@ void RaceViewer::checkProgress(Racer &r, const NetCarState &s) {
     r.seen = true;
 }
 
-void RaceViewer::remoteLook(Racer &r, const NetCarState &s, float dt) {
+void RaceScreen::remoteLook(Racer &r, const NetCarState &s, float dt) {
     // Its engine, quieter with distance and to the side it's on; its
     // damage: the dents its machine made, its smoke.
     NetSession *session = _net ? _net->session() : nullptr;
@@ -394,7 +394,7 @@ void RaceViewer::remoteLook(Racer &r, const NetCarState &s, float dt) {
     r.wear->puff(dt, *r.car, _smoke.get());
 }
 
-void RaceViewer::syncNetRacers() {
+void RaceScreen::syncNetRacers() {
     // Players who've left (or a host that's gone, and its computer
     // players) take their cars with them; players who've joined since the
     // start bring theirs.
@@ -426,12 +426,12 @@ void RaceViewer::syncNetRacers() {
     }
 }
 
-uint8_t RaceViewer::netIdOf(const Racer &r) const {
+uint8_t RaceScreen::netIdOf(const Racer &r) const {
     const NetSession *session = _net ? _net->session() : nullptr;
     return r.player ? (session ? session->myId() : kNoPlayer) : r.peer != kNoPlayer ? r.peer : r.botId;
 }
 
-std::vector<GoldGame::Car> RaceViewer::netCars() const {
+std::vector<GoldGame::Car> RaceScreen::netCars() const {
     std::vector<GoldGame::Car> cars;
     const NetSession *session = _net ? _net->session() : nullptr;
     if (!session)
@@ -443,7 +443,7 @@ std::vector<GoldGame::Car> RaceViewer::netCars() const {
     return cars;
 }
 
-NetCarState RaceViewer::carStateOf(const Racer &r) const {
+NetCarState RaceScreen::carStateOf(const Racer &r) const {
     const CarSim &sim = r.car->sim;
     NetCarState s;
     s.clock = _clock;
@@ -468,7 +468,7 @@ NetCarState RaceViewer::carStateOf(const Racer &r) const {
     return s;
 }
 
-void RaceViewer::planBot(Racer &r, float dt, const std::vector<GoldGame::Car> &cars) {
+void RaceScreen::planBot(Racer &r, float dt, const std::vector<GoldGame::Car> &cars) {
     // A computer player outside a race: a new path when its mind wants one;
     // a cop's siren while it chases.
     const NetSession *session = _net ? _net->session() : nullptr;
@@ -501,14 +501,14 @@ void RaceViewer::planBot(Racer &r, float dt, const std::vector<GoldGame::Car> &c
     }
 }
 
-void RaceViewer::netSay(const std::string &text) {
+void RaceScreen::netSay(const std::string &text) {
     if (text.empty())
         return;
     _netMessage = text;
     _netMessageFor = kMessageFor;
 }
 
-void RaceViewer::announce(const GoldEvent &e) {
+void RaceScreen::announce(const GoldEvent &e) {
     // The announcer's line for it: the robber teams by colour, cops and
     // robbers by side (a free-for-all's are the robbers').
     if (_speech.empty() || !_ctx.mixer)
@@ -545,7 +545,7 @@ void RaceViewer::announce(const GoldEvent &e) {
         _ctx.mixer->play(sound, audio::SoundType::kSpeech);
 }
 
-void RaceViewer::stepNet(float dt) {
+void RaceScreen::stepNet(float dt) {
     NetSession *session = _net ? _net->session() : nullptr;
     if (!session || _racers.empty())
         return;
@@ -699,7 +699,7 @@ void RaceViewer::stepNet(float dt) {
     }
 }
 
-bool RaceViewer::netEvent(const Event &ev) {
+bool RaceScreen::netEvent(const Event &ev) {
     // The multiplayer menus take everything while they're up.
     if (_state == State::kMenu && _netMenus && _net) {
         switch (_net->handle(ev)) {
@@ -766,7 +766,7 @@ bool RaceViewer::netEvent(const Event &ev) {
     return false;
 }
 
-void RaceViewer::drawGold() {
+void RaceScreen::drawGold() {
     NetSession *session = _net ? _net->session() : nullptr;
     if (!session || session->settings().mode != NetMode::kCopsRobbers)
         return;
@@ -792,7 +792,7 @@ void RaceViewer::drawGold() {
     }
 }
 
-void RaceViewer::drawNetLines() {
+void RaceScreen::drawNetLines() {
     NetSession *session = _net ? _net->session() : nullptr;
     if (!session)
         return;
@@ -821,7 +821,7 @@ void RaceViewer::drawNetLines() {
         drawCentred(_netMessage, 110, {255, 230, 120}, 2);
 }
 
-void RaceViewer::drawNetHud() {
+void RaceScreen::drawNetHud() {
     NetSession *session = _net ? _net->session() : nullptr;
     if (!session || _racers.empty())
         return;

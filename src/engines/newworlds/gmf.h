@@ -12,7 +12,7 @@
 
 namespace reluva::newworlds {
 
-// A .gmf map (chunk tag 0x11). See docs/formats/newworlds/gmf.md; much of the
+// A .gmf map (chunk tag 0x11). See docs/engines/newworlds/gmf.md; much of the
 // format is still unknown and is skipped.
 //
 // A map is a grid of blocks; a block is 2 x 2 tiles; a tile is a ground model
@@ -48,15 +48,21 @@ struct GmfMap {
     // 0-3 and 4-7 are its position, 8-13 unknown (evenly spread), 14-15 a
     // variant (unknown), 16-18 its type, 19-22 a turn, 23 always set.
     struct Scenery {
-        uint16_t bx = 0, by = 0; // its grid cell (block)
-        uint8_t x = 0, y = 0;    // within the block, on a 16 x 16 grid in map orientation
-        uint8_t type = 0;        // icewrld: 1 trees, 0 rocks?, 2 bushes?, 4 frn_spec? (guesses)
-        uint8_t turn = 0;        // sixteenths of a turn, presumably anticlockwise
-        uint8_t variant = 0;     // bits 14-15
-        uint8_t extra = 0;       // bits 8-13
+        // its grid cell (block)
+        uint16_t bx = 0;
+        uint16_t by = 0;
+        // within the block, on a 16 x 16 grid in map orientation
+        uint8_t x = 0;
+        uint8_t y = 0;
+        uint8_t type = 0;    // icewrld: 1 trees, 0 rocks?, 2 bushes?, 4 frn_spec? (guesses)
+        uint8_t turn = 0;    // sixteenths of a turn, presumably anticlockwise
+        uint8_t variant = 0; // bits 14-15
+        uint8_t extra = 0;   // bits 8-13
     };
 
-    int width = 0, height = 0; // in blocks
+    // in blocks
+    int width = 0;
+    int height = 0;
     std::vector<Tile> tiles;
     std::vector<std::array<uint32_t, 4>> blocks; // four tile numbers each
     std::vector<Cell> cells;                     // width x height, row by row
@@ -76,7 +82,7 @@ int tileAt(const GmfMap &map, int tx, int ty);
 // archive order): returns, per model number, an index into geoNames, or
 // kNoModel for a number with no model. Not archive order (which differs per
 // planet) but one list of fixed places for all six planets (see
-// docs/formats/newworlds/gmf.md): base_01-16, hole_01, base_21, base_22,
+// docs/engines/newworlds/gmf.md): base_01-16, hole_01, base_21, base_22,
 // base_20, base_18, crack_03-06, -, crack_08, brid_01-02, ramp, concrete,
 // hole_03, hole_02, concact, base_19, base_23-26, base_17, -, then the
 // planets' own models at 41-54 (balls, water, mountains, arch and needle,

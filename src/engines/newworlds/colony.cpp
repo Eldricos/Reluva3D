@@ -15,7 +15,8 @@ namespace {
 struct SiteEntry {
     const char *mission;
     char side;
-    int a, b;
+    int a;
+    int b;
     const char *source;
 };
 
@@ -98,10 +99,12 @@ constexpr std::pair<const char *, const char *> kUpgrades[] = {
 
 // The ground counts as flat for a building if it rises less than this
 // across a tile, and near the hub's height if within this of it.
-constexpr float kFlat = 1024, kNear = 2048;
+constexpr float kFlat = 1024;
+constexpr float kNear = 2048;
 // How many tiles from the site the hub may move, and how far around it
 // counts as its room.
-constexpr int kSearch = 6, kRoom = 3;
+constexpr int kSearch = 6;
+constexpr int kRoom = 3;
 // How far the starting pad reaches beyond the hub, in tiles.
 constexpr int kPad = 2;
 // Pads are level in the recordings: flatter ground than a building needs.
@@ -149,29 +152,31 @@ int ceilDiv(float v, float d) {
 } // namespace
 
 bool ColonyLayout::tileFree(int tx, int ty, bool mine) const {
-    for (const Rect &r : taken_)
+    for (const Rect &r : _taken)
         if (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h)
             return false;
     return groundFits(tx, ty, mine, kFlat);
 }
 
 bool ColonyLayout::groundFits(int tx, int ty, bool mine, float flatness) const {
-    if (tx < 0 || ty < 0 || tx >= ground_.width * 2 || ty >= ground_.height * 2)
+    if (tx < 0 || ty < 0 || tx >= _ground.width * 2 || ty >= _ground.height * 2)
         return false;
-    if ((ground_.deposit(tx / 2, ty / 2) != 0) != mine)
+    if ((_ground.deposit(tx / 2, ty / 2) != 0) != mine)
         return false;
     // Flat: its middle and four points near its corners within flatness.
-    const int a = ty * kTile + 2, b = tx * kTile + 2;
-    float lo = ground_.heightAt(a, b), hi = lo;
+    const int a = ty * kTile + 2;
+    const int b = tx * kTile + 2;
+    float lo = _ground.heightAt(a, b);
+    float hi = lo;
     if (std::isnan(lo))
         return false;
     for (const auto &[da, db] : {std::pair{-2, -2}, std::pair{-2, 1}, std::pair{1, -2}, std::pair{1, 1}}) {
-        const float h = ground_.heightAt(a + da, b + db);
+        const float h = _ground.heightAt(a + da, b + db);
         if (std::isnan(h))
             return false;
         lo = std::min(lo, h), hi = std::max(hi, h);
     }
-    return hi - lo < flatness && (!heightSet_ || std::fabs(lo - hubHeight_) < kNear);
+    return hi - lo < flatness && (!_heightSet || std::fabs(lo - _hubHeight) < kNear);
 }
 
 bool ColonyLayout::fits(const Rect &r, bool mine) const {
@@ -192,27 +197,28 @@ bool ColonyLayout::fits(const Rect &r, bool mine) const {
 }
 
 ColonyLayout::Rect ColonyLayout::footprint(const std::string &model, int tx, int ty) const {
-    const auto [w, h] = ground_.size ? ground_.size(model) : std::pair{kTileUnits, kTileUnits};
+    const auto [w, h] = _ground.size ? _ground.size(model) : std::pair{kTileUnits, kTileUnits};
     return {tx, ty, ceilDiv(w + kGap, kTileUnits), ceilDiv(h + kGap, kTileUnits)};
 }
 
 void ColonyLayout::place(std::string_view name, const std::string &model, const Rect &r) {
-    taken_.push_back(r);
-    buildings_.push_back({std::string(name), model, r.y * kTile + r.h * kTile / 2, r.x * kTile + r.w * kTile / 2});
+    _taken.push_back(r);
+    _buildings.push_back({std::string(name), model, r.y * kTile + r.h * kTile / 2, r.x * kTile + r.w * kTile / 2});
 }
 
 bool ColonyLayout::start(int a, int b) {
-    buildings_.clear();
-    taken_.clear();
-    pad_.clear();
-    heightSet_ = false;
-    const std::string model = buildingModel("colony-hub", side_);
-    if (model.empty() || ground_.width <= 0)
+    _buildings.clear();
+    _taken.clear();
+    _pad.clear();
+    _heightSet = false;
+    const std::string model = buildingModel("colony-hub", _side);
+    if (model.empty() || _ground.width <= 0)
         return false;
     // Of the places near the site, the one with the most free tiles
     // around it (within kRoom), less three for each tile it is from the
     // site.
-    const int sx = b / kTile, sy = a / kTile;
+    const int sx = b / kTile;
+    const int sy = a / kTile;
     int best = -1;
     Rect bestRect{};
     for (int r = 0; r <= kSearch; ++r)
@@ -221,12 +227,12 @@ bool ColonyLayout::start(int a, int b) {
                 if (std::max(std::abs(dx), std::abs(dy)) != r)
                     continue;
                 const Rect rect = footprint(model, sx + dx, sy + dy);
-                heightSet_ = false;
+                _heightSet = false;
                 if (!fits(rect, false))
                     continue;
                 // Room at this place's height.
-                hubHeight_ = ground_.heightAt(rect.y * kTile + 2, rect.x * kTile + 2);
-                heightSet_ = true;
+                _hubHeight = _ground.heightAt(rect.y * kTile + 2, rect.x * kTile + 2);
+                _heightSet = true;
                 int room = 0;
                 for (int y = rect.y - kRoom; y < rect.y + rect.h + kRoom; ++y)
                     for (int x = rect.x - kRoom; x < rect.x + rect.w + kRoom; ++x)
@@ -237,43 +243,45 @@ bool ColonyLayout::start(int a, int b) {
             }
     if (best < 0)
         return false;
-    hubHeight_ = ground_.heightAt(bestRect.y * kTile + 2, bestRect.x * kTile + 2);
-    heightSet_ = true;
+    _hubHeight = _ground.heightAt(bestRect.y * kTile + 2, bestRect.x * kTile + 2);
+    _heightSet = true;
     place("colony-hub", model, bestRect);
     // The starting colony's concrete: the ground it can use round the hub.
     for (int y = bestRect.y - kPad; y < bestRect.y + bestRect.h + kPad; ++y)
         for (int x = bestRect.x - kPad; x < bestRect.x + bestRect.w + kPad; ++x)
             if (groundFits(x, y, false, kPadFlat))
-                pad_.push_back({x, y});
+                _pad.push_back({x, y});
     return true;
 }
 
 bool ColonyLayout::add(std::string_view building) {
-    if (buildings_.empty())
+    if (_buildings.empty())
         return false;
-    const std::string model = buildingModel(building, side_);
+    const std::string model = buildingModel(building, _side);
     if (model.empty())
         return false;
     for (const auto &[upgrade, base] : kUpgrades) {
         if (building != upgrade)
             continue;
         // On the building it upgrades, once.
-        for (const ColonyBuilding &c : buildings_)
+        for (const ColonyBuilding &c : _buildings)
             if (c.name == building)
                 return false;
-        for (size_t i = 0; i < buildings_.size(); ++i)
-            if (buildings_[i].name == base) {
-                const int a = buildings_[i].a, b = buildings_[i].b;
-                buildings_.push_back({std::string(building), model, a, b});
+        for (size_t i = 0; i < _buildings.size(); ++i)
+            if (_buildings[i].name == base) {
+                const int a = _buildings[i].a;
+                const int b = _buildings[i].b;
+                _buildings.push_back({std::string(building), model, a, b});
                 return true;
             }
         return false;
     }
     const bool mine = building == "mining-station";
     // The free place nearest the hub's middle (by the building's middle).
-    const Rect hub = taken_.front();
-    const float hx = float(hub.x) + float(hub.w) / 2, hy = float(hub.y) + float(hub.h) / 2;
-    const int range = 2 * std::max(ground_.width, ground_.height);
+    const Rect hub = _taken.front();
+    const float hx = float(hub.x) + float(hub.w) / 2;
+    const float hy = float(hub.y) + float(hub.h) / 2;
+    const int range = 2 * std::max(_ground.width, _ground.height);
     for (int r = 1; r < range; ++r) {
         std::vector<Rect> ring;
         for (int dy = -r; dy <= r; ++dy)
@@ -281,7 +289,8 @@ bool ColonyLayout::add(std::string_view building) {
                 if (std::max(std::abs(dx), std::abs(dy)) == r)
                     ring.push_back(footprint(model, int(std::floor(hx)) + dx, int(std::floor(hy)) + dy));
         auto distance = [&](const Rect &p) {
-            const float x = float(p.x) + float(p.w) / 2 - hx, y = float(p.y) + float(p.h) / 2 - hy;
+            const float x = float(p.x) + float(p.w) / 2 - hx;
+            const float y = float(p.y) + float(p.h) / 2 - hy;
             return x * x + y * y;
         };
         std::stable_sort(ring.begin(), ring.end(),
@@ -296,11 +305,11 @@ bool ColonyLayout::add(std::string_view building) {
 }
 
 bool ColonyLayout::spotRect(std::string_view building, int a, int b, std::string &model, Rect &r) const {
-    model = buildingModel(building, side_);
+    model = buildingModel(building, _side);
     for (const auto &[upgrade, base] : kUpgrades)
         if (building == upgrade)
             return false;
-    if (model.empty() || buildings_.empty())
+    if (model.empty() || _buildings.empty())
         return false;
     // The footprint's corner such that its middle is nearest the point.
     r = footprint(model, 0, 0);

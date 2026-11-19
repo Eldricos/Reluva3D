@@ -10,7 +10,8 @@ namespace reluva::font {
 
 namespace {
 
-constexpr int kW = 5, kH = 9;
+constexpr int kW = 5;
+constexpr int kH = 9;
 
 // Each glyph's rows, top to bottom, separated by spaces; rows left out at
 // the end are blank. '#' is set.
@@ -118,7 +119,8 @@ const std::array<Bitmap, 95> &bitmaps() {
     static const std::array<Bitmap, 95> kTable = [] {
         std::array<Bitmap, 95> t{};
         for (size_t g = 0; g < 95; ++g) {
-            int row = 0, col = 0;
+            int row = 0;
+            int col = 0;
             for (const char *p = kGlyphs[g]; *p && row < kH; ++p) {
                 if (*p == ' ') {
                     ++row, col = 0;
@@ -144,6 +146,8 @@ char asAscii(uint32_t cp) {
         return ' ';
     case 0xb4:
         return '\'';
+    case 0xb7:
+        return '*'; // and bullets, which become middle dots
     case 0xd7:
         return 'x';
     default:
@@ -167,7 +171,7 @@ size_t length(std::string_view utf8) {
 }
 
 int drawText(Surface &surface, int x, int y, std::string_view utf8, Color color, int scale) {
-    if (surface.format != PixelFormat::kRgbA32)
+    if (surface.format != PixelFormat::kRGBA32)
         return x;
     for (size_t i = 0; i < utf8.size();) {
         const char c = asAscii(text::nextUtf8(utf8, i));
@@ -178,7 +182,8 @@ int drawText(Surface &surface, int x, int y, std::string_view utf8, Color color,
                     continue;
                 for (int dy = 0; dy < scale; ++dy)
                     for (int dx = 0; dx < scale; ++dx) {
-                        const int px = x + col * scale + dx, py = y + row * scale + dy;
+                        const int px = x + col * scale + dx;
+                        const int py = y + row * scale + dy;
                         if (px < 0 || py < 0 || px >= surface.w || py >= surface.h)
                             continue;
                         uint8_t *p = surface.row(py) + px * 4;

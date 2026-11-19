@@ -15,8 +15,8 @@
 namespace reluva::newworlds {
 
 // Reluva's own mission scripts: what a mission reacts to and how, written
-// from recordings of play (docs/formats/newworlds/play*.md), since the
-// game keeps its scripts in STNW.exe. The format (docs/formats/newworlds/
+// from recordings of play (docs/engines/newworlds/play*.md), since the
+// game keeps its scripts in STNW.exe. The format (docs/engines/newworlds/
 // mission-scripts.md):
 //
 //   mission F1 F                     a mission and the side it's played as
@@ -43,7 +43,9 @@ namespace reluva::newworlds {
 struct ScriptEvent {
     std::string kind;
     std::vector<std::string> args;
-    int a = -1, b = -1; // a map position, when the event has one
+    // a map position, when the event has one
+    int a = -1;
+    int b = -1;
 };
 
 struct MissionScript {
@@ -59,7 +61,8 @@ struct MissionScript {
     };
     struct Objective {
         uint32_t id = 0;
-        bool hidden = false, optional = false;
+        bool hidden = false;
+        bool optional = false;
     };
     std::string mission;
     char side = 'F';
@@ -80,11 +83,13 @@ const MissionScript *findMissionScript(std::string_view shortName, char side);
 class MissionRun {
 public:
     struct Output {
-        enum Kind { Message, Completed, Revealed, Won, Lost } kind;
-        std::string sender, text; // a message
-        uint32_t objective = 0;   // Completed, Revealed, Lost: the string id
+        enum Kind { kMessage, kCompleted, kRevealed, kWon, kLost } kind;
+        // a message
+        std::string sender;
+        std::string text;
+        uint32_t objective = 0; // Completed, Revealed, Lost: the string id
     };
-    enum class State { Incomplete, Complete, Hidden };
+    enum class State { kIncomplete, kComplete, kHidden };
 
     // generic: rules added after the mission's own (may be null).
     MissionRun(const MissionScript &script, const MissionScript *generic);
@@ -92,8 +97,8 @@ public:
     std::vector<Output> fire(const ScriptEvent &event);
     // Moves time on, firing timers that run out.
     std::vector<Output> advance(double seconds);
-    bool finished() const { return won_ || lost_; }
-    bool won() const { return won_; }
+    bool finished() const { return _won || _lost; }
+    bool won() const { return _won; }
     State objectiveState(uint32_t id) const;
     // Seconds to the next timer, or a negative number if none is running.
     double nextTimer() const;
@@ -113,20 +118,23 @@ private:
     std::string expand(const std::string &text, const ScriptEvent &ev) const;
     void checkAllCompleted(std::vector<Output> &out);
 
-    const MissionScript &script_;
-    std::vector<Rule> rules_;
-    std::map<std::string, int> built_;
-    std::set<uint32_t> completed_, revealed_;
-    std::map<std::string, double> timers_;
-    bool won_ = false, lost_ = false, allDone_ = false;
-    int depth_ = 0;
+    const MissionScript &_script;
+    std::vector<Rule> _rules;
+    std::map<std::string, int> _built;
+    std::set<uint32_t> _completed;
+    std::set<uint32_t> _revealed;
+    std::map<std::string, double> _timers;
+    bool _won = false;
+    bool _lost = false;
+    bool _allDone = false;
+    int _depth = 0;
 };
 
 // The game's spoken announcement (a stem in Media/Misc) for what a step
 // did, for the side ('F', 'K', 'R'): the mission won or lost, an objective
 // met, power low, production held up (Federation), a building finished
 // (its name, B_f...com, A_k...com, B_r...com); the first of these that
-// applies, or empty. Matched in recordings (docs/formats/newworlds/media.md).
+// applies, or empty. Matched in recordings (docs/engines/newworlds/media.md).
 std::string announcementFor(const ScriptEvent &event, const std::vector<MissionRun::Output> &out, char side);
 
 } // namespace reluva::newworlds

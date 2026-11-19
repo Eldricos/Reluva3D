@@ -21,7 +21,7 @@
 namespace reluva::age {
 
 // A city's traffic, pedestrians and police together, as the Drive and
-// Race pages run them round the player.
+// the race screen run them round the player.
 class CityLife {
 public:
     // city/<map>.bai and city/<map>.aimap.

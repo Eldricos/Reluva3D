@@ -17,10 +17,12 @@ layout(location = 6) in vec3 inOldNormal;
 layout(location = 0) out vec2 outUv;
 layout(location = 1) out vec4 outColor;
 layout(location = 2) out vec3 outWorld; // the position in the world, for dynamic lights
-layout(location = 3) out float outFog;  // how far into the fog (mode2.zw), 0-1
+layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
+layout(location = 4) out float outFogW; // w for table fog: uv2.x, or the depth (mode2.w)
+layout(location = 5) out float outLinearFog; // how far into the linear fog (linearFog), 0-1
 
 struct DeformData {
-    vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move), y: wave function, z: base, w: amplitude
+    vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move, 4 normal), y: wave function, z: base, w: amplitude
     vec4 b; // x: phase, y: frequency, z: spread, w: unused
     vec4 c; // move: the vector; bulge: x width, y height, z speed
 };
@@ -40,7 +42,9 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
                    // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
     vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions,
-                   // z, w: where the fog mixed in starts and is complete (w 0: none)
+                   // z: a fog volume's depth for opaque (0: not a fog volume pass),
+                   // w: table fog's w from the depth (1) rather than uv2.x
+    vec4 fogPlane; // xyz: normal out of the fog volume, w: its distance
     vec4 ambient;  // xyz: ambient light for the lighting colour source
     vec4 directed; // xyz: directed light
     vec4 lightDir; // xyz: towards the light, world space
@@ -49,6 +53,7 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 fillDir[2];   // xyz: towards each, world space
     vec4 matAmbient;   // xyz: the material's ambient colour; w: 1 to light as Direct3D does
     vec4 matEmissive;  // xyz: its emissive colour
+    vec4 linearFog;    // x, y: where the fog mixed in starts and is complete (y 0: none)
 };
 
 const float TAU = 6.28318530718;
@@ -81,6 +86,36 @@ float wave(float func, float base, float amp, float phase, float freq, float t) 
     return base + amp * v;
 }
 
+// A random value from -1 to 1 for each whole-numbered point in four
+// dimensions, the same every time.
+float latticeValue(ivec4 p) {
+    uint h = uint(p.x) * 0x8da6b343u ^ uint(p.y) * 0xd8163841u ^ uint(p.z) * 0xcb1ab31fu ^ uint(p.w) * 0x165667b1u;
+    h ^= h >> 15;
+    h *= 0x2c1b3c6du;
+    h ^= h >> 12;
+    h *= 0x297a2d39u;
+    h ^= h >> 15;
+    return float(h & 0xffffu) / 32767.5 - 1.0;
+}
+
+// Value noise in four dimensions, as the original's renderer has it: the
+// lattice's values blended in straight lines between its points.
+float noise4(vec4 p) {
+    ivec4 i = ivec4(floor(p));
+    vec4 f = p - floor(p);
+    float across[2];
+    for (int w = 0; w < 2; ++w) {
+        float zs[2];
+        for (int z = 0; z < 2; ++z) {
+            float y0 = mix(latticeValue(i + ivec4(0, 0, z, w)), latticeValue(i + ivec4(1, 0, z, w)), f.x);
+            float y1 = mix(latticeValue(i + ivec4(0, 1, z, w)), latticeValue(i + ivec4(1, 1, z, w)), f.x);
+            zs[z] = mix(y0, y1, f.y);
+        }
+        across[w] = mix(zs[0], zs[1], f.z);
+    }
+    return mix(across[0], across[1], f.w);
+}
+
 vec3 directedLight(vec3 normal) {
     return directed.rgb * max(dot(normal, lightDir.xyz), 0.0) +
            fillColor[0].rgb * max(dot(normal, fillDir[0].xyz), 0.0) +
@@ -107,9 +142,21 @@ void main() {
             pos += baseNormal * deforms[i].c.y * sin(inUv.x * deforms[i].c.x + t * deforms[i].c.z);
         } else if (type == 3) {
             pos += deforms[i].c.xyz * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x, deforms[i].b.y, t);
+        } else if (type == 4) {
+            // The original's: noise at the position (scaled by 0.98, offset
+            // per axis) and the time times the frequency.
+            vec3 p = pos * 0.98;
+            float when = t * deforms[i].b.y;
+            baseNormal = normalize(baseNormal + deforms[i].a.w * vec3(noise4(vec4(p, when)),
+                                                                      noise4(vec4(p.x + 100.0, p.yz, when)),
+                                                                      noise4(vec4(p.x + 200.0, p.yz, when))));
         }
     }
-    vec3 world = mode2.x > 0.5 ? pos + eye.xyz : (model * vec4(pos, 1.0)).xyz;
+    // Kept homogeneous to the end: a projective model matrix (a planar
+    // shadow's, D3DXMatrixShadow) gives w other than 1. Everything else
+    // uses the position as it is, w being 1 for any other model matrix.
+    vec4 placed = mode2.x > 0.5 ? vec4(pos + eye.xyz, 1.0) : model * vec4(pos, 1.0);
+    vec3 world = placed.xyz;
     vec3 normal = normalize(mat3(model) * baseNormal);
 
     vec2 uv;
@@ -144,8 +191,23 @@ void main() {
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     outWorld = world;
-    outFog = 0.0;
-    if (mode2.w > 0.0)
-        outFog = clamp((distance(world, eye.xyz) - mode2.z) / max(mode2.w - mode2.z, 0.001), 0.0, 1.0);
-    gl_Position = viewProj * vec4(world, 1.0);
+    outLinearFog = 0.0;
+    if (linearFog.y > 0.0)
+        outLinearFog = clamp((distance(world, eye.xyz) - linearFog.x) / max(linearFog.y - linearFog.x, 0.001), 0.0, 1.0);
+    gl_Position = viewProj * placed;
+    outFogW = mode2.w > 0.5 ? gl_Position.w : inUv2.x;
+    outFog = vec2(0.0);
+    if (mode2.z > 0.0) {
+        // How deep under the fog's surface the vertex and the eye are;
+        // below that the eye's outside, the fog thins towards the surface.
+        outColor = vec4(color.rgb, 1.0);
+        float t = fogPlane.w - dot(world, fogPlane.xyz);
+        float eyeT = fogPlane.w - dot(eye.xyz, fogPlane.xyz);
+        float depthScale;
+        if (eyeT < 0.0)
+            depthScale = t < 1.0 ? 0.0 : t / (t - eyeT);
+        else
+            depthScale = t < 0.0 ? 0.0 : 1.0;
+        outFog = vec2(gl_Position.w / mode2.z, depthScale);
+    }
 }

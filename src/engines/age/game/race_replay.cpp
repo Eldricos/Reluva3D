@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Race page's replays: the race being driven is recorded frame by
+// The race screen's replays: the race being driven is recorded frame by
 // frame (its time and the keys); a replay runs the race again from the
 // recording, with the game's replay controls (Play, Step, Rew, Stop, Cam,
 // Save, Quit: mmlang.dll's REPLAY MENU) and a roadside camera besides
 // the car's own. See docs/engines/age-racing.md.
 
-#include "engines/age/viewers.h"
+#include "engines/age/ui/screen.h"
 
 #include "graphics/font.h"
 
@@ -38,7 +38,7 @@ std::string clockText(float seconds) {
 
 } // namespace
 
-void RaceViewer::recordFrame(float dt) {
+void RaceScreen::recordFrame(float dt) {
     if (_netGame)
         return;
     ReplayFrame f;
@@ -52,13 +52,13 @@ void RaceViewer::recordFrame(float dt) {
     _recording.frames.push_back(f);
 }
 
-void RaceViewer::markRecording() {
+void RaceScreen::markRecording() {
     if (_netGame || _racers.empty() || _recording.frames.size() % Replay::kMarkEvery != 0)
         return;
     _recording.marks.push_back(_racers.front().car->sim.position);
 }
 
-std::string RaceViewer::replayDefaultName() const {
+std::string RaceScreen::replayDefaultName() const {
     std::string car = _playback.car;
     for (const CarInfo &c : _cars)
         if (c.base == _playback.car)
@@ -66,7 +66,7 @@ std::string RaceViewer::replayDefaultName() const {
     return _race.name + " (" + car + ")";
 }
 
-void RaceViewer::startReplay(Replay replay) {
+void RaceScreen::startReplay(Replay replay) {
     if (replay.empty())
         return;
     // The race as it was started, then run again from its frames.
@@ -112,7 +112,7 @@ void RaceViewer::startReplay(Replay replay) {
     _tvSet = false;
 }
 
-void RaceViewer::playFrame() {
+void RaceScreen::playFrame() {
     if (_replayFrame >= _playback.frames.size())
         return;
     const ReplayFrame &f = _playback.frames[_replayFrame];
@@ -135,7 +135,7 @@ void RaceViewer::playFrame() {
     }
 }
 
-void RaceViewer::stepReplay(float dt) {
+void RaceScreen::stepReplay(float dt) {
     if (_replayPaused)
         return;
     _replayAccum += dt;
@@ -149,7 +149,7 @@ void RaceViewer::stepReplay(float dt) {
         _replayPaused = true; // the end: stopped there
 }
 
-void RaceViewer::endReplay() {
+void RaceScreen::endReplay() {
     _replayOfThisRace = false;
     _replayQuitting = false;
     if (_replayReturn == ReplayReturn::kMenu) {
@@ -173,7 +173,7 @@ void RaceViewer::endReplay() {
     _replayReturn = ReplayReturn::kMenu;
 }
 
-void RaceViewer::replayButton(int which) {
+void RaceScreen::replayButton(int which) {
     switch (which) {
     case kPlay:
         if (_replayFrame >= _playback.frames.size()) {
@@ -230,7 +230,7 @@ void RaceViewer::replayButton(int which) {
     }
 }
 
-bool RaceViewer::replayEvent(const Event &ev) {
+bool RaceScreen::replayEvent(const Event &ev) {
     if (ev.type == EventType::kMouseDown) {
         // A word on the bar clicked.
         if (ev.mouseY < kBarY - 4 || ev.mouseY >= kBarY + 22)
@@ -280,7 +280,7 @@ bool RaceViewer::replayEvent(const Event &ev) {
     return true;
 }
 
-void RaceViewer::gameMenuEvent(const Event &ev) {
+void RaceScreen::gameMenuEvent(const Event &ev) {
     const GameMenus::Action action = _game->handle(ev);
     if (const std::string clip = _game->takeVoice(); !clip.empty())
         playVoice(clip);
@@ -323,7 +323,7 @@ void RaceViewer::gameMenuEvent(const Event &ev) {
     }
 }
 
-CameraView RaceViewer::replayCamera(float dt, float &fov) {
+CameraView RaceScreen::replayCamera(float dt, float &fov) {
     const CarSim &sim = _racers.front().car->sim;
     if (_replayCam < int(_cameras.size())) {
         const CarCamera &cam = _cameras[size_t(_replayCam)];
@@ -352,13 +352,13 @@ CameraView RaceViewer::replayCamera(float dt, float &fov) {
     return v;
 }
 
-std::string RaceViewer::replayWord(int button) const {
+std::string RaceScreen::replayWord(int button) const {
     const char *const fallback[kButtons] = {"Play", "Step", "Rew", "Cam", "Save", "Quit"};
     const uint32_t ids[kButtons] = {484, 485, 486, 488, 489, 490};
     return button == kPlay && !_replayPaused ? _strings.get(487, "Stop") : _strings.get(ids[button], fallback[button]);
 }
 
-void RaceViewer::drawReplayBar() {
+void RaceScreen::drawReplayBar() {
     // Below the race's own lines: the game's REPLAY MENU and its buttons,
     // the time.
     const int y = kBarY;

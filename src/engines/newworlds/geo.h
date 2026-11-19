@@ -11,27 +11,37 @@
 
 namespace reluva::newworlds {
 
-// A .geo model (chunk tag 0x17). See docs/formats/newworlds/geo.md; parts of
+// A .geo model (chunk tag 0x17). See docs/engines/newworlds/geo.md; parts of
 // the format are still unknown and are skipped.
 struct GeoModel {
     struct Vec3 {
-        float x, y, z;
+        float x;
+        float y;
+        float z;
     };
     struct Corner {
-        uint32_t vertex;   // index into the face's part's vertices
-        float u, v;        // texture coordinates, 0..1
+        uint32_t vertex; // index into the face's part's vertices
+        // texture coordinates, 0..1
+        float u;
+        float v;
         uint32_t extra[5]; // extra[0]: the corner's normal, in the part's second
                            // normal list; in parts above 0, extra[4] is the part
                            // number except in a face's last corner
     };
     struct Face {
-        uint32_t groupA = 0, groupB = 0; // header values: the previous face's part, and unknown
-        uint32_t part = 0;               // which part the face belongs to
+        // header values: the previous face's part, and unknown
+        uint32_t groupA = 0;
+        uint32_t groupB = 0;
+        uint32_t part = 0; // which part the face belongs to
         std::vector<Corner> corners;
     };
     struct Edge {
-        uint32_t v0, v1;       // the part's vertices
-        uint32_t faceA, faceB; // the faces on either side (0-based, model-wide)
+        // the part's vertices
+        uint32_t v0;
+        uint32_t v1;
+        // the faces on either side (0-based, model-wide)
+        uint32_t faceA;
+        uint32_t faceB;
     };
     // A separately numbered piece of the model (most models have one).
     struct Part {
@@ -42,13 +52,15 @@ struct GeoModel {
     };
 
     // A named point (a turret's axis, a gun's muzzle, a docking point); the
-    // .mdl names them in order (see docs/formats/newworlds/mdl.md).
+    // .mdl names them in order (see docs/engines/newworlds/mdl.md).
     struct Attachment {
         float frame[10]; // its orientation (9 floats, row by row) and a scale (1), as in .arf frames
         Vec3 position;
     };
 
-    float centreX = 0, centreY = 0, radius = 0;
+    float centreX = 0;
+    float centreY = 0;
+    float radius = 0;
     uint32_t nodeCount = 0;  // the .mdl's part names (first value of the attachment block)
     uint32_t placeCount = 0; // the .mdl's named places (muzzle flashes, bays)
     std::vector<Attachment> attachments;

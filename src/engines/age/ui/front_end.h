@@ -54,7 +54,7 @@ void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int
 class FrontEnd {
 public:
     // Splash: jpg/splash.jpg, shown first in place of the opening movie
-    // (logos.avi) when it can't be played (see RaceViewer::movie_).
+    // (logos.avi) when it can't be played (see RaceScreen::movie_).
     // CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
     // car alone, the whole screen.
     enum class Screen { kMain, kRaces, kCrashCourse, kGarage, kSplash, kCrashIntro, kShowcase };

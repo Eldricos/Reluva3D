@@ -1,0 +1,3 @@
+# The record of @ENGINE@.engine (tests/engines/@ENGINE@/engine.cpp).
+# Written by `reluva-tests @ENGINE@.engine --update`; review its diff before committing.
+detect.games: 0

@@ -1,0 +1,1 @@
+pictures: 59dbff463365cfa4 | 1218 bitmaps, 33 overlays, 97 sprite sets, 5 fonts read, 0 failed, 194 loose in subfolders, not read

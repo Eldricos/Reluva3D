@@ -3,7 +3,7 @@
 
 // The data viewer's Textures page.
 
-#include "engines/age/viewers.h"
+#include "engines/age/pages/viewers.h"
 
 #include "graphics/font.h"
 #include "common/fs.h"
@@ -22,7 +22,7 @@ bool endsWith(const std::string &s, const char *ext) {
 
 } // namespace
 
-TextureViewer::TextureViewer(ViewerContext &ctx) : Page(ctx) {
+TextureViewer::TextureViewer(ScreenContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if ((key.rfind("texture/", 0) == 0 && (endsWith(key, ".tex") || endsWith(key, ".tga"))) ||

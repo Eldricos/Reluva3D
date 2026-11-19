@@ -31,5 +31,7 @@ bool systemHttpExchange(const Address &to, const std::string &request, std::stri
 // The default gateways (the routers), where the system says: Linux's
 // /proc/net/route, Windows' adapters; elsewhere none.
 std::vector<uint32_t> systemGateways();
+// The operating system's sockets, as net::Sockets.
+std::shared_ptr<Sockets> systemSockets();
 
 } // namespace reluva::net

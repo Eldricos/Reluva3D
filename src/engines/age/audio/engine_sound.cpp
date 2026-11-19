@@ -130,7 +130,7 @@ void EngineSound::update(float rpm, float throttle, float gain, float pan) {
         engineSampleMix(_setup.samples[i], rpm, throttle, volume, pitch);
         _mixer->setVolume(_playing[i], int(volume * gain * audio::kMaxVolume));
         _mixer->setPan(_playing[i], int(std::clamp(pan, -1.0f, 1.0f) * audio::kMaxPan));
-        _mixer->setPitch(_playing[i], pitch);
+        _mixer->setRate(_playing[i], pitch);
     }
 }
 
@@ -370,7 +370,7 @@ void CarSounds::loop(audio::SoundHandle &handle, const SoundPtr &sound, float vo
     if (handle == audio::kNoSound)
         handle = _mixer->play(sound, audio::SoundType::kEffects, 0, 0, true);
     _mixer->setVolume(handle, int(std::clamp(volume, 0.0f, 1.0f) * float(audio::kMaxVolume)));
-    _mixer->setPitch(handle, pitch);
+    _mixer->setRate(handle, pitch);
 }
 
 void CarSounds::update(float dt, const CarSim &car, bool horn) {
@@ -445,7 +445,7 @@ void CarSounds::update(float dt, const CarSim &car, bool horn) {
                 _mixer->play(_wallSounds[k], audio::SoundType::kEffects,
                              int((s.minVolume + (s.maxVolume - s.minVolume) * g) * float(audio::kMaxVolume)));
             if (h != audio::kNoSound)
-                _mixer->setPitch(h, s.pitch);
+                _mixer->setRate(h, s.pitch);
             _impactWait = 0.25f;
             break;
         }

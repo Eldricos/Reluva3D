@@ -45,7 +45,7 @@
 #include "engines/age/game/traffic_lights.h"
 #include "engines/age/formats/tune.h"
 #include "engines/age/ui/view_controls.h"
-#include "engines/age/viewers.h"
+#include "engines/age/pages/viewers.h"
 #include "zip_writer.h"
 
 #include <cstdio>

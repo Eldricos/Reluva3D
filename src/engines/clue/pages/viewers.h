@@ -1,0 +1,245 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "audio/mixer.h"
+#include "audio/sound.h"
+#include "common/events.h"
+#include "common/system.h"
+#include "common/types.h"
+#include "engines/clue/game_data.h"
+#include "engines/clue/game/mansion.h"
+#include "engines/clue/ui/ui.h"
+#include "engines/clue/ui/movie.h"
+
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
+
+// The pages of the Clue engine's data viewer (viewer.cpp). Each draws into
+// the game's 640x480 RGBA32 screen, with a line of information
+// at the bottom, and reports its state in the window title.
+
+namespace reluva::clue {
+
+// Drawing helpers the viewers share (in image_viewer.cpp), with fillRect
+// (ui.h).
+void drawCheckerboard(Surface &s, int y0, int y1);
+void drawInfo(Surface &s, const std::string &line1, const std::string &line2 = {});
+// An image with its top-left corner at (x, y), scaled up by a whole number.
+void drawImage(Surface &s, const image::Image &img, int x, int y, int scale = 1);
+
+// The mansion as clue.lvl places it, its animations playing.
+//   Arrows or a mouse drag: scroll (Shift: faster)   Home: back to the middle
+//   M: the whole house, shrunk (a click there goes to that place)
+//   W: the walls nearest the camera (layer 4): see-through, solid or hidden;
+//      then no walls at all
+//   O: the black outside on/off
+//   N: the move-number templates (tilenum) on/off   F: footprints (boxes) on/off
+//   Space: pause the animations
+// The info line names what's under the mouse pointer.
+class MansionViewer {
+public:
+    MansionViewer(System &sys, Surface &screen, const GameData &data);
+    bool loaded() const { return _error.empty(); }
+    const std::string &error() const { return _error; }
+    bool overview() const { return _overview; }
+    void activate();
+    void handleEvent(const Event &ev);
+    void update(uint64_t nowMs);
+
+private:
+    bool shown(const Mansion::Item &item) const;
+    void draw();
+    void drawScene(Surface &target, int camX, int camY);
+    void drawOverview();
+    void drawFootprint(const Mansion::Item &item);
+    const Mansion::Item *pick(int x, int y) const;
+    void centre();
+    void scroll(int dx, int dy);
+
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    DataDrive _levelFile;
+    Level _level;
+    Mansion _mansion;
+    std::string _error;
+    int _camX = 0;
+    int _camY = 0;
+    using NearWalls = MansionLook::NearWalls;
+    MansionLook _look = [] {
+        MansionLook l;
+        l.nearWalls = MansionLook::NearWalls::kSeeThrough;
+        return l;
+    }();
+    bool _footprints = false;
+    bool _paused = false;
+    bool _overview = false;
+    Surface _whole; // the whole house, for the overview; made when first asked for
+    bool _dragging = false;
+    int _dragX = 0;
+    int _dragY = 0;
+    int _mouseX = -1;
+    int _mouseY = -1;
+    uint64_t _now = 0;
+    uint64_t _tick = 0;
+    bool _dirty = true;
+};
+
+// The videos (the intro, the deal, the suggestions' clips), with their
+// sound. 320x240 ones are shown twice the size, filling the screen.
+//   Left/Right: previous/next (it plays at once)   Space or Enter: play again or stop
+//   Z: twice the size or not
+class VideoViewer {
+public:
+    VideoViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer);
+    size_t count() const { return _files.size(); }
+    void activate();
+    void deactivate(); // stops the sound when switching to another viewer
+    void handleKey(uint32_t key);
+    void update(uint64_t nowMs);
+
+private:
+    void load();
+    void start();
+    void stop();
+    void draw();
+
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    audio::Mixer *_mixer;
+    std::vector<std::filesystem::path> _files;
+    int _current = 0;
+    Movie _player;
+    std::shared_ptr<audio::Sound> _sound;
+    audio::SoundHandle _playing = audio::kNoSound;
+    std::string _error;
+    bool _running = false;
+    int _zoom = 0; // 0: as the video's size says; 1 or 2 when chosen with Z
+    uint64_t _startMs = 0;
+    uint64_t _now = 0;
+    size_t _drawnFrame = size_t(-1);
+};
+
+// Every image of every .res file.
+//   Left/Right: previous/next image   PageUp/PageDown: 10 at a time
+//   Up/Down: previous/next file   Home/End: first/last image   Z: zoom (1x, 2x, 4x)
+//   B: background (checks, black, white)
+class ImageViewer {
+public:
+    ImageViewer(System &sys, Surface &screen, const GameData &data);
+    size_t count() const { return _total; }
+    void activate();
+    void handleKey(uint32_t key);
+
+private:
+    void draw();
+
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    std::vector<std::filesystem::path> _files;
+    size_t _total = 0;
+    int _file = 0;
+    int _image = 0;
+    int _zoom = 1;
+    int _background = 0;
+};
+
+// Every animation of every .a file, playing.
+//   Left/Right: previous/next animation   Up/Down: previous/next file
+//   Space: pause or play   ,/.: step a frame back or on (pausing)
+//   Z: zoom (1x, 2x)   A: show the anchor point   L: show one layer at a time
+class AnimationViewer {
+public:
+    AnimationViewer(System &sys, Surface &screen, const GameData &data);
+    size_t count() const { return _total; }
+    void activate();
+    void handleKey(uint32_t key);
+    void update(uint64_t nowMs);
+
+private:
+    void select();
+    void draw();
+
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    std::vector<std::filesystem::path> _files;
+    size_t _total = 0;
+    int _file = 0;
+    int _anim = 0;
+    const Animation *_current = nullptr;
+    std::string _name;
+    std::string _error;
+    size_t _frame = 0;
+    uint64_t _frameStart = 0;
+    bool _paused = false;
+    bool _showAnchor = true;
+    int _zoom = 1;
+    int _layer = -1; // all
+    bool _dirty = true;
+};
+
+// Every sound: the game's WAV files, and the CD's music (track02.wav ...)
+// if it's been ripped into the game folder.
+//   Left/Right: previous/next   PageUp/PageDown: 10 at a time
+//   Space or Enter: play or stop   A: play each as it's selected
+class SoundViewer {
+public:
+    // mixer: the engine's, playing into the System's output; nullptr when
+    // there's no output.
+    SoundViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer);
+    size_t count() const { return _files.size(); }
+    void activate();
+    void deactivate(); // stops playing when switching to another viewer
+    void handleKey(uint32_t key);
+    void update(uint64_t nowMs);
+
+private:
+    void play();
+    void stop();
+    void draw();
+
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    audio::Mixer *_mixer;
+    std::vector<std::filesystem::path> _files;
+    int _current = 0;
+    bool _autoPlay = false;
+    audio::SoundHandle _playing = audio::kNoSound;
+    std::shared_ptr<audio::Sound> _sound;
+    std::string _info;
+    uint64_t _lastDraw = 0;
+};
+
+// The text files: How to Play, the ticker's sentences, credits.
+//   Left/Right: previous/next file   Up/Down: scroll a line
+//   PageUp/PageDown: scroll a page   Home/End: top/bottom
+class TextViewer {
+public:
+    TextViewer(System &sys, Surface &screen, const GameData &data);
+    size_t count() const { return _files.size(); }
+    void activate();
+    void handleKey(uint32_t key);
+
+private:
+    void load();
+    void draw();
+
+    System &_sys;
+    Surface &_screen;
+    const GameData &_data;
+    std::vector<std::filesystem::path> _files;
+    int _current = 0;
+    std::vector<std::string> _lines; // wrapped, UTF-8
+    int _top = 0;
+};
+
+} // namespace reluva::clue

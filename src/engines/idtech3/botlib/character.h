@@ -23,7 +23,7 @@ namespace reluva::idtech3::botlib {
 struct BotCharacter {
     static constexpr int kCount = 80;
     struct Value {
-        enum class Type { None, Integer, Float, String } type = Type::None;
+        enum class Type { kNone, kInteger, kFloat, kString } type = Type::kNone;
         int integer = 0;
         float number = 0;
         std::string text;
@@ -58,7 +58,7 @@ public:
 private:
     std::unique_ptr<BotCharacter> loadSkill(const BotScript::Loader &load, const std::string &file, int skill,
                                             std::string *log);
-    std::vector<std::unique_ptr<BotCharacter>> characters_; // by handle - 1
+    std::vector<std::unique_ptr<BotCharacter>> _characters; // by handle - 1
 };
 
 } // namespace reluva::idtech3::botlib

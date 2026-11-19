@@ -36,7 +36,8 @@ Error decodeTexture(const std::vector<uint8_t> &data, Texture &out) {
     const uint32_t paletteCount = rd32(data, 4);
     if (paletteCount > 256)
         return Error::fail("palette has " + std::to_string(paletteCount) + " entries");
-    const size_t palette = 8, header = palette + size_t(paletteCount) * 4;
+    const size_t palette = 8;
+    const size_t header = palette + size_t(paletteCount) * 4;
     if (header + 4 > data.size())
         return Error::fail("texture ends inside its header");
     // After the palette: u32 0, width, height; or u32 1, key index, width,
@@ -54,7 +55,8 @@ Error decodeTexture(const std::vector<uint8_t> &data, Texture &out) {
     }
     if (sizeAt + 8 > data.size())
         return Error::fail("texture ends inside its header");
-    const uint32_t w = rd32(data, sizeAt), h = rd32(data, sizeAt + 4);
+    const uint32_t w = rd32(data, sizeAt);
+    const uint32_t h = rd32(data, sizeAt + 4);
     const size_t indices = sizeAt + 8;
 
     if (w == 0 || h == 0 || w > kMaxSide || h > kMaxSide)

@@ -74,7 +74,7 @@ public:
     // The car a player drives: its own, but the police car for a cop.
     std::string carFor(const NetPlayer &p) const;
 
-    // Typing goes to the focused field; the Race page lets Esc through.
+    // Typing goes to the focused field; the race screen lets Esc through.
     bool typing() const;
 
 private:

@@ -5,7 +5,7 @@
 
 #include "engines/newworlds/geo.h"
 #include "engines/newworlds/model_textures.h"
-#include "engines/newworlds/rasterizer.h"
+#include "engines/newworlds/soft3d.h"
 #include "engines/newworlds/texture.h"
 
 #include <string>

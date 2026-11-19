@@ -3,7 +3,7 @@
 
 // The data viewer's World page: a city (CityScene) flown through freely.
 
-#include "engines/age/viewers.h"
+#include "engines/age/pages/viewers.h"
 
 #include "graphics/font.h"
 
@@ -32,7 +32,7 @@ enum : uint32_t {
 
 } // namespace
 
-WorldViewer::WorldViewer(ViewerContext &ctx) : Page(ctx), _cities(findCities(ctx.files)) {
+WorldViewer::WorldViewer(ScreenContext &ctx) : Page(ctx), _cities(findCities(ctx.files)) {
 }
 
 WorldViewer::~WorldViewer() {
@@ -47,7 +47,7 @@ void WorldViewer::deactivate() {
 void WorldViewer::activate() {
     if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
         _renderer = nullptr;
-        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRgbA32);
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The World page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -55,7 +55,7 @@ void WorldViewer::activate() {
         return;
     }
     _scene = std::make_unique<CityScene>(*_renderer, _ctx.files);
-    _overlay.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     load(_index);
 }
 

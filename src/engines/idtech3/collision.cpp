@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "engines/idtech3/collision.h"
-#include "engines/idtech3/patch.h"
+#include "engines/idtech3/render/patch.h"
 
 #include <algorithm>
 #include <cmath>
@@ -24,7 +24,8 @@ float dot(const Vec3f &a, const Vec3f &b) {
 // A sweep of a box centred on the line start-end (the box made symmetric,
 // the line moved to its centre), and what it hit so far.
 struct CollisionWorld::Work {
-    Vec3f start{}, end{};
+    Vec3f start{};
+    Vec3f end{};
     Vec3f extents{}; // half the box's size
     Vec3f centre{};  // the box's centre relative to the traced point
     int32_t mask = 0;
@@ -38,7 +39,9 @@ struct CollisionWorld::Work {
 };
 
 CollisionWorld::CollisionWorld(const Bsp &bsp)
-    : bsp_(bsp), checked_(bsp.brushes.size(), 0), checkedPatches_(bsp.surfaces.size(), 0) {
+    : _bsp(bsp), _checked(bsp.brushes.size(), 0), _checkedPatches(bsp.surfaces.size(), 0) {
+    for (const BspLeaf &l : _bsp.leafs)
+        _areaCount = std::max(_areaCount, l.area + 1);
     buildPatches();
 }
 
@@ -49,22 +52,23 @@ void CollisionWorld::buildPatches() {
     // about its bend / (2 n^2): twice the square root of the largest bend
     // in units (2 to 16 cuts per 3x3 block) keeps that under a tenth of a
     // unit, so sliding along a pillar doesn't bump over its facets.
-    patchOf_.assign(bsp_.surfaces.size(), -1);
+    _patchOf.assign(_bsp.surfaces.size(), -1);
     auto sub = [](const Vec3f &a, const Vec3f &b) { return Vec3f{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
     auto cross = [](const Vec3f &a, const Vec3f &b) {
         return Vec3f{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
     };
-    for (size_t s = 0; s < bsp_.surfaces.size(); ++s) {
-        const BspSurface &surf = bsp_.surfaces[s];
-        if (surf.type != SurfaceType::Patch || surf.patchWidth < 3 || surf.patchHeight < 3)
+    for (size_t s = 0; s < _bsp.surfaces.size(); ++s) {
+        const BspSurface &surf = _bsp.surfaces[s];
+        if (surf.type != SurfaceType::kPatch || surf.patchWidth < 3 || surf.patchHeight < 3)
             continue;
-        if (surf.shader < 0 || size_t(surf.shader) >= bsp_.shaders.size())
+        if (surf.shader < 0 || size_t(surf.shader) >= _bsp.shaders.size())
             continue;
-        const BspShader &shader = bsp_.shaders[size_t(surf.shader)];
+        const BspShader &shader = _bsp.shaders[size_t(surf.shader)];
         if (!shader.contentFlags)
             continue;
-        const BspVertex *control = &bsp_.vertices[size_t(surf.firstVertex)];
-        const int w = surf.patchWidth, h = surf.patchHeight;
+        const BspVertex *control = &_bsp.vertices[size_t(surf.firstVertex)];
+        const int w = surf.patchWidth;
+        const int h = surf.patchHeight;
         // Within a sixteenth of a unit of round (2 * sqrt(bend) cuts).
         const int level = patchLevel(control, w, h, 0.125f);
         std::vector<BspVertex> verts;
@@ -73,7 +77,7 @@ void CollisionWorld::buildPatches() {
         PatchCollide pc;
         pc.contents = shader.contentFlags;
         pc.surfaceFlags = shader.surfaceFlags;
-        pc.firstFacet = facets_.size();
+        pc.firstFacet = _facets.size();
         pc.mins = {1e9f, 1e9f, 1e9f};
         pc.maxs = {-1e9f, -1e9f, -1e9f};
         for (size_t i = 0; i + 2 < indices.size(); i += 3) {
@@ -118,7 +122,8 @@ void CollisionWorld::buildPatches() {
                 const float hi = std::max({p[0][size_t(axis)], p[1][size_t(axis)], p[2][size_t(axis)]});
                 f.mins[size_t(axis)] = lo - 0.5f;
                 f.maxs[size_t(axis)] = hi + 0.5f;
-                BspPlane up, down;
+                BspPlane up;
+                BspPlane down;
                 up.normal[size_t(axis)] = 1;
                 up.dist = hi + 0.5f;
                 down.normal[size_t(axis)] = -1;
@@ -128,9 +133,9 @@ void CollisionWorld::buildPatches() {
                 pc.mins[size_t(axis)] = std::min(pc.mins[size_t(axis)], f.mins[size_t(axis)]);
                 pc.maxs[size_t(axis)] = std::max(pc.maxs[size_t(axis)], f.maxs[size_t(axis)]);
             }
-            facets_.push_back(std::move(f));
+            _facets.push_back(std::move(f));
         }
-        pc.numFacets = facets_.size() - pc.firstFacet;
+        pc.numFacets = _facets.size() - pc.firstFacet;
         // The facets in runs under boxes, and the runs likewise.
         auto bound = [](FacetGroup &g, const Vec3f &mins, const Vec3f &maxs) {
             for (size_t k = 0; k < 3; ++k) {
@@ -138,38 +143,39 @@ void CollisionWorld::buildPatches() {
                 g.maxs[k] = std::max(g.maxs[k], maxs[k]);
             }
         };
-        const size_t firstRun = runs_.size();
+        const size_t firstRun = _runs.size();
         for (size_t f = pc.firstFacet; f < pc.firstFacet + pc.numFacets; f += kFacetRun) {
             FacetGroup run{
                 {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, f, std::min(kFacetRun, pc.firstFacet + pc.numFacets - f)};
             for (size_t i = run.first; i < run.first + run.count; ++i)
-                bound(run, facets_[i].mins, facets_[i].maxs);
-            runs_.push_back(run);
+                bound(run, _facets[i].mins, _facets[i].maxs);
+            _runs.push_back(run);
         }
-        pc.firstGroup = groups_.size();
-        for (size_t r = firstRun; r < runs_.size(); r += kFacetRun) {
-            FacetGroup group{{1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, r, std::min(kFacetRun, runs_.size() - r)};
+        pc.firstGroup = _groups.size();
+        for (size_t r = firstRun; r < _runs.size(); r += kFacetRun) {
+            FacetGroup group{{1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}, r, std::min(kFacetRun, _runs.size() - r)};
             for (size_t i = group.first; i < group.first + group.count; ++i)
-                bound(group, runs_[i].mins, runs_[i].maxs);
-            groups_.push_back(group);
+                bound(group, _runs[i].mins, _runs[i].maxs);
+            _groups.push_back(group);
         }
-        pc.numGroups = groups_.size() - pc.firstGroup;
+        pc.numGroups = _groups.size() - pc.firstGroup;
         if (pc.numFacets) {
-            patchOf_[s] = int(patches_.size());
-            patches_.push_back(pc);
+            _patchOf[s] = int(_patches.size());
+            _patches.push_back(pc);
         }
     }
 }
 
 void CollisionWorld::tracePatch(Work &w, int surface) const {
-    const int index = patchOf_[size_t(surface)];
+    const int index = _patchOf[size_t(surface)];
     if (index < 0)
         return;
-    const PatchCollide &pc = patches_[size_t(index)];
+    const PatchCollide &pc = _patches[size_t(index)];
     if (!(pc.contents & w.mask))
         return;
     // The swept box's bounds, to skip what it can't reach.
-    Vec3f lo{}, hi{};
+    Vec3f lo{};
+    Vec3f hi{};
     for (size_t i = 0; i < 3; ++i) {
         lo[i] = std::min(w.start[i], w.end[i]) - w.extents[i] - 1;
         hi[i] = std::max(w.start[i], w.end[i]) + w.extents[i] + 1;
@@ -184,7 +190,8 @@ void CollisionWorld::tracePatch(Work &w, int surface) const {
         return;
     // Each facet as a brush's sides (traceBrush).
     auto testFacet = [&](const Facet &facet) {
-        float enter = -1, leave = 1;
+        float enter = -1;
+        float leave = 1;
         const BspPlane *hitPlane = nullptr;
         bool startsOut = false;
         for (int pi = 0; pi < facet.planeCount; ++pi) {
@@ -220,38 +227,40 @@ void CollisionWorld::tracePatch(Work &w, int surface) const {
         }
     };
     for (size_t g = pc.firstGroup; g < pc.firstGroup + pc.numGroups; ++g) {
-        const FacetGroup &group = groups_[g];
+        const FacetGroup &group = _groups[g];
         if (apart(group.mins, group.maxs))
             continue;
         for (size_t r = group.first; r < group.first + group.count; ++r) {
-            const FacetGroup &run = runs_[r];
+            const FacetGroup &run = _runs[r];
             if (apart(run.mins, run.maxs))
                 continue;
             for (size_t f = run.first; f < run.first + run.count; ++f)
-                if (!apart(facets_[f].mins, facets_[f].maxs))
-                    testFacet(facets_[f]);
+                if (!apart(_facets[f].mins, _facets[f].maxs))
+                    testFacet(_facets[f]);
         }
     }
 }
 
 int32_t CollisionWorld::brushContents(int brush) const {
-    const int shader = bsp_.brushes[size_t(brush)].shader;
-    return shader >= 0 && size_t(shader) < bsp_.shaders.size() ? bsp_.shaders[size_t(shader)].contentFlags : 0;
+    const int shader = _bsp.brushes[size_t(brush)].shader;
+    return shader >= 0 && size_t(shader) < _bsp.shaders.size() ? _bsp.shaders[size_t(shader)].contentFlags : 0;
 }
 
 void CollisionWorld::traceBrush(Work &w, int brush) const {
-    const BspBrush &b = bsp_.brushes[size_t(brush)];
+    const BspBrush &b = _bsp.brushes[size_t(brush)];
     if (b.numSides <= 0 || !(brushContents(brush) & w.mask))
         return;
     // Clip the line against each side's plane, pushed out by the box:
     // the line is inside the brush between the last plane it enters
     // and the first it leaves.
-    float enter = -1, leave = 1;
+    float enter = -1;
+    float leave = 1;
     const BspBrushSide *hitSide = nullptr;
-    bool startsOut = false, endsOut = false;
+    bool startsOut = false;
+    bool endsOut = false;
     for (int s = 0; s < b.numSides; ++s) {
-        const BspBrushSide &side = bsp_.brushSides[size_t(b.firstSide + s)];
-        const BspPlane &p = bsp_.planes[size_t(side.plane)];
+        const BspBrushSide &side = _bsp.brushSides[size_t(b.firstSide + s)];
+        const BspPlane &p = _bsp.planes[size_t(side.plane)];
         const float dist = p.dist + w.offset(p.normal);
         const float d1 = dot(w.start, p.normal) - dist;
         const float d2 = dot(w.end, p.normal) - dist;
@@ -283,21 +292,21 @@ void CollisionWorld::traceBrush(Work &w, int brush) const {
         return;
     }
     if (enter < leave && enter > -1 && enter < w.result.fraction && hitSide) {
-        const BspPlane &p = bsp_.planes[size_t(hitSide->plane)];
+        const BspPlane &p = _bsp.planes[size_t(hitSide->plane)];
         w.result.fraction = std::max(enter, 0.0f);
         w.result.normal = p.normal;
         w.result.dist = p.dist;
         const int shader = hitSide->shader >= 0 ? hitSide->shader : b.shader;
         w.result.surfaceFlags =
-            shader >= 0 && size_t(shader) < bsp_.shaders.size() ? bsp_.shaders[size_t(shader)].surfaceFlags : 0;
+            shader >= 0 && size_t(shader) < _bsp.shaders.size() ? _bsp.shaders[size_t(shader)].surfaceFlags : 0;
         w.result.contents = brushContents(brush);
     }
 }
 
 void CollisionWorld::traceNode(Work &w, int node) const {
     while (node >= 0) {
-        const BspNode &n = bsp_.nodes[size_t(node)];
-        const BspPlane &p = bsp_.planes[size_t(n.plane)];
+        const BspNode &n = _bsp.nodes[size_t(node)];
+        const BspPlane &p = _bsp.planes[size_t(n.plane)];
         const float offset = w.offset(p.normal) + 1; // a little more, for the clip epsilon
         const float d1 = dot(w.start, p.normal) - p.dist;
         const float d2 = dot(w.end, p.normal) - p.dist;
@@ -313,24 +322,24 @@ void CollisionWorld::traceNode(Work &w, int node) const {
             node = n.children[1];
         }
     }
-    const BspLeaf &leaf = bsp_.leafs[size_t(-1 - node)];
+    const BspLeaf &leaf = _bsp.leafs[size_t(-1 - node)];
     for (int i = 0; i < leaf.numLeafBrushes; ++i) {
-        const int brush = bsp_.leafBrushes[size_t(leaf.firstLeafBrush + i)];
-        if (checked_[size_t(brush)] == w.id)
+        const int brush = _bsp.leafBrushes[size_t(leaf.firstLeafBrush + i)];
+        if (_checked[size_t(brush)] == w.id)
             continue; // already tested from another leaf
-        checked_[size_t(brush)] = w.id;
+        _checked[size_t(brush)] = w.id;
         traceBrush(w, brush);
         if (w.result.allSolid)
             return;
     }
-    if (patches_.empty())
+    if (_patches.empty())
         return;
     for (int i = 0; i < leaf.numLeafSurfaces; ++i) {
-        const int surface = bsp_.leafSurfaces[size_t(leaf.firstLeafSurface + i)];
-        if (surface < 0 || size_t(surface) >= patchOf_.size() || patchOf_[size_t(surface)] < 0 ||
-            checkedPatches_[size_t(surface)] == w.id)
+        const int surface = _bsp.leafSurfaces[size_t(leaf.firstLeafSurface + i)];
+        if (surface < 0 || size_t(surface) >= _patchOf.size() || _patchOf[size_t(surface)] < 0 ||
+            _checkedPatches[size_t(surface)] == w.id)
             continue;
-        checkedPatches_[size_t(surface)] = w.id;
+        _checkedPatches[size_t(surface)] = w.id;
         tracePatch(w, surface);
     }
 }
@@ -345,21 +354,21 @@ TraceResult CollisionWorld::trace(const Vec3f &start, const Vec3f &end, const Ve
         w.end[size_t(i)] = end[size_t(i)] + w.centre[size_t(i)];
     }
     w.mask = mask;
-    w.id = ++traceCount_;
+    w.id = ++_traceCount;
     if (w.id == 0) { // wrapped: forget what was tested
-        std::fill(checked_.begin(), checked_.end(), 0);
-        std::fill(checkedPatches_.begin(), checkedPatches_.end(), 0);
-        w.id = ++traceCount_;
+        std::fill(_checked.begin(), _checked.end(), 0);
+        std::fill(_checkedPatches.begin(), _checkedPatches.end(), 0);
+        w.id = ++_traceCount;
     }
-    if (model >= 0 && size_t(model) < bsp_.models.size()) {
-        if (model == 0 && !bsp_.nodes.empty()) {
+    if (model >= 0 && size_t(model) < _bsp.models.size()) {
+        if (model == 0 && !_bsp.nodes.empty()) {
             traceNode(w, 0);
         } else {
-            const BspModel &m = bsp_.models[size_t(model)];
+            const BspModel &m = _bsp.models[size_t(model)];
             for (int i = 0; i < m.numBrushes && !w.result.allSolid; ++i)
                 traceBrush(w, m.firstBrush + i);
             for (int i = 0; i < m.numSurfaces && !w.result.allSolid; ++i)
-                if (const int surface = m.firstSurface + i; surface >= 0 && size_t(surface) < patchOf_.size())
+                if (const int surface = m.firstSurface + i; surface >= 0 && size_t(surface) < _patchOf.size())
                     tracePatch(w, surface);
         }
     }
@@ -371,43 +380,92 @@ TraceResult CollisionWorld::trace(const Vec3f &start, const Vec3f &end, const Ve
 
 TraceResult CollisionWorld::traceBox(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
                                      const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents) {
-    // The box as a brush of six axial planes, in a world of its own.
-    Bsp bsp;
-    bsp.shaders.push_back({"box", 0, boxContents});
-    for (int axis = 0; axis < 3; ++axis) {
-        BspPlane hi, lo;
-        hi.normal[size_t(axis)] = 1;
-        hi.dist = boxMaxs[size_t(axis)];
-        lo.normal[size_t(axis)] = -1;
-        lo.dist = -boxMins[size_t(axis)];
-        bsp.planes.push_back(hi);
-        bsp.planes.push_back(lo);
+    // The box as a brush of six axial planes (+x, -x, +y, -y, +z, -z),
+    // clipped as traceBrush does, with nothing built: each plane's
+    // normal picks out one coordinate, and the moving box reaches its
+    // half size along it.
+    TraceResult r;
+    Vec3f from{};
+    Vec3f to{};
+    Vec3f extents{};
+    for (int i = 0; i < 3; ++i) {
+        const float centre = (mins[size_t(i)] + maxs[size_t(i)]) * 0.5f;
+        extents[size_t(i)] = (maxs[size_t(i)] - mins[size_t(i)]) * 0.5f;
+        from[size_t(i)] = start[size_t(i)] + centre;
+        to[size_t(i)] = end[size_t(i)] + centre;
     }
-    for (int i = 0; i < 6; ++i)
-        bsp.brushSides.push_back({i, 0});
-    bsp.brushes.push_back({0, 6, 0});
-    BspModel model;
-    model.numBrushes = 1;
-    bsp.models.push_back(model); // model 0, without nodes: its brushes directly
-    const CollisionWorld world(bsp);
-    return world.trace(start, end, mins, maxs, 0, boxContents ? boxContents : -1);
+    auto finish = [&] {
+        for (int i = 0; i < 3; ++i)
+            r.endPos[size_t(i)] = start[size_t(i)] + r.fraction * (end[size_t(i)] - start[size_t(i)]);
+        return r;
+    };
+    if (boxContents == 0) // nothing to hit
+        return finish();
+    float enter = -1;
+    float leave = 1;
+    int hitPlane = -1; // axis * 2, + 1 for the low side
+    bool startsOut = false;
+    bool endsOut = false;
+    for (int plane = 0; plane < 6; ++plane) {
+        const int axis = plane / 2;
+        const bool low = plane & 1;
+        const float planeDist = low ? -boxMins[size_t(axis)] : boxMaxs[size_t(axis)];
+        const float dist = planeDist + extents[size_t(axis)];
+        const float d1 = (low ? -from[size_t(axis)] : from[size_t(axis)]) - dist;
+        const float d2 = (low ? -to[size_t(axis)] : to[size_t(axis)]) - dist;
+        startsOut |= d1 > 0;
+        endsOut |= d2 > 0;
+        if (d1 > 0 && (d2 >= kClipEpsilon || d2 >= d1))
+            return finish();
+        if (d1 <= 0 && d2 <= 0)
+            continue;
+        if (d1 > d2) {
+            const float f = (d1 - kClipEpsilon) / (d1 - d2);
+            if (f > enter) {
+                enter = f;
+                hitPlane = plane;
+            }
+        } else {
+            leave = std::min(leave, (d1 + kClipEpsilon) / (d1 - d2));
+        }
+    }
+    if (!startsOut) {
+        r.startSolid = true;
+        if (!endsOut) {
+            r.allSolid = true;
+            r.fraction = 0;
+            r.contents = boxContents;
+        }
+        return finish();
+    }
+    if (enter < leave && enter > -1 && enter < r.fraction && hitPlane >= 0) {
+        const int axis = hitPlane / 2;
+        const bool low = hitPlane & 1;
+        r.fraction = std::max(enter, 0.0f);
+        r.normal = Vec3f{};
+        r.normal[size_t(axis)] = low ? -1.0f : 1.0f;
+        r.dist = low ? -boxMins[size_t(axis)] : boxMaxs[size_t(axis)];
+        r.surfaceFlags = 0;
+        r.contents = boxContents;
+    }
+    return finish();
 }
 
 int CollisionWorld::leafAt(const Vec3f &point) const {
-    if (bsp_.nodes.empty())
-        return bsp_.leafs.empty() ? -1 : 0;
+    if (_bsp.nodes.empty())
+        return _bsp.leafs.empty() ? -1 : 0;
     int node = 0;
     while (node >= 0) {
-        const BspNode &n = bsp_.nodes[size_t(node)];
-        const BspPlane &p = bsp_.planes[size_t(n.plane)];
+        const BspNode &n = _bsp.nodes[size_t(node)];
+        const BspPlane &p = _bsp.planes[size_t(n.plane)];
         node = n.children[dot(point, p.normal) - p.dist >= 0 ? 0 : 1];
     }
     return -1 - node;
 }
 
 void CollisionWorld::boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<int> &leafs) const {
-    if (bsp_.nodes.empty()) {
-        if (!bsp_.leafs.empty())
+    if (_bsp.nodes.empty()) {
+        if (!_bsp.leafs.empty())
             leafs.push_back(0);
         return;
     }
@@ -419,10 +477,11 @@ void CollisionWorld::boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<
             leafs.push_back(-1 - node);
             continue;
         }
-        const BspNode &n = bsp_.nodes[size_t(node)];
-        const BspPlane &p = bsp_.planes[size_t(n.plane)];
+        const BspNode &n = _bsp.nodes[size_t(node)];
+        const BspPlane &p = _bsp.planes[size_t(n.plane)];
         // The box's nearest and farthest corners from the plane.
-        float lo = -p.dist, hi = -p.dist;
+        float lo = -p.dist;
+        float hi = -p.dist;
         for (size_t k = 0; k < 3; ++k) {
             lo += p.normal[k] * (p.normal[k] >= 0 ? mins[k] : maxs[k]);
             hi += p.normal[k] * (p.normal[k] >= 0 ? maxs[k] : mins[k]);
@@ -434,23 +493,16 @@ void CollisionWorld::boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<
     }
 }
 
-int CollisionWorld::areaCount() const {
-    int count = 0;
-    for (const BspLeaf &l : bsp_.leafs)
-        count = std::max(count, l.area + 1);
-    return count;
-}
-
 AreaPortals::AreaPortals(int areaCount)
-    : count_(std::max(areaCount, 0)), open_(size_t(count_) * size_t(count_), 0), group_(size_t(count_), 0) {
+    : _count(std::max(areaCount, 0)), _open(size_t(_count) * size_t(_count), 0), _group(size_t(_count), 0) {
     flood();
 }
 
 void AreaPortals::adjust(int area1, int area2, bool open) {
-    if (area1 < 0 || area2 < 0 || area1 >= count_ || area2 >= count_)
+    if (area1 < 0 || area2 < 0 || area1 >= _count || area2 >= _count)
         return;
-    int &a = open_[size_t(area1) * size_t(count_) + size_t(area2)];
-    int &b = open_[size_t(area2) * size_t(count_) + size_t(area1)];
+    int &a = _open[size_t(area1) * size_t(_count) + size_t(area2)];
+    int &b = _open[size_t(area2) * size_t(_count) + size_t(area1)];
     if (open) {
         ++a;
         ++b;
@@ -462,55 +514,126 @@ void AreaPortals::adjust(int area1, int area2, bool open) {
 }
 
 bool AreaPortals::connected(int area1, int area2) const {
-    if (area1 < 0 || area2 < 0 || area1 >= count_ || area2 >= count_)
+    if (area1 < 0 || area2 < 0 || area1 >= _count || area2 >= _count)
         return false;
-    return group_[size_t(area1)] == group_[size_t(area2)];
+    return _group[size_t(area1)] == _group[size_t(area2)];
 }
 
 void AreaPortals::flood() {
-    std::fill(group_.begin(), group_.end(), -1);
-    for (int start = 0; start < count_; ++start) {
-        if (group_[size_t(start)] >= 0)
+    std::fill(_group.begin(), _group.end(), -1);
+    for (int start = 0; start < _count; ++start) {
+        if (_group[size_t(start)] >= 0)
             continue;
         std::vector<int> stack{start};
-        group_[size_t(start)] = start;
+        _group[size_t(start)] = start;
         while (!stack.empty()) {
             const int area = stack.back();
             stack.pop_back();
-            for (int other = 0; other < count_; ++other)
-                if (group_[size_t(other)] < 0 && open_[size_t(area) * size_t(count_) + size_t(other)] > 0) {
-                    group_[size_t(other)] = start;
+            for (int other = 0; other < _count; ++other)
+                if (_group[size_t(other)] < 0 && _open[size_t(area) * size_t(_count) + size_t(other)] > 0) {
+                    _group[size_t(other)] = start;
                     stack.push_back(other);
                 }
         }
     }
 }
 
+std::array<Vec3f, 3> CollisionWorld::turnAxes(const Vec3f &angles) {
+    constexpr float kRad = 3.14159265358979f / 180;
+    const float sp = std::sin(angles[0] * kRad);
+    const float cp = std::cos(angles[0] * kRad);
+    const float sy = std::sin(angles[1] * kRad);
+    const float cy = std::cos(angles[1] * kRad);
+    const float sr = std::sin(angles[2] * kRad);
+    const float cr = std::cos(angles[2] * kRad);
+    const Vec3f forward{cp * cy, cp * sy, -sp};
+    const Vec3f left{sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, sr * cp};
+    const Vec3f up{cr * sp * cy + sr * sy, cr * sp * sy - sr * cy, cr * cp};
+    return {forward, left, up};
+}
+
+namespace {
+
+bool turned(const Vec3f &angles) {
+    return angles[0] != 0 || angles[1] != 0 || angles[2] != 0;
+}
+
+Vec3f intoAxes(const std::array<Vec3f, 3> &axes, const Vec3f &v) {
+    Vec3f out{};
+    for (size_t r = 0; r < 3; ++r)
+        out[r] = axes[r][0] * v[0] + axes[r][1] * v[1] + axes[r][2] * v[2];
+    return out;
+}
+
+Vec3f outOfAxes(const std::array<Vec3f, 3> &axes, const Vec3f &v) {
+    Vec3f out{};
+    for (size_t k = 0; k < 3; ++k)
+        out[k] = axes[0][k] * v[0] + axes[1][k] * v[1] + axes[2][k] * v[2];
+    return out;
+}
+
+} // namespace
+
+TraceResult CollisionWorld::transformedTrace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
+                                             int model, int32_t mask, const Vec3f &origin, const Vec3f &angles) const {
+    Vec3f half{};
+    Vec3f a{};
+    Vec3f b{};
+    for (size_t k = 0; k < 3; ++k) {
+        const float middle = (mins[k] + maxs[k]) * 0.5f;
+        half[k] = maxs[k] - middle;
+        a[k] = start[k] + middle - origin[k];
+        b[k] = end[k] + middle - origin[k];
+    }
+    const bool turn = model != 0 && turned(angles);
+    std::array<Vec3f, 3> axes{};
+    if (turn) {
+        axes = turnAxes(angles);
+        a = intoAxes(axes, a);
+        b = intoAxes(axes, b);
+    }
+    const Vec3f negHalf{-half[0], -half[1], -half[2]};
+    TraceResult t = trace(a, b, negHalf, half, model, mask);
+    if (turn && t.fraction < 1)
+        t.normal = outOfAxes(axes, t.normal);
+    for (size_t k = 0; k < 3; ++k)
+        t.endPos[k] = start[k] + t.fraction * (end[k] - start[k]);
+    return t;
+}
+
+int32_t CollisionWorld::transformedPointContents(const Vec3f &point, int model, const Vec3f &origin,
+                                                 const Vec3f &angles) const {
+    Vec3f p{point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]};
+    if (model != 0 && turned(angles))
+        p = intoAxes(turnAxes(angles), p);
+    return pointContents(p, model);
+}
+
 int32_t CollisionWorld::pointContents(const Vec3f &point, int model) const {
     auto inside = [&](int brush) {
-        const BspBrush &b = bsp_.brushes[size_t(brush)];
+        const BspBrush &b = _bsp.brushes[size_t(brush)];
         for (int s = 0; s < b.numSides; ++s) {
-            const BspPlane &p = bsp_.planes[size_t(bsp_.brushSides[size_t(b.firstSide + s)].plane)];
+            const BspPlane &p = _bsp.planes[size_t(_bsp.brushSides[size_t(b.firstSide + s)].plane)];
             if (dot(point, p.normal) - p.dist > 0)
                 return false;
         }
         return b.numSides > 0;
     };
     int32_t result = 0;
-    if (model < 0 || size_t(model) >= bsp_.models.size())
+    if (model < 0 || size_t(model) >= _bsp.models.size())
         return 0;
-    if (model == 0 && !bsp_.nodes.empty()) {
+    if (model == 0 && !_bsp.nodes.empty()) {
         const int leaf = leafAt(point);
         if (leaf < 0)
             return 0;
-        const BspLeaf &l = bsp_.leafs[size_t(leaf)];
+        const BspLeaf &l = _bsp.leafs[size_t(leaf)];
         for (int i = 0; i < l.numLeafBrushes; ++i) {
-            const int brush = bsp_.leafBrushes[size_t(l.firstLeafBrush + i)];
+            const int brush = _bsp.leafBrushes[size_t(l.firstLeafBrush + i)];
             if (inside(brush))
                 result |= brushContents(brush);
         }
     } else {
-        const BspModel &m = bsp_.models[size_t(model)];
+        const BspModel &m = _bsp.models[size_t(model)];
         for (int i = 0; i < m.numBrushes; ++i)
             if (inside(m.firstBrush + i))
                 result |= brushContents(m.firstBrush + i);
@@ -519,10 +642,10 @@ int32_t CollisionWorld::pointContents(const Vec3f &point, int model) const {
 }
 
 bool CollisionWorld::modelBounds(int model, Vec3f &mins, Vec3f &maxs) const {
-    if (model < 0 || size_t(model) >= bsp_.models.size())
+    if (model < 0 || size_t(model) >= _bsp.models.size())
         return false;
-    mins = bsp_.models[size_t(model)].mins;
-    maxs = bsp_.models[size_t(model)].maxs;
+    mins = _bsp.models[size_t(model)].mins;
+    maxs = _bsp.models[size_t(model)].maxs;
     return true;
 }
 

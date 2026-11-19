@@ -1,0 +1,1 @@
+files: 09baa9eb0be2fbd0 | dialogInfo.res: read, 42 dialogs, 626 controls, pictures they name: 0 missing or failed

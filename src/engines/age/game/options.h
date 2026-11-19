@@ -120,7 +120,7 @@ void applySoundOptions(const GameOptions &options, audio::Mixer *mixer);
 GameOptions loadOptions(const std::filesystem::path &folder);
 
 // The options in force, for what reads the keys and the sound levels;
-// the Race page loads them and the menus change them.
+// the race screen loads them and the menus change them.
 const GameOptions &currentOptions();
 void setCurrentOptions(const GameOptions &options);
 

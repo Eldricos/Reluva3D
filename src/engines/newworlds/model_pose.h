@@ -18,13 +18,14 @@ namespace reluva::newworlds {
 // animations, and the turrets and guns of tanks, artillery and defences.
 // A geometry part belongs to one of the .mdl's nodes (GeoModel::Part::node,
 // named by the .mdl's parts list: turret=1, gun=2); see
-// docs/formats/newworlds/mdl.md#moving-parts.
+// docs/engines/newworlds/mdl.md#moving-parts.
 
 // Where a part is moved to: v' = to + m × (v − from); normals turn by m.
 struct PartPose {
     bool moved = false;
     float m[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-    GeoModel::Vec3 from{0, 0, 0}, to{0, 0, 0};
+    GeoModel::Vec3 from{0, 0, 0};
+    GeoModel::Vec3 to{0, 0, 0};
 
     GeoModel::Vec3 turn(const GeoModel::Vec3 &v) const {
         return {m[0] * v.x + m[1] * v.y + m[2] * v.z, m[3] * v.x + m[4] * v.y + m[5] * v.z,
@@ -42,7 +43,8 @@ using Pose = std::vector<PartPose>; // one per geometry part
 // An .arf animation: its frames (a transform per animated part each) and
 // the .mdl state it plays (walk, stand, manipulate).
 struct Animation {
-    std::string name, state;
+    std::string name;
+    std::string state;
     std::vector<std::vector<PartTransform>> frames;
 };
 
@@ -59,8 +61,8 @@ public:
     std::vector<Animation> animations(const std::string &modelName, const MdlModel &mdl) const;
 
 private:
-    const Archives &archives_;
-    std::map<std::string, EntryRef> metamodels_; // by "folder/stem"
+    const Archives &_archives;
+    std::map<std::string, EntryRef> _metamodels; // by "folder/stem"
 };
 
 // An animation frame's pose: each part moved by the animated part of its

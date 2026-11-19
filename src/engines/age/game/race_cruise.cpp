@@ -8,7 +8,7 @@
 // "Great job! You can stop on a dime!") along race/sf/accel0waypoints.csv.
 // See docs/engines/age-racing.md.
 
-#include "engines/age/viewers.h"
+#include "engines/age/ui/screen.h"
 
 #include "graphics/font.h"
 
@@ -39,7 +39,7 @@ std::string clockText(float seconds) {
 
 } // namespace
 
-void RaceViewer::startCruise() {
+void RaceScreen::startCruise() {
     // The cruise starts at one of the city's Cops & Robbers places (as a
     // multiplayer cruise does), picked by the car, so a replay starts in
     // the same place; the stunt at its first point.
@@ -81,7 +81,7 @@ void RaceViewer::startCruise() {
     _race.waypoints = {start};
 }
 
-void RaceViewer::stepCruise(float dt) {
+void RaceScreen::stepCruise(float dt) {
     Racer &player = _racers.front();
     CarSim &sim = player.car->sim;
     if (cruising()) {
@@ -137,7 +137,7 @@ void RaceViewer::stepCruise(float dt) {
     }
 }
 
-void RaceViewer::drawCruiseHud() {
+void RaceScreen::drawCruiseHud() {
     // As the game's cruise: no words but the police after you and why the
     // car's about to be put back.
     const Racer &player = _racers.front();

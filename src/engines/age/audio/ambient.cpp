@@ -228,7 +228,7 @@ void AmbientSounds::update(float dt, const Vec3 &listener, const Vec3 &right, co
             if (_mixer && v.handle != audio::kNoSound) {
                 _mixer->setVolume(v.handle, volume);
                 _mixer->setPan(v.handle, v.heard.pan);
-                _mixer->setPitch(v.handle, v.heard.pitch);
+                _mixer->setRate(v.handle, v.heard.pitch);
             }
         };
         if (v.sample->type == 0) {
@@ -256,7 +256,7 @@ void AmbientSounds::update(float dt, const Vec3 &listener, const Vec3 &right, co
         v.wait = std::uniform_real_distribution<float>(low, high)(_random);
         if (gain > 0.01f && _mixer && v.sound && v.handle == audio::kNoSound && busy < kMostVoices) {
             v.handle = _mixer->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, false);
-            _mixer->setPitch(v.handle, v.heard.pitch);
+            _mixer->setRate(v.handle, v.heard.pitch);
             ++busy;
         }
     }

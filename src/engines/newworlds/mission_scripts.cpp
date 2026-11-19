@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Reluva's mission scripts, written from recordings of the original being
-// played (docs/formats/newworlds/play*.md): which events each mission
+// played (docs/engines/newworlds/play*.md): which events each mission
 // reacts to, in the order they happened, and what follows. The messages
 // are Reluva's own words for what the game's say; objectives are the
 // mission's own strings, by id. Each mission's blocks are in the order the
@@ -1116,13 +1116,13 @@ on all-completed
 } // namespace
 
 const std::vector<MissionScript> &missionScripts() {
-    static const std::vector<MissionScript> scripts = [] {
+    static const std::vector<MissionScript> kParsed = [] {
         std::vector<MissionScript> s;
         if (Error err = parseMissionScripts(kScripts, s))
             s.clear(); // the tests parse it, so this doesn't happen
         return s;
     }();
-    return scripts;
+    return kParsed;
 }
 
 } // namespace reluva::newworlds

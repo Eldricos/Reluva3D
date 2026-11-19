@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/qvm.h"
+#include "engines/idtech3/vm/qvm.h"
 
 #include <cstdint>
 
@@ -14,13 +14,13 @@ namespace reluva::idtech3::eliteforce {
 //
 // - The CD's game code (1.0), found from the code itself: what it passes
 //   to traces and SetBrushModel, and the size of what it copies whole
-//   (see eliteforce-syscalls.md). An entity state of 204 bytes (Quake
+//   (see docs/engines/idtech3/games/stvef/systems/syscalls.md). An entity state of 204 bytes (Quake
 //   III's is 208), then entityShared_t at 204 with one field fewer than
 //   1.2's before the box (which of linkcount, svFlags and singleClient
 //   isn't known, so svFlags is found from the running game); a player
 //   state of 460 bytes.
 // - Patch 1.2's, as the GPL engine that runs it has them (see
-//   eliteforce-network.md): linked, linkcount, svFlags, singleClient,
+//   docs/engines/idtech3/games/stvef/systems/network.md): linked, linkcount, svFlags, singleClient,
 //   then the box; a player state of 468 bytes (an intro timer at 56, the
 //   rest after it 4 bytes on).
 //
@@ -36,10 +36,13 @@ struct GameLayout {
     int32_t linked = 204;
     int32_t svFlags = -1; // -1: not known (found from the running game)
     int32_t bmodel = 216;
-    int32_t mins = 220, maxs = 232;
+    int32_t mins = 220;
+    int32_t maxs = 232;
     int32_t contents = 244;
-    int32_t absMin = 248, absMax = 260;
-    int32_t currentOrigin = 272, currentAngles = 284;
+    int32_t absMin = 248;
+    int32_t absMax = 260;
+    int32_t currentOrigin = 272;
+    int32_t currentAngles = 284;
     int32_t ownerNum = 296;
     int32_t sharedEnd = 300;
 };
@@ -51,11 +54,12 @@ constexpr int32_t kSolidBrushModel = 0xffffff;
 // states whole, 1.0's 460-byte ones.
 inline const GameLayout &detectLayout(const Qvm &vm) {
     for (const auto &i : vm.code())
-        if (i.op == qvmop::BlockCopy && i.operand == kLayout12.playerStateSize)
+        if (i.op == qvmop::kBlockCopy && i.operand == kLayout12.playerStateSize)
             return kLayout12;
     return kLayout10;
 }
 
-constexpr int32_t kEntityNone = 1023, kEntityWorld = 1022;
+constexpr int32_t kEntityNone = 1023;
+constexpr int32_t kEntityWorld = 1022;
 
 } // namespace reluva::idtech3::eliteforce

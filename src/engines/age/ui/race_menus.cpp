@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Race page's own menus: the race paused (Esc), with mmlang.dll's
+// The race screen's own menus: the race paused (Esc), with mmlang.dll's
 // words for the game's in-race menu; the results screens after a race or
 // lesson (jpg/rshi_bk "Event Results", crshi_bk "Crash Course Results",
 // with the texture/RESULT_* buttons); and the menus' music (UI.sgt) and
 // voices (aud/aud22/UI*.wav). See docs/engines/age-menus.md.
 
-#include "engines/age/viewers.h"
+#include "engines/age/ui/screen.h"
 
 #include "audio/decode.h"
 #include "graphics/font.h"
@@ -58,7 +58,7 @@ void darken(Surface &o, int x, int y, int w, int h, uint8_t alpha) {
 
 } // namespace
 
-void RaceViewer::playVoice(const std::string &clip) {
+void RaceScreen::playVoice(const std::string &clip) {
     if (!_ctx.mixer)
         return;
     std::vector<uint8_t> data;
@@ -72,49 +72,7 @@ void RaceViewer::playVoice(const std::string &clip) {
     }
 }
 
-bool RaceViewer::playMovie(float dt) {
-    if (!_front || _front->screen() != FrontEnd::Screen::kSplash) {
-        endMovie();
-        return false;
-    }
-    if (!_movieTried) {
-        // Played by FFmpeg where Reluva was built with it; otherwise, or
-        // if it won't open, the splash picture stands in, as with the
-        // game's "No Movie" shortcut.
-        _movieTried = true;
-        std::vector<uint8_t> data;
-        std::string error;
-        if (!_ctx.files.read("logos.avi", data))
-            _movie = video::Movie::open(std::move(data), error);
-        if (!_movie)
-            return false;
-        _movieTime = 0;
-        if (_ctx.mixer && _movie->sound().frames())
-            _movieSound = _ctx.mixer->play(std::make_shared<audio::Sound>(_movie->sound()), audio::SoundType::kMusic);
-    }
-    if (!_movie)
-        return false;
-    // Kept with its sound while that plays.
-    if (_ctx.mixer && _movieSound != audio::kNoSound && _ctx.mixer->isPlaying(_movieSound))
-        _movieTime = _ctx.mixer->position(_movieSound) / double(_movie->sound().rate);
-    else
-        _movieTime += dt;
-    if (!_movie->frameAt(_movieTime, _movieFrame)) {
-        endMovie();
-        _front->leaveSplash();
-        return false;
-    }
-    return true;
-}
-
-void RaceViewer::endMovie() {
-    if (_ctx.mixer && _movieSound != audio::kNoSound)
-        _ctx.mixer->stop(_movieSound);
-    _movieSound = audio::kNoSound;
-    _movie.reset();
-}
-
-void RaceViewer::menuSounds() {
+void RaceScreen::menuSounds() {
     // The menus' tune while they're up; a word as a button's pointed at.
     if (!_front || !_ctx.mixer)
         return;
@@ -129,7 +87,7 @@ void RaceViewer::menuSounds() {
     }
 }
 
-bool RaceViewer::nextRaceOpen() const {
+bool RaceScreen::nextRaceOpen() const {
     if (_raceIndex + 1 >= int(_raceNames.size()))
         return false;
     if (lesson() && _judge.result() != LessonJudge::Result::kPassed)
@@ -137,7 +95,7 @@ bool RaceViewer::nextRaceOpen() const {
     return raceIsOpen(_raceIndex + 1);
 }
 
-void RaceViewer::instantReplay(ReplayReturn back) {
+void RaceScreen::instantReplay(ReplayReturn back) {
     if (_recording.empty())
         return;
     _replayReturn = back;
@@ -147,7 +105,7 @@ void RaceViewer::instantReplay(ReplayReturn back) {
     startReplay(_recording);
 }
 
-void RaceViewer::pauseEvent(const Event &ev) {
+void RaceScreen::pauseEvent(const Event &ev) {
     int key = ev.key;
     if (ev.type == EventType::kMouseDown) {
         // A line clicked: as Enter on it.
@@ -197,7 +155,7 @@ void RaceViewer::pauseEvent(const Event &ev) {
     }
 }
 
-void RaceViewer::resultsEvent(const Event &ev) {
+void RaceScreen::resultsEvent(const Event &ev) {
     auto enabled = [&](int b) { return b != kResNext || nextRaceOpen(); };
     int key = ev.key;
     if (ev.type == EventType::kMouseDown) {
@@ -263,7 +221,7 @@ void RaceViewer::resultsEvent(const Event &ev) {
     }
 }
 
-void RaceViewer::drawPauseMenu() {
+void RaceScreen::drawPauseMenu() {
     // The race stopped behind, darkened; the game's in-race words.
     darken(_overlay, 0, 0, kFrameW, kFrameH, 140);
     const uint32_t ids[kPauseItems] = {473, uint32_t(lesson() ? 653 : 464), 465, 466, 468};
@@ -275,7 +233,7 @@ void RaceViewer::drawPauseMenu() {
                     i == _pauseFocus ? Color{255, 255, 120} : Color{220, 220, 255}, 2);
 }
 
-void RaceViewer::drawResults() {
+void RaceScreen::drawResults() {
     // The game's results screen: who finished where (or the lesson's
     // verdict) in its box, its buttons down the right.
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);

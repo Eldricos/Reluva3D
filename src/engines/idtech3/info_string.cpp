@@ -36,14 +36,16 @@ std::string infoValue(const std::string &info, const std::string &key) {
 }
 
 void setInfoValue(std::string &info, const std::string &key, const std::string &value) {
-    auto clean = [](std::string s) {
+    auto clean = [](const std::string &s) {
         std::string out;
         for (char c : s)
             if (c != '\\' && c != '"' && c != ';')
                 out.push_back(c);
         return out;
     };
-    const std::string k = clean(key), v = clean(value), lower = fs::toLower(k);
+    const std::string k = clean(key);
+    const std::string v = clean(value);
+    const std::string lower = fs::toLower(k);
     std::string rebuilt;
     for (const auto &[name, old] : infoPairs(info))
         if (fs::toLower(name) != lower)

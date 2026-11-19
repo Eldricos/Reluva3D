@@ -7,6 +7,15 @@
 #include <string>
 #include <vector>
 
+// Inlined whatever the compiler would choose: for the few small functions
+// run for nearly every interpreted instruction or drawn pixel, where a
+// call costs more than the work (Visual Studio declines many such).
+#if defined(_MSC_VER)
+#define RELUVA_FORCE_INLINE __forceinline
+#else
+#define RELUVA_FORCE_INLINE [[gnu::always_inline]] inline
+#endif
+
 namespace reluva {
 
 // Result of an operation that can fail with a human-readable reason.
@@ -20,22 +29,26 @@ struct Error {
 };
 
 struct Color {
-    uint8_t r = 0, g = 0, b = 0;
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
 };
 
 enum class PixelFormat {
-    kCluT8,  // 8-bit palette indices, colours set with System::setPalette
-    kRgbA32, // 4 bytes per pixel in memory order R, G, B, A
+    kCLUT8,  // 8-bit palette indices, colours set with System::setPalette
+    kRGBA32, // 4 bytes per pixel in memory order R, G, B, A
 };
 
 inline int bytesPerPixel(PixelFormat f) {
-    return f == PixelFormat::kCluT8 ? 1 : 4;
+    return f == PixelFormat::kCLUT8 ? 1 : 4;
 }
 
 // A simple owned pixel buffer, used as the game's framebuffer.
 struct Surface {
-    int w = 0, h = 0, pitch = 0;
-    PixelFormat format = PixelFormat::kCluT8;
+    int w = 0;
+    int h = 0;
+    int pitch = 0;
+    PixelFormat format = PixelFormat::kCLUT8;
     std::vector<uint8_t> pixels;
 
     void create(int width, int height, PixelFormat fmt) {

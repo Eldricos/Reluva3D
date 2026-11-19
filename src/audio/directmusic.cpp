@@ -868,7 +868,14 @@ void DmPerformance::dispatch(const Event &e) {
     }
 }
 
-void DmPerformance::read(float *out, int frames) {
+void DmPerformance::read(int16_t *out, int frames, int /*rate*/) {
+    std::vector<float> mixed(size_t(frames) * 2, 0.0f);
+    render(mixed.data(), frames);
+    for (size_t i = 0; i < mixed.size(); ++i)
+        out[i] = int16_t(std::lround(std::clamp(mixed[i], -1.0f, 1.0f) * 32767.0f));
+}
+
+void DmPerformance::render(float *out, int frames) {
     std::lock_guard<std::mutex> lock(_mutex);
     int done = 0;
     while (done < frames) {

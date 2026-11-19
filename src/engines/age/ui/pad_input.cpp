@@ -12,6 +12,11 @@ namespace {
 
 constexpr float kDeadZone = 0.15f;    // of a stick's travel, round the middle
 constexpr float kTriggerZone = 0.05f; // of a trigger's
+constexpr int kAxisLeftX = 0;         // GamepadState::axes' order
+constexpr int kAxisLeftTrigger = 4;
+constexpr int kAxisRightTrigger = 5;
+constexpr uint32_t kShakeMs = 200;
+constexpr uint32_t kShakePeriodMs = 40;
 
 // Past the dead zone, rescaled to the rest of the travel.
 float outside(float v, float zone) {
@@ -30,13 +35,13 @@ uint32_t keyOf(Control c, const GameOptions &o) {
 
 void PadDrive::axis(int axis, float value) {
     switch (axis) {
-    case pad::kLeftX:
+    case kAxisLeftX:
         steer = outside(value, kDeadZone);
         break;
-    case pad::kRightTrigger:
+    case kAxisRightTrigger:
         throttle = outside(value, kTriggerZone);
         break;
-    case pad::kLeftTrigger:
+    case kAxisLeftTrigger:
         brake = outside(value, kTriggerZone);
         break;
     default:
@@ -51,76 +56,102 @@ void PadDrive::apply(CarControls &c) const {
     c.brake = std::max(c.brake, brake);
 }
 
+void pollPad(System &sys, PadDrive &pad, bool driving, bool axes, const GameOptions &options,
+             std::vector<Event> &keys) {
+    GamepadState state;
+    if (!sys.readGamepad(state)) {
+        state = {}; // unplugged: everything let go
+    }
+    if (axes)
+        for (int a : {kAxisLeftX, kAxisLeftTrigger, kAxisRightTrigger})
+            pad.axis(a, state.axes[a]);
+    const uint32_t changed = state.buttons ^ pad.buttons;
+    for (int b = 0; b < kPadButtons; ++b) {
+        if (!(changed >> b & 1))
+            continue;
+        if (const uint32_t k = padKey(b, driving, options)) {
+            Event ev;
+            ev.type = state.buttons >> b & 1 ? EventType::kKeyDown : EventType::kKeyUp;
+            ev.key = k;
+            keys.push_back(ev);
+        }
+    }
+    pad.buttons = state.buttons;
+}
+
 uint32_t padKey(int button, bool driving, const GameOptions &options) {
     if (!driving) {
         switch (button) {
-        case pad::kDpadUp:
+        case kPadUp:
             return key::kUp;
-        case pad::kDpadDown:
+        case kPadDown:
             return key::kDown;
-        case pad::kDpadLeft:
+        case kPadLeft:
             return key::kLeft;
-        case pad::kDpadRight:
+        case kPadRight:
             return key::kRight;
-        case pad::kSouth:
-        case pad::kStart:
+        case kPadSouth:
+        case kPadStart:
             return key::kReturn;
-        case pad::kEast:
-        case pad::kBack:
+        case kPadEast:
+        case kPadBack:
             return key::kEscape;
         default:
             return 0;
         }
     }
     switch (button) {
-    case pad::kSouth:
+    case kPadSouth:
         return keyOf(Control::kHandbrake, options);
-    case pad::kEast:
+    case kPadEast:
         return keyOf(Control::kHorn, options);
-    case pad::kWest:
+    case kPadWest:
         return keyOf(Control::kReverse, options);
-    case pad::kNorth:
+    case kPadNorth:
         return keyOf(Control::kChangeCamera, options);
-    case pad::kLeftShoulder:
+    case kPadLeftShoulder:
         return keyOf(Control::kShiftDown, options);
-    case pad::kRightShoulder:
+    case kPadRightShoulder:
         return keyOf(Control::kShiftUp, options);
-    case pad::kBack:
+    case kPadBack:
         return keyOf(Control::kMapToggle, options);
-    case pad::kStart:
+    case kPadStart:
         return key::kEscape;
-    case pad::kLeftStick:
+    case kPadLeftStick:
         return keyOf(Control::kThrillCam, options);
-    case pad::kRightStick:
+    case kPadRightStick:
         return keyOf(Control::kLookBack, options);
-    case pad::kDpadUp:
+    case kPadUp:
         return keyOf(Control::kNextCheckpoint, options);
-    case pad::kDpadDown:
+    case kPadDown:
         return keyOf(Control::kRearViewMirror, options);
-    case pad::kDpadLeft:
+    case kPadLeft:
         return keyOf(Control::kLookLeft, options);
-    case pad::kDpadRight:
+    case kPadRight:
         return keyOf(Control::kLookRight, options);
     default:
         return 0;
     }
 }
 
-bool padKeyEvent(const Event &ev, bool driving, const GameOptions &options, Event &out) {
-    if (ev.type != EventType::kPadDown && ev.type != EventType::kPadUp)
-        return false;
-    const uint32_t k = padKey(ev.pad, driving, options);
-    if (!k)
-        return false;
-    out = Event{};
-    out.type = ev.type == EventType::kPadDown ? EventType::kKeyDown : EventType::kKeyUp;
-    out.key = k;
-    return true;
-}
-
 float padRumble(float impact) {
     // A knock from 2 m/s up, full by 15.
     return impact < 2 ? 0 : std::min(1.0f, (impact - 2) / 13);
+}
+
+void PadShaker::knock(System &sys, float strength, uint64_t nowMs) {
+    GamepadForce force;
+    force.vibration = std::clamp(strength, 0.0f, 1.0f);
+    force.vibrationPeriodMs = kShakePeriodMs;
+    sys.setGamepadForce(force);
+    _until = nowMs + kShakeMs;
+}
+
+void PadShaker::update(System &sys, uint64_t nowMs) {
+    if (_until && nowMs >= _until) {
+        sys.setGamepadForce({});
+        _until = 0;
+    }
 }
 
 } // namespace reluva::age

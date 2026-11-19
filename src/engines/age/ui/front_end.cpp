@@ -10,7 +10,7 @@
 
 #include "graphics/font.h"
 #include "engines/age/formats/texture.h"
-#include "engines/age/viewers.h"
+#include "engines/age/ui/screen.h"
 
 #include <algorithm>
 #include <cmath>

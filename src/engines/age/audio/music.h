@@ -65,6 +65,7 @@ private:
 
     audio::Mixer *_mixer = nullptr;
     std::shared_ptr<audio::DmPerformance> _performance;
+    audio::SoundHandle _handle = audio::kNoSound; // its stream in the mixer
     MusicSet _set;
     std::string _wanted;
     float _still = 0; // seconds stopped

@@ -16,12 +16,15 @@ using Archives = std::vector<std::unique_ptr<CatArchive>>;
 
 // Where an item lives: archive index and entry index.
 struct EntryRef {
-    size_t archive, entry;
+    size_t archive;
+    size_t entry;
 };
 
 // A full-size texture: an .lbp, or level 0 (.mp0) of a mipmap set.
 struct TextureFile {
-    std::string stem, folder; // "k_bop_a", "kln" for lbp/txr/kln/k_bop_a.mp0
+    // "k_bop_a", "kln" for lbp/txr/kln/k_bop_a.mp0
+    std::string stem;
+    std::string folder;
     EntryRef ref;
 };
 
@@ -34,7 +37,7 @@ std::vector<TextureFile> listTextureFiles(const Archives &archives);
 // A model's textures, in the order its faces number them; `needed` is how
 // many the faces number (the highest number + 1). Slots the rule can't fill
 // (shared textures with other names) are null. See
-// docs/formats/newworlds/geo.md#textures for the rule.
+// docs/engines/newworlds/geo.md#textures for the rule.
 std::vector<const TextureFile *> findModelTextures(const std::string &modelName,
                                                    const std::vector<TextureFile> &textures, size_t needed);
 

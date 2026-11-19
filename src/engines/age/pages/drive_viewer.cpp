@@ -3,10 +3,9 @@
 
 // The data viewer's Drive page: a car driven round a city, as a cruise
 // mode. The car is Reluva's simulation (car.cpp) of the game's tuning;
-// the cameras follow the game's camera files. Also the driving helpers
-// the Race page shares.
+// the cameras follow the game's camera files.
 
-#include "engines/age/viewers.h"
+#include "engines/age/pages/viewers.h"
 
 #include "graphics/font.h"
 #include "engines/age/game/city_collision.h"
@@ -29,182 +28,9 @@ constexpr float kTrafficLevels[] = {0, 0.05f, 0.1f, 0.25f};
 const char *const kTrafficNames[] = {"no traffic", "light traffic", "normal traffic", "heavy traffic"};
 constexpr float kPedLevels[] = {0, 0.05f, 0.1f, 0.2f}; // the pedestrians' density with each
 
-std::string textOf(const std::vector<uint8_t> &data) {
-    return std::string(data.begin(), data.end());
-}
-
-std::string iniValue(const std::string &text, const std::string &key) {
-    size_t at = 0;
-    while (at < text.size()) {
-        size_t eol = text.find('\n', at);
-        if (eol == std::string::npos)
-            eol = text.size();
-        std::string line = text.substr(at, eol - at);
-        at = eol + 1;
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t'))
-            line.pop_back();
-        if (line.size() > key.size() && line.compare(0, key.size(), key) == 0 && line[key.size()] == '=')
-            return line.substr(key.size() + 1);
-    }
-    return {};
-}
-
 } // namespace
 
-std::vector<CarInfo> findCars(const SearchSet &files) {
-    std::vector<CarInfo> cars;
-    for (const std::string &n : files.list()) {
-        const std::string key = normalizeArchiveName(n);
-        if (key.rfind("tune/", 0) != 0 || key.size() < 5 || key.compare(key.size() - 5, 5, ".info") != 0)
-            continue;
-        std::vector<uint8_t> data;
-        if (files.read(n, data))
-            continue;
-        const std::string text = textOf(data);
-        CarInfo car{iniValue(text, "BaseName"), iniValue(text, "Description"), {}};
-        const std::string colors = iniValue(text, "Colors");
-        for (size_t at = 0; at <= colors.size();) {
-            const size_t bar = std::min(colors.find('|', at), colors.size());
-            car.colors.push_back(colors.substr(at, bar - at));
-            at = bar + 1;
-        }
-        if (!car.base.empty() && files.has("tune/vehicle/" + car.base + ".vehCarSim") &&
-            files.has("geometry/" + car.base + ".pkg"))
-            cars.push_back(car);
-    }
-    return cars;
-}
-
-Control controlOf(uint32_t k) {
-    return currentOptions().controlOf(k);
-}
-
-void applyGraphicsOptions(CityScene &scene, CityLife &life) {
-    const GameOptions &o = currentOptions();
-    static const float kDetail[4] = {0.4f, 0.6f, 0.8f, 1.0f};
-    scene.setSkyShown(o.texturedSky);
-    scene.setCloudShadows(o.cloudShadows);
-    CarActor::g_reflections = o.vehicleReflections;
-    scene.setVisibility(o.smartRendering);
-    scene.setModelDistance(300 + 600 * o.visibility);
-    scene.setModelDetail(kDetail[std::clamp(o.objectDetail, 0, 3)]);
-    life.setAmbientGain(o.ambient ? 1.0f : 0.0f);
-}
-
-int textureHalvings() {
-    return 3 - std::clamp(currentOptions().textureQuality, 0, 3);
-}
-
-float pedestrianShare() {
-    return currentOptions().pedestrians ? 1.0f : 0.0f;
-}
-
-bool headlightPoolsOn() {
-    return currentOptions().lightingQuality >= 0.5f;
-}
-
-void applyControlOptions(CarSim &sim) {
-    sim.autoReverse = currentOptions().autoReverse;
-    sim.steerRate = currentOptions().steerRate();
-}
-
-uint32_t driveKeyOf(uint32_t k) {
-    switch (controlOf(k)) {
-    case Control::kThrottle:
-        return kDriveThrottle;
-    case Control::kBrakes:
-        return kDriveBrake;
-    case Control::kSteerLeft:
-        return kDriveLeft;
-    case Control::kSteerRight:
-        return kDriveRight;
-    case Control::kHandbrake:
-        return kDriveHandbrake;
-    case Control::kHorn:
-        return kDriveHorn;
-    case Control::kReverse:
-        return kDriveReverse;
-    default:
-        return 0;
-    }
-}
-
-CarControls controlsOf(uint32_t keys) {
-    CarControls c;
-    c.throttle = keys & kDriveThrottle ? 1.0f : 0.0f;
-    c.brake = keys & kDriveBrake ? 1.0f : 0.0f;
-    c.steer = (keys & kDriveRight ? 1.0f : 0.0f) - (keys & kDriveLeft ? 1.0f : 0.0f);
-    c.handbrake = keys & kDriveHandbrake;
-    c.reverse = keys & kDriveReverse;
-    return c;
-}
-
-void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damage, const HudPictures &pictures) {
-    const int h = overlay.h;
-    if (pictures.loaded()) {
-        pictures.gauges(overlay, sim, damage);
-        return;
-    }
-    char speed[16];
-    std::snprintf(speed, sizeof speed, "%3.0f", std::fabs(sim.forwardSpeed()) * kMph);
-    const int scale = 4;
-    const int speedX = right - 3 * font::kAdvance * scale - 40;
-    font::drawText(overlay, speedX, h - 70, speed, {255, 255, 255}, scale);
-    font::drawText(overlay, right - 30, h - 40, "MPH", {200, 200, 200});
-    const std::string gear = sim.gear < 0 ? "R" : std::to_string(sim.gear);
-    font::drawText(overlay, right - 24, h - 70, gear, {255, 210, 80}, 2);
-    // The revs as a bar, red past the optimum.
-    const CarSetup &setup = sim.setup();
-    const float revs = std::clamp(sim.rpm / setup.maxRpm, 0.0f, 1.0f);
-    const int barX = speedX, barY = h - 22, barW = right - speedX, barH = 8;
-    for (int yy = barY; yy < barY + barH; ++yy) {
-        uint8_t *p = overlay.row(yy) + barX * 4;
-        for (int x = 0; x < barW; ++x, p += 4) {
-            const bool lit = x < int(revs * float(barW));
-            const bool red = float(x) / float(barW) > setup.optRpm / setup.maxRpm;
-            p[0] = lit ? 255 : 40;
-            p[1] = lit ? (red ? 60 : 220) : 40;
-            p[2] = lit ? (red ? 40 : 80) : 40;
-            p[3] = 200;
-        }
-    }
-    // The damage, thinner, under it.
-    for (int yy = barY + barH + 3; yy < barY + barH + 7 && yy < h; ++yy) {
-        uint8_t *p = overlay.row(yy) + barX * 4;
-        for (int x = 0; x < barW; ++x, p += 4) {
-            const bool lit = x < int(std::clamp(damage, 0.0f, 1.0f) * float(barW));
-            p[0] = lit ? 255 : 40;
-            p[1] = lit ? 130 : 40;
-            p[2] = lit ? 30 : 40;
-            p[3] = 200;
-        }
-    }
-}
-
-void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
-                    const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world) {
-    constexpr int kX = 447, kY = 0, kW = 193, kH = 77;
-    constexpr float kFov = 25; // degrees, up and down
-    // From the driver's head, looking back level.
-    const Vec3 eye = sim.position + sim.orientation * Vec3{0, 1.2f, 0};
-    Vec3 back = sim.orientation.z;
-    back[1] = 0;
-    back = length(back) > 0.1f ? normalized(back) : Vec3{0, 0, 1};
-    gfx::Mat4 proj = gfx::perspective(kFov * kPi / 180, float(kW) / float(kH), 0.1f, farClip);
-    for (int c = 0; c < 4; ++c)
-        proj[size_t(c * 4)] = -proj[size_t(c * 4)]; // left for right
-    const gfx::Mat4 viewProj = gfx::multiply(proj, gfx::lookAlong(eye, back, {0, 1, 0}));
-    renderer.clearDepth();
-    renderer.setViewport(kX, kY, kW, kH);
-    renderer.setView(viewProj, eye);
-    renderer.setMirrored(true);
-    world(viewProj, eye);
-    renderer.setMirrored(false);
-    renderer.setViewport(0, 0, 0, 0);
-    renderer.clearDepth();
-}
-
-DriveViewer::DriveViewer(ViewerContext &ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {
+DriveViewer::DriveViewer(ScreenContext &ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {
 }
 
 DriveViewer::~DriveViewer() {
@@ -227,7 +53,7 @@ void DriveViewer::deactivate() {
 void DriveViewer::activate() {
     if (Error err = _ctx.sys.init3D(kFrameW, kFrameH, _renderer)) {
         _renderer = nullptr;
-        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRgbA32);
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Drive page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -235,7 +61,7 @@ void DriveViewer::activate() {
         return;
     }
     _scene = std::make_unique<CityScene>(*_renderer, _ctx.files);
-    _overlay.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
+    _overlay.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     applySoundOptions(loadOptions(_ctx.savePath), _ctx.mixer);
     _keys = 0;
     _lastMs = 0;
@@ -344,17 +170,6 @@ void DriveViewer::resetCar() {
 void DriveViewer::handleEvent(const Event &ev) {
     if (!_renderer || _cars.empty())
         return;
-    // A game controller: its sticks and triggers drive, its buttons press
-    // keys.
-    if (ev.type == EventType::kPadAxis) {
-        _pad.axis(ev.pad, ev.value);
-        return;
-    }
-    if (ev.type == EventType::kPadDown || ev.type == EventType::kPadUp) {
-        if (Event key; padKeyEvent(ev, true, currentOptions(), key))
-            handleEvent(key);
-        return;
-    }
     if (ev.type == EventType::kKeyDown) {
         const Control control = controlOf(ev.key);
         if (control == Control::kHorn && _car.hasSiren()) { // a police car's horn is its siren
@@ -489,6 +304,13 @@ void DriveViewer::update(uint64_t nowMs) {
     // Still while F1's list of the controls is up.
     const float dt = _lastMs && !_view.controlsList ? std::min(0.1f, float(nowMs - _lastMs) / 1000) : 0;
     _lastMs = nowMs;
+    {
+        std::vector<Event> keys;
+        pollPad(_ctx.sys, _pad, true, true, currentOptions(), keys);
+        for (const Event &ev : keys)
+            handleEvent(ev);
+        _shaker.update(_ctx.sys, nowMs);
+    }
 
     CarControls controls = controlsOf(_keys);
     _pad.apply(controls);
@@ -538,7 +360,7 @@ void DriveViewer::update(uint64_t nowMs) {
         _smoke->wheels(dt, _car.sim);
     // A knock shakes the game controller.
     if (const float shake = padRumble(_car.sim.impact); shake > 0 && currentOptions().forceFeedback)
-        _ctx.sys.rumble(shake, shake * 0.6f, 200);
+        _shaker.knock(_ctx.sys, shake, _ctx.sys.getMillis());
     _car.sim.impact = 0;
     if (_smoke)
         _smoke->update(dt);

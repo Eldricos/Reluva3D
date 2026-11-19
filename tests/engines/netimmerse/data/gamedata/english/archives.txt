@@ -1,0 +1,8 @@
+Ambient.pac: afafc3b499446f3d | 28 files, 126597438 bytes, data from 866
+Audio.pac: 034bdbd5676891c9 | 169 files, 92790192 bytes, data from 6032
+Bhvr.pac: 699f4a130c1f3e52 | 74 files, 4530176 bytes, data from 2280
+Etc.pac: 2bacd747ede9eb30 | 475 files, 11777523 bytes, data from 16631
+Fin.pac: 604922421eaf0df5 | 147 files, 20638052 bytes, data from 4478
+LMap.pac: 28d7a64d9d2acb6b | 583 files, 53453614 bytes, data from 22048
+Locale_en.pac: 132eae5d1c296260 | 308 files, 82312772 bytes, data from 10948
+Map.pac: 8b0bd5476dd5963c | 678 files, 19630870 bytes, data from 23173

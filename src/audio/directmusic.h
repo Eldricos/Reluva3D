@@ -150,9 +150,10 @@ Error readDmBand(const std::vector<uint8_t> &data, DmBand &out);
 int dmMusicToMidi(uint16_t musicValue, int playMode, const DmChord &chord);
 
 // Plays segments: composes their styles' patterns as they go, into a DLS
-// synthesizer, as a mixer stream. play() switches segment at the next
-// measure. Thread-safe: read() runs on the audio thread.
-class DmPerformance : public Stream {
+// synthesizer, as a mixer stream (Mixer::playOutput). play() switches
+// segment at the next measure. Thread-safe: read() runs on the audio
+// thread.
+class DmPerformance : public OutputStream {
 public:
     // Reads a file the music names (a segment, style, band or DLS
     // collection, by its file name); false if there's none.
@@ -174,7 +175,10 @@ public:
     std::string current() const;
     void setVolume(float volume);
 
-    void read(float *out, int frames) override;
+    /** Adds `frames` stereo frames at the performance's rate into `out` (interleaved, full scale +-1). */
+    void render(float *out, int frames);
+    /** The mixer's read: `frames` frames rendered and put into 16 bits (the performance runs at the output's rate). */
+    void read(int16_t *out, int frames, int rate) override;
 
 private:
     struct Event {

@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "audio/mixer.h"
+#include "common/headless_system.h"
+#include "common/types.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <string>
+#include <vector>
+
+namespace reluva::stgenerations {
+
+// A System without a window for running the game in reluva-tool and the
+// tests: its clock moves only as the game waits, the mixer is pulled as
+// time passes (so sounds end when they would), events arrive when their
+// time comes, and the last frame shown is kept, as RGBA, with every
+// frame's checksum.
+class ScriptedSystem : public HeadlessSystem {
+public:
+    struct Scheduled {
+        uint64_t at;
+        reluva::Event event;
+    };
+
+    void attachMixer(audio::Mixer *mixer) { _mixer = mixer; }
+    // At `at` ms: an event (a Quit ends the game).
+    void schedule(uint64_t at, const reluva::Event &e) { _events.push_back({at, e}); }
+    void key(uint64_t at, uint32_t code) {
+        reluva::Event e;
+        e.type = reluva::EventType::kKeyDown;
+        e.key = code;
+        schedule(at, e);
+        e.type = reluva::EventType::kKeyUp;
+        schedule(at + 50, e);
+    }
+    void click(uint64_t at, int x, int y, MouseButton button = MouseButton::kLeft) {
+        reluva::Event e;
+        e.type = reluva::EventType::kMouseMove;
+        e.mouseX = x, e.mouseY = y;
+        schedule(at, e);
+        e.type = reluva::EventType::kMouseDown;
+        e.button = button;
+        e.clicks = 1;
+        schedule(at + 20, e);
+        e.type = reluva::EventType::kMouseUp;
+        schedule(at + 70, e);
+    }
+    // Typed text, a character at a time, while the game takes text.
+    void type(uint64_t at, const std::string &text) {
+        for (char c : text) {
+            reluva::Event e;
+            e.type = reluva::EventType::kTextInput;
+            e.text[0] = c;
+            schedule(at, e);
+            at += 30;
+        }
+    }
+    void quit(uint64_t at) {
+        reluva::Event e;
+        e.type = reluva::EventType::kQuit;
+        schedule(at, e);
+    }
+    // Called with each frame shown, and its time.
+    std::function<void(const Surface &rgba, uint64_t ms)> onFrame;
+
+    Error initGraphics(int width, int height, PixelFormat format) override {
+        _format = format;
+        _rgba.create(width, height, PixelFormat::kRGBA32);
+        return HeadlessSystem::initGraphics(width, height, format);
+    }
+    void setPalette(const Color *colors, int start, int count) override {
+        for (int i = 0; i < count && start + i < 256; i++)
+            _palette[start + i] = colors[i];
+    }
+    void updateScreen(const Surface &s) override {
+        HeadlessSystem::updateScreen(s);
+        if (s.w != _rgba.w || s.h != _rgba.h)
+            return;
+        for (int y = 0; y < s.h; y++) {
+            const uint8_t *src = s.row(y);
+            uint8_t *dst = _rgba.row(y);
+            for (int x = 0; x < s.w; x++) {
+                if (s.format == PixelFormat::kCLUT8) {
+                    const Color c = _palette[src[x]];
+                    dst[x * 4] = c.r, dst[x * 4 + 1] = c.g, dst[x * 4 + 2] = c.b, dst[x * 4 + 3] = 255;
+                } else {
+                    std::copy_n(src + x * 4, 4, dst + x * 4);
+                }
+            }
+        }
+        if (onFrame)
+            onFrame(_rgba, getMillis());
+    }
+    bool pollEvent(reluva::Event &e) override {
+        for (auto it = _events.begin(); it != _events.end(); ++it) {
+            if (it->at <= getMillis()) {
+                e = it->event;
+                _events.erase(it);
+                return true;
+            }
+        }
+        return false;
+    }
+    // Sound output as a backend's: pulled as time passes.
+    Error startAudio(AudioCallback callback) override {
+        _audio = std::move(callback);
+        return Error::success();
+    }
+    void stopAudio() override { _audio = nullptr; }
+    void delayMillis(uint32_t ms) override {
+        HeadlessSystem::delayMillis(ms);
+        // The mixer plays on as time passes.
+        if (_mixer || _audio) {
+            _pending += uint64_t(ms) * uint64_t(audioRate());
+            const int frames = int(_pending / 1000);
+            _pending %= 1000;
+            if (frames > 0) {
+                _scratch.resize(size_t(frames) * 2);
+                if (_audio)
+                    _audio(_scratch.data(), frames);
+                else
+                    _mixer->mix(_scratch.data(), frames);
+            }
+        }
+    }
+    // The last frame shown, as RGBA.
+    const Surface &lastFrame() const { return _rgba; }
+    bool pending() const { return !_events.empty(); }
+
+private:
+    std::deque<Scheduled> _events;
+    audio::Mixer *_mixer = nullptr;
+    AudioCallback _audio;
+    uint64_t _pending = 0;
+    std::vector<int16_t> _scratch;
+    PixelFormat _format = PixelFormat::kCLUT8;
+    Surface _rgba;
+    Color _palette[256] = {};
+};
+
+} // namespace reluva::stgenerations

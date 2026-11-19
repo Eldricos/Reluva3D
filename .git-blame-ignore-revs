@@ -1,0 +1,37 @@
+# Commits that only reformat or rename (docs/code-style-migration.md):
+# `git blame` skips them and shows who last changed each line for real.
+# GitHub's blame view reads this file by itself; for git, once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# One full commit hash per line, with a comment saying what it was. Only
+# commits whose changes a script made: never one with a hand edit in it.
+
+# Phase 2: clang-format over every file (one commit per area)
+aa93c1a6a99396e1aee21676409146db8048d979 # Format: shared libraries (common, audio, video, graphics, image, emulation)
+f57d5c19e4d2aa08f3bf307a3a3e13000fd70ea3 # Format: backends and programs (backends, gui, base, devtools, engine interface)
+d258d6d2dcf2ec9ad269a00b2dbbed8a75d14fcc # Format: the testbed engine
+687a597f768be5192fbdba6c74751f05508732e4 # Format: the netimmerse engine
+457ee0b4b4351538e5e151ba6eac6da91318ea55 # Format: the stharbinger engine
+59882eafa28e4cffd20edac7964fd2c8944ef3a0 # Format: the stgenerations engine
+7c6ec345fbe6b33c2fd1ffb84d01d33941fc5297 # Format: the clue engine
+6c599ffc72d275b9543d750f8f1a843fc3ada015 # Format: the awe engine
+c9ffc94899f64a390a73499774f0e2809817420d # Format: the newworlds engine
+6db3e921978f4723971a869843d7e15fa55fbdbf # Format: the idtech3 engine
+53d91d0401769112807413f631494296fd845e9f # Format: tests
+
+# Phase 4: the identifier renames (tools/tidy.py --rename-declared-in, one commit per area)
+83ce2b8897b31d74542bc85b5e1eb4e4be2faa2f # Rename: the testbed engine, to the coding guide's names
+71bbb711fa5ee71a1ca94ac3d88e379d17d39bfd # Rename: the netimmerse engine, to the coding guide's names
+3a6e46f9783bb8b0f985f28892bdc8797c090109 # Rename: the stharbinger engine, to the coding guide's names
+b772df38598f1512b6caa07d6626c0db34a25890 # Rename: the stgenerations engine, to the coding guide's names
+db677d5868eefb54d937a65b77e2fbdd377a2ecf # Rename: the clue engine, to the coding guide's names
+56643aae787e5c6fb89794e20ac534e4e88c67e9 # Rename: the awe engine, to the coding guide's names
+245bde199a532c7602befd9a03aaf1b989e8525e # Rename: the newworlds engine, to the coding guide's names
+c3ca641918d6b8665a5e89147129e22672354f26 # Rename: the nfs engine, to the coding guide's names
+006ffdaf2aeee4fbe01624f459cf9d709a7bad73 # Rename: the idtech3 engine, to the coding guide's names
+b3e7e42beb271d48a89ad68b1a1901d0f36bd7e2 # Rename: the shared code, to the coding guide's names
+afc8e38de6b72718e83f50e617e2a534933fdfa2 # Rename: the shared tests, to the coding guide's names
+ef4b761f0ae70b1b025454d9baaed21104cd0796 # Split: members declared several to a line, one each
+
+# License lines: tools/check-headers.py --fix on every source file without them
+ed2a34a274a278f2fd4f21eb817ac925b56cdaa7 # tools: license lines on the 114 source files without them

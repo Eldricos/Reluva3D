@@ -121,7 +121,7 @@ Error GameMusic::start(const SearchSet &files, audio::Mixer &mixer, bool race, u
     for (const std::string *seg : {&_set.back, &_set.idle, &_set.idleCops, &_set.cops, &_set.pause, &_set.results})
         if (!seg->empty())
             _performance->prepare(*seg + ".sgt");
-    mixer.addStream(_performance, audio::SoundType::kMusic);
+    _handle = mixer.playOutput(_performance, audio::SoundType::kMusic);
     _still = 0;
     _idle = _wasChased = _wasPaused = false;
     _wanted.clear();
@@ -157,15 +157,16 @@ Error GameMusic::startMenu(const SearchSet &files, audio::Mixer &mixer) {
         },
         1);
     _mixer = &mixer;
-    mixer.addStream(_performance, audio::SoundType::kMusic);
+    _handle = mixer.playOutput(_performance, audio::SoundType::kMusic);
     _wanted = segment;
     _menu = true;
     return _performance->play(segment + ".sgt");
 }
 
 void GameMusic::stop() {
-    if (_mixer && _performance)
-        _mixer->removeStream(_performance.get());
+    if (_mixer && _handle != audio::kNoSound)
+        _mixer->stop(_handle);
+    _handle = audio::kNoSound;
     _performance.reset();
     _mixer = nullptr;
     _menu = false;

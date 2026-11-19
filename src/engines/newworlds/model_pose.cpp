@@ -11,20 +11,24 @@
 
 namespace reluva::newworlds {
 
-Metamodels::Metamodels(const Archives &archives) : archives_(archives) {
-    for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto &entries = archives_[a]->entries();
+Metamodels::Metamodels(const Archives &archives) : _archives(archives) {
+    for (size_t a = 0; a < _archives.size(); ++a) {
+        const auto &entries = _archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
-            if (entries[i].tag == cattag::Mdl) {
-                std::string folder, stem, ext;
+            if (entries[i].tag == cattag::kMdl) {
+                std::string folder;
+                std::string stem;
+                std::string ext;
                 splitName(entries[i].name, folder, stem, ext);
-                metamodels_.emplace(folder + "/" + stem, EntryRef{a, i});
+                _metamodels.emplace(folder + "/" + stem, EntryRef{a, i});
             }
     }
 }
 
 bool Metamodels::find(const std::string &modelName, MdlModel &out) const {
-    std::string folder, stem, ext;
+    std::string folder;
+    std::string stem;
+    std::string ext;
     splitName(modelName, folder, stem, ext);
     std::string joined;
     for (char c : stem)
@@ -33,10 +37,10 @@ bool Metamodels::find(const std::string &modelName, MdlModel &out) const {
     const size_t u = stem.rfind('_');
     std::vector<uint8_t> data;
     for (const std::string &want : {stem, joined, u == std::string::npos ? stem : stem.substr(0, u)}) {
-        auto found = metamodels_.find(folder + "/" + want);
-        if (found == metamodels_.end())
+        auto found = _metamodels.find(folder + "/" + want);
+        if (found == _metamodels.end())
             continue;
-        CatArchive &cat = *archives_[found->second.archive];
+        CatArchive &cat = *_archives[found->second.archive];
         out = MdlModel{};
         if (!cat.read(cat.entries()[found->second.entry], data) && !parseMdl(data, out))
             return true;
@@ -57,19 +61,23 @@ std::vector<Animation> Metamodels::animations(const std::string &modelName, cons
     std::vector<Animation> out;
     if (mdl.animated.empty() || mdl.reference.size() != mdl.animated.size())
         return out;
-    std::string modelFolder, stem, ext;
+    std::string modelFolder;
+    std::string stem;
+    std::string ext;
     splitName(modelName, modelFolder, stem, ext);
     struct Set {
         std::string folder;
         std::map<std::string, EntryRef> frames; // by frame name, sorted
     };
     std::map<std::string, Set> sets;
-    for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto &entries = archives_[a]->entries();
+    for (size_t a = 0; a < _archives.size(); ++a) {
+        const auto &entries = _archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i) {
-            if (entries[i].tag != cattag::Arf)
+            if (entries[i].tag != cattag::kArf)
                 continue;
-            std::string folder, frame, fext;
+            std::string folder;
+            std::string frame;
+            std::string fext;
             splitName(entries[i].name, folder, frame, fext);
             std::string name = frame;
             while (!name.empty() && std::isdigit(static_cast<unsigned char>(name.back())))
@@ -88,7 +96,7 @@ std::vector<Animation> Metamodels::animations(const std::string &modelName, cons
     for (auto &[name, set] : sets) {
         Animation anim{name, {}, {}};
         for (const auto &[frame, ref] : set.frames) {
-            CatArchive &cat = *archives_[ref.archive];
+            CatArchive &cat = *_archives[ref.archive];
             std::vector<PartTransform> t;
             if (cat.read(cat.entries()[ref.entry], data) || parseArf(data, t) || t.size() != mdl.animated.size()) {
                 anim.frames.clear();
@@ -197,16 +205,19 @@ bool hasTurret(const MdlModel &mdl) {
 
 Pose turretPose(const GeoModel &geo, const MdlModel &mdl, float yaw, float pitch) {
     Pose pose(geo.parts.size());
-    const float c = std::cos(yaw), s = std::sin(yaw);
+    const float c = std::cos(yaw);
+    const float s = std::sin(yaw);
     const float rz[9] = {c, -s, 0, s, c, 0, 0, 0, 1};
     // Up for a gun along −y: a turn about x by −pitch.
-    const float cp = std::cos(-pitch), sp = std::sin(-pitch);
+    const float cp = std::cos(-pitch);
+    const float sp = std::sin(-pitch);
     const float rx[9] = {1, 0, 0, 0, cp, -sp, 0, sp, cp};
     for (size_t pi = 0; pi < geo.parts.size(); ++pi) {
         const uint32_t node = geo.parts[pi].node;
         std::string suffix;
         PartPose &p = pose[pi];
-        GeoModel::Vec3 axis{0, 0, 0}, elevate{0, 0, 0};
+        GeoModel::Vec3 axis{0, 0, 0};
+        GeoModel::Vec3 elevate{0, 0, 0};
         if (nodeRole(mdl, node, "turret", suffix)) {
             if (!pointAt(geo, mdl, "turret_axis" + suffix, axis))
                 continue;
@@ -228,7 +239,9 @@ Pose turretPose(const GeoModel &geo, const MdlModel &mdl, float yaw, float pitch
             static constexpr float kIdentity[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
             multiply(turns ? rz : kIdentity, raises ? rx : kIdentity, p.m);
             p.from = elevate;
-            const float dx = elevate.x - axis.x, dy = elevate.y - axis.y, dz = elevate.z - axis.z;
+            const float dx = elevate.x - axis.x;
+            const float dy = elevate.y - axis.y;
+            const float dz = elevate.z - axis.z;
             p.to = turns ? GeoModel::Vec3{axis.x + c * dx - s * dy, axis.y + s * dx + c * dy, axis.z + dz} : elevate;
         }
     }

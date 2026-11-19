@@ -10,7 +10,8 @@
 namespace reluva::net {
 
 bool Address::isLan() const {
-    const uint32_t a = ip >> 24, b = (ip >> 16) & 0xff;
+    const uint32_t a = ip >> 24;
+    const uint32_t b = (ip >> 16) & 0xff;
     return isLoopback() || a == 10 || (a == 172 && b >= 16 && b < 32) || (a == 192 && b == 168);
 }
 
