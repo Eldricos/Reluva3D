@@ -27,9 +27,10 @@ struct DlsSampleInfo {
     uint32_t loopLength = 0;
 };
 
+/** One of a collection's waves: a PCM sample its regions play. */
 struct DlsWave {
     int rate = 0;
-    std::vector<int16_t> samples; // mono, 16-bit (8-bit and stereo are converted)
+    std::vector<int16_t> samples; // mono, 16-bit (8-bit ones widened; of stereo, the first channel)
     DlsSampleInfo info;           // its own wsmp
     std::string name;
 };
@@ -43,6 +44,7 @@ struct DlsConnection {
     int32_t scale = 0;
 };
 
+/** The keys and velocities an instrument plays a wave for, and how. */
 struct DlsRegion {
     int keyLow = 0;
     int keyHigh = 127;
@@ -56,6 +58,7 @@ struct DlsRegion {
     std::vector<DlsConnection> articulation; // a region's own, over the instrument's
 };
 
+/** An instrument: its bank and program, its regions and its articulation. */
 struct DlsInstrument {
     uint32_t bank = 0;    // MIDI bank select (CC0 << 8 | CC32), and kDrums
     uint32_t program = 0; // 0-127
@@ -66,6 +69,7 @@ struct DlsInstrument {
     static constexpr uint32_t kDrums = 0x80000000; // in `bank`: a drum kit
 };
 
+/** A whole collection, as readDls reads it. */
 struct DlsCollection {
     std::vector<DlsInstrument> instruments;
     std::vector<DlsWave> waves;
@@ -78,6 +82,12 @@ struct DlsCollection {
     const DlsInstrument *find(uint32_t bank, uint32_t program) const;
 };
 
+/**
+ * Reads a DLS file. A region whose wave isn't in the collection is left
+ * out.
+ * @return An error if it isn't a DLS collection, has no wave pool or no
+ *         instruments, or a wave isn't PCM.
+ */
 Error readDls(const std::vector<uint8_t> &data, DlsCollection &out);
 
 } // namespace reluva::audio
