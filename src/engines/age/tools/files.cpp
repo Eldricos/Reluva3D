@@ -10,7 +10,10 @@
 #include "devtools/tool.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/formats/ar_archive.h"
+#include "engines/age/formats/pathset.h"
+#include "engines/age/formats/pvs.h"
 #include "engines/age/formats/instances.h"
+#include "engines/age/formats/bai.h"
 #include "engines/age/formats/pkg.h"
 #include "engines/age/formats/psdl.h"
 #include "engines/age/formats/texture.h"
@@ -347,6 +350,98 @@ int cmdPsdlInfo(int argc, char **argv) {
     return 0;
 }
 
+// Every texture, model, city, road map, placement list, path set and
+// visibility file of an install read, by kind: how many there are and how
+// many failed (each failure named). A file it can't read isn't an error
+// here: the release's own odd files (an older model version, stray names)
+// are kept in the game-files test's record, which a change shows up in.
+int cmdCheck(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool age check <game folder>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::age::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const std::string &w : warnings)
+        std::printf("warning: %s\n", w.c_str());
+    struct Kind {
+        int read = 0;
+        int failed = 0;
+    };
+    std::map<std::string, Kind> kinds;
+    auto ends = [](const std::string &n, const char *ext) {
+        const size_t e = std::strlen(ext);
+        return n.size() > e && n.compare(n.size() - e, e, ext) == 0;
+    };
+    std::vector<std::string> names = files.list();
+    std::sort(names.begin(), names.end());
+    for (const std::string &name : names) {
+        const std::string key = reluva::normalizeArchiveName(name);
+        std::string kind;
+        if (ends(key, ".tex"))
+            kind = "textures";
+        else if (ends(key, ".pkg"))
+            kind = "models";
+        else if (ends(key, ".psdl"))
+            kind = "cities";
+        else if (ends(key, ".bai"))
+            kind = "road maps";
+        else if (ends(key, ".inst"))
+            kind = "placements";
+        else if (ends(key, ".pathset"))
+            kind = "path sets";
+        else if (ends(key, ".cpvs"))
+            kind = "visibility";
+        else
+            continue;
+        std::vector<uint8_t> data;
+        reluva::Error err = files.read(name, data);
+        if (!err) {
+            if (kind == "textures") {
+                reluva::age::Tex tex;
+                err = reluva::age::decodeTex(data, tex);
+            } else if (kind == "models") {
+                reluva::age::Pkg pkg;
+                err = reluva::age::readPkg(data, pkg);
+            } else if (kind == "cities") {
+                reluva::age::Psdl psdl;
+                err = reluva::age::readPsdl(data, psdl);
+            } else if (kind == "road maps") {
+                reluva::age::AiRoadMap bai;
+                err = reluva::age::readBai(data, bai);
+            } else if (kind == "placements") {
+                std::vector<reluva::age::Instance> inst;
+                err = reluva::age::readInstances(data, inst);
+            } else if (kind == "path sets") {
+                std::vector<reluva::age::PathsetPath> paths;
+                err = reluva::age::readPathset(data, paths);
+            } else {
+                reluva::age::Pvs pvs;
+                err = reluva::age::readCpvs(data, pvs);
+            }
+        }
+        Kind &k = kinds[kind];
+        ++k.read;
+        if (err) {
+            ++k.failed;
+            std::printf("%s: %s\n", key.c_str(), err.message.c_str());
+        }
+    }
+    int read = 0;
+    int failed = 0;
+    for (const auto &[kind, k] : kinds) {
+        std::printf("%s: %d, %d failed\n", kind.c_str(), k.read, k.failed);
+        read += k.read;
+        failed += k.failed;
+    }
+    std::printf("files read: %d, %d failed\n", read, failed);
+    return 0;
+}
+
 const Commands kCommands("age",
                          {
                              {"ar-list", "<file.ar> [name filter]", "list a Midtown Madness 2 .ar archive's files", cmdArList},
@@ -356,6 +451,10 @@ const Commands kCommands("age",
                               "a Midtown Madness 2 texture's header, and the image as a TGA", cmdTexInfo},
                              {"pkg-info", "<file.pkg | game folder> [out.obj]", "what a Midtown Madness 2 model holds, as an OBJ",
                               cmdPkgInfo},
+                             {"check", "<game folder>",
+                              "read every texture, model, city, road map, placement list, path set and visibility "
+                              "file of a Midtown Madness 2 install",
+                              cmdCheck},
                              {"psdl-info", "<game folder> <city> [out.obj]", "what a Midtown Madness 2 city's .psdl holds",
                               cmdPsdlInfo},
                          });
