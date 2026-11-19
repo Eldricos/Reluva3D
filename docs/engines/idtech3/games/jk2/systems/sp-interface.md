@@ -361,7 +361,10 @@ yet: a console on the page.
 - **doom_comm:** `sp-run doom_comm -tour 5000 -set helpUsObi 1 -next`
   plays it to `maptransition doom_detention`, nothing new needed.
 - **doom_detention:** `sp-run doom_detention -tour 5000 -set helpUsObi 1
-  -next` plays it to `maptransition doom_shields`, nothing new needed. Things found on the
+  -next` plays it to `maptransition doom_shields`, nothing new needed.
+- **doom_shields:** `sp-run doom_shields -tour 5000 -set helpUsObi 1
+  -next` plays it to `maptransition yavin_swamp` (the movie `jk09` on
+  the way), nothing new needed. Things found on the
   way: a spot over an electrified floor (a `trigger_hurt` whose damage
   isn't stopped by god mode) kills a player dropped there, so the tour
   now counts a spot over a hurt with nothing solid between as in it, and
