@@ -14,28 +14,36 @@ namespace reluva::age {
 
 class CarSim;
 
-// The game's HUD pictures (texture/*.tga, made for a 640 x 480 screen),
-// where the game puts them (measured on its own screens, see
-// docs/engines/age/games/mm2/systems/hud.md): bottom left the speed (DIGITAC_*), the
-// gear (DIGITAC_GEAR_*), the revs (SPEED_TICKS) and the damage meter
-// (DAMAGE under DAMAGE_LABLE); the clock's digits (DIGI_*) top middle.
+/**
+ * The game's HUD pictures (texture/*.tga, made for a 640 x 480 screen),
+ * where the game puts them (measured on its own screens, see
+ * docs/engines/age/games/mm2/systems/hud.md): bottom left the speed (DIGITAC_*), the
+ * gear (DIGITAC_GEAR_*), the revs (SPEED_TICKS) and the damage meter
+ * (DAMAGE under DAMAGE_LABLE); the clock's digits (DIGI_*) top middle.
+ */
 class HudPictures {
 public:
-    // False if they aren't there.
+    /** False if they aren't there. */
     bool load(const SearchSet &files);
     bool loaded() const { return _ok; }
 
-    // The speed, gear, revs and damage (0..1), bottom left of a 640 x 480
-    // overlay.
+    /**
+     * The speed, gear, revs and damage (0..1), bottom left of a 640 x 480
+     * overlay.
+     */
     void gauges(Surface &overlay, const CarSim &sim, float damage) const;
-    // Minutes, seconds and hundredths ("01:02:19"), centred on `centre`.
+    /** Minutes, seconds and hundredths ("01:02:19"), centred on `centre`. */
     void clock(Surface &overlay, float seconds, int centre, int y) const;
-    // The CD player (CD_BG, 179 x 100) with its top left at (x, y): the
-    // play or stop button lit, `pressed` (-1 previous, 1 next, 0 none) lit
-    // too, `text` in its display. False without the pictures.
+    /**
+     * The CD player (CD_BG, 179 x 100) with its top left at (x, y): the
+     * play or stop button lit, `pressed` (-1 previous, 1 next, 0 none) lit
+     * too, `text` in its display. False without the pictures.
+     */
     bool cdPlayer(Surface &overlay, int x, int y, bool playing, int pressed, const std::string &text) const;
-    // A place (1-8; 9: the gold's $) from opp_icon, `size` across centred
-    // on (x, y), as over an opponent; false without the picture.
+    /**
+     * A place (1-8; 9: the gold's $) from opp_icon, `size` across centred
+     * on (x, y), as over an opponent; false without the picture.
+     */
     bool place(Surface &overlay, int place, int x, int y, int size) const;
 
 private:

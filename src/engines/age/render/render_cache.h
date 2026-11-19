@@ -28,24 +28,30 @@ public:
     TextureCache(const TextureCache &) = delete;
     TextureCache &operator=(const TextureCache &) = delete;
 
-    // A shader's texture by name (see loadTexture); 0 if it can't be
-    // found, which is remembered in missing(). `translucent` says whether
-    // any of its pixels aren't opaque.
-    // Animated ones (water: tune/<name>.movie, frames <name>-0001...)
-    // have all their frames loaded; get() gives the one named, or the first.
-    // A texture not found is 0, and listed as missing unless `optional`.
+    /**
+     * A shader's texture by name (see loadTexture); 0 if it can't be
+     * found, which is remembered in missing(). `translucent` says whether
+     * any of its pixels aren't opaque.
+     * Animated ones (water: tune/<name>.movie, frames <name>-0001...)
+     * have all their frames loaded; get() gives the one named, or the first.
+     * A texture not found is 0, and listed as missing unless `optional`.
+     */
     gfx::TextureId get(const std::string &name, bool &translucent, bool optional = false);
     void clear();
-    // A texture's size in pixels (after get()); false if it isn't loaded.
+    /** A texture's size in pixels (after get()); false if it isn't loaded. */
     bool size(const std::string &name, int &width, int &height) const;
     const std::vector<std::string> &missing() const { return _missing; }
-    // Textures loaded from now on are halved this many times (the Texture
-    // Quality), but for those flagged texflag::FullDetail and down to
-    // 16 pixels at least.
+    /**
+     * Textures loaded from now on are halved this many times (the Texture
+     * Quality), but for those flagged texflag::FullDetail and down to
+     * 16 pixels at least.
+     */
     void setHalvings(int n) { _halvings = n; }
 
-    // Seconds into the animations, and the frame a texture shows then (the
-    // texture itself if it isn't animated).
+    /**
+     * Seconds into the animations, and the frame a texture shows then (the
+     * texture itself if it isn't animated).
+     */
     void setTime(float seconds) { _time = seconds; }
     gfx::TextureId frame(gfx::TextureId id) const;
 
@@ -73,7 +79,7 @@ private:
     int _halvings = 0;
 };
 
-// One draw of a model: a group's triangles with its shader.
+/** One draw of a model: a group's triangles with its shader. */
 struct ModelDraw {
     uint32_t firstIndex = 0;
     uint32_t indexCount = 0;
@@ -102,21 +108,23 @@ struct ModelMesh {
     Vec3 high{};
 };
 
-// The levels of detail a model has, finest first ("H", "M", "L", "VL").
+/** The levels of detail a model has, finest first ("H", "M", "L", "VL"). */
 std::vector<std::string> modelLevels(const Pkg &pkg);
 
-// Uploads the meshes of one level of `pkg` (and those not named by level;
-// the lit parts, as isLightPart says, only if `lights`), each part placed
-// by its geometry/<model>_<part>.mtx unless `placeParts` is false (to
-// place them when drawing, as a car's wheels). `pkgName` is the file it
-// came from. `includePart`, if given, picks the parts.
+/**
+ * Uploads the meshes of one level of `pkg` (and those not named by level;
+ * the lit parts, as isLightPart says, only if `lights`), each part placed
+ * by its geometry/<model>_<part>.mtx unless `placeParts` is false (to
+ * place them when drawing, as a car's wheels). `pkgName` is the file it
+ * came from. `includePart`, if given, picks the parts.
+ */
 Error buildModelMesh(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
                      const std::string &pkgName, const Pkg &pkg, const std::string &level, uint32_t paintJob,
                      bool lights, ModelMesh &out,
                      const std::function<bool(const std::string &part)> &includePart = nullptr, bool placeParts = true);
 void destroyModelMesh(gfx::Renderer3D &renderer, ModelMesh &mesh);
 
-// The light a scene is drawn with.
+/** The light a scene is drawn with. */
 struct SceneLight {
     gfx::Vec3 ambient{0.55f, 0.55f, 0.55f};
     gfx::Vec3 directed{0.6f, 0.6f, 0.6f};
@@ -130,25 +138,33 @@ struct SceneLight {
     float fogEnd = 0;
 };
 
-// The light's fog on a draw: mixed in towards the fog colour, or (for an
-// additive draw: glows, flares) faded out.
+/**
+ * The light's fog on a draw: mixed in towards the fog colour, or (for an
+ * additive draw: glows, flares) faded out.
+ */
 void applyFog(gfx::DrawCall &call, const SceneLight &light, bool additive = false);
 
-// Draws a model's opaque draws (`translucent` false) or its translucent
-// and glowing ones (true), placed by `model`, in the light's fog.
-// With `animate`, animated textures show their current frame.
+/**
+ * Draws a model's opaque draws (`translucent` false) or its translucent
+ * and glowing ones (true), placed by `model`, in the light's fog.
+ * With `animate`, animated textures show their current frame.
+ */
 void drawModelMesh(gfx::Renderer3D &renderer, const ModelMesh &mesh, const gfx::Mat4 &model, const SceneLight &light,
                    bool translucent, const TextureCache *animate = nullptr);
 
-// A car's reflections: the sphere map `map` (texture/refl_dc.tga in the
-// cities, refl_showroom.tga in the garage) added over its shiny draws (a
-// shader's shininess above 0), `strength` times their shininess, drawn
-// after them where they are.
+/**
+ * A car's reflections: the sphere map `map` (texture/refl_dc.tga in the
+ * cities, refl_showroom.tga in the garage) added over its shiny draws (a
+ * shader's shininess above 0), `strength` times their shininess, drawn
+ * after them where they are.
+ */
 void drawModelReflection(gfx::Renderer3D &renderer, const ModelMesh &mesh, const gfx::Mat4 &model,
                          const SceneLight &light, gfx::TextureId map, float strength);
 
-// The planes of a view (left, right, bottom, top, near), to leave out
-// what's outside it.
+/**
+ * The planes of a view (left, right, bottom, top, near), to leave out
+ * what's outside it.
+ */
 class ViewFrustum {
 public:
     explicit ViewFrustum(const gfx::Mat4 &viewProj);
@@ -158,8 +174,10 @@ private:
     std::array<std::array<float, 4>, 5> _planes{};
 };
 
-// Models by name for a city, every level uploaded the first time it's
-// asked for (for each paint job asked for), with no lit parts.
+/**
+ * Models by name for a city, every level uploaded the first time it's
+ * asked for (for each paint job asked for), with no lit parts.
+ */
 class ModelCache {
 public:
     struct Model {
@@ -177,13 +195,17 @@ public:
     ModelCache(const ModelCache &) = delete;
     ModelCache &operator=(const ModelCache &) = delete;
 
-    // geometry/<name>.pkg
+    /** geometry/<name>.pkg */
     const Model &get(const std::string &name, uint32_t paintJob = 0);
-    // One of its lit parts (a traffic light's REDGLOWDAY_H, a car's
-    // HLIGHT_L...), placed by its .mtx; empty if it hasn't one.
+    /**
+     * One of its lit parts (a traffic light's REDGLOWDAY_H, a car's
+     * HLIGHT_L...), placed by its .mtx; empty if it hasn't one.
+     */
     const ModelMesh &part(const std::string &name, const std::string &part, uint32_t paintJob = 0);
-    // A part's .mtx origin (where a car's HEADLIGHT0 square is); false
-    // if it hasn't one.
+    /**
+     * A part's .mtx origin (where a car's HEADLIGHT0 square is); false
+     * if it hasn't one.
+     */
     bool partOrigin(const std::string &name, const std::string &part, Vec3 &out);
     void clear();
 
@@ -196,15 +218,17 @@ private:
     std::map<std::string, std::pair<bool, Vec3>> _origins;
 };
 
-// Glows drawn as soft discs facing the camera (texture/lt_glow.tga), as
-// the game's lamps shine: headlights, sirens.
+/**
+ * Glows drawn as soft discs facing the camera (texture/lt_glow.tga), as
+ * the game's lamps shine: headlights, sirens.
+ */
 class FlareDrawer {
 public:
     explicit FlareDrawer(gfx::Renderer3D &renderer, TextureCache &textures);
     ~FlareDrawer();
     FlareDrawer(const FlareDrawer &) = delete;
     FlareDrawer &operator=(const FlareDrawer &) = delete;
-    // `size` metres across, `color` 1 = full, added to what's behind.
+    /** `size` metres across, `color` 1 = full, added to what's behind. */
     void draw(const Vec3 &at, float size, const std::array<float, 3> &color, const Vec3 &eye) const;
 
 private:

@@ -15,10 +15,12 @@
 
 namespace reluva::age {
 
-// What the city's surfaces are made of, for driving on them
-// (city/materials.mtl: "mtl grass { elasticity: ... }" blocks), and which
-// texture is which (city/materials.csv: "texture,physics"). See
-// docs/engines/age/games/mm2/systems/collisions.md.
+/**
+ * What the city's surfaces are made of, for driving on them
+ * (city/materials.mtl: "mtl grass { elasticity: ... }" blocks), and which
+ * texture is which (city/materials.csv: "texture,physics"). See
+ * docs/engines/age/games/mm2/systems/collisions.md.
+ */
 struct PhysicsMaterial {
     std::string name;
     float elasticity = 0.9f;
@@ -36,16 +38,20 @@ struct PhysicsMaterial {
 
 class PhysicsMaterials {
 public:
-    // Both files; without them every surface is the default.
+    /** Both files; without them every surface is the default. */
     Error load(const SearchSet &files);
     Error parse(std::string_view mtl, std::string_view csv);
 
-    // The material by name (default if there's none such), and a texture's
-    // (by name, with or without an animation frame: "s_thames-0009").
+    /**
+     * The material by name (default if there's none such), and a texture's
+     * (by name, with or without an animation frame: "s_thames-0009").
+     */
     const PhysicsMaterial &byName(const std::string &name) const;
     const PhysicsMaterial &forTexture(const std::string &texture) const;
-    // As a collision surface: friction relative to the default material's
-    // (so roads keep CollisionSurface's), its sound, drag and depth.
+    /**
+     * As a collision surface: friction relative to the default material's
+     * (so roads keep CollisionSurface's), its sound, drag and depth.
+     */
     CollisionSurface surface(const PhysicsMaterial &m) const;
 
 private:

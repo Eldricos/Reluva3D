@@ -20,9 +20,11 @@ namespace reluva::age {
 
 struct TuneNode;
 
-// How particles are made: a birth rule, as a .vehCarDamage, the props'
-// .dgBangerData (its BirthRule block) and tune/effects/*.asBirthRule have
-// them.
+/**
+ * How particles are made: a birth rule, as a .vehCarDamage, the props'
+ * .dgBangerData (its BirthRule block) and tune/effects/*.asBirthRule have
+ * them.
+ */
 struct BirthRule {
     Vec3 positionVar{}; // metres either way
     // metres a second, and how far either way
@@ -48,10 +50,10 @@ struct BirthRule {
     int frameEnd = 0;
 };
 using SmokeRule = BirthRule;
-// From a rule's block (the fields above; the others aren't used).
+/** From a rule's block (the fields above; the others aren't used). */
 BirthRule parseBirthRule(const TuneNode &n);
 
-// tune/vehicle/<car>.vehCarDamage: see docs/engines/age/games/mm2/systems/damage.md.
+/** tune/vehicle/<car>.vehCarDamage: see docs/engines/age/games/mm2/systems/damage.md. */
 struct DamageSetup {
     float maxDamage = 300000;     // wrecked
     float medDamage = 150000;     // smoking
@@ -66,16 +68,16 @@ struct DamageSetup {
 Error parseDamageSetup(std::string_view text, DamageSetup &out);
 Error loadDamageSetup(const SearchSet &files, const std::string &car, DamageSetup &out);
 
-// A car's damage: knocks over the threshold add what they're over it.
+/** A car's damage: knocks over the threshold add what they're over it. */
 class CarDamage {
 public:
     void reset() { _damage = 0; }
     void set(float damage) { _damage = damage; } // as another player's machine says
-    // An impulse (kg m/s); what it added.
+    /** An impulse (kg m/s); what it added. */
     float knock(const DamageSetup &setup, float impulse);
     void update(const DamageSetup &setup, float dt);
     float damage() const { return _damage; }
-    // 0..1 of the way to wrecked.
+    /** 0..1 of the way to wrecked. */
     float fraction(const DamageSetup &setup) const {
         return setup.maxDamage > 0 ? std::min(1.0f, _damage / setup.maxDamage) : 0;
     }
@@ -88,7 +90,7 @@ private:
 
 class SmokePuffs;
 
-// A driven car's damage, as the Drive page and the race screen keep it.
+/** A driven car's damage, as the Drive page and the race screen keep it. */
 struct CarWear {
     DamageSetup setup;
     CarDamage damage;
@@ -98,21 +100,25 @@ struct CarWear {
     uint8_t dents = 0;
     std::array<Vec3, 4> recentDents{};
 
-    // Its setup (the defaults without one), mended.
+    /** Its setup (the defaults without one), mended. */
     void load(const SearchSet &files, const std::string &car, CarActor &actor);
     void mend(CarActor &actor);
-    // After the car's step: its knock (sim.impact) damages it and dents the
-    // body there; smoking, it puffs.
+    /**
+     * After the car's step: its knock (sim.impact) damages it and dents the
+     * body there; smoking, it puffs.
+     */
     void update(float dt, CarActor &actor, SmokePuffs *smoke);
-    // Its smoke alone, at the damage it has (another player's car).
+    /** Its smoke alone, at the damage it has (another player's car). */
     void puff(float dt, const CarActor &actor, SmokePuffs *smoke);
     float fraction() const { return damage.fraction(setup); }
     bool wrecked() const { return damage.wrecked(setup); }
 };
 
-// Particles: billboards of one of the game's particle textures
-// (texture/fxpt<n>), rising, falling and fading as their rules say. The
-// cars' smoke is texture/fxpt8's (its four frames, two by two).
+/**
+ * Particles: billboards of one of the game's particle textures
+ * (texture/fxpt<n>), rising, falling and fading as their rules say. The
+ * cars' smoke is texture/fxpt8's (its four frames, two by two).
+ */
 class SmokePuffs {
 public:
     SmokePuffs(gfx::Renderer3D &renderer, TextureCache &textures);
@@ -120,22 +126,28 @@ public:
     SmokePuffs(const SmokePuffs &) = delete;
     SmokePuffs &operator=(const SmokePuffs &) = delete;
 
-    // A texture and how many frames across it (and down): 2 for the game's
-    // 128-pixel sheets of four, else 1.
+    /**
+     * A texture and how many frames across it (and down): 2 for the game's
+     * 128-pixel sheets of four, else 1.
+     */
     struct Look {
         gfx::TextureId texture = 0;
         int grid = 1;
     };
     Look look(const std::string &texture);
 
-    // One particle (the smoke's look by default).
+    /** One particle (the smoke's look by default). */
     void emit(const BirthRule &rule, const Vec3 &at, const Vec3 &carVelocity, const Look *look = nullptr);
-    // A rule's InitialBlast at once (at least one), then its SpewRate for
-    // its SpewTimeLimit.
+    /**
+     * A rule's InitialBlast at once (at least one), then its SpewRate for
+     * its SpewTimeLimit.
+     */
     void burst(const BirthRule &rule, const Vec3 &at, const Vec3 &velocity, const Look &look);
-    // What a car's wheels throw up from what they're on (the surfaces'
-    // particles): tune/effects/*.asBirthRule, by Reluva's reading of the
-    // materials' effect numbers (see docs/engines/age/games/mm2/systems/damage.md).
+    /**
+     * What a car's wheels throw up from what they're on (the surfaces'
+     * particles): tune/effects/*.asBirthRule, by Reluva's reading of the
+     * materials' effect numbers (see docs/engines/age/games/mm2/systems/damage.md).
+     */
     void loadWheelEffects(const SearchSet &files);
     void wheels(float dt, const CarSim &car);
     void update(float dt);

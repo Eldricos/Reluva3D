@@ -57,8 +57,10 @@ constexpr uint8_t kRoad = 0x8;      // part of a road between junctions
 constexpr uint8_t kJunction = 0x10; // a junction (as the .bai road map's junctions)
 } // namespace psdlblock
 
-// A road between two junctions, from the data after the city's bounds:
-// one for each road of the .bai road map, in the same order.
+/**
+ * A road between two junctions, from the data after the city's bounds:
+ * one for each road of the .bai road map, in the same order.
+ */
 struct PsdlRoad {
     // meanings not known
     uint16_t flags = 0;
@@ -82,14 +84,16 @@ struct Psdl {
     float radius = 0;
     std::vector<PsdlRoad> roads;
 
-    // The texture an index names, or "" for none.
+    /** The texture an index names, or "" for none. */
     std::string texture(uint32_t index) const;
 };
 
 Error readPsdl(const std::vector<uint8_t> &data, Psdl &out);
 
-// Each attribute's length in words after its header (and count), by the
-// rules in psdl.md: how many vertices and values it takes.
+/**
+ * Each attribute's length in words after its header (and count), by the
+ * rules in psdl.md: how many vertices and values it takes.
+ */
 size_t psdlAttributeLength(uint8_t type, uint16_t count);
 
 } // namespace reluva::age

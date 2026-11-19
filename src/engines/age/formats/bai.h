@@ -17,8 +17,10 @@ namespace reluva::age {
 // per point along the road, and the junctions that join them. See
 // docs/engines/age/games/mm2/formats/bai.md.
 
-// One side of a road: side 0 is on the left going from the road's first
-// point to its last, side 1 on the right.
+/**
+ * One side of a road: side 0 is on the left going from the road's first
+ * point to its last, side 1 on the right.
+ */
 struct AiRoadSide {
     // The lanes' middle lines, across the road; a one-way road has them all
     // on side 1 (and none on side 0). Each runs the way traffic keeping

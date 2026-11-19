@@ -29,12 +29,12 @@ constexpr int kMaxNetPlayers = 8;
 constexpr uint8_t kNetVersion = 2;
 constexpr uint8_t kNoPlayer = 255;
 
-// The Host Race Menu's events and its Cops & Robbers choices.
+/** The Host Race Menu's events and its Cops & Robbers choices. */
 enum class NetMode : uint8_t { kCruise, kBlitz, kCheckpoint, kCircuit, kCopsRobbers };
 enum class GoldMode : uint8_t { kFreeForAll, kCopsAndRobbers, kRobberTeams };
 enum class GoldLimit : uint8_t { kNone, kTime, kPoints };
 
-// What the host chose (the Host Race Menu and Host Options).
+/** What the host chose (the Host Race Menu and Host Options). */
 struct NetSettings {
     NetMode mode = NetMode::kCruise;
     uint8_t city = 0;
@@ -74,7 +74,7 @@ struct NetChatLine {
     std::string text;
 };
 
-// A car's state as its driver sends it, many times a second.
+/** A car's state as its driver sends it, many times a second. */
 struct NetCarState {
     float clock = 0; // the race clock when it was so
     Vec3 position{};
@@ -97,15 +97,17 @@ struct NetCarState {
 };
 enum : uint8_t { kLampHead = 1, kLampBrake = 2, kLampReverse = 4, kLampSiren = 8 };
 
-// A rotation as a quaternion and back.
+/** A rotation as a quaternion and back. */
 std::array<float, 4> quaternionOf(const Mat3 &m);
 Mat3 matrixOfQuaternion(const std::array<float, 4> &q);
-// A car's state at `clock` from the ones received (in clock order):
-// between the two either side, or carried on from the last for up to
-// half a second. False if there's nothing to go on.
+/**
+ * A car's state at `clock` from the ones received (in clock order):
+ * between the two either side, or carried on from the last for up to
+ * half a second. False if there's nothing to go on.
+ */
 bool carStateAt(const std::deque<NetCarState> &states, float clock, NetCarState &out);
 
-// Something that happened, for the menus and the game to say.
+/** Something that happened, for the menus and the game to say. */
 struct NetNotice {
     enum class Kind {
         kJoined,      // `name` has joined
@@ -124,23 +126,25 @@ struct NetNotice {
 };
 enum : int { kRefusedVersion = 1, kRefusedFull = 2, kRefusedPlaying = 3, kRefusedPassword = 4, kRefusedTimeout = 5 };
 
-// A session as the host or a player sees it.
+/** A session as the host or a player sees it. */
 class NetSession {
 public:
     enum class Phase : uint8_t { kLobby, kLoading, kPlaying };
 
-    // Hosts a session on `socket` (bound to the port players reach).
+    /** Hosts a session on `socket` (bound to the port players reach). */
     static std::unique_ptr<NetSession> host(std::unique_ptr<net::UdpSocket> socket, const std::string &name,
                                             const NetSettings &settings, const std::string &password = {});
-    // Joins the host at `address`; until it answers, joining() is true.
+    /** Joins the host at `address`; until it answers, joining() is true. */
     static std::unique_ptr<NetSession> join(std::unique_ptr<net::UdpSocket> socket, const net::Address &address,
                                             const std::string &name, const std::string &password = {});
     ~NetSession();
 
-    // Reads what's arrived and sends what's due; call every frame.
+    /** Reads what's arrived and sends what's due; call every frame. */
     void update(uint64_t nowMs);
-    // Says goodbye. The host hands the session to the player who's been
-    // in it longest, if there are two players left to play on.
+    /**
+     * Says goodbye. The host hands the session to the player who's been
+     * in it longest, if there are two players left to play on.
+     */
     void leave();
 
     bool isHost() const { return _host; }
@@ -149,7 +153,7 @@ public:
     bool closed() const { return _closed; } // left, refused, ejected or the host gone
     uint8_t myId() const { return _myId; }
     Phase phase() const { return _phase; }
-    // Each start begins a new round; the game it starts goes by its seed.
+    /** Each start begins a new round; the game it starts goes by its seed. */
     uint32_t round() const { return _round; }
     uint32_t seed() const { return _seed; }
     const NetSettings &settings() const { return _settings; }
@@ -160,39 +164,47 @@ public:
     std::vector<NetNotice> takeNotices();
     const std::string &sessionName() const { return _sessionName; }
 
-    // The lobby. Any player: their car, team, readiness and chat.
+    /** The lobby. Any player: their car, team, readiness and chat. */
     void setCar(const std::string &car, uint8_t paint);
     void setTeam(uint8_t team);
     void setReady(bool ready);
     void say(const std::string &text);
-    // The host: the settings, ejecting a player, starting and ending.
+    /** The host: the settings, ejecting a player, starting and ending. */
     void setSettings(const NetSettings &settings);
     void eject(uint8_t id);
-    // The host's computer players: always ready, sides evened up like
-    // anyone's; kNoPlayer if the session's full.
+    /**
+     * The host's computer players: always ready, sides evened up like
+     * anyone's; kNoPlayer if the session's full.
+     */
     uint8_t addBot(const std::string &name, const std::string &car);
     void removeBots();
     bool everyoneReady() const; // every player but the host
     Error start(uint64_t nowMs);
     void backToLobby();
 
-    // The game. Each says when it's loaded; the host then counts down
-    // three seconds for everyone: clock() is the race clock (negative in
-    // the countdown) or 0 until then.
+    /**
+     * The game. Each says when it's loaded; the host then counts down
+     * three seconds for everyone: clock() is the race clock (negative in
+     * the countdown) or 0 until then.
+     */
     void setLoaded();
     bool counting() const { return _goMs != 0 || _clockKnown; }
     float clock(uint64_t nowMs) const;
-    // Our car, sent on to the others.
+    /** Our car, sent on to the others. */
     void sendCar(const NetCarState &state);
-    // The host: a computer player's car, sent on as anyone's.
+    /** The host: a computer player's car, sent on as anyone's. */
     void sendBotCar(uint8_t id, const NetCarState &state);
-    // The others' cars, by player, oldest first.
+    /** The others' cars, by player, oldest first. */
     const std::map<uint8_t, std::deque<NetCarState>> &cars() const { return _cars; }
-    // The host's checks: how many of a player's car states it turned down
-    // (moving faster than a car can, or stamped ahead of the clock).
+    /**
+     * The host's checks: how many of a player's car states it turned down
+     * (moving faster than a car can, or stamped ahead of the clock).
+     */
     int rejected(uint8_t id) const;
-    // The host's word on the game (the gold, the scores; the race over),
-    // passed to everyone as it is.
+    /**
+     * The host's word on the game (the gold, the scores; the race over),
+     * passed to everyone as it is.
+     */
     void setGameState(const std::vector<uint8_t> &state, bool over);
     const std::vector<uint8_t> &gameState() const { return _gameState; }
     bool over() const { return _over; }
@@ -278,8 +290,10 @@ private:
     uint64_t _lastCarsMs = 0;
 };
 
-// Sessions found on the local network (a broadcast to kNetPort), or at
-// an address asked after.
+/**
+ * Sessions found on the local network (a broadcast to kNetPort), or at
+ * an address asked after.
+ */
 class NetBrowser {
 public:
     struct Found {
@@ -296,9 +310,9 @@ public:
         uint64_t heardMs = 0;
     };
     explicit NetBrowser(std::unique_ptr<net::UdpSocket> socket) : _socket(std::move(socket)) {}
-    // Where else to broadcast (System::broadcastAddresses).
+    /** Where else to broadcast (System::broadcastAddresses). */
     void setBroadcasts(std::vector<uint32_t> addresses) { _broadcasts = std::move(addresses); }
-    // Asks again every second; forgets what's stopped answering.
+    /** Asks again every second; forgets what's stopped answering. */
     void update(uint64_t nowMs);
     void ask(const net::Address &address) { _asked.push_back(address); }
     const std::vector<Found> &sessions() const { return _found; }

@@ -21,8 +21,10 @@ namespace reluva::age {
 
 struct CarInfo;
 
-// A control of the game's menus (tune/widget.csv: menu, its id, the
-// control's name, its id, x, y, width, height and a description).
+/**
+ * A control of the game's menus (tune/widget.csv: menu, its id, the
+ * control's name, its id, x, y, width, height and a description).
+ */
 struct Widget {
     std::string menu;
     std::string name;
@@ -34,8 +36,10 @@ struct Widget {
 };
 Error parseWidgets(const std::string &csv, std::vector<Widget> &out);
 
-// The menus' pictures: jpg/<name>.jpg backgrounds and texture/<name>
-// buttons (stacks of 4 or 5 states, one above another), read once.
+/**
+ * The menus' pictures: jpg/<name>.jpg backgrounds and texture/<name>
+ * buttons (stacks of 4 or 5 states, one above another), read once.
+ */
 class MenuPictures {
 public:
     explicit MenuPictures(const SearchSet &files) : _files(files) {}
@@ -47,22 +51,28 @@ private:
     std::map<std::string, std::unique_ptr<image::Image>> _cache;
 };
 
-// Draws `im` (scaled to w x h when given) over the overlay, blending by
-// its alpha; or one state of a stacked button.
+/**
+ * Draws `im` (scaled to w x h when given) over the overlay, blending by
+ * its alpha; or one state of a stacked button.
+ */
 void drawPicture(Surface &overlay, const image::Image &im, int x, int y, int w = 0, int h = 0);
 void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int states, int state);
 
-// The game's menus as Reluva draws them: the main menu, the races, the
-// Crash Course and the garage, laid out by widget.csv on the jpg/
-// backgrounds. See docs/engines/age/games/mm2/systems/menus.md.
+/**
+ * The game's menus as Reluva draws them: the main menu, the races, the
+ * Crash Course and the garage, laid out by widget.csv on the jpg/
+ * backgrounds. See docs/engines/age/games/mm2/systems/menus.md.
+ */
 class FrontEnd {
 public:
-    // Splash: jpg/splash.jpg, shown first in place of the opening movie
-    // (logos.avi) when it can't be played (see RaceScreen::movie_).
-    // CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
-    // car alone, the whole screen.
+    /**
+     * Splash: jpg/splash.jpg, shown first in place of the opening movie
+     * (logos.avi) when it can't be played (see RaceScreen::movie_).
+     * CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
+     * car alone, the whole screen.
+     */
     enum class Screen { kMain, kRaces, kCrashCourse, kGarage, kSplash, kCrashIntro, kShowcase };
-    // What the menus have chosen.
+    /** What the menus have chosen. */
     struct Choice {
         int city = 0;
         RaceKind kind = RaceKind::kBlitz;
@@ -71,9 +81,11 @@ public:
         int car = 0;
         int paintJob = 0;
         bool manual = false;
-        // The race's conditions: as its file has them, or changed on the
-        // race menu (LAPS, OPPONENTS, and CHANGE: the game's Change Race
-        // Options). A race run changed isn't recorded.
+        /**
+         * The race's conditions: as its file has them, or changed on the
+         * race menu (LAPS, OPPONENTS, and CHANGE: the game's Change Race
+         * Options). A race run changed isn't recorded.
+         */
         struct Conditions {
             int laps = 1;
             int opponents = 0;
@@ -88,13 +100,15 @@ public:
         Conditions conditions;
         bool changed = false;
     };
-    // The chosen race's conditions as its file has them.
+    /** The chosen race's conditions as its file has them. */
     Choice::Conditions raceConditions() const;
-    // After the conditions are changed (the dialog).
+    /** After the conditions are changed (the dialog). */
     void conditionsChanged() { _choice.changed = !(_choice.conditions == raceConditions()); }
     int mostOpponents() const;
-    // Whether the race's conditions may be changed (the game's help: once
-    // placed in it; a cruise's always).
+    /**
+     * Whether the race's conditions may be changed (the game's help: once
+     * placed in it; a cruise's always).
+     */
     bool conditionsOpen() const;
     enum class Action {
         kNone,
@@ -115,7 +129,7 @@ public:
         kHelp,          // the navigation bar's Help
         kMinimise,      // and its Minimise
     };
-    // The drivers, for the main menu's SELECT DRIVER (Left/Right chooses).
+    /** The drivers, for the main menu's SELECT DRIVER (Left/Right chooses). */
     void setDrivers(DriverRoster *roster) { _roster = roster; }
 
     FrontEnd(const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
@@ -126,24 +140,28 @@ public:
     void draw(Surface &overlay);
 
     Screen screen() const { return _screen; }
-    // Past the splash to the main menu (after the opening movie).
+    /** Past the splash to the main menu (after the opening movie). */
     void leaveSplash() {
         if (_screen == Screen::kSplash)
             go(Screen::kMain);
     }
-    // Back from a race: to the screen it was chosen on (refreshed, for
-    // what's been unlocked).
+    /**
+     * Back from a race: to the screen it was chosen on (refreshed, for
+     * what's been unlocked).
+     */
     void afterRace() { go(_afterGarage); }
-    // The choice looked at again (another driver's record, say).
+    /** The choice looked at again (another driver's record, say). */
     void refreshChoice() { refresh(); }
     Choice &choice() { return _choice; }
-    // The control with the focus (for the menus' voices).
+    /** The control with the focus (for the menus' voices). */
     std::string focusedWidget() const {
         const auto list = items();
         return _focus >= 0 && size_t(_focus) < list.size() ? list[size_t(_focus)].widget : std::string();
     }
-    // Where the garage shows the car (in the overlay's pixels), to draw it
-    // there in 3D; empty off the garage.
+    /**
+     * Where the garage shows the car (in the overlay's pixels), to draw it
+     * there in 3D; empty off the garage.
+     */
     struct Rect {
         int x = 0;
         int y = 0;
@@ -155,8 +173,10 @@ public:
     bool openAll = false;
     // Whether the main menu's Multiplayer button leads anywhere.
     bool multiplayer = false;
-    // The garage alone (for the multiplayer lobby's car): Esc goes back
-    // to the main menu, GO DRIVE starts.
+    /**
+     * The garage alone (for the multiplayer lobby's car): Esc goes back
+     * to the main menu, GO DRIVE starts.
+     */
     void showGarage() {
         _afterGarage = Screen::kMain;
         _screen = Screen::kGarage;

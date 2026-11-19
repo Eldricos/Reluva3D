@@ -20,17 +20,21 @@
 
 namespace reluva::age {
 
-// Something on the road that traffic slows for and keeps clear of: the
-// player, opponents, police.
+/**
+ * Something on the road that traffic slows for and keeps clear of: the
+ * player, opponents, police.
+ */
 struct RoadUser {
     Vec3 position{};
     Vec3 velocity{};
     bool solid = false; // never driven through, even after a long wait (an open bridge)
 };
 
-// A lane of the road map in the direction it's driven: side 1's lanes run
-// from a road's first point to its last where traffic keeps to the right,
-// side 0's the other way (and the other way round where it keeps left).
+/**
+ * A lane of the road map in the direction it's driven: side 1's lanes run
+ * from a road's first point to its last where traffic keeps to the right,
+ * side 0's the other way (and the other way round where it keeps left).
+ */
 struct TrafficLane {
     uint32_t road = 0;
     int side = 0;
@@ -52,14 +56,16 @@ struct TrafficLane {
     float length() const { return at.empty() ? 0 : at.back(); }
 };
 
-// The lanes of a road map and which leave each junction.
+/** The lanes of a road map and which leave each junction. */
 class TrafficNetwork {
 public:
     void build(const AiRoadMap &map, const AiMapSettings &settings);
     const std::vector<TrafficLane> &lanes() const { return _lanes; }
     const std::vector<uint32_t> &leaving(uint32_t junction) const { return _leaving[junction]; }
-    // The ways on from a lane's end: open lanes onto other roads, else
-    // any onto other roads, else any (back along the same road).
+    /**
+     * The ways on from a lane's end: open lanes onto other roads, else
+     * any onto other roads, else any (back along the same road).
+     */
     std::vector<uint32_t> waysOn(int lane) const;
     size_t roadsAt(uint32_t junction) const { return _roadsAt[junction]; }
     size_t junctions() const { return _leaving.size(); }
@@ -70,64 +76,80 @@ private:
     std::vector<size_t> _roadsAt;
 };
 
-// Where a path is `s` along it, and which way it's heading there.
+/** Where a path is `s` along it, and which way it's heading there. */
 Vec3 pointAlong(const std::vector<Vec3> &points, const std::vector<float> &at, float s, Vec3 *heading = nullptr);
 
-// The game's ambient cars (va_*): picked by the aimap's shares, driven
-// along the lanes through the junctions, stopping for red lights and giving
-// way, taking turns at each, slowing for what's ahead and changing lanes
-// round it. Knocked by a driven car they slide to a stop and stay. Their
-// lamps show: brake lights, indicators, and headlights at night. And the
-// city's parked cars, which stay where they are until knocked.
-// Reluva's own driving (the game's is in its encrypted program); see
-// docs/engines/age/games/mm2/systems/traffic.md.
+/**
+ * The game's ambient cars (va_*): picked by the aimap's shares, driven
+ * along the lanes through the junctions, stopping for red lights and giving
+ * way, taking turns at each, slowing for what's ahead and changing lanes
+ * round it. Knocked by a driven car they slide to a stop and stay. Their
+ * lamps show: brake lights, indicators, and headlights at night. And the
+ * city's parked cars, which stay where they are until knocked.
+ * Reluva's own driving (the game's is in its encrypted program); see
+ * docs/engines/age/games/mm2/systems/traffic.md.
+ */
 class Traffic {
 public:
-    // tune/vehicle/<model>.aiVehicleData for each kind the aimap lists.
+    /** tune/vehicle/<model>.aiVehicleData for each kind the aimap lists. */
     void setup(const SearchSet &files, const AiRoadMap &map, const AiMapSettings &settings, uint32_t seed);
     void clear() {
         _cars.clear();
         _parked = 0;
     }
-    // How full the lanes about the focus are: 1 a lane at capacity, a car
-    // every kLaneAtFull metres (about 2,000 cars an hour at the city's
-    // 15 m/s); the aimaps' [Density] and the races' Ambient. Never more
-    // than carLimit() cars.
+    /**
+     * How full the lanes about the focus are: 1 a lane at capacity, a car
+     * every kLaneAtFull metres (about 2,000 cars an hour at the city's
+     * 15 m/s); the aimaps' [Density] and the races' Ambient. Never more
+     * than carLimit() cars.
+     */
     void setDensity(float density) { _density = density; }
     float density() const { return _density; }
-    // The lights they stop for (none: every junction is taken in turns).
+    /** The lights they stop for (none: every junction is taken in turns). */
     void setLights(const TrafficLights *lights) { _lights = lights; }
     void setLaneChanges(bool on) { _laneChanges = on; }
-    // Cars parked along `lines` (race/<city>/<city>_parkedcar.pathset): nose
-    // to tail beside a road, facing from a line's first point to its last,
-    // else side by side; a line's own model, else one of `models` (none
-    // there: the aimap's ambient cars up to 3 tonnes). Replaces those parked
-    // before; after setup().
+    /**
+     * Cars parked along `lines` (race/<city>/<city>_parkedcar.pathset): nose
+     * to tail beside a road, facing from a line's first point to its last,
+     * else side by side; a line's own model, else one of `models` (none
+     * there: the aimap's ambient cars up to 3 tonnes). Replaces those parked
+     * before; after setup().
+     */
     void park(const SearchSet &files, const std::vector<PathsetPath> &lines, const std::vector<std::string> &models);
 
-    // Moves the cars, starting new ones about `focus` (the player) and
-    // leaving out those far from it. `fill` starts them anywhere round it
-    // rather than only out of sight (a new race, a new city).
+    /**
+     * Moves the cars, starting new ones about `focus` (the player) and
+     * leaving out those far from it. `fill` starts them anywhere round it
+     * rather than only out of sight (a new race, a new city).
+     */
     void update(float dt, const Vec3 &focus, const std::vector<RoadUser> &others, const CollisionWorld &world,
                 bool fill = false);
-    // A driven car bumping into the traffic. Returns the hardest knock
-    // (change of speed, m/s), 0 if none.
+    /**
+     * A driven car bumping into the traffic. Returns the hardest knock
+     * (change of speed, m/s), 0 if none.
+     */
     float collide(CarSim &car);
-    // The same for any body: `spheres` of `radius` on a body of `mass`
-    // (moved and changed as it's pushed back; a very heavy one, a train,
-    // just pushes).
+    /**
+     * The same for any body: `spheres` of `radius` on a body of `mass`
+     * (moved and changed as it's pushed back; a very heavy one, a train,
+     * just pushes).
+     */
     float collide(const std::vector<Vec3> &spheres, float radius, float mass, Vec3 &position, Vec3 &velocity);
-    // `night`: their headlights and tail lights on, and flares at the
-    // headlights (with `flares`).
+    /**
+     * `night`: their headlights and tail lights on, and flares at the
+     * headlights (with `flares`).
+     */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye, bool night = false, const FlareDrawer *flares = nullptr);
-    // Where their headlights light the road ahead, for those within
-    // `distance` of `eye`.
+    /**
+     * Where their headlights light the road ahead, for those within
+     * `distance` of `eye`.
+     */
     void headlightPools(std::vector<gfx::DynamicLight> &out, const Vec3 &eye, float distance = 120) const;
 
     size_t count() const { return _cars.size() - _parked; } // those driving
     size_t parked() const { return _parked; }
-    // Where the parked cars stand and which way they face (knocked or not).
+    /** Where the parked cars stand and which way they face (knocked or not). */
     void parkedPlaces(std::vector<std::pair<Vec3, Vec3>> &out) const;
     void users(std::vector<RoadUser> &out) const; // for others to keep clear of
     const TrafficNetwork &network() const { return _network; }
@@ -136,8 +158,10 @@ public:
     static constexpr int kMostCars = 160;
     void setCarLimit(int cars) { _carLimit = cars; }
     int carLimit() const { return _carLimit; }
-    // How many cars the density asks for about `focus`: the lane there
-    // (within 340 m, by each lane's share) over kLaneAtFull, times it.
+    /**
+     * How many cars the density asks for about `focus`: the lane there
+     * (within 340 m, by each lane's share) over kLaneAtFull, times it.
+     */
     size_t carsWanted(const Vec3 &focus);
 
 private:
