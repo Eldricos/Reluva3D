@@ -9,6 +9,7 @@
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/scene_drawer.h"
+#include "engines/idtech3/client/sp_menu_host.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/render/light_grid.h"
@@ -57,6 +58,9 @@ private:
     // The map a saved game is of; empty if it can't be read.
     std::string savedMap(const std::string &name) const;
     bool jedi() const { return _ctx.game.code == GameCode::kJediOutcast; }
+    // Whether the game has menus: Elite Force's DLL beside its game, or
+    // Jedi Outcast's, which its engine runs.
+    bool hasMenus() const { return !_uiDll.empty() || jedi(); }
     void loadGame(std::string name);
     bool readSave(const std::string &name, std::vector<uint8_t> &file) const;
     // Whether the game code running can read a saved game: 1.x's and the
@@ -149,7 +153,7 @@ private:
     int _frameH = 720;
     CvarStore &_cvars = _ctx.cvars;
     std::unique_ptr<eliteforce::SpGameHost> _game;
-    std::unique_ptr<eliteforce::SpUiHost> _ui;
+    std::unique_ptr<SpMenuHost> _ui;
     SoundLibrary _soundLibrary{_ctx.files};
     std::unique_ptr<SoundSystem> _soundSystem; // with audio output
     Surface _overlay;

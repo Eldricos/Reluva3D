@@ -15,6 +15,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
+#include "engines/idtech3/jk2/sp_menus.h"
 #include "engines/idtech3/jk2/sp_savegame.h"
 #include "engines/idtech3/raven/savegame.h"
 
@@ -361,13 +362,95 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
 
 } // namespace
 
+namespace {
+
+// What a frame of single-player menus drew: each shader's pictures.
+void printPictures(int frame, const reluva::idtech3::SpMenuHost &ui, bool fullscreen) {
+    std::map<std::string, int> shown;
+    for (const auto &p : ui.pictures())
+        ++shown[ui.shaders().name(p.shader)];
+    std::printf("[frame %d] %zu pictures, %zu scenes, catcher %d, fullscreen %d:\n", frame, ui.pictures().size(),
+                ui.scene().views.size(), ui.catcher(), fullscreen ? 1 : 0);
+    for (const auto &[name, count] : shown)
+        std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
+}
+
+// Jedi Outcast's single-player menus, which its engine runs from the
+// menu scripts: as cmdSpMenus, with the mouse moved too, and the menus
+// open and the focus reported as they change.
+int runJediMenus(const reluva::SearchSet &set, reluva::idtech3::CvarStore &cvars,
+                 reluva::idtech3::KeyBindings &bindings, const std::string &menu, int frames,
+                 const std::vector<std::pair<int, int32_t>> &keys,
+                 const std::vector<std::pair<int, std::array<int32_t, 2>>> &moves) {
+    namespace q3 = reluva::idtech3;
+    q3::jk2::SpMenus ui(set, cvars);
+    ui.bindings = &bindings;
+    ui.print = [](const std::string &text) {
+        std::printf("menus: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
+    ui.startLocalSound = [](const std::string &sound, int channel) {
+        std::printf("sound: %s (channel %d)\n", sound.c_str(), channel);
+    };
+    if (reluva::Error e = ui.load()) {
+        std::printf("Loading the menus failed: %s\n", e.message.c_str());
+        return 1;
+    }
+    std::string names;
+    for (const std::string &n : ui.menuNames())
+        names += " " + n;
+    std::printf("%zu menus read:%s\n", ui.menuNames().size(), names.c_str());
+    std::vector<std::string> open;
+    std::string focus;
+    auto report = [&](int f) {
+        for (const std::string &command : ui.takeCommands())
+            std::printf("[frame %d] command: %s\n", f, command.c_str());
+        if (ui.openMenus() != open || ui.focusedItem() != focus) {
+            open = ui.openMenus();
+            focus = ui.focusedItem();
+            std::string list;
+            for (const std::string &n : open)
+                list += " " + n;
+            std::printf("[frame %d] open:%s; focus: %s\n", f, list.empty() ? " none" : list.c_str(),
+                        focus.empty() ? "none" : focus.c_str());
+        }
+    };
+    if (reluva::Error e = ui.setActiveMenu(menu)) {
+        std::printf("SetActiveMenu failed: %s\n", e.message.c_str());
+        return 1;
+    }
+    report(0);
+    for (int f = 0; f < frames; ++f) {
+        for (const auto &[at, d] : moves)
+            if (at == f) {
+                ui.mouseEvent(d[0], d[1]);
+                std::printf("[frame %d] mouse to %.0f %.0f\n", f, double(ui.cursor()[0]), double(ui.cursor()[1]));
+                report(f);
+            }
+        for (const auto &[at, k] : keys)
+            if (at == f) {
+                std::printf("[frame %d] key %s (%d)\n", f, q3::KeyBindings::keyName(k).c_str(), k);
+                ui.keyEvent(k);
+                report(f);
+            }
+        ui.refresh(f * 50);
+        if (f == 0 || f == frames - 1)
+            printPictures(f, ui, ui.fullscreen());
+    }
+    return 0;
+}
+
+} // namespace
+
 // Runs Elite Force's single-player menus (efuix86.dll, in the x86
 // interpreter): GetUIAPI, Init, the main menu, then frames, with keys
 // pressed along the way; reports what they drew and the commands they ran.
+// Without the DLL, Jedi Outcast's, if the folder is its (runJediMenus).
 int cmdSpMenus(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool idtech3 sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
-                             "[-menu name] [-key frame key]... [-set name value]... [-fixedclock] [-skippak pak]...\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool idtech3 sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
+                     "[-menu name] [-key frame key]... [-mouse frame dx dy]... [-set name value]... [-fixedclock] "
+                     "[-skippak pak]...\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -378,7 +461,8 @@ int cmdSpMenus(int argc, char **argv) {
     int clockFrame = 0;
     std::string dllPath;
     std::string menu = "main";
-    std::vector<std::pair<int, int32_t>> keys; // (frame, key)
+    std::vector<std::pair<int, int32_t>> keys;                 // (frame, key)
+    std::vector<std::pair<int, std::array<int32_t, 2>>> moves; // (frame, (dx, dy)): Jedi Outcast's
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -394,6 +478,9 @@ int cmdSpMenus(int argc, char **argv) {
                 k = std::atoi(argv[i + 2]);
             keys.emplace_back(std::atoi(argv[i + 1]), k);
             i += 2;
+        } else if (std::strcmp(argv[i], "-mouse") == 0 && i + 3 < argc) {
+            moves.push_back({std::atoi(argv[i + 1]), {std::atoi(argv[i + 2]), std::atoi(argv[i + 3])}});
+            i += 3;
         } else if (std::strcmp(argv[i], "-skippak") == 0 && i + 1 < argc) {
             skipPaks.push_back(reluva::fs::toLower(argv[++i]));
         } else if (std::strcmp(argv[i], "-fixedclock") == 0) {
@@ -413,14 +500,7 @@ int cmdSpMenus(int argc, char **argv) {
                 dllPath = p.string();
                 break;
             }
-        if (dllPath.empty()) {
-            std::fprintf(stderr, "efuix86.dll isn't beside %s; give it with -dll\n", argv[2]);
-            return 1;
-        }
     }
-    Bytes dll;
-    if (!readFile(dllPath.c_str(), dll))
-        return 1;
     reluva::SearchSet set;
     if (!mountIdTech3(argv[2], set, skipPaks))
         return 1;
@@ -428,6 +508,15 @@ int cmdSpMenus(int argc, char **argv) {
     for (const auto &[name, value] : settings)
         cvars.set(name, value);
     q3::KeyBindings bindings;
+    if (dllPath.empty() && set.has("ui/menus.txt"))
+        return runJediMenus(set, cvars, bindings, menu, frames, keys, moves);
+    if (dllPath.empty()) {
+        std::fprintf(stderr, "efuix86.dll isn't beside %s; give it with -dll\n", argv[2]);
+        return 1;
+    }
+    Bytes dll;
+    if (!readFile(dllPath.c_str(), dll))
+        return 1;
     ef::SpUiHost ui(set, cvars);
     std::tie(ui.modInstall, ui.modBaseDir) = idTech3Folders(argv[2]);
     ui.bindings = &bindings;
@@ -461,15 +550,8 @@ int cmdSpMenus(int argc, char **argv) {
             return failed("Refresh", e);
         for (const std::string &command : ui.takeCommands())
             std::printf("[frame %d] command: %s\n", f, command.c_str());
-        if (f == 0 || f == frames - 1) {
-            std::map<std::string, int> shown;
-            for (const auto &p : ui.pictures())
-                ++shown[ui.shaders().name(p.shader)];
-            std::printf("[frame %d] %zu pictures, %zu scenes, catcher %d, fullscreen %d:\n", f, ui.pictures().size(),
-                        ui.scene().views.size(), ui.catcher(), ui.fullscreen() ? 1 : 0);
-            for (const auto &[name, count] : shown)
-                std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
-        }
+        if (f == 0 || f == frames - 1)
+            printPictures(f, ui, ui.fullscreen());
     }
     if (!ui.unhandled().empty()) {
         std::printf("engine functions not answered yet:");

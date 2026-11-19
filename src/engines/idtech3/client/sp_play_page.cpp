@@ -4,6 +4,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/games.h"
+#include "engines/idtech3/jk2/sp_menus.h"
 #include "engines/idtech3/jk2/sp_savegame.h"
 #include "engines/idtech3/client/sp_play_page.h"
 #include "engines/idtech3/formats/shader.h"
@@ -135,14 +136,15 @@ void SpPlayPage::activate() {
     _cvars.create("legsModel", _ctx.game.malePlayer.legs, CvarStore::kUserInfo);
     _cvars.create("sex", "male", CvarStore::kArchive | CvarStore::kUserInfo);
     _cvars.create("handicap", "100", CvarStore::kArchive | CvarStore::kUserInfo);
-    if (!_uiDll.empty())
+    if (hasMenus())
         startMenus();
     if (!_ui) {
         start(_index);
     } else if (!_introShown) {
-        // The logo, as the original's engine plays at start-up.
+        // The logos, as the original's engine plays at start-up (Jedi
+        // Outcast's: 0x4d8f8c).
         _introShown = true;
-        startCinematic("eflogo", false);
+        startCinematic(jedi() ? "openinglogos" : "eflogo", false);
     }
 }
 
@@ -182,7 +184,7 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
             if (Error e = _ui->setActiveMenu(""))
                 menusStopped(e);
             else
-                _ui->setCatcher(_ui->catcher() & ~eliteforce::SpUiHost::kCatchUi);
+                _ui->setCatcher(_ui->catcher() & ~SpMenuHost::kCatchUi);
         }
     }
     // Its sound whole, to play alongside.
@@ -307,15 +309,24 @@ void SpPlayPage::drawTextCrawl(uint64_t elapsedMs) {
 
 void SpPlayPage::startMenus() {
     _menuError.clear();
-    _ui = std::make_unique<eliteforce::SpUiHost>(_ctx.files, _cvars);
-    _ui->print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
-    _ui->shaderExists = [this](const std::string &name) { return shaderFound(_ctx.shaders, _ctx.files, name); };
-    _ui->bindings = &_ctx.bindings;
-    _ui->startLocalSound = [this](const std::string &sound, int channel) {
+    std::unique_ptr<eliteforce::SpUiHost> efMenus;
+    std::unique_ptr<jk2::SpMenus> jediMenus;
+    if (jedi()) {
+        jediMenus = std::make_unique<jk2::SpMenus>(_ctx.files, _cvars);
+    } else {
+        efMenus = std::make_unique<eliteforce::SpUiHost>(_ctx.files, _cvars);
+        efMenus->modInstall = _ctx.installPath;
+        efMenus->modBaseDir = _ctx.game.baseDir;
+    }
+    SpMenuHost &ui = jediMenus ? static_cast<SpMenuHost &>(*jediMenus) : *efMenus;
+    ui.print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
+    ui.shaderExists = [this](const std::string &name) { return shaderFound(_ctx.shaders, _ctx.files, name); };
+    ui.bindings = &_ctx.bindings;
+    ui.startLocalSound = [this](const std::string &sound, int channel) {
         if (_soundSystem)
             _soundSystem->startLocalSound(sound, channel);
     };
-    _ui->configString = [this](int32_t index, std::string &out) {
+    ui.configString = [this](int32_t index, std::string &out) {
         if (!_game)
             return false;
         const auto it = _game->configstrings().find(index);
@@ -324,30 +335,33 @@ void SpPlayPage::startMenus() {
         out = it->second;
         return true;
     };
-    _ui->saveDir = _saveDir;
-    _ui->modInstall = _ctx.installPath;
-    _ui->modBaseDir = _ctx.game.baseDir;
-    _ui->readSave = [this](const std::string &name, std::vector<uint8_t> &file) { return readSave(name, file); };
-    _ui->listSave = [this](const std::string &name) {
+    ui.saveDir = _saveDir;
+    ui.readSave = [this](const std::string &name, std::vector<uint8_t> &file) { return readSave(name, file); };
+    ui.listSave = [this](const std::string &name) {
         std::vector<uint8_t> file;
         return readSave(name, file) && saveFits(file);
     };
-    _ui->askGame = [this](uint32_t flag) { return _game ? _game->allowedToSaveHere(flag) : flag; };
-    if (Error err = _ui->load(_uiDll))
+    ui.askGame = [this](uint32_t flag) { return _game ? _game->allowedToSaveHere(flag) : flag; };
+    Error err = jediMenus ? jediMenus->load() : efMenus->load(_uiDll);
+    if (jediMenus)
+        _ui = std::move(jediMenus);
+    else
+        _ui = std::move(efMenus);
+    if (err)
         return menusStopped(err);
-    if (Error err = _ui->setActiveMenu("main"))
+    if ((err = _ui->setActiveMenu("main")))
         return menusStopped(err);
     runMenuCommands();
 }
 
 void SpPlayPage::menusStopped(const Error &err) {
     // The game goes on without them (Esc then leaves the page).
-    _menuError = _ctx.game.spUiDll + ": " + err.message;
+    _menuError = (jedi() ? std::string("The menus") : _ctx.game.spUiDll) + ": " + err.message;
     _ui.reset();
 }
 
 bool SpPlayPage::menusHaveKeys() const {
-    return _ui && (_ui->catcher() & eliteforce::SpUiHost::kCatchUi);
+    return _ui && (_ui->catcher() & SpMenuHost::kCatchUi);
 }
 
 void SpPlayPage::menuKey(int32_t key) {
@@ -530,7 +544,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
         if (Error err = _ui->setActiveMenu(""))
             menusStopped(err);
         else
-            _ui->setCatcher(_ui->catcher() & ~eliteforce::SpUiHost::kCatchUi);
+            _ui->setCatcher(_ui->catcher() & ~SpMenuHost::kCatchUi);
     }
     _scene->reset();
     _models->clear();
@@ -731,7 +745,7 @@ std::vector<uint8_t> loadingShot(const std::vector<uint8_t> &jpeg) {
     if (jpeg.empty() || image::decode(jpeg, img) || img.w <= 0 || img.h <= 0)
         return {};
     const image::Image small = boxScaled(img, 256);
-    std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize);
+    std::vector<uint8_t> out(SpMenuHost::kShotSize);
     for (int y = 0; y < 256; ++y)
         std::memcpy(&out[size_t(255 - y) * 256 * 4], small.pixel(0, y), 256 * 4);
     return out;
@@ -760,7 +774,7 @@ std::vector<uint8_t> SpPlayPage::levelShot(const std::string &map) const {
     if (jedi())
         return image::encodeJpeg(boxScaled(img, jk2::kShotSize), jk2::kShotQuality);
     const image::Image small = boxScaled(img, 256);
-    std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
+    std::vector<uint8_t> out(SpMenuHost::kShotSize, 0);
     for (int y = 0; y < 256; ++y)
         std::memcpy(&out[size_t(255 - y) * 256 * 4], small.pixel(0, y), 256 * 4);
     return out;
@@ -822,10 +836,10 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave, const std::vec
         header.shot = levelShot(_map);
     // Without one, the screen as the last level ended (the capture the
     // engine holds for the loading screen).
-    if (autosave && header.shot.empty() && _game->screenShot.size() == eliteforce::SpUiHost::kShotSize)
+    if (autosave && header.shot.empty() && _game->screenShot.size() == SpMenuHost::kShotSize)
         header.shot = _game->screenShot;
     if (header.shot.empty())
-        header.shot = _ui ? _ui->capture() : std::vector<uint8_t>(eliteforce::SpUiHost::kShotSize, 0);
+        header.shot = _ui ? _ui->capture() : std::vector<uint8_t>(SpMenuHost::kShotSize, 0);
     header.autosave = autosave;
     eliteforce::writeSaveHeader(w, _cvars, header);
     if (Error err = eliteforce::writeSaveLevel(w, *_game, autosave))
@@ -1085,7 +1099,7 @@ void SpPlayPage::handleEvent(const Event &ev) {
             // (without the menus), the info line.
             const int n = int(_names.size());
             if (ev.key == 'r') {
-                if (!_game && !_uiDll.empty()) {
+                if (!_game && hasMenus()) {
                     _ui.reset();
                     _error.clear();
                     return startMenus();
@@ -1320,7 +1334,7 @@ void SpPlayPage::update(uint64_t nowMs) {
         const int w = _renderer->width();
         const int h = _renderer->height();
         if (_renderer->takeCapture(rgba) && w > 0 && h > 0 && rgba.size() >= size_t(w) * size_t(h) * 4) {
-            shot.resize(eliteforce::SpUiHost::kShotSize);
+            shot.resize(SpMenuHost::kShotSize);
             for (int y = 0; y < 256; ++y)
                 for (int x = 0; x < 256; ++x)
                     std::memcpy(&shot[size_t((255 - y) * 256 + x) * 4],
@@ -1514,7 +1528,7 @@ void SpPlayPage::drawGamePictures(size_t &drawn, size_t &shotsDrawn, size_t to, 
         const auto &s = shots[shotsDrawn];
         _scene->drawPictures(pictures, drawn, s.picturesBefore, 640, 480, time);
         drawn = std::max(drawn, s.picturesBefore);
-        if (_game->screenShot.size() == eliteforce::SpUiHost::kShotSize)
+        if (_game->screenShot.size() == SpMenuHost::kShotSize)
             _scene->drawImage(_game->screenShot.data(), 256, 256, s.x, s.y, s.w, s.h, 640, 480);
     }
     _scene->drawPictures(pictures, drawn, to, 640, 480, time);
@@ -1551,9 +1565,9 @@ void SpPlayPage::drawOverlay() {
     std::vector<std::string> bottom;
     if (!_lastCommand.empty() && _nowMs - _lastCommandMs < 4000)
         bottom.push_back("The menus ran: " + _lastCommand);
-    if (_ui && !_ui->unhandled().empty()) {
+    if (const auto *ef = dynamic_cast<const eliteforce::SpUiHost *>(_ui.get()); ef && !ef->unhandled().empty()) {
         std::string calls = "Menu functions not answered yet:";
-        for (const auto &[slot, count] : _ui->unhandled())
+        for (const auto &[slot, count] : ef->unhandled())
             calls += " " + std::to_string(slot) + " (x" + std::to_string(count) + ")";
         bottom.push_back(calls);
     }

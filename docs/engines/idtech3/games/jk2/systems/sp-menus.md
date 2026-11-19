@@ -1,6 +1,6 @@
 # Jedi Outcast: single player's menus
 
-> **Status:** partial · **Code:** `src/engines/idtech3/jk2/menu_defs.cpp`, `src/engines/idtech3/jk2/sp_game_calls.cpp` · **Checked against:** `jk2sp.exe` 1.02a's code; the client game running in Reluva · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/idtech3/jk2/menu_defs.cpp`, `src/engines/idtech3/jk2/sp_menus.cpp`, `src/engines/idtech3/jk2/sp_game_calls.cpp` · **Checked against:** `jk2sp.exe` 1.02a's code; the client game running in Reluva · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -11,7 +11,8 @@ The same engine code also keeps the client game's HUD menus
 (`ui/jk2hud.txt`, which loads `ui/hud.menu`), which the client game
 reads through its calls 97–107 and 111
 ([sp-interface.md](sp-interface.md)). This page covers what's done of
-that system so far: reading menu files and answering the client game.
+that system so far: reading menu files, answering the client game, and
+running the engine's own menus.
 
 ## How it works
 
@@ -57,6 +58,54 @@ engine:
 client game asks for, `inventoryselecthud` and `forceselecthud` among
 them), all visible.
 
+### The engine's menus
+
+`ui/menus.txt` names the menu files (`loadMenu { "ui/main.menu" }`, 21
+of them); each file is `{ assetGlobalDef { ... } menuDef { ... } ... }`.
+
+- **Assets** (`assetGlobalDef`, in `main.menu`): the small, medium and
+  big fonts (`ocr_a`, `ergoec`, `anewhope`), the cursor, the focus sound,
+  fading and shadow values. The fonts are registered in that order
+  (0x49abe4 on), and an item's `font` number goes to the renderer as the
+  font's handle (0x4a017d): 1 small, 2 medium, 3 big; 0 is the medium
+  font (0x4999d8). The cursor is drawn 48 by 48 at the mouse (0x49998c).
+- **Symbols**: `WINDOW_STYLE_*`, `ITEM_TYPE_*` and `ITEM_ALIGN_*` are
+  names in tables from 0x4eabc4, each name's value its place
+  (`WINDOW_STYLE_SHADER` 3, `ITEM_TYPE_BUTTON` 1, `ITEM_TYPE_MULTI` 12,
+  `ITEM_ALIGN_CENTER` 1...).
+- **Text styles**: the text's font handle gets 0x40000000 (blinking) for
+  style 2 and 0x80000000 (a drop shadow) for styles 3 to 6 (0x4999e2).
+- **Scripts** (`onOpen`, `onESC`, an item's `action`, `mouseEnter`...):
+  a table of 23 commands at 0x4eadd8 (eight bytes each, name and
+  handler), each taking the words it needs: `activate`, `close`, `exec`,
+  `fadein`, `fadeout`, `hide`, `open`, `openGoToMenu`, `orbit`, `play`,
+  `playlooped`, `setasset`, `setbackground`, `setcolor`, `setcvar`,
+  `setfocus`, `setitemcolor`, `setitemflag`, `show`, `showMenu`,
+  `transition`, `defer`, `rundeferred`. A lone `;` between them is
+  skipped, so the menus' scripts often leave it out. Any other word goes
+  to the engine's own script handler (0x49f6e9), which takes the next
+  word as its command: that's how `uiScript startgame` works. If the
+  handler doesn't know it, the script ends. `play` plays its sound on
+  channel 0 (0x49e1e0); `exec` runs a console command after the frame.
+- **`uiScript` commands** the menus use: `startgame` (all menus closed,
+  then `map kejim_post`, 0x49a3d9), `closeingame`, `closedatapad`,
+  `loadAuto`, `loadgame`, `savegame`, `deletegame`,
+  `ReadSaveDirectory`, `loadControls`, `saveControls`, `resetdefaults`,
+  `glCustom`, `getvideosetup`, `updatevideosetup`, `update <cvar>`, the
+  datapad's `next...`/`prev...` pages, `Quit`, `Leave`, `clearError`.
+- **Opening a menu by the engine** (0x499310, `UI_SetActiveMenu`):
+  `mainMenu` (the server stopped, the keys to the menus, `mainMenu`
+  opened, `error_popmenu` too if `com_errorMessage` is set), `ingame` (the
+  game paused, the HUD's `mainhud` closed, `ingameMainMenu` or the menu
+  named opened), `datapad` (`mainhud` closed, `datapadForcePowersMenu` if
+  `cg_updatedDataPadForcePower1` is set, else `datapadMissionMenu`), none
+  (the keys back to the game, unpaused). The console commands `uimenu
+  [menu]` (0x40bbd0) and `datapad` (0x40bc10, only in a game) open them.
+- **The menus' stack**: opening a menu takes the focus from the one that
+  had it, which is kept on a stack; closing the focused menu gives the
+  focus back to the top of it (0x49d710).
+- At start-up the engine plays `cinematic openinglogos` (0x4d8f8c).
+
 ## In Reluva
 
 `jk2::MenuDefs` reads `menuDef`s and their `itemDef`s from a parse
@@ -67,19 +116,52 @@ written; a menu's name, rectangle and visibility are read out. The host
 answers the calls above from it, the session's text kept on its side
 and the buffer and each token copied into the game's memory.
 
-Not yet: interpreting the rest of the keywords (items' kinds, colours,
-fonts, owner draws, scripts), drawing items, and the menus the engine
-runs itself (the main menu, saving and loading, the datapad).
+`jk2::SpMenus` runs the engine's menus for the single-player Play page
+(behind `client/sp_menu_host.h`, which Elite Force's DLL host shares):
+the files named in `ui/menus.txt` read with the same reader, their
+keywords made into menus and items; menus opened, closed and stacked as
+above; windows (filled, shader, borders), text (aligned, scaled, in the
+item's font and style, `@` text from the string packages), the values
+of multi, yes/no, edit, bind and slider items drawn; the focused item's
+description at the menu's place for it, the cursor over all. Moving the
+mouse onto an item runs its `mouseEnter` and gives it the focus (with
+the focus sound); leaving it runs its `mouseExit`. Up, Down and Tab move
+the focus, Enter or a click runs the item's action (or turns a multi,
+yes/no or slider's setting), Esc the menu's `onESC`. Items shown,
+hidden, enabled or disabled by a setting (`cvarTest` with `showCvar`...)
+are too. The Play page starts them after the opening logos; `startgame`
+starts `kejim_post`, Esc in a game opens `ingameMainMenu`, `datapad` the
+datapad.
+
+Where jk2sp.exe's own details weren't worked out, Team Arena's way is
+used (marked as unconfirmed): text placed from the rectangle's corner
+by `textalignx` and `textaligny` (its top, as Raven's fonts draw), the
+focused item's text in the menu's focus colour (not pulsing), a
+multi's value 8 units after its text, the slider 96 by 16.
+
+Not yet: list boxes (the saved games), key binding, edit fields typed
+in, the owner draws (the datapad's pages, the player's Force powers),
+the logo's model (`ITEM_TYPE_MODEL`), fading and `transition`, `orbit`,
+the video settings' `defer` warning, the `uiScript` commands other than
+`startgame`, `closeingame`, `closedatapad`, `loadAuto`, `Quit` and
+`Leave`; the HUD's `mainhud` isn't closed with the in-game menus
+(Reluva keeps the HUD's menus apart).
 
 ## Sources and checks
 
 - **Where the facts come from:** `jk2sp.exe` 1.02a's handlers for the
   client game's calls 97–107 and 111 (0x401e2d–0x401f43) and what they
-  call (0x49f970–0x49fd40, 0x49d690); the GPL Jedi Outcast single-player
+  call (0x49f970–0x49fd40, 0x49d690); its menu code (0x499310–0x4a5b00:
+  the keyword and script tables, the text drawing, `UI_SetActiveMenu`); the GPL Jedi Outcast single-player
   source's `cg_main.cpp` as a guide to how the client game uses them;
   the menu files in `assets1.pk3`.
 - **How it was checked:** a unit test (`idtech3.unit.formats`, "menu
   definitions") reads menus with keywords, scripts and items, and a
   malformed one; `sp-run -cgame` on `kejim_post` reads `ui/hud.menu`, and
   the client game finds its HUD's menus and draws its frames (a
-  game-data step records it).
+  game-data step records it). A unit test (`idtech3.unit.game-code`,
+  "Jedi Outcast's menus") runs two small menus: opening, scripts with
+  and without `;`, the mouse and keys, `startgame`. `reluva-tool idtech3
+  sp-menus <base>` runs the game's own menus with keys and mouse moves
+  (`-mouse frame dx dy`), reporting the menus open, the focus, the
+  commands and what's drawn; it hasn't been run on the game's files yet.

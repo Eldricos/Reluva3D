@@ -25,6 +25,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/jk2/sp_menus.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
@@ -483,12 +484,195 @@ static void testUiHost(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// Jedi Outcast's single-player menus, run from menu scripts: a main menu
+// whose button opens a second, its scripts, focus, keys and the mouse.
+static void testJediMenus(const std::filesystem::path &tmp) {
+    namespace jk2 = reluva::idtech3::jk2;
+    std::filesystem::remove_all(tmp);
+    const char *list = "{\n loadMenu { \"ui/main.menu\" }\n loadMenu { \"ui/newgame.menu\" }\n}\n";
+    // One keyword a line, as the game's files have them: a keyword's
+    // arguments are the rest of its line.
+    const char *mainMenu = R"({
+  assetGlobalDef {
+    cursor "cursor"
+    itemFocusSound "sound/roam.wav"
+  }
+  menuDef {
+    name "mainMenu"
+    fullScreen 1
+    rect 0 0 640 480
+    visible 1
+    onOpen { exec "music music/theme" ; setfocus newgamebutton }
+    onESC { close mainMenu ; open quitMenu }
+    itemDef {
+      name back
+      style WINDOW_STYLE_SHADER
+      rect 0 0 640 480
+      background "gfx/menus/menu1"
+      visible 1
+      decoration
+    }
+    itemDef {
+      name loadglow
+      style WINDOW_STYLE_SHADER
+      rect 245 115 130 24
+      background "gfx/glow"
+      visible 0
+      decoration
+    }
+    itemDef {
+      name newgamebutton
+      type ITEM_TYPE_BUTTON
+      rect 115 115 130 24
+      text "New"
+      visible 1
+      action { play "sound/button.wav" ; close all ; open newgameMenu }
+    }
+    itemDef {
+      name loadbutton
+      type ITEM_TYPE_BUTTON
+      rect 245 115 130 24
+      text "Load"
+      visible 1
+      mouseEnter { show loadglow }
+      mouseExit { hide loadglow }
+    }
+  }
+})";
+    const char *newGame = R"({
+  menuDef {
+    name "newgameMenu"
+    fullScreen 1
+    rect 0 0 640 480
+    onOpen { setcvar g_spskill 1 }
+    onESC { close newgameMenu ; open mainMenu }
+    itemDef {
+      name easy
+      type ITEM_TYPE_BUTTON
+      rect 250 200 250 40
+      text "Easy"
+      visible 1
+      action
+      {
+        play "sound/button.wav"
+        setcvar g_spskill 0
+      }
+    }
+    itemDef {
+      name hard
+      type ITEM_TYPE_BUTTON
+      rect 250 280 250 40
+      text "Hard"
+      visible 1
+      action { setcvar g_spskill 2 ; setitemcolor easy forecolor 1 0 0 1 }
+    }
+    itemDef {
+      name begin
+      type ITEM_TYPE_BUTTON
+      rect 435 444 130 24
+      text "Begin"
+      visible 1
+      action { uiScript startgame }
+    }
+  }
+})";
+    test::writeFile(tmp / "base" / "assets0.pk3", test::buildZip({{"ui/menus.txt", test::toBytes(list), {}},
+                                                                  {"ui/main.menu", test::toBytes(mainMenu), {}},
+                                                                  {"ui/newgame.menu", test::toBytes(newGame), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "base", 0, warnings));
+    CvarStore cvars;
+    jk2::SpMenus menus(set, cvars);
+    std::vector<std::string> sounds;
+    menus.startLocalSound = [&](const std::string &name, int) { sounds.push_back(name); };
+    Error err = menus.load();
+    CHECK(!err);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return;
+    }
+    CHECK((menus.menuNames() == std::vector<std::string>{"mainMenu", "newgameMenu"}));
+    CHECK(menus.openMenus().empty());
+
+    // The main menu, its onOpen run: the music, the focus on New.
+    CHECK(!menus.setActiveMenu("main"));
+    CHECK((menus.openMenus() == std::vector<std::string>{"mainMenu"}));
+    CHECK(menus.catcher() & jk2::SpMenus::kCatchUi);
+    CHECK(menus.fullscreen());
+    CHECK(menus.focusedItem() == "newgamebutton");
+    CHECK((menus.takeCommands() == std::vector<std::string>{"music music/theme"}));
+    CHECK(!menus.refresh(0));
+    auto drawn = [&](const std::string &shader) {
+        return std::count_if(menus.pictures().begin(), menus.pictures().end(),
+                             [&](const Picture &p) { return menus.shaders().name(p.shader) == shader; });
+    };
+    CHECK(drawn("gfx/menus/menu1") == 1 && drawn("gfx/glow") == 0 && drawn("cursor") == 1);
+
+    // The mouse onto Load (from the middle): its glow shown, the focus
+    // and its sound; off it again, the glow hidden and the focus kept.
+    sounds.clear();
+    CHECK(!menus.mouseEvent(0, -115));
+    CHECK(menus.cursor()[0] == 320 && menus.cursor()[1] == 125);
+    CHECK(menus.focusedItem() == "loadbutton");
+    CHECK((sounds == std::vector<std::string>{"sound/roam.wav"}));
+    CHECK(!menus.refresh(50) && drawn("gfx/glow") == 1);
+    CHECK(!menus.mouseEvent(0, 100));
+    CHECK(!menus.refresh(100) && drawn("gfx/glow") == 0);
+    CHECK(menus.focusedItem() == "loadbutton");
+
+    // Up to New, Enter: the new game menu opens in its place.
+    CHECK(!menus.keyEvent(q3key::kUp));
+    CHECK(menus.focusedItem() == "newgamebutton");
+    sounds.clear();
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK((menus.openMenus() == std::vector<std::string>{"newgameMenu"}));
+    CHECK(!sounds.empty() && sounds[0] == "sound/button.wav");
+    CHECK(cvars.string("g_spskill") == "1");
+
+    // Esc back to the main menu, and again to the new game menu.
+    CHECK(!menus.keyEvent(q3key::kEscape));
+    CHECK((menus.openMenus() == std::vector<std::string>{"mainMenu"}));
+    menus.takeCommands();
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK((menus.openMenus() == std::vector<std::string>{"newgameMenu"}));
+
+    // Clicking Easy: its script without ";" between commands.
+    CHECK(!menus.mouseEvent(0, 220 - int32_t(menus.cursor()[1])));
+    CHECK(menus.focusedItem() == "easy");
+    CHECK(!menus.keyEvent(q3key::kMouse1));
+    CHECK(cvars.string("g_spskill") == "0");
+    // Down to Hard and Enter; a click away from any item does nothing.
+    CHECK(!menus.keyEvent(q3key::kDown));
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK(cvars.string("g_spskill") == "2");
+    CHECK(!menus.mouseEvent(0, -200));
+    CHECK(!menus.keyEvent(q3key::kMouse1));
+    CHECK(cvars.string("g_spskill") == "2");
+
+    // Begin: the menus closed, the first level started.
+    CHECK(!menus.keyEvent(q3key::kDown));
+    CHECK(menus.focusedItem() == "begin");
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK(menus.openMenus().empty());
+    CHECK(!(menus.catcher() & jk2::SpMenus::kCatchUi));
+    CHECK((menus.takeCommands() == std::vector<std::string>{"map kejim_post"}));
+
+    // The datapad only opens in a game; the command is theirs either way.
+    bool handled = false;
+    CHECK(!menus.consoleCommand("datapad", &handled) && handled);
+    CHECK(menus.openMenus().empty());
+    CHECK(!menus.consoleCommand("god", &handled) && !handled);
+    std::filesystem::remove_all(tmp);
+}
+
 static const reluva::test::Suite
     kSuite("idtech3.unit.game-code",
            {
                {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
                {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
                {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
+               {"Jedi Outcast's menus", [](const std::filesystem::path &tmp) { testJediMenus(tmp / "jk2menus"); }},
                {"map commands", [](const std::filesystem::path &) { testMapCommands(); }},
                {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
                {"compressed save chunks", [](const std::filesystem::path &) { testCompressedSaveChunks(); }},

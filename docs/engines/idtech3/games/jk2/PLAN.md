@@ -28,7 +28,7 @@ their hashes):
 | Maps | 41 `maps/*.bsp`, **RBSP version 1**, 18 lumps (Quake III's 17 and a light array) | No: only IBSP 46 |
 | Models | 71 Ghoul2 meshes (`.glm`) and 21 skeletons (`.gla`), both version 6; 276 MD3 | MD3 only |
 | Game code, single player | `jk2gamex86.dll`: the game and client game in one DLL (exports `GetGameAPI`, `dllEntry`, `vmMain`), with ICARUS, the effects system and navigation inside it | The x86 interpreter, PE loader and Elite Force's DLL host |
-| Menus, single player | `ui/*.menu`, `ui/menus.txt`: Team Arena style menu scripts, run by `jk2sp.exe` itself (no menus DLL) | No |
+| Menus, single player | `ui/*.menu`, `ui/menus.txt`: Team Arena style menu scripts, run by `jk2sp.exe` itself (no menus DLL) | Partly: `jk2/sp_menus` |
 | Game code, multiplayer | `vm/jk2mpgame.qvm`, `cgame.qvm`, `ui.qvm` (Quake III's QVM format) | The QVM interpreter |
 | Scripts | 1,356 compiled ICARUS scripts (`.ibi`), 68 ROFF camera/object paths (`.rof`) | In single player the DLL runs them; in multiplayer the engine plays ROFFs for the game's code ([roff.md](../../formats/roff.md)) |
 | Effects | 229 `.efx` | In multiplayer, the engine runs them for the client game ([efx.md](../../formats/efx.md)); in single player, the DLL reads them |
@@ -243,6 +243,13 @@ behind the DLL's own tables.
    commands that `jk2sp.exe` provides: new game, load and save lists,
    controls, the datapad's force powers, weapons, inventory and mission).
    Ends with: a new game started from the main menu, the datapad in play.
+   So far (`jk2/sp_menus`): the menus read and opened, their windows,
+   text and values drawn, their scripts run, the focus moved by mouse and
+   keys; New Game's Begin starts `kejim_post`, Esc opens the in-game menu
+   and `datapad` the datapad. The Play page runs them for Jedi Outcast,
+   after the opening logos. Next: checked against the game's own files,
+   then the list boxes (saved games), key binding, the owner draws, the
+   logo's model and the datapad's pages.
 9. **Single player complete**: saved games (Raven's chunks, shared with
    Elite Force in `raven/savegame`), dynamic music (`ext_data/dms.dat`),
    speech with lip sync, all 26 levels played through; a game-files step
