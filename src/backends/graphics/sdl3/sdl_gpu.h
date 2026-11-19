@@ -61,7 +61,6 @@ public:
     void setDepthRange(float maxDepth) override;
     void clearDepth() override;
     void clearDepthAndStencil() override;
-    bool _clearStencil = false; // clearDepth clears the marks too
     bool hasStencil() const override { return _hasStencil; }
     void setStencilMode(StencilMode mode) override;
     void setStencilLevel(uint8_t level) override;
@@ -151,6 +150,7 @@ private:
     uint8_t _stencilRef = 3;    // kStencilMarks: both kinds of mark
     bool _stencilWhole = false; // a reference set this frame: written and compared whole
     uint8_t _stencilLevel = 1;  // the level modes' level
+    bool _clearStencil = false; // clearDepth clears the marks too
     // The reference the pass compares with: the level modes' own, else _stencilRef.
     uint8_t currentStencilReference() const;
     bool _mirrored = false;
