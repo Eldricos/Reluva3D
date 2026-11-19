@@ -1,0 +1,134 @@
+# The Unreal Engine 1 engine
+
+Engine id `unreal`, in `src/engines/unreal/`. First game: Star Trek: Deep
+Space Nine - The Fallen (`ds9fallen`, The Collective, 2000).
+
+## One engine for the family
+
+Like `idtech3`, this engine is meant for every game on Epic's first Unreal
+engine. What they share (packages, properties, textures, sounds, BSP
+levels, and later the UnrealScript virtual machine) is written once;
+what a game changes is keyed off its `GameInfo` in `games.cpp`, with
+game-specific code in a subfolder (`src/engines/unreal/fallen/`) when
+there is some. A folder holding `System/Core.u` and `System/Engine.u`
+that isn't a known game is offered as "Unreal Engine 1 game
+(unidentified)" (`ue1`), so its data can be looked at too.
+
+## Clean room
+
+The formats are written up in [docs/formats/unreal/](../formats/unreal/)
+from public community documentation of the UE1 package format (the notes
+written alongside community package tools, and modding wikis), and are
+being checked against The Fallen's own files. There is an open-source
+clean-room reimplementation of UE1; it may be consulted as a pointer to
+where to look, but none of its code is copied or translated, and
+findings are confirmed against the game's data with `reluva-tool` before
+they go in. Never use Epic's licensee source code (leaked or otherwise).
+
+As ScummVM does, the original game's own binaries (`Engine.dll`,
+`Render.dll`, `Fire.dll`, `DS9.exe` and the rest) may be disassembled
+to find out what the engine does: which light a shadow is cast from, how
+a curve is shaped. What's learned is written up in these docs as
+behaviour, in our own words, and implemented as new code of Reluva's
+own: nothing from the binaries is copied, translated instruction by
+instruction, or kept in the repository.
+
+## Where it stands
+
+| Part | State |
+|---|---|
+| Detection | The Fallen: one Windows release by `DS9.exe` and `Engine.u`'s hashes; others by file names (`System/DS9.ini` or `System/DS9.exe`, with `Core.u` and `Engine.u`), shown as "unknown release"; any other UE1 game as unidentified |
+| Packages | header, name, import and export tables, the older layouts (before versions 64 and 68) as well as later ones; only The Fallen's, versions 71-73, checked on real files ([package.md](../formats/unreal/package.md)); found by name through the `.ini`'s `[Core.System] Paths` (`package_set.cpp`); imports resolved to the package that defines them |
+| Properties | tagged properties of every type, state frames ([package.md](../formats/unreal/package.md)) |
+| Textures | P8 with palettes (masked colour 0), DXT1, RGB8, RGBA8; all The Fallen's stored textures decode. Procedural ones play: fire, water, wave (lit as bumps), wet, ice, and The Fallen's FLC ones ([texture.md](../formats/unreal/texture.md)); the fire, wave and wet ones are Fire.dll's (byte for byte, run against it in an emulator), and so is every texture's pacing |
+| Sounds | the embedded WAV, played through `common/audio`; The Fallen's music streamed from `mp3/` in place of its placeholder Sounds ([sound.md](../formats/unreal/sound.md)) |
+| Music | The Fallen has no music modules: its music is the MP3s (above), which play. Other UE1 games' modules (`.umx`: IT, S3M, XM, MOD) play on the Sounds page through Reluva's tracker player (`common/audio/tracker.cpp`), rendered from the first order to where the song loops back; `ue-check` plays each through. A level's `Song` isn't played: The Fallen's audio driver (Miles.dll) never reads it (no module player, `RegisterMusic` empty), and the drivers that do (Galaxy's) aren't to hand to read their transitions from |
+| Levels | all 74 of The Fallen's maps read and draw. The level's BSP model: points, vectors, nodes, surfaces, vertices ([model.md](../formats/unreal/model.md)); polygons drawn textured, with masked, translucent and modulated surfaces, and only the zones seen through the zone portals. Lit by lightmaps worked out from the shadow bits and light actors, with zone ambient ([lighting.md](../formats/unreal/lighting.md)): lights' types change their brightness (flicker, pulse) and their effects draw their patterns across the surfaces (a torch's waver, water's shimmer, waves rolling out), scripted lights follow their scripts, lights' coronas glow where they're seen, lit actors light what's near them as they move, and movers are lit where they are. Movers (doors, lifts) from their own brushes, moved by their scripts, and the sky from the level's sky zone ([actors.md](../formats/unreal/actors.md)). Lightmaps, movers, the sky and the light effects' patterns not yet compared with the original running |
+| Meshes | all The Fallen's Mesh and LodMesh exports read (455 and 6), with their animations ([mesh.md](../formats/unreal/mesh.md)): vertex animation, and characters posed from their skeletons with their own clips and the shared animation sets; layers on parts of the body, faces (blink, brows, mouth), tweens from the pose showing, and the scripts' bends and IK; attachment points, where held things go, checked against the meshes' own precomputed places (`reluva-tool ue-points`). Lit where they stand ([actors.md](../formats/unreal/actors.md)), casting shadows of their own shape onto the floor ([lighting.md](../formats/unreal/lighting.md)); a Meshes page |
+| Viewer | Maps (3D, fly camera from the PlayerStart; Enter plays the level), Meshes, Textures, Sounds, Movies, Packages (tables and properties) |
+| Movies | the intro (`movies/intro.avi`) plays first when the game starts, as the original's does, its pictures kept with its sound; Esc, Space or Enter skips it. AVI ([avi.md](../formats/common/avi.md)) with Cinepak video ([cinepak.md](../formats/common/cinepak.md)) and PCM sound; a Movies page plays it again |
+| UnrealScript | classes, states, functions, properties, enums, constants and their bytecode read (every one of The Fallen's), and written out as text (`ue-script`) ([script.md](../formats/unreal/script.md)). A VM runs them: classes loaded, objects, the interpreter with states, latent code and timers, and every native the game's scripts call, Core's, Engine's and The Fallen's own; every map runs (`ue-run`) ([unreal_vm.md](unreal_vm.md)) |
+| Game | started: the level's scripts run live with the player logged in, moving and colliding against the level, steered from the keyboard and mouse and seen from the game's own camera, cut scenes included (the Maps page, Enter; [unreal_vm.md](unreal_vm.md)). Actors' animations play on the scripts' timing, with their notifications. The AI finds its way along the level's paths; the characters' lines play from the dialogue tables ([dialogue.md](../formats/unreal/dialogue.md)), shown as they're said: cut scenes, hails over the communicator (requests for supplies, beamed down in the beam-down zones; reports, signing off) and the AI's own lines (spotting the player, losing them, chatter); the documents, the level's objectives and title and its actors' strings (messages, tricorder readings) read from `int/` ([int.md](../formats/unreal/int.md)). The game's own HUD is drawn (its panels, numbers, communicator; [font.md](../formats/unreal/font.md)), and its menus work: the title, credits, main menu and info pad, New Game travelling to the opening, the UWindow options window with the mouse; games saved and loaded (Reluva's own files); sound: effects heard from where they are (muffled through walls), ambient sounds, the music (the MP3s) and the dialogue's voices; the effects: particles, sparks, electric arcs, beams, rain and snow, decals. No native a map calls is left unwritten; The Fallen's own physics modes work: the player climbs ladders, hangs from ledges and pulls up onto them, and each kind of effect moves its particles |
+
+**First check against the retail data** (October 2026): all 175 packages
+open (versions 71-73), all 3801 palettes and 2868 of 2930 sounds decode.
+A second run, after fixes, read all 74 maps (`.dsm`; the largest,
+M03_KiraL2, 25619 BSP nodes) and they draw in the Maps page; 182
+textures are procedural with no stored pixels (now shown as stand-ins,
+[texture.md](../formats/unreal/texture.md)) and the 62 sounds that fail
+are empty placeholders for the music in the install's `mp3` folder
+([sound.md](../formats/unreal/sound.md)). To
+check again:
+
+```sh
+./build/reluva-tool ue-check "/path/to/DS9TheFallen"      # every package, texture, sound, level
+./build/reluva-tool ue-info  "/path/to/DS9TheFallen/System/Engine.u"
+./build/reluva-tool ue-props "/path/to/DS9TheFallen/Maps/<map>.unr" <export>
+./build/reluva-tool ue-script "/path/to/DS9TheFallen" <class | Class.Function | -all <dir>>
+./build/reluva-tool ue-run    "/path/to/DS9TheFallen" <map | -all> [seconds]
+./build/reluva-tool ue-play   "/path/to/DS9TheFallen" <map> play wait 20 hold w 2 shot frame.ppm
+./build/reluva-tool ue-points "/path/to/DS9TheFallen"     # attachment points against the meshes' precomputed places
+./build/reluva-tool ue-ledges "/path/to/DS9TheFallen" M01_KiraL2   # places to pull up onto a ledge or catch one, duck under, swim into
+./build/reluva-tool ue-ledges "/path/to/DS9TheFallen" M01_KiraL2 ladders   # the ladders, their width, a foot in water (also: steps, lights <effect>)
+./build/reluva-tool ue-trace "/path/to/DS9TheFallen" M01_KiraL2 x y z x2 y2 z2 [ex ey ez]   # a box swept through the BSP
+./build/reluva-tool ue-extract "/path/to/DS9TheFallen" <package> <export>   # a texture (.tga), sound or music
+./build/reluva-tool video-frame "/path/to/DS9TheFallen/movies/intro.avi" <frame> frame.ppm
+./build/reluva --hash "/path/to/DS9TheFallen/System/DS9.exe" ".../System/Engine.u"
+```
+
+and fixing what `ue-check` reports: the version/licensee pair The Fallen
+uses, and any place its layouts differ from stock UE1 (licensees often
+added fields).
+
+## Next steps
+
+What's left is mostly checking against the original, and speed:
+
+1. **Compare with the original running.** Nothing has been compared side
+   by side with The Fallen running: the lightmaps, movers and the sky on
+   its maps; the effects (swarms, lava, water rings, scripted paths).
+   Several readings are Reluva's own until then (the bone axis order and
+   IK natives in [unreal_vm.md](unreal_vm.md)). A full playthrough's
+   recording has been compared so far: see
+   [unreal_playthrough.md](unreal_playthrough.md).
+2. **Speed.** M10_WorfL1A, the slowest map, runs 20 seconds of play in
+   about 12.5 to 15 of CPU in `ue-play`, which prepares every frame for
+   drawing. M03_KiraL2 takes about 5 (November 2026). The scripts alone
+   (`ue-run -all`) take at most 2.9 s for a map's 20 s, and 128 s for
+   all 74 maps. What's left most is posing and lighting the characters
+   for drawing, the HUD's scripts and the viewer's own text.
+   - **The GPU path** (November 2026): `RELUVA_BENCH="<map> <seconds>"`
+     starts `reluva <target>` straight into that map, plays it, and
+     prints each frame's times: all of the page's update, the level's
+     ticks within it, and the renderer's `endFrame` (submitting and
+     waiting). Run in this container on Mesa's software Vulkan
+     (lavapipe, `SDL_VIDEO_DRIVER=offscreen`), so `endFrame` there is a
+     CPU doing the GPU's work; what's Reluva's own is the rest. Over 20 s:
+     M04_KiraL1 46 ms a frame, of it 5.5 ms the ticks, 35.5 ms
+     `endFrame`, 5.3 ms preparing the draws; M03_KiraL2 89 (11, 71, 7);
+     M10_WorfL1A 219 (34, 161, 24). The ticks per frame grow with slow
+     frames (several ticks each); per second of play they're about
+     2.6 ms of every 60th. So on a real GPU Reluva's own work is about
+     11 ms a frame on M04, about 30 on M10.
+   - Water and wet textures (`Water::render`, a quarter of M10's frame
+     work in `ue-play`) now wrap with a step rather than a remainder per
+     pixel: the same frames (74 textures hashed over 40 steps each),
+     about 6% off M10's 20 s in `ue-play`.
+   - Since then (M04_KiraL1, the rifle drawn, 9 s): a character's pose,
+     IK and all, is kept in its mesh's poser (the last 8, by everything
+     it's made from), and the drawing poses with the level's poser, so
+     the pose its scripts asked after this tick is drawn as it is. The
+     scripts' own queries still pose it about three times a tick for the
+     player: they change its bone turns and IK targets between them. The
+     viewer's info box keeps its text and draws only the lines that
+     changed (5% of the time before). Together about a tenth less time,
+     the frames the same to the pixel.
+   - The HUD is the game's own `PostRender` script once a frame (4%);
+     only a faster VM makes it cheaper.
+3. **Other UE1 games.** The layouts other licensees changed, once
+   there's a second game to check against. Its music modules play
+   (above), checked only on modules the tests build: not yet on a real
+   song, nor its `Song` and transitions in a level.
+
+The game's own gap, which nothing here can fill: no dialogue table for
+mission 12.
