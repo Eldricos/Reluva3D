@@ -43,16 +43,17 @@ with its headings in the same order.
 ## Engines for a family of games, and for one
 
 - **An engine for a family of games** (one known from the start to be
-  meant for more than one game, as `idtech3`, `awe` and `netimmerse` are)
-  keeps each game's docs in `games/<game id>/`, laid out as above: the
-  five pages and the three folders. The engine's own folder then holds its
-  `README.md` (the engine, and a table of its games) and only what holds
-  for every game on it, such as the engine's or a middleware's own file
-  formats in `formats/`. A page worked out from one game stays in that
-  game's folder until another game is found to share it, then moves up.
-- **An engine for one game** (`clue`, `stgenerations`, `stharbinger`)
-  keeps everything in its own folder, with no `games/`. If a second game
-  comes to it, it moves to the layout above.
+  meant for more than one game, as `age`, `awe`, `idtech3`,
+  `netimmerse`, `nfs` and `unreal` are) keeps each game's docs in
+  `games/<game id>/`, laid out as above: the five pages and the three
+  folders. The engine's own folder then holds its `README.md` (the
+  engine, and a table of its games) and only what holds for every game
+  on it, such as the engine's or a middleware's own file formats in
+  `formats/`. A page worked out from one game stays in that game's
+  folder until another game is found to share it, then moves up.
+- **An engine for one game** (`botf`, `clue`, `stgenerations`,
+  `stharbinger`) keeps everything in its own folder, with no `games/`.
+  If a second game comes to it, it moves to the layout above.
 
 ## Shared code: `common/`
 
@@ -147,8 +148,10 @@ python3 tools/check-docs.py
 
 checks that every relative link and `#anchor` goes somewhere, that each
 engine (or each game, in a family's engine) has its five pages, that each
-format and system page has a status line with a Confidence and a "Sources
-and checks", that Status, Confidence and italic tags use the standard's
+format and system page has a status line with a Confidence and its
+template's `##` headings in order, that each engine's and game's README
+has its template's sections, that no heading outside `research/` holds an
+address, that Status, Confidence and italic tags use the standard's
 words, that the standard pages have their templates' headings, that every
 page's title starts with its engine's or game's name, that each common
 page has its headings in order, that each `research/` has a `README.md`,
