@@ -5,7 +5,8 @@
 ## Overview
 
 `alt.res` is an archive of 31 TGA images, each LZSS-compressed. Not a zip,
-unlike [`stbof.res`](stbof-res.md). Every image is a full-screen 800x600
+unlike [`stbof.res`](stbof-res.md). The saved games are the same archive
+([sav.md](sav.md)). Every image is a full-screen 800x600
 picture. They are presumably backgrounds in each race's style, an
 "alternate" set to `stbof.res`'s; which screens use them is for the running
 game to show *(guessed)*.

@@ -23,7 +23,7 @@ for a "minimum" install.
 | `ENGLISH/*EOG*.wav` | CD | end-of-game narration per race and ending (`Alli`, `Anni`, `Domi`, `Loss`), with `*eog*.scr` in `stbof.res` |
 | `ENGLISH/*.avi` | CD only | `open.avi` and one per race (`C`, `F`, `H`, `K`, `R`): Cinepak (`cvid`) video, 800x300; the race movies also have sound |
 | `Stbof.ini` | install | settings, below |
-| `*.sav` | install | saved games |
+| `*.sav` | install | saved games ([formats/sav.md](../formats/sav.md)) |
 | `trek.exe`, `Trek.icd` | install | SafeDisc's loader and the encrypted game ([formats/executable.md](../formats/executable.md)) |
 
 The install's copies are byte for byte the CD's (the same size and hash).

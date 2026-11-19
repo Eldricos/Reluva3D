@@ -26,7 +26,7 @@ Each engine is a module that can run a family of games.
 | `nfs` | Need for Speed III: Hot Pursuit (US "Classics" CD); later, High Stakes | Playable: the retail game hosted, from its menus through every race type, single player and network (TCP, IPX, serial, modem); a data viewer of its files | [docs/engines/nfs](docs/engines/nfs/README.md) |
 | `unreal` | Star Trek: Deep Space Nine - The Fallen (Windows); later, other Unreal Engine 1 games | Playable: the intro, the title and its menus, New Game into the missions; every level with its scripts, HUD, saves and sound; being checked against a recording of the original | [docs/engines/unreal](docs/engines/unreal/README.md) |
 | `age` | Midtown Madness 2 (English, Windows); later, Midtown Madness | Playable: races, Crash Course and cruising in both cities from the game's menus, city life, multiplayer between copies of Reluva; the handling not yet checked against the original; a data viewer of its files | [docs/engines/age](docs/engines/age/README.md) |
-| `botf` | Star Trek: Birth of the Federation (English retail, Windows) | The main menu, the options and the start of a new game (game setup, empire selection); a data viewer of its files | [docs/engines/botf](docs/engines/botf/README.md) |
+| `botf` | Star Trek: Birth of the Federation (English retail, Windows) | The main menu, the options, Load Game's list and the start of a new game (game setup, empire selection); a data viewer of its files | [docs/engines/botf](docs/engines/botf/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements

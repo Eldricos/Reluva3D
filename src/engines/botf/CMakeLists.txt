@@ -13,12 +13,14 @@ reluva_add_engine(botf
         formats/font.cpp
         formats/lexicon.cpp
         formats/menu_file.cpp
+        formats/save_game.cpp
         formats/snd_archive.cpp
         formats/text_table.cpp
         formats/window_layout.cpp
         ui/assets.cpp
         ui/empire_screen.cpp
         ui/layout_screen.cpp
+        ui/load_screen.cpp
         ui/main_menu.cpp
         ui/options_screen.cpp
         ui/setup_screen.cpp)

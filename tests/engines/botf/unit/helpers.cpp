@@ -171,4 +171,41 @@ Error MemoryArchive::read(std::string_view name, std::vector<uint8_t> &out) cons
     return Error::success();
 }
 
+Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::string, Bytes>> &files) {
+    Bytes f(24, 0);
+    std::copy(name.begin(), name.begin() + std::min<size_t>(name.size(), 15), f.begin());
+    std::vector<std::pair<uint32_t, uint32_t>> placed; // offset, packed size
+    for (const auto &[file, raw] : files) {
+        const size_t at = f.size();
+        for (size_t i = 0; i < raw.size(); i += 8) {
+            const size_t n = std::min<size_t>(8, raw.size() - i);
+            f.push_back(uint8_t((1u << n) - 1));
+            f.insert(f.end(), raw.begin() + std::ptrdiff_t(i), raw.begin() + std::ptrdiff_t(i + n));
+        }
+        placed.emplace_back(uint32_t(at), uint32_t(f.size() - at));
+    }
+    set32(f, 16, uint32_t(f.size()));
+    set32(f, 20, uint32_t(files.size()));
+    for (size_t i = 0; i < files.size(); ++i) {
+        Bytes e(16, 0);
+        std::copy(files[i].first.begin(), files[i].first.end(), e.begin());
+        put32(e, placed[i].first);
+        put32(e, uint32_t(i));
+        put32(e, uint32_t(files[i].second.size()));
+        put32(e, placed[i].second);
+        put32(e, 1);
+        put32(e, 0);
+        f.insert(f.end(), e.begin(), e.end());
+    }
+    return f;
+}
+
+Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn) {
+    // gameInfo: a file name, the description at 0x0D, the turn at 0x40.
+    Bytes info(0x100, 0);
+    std::copy(description.begin(), description.end(), info.begin() + 0x0D);
+    set32(info, 0x40, turn);
+    return makeLzssArchive(name, {{"gameInfo", info}});
+}
+
 } // namespace reluva::botf::test

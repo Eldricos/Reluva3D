@@ -21,12 +21,12 @@ Engine id `botf`, in `src/engines/botf/`.
   screen, all working from the game's own layouts, pictures, fonts and
   words, and matched against a recording of the game. There's no game to
   start yet: the empire screen's Accept comes back to the main menu. The
-  menu's Options opens the options screen; its other buttons do nothing
-  yet.
+  menu's Options opens the options screen and Load Game the saved games'
+  slots; its other buttons do nothing yet.
 - **The data viewer** (`reluva-viewer`) shows the pictures, fonts, sounds,
   text and data tables, and the window layouts.
-- **Not yet:** the opening movie, the main menu's other screens (loading,
-  saving, the Hall of Fame), the galaxy map and every screen after it;
+- **Not yet:** the opening movie, the main menu's other screens (saving,
+  the Hall of Fame), loading a game, the galaxy map and every screen after it;
   the game's rules; the `.hob` models and their `.gif` textures; the AVI
   movies; saves; multiplayer.
 
@@ -45,7 +45,8 @@ The plan is in [PLAN.md](PLAN.md).
   selection screen, where pointing at an empire shows its description and
   a click chooses it. Options for the options screen: a click on a volume
   bar sets it (or drag along it), a click on a setting changes it, and
-  Accept keeps the changes. Cancel goes back a screen; Quit Game, or Esc on
+  Accept keeps the changes. Load Game lists the install's saved games; a
+  click chooses one. Cancel goes back a screen; Quit Game, or Esc on
   the main menu, goes back to the launcher.
 - **The data viewer:** `reluva-viewer` with the game. Tab moves between
   its pages:
@@ -69,7 +70,7 @@ The plan is in [PLAN.md](PLAN.md).
 |---|---|
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | A page per file format: [stbof-res.md](formats/stbof-res.md), [alt-res.md](formats/alt-res.md), [snd.md](formats/snd.md), [fnt.md](formats/fnt.md), [tdb.md](formats/tdb.md), [tables.md](formats/tables.md), [wdf.md](formats/wdf.md), [mnu.md](formats/mnu.md), [lexicon.md](formats/lexicon.md), [executable.md](formats/executable.md) |
+| [formats/](formats/) | A page per file format: [stbof-res.md](formats/stbof-res.md), [alt-res.md](formats/alt-res.md), [snd.md](formats/snd.md), [fnt.md](formats/fnt.md), [tdb.md](formats/tdb.md), [tables.md](formats/tables.md), [wdf.md](formats/wdf.md), [mnu.md](formats/mnu.md), [lexicon.md](formats/lexicon.md), [sav.md](formats/sav.md), [executable.md](formats/executable.md) |
 | [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (where it finds its files), [screens.md](systems/screens.md) (the screens rebuilt so far) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

@@ -114,7 +114,8 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
 }
 
 // The install: the main menu's buttons down the right; the options
-// screen's volumes, settings and timers' arrows down the middle; the setup
+// screen's volumes, settings and timers' arrows down the middle; Load
+// Game's slots, and two saved games; the setup
 // screen's buttons in a row along the top, the empire screen's names down
 // the left; Accept and Cancel at the bottom.
 void makeInstall(const std::filesystem::path &dir) {
@@ -158,6 +159,16 @@ void makeInstall(const std::filesystem::path &dir) {
              {8115, 379, 443}, {8114, 466, 443}, {8119, 379, 473}, {8118, 466, 473}})
         options.push_back({2, id, x, ty, 16, 19, "bt"});
     add("options.wdf", layout(43, "opt.tga", options));
+    // Load Game's twelve slots, 26 pixels apart, each with its name and
+    // description.
+    std::vector<LayoutWidget> loading = {{2, 9503, 452, 504, 160, 36, "ok"}, {2, 9504, 16, 504, 160, 36, "no"}};
+    for (uint32_t i = 0; i < 12; ++i) {
+        loading.push_back({2, 9507 + 2 * i, 16, 175 + 26 * i, 596, 23, "sl"});
+        loading.push_back({14, 9506 + 2 * i, 55, 178 + 26 * i, 158, 17, "human15.fnt"});
+        loading.push_back({14, 9530 + 2 * i, 236, 178 + 26 * i, 370, 17, "human15.fnt"});
+    }
+    add("loadsave.wdf", layout(0, "load.tga", loading));
+    add("load.tga", picture(800, 600, 20, 20, 60));
     std::vector<LayoutWidget> setup = {{2, 9201, 453, 502, 159, 36, "ok"}, {2, 9202, 16, 502, 159, 36, "no"}};
     std::vector<LayoutWidget> empires = {{2, 9110, 452, 502, 160, 36, "ok"}, {2, 9111, 16, 502, 160, 36, "no"}};
     uint32_t x = 0;
@@ -189,7 +200,8 @@ void makeInstall(const std::filesystem::path &dir) {
     add("vol-bar.tga", picture(287, 19, 240, 210, 90));
     add("volbarof.tga", picture(287, 19, 80, 30, 60));
     const std::vector<std::tuple<std::string, uint8_t, uint8_t, uint8_t>> buttons = {
-        {"mc", 200, 100, 0}, {"ok", 0, 200, 0}, {"no", 200, 0, 0}, {"bt", 0, 100, 200}, {"em", 200, 200, 0}};
+        {"mc", 200, 100, 0}, {"ok", 0, 200, 0},   {"no", 200, 0, 0},
+        {"bt", 0, 100, 200}, {"em", 200, 200, 0}, {"sl", 90, 90, 160}};
     for (const auto &[name, r, g, b] : buttons) {
         add(name + "1.tga", picture(40, 40, r, g, b));
         add(name + "2.tga", picture(40, 40, 255, 255, 255));
@@ -201,6 +213,10 @@ void makeInstall(const std::filesystem::path &dir) {
     add("lexicon.dic", makeLexicon({"word"}));
     writeFile(dir / "stbof.res", test::buildZip(files));
     writeFile(dir / "sfx.snd", Bytes(4, 0));
+    // Two saved games, in the first and fourth slots, one named in capitals
+    // as some installs have them.
+    writeFile(dir / "game0.sav", makeSave("Tutorial #1", "Irregular", 0));
+    writeFile(dir / "Game3.sav", makeSave("Mine", "Spiral", 120));
 }
 
 Event pointAt(int x, int y) {
@@ -320,7 +336,15 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", menuButton(1, false)},
             {"setup.with the options", click(30, 510, true)},
             {"", click(30, 510, false)},
-            {"menu.last", menuButton(8, true)}, // Quit Game: the end
+            {"menu.last", menuButton(3, true)}, // Load Game
+            {"", menuButton(3, false)},
+            {"load.shown", click(300, 175 + 26 + 10, true)}, // an empty slot: nothing
+            {"", click(300, 175 + 26 + 10, false)},
+            {"load.empty slot clicked", click(300, 175 + 78 + 10, true)}, // the fourth, a save
+            {"", click(300, 175 + 78 + 10, false)},
+            {"load.save chosen", click(460, 510, true)}, // Accept: no game yet, the menu
+            {"", click(460, 510, false)},
+            {"menu.after loading", menuButton(8, true)}, // Quit Game: the end
             {"", menuButton(8, false)},
         };
         ScriptedSystem sys(rec, script);

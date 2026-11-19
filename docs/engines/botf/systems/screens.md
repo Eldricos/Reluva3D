@@ -4,8 +4,8 @@
 
 ## Overview
 
-The screens rebuilt so far: the main menu, the options screen, and those
-that start a new game, the game setup ("Configuration") screen and the
+The screens rebuilt so far: the main menu, the options and Load Game
+screens, and those that start a new game, the game setup ("Configuration") screen and the
 empire selection screen. Each is put
 back together from its window layout ([formats/wdf.md](../formats/wdf.md)),
 the manual (what each control does, its choices and defaults),
@@ -113,6 +113,36 @@ their pictures' names; there's no recording of this screen yet.
 - **Behind it:** drawn over the main menu, dimmed, as the other panels are
   *(guessed)*.
 
+### Load Game
+
+`loadsave.wdf`, opened by the main menu's Load Game: a background
+(`ls_bkgd.tga`), Accept (9503) and Cancel (9504) at the bottom, and a list
+of twelve slots, the manual's "12 slots available for saved games".
+
+- **The slots** are buttons the width of the list (9507, 9509 ... 9529,
+  596x23, 26 pixels apart from y 175), with `ls_ldb1.tga` and, lit,
+  `ls_ldb2.tga`. On each, two text boxes in `human15.fnt`: on the left
+  (9506, 9508 ... 9528, 158 wide) the save's name, on the right (9530,
+  9532 ... 9552, 370 wide) its description, matched to the manual's "Name
+  Field" and "Description Field" by their order *(inferred)*. Slot *n* is
+  `game`*n*`.sav`, its name the archive header's and its description
+  `gameInfo`'s ([formats/sav.md](../formats/sav.md)) *(inferred)*.
+- **Choosing:** the manual: "click on its slot and the selected game will
+  light up. Then click the Accept button to start that saved game." Reluva
+  lights the chosen slot with its second picture. An empty slot can't be
+  chosen, and Accept does nothing until a slot is *(guessed)*.
+- **The four tutorials** are saved games in four of the slots ("Tutorial
+  #1" to "Tutorial #4", the manual), installed with the game.
+- **The text** is in the boxes' own colours: the names' font names a near
+  black (1, 0, 0), the descriptions' the game's default, taken as black
+  *(guessed)*; the descriptions' font is right-aligned (its first flag),
+  as Reluva draws it.
+- **A picture,** `ls_svlb.tga` (9505, 194x36, at 386, 102) is in the
+  layout, drawn as it says. Its name suggests a "save" label, which the
+  Load Game screen might not show *(guessed)*.
+- **Shared with Save Game:** the same layout (the file's name), where the
+  manual has the description typed in.
+
 ### Game setup
 
 `gmesetup.wdf`. The controls, matched to the manual's by their order on
@@ -195,12 +225,14 @@ the screen, and checked against the recording:
   can't be used drawn dimmed and the one under the pointer lit, text drawn
   in a text box's font and alignment, and wrapped as the empire screen's
   description is. The dimmed pictures are made by `ui/assets.cpp`.
-- `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/setup_screen.cpp` and
-  `ui/empire_screen.cpp`: each screen's controls.
+- `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/load_screen.cpp`,
+  `ui/setup_screen.cpp` and `ui/empire_screen.cpp`: each screen's
+  controls.
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
-  the options (while it runs: they aren't saved yet). There's no game to
-  start yet, so the empire screen's Accept comes back to the main menu, and
-  the menu's other buttons do nothing yet
+  the options (while it runs: they aren't saved yet). Load Game lists the
+  install's own saves, not the CD's. There's no game to start or load yet,
+  so the empire screen's Accept and Load Game's come back to the main menu,
+  and the menu's other buttons do nothing yet
   ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 - A button shows its "selected" picture while it's held *(guessed)*; the
   empire screen's Accept does nothing until an empire is chosen
@@ -209,7 +241,7 @@ the screen, and checked against the recording:
 ## Sources and checks
 
 - **Where the facts come from:** `gmesetup.wdf`, `emppick.wdf`,
-  `opening.wdf` and `options.wdf`; the manual's chapters 4 ("Main Menu"), 5
+  `opening.wdf`, `options.wdf` and `loadsave.wdf`; the manual's chapters 4 ("Main Menu"), 5
   ("Single Player Game") and 13 ("Game Options", First Edition, May 1999)
   for each control's job, choices and defaults; a recording of the game ("Let's Play Star Trek Birth of the
   Federation, UFP, p1": the main menu at 0:00-0:57, game setup at
@@ -224,8 +256,9 @@ the screen, and checked against the recording:
   description's line breaks worked out from the font's widths against the
   recording's. `botf.unit.screens` checks the controls' choices and the
   menu's buttons, and `botf.engine` goes from the main menu through both
-  screens and back, and through the options, cancelled and accepted. The
-  options screen hasn't been seen: it's from its layout and the manual.
+  screens and back, through the options, cancelled and accepted, and
+  through Load Game with two saves. The options and Load Game screens
+  haven't been seen: they're from their layouts and the manual.
 
 ## Open questions
 
@@ -241,6 +274,9 @@ the screen, and checked against the recording:
   choices, whether a volume's click works as Reluva's does, and the
   pictures 8110-8113. Settled by a recording or screenshots of it.
 - Where the game keeps the options between runs.
+- Load Game as the game draws it: which field shows the name and which the
+  description, what an empty slot shows, its text's colours, and whether
+  `ls_svlb.tga` is shown. Settled by a screenshot with saves in it.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
 - What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an

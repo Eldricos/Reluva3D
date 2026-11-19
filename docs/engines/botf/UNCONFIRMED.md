@@ -30,7 +30,16 @@ None: nothing of the game's code has been read.
   set ([systems/screens.md](systems/screens.md)). Settled by: a recording
   or screenshots of the screen.
 
+- **Load Game's slots:** slot *n* is `game`*n*`.sav`, the left field its
+  name and the right its description ([systems/screens.md](systems/screens.md),
+  [formats/sav.md](formats/sav.md)). Settled by: a screenshot with saves in
+  it.
+
 ## Guessed
+
+- **On Load Game:** empty slots can't be chosen, Accept does nothing until
+  one is, and the text's colours ([systems/screens.md](systems/screens.md)).
+  Settled by: the running game.
 
 - **On the options screen:** 3D acceleration's choices (Reluva shows YES
   or NO) and default, the volumes starting at the maximum, Random Events

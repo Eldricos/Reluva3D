@@ -42,6 +42,11 @@ public:
     void draw(Surface &screen) const { drawLayouts(screen); }
     /** The mouse: pointing at a button lights it, and a click on it chooses it. */
     Choice handle(const Event &event);
+    /**
+     * Coming back from another screen: no button is lit until the pointer
+     * moves, as the one it was on when the menu was left may not be under it.
+     */
+    void forgetPointer() { _pointed = 0; }
 };
 
 } // namespace reluva::botf

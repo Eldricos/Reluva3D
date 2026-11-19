@@ -13,17 +13,21 @@ setup.levels all set: 6a876819c35a62ea
 empires.shown: 6700811f7ee4812c
 empires.third chosen: 4a6737e19641e48c
 setup.again: 6a876819c35a62ea
-menu.again: 138ab6ca9773e725
+menu.again: aab57f3978016255
 empires.second chosen: 5d2dd68cbe8b5b1c
-menu.after a new game: 138ab6ca9773e725
+menu.after a new game: aab57f3978016255
 options.shown: 5522329f080b41c5
 options.combat changed: f5994d1ac4f00db3
 options.volume pressed: 49ce1f8a48dea15b
 options.volume dragged: a59265a88e73df97
-menu.options cancelled: 3295b1e72c1f56e5
+menu.options cancelled: aab57f3978016255
 options.again: 5522329f080b41c5
-menu.options accepted: 3295b1e72c1f56e5
+menu.options accepted: aab57f3978016255
 setup.with the options: f1f24d46deb0c711
-menu.last: 138ab6ca9773e725
+menu.last: aab57f3978016255
+load.shown: 8893e537b5d7983d
+load.empty slot clicked: 8893e537b5d7983d
+load.save chosen: 9c5297666b0d154d
+menu.after loading: aab57f3978016255
 run: ok
 run.screen: 800x600

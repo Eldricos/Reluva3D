@@ -3,8 +3,8 @@
 
 // Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
 // releases it recognises, making an Engine to run one) and its Engine,
-// which so far runs the main menu, the options screen and the start of a
-// new game: the game setup screen, then the empire selection screen
+// which so far runs the main menu, the options and Load Game screens and
+// the start of a new game: the game setup screen, then the empire selection screen
 // (docs/engines/botf/systems/screens.md).
 
 #include "common/zip.h"
@@ -12,12 +12,15 @@
 #include "engines/botf/game_files.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/load_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "engines/engine.h"
 
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -56,6 +59,27 @@ const std::vector<GameVariant> kFallback = {
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
+// The saved games in the install's slots, game0.sav to game11.sav (any
+// case). Only the install's own: the CD has the tutorials' saves too, but a
+// slot emptied in the install should stay empty. A save that can't be read
+// shows as an empty slot.
+LoadScreen::Slots findSaves(const std::filesystem::path &dir) {
+    LoadScreen::Slots slots;
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
+        std::string name = entry.path().filename().string();
+        for (char &c : name)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        for (int i = 0; i < LoadScreen::kSlots; ++i)
+            if (name == "game" + std::to_string(i) + ".sav") {
+                SaveSummary save;
+                if (!readSaveSummary(entry.path(), save))
+                    slots[size_t(i)] = save;
+            }
+    }
+    return slots;
+}
+
 // The settings the game setup screen and the options screen share: the
 // manual says each can change them.
 void preferencesToSetup(const GameOptions &o, GameSetup &s) {
@@ -73,10 +97,10 @@ void preferencesToOptions(const GameSetup &s, GameOptions &o) {
 }
 
 /**
- * The game running: the main menu, its options screen, and from its New
- * Single Player Game the game setup screen, then the empire selection
- * screen. There's no game to start yet, so the empire screen's Accept comes
- * back to the main menu.
+ * The game running: the main menu, its options and Load Game screens, and
+ * from its New Single Player Game the game setup screen, then the empire
+ * selection screen. There's no game to start or load yet, so the empire
+ * screen's Accept and Load Game's come back to the main menu.
  */
 class BotfEngine : public Engine {
 public:
@@ -96,11 +120,14 @@ public:
         Assets assets(_stbof);
         MainMenu menu(assets, _lexicon);
         OptionsScreen options(assets, _lexicon);
+        LoadScreen loading(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
         if (Error err = menu.load())
             return err;
         if (Error err = options.load())
+            return err;
+        if (Error err = loading.load())
             return err;
         if (Error err = setup.load())
             return err;
@@ -112,8 +139,9 @@ public:
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        enum class Showing { kMenu, kOptions, kSetup, kEmpires };
+        enum class Showing { kMenu, kOptions, kLoad, kSetup, kEmpires };
         Showing showing = Showing::kMenu;
+        Showing shown = showing; // before the event
         bool redraw = true;
         while (true) {
             Event ev;
@@ -125,7 +153,7 @@ public:
                     // convenience the game hasn't got.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         return Error::success();
-                    // The menu's other choices (loading, the Hall of Fame,
+                    // The menu's other choices (the Hall of Fame,
                     // multiplayer) aren't there yet, and do nothing.
                     const MainMenu::Choice c = menu.handle(ev);
                     if (c == MainMenu::Choice::kQuit)
@@ -134,6 +162,10 @@ public:
                         setup.setup() = GameSetup{};
                         preferencesToSetup(_options, setup.setup());
                         showing = Showing::kSetup;
+                    }
+                    if (c == MainMenu::Choice::kLoadGame) {
+                        loading.open(findSaves(_target.path));
+                        showing = Showing::kLoad;
                     }
                     if (c == MainMenu::Choice::kOptions) {
                         options.open(_options);
@@ -144,6 +176,9 @@ public:
                     if (r == OptionsScreen::Result::kAccepted)
                         _options = options.options();
                     if (r != OptionsScreen::Result::kOpen)
+                        showing = Showing::kMenu;
+                } else if (showing == Showing::kLoad) {
+                    if (loading.handle(ev) != LoadScreen::Result::kOpen)
                         showing = Showing::kMenu;
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
@@ -162,6 +197,9 @@ public:
                     if (r == EmpireScreen::Result::kCancelled)
                         showing = Showing::kSetup;
                 }
+                if (showing != shown && showing == Showing::kMenu)
+                    menu.forgetPointer();
+                shown = showing;
                 redraw = redraw || ev.type != EventType::kKeyUp;
             }
             if (redraw) {
@@ -170,6 +208,8 @@ public:
                     menu.draw(screen);
                 else if (showing == Showing::kOptions)
                     options.draw(screen);
+                else if (showing == Showing::kLoad)
+                    loading.draw(screen);
                 else if (showing == Showing::kSetup)
                     setup.draw(screen);
                 else

@@ -46,6 +46,14 @@ Bytes makeFont(int lineHeight, int rowsToDraw = 5);
 // lexicon.dic holding the words, numbered from 0.
 Bytes makeLexicon(const std::vector<std::string> &words);
 
+// An archive as alt.res and the saved games are: the header named `name`,
+// each file's data as LZSS literals only (so read the same whatever the
+// window holds), and the directory.
+Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::string, Bytes>> &files);
+
+// A saved game holding only a gameInfo with `description` and `turn`.
+Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn);
+
 // Files in memory, for the screens.
 struct MemoryArchive : Archive {
     std::map<std::string, Bytes> files;

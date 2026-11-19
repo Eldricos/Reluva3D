@@ -3,7 +3,9 @@
 
 #include "engines/botf/formats/alt_res.h"
 
+#include <algorithm>
 #include <fstream>
+#include <iterator>
 
 namespace reluva::botf {
 
@@ -35,10 +37,12 @@ Error readAt(const std::filesystem::path &path, uint64_t offset, size_t size, st
 
 } // namespace
 
-Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out, size_t *used) {
+Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out, size_t *used,
+                     uint8_t windowFill) {
     out.clear();
     out.reserve(size);
-    uint8_t window[kWindowSize] = {};
+    uint8_t window[kWindowSize];
+    std::fill(std::begin(window), std::end(window), windowFill);
     size_t r = kWindowStart;
     size_t pos = 0;
     unsigned flags = 0;
@@ -81,6 +85,7 @@ Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vec
 
 Error AltResArchive::open(const std::filesystem::path &path) {
     _path = path;
+    _name.clear();
     _entries.clear();
     _byName.clear();
     std::error_code ec;
@@ -92,6 +97,8 @@ Error AltResArchive::open(const std::filesystem::path &path) {
         return Error::fail(path.string() + " is too small for alt.res");
     if (Error err = readAt(path, 0, kHeaderSize, header))
         return err;
+    for (size_t i = 0; i < 16 && header[i]; ++i)
+        _name.push_back(char(header[i]));
     const uint32_t dirOffset = u32(&header[16]);
     const uint32_t count = u32(&header[20]);
     if (dirOffset < kHeaderSize || dirOffset > _fileSize || count > (_fileSize - dirOffset) / kEntrySize)
@@ -139,11 +146,11 @@ Error AltResArchive::read(std::string_view name, std::vector<uint8_t> &out) cons
     return read(_entries[it->second], out);
 }
 
-Error AltResArchive::read(const Entry &entry, std::vector<uint8_t> &out) const {
+Error AltResArchive::read(const Entry &entry, std::vector<uint8_t> &out, uint8_t windowFill) const {
     std::vector<uint8_t> packed;
     if (Error err = readAt(_path, entry.offset, entry.compressedSize, packed))
         return err;
-    if (Error err = decompressLzss(packed.data(), packed.size(), entry.size, out))
+    if (Error err = decompressLzss(packed.data(), packed.size(), entry.size, out, nullptr, windowFill))
         return Error::fail(_path.string() + ": " + entry.name + ": " + err.message);
     return Error::success();
 }

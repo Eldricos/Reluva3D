@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Birth of the Federation's unit tests: the main menu, the options screen,
-// and the game setup and empire selection screens.
+// Birth of the Federation's unit tests: the main menu, the options and Load
+// Game screens, and the game setup and empire selection screens.
 
 #include "common/events.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/load_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
@@ -282,6 +283,73 @@ void testOptionsScreen() {
     CHECK(screen.options().autosave && screen.options().volume[3] == GameOptions::kMaxVolume);
 }
 
+void testLoadScreen() {
+    // Accept and Cancel, then the twelve slots, 600x20 each, one under
+    // another from y 100, with their name and description boxes.
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 0, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, 14}, {14, 24}});
+    auto button = [&](uint32_t id, uint32_t y, uint32_t w) {
+        putWidget(f, 2, id, 10, y, w, 20, "none");
+        put32(f, 0xffffffff);
+        f.push_back(0);
+        put32(f, 0);
+        put32(f, 0);
+        putName(f, "none");
+        putName(f, "none");
+    };
+    button(9503, 550, 100);
+    button(9504, 570, 100);
+    for (uint32_t i = 0; i < 12; ++i)
+        button(9507 + 2 * i, 100 + 25 * i, 600);
+    for (uint32_t i = 0; i < 24; ++i) {
+        const uint32_t id = i < 12 ? 9506 + 2 * i : 9530 + 2 * (i - 12);
+        putWidget(f, 14, id, i < 12 ? 50 : 250, 100 + 25 * (i % 12), 150, 17, "none");
+        for (const uint32_t v : {0U, 0U, 150U, 17U})
+            put32(f, v);
+        putFont(f, 1, 0, 0, "human15.fnt");
+    }
+    MemoryArchive archive;
+    archive.files["loadsave.wdf"] = f;
+    archive.files["opening.wdf"] = emptyLayout(138);
+    archive.files["human15.fnt"] = makeFont(16);
+    Assets assets(archive);
+    Lexicon lexicon;
+    LoadScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+    LoadScreen::Slots slots;
+    slots[0] = SaveSummary{"Tutorial #1", "Irregular", 0, false};
+    slots[3] = SaveSummary{"Mine", "Spiral", 120, false};
+    screen.open(slots);
+    auto click = [&](int x, int y) {
+        LoadScreen::Result r = LoadScreen::Result::kOpen;
+        for (EventType t : {EventType::kMouseDown, EventType::kMouseUp}) {
+            Event e;
+            e.type = t;
+            e.button = MouseButton::kLeft;
+            e.mouseX = x;
+            e.mouseY = y;
+            r = screen.handle(e);
+        }
+        return r;
+    };
+    auto slot = [&](int i) { return click(300, 105 + 25 * i); };
+    // Nothing chosen: Accept does nothing; an empty slot can't be chosen.
+    CHECK(screen.chosen() == -1 && click(20, 555) == LoadScreen::Result::kOpen);
+    CHECK(slot(1) == LoadScreen::Result::kOpen && screen.chosen() == -1);
+    CHECK(slot(3) == LoadScreen::Result::kOpen && screen.chosen() == 3);
+    CHECK(slot(0) == LoadScreen::Result::kOpen && screen.chosen() == 0);
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(surface);
+    CHECK(click(20, 555) == LoadScreen::Result::kAccepted && screen.chosen() == 0);
+    CHECK(click(20, 575) == LoadScreen::Result::kCancelled);
+    // Opening it again chooses nothing.
+    screen.open(slots);
+    CHECK(screen.chosen() == -1);
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -360,6 +428,7 @@ static const reluva::test::Suite
     kSuite("botf.unit.screens", {
                                     {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
                                     {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
+                                    {"load game", [](const std::filesystem::path &) { testLoadScreen(); }},
                                     {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                                     {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
                                 });

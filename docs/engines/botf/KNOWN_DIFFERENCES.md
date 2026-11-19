@@ -19,10 +19,12 @@ None yet.
 ## Not yet as the original
 
 - **The game starts at the main menu,** without the opening movie.
-- **On the main menu,** only New Single Player Game, Options and Quit
-  Game do anything yet; Continue, Save Game and Retire can't be used (as in
-  the game with nothing in progress), and New Multiplayer Game, Load Game
-  and Hall of Fame do nothing. The version ("1.0.2" in the game)
+- **On the main menu,** only New Single Player Game, Load Game, Options
+  and Quit Game do anything yet; Continue, Save Game and Retire can't be
+  used (as in the game with nothing in progress), and New Multiplayer Game
+  and Hall of Fame do nothing.
+- **Load Game's Accept comes back to the main menu:** saved games can't
+  be loaded yet. The version ("1.0.2" in the game)
   isn't drawn.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).

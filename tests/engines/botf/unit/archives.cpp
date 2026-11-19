@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Birth of the Federation's unit tests: alt.res and its LZSS, the .snd archives, and
-// finding the game's files.
+// Birth of the Federation's unit tests: alt.res and its LZSS, the saved
+// games, the .snd archives, and finding the game's files.
 
 #include "audio/sound.h"
 #include "audio/wav.h"
 #include "engines/botf/formats/alt_res.h"
+#include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/snd_archive.h"
 #include "engines/botf/game_files.h"
 #include "image/image.h"
@@ -107,6 +108,26 @@ void testLzss() {
 
     // Too little input fails.
     CHECK(decompressLzss(packed.data(), packed.size() / 2, raw.size(), out));
+
+    // A reference to the window before anything is written there copies
+    // what it was filled with: zeros, or a saved game's spaces.
+    const Bytes early = {0xfe, 0x10, 0x80};
+    CHECK(!decompressLzss(early.data(), early.size(), 3, out) && out == Bytes(3, 0));
+    CHECK(!decompressLzss(early.data(), early.size(), 3, out, nullptr, 0x20) && out == Bytes(3, 0x20));
+}
+
+void testSaveSummary(const std::filesystem::path &tmp) {
+    writeFile(tmp / "game0.sav", makeSave("Tutorial #1", "Irregular galaxy \xe9", 41));
+    SaveSummary save;
+    CHECK(!readSaveSummary(tmp / "game0.sav", save));
+    CHECK(save.name == "Tutorial #1");
+    CHECK(save.description == "Irregular galaxy \xc3\xa9"); // Windows-1252 to UTF-8
+    CHECK(save.turn == 41 && !save.multiplayer);
+    // Without gameInfo, or not an archive, it isn't read.
+    writeFile(tmp / "game1.sav", makeLzssArchive("x", {{"version", Bytes(8, 1)}}));
+    CHECK(bool(readSaveSummary(tmp / "game1.sav", save)));
+    writeFile(tmp / "game2.sav", Bytes(10, 0));
+    CHECK(bool(readSaveSummary(tmp / "game2.sav", save)));
 }
 
 void testAltRes(const std::filesystem::path &tmp) {
@@ -296,6 +317,7 @@ static const reluva::test::Suite
     kSuite("botf.unit.archives", {
                                      {"lzss", [](const std::filesystem::path &) { testLzss(); }},
                                      {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
+                                     {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
                                      {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},
                                      {"game files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
                                  });
