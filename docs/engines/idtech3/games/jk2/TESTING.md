@@ -50,7 +50,8 @@
   tour then its route, about forty minutes), `jk2-sp-bespin`
   (bespin_undercity: the tour, then the R5 droid's drive to the exit
   lift; bespin_streets by the tour; bespin_platform by the tour then
-  its route, the doors' console and Tavion's fight). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  its route, the doors' console and Tavion's fight), `jk2-sp-cairn`
+  (cairn_bay: the tour, then the lift to the exit). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

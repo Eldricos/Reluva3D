@@ -332,6 +332,19 @@ yet: a console on the page.
   `sp-run bespin_platform -tour 5000 -replay
   tests/engines/idtech3/data/routes/bespin_platform.txt -set helpUsObi 1
   -next` plays it to `maptransition cairn_bay`.
+- **cairn_bay:** the opening runs to 55 s, and the tour starts after it;
+  Luke fights alongside and his death fails the mission, so he's
+  spared. One trigger out in the bay (`run_remove`'s) kills the player
+  at once, through god mode, a fifth of a second after a teleport there
+  (what by isn't worked out); the tour leaves it out. The exit trigger is
+  in a lift shaft whose bottom kills: the lift goes up and down in turn,
+  and the exit is switched on only for the 4.3 s it waits below.
+  `sp-run`'s `@onto name [+height]` stands the player on an entity, or
+  that high above its bottom (inside the lift's car), and the route does
+  that every half second for a round. `sp-run cairn_bay -tour 56000
+  -spare luke -spare cinematic24_luke -spare cinematic25_luke -spare
+  run_remove -replay tests/engines/idtech3/data/routes/cairn_bay.txt
+  -set helpUsObi 1 -next` plays it to `maptransition cairn_assembly`.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split

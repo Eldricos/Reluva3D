@@ -457,7 +457,7 @@ int cmdSpRun(int argc, char **argv) {
             "\"/command\" typed at the console; \"@until ms [buttons] [weapon] [pitch]\" the same command every 50 ms until\n"
             "then (\"+ms\": that long from now), looking pitch degrees down (up negative); \"@aim name\" (\"@aim x y z\") the view turned to that entity (point) for the @until lines after (\"@aim none\" level again);\n"
             "\"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it;\n"
-            "\"@where [name]\" where the player is, and that entity; \"@aimfrom x y z [yaw pitch]\" @aim measured from there\n"
+            "\"@onto name [+height]\" the player on top of that entity (or that high in it); \"@where [name]\" where the player is, and that entity; \"@aimfrom x y z [yaw pitch]\" @aim measured from there\n"
             "(and turning from those angles: a panel turret; none: the eye); \"@repeat n\" ... \"@end\" those lines n times.\n"
             "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1);\n"
             "with -replay, the replay's lines after the tour in place of its level change.\n"
@@ -919,6 +919,34 @@ int cmdSpRun(int argc, char **argv) {
                         target >= 0 ? double(game.entityVec(target, game.entityLayout().currentOrigin)[0]) : 0.0,
                         target >= 0 ? double(game.entityVec(target, game.entityLayout().currentOrigin)[1]) : 0.0,
                         target >= 0 ? double(game.entityVec(target, game.entityLayout().currentOrigin)[2]) : 0.0);
+                continue;
+            }
+            // "@onto name [+height]": the player stood on top of the entity
+            // with that name (living or not: a moving platform), or that
+            // high above its bottom (inside a lift car with a roof).
+            if (line.rfind("@onto ", 0) == 0) {
+                const ef::SpEntityLayout &layout = game.entityLayout();
+                std::istringstream words(reluva::fs::toLower(line.substr(6)));
+                std::string want;
+                std::string above;
+                words >> want >> above;
+                for (int32_t n = 1; n < game.entityCount(); ++n) {
+                    if (!game.entityInt(n, layout.inUse) || !entityHasText(game, n, want))
+                        continue;
+                    const q3::Vec3f lo = game.entityVec(n, layout.absMin);
+                    const q3::Vec3f hi = game.entityVec(n, layout.absMax);
+                    char command[128];
+                    const double z = above.size() > 1 && above[0] == '+' ? double(lo[2]) + std::atof(above.c_str() + 1)
+                                                                         : double(hi[2]) + 25;
+                    std::snprintf(command, sizeof command, "setviewpos %.0f %.0f %.0f 0", double((lo[0] + hi[0]) / 2),
+                                  double((lo[1] + hi[1]) / 2), z);
+                    aimPitch = aimYaw = 0;
+                    if (watch)
+                        std::printf("[%5d ms] %s: %s (entity %d)\n", game.levelTime(), line.c_str(), command, n);
+                    if (reluva::Error e = game.clientConsoleCommand(command))
+                        return failed(("command " + line).c_str(), e);
+                    break;
+                }
                 continue;
             }
             const bool nearest = line.rfind("@nearest ", 0) == 0;

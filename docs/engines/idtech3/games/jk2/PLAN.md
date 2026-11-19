@@ -221,7 +221,9 @@ behind the DLL's own tables.
    `bespin_platform` cuts limbs off, which brought two more Ghoul2 slots
    (copying an instance, the new origin), and plays to `cairn_bay` by
    the tour then a route: the doors' console, cinematic 22 and Tavion's
-   fight. Next: the next levels the same way, and a console on the page.
+   fight. `cairn_bay` plays to `cairn_assembly` by the tour (from the
+   opening's end, sparing Luke) then a route riding the lift to the
+   exit. Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

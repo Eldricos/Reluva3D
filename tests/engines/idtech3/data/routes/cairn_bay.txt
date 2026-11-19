@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# cairn_bay's way out, for sp-run -tour 56000 -replay (with -spare luke
+# -spare cinematic24_luke -spare cinematic25_luke -spare run_remove, set
+# helpUsObi 1). The tour starts once the opening (to 55 s) is over,
+# spares Luke, whose death fails the mission, and leaves out run_remove's
+# trigger, out in the bay, where the player is killed at once (what by
+# isn't worked out). The exit trigger is in a lift shaft whose bottom
+# kills: the lift (brokel3) goes up and down in turn, the exit switched
+# on only for the 4.3 s it waits below. Here, from the tour's end: the
+# player kept standing in the lift car for a whole round.
+@repeat 100
+@onto brokel3 +40
+@until +500 0 0
+@end
+@until +10000 0 0

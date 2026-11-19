@@ -57,6 +57,8 @@
 #                 droid's drive to the exit lift); bespin_streets by the
 #                 tour; bespin_platform by the tour, then its route (the
 #                 doors' console, cinematic 22, Tavion).
+#   jk2-sp-cairn  cairn_bay: the tour, then its route (the lift to the
+#                 exit).
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -152,6 +154,10 @@ elseif(STEP STREQUAL "jk2-sp-bespin")
                -set helpUsObi 1 -next)
     record_run(bespin_platform "ran 100 frames" idtech3 sp-run "${base}" bespin_platform -tour 5000
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/bespin_platform.txt" -fixedclock -set helpUsObi 1 -next)
+elseif(STEP STREQUAL "jk2-sp-cairn")
+    record_run(cairn_bay "ran 100 frames" idtech3 sp-run "${base}" cairn_bay -tour 56000 -spare luke
+               -spare cinematic24_luke -spare cinematic25_luke -spare run_remove
+               -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/cairn_bay.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)
