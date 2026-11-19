@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# yavin_final's end, for sp-run -tour 5000 -replay (with -spare
+# real_desann, set helpUsObi 1): the tour plays the level up to Desann,
+# left to this route. He blocks the saber and blaster bolts but not
+# rockets or the disruptor, given ammunition each round, as the tour
+# spends it; his death (his NPC_target) brings cinematics 35 to 37, the
+# last of which ends the game (endscreendissolve, the closing credits).
+@repeat 110
+/give ammo
+@nearest real_desann +160
+@until +1000 1 9
+@nearest real_desann
+@until +1000 1 4
+@end
+# the closing cinematics
+@until +150000 0 0

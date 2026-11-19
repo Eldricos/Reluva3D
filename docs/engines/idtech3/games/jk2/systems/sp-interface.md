@@ -372,7 +372,16 @@ yet: a console on the page.
   needed.
 - **yavin_courtyard:** `sp-run yavin_courtyard -tour 5000 -set
   helpUsObi 1 -next` plays it to `maptransition yavin_final`, nothing
-  new needed. Things found on the
+  new needed.
+- **yavin_final:** the last level, with no level change. The tour plays
+  it up to Desann, who's spared it; he blocks the saber and blaster
+  bolts but not rockets or the disruptor, and the route gives
+  ammunition each round, as the tour has spent it. His death (his
+  `NPC_target`) brings cinematics 35 to 37; the last ends the game with
+  `endscreendissolve` and the closing credits. `sp-run yavin_final
+  -tour 5000 -spare real_desann -replay
+  tests/engines/idtech3/data/routes/yavin_final.txt -set helpUsObi 1`
+  plays it to the end. Things found on the
   way: a spot over an electrified floor (a `trigger_hurt` whose damage
   isn't stopped by god mode) kills a player dropped there, so the tour
   now counts a spot over a hurt with nothing solid between as in it, and

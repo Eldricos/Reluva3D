@@ -62,7 +62,8 @@
 #                 cairn_dock1 by the tour with notarget (its alarms).
 #   jk2-sp-doom   doom_comm, doom_detention and doom_shields by the tour.
 #   jk2-sp-yavin-assault  yavin_swamp, yavin_canyon and yavin_courtyard by
-#                 the tour.
+#                 the tour; yavin_final by the tour, then its route
+#                 (Desann's fight), to the game's end.
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -182,6 +183,9 @@ elseif(STEP STREQUAL "jk2-sp-yavin-assault")
                -set helpUsObi 1 -next)
     record_run(yavin_courtyard "ran 100 frames" idtech3 sp-run "${base}" yavin_courtyard -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
+    record_run(yavin_final "console command: endscreendissolve" idtech3 sp-run "${base}" yavin_final -tour 5000
+               -spare real_desann -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/yavin_final.txt" -fixedclock
+               -set helpUsObi 1)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)
