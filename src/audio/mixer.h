@@ -150,6 +150,9 @@ public:
     // Every sound's volume, 0 .. kMaxBoostVolume (kMaxVolume by default).
     void setMasterVolume(int volume);
     int masterVolume() const;
+    // The whole mix towards the left (-kMaxPan) or right (kMaxPan): the
+    // far side quieter, linearly (a game's balance setting).
+    void setBalance(int balance);
 
     int outputRate() const { return _outputRate; }
 
@@ -196,6 +199,7 @@ private:
     SoundHandle _nextHandle = 1;
     int _typeVolume[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
     int _masterVolume = kMaxVolume;
+    int _balance = 0;
     bool _allPaused = false;
     std::vector<int32_t> _accumulator; // mix()'s working buffer, stereo
 };

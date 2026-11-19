@@ -202,6 +202,11 @@ void Mixer::setMasterVolume(int volume) {
     _masterVolume = std::clamp(volume, 0, kMaxBoostVolume);
 }
 
+void Mixer::setBalance(int balance) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _balance = std::clamp(balance, -kMaxPan, kMaxPan);
+}
+
 int Mixer::masterVolume() const {
     std::lock_guard<std::mutex> lock(_mutex);
     return _masterVolume;
@@ -345,6 +350,11 @@ void Mixer::mix(int16_t *out, int frames) {
         else
             mixSound(c, frames, gain);
     }
+    if (_balance != 0)
+        for (size_t i = 0; i < _accumulator.size(); i += 2) {
+            int32_t &side = _accumulator[_balance > 0 ? i : i + 1];
+            side = int32_t(int64_t(side) * (kMaxPan - std::abs(_balance)) / kMaxPan);
+        }
     for (size_t i = 0; i < _accumulator.size(); ++i)
         out[i] = int16_t(std::clamp<int32_t>(_accumulator[i], -32768, 32767));
     _channels.erase(std::remove_if(_channels.begin(), _channels.end(), [](const Channel &c) { return c.done; }),

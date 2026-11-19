@@ -49,6 +49,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <array>
 #include <cstdio>
 #include <memory>
 #include <fstream>
@@ -68,6 +69,20 @@ static void testMd5() {
     CHECK(md5Of("The quick brown fox jumps over the lazy dog") == "9e107d9d372bb6826bd81d3542a419d6");
     // Crosses the 56-byte padding boundary.
     CHECK(md5Of(std::string(64, 'a')) == "014842d480b571495a4a0363793f7367");
+    // HMAC-MD5: RFC 2104's test cases.
+    auto hex = [](const std::array<uint8_t, 16> &d) {
+        std::string out;
+        for (const uint8_t b : d) {
+            char s[3];
+            std::snprintf(s, sizeof s, "%02x", b);
+            out += s;
+        }
+        return out;
+    };
+    const std::string key(16, '\x0b');
+    CHECK(hex(hmacMd5(key.data(), key.size(), "Hi There", 8)) == "9294727a3638bb1c13f48ef8158bfc9d");
+    const std::string jefe = "what do ya want for nothing?";
+    CHECK(hex(hmacMd5("Jefe", 4, jefe.data(), jefe.size())) == "750c783e6ab0b503eaa86e310a5db738");
 }
 
 static void testFsAndDetection(const std::filesystem::path &tmp) {

@@ -1,0 +1,11 @@
+# The record of age.engine (tests/engines/age/engine.cpp).
+# Written by `reluva-tests age.engine --update`; review its diff before committing.
+detect: mm2 Midtown Madness 2 (unknown release)
+run.result: ok
+run.size: 640x480
+run.screens: 100 900b4fca60f656c5
+run.titles: Reluva - Midtown Madness 2 - Race: 3D rendering not available
+viewer.result: ok
+viewer.left: by Esc
+viewer.screens: 600 1e52806f3dbc5679
+viewer.titles: Reluva - Midtown Madness 2 - Race: 3D rendering not available / Reluva - Midtown Madness 2 - Drive: 3D rendering not available / Reluva - Midtown Madness 2 - World: 3D rendering not available / Reluva - Midtown Madness 2 - Models: 3D rendering not available / Reluva - Midtown Madness 2 - Textures: texture/test_sky.tex (1/1) / Reluva - Midtown Madness 2 - Files: 9 files in 2 archives / Reluva - Midtown Madness 2 - Files: geometry/vptest.pkg / Reluva - Midtown Madness 2 - Files: 9 files in 2 archives / Reluva - Midtown Madness 2 - Race: 3D rendering not available

@@ -28,6 +28,9 @@ Laid out as `src/common/` is, a page per component:
 - **[graphics/](common/graphics/):** [the Glide stand-in](common/graphics/glide.md),
   3dfx's Glide 2 and 3 in software and on the GPU, for a game's own Voodoo
   renderer.
+- **[audio/](common/audio/):** [DirectMusic](common/audio/directmusic.md)
+  music, played on [DLS](common/audio/dls.md) instruments by a
+  synthesizer of Reluva's own.
 - **[video/](common/video/):** [Bink](common/video/bink.md),
   [Smacker](common/video/smacker.md),
   [Cinepak](common/video/cinepak.md),
@@ -36,6 +39,8 @@ Laid out as `src/common/` is, a page per component:
 - **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
 - **[wise.md](common/wise.md):** Wise installers, taken apart without
   running them.
+- **[winhelp.md](common/winhelp.md):** Windows Help files (`.hlp`): their
+  topics, links and pictures.
 
 ## Engines: `engines/<engine>/`
 
