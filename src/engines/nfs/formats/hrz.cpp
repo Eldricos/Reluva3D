@@ -113,8 +113,6 @@ Error parseHorizon(std::string_view text, Horizon &out) {
     return Error::success();
 }
 
-// From nfs3.exe (0x470ad0 and 0x470b20, with the multiplier made as the
-// .hrz is read, 0x47a88e): 5 x (100 - density), clamped to 5..500.
 Horizon::FogPoint fogAtSlice(const Horizon &h, int slice) {
     Horizon::FogPoint out{h.fogColour, h.fogDensity};
     for (const Horizon::FogRegion &r : h.fogRegions) {
@@ -147,6 +145,8 @@ Horizon::FogPoint fogAtSlice(const Horizon &h, int slice) {
     return out;
 }
 
+// From nfs3.exe (0x470ad0 and 0x470b20, with the multiplier made as the
+// .hrz is read, 0x47a88e): 5 x (100 - density), clamped to 5..500.
 int sceneryFogValue(int density) {
     return density == 0 ? 0 : 5 * std::clamp(100 - density, 1, 100);
 }
@@ -243,11 +243,6 @@ float cloudHeight(const Horizon &h, float r, int brightness) {
            static_cast<float>(brightness) / 255.0f * arch * 0.5f * nimbus;
 }
 
-// 0x47ae10: bright less a random amount below the variance; then pushed
-// from the middle (a signed square root of (b - 128) / 128); then 20
-// passes that move each towards its neighbours within two points, by half
-// the mean of (neighbour - it) x |neighbour - 128| / 128, kept within
-// 0..bright.
 uint8_t cloudAlpha(const Horizon &h, uint8_t brightness, bool direct3d) {
     if (!direct3d)
         return brightness;
@@ -286,6 +281,11 @@ uint32_t GameRandom::next() {
     return out;
 }
 
+// 0x47ae10: bright less a random amount below the variance; then pushed
+// from the middle (a signed square root of (b - 128) / 128); then 20
+// passes that move each towards its neighbours within two points, by half
+// the mean of (neighbour - it) x ((neighbour - 128) / 128) squared, kept
+// within 0..bright.
 std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon &h, uint32_t seed) {
     constexpr int kN = kCloudPoints;
     std::array<float, kN * kN> b{};

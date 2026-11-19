@@ -36,8 +36,6 @@ std::string baseName(const std::string &path) {
 
 } // namespace
 
-// --- Info ---------------------------------------------------------------------
-
 InfoPage::InfoPage(const char *gameName, GameFolders folders) : _gameName(gameName), _folders(std::move(folders)) {
     _tracks = trackFolders(_folders.install);
     _cars = carFolders(_folders.install);
@@ -73,8 +71,6 @@ void InfoPage::draw(Surface &s) {
     line("Tracks", std::to_string(_tracks.size()) + ": " + join(_tracks), kTextColor);
     line("Cars", std::to_string(_cars.size()) + ": " + join(_cars), kTextColor);
 }
-
-// --- Textures -----------------------------------------------------------------
 
 TexturePage::TexturePage(const GameFiles &files) : _files(files) {
     _banks = files.withExtensions({".fsh", ".qfs"});
@@ -212,8 +208,6 @@ void TexturePage::draw(Surface &s) {
         }
     }
 }
-
-// --- Cockpits -----------------------------------------------------------------
 
 namespace {
 
@@ -421,8 +415,6 @@ void CockpitPage::draw(Surface &s) {
     text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: back", kLabelColor);
 }
 
-// --- Strings ------------------------------------------------------------------
-
 StringPage::StringPage(const GameFiles &files) : _files(files) {
     _tables = files.textTables();
     for (const FileRef &f : files.withExtensions({"arial10b.ffn"})) {
@@ -528,8 +520,6 @@ void StringPage::draw(Surface &s) {
     }
 }
 
-// --- Fonts --------------------------------------------------------------------
-
 FontPage::FontPage(const GameFiles &files) : _files(files) {
     _fonts = files.withExtensions({".ffn"});
     if (!_fonts.empty())
@@ -623,8 +613,6 @@ void FontPage::draw(Surface &s) {
             std::copy_n(src + (dx / _scale) * 4, 4, dst + dx * 4);
     }
 }
-
-// --- All pages ----------------------------------------------------------------
 
 std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
                                              audio::Mixer *mixer, const std::filesystem::path &saveFolder,

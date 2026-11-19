@@ -36,8 +36,6 @@ constexpr uint32_t kErrorGenFailure = 31;
 
 } // namespace
 
-// The link: a TCP connection, made when the port is opened (connecting)
-// or when the other end connects (listening).
 // A COM port as the comm functions see it: its line settings and
 // timeouts, whether the other end is there, and what's waiting.
 class GameHost::CommPort : public x86::DeviceObject {
@@ -50,6 +48,8 @@ public:
     bool dcbSet = false;
 };
 
+// The link: a TCP connection, made when the port is opened (connecting)
+// or when the other end connects (listening).
 class GameHost::SerialLink : public CommPort {
 public:
     SerialLink(GameHost &host, net::Sockets &net) : _host(host), _net(net) {}
@@ -77,7 +77,7 @@ public:
         return dial();
     }
 
-    // A connection to target_ under way (again, after one that failed:
+    // A connection to _target under way (again, after one that failed:
     // the other copy may not be listening yet).
     bool dial() {
         if (_stream >= 0)

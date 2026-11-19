@@ -141,7 +141,7 @@ void TrackPage::releaseSky() {
     _skyHeights.clear();
     _bolts.clear();
     _sunRotate = _skyChanged = false;
-    _horizonPicture = _sunPicture = _cloudPicture = _envPicture = 0; // owned by textures_
+    _horizonPicture = _sunPicture = _cloudPicture = _envPicture = 0; // owned by _textures
     _sunFirst = _sunIndices = _cloudFirst = _cloudIndices = 0;
 }
 
@@ -152,14 +152,14 @@ void TrackPage::release() {
     _soundBank = {};
     _soundSlots.clear();
     _marks.clear();
-    _glowPicture = _glow1Picture = _glow4Picture = _shadowPicture = 0; // owned by textures_
+    _glowPicture = _glow1Picture = _glow4Picture = _shadowPicture = 0; // owned by _textures
     if (_renderer && _markMesh)
         _renderer->destroyMesh(_markMesh);
     _markMesh = 0;
     _particles.clear();
     _pendingHits.clear();
     _hitText.clear();
-    _particlePictures.clear(); // owned by textures_
+    _particlePictures.clear(); // owned by _textures
     _particlePictureSizes.clear();
     _particleRuns.clear();
     if (_renderer && _particleMesh)
@@ -180,7 +180,7 @@ void TrackPage::release() {
     _lightMesh = 0;
     _lightCapacity = 0;
     _lightRuns.clear();
-    _headlightPicture = 0; // owned by textures_
+    _headlightPicture = 0; // owned by _textures
     releaseCars();
     _movingFrame.clear();
     if (_renderer) {
@@ -1082,7 +1082,7 @@ int TrackPage::nearestBlock() const {
 
 // The game's cut-off (kPolygonReach, 0x41b3bf): each batch whose
 // polygons' first corners are all within the reach ahead is drawn whole,
-// one all beyond it not at all, and one between from cutIndices_, which
+// one all beyond it not at all, and one between from _cutIndices, which
 // keeps only its polygons whose first corner is within it. A moving
 // object's batches go by its corners as placed by its matrix (`model`):
 // the game moves its vertices (0x41a9b0) and queues it with the placed
@@ -1426,7 +1426,7 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
                             o.reference, &b);
             }
         }
-        // The moving objects as drawn this frame (movingFrame_, from
+        // The moving objects as drawn this frame (_movingFrame, from
         // blocks shown), their matrix in the world (z negated).
         for (const MovingFrame &m : _movingFrame) {
             if (m.moving < 0 || static_cast<size_t>(m.moving) >= _moving.size())
@@ -1440,9 +1440,9 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
             const Track::Block *outline = mv.block >= 0 ? &_track.blocks[size_t(mv.block)] : nullptr;
             // The mesh keeps a moving object's vertices unmirrored (added
             // with mirror 1), the key's matrix mirroring them into the
-            // world; lit at those same places. Until November 2026 they
-            // were mirrored first, so the light was worked out and drawn at
-            // the object's mirror image (frd.md, The placed objects).
+            // world; lit at those same places. Mirrored first, the light
+            // would be worked out and drawn at the object's mirror image
+            // (frd.md, The placed objects).
             lightObject(
                 o,
                 [&](const Track::Vec3 &v) {
@@ -1861,21 +1861,21 @@ void TrackPage::releaseCars() {
             if (_renderer && m)
                 _renderer->destroyMesh(m);
     _cars.clear();
-    _carModels.assign(2, CarModel{}); // skins owned by textures_
+    _carModels.assign(2, CarModel{}); // skins owned by _textures
     for (gfx::MeshId m :
          {_carGlowMesh, _carFlareMesh, _carBeamMesh, _stripMesh, _officerMesh, _officerEnvMesh, _shadowMesh})
         if (_renderer && m)
             _renderer->destroyMesh(m);
     _officerMesh = _officerEnvMesh = 0;
     _officer = {};
-    _officerRuns.clear(); // pages owned by textures_
+    _officerRuns.clear(); // pages owned by _textures
     _officerVertices.clear();
     _carGlowMesh = _carFlareMesh = _carBeamMesh = _stripMesh = 0;
     _stripQuads = _stripCapacity = 0;
     _shadowMesh = 0;
     _shadowQuads = _shadowCapacity = 0;
     _carGlowQuads = _carGlowCapacity = _carFlareQuads = _carFlareCapacity = _carBeamQuads = _carBeamCapacity = 0;
-    _glow3Picture = 0; // owned by textures_
+    _glow3Picture = 0; // owned by _textures
     _carError.clear();
     _speedsForward.clear();
     _speedsBackward.clear();
@@ -1958,8 +1958,8 @@ void TrackPage::placeCars() {
         for (const ComputerCar &o : _cars)
             c.ai.index += siren && o.ai.cop ? 1 : 0;
         c.ai.scale = std::min(aiDriverFactor(driver, _aiStep) * aiTrackFactor(track), 1.0f);
-        // In a race with laps (laps_), on lap 0 from here, its race distance
-        // its slice; else well past the start, as before.
+        // In a race with laps (_laps), on lap 0 from here, its race distance
+        // its slice; else well past the start (AiCar::distance's default).
         if (!siren) {
             int racersBefore = 0;
             for (const ComputerCar &o : _cars)
@@ -3495,11 +3495,11 @@ void TrackPage::hitWall(bool fast) {
 // the computer's cars are ticked from moveCars, after each step's hits
 // and moves, so the smoke's timer counts their steps and its stop test
 // sees each step's car; a dump's held cars from the particles' ticks.
-// Ticked from the particles' frame-paced loop instead (until November
-// 2026), the timer ran up to 64 ticks a frame on the frame's last car
-// state (a hit's air tick still set) while the cars took at most 16
-// steps (0.25 s): a frame of a second or more took a started smoke past
-// 64, to fire, before its car could settle.
+// Ticked from the particles' frame-paced loop instead, the timer would
+// run up to 64 ticks a frame on the frame's last car state (a hit's air
+// tick still set) while the cars took at most 16 steps (0.25 s): a frame
+// of a second or more would take a started smoke past 64, to fire, before
+// its car could settle.
 void TrackPage::tickCarEffects(uint32_t tick) {
     const int n = static_cast<int>(_collision.road.size());
     const bool dumped = !_carDump.empty();
@@ -3745,7 +3745,7 @@ void TrackPage::prepareParticles(const gfx::Vec3 &eye, const gfx::Vec3 &forward,
         const float pixel = shown[q].depth / focal;
         std::array<ParticleVec, 4> corners = t.streak ? streakCorners(p, r, u, pixel, p.size / pixel)
                                                       : pictureCorners(p, r, u, p.size, -kScreen.sy / kScreen.sx);
-        // Without the z-buffer (projected_ off, as nfs host runs the game)
+        // Without the z-buffer (_projected off, as nfs host runs the game)
         // the particles' quads and the cars go into the same depth buckets
         // (0x4c7480 and 0x4c7400: round(4 x depth), the quad's the mean of
         // its corners', the car's the mean of its box's), drawn back to
@@ -4240,7 +4240,7 @@ void TrackPage::handleEvent(const Event &ev) {
             break;
         case 'e':
             // Shift+E: the z-buffer and the projected picture (the projtex
-            // option) on or off (projected_);
+            // option) on or off (_projected);
             // E: off, low and high beams in turn, as the game's key (0x40de50).
             // Ctrl+E: the game's test of each block against each light.
             if (ev.mods & keymod::kShift)
@@ -4475,7 +4475,7 @@ void TrackPage::update(uint64_t nowMs) {
         prepareCars(eye, forward, right, up, fogDensity);
         prepareHeadlights(here, eye, forward);
     }
-    // After the cars: their sort depths (carSort_) place the particles.
+    // After the cars: their sort depths (_carSort) place the particles.
     prepareParticles(eye, forward, right, up);
     prepareSplats(eye, forward, right, up);
     prepareWeather(eye, forward, right, up);
@@ -4644,10 +4644,9 @@ void TrackPage::update(uint64_t nowMs) {
                 // polygon's own colours, fogged with it (black here, as this
                 // is added over the fogged polygon); the projected picture
                 // is a polygon of its own, which Glide mixes towards the fog
-                // colour before adding it. Until November 2026 neither was
-                // fogged, so by night the lit scenery lacked the fog's
-                // darkening (d5-wheel: 25-35 % too bright at 43 m in
-                // Hometown's density 60).
+                // colour before adding it. Unfogged, the lit scenery would
+                // lack the fog's darkening by night (d5-wheel: 25-35 % too
+                // bright at 43 m in Hometown's density 60).
                 if (sceneryFog > 0) {
                     fogDraw(light, sceneryFog);
                     if (!run.picture)
