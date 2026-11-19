@@ -2,6 +2,8 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/render/ped_model.cpp` · **Checked on:** the English release, all four models and 66 animations · **Confidence:** confirmed unless marked
 
+## Overview
+
 The people on the sidewalks: four models (`pedmodel_man`, `_manw`,
 `_woman`, `_womanw`, the `w` ones dressed for rain), each a skinned mesh
 on a skeleton of 19 bones, and 66 animations shared by the men and by the
@@ -12,7 +14,9 @@ in the models' packages (`geometry/pedmodel_*.pkg`). Read by
 Worked out from the files (all but the animations are text) and by
 drawing the result with Reluva's renderer until walkers walked.
 
-## `pedmodel_<x>.skel`: the skeleton
+## Layout
+
+### `pedmodel_<x>.skel`: the skeleton
 
 ```
 NumBones 19
@@ -28,7 +32,7 @@ Each bone's joint is `offset` from its parent's. The bones in file order
 same on the left, pelvis, hip_l, knee_l, ankle_l, hip_r, knee_r,
 ankle_r) are the order the animations and the model number them in.
 
-## `pedanim_<x>.anim`: an animation
+### `pedanim_<x>.anim`: an animation
 
 ```
 u32 0
@@ -47,7 +51,7 @@ makes the walk 1.4 m/s and the run 4.8 m/s. `pedanim_manantrnch.anim` is
 104 bytes and isn't an animation this reads; the four `*dive*.anim` files
 have a frame or two.
 
-## `pedmodel_<x>.csv`: the moves
+### `pedmodel_<x>.csv`: the moves
 
 ```
 # anim name,mma name,first frame,last frame,Y AXIS Offset,Y AXIS DISTANCE,X AXIS Offset,X AXIS DISTANCE,default next[
@@ -62,7 +66,7 @@ A move's animation, its frames, how far it carries the walker forward
 follows. Reluva takes the distances from the animations' own root
 positions instead.
 
-## `pedmodel_<x>.mod`: the model
+### `pedmodel_<x>.mod`: the model
 
 Text, two layouts. Both start:
 
@@ -97,7 +101,7 @@ triangles:
 
 Reluva takes each corner's bone from `mtxv` in both.
 
-## The colours
+### The colours
 
 Each model's package has one mesh with a group for each material and 48
 paint jobs, which is where the people's different clothes and skins come
@@ -110,6 +114,13 @@ written down, but its numbers don't fit it as read so far; it isn't used.
 
 `pedmodel_*.rays` and `.shaders`, and `pedmodel_wolf.skel` (a
 four-legged skeleton), aren't read.
+
+## In Reluva
+
+`src/engines/age/render/ped_model.cpp` reads the files (`parseSkeleton`,
+`readPedAnimation`, `parsePedMoves`, `parsePedMesh`) into a `PedModel`;
+`game/pedestrians.cpp` walks them on the Drive and Race pages. No
+`reluva-tool` command reads them.
 
 ## Sources and checks
 

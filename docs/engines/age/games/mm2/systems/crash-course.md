@@ -6,7 +6,7 @@
 
 Each city's 13 driving lessons, and how each is judged. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Crash Course
+## How it works
 
 Each city's 13 lessons (`race/<city>/crash<n>data.csv`,
 [race.md](../formats/race.md)), named in `mmlang.dll`
@@ -63,6 +63,12 @@ traffic 0.1, no police or opponents) and `ramp.pathset` one path,
 "PATH01", of 13 points near `jump2`'s start, naming no model: nothing
 names them as races or says what they're for, so they aren't used. A passed lesson offers the next
 (Enter), any lesson its restart (R).
+
+## In Reluva
+
+`LessonJudge` (`src/engines/age/game/lesson.{h,cpp}`) judges a lesson
+by its event number, with the rules in the table above, which are
+Reluva's reading of the messages.
 
 ## Sources and checks
 

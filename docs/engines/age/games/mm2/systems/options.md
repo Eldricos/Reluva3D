@@ -6,12 +6,9 @@
 
 The Options screens, and how each option is applied. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Options
+## How it works
 
-The game keeps its options in the Windows registry. Reluva keeps them
-in its own file, `options.txt` in the game's save folder: lines of a
-name and a value (`effectsvolume 0.8`, `key throttle 256 119`), read
-when the Race and Drive pages open. See `engines/age/game/options.h`.
+The game keeps its options in the Windows registry.
 
 | Screen | Background | What's there |
 |---|---|---|
@@ -164,6 +161,15 @@ What the options do in Reluva:
   already given to another control is refused with the game's
   `jpg/ctrl_dlg`: "Duplicate key or button, please make a different
   selection".
+
+## In Reluva
+
+Reluva keeps them in its own file, `options.txt` in the game's save
+folder: lines of a name and a value (`effectsvolume 0.8`, `key throttle
+256 119`), read when the Race and Drive pages open
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)). See `GameOptions`
+(`src/engines/age/game/options.{h,cpp}`); the screens are `GameMenus`'s
+(`src/engines/age/ui/game_menus.{h,cpp}`).
 
 ## Sources and checks
 

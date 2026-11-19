@@ -6,7 +6,9 @@
 
 Playing between several computers: the menus, the events and the computer players. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Playing
+## How it works
+
+### Playing
 
 On the Race page, the main menu's **Multiplayer** button opens the
 sessions screen.
@@ -52,7 +54,7 @@ sessions screen.
 Every machine loads the game when the host starts it. The countdown
 begins once all have loaded, or after a minute for any still loading.
 
-## The events
+### The events
 
 The Host Race Menu offers the game's five: Cruise, Blitz, Checkpoint,
 Circuit and Cops & Robbers. Each player drives their own car on their
@@ -85,7 +87,7 @@ with the host's number of laps in a circuit.
 (below), facing along the road, and drive the city with no end. The host
 ends it with Esc.
 
-## Computer players
+### Computer players
 
 The host can fill the session with computer players: Host Options'
 COMPUTER PLAYERS, up to one fewer than the most players. The game has
@@ -133,7 +135,7 @@ loose and recover it. Each game had a delivery or two: the gold's home
 and the bases are a kilometre or more apart, a minute and a half's
 drive.
 
-## The menus
+### The menus
 
 The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
 ([menus.md](menus.md)).
@@ -177,7 +179,17 @@ The descriptions at the bottom left are the game's pictures:
   events.
 - `lobb_set` for HOST SETTINGS.
 
-## Not done
+## In Reluva
+
+`RaceScreen` plays a session's game
+(`src/engines/age/game/race_net.cpp`), and `NetMenus`
+(`src/engines/age/ui/net_menus.{h,cpp}`) draws its screens. The session
+itself is `NetSession` ([network-protocol.md](network-protocol.md)).
+Multiplayer is Reluva to Reluva, at most 8 players, with computer
+players and late joining added
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
+### Not done
 
 - **Hole punching**: two players both behind routers that won't pass a
   port on can't reach each other; that needs a server of Reluva's own on
@@ -187,11 +199,11 @@ The descriptions at the bottom left are the game's pictures:
   progress, not a car tuned faster than it should be, within the limits.
 - **Computer players over a change of host**: they go with the old host.
 
-## How it's tested
+### How it's tested
 
-`tests/test_age.cpp` has three tests, `testNetSession`, `testNetSessionMore`
-and `testGoldGame`; `tests/test_common.cpp`'s `testPortMap` asks routers
-made in the test (one with UPnP, one with NAT-PMP, one with neither).
+`tests/engines/age/unit/network.cpp` has three tests, `testNetSession`,
+`testNetSessionMore` and `testGoldGame`; `tests/common/portmap.cpp`'s
+`testPortMap` asks routers made in the test (one with UPnP, one with NAT-PMP, one with neither).
 
 **`testNetSessionMore`**: a wrong password refused and the right one
 proved (and HMAC-MD5 against RFC 2104's published example); a player

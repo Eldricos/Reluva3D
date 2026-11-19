@@ -6,10 +6,10 @@
 
 The instant replay, and replays kept, saved and played again. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Replays
+## How it works
 
 The game's instant replay, and replays kept: Reluva's own files
-(`engines/age/formats/replay.h`).
+(`src/engines/age/formats/replay.h`).
 
 **What a replay is.** It's the race run again, not a film of it. Every
 race (and lesson) is recorded as it's driven:
@@ -61,6 +61,17 @@ The roadside camera stands 4 m up, 45 m ahead of the car and 10 m to one
 side (the other side each time), and watches it pass. Once the car is
 70 m away it moves on ahead.
 
+Multiplayer games aren't recorded: the other players' cars come over
+the network, not from the race's seeds.
+
+## In Reluva
+
+`RaceScreen` records and plays them back
+(`src/engines/age/game/race_replay.cpp`), and `Replay`
+(`src/engines/age/formats/replay.{h,cpp}`) is the file. They're Reluva's
+own files, not the original's
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
 **Where they're kept.** Saved replays go in the save folder's `replays/`,
 as `<name>.rpl`:
 
@@ -70,9 +81,6 @@ as `<name>.rpl`:
   weather, police, traffic, pedestrians: [drivers-and-records.md](drivers-and-records.md#changing-a-race));
 - the frames (each a float time step, the keys, a gear change, a flag);
 - the marks.
-
-Multiplayer games aren't recorded: the other players' cars come over
-the network, not from the race's seeds.
 
 ## Sources and checks
 

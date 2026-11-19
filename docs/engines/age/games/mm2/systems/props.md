@@ -6,7 +6,7 @@
 
 The props and street furniture, and knocking them and the traffic lights down. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Props, and knocking things down
+## How it works
 
 The props of `city/<city>/props.pathset` ([pathset.md](../formats/pathset.md)),
 and in a race its own (`race/<city>/circuit0.pathset`...: the circuits'
@@ -67,6 +67,12 @@ down (`props.cpp`):
   batches, the same within a model's set (306-314 on the traffic's
   HEADLIGHT bangers, 188 on all four of the police car's sirens, 684-688
   on some London props): a stamp of some kind, not a setting.
+
+## In Reluva
+
+`Props` and `BangerData` (`src/engines/age/game/props.{h,cpp}`). Reading
+ImpulseLimit2 as the square of the breaking impulse is Reluva's
+(above).
 
 ## Sources and checks
 

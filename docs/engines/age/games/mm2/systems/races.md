@@ -6,7 +6,9 @@
 
 Blitz, Circuit and Checkpoint races, and the opponents that drive them. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The Race page
+## How it works
+
+### The Race page
 
 The game's menus ([menus.md](menus.md)): its splash picture,
 then the main menu, the races and the Crash Course, and the garage to
@@ -89,7 +91,7 @@ countdown, then:
   police): see [traffic.md](traffic.md). Busted by the police,
   or wrecked, the race is over.
 
-## Opponents
+### Opponents
 
 Each opponent drives its `.opp` path in the car the race's aimap gives it
 ([aimap.md](../formats/aimap.md)), aiming for its skill there as a
@@ -168,6 +170,16 @@ Y and Z as the minimum of themselves and whatever was in memory).
 London's parked cars, sized by it, sometimes came out huge, blocking a
 road. Now the same race runs the same way every time (eight runs alike),
 and Valgrind finds nothing in a London or San Francisco race.
+
+## In Reluva
+
+- `RaceScreen` (`src/engines/age/ui/screen.h`,
+  `src/engines/age/game/race_screen.cpp`) is the Race page.
+- `PathDriver` (`src/engines/age/game/opponent.{h,cpp}`) drives an
+  opponent, and `RoadGraph` (`src/engines/age/game/road_graph.{h,cpp}`)
+  is the roads it and the police find their way on.
+- Where the menus' files aren't there, a menu of Reluva's own stands in
+  (above).
 
 ## Sources and checks
 
