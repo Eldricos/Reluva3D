@@ -157,6 +157,22 @@ commented out).
 name from its number, which it turns into the part of the body hit;
 "" if there's no such surface.
 
+### Cutting off a limb
+
+The game makes a severed limb a model of its own, from a copy of the
+body:
+
+- **`G2API_CopyGhoul2Instance`** (slot 81, 0x453540, `(from, to,
+  model)`, the model ignored): nothing unless `from` is an instance;
+  else `to`'s instance is given back, and a new one made from a copy
+  of each of `from`'s records (196 bytes), their surface, bone and bolt
+  lists copied too. In each copy the skeleton and mesh frame numbers
+  (0x94, 0x98) and the words at 0xa0 and 0xa4 are zeroed (0x453715).
+- **`G2API_SetNewOrigin`** (slot 88, 0x453840, `(CGhoul2Info *,
+  bolt)`): 0 if the record's model can't be found; else, if the model
+  has that bolt, the bolt is written as its new origin (0x48) and flag
+  8 is set in its flags (0x9c); 1.
+
 ## In Reluva
 
 `SpGameHost` (in Jedi Outcast's mode) makes the array object and its
@@ -189,9 +205,11 @@ Collision is done as above (`jk2/ghoul2_collision`): the game's traces
 reach a Ghoul2 body only where they meet its triangles, posed as they're
 drawn, and the game reads which part was hit from the records. A model's
 "no collide" flag and a surface's "no descendants" aren't heeded yet.
-Not yet answered (they stop the game, by name): `G2API_CollisionDetect`
-called by the game itself, the matrix overrides, adding and removing
-surfaces and bones, copying an instance, the new origin, and surface
+Copying an instance and the new origin are answered as above, but a
+model is still drawn from its own root, not the bolt its new origin
+names. Not yet answered (they stop the game, by name):
+`G2API_CollisionDetect` called by the game itself, the matrix
+overrides, adding and removing surfaces and bones, and surface
 parents. Saving and loading instances (entries 95 to 98) are as
 [sp-saves.md](sp-saves.md) says.
 

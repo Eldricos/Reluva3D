@@ -1087,6 +1087,69 @@ void SpGameHost::addGhoul2Imports() {
             _process->memory().free(buffer);
         return 0;
     });
+    slot("G2API_SetNewOrigin", [this](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info *, bolt) -> 0 for no model: as jk2sp.exe's
+        // (0x453840), a bolt the model has becomes its origin, and flag 8
+        // says so (a severed limb's, drawn from the cut).
+        const uint32_t info = c.arg(0);
+        if (!ghoul2FilesOf(info))
+            return 0;
+        const int32_t bolt = int32_t(c.arg(1));
+        if (bolt >= 0 && uint32_t(bolt) < vectorCount(info + kBolts, kBoltSize)) {
+            _cpu->write32(info + kNewOrigin, uint32_t(bolt));
+            _cpu->write32(info + kFlags, _cpu->read32(info + kFlags) | 8);
+        }
+        return 1;
+    });
+    slot("G2API_CopyGhoul2Instance", [this, lists](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info_v &from, CGhoul2Info_v &to, model): as jk2sp.exe's
+        // (0x453540), whatever the model: nothing unless `from` is an
+        // instance; else `to`'s own given back, and a new one made of a
+        // copy of each of `from`'s models, their lists copied too, with
+        // their frame numbers and the two words at 160 and 164 zeroed
+        // (0x453715).
+        const uint32_t from = ghoul2Vector(c.arg(0));
+        const uint32_t to = c.arg(1);
+        if (!from || !c.valid(to, 4))
+            return 0;
+        if (const auto it = _g2Instances.find(int32_t(c.read32(to))); it != _g2Instances.end()) {
+            freeGhoul2Models(it->second);
+            _process->memory().free(it->second);
+            _g2Instances.erase(it);
+        }
+        const auto made = _g2Instances.emplace(_g2Next, _process->memory().alloc(kVectorSize)).first;
+        std::memset(_cpu->memory().data() + made->second, 0, kVectorSize);
+        c.write32(to, uint32_t(_g2Next++));
+        const uint32_t count = vectorCount(from, kInfoSize);
+        if (!count)
+            return 0;
+        if (!vectorGrow(made->second, kInfoSize, count)) {
+            c.abort("G2API_CopyGhoul2Instance: no memory for the instance");
+            return 0;
+        }
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint32_t source = vectorAt(from, kInfoSize, i);
+            const uint32_t info = vectorAt(made->second, kInfoSize, i);
+            std::memcpy(_cpu->memory().data() + info, _cpu->memory().data() + source, kInfoSize);
+            for (const auto &[list, size] : lists) {
+                const uint32_t n = vectorCount(source + list, size);
+                for (uint32_t o = kFirst; o < kVectorSize; o += 4)
+                    _cpu->write32(info + list + o, 0);
+                if (!n)
+                    continue;
+                const uint32_t first = vectorGrow(info + list, size, n);
+                if (!first) {
+                    c.abort("G2API_CopyGhoul2Instance: no memory for the instance");
+                    return 0;
+                }
+                std::memcpy(_cpu->memory().data() + first, _cpu->memory().data() + vectorAt(source + list, size, 0),
+                            n * size);
+            }
+            for (const uint32_t o : {kSkelFrameNum, kMeshFrameNum, 160u, 164u})
+                _cpu->write32(info + o, 0);
+        }
+        return 0;
+    });
     slot("G2API_CleanGhoul2Models", [this](x86::Cpu &c) {
         // (CGhoul2Info_v &): the instance given back, its handle 0.
         const uint32_t handle = c.arg(0);
