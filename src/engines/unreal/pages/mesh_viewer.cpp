@@ -225,7 +225,9 @@ void MeshViewer::handleEvent(const Event &ev) {
                 _ctx.meshTurn = MeshTurn((int(_ctx.meshTurn) + 1) % 3);
             else
                 _ctx.meshYawQuarters = (_ctx.meshYawQuarters + 1) % 4;
-            const float yaw = _yaw, pitch = _pitch, distance = _distance;
+            const float yaw = _yaw;
+            const float pitch = _pitch;
+            const float distance = _distance;
             show();
             _yaw = yaw;
             _pitch = pitch;

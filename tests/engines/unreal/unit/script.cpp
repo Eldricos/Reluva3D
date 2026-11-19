@@ -96,7 +96,14 @@ void testVm() {
     const int32_t function = w.addImport("Core", "Class", 0, "Function");
     const int32_t state = w.addImport("Core", "Class", 0, "State");
     // Export references, in the order they're added below.
-    const int32_t counter = 1, count = 2, total = 3, setCount = 4, n = 5, wait = 6, s = 7, running = 8;
+    const int32_t counter = 1;
+    const int32_t count = 2;
+    const int32_t total = 3;
+    const int32_t setCount = 4;
+    const int32_t n = 5;
+    const int32_t wait = 6;
+    const int32_t s = 7;
+    const int32_t running = 8;
     auto property = [&](int32_t next, uint32_t flags) {
         Bytes b;
         endProps(b, w);

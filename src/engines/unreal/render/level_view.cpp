@@ -558,7 +558,8 @@ void LevelView::load(int index) {
     ClassDefaults defaults(_ctx.packages);
     MeshActorStats meshStats;
     std::map<std::pair<const Package *, int>, int> meshIndex; // -1: unreadable
-    int badMeshes = 0, borrowed = 0;
+    int badMeshes = 0;
+    int borrowed = 0;
     std::string firstBadMesh;
     const std::vector<MeshActor> meshActors = findMeshActors(_ctx.packages, *pkg, defaults, &meshStats, scripted);
     // The animations each mesh's actors play, and the idles that may stand
@@ -1248,7 +1249,8 @@ void LevelView::handleEvent(const Event &ev) {
             // Kept where it is: only the meshes need uploading again, but
             // the level loads quickly enough to just load it again.
             const auto pos = _pos;
-            const float yaw = _yaw, pitch = _pitch;
+            const float yaw = _yaw;
+            const float pitch = _pitch;
             load(_index);
             _pos = pos;
             _yaw = yaw;
@@ -1256,7 +1258,8 @@ void LevelView::handleEvent(const Event &ev) {
         } else if (ev.key == 'p') {
             _runScripts = !_runScripts;
             const auto pos = _pos;
-            const float yaw = _yaw, pitch = _pitch;
+            const float yaw = _yaw;
+            const float pitch = _pitch;
             load(_index);
             _pos = pos;
             _yaw = yaw;
@@ -1280,7 +1283,8 @@ void LevelView::handleEvent(const Event &ev) {
                (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight)) {
         // The HUD's menus: the buttons as the game binds them (LeftMouse
         // Fire selects, RightMouse AltFire steps the choice), not a drag.
-        const bool left = ev.button == MouseButton::kLeft, down = ev.type == EventType::kMouseDown;
+        const bool left = ev.button == MouseButton::kLeft;
+        const bool down = ev.type == EventType::kMouseDown;
         if (!_play->consoleKey(left ? 1 : 2, down))
             _play->pressKey(left ? "LeftMouse" : "RightMouse", down);
     } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
@@ -1438,7 +1442,8 @@ void LevelView::update(uint64_t nowMs) {
 // tiles they drew, in screen pixels: cut out where see-through, translucent ones added,
 // modulated ones multiplied in.
 void LevelView::drawGameHud() {
-    const int w = _renderer->width(), h = _renderer->height();
+    const int w = _renderer->width();
+    const int h = _renderer->height();
     ScriptLevel::HudView v;
     v.location = {_view.location[0], _view.location[1], _view.location[2]};
     v.rotation = {_view.rotation.pitch, _view.rotation.yaw, _view.rotation.roll};
@@ -1465,7 +1470,8 @@ void LevelView::drawGameHud() {
             const ScriptLevel::HudView &v = a.view;
             const auto axes = rotationAxes(Rotator{v.rotation[0], v.rotation[1], v.rotation[2]});
             const gfx::Vec3 eye = toWorld(Vec3f{v.location[0], v.location[1], v.location[2]});
-            const gfx::Vec3 ahead = toWorld(axes[0]), up = toWorld(axes[2]);
+            const gfx::Vec3 ahead = toWorld(axes[0]);
+            const gfx::Vec3 up = toWorld(axes[2]);
             const gfx::Vec3 side{-toWorld(axes[1])[0], -toWorld(axes[1])[1], -toWorld(axes[1])[2]};
             const float aspect = float(v.width) / float(std::max(1, v.height));
             const float fovY = 2 * std::atan(std::tan(std::clamp(v.fov, 1.0f, 170.0f) * kPi / 360) / aspect);
@@ -1503,7 +1509,8 @@ void LevelView::drawGameHud() {
         call.model[12] = t.x + t.w / 2;
         call.model[13] = t.y + t.h / 2;
         call.texture = id;
-        const float tw = float(size[0]), th = float(size[1]);
+        const float tw = float(size[0]);
+        const float th = float(size[1]);
         call.preRow0 = {t.ul / tw, 0, t.u / tw};
         call.preRow1 = {0, t.vl / th, t.v / th};
         call.color = {float(t.color[0]) / 255, float(t.color[1]) / 255, float(t.color[2]) / 255, 1};
@@ -1985,7 +1992,9 @@ void LevelView::drawVolumes(const gfx::Vec3 &eye) {
     const Vec3f e{eye[0], -eye[1], eye[2]};
     std::vector<std::pair<float, const LightSource *>> near;
     for (const LightSource *l : _volumes) {
-        const float dx = l->position[0] - e[0], dy = l->position[1] - e[1], dz = l->position[2] - e[2];
+        const float dx = l->position[0] - e[0];
+        const float dy = l->position[1] - e[1];
+        const float dz = l->position[2] - e[2];
         near.push_back({std::sqrt(dx * dx + dy * dy + dz * dz) - l->volumeRadius, l});
     }
     std::sort(near.begin(), near.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
@@ -2057,7 +2066,9 @@ void LevelView::gatherDynamicLights(const gfx::Vec3 &eye) {
     }
     const Vec3f e{eye[0], -eye[1], eye[2]};
     auto dist2 = [&](const LightSource &l) {
-        const float dx = l.position[0] - e[0], dy = l.position[1] - e[1], dz = l.position[2] - e[2];
+        const float dx = l.position[0] - e[0];
+        const float dy = l.position[1] - e[1];
+        const float dz = l.position[2] - e[2];
         return dx * dx + dy * dy + dz * dz;
     };
     if (_dynamic.size() > size_t(gfx::kMaxDynamicLights)) {
@@ -2133,8 +2144,8 @@ void LevelView::drawOverlay(uint64_t nowMs) {
     size_t widest = 0;
     for (const std::string &l : lines)
         widest = std::max(widest, font::length(l));
-    const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8),
-              boxH = std::min(kFrameH, int(lines.size()) * lh + 6);
+    const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8);
+    const int boxH = std::min(kFrameH, int(lines.size()) * lh + 6);
     // The box is kept from frame to frame (nothing else draws up there):
     // only the lines that changed (the place and the frame rate, mostly)
     // are drawn again. Drawing all its text each frame cost a twentieth.
@@ -2222,7 +2233,8 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
         actorLights(at, *actor, light, who);
         return light;
     }
-    Vec3f total{}, toward{};
+    Vec3f total{};
+    Vec3f toward{};
     // The level's lights as bright as they are now (pulsing, flickering,
     // turned off by scripts), then the lights that move and change.
     // While playing, only lights that see it: the level's walls (its BSP)
@@ -2388,7 +2400,8 @@ void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
             const float k = 2 * (n[0] * v[0] + n[1] * v[1] + n[2] * v[2]);
             return gfx::Vec3{v[0] - k * n[0], v[1] - k * n[1], v[2] - k * n[2]};
         };
-        const gfx::Vec3 mirrorForward = turn(forward), mirrorRight = turn(right);
+        const gfx::Vec3 mirrorForward = turn(forward);
+        const gfx::Vec3 mirrorRight = turn(right);
         _renderer->setView(mirrorViewProj, mirrorEye);
         _renderer->setMirrored((level + 1) % 2 == 1);
         const int saved = _mirrorLevel;
@@ -2598,7 +2611,9 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
     auto consider = [&](const LightSource &l, float level, bool moves, uint64_t key) {
         if (level <= 0 || l.specialLit || l.radius <= 0 || !listed.insert(key).second)
             return;
-        const float dx = l.position[0] - at[0], dy = l.position[1] - at[1], dz = l.position[2] - at[2];
+        const float dx = l.position[0] - at[0];
+        const float dy = l.position[1] - at[1];
+        const float dz = l.position[2] - at[2];
         const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
         if (dist >= l.radius)
             return;
@@ -2642,7 +2657,8 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
         consider(l, 1, true, (uint64_t(1) << 63) | uint64_t(uintptr_t(l.key)));
     std::stable_sort(found.begin(), found.end(),
                      [](const Candidate &a, const Candidate &b) { return a.importance > b.importance; });
-    int total = 0, still = 0;
+    int total = 0;
+    int still = 0;
     float threshold = -1;
     std::map<uint64_t, float> next;
     for (const Candidate &c : look.unlit ? std::vector<Candidate>{} : found) {
@@ -2931,7 +2947,8 @@ void LevelView::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right
         return;
     const gfx::Vec3 up{right[1] * forward[2] - right[2] * forward[1], right[2] * forward[0] - right[0] * forward[2],
                        right[0] * forward[1] - right[1] * forward[0]};
-    const float d = 16, size = 2 * d * std::tan(std::clamp(_fov, 1.0f, 170.0f) * kPi / 360) * 1.5f;
+    const float d = 16;
+    const float size = 2 * d * std::tan(std::clamp(_fov, 1.0f, 170.0f) * kPi / 360) * 1.5f;
     gfx::DrawCall call;
     call.mesh = _spriteQuad;
     call.indexCount = 6;
@@ -3085,8 +3102,10 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     const float radius = std::max(1.0f, number(caster, "CollisionRadius", 20));
     // The floor: within four times its half height straight down, not too
     // steep, and facing the camera.
-    std::array<float, 3> hit{}, normal{};
-    const std::array<float, 3> top{from[0], from[1], from[2]}, down{from[0], from[1], from[2] - 4 * height};
+    std::array<float, 3> hit{};
+    std::array<float, 3> normal{};
+    const std::array<float, 3> top{from[0], from[1], from[2]};
+    const std::array<float, 3> down{from[0], from[1], from[2] - 4 * height};
     if (!_play->level().trace(nullptr, top, down, {0, 0, 0}, false, hit, normal) || normal[2] < 0.7f)
         return;
     const Vec3f eye{_pos[0], -_pos[1], _pos[2]};
@@ -3113,14 +3132,17 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
                               : 0;
     ShadowState &state = _shadows[caster];
     auto amountOf = [&](const LightSource &l) {
-        const float dx = l.position[0] - floor[0], dy = l.position[1] - floor[1], dz = l.position[2] - floor[2];
+        const float dx = l.position[0] - floor[0];
+        const float dy = l.position[1] - floor[1];
+        const float dz = l.position[2] - floor[2];
         const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
         if (!l.actorShadows || l.specialLit || dist >= l.radius)
             return 0.0f;
         return float(l.brightness) / 255 * levelOf(l) * (1 - dist / l.radius) / (1 + ambient);
     };
     int best = -1;
-    float bestAmount = 0.01f, keptAmount = 0;
+    float bestAmount = 0.01f;
+    float keptAmount = 0;
     for (size_t i = 0; i < _lights.unique.size(); ++i) {
         const float amount = amountOf(_lights.unique[i]);
         if (int(i) == state.light)
@@ -3171,7 +3193,9 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     if (above < least)
         for (size_t k = 0; k < 3; ++k)
             light[k] += n[k] * (least - above);
-    const float lx = light[0] - from[0], ly = light[1] - from[1], lz = light[2] - from[2];
+    const float lx = light[0] - from[0];
+    const float ly = light[1] - from[1];
+    const float lz = light[2] - from[2];
     // Just off the floor (more far off), each vertex darkened by
     // min(strength x 50, 35) over how far past the caster it falls along
     // the light's ray, at most 0.8.
@@ -3193,7 +3217,10 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
 // One of the level's actors, as it looks now: a mesh drawn, a sprite kept
 // for drawSprites. Hidden ones only if `evenHidden` (the HUD draws some).
 void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, const ScriptLevel::HudActor *hud) {
-    constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
+    constexpr int kDrawSprite = 1;
+    constexpr int kDrawMesh = 2;
+    constexpr int kDrawVerticalSprite = 5;
+    constexpr int kDrawSpriteAnimOnce = 7;
     const bool evenHidden = hud != nullptr;
     LevelPlay::Look look;
     // Drawn for the HUD: as it looked when the HUD asked.
@@ -3293,7 +3320,10 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
 // own, else the actor's) facing the camera.
 void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                            std::vector<SpriteDraw> &sprites) {
-    constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
+    constexpr int kDrawSprite = 1;
+    constexpr int kDrawMesh = 2;
+    constexpr int kDrawVerticalSprite = 5;
+    constexpr int kDrawSpriteAnimOnce = 7;
     _play->drawn(a);
     if (look.drawType == kDrawMesh && look.mesh) {
         const int at = liveMesh(look.mesh, look.animSequence);

@@ -158,9 +158,12 @@ Error Package::parse(const std::vector<uint8_t> &data) {
     _version = r.u16();
     _licensee = r.u16();
     _flags = r.u32();
-    const uint32_t nameCount = r.u32(), nameOffset = r.u32();
-    const uint32_t exportCount = r.u32(), exportOffset = r.u32();
-    const uint32_t importCount = r.u32(), importOffset = r.u32();
+    const uint32_t nameCount = r.u32();
+    const uint32_t nameOffset = r.u32();
+    const uint32_t exportCount = r.u32();
+    const uint32_t exportOffset = r.u32();
+    const uint32_t importCount = r.u32();
+    const uint32_t importOffset = r.u32();
     if (!r.ok())
         return Error::fail("header cut short");
     // Every entry takes at least two bytes, which bounds the counts by the

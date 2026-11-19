@@ -72,8 +72,12 @@ Vec hermite(bool linear, float u, const Vec &p0, const Vec &p1, const Vec &t0, c
             p[k] = p0[k] + (p1[k] - p0[k]) * u;
         return p;
     }
-    const float u2 = u * u, u3 = u2 * u;
-    const float h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = 3 * u2 - 2 * u3, h11 = u3 - u2;
+    const float u2 = u * u;
+    const float u3 = u2 * u;
+    const float h00 = 2 * u3 - 3 * u2 + 1;
+    const float h10 = u3 - 2 * u2 + u;
+    const float h01 = 3 * u2 - 2 * u3;
+    const float h11 = u3 - u2;
     for (int k = 0; k < 3; ++k)
         p[k] = h00 * p0[k] + h01 * p1[k] + h10 * t0[k] + h11 * t1[k];
     return p;
@@ -160,7 +164,10 @@ Rot nodeFacing(const Node &n, float alpha, const Vec &pos) {
         // Along the curve: towards a point a hundredth further on (or from
         // one a hundredth back, past halfway).
         const Node next(vm, nextObj ? nextObj : n.obj);
-        const Vec p0 = n.vec("Location"), p1 = next.vec("Location"), t0 = n.vec("Tangent"), t1 = next.vec("Tangent");
+        const Vec p0 = n.vec("Location");
+        const Vec p1 = next.vec("Location");
+        const Vec t0 = n.vec("Tangent");
+        const Vec t1 = next.vec("Tangent");
         const bool linear = n.i("Interpolation") == 1;
         r = alpha < 0.5f ? facing(sub(hermite(linear, alpha + 0.01f, p0, p1, t0, t1), pos))
                          : facing(sub(pos, hermite(linear, alpha - 0.01f, p0, p1, t0, t1)));
@@ -200,8 +207,10 @@ void registerSplineNatives(Vm &vm) {
             const float travel = n.f("Duration") - n.f("Pause");
             t -= n.f("Pause");
             if (t > 0 && n.next()) {
-                const float v0 = n.f("Speed"), v1 = Node(vm, n.next()).f("Speed");
-                const float ave = n.f("AveSpeed"), length = n.f("Length");
+                const float v0 = n.f("Speed");
+                const float v1 = Node(vm, n.next()).f("Speed");
+                const float ave = n.f("AveSpeed");
+                const float length = n.f("Length");
                 if (ave != 0 && ave != v0 && length != 0) {
                     // The speed changing evenly from this node's to the
                     // next's (AveSpeed, saved, is Length / the travel time),
@@ -242,7 +251,8 @@ void registerSplineNatives(Vm &vm) {
         // actor.
         if (nextObj) {
             const Node next(vm, nextObj);
-            const int fa = n.i("Focus"), fb = next.i("Focus");
+            const int fa = n.i("Focus");
+            const int fb = next.i("Focus");
             const bool sameActor =
                 fa == kFocActor && fb == kFocActor && n.obj->find(vm, "FocalActor") &&
                 next.obj->find(vm, "FocalActor") &&

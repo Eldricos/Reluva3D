@@ -131,7 +131,8 @@ std::vector<int16_t> readPcm(const Reader &r, size_t at, size_t frames, bool is1
 std::vector<int16_t> decompressIt(const Reader &r, size_t at, size_t frames, bool is16, bool it215, size_t &budget) {
     frames = std::min({frames, kMaxSampleFrames, budget});
     std::vector<int16_t> out;
-    const int top = is16 ? 17 : 9, bits = is16 ? 16 : 8;
+    const int top = is16 ? 17 : 9;
+    const int bits = is16 ? 16 : 8;
     while (out.size() < frames && r.has(at, 2)) {
         size_t bytes = r.le16(at);
         at += 2;
@@ -149,7 +150,8 @@ std::vector<int16_t> decompressIt(const Reader &r, size_t at, size_t frames, boo
         };
         size_t count = std::min(frames - out.size(), size_t(is16 ? 0x4000 : 0x8000));
         int width = top;
-        int32_t d1 = 0, d2 = 0;
+        int32_t d1 = 0;
+        int32_t d2 = 0;
         while (count) {
             uint32_t v;
             if (!read(width, v))
@@ -227,7 +229,8 @@ TrackerPattern emptyPattern(int rows, int channels) {
 // MOD and XM effects (XM adds G..X).
 void modEffect(unsigned fx, unsigned p, bool xm, TrackerCell &c) {
     uint8_t e = kFxNone;
-    const unsigned x = p >> 4, y = p & 15;
+    const unsigned x = p >> 4;
+    const unsigned y = p & 15;
     switch (fx) {
     case 0x0:
         e = p ? kFxArpeggio : kFxNone;
@@ -345,7 +348,8 @@ void modEffect(unsigned fx, unsigned p, bool xm, TrackerCell &c) {
 // S3M and IT effects, by letter (1 = A).
 void s3mEffect(unsigned cmd, unsigned p, bool it, TrackerCell &c) {
     uint8_t e = kFxNone;
-    const unsigned x = p >> 4, y = p & 15;
+    const unsigned x = p >> 4;
+    const unsigned y = p & 15;
     switch (cmd) {
     case 1:
         e = kFxSpeed;
@@ -450,7 +454,8 @@ void s3mEffect(unsigned cmd, unsigned p, bool it, TrackerCell &c) {
 
 void xmVolume(unsigned v, TrackerCell &c) {
     const unsigned x = v & 15;
-    uint8_t cmd = kVcNone, p = uint8_t(x);
+    uint8_t cmd = kVcNone;
+    uint8_t p = uint8_t(x);
     if (v >= 0x10 && v <= 0x50)
         cmd = kVcVolume, p = uint8_t(v - 0x10);
     else
@@ -564,7 +569,8 @@ Error loadMod(const Reader &r, TrackerModule &m) {
         for (size_t i = 0; i < pat.cells.size(); ++i) {
             const size_t at = 1084 + p * patternBytes + i * 4;
             TrackerCell &c = pat.cells[i];
-            const unsigned b0 = r.u8(at), b2 = r.u8(at + 2);
+            const unsigned b0 = r.u8(at);
+            const unsigned b2 = r.u8(at + 2);
             const unsigned period = (b0 & 15) << 8 | r.u8(at + 1);
             c.instrument = uint8_t((b0 & 0xF0) | b2 >> 4);
             if (period)
@@ -573,7 +579,8 @@ Error loadMod(const Reader &r, TrackerModule &m) {
         }
         m.patterns.push_back(std::move(pat));
     }
-    size_t at = 1084 + patterns * patternBytes, budget = kMaxTotalFrames;
+    size_t at = 1084 + patterns * patternBytes;
+    size_t budget = kMaxTotalFrames;
     for (int i = 0; i < 31; ++i) {
         const size_t h = 20 + size_t(i) * 30;
         TrackerSample s;
@@ -601,7 +608,9 @@ Error loadMod(const Reader &r, TrackerModule &m) {
 Error loadS3m(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 0x60))
         return Error::fail("S3M header cut short");
-    const unsigned orders = r.le16(0x20), samples = r.le16(0x22), patterns = r.le16(0x24);
+    const unsigned orders = r.le16(0x20);
+    const unsigned samples = r.le16(0x22);
+    const unsigned patterns = r.le16(0x24);
     const unsigned format = r.le16(0x2A);
     if (orders > 256 || samples > 256 || patterns > 256)
         return Error::fail("S3M with too many orders, samples or patterns");
@@ -617,7 +626,8 @@ Error loadS3m(const Reader &r, TrackerModule &m) {
     m.mixVolume = std::clamp(int(r.u8(0x33) & 0x7F), 16, 127);
     for (unsigned i = 0; i < orders; ++i)
         m.orders.push_back(uint8_t(r.u8(0x60 + i)));
-    const size_t samplePtrs = 0x60 + orders, patternPtrs = samplePtrs + 2 * samples;
+    const size_t samplePtrs = 0x60 + orders;
+    const size_t patternPtrs = samplePtrs + 2 * samples;
     const size_t panTable = patternPtrs + 2 * patterns;
 
     // Channels: 0-7 left, 8-15 right, others off; the pan table may refine.
@@ -670,7 +680,8 @@ Error loadS3m(const Reader &r, TrackerModule &m) {
                 const int c = int(what & 31);
                 TrackerCell cell;
                 if (what & 32) {
-                    const unsigned note = r.u8(at), ins = r.u8(at + 1);
+                    const unsigned note = r.u8(at);
+                    const unsigned ins = r.u8(at + 1);
                     at += 2;
                     if (note == 254)
                         cell.note = kNoteCut;
@@ -714,7 +725,9 @@ void readXmEnvelope(const Reader &r, size_t points, unsigned count, unsigned sus
 Error loadXm(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 80 + 256))
         return Error::fail("XM header cut short");
-    const unsigned songLength = r.le16(64), channels = r.le16(68), patterns = r.le16(70);
+    const unsigned songLength = r.le16(64);
+    const unsigned channels = r.le16(68);
+    const unsigned patterns = r.le16(70);
     const unsigned instruments = r.le16(72);
     if (channels < 1 || channels > unsigned(kMaxChannels) || songLength > 256 || patterns > 256 || instruments > 256)
         return Error::fail("XM with an impossible header");
@@ -822,7 +835,8 @@ Error loadXm(const Reader &r, TrackerModule &m) {
 // --- IT ----------------------------------------------------------------------
 
 void readItEnvelope(const Reader &r, size_t at, bool pan, TrackerEnvelope &e) {
-    const unsigned flags = r.u8(at), count = std::min(r.u8(at + 1), 25u);
+    const unsigned flags = r.u8(at);
+    const unsigned count = std::min(r.u8(at + 1), 25u);
     for (unsigned i = 0; i < count; ++i) {
         const int v = int8_t(uint8_t(r.u8(at + 6 + 3 * i)));
         e.points.push_back({int(r.le16(at + 7 + 3 * i)), std::clamp(pan ? v + 32 : v, 0, 64)});
@@ -872,11 +886,17 @@ TrackerInstrument readItInstrument(const Reader &r, size_t h, bool oldFormat) {
 Error loadIt(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 0xC0))
         return Error::fail("IT header cut short");
-    const unsigned orders = r.le16(0x20), instruments = r.le16(0x22), samples = r.le16(0x24);
-    const unsigned patterns = r.le16(0x26), compatible = r.le16(0x2A), flags = r.le16(0x2C);
+    const unsigned orders = r.le16(0x20);
+    const unsigned instruments = r.le16(0x22);
+    const unsigned samples = r.le16(0x24);
+    const unsigned patterns = r.le16(0x26);
+    const unsigned compatible = r.le16(0x2A);
+    const unsigned flags = r.le16(0x2C);
     if (orders > 256 || instruments > 255 || samples > 255 || patterns > 256)
         return Error::fail("IT with too many orders, instruments, samples or patterns");
-    const size_t insPtrs = 0xC0 + orders, smpPtrs = insPtrs + 4 * instruments, patPtrs = smpPtrs + 4 * samples;
+    const size_t insPtrs = 0xC0 + orders;
+    const size_t smpPtrs = insPtrs + 4 * instruments;
+    const size_t patPtrs = smpPtrs + 4 * samples;
     if (!r.has(0xC0, orders + 4 * (instruments + samples + patterns)))
         return Error::fail("IT cut short in its order list");
     m.format = TrackerFormat::kIT;
@@ -902,7 +922,8 @@ Error loadIt(const Reader &r, TrackerModule &m) {
         const size_t h = r.le32(smpPtrs + 4 * i);
         TrackerSample s;
         if (r.has(h, 0x50) && r.tag(h, "IMPS")) {
-            const unsigned f = r.u8(h + 0x12), cvt = r.u8(h + 0x2E);
+            const unsigned f = r.u8(h + 0x12);
+            const unsigned cvt = r.u8(h + 0x2E);
             s.globalVolume = int(std::min(r.u8(h + 0x11), 64u));
             s.volume = int(std::min(r.u8(h + 0x13), 64u));
             if (r.u8(h + 0x2F) & 0x80)
@@ -916,7 +937,8 @@ Error loadIt(const Reader &r, TrackerModule &m) {
             s.c5speed = r.le32(h + 0x3C) ? double(r.le32(h + 0x3C)) : 8363.0;
             s.sustainStart = r.le32(h + 0x40);
             s.sustainEnd = r.le32(h + 0x44);
-            const size_t length = r.le32(h + 0x30), at = r.le32(h + 0x48);
+            const size_t length = r.le32(h + 0x30);
+            const size_t at = r.le32(h + 0x48);
             if (f & 1)
                 s.data = f & 8 ? decompressIt(r, at, length, f & 2, cvt & 4, budget)
                                : readPcm(r, at, length, f & 2, cvt & 1, false, budget);
@@ -940,7 +962,9 @@ Error loadIt(const Reader &r, TrackerModule &m) {
         TrackerPattern pat = emptyPattern(rows, kMaxChannels);
         uint8_t mask[kMaxChannels] = {};
         TrackerCell last[kMaxChannels];
-        unsigned lastVol[kMaxChannels] = {}, lastFx[kMaxChannels] = {}, lastParam[kMaxChannels] = {};
+        unsigned lastVol[kMaxChannels] = {};
+        unsigned lastFx[kMaxChannels] = {};
+        unsigned lastParam[kMaxChannels] = {};
         size_t q = h + 8;
         const size_t end = std::min(r.size(), q + r.le16(h));
         for (int row = 0; row < rows && q < end;) {
@@ -1017,7 +1041,8 @@ int envelopeValue(const TrackerEnvelope &e, int pos) {
         return p.front().value;
     for (size_t i = 1; i < p.size(); ++i)
         if (pos <= p[i].tick) {
-            const int t0 = p[i - 1].tick, t1 = p[i].tick;
+            const int t0 = p[i - 1].tick;
+            const int t1 = p[i].tick;
             if (t1 <= t0)
                 return p[i].value;
             return p[i - 1].value + (p[i].value - p[i - 1].value) * (pos - t0) / (t1 - t0);
@@ -1197,7 +1222,8 @@ int Player::memory(Channel &ch, uint8_t fx, int p) {
 // A slide's change this tick: S3M/IT's Dxy rules (DxF/DFy fine, on the first
 // tick only), else MOD/XM's (x up, else y down, after the first tick).
 int Player::slide(int p, bool tick0) const {
-    const int hi = p >> 4, lo = p & 15;
+    const int hi = p >> 4;
+    const int lo = p & 15;
     if (!_m.s3mEffects)
         return tick0 ? 0 : hi ? hi : -lo;
     if (lo == 15 && hi)
@@ -1362,7 +1388,9 @@ void Player::trigger(Channel &ch) {
 
 // Effects on a row's first tick.
 void Player::rowEffect(Channel &ch) {
-    const int p = ch.param, x = p >> 4, y = p & 15;
+    const int p = ch.param;
+    const int x = p >> 4;
+    const int y = p & 15;
     switch (ch.cell.effect) {
     case kFxSpeed:
         _speed = p ? p : _speed;
@@ -1475,7 +1503,8 @@ void Player::rowEffect(Channel &ch) {
 
 // Effects on the ticks after the first.
 void Player::tickEffect(Channel &ch) {
-    const int p = ch.param, t = _tick % _speed;
+    const int p = ch.param;
+    const int t = _tick % _speed;
     switch (ch.cell.effect) {
     case kFxArpeggio:
         ch.arp = t % 3 == 0 ? 0 : t % 3 == 1 ? p >> 4 : p & 15;
@@ -1621,7 +1650,8 @@ void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
     if (!ch.playing || !ch.smp || ch.smp->data.empty())
         return;
     const TrackerSample &s = *ch.smp;
-    int env = 64, panEnv = 32;
+    int env = 64;
+    int panEnv = 32;
     if (ch.ins) {
         const TrackerEnvelope &ve = ch.ins->volumeEnvelope;
         if (ve.enabled) {
@@ -1653,16 +1683,20 @@ void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
     if (ch.ins)
         vol *= ch.ins->globalVolume / 128.0;
     const int pan = std::clamp(ch.pan + (panEnv - 32) * (128 - std::abs(ch.pan - 128)) / 32, 0, 255);
-    const double right = vol * std::min(1.0, pan / 128.0), left = vol * std::min(1.0, (255 - pan) / 127.0);
+    const double right = vol * std::min(1.0, pan / 128.0);
+    const double left = vol * std::min(1.0, (255 - pan) / 127.0);
 
-    const double c5 = s.c5speed > 0 ? s.c5speed : 8363.0, period = ch.period + ch.vibDelta;
+    const double c5 = s.c5speed > 0 ? s.c5speed : 8363.0;
+    const double period = ch.period + ch.vibDelta;
     double freq = _m.linearSlides ? c5 * std::exp2((3840.0 - period) / 768.0) : kAmigaClock / std::max(period, 1.0);
     freq *= std::exp2(ch.arp / 12.0);
     const double step = std::min(freq / _rate, 1e4);
 
     const auto &d = s.data;
-    const bool sustained = s.sustain && ch.keyOn, loop = sustained || s.loop;
-    const size_t ls = sustained ? s.sustainStart : s.loopStart, le = sustained ? s.sustainEnd : s.loopEnd;
+    const bool sustained = s.sustain && ch.keyOn;
+    const bool loop = sustained || s.loop;
+    const size_t ls = sustained ? s.sustainStart : s.loopStart;
+    const size_t le = sustained ? s.sustainEnd : s.loopEnd;
     const bool ping = sustained ? s.sustainPingPong : s.pingPong;
     const size_t end = loop ? le : d.size();
     if (ch.backward && !(loop && ping))

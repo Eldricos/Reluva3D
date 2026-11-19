@@ -1613,7 +1613,8 @@ public:
             outs.assign(fn->params.size(), nullptr);
         std::vector<bool> given(fn->params.size(), false);
         // && and || leave their right side unevaluated when the left decides.
-        const bool andOp = fn->logicOp == 1, orOp = fn->logicOp == 2;
+        const bool andOp = fn->logicOp == 1;
+        const bool orOp = fn->logicOp == 2;
         for (size_t k = 0; k < fn->params.size(); ++k) {
             const int a = k < x.args.size() ? x.args[k] : -1;
             const VmProperty &p = *fn->params[k];
@@ -1760,7 +1761,8 @@ private:
         switch (t) {
         case 0x39: { // rotator to vector: the direction it points
             const auto r = Vm::rotatorOf(v);
-            const float p = float(r[0]) * 2 * kPi / 65536, y = float(r[1]) * 2 * kPi / 65536;
+            const float p = float(r[0]) * 2 * kPi / 65536;
+            const float y = float(r[1]) * 2 * kPi / 65536;
             return _vm.vectorValue(std::cos(p) * std::cos(y), std::cos(p) * std::sin(y), std::sin(p));
         }
         case 0x3a:
@@ -1787,12 +1789,16 @@ private:
         case 0x49:
             return Value::byteValue(v.asInt());
         case 0x4d: { // string to vector: "x,y,z"
-            float a = 0, b = 0, c = 0;
+            float a = 0;
+            float b = 0;
+            float c = 0;
             std::sscanf(v.s.c_str(), "%f,%f,%f", &a, &b, &c);
             return _vm.vectorValue(a, b, c);
         }
         case 0x4e: {
-            int a = 0, b = 0, c = 0;
+            int a = 0;
+            int b = 0;
+            int c = 0;
             std::sscanf(v.s.c_str(), "%d,%d,%d", &a, &b, &c);
             return _vm.rotatorValue(a, b, c);
         }

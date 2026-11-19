@@ -277,7 +277,9 @@ std::vector<MeshActor> findMeshActors(const PackageSet &packages, const Package 
 std::vector<SpriteActor> findSpriteActors(const PackageSet &packages, const Package &package, ClassDefaults &defaults,
                                           SpriteActorStats *stats, const ScriptedActors *scripted) {
     // EDrawType's sprites.
-    constexpr uint8_t kDrawSprite = 1, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
+    constexpr uint8_t kDrawSprite = 1;
+    constexpr uint8_t kDrawVerticalSprite = 5;
+    constexpr uint8_t kDrawSpriteAnimOnce = 7;
     SpriteActorStats st;
     std::vector<SpriteActor> out;
     for (size_t i = 0; i < package.exports().size(); ++i) {
@@ -325,10 +327,15 @@ std::vector<SpriteActor> findSpriteActors(const PackageSet &packages, const Pack
 }
 
 std::array<Vec3f, 3> rotationAxes(const Rotator &r) {
-    const float p = float(r.pitch) * 2 * kPi / 65536, y = float(r.yaw) * 2 * kPi / 65536,
-                rl = float(r.roll) * 2 * kPi / 65536;
-    const float sp = std::sin(p), cp = std::cos(p), sy = std::sin(y), cy = std::cos(y), sr = std::sin(rl),
-                cr = std::cos(rl);
+    const float p = float(r.pitch) * 2 * kPi / 65536;
+    const float y = float(r.yaw) * 2 * kPi / 65536;
+    const float rl = float(r.roll) * 2 * kPi / 65536;
+    const float sp = std::sin(p);
+    const float cp = std::cos(p);
+    const float sy = std::sin(y);
+    const float cy = std::cos(y);
+    const float sr = std::sin(rl);
+    const float cr = std::cos(rl);
     return {Vec3f{cp * cy, cp * sy, sp}, Vec3f{sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, -sr * cp},
             Vec3f{-(cr * sp * cy + sr * sy), cy * sr - cr * sp * sy, cr * cp}};
 }
@@ -365,7 +372,10 @@ Quat quatOf(const std::array<Vec3f, 3> &m) {
 }
 
 std::array<Vec3f, 3> rowsOf(const Quat &q) {
-    const float x = q[0], y = q[1], z = q[2], w = q[3];
+    const float x = q[0];
+    const float y = q[1];
+    const float z = q[2];
+    const float w = q[3];
     return {Vec3f{1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)},
             Vec3f{2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w)},
             Vec3f{2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y)}};
@@ -382,7 +392,8 @@ Rotator slerpRotators(const Rotator &from, const Rotator &to, float t) {
             v = -v;
         cosine = -cosine;
     }
-    float wa = 1 - t, wb = t;
+    float wa = 1 - t;
+    float wb = t;
     if (1 - cosine > 1e-6f) {
         const float angle = std::acos(std::min(cosine, 1.0f));
         const float sine = std::sin(angle);

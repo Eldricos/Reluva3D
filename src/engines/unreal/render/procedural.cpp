@@ -53,7 +53,8 @@ Error readTextureData(const Package &package, int index, TextureData &out) {
                 out.mip0Size = size_t(size);
             }
             r.skip(size_t(size));
-            const int32_t w = r.i32(), h = r.i32();
+            const int32_t w = r.i32();
+            const int32_t h = r.i32();
             r.u8();
             r.u8();
             if (list == 0 && m == 0) {
@@ -146,7 +147,8 @@ public:
         }
     }
     uint32_t next() {
-        uint32_t r, v;
+        uint32_t r;
+        uint32_t v;
         std::memcpy(&r, &_table[(_index + 0x80) & 0xfc], 4);
         _index = (_index + 4) & 0xfc;
         std::memcpy(&v, &_table[_index], 4);
@@ -287,7 +289,8 @@ private:
     // One pixel's chance of a step along an axis: |v| / 128, its sign the
     // way; one random drawn whatever v is.
     void step(uint8_t &coord, uint8_t v, uint8_t mask) {
-        const int sv = s8(v), roll = int(fractalRandom().next() & 127);
+        const int sv = s8(v);
+        const int roll = int(fractalRandom().next() & 127);
         if (sv < 0 ? roll < -sv : roll < sv)
             coord = uint8_t((coord + (sv < 0 ? -1 : 1)) & mask);
     }
@@ -304,7 +307,8 @@ private:
             s.y = uint8_t(((fractalRandom().next() & 15) + s.y - 7) & _vm);
     }
     void wander7(SparkData &s) {
-        uint8_t a = r(), b = r();
+        uint8_t a = r();
+        uint8_t b = r();
         s.x = uint8_t((s.x + (a & 7) - (b & 7)) & _um);
         a = r(), b = r();
         s.y = uint8_t((s.y + (a & 7) - (b & 7)) & _vm);
@@ -331,7 +335,8 @@ private:
         const int across = xMajor ? ((ly & 1) ? -ly : ly) : ((lx & 1) ? -lx : lx);
         const int perStep = (across * 64 - total) / n; // rounded towards 0
         int acc = (xMajor ? y0 : x0) * 64;
-        const int length = xMajor ? lx : ly, along = ((xMajor ? lx : ly) & 1) ? -1 : 1;
+        const int length = xMajor ? lx : ly;
+        const int along = ((xMajor ? lx : ly) & 1) ? -1 : 1;
         uint8_t major = xMajor ? x0 : y0;
         for (int i = 0; i < length; ++i) {
             acc += jitter[size_t(i)] + perStep;
@@ -542,7 +547,8 @@ private:
             if (r() >= s.d) {
                 const uint8_t angle = r();
                 const int half = s.c >> 1;
-                const int dx = ((sine[angle] * s.c) >> 8) - half, dy = ((sine[uint8_t(angle + 64)] * s.c) >> 8) - half;
+                const int dx = ((sine[angle] * s.c) >> 8) - half;
+                const int dy = ((sine[uint8_t(angle + 64)] * s.c) >> 8) - half;
                 auto length = [](int v) { return (v > 0 ? (v & ~1) : ((-v) | 1)) & 255; };
                 flash(s.x, s.y, length(dx), length(dy), s.heat, s.heat >> 2);
             }
@@ -613,7 +619,8 @@ private:
                 const uint8_t angle = uint8_t(s.d + t);
                 move(s, uint8_t(sine[angle] - 127), uint8_t(sine[uint8_t(angle + 64)] - 127));
             } else if (s.type == kFlockSpark) {
-                const uint8_t dy = uint8_t(sine[s.b] + 128), dx = uint8_t(sine[uint8_t(s.b + 64)] + 128);
+                const uint8_t dy = uint8_t(sine[s.b] + 128);
+                const uint8_t dx = uint8_t(sine[uint8_t(s.b + 64)] + 128);
                 const uint16_t w = uint16_t(((s.b << 8) | s.a) + (s.d << 4));
                 s.a = uint8_t(w), s.b = uint8_t(w >> 8);
                 move(s, dx, dy);
@@ -639,7 +646,8 @@ private:
     // rows past the bottom are the top ones and a row's left neighbour is
     // the end of the row above.
     void spread() {
-        const size_t n = _heat.size(), w = size_t(_w);
+        const size_t n = _heat.size();
+        const size_t w = size_t(_w);
         for (size_t i = 0; i < n; ++i) {
             int sum;
             if (_rising)
@@ -781,7 +789,9 @@ private:
 
     void drop(DropData &d) {
         const auto &sine = sineTable();
-        const int x = d.x, y = d.y, n = d.d / 2;
+        const int x = d.x;
+        const int y = d.y;
+        const int n = d.d / 2;
         switch (d.type) {
         case kFixedDepth:
             set(x, y, d.d);
@@ -884,7 +894,8 @@ private:
             const uint8_t *up = &_field[size_t((r + _h - 1) % _h) * fw];
             const uint8_t *down = &_field[size_t((r + 1) % _h) * fw];
             for (int c = 0; c < _fw; ++c) {
-                int a = c + left, b = a + 1;
+                int a = c + left;
+                int b = a + 1;
                 if (a < 0)
                     a += _fw;
                 if (b >= _fw)
@@ -925,7 +936,8 @@ private:
         }
         _across.resize(size_t(_fw) + 1);
         for (int c = 0; c < _fw; ++c) {
-            const int next = c + 1 == _fw ? 0 : c + 1, prev = c == 0 ? _fw - 1 : c - 1;
+            const int next = c + 1 == _fw ? 0 : c + 1;
+            const int prev = c == 0 ? _fw - 1 : c - 1;
             _across[size_t(c)] = 2 * ((_sums[size_t(next)] - _sums[size_t(prev)]) >> 1);
         }
         _across[size_t(_fw)] = _across[0];
@@ -1096,13 +1108,16 @@ private:
     static int wrap(int v, int n) { return ((v % n) + n) % n; }
 
     void render() {
-        const int w = _source.w, h = _source.h;
-        const int u = int(std::lround(_u)), v = int(std::lround(_v));
+        const int w = _source.w;
+        const int h = _source.h;
+        const int u = int(std::lround(_u));
+        const int v = int(std::lround(_v));
         _drawnU = u;
         _drawnV = v;
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x) {
-                int sx, sy;
+                int sx;
+                int sy;
                 if (_moveIce) { // the source shifted
                     sx = int(_glass[size_t(y) * size_t(w) + size_t(x)]) + x + u;
                     sy = y + v;
@@ -1267,7 +1282,8 @@ private:
                         for (int i = 0; i < count * 2; ++i)
                             put(x++, y, r.u8());
                     } else {
-                        const uint8_t a = r.u8(), b = r.u8();
+                        const uint8_t a = r.u8();
+                        const uint8_t b = r.u8();
                         for (int i = 0; i < -count; ++i) {
                             put(x++, y, a);
                             put(x++, y, b);
@@ -1353,8 +1369,11 @@ std::unique_ptr<AnimatedTexture> openFlc(const TextureData &t, Palette palette, 
                                          std::string &error) {
     Reader r(t.data, t.base);
     r.seek(t.native);
-    const float length = r.f32(), rate = r.f32();
-    const int frames = r.u16(), fw = r.u16(), fh = r.u16();
+    const float length = r.f32();
+    const float rate = r.f32();
+    const int frames = r.u16();
+    const int fw = r.u16();
+    const int fh = r.u16();
     r.u16();
     const uint32_t size = r.u32();
     if (!r.ok() || fw <= 0 || fh <= 0 || fw > 4096 || fh > 4096 || size > r.remaining()) {

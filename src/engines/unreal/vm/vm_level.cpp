@@ -87,7 +87,9 @@ Error ScriptLevel::load() {
                            std::max({std::fabs(m.postScale[0]), std::fabs(m.postScale[1]), std::fabs(m.postScale[2])}));
         for (const Poly &p : m.polys)
             for (const Vec3f &v : p.vertices) {
-                const float dx = v[0] - m.prePivot[0], dy = v[1] - m.prePivot[1], dz = v[2] - m.prePivot[2];
+                const float dx = v[0] - m.prePivot[0];
+                const float dy = v[1] - m.prePivot[1];
+                const float dz = v[2] - m.prePivot[2];
                 b.radius = std::max(b.radius, std::sqrt(dx * dx + dy * dy + dz * dz) * scale);
             }
         for (size_t i = 0; i < _map.exports().size(); ++i)
@@ -413,7 +415,8 @@ void ScriptLevel::attachViewport() {
 }
 
 Value ScriptLevel::regionAt(const std::array<float, 3> &p) {
-    int zone = 0, leaf = -1;
+    int zone = 0;
+    int leaf = -1;
     if (_hasModel) {
         int32_t n = 0;
         for (int guard = 0; guard < 100000 && n >= 0 && size_t(n) < _model.nodes.size(); ++guard) {
@@ -531,7 +534,9 @@ void ScriptLevel::makeNoise(VmObject *maker, float loudness) {
         if (!loc)
             continue;
         const auto to = Vm::vectorOf(*loc);
-        const float dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+        const float dx = to[0] - from[0];
+        const float dy = to[1] - from[1];
+        const float dz = to[2] - from[2];
         const float dist = std::max(1.0f, std::sqrt(dx * dx + dy * dy + dz * dz));
         float heard = loudness * 800 / dist;
         const Value *threshold = prop(p, "HearingThreshold");
@@ -1115,7 +1120,8 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
                 any = true;
                 ++out.drawTypes;
             }
-            const int type = byteOf(a, "LightType"), brightness = byteOf(a, "LightBrightness");
+            const int type = byteOf(a, "LightType");
+            const int brightness = byteOf(a, "LightBrightness");
             if (type != was.lightType || brightness != was.lightBrightness) {
                 c.lightType = type;
                 c.lightBrightness = brightness;
@@ -1145,7 +1151,9 @@ Vec location(Vm &vm, VmObject *a) {
 }
 
 float distance(const Vec &a, const Vec &b) {
-    const float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+    const float dx = a[0] - b[0];
+    const float dy = a[1] - b[1];
+    const float dz = a[2] - b[2];
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -1188,7 +1196,8 @@ void registerEngineNatives(Vm &vm) {
             c.result = Value::objectValue(nullptr);
             return;
         }
-        const bool hasLoc = c.given.size() > 3 && c.given[3], hasRot = c.given.size() > 4 && c.given[4];
+        const bool hasLoc = c.given.size() > 3 && c.given[3];
+        const bool hasRot = c.given.size() > 4 && c.given[4];
         // Where it's spawned: given, or the spawner's place.
         Value here = c.self && c.self->find(c.vm, "Location") ? *c.self->find(c.vm, "Location") : Value();
         Value turn = c.self && c.self->find(c.vm, "Rotation") ? *c.self->find(c.vm, "Rotation") : Value();

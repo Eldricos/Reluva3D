@@ -45,7 +45,8 @@ Error readFont(const PackageSet &packages, const Package &package, int index, Fo
 }
 
 const FontCharacter *Font::character(uint32_t c, const FontPage **page) const {
-    const size_t p = c / uint32_t(charactersPerPage), i = c % uint32_t(charactersPerPage);
+    const size_t p = c / uint32_t(charactersPerPage);
+    const size_t i = c % uint32_t(charactersPerPage);
     if (p >= pages.size() || i >= pages[p].characters.size())
         return nullptr;
     if (page)

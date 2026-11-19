@@ -105,7 +105,9 @@ bool ScriptLevel::hearsSound(VmObject *source, float radius, float &volume) {
     if (!l || !listenerAt(ear))
         return true; // no one listening: kept for the page to place
     const Vec at = Vm::vectorOf(*l);
-    const float dx = at[0] - ear[0], dy = at[1] - ear[1], dz = at[2] - ear[2];
+    const float dx = at[0] - ear[0];
+    const float dy = at[1] - ear[1];
+    const float dz = at[2] - ear[2];
     const float d2 = dx * dx + dy * dy + dz * dz;
     float r2 = radius * radius / 1.3f;
     if (d2 >= r2)
@@ -158,7 +160,9 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
         if (!loc)
             continue;
         const Vec to = Vm::vectorOf(*loc);
-        const float dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+        const float dx = to[0] - from[0];
+        const float dy = to[1] - from[1];
+        const float dz = to[2] - from[2];
         float ratio = (dx * dx + dy * dy + dz * dz) / (radius * radius);
         const Value *threshold = prop(p, "HearingThreshold");
         if (ratio >= 1 || ratio >= (threshold ? threshold->asFloat() : 1))
@@ -361,7 +365,8 @@ void ScriptLevel::lipSyncUpdate() {
             c.words = nullptr;
             continue;
         }
-        const float from = float(_lipLast - c.start), to = float(now - c.start);
+        const float from = float(_lipLast - c.start);
+        const float to = float(now - c.start);
         if (from >= c.seconds) {
             lipSyncStop(c);
             continue;

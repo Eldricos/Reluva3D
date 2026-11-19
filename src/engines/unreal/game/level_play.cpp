@@ -122,7 +122,8 @@ bool LevelPlay::pressKey(const std::string &key, bool down) {
     if (_aliases.empty())
         for (int k = 0; k < 64; ++k) {
             const std::string a = inputSetting("Aliases[" + std::to_string(k) + "]");
-            const size_t c = a.find("Command=\""), n = a.find("Alias=");
+            const size_t c = a.find("Command=\"");
+            const size_t n = a.find("Alias=");
             if (c == std::string::npos || n == std::string::npos)
                 continue;
             const size_t cEnd = a.find('"', c + 9);
@@ -428,7 +429,8 @@ LevelPlay::View LevelPlay::view() {
     Vm &vm = *_vm;
     // PlayerCalcView(out Actor ViewActor, out Vector CameraLocation, out Rotator CameraRotation)
     Value actor = Value::objectValue(nullptr);
-    Value where = vm.vectorValue(0, 0, 0), turned = vm.rotatorValue(0, 0, 0);
+    Value where = vm.vectorValue(0, 0, 0);
+    Value turned = vm.rotatorValue(0, 0, 0);
     if (const Value *loc = _player->find(vm, "Location"))
         where = *loc;
     if (const Value *rot = _player->find(vm, "ViewRotation"))

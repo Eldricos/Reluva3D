@@ -117,12 +117,14 @@ void testModel() {
     const Vec3f ambient = zoneAmbientColor(0, 255, 16);
     CHECK(lights.zoneAmbient.size() == 1 && near(lights.zoneAmbient[0], ambient));
     const float lit = ambient[0] + lights.sources[0].color[0] * lightFalloff(64.0f / 250);
-    const int under = int(lit / 2 * 255 + 0.5f), shade = int(ambient[0] / 2 * 255 + 0.5f);
+    const int under = int(lit / 2 * 255 + 0.5f);
+    const int shade = int(ambient[0] / 2 * 255 + 0.5f);
     const LightmapAtlas atlas = buildLightmaps(m, lights);
     CHECK(atlas.pages.size() == 1 && atlas.stats.lightmaps == 1 && atlas.stats.lit == 1);
     CHECK(atlas.stats.fromBounds == 0 && atlas.stats.badFit == 0);
     if (atlas.pages.size() == 1) {
-        const auto uv = atlas.uv(0, {0, 0, 0}), far = atlas.uv(0, {128, 128, 0});
+        const auto uv = atlas.uv(0, {0, 0, 0});
+        const auto far = atlas.uv(0, {128, 128, 0});
         CHECK(uv[0] * 1024 == 1.5f && uv[1] * 1024 == 1.5f && far[0] * 1024 == 5.5f);
         const image::Image &page = atlas.pages[0];
         // Under the light: ambient + its colour x the falloff, stored halved.
@@ -150,7 +152,8 @@ void testModel() {
     if (changing.animated.size() == 1 && atlas.pages.size() == 1) {
         const AnimatedLightmap &a = changing.animated[0];
         CHECK(a.page == 0 && a.x == 0 && a.y == 0 && a.w == 7 && a.h == 7 && a.lights.size() == 1);
-        std::vector<uint8_t> full, off;
+        std::vector<uint8_t> full;
+        std::vector<uint8_t> off;
         a.draw({1.0f}, full);
         a.draw({0.0f}, off);
         CHECK(full.size() == 7 * 7 * 4 && full[(1 * 7 + 1) * 4] == atlas.pages[0].pixel(1, 1)[0]);
@@ -187,7 +190,8 @@ void testModel() {
         d[nodesAt + 2] = 9;
         Package pb;
         CHECK(!pb.openMemory(bad.build(), "Bad"));
-        Model strict, lenient;
+        Model strict;
+        Model lenient;
         CHECK(readModel(pb, 3, strict));
         CHECK(!readModel(pb, 3, lenient, false) && !lenient.geometryError.empty() && lenient.nodes.empty() &&
               lenient.hasLighting() && lenient.lightMaps.size() == 1);
@@ -260,7 +264,8 @@ void testActors() {
     CHECK(p != nullptr);
     if (!p)
         return;
-    const int elevator = p->findExport("ElevatorMover0"), skyZone = p->findExport("SkyZoneInfo0");
+    const int elevator = p->findExport("ElevatorMover0");
+    const int skyZone = p->findExport("SkyZoneInfo0");
     CHECK(isA(set, *p, elevator, "mover") && isA(set, *p, elevator, "Brush") && !isA(set, *p, skyZone, "Mover"));
 
     std::vector<Poly> list;
@@ -316,7 +321,8 @@ void testZoneVisibility() {
     CHECK(zones.portalCount() == 1 && zones.zoneAt({-5, 0, 0}) == 1 && zones.zoneAt({5, 0, 0}) == 2);
     // A view from x = -200 along +x (screen x from y, up from z, depth
     // from x), then along -x.
-    std::array<float, 16> ahead{}, behind{};
+    std::array<float, 16> ahead{};
+    std::array<float, 16> behind{};
     ahead[4] = behind[4] = 1;
     ahead[9] = behind[9] = 1;
     ahead[3] = 1;

@@ -29,7 +29,8 @@ namespace reluva::unreal {
 namespace {
 
 std::string trim(std::string_view s) {
-    size_t a = 0, b = s.size();
+    size_t a = 0;
+    size_t b = s.size();
     while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r'))
         ++a;
     while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r'))

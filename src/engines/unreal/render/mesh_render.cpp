@@ -152,7 +152,8 @@ Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, const MeshTopology
     out.frames = mesh.animFrames;
     std::vector<gfx::Vertex> vertices;
     vertices.reserve(size_t(out.frameVertices) * size_t(out.frames));
-    std::vector<Vec3f> positions(size_t(mesh.frameVerts)), normals(size_t(mesh.frameVerts));
+    std::vector<Vec3f> positions(size_t(mesh.frameVerts));
+    std::vector<Vec3f> normals(size_t(mesh.frameVerts));
     // As Render.dll's DrawMesh and DrawLodMesh: each vertex's normal is the
     // sum of its triangles' normals, each made one long first (so the
     // triangles count alike, not by size), from the winding alone,
@@ -186,7 +187,8 @@ Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, const MeshTopology
             vertices.push_back(gv);
         }
         if (f == 0) {
-            Vec3f lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
+            Vec3f lo{1e30f, 1e30f, 1e30f};
+            Vec3f hi{-1e30f, -1e30f, -1e30f};
             for (const Vec3f &p : positions)
                 for (size_t k = 0; k < 3; ++k) {
                     lo[k] = std::min(lo[k], p[k]);
@@ -382,7 +384,8 @@ void drawMeshShadow(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::M
 
 gfx::Mat4 planarShadow(const gfx::Vec3 &light, const gfx::Vec3 &n, float d) {
     // M = (P.L) I - L P^T, with the plane P = (n, -d) and L = (light, 1).
-    const std::array<float, 4> P{n[0], n[1], n[2], -d}, L{light[0], light[1], light[2], 1};
+    const std::array<float, 4> P{n[0], n[1], n[2], -d};
+    const std::array<float, 4> L{light[0], light[1], light[2], 1};
     const float dot = P[0] * L[0] + P[1] * L[1] + P[2] * L[2] + P[3] * L[3];
     gfx::Mat4 m{};
     for (size_t col = 0; col < 4; ++col)

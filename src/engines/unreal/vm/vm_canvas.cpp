@@ -230,7 +230,8 @@ void registerCanvasNatives(Vm &vm) {
             }
         };
         if (clip) {
-            const float right = p.orgX + p.clipX, bottom = p.orgY + p.clipY;
+            const float right = p.orgX + p.clipX;
+            const float bottom = p.orgY + p.clipY;
             if (x >= right || y >= bottom || x + xl <= p.orgX || y + yl <= p.orgY)
                 return;
             cut(x, xl, u, ul, p.orgX, right);
@@ -303,9 +304,11 @@ void registerCanvasNatives(Vm &vm) {
     auto wrapLines = [=](NativeCall &c, const Pen &p, const std::string &s, float scale) {
         std::vector<std::vector<uint32_t>> lines;
         const float room = std::max(1.0f, p.clipX - p.curX);
-        std::vector<uint32_t> line, word;
+        std::vector<uint32_t> line;
+        std::vector<uint32_t> word;
         auto widthOf = [&](const std::vector<uint32_t> &t) {
-            float w = 0, h = 0;
+            float w = 0;
+            float h = 0;
             measure(c, p, t, scale, w, h);
             return w;
         };
@@ -344,7 +347,8 @@ void registerCanvasNatives(Vm &vm) {
     // it (CR: to the next line's start).
     auto drawText = [=](NativeCall &c, const std::string &s, float scale, bool cr) {
         Pen p = pen(c);
-        float lineW = 0, lineH = 0;
+        float lineW = 0;
+        float lineH = 0;
         const auto lines = wrapLines(c, p, s, scale);
         float y = p.orgY + p.curY;
         for (size_t i = 0; i < lines.size(); ++i) {
@@ -381,9 +385,11 @@ void registerCanvasNatives(Vm &vm) {
     // wrapped as DrawText would; TextSize the same on one line.
     reg("Canvas.StrLen", [=](NativeCall &c) {
         const Pen p = pen(c);
-        float w = 0, h = 0;
+        float w = 0;
+        float h = 0;
         for (const auto &line : wrapLines(c, p, c.vm.toString(c.args[0]), 1)) {
-            float lw = 0, lh = 0;
+            float lw = 0;
+            float lh = 0;
             measure(c, p, line, 1, lw, lh);
             w = std::max(w, lw);
             h += lh;
@@ -393,7 +399,8 @@ void registerCanvasNatives(Vm &vm) {
     });
     reg("Canvas.TextSize", [=](NativeCall &c) {
         const Pen p = pen(c);
-        float w = 0, h = 0;
+        float w = 0;
+        float h = 0;
         measure(c, p, codePoints(c.vm.toString(c.args[0])), 1, w, h);
         c.args[1] = Value::floatValue(w);
         c.args[2] = Value::floatValue(h);

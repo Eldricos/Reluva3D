@@ -519,7 +519,8 @@ void ScriptLevel::animateLayers(VmObject *a, float dt) {
     auto it = _layers.find(a);
     if (it == _layers.end())
         return;
-    std::vector<NameId> ended, gone;
+    std::vector<NameId> ended;
+    std::vector<NameId> gone;
     for (auto &[group, l] : it->second) {
         l.weight = std::clamp(l.weight + l.weightRate * dt, 0.0f, 1.0f);
         if (l.weightRate < 0 && l.weight <= 0) {
@@ -542,7 +543,8 @@ void ScriptLevel::animateLayers(VmObject *a, float dt) {
             continue; // tweening in: its time starts once it's there
         const MeshAnimSeq *s = findAnim(_vm, a, l.sequence);
         const float end = 1.0f;
-        const float from = l.frame, to = from + l.rate * dt; // Rate multiplies time: not by speed
+        const float from = l.frame;
+        const float to = from + l.rate * dt; // Rate multiplies time: not by speed
         if (to < end) {
             l.frame = to;
             notifyBetween(_vm, a, s, from, to);

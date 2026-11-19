@@ -194,7 +194,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
         if (i >= verts.size())
             return false;
         const gfx::Vertex &v = verts[i];
-        float p[3] = {v.pos[0], v.pos[1], v.pos[2]}, n[3] = {v.normal[0], v.normal[1], v.normal[2]};
+        float p[3] = {v.pos[0], v.pos[1], v.pos[2]};
+        float n[3] = {v.normal[0], v.normal[1], v.normal[2]};
         if (call.backLerp > 0) {
             const size_t j = size_t(int64_t(index) + call.oldVertexOffset);
             if (j < verts.size())
@@ -233,7 +234,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
         const float *uv = call.texGen == gfx::TexGen::kUv2 ? v.uv2 : v.uv;
         // Through the pre and post rows (the turbulence between them left out).
         auto rows = [](const std::array<float, 3> &r0, const std::array<float, 3> &r1, float &u, float &w) {
-            const float nu = r0[0] * u + r0[1] * w + r0[2], nw = r1[0] * u + r1[1] * w + r1[2];
+            const float nu = r0[0] * u + r0[1] * w + r0[2];
+            const float nw = r1[0] * u + r1[1] * w + r1[2];
             u = nu;
             w = nw;
         };
@@ -265,13 +267,19 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                                      : 0;
             if (call.vertexLightCount > 0) {
                 const float inv = len > 0 ? 1 / len : 0;
-                const float nx = wn[0] * inv, ny = wn[1] * inv, nz = wn[2] * inv;
-                const float vx = out.wx - _eye[0], vy = out.wy - _eye[1], vz = out.wz - _eye[2];
+                const float nx = wn[0] * inv;
+                const float ny = wn[1] * inv;
+                const float nz = wn[2] * inv;
+                const float vx = out.wx - _eye[0];
+                const float vy = out.wy - _eye[1];
+                const float vz = out.wz - _eye[2];
                 const float view2 = vx * vx + vy * vy + vz * vz;
                 float sum[3] = {0, 0, 0};
                 for (int i = 0; i < call.vertexLightCount && i < gfx::kMaxVertexLights; ++i) {
                     const gfx::VertexLight &l = call.vertexLights[size_t(i)];
-                    const float dx = l.position[0] - out.wx, dy = l.position[1] - out.wy, dz = l.position[2] - out.wz;
+                    const float dx = l.position[0] - out.wx;
+                    const float dy = l.position[1] - out.wy;
+                    const float dz = l.position[2] - out.wz;
                     const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
                     if (call.surfaceLighting) { // as surfaces are lit
                         float amount = 0;
@@ -293,8 +301,9 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     const float nd = dx * nx + dy * ny + dz * nz;
                     const float cw = nd / dist + 1;
                     float amount = std::max(cw * cw - 1.5f, 0.0f);
-                    const float mx = l.position[0] - 2 * nd * nx - out.wx, my = l.position[1] - 2 * nd * ny - out.wy,
-                                mz = l.position[2] - 2 * nd * nz - out.wz;
+                    const float mx = l.position[0] - 2 * nd * nx - out.wx;
+                    const float my = l.position[1] - 2 * nd * ny - out.wy;
+                    const float mz = l.position[2] - 2 * nd * nz - out.wz;
                     const float sp = (mx * vx + my * vy + mz * vz) * call.specular;
                     if (sp > 0 && view2 > 0)
                         amount += 6 * sp * sp / (dist * dist * view2);
@@ -308,8 +317,9 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     c[size_t(k)] *= call.ambientLight[size_t(k)] + call.directedLight[size_t(k)] * facing;
             }
         } else if (call.rgbSource == gfx::ColorSource::kShadow) {
-            const float dx = out.wx - call.shadowLight[0], dy = out.wy - call.shadowLight[1],
-                        dz = out.wz - call.shadowLight[2];
+            const float dx = out.wx - call.shadowLight[0];
+            const float dy = out.wy - call.shadowLight[1];
+            const float dz = out.wz - call.shadowLight[2];
             const float off = std::abs(std::sqrt(dx * dx + dy * dy + dz * dz) - call.shadowReach);
             const float dark = off > 0 ? std::min(call.shadowStrength / off, call.shadowMax) : call.shadowMax;
             for (int k = 0; k < 3; ++k)
@@ -337,7 +347,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
         for (int k = 0; k < 3; ++k) {
             const ClipVertex &a = tri[k];
             const ClipVertex &b = tri[(k + 1) % 3];
-            const bool ina = a.z >= 0 && a.w > 0, inb = b.z >= 0 && b.w > 0;
+            const bool ina = a.z >= 0 && a.w > 0;
+            const bool inb = b.z >= 0 && b.w > 0;
             if (ina)
                 poly.push_back(a);
             if (ina != inb && (a.z - b.z) != 0)
@@ -386,11 +397,16 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
             for (int y = y0; y <= y1; ++y) {
                 uint8_t *row = _color.row(y);
                 for (int x = x0; x <= x1; ++x) {
-                    const float px = float(x) + 0.5f, py = float(y) + 0.5f;
-                    const float w0 = edge(*v1, *v2, px, py), w1 = edge(*v2, *v0, px, py), w2 = edge(*v0, *v1, px, py);
+                    const float px = float(x) + 0.5f;
+                    const float py = float(y) + 0.5f;
+                    const float w0 = edge(*v1, *v2, px, py);
+                    const float w1 = edge(*v2, *v0, px, py);
+                    const float w2 = edge(*v0, *v1, px, py);
                     if (w0 < 0 || w1 < 0 || w2 < 0)
                         continue;
-                    const float b0 = w0 * inv, b1 = w1 * inv, b2 = w2 * inv;
+                    const float b0 = w0 * inv;
+                    const float b1 = w1 * inv;
+                    const float b2 = w2 * inv;
                     const float z = b0 * v0->z + b1 * v1->z + b2 * v2->z;
                     float &d = _depth[size_t(y) * size_t(_w) + size_t(x)];
                     if (call.state.depthTest && (call.state.depthEqual ? std::fabs(z - d) > 1e-5f : z > d))
@@ -412,10 +428,14 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     // texture (below).
                     const bool lit = call.dynamicLights || call.dynamicLightsTextured;
                     if (lit) {
-                        const float px = attr(&ClipVertex::wx), py = attr(&ClipVertex::wy), pz = attr(&ClipVertex::wz);
+                        const float px = attr(&ClipVertex::wx);
+                        const float py = attr(&ClipVertex::wy);
+                        const float pz = attr(&ClipVertex::wz);
                         float sum[3] = {0, 0, 0};
                         for (const gfx::DynamicLight &l : _lights) {
-                            const float dx = px - l.origin[0], dy = py - l.origin[1], dz = pz - l.origin[2];
+                            const float dx = px - l.origin[0];
+                            const float dy = py - l.origin[1];
+                            const float dz = pz - l.origin[2];
                             const float f = std::clamp(
                                 1 - std::sqrt(dx * dx + dy * dy + dz * dz) / std::max(l.radius, 1e-3f), 0.0f, 1.0f);
                             for (int k = 0; k < 3; ++k)
@@ -427,7 +447,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     }
                     if (call.volumeLights) {
                         const gfx::Vec3 at{attr(&ClipVertex::wx), attr(&ClipVertex::wy), attr(&ClipVertex::wz)};
-                        float sum[3] = {0, 0, 0}, fog = 0;
+                        float sum[3] = {0, 0, 0};
+                        float fog = 0;
                         for (const gfx::DynamicLight &l : _volumes) {
                             const float f = gfx::volumeGlow(_eye, at, l);
                             for (int k = 0; k < 3; ++k)
@@ -439,7 +460,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                         src[3] = std::min(fog, 1.0f);
                     }
                     if (tex && !call.dynamicLights && !call.volumeLights) {
-                        float u = attr(&ClipVertex::u), v = attr(&ClipVertex::v);
+                        float u = attr(&ClipVertex::u);
+                        float v = attr(&ClipVertex::v);
                         auto wrap = [&](int c, int n) {
                             return tex->clamp ? std::clamp(c, 0, n - 1) : ((c % n) + n) % n;
                         };
@@ -453,11 +475,16 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                             for (int k = 0; k < 4; ++k)
                                 texel[k] = float(t[k]);
                         } else { // between the four nearest texels' centres
-                            const float fx = u * float(tex->w) - 0.5f, fy = v * float(tex->h) - 0.5f;
-                            const int x0 = int(std::floor(fx)), y0 = int(std::floor(fy));
-                            const float ax = fx - float(x0), ay = fy - float(y0);
-                            const uint8_t *a = at(x0, y0), *b = at(x0 + 1, y0), *c = at(x0, y0 + 1),
-                                          *d = at(x0 + 1, y0 + 1);
+                            const float fx = u * float(tex->w) - 0.5f;
+                            const float fy = v * float(tex->h) - 0.5f;
+                            const int x0 = int(std::floor(fx));
+                            const int y0 = int(std::floor(fy));
+                            const float ax = fx - float(x0);
+                            const float ay = fy - float(y0);
+                            const uint8_t *a = at(x0, y0);
+                            const uint8_t *b = at(x0 + 1, y0);
+                            const uint8_t *c = at(x0, y0 + 1);
+                            const uint8_t *d = at(x0 + 1, y0 + 1);
                             for (int k = 0; k < 4; ++k)
                                 texel[k] = (float(a[k]) * (1 - ax) + float(b[k]) * ax) * (1 - ay) +
                                            (float(c[k]) * (1 - ax) + float(d[k]) * ax) * ay;

@@ -114,7 +114,8 @@ bool readLight(const PackageSet &packages, const Package &package, int32_t ref, 
         l.spot = true;
         Rotator rot;
         props.rotator("Rotation", rot);
-        const float pitch = float(rot.pitch) * 2 * kPi / 65536, yaw = float(rot.yaw) * 2 * kPi / 65536;
+        const float pitch = float(rot.pitch) * 2 * kPi / 65536;
+        const float yaw = float(rot.yaw) * 2 * kPi / 65536;
         l.direction = {std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)};
         // LightCone 0-255 as 0-90 degrees off the axis.
         // LightCone: the cosine of its edge is 1 - LightCone / 256 (as
@@ -242,7 +243,9 @@ bool unshadowed(const LightSource &l) {
 }
 
 float lightDistance(const LightSource &l, const Vec3f &p) {
-    const float dx = l.position[0] - p[0], dy = l.position[1] - p[1], dz = l.cylinder ? 0 : l.position[2] - p[2];
+    const float dx = l.position[0] - p[0];
+    const float dy = l.position[1] - p[1];
+    const float dz = l.cylinder ? 0 : l.position[2] - p[2];
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -253,7 +256,8 @@ namespace {
 float smoothNoise(uint32_t seed, float time, float rate) {
     const float t = std::max(0.0f, time) * rate;
     const uint32_t step = uint32_t(t);
-    const float f = t - float(step), s = f * f * (3 - 2 * f);
+    const float f = t - float(step);
+    const float s = f * f * (3 - 2 * f);
     return noise(seed, step) * (1 - s) + noise(seed, step + 1) * s;
 }
 
@@ -357,7 +361,8 @@ float lightPattern(const LightSource &l, const PatternNow &now, const PatternPoi
         return 0.5f * (1 + std::sin(-(11 * std::atan2(o[2], flat2) + 5 * now.time)));
     // Three fine ripples.
     case kEffectShock: {
-        const float d = std::round(p.distance * 8), t = now.time * 4000;
+        const float d = std::round(p.distance * 8);
+        const float t = now.time * 4000;
         return (0.9f + 0.1f * sinTurns(-16 * (d + t))) * (0.9f + 0.1f * sinTurns(16 * (std::floor(d / 2) - t))) *
                (0.9f + 0.1f * sinTurns(16 * (std::floor(d / 4) - t)));
     }
@@ -404,7 +409,8 @@ LevelLights gatherLights(const PackageSet &packages, const Package &package, con
     ClassDefaults defaults(packages);
     for (const Zone &z : model.zones) {
         ActorProperties props;
-        Vec3f ambient{}, actorAmbient{};
+        Vec3f ambient{};
+        Vec3f actorAmbient{};
         uint8_t ambientBrightness = 0;
         bool fog = false;
         const ObjectRef zone = z.actor ? packages.resolve(package, z.actor) : ObjectRef{};
@@ -480,7 +486,8 @@ void AnimatedLightmap::draw(const std::vector<float> &levels, std::vector<uint8_
 
 std::array<float, 2> LightmapAtlas::uv(int surf, const Vec3f &p) const {
     const LightmapPlacement &m = surfs[size_t(surf)];
-    const float lu = dot(p, m.uAxis) + m.uOffset, lv = dot(p, m.vAxis) + m.vOffset;
+    const float lu = dot(p, m.uAxis) + m.uOffset;
+    const float lv = dot(p, m.vAxis) + m.vOffset;
     return {(float(m.x) + lu + 0.5f) / float(pageSize), (float(m.y) + lv + 0.5f) / float(pageSize)};
 }
 
@@ -545,7 +552,10 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
         // texture units between samples, from the pan (X along U, Y along V)
         // measured from the base point. Where that doesn't cover the polygon
         // (a few degenerate surfaces), from the polygon's own lowest corner.
-        float minU = 1e30f, maxU = -1e30f, minV = 1e30f, maxV = -1e30f;
+        float minU = 1e30f;
+        float maxU = -1e30f;
+        float minV = 1e30f;
+        float maxV = -1e30f;
         for (const Vec3f &p : points[s]) {
             const Vec3f d = sub(p, base);
             minU = std::min(minU, dot(d, tu));
@@ -562,7 +572,8 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
             return (minU - ou) / us >= -tol && (maxU - ou) / us <= float(m.uClamp - 1) + tol &&
                    (minV - ov) / vs >= -tol && (maxV - ov) / vs <= float(m.vClamp - 1) + tol;
         };
-        float ou = m.pan[0], ov = m.pan[1];
+        float ou = m.pan[0];
+        float ov = m.pan[1];
         if (!scaled || !fits(ou, ov)) {
             ou = minU;
             ov = minV;
@@ -588,9 +599,13 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
         order[i] = i;
     std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return grids[a].h > grids[b].h; });
     std::vector<std::array<int, 3>> placed(grids.size()); // page, x, y of sample (0, 0)
-    int page = -1, cx = 0, cy = 0, rowH = 0;
+    int page = -1;
+    int cx = 0;
+    int cy = 0;
+    int rowH = 0;
     for (size_t i : order) {
-        const int w = grids[i].w + 2, h = grids[i].h + 2;
+        const int w = grids[i].w + 2;
+        const int h = grids[i].h + 2;
         if (page < 0 || cx + w > pageSize) {
             cx = 0;
             cy += rowH;
@@ -621,9 +636,11 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
     for (size_t gi = 0; gi < grids.size(); ++gi) {
         const Grid &g = grids[gi];
         image::Image &img = atlas.pages[size_t(placed[gi][0])];
-        const int x0 = placed[gi][1], y0 = placed[gi][2];
+        const int x0 = placed[gi][1];
+        const int y0 = placed[gi][2];
         // The samples with their border, (i, j) at (i + 1, j + 1).
-        const int bw = g.w + 2, bh = g.h + 2;
+        const int bw = g.w + 2;
+        const int bh = g.h + 2;
         auto at = [&](int i, int j) { return size_t(j + 1) * size_t(bw) + size_t(i + 1); };
         AnimatedLightmap anim;
         anim.base.assign(size_t(bw) * size_t(bh), Vec3f{});
@@ -641,7 +658,9 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
                                       : Vec3f{};
             // A sample's position: where the plane meets the grid lines,
             // solving uAxis.P = i - uOffset, vAxis.P = j - vOffset, n.P = n.base.
-            const Vec3f vn = cross(g.vAxis, n), nu = cross(n, g.uAxis), uv = cross(g.uAxis, g.vAxis);
+            const Vec3f vn = cross(g.vAxis, n);
+            const Vec3f nu = cross(n, g.uAxis);
+            const Vec3f uv = cross(g.uAxis, g.vAxis);
             const float det = dot(g.uAxis, vn);
             const float planeD = dot(n, model.points[size_t(surf.base)]);
             const int rowBytes = (m.uClamp + 7) / 8;
@@ -664,7 +683,8 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
                             if (src.radius <= 0)
                                 continue;
                             const Vec3f d = sub(src.position, p);
-                            const float dist = lightDistance(src, p), straight = length(d);
+                            const float dist = lightDistance(src, p);
+                            const float straight = length(d);
                             if (dist >= src.radius || straight <= 0)
                                 continue;
                             float amount = surfaceFalloff(src, dist / src.radius);

@@ -77,7 +77,8 @@ void parseDialogTable(const std::string &text, const std::string &table, std::ve
         if (row.find_first_not_of(" \r\n") == std::string::npos)
             continue;
         ++rowNumber;
-        std::vector<std::string> c, raw;
+        std::vector<std::string> c;
+        std::vector<std::string> raw;
         size_t from = 0;
         while (true) {
             const size_t tab = row.find('\t', from);

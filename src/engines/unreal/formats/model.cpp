@@ -227,7 +227,8 @@ Error readModel(const Package &package, int index, Model &out, bool validate) {
     // Check the indices hold together, which they won't if the layout
     // above is off for this game's version.
     auto check = [&]() -> std::string {
-        const auto points = int32_t(out.points.size()), vectors = int32_t(out.vectors.size());
+        const auto points = int32_t(out.points.size());
+        const auto vectors = int32_t(out.vectors.size());
         for (const BspNode &node : out.nodes) {
             if (node.vertexCount == 0)
                 continue;

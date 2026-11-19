@@ -55,10 +55,15 @@ Vec cross(const Vec &a, const Vec &b) {
 
 // A rotator's axes (forward, right, up), as Core's GetAxes.
 std::array<Vec, 3> axes(const std::array<int32_t, 3> &r) {
-    const float p = float(r[0]) * 2 * kPi / 65536, y = float(r[1]) * 2 * kPi / 65536,
-                rl = float(r[2]) * 2 * kPi / 65536;
-    const float sp = std::sin(p), cp = std::cos(p), sy = std::sin(y), cy = std::cos(y), sr = std::sin(rl),
-                cr = std::cos(rl);
+    const float p = float(r[0]) * 2 * kPi / 65536;
+    const float y = float(r[1]) * 2 * kPi / 65536;
+    const float rl = float(r[2]) * 2 * kPi / 65536;
+    const float sp = std::sin(p);
+    const float cp = std::cos(p);
+    const float sy = std::sin(y);
+    const float cy = std::cos(y);
+    const float sr = std::sin(rl);
+    const float cr = std::cos(rl);
     return {Vec{cp * cy, cp * sy, sp}, Vec{sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, -sr * cp},
             Vec{-(cr * sp * cy + sr * sy), cy * sr - cr * sp * sy, cr * cp}};
 }
@@ -76,7 +81,8 @@ int32_t angleDiff(int32_t from, int32_t to) {
 
 // Turns an angle towards another by at most `step` (rotator units).
 int32_t turnTowards(int32_t from, int32_t to, float step) {
-    const int32_t diff = angleDiff(from, to), s = int32_t(step);
+    const int32_t diff = angleDiff(from, to);
+    const int32_t s = int32_t(step);
     if (std::abs(diff) <= s)
         return to & 0xffff;
     return (from + (diff > 0 ? s : -s)) & 0xffff;
@@ -87,12 +93,18 @@ int32_t turnTowards(int32_t from, int32_t to, float step) {
 // back; false if it doesn't, or already overlaps (left to separate).
 bool cylinderHit(const Vec &p, const Vec &d, float r, float h, const Vec &q, float rq, float hq, float &time,
                  Vec &normal) {
-    const float R = r + rq, H = h + hq;
-    const float px = p[0] - q[0], py = p[1] - q[1], pz = p[2] - q[2];
+    const float R = r + rq;
+    const float H = h + hq;
+    const float px = p[0] - q[0];
+    const float py = p[1] - q[1];
+    const float pz = p[2] - q[2];
     if (px * px + py * py < R * R && std::fabs(pz) < H)
         return false;
-    float h0 = -1e9f, h1 = 1e9f; // horizontally within R: |(px, py) + t (dx, dy)| < R
-    const float a = d[0] * d[0] + d[1] * d[1], b = 2 * (px * d[0] + py * d[1]), c = px * px + py * py - R * R;
+    float h0 = -1e9f;
+    float h1 = 1e9f; // horizontally within R: |(px, py) + t (dx, dy)| < R
+    const float a = d[0] * d[0] + d[1] * d[1];
+    const float b = 2 * (px * d[0] + py * d[1]);
+    const float c = px * px + py * py - R * R;
     if (a < 1e-9f) {
         if (c >= 0)
             return false;
@@ -104,7 +116,8 @@ bool cylinderHit(const Vec &p, const Vec &d, float r, float h, const Vec &q, flo
         h0 = (-b - sq) / (2 * a);
         h1 = (-b + sq) / (2 * a);
     }
-    float v0 = -1e9f, v1 = 1e9f; // vertically within H: |pz + t dz| < H
+    float v0 = -1e9f;
+    float v1 = 1e9f; // vertically within H: |pz + t dz| < H
     if (std::fabs(d[2]) < 1e-9f) {
         if (std::fabs(pz) >= H)
             return false;
@@ -114,7 +127,8 @@ bool cylinderHit(const Vec &p, const Vec &d, float r, float h, const Vec &q, flo
         if (v0 > v1)
             std::swap(v0, v1);
     }
-    const float t0 = std::max(h0, v0), t1 = std::min(h1, v1);
+    const float t0 = std::max(h0, v0);
+    const float t1 = std::min(h1, v1);
     if (t0 > t1 || t0 < 0 || t0 > 1)
         return false;
     time = t0;
@@ -128,11 +142,13 @@ bool cylinderHit(const Vec &p, const Vec &d, float r, float h, const Vec &q, flo
 // When a moving box (centre p, moving d, half sizes e) first touches a
 // still box: the time and the face's normal; false if not, or already in.
 bool boxHit(const Vec &p, const Vec &d, const Vec &e, const Vec &min, const Vec &max, float &time, Vec &normal) {
-    float t0 = -1e9f, t1 = 1e9f;
+    float t0 = -1e9f;
+    float t1 = 1e9f;
     int axis = -1;
     bool inside = true;
     for (int k = 0; k < 3; ++k) {
-        const float lo = min[size_t(k)] - e[size_t(k)], hi = max[size_t(k)] + e[size_t(k)];
+        const float lo = min[size_t(k)] - e[size_t(k)];
+        const float hi = max[size_t(k)] + e[size_t(k)];
         if (p[size_t(k)] <= lo || p[size_t(k)] >= hi)
             inside = false;
         if (std::fabs(d[size_t(k)]) < 1e-9f) {
@@ -140,7 +156,8 @@ bool boxHit(const Vec &p, const Vec &d, const Vec &e, const Vec &min, const Vec 
                 return false;
             continue;
         }
-        float a = (lo - p[size_t(k)]) / d[size_t(k)], b = (hi - p[size_t(k)]) / d[size_t(k)];
+        float a = (lo - p[size_t(k)]) / d[size_t(k)];
+        float b = (hi - p[size_t(k)]) / d[size_t(k)];
         if (a > b)
             std::swap(a, b);
         if (a > t0) {
@@ -252,7 +269,8 @@ bool boolOf(Value *v) {
 } // namespace
 
 Vec ScriptLevel::extentOf(VmObject *a) {
-    const float r = floatOf(prop(a, "CollisionRadius")), h = floatOf(prop(a, "CollisionHeight"));
+    const float r = floatOf(prop(a, "CollisionRadius"));
+    const float h = floatOf(prop(a, "CollisionHeight"));
     return {r, r, h};
 }
 
@@ -290,7 +308,8 @@ bool ScriptLevel::findSpot(const Vec &e, Vec &at) {
     // face's normal by (1.05 - how far along) times `push`, and tried.
     Vec spot = at;
     auto adjust = [&](const Vec &offset, float push) {
-        Vec hitAt{}, normal{};
+        Vec hitAt{};
+        Vec normal{};
         const Vec end = add(spot, offset);
         if (!trace(nullptr, spot, end, {0, 0, 0}, false, hitAt, normal))
             return false;
@@ -357,7 +376,8 @@ bool ScriptLevel::resize(VmObject *a, float r, float h, bool alignToFloor, bool 
     Value *loc = prop(a, "Location");
     if (!rv || !hv || !loc)
         return false;
-    const float r0 = rv->asFloat(), h0 = hv->asFloat();
+    const float r0 = rv->asFloat();
+    const float h0 = hv->asFloat();
     const Value was = *loc;
     Vec at = vecOf(loc);
     if (alignToFloor)
@@ -398,7 +418,8 @@ bool ScriptLevel::pickWallAdjust(VmObject *pawn) {
         // Aside, then on: both clear of the world.
         const Vec aside = add(from, mul(side, s * step));
         const Vec beyond = add(aside, mul(dir, std::min(len, step * 2)));
-        Vec where{}, n{};
+        Vec where{};
+        Vec n{};
         if (trace(pawn, from, aside, e, false, where, n) || trace(pawn, aside, beyond, e, false, where, n))
             continue;
         _vm.setVector(*dest, aside[0], aside[1], aside[2]);
@@ -503,10 +524,13 @@ bool ScriptLevel::moverHit(VmObject *m, const Vec &start, const Vec &delta, cons
         return false;
     MoverSpace sp;
     if (!moverSpace(m, sp)) {
-        Vec bmin, bmax;
+        Vec bmin;
+        Vec bmax;
         return brushBox(m, bmin, bmax) && boxHit(start, delta, e, bmin, bmax, time, normal);
     }
-    const Vec s0 = sp.local(start, true), s1 = add(s0, sp.local(delta, false)), le = sp.extent(e);
+    const Vec s0 = sp.local(start, true);
+    const Vec s1 = add(s0, sp.local(delta, false));
+    const Vec le = sp.extent(e);
     const LevelCollision::Hit h =
         sp.b->collision->trace(Vec3f{s0[0], s0[1], s0[2]}, Vec3f{s1[0], s1[1], s1[2]}, Vec3f{le[0], le[1], le[2]});
     if (!h.hit() || h.startSolid) // starting in it (it moved into the actor): let it get out
@@ -521,7 +545,8 @@ bool ScriptLevel::moverOverlaps(VmObject *m, const Vec &centre, const Vec &e) {
         return false;
     MoverSpace sp;
     if (!moverSpace(m, sp)) {
-        Vec bmin, bmax;
+        Vec bmin;
+        Vec bmax;
         if (!brushBox(m, bmin, bmax))
             return false;
         for (size_t k = 0; k < 3; ++k)
@@ -529,7 +554,8 @@ bool ScriptLevel::moverOverlaps(VmObject *m, const Vec &centre, const Vec &e) {
                 return false;
         return true;
     }
-    const Vec c = sp.local(centre, true), le = sp.extent(e);
+    const Vec c = sp.local(centre, true);
+    const Vec le = sp.extent(e);
     // Within its brush's box first: a flat brush (a force field's sheet)
     // makes a BSP of one plane, solid all the way behind it.
     for (size_t k = 0; k < 3; ++k)
@@ -588,7 +614,8 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     // Actors and movers that block it.
     if (collideActors && asked > 0) {
         const bool player = boolOf(prop(a, "bIsPlayer"));
-        const bool blocks = boolOf(prop(a, "bBlockActors")), blocksPlayers = boolOf(prop(a, "bBlockPlayers"));
+        const bool blocks = boolOf(prop(a, "bBlockActors"));
+        const bool blocksPlayers = boolOf(prop(a, "bBlockPlayers"));
         Value *ownerValue = prop(a, "Owner");
         VmObject *owner = ownerValue ? ownerValue->asObject() : nullptr;
         for (const auto &[o, slots] : collidingActors()) {
@@ -752,7 +779,8 @@ ScriptLevel::MoveHit ScriptLevel::moveSmooth(VmObject *a, const Vec &delta) {
 
 void ScriptLevel::updateTouching(VmObject *a) {
     const Vec p = vecOf(prop(a, "Location"));
-    const float r = floatOf(prop(a, "CollisionRadius")), h = floatOf(prop(a, "CollisionHeight"));
+    const float r = floatOf(prop(a, "CollisionRadius"));
+    const float h = floatOf(prop(a, "CollisionHeight"));
     std::vector<VmObject *> &now = _touching[a];
     std::vector<VmObject *> touching;
     for (const auto &[o, slots] : collidingActors()) {
@@ -762,8 +790,10 @@ void ScriptLevel::updateTouching(VmObject *a) {
         if (cs.mover || !boolOf(slotOf(o, cs.collideActors)))
             continue;
         const Vec q = vecOf(slotOf(o, cs.location));
-        const float R = r + floatOf(slotOf(o, cs.radius)), H = h + floatOf(slotOf(o, cs.height));
-        const float dx = p[0] - q[0], dy = p[1] - q[1];
+        const float R = r + floatOf(slotOf(o, cs.radius));
+        const float H = h + floatOf(slotOf(o, cs.height));
+        const float dx = p[0] - q[0];
+        const float dy = p[1] - q[1];
         if (dx * dx + dy * dy < R * R && std::fabs(p[2] - q[2]) < H)
             touching.push_back(o);
     }
@@ -830,8 +860,12 @@ int ScriptLevel::nodeAt(const Vec &start, const Vec &end, Vec &where) {
                 return false;
             const Vec3f &a = _model.points[size_t(ia)];
             const Vec3f &b = _model.points[size_t(ib)];
-            const float ex = b[0] - a[0], ey = b[1] - a[1], ez = b[2] - a[2];
-            const float px = p[0] - a[0], py = p[1] - a[1], pz = p[2] - a[2];
+            const float ex = b[0] - a[0];
+            const float ey = b[1] - a[1];
+            const float ez = b[2] - a[2];
+            const float px = p[0] - a[0];
+            const float py = p[1] - a[1];
+            const float pz = p[2] - a[2];
             const float side =
                 (ey * pz - ez * py) * n.plane[0] + (ez * px - ex * pz) * n.plane[1] + (ex * py - ey * px) * n.plane[2];
             if (std::fabs(side) < 0.01f)
@@ -1362,7 +1396,8 @@ void ScriptLevel::simpleWalk(VmObject *a, float dt) {
     const float speed = floatOf(prop(a, "GroundSpeed"), 320);
     const Value *rot = prop(a, "Rotation");
     const auto r = rot ? Vm::rotatorOf(*rot) : std::array<int32_t, 3>{};
-    const float yaw = float(r[1]) * 3.14159265f / 32768, pitch = float(r[0]) * 3.14159265f / 32768;
+    const float yaw = float(r[1]) * 3.14159265f / 32768;
+    const float pitch = float(r[0]) * 3.14159265f / 32768;
     v = mul(Vec{std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)}, speed);
     if (Value *old = prop(a, "OldLocation")) {
         const Vec l = vecOf(prop(a, "Location"));
@@ -1378,7 +1413,8 @@ void ScriptLevel::simpleWalk(VmObject *a, float dt) {
     };
     const Vec here = vecOf(prop(a, "Location"));
     const Vec dest = add(here, mul(v, dt));
-    Vec at, n;
+    Vec at;
+    Vec n;
     const Vec probeTop{dest[0], dest[1], dest[2] + 10};
     if (!trace(a, probeTop, {dest[0], dest[1], dest[2] - 10}, extent, false, at, n)) {
         fall();
@@ -1445,7 +1481,8 @@ void ScriptLevel::pawnRotation(VmObject *a, float dt, const Vec &velocityBefore)
         if ((walking && length(v) < 200) || length(change) <= 100) {
             roll -= roll * std::min(8 * dt, 1.0f);
         } else {
-            const float yaw = float(r[1]) * 3.14159265f / 32768, pt = float(int16_t(r[0])) * 3.14159265f / 32768;
+            const float yaw = float(r[1]) * 3.14159265f / 32768;
+            const float pt = float(int16_t(r[0])) * 3.14159265f / 32768;
             // The side axis of its new facing (roll level).
             const Vec side{-std::sin(yaw), std::cos(yaw), 0};
             (void)pt;
@@ -1464,7 +1501,8 @@ void ScriptLevel::pawnRotation(VmObject *a, float dt, const Vec &velocityBefore)
 // The water line between a point in the water and one out of it, found by
 // halving (APawn::findWaterLine): the last point found in the water.
 Vec ScriptLevel::findWaterLine(const Vec &in, const Vec &out) {
-    Vec a = in, b = out;
+    Vec a = in;
+    Vec b = out;
     for (int k = 0; k < 40 && dot(sub(b, a), sub(b, a)) > 0.01f; ++k) {
         const Vec m = mul(add(a, b), 0.5f);
         if (waterAt({m[0], m[1], m[2]}))
@@ -1565,7 +1603,8 @@ void ScriptLevel::calcVelocity(VmObject *a, Vec &v, Vec &accel, float dt, float 
     bool slow = _vm.isA(a, "PlayerPawn") && boolOf(prop(a, "bIsWalking"));
     if (player) {
         slow = boolOf(prop(a, "bIsWalking")) || boolOf(prop(a, "bIsCrouching"));
-        const bool fwd = boolOf(prop(a, "bWasForward")), back = boolOf(prop(a, "bWasBack"));
+        const bool fwd = boolOf(prop(a, "bWasForward"));
+        const bool back = boolOf(prop(a, "bWasBack"));
         if ((boolOf(prop(a, "bWasLeft")) || boolOf(prop(a, "bWasRight"))) && !fwd && !back)
             maxSpeed *= slow ? 0.5f : 0.8f;
         else if (back && !fwd)
@@ -1853,7 +1892,8 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
         }
         // The floor: kept between 1.9 and 2.4 above it.
         const Vec here = vecOf(prop(a, "Location"));
-        Vec hitAt{}, n{};
+        Vec hitAt{};
+        Vec n{};
         VmObject *floor = trace(a, here, add(here, down), e, false, hitAt, n);
         bool onFloor = false;
         if (floor) {
@@ -2012,7 +2052,8 @@ void ScriptLevel::fall(VmObject *a, float dt) {
         if (air > 0.15f) {
             Vec ahead = mul(add(mul(normalOf(accel), air * rate), v0), dt);
             ahead[2] = 0;
-            Vec hitAt{}, n{};
+            Vec hitAt{};
+            Vec n{};
             const Vec here = vecOf(prop(a, "Location"));
             if (length(ahead) > 0 && trace(a, here, add(here, ahead), extentOf(a), false, hitAt, n))
                 air = 0.05f;
@@ -2198,7 +2239,8 @@ void registerMovementNatives(Vm &vm) {
                                                : (loc ? Vm::vectorOf(*loc) : std::array<float, 3>{});
         const std::array<float, 3> extent =
             c.given.size() > 5 && c.given[5] ? Vm::vectorOf(c.args[5]) : std::array<float, 3>{};
-        std::array<float, 3> where{}, n{};
+        std::array<float, 3> where{};
+        std::array<float, 3> n{};
         VmObject *hit = c.vm.level->trace(c.self, start, Vm::vectorOf(c.args[2]), extent, c.b(4), where, n);
         c.args[0] = c.vm.vectorValue(where[0], where[1], where[2]);
         c.args[1] = c.vm.vectorValue(n[0], n[1], n[2]);
@@ -2238,7 +2280,8 @@ void registerMovementNatives(Vm &vm) {
         const std::array<float, 3> start = c.given.size() > 1 && c.given[1]
                                                ? Vm::vectorOf(c.args[1])
                                                : (loc ? Vm::vectorOf(*loc) : std::array<float, 3>{});
-        std::array<float, 3> where{}, n{};
+        std::array<float, 3> where{};
+        std::array<float, 3> n{};
         c.result = Value::boolValue(!c.vm.level->trace(c.self, start, Vm::vectorOf(c.args[0]), {}, false, where, n));
     });
     // CheckFOV(Vector Pos, Rotator Rot, Actor Target, float Radius, float CosFOV,
@@ -2269,8 +2312,10 @@ void registerMovementNatives(Vm &vm) {
         const V from = Vm::vectorOf(c.args[0]);
         const auto r = Vm::rotatorOf(c.args[1]);
         const V fwd = rotationAxes({r[0], r[1], r[2]})[0];
-        const float radius = c.f(3), cosFov = c.f(4);
-        const bool extents = c.b(6), share = c.b(7);
+        const float radius = c.f(3);
+        const float cosFov = c.f(4);
+        const bool extents = c.b(6);
+        const bool share = c.b(7);
         const Value *loc = target->find(c.vm, "Location");
         if (!loc)
             return;
@@ -2285,7 +2330,8 @@ void registerMovementNatives(Vm &vm) {
         if (!((to[0] * fwd[0] + to[1] * fwd[1] + to[2] * fwd[2]) / distance > cosFov))
             return;
         auto seen = [&](const V &p) {
-            V where{}, n{};
+            V where{};
+            V n{};
             return c.vm.level->trace(c.self, from, p, {}, true, where, n) == target;
         };
         if (!share || (h <= 10 && !extents)) {
@@ -2297,7 +2343,8 @@ void registerMovementNatives(Vm &vm) {
             if (!(h > 10 || extents))
                 return;
         }
-        int rows = 1, across = 1;
+        int rows = 1;
+        int across = 1;
         float zStep = 0;
         V step{};
         if (h > 10) {

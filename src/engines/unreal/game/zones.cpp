@@ -35,7 +35,8 @@ bool contains(const Rect &outer, const Rect &inner) {
 // of the eye, projected. Empty if none of it is.
 Rect screenRect(const std::vector<Vec3f> &points, const std::array<float, 16> &m) {
     using Clip = std::array<float, 4>;
-    std::vector<Clip> in, out;
+    std::vector<Clip> in;
+    std::vector<Clip> out;
     for (const Vec3f &p : points) {
         Clip c{};
         for (int row = 0; row < 4; ++row)
@@ -48,7 +49,8 @@ Rect screenRect(const std::vector<Vec3f> &points, const std::array<float, 16> &m
     for (size_t i = 0; i < in.size(); ++i) {
         const Clip &a = in[i];
         const Clip &b = in[(i + 1) % in.size()];
-        const float da = a[3] - kNear, db = b[3] - kNear;
+        const float da = a[3] - kNear;
+        const float db = b[3] - kNear;
         if (da >= 0)
             out.push_back(a);
         if ((da >= 0) != (db >= 0)) {
@@ -64,7 +66,8 @@ Rect screenRect(const std::vector<Vec3f> &points, const std::array<float, 16> &m
         return r;
     r = {1e30f, 1e30f, -1e30f, -1e30f};
     for (const Clip &c : out) {
-        const float x = c[0] / c[3], y = c[1] / c[3];
+        const float x = c[0] / c[3];
+        const float y = c[1] / c[3];
         r.x0 = std::min(r.x0, x);
         r.y0 = std::min(r.y0, y);
         r.x1 = std::max(r.x1, x);
@@ -202,7 +205,8 @@ uint64_t ZoneVisibility::visible(const Vec3f &eye, const std::array<float, 16> &
     // grown as more portals reach it; a zone goes round again when it grows.
     std::array<Rect, 64> view{};
     view[size_t(start)] = {-1, -1, 1, 1};
-    uint64_t seen = uint64_t(1) << start, queued = seen;
+    uint64_t seen = uint64_t(1) << start;
+    uint64_t queued = seen;
     std::vector<int> queue{start};
     for (size_t step = 0; step < queue.size() && step < 4096; ++step) {
         const int z = queue[step];

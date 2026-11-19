@@ -185,7 +185,8 @@ private:
         const bool op = f.functionFlags & funcflag::kOperator;
         head += op ? (f.functionFlags & funcflag::kPreOperator ? "preoperator " : "operator ")
                    : (f.functionFlags & funcflag::kEvent ? "event " : "function ");
-        std::string ret, params;
+        std::string ret;
+        std::string params;
         std::vector<std::pair<int, ScriptObject>> locals;
         for (int c : children(f.children)) {
             ScriptObject p;

@@ -189,7 +189,8 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
         if (Value *p = prop(base, name))
             *p = Value::floatValue(v);
     };
-    const Vec start = vec("StartLoc"), finish = vec("FinishLoc");
+    const Vec start = vec("StartLoc");
+    const Vec finish = vec("FinishLoc");
     setVec("Location", vec("startPath"));
     setVec("Velocity", sub(add(finish, vec("FinishPath")), start));
     setVec("Acceleration", sub(finish, start));
@@ -251,11 +252,16 @@ void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
     };
     const int first = std::max(0, i("BeamSectionIndexFirst"));
     const int last = std::min(i("BeamSectionIndexLast"), list->arrayDim);
-    const Vec origin = vec("BeamOrigin"), step = vec("BeamSectionAxesX"), axis = normal(vec("BeamAxesX"));
+    const Vec origin = vec("BeamOrigin");
+    const Vec step = vec("BeamSectionAxesX");
+    const Vec axis = normal(vec("BeamAxesX"));
     const Value *rotation = prop(beam, "BeamRotation");
     const Vec scale = vec("SectionAxisScale");
-    const float jitter = f("SectionAxisYZRandomFactor"), amplitude = f("WaveAmplitude"), waveLength = f("WaveLength");
-    const float travel = f("WaveTravelVelocity") * f("AliveTime"), sectionLength = f("SectionLength");
+    const float jitter = f("SectionAxisYZRandomFactor");
+    const float amplitude = f("WaveAmplitude");
+    const float waveLength = f("WaveLength");
+    const float travel = f("WaveTravelVelocity") * f("AliveTime");
+    const float sectionLength = f("SectionLength");
     Vec side = cross(axis, Vec{0, 0, 1});
     side = length(side) < 1e-3f ? Vec{0, 1, 0} : normal(side);
     for (int k = first; k < last; ++k) {
@@ -328,7 +334,9 @@ void ScriptLevel::sparkTick(VmObject *sparks, float seconds) {
     if (!delay || delay->asFloat() > 0)
         return;
 
-    const Vec x = vec("XAxis"), y = vec("YAxis"), z = vec("ZAxis");
+    const Vec x = vec("XAxis");
+    const Vec y = vec("YAxis");
+    const Vec z = vec("ZAxis");
     const Value *loc = prop(sparks, "Location");
     const Vec from = loc ? Vm::vectorOf(*loc) : vec("SeedLocation");
     Vec gravity{0, 0, -950};
@@ -411,10 +419,12 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     // The wind: now and then a new one to blow toward, sideways.
     Value *wind = prop(weather, "DropVelocity");
     Value *destWind = prop(weather, "DestWind");
-    const float lateral = f("MaxLateralMove"), fall = f("FallRate");
+    const float lateral = f("MaxLateralMove");
+    const float fall = f("FallRate");
     if (wind && destWind) {
         if (frand() < f("WindActivity") * seconds * 10) {
-            const float angle = frand() * 6.2831853f, strength = frand() * lateral;
+            const float angle = frand() * 6.2831853f;
+            const float strength = frand() * lateral;
             _vm.setVector(*destWind, std::cos(angle) * strength, std::sin(angle) * strength, fall);
         }
         Vec w = Vm::vectorOf(*wind);
@@ -456,7 +466,8 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     }
     auto inBlock = [&](const Vec &p) {
         for (const Block &k : blocks) {
-            const float dx = p[0] - k.at[0], dy = p[1] - k.at[1];
+            const float dx = p[0] - k.at[0];
+            const float dy = p[1] - k.at[1];
             if (k.box ? std::fabs(dx) <= k.x && std::fabs(dy) <= k.y && p[2] <= k.at[2] + k.z
                       : dx * dx + dy * dy <= k.radius * k.radius && p[2] <= k.at[2] + k.height)
                 return true;
@@ -465,7 +476,8 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     };
     const bool inverted = b("bInvertWeatherBlockers");
     const Vec seed = vec("SeedLocation");
-    const float range = std::max(1.0f, f("SpawnRange")), top = std::max(1.0f, f("DropHeight"));
+    const float range = std::max(1.0f, f("SpawnRange"));
+    const float top = std::max(1.0f, f("DropHeight"));
 
     // Those blown too far from where it's falling now go (it follows the
     // player); all of them, starting over.
@@ -474,7 +486,8 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     for (VmObject *mm : drops) {
         const Value *l = prop(mm, "Location");
         const Vec p = l ? Vm::vectorOf(*l) : Vec{};
-        const float dx = p[0] - seed[0], dy = p[1] - seed[1];
+        const float dx = p[0] - seed[0];
+        const float dy = p[1] - seed[1];
         if (fill || dx * dx + dy * dy > range * range * 1.44f)
             _vm.callEvent(mm, "Delete");
         else
@@ -488,7 +501,8 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     int tries = 0;
     for (size_t k = alive; k < wanted && tries < int(wanted) * 2; ++tries) {
         // Nearer the middle more often: it's seen there.
-        const float angle = frand() * 6.2831853f, r = range * frand();
+        const float angle = frand() * 6.2831853f;
+        const float r = range * frand();
         Vec at{seed[0] + std::cos(angle) * r, seed[1] + std::sin(angle) * r,
                seed[2] + (fill ? top * (frand() * 2 - 1) : top - frand() * 20)};
         if (inBlock(at) != inverted)
@@ -497,7 +511,8 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
         const Vec v{windNow[0] * (0.8f + 0.4f * frand()), windNow[1] * (0.8f + 0.4f * frand()), speed};
         // It lasts until it meets the world below (none: as far below as
         // it starts above).
-        Vec hit{}, n{};
+        Vec hit{};
+        Vec n{};
         const Vec to = add(at, mul(v, 2 * top / -speed));
         float drop = 2 * top;
         if (trace(weather, at, to, {}, false, hit, n))
@@ -535,7 +550,8 @@ std::array<float, 3> ScriptLevel::waterLine(const std::array<float, 3> &start, c
     if (water(end) == from)
         return start;
     // Halved until it's within a fraction of a unit.
-    Vec a = start, b = end;
+    Vec a = start;
+    Vec b = end;
     for (int k = 0; k < 24 && length(sub(b, a)) > 0.1f; ++k) {
         const Vec mid = mul(add(a, b), 0.5f);
         (water(mid) == from ? a : b) = mid;
@@ -558,8 +574,10 @@ VmObject *ScriptLevel::attachDecal(VmObject *decal, float distance, const Vec &d
     const auto r = Vm::rotatorOf(*rot);
     const auto ax = rotationAxes(Rotator{r[0], r[1], r[2]});
     const Vec out{ax[0][0], ax[0][1], ax[0][2]};
-    const Vec from = add(at, mul(out, 2)), to = sub(at, mul(out, std::max(distance, 1.0f)));
-    Vec where{}, n{};
+    const Vec from = add(at, mul(out, 2));
+    const Vec to = sub(at, mul(out, std::max(distance, 1.0f)));
+    Vec where{};
+    Vec n{};
     if (trace(decal, from, to, {}, false, where, n) != _levelInfo)
         return nullptr;
     VmObject *surfaceTex = surfaceTexture(from, to);

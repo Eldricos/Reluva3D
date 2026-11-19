@@ -241,7 +241,8 @@ const std::vector<ScriptLevel::Vec> *ScriptLevel::posedVertices(VmObject *a, Act
     verts.resize(n);
     for (size_t v = 0; v < n; ++v)
         for (size_t c = 0; c < 3; ++c) {
-            const float x0 = mesh.verts[size_t(pose.frame) * n + v][c], x1 = mesh.verts[size_t(pose.next) * n + v][c];
+            const float x0 = mesh.verts[size_t(pose.frame) * n + v][c];
+            const float x1 = mesh.verts[size_t(pose.next) * n + v][c];
             verts[v][c] = x0 + (x1 - x0) * pose.lerp;
         }
     return &verts;
@@ -377,7 +378,8 @@ bool ScriptLevel::attachPointAt(VmObject *a, NameId name, bool precomputed, bool
     const MeshAttachPoint *point =
         m ? findPoint(precomputed ? m->mesh.precomputedPoints : m->mesh.attachPoints, _vm.nameText(name)) : nullptr;
     Vec at{};
-    Axes axes{}, raw{};
+    Axes axes{};
+    Axes raw{};
     if (!point || !attachFrame(a, *m, *point, at, axes, &raw))
         return false;
     if (world) {
@@ -552,8 +554,10 @@ void ScriptLevel::placeAttached() {
             _attachments.erase(child);
             continue;
         }
-        Vec where{}, mine{};
-        Axes theirs{}, ours{};
+        Vec where{};
+        Vec mine{};
+        Axes theirs{};
+        Axes ours{};
         if (!attachFrame(at.parent, *pm, *pp, where, theirs) || !attachFrame(child, *cm, *cp, mine, ours))
             continue;
         toWorld(at.parent, where, &theirs);
@@ -1003,7 +1007,8 @@ void registerAttachNatives(Vm &vm) {
     // slerps the two as quaternions (the scripts ease the IK targets', the
     // head's and the camera's turns with it).
     reg("Actor.InterpolateRotation", [](NativeCall &c) {
-        const auto a = Vm::rotatorOf(c.args[0]), b = Vm::rotatorOf(c.args[1]);
+        const auto a = Vm::rotatorOf(c.args[0]);
+        const auto b = Vm::rotatorOf(c.args[1]);
         const Rotator r = slerpRotators({a[0], a[1], a[2]}, {b[0], b[1], b[2]}, c.f(2));
         c.result = c.vm.rotatorValue(r.pitch, r.yaw, r.roll);
     });

@@ -346,7 +346,8 @@ Error ScriptLevel::saveGame(const std::string &slot) {
         for (const Value &v : o->values)
             value(v);
         name(o->state ? o->state->nameId : 0);
-        int depth = -1, d = 0;
+        int depth = -1;
+        int d = 0;
         for (const VmStruct *s = o->state; s && s->kind == VmStruct::Kind::kState; s = s->super, ++d)
             if (s == o->codeState)
                 depth = d;
@@ -888,7 +889,8 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
             _surfaceSwaps.surfaces[surf] = tex;
     }
     for (int32_t k = in.count(16); k > 0; --k) {
-        const ObjectRef from = packageRef(), to = packageRef();
+        const ObjectRef from = packageRef();
+        const ObjectRef to = packageRef();
         if (from && to)
             _surfaceSwaps.world[{from.package, from.exportIndex}] = to;
     }
@@ -1028,8 +1030,10 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
         // The statement at the offset (the one after the latent call it
         // waits in); waiting in anything but Sleep, the call made again
         // (a move, a FinishAnim: the actor's properties have what it needs).
-        int at = -1, before = -1;
-        uint32_t best = 0, bestBefore = 0;
+        int at = -1;
+        int before = -1;
+        uint32_t best = 0;
+        uint32_t bestBefore = 0;
         for (const auto &[off, statement] : code->statementAt) {
             if (off >= uint32_t(f.offset) && (at < 0 || off < best))
                 at = statement, best = off;

@@ -299,7 +299,9 @@ int peak(const audio::Sound &s, size_t from, size_t to) {
 void testTracker() {
     using namespace reluva::audio;
     using namespace trackertest;
-    constexpr size_t kTick = 882, kRow = 6 * kTick, kPattern = 64 * kRow; // speed 6, tempo 125, 44100 Hz
+    constexpr size_t kTick = 882;
+    constexpr size_t kRow = 6 * kTick;
+    constexpr size_t kPattern = 64 * kRow; // speed 6, tempo 125, 44100 Hz
     TrackerModule m;
     Sound s;
 
@@ -318,12 +320,14 @@ void testTracker() {
     CHECK(!renderTrackerModule(m, 44100, 0, 0.5, s) && s.frames() == 22050 && s.loopStart == 0);
 
     // Cxx scales the volume.
-    Sound full, half;
+    Sound full;
+    Sound half;
     CHECK(!loadTrackerModule(mod({0}, 1, {{0, 0, 428, -1, 0xC, 0x40}}), m));
     CHECK(!renderTrackerModule(m, 44100, 0, 60, full));
     CHECK(!loadTrackerModule(mod({0}, 1, {{0, 0, 428, -1, 0xC, 0x20}}), m));
     CHECK(!renderTrackerModule(m, 44100, 0, 60, half));
-    const int pf = peak(full, 0, 1000), ph = peak(half, 0, 1000);
+    const int pf = peak(full, 0, 1000);
+    const int ph = peak(half, 0, 1000);
     CHECK(ph > 0 && std::abs(pf - 2 * ph) <= 2);
 
     // A position jump back to order 1 from order 2's first row: the loop

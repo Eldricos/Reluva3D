@@ -85,7 +85,8 @@ int LevelAudio::positionalPan(const Vec3f &at) const {
         pan = std::clamp(127 - int(std::ceil(a * 127 / 3.14159265358979)), 0, 127);
     }
     auto t = [](int i) { return i <= 62 ? 2 * i : 128; };
-    const float left = float(t(127 - pan)) / 128, right = float(t(pan)) / 128;
+    const float left = float(t(127 - pan)) / 128;
+    const float right = float(t(pan)) / 128;
     if (right < 1)
         return -int(std::lround((1 - right) * audio::kMaxPan));
     if (left < 1)

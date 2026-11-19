@@ -119,7 +119,8 @@ int cmdUeSave(int argc, char **argv) {
     for (const auto &s : x.sounds)
         std::printf("  sound %s on %s, id %d, volume %.2f, radius %.0f, pitch %.2f, from %.2f s\n", s.path.c_str(),
                     pkg.path(s.actor).c_str(), s.id, s.volume, s.radius, s.pitch, s.start);
-    int states = 0, failed = 0;
+    int states = 0;
+    int failed = 0;
     for (int i : pkg.exportsOfClass("C3DMESHSTATE")) {
         reluva::unreal::MeshState m;
         if (reluva::unreal::readMeshState(pkg, i, m)) {
@@ -180,7 +181,8 @@ int cmdUeExports(int argc, char **argv) {
     const std::string filter = argc == 4 ? reluva::fs::toLower(argv[3]) : "";
     for (size_t i = 0; i < pkg.exports().size(); ++i) {
         const auto &e = pkg.exports()[i];
-        const std::string cls = pkg.className(int32_t(i) + 1), path = pkg.path(int32_t(i) + 1);
+        const std::string cls = pkg.className(int32_t(i) + 1);
+        const std::string path = pkg.path(int32_t(i) + 1);
         if (!filter.empty() && reluva::fs::toLower(cls + " " + path).find(filter) == std::string::npos)
             continue;
         std::printf("%6zu  %-24s %-48s %9d @ %-9d flags %08x\n", i, cls.c_str(), path.c_str(), e.serialSize,
@@ -264,10 +266,16 @@ int cmdUeRun(int argc, char **argv) {
     const float seconds = argc == 5 ? float(std::atof(argv[4])) : 5.0f;
     const bool all = std::strcmp(argv[3], "-all") == 0;
     std::vector<std::string> maps = all ? set.mapNames() : std::vector<std::string>{argv[3]};
-    std::map<std::string, int> missing, errors, noneAt;
-    int placedGhosts = 0, ghostsBack = 0, localizedSet = 0;
-    int ran = 0, failed = 0;
-    uint64_t calls = 0, statements = 0;
+    std::map<std::string, int> missing;
+    std::map<std::string, int> errors;
+    std::map<std::string, int> noneAt;
+    int placedGhosts = 0;
+    int ghostsBack = 0;
+    int localizedSet = 0;
+    int ran = 0;
+    int failed = 0;
+    uint64_t calls = 0;
+    uint64_t statements = 0;
     int accessedNone = 0;
     ScriptLevel::MovementStats moved;
     ScriptLevel::PathStats paths;
@@ -304,7 +312,8 @@ int cmdUeRun(int argc, char **argv) {
         const auto t2 = std::chrono::steady_clock::now();
         ++ran;
         // What changed that shows: actors hidden or gone, lights out.
-        int hidden = 0, dark = 0;
+        int hidden = 0;
+        int dark = 0;
         for (VmObject *a : level.actors()) {
             if (Value *v = a->find(vm, "DrawType"); v && v->i == 0)
                 ++hidden;
@@ -424,7 +433,8 @@ int cmdUeRun(int argc, char **argv) {
         std::printf("  %7d %s\n", n, k.c_str());
     // Script errors in full; None accessed (mostly scripts looking for a
     // player, as none has joined) the most common.
-    std::map<std::string, int> none, other;
+    std::map<std::string, int> none;
+    std::map<std::string, int> other;
     for (const auto &[k, n] : errors)
         (k.rfind("Accessed None", 0) == 0 ? none : other)[k] = n;
     std::printf("errors (%zu kinds):\n", other.size());
@@ -643,7 +653,8 @@ int cmdUePlay(int argc, char **argv) {
             std::printf("console %s: %s\n", command.c_str(), page.consoleCommand(command).c_str());
             frame();
         } else if (step == "call" && i + 2 < argc) {
-            const std::string who = argv[++i], what = argv[++i];
+            const std::string who = argv[++i];
+            const std::string what = argv[++i];
             std::printf("call %s.%s: %s\n", who.c_str(), what.c_str(),
                         page.callFunction(who, what) ? "done" : "no such actor");
             frame();
@@ -651,7 +662,8 @@ int cmdUePlay(int argc, char **argv) {
             const std::string who = argv[++i];
             std::printf("actor %s: %s\n", who.c_str(), page.describeActor(who).c_str());
         } else if (step == "prop" && i + 2 < argc) {
-            const std::string who = argv[++i], what = argv[++i];
+            const std::string who = argv[++i];
+            const std::string what = argv[++i];
             std::printf("prop %s.%s: %s\n", who.c_str(), what.c_str(), page.actorProperty(who, what).c_str());
         } else if (step == "view") {
             std::printf("view: %s\n", page.describeView().c_str());
@@ -679,7 +691,8 @@ int cmdUePlay(int argc, char **argv) {
                 frame();
             }
         } else if (step == "drag" && i + 2 < argc) {
-            const int dx = std::atoi(argv[++i]), dy = std::atoi(argv[++i]);
+            const int dx = std::atoi(argv[++i]);
+            const int dy = std::atoi(argv[++i]);
             reluva::Event ev;
             ev.type = reluva::EventType::kMouseDown;
             ev.button = reluva::MouseButton::kLeft;
@@ -743,7 +756,8 @@ int cmdUeScript(int argc, char **argv) {
     }
     const NativeTable natives(set);
     if (all) {
-        int written = 0, failed = 0;
+        int written = 0;
+        int failed = 0;
         for (const std::string &name : set.names()) {
             const Package *p = set.get(name);
             if (!p)
@@ -845,7 +859,8 @@ int cmdUeProbe(int argc, char **argv) {
         return 1;
     }
     const Export &e = pkg.exports()[size_t(index)];
-    const size_t base = size_t(e.serialOffset), end = base + data.size();
+    const size_t base = size_t(e.serialOffset);
+    const size_t end = base + data.size();
     Reader r(data, base);
     PropertyList props;
     if (reluva::Error err = beginObject(pkg, index, r, props))
@@ -1018,7 +1033,8 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet &set, bool print)
                 const MeshTri &t = m.tris[size_t(point->triangle)];
                 const int bone = poser->mainBone(t.vertex);
                 // The frame where the point comes nearest the place.
-                float best = 1e30f, at = 0;
+                float best = 1e30f;
+                float at = 0;
                 Vec3f miss{};
                 std::vector<Vec3f> verts;
                 // Engine.dll's frame (TriFrame): from corner 0, X to corner 2,
@@ -1063,7 +1079,8 @@ PointsCheck checkAttachPoints(const reluva::unreal::PackageSet &set, bool print)
                 const std::array<Vec3f, 3> triangleAxes = inFrame(point->kind == 7 ? ident : point->axes, ef);
                 const float byTriangle = match(triangleAxes, pre.axes);
                 const float xTriangle = std::fabs(dot(triangleAxes[0], pre.axes[0]));
-                float byBone = -3, xBone = 0;
+                float byBone = -3;
+                float xBone = 0;
                 std::vector<std::array<float, 12>> worlds;
                 if (bone >= 0 && poser->skeleton(anim, at, {}, worlds) && size_t(bone) < worlds.size()) {
                     std::array<Vec3f, 3> frame{};
@@ -1119,7 +1136,8 @@ int cmdUeTrace(int argc, char **argv) {
         return 1;
     }
     auto f = [&](int i) { return float(std::atof(argv[i])); };
-    const Vec3f a{f(4), f(5), f(6)}, b{f(7), f(8), f(9)};
+    const Vec3f a{f(4), f(5), f(6)};
+    const Vec3f b{f(7), f(8), f(9)};
     const Vec3f e = argc == 13 ? Vec3f{f(10), f(11), f(12)} : Vec3f{};
     LevelCollision col(model);
     const auto h = col.trace(a, b, e);
@@ -1241,7 +1259,10 @@ int cmdUeLedges(int argc, char **argv) {
             if (!it->second)
                 continue;
             Vec3f c{};
-            float lo = 1e30f, hi = -1e30f, zlo = 1e30f, zhi = -1e30f;
+            float lo = 1e30f;
+            float hi = -1e30f;
+            float zlo = 1e30f;
+            float zhi = -1e30f;
             const Vec3f side{-n.plane[1], n.plane[0], 0};
             for (int k = 0; k < n.vertexCount; ++k) {
                 const Vec3f &q = model.points[size_t(model.verts[size_t(n.vertPool + k)].point)];
@@ -1263,7 +1284,8 @@ int cmdUeLedges(int argc, char **argv) {
     const bool steps = argc == 5 && std::string(argv[4]) == "steps";
     const int most = argc == 5 && !steps ? std::atoi(argv[4]) : 40;
     LevelCollision col(model);
-    const float R = 17, H = 49.5f;
+    const float R = 17;
+    const float H = 49.5f;
     const Vec3f stand{R, R, H};
     int found = 0;
     std::set<std::tuple<int, int, int>> seen;
@@ -1341,7 +1363,8 @@ int cmdUeLedges(int argc, char **argv) {
                 }
                 continue;
             }
-            const bool clamber = rise > 30 && rise < 110, hang = rise > 115 && rise < 160;
+            const bool clamber = rise > 30 && rise < 110;
+            const bool hang = rise > 115 && rise < 160;
             if (!clamber && !hang)
                 continue;
             // Room to stand on it.
@@ -1702,7 +1725,8 @@ int cmdUeCheck(int argc, char **argv) {
                 tallies["movers"].ok += int(movers.size());
                 MeshActorStats meshStats;
                 // Placed actors whose mesh doesn't read: which meshes matter most.
-                int meshless = 0, skeletal = 0;
+                int meshless = 0;
+                int skeletal = 0;
                 for (const MeshActor &a : findMeshActors(set, *pkg, classDefaults, &meshStats)) {
                     if (!a.mesh)
                         continue;

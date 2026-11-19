@@ -175,7 +175,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         if (o->package && o->package != &_map && o->exportIndex >= 0) {
             const Package &p = *o->package;
             const Export &e = p.exports()[size_t(o->exportIndex)];
-            std::string classPackage = "Core", className = "Object";
+            std::string classPackage = "Core";
+            std::string className = "Object";
             if (e.classRef < 0) {
                 const Import &ci = p.imports()[size_t(-e.classRef - 1)];
                 className = p.name(ci.objectName);
@@ -355,7 +356,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                     probe &= ~(1ull << k);
         b.u32(uint32_t(probe));
         b.u32(uint32_t(probe >> 32));
-        int32_t offset = -1, latent = 0;
+        int32_t offset = -1;
+        int32_t latent = 0;
         if (a->codeState && a->codeAt >= 0) {
             // The statement it's at; waiting in Sleep, the time left goes
             // in LatentFloat; waiting in anything else, the call before it
@@ -420,7 +422,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             if (o->cls && fs::toLower(o->cls->name) == "c3dmeshstate")
                 if (const Value *outer = prop(o, "Outer"); outer && outer->asObject() && outer->o->isActor) {
                     std::vector<uint8_t> data;
-                    size_t begin = 0, end = 0;
+                    size_t begin = 0;
+                    size_t end = 0;
                     if (!_map.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end)) {
                         ByteWriter g;
                         writeMeshGroups(g, outer->o);
@@ -463,7 +466,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     std::vector<uint8_t> mapLevel;
     if (Error err = _map.readExport(levels.front(), mapLevel))
         return err;
-    size_t modelBegin = 0, reachEnd = 0;
+    size_t modelBegin = 0;
+    size_t reachEnd = 0;
     if (!levelModelSpan(mapLevel, version, modelBegin, reachEnd))
         return Error::fail(_map.name() + ": its Level object doesn't read");
     ByteWriter L;

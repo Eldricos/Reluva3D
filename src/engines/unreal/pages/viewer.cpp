@@ -103,7 +103,10 @@ public:
             pages[page]->activate();
         if (!benchMap.empty())
             static_cast<LevelView *>(pages[0].get())->travel(benchMap);
-        std::vector<double> benchUpdate, benchPresent, benchPlay, benchEnd;
+        std::vector<double> benchUpdate;
+        std::vector<double> benchPresent;
+        std::vector<double> benchPlay;
+        std::vector<double> benchEnd;
         const auto benchStart = std::chrono::steady_clock::now();
         auto switchTo = [&](size_t next) -> Error {
             const bool was3D = pages[page]->uses3D();

@@ -69,7 +69,8 @@ float ScriptLevel::climbFloat(VmObject *a, const char *name, float otherwise) {
 // A line or box swept from `from` to `to` against the world and its movers.
 ScriptLevel::Sweep ScriptLevel::sweep(VmObject *a, const Vec &from, const Vec &to, const Vec &extent) {
     Sweep s;
-    Vec at, n;
+    Vec at;
+    Vec n;
     s.actor = trace(a, from, to, extent, false, at, n);
     if (!s.actor) {
         s.at = to;
@@ -139,7 +140,8 @@ float ScriptLevel::testStepUp(VmObject *a, float stepHeight, float height, const
 // ledge's top just past the wall: 10, 20 or 24 units in from the player's
 // side.
 bool ScriptLevel::strongFooting(VmObject *a, const Vec &normal, const Vec &at) {
-    const float radius = climbFloat(a, "CollisionRadius", 17), ledge = climbFloat(a, "LedgeHeight", 0);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float ledge = climbFloat(a, "LedgeHeight", 0);
     for (const float in : {10.0f, 20.0f, 24.0f}) {
         const Vec p{at[0] - normal[0] * (radius + in), at[1] - normal[1] * (radius + in), ledge + 1};
         const Sweep s = sweep(a, p, add(p, {0, 0, -2}), {});
@@ -153,7 +155,8 @@ bool ScriptLevel::strongFooting(VmObject *a, const Vec &normal, const Vec &at) {
 // and floor under the hands 8 units to either side along it; the player's
 // Base becomes what the hands are on.
 bool ScriptLevel::handHold(VmObject *a, const Vec &normal, const Vec &at) {
-    const float radius = climbFloat(a, "CollisionRadius", 17), ledge = climbFloat(a, "LedgeHeight", 0);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float ledge = climbFloat(a, "LedgeHeight", 0);
     const Vec from{at[0], at[1], ledge - 2};
     const Sweep wall = sweep(a, from, sub(from, mul(normal, 1.6f * radius)), {});
     if (!wall.hit() || dot(normal, wall.normal) <= 0.99f)
@@ -178,7 +181,8 @@ bool ScriptLevel::handHold(VmObject *a, const Vec &normal, const Vec &at) {
 // ArmCollisionHeight) up clear by twice the hands' height, 4 units into
 // the wall clear, and down onto the ledge; `at` ends there.
 bool ScriptLevel::hangLedge(VmObject *a, const Vec &normal, Vec &at) {
-    const float radius = climbFloat(a, "CollisionRadius", 17), hand = climbFloat(a, "HandCollisionHeight", 4);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float hand = climbFloat(a, "HandCollisionHeight", 4);
     at[2] += climbFloat(a, "StandCollisionHeight", 49.5f) + climbFloat(a, "ArmCollisionHeight", 7.5f);
     const Vec e{radius, radius, hand};
     const Vec up = add(at, {0, 0, 2 * hand});
@@ -209,11 +213,16 @@ bool ScriptLevel::testForLedge(VmObject *a, const Vec &hitNormal, const Vec &dir
     if (!loc)
         return false;
     const Vec at = Vm::vectorOf(*loc);
-    const Vec f = flat(dir), x = viewX(a);
-    const float dR = defaultRadius(a), s = 2 * dR;
-    const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
-    const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f), step = climbFloat(a, "MaxStepHeight", 25);
-    const float arm = climbFloat(a, "ArmCollisionHeight", 7.5f), stand = climbFloat(a, "StandCollisionHeight", 49.5f);
+    const Vec f = flat(dir);
+    const Vec x = viewX(a);
+    const float dR = defaultRadius(a);
+    const float s = 2 * dR;
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float height = climbFloat(a, "CollisionHeight", 49.5f);
+    const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f);
+    const float step = climbFloat(a, "MaxStepHeight", 25);
+    const float arm = climbFloat(a, "ArmCollisionHeight", 7.5f);
+    const float stand = climbFloat(a, "StandCollisionHeight", 49.5f);
     const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
     const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
     bool noAction = false;
@@ -271,8 +280,10 @@ bool ScriptLevel::duckUnder(VmObject *a, const Vec &dir) {
     if (!loc || length(f) < 0.5f)
         return false;
     const Vec at = Vm::vectorOf(*loc);
-    const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
-    const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f), step = climbFloat(a, "MaxStepHeight", 25);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float height = climbFloat(a, "CollisionHeight", 49.5f);
+    const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f);
+    const float step = climbFloat(a, "MaxStepHeight", 25);
     const Value *duckStage = prop(a, "DuckStage");
     const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
     const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
@@ -281,7 +292,8 @@ bool ScriptLevel::duckUnder(VmObject *a, const Vec &dir) {
     const float s = 2 * defaultRadius(a);
     const Vec start{at[0], at[1], at[2] - height + duck + 1};
     const Vec e{radius, radius, duck + 1};
-    Vec hit, normal;
+    Vec hit;
+    Vec normal;
     const bool clearDucked = !trace(a, start, add(start, mul(f, s)), e, true, hit, normal);
     const bool autoDuck = clearDucked && climbFloat(a, "PushToAutoDuckTimer", 0) > 0.3f;
     const float r = testStepUp(a, step, height, start, mul(f, s), e);
@@ -311,7 +323,8 @@ bool ScriptLevel::checkClimbing(VmObject *a, const Vec &wallNormal, const Vec &d
     const Value *loc = prop(a, "Location");
     if (!loc)
         return false;
-    const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float height = climbFloat(a, "CollisionHeight", 49.5f);
     const Vec x = viewX(a);
     Vec ahead;
     if (snap) {
@@ -341,7 +354,9 @@ bool ScriptLevel::checkClimbing(VmObject *a, const Vec &wallNormal, const Vec &d
         // (GetNodeXOffsets).
         const Vec now = Vm::vectorOf(*prop(a, "Location"));
         const Vec side{-wallNormal[1], wallNormal[0], 0};
-        float lo = 0, hi = 0, o = 0;
+        float lo = 0;
+        float hi = 0;
+        float o = 0;
         if (nodeSideExtent(now, add(now, mul(wallNormal, -(radius + 8))), side, lo, hi))
             o = lo > -12 ? lo + 12 : hi < 12 ? hi - 12 : 0;
         setLocation(a, add(add(now, mul(wallNormal, 2)), mul(side, o)));
@@ -391,12 +406,15 @@ void ScriptLevel::climbCheck(VmObject *a, bool falling, float dt) {
     const Value *loc = prop(a, "Location");
     if (!loc)
         return;
-    const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
-    const float arm = climbFloat(a, "ArmCollisionHeight", 7.5f), stand = climbFloat(a, "StandCollisionHeight", 49.5f);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float height = climbFloat(a, "CollisionHeight", 49.5f);
+    const float arm = climbFloat(a, "ArmCollisionHeight", 7.5f);
+    const float stand = climbFloat(a, "StandCollisionHeight", 49.5f);
     const float hand = climbFloat(a, "HandCollisionHeight", 4);
     if (std::fabs(height - (stand + arm)) > 0.01f)
         return;
-    const Vec x = viewX(a), f6 = mul(x, 6);
+    const Vec x = viewX(a);
+    const Vec f6 = mul(x, 6);
     const Value *vel = prop(a, "Velocity");
     if (vel && dot(Vm::vectorOf(*vel), f6) <= -1)
         return;
@@ -423,7 +441,8 @@ void ScriptLevel::climbCheck(VmObject *a, bool falling, float dt) {
     const Vec e{radius, radius, height};
     if (sweep(a, at, hang, e).hit()) {
         const Vec nearer = add(at, mul(sub(hang, at), 0.98f));
-        const float dx = nearer[0] - hang[0], dy = nearer[1] - hang[1];
+        const float dx = nearer[0] - hang[0];
+        const float dy = nearer[1] - hang[1];
         if (std::sqrt(dx * dx + dy * dy) > 4 || sweep(a, at, nearer, e).hit())
             return;
         hang = nearer;
@@ -506,7 +525,8 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
         if (!hangLedge(a, n, p)) {
             _vm.callEvent(a, "Falling");
         } else {
-            const float radius = climbFloat(a, "CollisionRadius", 17), hand = climbFloat(a, "HandCollisionHeight", 4);
+            const float radius = climbFloat(a, "CollisionRadius", 17);
+            const float hand = climbFloat(a, "HandCollisionHeight", 4);
             d = mul(d, sweep(a, p, add(p, d), {radius, radius, hand}).time);
             if (handHold(a, n, add(Vm::vectorOf(*loc), d)))
                 moveActor(a, d);

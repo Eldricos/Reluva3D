@@ -92,7 +92,8 @@ bool LevelCollision::hull(int32_t node, std::vector<Plane> &planes) const {
     const size_t hullPlanes = planes.size();
     // The bounding box's faces, 0.1 out.
     for (int k = 0; k < 3; ++k) {
-        Vec3f lo{}, hi{};
+        Vec3f lo{};
+        Vec3f hi{};
         lo[size_t(k)] = -1;
         hi[size_t(k)] = 1;
         planes.push_back({lo, 0.1f - box[k], -1});
@@ -118,7 +119,8 @@ bool LevelCollision::hull(int32_t node, std::vector<Plane> &planes) const {
                 const float dd = dot(dir, dir);
                 if (dd < 1e-12f)
                     continue;
-                const Vec3f t1 = cross(nb, dir), t2 = cross(dir, na);
+                const Vec3f t1 = cross(nb, dir);
+                const Vec3f t2 = cross(dir, na);
                 const Vec3f point{(planes[a].w * t1[0] + planes[b].w * t2[0]) / dd,
                                   (planes[a].w * t1[1] + planes[b].w * t2[1]) / dd,
                                   (planes[a].w * t1[2] + planes[b].w * t2[2]) / dd};
@@ -156,7 +158,8 @@ bool LevelCollision::overlaps(int32_t at, const Vec3f &c, const Vec3f &e, bool o
     const BspNode &n = _model.nodes[size_t(at)];
     const Vec3f wide{e[0] * kWiden, e[1] * kWiden, e[2] * kWiden};
     const bool box = e[0] > 0 || e[1] > 0 || e[2] > 0;
-    const float d = distance(n, c), r = box ? pushOut({n.plane[0], n.plane[1], n.plane[2]}, wide) : 0;
+    const float d = distance(n, c);
+    const float r = box ? pushOut({n.plane[0], n.plane[1], n.plane[2]}, wide) : 0;
     for (int side = 0; side < 2; ++side) {
         const bool front = side == 0;
         if (box ? ((front && d <= -r) || (!front && d >= r)) : ((front && d < 0) || (!front && d >= 0)))
@@ -218,14 +221,16 @@ void LevelCollision::sweep(Sweep &s, int32_t at, float f0, float f1, bool outsid
     const BspNode &n = _model.nodes[size_t(at)];
     const bool box = s.extent[0] > 0 || s.extent[1] > 0 || s.extent[2] > 0;
     const Vec3f wide{s.extent[0] * kWiden, s.extent[1] * kWiden, s.extent[2] * kWiden};
-    const float d0 = distance(n, s.start), d1 = distance(n, s.end),
-                r = box ? pushOut({n.plane[0], n.plane[1], n.plane[2]}, wide) : reach(n, s.extent);
+    const float d0 = distance(n, s.start);
+    const float d1 = distance(n, s.end);
+    const float r = box ? pushOut({n.plane[0], n.plane[1], n.plane[2]}, wide) : reach(n, s.extent);
     const float dd = d1 - d0;
     for (int side = 0; side < 2; ++side) {
         const bool front = side == 0;
         // Where along the move the box is partly on this side:
         // front: d(f) > -r; back: d(f) < r, with d(f) = d0 + f * dd.
-        float a = f0, b = f1;
+        float a = f0;
+        float b = f1;
         const float bound = front ? -r : r;
         if (std::fabs(dd) < 1e-9f) {
             if (front ? !(d0 > bound) : !(d0 < bound))
@@ -266,11 +271,13 @@ void LevelCollision::clipHull(Sweep &s, int32_t node) const {
     if (!hullPlanes)
         return;
     const std::vector<Plane> &planes = *hullPlanes;
-    float t0 = -1, t1 = std::min(1.0f, s.best);
+    float t0 = -1;
+    float t1 = std::min(1.0f, s.best);
     const Plane *entered = nullptr;
     for (const Plane &p : planes) {
         const float push = pushOut(p.n, s.extent);
-        const float ds = dot(p.n, s.start) - p.w, de = dot(p.n, s.end) - p.w;
+        const float ds = dot(p.n, s.start) - p.w;
+        const float de = dot(p.n, s.end) - p.w;
         const float rate = ds - de;
         if (rate > 1e-5f) { // moving in
             const float t = (ds > 0 && ds < push ? 0.0f : ds - push) / rate;

@@ -314,7 +314,8 @@ void TextureViewer::draw() {
     const image::Image &img = _img;
     const TextureInfo &info = _info;
     // Whole multiples up to 4x when small, nearest-neighbour shrinking when large.
-    const int areaW = s.w, areaH = s.h - 3 * lh;
+    const int areaW = s.w;
+    const int areaH = s.h - 3 * lh;
     float scale = std::min(float(areaW) / float(img.w), float(areaH) / float(img.h));
     scale = scale >= 1 ? std::min(4.0f, float(int(scale))) : scale;
     image::Image shown;

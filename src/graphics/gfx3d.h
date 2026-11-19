@@ -153,18 +153,26 @@ constexpr int kMaxVertexLights = 6;
 // fading to nothing at its radius, (1 - (d / r)^2)) lies between `eye` and
 // `at`: 1 for a line straight through the whole of it.
 inline float volumeGlow(const Vec3 &eye, const Vec3 &at, const DynamicLight &l) {
-    const float rx = at[0] - eye[0], ry = at[1] - eye[1], rz = at[2] - eye[2];
+    const float rx = at[0] - eye[0];
+    const float ry = at[1] - eye[1];
+    const float rz = at[2] - eye[2];
     const float len = std::sqrt(rx * rx + ry * ry + rz * rz);
     if (len <= 0 || l.radius <= 0)
         return 0;
-    const float ux = rx / len, uy = ry / len, uz = rz / len;
-    const float cx = l.origin[0] - eye[0], cy = l.origin[1] - eye[1], cz = l.origin[2] - eye[2];
+    const float ux = rx / len;
+    const float uy = ry / len;
+    const float uz = rz / len;
+    const float cx = l.origin[0] - eye[0];
+    const float cy = l.origin[1] - eye[1];
+    const float cz = l.origin[2] - eye[2];
     const float along = cx * ux + cy * uy + cz * uz;
-    const float r2 = l.radius * l.radius, b2 = cx * cx + cy * cy + cz * cz - along * along;
+    const float r2 = l.radius * l.radius;
+    const float b2 = cx * cx + cy * cy + cz * cz - along * along;
     if (b2 >= r2)
         return 0;
     const float half = std::sqrt(r2 - b2);
-    const float s1 = std::max(0.0f, along - half) - along, s2 = std::min(len, along + half) - along;
+    const float s1 = std::max(0.0f, along - half) - along;
+    const float s2 = std::min(len, along + half) - along;
     if (s2 <= s1)
         return 0;
     const float amount = (s2 - s1) * (1 - b2 / r2) - (s2 * s2 * s2 - s1 * s1 * s1) / (3 * r2);

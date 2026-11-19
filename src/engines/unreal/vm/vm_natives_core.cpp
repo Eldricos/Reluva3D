@@ -55,10 +55,15 @@ Vec cross(const Vec &a, const Vec &b) {
 
 // A rotator's axes: forward, right, up (Unreal's left-handed space).
 std::array<Vec, 3> axes(const Rot &r) {
-    const float p = float(r[0]) * 2 * kPi / 65536, y = float(r[1]) * 2 * kPi / 65536,
-                rl = float(r[2]) * 2 * kPi / 65536;
-    const float sp = std::sin(p), cp = std::cos(p), sy = std::sin(y), cy = std::cos(y), sr = std::sin(rl),
-                cr = std::cos(rl);
+    const float p = float(r[0]) * 2 * kPi / 65536;
+    const float y = float(r[1]) * 2 * kPi / 65536;
+    const float rl = float(r[2]) * 2 * kPi / 65536;
+    const float sp = std::sin(p);
+    const float cp = std::cos(p);
+    const float sy = std::sin(y);
+    const float cy = std::cos(y);
+    const float sr = std::sin(rl);
+    const float cr = std::cos(rl);
     return {Vec{cp * cy, cp * sy, sp}, Vec{sr * sp * cy - cr * sy, sr * sp * sy + cr * cy, -sr * cp},
             Vec{-(cr * sp * cy + sr * sy), cy * sr - cr * sp * sy, cr * cp}};
 }
@@ -210,7 +215,8 @@ void registerCoreNatives(Vm &vm) {
     reg("Multiply_VectorFloat", [=](NativeCall &c) { c.result = V(mul(vec(c.args[0]), c.f(1))); });
     reg("Multiply_FloatVector", [=](NativeCall &c) { c.result = V(mul(vec(c.args[1]), c.f(0))); });
     reg("Multiply_VectorVector", [=](NativeCall &c) {
-        const Vec a = vec(c.args[0]), b = vec(c.args[1]);
+        const Vec a = vec(c.args[0]);
+        const Vec b = vec(c.args[1]);
         c.result = V({a[0] * b[0], a[1] * b[1], a[2] * b[2]});
     });
     reg("Divide_VectorFloat", [=](NativeCall &c) { c.result = V(mul(vec(c.args[0]), c.f(1) != 0 ? 1 / c.f(1) : 0)); });
@@ -233,7 +239,8 @@ void registerCoreNatives(Vm &vm) {
     auto setV = [=](NativeCall &c, const Vec &v) { c.result = c.args[0] = V(v); };
     reg("MultiplyEqual_VectorFloat", [=](NativeCall &c) { setV(c, mul(vec(c.args[0]), c.f(1))); });
     reg("MultiplyEqual_VectorVector", [=](NativeCall &c) {
-        const Vec a = vec(c.args[0]), b = vec(c.args[1]);
+        const Vec a = vec(c.args[0]);
+        const Vec b = vec(c.args[1]);
         setV(c, {a[0] * b[0], a[1] * b[1], a[2] * b[2]});
     });
     reg("DivideEqual_VectorFloat", [=](NativeCall &c) { setV(c, mul(vec(c.args[0]), c.f(1) != 0 ? 1 / c.f(1) : 0)); });
@@ -251,7 +258,9 @@ void registerCoreNatives(Vm &vm) {
         c.result = V(l > 0 ? mul(v, 1 / l) : Vec{0, 0, 0});
     });
     reg("Invert", [=](NativeCall &c) { // transposes the three axes
-        const Vec x = vec(c.args[0]), y = vec(c.args[1]), z = vec(c.args[2]);
+        const Vec x = vec(c.args[0]);
+        const Vec y = vec(c.args[1]);
+        const Vec z = vec(c.args[2]);
         c.args[0] = V({x[0], y[0], z[0]});
         c.args[1] = V({x[1], y[1], z[1]});
         c.args[2] = V({x[2], y[2], z[2]});
@@ -264,7 +273,8 @@ void registerCoreNatives(Vm &vm) {
         c.result = V(mul(v, 1 / std::sqrt(dot(v, v))));
     });
     reg("MirrorVectorByNormal", [=](NativeCall &c) {
-        const Vec v = vec(c.args[0]), n = vec(c.args[1]);
+        const Vec v = vec(c.args[0]);
+        const Vec n = vec(c.args[1]);
         c.result = V(sub(v, mul(n, 2 * dot(v, n))));
     });
 
@@ -286,12 +296,15 @@ void registerCoreNatives(Vm &vm) {
     // turned by its IK_PreRotate so): B turned on in A's frame, its axes
     // taken in A's. A zero B leaves A as it is.
     reg("Multiply_RotatorRotator", [=](NativeCall &c) {
-        const auto a = axes(rot(c.args[0])), b = axes(rot(c.args[1]));
+        const auto a = axes(rot(c.args[0]));
+        const auto b = axes(rot(c.args[1]));
         std::array<Vec, 3> out{};
         for (size_t k = 0; k < 3; ++k)
             for (size_t j = 0; j < 3; ++j)
                 out[k] = add(out[k], mul(a[j], b[k][j]));
-        const Vec &x = out[0], &y = out[1], &z = out[2];
+        const Vec &x = out[0];
+        const Vec &y = out[1];
+        const Vec &z = out[2];
         const float u = 32768 / kPi;
         c.result =
             R(int32_t(std::lround(std::atan2(x[2], std::sqrt(x[0] * x[0] + x[1] * x[1])) * u)),
@@ -306,19 +319,23 @@ void registerCoreNatives(Vm &vm) {
     reg("DivideEqual_RotatorFloat",
         [=](NativeCall &c) { setR(c, scaled(rot(c.args[0]), c.f(1) != 0 ? 1 / c.f(1) : 0)); });
     reg("Add_RotatorRotator", [=](NativeCall &c) {
-        const Rot a = rot(c.args[0]), b = rot(c.args[1]);
+        const Rot a = rot(c.args[0]);
+        const Rot b = rot(c.args[1]);
         c.result = R(a[0] + b[0], a[1] + b[1], a[2] + b[2]);
     });
     reg("Subtract_RotatorRotator", [=](NativeCall &c) {
-        const Rot a = rot(c.args[0]), b = rot(c.args[1]);
+        const Rot a = rot(c.args[0]);
+        const Rot b = rot(c.args[1]);
         c.result = R(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     });
     reg("AddEqual_RotatorRotator", [=](NativeCall &c) {
-        const Rot a = rot(c.args[0]), b = rot(c.args[1]);
+        const Rot a = rot(c.args[0]);
+        const Rot b = rot(c.args[1]);
         setR(c, {a[0] + b[0], a[1] + b[1], a[2] + b[2]});
     });
     reg("SubtractEqual_RotatorRotator", [=](NativeCall &c) {
-        const Rot a = rot(c.args[0]), b = rot(c.args[1]);
+        const Rot a = rot(c.args[0]);
+        const Rot b = rot(c.args[1]);
         setR(c, {a[0] - b[0], a[1] - b[1], a[2] - b[2]});
     });
     reg("GetAxes", [=](NativeCall &c) {
@@ -336,7 +353,9 @@ void registerCoreNatives(Vm &vm) {
             R(int32_t(random()() & 0xffff), int32_t(random()() & 0xffff), c.b(0) ? int32_t(random()() & 0xffff) : 0);
     });
     reg("OrthoRotation", [=](NativeCall &c) {
-        const Vec x = vec(c.args[0]), y = vec(c.args[1]), z = vec(c.args[2]);
+        const Vec x = vec(c.args[0]);
+        const Vec y = vec(c.args[1]);
+        const Vec z = vec(c.args[2]);
         const float k = 32768 / kPi;
         c.result = R(int32_t(std::atan2(x[2], std::sqrt(x[0] * x[0] + x[1] * x[1])) * k),
                      int32_t(std::atan2(x[1], x[0]) * k), int32_t(std::atan2(-y[2], z[2]) * k));

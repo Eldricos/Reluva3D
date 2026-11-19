@@ -339,10 +339,14 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
         if (b(actor, "bUpdate")) {
             setBool(actor, "bUpdate", false);
             float t = 0;
-            const Vec from = vec(base, "Vect2"), p1 = vec(base, "Location"), p2 = vec(base, "Velocity"),
-                      p3 = vec(base, "Acceleration"), wave = vec(base, "AxisScale");
+            const Vec from = vec(base, "Vect2");
+            const Vec p1 = vec(base, "Location");
+            const Vec p2 = vec(base, "Velocity");
+            const Vec p3 = vec(base, "Acceleration");
+            const Vec wave = vec(base, "AxisScale");
             const bool waves = b(base, "bUse");
-            const float step = f(base, "Phase"), freq = f(base, "Angle");
+            const float step = f(base, "Phase");
+            const float freq = f(base, "Angle");
             for (VmObject *mm : copies) {
                 const float u = 1 - t;
                 Vec at = add(from, add(add(mul(p1, 3 * t * u * u), mul(p2, 3 * t * t * u)), mul(p3, t * t * t)));
@@ -380,9 +384,11 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     // fading (bFadeGlow) to nothing. Without a generator, both fades.
     case kPhysParticle: {
         const Vec forces = generator ? add(vec(owner, "Forces"), vec(owner, "WindForce")) : Vec{};
-        const float slow = generator ? f(owner, "DeltaSpeed") : 0, grow = generator ? f(owner, "DeltaSize") : 0;
+        const float slow = generator ? f(owner, "DeltaSpeed") : 0;
+        const float grow = generator ? f(owner, "DeltaSize") : 0;
         const float glow = generator ? f(owner, "MaxScaleGlow", 1) : f(actor, "ScaleGlow", 1);
-        const bool fadeSize = !generator || b(owner, "bFadeSize"), fadeGlow = !generator || b(owner, "bFadeGlow");
+        const bool fadeSize = !generator || b(owner, "bFadeSize");
+        const bool fadeGlow = !generator || b(owner, "bFadeGlow");
         for (VmObject *mm : copies) {
             Vec v = vec(mm, "Velocity");
             if (const float speed = length(v); speed > 0 && slow != 0)
@@ -681,7 +687,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     // the time follows the fish before it; triggered (the base's bUse),
     // they go up to the top to feed.
     case kPhysFishInTank: {
-        const Vec lo = vec(base, "Vect1"), hi = vec(base, "Vect2");
+        const Vec lo = vec(base, "Vect1");
+        const Vec hi = vec(base, "Vect2");
         const bool feeding = b(base, "bUse");
         Vec before = lo;
         bool first = true;
@@ -737,7 +744,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     // (0.2 s), yellow to orange or green (0.3 s), then smoke turning grey
     // and sinking away (0.5 s each), or the flame shrinking out (0.5 s).
     case kPhysFireGas: {
-        const float S = f(owner, "DrawScale", 1), G = f(owner, "ScaleGlow", 1);
+        const float S = f(owner, "DrawScale", 1);
+        const float G = f(owner, "ScaleGlow", 1);
         const Vec settings = vec(owner, "ColorFilter");
         const bool normalFire = settings[2] == 1;
         const float cap = f(owner, "TweenRate");
@@ -860,7 +868,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     case kPhysExpParticle: {
         const bool cinder = physics == kPhysExpCinder;
         const float twist = f(base, "Angle");
-        const Vec c1 = vec(base, "Vect1"), c2 = vec(base, "ColorFilter");
+        const Vec c1 = vec(base, "Vect1");
+        const Vec c2 = vec(base, "ColorFilter");
         for (VmObject *mm : copies) {
             if (cinder && frand() < 0.1f) {
                 Vec a = vec(mm, "Acceleration");
@@ -900,9 +909,11 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
         const Vec from = vec(owner, "Location");
         const Value *rr = prop(owner, "Rotation");
         const auto ro = rr ? Vm::rotatorOf(*rr) : std::array<int32_t, 3>{};
-        const float yaw = float(ro[1]) * kPi / 32768, pitch = float(ro[0]) * kPi / 32768;
+        const float yaw = float(ro[1]) * kPi / 32768;
+        const float pitch = float(ro[0]) * kPi / 32768;
         const Vec x{std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)};
-        const Vec hit = vec(owner, "MMEventLocation"), n = vec(owner, "WindDir");
+        const Vec hit = vec(owner, "MMEventLocation");
+        const Vec n = vec(owner, "WindDir");
         const float reach = length(sub(hit, from));
         for (VmObject *mm : copies) {
             if (f(mm, "DrawScale") < 2)
@@ -1117,7 +1128,8 @@ void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
                 to = add(to, prop(a, "PrePivot") ? Vm::vectorOf(*prop(a, "PrePivot")) : Vec{});
             } else if (flag("bTrailerSameRotation") && ownerRot) {
                 const auto r = Vm::rotatorOf(*ownerRot);
-                const float yaw = float(r[1]) * kPi / 32768, pitch = float(r[0]) * kPi / 32768;
+                const float yaw = float(r[1]) * kPi / 32768;
+                const float pitch = float(r[0]) * kPi / 32768;
                 const Vec x{std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)};
                 to = sub(to, mul(x, f("Mass")));
             }
@@ -1158,13 +1170,15 @@ void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
             const Value *p = prop(a, name);
             return p && p->asBool();
         };
-        const bool toDesired = flag("bRotateToDesired"), fixed = flag("bFixedRotationDir");
+        const bool toDesired = flag("bRotateToDesired");
+        const bool fixed = flag("bFixedRotationDir");
         if (!toDesired && !fixed)
             return;
         const int k = physics == kPhysRotatingYaw ? 1 : 0;
         auto now = Vm::rotatorOf(*r);
         const auto want = prop(a, "DesiredRotation") ? Vm::rotatorOf(*prop(a, "DesiredRotation")) : now;
-        const int32_t cur = now[size_t(k)] & 0xffff, goal = want[size_t(k)] & 0xffff;
+        const int32_t cur = now[size_t(k)] & 0xffff;
+        const int32_t goal = want[size_t(k)] & 0xffff;
         if (toDesired && cur == goal)
             return;
         const int32_t step = int32_t(float(Vm::rotatorOf(*rate)[size_t(k)]) * dt);
@@ -1359,7 +1373,8 @@ void ScriptLevel::interpolate(VmObject *a, float dt) {
         VmObject *after = obj(to, "Next");
         Vec at;
         std::array<int32_t, 3> rot{};
-        const auto r1 = turn(from), r2 = turn(to);
+        const auto r1 = turn(from);
+        const auto r2 = turn(to);
         if (before && after) {
             auto w = [](float x) { return x * x * x * x / 16 - x * x / 2 + 1; };
             float k[4] = {w(t + 1), w(t), w(t - 1), w(t - 2)};
@@ -1410,7 +1425,8 @@ void ScriptLevel::interpolate(VmObject *a, float dt) {
             const float flash = lerp("ScreenFlashScale", 1);
             const Value *f0 = prop(from, "ScreenFlashFog");
             const Value *f1 = prop(to, "ScreenFlashFog");
-            const Vec fog0 = f0 ? Vm::vectorOf(*f0) : Vec{}, fog1 = f1 ? Vm::vectorOf(*f1) : Vec{};
+            const Vec fog0 = f0 ? Vm::vectorOf(*f0) : Vec{};
+            const Vec fog1 = f1 ? Vm::vectorOf(*f1) : Vec{};
             const Vec fog = add(fog0, mul(sub(fog1, fog0), t));
             for (const char *name : {"FlashScale"})
                 if (Value *p = prop(a, name))

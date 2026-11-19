@@ -244,10 +244,14 @@ std::string describe(const Package &package, const Property &p) {
         const bool rot = p.structName == "Rotator" || p.type == PropertyType::kRotator;
         if (p.data.size() >= 12) {
             if (rot) {
-                const int32_t a = r.i32(), b = r.i32(), c = r.i32();
+                const int32_t a = r.i32();
+                const int32_t b = r.i32();
+                const int32_t c = r.i32();
                 std::snprintf(buf, sizeof buf, "(Pitch=%d,Yaw=%d,Roll=%d)", a, b, c);
             } else {
-                const float a = r.f32(), b = r.f32(), c = r.f32();
+                const float a = r.f32();
+                const float b = r.f32();
+                const float c = r.f32();
                 std::snprintf(buf, sizeof buf, "(X=%g,Y=%g,Z=%g)", double(a), double(b), double(c));
             }
             return buf;

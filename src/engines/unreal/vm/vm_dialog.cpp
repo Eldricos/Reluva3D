@@ -141,7 +141,9 @@ void ScriptLevel::loadDialog() {
         r.condition = noted(l.condition);
         r.nextPattern = l.next.empty() ? "" : pattern(l.next);
         r.backPattern = l.back.empty() ? "" : pattern(l.back);
-        const std::string type = upper(l.type), by = upper(l.speaker), to = upper(l.listener);
+        const std::string type = upper(l.type);
+        const std::string by = upper(l.speaker);
+        const std::string to = upper(l.listener);
         if (type == "HOP" && r.nextPattern.empty()) { // (only with no NEXTLINE of its own)
             r.nextPattern = "\x01HBO" + to + by;
             if (r.backPattern.empty())
@@ -205,7 +207,8 @@ void ScriptLevel::loadDialog() {
             const bool byDefault = (*pat)[0] == '\x01';
             if (byDefault)
                 pat->erase(0, 1);
-            int found = -1, count = 0;
+            int found = -1;
+            int count = 0;
             for (size_t i = 0; i < n && count < 2; ++i)
                 if (keyFits(*pat, _dialogRecs[i].key))
                     found = int(i), ++count;
@@ -276,7 +279,8 @@ int ScriptLevel::evalCondition(const std::string &condition, VmObject *actor) {
     std::vector<std::string> term;
     for (size_t i = 0; i <= words.size(); ++i) {
         const bool end = i == words.size();
-        const bool isAnd = !end && same(words[i], "AND"), isOr = !end && same(words[i], "OR");
+        const bool isAnd = !end && same(words[i], "AND");
+        const bool isOr = !end && same(words[i], "OR");
         if (!end && !isAnd && !isOr) {
             term.push_back(words[i]);
             continue;
@@ -303,7 +307,8 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
         // actor's property, if it's of the class.
         if (!actor)
             return 0;
-        std::string cls, property;
+        std::string cls;
+        std::string property;
         size_t at = 0;
         const size_t dot = term[0].find('.');
         if (dot != std::string::npos && dot > 0) {
@@ -321,7 +326,8 @@ int ScriptLevel::conditionTerm(const std::vector<std::string> &term, VmObject *a
         const std::string &op = term[at];
         const std::string &want = term[at + 1];
         if (v->type == VType::kFloat || v->type == VType::kInt || v->type == VType::kByte) {
-            const float a = v->asFloat(), b = std::strtof(want.c_str(), nullptr);
+            const float a = v->asFloat();
+            const float b = std::strtof(want.c_str(), nullptr);
             if (op == "<")
                 return a < b;
             if (op == "<=")
@@ -701,7 +707,8 @@ float ScriptLevel::lineSeconds(const DialogLine &l) {
         if (e >= 0 && !p->readExport(e, data)) {
             const uint8_t riff[4] = {'R', 'I', 'F', 'F'};
             auto at = std::search(data.begin(), data.end(), riff, riff + 4);
-            uint32_t rate = 0, bytes = 0;
+            uint32_t rate = 0;
+            uint32_t bytes = 0;
             for (size_t i = size_t(at - data.begin()) + 12; at != data.end() && i + 8 <= data.size();) {
                 const uint32_t size = le32(&data[i + 4]);
                 if (std::memcmp(&data[i], "fmt ", 4) == 0 && i + 16 <= data.size())
@@ -996,11 +1003,13 @@ bool ScriptLevel::dialogueCamera(std::array<float, 3> &at, std::array<int32_t, 3
     if (_currentLine < 0 || size_t(_currentLine) >= _dialogLines.size())
         return false;
     std::string cam = _dialogLines[size_t(_currentLine)].camera;
-    const size_t open = cam.find('('), close = cam.rfind(')');
+    const size_t open = cam.find('(');
+    const size_t close = cam.rfind(')');
     if (open == std::string::npos || close == std::string::npos || close < open)
         return false;
     cam = cam.substr(open + 1, close - open - 1);
-    bool placed = false, relative = false;
+    bool placed = false;
+    bool relative = false;
     float v[6] = {};
     size_t at0 = 0;
     while (at0 < cam.size()) {
@@ -1128,7 +1137,8 @@ void ScriptLevel::dialogTick(VmObject *input, float dt) {
             VmObject *oldEnemy = obj(p, "DLG_OldEnemy");
             const float oldHealth = num(p, "DLG_OldHealth");
             const bool friendly = flag(p, "bFriend");
-            const std::string command = text(p, "DLG_Command"), oldCommand = text(p, "DLG_OldCommand");
+            const std::string command = text(p, "DLG_Command");
+            const std::string oldCommand = text(p, "DLG_OldCommand");
             std::string type;
             int32_t bit = 0;
             bool decided = false; // a type chosen, or nothing to say this tick
@@ -1220,7 +1230,8 @@ bool ScriptLevel::talksToPlayer(VmObject *p, float dist, bool noAction) {
     const auto v = Vm::vectorOf(*prop(_player, "Velocity"));
     if (std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) > 200)
         return false;
-    const auto from = Vm::vectorOf(*prop(_player, "Location")), to = Vm::vectorOf(*prop(p, "Location"));
+    const auto from = Vm::vectorOf(*prop(_player, "Location"));
+    const auto to = Vm::vectorOf(*prop(p, "Location"));
     const std::array<float, 3> dir{(to[0] - from[0]) / dist, (to[1] - from[1]) / dist, (to[2] - from[2]) / dist};
     auto facing = [&](VmObject *a) {
         const auto r = Vm::rotatorOf(*prop(a, "Rotation"));
@@ -1321,7 +1332,8 @@ void registerDialogNatives(Vm &vm) {
     reg("Actor.GetDialogueCameraData", [](NativeCall &c) {
         std::array<float, 3> at{};
         std::array<int32_t, 3> rot{};
-        float fov = c.f(2), dist = c.f(3);
+        float fov = c.f(2);
+        float dist = c.f(3);
         if (!c.vm.level || !c.vm.level->dialogueCamera(at, rot, fov, dist)) {
             c.result = Value::boolValue(false);
             return;

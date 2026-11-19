@@ -131,7 +131,8 @@ const std::vector<VmObject *> &ScriptLevel::navigationPoints() {
 }
 
 bool ScriptLevel::lineOfSight(VmObject *self, const Vec &from, const Vec &to) {
-    std::array<float, 3> where{}, normal{};
+    std::array<float, 3> where{};
+    std::array<float, 3> normal{};
     return !trace(self, from, to, {}, false, where, normal);
 }
 
@@ -152,7 +153,8 @@ Vec vecOf(const Value *v) {
     return v ? Vm::vectorOf(*v) : Vec{};
 }
 float flat2(const Vec &a, const Vec &b) {
-    const float x = a[0] - b[0], y = a[1] - b[1];
+    const float x = a[0] - b[0];
+    const float y = a[1] - b[1];
     return x * x + y * y;
 }
 constexpr float kNear2 = 640000; // 800 units, squared
@@ -189,7 +191,8 @@ ScriptLevel::MoveHit ScriptLevel::testMove(VmObject *a, const Vec &delta) {
         return out;
     const Vec dir = mul(delta, 1 / asked);
     const Vec reach = add(delta, mul(dir, 2));
-    Vec at{}, n{};
+    Vec at{};
+    Vec n{};
     VmObject *by = trace(a, start, add(start, reach), extentOf(a), false, at, n);
     Vec end = add(start, delta);
     if (by) {
@@ -251,9 +254,11 @@ int ScriptLevel::walkMove(VmObject *pawn, Vec delta, float threshold, float &flo
 // until within `threshold` (2D) and near enough its height; too steep a
 // climb, a fall (unless the step can shrink to a stair) or 101 steps fail.
 bool ScriptLevel::walkReachable(VmObject *pawn, Vec dest, float threshold, VmObject *goal) {
-    const float r = pf(pawn, "CollisionRadius"), h = pf(pawn, "CollisionHeight");
+    const float r = pf(pawn, "CollisionRadius");
+    const float h = pf(pawn, "CollisionHeight");
     float step = std::max(r, 128.0f);
-    Vec at{}, n{};
+    Vec at{};
+    Vec n{};
     if (trace(pawn, dest, add(dest, {0, 0, -53}), {}, false, at, n)) {
         const float t = (dest[2] - at[2]) / 53;
         dest[2] = dest[2] - 50 * t + h;
@@ -309,8 +314,10 @@ bool ScriptLevel::reachable(VmObject *pawn, const Vec &dest, float threshold, Vm
     bool ok = false;
     if (waterAt(vecOf(loc)) || physics == 4 /*flying*/) {
         // Swimming, flying: straight there (Reluva's; the engine steps as walking does).
-        Vec at{}, n{};
-        const float r = pf(pawn, "CollisionRadius"), h = pf(pawn, "CollisionHeight");
+        Vec at{};
+        Vec n{};
+        const float r = pf(pawn, "CollisionRadius");
+        const float h = pf(pawn, "CollisionHeight");
         ok = !trace(pawn, vecOf(loc), dest, {r, r, h}, false, at, n);
     } else if (physics == 1 || physics == 3) {
         ok = walkReachable(pawn, dest, threshold, goal);
@@ -342,7 +349,8 @@ bool ScriptLevel::pointReachable(VmObject *pawn, Vec p, bool knowVisible) {
 bool ScriptLevel::actorReachableRaw(VmObject *pawn, VmObject *a, bool knowVisible) {
     if (!a || a->deleted)
         return false;
-    const Vec here = pv(pawn, "Location"), there = pv(a, "Location");
+    const Vec here = pv(pawn, "Location");
+    const Vec there = pv(a, "Location");
     const bool other = _vm.isA(a, "Pawn");
     const float d2 = dist2(here, there);
     if (!other && d2 > kNear2)
@@ -350,7 +358,8 @@ bool ScriptLevel::actorReachableRaw(VmObject *pawn, VmObject *a, bool knowVisibl
     if (waterAt(there) && !pb(pawn, "bCanSwim"))
         return false;
     if (!knowVisible) {
-        Vec at{}, n{};
+        Vec at{};
+        Vec n{};
         VmObject *by = trace(pawn, there, eyeOf(pawn), {}, false, at, n);
         if (by && by != a)
             return false;
@@ -372,7 +381,8 @@ bool ScriptLevel::actorReachableRaw(VmObject *pawn, VmObject *a, bool knowVisibl
         if (pb(a, "bBlockActors") || _vm.isA(a, "WarpZoneMarker"))
             goal = a;
     }
-    Vec dest = there, fit = there;
+    Vec dest = there;
+    Vec fit = there;
     if (findSpot(extentOf(pawn), fit))
         dest = fit;
     return reachable(pawn, dest, g, goal);
@@ -408,7 +418,8 @@ const ScriptLevel::ReachSpec *ScriptLevel::specAt(VmObject *node, const char *li
 bool ScriptLevel::moverAllows(VmObject *pawn, const ReachSpec &s) {
     if (!s.start || !s.end)
         return false;
-    Vec at{}, n{};
+    Vec at{};
+    Vec n{};
     VmObject *by = trace(pawn, pv(s.end, "Location"), pv(s.start, "Location"), {}, false, at, n);
     if (!by || by == _levelInfo || !_vm.isA(by, "Mover"))
         return true;
@@ -464,8 +475,10 @@ VmObject *ScriptLevel::findPath(VmObject *pawn, VmObject *goal, const Vec *point
         if (list.size() > 32)
             list.pop_back();
     };
-    std::vector<Cand> starts, dests;
-    bool startAnchor = false, endAnchor = false;
+    std::vector<Cand> starts;
+    std::vector<Cand> dests;
+    bool startAnchor = false;
+    bool endAnchor = false;
     if (goal && _navIndex.count(goal)) {
         dests.push_back({_navIndex[goal], 0});
         endAnchor = true;
@@ -710,8 +723,8 @@ bool ScriptLevel::actorReachable(VmObject *pawn, VmObject *a) {
         pf(pawn, "CollisionRadius") <= pf(_levelInfo, "LargestRadius", 40) &&
         pf(pawn, "CollisionHeight") <= pf(_levelInfo, "LargestHeight", 80)) {
         const Vec here = pv(pawn, "Location");
-        const float zLim = std::max(pf(pawn, "CollisionHeight"), 50.0f),
-                    rLim = std::max(pf(pawn, "CollisionRadius"), 48.0f);
+        const float zLim = std::max(pf(pawn, "CollisionHeight"), 50.0f);
+        const float rLim = std::max(pf(pawn, "CollisionRadius"), 48.0f);
         auto near = [&](VmObject *n) {
             const Vec p = pv(n, "Location");
             return std::fabs(p[2] - here[2]) < zLim && flat2(p, here) < rLim * rLim;
@@ -862,7 +875,8 @@ void registerPathNatives(Vm &vm) {
         const Vec eye = level->eyeOf(c.self);
         const Vec there = locationOf(c, other);
         const float d2 = dist2(eye, there);
-        const bool pawn = c.vm.isA(other, "Pawn"), player = c.vm.isA(c.self, "PlayerPawn");
+        const bool pawn = c.vm.isA(other, "Pawn");
+        const bool player = c.vm.isA(c.self, "PlayerPawn");
         float maxD2 = 9e6f;
         if (pawn) {
             const float vis =

@@ -55,14 +55,16 @@ void rgb565(uint16_t c, uint8_t *out) {
 // DXT1 (BC1): 4x4 blocks of two 565 colours and 2-bit indices; when the
 // first colour is not greater, index 3 is transparent black.
 void decodeDxt1(const uint8_t *src, size_t size, int w, int h, image::Image &out) {
-    const int bw = (w + 3) / 4, bh = (h + 3) / 4;
+    const int bw = (w + 3) / 4;
+    const int bh = (h + 3) / 4;
     for (int by = 0; by < bh; ++by)
         for (int bx = 0; bx < bw; ++bx) {
             const size_t at = (size_t(by) * size_t(bw) + size_t(bx)) * 8;
             if (at + 8 > size)
                 return;
             const uint8_t *b = src + at;
-            const uint16_t c0 = uint16_t(b[0] | b[1] << 8), c1 = uint16_t(b[2] | b[3] << 8);
+            const uint16_t c0 = uint16_t(b[0] | b[1] << 8);
+            const uint16_t c1 = uint16_t(b[2] | b[3] << 8);
             uint8_t pal[4][4];
             rgb565(c0, pal[0]);
             rgb565(c1, pal[1]);
@@ -80,7 +82,8 @@ void decodeDxt1(const uint8_t *src, size_t size, int w, int h, image::Image &out
             const uint32_t bits = uint32_t(b[4]) | uint32_t(b[5]) << 8 | uint32_t(b[6]) << 16 | uint32_t(b[7]) << 24;
             for (int y = 0; y < 4; ++y)
                 for (int x = 0; x < 4; ++x) {
-                    const int px = bx * 4 + x, py = by * 4 + y;
+                    const int px = bx * 4 + x;
+                    const int py = by * 4 + y;
                     if (px >= w || py >= h)
                         continue;
                     const uint8_t *c = pal[(bits >> (2 * (y * 4 + x))) & 3];
@@ -146,7 +149,8 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
         }
         return Error::success();
     };
-    std::vector<Mip> mips, compMips;
+    std::vector<Mip> mips;
+    std::vector<Mip> compMips;
     if (Error err = readMips(mips))
         return err;
     if (props.boolean("bHasComp"))

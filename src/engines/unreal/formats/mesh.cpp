@@ -55,7 +55,8 @@ void skipArray(Reader &r, size_t elementSize) {
 }
 
 void skipLazy(Reader &r, int version, size_t elementSize) {
-    size_t end = 0, n = 0;
+    size_t end = 0;
+    size_t n = 0;
     if (!lazyCount(r, version, elementSize, end, n))
         return;
     if (end)
@@ -193,7 +194,8 @@ bool findVertexBlock(const std::vector<uint8_t> &data, size_t base, size_t from,
                      std::vector<Vec3f> &out, int &keys, bool &perFrame) {
     keys = 0;
     perFrame = false;
-    const auto frame = uint32_t(t.frameVerts), total = uint32_t(t.frameVerts) * uint32_t(t.animFrames);
+    const auto frame = uint32_t(t.frameVerts);
+    const auto total = uint32_t(t.frameVerts) * uint32_t(t.animFrames);
     auto u32At = [&](size_t at) {
         const uint8_t *p = data.data() + (at - base);
         return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
@@ -396,7 +398,10 @@ struct BoneReader {
     // that the vertex arrays follow. 0 if there's none.
     size_t first(size_t start = 0) const {
         for (size_t at = std::max(start, from); at + 24 < to; ++at) {
-            uint32_t n = 0, flags = 0, k = 0, kf = 0;
+            uint32_t n = 0;
+            uint32_t flags = 0;
+            uint32_t k = 0;
+            uint32_t kf = 0;
             if (!header(at, n, flags) || flags != 8 || n == 0 || n > 64)
                 continue;
             if (!header(at + 12 + 4 * size_t(n), k, kf) || kf != 128)
@@ -414,7 +419,8 @@ struct BoneReader {
     // stepped over too, to find its children; if they don't read, `end`
     // stays 0 and its children aren't known, but the bone still is.
     bool record(size_t at, BoneRecord &b) const {
-        uint32_t n = 0, flags = 0;
+        uint32_t n = 0;
+        uint32_t flags = 0;
         if (!name(at, b.name))
             return false;
         b.start = at;
@@ -497,13 +503,15 @@ struct BoneReader {
         // Where bone i's subtree ends, 0 if that's not known.
         std::function<size_t(int, int)> subtree = [&](int i, int depth) -> size_t {
             reached[size_t(i)] = true;
-            const size_t start = out[size_t(i)].start, end = out[size_t(i)].end;
+            const size_t start = out[size_t(i)].start;
+            const size_t end = out[size_t(i)].end;
             if (!end || depth > 256) {
                 if (!failedAt)
                     failedAt = start;
                 return 0;
             }
-            uint32_t children = 0, flags = 0;
+            uint32_t children = 0;
+            uint32_t flags = 0;
             size_t p = end;
             if (!header(p, children, flags) || flags != 4) {
                 if (!failedAt)
@@ -625,7 +633,10 @@ Mat43 rotation(std::array<float, 4> q) {
     const float n = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
     if (n <= 0)
         return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
-    const float x = q[0] / n, y = q[1] / n, z = q[2] / n, w = q[3] / n;
+    const float x = q[0] / n;
+    const float y = q[1] / n;
+    const float z = q[2] / n;
+    const float w = q[3] / n;
     return {1 - 2 * (y * y + z * z),
             2 * (x * y - z * w),
             2 * (x * z + y * w),
@@ -647,9 +658,11 @@ std::array<float, 4> slerp(std::array<float, 4> a, std::array<float, 4> b, float
             c = -c;
         dot = -dot;
     }
-    float wa = 1 - t, wb = t;
+    float wa = 1 - t;
+    float wb = t;
     if (dot < 0.9995f) {
-        const float th = std::acos(std::min(dot, 1.0f)), s = std::sin(th);
+        const float th = std::acos(std::min(dot, 1.0f));
+        const float s = std::sin(th);
         wa = std::sin((1 - t) * th) / s;
         wb = std::sin(t * th) / s;
     }
@@ -707,7 +720,8 @@ struct BonePoser {
                 i = 0; // past the last key, looping: the first
             auto q = rotationKey(r.data.data() + (k.rotations + 10 * i + 4 - r.base));
             if (i + 1 < n && t > r.f32(k.rotations + 10 * i)) {
-                const float t0 = r.f32(k.rotations + 10 * i), t1 = r.f32(k.rotations + 10 * (i + 1));
+                const float t0 = r.f32(k.rotations + 10 * i);
+                const float t1 = r.f32(k.rotations + 10 * (i + 1));
                 const size_t to = loop && i + 2 == n ? 0 : i + 1;
                 if (t1 > t0 && t > t0)
                     q = slerp(q, rotationKey(r.data.data() + (k.rotations + 10 * to + 4 - r.base)),
@@ -729,7 +743,8 @@ struct BonePoser {
                 i = 0;
             Vec3f d{r.f32(k.positions + 16 * i + 4), r.f32(k.positions + 16 * i + 8), r.f32(k.positions + 16 * i + 12)};
             if (i + 1 < n && t > r.f32(k.positions + 16 * i)) {
-                const float t0 = r.f32(k.positions + 16 * i), t1 = r.f32(k.positions + 16 * (i + 1));
+                const float t0 = r.f32(k.positions + 16 * i);
+                const float t1 = r.f32(k.positions + 16 * (i + 1));
                 const size_t to = loop && i + 2 == n ? 0 : i + 1;
                 if (t1 > t0 && t > t0) {
                     const float f = std::min(1.0f, (t - t0) / (t1 - t0));
@@ -893,7 +908,8 @@ std::vector<NamedClip> findClipTable(const BoneReader &r, size_t frameVerts, siz
                 }
                 k += 12;
                 for (uint32_t j = 0; j < n && runs; ++j) {
-                    uint32_t v = 0, m = 0;
+                    uint32_t v = 0;
+                    uint32_t m = 0;
                     if (k + 4 > r.to || !header(k + 4, 1, v) || v != frameVerts) {
                         runs = false;
                         break;
@@ -1132,7 +1148,8 @@ Error readMesh(const Package &package, int index, Mesh &out) {
 
     // Vertices, all frames'. Their size is told by the lazy array's end:
     // 4 bytes (11, 11 and 10 bits) as usual, or 8 (16 bits each).
-    size_t end = 0, n = 0;
+    size_t end = 0;
+    size_t n = 0;
     if (!lazyCount(r, ver, 4, end, n))
         return fail("vertices run past the end");
     if (n && end > r.pos() && (end - r.pos()) % n == 0)
@@ -1230,8 +1247,10 @@ Error readMesh(const Package &package, int index, Mesh &out) {
             if (readTail(c, ver, out.lod, candidate) || c.remaining() != 0 || !plausible(candidate, out.lod))
                 continue;
             std::vector<Vec3f> verts;
-            int keys = 0, bones = 0;
-            bool animated = false, perFrame = false;
+            int keys = 0;
+            int bones = 0;
+            bool animated = false;
+            bool perFrame = false;
             const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
             // The standard vertices, and a few bytes before the standard
             // fields (Shared.u's glass and debris fragments have an i32 0).
@@ -1360,7 +1379,8 @@ std::vector<IkChain> findIkChains(const BoneReader &r, const std::vector<BoneRec
                            [&](const BoneRecord &b) { return fs::toLower(b.name) == fs::toLower(bone); });
     };
     for (size_t at = r.from; at + 12 < r.to; ++at) {
-        uint32_t n = 0, flags = 0;
+        uint32_t n = 0;
+        uint32_t flags = 0;
         if (!r.header(at, n, flags) || flags != 10 || n == 0 || n > 32)
             continue;
         std::vector<IkChain> chains;
@@ -1382,7 +1402,8 @@ std::vector<IkChain> findIkChains(const BoneReader &r, const std::vector<BoneRec
                 for (size_t i = 0; i < 12; ++i)
                     k.effector[i] = r.f32(p + 4 * i);
             p += 52;
-            uint32_t steps = 0, sf = 0;
+            uint32_t steps = 0;
+            uint32_t sf = 0;
             ok = r.header(p, steps, sf) && steps <= 64;
             p += 12;
             for (uint32_t i = 0; ok && i < steps; ++i) {
@@ -1593,7 +1614,8 @@ std::vector<std::string> describeMeshLayout(const Package &package, int index) {
     std::vector<uint8_t> data;
     if (package.readExport(index, data))
         return out;
-    const size_t base = size_t(package.exports()[size_t(index)].serialOffset), end = base + data.size();
+    const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
+    const size_t end = base + data.size();
     auto u32At = [&](size_t at) {
         const uint8_t *p = data.data() + (at - base);
         return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
@@ -1748,7 +1770,15 @@ void setRow(Mat43 &m, size_t row, const Vec3f &v) {
 
 // The matrix that undoes m (its turn may scale).
 Mat43 inverseOf(const Mat43 &m) {
-    const float a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h = m[7], i = m[8];
+    const float a = m[0];
+    const float b = m[1];
+    const float c = m[2];
+    const float d = m[3];
+    const float e = m[4];
+    const float f = m[5];
+    const float g = m[6];
+    const float h = m[7];
+    const float i = m[8];
     const float det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
     if (std::fabs(det) < 1e-12f)
         return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
@@ -1774,8 +1804,12 @@ Mat43 inverseOf(const Mat43 &m) {
 // A turn by `radians` about `axis` (a unit vector), as a row-vector matrix:
 // p * it is p turned (right-handed about the axis).
 Mat43 turnAbout(const Vec3f &axis, float radians) {
-    const float c = std::cos(radians), s = std::sin(radians), t = 1 - c;
-    const float x = axis[0], y = axis[1], z = axis[2];
+    const float c = std::cos(radians);
+    const float s = std::sin(radians);
+    const float t = 1 - c;
+    const float x = axis[0];
+    const float y = axis[1];
+    const float z = axis[2];
     // The column-vector matrix's transpose.
     return {t * x * x + c,
             t * x * y + s * z,
@@ -1793,9 +1827,11 @@ Mat43 turnAbout(const Vec3f &axis, float radians) {
 
 // The least turn that takes direction u to direction v.
 Mat43 turnFromTo(const Vec3f &u, const Vec3f &v) {
-    const Vec3f a = vunit(u), b = vunit(v);
+    const Vec3f a = vunit(u);
+    const Vec3f b = vunit(v);
     const Vec3f axis = vcross(a, b);
-    const float sine = vlen(axis), cosine = vdot(a, b);
+    const float sine = vlen(axis);
+    const float cosine = vdot(a, b);
     if (sine < 1e-6f) {
         if (cosine > 0)
             return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
@@ -2023,13 +2059,15 @@ std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package &package, int ind
     // each clip an i32 attachment point, (n, n, 64) and n i32 vertices,
     // (k, k, 5) and k keys: an f32 time, (m, m, 64) and m x 3 f32.
     if (keysEnd) {
-        uint32_t c = 0, f = 0;
+        uint32_t c = 0;
+        uint32_t f = 0;
         size_t at = keysEnd;
         bool ok = r.header(at, c, f) && c == clips.size();
         at += 12;
         for (uint32_t e = 0; ok && e < c; ++e) {
             Impl::FaceEntry entry;
-            uint32_t n = 0, k = 0;
+            uint32_t n = 0;
+            uint32_t k = 0;
             ok = at + 4 <= r.to;
             if (!ok)
                 break;
@@ -2232,7 +2270,8 @@ bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std
     std::vector<Mat43> base(bones.size());
     for (size_t i = 0; i < bones.size(); ++i)
         base[i] = local(under, i);
-    Adjust onBase, after;
+    Adjust onBase;
+    Adjust after;
     if (adjust) {
         after = *adjust;
         after.reaches.clear();
@@ -2501,8 +2540,10 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43> &local, const Adjust &adjus
                 wanted = vsub(wanted, vmul(axes[k], r.offset[k]));
             target = vadd(from, vmul(vsub(wanted, from), std::min(1.0f, r.placeWeight)));
         }
-        const Vec3f s = rowOf(world[size_t(upper)], 3), e = rowOf(world[size_t(middle)], 3);
-        const float a = vlen(vsub(e, s)), b = vlen(vsub(from, e));
+        const Vec3f s = rowOf(world[size_t(upper)], 3);
+        const Vec3f e = rowOf(world[size_t(middle)], 3);
+        const float a = vlen(vsub(e, s));
+        const float b = vlen(vsub(from, e));
         if (r.placeWeight > 0 && a > 1e-4f && b > 1e-4f) {
             Vec3f toTarget = vsub(target, s);
             const float d = std::clamp(vlen(toTarget), std::fabs(a - b) + 1e-3f, a + b - 1e-3f);
@@ -2560,7 +2601,8 @@ namespace {
 // Turns about one axis as Engine.dll's C3D code makes them (row vectors):
 // k 0 about Y, 1 about X, 2 about Z.
 Mat43 axisTurn(int k, float a) {
-    const float c = std::cos(a), s = std::sin(a);
+    const float c = std::cos(a);
+    const float s = std::sin(a);
     if (k == 0)
         return {c, 0, -s, 0, 1, 0, s, 0, c, 0, 0, 0};
     if (k == 1)
@@ -2611,7 +2653,8 @@ std::array<float, 4> quatOf(const Mat43 &m) {
 // turn outright (its effector's turn undone), blended the same way.
 void LayeredPoser::Impl::solveChains(std::vector<Mat43> &local, const Adjust::Reach &r, const IkChain &place,
                                      const IkChain *turn) const {
-    const int root = indexOf(place.root), end = indexOf(place.end);
+    const int root = indexOf(place.root);
+    const int end = indexOf(place.end);
     if (root < 0 || end < 0)
         return;
     std::vector<size_t> chainBones;
@@ -2666,7 +2709,8 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43> &local, const Adjust::Re
                 const Vec3f u = pointIn(ownInv, effWorld);
                 const Vec3f t = pointIn(inverseOf(frame), target);
                 // E = Rz Rx Ry: the turns before the step's axis and after it.
-                Mat43 pre{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}, post = pre;
+                Mat43 pre{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+                Mat43 post = pre;
                 if (k == 0)
                     pre = then(axisTurn(2, e[2]), axisTurn(1, e[1]));
                 else if (k == 1) {
@@ -2677,8 +2721,10 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43> &local, const Adjust::Re
                 const Vec3f x = pointIn(pre, u);
                 const Vec3f y = pointIn(inverseOf(post), t);
                 // In the plane square to the axis: the angle from x to y.
-                const size_t i0 = k == 0 ? 2 : k == 1 ? 1 : 0, i1 = k == 0 ? 0 : k == 1 ? 2 : 1;
-                const float ax = std::atan2(x[i1], x[i0]), ay = std::atan2(y[i1], y[i0]);
+                const size_t i0 = k == 0 ? 2 : k == 1 ? 1 : 0;
+                const size_t i1 = k == 0 ? 0 : k == 1 ? 2 : 1;
+                const float ax = std::atan2(x[i1], x[i0]);
+                const float ay = std::atan2(y[i1], y[i0]);
                 float angle = ay - ax;
                 // The sign as axisTurn turns: try both, keep the closer.
                 auto miss = [&](float a) {
@@ -2688,7 +2734,8 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43> &local, const Adjust::Re
                 if (miss(-angle) < miss(angle))
                     angle = -angle;
                 const std::array<float, 6> &lim = place.limits[s];
-                float lo = lim[size_t(2 * k)], hi = lim[size_t(2 * k + 1)];
+                float lo = lim[size_t(2 * k)];
+                float hi = lim[size_t(2 * k + 1)];
                 if (k == 1) {
                     lo = std::max(lo, -1.5708f);
                     hi = std::min(hi, 1.5708f);
@@ -2798,7 +2845,8 @@ bool LayeredPoser::Impl::faceFrame(const FaceEntry &e, const std::vector<Vec3f> 
             return false;
         c[k] = bone[size_t(t.vertex[k])];
     }
-    const Vec3f e1 = vsub(c[1], c[0]), e2 = vsub(c[2], c[0]);
+    const Vec3f e1 = vsub(c[1], c[0]);
+    const Vec3f e2 = vsub(c[2], c[0]);
     auto unit = [](Vec3f v) {
         const float l = std::sqrt(vdot(v, v));
         return l > 0 ? vmul(v, 1 / l) : v;
@@ -2806,7 +2854,9 @@ bool LayeredPoser::Impl::faceFrame(const FaceEntry &e, const std::vector<Vec3f> 
     auto cross = [](const Vec3f &a, const Vec3f &b) {
         return Vec3f{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
     };
-    const Vec3f x = unit(e2), y = unit(cross(e1, e2)), z = cross(x, y);
+    const Vec3f x = unit(e2);
+    const Vec3f y = unit(cross(e1, e2));
+    const Vec3f z = cross(x, y);
     Mat43 tri{};
     setRow(tri, 0, x);
     setRow(tri, 1, y);
@@ -2914,8 +2964,10 @@ void LayeredPoser::Impl::addFaces(const std::vector<Face> &faces, const std::vec
             }
             return p;
         };
-        const At to = at(f.seconds), from = at(f.fromSeconds);
-        const float wTo = f.weight * f.mix, wFrom = f.fromWeight * (1 - f.mix);
+        const At to = at(f.seconds);
+        const At from = at(f.fromSeconds);
+        const float wTo = f.weight * f.mix;
+        const float wFrom = f.fromWeight * (1 - f.mix);
         if (wTo == 0 && wFrom == 0)
             continue;
         for (size_t v = 0; v < frame && v < neutral.size(); ++v) {

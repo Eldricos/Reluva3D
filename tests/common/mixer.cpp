@@ -123,7 +123,8 @@ void testFilters() {
     m.stopAll();
     // Muffled: a tone at the top of the band (alternating samples) all but
     // goes; a steady level passes once the filter settles.
-    std::vector<int16_t> high(2000), steady(2000, 1000);
+    std::vector<int16_t> high(2000);
+    std::vector<int16_t> steady(2000, 1000);
     for (size_t k = 0; k < high.size(); ++k)
         high[k] = k % 2 ? -1000 : 1000;
     std::vector<int16_t> big(4000);
