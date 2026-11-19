@@ -26,18 +26,22 @@ constexpr size_t kCentralSize = 46;
 constexpr size_t kEndSize = 22;
 constexpr size_t kMaxComment = 0xffff;
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
+    return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+}
 
-bool readAt(std::ifstream& in, uint64_t offset, uint8_t* out, size_t size) {
+bool readAt(std::ifstream &in, uint64_t offset, uint8_t *out, size_t size) {
     in.clear();
     in.seekg(static_cast<std::streamoff>(offset));
-    return static_cast<bool>(in.read(reinterpret_cast<char*>(out), static_cast<std::streamsize>(size)));
+    return static_cast<bool>(in.read(reinterpret_cast<char *>(out), static_cast<std::streamsize>(size)));
 }
 
 } // namespace
 
-uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc) {
+uint32_t crc32(const uint8_t *data, size_t size, uint32_t crc) {
     static const std::array<uint32_t, 256> kTable = [] {
         std::array<uint32_t, 256> t{};
         for (uint32_t i = 0; i < 256; ++i) {
@@ -54,21 +58,21 @@ uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc) {
     return ~crc;
 }
 
-Error inflateRaw(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out) {
+Error inflateRaw(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out) {
     constexpr size_t kMax = static_cast<size_t>(std::numeric_limits<int>::max());
     if (dataSize > kMax || size > kMax)
         return Error::fail("Compressed data too large");
     out.resize(size);
     if (size == 0)
         return Error::success();
-    const int got = stbi_zlib_decode_noheader_buffer(reinterpret_cast<char*>(out.data()), static_cast<int>(size),
-                                                     reinterpret_cast<const char*>(data), static_cast<int>(dataSize));
+    const int got = stbi_zlib_decode_noheader_buffer(reinterpret_cast<char *>(out.data()), static_cast<int>(size),
+                                                     reinterpret_cast<const char *>(data), static_cast<int>(dataSize));
     if (got < 0 || static_cast<size_t>(got) != size)
         return Error::fail("Damaged deflate data");
     return Error::success();
 }
 
-Error ZipArchive::open(const std::filesystem::path& path) {
+Error ZipArchive::open(const std::filesystem::path &path) {
     _path = path;
     _entries.clear();
     _byName.clear();
@@ -87,7 +91,7 @@ Error ZipArchive::open(const std::filesystem::path& path) {
     std::vector<uint8_t> buf(tail);
     if (!readAt(in, fileSize - tail, buf.data(), tail))
         return Error::fail("Cannot read " + where);
-    const uint8_t* end = nullptr;
+    const uint8_t *end = nullptr;
     for (size_t i = tail - kEndSize + 1; i-- > 0;) {
         if (le32(&buf[i]) == kEndSig && i + kEndSize + le16(&buf[i + 20]) <= tail) {
             end = &buf[i];
@@ -113,13 +117,13 @@ Error ZipArchive::open(const std::filesystem::path& path) {
     for (uint16_t n = 0; n < count; ++n) {
         if (at + kCentralSize > dir.size() || le32(&dir[at]) != kCentralSig)
             return Error::fail(where + ": damaged central directory");
-        const uint8_t* h = &dir[at];
+        const uint8_t *h = &dir[at];
         const uint16_t flags = le16(h + 8);
         const size_t nameLen = le16(h + 28), extraLen = le16(h + 30), commentLen = le16(h + 32);
         if (at + kCentralSize + nameLen + extraLen + commentLen > dir.size())
             return Error::fail(where + ": damaged central directory");
         Entry e;
-        e.name.assign(reinterpret_cast<const char*>(h + kCentralSize), nameLen);
+        e.name.assign(reinterpret_cast<const char *>(h + kCentralSize), nameLen);
         e.method = le16(h + 10);
         e.crc = le32(h + 16);
         e.compressedSize = le32(h + 20);
@@ -143,26 +147,28 @@ Error ZipArchive::open(const std::filesystem::path& path) {
 std::vector<std::string> ZipArchive::list() const {
     std::vector<std::string> names;
     names.reserve(_entries.size());
-    for (const Entry& e : _entries)
+    for (const Entry &e : _entries)
         names.push_back(e.name);
     return names;
 }
 
-const ZipArchive::Entry* ZipArchive::entry(std::string_view name) const {
+const ZipArchive::Entry *ZipArchive::entry(std::string_view name) const {
     auto it = _byName.find(normalizeArchiveName(name));
     return it == _byName.end() ? nullptr : &_entries[it->second];
 }
 
-bool ZipArchive::has(std::string_view name) const { return entry(name) != nullptr; }
+bool ZipArchive::has(std::string_view name) const {
+    return entry(name) != nullptr;
+}
 
-Error ZipArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
-    const Entry* e = entry(name);
+Error ZipArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
+    const Entry *e = entry(name);
     if (!e)
         return Error::fail(std::string(name) + " not found in " + _path.string());
     return read(*e, out);
 }
 
-Error ZipArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
+Error ZipArchive::read(const Entry &e, std::vector<uint8_t> &out) const {
     const std::string where = _path.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
     std::ifstream in(_path, std::ios::binary);

@@ -176,7 +176,7 @@ namespace {
 
 using Bytes = std::vector<uint8_t>;
 
-bool readFile(const char* path, Bytes& out) {
+bool readFile(const char *path, Bytes &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in) {
         std::fprintf(stderr, "cannot open %s\n", path);
@@ -186,14 +186,16 @@ bool readFile(const char* path, Bytes& out) {
     return true;
 }
 
-uint16_t rd16(const Bytes& d, size_t o) { return o + 2 <= d.size() ? uint16_t(d[o] | d[o + 1] << 8) : 0; }
-uint32_t rd32(const Bytes& d, size_t o) {
-    return o + 4 <= d.size() ? uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 |
-                                   uint32_t(d[o + 3]) << 24
-                             : 0;
+uint16_t rd16(const Bytes &d, size_t o) {
+    return o + 2 <= d.size() ? uint16_t(d[o] | d[o + 1] << 8) : 0;
+}
+uint32_t rd32(const Bytes &d, size_t o) {
+    return o + 4 <= d.size()
+               ? uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 | uint32_t(d[o + 3]) << 24
+               : 0;
 }
 
-void hexdump(const Bytes& d, size_t off, size_t len) {
+void hexdump(const Bytes &d, size_t off, size_t len) {
     size_t end = std::min(d.size(), off + len);
     for (size_t row = off; row < end; row += 16) {
         std::printf("%08zx: ", row);
@@ -224,15 +226,17 @@ std::string formatTime(uint32_t t) {
     int64_t day = doy - (153 * mp + 2) / 5 + 1, month = mp < 10 ? mp + 3 : mp - 9;
     int64_t year = yoe + era * 400 + (month <= 2);
     char buf[32];
-    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(year), int(month), int(day),
-                  int(secs / 3600), int(secs / 60 % 60));
+    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(year), int(month), int(day), int(secs / 3600),
+                  int(secs / 60 % 60));
     return buf;
 }
 #endif // RELUVA_ENGINE_NEWWORLDS
 
-long long parseNumber(const char* s) { return std::strtoll(s, nullptr, 0); }
+long long parseNumber(const char *s) {
+    return std::strtoll(s, nullptr, 0);
+}
 
-int cmdHexdump(int argc, char** argv) {
+int cmdHexdump(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool hexdump <file> [offset] [length]\n");
         return 2;
@@ -262,7 +266,7 @@ constexpr size_t kFileEntrySize = 334;
 constexpr size_t kFolderEntrySize = 264;
 constexpr uint16_t kFolderTag = 0x29;
 
-std::string readName(const Bytes& d, size_t p) {
+std::string readName(const Bytes &d, size_t p) {
     std::string n;
     for (size_t k = p; k < p + kPathLen && k < d.size() && d[k]; ++k) {
         if (d[k] < 32 || d[k] >= 127)
@@ -272,7 +276,7 @@ std::string readName(const Bytes& d, size_t p) {
     return n;
 }
 
-std::string extensionOf(const std::string& name) {
+std::string extensionOf(const std::string &name) {
     size_t dot = name.rfind('.');
     return dot == std::string::npos || name.find('\\', dot) != std::string::npos ? "" : name.substr(dot);
 }
@@ -286,19 +290,20 @@ struct TagRule {
 };
 
 struct Walker {
-    const Bytes& d;
+    const Bytes &d;
     uint32_t tocSize;
     uint8_t archiveByte;
     std::vector<TagRule> rules;
 
     TagRule rule(uint16_t tag) const {
-        for (const TagRule& r : rules)
+        for (const TagRule &r : rules)
             if (r.tag == tag)
                 return r;
-        return tag == kFolderTag ? TagRule{tag, kFolderEntrySize, true, false} : TagRule{tag, kFileEntrySize, false, false};
+        return tag == kFolderTag ? TagRule{tag, kFolderEntrySize, true, false}
+                                 : TagRule{tag, kFileEntrySize, false, false};
     }
-    void learn(const TagRule& r) {
-        for (TagRule& x : rules)
+    void learn(const TagRule &r) {
+        for (TagRule &x : rules)
             if (x.tag == r.tag) {
                 x = r;
                 return;
@@ -312,7 +317,7 @@ struct Walker {
     }
 };
 
-int cmdCatProbe(int argc, char** argv) {
+int cmdCatProbe(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool cat-probe <file.cat> [-q]\n");
         return 2;
@@ -341,8 +346,8 @@ int cmdCatProbe(int argc, char** argv) {
         std::vector<std::string> extensions;
     };
     std::vector<TagStat> stats;
-    auto statFor = [&](uint16_t tag) -> TagStat& {
-        for (TagStat& s : stats)
+    auto statFor = [&](uint16_t tag) -> TagStat & {
+        for (TagStat &s : stats)
             if (s.tag == tag)
                 return s;
         stats.push_back(TagStat{tag, 0, 0, {}});
@@ -410,7 +415,7 @@ int cmdCatProbe(int argc, char** argv) {
         while (!folderEnds.empty() && chunk >= folderEnds.back())
             folderEnds.pop_back();
         const std::string indent(folderEnds.size() * 2, ' ');
-        TagStat& st = statFor(tag);
+        TagStat &st = statFor(tag);
         ++st.count;
 
         if (r.container) {
@@ -427,7 +432,7 @@ int cmdCatProbe(int argc, char** argv) {
             st.sizeMismatches += !sizeOk;
             std::string ext = extensionOf(name);
             bool seen = false;
-            for (const std::string& e : st.extensions)
+            for (const std::string &e : st.extensions)
                 seen |= e == ext;
             if (!seen && !ext.empty())
                 st.extensions.push_back(ext);
@@ -454,7 +459,7 @@ int cmdCatProbe(int argc, char** argv) {
         std::printf("* = stored size differs from the size in the entry's copied metadata\n\n");
     }
     std::printf("tags:");
-    for (const TagStat& s : stats) {
+    for (const TagStat &s : stats) {
         const TagRule r = w.rule(s.tag);
         std::printf(" 0x%x x%u", s.tag, s.count);
         if (r.container)
@@ -468,17 +473,17 @@ int cmdCatProbe(int argc, char** argv) {
         std::printf(")");
     }
     std::printf("\n");
-    for (const TagRule& r : w.rules)
+    for (const TagRule &r : w.rules)
         if (r.learned)
-            std::printf("learned: tag 0x%x entry %zu bytes, %s\n", r.tag, r.entrySize, r.container ? "container" : "file");
+            std::printf("learned: tag 0x%x entry %zu bytes, %s\n", r.tag, r.entrySize,
+                        r.container ? "container" : "file");
     const bool ok = tableOk && trailing >= 0;
     std::printf("RESULT: %s (%u entries, table %s, %lld trailing bytes)\n", ok ? "OK" : "FAIL", entries,
                 tableOk ? "exact" : "MISMATCH", trailing);
     return ok ? 0 : 1;
 }
 
-
-int cmdCatList(int argc, char** argv) {
+int cmdCatList(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool cat-list <file.cat>\n");
         return 2;
@@ -488,8 +493,8 @@ int cmdCatList(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const auto& entries = cat.entries();
-    for (const auto& e : entries) {
+    const auto &entries = cat.entries();
+    for (const auto &e : entries) {
         int depth = 0;
         for (int p = e.parent; p >= 0; p = entries[size_t(p)].parent)
             ++depth;
@@ -499,7 +504,7 @@ int cmdCatList(int argc, char** argv) {
     return 0;
 }
 
-int cmdCatExtract(int argc, char** argv) {
+int cmdCatExtract(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool cat-extract <file.cat> <output dir> [name filter]\n");
         return 2;
@@ -513,13 +518,13 @@ int cmdCatExtract(int argc, char** argv) {
     const std::string filter = argc > 4 ? argv[4] : "";
     std::vector<uint8_t> data;
     unsigned written = 0;
-    for (const auto& e : cat.entries()) {
+    for (const auto &e : cat.entries()) {
         if (e.container || e.name.empty() || e.name.find(filter) == std::string::npos)
             continue;
         // Names come from the archive: refuse anything that could escape outDir.
         const std::filesystem::path rel(e.name);
         bool safe = !rel.is_absolute() && !rel.has_root_name();
-        for (const auto& part : rel)
+        for (const auto &part : rel)
             safe &= part != "..";
         if (!safe) {
             std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
@@ -533,7 +538,7 @@ int cmdCatExtract(int argc, char** argv) {
         std::error_code ec;
         std::filesystem::create_directories(out.parent_path(), ec);
         std::ofstream f(out, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        f.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
         if (!f) {
             std::fprintf(stderr, "cannot write %s\n", out.string().c_str());
             return 1;
@@ -544,8 +549,7 @@ int cmdCatExtract(int argc, char** argv) {
     return 0;
 }
 
-
-int cmdStbDump(int argc, char** argv) {
+int cmdStbDump(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool stb-dump <file.stb | file.cat>\n");
         return 2;
@@ -561,7 +565,7 @@ int cmdStbDump(int argc, char** argv) {
         }
         unsigned count = 0, good = 0;
         Bytes d;
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             const bool stb = e.name.size() > 4 && e.name.compare(e.name.size() - 4, 4, ".stb") == 0;
             if (e.container || (e.tag != nw::cattag::Strings && !stb))
                 continue;
@@ -576,7 +580,7 @@ int cmdStbDump(int argc, char** argv) {
             }
             ++good;
             uint32_t maxId = 0;
-            for (const auto& s : table.strings())
+            for (const auto &s : table.strings())
                 maxId = std::max(maxId, s.id);
             const std::string first = table.strings().empty() ? "" : table.strings()[0].text.substr(0, 40);
             std::printf("%-28s %3zu strings, ids up to %3u  %s\n", e.name.c_str(), table.strings().size(), maxId,
@@ -590,7 +594,7 @@ int cmdStbDump(int argc, char** argv) {
         return 1;
     nw::StringTable table;
     reluva::Error err = table.parse(d);
-    for (const auto& s : table.strings())
+    for (const auto &s : table.strings())
         std::printf("%6u  %s\n", s.id, s.text.c_str());
     if (err) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
@@ -601,19 +605,36 @@ int cmdStbDump(int argc, char** argv) {
 }
 
 // 8-bit paletted BMP, rows top-down. swapRB picks which palette byte is red.
-bool writeBmp(const std::string& path, int w, int h, const uint8_t* palette, int paletteCount, const uint8_t* pixels,
+bool writeBmp(const std::string &path, int w, int h, const uint8_t *palette, int paletteCount, const uint8_t *pixels,
               bool swapRB) {
     const int stride = (w + 3) & ~3;
     const uint32_t paletteBytes = 256 * 4, dataOffset = 14 + 40 + paletteBytes;
     const uint32_t fileSize = dataOffset + uint32_t(stride * h);
     Bytes out;
-    auto p16 = [&](uint32_t v) { out.push_back(uint8_t(v)); out.push_back(uint8_t(v >> 8)); };
-    auto p32 = [&](uint32_t v) { for (int i = 0; i < 4; ++i) out.push_back(uint8_t(v >> (8 * i))); };
+    auto p16 = [&](uint32_t v) {
+        out.push_back(uint8_t(v));
+        out.push_back(uint8_t(v >> 8));
+    };
+    auto p32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(v >> (8 * i)));
+    };
     out.push_back('B');
     out.push_back('M');
-    p32(fileSize); p32(0); p32(dataOffset);
-    p32(40); p32(uint32_t(w)); p32(uint32_t(-h)); p16(1); p16(8); p32(0); p32(uint32_t(stride * h));
-    p32(2835); p32(2835); p32(256); p32(0);
+    p32(fileSize);
+    p32(0);
+    p32(dataOffset);
+    p32(40);
+    p32(uint32_t(w));
+    p32(uint32_t(-h));
+    p16(1);
+    p16(8);
+    p32(0);
+    p32(uint32_t(stride * h));
+    p32(2835);
+    p32(2835);
+    p32(256);
+    p32(0);
     for (int i = 0; i < 256; ++i) {
         uint8_t c0 = 0, c1 = 0, c2 = 0;
         if (i < paletteCount) {
@@ -633,11 +654,11 @@ bool writeBmp(const std::string& path, int w, int h, const uint8_t* palette, int
         out.resize(out.size() + size_t(stride - w), 0);
     }
     std::ofstream f(path, std::ios::binary);
-    f.write(reinterpret_cast<const char*>(out.data()), std::streamsize(out.size()));
+    f.write(reinterpret_cast<const char *>(out.data()), std::streamsize(out.size()));
     return bool(f);
 }
 
-int cmdLbpInfo(int argc, char** argv) {
+int cmdLbpInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool lbp-info <file> [output prefix]\n");
         return 2;
@@ -657,7 +678,7 @@ int cmdLbpInfo(int argc, char** argv) {
     const size_t indices = header + (tex.colourKeyed ? 16 : 12);
     auto colour = [&](unsigned i) { // palette entries are blue, green, red, 0
         char buf[32];
-        const uint8_t* e = &d[8 + size_t(i) * 4];
+        const uint8_t *e = &d[8 + size_t(i) * 4];
         std::snprintf(buf, sizeof buf, "#%02x%02x%02x", e[2], e[1], e[0]);
         return std::string(buf);
     };
@@ -679,12 +700,13 @@ int cmdLbpInfo(int argc, char** argv) {
     std::sort(order.begin(), order.end(), [&](unsigned x, unsigned y) { return hist[x] > hist[y]; });
     std::printf("most used indices:\n");
     for (size_t k = 0; k < order.size() && k < 6; ++k)
-        std::printf("  index %3u %s  %6u pixels%s\n", order[k], order[k] < paletteCount ? colour(order[k]).c_str() : "?",
-                    hist[order[k]], tex.colourKeyed && order[k] == tex.keyIndex ? "  <- key" : "");
+        std::printf("  index %3u %s  %6u pixels%s\n", order[k],
+                    order[k] < paletteCount ? colour(order[k]).c_str() : "?", hist[order[k]],
+                    tex.colourKeyed && order[k] == tex.keyIndex ? "  <- key" : "");
 
     std::printf("palette entries that look like key colours (magenta or bright green):\n ");
     for (unsigned i = 0; i < paletteCount; ++i) {
-        const uint8_t* e = &d[8 + size_t(i) * 4];
+        const uint8_t *e = &d[8 + size_t(i) * 4];
         const uint8_t r = e[2], g = e[1], b = e[0];
         if ((r > 200 && b > 200 && g < 60) || (g > 150 && r < 40 && b < 40))
             std::printf(" %u=%s(%u px)", i, colour(i).c_str(), hist[i]);
@@ -710,7 +732,7 @@ int cmdLbpInfo(int argc, char** argv) {
 
 // Decode every texture (tag 0x16) in the given archives and group them by
 // what their header holds, to find the layouts the decoder doesn't handle.
-int cmdTexSurvey(int argc, char** argv) {
+int cmdTexSurvey(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tex-survey <file.cat>...\n");
         return 2;
@@ -730,7 +752,7 @@ int cmdTexSurvey(int argc, char** argv) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             if (e.tag != reluva::newworlds::cattag::Texture)
                 continue;
             if (cat.read(e, data))
@@ -768,26 +790,27 @@ int cmdTexSurvey(int argc, char** argv) {
                     std::snprintf(ratio, sizeof ratio, "data = %.3f x w*h", double(rest) / (double(w) * h));
                 else
                     std::snprintf(ratio, sizeof ratio, "w/h not plausible");
-                std::snprintf(key, sizeof key, "%s format %u, palette %u, u32 after palette %u, %s", ok ? "OK  " : "FAIL",
-                              format, pal, f0, ratio);
+                std::snprintf(key, sizeof key, "%s format %u, palette %u, u32 after palette %u, %s",
+                              ok ? "OK  " : "FAIL", format, pal, f0, ratio);
             }
         grouped:
-            Group& g = groups[key];
+            Group &g = groups[key];
             ++g.count;
             ++g.extensions[extensionOf(e.name)];
             if (g.examples.size() < 3)
-                g.examples.push_back(std::string(argv[a]) + ": " + e.name + " (" + std::to_string(data.size()) + " bytes)");
+                g.examples.push_back(std::string(argv[a]) + ": " + e.name + " (" + std::to_string(data.size()) +
+                                     " bytes)");
             if (g.firstBytes.empty())
                 g.firstBytes.assign(data.begin(), data.begin() + std::min<size_t>(data.size(), 48));
         }
     }
     std::printf("%u textures, %u decode with the current rules\n\n", total, decoded);
-    for (const auto& [key, g] : groups) {
+    for (const auto &[key, g] : groups) {
         std::printf("%5u  %s\n       extensions:", g.count, key.c_str());
-        for (const auto& [ext, n] : g.extensions)
+        for (const auto &[ext, n] : g.extensions)
             std::printf(" %s x%u", ext.empty() ? "(none)" : ext.c_str(), n);
         std::printf("\n");
-        for (const std::string& ex : g.examples)
+        for (const std::string &ex : g.examples)
             std::printf("       e.g. %s\n", ex.c_str());
         if (key.rfind("FAIL", 0) == 0)
             hexdump(g.firstBytes, 0, g.firstBytes.size());
@@ -796,24 +819,24 @@ int cmdTexSurvey(int argc, char** argv) {
     return 0;
 }
 
-
 // For every colour-keyed texture, compare the key index with the corner
 // pixels, which in sprites and interface images are nearly always background.
-int cmdTexKeys(int argc, char** argv) {
+int cmdTexKeys(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tex-keys <file.cat>...\n");
         return 2;
     }
     unsigned total = 0, keyIsCorner = 0, cornerLooksKey = 0;
     std::vector<uint8_t> d;
-    std::printf("%-44s %3s %4s %-8s %6s  %-14s %s\n", "texture", "fmt", "key", "colour", "px", "corners", "corner colour");
+    std::printf("%-44s %3s %4s %-8s %6s  %-14s %s\n", "texture", "fmt", "key", "colour", "px", "corners",
+                "corner colour");
     for (int a = 2; a < argc; ++a) {
         reluva::newworlds::CatArchive cat;
         if (reluva::Error err = cat.open(argv[a])) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             if (e.tag != reluva::newworlds::cattag::Texture || cat.read(e, d))
                 continue;
             reluva::newworlds::Texture tex;
@@ -828,7 +851,7 @@ int cmdTexKeys(int argc, char** argv) {
                 char buf[16];
                 if (i >= pal)
                     return std::string("?");
-                const uint8_t* c = &d[8 + size_t(i) * 4];
+                const uint8_t *c = &d[8 + size_t(i) * 4];
                 std::snprintf(buf, sizeof buf, "#%02x%02x%02x", c[2], c[1], c[0]);
                 return std::string(buf);
             };
@@ -838,8 +861,9 @@ int cmdTexKeys(int argc, char** argv) {
             const bool allSame = corners[0] == corners[1] && corners[0] == corners[2] && corners[0] == corners[3];
             const bool match = allSame && corners[0] == tex.keyIndex;
             keyIsCorner += match;
-            const uint8_t* cc = corners[0] < pal ? &d[8 + size_t(corners[0]) * 4] : nullptr;
-            const bool looksKey = cc && ((cc[2] > 200 && cc[0] > 200 && cc[1] < 60) || (cc[1] > 150 && cc[2] < 40 && cc[0] < 40));
+            const uint8_t *cc = corners[0] < pal ? &d[8 + size_t(corners[0]) * 4] : nullptr;
+            const bool looksKey =
+                cc && ((cc[2] > 200 && cc[0] > 200 && cc[1] < 60) || (cc[1] > 150 && cc[2] < 40 && cc[0] < 40));
             cornerLooksKey += looksKey;
             char cornerText[24];
             std::snprintf(cornerText, sizeof cornerText, "%u %u %u %u", corners[0], corners[1], corners[2], corners[3]);
@@ -849,17 +873,17 @@ int cmdTexKeys(int argc, char** argv) {
                         match ? "  key = corners" : "", looksKey ? "  (key-like colour)" : "");
         }
     }
-    std::printf("\n%u colour-keyed textures: key index = all four corners in %u; corner colour is magenta/green in %u\n",
-                total, keyIsCorner, cornerLooksKey);
+    std::printf(
+        "\n%u colour-keyed textures: key index = all four corners in %u; corner colour is magenta/green in %u\n", total,
+        keyIsCorner, cornerLooksKey);
     return 0;
 }
-
 
 #endif // RELUVA_ENGINE_NEWWORLDS
 
 // A payload counts as a container if it splits exactly into chunks whose
 // tags look plausible. Small tag limit keeps random data from qualifying.
-bool tilesIntoChunks(const Bytes& d, size_t begin, size_t end) {
+bool tilesIntoChunks(const Bytes &d, size_t begin, size_t end) {
     if (end - begin < 6)
         return false;
     size_t p = begin;
@@ -875,15 +899,15 @@ bool tilesIntoChunks(const Bytes& d, size_t begin, size_t end) {
     return p == end;
 }
 
-std::string describeWords(const Bytes& d, size_t p, size_t end, int count) {
+std::string describeWords(const Bytes &d, size_t p, size_t end, int count) {
     std::string out;
     char buf[64];
     for (int i = 0; i < count && p + 4 <= end; ++i, p += 4) {
         const uint32_t v = rd32(d, p);
         float f;
         std::memcpy(&f, &v, 4);
-        const bool plausibleFloat = (v & 0x7f800000) != 0 && (v & 0x7f800000) != 0x7f800000 && f > -1e6f &&
-                                    f < 1e6f && (f > 1e-4f || f < -1e-4f);
+        const bool plausibleFloat = (v & 0x7f800000) != 0 && (v & 0x7f800000) != 0x7f800000 && f > -1e6f && f < 1e6f &&
+                                    (f > 1e-4f || f < -1e-4f);
         if (plausibleFloat)
             std::snprintf(buf, sizeof buf, " %gf", double(f));
         else
@@ -893,7 +917,7 @@ std::string describeWords(const Bytes& d, size_t p, size_t end, int count) {
     return out;
 }
 
-void printChunks(const Bytes& d, size_t begin, size_t end, int depth) {
+void printChunks(const Bytes &d, size_t begin, size_t end, int depth) {
     size_t p = begin;
     while (p < end) {
         const uint16_t tag = rd16(d, p);
@@ -910,7 +934,7 @@ void printChunks(const Bytes& d, size_t begin, size_t end, int depth) {
     }
 }
 
-int cmdChunks(int argc, char** argv) {
+int cmdChunks(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool chunks <file>\n");
         return 2;
@@ -935,7 +959,7 @@ int cmdChunks(int argc, char** argv) {
     return 0;
 }
 
-int cmdWords(int argc, char** argv) {
+int cmdWords(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool words <file> [offset] [count]\n");
         return 2;
@@ -955,8 +979,7 @@ int cmdWords(int argc, char** argv) {
     return 0;
 }
 
-
-int cmdTable(int argc, char** argv) {
+int cmdTable(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool table <file> [values per row] [offset]\n");
         return 2;
@@ -986,25 +1009,24 @@ int cmdTable(int argc, char** argv) {
     return 0;
 }
 
-
 #ifdef RELUVA_ENGINE_NEWWORLDS
-bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
+bool writeObj(const reluva::newworlds::GeoModel &m, const std::string &path) {
     std::ofstream f(path);
     f << "# exported by reluva-tool geo-info\n";
     // OBJ numbers vertices across the whole file, so offset each part's.
     std::vector<size_t> base;
     size_t next = 1;
-    for (const auto& part : m.parts) {
+    for (const auto &part : m.parts) {
         base.push_back(next);
         next += part.vertices.size();
-        for (const auto& v : part.vertices)
+        for (const auto &v : part.vertices)
             f << "v " << v.x << ' ' << v.y << ' ' << v.z << '\n';
     }
     size_t vt = 1;
     for (size_t pi = 0; pi < m.parts.size(); ++pi) {
         f << "g part" << pi << '\n';
         uint32_t slot = ~0u;
-        for (const auto& face : m.faces) {
+        for (const auto &face : m.faces) {
             if (face.part != pi)
                 continue;
             // The face's texture number, as a material name.
@@ -1012,10 +1034,10 @@ bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
                 slot = face.corners.back().extra[4];
                 f << "usemtl slot" << slot << '\n';
             }
-            for (const auto& c : face.corners)
+            for (const auto &c : face.corners)
                 f << "vt " << c.u << ' ' << 1.0f - c.v << '\n';
             f << 'f';
-            for (const auto& c : face.corners)
+            for (const auto &c : face.corners)
                 f << ' ' << base[pi] + c.vertex << '/' << vt++;
             f << '\n';
         }
@@ -1023,7 +1045,7 @@ bool writeObj(const reluva::newworlds::GeoModel& m, const std::string& path) {
     return bool(f);
 }
 
-int cmdGeoInfo(int argc, char** argv) {
+int cmdGeoInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool geo-info <file.geo> [out.obj]\n");
         return 2;
@@ -1037,13 +1059,13 @@ int cmdGeoInfo(int argc, char** argv) {
         return 1;
     }
     size_t corners = 0;
-    for (const auto& face : m.faces)
+    for (const auto &face : m.faces)
         corners += face.corners.size();
     std::printf("%zu faces (%zu corners), %zu part(s)\n", m.faces.size(), corners, m.parts.size());
     for (size_t pi = 0; pi < m.parts.size(); ++pi) {
-        const auto& part = m.parts[pi];
+        const auto &part = m.parts[pi];
         float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
-        for (const auto& v : part.vertices) {
+        for (const auto &v : part.vertices) {
             const float c[3] = {v.x, v.y, v.z};
             for (int i = 0; i < 3; ++i) {
                 lo[i] = std::min(lo[i], c[i]);
@@ -1051,20 +1073,20 @@ int cmdGeoInfo(int argc, char** argv) {
             }
         }
         size_t faces = 0;
-        for (const auto& face : m.faces)
+        for (const auto &face : m.faces)
             faces += face.part == pi;
         std::string lists;
-        for (const auto& list : part.normalLists)
+        for (const auto &list : part.normalLists)
             lists += (lists.empty() ? "" : "+") + std::to_string(list.size());
         std::printf("  part %zu (%u): %zu faces, %zu vertices, %zu edges, normal lists of %s; x %g..%g, y %g..%g, "
                     "z %g..%g\n",
                     pi, part.node, faces, part.vertices.size(), part.edges.size(),
-                    lists.empty() ? "none" : lists.c_str(), double(lo[0]),
-                    double(hi[0]), double(lo[1]), double(hi[1]), double(lo[2]), double(hi[2]));
+                    lists.empty() ? "none" : lists.c_str(), double(lo[0]), double(hi[0]), double(lo[1]), double(hi[1]),
+                    double(lo[2]), double(hi[2]));
     }
     std::printf("centre %g, %g; radius %g\n", double(m.centreX), double(m.centreY), double(m.radius));
     for (size_t i = 0; i < m.attachments.size(); ++i) {
-        const auto& a = m.attachments[i];
+        const auto &a = m.attachments[i];
         std::printf("  attachment %zu at (%g, %g, %g); frame", i, double(a.position.x), double(a.position.y),
                     double(a.position.z));
         for (float f : a.frame)
@@ -1077,15 +1099,15 @@ int cmdGeoInfo(int argc, char** argv) {
     for (size_t i = 1; i < m.faces.size(); ++i)
         ++seconds[m.faces[i].groupB];
     std::printf("faces' second header value (value x count):");
-    for (const auto& [value, n] : seconds)
+    for (const auto &[value, n] : seconds)
         std::printf(" %u x%u", value, n);
     std::printf("\n");
     // The last value of each face's last corner: a texture number?
     std::map<uint32_t, unsigned> tails;
-    for (const auto& face : m.faces)
+    for (const auto &face : m.faces)
         ++tails[face.corners.back().extra[4]];
     std::printf("last value of each face's last corner (value x count):");
-    for (const auto& [value, n] : tails)
+    for (const auto &[value, n] : tails)
         std::printf(" %u x%u", value, n);
     std::printf("\n");
 
@@ -1094,22 +1116,22 @@ int cmdGeoInfo(int argc, char** argv) {
     // the corners (Newell's method), either way round.
     unsigned same = 0, opposite = 0, other = 0, outOfRange = 0;
     for (size_t i = 1; i < m.faces.size(); ++i) {
-        const auto& face = m.faces[i];
-        const auto& part = m.parts[face.part];
+        const auto &face = m.faces[i];
+        const auto &part = m.parts[face.part];
         if (part.normalLists.empty() || face.groupB >= part.normalLists[0].size()) {
             ++outOfRange;
             continue;
         }
         double n[3] = {0, 0, 0};
         for (size_t k = 0; k < face.corners.size(); ++k) {
-            const auto& a = part.vertices[face.corners[k].vertex];
-            const auto& b = part.vertices[face.corners[(k + 1) % face.corners.size()].vertex];
+            const auto &a = part.vertices[face.corners[k].vertex];
+            const auto &b = part.vertices[face.corners[(k + 1) % face.corners.size()].vertex];
             n[0] += double(a.y - b.y) * double(a.z + b.z);
             n[1] += double(a.z - b.z) * double(a.x + b.x);
             n[2] += double(a.x - b.x) * double(a.y + b.y);
         }
         const double len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-        const auto& s = part.normalLists[0][face.groupB];
+        const auto &s = part.normalLists[0][face.groupB];
         const double d = len > 0 ? (n[0] * s.x + n[1] * s.y + n[2] * s.z) / len : 0;
         if (d > 0.99)
             ++same;
@@ -1131,7 +1153,7 @@ int cmdGeoInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdGeoFaces(int argc, char** argv) {
+int cmdGeoFaces(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool geo-faces <file.geo>\n");
         return 2;
@@ -1168,17 +1190,17 @@ int cmdGeoFaces(int argc, char** argv) {
     return 0;
 }
 
-int cmdMdlInfo(int argc, char** argv) {
+int cmdMdlInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool mdl-info <file.mdl | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
-    auto list = [](const char* what, const std::vector<nw::MdlModel::Name>& names) {
+    auto list = [](const char *what, const std::vector<nw::MdlModel::Name> &names) {
         if (names.empty())
             return;
         std::printf("  %s:", what);
-        for (const auto& n : names)
+        for (const auto &n : names)
             std::printf(" %s=%d", n.name.c_str(), n.value);
         std::printf("\n");
     };
@@ -1192,7 +1214,7 @@ int cmdMdlInfo(int argc, char** argv) {
         std::map<std::string, unsigned> states;
         unsigned count = 0, failed = 0;
         std::vector<uint8_t> data;
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             if (e.tag != nw::cattag::Mdl)
                 continue;
             ++count;
@@ -1206,12 +1228,12 @@ int cmdMdlInfo(int argc, char** argv) {
                 continue;
             }
             std::string key;
-            for (const auto& s : m.states)
+            for (const auto &s : m.states)
                 key += (key.empty() ? "" : ", ") + (s.empty() ? std::string("(unnamed)") : s);
             ++states[key.empty() ? "(none listed)" : key];
         }
         std::printf("%u metamodels, %u decode\nstates:\n", count, count - failed);
-        for (const auto& [k, n] : states)
+        for (const auto &[k, n] : states)
             std::printf("  %4u  %s\n", n, k.c_str());
         return failed ? 1 : 0;
     }
@@ -1231,13 +1253,13 @@ int cmdMdlInfo(int argc, char** argv) {
     list("places", m.places);
     list("animated", m.animated);
     std::printf("  states:");
-    for (const auto& s : m.states)
+    for (const auto &s : m.states)
         std::printf(" \"%s\"", s.c_str());
     std::printf("\n");
     for (size_t i = 0; i < m.reference.size(); ++i) {
-        const auto& t = m.reference[i];
+        const auto &t = m.reference[i];
         std::string name = "#" + std::to_string(i);
-        for (const auto& a : m.animated)
+        for (const auto &a : m.animated)
             if (a.value == int32_t(i))
                 name = a.name;
         std::printf("  reference pose %zu %-16s at (%g, %g, %g)\n", i, name.c_str(), double(t.position.x),
@@ -1246,13 +1268,13 @@ int cmdMdlInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdWavInfo(int argc, char** argv) {
+int cmdWavInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool wav-info <file.wav | file.mp3 | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
-    auto describe = [](const std::string& name, const std::vector<uint8_t>& data, const std::string& note = "") {
+    auto describe = [](const std::string &name, const std::vector<uint8_t> &data, const std::string &note = "") {
         reluva::audio::Sound s;
         if (reluva::Error err = reluva::audio::decodeSound(data, s)) {
             std::printf("%-28s %s\n", name.c_str(), err.message.c_str());
@@ -1276,7 +1298,7 @@ int cmdWavInfo(int argc, char** argv) {
         std::map<std::string, unsigned> first; // bytes -> entry number
         std::vector<uint8_t> data;
         for (size_t i = 0; i < cat.entries().size(); ++i) {
-            const auto& e = cat.entries()[i];
+            const auto &e = cat.entries()[i];
             if (e.tag != nw::cattag::Wave)
                 continue;
             ++count;
@@ -1286,7 +1308,8 @@ int cmdWavInfo(int argc, char** argv) {
             }
             const auto [it, added] = first.emplace(std::string(data.begin(), data.end()), unsigned(i));
             const std::string note =
-                added ? "" : " copy of " + cat.entries()[it->second].name + " (entry " + std::to_string(it->second) + ")";
+                added ? ""
+                      : " copy of " + cat.entries()[it->second].name + " (entry " + std::to_string(it->second) + ")";
             good += describe(e.name, data, note);
         }
         std::printf("%u sounds (%zu different), %u decode\n", count, first.size(), good);
@@ -1303,7 +1326,7 @@ int cmdWavInfo(int argc, char** argv) {
 // Per texture number of each model: how many faces use it, their area, how
 // they face (share of area facing up, down or sideways) and the range of
 // their texture coordinates, to tell what kind of texture each must be.
-int cmdGeoSlots(int argc, char** argv) {
+int cmdGeoSlots(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool geo-slots <file.geo>...\n");
         return 2;
@@ -1316,16 +1339,20 @@ int cmdGeoSlots(int argc, char** argv) {
             std::printf("%s: doesn't read\n", argv[a]);
             continue;
         }
-        struct Slot { unsigned faces = 0; double area = 0, up = 0, down = 0, tilt = 0; float u0 = 1e9f, u1 = -1e9f, v0 = 1e9f, v1 = -1e9f; };
+        struct Slot {
+            unsigned faces = 0;
+            double area = 0, up = 0, down = 0, tilt = 0;
+            float u0 = 1e9f, u1 = -1e9f, v0 = 1e9f, v1 = -1e9f;
+        };
         std::map<uint32_t, Slot> slots;
-        for (const auto& f : geo.faces) {
-            Slot& sl = slots[f.corners.back().extra[4]];
+        for (const auto &f : geo.faces) {
+            Slot &sl = slots[f.corners.back().extra[4]];
             ++sl.faces;
-            const auto& vs = geo.parts[f.part].vertices;
+            const auto &vs = geo.parts[f.part].vertices;
             double nx = 0, ny = 0, nz = 0;
             for (size_t i = 0; i < f.corners.size(); ++i) {
-                const auto& p = vs[f.corners[i].vertex];
-                const auto& q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
+                const auto &p = vs[f.corners[i].vertex];
+                const auto &q = vs[f.corners[(i + 1) % f.corners.size()].vertex];
                 nx += (p.y - q.y) * (p.z + q.z);
                 ny += (p.z - q.z) * (p.x + q.x);
                 nz += (p.x - q.x) * (p.y + q.y);
@@ -1336,7 +1363,7 @@ int cmdGeoSlots(int argc, char** argv) {
             sl.area += area;
             if (area > 0) {
                 const double c = nz / (2 * area); // faces are clockwise from the front, so -c is up
-                sl.tilt += std::fabs(c) * area;  // |cos| of the angle from vertical axis, area-weighted
+                sl.tilt += std::fabs(c) * area;   // |cos| of the angle from vertical axis, area-weighted
                 if (-c > 0.7)
                     sl.up += area;
                 else if (c > 0.7)
@@ -1344,10 +1371,11 @@ int cmdGeoSlots(int argc, char** argv) {
             }
         }
         std::printf("%s:\n", argv[a]);
-        for (const auto& [n, sl] : slots)
-            std::printf("  %u: %3u faces, area %9.0f, up %3.0f%% down %3.0f%%, u %5.2f..%5.2f v %5.2f..%5.2f, tilt %.2f\n", n,
-                        sl.faces, sl.area, sl.area ? 100 * sl.up / sl.area : 0, sl.area ? 100 * sl.down / sl.area : 0,
-                        sl.u0, sl.u1, sl.v0, sl.v1, sl.area ? sl.tilt / sl.area : 0);
+        for (const auto &[n, sl] : slots)
+            std::printf(
+                "  %u: %3u faces, area %9.0f, up %3.0f%% down %3.0f%%, u %5.2f..%5.2f v %5.2f..%5.2f, tilt %.2f\n", n,
+                sl.faces, sl.area, sl.area ? 100 * sl.up / sl.area : 0, sl.area ? 100 * sl.down / sl.area : 0, sl.u0,
+                sl.u1, sl.v0, sl.v1, sl.area ? sl.tilt / sl.area : 0);
     }
     return 0;
 }
@@ -1356,7 +1384,7 @@ int cmdGeoSlots(int argc, char** argv) {
 // fit there: the share of the number's tile sides that meet their neighbours
 // (all 5 heights within 80), the neighbours taking their models from
 // tileModelOrder. The model the numbering gives should fit best.
-int cmdGmfFit(int argc, char** argv) {
+int cmdGmfFit(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool gmf-fit [-a] <planet.cat> [map]\n");
         return 2;
@@ -1364,7 +1392,7 @@ int cmdGmfFit(int argc, char** argv) {
     namespace nw = reluva::newworlds;
     bool archiveOrder = false, table = false, layersMode = false, heightMode = false, jointMode = false,
          summaryMode = false, rotationScan = false;
-    const char* orderFile = nullptr;
+    const char *orderFile = nullptr;
     while (argc >= 3 && argv[2][0] == '-' && argv[2][1] != 0 && argv[2][2] == 0) {
         if (argv[2][1] == 'o' && argc >= 4) {
             orderFile = argv[3];
@@ -1388,8 +1416,8 @@ int cmdGmfFit(int argc, char** argv) {
         return 1;
     }
     std::vector<std::string> geoNames;
-    std::vector<const nw::CatEntry*> geoEntries, maps;
-    for (const auto& e : cat.entries()) {
+    std::vector<const nw::CatEntry *> geoEntries, maps;
+    for (const auto &e : cat.entries()) {
         if (e.tag == nw::cattag::Geometry)
             geoNames.push_back(e.name), geoEntries.push_back(&e);
         if (e.tag == nw::cattag::Gmf && (argc < 4 || e.name.find(argv[3]) != std::string::npos))
@@ -1410,8 +1438,7 @@ int cmdGmfFit(int argc, char** argv) {
             if (n >= order.size())
                 order.resize(n + 1, nw::kNoModel);
             for (size_t g = 0; g < geoNames.size(); ++g)
-                if (geoNames[g].find("/lod/") == std::string::npos &&
-                    geoNames[g].size() > stem.size() + 5 &&
+                if (geoNames[g].find("/lod/") == std::string::npos && geoNames[g].size() > stem.size() + 5 &&
                     geoNames[g].compare(geoNames[g].size() - stem.size() - 4, stem.size() + 4, stem + ".geo") == 0 &&
                     geoNames[g][geoNames[g].size() - stem.size() - 5] == '/')
                     order[n] = g;
@@ -1437,7 +1464,7 @@ int cmdGmfFit(int argc, char** argv) {
             if (!candidate[g] || geoNames[g].find("/lod/") != std::string::npos)
                 continue;
             std::printf("%2zu %-24s", g, geoNames[g].c_str());
-            const auto& t = sides[g][0];
+            const auto &t = sides[g][0];
             for (int sd = 0; sd < 4; ++sd) {
                 std::printf(" ");
                 for (int k = 0; k < 5; ++k)
@@ -1458,12 +1485,12 @@ int cmdGmfFit(int argc, char** argv) {
             continue;
         auto heightAt = [&](float x, float y) {
             float best = -1e9f;
-            for (const auto& f : geo.faces) {
-                const auto& vs = geo.parts[f.part].vertices;
+            for (const auto &f : geo.faces) {
+                const auto &vs = geo.parts[f.part].vertices;
                 for (size_t i = 1; i + 1 < f.corners.size(); ++i) {
-                    const auto& a = vs[f.corners[0].vertex];
-                    const auto& b = vs[f.corners[i].vertex];
-                    const auto& c = vs[f.corners[i + 1].vertex];
+                    const auto &a = vs[f.corners[0].vertex];
+                    const auto &b = vs[f.corners[i].vertex];
+                    const auto &c = vs[f.corners[i + 1].vertex];
                     const float det = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
                     if (std::fabs(det) < 1e-3f)
                         continue;
@@ -1493,7 +1520,7 @@ int cmdGmfFit(int argc, char** argv) {
                     levels[g][size_t(r)][size_t(row * 8 + col)] = z < -1e8f ? -100 : int(std::lround(10 + z / 184));
                 }
     }
-    auto layerCount = [](const nw::GmfMap::Tile& t, int cell) {
+    auto layerCount = [](const nw::GmfMap::Tile &t, int cell) {
         int n = 0;
         for (int l = 0; l < nw::GmfMap::kLayers; ++l)
             n += t.layers[size_t(l * 64 + cell)] != 0;
@@ -1502,10 +1529,10 @@ int cmdGmfFit(int argc, char** argv) {
     auto shortName = [&](size_t g) {
         if (g == nw::kNoModel)
             return std::string("-");
-        const std::string& n = geoNames[g];
+        const std::string &n = geoNames[g];
         return n.substr(n.rfind('/') + 1);
     };
-    auto meets = [](const nw::TileSides& a, int sa, const nw::TileSides& b, int sb) {
+    auto meets = [](const nw::TileSides &a, int sa, const nw::TileSides &b, int sb) {
         for (int k = 0; k < 5; ++k)
             if (std::fabs(a.z[sa][k] - b.z[sb][k]) >= 80)
                 return false;
@@ -1517,11 +1544,14 @@ int cmdGmfFit(int argc, char** argv) {
         // terrain layers (within 10 points of the best: the layers only roughly
         // follow slopes), and among those, swaps
         // between numbers are kept while more tile edges meet.
-        struct Pair { uint32_t na, nb; int ra, rb, side; };
+        struct Pair {
+            uint32_t na, nb;
+            int ra, rb, side;
+        };
         std::vector<Pair> pairs;
         std::map<uint32_t, std::vector<std::pair<unsigned, unsigned>>> heightTally; // number -> per model (met, seen)
         std::map<uint32_t, unsigned> uses;
-        for (const nw::CatEntry* me : maps) {
+        for (const nw::CatEntry *me : maps) {
             nw::GmfMap map;
             if (cat.read(*me, d) || nw::parseGmf(d, map))
                 continue;
@@ -1531,20 +1561,21 @@ int cmdGmfFit(int argc, char** argv) {
                         const int a = nw::tileAt(map, tx, ty), b = nw::tileAt(map, tx + (sd == 0), ty + (sd == 1));
                         if (a < 0 || b < 0)
                             continue;
-                        const auto& ta = map.tiles[size_t(a)];
-                        const auto& tb = map.tiles[size_t(b)];
+                        const auto &ta = map.tiles[size_t(a)];
+                        const auto &tb = map.tiles[size_t(b)];
                         pairs.push_back({ta.model, tb.model, ta.rotation, tb.rotation, sd});
                     }
-            for (const auto& t : map.tiles) {
+            for (const auto &t : map.tiles) {
                 ++uses[t.model];
-                auto& tally = heightTally[t.model];
+                auto &tally = heightTally[t.model];
                 tally.resize(geoNames.size());
                 for (size_t g = 0; g < geoNames.size(); ++g) {
                     if (!candidate[g])
                         continue;
                     for (int cell = 0; cell < 64; ++cell) {
                         ++tally[g].second;
-                        tally[g].first += std::abs(levels[g][size_t(t.rotation)][size_t(cell)] - 10 * layerCount(t, cell)) < 10;
+                        tally[g].first +=
+                            std::abs(levels[g][size_t(t.rotation)][size_t(cell)] - 10 * layerCount(t, cell)) < 10;
                     }
                 }
             }
@@ -1552,28 +1583,28 @@ int cmdGmfFit(int argc, char** argv) {
         auto isMain = [&](size_t g) { return candidate[g] && geoNames[g].find("/lod/") == std::string::npos; };
         std::map<uint32_t, std::vector<bool>> allowed;
         std::map<uint32_t, std::vector<double>> heightScore;
-        for (auto& [n, tally] : heightTally) {
+        for (auto &[n, tally] : heightTally) {
             double best = 0;
-            auto& hs = heightScore[n];
+            auto &hs = heightScore[n];
             hs.assign(geoNames.size(), 0);
             for (size_t g = 0; g < geoNames.size(); ++g)
                 if (isMain(g) && tally[g].second)
                     hs[g] = double(tally[g].first) / tally[g].second, best = std::max(best, hs[g]);
-            auto& al = allowed[n];
+            auto &al = allowed[n];
             al.assign(geoNames.size(), false);
             for (size_t g = 0; g < geoNames.size(); ++g)
                 al[g] = isMain(g) && hs[g] >= best - 0.10;
         }
         std::map<uint32_t, size_t> assign;
-        for (const auto& [n, c] : uses)
+        for (const auto &[n, c] : uses)
             assign[n] = n < order.size() ? order[n] : nw::kNoModel;
         const std::map<uint32_t, size_t> start = assign;
-        auto pairMet = [&](const Pair& p) -> int {
+        auto pairMet = [&](const Pair &p) -> int {
             const size_t ga = assign[p.na], gb = assign[p.nb];
             if (ga == nw::kNoModel || gb == nw::kNoModel || !candidate[ga] || !candidate[gb])
                 return 0;
-            const auto& sa = sides[ga][size_t(p.ra)];
-            const auto& sb = sides[gb][size_t(p.rb)];
+            const auto &sa = sides[ga][size_t(p.ra)];
+            const auto &sb = sides[gb][size_t(p.rb)];
             if (!sa.present[p.side] || !sb.present[p.side + 2])
                 return 0;
             return meets(sa, p.side, sb, p.side + 2) ? 1 : 0;
@@ -1597,12 +1628,12 @@ int cmdGmfFit(int argc, char** argv) {
         auto fits = [&](uint32_t n, size_t g) { return g == nw::kNoModel ? false : allowed[n][g]; };
         // Numbers whose model doesn't fit their heights take any fitting model first.
         auto inUse = [&](size_t c) {
-            for (const auto& [m, gm] : assign)
+            for (const auto &[m, gm] : assign)
                 if (gm == c)
                     return true;
             return false;
         };
-        for (auto& [n, g] : assign)
+        for (auto &[n, g] : assign)
             if (!fits(n, g))
                 for (size_t c = 0; c < geoNames.size(); ++c)
                     if (allowed[n][c] && !inUse(c)) {
@@ -1611,13 +1642,13 @@ int cmdGmfFit(int argc, char** argv) {
                     }
         for (int pass = 0; pass < 20; ++pass) {
             bool improved = false;
-            for (auto& [n, g] : assign) {
+            for (auto &[n, g] : assign) {
                 for (size_t c = 0; c < geoNames.size(); ++c) {
                     if (c == g || !fits(n, c))
                         continue;
                     // The number using c now, if any, takes n's model (if it fits there).
                     uint32_t other = n;
-                    for (const auto& [m, gm] : assign)
+                    for (const auto &[m, gm] : assign)
                         if (gm == c && m != n)
                             other = m;
                     if (other != n && !fits(other, g))
@@ -1641,14 +1672,14 @@ int cmdGmfFit(int argc, char** argv) {
                 break;
         }
         int met = 0, seen = 0;
-        for (const auto& p : pairs) {
+        for (const auto &p : pairs) {
             met += pairMet(p);
             const size_t ga = assign[p.na], gb = assign[p.nb];
             seen += ga != nw::kNoModel && gb != nw::kNoModel && candidate[ga] && candidate[gb];
         }
         std::printf("%zu maps, %zu tile pairs, %.1f%% of edges meet\n", maps.size(), pairs.size(),
                     seen ? 100.0 * met / seen : 0.0);
-        for (const auto& [n, g] : assign) {
+        for (const auto &[n, g] : assign) {
             const size_t s0 = start.at(n);
             std::printf("  %3u x%-5u %-14s height %5.1f%%%s\n", n, uses[n], shortName(g).c_str(),
                         g == nw::kNoModel ? 0.0 : 100 * heightScore[n][g],
@@ -1660,7 +1691,7 @@ int cmdGmfFit(int argc, char** argv) {
         // -m: only the share of tile edges that meet with this numbering, and
         // of tile cells whose terrain layers match the model's height.
         unsigned met = 0, seen = 0, cellsOk = 0, cells = 0;
-        for (const nw::CatEntry* me : maps) {
+        for (const nw::CatEntry *me : maps) {
             nw::GmfMap map;
             if (cat.read(*me, d) || nw::parseGmf(d, map))
                 continue;
@@ -1671,17 +1702,17 @@ int cmdGmfFit(int argc, char** argv) {
                         const int a = nw::tileAt(map, tx, ty), b = nw::tileAt(map, tx + (sd == 0), ty + (sd == 1));
                         if (a < 0 || b < 0)
                             continue;
-                        const auto& ta = map.tiles[size_t(a)];
-                        const auto& tb = map.tiles[size_t(b)];
+                        const auto &ta = map.tiles[size_t(a)];
+                        const auto &tb = map.tiles[size_t(b)];
                         const size_t ga = modelOf(ta.model), gb = modelOf(tb.model);
                         ++seen;
                         if (ga == nw::kNoModel || gb == nw::kNoModel || !candidate[ga] || !candidate[gb])
                             continue;
-                        const auto& sa = sides[ga][size_t(ta.rotation)];
-                        const auto& sb = sides[gb][size_t(tb.rotation)];
+                        const auto &sa = sides[ga][size_t(ta.rotation)];
+                        const auto &sb = sides[gb][size_t(tb.rotation)];
                         met += sa.present[sd] && sb.present[sd + 2] && meets(sa, sd, sb, sd + 2);
                     }
-            for (const auto& t : map.tiles) {
+            for (const auto &t : map.tiles) {
                 const size_t g = modelOf(t.model);
                 for (int cell = 0; cell < 64; ++cell) {
                     ++cells;
@@ -1694,14 +1725,16 @@ int cmdGmfFit(int argc, char** argv) {
                     seen ? 100.0 * met / seen : 0.0, cells ? 100.0 * cellsOk / cells : 0.0);
         return 0;
     }
-    for (const nw::CatEntry* me : maps) {
+    for (const nw::CatEntry *me : maps) {
         nw::GmfMap map;
         if (cat.read(*me, d) || nw::parseGmf(d, map)) {
             std::printf("%s: doesn't read\n", me->name.c_str());
             continue;
         }
         // Neighbouring tile pairs: (tile, side 0 east or 1 north, neighbour).
-        struct Pair { int a, side, b; };
+        struct Pair {
+            int a, side, b;
+        };
         std::vector<Pair> pairs;
         for (int ty = 0; ty < 2 * map.height; ++ty)
             for (int tx = 0; tx < 2 * map.width; ++tx)
@@ -1711,14 +1744,14 @@ int cmdGmfFit(int argc, char** argv) {
                         pairs.push_back({a, s, b});
                 }
         std::map<uint32_t, unsigned> uses;
-        for (const auto& t : map.tiles)
+        for (const auto &t : map.tiles)
             ++uses[t.model];
         if (rotationScan) {
             // -r: per number, each tile's best-fitting models and rotations by
             // heights; tallies of (model, stored rotation - fitted rotation).
-            for (const auto& [number, count] : uses) {
+            for (const auto &[number, count] : uses) {
                 std::map<std::string, unsigned> tally;
-                for (const auto& t : map.tiles) {
+                for (const auto &t : map.tiles) {
                     if (t.model != number)
                         continue;
                     // The best-fitting models and rotations for this tile (ties all count).
@@ -1738,11 +1771,11 @@ int cmdGmfFit(int argc, char** argv) {
                                 best.push_back(key);
                         }
                     }
-                    for (const auto& k : best)
+                    for (const auto &k : best)
                         ++tally[k];
                 }
                 std::vector<std::pair<unsigned, std::string>> v;
-                for (auto& [k, c] : tally)
+                for (auto &[k, c] : tally)
                     v.push_back({c, k});
                 std::sort(v.rbegin(), v.rend());
                 std::printf("%3u x%-3u", number, count);
@@ -1756,9 +1789,9 @@ int cmdGmfFit(int argc, char** argv) {
             // -l: per number, a rotation-0 tile's count of non-zero terrain
             // layers per cell (row 7 = north first), beside the assigned
             // model's heights per cell (vertex mean, in levels of 1000).
-            for (const auto& [number, count] : uses) {
-                const nw::GmfMap::Tile* sample = nullptr;
-                for (const auto& t : map.tiles)
+            for (const auto &[number, count] : uses) {
+                const nw::GmfMap::Tile *sample = nullptr;
+                for (const auto &t : map.tiles)
                     if (t.model == number && (!sample || t.rotation == 0))
                         sample = sample && sample->rotation == 0 ? sample : &t;
                 const size_t g = number < order.size() ? order[number] : nw::kNoModel;
@@ -1780,8 +1813,8 @@ int cmdGmfFit(int argc, char** argv) {
                                     y0 = -nw::kGroundTileSize / 2 + row * cell;
                         double z = 0;
                         int k = 0;
-                        for (const auto& part : geo.parts)
-                            for (const auto& v : part.vertices)
+                        for (const auto &part : geo.parts)
+                            for (const auto &v : part.vertices)
                                 if (v.x >= x0 - 1 && v.x <= x0 + cell + 1 && v.y >= y0 - 1 && v.y <= y0 + cell + 1)
                                     z += v.z, ++k;
                         if (k)
@@ -1797,7 +1830,7 @@ int cmdGmfFit(int argc, char** argv) {
         if (!table)
             std::printf("%s (%zu tiles):\n", me->name.c_str(), map.tiles.size());
         auto modelOf = [&](uint32_t number) { return number < order.size() ? order[number] : nw::kNoModel; };
-        for (const auto& [number, count] : uses) {
+        for (const auto &[number, count] : uses) {
             const size_t given = modelOf(number);
             // Score every candidate in this number's place.
             std::vector<std::pair<double, size_t>> scores;
@@ -1808,7 +1841,7 @@ int cmdGmfFit(int argc, char** argv) {
                 // -h: the share of the number's tiles' cells whose terrain
                 // layer count is the model's height there.
                 unsigned met = 0, seen = 0;
-                for (const auto& t : map.tiles) {
+                for (const auto &t : map.tiles) {
                     if (t.model != number)
                         continue;
                     for (int cell = 0; cell < 64; ++cell) {
@@ -1823,17 +1856,17 @@ int cmdGmfFit(int argc, char** argv) {
                 if (!candidate[g])
                     continue;
                 unsigned met = 0, seen = 0;
-                for (const Pair& p : pairs) {
-                    const auto& ta = map.tiles[size_t(p.a)];
-                    const auto& tb = map.tiles[size_t(p.b)];
+                for (const Pair &p : pairs) {
+                    const auto &ta = map.tiles[size_t(p.a)];
+                    const auto &tb = map.tiles[size_t(p.b)];
                     const bool ina = ta.model == number, inb = tb.model == number;
                     if (ina == inb)
                         continue; // only sides against other numbers
                     const size_t ga = ina ? g : modelOf(ta.model), gb = inb ? g : modelOf(tb.model);
                     if (ga == nw::kNoModel || gb == nw::kNoModel || !candidate[ga] || !candidate[gb])
                         continue;
-                    const auto& sa = sides[ga][size_t(ta.rotation)];
-                    const auto& sb = sides[gb][size_t(tb.rotation)];
+                    const auto &sa = sides[ga][size_t(ta.rotation)];
+                    const auto &sb = sides[gb][size_t(tb.rotation)];
                     const int oa = p.side, ob = p.side + 2;
                     if (!sa.present[oa] || !sb.present[ob])
                         continue;
@@ -1843,30 +1876,31 @@ int cmdGmfFit(int argc, char** argv) {
                 sidesSeen = std::max(sidesSeen, seen);
                 scores.push_back({seen ? double(met) / seen : 0, g});
             }
-            std::sort(scores.begin(), scores.end(), [](auto& x, auto& y) { return x.first > y.first; });
+            std::sort(scores.begin(), scores.end(), [](auto &x, auto &y) { return x.first > y.first; });
             if (table) {
                 // -t: every candidate, for analysis: map number uses sides model score
-                for (const auto& [sc, g] : scores)
+                for (const auto &[sc, g] : scores)
                     std::printf("T %s %u %u %u %s %.4f\n", me->name.c_str(), number, count, sidesSeen,
                                 shortName(g).c_str(), sc);
                 continue;
             }
             double givenScore = -1;
-            for (const auto& [sc, g] : scores)
+            for (const auto &[sc, g] : scores)
                 if (g == given)
                     givenScore = sc;
             const bool best = !scores.empty() && (scores[0].second == given || scores[0].first <= givenScore);
             std::printf("  %3u x%-4u %-10s %5.1f%%   best %-10s %5.1f%%, %-10s %5.1f%%  (%u sides)%s\n", number, count,
                         shortName(given).c_str(), givenScore < 0 ? 0.0 : 100 * givenScore,
-                        scores.size() > 0 ? shortName(scores[0].second).c_str() : "", scores.size() > 0 ? 100 * scores[0].first : 0.0,
-                        scores.size() > 1 ? shortName(scores[1].second).c_str() : "", scores.size() > 1 ? 100 * scores[1].first : 0.0,
-                        sidesSeen, best ? "" : "  <-");
+                        scores.size() > 0 ? shortName(scores[0].second).c_str() : "",
+                        scores.size() > 0 ? 100 * scores[0].first : 0.0,
+                        scores.size() > 1 ? shortName(scores[1].second).c_str() : "",
+                        scores.size() > 1 ? 100 * scores[1].first : 0.0, sidesSeen, best ? "" : "  <-");
         }
     }
     return 0;
 }
 
-int cmdLevelInfo(int argc, char** argv) {
+int cmdLevelInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool level-info <level.dat> [file.cat...]\n");
         return 2;
@@ -1876,8 +1910,8 @@ int cmdLevelInfo(int argc, char** argv) {
     if (!readFile(argv[2], d))
         return 1;
     std::vector<nw::Level> levels;
-    if (reluva::Error err = nw::parseLevelList(std::string_view(reinterpret_cast<const char*>(d.data()), d.size()),
-                                               levels)) {
+    if (reluva::Error err =
+            nw::parseLevelList(std::string_view(reinterpret_cast<const char *>(d.data()), d.size()), levels)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
@@ -1889,13 +1923,13 @@ int cmdLevelInfo(int argc, char** argv) {
             std::fprintf(stderr, "%s: %s\n", argv[a], err.message.c_str());
             continue;
         }
-        for (const auto& e : cat.entries())
+        for (const auto &e : cat.entries())
             if (e.tag == nw::cattag::Gmf)
                 maps.emplace_back(e.name, std::filesystem::path(argv[a]).filename().string());
     }
-    for (const auto& l : levels) {
+    for (const auto &l : levels) {
         std::string where;
-        for (const auto& [map, archive] : maps)
+        for (const auto &[map, archive] : maps)
             if (nw::levelForMap(levels, map) == &l)
                 where += (where.empty() ? "" : ", ") + map + " in " + archive;
         std::printf("%-5s %d  %-28s %s%s\n", l.shortName.c_str(), l.maxPlayers, l.title.c_str(),
@@ -1905,16 +1939,16 @@ int cmdLevelInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdFifInfo(int argc, char** argv) {
+int cmdFifInfo(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool fif-info <file.fif | file.cat>\n");
         return 2;
     }
     namespace nw = reluva::newworlds;
-    auto summary = [](const nw::GameFont& f) {
+    auto summary = [](const nw::GameFont &f) {
         size_t drawn = 0;
         int widest = 0;
-        for (const auto& g : f.glyphs) {
+        for (const auto &g : f.glyphs) {
             drawn += g.height > 0;
             widest = std::max(widest, g.width);
         }
@@ -1931,12 +1965,12 @@ int cmdFifInfo(int argc, char** argv) {
             return 1;
         }
         unsigned listed = 0;
-        for (const auto& e : cat->entries())
+        for (const auto &e : cat->entries())
             listed += e.tag == nw::cattag::Fif;
         nw::Archives archives;
         archives.push_back(std::move(cat));
         const auto fonts = nw::loadGameFonts(archives);
-        for (const auto& f : fonts)
+        for (const auto &f : fonts)
             std::printf("%-16s %dx%d image; %s\n", f.name.c_str(), f.imageWidth, f.imageHeight, summary(f).c_str());
         std::printf("%u font entries, %zu different fonts read\n", listed, fonts.size());
         return 0;
@@ -1951,7 +1985,7 @@ int cmdFifInfo(int argc, char** argv) {
     }
     std::printf("%s\n", summary(f).c_str());
     for (size_t i = 0; i < f.glyphs.size(); ++i) {
-        const auto& g = f.glyphs[i];
+        const auto &g = f.glyphs[i];
         const uint32_t code = f.first + uint32_t(i);
         std::printf("  %3u %c  x %3d y %3d  %2d x %2d%s\n", code, code < 127 ? char(code) : ' ', g.x, g.y, g.width,
                     g.height, g.height ? "" : "  (none)");
@@ -1959,7 +1993,7 @@ int cmdFifInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdWavDecode(int argc, char** argv) {
+int cmdWavDecode(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool wav-decode <in.wav | in.mp3> <out.wav>\n");
         return 2;
@@ -1976,7 +2010,7 @@ int cmdWavDecode(int argc, char** argv) {
     }
     const std::vector<uint8_t> out = reluva::audio::encodePcmWav(s);
     std::ofstream f(argv[3], std::ios::binary);
-    f.write(reinterpret_cast<const char*>(out.data()), std::streamsize(out.size()));
+    f.write(reinterpret_cast<const char *>(out.data()), std::streamsize(out.size()));
     if (!f) {
         std::fprintf(stderr, "cannot write %s\n", argv[3]);
         return 1;
@@ -1988,7 +2022,7 @@ int cmdWavDecode(int argc, char** argv) {
 // Every map in a planet archive as CSV files for study: <map>_tiles.csv
 // (each tile position's model number and name, flags), <map>_cells.csv
 // (each block's grid entry) and <map>_objects.csv (placed objects).
-int cmdGmfDump(int argc, char** argv) {
+int cmdGmfDump(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool gmf-dump <planet.cat> <output dir>\n");
         return 2;
@@ -2000,7 +2034,7 @@ int cmdGmfDump(int argc, char** argv) {
         return 1;
     }
     std::vector<std::string> geoNames;
-    for (const auto& e : cat.entries())
+    for (const auto &e : cat.entries())
         if (e.tag == nw::cattag::Geometry)
             geoNames.push_back(e.name);
     const std::vector<size_t> order = nw::tileModelOrder(geoNames);
@@ -2008,7 +2042,7 @@ int cmdGmfDump(int argc, char** argv) {
     std::filesystem::create_directories(out);
     std::vector<uint8_t> data;
     int maps = 0;
-    for (const auto& e : cat.entries()) {
+    for (const auto &e : cat.entries()) {
         std::string folder, stem, ext;
         nw::splitName(e.name, folder, stem, ext);
         if (ext != "gmf")
@@ -2027,7 +2061,7 @@ int cmdGmfDump(int argc, char** argv) {
                 const int t = nw::tileAt(map, tx, ty);
                 if (t < 0)
                     continue;
-                const auto& tile = map.tiles[size_t(t)];
+                const auto &tile = map.tiles[size_t(t)];
                 std::string name = "?";
                 if (tile.model < order.size() && order[tile.model] != nw::kNoModel) {
                     std::string f, st, ex;
@@ -2039,11 +2073,11 @@ int cmdGmfDump(int argc, char** argv) {
         cells << "bx,by,block,value\n";
         for (int by = 0; by < map.height; ++by)
             for (int bx = 0; bx < map.width; ++bx) {
-                const auto& c = map.cells[size_t(by) * size_t(map.width) + size_t(bx)];
+                const auto &c = map.cells[size_t(by) * size_t(map.width) + size_t(bx)];
                 cells << bx << ',' << by << ',' << c.block << ',' << c.value << '\n';
             }
         objects << "bx,by,x,y,type,turn,variant,extra\n";
-        for (const auto& o : map.scenery)
+        for (const auto &o : map.scenery)
             objects << o.bx << ',' << o.by << ',' << int(o.x) << ',' << int(o.y) << ',' << int(o.type) << ','
                     << int(o.turn) << ',' << int(o.variant) << ',' << int(o.extra) << '\n';
     }
@@ -2055,7 +2089,7 @@ int cmdGmfDump(int argc, char** argv) {
 // viewer shows them, two views each with its name: every main model (not
 // lod/ or a variant) whose name holds the filter, from the
 // archives given. Textures are found across all of them.
-int cmdGeoSheet(int argc, char** argv) {
+int cmdGeoSheet(int argc, char **argv) {
     // -l: larger cells, four views each, a model a row; -t: eight views
     // round it at the briefings' height.
     const bool turntable = argc >= 3 && std::strcmp(argv[2], "-t") == 0;
@@ -2079,15 +2113,15 @@ int cmdGeoSheet(int argc, char** argv) {
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
     const std::string filter = argv[3];
     std::vector<std::string> names;
-    for (const auto& a : archives)
-        for (const auto& e : a->entries()) {
+    for (const auto &a : archives)
+        for (const auto &e : a->entries()) {
             std::string folder, stem, ext;
             nw::splitName(e.name, folder, stem, ext);
             // Variants: damaged (_d, _ad), low detail (_l), shadow (_s) and
             // placement outline (_p).
-            const bool variant = stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
-                                                     stem.ends_with("_p") ||
-                                                     (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
+            const bool variant =
+                stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
+                                    stem.ends_with("_p") || (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
             if (e.tag == nw::cattag::Geometry && e.name.find("/lod/") == std::string::npos && !variant &&
                 e.name.find(filter) != std::string::npos)
                 names.push_back(e.name);
@@ -2096,7 +2130,10 @@ int cmdGeoSheet(int argc, char** argv) {
         std::fprintf(stderr, "no models match %s\n", filter.c_str());
         return 1;
     }
-    const int kCellW = large ? 320 : 200, kCellH = large ? 240 : 150, kPerRow = large ? 1 : 4, kViews = turntable ? 8 : large ? 4 : 2;
+    const int kCellW = large ? 320 : 200, kCellH = large ? 240 : 150, kPerRow = large ? 1 : 4,
+              kViews = turntable ? 8
+                       : large   ? 4
+                                 : 2;
     const int rows = int((names.size() + size_t(kPerRow) - 1) / size_t(kPerRow));
     reluva::Surface sheet;
     sheet.create(kPerRow * kViews * kCellW, rows * kCellH, reluva::PixelFormat::RGBA32);
@@ -2118,7 +2155,8 @@ int cmdGeoSheet(int argc, char** argv) {
                 nw::splitName(names[i], folder, stem, ext);
                 reluva::font::drawText(cell, 3, 3, ok ? stem : stem + " ?", {255, 230, 80});
             }
-            const int x0 = int(i % size_t(kPerRow)) * kViews * kCellW + view * kCellW, y0 = int(i / size_t(kPerRow)) * kCellH;
+            const int x0 = int(i % size_t(kPerRow)) * kViews * kCellW + view * kCellW,
+                      y0 = int(i / size_t(kPerRow)) * kCellH;
             for (int y = 0; y < kCellH; ++y)
                 std::memcpy(sheet.row(y0 + y) + x0 * 4, cell.row(y), size_t(kCellW) * 4);
         }
@@ -2127,12 +2165,12 @@ int cmdGeoSheet(int argc, char** argv) {
     out << "P6\n" << sheet.w << ' ' << sheet.h << "\n255\n";
     for (int y = 0; y < sheet.h; ++y)
         for (int x = 0; x < sheet.w; ++x)
-            out.write(reinterpret_cast<const char*>(sheet.row(y) + x * 4), 3);
+            out.write(reinterpret_cast<const char *>(sheet.row(y) + x * 4), 3);
     std::printf("%zu models drawn to %s\n", names.size(), argv[2]);
     return out ? 0 : 1;
 }
 
-int cmdGroundTextures(int argc, char** argv) {
+int cmdGroundTextures(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool ground-textures <planet.cat>\n");
         return 2;
@@ -2144,16 +2182,16 @@ int cmdGroundTextures(int argc, char** argv) {
         return 1;
     }
     std::vector<uint8_t> data;
-    for (const auto& e : cat.entries()) {
+    for (const auto &e : cat.entries()) {
         std::string folder, stem, ext;
         nw::splitName(e.name, folder, stem, ext);
-        static const char* const kScenery[] = {"tree", "tree_s", "rock", "frn_spec", "bush"};
+        static const char *const kScenery[] = {"tree", "tree_s", "rock", "frn_spec", "bush"};
         if (e.tag != nw::cattag::Geometry || e.name.find("/map/") == std::string::npos ||
             e.name.find("/lod/") != std::string::npos ||
-            std::any_of(std::begin(kScenery), std::end(kScenery), [&](const char* n) { return stem == n; }))
+            std::any_of(std::begin(kScenery), std::end(kScenery), [&](const char *n) { return stem == n; }))
             continue;
         std::vector<std::string> planet;
-        for (const auto& t : cat.entries()) {
+        for (const auto &t : cat.entries()) {
             std::string tf, ts, te;
             nw::splitName(t.name, tf, ts, te);
             if (t.tag == nw::cattag::Texture && tf == folder && (te == "mp0" || te == "lbp"))
@@ -2168,7 +2206,7 @@ int cmdGroundTextures(int argc, char** argv) {
         std::printf("%-12s", stem.c_str());
         for (size_t s = 0; s < picks.size(); ++s) {
             size_t faces = 0;
-            for (const auto& f : m.faces)
+            for (const auto &f : m.faces)
                 faces += f.corners.back().extra[4] == s;
             std::printf("  %zu: %s (%zu)", s, picks[s].empty() ? "?" : picks[s].c_str(), faces);
         }
@@ -2177,7 +2215,7 @@ int cmdGroundTextures(int argc, char** argv) {
     return 0;
 }
 
-int cmdGeoTextures(int argc, char** argv) {
+int cmdGeoTextures(int argc, char **argv) {
     int first = 2;
     const bool all = argc > 2 && std::strcmp(argv[2], "-a") == 0;
     if (all)
@@ -2199,8 +2237,8 @@ int cmdGeoTextures(int argc, char** argv) {
     const std::vector<nw::TextureFile> textures = nw::listTextureFiles(archives);
     unsigned models = 0, without = 0, short_ = 0;
     std::vector<uint8_t> data;
-    for (const auto& cat : archives)
-        for (const auto& e : cat->entries()) {
+    for (const auto &cat : archives)
+        for (const auto &e : cat->entries()) {
             if (e.tag != nw::cattag::Geometry)
                 continue;
             ++models;
@@ -2208,12 +2246,12 @@ int cmdGeoTextures(int argc, char** argv) {
             uint32_t needed = 0;
             nw::GeoModel m;
             if (!cat->read(e, data) && !nw::parseGeo(data, m))
-                for (const auto& face : m.faces)
+                for (const auto &face : m.faces)
                     needed = std::max(needed, face.corners.back().extra[4] + 1);
             auto slots = nw::findModelTextures(e.name, textures, needed);
             nw::addDoorTextures(m, e.name, textures, slots);
             nw::addPadTextures(m, e.name, textures, slots);
-            const size_t found = size_t(std::count_if(slots.begin(), slots.end(), [](auto* t) { return t; }));
+            const size_t found = size_t(std::count_if(slots.begin(), slots.end(), [](auto *t) { return t; }));
             const bool tooFew = found < needed;
             if (found == 0)
                 ++without;
@@ -2222,7 +2260,7 @@ int cmdGeoTextures(int argc, char** argv) {
             if (!all && !tooFew)
                 continue;
             std::printf("%s: needs %u, found", e.name.c_str(), needed);
-            for (const auto* t : slots)
+            for (const auto *t : slots)
                 std::printf(" %s", t ? t->stem.c_str() : "?");
             if (slots.empty())
                 std::printf(" none");
@@ -2233,7 +2271,7 @@ int cmdGeoTextures(int argc, char** argv) {
                 const size_t prefix = std::min<size_t>(3, stem.size());
                 std::printf("; similar:");
                 unsigned shown = 0;
-                for (const auto& t : textures)
+                for (const auto &t : textures)
                     if (t.folder == folder && t.stem.compare(0, prefix, stem, 0, prefix) == 0 && shown++ < 10)
                         std::printf(" %s", t.stem.c_str());
                 if (!shown)
@@ -2241,8 +2279,7 @@ int cmdGeoTextures(int argc, char** argv) {
             }
             std::printf("\n");
         }
-    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without,
-                short_);
+    std::printf("%u models: %u without textures, %u with fewer than their faces number\n", models, without, short_);
     return 0;
 }
 
@@ -2250,7 +2287,7 @@ int cmdGeoTextures(int argc, char** argv) {
 // type-19 records, u16 grid width and height; those records (u16 type, u16
 // length, u16 ?, then `length` bytes) in that order; then data of unknown
 // layout. See docs/formats/newworlds/gmf.md.
-int cmdGmfInfo(int argc, char** argv) {
+int cmdGmfInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool gmf-info <file.gmf> [record number]\n");
         return 2;
@@ -2269,10 +2306,10 @@ int cmdGmfInfo(int argc, char** argv) {
         std::printf("engine's reader: %s\n", err ? err.message.c_str() : "reads it");
         if (!err) {
             std::map<int, size_t> types;
-            for (const auto& o : map.scenery)
+            for (const auto &o : map.scenery)
                 ++types[o.type];
             std::printf("placed objects: %zu;", map.scenery.size());
-            for (const auto& [type, n] : types)
+            for (const auto &[type, n] : types)
                 std::printf(" type %d x%zu", type, n);
             std::printf("\n");
         }
@@ -2301,10 +2338,10 @@ int cmdGmfInfo(int argc, char** argv) {
             p += 6 + r.length;
         }
         std::printf("type %u: 0x%zx..0x%zx; lengths", types[k], start, p);
-        for (const auto& [v, n] : lengths)
+        for (const auto &[v, n] : lengths)
             std::printf(" %u x%u", v, n);
         std::printf("; third values");
-        for (const auto& [v, n] : thirds)
+        for (const auto &[v, n] : thirds)
             std::printf(" %u x%u", v, n);
         std::printf("\n");
     }
@@ -2312,7 +2349,7 @@ int cmdGmfInfo(int argc, char** argv) {
                 double(d.size() - p) / std::max(1, rd16(d, 6) * rd16(d, 8)));
 
     if (want >= 0 && size_t(want) < records.size()) {
-        const Record& r = records[size_t(want)];
+        const Record &r = records[size_t(want)];
         std::printf("record %ld at 0x%zx: type %u, length %u, third %u\n", want, r.offset, r.type, r.length, r.third);
         hexdump(d, r.offset, 6 + size_t(r.length));
         return 0;
@@ -2371,7 +2408,7 @@ int cmdGmfInfo(int argc, char** argv) {
                     std::printf("\n");
                 }
                 std::printf("second values of the grid entries:");
-                for (const auto& [v, n] : seconds)
+                for (const auto &[v, n] : seconds)
                     std::printf(" %u x%u", v, n);
                 std::printf("\nlast 1024 bytes start:\n");
                 hexdump(d, end + size_t(w) * h * 10, 0x40);
@@ -2392,7 +2429,7 @@ int cmdGmfInfo(int argc, char** argv) {
         if (counts[k] == 0)
             continue;
         const size_t pick = first + counts[k] / 2;
-        const Record& r = records[pick];
+        const Record &r = records[pick];
         std::printf("record %zu (a type-%u one from the middle) at 0x%zx:\n", pick, r.type, r.offset);
         if (r.type == 20) { // header values, then the 8 x 8 grids
             std::printf("  values %u %u %u %u %u; grids:\n", rd32(d, r.offset + 6), rd32(d, r.offset + 10),
@@ -2427,7 +2464,7 @@ int cmdGmfInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdGeoSurvey(int argc, char** argv) {
+int cmdGeoSurvey(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool geo-survey <file.cat>...\n");
         return 2;
@@ -2441,7 +2478,7 @@ int cmdGeoSurvey(int argc, char** argv) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        for (const auto& e : cat.entries()) {
+        for (const auto &e : cat.entries()) {
             if (e.tag != reluva::newworlds::cattag::Geometry || cat.read(e, d))
                 continue;
             ++total;
@@ -2453,7 +2490,7 @@ int cmdGeoSurvey(int argc, char** argv) {
             }
             // Group by message with numbers (decimal or 0x hex) removed.
             std::string key;
-            const std::string& msg = err.message;
+            const std::string &msg = err.message;
             for (size_t i = 0; i < msg.size();) {
                 if (msg[i] >= '0' && msg[i] <= '9') {
                     if (msg.compare(i, 2, "0x") == 0)
@@ -2470,7 +2507,7 @@ int cmdGeoSurvey(int argc, char** argv) {
         }
     }
     std::printf("%u models, %u decode\n\n", total, ok);
-    for (const auto& [key, list] : failures) {
+    for (const auto &[key, list] : failures) {
         std::printf("%5zu  %s\n", list.size(), key.c_str());
         for (size_t i = 0; i < list.size() && i < 3; ++i)
             std::printf("       e.g. %s\n", list[i].c_str());
@@ -2482,7 +2519,7 @@ int cmdGeoSurvey(int argc, char** argv) {
 
 #ifdef RELUVA_ENGINE_IDTECH3
 // Mounts an id Tech 3 game folder (".../BaseEF") the way the engine does.
-bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
+bool mountIdTech3(const char *folder, reluva::SearchSet &set) {
     const std::filesystem::path dir = std::filesystem::path(folder).lexically_normal();
     const std::filesystem::path path = dir.has_filename() ? dir : dir.parent_path();
     std::vector<std::string> warnings;
@@ -2491,12 +2528,12 @@ bool mountIdTech3(const char* folder, reluva::SearchSet& set) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return false;
     }
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::fprintf(stderr, "warning: %s\n", w.c_str());
     return true;
 }
 
-int cmdBspCheck(int argc, char** argv) {
+int cmdBspCheck(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool bsp-check <game folder>\n");
         return 2;
@@ -2506,7 +2543,7 @@ int cmdBspCheck(int argc, char** argv) {
         return 1;
     int maps = 0, failed = 0, corrected = 0;
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
         if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
             continue;
@@ -2520,7 +2557,7 @@ int cmdBspCheck(int argc, char** argv) {
             std::printf("FAIL %s: %s\n", name.c_str(), err.message.c_str());
             continue;
         }
-        const auto& f = bsp.fixes;
+        const auto &f = bsp.fixes;
         if (f.total())
             ++corrected;
         std::printf("ok   %s: %zu surfaces, %zu lightmaps", name.c_str(), bsp.surfaces.size(), bsp.lightmapCount());
@@ -2533,7 +2570,7 @@ int cmdBspCheck(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
-int cmdImageCheck(int argc, char** argv) {
+int cmdImageCheck(int argc, char **argv) {
     if (argc != 3 && argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool image-check <game folder> [map name filter]\n");
         return 2;
@@ -2545,14 +2582,14 @@ int cmdImageCheck(int argc, char** argv) {
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
     shaders.load(set, &warnings);
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::fprintf(stderr, "warning: %s\n", w.c_str());
     const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
 
     std::map<std::string, int> missingEverywhere; // image -> maps missing it
     int maps = 0;
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
         if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0 ||
             key.find(filter) == std::string::npos)
@@ -2564,22 +2601,22 @@ int cmdImageCheck(int argc, char** argv) {
         // Every image each shader names: its stages' maps, or for a shader
         // without a script, the image of its own name.
         std::map<std::string, std::string> missing; // image -> a shader wanting it
-        for (const q3::BspShader& s : bsp.shaders) {
+        for (const q3::BspShader &s : bsp.shaders) {
             std::vector<std::string> images;
-            const q3::ShaderDef* def = shaders.find(s.name);
+            const q3::ShaderDef *def = shaders.find(s.name);
             if (!def)
                 images.push_back(s.name);
             else
-                for (const q3::ShaderStage& st : def->stages)
-                    for (const std::string& m : st.maps)
+                for (const q3::ShaderStage &st : def->stages)
+                    for (const std::string &m : st.maps)
                         if (!m.empty() && m[0] != '$')
                             images.push_back(m);
-            for (const std::string& img : images)
+            for (const std::string &img : images)
                 if (q3::findImage(set, img).empty())
                     missing.emplace(reluva::normalizeArchiveName(img), std::string(def ? "script " : "") + s.name);
         }
         std::printf("%s: %zu shaders, %zu missing images\n", name.c_str(), bsp.shaders.size(), missing.size());
-        for (const auto& [img, shader] : missing) {
+        for (const auto &[img, shader] : missing) {
             std::printf("    %-56s (shader %s)\n", img.c_str(), shader.c_str());
             ++missingEverywhere[img];
         }
@@ -2588,7 +2625,7 @@ int cmdImageCheck(int argc, char** argv) {
     return 0;
 }
 
-int cmdModelCheck(int argc, char** argv) {
+int cmdModelCheck(int argc, char **argv) {
     if (argc < 3 || argc > 5) {
         std::fprintf(stderr, "usage: reluva-tool model-check <game folder> [name filter] [-v]\n");
         return 2;
@@ -2611,7 +2648,7 @@ int cmdModelCheck(int argc, char** argv) {
 
     // Every image by its file name without folder or extension, to say
     // where a missing one might be.
-    auto stem = [](const std::string& path) {
+    auto stem = [](const std::string &path) {
         std::string s = reluva::normalizeArchiveName(path);
         if (const size_t slash = s.find_last_of('/'); slash != std::string::npos)
             s = s.substr(slash + 1);
@@ -2619,7 +2656,7 @@ int cmdModelCheck(int argc, char** argv) {
             s.resize(dot);
         return s;
     };
-    auto folder = [](const std::string& path) {
+    auto folder = [](const std::string &path) {
         const std::string s = reluva::normalizeArchiveName(path);
         const size_t slash = s.find_last_of('/');
         return slash == std::string::npos ? std::string() : s.substr(0, slash);
@@ -2629,7 +2666,7 @@ int cmdModelCheck(int argc, char** argv) {
     std::vector<std::string> models;
     std::set<std::string> mapShadersBare, mapModels; // what the maps use: shader names without extension, models
     std::vector<std::string> maps;
-    for (const std::string& n : set.list()) {
+    for (const std::string &n : set.list()) {
         const std::string key = reluva::normalizeArchiveName(n);
         if (key.size() > 4) {
             const std::string ext = key.substr(key.size() - 4);
@@ -2642,38 +2679,37 @@ int cmdModelCheck(int argc, char** argv) {
         }
     }
     // A shader name as maps store it: without an extension.
-    auto bare = [](const std::string& name) {
+    auto bare = [](const std::string &name) {
         std::string s = reluva::normalizeArchiveName(name);
         const size_t dot = s.find_last_of('.'), slash = s.find_last_of('/');
         if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
             s.resize(dot);
         return s;
     };
-    for (const std::string& n : maps) {
+    for (const std::string &n : maps) {
         q3::Bsp bsp;
         if (set.read(n, data) || q3::parseBsp(data, bsp))
             continue;
-        for (const q3::BspShader& s : bsp.shaders)
+        for (const q3::BspShader &s : bsp.shaders)
             mapShadersBare.insert(bare(s.name));
         std::vector<q3::Entity> entities;
         if (!q3::parseEntities(bsp.entities, entities))
-            for (const q3::Entity& e : entities)
-                for (const char* k : {"model", "model2"})
+            for (const q3::Entity &e : entities)
+                for (const char *k : {"model", "model2"})
                     if (const std::string m = e.get(k); !m.empty() && m[0] != '*')
                         mapModels.insert(reluva::normalizeArchiveName(m));
     }
 
-
     // Kinds of result, with counts and a few examples.
     std::map<std::string, std::pair<int, std::vector<std::string>>> kinds;
-    auto count = [&](const std::string& kind, const std::string& example) {
-        auto& [n, ex] = kinds[kind];
+    auto count = [&](const std::string &kind, const std::string &example) {
+        auto &[n, ex] = kinds[kind];
         ++n;
         if (ex.size() < 3)
             ex.push_back(example);
     };
     int surfaces = 0, unreadable = 0;
-    for (const std::string& path : models) {
+    for (const std::string &path : models) {
         q3::Md3Model m;
         if (set.read(path, data) || q3::parseModel(data, m)) {
             ++unreadable;
@@ -2687,13 +2723,13 @@ int cmdModelCheck(int argc, char** argv) {
         std::string main = base;
         if (main.size() > 2 && main[main.size() - 2] == '_' && (main.back() == '1' || main.back() == '2'))
             main.resize(main.size() - 2);
-        for (const std::string& n : {base + ".skin", base + "_default.skin", main + ".skin", main + "_default.skin"})
+        for (const std::string &n : {base + ".skin", base + "_default.skin", main + ".skin", main + "_default.skin"})
             if (set.has(n)) {
                 skins += " " + n;
                 if (skin.empty() && !set.read(n, data))
-                    skin = q3::parseSkin(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+                    skin = q3::parseSkin(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()));
             }
-        for (const q3::Md3Surface& s : m.surfaces) {
+        for (const q3::Md3Surface &s : m.surfaces) {
             ++surfaces;
             std::string name = s.shaders.empty() ? std::string() : s.shaders.front();
             std::string via;
@@ -2707,9 +2743,9 @@ int cmdModelCheck(int argc, char** argv) {
                 continue;
             }
             std::vector<std::string> wanted; // images it needs
-            if (const q3::ShaderDef* def = shaders.find(name)) {
-                for (const q3::ShaderStage& st : def->stages)
-                    for (const std::string& img : st.maps)
+            if (const q3::ShaderDef *def = shaders.find(name)) {
+                for (const q3::ShaderStage &st : def->stages)
+                    for (const std::string &img : st.maps)
                         if (!img.empty() && img[0] != '$')
                             wanted.push_back(img);
                 if (wanted.empty()) {
@@ -2720,7 +2756,7 @@ int cmdModelCheck(int argc, char** argv) {
                 wanted.push_back(name);
             }
             bool allFound = true;
-            for (const std::string& img : wanted) {
+            for (const std::string &img : wanted) {
                 if (!q3::findImage(set, img).empty())
                     continue;
                 allFound = false;
@@ -2737,8 +2773,8 @@ int cmdModelCheck(int argc, char** argv) {
                         sameFolder = true;
                 }
                 kind += found.empty() ? ", no file of that name anywhere"
-                                      : sameFolder ? ", a file of that name in the model's folder"
-                                                   : ", a file of that name elsewhere";
+                        : sameFolder  ? ", a file of that name in the model's folder"
+                                      : ", a file of that name elsewhere";
                 // Does a map show it: built into a map (whose surfaces keep
                 // the model's shader names), or placed by an entity?
                 const bool inMap = mapShadersBare.count(bare(name)) != 0;
@@ -2755,17 +2791,17 @@ int cmdModelCheck(int argc, char** argv) {
         }
     }
     std::printf("%zu models, %d surfaces, %d models unreadable\n", models.size(), surfaces, unreadable);
-    for (const auto& [kind, info] : kinds) {
+    for (const auto &[kind, info] : kinds) {
         std::printf("%6d  %s\n", info.first, kind.c_str());
         if (kind.find("found") == std::string::npos || kind.find("missing") != std::string::npos)
-            for (const std::string& e : info.second)
+            for (const std::string &e : info.second)
                 std::printf("          e.g. %s\n", e.c_str());
     }
     return 0;
 }
 
 // Loads a QVM from a game folder's search path.
-bool loadQvm(const char* folder, const char* name, reluva::idtech3::Qvm& vm) {
+bool loadQvm(const char *folder, const char *name, reluva::idtech3::Qvm &vm) {
     reluva::SearchSet set;
     if (!mountIdTech3(folder, set))
         return false;
@@ -2780,7 +2816,7 @@ bool loadQvm(const char* folder, const char* name, reluva::idtech3::Qvm& vm) {
     return true;
 }
 
-int cmdQvmInfo(int argc, char** argv) {
+int cmdQvmInfo(int argc, char **argv) {
     if (argc < 4 || argc > 5) {
         std::fprintf(stderr, "usage: reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n");
         return 2;
@@ -2789,7 +2825,7 @@ int cmdQvmInfo(int argc, char** argv) {
     q3::Qvm vm;
     if (!loadQvm(argv[2], argv[3], vm))
         return 1;
-    const auto& code = vm.code();
+    const auto &code = vm.code();
     int functions = 0;
     // System calls in the code: a constant negative target just before a
     // CALL. Per number: how many call sites, and in how many functions.
@@ -2805,7 +2841,7 @@ int cmdQvmInfo(int argc, char** argv) {
         if (i > 0 && code[i - 1].op == q3::qvmop::Const) {
             const int32_t target = code[i - 1].operand;
             if (target < 0) {
-                auto& [n, fns] = calls[-1 - target];
+                auto &[n, fns] = calls[-1 - target];
                 ++n;
                 fns.insert(function);
             }
@@ -2813,20 +2849,21 @@ int cmdQvmInfo(int argc, char** argv) {
             ++indirect;
         }
     }
-    std::printf("%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
-                argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
+    std::printf(
+        "%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
+        argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
     std::printf("%d calls through function pointers\n", indirect);
     size_t tableBytes = 0;
-    for (const auto& [first, end] : vm.protectedRanges())
+    for (const auto &[first, end] : vm.protectedRanges())
         tableBytes += end - first;
     std::printf("%zu switch jump tables (%zu bytes), kept from writes while running\n", vm.protectedRanges().size(),
                 tableBytes);
     std::printf("system calls (number: call sites, functions):\n");
-    for (const auto& [number, info] : calls)
+    for (const auto &[number, info] : calls)
         std::printf("  %4d: %4d sites in %3zu functions\n", number, info.first, info.second.size());
     if (argc == 5 && std::strcmp(argv[4], "-s") == 0) {
         // Printable runs in the initialised data, which hold the strings.
-        const auto& mem = vm.memory();
+        const auto &mem = vm.memory();
         std::string run;
         size_t start = 0;
         for (size_t i = 0; i < mem.size() && i < vm.litEnd(); ++i) {
@@ -2845,7 +2882,7 @@ int cmdQvmInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdQvmRun(int argc, char** argv) {
+int cmdQvmRun(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
         return 2;
@@ -2870,7 +2907,7 @@ int cmdQvmRun(int argc, char** argv) {
     vm.setInstructionLimit(limit);
     // Log each system call; an argument pointing at text shows the text.
     int logged = 0;
-    vm.setSystemCall([&](q3::Qvm& v, int number, const int32_t* a) -> int32_t {
+    vm.setSystemCall([&](q3::Qvm &v, int number, const int32_t *a) -> int32_t {
         ++logged;
         std::printf("syscall %4d (", number);
         int last = 5;
@@ -2896,14 +2933,14 @@ int cmdQvmRun(int argc, char** argv) {
     });
     int32_t result = 0;
     reluva::Error err = vm.call(command, args, result);
-    std::printf("vmMain(%d) %s %d after %llu instructions and %d system calls\n", command,
-                err ? "failed:" : "returned", err ? 0 : result, static_cast<unsigned long long>(vm.executed()), logged);
+    std::printf("vmMain(%d) %s %d after %llu instructions and %d system calls\n", command, err ? "failed:" : "returned",
+                err ? 0 : result, static_cast<unsigned long long>(vm.executed()), logged);
     if (err)
         std::printf("  %s\n", err.message.c_str());
     return err ? 1 : 0;
 }
 
-int cmdQvmRefs(int argc, char** argv) {
+int cmdQvmRefs(int argc, char **argv) {
     if (argc != 6) {
         std::fprintf(stderr, "usage: reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n");
         return 2;
@@ -2917,7 +2954,7 @@ int cmdQvmRefs(int argc, char** argv) {
     // of the structure itself): per offset, how often, and what the code
     // does with the address next.
     std::map<long long, std::map<std::string, int>> refs;
-    const auto& code = vm.code();
+    const auto &code = vm.code();
     for (size_t i = 0; i < code.size(); ++i) {
         if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
             continue;
@@ -2925,10 +2962,10 @@ int cmdQvmRefs(int argc, char** argv) {
         ++refs[code[i].operand - base][next];
     }
     std::printf("constants between %lld and %lld in %s (offset: count followed-by...):\n", base, base + size, argv[3]);
-    for (const auto& [offset, nexts] : refs) {
+    for (const auto &[offset, nexts] : refs) {
         int total = 0;
         std::string what;
-        for (const auto& [op, n] : nexts) {
+        for (const auto &[op, n] : nexts) {
             total += n;
             what += " " + op + "x" + std::to_string(n);
         }
@@ -2939,10 +2976,10 @@ int cmdQvmRefs(int argc, char** argv) {
 
 // One instruction, with what its operand probably means: the text a
 // constant points at, a float, or the system call a call makes.
-void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
+void printQvmInstruction(const reluva::idtech3::Qvm &vm, size_t i, bool mark) {
     namespace q3 = reluva::idtech3;
-    const auto& code = vm.code();
-    const auto& in = code[i];
+    const auto &code = vm.code();
+    const auto &in = code[i];
     std::printf("%s%7zu  %-9s", mark ? "> " : "  ", i, q3::qvmop::name(in.op));
     if (q3::qvmop::operandSize(in.op))
         std::printf(" %d", in.operand);
@@ -2970,7 +3007,7 @@ void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
     std::printf("\n");
 }
 
-int cmdQvmDis(int argc, char** argv) {
+int cmdQvmDis(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
                              "       reluva-tool qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
@@ -2986,7 +3023,7 @@ int cmdQvmDis(int argc, char** argv) {
     q3::Qvm vm;
     if (!loadQvm(argv[2], argv[3], vm))
         return 1;
-    const auto& code = vm.code();
+    const auto &code = vm.code();
     // The function holding instruction i: from its ENTER to the next one.
     auto functionAt = [&](size_t i) {
         size_t first = i;
@@ -3001,12 +3038,12 @@ int cmdQvmDis(int argc, char** argv) {
         // Every function using a string that contains the text, then the
         // functions those call, each listed whole.
         auto lower = [](std::string t) {
-            for (char& c : t)
+            for (char &c : t)
                 c = char(std::tolower(static_cast<unsigned char>(c)));
             return t;
         };
         const std::string needle = lower(argv[5]);
-        const auto& mem = vm.memory();
+        const auto &mem = vm.memory();
         std::map<int32_t, std::string> strings; // address -> text
         for (size_t i = 0; i < vm.litEnd();) {
             size_t j = i;
@@ -3018,7 +3055,7 @@ int cmdQvmDis(int argc, char** argv) {
             i = j + 1;
         }
         std::set<size_t> users, callees;
-        for (const auto& [address, text] : strings) {
+        for (const auto &[address, text] : strings) {
             std::printf("string at %d: \"%s\"\n", address, text.c_str());
             for (size_t i = 0; i < code.size(); ++i)
                 if (code[i].op == q3::qvmop::Const && code[i].operand == address)
@@ -3032,7 +3069,7 @@ int cmdQvmDis(int argc, char** argv) {
                     callees.insert(size_t(code[i].operand));
         }
         size_t printed = 0;
-        auto list = [&](size_t f, const char* why) {
+        auto list = [&](size_t f, const char *why) {
             const auto [first, last] = functionAt(f);
             std::printf("=== function at %zu (%s), %zu instructions\n", first, why, last - first);
             if (printed > 4000) {
@@ -3065,10 +3102,10 @@ int cmdQvmDis(int argc, char** argv) {
                 ++fields[0][q3::qvmop::name(code[i + 2].op)];
         }
         std::printf("fields used through the pointer at %d (offset: count followed-by...):\n", global);
-        for (const auto& [offset, nexts] : fields) {
+        for (const auto &[offset, nexts] : fields) {
             int total = 0;
             std::string what;
-            for (const auto& [op, n] : nexts) {
+            for (const auto &[op, n] : nexts) {
                 total += n;
                 what += " " + op + "x" + std::to_string(n);
             }
@@ -3084,7 +3121,7 @@ int cmdQvmDis(int argc, char** argv) {
             if (code[i].op == q3::qvmop::BlockCopy)
                 sizes[code[i].operand].push_back(i);
         std::printf("block copies by size (bytes: count, first instructions):\n");
-        for (const auto& [size, at] : sizes) {
+        for (const auto &[size, at] : sizes) {
             std::printf("  %6d: %4zu ", size, at.size());
             for (size_t k = 0; k < at.size() && k < 6; ++k)
                 std::printf(" %zu", at[k]);
@@ -3157,7 +3194,7 @@ int cmdQvmDis(int argc, char** argv) {
         auto describe = [&](size_t argAt, size_t from) -> std::string {
             if (argAt == 0 || argAt - 1 < from)
                 return "?";
-            const auto& p = code[argAt - 1];
+            const auto &p = code[argAt - 1];
             if (p.op == q3::qvmop::Const) {
                 if (const std::string t = text(p.operand); !t.empty())
                     return "\"" + t + "\"";
@@ -3166,7 +3203,7 @@ int cmdQvmDis(int argc, char** argv) {
             if (p.op == q3::qvmop::Local)
                 return "&local" + std::to_string(p.operand);
             if (p.op == q3::qvmop::Load4 && argAt >= 2 && argAt - 2 >= from) {
-                const auto& pp = code[argAt - 2];
+                const auto &pp = code[argAt - 2];
                 if (pp.op == q3::qvmop::Local)
                     return "local" + std::to_string(pp.operand);
                 if (pp.op == q3::qvmop::Const)
@@ -3203,8 +3240,8 @@ int cmdQvmDis(int argc, char** argv) {
                 for (size_t j = i + 2; j < last && j < i + 5; ++j)
                     after += std::string(" ") + q3::qvmop::name(code[j].op) +
                              (q3::qvmop::operandSize(code[j].op) ? " " + std::to_string(code[j].operand) : "");
-                std::printf("  at %zu (function %zu): args%s; then%s\n", i, first, args.empty() ? " none" : args.c_str(),
-                            after.c_str());
+                std::printf("  at %zu (function %zu): args%s; then%s\n", i, first,
+                            args.empty() ? " none" : args.c_str(), after.c_str());
                 std::set<std::string> seen;
                 for (size_t j = first; j < last && seen.size() < 3; ++j)
                     if (code[j].op == q3::qvmop::Const)
@@ -3249,9 +3286,11 @@ int cmdQvmDis(int argc, char** argv) {
     return 0;
 }
 
-int cmdUiRun(int argc, char** argv) {
+int cmdUiRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -3264,15 +3303,14 @@ int cmdUiRun(int argc, char** argv) {
         else if (std::strcmp(argv[i], "-menu") == 0 && i + 1 < argc)
             menu = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-size") == 0 && i + 1 < argc) {
-            char* end = nullptr;
+            char *end = nullptr;
             width = int(std::strtol(argv[++i], &end, 10));
             height = *end ? int(std::strtol(end + 1, nullptr, 10)) : 0;
             if (width <= 0 || height <= 0) {
                 std::fprintf(stderr, "-size takes WIDTHxHEIGHT, e.g. 1280x960\n");
                 return 2;
             }
-        }
-        else if (std::strcmp(argv[i], "-glwords") == 0 && i + 1 < argc)
+        } else if (std::strcmp(argv[i], "-glwords") == 0 && i + 1 < argc)
             glwords = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-trace") == 0)
             traceCalls = true;
@@ -3286,12 +3324,14 @@ int cmdUiRun(int argc, char** argv) {
     ef::UiHost ui(set, cvars);
     ui.setScreenSize(width, height);
     ui.setGlconfigWords(glwords);
-    ui.print = [](const std::string& text) { std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : ""); };
+    ui.print = [](const std::string &text) {
+        std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
+    };
     if (traceCalls)
-        ui.trace = [](int number, const int32_t* a) {
+        ui.trace = [](int number, const int32_t *a) {
             std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
         };
-    auto step = [&](const char* what, reluva::Error err) {
+    auto step = [&](const char *what, reluva::Error err) {
         std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
                     static_cast<unsigned long long>(ui.vm().executed()));
         return !err;
@@ -3312,7 +3352,7 @@ int cmdUiRun(int argc, char** argv) {
     shaders.load(set);
     int missing = 0;
     for (int32_t h = 1; h <= int32_t(ui.shaders().size()); ++h) {
-        const std::string& name = ui.shaders().name(h);
+        const std::string &name = ui.shaders().name(h);
         if (!shaders.find(name) && q3::findImage(set, name).empty()) {
             std::printf("shader not found: %s\n", name.c_str());
             ++missing;
@@ -3322,18 +3362,18 @@ int cmdUiRun(int argc, char** argv) {
                 ui.shaders().size(), missing, ui.models().size(), ui.sounds().size());
     std::printf("last frame: %zu pictures\n", ui.pictures().size());
     size_t shown = 0;
-    for (const auto& p : ui.pictures()) {
+    for (const auto &p : ui.pictures()) {
         if (!verbose && ++shown > 40) {
             std::printf("  ... (-v lists them all)\n");
             break;
         }
-        std::printf("  %7.1f %7.1f %7.1f x %-7.1f st %.3f %.3f %.3f %.3f  rgba %.2f %.2f %.2f %.2f  %s\n", p.x, p.y, p.w,
-                    p.h, p.s1, p.t1, p.s2, p.t2, p.color[0], p.color[1], p.color[2], p.color[3],
+        std::printf("  %7.1f %7.1f %7.1f x %-7.1f st %.3f %.3f %.3f %.3f  rgba %.2f %.2f %.2f %.2f  %s\n", p.x, p.y,
+                    p.w, p.h, p.s1, p.t1, p.s2, p.t2, p.color[0], p.color[1], p.color[2], p.color[3],
                     ui.shaders().name(p.shader).c_str());
     }
-    for (const std::string& c : ui.commands())
+    for (const std::string &c : ui.commands())
         std::printf("command: %s\n", c.c_str());
-    for (const auto& [number, count] : ui.unhandled())
+    for (const auto &[number, count] : ui.unhandled())
         std::printf("not implemented: system call %d (%d calls)\n", number, count);
     return ok ? 0 : 1;
 }
@@ -3342,12 +3382,13 @@ int cmdUiRun(int argc, char** argv) {
 // hosting a level as a server with no player of its own, for others to
 // join for `seconds`; or, with -join, joining a server and reporting
 // what it sends while walking forward.
-int cmdNetRun(int argc, char** argv) {
+int cmdNetRun(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot <name>]...\n"
-                             "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
+        std::fprintf(
+            stderr, "usage: reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot <name>]...\n"
+                    "       reluva-tool net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
         return 1;
     }
     reluva::SearchSet set;
@@ -3378,7 +3419,9 @@ int cmdNetRun(int argc, char** argv) {
     }
     using Clock = std::chrono::steady_clock;
     const auto start = Clock::now();
-    auto nowMs = [&] { return uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()) + 1; };
+    auto nowMs = [&] {
+        return uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()) + 1;
+    };
     std::string err;
     q3::CvarStore cvars;
 
@@ -3412,13 +3455,13 @@ int cmdNetRun(int argc, char** argv) {
                     return 1;
             }
             if (client.takeNewGamestate()) {
-                const auto& cs = client.configstrings();
+                const auto &cs = client.configstrings();
                 std::printf("game state: %zu configstrings, map %s, commands from %d\n", cs.size(),
                             cs.count(0) ? q3::infoValue(cs.at(0), "mapname").c_str() : "?",
                             client.gamestateCommandSequence());
                 client.setLoaded();
             }
-            for (const auto& snap : client.takeSnapshots()) {
+            for (const auto &snap : client.takeSnapshots()) {
                 ++snapshots;
                 entities = snap.entities.size();
                 lastTime = snap.serverTime;
@@ -3432,7 +3475,8 @@ int cmdNetRun(int argc, char** argv) {
             }
             for (; commandsSeen < client.serverCommands().size(); ++commandsSeen)
                 if (!client.serverCommands()[commandsSeen].empty())
-                    std::printf("server command %zu: %s\n", commandsSeen + 1, client.serverCommands()[commandsSeen].c_str());
+                    std::printf("server command %zu: %s\n", commandsSeen + 1,
+                                client.serverCommands()[commandsSeen].c_str());
             if (client.hasSnapshot()) {
                 ef::GameHost::UserCommand cmd;
                 cmd.serverTime = client.serverTime();
@@ -3441,7 +3485,8 @@ int cmdNetRun(int argc, char** argv) {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        std::printf("%zu snapshots (the last at server time %d, %zu entities); leaving\n", snapshots, lastTime, entities);
+        std::printf("%zu snapshots (the last at server time %d, %zu entities); leaving\n", snapshots, lastTime,
+                    entities);
         client.disconnect();
         return snapshots ? 0 : 1;
     }
@@ -3460,17 +3505,19 @@ int cmdNetRun(int argc, char** argv) {
     if (publicServer)
         cvars.set("dedicated", "2");
     ef::GameHost game(set, cvars);
-    game.print = [](const std::string& text) {
+    game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
-    if (reluva::Error e = game.load(); e || (e = game.startLevel(map, bsp, int32_t(start.time_since_epoch().count())))) {
+    if (reluva::Error e = game.load();
+        e || (e = game.startLevel(map, bsp, int32_t(start.time_since_epoch().count())))) {
         std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
         return 1;
     }
     std::printf("game code: Elite Force %s layout\n", game.layout().version == 12 ? "1.2" : "1.0");
     if (game.layout().version != 12)
-        std::printf("warning: the protocol carries patch 1.2's layouts; players joining 1.0's game won't see it right\n");
-    for (const std::string& bot : bots)
+        std::printf(
+            "warning: the protocol carries patch 1.2's layouts; players joining 1.0's game won't see it right\n");
+    for (const std::string &bot : bots)
         if (reluva::Error e = game.serverCommand("addbot " + bot))
             std::fprintf(stderr, "net-run: addbot: %s\n", e.message.c_str());
     auto socket = reluva::net::openSystemUdp(uint16_t(port), err);
@@ -3479,8 +3526,8 @@ int cmdNetRun(int argc, char** argv) {
         return 1;
     }
     ef::NetServer server(game, cvars, std::move(socket));
-    server.print = [](const std::string& text) { std::printf("server: %s", text.c_str()); };
-    server.resolveHost = [](const std::string& host, uint32_t& ip) { return reluva::net::resolveSystemHost(host, ip); };
+    server.print = [](const std::string &text) { std::printf("server: %s", text.c_str()); };
+    server.resolveHost = [](const std::string &host, uint32_t &ip) { return reluva::net::resolveSystemHost(host, ip); };
     server.setFiles(&set);
     server.levelStarted();
     std::printf("hosting %s on port %u for %d s\n", map.c_str(), server.port(), seconds);
@@ -3500,7 +3547,7 @@ int cmdNetRun(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     std::printf("done; players at the end:");
-    for (const auto& [number, who] : server.players())
+    for (const auto &[number, who] : server.players())
         std::printf(" %d: %s", number, who.c_str());
     std::printf("\n");
     return 0;
@@ -3509,14 +3556,14 @@ int cmdNetRun(int argc, char** argv) {
 // Looking for servers as the menus' list does (getinfo, broadcast on the
 // four server ports), or asking one (getinfo and getstatus), printing
 // every answer as it comes, for when the list stays empty.
-int cmdNetFind(int argc, char** argv) {
+int cmdNetFind(int argc, char **argv) {
     std::string err;
     auto socket = reluva::net::openSystemUdp(0, err);
     if (!socket) {
         std::fprintf(stderr, "net-find: %s\n", err.c_str());
         return 1;
     }
-    auto send = [&](const reluva::net::Address& to, const std::string& text) {
+    auto send = [&](const reluva::net::Address &to, const std::string &text) {
         std::vector<uint8_t> d(4, 0xff);
         d.insert(d.end(), text.begin(), text.end());
         const bool sent = socket->send(to, d);
@@ -3560,7 +3607,7 @@ int cmdNetFind(int argc, char** argv) {
 
 // Each .pk3's checksum in a game folder, as id Tech 3 games tell them
 // apart (and the pure check's, with a feed if given).
-int cmdPk3Sums(int argc, char** argv) {
+int cmdPk3Sums(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pk3-sums <game folder> [feed]\n");
@@ -3571,8 +3618,8 @@ int cmdPk3Sums(int argc, char** argv) {
         return 1;
     const bool withFeed = argc >= 4;
     const auto feed = int32_t(withFeed ? std::strtoll(argv[3], nullptr, 10) : 0);
-    for (const reluva::Archive* a : set.archives())
-        if (const auto* pak = dynamic_cast<const reluva::ZipArchive*>(a)) {
+    for (const reluva::Archive *a : set.archives())
+        if (const auto *pak = dynamic_cast<const reluva::ZipArchive *>(a)) {
             std::printf("%s: %u", pak->describe().c_str(), uint32_t(q3::pakChecksum(*pak)));
             if (withFeed)
                 std::printf(" (pure %d)", q3::pakChecksum(*pak, feed));
@@ -3585,7 +3632,7 @@ int cmdPk3Sums(int argc, char** argv) {
 
 // Asking master servers for their lists, as the menus' Internet list
 // does (and in dpmaster's form too), printing what each answers.
-int cmdNetMaster(int argc, char** argv) {
+int cmdNetMaster(int argc, char **argv) {
     namespace q3 = reluva::idtech3;
     std::vector<std::string> names;
     for (int i = 2; i < argc; ++i)
@@ -3601,7 +3648,7 @@ int cmdNetMaster(int argc, char** argv) {
         return 1;
     }
     int answers = 0;
-    for (const std::string& name : names) {
+    for (const std::string &name : names) {
         const auto [host, port] = reluva::net::splitHostPort(name, q3::ServerBrowser::kMasterPort);
         uint32_t ip = 0;
         if (!reluva::net::resolveSystemHost(host, ip)) {
@@ -3610,7 +3657,7 @@ int cmdNetMaster(int argc, char** argv) {
         }
         const reluva::net::Address master{ip, port};
         std::printf("%s (%s):\n", name.c_str(), master.toString().c_str());
-        for (const char* query : {"getservers 24", "getservers 24 full empty", "getservers EliteForce 24 full empty"}) {
+        for (const char *query : {"getservers 24", "getservers 24 full empty", "getservers EliteForce 24 full empty"}) {
             std::vector<uint8_t> d(4, 0xff);
             d.insert(d.end(), query, query + std::strlen(query));
             socket->send(master, d);
@@ -3649,7 +3696,7 @@ int cmdNetMaster(int argc, char** argv) {
 // exports: to see how far emulation gets with a game's DLL and what it
 // calls. "table" as an argument passes a table of functions that report
 // their calls (an engine's import table, as GetGameAPI takes).
-int cmdX86Run(int argc, char** argv) {
+int cmdX86Run(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool x86-run <file.dll> [-call Export [arg|table]...] [-table slots]\n"
                              "                           [-limit instructions] [-trace count] [-memory MB]\n");
@@ -3681,13 +3728,13 @@ int cmdX86Run(int argc, char** argv) {
     reluva::x86::Cpu cpu(std::min<uint32_t>(memoryMb, 3072) << 20);
     cpu.setInstructionLimit(limit);
     reluva::x86::Win32Process process(cpu);
-    process.output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+    process.output = [](const std::string &text) { std::printf("[program] %s\n", text.c_str()); };
 
     // The last instructions run, to show where a failure happened.
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
-    cpu.trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
-    auto failed = [&](const reluva::Error& e) {
+    cpu.trace = [&](reluva::x86::Cpu &c) { recent[recentAt++ % recent.size()] = c.eip; };
+    auto failed = [&](const reluva::Error &e) {
         std::printf("failed: %s\nlast instructions:", e.message.c_str());
         for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
             std::printf(" %08x", recent[i % recent.size()]);
@@ -3696,14 +3743,14 @@ int cmdX86Run(int argc, char** argv) {
     };
 
     const std::string name = std::filesystem::path(argv[2]).filename().string();
-    const reluva::x86::Win32Process::Module* m = nullptr;
+    const reluva::x86::Win32Process::Module *m = nullptr;
     if (reluva::Error e = process.load(name, file, m)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
     std::printf("%s loaded at 0x%08x (asked for 0x%08x), %u bytes\n", name.c_str(), m->base,
                 uint32_t(m->image.imageBase), m->size);
-    for (const std::string& missing : process.missingImports())
+    for (const std::string &missing : process.missingImports())
         std::printf("  not stood in for: %s\n", missing.c_str());
     uint64_t before = cpu.executed();
     if (reluva::Error e = process.attach(*m))
@@ -3721,16 +3768,17 @@ int cmdX86Run(int argc, char** argv) {
     int reported = 0;
     const uint32_t table = process.memory().alloc(uint32_t(tableSlots) * 4);
     for (int i = 0; i < tableSlots; ++i) {
-        const uint32_t fn = cpu.addNative("table[" + std::to_string(i) + "]", [i, &reported](reluva::x86::Cpu& c) {
+        const uint32_t fn = cpu.addNative("table[" + std::to_string(i) + "]", [i, &reported](reluva::x86::Cpu &c) {
             if (reported++ < 500) {
                 // Arguments as numbers, or as text where they point at some.
                 std::string args;
                 for (int n = 0; n < 4; ++n) {
                     const uint32_t v = c.arg(n);
                     const std::string text = c.string(v, 80);
-                    const bool printable = text.size() >= 2 && std::all_of(text.begin(), text.end(), [](char ch) {
-                        return ch == '\n' || ch == '\t' || (uint8_t(ch) >= 32 && uint8_t(ch) < 127);
-                    });
+                    const bool printable =
+                        text.size() >= 2 && std::all_of(text.begin(), text.end(), [](char ch) {
+                            return ch == '\n' || ch == '\t' || (uint8_t(ch) >= 32 && uint8_t(ch) < 127);
+                        });
                     char buf[24];
                     std::snprintf(buf, sizeof buf, "0x%x", v);
                     args += (n ? ", " : "") + (printable ? std::string(buf) + " \"" + text + "\"" : std::string(buf));
@@ -3743,7 +3791,7 @@ int cmdX86Run(int argc, char** argv) {
         cpu.write32(table + 4 * uint32_t(i), fn);
     }
     std::vector<uint32_t> args;
-    for (const std::string& a : callArgs)
+    for (const std::string &a : callArgs)
         args.push_back(a == "table" ? table : uint32_t(std::strtoul(a.c_str(), nullptr, 0)));
     uint32_t result = 0;
     before = cpu.executed();
@@ -3756,11 +3804,16 @@ int cmdX86Run(int argc, char** argv) {
         for (uint32_t i = 0; i < 64 && cpu.valid(result + 4 * i, 4); ++i) {
             const uint32_t v = cpu.read32(result + 4 * i);
             const bool inModule = v >= m->base && v < m->base + m->size;
-            std::printf("  [%2u] 0x%08x%s\n", i, v, inModule ? (" (" + name + "+0x" + [&] {
-                char b[16];
-                std::snprintf(b, sizeof b, "%x", v - m->base);
-                return std::string(b);
-            }() + ")").c_str() : "");
+            std::printf("  [%2u] 0x%08x%s\n", i, v,
+                        inModule ? (" (" + name + "+0x" +
+                                    [&] {
+                                        char b[16];
+                                        std::snprintf(b, sizeof b, "%x", v - m->base);
+                                        return std::string(b);
+                                    }() +
+                                    ")")
+                                       .c_str()
+                                 : "");
         }
     }
     return 0;
@@ -3769,7 +3822,7 @@ int cmdX86Run(int argc, char** argv) {
 // Runs Elite Force's single-player game logic (efgamex86.dll, in the x86
 // interpreter) on a map: GetGameAPI, Init with the map's entities, the
 // player joining, then frames; reports what the game did.
-int cmdSpRun(int argc, char** argv) {
+int cmdSpRun(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
                              "[-set name value]... [-trace] [-noclient] [-cgame] [-watch]\n");
@@ -3805,7 +3858,7 @@ int cmdSpRun(int argc, char** argv) {
         std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
         if (!folder.has_filename())
             folder = folder.parent_path();
-        for (const std::filesystem::path& p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
+        for (const std::filesystem::path &p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
             if (std::filesystem::exists(p)) {
                 dllPath = p.string();
                 break;
@@ -3833,10 +3886,10 @@ int cmdSpRun(int argc, char** argv) {
         return 1;
     }
     q3::CvarStore cvars;
-    for (const auto& [name, value] : settings)
+    for (const auto &[name, value] : settings)
         cvars.set(name, value);
     ef::SpGameHost game(set, cvars);
-    game.print = [](const std::string& text) {
+    game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
     // For a failure's report: the last engine calls, and (set up once the
@@ -3850,8 +3903,8 @@ int cmdSpRun(int argc, char** argv) {
     };
     std::vector<uint32_t> recent(64);
     size_t recentAt = 0;
-    auto failed = [&](const char* what, const reluva::Error& e) {
-        reluva::x86::Cpu& cpu = game.cpu();
+    auto failed = [&](const char *what, const reluva::Error &e) {
+        reluva::x86::Cpu &cpu = game.cpu();
         std::printf("%s failed: %s\n", what, e.message.c_str());
         std::printf("instructions run: %llu\n", (unsigned long long)cpu.executed());
         // Addresses as the DLL's own (at its preferred base), to look up.
@@ -3874,8 +3927,8 @@ int cmdSpRun(int argc, char** argv) {
             std::printf(" %d@%s", recentCalls[i % recentCalls.size()].first,
                         dll(recentCalls[i % recentCalls.size()].second).c_str());
         std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n",
-                    cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4], cpu.faultReg[5],
-                    cpu.faultReg[6], cpu.faultReg[7]);
+                    cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4],
+                    cpu.faultReg[5], cpu.faultReg[6], cpu.faultReg[7]);
         // Return addresses on the stack: words pointing into the DLL's code.
         std::printf("stack (words pointing into the DLL):");
         int shown = 0;
@@ -3894,7 +3947,7 @@ int cmdSpRun(int argc, char** argv) {
     if (reluva::Error e = game.load(dll))
         return failed("loading", e);
     std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
-    game.cpu().trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
+    game.cpu().trace = [&](reluva::x86::Cpu &c) { recent[recentAt++ % recent.size()] = c.eip; };
     if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0))
         return failed("Init", e);
     std::printf("Init done: %d entities (%d bytes each), %zu linked, %zu configstrings\n", game.entityCount(),
@@ -3912,9 +3965,10 @@ int cmdSpRun(int argc, char** argv) {
         const uint64_t before = game.cpu().executed();
         if (reluva::Error e = game.startClientGame())
             return failed("the client game's start-up", e);
-        std::printf("client game started: %llu instructions; %zu models, %zu shaders, %zu skins, %zu sounds registered\n",
-                    (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
-                    game.skins().size(), game.sounds().size());
+        std::printf(
+            "client game started: %llu instructions; %zu models, %zu shaders, %zu skins, %zu sounds registered\n",
+            (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
+            game.skins().size(), game.sounds().size());
     }
     for (int f = 0; f < frames; ++f) {
         if (reluva::Error e = game.runFrame())
@@ -3928,14 +3982,14 @@ int cmdSpRun(int argc, char** argv) {
                 return failed(("client frame " + std::to_string(f + 1)).c_str(), e);
             // Once a second of the level: the camera, the view, the player.
             if (watch && game.levelTime() % 1000 == 0) {
-                reluva::x86::Cpu& cpu = game.cpu();
+                reluva::x86::Cpu &cpu = game.cpu();
                 auto f = [&cpu](uint32_t at) {
                     const uint32_t u = cpu.read32(at);
                     float v;
                     std::memcpy(&v, &u, 4);
                     return v;
                 };
-                auto bytesFloat = [](const std::vector<uint8_t>& b, size_t at) {
+                auto bytesFloat = [](const std::vector<uint8_t> &b, size_t at) {
                     float v = 0;
                     if (at + 4 <= b.size())
                         std::memcpy(&v, b.data() + at, 4);
@@ -3945,7 +3999,7 @@ int cmdSpRun(int argc, char** argv) {
                 const bool camera = game.cameraPosition(cam);
                 std::string view = "no view";
                 if (!game.scene().views.empty()) {
-                    const auto& r = game.scene().views[0].refdef;
+                    const auto &r = game.scene().views[0].refdef;
                     char b[96];
                     std::snprintf(b, sizeof b, "view at %.0f %.0f %.0f", bytesFloat(r, 24), bytesFloat(r, 28),
                                   bytesFloat(r, 32));
@@ -3964,49 +4018,48 @@ int cmdSpRun(int argc, char** argv) {
         }
     }
     if (game.clientGameRunning()) {
-        const ef::Scene& scene = game.scene();
-        std::printf("last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
-                    scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(),
-                    game.pictures().size());
+        const ef::Scene &scene = game.scene();
+        std::printf(
+            "last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
+            scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(), game.pictures().size());
         std::map<std::string, int> byModel;
-        for (const ef::SceneEntity& e : scene.entities) {
+        for (const ef::SceneEntity &e : scene.entities) {
             const int32_t m = ef::SpGameHost::entityModel(e);
             ++byModel[m ? game.models().name(m) : std::string("(no model)")];
         }
-        for (const auto& [name, count] : byModel)
+        for (const auto &[name, count] : byModel)
             std::printf("  %3d x %s\n", count, name.c_str());
         std::map<std::string, int> byShader;
-        for (const ef::Picture& p : game.pictures())
+        for (const ef::Picture &p : game.pictures())
             ++byShader[game.shaders().name(p.shader)];
-        for (const auto& [name, count] : byShader)
+        for (const auto &[name, count] : byShader)
             std::printf("  picture %3d x %s\n", count, name.c_str());
     }
-    const double seconds =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
-                game.levelTime(), game.entityCount(), game.linked().size(),
-                (unsigned long long)game.cpu().executed(), seconds);
+                game.levelTime(), game.entityCount(), game.linked().size(), (unsigned long long)game.cpu().executed(),
+                seconds);
     std::printf("configstrings:\n");
     int shown = 0;
-    for (const auto& [index, text] : game.configstrings())
+    for (const auto &[index, text] : game.configstrings())
         if (shown++ < 40)
             std::printf("  %4d %s\n", index, text.substr(0, 100).c_str());
-    for (const std::string& c : game.consoleCommands())
+    for (const std::string &c : game.consoleCommands())
         std::printf("console command: %s", c.c_str());
-    for (const auto& [client, text] : game.serverCommands())
+    for (const auto &[client, text] : game.serverCommands())
         if (shown++ < 80)
             std::printf("to client %d: %s\n", client, text.substr(0, 100).c_str());
     std::printf("engine calls:");
-    for (const auto& [slot, count] : game.callCounts())
+    for (const auto &[slot, count] : game.callCounts())
         std::printf(" %d:%d", slot, count);
     std::printf("\nclient game calls:");
-    for (const auto& [n, count] : game.cgameCallCounts())
+    for (const auto &[n, count] : game.cgameCallCounts())
         std::printf(" %d:%d%s", n, count, game.cgameUnhandled().count(n) ? "?" : "");
     std::printf("  (? not answered yet)\n");
     return 0;
 }
 
-int cmdPeInfo(int argc, char** argv) {
+int cmdPeInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pe-info <file.dll|file.exe> [-all]\n");
         return 2;
@@ -4021,33 +4074,36 @@ int cmdPeInfo(int argc, char** argv) {
         return 1;
     }
     std::printf("machine 0x%x (%s), %s, characteristics 0x%x (%s), linker %s, built %u (unix time)\n", pe.machine,
-                pe.machine == 0x14c ? "x86" : pe.machine == 0x8664 ? "x86-64" : "other", pe.pe32Plus ? "PE32+" : "PE32",
-                pe.characteristics, (pe.characteristics & 0x2000) ? "DLL" : "executable", pe.linkerVersion.c_str(),
-                pe.timestamp);
+                pe.machine == 0x14c    ? "x86"
+                : pe.machine == 0x8664 ? "x86-64"
+                                       : "other",
+                pe.pe32Plus ? "PE32+" : "PE32", pe.characteristics,
+                (pe.characteristics & 0x2000) ? "DLL" : "executable", pe.linkerVersion.c_str(), pe.timestamp);
     std::printf("image base 0x%llx, size 0x%x, entry point RVA 0x%x, subsystem %u (2 GUI, 3 console)\n",
                 static_cast<unsigned long long>(pe.imageBase), pe.imageSize, pe.entryPoint, pe.subsystem);
     std::printf("relocations: %u%s; TLS: %s", pe.relocationCount,
                 pe.relocationCount ? " (can load at another address)" : " (fixed address)", pe.hasTls ? "yes" : "no");
-    for (const std::string& o : pe.otherDirectories)
+    for (const std::string &o : pe.otherDirectories)
         std::printf("; %s", o.c_str());
     std::printf("\n\nsections:\n");
-    for (const auto& sec : pe.sections)
+    for (const auto &sec : pe.sections)
         std::printf("  %-8s rva 0x%06x size 0x%06x file 0x%06x+0x%06x %s%s%s%s\n", sec.name.c_str(), sec.virtualAddress,
                     sec.virtualSize, sec.rawOffset, sec.rawSize, (sec.characteristics & 0x20000000) ? "exec " : "",
-                    (sec.characteristics & 0x40000000) ? "read " : "", (sec.characteristics & 0x80000000) ? "write " : "",
+                    (sec.characteristics & 0x40000000) ? "read " : "",
+                    (sec.characteristics & 0x80000000) ? "write " : "",
                     (sec.characteristics & 0x80) ? "(zero-filled)" : "");
     std::printf("\nexports (%s): %zu\n", pe.exportName.c_str(), pe.exports.size());
-    for (const auto& x : pe.exports)
+    for (const auto &x : pe.exports)
         std::printf("  %4u %-40s rva 0x%06x%s%s\n", x.ordinal, x.name.empty() ? "(by ordinal)" : x.name.c_str(), x.rva,
                     x.forwarder.empty() ? "" : " -> ", x.forwarder.c_str());
     size_t total = 0;
-    for (const auto& dll : pe.imports)
+    for (const auto &dll : pe.imports)
         total += dll.functions.size();
     std::printf("\nimports: %zu functions from %zu DLLs\n", total, pe.imports.size());
-    for (const auto& dll : pe.imports) {
+    for (const auto &dll : pe.imports) {
         std::printf("  %s: %zu\n", dll.name.c_str(), dll.functions.size());
         std::string line;
-        for (const auto& f : dll.functions) {
+        for (const auto &f : dll.functions) {
             const std::string n = f.name.empty() ? "#" + std::to_string(f.ordinal) : f.name;
             if (line.size() + n.size() > 100) {
                 std::printf("    %s\n", line.c_str());
@@ -4062,9 +4118,11 @@ int cmdPeInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdGameRun(int argc, char** argv) {
+int cmdGameRun(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -4083,7 +4141,7 @@ int cmdGameRun(int argc, char** argv) {
     constexpr int kFramesPerWeapon = 40;
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
-    std::vector<std::string> addBots;                           // -addbot "name [skill]"
+    std::vector<std::string> addBots;                          // -addbot "name [skill]"
     bool eventsTest = false; // -events: with -cgame, the player's events against the sounds they bring
     std::string walkDirection = "forward";
     for (int i = 4; i < argc; ++i) {
@@ -4117,12 +4175,10 @@ int cmdGameRun(int argc, char** argv) {
             // An optional direction: forward (the default), back, left, right.
             if (i + 1 < argc && argv[i + 1][0] != '-')
                 walkDirection = argv[++i];
-        }
-        else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+        } else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
-        }
-        else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
+        } else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
             addBots.emplace_back(argv[++i]);
         else if (std::strcmp(argv[i], "-events") == 0)
             eventsTest = true;
@@ -4139,7 +4195,7 @@ int cmdGameRun(int argc, char** argv) {
         map = map.substr(5);
     Bytes data;
     auto bspOwned = std::make_shared<q3::Bsp>();
-    q3::Bsp& bsp = *bspOwned;
+    q3::Bsp &bsp = *bspOwned;
     if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, bsp))) {
         std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
         return 1;
@@ -4149,17 +4205,17 @@ int cmdGameRun(int argc, char** argv) {
         cvars.set("g_holoIntro", "0"); // the player has to be in the game
     if (fireWeapon < 0 && fireButtons)
         cgameFrames = std::max(cgameFrames, 10 + 10 * kFramesPerWeapon);
-    for (const auto& [name, value] : settings)
+    for (const auto &[name, value] : settings)
         cvars.set(name, value);
     ef::GameHost game(set, cvars);
-    game.print = [](const std::string& text) {
+    game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
     if (traceCalls)
-        game.trace = [](int number, const int32_t* a) {
+        game.trace = [](int number, const int32_t *a) {
             std::printf("  syscall %3d (%d, %d, %d, %d)\n", number, a[0], a[1], a[2], a[3]);
         };
-    auto step = [&](const char* what, reluva::Error err) {
+    auto step = [&](const char *what, reluva::Error err) {
         std::printf("%s: %s after %llu instructions\n", what, err ? err.message.c_str() : "ok",
                     static_cast<unsigned long long>(game.vm().executed()));
         return !err;
@@ -4177,7 +4233,9 @@ int cmdGameRun(int argc, char** argv) {
                                      "\\snaps\\20\\rate\\25000\\ip\\localhost";
         std::string refused;
         reluva::Error err = game.connectClient(0, userinfo, refused);
-        std::printf("client 0 connects: %s\n", err ? err.message.c_str() : refused.empty() ? "ok" : ("refused: " + refused).c_str());
+        std::printf("client 0 connects: %s\n", err               ? err.message.c_str()
+                                               : refused.empty() ? "ok"
+                                                                 : ("refused: " + refused).c_str());
         ok = !err;
         if (ok && refused.empty()) {
             err = game.beginClient(0);
@@ -4198,13 +4256,15 @@ int cmdGameRun(int argc, char** argv) {
         }
     }
     // Bots, added at the server's console as the original's addbot.
-    for (const std::string& bot : addBots) {
+    for (const std::string &bot : addBots) {
         if (!ok)
             break;
         bool handled = false;
         reluva::Error err = game.serverCommand("addbot " + bot, &handled);
         std::printf("addbot %s: %s\n", bot.c_str(),
-                    err ? err.message.c_str() : handled ? "ok" : "the game didn't take the command");
+                    err       ? err.message.c_str()
+                    : handled ? "ok"
+                              : "the game didn't take the command");
         ok = !err;
     }
     std::map<int32_t, q3::Vec3f> botStart;
@@ -4271,7 +4331,7 @@ int cmdGameRun(int argc, char** argv) {
                 words[i] = game.clientInt(0, int32_t(i * 4));
             return words;
         };
-        auto run = [&](int32_t buttons, int frames, std::set<size_t>& changed) {
+        auto run = [&](int32_t buttons, int frames, std::set<size_t> &changed) {
             for (int f = 0; f < frames && ok; ++f) {
                 const auto before = state();
                 ef::GameHost::UserCommand cmd;
@@ -4305,9 +4365,10 @@ int cmdGameRun(int argc, char** argv) {
     }
     if (player) {
         const auto o = game.entityVec(0, 272);
-        std::printf("client 0 moved %.1f units across and %.1f up over the frames\n",
-                    std::sqrt((o[0] - startPos[0]) * (o[0] - startPos[0]) + (o[1] - startPos[1]) * (o[1] - startPos[1])),
-                    o[2] - startPos[2]);
+        std::printf(
+            "client 0 moved %.1f units across and %.1f up over the frames\n",
+            std::sqrt((o[0] - startPos[0]) * (o[0] - startPos[0]) + (o[1] - startPos[1]) * (o[1] - startPos[1])),
+            o[2] - startPos[2]);
     }
     if (player) {
         // What the game's movement code meets: its trace down from where
@@ -4325,17 +4386,19 @@ int cmdGameRun(int argc, char** argv) {
                 from[2] += 1;
                 int32_t hit = 0;
                 const q3::TraceResult t = game.traceMove(from, mins, maxs, to, 0, mask, hit);
-                std::printf("trace %s%c from client 0: %.1f units free, hits %d%s\n", sign > 0 ? "+" : "-",
-                            "xy"[axis], t.fraction * 512, hit, t.startSolid ? " (starts inside)" : "");
+                std::printf("trace %s%c from client 0: %.1f units free, hits %d%s\n", sign > 0 ? "+" : "-", "xy"[axis],
+                            t.fraction * 512, hit, t.startSolid ? " (starts inside)" : "");
             }
         for (bool withEntities : {true, false}) {
             int32_t hit = 0;
             const q3::TraceResult t = game.traceMove(o, mins, maxs, end, 0, mask, hit, withEntities);
-            std::printf("trace down from client 0 (%s): fraction %.3f, startsolid %d, allsolid %d, hits %d, lands at %.1f\n",
-                        withEntities ? "world and entities" : "world only", t.fraction, t.startSolid, t.allSolid, hit,
-                        t.endPos[2]);
+            std::printf(
+                "trace down from client 0 (%s): fraction %.3f, startsolid %d, allsolid %d, hits %d, lands at %.1f\n",
+                withEntities ? "world and entities" : "world only", t.fraction, t.startSolid, t.allSolid, hit,
+                t.endPos[2]);
             if (withEntities && hit >= 0 && hit < 1022) {
-                const auto eo = game.entityVec(hit, 272), emin = game.entityVec(hit, 220), emax = game.entityVec(hit, 232);
+                const auto eo = game.entityVec(hit, 272), emin = game.entityVec(hit, 220),
+                           emax = game.entityVec(hit, 232);
                 std::printf("  entity %d: origin %.1f %.1f %.1f, box %.1f %.1f %.1f to %.1f %.1f %.1f, contents %d, "
                             "brush model %d (model %d), owner %d\n",
                             hit, eo[0], eo[1], eo[2], emin[0], emin[1], emin[2], emax[0], emax[1], emax[2],
@@ -4344,16 +4407,16 @@ int cmdGameRun(int argc, char** argv) {
             }
         }
     }
-    const auto& gd = game.gameData();
+    const auto &gd = game.gameData();
     std::printf("level time %d ms; entity array at %d: %d in use, %d bytes each; clients at %d, %d bytes each\n",
                 game.levelTime(), gd.entities, gd.count, gd.entitySize, gd.clients, gd.clientSize);
     std::printf("%zu entities linked into the world, %zu configstrings set, %zu cvars\n", game.linked().size(),
                 game.configstrings().size(), cvars.all().size());
-    for (const auto& [index, text] : game.configstrings()) {
+    for (const auto &[index, text] : game.configstrings()) {
         std::string shown = text.size() > 100 ? text.substr(0, 100) + "..." : text;
         std::printf("  configstring %4d: %s\n", index, shown.c_str());
     }
-    for (const std::string& c : game.consoleCommands())
+    for (const std::string &c : game.consoleCommands())
         std::printf("console command: %s\n", c.c_str());
     if (!addBots.empty() || !game.botClients().empty()) {
         // The bots: where each started and is now, and the bot library's
@@ -4365,12 +4428,12 @@ int cmdGameRun(int argc, char** argv) {
             std::printf("  client %d: %s, at %.1f %.1f %.1f (was %.1f %.1f %.1f)\n", c,
                         game.linked().count(c) ? "linked" : "not linked", o[0], o[1], o[2], s[0], s[1], s[2]);
         }
-        const auto& aas = game.botLibrary().aas();
+        const auto &aas = game.botLibrary().aas();
         std::printf("aas: %s\n", aas.loaded() ? (std::to_string(aas.areaCount()) + " areas").c_str() : "not loaded");
-        for (const auto& [number, samples] : game.botCallSamples()) {
+        for (const auto &[number, samples] : game.botCallSamples()) {
             const auto counted = game.callCounts().find(number);
             std::printf("  bot call %d: %d calls", number, counted == game.callCounts().end() ? 0 : counted->second);
-            for (const auto& args : samples) {
+            for (const auto &args : samples) {
                 std::printf(" (");
                 for (size_t i = 0; i < args.size(); ++i)
                     std::printf("%s%d", i ? " " : "", args[i]);
@@ -4379,13 +4442,13 @@ int cmdGameRun(int argc, char** argv) {
             std::printf("\n");
         }
     }
-    for (const auto& [client, text] : game.serverCommands()) {
+    for (const auto &[client, text] : game.serverCommands()) {
         std::string shown = text.size() > 120 ? text.substr(0, 120) + "..." : text;
         while (!shown.empty() && shown.back() == '\n')
             shown.pop_back();
         std::printf("to client %d: %s\n", client, shown.c_str());
     }
-    for (const auto& [client, reason] : game.dropped())
+    for (const auto &[client, reason] : game.dropped())
         std::printf("client %d dropped: %s\n", client, reason.c_str());
 
     // A check of the collision model on its own: a player's box dropped
@@ -4399,7 +4462,7 @@ int cmdGameRun(int argc, char** argv) {
         const q3::Vec3f mins{-15, -15, -24}, maxs{15, 15, 32};
         int spawns = 0, stuck = 0, falling = 0;
         float shortest = 1e9f, longest = 0;
-        for (const q3::Entity& e : ents) {
+        for (const q3::Entity &e : ents) {
             float o[3];
             if (e.classname().rfind("info_player", 0) != 0 || !e.vector("origin", o))
                 continue;
@@ -4422,13 +4485,13 @@ int cmdGameRun(int argc, char** argv) {
                         "units below; %d start inside something, %d fall out of the map\n",
                         spawns, spawns > stuck + falling ? shortest : 0.0f, longest, stuck, falling);
     }
-    for (const auto& [number, count] : game.unhandled())
+    for (const auto &[number, count] : game.unhandled())
         std::printf("not implemented: system call %d (%d calls)\n", number, count);
 
     if (ok && runCgame) {
         // The player's client game, started with what the server has set.
         ef::CgameHost cgame(set, cvars);
-        cgame.print = [](const std::string& text) {
+        cgame.print = [](const std::string &text) {
             std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
         };
         // The client game's calls, counted by frame phase: idle, then
@@ -4437,7 +4500,7 @@ int cmdGameRun(int argc, char** argv) {
         std::array<std::map<int, int>, 3> phaseCalls;
         std::map<int, std::array<int32_t, 4>> firingArgs;
         std::map<std::string, int> soundsStarted; // -events: S_StartSound by name
-        cgame.trace = [&](int number, const int32_t* a) {
+        cgame.trace = [&](int number, const int32_t *a) {
             if (eventsTest && number == 28)
                 ++soundsStarted[cgame.sounds().name(a[3])];
             ++phaseCalls[size_t(phase)][number];
@@ -4481,7 +4544,7 @@ int cmdGameRun(int argc, char** argv) {
                             return false;
                         }
                         std::vector<std::string> commands;
-                        for (const auto& [to, text] : game.serverCommands())
+                        for (const auto &[to, text] : game.serverCommands())
                             if (to == 0 || to == -1)
                                 commands.push_back(text);
                         cgame.setServerCommands(commands);
@@ -4518,13 +4581,13 @@ int cmdGameRun(int argc, char** argv) {
                             stepMs, serverFirst ? "the server run first" : "the command first",
                             game.clientInt(0, 108) - firstEvent, firstCommandTime, game.clientInt(0, 0), firstAmmo,
                             game.clientInt(0, 396));
-                for (const auto& [name, count] : soundsStarted)
+                for (const auto &[name, count] : soundsStarted)
                     std::printf("  %4d  %s\n", count, name.c_str());
             };
             // From 144 frames a second down to 12, as a slow frame rate gives,
             // each both ways; 7 ms again at the end, as each run starts where
             // the last stopped.
-            for (const auto& [stepMs, serverFirst] : std::vector<std::pair<int, bool>>{
+            for (const auto &[stepMs, serverFirst] : std::vector<std::pair<int, bool>>{
                      {7, false}, {16, false}, {16, true}, {50, false}, {50, true}, {80, true}, {7, false}})
                 runFor(stepMs, serverFirst);
         } else if (!err) {
@@ -4594,7 +4657,7 @@ int cmdGameRun(int argc, char** argv) {
                                 game.clientInt(0, 396));
                 }
                 std::vector<std::string> commands;
-                for (const auto& [to, text] : game.serverCommands())
+                for (const auto &[to, text] : game.serverCommands())
                     if (to == 0 || to == -1)
                         commands.push_back(text);
                 cgame.setServerCommands(commands);
@@ -4610,13 +4673,13 @@ int cmdGameRun(int argc, char** argv) {
                 const reluva::Error frame =
                     cgame.call(ef::CgameHost::DrawActiveFrame, {game.levelTime(), 0, 0}, ignored);
                 if (verbose || frame)
-                    std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n", game.levelTime(),
-                            frame ? frame.message.c_str() : "ok",
-                            static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
+                    std::printf("cgame DrawActiveFrame(%d): %s after %llu instructions, %zu pictures\n",
+                                game.levelTime(), frame ? frame.message.c_str() : "ok",
+                                static_cast<unsigned long long>(cgame.vm().executed()), cgame.pictures().size());
                 if (!watchModel.empty()) {
                     // Entities with the watched model: colour, scale (axis
                     // lengths), frames and where.
-                    for (const auto& e : cgame.scene().entities) {
+                    for (const auto &e : cgame.scene().entities) {
                         if (e.bytes.size() < 160)
                             continue;
                         auto word = [&](size_t at) {
@@ -4636,20 +4699,20 @@ int cmdGameRun(int argc, char** argv) {
                         std::printf("  time %d: %s colour %u %u %u %u, axes %.2f %.2f %.2f%s, frame %d (old %d, "
                                     "back %.2f), shader %d, shader time %.3f, flags 0x%x, at %.0f %.0f %.0f\n",
                                     game.levelTime(), name.c_str(), e.bytes[116], e.bytes[117], e.bytes[118],
-                                    e.bytes[119],
-                                    len[0], len[1], len[2], word(64) ? " (not normalized)" : "", word(80), word(96),
-                                    real(100), word(112), real(128), unsigned(word(4)), real(68), real(72), real(76));
+                                    e.bytes[119], len[0], len[1], len[2], word(64) ? " (not normalized)" : "", word(80),
+                                    word(96), real(100), word(112), real(128), unsigned(word(4)), real(68), real(72),
+                                    real(76));
                     }
                 }
                 {
-                    const auto& scene = cgame.scene();
-                    auto& keep = firing ? lastFiringEntities : lastIdleEntities;
+                    const auto &scene = cgame.scene();
+                    auto &keep = firing ? lastFiringEntities : lastIdleEntities;
                     if (f) {
                         keep.clear();
-                        for (const auto& e : scene.entities)
+                        for (const auto &e : scene.entities)
                             keep.push_back(e.bytes);
                     }
-                    for (const auto& e : scene.entities) {
+                    for (const auto &e : scene.entities) {
                         int32_t type = 0;
                         if (e.bytes.size() >= 4)
                             std::memcpy(&type, e.bytes.data(), 4);
@@ -4665,7 +4728,7 @@ int cmdGameRun(int argc, char** argv) {
                                 firedModels[{weaponNow, 0}].insert({model, shader});
                         }
                     }
-                    for (const auto& poly : scene.polys)
+                    for (const auto &poly : scene.polys)
                         if (polyCounts[{weaponNow, poly.shader}]++ == 0)
                             polySamples[{weaponNow, poly.shader}] = poly;
                     if (!scene.lights.empty() && !lightCounts[weaponNow])
@@ -4677,15 +4740,16 @@ int cmdGameRun(int argc, char** argv) {
                     // the memsets that cleared them: refEntity_t's size), and the
                     // view, read as Quake III's refdef_t: x, y, width, height,
                     // fov x, fov y, view origin (24), axes (36), time (72).
-                    const auto& scene = cgame.scene();
+                    const auto &scene = cgame.scene();
                     std::map<int32_t, int> sizes;
-                    for (const auto& e : scene.entities)
+                    for (const auto &e : scene.entities)
                         ++sizes[e.clearedSize];
                     std::string sizeText;
-                    for (const auto& [size, count] : sizes)
+                    for (const auto &[size, count] : sizes)
                         sizeText += " " + std::to_string(count) + " cleared by " + std::to_string(size);
                     std::printf("  scene: %zu entities (%s), %d polygons, %d lights, rendered %d times\n",
-                                scene.entities.size(), sizeText.c_str(), int(scene.polys.size()), int(scene.lights.size()), scene.renders);
+                                scene.entities.size(), sizeText.c_str(), int(scene.polys.size()),
+                                int(scene.lights.size()), scene.renders);
                     if (scene.view.size() >= 80) {
                         auto word = [&](int at) {
                             int32_t v;
@@ -4693,9 +4757,10 @@ int cmdGameRun(int argc, char** argv) {
                             return v;
                         };
                         auto real = [&](int at) { return q3::Qvm::asFloat(word(at)); };
-                        std::printf("  view: %d,%d %dx%d, fov %.1f x %.1f, eye %.1f %.1f %.1f, forward %.2f %.2f %.2f, time %d\n",
-                                    word(0), word(4), word(8), word(12), real(16), real(20), real(24), real(28),
-                                    real(32), real(36), real(40), real(44), word(72));
+                        std::printf(
+                            "  view: %d,%d %dx%d, fov %.1f x %.1f, eye %.1f %.1f %.1f, forward %.2f %.2f %.2f, time %d\n",
+                            word(0), word(4), word(8), word(12), real(16), real(20), real(24), real(28), real(32),
+                            real(36), real(40), real(44), word(72));
                     }
                 }
                 if (f == 0 && dumpEntities) {
@@ -4703,12 +4768,12 @@ int cmdGameRun(int argc, char** argv) {
                     // out refEntity_t's layout: different models first. Each
                     // word as a whole number and as a float, and what it
                     // names if it's a registered model, skin or shader handle.
-                    const auto& scene = cgame.scene();
+                    const auto &scene = cgame.scene();
                     std::vector<size_t> picked;
                     std::set<int32_t> seen;
                     for (int pass = 0; pass < 2; ++pass)
                         for (size_t i = 0; i < scene.entities.size() && picked.size() < size_t(dumpEntities); ++i) {
-                            const auto& b = scene.entities[i].bytes;
+                            const auto &b = scene.entities[i].bytes;
                             if (b.size() < 160 || std::find(picked.begin(), picked.end(), i) != picked.end())
                                 continue;
                             int32_t key = 0;
@@ -4718,7 +4783,7 @@ int cmdGameRun(int argc, char** argv) {
                             picked.push_back(i);
                         }
                     for (size_t i : picked) {
-                        const auto& b = scene.entities[i].bytes;
+                        const auto &b = scene.entities[i].bytes;
                         std::printf("  scene entity %zu (cleared by %d):\n", i, scene.entities[i].clearedSize);
                         for (int at = 0; at < 160; at += 4) {
                             int32_t v;
@@ -4744,9 +4809,9 @@ int cmdGameRun(int argc, char** argv) {
                 if (f == 0) {
                     // What the frame drew in 2D, by shader.
                     std::map<std::string, int> byShader;
-                    for (const auto& p : cgame.pictures())
+                    for (const auto &p : cgame.pictures())
                         ++byShader[cgame.shaders().name(p.shader)];
-                    for (const auto& [name, count] : byShader)
+                    for (const auto &[name, count] : byShader)
                         std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
                 }
                 cgame.clearPictures();
@@ -4759,7 +4824,7 @@ int cmdGameRun(int argc, char** argv) {
                             firingFrames);
                 std::set<int> numbers;
                 for (int ph = 1; ph <= 2; ++ph)
-                    for (const auto& [number, count] : phaseCalls[size_t(ph)])
+                    for (const auto &[number, count] : phaseCalls[size_t(ph)])
                         numbers.insert(number);
                 for (int number : numbers) {
                     const float idleRate = float(phaseCalls[1][number]) / float(idleFrames);
@@ -4774,7 +4839,7 @@ int cmdGameRun(int argc, char** argv) {
                 }
             }
             // The effects seen over the frames.
-            auto dumpWords = [&](const std::vector<uint8_t>& b, size_t size) {
+            auto dumpWords = [&](const std::vector<uint8_t> &b, size_t size) {
                 for (size_t at = 0; at + 4 <= std::min(size, b.size()); at += 4) {
                     int32_t v;
                     std::memcpy(&v, &b[at], 4);
@@ -4796,13 +4861,13 @@ int cmdGameRun(int argc, char** argv) {
                 // Firing's entities: those of the last firing frame with a model
                 // handle (byte 8) more often than in the last idle frame.
                 std::map<int32_t, int> idleModels;
-                for (const auto& b : lastIdleEntities) {
+                for (const auto &b : lastIdleEntities) {
                     int32_t m = 0;
                     std::memcpy(&m, &b[8], 4);
                     ++idleModels[m];
                 }
                 int shown = 0;
-                for (const auto& b : lastFiringEntities) {
+                for (const auto &b : lastFiringEntities) {
                     int32_t m = 0;
                     std::memcpy(&m, &b[8], 4);
                     if (idleModels[m]-- > 0 || shown >= 4)
@@ -4817,55 +4882,56 @@ int cmdGameRun(int argc, char** argv) {
             // lines (9, 11); samples of the others.
             auto drawn = [](int32_t type) { return type == 1 || type == 2 || type == 9 || type == 11; };
             std::set<int> weapons{0};
-            for (const auto& [key, count] : typeCounts)
+            for (const auto &[key, count] : typeCounts)
                 weapons.insert(key.first);
-            for (const auto& [key, count] : polyCounts)
+            for (const auto &[key, count] : polyCounts)
                 weapons.insert(key.first);
-            for (const auto& [weapon, count] : lightCounts)
+            for (const auto &[weapon, count] : lightCounts)
                 weapons.insert(weapon);
             for (int weapon : weapons) {
                 std::printf("over %d frames, %s: entities that aren't models, by type:", cgameFrames,
                             weapon ? ("firing weapon " + std::to_string(weapon)).c_str() : "not firing");
-                for (const auto& [key, count] : typeCounts)
+                for (const auto &[key, count] : typeCounts)
                     if (key.first == weapon)
                         std::printf(" %d (x%d%s)", key.second, count, drawn(key.second) ? "" : ", not drawn yet");
                 std::printf("\n");
-                for (const auto& [key, count] : typeCounts)
+                for (const auto &[key, count] : typeCounts)
                     if (key.first == weapon && !drawn(key.second)) {
                         std::printf("  type %d, the first:\n", key.second);
                         dumpWords(typeSamples[key], 160);
                     }
                 if (const auto it = firedModels.find({weapon, 0}); it != firedModels.end()) {
                     std::printf("  models only while firing:");
-                    for (const auto& [model, shader] : it->second)
+                    for (const auto &[model, shader] : it->second)
                         std::printf(" %s%s%s", model > 0 ? cgame.models().name(model).c_str() : "(no model)",
                                     shader > 0 ? " with " : "", shader > 0 ? cgame.shaders().name(shader).c_str() : "");
                     std::printf("\n");
                 }
-                for (const auto& [key, count] : polyCounts) {
+                for (const auto &[key, count] : polyCounts) {
                     if (key.first != weapon)
                         continue;
-                    const auto& sample = polySamples[key];
+                    const auto &sample = polySamples[key];
                     std::printf("  polygons with %s (%d): %d, the first with %d vertices, its first two as 24 bytes "
                                 "each:\n",
                                 cgame.shaders().name(key.second).c_str(), key.second, count, sample.vertexCount);
                     dumpWords(sample.vertices, 48);
                 }
                 if (const int lights = lightCounts[weapon]) {
-                    const auto& l = lightSamples[weapon];
+                    const auto &l = lightSamples[weapon];
                     std::printf("  lights: %d, the first at %.1f %.1f %.1f, radius %.1f, colour %.2f %.2f %.2f\n",
                                 lights, l.origin[0], l.origin[1], l.origin[2], l.radius, l.color[0], l.color[1],
                                 l.color[2]);
                 }
             }
-            const auto& requests = cgame.snapshotRequests();
+            const auto &requests = cgame.snapshotRequests();
             for (size_t i = 0; i < requests.size() && i < 6; ++i)
-                std::printf("cgame asked for snapshot %d at %d%s\n", requests[i].first, requests[i].second,
-                            i ? (" (" + std::to_string(requests[i].second - requests[i - 1].second) + " from the last)").c_str()
-                              : "");
+                std::printf(
+                    "cgame asked for snapshot %d at %d%s\n", requests[i].first, requests[i].second,
+                    i ? (" (" + std::to_string(requests[i].second - requests[i - 1].second) + " from the last)").c_str()
+                      : "");
         }
-        for (const auto& [number, count] : cgame.unhandled()) {
-            const auto& a = cgame.firstUnhandled().at(number);
+        for (const auto &[number, count] : cgame.unhandled()) {
+            const auto &a = cgame.firstUnhandled().at(number);
             std::printf("cgame: not implemented: system call %d (%d calls), first (%d, %d, %d, %d, %d, %d)\n", number,
                         count, a[0], a[1], a[2], a[3], a[4], a[5]);
             // Arguments that point at text, which often says what a call is.
@@ -4885,7 +4951,7 @@ int cmdGameRun(int argc, char** argv) {
     return ok ? 0 : 1;
 }
 
-int cmdFileShow(int argc, char** argv) {
+int cmdFileShow(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool file-show <game folder> <path>\n");
         return 2;
@@ -4904,7 +4970,7 @@ int cmdFileShow(int argc, char** argv) {
     return 0;
 }
 
-int cmdShaderShow(int argc, char** argv) {
+int cmdShaderShow(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool shader-show <game folder> <shader | model.md3>\n");
         return 2;
@@ -4924,7 +4990,7 @@ int cmdShaderShow(int argc, char** argv) {
             std::fprintf(stderr, "%s: %s\n", what.c_str(), err.message.c_str());
             return 1;
         }
-        for (const q3::Md3Surface& surface : model.surfaces) {
+        for (const q3::Md3Surface &surface : model.surfaces) {
             const std::string shader = surface.shaders.empty() ? std::string() : surface.shaders.front();
             std::printf("surface %s: %d vertices, %zu triangles, shader %s\n", surface.name.c_str(),
                         surface.vertexCount, surface.indices.size() / 3, shader.empty() ? "(none)" : shader.c_str());
@@ -4940,12 +5006,12 @@ int cmdShaderShow(int argc, char** argv) {
     }
     // Each shader's text, as its script has it: the name, then the block
     // from its brace to the matching one.
-    for (const std::string& name : names) {
+    for (const std::string &name : names) {
         std::string base = reluva::fs::toLower(name);
         if (base.size() > 4 && (base.substr(base.size() - 4) == ".tga" || base.substr(base.size() - 4) == ".jpg"))
             base.resize(base.size() - 4);
         bool found = false;
-        for (const std::string& file : set.list()) {
+        for (const std::string &file : set.list()) {
             const std::string key = reluva::normalizeArchiveName(file);
             if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.compare(key.size() - 7, 7, ".shader") != 0)
                 continue;
@@ -4984,7 +5050,7 @@ int cmdShaderShow(int argc, char** argv) {
     return 0;
 }
 
-int cmdPortalCheck(int argc, char** argv) {
+int cmdPortalCheck(int argc, char **argv) {
     // Every map's portals and mirrors: the surfaces whose shader says
     // `portal`, and the entities that place their cameras (Quake III's
     // misc_portal_surface, aimed by its target, a misc_portal_camera).
@@ -4999,7 +5065,7 @@ int cmdPortalCheck(int argc, char** argv) {
     q3::ShaderLibrary shaders;
     shaders.load(set, nullptr);
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
         if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
             continue;
@@ -5007,24 +5073,24 @@ int cmdPortalCheck(int argc, char** argv) {
         if (set.read(name, data) || q3::parseBsp(data, bsp))
             continue;
         std::map<std::string, int> portalSurfaces;
-        for (const q3::BspSurface& s : bsp.surfaces)
+        for (const q3::BspSurface &s : bsp.surfaces)
             if (s.shader >= 0 && size_t(s.shader) < bsp.shaders.size())
-                if (const q3::ShaderDef* def = shaders.find(bsp.shaders[size_t(s.shader)].name); def && def->portal)
+                if (const q3::ShaderDef *def = shaders.find(bsp.shaders[size_t(s.shader)].name); def && def->portal)
                     ++portalSurfaces[def->name];
         std::vector<q3::Entity> entities;
         q3::parseEntities(bsp.entities, entities);
-        std::vector<const q3::Entity*> portalEntities;
-        for (const q3::Entity& e : entities)
+        std::vector<const q3::Entity *> portalEntities;
+        for (const q3::Entity &e : entities)
             if (e.classname().rfind("misc_portal", 0) == 0)
                 portalEntities.push_back(&e);
         if (portalSurfaces.empty() && portalEntities.empty())
             continue;
         std::printf("%s:\n", key.c_str());
-        for (const auto& [shader, count] : portalSurfaces)
+        for (const auto &[shader, count] : portalSurfaces)
             std::printf("  %d surface%s with %s\n", count, count == 1 ? "" : "s", shader.c_str());
-        for (const q3::Entity* e : portalEntities) {
+        for (const q3::Entity *e : portalEntities) {
             std::printf("  %s", e->classname().c_str());
-            for (const auto& [k, v] : e->pairs)
+            for (const auto &[k, v] : e->pairs)
                 if (k != "classname")
                     std::printf(" %s \"%s\"", k.c_str(), v.c_str());
             std::printf("\n");
@@ -5033,7 +5099,7 @@ int cmdPortalCheck(int argc, char** argv) {
     return 0;
 }
 
-int cmdShaderCheck(int argc, char** argv) {
+int cmdShaderCheck(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool shader-check <game folder>\n");
         return 2;
@@ -5045,23 +5111,23 @@ int cmdShaderCheck(int argc, char** argv) {
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
     shaders.load(set, &warnings);
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::printf("problem: %s\n", w.c_str());
 
     // Feature -> (count, a few shaders using it).
     std::map<std::string, std::pair<int, std::vector<std::string>>> found;
-    auto add = [&](const std::string& what, const q3::ShaderDef& d) {
-        auto& [n, examples] = found[what];
+    auto add = [&](const std::string &what, const q3::ShaderDef &d) {
+        auto &[n, examples] = found[what];
         ++n;
         if (examples.size() < 3 && std::find(examples.begin(), examples.end(), d.name) == examples.end())
             examples.push_back(d.name);
     };
-    static const char* const kDeformNames[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
-                                              "text", "projectionShadow", "other"};
-    for (const q3::ShaderDef& d : shaders.all()) {
-        for (const std::string& u : d.unknown)
+    static const char *const kDeformNames[] = {"wave", "normal",           "bulge", "move", "autosprite", "autosprite2",
+                                               "text", "projectionShadow", "other"};
+    for (const q3::ShaderDef &d : shaders.all()) {
+        for (const std::string &u : d.unknown)
             add("unknown directive: " + u, d);
-        for (const q3::ShaderDeform& df : d.deforms)
+        for (const q3::ShaderDeform &df : d.deforms)
             if (df.type != q3::ShaderDeform::Type::Wave && df.type != q3::ShaderDeform::Type::Bulge &&
                 df.type != q3::ShaderDeform::Type::Move && df.type != q3::ShaderDeform::Type::Normal)
                 add(std::string("not drawn: deformVertexes ") + kDeformNames[size_t(df.type)], d);
@@ -5069,21 +5135,21 @@ int cmdShaderCheck(int argc, char** argv) {
             add("not drawn: more than two deformVertexes", d);
         if (d.portal)
             add("not drawn: portal (shown as a plain surface)", d);
-        for (const q3::ShaderStage& st : d.stages)
+        for (const q3::ShaderStage &st : d.stages)
             if (st.blendSrc == "gl_src_alpha_saturate")
                 add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);
     }
     std::printf("%zu shaders\n", shaders.size());
-    for (const auto& [what, info] : found) {
+    for (const auto &[what, info] : found) {
         std::printf("%5d  %s  (e.g.", info.first, what.c_str());
-        for (const std::string& e : info.second)
+        for (const std::string &e : info.second)
             std::printf(" %s", e.c_str());
         std::printf(")\n");
     }
     return 0;
 }
 
-int cmdPk3List(int argc, char** argv) {
+int cmdPk3List(int argc, char **argv) {
     if (argc != 3 && argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool pk3-list <game folder> [name filter]\n");
         return 2;
@@ -5092,13 +5158,13 @@ int cmdPk3List(int argc, char** argv) {
     if (!mountIdTech3(argv[2], set))
         return 1;
     const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         if (!filter.empty() && reluva::normalizeArchiveName(name).find(filter) == std::string::npos)
             continue;
-        const reluva::Archive* a = set.find(name);
+        const reluva::Archive *a = set.find(name);
         long long size = -1;
-        if (const auto* zip = dynamic_cast<const reluva::ZipArchive*>(a))
-            if (const auto* e = zip->entry(name))
+        if (const auto *zip = dynamic_cast<const reluva::ZipArchive *>(a))
+            if (const auto *e = zip->entry(name))
                 size = e->size;
         std::printf("%10lld  %-60s %s\n", size, name.c_str(),
                     std::filesystem::path(a->describe()).filename().string().c_str());
@@ -5111,7 +5177,7 @@ int cmdPk3List(int argc, char** argv) {
 } // namespace
 
 #ifdef RELUVA_ENGINE_AGE
-int cmdArList(int argc, char** argv) {
+int cmdArList(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool ar-list <file.ar> [name filter]\n");
         return 2;
@@ -5125,7 +5191,7 @@ int cmdArList(int argc, char** argv) {
     std::vector<uint8_t> data;
     unsigned listed = 0, deflated = 0, failed = 0;
     uint64_t total = 0;
-    for (const auto& e : ar.entries()) {
+    for (const auto &e : ar.entries()) {
         if (e.name.find(filter) == std::string::npos)
             continue;
         // Reading each one checks it: deflated data must come to its size.
@@ -5144,7 +5210,7 @@ int cmdArList(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
-int cmdArExtract(int argc, char** argv) {
+int cmdArExtract(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool ar-extract <file.ar> <output dir> [name filter]\n");
         return 2;
@@ -5158,13 +5224,13 @@ int cmdArExtract(int argc, char** argv) {
     const std::string filter = argc > 4 ? argv[4] : "";
     std::vector<uint8_t> data;
     unsigned written = 0;
-    for (const auto& e : ar.entries()) {
+    for (const auto &e : ar.entries()) {
         if (e.name.find(filter) == std::string::npos)
             continue;
         // Names come from the archive: refuse anything that could escape outDir.
         const std::filesystem::path rel(e.name);
         bool safe = !rel.is_absolute() && !rel.has_root_name();
-        for (const auto& part : rel)
+        for (const auto &part : rel)
             safe &= part != "..";
         if (!safe) {
             std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
@@ -5178,7 +5244,7 @@ int cmdArExtract(int argc, char** argv) {
         std::error_code ec;
         std::filesystem::create_directories(out.parent_path(), ec);
         std::ofstream f(out, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        f.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
         if (!f) {
             std::fprintf(stderr, "cannot write %s\n", out.string().c_str());
             return 1;
@@ -5189,23 +5255,23 @@ int cmdArExtract(int argc, char** argv) {
     return 0;
 }
 // A game folder's search path, for the commands taking one.
-static bool mountAge(const char* dir, reluva::SearchSet& files) {
+static bool mountAge(const char *dir, reluva::SearchSet &files) {
     std::vector<std::string> warnings;
     if (reluva::Error err = reluva::age::mountGame(files, dir, warnings)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return false;
     }
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::fprintf(stderr, "warning: %s\n", w.c_str());
     return true;
 }
 
-static bool hasSuffix(const std::string& s, const char* suffix) {
+static bool hasSuffix(const std::string &s, const char *suffix) {
     const size_t n = std::strlen(suffix);
     return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
 }
 
-int cmdTexInfo(int argc, char** argv) {
+int cmdTexInfo(int argc, char **argv) {
     using namespace reluva::age;
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tex-info <file.tex | game folder> [out.tga]\n");
@@ -5218,7 +5284,7 @@ int cmdTexInfo(int argc, char** argv) {
         std::map<std::string, unsigned> byKind;
         unsigned failed = 0, total = 0;
         std::vector<uint8_t> data;
-        for (const std::string& n : files.list()) {
+        for (const std::string &n : files.list()) {
             const std::string key = reluva::normalizeArchiveName(n);
             if (key.rfind("texture/", 0) != 0 || !hasSuffix(key, ".tex"))
                 continue;
@@ -5236,7 +5302,7 @@ int cmdTexInfo(int argc, char** argv) {
             std::snprintf(flags, sizeof flags, "0x%x", tex.flags);
             ++byKind[std::string(formatName(tex.format)) + ", flags " + flags];
         }
-        for (const auto& [kind, count] : byKind)
+        for (const auto &[kind, count] : byKind)
             std::printf("%6u  %s\n", count, kind.c_str());
         std::printf("%u textures, %u failed\n", total, failed);
         return failed ? 1 : 0;
@@ -5249,17 +5315,17 @@ int cmdTexInfo(int argc, char** argv) {
         std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
         return 1;
     }
-    std::printf("%d x %d, %s (format %u), %u levels, flags 0x%x\n", tex.image.w, tex.image.h,
-                formatName(tex.format), tex.format, tex.levels, tex.flags);
+    std::printf("%d x %d, %s (format %u), %u levels, flags 0x%x\n", tex.image.w, tex.image.h, formatName(tex.format),
+                tex.format, tex.levels, tex.flags);
     if (argc > 3) {
         const auto tga = reluva::image::encodeTga(tex.image);
-        std::ofstream(argv[3], std::ios::binary).write(reinterpret_cast<const char*>(tga.data()),
-                                                       std::streamsize(tga.size()));
+        std::ofstream(argv[3], std::ios::binary)
+            .write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
     }
     return 0;
 }
 
-int cmdPkgInfo(int argc, char** argv) {
+int cmdPkgInfo(int argc, char **argv) {
     using namespace reluva::age;
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool pkg-info <file.pkg | game folder> [out.obj]\n");
@@ -5272,7 +5338,7 @@ int cmdPkgInfo(int argc, char** argv) {
             return 1;
         unsigned total = 0, failed = 0, meshes = 0, shaders = 0, untextured = 0;
         std::map<std::string, unsigned> missing;
-        for (const std::string& n : files.list()) {
+        for (const std::string &n : files.list()) {
             const std::string key = reluva::normalizeArchiveName(n);
             if (key.rfind("geometry/", 0) != 0 || !hasSuffix(key, ".pkg"))
                 continue;
@@ -5287,7 +5353,7 @@ int cmdPkgInfo(int argc, char** argv) {
                 continue;
             }
             meshes += unsigned(pkg.meshes.size());
-            for (const PkgShader& s : pkg.shaders) {
+            for (const PkgShader &s : pkg.shaders) {
                 ++shaders;
                 if (s.texture.empty()) {
                     ++untextured;
@@ -5298,7 +5364,7 @@ int cmdPkgInfo(int argc, char** argv) {
                     ++missing[s.texture];
             }
         }
-        for (const auto& [name, count] : missing)
+        for (const auto &[name, count] : missing)
             std::printf("texture not found: %s (%u shaders)\n", name.c_str(), count);
         std::printf("%u models, %u failed; %u meshes; %u shaders, %u without a texture, %zu textures not found\n",
                     total, failed, meshes, shaders, untextured, missing.size());
@@ -5311,9 +5377,9 @@ int cmdPkgInfo(int argc, char** argv) {
         std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
         return 1;
     }
-    for (const PkgMesh& m : pkg.meshes) {
+    for (const PkgMesh &m : pkg.meshes) {
         size_t verts = 0, tris = 0;
-        for (const PkgGroup& g : m.groups) {
+        for (const PkgGroup &g : m.groups) {
             verts += g.vertices.size();
             tris += g.indices.size() / 3;
         }
@@ -5322,26 +5388,26 @@ int cmdPkgInfo(int argc, char** argv) {
     }
     std::printf("%u paint jobs of %u shaders\n", pkg.paintJobs, pkg.shadersPerJob);
     for (size_t i = 0; i < pkg.shaders.size(); ++i) {
-        const PkgShader& s = pkg.shaders[i];
+        const PkgShader &s = pkg.shaders[i];
         std::printf("  %2zu.%-2zu %-28s diffuse %.2f %.2f %.2f %.2f, ambient %.2f %.2f %.2f, specular %.2f %.2f "
                     "%.2f, emissive %.2f %.2f %.2f, shininess %.2f\n",
                     i / std::max(pkg.shadersPerJob, 1u), i % std::max(pkg.shadersPerJob, 1u),
                     s.texture.empty() ? "(none)" : s.texture.c_str(), s.diffuse[0], s.diffuse[1], s.diffuse[2],
-                    s.diffuse[3], s.ambient[0], s.ambient[1], s.ambient[2], s.specular[0], s.specular[1],
-                    s.specular[2], s.emissive[0], s.emissive[1], s.emissive[2], s.shininess);
+                    s.diffuse[3], s.ambient[0], s.ambient[1], s.ambient[2], s.specular[0], s.specular[1], s.specular[2],
+                    s.emissive[0], s.emissive[1], s.emissive[2], s.shininess);
     }
     if (pkg.hasOffset)
         std::printf("offset %.3f %.3f %.3f\n", pkg.offset[0], pkg.offset[1], pkg.offset[2]);
-    for (const PkgXref& x : pkg.xrefs)
+    for (const PkgXref &x : pkg.xrefs)
         std::printf("placed %s at %.3f %.3f %.3f\n", x.name.c_str(), x.matrix[9], x.matrix[10], x.matrix[11]);
     if (argc > 3) {
         // Each mesh as an object, positions as stored (parts not placed).
         std::ofstream obj(argv[3]);
         size_t base = 1;
-        for (const PkgMesh& m : pkg.meshes) {
+        for (const PkgMesh &m : pkg.meshes) {
             obj << "o " << m.name << "\n";
-            for (const PkgGroup& g : m.groups) {
-                for (const PkgVertex& v : g.vertices)
+            for (const PkgGroup &g : m.groups) {
+                for (const PkgVertex &v : g.vertices)
                     obj << "v " << v.pos[0] << " " << v.pos[1] << " " << v.pos[2] << "\nvt " << v.uv[0] << " "
                         << 1 - v.uv[1] << "\n";
                 for (size_t i = 0; i + 2 < g.indices.size(); i += 3) {
@@ -5356,7 +5422,7 @@ int cmdPkgInfo(int argc, char** argv) {
     }
     return 0;
 }
-int cmdPsdlInfo(int argc, char** argv) {
+int cmdPsdlInfo(int argc, char **argv) {
     using namespace reluva::age;
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool psdl-info <game folder> <city, e.g. sf> [out.obj]\n");
@@ -5375,13 +5441,13 @@ int cmdPsdlInfo(int argc, char** argv) {
         std::fprintf(stderr, "city/%s.psdl: %s\n", city.c_str(), err.message.c_str());
         return 1;
     }
-    static const char* const kNames[] = {"road strip", "sidewalk strip", "rectangle strip", "sliver", "crosswalk",
-                                         "road fan", "fan", "facade bound", "divided road", "tunnel", "texture",
-                                         "facade", "roof"};
+    static const char *const kNames[] = {
+        "road strip",   "sidewalk strip", "rectangle strip", "sliver",  "crosswalk", "road fan", "fan",
+        "facade bound", "divided road",   "tunnel",          "texture", "facade",    "roof"};
     size_t counts[13] = {};
     size_t attributes = 0;
-    for (const PsdlBlock& b : psdl.blocks)
-        for (const PsdlAttribute& a : b.attributes) {
+    for (const PsdlBlock &b : psdl.blocks)
+        for (const PsdlAttribute &a : b.attributes) {
             ++counts[a.type];
             ++attributes;
         }
@@ -5394,7 +5460,7 @@ int cmdPsdlInfo(int argc, char** argv) {
     std::printf("bounds %.1f %.1f %.1f to %.1f %.1f %.1f, centre %.1f %.1f %.1f, radius %.1f\n", psdl.min[0],
                 psdl.min[1], psdl.min[2], psdl.max[0], psdl.max[1], psdl.max[2], psdl.center[0], psdl.center[1],
                 psdl.center[2], psdl.radius);
-    for (const std::string& t : psdl.textures) {
+    for (const std::string &t : psdl.textures) {
         const std::string base = "texture/" + t;
         if (!t.empty() && !files.has(base + ".tex") && !files.has(base + "-0001.tex") && !files.has(base + ".tga"))
             std::printf("texture not found: %s\n", t.c_str());
@@ -5404,21 +5470,21 @@ int cmdPsdlInfo(int argc, char** argv) {
         if (reluva::Error e = readInstances(data, instances))
             std::printf("city/%s.inst: %s\n", city.c_str(), e.message.c_str());
         size_t found = 0;
-        for (const Instance& i : instances)
+        for (const Instance &i : instances)
             found += files.has("geometry/" + i.model + ".pkg");
         std::printf("%zu placed models, %zu of them found\n", instances.size(), found);
     }
     CityMesh mesh;
     buildCityMesh(psdl, mesh);
     size_t triangles = 0;
-    for (const CityMesh::Batch& b : mesh.batches)
+    for (const CityMesh::Batch &b : mesh.batches)
         triangles += b.indices.size() / 3;
     std::printf("generated: %zu triangles in %zu textures\n", triangles, mesh.batches.size());
     if (argc > 4) {
         std::ofstream obj(argv[4]);
-        for (const reluva::gfx::Vertex& v : mesh.vertices)
+        for (const reluva::gfx::Vertex &v : mesh.vertices)
             obj << "v " << v.pos[0] << " " << v.pos[1] << " " << v.pos[2] << "\n";
-        for (const CityMesh::Batch& b : mesh.batches) {
+        for (const CityMesh::Batch &b : mesh.batches) {
             obj << "g " << (b.texture.empty() ? "untextured" : b.texture) << "\n";
             for (size_t i = 0; i + 2 < b.indices.size(); i += 3)
                 obj << "f " << b.indices[i] + 1 << " " << b.indices[i + 1] + 1 << " " << b.indices[i + 2] + 1 << "\n";
@@ -5428,7 +5494,7 @@ int cmdPsdlInfo(int argc, char** argv) {
 }
 #endif // RELUVA_ENGINE_AGE
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc >= 2 && std::strcmp(argv[1], "hexdump") == 0)
         return cmdHexdump(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "chunks") == 0)
@@ -5539,66 +5605,67 @@ int main(int argc, char** argv) {
     if (argc >= 2 && std::strcmp(argv[1], "ui-run") == 0)
         return cmdUiRun(argc, argv);
 #endif
-    std::fprintf(stderr,
-                 "usage:\n"
-                 "  reluva-tool hexdump <file> [offset] [length]\n"
-                 "  reluva-tool chunks <file>\n"
-                 "  reluva-tool words <file> [offset] [count]\n"
-                 "  reluva-tool table <file> [values per row] [offset]\n"
+    std::fprintf(
+        stderr,
+        "usage:\n"
+        "  reluva-tool hexdump <file> [offset] [length]\n"
+        "  reluva-tool chunks <file>\n"
+        "  reluva-tool words <file> [offset] [count]\n"
+        "  reluva-tool table <file> [values per row] [offset]\n"
 #ifdef RELUVA_ENGINE_NEWWORLDS
-                 "  reluva-tool cat-probe <file.cat> [-q]\n"
-                 "  reluva-tool cat-list <file.cat>\n"
-                 "  reluva-tool cat-extract <file.cat> <output dir> [name filter]\n"
-                 "  reluva-tool stb-dump <file.stb | file.cat>\n"
-                 "  reluva-tool tex-survey <file.cat>...\n"
-                 "  reluva-tool tex-keys <file.cat>...\n"
-                 "  reluva-tool geo-info <file.geo> [out.obj]\n"
-                 "  reluva-tool geo-survey <file.cat>...\n"
-                 "  reluva-tool geo-textures [-a] <file.cat>...\n"
-                 "  reluva-tool mdl-info <file.mdl | file.cat>\n"
-                 "  reluva-tool wav-info <file.wav | file.mp3 | file.cat>\n"
-                 "  reluva-tool wav-decode <in.wav | in.mp3> <out.wav>\n"
-                 "  reluva-tool fif-info <file.fif | file.cat>\n"
-                 "  reluva-tool level-info <level.dat> [file.cat...]\n"
-                 "  reluva-tool gmf-fit [-m|-h|-l|-r|-j|-t|-a|-o file] <planet.cat> [map]\n"
-                 "  reluva-tool geo-slots <file.geo>...\n"
-                 "  reluva-tool ground-textures <planet.cat>\n"
-                 "  reluva-tool gmf-dump <planet.cat> <output dir>\n"
-                 "  reluva-tool geo-sheet [-l|-t] <out.ppm> <name filter> <file.cat>...\n"
-                 "  reluva-tool gmf-info <file.gmf> [record number]\n"
-                 "  reluva-tool geo-faces <file.geo>\n"
-                 "  reluva-tool lbp-info <file> [output prefix]\n"
+        "  reluva-tool cat-probe <file.cat> [-q]\n"
+        "  reluva-tool cat-list <file.cat>\n"
+        "  reluva-tool cat-extract <file.cat> <output dir> [name filter]\n"
+        "  reluva-tool stb-dump <file.stb | file.cat>\n"
+        "  reluva-tool tex-survey <file.cat>...\n"
+        "  reluva-tool tex-keys <file.cat>...\n"
+        "  reluva-tool geo-info <file.geo> [out.obj]\n"
+        "  reluva-tool geo-survey <file.cat>...\n"
+        "  reluva-tool geo-textures [-a] <file.cat>...\n"
+        "  reluva-tool mdl-info <file.mdl | file.cat>\n"
+        "  reluva-tool wav-info <file.wav | file.mp3 | file.cat>\n"
+        "  reluva-tool wav-decode <in.wav | in.mp3> <out.wav>\n"
+        "  reluva-tool fif-info <file.fif | file.cat>\n"
+        "  reluva-tool level-info <level.dat> [file.cat...]\n"
+        "  reluva-tool gmf-fit [-m|-h|-l|-r|-j|-t|-a|-o file] <planet.cat> [map]\n"
+        "  reluva-tool geo-slots <file.geo>...\n"
+        "  reluva-tool ground-textures <planet.cat>\n"
+        "  reluva-tool gmf-dump <planet.cat> <output dir>\n"
+        "  reluva-tool geo-sheet [-l|-t] <out.ppm> <name filter> <file.cat>...\n"
+        "  reluva-tool gmf-info <file.gmf> [record number]\n"
+        "  reluva-tool geo-faces <file.geo>\n"
+        "  reluva-tool lbp-info <file> [output prefix]\n"
 #endif
 #ifdef RELUVA_ENGINE_AGE
-                 "  reluva-tool ar-list <file.ar> [name filter]\n"
-                 "  reluva-tool ar-extract <file.ar> <output dir> [name filter]\n"
-                 "  reluva-tool tex-info <file.tex | game folder> [out.tga]\n"
-                 "  reluva-tool pkg-info <file.pkg | game folder> [out.obj]\n"
-                 "  reluva-tool psdl-info <game folder> <city> [out.obj]\n"
+        "  reluva-tool ar-list <file.ar> [name filter]\n"
+        "  reluva-tool ar-extract <file.ar> <output dir> [name filter]\n"
+        "  reluva-tool tex-info <file.tex | game folder> [out.tga]\n"
+        "  reluva-tool pkg-info <file.pkg | game folder> [out.obj]\n"
+        "  reluva-tool psdl-info <game folder> <city> [out.obj]\n"
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
-                 "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
-                 "  reluva-tool pk3-list <game folder> [name filter]\n"
-                 "  reluva-tool image-check <game folder> [map name filter]\n"
-                 "  reluva-tool shader-check <game folder>\n"
-                 "  reluva-tool portal-check <game folder>\n"
-                 "  reluva-tool shader-show <game folder> <shader | model.md3>\n"
-                 "  reluva-tool file-show <game folder> <path>\n"
-                 "  reluva-tool model-check <game folder> [name filter] [-v]\n"
-                 "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
-                 "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
-                 "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
-                 "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
-                 "  reluva-tool net-find [host[:port]]\n"
-                 "  reluva-tool net-master [master[:port]]...\n"
-                 "  reluva-tool pe-info <file.dll|file.exe>\n"
-                 "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
-                 "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
-                 "  reluva-tool pk3-sums <game folder> [feed]\n"
-                 "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
-                 "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
-                 "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
+        "  reluva-tool bsp-check <game folder, e.g. .../BaseEF>\n"
+        "  reluva-tool pk3-list <game folder> [name filter]\n"
+        "  reluva-tool image-check <game folder> [map name filter]\n"
+        "  reluva-tool shader-check <game folder>\n"
+        "  reluva-tool portal-check <game folder>\n"
+        "  reluva-tool shader-show <game folder> <shader | model.md3>\n"
+        "  reluva-tool file-show <game folder> <path>\n"
+        "  reluva-tool model-check <game folder> [name filter] [-v]\n"
+        "  reluva-tool qvm-info <game folder> <vm/x.qvm> [-s]\n"
+        "  reluva-tool qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n"
+        "  reluva-tool qvm-refs <game folder> <vm/x.qvm> <address> <size>\n"
+        "  reluva-tool qvm-dis <game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>\n"
+        "  reluva-tool net-find [host[:port]]\n"
+        "  reluva-tool net-master [master[:port]]...\n"
+        "  reluva-tool pe-info <file.dll|file.exe>\n"
+        "  reluva-tool x86-run <file.dll> [-call Export [arg|table]...]\n"
+        "  reluva-tool sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace]\n"
+        "  reluva-tool pk3-sums <game folder> [feed]\n"
+        "  reluva-tool net-run <game folder> <map> [seconds] [-port N] [-public] [-addbot name]... | -join <host[:port]> [seconds] [-name name]\n"
+        "  reluva-tool game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n"
+        "  reluva-tool ui-run <game folder> [-frames N] [-menu M] [-size WxH] [-glwords N] [-trace] [-v]\n"
 #endif
-                 "");
+        "");
     return 2;
 }

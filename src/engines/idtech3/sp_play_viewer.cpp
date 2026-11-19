@@ -21,13 +21,15 @@ namespace {
 
 constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 
-int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
+int32_t toShort(float degrees) {
+    return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff;
+}
 
-bool isButton(const std::string& name) {
-    static const char* const kButtons[] = {"forward", "back", "moveleft", "moveright", "moveup", "movedown",
-                                           "left", "right", "lookup", "lookdown", "speed", "strafe",
-                                           "attack", "altattack", "mlook", "klook"};
-    for (const char* b : kButtons)
+bool isButton(const std::string &name) {
+    static const char *const kButtons[] = {"forward", "back",      "moveleft", "moveright", "moveup", "movedown",
+                                           "left",    "right",     "lookup",   "lookdown",  "speed",  "strafe",
+                                           "attack",  "altattack", "mlook",    "klook"};
+    for (const char *b : kButtons)
         if (name == b)
             return true;
     return name.rfind("button", 0) == 0 && name.size() > 6 && name.size() <= 8 &&
@@ -36,7 +38,7 @@ bool isButton(const std::string& name) {
 
 } // namespace
 
-SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
+SpPlayViewer::SpPlayViewer(ViewerContext &ctx) : Page(ctx) {
     // Elite Force with its single-player game code beside the game folder.
     if (std::strcmp(ctx.game.gameId, "stvef") != 0 || ctx.installPath.empty())
         return;
@@ -46,7 +48,7 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
         return;
     dll_.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
     // Its maps: all but Holomatch's.
-    for (const std::string& n : ctx.files.list()) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0 &&
             key.rfind("maps/hm_", 0) != 0 && key.rfind("maps/ctf_", 0) != 0)
@@ -58,7 +60,9 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
             index_ = int(i);
 }
 
-SpPlayViewer::~SpPlayViewer() { deactivate(); }
+SpPlayViewer::~SpPlayViewer() {
+    deactivate();
+}
 
 void SpPlayViewer::activate() {
     const VideoSettings video = videoSettings(ctx_.cvars);
@@ -97,7 +101,7 @@ void SpPlayViewer::deactivate() {
     buttons_.clear();
 }
 
-void SpPlayViewer::stop(const std::string& why) {
+void SpPlayViewer::stop(const std::string &why) {
     error_ = why;
     game_.reset();
     soundSystem_.reset();
@@ -116,7 +120,7 @@ void SpPlayViewer::start(int index) {
     yaw_ = pitch_ = 0;
     clientTime_ = 0;
     lastMs_ = 0;
-    const std::string& path = names_[size_t(index)];
+    const std::string &path = names_[size_t(index)];
     std::string map = path.substr(5, path.size() - 9);
     setTitle(map);
 
@@ -140,7 +144,7 @@ void SpPlayViewer::start(int index) {
     // The game: the server half started on the level, the player joined,
     // then the client half.
     game_ = std::make_unique<eliteforce::SpGameHost>(ctx_.files, cvars_);
-    game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
+    game_->print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
     soundSystem_.reset();
     if (ctx_.mixer) {
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
@@ -160,10 +164,10 @@ void SpPlayViewer::start(int index) {
         return stop("The client game couldn't start: " + err.message);
 }
 
-void SpPlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
+void SpPlayViewer::runBinding(const std::string &line, int32_t key, bool down) {
     // "+name" is held while the key is (the engine's buttons) or runs the
     // client game's +/- pair; other commands run on the press.
-    for (const std::string& command : splitCommands(line)) {
+    for (const std::string &command : splitCommands(line)) {
         const std::vector<std::string> w = splitCommand(command);
         if (w.empty())
             continue;
@@ -188,16 +192,16 @@ void SpPlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
     }
 }
 
-bool SpPlayViewer::held(const char* button) const {
+bool SpPlayViewer::held(const char *button) const {
     const auto it = buttons_.find(button);
     return it != buttons_.end() && !it->second.empty();
 }
 
-bool SpPlayViewer::takesKey(const Event& ev) const {
+bool SpPlayViewer::takesKey(const Event &ev) const {
     return ev.type == EventType::kKeyDown && ev.key == key::kEscape && !(ev.mods & keymod::kCtrl);
 }
 
-void SpPlayViewer::handleEvent(const Event& ev) {
+void SpPlayViewer::handleEvent(const Event &ev) {
     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
         ctx_.requestPage = "Menu";
         return;
@@ -235,7 +239,8 @@ void SpPlayViewer::handleEvent(const Event& ev) {
         mouseX_ += ev.moveX;
         mouseY_ += ev.moveY;
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -246,7 +251,7 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     // frame doesn't leave the game's clock behind for long.
     const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 200)) : 0;
     lastMs_ = nowMs;
-    auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
+    auto setting = [&](const char *name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
     // Looking: the mouse and keys, as the Play page.
     const float sensitivity = setting("sensitivity", 5);
     yaw_ -= mouseX_ * sensitivity * setting("m_yaw", 0.022f);
@@ -260,7 +265,9 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     pitch_ = std::remainder(pitch_, 360.0f);
 
     using Clock = std::chrono::steady_clock;
-    auto ms = [](Clock::time_point from) { return std::chrono::duration<float, std::milli>(Clock::now() - from).count(); };
+    auto ms = [](Clock::time_point from) {
+        return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
+    };
     if (dt > 0)
         clientTime_ += dt;
     // The server kept a frame ahead of the player's time, then the
@@ -273,7 +280,7 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
         eliteforce::SpGameHost::UserCommand cmd;
         cmd.serverTime = clientTime_;
         cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
-        for (const auto& [name, keys] : buttons_) {
+        for (const auto &[name, keys] : buttons_) {
             if (keys.empty())
                 continue;
             if (name == "attack")
@@ -318,12 +325,12 @@ void SpPlayViewer::update(uint64_t nowMs) {
     if (game_ && game_->clientGameRunning()) {
         // Each scene over the pictures drawn before it, the rest (the HUD)
         // over them all, as the Play page draws.
-        const eliteforce::Scene& scene = game_->scene();
-        const auto& pictures = game_->pictures();
+        const eliteforce::Scene &scene = game_->scene();
+        const auto &pictures = game_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
         size_t drawn = 0;
         bool first = true;
-        for (const auto& v : scene.views) {
+        for (const auto &v : scene.views) {
             scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
             drawn = std::max(drawn, v.picturesBefore);
             scene_->drawView(scene, v, 640, 480, time, first, world_.get(), &grid_, dynamicLights);
@@ -338,11 +345,11 @@ void SpPlayViewer::update(uint64_t nowMs) {
 
 void SpPlayViewer::drawOverlay() {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
-    auto line = [&](int y, const std::string& s, Color c) {
+    auto line = [&](int y, const std::string &s, Color c) {
         // Text with a dark band behind it, for reading over the level.
         const int w = int(s.size()) * font::kAdvance + 8;
         for (int yy = y; yy < std::min(y + font::kLineHeight, frameH_); ++yy) {
-            uint8_t* p = overlay_.row(yy);
+            uint8_t *p = overlay_.row(yy);
             for (int x = 0; x < std::min(w, frameW_); ++x)
                 p[x * 4 + 3] = 160;
         }

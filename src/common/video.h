@@ -22,10 +22,10 @@ public:
     // Whether this build can play movies at all.
     static bool supported();
     // Null, with `error` set, if the movie can't be played.
-    static std::unique_ptr<Movie> open(std::vector<uint8_t> data, std::string& error);
+    static std::unique_ptr<Movie> open(std::vector<uint8_t> data, std::string &error);
     ~Movie();
-    Movie(const Movie&) = delete;
-    Movie& operator=(const Movie&) = delete;
+    Movie(const Movie &) = delete;
+    Movie &operator=(const Movie &) = delete;
 
     int width() const;
     int height() const;
@@ -33,9 +33,9 @@ public:
 
     // The picture showing `seconds` in, as RGBA, decoding on as far as
     // that (time only goes forward); false once the pictures have run out.
-    bool frameAt(double seconds, image::Image& out);
+    bool frameAt(double seconds, image::Image &out);
     // The soundtrack, decoded to 16 bits (no samples if it has none).
-    const audio::Sound& sound() const;
+    const audio::Sound &sound() const;
 
     struct Impl;
 

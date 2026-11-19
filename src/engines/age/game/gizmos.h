@@ -28,8 +28,8 @@ class Gizmos {
 public:
     Gizmos() = default;
     ~Gizmos() { clear(); }
-    Gizmos(const Gizmos&) = delete;
-    Gizmos& operator=(const Gizmos&) = delete;
+    Gizmos(const Gizmos &) = delete;
+    Gizmos &operator=(const Gizmos &) = delete;
     // Seconds of a drawbridge's cycle: down, rising, up, falling.
     static constexpr float kDown = 74, kRising = 8, kUp = 40, kFalling = 8;
     static constexpr float kRaised = 0.5f; // radians a leaf rises to
@@ -43,27 +43,27 @@ public:
     // over them where it has its own: a path in both, the same model
     // starting within 5 m, is the race's.
     // With `mixer`, the trains are heard (aud/ambient/subwaycar.csv's loop).
-    Error load(const SearchSet& files, const std::string& map, const std::string& variant = "",
-               audio::Mixer* mixer = nullptr);
+    Error load(const SearchSet &files, const std::string &map, const std::string &variant = "",
+               audio::Mixer *mixer = nullptr);
     void clear();
 
     // Moves them, and puts the leaves' road surfaces in `world` (as
     // moving triangles); the trains are heard from `listener`.
-    void update(float dt, CollisionWorld& world, const Vec3& listener = {});
-    void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-              const Vec3& eye) const;
+    void update(float dt, CollisionWorld &world, const Vec3 &listener = {});
+    void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
+              const Vec3 &eye) const;
     // Lines of solid road users across each bridge that isn't down, and
     // along each train, for the traffic to stop at.
-    void users(std::vector<RoadUser>& out) const;
+    void users(std::vector<RoadUser> &out) const;
     // A driven car against the trains (which don't give); returns the
     // hardest knock (change of speed, m/s), 0 if none.
-    float collide(CarSim& car) const;
+    float collide(CarSim &car) const;
     // The trains shove the traffic out of their way.
-    void push(Traffic& traffic) const;
+    void push(Traffic &traffic) const;
 
     // A triangle of the city across a drawbridge's gap (its middle under a
     // leaf, near the road): taken out where the leaves are.
-    bool inGap(const Vec3& a, const Vec3& b, const Vec3& c) const;
+    bool inGap(const Vec3 &a, const Vec3 &b, const Vec3 &c) const;
 
     size_t boats() const { return _boats.size(); }
     size_t bridges() const { return _bridges.size(); }
@@ -120,15 +120,15 @@ private:
     struct Bounds {
         Vec3 low{}, high{};
     };
-    Bounds boundsOf(const SearchSet& files, const std::string& model);
+    Bounds boundsOf(const SearchSet &files, const std::string &model);
     void advance(float dt);
-    void placeTrain(Train& t);
-    Mat3 leafAxes(const Bridge& b, const Leaf& l, Vec3& center) const;
+    void placeTrain(Train &t);
+    Mat3 leafAxes(const Bridge &b, const Leaf &l, Vec3 &center) const;
 
     std::vector<Boat> _boats;
     std::vector<Bridge> _bridges;
     std::vector<Train> _trains;
-    audio::Mixer* _mixer = nullptr;
+    audio::Mixer *_mixer = nullptr;
     std::shared_ptr<audio::Sound> _trainSound;
     audio::SoundHandle _trainPlaying = audio::kNoSound;
     std::map<std::string, Bounds> _bounds;

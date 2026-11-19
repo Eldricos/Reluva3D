@@ -36,7 +36,7 @@ struct ViewControls {
     bool press(Control c, bool down);
     // The view this frame with them: the Thrill Cam's place, the look round,
     // the pan.
-    CameraView apply(const CameraView& view, const CarCamera& cam, const CarSim& sim, float dt);
+    CameraView apply(const CameraView &view, const CarCamera &cam, const CarSim &sim, float dt);
     float fov(float fov) const { return wide ? fov * kWide : fov; }
     bool showDashboard() const { return dashboard && !wide; }
 
@@ -55,7 +55,7 @@ struct CdPlayer {
     std::vector<std::string> tracks;
 
     // A CD control: true if it was one.
-    bool press(Control c, GameMusic& music, const SearchSet& files, audio::Mixer* mixer);
+    bool press(Control c, GameMusic &music, const SearchSet &files, audio::Mixer *mixer);
     void update(float dt) {
         pressedFor = std::max(0.0f, pressedFor - dt);
         if (pressedFor <= 0)
@@ -63,11 +63,11 @@ struct CdPlayer {
     }
     // Bottom middle of a 640 x 480 overlay, between the gauges and the map
     // (Reluva's place for it).
-    void draw(Surface& overlay, const HudPictures& pictures) const;
+    void draw(Surface &overlay, const HudPictures &pictures) const;
 };
 
 // The controls' list as F1 shows it, over `overlay` (640 x 480): each
 // control's name (`name` gives the game's words) and its keys.
-void drawControlsList(Surface& overlay, const GameOptions& options, const std::function<std::string(Control)>& name);
+void drawControlsList(Surface &overlay, const GameOptions &options, const std::function<std::string(Control)> &name);
 
 } // namespace reluva::age

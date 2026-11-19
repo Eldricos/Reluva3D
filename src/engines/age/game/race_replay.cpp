@@ -60,7 +60,7 @@ void RaceViewer::markRecording() {
 
 std::string RaceViewer::replayDefaultName() const {
     std::string car = _playback.car;
-    for (const CarInfo& c : _cars)
+    for (const CarInfo &c : _cars)
         if (c.base == _playback.car)
             car = c.description;
     return _race.name + " (" + car + ")";
@@ -115,7 +115,7 @@ void RaceViewer::startReplay(Replay replay) {
 void RaceViewer::playFrame() {
     if (_replayFrame >= _playback.frames.size())
         return;
-    const ReplayFrame& f = _playback.frames[_replayFrame];
+    const ReplayFrame &f = _playback.frames[_replayFrame];
     _keys = f.keys;
     _shift = f.shift;
     _manual = (f.flags & kReplayManual) != 0;
@@ -230,7 +230,7 @@ void RaceViewer::replayButton(int which) {
     }
 }
 
-bool RaceViewer::replayEvent(const Event& ev) {
+bool RaceViewer::replayEvent(const Event &ev) {
     if (ev.type == EventType::kMouseDown) {
         // A word on the bar clicked.
         if (ev.mouseY < kBarY - 4 || ev.mouseY >= kBarY + 22)
@@ -280,7 +280,7 @@ bool RaceViewer::replayEvent(const Event& ev) {
     return true;
 }
 
-void RaceViewer::gameMenuEvent(const Event& ev) {
+void RaceViewer::gameMenuEvent(const Event &ev) {
     const GameMenus::Action action = _game->handle(ev);
     if (const std::string clip = _game->takeVoice(); !clip.empty())
         playVoice(clip);
@@ -323,10 +323,10 @@ void RaceViewer::gameMenuEvent(const Event& ev) {
     }
 }
 
-CameraView RaceViewer::replayCamera(float dt, float& fov) {
-    const CarSim& sim = _racers.front().car->sim;
+CameraView RaceViewer::replayCamera(float dt, float &fov) {
+    const CarSim &sim = _racers.front().car->sim;
     if (_replayCam < int(_cameras.size())) {
-        const CarCamera& cam = _cameras[size_t(_replayCam)];
+        const CarCamera &cam = _cameras[size_t(_replayCam)];
         fov = cam.fov;
         return updateCarCamera(cam, sim, dt, _cameraPos, _cameraReset);
     }
@@ -353,7 +353,7 @@ CameraView RaceViewer::replayCamera(float dt, float& fov) {
 }
 
 std::string RaceViewer::replayWord(int button) const {
-    const char* const fallback[kButtons] = {"Play", "Step", "Rew", "Cam", "Save", "Quit"};
+    const char *const fallback[kButtons] = {"Play", "Step", "Rew", "Cam", "Save", "Quit"};
     const uint32_t ids[kButtons] = {484, 485, 486, 488, 489, 490};
     return button == kPlay && !_replayPaused ? _strings.get(487, "Stop") : _strings.get(ids[button], fallback[button]);
 }
@@ -364,7 +364,7 @@ void RaceViewer::drawReplayBar() {
     const int y = kBarY;
     for (int r = y - 4; r < y + 22; ++r)
         for (int x = 0; x < kFrameW; ++x) {
-            uint8_t* p = _overlay.row(r) + x * 4;
+            uint8_t *p = _overlay.row(r) + x * 4;
             p[0] = 20, p[1] = 10, p[2] = 60, p[3] = 200;
         }
     font::drawText(_overlay, 6, y + 4, _strings.get(483, "REPLAY MENU"), {255, 230, 140});

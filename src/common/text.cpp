@@ -5,7 +5,7 @@
 
 namespace reluva::text {
 
-static void appendUtf8(std::string& out, uint32_t cp) {
+static void appendUtf8(std::string &out, uint32_t cp) {
     if (cp < 0x80) {
         out += char(cp);
     } else if (cp < 0x800) {
@@ -23,7 +23,7 @@ static void appendUtf8(std::string& out, uint32_t cp) {
     }
 }
 
-std::string utf16leToUtf8(const uint16_t* units, size_t count) {
+std::string utf16leToUtf8(const uint16_t *units, size_t count) {
     std::string out;
     out.reserve(count);
     for (size_t i = 0; i < count; ++i) {
@@ -40,7 +40,7 @@ std::string utf16leToUtf8(const uint16_t* units, size_t count) {
     return out;
 }
 
-uint32_t nextUtf8(std::string_view s, size_t& i) {
+uint32_t nextUtf8(std::string_view s, size_t &i) {
     const auto b = [&](size_t k) { return uint8_t(s[k]); };
     const uint8_t c = b(i++);
     int extra = c >= 0xf0 ? 3 : c >= 0xe0 ? 2 : c >= 0xc0 ? 1 : 0;
@@ -57,11 +57,19 @@ uint32_t nextUtf8(std::string_view s, size_t& i) {
 
 uint32_t toLatin1(uint32_t cp) {
     switch (cp) {
-    case '\t': return ' ';
-    case 0x2018: case 0x2019: return '\'';
-    case 0x201c: case 0x201d: return '"';
-    case 0x2013: case 0x2014: return '-';
-    default: return cp <= 0xff ? cp : '?';
+    case '\t':
+        return ' ';
+    case 0x2018:
+    case 0x2019:
+        return '\'';
+    case 0x201c:
+    case 0x201d:
+        return '"';
+    case 0x2013:
+    case 0x2014:
+        return '-';
+    default:
+        return cp <= 0xff ? cp : '?';
     }
 }
 

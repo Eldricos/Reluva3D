@@ -65,7 +65,7 @@ bool ViewControls::press(Control c, bool down) {
     }
 }
 
-CameraView ViewControls::apply(const CameraView& view, const CarCamera& cam, const CarSim& sim, float dt) {
+CameraView ViewControls::apply(const CameraView &view, const CarCamera &cam, const CarSim &sim, float dt) {
     CameraView v = view;
     if (thrill) {
         const Vec3 heading = flatNormal(length(sim.velocity) > 2 ? sim.velocity : -sim.orientation.z);
@@ -98,7 +98,7 @@ CameraView ViewControls::apply(const CameraView& view, const CarCamera& cam, con
     return v;
 }
 
-bool CdPlayer::press(Control c, GameMusic& music, const SearchSet& files, audio::Mixer* mixer) {
+bool CdPlayer::press(Control c, GameMusic &music, const SearchSet &files, audio::Mixer *mixer) {
     if (c != Control::kCdToggle && c != Control::kCdPlay && c != Control::kCdPrev && c != Control::kCdNext)
         return false;
     if (tracks.empty())
@@ -128,7 +128,7 @@ bool CdPlayer::press(Control c, GameMusic& music, const SearchSet& files, audio:
     return true;
 }
 
-void CdPlayer::draw(Surface& overlay, const HudPictures& pictures) const {
+void CdPlayer::draw(Surface &overlay, const HudPictures &pictures) const {
     if (!shown)
         return;
     constexpr int kX = 230, kY = 372;
@@ -136,13 +136,13 @@ void CdPlayer::draw(Surface& overlay, const HudPictures& pictures) const {
     pictures.cdPlayer(overlay, kX, kY, playing, pressed, text);
 }
 
-void drawControlsList(Surface& overlay, const GameOptions& options, const std::function<std::string(Control)>& name) {
+void drawControlsList(Surface &overlay, const GameOptions &options, const std::function<std::string(Control)> &name) {
     // A dark box with two columns: the control, its keys.
     constexpr int kX = 70, kY = 40, kW = 500, kRow = 12;
     const int rows = kControls;
     const int h = rows * kRow + 30;
     for (int y = kY; y < kY + h && y < overlay.h; ++y) {
-        uint8_t* p = overlay.row(y) + kX * 4;
+        uint8_t *p = overlay.row(y) + kX * 4;
         for (int x = 0; x < kW; ++x, p += 4) {
             p[0] = 10;
             p[1] = 14;

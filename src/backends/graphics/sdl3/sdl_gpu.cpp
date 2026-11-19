@@ -13,7 +13,9 @@ namespace reluva {
 
 namespace {
 
-Error sdlError(const char* what) { return Error::fail(std::string(what) + ": " + SDL_GetError()); }
+Error sdlError(const char *what) {
+    return Error::fail(std::string(what) + ": " + SDL_GetError());
+}
 
 // The layouts of draw.vert's and draw.frag's uniform blocks (std140).
 struct DeformUniforms {
@@ -44,21 +46,31 @@ struct FragmentUniforms {
 
 SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
     switch (b) {
-    case gfx::Blend::kZero: return SDL_GPU_BLENDFACTOR_ZERO;
-    case gfx::Blend::kOne: return SDL_GPU_BLENDFACTOR_ONE;
-    case gfx::Blend::kSrcColor: return SDL_GPU_BLENDFACTOR_SRC_COLOR;
-    case gfx::Blend::kOneMinusSrcColor: return SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_COLOR;
-    case gfx::Blend::kDstColor: return SDL_GPU_BLENDFACTOR_DST_COLOR;
-    case gfx::Blend::kOneMinusDstColor: return SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_COLOR;
-    case gfx::Blend::kSrcAlpha: return SDL_GPU_BLENDFACTOR_SRC_ALPHA;
-    case gfx::Blend::kOneMinusSrcAlpha: return SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-    case gfx::Blend::kDstAlpha: return SDL_GPU_BLENDFACTOR_DST_ALPHA;
-    case gfx::Blend::kOneMinusDstAlpha: return SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_ALPHA;
+    case gfx::Blend::kZero:
+        return SDL_GPU_BLENDFACTOR_ZERO;
+    case gfx::Blend::kOne:
+        return SDL_GPU_BLENDFACTOR_ONE;
+    case gfx::Blend::kSrcColor:
+        return SDL_GPU_BLENDFACTOR_SRC_COLOR;
+    case gfx::Blend::kOneMinusSrcColor:
+        return SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_COLOR;
+    case gfx::Blend::kDstColor:
+        return SDL_GPU_BLENDFACTOR_DST_COLOR;
+    case gfx::Blend::kOneMinusDstColor:
+        return SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_COLOR;
+    case gfx::Blend::kSrcAlpha:
+        return SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+    case gfx::Blend::kOneMinusSrcAlpha:
+        return SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    case gfx::Blend::kDstAlpha:
+        return SDL_GPU_BLENDFACTOR_DST_ALPHA;
+    case gfx::Blend::kOneMinusDstAlpha:
+        return SDL_GPU_BLENDFACTOR_ONE_MINUS_DST_ALPHA;
     }
     return SDL_GPU_BLENDFACTOR_ONE;
 }
 
-uint32_t packState(const gfx::DrawState& s) {
+uint32_t packState(const gfx::DrawState &s) {
     return uint32_t(s.src) | uint32_t(s.dst) << 4 | uint32_t(s.depthTest) << 8 | uint32_t(s.depthWrite) << 9 |
            uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12 | uint32_t(s.depthBias) << 13;
 }
@@ -74,16 +86,16 @@ SdlGpuRenderer::~SdlGpuRenderer() {
     // Nothing may still be using the resources.
     SDL_WaitForGPUIdle(_device);
     _textures.erase(_frameTexture); // the frame itself, released below
-    for (auto& [id, t] : _textures)
+    for (auto &[id, t] : _textures)
         SDL_ReleaseGPUTexture(_device, t.texture);
-    for (auto& [id, m] : _meshes) {
+    for (auto &[id, m] : _meshes) {
         if (!m.sharedVertices)
             SDL_ReleaseGPUBuffer(_device, m.vertices);
         SDL_ReleaseGPUBuffer(_device, m.indices);
     }
-    for (auto& [key, p] : _pipelines)
+    for (auto &[key, p] : _pipelines)
         SDL_ReleaseGPUGraphicsPipeline(_device, p);
-    for (SDL_GPUSampler* s : _samplers)
+    for (SDL_GPUSampler *s : _samplers)
         if (s)
             SDL_ReleaseGPUSampler(_device, s);
     if (_vertexShader)
@@ -110,8 +122,8 @@ Error SdlGpuRenderer::init(int width, int height) {
 
     // Shaders, in whichever format the device takes.
     const SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(_device);
-    auto makeShader = [&](SDL_GPUShaderStage stage, const uint8_t* spirv, size_t spirvSize, const char* msl,
-                          uint32_t samplers) -> SDL_GPUShader* {
+    auto makeShader = [&](SDL_GPUShaderStage stage, const uint8_t *spirv, size_t spirvSize, const char *msl,
+                          uint32_t samplers) -> SDL_GPUShader * {
         SDL_GPUShaderCreateInfo info{};
         info.stage = stage;
         info.num_samplers = samplers;
@@ -123,7 +135,7 @@ Error SdlGpuRenderer::init(int width, int height) {
             info.entrypoint = "main";
         } else if (formats & SDL_GPU_SHADERFORMAT_MSL) {
             info.format = SDL_GPU_SHADERFORMAT_MSL;
-            info.code = reinterpret_cast<const uint8_t*>(msl);
+            info.code = reinterpret_cast<const uint8_t *>(msl);
             info.code_size = std::strlen(msl);
             info.entrypoint = "main0";
         } else {
@@ -299,22 +311,22 @@ void SdlGpuRenderer::setStencilMode(StencilMode mode) {
         _stencilMode = mode;
 }
 
-bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle) {
+bool SdlGpuRenderer::upload(const void *data, uint32_t size, SDL_GPUBuffer *buffer, bool cycle) {
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = size;
-    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(_device, &ti);
+    SDL_GPUTransferBuffer *tb = SDL_CreateGPUTransferBuffer(_device, &ti);
     if (!tb)
         return false;
-    void* mapped = SDL_MapGPUTransferBuffer(_device, tb, false);
+    void *mapped = SDL_MapGPUTransferBuffer(_device, tb, false);
     if (!mapped) {
         SDL_ReleaseGPUTransferBuffer(_device, tb);
         return false;
     }
     std::memcpy(mapped, data, size);
     SDL_UnmapGPUTransferBuffer(_device, tb);
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(_device);
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(_device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
     SDL_GPUTransferBufferLocation src{};
     src.transfer_buffer = tb;
     SDL_GPUBufferRegion dst{};
@@ -327,8 +339,8 @@ bool SdlGpuRenderer::upload(const void* data, uint32_t size, SDL_GPUBuffer* buff
     return ok;
 }
 
-Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
-                                    gfx::TextureId& out) {
+Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
+                                    gfx::TextureId &out) {
     out = 0;
     if (width <= 0 || height <= 0)
         return Error::fail("Empty texture");
@@ -345,7 +357,7 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     ci.height = uint32_t(height);
     ci.layer_count_or_depth = 1;
     ci.num_levels = uint32_t(levels);
-    SDL_GPUTexture* tex = SDL_CreateGPUTexture(_device, &ci);
+    SDL_GPUTexture *tex = SDL_CreateGPUTexture(_device, &ci);
     if (!tex)
         return sdlError("Cannot create a texture");
 
@@ -353,8 +365,8 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = size;
-    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(_device, &ti);
-    void* mapped = tb ? SDL_MapGPUTransferBuffer(_device, tb, false) : nullptr;
+    SDL_GPUTransferBuffer *tb = SDL_CreateGPUTransferBuffer(_device, &ti);
+    void *mapped = tb ? SDL_MapGPUTransferBuffer(_device, tb, false) : nullptr;
     if (!mapped) {
         if (tb)
             SDL_ReleaseGPUTransferBuffer(_device, tb);
@@ -364,8 +376,8 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t* rgba, 
     std::memcpy(mapped, rgba, size);
     SDL_UnmapGPUTransferBuffer(_device, tb);
 
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(_device);
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(_device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
     SDL_GPUTextureTransferInfo src{};
     src.transfer_buffer = tb;
     SDL_GPUTextureRegion dst{};
@@ -390,9 +402,9 @@ std::string SdlGpuRenderer::deviceName() const {
     const SDL_PropertiesID props = SDL_GetGPUDeviceProperties(_device);
     std::string name = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown GPU");
     name += std::string(" (") + SDL_GetGPUDeviceDriver(_device);
-    if (const char* driver = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, nullptr))
+    if (const char *driver = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, nullptr))
         name += std::string(", ") + driver;
-    if (const char* version = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING, nullptr))
+    if (const char *version = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING, nullptr))
         name += std::string(" ") + version;
     return name + ")";
 }
@@ -405,8 +417,8 @@ void SdlGpuRenderer::destroyTexture(gfx::TextureId id) {
     _textures.erase(it);
 }
 
-Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
-                                 gfx::MeshId& out) {
+Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
+                                 gfx::MeshId &out) {
     out = 0;
     static_assert(sizeof(gfx::Vertex) == 44, "the pipeline's vertex layout");
     if (vertices.empty() || indices.empty())
@@ -435,7 +447,7 @@ Error SdlGpuRenderer::createMesh(const std::vector<gfx::Vertex>& vertices, const
     return Error::success();
 }
 
-Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) {
+Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t> &indices) {
     auto it = _meshes.find(id);
     if (it == _meshes.end() || indices.empty())
         return Error::fail("No such mesh, or no indices");
@@ -450,7 +462,7 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
         SDL_GPUBufferCreateInfo bi{};
         bi.usage = SDL_GPU_BUFFERUSAGE_INDEX;
         bi.size = bytes + bytes / 2;
-        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(_device, &bi);
+        SDL_GPUBuffer *buffer = SDL_CreateGPUBuffer(_device, &bi);
         if (!buffer || !upload(indices.data(), bytes, buffer)) {
             if (buffer)
                 SDL_ReleaseGPUBuffer(_device, buffer);
@@ -465,8 +477,7 @@ Error SdlGpuRenderer::setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>
     return Error::success();
 }
 
-Error SdlGpuRenderer::createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices,
-                                        gfx::MeshId& out) {
+Error SdlGpuRenderer::createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t> &indices, gfx::MeshId &out) {
     out = 0;
     auto source = _meshes.find(vertices);
     if (source == _meshes.end() || indices.empty())
@@ -499,7 +510,7 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
     _meshes.erase(it);
 }
 
-SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
+SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
     const uint32_t key = packState(state) | uint32_t(_stencilMode) << 14 | uint32_t(_mirrored) << 16;
     if (auto it = _pipelines.find(key); it != _pipelines.end())
         return it->second;
@@ -540,9 +551,8 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = state.cull == gfx::Cull::kBack    ? SDL_GPU_CULLMODE_BACK
                                       : state.cull == gfx::Cull::kFront ? SDL_GPU_CULLMODE_FRONT
-                                                                       : SDL_GPU_CULLMODE_NONE;
-    info.rasterizer_state.front_face =
-        _mirrored ? SDL_GPU_FRONTFACE_CLOCKWISE : SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+                                                                        : SDL_GPU_CULLMODE_NONE;
+    info.rasterizer_state.front_face = _mirrored ? SDL_GPU_FRONTFACE_CLOCKWISE : SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     if (state.depthBias) {
         // Towards the camera; depth runs 0 (near) to 1 (far).
         info.rasterizer_state.enable_depth_bias = true;
@@ -566,14 +576,14 @@ SDL_GPUGraphicsPipeline* SdlGpuRenderer::pipeline(const gfx::DrawState& state) {
     info.target_info.num_color_targets = 1;
     info.target_info.depth_stencil_format = _depthFormat;
     info.target_info.has_depth_stencil_target = true;
-    SDL_GPUGraphicsPipeline* p = SDL_CreateGPUGraphicsPipeline(_device, &info);
+    SDL_GPUGraphicsPipeline *p = SDL_CreateGPUGraphicsPipeline(_device, &info);
     if (!p)
         SDL_Log("Cannot create a 3D pipeline: %s", SDL_GetError());
     _pipelines[key] = p; // a failure is remembered too, and those draws skipped
     return p;
 }
 
-void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) {
+void SdlGpuRenderer::beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) {
     _viewProj = viewProj;
     _eye = eye;
     _boundPipeline = nullptr;
@@ -604,13 +614,13 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye,
         SDL_SetGPUStencilReference(_pass, 1);
 }
 
-void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
+void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     if (!_pass || call.indexCount == 0)
         return;
     auto mesh = _meshes.find(call.mesh);
     if (mesh == _meshes.end())
         return;
-    SDL_GPUGraphicsPipeline* p = pipeline(call.state);
+    SDL_GPUGraphicsPipeline *p = pipeline(call.state);
     if (!p)
         return;
     if (p != _boundPipeline) {
@@ -640,7 +650,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     SDL_BindGPUFragmentSamplers(_pass, 0, &binding, 1);
 
     VertexUniforms vu{};
-    auto put = [](float* out, const auto& in) { std::copy(in.begin(), in.end(), out); };
+    auto put = [](float *out, const auto &in) { std::copy(in.begin(), in.end(), out); };
     put(vu.viewProj, _viewProj);
     put(vu.model, call.model);
     put(vu.ambient, call.ambientLight);
@@ -673,8 +683,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
     vu.mode2[2] = call.fogNear;
     vu.mode2[3] = call.fogFar;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
-        const gfx::Deform& d = call.deforms[i];
-        DeformUniforms& u = vu.deforms[i];
+        const gfx::Deform &d = call.deforms[i];
+        DeformUniforms &u = vu.deforms[i];
         u.a[0] = float(d.type);
         u.a[1] = float(d.wave.func);
         u.a[2] = d.wave.base;
@@ -714,17 +724,17 @@ void SdlGpuRenderer::draw(const gfx::DrawCall& call) {
 
 // Submits the frame's commands with a copy of `frame` into memory, waits
 // for them and keeps it.
-void SdlGpuRenderer::capture(SDL_GPUTexture* frame) {
+void SdlGpuRenderer::capture(SDL_GPUTexture *frame) {
     const uint32_t size = uint32_t(_width) * uint32_t(_height) * 4;
     SDL_GPUTransferBufferCreateInfo ti{};
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
     ti.size = size;
-    SDL_GPUTransferBuffer* buffer = SDL_CreateGPUTransferBuffer(_device, &ti);
+    SDL_GPUTransferBuffer *buffer = SDL_CreateGPUTransferBuffer(_device, &ti);
     if (!buffer) {
         SDL_SubmitGPUCommandBuffer(_cmd);
         return;
     }
-    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(_cmd);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(_cmd);
     SDL_GPUTextureRegion from{};
     from.texture = frame;
     from.w = uint32_t(_width);
@@ -734,11 +744,11 @@ void SdlGpuRenderer::capture(SDL_GPUTexture* frame) {
     to.transfer_buffer = buffer;
     SDL_DownloadFromGPUTexture(copy, &from, &to);
     SDL_EndGPUCopyPass(copy);
-    SDL_GPUFence* fence = SDL_SubmitGPUCommandBufferAndAcquireFence(_cmd);
+    SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(_cmd);
     if (fence) {
         SDL_WaitForGPUFences(_device, true, &fence, 1);
         SDL_ReleaseGPUFence(_device, fence);
-        if (const auto* pixels = static_cast<const uint8_t*>(SDL_MapGPUTransferBuffer(_device, buffer, false))) {
+        if (const auto *pixels = static_cast<const uint8_t *>(SDL_MapGPUTransferBuffer(_device, buffer, false))) {
             _capture.assign(pixels, pixels + size);
             SDL_UnmapGPUTransferBuffer(_device, buffer);
         }
@@ -746,7 +756,7 @@ void SdlGpuRenderer::capture(SDL_GPUTexture* frame) {
     SDL_ReleaseGPUTransferBuffer(_device, buffer);
 }
 
-void SdlGpuRenderer::endFrame(const Surface* overlay) {
+void SdlGpuRenderer::endFrame(const Surface *overlay) {
     _stencilMode = StencilMode::kNone; // the brightness pass draws everything
     _mirrored = false;
     if (_pass) {

@@ -36,7 +36,7 @@ constexpr int kScreenH = 480;
 
 class IdTech3Engine : public Engine {
 public:
-    IdTech3Engine(System& system, GameTarget target, const GameInfo& game)
+    IdTech3Engine(System &system, GameTarget target, const GameInfo &game)
         : sys_(system), target_(std::move(target)), game_(game) {}
 
     Error run() override {
@@ -59,16 +59,17 @@ public:
         audio::Mixer mixer(sys_.audioRate());
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioOff { // stops the output before the mixer goes
-            System& sys;
+            System &sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
 
-        ViewerContext ctx{sys_, screen_, files_, shaders_, game_, warnings, target_.savePath,
-                          audioOut ? &mixer : nullptr, {}, {}, {}, {}, {}, {}, {}, target_.path};
+        ViewerContext ctx{
+            sys_, screen_, files_, shaders_, game_, warnings, target_.savePath, audioOut ? &mixer : nullptr, {},
+            {},   {},      {},     {},       {},    {},       target_.path};
         // A pak just downloaded: in the search path at once, above the
         // rest, and the shader scripts read again (it may bring its own).
         int added = 0;
-        ctx.addPak = [this, &added](const std::filesystem::path& path) {
+        ctx.addPak = [this, &added](const std::filesystem::path &path) {
             auto zip = std::make_unique<ZipArchive>();
             if (Error err = zip->open(path))
                 return err;
@@ -78,7 +79,7 @@ public:
         };
         loadConfig(ctx);
         struct SaveConfig { // keeps settings changed while running, however it ends
-            ViewerContext& ctx;
+            ViewerContext &ctx;
             ~SaveConfig() { saveConfig(ctx); }
         } saveOnExit{ctx};
         std::vector<std::unique_ptr<Page>> pages;
@@ -147,9 +148,9 @@ public:
     }
 
 private:
-    System& sys_;
+    System &sys_;
     GameTarget target_;
-    const GameInfo& game_;
+    const GameInfo &game_;
     SearchSet files_;
     ShaderLibrary shaders_;
     Surface screen_;
@@ -157,16 +158,16 @@ private:
 
 class IdTech3MetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "idtech3"; }
-    const char* name() const override { return "id Tech 3"; }
+    const char *id() const override { return "idtech3"; }
+    const char *name() const override { return "id Tech 3"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         auto found = detectFromTable(id(), detectionTable(), dir);
         return found.empty() ? detectFromTable(id(), fallbackTable(), dir) : found;
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
-        const GameInfo* game = findGame(target.gameId);
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
+        const GameInfo *game = findGame(target.gameId);
         if (!game)
             game = &games().front();
         return std::make_unique<IdTech3Engine>(system, target, *game);
@@ -175,7 +176,7 @@ public:
 
 } // namespace
 
-const MetaEngine& idTech3MetaEngine() {
+const MetaEngine &idTech3MetaEngine() {
     static const IdTech3MetaEngine instance;
     return instance;
 }

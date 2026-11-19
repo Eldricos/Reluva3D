@@ -33,16 +33,16 @@ struct PhysicsMaterial {
 class PhysicsMaterials {
 public:
     // Both files; without them every surface is the default.
-    Error load(const SearchSet& files);
+    Error load(const SearchSet &files);
     Error parse(std::string_view mtl, std::string_view csv);
 
     // The material by name (default if there's none such), and a texture's
     // (by name, with or without an animation frame: "s_thames-0009").
-    const PhysicsMaterial& byName(const std::string& name) const;
-    const PhysicsMaterial& forTexture(const std::string& texture) const;
+    const PhysicsMaterial &byName(const std::string &name) const;
+    const PhysicsMaterial &forTexture(const std::string &texture) const;
     // As a collision surface: friction relative to the default material's
     // (so roads keep CollisionSurface's), its sound, drag and depth.
-    CollisionSurface surface(const PhysicsMaterial& m) const;
+    CollisionSurface surface(const PhysicsMaterial &m) const;
 
 private:
     std::vector<PhysicsMaterial> _materials;

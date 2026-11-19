@@ -30,9 +30,9 @@ Vec3 flat(Vec3 v) {
 
 } // namespace
 
-std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths) {
+std::vector<PropPlacement> placeProps(const std::vector<PathsetPath> &paths) {
     std::vector<PropPlacement> out;
-    for (const PathsetPath& p : paths) {
+    for (const PathsetPath &p : paths) {
         // An unnamed path (PATH01...) places nothing.
         if (p.model.empty() || p.model.rfind("PATH", 0) == 0 || p.points.empty())
             continue;
@@ -57,7 +57,7 @@ std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths) {
                 carry = carry > 1e-3f ? spacing - carry : 0;
             }
         } else {
-            for (const Vec3& at : p.points)
+            for (const Vec3 &at : p.points)
                 out.push_back({p.model, at, {1, 0, 0}});
         }
     }
@@ -67,7 +67,7 @@ std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths) {
 namespace {
 
 // A .csv's rows, split at commas, the empty fields at the end dropped.
-std::vector<std::vector<std::string>> csvRows(const std::string& text) {
+std::vector<std::vector<std::string>> csvRows(const std::string &text) {
     std::vector<std::vector<std::string>> out;
     std::istringstream in(text);
     std::string line;
@@ -88,7 +88,7 @@ std::vector<std::vector<std::string>> csvRows(const std::string& text) {
 }
 
 // How far along a line each point is.
-std::vector<float> along(const std::vector<Vec3>& line) {
+std::vector<float> along(const std::vector<Vec3> &line) {
     std::vector<float> out(line.size(), 0);
     for (size_t i = 1; i < line.size(); ++i)
         out[i] = out[i - 1] + length(line[i] - line[i - 1]);
@@ -97,11 +97,11 @@ std::vector<float> along(const std::vector<Vec3>& line) {
 
 } // namespace
 
-std::map<std::string, StreetPropKind> parsePropDefs(const std::string& text) {
+std::map<std::string, StreetPropKind> parsePropDefs(const std::string &text) {
     std::map<std::string, StreetPropKind> out;
     const auto rows = csvRows(text);
     for (size_t i = 1; i < rows.size(); ++i) { // after the header
-        const auto& r = rows[i];
+        const auto &r = rows[i];
         if (r.size() < 7)
             continue;
         StreetPropKind k;
@@ -118,11 +118,11 @@ std::map<std::string, StreetPropKind> parsePropDefs(const std::string& text) {
     return out;
 }
 
-std::map<std::string, std::vector<std::string>> parsePropRules(const std::string& text) {
+std::map<std::string, std::vector<std::string>> parsePropRules(const std::string &text) {
     std::map<std::string, std::vector<std::string>> out;
     const auto rows = csvRows(text);
     for (size_t i = 1; i < rows.size(); ++i) {
-        std::vector<std::string>& kinds = out[rows[i][0]];
+        std::vector<std::string> &kinds = out[rows[i][0]];
         for (size_t f = 1; f < rows[i].size(); ++f)
             if (!rows[i][f].empty()) // London's n11left skips a column
                 kinds.push_back(rows[i][f]);
@@ -130,12 +130,12 @@ std::map<std::string, std::vector<std::string>> parsePropRules(const std::string
     return out;
 }
 
-std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::vector<uint8_t>& blockRules,
-                                            const std::map<std::string, StreetPropKind>& kinds,
-                                            const std::map<std::string, std::vector<std::string>>& rules,
+std::vector<PropPlacement> placeStreetProps(const AiRoadMap &roads, const std::vector<uint8_t> &blockRules,
+                                            const std::map<std::string, StreetPropKind> &kinds,
+                                            const std::map<std::string, std::vector<std::string>> &rules,
                                             uint32_t seed) {
     std::vector<PropPlacement> out;
-    for (const AiRoad& road : roads.roads) {
+    for (const AiRoad &road : roads.roads) {
         int rule = 0;
         for (uint16_t b : road.blocks)
             if (b < blockRules.size() && blockRules[b])
@@ -144,7 +144,7 @@ std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::v
             continue;
         std::mt19937 random(seed * 7919u + road.id);
         for (int s = 0; s < 2; ++s) {
-            const AiRoadSide& side = road.sides[size_t(s)];
+            const AiRoadSide &side = road.sides[size_t(s)];
             const size_t n = std::min(side.curb.size(), side.outerEdge.size());
             if (n < 2)
                 continue;
@@ -155,11 +155,11 @@ std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::v
                 continue;
             const std::vector<Vec3> curb(side.curb.begin(), side.curb.begin() + std::ptrdiff_t(n));
             const std::vector<float> at = along(curb);
-            for (const std::string& kindName : r->second) {
+            for (const std::string &kindName : r->second) {
                 const auto k = kinds.find(kindName);
                 if (k == kinds.end() || k->second.models.empty())
                     continue;
-                const StreetPropKind& kind = k->second;
+                const StreetPropKind &kind = k->second;
                 const float spacing = std::max(1.0f, kind.spacing);
                 int placed = 0;
                 size_t i = 0;
@@ -183,12 +183,12 @@ std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::v
     return out;
 }
 
-Error parseBangerData(const std::string& text, BangerData& out) {
+Error parseBangerData(const std::string &text, BangerData &out) {
     out = BangerData{};
     TuneNode root;
     if (Error err = parseTune(text, root))
         return err;
-    const TuneNode* n = root.child("dgBangerData");
+    const TuneNode *n = root.child("dgBangerData");
     if (!n)
         return Error::fail("no dgBangerData block");
     out.mass = std::max(0.1f, n->number("Mass", 0, out.mass));
@@ -200,7 +200,7 @@ Error parseBangerData(const std::string& text, BangerData& out) {
     out.parts = int(n->number("NumParts"));
     out.texNumber = int(n->number("TexNumber"));
     out.elasticity = n->number("Elasticity", 0, out.elasticity);
-    if (const TuneNode* rule = n->child("BirthRule")) {
+    if (const TuneNode *rule = n->child("BirthRule")) {
         out.particles = parseBirthRule(*rule);
         for (size_t k = 0; k < 3; ++k)
             out.particlesAt[k] = rule->number("Position", k);
@@ -213,7 +213,7 @@ Error parseBangerData(const std::string& text, BangerData& out) {
     return Error::success();
 }
 
-void Props::load(const SearchSet& files, const std::string& map, const std::string& variant) {
+void Props::load(const SearchSet &files, const std::string &map, const std::string &variant) {
     _props.clear();
     _prepared = false;
     std::vector<uint8_t> data;
@@ -226,7 +226,7 @@ void Props::load(const SearchSet& files, const std::string& map, const std::stri
         readPathset(data, race);
         paths.insert(paths.end(), race.begin(), race.end());
     }
-    for (const PropPlacement& p : placeProps(paths)) {
+    for (const PropPlacement &p : placeProps(paths)) {
         Prop prop;
         prop.model = p.model;
         prop.at = p.at;
@@ -236,12 +236,12 @@ void Props::load(const SearchSet& files, const std::string& map, const std::stri
     }
 }
 
-void Props::addStreetProps(const SearchSet& files, const std::string& map, const AiRoadMap& roads,
-                           const std::vector<uint8_t>& blockRules) {
+void Props::addStreetProps(const SearchSet &files, const std::string &map, const AiRoadMap &roads,
+                           const std::vector<uint8_t> &blockRules) {
     std::vector<uint8_t> defs, rules;
     if (files.read("city/" + map + "/propdefs.csv", defs) || files.read("city/" + map + "/proprules.csv", rules))
         return;
-    for (const PropPlacement& p :
+    for (const PropPlacement &p :
          placeStreetProps(roads, blockRules, parsePropDefs(std::string(defs.begin(), defs.end())),
                           parsePropRules(std::string(rules.begin(), rules.end())))) {
         Prop prop;
@@ -254,7 +254,7 @@ void Props::addStreetProps(const SearchSet& files, const std::string& map, const
     _prepared = false;
 }
 
-void Props::addLights(const TrafficLights& lights) {
+void Props::addLights(const TrafficLights &lights) {
     for (size_t i = 0; i < lights.count(); ++i) {
         const TrafficLights::Placement pl = lights.placement(i);
         Prop prop;
@@ -267,9 +267,9 @@ void Props::addLights(const TrafficLights& lights) {
     _prepared = false;
 }
 
-void Props::prepare(const SearchSet& files, ModelCache& models) {
-    prepare(files, [&models](const std::string& name, Vec3& low, Vec3& high) {
-        const ModelCache::Model& m = models.get(name);
+void Props::prepare(const SearchSet &files, ModelCache &models) {
+    prepare(files, [&models](const std::string &name, Vec3 &low, Vec3 &high) {
+        const ModelCache::Model &m = models.get(name);
         if (!m.ok || m.levels.empty())
             return false;
         low = m.levels.front().low;
@@ -278,19 +278,19 @@ void Props::prepare(const SearchSet& files, ModelCache& models) {
     });
 }
 
-int Props::addEffect(const BangerData& b, const Vec3& middle) {
+int Props::addEffect(const BangerData &b, const Vec3 &middle) {
     if (!b.bursts())
         return -1;
     _effects.push_back({b.particles, middle + b.particlesAt, "fxpt" + std::to_string(b.texNumber)});
     return int(_effects.size() - 1);
 }
 
-void Props::prepare(const SearchSet& files, const ModelBox& box) {
+void Props::prepare(const SearchSet &files, const ModelBox &box) {
     std::map<std::string, std::pair<BangerData, bool>> banger;
     _effects.clear();
     std::map<std::string, int> effectOf; // a model's or piece's, shared
     for (size_t i = 0; i < _props.size(); ++i) {
-        Prop& p = _props[i];
+        Prop &p = _props[i];
         Vec3 low, high;
         if (!box(p.model, low, high))
             continue;
@@ -304,7 +304,7 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
                              !parseBangerData(std::string(data.begin(), data.end()), b);
             it = banger.emplace(p.model, std::make_pair(b, has)).first;
         }
-        const auto& [b, has] = it->second;
+        const auto &[b, has] = it->second;
         if (has) {
             auto e = effectOf.find(p.model);
             if (e == effectOf.end())
@@ -313,7 +313,7 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
             // Its lamps: offsets from its model's middle, which stands
             // `lift` up.
             p.glows.clear();
-            for (const Vec3& g : b.glows)
+            for (const Vec3 &g : b.glows)
                 p.glows.push_back(g + Vec3{0, p.lift, 0});
         }
         // Its pieces: <model>_BREAK01... each with its own banger data.
@@ -336,7 +336,7 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
                 e = effectOf.emplace(key, addEffect(pb, {})).first;
             piece.effect = e->second;
             // A piece's own lamps (a sign's), from its middle.
-            for (const Vec3& g : pb.glows)
+            for (const Vec3 &g : pb.glows)
                 p.glows.push_back(pb.cg + g);
             p.pieces.push_back(piece);
         }
@@ -350,11 +350,11 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
         p.surface.breakImpulse =
             has && b.impulseLimit2 > 0 && b.impulseLimit2 < kNeverBreaks ? std::sqrt(b.impulseLimit2) : 0;
         // Its bound, else its model's box (a traffic light: its pole).
-        auto place = [&](const Vec3& v) { return p.at + p.axes * (v + Vec3{0, p.lift, 0}); };
+        auto place = [&](const Vec3 &v) { return p.at + p.axes * (v + Vec3{0, p.lift, 0}); };
         p.triangles.clear();
         Bound bound;
         if (p.light < 0 && !loadBound(files, p.model, bound)) {
-            for (const BoundPolygon& poly : bound.polygons) {
+            for (const BoundPolygon &poly : bound.polygons) {
                 p.triangles.push_back({place(bound.vertices[poly.vertices[0]]), place(bound.vertices[poly.vertices[1]]),
                                        place(bound.vertices[poly.vertices[2]])});
                 if (poly.count == 4)
@@ -373,7 +373,7 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
                                {hi[0], hi[1], hi[2]}, {lo[0], hi[1], hi[2]}};
             const int faces[6][4] = {{0, 1, 2, 3}, {4, 5, 6, 7}, {0, 1, 5, 4},
                                      {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}};
-            for (const auto& f : faces) {
+            for (const auto &f : faces) {
                 p.triangles.push_back({place(c[f[0]]), place(c[f[1]]), place(c[f[2]])});
                 p.triangles.push_back({place(c[f[0]]), place(c[f[2]]), place(c[f[3]])});
             }
@@ -382,29 +382,29 @@ void Props::prepare(const SearchSet& files, const ModelBox& box) {
     _prepared = true;
 }
 
-void Props::collide(CollisionWorld& world) const {
-    world.removeSurfaces([](const CollisionSurface& s) { return s.prop >= 0; });
-    for (const Prop& p : _props)
+void Props::collide(CollisionWorld &world) const {
+    world.removeSurfaces([](const CollisionSurface &s) { return s.prop >= 0; });
+    for (const Prop &p : _props)
         if (!p.loose)
-            for (const auto& t : p.triangles)
+            for (const auto &t : p.triangles)
                 world.add(t[0], t[1], t[2], p.surface);
     world.build(world.cellSize());
 }
 
-void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& world, TrafficLights& lights) {
+void Props::update(float dt, const std::vector<CarSim *> &cars, CollisionWorld &world, TrafficLights &lights) {
     bool changed = false;
-    for (CarSim* car : cars) {
+    for (CarSim *car : cars) {
         for (int32_t id : car->broke) {
             if (id < 0 || size_t(id) >= _props.size() || _props[size_t(id)].loose)
                 continue;
-            Prop& p = _props[size_t(id)];
+            Prop &p = _props[size_t(id)];
             p.loose = true;
             changed = true;
             if (p.light >= 0)
                 lights.knockDown(size_t(p.light));
             // What flies out: from its middle, and from each piece.
             if (p.effect >= 0) {
-                const Effect& e = _effects[size_t(p.effect)];
+                const Effect &e = _effects[size_t(p.effect)];
                 _bursts.push_back({e.rule, e.texture, p.at + p.axes * e.at, car->velocity * 0.3f});
             }
             // Come apart, where it has pieces: each from where it was, off
@@ -415,7 +415,7 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
                 const float speed = length(car->velocity);
                 const Vec3 axis = normalized(cross(Vec3{0, 1, 0}, push));
                 for (size_t k = 0; k < p.pieces.size(); ++k) {
-                    Prop::Piece& piece = p.pieces[k];
+                    Prop::Piece &piece = p.pieces[k];
                     piece.position = p.at + p.axes * piece.cg;
                     piece.orientation = p.axes;
                     const float share = 0.5f + 0.3f * float(k % 3) / 2; // not all alike
@@ -423,7 +423,7 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
                     piece.spin = axis * (2 + float(k)) + Vec3{0, 0.5f * float(k % 2 ? 1 : -1), 0};
                     piece.resting = false;
                     if (piece.effect >= 0) {
-                        const Effect& e = _effects[size_t(piece.effect)];
+                        const Effect &e = _effects[size_t(piece.effect)];
                         _bursts.push_back({e.rule, e.texture, piece.position + p.axes * e.at, piece.velocity * 0.5f});
                     }
                 }
@@ -440,13 +440,13 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
         car->broke.clear();
     }
     if (changed)
-        world.removeSurfaces([&](const CollisionSurface& s) {
+        world.removeSurfaces([&](const CollisionSurface &s) {
             return s.prop >= 0 && size_t(s.prop) < _props.size() && _props[size_t(s.prop)].loose;
         });
-    for (Prop& p : _props) {
+    for (Prop &p : _props) {
         if (!p.loose)
             continue;
-        for (Prop::Piece& piece : p.pieces) {
+        for (Prop::Piece &piece : p.pieces) {
             if (!p.apart || piece.resting)
                 continue;
             // Falling and turning; on the ground (its half height above
@@ -487,23 +487,23 @@ void Props::update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& w
     }
 }
 
-void Props::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-                 const Vec3& eye) const {
+void Props::draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
+                 const Vec3 &eye) const {
     const ViewFrustum frustum(viewProj);
     for (bool translucent : {false, true})
-        for (const Prop& p : _props) {
+        for (const Prop &p : _props) {
             if (p.light >= 0 && !p.loose)
                 continue; // TrafficLights draws those standing
             const Vec3 at = p.at + p.moved;
             if (length(at - eye) > kDrawDistance || !frustum.visible(at + Vec3{0, p.height / 2, 0}, p.height + 2))
                 continue;
             if (p.apart) {
-                for (const Prop::Piece& piece : p.pieces)
+                for (const Prop::Piece &piece : p.pieces)
                     drawModelMesh(renderer, models.part(p.model, piece.part),
                                   matrixOf(piece.orientation, piece.position), light, translucent);
                 continue;
             }
-            const ModelCache::Model& m = models.get(p.model);
+            const ModelCache::Model &m = models.get(p.model);
             if (!m.ok)
                 continue;
             const Mat3 turn = p.loose ? Mat3::rotation(p.axis, p.angle) : Mat3{};
@@ -512,12 +512,12 @@ void Props::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight
         }
 }
 
-size_t Props::pieces(size_t* resting, float* lowest) const {
+size_t Props::pieces(size_t *resting, float *lowest) const {
     size_t n = 0, still = 0;
     float low = 1e30f;
-    for (const Prop& p : _props)
+    for (const Prop &p : _props)
         if (p.apart)
-            for (const Prop::Piece& piece : p.pieces) {
+            for (const Prop::Piece &piece : p.pieces) {
                 ++n;
                 still += piece.resting;
                 low = std::min(low, piece.position[1]);
@@ -530,18 +530,18 @@ size_t Props::pieces(size_t* resting, float* lowest) const {
 }
 
 size_t Props::loose() const {
-    return size_t(std::count_if(_props.begin(), _props.end(), [](const Prop& p) { return p.loose; }));
+    return size_t(std::count_if(_props.begin(), _props.end(), [](const Prop &p) { return p.loose; }));
 }
 
-void Props::drawGlows(const FlareDrawer& flares, const Vec3& eye) const {
+void Props::drawGlows(const FlareDrawer &flares, const Vec3 &eye) const {
     // A street lamp's light: warm, the size of the city's beacons'
     // smaller ones.
     constexpr float kSize = 2, kDistance = 600;
     constexpr std::array<float, 3> kColor{1, 0.9f, 0.7f};
-    for (const Prop& p : _props) {
+    for (const Prop &p : _props) {
         if (p.loose)
             continue;
-        for (const Vec3& g : p.glows) {
+        for (const Vec3 &g : p.glows) {
             const Vec3 at = p.at + p.axes * g;
             if (length(at - eye) < kDistance)
                 flares.draw(at, kSize, kColor, eye);

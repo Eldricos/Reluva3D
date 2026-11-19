@@ -19,8 +19,8 @@ namespace reluva::age {
 // the values given. See docs/formats/age/aimap.md.
 struct AiMapSettings {
     struct Ambient {
-        std::string model;  // geometry/<model>.pkg, tune/vehicle/<model>.aiVehicleData
-        float upTo = 1;     // cumulative share: picked when a random 0-1 is below this
+        std::string model; // geometry/<model>.pkg, tune/vehicle/<model>.aiVehicleData
+        float upTo = 1;    // cumulative share: picked when a random 0-1 is below this
     };
     struct PedPair {
         std::string good, bad; // models in fine and in rainy weather
@@ -32,7 +32,7 @@ struct AiMapSettings {
     struct Police {
         std::string model;
         Vec3 position{};
-        float heading = 0;  // degrees, as waypoints'
+        float heading = 0;       // degrees, as waypoints'
         std::vector<float> rest; // four more values, not known yet
     };
     struct Opponent {
@@ -57,6 +57,6 @@ struct AiMapSettings {
 };
 
 // Reads `text` over `out` (so a race's file can follow the city's).
-Error parseAiMap(const std::string& text, AiMapSettings& out);
+Error parseAiMap(const std::string &text, AiMapSettings &out);
 
 } // namespace reluva::age

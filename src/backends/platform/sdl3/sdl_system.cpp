@@ -25,22 +25,38 @@ uint32_t translateKey(SDL_Keycode k) {
     if (k < 128)
         return k; // SDL keycodes match ASCII for printable keys
     switch (k) {
-    case SDLK_UP: return key::kUp;
-    case SDLK_DOWN: return key::kDown;
-    case SDLK_LEFT: return key::kLeft;
-    case SDLK_RIGHT: return key::kRight;
-    case SDLK_INSERT: return key::kInsert;
-    case SDLK_HOME: return key::kHome;
-    case SDLK_END: return key::kEnd;
-    case SDLK_PAGEUP: return key::kPageUp;
-    case SDLK_PAGEDOWN: return key::kPageDown;
-    case SDLK_LSHIFT: return key::kLShift;
-    case SDLK_RSHIFT: return key::kRShift;
-    case SDLK_LCTRL: return key::kLCtrl;
-    case SDLK_RCTRL: return key::kRCtrl;
-    case SDLK_LALT: return key::kLAlt;
-    case SDLK_RALT: return key::kRAlt;
-    default: break;
+    case SDLK_UP:
+        return key::kUp;
+    case SDLK_DOWN:
+        return key::kDown;
+    case SDLK_LEFT:
+        return key::kLeft;
+    case SDLK_RIGHT:
+        return key::kRight;
+    case SDLK_INSERT:
+        return key::kInsert;
+    case SDLK_HOME:
+        return key::kHome;
+    case SDLK_END:
+        return key::kEnd;
+    case SDLK_PAGEUP:
+        return key::kPageUp;
+    case SDLK_PAGEDOWN:
+        return key::kPageDown;
+    case SDLK_LSHIFT:
+        return key::kLShift;
+    case SDLK_RSHIFT:
+        return key::kRShift;
+    case SDLK_LCTRL:
+        return key::kLCtrl;
+    case SDLK_RCTRL:
+        return key::kRCtrl;
+    case SDLK_LALT:
+        return key::kLAlt;
+    case SDLK_RALT:
+        return key::kRAlt;
+    default:
+        break;
     }
     if (k >= SDLK_F1 && k <= SDLK_F12)
         return key::kF1 + (k - SDLK_F1);
@@ -59,18 +75,25 @@ uint32_t translateKey(SDL_Keycode k) {
 
 uint16_t translateMods(SDL_Keymod m) {
     uint16_t out = 0;
-    if (m & SDL_KMOD_SHIFT) out |= keymod::kShift;
-    if (m & SDL_KMOD_CTRL) out |= keymod::kCtrl;
-    if (m & SDL_KMOD_ALT) out |= keymod::kAlt;
+    if (m & SDL_KMOD_SHIFT)
+        out |= keymod::kShift;
+    if (m & SDL_KMOD_CTRL)
+        out |= keymod::kCtrl;
+    if (m & SDL_KMOD_ALT)
+        out |= keymod::kAlt;
     return out;
 }
 
 MouseButton translateButton(uint8_t b) {
     switch (b) {
-    case SDL_BUTTON_LEFT: return MouseButton::kLeft;
-    case SDL_BUTTON_RIGHT: return MouseButton::kRight;
-    case SDL_BUTTON_MIDDLE: return MouseButton::kMiddle;
-    default: return MouseButton::kNone;
+    case SDL_BUTTON_LEFT:
+        return MouseButton::kLeft;
+    case SDL_BUTTON_RIGHT:
+        return MouseButton::kRight;
+    case SDL_BUTTON_MIDDLE:
+        return MouseButton::kMiddle;
+    default:
+        return MouseButton::kNone;
     }
 }
 
@@ -80,7 +103,7 @@ SdlSystem::SdlSystem() = default;
 
 SdlSystem::~SdlSystem() {
     stopAudio();
-    for (SDL_Gamepad* p : _pads)
+    for (SDL_Gamepad *p : _pads)
         SDL_CloseGamepad(p);
     release3D();
     if (_gameTexture)
@@ -101,15 +124,14 @@ Error SdlSystem::init() {
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
         SDL_Log("Audio unavailable: %s", SDL_GetError());
 
-    _window = SDL_CreateWindow("Reluva", 1280, 800,
-                               SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    _window = SDL_CreateWindow("Reluva", 1280, 800, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!_window)
         return Error::fail(std::string("SDL_CreateWindow failed: ") + SDL_GetError());
 
     // The renderer runs on a GPU device of our own when it can, so engines
     // can draw 3D on the same device (init3D). Asking SDL for a particular
     // renderer (SDL_RENDER_DRIVER) other than "gpu" skips this.
-    const char* driver = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
+    const char *driver = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
     if (!driver || std::strcmp(driver, "gpu") == 0) {
         _gpu = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
         if (_gpu) {
@@ -134,9 +156,11 @@ Error SdlSystem::init() {
     return Error::success();
 }
 
-void SdlSystem::release3D() { _renderer3d.reset(); }
+void SdlSystem::release3D() {
+    _renderer3d.reset();
+}
 
-Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
+Error SdlSystem::init3D(int width, int height, gfx::Renderer3D *&out) {
     out = nullptr;
     release3D();
     if (!_gpu)
@@ -176,8 +200,7 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
     release3D();
     if (_gameTexture)
         SDL_DestroyTexture(_gameTexture);
-    _gameTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGBA32,
-                                     SDL_TEXTUREACCESS_STREAMING, width, height);
+    _gameTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!_gameTexture)
         return Error::fail(std::string("SDL_CreateTexture failed: ") + SDL_GetError());
     SDL_SetTextureScaleMode(_gameTexture, SDL_SCALEMODE_NEAREST);
@@ -195,19 +218,19 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
     return Error::success();
 }
 
-void SdlSystem::setPalette(const Color* colors, int start, int count) {
+void SdlSystem::setPalette(const Color *colors, int start, int count) {
     for (int i = 0; i < count && start + i < 256; ++i)
         _palette[start + i] = packRgba(colors[i].r, colors[i].g, colors[i].b, 255);
 }
 
-void SdlSystem::updateScreen(const Surface& surface) {
+void SdlSystem::updateScreen(const Surface &surface) {
     if (!_gameTexture || surface.w != _gameW || surface.h != _gameH || surface.format != _gameFormat)
         return;
 
     if (surface.format == PixelFormat::kCluT8) {
         for (int y = 0; y < surface.h; ++y) {
-            const uint8_t* src = surface.row(y);
-            uint32_t* dst = _convertBuffer.data() + static_cast<size_t>(y) * _gameW;
+            const uint8_t *src = surface.row(y);
+            uint32_t *dst = _convertBuffer.data() + static_cast<size_t>(y) * _gameW;
             for (int x = 0; x < surface.w; ++x)
                 dst[x] = _palette[src[x]];
         }
@@ -222,9 +245,11 @@ void SdlSystem::updateScreen(const Surface& surface) {
     SDL_RenderPresent(_renderer);
 }
 
-void SdlSystem::setWindowTitle(const std::string& title) { SDL_SetWindowTitle(_window, title.c_str()); }
+void SdlSystem::setWindowTitle(const std::string &title) {
+    SDL_SetWindowTitle(_window, title.c_str());
+}
 
-bool SdlSystem::pollEvent(Event& out) {
+bool SdlSystem::pollEvent(Event &out) {
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         SDL_ConvertEventToRenderCoordinates(_renderer, &ev);
@@ -253,7 +278,7 @@ bool SdlSystem::pollEvent(Event& out) {
             out.repeat = ev.key.repeat;
             return true;
         case SDL_EVENT_GAMEPAD_ADDED:
-            if (SDL_Gamepad* p = SDL_OpenGamepad(ev.gdevice.which))
+            if (SDL_Gamepad *p = SDL_OpenGamepad(ev.gdevice.which))
                 _pads.push_back(p);
             continue;
         case SDL_EVENT_GAMEPAD_REMOVED:
@@ -340,7 +365,7 @@ void SdlSystem::setMouseCursorVisible(bool visible) {
 
 void SdlSystem::rumble(float low, float high, uint32_t ms) {
     auto motor = [](float v) { return Uint16(std::clamp(v, 0.0f, 1.0f) * 65535); };
-    for (SDL_Gamepad* p : _pads)
+    for (SDL_Gamepad *p : _pads)
         SDL_RumbleGamepad(p, motor(low), motor(high), ms);
 }
 
@@ -378,12 +403,16 @@ void SdlSystem::setRelativeMouse(bool on) {
         SDL_SetWindowRelativeMouseMode(_window, on);
 }
 
-uint64_t SdlSystem::getMillis() const { return SDL_GetTicks(); }
+uint64_t SdlSystem::getMillis() const {
+    return SDL_GetTicks();
+}
 
-void SdlSystem::delayMillis(uint32_t ms) { SDL_Delay(ms); }
+void SdlSystem::delayMillis(uint32_t ms) {
+    SDL_Delay(ms);
+}
 
-void SDLCALL SdlSystem::audioThunk(void* userdata, SDL_AudioStream* stream, int additional, int) {
-    auto* self = static_cast<SdlSystem*>(userdata);
+void SDLCALL SdlSystem::audioThunk(void *userdata, SDL_AudioStream *stream, int additional, int) {
+    auto *self = static_cast<SdlSystem *>(userdata);
     const int frames = additional / (2 * static_cast<int>(sizeof(int16_t)));
     if (frames <= 0)
         return;
@@ -411,21 +440,27 @@ void SdlSystem::stopAudio() {
     _audioCallback = nullptr;
 }
 
-Error SdlSystem::openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) {
+Error SdlSystem::openUdp(uint16_t port, std::unique_ptr<net::UdpSocket> &out) {
     std::string error;
     out = net::openSystemUdp(port, error);
     return out ? Error::success() : Error::fail(error);
 }
 
-bool SdlSystem::resolveHost(const std::string& host, uint32_t& ip) { return net::resolveSystemHost(host, ip); }
+bool SdlSystem::resolveHost(const std::string &host, uint32_t &ip) {
+    return net::resolveSystemHost(host, ip);
+}
 
-std::vector<uint32_t> SdlSystem::broadcastAddresses() { return net::systemBroadcastAddresses(); }
+std::vector<uint32_t> SdlSystem::broadcastAddresses() {
+    return net::systemBroadcastAddresses();
+}
 
-bool SdlSystem::httpExchange(const net::Address& to, const std::string& request, std::string& response,
-                             uint32_t& localIp, int timeoutMs) {
+bool SdlSystem::httpExchange(const net::Address &to, const std::string &request, std::string &response,
+                             uint32_t &localIp, int timeoutMs) {
     return net::systemHttpExchange(to, request, response, localIp, timeoutMs);
 }
 
-std::vector<uint32_t> SdlSystem::gateways() { return net::systemGateways(); }
+std::vector<uint32_t> SdlSystem::gateways() {
+    return net::systemGateways();
+}
 
 } // namespace reluva

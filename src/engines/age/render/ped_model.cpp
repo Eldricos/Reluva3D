@@ -19,7 +19,7 @@ namespace reluva::age {
 
 namespace {
 
-std::vector<std::string> wordsOf(const std::string& line) {
+std::vector<std::string> wordsOf(const std::string &line) {
     std::vector<std::string> out;
     std::istringstream in(line);
     std::string w;
@@ -28,13 +28,17 @@ std::vector<std::string> wordsOf(const std::string& line) {
     return out;
 }
 
-float num(const std::vector<std::string>& w, size_t i) { return i < w.size() ? std::strtof(w[i].c_str(), nullptr) : 0; }
+float num(const std::vector<std::string> &w, size_t i) {
+    return i < w.size() ? std::strtof(w[i].c_str(), nullptr) : 0;
+}
 
-std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
+std::string textOf(const std::vector<uint8_t> &data) {
+    return std::string(data.begin(), data.end());
+}
 
 } // namespace
 
-Error parseSkeleton(const std::string& text, Skeleton& out) {
+Error parseSkeleton(const std::string &text, Skeleton &out) {
     out = Skeleton{};
     std::vector<int> open; // the bones whose braces are open
     std::istringstream in(text);
@@ -62,7 +66,7 @@ Error parseSkeleton(const std::string& text, Skeleton& out) {
     return Error::success();
 }
 
-Error readPedAnimation(const std::vector<uint8_t>& data, PedAnimation& out) {
+Error readPedAnimation(const std::vector<uint8_t> &data, PedAnimation &out) {
     // A word 0, the frames and the channels, five bytes not known (a
     // float and a byte), then the frames' values.
     out = PedAnimation{};
@@ -81,7 +85,7 @@ Error readPedAnimation(const std::vector<uint8_t>& data, PedAnimation& out) {
     return Error::success();
 }
 
-Error parsePedMoves(const std::string& csv, std::vector<PedMove>& out) {
+Error parsePedMoves(const std::string &csv, std::vector<PedMove> &out) {
     // name, animation, first frame, last frame, four distances, next.
     out.clear();
     std::istringstream in(csv);
@@ -108,7 +112,7 @@ Error parsePedMoves(const std::string& csv, std::vector<PedMove>& out) {
     return Error::success();
 }
 
-Error parsePedMesh(const std::string& text, PedMesh& out) {
+Error parsePedMesh(const std::string &text, PedMesh &out) {
     // Two layouts: corners in packets, a packet a material (the men), or
     // in one list with each material taking the next of them and of the
     // triangles (the women). Either way the vertices come in bone order,
@@ -123,8 +127,8 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
     struct Range {
         size_t adjuncts = 0, triangles = 0, packets = 1;
     };
-    std::vector<Range> ranges;      // each material's share of the one list
-    std::vector<Adjunct> adj;       // the one list, or the packet's
+    std::vector<Range> ranges; // each material's share of the one list
+    std::vector<Adjunct> adj;  // the one list, or the packet's
     std::vector<uint32_t> tris;
     std::vector<std::pair<std::vector<Adjunct>, std::vector<uint32_t>>> packets;
     std::istringstream in(text);
@@ -134,7 +138,7 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
         const auto w = wordsOf(line);
         if (w.empty())
             continue;
-        const std::string& k = w[0];
+        const std::string &k = w[0];
         if (block == In::kMaterial) {
             if (k == "}")
                 block = In::kNone;
@@ -185,7 +189,7 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
         return Error::fail("mtxv doesn't account for the vertices");
     if (packets.empty()) { // the one list, shared out in order
         size_t a = 0, t = 0;
-        for (const Range& r : ranges) {
+        for (const Range &r : ranges) {
             if (a + r.adjuncts > adj.size() || (t + r.triangles) * 3 > tris.size())
                 return Error::fail("the materials want more corners or triangles than there are");
             std::vector<uint32_t> local;
@@ -206,9 +210,9 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
     if (owner.size() != packets.size())
         return Error::fail("the materials don't account for the packets");
     for (size_t p = 0; p < packets.size(); ++p) {
-        PedMesh::Material& mat = out.materials[owner[p]];
+        PedMesh::Material &mat = out.materials[owner[p]];
         const uint32_t first = uint32_t(mat.corners.size());
-        for (const Adjunct& a : packets[p].first) {
+        for (const Adjunct &a : packets[p].first) {
             if (a.v < 0 || size_t(a.v) >= positions.size())
                 return Error::fail("a corner out of range");
             PedMesh::Corner c;
@@ -231,21 +235,21 @@ Error parsePedMesh(const std::string& text, PedMesh& out) {
     return Error::success();
 }
 
-std::vector<BonePose> poseOf(const Skeleton& skeleton, const PedAnimation& anim, int frame) {
+std::vector<BonePose> poseOf(const Skeleton &skeleton, const PedAnimation &anim, int frame) {
     std::vector<BonePose> pose(skeleton.bones.size());
-    const float* v = anim.frame(std::clamp(frame, 0, anim.frames - 1));
+    const float *v = anim.frame(std::clamp(frame, 0, anim.frames - 1));
     for (size_t b = 0; b < skeleton.bones.size(); ++b) {
         const size_t c = 3 + 3 * b;
         Mat3 turn;
         if (int(c + 2) < anim.channels)
             turn = Mat3::rotation({0, 0, 1}, v[c + 2]) * Mat3::rotation({0, 1, 0}, v[c + 1]) *
                    Mat3::rotation({1, 0, 0}, v[c]);
-        const Skeleton::Bone& bone = skeleton.bones[b];
+        const Skeleton::Bone &bone = skeleton.bones[b];
         if (bone.parent < 0) {
             pose[b].at = {0, v[1], 0};
             pose[b].turn = turn;
         } else {
-            const BonePose& p = pose[size_t(bone.parent)];
+            const BonePose &p = pose[size_t(bone.parent)];
             pose[b].at = p.at + p.turn * bone.offset;
             pose[b].turn = p.turn * turn;
         }
@@ -253,8 +257,8 @@ std::vector<BonePose> poseOf(const Skeleton& skeleton, const PedAnimation& anim,
     return pose;
 }
 
-Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const std::string& model,
-                     const std::vector<std::string>& wanted) {
+Error PedModel::load(gfx::Renderer3D &renderer, const SearchSet &files, const std::string &model,
+                     const std::vector<std::string> &wanted) {
     unload();
     std::vector<uint8_t> data;
     Skeleton skeleton;
@@ -272,8 +276,8 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
         return err;
     if (Error err = parsePedMoves(textOf(data), moves))
         return Error::fail(model + ".csv: " + err.message);
-    for (const auto& m : mesh.materials)
-        for (const auto& c : m.corners)
+    for (const auto &m : mesh.materials)
+        for (const auto &c : m.corners)
             if (c.bone < 0 || size_t(c.bone) >= skeleton.bones.size())
                 return Error::fail(model + ".mod: a corner on a bone the skeleton hasn't");
 
@@ -281,21 +285,21 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
     std::set<std::string> need(wanted.begin(), wanted.end());
     for (bool more = true; more;) {
         more = false;
-        for (const PedMove& m : moves)
+        for (const PedMove &m : moves)
             if (need.count(m.name) && !m.next.empty() && need.insert(m.next).second)
                 more = true;
     }
 
     std::vector<gfx::Vertex> vertices;
     std::vector<uint32_t> indices;
-    for (const auto& m : mesh.materials) {
+    for (const auto &m : mesh.materials) {
         _corners += m.corners.size();
         _ranges.push_back({uint32_t(indices.size()), uint32_t(m.indices.size())});
         const uint32_t base = uint32_t(_corners - m.corners.size());
         for (uint32_t i : m.indices)
             indices.push_back(base + i);
     }
-    for (const PedMove& m : moves) {
+    for (const PedMove &m : moves) {
         if (!need.count(m.name))
             continue;
         PedAnimation anim;
@@ -307,15 +311,15 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
         out.frames = anim.frames;
         // How far the root goes across the ground, as a speed.
         if (anim.frames > 1) {
-            const float* a = anim.frame(0);
-            const float* b = anim.frame(anim.frames - 1);
+            const float *a = anim.frame(0);
+            const float *b = anim.frame(anim.frames - 1);
             out.travel = Vec3{b[0] - a[0], 0, b[2] - a[2]} * (kFrameRate / float(anim.frames - 1));
         }
         for (int f = 0; f < anim.frames; ++f) {
             const auto pose = poseOf(skeleton, anim, f);
-            for (const auto& mat : mesh.materials)
-                for (const auto& c : mat.corners) {
-                    const BonePose& p = pose[size_t(c.bone)];
+            for (const auto &mat : mesh.materials)
+                for (const auto &c : mat.corners) {
+                    const BonePose &p = pose[size_t(c.bone)];
                     const Vec3 at = p.at + p.turn * c.position;
                     const Vec3 n = p.turn * c.normal;
                     gfx::Vertex v{};
@@ -332,7 +336,7 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
         _moveIndex[m.name] = int(_moves.size());
         _moves.push_back(out);
     }
-    for (const PedMove& m : moves) {
+    for (const PedMove &m : moves) {
         const auto it = _moveIndex.find(m.name), next = _moveIndex.find(m.next);
         if (it != _moveIndex.end())
             _moves[size_t(it->second)].next = next != _moveIndex.end() ? next->second : it->second;
@@ -345,20 +349,20 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
     // matched to the group with as many triangles, the nearest colour
     // deciding between those.
     Pkg pkg;
-    const PkgMesh* body = nullptr;
+    const PkgMesh *body = nullptr;
     if (!files.read("geometry/" + model + ".pkg", data) && !readPkg(data, pkg) && !pkg.meshes.empty())
         body = &pkg.meshes.front();
     std::vector<int> shaderOf(mesh.materials.size(), -1);
     if (body) {
         std::vector<bool> used(body->groups.size(), false);
         for (size_t i = 0; i < mesh.materials.size(); ++i) {
-            const auto& mat = mesh.materials[i];
+            const auto &mat = mesh.materials[i];
             float best = 1e9f;
             for (size_t g = 0; g < body->groups.size(); ++g) {
-                const PkgGroup& group = body->groups[g];
+                const PkgGroup &group = body->groups[g];
                 if (used[g] || group.indices.size() != mat.indices.size())
                     continue;
-                const PkgShader* s = pkg.shader(0, group.shader);
+                const PkgShader *s = pkg.shader(0, group.shader);
                 float d = 0;
                 for (size_t k = 0; s && k < 3; ++k)
                     d += std::fabs(s->diffuse[k] - mat.diffuse[k]);
@@ -376,7 +380,7 @@ Error PedModel::load(gfx::Renderer3D& renderer, const SearchSet& files, const st
     for (uint32_t job = 0; job < std::max(1u, body ? pkg.paintJobs : 1u); ++job) {
         std::vector<std::array<float, 4>> colors;
         for (size_t i = 0; i < mesh.materials.size(); ++i) {
-            const PkgShader* s = shaderOf[i] >= 0 ? pkg.shader(job, uint32_t(shaderOf[i])) : nullptr;
+            const PkgShader *s = shaderOf[i] >= 0 ? pkg.shader(job, uint32_t(shaderOf[i])) : nullptr;
             colors.push_back(s ? s->diffuse : mesh.materials[i].diffuse);
         }
         _paints.push_back(colors);
@@ -397,18 +401,18 @@ void PedModel::unload() {
     _moveIndex.clear();
 }
 
-int PedModel::move(const std::string& name) const {
+int PedModel::move(const std::string &name) const {
     const auto it = _moveIndex.find(name);
     return it == _moveIndex.end() ? -1 : it->second;
 }
 
-void PedModel::draw(const gfx::Mat4& model, int move, float time, uint32_t paintJob, const SceneLight& light) const {
+void PedModel::draw(const gfx::Mat4 &model, int move, float time, uint32_t paintJob, const SceneLight &light) const {
     if (!_mesh || move < 0 || size_t(move) >= _moves.size())
         return;
-    const Move& m = _moves[size_t(move)];
+    const Move &m = _moves[size_t(move)];
     const float f = std::max(0.0f, time) * kFrameRate;
     const int a = int(f) % m.frames, b = (a + 1) % m.frames;
-    const auto& colors = _paints[paintJob % _paints.size()];
+    const auto &colors = _paints[paintJob % _paints.size()];
     for (size_t i = 0; i < _ranges.size(); ++i) {
         gfx::DrawCall call;
         call.mesh = _mesh;

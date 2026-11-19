@@ -27,7 +27,7 @@ constexpr uint32_t kHome = 0x105;
 constexpr uint32_t kEnd = 0x106;
 constexpr uint32_t kPageUp = 0x107;
 constexpr uint32_t kPageDown = 0x108;
-constexpr uint32_t kF1 = 0x110; // F1..F12 are consecutive
+constexpr uint32_t kF1 = 0x110;  // F1..F12 are consecutive
 constexpr uint32_t kKp0 = 0x120; // the numeric keypad's 0..9 are consecutive, whatever NumLock says
 constexpr uint32_t kKpPeriod = 0x12a;
 constexpr uint32_t kKpEnter = 0x12b;
@@ -91,16 +91,16 @@ enum class MouseButton { kNone, kLeft, kRight, kMiddle };
 struct Event {
     EventType type = EventType::kNone;
     uint32_t key = key::kUnknown; // KeyDown/KeyUp
-    uint16_t mods = 0;           // KeyDown/KeyUp, and the mouse events (keymod bits)
-    bool repeat = false;         // KeyDown auto-repeat
-    int mouseX = 0, mouseY = 0;  // mouse events, in game framebuffer pixels
-    float moveX = 0, moveY = 0;  // MouseMove: how far the mouse moved, in its own units (System::setRelativeMouse)
+    uint16_t mods = 0;            // KeyDown/KeyUp, and the mouse events (keymod bits)
+    bool repeat = false;          // KeyDown auto-repeat
+    int mouseX = 0, mouseY = 0;   // mouse events, in game framebuffer pixels
+    float moveX = 0, moveY = 0;   // MouseMove: how far the mouse moved, in its own units (System::setRelativeMouse)
     MouseButton button = MouseButton::kNone;
-    int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
+    int clicks = 0; // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
-    char text[32] = {};          // TextInput: UTF-8, NUL-terminated
-    int pad = -1;                // PadDown/PadUp: a pad::Button; PadAxis: a pad::Axis
-    float value = 0;             // PadAxis: sticks -1 (left, up) .. 1, triggers 0 .. 1
+    char text[32] = {}; // TextInput: UTF-8, NUL-terminated
+    int pad = -1;       // PadDown/PadUp: a pad::Button; PadAxis: a pad::Axis
+    float value = 0;    // PadAxis: sticks -1 (left, up) .. 1, triggers 0 .. 1
 };
 
 } // namespace reluva

@@ -14,23 +14,25 @@ namespace reluva::age {
 
 namespace {
 
-float flat(const Vec3& v) { return std::sqrt(v[0] * v[0] + v[2] * v[2]); }
+float flat(const Vec3 &v) {
+    return std::sqrt(v[0] * v[0] + v[2] * v[2]);
+}
 
-std::vector<float> distances(const std::vector<Vec3>& points) {
+std::vector<float> distances(const std::vector<Vec3> &points) {
     std::vector<float> at(points.size(), 0);
     for (size_t i = 1; i < points.size(); ++i)
         at[i] = at[i - 1] + length(points[i] - points[i - 1]);
     return at;
 }
 
-bool isBridge(const std::string& model) {
+bool isBridge(const std::string &model) {
     return model.find("bridge") != std::string::npos || model.find("waterloo") != std::string::npos ||
            model.find("gate") != std::string::npos;
 }
 
 // How far either side of a boat its heading is taken over: about half its
 // length, so a long ferry turns as a whole.
-float windowOf(const std::string& model) {
+float windowOf(const std::string &model) {
     if (model.find("ferry") != std::string::npos)
         return 40;
     if (model.find("tug") != std::string::npos || model.find("taxi") != std::string::npos)
@@ -47,7 +49,7 @@ float smooth(float t) {
 
 } // namespace
 
-Gizmos::Bounds Gizmos::boundsOf(const SearchSet& files, const std::string& model) {
+Gizmos::Bounds Gizmos::boundsOf(const SearchSet &files, const std::string &model) {
     const auto it = _bounds.find(model);
     if (it != _bounds.end())
         return it->second;
@@ -59,22 +61,22 @@ Gizmos::Bounds Gizmos::boundsOf(const SearchSet& files, const std::string& model
     return _bounds[model] = b;
 }
 
-Error Gizmos::load(const SearchSet& files, const std::string& map, const std::string& variant, audio::Mixer* mixer) {
+Error Gizmos::load(const SearchSet &files, const std::string &map, const std::string &variant, audio::Mixer *mixer) {
     clear();
     std::vector<PathsetPath> paths;
-    for (const char* kind : {"ferry", "sailboat", "bridge"}) {
-        for (PathsetPath& p : readCityPaths(files, map, kind, variant))
+    for (const char *kind : {"ferry", "sailboat", "bridge"}) {
+        for (PathsetPath &p : readCityPaths(files, map, kind, variant))
             paths.push_back(std::move(p));
         // A path named only "PATH<n>" among the boats: the city's sailboat
         // (San Francisco's file has one such loop, and a sailboat model no
         // path names).
         if (std::string(kind) == "sailboat")
-            for (PathsetPath& p : paths)
+            for (PathsetPath &p : paths)
                 if (p.model.rfind("PATH", 0) == 0)
                     p.model = "giz_sailboat01_" + std::string(map == "london" ? "l" : "f");
     }
 
-    for (const PathsetPath& p : paths) {
+    for (const PathsetPath &p : paths) {
         if (p.points.size() < 2 || !files.has("geometry/" + p.model + ".pkg"))
             continue;
         const Bounds bounds = boundsOf(files, p.model);
@@ -117,7 +119,7 @@ Error Gizmos::load(const SearchSet& files, const std::string& map, const std::st
         _boats.push_back(boat);
     }
     // The Underground's trains: their paths name no model.
-    for (PathsetPath& p : readCityPaths(files, map, "train", variant)) {
+    for (PathsetPath &p : readCityPaths(files, map, "train", variant)) {
         Train t;
         t.model = p.model.rfind("PATH", 0) == 0 ? "va_ug_l" : p.model;
         if (p.points.size() < 2 || !files.has("geometry/" + t.model + ".pkg"))
@@ -159,7 +161,7 @@ void Gizmos::clear() {
     _clock = 0;
 }
 
-Mat3 Gizmos::leafAxes(const Bridge& b, const Leaf& l, Vec3& center) const {
+Mat3 Gizmos::leafAxes(const Bridge &b, const Leaf &l, Vec3 &center) const {
     // Turned up about the hinge, from the slope it lies at.
     const Vec3 d = l.tip - l.hinge;
     const float len = length(d);
@@ -173,14 +175,14 @@ Mat3 Gizmos::leafAxes(const Bridge& b, const Leaf& l, Vec3& center) const {
     return {x, y, z};
 }
 
-void Gizmos::update(float dt, CollisionWorld& world, const Vec3& listener) {
+void Gizmos::update(float dt, CollisionWorld &world, const Vec3 &listener) {
     advance(dt);
     // The nearest train heard (subwaycar.csv: out to 150 m, at 0.98),
     // louder the faster it goes.
     if (_mixer && _trainSound) {
         float volume = 0;
-        for (const Train& t : _trains)
-            for (const Carriage& c : t.carriages)
+        for (const Train &t : _trains)
+            for (const Carriage &c : t.carriages)
                 volume =
                     std::max(volume, (1 - length(c.center - listener) / 150) * (0.3f + 0.7f * t.speed / kTrainSpeed));
         if (volume > 0.01f && _trainPlaying == audio::kNoSound)
@@ -190,10 +192,10 @@ void Gizmos::update(float dt, CollisionWorld& world, const Vec3& listener) {
     }
     // The leaves' road surfaces.
     std::vector<std::array<Vec3, 3>> surfaces;
-    for (const Bridge& b : _bridges) {
+    for (const Bridge &b : _bridges) {
         if (b.standing)
             continue;
-        for (const Leaf& l : b.leaves) {
+        for (const Leaf &l : b.leaves) {
             Vec3 center;
             const Mat3 axes = leafAxes(b, l, center);
             const float half = length(l.tip - l.hinge) / 2;
@@ -208,7 +210,7 @@ void Gizmos::update(float dt, CollisionWorld& world, const Vec3& listener) {
 
 void Gizmos::advance(float dt) {
     _clock += dt;
-    for (Boat& b : _boats) {
+    for (Boat &b : _boats) {
         const float total = b.at.back();
         b.s += float(b.way) * b.speed * dt;
         if (b.backAndForth) {
@@ -234,7 +236,7 @@ void Gizmos::advance(float dt) {
         const Vec3 x = normalized(cross(ahead, Vec3{0, 1, 0}));
         b.axes = {x, {0, 1, 0}, -ahead};
     }
-    for (Train& t : _trains) {
+    for (Train &t : _trains) {
         // Along its line and back, slowing to stand at each end.
         const float room = t.at.back() - t.span();
         if (t.standing > 0) {
@@ -253,7 +255,7 @@ void Gizmos::advance(float dt) {
         }
         placeTrain(t);
     }
-    for (Bridge& b : _bridges) {
+    for (Bridge &b : _bridges) {
         if (b.inactive) {
             b.raised = 0;
         } else {
@@ -266,7 +268,7 @@ void Gizmos::advance(float dt) {
     }
 }
 
-void Gizmos::placeTrain(Train& t) {
+void Gizmos::placeTrain(Train &t) {
     // Each carriage on its two bogies, 1.5 m in from its ends.
     t.carriages.resize(kCarriages);
     const float inset = std::min(1.5f, t.length / 4);
@@ -277,7 +279,7 @@ void Gizmos::placeTrain(Train& t) {
         Vec3 x = cross(Vec3{0, 1, 0}, z);
         x = length(x) > 1e-3f ? normalized(x) : Vec3{1, 0, 0};
         const Vec3 y = cross(z, x);
-        Carriage& c = t.carriages[size_t(k)];
+        Carriage &c = t.carriages[size_t(k)];
         c.axes = {x, y, z};
         c.center = (pa + pb) * 0.5f + y * t.lift;
     }
@@ -291,7 +293,7 @@ Vec3 Gizmos::Train::velocity() const {
 
 std::vector<Vec3> Gizmos::Train::spheres(float radius) const {
     std::vector<Vec3> out;
-    for (const Carriage& c : carriages) {
+    for (const Carriage &c : carriages) {
         const Vec3 base = c.center - c.axes.y * lift;
         for (float s = -length / 2 + radius; s <= length / 2 - radius + 0.01f; s += radius)
             out.push_back(base + c.axes.z * s + c.axes.y * radius);
@@ -299,15 +301,15 @@ std::vector<Vec3> Gizmos::Train::spheres(float radius) const {
     return out;
 }
 
-float Gizmos::collide(CarSim& car) const {
+float Gizmos::collide(CarSim &car) const {
     float hardest = 0, radius;
-    for (const Train& t : _trains) {
+    for (const Train &t : _trains) {
         const Vec3 v = t.velocity();
-        for (const Carriage& c : t.carriages) {
+        for (const Carriage &c : t.carriages) {
             if (flat(c.center - car.position) > t.length / 2 + 6)
                 continue;
             // The car's spheres against the carriage's box.
-            for (const Vec3& p : car.bumpers(radius)) {
+            for (const Vec3 &p : car.bumpers(radius)) {
                 const Vec3 d = p - (c.center - c.axes.y * t.lift);
                 const float ly = dot(d, c.axes.y);
                 if (ly < -1 || ly > t.height + 1)
@@ -349,8 +351,8 @@ float Gizmos::collide(CarSim& car) const {
     return hardest;
 }
 
-void Gizmos::push(Traffic& traffic) const {
-    for (const Train& t : _trains) {
+void Gizmos::push(Traffic &traffic) const {
+    for (const Train &t : _trains) {
         if (t.carriages.empty())
             continue;
         Vec3 position = t.carriages[kCarriages / 2].center, velocity = t.velocity();
@@ -358,11 +360,11 @@ void Gizmos::push(Traffic& traffic) const {
     }
 }
 
-void Gizmos::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-                  const Vec3& eye) const {
+void Gizmos::draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
+                  const Vec3 &eye) const {
     const ViewFrustum frustum(viewProj);
-    auto show = [&](const std::string& name, const Mat3& axes, const Vec3& at, bool translucent) {
-        const ModelCache::Model& m = models.get(name);
+    auto show = [&](const std::string &name, const Mat3 &axes, const Vec3 &at, bool translucent) {
+        const ModelCache::Model &m = models.get(name);
         if (!m.ok)
             return;
         const Vec3 c = at + axes * m.center;
@@ -373,26 +375,26 @@ void Gizmos::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLigh
         drawModelMesh(renderer, m.levels[level], matrixOf(axes, at), light, translucent);
     };
     for (bool translucent : {false, true}) {
-        for (const Boat& b : _boats)
+        for (const Boat &b : _boats)
             show(b.model, b.axes, b.position, translucent);
-        for (const Bridge& b : _bridges)
-            for (const Leaf& l : b.leaves) {
+        for (const Bridge &b : _bridges)
+            for (const Leaf &l : b.leaves) {
                 Vec3 center;
                 const Mat3 axes = leafAxes(b, l, center);
                 show(b.model, axes, center, translucent);
             }
-        for (const Train& t : _trains)
-            for (const Carriage& c : t.carriages)
+        for (const Train &t : _trains)
+            for (const Carriage &c : t.carriages)
                 show(t.model, c.axes, c.center, translucent);
     }
 }
 
-bool Gizmos::inGap(const Vec3& a, const Vec3& b, const Vec3& c) const {
+bool Gizmos::inGap(const Vec3 &a, const Vec3 &b, const Vec3 &c) const {
     const Vec3 m = (a + b + c) * (1.0f / 3);
-    for (const Bridge& br : _bridges) {
+    for (const Bridge &br : _bridges) {
         if (br.standing)
             continue;
-        for (const Leaf& l : br.leaves) {
+        for (const Leaf &l : br.leaves) {
             Vec3 along = l.tip - l.hinge;
             along[1] = 0;
             const float len = flat(along);
@@ -409,11 +411,11 @@ bool Gizmos::inGap(const Vec3& a, const Vec3& b, const Vec3& c) const {
     return false;
 }
 
-void Gizmos::users(std::vector<RoadUser>& out) const {
-    for (const Bridge& b : _bridges) {
+void Gizmos::users(std::vector<RoadUser> &out) const {
+    for (const Bridge &b : _bridges) {
         if (b.standing || b.raised < 0.01f)
             continue;
-        for (const Leaf& l : b.leaves) {
+        for (const Leaf &l : b.leaves) {
             Vec3 along = l.tip - l.hinge;
             along[1] = 0;
             const Vec3 across = normalized(cross(Vec3{0, 1, 0}, along));
@@ -421,8 +423,8 @@ void Gizmos::users(std::vector<RoadUser>& out) const {
                 out.push_back({l.hinge + across * k, {}, true});
         }
     }
-    for (const Train& t : _trains)
-        for (const Carriage& c : t.carriages)
+    for (const Train &t : _trains)
+        for (const Carriage &c : t.carriages)
             for (float s = -t.length / 2; s <= t.length / 2; s += 5)
                 out.push_back({c.center + c.axes.z * s, t.velocity(), true});
 }

@@ -88,14 +88,14 @@ struct CarSetup {
 
 // tune/vehicle/<car>.vehCarSim, geometry/<car>_WHL0-3.mtx and
 // bound/<car>_BOUND.bnd.
-Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out);
+Error loadCarSetup(const SearchSet &files, const std::string &car, CarSetup &out);
 
 struct CarControls {
     float throttle = 0; // 0..1
     float brake = 0;    // 0..1; held when stopped, reverses
     float steer = 0;    // -1 (left) .. 1 (right)
     bool handbrake = false;
-    int shift = 0;      // manual gears: +1 up a gear, -1 down (from first, when stopped, to reverse)
+    int shift = 0;        // manual gears: +1 up a gear, -1 down (from first, when stopped, to reverse)
     bool reverse = false; // pressed when stopped: into reverse, or out of it
 };
 
@@ -112,11 +112,11 @@ public:
         float bump = 0;           // how fast its suspension last moved, m/s (for the suspension's sound)
     };
 
-    void reset(const CarSetup& setup, const Vec3& position, float yaw);
+    void reset(const CarSetup &setup, const Vec3 &position, float yaw);
     // Advances by `dt` seconds in fixed steps.
-    void step(const CarControls& controls, const CollisionWorld& world, float dt);
+    void step(const CarControls &controls, const CollisionWorld &world, float dt);
 
-    const CarSetup& setup() const { return _setup; }
+    const CarSetup &setup() const { return _setup; }
     // Weight carried besides the car's own (Cops & Robbers' gold), kg.
     float ballast = 0;
     // The Control Options: auto reverse ("your vehicle goes into reverse
@@ -126,8 +126,8 @@ public:
     bool autoReverse = false; // the player's car takes the option's
     float steerRate = 1;
     float mass() const { return _setup.mass + ballast; }
-    Vec3 position{};          // of the body's origin
-    Mat3 orientation;         // the body's axes: X right, Y up, Z back (cars face -Z)
+    Vec3 position{};  // of the body's origin
+    Mat3 orientation; // the body's axes: X right, Y up, Z back (cars face -Z)
     Vec3 velocity{}, angularVelocity{};
     float rpm = 0;
     int gear = 1; // -1 reverse, 1.. forward
@@ -143,7 +143,7 @@ public:
     // The props it broke loose since last cleared (CollisionSurface::prop).
     std::vector<int32_t> broke;
     // Records a knock at a point in the world, if it's the hardest.
-    void knock(float impulse, const Vec3& at) {
+    void knock(float impulse, const Vec3 &at) {
         if (impulse > impact) {
             impact = impulse;
             impactAt = orientation.inverseTimes(at - position);
@@ -156,26 +156,26 @@ public:
     Vec3 wheelCenter(int i) const;
     // Spheres round the body for bumping into other cars: centres in the
     // world and their radius.
-    std::array<Vec3, 3> bumpers(float& radius) const;
+    std::array<Vec3, 3> bumpers(float &radius) const;
 
 private:
-    void substep(const CarControls& controls, const CollisionWorld& world, float h);
-    void collideBody(const CollisionWorld& world);
-    Vec3 inverseInertiaTimes(const Vec3& torque) const;
+    void substep(const CarControls &controls, const CollisionWorld &world, float h);
+    void collideBody(const CollisionWorld &world);
+    Vec3 inverseInertiaTimes(const Vec3 &torque) const;
 
     CarSetup _setup;
-    float _leftover = 0;     // time not stepped yet
-    float _shiftTimer = 0;   // no drive while changing gear
-    float _steerAngle = 0;   // eased towards the controls
-    float _stuckFor = 0;     // seconds turned over
+    float _leftover = 0;   // time not stepped yet
+    float _shiftTimer = 0; // no drive while changing gear
+    float _steerAngle = 0; // eased towards the controls
+    float _stuckFor = 0;   // seconds turned over
     bool _reverseHeld = false;
     float _blockedFor = 0;    // seconds the throttle's been held without going anywhere
     bool _backingOut = false; // auto reverse: backing away while the throttle's held
-    Vec3 _stuckAt{};         // where it was when it turned over
+    Vec3 _stuckAt{};          // where it was when it turned over
 };
 
 // Two cars bumping: each is three spheres along its length; where they
 // overlap the cars are pushed apart and bounce off each other.
-void collideCars(CarSim& a, CarSim& b);
+void collideCars(CarSim &a, CarSim &b);
 
 } // namespace reluva::age

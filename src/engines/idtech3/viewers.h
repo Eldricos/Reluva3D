@@ -80,14 +80,14 @@
 namespace reluva::idtech3 {
 
 struct ViewerContext {
-    System& sys;
-    Surface& screen; // RGBA32
-    const SearchSet& files;
-    const ShaderLibrary& shaders;
-    const GameInfo& game;
-    const std::vector<std::string>& warnings; // problems loading the game's files
+    System &sys;
+    Surface &screen; // RGBA32
+    const SearchSet &files;
+    const ShaderLibrary &shaders;
+    const GameInfo &game;
+    const std::vector<std::string> &warnings; // problems loading the game's files
     std::filesystem::path savePath;           // where this game's own files go (GameTarget::savePath)
-    audio::Mixer* mixer = nullptr;            // sound output; none if the system has no audio
+    audio::Mixer *mixer = nullptr;            // sound output; none if the system has no audio
     // The console variables, one set for every page that runs game code,
     // as the original has one: what's chosen in the menus applies to the
     // level started from them.
@@ -99,7 +99,7 @@ struct ViewerContext {
     // A server to join on the Play page (connect <address>).
     std::string requestConnect;
     // Adds a pak (one just downloaded) to the game's files.
-    std::function<Error(const std::filesystem::path&)> addPak;
+    std::function<Error(const std::filesystem::path &)> addPak;
     // Commands for the level's server after it starts ("addbot munro 3"...).
     std::vector<std::string> requestCommands;
     // The game's install folder (the one holding BaseEF), where native
@@ -110,11 +110,11 @@ struct ViewerContext {
 // The settings: the game's default.cfg, then the player's own (Reluva's
 // config file in the save folder), and writing that file back with the
 // bindings and the settings to keep (Archive cvars), if any changed.
-void loadConfig(ViewerContext& ctx);
-void saveConfig(ViewerContext& ctx);
+void loadConfig(ViewerContext &ctx);
+void saveConfig(ViewerContext &ctx);
 // The brightness setting (r_gamma, the menus' brightness slider; 1 unless
 // set), which 3D pages show their frames with.
-float brightness(const ViewerContext& ctx);
+float brightness(const ViewerContext &ctx);
 
 // The video settings the original's Video and Graphics menus set (Quake
 // III's cvars), as Reluva applies them; a setting not made counts as the
@@ -126,51 +126,51 @@ struct VideoSettings {
     int picmip = 0;                // r_picmip: textures halved this many times (texture detail)
     // r_texturemode: GL_{NEAREST,LINEAR}[_MIPMAP_{NEAREST,LINEAR}]
     bool nearest = false, mipmaps = true, mipNearest = true;
-    bool anisotropic = false;  // r_ext_texture_filter_anisotropic
-    bool vertexLight = false;  // r_vertexLight: the level lit by its vertices, not its lightmaps
-    float subdivisions = 4;    // r_subdivisions: how far curves may stray from round, in units (geometric detail)
-    int lodBias = 0;           // r_lodBias: models' lower details used (geometric detail)
-    bool fastSky = false;      // r_fastsky: the sky left plain
+    bool anisotropic = false; // r_ext_texture_filter_anisotropic
+    bool vertexLight = false; // r_vertexLight: the level lit by its vertices, not its lightmaps
+    float subdivisions = 4;   // r_subdivisions: how far curves may stray from round, in units (geometric detail)
+    int lodBias = 0;          // r_lodBias: models' lower details used (geometric detail)
+    bool fastSky = false;     // r_fastsky: the sky left plain
 };
-VideoSettings videoSettings(const CvarStore& cvars);
+VideoSettings videoSettings(const CvarStore &cvars);
 // Gives the caches the settings that change how things load (call before
 // loading); a null cache is skipped.
-void applyVideoSettings(const VideoSettings& v, ShaderCache& shaders, WorldRenderer* world, ModelCache* models);
+void applyVideoSettings(const VideoSettings &v, ShaderCache &shaders, WorldRenderer *world, ModelCache *models);
 
 class Page {
 public:
-    explicit Page(ViewerContext& ctx) : ctx_(ctx) {}
+    explicit Page(ViewerContext &ctx) : ctx_(ctx) {}
     virtual ~Page() = default;
 
-    virtual const char* name() const = 0;
-    virtual size_t count() const = 0;   // pages with nothing to show are skipped
-    virtual void activate() = 0;        // redraw and retitle after switching here
-    virtual void deactivate() {}        // before switching away
-    virtual void handleEvent(const Event& ev) = 0;
+    virtual const char *name() const = 0;
+    virtual size_t count() const = 0; // pages with nothing to show are skipped
+    virtual void activate() = 0;      // redraw and retitle after switching here
+    virtual void deactivate() {}      // before switching away
+    virtual void handleEvent(const Event &ev) = 0;
     virtual void update(uint64_t /*nowMs*/) {}
     // Pages that draw with System::init3D; the engine puts the 2D
     // framebuffer back when leaving one.
     virtual bool uses3D() const { return false; }
     // Whether Esc and Tab (which otherwise leave and switch pages) go to
     // the page instead.
-    virtual bool takesKey(const Event& /*ev*/) const { return false; }
+    virtual bool takesKey(const Event & /*ev*/) const { return false; }
 
 protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
-    void text(int x, int y, const std::string& s, Color c = {230, 230, 230});
-    void setTitle(const std::string& detail);
+    void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
+    void setTitle(const std::string &detail);
 
-    ViewerContext& ctx_;
+    ViewerContext &ctx_;
 };
 
 class FileViewer : public Page {
 public:
-    explicit FileViewer(ViewerContext& ctx);
-    const char* name() const override { return "Files"; }
+    explicit FileViewer(ViewerContext &ctx);
+    const char *name() const override { return "Files"; }
     size_t count() const override { return files_.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void draw();
@@ -185,11 +185,11 @@ private:
 
 class TextureViewer : public Page {
 public:
-    explicit TextureViewer(ViewerContext& ctx);
-    const char* name() const override { return "Textures"; }
+    explicit TextureViewer(ViewerContext &ctx);
+    const char *name() const override { return "Textures"; }
     size_t count() const override { return names_.size(); }
     void activate() override { show(index_); }
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void show(int index);
@@ -200,13 +200,13 @@ private:
 
 class WorldViewer : public Page {
 public:
-    explicit WorldViewer(ViewerContext& ctx);
+    explicit WorldViewer(ViewerContext &ctx);
     ~WorldViewer() override;
-    const char* name() const override { return "World"; }
+    const char *name() const override { return "World"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
 
@@ -217,8 +217,8 @@ private:
 
     std::vector<std::string> names_;
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr; // valid while this page is shown
-    std::unique_ptr<ShaderCache> shaders_;  // the next three draw through it
+    gfx::Renderer3D *renderer_ = nullptr;  // valid while this page is shown
+    std::unique_ptr<ShaderCache> shaders_; // the next three draw through it
     std::unique_ptr<WorldRenderer> world_;
     std::unique_ptr<ModelCache> models_;
     LightGrid grid_;
@@ -256,13 +256,13 @@ private:
 
 class ModelViewer : public Page {
 public:
-    explicit ModelViewer(ViewerContext& ctx);
+    explicit ModelViewer(ViewerContext &ctx);
     ~ModelViewer() override;
-    const char* name() const override { return "Models"; }
+    const char *name() const override { return "Models"; }
     size_t count() const override { return entries_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
 
@@ -276,15 +276,15 @@ private:
 
     std::vector<Entry> entries_;
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<ModelCache> models_;
     Surface overlay_;
     std::vector<std::string> info_;
     std::string error_;
-    int model_ = -1;                     // a single model
+    int model_ = -1;                          // a single model
     int lower_ = -1, upper_ = -1, head_ = -1; // a player's parts
-    const Skin* skins_[3] = {};
+    const Skin *skins_[3] = {};
     std::array<float, 3> center_{};
     float radius_ = 32;
     float yaw_ = 0, pitch_ = 0, distance_ = 100;
@@ -302,35 +302,35 @@ private:
 
 class MenuViewer : public Page {
 public:
-    explicit MenuViewer(ViewerContext& ctx);
+    explicit MenuViewer(ViewerContext &ctx);
     ~MenuViewer() override;
-    const char* name() const override { return "Menu"; }
+    const char *name() const override { return "Menu"; }
     size_t count() const override { return available_ ? 1 : 0; }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     void start();
-    void stop(const Error& err);
+    void stop(const Error &err);
     void pinCursor();
     void syncCursor();
     void findCursor();
-    void playSound(const std::string& name, int channel);
+    void playSound(const std::string &name, int channel);
     void checkCommands();
 
     bool available_ = false;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     int frameW_ = 960, frameH_ = 720; // r_mode
     bool restart_ = false;            // the menus ran vid_restart
     std::unique_ptr<ShaderCache> shaders_;
-    std::unique_ptr<ModelCache> models_;   // the models the menus show
-    std::unique_ptr<SceneDrawer> scene_;   // their pictures and scenes
-    CvarStore& cvars_ = ctx_.cvars;
-    std::unique_ptr<ServerBrowser> browser_;  // the server list's, once the menus start
+    std::unique_ptr<ModelCache> models_; // the models the menus show
+    std::unique_ptr<SceneDrawer> scene_; // their pictures and scenes
+    CvarStore &cvars_ = ctx_.cvars;
+    std::unique_ptr<ServerBrowser> browser_; // the server list's, once the menus start
     std::unique_ptr<eliteforce::UiHost> ui_; // kept while other pages are shown
     size_t commandsSeen_ = 0;                // of ui_->commands()
     std::string lastCommand_;                // shown for a while, to see what buttons do
@@ -353,43 +353,43 @@ private:
 };
 
 // The code points in UTF-8 text (typed characters).
-std::vector<uint32_t> decodeUtf8(const char* s);
+std::vector<uint32_t> decodeUtf8(const char *s);
 
 class PlayViewer : public Page {
 public:
-    explicit PlayViewer(ViewerContext& ctx);
+    explicit PlayViewer(ViewerContext &ctx);
     ~PlayViewer() override;
-    const char* name() const override { return "Play"; }
+    const char *name() const override { return "Play"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     void start(int index);
-    void stop(const std::string& why);
+    void stop(const std::string &why);
     void reset();
     // The level's drawing (and its light grid) from a map file; false
     // (stopped, with why) if it can't be loaded.
-    bool loadLevel(const std::string& path, std::shared_ptr<Bsp>& bsp);
+    bool loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp);
     // The player's client game, with the server's configstrings, the
     // message its game state came in and the command sequence it starts at.
-    Error startClientGame(const std::map<int32_t, std::string>& configstrings, int32_t serverMessage,
+    Error startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                           int32_t commandSequence);
     // The player's settings as the server is told them (name, model...).
     std::string userinfo() const;
     // Opening the level to players on other machines (patch 1.2's game only).
     void startHosting();
     // Joining a server on another machine instead of running one.
-    void connect(const std::string& address);
+    void connect(const std::string &address);
     // The paks the server's level uses that this player is missing:
     // whether they're being downloaded; and one that has finished
     // (false: stopped).
     bool startDownloads();
-    bool finishDownload(const std::string& name, const std::vector<uint8_t>& data);
+    bool finishDownload(const std::string &name, const std::vector<uint8_t> &data);
     std::vector<std::pair<std::string, int32_t>> downloads_; // name, checksum
     void runGame(uint64_t nowMs);
     bool runLocal(uint64_t nowMs, int32_t dt);
@@ -407,17 +407,17 @@ private:
     size_t localCommandsSeen_ = 0; // of the game's serverCommands()
     int localRestartsSeen_ = 0;    // of the game's map_restarts
     // Loading the level the game asked for (false: this frame is over).
-    bool changeLevel(const std::string& map);
-    void consoleCommand(const std::string& text);
-    static bool isButton(const std::string& name);
-    void runBinding(const std::string& line, int32_t key, bool down);
-    bool held(const char* button) const;
+    bool changeLevel(const std::string &map);
+    void consoleCommand(const std::string &text);
+    static bool isButton(const std::string &name);
+    void runBinding(const std::string &line, int32_t key, bool down);
+    bool held(const char *button) const;
     void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
     // What the games print: kept for the console, and the client game's
     // (chat, kills, joins) shown at the top for a few seconds, as the
     // original's console does with its last lines.
-    void addPrint(const std::string& text, bool notify);
+    void addPrint(const std::string &text, bool notify);
     std::deque<std::pair<uint64_t, std::string>> notify_;
     std::string printPartial_[2]; // a line not yet ended, per game
     std::deque<std::string> consoleLines_;
@@ -429,18 +429,18 @@ private:
     int32_t tellClient_ = -1;
     uint32_t swallowChar_ = 0;    // the character of the key that opened the typing
     uint32_t bindingKeyChar_ = 0; // the character of the key whose binding is running
-    int consoleScroll_ = 0;    // lines back from the newest
+    int consoleScroll_ = 0;       // lines back from the newest
     std::vector<std::string> history_;
     size_t historyPos_ = 0;
     void openTyping(Typing t, int32_t client = -1, uint32_t key = 0);
     void closeTyping();
-    void typingEvent(const Event& ev);
+    void typingEvent(const Event &ev);
     void submitTyping();
-    void drawColoured(int x, int y, const std::string& line);
+    void drawColoured(int x, int y, const std::string &line);
 
     std::vector<std::string> names_; // maps
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     int frameW_ = 960, frameH_ = 720; // r_mode
     std::unique_ptr<WorldRenderer> world_;
@@ -468,7 +468,7 @@ private:
     std::deque<FrameNote> recentFrames_; // the last two seconds'
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
-    CvarStore& cvars_ = ctx_.cvars;
+    CvarStore &cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::GameHost> game_;
     std::unique_ptr<eliteforce::NetServer> server_; // others joining the level run here
     std::unique_ptr<eliteforce::NetClient> client_; // or: playing on another machine's server
@@ -492,8 +492,8 @@ private:
     // The player's view angles in degrees (pitch counts downwards), and
     // what they hold.
     float yaw_ = 0, pitch_ = 0;
-    float mouseX_ = 0, mouseY_ = 0;         // moved since the last frame
-    float lastMouseX_ = 0, lastMouseY_ = 0; // the last frame's, for m_filter
+    float mouseX_ = 0, mouseY_ = 0;                    // moved since the last frame
+    float lastMouseX_ = 0, lastMouseY_ = 0;            // the last frame's, for m_filter
     std::map<std::string, std::set<int32_t>> buttons_; // the engine's +buttons ("forward"...) and the keys holding each
     gfx::Vec3 eye_{};
 };
@@ -502,36 +502,36 @@ private:
 // the x86 interpreter) on its maps, drawn as the Play page draws Holomatch.
 class SpPlayViewer : public Page {
 public:
-    explicit SpPlayViewer(ViewerContext& ctx);
+    explicit SpPlayViewer(ViewerContext &ctx);
     ~SpPlayViewer() override;
-    const char* name() const override { return "Single player"; }
+    const char *name() const override { return "Single player"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     void start(int index);
-    void stop(const std::string& why);
+    void stop(const std::string &why);
     void runGame(uint64_t nowMs);
-    void runBinding(const std::string& line, int32_t key, bool down);
-    bool held(const char* button) const;
+    void runBinding(const std::string &line, int32_t key, bool down);
+    bool held(const char *button) const;
     void drawOverlay();
 
     std::vector<std::string> names_; // the single-player maps
     int index_ = 0;
-    std::vector<uint8_t> dll_;       // efgamex86.dll
-    gfx::Renderer3D* renderer_ = nullptr;
+    std::vector<uint8_t> dll_; // efgamex86.dll
+    gfx::Renderer3D *renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<WorldRenderer> world_;
     std::unique_ptr<ModelCache> models_;
     std::unique_ptr<SceneDrawer> scene_;
     LightGrid grid_;
     int frameW_ = 960, frameH_ = 720;
-    CvarStore& cvars_ = ctx_.cvars;
+    CvarStore &cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::SpGameHost> game_;
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
@@ -550,11 +550,11 @@ private:
 
 class MapViewer : public Page {
 public:
-    explicit MapViewer(ViewerContext& ctx);
-    const char* name() const override { return "Maps"; }
+    explicit MapViewer(ViewerContext &ctx);
+    const char *name() const override { return "Maps"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
 
 private:
@@ -572,7 +572,7 @@ private:
     void load(int index);
     void resetView();
     void render();
-    void drawLine3d(const std::array<float, 3>& a, const std::array<float, 3>& b, Color c);
+    void drawLine3d(const std::array<float, 3> &a, const std::array<float, 3> &b, Color c);
     void drawLine2d(float x0, float y0, float x1, float y1, Color c);
 
     std::vector<std::string> names_;

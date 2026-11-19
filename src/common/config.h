@@ -16,17 +16,16 @@ namespace reluva {
 // other section is a game target (one installed game the user added).
 class Config {
 public:
-    static constexpr const char* kGlobalSection = "reluva";
+    static constexpr const char *kGlobalSection = "reluva";
 
-    Error load(const std::filesystem::path& path);
+    Error load(const std::filesystem::path &path);
     Error save() const;
 
-    std::string get(const std::string& section, const std::string& key,
-                    const std::string& fallback = {}) const;
-    void set(const std::string& section, const std::string& key, const std::string& value);
+    std::string get(const std::string &section, const std::string &key, const std::string &fallback = {}) const;
+    void set(const std::string &section, const std::string &key, const std::string &value);
 
-    bool hasSection(const std::string& section) const;
-    void removeSection(const std::string& section);
+    bool hasSection(const std::string &section) const;
+    void removeSection(const std::string &section);
     std::vector<std::string> targets() const;
 
 private:

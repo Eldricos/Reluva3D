@@ -13,7 +13,7 @@ namespace reluva::age {
 
 namespace {
 
-std::vector<std::string> lines(const std::string& text) {
+std::vector<std::string> lines(const std::string &text) {
     std::vector<std::string> out;
     size_t at = 0;
     while (at < text.size()) {
@@ -29,7 +29,7 @@ std::vector<std::string> lines(const std::string& text) {
     return out;
 }
 
-std::vector<std::string> split(const std::string& line, char sep) {
+std::vector<std::string> split(const std::string &line, char sep) {
     std::vector<std::string> out;
     size_t at = 0;
     while (true) {
@@ -41,12 +41,12 @@ std::vector<std::string> split(const std::string& line, char sep) {
     }
 }
 
-float number(const std::vector<std::string>& f, size_t i) {
+float number(const std::vector<std::string> &f, size_t i) {
     return i < f.size() ? std::strtof(f[i].c_str(), nullptr) : 0;
 }
 
-std::string iniValue(const std::string& text, const std::string& key) {
-    for (const std::string& line : lines(text))
+std::string iniValue(const std::string &text, const std::string &key) {
+    for (const std::string &line : lines(text))
         if (line.size() > key.size() && line.compare(0, key.size(), key) == 0 && line[key.size()] == '=')
             return line.substr(key.size() + 1);
     return {};
@@ -54,38 +54,52 @@ std::string iniValue(const std::string& text, const std::string& key) {
 
 // The files' stem for each kind (checkpoint races are "race"), and the
 // .cinfo keys.
-const char* fileStem(RaceKind k) {
+const char *fileStem(RaceKind k) {
     switch (k) {
-    case RaceKind::kBlitz: return "blitz";
-    case RaceKind::kCircuit: return "circuit";
-    case RaceKind::kCheckpoint: return "race";
-    case RaceKind::kCrashCourse: return "crash";
+    case RaceKind::kBlitz:
+        return "blitz";
+    case RaceKind::kCircuit:
+        return "circuit";
+    case RaceKind::kCheckpoint:
+        return "race";
+    case RaceKind::kCrashCourse:
+        return "crash";
     case RaceKind::kCruise:
         return "roam";
     }
     return "race";
 }
-const char* infoKey(RaceKind k) {
+const char *infoKey(RaceKind k) {
     switch (k) {
-    case RaceKind::kBlitz: return "Blitz";
-    case RaceKind::kCircuit: return "Circuit";
-    case RaceKind::kCheckpoint: return "Checkpoint";
-    case RaceKind::kCrashCourse: return "Crash Course";
+    case RaceKind::kBlitz:
+        return "Blitz";
+    case RaceKind::kCircuit:
+        return "Circuit";
+    case RaceKind::kCheckpoint:
+        return "Checkpoint";
+    case RaceKind::kCrashCourse:
+        return "Crash Course";
     case RaceKind::kCruise:
         return "Cruise";
     }
     return "Checkpoint";
 }
 
-std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
+std::string textOf(const std::vector<uint8_t> &data) {
+    return std::string(data.begin(), data.end());
+}
 
 } // namespace
 
-const char* raceKindName(RaceKind kind) { return infoKey(kind); }
+const char *raceKindName(RaceKind kind) {
+    return infoKey(kind);
+}
 
-std::string raceStem(RaceKind kind, int index) { return fileStem(kind) + std::to_string(index); }
+std::string raceStem(RaceKind kind, int index) {
+    return fileStem(kind) + std::to_string(index);
+}
 
-std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional) {
+std::string raceAiMapName(const std::string &city, RaceKind kind, int index, bool professional) {
     // A cruise's police patrol as roam.aimap says (the stunt has none).
     if (kind == RaceKind::kCruise)
         return "race/" + city + "/" +
@@ -96,7 +110,7 @@ std::string raceAiMapName(const std::string& city, RaceKind kind, int index, boo
     return "race/" + city + "/" + fileStem(kind) + std::to_string(index) + (professional ? ".aimap_p" : ".aimap");
 }
 
-RaceUnlocking raceUnlocking(const SearchSet& files, const std::string& city) {
+RaceUnlocking raceUnlocking(const SearchSet &files, const std::string &city) {
     RaceUnlocking out;
     std::vector<uint8_t> data;
     if (files.read("tune/" + city + ".cinfo", data))
@@ -109,7 +123,7 @@ RaceUnlocking raceUnlocking(const SearchSet& files, const std::string& city) {
     return out;
 }
 
-std::vector<std::string> raceNames(const SearchSet& files, const std::string& city, RaceKind kind) {
+std::vector<std::string> raceNames(const SearchSet &files, const std::string &city, RaceKind kind) {
     std::vector<uint8_t> data;
     if (kind == RaceKind::kCrashCourse) {
         // As many as there are crash<n>data.csv; named in mmlang.dll.
@@ -150,7 +164,7 @@ std::vector<std::string> raceNames(const SearchSet& files, const std::string& ci
     return names;
 }
 
-Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettings, 2>& out) {
+Error parseRaceSettings(const std::string &csv, int index, std::array<RaceSettings, 2> &out) {
     // A heading line, then a row a race: a description, then the amateur
     // and the professional columns (CarType, TimeofDay, Weather,
     // Opponents, Cops, Ambient, Peds, NumLaps, TimeLimit, Difficulty).
@@ -160,7 +174,7 @@ Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettin
     const auto f = split(rows[size_t(index) + 1], ',');
     for (size_t d = 0; d < 2; ++d) {
         const size_t b = 1 + d * 10;
-        RaceSettings& s = out[d];
+        RaceSettings &s = out[d];
         s.carType = int(number(f, b));
         s.timeOfDay = int(number(f, b + 1));
         s.weather = int(number(f, b + 2));
@@ -175,7 +189,7 @@ Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettin
     return Error::success();
 }
 
-Error parseWaypoints(const std::string& csv, std::vector<Waypoint>& out, bool alwaysRadius) {
+Error parseWaypoints(const std::string &csv, std::vector<Waypoint> &out, bool alwaysRadius) {
     // x, y, z, a (heading), then the radius in blitzes and checkpoint
     // races (a "poly count" in circuits, not a radius), and columns that
     // are 0 throughout.
@@ -195,7 +209,7 @@ Error parseWaypoints(const std::string& csv, std::vector<Waypoint>& out, bool al
     return Error::success();
 }
 
-Error parseOpponentPath(const std::string& csv, RaceDefinition::Opponent& out) {
+Error parseOpponentPath(const std::string &csv, RaceDefinition::Opponent &out) {
     // x, y, z, then (on the first line only) the start's heading in the
     // "brake" column; the other columns are 0 throughout.
     out = RaceDefinition::Opponent{};
@@ -230,7 +244,7 @@ Error parseOpponentPath(const std::string& csv, RaceDefinition::Opponent& out) {
     return Error::success();
 }
 
-Error parseLessonSettings(const std::string& csv, LessonSettings& out) {
+Error parseLessonSettings(const std::string &csv, LessonSettings &out) {
     // A heading, then one row: Filename, Event, Checkpoints, TimeLimit,
     // AmbDensity, then five "extra" columns.
     out = LessonSettings{};
@@ -252,7 +266,7 @@ Error parseLessonSettings(const std::string& csv, LessonSettings& out) {
     return Error::success();
 }
 
-Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, int index, RaceDefinition& out) {
+Error loadRace(const SearchSet &files, const std::string &city, RaceKind kind, int index, RaceDefinition &out) {
     out = RaceDefinition{};
     out.kind = kind;
     out.index = index;
@@ -273,7 +287,7 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
             if (roam.density >= 0)
                 traffic = roam.density;
         }
-        for (RaceSettings& s : out.settings) {
+        for (RaceSettings &s : out.settings) {
             s.ambient = traffic;
             s.peds = 0.5f;
             s.cops = index == kCruiseRace ? 4 : 0;
@@ -311,7 +325,7 @@ Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, i
         AiMapSettings ai;
         if (!files.read(stem + ".aimap", data))
             parseAiMap(textOf(data), ai);
-        for (const AiMapSettings::Opponent& opponent : ai.opponents) {
+        for (const AiMapSettings::Opponent &opponent : ai.opponents) {
             RaceDefinition::Opponent o;
             if (files.read(dir + opponent.path, data) || parseOpponentPath(textOf(data), o))
                 continue;

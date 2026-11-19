@@ -13,7 +13,7 @@ namespace {
 // The point of triangle a, b, c nearest p (from the regions of the
 // triangle's plane: the textbook method of Ericson's Real-Time Collision
 // Detection, section 5.1.5).
-Vec3 closestOnTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c) {
+Vec3 closestOnTriangle(const Vec3 &p, const Vec3 &a, const Vec3 &b, const Vec3 &c) {
     const Vec3 ab = b - a, ac = c - a, ap = p - a;
     const float d1 = dot(ab, ap), d2 = dot(ac, ap);
     if (d1 <= 0 && d2 <= 0)
@@ -41,16 +41,16 @@ Vec3 closestOnTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& 
 
 } // namespace
 
-void CollisionWorld::add(const Vec3& a, const Vec3& b, const Vec3& c, Surface surface) {
+void CollisionWorld::add(const Vec3 &a, const Vec3 &b, const Vec3 &c, Surface surface) {
     const Vec3 n = normalized(cross(b - a, c - a));
     if (length(n) < 0.5f)
         return; // degenerate
     _triangles.push_back({a, b, c, n, surface});
 }
 
-void CollisionWorld::setMoving(const std::vector<std::array<Vec3, 3>>& triangles, Surface surface) {
+void CollisionWorld::setMoving(const std::vector<std::array<Vec3, 3>> &triangles, Surface surface) {
     _moving.clear();
-    for (const auto& t : triangles) {
+    for (const auto &t : triangles) {
         const Vec3 n = normalized(cross(t[1] - t[0], t[2] - t[0]));
         if (length(n) >= 0.5f)
             _moving.push_back({t[0], t[1], t[2], n, surface});
@@ -61,7 +61,7 @@ void CollisionWorld::build(float cellSize) {
     _cellSize = cellSize;
     _grid.clear();
     for (uint32_t i = 0; i < _triangles.size(); ++i) {
-        const Triangle& t = _triangles[i];
+        const Triangle &t = _triangles[i];
         const int x0 = int(std::floor(std::min({t.a[0], t.b[0], t.c[0]}) / _cellSize));
         const int x1 = int(std::floor(std::max({t.a[0], t.b[0], t.c[0]}) / _cellSize));
         const int z0 = int(std::floor(std::min({t.a[2], t.b[2], t.c[2]}) / _cellSize));
@@ -74,8 +74,8 @@ void CollisionWorld::build(float cellSize) {
     _query = 0;
 }
 
-template <typename F>
-void CollisionWorld::forEachNear(float x0, float z0, float x1, float z1, F&& f) const {
+template<typename F>
+void CollisionWorld::forEachNear(float x0, float z0, float x1, float z1, F &&f) const {
     if (++_query == 0) { // wrapped: forget every stamp
         std::fill(_seen.begin(), _seen.end(), 0);
         _query = 1;
@@ -93,18 +93,18 @@ void CollisionWorld::forEachNear(float x0, float z0, float x1, float z1, F&& f) 
                     f(_triangles[i]);
                 }
         }
-    for (const Triangle& t : _moving)
+    for (const Triangle &t : _moving)
         if (std::max({t.a[0], t.b[0], t.c[0]}) >= x0 && std::min({t.a[0], t.b[0], t.c[0]}) <= x1 &&
             std::max({t.a[2], t.b[2], t.c[2]}) >= z0 && std::min({t.a[2], t.b[2], t.c[2]}) <= z1)
             f(t);
 }
 
-bool CollisionWorld::raycast(const Vec3& origin, const Vec3& direction, float maxDistance, RayHit& hit) const {
+bool CollisionWorld::raycast(const Vec3 &origin, const Vec3 &direction, float maxDistance, RayHit &hit) const {
     const Vec3 end = origin + direction * maxDistance;
     float best = maxDistance;
     bool found = false;
     forEachNear(std::min(origin[0], end[0]), std::min(origin[2], end[2]), std::max(origin[0], end[0]),
-                std::max(origin[2], end[2]), [&](const Triangle& t) {
+                std::max(origin[2], end[2]), [&](const Triangle &t) {
                     // Moller and Trumbore's ray-triangle intersection.
                     const Vec3 e1 = t.b - t.a, e2 = t.c - t.a;
                     const Vec3 p = cross(direction, e2);
@@ -133,24 +133,22 @@ bool CollisionWorld::raycast(const Vec3& origin, const Vec3& direction, float ma
     return found;
 }
 
-bool CollisionWorld::sphereContact(const Vec3& center, float radius, Contact& contact) const {
+bool CollisionWorld::sphereContact(const Vec3 &center, float radius, Contact &contact) const {
     contact = Contact{};
     bool found = false;
-    forEachNear(center[0] - radius, center[2] - radius, center[0] + radius, center[2] + radius,
-                [&](const Triangle& t) {
-                    const Vec3 closest = closestOnTriangle(center, t.a, t.b, t.c);
-                    const Vec3 away = center - closest;
-                    const float d = length(away);
-                    if (d >= radius || radius - d <= contact.depth)
-                        return;
-                    // On the triangle's face, out of its plane on the
-                    // centre's side; otherwise away from the edge.
-                    contact.normal = d > 1e-5f ? away * (1 / d)
-                                               : (dot(t.normal, center - t.a) >= 0 ? t.normal : -t.normal);
-                    contact.depth = radius - d;
-                    contact.surface = t.surface;
-                    found = true;
-                });
+    forEachNear(center[0] - radius, center[2] - radius, center[0] + radius, center[2] + radius, [&](const Triangle &t) {
+        const Vec3 closest = closestOnTriangle(center, t.a, t.b, t.c);
+        const Vec3 away = center - closest;
+        const float d = length(away);
+        if (d >= radius || radius - d <= contact.depth)
+            return;
+        // On the triangle's face, out of its plane on the
+        // centre's side; otherwise away from the edge.
+        contact.normal = d > 1e-5f ? away * (1 / d) : (dot(t.normal, center - t.a) >= 0 ? t.normal : -t.normal);
+        contact.depth = radius - d;
+        contact.surface = t.surface;
+        found = true;
+    });
     return found;
 }
 

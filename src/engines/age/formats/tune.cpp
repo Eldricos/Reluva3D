@@ -9,26 +9,26 @@
 
 namespace reluva::age {
 
-const TuneNode* TuneNode::child(std::string_view n) const {
+const TuneNode *TuneNode::child(std::string_view n) const {
     const std::string key = fs::toLower(n);
-    for (const TuneNode& c : children)
+    for (const TuneNode &c : children)
         if (fs::toLower(c.name) == key)
             return &c;
     return nullptr;
 }
 
 float TuneNode::number(std::string_view n, size_t i, float fallback) const {
-    const TuneNode* c = child(n);
+    const TuneNode *c = child(n);
     if (!c || i >= c->values.size())
         return fallback;
-    char* end = nullptr;
+    char *end = nullptr;
     const float v = std::strtof(c->values[i].c_str(), &end);
     return end == c->values[i].c_str() ? fallback : v;
 }
 
-Error parseTune(std::string_view text, TuneNode& root) {
+Error parseTune(std::string_view text, TuneNode &root) {
     root = TuneNode{};
-    std::vector<TuneNode*> open{&root};
+    std::vector<TuneNode *> open{&root};
     size_t lineNo = 0;
     while (!text.empty()) {
         const size_t eol = text.find('\n');

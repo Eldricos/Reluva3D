@@ -26,7 +26,7 @@ constexpr int kPrioritiesPerGameDir = 1000;
 // `layer` orders game folders: the base game is 0, a mod 1. A .pk3 that
 // can't be opened is skipped and reported in `warnings`; a missing folder
 // is an error.
-Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::string_view gameDir, int layer,
-                   std::vector<std::string>& warnings);
+Error mountGameDir(SearchSet &set, const std::filesystem::path &install, std::string_view gameDir, int layer,
+                   std::vector<std::string> &warnings);
 
 } // namespace reluva::idtech3

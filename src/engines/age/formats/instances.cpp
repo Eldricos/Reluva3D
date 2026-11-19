@@ -14,7 +14,7 @@ namespace {
 
 constexpr uint8_t kTurnOnly = 0x80; // in the name's length: two floats instead of three axes
 
-float f32(const uint8_t* p) {
+float f32(const uint8_t *p) {
     const uint32_t v = uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
     float f;
     std::memcpy(&f, &v, 4);
@@ -23,14 +23,14 @@ float f32(const uint8_t* p) {
 
 } // namespace
 
-Error readInstances(const std::vector<uint8_t>& data, std::vector<Instance>& out) {
+Error readInstances(const std::vector<uint8_t> &data, std::vector<Instance> &out) {
     out.clear();
     size_t at = 0;
     while (at < data.size()) {
         if (data.size() - at < 5)
             return Error::fail("truncated at byte " + std::to_string(at));
         Instance inst;
-        const uint8_t* p = &data[at];
+        const uint8_t *p = &data[at];
         inst.block = static_cast<uint16_t>(p[0] | p[1] << 8);
         inst.flags = static_cast<uint16_t>(p[2] | p[3] << 8);
         const bool turnOnly = p[4] & kTurnOnly;
@@ -38,10 +38,10 @@ Error readInstances(const std::vector<uint8_t>& data, std::vector<Instance>& out
         const size_t floats = turnOnly ? 5 : 12;
         if (data.size() - at - 5 < nameLength + floats * 4)
             return Error::fail("truncated at byte " + std::to_string(at));
-        inst.model.assign(reinterpret_cast<const char*>(p + 5), nameLength);
+        inst.model.assign(reinterpret_cast<const char *>(p + 5), nameLength);
         if (const size_t zero = inst.model.find('\0'); zero != std::string::npos)
             inst.model.resize(zero);
-        const uint8_t* f = p + 5 + nameLength;
+        const uint8_t *f = p + 5 + nameLength;
         if (turnOnly) {
             // Turned about the vertical only: the X axis's x and z, then the
             // position.

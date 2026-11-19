@@ -18,7 +18,7 @@ namespace reluva::age {
 // placed building fronts are, which have no bounds of their own); and the
 // bounds (bound/<model>_BOUND.bnd) of the models it places. Returns how
 // many placed models had a bound.
-size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMesh& mesh,
-                          const std::vector<Instance>& instances, CollisionWorld& out);
+size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMesh &mesh,
+                          const std::vector<Instance> &instances, CollisionWorld &out);
 
 } // namespace reluva::age

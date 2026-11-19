@@ -35,7 +35,7 @@ public:
         std::memcpy(&u, &v, 4);
         u32(u);
     }
-    void str(const std::string& s) {
+    void str(const std::string &s) {
         const size_t n = std::min<size_t>(s.size(), 255);
         u8(uint8_t(n));
         bytes.insert(bytes.end(), s.begin(), s.begin() + std::ptrdiff_t(n));
@@ -45,7 +45,7 @@ public:
 
 class In {
 public:
-    explicit In(const std::vector<uint8_t>& d) : data(d) {}
+    explicit In(const std::vector<uint8_t> &d) : data(d) {}
     uint8_t u8() {
         if (at >= data.size()) {
             ok = false;
@@ -71,7 +71,7 @@ public:
         at += n;
         return s;
     }
-    const std::vector<uint8_t>& data;
+    const std::vector<uint8_t> &data;
     size_t at = 0;
     bool ok = true;
 };
@@ -80,14 +80,14 @@ public:
 
 float Replay::duration() const {
     double t = 0;
-    for (const ReplayFrame& f : frames)
+    for (const ReplayFrame &f : frames)
         t += f.dt;
     return float(t);
 }
 
-std::vector<uint8_t> encodeReplay(const Replay& r) {
+std::vector<uint8_t> encodeReplay(const Replay &r) {
     Out o;
-    for (const char* c = kMagic; *c; ++c)
+    for (const char *c = kMagic; *c; ++c)
         o.u8(uint8_t(*c));
     o.u8(kVersion);
     o.str(r.name);
@@ -106,7 +106,7 @@ std::vector<uint8_t> encodeReplay(const Replay& r) {
     o.f32(r.traffic);
     o.f32(r.peds);
     o.u32(uint32_t(r.frames.size()));
-    for (const ReplayFrame& f : r.frames) {
+    for (const ReplayFrame &f : r.frames) {
         o.f32(f.dt);
         o.u16(f.keys);
         o.u8(uint8_t(f.shift));
@@ -116,15 +116,15 @@ std::vector<uint8_t> encodeReplay(const Replay& r) {
         o.u8(f.padBrake);
     }
     o.u32(uint32_t(r.marks.size()));
-    for (const Vec3& m : r.marks)
+    for (const Vec3 &m : r.marks)
         for (float v : m)
             o.f32(v);
     return o.bytes;
 }
 
-Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
+Error decodeReplay(const std::vector<uint8_t> &data, Replay &out) {
     In in(data);
-    for (const char* c = kMagic; *c; ++c)
+    for (const char *c = kMagic; *c; ++c)
         if (in.u8() != uint8_t(*c))
             return Error::fail("not a Reluva replay");
     const uint8_t version = in.u8();
@@ -155,7 +155,7 @@ Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
     if (!in.ok || size_t(frames) * 8 > data.size())
         return Error::fail("a replay cut short");
     r.frames.resize(frames);
-    for (ReplayFrame& f : r.frames) {
+    for (ReplayFrame &f : r.frames) {
         f.dt = in.f32();
         f.keys = in.u16();
         f.shift = int8_t(in.u8());
@@ -170,8 +170,8 @@ Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
     if (!in.ok || size_t(marks) * 12 > data.size())
         return Error::fail("a replay cut short");
     r.marks.resize(marks);
-    for (Vec3& m : r.marks)
-        for (float& v : m)
+    for (Vec3 &m : r.marks)
+        for (float &v : m)
             v = in.f32();
     if (!in.ok)
         return Error::fail("a replay cut short");
@@ -179,9 +179,11 @@ Error decodeReplay(const std::vector<uint8_t>& data, Replay& out) {
     return Error::success();
 }
 
-std::filesystem::path replayFolder(const std::filesystem::path& saveFolder) { return saveFolder / "replays"; }
+std::filesystem::path replayFolder(const std::filesystem::path &saveFolder) {
+    return saveFolder / "replays";
+}
 
-std::string replayFileName(const std::string& name) {
+std::string replayFileName(const std::string &name) {
     std::string out;
     for (char c : name)
         out += std::isalnum(static_cast<unsigned char>(c)) || c == ' ' || c == '-' || c == '_' ? c : '_';
@@ -190,7 +192,7 @@ std::string replayFileName(const std::string& name) {
     return (out.empty() ? std::string("replay") : out) + ".rpl";
 }
 
-Error saveReplay(const std::filesystem::path& saveFolder, const Replay& replay) {
+Error saveReplay(const std::filesystem::path &saveFolder, const Replay &replay) {
     if (saveFolder.empty())
         return Error::fail("no save folder");
     std::error_code ec;
@@ -198,11 +200,11 @@ Error saveReplay(const std::filesystem::path& saveFolder, const Replay& replay) 
     const std::filesystem::path file = replayFolder(saveFolder) / replayFileName(replay.name);
     std::ofstream out(file, std::ios::binary | std::ios::trunc);
     const std::vector<uint8_t> bytes = encodeReplay(replay);
-    out.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+    out.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
     return out ? Error::success() : Error::fail("can't write " + file.string());
 }
 
-Error loadReplay(const std::filesystem::path& file, Replay& out) {
+Error loadReplay(const std::filesystem::path &file, Replay &out) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
         return Error::fail("can't read " + file.string());
@@ -210,12 +212,12 @@ Error loadReplay(const std::filesystem::path& file, Replay& out) {
     return decodeReplay(data, out);
 }
 
-std::vector<ReplayEntry> listReplays(const std::filesystem::path& saveFolder) {
+std::vector<ReplayEntry> listReplays(const std::filesystem::path &saveFolder) {
     std::vector<ReplayEntry> out;
     std::error_code ec;
     if (saveFolder.empty())
         return out;
-    for (const auto& e : std::filesystem::directory_iterator(replayFolder(saveFolder), ec)) {
+    for (const auto &e : std::filesystem::directory_iterator(replayFolder(saveFolder), ec)) {
         if (e.path().extension() != ".rpl")
             continue;
         Replay r;
@@ -223,11 +225,11 @@ std::vector<ReplayEntry> listReplays(const std::filesystem::path& saveFolder) {
             continue;
         out.push_back({e.path(), r.name, r.city, r.kind, r.race, r.duration()});
     }
-    std::sort(out.begin(), out.end(), [](const ReplayEntry& a, const ReplayEntry& b) { return a.name < b.name; });
+    std::sort(out.begin(), out.end(), [](const ReplayEntry &a, const ReplayEntry &b) { return a.name < b.name; });
     return out;
 }
 
-Error renameReplay(const std::filesystem::path& saveFolder, const ReplayEntry& entry, const std::string& name) {
+Error renameReplay(const std::filesystem::path &saveFolder, const ReplayEntry &entry, const std::string &name) {
     Replay r;
     if (Error err = loadReplay(entry.file, r))
         return err;
@@ -241,7 +243,7 @@ Error renameReplay(const std::filesystem::path& saveFolder, const ReplayEntry& e
     return Error::success();
 }
 
-Error deleteReplay(const ReplayEntry& entry) {
+Error deleteReplay(const ReplayEntry &entry) {
     std::error_code ec;
     return std::filesystem::remove(entry.file, ec) ? Error::success()
                                                    : Error::fail("can't delete " + entry.file.string());

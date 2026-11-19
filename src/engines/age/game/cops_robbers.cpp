@@ -25,7 +25,9 @@ constexpr float kLieFor = 60;       // seconds it lies away from home before it'
 constexpr float kBaseApart = 300;   // metres at least from the gold's home to a base
 constexpr size_t kEventsKept = 6;
 
-float flat(const Vec3& a, const Vec3& b) { return std::hypot(a[0] - b[0], a[2] - b[2]); }
+float flat(const Vec3 &a, const Vec3 &b) {
+    return std::hypot(a[0] - b[0], a[2] - b[2]);
+}
 
 class Bytes {
 public:
@@ -38,7 +40,7 @@ public:
         u16(uint16_t(v));
         u16(uint16_t(v >> 16));
     }
-    void vec(const Vec3& v) {
+    void vec(const Vec3 &v) {
         for (float f : v) {
             uint32_t u;
             std::memcpy(&u, &f, 4);
@@ -50,7 +52,7 @@ public:
 
 class Unbytes {
 public:
-    explicit Unbytes(const std::vector<uint8_t>& d) : data(d) {}
+    explicit Unbytes(const std::vector<uint8_t> &d) : data(d) {}
     uint8_t u8() {
         if (at >= data.size()) {
             ok = false;
@@ -62,7 +64,7 @@ public:
     uint32_t u32() { return uint32_t(u16()) | uint32_t(u16()) << 16; }
     Vec3 vec() {
         Vec3 v;
-        for (float& f : v) {
+        for (float &f : v) {
             const uint32_t u = u32();
             std::memcpy(&f, &u, 4);
             if (!std::isfinite(f))
@@ -70,19 +72,19 @@ public:
         }
         return v;
     }
-    const std::vector<uint8_t>& data;
+    const std::vector<uint8_t> &data;
     size_t at = 0;
     bool ok = true;
 };
 
 } // namespace
 
-void GoldGame::start(const NetSettings& settings, const std::vector<Waypoint>& points, uint32_t seed) {
+void GoldGame::start(const NetSettings &settings, const std::vector<Waypoint> &points, uint32_t seed) {
     *this = GoldGame();
     _mode = settings.gold;
     _limit = settings.limit;
     _limitValue = settings.limitValue;
-    for (const Waypoint& w : points)
+    for (const Waypoint &w : points)
         _points.push_back(w.position);
     if (_points.empty())
         _points.push_back({0, 0, 0});
@@ -116,14 +118,16 @@ void GoldGame::start(const NetSettings& settings, const std::vector<Waypoint>& p
     restAt(_home, true);
 }
 
-Vec3 GoldGame::base(uint8_t side) const { return teams() ? _bases[side & 1] : _bases[0]; }
+Vec3 GoldGame::base(uint8_t side) const {
+    return teams() ? _bases[side & 1] : _bases[0];
+}
 
 int GoldGame::score(uint8_t side) const {
     auto it = _scores.find(side);
     return it == _scores.end() ? 0 : it->second;
 }
 
-void GoldGame::restAt(const Vec3& at, bool atHome) {
+void GoldGame::restAt(const Vec3 &at, bool atHome) {
     _gold = at;
     _holder = kNoPlayer;
     _atHome = atHome;
@@ -138,19 +142,19 @@ void GoldGame::event(GoldEvent::Kind kind, uint8_t player, uint8_t side) {
 
 std::vector<GoldEvent> GoldGame::eventsAfter(uint32_t seq) const {
     std::vector<GoldEvent> out;
-    for (const GoldEvent& e : _events)
+    for (const GoldEvent &e : _events)
         if (e.seq > seq)
             out.push_back(e);
     return out;
 }
 
-void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float floor) {
+void GoldGame::step(float clock, float dt, const std::vector<Car> &cars, float floor) {
     if (_over)
         return;
     _dropperWait = std::max(0.0f, _dropperWait - dt);
     _holderSafe = std::max(0.0f, _holderSafe - dt);
-    const Car* holder = nullptr;
-    for (const Car& c : cars)
+    const Car *holder = nullptr;
+    for (const Car &c : cars)
         if (c.id == _holder)
             holder = &c;
     if (_holder != kNoPlayer && !holder) {
@@ -174,7 +178,7 @@ void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float f
             restAt(_home, true);
         } else if (_holderSafe <= 0) {
             // Rammed by a car of another side.
-            for (const Car& c : cars) {
+            for (const Car &c : cars) {
                 if (c.id == holder->id || sideOf(c) == sideOf(*holder) || c.putBack)
                     continue;
                 Vec3 d = c.position - holder->position;
@@ -199,9 +203,9 @@ void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float f
             event(GoldEvent::Kind::kReturned, kNoPlayer, 0);
             restAt(_home, true);
         }
-        const Car* taker = nullptr;
+        const Car *taker = nullptr;
         float nearest = kPickUp;
-        for (const Car& c : cars) {
+        for (const Car &c : cars) {
             if ((c.id == _lastDropper && _dropperWait > 0) || c.putBack)
                 continue;
             const float d = flat(c.position, _gold);
@@ -222,7 +226,7 @@ void GoldGame::step(float clock, float dt, const std::vector<Car>& cars, float f
         _over = true;
         event(GoldEvent::Kind::kTimeUp, kNoPlayer, 0);
     } else if (_limit == GoldLimit::kPoints && _limitValue > 0) {
-        for (const auto& [side, points] : _scores)
+        for (const auto &[side, points] : _scores)
             if (points >= _limitValue && !_over) {
                 _over = true;
                 event(GoldEvent::Kind::kPointLimit, kNoPlayer, side);
@@ -242,12 +246,12 @@ std::vector<uint8_t> GoldGame::encode() const {
     b.vec(_bases[0]);
     b.vec(_bases[1]);
     b.u8(uint8_t(std::min<size_t>(_scores.size(), 255)));
-    for (const auto& [side, points] : _scores) {
+    for (const auto &[side, points] : _scores) {
         b.u8(side);
         b.u16(uint16_t(std::clamp(points, 0, 65535)));
     }
     b.u8(uint8_t(_events.size()));
-    for (const GoldEvent& e : _events) {
+    for (const GoldEvent &e : _events) {
         b.u8(uint8_t(e.kind));
         b.u8(e.player);
         b.u8(e.side);
@@ -256,7 +260,7 @@ std::vector<uint8_t> GoldGame::encode() const {
     return b.out;
 }
 
-bool GoldGame::decode(const std::vector<uint8_t>& data) {
+bool GoldGame::decode(const std::vector<uint8_t> &data) {
     Unbytes r(data);
     if (r.u8() != 'G')
         return false;
@@ -291,19 +295,19 @@ bool GoldGame::decode(const std::vector<uint8_t>& data) {
     return true;
 }
 
-Vec3 GoldBot::goal(uint8_t id, uint8_t team, const GoldGame& gold, const std::vector<GoldGame::Car>& cars,
-                   bool& chasing) {
+Vec3 GoldBot::goal(uint8_t id, uint8_t team, const GoldGame &gold, const std::vector<GoldGame::Car> &cars,
+                   bool &chasing) {
     chasing = false;
     const GoldGame::Car me{id, team, {}, {}};
     if (gold.holder() == id)
         return gold.base(gold.sideOf(me)); // home with it
-    for (const GoldGame::Car& c : cars)
+    for (const GoldGame::Car &c : cars)
         if (c.id == gold.holder()) {
             if (gold.sideOf(c) == gold.sideOf(me)) {
                 // A teammate has it: after whoever of the others is
                 // nearest it, else home ahead of it.
-                const GoldGame::Car* threat = nullptr;
-                for (const GoldGame::Car& o : cars)
+                const GoldGame::Car *threat = nullptr;
+                for (const GoldGame::Car &o : cars)
                     if (gold.sideOf(o) != gold.sideOf(me) &&
                         (!threat || flat(o.position, c.position) < flat(threat->position, c.position)))
                         threat = &o;
@@ -318,9 +322,9 @@ Vec3 GoldBot::goal(uint8_t id, uint8_t team, const GoldGame& gold, const std::ve
     return gold.goldPosition();
 }
 
-bool GoldBot::plan(float dt, const Vec3& at, uint8_t id, uint8_t team, const GoldGame* gold,
-                   const std::vector<GoldGame::Car>& cars, const std::vector<Waypoint>& places, const RoadGraph& roads,
-                   bool pathDone, std::vector<Vec3>& path) {
+bool GoldBot::plan(float dt, const Vec3 &at, uint8_t id, uint8_t team, const GoldGame *gold,
+                   const std::vector<GoldGame::Car> &cars, const std::vector<Waypoint> &places, const RoadGraph &roads,
+                   bool pathDone, std::vector<Vec3> &path) {
     _replanIn -= dt;
     if (flat(at, _still) > 4) {
         _still = at;
@@ -362,14 +366,14 @@ bool GoldBot::plan(float dt, const Vec3& at, uint8_t id, uint8_t team, const Gol
     return true;
 }
 
-Error loadGoldPoints(const SearchSet& files, const std::string& city, std::vector<Waypoint>& out) {
+Error loadGoldPoints(const SearchSet &files, const std::string &city, std::vector<Waypoint> &out) {
     std::vector<uint8_t> data;
     if (Error err = files.read("race/" + city + "/multicopwaypoints.csv", data))
         return err;
     return parseWaypoints(std::string(data.begin(), data.end()), out);
 }
 
-std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::string& csv) {
+std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::string &csv) {
     // "<EVENT> header,," then "<folder>\<prefix> ,<last>,<before first>"
     // (London's with a fourth column, how many are used): the recordings
     // <prefix><n> for n after the third column up to the second.

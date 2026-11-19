@@ -15,12 +15,12 @@ namespace reluva {
 class Md5 {
 public:
     Md5();
-    void update(const void* data, size_t len);
+    void update(const void *data, size_t len);
     std::string hexDigest();          // finalizes; call once
     std::array<uint8_t, 16> digest(); // or this
 
 private:
-    void block(const uint8_t* p);
+    void block(const uint8_t *p);
 
     uint32_t _state[4];
     uint64_t _length = 0; // bytes
@@ -28,6 +28,6 @@ private:
     size_t _bufferLen = 0;
 };
 
-std::array<uint8_t, 16> hmacMd5(const void* key, size_t keyLen, const void* message, size_t len);
+std::array<uint8_t, 16> hmacMd5(const void *key, size_t keyLen, const void *message, size_t len);
 
 } // namespace reluva

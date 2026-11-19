@@ -95,42 +95,42 @@
 namespace reluva::age {
 
 struct ViewerContext {
-    System& sys;
-    Surface& screen; // RGBA32
-    const SearchSet& files;
-    const GameInfo& game;
-    const std::vector<std::string>& warnings; // problems loading the game's files
-    audio::Mixer* mixer = nullptr;            // sound output; none if the system has no audio
+    System &sys;
+    Surface &screen; // RGBA32
+    const SearchSet &files;
+    const GameInfo &game;
+    const std::vector<std::string> &warnings; // problems loading the game's files
+    audio::Mixer *mixer = nullptr;            // sound output; none if the system has no audio
     std::filesystem::path savePath;           // where this game's own files go (GameTarget::savePath); may be empty
 };
 
 class Page {
 public:
-    explicit Page(ViewerContext& ctx) : _ctx(ctx) {}
+    explicit Page(ViewerContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
-    virtual const char* name() const = 0;
+    virtual const char *name() const = 0;
     virtual size_t count() const = 0; // pages with nothing to show are skipped
     virtual void activate() = 0;      // redraw and retitle after switching here
     virtual void deactivate() {}      // before switching away
-    virtual void handleEvent(const Event& ev) = 0;
+    virtual void handleEvent(const Event &ev) = 0;
     virtual void update(uint64_t /*nowMs*/) {}
     // Pages that draw with System::init3D; the engine puts the 2D
     // framebuffer back when leaving one.
     virtual bool uses3D() const { return false; }
     // Whether Esc and Tab (which otherwise leave and switch pages) go to
     // the page instead.
-    virtual bool takesKey(const Event& /*ev*/) const { return false; }
+    virtual bool takesKey(const Event & /*ev*/) const { return false; }
     // The player asked to leave the game (its Quit dialog).
     virtual bool wantsToQuit() const { return false; }
 
 protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
-    void text(int x, int y, const std::string& s, Color c = {230, 230, 230});
-    void setTitle(const std::string& detail);
+    void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
+    void setTitle(const std::string &detail);
 
-    ViewerContext& _ctx;
+    ViewerContext &_ctx;
 };
 
 // A car the menus offer (tune/<car>.info), if its simulation and model
@@ -140,7 +140,7 @@ struct CarInfo {
     std::string description; // "VW New Beetle"
     std::vector<std::string> colors;
 };
-std::vector<CarInfo> findCars(const SearchSet& files);
+std::vector<CarInfo> findCars(const SearchSet &files);
 
 // The driving keys held, as the Drive and Race pages read them: Up/W
 // throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
@@ -160,11 +160,11 @@ constexpr int kRacePageKinds = 5;
 // What a key is bound to (the Control Options' keys).
 Control controlOf(uint32_t key);
 // The player's car takes the Control Options (auto reverse, steering).
-void applyControlOptions(CarSim& sim);
+void applyControlOptions(CarSim &sim);
 // The scene and the city's life take the Graphics and Audio Options:
 // the sky, smart rendering (the .cpvs), how far and how finely models are
 // drawn, the ambient sounds. Cheap: called every frame.
-void applyGraphicsOptions(CityScene& scene, CityLife& life);
+void applyGraphicsOptions(CityScene &scene, CityLife &life);
 // How many times the city's textures are halved (the Texture Quality:
 // none at Very High, three at Low). Taken when a city is loaded.
 int textureHalvings();
@@ -179,30 +179,30 @@ CarControls controlsOf(uint32_t keys);
 // The speed, gear, revs and (`damage` 0..1) damage: with the game's
 // pictures, if loaded, along the bottom left of the map (which starts at
 // x = `right`); else as text, bottom right, ending there.
-void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damage, const HudPictures& pictures);
+void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damage, const HudPictures &pictures);
 // The game's rear-view mirror, top right of the frame (x 447, y 0, 193 x 77
 // at 640 x 480, as on its screens): what's behind the car, flipped as a
 // mirror shows it. `world` draws the world for a view; the view and the
 // viewport are the whole frame's again after (the caller's view to set).
-void drawRearMirror(gfx::Renderer3D& renderer, const CarSim& sim, float farClip,
-                    const std::function<void(const gfx::Mat4& viewProj, const Vec3& eye)>& world);
+void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
+                    const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world);
 
 // The first part of a name's file name, for jumping between kinds:
 // "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
-std::string kindOf(const std::string& name);
+std::string kindOf(const std::string &name);
 
 // A file's contents as lines to show: its text (tabs expanded, CR LF and
 // LF ends) if it looks like text, else a hex dump of 16 bytes a line.
-std::vector<std::string> fileLines(const std::vector<uint8_t>& data, bool& isText);
+std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText);
 
 class FileViewer : public Page {
 public:
-    explicit FileViewer(ViewerContext& ctx);
-    const char* name() const override { return "Files"; }
+    explicit FileViewer(ViewerContext &ctx);
+    const char *name() const override { return "Files"; }
     size_t count() const override { return _files.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
-    bool takesKey(const Event& ev) const override;
+    void handleEvent(const Event &ev) override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     struct Row {
@@ -231,11 +231,11 @@ private:
 
 class TextureViewer : public Page {
 public:
-    explicit TextureViewer(ViewerContext& ctx);
-    const char* name() const override { return "Textures"; }
+    explicit TextureViewer(ViewerContext &ctx);
+    const char *name() const override { return "Textures"; }
     size_t count() const override { return _names.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void show(int index);
@@ -251,13 +251,13 @@ private:
 
 class ModelViewer : public Page {
 public:
-    explicit ModelViewer(ViewerContext& ctx);
+    explicit ModelViewer(ViewerContext &ctx);
     ~ModelViewer() override;
-    const char* name() const override { return "Models"; }
+    const char *name() const override { return "Models"; }
     size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return true; }
 
@@ -269,7 +269,7 @@ private:
 
     std::vector<std::string> _names;
     int _index = 0;
-    gfx::Renderer3D* _renderer = nullptr;
+    gfx::Renderer3D *_renderer = nullptr;
     std::unique_ptr<TextureCache> _textures;
     Surface _overlay;
 
@@ -292,25 +292,25 @@ private:
 // weathers. Keys in the header's comment.
 class WorldViewer : public Page {
 public:
-    explicit WorldViewer(ViewerContext& ctx);
+    explicit WorldViewer(ViewerContext &ctx);
     ~WorldViewer() override;
-    const char* name() const override { return "World"; }
+    const char *name() const override { return "World"; }
     size_t count() const override { return _cities.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return true; }
 
 private:
     void load(int index);
     void resetView();
-    void drawInfo(const std::string& stats);
+    void drawInfo(const std::string &stats);
 
     std::vector<CityInfo> _cities;
     int _index = 0;
     int _lighting = 4;
-    gfx::Renderer3D* _renderer = nullptr;
+    gfx::Renderer3D *_renderer = nullptr;
     std::unique_ptr<CityScene> _scene;
     Surface _overlay;
     std::string _error;
@@ -328,13 +328,13 @@ private:
 // sound and a HUD. Keys in the header's comment.
 class DriveViewer : public Page {
 public:
-    explicit DriveViewer(ViewerContext& ctx);
+    explicit DriveViewer(ViewerContext &ctx);
     ~DriveViewer() override;
-    const char* name() const override { return "Drive"; }
+    const char *name() const override { return "Drive"; }
     size_t count() const override { return _cities.empty() ? 0 : _cars.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return true; }
 
@@ -351,7 +351,7 @@ private:
     std::vector<CarInfo> _cars;
     int _city = 0, _carIndex = 0;
     uint32_t _paintJob = 0;
-    gfx::Renderer3D* _renderer = nullptr;
+    gfx::Renderer3D *_renderer = nullptr;
     std::unique_ptr<CityScene> _scene;
     CollisionWorld _world;
     size_t _boundsUsed = 0;
@@ -390,12 +390,12 @@ private:
     RoadGraph _roads;
     int _trafficLevel = 2; // none, light, normal, heavy
     bool _cops = true;
-    bool _fill = true;     // place the traffic anywhere round the car next update
-    SirenSound _siren;     // the player's, in a police car
+    bool _fill = true; // place the traffic anywhere round the car next update
+    SirenSound _siren; // the player's, in a police car
     bool _sirenOn = false;
     float _clock = 0;
-    float _busted = 0;     // seconds the "busted" message has left
-    float _wrecked = 0;    // seconds the "wrecked" message has left
+    float _busted = 0;  // seconds the "busted" message has left
+    float _wrecked = 0; // seconds the "wrecked" message has left
     uint32_t _keys = 0; // driving keys held: DriveKeys
     uint64_t _lastMs = 0;
 };
@@ -404,16 +404,16 @@ private:
 // opponents driving their recorded paths. Keys in the header's comment.
 class RaceViewer : public Page {
 public:
-    explicit RaceViewer(ViewerContext& ctx);
+    explicit RaceViewer(ViewerContext &ctx);
     ~RaceViewer() override;
-    const char* name() const override { return "Race"; }
+    const char *name() const override { return "Race"; }
     size_t count() const override { return _cities.empty() || _cars.empty() ? 0 : 1; }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return true; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
     bool wantsToQuit() const override { return _quit; }
 
 private:
@@ -427,15 +427,15 @@ private:
         size_t lastCleared = 0;
         float finishTime = -1;
         bool player = false;
-        uint8_t peer = kNoPlayer; // another player's car (multiplayer), driven by what its driver sends
+        uint8_t peer = kNoPlayer;  // another player's car (multiplayer), driven by what its driver sends
         uint8_t botId = kNoPlayer; // a computer player the host drives (multiplayer)
         GoldBot bot;               // and its mind, outside the races
         // An opponent: where along its path it's nearest each checkpoint
         // (its path doesn't always go through them all).
         std::vector<size_t> gatePoints;
-        float throttle = 0;        // as last driven, for its sound on the others' machines
-        uint8_t resets = 0;        // times put back (fallen out, stuck), counting on
-        float putBackAt = -100;    // the race clock when it last was
+        float throttle = 0;     // as last driven, for its sound on the others' machines
+        uint8_t resets = 0;     // times put back (fallen out, stuck), counting on
+        float putBackAt = -100; // the race clock when it last was
         // Another player's car on this machine: its engine and its damage,
         // as its own machine says them.
         std::unique_ptr<EngineSound> engine;
@@ -454,7 +454,7 @@ private:
     void startRace();
     void endRace();
     void stepRace(float dt);
-    float progressOf(const Racer& r) const;
+    float progressOf(const Racer &r) const;
     void drawCheckpoints();
     void drawArrow();
     void drawOpponentMarkers();
@@ -464,8 +464,8 @@ private:
     void judgeLesson(float dt, bool checkpoint, float impact);
     // The race's message `offset` into its event's group of mmlang.dll's
     // strings, or `fallback`.
-    std::string raceMessage(int offset, const std::string& fallback) const;
-    void drawCentred(const std::string& text, int y, Color color, int scale);
+    std::string raceMessage(int offset, const std::string &fallback) const;
+    void drawCentred(const std::string &text, int y, Color color, int scale);
     bool lesson() const { return _race.kind == RaceKind::kCrashCourse; }
     // The race menu's Cruise, and the stunt under it (race_cruise.cpp).
     bool cruising() const { return _race.kind == RaceKind::kCruise && _race.index != kStuntRace; }
@@ -477,21 +477,21 @@ private:
     float _stuntMessageFor = 0; // "Put the pedal to the metal!" after the start
     uint32_t _stuntMessage = 0;
     Vec3 _pierEnd{}; // where the stunt's pier ends (the ground stops)
-    const Waypoint& targetPoint(size_t k) const { return _race.waypoints[_targets[k]]; }
+    const Waypoint &targetPoint(size_t k) const { return _race.waypoints[_targets[k]]; }
     bool anyOrder() const;
     // The checkpoint the racer is making for: its next, or (the player in
     // any order) the arrow's.
-    size_t targetOf(const Racer& r) const;
+    size_t targetOf(const Racer &r) const;
     // A racer's checkpoints still to clear, in order (the player's by default).
-    std::vector<size_t> remaining(const Racer& r) const;
+    std::vector<size_t> remaining(const Racer &r) const;
     std::vector<size_t> remaining() const { return remaining(_racers.front()); }
-    void clearCheckpoint(Racer& r, size_t k);
+    void clearCheckpoint(Racer &r, size_t k);
     void pickCheckpoint(int step);
     void drawCheckpointMarkers();
 
     std::vector<CityInfo> _cities;
     std::vector<CarInfo> _cars;
-    gfx::Renderer3D* _renderer = nullptr;
+    gfx::Renderer3D *_renderer = nullptr;
     std::unique_ptr<CityScene> _scene;
     CollisionWorld _world;
     RoadGraph _roads;
@@ -556,7 +556,7 @@ private:
     // arrow at the nearest, or the one picked (Next/Prev. Checkpoint).
     int _picked = -1;
     gfx::Mat4 _viewProj{}; // this frame's, for the opponents' markers
-    PlayerRecord _record; // the current driver's
+    PlayerRecord _record;  // the current driver's
     // The race's conditions as the menus changed them (else its own).
     FrontEnd::Choice::Conditions _conditions;
     bool _conditionsChanged = false;
@@ -565,7 +565,7 @@ private:
     bool _openAll = false;  // U: every race and car open, whatever the record says
     bool _recorded = false; // this race's result is in the record
 
-    std::unique_ptr<FrontEnd> _front;   // the game's menus, when their files are there
+    std::unique_ptr<FrontEnd> _front; // the game's menus, when their files are there
     // The opening movie, logos.avi, before the menus: tried once.
     std::unique_ptr<video::Movie> _movie;
     bool _movieTried = false;
@@ -580,11 +580,11 @@ private:
     bool raceIsOpen(int index) const;
     bool carIsOpen(int car) const;
     void recordResult();
-    void menuEvent(const Event& ev);
+    void menuEvent(const Event &ev);
     void drawGarageCar(float dt);
     // The HUD arrow over the car pointing to `to`; `little`: the Opponent
     // Position's, smaller, lower and always green.
-    void drawArrowTo(const Vec3& to, bool blitz, bool little = false);
+    void drawArrowTo(const Vec3 &to, bool blitz, bool little = false);
 
     // Replays (race_replay.cpp): the race being driven is recorded; a
     // replay runs its race again from what was recorded.
@@ -609,12 +609,12 @@ private:
     void playFrame();
     void stepReplay(float dt);
     void endReplay();
-    bool replayEvent(const Event& ev);
+    bool replayEvent(const Event &ev);
     std::string replayWord(int button) const; // the bar's word for it
     void replayButton(int which);
-    CameraView replayCamera(float dt, float& fov);
+    CameraView replayCamera(float dt, float &fov);
     void drawReplayBar();
-    void gameMenuEvent(const Event& ev);
+    void gameMenuEvent(const Event &ev);
     // Where quitting a replay goes back to: the menus (a replay loaded),
     // the results, or the race paused (it's run on to where it was).
     enum class ReplayReturn { kMenu, kResults, kRace };
@@ -626,19 +626,19 @@ private:
     int _pauseFocus = 0, _resultsFocus = 0;
     std::string _lastFocus; // the menu control last spoken for
     std::unique_ptr<MenuPictures> _menuPictures;
-    void pauseEvent(const Event& ev);
-    void resultsEvent(const Event& ev);
+    void pauseEvent(const Event &ev);
+    void resultsEvent(const Event &ev);
     void drawPauseMenu();
     void drawResults();
     void menuSounds();
-    void playVoice(const std::string& clip);
+    void playVoice(const std::string &clip);
     bool nextRaceOpen() const;
     void instantReplay(ReplayReturn back);
     std::string replayDefaultName() const;
 
     // Multiplayer (race_net.cpp): the game's multiplayer menus, then the
     // session's game, each car driven on its own machine.
-    std::unique_ptr<GameMenus> _game; // the Options and the main menu's dialogs
+    std::unique_ptr<GameMenus> _game;  // the Options and the main menu's dialogs
     std::unique_ptr<HelpViewer> _help; // the navigation bar's Help
     bool _quit = false;
     std::unique_ptr<NetMenus> _net;
@@ -658,24 +658,24 @@ private:
     void startNetGame();
     void endNetGame();
     void stepNet(float dt);
-    void driveRemote(Racer& r, float dt);
-    bool netEvent(const Event& ev);
+    void driveRemote(Racer &r, float dt);
+    bool netEvent(const Event &ev);
     void drawNetHud();
     void drawNetLines();
     void drawGold();
-    void netSay(const std::string& text);
-    void announce(const GoldEvent& e);
-    Vec3 gridSlot(const Vec3& centre, float yaw, size_t slot) const;
+    void netSay(const std::string &text);
+    void announce(const GoldEvent &e);
+    Vec3 gridSlot(const Vec3 &centre, float yaw, size_t slot) const;
     std::vector<Waypoint> _places; // the city's Cops & Robbers places (computer players cruise between them)
-    uint8_t netIdOf(const Racer& r) const;
+    uint8_t netIdOf(const Racer &r) const;
     std::vector<GoldGame::Car> netCars() const;
     void syncNetRacers();                                      // the cars as the session's players come and go
-    void remoteLook(Racer& r, const NetCarState& s, float dt); // another's engine and damage
-    void checkProgress(Racer& r, const NetCarState& s);        // the host's count of its checkpoints
+    void remoteLook(Racer &r, const NetCarState &s, float dt); // another's engine and damage
+    void checkProgress(Racer &r, const NetCarState &s);        // the host's count of its checkpoints
     std::set<uint8_t> _unloadable;                             // players whose cars couldn't be loaded
     std::map<uint8_t, std::pair<size_t, float>> _progress;     // the host's count of each: next checkpoint, finish
-    NetCarState carStateOf(const Racer& r) const;
-    void planBot(Racer& r, float dt, const std::vector<GoldGame::Car>& cars);
+    NetCarState carStateOf(const Racer &r) const;
+    void planBot(Racer &r, float dt, const std::vector<GoldGame::Car> &cars);
 };
 
 } // namespace reluva::age

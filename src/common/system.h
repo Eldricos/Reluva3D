@@ -26,10 +26,10 @@ public:
     // --- Graphics -----------------------------------------------------------
     // Set up a game framebuffer of the given size. It is scaled to the window.
     virtual Error initGraphics(int width, int height, PixelFormat format) = 0;
-    virtual void setPalette(const Color* colors, int start, int count) = 0;
+    virtual void setPalette(const Color *colors, int start, int count) = 0;
     // Copy the surface to the screen and present it.
-    virtual void updateScreen(const Surface& surface) = 0;
-    virtual void setWindowTitle(const std::string& title) = 0;
+    virtual void updateScreen(const Surface &surface) = 0;
+    virtual void setWindowTitle(const std::string &title) = 0;
 
     // --- 3D graphics (optional) ----------------------------------------------
     // Switch to GPU rendering of width x height frames, scaled to the window
@@ -37,7 +37,7 @@ public:
     // alive, until the next initGraphics() or init3D() or the engine ends;
     // updateScreen() does nothing meanwhile. Fails (out = nullptr) when the
     // backend or the machine can't render 3D.
-    virtual Error init3D(int width, int height, gfx::Renderer3D*& out) {
+    virtual Error init3D(int width, int height, gfx::Renderer3D *&out) {
         (void)width;
         (void)height;
         out = nullptr;
@@ -46,7 +46,7 @@ public:
 
     // --- Input --------------------------------------------------------------
     // Returns false when no more events are pending.
-    virtual bool pollEvent(Event& event) = 0;
+    virtual bool pollEvent(Event &event) = 0;
     // Whether typed text arrives as TextInput events (off by default).
     virtual void setTextInput(bool on) { (void)on; }
     // Whether the system's mouse pointer shows over the game (for games
@@ -73,7 +73,7 @@ public:
     // --- Audio --------------------------------------------------------------
     // The callback runs on the audio thread and must fill `frames` stereo
     // frames of interleaved signed 16-bit samples at audioRate().
-    using AudioCallback = std::function<void(int16_t* out, int frames)>;
+    using AudioCallback = std::function<void(int16_t *out, int frames)>;
     virtual Error startAudio(AudioCallback callback) = 0;
     virtual void stopAudio() = 0;
     virtual int audioRate() const = 0;
@@ -81,13 +81,13 @@ public:
     // --- Network (optional) --------------------------------------------------
     // A UDP socket on `port` (0: any), for games played over a network;
     // fails when the backend has none.
-    virtual Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) {
+    virtual Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket> &out) {
         (void)port;
         out = nullptr;
         return Error::fail("The network is not available");
     }
     // A host's name (or a.b.c.d) as its IPv4 address; false if not found.
-    virtual bool resolveHost(const std::string& host, uint32_t& ip) {
+    virtual bool resolveHost(const std::string &host, uint32_t &ip) {
         (void)host;
         (void)ip;
         return false;
@@ -98,8 +98,8 @@ public:
     // For asking a router to pass a port on (common/portmap.h): one HTTP
     // exchange over TCP, and the default gateways. Called from a thread of
     // its own; none without a network.
-    virtual bool httpExchange(const net::Address& to, const std::string& request, std::string& response,
-                              uint32_t& localIp, int timeoutMs) {
+    virtual bool httpExchange(const net::Address &to, const std::string &request, std::string &response,
+                              uint32_t &localIp, int timeoutMs) {
         (void)to, (void)request, (void)response, (void)localIp, (void)timeoutMs;
         return false;
     }

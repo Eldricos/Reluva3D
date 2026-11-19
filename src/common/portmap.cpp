@@ -20,7 +20,7 @@ constexpr uint32_t kNatPmpLifetime = 7200; // seconds asked for (RFC 6886 recomm
 constexpr int kHttpWaitMs = 3000;
 
 std::string lower(std::string s) {
-    for (char& c : s)
+    for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
@@ -30,11 +30,15 @@ std::string ipText(uint32_t ip) {
            std::to_string(ip & 255);
 }
 
-uint16_t be16(const uint8_t* p) { return uint16_t(p[0] << 8 | p[1]); }
-uint32_t be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3]; }
+uint16_t be16(const uint8_t *p) {
+    return uint16_t(p[0] << 8 | p[1]);
+}
+uint32_t be32(const uint8_t *p) {
+    return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
+}
 
 // A header's value in an HTTP-like message (SSDP's replies, HTTP's).
-std::string header(const std::string& message, const std::string& name) {
+std::string header(const std::string &message, const std::string &name) {
     const std::string want = lower(name) + ":";
     size_t at = 0;
     while (at < message.size()) {
@@ -59,11 +63,13 @@ std::string header(const std::string& message, const std::string& name) {
     return {};
 }
 
-std::string hostOf(const Url& u) { return ipText(u.ip) + ":" + std::to_string(u.port); }
+std::string hostOf(const Url &u) {
+    return ipText(u.ip) + ":" + std::to_string(u.port);
+}
 
 } // namespace
 
-std::string ssdpSearch(const std::string& target) {
+std::string ssdpSearch(const std::string &target) {
     return "M-SEARCH * HTTP/1.1\r\n"
            "HOST: 239.255.255.250:1900\r\n"
            "MAN: \"ssdp:discover\"\r\n"
@@ -72,12 +78,12 @@ std::string ssdpSearch(const std::string& target) {
            target + "\r\n\r\n";
 }
 
-bool ssdpLocation(const std::string& reply, std::string& url) {
+bool ssdpLocation(const std::string &reply, std::string &url) {
     url = header(reply, "LOCATION");
     return !url.empty();
 }
 
-bool parseUrl(const std::string& text, Url& out) {
+bool parseUrl(const std::string &text, Url &out) {
     const std::string scheme = "http://";
     if (lower(text.substr(0, scheme.size())) != scheme)
         return false;
@@ -100,7 +106,7 @@ bool parseUrl(const std::string& text, Url& out) {
     return true;
 }
 
-std::string httpBody(const std::string& response, int& status) {
+std::string httpBody(const std::string &response, int &status) {
     status = 0;
     const size_t space = response.find(' ');
     if (response.compare(0, 5, "HTTP/") != 0 || space == std::string::npos)
@@ -128,7 +134,7 @@ std::string httpBody(const std::string& response, int& status) {
     return out;
 }
 
-std::string xmlValue(const std::string& xml, const std::string& tag) {
+std::string xmlValue(const std::string &xml, const std::string &tag) {
     for (size_t at = 0; (at = xml.find(tag + ">", at)) != std::string::npos; at += tag.size()) {
         // An opening tag: "<tag>" or "<prefix:tag>".
         size_t open = at;
@@ -157,7 +163,7 @@ std::string xmlValue(const std::string& xml, const std::string& tag) {
     return {};
 }
 
-bool findWanService(const std::string& description, const Url& location, std::string& serviceType, Url& control) {
+bool findWanService(const std::string &description, const Url &location, std::string &serviceType, Url &control) {
     // The service blocks, the first that's a WAN connection's.
     for (size_t at = 0; (at = description.find("<service>", at)) != std::string::npos;) {
         const size_t end = description.find("</service>", at);
@@ -185,17 +191,17 @@ bool findWanService(const std::string& description, const Url& location, std::st
     return false;
 }
 
-std::string httpGet(const Url& url) {
+std::string httpGet(const Url &url) {
     return "GET " + url.path + " HTTP/1.1\r\nHost: " + hostOf(url) + "\r\nConnection: close\r\n\r\n";
 }
 
-std::string soapRequest(const Url& control, const std::string& serviceType, const std::string& action,
-                        const std::vector<std::pair<std::string, std::string>>& arguments) {
+std::string soapRequest(const Url &control, const std::string &serviceType, const std::string &action,
+                        const std::vector<std::pair<std::string, std::string>> &arguments) {
     std::string body = "<?xml version=\"1.0\"?>"
                        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" "
                        "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:" +
                        action + " xmlns:u=\"" + serviceType + "\">";
-    for (const auto& [name, value] : arguments)
+    for (const auto &[name, value] : arguments)
         body += "<" + name + ">" + value + "</" + name + ">";
     body += "</u:" + action + "></s:Body></s:Envelope>";
     return "POST " + control.path + " HTTP/1.1\r\nHost: " + hostOf(control) +
@@ -203,9 +209,11 @@ std::string soapRequest(const Url& control, const std::string& serviceType, cons
            "\"\r\nContent-Length: " + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
 }
 
-std::vector<uint8_t> natPmpAddressRequest() { return {0, 0}; }
+std::vector<uint8_t> natPmpAddressRequest() {
+    return {0, 0};
+}
 
-bool natPmpAddressReply(const std::vector<uint8_t>& reply, uint32_t& ip, int& result) {
+bool natPmpAddressReply(const std::vector<uint8_t> &reply, uint32_t &ip, int &result) {
     if (reply.size() < 12 || reply[0] != 0 || reply[1] != 128)
         return false;
     result = be16(&reply[2]);
@@ -228,7 +236,7 @@ std::vector<uint8_t> natPmpMapRequest(uint16_t internalPort, uint16_t externalPo
             uint8_t(lifetime)};
 }
 
-bool natPmpMapReply(const std::vector<uint8_t>& reply, uint16_t& externalPort, uint32_t& lifetime, int& result) {
+bool natPmpMapReply(const std::vector<uint8_t> &reply, uint16_t &externalPort, uint32_t &lifetime, int &result) {
     if (reply.size() < 16 || reply[0] != 0 || reply[1] != 129)
         return false;
     result = be16(&reply[2]);
@@ -237,9 +245,9 @@ bool natPmpMapReply(const std::vector<uint8_t>& reply, uint16_t& externalPort, u
     return true;
 }
 
-PortMapper::Transport PortMapper::through(System& sys) {
+PortMapper::Transport PortMapper::through(System &sys) {
     Transport t;
-    t.udp = [&sys](const Address& to, const std::vector<uint8_t>& datagram, int waitMs) {
+    t.udp = [&sys](const Address &to, const std::vector<uint8_t> &datagram, int waitMs) {
         std::vector<std::pair<Address, std::vector<uint8_t>>> replies;
         std::unique_ptr<UdpSocket> socket;
         if (sys.openUdp(0, socket) || !socket || !socket->send(to, datagram))
@@ -257,7 +265,7 @@ PortMapper::Transport PortMapper::through(System& sys) {
         }
         return replies;
     };
-    t.http = [&sys](const Address& to, const std::string& request, std::string& response, uint32_t& localIp) {
+    t.http = [&sys](const Address &to, const std::string &request, std::string &response, uint32_t &localIp) {
         return sys.httpExchange(to, request, response, localIp, kHttpWaitMs);
     };
     t.gateways = sys.gateways();
@@ -324,15 +332,15 @@ PortMapping PortMapper::map() {
     return out;
 }
 
-bool PortMapper::mapUpnp(PortMapping& out) {
+bool PortMapper::mapUpnp(PortMapping &out) {
     if (!_transport.udp || !_transport.http)
         return false;
     // Gateways found by an SSDP search, each asked for its description.
     std::vector<std::string> locations;
-    for (const char* target :
+    for (const char *target :
          {"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:service:WANIPConnection:1"}) {
         const std::string search = ssdpSearch(target);
-        for (const auto& [from, data] :
+        for (const auto &[from, data] :
              _transport.udp(kSsdp, std::vector<uint8_t>(search.begin(), search.end()), _transport.waitMs)) {
             std::string url;
             if (ssdpLocation(std::string(data.begin(), data.end()), url) &&
@@ -342,7 +350,7 @@ bool PortMapper::mapUpnp(PortMapping& out) {
         if (!locations.empty())
             break;
     }
-    for (const std::string& location : locations) {
+    for (const std::string &location : locations) {
         Url where;
         std::string response;
         uint32_t localIp = 0;
@@ -357,7 +365,7 @@ bool PortMapper::mapUpnp(PortMapping& out) {
         // A mapping for good (lease 0), else for a day if the router wants
         // one with an end (some won't have permanent ones).
         bool mapped = false;
-        for (const char* lease : {"0", "86400"}) {
+        for (const char *lease : {"0", "86400"}) {
             const std::string request = soapRequest(control, type, "AddPortMapping",
                                                     {{"NewRemoteHost", ""},
                                                      {"NewExternalPort", std::to_string(_port)},
@@ -395,7 +403,7 @@ bool PortMapper::mapUpnp(PortMapping& out) {
     return false;
 }
 
-bool PortMapper::mapNatPmp(PortMapping& out) {
+bool PortMapper::mapNatPmp(PortMapping &out) {
     if (!_transport.udp)
         return false;
     for (uint32_t gateway : _transport.gateways) {
@@ -405,13 +413,13 @@ bool PortMapper::mapNatPmp(PortMapping& out) {
         uint32_t lifetime = 0;
         int result = -1;
         bool ok = false;
-        for (const auto& [from, data] : map)
+        for (const auto &[from, data] : map)
             ok = ok || (natPmpMapReply(data, external, lifetime, result) && result == 0);
         if (!ok)
             continue;
         out.way = PortMapping::Way::kNatPmp;
         out.externalPort = external;
-        for (const auto& [from, data] :
+        for (const auto &[from, data] :
              _transport.udp({gateway, kNatPmpPort}, natPmpAddressRequest(), _transport.waitMs)) {
             uint32_t ip = 0;
             if (natPmpAddressReply(data, ip, result) && result == 0)

@@ -12,10 +12,9 @@ namespace reluva {
 namespace {
 
 constexpr int kShift[64] = {
-    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-    5, 9,  14, 20, 5, 9,  14, 20, 5, 9,  14, 20, 5, 9,  14, 20,
-    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+    7,  12, 17, 22, 7,  12, 17, 22, 7,  12, 17, 22, 7,  12, 17, 22, 5,  9,  14, 20, 5,  9,
+    14, 20, 5,  9,  14, 20, 5,  9,  14, 20, 4,  11, 16, 23, 4,  11, 16, 23, 4,  11, 16, 23,
+    4,  11, 16, 23, 6,  10, 15, 21, 6,  10, 15, 21, 6,  10, 15, 21, 6,  10, 15, 21,
 };
 
 struct Constants {
@@ -26,19 +25,22 @@ struct Constants {
     }
 };
 
-const Constants& constants() {
+const Constants &constants() {
     static const Constants kC;
     return kC;
 }
 
-uint32_t rotl(uint32_t x, int c) { return (x << c) | (x >> (32 - c)); }
+uint32_t rotl(uint32_t x, int c) {
+    return (x << c) | (x >> (32 - c));
+}
 
 } // namespace
 
-Md5::Md5() : _state{0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476} {}
+Md5::Md5() : _state{0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476} {
+}
 
-void Md5::block(const uint8_t* p) {
-    const uint32_t* K = constants().k;
+void Md5::block(const uint8_t *p) {
+    const uint32_t *K = constants().k;
     uint32_t m[16];
     for (int i = 0; i < 16; ++i)
         m[i] = uint32_t(p[i * 4]) | uint32_t(p[i * 4 + 1]) << 8 | uint32_t(p[i * 4 + 2]) << 16 |
@@ -73,8 +75,8 @@ void Md5::block(const uint8_t* p) {
     _state[3] += d;
 }
 
-void Md5::update(const void* data, size_t len) {
-    auto* p = static_cast<const uint8_t*>(data);
+void Md5::update(const void *data, size_t len) {
+    auto *p = static_cast<const uint8_t *>(data);
     _length += len;
     while (len > 0) {
         size_t n = std::min(len, sizeof(_buffer) - _bufferLen);
@@ -90,7 +92,7 @@ void Md5::update(const void* data, size_t len) {
 }
 
 std::string Md5::hexDigest() {
-    static const char* hex = "0123456789abcdef";
+    static const char *hex = "0123456789abcdef";
     std::string out;
     for (uint8_t byte : digest()) {
         out += hex[byte >> 4];
@@ -117,7 +119,7 @@ std::array<uint8_t, 16> Md5::digest() {
     return out;
 }
 
-std::array<uint8_t, 16> hmacMd5(const void* key, size_t keyLen, const void* message, size_t len) {
+std::array<uint8_t, 16> hmacMd5(const void *key, size_t keyLen, const void *message, size_t len) {
     // RFC 2104: MD5((K ^ opad) || MD5((K ^ ipad) || message)), the key
     // hashed first if it's longer than MD5's 64-byte block.
     std::array<uint8_t, 64> k{};

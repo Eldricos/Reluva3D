@@ -12,11 +12,11 @@ namespace reluva::text {
 
 // Convert UTF-16 little-endian code units to UTF-8. Unpaired surrogates
 // become U+FFFD.
-std::string utf16leToUtf8(const uint16_t* units, size_t count);
+std::string utf16leToUtf8(const uint16_t *units, size_t count);
 
 // The code point at s[i] of UTF-8 text, advancing i past it (U+FFFD for a
 // bad sequence). i must be less than s.size().
-uint32_t nextUtf8(std::string_view s, size_t& i);
+uint32_t nextUtf8(std::string_view s, size_t &i);
 
 // A code point as Latin-1 (U+0000-U+00FF) for drawing in fonts limited to
 // it: typographic quotes and dashes become their ASCII forms, a tab a space,

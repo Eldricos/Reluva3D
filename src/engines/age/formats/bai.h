@@ -25,8 +25,8 @@ struct AiRoadSide {
     // right drives it: side 1's from the road's first point to its last,
     // side 0's from its last to its first (unlike the other rows here).
     std::vector<std::vector<Vec3>> lanes;
-    std::vector<float> laneOffsets;              // each lane's distance from the road's middle line
-    std::vector<std::vector<Vec3>> tracks;       // tram, then train lines
+    std::vector<float> laneOffsets;        // each lane's distance from the road's middle line
+    std::vector<std::vector<Vec3>> tracks; // tram, then train lines
     uint16_t trams = 0, trains = 0;
     uint16_t kind = 0;                           // 0-3, meaning not known yet
     std::vector<Vec3> sidewalk, curb, outerEdge; // the sidewalk's middle and its two edges
@@ -42,12 +42,12 @@ struct AiRoadEnd {
 
 struct AiRoad {
     uint16_t id = 0;
-    uint16_t flags = 0;               // meaning not known yet
-    std::vector<uint16_t> blocks;     // the PSDL blocks it runs through
-    float halfWidth = 0;              // middle line to the sidewalks' outer edge
-    float speedLimit = 0;             // 15 throughout
+    uint16_t flags = 0;           // meaning not known yet
+    std::vector<uint16_t> blocks; // the PSDL blocks it runs through
+    float halfWidth = 0;          // middle line to the sidewalks' outer edge
+    float speedLimit = 0;         // 15 throughout
     std::array<AiRoadSide, 2> sides{};
-    std::vector<Vec3> middle;         // the middle line
+    std::vector<Vec3> middle; // the middle line
     // ends[0] is the junction at the last point, ends[1] the one at the first.
     std::array<AiRoadEnd, 2> ends{};
 };
@@ -64,6 +64,6 @@ struct AiRoadMap {
     std::vector<AiJunction> junctions;
 };
 
-Error readBai(const std::vector<uint8_t>& data, AiRoadMap& out);
+Error readBai(const std::vector<uint8_t> &data, AiRoadMap &out);
 
 } // namespace reluva::age

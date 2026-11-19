@@ -13,7 +13,9 @@ namespace reluva::age {
 
 namespace {
 
-std::string lower(std::string s) { return fs::toLower(s); }
+std::string lower(std::string s) {
+    return fs::toLower(s);
+}
 
 // "s_thames-0009" -> "s_thames".
 std::string withoutFrame(std::string s) {
@@ -24,13 +26,13 @@ std::string withoutFrame(std::string s) {
 
 } // namespace
 
-Error PhysicsMaterials::load(const SearchSet& files) {
+Error PhysicsMaterials::load(const SearchSet &files) {
     std::vector<uint8_t> mtl, csv;
     if (Error err = files.read("city/materials.mtl", mtl))
         return err;
     files.read("city/materials.csv", csv);
-    return parse(std::string_view(reinterpret_cast<const char*>(mtl.data()), mtl.size()),
-                 std::string_view(reinterpret_cast<const char*>(csv.data()), csv.size()));
+    return parse(std::string_view(reinterpret_cast<const char *>(mtl.data()), mtl.size()),
+                 std::string_view(reinterpret_cast<const char *>(csv.data()), csv.size()));
 }
 
 Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
@@ -39,7 +41,7 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
     _textures.clear();
     std::istringstream in{std::string(mtl)};
     std::string line;
-    PhysicsMaterial* m = nullptr;
+    PhysicsMaterial *m = nullptr;
     while (std::getline(in, line)) {
         std::istringstream words(line);
         std::string word;
@@ -107,12 +109,12 @@ Error PhysicsMaterials::parse(std::string_view mtl, std::string_view csv) {
     return Error::success();
 }
 
-const PhysicsMaterial& PhysicsMaterials::byName(const std::string& name) const {
+const PhysicsMaterial &PhysicsMaterials::byName(const std::string &name) const {
     const auto it = _byName.find(lower(name));
     return it == _byName.end() ? _default : _materials[it->second];
 }
 
-const PhysicsMaterial& PhysicsMaterials::forTexture(const std::string& texture) const {
+const PhysicsMaterial &PhysicsMaterials::forTexture(const std::string &texture) const {
     const std::string key = lower(texture);
     auto it = _textures.find(key);
     if (it == _textures.end())
@@ -120,7 +122,7 @@ const PhysicsMaterial& PhysicsMaterials::forTexture(const std::string& texture) 
     return it == _textures.end() ? _default : byName(it->second);
 }
 
-CollisionSurface PhysicsMaterials::surface(const PhysicsMaterial& m) const {
+CollisionSurface PhysicsMaterials::surface(const PhysicsMaterial &m) const {
     // Relative to the default material (0.9, the roads'), so roads stay
     // what Reluva's driving was tuned on.
     CollisionSurface s;

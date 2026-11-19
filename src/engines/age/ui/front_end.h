@@ -28,25 +28,25 @@ struct Widget {
     int x = 0, y = 0, w = 0, h = 0;
     std::string desc;
 };
-Error parseWidgets(const std::string& csv, std::vector<Widget>& out);
+Error parseWidgets(const std::string &csv, std::vector<Widget> &out);
 
 // The menus' pictures: jpg/<name>.jpg backgrounds and texture/<name>
 // buttons (stacks of 4 or 5 states, one above another), read once.
 class MenuPictures {
 public:
-    explicit MenuPictures(const SearchSet& files) : _files(files) {}
-    const image::Image* jpg(const std::string& name);
-    const image::Image* texture(const std::string& name);
+    explicit MenuPictures(const SearchSet &files) : _files(files) {}
+    const image::Image *jpg(const std::string &name);
+    const image::Image *texture(const std::string &name);
 
 private:
-    const SearchSet& _files;
+    const SearchSet &_files;
     std::map<std::string, std::unique_ptr<image::Image>> _cache;
 };
 
 // Draws `im` (scaled to w x h when given) over the overlay, blending by
 // its alpha; or one state of a stacked button.
-void drawPicture(Surface& overlay, const image::Image& im, int x, int y, int w = 0, int h = 0);
-void drawButtonState(Surface& overlay, const image::Image& im, int x, int y, int states, int state);
+void drawPicture(Surface &overlay, const image::Image &im, int x, int y, int w = 0, int h = 0);
+void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int states, int state);
 
 // The game's menus as Reluva draws them: the main menu, the races, the
 // Crash Course and the garage, laid out by widget.csv on the jpg/
@@ -73,7 +73,7 @@ public:
             int laps = 1, opponents = 0, timeOfDay = 0, weather = 0, cops = 0;
             float traffic = 0, peds = 0;
             bool hidePeds = false;
-            bool operator==(const Conditions&) const = default;
+            bool operator==(const Conditions &) const = default;
         };
         Conditions conditions;
         bool changed = false;
@@ -106,14 +106,14 @@ public:
         kMinimise,      // and its Minimise
     };
     // The drivers, for the main menu's SELECT DRIVER (Left/Right chooses).
-    void setDrivers(DriverRoster* roster) { _roster = roster; }
+    void setDrivers(DriverRoster *roster) { _roster = roster; }
 
-    FrontEnd(const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
-             const GameStrings& strings, const PlayerRecord& record);
+    FrontEnd(const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
+             const GameStrings &strings, const PlayerRecord &record);
     bool loaded() const { return _ok; }
 
-    Action handle(const Event& ev);
-    void draw(Surface& overlay);
+    Action handle(const Event &ev);
+    void draw(Surface &overlay);
 
     Screen screen() const { return _screen; }
     // Past the splash to the main menu (after the opening movie).
@@ -126,7 +126,7 @@ public:
     void afterRace() { go(_afterGarage); }
     // The choice looked at again (another driver's record, say).
     void refreshChoice() { refresh(); }
-    Choice& choice() { return _choice; }
+    Choice &choice() { return _choice; }
     // The control with the focus (for the menus' voices).
     std::string focusedWidget() const {
         const auto list = items();
@@ -163,28 +163,28 @@ private:
         bool enabled = true;
         std::string picture; // when it isn't the widget's name
         int states = 0;      // when the description doesn't say
-        const std::string& pictureName() const { return picture.empty() ? widget : picture; }
+        const std::string &pictureName() const { return picture.empty() ? widget : picture; }
     };
     std::vector<Item> items() const;
     std::vector<Item> screenItems() const;
-    int statesOf(const Item& item, const Widget& w) const {
+    int statesOf(const Item &item, const Widget &w) const {
         return item.states ? item.states : w.desc.find("5 State") != std::string::npos ? 5 : 4;
     }
-    const Widget* widget(const std::string& name) const;
+    const Widget *widget(const std::string &name) const;
     void go(Screen s);
-    void activate(const Item& item, Action& action);
-    void change(const Item& item, int step);
+    void activate(const Item &item, Action &action);
+    void change(const Item &item, int step);
     void refresh(); // the race's names and settings
-    void text(Surface& o, const std::string& widget, const std::string& s, Color c = {255, 230, 140}) const;
-    void bar(Surface& o, const std::string& widget, float share) const;
-    bool hit(const Item& item, int x, int y);
+    void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
+    void bar(Surface &o, const std::string &widget, float share) const;
+    bool hit(const Item &item, int x, int y);
 
-    const SearchSet& _files;
-    const std::vector<CityInfo>& _cities;
-    const std::vector<CarInfo>& _cars;
-    const GameStrings& _strings;
-    const PlayerRecord& _record;
-    DriverRoster* _roster = nullptr;
+    const SearchSet &_files;
+    const std::vector<CityInfo> &_cities;
+    const std::vector<CarInfo> &_cars;
+    const GameStrings &_strings;
+    const PlayerRecord &_record;
+    DriverRoster *_roster = nullptr;
     bool _driverChanged = false;
     std::string _conditionsFor; // the race the conditions are of
     bool quickRace() const {

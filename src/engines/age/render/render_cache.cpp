@@ -18,17 +18,17 @@ namespace reluva::age {
 namespace {
 
 constexpr uint32_t kFvfNormal = 0x10;
-const char* const kLevels[] = {"H", "M", "L", "VL"};
+const char *const kLevels[] = {"H", "M", "L", "VL"};
 
-bool isLevel(const std::string& level) {
-    for (const char* l : kLevels)
+bool isLevel(const std::string &level) {
+    for (const char *l : kLevels)
         if (level == l)
             return true;
     return false;
 }
 
 // Half the size each way, each pixel the mean of four.
-image::Image halve(const image::Image& in) {
+image::Image halve(const image::Image &in) {
     image::Image out;
     out.w = std::max(1, in.w / 2);
     out.h = std::max(1, in.h / 2);
@@ -47,7 +47,7 @@ image::Image halve(const image::Image& in) {
 
 } // namespace
 
-gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
+gfx::TextureId TextureCache::create(const Tex &tex, bool &translucent) {
     translucent = false;
     for (size_t i = 3; i < tex.image.rgba.size(); i += 4)
         if (tex.image.rgba[i] != 255) {
@@ -61,7 +61,7 @@ gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
     params.clamp = tex.flags & texflag::kClamp;
     // The Texture Quality: smaller, but for those flagged to keep their
     // detail.
-    const image::Image* image = &tex.image;
+    const image::Image *image = &tex.image;
     image::Image smaller;
     if (!(tex.flags & texflag::kFullDetail))
         for (int i = 0; i < _halvings && image->w >= 32 && image->h >= 32; ++i) {
@@ -74,7 +74,7 @@ gfx::TextureId TextureCache::create(const Tex& tex, bool& translucent) {
     return id;
 }
 
-gfx::TextureId TextureCache::get(const std::string& name, bool& translucent, bool optional) {
+gfx::TextureId TextureCache::get(const std::string &name, bool &translucent, bool optional) {
     const std::string key = fs::toLower(name);
     auto it = _textures.find(key);
     if (it == _textures.end()) {
@@ -127,7 +127,7 @@ gfx::TextureId TextureCache::get(const std::string& name, bool& translucent, boo
     return it->second.id;
 }
 
-bool TextureCache::size(const std::string& name, int& width, int& height) const {
+bool TextureCache::size(const std::string &name, int &width, int &height) const {
     const auto it = _textures.find(fs::toLower(name));
     if (it == _textures.end() || !it->second.id)
         return false;
@@ -140,12 +140,12 @@ gfx::TextureId TextureCache::frame(gfx::TextureId id) const {
     const auto it = _animations.find(id);
     if (it == _animations.end())
         return id;
-    const Animation& a = it->second;
+    const Animation &a = it->second;
     return a.frames[(a.first + size_t(std::max(0.0f, _time) * a.rate)) % a.frames.size()];
 }
 
 void TextureCache::clear() {
-    for (auto& [name, e] : _textures)
+    for (auto &[name, e] : _textures)
         if (e.id && !_animations.count(e.id))
             _renderer.destroyTexture(e.id);
     for (gfx::TextureId id : _frameIds)
@@ -157,10 +157,10 @@ void TextureCache::clear() {
     _missing.clear();
 }
 
-std::vector<std::string> modelLevels(const Pkg& pkg) {
+std::vector<std::string> modelLevels(const Pkg &pkg) {
     std::vector<std::string> levels;
-    for (const char* l : kLevels)
-        for (const PkgMesh& m : pkg.meshes)
+    for (const char *l : kLevels)
+        for (const PkgMesh &m : pkg.meshes)
             if (m.level() == l) {
                 levels.push_back(l);
                 break;
@@ -168,9 +168,9 @@ std::vector<std::string> modelLevels(const Pkg& pkg) {
     return levels;
 }
 
-Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
-                     const std::string& pkgName, const Pkg& pkg, const std::string& level, uint32_t paintJob,
-                     bool lights, ModelMesh& out, const std::function<bool(const std::string& part)>& includePart,
+Error buildModelMesh(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
+                     const std::string &pkgName, const Pkg &pkg, const std::string &level, uint32_t paintJob,
+                     bool lights, ModelMesh &out, const std::function<bool(const std::string &part)> &includePart,
                      bool placeParts) {
     out = ModelMesh{};
     const std::string base = pkgName.substr(0, pkgName.rfind('.'));
@@ -178,7 +178,7 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     std::vector<uint32_t> indices;
     Vec3 lo{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
     Vec3 hi{-lo[0], -lo[1], -lo[2]};
-    for (const PkgMesh& m : pkg.meshes) {
+    for (const PkgMesh &m : pkg.meshes) {
         // Meshes of the level, and any not named by level; the lit parts
         // only when asked for, at whatever level they're made.
         if (isLightPart(m.part()) ? !lights : isLevel(m.level()) && m.level() != level)
@@ -198,11 +198,11 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             !readMtx(placement, mtx))
             at = mtx.origin;
         const bool lit = m.fvf & kFvfNormal;
-        for (const PkgGroup& g : m.groups) {
+        for (const PkgGroup &g : m.groups) {
             ModelDraw d;
             d.firstIndex = uint32_t(indices.size());
             d.indexCount = uint32_t(g.indices.size());
-            if (const PkgShader* s = pkg.shader(paintJob, g.shader)) {
+            if (const PkgShader *s = pkg.shader(paintJob, g.shader)) {
                 d.color = s->diffuse;
                 d.ambient = {s->ambient[0], s->ambient[1], s->ambient[2]};
                 d.emissive = {s->emissive[0], s->emissive[1], s->emissive[2]};
@@ -220,7 +220,7 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
             d.lit = lit && !d.glow;
             const uint32_t first = uint32_t(vertices.size());
             Vec3 groupLo{1e30f, 1e30f, 1e30f}, groupHi{-1e30f, -1e30f, -1e30f};
-            for (const PkgVertex& v : g.vertices) {
+            for (const PkgVertex &v : g.vertices) {
                 gfx::Vertex o{};
                 for (size_t k = 0; k < 3; ++k) {
                     o.pos[k] = v.pos[k] + at[k];
@@ -256,17 +256,17 @@ Error buildModelMesh(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     return renderer.createMesh(vertices, indices, out.mesh);
 }
 
-void destroyModelMesh(gfx::Renderer3D& renderer, ModelMesh& mesh) {
+void destroyModelMesh(gfx::Renderer3D &renderer, ModelMesh &mesh) {
     if (mesh.mesh)
         renderer.destroyMesh(mesh.mesh);
     mesh = ModelMesh{};
 }
 
-void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model, const SceneLight& light,
-                   bool translucent, const TextureCache* animate) {
+void drawModelMesh(gfx::Renderer3D &renderer, const ModelMesh &mesh, const gfx::Mat4 &model, const SceneLight &light,
+                   bool translucent, const TextureCache *animate) {
     if (!mesh.mesh)
         return;
-    for (const ModelDraw& d : mesh.draws) {
+    for (const ModelDraw &d : mesh.draws) {
         if (d.translucent != translucent)
             continue;
         gfx::DrawCall call;
@@ -302,11 +302,11 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
     }
 }
 
-void drawModelReflection(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::Mat4& model,
-                         const SceneLight& light, gfx::TextureId map, float strength) {
+void drawModelReflection(gfx::Renderer3D &renderer, const ModelMesh &mesh, const gfx::Mat4 &model,
+                         const SceneLight &light, gfx::TextureId map, float strength) {
     if (!mesh.mesh || !map)
         return;
-    for (const ModelDraw& d : mesh.draws) {
+    for (const ModelDraw &d : mesh.draws) {
         if (d.translucent || d.glow || d.shininess <= 0)
             continue;
         gfx::DrawCall call;
@@ -330,7 +330,7 @@ void drawModelReflection(gfx::Renderer3D& renderer, const ModelMesh& mesh, const
     }
 }
 
-void applyFog(gfx::DrawCall& call, const SceneLight& light, bool additive) {
+void applyFog(gfx::DrawCall &call, const SceneLight &light, bool additive) {
     if (light.fogEnd <= 0)
         return;
     call.fogColor = additive ? gfx::Vec3{} : light.fogColor;
@@ -338,7 +338,7 @@ void applyFog(gfx::DrawCall& call, const SceneLight& light, bool additive) {
     call.fogFar = light.fogEnd;
 }
 
-const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paintJob) {
+const ModelCache::Model &ModelCache::get(const std::string &name, uint32_t paintJob) {
     const std::string key = fs::toLower(name) + (paintJob ? "#" + std::to_string(paintJob) : "");
     auto it = _models.find(key);
     if (it != _models.end())
@@ -351,7 +351,7 @@ const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paint
         model->paintJobs = std::max(1u, pkg.paintJobs);
         model->xrefs = pkg.xrefs;
         paintJob %= model->paintJobs;
-        for (const std::string& level : modelLevels(pkg)) {
+        for (const std::string &level : modelLevels(pkg)) {
             ModelMesh mesh;
             if (buildModelMesh(_renderer, _textures, _files, file, pkg, level, paintJob, false, mesh))
                 break;
@@ -371,7 +371,7 @@ const ModelCache::Model& ModelCache::get(const std::string& name, uint32_t paint
     return *_models.emplace(key, std::move(model)).first->second;
 }
 
-const ModelMesh& ModelCache::part(const std::string& name, const std::string& part, uint32_t paintJob) {
+const ModelMesh &ModelCache::part(const std::string &name, const std::string &part, uint32_t paintJob) {
     const std::string key = fs::toLower(name) + "/" + part + "#" + std::to_string(paintJob);
     auto it = _parts.find(key);
     if (it != _parts.end())
@@ -385,12 +385,12 @@ const ModelMesh& ModelCache::part(const std::string& name, const std::string& pa
         const auto levels = modelLevels(pkg);
         buildModelMesh(_renderer, _textures, _files, file, pkg, levels.empty() ? "" : levels.front(),
                        paintJob % std::max(1u, pkg.paintJobs), true, *mesh,
-                       [&](const std::string& p) { return p == part; });
+                       [&](const std::string &p) { return p == part; });
     }
     return *_parts.emplace(key, std::move(mesh)).first->second;
 }
 
-bool ModelCache::partOrigin(const std::string& name, const std::string& part, Vec3& out) {
+bool ModelCache::partOrigin(const std::string &name, const std::string &part, Vec3 &out) {
     const std::string key = fs::toLower(name) + "/" + part;
     auto it = _origins.find(key);
     if (it == _origins.end()) {
@@ -404,17 +404,17 @@ bool ModelCache::partOrigin(const std::string& name, const std::string& part, Ve
 }
 
 void ModelCache::clear() {
-    for (auto& [name, m] : _models)
-        for (ModelMesh& mesh : m->levels)
+    for (auto &[name, m] : _models)
+        for (ModelMesh &mesh : m->levels)
             destroyModelMesh(_renderer, mesh);
     _models.clear();
-    for (auto& [name, m] : _parts)
+    for (auto &[name, m] : _parts)
         destroyModelMesh(_renderer, *m);
     _parts.clear();
     _origins.clear();
 }
 
-FlareDrawer::FlareDrawer(gfx::Renderer3D& renderer, TextureCache& textures) : _renderer(renderer) {
+FlareDrawer::FlareDrawer(gfx::Renderer3D &renderer, TextureCache &textures) : _renderer(renderer) {
     // A unit square in X and Y, drawn turned to face the camera.
     std::vector<gfx::Vertex> v(4);
     const float corners[4][2] = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}};
@@ -436,7 +436,7 @@ FlareDrawer::~FlareDrawer() {
         _renderer.destroyMesh(_quad);
 }
 
-void FlareDrawer::draw(const Vec3& at, float size, const std::array<float, 3>& color, const Vec3& eye) const {
+void FlareDrawer::draw(const Vec3 &at, float size, const std::array<float, 3> &color, const Vec3 &eye) const {
     if (!_quad || size <= 0)
         return;
     Vec3 toEye = eye - at;
@@ -454,7 +454,7 @@ void FlareDrawer::draw(const Vec3& at, float size, const std::array<float, 3>& c
     call.mesh = _quad;
     call.indexCount = 6;
     call.model = {axes.x[0], axes.x[1], axes.x[2], 0, axes.y[0], axes.y[1], axes.y[2], 0,
-                  axes.z[0], axes.z[1], axes.z[2], 0, p[0], p[1], p[2], 1};
+                  axes.z[0], axes.z[1], axes.z[2], 0, p[0],      p[1],      p[2],      1};
     call.texture = _texture;
     call.color = {color[0], color[1], color[2], 1};
     call.state.src = call.state.dst = gfx::Blend::kOne;
@@ -463,8 +463,8 @@ void FlareDrawer::draw(const Vec3& at, float size, const std::array<float, 3>& c
     _renderer.draw(call);
 }
 
-ViewFrustum::ViewFrustum(const gfx::Mat4& viewProj) {
-    const float* m = viewProj.data();
+ViewFrustum::ViewFrustum(const gfx::Mat4 &viewProj) {
+    const float *m = viewProj.data();
     auto row = [&](int r) { return std::array<float, 4>{m[r], m[4 + r], m[8 + r], m[12 + r]}; };
     const auto r0 = row(0), r1 = row(1), r2 = row(2), r3 = row(3);
     for (size_t k = 0; k < 4; ++k) {
@@ -474,15 +474,15 @@ ViewFrustum::ViewFrustum(const gfx::Mat4& viewProj) {
         _planes[3][k] = r3[k] - r1[k];
         _planes[4][k] = r2[k];
     }
-    for (auto& p : _planes) {
+    for (auto &p : _planes) {
         const float len = std::sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-        for (float& c : p)
+        for (float &c : p)
             c /= len;
     }
 }
 
-bool ViewFrustum::visible(const gfx::Vec3& c, float radius) const {
-    for (const auto& p : _planes)
+bool ViewFrustum::visible(const gfx::Vec3 &c, float radius) const {
+    for (const auto &p : _planes)
         if (p[0] * c[0] + p[1] * c[1] + p[2] * c[2] + p[3] < -radius)
             return false;
     return true;

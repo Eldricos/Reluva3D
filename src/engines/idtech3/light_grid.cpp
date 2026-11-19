@@ -20,7 +20,7 @@ constexpr float kMinimumAmbient = 32;
 
 } // namespace
 
-void LightGrid::build(const Bsp& bsp, std::array<float, 3> cellSize) {
+void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
     data_.clear();
     if (bsp.models.empty() || bsp.lightGrid.empty())
         return;
@@ -45,7 +45,7 @@ void LightGrid::build(const Bsp& bsp, std::array<float, 3> cellSize) {
     }
 }
 
-PointLight LightGrid::sample(const std::array<float, 3>& pos) const {
+PointLight LightGrid::sample(const std::array<float, 3> &pos) const {
     PointLight light;
     if (data_.empty()) {
         light.ambient = {150 + kMinimumAmbient, 150 + kMinimumAmbient, 150 + kMinimumAmbient};
@@ -83,7 +83,7 @@ PointLight LightGrid::sample(const std::array<float, 3>& pos) const {
         }
         if (!inside)
             continue;
-        const uint8_t* p = &data_[at];
+        const uint8_t *p = &data_[at];
         if (p[0] + p[1] + p[2] == 0)
             continue; // inside a wall
         total += weight;
@@ -106,7 +106,7 @@ PointLight LightGrid::sample(const std::array<float, 3>& pos) const {
     const float len = std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (len > 0)
         light.direction = {dir[0] / len, dir[1] / len, dir[2] / len};
-    for (float& a : light.ambient)
+    for (float &a : light.ambient)
         a = std::min(255.0f, a + kMinimumAmbient);
     return light;
 }

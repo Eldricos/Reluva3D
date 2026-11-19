@@ -32,10 +32,10 @@ constexpr int kListShown = 19; // controls shown at once from y 62 (the list scr
 // The About screen's credits scroll by at this many pixels a second.
 constexpr float kCreditsSpeed = 30;
 
-void fill(Surface& o, int x, int y, int w, int h, Color c) {
+void fill(Surface &o, int x, int y, int w, int h, Color c) {
     for (int yy = std::max(0, y); yy < std::min(o.h, y + h); ++yy)
         for (int xx = std::max(0, x); xx < std::min(o.w, x + w); ++xx) {
-            uint8_t* p = o.row(yy) + xx * 4;
+            uint8_t *p = o.row(yy) + xx * 4;
             p[0] = c.r;
             p[1] = c.g;
             p[2] = c.b;
@@ -45,7 +45,7 @@ void fill(Surface& o, int x, int y, int w, int h, Color c) {
 
 // A band of a tall picture (rows from `top`, wrapping round), drawn at
 // x, y.
-void drawBand(Surface& o, const image::Image& im, int top, int x, int y, int w, int h) {
+void drawBand(Surface &o, const image::Image &im, int top, int x, int y, int w, int h) {
     if (im.w <= 0 || im.h <= 0)
         return;
     image::Image band;
@@ -61,7 +61,7 @@ void drawBand(Surface& o, const image::Image& im, int top, int x, int y, int w, 
 
 } // namespace
 
-GameMenus::GameMenus(System& sys, const SearchSet& files, const GameStrings& strings, audio::Mixer* mixer,
+GameMenus::GameMenus(System &sys, const SearchSet &files, const GameStrings &strings, audio::Mixer *mixer,
                      std::filesystem::path savePath)
     : _sys(sys), _files(files), _strings(strings), _mixer(mixer), _savePath(std::move(savePath)), _pictures(files) {
     std::vector<uint8_t> data;
@@ -166,35 +166,35 @@ bool GameMenus::typing() const {
     return _waitingForKey || _screen == Screen::kReplayName || (_screen == Screen::kNewDriver && _focus == 0);
 }
 
-void GameMenus::nameReplay(const std::string& name) {
+void GameMenus::nameReplay(const std::string &name) {
     _name = name.substr(0, 40);
     _under = Screen::kNone;
     _screen = Screen::kNone;
     go(Screen::kReplayName);
 }
 
-void GameMenus::askToSaveReplay(const std::string& name) {
+void GameMenus::askToSaveReplay(const std::string &name) {
     _name = name.substr(0, 40);
     _under = Screen::kNone;
     _screen = Screen::kNone;
     go(Screen::kReplayAsk);
 }
 
-const Widget* GameMenus::widget(const std::string& name) const {
+const Widget *GameMenus::widget(const std::string &name) const {
     const std::string menu = menuName();
-    for (const Widget& w : _widgets)
+    for (const Widget &w : _widgets)
         if (w.menu == menu && w.name == name)
             return &w;
     return nullptr;
 }
 
 std::vector<GameMenus::Item> GameMenus::items() const {
-    auto button = [](const std::string& w, const std::string& pic, bool enabled = true) {
+    auto button = [](const std::string &w, const std::string &pic, bool enabled = true) {
         return Item{Kind::kButton, w, pic, 4, enabled};
     };
-    auto check = [](const std::string& w, bool enabled = true) { return Item{Kind::kCheck, w, w, 5, enabled}; };
-    auto bar = [](const std::string& w, bool enabled = true) { return Item{Kind::kBar, w, {}, 0, enabled}; };
-    auto choice = [](const std::string& w, bool enabled = true) { return Item{Kind::kChoice, w, {}, 0, enabled}; };
+    auto check = [](const std::string &w, bool enabled = true) { return Item{Kind::kCheck, w, w, 5, enabled}; };
+    auto bar = [](const std::string &w, bool enabled = true) { return Item{Kind::kBar, w, {}, 0, enabled}; };
+    auto choice = [](const std::string &w, bool enabled = true) { return Item{Kind::kChoice, w, {}, 0, enabled}; };
     const std::vector<Item> bottom = {button("opt_def", "opt_def"), button("opt_can", "opt_can"),
                                       button("opt_dn", "opt_done")};
     std::vector<Item> list;
@@ -315,10 +315,10 @@ void GameMenus::go(Screen s) {
     _sys.setTextInput(typing());
 }
 
-bool GameMenus::checked(const std::string& w) const {
+bool GameMenus::checked(const std::string &w) const {
     if (driverScreen(_screen))
         return driverChecked(w);
-    const GameOptions& o = _edit;
+    const GameOptions &o = _edit;
     if (w == "aud_fx")
         return o.soundFx;
     if (w == "aud_com")
@@ -344,12 +344,12 @@ bool GameMenus::checked(const std::string& w) const {
     return false;
 }
 
-void GameMenus::toggle(const std::string& w) {
+void GameMenus::toggle(const std::string &w) {
     if (driverScreen(_screen)) {
         driverToggle(w);
         return;
     }
-    GameOptions& o = _edit;
+    GameOptions &o = _edit;
     if (w == "aud_fx")
         o.soundFx = !o.soundFx;
     else if (w == "aud_com")
@@ -357,7 +357,7 @@ void GameMenus::toggle(const std::string& w) {
     else if (w == "aud_musc" || w == "aud_amb") {
         // "Check either Play Music or City Sounds" (jpg/aud_tmus): one or
         // the other, at Music/City Volume.
-        bool& mine = w == "aud_musc" ? o.music : o.ambient;
+        bool &mine = w == "aud_musc" ? o.music : o.ambient;
         mine = !mine;
         if (mine)
             (w == "aud_musc" ? o.ambient : o.music) = false;
@@ -378,10 +378,10 @@ void GameMenus::toggle(const std::string& w) {
     applySoundOptions(_edit, _mixer); // heard at once
 }
 
-float GameMenus::share(const std::string& w) const {
+float GameMenus::share(const std::string &w) const {
     if (_screen == Screen::kRaceOptions)
         return raceShare(w);
-    const GameOptions& o = _edit;
+    const GameOptions &o = _edit;
     if (w == "WAVE VOLUME")
         return o.effectsVolume;
     if (w == "CD VOLUME")
@@ -397,13 +397,13 @@ float GameMenus::share(const std::string& w) const {
     return 0;
 }
 
-void GameMenus::setShare(const std::string& w, float v) {
+void GameMenus::setShare(const std::string &w, float v) {
     if (_screen == Screen::kRaceOptions) {
         setRaceShare(w, v);
         return;
     }
     v = std::clamp(std::round(v * 20) / 20, 0.0f, 1.0f);
-    GameOptions& o = _edit;
+    GameOptions &o = _edit;
     if (w == "WAVE VOLUME")
         o.effectsVolume = v;
     else if (w == "CD VOLUME")
@@ -419,9 +419,9 @@ void GameMenus::setShare(const std::string& w, float v) {
     applySoundOptions(_edit, _mixer);
 }
 
-std::string GameMenus::choiceText(const std::string& w) const {
+std::string GameMenus::choiceText(const std::string &w) const {
     static const uint32_t kDetail[4] = {574, 575, 576, 577}; // Low, Medium, High, Very High
-    static const char* const kDetailNames[4] = {"Low", "Medium", "High", "Very High"};
+    static const char *const kDetailNames[4] = {"Low", "Medium", "High", "Very High"};
     if (w == "DEVICE")
         return "Default output";
     if (w == "STEREO")
@@ -433,7 +433,7 @@ std::string GameMenus::choiceText(const std::string& w) const {
     if (w == "RENDERER")
         return "Reluva 3D";
     if (w == "RESOLUTION") {
-        const Resolution& r =
+        const Resolution &r =
             resolutions()[size_t(std::clamp<int>(_edit.resolution, 0, int(resolutions().size()) - 1))];
         return std::to_string(r.w) + " x " + std::to_string(r.h);
     }
@@ -442,7 +442,7 @@ std::string GameMenus::choiceText(const std::string& w) const {
     if (w == "OBJECT DETAIL")
         return _strings.get(kDetail[_edit.objectDetail & 3], kDetailNames[_edit.objectDetail & 3]);
     if (w == "CLOUD SHADOWS") {
-        static const char* const kShadows[3] = {"None", "Low", "High"};
+        static const char *const kShadows[3] = {"None", "Low", "High"};
         const int level = std::clamp(_edit.cloudShadows, 0, 2);
         return _strings.get(uint32_t(660 + level), kShadows[level]);
     }
@@ -451,8 +451,8 @@ std::string GameMenus::choiceText(const std::string& w) const {
     return {};
 }
 
-void GameMenus::step(const Item& item, int dir) {
-    const std::string& w = item.widget;
+void GameMenus::step(const Item &item, int dir) {
+    const std::string &w = item.widget;
     if (item.kind == Kind::kBar && _screen == Screen::kRaceOptions)
         setShare(w, share(w) + (w == "COP DENSITY" ? 0.25f : 0.1f) * float(dir)); // a tenth; a police car
     else if (item.kind == Kind::kBar)
@@ -473,8 +473,8 @@ void GameMenus::step(const Item& item, int dir) {
         _column = dir > 0 ? 1 : 0;
 }
 
-std::string GameMenus::description(const std::string& w) const {
-    static const std::pair<const char*, const char*> kPictures[] = {
+std::string GameMenus::description(const std::string &w) const {
+    static const std::pair<const char *, const char *> kPictures[] = {
         {"opt_aud", "opt_taud"},
         {"opt_ctl", "opt_tctl"},
         {"opt_gfx", "opt_tgfx"},
@@ -508,7 +508,7 @@ std::string GameMenus::description(const std::string& w) const {
     };
     if (w == "opt_def")
         return _screen == Screen::kAudio ? "opt_tadf" : "opt_tdef";
-    for (const auto& [name, picture] : kPictures)
+    for (const auto &[name, picture] : kPictures)
         if (w == name)
             return picture;
     return {};
@@ -519,7 +519,7 @@ GameMenus::Action GameMenus::done() {
     setCurrentOptions(_edit);
     applySoundOptions(_edit, _mixer);
     if (before.resolution != _edit.resolution || before.fullScreen != _edit.fullScreen) {
-        const Resolution& r = resolutions()[size_t(_edit.resolution)];
+        const Resolution &r = resolutions()[size_t(_edit.resolution)];
         _sys.setVideoMode(r.w, r.h, _edit.fullScreen);
     }
     _edit.save(_savePath);
@@ -535,12 +535,12 @@ GameMenus::Action GameMenus::cancel() {
     return Action::kNone;
 }
 
-GameMenus::Action GameMenus::activate(const Item& item) {
+GameMenus::Action GameMenus::activate(const Item &item) {
     if (!item.enabled)
         return Action::kNone;
     if (driverScreen(_screen))
         return driverActivate(item);
-    const std::string& w = item.widget;
+    const std::string &w = item.widget;
     if (item.kind == Kind::kCheck) {
         toggle(w);
         return Action::kNone;
@@ -631,14 +631,14 @@ GameMenus::Action GameMenus::activate(const Item& item) {
     return Action::kNone;
 }
 
-bool GameMenus::hit(const Item& item, int x, int y, int& w, int& h) const {
-    const Widget* wd = widget(item.widget);
+bool GameMenus::hit(const Item &item, int x, int y, int &w, int &h) const {
+    const Widget *wd = widget(item.widget);
     if (!wd)
         return false;
     w = wd->w;
     h = wd->h;
     if (item.kind == Kind::kButton || item.kind == Kind::kCheck)
-        if (const image::Image* im = _pictures.texture(item.picture)) {
+        if (const image::Image *im = _pictures.texture(item.picture)) {
             w = im->w;
             h = im->h / std::max(1, item.states);
         }
@@ -648,7 +648,7 @@ bool GameMenus::hit(const Item& item, int x, int y, int& w, int& h) const {
     return x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
 }
 
-GameMenus::Action GameMenus::handle(const Event& ev) {
+GameMenus::Action GameMenus::handle(const Event &ev) {
     if (_screen == Screen::kNone)
         return Action::kNone;
     const auto list = items();
@@ -666,7 +666,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         }
         return Action::kNone;
     }
-    const Item& item = list[size_t(_focus)];
+    const Item &item = list[size_t(_focus)];
     // Customize Controls, waiting for the key to give a control.
     if (_waitingForKey) {
         if (ev.type != EventType::kKeyDown)
@@ -675,7 +675,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         if (ev.key == key::kEscape)
             return Action::kNone;
         const Control c = Control(_row);
-        uint32_t& slot = _edit.keys[size_t(_row)][size_t(_column)];
+        uint32_t &slot = _edit.keys[size_t(_row)][size_t(_column)];
         if (ev.key == key::kBackspace || ev.key == key::kDelete) {
             slot = 0;
             return Action::kNone;
@@ -689,7 +689,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     }
     if (_screen == Screen::kNewDriver && _focus == 0) {
         if (ev.type == EventType::kTextInput) {
-            for (const char* c = ev.text; *c; ++c)
+            for (const char *c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && _newName.size() < 20)
                     _newName.push_back(*c);
             return Action::kNone;
@@ -704,7 +704,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     }
     if (_screen == Screen::kReplayName) {
         if (ev.type == EventType::kTextInput) {
-            for (const char* c = ev.text; *c; ++c)
+            for (const char *c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && _name.size() < 40)
                     _name.push_back(*c);
             return Action::kNone;
@@ -723,7 +723,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
             if (!list[i].enabled || !hit(list[i], ev.mouseX, ev.mouseY, w, h))
                 continue;
             _focus = int(i);
-            const Widget* wd = widget(list[i].widget);
+            const Widget *wd = widget(list[i].widget);
             switch (list[i].kind) {
             case Kind::kBar:
                 setShare(list[i].widget, float(ev.mouseX - (wd->x + originX() + barInset())) / kBarWidth);
@@ -731,7 +731,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
             case Kind::kChoice:
                 if (_screen == Screen::kRaceOptions) { // the icon clicked
                     const bool time = list[i].widget == "TIME";
-                    int& v = time ? _conditions.timeOfDay : _conditions.weather;
+                    int &v = time ? _conditions.timeOfDay : _conditions.weather;
                     v = std::clamp((ev.mouseX - (wd->x + originX() + 4)) / 31, 0, 3);
                     sayCondition(time);
                     return Action::kNone;
@@ -776,7 +776,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         }
         for (size_t tries = 0; tries < list.size(); ++tries) {
             _focus = (_focus + dir + int(list.size())) % int(list.size());
-            const Item& next = list[size_t(_focus)];
+            const Item &next = list[size_t(_focus)];
             if (next.enabled && next.kind != Kind::kLabel)
                 break;
         }
@@ -835,16 +835,16 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     return Action::kNone;
 }
 
-void GameMenus::text(Surface& o, const std::string& name, const std::string& s, Color c) const {
-    if (const Widget* w = widget(name))
+void GameMenus::text(Surface &o, const std::string &name, const std::string &s, Color c) const {
+    if (const Widget *w = widget(name))
         font::drawText(o, w->x + originX() + 6,
                        w->y + originY() + std::max(0, (std::min(w->h, 24) - font::kLineHeight) / 2), s, c);
 }
 
-void GameMenus::drawItems(Surface& o, const std::vector<Item>& list, int focus) const {
+void GameMenus::drawItems(Surface &o, const std::vector<Item> &list, int focus) const {
     for (size_t i = 0; i < list.size(); ++i) {
-        const Item& item = list[i];
-        const Widget* w = widget(item.widget);
+        const Item &item = list[i];
+        const Widget *w = widget(item.widget);
         if (!w)
             continue;
         const bool focused = int(i) == focus;
@@ -854,13 +854,13 @@ void GameMenus::drawItems(Surface& o, const std::vector<Item>& list, int focus) 
                                           : Color{255, 230, 140};
         switch (item.kind) {
         case Kind::kButton:
-            if (const image::Image* im = _pictures.texture(item.picture))
+            if (const image::Image *im = _pictures.texture(item.picture))
                 drawButtonState(o, *im, x, y, item.states, !item.enabled ? item.states - 1 : focused ? 1 : 0);
             break;
         case Kind::kCheck:
             // Its five states: clear, clear and pointed at, ticked, ticked
             // and pointed at, not available.
-            if (const image::Image* im = _pictures.texture(item.picture))
+            if (const image::Image *im = _pictures.texture(item.picture))
                 drawButtonState(o, *im, x, y, 5,
                                 !item.enabled ? 4 : (checked(item.widget) ? 2 : 0) + (focused ? 1 : 0));
             break;
@@ -902,10 +902,10 @@ void GameMenus::drawItems(Surface& o, const std::vector<Item>& list, int focus) 
     }
 }
 
-void GameMenus::drawScreenWords(Surface& o, uint64_t nowMs) const {
+void GameMenus::drawScreenWords(Surface &o, uint64_t nowMs) const {
     if (_screen == Screen::kCustomize) {
         // Each control, its two keys; the chosen one waiting for a key.
-        const Widget* w = widget("CW Array");
+        const Widget *w = widget("CW Array");
         if (!w)
             return;
         font::drawText(o, 432, 140, "Enter: change it", {255, 255, 255});
@@ -929,8 +929,8 @@ void GameMenus::drawScreenWords(Surface& o, uint64_t nowMs) const {
         }
     } else if (_screen == Screen::kAbout) {
         // The credits (jpg/credits, 215 x 4,582) scrolling through their box.
-        if (const Widget* w = widget("Credits"))
-            if (const image::Image* credits = _pictures.jpg("credits")) {
+        if (const Widget *w = widget("Credits"))
+            if (const image::Image *credits = _pictures.jpg("credits")) {
                 const int top = int(float(nowMs - _openedMs) / 1000 * kCreditsSpeed) - w->h;
                 drawBand(o, *credits, top, w->x, w->y, w->w, w->h);
             }
@@ -940,9 +940,9 @@ void GameMenus::drawScreenWords(Surface& o, uint64_t nowMs) const {
     }
 }
 
-void GameMenus::drawReplayList(Surface& o) const {
+void GameMenus::drawReplayList(Surface &o) const {
     // The replays saved: their names, city and length; the chosen one lit.
-    const Widget* w = widget("CITY");
+    const Widget *w = widget("CITY");
     if (!w)
         return;
     const int x = w->x + originX() - 8, y0 = w->y + originY() + 10;
@@ -950,7 +950,7 @@ void GameMenus::drawReplayList(Surface& o) const {
         font::drawText(o, x + 4, y0, "No replays saved yet", {200, 200, 200});
     const size_t first = _replayRow >= size_t(kReplayRows) ? _replayRow - size_t(kReplayRows) + 1 : 0;
     for (size_t i = first; i < _replays.size() && i < first + size_t(kReplayRows); ++i) {
-        const ReplayEntry& r = _replays[i];
+        const ReplayEntry &r = _replays[i];
         const int y = y0 + int(i - first) * kReplayRow;
         if (i == _replayRow)
             fill(o, x, y - 2, 258, kReplayRow, {50, 50, 130});
@@ -961,7 +961,7 @@ void GameMenus::drawReplayList(Surface& o) const {
     }
 }
 
-void GameMenus::draw(Surface& o, uint64_t nowMs) {
+void GameMenus::draw(Surface &o, uint64_t nowMs) {
     _nowMs = nowMs;
     if (_screen == Screen::kNone)
         return;
@@ -972,7 +972,7 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
         if (was == Screen::kReplayName && _under == Screen::kReplayList) {
             _screen = Screen::kReplayList;
             _focus = -1;
-            if (const image::Image* d = _pictures.jpg("rpl_bk"))
+            if (const image::Image *d = _pictures.jpg("rpl_bk"))
                 drawPicture(o, *d, originX(), originY());
             drawItems(o, items(), -1);
             drawReplayList(o);
@@ -984,13 +984,13 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
             if (was == Screen::kDuplicateDriver) {
                 _screen = Screen::kNewDriver;
                 _focus = -1;
-                if (const image::Image* d = _pictures.jpg(driverPicture(Screen::kNewDriver)))
+                if (const image::Image *d = _pictures.jpg(driverPicture(Screen::kNewDriver)))
                     drawPicture(o, *d, originX(), originY());
                 drawItems(o, items(), -1);
                 _screen = was;
                 _focus = keep;
             }
-            if (const image::Image* d = _pictures.jpg(driverPicture(was)))
+            if (const image::Image *d = _pictures.jpg(driverPicture(was)))
                 drawPicture(o, *d, originX(), originY());
             if (was == Screen::kDriverStats || was == Screen::kRaceRecords)
                 drawTable(o);
@@ -1001,11 +1001,11 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
             drawItems(o, items(), _focus);
             return;
         }
-        const char* picture = was == Screen::kReplayList   ? "rpl_bk"
+        const char *picture = was == Screen::kReplayList   ? "rpl_bk"
                               : was == Screen::kReplayName ? "REDIT_BK"
                               : was == Screen::kReplayAsk  ? "msg_dlg"
-                                                          : "quit_dlg";
-        if (const image::Image* d = _pictures.jpg(picture))
+                                                           : "quit_dlg";
+        if (const image::Image *d = _pictures.jpg(picture))
             drawPicture(o, *d, originX(), originY());
         if (was == Screen::kReplayAsk) {
             // "REPLAY SAVE MENU: Do you want to save this replay?" (the
@@ -1023,7 +1023,7 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
     const bool dialog = _screen == Screen::kDefaults || _screen == Screen::kDuplicateKey || _screen == Screen::kQuit;
     const Screen was = _screen;
     const int keepFocus = _focus;
-    auto background = [](Screen s) -> const char* {
+    auto background = [](Screen s) -> const char * {
         switch (s) {
         case Screen::kOptions:
             return "opt_bk";
@@ -1047,7 +1047,7 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
         // Over whatever menu asked (drawn already).
     } else {
         std::fill(o.pixels.begin(), o.pixels.end(), 0);
-        if (const image::Image* bg = _pictures.jpg(background(base)))
+        if (const image::Image *bg = _pictures.jpg(background(base)))
             drawPicture(o, *bg, 0, 0, o.w, o.h);
         _screen = base;
         _focus = dialog ? -1 : keepFocus;
@@ -1057,17 +1057,17 @@ void GameMenus::draw(Surface& o, uint64_t nowMs) {
         if (!dialog) {
             const auto list = items();
             if (size_t(_focus) < list.size())
-                if (const image::Image* d = _pictures.jpg(description(list[size_t(_focus)].widget)))
+                if (const image::Image *d = _pictures.jpg(description(list[size_t(_focus)].widget)))
                     drawPicture(o, *d, 40, 396);
         }
         _screen = was;
         _focus = keepFocus;
     }
     if (dialog) {
-        const char* picture = _screen == Screen::kDefaults       ? "odef_dlg"
+        const char *picture = _screen == Screen::kDefaults       ? "odef_dlg"
                               : _screen == Screen::kDuplicateKey ? "ctrl_dlg"
-                                                                : "quit_dlg";
-        if (const image::Image* d = _pictures.jpg(picture))
+                                                                 : "quit_dlg";
+        if (const image::Image *d = _pictures.jpg(picture))
             drawPicture(o, *d, originX(), originY());
         drawItems(o, items(), _focus);
     }

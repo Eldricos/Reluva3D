@@ -18,7 +18,7 @@ namespace reluva::idtech3 {
 // little-endian words), its four words XORed together. A pure server's
 // checksum puts its checksum feed (a number it picks for each level)
 // before the CRCs.
-int32_t pakChecksum(const ZipArchive& pak, std::optional<int32_t> feed = std::nullopt);
+int32_t pakChecksum(const ZipArchive &pak, std::optional<int32_t> feed = std::nullopt);
 
 // The pure check a client answers a server's game state with (Elite
 // Force's protocol 24, eliteforce-network.md): "cp", the pure checksums of
@@ -27,6 +27,6 @@ int32_t pakChecksum(const ZipArchive& pak, std::optional<int32_t> feed = std::nu
 // their checksums in its sv_paks; all of them if it gives none), and the
 // feed XOR all those XOR their count. Empty if the client game or menus
 // don't come from a pak.
-std::string pureCommand(const SearchSet& files, int32_t feed, const std::string& serverPaks);
+std::string pureCommand(const SearchSet &files, int32_t feed, const std::string &serverPaks);
 
 } // namespace reluva::idtech3

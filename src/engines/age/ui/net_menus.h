@@ -32,22 +32,22 @@ public:
         kLobby,  // the game's over: back in the lobby
     };
 
-    NetMenus(System& sys, const SearchSet& files, const std::vector<CityInfo>& cities, const std::vector<CarInfo>& cars,
-             const GameStrings& strings);
+    NetMenus(System &sys, const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
+             const GameStrings &strings);
     ~NetMenus();
     bool loaded() const { return _ok; }
 
     // From the main menu: the sessions on the local network.
     void enter();
-    Action handle(const Event& ev);
+    Action handle(const Event &ev);
     // The session's news (call every frame, in the menus or the game).
     Action update(uint64_t nowMs);
-    void draw(Surface& overlay, uint64_t nowMs);
+    void draw(Surface &overlay, uint64_t nowMs);
 
     Screen screen() const { return _screen; }
-    NetSession* session() { return _session.get(); }
+    NetSession *session() { return _session.get(); }
     // Back from the garage, with the car chosen, or from the game.
-    void carChosen(const std::string& car, int paintJob);
+    void carChosen(const std::string &car, int paintJob);
     void showLobby();
     void leave(); // out of the session
     // What's been said and what's happened (joined, left), newest last,
@@ -57,9 +57,9 @@ public:
         uint64_t atMs = 0;
         bool system = false; // the game's words, not a player's
     };
-    const std::deque<Line>& lines() const { return _lines; }
+    const std::deque<Line> &lines() const { return _lines; }
     // A notice to show, from the game's strings where it has one.
-    std::string noticeText(const NetNotice& n) const;
+    std::string noticeText(const NetNotice &n) const;
     // The race of the session's settings: its kind (Cruise and Cops &
     // Robbers have none).
     static bool hasRace(NetMode mode) {
@@ -72,7 +72,7 @@ public:
     std::string goldModeName(GoldMode mode) const;
     std::string teamName(uint8_t team) const; // in the session's mode
     // The car a player drives: its own, but the police car for a cop.
-    std::string carFor(const NetPlayer& p) const;
+    std::string carFor(const NetPlayer &p) const;
 
     // Typing goes to the focused field; the Race page lets Esc through.
     bool typing() const;
@@ -87,31 +87,31 @@ private:
         int states = 4;    // the picture's
     };
     std::vector<Item> items() const;
-    const Widget* widget(const std::string& name) const;
-    const Widget* widget(const std::string& name, const std::string& menu) const;
+    const Widget *widget(const std::string &name) const;
+    const Widget *widget(const std::string &name, const std::string &menu) const;
     std::string menuName() const;
     int originX() const; // dialogs' widgets are from their corner
     int originY() const;
     void go(Screen s);
-    void activate(const Item& item, Action& action);
-    void change(const Item& item, int step);
-    std::string* textOf(const std::string& widget);
-    bool hit(const Item& item, int x, int y) const;
-    void text(Surface& o, const std::string& widget, const std::string& s, Color c = {255, 230, 140}) const;
-    void say(const std::string& s, bool system);
+    void activate(const Item &item, Action &action);
+    void change(const Item &item, int step);
+    std::string *textOf(const std::string &widget);
+    bool hit(const Item &item, int x, int y) const;
+    void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
+    void say(const std::string &s, bool system);
     void startHosting();
-    void joinAddress(const net::Address& address);
+    void joinAddress(const net::Address &address);
     void refreshRaces();
-    void message(const std::string& text, const std::string& picture = "msg_dlg");
-    void drawDialog(Surface& o, const std::string& picture, const std::string& title) const;
-    void drawLobby(Surface& o) const;
-    void drawHostRace(Surface& o) const;
+    void message(const std::string &text, const std::string &picture = "msg_dlg");
+    void drawDialog(Surface &o, const std::string &picture, const std::string &title) const;
+    void drawLobby(Surface &o) const;
+    void drawHostRace(Surface &o) const;
 
-    System& _sys;
-    const SearchSet& _files;
-    const std::vector<CityInfo>& _cities;
-    const std::vector<CarInfo>& _cars;
-    const GameStrings& _strings;
+    System &_sys;
+    const SearchSet &_files;
+    const std::vector<CityInfo> &_cities;
+    const std::vector<CarInfo> &_cars;
+    const GameStrings &_strings;
     mutable MenuPictures _pictures;
     std::vector<Widget> _widgets;
     bool _ok = false;
@@ -138,7 +138,7 @@ private:
     std::string _myCar = "vpbug";
     int _bots = 0;                                // computer players to host with
     std::shared_ptr<net::LoopbackNetwork> _local; // hosting with no network: this computer only
-    static constexpr const char* kBotsField = "Computer Players";
+    static constexpr const char *kBotsField = "Computer Players";
     int _myPaint = 0;
 };
 

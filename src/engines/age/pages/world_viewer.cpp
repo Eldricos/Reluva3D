@@ -20,14 +20,24 @@ constexpr float kFov = 1.0f; // radians, vertically
 constexpr float kFar = 4000; // metres
 constexpr float kSpeed = 40; // metres a second, four times with Shift
 
-enum : uint32_t { kMoveForward = 1, kMoveBack = 2, kMoveLeft = 4, kMoveRight = 8, kMoveUp = 16, kMoveDown = 32,
-                  kMoveFast = 64 };
+enum : uint32_t {
+    kMoveForward = 1,
+    kMoveBack = 2,
+    kMoveLeft = 4,
+    kMoveRight = 8,
+    kMoveUp = 16,
+    kMoveDown = 32,
+    kMoveFast = 64
+};
 
 } // namespace
 
-WorldViewer::WorldViewer(ViewerContext& ctx) : Page(ctx), _cities(findCities(ctx.files)) {}
+WorldViewer::WorldViewer(ViewerContext &ctx) : Page(ctx), _cities(findCities(ctx.files)) {
+}
 
-WorldViewer::~WorldViewer() { deactivate(); }
+WorldViewer::~WorldViewer() {
+    deactivate();
+}
 
 void WorldViewer::deactivate() {
     _scene.reset();
@@ -51,7 +61,7 @@ void WorldViewer::activate() {
 
 void WorldViewer::load(int index) {
     _index = index;
-    const CityInfo& city = _cities[size_t(index)];
+    const CityInfo &city = _cities[size_t(index)];
     setTitle(city.name + " (" + city.map + ")");
     _scene->textures().setHalvings(textureHalvings());
     _error = _scene->load(city.map).message;
@@ -66,22 +76,30 @@ void WorldViewer::resetView() {
     _pitch = -0.05f;
 }
 
-void WorldViewer::handleEvent(const Event& ev) {
+void WorldViewer::handleEvent(const Event &ev) {
     if (!_renderer || _cities.empty())
         return;
     auto moveKey = [](uint32_t k) -> uint32_t {
         switch (k) {
-        case 'w': return kMoveForward;
-        case 's': return kMoveBack;
-        case 'a': return kMoveLeft;
-        case 'd': return kMoveRight;
+        case 'w':
+            return kMoveForward;
+        case 's':
+            return kMoveBack;
+        case 'a':
+            return kMoveLeft;
+        case 'd':
+            return kMoveRight;
         case ' ':
-        case 'e': return kMoveUp;
+        case 'e':
+            return kMoveUp;
         case 'c':
-        case 'q': return kMoveDown;
+        case 'q':
+            return kMoveDown;
         case key::kLShift:
-        case key::kRShift: return kMoveFast;
-        default: return 0;
+        case key::kRShift:
+            return kMoveFast;
+        default:
+            return 0;
         }
     };
     if (ev.type == EventType::kKeyDown) {
@@ -120,10 +138,10 @@ void WorldViewer::handleEvent(const Event& ev) {
     }
 }
 
-void WorldViewer::drawInfo(const std::string& stats) {
+void WorldViewer::drawInfo(const std::string &stats) {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     const int lh = font::kLineHeight;
-    const CityInfo& city = _cities[size_t(_index)];
+    const CityInfo &city = _cities[size_t(_index)];
     font::drawText(_overlay, 4, 4,
                    city.name + "  (Left/Right: city; " + _scene->lightingName() + ", T: time and weather)",
                    {150, 200, 255});
@@ -147,10 +165,10 @@ void WorldViewer::drawInfo(const std::string& stats) {
         std::snprintf(pos, sizeof pos, "%zu blocks drawn (V: visibility %s)", _scene->blocksDrawn(),
                       _scene->visibility() ? "on, but not in a block" : "off");
     lines.push_back(pos);
-    for (const std::string& m : _scene->textures().missing())
+    for (const std::string &m : _scene->textures().missing())
         if (lines.size() < 12)
             lines.push_back("missing texture: " + m);
-    for (const std::string& line : lines) {
+    for (const std::string &line : lines) {
         font::drawText(_overlay, 4, y, line, {230, 230, 230});
         y += lh;
     }

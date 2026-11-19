@@ -7,7 +7,7 @@
 
 namespace reluva::age {
 
-Error GameStrings::load(const SearchSet& files) {
+Error GameStrings::load(const SearchSet &files) {
     _strings.clear();
     std::vector<uint8_t> data;
     if (Error err = files.read("mmlang.dll", data))
@@ -18,7 +18,7 @@ Error GameStrings::load(const SearchSet& files) {
     return readPeStrings(data, image, _strings);
 }
 
-std::string GameStrings::get(uint32_t id, const std::string& fallback) const {
+std::string GameStrings::get(uint32_t id, const std::string &fallback) const {
     auto it = _strings.find(id);
     return it == _strings.end() ? fallback : it->second;
 }

@@ -141,13 +141,13 @@ struct DmSegment {
     std::vector<DmCurve> sequenceCurves;
 };
 
-Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out);
-Error readDmSegment(const std::vector<uint8_t>& data, DmSegment& out);
-Error readDmBand(const std::vector<uint8_t>& data, DmBand& out);
+Error readDmStyle(const std::vector<uint8_t> &data, DmStyle &out);
+Error readDmSegment(const std::vector<uint8_t> &data, DmSegment &out);
+Error readDmBand(const std::vector<uint8_t> &data, DmBand &out);
 
 // A music value to a MIDI key against a chord in a play mode
 // (DMUS_PLAYMODE flags); -1 if it isn't to be played.
-int dmMusicToMidi(uint16_t musicValue, int playMode, const DmChord& chord);
+int dmMusicToMidi(uint16_t musicValue, int playMode, const DmChord &chord);
 
 // Plays segments: composes their styles' patterns as they go, into a DLS
 // synthesizer, as a mixer stream. play() switches segment at the next
@@ -156,25 +156,25 @@ class DmPerformance : public Stream {
 public:
     // Reads a file the music names (a segment, style, band or DLS
     // collection, by its file name); false if there's none.
-    using Loader = std::function<bool(const std::string& file, std::vector<uint8_t>& out)>;
+    using Loader = std::function<bool(const std::string &file, std::vector<uint8_t> &out)>;
 
     DmPerformance(int rate, Loader loader, uint32_t seed = 1);
 
     // Starts a segment (by file name), at the next measure of the one
     // playing (now if none). Reads its files first: call from one thread.
-    Error play(const std::string& segmentFile);
+    Error play(const std::string &segmentFile);
     // Reads a segment's files ahead, so play() later has nothing to read.
-    Error prepare(const std::string& segmentFile);
+    Error prepare(const std::string &segmentFile);
     // A style's motif (a pattern marked as one) over the segment playing,
     // from now, with a band for its instruments (empty: none). Reads its
     // files first: call from the same thread as play().
-    Error playMotif(const std::string& styleFile, const std::string& motif, const std::string& bandFile);
+    Error playMotif(const std::string &styleFile, const std::string &motif, const std::string &bandFile);
     void stop();
     bool playing() const;
     std::string current() const;
     void setVolume(float volume);
 
-    void read(float* out, int frames) override;
+    void read(float *out, int frames) override;
 
 private:
     struct Event {
@@ -190,28 +190,28 @@ private:
         int repeatsLeft = 0;
         // The pattern playing: which, from which segment measure, its
         // measures left.
-        const DmPattern* pattern = nullptr;
+        const DmPattern *pattern = nullptr;
         int measuresLeft = 0;
         int nextMeasure = 0; // the next measure (from the segment's start) to compose
         int groove = 1;
         size_t bandIndex = 0;
     };
 
-    Error load(const std::string& file, bool queue);
-    std::shared_ptr<const DmSegment> segment(const std::string& file);
-    std::shared_ptr<const DmStyle> style(const std::string& file);
-    const DlsCollection* collection(const std::string& file);
-    void applyBand(const DmBand& band);
+    Error load(const std::string &file, bool queue);
+    std::shared_ptr<const DmSegment> segment(const std::string &file);
+    std::shared_ptr<const DmStyle> style(const std::string &file);
+    const DlsCollection *collection(const std::string &file);
+    void applyBand(const DmBand &band);
     void startPending();
     // Composes the measure starting at the segment tick, at the
     // performance tick.
     void composeMeasure(double performanceTick);
     void choosePattern(int measure);
-    void addPattern(const DmStyle& style, const DmPattern& pattern, int measureInPattern, double performanceTick);
-    void addCurve(const DmCurve& c, double start, int channel);
+    void addPattern(const DmStyle &style, const DmPattern &pattern, int measureInPattern, double performanceTick);
+    void addCurve(const DmCurve &c, double start, int channel);
     double tempoAt(double segmentTick) const;
-    const DmChord& chordAt(double segmentTick) const;
-    void dispatch(const Event& e);
+    const DmChord &chordAt(double segmentTick) const;
+    void dispatch(const Event &e);
 
     int _rate;
     Loader _loader;

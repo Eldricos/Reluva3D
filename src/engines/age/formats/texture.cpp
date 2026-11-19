@@ -15,25 +15,34 @@ namespace {
 constexpr size_t kHeaderSize = 14;
 constexpr size_t kPaletteSize = 256 * 4;
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
+    return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+}
 
 } // namespace
 
-const char* formatName(uint16_t format) {
+const char *formatName(uint16_t format) {
     switch (format) {
-    case texformat::kPalette: return "8-bit palette";
-    case texformat::kPaletteAlpha: return "8-bit palette with alpha";
-    case texformat::kRgb: return "24-bit";
-    case texformat::kRgba: return "32-bit with alpha";
-    default: return "unknown";
+    case texformat::kPalette:
+        return "8-bit palette";
+    case texformat::kPaletteAlpha:
+        return "8-bit palette with alpha";
+    case texformat::kRgb:
+        return "24-bit";
+    case texformat::kRgba:
+        return "32-bit with alpha";
+    default:
+        return "unknown";
     }
 }
 
-Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
+Error decodeTex(const std::vector<uint8_t> &data, Tex &out) {
     if (data.size() < kHeaderSize)
         return Error::fail("too small for a .tex header");
-    const uint8_t* h = data.data();
+    const uint8_t *h = data.data();
     const int w = le16(h), height = le16(h + 2);
     out.format = le16(h + 4);
     out.levels = le16(h + 6);
@@ -44,10 +53,17 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
     size_t bytesPerPixel = 0, palette = 0;
     switch (out.format) {
     case texformat::kPalette:
-    case texformat::kPaletteAlpha: bytesPerPixel = 1, palette = kPaletteSize; break;
-    case texformat::kRgb: bytesPerPixel = 3; break;
-    case texformat::kRgba: bytesPerPixel = 4; break;
-    default: return Error::fail("unknown texture format " + std::to_string(out.format));
+    case texformat::kPaletteAlpha:
+        bytesPerPixel = 1, palette = kPaletteSize;
+        break;
+    case texformat::kRgb:
+        bytesPerPixel = 3;
+        break;
+    case texformat::kRgba:
+        bytesPerPixel = 4;
+        break;
+    default:
+        return Error::fail("unknown texture format " + std::to_string(out.format));
     }
     // Every level is checked to fit; only the first is decoded.
     size_t need = kHeaderSize + palette;
@@ -56,17 +72,17 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
     if (data.size() < need)
         return Error::fail("texture data runs past the end of the file");
 
-    image::Image& img = out.image;
+    image::Image &img = out.image;
     img.w = w;
     img.h = height;
     img.rgba.resize(size_t(w) * size_t(height) * 4);
-    const uint8_t* pal = h + kHeaderSize;
-    const uint8_t* src = pal + palette;
-    uint8_t* dst = img.rgba.data();
+    const uint8_t *pal = h + kHeaderSize;
+    const uint8_t *src = pal + palette;
+    uint8_t *dst = img.rgba.data();
     // Palettes are B, G, R, A (as Windows' palettes); the other formats
     // R, G, B(, A).
     for (size_t i = 0, n = size_t(w) * size_t(height); i < n; ++i, dst += 4) {
-        const uint8_t* p = palette ? pal + 4 * src[i] : src + i * bytesPerPixel;
+        const uint8_t *p = palette ? pal + 4 * src[i] : src + i * bytesPerPixel;
         dst[0] = palette ? p[2] : p[0];
         dst[1] = p[1];
         dst[2] = palette ? p[0] : p[2];
@@ -75,7 +91,7 @@ Error decodeTex(const std::vector<uint8_t>& data, Tex& out) {
     return Error::success();
 }
 
-Error loadTexture(const SearchSet& files, std::string_view name, Tex& out) {
+Error loadTexture(const SearchSet &files, std::string_view name, Tex &out) {
     const std::string base = "texture/" + std::string(name);
     std::vector<uint8_t> data;
     if (!files.read(base + ".tex", data) || !files.read(base + "-0001.tex", data)) {

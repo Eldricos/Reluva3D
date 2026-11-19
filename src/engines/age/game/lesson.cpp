@@ -36,22 +36,34 @@ constexpr uint32_t kPass = 651;
 
 } // namespace
 
-void LessonJudge::start(const LessonSettings& lesson) {
+void LessonJudge::start(const LessonSettings &lesson) {
     _lesson = lesson;
     _result = Result::kGoing;
     _penalty = 0;
     _touchesAtStart = -1;
     _upToSpeed = _destroyed = false;
     switch (lesson.event) {
-    case LessonEvent::kJump: show(msg::kTakeTheJump); break;
-    case LessonEvent::kFollow: show(msg::kFollowThatCar); break;
-    case LessonEvent::kCopChase: show(msg::kEvade); break;
-    case LessonEvent::kMinimumSpeed: show(lesson.extra[0] > 0 ? msg::kMaintain : msg::kGo); break;
-    case LessonEvent::kNoTouching: show(msg::kDontTouch); break;
+    case LessonEvent::kJump:
+        show(msg::kTakeTheJump);
+        break;
+    case LessonEvent::kFollow:
+        show(msg::kFollowThatCar);
+        break;
+    case LessonEvent::kCopChase:
+        show(msg::kEvade);
+        break;
+    case LessonEvent::kMinimumSpeed:
+        show(lesson.extra[0] > 0 ? msg::kMaintain : msg::kGo);
+        break;
+    case LessonEvent::kNoTouching:
+        show(msg::kDontTouch);
+        break;
     case LessonEvent::kDestroy:
         show(msg::kDestroy);
         break;
-    default: show(msg::kGo); break;
+    default:
+        show(msg::kGo);
+        break;
     }
 }
 
@@ -63,7 +75,7 @@ float LessonJudge::timeLeft(float clock) const {
     return _lesson.timeLimit > 0 ? _lesson.timeLimit - std::max(0.0f, clock) - _penalty : -1;
 }
 
-LessonJudge::Result LessonJudge::step(const Frame& f) {
+LessonJudge::Result LessonJudge::step(const Frame &f) {
     _messageFor = std::max(0.0f, _messageFor - f.dt);
     if (_result != Result::kGoing || f.clock < 0)
         return _result;
@@ -117,7 +129,7 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
         fail(e == LessonEvent::kCopChase     ? msg::kChaseTimesUp
              : e == LessonEvent::kDestroy    ? msg::kDestroyTimesUp
              : e == LessonEvent::kNoTouching ? msg::kTouchTimesUp
-                                            : msg::kTimesUp);
+                                             : msg::kTimesUp);
         return _result;
     }
 
@@ -139,14 +151,24 @@ LessonJudge::Result LessonJudge::step(const Frame& f) {
     }
     _result = Result::kPassed;
     switch (e) {
-    case LessonEvent::kJump: show(msg::kGoodJumping); break;
-    case LessonEvent::kCopChase: show(msg::kSurvived); break;
-    case LessonEvent::kMinimumSpeed: show(msg::kGreatDriving); break;
-    case LessonEvent::kNoTouching: show(msg::kTouchWon); break;
+    case LessonEvent::kJump:
+        show(msg::kGoodJumping);
+        break;
+    case LessonEvent::kCopChase:
+        show(msg::kSurvived);
+        break;
+    case LessonEvent::kMinimumSpeed:
+        show(msg::kGreatDriving);
+        break;
+    case LessonEvent::kNoTouching:
+        show(msg::kTouchWon);
+        break;
     case LessonEvent::kDestroy:
         show(msg::kSurvived);
         break;
-    default: show(msg::kPass); break;
+    default:
+        show(msg::kPass);
+        break;
     }
     return _result;
 }

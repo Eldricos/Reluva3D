@@ -18,7 +18,7 @@ namespace reluva::newworlds {
 // model (alpin_07's low ground: low07). Holes, cracks, ramps, bridges,
 // concrete and water use their own textures. Returns a stem per slot ("" for
 // none).
-std::vector<std::string> chooseGroundTextures(const std::string& modelStem, const GeoModel& model,
-                                              const std::vector<std::string>& planetStems);
+std::vector<std::string> chooseGroundTextures(const std::string &modelStem, const GeoModel &model,
+                                              const std::vector<std::string> &planetStems);
 
 } // namespace reluva::newworlds

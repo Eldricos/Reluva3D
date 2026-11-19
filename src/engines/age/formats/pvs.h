@@ -23,6 +23,6 @@ struct Pvs {
     bool sees(size_t from, size_t to) const;
 };
 
-Error readCpvs(const std::vector<uint8_t>& data, Pvs& out);
+Error readCpvs(const std::vector<uint8_t> &data, Pvs &out);
 
 } // namespace reluva::age

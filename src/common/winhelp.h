@@ -28,22 +28,22 @@ struct Topic {
     // the marks above for pictures and links (plainText() leaves them out).
     std::string text;
 };
-std::string plainText(const std::string& text);
+std::string plainText(const std::string &text);
 
-Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out);
+Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out);
 
 // A picture (|bm<n>: the help compiler's own form of a bitmap), as RGBA.
 struct Picture {
     int width = 0, height = 0;
     std::vector<uint8_t> rgba;
 };
-Error readPicture(const std::vector<uint8_t>& file, int number, Picture& out);
+Error readPicture(const std::vector<uint8_t> &file, int number, Picture &out);
 
 // The pieces, for tests: the help compiler's LZ77, and its numbers that
 // take one or two bytes (two or four for the longs) as their lowest bit says.
-std::vector<uint8_t> decompressLz77(const uint8_t* data, size_t size);
+std::vector<uint8_t> decompressLz77(const uint8_t *data, size_t size);
 // Its run-length packing: a byte with the top bit set, that many (less the
 // bit) bytes as they are; else the next byte that many times.
-std::vector<uint8_t> unpackRuns(const uint8_t* data, size_t size);
+std::vector<uint8_t> unpackRuns(const uint8_t *data, size_t size);
 
 } // namespace reluva::winhelp

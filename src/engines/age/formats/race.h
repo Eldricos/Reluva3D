@@ -26,7 +26,7 @@ enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
 // Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
 // unfinished "Stunt Prototype" (stunt0: a start and an aimap).
 constexpr int kCruiseRace = 0, kStuntRace = 1, kPrototypeRace = 2;
-const char* raceKindName(RaceKind kind); // "Blitz"...
+const char *raceKindName(RaceKind kind); // "Blitz"...
 
 // One difficulty's columns of a race's row.
 struct RaceSettings {
@@ -94,29 +94,31 @@ struct RaceDefinition {
 struct RaceUnlocking {
     int mustPlace = 3, group = 3;
 };
-RaceUnlocking raceUnlocking(const SearchSet& files, const std::string& city);
+RaceUnlocking raceUnlocking(const SearchSet &files, const std::string &city);
 
 // How many races of a kind a city has, and their names (.cinfo).
-std::vector<std::string> raceNames(const SearchSet& files, const std::string& city, RaceKind kind);
+std::vector<std::string> raceNames(const SearchSet &files, const std::string &city, RaceKind kind);
 
-Error loadRace(const SearchSet& files, const std::string& city, RaceKind kind, int index, RaceDefinition& out);
+Error loadRace(const SearchSet &files, const std::string &city, RaceKind kind, int index, RaceDefinition &out);
 
 // The race's settings for the computer-driven cars, people and police:
 // race/<city>/<file><n>.aimap, or .aimap_p for a professional run (see
 // aimap.h).
-std::string raceAiMapName(const std::string& city, RaceKind kind, int index, bool professional);
+std::string raceAiMapName(const std::string &city, RaceKind kind, int index, bool professional);
 // The race's own name in its files: "blitz3", "circuit0", "race5".
 std::string raceStem(RaceKind kind, int index);
 
 // Parsers for the files, for tests.
-Error parseRaceSettings(const std::string& csv, int index, std::array<RaceSettings, 2>& out);
+Error parseRaceSettings(const std::string &csv, int index, std::array<RaceSettings, 2> &out);
 // `radius`: the fifth column is a radius whatever the heading calls it
 // (Crash Course's files call it "poly count" too, but it varies).
-Error parseWaypoints(const std::string& csv, std::vector<Waypoint>& out, bool radius = false);
-Error parseOpponentPath(const std::string& csv, RaceDefinition::Opponent& out);
-Error parseLessonSettings(const std::string& csv, LessonSettings& out);
+Error parseWaypoints(const std::string &csv, std::vector<Waypoint> &out, bool radius = false);
+Error parseOpponentPath(const std::string &csv, RaceDefinition::Opponent &out);
+Error parseLessonSettings(const std::string &csv, LessonSettings &out);
 
 // A waypoint heading (degrees) as a turn about Y, as CarSim::reset takes.
-inline float headingToYaw(float degrees) { return -degrees * 3.14159265358979f / 180; }
+inline float headingToYaw(float degrees) {
+    return -degrees * 3.14159265358979f / 180;
+}
 
 } // namespace reluva::age

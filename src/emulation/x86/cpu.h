@@ -36,7 +36,7 @@ public:
     explicit Cpu(uint32_t memorySize);
 
     // --- Memory --------------------------------------------------------------
-    std::vector<uint8_t>& memory() { return memory_; }
+    std::vector<uint8_t> &memory() { return memory_; }
     uint32_t memorySize() const { return uint32_t(memory_.size()); }
     bool valid(uint32_t address, uint32_t size) const {
         return address >= kPageSize && size <= memory_.size() && address <= memory_.size() - size;
@@ -76,12 +76,12 @@ public:
     // it reads arguments with arg(), sets reg[EAX] (and EDX, or pushes onto
     // the FPU stack) for its result, and returns how many bytes of
     // arguments to pop on return (stdcall), 0 for cdecl.
-    using Native = std::function<uint32_t(Cpu& cpu)>;
+    using Native = std::function<uint32_t(Cpu &cpu)>;
     // The address a native function is called at (in a reserved range at
     // the top of memory, which holds HLT instructions).
     uint32_t addNative(std::string name, Native fn);
     // The name of the native function at `address`, if it is one.
-    const std::string* nativeName(uint32_t address) const;
+    const std::string *nativeName(uint32_t address) const;
     // Where the reserved range begins: memory below it is the program's.
     uint32_t nativeBase() const { return nativeBase_ - kNativeStride; }
     // From a native function: its n'th argument (from 0) on the stack.
@@ -95,7 +95,7 @@ public:
     // or stdcall), returning EAX in `result`; fails on a fault (bad memory,
     // division by zero, an instruction not implemented...), naming where.
     // Native functions may call() back in.
-    Error call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& result);
+    Error call(uint32_t address, const std::vector<uint32_t> &args, uint32_t &result);
     // Stops a run with an error after this many more instructions (0: never).
     void setInstructionLimit(uint64_t limit) { limit_ = limit; }
     uint64_t executed() const { return executed_; }
@@ -106,7 +106,7 @@ public:
             abort_ = std::move(message);
     }
     // Called before each instruction, with its address; for tracing.
-    std::function<void(Cpu& cpu)> trace;
+    std::function<void(Cpu &cpu)> trace;
 
     // The registers as they were when the last call() failed (before they
     // were put back), for reports.
@@ -121,13 +121,13 @@ private:
     struct Fault {
         std::string message;
     };
-    [[noreturn]] void fault(const std::string& message);
+    [[noreturn]] void fault(const std::string &message);
     void step();
     void runUntil(uint32_t returnAddress);
     void callNative(uint32_t address);
 
     // Memory as the instructions see it (faulting).
-    uint8_t* at(uint32_t a, uint32_t size);
+    uint8_t *at(uint32_t a, uint32_t size);
     uint32_t load(uint32_t a, int size);
     void store(uint32_t a, uint32_t v, int size);
     void push(uint32_t v);
@@ -162,7 +162,7 @@ private:
     void x87(uint8_t op);
 
     // x87 helpers.
-    double& st(int i) { return fpu.regs[size_t((fpu.top + i) & 7)]; }
+    double &st(int i) { return fpu.regs[size_t((fpu.top + i) & 7)]; }
     void fpuCompare(double a, double b, bool setEflags, bool unordered);
     double fpuRound(double v) const;
 

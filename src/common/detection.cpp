@@ -9,14 +9,13 @@
 
 namespace reluva {
 
-std::vector<DetectedGame> detectFromTable(const std::string& engineId,
-                                          const std::vector<GameVariant>& table,
-                                          const std::filesystem::path& dir) {
+std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
+                                          const std::filesystem::path &dir) {
     // Many variants share files, so cache per-file results.
     std::map<std::string, std::optional<std::filesystem::path>> found;
     std::map<std::string, std::optional<std::string>> hashes;
 
-    auto locate = [&](const std::string& name) -> const std::optional<std::filesystem::path>& {
+    auto locate = [&](const std::string &name) -> const std::optional<std::filesystem::path> & {
         auto it = found.find(name);
         if (it == found.end())
             it = found.emplace(name, fs::findFile(dir, name)).first;
@@ -24,10 +23,10 @@ std::vector<DetectedGame> detectFromTable(const std::string& engineId,
     };
 
     std::vector<DetectedGame> results;
-    for (const GameVariant& variant : table) {
+    for (const GameVariant &variant : table) {
         bool matches = !variant.files.empty();
-        for (const FileSignature& sig : variant.files) {
-            const auto& path = locate(sig.name);
+        for (const FileSignature &sig : variant.files) {
+            const auto &path = locate(sig.name);
             if (!path) {
                 matches = false;
                 break;
@@ -52,8 +51,7 @@ std::vector<DetectedGame> detectFromTable(const std::string& engineId,
             }
         }
         if (matches)
-            results.push_back({engineId, variant.gameId, variant.description, variant.language,
-                               variant.platform});
+            results.push_back({engineId, variant.gameId, variant.description, variant.language, variant.platform});
     }
     return results;
 }

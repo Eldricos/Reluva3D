@@ -20,7 +20,7 @@ constexpr double kPi = 3.14159265358979323846;
 
 class TestbedEngine : public Engine {
 public:
-    explicit TestbedEngine(System& system) : sys_(system) {}
+    explicit TestbedEngine(System &system) : sys_(system) {}
 
     Error run() override {
         if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::kCluT8))
@@ -30,7 +30,7 @@ public:
 
         const int rate = sys_.audioRate();
         // Audio failing is not fatal for the testbed; it just stays silent.
-        sys_.startAudio([this, rate](int16_t* out, int frames) {
+        sys_.startAudio([this, rate](int16_t *out, int frames) {
             const bool on = toneOn_.load();
             for (int i = 0; i < frames; ++i) {
                 int16_t s = 0;
@@ -87,10 +87,10 @@ private:
         if (plasma_.pixels.empty()) {
             plasma_.create(kWidth, kHeight, PixelFormat::kCluT8);
             for (int y = 0; y < kHeight; ++y) {
-                uint8_t* row = plasma_.row(y);
+                uint8_t *row = plasma_.row(y);
                 for (int x = 0; x < kWidth; ++x) {
-                    double v = std::sin(x / 16.0) + std::sin(y / 8.0) +
-                               std::sin((x + y) / 16.0) + std::sin(std::hypot(x - 160, y - 100) / 8.0);
+                    double v = std::sin(x / 16.0) + std::sin(y / 8.0) + std::sin((x + y) / 16.0) +
+                               std::sin(std::hypot(x - 160, y - 100) / 8.0);
                     row[x] = static_cast<uint8_t>((v + 4) / 8 * 254);
                 }
             }
@@ -120,7 +120,7 @@ private:
             screen_.row(y)[x] = c;
     }
 
-    System& sys_;
+    System &sys_;
     Surface screen_;
     Surface plasma_;
     int mouseX_ = kWidth / 2, mouseY_ = kHeight / 2;
@@ -130,20 +130,20 @@ private:
 
 class TestbedMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "testbed"; }
-    const char* name() const override { return "Testbed"; }
+    const char *id() const override { return "testbed"; }
+    const char *name() const override { return "Testbed"; }
 
     // The testbed needs no files; the launcher starts it directly.
-    std::vector<DetectedGame> detect(const std::filesystem::path&) const override { return {}; }
+    std::vector<DetectedGame> detect(const std::filesystem::path &) const override { return {}; }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget&) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &) const override {
         return std::make_unique<TestbedEngine>(system);
     }
 };
 
 } // namespace
 
-const MetaEngine& testbedMetaEngine() {
+const MetaEngine &testbedMetaEngine() {
     static const TestbedMetaEngine instance;
     return instance;
 }

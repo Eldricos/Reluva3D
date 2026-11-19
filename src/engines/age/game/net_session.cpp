@@ -65,12 +65,12 @@ public:
         std::memcpy(&u, &v, 4);
         u32(u);
     }
-    void str(const std::string& s) {
+    void str(const std::string &s) {
         const size_t n = std::min<size_t>(s.size(), 255);
         u8(uint8_t(n));
         out.insert(out.end(), s.begin(), s.begin() + std::ptrdiff_t(n));
     }
-    void vec(const Vec3& v) {
+    void vec(const Vec3 &v) {
         for (float f : v)
             f32(f);
     }
@@ -79,7 +79,7 @@ public:
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t>& d) : data(d), at(3) {}
+    explicit Reader(const std::vector<uint8_t> &d) : data(d), at(3) {}
     uint8_t u8() {
         if (at + 1 > data.size()) {
             ok = false;
@@ -107,18 +107,20 @@ public:
     }
     Vec3 vec() {
         Vec3 v;
-        for (float& f : v)
+        for (float &f : v)
             f = f32();
         return v;
     }
-    const std::vector<uint8_t>& data;
+    const std::vector<uint8_t> &data;
     size_t at;
     bool ok = true;
 };
 
-uint8_t typeOf(const std::vector<uint8_t>& d) { return d.size() >= 3 && d[0] == 'R' && d[1] == 'M' ? d[2] : 0; }
+uint8_t typeOf(const std::vector<uint8_t> &d) {
+    return d.size() >= 3 && d[0] == 'R' && d[1] == 'M' ? d[2] : 0;
+}
 
-void writeCar(Writer& w, const NetCarState& s) {
+void writeCar(Writer &w, const NetCarState &s) {
     w.f32(s.clock);
     w.vec(s.position);
     w.vec(s.velocity);
@@ -134,29 +136,29 @@ void writeCar(Writer& w, const NetCarState& s) {
     w.u8(uint8_t(std::clamp(std::lround(s.throttle * 255), 0L, 255L)));
     w.u16(uint16_t(std::clamp(std::lround(s.damage * 65535), 0L, 65535L)));
     w.u8(s.dents);
-    for (const Vec3& d : s.dentAt) // 5 cm steps, +-6 m
+    for (const Vec3 &d : s.dentAt) // 5 cm steps, +-6 m
         for (float f : d)
             w.u8(uint8_t(int8_t(std::clamp(std::lround(f * 20), -127L, 127L))));
     w.u8(s.resets);
 }
 
-NetCarState readCar(Reader& r) {
+NetCarState readCar(Reader &r) {
     NetCarState s;
     s.clock = r.f32();
     s.position = r.vec();
     s.velocity = r.vec();
     float n = 0;
-    for (float& q : s.rotation) {
+    for (float &q : s.rotation) {
         q = float(int16_t(r.u16())) / 32767;
         n += q * q;
     }
     if (n > 1e-6f)
-        for (float& q : s.rotation)
+        for (float &q : s.rotation)
             q /= std::sqrt(n);
     else
         s.rotation = {0, 0, 0, 1};
     s.steer = float(int16_t(r.u16())) / 10000;
-    for (float& c : s.compression)
+    for (float &c : s.compression)
         c = float(r.u8()) / 100;
     s.lamps = r.u8();
     s.next = r.u16();
@@ -165,8 +167,8 @@ NetCarState readCar(Reader& r) {
     s.throttle = float(r.u8()) / 255;
     s.damage = float(r.u16()) / 65535;
     s.dents = r.u8();
-    for (Vec3& d : s.dentAt)
-        for (float& f : d)
+    for (Vec3 &d : s.dentAt)
+        for (float &f : d)
             f = float(int8_t(r.u8())) / 20;
     s.resets = r.u8();
     return s;
@@ -174,14 +176,14 @@ NetCarState readCar(Reader& r) {
 
 // The proof of a password: HMAC-MD5 of the host's challenge and the
 // player's name, keyed by the password.
-std::array<uint8_t, 16> passwordProof(const std::string& password, const std::array<uint8_t, 16>& nonce,
-                                      const std::string& name) {
+std::array<uint8_t, 16> passwordProof(const std::string &password, const std::array<uint8_t, 16> &nonce,
+                                      const std::string &name) {
     std::vector<uint8_t> message(nonce.begin(), nonce.end());
     message.insert(message.end(), name.begin(), name.begin() + std::ptrdiff_t(std::min<size_t>(name.size(), 255)));
     return hmacMd5(password.data(), password.size(), message.data(), message.size());
 }
 
-void writeSettings(Writer& w, const NetSettings& s) {
+void writeSettings(Writer &w, const NetSettings &s) {
     w.u8(uint8_t(s.mode));
     w.u8(s.city);
     w.u8(s.race);
@@ -196,7 +198,7 @@ void writeSettings(Writer& w, const NetSettings& s) {
     w.u8(s.maxPlayers);
 }
 
-NetSettings readSettings(Reader& r) {
+NetSettings readSettings(Reader &r) {
     NetSettings s;
     s.mode = NetMode(std::min<uint8_t>(r.u8(), uint8_t(NetMode::kCopsRobbers)));
     s.city = r.u8();
@@ -213,11 +215,13 @@ NetSettings readSettings(Reader& r) {
     return s;
 }
 
-Vec3 lerp(const Vec3& a, const Vec3& b, float t) { return a + (b - a) * t; }
+Vec3 lerp(const Vec3 &a, const Vec3 &b, float t) {
+    return a + (b - a) * t;
+}
 
 } // namespace
 
-std::array<float, 4> quaternionOf(const Mat3& m) {
+std::array<float, 4> quaternionOf(const Mat3 &m) {
     // The matrix's columns are where X, Y and Z go: element (row r,
     // column c) is the column's r'th.
     const float r00 = m.x[0], r10 = m.x[1], r20 = m.x[2];
@@ -239,12 +243,12 @@ std::array<float, 4> quaternionOf(const Mat3& m) {
         q = {(r02 + r20) / s, (r12 + r21) / s, s / 4, (r10 - r01) / s};
     }
     const float n = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
-    for (float& v : q)
+    for (float &v : q)
         v /= n;
     return q;
 }
 
-Mat3 matrixOfQuaternion(const std::array<float, 4>& q) {
+Mat3 matrixOfQuaternion(const std::array<float, 4> &q) {
     const float x = q[0], y = q[1], z = q[2], w = q[3];
     Mat3 m;
     m.x = {1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)};
@@ -253,7 +257,7 @@ Mat3 matrixOfQuaternion(const std::array<float, 4>& q) {
     return m;
 }
 
-bool carStateAt(const std::deque<NetCarState>& states, float clock, NetCarState& out) {
+bool carStateAt(const std::deque<NetCarState> &states, float clock, NetCarState &out) {
     if (states.empty())
         return false;
     if (clock <= states.front().clock) {
@@ -283,7 +287,7 @@ bool carStateAt(const std::deque<NetCarState>& states, float clock, NetCarState&
             n += out.rotation[k] * out.rotation[k];
         }
         n = std::sqrt(n);
-        for (float& v : out.rotation)
+        for (float &v : out.rotation)
             v /= n > 1e-6f ? n : 1;
         return true;
     }
@@ -306,8 +310,8 @@ struct NetSession::Peer {
 
 NetSession::~NetSession() = default;
 
-std::unique_ptr<NetSession> NetSession::host(std::unique_ptr<net::UdpSocket> socket, const std::string& name,
-                                             const NetSettings& settings, const std::string& password) {
+std::unique_ptr<NetSession> NetSession::host(std::unique_ptr<net::UdpSocket> socket, const std::string &name,
+                                             const NetSettings &settings, const std::string &password) {
     std::unique_ptr<NetSession> s(new NetSession);
     s->_socket = std::move(socket);
     s->_host = true;
@@ -317,7 +321,7 @@ std::unique_ptr<NetSession> NetSession::host(std::unique_ptr<net::UdpSocket> soc
     s->_myId = 0;
     s->_hostId = 0;
     std::random_device random;
-    for (uint8_t& b : s->_secret)
+    for (uint8_t &b : s->_secret)
         b = uint8_t(random());
     NetPlayer me;
     me.id = 0;
@@ -328,8 +332,8 @@ std::unique_ptr<NetSession> NetSession::host(std::unique_ptr<net::UdpSocket> soc
     return s;
 }
 
-std::unique_ptr<NetSession> NetSession::join(std::unique_ptr<net::UdpSocket> socket, const net::Address& address,
-                                             const std::string& name, const std::string& password) {
+std::unique_ptr<NetSession> NetSession::join(std::unique_ptr<net::UdpSocket> socket, const net::Address &address,
+                                             const std::string &name, const std::string &password) {
     std::unique_ptr<NetSession> s(new NetSession);
     s->_socket = std::move(socket);
     s->_hostAddress = address;
@@ -339,14 +343,16 @@ std::unique_ptr<NetSession> NetSession::join(std::unique_ptr<net::UdpSocket> soc
     return s;
 }
 
-const NetPlayer* NetSession::player(uint8_t id) const {
-    for (const NetPlayer& p : _players)
+const NetPlayer *NetSession::player(uint8_t id) const {
+    for (const NetPlayer &p : _players)
         if (p.id == id)
             return &p;
     return nullptr;
 }
 
-NetPlayer* NetSession::mutablePlayer(uint8_t id) { return const_cast<NetPlayer*>(player(id)); }
+NetPlayer *NetSession::mutablePlayer(uint8_t id) {
+    return const_cast<NetPlayer *>(player(id));
+}
 
 std::vector<NetNotice> NetSession::takeNotices() {
     std::vector<NetNotice> out;
@@ -354,7 +360,7 @@ std::vector<NetNotice> NetSession::takeNotices() {
     return out;
 }
 
-void NetSession::notice(NetNotice::Kind kind, const std::string& name, int reason) {
+void NetSession::notice(NetNotice::Kind kind, const std::string &name, int reason) {
     _notices.push_back({kind, name, reason});
 }
 
@@ -372,7 +378,7 @@ uint8_t NetSession::freeId() const {
 
 uint8_t NetSession::teamWithFewer() const {
     int counts[2] = {};
-    for (const NetPlayer& p : _players)
+    for (const NetPlayer &p : _players)
         ++counts[p.team & 1];
     return counts[1] < counts[0] ? 1 : 0;
 }
@@ -385,17 +391,17 @@ bool NetSession::silentTooLong(uint64_t heardMs, uint64_t nowMs) const {
     return nowMs > heardMs + limit;
 }
 
-void NetSession::addChat(const std::string& from, const std::string& text) {
+void NetSession::addChat(const std::string &from, const std::string &text) {
     _chat.push_back({++_chatSeq, from, text.substr(0, 120)});
     while (_chat.size() > kChatKept)
         _chat.pop_front();
 }
 
-void NetSession::setCar(const std::string& car, uint8_t paint) {
+void NetSession::setCar(const std::string &car, uint8_t paint) {
     _wish.car = car;
     _wish.paint = paint;
     if (_host)
-        if (NetPlayer* p = mutablePlayer(_myId)) {
+        if (NetPlayer *p = mutablePlayer(_myId)) {
             p->car = car;
             p->paint = paint;
         }
@@ -405,13 +411,15 @@ void NetSession::setTeam(uint8_t team) {
     _wish.team = team & 1;
     _teamChosen = true;
     if (_host)
-        if (NetPlayer* p = mutablePlayer(_myId))
+        if (NetPlayer *p = mutablePlayer(_myId))
             p->team = team & 1;
 }
 
-void NetSession::setReady(bool ready) { _wish.ready = ready; }
+void NetSession::setReady(bool ready) {
+    _wish.ready = ready;
+}
 
-void NetSession::say(const std::string& text) {
+void NetSession::say(const std::string &text) {
     if (text.empty())
         return;
     if (_host)
@@ -420,7 +428,7 @@ void NetSession::say(const std::string& text) {
         _outbox.push_back(text.substr(0, 120));
 }
 
-void NetSession::setSettings(const NetSettings& settings) {
+void NetSession::setSettings(const NetSettings &settings) {
     if (!_host || _phase != Phase::kLobby)
         return;
     _settings = settings;
@@ -428,7 +436,7 @@ void NetSession::setSettings(const NetSettings& settings) {
 }
 
 bool NetSession::everyoneReady() const {
-    for (const NetPlayer& p : _players)
+    for (const NetPlayer &p : _players)
         if (p.id != _myId && !p.ready)
             return false;
     return true;
@@ -443,7 +451,7 @@ Error NetSession::start(uint64_t nowMs) {
     _phase = Phase::kLoading;
     _loadingSinceMs = nowMs;
     _goMs = 0;
-    for (NetPlayer& p : _players)
+    for (NetPlayer &p : _players)
         p.loaded = p.bot;
     _cars.clear();
     _gameState.clear();
@@ -460,7 +468,7 @@ void NetSession::backToLobby() {
         return;
     _phase = Phase::kLobby;
     ++_round;
-    for (NetPlayer& p : _players)
+    for (NetPlayer &p : _players)
         p.ready = p.loaded = p.bot;
     _wish.ready = _wish.loaded = false;
     _goMs = 0;
@@ -475,7 +483,7 @@ void NetSession::backToLobby() {
 void NetSession::setLoaded() {
     _wish.loaded = true;
     if (_host)
-        if (NetPlayer* p = mutablePlayer(_myId))
+        if (NetPlayer *p = mutablePlayer(_myId))
             p->loaded = true;
 }
 
@@ -485,27 +493,27 @@ float NetSession::clock(uint64_t nowMs) const {
     return _clockKnown ? float(double(nowMs) / 1000 + _clockOffset) : 0;
 }
 
-void NetSession::sendCar(const NetCarState& state) {
+void NetSession::sendCar(const NetCarState &state) {
     _myCar = state;
     _haveMyCar = true;
 }
 
-void NetSession::setGameState(const std::vector<uint8_t>& state, bool over) {
+void NetSession::setGameState(const std::vector<uint8_t> &state, bool over) {
     if (!_host)
         return;
     _gameState = state;
     _over = over;
 }
 
-void NetSession::storeCar(uint8_t id, const NetCarState& s) {
-    auto& q = _cars[id];
+void NetSession::storeCar(uint8_t id, const NetCarState &s) {
+    auto &q = _cars[id];
     if (!q.empty() && s.clock <= q.back().clock) {
         // Late: in its place, unless it's one already there.
-        for (const NetCarState& o : q)
+        for (const NetCarState &o : q)
             if (o.clock == s.clock)
                 return;
         q.insert(
-            std::upper_bound(q.begin(), q.end(), s.clock, [](float c, const NetCarState& o) { return c < o.clock; }),
+            std::upper_bound(q.begin(), q.end(), s.clock, [](float c, const NetCarState &o) { return c < o.clock; }),
             s);
     } else
         q.push_back(s);
@@ -514,19 +522,19 @@ void NetSession::storeCar(uint8_t id, const NetCarState& s) {
 }
 
 void NetSession::dropPlayer(uint8_t id, bool notify) {
-    const NetPlayer* p = player(id);
+    const NetPlayer *p = player(id);
     if (!p)
         return;
     if (notify)
         notice(NetNotice::Kind::kLeft, p->name);
-    _players.erase(std::remove_if(_players.begin(), _players.end(), [id](const NetPlayer& q) { return q.id == id; }),
+    _players.erase(std::remove_if(_players.begin(), _players.end(), [id](const NetPlayer &q) { return q.id == id; }),
                    _players.end());
-    _peers.erase(std::remove_if(_peers.begin(), _peers.end(), [id](const auto& q) { return q->id == id; }),
+    _peers.erase(std::remove_if(_peers.begin(), _peers.end(), [id](const auto &q) { return q->id == id; }),
                  _peers.end());
     _cars.erase(id);
 }
 
-uint8_t NetSession::addBot(const std::string& name, const std::string& car) {
+uint8_t NetSession::addBot(const std::string &name, const std::string &car) {
     const uint8_t id = freeId();
     if (!_host || _phase != Phase::kLobby || _players.size() >= _settings.maxPlayers || id == kNoPlayer)
         return kNoPlayer;
@@ -543,22 +551,22 @@ uint8_t NetSession::addBot(const std::string& name, const std::string& car) {
 
 void NetSession::removeBots() {
     std::vector<uint8_t> bots;
-    for (const NetPlayer& p : _players)
+    for (const NetPlayer &p : _players)
         if (p.bot)
             bots.push_back(p.id);
     for (uint8_t id : bots)
         dropPlayer(id, false);
 }
 
-void NetSession::sendBotCar(uint8_t id, const NetCarState& state) {
-    if (const NetPlayer* p = player(id); _host && p && p->bot)
+void NetSession::sendBotCar(uint8_t id, const NetCarState &state) {
+    if (const NetPlayer *p = player(id); _host && p && p->bot)
         storeCar(id, state);
 }
 
 void NetSession::eject(uint8_t id) {
     if (!_host || id == _myId)
         return;
-    for (const auto& peer : _peers)
+    for (const auto &peer : _peers)
         if (peer->id == id)
             for (int i = 0; i < 2; ++i)
                 _socket->send(peer->address, Writer(kKick).out);
@@ -573,14 +581,14 @@ void NetSession::leave() {
         // two are left to play on (computer players go with the host).
         uint8_t successor = kNoPlayer;
         int left = 0;
-        for (const NetPlayer& p : _players)
+        for (const NetPlayer &p : _players)
             if (p.id != _myId && !p.bot && p.address.port) {
                 ++left;
                 successor = std::min(successor, p.id);
             }
         Writer w(kBye);
         w.u8(left >= 2 ? successor : kNoPlayer);
-        for (const auto& peer : _peers)
+        for (const auto &peer : _peers)
             for (int i = 0; i < 3; ++i)
                 _socket->send(peer->address, w.out);
     } else if (_myId != kNoPlayer) {
@@ -605,13 +613,13 @@ void NetSession::update(uint64_t nowMs) {
                 dropPlayer(_peers[i]->id, true);
             else
                 ++i;
-        if (NetPlayer* me = mutablePlayer(_myId)) {
+        if (NetPlayer *me = mutablePlayer(_myId)) {
             me->name = _wish.name;
             me->ready = true; // the host starts when it likes
         }
         if (_phase == Phase::kLoading) {
             bool all = true;
-            for (const NetPlayer& p : _players)
+            for (const NetPlayer &p : _players)
                 all = all && p.loaded;
             if (all || nowMs > _loadingSinceMs + kLoadingTimeoutMs) {
                 _phase = Phase::kPlaying;
@@ -684,10 +692,10 @@ void NetSession::receive(uint64_t nowMs) {
     }
 }
 
-void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>& data, uint64_t nowMs) {
+void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs) {
     Reader r(data);
-    Peer* peer = nullptr;
-    for (const auto& p : _peers)
+    Peer *peer = nullptr;
+    for (const auto &p : _peers)
         if (p->address == from)
             peer = p.get();
     switch (typeOf(data)) {
@@ -787,7 +795,7 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
     if (!peer)
         return;
     peer->heardMs = nowMs;
-    NetPlayer* p = mutablePlayer(peer->id);
+    NetPlayer *p = mutablePlayer(peer->id);
     if (!p)
         return;
     switch (typeOf(data)) {
@@ -839,7 +847,7 @@ void NetSession::handleHost(const net::Address& from, const std::vector<uint8_t>
 }
 
 void NetSession::sendLobby(uint64_t nowMs) {
-    for (const auto& peer : _peers) {
+    for (const auto &peer : _peers) {
         Writer w(kLobby);
         w.u8(uint8_t(_phase));
         w.u32(_round);
@@ -848,7 +856,7 @@ void NetSession::sendLobby(uint64_t nowMs) {
         writeSettings(w, _settings);
         w.u8(peer->id);
         w.u8(uint8_t(_players.size()));
-        for (const NetPlayer& p : _players) {
+        for (const NetPlayer &p : _players) {
             w.u8(p.id);
             w.str(p.name);
             w.str(p.car);
@@ -860,7 +868,7 @@ void NetSession::sendLobby(uint64_t nowMs) {
             w.u16(p.address.port);
         }
         w.u8(uint8_t(_chat.size()));
-        for (const NetChatLine& c : _chat) {
+        for (const NetChatLine &c : _chat) {
             w.u32(c.seq);
             w.str(c.from);
             w.str(c.text);
@@ -879,22 +887,22 @@ void NetSession::sendGame(uint64_t nowMs) {
     w.u16(uint16_t(std::min<size_t>(_gameState.size(), 1200)));
     w.out.insert(w.out.end(), _gameState.begin(),
                  _gameState.begin() + std::ptrdiff_t(std::min<size_t>(_gameState.size(), 1200)));
-    for (const auto& peer : _peers)
+    for (const auto &peer : _peers)
         _socket->send(peer->address, w.out);
 }
 
 void NetSession::relayCars() {
     // Each player gets the newest state of every other car.
-    for (const auto& peer : _peers) {
+    for (const auto &peer : _peers) {
         Writer w(kCars);
-        std::vector<std::pair<uint8_t, const NetCarState*>> list;
+        std::vector<std::pair<uint8_t, const NetCarState *>> list;
         if (_haveMyCar)
             list.push_back({_myId, &_myCar});
-        for (const auto& [id, states] : _cars)
+        for (const auto &[id, states] : _cars)
             if (id != peer->id && id != _myId && !states.empty())
                 list.push_back({id, &states.back()});
         w.u8(uint8_t(list.size()));
-        for (const auto& [id, s] : list) {
+        for (const auto &[id, s] : list) {
             w.u8(id);
             writeCar(w, *s);
         }
@@ -918,7 +926,7 @@ void NetSession::sendStatus(uint64_t nowMs) {
     _socket->send(_hostAddress, w.out);
 }
 
-void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_t>& data, uint64_t nowMs) {
+void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs) {
     (void)from;
     Reader r(data);
     const uint8_t type = typeOf(data);
@@ -950,7 +958,7 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
         const NetSettings settings = readSettings(r);
         const uint8_t you = r.u8();
         std::vector<NetPlayer> players(r.u8());
-        for (NetPlayer& p : players) {
+        for (NetPlayer &p : players) {
             p.id = r.u8();
             p.name = r.str();
             p.car = r.str();
@@ -966,7 +974,7 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
             p.address.port = r.u16();
         }
         std::vector<NetChatLine> lines(r.u8());
-        for (NetChatLine& c : lines) {
+        for (NetChatLine &c : lines) {
             c.seq = r.u32();
             c.from = r.str();
             c.text = r.str();
@@ -976,21 +984,21 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
         if (!r.ok || you != _myId)
             return;
         // Who's come and gone.
-        for (const NetPlayer& p : players)
+        for (const NetPlayer &p : players)
             if (p.id != _myId && !player(p.id) && !_players.empty())
                 notice(NetNotice::Kind::kJoined, p.name);
-        for (const NetPlayer& p : _players) {
+        for (const NetPlayer &p : _players) {
             bool still = false;
-            for (const NetPlayer& q : players)
+            for (const NetPlayer &q : players)
                 still = still || q.id == p.id;
             if (!still && p.id != _myId)
                 notice(NetNotice::Kind::kLeft, p.name);
         }
-        for (const NetPlayer& p : players) // newly called a cheater
-            if (const NetPlayer* was = player(p.id); p.cheater && was && !was->cheater)
+        for (const NetPlayer &p : players) // newly called a cheater
+            if (const NetPlayer *was = player(p.id); p.cheater && was && !was->cheater)
                 notice(NetNotice::Kind::kSuspect, p.name);
         _players = std::move(players);
-        if (const NetPlayer* me = player(_myId); me && !_teamChosen)
+        if (const NetPlayer *me = player(_myId); me && !_teamChosen)
             _wish.team = me->team; // the host put us on a side
         _sessionName = name;
         _settings = settings;
@@ -1018,7 +1026,7 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
             _phase = phase;
         }
         _seed = seed;
-        for (const NetChatLine& c : lines)
+        for (const NetChatLine &c : lines)
             if (c.seq > _chatSeq) {
                 _chat.push_back(c);
                 _chatSeq = c.seq;
@@ -1081,14 +1089,14 @@ void NetSession::handlePlayer(const net::Address& from, const std::vector<uint8_
     }
 }
 
-bool NetSession::plausible(uint8_t id, const NetCarState& s) {
+bool NetSession::plausible(uint8_t id, const NetCarState &s) {
     // What a player's machine says of its car, as the host checks it: not
     // stamped ahead of the race clock, and not further from where it last
     // was than a car can go in the time, unless it's been put back since.
     bool ok = s.clock <= clock(_nowMs) + kAheadOfClock && length(s.velocity) < kFastest;
     const auto it = _cars.find(id);
     if (ok && it != _cars.end() && !it->second.empty()) {
-        const NetCarState& last = it->second.back();
+        const NetCarState &last = it->second.back();
         const float dt = s.clock - last.clock;
         if (dt > 0 && s.resets == last.resets && length(s.position - last.position) > 2 + kFastest * dt)
             ok = false;
@@ -1096,7 +1104,7 @@ bool NetSession::plausible(uint8_t id, const NetCarState& s) {
     if (ok)
         return true;
     if (++_rejected[id] == kCheater)
-        if (NetPlayer* p = mutablePlayer(id)) {
+        if (NetPlayer *p = mutablePlayer(id)) {
             p->cheater = true;
             notice(NetNotice::Kind::kSuspect, p->name);
         }
@@ -1109,7 +1117,7 @@ void NetSession::hostGone(uint64_t nowMs, uint8_t successor) {
     // one who's been in longest; each knows the others' addresses from
     // the lobby.
     std::vector<uint8_t> left;
-    for (const NetPlayer& p : _players)
+    for (const NetPlayer &p : _players)
         if (p.id != _hostId && !p.bot && (p.address.port || p.id == _myId))
             left.push_back(p.id);
     if (left.size() < 2) {
@@ -1122,17 +1130,17 @@ void NetSession::hostGone(uint64_t nowMs, uint8_t successor) {
                              : *std::min_element(left.begin(), left.end());
     const uint8_t oldHost = _hostId;
     std::vector<uint8_t> gone;
-    for (const NetPlayer& p : _players)
+    for (const NetPlayer &p : _players)
         if (p.id == oldHost || p.bot)
             gone.push_back(p.id);
     for (uint8_t id : gone) {
         _players.erase(
-            std::remove_if(_players.begin(), _players.end(), [id](const NetPlayer& q) { return q.id == id; }),
+            std::remove_if(_players.begin(), _players.end(), [id](const NetPlayer &q) { return q.id == id; }),
             _players.end());
         _cars.erase(id);
     }
     _hostId = next;
-    const NetPlayer* now = player(next);
+    const NetPlayer *now = player(next);
     notice(NetNotice::Kind::kHostMoved, now ? now->name : std::string());
     if (next == _myId) {
         becomeHost(nowMs);
@@ -1151,9 +1159,9 @@ void NetSession::becomeHost(uint64_t nowMs) {
     _peers.clear();
     _challenges.clear();
     std::random_device random;
-    for (uint8_t& b : _secret)
+    for (uint8_t &b : _secret)
         b = uint8_t(random());
-    for (NetPlayer& p : _players) {
+    for (NetPlayer &p : _players) {
         if (p.id == _myId) {
             p.address = {};
             p.name = _wish.name;
@@ -1169,7 +1177,7 @@ void NetSession::becomeHost(uint64_t nowMs) {
         peer->chatTaken = kChatUnknown;
         _peers.push_back(std::move(peer));
     }
-    for (const std::string& line : _outbox) // what we'd said that the old host hadn't taken
+    for (const std::string &line : _outbox) // what we'd said that the old host hadn't taken
         addChat(_wish.name, line);
     _outbox.clear();
     _goMs = 0;
@@ -1204,14 +1212,14 @@ void NetBrowser::update(uint64_t nowMs) {
         f.password = (flags & 2) != 0;
         f.ping = uint16_t(std::min<uint32_t>(uint32_t(nowMs) - time, 65535));
         f.heardMs = nowMs;
-        auto it = std::find_if(_found.begin(), _found.end(), [&](const Found& o) { return o.address == from; });
+        auto it = std::find_if(_found.begin(), _found.end(), [&](const Found &o) { return o.address == from; });
         if (it != _found.end())
             *it = f;
         else
             _found.push_back(f);
     }
     _found.erase(
-        std::remove_if(_found.begin(), _found.end(), [nowMs](const Found& f) { return nowMs > f.heardMs + 4000; }),
+        std::remove_if(_found.begin(), _found.end(), [nowMs](const Found &f) { return nowMs > f.heardMs + 4000; }),
         _found.end());
     if (_lastAskMs && nowMs < _lastAskMs + 1000)
         return;
@@ -1222,7 +1230,7 @@ void NetBrowser::update(uint64_t nowMs) {
     _socket->send(net::Address::broadcast(kNetPort), w.out);
     for (uint32_t b : _broadcasts)
         _socket->send({b, kNetPort}, w.out);
-    for (const net::Address& a : _asked)
+    for (const net::Address &a : _asked)
         _socket->send(a, w.out);
 }
 

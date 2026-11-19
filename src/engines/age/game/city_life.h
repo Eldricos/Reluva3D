@@ -25,24 +25,24 @@ namespace reluva::age {
 class CityLife {
 public:
     // city/<map>.bai and city/<map>.aimap.
-    Error load(const SearchSet& files, const std::string& map);
-    const AiMapSettings& citySettings() const { return _city; }
-    const AiRoadMap& roadMap() const { return _roads; }
+    Error load(const SearchSet &files, const std::string &map);
+    const AiMapSettings &citySettings() const { return _city; }
+    const AiRoadMap &roadMap() const { return _roads; }
     bool loaded() const { return !_roads.roads.empty(); }
 
     struct Options {
         float traffic = 0, peds = 0; // densities, 0..1
-        int cops = -1;                // how many of the settings' police (-1: all)
-        bool rain = false;            // the pedestrians dressed for it
-        bool laneChanges = false;     // traffic changes lanes (else as the settings say)
-        bool patrols = false;         // the police patrol the lanes rather than wait
-        std::string variant;          // a race's own path sets ("circuit0"...), over the city's
+        int cops = -1;               // how many of the settings' police (-1: all)
+        bool rain = false;           // the pedestrians dressed for it
+        bool laneChanges = false;    // traffic changes lanes (else as the settings say)
+        bool patrols = false;        // the police patrol the lanes rather than wait
+        std::string variant;         // a race's own path sets ("circuit0"...), over the city's
         uint32_t seed = 1;
     };
     // Starts afresh with `settings` (the city's, or a race's read over
     // them). Returns the first problem loading models, if any.
-    Error start(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
-                const AiMapSettings& settings, const Options& options, audio::Mixer* mixer);
+    Error start(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
+                const AiMapSettings &settings, const Options &options, audio::Mixer *mixer);
     void stop();
     void setTrafficDensity(float d) { _traffic.setDensity(d); }
     void setPedDensity(float d) { _peds.setDensity(d); }
@@ -54,28 +54,28 @@ public:
     // (opponents). `fill` places the traffic and pedestrians anywhere
     // round the player rather than out of sight (just started). The
     // drawbridges' leaves go into `world` as they move.
-    void update(float dt, CarSim& player, const std::vector<CarSim*>& others, CollisionWorld& world,
-                const RoadGraph& roads, bool fill = false);
-    void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-              const Vec3& eye, const FlareDrawer* flares = nullptr);
+    void update(float dt, CarSim &player, const std::vector<CarSim *> &others, CollisionWorld &world,
+                const RoadGraph &roads, bool fill = false);
+    void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
+              const Vec3 &eye, const FlareDrawer *flares = nullptr);
     // Where the traffic's and the police's headlights light the road.
-    void headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye) const;
+    void headlightPools(std::vector<gfx::DynamicLight> &out, const Vec3 &eye) const;
 
     // How many times the player has run into a car (the traffic's or the
     // police's) since starting.
     int carTouches() const { return _carTouches; }
 
-    Traffic& traffic() { return _traffic; }
-    Pedestrians& pedestrians() { return _peds; }
-    Police& police() { return _police; }
-    const TrafficLights& lights() const { return _lights; }
-    const Gizmos& gizmos() const { return _gizmos; }
+    Traffic &traffic() { return _traffic; }
+    Pedestrians &pedestrians() { return _peds; }
+    Police &police() { return _police; }
+    const TrafficLights &lights() const { return _lights; }
+    const Gizmos &gizmos() const { return _gizmos; }
     // The city's ambient sounds (aud/ambient).
-    const AmbientSounds& ambient() const { return _ambient; }
+    const AmbientSounds &ambient() const { return _ambient; }
     void setAmbientGain(float gain) { _ambient.setGain(gain); }
     // The props (city/<map>/props.pathset) and traffic lights, which cars
     // can knock down.
-    const Props& props() const { return _props; }
+    const Props &props() const { return _props; }
     // What flew out of the props knocked down since last asked.
     std::vector<Props::Burst> takeBursts() { return _props.takeBursts(); }
 
@@ -93,7 +93,7 @@ private:
     bool _lampsLit = false, _night = false;
     int _carTouches = 0;
     Props _props;
-    const SearchSet* _files = nullptr;
+    const SearchSet *_files = nullptr;
     bool _propsInWorld = false;
 };
 

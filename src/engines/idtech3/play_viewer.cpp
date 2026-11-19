@@ -47,14 +47,16 @@ constexpr float kPi = 3.14159265358979f;
 // events). See eliteforce-syscalls.md.
 constexpr int32_t kButtonAttack = 1, kButtonAltAttack = 32;
 // An angle in degrees as usercmd_t carries it: 65536 to a full turn.
-int32_t toShort(float degrees) { return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff; }
+int32_t toShort(float degrees) {
+    return int32_t(std::lround(degrees * 65536.0f / 360.0f)) & 0xffff;
+}
 
 } // namespace
 
-PlayViewer::PlayViewer(ViewerContext& ctx) : Page(ctx) {
+PlayViewer::PlayViewer(ViewerContext &ctx) : Page(ctx) {
     if (std::strcmp(ctx.game.gameId, "stvef") != 0 || !ctx.files.has("vm/qagame.qvm") || !ctx.files.has("vm/cgame.qvm"))
         return;
-    for (const std::string& n : ctx.files.list()) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0)
             names_.push_back(key);
@@ -68,7 +70,9 @@ PlayViewer::PlayViewer(ViewerContext& ctx) : Page(ctx) {
         }
 }
 
-PlayViewer::~PlayViewer() { deactivate(); }
+PlayViewer::~PlayViewer() {
+    deactivate();
+}
 
 void PlayViewer::activate() {
     const VideoSettings video = videoSettings(ctx_.cvars);
@@ -147,7 +151,7 @@ void PlayViewer::reset() {
     yaw_ = pitch_ = 0;
 }
 
-bool PlayViewer::loadLevel(const std::string& path, std::shared_ptr<Bsp>& bsp) {
+bool PlayViewer::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
     bsp = std::make_shared<Bsp>();
     std::vector<uint8_t> data;
     Error err = ctx_.files.read(path, data);
@@ -170,10 +174,10 @@ bool PlayViewer::loadLevel(const std::string& path, std::shared_ptr<Bsp>& bsp) {
     return true;
 }
 
-Error PlayViewer::startClientGame(const std::map<int32_t, std::string>& configstrings, int32_t serverMessage,
+Error PlayViewer::startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                                   int32_t commandSequence) {
     cgame_ = std::make_unique<eliteforce::CgameHost>(ctx_.files, cvars_);
-    cgame_->print = [this](const std::string& text) { addPrint(text, true); };
+    cgame_->print = [this](const std::string &text) { addPrint(text, true); };
     scene_->setHandles({&cgame_->models(), &cgame_->skins(), &cgame_->shaders()});
     cgame_->subdivisions = videoSettings(cvars_).subdivisions;
     notify_.clear();
@@ -200,7 +204,7 @@ Error PlayViewer::startClientGame(const std::map<int32_t, std::string>& configst
 void PlayViewer::start(int index) {
     index_ = index;
     reset();
-    const std::string& path = names_[size_t(index)];
+    const std::string &path = names_[size_t(index)];
     std::string map = path.substr(5, path.size() - 9); // without maps/ and .bsp
     setTitle(map + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
     std::shared_ptr<Bsp> bsp;
@@ -212,7 +216,7 @@ void PlayViewer::start(int index) {
     // way to watch it.
     cvars_.set("g_holoIntro", "0");
     game_ = std::make_unique<eliteforce::GameHost>(ctx_.files, cvars_);
-    game_->print = [this](const std::string& text) { addPrint(text, false); };
+    game_->print = [this](const std::string &text) { addPrint(text, false); };
     printPartial_[0].clear();
     closeTyping();
     Error err = game_->load();
@@ -227,7 +231,7 @@ void PlayViewer::start(int index) {
         err = game_->beginClient(0);
     // What the menus asked the server to run once the level started
     // (adding bots...), as typed at its console.
-    for (const std::string& command : ctx_.requestCommands) {
+    for (const std::string &command : ctx_.requestCommands) {
         if (err)
             break;
         bool handled = false;
@@ -254,7 +258,7 @@ void PlayViewer::start(int index) {
     cgame_->newSnapshot(localSnapshot());
 }
 
-bool PlayViewer::changeLevel(const std::string& map) {
+bool PlayViewer::changeLevel(const std::string &map) {
     // As the original's map command on a server with players: the level
     // loaded, the game started afresh on it, the players and bots kept;
     // those on other machines are sent the new level's game state.
@@ -308,19 +312,20 @@ bool PlayViewer::startDownloads() {
     // (sv_referencedPaks, by checksum, and their names) that it has none
     // of, but Raven's own, which are never downloaded; with
     // cl_allowDownload, downloaded; without it, only named.
-    const auto& cs = client_->configstrings();
+    const auto &cs = client_->configstrings();
     const std::string info = cs.count(1) ? cs.at(1) : std::string();
     std::istringstream sums(infoValue(info, "sv_referencedPaks")), names(infoValue(info, "sv_referencedPakNames"));
     std::set<int32_t> ours;
-    for (const Archive* a : ctx_.files.archives())
-        if (const auto* pak = dynamic_cast<const ZipArchive*>(a))
+    for (const Archive *a : ctx_.files.archives())
+        if (const auto *pak = dynamic_cast<const ZipArchive *>(a))
             ours.insert(pakChecksum(*pak));
     downloads_.clear();
     std::string sum, name;
     while (sums >> sum && names >> name) {
         const auto checksum = int32_t(std::strtoll(sum.c_str(), nullptr, 10));
         const std::string lower = fs::toLower(name);
-        const bool raven = lower.size() == 10 && lower.rfind("baseef/pak", 0) == 0 && lower[9] >= '0' && lower[9] <= '3';
+        const bool raven =
+            lower.size() == 10 && lower.rfind("baseef/pak", 0) == 0 && lower[9] >= '0' && lower[9] <= '3';
         if (ours.count(checksum) || raven)
             continue;
         downloads_.emplace_back(name + ".pk3", checksum);
@@ -330,7 +335,7 @@ bool PlayViewer::startDownloads() {
     cvars_.create("cl_allowDownload", "0", CvarStore::Archive);
     if (!cvars_.integer("cl_allowDownload")) {
         std::string missing;
-        for (const auto& [file, checksum] : downloads_)
+        for (const auto &[file, checksum] : downloads_)
             missing += " " + file;
         addPrint("You're missing files the server uses:" + missing +
                      "\nYou might not be able to play. Set cl_allowDownload 1 to download them.\n",
@@ -343,7 +348,7 @@ bool PlayViewer::startDownloads() {
     return true;
 }
 
-bool PlayViewer::finishDownload(const std::string& name, const std::vector<uint8_t>& data) {
+bool PlayViewer::finishDownload(const std::string &name, const std::vector<uint8_t> &data) {
     // Kept in the save folder's game folder, as the original keeps them in
     // its home folder: a name with no way out of it, checked against the
     // checksum the server gave before it's used.
@@ -363,7 +368,7 @@ bool PlayViewer::finishDownload(const std::string& name, const std::vector<uint8
     std::filesystem::create_directories(path.parent_path(), ec);
     {
         std::ofstream out(path.string() + ".tmp", std::ios::binary);
-        out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        out.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
         if (!out) {
             stop("Couldn't write " + path.string());
             return false;
@@ -393,10 +398,10 @@ std::string PlayViewer::userinfo() const {
     // The player's settings the menus keep (name, model...), as the
     // original sends them: every user-info setting.
     std::string info;
-    for (const CvarStore::Cvar& cv : cvars_.all())
+    for (const CvarStore::Cvar &cv : cvars_.all())
         if ((cv.flags & CvarStore::UserInfo) && !cv.value.empty())
             setInfoValue(info, cv.name, cv.value);
-    auto fallback = [&](const char* key, const char* value) {
+    auto fallback = [&](const char *key, const char *value) {
         if (infoValue(info, key).empty())
             setInfoValue(info, key, value);
     };
@@ -427,15 +432,15 @@ void PlayViewer::startHosting() {
         return;
     }
     server_ = std::make_unique<eliteforce::NetServer>(*game_, cvars_, std::move(socket));
-    server_->print = [this](const std::string& text) { addPrint(text, false); };
-    server_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };
+    server_->print = [this](const std::string &text) { addPrint(text, false); };
+    server_->resolveHost = [this](const std::string &host, uint32_t &ip) { return ctx_.sys.resolveHost(host, ip); };
     server_->reserve(0);
     server_->setFiles(&ctx_.files);
     server_->levelStarted();
     addPrint("Open to other players on port " + std::to_string(server_->port()) + "\n", false);
 }
 
-void PlayViewer::connect(const std::string& address) {
+void PlayViewer::connect(const std::string &address) {
     reset();
     setTitle("Connecting to " + address);
     const auto [host, port] = net::splitHostPort(address, ServerBrowser::kServerPort);
@@ -467,8 +472,15 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     // How long each step of joining took, for the console.
     if (client_->state() != joinState_) {
         joinState_ = client_->state();
-        static const char* const kSteps[] = {"", "disconnected", "", "asking for a challenge", "connecting",
-                                             "waiting for the level", "", "loading the level", "level loaded, joining the game"};
+        static const char *const kSteps[] = {"",
+                                             "disconnected",
+                                             "",
+                                             "asking for a challenge",
+                                             "connecting",
+                                             "waiting for the level",
+                                             "",
+                                             "loading the level",
+                                             "level loaded, joining the game"};
         const auto st = size_t(joinState_);
         char line[128];
         std::snprintf(line, sizeof line, "%.2f s: %s\n", double(nowMs - joinStartMs_) / 1000,
@@ -497,7 +509,7 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
         // (the level loads when the server sends its game state again).
         if (startDownloads())
             return;
-        const auto& cs = client_->configstrings();
+        const auto &cs = client_->configstrings();
         const std::string map = cs.count(0) ? infoValue(cs.at(0), "mapname") : std::string();
         cgame_.reset();
         stopSounds();
@@ -525,7 +537,7 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     if (!cgame_)
         return;
     cgame_->setServerCommands(client_->serverCommands());
-    for (eliteforce::GameHost::Snapshot& snap : client_->takeSnapshots())
+    for (eliteforce::GameHost::Snapshot &snap : client_->takeSnapshots())
         cgame_->newSnapshot(std::move(snap));
     // Commands go out as soon as the level is loaded, as the original's
     // client sends them: the first puts the player in the game.
@@ -562,14 +574,15 @@ void PlayViewer::drawLoadingScreen() {
     cgame_->clearScene();
 }
 
-void PlayViewer::stop(const std::string& why) {
+void PlayViewer::stop(const std::string &why) {
     error_ = why;
     const std::string log = cgame_ ? cgame_->log() : game_ ? game_->log() : std::string();
     if (!log.empty()) {
         std::string last = log;
         while (!last.empty() && last.back() == '\n')
             last.pop_back();
-        error_ += " (last printed: " + last.substr(last.rfind('\n') == std::string::npos ? 0 : last.rfind('\n') + 1) + ")";
+        error_ +=
+            " (last printed: " + last.substr(last.rfind('\n') == std::string::npos ? 0 : last.rfind('\n') + 1) + ")";
     }
     if (client_)
         client_->disconnect();
@@ -594,10 +607,10 @@ void PlayViewer::sendServerCommands() {
     // What the server would send the player over the network, in order:
     // the configstrings that changed (cs, bcs: the client game sets up a
     // player who joined by theirs), then the game's commands to them.
-    for (std::string& change : eliteforce::configstringCommands(localConfigstrings_, game_->configstrings()))
+    for (std::string &change : eliteforce::configstringCommands(localConfigstrings_, game_->configstrings()))
         localCommands_.push_back(std::move(change));
     localConfigstrings_ = game_->configstrings();
-    const auto& commands = game_->serverCommands();
+    const auto &commands = game_->serverCommands();
     for (; localCommandsSeen_ < commands.size(); ++localCommandsSeen_)
         if (commands[localCommandsSeen_].first == 0 || commands[localCommandsSeen_].first == -1)
             localCommands_.push_back(commands[localCommandsSeen_].second);
@@ -615,7 +628,7 @@ eliteforce::GameHost::Snapshot PlayViewer::localSnapshot() {
     return snap;
 }
 
-void PlayViewer::consoleCommand(const std::string& text) {
+void PlayViewer::consoleCommand(const std::string &text) {
     // As the original's client: commands it knows itself, then the client
     // game's, and anything else goes to the server, whose game answers
     // (an unknown command it prints as such).
@@ -705,7 +718,7 @@ void PlayViewer::consoleCommand(const std::string& text) {
         cvars_.set(w[1], w[2]);
         return;
     }
-    if (const CvarStore::Cvar* cv = cvars_.find(w[0])) {
+    if (const CvarStore::Cvar *cv = cvars_.find(w[0])) {
         if (w.size() == 1)
             addPrint("\"" + cv->name + "\" is \"" + cv->value + "\"\n", false);
         else
@@ -731,21 +744,21 @@ void PlayViewer::consoleCommand(const std::string& text) {
         stop("The server game stopped: " + err.message);
 }
 
-bool PlayViewer::isButton(const std::string& name) {
-    static const char* const kButtons[] = {"forward", "back", "moveleft", "moveright", "moveup", "movedown",
-                                           "left", "right", "lookup", "lookdown", "speed", "strafe",
-                                           "attack", "altattack", "mlook", "klook"};
-    for (const char* b : kButtons)
+bool PlayViewer::isButton(const std::string &name) {
+    static const char *const kButtons[] = {"forward", "back",      "moveleft", "moveright", "moveup", "movedown",
+                                           "left",    "right",     "lookup",   "lookdown",  "speed",  "strafe",
+                                           "attack",  "altattack", "mlook",    "klook"};
+    for (const char *b : kButtons)
         if (name == b)
             return true;
     return name.rfind("button", 0) == 0 && name.size() > 6 && name.size() <= 8 &&
            std::isdigit(static_cast<unsigned char>(name[6]));
 }
 
-void PlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
+void PlayViewer::runBinding(const std::string &line, int32_t key, bool down) {
     // A key's command: "+name" is held while the key is (the engine's own
     // buttons, or the client game's +/- pair); others run on the press.
-    for (const std::string& command : splitCommands(line)) {
+    for (const std::string &command : splitCommands(line)) {
         const std::vector<std::string> w = splitCommand(command);
         if (w.empty())
             continue;
@@ -771,12 +784,12 @@ void PlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
     }
 }
 
-bool PlayViewer::held(const char* button) const {
+bool PlayViewer::held(const char *button) const {
     const auto it = buttons_.find(button);
     return it != buttons_.end() && !it->second.empty();
 }
 
-bool PlayViewer::takesKey(const Event& ev) const {
+bool PlayViewer::takesKey(const Event &ev) const {
     // Esc goes back to the menus, as in the game; with Ctrl it leaves.
     // While typing, every key is the typing's (Tab, Esc too), but Ctrl+Esc.
     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && (ev.mods & keymod::kCtrl))
@@ -840,7 +853,7 @@ void PlayViewer::submitTyping() {
         consoleCommand("tell " + std::to_string(tellClient_) + " \"" + text + "\"");
 }
 
-void PlayViewer::typingEvent(const Event& ev) {
+void PlayViewer::typingEvent(const Event &ev) {
     if (ev.type == EventType::kTextInput) {
         // Characters typed (Latin-1, as the original's), but the one of the
         // key that opened the typing, and the console key in the console.
@@ -862,9 +875,13 @@ void PlayViewer::typingEvent(const Event& ev) {
         return;
     swallowChar_ = 0;
     switch (ev.key) {
-    case key::kEscape: closeTyping(); return;
+    case key::kEscape:
+        closeTyping();
+        return;
     case key::kReturn:
-    case key::kKpEnter: submitTyping(); return;
+    case key::kKpEnter:
+        submitTyping();
+        return;
     case key::kBackspace:
         if (cursor_ > 0)
             field_.erase(--cursor_, 1);
@@ -873,16 +890,27 @@ void PlayViewer::typingEvent(const Event& ev) {
         if (cursor_ < field_.size())
             field_.erase(cursor_, 1);
         return;
-    case key::kLeft: cursor_ = cursor_ > 0 ? cursor_ - 1 : 0; return;
-    case key::kRight: cursor_ = std::min(field_.size(), cursor_ + 1); return;
-    case key::kHome: cursor_ = 0; return;
-    case key::kEnd: cursor_ = field_.size(); return;
-    default: break;
+    case key::kLeft:
+        cursor_ = cursor_ > 0 ? cursor_ - 1 : 0;
+        return;
+    case key::kRight:
+        cursor_ = std::min(field_.size(), cursor_ + 1);
+        return;
+    case key::kHome:
+        cursor_ = 0;
+        return;
+    case key::kEnd:
+        cursor_ = field_.size();
+        return;
+    default:
+        break;
     }
     if (typing_ != Typing::Console)
         return;
     switch (ev.key) {
-    case '`': closeTyping(); return; // the console key closes it again
+    case '`':
+        closeTyping();
+        return; // the console key closes it again
     case key::kUp:
     case key::kDown:
         // Earlier lines typed, back and forth.
@@ -895,13 +923,18 @@ void PlayViewer::typingEvent(const Event& ev) {
         field_ = historyPos_ < history_.size() ? history_[historyPos_] : std::string();
         cursor_ = field_.size();
         return;
-    case key::kPageUp: consoleScroll_ = std::min(consoleScroll_ + 4, int(consoleLines_.size())); return;
-    case key::kPageDown: consoleScroll_ = std::max(consoleScroll_ - 4, 0); return;
-    default: return;
+    case key::kPageUp:
+        consoleScroll_ = std::min(consoleScroll_ + 4, int(consoleLines_.size()));
+        return;
+    case key::kPageDown:
+        consoleScroll_ = std::max(consoleScroll_ - 4, 0);
+        return;
+    default:
+        return;
     }
 }
 
-void PlayViewer::handleEvent(const Event& ev) {
+void PlayViewer::handleEvent(const Event &ev) {
     if (typing_ != Typing::None) {
         // Typing takes the keys and characters; the mouse still looks.
         if (ev.type == EventType::kMouseMove) {
@@ -970,7 +1003,8 @@ void PlayViewer::handleEvent(const Event& ev) {
         mouseX_ += ev.moveX;
         mouseY_ += ev.moveY;
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -981,9 +1015,7 @@ void PlayViewer::runGame(uint64_t nowMs) {
     lastMs_ = nowMs;
     // The settings, the original's names and defaults (the menus' Controls
     // set them): a setting not yet made counts as its default.
-    auto setting = [&](const char* name, float fallback) {
-        return cvars_.find(name) ? cvars_.value(name) : fallback;
-    };
+    auto setting = [&](const char *name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
     // The mouse: degrees per unit moved are the sensitivity times m_yaw and
     // m_pitch (negative m_pitch: inverted); m_filter averages this frame's
     // move with the last; without free look (cl_freelook 0, unless +mlook
@@ -1044,7 +1076,7 @@ void PlayViewer::runGame(uint64_t nowMs) {
     if (soundSystem_) {
         // At the original's settings: effects (s_volume) 0.8 and music
         // (s_musicvolume) 0.25 unless the menus set them.
-        auto setting = [&](const char* name, float fallback) {
+        auto setting = [&](const char *name, float fallback) {
             return cvars_.find(name) ? cvars_.value(name) : fallback;
         };
         soundSystem_->setVolumes(setting("s_volume", 0.8f), setting("s_musicvolume", 0.25f));
@@ -1057,7 +1089,7 @@ eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
     // frame: where they look, how they move, what they press.
     eliteforce::GameHost::UserCommand cmd;
     cmd.angles = {toShort(pitch_), toShort(yaw_), 0};
-    for (const auto& [name, keys] : buttons_) {
+    for (const auto &[name, keys] : buttons_) {
         if (keys.empty())
             continue;
         if (name == "attack")
@@ -1155,12 +1187,12 @@ void PlayViewer::update(uint64_t nowMs) {
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     bool haveView = false;
     if (cgame_) {
-        const auto& scene = cgame_->scene();
-        const auto& pictures = cgame_->pictures();
+        const auto &scene = cgame_->scene();
+        const auto &pictures = cgame_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
         size_t drawn = 0;
         bool first = true;
-        for (const auto& v : scene.views) {
+        for (const auto &v : scene.views) {
             scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
             drawn = std::max(drawn, v.picturesBefore);
             scene_->drawView(scene, v, 640, 480, time, first, world_.get(), &grid_, dynamicLights);
@@ -1168,8 +1200,8 @@ void PlayViewer::update(uint64_t nowMs) {
             if (!haveView && !(readInt(v.refdef, 76) & kNoWorldModel)) {
                 haveView = true;
                 eye_ = scene_->eye();
-                shown_ = {scene_->placedCount(), scene_->effectCount(), scene_->lightCount(),
-                          scene_->otherEntities(), scene_->unloadable()};
+                shown_ = {scene_->placedCount(), scene_->effectCount(), scene_->lightCount(), scene_->otherEntities(),
+                          scene_->unloadable()};
             }
         }
         scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
@@ -1218,18 +1250,18 @@ void PlayViewer::saveScreenshot() {
     img.rgba = std::move(rgba);
     const std::vector<uint8_t> tga = image::encodeTga(img);
     std::ofstream out(folder / name, std::ios::binary);
-    out.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+    out.write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
     if (!out)
         addPrint("Couldn't write screenshots/" + name + "\n", true);
     else if (!shot.silent)
         addPrint("Wrote screenshots/" + name + "\n", true);
 }
 
-void PlayViewer::addPrint(const std::string& text, bool notify) {
+void PlayViewer::addPrint(const std::string &text, bool notify) {
     // Whole lines into the console (the last thousand); the client game's
     // also on screen, each 3 seconds (the original's con_notifytime), at
     // most the last 4.
-    std::string& partial = printPartial_[notify ? 1 : 0];
+    std::string &partial = printPartial_[notify ? 1 : 0];
     partial += text;
     size_t end;
     while ((end = partial.find('\n')) != std::string::npos) {
@@ -1248,10 +1280,10 @@ void PlayViewer::addPrint(const std::string& text, bool notify) {
     }
 }
 
-void PlayViewer::drawColoured(int x, int y, const std::string& line) {
+void PlayViewer::drawColoured(int x, int y, const std::string &line) {
     // A line in the original's colours (^0-^7), with a shadow.
-    static const Color kColors[8] = {{0, 0, 0},     {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
-                                     {0, 0, 255},   {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
+    static const Color kColors[8] = {{0, 0, 0},   {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
+                                     {0, 0, 255}, {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
     Color color{255, 255, 255};
     std::string run;
     auto flush = [&] {
@@ -1286,33 +1318,35 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         // bottom (PageUp/PageDown scroll), and what's being typed.
         const int height = frameH_ / 2;
         for (int yy = 0; yy < height; ++yy) {
-            uint8_t* p = overlay_.row(yy);
+            uint8_t *p = overlay_.row(yy);
             for (int x = 0; x < frameW_; ++x) {
                 p[x * 4 + 0] = 10, p[x * 4 + 1] = 14, p[x * 4 + 2] = 24;
                 p[x * 4 + 3] = 215;
             }
         }
         for (int x = 0; x < frameW_; ++x) {
-            uint8_t* p = overlay_.row(height) + x * 4;
+            uint8_t *p = overlay_.row(height) + x * 4;
             p[0] = 200, p[1] = 140, p[2] = 40, p[3] = 255;
         }
         int y = height - 2 * lh - 4;
-        drawColoured(4, height - lh - 4, "]" + field_.substr(0, cursor_) + (blink ? "_" : " ") + field_.substr(cursor_));
+        drawColoured(4, height - lh - 4,
+                     "]" + field_.substr(0, cursor_) + (blink ? "_" : " ") + field_.substr(cursor_));
         for (int i = int(consoleLines_.size()) - 1 - consoleScroll_; i >= 0 && y >= 0; --i, y -= lh)
             drawColoured(4, y, consoleLines_[size_t(i)]);
     } else {
         // Joining a server: how far it has got, in the middle.
         if (client_ && (!cgame_ || !client_->hasSnapshot())) {
-            static const char* const kStates[] = {"", "Disconnected", "", "Asking for a challenge", "Connecting",
-                                                  "Waiting for the level", "", "Loading the level", "Joining"};
+            static const char *const kStates[] = {"",           "Disconnected",          "", "Asking for a challenge",
+                                                  "Connecting", "Waiting for the level", "", "Loading the level",
+                                                  "Joining"};
             const auto st = size_t(client_->state());
             std::string status = (st < 9 ? kStates[st] : "") + std::string(" - ") + serverAddress_;
             if (client_->downloading())
-                status = "Downloading " + client_->downloadName() + ": " +
-                         std::to_string(client_->downloadCount() / 1024) + " of " +
-                         (client_->downloadSize() < 0 ? std::string("?")
-                                                      : std::to_string(client_->downloadSize() / 1024)) +
-                         " KB";
+                status =
+                    "Downloading " + client_->downloadName() + ": " + std::to_string(client_->downloadCount() / 1024) +
+                    " of " +
+                    (client_->downloadSize() < 0 ? std::string("?") : std::to_string(client_->downloadSize() / 1024)) +
+                    " KB";
             if (client_->state() <= eliteforce::NetClient::State::Challenging)
                 status += " (" + std::to_string(client_->connectPackets()) + ")";
             const int x = std::max(4, (frameW_ - int(font::length(status)) * font::kAdvance) / 2);
@@ -1324,14 +1358,17 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
         }
         // The notify lines at the top, then a chat line being typed.
         int notifyY = 4;
-        for (const auto& [when, line] : notify_) {
+        for (const auto &[when, line] : notify_) {
             drawColoured(4, notifyY, line);
             notifyY += lh;
         }
         if (typing_ != Typing::None) {
-            const char* prompt = typing_ == Typing::Say ? "Say: " : typing_ == Typing::SayTeam ? "Say Team: " : "Tell: ";
-            drawColoured(4, notifyY, std::string("^7") + prompt + field_.substr(0, cursor_) + (blink ? "_" : " ") +
-                                         field_.substr(cursor_));
+            const char *prompt = typing_ == Typing::Say       ? "Say: "
+                                 : typing_ == Typing::SayTeam ? "Say Team: "
+                                                              : "Tell: ";
+            drawColoured(4, notifyY,
+                         std::string("^7") + prompt + field_.substr(0, cursor_) + (blink ? "_" : " ") +
+                             field_.substr(cursor_));
         }
     }
     std::vector<std::string> lines;
@@ -1342,14 +1379,15 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     if (showInfo_) {
         char line[256];
         if (game_) {
-            std::snprintf(line, sizeof line, "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models, %zu effects and %zu lights drawn, %d other entities not yet",
-                          float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2],
-                          haveView ? "" : " (no view yet)", shown_.models, shown_.effects, shown_.lights,
-                          shown_.other);
+            std::snprintf(
+                line, sizeof line,
+                "time %.1f s, eye at %.0f %.0f %.0f%s; %zu models, %zu effects and %zu lights drawn, %d other entities not yet",
+                float(clientTime_) / 1000.0f, eye_[0], eye_[1], eye_[2], haveView ? "" : " (no view yet)",
+                shown_.models, shown_.effects, shown_.lights, shown_.other);
             lines.push_back(line);
             // What the player's commands carry, to see that keys arrive.
             std::string held;
-            for (const auto& [name, keys] : buttons_)
+            for (const auto &[name, keys] : buttons_)
                 if (!keys.empty())
                     held += " +" + name;
             std::snprintf(line, sizeof line, "weapon chosen by the client game: %d; held:%s",
@@ -1362,25 +1400,25 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                           soundSystem_ ? soundSystem_->playingCount() : size_t(0));
             lines.push_back(line);
             if (recentFrames_.size() > 1) {
-                const auto& first = recentFrames_.front();
-                const auto& last = recentFrames_.back();
+                const auto &first = recentFrames_.front();
+                const auto &last = recentFrames_.back();
                 int commands = 0, longest = 0;
-                for (const auto& f : recentFrames_) {
+                for (const auto &f : recentFrames_) {
                     commands += f.command;
                     longest = std::max(longest, f.dt);
                 }
                 std::snprintf(line, sizeof line,
                               "last 2 s: %zu frames (%.1f ms each, the longest %d), %d commands, %d snapshots, %d "
                               "player events on the server",
-                              recentFrames_.size(), float(last.ms - first.ms) / float(recentFrames_.size() - 1), longest,
-                              commands, last.snapshots - first.snapshots, last.events - first.events);
+                              recentFrames_.size(), float(last.ms - first.ms) / float(recentFrames_.size() - 1),
+                              longest, commands, last.snapshots - first.snapshots, last.events - first.events);
                 lines.push_back(line);
             }
             if (soundSystem_) {
-                for (const std::string& r : soundSystem_->recent())
+                for (const std::string &r : soundSystem_->recent())
                     lines.push_back("sound: " + (r.size() > 140 ? r.substr(0, 140) + "..." : r));
                 std::string loops = "looping:";
-                for (const std::string& l : soundSystem_->loopingNow())
+                for (const std::string &l : soundSystem_->loopingNow())
                     loops += " " + l;
                 lines.push_back(loops.size() > 150 ? loops.substr(0, 150) + "..." : loops);
             }
@@ -1389,15 +1427,16 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                 // original's) left out, then why the last one failed.
                 std::string names;
                 size_t voices = 0;
-                for (const std::string& n : soundSystem_->missing()) {
+                for (const std::string &n : soundSystem_->missing()) {
                     if (n.rfind("sound/voice/", 0) == 0)
                         ++voices;
                     else
                         names += " " + n;
                 }
                 lines.push_back(std::to_string(soundSystem_->missing().size()) + " sounds couldn't be played (" +
-                                std::to_string(voices) + " voices):" + (names.size() > 120 ? names.substr(0, 120) + "..." : names));
-                if (const auto& problems = soundLibrary_.problems(); !problems.empty())
+                                std::to_string(voices) +
+                                " voices):" + (names.size() > 120 ? names.substr(0, 120) + "..." : names));
+                if (const auto &problems = soundLibrary_.problems(); !problems.empty())
                     lines.push_back("  last: " + (problems.back().size() > 150 ? problems.back().substr(0, 150) + "..."
                                                                                : problems.back()));
             }
@@ -1425,7 +1464,7 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
                 const auto joined = server_->players();
                 if (joined.empty())
                     players += " no one has joined";
-                for (const auto& [number, name] : joined)
+                for (const auto &[number, name] : joined)
                     players += " " + std::to_string(number) + ": " + name;
                 lines.push_back(players);
             } else if (client_) {
@@ -1435,13 +1474,13 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             }
             if (!shown_.unloadable.empty()) {
                 std::string names = "Models not drawn (only .md3 and .mdr):";
-                for (const std::string& n : shown_.unloadable)
+                for (const std::string &n : shown_.unloadable)
                     names += " " + n;
                 lines.push_back(names.size() > 150 ? names.substr(0, 150) + "..." : names);
             }
         }
-        for (const auto* host : {"server", "client"}) {
-            const std::map<int, int>* unhandled = nullptr;
+        for (const auto *host : {"server", "client"}) {
+            const std::map<int, int> *unhandled = nullptr;
             if (host[0] == 's' && game_)
                 unhandled = &game_->unhandled();
             else if (host[0] == 'c' && cgame_)
@@ -1449,7 +1488,7 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
             if (!unhandled || unhandled->empty())
                 continue;
             std::string calls = std::string("The ") + host + " game's system calls not implemented yet:";
-            for (const auto& [number, count] : *unhandled)
+            for (const auto &[number, count] : *unhandled)
                 calls += " " + std::to_string(number);
             lines.push_back(calls);
         }
@@ -1458,17 +1497,19 @@ void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
     }
     if (nowMs - shownMs_ < kHintMs) {
         lines.push_back("Keys do what they're bound to (set in the menus' Controls). The mouse looks. ~: the console.");
-        lines.push_back("Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
+        lines.push_back(
+            "Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
     }
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = frameH_ - int(lines.size() - i) * lh - 4;
         const int w = std::min(frameW_, int(font::length(lines[i])) * font::kAdvance + 8);
         for (int yy = y - 2; yy < y + lh; ++yy) {
-            uint8_t* p = overlay_.row(yy);
+            uint8_t *p = overlay_.row(yy);
             for (int x = 0; x < w; ++x)
                 p[x * 4 + 3] = 170;
         }
-        font::drawText(overlay_, 4, y, lines[i], i == 0 && !error_.empty() ? Color{255, 120, 120} : Color{230, 230, 230});
+        font::drawText(overlay_, 4, y, lines[i],
+                       i == 0 && !error_.empty() ? Color{255, 120, 120} : Color{230, 230, 230});
     }
 }
 

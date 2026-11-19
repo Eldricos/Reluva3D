@@ -21,8 +21,8 @@ float outside(float v, float zone) {
     return std::copysign(std::min(1.0f, (a - zone) / (1 - zone)), v);
 }
 
-uint32_t keyOf(Control c, const GameOptions& o) {
-    const auto& keys = o.keys[size_t(c)];
+uint32_t keyOf(Control c, const GameOptions &o) {
+    const auto &keys = o.keys[size_t(c)];
     return keys[0] ? keys[0] : keys[1];
 }
 
@@ -44,14 +44,14 @@ void PadDrive::axis(int axis, float value) {
     }
 }
 
-void PadDrive::apply(CarControls& c) const {
+void PadDrive::apply(CarControls &c) const {
     if (std::fabs(steer) > std::fabs(c.steer))
         c.steer = steer;
     c.throttle = std::max(c.throttle, throttle);
     c.brake = std::max(c.brake, brake);
 }
 
-uint32_t padKey(int button, bool driving, const GameOptions& options) {
+uint32_t padKey(int button, bool driving, const GameOptions &options) {
     if (!driving) {
         switch (button) {
         case pad::kDpadUp:
@@ -106,7 +106,7 @@ uint32_t padKey(int button, bool driving, const GameOptions& options) {
     }
 }
 
-bool padKeyEvent(const Event& ev, bool driving, const GameOptions& options, Event& out) {
+bool padKeyEvent(const Event &ev, bool driving, const GameOptions &options, Event &out) {
     if (ev.type != EventType::kPadDown && ev.type != EventType::kPadUp)
         return false;
     const uint32_t k = padKey(ev.pad, driving, options);

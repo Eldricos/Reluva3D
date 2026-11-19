@@ -15,15 +15,15 @@ namespace reluva::age {
 
 namespace {
 
-bool endsWith(const std::string& s, const char* ext) {
+bool endsWith(const std::string &s, const char *ext) {
     const std::string e = ext;
     return s.size() > e.size() && s.compare(s.size() - e.size(), e.size(), e) == 0;
 }
 
 } // namespace
 
-TextureViewer::TextureViewer(ViewerContext& ctx) : Page(ctx) {
-    for (const std::string& n : ctx.files.list()) {
+TextureViewer::TextureViewer(ViewerContext &ctx) : Page(ctx) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if ((key.rfind("texture/", 0) == 0 && (endsWith(key, ".tex") || endsWith(key, ".tga"))) ||
             (key.rfind("jpg/", 0) == 0 && endsWith(key, ".jpg")))
@@ -38,7 +38,7 @@ void TextureViewer::activate() {
 
 void TextureViewer::show(int index) {
     _index = index;
-    const std::string& name = _names[size_t(index)];
+    const std::string &name = _names[size_t(index)];
     _tex = Tex{};
     _error.clear();
     std::vector<uint8_t> data;
@@ -54,7 +54,7 @@ void TextureViewer::show(int index) {
     draw();
 }
 
-void TextureViewer::handleEvent(const Event& ev) {
+void TextureViewer::handleEvent(const Event &ev) {
     if (ev.type != EventType::kKeyDown || _names.empty())
         return;
     const int n = static_cast<int>(_names.size());
@@ -99,20 +99,19 @@ void TextureViewer::handleEvent(const Event& ev) {
 void TextureViewer::draw() {
     clear(16, 18, 24);
     const int lh = font::kLineHeight;
-    const std::string& name = _names[size_t(_index)];
-    text(4, 4, name + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_names.size()) + ")",
-         {150, 200, 255});
+    const std::string &name = _names[size_t(_index)];
+    text(4, 4, name + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_names.size()) + ")", {150, 200, 255});
     if (!_error.empty()) {
         text(4, 4 + lh, _error, {255, 120, 120});
         return;
     }
-    const image::Image& img = _tex.image;
+    const image::Image &img = _tex.image;
     char info[160];
     // Not a .tex: a TGA or JPEG, as its name says.
     const std::string format =
         _tex.format ? formatName(_tex.format) : fs::toLower(name.substr(name.rfind('.') + 1)) + " file";
-    std::snprintf(info, sizeof info, "%d x %d, %s, %u level%s, flags 0x%x%s", img.w, img.h, format.c_str(),
-                  _tex.levels, _tex.levels == 1 ? "" : "s", _tex.flags, _alpha ? "" : "; alpha ignored (A)");
+    std::snprintf(info, sizeof info, "%d x %d, %s, %u level%s, flags 0x%x%s", img.w, img.h, format.c_str(), _tex.levels,
+                  _tex.levels == 1 ? "" : "s", _tex.flags, _alpha ? "" : "; alpha ignored (A)");
     text(4, 4 + lh, info, {180, 180, 180});
 
     // Fit the space below the text (zoom 0), or that many times the size.
@@ -127,15 +126,15 @@ void TextureViewer::draw() {
         h = std::max(1, int(float(h) * s));
     }
     const int x0 = 4 + std::max(0, (areaW - w) / 2), y0 = top + std::max(0, (areaH - h) / 2);
-    Surface& s = _ctx.screen;
+    Surface &s = _ctx.screen;
     for (int y = 0; y < h && y0 + y < s.h; ++y) {
-        uint8_t* row = s.row(y0 + y);
+        uint8_t *row = s.row(y0 + y);
         const int sy = int(int64_t(y) * img.h / h);
         for (int x = 0; x < w && x0 + x < s.w; ++x) {
-            const uint8_t* p = img.pixel(int(int64_t(x) * img.w / w), sy);
+            const uint8_t *p = img.pixel(int(int64_t(x) * img.w / w), sy);
             const int a = _alpha ? p[3] : 255;
             const uint8_t check = ((x / 8 + y / 8) & 1) ? 100 : 60; // shows through where transparent
-            uint8_t* d = row + (x0 + x) * 4;
+            uint8_t *d = row + (x0 + x) * 4;
             for (int c = 0; c < 3; ++c)
                 d[c] = uint8_t((p[c] * a + check * (255 - a)) / 255);
             d[3] = 255;

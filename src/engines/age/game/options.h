@@ -57,12 +57,12 @@ enum class Control : int {
 };
 constexpr int kControls = int(Control::kCount);
 uint32_t controlStringId(Control c); // its name in mmlang.dll
-const char* controlFallbackName(Control c);
+const char *controlFallbackName(Control c);
 // A key's name, as Customize Controls shows it ("Up", "A", "Space").
 std::string keyName(uint32_t key);
 
 struct GameOptions {
-    static constexpr const char* kFileName = "options.txt";
+    static constexpr const char *kFileName = "options.txt";
 
     // Audio Options.
     bool soundFx = true, commentary = true, music = true, ambient = true;
@@ -80,10 +80,10 @@ struct GameOptions {
     int textureQuality = 3;    // the same
     int cloudShadows = 2;      // 0 None, 1 Low, 2 High
     // Control Options.
-    bool autoReverse = true; // the brake backs up when stopped
-    bool startInCar = false; // the in-car view first (POV)
+    bool autoReverse = true;   // the brake backs up when stopped
+    bool startInCar = false;   // the in-car view first (POV)
     bool forceFeedback = true; // a game controller shakes when the car's knocked
-    float steering = 0.5f;   // Steering Sensitivity, 0..1
+    float steering = 0.5f;     // Steering Sensitivity, 0..1
     // Two keys for each control (0: none).
     std::array<std::array<uint32_t, 2>, kControls> keys{};
 
@@ -92,9 +92,9 @@ struct GameOptions {
     void resetGraphics();
     void resetControls(); // the keys too
 
-    Error load(const std::filesystem::path& folder);
-    Error save(const std::filesystem::path& folder) const;
-    Error parse(const std::string& text);
+    Error load(const std::filesystem::path &folder);
+    Error save(const std::filesystem::path &folder) const;
+    Error parse(const std::string &text);
     std::string text() const;
 
     // The control a key is bound to, Control::Count if none.
@@ -111,17 +111,17 @@ struct GameOptions {
 struct Resolution {
     int w, h;
 };
-const std::array<Resolution, 5>& resolutions();
+const std::array<Resolution, 5> &resolutions();
 
 // The sound levels into the mixer: each kind's volume, on or off, and
 // the balance.
-void applySoundOptions(const GameOptions& options, audio::Mixer* mixer);
+void applySoundOptions(const GameOptions &options, audio::Mixer *mixer);
 // The options file read (none: the defaults) and put in force.
-GameOptions loadOptions(const std::filesystem::path& folder);
+GameOptions loadOptions(const std::filesystem::path &folder);
 
 // The options in force, for what reads the keys and the sound levels;
 // the Race page loads them and the menus change them.
-const GameOptions& currentOptions();
-void setCurrentOptions(const GameOptions& options);
+const GameOptions &currentOptions();
+void setCurrentOptions(const GameOptions &options);
 
 } // namespace reluva::age

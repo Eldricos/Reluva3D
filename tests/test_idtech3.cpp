@@ -68,13 +68,12 @@ namespace q3 = reluva::idtech3;
 
 static int failures = 0;
 
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
+#define CHECK(cond)                                                                                                    \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);                              \
+            ++failures;                                                                                                \
+        }                                                                                                              \
     } while (0)
 
 static void testLexer() {
@@ -93,8 +92,9 @@ static void testLexer() {
 }
 
 static void testEntities() {
-    const std::string lump = "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube\"\n}\n"
-                             "{\n\"classname\" \"info_player_start\"\n\"origin\" \"64 -32 24\"\n\"ORIGIN\" \"0 0 0\"\n}\n";
+    const std::string lump =
+        "{\n\"classname\" \"worldspawn\"\n\"message\" \"Borg Cube\"\n}\n"
+        "{\n\"classname\" \"info_player_start\"\n\"origin\" \"64 -32 24\"\n\"ORIGIN\" \"0 0 0\"\n}\n";
     std::vector<Entity> ents;
     CHECK(!parseEntities(lump + std::string(1, '\0') + "junk", ents));
     CHECK(ents.size() == 2);
@@ -154,7 +154,7 @@ env/sky
     CHECK(defs.size() == 2);
     if (defs.size() != 2 || defs[0].stages.size() != 2)
         return;
-    const ShaderDef& d = defs[0];
+    const ShaderDef &d = defs[0];
     CHECK(d.cull == ShaderDef::Cull::None && d.sort == 10 && d.polygonOffset && d.noMipmaps);
     CHECK(d.deforms.size() == 3);
     CHECK(d.deforms[0].type == ShaderDeform::Type::Wave && d.deforms[0].spread == 1.0f / 64);
@@ -164,7 +164,7 @@ env/sky
     CHECK(d.deforms[2].type == ShaderDeform::Type::Autosprite);
     CHECK((d.unknown == std::vector<std::string>{"efmadeupdirective", "efstagething"}));
 
-    const ShaderStage& a = d.stages[0];
+    const ShaderStage &a = d.stages[0];
     CHECK(a.rgbGen == ShaderStage::RgbGen::Wave && a.rgbWave.func == gfx::WaveFunc::kTriangle &&
           a.rgbWave.phase == 0.25f && a.rgbWave.frequency == 2);
     CHECK(a.alphaGen == ShaderStage::AlphaGen::Const && a.alphaConst == 0.4f);
@@ -180,13 +180,13 @@ env/sky
     }
     CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::kGe128);
 
-    const ShaderStage& b = d.stages[1];
+    const ShaderStage &b = d.stages[1];
     CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::Const && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
     CHECK(b.alphaGen == ShaderStage::AlphaGen::OneMinusVertex && b.tcGen == ShaderStage::TcGen::Environment);
     // turb with the (ignored) function name written
     CHECK(b.tcMods.size() == 1 && b.tcMods[0].wave.amplitude == 0.2f && b.tcMods[0].wave.phase == 0.5f);
 
-    const ShaderDef& sky = defs[1];
+    const ShaderDef &sky = defs[1];
     CHECK(sky.sky && sky.skyFarBox == "env/space" && sky.cloudHeight == 512 && sky.sort == 7);
     CHECK(sky.fog && sky.fogColor[0] == 0.5f && sky.fogColor[1] == 0.25f && sky.fogDistance == 300);
 }
@@ -196,7 +196,8 @@ static void testWaves() {
     gfx::Wave w{gfx::WaveFunc::kSin, 1, 2, 0, 1};
     CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.75f), -1));
     w.func = gfx::WaveFunc::kTriangle;
-    CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) && approx(gfx::evaluate(w, 0.75f), -1));
+    CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) &&
+          approx(gfx::evaluate(w, 0.75f), -1));
     w.func = gfx::WaveFunc::kSquare;
     CHECK(approx(gfx::evaluate(w, 0.1f), 3) && approx(gfx::evaluate(w, 0.6f), -1));
     w.func = gfx::WaveFunc::kSawtooth;
@@ -240,7 +241,7 @@ textures/sky/stars
     CHECK(!parseShaderFile(text, "scripts/borg.shader", defs));
     CHECK(defs.size() == 2);
     if (defs.size() == 2) {
-        const ShaderDef& f = defs[0];
+        const ShaderDef &f = defs[0];
         CHECK(f.name == "textures/borg/floor" && f.file == "scripts/borg.shader");
         CHECK(f.hasSurfaceParm("MetalSteps") && f.directives.size() == 2 && !f.sky);
         CHECK(f.stages.size() == 3);
@@ -272,16 +273,16 @@ textures/sky/stars
 static std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_t lightmap = 0, int32_t fog = -1,
                                      int32_t type = 1) {
     std::vector<uint8_t> lumps[17];
-    auto i32 = [](std::vector<uint8_t>& v, int32_t x) {
+    auto i32 = [](std::vector<uint8_t> &v, int32_t x) {
         for (int i = 0; i < 4; ++i)
             v.push_back(uint8_t(uint32_t(x) >> (8 * i)));
     };
-    auto f32 = [&](std::vector<uint8_t>& v, float f) {
+    auto f32 = [&](std::vector<uint8_t> &v, float f) {
         int32_t x;
         std::memcpy(&x, &f, 4);
         i32(v, x);
     };
-    auto name = [](std::vector<uint8_t>& v, const char* s) {
+    auto name = [](std::vector<uint8_t> &v, const char *s) {
         std::vector<uint8_t> n(64, 0);
         std::memcpy(n.data(), s, std::strlen(s));
         v.insert(v.end(), n.begin(), n.end());
@@ -290,53 +291,77 @@ static std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_
     lumps[0].assign(ents.begin(), ents.end());
     lumps[0].push_back(0);
     name(lumps[1], "textures/borg/floor");
-    i32(lumps[1], 0); i32(lumps[1], 1);
-    f32(lumps[2], 0); f32(lumps[2], 0); f32(lumps[2], 1); f32(lumps[2], 16);
-    i32(lumps[3], 0); i32(lumps[3], -1); i32(lumps[3], -2);
+    i32(lumps[1], 0);
+    i32(lumps[1], 1);
+    f32(lumps[2], 0);
+    f32(lumps[2], 0);
+    f32(lumps[2], 1);
+    f32(lumps[2], 16);
+    i32(lumps[3], 0);
+    i32(lumps[3], -1);
+    i32(lumps[3], -2);
     for (int k = 0; k < 6; ++k)
         i32(lumps[3], k < 3 ? -64 : 64);
     for (int leaf = 0; leaf < 2; ++leaf) {
-        i32(lumps[4], leaf); i32(lumps[4], 0);
+        i32(lumps[4], leaf);
+        i32(lumps[4], 0);
         for (int k = 0; k < 6; ++k)
             i32(lumps[4], k < 3 ? -64 : 64);
-        i32(lumps[4], 0); i32(lumps[4], leaf); i32(lumps[4], 0); i32(lumps[4], leaf);
+        i32(lumps[4], 0);
+        i32(lumps[4], leaf);
+        i32(lumps[4], 0);
+        i32(lumps[4], leaf);
     }
     i32(lumps[5], 0);
     i32(lumps[6], 0);
     for (float f : {-64.f, -64.f, -64.f, 64.f, 64.f, 64.f})
         f32(lumps[7], f);
-    i32(lumps[7], 0); i32(lumps[7], 1); i32(lumps[7], 0); i32(lumps[7], 1);
-    i32(lumps[8], 0); i32(lumps[8], 1); i32(lumps[8], 0);
-    i32(lumps[9], 0); i32(lumps[9], 0);
+    i32(lumps[7], 0);
+    i32(lumps[7], 1);
+    i32(lumps[7], 0);
+    i32(lumps[7], 1);
+    i32(lumps[8], 0);
+    i32(lumps[8], 1);
+    i32(lumps[8], 0);
+    i32(lumps[9], 0);
+    i32(lumps[9], 0);
     for (int v = 0; v < 3; ++v) {
-        f32(lumps[10], v == 1 ? 32.f : 0.f); f32(lumps[10], v == 2 ? 32.f : 0.f); f32(lumps[10], 16);
+        f32(lumps[10], v == 1 ? 32.f : 0.f);
+        f32(lumps[10], v == 2 ? 32.f : 0.f);
+        f32(lumps[10], 16);
         for (int k = 0; k < 4; ++k)
             f32(lumps[10], 0.5f);
-        f32(lumps[10], 0); f32(lumps[10], 0); f32(lumps[10], 1);
+        f32(lumps[10], 0);
+        f32(lumps[10], 0);
+        f32(lumps[10], 1);
         for (uint8_t c : {255, 128, 64, 255})
             lumps[10].push_back(c);
     }
-    i32(lumps[11], 0); i32(lumps[11], 1); i32(lumps[11], badIndex >= 0 ? badIndex : 2);
+    i32(lumps[11], 0);
+    i32(lumps[11], 1);
+    i32(lumps[11], badIndex >= 0 ? badIndex : 2);
     // Surface: shader 0, no fog, planar, vertices 0-2, indices 0-2, lightmap 0.
     for (int32_t x : {0, fog, type, 0, 3, 0, 3, lightmap, 0, 0, 16, 16})
         i32(lumps[13], x);
     for (int k = 0; k < 12; ++k)
         f32(lumps[13], k == 11 ? 1.f : 0.f);
-    i32(lumps[13], 0); i32(lumps[13], 0);
+    i32(lumps[13], 0);
+    i32(lumps[13], 0);
     lumps[14].assign(kLightmapSize * kLightmapSize * 3, 7);
-    i32(lumps[16], 2); i32(lumps[16], 1);
+    i32(lumps[16], 2);
+    i32(lumps[16], 1);
     lumps[16].push_back(0x01); // cluster 0 sees itself
     lumps[16].push_back(0x03); // cluster 1 sees both
 
     std::vector<uint8_t> out = {'I', 'B', 'S', 'P'};
     i32(out, version);
     int32_t offset = 8 + 17 * 8;
-    for (const auto& l : lumps) {
+    for (const auto &l : lumps) {
         i32(out, offset);
         i32(out, int32_t(l.size()));
         offset += int32_t(l.size());
     }
-    for (const auto& l : lumps)
+    for (const auto &l : lumps)
         out.insert(out.end(), l.begin(), l.end());
     return out;
 }
@@ -388,7 +413,7 @@ static void testPatch() {
     BspVertex control[9];
     for (int y = 0; y < 3; ++y)
         for (int x = 0; x < 3; ++x) {
-            BspVertex& v = control[y * 3 + x];
+            BspVertex &v = control[y * 3 + x];
             v.pos = {float(x) * 8, float(y) * 8, x == 1 && y == 1 ? 4.0f : 0.0f};
             v.st = {float(x) / 2, float(y) / 2};
             v.normal = {0, 0, 1};
@@ -400,7 +425,7 @@ static void testPatch() {
     CHECK(verts.size() == 1 + 25 && idx.size() == 16 * 6);
     // Corners stay put; the middle is the Bezier point: 4 * (2 * 0.5 * 0.5)^2 = 1.
     CHECK(verts[1].pos[0] == 0 && verts[1].pos[2] == 0 && verts[25].pos[0] == 16 && verts[25].pos[1] == 16);
-    const BspVertex& mid = verts[1 + 12];
+    const BspVertex &mid = verts[1 + 12];
     CHECK(std::fabs(mid.pos[0] - 8) < 1e-5f && std::fabs(mid.pos[2] - 1) < 1e-5f);
     CHECK(std::fabs(mid.st[0] - 0.5f) < 1e-5f && mid.color[0] == 200 && std::fabs(mid.normal[2] - 1) < 1e-5f);
     bool inRange = true, clockwise = true;
@@ -409,22 +434,22 @@ static void testPatch() {
             inRange = inRange && idx[i + k] >= 1 && idx[i + k] < verts.size();
         // Clockwise seen from above (where the normals point): the
         // geometric normal points down.
-        const auto& a = verts[idx[i]].pos;
-        const auto& b = verts[idx[i + 1]].pos;
-        const auto& c = verts[idx[i + 2]].pos;
+        const auto &a = verts[idx[i]].pos;
+        const auto &b = verts[idx[i + 1]].pos;
+        const auto &c = verts[idx[i + 2]].pos;
         const float nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
         clockwise = clockwise && nz < 0;
     }
     CHECK(inRange && clockwise);
     // Normals pointing down flip the winding.
-    for (BspVertex& v : control)
+    for (BspVertex &v : control)
         v.normal = {0, 0, -1};
     std::vector<BspVertex> down;
     std::vector<uint32_t> downIdx;
     tessellatePatch(control, 3, 3, 4, down, downIdx);
-    const auto& a = down[downIdx[0]].pos;
-    const auto& b = down[downIdx[1]].pos;
-    const auto& c = down[downIdx[2]].pos;
+    const auto &a = down[downIdx[0]].pos;
+    const auto &b = down[downIdx[1]].pos;
+    const auto &c = down[downIdx[2]].pos;
     CHECK((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0);
     // Two blocks side by side share their edge: 5x3 control points.
     std::vector<BspVertex> wide(15, control[0]), out;
@@ -450,7 +475,7 @@ static std::vector<uint8_t> buildMd3(int badIndex = -1) {
         std::memcpy(&x, &f, 4);
         i32(x);
     };
-    auto name = [&](const char* s, size_t n) {
+    auto name = [&](const char *s, size_t n) {
         std::vector<uint8_t> b(n, 0);
         std::memcpy(b.data(), s, std::strlen(s));
         out.insert(out.end(), b.begin(), b.end());
@@ -460,8 +485,15 @@ static std::vector<uint8_t> buildMd3(int badIndex = -1) {
     out.insert(out.end(), {'I', 'D', 'P', '3'});
     i32(15);
     name("models/test/box.md3", 64);
-    i32(0); i32(frames); i32(tags); i32(1); i32(0);
-    i32(ofsFrames); i32(ofsTags); i32(ofsSurf); i32(0);
+    i32(0);
+    i32(frames);
+    i32(tags);
+    i32(1);
+    i32(0);
+    i32(ofsFrames);
+    i32(ofsTags);
+    i32(ofsSurf);
+    i32(0);
     for (int f = 0; f < frames; ++f) {
         for (float v : {-8.f, -8.f, 0.f + 64 * f, 8.f, 8.f, 16.f + 64 * f, 0.f, 0.f, 0.f, 12.f})
             f32(v);
@@ -477,11 +509,21 @@ static std::vector<uint8_t> buildMd3(int badIndex = -1) {
               ofsEnd = ofsXyz + 48;
     out.insert(out.end(), {'I', 'D', 'P', '3'});
     name("box", 64);
-    i32(0); i32(frames); i32(1); i32(3); i32(1);
-    i32(ofsTris); i32(ofsShaders); i32(ofsSt); i32(ofsXyz); i32(ofsEnd);
+    i32(0);
+    i32(frames);
+    i32(1);
+    i32(3);
+    i32(1);
+    i32(ofsTris);
+    i32(ofsShaders);
+    i32(ofsSt);
+    i32(ofsXyz);
+    i32(ofsEnd);
     name("models/test/box", 64);
     i32(0);
-    i32(0); i32(1); i32(badIndex >= 0 ? badIndex : 2);
+    i32(0);
+    i32(1);
+    i32(badIndex >= 0 ? badIndex : 2);
     for (float v : {0.f, 0.f, 1.f, 0.f, 0.f, 1.f})
         f32(v);
     for (int f = 0; f < frames; ++f)
@@ -504,9 +546,9 @@ static void testMd3() {
     }
     CHECK(m.name == "models/test/box.md3" && m.frames.size() == 2 && m.tagCount == 1 && m.surfaces.size() == 1);
     CHECK(m.frames[1].name == "up" && m.frames[1].maxs[2] == 80 && m.frames[0].radius == 12);
-    const Md3Tag* top = m.tag(1, "tag_top");
+    const Md3Tag *top = m.tag(1, "tag_top");
     CHECK(top && top->origin[2] == 80 && top->axis[2][2] == 1 && !m.tag(0, "tag_head") && !m.tag(5, "tag_top"));
-    const Md3Surface& s = m.surfaces[0];
+    const Md3Surface &s = m.surfaces[0];
     CHECK(s.name == "box" && s.shaders.size() == 1 && s.shaders[0] == "models/test/box");
     CHECK((s.indices == std::vector<uint32_t>{0, 1, 2}) && s.vertexCount == 3 && s.vertices.size() == 6);
     CHECK(s.st[1][0] == 1 && s.st[2][1] == 1);
@@ -523,8 +565,10 @@ static void testMd3() {
 }
 
 static void testSkinAndPlacement() {
-    const Skin skin = parseSkin("h_Head,models/players2/munro/head.tga\r\ntag_head,\n\nbody , models/x/body \nempty,\n");
-    CHECK(skin.size() == 2 && skin.at("h_head") == "models/players2/munro/head.tga" && skin.at("body") == "models/x/body");
+    const Skin skin =
+        parseSkin("h_Head,models/players2/munro/head.tga\r\ntag_head,\n\nbody , models/x/body \nempty,\n");
+    CHECK(skin.size() == 2 && skin.at("h_head") == "models/players2/munro/head.tga" &&
+          skin.at("body") == "models/x/body");
 
     auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
     // Yaw 90: forward is +y, left is -x.
@@ -555,10 +599,10 @@ static void testLightGrid() {
     for (int z = 0; z < 2; ++z)
         for (int y = 0; y < 2; ++y)
             for (int x = 0; x < 3; ++x) {
-                uint8_t* p = point(x, y, z);
+                uint8_t *p = point(x, y, z);
                 p[0] = p[1] = p[2] = uint8_t(x == 0 ? 40 : 80); // ambient, doubled on loading
                 p[3] = p[4] = p[5] = 50;                        // directed
-                p[6] = 0;                                      // from straight above
+                p[6] = 0;                                       // from straight above
             }
     point(2, 0, 0)[0] = point(2, 0, 0)[1] = point(2, 0, 0)[2] = 0; // inside a wall
     LightGrid grid;
@@ -591,7 +635,7 @@ struct QvmAsm {
     }
     std::vector<uint8_t> build(int32_t magic = 0x12721444) const {
         std::vector<uint8_t> bytes;
-        for (const auto& [op, v] : code) {
+        for (const auto &[op, v] : code) {
             bytes.push_back(op);
             const int n = qvmop::operandSize(op);
             for (int i = 0; i < n; ++i)
@@ -671,7 +715,7 @@ static void testQvm() {
         CHECK(!inner.load(f.build()));
         std::string seen;
         int calls = 0;
-        s.setSystemCall([&](Qvm& v, int number, const int32_t* args) -> int32_t {
+        s.setSystemCall([&](Qvm &v, int number, const int32_t *args) -> int32_t {
             ++calls;
             if (number == 1) {
                 seen = v.string(args[0]) + "/" + std::to_string(args[1]);
@@ -695,12 +739,12 @@ static void testQvm() {
         a.data = {0x80, 0xff, 0x34, 0x12, 1, 2, 3, 4};
         a.bss = 64;
         a.add(Enter, 8);
-        a.add(Const, 0), a.add(Load1), a.add(Sex8);       // -128
+        a.add(Const, 0), a.add(Load1), a.add(Sex8);              // -128
         a.add(Const, 0), a.add(Load2), a.add(Sex16), a.add(Add); // -128 + -128
         a.add(Const, 16), a.add(Const, 4), a.add(BlockCopy, 4);
-        a.add(Const, 16), a.add(Load4), a.add(Add);       // + 0x04030201
+        a.add(Const, 16), a.add(Load4), a.add(Add); // + 0x04030201
         a.add(Const, 20), a.add(Const, 0x55), a.add(Store1);
-        a.add(Const, 20), a.add(Load1), a.add(Add);       // + 0x55
+        a.add(Const, 20), a.add(Load1), a.add(Add); // + 0x55
         a.add(Leave, 8);
         Qvm m;
         CHECK(!m.load(a.build()));
@@ -719,9 +763,9 @@ static void testQvm() {
         a.add(Const, 1000), a.add(Add);
         a.code[size_t(b)].second = int32_t(a.code.size());
         a.add(Const, INT32_MIN), a.add(Const, -1), a.add(Divi), a.add(Const, INT32_MIN), a.add(Sub), a.add(Add);
-        a.add(Const, -7), a.add(Const, 2), a.add(Modi), a.add(Add);    // -1
-        a.add(Const, -8), a.add(Const, 1), a.add(Rshi), a.add(Add);    // -4
-        a.add(Const, -8), a.add(Const, 28), a.add(Rshu), a.add(Add);   // 15
+        a.add(Const, -7), a.add(Const, 2), a.add(Modi), a.add(Add);  // -1
+        a.add(Const, -8), a.add(Const, 1), a.add(Rshi), a.add(Add);  // -4
+        a.add(Const, -8), a.add(Const, 28), a.add(Rshu), a.add(Add); // 15
         a.add(Leave, 8);
         Qvm m;
         CHECK(!m.load(a.build()));
@@ -740,8 +784,10 @@ static void testQvm() {
         return err ? err.message : std::string();
     };
     CHECK(runs({{Enter, 8}, {Const, -100}, {Load4, 0}, {Leave, 8}}).find("reads outside memory") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1 << 29}, {Const, 1}, {Store4, 0}, {Leave, 8}}).find("writes outside") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1}, {Const, 0}, {Divi, 0}, {Leave, 8}}).find("division by zero") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1 << 29}, {Const, 1}, {Store4, 0}, {Leave, 8}}).find("writes outside") !=
+          std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1}, {Const, 0}, {Divi, 0}, {Leave, 8}}).find("division by zero") !=
+          std::string::npos);
     CHECK(runs({{Enter, 8}, {Const, 99}, {Jump, 0}}).find("jumps to 99") != std::string::npos);
     CHECK(runs({{Enter, 8}, {Const, 1}, {Jump, 0}}, 1000).find("instruction limit") != std::string::npos);
     CHECK(runs({{Enter, 0x20000}, {Leave, 0x20000}}).find("stack overflow") != std::string::npos);
@@ -772,24 +818,29 @@ static void testCompiledQvm() {
     if (err)
         return;
     std::string printed;
-    vm.setSystemCall([&](Qvm& v, int number, const int32_t* args) -> int32_t {
+    vm.setSystemCall([&](Qvm &v, int number, const int32_t *args) -> int32_t {
         switch (number) {
-        case 0: printed = v.string(args[0]); return int32_t(printed.size()) * 3;
-        case 1: return args[0] * 2 + args[1];
+        case 0:
+            printed = v.string(args[0]);
+            return int32_t(printed.size()) * 3;
+        case 1:
+            return args[0] * 2 + args[1];
         case 2: {
             int32_t out = 0;
             return v.call(args[0], {args[1]}, out) ? -999 : out;
         }
-        case 3: return Qvm::fromFloat(Qvm::asFloat(args[0]) / 2.0f);
-        default: return 0;
+        case 3:
+            return Qvm::fromFloat(Qvm::asFloat(args[0]) / 2.0f);
+        default:
+            return 0;
         }
     });
-    for (const QvmCase& c : kQvmCases) {
+    for (const QvmCase &c : kQvmCases) {
         int32_t r = 0;
         err = vm.call(c.command, {c.arg0, c.arg1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 100}, r);
         if (err || r != c.expected)
-            std::fprintf(stderr, "case %d(%d, %d): got %d, expected %d %s\n", c.command, c.arg0, c.arg1, r,
-                         c.expected, err ? err.message.c_str() : "");
+            std::fprintf(stderr, "case %d(%d, %d): got %d, expected %d %s\n", c.command, c.arg0, c.arg1, r, c.expected,
+                         err ? err.message.c_str() : "");
         CHECK(!err && r == c.expected);
     }
     // Case 7 builds a string and prints it.
@@ -797,15 +848,15 @@ static void testCompiledQvm() {
     CHECK(!vm.call(7, {42, -17}, r) && printed == "value 42 and -17");
 }
 
-static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
+static void testFilesystemAndDetection(const std::filesystem::path &tmp) {
     using test::toBytes;
     std::filesystem::remove_all(tmp);
     const auto base = tmp / "BaseEF";
     test::writeFile(base / "pak0.pk3", test::buildZip({{"a.txt", toBytes("pak0"), {}},
                                                        {"b.txt", toBytes("pak0"), {}},
                                                        {"scripts/x.shader", toBytes("textures/x\n{\n}\n"), {}}}));
-    test::writeFile(base / "PAK1.pk3", test::buildZip({{"a.txt", toBytes("pak1"), {}},
-                                                       {"b.txt", toBytes("pak1"), {}}}));
+    test::writeFile(base / "PAK1.pk3",
+                    test::buildZip({{"a.txt", toBytes("pak1"), {}}, {"b.txt", toBytes("pak1"), {}}}));
     test::writeFile(base / "zz_broken.pk3", toBytes("not a zip"));
     // In upper case '_' sorts after letters, so pak_c.pk3 beats pakb.pk3.
     test::writeFile(base / "pak_c.pk3", test::buildZip({{"c.txt", toBytes("underscore"), {}}}));
@@ -840,7 +891,7 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     CHECK(findImage(images, "textures/none.tga").empty());
 
     // Not Elite Force until the executable is there too.
-    const MetaEngine* meta = findEngine("idtech3");
+    const MetaEngine *meta = findEngine("idtech3");
     CHECK(meta && meta->detect(tmp).empty());
     test::writeFile(tmp / "STVOY.EXE", toBytes("MZ"));
     // The test's pak0.pk3 isn't a known release: found by name, and only once.
@@ -848,7 +899,7 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
     CHECK(found.size() == 1 && found[0].gameId == "stvef" && findGame(found[0].gameId));
     CHECK(found.size() == 1 && found[0].description.find("unknown release") != std::string::npos);
     // Every known release names pak0.pk3's size and hash.
-    for (const GameVariant& v : detectionTable())
+    for (const GameVariant &v : detectionTable())
         CHECK(!v.files.empty() && !v.files[0].md5.empty() && v.files[0].size > 0);
     CHECK(!findGame("nope"));
     std::filesystem::remove_all(tmp);
@@ -856,11 +907,12 @@ static void testFilesystemAndDetection(const std::filesystem::path& tmp) {
 
 static void testCvars() {
     CvarStore cvars;
-    const CvarStore::Cvar& a = cvars.create("Sensitivity", "5.5", CvarStore::Archive);
+    const CvarStore::Cvar &a = cvars.create("Sensitivity", "5.5", CvarStore::Archive);
     CHECK(a.handle == 1 && a.modificationCount == 1);
     CHECK(cvars.value("sensitivity") == 5.5f && cvars.integer("SENSITIVITY") == 5);
     cvars.create("sensitivity", "1", CvarStore::Cheat); // exists: keeps its value, gains the flag
-    CHECK(cvars.string("sensitivity") == "5.5" && cvars.find("sensitivity")->flags == (CvarStore::Archive | CvarStore::Cheat));
+    CHECK(cvars.string("sensitivity") == "5.5" &&
+          cvars.find("sensitivity")->flags == (CvarStore::Archive | CvarStore::Cheat));
     cvars.set("sensitivity", "3");
     CHECK(cvars.find("sensitivity")->modificationCount == 2);
     cvars.set("sensitivity", "3"); // unchanged: not counted
@@ -904,7 +956,7 @@ static void testVmFileList() {
 }
 
 // Sounds by name: decoded once, missing and broken ones remembered.
-static void testSoundLibrary(const std::filesystem::path& tmp) {
+static void testSoundLibrary(const std::filesystem::path &tmp) {
     using test::toBytes;
     audio::Sound tone;
     tone.rate = 22050;
@@ -929,18 +981,17 @@ static void testSoundLibrary(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static void testSoundSystem(const std::filesystem::path& tmp) {
+static void testSoundSystem(const std::filesystem::path &tmp) {
     audio::Sound tone;
     tone.rate = 22050;
     tone.channels = 1;
     tone.format = 1;
     tone.samples.assign(2205, 4000); // a tenth of a second
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"sound/a.wav", audio::encodePcmWav(tone), {}},
-                                    {"sound/b.wav", audio::encodePcmWav(tone), {}},
-                                    {"music/intro.wav", audio::encodePcmWav(tone), {}},
-                                    {"music/loop.wav", audio::encodePcmWav(tone), {}}}));
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3", test::buildZip({{"sound/a.wav", audio::encodePcmWav(tone), {}},
+                                                                 {"sound/b.wav", audio::encodePcmWav(tone), {}},
+                                                                 {"music/intro.wav", audio::encodePcmWav(tone), {}},
+                                                                 {"music/loop.wav", audio::encodePcmWav(tone), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -966,8 +1017,8 @@ static void testSoundSystem(const std::filesystem::path& tmp) {
     sounds.startSound(std::nullopt, 3, 2, "sound/a.wav"); // but this is
     sounds.startSound(std::nullopt, 4, 1, "sound/a.wav");
     sounds.startSound(std::nullopt, 3, 1, "sound/missing.wav"); // nothing, and nothing stopped
-    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");   // a repeat at the same spot
-    sounds.startSound(Vec3f{64, 0, 0}, 3, 0, "sound/a.wav");  // elsewhere: not one
+    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");     // a repeat at the same spot
+    sounds.startSound(Vec3f{64, 0, 0}, 3, 0, "sound/a.wav");    // elsewhere: not one
     sounds.setTime(1100);
     sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // no longer a repeat
     mixer.mix(out.data(), 64);
@@ -1029,7 +1080,7 @@ static std::vector<uint8_t> buildMdr(bool packed) {
         d.push_back(uint8_t(v));
         d.push_back(uint8_t(v >> 8));
     };
-    auto text = [&](const char* t, size_t size) {
+    auto text = [&](const char *t, size_t size) {
         for (size_t k = 0; k < size; ++k)
             d.push_back(k < std::strlen(t) ? uint8_t(t[k]) : 0);
     };
@@ -1046,20 +1097,20 @@ static std::vector<uint8_t> buildMdr(bool packed) {
     text("RDM5", 4);
     i32(2);
     text("test", 64);
-    i32(2);                              // frames
-    i32(2);                              // bones
+    i32(2);                             // frames
+    i32(2);                             // bones
     i32(packed ? -framesAt : framesAt); // negative: packed
-    i32(1);                              // levels of detail
+    i32(1);                             // levels of detail
     i32(lodAt);
     i32(1); // tags
     i32(tagsAt);
     i32(tagsAt + 36);
-    for (const auto& frame : frames) {
+    for (const auto &frame : frames) {
         for (int k = 0; k < 10; ++k)
             f32(0); // bounds, origin, radius
         if (!packed)
             text("frame", 16);
-        for (const Bone& b : frame) {
+        for (const Bone &b : frame) {
             if (packed) {
                 for (int r = 0; r < 3; ++r)
                     u16(int(std::lround(b[size_t(r * 4 + 3)] * 64)) + 32768);
@@ -1106,11 +1157,11 @@ static std::vector<uint8_t> buildMdr(bool packed) {
 // neighbours; version 5's header scrambled when `scramble`.
 static std::vector<uint8_t> buildAas(bool scramble) {
     std::vector<std::vector<uint8_t>> lumps(14);
-    auto i32 = [](std::vector<uint8_t>& d, int32_t v) {
+    auto i32 = [](std::vector<uint8_t> &d, int32_t v) {
         for (int k = 0; k < 4; ++k)
             d.push_back(uint8_t(uint32_t(v) >> (8 * k)));
     };
-    auto f32 = [&](std::vector<uint8_t>& d, float f) {
+    auto f32 = [&](std::vector<uint8_t> &d, float f) {
         int32_t v;
         std::memcpy(&v, &f, 4);
         i32(d, v);
@@ -1137,7 +1188,7 @@ static std::vector<uint8_t> buildAas(bool scramble) {
         float x0, x1;
     };
     const R reach[] = {{0, 0, 0}, {2, 95, 105}, {1, 105, 95}, {3, 195, 205}, {2, 205, 195}};
-    for (const R& r : reach) {
+    for (const R &r : reach) {
         i32(lumps[9], r.to), i32(lumps[9], 0), i32(lumps[9], 0);
         for (float v : {r.x0, 0.0f, 0.0f, r.x1, 0.0f, 0.0f})
             f32(lumps[9], v);
@@ -1153,7 +1204,7 @@ static std::vector<uint8_t> buildAas(bool scramble) {
     std::vector<uint8_t> header;
     i32(header, 1234); // the BSP's checksum
     int32_t at = 12 + 14 * 8;
-    for (const auto& l : lumps) {
+    for (const auto &l : lumps) {
         i32(header, at), i32(header, int32_t(l.size()));
         at += int32_t(l.size());
     }
@@ -1161,7 +1212,7 @@ static std::vector<uint8_t> buildAas(bool scramble) {
         for (size_t i = 0; i < header.size(); ++i)
             header[i] ^= uint8_t(i * 119);
     out.insert(out.end(), header.begin(), header.end());
-    for (const auto& l : lumps)
+    for (const auto &l : lumps)
         out.insert(out.end(), l.begin(), l.end());
     return out;
 }
@@ -1208,7 +1259,7 @@ static void testBotScript() {
                    "#ifndef THREE\n#define THREE 3\n#endif\n"
                    "value $evalint(TWO * THREE + 1) $evalfloat(1 / 2.0) NAME -1.5\n"
                    "/* a comment */ end // another\n"}};
-    BotScript script([&](const std::string& path, std::string& text) {
+    BotScript script([&](const std::string &path, std::string &text) {
         const auto it = files.find(path);
         if (it == files.end())
             return false;
@@ -1223,10 +1274,11 @@ static void testBotScript() {
     if (!script.error().empty())
         std::fprintf(stderr, "%s\n", script.error().c_str());
     CHECK(script.error().empty());
-    const std::vector<std::string> expected = {"first", "2", "square", "(", "(", "3", ")", "*", "(", "3", ")", ")",
-                                               "value", "7.000000", "0.500000", "botname", "-", "1.5", "end"};
+    const std::vector<std::string> expected = {"first",    "2",       "square", "(",   "(",  "3",     ")",
+                                               "*",        "(",       "3",      ")",   ")",  "value", "7.000000",
+                                               "0.500000", "botname", "-",      "1.5", "end"};
     CHECK(words == expected);
-    BotScript bad([](const std::string&, std::string&) { return false; });
+    BotScript bad([](const std::string &, std::string &) { return false; });
     CHECK(!bad.open("missing.c") && !bad.error().empty());
 }
 
@@ -1236,7 +1288,7 @@ static void testBotCharacter() {
         {"bots/default_c.c", "skill 1 { 0 \"Default\" 1 0.5 2 7 }\nskill 4 { 0 \"Default\" 1 0.8 2 9 }\n"
                              "skill 5 { 0 \"Default\" 1 1.0 2 9 }\n"},
         {"bots/test_c.c", "#define NAME 0\nskill 1 { NAME \"Test\" 1 0.25 }\nskill 4 { NAME \"Test\" 1 0.75 }\n"}};
-    const BotScript::Loader load = [&](const std::string& path, std::string& text) {
+    const BotScript::Loader load = [&](const std::string &path, std::string &text) {
         const auto it = files.find(path);
         if (it == files.end())
             return false;
@@ -1260,14 +1312,16 @@ static void testBotCharacter() {
 static void testBotAi() {
     using namespace reluva::idtech3::botlib;
     const std::map<std::string, std::string> files = {
-        {"botfiles/w.c", "weight \"a\" { switch(1) { case 2: return 10; case 5: { switch(2) { default: return 30; } }"
-                         " default: return balance(50, 40, 60); } }\nweight \"b\" return 7;\n"
-                         "weight \"item_armor\" return 100;\nweight \"Phaser\" { switch(3) { case 1: return 0; default: return 20; } }\n"},
+        {"botfiles/w.c",
+         "weight \"a\" { switch(1) { case 2: return 10; case 5: { switch(2) { default: return 30; } }"
+         " default: return balance(50, 40, 60); } }\nweight \"b\" return 7;\n"
+         "weight \"item_armor\" return 100;\nweight \"Phaser\" { switch(3) { case 1: return 0; default: return 20; } }\n"},
         {"botfiles/items.c", "iteminfo \"item_armor\" { name \"Armor\" model \"m.md3\" modelindex 3 type 1 index 2"
                              " respawntime 25 mins {-15,-15,-15} maxs {15,15,15} }\n"},
-        {"botfiles/weapons.c", "projectileinfo { name \"bolt\" damage 20 radius 1.5 }\n"
-                               "weaponinfo { number 2 name \"Phaser\" projectile \"bolt\" speed 0 offset {0, 5, -10} }\n"}};
-    auto read = [&](const std::string& path, std::vector<uint8_t>& data) {
+        {"botfiles/weapons.c",
+         "projectileinfo { name \"bolt\" damage 20 radius 1.5 }\n"
+         "weaponinfo { number 2 name \"Phaser\" projectile \"bolt\" speed 0 offset {0, 5, -10} }\n"}};
+    auto read = [&](const std::string &path, std::vector<uint8_t> &data) {
         if (path == "maps/test.aas") {
             data = buildAas(true);
             return true;
@@ -1295,7 +1349,7 @@ static void testBotAi() {
 
     // A level with an armour in area 2, its entity seen twice in place.
     lib.entityCount = 1;
-    lib.entityKey = [](int e, const std::string& key, std::string& value) {
+    lib.entityKey = [](int e, const std::string &key, std::string &value) {
         if (e != 1)
             return false;
         if (key == "classname")
@@ -1355,7 +1409,7 @@ static void testBotAi() {
 
     // Predicting a move: a floor where a standing player's origin is 24
     // above z = 0.
-    lib.trace = [](const Vec3f& start, const Vec3f& mins, const Vec3f&, const Vec3f& end, int, int) {
+    lib.trace = [](const Vec3f &start, const Vec3f &mins, const Vec3f &, const Vec3f &end, int, int) {
         BotLibrary::Trace t;
         const float floor = -mins[2];
         t.end = end;
@@ -1378,8 +1432,8 @@ static void testBotAi() {
     CHECK(cm.stopEvent == stopevent::None && cm.endPos[0] > 100 && cm.velocity[0] > 250 &&
           std::fabs(cm.endPos[2] - 24) < 1);
     // Entering area 3 on the way.
-    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::Normal, true, {320, 0, 0}, {400, 0, 0}, 20, 20,
-                                    0.1f, stopevent::EnterArea, 3));
+    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::Normal, true, {320, 0, 0}, {400, 0, 0}, 20, 20, 0.1f,
+                                    stopevent::EnterArea, 3));
     CHECK(cm.stopEvent == stopevent::EnterArea && cm.endArea == 3 && std::fabs(cm.endPos[0] - 200) < 1);
 }
 
@@ -1390,9 +1444,10 @@ static void testBotChat() {
         {"rnd.c", "greeting = { \"hey\"; \"yo\"; }\n"},
         {"match.c", "2 { \"hello \", 0 = (5, 1);\n 0, \" says: \", 1 = (6, 0); }\n"},
         {"rchat.c", "[\"hello\", !\"bye\"] = 5 { \"hello yourself, \", 0, \"!\"; }\n"},
-        {"bots/test_t.c", "chat \"other\" { type \"x\" { \"no\"; } }\n"
-                          "chat \"test\" { type \"game_enter\" { \"hi all, I'm \", 0, \".\"; greeting, \" there\"; } }\n"}};
-    const BotScript::Loader load = [&](const std::string& path, std::string& text) {
+        {"bots/test_t.c",
+         "chat \"other\" { type \"x\" { \"no\"; } }\n"
+         "chat \"test\" { type \"game_enter\" { \"hi all, I'm \", 0, \".\"; greeting, \" there\"; } }\n"}};
+    const BotScript::Loader load = [&](const std::string &path, std::string &text) {
         const auto it = files.find(path);
         if (it == files.end())
             return false;
@@ -1415,11 +1470,11 @@ static void testBotChat() {
     CHECK(text == "hello there, hit it");
 
     std::vector<std::string> said;
-    chat.command = [&](int client, const std::string& c) { said.push_back(std::to_string(client) + " " + c); };
+    chat.command = [&](int client, const std::string &c) { said.push_back(std::to_string(client) + " " + c); };
     const int cs = chat.allocState();
     CHECK(chat.loadChatFile(cs, load, "bots/test_t.c", "TEST") && chat.numInitialChats(cs, "game_enter") == 2);
     chat.setName(cs, "Munro");
-    std::vector<const char*> vars(8, nullptr);
+    std::vector<const char *> vars(8, nullptr);
     vars[0] = "Munro";
     chat.initialChat(cs, "game_enter", 0, vars);
     std::string line = chat.takeChatMessage(cs);
@@ -1510,10 +1565,10 @@ static void testMdr() {
         Md3Model m;
         CHECK(!parseModel(buildMdr(packed), m));
         CHECK(m.frames.size() == 2 && m.surfaces.size() == 1 && m.tagCount == 1);
-        const Md3Surface& s = m.surfaces[0];
+        const Md3Surface &s = m.surfaces[0];
         CHECK(s.name == "body" && s.shaders[0] == "models/test/body" && s.vertexCount == 3);
         CHECK(s.indices == std::vector<uint32_t>({0, 1, 2}) && s.st[0][0] == 0.25f && s.st[0][1] == 0.5f);
-        auto near = [](const Vec3& a, Vec3 b) {
+        auto near = [](const Vec3 &a, Vec3 b) {
             return std::fabs(a[0] - b[0]) < 0.02f && std::fabs(a[1] - b[1]) < 0.02f && std::fabs(a[2] - b[2]) < 0.02f;
         };
         // Frame 0: vertex 0 between (0,1,0) and (10,1,0); vertex 1 at 10 + 1.
@@ -1523,7 +1578,7 @@ static void testMdr() {
         CHECK(near(s.vertices[3 + 1].pos, {10, 1, 0}) && near(s.vertices[3 + 2].pos, {10, 2, 0}));
         CHECK(near(s.vertices[3 + 0].pos, {4.5f, 0.5f, 0}) && near(s.vertices[3 + 1].normal, {0, 1, 0}));
         // The tag follows bone 1: its x axis is the matrix's first column.
-        const Md3Tag* tag = m.tag(1, "tag_weapon");
+        const Md3Tag *tag = m.tag(1, "tag_weapon");
         CHECK(tag && near(tag->origin, {10, 0, 0}) && near(tag->axis[0], {0, 1, 0}) && near(tag->axis[1], {-1, 0, 0}));
         // A level of detail past its only one: that one.
         Md3Model low;
@@ -1589,7 +1644,9 @@ static std::shared_ptr<Bsp> collisionMap() {
     return bsp;
 }
 
-static bool near(float a, float b) { return std::fabs(a - b) < 1e-3f; }
+static bool near(float a, float b) {
+    return std::fabs(a - b) < 1e-3f;
+}
 
 static void testCollision() {
     const auto bsp = collisionMap();
@@ -1625,12 +1682,13 @@ static void testCollision() {
 // The game logic starting a level: its entities handed over token by
 // token, as the original server does, by a QVM the Quake III compiler
 // made from tests/data/qvm/fake_game.c.
-static void testGameHost(const std::filesystem::path& tmp) {
+static void testGameHost(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -1676,10 +1734,10 @@ static void testGameHost(const std::filesystem::path& tmp) {
     CHECK(!game.call(25, {}, r) && r == 128 * 8 + 1);
     CHECK(!game.call(24, {-200, 0, 500, 0, -1}, r) && r == 2);
     CHECK(!game.call(25, {}, r) && r == 32 * 8 + 1);
-    CHECK(!game.call(24, {-200, 0, 500, 0, 2}, r) && r == 1022); // ignoring the item
+    CHECK(!game.call(24, {-200, 0, 500, 0, 2}, r) && r == 1022);                               // ignoring the item
     CHECK(!game.call(24, {0, 0, 100, 16, -1}, r) && !game.call(25, {}, r) && r == 16 * 8 + 1); // a box
-    CHECK(!game.call(24, {0, 0, -10, 0, -1}, r) && !game.call(26, {}, r) && r == 101); // starting in the floor
-    CHECK(!game.call(24, {1000, 0, 100, 0, -1}, r) && r == 1023); // nothing there
+    CHECK(!game.call(24, {0, 0, -10, 0, -1}, r) && !game.call(26, {}, r) && r == 101);         // starting in the floor
+    CHECK(!game.call(24, {1000, 0, 100, 0, -1}, r) && r == 1023);                              // nothing there
     CHECK(!game.call(28, {0, 0, -32}, r) && r == contents::Solid);
     CHECK(!game.call(28, {200, 0, 64}, r) && r == -1); // inside the door
     CHECK(!game.call(28, {0, 0, 64}, r) && r == 0);
@@ -1743,17 +1801,17 @@ static void testGameHost(const std::filesystem::path& tmp) {
 // Downloads: a pak the level uses (here the one with the game code, not
 // one of Raven's) sent to a player who asks, block by block, when
 // sv_allowDownload is on; refused when it's off.
-static void testDownloads(const std::filesystem::path& tmp) {
+static void testDownloads(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
     // Over 48 KB, so the window and its acknowledgements matter.
     std::vector<uint8_t> filler(70000);
     for (size_t i = 0; i < filler.size(); ++i)
         filler[i] = uint8_t(i * 7 + i / 300);
-    test::writeFile(tmp / "BaseEF" / "zz_custom.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
-                                    {"filler.dat", filler, {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "zz_custom.pk3",
+        test::buildZip({{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}},
+                        {"filler.dat", filler, {}}}));
     std::vector<uint8_t> pakBytes;
     {
         std::ifstream in(tmp / "BaseEF" / "zz_custom.pk3", std::ios::binary);
@@ -1778,7 +1836,7 @@ static void testDownloads(const std::filesystem::path& tmp) {
     server.levelStarted();
     CHECK(cvars.string("sv_referencedPakNames") == "BaseEF/zz_custom ");
     uint64_t now = 1000;
-    auto tick = [&](ef::NetClient& client) {
+    auto tick = [&](ef::NetClient &client) {
         client.frame(now);
         CHECK(!server.receive(now));
         CHECK(!game.runFrame());
@@ -1827,12 +1885,13 @@ static void testDownloads(const std::filesystem::path& tmp) {
 
 // What a snapshot holds: the fake game's level on a map cut in two at
 // x = 0, each half its own cluster and area; the player on the +x side.
-static void testSnapshotCulling(const std::filesystem::path& tmp) {
+static void testSnapshotCulling(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -1866,7 +1925,7 @@ static void testSnapshotCulling(const std::filesystem::path& tmp) {
     game.vm().writeInt(body + 272, Qvm::fromFloat(300));
     auto numbers = [&] {
         std::set<int32_t> out;
-        for (const auto& e : game.snapshot(0).entities)
+        for (const auto &e : game.snapshot(0).entities)
             out.insert(int32_t(e[0]));
         return out;
     };
@@ -1887,12 +1946,13 @@ static void testSnapshotCulling(const std::filesystem::path& tmp) {
 
 // A player joining over the network: the fake game's server, and a
 // client talking to it through sockets in memory (some datagrams lost).
-static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets, bool limitRate = false) {
+static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets, bool limitRate = false) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/qagame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -1915,14 +1975,15 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     std::string socketError;
     std::unique_ptr<net::UdpSocket> serverSocket =
         systemSockets ? net::openSystemUdp(0, socketError) : network->open(27960);
-    std::unique_ptr<net::UdpSocket> clientSocket = systemSockets ? net::openSystemUdp(0, socketError) : network->open(0);
+    std::unique_ptr<net::UdpSocket> clientSocket =
+        systemSockets ? net::openSystemUdp(0, socketError) : network->open(0);
     if (!serverSocket || !clientSocket) {
         std::printf("(network play over system sockets not tested: %s)\n", socketError.c_str());
         return;
     }
     const uint16_t serverPort = serverSocket->port();
     auto serverOwned = std::make_unique<ef::NetServer>(game, cvars, std::move(serverSocket));
-    ef::NetServer& server = *serverOwned;
+    ef::NetServer &server = *serverOwned;
     server.levelStarted();
     ef::NetClient client(std::move(clientSocket), {0x7f000001u, serverPort}, "\\name\\Remote\\snaps\\20", 77);
     uint64_t now = 1000;
@@ -1944,7 +2005,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     // Loaded: its moves put it in the level and move it along.
     client.setLoaded();
     // From now on every fourth datagram each way is lost (in memory).
-    network->setDropFilter([](const net::Address&, const net::Address&, size_t index) { return index % 4 == 3; });
+    network->setDropFilter([](const net::Address &, const net::Address &, size_t index) { return index % 4 == 3; });
     std::vector<ef::GameHost::Snapshot> got;
     for (int i = 0; i < 60; ++i) {
         ef::GameHost::UserCommand cmd;
@@ -1952,16 +2013,16 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         cmd.forward = 127;
         client.addCommand(cmd);
         tick();
-        for (auto& snap : client.takeSnapshots())
+        for (auto &snap : client.takeSnapshots())
             got.push_back(std::move(snap));
     }
     CHECK(client.state() == ef::NetClient::State::Active && got.size() > 20);
     CHECK(game.linked().count(4) && game.entityVec(4, 272)[0] > 100); // moved by its commands
     // What it has is what the server has (the door's state, every byte).
     if (!got.empty()) {
-        const auto& last = got.back();
+        const auto &last = got.back();
         bool foundDoor = false;
-        for (const auto& e : last.entities)
+        for (const auto &e : last.entities)
             if (e[0] == 1)
                 foundDoor = e == game.entityState(1);
         CHECK(foundDoor);
@@ -1969,7 +2030,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     }
     // The game's announcement reached it.
     bool announced = false;
-    for (const std::string& c : client.serverCommands())
+    for (const std::string &c : client.serverCommands())
         announced = announced || c.find("entered the game") != std::string::npos;
     CHECK(announced);
     // Snapshots while loading are flagged not active; in the game, not.
@@ -1977,7 +2038,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
     // At 3000 bytes a second (no rate given), some snapshots are held back
     // and the next flagged so; unlimited, none.
     bool delayed = false;
-    for (const auto& snap : got)
+    for (const auto &snap : got)
         delayed = delayed || (snap.snapFlags & 1);
     CHECK(delayed == limitRate);
     if (!systemSockets) {
@@ -1989,7 +2050,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
                 cmd.forward = 127;
                 client.addCommand(cmd);
                 tick();
-                for (auto& snap : client.takeSnapshots())
+                for (auto &snap : client.takeSnapshots())
                     got.push_back(std::move(snap));
             }
         };
@@ -2002,7 +2063,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         got.clear();
         play(10);
         bool restartSent = false;
-        for (const std::string& c : client.serverCommands())
+        for (const std::string &c : client.serverCommands())
             restartSent = restartSent || c == "map_restart";
         CHECK(restartSent && client.state() == ef::NetClient::State::Active && !got.empty() &&
               (got.back().snapFlags & 4) != flagBefore);
@@ -2037,7 +2098,7 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
         cvars.set("sv_master2", "");
         cvars.create("dedicated", "0", 0);
         cvars.set("dedicated", "2");
-        server.resolveHost = [](const std::string& host, uint32_t& ip) {
+        server.resolveHost = [](const std::string &host, uint32_t &ip) {
             net::Address a;
             if (!net::parseAddress(host, 0, a))
                 return false;
@@ -2079,13 +2140,13 @@ static void testNetworkPlay(const std::filesystem::path& tmp, bool systemSockets
 // The client game starting: the server's configstrings handed over as
 // its game state (Quake III's gamestate_t), by a QVM the Quake III
 // compiler made from tests/data/qvm/fake_cgame.c.
-static void testCgameHost(const std::filesystem::path& tmp) {
+static void testCgameHost(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/cgame.qvm",
-                                     std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}},
-                                    {"models/test/box.md3", buildMd3(), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/cgame.qvm", std::vector<uint8_t>(std::begin(kFakeCgameQvm), std::end(kFakeCgameQvm)), {}},
+                        {"models/test/box.md3", buildMd3(), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -2174,11 +2235,11 @@ static void testJumpTableGuard() {
     // exactly their entries, nothing before them.
     // (They may sit side by side, as one range.)
     size_t bytes = 0;
-    for (const auto& [first, end] : vm.protectedRanges())
+    for (const auto &[first, end] : vm.protectedRanges())
         bytes += end - first;
     CHECK(bytes == 4 * (34 + 8));
     const auto table = vm.protectedRanges().front();
-    vm.setSystemCall([&](Qvm& v, int number, const int32_t*) -> int32_t {
+    vm.setSystemCall([&](Qvm &v, int number, const int32_t *) -> int32_t {
         if (number == 1) // Print, during Init
             v.writeString(int32_t(table.first), "-75", 4);
         return 0;
@@ -2198,17 +2259,18 @@ static void testJumpTableGuard() {
 
 // The menus' system calls, called by a QVM the Quake III compiler made
 // from tests/data/qvm/fake_ui.c.
-static void testUiHost(const std::filesystem::path& tmp) {
+static void testUiHost(const std::filesystem::path &tmp) {
     using test::toBytes;
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/ui.qvm", std::vector<uint8_t>(std::begin(kFakeUiQvm), std::end(kFakeUiQvm)), {}},
-                                    {"scripts/test.txt", toBytes("hello world\n"), {}},
-                                    {"scripts/other.txt", toBytes("x"), {}},
-                                    {"scripts/sub/deep.txt", toBytes("x"), {}},
-                                    {"scripts/a.shader", toBytes("x"), {}},
-                                    {"models/test/box.md3", buildMd3(), {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/ui.qvm", std::vector<uint8_t>(std::begin(kFakeUiQvm), std::end(kFakeUiQvm)), {}},
+                        {"scripts/test.txt", toBytes("hello world\n"), {}},
+                        {"scripts/other.txt", toBytes("x"), {}},
+                        {"scripts/sub/deep.txt", toBytes("x"), {}},
+                        {"scripts/a.shader", toBytes("x"), {}},
+                        {"models/test/box.md3", buildMd3(), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -2235,7 +2297,7 @@ static void testUiHost(const std::filesystem::path& tmp) {
     CHECK(!ui.call(ef::UiHost::Refresh, {1234}, r) && r == 1234);
     CHECK(ui.pictures().size() == 3); // two, then the pointer
     if (ui.pictures().size() == 3) {
-        const auto& p = ui.pictures()[0];
+        const auto &p = ui.pictures()[0];
         CHECK(p.x == 10 && p.y == 20 && p.w == 320 && p.h == 30 && p.s1 == 0 && p.t2 == 0.5f);
         CHECK(p.color[0] == 1 && p.color[1] == 0.5f && p.color[2] == 0 && p.color[3] == 1);
         CHECK(ui.shaders().name(p.shader) == "menu/test");
@@ -2261,7 +2323,7 @@ static void testUiHost(const std::filesystem::path& tmp) {
     // Call 58, the model bounds the main menu asks for: frame 0's box.
     Md3Model box;
     CHECK(!parseMd3(buildMd3(), box));
-    const auto& f0 = box.frames[0];
+    const auto &f0 = box.frames[0];
     const int boxCode = int(f0.mins[0] * 10) + int(f0.mins[1] * 100) + int(f0.mins[2] * 1000) +
                         int(f0.maxs[0] * 10000) + int(f0.maxs[1] * 100000) + int(f0.maxs[2] * 1000000);
     CHECK(boxCode != 0);
@@ -2283,7 +2345,7 @@ static void testUiHost(const std::filesystem::path& tmp) {
 
     // A menu sound: passed on by name with its channel.
     std::vector<std::pair<std::string, int>> played;
-    ui.startLocalSound = [&](const std::string& name, int channel) { played.emplace_back(name, channel); };
+    ui.startLocalSound = [&](const std::string &name, int channel) { played.emplace_back(name, channel); };
     CHECK(!ui.call(33));
     CHECK(played.size() == 1 && played[0].first == "sound/interface/button1.wav" && played[0].second == 6);
 
@@ -2303,7 +2365,7 @@ void testKeyBindings() {
     reluva::idtech3::CvarStore cvars;
     KeyBindings b;
     int ignored = 0;
-    auto readFile = [](const std::string& name, std::string& out) {
+    auto readFile = [](const std::string &name, std::string &out) {
         if (name != "more.cfg")
             return false;
         out = "bind x \"say hi\"\n";
@@ -2356,16 +2418,16 @@ void testMarks() {
     marks.mark(square, {0, 0, -20}, 384, 128, points, fragments);
     CHECK(!fragments.empty() && fragments.size() <= 2);
     float area = 0;
-    for (const auto& f : fragments) {
+    for (const auto &f : fragments) {
         CHECK(f.numPoints >= 3);
         for (int i = 1; i + 1 < f.numPoints; ++i) {
-            const Vec3f& a = points[size_t(f.firstPoint)];
-            const Vec3f& b = points[size_t(f.firstPoint + i)];
-            const Vec3f& c = points[size_t(f.firstPoint + i + 1)];
+            const Vec3f &a = points[size_t(f.firstPoint)];
+            const Vec3f &b = points[size_t(f.firstPoint + i)];
+            const Vec3f &c = points[size_t(f.firstPoint + i + 1)];
             area += std::fabs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
         }
     }
-    for (const Vec3f& p : points)
+    for (const Vec3f &p : points)
         CHECK(std::fabs(p[2]) < 1e-4f && std::fabs(p[0]) <= 8.001f && std::fabs(p[1]) <= 8.001f);
     CHECK(std::fabs(area - 256) < 0.1f); // the whole square, on the floor
     // From below, the floor faces away; too far above, it's out of reach.
@@ -2497,8 +2559,8 @@ static void testNetDeltas() {
     using namespace reluva::idtech3::eliteforce;
     using reluva::idtech3::wire::MessageReader;
     using reluva::idtech3::wire::MessageWriter;
-    auto put = [](std::vector<uint8_t>& s, int32_t at, int32_t v) { std::memcpy(s.data() + at, &v, 4); };
-    auto putF = [&](std::vector<uint8_t>& s, int32_t at, float v) {
+    auto put = [](std::vector<uint8_t> &s, int32_t at, int32_t v) { std::memcpy(s.data() + at, &v, 4); };
+    auto putF = [&](std::vector<uint8_t> &s, int32_t at, float v) {
         int32_t i;
         std::memcpy(&i, &v, 4);
         put(s, at, i);
@@ -2530,13 +2592,13 @@ static void testNetDeltas() {
     std::vector<uint8_t> p(kNetPlayerStateSize, 0), q;
     put(p, 0, 123456);
     putF(p, 20, 12.5f);
-    put(p, 16, -5);    // pm_time, signed
-    put(p, 180, -10);  // viewheight, signed
-    put(p, 204, -3);   // stats[0]
-    put(p, 396 + 8, 40); // ammo[2]
+    put(p, 16, -5);         // pm_time, signed
+    put(p, 180, -10);       // viewheight, signed
+    put(p, 204, -3);        // stats[0]
+    put(p, 396 + 8, 40);    // ammo[2]
     put(p, 332 + 4, 99999); // powerups[1]
-    put(p, 56, 777);   // introTime, last
-    put(p, 48, 200);   // not sent
+    put(p, 56, 777);        // introTime, last
+    put(p, 48, 200);        // not sent
     MessageWriter pw;
     writePlayerDelta(pw, {}, p);
     CHECK(pw.bitCount() > 48 + 4);
@@ -2565,28 +2627,29 @@ static void testNetDeltas() {
     CHECK(r2.serverTime == 5016 && r2.forward == -127 && r2.right == -127);
 }
 
-static void testPureCheck(const std::filesystem::path& tmp) {
+static void testPureCheck(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     // Two paks: the game code in one, a map in the other; an empty file
     // doesn't count towards a checksum.
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"vm/cgame.qvm", {1, 2, 3}, {}}, {"vm/ui.qvm", {4, 5}, {}}, {"empty.txt", {}, {}}}));
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip({{"vm/cgame.qvm", {1, 2, 3}, {}}, {"vm/ui.qvm", {4, 5}, {}}, {"empty.txt", {}, {}}}));
     test::writeFile(tmp / "BaseEF" / "pak1.pk3", test::buildZip({{"maps/x.bsp", {9, 9, 9, 9}, {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
-    std::vector<const ZipArchive*> paks;
-    for (const Archive* a : set.archives())
-        if (const auto* z = dynamic_cast<const ZipArchive*>(a))
+    std::vector<const ZipArchive *> paks;
+    for (const Archive *a : set.archives())
+        if (const auto *z = dynamic_cast<const ZipArchive *>(a))
             paks.push_back(z);
     CHECK(paks.size() == 2);
     if (paks.size() != 2)
         return;
-    const ZipArchive* code = paks[0]->has("vm/cgame.qvm") ? paks[0] : paks[1];
-    const ZipArchive* map = code == paks[0] ? paks[1] : paks[0];
+    const ZipArchive *code = paks[0]->has("vm/cgame.qvm") ? paks[0] : paks[1];
+    const ZipArchive *map = code == paks[0] ? paks[1] : paks[0];
     // The checksum: MD4 of the CRCs, folded; the pure one with the feed first.
     std::vector<uint8_t> words;
-    for (const auto& e : map->entries())
+    for (const auto &e : map->entries())
         if (e.size > 0)
             for (int i = 0; i < 4; ++i)
                 words.push_back(uint8_t(e.crc >> (8 * i)));
@@ -2626,7 +2689,7 @@ static void testServerBrowser() {
     while (server->receive(from, data))
         asked += std::string(data.begin() + 4, data.end()) == "getinfo xxx";
     CHECK(asked == 2); // twice on its port
-    auto reply = [&](const std::string& text) {
+    auto reply = [&](const std::string &text) {
         std::vector<uint8_t> d(4, 0xff);
         d.insert(d.end(), text.begin(), text.end());
         server->send(from, d);
@@ -2656,7 +2719,9 @@ static void testServerBrowser() {
     browser.globalServers({{0x7f000001u, 27953}}, 24, "");
     CHECK(browser.globalServerCount() == -1); // waiting for an answer
     CHECK(master->receive(from, data) && std::string(data.begin() + 4, data.end()) == "getservers 24 full empty");
-    const std::string list = "getserversResponse\\C0A80105" "6D38\\0A000002" "6D39\\EOT";
+    const std::string list = "getserversResponse\\C0A80105"
+                             "6D38\\0A000002"
+                             "6D39\\EOT";
     std::vector<uint8_t> answer(4, 0xff);
     answer.insert(answer.end(), list.begin(), list.end());
     master->send(from, answer);

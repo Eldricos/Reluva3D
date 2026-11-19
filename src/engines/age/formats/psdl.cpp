@@ -16,8 +16,8 @@ constexpr uint32_t kVersion = 2;
 constexpr uint16_t kLastAttribute = 0x80; // marks a block's last drawn attribute
 
 struct Reader {
-    const uint8_t* p;
-    const uint8_t* end;
+    const uint8_t *p;
+    const uint8_t *end;
     bool ok = true;
 
     bool need(uint64_t n) {
@@ -62,8 +62,10 @@ bool counted(uint8_t type) {
     case psdlattr::kFan:
     case psdlattr::kDividedRoad:
     case psdlattr::kTunnel:
-    case psdlattr::kRoof: return true;
-    default: return false;
+    case psdlattr::kRoof:
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -71,20 +73,29 @@ bool counted(uint8_t type) {
 
 size_t psdlAttributeLength(uint8_t type, uint16_t count) {
     switch (type) {
-    case psdlattr::kRoadStrip: return size_t(count) * 4;
+    case psdlattr::kRoadStrip:
+        return size_t(count) * 4;
     case psdlattr::kSidewalkStrip:
-    case psdlattr::kRectStrip: return size_t(count) * 2;
+    case psdlattr::kRectStrip:
+        return size_t(count) * 2;
     case psdlattr::kSliver:
     case psdlattr::kCrosswalk:
-    case psdlattr::kFacadeBound: return 4;
+    case psdlattr::kFacadeBound:
+        return 4;
     case psdlattr::kRoadFan:
     case psdlattr::kFan:
-    case psdlattr::kRoof: return size_t(count) + 2;
-    case psdlattr::kDividedRoad: return size_t(count) * 6 + 2;
-    case psdlattr::kTunnel: return count;
-    case psdlattr::kTexture: return 1;
-    case psdlattr::kFacade: return 6;
-    default: return 0;
+    case psdlattr::kRoof:
+        return size_t(count) + 2;
+    case psdlattr::kDividedRoad:
+        return size_t(count) * 6 + 2;
+    case psdlattr::kTunnel:
+        return count;
+    case psdlattr::kTexture:
+        return 1;
+    case psdlattr::kFacade:
+        return 6;
+    default:
+        return 0;
     }
 }
 
@@ -92,7 +103,7 @@ std::string Psdl::texture(uint32_t index) const {
     return index >= 1 && index <= textures.size() ? textures[index - 1] : std::string();
 }
 
-Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
+Error readPsdl(const std::vector<uint8_t> &data, Psdl &out) {
     out = Psdl{};
     Reader r{data.data(), data.data() + data.size()};
     if (data.size() < 8 || std::memcmp(data.data(), "PSD0", 4) != 0)
@@ -105,13 +116,13 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
     if (!r.need(uint64_t(vertices) * 12))
         return Error::fail("vertices run past the end of the file");
     out.vertices.resize(vertices);
-    for (Vec3& v : out.vertices)
+    for (Vec3 &v : out.vertices)
         v = r.vec3();
     const uint32_t heights = r.u32();
     if (!r.need(uint64_t(heights) * 4))
         return Error::fail("heights run past the end of the file");
     out.heights.resize(heights);
-    for (float& h : out.heights)
+    for (float &h : out.heights)
         h = r.f32();
 
     // Counts here and for the blocks are one more than what's stored:
@@ -121,7 +132,7 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
         const size_t n = r.u8();
         if (!r.need(n))
             break;
-        std::string name(reinterpret_cast<const char*>(r.p), n);
+        std::string name(reinterpret_cast<const char *>(r.p), n);
         r.p += n;
         if (const size_t zero = name.find('\0'); zero != std::string::npos)
             name.resize(zero);
@@ -133,16 +144,16 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
         return Error::fail("truncated before the blocks");
     out.blocks.resize(blocks);
     for (uint32_t b = 1; b < blocks && r.ok; ++b) {
-        PsdlBlock& block = out.blocks[b];
+        PsdlBlock &block = out.blocks[b];
         const uint32_t perimeter = r.u32(), words = r.u32();
         if (!r.need(uint64_t(perimeter) * 4 + uint64_t(words) * 2))
             break;
         block.perimeter.resize(perimeter);
-        for (auto& [vertex, neighbour] : block.perimeter) {
+        for (auto &[vertex, neighbour] : block.perimeter) {
             vertex = r.u16();
             neighbour = r.u16();
         }
-        const uint8_t* end = r.p + size_t(words) * 2;
+        const uint8_t *end = r.p + size_t(words) * 2;
         bool last = false;
         while (r.p < end) {
             const uint16_t header = r.u16();
@@ -153,13 +164,12 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
             if (a.subtype == 0 && counted(a.type))
                 a.count = r.u16();
             if (a.type > psdlattr::kRoof)
-                return Error::fail("block " + std::to_string(b) + ": unknown attribute type " +
-                                   std::to_string(a.type));
+                return Error::fail("block " + std::to_string(b) + ": unknown attribute type " + std::to_string(a.type));
             const size_t n = psdlAttributeLength(a.type, a.count);
             if (size_t(end - r.p) < n * 2)
                 return Error::fail("block " + std::to_string(b) + ": an attribute runs past the block");
             a.words.resize(n);
-            for (uint16_t& w : a.words)
+            for (uint16_t &w : a.words)
                 w = r.u16();
             // After the attribute marked last, only stray texture
             // attributes follow (98 blocks of the two cities).
@@ -178,9 +188,9 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
     // bounds, centre and radius, then its roads.
     if (!r.need(uint64_t(blocks) * 2 + 40))
         return Error::fail("truncated after the blocks");
-    for (PsdlBlock& block : out.blocks)
+    for (PsdlBlock &block : out.blocks)
         block.flags = r.u8();
-    for (PsdlBlock& block : out.blocks)
+    for (PsdlBlock &block : out.blocks)
         block.extra = r.u8();
     out.min = r.vec3();
     out.max = r.vec3();
@@ -204,7 +214,7 @@ Error readPsdl(const std::vector<uint8_t>& data, Psdl& out) {
             road.lanePositions.push_back(r.f32());
         road.ends[0] = r.u8();
         road.ends[1] = r.u8();
-        for (uint16_t& v : road.vertices)
+        for (uint16_t &v : road.vertices)
             v = r.u16();
         const size_t n = r.u8();
         if (!r.need(n * 2))

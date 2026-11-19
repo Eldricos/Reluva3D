@@ -24,14 +24,14 @@ constexpr float kShown = 0.92f;     // of its Size the corner map is drawn
 
 } // namespace
 
-Error parseHudMapSetup(std::string_view text, HudMapSetup& out) {
+Error parseHudMapSetup(std::string_view text, HudMapSetup &out) {
     out = HudMapSetup{};
     TuneNode root;
     if (Error err = parseTune(text, root))
         return err;
     if (root.children.empty())
         return Error::fail("empty HUD map settings");
-    const TuneNode& n = root.children.front();
+    const TuneNode &n = root.children.front();
     out.width = n.number("Size", 0, out.width);
     out.height = n.number("Size", 1, out.height);
     out.left = n.number("Pos", 0, out.left);
@@ -39,9 +39,9 @@ Error parseHudMapSetup(std::string_view text, HudMapSetup& out) {
     out.zoomIn = n.number("ZoomIn") != 0;
     // "Approach Rate" and "Ocean Color" are two words: the name's second
     // word comes as the first value.
-    if (const TuneNode* a = n.child("Approach"); a && a->values.size() >= 2)
+    if (const TuneNode *a = n.child("Approach"); a && a->values.size() >= 2)
         out.approachRate = std::strtof(a->values[1].c_str(), nullptr);
-    if (const TuneNode* o = n.child("Ocean"); o && o->values.size() >= 4)
+    if (const TuneNode *o = n.child("Ocean"); o && o->values.size() >= 4)
         for (size_t k = 0; k < 3; ++k)
             out.ocean[k] = std::strtof(o->values[k + 1].c_str(), nullptr);
     out.zoomInDist = n.number("ZoomInDist", 0, out.zoomInDist);
@@ -55,7 +55,7 @@ Error parseHudMapSetup(std::string_view text, HudMapSetup& out) {
     return Error::success();
 }
 
-bool HudMap::load(gfx::Renderer3D& renderer, const SearchSet& files, ModelCache& models, const std::string& map) {
+bool HudMap::load(gfx::Renderer3D &renderer, const SearchSet &files, ModelCache &models, const std::string &map) {
     unload();
     _renderer = &renderer;
     std::vector<uint8_t> data;
@@ -109,8 +109,8 @@ void HudMap::update(float dt) {
     _distance += (targetDistance() - _distance) * std::min(1.0f, _setup.approachRate * dt);
 }
 
-void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& center, const Vec3& forward,
-                  const std::vector<HudMapIcon>& icons, int frameW, int frameH) const {
+void HudMap::draw(gfx::Renderer3D &renderer, ModelCache &models, const Vec3 &center, const Vec3 &forward,
+                  const std::vector<HudMapIcon> &icons, int frameW, int frameH) const {
     if (!_ok || !shown())
         return;
     int x, y, w, h;
@@ -148,7 +148,7 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
     renderer.clearDepth();
     renderer.setView(viewProj, eye);
     renderer.setViewport(x, y, w, h);
-    auto flat = [&](gfx::MeshId mesh, const ModelDraw& d, const gfx::Mat4& model, const std::array<float, 4>& color) {
+    auto flat = [&](gfx::MeshId mesh, const ModelDraw &d, const gfx::Mat4 &model, const std::array<float, 4> &color) {
         gfx::DrawCall call;
         call.mesh = mesh;
         call.firstIndex = d.firstIndex;
@@ -167,16 +167,16 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
     const float reach = _distance * 4;
     flat(_quad, whole, matrixOf(Mat3{{reach, 0, 0}, {0, 1, 0}, {0, 0, reach}}, {center[0], 0, center[2]}),
          {_setup.ocean[0], _setup.ocean[1], _setup.ocean[2], 1});
-    const ModelCache::Model& map = models.get(_model);
-    for (const ModelDraw& d : map.levels.front().draws)
+    const ModelCache::Model &map = models.get(_model);
+    for (const ModelDraw &d : map.levels.front().draws)
         flat(map.levels.front().mesh, d, gfx::identity(), d.color);
     // The icons, the dots under the cars.
     const float scale = iconLength() / kTriLength;
     for (bool dots : {true, false})
-        for (const HudMapIcon& icon : icons) {
+        for (const HudMapIcon &icon : icons) {
             if (icon.dot != dots)
                 continue;
-            const ModelCache::Model& m = models.get(dots ? "hudmap_square" : "hudmap_tri", uint32_t(icon.color));
+            const ModelCache::Model &m = models.get(dots ? "hudmap_square" : "hudmap_tri", uint32_t(icon.color));
             if (!m.ok)
                 continue;
             Vec3 f{icon.forward[0], 0, icon.forward[2]};
@@ -184,7 +184,7 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
             // Its -z along `forward`, flat.
             const Mat3 turn{Vec3{-f[2], 0, f[0]} * scale, Vec3{0, 1, 0} * scale, f * -scale};
             const gfx::Mat4 at = matrixOf(turn, {icon.position[0], 1, icon.position[2]});
-            for (const ModelDraw& d : m.levels.front().draws)
+            for (const ModelDraw &d : m.levels.front().draws)
                 flat(m.levels.front().mesh, d, at, d.color);
         }
     renderer.setViewport(0, 0, 0, 0);

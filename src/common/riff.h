@@ -18,16 +18,16 @@ namespace reluva {
 struct RiffChunk {
     std::string id;                // "RIFF", "LIST", "fmt "...
     std::string type;              // a RIFF or LIST chunk's form type ("DLS ", "lins"...); else empty
-    const uint8_t* data = nullptr; // the chunk's bytes (for RIFF and LIST, after the type)
+    const uint8_t *data = nullptr; // the chunk's bytes (for RIFF and LIST, after the type)
     size_t size = 0;
     std::vector<RiffChunk> children;
 
     bool isList() const { return id == "RIFF" || id == "LIST"; }
     // The first child with this id (and for RIFF/LIST, form type), or null.
-    const RiffChunk* find(const std::string& id) const;
-    const RiffChunk* findList(const std::string& type) const;
+    const RiffChunk *find(const std::string &id) const;
+    const RiffChunk *findList(const std::string &type) const;
     // Every child list of this form type.
-    std::vector<const RiffChunk*> lists(const std::string& type) const;
+    std::vector<const RiffChunk *> lists(const std::string &type) const;
 
     // Little-endian reads within the chunk (0 past its end).
     uint8_t u8(size_t at) const { return at < size ? data[at] : 0; }
@@ -41,6 +41,6 @@ struct RiffChunk {
 
 // Reads `data` (which must outlive the tree) as one chunk: a whole RIFF
 // file's top chunk. A chunk running past its parent is an error.
-Error readRiff(const std::vector<uint8_t>& data, RiffChunk& out);
+Error readRiff(const std::vector<uint8_t> &data, RiffChunk &out);
 
 } // namespace reluva

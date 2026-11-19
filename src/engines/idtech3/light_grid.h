@@ -26,13 +26,13 @@ class LightGrid {
 public:
     // `cellSize` from the worldspawn's "gridsize" key, if it has one. A
     // grid whose size doesn't match the world's bounds is left empty.
-    void build(const Bsp& bsp, std::array<float, 3> cellSize = {64, 64, 128});
+    void build(const Bsp &bsp, std::array<float, 3> cellSize = {64, 64, 128});
     bool empty() const { return data_.empty(); }
 
     // Blends the eight surrounding grid points, skipping those inside walls
     // (all black), as the original does; adds its minimum ambient light.
     // Without a grid: a fixed light from above.
-    PointLight sample(const std::array<float, 3>& pos) const;
+    PointLight sample(const std::array<float, 3> &pos) const;
 
 private:
     std::array<float, 3> origin_{}, size_{64, 64, 128};

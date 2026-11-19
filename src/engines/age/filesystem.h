@@ -19,6 +19,6 @@ namespace reluva::age {
 //
 // An archive that can't be opened is skipped and reported in `warnings`;
 // a folder without any archive is an error.
-Error mountGame(SearchSet& set, const std::filesystem::path& install, std::vector<std::string>& warnings);
+Error mountGame(SearchSet &set, const std::filesystem::path &install, std::vector<std::string> &warnings);
 
 } // namespace reluva::age

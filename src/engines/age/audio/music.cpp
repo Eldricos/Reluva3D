@@ -13,7 +13,7 @@ constexpr float kIdleAfter = 4;  // seconds stopped before the idle music
 constexpr float kStopped = 1.5f; // m/s: below this, stopped
 constexpr float kMoving = 5;     // and above this, on the move again
 
-std::vector<std::string> fields(const std::string& line) {
+std::vector<std::string> fields(const std::string &line) {
     std::vector<std::string> out;
     std::istringstream in(line);
     std::string f;
@@ -24,7 +24,7 @@ std::vector<std::string> fields(const std::string& line) {
 
 } // namespace
 
-std::vector<MusicSet> parseMusicSets(const std::string& text, bool race) {
+std::vector<MusicSet> parseMusicSets(const std::string &text, bool race) {
     std::vector<MusicSet> out;
     std::istringstream in(text);
     std::string line;
@@ -64,7 +64,7 @@ std::vector<MusicSet> parseMusicSets(const std::string& text, bool race) {
 
 namespace {
 
-std::vector<MusicSet> readSets(const SearchSet& files, bool race) {
+std::vector<MusicSet> readSets(const SearchSet &files, bool race) {
     std::vector<uint8_t> data;
     const std::string list = race ? "aud/dmusic/csv_files/singlerace.csv" : "aud/dmusic/csv_files/singleroam.csv";
     if (files.read(list, data))
@@ -74,10 +74,10 @@ std::vector<MusicSet> readSets(const SearchSet& files, bool race) {
 
 } // namespace
 
-std::vector<std::string> GameMusic::trackNames(const SearchSet& files) {
+std::vector<std::string> GameMusic::trackNames(const SearchSet &files) {
     std::vector<std::string> names;
     for (bool race : {true, false})
-        for (const MusicSet& s : readSets(files, race)) {
+        for (const MusicSet &s : readSets(files, race)) {
             std::string n = s.start;
             if (n.size() > 5 && n.compare(n.size() - 5, 5, "Start") == 0)
                 n.resize(n.size() - 5);
@@ -86,7 +86,7 @@ std::vector<std::string> GameMusic::trackNames(const SearchSet& files) {
     return names;
 }
 
-Error GameMusic::startTrack(const SearchSet& files, audio::Mixer& mixer, size_t track) {
+Error GameMusic::startTrack(const SearchSet &files, audio::Mixer &mixer, size_t track) {
     const std::vector<MusicSet> race = readSets(files, true);
     const bool isRace = track < race.size();
     const std::vector<MusicSet> sets = isRace ? race : readSets(files, false);
@@ -96,7 +96,7 @@ Error GameMusic::startTrack(const SearchSet& files, audio::Mixer& mixer, size_t 
     return start(files, mixer, isRace, uint32_t(index));
 }
 
-Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed) {
+Error GameMusic::start(const SearchSet &files, audio::Mixer &mixer, bool race, uint32_t seed) {
     if (_performance && !_menu && _mixer == &mixer && race == _race && seed == _seed) {
         _still = 0;
         _idle = _wasPaused = false;
@@ -109,16 +109,16 @@ Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, u
     if (sets.empty())
         return Error::fail(std::string(race ? "singlerace" : "singleroam") + ".csv: no music");
     _set = sets[seed % sets.size()];
-    const SearchSet* source = &files;
+    const SearchSet *source = &files;
     _performance = std::make_shared<audio::DmPerformance>(
         mixer.outputRate(),
-        [source](const std::string& name, std::vector<uint8_t>& out) {
+        [source](const std::string &name, std::vector<uint8_t> &out) {
             return !source->read("aud/dmusic/" + name, out);
         },
         seed);
     _mixer = &mixer;
     // Every segment the tune may switch to, read now rather than mid-race.
-    for (const std::string* seg : {&_set.back, &_set.idle, &_set.idleCops, &_set.cops, &_set.pause, &_set.results})
+    for (const std::string *seg : {&_set.back, &_set.idle, &_set.idleCops, &_set.cops, &_set.pause, &_set.results})
         if (!seg->empty())
             _performance->prepare(*seg + ".sgt");
     mixer.addStream(_performance, audio::SoundType::kMusic);
@@ -129,7 +129,7 @@ Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, u
     return Error::success();
 }
 
-Error GameMusic::startMenu(const SearchSet& files, audio::Mixer& mixer) {
+Error GameMusic::startMenu(const SearchSet &files, audio::Mixer &mixer) {
     stop();
     // "Music segment" then its name.
     std::string segment = "UI";
@@ -149,10 +149,10 @@ Error GameMusic::startMenu(const SearchSet& files, audio::Mixer& mixer) {
         if (lines.size() >= 2)
             segment = lines[1];
     }
-    const SearchSet* source = &files;
+    const SearchSet *source = &files;
     _performance = std::make_shared<audio::DmPerformance>(
         mixer.outputRate(),
-        [source](const std::string& name, std::vector<uint8_t>& out) {
+        [source](const std::string &name, std::vector<uint8_t> &out) {
             return !source->read("aud/dmusic/" + name, out);
         },
         1);
@@ -172,7 +172,7 @@ void GameMusic::stop() {
     _wanted.clear();
 }
 
-void GameMusic::want(const std::string& segment) {
+void GameMusic::want(const std::string &segment) {
     if (!_performance || segment.empty() || segment == _wanted)
         return;
     _wanted = segment;
@@ -185,7 +185,7 @@ void GameMusic::bigAir() {
                                 _set.airBand.empty() ? "" : _set.airBand + ".bnd");
 }
 
-void GameMusic::update(float dt, const State& s) {
+void GameMusic::update(float dt, const State &s) {
     if (!_performance)
         return;
     if (s.finished) {

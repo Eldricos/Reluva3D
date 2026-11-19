@@ -28,7 +28,7 @@ struct HudMapSetup {
     float zoomInDistFS = 786, zoomOutDistFS = 1581, iconScaleMinFS = 15, iconScaleMaxFS = 18;
     Vec3 ocean{0.084f, 0.7f, 0.94f}; // Ocean Color
 };
-Error parseHudMapSetup(std::string_view text, HudMapSetup& out);
+Error parseHudMapSetup(std::string_view text, HudMapSetup &out);
 
 // Something shown on the map: a car (geometry/hudmap_tri, its paint job
 // `color` 0-9, pointing along `forward`) or a dot (hudmap_square, paint
@@ -57,15 +57,15 @@ constexpr int kFinish = 5;     // FINISH_DOT
 class HudMap {
 public:
     HudMap() = default;
-    HudMap(const HudMap&) = delete;
-    HudMap& operator=(const HudMap&) = delete;
+    HudMap(const HudMap &) = delete;
+    HudMap &operator=(const HudMap &) = delete;
     ~HudMap() { unload(); }
 
     // False if the city has none.
-    bool load(gfx::Renderer3D& renderer, const SearchSet& files, ModelCache& models, const std::string& map);
+    bool load(gfx::Renderer3D &renderer, const SearchSet &files, ModelCache &models, const std::string &map);
     void unload();
     bool loaded() const { return _ok; }
-    const HudMapSetup& setup() const { return _setup; }
+    const HudMapSetup &setup() const { return _setup; }
 
     void toggleZoom() { _zoomIn = !_zoomIn; }
     void toggleFullScreen() { _full = !_full; }
@@ -86,14 +86,14 @@ public:
 
     // Over the frame drawn so far (frameW x frameH pixels), about `center`
     // facing `forward`; leaves the whole frame as the viewport after.
-    void draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& center, const Vec3& forward,
-              const std::vector<HudMapIcon>& icons, int frameW, int frameH) const;
+    void draw(gfx::Renderer3D &renderer, ModelCache &models, const Vec3 &center, const Vec3 &forward,
+              const std::vector<HudMapIcon> &icons, int frameW, int frameH) const;
 
 private:
     float targetDistance() const;
     float iconLength() const;
 
-    gfx::Renderer3D* _renderer = nullptr;
+    gfx::Renderer3D *_renderer = nullptr;
     HudMapSetup _setup;
     std::string _model;
     gfx::MeshId _quad = 0; // the ocean

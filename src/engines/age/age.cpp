@@ -31,7 +31,7 @@ constexpr int kScreenH = 480;
 
 class AgeEngine : public Engine {
 public:
-    AgeEngine(System& system, GameTarget target, const GameInfo& game)
+    AgeEngine(System &system, GameTarget target, const GameInfo &game)
         : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
@@ -49,7 +49,7 @@ public:
         audio::Mixer mixer(_sys.audioRate());
         const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
-            System& sys;
+            System &sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{_sys};
 
@@ -79,9 +79,9 @@ public:
             return Error::success();
         };
         struct Leave { // a 3D page's GPU objects go before the system's renderer
-            std::vector<std::unique_ptr<Page>>& pages;
+            std::vector<std::unique_ptr<Page>> &pages;
             ~Leave() {
-                for (auto& p : pages)
+                for (auto &p : pages)
                     p->deactivate();
             }
         } leave{pages};
@@ -116,25 +116,25 @@ public:
     }
 
 private:
-    System& _sys;
+    System &_sys;
     GameTarget _target;
-    const GameInfo& _game;
+    const GameInfo &_game;
     SearchSet _files;
     Surface _screen;
 };
 
 class AgeMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "age"; }
-    const char* name() const override { return "Angel Game Engine"; }
+    const char *id() const override { return "age"; }
+    const char *name() const override { return "Angel Game Engine"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         auto found = detectFromTable(id(), detectionTable(), dir);
         return found.empty() ? detectFromTable(id(), fallbackTable(), dir) : found;
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
-        const GameInfo* game = findGame(target.gameId);
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
+        const GameInfo *game = findGame(target.gameId);
         if (!game)
             game = &games().front();
         return std::make_unique<AgeEngine>(system, target, *game);
@@ -143,7 +143,7 @@ public:
 
 } // namespace
 
-const MetaEngine& ageMetaEngine() {
+const MetaEngine &ageMetaEngine() {
     static const AgeMetaEngine kInstance;
     return kInstance;
 }

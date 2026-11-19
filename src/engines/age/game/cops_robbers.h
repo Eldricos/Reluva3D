@@ -52,23 +52,23 @@ public:
 
     // The places to play between; the seed picks the gold's home and the
     // bases from them.
-    void start(const NetSettings& settings, const std::vector<Waypoint>& points, uint32_t seed);
+    void start(const NetSettings &settings, const std::vector<Waypoint> &points, uint32_t seed);
     // The host: a step of the rules with every car where it is. `floor`:
     // below this the gold has left the city.
-    void step(float clock, float dt, const std::vector<Car>& cars, float floor);
+    void step(float clock, float dt, const std::vector<Car> &cars, float floor);
 
     // A player's side: its team in the team modes, else itself.
-    uint8_t sideOf(const Car& car) const { return teams() ? car.team : car.id; }
+    uint8_t sideOf(const Car &car) const { return teams() ? car.team : car.id; }
     bool teams() const { return _mode != GoldMode::kFreeForAll; }
     GoldMode mode() const { return _mode; }
 
     uint8_t holder() const { return _holder; }
-    const Vec3& goldPosition() const { return _gold; }
+    const Vec3 &goldPosition() const { return _gold; }
     // The base a side delivers to (in a free-for-all, everyone's hideout).
     Vec3 base(uint8_t side) const;
-    const Vec3& home() const { return _home; }
+    const Vec3 &home() const { return _home; }
     int score(uint8_t side) const;
-    const std::map<uint8_t, int>& scores() const { return _scores; }
+    const std::map<uint8_t, int> &scores() const { return _scores; }
     bool over() const { return _over; }
     // The events since `seq` (the last one seen), oldest first.
     std::vector<GoldEvent> eventsAfter(uint32_t seq) const;
@@ -76,11 +76,11 @@ public:
 
     // As the host sends it, and as a player reads it.
     std::vector<uint8_t> encode() const;
-    bool decode(const std::vector<uint8_t>& data);
+    bool decode(const std::vector<uint8_t> &data);
 
 private:
     void event(GoldEvent::Kind kind, uint8_t player, uint8_t side);
-    void restAt(const Vec3& at, bool atHome);
+    void restAt(const Vec3 &at, bool atHome);
 
     GoldMode _mode = GoldMode::kFreeForAll;
     GoldLimit _limit = GoldLimit::kNone;
@@ -108,14 +108,14 @@ class GoldBot {
 public:
     void start(uint32_t seed) { *this = GoldBot(), _seed = seed; }
     // Where it wants to be: `chasing` when that's another side's car.
-    static Vec3 goal(uint8_t id, uint8_t team, const GoldGame& gold, const std::vector<GoldGame::Car>& cars,
-                     bool& chasing);
+    static Vec3 goal(uint8_t id, uint8_t team, const GoldGame &gold, const std::vector<GoldGame::Car> &cars,
+                     bool &chasing);
     // A new path when it's time for one (the goal moved, the last path
     // was driven, or a while has passed); false to keep on. `gold` null:
     // a cruise, between `places`.
-    bool plan(float dt, const Vec3& at, uint8_t id, uint8_t team, const GoldGame* gold,
-              const std::vector<GoldGame::Car>& cars, const std::vector<Waypoint>& places, const RoadGraph& roads,
-              bool pathDone, std::vector<Vec3>& path);
+    bool plan(float dt, const Vec3 &at, uint8_t id, uint8_t team, const GoldGame *gold,
+              const std::vector<GoldGame::Car> &cars, const std::vector<Waypoint> &places, const RoadGraph &roads,
+              bool pathDone, std::vector<Vec3> &path);
     // Hardly moved for six seconds with its goal still away: the caller
     // puts it back on the road (the nearest point of `roads`) and calls
     // unstuck().
@@ -136,10 +136,10 @@ private:
 };
 
 // The game's points for Cops & Robbers: race/<city>/multicopwaypoints.csv.
-Error loadGoldPoints(const SearchSet& files, const std::string& city, std::vector<Waypoint>& out);
+Error loadGoldPoints(const SearchSet &files, const std::string &city, std::vector<Waypoint> &out);
 
 // The announcer's lines: aud/spchdata/CNR<CITY>.csv, each event's name
 // (BLUETEAMHASGOLD, ROBGETLOOT...) and the recordings it may play.
-std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::string& csv);
+std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::string &csv);
 
 } // namespace reluva::age

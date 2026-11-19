@@ -48,16 +48,15 @@ using namespace reluva;
 
 static int failures = 0;
 
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
+#define CHECK(cond)                                                                                                    \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);                              \
+            ++failures;                                                                                                \
+        }                                                                                                              \
     } while (0)
 
-static std::string md5Of(const std::string& s) {
+static std::string md5Of(const std::string &s) {
     Md5 m;
     m.update(s.data(), s.size());
     return m.hexDigest();
@@ -71,12 +70,10 @@ static void testMd5() {
     CHECK(md5Of(std::string(64, 'a')) == "014842d480b571495a4a0363793f7367");
 }
 
-static void testFsAndDetection(const std::filesystem::path& tmp) {
+static void testFsAndDetection(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp / "Data");
-    {
-        std::ofstream(tmp / "Data" / "GAME.DAT", std::ios::binary) << "abc";
-    }
+    { std::ofstream(tmp / "Data" / "GAME.DAT", std::ios::binary) << "abc"; }
 
     auto found = fs::findFile(tmp, "data/game.dat");
     CHECK(found.has_value());
@@ -95,7 +92,7 @@ static void testFsAndDetection(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static void testConfig(const std::filesystem::path& tmp) {
+static void testConfig(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(tmp);
     auto path = tmp / "test.ini";
     {
@@ -131,7 +128,7 @@ static void testFont() {
     // 'I' has its middle column set from row 1 to 5 and a bar on row 0.
     auto red = [&](int x, int y) { return s.row(y)[x * 4] == 255 && s.row(y)[x * 4 + 1] == 0; };
     CHECK(red(3, 1) && red(2, 1) && red(4, 1) && !red(1, 2) && red(3, 4) && !red(0, 0));
-    CHECK(red(9, 7) && !red(9, 8)); // '|' runs rows 0-6
+    CHECK(red(9, 7) && !red(9, 8));                 // '|' runs rows 0-6
     font::drawText(s, 15, 10, "W", {255, 0, 0}, 2); // clipped, not out of bounds
 }
 
@@ -140,17 +137,33 @@ static void testWav() {
     // One 8-byte IMA ADPCM block: header (sample 100, index 0), then nibbles
     // 4, 0, 0, ... (low nibble first); the fact chunk keeps 5 frames.
     std::vector<uint8_t> b;
-    auto put32 = [](std::vector<uint8_t>& v, uint32_t x) {
+    auto put32 = [](std::vector<uint8_t> &v, uint32_t x) {
         for (int i = 0; i < 4; ++i)
             v.push_back(uint8_t(x >> (8 * i)));
     };
-    auto put16 = [&](uint16_t v) { b.push_back(uint8_t(v)); b.push_back(uint8_t(v >> 8)); };
-    auto tag = [&](const char* t) { b.insert(b.end(), t, t + 4); };
-    tag("RIFF"); put32(b, 0); tag("WAVE");
-    tag("fmt "); put32(b, 20);
-    put16(0x11); put16(1); put32(b, 22050); put32(b, 22050); put16(8); put16(4); put16(2); put16(9);
-    tag("fact"); put32(b, 4); put32(b, 5);
-    tag("data"); put32(b, 8);
+    auto put16 = [&](uint16_t v) {
+        b.push_back(uint8_t(v));
+        b.push_back(uint8_t(v >> 8));
+    };
+    auto tag = [&](const char *t) { b.insert(b.end(), t, t + 4); };
+    tag("RIFF");
+    put32(b, 0);
+    tag("WAVE");
+    tag("fmt ");
+    put32(b, 20);
+    put16(0x11);
+    put16(1);
+    put32(b, 22050);
+    put32(b, 22050);
+    put16(8);
+    put16(4);
+    put16(2);
+    put16(9);
+    tag("fact");
+    put32(b, 4);
+    put32(b, 5);
+    tag("data");
+    put32(b, 8);
     for (uint8_t v : {100, 0, 0, 0, 0x04, 0, 0, 0})
         b.push_back(v);
     Sound s;
@@ -238,12 +251,13 @@ static void testMixer() {
     m.mix(out.data(), 2);
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
-    CHECK(m.play(nullptr, SoundType::kEffects) == kNoSound && m.play(make(22050, 1, {}), SoundType::kEffects) == kNoSound);
+    CHECK(m.play(nullptr, SoundType::kEffects) == kNoSound &&
+          m.play(make(22050, 1, {}), SoundType::kEffects) == kNoSound);
 }
 
-static void testZip(const std::filesystem::path& tmp) {
+static void testZip(const std::filesystem::path &tmp) {
     using test::toBytes;
-    CHECK(crc32(reinterpret_cast<const uint8_t*>("123456789"), 9) == 0xcbf43926);
+    CHECK(crc32(reinterpret_cast<const uint8_t *>("123456789"), 9) == 0xcbf43926);
 
     // "textures/borg/borgfloor1\n" 12 times, raw-deflated by zlib.
     std::string text;
@@ -279,7 +293,7 @@ static void testZip(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static void testSearchSet(const std::filesystem::path& tmp) {
+static void testSearchSet(const std::filesystem::path &tmp) {
     using test::toBytes;
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "low.zip", test::buildZip({{"a.txt", toBytes("low"), {}}, {"b.txt", toBytes("b"), {}}}));
@@ -287,7 +301,7 @@ static void testSearchSet(const std::filesystem::path& tmp) {
     test::writeFile(tmp / "dir" / "Sub" / "C.txt", toBytes("loose"));
 
     SearchSet set;
-    auto open = [](const std::filesystem::path& p) {
+    auto open = [](const std::filesystem::path &p) {
         auto z = std::make_unique<ZipArchive>();
         CHECK(!z->open(p));
         return z;
@@ -312,7 +326,7 @@ static void testSearchSet(const std::filesystem::path& tmp) {
 
 static void testMd4() {
     // RFC 1320's test values.
-    auto hex = [](const std::string& text) {
+    auto hex = [](const std::string &text) {
         const auto d = md4(text.data(), text.size());
         std::string out;
         char buf[3];
@@ -362,15 +376,14 @@ static void testImage() {
     CHECK(!image::decode(tga, img));
     CHECK(img.w == 2 && img.h == 2);
     auto is = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-        const uint8_t* p = img.pixel(x, y);
+        const uint8_t *p = img.pixel(x, y);
         return p[0] == r && p[1] == g && p[2] == b && p[3] == a;
     };
     CHECK(is(0, 0, 0, 0, 255, 255) && is(1, 0, 255, 255, 255, 255));
     CHECK(is(0, 1, 255, 0, 0, 255) && is(1, 1, 0, 255, 0, 255));
 
     // 3x1 RLE 32-bit TGA, top row first (descriptor 0x28): a run of 3.
-    const std::vector<uint8_t> rle = {0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1, 0, 32, 0x28,
-                                      0x82, 10, 20, 30, 128};
+    const std::vector<uint8_t> rle = {0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1, 0, 32, 0x28, 0x82, 10, 20, 30, 128};
     CHECK(!image::decode(rle, img));
     CHECK(img.w == 3 && img.h == 1 && is(0, 0, 30, 20, 10, 128) && is(2, 0, 30, 20, 10, 128));
     CHECK(image::decode({1, 2, 3}, img));
@@ -382,8 +395,8 @@ static void testImage() {
     two.rgba = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     image::Image back;
     CHECK(!image::decode(image::encodeTga(two), back));
-    CHECK(back.w == 2 && back.h == 2 && back.rgba == std::vector<uint8_t>({1, 2, 3, 255, 5, 6, 7, 255, 9, 10, 11,
-                                                                           255, 13, 14, 15, 255}));
+    CHECK(back.w == 2 && back.h == 2 &&
+          back.rgba == std::vector<uint8_t>({1, 2, 3, 255, 5, 6, 7, 255, 9, 10, 11, 255, 13, 14, 15, 255}));
 
     // Blending half-transparent red over black.
     Surface s;
@@ -399,7 +412,9 @@ static void testImage() {
 static void testGfxMath() {
     using namespace reluva::gfx;
     auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
-    auto same = [&](const Vec3& a, const Vec3& b) { return approx(a[0], b[0]) && approx(a[1], b[1]) && approx(a[2], b[2]); };
+    auto same = [&](const Vec3 &a, const Vec3 &b) {
+        return approx(a[0], b[0]) && approx(a[1], b[1]) && approx(a[2], b[2]);
+    };
     // Depth runs 0 at the near plane to 1 at the far one; +Y stays up.
     const Mat4 proj = perspective(3.14159265f / 2, 1, 4, 100);
     CHECK(same(transformPoint(proj, {0, 0, -4}), {0, 0, 0}));
@@ -417,7 +432,7 @@ static void testGfxMath() {
 }
 
 // Runs `code` (hand-encoded, ending in RET) as a function of no arguments.
-static uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = nullptr) {
+static uint32_t runX86(x86::Cpu &cpu, std::vector<uint8_t> code, bool *ok = nullptr) {
     const uint32_t at = 0x2000;
     std::copy(code.begin(), code.end(), cpu.memory().begin() + at);
     uint32_t result = 0;
@@ -445,8 +460,8 @@ static void testX86Instructions() {
     CHECK(runX86(cpu, {0xb8, 0x78, 0x56, 0x34, 0x12, 0x0f, 0xc8, 0xc3}) == 0x78563412);
     // rep stosb then repe cmpsb: mov edi, 0x3000; mov ecx, 8; mov al, 0x41; rep stosb;
     // mov esi, 0x3000; mov edi, 0x3004; mov ecx, 4; repe cmpsb; mov eax, ecx; ret  (0: all equal)
-    CHECK(runX86(cpu, {0xbf, 0, 0x30, 0, 0, 0xb9, 8, 0, 0, 0, 0xb0, 0x41, 0xf3, 0xaa, 0xbe, 0, 0x30, 0, 0, 0xbf, 4, 0x30,
-                       0, 0, 0xb9, 4, 0, 0, 0, 0xf3, 0xa6, 0x89, 0xc8, 0xc3}) == 0);
+    CHECK(runX86(cpu, {0xbf, 0, 0x30, 0, 0,    0xb9, 8, 0,    0, 0, 0xb0, 0x41, 0xf3, 0xaa, 0xbe, 0,    0x30,
+                       0,    0, 0xbf, 4, 0x30, 0,    0, 0xb9, 4, 0, 0,    0,    0xf3, 0xa6, 0x89, 0xc8, 0xc3}) == 0);
     CHECK(cpu.read32(0x3000) == 0x41414141);
     // x87: fld1; fld1; faddp; fsqrt; fstp dword [0x3000]; mov eax, [0x3000]; ret  (sqrt 2 as a float)
     runX86(cpu, {0xd9, 0xe8, 0xd9, 0xe8, 0xde, 0xc1, 0xd9, 0xfa, 0xd9, 0x1d, 0, 0x30, 0, 0, 0xa1, 0, 0x30, 0, 0, 0xc3});
@@ -465,7 +480,7 @@ static void testX86Instructions() {
     runX86(cpu, {0x31, 0xc9, 0xf7, 0xf1, 0xc3}, &ok);
     CHECK(!ok);
     // A native function, stdcall with one argument: push 20; call [native]; ret
-    const uint32_t native = cpu.addNative("double", [](x86::Cpu& c) {
+    const uint32_t native = cpu.addNative("double", [](x86::Cpu &c) {
         c.reg[x86::Cpu::EAX] = c.arg(0) * 2;
         return 4u;
     });
@@ -476,7 +491,7 @@ static void testX86Instructions() {
 static void testX86Dll() {
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
-    const x86::Win32Process::Module* m = nullptr;
+    const x86::Win32Process::Module *m = nullptr;
     const std::vector<uint8_t> file(std::begin(kX86TestDll), std::end(kX86TestDll));
     CHECK(!process.load("testdll.dll", file, m));
     if (!m)
@@ -503,7 +518,7 @@ static void testX86Dll() {
         }
     // Loaded again it goes elsewhere, relocated: its table of function
     // pointers (test 13) must still work.
-    const x86::Win32Process::Module* again = nullptr;
+    const x86::Win32Process::Module *again = nullptr;
     CHECK(!process.load("testdll2.dll", file, again));
     if (again) {
         CHECK(again->base != m->base);
@@ -587,7 +602,7 @@ static void testPeStrings() {
 }
 
 // A RIFF chunk: id, little-endian size, bytes, padded to even.
-std::vector<uint8_t> riffChunk(const std::string& id, const std::vector<uint8_t>& body) {
+std::vector<uint8_t> riffChunk(const std::string &id, const std::vector<uint8_t> &body) {
     std::vector<uint8_t> out(id.begin(), id.end());
     for (int i = 0; i < 4; ++i)
         out.push_back(uint8_t(body.size() >> (8 * i)));
@@ -596,10 +611,10 @@ std::vector<uint8_t> riffChunk(const std::string& id, const std::vector<uint8_t>
         out.push_back(0);
     return out;
 }
-std::vector<uint8_t> riffList(const std::string& id, const std::string& type,
-                              const std::vector<std::vector<uint8_t>>& children) {
+std::vector<uint8_t> riffList(const std::string &id, const std::string &type,
+                              const std::vector<std::vector<uint8_t>> &children) {
     std::vector<uint8_t> body(type.begin(), type.end());
-    for (const auto& c : children)
+    for (const auto &c : children)
         body.insert(body.end(), c.begin(), c.end());
     return riffChunk(id, body);
 }
@@ -612,7 +627,7 @@ std::vector<uint8_t> le(std::initializer_list<uint32_t> words, int width = 4) {
 }
 std::vector<uint8_t> cat(std::initializer_list<std::vector<uint8_t>> parts) {
     std::vector<uint8_t> out;
-    for (const auto& p : parts)
+    for (const auto &p : parts)
         out.insert(out.end(), p.begin(), p.end());
     return out;
 }
@@ -663,7 +678,7 @@ void testDls() {
     CHECK(c.instruments.size() == 1 && c.waves.size() == 1 && c.find(1, 5) && !c.find(0, 5));
     if (c.instruments.size() != 1 || c.waves.size() != 1)
         return;
-    const DlsRegion& r = c.instruments[0].regions.at(0);
+    const DlsRegion &r = c.instruments[0].regions.at(0);
     CHECK(r.keyLow == 40 && r.keyHigh == 80 && r.wave == 0 && c.waves[0].samples.size() == 4410);
     CHECK(c.waves[0].info.unityNote == 57 && c.waves[0].info.looped && c.waves[0].info.loopLength == 4400);
     CHECK(c.instruments[0].articulation.size() == 1 && c.instruments[0].articulation[0].destination == 0x209);
@@ -693,7 +708,7 @@ void testDls() {
     CHECK(synth.voices() == 0 && std::fabs(out[2 * 40000]) < 1e-4f);
 }
 
-std::vector<uint8_t> utf16(const std::string& text) {
+std::vector<uint8_t> utf16(const std::string &text) {
     std::vector<uint8_t> out;
     for (char c : text) {
         out.push_back(uint8_t(c));
@@ -782,9 +797,9 @@ void testDirectMusic() {
           sg.commands[0].groove == 50 && sg.tempos.size() == 1 && sg.tempos[0].second == 120);
 
     const std::vector<uint8_t> dls = buildTestDls(-5000 * 65536); // a quick release
-    std::map<std::string, const std::vector<uint8_t>*> files = {
+    std::map<std::string, const std::vector<uint8_t> *> files = {
         {"test.sgt", &segment}, {"test.sty", &style}, {"test.dls", &dls}};
-    DmPerformance perf(22050, [&](const std::string& name, std::vector<uint8_t>& out) {
+    DmPerformance perf(22050, [&](const std::string &name, std::vector<uint8_t> &out) {
         const auto it = files.find(name);
         if (it == files.end())
             return false;
@@ -822,7 +837,7 @@ static void testWinHelp() {
     auto u8 = [&](uint32_t v) { f.push_back(uint8_t(v)); };
     auto u16 = [&](uint32_t v) { u8(v & 0xFF), u8(v >> 8 & 0xFF); };
     auto u32 = [&](uint32_t v) { u16(v & 0xFFFF), u16(v >> 16); };
-    auto bytes = [&](const std::string& s) { f.insert(f.end(), s.begin(), s.end()); };
+    auto bytes = [&](const std::string &s) { f.insert(f.end(), s.begin(), s.end()); };
     auto fileHeader = [&](uint32_t used) { u32(used), u32(used), u8(0); };
 
     const uint32_t system = uint32_t(f.size());
@@ -954,7 +969,7 @@ static void testPortMap() {
     // address, and later to take the mapping away.
     std::vector<std::string> posted;
     PortMapper::Transport upnp;
-    upnp.udp = [](const Address& to, const std::vector<uint8_t>& d, int) {
+    upnp.udp = [](const Address &to, const std::vector<uint8_t> &d, int) {
         std::vector<std::pair<Address, std::vector<uint8_t>>> r;
         const std::string text(d.begin(), d.end());
         if (to.ip == 0xEFFFFFFA && to.port == 1900 && text.find("InternetGatewayDevice") != std::string::npos) {
@@ -963,7 +978,7 @@ static void testPortMap() {
         }
         return r;
     };
-    upnp.http = [&](const Address& to, const std::string& request, std::string& response, uint32_t& localIp) {
+    upnp.http = [&](const Address &to, const std::string &request, std::string &response, uint32_t &localIp) {
         localIp = 0xC0A80117; // 192.168.1.23
         if (to.ip != 0xC0A80101 || to.port != 5000)
             return false;
@@ -997,7 +1012,7 @@ static void testPortMap() {
     std::vector<std::vector<uint8_t>> asked;
     PortMapper::Transport pmp;
     pmp.gateways = {0x0A000001};
-    pmp.udp = [&](const Address& to, const std::vector<uint8_t>& d, int) {
+    pmp.udp = [&](const Address &to, const std::vector<uint8_t> &d, int) {
         std::vector<std::pair<Address, std::vector<uint8_t>>> r;
         if (to.ip != 0x0A000001 || to.port != 5351)
             return r;

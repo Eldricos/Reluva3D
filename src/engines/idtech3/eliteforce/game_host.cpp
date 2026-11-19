@@ -61,14 +61,12 @@ enum GameCall : int {
     Ceil = 111, // Quake III's game numbers floor 110 and ceil 111; Elite Force's code uses 111
 };
 
-
-
 constexpr int32_t kTraceSize = 56; // Quake III's trace_t, as Elite Force's code reads it
 
 } // namespace
 
-GameHost::GameHost(const SearchSet& files, CvarStore& cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
-    vm_.setSystemCall([this](Qvm& vm, int number, const int32_t* args) { return systemCall(vm, number, args); });
+GameHost::GameHost(const SearchSet &files, CvarStore &cvars) : files_(files), cvars_(cvars), vmFiles_(files) {
+    vm_.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
 Error GameHost::load() {
@@ -82,11 +80,11 @@ Error GameHost::load() {
     return Error::success();
 }
 
-Error GameHost::call(int32_t command, const std::vector<int32_t>& args, int32_t& result) {
+Error GameHost::call(int32_t command, const std::vector<int32_t> &args, int32_t &result) {
     return vm_.call(command, args, result);
 }
 
-Error GameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed) {
+Error GameHost::startLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed) {
     if (!map)
         return Error::fail("No map");
     map_ = std::move(map);
@@ -160,7 +158,7 @@ void GameHost::updateInfoConfigstrings() {
     configstrings_[1] = infoString(CvarStore::SystemInfo);
 }
 
-Error GameHost::connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused) {
+Error GameHost::connectClient(int32_t clientNum, const std::string &userinfo, std::string &refused) {
     refused.clear();
     userinfo_[clientNum] = userinfo;
     clientsInUse_.insert(clientNum);
@@ -185,7 +183,7 @@ Error GameHost::reloadGame() {
     return Error::success();
 }
 
-Error GameHost::reconnectClients(const std::set<int32_t>& clients, bool beginHumans) {
+Error GameHost::reconnectClients(const std::set<int32_t> &clients, bool beginHumans) {
     // Every player and bot connected again, not for the first time (the
     // game keeps what it saved of them); bots are put in the level at
     // once, players too if `beginHumans`.
@@ -238,8 +236,8 @@ Error GameHost::restartLevel() {
     return Error::success();
 }
 
-Error GameHost::changeLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
-                            std::vector<int32_t>& players) {
+Error GameHost::changeLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
+                            std::vector<int32_t> &players) {
     // A new level, as the original's map command: the game code shut down
     // and started afresh on it, and everyone connected again; bots are put
     // in the level, players (`players`) when they've loaded it.
@@ -262,13 +260,13 @@ Error GameHost::changeLevel(const std::string& mapName, std::shared_ptr<const Bs
     return Error::success();
 }
 
-bool GameHost::engineCommand(const std::vector<std::string>& w) {
+bool GameHost::engineCommand(const std::vector<std::string> &w) {
     // The original engine's own console commands that the game runs
     // (SendConsoleCommand) or a player types at the server.
     if (w.empty())
         return false;
     std::string verb = w[0];
-    for (char& ch : verb)
+    for (char &ch : verb)
         ch = char(std::tolower(static_cast<unsigned char>(ch)));
     if (verb == "map_restart") {
         // With a delay (5 seconds unless one is given) when g_doWarmup is
@@ -303,7 +301,7 @@ bool GameHost::engineCommand(const std::vector<std::string>& w) {
         if (w.size() < 2)
             return true;
         int32_t target = -1;
-        const std::string& who = w[1];
+        const std::string &who = w[1];
         if (verb == "clientkick" || (!who.empty() && std::isdigit(static_cast<unsigned char>(who[0]))))
             target = std::atoi(who.c_str());
         else
@@ -338,7 +336,7 @@ bool GameHost::engineCommand(const std::vector<std::string>& w) {
     return false;
 }
 
-Error GameHost::userinfoChanged(int32_t clientNum, const std::string& userinfo) {
+Error GameHost::userinfoChanged(int32_t clientNum, const std::string &userinfo) {
     userinfo_[clientNum] = userinfo;
     int32_t ignored = 0;
     return call(ClientUserinfoChanged, {clientNum}, ignored);
@@ -360,7 +358,7 @@ Error GameHost::disconnectClient(int32_t clientNum) {
     return err;
 }
 
-Error GameHost::clientCommand(int32_t clientNum, const std::string& text) {
+Error GameHost::clientCommand(int32_t clientNum, const std::string &text) {
     args_ = splitCommand(text);
     int32_t ignored = 0;
     Error err = call(ClientCommand, {clientNum}, ignored);
@@ -373,7 +371,7 @@ Error GameHost::beginClient(int32_t clientNum) {
     return call(ClientBegin, {clientNum}, ignored);
 }
 
-void GameHost::writeUserCommand(Qvm& vm, int32_t address, const UserCommand& cmd) {
+void GameHost::writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd) {
     vm.writeInt(address, cmd.serverTime);
     // The buttons and the weapon a byte each, then two bytes of padding.
     vm.writeInt(address + 4, (cmd.buttons & 0xff) | int32_t(cmd.weapon) << 8);
@@ -385,15 +383,15 @@ void GameHost::writeUserCommand(Qvm& vm, int32_t address, const UserCommand& cmd
     vm.memory()[size_t(address + 23)] = 0;
 }
 
-Error GameHost::clientThink(int32_t clientNum, const UserCommand& cmd) {
+Error GameHost::clientThink(int32_t clientNum, const UserCommand &cmd) {
     commands_[clientNum] = cmd;
     int32_t ignored = 0;
     return call(ClientThink, {clientNum}, ignored);
 }
 
 std::string GameHost::nextEntityToken() {
-    const std::string& s = entityText_;
-    size_t& i = entityPos_;
+    const std::string &s = entityText_;
+    size_t &i = entityPos_;
     while (true) {
         while (i < s.size() && static_cast<unsigned char>(s[i]) <= ' ' && s[i] != '\0')
             ++i;
@@ -446,7 +444,7 @@ Vec3f GameHost::readVec(int32_t address) {
     return v;
 }
 
-void GameHost::writeVec(int32_t address, const Vec3f& v) {
+void GameHost::writeVec(int32_t address, const Vec3f &v) {
     for (int i = 0; i < 3; ++i)
         vm_.writeInt(address + 4 * i, Qvm::fromFloat(v[size_t(i)]));
 }
@@ -518,7 +516,7 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
             continue;
         snap.entities.emplace_back(&vm_.memory()[size_t(a)], &vm_.memory()[size_t(a)] + kEntityStateSize);
     }
-    for (const auto& [to, text] : serverCommands_)
+    for (const auto &[to, text] : serverCommands_)
         snap.serverCommandSequence += to == clientNum || to == -1;
     // The areas: from the player's eye (taken as 26 units up, the
     // standing view height), each not joined to its area hidden. Outside
@@ -603,7 +601,7 @@ Vec3f GameHost::eyeOf(int32_t clientNum) {
     return eye;
 }
 
-const GameHost::EntitySight& GameHost::entitySight(int32_t n) {
+const GameHost::EntitySight &GameHost::entitySight(int32_t n) {
     // An entity's areas and clusters, from the leafs its box touches;
     // worked out once a frame.
     if (sightTime_ != levelTime_) {
@@ -643,10 +641,11 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
     const bool singleClient = layout_.version == 12;
     const bool noAreas = cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas");
     std::set<int32_t> added;
-    auto look = [&](const Vec3f& from, auto& self, int depth) -> void {
+    auto look = [&](const Vec3f &from, auto &self, int depth) -> void {
         const int leaf = world_ ? world_->leafAt(from) : -1;
         const int area = leaf >= 0 ? world_->leafArea(leaf) : -1;
-        const int cluster = leaf >= 0 && map_ && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
+        const int cluster =
+            leaf >= 0 && map_ && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
         for (const int32_t n : linked_) {
             if (n == clientNum || added.count(n))
                 continue;
@@ -660,7 +659,7 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
                     continue;
             }
             if (!(flags & 0x20)) {
-                const EntitySight& es = entitySight(n);
+                const EntitySight &es = entitySight(n);
                 if (!noAreas && area >= 0 && es.areas.first >= 0 && areaPortals_ &&
                     !areaPortals_->connected(area, es.areas.first) &&
                     (es.areas.second < 0 || !areaPortals_->connected(area, es.areas.second)))
@@ -712,8 +711,8 @@ bool GameHost::areasConnected(int area1, int area2) const {
     return areaPortals_ && areaPortals_->connected(area1, area2);
 }
 
-TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                                int32_t passEntity, int32_t mask, int32_t& hit, bool entities) {
+TraceResult GameHost::traceMove(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
+                                int32_t passEntity, int32_t mask, int32_t &hit, bool entities) {
     TraceResult best;
     hit = kEntityNone;
     if (world_) {
@@ -779,7 +778,7 @@ TraceResult GameHost::traceMove(const Vec3f& start, const Vec3f& mins, const Vec
     return best;
 }
 
-void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
+void GameHost::clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
                         int32_t passEntity, int32_t mask) {
     if (!vm_.checkWrite(results, kTraceSize))
         return;
@@ -810,7 +809,7 @@ void GameHost::clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, 
     vm_.writeInt(results + 52, hit);
 }
 
-int32_t GameHost::pointContents(const Vec3f& point, int32_t passEntity) {
+int32_t GameHost::pointContents(const Vec3f &point, int32_t passEntity) {
     int32_t result = world_ ? world_->pointContents(point, 0) : 0;
     for (int32_t n : linked_) {
         if (n == passEntity)
@@ -835,13 +834,13 @@ int32_t GameHost::pointContents(const Vec3f& point, int32_t passEntity) {
 
 std::string GameHost::infoString(int32_t flag) const {
     std::string info;
-    for (const CvarStore::Cvar& cv : cvars_.all())
+    for (const CvarStore::Cvar &cv : cvars_.all())
         if (cv.flags & flag)
             info += "\\" + cv.name + "\\" + cv.value;
     return info;
 }
 
-int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
+int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     if (trace)
         trace(number, a);
     ++callCounts_[number];
@@ -861,29 +860,51 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
             print(text);
         return 0;
     }
-    case Error_: vm.abort("qagame.qvm: " + str(0)); return 0;
-    case Milliseconds: return levelTime_;
+    case Error_:
+        vm.abort("qagame.qvm: " + str(0));
+        return 0;
+    case Milliseconds:
+        return levelTime_;
     case CvarRegister: {
-        const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
+        const CvarStore::Cvar &cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])
             cvars_.writeVmCvar(vm, a[0], cv.handle);
         return 0;
     }
-    case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
-    case CvarVariableIntegerValue: return cvars_.integer(str(0, 256));
-    case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
-    case Argc: return int32_t(args_.size());
-    case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
-    case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
-    case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
-    case FsFCloseFile: vmFiles_.close(a[0]); return 0;
-    case FsGetFileList: return vmFiles_.list(vm, a[0], a[1], a[2], a[3]);
-    case SendConsoleCommand: consoleCommands_.push_back(str(1, 4096)); return 0;
+    case CvarUpdate:
+        cvars_.updateVmCvar(vm, a[0]);
+        return 0;
+    case CvarSet:
+        cvars_.set(str(0, 256), str(1, 256));
+        return 0;
+    case CvarVariableIntegerValue:
+        return cvars_.integer(str(0, 256));
+    case CvarVariableStringBuffer:
+        vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]);
+        return 0;
+    case Argc:
+        return int32_t(args_.size());
+    case Argv:
+        vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]);
+        return 0;
+    case FsFOpenFile:
+        return vmFiles_.open(vm, a[0], a[1], a[2]);
+    case FsRead:
+        return vmFiles_.read(vm, a[0], a[1], a[2]);
+    case FsFCloseFile:
+        vmFiles_.close(a[0]);
+        return 0;
+    case FsGetFileList:
+        return vmFiles_.list(vm, a[0], a[1], a[2], a[3]);
+    case SendConsoleCommand:
+        consoleCommands_.push_back(str(1, 4096));
+        return 0;
     case LocateGameData:
         gameData_ = {a[0], a[1], a[2], a[3], a[4]};
         return 0;
-    case SendServerCommand: serverCommands_.emplace_back(a[0], str(1, 8192)); return 0;
+    case SendServerCommand:
+        serverCommands_.emplace_back(a[0], str(1, 8192));
+        return 0;
     case DropClient:
         dropped_[a[0]] = str(1, 1024);
         drops_.emplace_back(a[0], dropped_[a[0]]);
@@ -893,7 +914,9 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeString(a[1], it == userinfo_.end() ? std::string() : it->second, a[2]);
         return 0;
     }
-    case SetUserinfo: userinfo_[a[0]] = str(1, 1024); return 0;
+    case SetUserinfo:
+        userinfo_[a[0]] = str(1, 1024);
+        return 0;
     case GetUsercmd: { // (clientNum, usercmd_t*): the last command, or an empty one
         const auto it = commands_.find(a[0]);
         const UserCommand cmd = it == commands_.end() ? UserCommand{levelTime_} : it->second;
@@ -902,14 +925,20 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         writeUserCommand(vm, a[1], cmd);
         return 0;
     }
-    case SetConfigstring: configstrings_[a[0]] = str(1, 8192); return 0;
+    case SetConfigstring:
+        configstrings_[a[0]] = str(1, 8192);
+        return 0;
     case GetConfigstring: {
         const auto it = configstrings_.find(a[0]);
         vm.writeString(a[1], it == configstrings_.end() ? std::string() : it->second, a[2]);
         return 0;
     }
-    case GetServerinfo: vm.writeString(a[0], infoString(CvarStore::ServerInfo), a[1]); return 0;
-    case LinkEntity: linkEntity(a[0]); return 0;
+    case GetServerinfo:
+        vm.writeString(a[0], infoString(CvarStore::ServerInfo), a[1]);
+        return 0;
+    case LinkEntity:
+        linkEntity(a[0]);
+        return 0;
     case UnlinkEntity:
         if (const int32_t n = entityNumber(a[0]); n >= 0) {
             linked_.erase(n);
@@ -942,10 +971,11 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case Trace: {
         const Vec3f zero{};
         clipMove(a[0], readVec(a[1]), a[2] ? readVec(a[2]) : zero, a[3] ? readVec(a[3]) : zero, readVec(a[4]), a[5],
-              a[6]);
+                 a[6]);
         return 0;
     }
-    case PointContents: return pointContents(readVec(a[0]), a[1]);
+    case PointContents:
+        return pointContents(readVec(a[0]), a[1]);
     case InPvs:
     case InPvsIgnorePortals: {
         if (!world_)
@@ -968,7 +998,8 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
                 areaPortals_->adjust(area1, area2, a[1] != 0);
         }
         return 0;
-    case AreasConnected: return areasConnected(a[0], a[1]);
+    case AreasConnected:
+        return areasConnected(a[0], a[1]);
     case EntitiesInBox: { // (mins, maxs, list, max) -> how many
         const Vec3f mins = readVec(a[0]), maxs = readVec(a[1]);
         int32_t count = 0;
@@ -1005,7 +1036,8 @@ int32_t GameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         vm.writeString(a[0], token, a[1]);
         return token.empty() ? 0 : 1;
     }
-    case Ceil: return Qvm::fromFloat(std::ceil(Qvm::asFloat(a[0])));
+    case Ceil:
+        return Qvm::fromFloat(std::ceil(Qvm::asFloat(a[0])));
     default:
         if (number == BotAllocateClient || number == BotFreeClient || number >= 200)
             return botCall(vm, number, a);

@@ -33,20 +33,20 @@ constexpr uint32_t kFullDetail = 0x8000;
 
 struct Tex {
     uint16_t format = 0;
-    uint16_t levels = 0;  // mipmap levels stored, each half the last
-    uint32_t flags = 0;   // see texflag; the other bits' meanings aren't known
+    uint16_t levels = 0; // mipmap levels stored, each half the last
+    uint32_t flags = 0;  // see texflag; the other bits' meanings aren't known
     image::Image image;
 };
 
-Error decodeTex(const std::vector<uint8_t>& data, Tex& out);
+Error decodeTex(const std::vector<uint8_t> &data, Tex &out);
 
 // A shader's texture by name, as models name them ("vpbugyellow_sd"):
 // texture/<name>.tex, else the first frame of an animated texture
 // (texture/<name>-0001.tex, played as tune/<name>.movie says), else
 // texture/<name>.tga. `format` is 0 for a .tga.
-Error loadTexture(const SearchSet& files, std::string_view name, Tex& out);
+Error loadTexture(const SearchSet &files, std::string_view name, Tex &out);
 
 // The name of a format, for the viewer ("8-bit palette"...).
-const char* formatName(uint16_t format);
+const char *formatName(uint16_t format);
 
 } // namespace reluva::age

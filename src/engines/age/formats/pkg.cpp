@@ -16,15 +16,15 @@ namespace reluva::age {
 
 namespace {
 
-constexpr uint32_t kFvfXyz = 0x2, kFvfPositionMask = 0xe, kFvfNormal = 0x10, kFvfPointSize = 0x20,
-                   kFvfDiffuse = 0x40, kFvfSpecular = 0x80;
-constexpr uint32_t kTriangleList = 3; // the only primitive type the game's models use
+constexpr uint32_t kFvfXyz = 0x2, kFvfPositionMask = 0xe, kFvfNormal = 0x10, kFvfPointSize = 0x20, kFvfDiffuse = 0x40,
+                   kFvfSpecular = 0x80;
+constexpr uint32_t kTriangleList = 3;   // the only primitive type the game's models use
 constexpr uint32_t kByteColours = 0x80; // in the shaders' header
 
 // Reads little-endian values, failing (sticky) when the data runs out.
 struct Reader {
-    const uint8_t* p;
-    const uint8_t* end;
+    const uint8_t *p;
+    const uint8_t *end;
     bool ok = true;
 
     bool need(size_t n) {
@@ -62,7 +62,7 @@ struct Reader {
         const size_t n = u8();
         if (!need(n))
             return {};
-        std::string s(reinterpret_cast<const char*>(p), n);
+        std::string s(reinterpret_cast<const char *>(p), n);
         p += n;
         if (const size_t zero = s.find('\0'); zero != std::string::npos)
             s.resize(zero);
@@ -70,7 +70,7 @@ struct Reader {
     }
 };
 
-Error readMesh(Reader r, PkgMesh& mesh) {
+Error readMesh(Reader r, PkgMesh &mesh) {
     const uint32_t groups = r.u32();
     const uint32_t vertexTotal = r.u32(), indexTotal = r.u32();
     const uint32_t groups2 = r.u32();
@@ -84,8 +84,8 @@ Error readMesh(Reader r, PkgMesh& mesh) {
     const size_t texSets = (mesh.fvf >> 8) & 0xf;
     const bool hasNormal = mesh.fvf & kFvfNormal;
     // What follows the position and normal, before the texture coordinates.
-    const size_t extra = (mesh.fvf & kFvfPointSize ? 4 : 0) + (mesh.fvf & kFvfDiffuse ? 4 : 0) +
-                         (mesh.fvf & kFvfSpecular ? 4 : 0);
+    const size_t extra =
+        (mesh.fvf & kFvfPointSize ? 4 : 0) + (mesh.fvf & kFvfDiffuse ? 4 : 0) + (mesh.fvf & kFvfSpecular ? 4 : 0);
     const size_t stride = 12 + (hasNormal ? 12 : 0) + extra + 8 * texSets;
 
     uint64_t vertices = 0, indices = 0;
@@ -102,12 +102,12 @@ Error readMesh(Reader r, PkgMesh& mesh) {
             if (!r.need(uint64_t(count) * stride))
                 break;
             group.vertices.resize(count);
-            for (PkgVertex& v : group.vertices) {
-                const uint8_t* start = r.p;
-                for (float& c : v.pos)
+            for (PkgVertex &v : group.vertices) {
+                const uint8_t *start = r.p;
+                for (float &c : v.pos)
                     c = r.f32();
                 if (hasNormal)
-                    for (float& c : v.normal)
+                    for (float &c : v.normal)
                         c = r.f32();
                 r.skip(extra);
                 if (texSets) {
@@ -122,7 +122,7 @@ Error readMesh(Reader r, PkgMesh& mesh) {
             if (!r.need(uint64_t(indexCount) * 2))
                 break;
             group.indices.resize(indexCount);
-            for (uint16_t& i : group.indices) {
+            for (uint16_t &i : group.indices) {
                 i = r.u16();
                 if (i >= count)
                     return Error::fail("index past the vertices");
@@ -141,7 +141,7 @@ Error readMesh(Reader r, PkgMesh& mesh) {
     return Error::success();
 }
 
-Error readShaders(Reader r, Pkg& pkg) {
+Error readShaders(Reader r, Pkg &pkg) {
     const uint32_t kind = r.u32();
     pkg.shadersPerJob = r.u32();
     pkg.paintJobs = kind & 0x7f;
@@ -150,17 +150,17 @@ Error readShaders(Reader r, Pkg& pkg) {
     if (!r.ok || count > 0x10000)
         return Error::fail("bad shader header");
     pkg.shaders.resize(size_t(count));
-    for (PkgShader& s : pkg.shaders) {
+    for (PkgShader &s : pkg.shaders) {
         s.texture = r.name();
         if (bytes) {
             // R, G, B, A bytes (not Direct3D's B, G, R, A: the traffic
             // lights' red, amber and green glows come out right this way).
-            for (auto* c : {&s.diffuse, &s.ambient, &s.emissive})
-                for (float& x : *c)
+            for (auto *c : {&s.diffuse, &s.ambient, &s.emissive})
+                for (float &x : *c)
                     x = float(r.u8()) / 255;
         } else {
-            for (auto* c : {&s.diffuse, &s.ambient, &s.specular, &s.emissive})
-                for (float& x : *c)
+            for (auto *c : {&s.diffuse, &s.ambient, &s.specular, &s.emissive})
+                for (float &x : *c)
                     x = r.f32();
         }
         s.shininess = r.f32();
@@ -172,17 +172,17 @@ Error readShaders(Reader r, Pkg& pkg) {
     return Error::success();
 }
 
-Error readXrefs(Reader r, Pkg& pkg) {
+Error readXrefs(Reader r, Pkg &pkg) {
     const uint32_t count = r.u32();
     if (!r.need(uint64_t(count) * (48 + 32)))
         return Error::fail("truncated");
     pkg.xrefs.resize(count);
-    for (PkgXref& x : pkg.xrefs) {
-        for (float& f : x.matrix)
+    for (PkgXref &x : pkg.xrefs) {
+        for (float &f : x.matrix)
             f = r.f32();
         // A fixed 32-byte field; what follows the name's zero is left
         // over from earlier names.
-        x.name.assign(reinterpret_cast<const char*>(r.p), 32);
+        x.name.assign(reinterpret_cast<const char *>(r.p), 32);
         x.name.resize(x.name.find('\0') == std::string::npos ? 32 : x.name.find('\0'));
         r.skip(32);
     }
@@ -201,24 +201,24 @@ std::string PkgMesh::level() const {
     return us == std::string::npos ? name : name.substr(us + 1);
 }
 
-bool isLightPart(const std::string& part) {
+bool isLightPart(const std::string &part) {
     std::string p = part;
     while (!p.empty() && p.back() >= '0' && p.back() <= '9')
         p.pop_back();
-    for (const char* name : {"HEADLIGHT", "HLIGHT", "TLIGHT", "BLIGHT", "RLIGHT", "SLIGHT", "SIREN", "SRN"})
+    for (const char *name : {"HEADLIGHT", "HLIGHT", "TLIGHT", "BLIGHT", "RLIGHT", "SLIGHT", "SIREN", "SRN"})
         if (p == name)
             return true;
     return p.find("GLOW") != std::string::npos || p.rfind("WALK_", 0) == 0 || p.rfind("NOWALK_", 0) == 0;
 }
 
-bool bodyBounds(const Pkg& pkg, Vec3& low, Vec3& high) {
-    for (const char* level : {"H", "M", "L"}) {
+bool bodyBounds(const Pkg &pkg, Vec3 &low, Vec3 &high) {
+    for (const char *level : {"H", "M", "L"}) {
         bool any = false;
-        for (const PkgMesh& m : pkg.meshes) {
+        for (const PkgMesh &m : pkg.meshes) {
             if (m.level() != level || (!m.part().empty() && m.part() != "BODY"))
                 continue;
-            for (const PkgGroup& g : m.groups)
-                for (const PkgVertex& v : g.vertices) {
+            for (const PkgGroup &g : m.groups)
+                for (const PkgVertex &v : g.vertices) {
                     for (size_t k = 0; k < 3; ++k) {
                         low[k] = any ? std::min(low[k], v.pos[k]) : v.pos[k];
                         high[k] = any ? std::max(high[k], v.pos[k]) : v.pos[k];
@@ -232,19 +232,19 @@ bool bodyBounds(const Pkg& pkg, Vec3& low, Vec3& high) {
     return false;
 }
 
-const PkgMesh* Pkg::mesh(std::string_view name) const {
-    for (const PkgMesh& m : meshes)
+const PkgMesh *Pkg::mesh(std::string_view name) const {
+    for (const PkgMesh &m : meshes)
         if (m.name == name)
             return &m;
     return nullptr;
 }
 
-const PkgShader* Pkg::shader(uint32_t paintJob, uint32_t index) const {
+const PkgShader *Pkg::shader(uint32_t paintJob, uint32_t index) const {
     const uint64_t i = uint64_t(paintJob) * shadersPerJob + index;
     return index < shadersPerJob && i < shaders.size() ? &shaders[size_t(i)] : nullptr;
 }
 
-Error readPkg(const std::vector<uint8_t>& data, Pkg& out) {
+Error readPkg(const std::vector<uint8_t> &data, Pkg &out) {
     out = Pkg{};
     Reader r{data.data(), data.data() + data.size()};
     if (data.size() < 4 || std::memcmp(data.data(), "PKG", 3) != 0)
@@ -267,7 +267,7 @@ Error readPkg(const std::vector<uint8_t>& data, Pkg& out) {
                 return Error::fail("shaders: " + err.message);
         } else if (name == "offset") {
             Reader o = section;
-            for (float& f : out.offset)
+            for (float &f : out.offset)
                 f = o.f32();
             out.hasOffset = o.ok;
         } else if (name == "xrefs") {
@@ -286,12 +286,12 @@ Error readPkg(const std::vector<uint8_t>& data, Pkg& out) {
     return Error::success();
 }
 
-Error readMtx(const std::vector<uint8_t>& data, Mtx& out) {
+Error readMtx(const std::vector<uint8_t> &data, Mtx &out) {
     if (data.size() != 48)
         return Error::fail("a placement is 48 bytes, this is " + std::to_string(data.size()));
     Reader r{data.data(), data.data() + data.size()};
-    for (Vec3* v : {&out.min, &out.max, &out.pivot, &out.origin})
-        for (float& f : *v)
+    for (Vec3 *v : {&out.min, &out.max, &out.pivot, &out.origin})
+        for (float &f : *v)
             f = r.f32();
     return Error::success();
 }

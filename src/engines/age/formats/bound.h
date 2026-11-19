@@ -46,16 +46,16 @@ struct Bound {
     std::vector<BoundPolygon> polygons;
 };
 
-Error readBound(std::string_view text, Bound& out);
+Error readBound(std::string_view text, Bound &out);
 
 // The same in binary (bound/<model>_BOUND.bbnd, the 324 beside a .bnd):
 // a version byte (1), counts of vertices, materials and polygons, the
 // vertices, 104-byte materials (name, elasticity, friction, effect,
 // sound) and 10-byte polygons (four vertices, the last 0 for a triangle,
 // then the material).
-Error readBinaryBound(const std::vector<uint8_t>& data, Bound& out);
+Error readBinaryBound(const std::vector<uint8_t> &data, Bound &out);
 
 // A model's bound: its .bnd, else its .bbnd. Fails if it has neither.
-Error loadBound(const SearchSet& files, const std::string& model, Bound& out);
+Error loadBound(const SearchSet &files, const std::string &model, Bound &out);
 
 } // namespace reluva::age

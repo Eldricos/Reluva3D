@@ -13,10 +13,10 @@ namespace reluva::newworlds {
 namespace {
 
 struct SiteEntry {
-    const char* mission;
+    const char *mission;
     char side;
     int a, b;
-    const char* source;
+    const char *source;
 };
 
 // From the play pages (and briefing.cpp's sites, the same places). A mine
@@ -52,10 +52,10 @@ constexpr SiteEntry kSites[] = {
 };
 
 struct ModelEntry {
-    const char* building;
-    const char* fed;
-    const char* kln;
-    const char* rom;
+    const char *building;
+    const char *fed;
+    const char *kln;
+    const char *rom;
 };
 
 // Models by the scripts' building names. Upper case: matched in recordings
@@ -91,7 +91,7 @@ constexpr ModelEntry kModels[] = {
     {"static-disruptor", "", "kdws", "RDDS"},
 };
 
-constexpr std::pair<const char*, const char*> kUpgrades[] = {
+constexpr std::pair<const char *, const char *> kUpgrades[] = {
     {"colony-hub-upgrade", "colony-hub"},
     {"science-station-upgrade", "science-station"},
 };
@@ -110,14 +110,14 @@ constexpr float kPadFlat = 256;
 } // namespace
 
 ColonySite colonySite(std::string_view shortName, char side) {
-    for (const SiteEntry& s : kSites)
+    for (const SiteEntry &s : kSites)
         if (shortName == s.mission && side == s.side)
             return {s.a, s.b, s.source};
     return {};
 }
 
-std::string buildingModel(std::string_view building, char side, bool* matched) {
-    for (const ModelEntry& m : kModels) {
+std::string buildingModel(std::string_view building, char side, bool *matched) {
+    for (const ModelEntry &m : kModels) {
         if (building != m.building)
             continue;
         const std::string name = side == 'K' ? m.kln : side == 'R' ? m.rom : m.fed;
@@ -126,8 +126,9 @@ std::string buildingModel(std::string_view building, char side, bool* matched) {
         if (matched)
             *matched = std::isupper(static_cast<unsigned char>(name[0])) != 0;
         std::string lower = name;
-        std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return char(std::tolower(c)); });
-        const char* folder = side == 'K' ? "kln" : side == 'R' ? "rom" : "fed";
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return char(std::tolower(c)); });
+        const char *folder = side == 'K' ? "kln" : side == 'R' ? "rom" : "fed";
         return "geo/" + std::string(folder) + "/" + lower + ".geo";
     }
     if (matched)
@@ -137,16 +138,18 @@ std::string buildingModel(std::string_view building, char side, bool* matched) {
 
 namespace {
 
-constexpr int kTile = 4;            // map positions per tile
-constexpr float kTileUnits = 8192;  // model units per tile
-constexpr float kGap = 1024;        // kept clear around a building
+constexpr int kTile = 4;           // map positions per tile
+constexpr float kTileUnits = 8192; // model units per tile
+constexpr float kGap = 1024;       // kept clear around a building
 
-int ceilDiv(float v, float d) { return std::max(1, int(std::ceil(v / d))); }
+int ceilDiv(float v, float d) {
+    return std::max(1, int(std::ceil(v / d)));
+}
 
 } // namespace
 
 bool ColonyLayout::tileFree(int tx, int ty, bool mine) const {
-    for (const Rect& r : taken_)
+    for (const Rect &r : taken_)
         if (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h)
             return false;
     return groundFits(tx, ty, mine, kFlat);
@@ -162,7 +165,7 @@ bool ColonyLayout::groundFits(int tx, int ty, bool mine, float flatness) const {
     float lo = ground_.heightAt(a, b), hi = lo;
     if (std::isnan(lo))
         return false;
-    for (const auto& [da, db] : {std::pair{-2, -2}, std::pair{-2, 1}, std::pair{1, -2}, std::pair{1, 1}}) {
+    for (const auto &[da, db] : {std::pair{-2, -2}, std::pair{-2, 1}, std::pair{1, -2}, std::pair{1, 1}}) {
         const float h = ground_.heightAt(a + da, b + db);
         if (std::isnan(h))
             return false;
@@ -171,7 +174,7 @@ bool ColonyLayout::groundFits(int tx, int ty, bool mine, float flatness) const {
     return hi - lo < flatness && (!heightSet_ || std::fabs(lo - hubHeight_) < kNear);
 }
 
-bool ColonyLayout::fits(const Rect& r, bool mine) const {
+bool ColonyLayout::fits(const Rect &r, bool mine) const {
     // A mining station needs its middle on the deposit, not all of it.
     if (mine)
         return tileFree(r.x + r.w / 2, r.y + r.h / 2, true) && [&] {
@@ -188,12 +191,12 @@ bool ColonyLayout::fits(const Rect& r, bool mine) const {
     return true;
 }
 
-ColonyLayout::Rect ColonyLayout::footprint(const std::string& model, int tx, int ty) const {
+ColonyLayout::Rect ColonyLayout::footprint(const std::string &model, int tx, int ty) const {
     const auto [w, h] = ground_.size ? ground_.size(model) : std::pair{kTileUnits, kTileUnits};
     return {tx, ty, ceilDiv(w + kGap, kTileUnits), ceilDiv(h + kGap, kTileUnits)};
 }
 
-void ColonyLayout::place(std::string_view name, const std::string& model, const Rect& r) {
+void ColonyLayout::place(std::string_view name, const std::string &model, const Rect &r) {
     taken_.push_back(r);
     buildings_.push_back({std::string(name), model, r.y * kTile + r.h * kTile / 2, r.x * kTile + r.w * kTile / 2});
 }
@@ -251,11 +254,11 @@ bool ColonyLayout::add(std::string_view building) {
     const std::string model = buildingModel(building, side_);
     if (model.empty())
         return false;
-    for (const auto& [upgrade, base] : kUpgrades) {
+    for (const auto &[upgrade, base] : kUpgrades) {
         if (building != upgrade)
             continue;
         // On the building it upgrades, once.
-        for (const ColonyBuilding& c : buildings_)
+        for (const ColonyBuilding &c : buildings_)
             if (c.name == building)
                 return false;
         for (size_t i = 0; i < buildings_.size(); ++i)
@@ -277,12 +280,13 @@ bool ColonyLayout::add(std::string_view building) {
             for (int dx = -r; dx <= r; ++dx)
                 if (std::max(std::abs(dx), std::abs(dy)) == r)
                     ring.push_back(footprint(model, int(std::floor(hx)) + dx, int(std::floor(hy)) + dy));
-        auto distance = [&](const Rect& p) {
+        auto distance = [&](const Rect &p) {
             const float x = float(p.x) + float(p.w) / 2 - hx, y = float(p.y) + float(p.h) / 2 - hy;
             return x * x + y * y;
         };
-        std::stable_sort(ring.begin(), ring.end(), [&](const Rect& p, const Rect& q) { return distance(p) < distance(q); });
-        for (const Rect& rect : ring)
+        std::stable_sort(ring.begin(), ring.end(),
+                         [&](const Rect &p, const Rect &q) { return distance(p) < distance(q); });
+        for (const Rect &rect : ring)
             if (fits(rect, mine)) {
                 place(building, model, rect);
                 return true;
@@ -291,9 +295,9 @@ bool ColonyLayout::add(std::string_view building) {
     return false;
 }
 
-bool ColonyLayout::spotRect(std::string_view building, int a, int b, std::string& model, Rect& r) const {
+bool ColonyLayout::spotRect(std::string_view building, int a, int b, std::string &model, Rect &r) const {
     model = buildingModel(building, side_);
-    for (const auto& [upgrade, base] : kUpgrades)
+    for (const auto &[upgrade, base] : kUpgrades)
         if (building == upgrade)
             return false;
     if (model.empty() || buildings_.empty())
@@ -305,7 +309,7 @@ bool ColonyLayout::spotRect(std::string_view building, int a, int b, std::string
     return true;
 }
 
-bool ColonyLayout::spotAt(std::string_view building, int a, int b, int& ma, int& mb, bool& fit) const {
+bool ColonyLayout::spotAt(std::string_view building, int a, int b, int &ma, int &mb, bool &fit) const {
     std::string model;
     Rect r{};
     if (!spotRect(building, a, b, model, r))

@@ -26,7 +26,7 @@ class TrafficLights {
 public:
     static constexpr float kGreen = 12, kYellow = 3, kAllRed = 1; // seconds
 
-    void build(const AiRoadMap& map, const AiMapSettings& settings);
+    void build(const AiRoadMap &map, const AiMapSettings &settings);
     void update(float dt) { _clock += dt; }
     void setClock(float seconds) { _clock = seconds; }
 
@@ -48,24 +48,24 @@ public:
 
     // The models with the glows for each light's state (the night glows,
     // larger, when `night`), within `distance` of the eye.
-    void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-              const Vec3& eye, bool night, float distance = 350) const;
+    void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
+              const Vec3 &eye, bool night, float distance = 350) const;
 
 private:
     struct Light {
         uint32_t road = 0, junction = 0;
         int end = 0, phase = 0;
-        int model = 0; // 0 narrow, 1 wide
+        int model = 0;     // 0 narrow, 1 wide
         bool down = false; // knocked down
         Vec3 at{};
-        Mat3 axes;     // X back towards the curb, Y up, Z facing the traffic
+        Mat3 axes; // X back towards the curb, Y up, Z facing the traffic
     };
     struct Junction {
         int phases = 2;
         float offset = 0; // seconds into its cycle at clock 0
     };
     static uint64_t key(uint32_t road, int end) { return uint64_t(road) << 1 | uint64_t(end & 1); }
-    Signal signalOf(const Light& l) const;
+    Signal signalOf(const Light &l) const;
 
     std::vector<Light> _lights;
     std::vector<Junction> _junctions;

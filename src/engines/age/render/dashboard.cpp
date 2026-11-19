@@ -18,7 +18,7 @@ constexpr float kPi = 3.14159265358979f;
 // The matrix placing a part: about `pivot` (in the part's plane) by
 // `angle` (anticlockwise as seen), then at `at` in the camera's space,
 // then by the camera into the world.
-gfx::Mat4 placed(const Mat3& camera, const Vec3& eye, const Vec3& at, const Vec3& pivot, float angle, float widen) {
+gfx::Mat4 placed(const Mat3 &camera, const Vec3 &eye, const Vec3 &at, const Vec3 &pivot, float angle, float widen) {
     const float c = std::cos(angle), s = std::sin(angle);
     // Local: p' = R (p - pivot) + pivot + at, stretched across by `widen`;
     // world: camera * p' + eye.
@@ -29,7 +29,7 @@ gfx::Mat4 placed(const Mat3& camera, const Vec3& eye, const Vec3& at, const Vec3
 
 } // namespace
 
-Error loadDashSetup(const SearchSet& files, const std::string& car, DashSetup& out) {
+Error loadDashSetup(const SearchSet &files, const std::string &car, DashSetup &out) {
     out = DashSetup{};
     std::vector<uint8_t> data;
     // The files are named .asnode and .asNode.
@@ -40,8 +40,8 @@ Error loadDashSetup(const SearchSet& files, const std::string& car, DashSetup& o
         return err;
     if (root.children.empty())
         return Error::fail("empty dashboard settings");
-    const TuneNode& n = root.children.front();
-    auto vec = [&](const char* name) { return Vec3{n.number(name, 0), n.number(name, 1), n.number(name, 2)}; };
+    const TuneNode &n = root.children.front();
+    auto vec = [&](const char *name) { return Vec3{n.number(name, 0), n.number(name, 1), n.number(name, 2)}; };
     out.dashPos = vec("DashPos");
     out.roofPos = vec("RoofPos");
     out.wheelPos = vec("WheelPos");
@@ -60,12 +60,12 @@ Error loadDashSetup(const SearchSet& files, const std::string& car, DashSetup& o
     return Error::success();
 }
 
-bool Dashboard::load(const SearchSet& files, ModelCache& models, TextureCache& textures, const std::string& car) {
+bool Dashboard::load(const SearchSet &files, ModelCache &models, TextureCache &textures, const std::string &car) {
     _ok = false;
     _model = car + "_dash";
     if (!files.has("geometry/" + _model + ".pkg") || loadDashSetup(files, car, _setup))
         return false;
-    auto mtx = [&](const char* part, Mtx& out) {
+    auto mtx = [&](const char *part, Mtx &out) {
         std::vector<uint8_t> data;
         out = Mtx{};
         if (!files.read("geometry/" + _model + "_" + part + ".mtx", data))
@@ -84,8 +84,8 @@ bool Dashboard::load(const SearchSet& files, ModelCache& models, TextureCache& t
     return _ok;
 }
 
-void Dashboard::draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim& sim, float damage, const Vec3& eye,
-                     const Vec3& forward, const Vec3& up, float aspect, const SceneLight& light) const {
+void Dashboard::draw(gfx::Renderer3D &renderer, ModelCache &models, const CarSim &sim, float damage, const Vec3 &eye,
+                     const Vec3 &forward, const Vec3 &up, float aspect, const SceneLight &light) const {
     if (!_ok)
         return;
     const Vec3 back = normalized(forward * -1.0f);
@@ -101,16 +101,16 @@ void Dashboard::draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim
     renderer.clearDepth();
     // Made for 4:3: stretched across to fill a wider view.
     const float widen = std::max(1.0f, aspect / (4.0f / 3));
-    auto part = [&](const char* name, const Vec3& at, const Vec3& pivot, float angle, gfx::TextureId texture = 0) {
+    auto part = [&](const char *name, const Vec3 &at, const Vec3 &pivot, float angle, gfx::TextureId texture = 0) {
         ModelMesh m = models.part(_model, name);
         if (texture)
-            for (ModelDraw& d : m.draws)
+            for (ModelDraw &d : m.draws)
                 d.texture = texture;
         const gfx::Mat4 where = placed(camera, eye, at, pivot, angle, widen);
         drawModelMesh(renderer, m, where, inside, false);
         drawModelMesh(renderer, m, where, inside, true);
     };
-    const CarSetup& s = sim.setup();
+    const CarSetup &s = sim.setup();
     // The needles: speed over the top gear's speed, revs over the most,
     // damage; each from its least turn to its most (Reluva's reading).
     const float speed = std::clamp(std::fabs(sim.forwardSpeed()) / std::max(1.0f, s.highSpeed), 0.0f, 1.0f);

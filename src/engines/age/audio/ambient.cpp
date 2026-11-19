@@ -14,7 +14,7 @@ namespace reluva::age {
 
 namespace {
 
-std::vector<std::string> fields(const std::string& line) {
+std::vector<std::string> fields(const std::string &line) {
     std::vector<std::string> out;
     std::string field;
     std::istringstream in(line);
@@ -25,7 +25,7 @@ std::vector<std::string> fields(const std::string& line) {
     return out;
 }
 
-std::vector<std::string> lines(const std::string& text) {
+std::vector<std::string> lines(const std::string &text) {
     std::vector<std::string> out;
     std::string line;
     std::istringstream in(text);
@@ -37,13 +37,13 @@ std::vector<std::string> lines(const std::string& text) {
     return out;
 }
 
-float number(const std::vector<std::string>& f, size_t i) {
+float number(const std::vector<std::string> &f, size_t i) {
     return i < f.size() ? std::strtof(f[i].c_str(), nullptr) : 0.0f;
 }
 
 } // namespace
 
-Error parseAmbience(const std::string& text, Ambience& out) {
+Error parseAmbience(const std::string &text, Ambience &out) {
     out = Ambience{};
     const std::vector<std::string> all = lines(text);
     // The distances' header, then their row.
@@ -91,7 +91,7 @@ Error parseAmbience(const std::string& text, Ambience& out) {
     return Error::success();
 }
 
-std::vector<std::string> parseAmbientContainer(const std::string& text) {
+std::vector<std::string> parseAmbientContainer(const std::string &text) {
     std::vector<std::string> out;
     const std::vector<std::string> all = lines(text);
     for (size_t i = 1; i < all.size(); ++i) // after "file names"
@@ -100,7 +100,7 @@ std::vector<std::string> parseAmbientContainer(const std::string& text) {
     return out;
 }
 
-float ambientGain(const Ambience& a, float distance) {
+float ambientGain(const Ambience &a, float distance) {
     if (distance <= a.minDistance)
         return 1;
     if (distance >= a.maxDistance)
@@ -108,13 +108,13 @@ float ambientGain(const Ambience& a, float distance) {
     return 1 - (distance - a.minDistance) / (a.maxDistance - a.minDistance);
 }
 
-Error AmbientSounds::load(const SearchSet& files, const std::string& map, audio::Mixer* mixer, uint32_t seed) {
+Error AmbientSounds::load(const SearchSet &files, const std::string &map, audio::Mixer *mixer, uint32_t seed) {
     clear();
     _random.seed(seed);
     std::vector<uint8_t> data;
     if (Error err = files.read("aud/ambient/" + map + "ambientcontainer.csv", data))
         return err;
-    for (const std::string& name : parseAmbientContainer(std::string(data.begin(), data.end()))) {
+    for (const std::string &name : parseAmbientContainer(std::string(data.begin(), data.end()))) {
         Ambience a;
         if (files.read("aud/ambient/" + name + ".csv", data) ||
             parseAmbience(std::string(data.begin(), data.end()), a) || a.points.empty())
@@ -123,7 +123,7 @@ Error AmbientSounds::load(const SearchSet& files, const std::string& map, audio:
     }
     _mixer = mixer;
     for (size_t i = 0; i < _ambiences.size(); ++i)
-        for (const AmbientSample& s : _ambiences[i].samples) {
+        for (const AmbientSample &s : _ambiences[i].samples) {
             // Those played when something happens aren't the ambience's.
             if (!s.active || s.type == 3)
                 continue;
@@ -146,7 +146,7 @@ Error AmbientSounds::load(const SearchSet& files, const std::string& map, audio:
 
 void AmbientSounds::clear() {
     if (_mixer)
-        for (Voice& v : _voices)
+        for (Voice &v : _voices)
             if (v.handle != audio::kNoSound)
                 _mixer->stop(v.handle);
     _voices.clear();
@@ -154,15 +154,15 @@ void AmbientSounds::clear() {
     _mixer = nullptr;
 }
 
-void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, const Vec3& velocity) {
+void AmbientSounds::update(float dt, const Vec3 &listener, const Vec3 &right, const Vec3 &velocity) {
     constexpr float kSound = 343;    // m/s
     constexpr float kMostPan = 0.8f; // of the way to one side: some of it heard in both ears
     std::vector<float> gains;
     std::vector<Vec3> nearestAt;
-    for (const Ambience& a : _ambiences) {
+    for (const Ambience &a : _ambiences) {
         float nearest = 1e30f;
         Vec3 at = listener;
-        for (const Vec3& p : a.points)
+        for (const Vec3 &p : a.points)
             if (const float d = length(p - listener); d < nearest) {
                 nearest = d;
                 at = p;
@@ -173,8 +173,8 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
     const float speed = length(velocity);
     constexpr float kUnderground = -4; // metres: below the streets
     const bool below = listener[1] < kUnderground;
-    auto gainOf = [&](const Voice& v) {
-        const AmbientSample& s = *v.sample;
+    auto gainOf = [&](const Voice &v) {
+        const AmbientSample &s = *v.sample;
         if (speed < s.minSpeed || speed > s.maxSpeed)
             return 0.0f;
         const int area = _ambiences[v.ambience].area;
@@ -196,20 +196,20 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
         loops.resize(kMostVoices);
     size_t busy = 0;
     for (size_t i = 0; i < _voices.size(); ++i) {
-        Voice& v = _voices[i];
+        Voice &v = _voices[i];
         if (v.sample->type == 0)
             busy += std::find(loops.begin(), loops.end(), i) != loops.end();
         else if (_mixer && v.handle != audio::kNoSound && _mixer->isPlaying(v.handle))
             ++busy;
     }
     for (size_t i = 0; i < _voices.size(); ++i) {
-        Voice& v = _voices[i];
+        Voice &v = _voices[i];
         const float gain = gainOf(v);
         const int volume = int(std::clamp(gain, 0.0f, 1.0f) * audio::kMaxVolume);
         // From where its nearest point is: to the side it's on (less so
         // within its least distance, where it's all round), and higher
         // coming nearer.
-        const Ambience& a = _ambiences[v.ambience];
+        const Ambience &a = _ambiences[v.ambience];
         Vec3 to = nearestAt[v.ambience] - listener;
         to[1] = 0;
         const float away = length(to);
@@ -264,7 +264,7 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
 
 size_t AmbientSounds::playing() const {
     size_t n = 0;
-    for (const Voice& v : _voices)
+    for (const Voice &v : _voices)
         if (v.handle != audio::kNoSound && (!_mixer || _mixer->isPlaying(v.handle)))
             ++n;
     return n;

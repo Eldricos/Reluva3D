@@ -29,13 +29,13 @@ struct PathsetPath {
 };
 
 // Reads as many whole paths as there are (one retail file stops short).
-Error readPathset(const std::vector<uint8_t>& data, std::vector<PathsetPath>& out);
+Error readPathset(const std::vector<uint8_t> &data, std::vector<PathsetPath> &out);
 
 // A city's paths of a kind (race/<map>/<map>_<kind>.pathset: "ferry",
 // "parkedcar"...), with a race's own (<map>_<kind>_<variant>.pathset) over
 // them: a race's path for the same model starting within 5 m of one of the
 // city's takes its place, the rest are added. Missing files give none.
-std::vector<PathsetPath> readCityPaths(const SearchSet& files, const std::string& map, const std::string& kind,
-                                       const std::string& variant = "");
+std::vector<PathsetPath> readCityPaths(const SearchSet &files, const std::string &map, const std::string &kind,
+                                       const std::string &variant = "");
 
 } // namespace reluva::age

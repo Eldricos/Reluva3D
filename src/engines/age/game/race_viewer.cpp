@@ -22,12 +22,12 @@ namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
-constexpr float kBigAir = 1;                // seconds off the ground that count as big air (Reluva's)
-constexpr float kCountdown = 3;             // seconds before the start
+constexpr float kBigAir = 1;                      // seconds off the ground that count as big air (Reluva's)
+constexpr float kCountdown = 3;                   // seconds before the start
 constexpr float kStartHigh = 28, kStartBack = 14; // metres: the camera over the grid at the countdown's start
-constexpr float kCircuitRadius = 15;        // circuits' waypoints give no radius
-constexpr float kOpponentReach = 10;        // opponents count a checkpoint this much wider
-constexpr float kSkill[2] = {0.85f, 0.95f}; // amateur, professional: opponents' share of top speed
+constexpr float kCircuitRadius = 15;              // circuits' waypoints give no radius
+constexpr float kOpponentReach = 10;              // opponents count a checkpoint this much wider
+constexpr float kSkill[2] = {0.85f, 0.95f};       // amateur, professional: opponents' share of top speed
 const RaceKind kKinds[] = {RaceKind::kBlitz, RaceKind::kCircuit, RaceKind::kCheckpoint, RaceKind::kCrashCourse,
                            RaceKind::kCruise};
 constexpr int kKindCount = kRacePageKinds;
@@ -56,18 +56,23 @@ std::string clockText(float seconds) {
     return buf;
 }
 
-float flatDistance(const Vec3& a, const Vec3& b) {
+float flatDistance(const Vec3 &a, const Vec3 &b) {
     const float dx = a[0] - b[0], dz = a[2] - b[2];
     return std::sqrt(dx * dx + dz * dz);
 }
 
 } // namespace
 
-RaceKind racePageKind(int index) { return kKinds[std::clamp(index, 0, kKindCount - 1)]; }
+RaceKind racePageKind(int index) {
+    return kKinds[std::clamp(index, 0, kKindCount - 1)];
+}
 
-RaceViewer::RaceViewer(ViewerContext& ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {}
+RaceViewer::RaceViewer(ViewerContext &ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {
+}
 
-RaceViewer::~RaceViewer() { deactivate(); }
+RaceViewer::~RaceViewer() {
+    deactivate();
+}
 
 void RaceViewer::deactivate() {
     _net.reset(); // out of any session
@@ -136,7 +141,7 @@ void RaceViewer::loadCity() {
     _racers.clear();
     _flares.reset();
     _smoke.reset();
-    const std::string& map = _cities[size_t(_city)].map;
+    const std::string &map = _cities[size_t(_city)].map;
     _scene->textures().setHalvings(textureHalvings());
     _error = _scene->load(map).message;
     _flares = std::make_unique<FlareDrawer>(*_renderer, _scene->textures());
@@ -158,7 +163,7 @@ void RaceViewer::loadCity() {
         loadRace(_ctx.files, map, kKinds[_kind], _raceIndex, _race);
 }
 
-bool RaceViewer::takesKey(const Event& ev) const {
+bool RaceViewer::takesKey(const Event &ev) const {
     // In the game's menus Esc goes back (and on the main menu asks to
     // quit); in a race it's the race's.
     // In a race, Tab is the game's too (its Map Toggle), not the next page.
@@ -170,7 +175,7 @@ bool RaceViewer::takesKey(const Event& ev) const {
 bool RaceViewer::raceIsOpen(int index) const {
     if (_openAll)
         return true;
-    const std::string& map = _cities[size_t(_city)].map;
+    const std::string &map = _cities[size_t(_city)].map;
     const RaceUnlocking u = raceUnlocking(_ctx.files, map);
     return raceOpen(_record, map, kKinds[_kind], index, _level == 1, u.group, u.mustPlace);
 }
@@ -178,10 +183,10 @@ bool RaceViewer::raceIsOpen(int index) const {
 bool RaceViewer::carIsOpen(int car) const {
     if (_openAll)
         return true;
-    const SearchSet& files = _ctx.files;
+    const SearchSet &files = _ctx.files;
     return unlocked(
         _record, _cars[size_t(car)].base, -1, _level == 1,
-        [&files](const std::string& city, RaceKind kind) { return int(raceNames(files, city, kind).size()); });
+        [&files](const std::string &city, RaceKind kind) { return int(raceNames(files, city, kind).size()); });
 }
 
 void RaceViewer::switchDriver() {
@@ -203,34 +208,34 @@ void RaceViewer::recordResult() {
         (_conditionsChanged && !lesson()))
         return;
     _recorded = true;
-    const std::string& map = _cities[size_t(_city)].map;
-    const Racer& player = _racers.front();
+    const std::string &map = _cities[size_t(_city)].map;
+    const Racer &player = _racers.front();
     // What it opens, for the results screen: the city's rewards open
     // before the result and after.
     std::vector<Reward> rewards;
     if (std::vector<uint8_t> data; !_ctx.files.read("race/" + map + "/" + map + "_rewards.csv", data))
         rewards = parseRewards(std::string(data.begin(), data.end()));
-    const SearchSet& files = _ctx.files;
-    const RaceCount count = [&files](const std::string& city, RaceKind kind) {
+    const SearchSet &files = _ctx.files;
+    const RaceCount count = [&files](const std::string &city, RaceKind kind) {
         return int(raceNames(files, city, kind).size());
     };
     // Each reward is the unlock rule for its car, city and kind (the
     // rewards' paint job numbers don't always match the lock pictures':
     // the fire truck's 2 is its _lck4).
-    auto ruleFor = [&](const Reward& r) -> const UnlockRule* {
+    auto ruleFor = [&](const Reward &r) -> const UnlockRule * {
         const RaceKind kind = r.kind == "blitz"     ? RaceKind::kBlitz
                               : r.kind == "circuit" ? RaceKind::kCircuit
                               : r.kind == "race"    ? RaceKind::kCheckpoint
                                                     : RaceKind::kCrashCourse;
-        for (const UnlockRule& u : unlockRules())
+        for (const UnlockRule &u : unlockRules())
             if (u.car == r.car && u.city == map && u.kind == kind && (u.paintJob < 0) == (r.paintJob == 0))
                 return &u;
         return nullptr;
     };
     auto opened = [&] {
         std::vector<bool> open;
-        for (const Reward& r : rewards) {
-            const UnlockRule* u = ruleFor(r);
+        for (const Reward &r : rewards) {
+            const UnlockRule *u = ruleFor(r);
             open.push_back(!u || unlocked(_record, u->car, u->paintJob, _level == 1, count));
         }
         return open;
@@ -244,7 +249,7 @@ void RaceViewer::recordResult() {
         if (player.finishTime < 0)
             return;
         int place = 1;
-        for (const Racer& r : _racers)
+        for (const Racer &r : _racers)
             if (!r.player && r.finishTime >= 0 && r.finishTime < player.finishTime)
                 ++place;
         _record.raced(map, _race.kind, _raceIndex, _level == 1, _race.kind == RaceKind::kBlitz ? 1 : place,
@@ -259,7 +264,7 @@ void RaceViewer::recordResult() {
 }
 
 void RaceViewer::startRace() {
-    const std::string& map = _cities[size_t(_city)].map;
+    const std::string &map = _cities[size_t(_city)].map;
     if (_raceNames.empty())
         return;
     if (!_replaying && (!raceIsOpen(_raceIndex) || !carIsOpen(_car))) {
@@ -276,7 +281,7 @@ void RaceViewer::startRace() {
     // A cruise has none of its own: always the menu's.
     const bool changed = _replaying ? _playback.changed : _conditionsChanged || _race.kind == RaceKind::kCruise;
     if (changed && !lesson()) {
-        RaceSettings& s = _race.settings[size_t(_level)];
+        RaceSettings &s = _race.settings[size_t(_level)];
         const FrontEnd::Choice::Conditions c =
             _replaying ? FrontEnd::Choice::Conditions{_playback.laps,      _playback.opponents,
                                                       _playback.timeOfDay, _playback.weather,
@@ -291,7 +296,7 @@ void RaceViewer::startRace() {
         s.ambient = c.traffic;
         s.peds = c.hidePeds ? 0 : c.peds;
     }
-    const RaceSettings& set = _race.settings[size_t(_level)];
+    const RaceSettings &set = _race.settings[size_t(_level)];
     _scene->setLighting(std::clamp(set.timeOfDay, 0, 3) * 4 + std::clamp(set.weather, 0, 3));
     if (_race.kind == RaceKind::kCruise)
         startCruise();
@@ -316,7 +321,7 @@ void RaceViewer::startRace() {
     if (Error err =
             player.car->load(*_renderer, _scene->textures(), _ctx.files, _cars[size_t(_car)].base, uint32_t(_paint)))
         _error = err.message;
-    const Waypoint& start = _race.waypoints[0];
+    const Waypoint &start = _race.waypoints[0];
     player.car->sim.reset(player.car->setup, start.position + Vec3{0, 0.5f, 0}, headingToYaw(start.heading));
     _wear.load(_ctx.files, _cars[size_t(_car)].base, *player.car);
     if (_smoke)
@@ -334,14 +339,14 @@ void RaceViewer::startRace() {
     // Opponents: as many as the race has paths for, in the cars its aimap
     // gives them (else others of the player's list).
     // A lesson has the ones its aimap lists, in that order.
-    const auto& paths = _race.opponents[size_t(_level)];
+    const auto &paths = _race.opponents[size_t(_level)];
     const size_t count = lesson() ? paths.size() : std::min(paths.size(), size_t(std::max(0, set.opponents)));
     for (size_t i = 0; i < count; ++i) {
         std::string base = _cars[(size_t(_car) + 1 + i * 3) % _cars.size()].base;
         float skill = kSkill[_level];
         const std::string opp = "-" + std::to_string(i) + ".opp";
         for (size_t k = 0; k < ai.opponents.size(); ++k) {
-            const auto& o = ai.opponents[k];
+            const auto &o = ai.opponents[k];
             const bool mine = lesson() ? k == i
                                        : o.path.size() > opp.size() &&
                                              o.path.compare(o.path.size() - opp.size(), opp.size(), opp) == 0;
@@ -353,12 +358,12 @@ void RaceViewer::startRace() {
         Racer r;
         r.car = std::make_unique<CarActor>();
         r.name = base;
-        for (const CarInfo& info : _cars)
+        for (const CarInfo &info : _cars)
             if (info.base == base)
                 r.name = info.description;
         if (r.car->load(*_renderer, _scene->textures(), _ctx.files, base, uint32_t(i)))
             continue;
-        const auto& o = paths[i];
+        const auto &o = paths[i];
         r.car->sim.reset(r.car->setup, o.start + Vec3{0, 0.5f, 0}, o.startYaw);
         size_t loopFrom = 0;
         const bool circuit = _race.kind == RaceKind::kCircuit;
@@ -390,7 +395,7 @@ void RaceViewer::startRace() {
             _error = err.message;
         // What the city has across the drawbridges' gaps goes: the leaves
         // are the road there.
-        auto inGap = [&](const Vec3& a, const Vec3& b, const Vec3& c) { return _life.gizmos().inGap(a, b, c); };
+        auto inGap = [&](const Vec3 &a, const Vec3 &b, const Vec3 &c) { return _life.gizmos().inGap(a, b, c); };
         _scene->hide(inGap);
         _world.removeIf(inGap);
     }
@@ -421,7 +426,7 @@ void RaceViewer::startRace() {
     _splitFor = 0;
     _targetStill = 0;
     _unlockMessage.clear();
-    for (Racer& r : _racers) {
+    for (Racer &r : _racers) {
         r.cleared.assign(_targets.size(), false);
         r.lastCleared = 0;
     }
@@ -472,7 +477,7 @@ void RaceViewer::endRace() {
     _scene->setLighting(4);
 }
 
-float RaceViewer::progressOf(const Racer& r) const {
+float RaceViewer::progressOf(const Racer &r) const {
     // Checkpoints reached, and how near the next.
     if (r.next >= _targets.size())
         return float(_targets.size()) + 1 - r.finishTime / 1e5f;
@@ -484,7 +489,7 @@ bool RaceViewer::anyOrder() const {
     return !lesson() && (_race.kind == RaceKind::kCheckpoint || _race.kind == RaceKind::kBlitz) && _targets.size() > 1;
 }
 
-std::vector<size_t> RaceViewer::remaining(const Racer& r) const {
+std::vector<size_t> RaceViewer::remaining(const Racer &r) const {
     // The finish only once the rest are cleared.
     auto cleared = [&](size_t k) { return k < r.cleared.size() && r.cleared[k]; };
     std::vector<size_t> out;
@@ -496,14 +501,14 @@ std::vector<size_t> RaceViewer::remaining(const Racer& r) const {
     return out;
 }
 
-void RaceViewer::clearCheckpoint(Racer& r, size_t k) {
+void RaceViewer::clearCheckpoint(Racer &r, size_t k) {
     r.cleared.resize(_targets.size(), false);
     if (k < r.cleared.size())
         r.cleared[k] = true;
     r.lastCleared = k;
 }
 
-size_t RaceViewer::targetOf(const Racer& r) const {
+size_t RaceViewer::targetOf(const Racer &r) const {
     if (!anyOrder() || r.next >= _targets.size())
         return r.next;
     const std::vector<size_t> left = remaining(r);
@@ -540,7 +545,7 @@ void RaceViewer::stepRace(float dt) {
     if (_netGame) {
         // The host's clock; waiting for everyone to load, before the
         // countdown.
-        NetSession* session = _net ? _net->session() : nullptr;
+        NetSession *session = _net ? _net->session() : nullptr;
         _clock = session && session->counting() ? session->clock(_nowMs) : -kCountdown - 1;
     } else
         _clock += dt;
@@ -549,12 +554,12 @@ void RaceViewer::stepRace(float dt) {
         _life.police().chaseAll(); // after the player from the start
     bool checkpoint = false;       // the player reached one this frame
     float impact = 0;
-    for (Racer& r : _racers) {
+    for (Racer &r : _racers) {
         if (r.peer != kNoPlayer) {
             driveRemote(r, dt);
             continue;
         }
-        CarSim& sim = r.car->sim;
+        CarSim &sim = r.car->sim;
         CarControls c;
         if (started) {
             if (r.player) {
@@ -615,7 +620,7 @@ void RaceViewer::stepRace(float dt) {
             if (sim.position[1] < _scene->psdl().min[1] - 50) { // fallen out: back to the last checkpoint
                 _sunkFor = 3;                                   // (deep water's the way out of the city)
                 const size_t last = anyOrder() ? r.lastCleared : r.next - 1;
-                const Waypoint& back = r.next > 0 ? targetPoint(last) : _race.waypoints[0];
+                const Waypoint &back = r.next > 0 ? targetPoint(last) : _race.waypoints[0];
                 sim.reset(r.car->setup, back.position + Vec3{0, 0.5f, 0}, headingToYaw(back.heading));
                 ++r.resets;
                 r.putBackAt = _clock;
@@ -626,7 +631,7 @@ void RaceViewer::stepRace(float dt) {
             // Any of those left, the finish last (an opponent also past
             // where its own path is nearest one).
             for (size_t k : remaining(r)) {
-                const Waypoint& w = targetPoint(k);
+                const Waypoint &w = targetPoint(k);
                 const float radius = (w.radius > 0 ? w.radius : kCircuitRadius) + (r.player ? 2 : kOpponentReach);
                 const bool byPath = !r.player && k < r.gatePoints.size() && r.driver.passed() > r.gatePoints[k];
                 if (byPath || (flatDistance(sim.position, w.position) < radius &&
@@ -639,7 +644,7 @@ void RaceViewer::stepRace(float dt) {
                 }
             }
         } else if (started && r.next < _targets.size()) {
-            const Waypoint& w = targetPoint(r.next);
+            const Waypoint &w = targetPoint(r.next);
             const float radius = (w.radius > 0 ? w.radius : kCircuitRadius) + (r.player ? 2 : kOpponentReach);
             // An opponent also once it's gone on past where its own path
             // is nearest the checkpoint (some paths take another way).
@@ -657,13 +662,13 @@ void RaceViewer::stepRace(float dt) {
             collideCars(_racers[i].car->sim, _racers[j].car->sim);
     if (_smoke)
         _smoke->update(dt);
-    std::vector<CarSim*> others;
+    std::vector<CarSim *> others;
     for (size_t i = 1; i < _racers.size(); ++i)
         others.push_back(&_racers[i].car->sim);
     _life.setLamps(_scene->lampsLit(), _scene->night());
     _life.update(dt, _racers.front().car->sim, others, _world, _roads, _fill);
     // What flies out of the props knocked down: coins, papers, leaves.
-    for (const Props::Burst& b : _life.takeBursts())
+    for (const Props::Burst &b : _life.takeBursts())
         if (_smoke)
             _smoke->burst(b.rule, b.at, b.velocity, _smoke->look(b.texture));
     _fill = false;
@@ -673,7 +678,7 @@ void RaceViewer::stepRace(float dt) {
     // A checkpoint passed: the time so far, a lap's own at its end.
     _splitFor = std::max(0.0f, _splitFor - dt);
     if (checkpoint && !lesson() && !_racers.empty()) {
-        const Racer& player = _racers.front();
+        const Racer &player = _racers.front();
         const size_t perLap = _race.waypoints.size();
         _splitIsLap = _race.kind == RaceKind::kCircuit && perLap && player.next % perLap == 0;
         const float lapStart = _lapEnds.empty() ? 0 : _lapEnds.back();
@@ -709,16 +714,16 @@ void RaceViewer::stepRace(float dt) {
     if (_state == State::kFinished)
         return;
     // The end: the player finished, or ran out of time in a Blitz.
-    Racer& player = _racers.front();
-    const RaceSettings& set = _race.settings[size_t(_level)];
+    Racer &player = _racers.front();
+    const RaceSettings &set = _race.settings[size_t(_level)];
     if (player.finishTime >= 0) {
         int place = 1;
-        for (const Racer& r : _racers)
+        for (const Racer &r : _racers)
             if (!r.player && r.finishTime >= 0 && r.finishTime < player.finishTime)
                 ++place;
         // The game's words: "You Won!", "You finished 2nd", "You are a loaf"
         // past eighth.
-        static const char* const kPlaces[] = {"1st!", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
+        static const char *const kPlaces[] = {"1st!", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
         if (_race.kind == RaceKind::kBlitz)
             _outcome = raceMessage(6, "You Won!") + "  " + clockText(player.finishTime);
         else if (place <= 8)
@@ -743,7 +748,7 @@ void RaceViewer::stepRace(float dt) {
     recordResult();
     // Every race of the kind won (at this level): the game's word for it.
     if (justFinished && _race.kind != RaceKind::kCheckpoint) {
-        const std::string& map = _cities[size_t(_city)].map;
+        const std::string &map = _cities[size_t(_city)].map;
         bool all = !_raceNames.empty();
         for (int i = 0; i < int(_raceNames.size()) && all; ++i)
             all = _record.bestPlace(map, _race.kind, i, _level == 1) == 1;
@@ -752,7 +757,7 @@ void RaceViewer::stepRace(float dt) {
     }
 }
 
-std::string RaceViewer::raceMessage(int offset, const std::string& fallback) const {
+std::string RaceViewer::raceMessage(int offset, const std::string &fallback) const {
     // Each event's group (mmlang.dll): Blitz from 158 (Ready, Set, Go,
     // Time's up, Game over, all beaten, You Won!), Circuit from 165
     // (Ready, Set, Go, a penalty, finished 1st-8th, a loaf, all beaten),
@@ -762,17 +767,17 @@ std::string RaceViewer::raceMessage(int offset, const std::string& fallback) con
     const int base = _race.kind == RaceKind::kBlitz     ? 158
                      : _race.kind == RaceKind::kCircuit ? 165
                      : _race.kind == RaceKind::kCruise  ? 200
-                                                       : 179;
+                                                        : 179;
     return _strings.get(uint32_t(base + offset), fallback);
 }
 
-void RaceViewer::drawCentred(const std::string& text, int y, Color color, int scale) {
+void RaceViewer::drawCentred(const std::string &text, int y, Color color, int scale) {
     const int w = int(text.size()) * font::kAdvance * scale;
     font::drawText(_overlay, (kFrameW - w) / 2, y, text, color, scale);
 }
 
 void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
-    const Racer& player = _racers.front();
+    const Racer &player = _racers.front();
     LessonJudge::Frame f;
     f.dt = dt;
     f.clock = _clock;
@@ -789,7 +794,7 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
         f.targetDistance = flatDistance(player.car->sim.position, _racers[1].car->sim.position);
         f.targetDone = _racers[1].driver.finished();
         // Rammed into submission: turned over, or held stopped 2 s.
-        const CarSim& target = _racers[1].car->sim;
+        const CarSim &target = _racers[1].car->sim;
         _targetStill = _clock > 1 && length(target.velocity) < 1 ? _targetStill + dt : 0;
         f.targetStopped = target.orientation.y[1] < 0.5f || _targetStill >= 2;
     }
@@ -804,7 +809,7 @@ void RaceViewer::judgeLesson(float dt, bool checkpoint, float impact) {
     }
 }
 
-void RaceViewer::handleEvent(const Event& ev) {
+void RaceViewer::handleEvent(const Event &ev) {
     if (!_renderer)
         return;
     // A game controller: its sticks and triggers drive (not while a replay
@@ -891,7 +896,7 @@ void RaceViewer::handleEvent(const Event& ev) {
                 break;
             }
             if (_field == 1 || _field == 2) {
-                const std::string& map = _cities[size_t(_city)].map;
+                const std::string &map = _cities[size_t(_city)].map;
                 _raceNames = raceNames(_ctx.files, map, kKinds[_kind]);
                 _raceIndex = std::min(_raceIndex, std::max(0, int(_raceNames.size()) - 1));
                 if (!_raceNames.empty())
@@ -933,7 +938,8 @@ void RaceViewer::handleEvent(const Event& ev) {
         instantReplay(ReplayReturn::kResults); // the instant replay
         return;
     }
-    if (_state == State::kFinished && lesson() && (ev.key == 'r' || ev.key == key::kReturn || ev.key == key::kKpEnter)) {
+    if (_state == State::kFinished && lesson() &&
+        (ev.key == 'r' || ev.key == key::kReturn || ev.key == key::kKpEnter)) {
         // Restart the lesson (R), or (Enter) go on to the next once passed.
         const bool next =
             ev.key != 'r' && _judge.result() == LessonJudge::Result::kPassed && _raceIndex + 1 < int(_raceNames.size());
@@ -986,7 +992,7 @@ void RaceViewer::handleEvent(const Event& ev) {
     }
 }
 
-void RaceViewer::menuEvent(const Event& ev) {
+void RaceViewer::menuEvent(const Event &ev) {
     if (_movie) {
         // A key or a click skips the opening movie, to the menus.
         if (ev.type == EventType::kKeyDown || (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)) {
@@ -1019,7 +1025,7 @@ void RaceViewer::menuEvent(const Event& ev) {
         _game->open(action == FrontEnd::Action::kNewDriver      ? GameMenus::Screen::kNewDriver
                     : action == FrontEnd::Action::kDeleteDriver ? GameMenus::Screen::kDeleteDriver
                     : action == FrontEnd::Action::kDriverStats  ? GameMenus::Screen::kDriverStats
-                                                               : GameMenus::Screen::kRaceRecords);
+                                                                : GameMenus::Screen::kRaceRecords);
         if (const std::string clip = _game->takeVoice(); !clip.empty())
             playVoice(clip); // "You cannot delete your only driver"
         return;
@@ -1032,7 +1038,7 @@ void RaceViewer::menuEvent(const Event& ev) {
                   action == FrontEnd::Action::kLocked)) {
         _game->open(action == FrontEnd::Action::kRaceOptions  ? GameMenus::Screen::kRaceOptions
                     : action == FrontEnd::Action::kCityChoice ? GameMenus::Screen::kCitySelection
-                                                             : GameMenus::Screen::kLocked);
+                                                              : GameMenus::Screen::kLocked);
         if (const std::string clip = _game->takeVoice(); !clip.empty())
             playVoice(clip);
         return;
@@ -1052,7 +1058,7 @@ void RaceViewer::menuEvent(const Event& ev) {
     }
     if (_garageForNet) {
         // The lobby's car: chosen (GO DRIVE), or left as it was (Esc).
-        const FrontEnd::Choice& c = _front->choice();
+        const FrontEnd::Choice &c = _front->choice();
         if (action == FrontEnd::Action::kStart || _front->screen() != FrontEnd::Screen::kGarage) {
             _garageForNet = false;
             _netMenus = true;
@@ -1067,7 +1073,7 @@ void RaceViewer::menuEvent(const Event& ev) {
         return;
     // The menus' choice: the city (loaded now if it's another), the race,
     // the level, the car, its colour and gearbox.
-    const FrontEnd::Choice& c = _front->choice();
+    const FrontEnd::Choice &c = _front->choice();
     _conditions = c.conditions;
     _conditionsChanged = c.changed && c.kind != RaceKind::kCrashCourse;
     for (int k = 0; k < kKindCount; ++k)
@@ -1091,7 +1097,7 @@ void RaceViewer::menuEvent(const Event& ev) {
 void RaceViewer::drawGarageCar(float dt) {
     // The chosen car turning in the garage's window, on dark blue.
     const FrontEnd::Rect r = _front->carWindow();
-    const FrontEnd::Choice& c = _front->choice();
+    const FrontEnd::Choice &c = _front->choice();
     if (!_showCar || _showCarIndex != c.car || _showPaint != c.paintJob) {
         _showCar = std::make_unique<CarActor>();
         if (_showCar->load(*_renderer, _scene->textures(), _ctx.files, _cars[size_t(c.car)].base,
@@ -1127,7 +1133,7 @@ void RaceViewer::drawCheckpoints() {
     // race in any order all those left.
     if (_racers.empty())
         return;
-    const Racer& player = _racers.front();
+    const Racer &player = _racers.front();
     std::vector<size_t> gates;
     if (anyOrder())
         gates = remaining();
@@ -1136,10 +1142,10 @@ void RaceViewer::drawCheckpoints() {
             gates.push_back(k);
     for (size_t k : gates) {
         const bool finish = k + 1 == _targets.size() || _targets[k] == 0;
-        const ModelCache::Model& gate = _scene->models().get(finish ? "pt_finish" : "pt_check", lesson() ? 1 : 0);
+        const ModelCache::Model &gate = _scene->models().get(finish ? "pt_finish" : "pt_check", lesson() ? 1 : 0);
         if (!gate.ok)
             continue;
-        const Waypoint& w = targetPoint(k);
+        const Waypoint &w = targetPoint(k);
         const float radius = w.radius > 0 ? w.radius : kCircuitRadius;
         const Mat3 turn = Mat3::rotationY(headingToYaw(w.heading));
         const Mat3 sized{turn.x * radius, turn.y * radius, turn.z * radius};
@@ -1154,7 +1160,7 @@ void RaceViewer::drawArrow() {
     // The game's HUD arrow (hudarrow01, hudarrow_blitz01 in a Blitz) above
     // the car, pointing to the next checkpoint (in any order, the nearest
     // or the one picked).
-    const Racer& player = _racers.front();
+    const Racer &player = _racers.front();
     const size_t k = targetOf(player);
     if (k >= _targets.size())
         return;
@@ -1170,8 +1176,8 @@ void RaceViewer::drawArrow() {
     drawArrowTo(targetPoint(k).position, _race.kind == RaceKind::kBlitz);
 }
 
-void RaceViewer::drawArrowTo(const Vec3& target, bool blitz, bool little) {
-    const Racer& player = _racers.front();
+void RaceViewer::drawArrowTo(const Vec3 &target, bool blitz, bool little) {
+    const Racer &player = _racers.front();
     const Vec3 at = player.car->sim.position + Vec3{0, little ? 2.0f : 2.8f, 0};
     Vec3 to = target - at;
     to[1] = 0;
@@ -1180,14 +1186,14 @@ void RaceViewer::drawArrowTo(const Vec3& target, bool blitz, bool little) {
     Vec3 ahead = -player.car->sim.orientation.z;
     ahead[1] = 0;
     const bool behind = dot(ahead, to) < 0 && !little;
-    const ModelCache::Model& arrow = _scene->models().get(blitz ? "hudarrow_blitz01" : "hudarrow01", behind ? 1 : 0);
+    const ModelCache::Model &arrow = _scene->models().get(blitz ? "hudarrow_blitz01" : "hudarrow01", behind ? 1 : 0);
     if (!arrow.ok)
         return;
     const float yaw = length(to) > 0.1f ? std::atan2(-to[0], -to[2]) : 0;
     SceneLight bright;
     bright.ambient = {1, 1, 1};
     bright.directed = {0, 0, 0};
-    for (const ModelDraw& d : arrow.levels.front().draws) {
+    for (const ModelDraw &d : arrow.levels.front().draws) {
         gfx::DrawCall call;
         call.mesh = arrow.levels.front().mesh;
         call.firstIndex = d.firstIndex;
@@ -1210,18 +1216,18 @@ void RaceViewer::drawOpponentMarkers() {
     // tall, its point 4.5 m over the car; the digit as wide, over it).
     constexpr float kTip = 4.5f, kTop = 6.8f, kHalfWidth = 0.75f, kDigit = 8.0f, kDigitSize = 1.4f;
     constexpr uint8_t kPurple[3] = {192, 16, 255};
-    std::vector<const Racer*> order;
-    for (const Racer& r : _racers)
+    std::vector<const Racer *> order;
+    for (const Racer &r : _racers)
         order.push_back(&r);
     std::stable_sort(order.begin(), order.end(),
-                     [&](const Racer* a, const Racer* b) { return progressOf(*a) > progressOf(*b); });
+                     [&](const Racer *a, const Racer *b) { return progressOf(*a) > progressOf(*b); });
     struct Marker {
         float depth, x, tipY, topY, pixelsPerMetre;
         int place;
     };
     std::vector<Marker> markers;
     for (size_t i = 0; i < order.size(); ++i) {
-        const Racer& r = *order[i];
+        const Racer &r = *order[i];
         if (r.player)
             continue;
         const Vec3 at = r.car->sim.position;
@@ -1234,16 +1240,16 @@ void RaceViewer::drawOpponentMarkers() {
         markers.push_back({tip[2], px(tip[0], kFrameW), tipY, topY, (tipY - topY) / (kTop - kTip), int(i + 1)});
     }
     // The farthest first, so the nearer go over them.
-    std::sort(markers.begin(), markers.end(), [](const Marker& a, const Marker& b) { return a.depth > b.depth; });
-    for (const Marker& m : markers) {
+    std::sort(markers.begin(), markers.end(), [](const Marker &a, const Marker &b) { return a.depth > b.depth; });
+    for (const Marker &m : markers) {
         if (m.x < -200 || m.x > kFrameW + 200 || m.pixelsPerMetre <= 0)
             continue;
         const float half = kHalfWidth * m.pixelsPerMetre;
         for (int y = std::max(0, int(m.topY)); y < std::min(kFrameH, int(m.tipY)); ++y) {
             const float w = half * (m.tipY - float(y)) / std::max(1.0f, m.tipY - m.topY);
-            uint8_t* row = _overlay.row(y);
+            uint8_t *row = _overlay.row(y);
             for (int x = std::max(0, int(m.x - w)); x < std::min(kFrameW, int(m.x + w) + 1); ++x) {
-                uint8_t* d = row + x * 4;
+                uint8_t *d = row + x * 4;
                 d[0] = kPurple[0];
                 d[1] = kPurple[1];
                 d[2] = kPurple[2];
@@ -1282,9 +1288,9 @@ void RaceViewer::drawCheckpointMarkers() {
             const float fy = float(y);
             const float w = fy < widestY ? half * (fy - y0) / std::max(1.0f, widestY - y0)
                                          : half * (y1 - fy) / std::max(1.0f, y1 - widestY);
-            uint8_t* row = _overlay.row(y);
+            uint8_t *row = _overlay.row(y);
             for (int xx = std::max(0, int(x - w)); xx < std::min(kFrameW, int(x + w) + 1); ++xx) {
-                uint8_t* d = row + xx * 4;
+                uint8_t *d = row + xx * 4;
                 d[0] = kBlue[0];
                 d[1] = kBlue[1];
                 d[2] = kBlue[2];
@@ -1298,7 +1304,7 @@ void RaceViewer::drawMap(float dt) {
     // The checkpoints still to reach (the next green, the finish its own),
     // the opponents, the police and the player.
     _hudMap.update(dt);
-    const Racer& player = _racers.front();
+    const Racer &player = _racers.front();
     std::vector<HudMapIcon> icons;
     std::vector<size_t> left;
     if (anyOrder())
@@ -1314,12 +1320,12 @@ void RaceViewer::drawMap(float dt) {
                          : i == aim               ? hudcolor::kNext
                                                   : hudcolor::kCheckpoint,
                          true});
-    for (CarSim* c : _life.police().cars())
+    for (CarSim *c : _life.police().cars())
         icons.push_back({c->position, -c->orientation.z, hudcolor::kPolice, false});
     if (_netGame && _net && _net->session() && _net->session()->settings().mode == NetMode::kCopsRobbers) {
         // The gold, and the bases: ours the finish's colour.
-        const NetSession& session = *_net->session();
-        const NetPlayer* me = session.me();
+        const NetSession &session = *_net->session();
+        const NetPlayer *me = session.me();
         GoldGame::Car self{session.myId(), me ? me->team : uint8_t(0), {}, {}};
         icons.push_back({_gold.goldPosition(), {0, 0, -1}, hudcolor::kNext, true});
         for (uint8_t side = 0; side < (_gold.teams() ? 2 : 1); ++side)
@@ -1328,10 +1334,10 @@ void RaceViewer::drawMap(float dt) {
                              side == _gold.sideOf(self) || !_gold.teams() ? hudcolor::kFinish : hudcolor::kCheckpoint,
                              true});
     }
-    for (const Racer& r : _racers)
+    for (const Racer &r : _racers)
         if (!r.player)
             icons.push_back({r.car->sim.position, -r.car->sim.orientation.z, hudcolor::kOpponent, false});
-    const CarSim& sim = player.car->sim;
+    const CarSim &sim = player.car->sim;
     icons.push_back({sim.position, -sim.orientation.z, hudcolor::kPlayer, false});
     _hudMap.draw(*_renderer, _scene->models(), sim.position, -sim.orientation.z, icons, kFrameW, kFrameH);
 }
@@ -1343,10 +1349,10 @@ void RaceViewer::drawMenu() {
     font::drawText(_overlay, 40, 20, "RACE", {255, 210, 80}, 3);
     const std::string kind = raceKindName(kKinds[_kind]);
     std::string raceName = _raceNames.empty() ? "(none)" : _raceNames[size_t(_raceIndex)];
-    const std::string& map = _cities[size_t(_city)].map;
+    const std::string &map = _cities[size_t(_city)].map;
     if (!_raceNames.empty()) {
         // Locked, or what the player's done in it.
-        static const char* const kPlaces[] = {"", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
+        static const char *const kPlaces[] = {"", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
         const int best = _record.bestPlace(map, kKinds[_kind], _raceIndex, _level == 1);
         if (!raceIsOpen(_raceIndex))
             raceName += "  [locked]";
@@ -1363,13 +1369,13 @@ void RaceViewer::drawMenu() {
         y += lh + 4;
     }
     if (!carOpen)
-        for (const UnlockRule& r : unlockRules())
+        for (const UnlockRule &r : unlockRules())
             if (r.car == _cars[size_t(_car)].base && r.paintJob < 0) {
                 font::drawText(_overlay, 40, y, unlockText(r, _level == 1), {255, 230, 120});
                 y += font::kLineHeight + 4;
             }
     if (!_raceNames.empty() && lesson()) {
-        static const char* const kAsks[] = {"Take the jump: every checkpoint in time",
+        static const char *const kAsks[] = {"Take the jump: every checkpoint in time",
                                             "",
                                             "Follow that car, and don't let it escape",
                                             "Lose the police before the finish",
@@ -1386,7 +1392,7 @@ void RaceViewer::drawMenu() {
                       _race.lesson.timeLimit);
         font::drawText(_overlay, 40, y + 10, buf, {180, 180, 180});
     } else if (!_raceNames.empty()) {
-        const RaceSettings& s = _race.settings[size_t(_level)];
+        const RaceSettings &s = _race.settings[size_t(_level)];
         char buf[200];
         std::snprintf(buf, sizeof buf, "%zu checkpoints, %d opponents, %d laps, time limit %.0f s",
                       _race.waypoints.size() - 1, s.opponents, _race.kind == RaceKind::kCircuit ? s.laps : 1,
@@ -1415,8 +1421,8 @@ void RaceViewer::drawRaceHud() {
         drawCruiseHud();
         return;
     }
-    const Racer& player = _racers.front();
-    const RaceSettings& set = _race.settings[size_t(_level)];
+    const Racer &player = _racers.front();
+    const RaceSettings &set = _race.settings[size_t(_level)];
     drawCheckpointMarkers();
     drawOpponentMarkers();
     // Time, or time left in a Blitz or a lesson with a limit: the game's
@@ -1441,14 +1447,14 @@ void RaceViewer::drawRaceHud() {
     const int lap = std::min(int(player.next / perLap), laps - 1);
     char buf[80];
     int listY = kListTop;
-    auto listLine = [&](const std::string& label, const std::string& value, int valueX) {
+    auto listLine = [&](const std::string &label, const std::string &value, int valueX) {
         if (!_hudShown)
             return;
         font::drawText(_overlay, 2, listY, label, kListLabel);
         font::drawText(_overlay, valueX, listY, value, {255, 255, 255});
         listY += kListStep;
     };
-    auto word = [&](uint32_t id, const char* fallback) {
+    auto word = [&](uint32_t id, const char *fallback) {
         std::string w = _strings.get(id, fallback);
         while (!w.empty() && w.back() == ' ')
             w.pop_back();
@@ -1457,7 +1463,7 @@ void RaceViewer::drawRaceHud() {
     if (_racers.size() > 1 && !lesson()) {
         int place = 1;
         const float mine = progressOf(player);
-        for (const Racer& r : _racers)
+        for (const Racer &r : _racers)
             if (!r.player && progressOf(r) > mine)
                 ++place;
         std::snprintf(buf, sizeof buf, "%d/%zu", place, _racers.size());
@@ -1555,14 +1561,14 @@ void RaceViewer::drawRaceHud() {
         if (!_beatenAll.empty())
             font::drawText(_overlay, 60, 150, _beatenAll, {120, 255, 120}, 2);
         // The order the racers finished in, those still racing after.
-        std::vector<const Racer*> order;
-        for (const Racer& r : _racers)
+        std::vector<const Racer *> order;
+        for (const Racer &r : _racers)
             order.push_back(&r);
         std::stable_sort(order.begin(), order.end(),
-                         [&](const Racer* a, const Racer* b) { return progressOf(*a) > progressOf(*b); });
+                         [&](const Racer *a, const Racer *b) { return progressOf(*a) > progressOf(*b); });
         int y = 170;
         for (size_t i = 0; i < order.size(); ++i) {
-            const Racer& r = *order[i];
+            const Racer &r = *order[i];
             std::snprintf(buf, sizeof buf, "%zu. %-40s %s", i + 1, r.name.c_str(),
                           r.finishTime >= 0 ? clockText(r.finishTime).c_str() : "racing");
             font::drawText(_overlay, 60, y, buf, r.player ? Color{255, 255, 120} : Color{230, 230, 230});
@@ -1621,7 +1627,7 @@ void RaceViewer::update(uint64_t nowMs) {
         music.finished = _state == State::kFinished;
         music.paused = _paused;
         if (_state == State::kRacing && !lesson() && !_targets.empty()) {
-            const Racer& me = _racers.front();
+            const Racer &me = _racers.front();
             const int laps = _race.settings[size_t(_level)].laps;
             if (_race.kind == RaceKind::kCircuit)
                 music.lastStretch = laps > 1 && _lastLap == laps - 1;
@@ -1633,9 +1639,9 @@ void RaceViewer::update(uint64_t nowMs) {
         _music.update(dt, music);
         // A second off the ground: the tune's big-air motif, once a jump.
         {
-            const CarSim& air = _racers.front().car->sim;
+            const CarSim &air = _racers.front().car->sim;
             const bool off =
-                std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel& w) { return w.contact; });
+                std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel &w) { return w.contact; });
             _airFor = off ? _airFor + dt : 0;
             if (_airFor >= kBigAir && !_airPlayed) {
                 _music.bigAir();
@@ -1643,7 +1649,7 @@ void RaceViewer::update(uint64_t nowMs) {
             }
             _airPlayed = _airPlayed && off;
         }
-        const CarCamera& cam = _cameras[size_t(_camera)];
+        const CarCamera &cam = _cameras[size_t(_camera)];
         fov = cam.fov;
         const CameraView view =
             _replaying
@@ -1715,7 +1721,7 @@ void RaceViewer::update(uint64_t nowMs) {
         if (_scene->lampsLit() && headlightPoolsOn()) {
             std::vector<gfx::DynamicLight> pools;
             gfx::DynamicLight pool;
-            for (const Racer& r : _racers)
+            for (const Racer &r : _racers)
                 if (r.car->headlightPool(pool))
                     pools.push_back(pool);
             _life.headlightPools(pools, eye);
@@ -1723,7 +1729,7 @@ void RaceViewer::update(uint64_t nowMs) {
         }
         _life.draw(*_renderer, _scene->models(), _scene->light(), viewProj, eye, _flares.get());
         _scene->drawBeacons(*_flares, eye);
-        for (const Racer& r : _racers)
+        for (const Racer &r : _racers)
             if (!(r.player && inside)) {
                 r.car->draw(_scene->light());
                 r.car->drawFlares(*_flares, eye);
@@ -1737,8 +1743,8 @@ void RaceViewer::update(uint64_t nowMs) {
             _dash.draw(*_renderer, _scene->models(), _racers.front().car->sim, _wear.fraction(), eye,
                        normalized(target - eye), up, float(kFrameW) / float(kFrameH), _scene->light());
         if (_netGame && _net && _net->session() && _net->session()->settings().mode == NetMode::kCopsRobbers) {
-            const NetSession& session = *_net->session();
-            const NetPlayer* me = session.me();
+            const NetSession &session = *_net->session();
+            const NetPlayer *me = session.me();
             const bool mine = _gold.holder() == session.myId();
             GoldGame::Car self{session.myId(), me ? me->team : uint8_t(0), {}, {}};
             drawArrowTo(mine ? _gold.base(_gold.sideOf(self)) : _gold.goldPosition(), mine);
@@ -1746,8 +1752,8 @@ void RaceViewer::update(uint64_t nowMs) {
             drawArrow();
         if (_view.opponent && !_racers.empty()) {
             // Opponent Position: a little green arrow to the nearest.
-            const Racer* nearest = nullptr;
-            for (const Racer& r : _racers)
+            const Racer *nearest = nullptr;
+            for (const Racer &r : _racers)
                 if (!r.player &&
                     (!nearest || length(r.car->sim.position - _racers.front().car->sim.position) <
                                      length(nearest->car->sim.position - _racers.front().car->sim.position)))
@@ -1757,10 +1763,10 @@ void RaceViewer::update(uint64_t nowMs) {
         }
         if (_mirror)
             drawRearMirror(*_renderer, _racers.front().car->sim, currentOptions().farClip(),
-                           [&](const gfx::Mat4& vp, const Vec3& eye) {
+                           [&](const gfx::Mat4 &vp, const Vec3 &eye) {
                                _scene->draw(vp, eye, true, true);
                                _life.draw(*_renderer, _scene->models(), _scene->light(), vp, eye);
-                               for (const Racer& r : _racers)
+                               for (const Racer &r : _racers)
                                    if (!r.player)
                                        r.car->draw(_scene->light());
                                drawCheckpoints();

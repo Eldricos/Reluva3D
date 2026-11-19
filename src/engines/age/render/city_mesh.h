@@ -30,7 +30,7 @@ struct CityMesh {
     std::vector<Batch> batches;
 };
 
-void buildCityMesh(const Psdl& psdl, CityMesh& out);
+void buildCityMesh(const Psdl &psdl, CityMesh &out);
 
 // city/<map>/decals.pathset: road markings (crossings, zigzags, cable
 // car rails), each a path named for its texture whose points go in pairs,
@@ -39,7 +39,7 @@ void buildCityMesh(const Psdl& psdl, CityMesh& out);
 // it in its block (its first word), whatever height the file gives it.
 // See docs/formats/age/pathset.md.
 struct PathsetPath;
-void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out);
+void addCityDecals(const std::vector<PathsetPath> &paths, CityMesh &out);
 
 // city/<map>.water: the water's height, then blocks of the city (empty
 // ones, under its bridges) where it's drawn. See psdl.md.
@@ -47,10 +47,10 @@ struct CityWater {
     float height = 0;
     std::vector<uint16_t> blocks;
 };
-Error parseCityWater(const std::string& text, CityWater& out);
+Error parseCityWater(const std::string &text, CityWater &out);
 
 // The water over those blocks, at its height, with the PSDL's texture
 // `texture` (1-based, as its texture attributes count).
-void addCityWater(const Psdl& psdl, const CityWater& water, uint32_t texture, CityMesh& out);
+void addCityWater(const Psdl &psdl, const CityWater &water, uint32_t texture, CityMesh &out);
 
 } // namespace reluva::age

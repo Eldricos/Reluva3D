@@ -7,8 +7,8 @@
 
 namespace reluva {
 
-static std::string trim(const std::string& s) {
-    const char* ws = " \t\r\n";
+static std::string trim(const std::string &s) {
+    const char *ws = " \t\r\n";
     size_t b = s.find_first_not_of(ws);
     if (b == std::string::npos)
         return {};
@@ -16,7 +16,7 @@ static std::string trim(const std::string& s) {
     return s.substr(b, e - b + 1);
 }
 
-Error Config::load(const std::filesystem::path& path) {
+Error Config::load(const std::filesystem::path &path) {
     _path = path;
     _sections.clear();
 
@@ -46,17 +46,16 @@ Error Config::save() const {
     std::ofstream out(_path, std::ios::trunc);
     if (!out)
         return Error::fail("Cannot write " + _path.string());
-    for (const auto& [name, values] : _sections) {
+    for (const auto &[name, values] : _sections) {
         out << '[' << name << "]\n";
-        for (const auto& [k, v] : values)
+        for (const auto &[k, v] : values)
             out << k << '=' << v << '\n';
         out << '\n';
     }
     return out ? Error::success() : Error::fail("Error writing " + _path.string());
 }
 
-std::string Config::get(const std::string& section, const std::string& key,
-                        const std::string& fallback) const {
+std::string Config::get(const std::string &section, const std::string &key, const std::string &fallback) const {
     auto s = _sections.find(section);
     if (s == _sections.end())
         return fallback;
@@ -64,17 +63,21 @@ std::string Config::get(const std::string& section, const std::string& key,
     return v == s->second.end() ? fallback : v->second;
 }
 
-void Config::set(const std::string& section, const std::string& key, const std::string& value) {
+void Config::set(const std::string &section, const std::string &key, const std::string &value) {
     _sections[section][key] = value;
 }
 
-bool Config::hasSection(const std::string& section) const { return _sections.count(section) != 0; }
+bool Config::hasSection(const std::string &section) const {
+    return _sections.count(section) != 0;
+}
 
-void Config::removeSection(const std::string& section) { _sections.erase(section); }
+void Config::removeSection(const std::string &section) {
+    _sections.erase(section);
+}
 
 std::vector<std::string> Config::targets() const {
     std::vector<std::string> out;
-    for (const auto& [name, values] : _sections)
+    for (const auto &[name, values] : _sections)
         if (name != kGlobalSection)
             out.push_back(name);
     return out;

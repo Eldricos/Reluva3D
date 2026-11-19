@@ -31,12 +31,12 @@ struct EngineSoundSetup {
     std::vector<EngineSample> samples;
 };
 
-Error readEngineSound(std::string_view csv, EngineSoundSetup& out);
+Error readEngineSound(std::string_view csv, EngineSoundSetup &out);
 
 // A sample's volume (0..1) and pitch (1 as recorded) at an RPM: faded in
 // and out over its ranges, louder towards its maximum as the throttle
 // opens.
-void engineSampleMix(const EngineSample& s, float rpm, float throttle, float& volume, float& pitch);
+void engineSampleMix(const EngineSample &s, float rpm, float throttle, float &volume, float &pitch);
 
 // The samples playing through the mixer.
 class EngineSound {
@@ -44,14 +44,14 @@ public:
     ~EngineSound() { stop(); }
     // Loads and starts them (silent until update()); missing recordings
     // are left out.
-    Error start(audio::Mixer& mixer, const SearchSet& files, const std::string& car);
+    Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car);
     // `gain` (0..1) and `pan` (-1 left .. 1 right): another car's, heard
     // from a way off.
     void update(float rpm, float throttle, float gain = 1, float pan = 0);
     void stop();
 
 private:
-    audio::Mixer* _mixer = nullptr;
+    audio::Mixer *_mixer = nullptr;
     EngineSoundSetup _setup;
     std::vector<audio::SoundHandle> _playing; // one per sample, kNoSound if missing
 };
@@ -65,18 +65,18 @@ struct SirenSample {
     float volume = 1;
     std::vector<std::pair<float, int>> next; // seconds to play, then the sample to go on to
 };
-Error readSirenTable(std::string_view csv, std::vector<SirenSample>& out);
+Error readSirenTable(std::string_view csv, std::vector<SirenSample> &out);
 
 class SirenSound {
 public:
     ~SirenSound() { stop(); }
-    Error load(audio::Mixer& mixer, const SearchSet& files, const std::string& table);
+    Error load(audio::Mixer &mixer, const SearchSet &files, const std::string &table);
     // Plays at `volume` (0..1); 0 stops it, and it starts afresh next time.
     void update(float dt, float volume);
     void stop();
 
 private:
-    audio::Mixer* _mixer = nullptr;
+    audio::Mixer *_mixer = nullptr;
     std::vector<SirenSample> _samples;
     std::vector<std::shared_ptr<audio::Sound>> _sounds;
     audio::SoundHandle _playing = audio::kNoSound;
@@ -104,7 +104,7 @@ struct SurfaceSounds {
     int tunnel = 0; // the surface used in tunnels (not used yet)
     std::vector<SurfaceSound> surfaces;
 };
-Error readSurfaceSounds(std::string_view csv, SurfaceSounds& out);
+Error readSurfaceSounds(std::string_view csv, SurfaceSounds &out);
 
 // Knocks (aud/cardata/player/default_impacts.csv): for each kind of thing
 // hit (WALL, LIGHT, SIGN...), samples by how hard.
@@ -117,7 +117,7 @@ struct ImpactSounds {
     int id = 0;
     std::vector<ImpactSample> samples;
 };
-Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds>& out);
+Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds> &out);
 
 // The rest of a driven car's sounds: its horn, its clutch on changing
 // gear, its tyres on what they're on and skidding, its knocks (as the
@@ -127,18 +127,18 @@ class CarSounds {
 public:
     ~CarSounds() { stop(); }
     // The car's table and the shared ones; `wet` takes the wet roads'.
-    Error start(audio::Mixer& mixer, const SearchSet& files, const std::string& car, bool wet);
+    Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car, bool wet);
     // Follows the car (its gear, wheels and impact); `horn` held sounds it.
-    void update(float dt, const CarSim& car, bool horn);
+    void update(float dt, const CarSim &car, bool horn);
     void stop();
 
 private:
     using SoundPtr = std::shared_ptr<audio::Sound>;
-    SoundPtr load(const std::string& wave) const;
-    void loop(audio::SoundHandle& handle, const SoundPtr& sound, float volume, float pitch);
+    SoundPtr load(const std::string &wave) const;
+    void loop(audio::SoundHandle &handle, const SoundPtr &sound, float volume, float pitch);
 
-    audio::Mixer* _mixer = nullptr;
-    const SearchSet* _files = nullptr;
+    audio::Mixer *_mixer = nullptr;
+    const SearchSet *_files = nullptr;
     EngineSoundSetup _car;
     SoundPtr _horn, _clutch;
     audio::SoundHandle _hornPlaying = audio::kNoSound;

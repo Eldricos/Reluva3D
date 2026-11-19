@@ -27,7 +27,9 @@ constexpr float kFallenIn = 3;   // metres below the lowest point: in the water
 constexpr float kBustedHold = 3; // seconds to see it before the car's put back
 constexpr float kWreckedHold = 4;
 
-float flatDistance(const Vec3& a, const Vec3& b) { return std::hypot(a[0] - b[0], a[2] - b[2]); }
+float flatDistance(const Vec3 &a, const Vec3 &b) {
+    return std::hypot(a[0] - b[0], a[2] - b[2]);
+}
 
 std::string clockText(float seconds) {
     char buf[32];
@@ -80,15 +82,15 @@ void RaceViewer::startCruise() {
 }
 
 void RaceViewer::stepCruise(float dt) {
-    Racer& player = _racers.front();
-    CarSim& sim = player.car->sim;
+    Racer &player = _racers.front();
+    CarSim &sim = player.car->sim;
     if (cruising()) {
         // No end. Busted or wrecked: a moment to see it, then back where
         // the cruise started, mended.
         if (_cruiseHold > 0) {
             _cruiseHold -= dt;
             if (_cruiseHold <= 0) {
-                const Waypoint& w = _race.waypoints[0];
+                const Waypoint &w = _race.waypoints[0];
                 sim.reset(player.car->setup, w.position + Vec3{0, 0.5f, 0}, headingToYaw(w.heading));
                 _wear.mend(*player.car);
                 if (_smoke)
@@ -118,7 +120,7 @@ void RaceViewer::stepCruise(float dt) {
     }
     _stuntMessageFor = std::max(0.0f, _stuntMessageFor - dt);
     float lowest = _race.waypoints.front().position[1];
-    for (const Waypoint& w : _race.waypoints)
+    for (const Waypoint &w : _race.waypoints)
         lowest = std::min(lowest, w.position[1]);
     if (sim.position[1] < lowest - kFallenIn) {
         _outcome = "You fell in!";
@@ -138,7 +140,7 @@ void RaceViewer::stepCruise(float dt) {
 void RaceViewer::drawCruiseHud() {
     // As the game's cruise: no words but the police after you and why the
     // car's about to be put back.
-    const Racer& player = _racers.front();
+    const Racer &player = _racers.front();
     if (!_outcome.empty())
         drawCentred(_outcome, kFrameH / 2 - 40, {255, 120, 90}, 4);
     if (_life.police().chasing() > 0 && _cruiseHold <= 0)

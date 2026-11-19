@@ -39,7 +39,7 @@ struct BirthRule {
 };
 using SmokeRule = BirthRule;
 // From a rule's block (the fields above; the others aren't used).
-BirthRule parseBirthRule(const TuneNode& n);
+BirthRule parseBirthRule(const TuneNode &n);
 
 // tune/vehicle/<car>.vehCarDamage: see docs/engines/age-driving.md.
 struct DamageSetup {
@@ -51,8 +51,8 @@ struct DamageSetup {
     Vec3 smokeOffset{}, smokeOffset2{}; // car-relative
     SmokeRule smoke;
 };
-Error parseDamageSetup(std::string_view text, DamageSetup& out);
-Error loadDamageSetup(const SearchSet& files, const std::string& car, DamageSetup& out);
+Error parseDamageSetup(std::string_view text, DamageSetup &out);
+Error loadDamageSetup(const SearchSet &files, const std::string &car, DamageSetup &out);
 
 // A car's damage: knocks over the threshold add what they're over it.
 class CarDamage {
@@ -60,15 +60,15 @@ public:
     void reset() { _damage = 0; }
     void set(float damage) { _damage = damage; } // as another player's machine says
     // An impulse (kg m/s); what it added.
-    float knock(const DamageSetup& setup, float impulse);
-    void update(const DamageSetup& setup, float dt);
+    float knock(const DamageSetup &setup, float impulse);
+    void update(const DamageSetup &setup, float dt);
     float damage() const { return _damage; }
     // 0..1 of the way to wrecked.
-    float fraction(const DamageSetup& setup) const {
+    float fraction(const DamageSetup &setup) const {
         return setup.maxDamage > 0 ? std::min(1.0f, _damage / setup.maxDamage) : 0;
     }
-    bool smoking(const DamageSetup& setup) const { return _damage >= setup.medDamage; }
-    bool wrecked(const DamageSetup& setup) const { return _damage >= setup.maxDamage; }
+    bool smoking(const DamageSetup &setup) const { return _damage >= setup.medDamage; }
+    bool wrecked(const DamageSetup &setup) const { return _damage >= setup.maxDamage; }
 
 private:
     float _damage = 0;
@@ -87,13 +87,13 @@ struct CarWear {
     std::array<Vec3, 4> recentDents{};
 
     // Its setup (the defaults without one), mended.
-    void load(const SearchSet& files, const std::string& car, CarActor& actor);
-    void mend(CarActor& actor);
+    void load(const SearchSet &files, const std::string &car, CarActor &actor);
+    void mend(CarActor &actor);
     // After the car's step: its knock (sim.impact) damages it and dents the
     // body there; smoking, it puffs.
-    void update(float dt, CarActor& actor, SmokePuffs* smoke);
+    void update(float dt, CarActor &actor, SmokePuffs *smoke);
     // Its smoke alone, at the damage it has (another player's car).
-    void puff(float dt, const CarActor& actor, SmokePuffs* smoke);
+    void puff(float dt, const CarActor &actor, SmokePuffs *smoke);
     float fraction() const { return damage.fraction(setup); }
     bool wrecked() const { return damage.wrecked(setup); }
 };
@@ -103,10 +103,10 @@ struct CarWear {
 // cars' smoke is texture/fxpt8's (its four frames, two by two).
 class SmokePuffs {
 public:
-    SmokePuffs(gfx::Renderer3D& renderer, TextureCache& textures);
+    SmokePuffs(gfx::Renderer3D &renderer, TextureCache &textures);
     ~SmokePuffs();
-    SmokePuffs(const SmokePuffs&) = delete;
-    SmokePuffs& operator=(const SmokePuffs&) = delete;
+    SmokePuffs(const SmokePuffs &) = delete;
+    SmokePuffs &operator=(const SmokePuffs &) = delete;
 
     // A texture and how many frames across it (and down): 2 for the game's
     // 128-pixel sheets of four, else 1.
@@ -114,18 +114,18 @@ public:
         gfx::TextureId texture = 0;
         int grid = 1;
     };
-    Look look(const std::string& texture);
+    Look look(const std::string &texture);
 
     // One particle (the smoke's look by default).
-    void emit(const BirthRule& rule, const Vec3& at, const Vec3& carVelocity, const Look* look = nullptr);
+    void emit(const BirthRule &rule, const Vec3 &at, const Vec3 &carVelocity, const Look *look = nullptr);
     // A rule's InitialBlast at once (at least one), then its SpewRate for
     // its SpewTimeLimit.
-    void burst(const BirthRule& rule, const Vec3& at, const Vec3& velocity, const Look& look);
+    void burst(const BirthRule &rule, const Vec3 &at, const Vec3 &velocity, const Look &look);
     // What a car's wheels throw up from what they're on (the surfaces'
     // particles): tune/effects/*.asBirthRule, by Reluva's reading of the
     // materials' effect numbers (see docs/engines/age-driving.md).
-    void loadWheelEffects(const SearchSet& files);
-    void wheels(float dt, const CarSim& car);
+    void loadWheelEffects(const SearchSet &files);
+    void wheels(float dt, const CarSim &car);
     void update(float dt);
     void clear() {
         _puffs.clear();
@@ -133,7 +133,7 @@ public:
         _wheelOwed.clear();
     }
     size_t count() const { return _puffs.size(); }
-    void draw(const Vec3& eye) const;
+    void draw(const Vec3 &eye) const;
 
 private:
     struct Puff {
@@ -149,8 +149,8 @@ private:
         Look look;
         float left = 0, owed = 0;
     };
-    gfx::Renderer3D& _renderer;
-    TextureCache& _textures;
+    gfx::Renderer3D &_renderer;
+    TextureCache &_textures;
     gfx::MeshId _quad = 0;
     Look _smoke;
     std::map<std::string, Look> _looks;
@@ -162,7 +162,7 @@ private:
         bool loaded = false;
     };
     std::array<WheelEffect, 8> _wheelEffects;
-    std::map<const CarSim*, std::array<float, 8>> _wheelOwed; // particles owed, per wheel and threshold
+    std::map<const CarSim *, std::array<float, 8>> _wheelOwed; // particles owed, per wheel and threshold
     std::minstd_rand _random{7};
 };
 

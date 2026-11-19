@@ -16,21 +16,21 @@ struct Image {
     int w = 0, h = 0;
     std::vector<uint8_t> rgba;
 
-    uint8_t* pixel(int x, int y) { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
-    const uint8_t* pixel(int x, int y) const { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
+    uint8_t *pixel(int x, int y) { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
+    const uint8_t *pixel(int x, int y) const { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
 };
 
 // Decode a TGA (uncompressed or RLE; true-colour, grey or colour-mapped,
 // either row order), JPEG (baseline or progressive), PNG or BMP file, told
 // apart by their contents. Uses stb_image (third_party/stb).
-Error decode(const std::vector<uint8_t>& data, Image& out);
+Error decode(const std::vector<uint8_t> &data, Image &out);
 
 // Encode the image as an uncompressed 24-bit TGA (bottom row first, as
 // most programs write them); alpha is dropped.
-std::vector<uint8_t> encodeTga(const Image& img);
+std::vector<uint8_t> encodeTga(const Image &img);
 
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
 // clipped to it, blending by alpha over what's there.
-void blit(Surface& dst, const Image& img, int x, int y);
+void blit(Surface &dst, const Image &img, int x, int y);
 
 } // namespace reluva::image

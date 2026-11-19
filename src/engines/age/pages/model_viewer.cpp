@@ -18,19 +18,23 @@ namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
 
-bool isLevel(const std::string& level) { return level == "H" || level == "M" || level == "L" || level == "VL"; }
+bool isLevel(const std::string &level) {
+    return level == "H" || level == "M" || level == "L" || level == "VL";
+}
 
 } // namespace
 
-ModelViewer::ModelViewer(ViewerContext& ctx) : Page(ctx) {
-    for (const std::string& n : ctx.files.list()) {
+ModelViewer::ModelViewer(ViewerContext &ctx) : Page(ctx) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("geometry/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".pkg") == 0)
             _names.push_back(n);
     }
 }
 
-ModelViewer::~ModelViewer() { deactivate(); }
+ModelViewer::~ModelViewer() {
+    deactivate();
+}
 
 void ModelViewer::deactivate() {
     if (_renderer)
@@ -56,7 +60,7 @@ void ModelViewer::activate() {
 
 void ModelViewer::show(int index) {
     _index = index;
-    const std::string& name = _names[size_t(index)];
+    const std::string &name = _names[size_t(index)];
     setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(_names.size()) + ")");
     destroyModelMesh(*_renderer, _mesh);
     _textures->clear();
@@ -96,7 +100,7 @@ void ModelViewer::resetView() {
     _distance = _radius * 2.4f;
 }
 
-void ModelViewer::handleEvent(const Event& ev) {
+void ModelViewer::handleEvent(const Event &ev) {
     if (!_renderer || _names.empty())
         return;
     if (ev.type == EventType::kKeyDown) {
@@ -165,9 +169,9 @@ void ModelViewer::drawInfo() {
     const int lh = font::kLineHeight;
     std::vector<std::pair<std::string, Color>> lines;
     const Color white{230, 230, 230}, blue{150, 200, 255}, red{255, 120, 120};
-    lines.push_back({_names[size_t(_index)] + "  (" + std::to_string(_index + 1) + "/" +
-                         std::to_string(_names.size()) + ")",
-                     blue});
+    lines.push_back(
+        {_names[size_t(_index)] + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_names.size()) + ")",
+         blue});
     if (!_error.empty()) {
         lines.push_back({_error, red});
     } else if (_showInfo) {
@@ -181,7 +185,7 @@ void ModelViewer::drawInfo() {
                       _showLights ? "shown" : "hidden", _mesh.vertices, _mesh.triangles);
         lines.push_back({buf, white});
         std::string parts;
-        for (const PkgMesh& m : _pkg.meshes)
+        for (const PkgMesh &m : _pkg.meshes)
             if (isLightPart(m.part()) ? _showLights
                                       : _levels.empty() || m.level() == _levels[size_t(_level)] || !isLevel(m.level()))
                 parts += (parts.empty() ? "" : " ") + m.name;
@@ -189,16 +193,16 @@ void ModelViewer::drawInfo() {
         std::snprintf(buf, sizeof buf, "%u shaders a paint job; %zu placed models", _pkg.shadersPerJob,
                       _pkg.xrefs.size());
         lines.push_back({buf, white});
-        for (const PkgXref& x : _pkg.xrefs)
+        for (const PkgXref &x : _pkg.xrefs)
             if (lines.size() < 12)
                 lines.push_back({"  " + x.name + " at " + std::to_string(x.matrix[9]) + " " +
                                      std::to_string(x.matrix[10]) + " " + std::to_string(x.matrix[11]),
                                  white});
-        for (const std::string& m : _textures->missing())
+        for (const std::string &m : _textures->missing())
             lines.push_back({"missing texture: " + m, red});
     }
     int y = 4;
-    for (const auto& [line, color] : lines) {
+    for (const auto &[line, color] : lines) {
         if (y > kFrameH - lh)
             break;
         font::drawText(_overlay, 4, y, line, color);

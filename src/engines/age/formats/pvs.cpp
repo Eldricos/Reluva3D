@@ -12,7 +12,7 @@ namespace reluva::age {
 
 namespace {
 
-uint32_t u32(const uint8_t* p) {
+uint32_t u32(const uint8_t *p) {
     return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
 }
 
@@ -21,12 +21,12 @@ uint32_t u32(const uint8_t* p) {
 bool Pvs::sees(size_t from, size_t to) const {
     if (from == 0 || from > rows.size() || to >= blocks)
         return true;
-    const std::vector<uint8_t>& row = rows[from - 1];
+    const std::vector<uint8_t> &row = rows[from - 1];
     const size_t byte = to / 4;
     return byte < row.size() && (row[byte] >> (2 * (to % 4)) & 3) != 0;
 }
 
-Error readCpvs(const std::vector<uint8_t>& data, Pvs& out) {
+Error readCpvs(const std::vector<uint8_t> &data, Pvs &out) {
     out = Pvs{};
     if (data.size() < 8 || std::memcmp(data.data(), "PVS0", 4) != 0)
         return Error::fail("not a visibility file (no PVS0)");

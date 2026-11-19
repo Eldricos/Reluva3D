@@ -22,18 +22,18 @@ namespace reluva::age {
 class HelpViewer {
 public:
     // Reads the help; false (and why) if it isn't there or can't be read.
-    Error load(const SearchSet& files);
+    Error load(const SearchSet &files);
     bool loaded() const { return !_list.empty(); }
 
     void open();
     bool isOpen() const { return _open; }
-    void handle(const Event& ev); // closes itself on Esc from the list
-    void draw(Surface& overlay) const;
+    void handle(const Event &ev); // closes itself on Esc from the list
+    void draw(Surface &overlay) const;
 
     // For tests: the topic being read (-1: the list), its links (each the
     // topic it goes to), the one chosen.
     int reading() const { return _reading; }
-    const std::vector<int>& links() const { return _links; }
+    const std::vector<int> &links() const { return _links; }
     int chosenLink() const { return _link; }
 
 private:
@@ -50,8 +50,8 @@ private:
     void follow(int link);
     void showLink(int link); // scrolled into view
     int visibleRows() const;
-    const winhelp::Picture* picture(int number) const;
-    int pictureLines(const winhelp::Picture& p) const;
+    const winhelp::Picture *picture(int number) const;
+    int pictureLines(const winhelp::Picture &p) const;
 
     std::vector<uint8_t> _file;                        // the help, for its pictures
     std::vector<winhelp::Topic> _topics;               // every topic (links go to any)

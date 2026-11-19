@@ -21,32 +21,32 @@ namespace reluva::age {
 // its drivers (.bai, .aimap) aren't read yet.
 class RoadGraph {
 public:
-    void build(const Psdl& psdl);
+    void build(const Psdl &psdl);
     // From the road map instead (city/<map>.bai): every road's middle line
     // to the junctions at its ends; the roads not for traffic (flag 2: the
     // Underground, some ramps and alleys) cost four times their length.
-    void build(const AiRoadMap& map);
+    void build(const AiRoadMap &map);
     // Joins whose straight line runs into a wall (the city's collision, at
     // a car's height) cost `penalty` times as much: built from the roads'
     // ends, a few join through a building's corner. Not taken away, so
     // the roads stay joined where there's no other way. How many.
-    size_t penalizeBlocked(const CollisionWorld& world, float penalty = 20);
+    size_t penalizeBlocked(const CollisionWorld &world, float penalty = 20);
     // The road point nearest `p`, if one's near enough to drive from.
-    bool nearestNode(const Vec3& p, Vec3& out, float reach = 60) const;
+    bool nearestNode(const Vec3 &p, Vec3 &out, float reach = 60) const;
 
     // From a to b along the roads: the points to drive through, ending at
     // b; just {b} if there's no road near or no way.
     // `reach`: how far from a road a and b may be (60 m by default).
-    std::vector<Vec3> route(const Vec3& a, const Vec3& b, float reach = 60) const;
+    std::vector<Vec3> route(const Vec3 &a, const Vec3 &b, float reach = 60) const;
 
     size_t nodeCount() const { return _nodes.size(); }
     size_t edgeCount() const;
-    const std::vector<Vec3>& nodes() const { return _nodes; }
+    const std::vector<Vec3> &nodes() const { return _nodes; }
 
 private:
-    uint32_t add(const Vec3& p);
+    uint32_t add(const Vec3 &p);
     void join(uint32_t a, uint32_t b, float weight = 1);
-    int nearest(const Vec3& p, float reach = 60) const;
+    int nearest(const Vec3 &p, float reach = 60) const;
 
     std::vector<Vec3> _nodes;
     std::vector<std::vector<std::pair<uint32_t, float>>> _links; // neighbour, distance

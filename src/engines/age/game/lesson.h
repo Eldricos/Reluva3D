@@ -31,14 +31,14 @@ public:
         int carTouches = 0; // times it's run into a car since the start
         int chasing = 0;    // police chasing it
         bool busted = false, wrecked = false;
-        float targetDistance = -1; // metres to the car to follow (-1: none)
-        bool targetDone = false;   // that car has reached its end
+        float targetDistance = -1;  // metres to the car to follow (-1: none)
+        bool targetDone = false;    // that car has reached its end
         bool targetStopped = false; // the car to destroy is wrecked, over or stopped
         int police = 0;             // police in the lesson
     };
 
-    void start(const LessonSettings& lesson);
-    Result step(const Frame& f);
+    void start(const LessonSettings &lesson);
+    Result step(const Frame &f);
     Result result() const { return _result; }
 
     // Seconds added (none: the penalties' messages, 216, belong to a

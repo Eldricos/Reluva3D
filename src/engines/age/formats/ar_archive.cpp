@@ -17,17 +17,19 @@ namespace {
 constexpr size_t kHeaderSize = 2048; // the directory starts here
 constexpr size_t kEntrySize = 16;
 
-uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
+uint32_t le32(const uint8_t *p) {
+    return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+}
 
-bool readAt(std::ifstream& in, uint64_t offset, uint8_t* out, size_t size) {
+bool readAt(std::ifstream &in, uint64_t offset, uint8_t *out, size_t size) {
     in.clear();
     in.seekg(static_cast<std::streamoff>(offset));
-    return static_cast<bool>(in.read(reinterpret_cast<char*>(out), static_cast<std::streamsize>(size)));
+    return static_cast<bool>(in.read(reinterpret_cast<char *>(out), static_cast<std::streamsize>(size)));
 }
 
 } // namespace
 
-Error ArArchive::open(const std::filesystem::path& path) {
+Error ArArchive::open(const std::filesystem::path &path) {
     _path = path;
     _entries.clear();
     _byName.clear();
@@ -55,7 +57,7 @@ Error ArArchive::open(const std::filesystem::path& path) {
 
     _entries.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
-        const uint8_t* d = &dir[i * kEntrySize];
+        const uint8_t *d = &dir[i * kEntrySize];
         const uint32_t nameAt = le32(d);
         size_t nameEnd = nameAt;
         while (nameEnd < names.size() && names[nameEnd] != 0)
@@ -63,7 +65,7 @@ Error ArArchive::open(const std::filesystem::path& path) {
         if (nameEnd >= names.size())
             return Error::fail(where + ": damaged name table");
         Entry e;
-        e.name.assign(reinterpret_cast<const char*>(&names[nameAt]), nameEnd - nameAt);
+        e.name.assign(reinterpret_cast<const char *>(&names[nameAt]), nameEnd - nameAt);
         e.offset = le32(d + 4);
         e.size = le32(d + 8);
         e.storedSize = le32(d + 12);
@@ -80,26 +82,28 @@ Error ArArchive::open(const std::filesystem::path& path) {
 std::vector<std::string> ArArchive::list() const {
     std::vector<std::string> names;
     names.reserve(_entries.size());
-    for (const Entry& e : _entries)
+    for (const Entry &e : _entries)
         names.push_back(e.name);
     return names;
 }
 
-const ArArchive::Entry* ArArchive::entry(std::string_view name) const {
+const ArArchive::Entry *ArArchive::entry(std::string_view name) const {
     auto it = _byName.find(normalizeArchiveName(name));
     return it == _byName.end() ? nullptr : &_entries[it->second];
 }
 
-bool ArArchive::has(std::string_view name) const { return entry(name) != nullptr; }
+bool ArArchive::has(std::string_view name) const {
+    return entry(name) != nullptr;
+}
 
-Error ArArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
-    const Entry* e = entry(name);
+Error ArArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
+    const Entry *e = entry(name);
     if (!e)
         return Error::fail(std::string(name) + " not found in " + _path.string());
     return read(*e, out);
 }
 
-Error ArArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
+Error ArArchive::read(const Entry &e, std::vector<uint8_t> &out) const {
     const std::string where = _path.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
     std::ifstream in(_path, std::ios::binary);

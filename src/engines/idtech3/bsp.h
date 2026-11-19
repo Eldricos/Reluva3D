@@ -84,7 +84,7 @@ struct BspSurface {
     std::array<int32_t, 2> lightmapPos{}, lightmapSize{};
     std::array<float, 3> lightmapOrigin{};
     std::array<std::array<float, 3>, 3> lightmapVecs{}; // s, t, normal; patches: bounds, bounds, normal
-    int32_t patchWidth = 0, patchHeight = 0;           // patch control points
+    int32_t patchWidth = 0, patchHeight = 0;            // patch control points
 };
 
 constexpr int kLightmapSize = 128; // lightmaps are 128x128 RGB
@@ -131,6 +131,6 @@ struct Bsp {
 // in range, so the rest of the engine can trust the result. Out-of-range
 // values the original engine tolerates are corrected instead (see `fixes`);
 // errors name the record, the field and its value.
-Error parseBsp(const std::vector<uint8_t>& data, Bsp& out);
+Error parseBsp(const std::vector<uint8_t> &data, Bsp &out);
 
 } // namespace reluva::idtech3

@@ -20,9 +20,9 @@ namespace reluva::age {
 
 namespace {
 
-constexpr float kGroundTile = 10;  // metres a ground texture covers, for fans and roofs
-constexpr float kRoadRepeat = 1;   // a texture's length along a strip, per strip width
-constexpr int kArchSteps = 8;      // pieces across a curved tunnel ceiling
+constexpr float kGroundTile = 10; // metres a ground texture covers, for fans and roofs
+constexpr float kRoadRepeat = 1;  // a texture's length along a strip, per strip width
+constexpr int kArchSteps = 8;     // pieces across a curved tunnel ceiling
 
 // A tunnel attribute's flags (psdl.md): which sides have walls, the
 // ceiling, and which ends of a curved ceiling are closed.
@@ -31,23 +31,23 @@ constexpr uint16_t kLeft = 0x1, kRight = 0x2, kFascia = 0x4, kFlatCeiling = 0x8,
                    kClosedEndLeft = 0x20, kClosedStartRight = 0x40, kClosedEndRight = 0x80, kCurvedCeiling = 0x100;
 }
 
-float length(const Vec3& a, const Vec3& b) {
+float length(const Vec3 &a, const Vec3 &b) {
     const float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 class Builder {
 public:
-    Builder(const Psdl& psdl, CityMesh& out) : _psdl(psdl), _out(out) {
+    Builder(const Psdl &psdl, CityMesh &out) : _psdl(psdl), _out(out) {
         for (size_t i = 0; i < _out.batches.size(); ++i)
             _batchOf.emplace(keyOf(_out.batches[i].texture, _out.batches[i].water, _out.batches[i].detail), i);
     }
 
-    void block(const PsdlBlock& b, uint16_t index) {
+    void block(const PsdlBlock &b, uint16_t index) {
         _block = index;
         uint32_t texture = 0;
         _tunnel.reset();
-        for (const PsdlAttribute& a : b.attributes) {
+        for (const PsdlAttribute &a : b.attributes) {
             if (a.type == psdlattr::kTexture) {
                 texture = uint32_t(a.subtype) * 256 + a.words[0];
                 continue;
@@ -65,11 +65,11 @@ public:
     }
 
     // A flat fan over a block's outline at `height` (water).
-    void plane(const PsdlBlock& b, uint16_t index, float height, uint32_t texture) {
+    void plane(const PsdlBlock &b, uint16_t index, float height, uint32_t texture) {
         _block = index;
         _water = true;
         std::vector<Vec3> p;
-        for (const auto& [v, beyond] : b.perimeter) {
+        for (const auto &[v, beyond] : b.perimeter) {
             Vec3 q = vertex(v);
             q[1] = height;
             p.push_back(q);
@@ -82,7 +82,7 @@ private:
     Vec3 vertex(uint16_t i) const { return i < _psdl.vertices.size() ? _psdl.vertices[i] : Vec3{}; }
     float height(uint16_t i) const { return i < _psdl.heights.size() ? _psdl.heights[i] : 0; }
 
-    static std::string keyOf(const std::string& texture, bool water, uint8_t detail) {
+    static std::string keyOf(const std::string &texture, bool water, uint8_t detail) {
         return std::string(water ? "~" : "") + char('0' + detail) + texture;
     }
     size_t batchIndex(uint32_t texture) {
@@ -95,7 +95,7 @@ private:
         }
         return it->second;
     }
-    std::vector<uint32_t>& batch(uint32_t texture) { return _out.batches[batchIndex(texture)].indices; }
+    std::vector<uint32_t> &batch(uint32_t texture) { return _out.batches[batchIndex(texture)].indices; }
 
     // A triangle with its face's normal; `ground` turns it to face up.
     void triangle(uint32_t texture, const Vec3 (&p)[3], const float (&uv)[3][2], bool ground) {
@@ -105,13 +105,13 @@ private:
         const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
         if (len < 1e-6f)
             return; // degenerate
-        for (float& c : n)
+        for (float &c : n)
             c /= len;
         if (ground && n[1] < 0)
-            for (float& c : n)
+            for (float &c : n)
                 c = -c;
         _out.batches[batchIndex(texture)].blocks.push_back(_block);
-        std::vector<uint32_t>& idx = batch(texture);
+        std::vector<uint32_t> &idx = batch(texture);
         for (int k = 0; k < 3; ++k) {
             gfx::Vertex v{};
             for (int c = 0; c < 3; ++c) {
@@ -127,15 +127,15 @@ private:
     }
 
     // A quad a, b, c, d (a-b one edge, d-c the opposite, as a strip).
-    void quad(uint32_t texture, const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d, const float (&uv)[4][2],
+    void quad(uint32_t texture, const Vec3 &a, const Vec3 &b, const Vec3 &c, const Vec3 &d, const float (&uv)[4][2],
               bool ground) {
         triangle(texture, {a, b, c}, {{uv[0][0], uv[0][1]}, {uv[1][0], uv[1][1]}, {uv[2][0], uv[2][1]}}, ground);
         triangle(texture, {a, c, d}, {{uv[0][0], uv[0][1]}, {uv[2][0], uv[2][1]}, {uv[3][0], uv[3][1]}}, ground);
     }
 
     // A fan over vertices, textured by position.
-    void fan(uint32_t texture, const std::vector<Vec3>& p) {
-        auto uv = [](const Vec3& v) { return std::array<float, 2>{v[0] / kGroundTile, v[2] / kGroundTile}; };
+    void fan(uint32_t texture, const std::vector<Vec3> &p) {
+        auto uv = [](const Vec3 &v) { return std::array<float, 2>{v[0] / kGroundTile, v[2] / kGroundTile}; };
         for (size_t i = 1; i + 1 < p.size(); ++i) {
             const auto a = uv(p[0]), b = uv(p[i]), c = uv(p[i + 1]);
             triangle(texture, {p[0], p[i], p[i + 1]}, {{a[0], a[1]}, {b[0], b[1]}, {c[0], c[1]}}, true);
@@ -145,7 +145,7 @@ private:
     // A strip of pairs (left[i], right[i]): the texture's v from `vLeft`
     // at the left to `vRight` at the right, its u along the strip, a
     // texture's height of it per width (so it isn't stretched).
-    void strip(uint32_t texture, const std::vector<Vec3>& left, const std::vector<Vec3>& right, float vLeft = 0,
+    void strip(uint32_t texture, const std::vector<Vec3> &left, const std::vector<Vec3> &right, float vLeft = 0,
                float vRight = 1) {
         float u = 0;
         for (size_t i = 0; i + 1 < left.size(); ++i) {
@@ -164,7 +164,7 @@ private:
     // Where the third texture of the road's is a low-detail version of it
     // (r2_f, swalk_f, r2_lo_f), the road is made twice: with its own for
     // near, with that one for far off.
-    void road(uint32_t texture, const std::vector<Vec3>& left, const std::vector<Vec3>& right) {
+    void road(uint32_t texture, const std::vector<Vec3> &left, const std::vector<Vec3> &right) {
         std::vector<Vec3> middle(left.size());
         for (size_t i = 0; i < left.size(); ++i)
             for (size_t k = 0; k < 3; ++k)
@@ -183,31 +183,31 @@ private:
 
     // A sidewalk along a road: its inner edge (at the road) lifted to the
     // outer edge's height, and the curb's face down to the road.
-    void sidewalk(uint32_t texture, const std::vector<Vec3>& inner, const std::vector<Vec3>& outer) {
+    void sidewalk(uint32_t texture, const std::vector<Vec3> &inner, const std::vector<Vec3> &outer) {
         std::vector<Vec3> raised = inner;
         for (size_t i = 0; i < raised.size(); ++i)
             raised[i][1] = std::max(inner[i][1], outer[i][1]);
         strip(texture, raised, outer);
         for (size_t i = 0; i + 1 < inner.size(); ++i)
             if (raised[i][1] > inner[i][1] || raised[i + 1][1] > inner[i + 1][1])
-                quad(texture, inner[i], inner[i + 1], raised[i + 1], raised[i], {{0, 0}, {1, 0}, {1, 0.05f}, {0, 0.05f}},
-                     false);
+                quad(texture, inner[i], inner[i + 1], raised[i + 1], raised[i],
+                     {{0, 0}, {1, 0}, {1, 0.05f}, {0, 0.05f}}, false);
     }
 
     // A divider between a divided road's carriageways: flat, or raised
     // `height` with sides (a kerbed island, a barrier), and ends where
     // `capStart` and `capEnd` say (not where it runs on into the next
     // block's).
-    void divider(uint32_t texture, const std::vector<Vec3>& left, const std::vector<Vec3>& right, float height,
+    void divider(uint32_t texture, const std::vector<Vec3> &left, const std::vector<Vec3> &right, float height,
                  bool capStart = true, bool capEnd = true) {
         if (height <= 0) {
             strip(texture, left, right);
             return;
         }
         std::vector<Vec3> topLeft = left, topRight = right;
-        for (Vec3& v : topLeft)
+        for (Vec3 &v : topLeft)
             v[1] += height;
-        for (Vec3& v : topRight)
+        for (Vec3 &v : topRight)
             v[1] += height;
         strip(texture, topLeft, topRight);
         const float v = std::min(1.0f, height / 4);
@@ -228,7 +228,7 @@ private:
     }
 
     // A wall from left to right, between two heights at each end.
-    void wall(uint32_t texture, const Vec3& left, const Vec3& right, float leftBottom, float rightBottom, float top,
+    void wall(uint32_t texture, const Vec3 &left, const Vec3 &right, float leftBottom, float rightBottom, float top,
               float u, float v) {
         const Vec3 a{left[0], leftBottom, left[2]}, b{right[0], rightBottom, right[2]};
         const Vec3 c{right[0], top, right[2]}, d{left[0], top, left[2]};
@@ -255,7 +255,7 @@ private:
     // texture once up it, its first row at the foot (as the footage shows
     // `s_wall_veg`: stone at the bottom, plants along the top), and
     // repeated along it by length over height.
-    void sideWall(uint32_t texture, const std::vector<Vec3>& edge, float height) {
+    void sideWall(uint32_t texture, const std::vector<Vec3> &edge, float height) {
         float u = 0;
         for (size_t i = 0; i + 1 < edge.size(); ++i) {
             const float u2 = u + length(edge[i], edge[i + 1]) / std::max(0.5f, height);
@@ -271,7 +271,7 @@ private:
     // footage as a plain light strip along the deck. Its texture is
     // Reluva's choice: the plain middle of the wall's (s_wall_veg's
     // concrete, between its stone and its plants).
-    void fascia(uint32_t texture, const std::vector<Vec3>& edge, float depth) {
+    void fascia(uint32_t texture, const std::vector<Vec3> &edge, float depth) {
         float u = 0;
         for (size_t i = 0; i + 1 < edge.size(); ++i) {
             const float u2 = u + length(edge[i], edge[i + 1]) / std::max(0.5f, depth * 2);
@@ -282,7 +282,7 @@ private:
         }
     }
 
-    void tunnel(const Tunnel& t, const std::vector<Vec3>& left, const std::vector<Vec3>& right) {
+    void tunnel(const Tunnel &t, const std::vector<Vec3> &left, const std::vector<Vec3> &right) {
         if (left.size() < 2 || left.size() != right.size())
             return;
         if (t.flags & tunnelflag::kFascia) {
@@ -336,7 +336,7 @@ private:
     // A junction's tunnel: walls along the block's outline where `edges`
     // has a bit (bit i: the edge ending at outline vertex i; those with no
     // block beyond them), and its flat ceiling over the whole block.
-    void junction(const PsdlBlock& b, const Tunnel& t, uint32_t edges) {
+    void junction(const PsdlBlock &b, const Tunnel &t, uint32_t edges) {
         const size_t n = b.perimeter.size();
         if (n < 3)
             return;
@@ -349,7 +349,7 @@ private:
             }
         if (t.flags & (tunnelflag::kFlatCeiling | tunnelflag::kCurvedCeiling)) {
             std::vector<Vec3> p;
-            for (const auto& [v, beyond] : b.perimeter) {
+            for (const auto &[v, beyond] : b.perimeter) {
                 Vec3 q = vertex(v);
                 q[1] += t.first;
                 p.push_back(q);
@@ -358,8 +358,8 @@ private:
         }
     }
 
-    void attribute(const PsdlAttribute& a, uint32_t texture) {
-        const auto& w = a.words;
+    void attribute(const PsdlAttribute &a, uint32_t texture) {
+        const auto &w = a.words;
         switch (a.type) {
         case psdlattr::kRoadStrip: {
             // Sections of: outer left (sidewalk), inner left, inner right, outer right.
@@ -484,12 +484,13 @@ private:
             wall(texture, l, r, l[1], r[1], top, u, 1);
             break;
         }
-        default: break; // facade bounds aren't drawn
+        default:
+            break; // facade bounds aren't drawn
         }
     }
 
-    const Psdl& _psdl;
-    CityMesh& _out;
+    const Psdl &_psdl;
+    CityMesh &_out;
     std::map<std::string, size_t> _batchOf;
     std::optional<Tunnel> _tunnel; // waiting for the strip it walls
     uint16_t _block = 0;
@@ -499,14 +500,14 @@ private:
 
 } // namespace
 
-void buildCityMesh(const Psdl& psdl, CityMesh& out) {
+void buildCityMesh(const Psdl &psdl, CityMesh &out) {
     out = CityMesh{};
     Builder b(psdl, out);
     for (size_t i = 0; i < psdl.blocks.size(); ++i)
         b.block(psdl.blocks[i], uint16_t(i));
 }
 
-Error parseCityWater(const std::string& text, CityWater& out) {
+Error parseCityWater(const std::string &text, CityWater &out) {
     out = CityWater{};
     size_t at = 0;
     bool first = true;
@@ -517,7 +518,7 @@ Error parseCityWater(const std::string& text, CityWater& out) {
         const size_t end = text.find_first_of(" \t\r\n", start);
         const std::string word = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
         at = end == std::string::npos ? text.size() : end;
-        char* rest = nullptr;
+        char *rest = nullptr;
         if (first) {
             out.height = std::strtof(word.c_str(), &rest);
             first = false;
@@ -535,7 +536,7 @@ Error parseCityWater(const std::string& text, CityWater& out) {
     return Error::success();
 }
 
-void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out) {
+void addCityDecals(const std::vector<PathsetPath> &paths, CityMesh &out) {
     constexpr float kLift = 0.03f; // over the road, so as not to flicker into it
     // The highest of the city's surfaces facing up under a point, and its
     // block. (The paths' point words aren't reliably blocks.)
@@ -544,18 +545,18 @@ void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out) {
         uint16_t block;
     };
     std::vector<Triangle> triangles;
-    for (const CityMesh::Batch& b : out.batches) {
+    for (const CityMesh::Batch &b : out.batches) {
         if (b.water || b.decal || b.detail == 2)
             continue;
         for (size_t t = 0; t < b.blocks.size() && 3 * t + 2 < b.indices.size(); ++t)
             triangles.push_back({{b.indices[3 * t], b.indices[3 * t + 1], b.indices[3 * t + 2]}, b.blocks[t]});
     }
-    auto ground = [&](const Vec3& at, uint16_t* block) {
+    auto ground = [&](const Vec3 &at, uint16_t *block) {
         float best = -1e30f;
-        for (const Triangle& tri : triangles) {
-            const auto& A = out.vertices[tri.v[0]].pos;
-            const auto& B = out.vertices[tri.v[1]].pos;
-            const auto& C = out.vertices[tri.v[2]].pos;
+        for (const Triangle &tri : triangles) {
+            const auto &A = out.vertices[tri.v[0]].pos;
+            const auto &B = out.vertices[tri.v[1]].pos;
+            const auto &C = out.vertices[tri.v[2]].pos;
             if (at[0] < std::min({A[0], B[0], C[0]}) - 0.1f || at[0] > std::max({A[0], B[0], C[0]}) + 0.1f ||
                 at[2] < std::min({A[2], B[2], C[2]}) - 0.1f || at[2] > std::max({A[2], B[2], C[2]}) + 0.1f)
                 continue;
@@ -576,7 +577,7 @@ void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out) {
         }
         return best > -1e29f ? best : at[1];
     };
-    for (const PathsetPath& p : paths) {
+    for (const PathsetPath &p : paths) {
         if (p.model.empty() || p.model.rfind("PATH", 0) == 0 || p.points.size() < 4)
             continue;
         CityMesh::Batch batch;
@@ -595,7 +596,7 @@ void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out) {
             }
             for (int side = 0; side < 2; ++side) {
                 gfx::Vertex v{};
-                const Vec3& at = side ? b : a;
+                const Vec3 &at = side ? b : a;
                 v.pos[0] = at[0];
                 v.pos[1] = ground(at, nullptr) + kLift;
                 v.pos[2] = at[2];
@@ -628,7 +629,7 @@ void addCityDecals(const std::vector<PathsetPath>& paths, CityMesh& out) {
     }
 }
 
-void addCityWater(const Psdl& psdl, const CityWater& water, uint32_t texture, CityMesh& out) {
+void addCityWater(const Psdl &psdl, const CityWater &water, uint32_t texture, CityMesh &out) {
     Builder b(psdl, out);
     for (uint16_t i : water.blocks)
         if (i < psdl.blocks.size())

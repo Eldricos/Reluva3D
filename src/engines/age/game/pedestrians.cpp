@@ -17,14 +17,18 @@ namespace {
 
 constexpr float kSpawnNear = 70, kSpawnFar = 120, kForget = 140;
 constexpr float kDrawDistance = 120;
-constexpr float kCorner = 12;    // metres to another sidewalk's end to walk on along it
+constexpr float kCorner = 12;      // metres to another sidewalk's end to walk on along it
 constexpr float kLookAhead = 1.6f; // seconds ahead a car is seen coming
 constexpr float kMiss = 2.4f;      // metres it has to pass by not to be dived from
 
-float flat(const Vec3& v) { return std::sqrt(v[0] * v[0] + v[2] * v[2]); }
-float yawOf(const Vec3& d) { return std::atan2(-d[0], -d[2]); }
+float flat(const Vec3 &v) {
+    return std::sqrt(v[0] * v[0] + v[2] * v[2]);
+}
+float yawOf(const Vec3 &d) {
+    return std::atan2(-d[0], -d[2]);
+}
 
-std::vector<float> distances(const std::vector<Vec3>& points) {
+std::vector<float> distances(const std::vector<Vec3> &points) {
     std::vector<float> at(points.size(), 0);
     for (size_t i = 1; i < points.size(); ++i)
         at[i] = at[i - 1] + length(points[i] - points[i - 1]);
@@ -33,13 +37,13 @@ std::vector<float> distances(const std::vector<Vec3>& points) {
 
 } // namespace
 
-Error Pedestrians::setup(gfx::Renderer3D& renderer, const SearchSet& files, const AiRoadMap& map,
-                         const AiMapSettings& settings, bool rain, uint32_t seed) {
+Error Pedestrians::setup(gfx::Renderer3D &renderer, const SearchSet &files, const AiRoadMap &map,
+                         const AiMapSettings &settings, bool rain, uint32_t seed) {
     unload();
     _rng.seed(seed);
     // Every sidewalk's middle line.
-    for (const AiRoad& road : map.roads)
-        for (const AiRoadSide& side : road.sides) {
+    for (const AiRoad &road : map.roads)
+        for (const AiRoadSide &side : road.sides) {
             // Kind 3 sides have no sidewalk (the Underground, ramps).
             if (side.sidewalk.size() < 2 || side.kind == 3)
                 continue;
@@ -53,7 +57,7 @@ Error Pedestrians::setup(gfx::Renderer3D& renderer, const SearchSet& files, cons
             _walks.push_back(std::move(w));
         }
     Error first = Error::success();
-    for (const auto& pair : settings.peds) {
+    for (const auto &pair : settings.peds) {
         auto model = std::make_unique<PedModel>();
         const Error err = model->load(renderer, files, rain ? pair.bad : pair.good,
                                       {"WALK", "STAND", "STAND_WALK", "WALK_LDIVE", "WALK_RDIVE"});
@@ -74,13 +78,13 @@ void Pedestrians::unload() {
     _walks.clear();
 }
 
-void Pedestrians::startMove(Ped& p, int move) {
+void Pedestrians::startMove(Ped &p, int move) {
     p.move = move;
     p.time = 0;
 }
 
-void Pedestrians::placeOnWalk(Ped& p) {
-    const Walk& w = _walks[size_t(p.walk)];
+void Pedestrians::placeOnWalk(Ped &p) {
+    const Walk &w = _walks[size_t(p.walk)];
     Vec3 heading;
     const Vec3 c = pointAlong(w.points, w.at, p.s, &heading);
     if (!p.ahead)
@@ -90,10 +94,10 @@ void Pedestrians::placeOnWalk(Ped& p) {
     p.yaw = yawOf(heading);
 }
 
-void Pedestrians::nextWalk(Ped& p) {
+void Pedestrians::nextWalk(Ped &p) {
     // On round the corner along a sidewalk that starts or ends near here,
     // else back the way it came.
-    const Walk& w = _walks[size_t(p.walk)];
+    const Walk &w = _walks[size_t(p.walk)];
     const Vec3 here = p.ahead ? w.points.back() : w.points.front();
     std::vector<std::pair<int, bool>> ways;
     for (size_t i = 0; i < _walks.size(); ++i) {
@@ -114,7 +118,7 @@ void Pedestrians::nextWalk(Ped& p) {
     p.s = ahead ? 0 : _walks[size_t(walk)].at.back();
 }
 
-void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser>& cars, const CollisionWorld& world,
+void Pedestrians::update(float dt, const Vec3 &focus, const std::vector<RoadUser> &cars, const CollisionWorld &world,
                          bool fill) {
     if (_models.empty() || _walks.empty())
         return;
@@ -132,7 +136,7 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
     for (int tries = fill ? 4000 : 100; tries > 0 && _peds.size() < std::min<size_t>(wanted, 60); --tries) {
         Ped p;
         p.walk = int(anyWalk(_rng));
-        const Walk& w = _walks[size_t(p.walk)];
+        const Walk &w = _walks[size_t(p.walk)];
         p.s = unit(_rng) * w.at.back();
         p.ahead = unit(_rng) < 0.5f;
         p.side = (unit(_rng) - 0.5f) * 0.5f;
@@ -147,12 +151,12 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
         _peds.push_back(p);
     }
 
-    for (Ped& p : _peds) {
-        const PedModel& model = *_models[size_t(p.model)];
+    for (Ped &p : _peds) {
+        const PedModel &model = *_models[size_t(p.model)];
         p.time += dt;
         if (p.walking) {
             // A car coming at it: dive to the side away from its way.
-            for (const RoadUser& c : cars) {
+            for (const RoadUser &c : cars) {
                 const Vec3 rel = p.position - c.position;
                 const float v2 = c.velocity[0] * c.velocity[0] + c.velocity[2] * c.velocity[2];
                 if (v2 < 9 || flat(rel) > 30 || std::fabs(rel[1]) > 3)
@@ -181,7 +185,7 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
                 p.idle -= dt;
                 continue;
             }
-            const Walk& w = _walks[size_t(p.walk)];
+            const Walk &w = _walks[size_t(p.walk)];
             const float speed = std::fabs(model.moveAt(p.move).travel[2]);
             p.s += (p.ahead ? speed : -speed) * dt;
             if (p.s > w.at.back() || p.s < 0) {
@@ -192,14 +196,14 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
             continue;
         }
         // Diving and getting up: carried by the moves, on the ground.
-        const PedModel::Move& m = model.moveAt(p.move);
+        const PedModel::Move &m = model.moveAt(p.move);
         p.position += Mat3::rotationY(p.yaw) * m.travel * dt;
         PedModel::Move mv = m;
         if (p.time * PedModel::kFrameRate >= float(mv.frames - 1) && mv.next != p.move) {
             startMove(p, mv.next);
         } else if (p.move == model.move("STAND") && p.time > 1) {
             // Up again: back to the nearest point of its sidewalk.
-            const Walk& w = _walks[size_t(p.walk)];
+            const Walk &w = _walks[size_t(p.walk)];
             float best = 1e9f;
             for (size_t i = 0; i < w.points.size(); ++i) {
                 const float d = flat(w.points[i] - p.position);
@@ -219,9 +223,9 @@ void Pedestrians::update(float dt, const Vec3& focus, const std::vector<RoadUser
     }
 }
 
-void Pedestrians::draw(const gfx::Mat4& viewProj, const Vec3& eye, const SceneLight& light) const {
+void Pedestrians::draw(const gfx::Mat4 &viewProj, const Vec3 &eye, const SceneLight &light) const {
     const ViewFrustum frustum(viewProj);
-    for (const Ped& p : _peds) {
+    for (const Ped &p : _peds) {
         if (length(p.position - eye) > kDrawDistance || !frustum.visible(p.position + Vec3{0, 1, 0}, 1.2f))
             continue;
         _models[size_t(p.model)]->draw(matrixOf(Mat3::rotationY(p.yaw), p.position), p.move, p.time, p.paintJob, light);

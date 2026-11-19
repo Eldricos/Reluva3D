@@ -10,11 +10,11 @@ namespace reluva::age {
 
 namespace {
 
-constexpr float kReach = 14;          // metres from a point that counts as reaching it
-constexpr float kBraking = 7;         // metres a second a second the driver plans to brake at
-constexpr float kCornerGrip = 7;      // metres a second a second it takes a corner at (speed squared over radius)
-constexpr float kSlowest = 6;         // m/s it takes even the tightest corner at
-constexpr float kBrakeEarly = 6;      // metres before a corner it means to be down to its speed
+constexpr float kReach = 14;     // metres from a point that counts as reaching it
+constexpr float kBraking = 7;    // metres a second a second the driver plans to brake at
+constexpr float kCornerGrip = 7; // metres a second a second it takes a corner at (speed squared over radius)
+constexpr float kSlowest = 6;    // m/s it takes even the tightest corner at
+constexpr float kBrakeEarly = 6; // metres before a corner it means to be down to its speed
 constexpr float kLookBase = 8, kLookPerSpeed = 0.6f, kLookMost = 35; // metres ahead it steers for
 constexpr float kLookFar = 160;                                      // metres of the way ahead it plans for
 constexpr float kSpurClose = 3; // metres: back where it was two points ago, a spur's been driven
@@ -90,7 +90,7 @@ void PathDriver::follow(std::vector<Vec3> path, float skill) {
     _resetsHere = resets;
 }
 
-CarControls PathDriver::drive(const CarSim& car, float dt) {
+CarControls PathDriver::drive(const CarSim &car, float dt) {
     CarControls c;
     if (_finished || _path.empty()) {
         c.brake = std::fabs(car.forwardSpeed()) > 1 ? 1.0f : 0.0f;
@@ -160,7 +160,7 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
     // The point `along` metres on from the car's place on the path, and
     // how far the straight line to it passes from the corners on the way
     // (a long look cuts a junction's corner through its buildings).
-    auto pointAlong = [&](float along, float& cut) {
+    auto pointAlong = [&](float along, float &cut) {
         cut = 0;
         float left = along;
         Vec3 at = ahead.back();
@@ -201,7 +201,7 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
     const Vec3 toAim = flat(aim - pos);
     const float x = dot(toAim, right), z = dot(toAim, forward);
     const float angle = std::atan2(x, z);
-    const CarSetup& setup = car.setup();
+    const CarSetup &setup = car.setup();
     const float wheelbase = std::max(1.0f, std::fabs(setup.wheels[0][2] - setup.wheels[2][2]));
     // The lock the car has at this speed (CarSim takes some off as it goes
     // faster): asked for in full, the wheels turn as far as the arc needs.
@@ -279,10 +279,10 @@ CarControls PathDriver::drive(const CarSim& car, float dt) {
     return c;
 }
 
-std::vector<size_t> pathPointsNearest(const PathDriver& driver, const std::vector<Vec3>& gates) {
+std::vector<size_t> pathPointsNearest(const PathDriver &driver, const std::vector<Vec3> &gates) {
     // The path as it's driven: once through, then from the loop's start
     // for each lap after the first.
-    const std::vector<Vec3>& path = driver.path();
+    const std::vector<Vec3> &path = driver.path();
     std::vector<size_t> order;
     for (size_t i = 0; i < path.size(); ++i)
         order.push_back(i);
@@ -294,7 +294,7 @@ std::vector<size_t> pathPointsNearest(const PathDriver& driver, const std::vecto
     const size_t lapLength = std::max<size_t>(1, path.size() - std::min(driver.loopFrom(), path.size()));
     std::vector<size_t> out;
     size_t from = 0;
-    for (const Vec3& gate : gates) {
+    for (const Vec3 &gate : gates) {
         size_t best = from;
         float nearest = 1e9f;
         for (size_t k = from; k < order.size() && k < from + lapLength; ++k) {
@@ -310,12 +310,12 @@ std::vector<size_t> pathPointsNearest(const PathDriver& driver, const std::vecto
     return out;
 }
 
-std::vector<Vec3> routePath(const RoadGraph& roads, const Vec3& start, const std::vector<Vec3>& points, bool loop,
-                            size_t& loopFrom, const RoadGraph* fallback) {
+std::vector<Vec3> routePath(const RoadGraph &roads, const Vec3 &start, const std::vector<Vec3> &points, bool loop,
+                            size_t &loopFrom, const RoadGraph *fallback) {
     std::vector<Vec3> out;
     if (points.empty())
         return out;
-    auto append = [&](const Vec3& a, const Vec3& b) {
+    auto append = [&](const Vec3 &a, const Vec3 &b) {
         // No way found (just the end, from far off): the other graph's, if
         // it has one; else straight there.
         std::vector<Vec3> way = roads.route(a, b);
@@ -324,7 +324,7 @@ std::vector<Vec3> routePath(const RoadGraph& roads, const Vec3& start, const std
             if (other.size() > 1)
                 way = std::move(other);
         }
-        for (const Vec3& p : way)
+        for (const Vec3 &p : way)
             out.push_back(p);
     };
     append(start, points[0]);

@@ -15,9 +15,9 @@ namespace reluva::age {
 namespace {
 
 // Each [Section]'s lines, without comments and blank lines.
-std::map<std::string, std::vector<std::string>> sectionsOf(const std::string& text) {
+std::map<std::string, std::vector<std::string>> sectionsOf(const std::string &text) {
     std::map<std::string, std::vector<std::string>> out;
-    std::vector<std::string>* current = nullptr;
+    std::vector<std::string> *current = nullptr;
     std::istringstream in(text);
     std::string line;
     while (std::getline(in, line)) {
@@ -38,7 +38,7 @@ std::map<std::string, std::vector<std::string>> sectionsOf(const std::string& te
     return out;
 }
 
-std::vector<std::string> words(const std::string& line) {
+std::vector<std::string> words(const std::string &line) {
     std::vector<std::string> out;
     std::istringstream in(line);
     std::string w;
@@ -47,10 +47,12 @@ std::vector<std::string> words(const std::string& line) {
     return out;
 }
 
-float num(const std::vector<std::string>& w, size_t i) { return i < w.size() ? std::strtof(w[i].c_str(), nullptr) : 0; }
+float num(const std::vector<std::string> &w, size_t i) {
+    return i < w.size() ? std::strtof(w[i].c_str(), nullptr) : 0;
+}
 
 // A section's rows after its count line.
-std::vector<std::vector<std::string>> rows(const std::vector<std::string>& lines) {
+std::vector<std::vector<std::string>> rows(const std::vector<std::string> &lines) {
     std::vector<std::vector<std::string>> out;
     if (lines.empty())
         return out;
@@ -62,11 +64,11 @@ std::vector<std::vector<std::string>> rows(const std::vector<std::string>& lines
 
 } // namespace
 
-Error parseAiMap(const std::string& text, AiMapSettings& out) {
+Error parseAiMap(const std::string &text, AiMapSettings &out) {
     const auto sections = sectionsOf(text);
     if (sections.empty())
         return Error::fail("no sections");
-    auto first = [&](const char* name, float& v) {
+    auto first = [&](const char *name, float &v) {
         const auto it = sections.find(name);
         if (it != sections.end() && !it->second.empty())
             v = std::strtof(it->second[0].c_str(), nullptr);
@@ -80,7 +82,7 @@ Error parseAiMap(const std::string& text, AiMapSettings& out) {
     first("Speed Limit", out.speedLimit);
     first("Density", out.density);
     first("CopChaseDistance", out.copChaseDistance);
-    for (const auto& [name, lines] : sections) {
+    for (const auto &[name, lines] : sections) {
         if (name == "Traffic Lights" && !lines.empty()) { // two names, no count
             const auto w = words(lines[0]);
             if (!w.empty())
@@ -90,22 +92,22 @@ Error parseAiMap(const std::string& text, AiMapSettings& out) {
         const auto list = rows(lines);
         if (name == "Ambient Types/Density") {
             out.ambients.clear();
-            for (const auto& w : list)
+            for (const auto &w : list)
                 if (!w.empty())
                     out.ambients.push_back({w[0], num(w, 1)});
         } else if (name.rfind("GoodWeatherPedName", 0) == 0) {
             out.peds.clear();
-            for (const auto& w : list)
+            for (const auto &w : list)
                 if (!w.empty())
                     out.peds.push_back({w[0], w.size() > 1 ? w[1] : w[0]});
         } else if (name == "Exceptions") {
             out.exceptions.clear();
-            for (const auto& w : list)
+            for (const auto &w : list)
                 out.exceptions.push_back({int(num(w, 0)), num(w, 1), num(w, 2)});
         } else if (name == "Police") {
             out.police.clear();
             out.policeGiven = true;
-            for (const auto& w : list) {
+            for (const auto &w : list) {
                 if (w.size() < 5)
                     continue;
                 AiMapSettings::Police p{w[0], {num(w, 1), num(w, 2), num(w, 3)}, num(w, 4), {}};
@@ -116,7 +118,7 @@ Error parseAiMap(const std::string& text, AiMapSettings& out) {
         } else if (name == "Opponent") {
             out.opponents.clear();
             out.opponentsGiven = true;
-            for (const auto& w : list)
+            for (const auto &w : list)
                 if (w.size() >= 3)
                     out.opponents.push_back({w[0], w[1], num(w, 2)});
         }

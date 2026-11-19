@@ -57,8 +57,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     int handle, length, count;
     float color[4];
     switch (command) {
-    case 0: return 4; /* API version */
-    case 1:           /* init: returns the file's length * 100 + how many .txt files are listed */
+    case 0:
+        return 4; /* API version */
+    case 1:       /* init: returns the file's length * 100 + how many .txt files are listed */
         trap_Print("fake ui\n");
         trap_Cvar_Register(&testCvar, "ui_test", "7", 1);
         length = trap_FS_FOpenFile("scripts/test.txt", &handle, 0);
@@ -107,44 +108,70 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         trap_R_DrawStretchPic((cursorX - 16) * glconfig[1281 + 10] / 640, (cursorY - 16) * glconfig[1281 + 11] / 480,
                               32 * glconfig[1281 + 10] / 640, 32 * glconfig[1281 + 11] / 480, 0, 0, 1, 1, cursorShader);
         return arg0;
-    case 6: return menuOpen; /* is a menu covering the screen */
-    case 7:                  /* set the active menu: 0 none, else open one */
+    case 6:
+        return menuOpen; /* is a menu covering the screen */
+    case 7:              /* set the active menu: 0 none, else open one */
         menuOpen = arg0 != 0;
         menusOpened += menuOpen;
         return 0;
 
     /* Tests of single calls, numbered past the engine's commands */
-    case 20: return testCvar.integer; /* after the engine changed it, once updated */
+    case 20:
+        return testCvar.integer; /* after the engine changed it, once updated */
     case 21:
         trap_Cvar_Update(&testCvar);
         return testCvar.integer;
-    case 22: return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
+    case 22:
+        return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
     case 23: /* the file's first line, through the names list and strncpy */
         trap_Cvar_Set("ui_text", file);
         trap_Cvar_VariableStringBuffer("ui_text", text, 4);
         strncpy(list, text, 8);
         return list[0] * 1000000 + list[1] * 1000 + list[3] + list[7];
-    case 24: return (int)(sqrt(trap_Cvar_VariableValue("ui_number")) * 10);
-    case 25: return testCvar.modificationCount;
-    case 26: trap_Error("boom"); return 1;
-    case 27: return typed[0] * 1000 + typedLength; /* what was typed */
-    case 28: return trap_SetCDKey(arg0 ? "WXYZ-2345" : "WXYZ-2345-6789-ABCD-EF");
+    case 24:
+        return (int)(sqrt(trap_Cvar_VariableValue("ui_number")) * 10);
+    case 25:
+        return testCvar.modificationCount;
+    case 26:
+        trap_Error("boom");
+        return 1;
+    case 27:
+        return typed[0] * 1000 + typedLength; /* what was typed */
+    case 28:
+        return trap_SetCDKey(arg0 ? "WXYZ-2345" : "WXYZ-2345-6789-ABCD-EF");
     case 29: { /* a model's box: the six values, each times 10, summed with weights */
         float mins[3], maxs[3];
         trap_R_ModelBounds(arg0 ? arg0 : trap_R_RegisterModel("models/test/box.md3"), mins, maxs);
         return (int)(mins[0] * 10) + (int)(mins[1] * 100) + (int)(mins[2] * 1000) + (int)(maxs[0] * 10000) +
                (int)(maxs[1] * 100000) + (int)(maxs[2] * 1000000);
     }
-    case 30: menuOpen = 0; return 0; /* the last menu closes itself, as Accept on the CD key screen does */
-    case 31: return menusOpened;
+    case 30:
+        menuOpen = 0;
+        return 0; /* the last menu closes itself, as Accept on the CD key screen does */
+    case 31:
+        return menusOpened;
     case 33: /* a menu sound, on the menus' channel */
         trap_S_StartLocalSound(trap_S_RegisterSound("sound/interface/button1.wav"), 6);
         trap_S_StartLocalSound(0, 6); /* none: nothing to play */
         return 0;
     case 32: /* a switch whose cases start at 100: its table's address is folded */
         switch (arg0) {
-        case 100: return 1; case 101: return 7; case 102: return 3; case 103: return 9;
-        case 104: return 2; case 105: return 8; case 106: return 4; case 107: return 6;
+        case 100:
+            return 1;
+        case 101:
+            return 7;
+        case 102:
+            return 3;
+        case 103:
+            return 9;
+        case 104:
+            return 2;
+        case 105:
+            return 8;
+        case 106:
+            return 4;
+        case 107:
+            return 6;
         }
         return 0;
     }

@@ -15,7 +15,7 @@ namespace reluva::age {
 
 namespace {
 
-GameOptions& current() {
+GameOptions &current() {
     static GameOptions options;
     return options;
 }
@@ -25,7 +25,7 @@ GameOptions& current() {
 // with a Keyboard"). The chat's key isn't listed there; Y is Reluva's.
 struct ControlInfo {
     uint32_t stringId;
-    const char* name;
+    const char *name;
     uint32_t first, second;
 };
 constexpr ControlInfo kInfo[kControls] = {
@@ -64,18 +64,24 @@ constexpr ControlInfo kInfo[kControls] = {
     {309, "Enter Chat Msg", 'y', 0},
 };
 
-const char* g_kNames[kControls] = {
+const char *g_kNames[kControls] = {
     "throttle",     "brakes",   "left",      "right",    "handbrake",   "horn", "shiftup",   "shiftdown", "reverse",
     "transmission", "camera",   "mapzoom",   "fullmap",  "maptoggle",   "hud",  "mirror",    "nextcheck", "prevcheck",
     "thrill",       "lookleft", "lookright", "lookback", "lookforward", "wide", "dashboard", "rotatemap", "cd",
     "cdplay",       "cdprev",   "cdnext",    "pan",      "opponent",    "chat"};
 
-float number(const std::string& s, float lo, float hi) { return std::clamp(std::strtof(s.c_str(), nullptr), lo, hi); }
+float number(const std::string &s, float lo, float hi) {
+    return std::clamp(std::strtof(s.c_str(), nullptr), lo, hi);
+}
 
 } // namespace
 
-uint32_t controlStringId(Control c) { return kInfo[int(c)].stringId; }
-const char* controlFallbackName(Control c) { return kInfo[int(c)].name; }
+uint32_t controlStringId(Control c) {
+    return kInfo[int(c)].stringId;
+}
+const char *controlFallbackName(Control c) {
+    return kInfo[int(c)].name;
+}
 
 std::string keyName(uint32_t k) {
     switch (k) {
@@ -137,7 +143,7 @@ std::string keyName(uint32_t k) {
     return "Key " + std::to_string(k);
 }
 
-const std::array<Resolution, 5>& resolutions() {
+const std::array<Resolution, 5> &resolutions() {
     static const std::array<Resolution, 5> kR{{{640, 480}, {800, 600}, {1024, 768}, {1280, 960}, {1600, 1200}}};
     return kR;
 }
@@ -210,7 +216,7 @@ std::string GameOptions::text() const {
     return o.str();
 }
 
-Error GameOptions::parse(const std::string& text) {
+Error GameOptions::parse(const std::string &text) {
     *this = GameOptions();
     std::istringstream in(text);
     std::string line;
@@ -280,7 +286,7 @@ Error GameOptions::parse(const std::string& text) {
     return Error::success();
 }
 
-Error GameOptions::load(const std::filesystem::path& folder) {
+Error GameOptions::load(const std::filesystem::path &folder) {
     if (folder.empty())
         return Error::success();
     std::ifstream in(folder / kFileName, std::ios::binary);
@@ -291,7 +297,7 @@ Error GameOptions::load(const std::filesystem::path& folder) {
     return parse(s.str());
 }
 
-Error GameOptions::save(const std::filesystem::path& folder) const {
+Error GameOptions::save(const std::filesystem::path &folder) const {
     if (folder.empty())
         return Error::fail("no save folder");
     std::error_code ec;
@@ -303,7 +309,7 @@ Error GameOptions::save(const std::filesystem::path& folder) const {
     return out ? Error::success() : Error::fail("can't write " + (folder / kFileName).string());
 }
 
-void applySoundOptions(const GameOptions& o, audio::Mixer* mixer) {
+void applySoundOptions(const GameOptions &o, audio::Mixer *mixer) {
     if (!mixer)
         return;
     auto level = [](bool on, float v) { return on ? int(std::clamp(v, 0.0f, 1.0f) * audio::kMaxVolume) : 0; };
@@ -313,14 +319,18 @@ void applySoundOptions(const GameOptions& o, audio::Mixer* mixer) {
     mixer->setBalance(int(o.balance * audio::kMaxPan));
 }
 
-GameOptions loadOptions(const std::filesystem::path& folder) {
+GameOptions loadOptions(const std::filesystem::path &folder) {
     GameOptions o;
     o.load(folder);
     setCurrentOptions(o);
     return o;
 }
 
-const GameOptions& currentOptions() { return current(); }
-void setCurrentOptions(const GameOptions& options) { current() = options; }
+const GameOptions &currentOptions() {
+    return current();
+}
+void setCurrentOptions(const GameOptions &options) {
+    current() = options;
+}
 
 } // namespace reluva::age

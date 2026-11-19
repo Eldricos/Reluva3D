@@ -16,7 +16,7 @@ namespace reluva {
 
 // A game the user has added, as stored in the config file.
 struct GameTarget {
-    std::string target;   // config section name, unique per install
+    std::string target; // config section name, unique per install
     std::string engineId;
     std::string gameId;
     std::string description;
@@ -41,11 +41,11 @@ class MetaEngine {
 public:
     virtual ~MetaEngine() = default;
 
-    virtual const char* id() const = 0;
-    virtual const char* name() const = 0;
+    virtual const char *id() const = 0;
+    virtual const char *name() const = 0;
 
-    virtual std::vector<DetectedGame> detect(const std::filesystem::path& dir) const = 0;
-    virtual std::unique_ptr<Engine> create(System& system, const GameTarget& target) const = 0;
+    virtual std::vector<DetectedGame> detect(const std::filesystem::path &dir) const = 0;
+    virtual std::unique_ptr<Engine> create(System &system, const GameTarget &target) const = 0;
 };
 
 } // namespace reluva

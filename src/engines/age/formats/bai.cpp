@@ -13,8 +13,8 @@ namespace reluva::age {
 namespace {
 
 struct Reader {
-    const uint8_t* p;
-    const uint8_t* end;
+    const uint8_t *p;
+    const uint8_t *end;
     bool ok = true;
 
     bool need(uint64_t n) {
@@ -61,7 +61,7 @@ struct Reader {
     }
 };
 
-void readSide(Reader& r, size_t n, AiRoadSide& s) {
+void readSide(Reader &r, size_t n, AiRoadSide &s) {
     const uint16_t lanes = r.u16();
     s.trams = r.u16();
     s.trains = r.u16();
@@ -74,7 +74,7 @@ void readSide(Reader& r, size_t n, AiRoadSide& s) {
         s.laneOffsets.push_back(r.f32());
     // Widths and offsets, then room for eight more floats (left as the
     // allocator filled them where unused).
-    for (float& f : s.widths)
+    for (float &f : s.widths)
         f = r.f32();
     for (uint16_t i = 0; i < lanes && r.ok; ++i)
         s.lanes.push_back(r.row(n));
@@ -87,7 +87,7 @@ void readSide(Reader& r, size_t n, AiRoadSide& s) {
 
 } // namespace
 
-Error readBai(const std::vector<uint8_t>& data, AiRoadMap& out) {
+Error readBai(const std::vector<uint8_t> &data, AiRoadMap &out) {
     out = AiRoadMap{};
     if (data.size() < 8 || std::memcmp(data.data(), "CAI1", 4) != 0)
         return Error::fail("not a road map (no CAI1)");
@@ -96,7 +96,7 @@ Error readBai(const std::vector<uint8_t>& data, AiRoadMap& out) {
     const uint16_t roads = r.u16();
     out.roads.resize(roads);
     for (uint16_t i = 0; i < roads && r.ok; ++i) {
-        AiRoad& road = out.roads[i];
+        AiRoad &road = out.roads[i];
         road.id = r.u16();
         const uint16_t n = r.u16();
         road.flags = r.u16();
@@ -105,12 +105,12 @@ Error readBai(const std::vector<uint8_t>& data, AiRoadMap& out) {
             road.blocks.push_back(r.u16());
         road.halfWidth = r.f32();
         road.speedLimit = r.f32();
-        for (AiRoadSide& s : road.sides)
+        for (AiRoadSide &s : road.sides)
             readSide(r, n, s);
         r.skip(uint64_t(n) * 4); // distances along the middle line
         road.middle = r.row(n);
         r.skip(uint64_t(n) * 4 * 12); // each point's axes: across, up, back, ahead
-        for (AiRoadEnd& e : road.ends) {
+        for (AiRoadEnd &e : road.ends) {
             e.junction = r.u32();
             r.u16(); // unused
             e.control = r.u16();
@@ -124,7 +124,7 @@ Error readBai(const std::vector<uint8_t>& data, AiRoadMap& out) {
     }
     out.junctions.resize(junctions);
     for (uint16_t i = 0; i < junctions && r.ok; ++i) {
-        AiJunction& j = out.junctions[i];
+        AiJunction &j = out.junctions[i];
         j.id = r.u16();
         j.block = r.u16();
         j.center = r.vec3();
@@ -135,11 +135,11 @@ Error readBai(const std::vector<uint8_t>& data, AiRoadMap& out) {
     // A table of each PSDL block's roads follows; not needed.
     if (!r.ok)
         return Error::fail("truncated road map");
-    for (const AiRoad& road : out.roads)
-        for (const AiRoadEnd& e : road.ends)
+    for (const AiRoad &road : out.roads)
+        for (const AiRoadEnd &e : road.ends)
             if (e.junction >= junctions)
                 return Error::fail("road " + std::to_string(road.id) + " ends at a junction that isn't there");
-    for (const AiJunction& j : out.junctions)
+    for (const AiJunction &j : out.junctions)
         for (uint32_t k : j.roads)
             if (k >= roads)
                 return Error::fail("junction " + std::to_string(j.id) + " lists a road that isn't there");

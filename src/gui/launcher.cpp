@@ -12,10 +12,10 @@
 
 namespace reluva {
 
-Launcher::Launcher(SdlSystem& system, Config& config) : _sys(system), _config(config) {
+Launcher::Launcher(SdlSystem &system, Config &config) : _sys(system), _config(config) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
     io.IniFilename = nullptr; // our layout is fixed; don't litter imgui.ini
 
@@ -40,7 +40,7 @@ Launcher::~Launcher() {
 
 std::optional<GameTarget> Launcher::run() {
     _sys.resetForLauncher();
-    SDL_Renderer* renderer = _sys.renderer();
+    SDL_Renderer *renderer = _sys.renderer();
 
     std::optional<GameTarget> launch;
     bool quit = false;
@@ -64,7 +64,7 @@ std::optional<GameTarget> Launcher::run() {
         drawUi(launch, quit);
         ImGui::Render();
 
-        ImGuiIO& io = ImGui::GetIO();
+        ImGuiIO &io = ImGui::GetIO();
         SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
         SDL_SetRenderDrawColor(renderer, 20, 22, 28, 255);
         SDL_RenderClear(renderer);
@@ -80,13 +80,13 @@ std::optional<GameTarget> Launcher::run() {
     return launch;
 }
 
-void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
-    const ImGuiViewport* vp = ImGui::GetMainViewport();
+void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
+    const ImGuiViewport *vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->WorkPos);
     ImGui::SetNextWindowSize(vp->WorkSize);
     ImGui::Begin("Reluva", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     ImGui::TextUnformatted("Reluva");
     ImGui::SameLine();
@@ -101,7 +101,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     const auto targets = _config.targets();
     if (targets.empty())
         ImGui::TextDisabled("No games yet. Use \"Add Game...\" and pick a game's install folder.");
-    for (const std::string& name : targets) {
+    for (const std::string &name : targets) {
         std::string label = _config.get(name, "description", name) + "##" + name;
         if (ImGui::Selectable(label.c_str(), _selected == name, ImGuiSelectableFlags_AllowDoubleClick)) {
             _selected = name;
@@ -158,7 +158,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
         ImGui::OpenPopup("Choose game");
         if (ImGui::BeginPopupModal("Choose game", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::TextUnformatted("Several games match this folder:");
-            for (const DetectedGame& g : _pendingChoices) {
+            for (const DetectedGame &g : _pendingChoices) {
                 std::string label = g.description + " (" + g.language + ", " + g.platform + ")";
                 if (ImGui::Selectable(label.c_str())) {
                     addGame(g, _pendingPath);
@@ -178,8 +178,8 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     ImGui::End();
 }
 
-void SDLCALL Launcher::pickFolderCallback(void* userdata, const char* const* files, int) {
-    auto* self = static_cast<Launcher*>(userdata);
+void SDLCALL Launcher::pickFolderCallback(void *userdata, const char *const *files, int) {
+    auto *self = static_cast<Launcher *>(userdata);
     {
         std::lock_guard lock(self->_pickMutex);
         if (!files)
@@ -213,7 +213,7 @@ void Launcher::handlePickedFolder() {
     }
 }
 
-void Launcher::addGame(const DetectedGame& game, const std::string& path) {
+void Launcher::addGame(const DetectedGame &game, const std::string &path) {
     std::string name = game.gameId;
     for (int n = 2; _config.hasSection(name); ++n)
         name = game.gameId + "-" + std::to_string(n);
@@ -231,9 +231,13 @@ void Launcher::addGame(const DetectedGame& game, const std::string& path) {
     _selected = name;
 }
 
-GameTarget Launcher::targetFromConfig(const std::string& name) const {
-    return GameTarget{name, _config.get(name, "engine"), _config.get(name, "gameid"),
-                      _config.get(name, "description", name), _config.get(name, "path"), {}};
+GameTarget Launcher::targetFromConfig(const std::string &name) const {
+    return GameTarget{name,
+                      _config.get(name, "engine"),
+                      _config.get(name, "gameid"),
+                      _config.get(name, "description", name),
+                      _config.get(name, "path"),
+                      {}};
 }
 
 } // namespace reluva

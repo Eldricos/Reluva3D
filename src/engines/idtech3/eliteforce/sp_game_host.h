@@ -69,32 +69,32 @@ public:
 
     static constexpr SpEntityLayout kEntity{};
 
-    SpGameHost(const SearchSet& files, CvarStore& cvars);
+    SpGameHost(const SearchSet &files, CvarStore &cvars);
     ~SpGameHost();
 
     // Loads the DLL (efgamex86.dll's bytes), runs its start-up and
     // GetGameAPI, and checks the version.
-    Error load(const std::vector<uint8_t>& dll);
+    Error load(const std::vector<uint8_t> &dll);
     // Starts a level: the map's cvars, then the game's Init with the map's
     // entity text. `checksum`: the map file's (mapChecksum()).
-    Error startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
+    Error startLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
                      int32_t randomSeed = 0);
     // A map file's checksum as the original's engine makes it (MD4, its
     // four words XOR'd together), which the game is handed.
-    static int32_t mapChecksum(const std::vector<uint8_t>& file);
+    static int32_t mapChecksum(const std::vector<uint8_t> &file);
     // The player joining (ClientConnect, then ClientBegin); `refused` gets
     // the game's reason if it says no.
-    Error connectPlayer(const std::string& userinfo, std::string& refused);
+    Error connectPlayer(const std::string &userinfo, std::string &refused);
     // One server frame: the level time moves on and the game's RunFrame.
     Error runFrame();
     // A console command the engine doesn't know, for the game
     // (ConsoleCommand); `handled` gets whether it knew it.
-    Error consoleCommand(const std::string& text, bool* handled = nullptr);
+    Error consoleCommand(const std::string &text, bool *handled = nullptr);
 
     // --- The client game (the DLL's other half) ---------------------------
     // vmMain's commands.
     enum CgameCommand : int {
-        CgInit = 0,       // (serverMessageNum)
+        CgInit = 0, // (serverMessageNum)
         CgShutdown = 1,
         CgConsoleCommand = 2,
         CgDrawActiveFrame = 3, // (serverTime, stereo)
@@ -119,32 +119,32 @@ public:
     // which the server game acts on at once (ClientThink), as the
     // original's server does with each command; the client game reads it
     // back for its prediction.
-    Error clientThink(const UserCommand& cmd);
+    Error clientThink(const UserCommand &cmd);
     // One frame of the client game (CG_DRAW_ACTIVE_FRAME) at `time`, the
     // player's time in the level.
     Error drawClientFrame(int32_t time);
     // A command the player ran (a key's binding, the console): the client
     // game's if it knows it, else sent to the server game (ClientCommand),
     // as the original engine does.
-    Error clientConsoleCommand(const std::string& text);
+    Error clientConsoleCommand(const std::string &text);
     // Whether the client game's camera (a scripted sequence's) is running,
     // and where it is (CG_CAMERA_POS).
-    bool cameraPosition(Vec3f& at);
+    bool cameraPosition(Vec3f &at);
     // The weapon the client game has chosen (SetUserCmdValue), for commands.
     uint8_t weaponSelect() const { return clientWeapon_; }
     bool clientGameRunning() const { return cgameRunning_; }
     // What the client game registered, by kind.
-    const HandleTable& models() const { return models_; }
-    const HandleTable& shaders() const { return shaders_; }
-    const HandleTable& skins() const { return skins_; }
-    const HandleTable& sounds() const { return sounds_; }
+    const HandleTable &models() const { return models_; }
+    const HandleTable &shaders() const { return shaders_; }
+    const HandleTable &skins() const { return skins_; }
+    const HandleTable &sounds() const { return sounds_; }
     // What the last client frame drew: its scenes (each RenderScene's view
     // of the entities, polygons and lights added) and 2D pictures, as the
     // Holomatch client game's, for the same drawer.
-    const Scene& scene() const { return lastScene_; }
-    const std::vector<Picture>& pictures() const { return lastPictures_; }
+    const Scene &scene() const { return lastScene_; }
+    const std::vector<Picture> &pictures() const { return lastPictures_; }
     // A scene entity's model handle (refEntity_t's at 8).
-    static int32_t entityModel(const SceneEntity& e);
+    static int32_t entityModel(const SceneEntity &e);
     // The snapshots made so far (one each server frame once the client
     // game runs).
     int32_t snapshotCount() const { return snapshotNumber_; }
@@ -157,71 +157,71 @@ public:
     int32_t entityCount() const;
     int32_t entityInt(int32_t number, int32_t offset) const;
     Vec3f entityVec(int32_t number, int32_t offset) const;
-    const std::set<int32_t>& linked() const { return linked_; }
-    const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
-    const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
-    const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
+    const std::set<int32_t> &linked() const { return linked_; }
+    const std::map<int32_t, std::string> &configstrings() const { return configstrings_; }
+    const std::vector<std::string> &consoleCommands() const { return consoleCommands_; }
+    const std::vector<std::pair<int32_t, std::string>> &serverCommands() const { return serverCommands_; }
     // How many times the game called each of the engine's functions.
-    const std::map<int, int>& callCounts() const { return callCounts_; }
+    const std::map<int, int> &callCounts() const { return callCounts_; }
     // The same for the client game's system calls (the server game calls
     // into its client half too: they share the DLL), and those not yet
     // answered.
-    const std::map<int, int>& cgameCallCounts() const { return cgameCallCounts_; }
-    const std::map<int, int>& cgameUnhandled() const { return cgameUnhandled_; }
+    const std::map<int, int> &cgameCallCounts() const { return cgameCallCounts_; }
+    const std::map<int, int> &cgameUnhandled() const { return cgameUnhandled_; }
 
-    x86::Cpu& cpu() { return *cpu_; }
-    x86::Win32Process& process() { return *process_; }
-    const x86::Win32Process::Module* module() const { return module_; }
+    x86::Cpu &cpu() { return *cpu_; }
+    x86::Win32Process &process() { return *process_; }
+    const x86::Win32Process::Module *module() const { return module_; }
 
     // Where the client game's sounds play (none: silent; their lengths are
     // still known, for the game's timing).
-    SoundSystem* soundSystem = nullptr;
-    SoundLibrary& soundLibrary() { return soundLibrary_; }
+    SoundSystem *soundSystem = nullptr;
+    SoundLibrary &soundLibrary() { return soundLibrary_; }
 
     // What the game prints (Printf).
-    std::function<void(const std::string&)> print;
+    std::function<void(const std::string &)> print;
     // Each call the game makes to the engine: its slot and the address it
     // was called from.
     std::function<void(int slot, uint32_t from)> trace;
 
 private:
-    Error callGame(int exportIndex, const std::vector<uint32_t>& args, uint32_t* result = nullptr);
+    Error callGame(int exportIndex, const std::vector<uint32_t> &args, uint32_t *result = nullptr);
     void addImports();
     // The client game's system calls (dllEntry's function): syscall(number, args...).
-    uint32_t cgameCall(x86::Cpu& c);
-    void writeVmCvar(uint32_t address, const CvarStore::Cvar& cv);
-    uint32_t fsOpen(x86::Cpu& c, uint32_t path, uint32_t handleAddress, uint32_t mode);
-    uint32_t fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle);
-    uint32_t fsWrite(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle);
-    void import(int slot, std::function<uint32_t(x86::Cpu&)> fn);
+    uint32_t cgameCall(x86::Cpu &c);
+    void writeVmCvar(uint32_t address, const CvarStore::Cvar &cv);
+    uint32_t fsOpen(x86::Cpu &c, uint32_t path, uint32_t handleAddress, uint32_t mode);
+    uint32_t fsRead(x86::Cpu &c, uint32_t buffer, uint32_t length, uint32_t handle);
+    uint32_t fsWrite(x86::Cpu &c, uint32_t buffer, uint32_t length, uint32_t handle);
+    void import(int slot, std::function<uint32_t(x86::Cpu &)> fn);
     // Text into emulated memory (freed when the level ends).
-    uint32_t text(const std::string& s);
+    uint32_t text(const std::string &s);
     // The engine's cvar structures the game holds pointers to, kept up to
     // date: name 0, text 4, default 8, latched 12, flags 16, modified 20,
     // modification count 24, value 28, integer 32.
-    uint32_t cvarStructure(const std::string& name);
+    uint32_t cvarStructure(const std::string &name);
     void syncCvars();
     int32_t entityNumber(uint32_t address) const;
     uint32_t entityAddress(int32_t number) const;
     Vec3f readVec(uint32_t address) const;
-    void writeVec(uint32_t address, const Vec3f& v);
+    void writeVec(uint32_t address, const Vec3f &v);
     float readFloat(uint32_t address) const;
     void linkEntity(uint32_t address);
     void unlinkEntity(uint32_t address);
-    TraceResult traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                          int32_t passEntity, int32_t mask, int32_t& hit);
-    void writeTrace(uint32_t results, const TraceResult& t, int32_t hit);
-    int32_t pointContents(const Vec3f& point, int32_t passEntity);
+    TraceResult traceMove(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
+                          int32_t passEntity, int32_t mask, int32_t &hit);
+    void writeTrace(uint32_t results, const TraceResult &t, int32_t hit);
+    int32_t pointContents(const Vec3f &point, int32_t passEntity);
     bool areasConnected(int area1, int area2) const;
     std::pair<int, int> entityAreas(int32_t n) const;
     std::string infoString(int32_t flag) const;
 
-    const SearchSet& files_;
-    CvarStore& cvars_;
+    const SearchSet &files_;
+    CvarStore &cvars_;
     SoundLibrary soundLibrary_{files_};
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
-    const x86::Win32Process::Module* module_ = nullptr;
+    const x86::Win32Process::Module *module_ = nullptr;
     uint32_t imports_ = 0, exports_ = 0, voiceVolume_ = 0, argvBuffer_ = 0;
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
@@ -254,13 +254,13 @@ private:
         std::vector<std::vector<uint8_t>> entities;
     };
     void makeSnapshot();
-    std::vector<int32_t> visibleEntities(const Vec3f& eye);
-    void writeSnapshot(uint32_t address, const Snapshot& snap);
+    std::vector<int32_t> visibleEntities(const Vec3f &eye);
+    void writeSnapshot(uint32_t address, const Snapshot &snap);
     void writeGameState(uint32_t address);
     void writeGlconfig(uint32_t address);
-    void writeUserCommand(uint32_t address, const UserCommand& cmd);
-    void tokenize(const std::string& text);
-    void clientTrace(x86::Cpu& c, bool transformed);
+    void writeUserCommand(uint32_t address, const UserCommand &cmd);
+    void tokenize(const std::string &text);
+    void clientTrace(x86::Cpu &c, bool transformed);
     bool cgameRunning_ = false;
     uint32_t cgameVmMain_ = 0;
     std::vector<Snapshot> snapshots_; // the last 32, by number
@@ -274,7 +274,7 @@ private:
     std::vector<Picture> pictures_, lastPictures_;
     std::array<float, 4> color_{1, 1, 1, 1};
     std::map<int32_t, std::shared_ptr<Md3Model>> md3s_; // by model handle, loaded for tags and bounds
-    const Md3Model* md3(int32_t handle);
+    const Md3Model *md3(int32_t handle);
     std::vector<std::pair<Vec3f, Vec3f>> tempBoxes_; // CM_TempBoxModel's box
     static constexpr uint32_t kTempBoxModel = 255;
     int32_t levelTime_ = 0;

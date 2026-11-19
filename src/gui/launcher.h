@@ -20,10 +20,10 @@ class SdlSystem;
 // The game list UI, drawn with Dear ImGui on the SDL renderer.
 class Launcher {
 public:
-    Launcher(SdlSystem& system, Config& config);
+    Launcher(SdlSystem &system, Config &config);
     ~Launcher();
-    Launcher(const Launcher&) = delete;
-    Launcher& operator=(const Launcher&) = delete;
+    Launcher(const Launcher &) = delete;
+    Launcher &operator=(const Launcher &) = delete;
 
     // Show the launcher until the user starts a game (returned) or quits.
     std::optional<GameTarget> run();
@@ -32,15 +32,15 @@ public:
     void setStatus(std::string message) { _status = std::move(message); }
 
 private:
-    void drawUi(std::optional<GameTarget>& launch, bool& quit);
+    void drawUi(std::optional<GameTarget> &launch, bool &quit);
     void handlePickedFolder();
-    void addGame(const DetectedGame& game, const std::string& path);
-    GameTarget targetFromConfig(const std::string& name) const;
+    void addGame(const DetectedGame &game, const std::string &path);
+    GameTarget targetFromConfig(const std::string &name) const;
 
-    static void pickFolderCallback(void* userdata, const char* const* files, int filter);
+    static void pickFolderCallback(void *userdata, const char *const *files, int filter);
 
-    SdlSystem& _sys;
-    Config& _config;
+    SdlSystem &_sys;
+    Config &_config;
     std::string _selected;
     std::string _status;
 

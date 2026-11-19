@@ -11,10 +11,10 @@
 
 namespace reluva {
 
-const std::vector<const MetaEngine*>& allEngines();
-const MetaEngine* findEngine(std::string_view id);
+const std::vector<const MetaEngine *> &allEngines();
+const MetaEngine *findEngine(std::string_view id);
 
 // Ask every engine whether it recognises the game in `dir`.
-std::vector<DetectedGame> detectGames(const std::filesystem::path& dir);
+std::vector<DetectedGame> detectGames(const std::filesystem::path &dir);
 
 } // namespace reluva

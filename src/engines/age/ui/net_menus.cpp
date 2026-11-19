@@ -38,15 +38,17 @@ constexpr Box kCopsPanel{267, 45, 373, 213}; // where jpg/host_cr goes
 constexpr int kRow = 13;                     // a list's line
 constexpr size_t kLinesKept = 50;
 
-const char* const kTimes[] = {"Morning", "Noon", "Evening", "Night"};
-const char* const kWeathers[] = {"Clear", "Cloudy", "Fog", "Rain"};
+const char *const kTimes[] = {"Morning", "Noon", "Evening", "Night"};
+const char *const kWeathers[] = {"Clear", "Cloudy", "Fog", "Rain"};
 
-bool inside(int x, int y, int bx, int by, int bw, int bh) { return x >= bx && x < bx + bw && y >= by && y < by + bh; }
+bool inside(int x, int y, int bx, int by, int bw, int bh) {
+    return x >= bx && x < bx + bw && y >= by && y < by + bh;
+}
 
-void fillBox(Surface& o, const Box& b, Color c, uint8_t alpha = 255) {
+void fillBox(Surface &o, const Box &b, Color c, uint8_t alpha = 255) {
     for (int y = std::max(0, b.y); y < std::min(o.h, b.y + b.h); ++y)
         for (int x = std::max(0, b.x); x < std::min(o.w, b.x + b.w); ++x) {
-            uint8_t* p = o.row(y) + x * 4;
+            uint8_t *p = o.row(y) + x * 4;
             p[0] = c.r;
             p[1] = c.g;
             p[2] = c.b;
@@ -54,7 +56,9 @@ void fillBox(Surface& o, const Box& b, Color c, uint8_t alpha = 255) {
         }
 }
 
-std::string cityPicture(const std::string& map) { return map == "london" ? "london" : "sf"; }
+std::string cityPicture(const std::string &map) {
+    return map == "london" ? "london" : "sf";
+}
 
 // Cops & Robbers' choices as the game words them (mmlang.dll 506-513):
 // its gold masses, Weightless, Quarter Ton and Half Ton (a US ton's, in
@@ -71,8 +75,8 @@ int goldMassIndex(int kg) {
 
 } // namespace
 
-NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityInfo>& cities,
-                   const std::vector<CarInfo>& cars, const GameStrings& strings)
+NetMenus::NetMenus(System &sys, const SearchSet &files, const std::vector<CityInfo> &cities,
+                   const std::vector<CarInfo> &cars, const GameStrings &strings)
     : _sys(sys), _files(files), _cities(cities), _cars(cars), _strings(strings), _pictures(files) {
     std::vector<uint8_t> data;
     if (!files.read("tune/widget.csv", data))
@@ -80,7 +84,7 @@ NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityIn
               !cities.empty() && !cars.empty();
     // Reluva's own: how many computer players, below Max Players and
     // drawn as it is.
-    if (const Widget* max = widget("Max Players", "Host Options")) {
+    if (const Widget *max = widget("Max Players", "Host Options")) {
         Widget bots = *max;
         bots.name = kBotsField;
         bots.y += 52;
@@ -90,12 +94,14 @@ NetMenus::NetMenus(System& sys, const SearchSet& files, const std::vector<CityIn
         _myCar = cars.front().base;
 }
 
-NetMenus::~NetMenus() { leave(); }
+NetMenus::~NetMenus() {
+    leave();
+}
 
 RaceKind NetMenus::raceKind(NetMode mode) {
     return mode == NetMode::kCircuit      ? RaceKind::kCircuit
            : mode == NetMode::kCheckpoint ? RaceKind::kCheckpoint
-                                         : RaceKind::kBlitz;
+                                          : RaceKind::kBlitz;
 }
 
 std::string NetMenus::modeName(NetMode mode) const {
@@ -128,26 +134,26 @@ std::string NetMenus::goldModeName(GoldMode mode) const {
 
 std::string NetMenus::teamName(uint8_t team) const {
     // The game's words: COPS, ROBBERS, BLUE, RED.
-    const NetSettings& s = _session ? _session->settings() : _settings;
+    const NetSettings &s = _session ? _session->settings() : _settings;
     if (s.gold == GoldMode::kCopsAndRobbers)
         return team ? _strings.get(122, "COPS") : _strings.get(123, "ROBBERS");
     return team ? _strings.get(124, "BLUE") : _strings.get(125, "RED");
 }
 
-std::string NetMenus::carFor(const NetPlayer& p) const {
-    const NetSettings& s = _session ? _session->settings() : _settings;
+std::string NetMenus::carFor(const NetPlayer &p) const {
+    const NetSettings &s = _session ? _session->settings() : _settings;
     if (s.mode == NetMode::kCopsRobbers && s.gold == GoldMode::kCopsAndRobbers && p.team == 1)
-        for (const CarInfo& c : _cars)
+        for (const CarInfo &c : _cars)
             if (c.base == "vpcop")
                 return c.base;
-    for (const CarInfo& c : _cars)
+    for (const CarInfo &c : _cars)
         if (c.base == p.car)
             return c.base;
     return _cars.empty() ? std::string() : _cars.front().base;
 }
 
 std::string NetMenus::goldMassName(int kg) const {
-    static const char* const kNames[3] = {"Weightless", "Quarter Ton", "Half Ton"};
+    static const char *const kNames[3] = {"Weightless", "Quarter Ton", "Half Ton"};
     const int at = goldMassIndex(kg);
     return _strings.get(uint32_t(506 + at), kNames[at]);
 }
@@ -159,7 +165,7 @@ std::string NetMenus::timeLimitName(int minutes) const {
     return std::to_string(minutes) + " minutes";
 }
 
-std::string NetMenus::noticeText(const NetNotice& n) const {
+std::string NetMenus::noticeText(const NetNotice &n) const {
     switch (n.kind) {
     case NetNotice::Kind::kJoined:
         return n.name + " " + _strings.get(42, "has joined");
@@ -198,7 +204,7 @@ std::string NetMenus::noticeText(const NetNotice& n) const {
     return {};
 }
 
-void NetMenus::say(const std::string& s, bool system) {
+void NetMenus::say(const std::string &s, bool system) {
     if (s.empty())
         return;
     _lines.push_back({s, _nowMs, system});
@@ -206,7 +212,7 @@ void NetMenus::say(const std::string& s, bool system) {
         _lines.pop_front();
 }
 
-void NetMenus::message(const std::string& text, const std::string& picture) {
+void NetMenus::message(const std::string &text, const std::string &picture) {
     _message = text;
     _messagePicture = picture;
 }
@@ -233,7 +239,7 @@ void NetMenus::showLobby() {
         go(Screen::kSessions);
 }
 
-void NetMenus::carChosen(const std::string& car, int paintJob) {
+void NetMenus::carChosen(const std::string &car, int paintJob) {
     _myCar = car;
     _myPaint = paintJob;
     if (_session)
@@ -268,19 +274,23 @@ int NetMenus::originX() const {
                : 0;
 }
 
-int NetMenus::originY() const { return originX() ? kDialogY : 0; }
+int NetMenus::originY() const {
+    return originX() ? kDialogY : 0;
+}
 
-const Widget* NetMenus::widget(const std::string& name) const { return widget(name, menuName()); }
+const Widget *NetMenus::widget(const std::string &name) const {
+    return widget(name, menuName());
+}
 
-const Widget* NetMenus::widget(const std::string& name, const std::string& menu) const {
-    for (const Widget& w : _widgets)
+const Widget *NetMenus::widget(const std::string &name, const std::string &menu) const {
+    for (const Widget &w : _widgets)
         if (w.menu == menu && w.name == name)
             return &w;
     return nullptr;
 }
 
 std::vector<NetMenus::Item> NetMenus::items() const {
-    auto button = [](const std::string& w, const std::string& pic, int states, bool enabled = true) {
+    auto button = [](const std::string &w, const std::string &pic, int states, bool enabled = true) {
         Item i;
         i.widget = w;
         i.picture = pic;
@@ -289,7 +299,7 @@ std::vector<NetMenus::Item> NetMenus::items() const {
         i.enabled = enabled;
         return i;
     };
-    auto field = [](const std::string& w, bool typed = false) {
+    auto field = [](const std::string &w, bool typed = false) {
         Item i;
         i.widget = w;
         i.text = typed;
@@ -325,21 +335,21 @@ std::vector<NetMenus::Item> NetMenus::items() const {
         if (_settings.mode == NetMode::kCircuit)
             list.push_back(field("LAPS"));
         if (_settings.mode == NetMode::kCopsRobbers) {
-            for (const char* b : {"free_cr", "cpsvr_cr", "robrs_cr", "none_cr", "time_cr", "point_cr"})
+            for (const char *b : {"free_cr", "cpsvr_cr", "robrs_cr", "none_cr", "time_cr", "point_cr"})
                 list.push_back(button(b, b, 5));
             if (_settings.limit != GoldLimit::kNone)
                 list.push_back(field("LIMIT VALUE"));
             list.push_back(field("GOLD MASS"));
         }
-        for (const char* f : {"RACE LOCALE", "TIME", "WEATHER", "PEDESTRIAN DENSITY"})
+        for (const char *f : {"RACE LOCALE", "TIME", "WEATHER", "PEDESTRIAN DENSITY"})
             list.push_back(field(f));
         list.push_back(button("aren_strt", "host_dn", 4));
         return list;
     }
     case Screen::kLobby: {
         const bool host = _session && _session->isHost();
-        const NetPlayer* me = _session ? _session->me() : nullptr;
-        const NetSettings& s = _session ? _session->settings() : _settings;
+        const NetPlayer *me = _session ? _session->me() : nullptr;
+        const NetSettings &s = _session ? _session->settings() : _settings;
         std::vector<Item> list = {field("Chat Entry", true)};
         if (s.teams()) {
             const bool copr = s.gold == GoldMode::kCopsAndRobbers;
@@ -424,7 +434,7 @@ void NetMenus::startHosting() {
     go(Screen::kLobby);
 }
 
-void NetMenus::joinAddress(const net::Address& address) {
+void NetMenus::joinAddress(const net::Address &address) {
     std::unique_ptr<net::UdpSocket> socket;
     if (Error err = _sys.openUdp(0, socket); err || !socket) {
         message("The network is not available");
@@ -437,7 +447,7 @@ void NetMenus::joinAddress(const net::Address& address) {
     go(Screen::kLobby);
 }
 
-std::string* NetMenus::textOf(const std::string& w) {
+std::string *NetMenus::textOf(const std::string &w) {
     if (w == "NET NAME")
         return &_netName;
     if (w == "TCP/IP Address")
@@ -449,18 +459,18 @@ std::string* NetMenus::textOf(const std::string& w) {
     return nullptr;
 }
 
-void NetMenus::activate(const Item& item, Action& action) {
+void NetMenus::activate(const Item &item, Action &action) {
     if (!item.enabled)
         return;
-    const std::string& w = item.widget;
+    const std::string &w = item.widget;
     if (w == "sess_hst") {
         _editing = false;
         _password.clear();
         go(Screen::kHostOptions);
     } else if (w == "sess_jn") {
-        const auto& found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
+        const auto &found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
         if (_chosenSession < found.size()) {
-            const auto& f = found[_chosenSession];
+            const auto &f = found[_chosenSession];
             _password.clear();
             if (f.password) {
                 _pendingJoin = f.address;
@@ -496,7 +506,7 @@ void NetMenus::activate(const Item& item, Action& action) {
             go(Screen::kHostRace);
         } else if (_screen == Screen::kEject && _session) {
             std::vector<uint8_t> ids;
-            for (const NetPlayer& p : _session->players())
+            for (const NetPlayer &p : _session->players())
                 if (p.id != _session->myId())
                     ids.push_back(p.id);
             if (_ejectChoice < ids.size())
@@ -540,14 +550,14 @@ void NetMenus::activate(const Item& item, Action& action) {
         if (_session->isHost()) {
             if (Error err = _session->start(_nowMs))
                 message(err.message);
-        } else if (const NetPlayer* me = _session->me())
+        } else if (const NetPlayer *me = _session->me())
             _session->setReady(!me->ready);
     }
 }
 
-void NetMenus::change(const Item& item, int step) {
+void NetMenus::change(const Item &item, int step) {
     auto wrap = [](int v, int n) { return n > 0 ? (v % n + n) % n : 0; };
-    const std::string& w = item.widget;
+    const std::string &w = item.widget;
     if (w == "textscroll") {
         const size_t n = _browser ? _browser->sessions().size() : 0;
         _chosenSession = size_t(wrap(int(_chosenSession) + step, int(n)));
@@ -588,22 +598,22 @@ void NetMenus::change(const Item& item, int step) {
     }
 }
 
-bool NetMenus::hit(const Item& item, int x, int y) const {
+bool NetMenus::hit(const Item &item, int x, int y) const {
     if (item.widget == "ejectlist")
         return inside(x, y, kEjectList.x, kEjectList.y, kEjectList.w, kEjectList.h);
-    const Widget* w = widget(item.widget);
+    const Widget *w = widget(item.widget);
     if (!w)
         return false;
     int width = w->w, height = w->h;
     if (item.button)
-        if (const image::Image* im = _pictures.texture(item.picture)) {
+        if (const image::Image *im = _pictures.texture(item.picture)) {
             width = im->w;
             height = im->h / item.states;
         }
     return inside(x, y, w->x + originX(), w->y + originY(), width, height);
 }
 
-NetMenus::Action NetMenus::handle(const Event& ev) {
+NetMenus::Action NetMenus::handle(const Event &ev) {
     Action action = Action::kNone;
     if (!_messagePicture.empty()) {
         // A message: any key or click puts it away.
@@ -625,10 +635,10 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
     if (list.empty())
         return action;
     _focus = std::clamp(_focus, 0, int(list.size()) - 1);
-    const Item& item = list[size_t(_focus)];
+    const Item &item = list[size_t(_focus)];
     if (ev.type == EventType::kTextInput && item.text) {
-        if (std::string* t = textOf(item.widget))
-            for (const char* c = ev.text; *c; ++c)
+        if (std::string *t = textOf(item.widget))
+            for (const char *c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && t->size() < (item.widget == "Chat Entry" ? 100u : 31u))
                     t->push_back(*c);
         return action;
@@ -636,23 +646,23 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         // The Host Race Menu's arrows step their values.
         if (_screen == Screen::kHostRace) {
-            static const std::pair<const char*, const char*> kArrows[] = {{"RACE UP", "RACE NAME"},
-                                                                          {"RACE DOWN", "RACE NAME"},
-                                                                          {"LIMIT VALUE UP", "LIMIT VALUE"},
-                                                                          {"LIMIT VALUE DOWN", "LIMIT VALUE"},
-                                                                          {"GOLD MASS UP", "GOLD MASS"},
-                                                                          {"GOLD MASS DOWN", "GOLD MASS"},
-                                                                          {"RACE LOCALE UP", "RACE LOCALE"},
-                                                                          {"RACE LOCALE DOWN", "RACE LOCALE"},
-                                                                          {"TIME UP", "TIME"},
-                                                                          {"TIME DOWN", "TIME"},
-                                                                          {"WEATHER UP", "WEATHER"},
-                                                                          {"WEATHER DOWN", "WEATHER"}};
-            for (const auto& [arrow, field] : kArrows)
-                if (const Widget* w = widget(arrow))
+            static const std::pair<const char *, const char *> kArrows[] = {{"RACE UP", "RACE NAME"},
+                                                                            {"RACE DOWN", "RACE NAME"},
+                                                                            {"LIMIT VALUE UP", "LIMIT VALUE"},
+                                                                            {"LIMIT VALUE DOWN", "LIMIT VALUE"},
+                                                                            {"GOLD MASS UP", "GOLD MASS"},
+                                                                            {"GOLD MASS DOWN", "GOLD MASS"},
+                                                                            {"RACE LOCALE UP", "RACE LOCALE"},
+                                                                            {"RACE LOCALE DOWN", "RACE LOCALE"},
+                                                                            {"TIME UP", "TIME"},
+                                                                            {"TIME DOWN", "TIME"},
+                                                                            {"WEATHER UP", "WEATHER"},
+                                                                            {"WEATHER DOWN", "WEATHER"}};
+            for (const auto &[arrow, field] : kArrows)
+                if (const Widget *w = widget(arrow))
                     if (inside(ev.mouseX, ev.mouseY, w->x, w->y, std::min(w->w, 32), std::max(w->h / 2, 12))) {
                         bool shown = false;
-                        for (const Item& i : list)
+                        for (const Item &i : list)
                             shown = shown || i.widget == field;
                         if (shown) {
                             Item f;
@@ -668,12 +678,12 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
                 if (list[i].button)
                     activate(list[i], action);
                 else if (list[i].widget == "textscroll") {
-                    const Widget* w = widget("textscroll");
+                    const Widget *w = widget("textscroll");
                     const int row = (ev.mouseY - w->y - 4) / kRow - 1;
                     if (row >= 0 && _browser && size_t(row) < _browser->sessions().size())
                         _chosenSession = size_t(row);
                 } else if (!list[i].text) {
-                    const Widget* w = widget(list[i].widget);
+                    const Widget *w = widget(list[i].widget);
                     change(list[i], w && ev.mouseX < w->x + originX() + w->w / 2 ? -1 : 1);
                 }
                 _sys.setTextInput(typing());
@@ -700,7 +710,7 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
             change(item, ev.key == key::kRight ? 1 : -1);
         break;
     case key::kBackspace:
-        if (std::string* t = item.text ? textOf(item.widget) : nullptr; t && !t->empty())
+        if (std::string *t = item.text ? textOf(item.widget) : nullptr; t && !t->empty())
             t->pop_back();
         break;
     case key::kReturn:
@@ -777,7 +787,7 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
                                   : "this computer's Internet address"),
                 true);
     }
-    for (const NetNotice& n : _session->takeNotices()) {
+    for (const NetNotice &n : _session->takeNotices()) {
         say(noticeText(n), true);
         switch (n.kind) {
         case NetNotice::Kind::kStarted:
@@ -803,7 +813,7 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
             break;
         }
     }
-    for (const NetChatLine& c : _session->chat())
+    for (const NetChatLine &c : _session->chat())
         if (c.seq > _lastChatSeq) {
             _lastChatSeq = c.seq;
             say(c.from + ": " + c.text, false);
@@ -817,14 +827,14 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
     return action;
 }
 
-void NetMenus::text(Surface& o, const std::string& name, const std::string& s, Color c) const {
-    if (const Widget* w = widget(name))
+void NetMenus::text(Surface &o, const std::string &name, const std::string &s, Color c) const {
+    if (const Widget *w = widget(name))
         font::drawText(o, w->x + originX() + 6,
                        w->y + originY() + std::max(0, (std::min(w->h, 24) - font::kLineHeight) / 2), s, c);
 }
 
-void NetMenus::drawDialog(Surface& o, const std::string& picture, const std::string& title) const {
-    if (const image::Image* im = _pictures.jpg(picture))
+void NetMenus::drawDialog(Surface &o, const std::string &picture, const std::string &title) const {
+    if (const image::Image *im = _pictures.jpg(picture))
         drawPicture(o, *im, kDialogX, kDialogY);
     else {
         // No picture of its own (the address box's isn't shipped): a
@@ -836,7 +846,7 @@ void NetMenus::drawDialog(Surface& o, const std::string& picture, const std::str
     }
 }
 
-void NetMenus::drawHostRace(Surface& o) const {
+void NetMenus::drawHostRace(Surface &o) const {
     const std::string city = _cities.empty() ? "sf" : cityPicture(_cities[_settings.city].map);
     // The race's map, else the city's.
     std::string map = city == "london" ? "mapr_lon" : "mapr_sf";
@@ -845,11 +855,11 @@ void NetMenus::drawHostRace(Surface& o) const {
         map = city + "_map" +
               (k == RaceKind::kBlitz     ? "blitz"
                : k == RaceKind::kCircuit ? "circuit"
-                                        : "race") +
+                                         : "race") +
               std::to_string(_settings.race);
     }
-    if (const image::Image* m = _pictures.jpg(map))
-        if (const Widget* w = widget("race map"))
+    if (const image::Image *m = _pictures.jpg(map))
+        if (const Widget *w = widget("race map"))
             drawPicture(o, *m, w->x, w->y, w->w, w->h);
     if (hasRace(_settings.mode))
         text(o, "RACE NAME",
@@ -860,26 +870,26 @@ void NetMenus::drawHostRace(Surface& o) const {
         if (_settings.limit != GoldLimit::kNone)
             text(o, "LIMIT VALUE",
                  _settings.limit == GoldLimit::kTime ? timeLimitName(_settings.limitValue)
-                                                    : std::to_string(_settings.limitValue) + " pts");
+                                                     : std::to_string(_settings.limitValue) + " pts");
         text(o, "GOLD MASS", goldMassName(_settings.goldMass));
     }
     text(o, "RACE LOCALE", _cities.empty() ? "" : _cities[_settings.city].name);
     text(o, "TIME", kTimes[_settings.timeOfDay & 3]);
     text(o, "WEATHER", kWeathers[_settings.weather & 3]);
-    if (const Widget* w = widget("PEDESTRIAN DENSITY")) {
+    if (const Widget *w = widget("PEDESTRIAN DENSITY")) {
         // Over the background's grid of cells.
         const Box b{w->x + 8, w->y + 2, int(float(w->w - 26) * _settings.peds), w->h - 10};
         fillBox(o, b, {255, 200, 40});
     }
-    static const char* const kDesc[] = {"race_hrm", "race_hbt", "race_hcp", "race_hct", "race_cop"};
-    if (const image::Image* d = _pictures.jpg(kDesc[int(_settings.mode)]))
+    static const char *const kDesc[] = {"race_hrm", "race_hbt", "race_hcp", "race_hct", "race_cop"};
+    if (const image::Image *d = _pictures.jpg(kDesc[int(_settings.mode)]))
         drawPicture(o, *d, 40, 396);
 }
 
-void NetMenus::drawLobby(Surface& o) const {
+void NetMenus::drawLobby(Surface &o) const {
     if (!_session)
         return;
-    const NetSettings& s = _session->settings();
+    const NetSettings &s = _session->settings();
     const std::string city = s.city < _cities.size() ? _cities[s.city].name : "";
     // The host's settings.
     std::vector<std::string> lines = {_session->sessionName(), modeName(s.mode)};
@@ -894,7 +904,7 @@ void NetMenus::drawLobby(Surface& o) const {
         lines.push_back(goldModeName(s.gold));
         lines.push_back(s.limit == GoldLimit::kNone   ? std::string("No limit")
                         : s.limit == GoldLimit::kTime ? timeLimitName(s.limitValue)
-                                                     : std::to_string(s.limitValue) + " points");
+                                                      : std::to_string(s.limitValue) + " points");
         lines.push_back(_strings.get(335, "Gold Mass") + ": " + goldMassName(s.goldMass));
     }
     lines.push_back(_strings.get(87, "Locale:") + " " + city);
@@ -903,16 +913,16 @@ void NetMenus::drawLobby(Surface& o) const {
         font::drawText(o, kSettingsBox.x + 4, kSettingsBox.y + 2 + int(i) * kRow, lines[i],
                        i == 0 ? Color{255, 230, 140} : Color{220, 220, 255});
     // The players.
-    if (const Widget* w = widget("compscroll")) {
+    if (const Widget *w = widget("compscroll")) {
         int y = w->y + 4;
         font::drawText(o, w->x + 6, y,
                        s.teams() ? "Player          Car                 Team      Ready  Ping"
                                  : "Player          Car                           Ready  Ping",
                        {150, 200, 255});
         y += kRow + 2;
-        for (const NetPlayer& p : _session->players()) {
+        for (const NetPlayer &p : _session->players()) {
             std::string car = carFor(p);
-            for (const CarInfo& c : _cars)
+            for (const CarInfo &c : _cars)
                 if (c.base == car)
                     car = c.description;
             // The host marked with a star; it's ready when it starts.
@@ -929,9 +939,9 @@ void NetMenus::drawLobby(Surface& o) const {
         }
     }
     // You.
-    if (const NetPlayer* me = _session->me()) {
+    if (const NetPlayer *me = _session->me()) {
         std::string car = carFor(*me);
-        for (const CarInfo& c : _cars)
+        for (const CarInfo &c : _cars)
             if (c.base == car)
                 car = c.description;
         font::drawText(o, kYouBox.x, kYouBox.y + 2, me->name, {255, 255, 120});
@@ -940,7 +950,7 @@ void NetMenus::drawLobby(Surface& o) const {
             font::drawText(o, kYouBox.x, kYouBox.y + 2 + 2 * kRow, teamName(me->team), {255, 200, 120});
     }
     if (s.teams())
-        if (const image::Image* label = _pictures.jpg("lobb_tem"))
+        if (const image::Image *label = _pictures.jpg("lobb_tem"))
             drawPicture(o, *label, 474, 190);
     // The chat (and who's come and gone).
     const int shown = kChatBox.h / kRow;
@@ -958,22 +968,22 @@ void NetMenus::drawLobby(Surface& o) const {
         map = pic + "_map" +
               (k == RaceKind::kBlitz     ? "blitz"
                : k == RaceKind::kCircuit ? "circuit"
-                                        : "race") +
+                                         : "race") +
               std::to_string(s.race);
     }
-    if (const image::Image* m = _pictures.jpg(map))
-        if (const Widget* w = widget("race map"))
+    if (const image::Image *m = _pictures.jpg(map))
+        if (const Widget *w = widget("race map"))
             drawPicture(o, *m, w->x, w->y, w->w, w->h);
     // The description: the host settings button's, else the event's.
     const auto list = items();
     const std::string focused = size_t(_focus) < list.size() ? list[size_t(_focus)].widget : "";
-    static const char* const kDesc[] = {"race_hrm", "race_hbt", "race_hcp", "race_hct", "race_cop"};
-    if (const image::Image* d = _pictures.jpg(focused == "lobb_hst" ? "lobb_set" : kDesc[int(s.mode)]))
+    static const char *const kDesc[] = {"race_hrm", "race_hbt", "race_hcp", "race_hct", "race_cop"};
+    if (const image::Image *d = _pictures.jpg(focused == "lobb_hst" ? "lobb_set" : kDesc[int(s.mode)]))
         drawPicture(o, *d, 40, 396);
     // Waiting for the players to be ready (the game's words).
     if (_session->isHost()) {
         int waiting = 0;
-        for (const NetPlayer& p : _session->players())
+        for (const NetPlayer &p : _session->players())
             waiting += p.id != _session->myId() && !p.ready ? 1 : 0;
         if (waiting > 0)
             font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6,
@@ -984,24 +994,24 @@ void NetMenus::drawLobby(Surface& o) const {
     }
 }
 
-void NetMenus::draw(Surface& o, uint64_t nowMs) {
+void NetMenus::draw(Surface &o, uint64_t nowMs) {
     _nowMs = nowMs;
     std::fill(o.pixels.begin(), o.pixels.end(), 0);
     // The screen under a dialog.
     const Screen under = _screen == Screen::kAddress || _screen == Screen::kPassword || _screen == Screen::kHostOptions
                              ? Screen::kSessions
                          : _screen == Screen::kEject ? Screen::kLobby
-                                                    : _screen;
+                                                     : _screen;
     const bool host = _session && _session->isHost();
-    const char* background = under == Screen::kSessions   ? "sess_bk"
+    const char *background = under == Screen::kSessions   ? "sess_bk"
                              : under == Screen::kHostRace ? "host_bk"
-                             : host                      ? "lobbh_bk"
-                                                         : "lobbj_bk";
-    if (const image::Image* bg = _pictures.jpg(background))
+                             : host                       ? "lobbh_bk"
+                                                          : "lobbj_bk";
+    if (const image::Image *bg = _pictures.jpg(background))
         drawPicture(o, *bg, 0, 0, o.w, o.h);
     // Cops & Robbers' choices, on their own panel, under their buttons.
     if (under == Screen::kHostRace && _settings.mode == NetMode::kCopsRobbers)
-        if (const image::Image* panel = _pictures.jpg("host_cr"))
+        if (const image::Image *panel = _pictures.jpg("host_cr"))
             drawPicture(o, *panel, kCopsPanel.x, kCopsPanel.y);
 
     const Screen was = _screen;
@@ -1026,20 +1036,20 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
         }
         const auto list = items();
         for (size_t i = 0; i < list.size(); ++i) {
-            const Item& item = list[i];
-            const Widget* w = widget(item.widget);
+            const Item &item = list[i];
+            const Widget *w = widget(item.widget);
             if (!w)
                 continue;
             const bool focused = int(i) == _focus;
             if (item.button) {
-                const image::Image* im = _pictures.texture(item.picture);
+                const image::Image *im = _pictures.texture(item.picture);
                 if (!im)
                     continue;
                 bool chosen = item.widget == "sess_tcp";
                 if (_screen == Screen::kHostRace) {
-                    static const char* const kModes[] = {"cruise_m", "blitz_m", "cp_m", "circt_m", "cops_m"};
-                    static const char* const kGold[] = {"free_cr", "cpsvr_cr", "robrs_cr"};
-                    static const char* const kLimits[] = {"none_cr", "time_cr", "point_cr"};
+                    static const char *const kModes[] = {"cruise_m", "blitz_m", "cp_m", "circt_m", "cops_m"};
+                    static const char *const kGold[] = {"free_cr", "cpsvr_cr", "robrs_cr"};
+                    static const char *const kLimits[] = {"none_cr", "time_cr", "point_cr"};
                     chosen = item.widget == kModes[int(_settings.mode)] || item.widget == kGold[int(_settings.gold)] ||
                              item.widget == kLimits[int(_settings.limit)];
                 }
@@ -1060,8 +1070,8 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
         case Screen::kSessions: {
             text(o, "NET NAME", _netName + (_focus == 5 && (nowMs / 400) % 2 ? "_" : ""));
             font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6, "TCP/IP", {255, 230, 140});
-            if (const Widget* w = widget("textscroll")) {
-                const auto& found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
+            if (const Widget *w = widget("textscroll")) {
+                const auto &found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
                 int y = w->y + 4;
                 font::drawText(o, w->x + 6, y, "Session          Players  Event           Ping", {150, 200, 255});
                 y += kRow;
@@ -1069,7 +1079,7 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
                     font::drawText(o, w->x + 6, y + 4, "None on this network yet. JOIN to give an address.",
                                    {200, 200, 200});
                 for (size_t i = 0; i < found.size() && i < 8; ++i) {
-                    const auto& f = found[i];
+                    const auto &f = found[i];
                     char row[160];
                     std::snprintf(row, sizeof row, "%-16.16s %d/%d      %-15.15s %d%s%s", f.name.c_str(), f.players,
                                   f.maxPlayers, modeName(f.mode).c_str(), f.ping, f.playing ? " (playing)" : "",
@@ -1081,7 +1091,7 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
                     y += kRow;
                 }
             }
-            if (const image::Image* d = _pictures.jpg("mpst_tcp"))
+            if (const image::Image *d = _pictures.jpg("mpst_tcp"))
                 drawPicture(o, *d, 40, 396);
             break;
         }
@@ -1097,7 +1107,7 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             text(o, "Password", stars + ((nowMs / 400) % 2 && _focus == 0 ? "_" : ""));
             if (_screen == Screen::kHostOptions) {
                 text(o, "Max Players", std::to_string(_settings.maxPlayers));
-                if (const Widget* w = widget(kBotsField)) {
+                if (const Widget *w = widget(kBotsField)) {
                     // Its label and box, as the dialog draws Max Players'.
                     const std::string label = "COMPUTER PLAYERS";
                     font::drawText(o, kDialogX + w->x - 12 - int(label.size()) * font::kAdvance, kDialogY + w->y + 10,
@@ -1119,7 +1129,7 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
             if (_session) {
                 int y = kEjectList.y;
                 size_t k = 0;
-                for (const NetPlayer& p : _session->players()) {
+                for (const NetPlayer &p : _session->players()) {
                     if (p.id == _session->myId())
                         continue;
                     font::drawText(o, kEjectList.x, y, p.name,
@@ -1136,10 +1146,10 @@ void NetMenus::draw(Surface& o, uint64_t nowMs) {
 
     // Joining: "Retrieving game settings..."
     if (_session && _session->joining())
-        if (const image::Image* d = _pictures.jpg("rtrv_dlg"))
+        if (const image::Image *d = _pictures.jpg("rtrv_dlg"))
             drawPicture(o, *d, kDialogX, kMessageY);
     if (!_messagePicture.empty()) {
-        if (const image::Image* d = _pictures.jpg(_messagePicture))
+        if (const image::Image *d = _pictures.jpg(_messagePicture))
             drawPicture(o, *d, kDialogX, kMessageY);
         if (!_message.empty())
             font::drawText(o, kDialogX + 80, kMessageY + 30, _message.substr(0, 38), {255, 255, 255});

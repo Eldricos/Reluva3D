@@ -11,8 +11,8 @@
 
 namespace reluva::idtech3 {
 
-Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::string_view gameDir, int layer,
-                   std::vector<std::string>& warnings) {
+Error mountGameDir(SearchSet &set, const std::filesystem::path &install, std::string_view gameDir, int layer,
+                   std::vector<std::string> &warnings) {
     const auto dir = fs::findDirectory(install, gameDir);
     if (!dir)
         return Error::fail("No " + std::string(gameDir) + " folder in " + install.string());
@@ -24,20 +24,20 @@ Error mountGameDir(SearchSet& set, const std::filesystem::path& install, std::st
             paks.push_back(it->path());
     // Compared in upper case: that puts '_' after the letters, unlike lower
     // case, and decides which pak overrides which.
-    auto upper = [](const std::filesystem::path& p) {
+    auto upper = [](const std::filesystem::path &p) {
         std::string s = p.filename().string();
-        for (char& c : s)
+        for (char &c : s)
             if (c >= 'a' && c <= 'z')
                 c = static_cast<char>(c - 'a' + 'A');
         return s;
     };
-    std::sort(paks.begin(), paks.end(), [&](const auto& a, const auto& b) { return upper(a) < upper(b); });
+    std::sort(paks.begin(), paks.end(), [&](const auto &a, const auto &b) { return upper(a) < upper(b); });
     if (paks.size() >= kPrioritiesPerGameDir)
         return Error::fail("Too many .pk3 files in " + dir->string());
 
     const int base = layer * kPrioritiesPerGameDir;
     int priority = base;
-    for (const auto& p : paks) {
+    for (const auto &p : paks) {
         auto zip = std::make_unique<ZipArchive>();
         if (Error err = zip->open(p)) {
             warnings.push_back(err.message);

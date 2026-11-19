@@ -21,16 +21,16 @@ constexpr size_t kBullet = 3; // characters before a tab that are a list's bulle
 constexpr int kPictureWidth = kFrameW - 2 * kLeft, kPictureHeight = 300; // the most a picture's shown at
 const Color kText{235, 235, 235}, kLink{120, 230, 140}, kChosen{255, 255, 120};
 
-void fill(Surface& o, int x, int y, int w, int h, Color c, uint8_t alpha) {
+void fill(Surface &o, int x, int y, int w, int h, Color c, uint8_t alpha) {
     for (int yy = std::max(0, y); yy < std::min(o.h, y + h); ++yy)
         for (int xx = std::max(0, x); xx < std::min(o.w, x + w); ++xx) {
-            uint8_t* p = o.row(yy) + xx * 4;
+            uint8_t *p = o.row(yy) + xx * 4;
             p[0] = c.r, p[1] = c.g, p[2] = c.b, p[3] = alpha;
         }
 }
 
 // The size a picture is shown at: as it is, or smaller to fit.
-void shownSize(const winhelp::Picture& p, int& w, int& h) {
+void shownSize(const winhelp::Picture &p, int &w, int &h) {
     const float scale = std::min({1.0f, float(kPictureWidth) / float(std::max(1, p.width)),
                                   float(kPictureHeight) / float(std::max(1, p.height))});
     w = std::max(1, int(float(p.width) * scale));
@@ -39,7 +39,7 @@ void shownSize(const winhelp::Picture& p, int& w, int& h) {
 
 } // namespace
 
-Error HelpViewer::load(const SearchSet& files) {
+Error HelpViewer::load(const SearchSet &files) {
     if (Error err = files.read("MM2HELP.HLP", _file))
         return err;
     if (Error err = winhelp::readHelp(_file, _topics))
@@ -57,9 +57,11 @@ void HelpViewer::open() {
     _back.clear();
 }
 
-int HelpViewer::visibleRows() const { return (kBottom - kTop) / kRow; }
+int HelpViewer::visibleRows() const {
+    return (kBottom - kTop) / kRow;
+}
 
-const winhelp::Picture* HelpViewer::picture(int number) const {
+const winhelp::Picture *HelpViewer::picture(int number) const {
     auto it = _pictures.find(number);
     if (it == _pictures.end()) {
         winhelp::Picture p;
@@ -70,7 +72,7 @@ const winhelp::Picture* HelpViewer::picture(int number) const {
     return it->second.width > 0 ? &it->second : nullptr;
 }
 
-int HelpViewer::pictureLines(const winhelp::Picture& p) const {
+int HelpViewer::pictureLines(const winhelp::Picture &p) const {
     int w = 0, h = 0;
     shownSize(p, w, h);
     return (h + kRow - 1) / kRow + 1;
@@ -94,7 +96,7 @@ void HelpViewer::layOut() {
     // of its own.
     _lines.clear();
     _links.clear();
-    const std::string& text = _topics[size_t(_reading)].text;
+    const std::string &text = _topics[size_t(_reading)].text;
     size_t at = 0;
     while (at <= text.size()) {
         size_t end = text.find('\n', at);
@@ -109,7 +111,7 @@ void HelpViewer::layOut() {
                 const size_t close = text.find(c, i + 1);
                 const int number = std::atoi(text.c_str() + i + 1);
                 i = close == std::string::npos ? end : close;
-                if (const winhelp::Picture* p = picture(number)) {
+                if (const winhelp::Picture *p = picture(number)) {
                     Line l;
                     l.picture = number;
                     _lines.push_back(l);
@@ -188,7 +190,7 @@ void HelpViewer::follow(int link) {
         openTopic(_links[size_t(link)]);
 }
 
-void HelpViewer::handle(const Event& ev) {
+void HelpViewer::handle(const Event &ev) {
     if (!_open)
         return;
     const int page = visibleRows() - 1;
@@ -222,7 +224,7 @@ void HelpViewer::handle(const Event& ev) {
                 }
             } else if (_line + row < int(_lines.size())) {
                 // A link's words clicked.
-                const Line& l = _lines[size_t(_line + row)];
+                const Line &l = _lines[size_t(_line + row)];
                 const int column = (ev.mouseX - kLeft) / font::kAdvance;
                 if (column >= 0 && column < int(l.link.size()) && l.link[size_t(column)] >= 0)
                     follow(l.link[size_t(column)]);
@@ -287,7 +289,7 @@ void HelpViewer::handle(const Event& ev) {
     }
 }
 
-void HelpViewer::draw(Surface& o) const {
+void HelpViewer::draw(Surface &o) const {
     if (!_open)
         return;
     fill(o, 0, 0, kFrameW, kFrameH, {10, 12, 40}, 235);
@@ -310,24 +312,24 @@ void HelpViewer::draw(Surface& o) const {
     // Pictures first (one starting above the top shows its lower part),
     // clipped to the page; then the words, links coloured.
     for (int i = std::max(0, _line - kPictureHeight / kRow - 1); i < _line + rows && i < int(_lines.size()); ++i) {
-        const Line& l = _lines[size_t(i)];
-        const winhelp::Picture* p = l.picture >= 0 ? picture(l.picture) : nullptr;
+        const Line &l = _lines[size_t(i)];
+        const winhelp::Picture *p = l.picture >= 0 ? picture(l.picture) : nullptr;
         if (!p)
             continue;
         int w = 0, h = 0;
         shownSize(*p, w, h);
         const int y0 = kTop + (i - _line) * kRow, x0 = kLeft;
         for (int y = std::max(0, kTop - y0); y < h && y0 + y < kBottom; ++y) {
-            uint8_t* to = o.row(y0 + y) + x0 * 4;
+            uint8_t *to = o.row(y0 + y) + x0 * 4;
             const int sy = y * p->height / h;
             for (int x = 0; x < w && x0 + x < o.w; ++x, to += 4) {
-                const uint8_t* from = p->rgba.data() + (size_t(sy) * size_t(p->width) + size_t(x * p->width / w)) * 4;
+                const uint8_t *from = p->rgba.data() + (size_t(sy) * size_t(p->width) + size_t(x * p->width / w)) * 4;
                 to[0] = from[0], to[1] = from[1], to[2] = from[2], to[3] = 255;
             }
         }
     }
     for (int i = 0; i < rows && _line + i < int(_lines.size()); ++i) {
-        const Line& l = _lines[size_t(_line + i)];
+        const Line &l = _lines[size_t(_line + i)];
         const int y = kTop + i * kRow;
         // Runs of the same link (or none) drawn together.
         for (size_t a = 0; a < l.text.size();) {

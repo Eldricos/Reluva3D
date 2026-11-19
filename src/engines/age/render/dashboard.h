@@ -22,7 +22,7 @@ struct DashSetup {
     float wheelFact = 0.9f;
     float rpmRotMin = 0, rpmRotMax = 3, speedRotMin = 0, speedRotMax = 3, damageRotMin = 0, damageRotMax = 3;
 };
-Error loadDashSetup(const SearchSet& files, const std::string& car, DashSetup& out);
+Error loadDashSetup(const SearchSet &files, const std::string &car, DashSetup &out);
 
 // The dashboard (geometry/<car>_dash.pkg: flat parts, dash, roof, wheel,
 // speed_needle, tach_needle, damage_needle, gear_indicator), drawn over
@@ -30,13 +30,13 @@ Error loadDashSetup(const SearchSet& files, const std::string& car, DashSetup& o
 class Dashboard {
 public:
     // False if the car has none.
-    bool load(const SearchSet& files, ModelCache& models, TextureCache& textures, const std::string& car);
+    bool load(const SearchSet &files, ModelCache &models, TextureCache &textures, const std::string &car);
     bool loaded() const { return _ok; }
     // `eye`, `forward`, `up`: the camera; `aspect` the view's width over
     // its height (it's made for 4:3, and stretched across to fill a wider view);
     // `damage` 0..1. Clears the depth first, so it's over everything drawn.
-    void draw(gfx::Renderer3D& renderer, ModelCache& models, const CarSim& sim, float damage, const Vec3& eye,
-              const Vec3& forward, const Vec3& up, float aspect, const SceneLight& light) const;
+    void draw(gfx::Renderer3D &renderer, ModelCache &models, const CarSim &sim, float damage, const Vec3 &eye,
+              const Vec3 &forward, const Vec3 &up, float aspect, const SceneLight &light) const;
 
 private:
     std::string _model;

@@ -28,7 +28,7 @@ enum PauseItem { kResume, kRestart, kReplay, kOptions, kQuitRace, kPauseItems };
 constexpr int kPauseTop = 180, kPauseStep = 34;
 // The results' buttons (texture/RESULT_*, four states 90 high).
 enum ResultButton { kResRestart, kResNext, kResReplay, kResMenu, kResExit, kResultButtons };
-const char* const kResultPictures[kResultButtons] = {"RESULT_RESTART", "RESULT_NEXTRACE", "RESULT_REPLAY",
+const char *const kResultPictures[kResultButtons] = {"RESULT_RESTART", "RESULT_NEXTRACE", "RESULT_REPLAY",
                                                      "RESULT_RACEMENU", "RESULT_EXITW"};
 // Where they go: down the results screens' right side, under the logo.
 constexpr int kResultX = 410, kResultTop = 92, kResultStep = 76, kResultState = 90;
@@ -36,7 +36,7 @@ constexpr int kResultX = 410, kResultTop = 92, kResultStep = 76, kResultState = 
 constexpr int kBoxX = 46, kBoxY = 74;
 
 // The menus' voices: which control says which word (aud/aud22/UI*.wav).
-const std::pair<const char*, const char*> kVoices[] = {
+const std::pair<const char *, const char *> kVoices[] = {
     {"main_sp", "UIraces"},    {"main_mp", "UImulti"},     {"main_rpl", "UIreplay"},
     {"race_rec", "UIrecords"}, {"race_veh", "UIvehicles"}, {"host_dn", "UIvehicles"},
     {"mnav_opt", "UIoptions"}, {"vesel_godrive", "UIgo"},  {"DRIVER NAME", "UIdriver"},
@@ -48,17 +48,17 @@ std::string clockText(float seconds) {
     return buf;
 }
 
-void darken(Surface& o, int x, int y, int w, int h, uint8_t alpha) {
+void darken(Surface &o, int x, int y, int w, int h, uint8_t alpha) {
     for (int yy = std::max(0, y); yy < std::min(o.h, y + h); ++yy)
         for (int xx = std::max(0, x); xx < std::min(o.w, x + w); ++xx) {
-            uint8_t* p = o.row(yy) + xx * 4;
+            uint8_t *p = o.row(yy) + xx * 4;
             p[0] = 10, p[1] = 6, p[2] = 40, p[3] = alpha;
         }
 }
 
 } // namespace
 
-void RaceViewer::playVoice(const std::string& clip) {
+void RaceViewer::playVoice(const std::string &clip) {
     if (!_ctx.mixer)
         return;
     std::vector<uint8_t> data;
@@ -123,7 +123,7 @@ void RaceViewer::menuSounds() {
     const std::string focus = _netMenus ? std::string() : _front->focusedWidget();
     if (focus != _lastFocus) {
         _lastFocus = focus;
-        for (const auto& [widget, clip] : kVoices)
+        for (const auto &[widget, clip] : kVoices)
             if (focus == widget)
                 playVoice(clip);
     }
@@ -147,7 +147,7 @@ void RaceViewer::instantReplay(ReplayReturn back) {
     startReplay(_recording);
 }
 
-void RaceViewer::pauseEvent(const Event& ev) {
+void RaceViewer::pauseEvent(const Event &ev) {
     int key = ev.key;
     if (ev.type == EventType::kMouseDown) {
         // A line clicked: as Enter on it.
@@ -197,7 +197,7 @@ void RaceViewer::pauseEvent(const Event& ev) {
     }
 }
 
-void RaceViewer::resultsEvent(const Event& ev) {
+void RaceViewer::resultsEvent(const Event &ev) {
     auto enabled = [&](int b) { return b != kResNext || nextRaceOpen(); };
     int key = ev.key;
     if (ev.type == EventType::kMouseDown) {
@@ -267,7 +267,7 @@ void RaceViewer::drawPauseMenu() {
     // The race stopped behind, darkened; the game's in-race words.
     darken(_overlay, 0, 0, kFrameW, kFrameH, 140);
     const uint32_t ids[kPauseItems] = {473, uint32_t(lesson() ? 653 : 464), 465, 466, 468};
-    const char* const fallback[kPauseItems] = {"Resume Driving", lesson() ? "Restart Lesson" : "Restart Race",
+    const char *const fallback[kPauseItems] = {"Resume Driving", lesson() ? "Restart Lesson" : "Restart Race",
                                                "Instant Replay", "Options", "Quit to Race Menu"};
     drawCentred(_strings.get(463, "MAIN MENU"), 120, {255, 230, 140}, 3);
     for (int i = 0; i < kPauseItems; ++i)
@@ -281,8 +281,8 @@ void RaceViewer::drawResults() {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     if (!_menuPictures)
         _menuPictures = std::make_unique<MenuPictures>(_ctx.files);
-    MenuPictures& pictures = *_menuPictures;
-    if (const image::Image* bg = pictures.jpg(lesson() ? "crshi_bk" : "rshi_bk"))
+    MenuPictures &pictures = *_menuPictures;
+    if (const image::Image *bg = pictures.jpg(lesson() ? "crshi_bk" : "rshi_bk"))
         drawPicture(_overlay, *bg, 0, 0, kFrameW, kFrameH);
     int y = kBoxY;
     font::drawText(_overlay, kBoxX, y, _race.name, {255, 230, 140}, 2);
@@ -305,16 +305,16 @@ void RaceViewer::drawResults() {
             font::drawText(_overlay, kBoxX, y + 16, line, {255, 160, 120});
         }
     } else {
-        std::vector<const Racer*> order;
-        for (const Racer& r : _racers)
+        std::vector<const Racer *> order;
+        for (const Racer &r : _racers)
             order.push_back(&r);
         std::stable_sort(order.begin(), order.end(),
-                         [&](const Racer* a, const Racer* b) { return progressOf(*a) > progressOf(*b); });
+                         [&](const Racer *a, const Racer *b) { return progressOf(*a) > progressOf(*b); });
         // The rows come in one a second, as the game's do; its opponents
         // go by their places on the grid ("Opponent 1"...: strings 13-20).
         const size_t shown = size_t(_resultsTime) + 1;
         for (size_t i = 0; i < order.size() && i < shown && y < kBoxY + 290; ++i) {
-            const Racer& r = *order[i];
+            const Racer &r = *order[i];
             const size_t slot = size_t(order[i] - _racers.data());
             const std::string name = r.player || _netGame || slot < 1 || slot > 8
                                          ? r.name
@@ -347,15 +347,15 @@ void RaceViewer::drawResults() {
             font::drawText(_overlay, kX, lineY, text, {255, 255, 120});
     }
     // Bottom left, the event's description, or the lesson's.
-    const std::string& map = _cities[size_t(_city)].map;
+    const std::string &map = _cities[size_t(_city)].map;
     const std::string desc = lesson() ? (map == "london" ? "lon_cc" : "sf_cc") + std::to_string(_raceIndex)
                              : _race.kind == RaceKind::kBlitz   ? "race_btz"
                              : _race.kind == RaceKind::kCircuit ? "race_cir"
-                                                               : "race_cp";
-    if (const image::Image* d = pictures.jpg(desc))
+                                                                : "race_cp";
+    if (const image::Image *d = pictures.jpg(desc))
         drawPicture(_overlay, *d, 40, 396);
     for (int b = 0; b < kResultButtons; ++b) {
-        const image::Image* im = pictures.texture(kResultPictures[b]);
+        const image::Image *im = pictures.texture(kResultPictures[b]);
         if (!im)
             continue;
         const bool enabled = b != kResNext || nextRaceOpen();

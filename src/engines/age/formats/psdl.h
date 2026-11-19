@@ -45,27 +45,27 @@ struct PsdlBlock {
     // The block's outline: each vertex and the block beyond that edge (0: none).
     std::vector<std::pair<uint16_t, uint16_t>> perimeter;
     std::vector<PsdlAttribute> attributes;
-    uint8_t flags = 0;    // what it is: see psdlblock
-    uint8_t extra = 0;    // a road block's street furniture rule (proprules.csv n01...), 0 none; 205 in block 0
+    uint8_t flags = 0; // what it is: see psdlblock
+    uint8_t extra = 0; // a road block's street furniture rule (proprules.csv n01...), 0 none; 205 in block 0
 };
 
 // A block's flags (psdl.md).
 namespace psdlblock {
-constexpr uint8_t kCovered = 0x2;  // under a roof: a tunnel, the Underground
-constexpr uint8_t kPlain = 0x4;    // no road: ground, buildings (the blocks before Psdl::firstRoadBlock)
-constexpr uint8_t kRoad = 0x8;     // part of a road between junctions
+constexpr uint8_t kCovered = 0x2;   // under a roof: a tunnel, the Underground
+constexpr uint8_t kPlain = 0x4;     // no road: ground, buildings (the blocks before Psdl::firstRoadBlock)
+constexpr uint8_t kRoad = 0x8;      // part of a road between junctions
 constexpr uint8_t kJunction = 0x10; // a junction (as the .bai road map's junctions)
 } // namespace psdlblock
 
 // A road between two junctions, from the data after the city's bounds:
 // one for each road of the .bai road map, in the same order.
 struct PsdlRoad {
-    uint16_t flags = 0, extra = 0;         // meanings not known
-    uint8_t lanes[2] = {0, 0};             // each side's: the .bai's side 1, then side 0
-    std::vector<float> lanePositions;      // across the road, 0-1, one for each lane
-    uint8_t ends[2] = {0, 0};              // a byte for each end, bits 0 and 7 used; meaning not known
-    uint16_t vertices[8] = {};             // four near each end; how they're used isn't known
-    std::vector<int32_t> blocks;           // its blocks, negative in 23 of San Francisco's roads
+    uint16_t flags = 0, extra = 0;    // meanings not known
+    uint8_t lanes[2] = {0, 0};        // each side's: the .bai's side 1, then side 0
+    std::vector<float> lanePositions; // across the road, 0-1, one for each lane
+    uint8_t ends[2] = {0, 0};         // a byte for each end, bits 0 and 7 used; meaning not known
+    uint16_t vertices[8] = {};        // four near each end; how they're used isn't known
+    std::vector<int32_t> blocks;      // its blocks, negative in 23 of San Francisco's roads
 };
 
 struct Psdl {
@@ -82,7 +82,7 @@ struct Psdl {
     std::string texture(uint32_t index) const;
 };
 
-Error readPsdl(const std::vector<uint8_t>& data, Psdl& out);
+Error readPsdl(const std::vector<uint8_t> &data, Psdl &out);
 
 // Each attribute's length in words after its header (and count), by the
 // rules in psdl.md: how many vertices and values it takes.

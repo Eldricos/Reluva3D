@@ -23,18 +23,18 @@ struct PadDrive {
     void axis(int axis, float value);
     // Added to the keys' controls: a stick pushed further than the keys
     // steer wins, the pedals the more pressed of the two.
-    void apply(CarControls& c) const;
+    void apply(CarControls &c) const;
     bool idle() const { return steer == 0 && throttle == 0 && brake == 0; }
 };
 
 // The key a button stands for while driving (a control's first key, as
 // the options bind it), or in the menus (the arrows, Return and Escape);
 // 0 for none. Start pauses (Escape) while driving.
-uint32_t padKey(int button, bool driving, const GameOptions& options);
+uint32_t padKey(int button, bool driving, const GameOptions &options);
 
 // A pad's event as the key event it stands for; false if it's no button
 // or stands for nothing.
-bool padKeyEvent(const Event& ev, bool driving, const GameOptions& options, Event& out);
+bool padKeyEvent(const Event &ev, bool driving, const GameOptions &options, Event &out);
 
 // How hard to shake the controller for a bump of `impact` (m/s of speed
 // lost): 0 for nothing felt.

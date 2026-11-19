@@ -90,12 +90,12 @@ struct NetCarState {
 enum : uint8_t { kLampHead = 1, kLampBrake = 2, kLampReverse = 4, kLampSiren = 8 };
 
 // A rotation as a quaternion and back.
-std::array<float, 4> quaternionOf(const Mat3& m);
-Mat3 matrixOfQuaternion(const std::array<float, 4>& q);
+std::array<float, 4> quaternionOf(const Mat3 &m);
+Mat3 matrixOfQuaternion(const std::array<float, 4> &q);
 // A car's state at `clock` from the ones received (in clock order):
 // between the two either side, or carried on from the last for up to
 // half a second. False if there's nothing to go on.
-bool carStateAt(const std::deque<NetCarState>& states, float clock, NetCarState& out);
+bool carStateAt(const std::deque<NetCarState> &states, float clock, NetCarState &out);
 
 // Something that happened, for the menus and the game to say.
 struct NetNotice {
@@ -122,11 +122,11 @@ public:
     enum class Phase : uint8_t { kLobby, kLoading, kPlaying };
 
     // Hosts a session on `socket` (bound to the port players reach).
-    static std::unique_ptr<NetSession> host(std::unique_ptr<net::UdpSocket> socket, const std::string& name,
-                                            const NetSettings& settings, const std::string& password = {});
+    static std::unique_ptr<NetSession> host(std::unique_ptr<net::UdpSocket> socket, const std::string &name,
+                                            const NetSettings &settings, const std::string &password = {});
     // Joins the host at `address`; until it answers, joining() is true.
-    static std::unique_ptr<NetSession> join(std::unique_ptr<net::UdpSocket> socket, const net::Address& address,
-                                            const std::string& name, const std::string& password = {});
+    static std::unique_ptr<NetSession> join(std::unique_ptr<net::UdpSocket> socket, const net::Address &address,
+                                            const std::string &name, const std::string &password = {});
     ~NetSession();
 
     // Reads what's arrived and sends what's due; call every frame.
@@ -144,25 +144,25 @@ public:
     // Each start begins a new round; the game it starts goes by its seed.
     uint32_t round() const { return _round; }
     uint32_t seed() const { return _seed; }
-    const NetSettings& settings() const { return _settings; }
-    const std::vector<NetPlayer>& players() const { return _players; }
-    const NetPlayer* player(uint8_t id) const;
-    const NetPlayer* me() const { return player(_myId); }
-    const std::deque<NetChatLine>& chat() const { return _chat; }
+    const NetSettings &settings() const { return _settings; }
+    const std::vector<NetPlayer> &players() const { return _players; }
+    const NetPlayer *player(uint8_t id) const;
+    const NetPlayer *me() const { return player(_myId); }
+    const std::deque<NetChatLine> &chat() const { return _chat; }
     std::vector<NetNotice> takeNotices();
-    const std::string& sessionName() const { return _sessionName; }
+    const std::string &sessionName() const { return _sessionName; }
 
     // The lobby. Any player: their car, team, readiness and chat.
-    void setCar(const std::string& car, uint8_t paint);
+    void setCar(const std::string &car, uint8_t paint);
     void setTeam(uint8_t team);
     void setReady(bool ready);
-    void say(const std::string& text);
+    void say(const std::string &text);
     // The host: the settings, ejecting a player, starting and ending.
-    void setSettings(const NetSettings& settings);
+    void setSettings(const NetSettings &settings);
     void eject(uint8_t id);
     // The host's computer players: always ready, sides evened up like
     // anyone's; kNoPlayer if the session's full.
-    uint8_t addBot(const std::string& name, const std::string& car);
+    uint8_t addBot(const std::string &name, const std::string &car);
     void removeBots();
     bool everyoneReady() const; // every player but the host
     Error start(uint64_t nowMs);
@@ -175,18 +175,18 @@ public:
     bool counting() const { return _goMs != 0 || _clockKnown; }
     float clock(uint64_t nowMs) const;
     // Our car, sent on to the others.
-    void sendCar(const NetCarState& state);
+    void sendCar(const NetCarState &state);
     // The host: a computer player's car, sent on as anyone's.
-    void sendBotCar(uint8_t id, const NetCarState& state);
+    void sendBotCar(uint8_t id, const NetCarState &state);
     // The others' cars, by player, oldest first.
-    const std::map<uint8_t, std::deque<NetCarState>>& cars() const { return _cars; }
+    const std::map<uint8_t, std::deque<NetCarState>> &cars() const { return _cars; }
     // The host's checks: how many of a player's car states it turned down
     // (moving faster than a car can, or stamped ahead of the clock).
     int rejected(uint8_t id) const;
     // The host's word on the game (the gold, the scores; the race over),
     // passed to everyone as it is.
-    void setGameState(const std::vector<uint8_t>& state, bool over);
-    const std::vector<uint8_t>& gameState() const { return _gameState; }
+    void setGameState(const std::vector<uint8_t> &state, bool over);
+    const std::vector<uint8_t> &gameState() const { return _gameState; }
     bool over() const { return _over; }
 
 private:
@@ -194,20 +194,20 @@ private:
     struct Peer; // a player's address and when it was last heard (host)
 
     void receive(uint64_t nowMs);
-    void handleHost(const net::Address& from, const std::vector<uint8_t>& data, uint64_t nowMs);
-    void handlePlayer(const net::Address& from, const std::vector<uint8_t>& data, uint64_t nowMs);
+    void handleHost(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs);
+    void handlePlayer(const net::Address &from, const std::vector<uint8_t> &data, uint64_t nowMs);
     void sendLobby(uint64_t nowMs);
     void sendStatus(uint64_t nowMs);
     void sendGame(uint64_t nowMs);
     void relayCars();
     void dropPlayer(uint8_t id, bool notify);
-    void storeCar(uint8_t id, const NetCarState& s);
-    bool plausible(uint8_t id, const NetCarState& s); // the host's check of a player's car
+    void storeCar(uint8_t id, const NetCarState &s);
+    bool plausible(uint8_t id, const NetCarState &s); // the host's check of a player's car
     void hostGone(uint64_t nowMs, uint8_t successor); // the host left or went quiet
     void becomeHost(uint64_t nowMs);
-    void notice(NetNotice::Kind kind, const std::string& name = {}, int reason = 0);
-    void addChat(const std::string& from, const std::string& text);
-    NetPlayer* mutablePlayer(uint8_t id);
+    void notice(NetNotice::Kind kind, const std::string &name = {}, int reason = 0);
+    void addChat(const std::string &from, const std::string &text);
+    NetPlayer *mutablePlayer(uint8_t id);
     uint8_t freeId() const;
     uint8_t teamWithFewer() const;
     bool silentTooLong(uint64_t heardMs, uint64_t nowMs) const;
@@ -279,8 +279,8 @@ public:
     void setBroadcasts(std::vector<uint32_t> addresses) { _broadcasts = std::move(addresses); }
     // Asks again every second; forgets what's stopped answering.
     void update(uint64_t nowMs);
-    void ask(const net::Address& address) { _asked.push_back(address); }
-    const std::vector<Found>& sessions() const { return _found; }
+    void ask(const net::Address &address) { _asked.push_back(address); }
+    const std::vector<Found> &sessions() const { return _found; }
 
 private:
     std::unique_ptr<net::UdpSocket> _socket;

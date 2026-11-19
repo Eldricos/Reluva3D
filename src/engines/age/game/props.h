@@ -32,7 +32,7 @@ struct PropPlacement {
 // facing the next (a point a metre or two away); 2, props along the line
 // every (end word's second byte / 10) metres, along it. See
 // docs/formats/age/pathset.md.
-std::vector<PropPlacement> placeProps(const std::vector<PathsetPath>& paths);
+std::vector<PropPlacement> placeProps(const std::vector<PathsetPath> &paths);
 
 // The street furniture along the roads' sidewalks: city/<city>/propdefs.csv
 // names the kinds (a street light, a meter...), proprules.csv which kinds
@@ -47,14 +47,14 @@ struct StreetPropKind {
     float maxLerp = 0;
     std::vector<std::string> models; // one picked for each
 };
-std::map<std::string, StreetPropKind> parsePropDefs(const std::string& text);
-std::map<std::string, std::vector<std::string>> parsePropRules(const std::string& text);
+std::map<std::string, StreetPropKind> parsePropDefs(const std::string &text);
+std::map<std::string, std::vector<std::string>> parsePropRules(const std::string &text);
 // Each road's sides by its blocks' rule (`blockRules[block]`, 0 none):
 // side 0 (on the left from its first point) by rule n<NN>left, side 1 by
 // n<NN>right.
-std::vector<PropPlacement> placeStreetProps(const AiRoadMap& roads, const std::vector<uint8_t>& blockRules,
-                                            const std::map<std::string, StreetPropKind>& kinds,
-                                            const std::map<std::string, std::vector<std::string>>& rules,
+std::vector<PropPlacement> placeStreetProps(const AiRoadMap &roads, const std::vector<uint8_t> &blockRules,
+                                            const std::map<std::string, StreetPropKind> &kinds,
+                                            const std::map<std::string, std::vector<std::string>> &rules,
                                             uint32_t seed = 1);
 
 // tune/banger/<model>.dgBangerData: what Reluva takes from it.
@@ -72,7 +72,7 @@ struct BangerData {
     float elasticity = 0.5f; // Elasticity: 0.5 for nearly all (a car bounces off more above that)
     bool bursts() const { return texNumber > 0 && (particles.initialBlast > 0 || particles.spewRate > 0); }
 };
-Error parseBangerData(const std::string& text, BangerData& out);
+Error parseBangerData(const std::string &text, BangerData &out);
 
 // The city's props and its traffic lights, as things a car can knock
 // down: standing, collided with (their bounds, else their models' boxes);
@@ -83,29 +83,29 @@ public:
     void clear() { _props.clear(); }
     // city/<map>/props.pathset's props, and a race's own
     // (race/<map>/<variant>.pathset: "circuit0"...).
-    void load(const SearchSet& files, const std::string& map, const std::string& variant = "");
+    void load(const SearchSet &files, const std::string &map, const std::string &variant = "");
     // The street furniture (placeStreetProps from city/<map>/propdefs.csv
     // and proprules.csv).
-    void addStreetProps(const SearchSet& files, const std::string& map, const AiRoadMap& roads,
-                        const std::vector<uint8_t>& blockRules);
+    void addStreetProps(const SearchSet &files, const std::string &map, const AiRoadMap &roads,
+                        const std::vector<uint8_t> &blockRules);
     // The traffic lights, as poles.
-    void addLights(const TrafficLights& lights);
+    void addLights(const TrafficLights &lights);
     // Their shapes and banger data, once the models are at hand
     // (`box`: a model's bounds, false if there's no such model).
-    using ModelBox = std::function<bool(const std::string& model, Vec3& low, Vec3& high)>;
-    void prepare(const SearchSet& files, ModelCache& models);
-    void prepare(const SearchSet& files, const ModelBox& box);
+    using ModelBox = std::function<bool(const std::string &model, Vec3 &low, Vec3 &high)>;
+    void prepare(const SearchSet &files, ModelCache &models);
+    void prepare(const SearchSet &files, const ModelBox &box);
     bool prepared() const { return _prepared; }
     // Their triangles into `world` (any put there before taken out first).
-    void collide(CollisionWorld& world) const;
+    void collide(CollisionWorld &world) const;
     // The props the cars broke loose come away (out of `world`; a traffic
     // light out of `lights`), then the loose ones fall.
-    void update(float dt, const std::vector<CarSim*>& cars, CollisionWorld& world, TrafficLights& lights);
-    void draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light, const gfx::Mat4& viewProj,
-              const Vec3& eye) const;
+    void update(float dt, const std::vector<CarSim *> &cars, CollisionWorld &world, TrafficLights &lights);
+    void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
+              const Vec3 &eye) const;
 
     // Its lamps' glows, those standing (at night).
-    void drawGlows(const FlareDrawer& flares, const Vec3& eye) const;
+    void drawGlows(const FlareDrawer &flares, const Vec3 &eye) const;
     // What flew out of the props broken since last asked: a rule, its
     // texture, where and how fast.
     struct Burst {
@@ -119,7 +119,7 @@ public:
     size_t loose() const;
     // Pieces of props come apart, and those come to rest; the lowest
     // height any of them is at (for tests).
-    size_t pieces(size_t* resting = nullptr, float* lowest = nullptr) const;
+    size_t pieces(size_t *resting = nullptr, float *lowest = nullptr) const;
 
 private:
     struct Prop {
@@ -156,7 +156,7 @@ private:
         Vec3 at{}; // from the prop's (or piece's) middle
         std::string texture;
     };
-    int addEffect(const BangerData& b, const Vec3& middle);
+    int addEffect(const BangerData &b, const Vec3 &middle);
     std::vector<Prop> _props;
     std::vector<Effect> _effects;
     std::vector<Burst> _bursts;

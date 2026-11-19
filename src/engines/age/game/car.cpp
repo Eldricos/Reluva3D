@@ -21,7 +21,7 @@ namespace reluva::age {
 namespace {
 
 constexpr float kGravity = 9.8f;
-constexpr float kStep = 1.0f / 120;        // seconds a step
+constexpr float kStep = 1.0f / 120; // seconds a step
 constexpr float kWattsPerHorsePower = 745.7f;
 constexpr float kMetresPerSecondPerMph = 0.44704f;
 // The tuning's friction (3 for most tyres) over this is a friction
@@ -31,9 +31,11 @@ constexpr float kHullRadius = 0.2f;     // spheres round the hull's corners
 constexpr float kSteerRate = 3;         // full lock and back, per second
 constexpr float kEngineBraking = 0.04f; // likewise
 
-std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
+std::string textOf(const std::vector<uint8_t> &data) {
+    return std::string(data.begin(), data.end());
+}
 
-void readAxle(const TuneNode* n, AxleSetup& a) {
+void readAxle(const TuneNode *n, AxleSetup &a) {
     if (!n)
         return;
     a.suspensionExtent = std::max(0.02f, n->number("SuspensionExtent", 0, a.suspensionExtent));
@@ -77,7 +79,7 @@ float CarSetup::gearTopSpeed(int gear) const {
     return lowSpeed * std::pow(highSpeed / lowSpeed, t);
 }
 
-Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out) {
+Error loadCarSetup(const SearchSet &files, const std::string &car, CarSetup &out) {
     out = CarSetup{};
     out.name = car;
     std::vector<uint8_t> data;
@@ -87,7 +89,7 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     TuneNode root;
     if (Error err = parseTune(textOf(data), root))
         return Error::fail(simName + ": " + err.message);
-    const TuneNode* sim = root.child("vehCarSim");
+    const TuneNode *sim = root.child("vehCarSim");
     if (!sim)
         return Error::fail(simName + ": no vehCarSim block");
     out.mass = std::max(100.0f, sim->number("Mass", 0, out.mass));
@@ -98,7 +100,7 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     out.boundFriction = sim->number("BoundFriction", 0, out.boundFriction);
     out.boundElasticity = sim->number("BoundElasticity", 0, out.boundElasticity);
     out.drivetrain = int(sim->number("DrivetrainType", 0, 0));
-    if (const TuneNode* aero = sim->child("Aero")) {
+    if (const TuneNode *aero = sim->child("Aero")) {
         out.drag = aero->number("Drag", 0, out.drag);
         out.down = aero->number("Down");
         for (size_t k = 0; k < 3; ++k) {
@@ -109,13 +111,13 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     }
     out.sssValue = std::max(0.0f, sim->number("SSSValue", 0, out.sssValue));
     out.sssThreshold = std::max(0.0f, sim->number("SSSThreshold", 0, out.sssThreshold));
-    if (const TuneNode* e = sim->child("Engine")) {
+    if (const TuneNode *e = sim->child("Engine")) {
         out.maxHorsePower = e->number("MaxHorsePower", 0, out.maxHorsePower);
         out.idleRpm = e->number("IdleRPM", 0, out.idleRpm);
         out.optRpm = e->number("OptRPM", 0, out.optRpm);
         out.maxRpm = std::max(out.optRpm + 100, e->number("MaxRPM", 0, out.maxRpm));
     }
-    if (const TuneNode* t = sim->child("Trans")) {
+    if (const TuneNode *t = sim->child("Trans")) {
         out.gears = std::max(1, int(t->number("AutoNumGears", 0, float(out.gears))));
         out.lowSpeed = std::max(1.0f, t->number("Low", 0, 20) * kMetresPerSecondPerMph);
         out.highSpeed = std::max(out.lowSpeed, t->number("High", 0, 90) * kMetresPerSecondPerMph);
@@ -126,7 +128,7 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     readAxle(sim->child("WheelBack"), out.back);
     TuneNode stuck;
     if (!files.read("tune/vehicle/" + car + ".vehStuck", data) && !parseTune(textOf(data), stuck))
-        if (const TuneNode* s = stuck.child("vehStuck")) {
+        if (const TuneNode *s = stuck.child("vehStuck")) {
             out.stuckTime = s->number("TimeThresh", 0, out.stuckTime);
             out.stuckDistance = s->number("PosThresh", 0, out.stuckDistance);
             out.stuckSpeed = s->number("MoveThresh", 0, out.stuckSpeed);
@@ -136,7 +138,7 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
         }
     TuneNode gyro;
     if (!files.read("tune/vehicle/" + car + ".vehGyro", data) && !parseTune(textOf(data), gyro))
-        if (const TuneNode* g = gyro.child("vehGyro")) {
+        if (const TuneNode *g = gyro.child("vehGyro")) {
             out.gyroSpin = std::max(0.0f, g->number("Spin180"));
             out.gyroReverse = std::max(0.0f, g->number("Reverse180"));
             out.gyroDrift = std::max(0.0f, g->number("Drift"));
@@ -162,7 +164,7 @@ Error loadCarSetup(const SearchSet& files, const std::string& car, CarSetup& out
     return Error::success();
 }
 
-void CarSim::reset(const CarSetup& setup, const Vec3& at, float yaw) {
+void CarSim::reset(const CarSetup &setup, const Vec3 &at, float yaw) {
     _setup = setup;
     orientation = Mat3::rotationY(yaw);
     // The wheels' bottoms on the ground.
@@ -175,13 +177,13 @@ void CarSim::reset(const CarSetup& setup, const Vec3& at, float yaw) {
 }
 
 Vec3 CarSim::wheelCenter(int i) const {
-    const AxleSetup& axle = i < 2 ? _setup.front : _setup.back;
+    const AxleSetup &axle = i < 2 ? _setup.front : _setup.back;
     const Vec3 local = _setup.wheels[size_t(i)] + Vec3{0, wheels[size_t(i)].compression - axle.suspensionExtent, 0};
     return position + orientation * local;
 }
 
-Vec3 CarSim::inverseInertiaTimes(const Vec3& torque) const {
-    const Vec3& b = _setup.inertiaBox;
+Vec3 CarSim::inverseInertiaTimes(const Vec3 &torque) const {
+    const Vec3 &b = _setup.inertiaBox;
     const float m = mass() / 12;
     const Vec3 inertia{m * (b[1] * b[1] + b[2] * b[2]), m * (b[0] * b[0] + b[2] * b[2]),
                        m * (b[0] * b[0] + b[1] * b[1])};
@@ -189,7 +191,7 @@ Vec3 CarSim::inverseInertiaTimes(const Vec3& torque) const {
     return orientation * Vec3{local[0] / inertia[0], local[1] / inertia[1], local[2] / inertia[2]};
 }
 
-void CarSim::step(const CarControls& controls, const CollisionWorld& world, float dt) {
+void CarSim::step(const CarControls &controls, const CollisionWorld &world, float dt) {
     // A manual change, once.
     if (manual && controls.shift > 0 && gear < _setup.gears) {
         gear = gear < 0 ? 1 : gear + 1;
@@ -232,11 +234,11 @@ void CarSim::step(const CarControls& controls, const CollisionWorld& world, floa
     }
 }
 
-void CarSim::substep(const CarControls& controls, const CollisionWorld& world, float h) {
+void CarSim::substep(const CarControls &controls, const CollisionWorld &world, float h) {
     const float m = mass();
     const Vec3 com = position + orientation * _setup.centerOfGravity;
     Vec3 force{0, -kGravity * m, 0}, torque{0, 0, 0};
-    auto applyAt = [&](const Vec3& f, const Vec3& point) {
+    auto applyAt = [&](const Vec3 &f, const Vec3 &point) {
         force += f;
         torque += cross(point - com, f);
     };
@@ -298,9 +300,9 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
     // The wheels.
     const int driven = _setup.drivetrain == 2 ? 4 : 2;
     for (int i = 0; i < 4; ++i) {
-        Wheel& w = wheels[size_t(i)];
+        Wheel &w = wheels[size_t(i)];
         const bool frontWheel = i < 2;
-        const AxleSetup& axle = frontWheel ? _setup.front : _setup.back;
+        const AxleSetup &axle = frontWheel ? _setup.front : _setup.back;
         const float radius = _setup.wheelRadius[size_t(i)];
         const float travel = 2 * axle.suspensionExtent;
         const Vec3 top = position + orientation * (_setup.wheels[size_t(i)] + Vec3{0, axle.suspensionExtent, 0});
@@ -399,7 +401,7 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
         // inertia (the constant part stops at none, not past it).
         const Vec3 local = orientation.inverseTimes(angularVelocity);
         Vec3 slowed = local;
-        const Vec3& b = _setup.inertiaBox;
+        const Vec3 &b = _setup.inertiaBox;
         const float inertiaShare[3] = {12 / (b[1] * b[1] + b[2] * b[2]), 0, 12 / (b[0] * b[0] + b[1] * b[1])};
         for (int k : {0, 2}) {
             const float w = local[size_t(k)];
@@ -413,7 +415,7 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
     // The gyro's help turning round, about the car's up, on the ground:
     // left steering turns it left, except backing, where the nose swings
     // the other way.
-    const bool grounded = std::any_of(wheels.begin(), wheels.end(), [](const Wheel& w) { return w.contact; });
+    const bool grounded = std::any_of(wheels.begin(), wheels.end(), [](const Wheel &w) { return w.contact; });
     if (grounded && std::fabs(controls.steer) > 0.3f) {
         const float along = -dot(velocity, orientation.z);
         const bool sliding = wheels[2].slip > 0.3f || wheels[3].slip > 0.3f;
@@ -436,12 +438,12 @@ void CarSim::substep(const CarControls& controls, const CollisionWorld& world, f
     collideBody(world);
 }
 
-void CarSim::collideBody(const CollisionWorld& world) {
+void CarSim::collideBody(const CollisionWorld &world) {
     const float m = mass();
     // The spheres inside the hull's box, touching its faces, so the body is
     // as big as its bound (and a low car's clear of the road).
     Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
-    for (const Vec3& v : _setup.hull)
+    for (const Vec3 &v : _setup.hull)
         for (size_t k = 0; k < 3; ++k) {
             lo[k] = std::min(lo[k], v[k]);
             hi[k] = std::max(hi[k], v[k]);
@@ -456,7 +458,7 @@ void CarSim::collideBody(const CollisionWorld& world) {
         points.push_back({lo[0], y, mid[2]});
         points.push_back({hi[0], y, mid[2]});
     }
-    for (const Vec3& original : points) {
+    for (const Vec3 &original : points) {
         Vec3 corner = original;
         for (size_t k = 0; k < 3; ++k)
             corner[k] = std::clamp(corner[k], std::min(lo[k] + kHullRadius, (lo[k] + hi[k]) / 2),
@@ -505,7 +507,7 @@ void CarSim::collideBody(const CollisionWorld& world) {
     }
 }
 
-std::array<Vec3, 3> CarSim::bumpers(float& radius) const {
+std::array<Vec3, 3> CarSim::bumpers(float &radius) const {
     // Along the body between its wheels, at mid height, as wide as it is.
     const float front = _setup.wheels[0][2] - 0.4f, back = _setup.wheels[2][2] + 0.4f;
     radius = std::max(0.6f, std::fabs(_setup.wheels[0][0]) + 0.2f);
@@ -517,12 +519,12 @@ std::array<Vec3, 3> CarSim::bumpers(float& radius) const {
     return out;
 }
 
-void collideCars(CarSim& a, CarSim& b) {
+void collideCars(CarSim &a, CarSim &b) {
     float ra, rb;
     const auto sa = a.bumpers(ra), sb = b.bumpers(rb);
     const float ma = a.mass(), mb = b.mass();
-    for (const Vec3& pa : sa)
-        for (const Vec3& pb : sb) {
+    for (const Vec3 &pa : sa)
+        for (const Vec3 &pb : sb) {
             Vec3 d = pb - pa;
             d[1] = 0; // pushed apart sideways, not up
             const float dist = length(d);

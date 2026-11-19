@@ -38,7 +38,7 @@ std::string timeText(float seconds) {
 }
 
 std::string placeText(int place) {
-    static const char* const kPlaces[] = {"-", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
+    static const char *const kPlaces[] = {"-", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
     return kPlaces[std::clamp(place, 0, 8)];
 }
 
@@ -69,7 +69,7 @@ std::string GameMenus::driverMenuName() const {
     }
 }
 
-void GameMenus::driverOrigin(int& x, int& y) const {
+void GameMenus::driverOrigin(int &x, int &y) const {
     switch (_screen) {
     case Screen::kNewDriver:
         x = 120, y = 75;
@@ -94,7 +94,7 @@ void GameMenus::driverOrigin(int& x, int& y) const {
     }
 }
 
-const char* GameMenus::driverPicture(Screen s) const {
+const char *GameMenus::driverPicture(Screen s) const {
     switch (s) {
     case Screen::kNewDriver:
         return "newp_dlg";
@@ -124,10 +124,11 @@ std::vector<GameMenus::Item> GameMenus::driverItems() const {
         // Its time and weather icons (texture/RENV_*: five states), the
         // three densities on its grid, Hide Pedestrians (RENV_HIDE), and its
         // two buttons as widget.csv has them: DONE left, CANCEL right.
-        std::vector<Item> list = {Item{Kind::kChoice, "TIME", {}, 0, true}, Item{Kind::kChoice, "WEATHER", {}, 0, true}};
+        std::vector<Item> list = {Item{Kind::kChoice, "TIME", {}, 0, true},
+                                  Item{Kind::kChoice, "WEATHER", {}, 0, true}};
         // "There are no pedestrians in a Circuit Race" (the game's help).
         const bool peds = !_front || _front->choice().kind != RaceKind::kCircuit;
-        for (const char* bar : {"TRAFFIC DENSITY", "PEDESTRIAN DENSITY", "COP DENSITY"})
+        for (const char *bar : {"TRAFFIC DENSITY", "PEDESTRIAN DENSITY", "COP DENSITY"})
             list.push_back(Item{Kind::kBar, bar, {}, 0, peds || std::string(bar) != "PEDESTRIAN DENSITY"});
         list.push_back(Item{Kind::kCheck, "dlg_chkb", "RENV_HIDE", 5, peds});
         list.push_back(Item{Kind::kButton, "dlg_done", "dlg_done", 4, true});
@@ -139,8 +140,8 @@ std::vector<GameMenus::Item> GameMenus::driverItems() const {
                 Item{Kind::kButton, "dlg_done", "dlg_done", 4, true}};
     if (_screen == Screen::kLocked)
         return {Item{Kind::kButton, "dlg_done", "dlg_ok", 4, true}};
-    auto button = [](const std::string& w, const std::string& pic) { return Item{Kind::kButton, w, pic, 4, true}; };
-    auto box = [](const std::string& w, bool enabled = true) { return Item{Kind::kCheck, w, "dlg_chkb", 5, enabled}; };
+    auto button = [](const std::string &w, const std::string &pic) { return Item{Kind::kButton, w, pic, 4, true}; };
+    auto box = [](const std::string &w, bool enabled = true) { return Item{Kind::kCheck, w, "dlg_chkb", 5, enabled}; };
     switch (_screen) {
     case Screen::kNewDriver:
         // The name, Amateur or Professional (texture/Checkbox), Cancel, Done.
@@ -186,22 +187,22 @@ namespace {
 // noon, sunset, night; the weathers as their pictures show them, in the
 // lightings' order (clear, cloudy, foggy, rainy): a sun, a cloud, a sun
 // behind a cloud, rain. Their names say sun, fog, snow and rain.
-const char* const kTimeIcons[4] = {"RENV_IMORN", "RENV_INOON", "RENV_ISUNS", "RENV_INITE"};
-const char* const kWeatherIcons[4] = {"RENV_ISUN", "RENV_IFOG", "RENV_ISNOW", "RENV_IRAIN"};
+const char *const kTimeIcons[4] = {"RENV_IMORN", "RENV_INOON", "RENV_ISUNS", "RENV_INITE"};
+const char *const kWeatherIcons[4] = {"RENV_ISUN", "RENV_IFOG", "RENV_ISNOW", "RENV_IRAIN"};
 constexpr int kIconW = 28, kIconH = 21, kIconStep = 31;
 } // namespace
 
-void GameMenus::drawConditionIcons(Surface& o, const std::string& w, bool focused) const {
+void GameMenus::drawConditionIcons(Surface &o, const std::string &w, bool focused) const {
     // Four icons, smaller, in the picture's box for the row: the chosen
     // one lit (the pictures' fourth state), the others dimmed (their
     // fifth), or plain (their first) in the row pointed at.
-    const Widget* wd = widget(w);
+    const Widget *wd = widget(w);
     if (!wd)
         return;
     const bool time = w == "TIME";
     const int chosen = time ? _conditions.timeOfDay : _conditions.weather;
     for (int i = 0; i < 4; ++i) {
-        const image::Image* im = _pictures.texture(time ? kTimeIcons[i] : kWeatherIcons[i]);
+        const image::Image *im = _pictures.texture(time ? kTimeIcons[i] : kWeatherIcons[i]);
         if (!im)
             continue;
         const int states = 5, h = im->h / states, state = i == chosen ? 3 : focused ? 0 : 4;
@@ -215,8 +216,8 @@ void GameMenus::drawConditionIcons(Surface& o, const std::string& w, bool focuse
     }
 }
 
-void GameMenus::stepCondition(const std::string& w, int dir) {
-    int& v = w == "TIME" ? _conditions.timeOfDay : _conditions.weather;
+void GameMenus::stepCondition(const std::string &w, int dir) {
+    int &v = w == "TIME" ? _conditions.timeOfDay : _conditions.weather;
     v = (v + dir + 4) % 4;
     sayCondition(w == "TIME");
 }
@@ -224,12 +225,12 @@ void GameMenus::stepCondition(const std::string& w, int dir) {
 void GameMenus::sayCondition(bool time) {
     // The game's recordings of the times and weathers (aud/aud22/UI*.wav);
     // there's none for fog (and a UIsnow for a weather the game hasn't).
-    static const char* const kTimes[] = {"UImorning", "UInoon", "UIsunset", "UInight"};
-    static const char* const kWeathers[] = {"UIsunny", "UIcloudy", "", "UIrain"};
+    static const char *const kTimes[] = {"UImorning", "UInoon", "UIsunset", "UInight"};
+    static const char *const kWeathers[] = {"UIsunny", "UIcloudy", "", "UIrain"};
     _voice = time ? kTimes[_conditions.timeOfDay & 3] : kWeathers[_conditions.weather & 3];
 }
 
-float GameMenus::raceShare(const std::string& w) const {
+float GameMenus::raceShare(const std::string &w) const {
     if (w == "TRAFFIC DENSITY")
         return _conditions.traffic;
     if (w == "PEDESTRIAN DENSITY")
@@ -239,7 +240,7 @@ float GameMenus::raceShare(const std::string& w) const {
     return 0;
 }
 
-void GameMenus::setRaceShare(const std::string& w, float v) {
+void GameMenus::setRaceShare(const std::string &w, float v) {
     v = std::clamp(v, 0.0f, 1.0f);
     if (w == "TRAFFIC DENSITY")
         _conditions.traffic = std::round(v * 10) / 10;
@@ -249,7 +250,7 @@ void GameMenus::setRaceShare(const std::string& w, float v) {
         _conditions.cops = int(std::lround(v * 4)); // 0-4 police
 }
 
-bool GameMenus::driverChecked(const std::string& w) const {
+bool GameMenus::driverChecked(const std::string &w) const {
     if (_screen == Screen::kRaceOptions)
         return w == "dlg_chkb" && _conditions.hidePeds;
     if (_screen == Screen::kNewDriver)
@@ -261,7 +262,7 @@ bool GameMenus::driverChecked(const std::string& w) const {
     return i < _filters.size() && _filters[i];
 }
 
-void GameMenus::driverToggle(const std::string& w) {
+void GameMenus::driverToggle(const std::string &w) {
     if (_screen == Screen::kRaceOptions) {
         if (w == "dlg_chkb")
             _conditions.hidePeds = !_conditions.hidePeds;
@@ -280,8 +281,8 @@ void GameMenus::driverToggle(const std::string& w) {
     buildTable();
 }
 
-GameMenus::Action GameMenus::driverActivate(const Item& item) {
-    const std::string& w = item.widget;
+GameMenus::Action GameMenus::driverActivate(const Item &item) {
+    const std::string &w = item.widget;
     if (item.kind == Kind::kCheck) {
         driverToggle(w);
         return Action::kNone;
@@ -343,7 +344,7 @@ void GameMenus::buildTable() {
     const bool stats = _screen == Screen::kDriverStats;
     std::vector<std::pair<std::string, PlayerRecord>> records;
     if (!stats)
-        for (const DriverEntry& d : _roster->drivers()) {
+        for (const DriverEntry &d : _roster->drivers()) {
             PlayerRecord r;
             r.load(_roster->folder(), d.file);
             records.push_back({d.name, std::move(r)});
@@ -351,7 +352,7 @@ void GameMenus::buildTable() {
     char line[160];
     _table.push_back(stats ? "Race                       Amateur          Professional"
                            : "Race                       Amateur              Professional");
-    for (const CityInfo& city : *_cities) {
+    for (const CityInfo &city : *_cities) {
         const bool london = city.map == "london";
         if (!_filters[london ? 7 : 6])
             continue;
@@ -376,7 +377,7 @@ void GameMenus::buildTable() {
                         }
                         float best = -1;
                         std::string who;
-                        for (const auto& [driver, r] : records) {
+                        for (const auto &[driver, r] : records) {
                             const float t = r.bestTime(city.map, kKinds[k], int(i), pro == 1);
                             if (t > 0 && (best < 0 || t < best)) {
                                 best = t;
@@ -394,7 +395,7 @@ void GameMenus::buildTable() {
     }
 }
 
-void GameMenus::drawTable(Surface& o) const {
+void GameMenus::drawTable(Surface &o) const {
     const int x = originX() + kTableX, y = originY() + kTableY;
     if (_screen == Screen::kDriverStats && _roster)
         font::drawText(o, x, y - 30,

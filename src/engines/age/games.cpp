@@ -5,15 +5,15 @@
 
 namespace reluva::age {
 
-const std::vector<GameInfo>& games() {
+const std::vector<GameInfo> &games() {
     static const std::vector<GameInfo> kList = {
         {"mm2", "Midtown Madness 2"},
     };
     return kList;
 }
 
-const GameInfo* findGame(std::string_view gameId) {
-    for (const GameInfo& g : games())
+const GameInfo *findGame(std::string_view gameId) {
+    for (const GameInfo &g : games())
         if (gameId == g.gameId)
             return &g;
     return nullptr;
@@ -28,18 +28,24 @@ const GameInfo* findGame(std::string_view gameId) {
 //
 // TODO: add the other releases (other languages, the demo) from owned
 // copies. Until then they're found by fallbackTable().
-const std::vector<GameVariant>& detectionTable() {
+const std::vector<GameVariant> &detectionTable() {
     static const std::vector<GameVariant> kTable = {
         // English Windows release, Midtown2.exe 1.00.3200 (October 2026).
-        {"mm2", "Midtown Madness 2", "en", "windows",
+        {"mm2",
+         "Midtown Madness 2",
+         "en",
+         "windows",
          {{"mm2core.ar", "8ba3c06f784f6f7abff1d4b902ef3440", 21430272}, {"Midtown2.exe", "", -1}}},
     };
     return kTable;
 }
 
-const std::vector<GameVariant>& fallbackTable() {
+const std::vector<GameVariant> &fallbackTable() {
     static const std::vector<GameVariant> kTable = {
-        {"mm2", "Midtown Madness 2 (unknown release)", "", "windows",
+        {"mm2",
+         "Midtown Madness 2 (unknown release)",
+         "",
+         "windows",
          {{"mm2core.ar", "", -1}, {"Midtown2.exe", "", -1}}},
     };
     return kTable;

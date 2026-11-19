@@ -30,8 +30,8 @@ struct Memory {
     size_t at = 0;
 };
 
-int readMemory(void* opaque, uint8_t* buf, int size) {
-    Memory& m = *static_cast<Memory*>(opaque);
+int readMemory(void *opaque, uint8_t *buf, int size) {
+    Memory &m = *static_cast<Memory *>(opaque);
     const size_t n = std::min(size_t(size), m.data.size() - m.at);
     if (n == 0)
         return AVERROR_EOF;
@@ -40,8 +40,8 @@ int readMemory(void* opaque, uint8_t* buf, int size) {
     return int(n);
 }
 
-int64_t seekMemory(void* opaque, int64_t offset, int whence) {
-    Memory& m = *static_cast<Memory*>(opaque);
+int64_t seekMemory(void *opaque, int64_t offset, int whence) {
+    Memory &m = *static_cast<Memory *>(opaque);
     if (whence == AVSEEK_SIZE)
         return int64_t(m.data.size());
     int64_t to = offset;
@@ -59,21 +59,21 @@ int64_t seekMemory(void* opaque, int64_t offset, int whence) {
 
 struct Movie::Impl {
     Memory memory;
-    AVIOContext* io = nullptr;
-    AVFormatContext* format = nullptr;
-    AVCodecContext* video = nullptr;
-    SwsContext* scale = nullptr;
-    AVFrame* frame = nullptr;
+    AVIOContext *io = nullptr;
+    AVFormatContext *format = nullptr;
+    AVCodecContext *video = nullptr;
+    SwsContext *scale = nullptr;
+    AVFrame *frame = nullptr;
     int stream = -1;
     double timeBase = 0, frameTime = 1.0 / 15;
-    std::deque<AVPacket*> packets; // the video's, demuxed at the start
+    std::deque<AVPacket *> packets; // the video's, demuxed at the start
     bool flushed = false;
     double shown = -1; // the time of the picture in `picture`
     image::Image picture;
     audio::Sound sound;
 
     ~Impl() {
-        for (AVPacket* p : packets)
+        for (AVPacket *p : packets)
             av_packet_free(&p);
         sws_freeContext(scale);
         av_frame_free(&frame);
@@ -97,7 +97,7 @@ struct Movie::Impl {
             if (got != AVERROR(EAGAIN))
                 return false; // the end, or broken
             if (!packets.empty()) {
-                AVPacket* p = packets.front();
+                AVPacket *p = packets.front();
                 packets.pop_front();
                 avcodec_send_packet(video, p);
                 av_packet_free(&p);
@@ -118,18 +118,18 @@ struct Movie::Impl {
         picture.w = frame->width;
         picture.h = frame->height;
         picture.rgba.resize(size_t(picture.w) * picture.h * 4);
-        uint8_t* dst[4] = {picture.rgba.data(), nullptr, nullptr, nullptr};
+        uint8_t *dst[4] = {picture.rgba.data(), nullptr, nullptr, nullptr};
         int stride[4] = {picture.w * 4, 0, 0, 0};
         sws_scale(scale, frame->data, frame->linesize, 0, frame->height, dst, stride);
     }
 
     // The whole soundtrack at once, to 16-bit samples at its own rate.
-    void decodeSound(int audioStream, std::vector<AVPacket*>& audioPackets) {
-        const AVCodecParameters* par = format->streams[audioStream]->codecpar;
-        const AVCodec* codec = avcodec_find_decoder(par->codec_id);
-        AVCodecContext* ctx = codec ? avcodec_alloc_context3(codec) : nullptr;
-        SwrContext* swr = nullptr;
-        AVFrame* f = av_frame_alloc();
+    void decodeSound(int audioStream, std::vector<AVPacket *> &audioPackets) {
+        const AVCodecParameters *par = format->streams[audioStream]->codecpar;
+        const AVCodec *codec = avcodec_find_decoder(par->codec_id);
+        AVCodecContext *ctx = codec ? avcodec_alloc_context3(codec) : nullptr;
+        SwrContext *swr = nullptr;
+        AVFrame *f = av_frame_alloc();
         if (ctx && avcodec_parameters_to_context(ctx, par) >= 0 && avcodec_open2(ctx, codec, nullptr) >= 0) {
             const int channels = std::clamp(ctx->ch_layout.nb_channels, 1, 2);
             AVChannelLayout out;
@@ -145,13 +145,13 @@ struct Movie::Impl {
                         const size_t at = sound.samples.size();
                         const int room = swr_get_out_samples(swr, f->nb_samples);
                         sound.samples.resize(at + size_t(std::max(0, room)) * size_t(channels));
-                        uint8_t* dst = reinterpret_cast<uint8_t*>(sound.samples.data() + at);
+                        uint8_t *dst = reinterpret_cast<uint8_t *>(sound.samples.data() + at);
                         const int n =
-                            swr_convert(swr, &dst, room, const_cast<const uint8_t**>(f->extended_data), f->nb_samples);
+                            swr_convert(swr, &dst, room, const_cast<const uint8_t **>(f->extended_data), f->nb_samples);
                         sound.samples.resize(at + size_t(std::max(0, n)) * size_t(channels));
                     }
                 };
-                for (AVPacket* p : audioPackets) {
+                for (AVPacket *p : audioPackets) {
                     avcodec_send_packet(ctx, p);
                     drain();
                 }
@@ -160,7 +160,7 @@ struct Movie::Impl {
             }
             av_channel_layout_uninit(&out);
         }
-        for (AVPacket*& p : audioPackets)
+        for (AVPacket *&p : audioPackets)
             av_packet_free(&p);
         swr_free(&swr);
         av_frame_free(&f);
@@ -168,13 +168,15 @@ struct Movie::Impl {
     }
 };
 
-bool Movie::supported() { return true; }
+bool Movie::supported() {
+    return true;
+}
 
-std::unique_ptr<Movie> Movie::open(std::vector<uint8_t> data, std::string& error) {
+std::unique_ptr<Movie> Movie::open(std::vector<uint8_t> data, std::string &error) {
     auto impl = std::make_unique<Impl>();
     impl->memory.data = std::move(data);
     constexpr int kBuffer = 1 << 16;
-    auto* buffer = static_cast<uint8_t*>(av_malloc(kBuffer));
+    auto *buffer = static_cast<uint8_t *>(av_malloc(kBuffer));
     impl->io =
         buffer ? avio_alloc_context(buffer, kBuffer, 0, &impl->memory, readMemory, nullptr, seekMemory) : nullptr;
     if (!impl->io) {
@@ -195,8 +197,8 @@ std::unique_ptr<Movie> Movie::open(std::vector<uint8_t> data, std::string& error
         error = "no pictures";
         return nullptr;
     }
-    AVStream* vs = impl->format->streams[impl->stream];
-    const AVCodec* codec = avcodec_find_decoder(vs->codecpar->codec_id);
+    AVStream *vs = impl->format->streams[impl->stream];
+    const AVCodec *codec = avcodec_find_decoder(vs->codecpar->codec_id);
     if (!codec) {
         error = std::string("no decoder for ") + avcodec_get_name(vs->codecpar->codec_id);
         return nullptr;
@@ -214,9 +216,9 @@ std::unique_ptr<Movie> Movie::open(std::vector<uint8_t> data, std::string& error
 
     // Read the whole file: the pictures' packets kept for later, the sound
     // decoded now.
-    std::vector<AVPacket*> audioPackets;
+    std::vector<AVPacket *> audioPackets;
     for (;;) {
-        AVPacket* p = av_packet_alloc();
+        AVPacket *p = av_packet_alloc();
         if (av_read_frame(impl->format, p) < 0) {
             av_packet_free(&p);
             break;
@@ -233,14 +235,18 @@ std::unique_ptr<Movie> Movie::open(std::vector<uint8_t> data, std::string& error
     return std::unique_ptr<Movie>(new Movie(std::move(impl)));
 }
 
-int Movie::width() const { return _impl->video->width; }
-int Movie::height() const { return _impl->video->height; }
+int Movie::width() const {
+    return _impl->video->width;
+}
+int Movie::height() const {
+    return _impl->video->height;
+}
 
 double Movie::duration() const {
     return _impl->format->duration > 0 ? double(_impl->format->duration) / AV_TIME_BASE : 0;
 }
 
-bool Movie::frameAt(double seconds, image::Image& out) {
+bool Movie::frameAt(double seconds, image::Image &out) {
     if (_impl->shown < 0 && !_impl->decodeNext())
         return false;
     // On to the last picture due by now.
@@ -257,23 +263,36 @@ struct Movie::Impl {
     audio::Sound sound;
 };
 
-bool Movie::supported() { return false; }
+bool Movie::supported() {
+    return false;
+}
 
-std::unique_ptr<Movie> Movie::open(std::vector<uint8_t>, std::string& error) {
+std::unique_ptr<Movie> Movie::open(std::vector<uint8_t>, std::string &error) {
     error = "Reluva was built without FFmpeg";
     return nullptr;
 }
 
-int Movie::width() const { return 0; }
-int Movie::height() const { return 0; }
-double Movie::duration() const { return 0; }
-bool Movie::frameAt(double, image::Image&) { return false; }
+int Movie::width() const {
+    return 0;
+}
+int Movie::height() const {
+    return 0;
+}
+double Movie::duration() const {
+    return 0;
+}
+bool Movie::frameAt(double, image::Image &) {
+    return false;
+}
 
 #endif
 
-Movie::Movie(std::unique_ptr<Impl> impl) : _impl(std::move(impl)) {}
+Movie::Movie(std::unique_ptr<Impl> impl) : _impl(std::move(impl)) {
+}
 Movie::~Movie() = default;
 
-const audio::Sound& Movie::sound() const { return _impl->sound; }
+const audio::Sound &Movie::sound() const {
+    return _impl->sound;
+}
 
 } // namespace reluva::video

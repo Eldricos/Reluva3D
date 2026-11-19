@@ -64,9 +64,9 @@ struct DlsCollection {
 
     // The instrument for a bank and program (bank as DlsInstrument::bank,
     // with kDrums), or null.
-    const DlsInstrument* find(uint32_t bank, uint32_t program) const;
+    const DlsInstrument *find(uint32_t bank, uint32_t program) const;
 };
 
-Error readDls(const std::vector<uint8_t>& data, DlsCollection& out);
+Error readDls(const std::vector<uint8_t> &data, DlsCollection &out);
 
 } // namespace reluva::audio

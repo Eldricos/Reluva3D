@@ -18,21 +18,21 @@ constexpr float kSinkDepth = 10; // metres of water a car sinks in (deep water's
 
 } // namespace
 
-size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMesh& mesh,
-                          const std::vector<Instance>& instances, CollisionWorld& out) {
+size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMesh &mesh,
+                          const std::vector<Instance> &instances, CollisionWorld &out) {
     out = CollisionWorld{};
     PhysicsMaterials materials;
     materials.load(files); // without them, every surface is the default
-    for (const CityMesh::Batch& b : mesh.batches) {
+    for (const CityMesh::Batch &b : mesh.batches) {
         if (b.water || b.decal || b.detail == 2)
             continue; // what's under the water is driven on; far-off roads are there near too
-        const PhysicsMaterial& m = materials.forTexture(b.texture);
+        const PhysicsMaterial &m = materials.forTexture(b.texture);
         if (m.depth >= kSinkDepth)
             continue; // deep water (the bay, the Thames): a car sinks
         const CollisionSurface surface = materials.surface(m);
         for (size_t i = 0; i + 2 < b.indices.size(); i += 3) {
             auto at = [&](size_t k) {
-                const gfx::Vertex& v = mesh.vertices[b.indices[i + k]];
+                const gfx::Vertex &v = mesh.vertices[b.indices[i + k]];
                 return Vec3{v.pos[0], v.pos[1], v.pos[2]};
             };
             out.add(at(0), at(1), at(2), surface);
@@ -41,8 +41,8 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
 
     // Facade bounds: a value, a height, the left and right vertices.
     const size_t lastVertex = psdl.vertices.empty() ? 0 : psdl.vertices.size() - 1;
-    for (const PsdlBlock& block : psdl.blocks)
-        for (const PsdlAttribute& a : block.attributes) {
+    for (const PsdlBlock &block : psdl.blocks)
+        for (const PsdlAttribute &a : block.attributes) {
             if (a.type != psdlattr::kFacadeBound || a.words.size() < 4 || psdl.vertices.empty())
                 continue;
             const Vec3 l = psdl.vertices[std::min<size_t>(a.words[2], lastVertex)];
@@ -57,7 +57,7 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
     // The placed models' bounds, read once a model.
     std::map<std::string, std::unique_ptr<Bound>> bounds;
     size_t used = 0;
-    for (const Instance& inst : instances) {
+    for (const Instance &inst : instances) {
         auto it = bounds.find(inst.model);
         if (it == bounds.end()) {
             std::unique_ptr<Bound> b;
@@ -69,18 +69,18 @@ size_t buildCityCollision(const SearchSet& files, const Psdl& psdl, const CityMe
         if (!it->second)
             continue;
         ++used;
-        const Bound& b = *it->second;
-        const auto& m = inst.matrix;
-        auto place = [&](const Vec3& p) {
+        const Bound &b = *it->second;
+        const auto &m = inst.matrix;
+        auto place = [&](const Vec3 &p) {
             return Vec3{m[0] * p[0] + m[3] * p[1] + m[6] * p[2] + m[9], m[1] * p[0] + m[4] * p[1] + m[7] * p[2] + m[10],
                         m[2] * p[0] + m[5] * p[1] + m[8] * p[2] + m[11]};
         };
-        for (const BoundPolygon& p : b.polygons) {
+        for (const BoundPolygon &p : b.polygons) {
             CollisionSurface surface;
             if (p.material < b.materials.size()) {
                 // Its own friction and elasticity; the city material of the
                 // same name's sound, drag and depth (grass, water...).
-                const BoundMaterial& bm = b.materials[p.material];
+                const BoundMaterial &bm = b.materials[p.material];
                 surface = materials.surface(materials.byName(bm.name));
                 surface.friction = bm.friction;
                 surface.elasticity = bm.elasticity;

@@ -21,7 +21,7 @@ public:
 
     int rate() const { return _rate; }
     // A channel's instrument (null: silent), and its controls (0-127).
-    void setInstrument(int channel, const DlsCollection* collection, const DlsInstrument* instrument);
+    void setInstrument(int channel, const DlsCollection *collection, const DlsInstrument *instrument);
     void setVolume(int channel, int volume);         // CC 7
     void setExpression(int channel, int expression); // CC 11
     void setPan(int channel, int pan);               // CC 10, 64 the middle
@@ -38,13 +38,13 @@ public:
 
     // Adds `frames` stereo frames to `out` (interleaved, so 2 x frames
     // values), mixed at `gain`.
-    void render(float* out, size_t frames, float gain = 1);
+    void render(float *out, size_t frames, float gain = 1);
     size_t voices() const { return _voices.size(); }
 
 private:
     struct Channel {
-        const DlsCollection* collection = nullptr;
-        const DlsInstrument* instrument = nullptr;
+        const DlsCollection *collection = nullptr;
+        const DlsInstrument *instrument = nullptr;
         float volume = 100 / 127.0f, expression = 1, pan = 0.5f, modWheel = 0, bend = 0;
         int transpose = 0;
         bool sustain = false;
@@ -63,7 +63,7 @@ private:
     };
     struct Voice {
         int channel = 0, key = 0;
-        const DlsWave* wave = nullptr;
+        const DlsWave *wave = nullptr;
         DlsSampleInfo info;
         Articulation art;
         double position = 0;
@@ -73,12 +73,12 @@ private:
         float releasedAt = -1;
         float releaseLevel = 0;
         bool held = false; // let go of under the sustain pedal
-        float level = 0; // the volume envelope's last level
+        float level = 0;   // the volume envelope's last level
         bool done = false;
     };
-    static Articulation articulate(const std::vector<DlsConnection>& instrument,
-                                   const std::vector<DlsConnection>& region);
-    static float envelopeLevel(const Envelope& e, float time, float releasedAt, float releaseLevel, bool decibels);
+    static Articulation articulate(const std::vector<DlsConnection> &instrument,
+                                   const std::vector<DlsConnection> &region);
+    static float envelopeLevel(const Envelope &e, float time, float releasedAt, float releaseLevel, bool decibels);
 
     int _rate;
     std::array<Channel, 64> _channels{};

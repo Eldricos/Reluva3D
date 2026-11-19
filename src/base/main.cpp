@@ -20,17 +20,19 @@ using namespace reluva;
 
 static std::filesystem::path dataDir() {
     std::filesystem::path dir = ".";
-    if (char* pref = SDL_GetPrefPath("reluva", "reluva")) {
+    if (char *pref = SDL_GetPrefPath("reluva", "reluva")) {
         dir = pref;
         SDL_free(pref);
     }
     return dir;
 }
 
-static std::filesystem::path configPath() { return dataDir() / "reluva.ini"; }
+static std::filesystem::path configPath() {
+    return dataDir() / "reluva.ini";
+}
 
 // `reluva --hash <file>...` prints detection signatures for building tables.
-static int printHashes(int argc, char** argv) {
+static int printHashes(int argc, char **argv) {
     for (int i = 2; i < argc; ++i) {
         std::error_code ec;
         auto size = std::filesystem::file_size(argv[i], ec);
@@ -45,7 +47,7 @@ static int printHashes(int argc, char** argv) {
     return 0;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc >= 2 && std::strcmp(argv[1], "--hash") == 0)
         return printHashes(argc, argv);
 
@@ -67,8 +69,12 @@ int main(int argc, char** argv) {
         if (name == "testbed")
             direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}};
         else if (config.hasSection(name) && name != Config::kGlobalSection)
-            direct = GameTarget{name, config.get(name, "engine"), config.get(name, "gameid"),
-                                config.get(name, "description", name), config.get(name, "path"), {}};
+            direct = GameTarget{name,
+                                config.get(name, "engine"),
+                                config.get(name, "gameid"),
+                                config.get(name, "description", name),
+                                config.get(name, "path"),
+                                {}};
         else {
             std::fprintf(stderr, "Unknown target '%s'\n", name.c_str());
             return 1;
@@ -77,7 +83,7 @@ int main(int argc, char** argv) {
 
     Launcher launcher(system, config);
     while (auto target = direct ? direct : launcher.run()) {
-        const MetaEngine* meta = findEngine(target->engineId);
+        const MetaEngine *meta = findEngine(target->engineId);
         if (!meta) {
             launcher.setStatus("Unknown engine '" + target->engineId + "' for " + target->target);
             continue;
@@ -97,8 +103,7 @@ int main(int argc, char** argv) {
         }
         if (system.quitRequested())
             break;
-        launcher.setStatus(err ? target->description + ": " + err.message
-                               : "Returned from " + target->description);
+        launcher.setStatus(err ? target->description + ": " + err.message : "Returned from " + target->description);
     }
     return 0;
 }

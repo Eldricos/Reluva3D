@@ -9,11 +9,15 @@ namespace reluva {
 
 namespace {
 
-std::string fourcc(const uint8_t* p) { return std::string(reinterpret_cast<const char*>(p), 4); }
+std::string fourcc(const uint8_t *p) {
+    return std::string(reinterpret_cast<const char *>(p), 4);
+}
 
-uint32_t read32(const uint8_t* p) { return uint32_t(p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24); }
+uint32_t read32(const uint8_t *p) {
+    return uint32_t(p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24);
+}
 
-Error readChildren(const uint8_t* data, size_t size, RiffChunk& parent, int depth) {
+Error readChildren(const uint8_t *data, size_t size, RiffChunk &parent, int depth) {
     if (depth > 32)
         return Error::fail("RIFF chunks nested too deep");
     size_t at = 0;
@@ -42,23 +46,23 @@ Error readChildren(const uint8_t* data, size_t size, RiffChunk& parent, int dept
 
 } // namespace
 
-const RiffChunk* RiffChunk::find(const std::string& want) const {
-    for (const RiffChunk& c : children)
+const RiffChunk *RiffChunk::find(const std::string &want) const {
+    for (const RiffChunk &c : children)
         if (c.id == want)
             return &c;
     return nullptr;
 }
 
-const RiffChunk* RiffChunk::findList(const std::string& want) const {
-    for (const RiffChunk& c : children)
+const RiffChunk *RiffChunk::findList(const std::string &want) const {
+    for (const RiffChunk &c : children)
         if (c.isList() && c.type == want)
             return &c;
     return nullptr;
 }
 
-std::vector<const RiffChunk*> RiffChunk::lists(const std::string& want) const {
-    std::vector<const RiffChunk*> out;
-    for (const RiffChunk& c : children)
+std::vector<const RiffChunk *> RiffChunk::lists(const std::string &want) const {
+    std::vector<const RiffChunk *> out;
+    for (const RiffChunk &c : children)
         if (c.isList() && c.type == want)
             out.push_back(&c);
     return out;
@@ -75,7 +79,7 @@ std::string RiffChunk::text16() const {
     return out;
 }
 
-Error readRiff(const std::vector<uint8_t>& data, RiffChunk& out) {
+Error readRiff(const std::vector<uint8_t> &data, RiffChunk &out) {
     out = RiffChunk{};
     if (data.size() < 12 || fourcc(data.data()) != "RIFF")
         return Error::fail("not a RIFF file");

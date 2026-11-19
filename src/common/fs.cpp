@@ -18,7 +18,7 @@ std::string toLower(std::string_view s) {
     return out;
 }
 
-static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::string& lowerName) {
+static std::optional<stdfs::path> findEntry(const stdfs::path &dir, const std::string &lowerName) {
     std::error_code ec;
     for (stdfs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
         if (toLower(it->path().filename().string()) == lowerName)
@@ -27,7 +27,7 @@ static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::s
     return std::nullopt;
 }
 
-static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_view relative) {
+static std::optional<stdfs::path> findPath(const stdfs::path &dir, std::string_view relative) {
     stdfs::path current = dir;
     size_t start = 0;
     while (start <= relative.size()) {
@@ -46,7 +46,7 @@ static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_v
     return current;
 }
 
-std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view relative) {
+std::optional<stdfs::path> findFile(const stdfs::path &dir, std::string_view relative) {
     auto found = findPath(dir, relative);
     std::error_code ec;
     if (!found || !stdfs::is_regular_file(*found, ec))
@@ -54,7 +54,7 @@ std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view rel
     return found;
 }
 
-std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_view relative) {
+std::optional<stdfs::path> findDirectory(const stdfs::path &dir, std::string_view relative) {
     auto found = findPath(dir, relative);
     std::error_code ec;
     if (!found || !stdfs::is_directory(*found, ec))
@@ -62,7 +62,7 @@ std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_vie
     return found;
 }
 
-std::optional<std::string> md5File(const stdfs::path& file, uint64_t maxBytes) {
+std::optional<std::string> md5File(const stdfs::path &file, uint64_t maxBytes) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
         return std::nullopt;

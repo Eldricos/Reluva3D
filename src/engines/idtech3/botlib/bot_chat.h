@@ -37,16 +37,16 @@ public:
     static constexpr char kEscape = 1; // starts and ends a variable or random word in a message
 
     // Reads the shared files (names from the library's settings).
-    void setup(const BotScript::Loader& load, const std::function<std::string(const std::string&)>& libVar,
-               std::string* log = nullptr);
-    std::function<float()> time;           // the library's clock
-    std::function<void(int client, const std::string& command)> command;
+    void setup(const BotScript::Loader &load, const std::function<std::string(const std::string &)> &libVar,
+               std::string *log = nullptr);
+    std::function<float()> time; // the library's clock
+    std::function<void(int client, const std::string &command)> command;
 
     int allocState();
     void freeState(int handle);
-    bool loadChatFile(int handle, const BotScript::Loader& load, const std::string& file, const std::string& name);
+    bool loadChatFile(int handle, const BotScript::Loader &load, const std::string &file, const std::string &name);
     void setGender(int handle, int gender);
-    void setName(int handle, const std::string& name);
+    void setName(int handle, const std::string &name);
 
     // The console messages a bot has been sent (the game queues them).
     struct ConsoleMessage {
@@ -55,27 +55,27 @@ public:
         int type = 0;
         std::string text;
     };
-    void queueConsoleMessage(int handle, int type, const std::string& text);
+    void queueConsoleMessage(int handle, int type, const std::string &text);
     void removeConsoleMessage(int handle, int message);
-    const ConsoleMessage* nextConsoleMessage(int handle) const;
+    const ConsoleMessage *nextConsoleMessage(int handle) const;
     int numConsoleMessages(int handle) const;
 
     // Choosing a line: of a type from the bot's chat file, or the reply
     // that fits a message best. Kept until entered (said) or taken.
-    int numInitialChats(int handle, const std::string& type) const;
-    void initialChat(int handle, const std::string& type, int mcontext, const std::vector<const char*>& vars);
-    bool replyChat(int handle, const std::string& message, int mcontext, int vcontext,
-                   const std::vector<const char*>& vars);
+    int numInitialChats(int handle, const std::string &type) const;
+    void initialChat(int handle, const std::string &type, int mcontext, const std::vector<const char *> &vars);
+    bool replyChat(int handle, const std::string &message, int mcontext, int vcontext,
+                   const std::vector<const char *> &vars);
     int chatLength(int handle) const;
     // Says the chosen line: to everyone (0) or the team (1).
     void enterChat(int handle, int client, int sendTo);
     std::string takeChatMessage(int handle);
 
-    bool findMatch(const std::string& text, BotMatch& match, int context) const;
-    static std::string matchVariable(const BotMatch& match, int variable);
-    static void unifyWhiteSpaces(std::string& s);
-    void replaceSynonyms(std::string& s, int context) const;
-    static int stringContains(const std::string& a, const std::string& b, bool caseSensitive);
+    bool findMatch(const std::string &text, BotMatch &match, int context) const;
+    static std::string matchVariable(const BotMatch &match, int variable);
+    static void unifyWhiteSpaces(std::string &s);
+    void replaceSynonyms(std::string &s, int context) const;
+    static int stringContains(const std::string &a, const std::string &b, bool caseSensitive);
 
 private:
     struct Message {
@@ -118,17 +118,17 @@ private:
         std::deque<ConsoleMessage> console;
         int nextHandle = 0;
     };
-    State* state(int handle);
-    const State* state(int handle) const;
-    bool stringsMatch(const std::vector<Piece>& pieces, BotMatch& match) const;
+    State *state(int handle);
+    const State *state(int handle) const;
+    bool stringsMatch(const std::vector<Piece> &pieces, BotMatch &match) const;
     // A message's variables and random words filled in, up to ten times
     // over (random words may hold more), then weighted synonyms.
-    std::string construct(const std::string& message, int mcontext, const BotMatch& match, int vcontext, bool reply);
-    bool expand(std::string& out, const std::string& message, int mcontext, const BotMatch& match, int vcontext,
+    std::string construct(const std::string &message, int mcontext, const BotMatch &match, int vcontext, bool reply);
+    bool expand(std::string &out, const std::string &message, int mcontext, const BotMatch &match, int vcontext,
                 bool reply);
-    void replaceWeightedSynonyms(std::string& s, int context);
-    void replaceReplySynonyms(std::string& s, int context) const;
-    static BotMatch withVariables(BotMatch match, const std::vector<const char*>& vars);
+    void replaceWeightedSynonyms(std::string &s, int context);
+    void replaceReplySynonyms(std::string &s, int context) const;
+    static BotMatch withVariables(BotMatch match, const std::vector<const char *> &vars);
     float now() const { return time ? time() : 0; }
 
     std::vector<Synonyms> synonyms_;

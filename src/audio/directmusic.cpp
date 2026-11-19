@@ -26,8 +26,8 @@ constexpr int kCurveStep = 24;       // ticks between a curve's steps (a 32nd no
 constexpr float kMasterGain = 0.35f; // the synthesizer's whole mix, so a busy band stays under full scale
 
 // A record array chunk: a DWORD record size, then the records.
-template <class F>
-void records(const RiffChunk& c, size_t smallest, F each) {
+template<class F>
+void records(const RiffChunk &c, size_t smallest, F each) {
     const size_t size = c.u32(0);
     if (size < smallest)
         return;
@@ -35,7 +35,7 @@ void records(const RiffChunk& c, size_t smallest, F each) {
         each(at, size);
 }
 
-DmTimeSig timeSig(const RiffChunk& c, size_t at) {
+DmTimeSig timeSig(const RiffChunk &c, size_t at) {
     DmTimeSig t;
     t.beatsPerMeasure = std::max(1, int(c.u8(at)));
     t.beat = c.u8(at + 1);
@@ -43,29 +43,29 @@ DmTimeSig timeSig(const RiffChunk& c, size_t at) {
     return t;
 }
 
-std::string unfoName(const RiffChunk& c) {
-    if (const RiffChunk* unfo = c.findList("UNFO"))
-        if (const RiffChunk* unam = unfo->find("UNAM"))
+std::string unfoName(const RiffChunk &c) {
+    if (const RiffChunk *unfo = c.findList("UNFO"))
+        if (const RiffChunk *unam = unfo->find("UNAM"))
             return unam->text16();
     return {};
 }
 
-DmReference reference(const RiffChunk& dmrf) {
+DmReference reference(const RiffChunk &dmrf) {
     DmReference r;
-    if (const RiffChunk* name = dmrf.find("name"))
+    if (const RiffChunk *name = dmrf.find("name"))
         r.name = name->text16();
-    if (const RiffChunk* file = dmrf.find("file"))
+    if (const RiffChunk *file = dmrf.find("file"))
         r.file = file->text16();
     return r;
 }
 
-void readBandForm(const RiffChunk& form, DmBand& out) {
+void readBandForm(const RiffChunk &form, DmBand &out) {
     out.name = unfoName(form);
-    const RiffChunk* lbil = form.findList("lbil");
+    const RiffChunk *lbil = form.findList("lbil");
     if (!lbil)
         return;
-    for (const RiffChunk* lbin : lbil->lists("lbin")) {
-        const RiffChunk* bins = lbin->find("bins");
+    for (const RiffChunk *lbin : lbil->lists("lbin")) {
+        const RiffChunk *bins = lbin->find("bins");
         if (!bins || bins->size < 36)
             continue;
         DmInstrument i;
@@ -75,7 +75,7 @@ void readBandForm(const RiffChunk& form, DmBand& out) {
         i.pan = bins->u8(32);
         i.volume = bins->u8(33);
         i.transpose = bins->s16(34);
-        if (const RiffChunk* dmrf = lbin->findList("DMRF"))
+        if (const RiffChunk *dmrf = lbin->findList("DMRF"))
             i.dls = reference(*dmrf);
         out.instruments.push_back(i);
     }
@@ -95,11 +95,16 @@ int actualRange(int stored) {
 
 float curveShape(int shape, float x) {
     switch (shape) {
-    case kShapeInstant: return 1;
-    case kShapeExp: return x * x;
-    case kShapeLog: return std::sqrt(x);
-    case kShapeSine: return 0.5f - 0.5f * std::cos(3.14159265f * x);
-    default: return x;
+    case kShapeInstant:
+        return 1;
+    case kShapeExp:
+        return x * x;
+    case kShapeLog:
+        return std::sqrt(x);
+    case kShapeSine:
+        return 0.5f - 0.5f * std::cos(3.14159265f * x);
+    default:
+        return x;
     }
 }
 
@@ -118,7 +123,7 @@ std::vector<int> DmPart::variations() const {
     return out;
 }
 
-Error readDmBand(const std::vector<uint8_t>& data, DmBand& out) {
+Error readDmBand(const std::vector<uint8_t> &data, DmBand &out) {
     out = DmBand{};
     RiffChunk top;
     if (Error err = readRiff(data, top))
@@ -129,7 +134,7 @@ Error readDmBand(const std::vector<uint8_t>& data, DmBand& out) {
     return Error::success();
 }
 
-Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
+Error readDmStyle(const std::vector<uint8_t> &data, DmStyle &out) {
     out = DmStyle{};
     RiffChunk top;
     if (Error err = readRiff(data, top))
@@ -137,7 +142,7 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
     if (top.type != "DMST")
         return Error::fail("not a DirectMusic style");
     out.name = unfoName(top);
-    if (const RiffChunk* styh = top.find("styh"); styh && styh->size >= 12) {
+    if (const RiffChunk *styh = top.find("styh"); styh && styh->size >= 12) {
         out.timeSig = timeSig(*styh, 0);
         double tempo = 0;
         std::memcpy(&tempo, styh->data + styh->size - 8, 8); // after the time signature, packed or not
@@ -145,8 +150,8 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
             out.tempo = tempo;
     }
     std::map<std::array<uint8_t, 16>, size_t> partOf;
-    for (const RiffChunk* list : top.lists("part")) {
-        const RiffChunk* prth = list->find("prth");
+    for (const RiffChunk *list : top.lists("part")) {
+        const RiffChunk *prth = list->find("prth");
         if (!prth || prth->size < 151)
             continue;
         DmPart p;
@@ -156,7 +161,7 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
         std::memcpy(p.guid.data(), prth->data + 132, 16);
         p.measures = std::max(1, int(prth->u16(148)));
         p.playMode = prth->u8(150);
-        if (const RiffChunk* note = list->find("note"))
+        if (const RiffChunk *note = list->find("note"))
             records(*note, 22, [&](size_t at, size_t) {
                 DmNote n;
                 n.grid = note->s32(at);
@@ -171,7 +176,7 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
                 n.playMode = note->u8(at + 21);
                 p.notes.push_back(n);
             });
-        if (const RiffChunk* crve = list->find("crve"))
+        if (const RiffChunk *crve = list->find("crve"))
             records(*crve, 28, [&](size_t at, size_t) {
                 DmCurve c;
                 c.grid = crve->s32(at);
@@ -188,8 +193,8 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
         partOf[p.guid] = out.parts.size();
         out.parts.push_back(std::move(p));
     }
-    for (const RiffChunk* list : top.lists("pttn")) {
-        const RiffChunk* ptnh = list->find("ptnh");
+    for (const RiffChunk *list : top.lists("pttn")) {
+        const RiffChunk *ptnh = list->find("ptnh");
         if (!ptnh || ptnh->size < 10)
             continue;
         DmPattern p;
@@ -199,8 +204,8 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
         p.grooveTop = ptnh->u8(5);
         p.embellishment = ptnh->u16(6);
         p.measures = std::max(1, int(ptnh->u16(8)));
-        for (const RiffChunk* pref : list->lists("pref")) {
-            const RiffChunk* prfc = pref->find("prfc");
+        for (const RiffChunk *pref : list->lists("pref")) {
+            const RiffChunk *prfc = pref->find("prfc");
             if (!prfc || prfc->size < 22)
                 continue;
             std::array<uint8_t, 16> guid;
@@ -220,7 +225,7 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
         }
         out.patterns.push_back(std::move(p));
     }
-    for (const RiffChunk& c : top.children)
+    for (const RiffChunk &c : top.children)
         if (c.id == "RIFF" && c.type == "DMBD") {
             DmBand b;
             readBandForm(c, b);
@@ -229,7 +234,7 @@ Error readDmStyle(const std::vector<uint8_t>& data, DmStyle& out) {
     return Error::success();
 }
 
-Error readDmSegment(const std::vector<uint8_t>& data, DmSegment& out) {
+Error readDmSegment(const std::vector<uint8_t> &data, DmSegment &out) {
     out = DmSegment{};
     RiffChunk top;
     if (Error err = readRiff(data, top))
@@ -237,20 +242,20 @@ Error readDmSegment(const std::vector<uint8_t>& data, DmSegment& out) {
     if (top.type != "DMSG")
         return Error::fail("not a DirectMusic segment");
     out.name = unfoName(top);
-    if (const RiffChunk* segh = top.find("segh"); segh && segh->size >= 20) {
+    if (const RiffChunk *segh = top.find("segh"); segh && segh->size >= 20) {
         out.repeats = int(segh->u32(0));
         out.length = segh->s32(4);
         out.playStart = segh->s32(8);
         out.loopStart = segh->s32(12);
         out.loopEnd = segh->s32(16);
     }
-    const RiffChunk* trkl = top.findList("trkl");
+    const RiffChunk *trkl = top.findList("trkl");
     if (!trkl)
         return Error::fail("no tracks");
-    for (const RiffChunk& track : trkl->children) {
+    for (const RiffChunk &track : trkl->children) {
         if (track.type != "DMTK")
             continue;
-        for (const RiffChunk& c : track.children) {
+        for (const RiffChunk &c : track.children) {
             if (c.id == "cmnd") {
                 records(c, 10, [&](size_t at, size_t) {
                     DmCommand m;
@@ -270,26 +275,26 @@ Error readDmSegment(const std::vector<uint8_t>& data, DmSegment& out) {
                         out.tempos.push_back({c.s32(at), bpm});
                 });
             } else if (c.isList() && c.type == "sttr") {
-                for (const RiffChunk* strf : c.lists("strf"))
-                    if (const RiffChunk* dmrf = strf->findList("DMRF"); dmrf && out.style.file.empty())
+                for (const RiffChunk *strf : c.lists("strf"))
+                    if (const RiffChunk *dmrf = strf->findList("DMRF"); dmrf && out.style.file.empty())
                         out.style = reference(*dmrf);
             } else if (c.id == "RIFF" && c.type == "DMBT") {
-                if (const RiffChunk* lbdl = c.findList("lbdl"))
-                    for (const RiffChunk* lbnd : lbdl->lists("lbnd")) {
+                if (const RiffChunk *lbdl = c.findList("lbdl"))
+                    for (const RiffChunk *lbnd : lbdl->lists("lbnd")) {
                         DmBand b;
-                        if (const RiffChunk* h = lbnd->find("bdih"))
+                        if (const RiffChunk *h = lbnd->find("bdih"))
                             b.time = h->s32(0);
-                        else if (const RiffChunk* h2 = lbnd->find("bd2h"))
+                        else if (const RiffChunk *h2 = lbnd->find("bd2h"))
                             b.time = h2->s32(0);
-                        for (const RiffChunk& f : lbnd->children)
+                        for (const RiffChunk &f : lbnd->children)
                             if (f.id == "RIFF" && f.type == "DMBD")
                                 readBandForm(f, b);
                         out.bands.push_back(std::move(b));
                     }
             } else if (c.isList() && c.type == "cord") {
-                const RiffChunk* crdh = c.find("crdh");
+                const RiffChunk *crdh = c.find("crdh");
                 const uint32_t key = crdh ? crdh->u32(0) : 0;
-                for (const RiffChunk& crdb : c.children) {
+                for (const RiffChunk &crdb : c.children) {
                     if (crdb.id != "crdb")
                         continue;
                     const uint32_t chordSize = crdb.u32(0);
@@ -311,7 +316,7 @@ Error readDmSegment(const std::vector<uint8_t>& data, DmSegment& out) {
                 // Chunks inside a chunk (as Microsoft notes): evtl, curl.
                 size_t at = 0;
                 while (at + 8 <= c.size) {
-                    const std::string id(reinterpret_cast<const char*>(c.data + at), 4);
+                    const std::string id(reinterpret_cast<const char *>(c.data + at), 4);
                     const uint32_t size = c.u32(at + 4);
                     RiffChunk sub;
                     sub.id = id;
@@ -347,12 +352,12 @@ Error readDmSegment(const std::vector<uint8_t>& data, DmSegment& out) {
         }
     }
     std::sort(out.commands.begin(), out.commands.end(),
-              [](const DmCommand& a, const DmCommand& b) { return a.time < b.time; });
-    std::sort(out.bands.begin(), out.bands.end(), [](const DmBand& a, const DmBand& b) { return a.time < b.time; });
+              [](const DmCommand &a, const DmCommand &b) { return a.time < b.time; });
+    std::sort(out.bands.begin(), out.bands.end(), [](const DmBand &a, const DmBand &b) { return a.time < b.time; });
     return Error::success();
 }
 
-int dmMusicToMidi(uint16_t value, int mode, const DmChord& chord) {
+int dmMusicToMidi(uint16_t value, int mode, const DmChord &chord) {
     int key = 0;
     if (!(mode & (kScaleIntervals | kChordIntervals))) {
         // Fixed: the value is the key, over the chord's or key's root.
@@ -410,7 +415,7 @@ DmPerformance::DmPerformance(int rate, Loader loader, uint32_t seed)
     _bendRange.fill(2);
 }
 
-std::shared_ptr<const DmSegment> DmPerformance::segment(const std::string& file) {
+std::shared_ptr<const DmSegment> DmPerformance::segment(const std::string &file) {
     if (auto it = _segments.find(file); it != _segments.end())
         return it->second;
     std::vector<uint8_t> data;
@@ -421,7 +426,7 @@ std::shared_ptr<const DmSegment> DmPerformance::segment(const std::string& file)
     return s;
 }
 
-std::shared_ptr<const DmStyle> DmPerformance::style(const std::string& file) {
+std::shared_ptr<const DmStyle> DmPerformance::style(const std::string &file) {
     if (auto it = _styles.find(file); it != _styles.end())
         return it->second;
     std::vector<uint8_t> data;
@@ -432,19 +437,19 @@ std::shared_ptr<const DmStyle> DmPerformance::style(const std::string& file) {
     return s;
 }
 
-const DlsCollection* DmPerformance::collection(const std::string& file) {
+const DlsCollection *DmPerformance::collection(const std::string &file) {
     // Loaded by play(): the audio thread only looks.
     const auto it = _collections.find(file);
     return it != _collections.end() ? it->second.get() : nullptr;
 }
 
-void DmPerformance::applyBand(const DmBand& band) {
-    for (const DmInstrument& i : band.instruments) {
+void DmPerformance::applyBand(const DmBand &band) {
+    for (const DmInstrument &i : band.instruments) {
         if (i.channel < 0 || i.channel >= 64)
             continue;
-        const DlsCollection* c = i.dls.file.empty() ? nullptr : collection(i.dls.file);
+        const DlsCollection *c = i.dls.file.empty() ? nullptr : collection(i.dls.file);
         const uint32_t bank = ((i.patch >> 16) & 0x7f) << 8 | ((i.patch >> 8) & 0x7f) | (i.patch & 0x80000000u);
-        const DlsInstrument* inst = c ? c->find(bank, i.patch & 0x7f) : nullptr;
+        const DlsInstrument *inst = c ? c->find(bank, i.patch & 0x7f) : nullptr;
         if (!inst)
             continue; // a General MIDI instrument: none to play here
         _synth.setInstrument(i.channel, c, inst);
@@ -454,16 +459,18 @@ void DmPerformance::applyBand(const DmBand& band) {
     }
 }
 
-Error DmPerformance::play(const std::string& file) { return load(file, true); }
+Error DmPerformance::play(const std::string &file) {
+    return load(file, true);
+}
 
-Error DmPerformance::playMotif(const std::string& styleFile, const std::string& motif, const std::string& bandFile) {
+Error DmPerformance::playMotif(const std::string &styleFile, const std::string &motif, const std::string &bandFile) {
     // Its files read here (as load() does), then its measures composed at
     // once from the tick playing now.
     auto st = style(styleFile);
     if (!st)
         return Error::fail("can't read style " + styleFile);
-    const DmPattern* pattern = nullptr;
-    for (const DmPattern& p : st->patterns)
+    const DmPattern *pattern = nullptr;
+    for (const DmPattern &p : st->patterns)
         if ((p.embellishment & kDmMotif) && p.name == motif)
             pattern = &p;
     if (!pattern)
@@ -472,8 +479,8 @@ Error DmPerformance::playMotif(const std::string& styleFile, const std::string& 
     std::vector<uint8_t> data;
     const bool hasBand = !bandFile.empty() && _loader(bandFile, data) && !readDmBand(data, band);
     std::map<std::string, std::unique_ptr<DlsCollection>> loaded;
-    for (const DmInstrument& i : band.instruments) {
-        const std::string& f = i.dls.file;
+    for (const DmInstrument &i : band.instruments) {
+        const std::string &f = i.dls.file;
         if (f.empty() || loaded.count(f) || _known.count(f))
             continue;
         auto c = std::make_unique<DlsCollection>();
@@ -483,7 +490,7 @@ Error DmPerformance::playMotif(const std::string& styleFile, const std::string& 
         _known.insert(f);
     }
     std::lock_guard<std::mutex> lock(_mutex);
-    for (auto& [f, c] : loaded)
+    for (auto &[f, c] : loaded)
         _collections[f] = std::move(c);
     if (!_playing)
         return Error::fail("no segment playing");
@@ -492,13 +499,15 @@ Error DmPerformance::playMotif(const std::string& styleFile, const std::string& 
     const int measureTicks = st->timeSig.measureTicks();
     for (int m = 0; m < std::max(1, pattern->measures); ++m)
         addPattern(*st, *pattern, m, _performanceTick + double(m * measureTicks));
-    std::stable_sort(_events.begin(), _events.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
+    std::stable_sort(_events.begin(), _events.end(), [](const Event &a, const Event &b) { return a.tick < b.tick; });
     return Error::success();
 }
 
-Error DmPerformance::prepare(const std::string& file) { return load(file, false); }
+Error DmPerformance::prepare(const std::string &file) {
+    return load(file, false);
+}
 
-Error DmPerformance::load(const std::string& file, bool queue) {
+Error DmPerformance::load(const std::string &file, bool queue) {
     // Everything it needs is read here, on the caller's thread: the
     // segment, its style and the DLS collections its bands name.
     auto s = segment(file);
@@ -508,15 +517,15 @@ Error DmPerformance::load(const std::string& file, bool queue) {
     if (!s->style.file.empty() && !(st = style(s->style.file)))
         return Error::fail("can't read style " + s->style.file);
     std::vector<std::string> wanted;
-    for (const DmBand& b : s->bands)
-        for (const DmInstrument& i : b.instruments)
+    for (const DmBand &b : s->bands)
+        for (const DmInstrument &i : b.instruments)
             wanted.push_back(i.dls.file);
     if (st)
-        for (const DmBand& b : st->bands)
-            for (const DmInstrument& i : b.instruments)
+        for (const DmBand &b : st->bands)
+            for (const DmInstrument &i : b.instruments)
                 wanted.push_back(i.dls.file);
     std::map<std::string, std::unique_ptr<DlsCollection>> loaded;
-    for (const std::string& f : wanted) {
+    for (const std::string &f : wanted) {
         if (f.empty() || loaded.count(f) || _known.count(f))
             continue;
         std::vector<uint8_t> data;
@@ -527,7 +536,7 @@ Error DmPerformance::load(const std::string& file, bool queue) {
         _known.insert(f);
     }
     std::lock_guard<std::mutex> lock(_mutex);
-    for (auto& [f, c] : loaded)
+    for (auto &[f, c] : loaded)
         _collections[f] = std::move(c);
     if (queue) {
         _pending = s;
@@ -580,29 +589,29 @@ void DmPerformance::startPending() {
 double DmPerformance::tempoAt(double tick) const {
     double tempo = _playing && _playing->style ? _playing->style->tempo : 120;
     if (_playing)
-        for (const auto& [time, bpm] : _playing->segment->tempos)
+        for (const auto &[time, bpm] : _playing->segment->tempos)
             if (time <= tick)
                 tempo = bpm;
     return tempo;
 }
 
-const DmChord& DmPerformance::chordAt(double tick) const {
-    const DmChord* c = &_defaultChord;
+const DmChord &DmPerformance::chordAt(double tick) const {
+    const DmChord *c = &_defaultChord;
     if (_playing)
-        for (const DmChord& ch : _playing->segment->chords)
+        for (const DmChord &ch : _playing->segment->chords)
             if (ch.time <= tick)
                 c = &ch;
     return *c;
 }
 
 void DmPerformance::choosePattern(int measure) {
-    Playing& p = *_playing;
+    Playing &p = *_playing;
     if (!p.style)
         return;
     // A command at this measure: its groove level (randomised within its
     // range), and any embellishment it asks for.
-    const DmCommand* command = nullptr;
-    for (const DmCommand& c : p.segment->commands)
+    const DmCommand *command = nullptr;
+    for (const DmCommand &c : p.segment->commands)
         if (c.measure == measure)
             command = &c;
     int wanted = 0;
@@ -614,12 +623,23 @@ void DmPerformance::choosePattern(int measure) {
                                   1, 100);
         }
         switch (command->command) {
-        case kCommandFill: wanted = kDmFill; break;
-        case kCommandIntro: wanted = kDmIntro; break;
-        case kCommandBreak: wanted = kDmBreak; break;
-        case kCommandEnd: wanted = kDmEnd; break;
-        case kEndAndIntro: wanted = kDmEnd | kDmIntro; break;
-        default: break;
+        case kCommandFill:
+            wanted = kDmFill;
+            break;
+        case kCommandIntro:
+            wanted = kDmIntro;
+            break;
+        case kCommandBreak:
+            wanted = kDmBreak;
+            break;
+        case kCommandEnd:
+            wanted = kDmEnd;
+            break;
+        case kEndAndIntro:
+            wanted = kDmEnd | kDmIntro;
+            break;
+        default:
+            break;
         }
     }
     const bool fits = p.pattern && p.groove >= p.pattern->grooveBottom && p.groove <= p.pattern->grooveTop;
@@ -627,10 +647,10 @@ void DmPerformance::choosePattern(int measure) {
         return; // the pattern plays on
     // Candidates: of the kind asked for (else plain ones), at the groove
     // level (else those nearest it).
-    std::vector<const DmPattern*> best;
+    std::vector<const DmPattern *> best;
     int bestDistance = 1 << 30;
     for (int pass = 0; pass < 2 && best.empty(); ++pass)
-        for (const DmPattern& pt : p.style->patterns) {
+        for (const DmPattern &pt : p.style->patterns) {
             if (pt.embellishment & kDmMotif)
                 continue;
             if (pass == 0 ? !(wanted ? (pt.embellishment & wanted) : pt.embellishment == 0) : pt.embellishment != 0)
@@ -650,7 +670,7 @@ void DmPerformance::choosePattern(int measure) {
     p.measuresLeft = p.pattern->measures;
 }
 
-void DmPerformance::addCurve(const DmCurve& c, double start, int channel) {
+void DmPerformance::addCurve(const DmCurve &c, double start, int channel) {
     auto valueAt = [&](float x) {
         return float(c.startValue) + float(c.endValue - c.startValue) * curveShape(c.shape, std::clamp(x, 0.0f, 1.0f));
     };
@@ -672,16 +692,16 @@ void DmPerformance::addCurve(const DmCurve& c, double start, int channel) {
     }
 }
 
-void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, int measureInPattern, double start) {
-    Playing& p = *_playing;
+void DmPerformance::addPattern(const DmStyle &style, const DmPattern &pattern, int measureInPattern, double start) {
+    Playing &p = *_playing;
     // Each part's variation, chosen as the pattern starts; parts with a
     // lock id share theirs (a motif's style's kept apart from the tune's).
     std::map<int, int> locked;
     const size_t patternIndex =
         size_t(&pattern - style.patterns.data()) + (&style == p.style.get() ? 0 : size_t(1) << 20);
     for (size_t r = 0; r < pattern.parts.size(); ++r) {
-        const DmPartRef& ref = pattern.parts[r];
-        const DmPart& part = style.parts[ref.part];
+        const DmPartRef &ref = pattern.parts[r];
+        const DmPart &part = style.parts[ref.part];
         const size_t key = patternIndex << 8 | r;
         if (measureInPattern == 0 || !_instanceVariation.count(key)) {
             std::vector<int> choices = part.variations();
@@ -724,7 +744,7 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
         const int playMode = part.playMode;
         const int measure = measureInPattern % std::max(1, part.measures);
         const int measureTicks = part.timeSig.measureTicks();
-        for (const DmNote& n : part.notes) {
+        for (const DmNote &n : part.notes) {
             if (!(n.variations & mask))
                 continue;
             const int at = part.timeSig.gridTicks(n.grid);
@@ -752,7 +772,7 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
             _events.push_back({tick, 1, ref.channel, key, std::clamp(velocity, 1, 127), 0});
             _events.push_back({tick + std::max(1, duration), 0, ref.channel, key, 0, 0});
         }
-        for (const DmCurve& c : part.curves) {
+        for (const DmCurve &c : part.curves) {
             if (!(c.variations & mask))
                 continue;
             const int at = part.timeSig.gridTicks(c.grid);
@@ -765,8 +785,8 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
 }
 
 void DmPerformance::composeMeasure(double start) {
-    Playing& p = *_playing;
-    const DmSegment& s = *p.segment;
+    Playing &p = *_playing;
+    const DmSegment &s = *p.segment;
     const int measureTicks = p.style ? p.style->timeSig.measureTicks() : DmTimeSig{}.measureTicks();
     // Looping: back from the loop's end while repeats are left.
     const int loopEnd = s.loopEnd > s.loopStart ? s.loopEnd : s.length;
@@ -790,7 +810,7 @@ void DmPerformance::composeMeasure(double start) {
         --p.measuresLeft;
     }
     // A sequence track's own notes and curves in this measure.
-    for (const DmSequenceEvent& e : s.sequence) {
+    for (const DmSequenceEvent &e : s.sequence) {
         if (e.time < from || e.time >= to)
             continue;
         const double tick = start + (e.time - from);
@@ -801,38 +821,54 @@ void DmPerformance::composeMeasure(double start) {
             _events.push_back({tick, 2, e.channel, e.data1, 0, float(e.data2)});
         }
     }
-    for (const DmCurve& c : s.sequenceCurves)
+    for (const DmCurve &c : s.sequenceCurves)
         if (c.grid >= from && c.grid < to)
             addCurve(c, start + (c.grid - from), c.channel);
-    std::stable_sort(_events.begin(), _events.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
+    std::stable_sort(_events.begin(), _events.end(), [](const Event &a, const Event &b) { return a.tick < b.tick; });
     p.segmentTick = to;
     _measureEnd = start + measureTicks;
 }
 
-void DmPerformance::dispatch(const Event& e) {
+void DmPerformance::dispatch(const Event &e) {
     switch (e.kind) {
-    case 0: _synth.noteOff(e.channel, e.data1); break;
-    case 1: _synth.noteOn(e.channel, e.data1, e.data2); break;
+    case 0:
+        _synth.noteOff(e.channel, e.data1);
+        break;
+    case 1:
+        _synth.noteOn(e.channel, e.data1, e.data2);
+        break;
     case 2: {
         const int v = std::clamp(int(std::lround(e.value)), 0, 127);
         switch (e.data1) {
-        case 1: _synth.setModWheel(e.channel, v); break;
-        case 7: _synth.setVolume(e.channel, v); break;
-        case 10: _synth.setPan(e.channel, v); break;
-        case 11: _synth.setExpression(e.channel, v); break;
-        case 64: _synth.setSustain(e.channel, v >= 64); break;
-        default: break;
+        case 1:
+            _synth.setModWheel(e.channel, v);
+            break;
+        case 7:
+            _synth.setVolume(e.channel, v);
+            break;
+        case 10:
+            _synth.setPan(e.channel, v);
+            break;
+        case 11:
+            _synth.setExpression(e.channel, v);
+            break;
+        case 64:
+            _synth.setSustain(e.channel, v >= 64);
+            break;
+        default:
+            break;
         }
         break;
     }
     case 3:
         _synth.setPitchBend(e.channel, (e.value - 8192) / 8192 * _bendRange[size_t(e.channel) % _bendRange.size()]);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
-void DmPerformance::read(float* out, int frames) {
+void DmPerformance::read(float *out, int frames) {
     std::lock_guard<std::mutex> lock(_mutex);
     int done = 0;
     while (done < frames) {
@@ -857,7 +893,7 @@ void DmPerformance::read(float* out, int frames) {
             n = std::clamp(int(std::ceil((next - _performanceTick) / ticksPerFrame - 1e-9)), 1, n);
         } else if (!_events.empty()) {
             // Note-offs left after the music stopped.
-            for (const Event& e : _events)
+            for (const Event &e : _events)
                 if (e.kind == 0)
                     dispatch(e);
             _events.clear();

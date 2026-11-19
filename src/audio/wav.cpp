@@ -11,18 +11,22 @@ namespace reluva::audio {
 
 namespace {
 
-uint16_t u16(const std::vector<uint8_t>& d, size_t o) { return uint16_t(d[o] | d[o + 1] << 8); }
-uint32_t u32(const std::vector<uint8_t>& d, size_t o) { return uint32_t(u16(d, o)) | uint32_t(u16(d, o + 2)) << 16; }
+uint16_t u16(const std::vector<uint8_t> &d, size_t o) {
+    return uint16_t(d[o] | d[o + 1] << 8);
+}
+uint32_t u32(const std::vector<uint8_t> &d, size_t o) {
+    return uint32_t(u16(d, o)) | uint32_t(u16(d, o + 2)) << 16;
+}
 
 // The IMA ADPCM tables (the published IMA/DVI standard): the quantiser step
 // for each of the 89 step indices, and how each code changes the index.
 constexpr int16_t kStepTable[89] = {
-    7,     8,     9,     10,    11,    12,    13,    14,    16,    17,    19,    21,    23,    25,    28,
-    31,    34,    37,    41,    45,    50,    55,    60,    66,    73,    80,    88,    97,    107,   118,
-    130,   143,   157,   173,   190,   209,   230,   253,   279,   307,   337,   371,   408,   449,   494,
-    544,   598,   658,   724,   796,   876,   963,   1060,  1166,  1282,  1411,  1552,  1707,  1878,  2066,
-    2272,  2499,  2749,  3024,  3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,  7132,  7845,  8630,
-    9493,  10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767};
+    7,    8,     9,     10,    11,    12,    13,    14,    16,    17,    19,    21,    23,    25,   28,
+    31,   34,    37,    41,    45,    50,    55,    60,    66,    73,    80,    88,    97,    107,  118,
+    130,  143,   157,   173,   190,   209,   230,   253,   279,   307,   337,   371,   408,   449,  494,
+    544,  598,   658,   724,   796,   876,   963,   1060,  1166,  1282,  1411,  1552,  1707,  1878, 2066,
+    2272, 2499,  2749,  3024,  3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,  7132,  7845, 8630,
+    9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767};
 constexpr int kIndexTable[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
 
 struct ImaChannel {
@@ -45,8 +49,8 @@ struct ImaChannel {
 // Microsoft's IMA ADPCM blocks: per channel a header (s16 first sample, u8
 // step index, u8 0); then groups of 4 bytes per channel in turn, each 8
 // codes, low nibble first.
-Error decodeIma(const std::vector<uint8_t>& d, size_t at, size_t size, int channels, size_t blockAlign,
-                size_t frameLimit, std::vector<int16_t>& out) {
+Error decodeIma(const std::vector<uint8_t> &d, size_t at, size_t size, int channels, size_t blockAlign,
+                size_t frameLimit, std::vector<int16_t> &out) {
     if (blockAlign < 4 * size_t(channels))
         return Error::fail("ADPCM block of " + std::to_string(blockAlign) + " bytes is too small");
     for (size_t block = at; block < at + size; block += blockAlign) {
@@ -81,7 +85,7 @@ Error decodeIma(const std::vector<uint8_t>& d, size_t at, size_t size, int chann
 
 } // namespace
 
-Error decodeWav(const std::vector<uint8_t>& d, Sound& out) {
+Error decodeWav(const std::vector<uint8_t> &d, Sound &out) {
     out = Sound{};
     if (d.size() < 12 || std::memcmp(d.data(), "RIFF", 4) != 0 || std::memcmp(d.data() + 8, "WAVE", 4) != 0)
         return Error::fail("not a RIFF WAVE file");
@@ -127,7 +131,7 @@ Error decodeWav(const std::vector<uint8_t>& d, Sound& out) {
     return Error::success();
 }
 
-std::vector<uint8_t> encodePcmWav(const Sound& s) {
+std::vector<uint8_t> encodePcmWav(const Sound &s) {
     std::vector<uint8_t> b;
     auto put16 = [&](uint32_t v) {
         b.push_back(uint8_t(v));

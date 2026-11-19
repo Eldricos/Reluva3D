@@ -8,17 +8,18 @@
 
 namespace reluva::audio {
 
-Mixer::Mixer(int outputRate) : _outputRate(std::max(outputRate, 1)) {}
+Mixer::Mixer(int outputRate) : _outputRate(std::max(outputRate, 1)) {
+}
 
-Mixer::Channel* Mixer::find(SoundHandle handle) {
-    for (Channel& c : _channels)
+Mixer::Channel *Mixer::find(SoundHandle handle) {
+    for (Channel &c : _channels)
         if (c.handle == handle && !c.done)
             return &c;
     return nullptr;
 }
 
-const Mixer::Channel* Mixer::find(SoundHandle handle) const {
-    for (const Channel& c : _channels)
+const Mixer::Channel *Mixer::find(SoundHandle handle) const {
+    for (const Channel &c : _channels)
         if (c.handle == handle && !c.done)
             return &c;
     return nullptr;
@@ -31,27 +32,27 @@ SoundHandle Mixer::play(std::shared_ptr<const Sound> sound, SoundType type, int 
     const SoundHandle handle = _nextHandle++;
     if (_nextHandle == kNoSound)
         _nextHandle = 1;
-    _channels.push_back({handle, std::move(sound), type, std::clamp(volume, 0, kMaxVolume),
-                         std::clamp(pan, -kMaxPan, kMaxPan), loop});
+    _channels.push_back(
+        {handle, std::move(sound), type, std::clamp(volume, 0, kMaxVolume), std::clamp(pan, -kMaxPan, kMaxPan), loop});
     return handle;
 }
 
 void Mixer::stop(SoundHandle handle) {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->done = true;
 }
 
 void Mixer::stopType(SoundType type) {
     std::lock_guard<std::mutex> lock(_mutex);
-    for (Channel& c : _channels)
+    for (Channel &c : _channels)
         if (c.type == type)
             c.done = true;
 }
 
 void Mixer::stopAll() {
     std::lock_guard<std::mutex> lock(_mutex);
-    for (Channel& c : _channels)
+    for (Channel &c : _channels)
         c.done = true;
 }
 
@@ -62,30 +63,30 @@ bool Mixer::isPlaying(SoundHandle handle) const {
 
 bool Mixer::isTypePlaying(SoundType type) const {
     std::lock_guard<std::mutex> lock(_mutex);
-    return std::any_of(_channels.begin(), _channels.end(), [&](const Channel& c) { return c.type == type && !c.done; });
+    return std::any_of(_channels.begin(), _channels.end(), [&](const Channel &c) { return c.type == type && !c.done; });
 }
 
 double Mixer::position(SoundHandle handle) const {
     std::lock_guard<std::mutex> lock(_mutex);
-    const Channel* c = find(handle);
+    const Channel *c = find(handle);
     return c ? c->position : 0;
 }
 
 void Mixer::setVolume(SoundHandle handle, int volume) {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->volume = std::clamp(volume, 0, kMaxVolume);
 }
 
 void Mixer::setPan(SoundHandle handle, int pan) {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->pan = std::clamp(pan, -kMaxPan, kMaxPan);
 }
 
 void Mixer::setPitch(SoundHandle handle, float pitch) {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->pitch = std::clamp(double(pitch), 0.05, 8.0);
 }
 
@@ -101,10 +102,10 @@ void Mixer::addStream(std::shared_ptr<Stream> stream, SoundType type) {
     _streams.push_back({std::move(stream), type});
 }
 
-void Mixer::removeStream(const Stream* stream) {
+void Mixer::removeStream(const Stream *stream) {
     std::lock_guard<std::mutex> lock(_mutex);
     _streams.erase(
-        std::remove_if(_streams.begin(), _streams.end(), [stream](const auto& s) { return s.first.get() == stream; }),
+        std::remove_if(_streams.begin(), _streams.end(), [stream](const auto &s) { return s.first.get() == stream; }),
         _streams.end());
 }
 
@@ -113,15 +114,15 @@ int Mixer::typeVolume(SoundType type) const {
     return _typeVolume[int(type)];
 }
 
-void Mixer::mix(int16_t* out, int frames) {
+void Mixer::mix(int16_t *out, int frames) {
     if (frames <= 0)
         return;
     std::lock_guard<std::mutex> lock(_mutex);
     _accumulator.assign(size_t(frames) * 2, 0);
-    for (Channel& c : _channels) {
+    for (Channel &c : _channels) {
         if (c.done)
             continue;
-        const Sound& s = *c.sound;
+        const Sound &s = *c.sound;
         const size_t n = s.frames(), ch = size_t(s.channels);
         const double step = double(s.rate) / double(_outputRate) * c.pitch;
         // Gains in 1/65536ths: volume x type volume, and a linear pan that
@@ -150,7 +151,7 @@ void Mixer::mix(int16_t* out, int frames) {
             c.position += step;
         }
     }
-    for (const auto& [stream, type] : _streams) {
+    for (const auto &[stream, type] : _streams) {
         _streamBuffer.assign(size_t(frames) * 2, 0.0f);
         stream->read(_streamBuffer.data(), frames);
         const double gain = 32767.0 * _typeVolume[int(type)] / kMaxVolume;
@@ -160,12 +161,12 @@ void Mixer::mix(int16_t* out, int frames) {
     // The balance: the far side quieter, linearly.
     if (_balance != 0)
         for (size_t i = 0; i < _accumulator.size(); i += 2) {
-            int32_t& side = _accumulator[_balance > 0 ? i : i + 1];
+            int32_t &side = _accumulator[_balance > 0 ? i : i + 1];
             side = int32_t(int64_t(side) * (kMaxPan - std::abs(_balance)) / kMaxPan);
         }
     for (size_t i = 0; i < _accumulator.size(); ++i)
         out[i] = int16_t(std::clamp<int32_t>(_accumulator[i], -32768, 32767));
-    _channels.erase(std::remove_if(_channels.begin(), _channels.end(), [](const Channel& c) { return c.done; }),
+    _channels.erase(std::remove_if(_channels.begin(), _channels.end(), [](const Channel &c) { return c.done; }),
                     _channels.end());
 }
 
@@ -174,8 +175,8 @@ void Mixer::setBalance(int balance) {
     _balance = std::clamp(balance, -kMaxPan, kMaxPan);
 }
 
-Error startMixerOutput(System& sys, Mixer& mixer) {
-    return sys.startAudio([&mixer](int16_t* out, int frames) { mixer.mix(out, frames); });
+Error startMixerOutput(System &sys, Mixer &mixer) {
+    return sys.startAudio([&mixer](int16_t *out, int frames) { mixer.mix(out, frames); });
 }
 
 } // namespace reluva::audio

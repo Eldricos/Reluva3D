@@ -61,20 +61,21 @@ using namespace reluva::age;
 
 static int failures = 0;
 
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
+#define CHECK(cond)                                                                                                    \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);                              \
+            ++failures;                                                                                                \
+        }                                                                                                              \
     } while (0)
 
 namespace {
 
 using test::toBytes;
 
-constexpr float kPi() { return 3.14159265358979f; }
+constexpr float kPi() {
+    return 3.14159265358979f;
+}
 
 struct ArFile {
     std::string name;              // ending in '/' for a folder
@@ -82,20 +83,22 @@ struct ArFile {
     std::vector<uint8_t> deflated; // if not empty: stored as these bytes
 };
 
-void put32(std::vector<uint8_t>& v, size_t at, uint32_t x) {
+void put32(std::vector<uint8_t> &v, size_t at, uint32_t x) {
     for (int i = 0; i < 4; ++i)
         v[at + size_t(i)] = uint8_t(x >> (8 * i));
 }
 
-size_t roundUp(size_t n) { return (n + 2047) / 2048 * 2048; }
+size_t roundUp(size_t n) {
+    return (n + 2047) / 2048 * 2048;
+}
 
 // An archive laid out as the retail ones are: the header in the first
 // 2048 bytes, then the directory and the names, each padded to 2048, then
 // each file's data starting on a 2048-byte boundary.
-std::vector<uint8_t> buildAr(const std::vector<ArFile>& files) {
+std::vector<uint8_t> buildAr(const std::vector<ArFile> &files) {
     std::string names;
     std::vector<uint32_t> nameAt;
-    for (const ArFile& f : files) {
+    for (const ArFile &f : files) {
         nameAt.push_back(uint32_t(names.size()));
         names += f.name;
         names += '\0';
@@ -108,8 +111,8 @@ std::vector<uint8_t> buildAr(const std::vector<ArFile>& files) {
     put32(out, 8, uint32_t(dirSize));
     put32(out, 12, uint32_t(namesSize));
     for (size_t i = 0; i < files.size(); ++i) {
-        const ArFile& f = files[i];
-        const std::vector<uint8_t>& body = f.deflated.empty() ? f.data : f.deflated;
+        const ArFile &f = files[i];
+        const std::vector<uint8_t> &body = f.deflated.empty() ? f.data : f.deflated;
         const size_t at = 2048 + i * 16;
         put32(out, at, nameAt[i]);
         put32(out, at + 4, uint32_t(out.size()));
@@ -132,7 +135,7 @@ const std::vector<uint8_t> kDeflated = {0x2b, 0x49, 0xad, 0x28, 0x29, 0x2d, 0x4a
                                         0xca, 0x2f, 0x4a, 0x07, 0x13, 0x69, 0x39, 0xf9, 0xf9, 0x45,
                                         0x86, 0x5c, 0x25, 0xa3, 0x12, 0xe8, 0x12, 0x00};
 
-void testArchive(const std::filesystem::path& tmp) {
+void testArchive(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     const auto path = tmp / "test.ar";
     const std::string text = repeatedText();
@@ -180,7 +183,7 @@ void testArchive(const std::filesystem::path& tmp) {
     CHECK(ar.open(path));
 }
 
-void testMount(const std::filesystem::path& tmp) {
+void testMount(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::vector<std::string> warnings;
     SearchSet set;
@@ -190,8 +193,8 @@ void testMount(const std::filesystem::path& tmp) {
     test::writeFile(tmp / "mm2core.ar", buildAr({{"tune/a.txt", toBytes("core"), {}},
                                                  {"tune/b.txt", toBytes("core"), {}},
                                                  {"tune/c.txt", toBytes("core"), {}}}));
-    test::writeFile(tmp / "VPMOD.AR", buildAr({{"tune/b.txt", toBytes("mod"), {}},
-                                               {"tune/c.txt", toBytes("mod"), {}}}));
+    test::writeFile(tmp / "VPMOD.AR",
+                    buildAr({{"tune/b.txt", toBytes("mod"), {}}, {"tune/c.txt", toBytes("mod"), {}}}));
     test::writeFile(tmp / "broken.ar", toBytes("not an archive"));
     test::writeFile(tmp / "readme.txt", toBytes("not in an archive"));
     test::writeFile(tmp / "tune" / "c.txt", toBytes("loose"));
@@ -208,7 +211,7 @@ void testMount(const std::filesystem::path& tmp) {
     CHECK(!set.read("readme.txt", data));
 }
 
-void testDetection(const std::filesystem::path& tmp) {
+void testDetection(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "MM2CORE.AR", buildAr({}));
     CHECK(detectFromTable("age", detectionTable(), tmp).empty()); // not the retail file
@@ -239,24 +242,24 @@ void testFileLines() {
 // Little-endian writers for building files.
 struct Bytes {
     std::vector<uint8_t> v;
-    Bytes& u8(uint32_t x) {
+    Bytes &u8(uint32_t x) {
         v.push_back(uint8_t(x));
         return *this;
     }
-    Bytes& u16(uint32_t x) { return u8(x).u8(x >> 8); }
-    Bytes& u32(uint32_t x) { return u16(x & 0xffff).u16(x >> 16); }
-    Bytes& f32(float f) {
+    Bytes &u16(uint32_t x) { return u8(x).u8(x >> 8); }
+    Bytes &u32(uint32_t x) { return u16(x & 0xffff).u16(x >> 16); }
+    Bytes &f32(float f) {
         uint32_t x;
         std::memcpy(&x, &f, 4);
         return u32(x);
     }
-    Bytes& str(const std::string& s) {
+    Bytes &str(const std::string &s) {
         v.insert(v.end(), s.begin(), s.end());
         return *this;
     }
     // A name as models store them: a length byte counting the zero after it.
-    Bytes& name(const std::string& s) { return u8(uint32_t(s.size() + 1)).str(s).u8(0); }
-    Bytes& bytes(const std::vector<uint8_t>& b) {
+    Bytes &name(const std::string &s) { return u8(uint32_t(s.size() + 1)).str(s).u8(0); }
+    Bytes &bytes(const std::vector<uint8_t> &b) {
         v.insert(v.end(), b.begin(), b.end());
         return *this;
     }
@@ -297,7 +300,7 @@ void testTex() {
 }
 
 // A mesh section's contents: one group of one triangle list.
-std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std::vector<uint16_t>& indices,
+std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std::vector<uint16_t> &indices,
                                  uint32_t vertexCount = 3) {
     Bytes b;
     b.u32(1).u32(vertexCount).u32(uint32_t(indices.size())).u32(1).u32(fvf);
@@ -314,7 +317,7 @@ std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std::vecto
     return b.v;
 }
 
-Bytes& fileSection(Bytes& b, const std::string& name, const std::vector<uint8_t>& contents) {
+Bytes &fileSection(Bytes &b, const std::string &name, const std::vector<uint8_t> &contents) {
     return b.str("FILE").name(name).u32(uint32_t(contents.size())).bytes(contents);
 }
 
@@ -345,21 +348,22 @@ void testPkg() {
     Pkg model;
     CHECK(!readPkg(pkg.v, model));
     CHECK(model.meshes.size() == 2);
-    const PkgMesh* body = model.mesh("BODY_H");
+    const PkgMesh *body = model.mesh("BODY_H");
     CHECK(body && body->part() == "BODY" && body->level() == "H" && body->fvf == 0x112);
     CHECK(body && body->groups.size() == 1 && body->groups[0].indices == (std::vector<uint16_t>{0, 1, 2}));
     if (body && !body->groups.empty()) {
-        const PkgVertex& v = body->groups[0].vertices[2];
+        const PkgVertex &v = body->groups[0].vertices[2];
         CHECK(v.pos == (Vec3{2, 4, -2}) && v.normal == (Vec3{0, 1, 0}) && v.uv[0] == 0.5f && v.uv[1] == 0.5f);
     }
-    const PkgMesh* h = model.mesh("H");
+    const PkgMesh *h = model.mesh("H");
     CHECK(h && h->part().empty() && h->level() == "H" && h->groups[0].vertices[1].normal == (Vec3{0, 0, 0}));
     CHECK(model.paintJobs == 2 && model.shadersPerJob == 1 && model.shaders.size() == 2);
-    const PkgShader* red = model.shader(0, 0);
+    const PkgShader *red = model.shader(0, 0);
     CHECK(red && red->texture == "red_body" && red->diffuse == (std::array<float, 4>{1, 0, 0, 1}));
     CHECK(red && red->ambient[0] > 0.5f && red->ambient[0] < 0.51f && red->shininess == 0.5f);
-    const PkgShader* glow = model.shader(1, 0);
-    CHECK(glow && glow->texture.empty() && glow->diffuse[3] == 0 && glow->emissive[2] > 0.11f && glow->emissive[2] < 0.12f);
+    const PkgShader *glow = model.shader(1, 0);
+    CHECK(glow && glow->texture.empty() && glow->diffuse[3] == 0 && glow->emissive[2] > 0.11f &&
+          glow->emissive[2] < 0.12f);
     CHECK(!model.shader(0, 1) && !model.shader(2, 0));
     CHECK(model.xrefs.size() == 1 && model.xrefs[0].name == "sp_light_red_f" && model.xrefs[0].matrix[11] == 11);
     CHECK(model.hasOffset && model.offset == (Vec3{1, 2, 3}));
@@ -409,7 +413,8 @@ void testPkg() {
     for (int i = 0; i < 12; ++i)
         mtx.f32(float(i));
     Mtx m;
-    CHECK(!readMtx(mtx.v, m) && m.min == (Vec3{0, 1, 2}) && m.pivot == (Vec3{6, 7, 8}) && m.origin == (Vec3{9, 10, 11}));
+    CHECK(!readMtx(mtx.v, m) && m.min == (Vec3{0, 1, 2}) && m.pivot == (Vec3{6, 7, 8}) &&
+          m.origin == (Vec3{9, 10, 11}));
     mtx.v.pop_back();
     CHECK(readMtx(mtx.v, m));
 }
@@ -425,22 +430,22 @@ void testNames() {
 // A small city: 6 vertices, heights 10, 20 and 1, two textures, one block.
 // A city of one block (by default with two perimeter edges), then `tail`
 // (its roads) after the bounds.
-std::vector<uint8_t> buildPsdl(const std::vector<uint16_t>& attributes, uint32_t version = 2,
-                               const std::vector<std::pair<uint16_t, uint16_t>>& perimeter = {{0, 0}, {1, 5}},
-                               const std::vector<std::string>& textures = {"r2_f", "swalk_f"},
-                               const std::vector<uint8_t>& tail = {}) {
+std::vector<uint8_t> buildPsdl(const std::vector<uint16_t> &attributes, uint32_t version = 2,
+                               const std::vector<std::pair<uint16_t, uint16_t>> &perimeter = {{0, 0}, {1, 5}},
+                               const std::vector<std::string> &textures = {"r2_f", "swalk_f"},
+                               const std::vector<uint8_t> &tail = {}) {
     Bytes b;
     b.str("PSD0").u32(version).u32(6);
     const float v[6][3] = {{0, 0, 0}, {10, 0, 0}, {10, 0, 10}, {0, 0, 10}, {0, 0.15f, -2}, {10, 0.15f, -2}};
-    for (const auto& p : v)
+    for (const auto &p : v)
         b.f32(p[0]).f32(p[1]).f32(p[2]);
     b.u32(3).f32(10).f32(20).f32(1);
     b.u32(uint32_t(textures.size() + 1)); // counts are one more than stored
-    for (const std::string& t : textures)
+    for (const std::string &t : textures)
         b.name(t);
     b.u32(2).u32(1); // blocks (plus one), the first road block
     b.u32(uint32_t(perimeter.size())).u32(uint32_t(attributes.size()));
-    for (const auto& [vertex, beyond] : perimeter)
+    for (const auto &[vertex, beyond] : perimeter)
         b.u16(vertex).u16(beyond);
     for (uint16_t w : attributes)
         b.u16(w);
@@ -455,16 +460,17 @@ void testPsdl() {
     // Texture 1 (r2_f); a roof at height 0 (10) over 0, 1, 2, 3; a facade
     // from height 0 to 1 (10 to 20) along 0-1, repeated 2 x 3, marked last;
     // then a stray texture attribute, as the retail cities have.
-    const std::vector<uint16_t> attrs = {10 << 3, 1, 12 << 3 | 3, 0, 0, 1, 2, 3,
-                                         0x80 | 11 << 3 | 6, 0, 1, 2, 3, 0, 1, 10 << 3, 2};
+    const std::vector<uint16_t> attrs = {10 << 3, 1, 12 << 3 | 3, 0, 0, 1, 2,       3, 0x80 | 11 << 3 | 6,
+                                         0,       1, 2,           3, 0, 1, 10 << 3, 2};
     Psdl psdl;
     CHECK(!readPsdl(buildPsdl(attrs), psdl));
     CHECK(psdl.vertices.size() == 6 && psdl.heights.size() == 3 && psdl.textures.size() == 2);
-    CHECK(psdl.texture(1) == "r2_f" && psdl.texture(2) == "swalk_f" && psdl.texture(0).empty() && psdl.texture(3).empty());
+    CHECK(psdl.texture(1) == "r2_f" && psdl.texture(2) == "swalk_f" && psdl.texture(0).empty() &&
+          psdl.texture(3).empty());
     CHECK(psdl.blocks.size() == 2 && psdl.blocks[1].perimeter.size() == 2 && psdl.blocks[1].perimeter[1].second == 5);
     CHECK(psdl.blocks[1].attributes.size() == 4 && psdl.blocks[1].flags == 4 && psdl.blocks[0].extra == 205);
     if (psdl.blocks.size() == 2 && psdl.blocks[1].attributes.size() > 1) {
-        const PsdlAttribute& roof = psdl.blocks[1].attributes[1];
+        const PsdlAttribute &roof = psdl.blocks[1].attributes[1];
         CHECK(roof.type == psdlattr::kRoof && roof.count == 3 && roof.words == (std::vector<uint16_t>{0, 0, 1, 2, 3}));
     }
     CHECK(psdl.min == (Vec3{-1, -2, -3}) && psdl.center == (Vec3{1, 2, 3}) && psdl.radius == 9);
@@ -474,7 +480,7 @@ void testPsdl() {
     CHECK(mesh.batches.size() == 1 && mesh.batches[0].texture == "r2_f");
     CHECK(mesh.batches[0].indices.size() == 4 * 3); // two roof triangles, two facade triangles
     float lowest = 1e9f, highest = -1e9f, maxU = 0;
-    for (const gfx::Vertex& v : mesh.vertices) {
+    for (const gfx::Vertex &v : mesh.vertices) {
         lowest = std::min(lowest, v.pos[1]);
         highest = std::max(highest, v.pos[1]);
         maxU = std::max(maxU, v.uv[0]);
@@ -509,7 +515,7 @@ void testPsdl() {
     CHECK(!readPsdl(buildPsdl(attrs, 2, {{0, 0}, {1, 5}}, {"r2_f", "swalk_f"}, roads.v), psdl));
     CHECK(psdl.firstRoadBlock == 1 && psdl.roads.size() == 1);
     if (psdl.roads.size() == 1) {
-        const PsdlRoad& r = psdl.roads[0];
+        const PsdlRoad &r = psdl.roads[0];
         CHECK(r.flags == 0x440 && r.extra == 1 && r.lanes[0] == 1 && r.lanes[1] == 1);
         CHECK(r.lanePositions == (std::vector<float>{0.25f, 0.75f}) && r.ends[0] == 1 && r.ends[1] == 0x80);
         CHECK(r.vertices[7] == 7 && r.blocks == (std::vector<int32_t>{1, -1}));
@@ -530,7 +536,7 @@ void testTunnels() {
     CityMesh mesh;
     buildCityMesh(psdl, mesh);
     float crown = -1, wallTop = -1;
-    for (const gfx::Vertex& v : mesh.vertices) {
+    for (const gfx::Vertex &v : mesh.vertices) {
         crown = std::max(crown, v.pos[1]);
         if (v.pos[0] == 0)
             wallTop = std::max(wallTop, v.pos[1]);
@@ -538,7 +544,7 @@ void testTunnels() {
     CHECK(std::fabs(crown - 7) < 1e-4f && std::fabs(wallTop - 5.5f) < 1e-4f);
     // The walls' texture runs up them from its first row at the foot.
     int foot = 0, head = 0;
-    for (const gfx::Vertex& v : mesh.vertices)
+    for (const gfx::Vertex &v : mesh.vertices)
         if (std::fabs(v.normal[1]) < 1e-3f && std::fabs(v.normal[0]) > 0.999f) {
             if (v.pos[1] == 0)
                 foot += v.uv[1] == 0;
@@ -554,7 +560,7 @@ void testTunnels() {
     CHECK(!readPsdl(buildPsdl({10 << 3, 1, 9 << 3 | 3, 0x7, 0x500, 0x200, 0x80 | 2 << 3 | 2, 0, 1, 3, 2}), psdl));
     buildCityMesh(psdl, mesh);
     float lowest = 1;
-    for (const gfx::Vertex& v : mesh.vertices)
+    for (const gfx::Vertex &v : mesh.vertices)
         lowest = std::min(lowest, v.pos[1]);
     CHECK(std::fabs(lowest + 2) < 1e-4f);
     // The lower height is the walls' either way round (San Francisco's
@@ -562,7 +568,7 @@ void testTunnels() {
     CHECK(!readPsdl(buildPsdl({10 << 3, 1, 9 << 3 | 3, 0x103, 0x900, 0x700, 0x80 | 2 << 3 | 2, 0, 1, 3, 2}), psdl));
     buildCityMesh(psdl, mesh);
     crown = wallTop = -1;
-    for (const gfx::Vertex& v : mesh.vertices) {
+    for (const gfx::Vertex &v : mesh.vertices) {
         crown = std::max(crown, v.pos[1]);
         if (v.pos[0] == 0)
             wallTop = std::max(wallTop, v.pos[1]);
@@ -571,13 +577,13 @@ void testTunnels() {
 
     // A junction: walls along the edges the mask names (bit i: the edge
     // ending at outline vertex i), a flat ceiling at 5.5 over the block.
-    const std::vector<uint16_t> junction = {10 << 3, 1, 9 << 3, 10, 0xb, 0x580, 0x700, 0, 0b1010, 0, 0, 0, 0, 0,
-                                            0x80 | 6 << 3 | 2, 0, 1, 2, 3};
+    const std::vector<uint16_t> junction = {
+        10 << 3, 1, 9 << 3, 10, 0xb, 0x580, 0x700, 0, 0b1010, 0, 0, 0, 0, 0, 0x80 | 6 << 3 | 2, 0, 1, 2, 3};
     CHECK(!readPsdl(buildPsdl(junction, 2, {{0, 0}, {1, 7}, {2, 0}, {3, 7}}), psdl));
     buildCityMesh(psdl, mesh);
     size_t ceiling = 0, walls = 0;
     for (size_t i = 0; i + 2 < mesh.batches[0].indices.size(); i += 3) {
-        const gfx::Vertex& a = mesh.vertices[mesh.batches[0].indices[i]];
+        const gfx::Vertex &a = mesh.vertices[mesh.batches[0].indices[i]];
         if (a.normal[1] != 0 && a.pos[1] > 5)
             ++ceiling;
         else if (a.normal[1] == 0)
@@ -628,7 +634,7 @@ void testCityExtras() {
     CHECK(!readCpvs(pvs.v, v) && v.blocks == 3 && v.rows.size() == 2);
     CHECK(v.sees(1, 1) && v.sees(1, 2) && !v.sees(2, 1) && v.sees(2, 2) && !v.sees(1, 0));
     CHECK(v.sees(0, 1) && v.sees(7, 1)); // not covered
-    pvs.v[8 + 8] = 9; // the last row ends past the file
+    pvs.v[8 + 8] = 9;                    // the last row ends past the file
     CHECK(readCpvs(pvs.v, v));
     CHECK(readCpvs(toBytes("PVS1"), v));
 
@@ -642,12 +648,12 @@ void testCityExtras() {
         CHECK(!readPsdl(buildPsdl(divided), psdl));
         buildCityMesh(psdl, mesh);
         float top = -1;
-        for (const CityMesh::Batch& b : mesh.batches)
+        for (const CityMesh::Batch &b : mesh.batches)
             if (b.texture == "swalk_f")
                 for (uint32_t i : b.indices)
                     top = std::max(top, mesh.vertices[i].pos[1]);
         CHECK((kind & 3) == 3 ? std::fabs(top - 1) < 1e-4f : std::fabs(top) < 1e-4f);
-        for (const CityMesh::Batch& b : mesh.batches)
+        for (const CityMesh::Batch &b : mesh.batches)
             if (b.texture == "swalk_f")
                 (kind == 3 ? open : closed) += kind == 1 ? 0 : b.indices.size();
     }
@@ -657,7 +663,7 @@ void testCityExtras() {
     // height and block (the points' own words are no help); an unnamed
     // path places nothing.
     CityMesh ground;
-    for (const auto& [x, z] : std::vector<std::pair<float, float>>{{-10, -10}, {10, -10}, {10, 10}, {-10, 10}}) {
+    for (const auto &[x, z] : std::vector<std::pair<float, float>>{{-10, -10}, {10, -10}, {10, 10}, {-10, 10}}) {
         gfx::Vertex gv{};
         gv.pos[0] = x;
         gv.pos[1] = 2;
@@ -674,7 +680,7 @@ void testCityExtras() {
     addCityDecals(decals, ground);
     CHECK(ground.batches.size() == 2 && ground.vertices.size() == 8);
     if (ground.batches.size() == 2) {
-        const CityMesh::Batch& d = ground.batches[1];
+        const CityMesh::Batch &d = ground.batches[1];
         CHECK(d.decal && d.texture == "decal_x_inter_l" && d.indices.size() == 12 &&
               d.blocks == (std::vector<uint16_t>{5, 5, 5, 5}));
         for (uint32_t i : d.indices)
@@ -707,7 +713,7 @@ void testTune() {
                      "  Ambient -14145486\r\n}\r\n",
                      root));
     CHECK(root.children.size() == 1 && root.children[0].name == "clear-noon");
-    const TuneNode& n = root.children[0];
+    const TuneNode &n = root.children[0];
     CHECK(n.number("keycolor", 2) == 0.7f && n.number("KeyColor", 3, -1) == -1 && n.number("Missing", 0, 5) == 5);
     CHECK(n.child("Engine") && n.child("Engine")->number("MaxRPM") == 8500);
     CHECK(n.number("Ambient") == -14145486.0f);
@@ -728,15 +734,15 @@ void testBound() {
     CHECK(b.polygons.size() == 2 && b.polygons[0].count == 4 && b.polygons[1].count == 3 &&
           b.polygons[1].vertices[1] == 2);
     CHECK(readBound("v 0 0 0\nquad 0 1 2 3 0\n", b)); // vertices that aren't there
-    CHECK(readBound("mtl a {\nfriction: 1\n", b));     // not closed
+    CHECK(readBound("mtl a {\nfriction: 1\n", b));    // not closed
 
     // The same square in binary (.bbnd): a quad and a triangle (its fourth
     // vertex 0).
     Bytes bin;
     bin.u8(1).u32(4).u32(1).u32(2);
-    for (const Vec3& v : {Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{1, 1, 0}, Vec3{0, 1, 0}})
+    for (const Vec3 &v : {Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{1, 1, 0}, Vec3{0, 1, 0}})
         bin.f32(v[0]).f32(v[1]).f32(v[2]);
-    auto padded = [&](const std::string& t) {
+    auto padded = [&](const std::string &t) {
         std::string out = t;
         out.resize(32, '\0');
         bin.str(out);
@@ -795,7 +801,8 @@ void testCarSim() {
     flat.add({-3000, 0, -3000}, {3000, 0, 3000}, {3000, 0, -3000});
     flat.build(64);
     const CarSetup setup = testCar();
-    CHECK(setup.gearTopSpeed(1) == setup.lowSpeed && std::fabs(setup.gearTopSpeed(setup.gears) - setup.highSpeed) < 1e-3f);
+    CHECK(setup.gearTopSpeed(1) == setup.lowSpeed &&
+          std::fabs(setup.gearTopSpeed(setup.gears) - setup.highSpeed) < 1e-3f);
     CHECK(setup.power(setup.optRpm) > setup.power(setup.idleRpm) && setup.power(setup.maxRpm + 1) == 0);
 
     CarSim car;
@@ -806,7 +813,7 @@ void testCarSim() {
         car.step(none, flat, 0.1f);
     // Settled on its wheels.
     CHECK(length(car.velocity) < 0.05f);
-    for (const auto& w : car.wheels)
+    for (const auto &w : car.wheels)
         CHECK(w.contact && w.compression > 0.02f && w.compression < 0.29f);
     CHECK(car.orientation.y[1] > 0.999f);
 
@@ -963,7 +970,7 @@ void testCarFiles() {
           h.zoomOutDistFS == 1581 && h.ocean[0] == 0.084f && h.ocean[2] == 0.94f);
 }
 
-void testDashboardFiles(const std::filesystem::path& tmp) {
+void testDashboardFiles(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     // The Beetle's is .asNode, others' .asnode.
     test::writeFile(tmp / "tune" / "vpbug_dash.asNode",
@@ -1034,7 +1041,8 @@ void testLessons() {
     CHECK(!parseLessonSettings("Filename,Event,Checkpoints,TimeLimit,AmbDensity,extra,extra,extra,extra,etra,\r\n"
                                "corner0waypoints,4,1,0,0,50,0,0,0,0,0\r\n",
                                l));
-    CHECK(l.file == "corner0waypoints" && l.event == LessonEvent::kMinimumSpeed && l.timeLimit == 0 && l.extra[0] == 50);
+    CHECK(l.file == "corner0waypoints" && l.event == LessonEvent::kMinimumSpeed && l.timeLimit == 0 &&
+          l.extra[0] == 50);
     LessonSettings none;
     CHECK(parseLessonSettings("Filename,Event\r\n", none));
     // A lesson's checkpoints' fifth column is a radius whatever it's called.
@@ -1187,7 +1195,7 @@ void testRecord() {
     CHECK(raceOpen(p, "sf", RaceKind::kCrashCourse, 12, false, 3, 3));
 
     // Unlocking, as the pictures say.
-    const RaceCount twelve = [](const std::string&, RaceKind) { return 12; };
+    const RaceCount twelve = [](const std::string &, RaceKind) { return 12; };
     PlayerRecord u;
     CHECK(unlocked(u, "vpbug", -1, false, twelve)); // no rule: open
     CHECK(!unlocked(u, "vpauditt", -1, false, twelve));
@@ -1198,7 +1206,7 @@ void testRecord() {
     CHECK(!unlocked(u, "vp4x4", -1, false, twelve));
     u.passed("sf", 12);
     CHECK(unlocked(u, "vp4x4", -1, false, twelve));
-    for (const UnlockRule& rule : unlockRules())
+    for (const UnlockRule &rule : unlockRules())
         if (rule.car == "vpauditt" && rule.paintJob < 0) {
             CHECK(unlockText(rule, false) ==
                   "To unlock this vehicle, place 1st, 2nd, or 3rd in six San Francisco Checkpoint Races");
@@ -1262,7 +1270,7 @@ void testSidewalkMarkers() {
         buildCityMesh(psdl, mesh);
         CHECK(mesh.vertices.size() == 6);
         float top = 0;
-        for (const gfx::Vertex& v : mesh.vertices) {
+        for (const gfx::Vertex &v : mesh.vertices) {
             CHECK(marker == 1 ? v.normal[0] > 0.99f : v.normal[0] < -0.99f);
             top = std::max(top, v.pos[1]);
         }
@@ -1287,8 +1295,10 @@ void testRaceFiles() {
                           "-1501.4,36.3,-285.7,92.3,8.0,0,0,0,\r\n-1466.5,34.8,-285.8,89.6,6.0,0,0,0,\r\n",
                           w));
     CHECK(w.size() == 2 && w[0].radius == 8 && w[1].heading > 89.5f && w[1].position[2] < -285.7f);
-    CHECK(!parseWaypoints("x,y,z,a,poly count,frane rate,state changes,texture changes,msg\n1,2,3,-90,11,0,0,0,\n4,5,6,0,11,0,0,0,\n", w));
-    CHECK(w[0].radius == 0); // circuits: a poly count, not a radius
+    CHECK(!parseWaypoints(
+        "x,y,z,a,poly count,frane rate,state changes,texture changes,msg\n1,2,3,-90,11,0,0,0,\n4,5,6,0,11,0,0,0,\n",
+        w));
+    CHECK(w[0].radius == 0);                                 // circuits: a poly count, not a radius
     CHECK(parseWaypoints("x,y,z,a,radius\n1,2,3,4,5\n", w)); // one waypoint
 
     // An opponent's start, a point behind it (left out), then its path.
@@ -1343,7 +1353,7 @@ void testPathDriver() {
     pkg.meshes.resize(1);
     pkg.meshes[0].name = "BODY_H";
     pkg.meshes[0].groups.resize(1);
-    for (const Vec3& v : {Vec3{1, 2, 3}, Vec3{-1, 0, 5}, Vec3{0, 1, 4}}) {
+    for (const Vec3 &v : {Vec3{1, 2, 3}, Vec3{-1, 0, 5}, Vec3{0, 1, 4}}) {
         PkgVertex vertex;
         vertex.pos = v;
         pkg.meshes[0].groups[0].vertices.push_back(vertex);
@@ -1356,21 +1366,21 @@ void testRoadGraph() {
     // Two roads (along X, then along Z further on) meeting at an
     // intersection fan in its own block.
     Bytes b;
-    const float v[][3] = {{0, 0, 0},    {0, 0, -5},   {0, 0, 5},    {0, 0, 0},    {50, 0, -5},  {50, 0, 5},
-                          {50, 0, 0},   {50, 0, 0},   {60, 0, -5},  {60, 0, 5},   {55, 0, -10}, {55, 0, 10},
-                          {55, 0, 10},  {60, 0, 10},  {50, 0, 10},  {60, 0, 100}, {50, 0, 100}, {0, 0, 0}};
+    const float v[][3] = {{0, 0, 0},   {0, 0, -5},  {0, 0, 5},   {0, 0, 0},    {50, 0, -5},  {50, 0, 5},
+                          {50, 0, 0},  {50, 0, 0},  {60, 0, -5}, {60, 0, 5},   {55, 0, -10}, {55, 0, 10},
+                          {55, 0, 10}, {60, 0, 10}, {50, 0, 10}, {60, 0, 100}, {50, 0, 100}, {0, 0, 0}};
     b.str("PSD0").u32(2).u32(18);
-    for (const auto& p : v)
+    for (const auto &p : v)
         b.f32(p[0]).f32(p[1]).f32(p[2]);
     b.u32(1).f32(0).u32(1).u32(4).u32(0);
-    auto block = [&](const std::vector<uint16_t>& attrs) {
+    auto block = [&](const std::vector<uint16_t> &attrs) {
         b.u32(0).u32(uint32_t(attrs.size()));
         for (uint16_t w : attrs)
             b.u16(w);
     };
-    block({0x80 | 0 << 3 | 2, 0, 1, 2, 0, 0, 4, 5, 0});         // road along X: curbs 1-2, then 4-5
-    block({0x80 | 5 << 3 | 4, 4, 5, 9, 8, 10, 11});              // the intersection's fan
-    block({0x80 | 0 << 3 | 2, 0, 14, 13, 0, 0, 16, 15, 0});     // road along Z: curbs 14-13, 16-15
+    block({0x80 | 0 << 3 | 2, 0, 1, 2, 0, 0, 4, 5, 0});     // road along X: curbs 1-2, then 4-5
+    block({0x80 | 5 << 3 | 4, 4, 5, 9, 8, 10, 11});         // the intersection's fan
+    block({0x80 | 0 << 3 | 2, 0, 14, 13, 0, 0, 16, 15, 0}); // road along Z: curbs 14-13, 16-15
     b.u8(0).u8(0).u8(0).u8(0).u8(0).u8(0).u8(0).u8(0);
     for (int i = 0; i < 10; ++i)
         b.f32(0);
@@ -1383,12 +1393,11 @@ void testRoadGraph() {
     // Along the first road, through the intersection, up the second.
     CHECK(route.size() >= 3 && route.back() == (Vec3{55, 0, 100}));
     bool viaIntersection = false;
-    for (const Vec3& p : route)
+    for (const Vec3 &p : route)
         viaIntersection = viaIntersection || (std::fabs(p[0] - 55) < 6 && std::fabs(p[2]) < 6);
     CHECK(viaIntersection);
     CHECK(g.route({2000, 0, 2000}, {0, 0, 0}).size() == 1); // nowhere near a road
 }
-
 
 // A road map (docs/formats/age/bai.md) of straight roads, each from one
 // junction to another: `lanes` lanes on side 1 (one-way, first to last)
@@ -1400,7 +1409,7 @@ struct BaiRoad {
     uint16_t control = 1; // at both ends
 };
 
-void baiSide(Bytes& b, const BaiRoad& r, int lanes, int side) {
+void baiSide(Bytes &b, const BaiRoad &r, int lanes, int side) {
     b.u16(uint32_t(lanes)).u16(0).u16(0).u16(1).u16(0);
     for (int i = 0; i < (lanes + 1) * r.n; ++i)
         b.f32(0);
@@ -1425,11 +1434,11 @@ void baiSide(Bytes& b, const BaiRoad& r, int lanes, int side) {
     row(sign * 10, false); // outer edge
 }
 
-std::vector<uint8_t> buildBai(const std::vector<BaiRoad>& roads, const std::vector<Vec3>& junctions) {
+std::vector<uint8_t> buildBai(const std::vector<BaiRoad> &roads, const std::vector<Vec3> &junctions) {
     Bytes b;
     b.str("CAI1").u16(uint32_t(junctions.size())).u16(uint32_t(roads.size()));
     for (size_t k = 0; k < roads.size(); ++k) {
-        const BaiRoad& r = roads[k];
+        const BaiRoad &r = roads[k];
         b.u16(uint32_t(k)).u16(uint32_t(r.n)).u16(0).u16(1).u16(uint32_t(100 + k)).f32(10).f32(15);
         baiSide(b, r, r.back, 0);
         baiSide(b, r, r.lanes, 1);
@@ -1480,7 +1489,7 @@ void testBai() {
     AiRoadMap m;
     CHECK(!readBai(data, m));
     CHECK(m.roads.size() == 1 && m.junctions.size() == 2);
-    const AiRoad& r = m.roads[0];
+    const AiRoad &r = m.roads[0];
     CHECK(r.blocks.size() == 1 && r.blocks[0] == 100 && r.halfWidth == 10 && r.speedLimit == 15);
     CHECK(r.sides[1].lanes.size() == 2 && r.sides[0].lanes.size() == 1 && r.middle.size() == 3);
     CHECK(r.sides[1].laneOffsets.size() == 2 && r.sides[1].laneOffsets[1] == 7.5f);
@@ -1501,7 +1510,7 @@ void testBai() {
     TrafficNetwork net;
     net.build(m, right);
     CHECK(net.lanes().size() == 3);
-    for (const TrafficLane& l : net.lanes()) {
+    for (const TrafficLane &l : net.lanes()) {
         const bool forward = l.side == 1;
         CHECK(l.from == (forward ? 0u : 1u) && l.to == (forward ? 1u : 0u));
         CHECK(std::fabs(l.points.front()[0] - (forward ? 0 : 100)) < 1e-3f && std::fabs(l.length() - 100) < 1e-3f);
@@ -1510,7 +1519,7 @@ void testBai() {
     AiMapSettings left;
     left.driveOnLeft = true;
     net.build(m, left);
-    for (const TrafficLane& l : net.lanes())
+    for (const TrafficLane &l : net.lanes())
         CHECK(l.from == (l.side == 0 ? 0u : 1u) && std::fabs(l.points.front()[0] - (l.side == 0 ? 0 : 100)) < 1e-3f);
     // A race's exceptions: no traffic starting on the road, and its limit.
     right.exceptions.push_back({0, 0, 9});
@@ -1550,11 +1559,12 @@ void testAiMap() {
     CHECK(s.speedLimit == 12 && s.driveOnLeft && s.ambients.size() == 2);
     CHECK(s.exceptions.size() == 1 && s.exceptions[0].road == 55 && s.exceptions[0].density == 0);
     CHECK(s.police.size() == 1 && s.police[0].heading == 50 && s.police[0].rest.size() == 4 && s.policeGiven);
-    CHECK(s.opponents.size() == 2 && s.opponents[1].model == "vpcaddie" && std::fabs(s.opponents[0].skill - 0.96f) < 1e-5f);
+    CHECK(s.opponents.size() == 2 && s.opponents[1].model == "vpcaddie" &&
+          std::fabs(s.opponents[0].skill - 0.96f) < 1e-5f);
     CHECK(parseAiMap("nothing here", s));
 }
 
-void testTraffic(const std::filesystem::path& tmp) {
+void testTraffic(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "geometry" / "va_test.pkg", toBytes("PKG3"));
     test::writeFile(tmp / "tune" / "vehicle" / "va_test.aiVehicleData",
@@ -1583,7 +1593,7 @@ void testTraffic(const std::filesystem::path& tmp) {
         // The density's a share of the lanes' capacity: a car every 25 m
         // of lane within reach at 1, a tenth of that at 0.1.
         float lane = 0;
-        for (const TrafficLane& l : t.network().lanes())
+        for (const TrafficLane &l : t.network().lanes())
             lane += l.spawns ? l.length() : 0;
         Traffic full;
         full.setup(files, m, s, 3);
@@ -1665,7 +1675,7 @@ void testPedFiles() {
     CHECK(!readPedAnimation(b.v, anim) && anim.frames == 2 && anim.channels == 12);
     CHECK(readPedAnimation(std::vector<uint8_t>(b.v.begin(), b.v.end() - 4), anim));
     CHECK(!readPedAnimation(b.v, anim));
-    auto near = [](const Vec3& a, const Vec3& b) { return length(a - b) < 1e-5f; };
+    auto near = [](const Vec3 &a, const Vec3 &b) { return length(a - b) < 1e-5f; };
     auto pose = poseOf(sk, anim, 0);
     CHECK(near(pose[2].at, {0, 1.75f, 0}));
     pose = poseOf(sk, anim, 1);
@@ -1698,8 +1708,10 @@ void testPedFiles() {
 void testTrafficLights() {
     // A crossroads: four roads into junction 0 from the north, east, south
     // and west, each from a junction of its own.
-    const auto data = buildBai({{{0, 0, -100}, {0, 0, 0}, 1, 0}, {{100, 0, 0}, {0, 0, 0}, 2, 0},
-                                {{0, 0, 100}, {0, 0, 0}, 3, 0}, {{-100, 0, 0}, {0, 0, 0}, 4, 0}},
+    const auto data = buildBai({{{0, 0, -100}, {0, 0, 0}, 1, 0},
+                                {{100, 0, 0}, {0, 0, 0}, 2, 0},
+                                {{0, 0, 100}, {0, 0, 0}, 3, 0},
+                                {{-100, 0, 0}, {0, 0, 0}, 4, 0}},
                                {{0, 0, 0}, {0, 0, -100}, {100, 0, 0}, {0, 0, 100}, {-100, 0, 0}});
     AiRoadMap m;
     CHECK(!readBai(data, m));
@@ -1733,7 +1745,7 @@ void testTrafficLights() {
     CHECK(london.trafficLights[1] == "sp_traflitsingle_ped_l" && s.trafficLights[0] == "sp_traflitsingle_f");
 }
 
-void testTrafficRules(const std::filesystem::path& tmp) {
+void testTrafficRules(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "geometry" / "va_test.pkg", toBytes("PKG3"));
     test::writeFile(tmp / "tune" / "vehicle" / "va_test.aiVehicleData",
@@ -1760,7 +1772,7 @@ void testTrafficRules(const std::filesystem::path& tmp) {
     // Side by side: on the first road (heading +X, right is +Z) the lane
     // at z 7.5 has the one at 2.5 on its left.
     for (size_t i = 0; i < 2; ++i) {
-        const TrafficLane& l = net.lanes()[i];
+        const TrafficLane &l = net.lanes()[i];
         const bool outer = l.points[0][2] > 5;
         CHECK((outer ? l.left : l.right) == int(1 - i) && (outer ? l.right : l.left) == -1);
     }
@@ -1793,12 +1805,12 @@ void testTrafficRules(const std::filesystem::path& tmp) {
         t.update(0.05f, {100, 0, -15}, {}, flat);
     std::vector<RoadUser> u;
     t.users(u);
-    for (const RoadUser& c : u)
+    for (const RoadUser &c : u)
         CHECK(length(c.velocity) < 0.5f && (c.position[0] > 180 || c.position[0] < 20));
     // Green for the first road: those waiting at its end go on through,
     // those at the second's go as its own light says.
     std::vector<uint32_t> roadOf;
-    for (const RoadUser& c : u)
+    for (const RoadUser &c : u)
         roadOf.push_back(c.position[2] > 0 ? 0 : 1);
     float green = red;
     while (lights.signal(0, 0) != Signal::kGreen && green < red + 60)
@@ -1882,14 +1894,14 @@ struct TestPath {
     std::vector<Vec3> points;
     uint32_t end;
 };
-std::vector<uint8_t> buildPathset(const std::vector<TestPath>& paths) {
+std::vector<uint8_t> buildPathset(const std::vector<TestPath> &paths) {
     Bytes b;
     b.str("PTH1").u32(uint32_t(paths.size())).u32(0);
-    for (const TestPath& p : paths) {
+    for (const TestPath &p : paths) {
         std::string name = p.name;
         name.resize(32, '\0');
         b.str(name).u32(uint32_t(p.points.size())).u32(0);
-        for (const Vec3& v : p.points)
+        for (const Vec3 &v : p.points)
             b.u32(7).f32(v[0]).f32(v[1]).f32(v[2]);
         b.u32(p.end);
     }
@@ -1897,9 +1909,9 @@ std::vector<uint8_t> buildPathset(const std::vector<TestPath>& paths) {
 }
 
 void testPathset() {
-    const std::vector<uint8_t> data = buildPathset(
-        {{"giz_ferry_f", {{0, 0, 0}, {10, 0, 0}}, 0x6402}, {"open:giz_bridge01_l", {{0, 8, 0}, {30, 8, 0}}, 0x0801},
-         {"INACTIVE:giz_chinagate_f", {{5, 1, 5}, {5, 1, 9}}, 0x0801}});
+    const std::vector<uint8_t> data = buildPathset({{"giz_ferry_f", {{0, 0, 0}, {10, 0, 0}}, 0x6402},
+                                                    {"open:giz_bridge01_l", {{0, 8, 0}, {30, 8, 0}}, 0x0801},
+                                                    {"INACTIVE:giz_chinagate_f", {{5, 1, 5}, {5, 1, 9}}, 0x0801}});
     std::vector<PathsetPath> paths;
     CHECK(!readPathset(data, paths) && paths.size() == 3);
     if (paths.size() == 3) {
@@ -1915,7 +1927,7 @@ void testPathset() {
     CHECK(readPathset(toBytes("PTH0"), paths));
 }
 
-void testAmbient(const std::filesystem::path& tmp) {
+void testAmbient(const std::filesystem::path &tmp) {
     const std::string text = "Min distance,Max distance,3D priority,Audible area,,,,,\r\n"
                              "5,75,12,2,,,,,\r\n"
                              "sample name,sample volume,sample type,oneshot time limit low,oneshot time limit high,"
@@ -1962,7 +1974,7 @@ void testAmbient(const std::filesystem::path& tmp) {
     CHECK(sounds.load(files, "elsewhere", nullptr));
 }
 
-void testMusic(const std::filesystem::path& tmp) {
+void testMusic(const std::filesystem::path &tmp) {
     // The tunes' segments by state (aud/dmusic/csv_files): the race file's
     // and the cruising file's columns differ in order.
     const auto race =
@@ -2024,13 +2036,13 @@ void testMusic(const std::filesystem::path& tmp) {
     CHECK(music.start(files, mixer, true, 0)); // no race list
 }
 
-void testGizmos(const std::filesystem::path& tmp) {
+void testGizmos(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     // Models whose level-H mesh runs 0-2 m across: leaves 1 m either side.
     Bytes pkg;
     pkg.str("PKG3");
     fileSection(pkg, "H", meshSection(0x102, 0, {0, 1, 2}));
-    for (const char* m : {"giz_bridge01_l", "giz_tug_l"})
+    for (const char *m : {"giz_bridge01_l", "giz_tug_l"})
         test::writeFile(tmp / "geometry" / (std::string(m) + ".pkg"), pkg.v);
     test::writeFile(tmp / "race" / "london" / "london_bridge.pathset",
                     buildPathset({{"giz_bridge01_l", {{0, 8, 0}, {30, 8, 0}, {60, 8, 0}}, 0x0801}}));
@@ -2071,7 +2083,7 @@ void testGizmos(const std::filesystem::path& tmp) {
     CHECK(g.raised(0) == 1);
     g.users(u);
     CHECK(!u.empty() && u[0].solid);
-    for (const RoadUser& r : u)
+    for (const RoadUser &r : u)
         CHECK(std::fabs(r.position[0]) < 1e-3f || std::fabs(r.position[0] - 60) < 1e-3f);
     CHECK(!world.raycast({29, 20, 0}, down, 30, hit) || hit.point[1] > 15);
     CHECK(world.raycast({2, 20, 0}, down, 30, hit) &&
@@ -2081,8 +2093,7 @@ void testGizmos(const std::filesystem::path& tmp) {
     CHECK(!g.load(files, "london", "race0") && g.bridges() == 1 && g.raised(0) == 1);
 }
 
-
-void testParkedCars(const std::filesystem::path& tmp) {
+void testParkedCars(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     Bytes pkg; // a level-H body 2 m across, 4 high and 2 long
     pkg.str("PKG3");
@@ -2105,7 +2116,7 @@ void testParkedCars(const std::filesystem::path& tmp) {
     CHECK(!readBai(buildBai({{{0, 0, 0}, {200, 0, 0}, 0, 1, 2, 0, 5}, {{200, 0, -30}, {0, 0, -30}, 1, 0, 2, 0, 5}},
                             {{-5, 0, -15}, {205, 0, -15}}),
                    m));
-    auto line = [](const std::string& name, const Vec3& a, const Vec3& b) {
+    auto line = [](const std::string &name, const Vec3 &a, const Vec3 &b) {
         PathsetPath p;
         p.name = p.model = name;
         p.points = {a, b};
@@ -2126,7 +2137,7 @@ void testParkedCars(const std::filesystem::path& tmp) {
         const float k = (x - first) / step;
         return std::fabs(k - std::round(k)) < 1e-3f;
     };
-    for (const auto& [p, h] : places) {
+    for (const auto &[p, h] : places) {
         if (p[2] > 50) { // side by side, 3 m apart (2 wide, 1 between), facing across
             CHECK(std::fabs(h[2]) > 0.99f && p[0] > 20 && p[0] < 41 && onGrid(p[0], 21.5f, 3));
         } else if (p[0] < 70) { // nose to tail, 6 m apart (4 long, a 2 m gap), along
@@ -2159,7 +2170,7 @@ void testParkedCars(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-void testTrains(const std::filesystem::path& tmp) {
+void testTrains(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     Bytes pkg; // carriages 2 m wide and 2 long, standing on their origin
     pkg.str("PKG3");
@@ -2229,7 +2240,7 @@ void testTrains(const std::filesystem::path& tmp) {
         CHECK(length(after[i].first - before[i].first) > 1);
     std::filesystem::remove_all(tmp);
 }
-void testProps(const std::filesystem::path& tmp) {
+void testProps(const std::filesystem::path &tmp) {
     // Placing: points; pairs (where, then a point it faces); a line with a
     // prop every 2 m (end word 20 << 8 | 2).
     std::vector<PathsetPath> paths(3);
@@ -2268,7 +2279,7 @@ void testProps(const std::filesystem::path& tmp) {
     street.roads.resize(2);
     street.roads[0].blocks = {7};
     street.roads[1].blocks = {8}; // rule 0: none
-    for (AiRoad& r : street.roads) {
+    for (AiRoad &r : street.roads) {
         r.sides[0].curb = {{0, 0, -5}, {100, 0, -5}};
         r.sides[0].outerEdge = {{0, 0, -7}, {100, 0, -7}};
         r.sides[1].curb = {{0, 0, 5}, {100, 0, 5}};
@@ -2331,7 +2342,7 @@ void testProps(const std::filesystem::path& tmp) {
     CHECK(props.count() == 2 + 3);
     props.load(files, "test");
     CHECK(props.count() == 2);
-    props.prepare(files, [](const std::string& model, Vec3& lo, Vec3& hi) {
+    props.prepare(files, [](const std::string &model, Vec3 &lo, Vec3 &hi) {
         lo = model == "sp_tree_s" ? Vec3{-0.5f, -3, -0.5f} : Vec3{-0.3f, -0.4f, -0.3f};
         hi = {-lo[0], -lo[1], -lo[2]};
         return true;
@@ -2384,7 +2395,7 @@ void testProps(const std::filesystem::path& tmp) {
     CHECK(props.loose() == 1 && car.position[2] > -30);
 }
 
-static bool sameMatrix(const Mat3& a, const Mat3& b) {
+static bool sameMatrix(const Mat3 &a, const Mat3 &b) {
     const Vec3 ca[3] = {a.x, a.y, a.z}, cb[3] = {b.x, b.y, b.z};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 3; ++k)
@@ -2395,7 +2406,7 @@ static bool sameMatrix(const Mat3& a, const Mat3& b) {
 
 static void testNetSession() {
     // Rotations through quaternions, whichever way the largest term falls.
-    for (const Mat3& m : {Mat3::rotation(normalized(Vec3{0.3f, 1, 0.2f}), 1.1f), Mat3::rotationY(3.0f),
+    for (const Mat3 &m : {Mat3::rotation(normalized(Vec3{0.3f, 1, 0.2f}), 1.1f), Mat3::rotationY(3.0f),
                           Mat3::rotation({1, 0, 0}, 2.9f), Mat3::rotation({0, 0, 1}, -2.8f), Mat3{}})
         CHECK(sameMatrix(matrixOfQuaternion(quaternionOf(m)), m));
 
@@ -2420,13 +2431,13 @@ static void testNetSession() {
     settings.maxPlayers = 3;
     auto host = NetSession::host(network->open(kNetPort), "Hosting", settings);
     NetBrowser browser(network->open(0));
-    std::vector<NetSession*> players;
+    std::vector<NetSession *> players;
     uint64_t t = 1000;
     auto run = [&](int ms) {
         for (int i = 0; i < ms / 10; ++i) {
             t += 10;
             host->update(t);
-            for (NetSession* p : players)
+            for (NetSession *p : players)
                 p->update(t);
             browser.update(t);
         }
@@ -2456,7 +2467,7 @@ static void testNetSession() {
     players.pop_back();
 
     // Chat, cars and teams, with a third of the datagrams lost.
-    network->setDropFilter([](const net::Address&, const net::Address&, size_t i) { return i % 3 == 0; });
+    network->setDropFilter([](const net::Address &, const net::Address &, size_t i) { return i % 3 == 0; });
     ann->say("hello");
     ann->say("again");
     ann->setCar("vpcab", 2);
@@ -2475,7 +2486,7 @@ static void testNetSession() {
     CHECK(host->everyoneReady() && !host->start(t));
     run(800);
     bool started = false;
-    for (const NetNotice& n : ann->takeNotices())
+    for (const NetNotice &n : ann->takeNotices())
         started = started || n.kind == NetNotice::Kind::kStarted;
     CHECK(started && ann->phase() == NetSession::Phase::kLoading && ann->round() == host->round() &&
           ann->seed() == host->seed());
@@ -2525,7 +2536,7 @@ static void testNetSession() {
     host->setSettings(settings);
     const uint8_t botId = host->addBot("Opponent 1", "vpcab");
     run(300);
-    const NetPlayer* bot = ann->player(botId);
+    const NetPlayer *bot = ann->player(botId);
     CHECK(botId != kNoPlayer && bot && bot->bot && bot->ready && host->everyoneReady() == false);
     bob->setReady(true);
     ann->setReady(true);
@@ -2556,7 +2567,7 @@ static void testNetSession() {
     bob->leave();
     run(300);
     bool left = false;
-    for (const NetNotice& n : ann->takeNotices())
+    for (const NetNotice &n : ann->takeNotices())
         left = left || (n.kind == NetNotice::Kind::kLeft && n.name == "Bob");
     CHECK(left && host->players().size() == 2);
     host->eject(1);
@@ -2595,7 +2606,7 @@ static void testGoldGame() {
     s.limitValue = 2;
     GoldGame g;
     g.start(s, points, 7);
-    auto flatDist = [](const Vec3& a, const Vec3& b) { return std::hypot(a[0] - b[0], a[2] - b[2]); };
+    auto flatDist = [](const Vec3 &a, const Vec3 &b) { return std::hypot(a[0] - b[0], a[2] - b[2]); };
     CHECK(flatDist(g.base(0), g.home()) >= 300 && flatDist(g.base(1), g.home()) >= 300 &&
           flatDist(g.base(0), g.base(1)) >= 300);
 
@@ -2699,27 +2710,27 @@ static void testGoldGame() {
 // A renderer that only remembers the textures' sizes.
 struct SizeRenderer : gfx::Renderer3D {
     std::vector<std::pair<int, int>> sizes;
-    Error createTexture(int w, int h, const uint8_t*, const gfx::TextureParams&, gfx::TextureId& out) override {
+    Error createTexture(int w, int h, const uint8_t *, const gfx::TextureParams &, gfx::TextureId &out) override {
         sizes.emplace_back(w, h);
         out = gfx::TextureId(sizes.size());
         return Error::success();
     }
     void destroyTexture(gfx::TextureId) override {}
-    Error createMesh(const std::vector<gfx::Vertex>&, const std::vector<uint32_t>&, gfx::MeshId&) override {
+    Error createMesh(const std::vector<gfx::Vertex> &, const std::vector<uint32_t> &, gfx::MeshId &) override {
         return Error::fail("no");
     }
-    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t>&, gfx::MeshId&) override {
+    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &, gfx::MeshId &) override {
         return Error::fail("no");
     }
-    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t>&) override { return Error::fail("no"); }
+    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &) override { return Error::fail("no"); }
     void destroyMesh(gfx::MeshId) override {}
     int width() const override { return 640; }
     int height() const override { return 480; }
     std::string deviceName() const override { return "sizes"; }
-    void beginFrame(const gfx::Mat4&, const gfx::Vec3&, Color) override {}
-    void draw(const gfx::DrawCall&) override {}
-    void setView(const gfx::Mat4&, const gfx::Vec3&) override {}
-    void setDynamicLights(const std::vector<gfx::DynamicLight>&) override {}
+    void beginFrame(const gfx::Mat4 &, const gfx::Vec3 &, Color) override {}
+    void draw(const gfx::DrawCall &) override {}
+    void setView(const gfx::Mat4 &, const gfx::Vec3 &) override {}
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &) override {}
     void setViewport(int, int, int, int) override {}
     void setDepthRange(float) override {}
     void clearDepth() override {}
@@ -2727,14 +2738,14 @@ struct SizeRenderer : gfx::Renderer3D {
     void setStencilMode(StencilMode) override {}
     void setMirrored(bool) override {}
     void setGamma(float) override {}
-    void endFrame(const Surface*) override {}
+    void endFrame(const Surface *) override {}
     void captureNextFrame() override {}
-    bool takeCapture(std::vector<uint8_t>&) override { return false; }
+    bool takeCapture(std::vector<uint8_t> &) override { return false; }
 };
 
-static void testTextureQuality(const std::filesystem::path& tmp) {
+static void testTextureQuality(const std::filesystem::path &tmp) {
     // Two 64x64 textures, one flagged to keep its detail, and a 16x16.
-    auto tex = [&](const char* name, int size, uint32_t flags) {
+    auto tex = [&](const char *name, int size, uint32_t flags) {
         Bytes b;
         b.bytes(texHeader(uint16_t(size), uint16_t(size), texformat::kRgb, 1, flags));
         for (int i = 0; i < size * size * 3; ++i)
@@ -2786,7 +2797,7 @@ static void testPadInput() {
     CHECK(padRumble(1) == 0 && padRumble(15) == 1 && padRumble(8) > 0);
 }
 
-static void testOptions(const std::filesystem::path& tmp) {
+static void testOptions(const std::filesystem::path &tmp) {
     // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
     CHECK(o.controlOf(key::kUp) == Control::kThrottle && o.controlOf('w') == Control::kWideAngle &&
@@ -2854,7 +2865,7 @@ static void testOptions(const std::filesystem::path& tmp) {
     }
 }
 
-static void testReplays(const std::filesystem::path& tmp) {
+static void testReplays(const std::filesystem::path &tmp) {
     Replay r;
     r.name = "Mini: a race / of mine";
     r.city = "london";
@@ -2931,7 +2942,7 @@ static void testReplays(const std::filesystem::path& tmp) {
     CHECK(listReplays(tmp / "none").empty());
 }
 
-static void testDrivers(const std::filesystem::path& tmp) {
+static void testDrivers(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp);
     // Before there were drivers: the record that was is the first's.
@@ -2976,7 +2987,7 @@ static void testDrivers(const std::filesystem::path& tmp) {
 
 // The race menu's Cruise: the cruise, and the stunt where the city has
 // accel0's points; their aimaps; always open; Quick Race remembers it.
-static void testCruise(const std::filesystem::path& tmp) {
+static void testCruise(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     test::writeFile(tmp / "race" / "sf" / "accel0waypoints.csv",
                     toBytes("x,y,z,a,poly count,frane rate,state changes,texture changes,msg\n"
@@ -3016,14 +3027,14 @@ static void testNetSessionMore() {
     settings.mode = NetMode::kCruise;
     auto host = NetSession::host(network->open(kNetPort), "Hosting", settings, "swordfish");
     const net::Address at{0x7f000001, kNetPort};
-    std::vector<NetSession*> players;
+    std::vector<NetSession *> players;
     uint64_t t = 1000;
     auto run = [&](int ms) {
         for (int i = 0; i < ms / 10; ++i) {
             t += 10;
             if (host)
                 host->update(t);
-            for (NetSession* p : players)
+            for (NetSession *p : players)
                 p->update(t);
         }
     };
@@ -3053,7 +3064,7 @@ static void testNetSessionMore() {
     players.push_back(carl.get());
     run(600);
     bool started = false;
-    for (const NetNotice& n : carl->takeNotices())
+    for (const NetNotice &n : carl->takeNotices())
         started = started || n.kind == NetNotice::Kind::kStarted;
     CHECK(carl->myId() == 3 && started && carl->phase() == NetSession::Phase::kPlaying && carl->counting() &&
           std::fabs(carl->clock(t) - host->clock(t)) < 0.1f);
@@ -3076,7 +3087,7 @@ static void testNetSessionMore() {
         run(100);
     }
     CHECK(host->cars().count(2) && host->rejected(2) == 0);
-    const NetCarState& got = host->cars().at(2).back();
+    const NetCarState &got = host->cars().at(2).back();
     CHECK(std::fabs(got.rpm - 4200) < 1 && std::fabs(got.throttle - 0.5f) < 0.01f &&
           std::fabs(got.damage - 0.25f) < 1e-3f && got.dents == 1 && std::fabs(got.dentAt[0][2] + 2) < 0.03f);
     s.position = {500, 0, 0};
@@ -3097,7 +3108,7 @@ static void testNetSessionMore() {
     }
     run(300);
     bool cheat = false;
-    for (const NetNotice& n : ann->takeNotices())
+    for (const NetNotice &n : ann->takeNotices())
         cheat = cheat || (n.kind == NetNotice::Kind::kSuspect && n.name == "Bob");
     CHECK(host->player(2)->cheater && ann->player(2)->cheater && cheat);
 
@@ -3108,7 +3119,7 @@ static void testNetSessionMore() {
     host.reset();
     run(300);
     bool moved = false;
-    for (const NetNotice& n : bob->takeNotices())
+    for (const NetNotice &n : bob->takeNotices())
         moved = moved || (n.kind == NetNotice::Kind::kHostMoved && n.name == "Ann");
     CHECK(moved && ann->isHost() && !bob->isHost() && !bob->closed() && bob->hostId() == 1 &&
           ann->players().size() == 3);

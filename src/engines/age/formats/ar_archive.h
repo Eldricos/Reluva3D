@@ -26,17 +26,17 @@ public:
         bool deflated() const { return storedSize != size; }
     };
 
-    Error open(const std::filesystem::path& path);
+    Error open(const std::filesystem::path &path);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return _path.string(); }
 
     // Every file in the archive's order, folders left out.
-    const std::vector<Entry>& entries() const { return _entries; }
-    const Entry* entry(std::string_view name) const;
-    Error read(const Entry& entry, std::vector<uint8_t>& out) const;
+    const std::vector<Entry> &entries() const { return _entries; }
+    const Entry *entry(std::string_view name) const;
+    Error read(const Entry &entry, std::vector<uint8_t> &out) const;
 
 private:
     std::filesystem::path _path;

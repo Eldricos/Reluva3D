@@ -11,7 +11,7 @@
 
 namespace reluva::age {
 
-void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
+void TrafficLights::build(const AiRoadMap &map, const AiMapSettings &settings) {
     _lights.clear();
     _index.clear();
     _clock = 0; // each start the same, so a replay's lights change as they did
@@ -19,8 +19,8 @@ void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
     _junctions.assign(map.junctions.size(), {});
     // Each junction's controlled road slots, for their phases.
     std::vector<std::set<uint32_t>> slots(map.junctions.size());
-    for (const AiRoad& road : map.roads)
-        for (const AiRoadEnd& e : road.ends)
+    for (const AiRoad &road : map.roads)
+        for (const AiRoadEnd &e : road.ends)
             if (e.control == 1 && length(e.b - e.a) > 0.5f)
                 slots[e.junction].insert(e.slot);
     for (size_t j = 0; j < map.junctions.size(); ++j) {
@@ -29,9 +29,9 @@ void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
         // Out of step with each other, the same each time.
         _junctions[j].offset = float((j * 7919) % 97) / 97 * 60;
     }
-    for (const AiRoad& road : map.roads) {
+    for (const AiRoad &road : map.roads) {
         for (int end = 0; end < 2; ++end) {
-            const AiRoadEnd& e = road.ends[size_t(end)];
+            const AiRoadEnd &e = road.ends[size_t(end)];
             Vec3 across = e.b - e.a; // over the road from the curb
             if (e.control != 1 || length(across) < 0.5f)
                 continue;
@@ -61,8 +61,8 @@ void TrafficLights::build(const AiRoadMap& map, const AiMapSettings& settings) {
     }
 }
 
-Signal TrafficLights::signalOf(const Light& l) const {
-    const Junction& j = _junctions[l.junction];
+Signal TrafficLights::signalOf(const Light &l) const {
+    const Junction &j = _junctions[l.junction];
     const float step = kGreen + kYellow + kAllRed;
     const float t = std::fmod(_clock + j.offset, step * float(j.phases));
     const int current = int(t / step);
@@ -77,21 +77,21 @@ Signal TrafficLights::signal(uint32_t road, int end) const {
     return it == _index.end() ? Signal::kGreen : signalOf(_lights[it->second]);
 }
 
-void TrafficLights::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light,
-                         const gfx::Mat4& viewProj, const Vec3& eye, bool night, float distance) const {
+void TrafficLights::draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light,
+                         const gfx::Mat4 &viewProj, const Vec3 &eye, bool night, float distance) const {
     const ViewFrustum frustum(viewProj);
-    const char* const glows[3] = {"GREENGLOW", "YELLOWGLOW", "REDGLOW"};
+    const char *const glows[3] = {"GREENGLOW", "YELLOWGLOW", "REDGLOW"};
     const std::string when = night ? "NIGHT" : "DAY";
     for (bool translucent : {false, true})
-        for (const Light& l : _lights) {
+        for (const Light &l : _lights) {
             const float d = length(l.at - eye);
-            const std::string& name = _models[size_t(l.model)];
-            const ModelCache::Model& m = models.get(name);
+            const std::string &name = _models[size_t(l.model)];
+            const ModelCache::Model &m = models.get(name);
             if (!m.ok || l.down || d > distance || !frustum.visible(l.at + Vec3{0, 4, 0}, 8))
                 continue;
             // The body is modelled about its middle, the glows as if it
             // stood on its origin: it's stood on the ground.
-            const ModelMesh& body = m.levels[std::min(m.levels.size() - 1, size_t(d < 60 ? 0 : d < 150 ? 1 : 2))];
+            const ModelMesh &body = m.levels[std::min(m.levels.size() - 1, size_t(d < 60 ? 0 : d < 150 ? 1 : 2))];
             const Vec3 lift{0, -m.levels.front().low[1], 0};
             if (!translucent) {
                 drawModelMesh(renderer, body, matrixOf(l.axes, l.at + lift), light, false);

@@ -12,30 +12,40 @@ namespace reluva::age {
 
 namespace {
 
-const char* kindWord(RaceKind k) {
+const char *kindWord(RaceKind k) {
     switch (k) {
-    case RaceKind::kBlitz: return "blitz";
-    case RaceKind::kCircuit: return "circuit";
-    case RaceKind::kCheckpoint: return "checkpoint";
-    case RaceKind::kCrashCourse: return "crash";
+    case RaceKind::kBlitz:
+        return "blitz";
+    case RaceKind::kCircuit:
+        return "circuit";
+    case RaceKind::kCheckpoint:
+        return "checkpoint";
+    case RaceKind::kCrashCourse:
+        return "crash";
     case RaceKind::kCruise:
         return "cruise";
     }
     return "?";
 }
 
-std::string raceKey(const std::string& city, RaceKind kind, int index, bool professional) {
+std::string raceKey(const std::string &city, RaceKind kind, int index, bool professional) {
     return city + " " + kindWord(kind) + " " + std::to_string(index) + (professional ? " p" : " a");
 }
 
-std::string cityName(const std::string& city) { return city == "london" ? "London" : "San Francisco"; }
+std::string cityName(const std::string &city) {
+    return city == "london" ? "London" : "San Francisco";
+}
 
-const char* kindPlural(RaceKind k) {
+const char *kindPlural(RaceKind k) {
     switch (k) {
-    case RaceKind::kBlitz: return "Blitz Races";
-    case RaceKind::kCircuit: return "Circuit Races";
-    case RaceKind::kCheckpoint: return "Checkpoint Races";
-    case RaceKind::kCrashCourse: return "Crash Course";
+    case RaceKind::kBlitz:
+        return "Blitz Races";
+    case RaceKind::kCircuit:
+        return "Circuit Races";
+    case RaceKind::kCheckpoint:
+        return "Checkpoint Races";
+    case RaceKind::kCrashCourse:
+        return "Crash Course";
     case RaceKind::kCruise:
         return "Cruise";
     }
@@ -44,7 +54,7 @@ const char* kindPlural(RaceKind k) {
 
 } // namespace
 
-Error PlayerRecord::load(const std::filesystem::path& folder, const std::string& file) {
+Error PlayerRecord::load(const std::filesystem::path &folder, const std::string &file) {
     _places.clear();
     _lessons.clear();
     _times.clear();
@@ -72,7 +82,7 @@ Error PlayerRecord::save() const {
     return out ? Error::success() : Error::fail("Can't write " + _path.string());
 }
 
-Error PlayerRecord::parse(const std::string& text) {
+Error PlayerRecord::parse(const std::string &text) {
     // Lines: "race <city> <kind> <index> <a|p> <place>", "time <city>
     // <kind> <index> <a|p> <seconds>", "lesson <city> <index>" and "last
     // <city> <kind> <index>"; '#' starts a comment.
@@ -91,7 +101,7 @@ Error PlayerRecord::parse(const std::string& text) {
             std::string city, kind, level;
             int index = 0, place = 0;
             if (words >> city >> kind >> index >> level >> place && place > 0) {
-                int& best = _places[city + " " + kind + " " + std::to_string(index) + " " + level];
+                int &best = _places[city + " " + kind + " " + std::to_string(index) + " " + level];
                 if (best == 0 || place < best)
                     best = place;
             }
@@ -122,14 +132,14 @@ Error PlayerRecord::parse(const std::string& text) {
 
 std::string PlayerRecord::text() const {
     std::string out = "# Reluva's record of a Midtown Madness 2 player\n";
-    for (const auto& [key, place] : _places)
+    for (const auto &[key, place] : _places)
         out += "race " + key + " " + std::to_string(place) + "\n";
-    for (const auto& [key, seconds] : _times) {
+    for (const auto &[key, seconds] : _times) {
         char buf[32];
         std::snprintf(buf, sizeof buf, " %.2f", double(seconds));
         out += "time " + key + buf + "\n";
     }
-    for (const auto& [key, done] : _lessons)
+    for (const auto &[key, done] : _lessons)
         if (done)
             out += "lesson " + key + "\n";
     if (!_last.empty())
@@ -137,7 +147,7 @@ std::string PlayerRecord::text() const {
     return out;
 }
 
-void PlayerRecord::raced(const std::string& city, RaceKind kind, int index, bool professional, int place, float time) {
+void PlayerRecord::raced(const std::string &city, RaceKind kind, int index, bool professional, int place, float time) {
     if (time > 0) {
         const std::string key = raceKey(city, kind, index, professional);
         auto it = _times.find(key);
@@ -146,21 +156,21 @@ void PlayerRecord::raced(const std::string& city, RaceKind kind, int index, bool
     }
     if (place <= 0)
         return;
-    int& best = _places[raceKey(city, kind, index, professional)];
+    int &best = _places[raceKey(city, kind, index, professional)];
     if (best == 0 || place < best)
         best = place;
 }
 
-float PlayerRecord::bestTime(const std::string& city, RaceKind kind, int index, bool professional) const {
+float PlayerRecord::bestTime(const std::string &city, RaceKind kind, int index, bool professional) const {
     auto it = _times.find(raceKey(city, kind, index, professional));
     return it == _times.end() ? -1 : it->second;
 }
 
-void PlayerRecord::setLastRace(const std::string& city, RaceKind kind, int index) {
+void PlayerRecord::setLastRace(const std::string &city, RaceKind kind, int index) {
     _last = city + " " + kindWord(kind) + " " + std::to_string(index);
 }
 
-bool PlayerRecord::lastRace(std::string& city, RaceKind& kind, int& index) const {
+bool PlayerRecord::lastRace(std::string &city, RaceKind &kind, int &index) const {
     std::istringstream words(_last);
     std::string k;
     if (!(words >> city >> k >> index))
@@ -174,12 +184,12 @@ bool PlayerRecord::lastRace(std::string& city, RaceKind& kind, int& index) const
     return false;
 }
 
-int PlayerRecord::bestPlace(const std::string& city, RaceKind kind, int index, bool professional) const {
+int PlayerRecord::bestPlace(const std::string &city, RaceKind kind, int index, bool professional) const {
     auto it = _places.find(raceKey(city, kind, index, professional));
     return it == _places.end() ? 0 : it->second;
 }
 
-int PlayerRecord::placedIn(const std::string& city, RaceKind kind, bool professional, int place) const {
+int PlayerRecord::placedIn(const std::string &city, RaceKind kind, bool professional, int place) const {
     int n = 0;
     for (int i = 0; i < 64; ++i) {
         int best = bestPlace(city, kind, i, true);
@@ -193,13 +203,15 @@ int PlayerRecord::placedIn(const std::string& city, RaceKind kind, bool professi
     return n;
 }
 
-void PlayerRecord::passed(const std::string& city, int lesson) { _lessons[city + " " + std::to_string(lesson)] = true; }
+void PlayerRecord::passed(const std::string &city, int lesson) {
+    _lessons[city + " " + std::to_string(lesson)] = true;
+}
 
-bool PlayerRecord::hasPassed(const std::string& city, int lesson) const {
+bool PlayerRecord::hasPassed(const std::string &city, int lesson) const {
     return _lessons.count(city + " " + std::to_string(lesson)) > 0;
 }
 
-const std::vector<UnlockRule>& unlockRules() {
+const std::vector<UnlockRule> &unlockRules() {
     // From the pictures: "To unlock this vehicle, place 1st, 2nd, or 3rd
     // in six San Francisco Checkpoint Races" (vpauditt_lck), "... finish
     // first in ..." (_lck_p), "... pass London Crash Course Midterm Exam
@@ -231,9 +243,9 @@ const std::vector<UnlockRule>& unlockRules() {
     return kRules;
 }
 
-bool unlocked(const PlayerRecord& record, const std::string& car, int paintJob, bool professional,
-              const RaceCount& raceCount) {
-    for (const UnlockRule& r : unlockRules()) {
+bool unlocked(const PlayerRecord &record, const std::string &car, int paintJob, bool professional,
+              const RaceCount &raceCount) {
+    for (const UnlockRule &r : unlockRules()) {
         if (r.car != car || r.paintJob != paintJob)
             continue;
         if (r.kind == RaceKind::kCrashCourse)
@@ -244,7 +256,7 @@ bool unlocked(const PlayerRecord& record, const std::string& car, int paintJob, 
     return true; // no rule: open from the start
 }
 
-std::vector<Reward> parseRewards(const std::string& text) {
+std::vector<Reward> parseRewards(const std::string &text) {
     std::vector<Reward> out;
     std::istringstream in(text);
     std::string line;
@@ -258,7 +270,7 @@ std::vector<Reward> parseRewards(const std::string& text) {
         }
         // Four fields, then the message (which could hold a comma).
         Reward r;
-        std::string* fields[3] = {&r.kind, &r.which, &r.car};
+        std::string *fields[3] = {&r.kind, &r.which, &r.car};
         size_t at = 0;
         bool ok = true;
         for (int f = 0; f < 4 && ok; ++f) {
@@ -282,22 +294,22 @@ std::vector<Reward> parseRewards(const std::string& text) {
     return out;
 }
 
-std::string unlockText(const UnlockRule& rule, bool professional) {
+std::string unlockText(const UnlockRule &rule, bool professional) {
     const std::string what = rule.paintJob < 0 ? "this vehicle" : "this custom paint job";
     if (rule.kind == RaceKind::kCrashCourse) {
-        static const char* const kExams[] = {"Midterm Exam One", "Midterm Exam Two", "Midterm Exam Three"};
+        static const char *const kExams[] = {"Midterm Exam One", "Midterm Exam Two", "Midterm Exam Three"};
         if (rule.lesson == 12)
             return "To unlock " + what + ", successfully complete the " + cityName(rule.city) + " Crash Course";
         const int exam = rule.lesson / 4; // 3, 7, 11
         return "To unlock " + what + ", pass " + cityName(rule.city) + " Crash Course " + kExams[exam < 3 ? exam : 2];
     }
-    static const char* const kNumbers[] = {"", "one", "two", "three", "four", "five", "six", "seven", "eight"};
+    static const char *const kNumbers[] = {"", "one", "two", "three", "four", "five", "six", "seven", "eight"};
     const std::string how = professional ? "finish first in " : "place 1st, 2nd, or 3rd in ";
     const std::string many = rule.count > 0 && rule.count < 9 ? kNumbers[rule.count] : "all";
     return "To unlock " + what + ", " + how + many + " " + cityName(rule.city) + " " + kindPlural(rule.kind);
 }
 
-bool raceOpen(const PlayerRecord& record, const std::string& city, RaceKind kind, int index, bool professional,
+bool raceOpen(const PlayerRecord &record, const std::string &city, RaceKind kind, int index, bool professional,
               int group, int mustPlace) {
     if (kind == RaceKind::kCrashCourse) {
         // "You can select lessons in any order" (the game's help); the
@@ -326,7 +338,7 @@ bool raceOpen(const PlayerRecord& record, const std::string& city, RaceKind kind
     return true;
 }
 
-Error DriverRoster::load(const std::filesystem::path& folder) {
+Error DriverRoster::load(const std::filesystem::path &folder) {
     _folder = folder;
     _drivers.clear();
     _current = 0;
@@ -357,7 +369,7 @@ Error DriverRoster::save() const {
     std::filesystem::create_directories(_folder, ec);
     std::ofstream out(_folder / kFileName, std::ios::binary);
     out << "# Reluva's Midtown Madness 2 drivers: record file, a or p, name\n";
-    for (const DriverEntry& d : _drivers)
+    for (const DriverEntry &d : _drivers)
         out << d.file << '\t' << (d.professional ? 'p' : 'a') << '\t' << d.name << '\n';
     out << "current " << _current << '\n';
     return out ? Error::success() : Error::fail("Can't write " + (_folder / kFileName).string());
@@ -368,19 +380,19 @@ void DriverRoster::setCurrent(int index) {
         _current = std::clamp(index, 0, int(_drivers.size()) - 1);
 }
 
-bool DriverRoster::has(const std::string& name) const {
+bool DriverRoster::has(const std::string &name) const {
     auto lower = [](std::string s) {
-        for (char& c : s)
+        for (char &c : s)
             c = char(std::tolower(static_cast<unsigned char>(c)));
         return s;
     };
-    for (const DriverEntry& d : _drivers)
+    for (const DriverEntry &d : _drivers)
         if (lower(d.name) == lower(name))
             return true;
     return false;
 }
 
-Error DriverRoster::add(const std::string& name, bool professional) {
+Error DriverRoster::add(const std::string &name, bool professional) {
     if (name.empty() || has(name))
         return Error::fail("That driver name already exists");
     // record-<n>.txt: the first number not taken.
@@ -388,7 +400,7 @@ Error DriverRoster::add(const std::string& name, bool professional) {
     for (int n = 1;; ++n) {
         file = "record-" + std::to_string(n) + ".txt";
         bool taken = false;
-        for (const DriverEntry& d : _drivers)
+        for (const DriverEntry &d : _drivers)
             taken = taken || d.file == file;
         std::error_code ec;
         if (!taken && !std::filesystem::exists(_folder / file, ec))

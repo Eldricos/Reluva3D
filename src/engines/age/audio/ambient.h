@@ -39,13 +39,13 @@ struct Ambience {
     std::vector<AmbientSample> samples;
     std::vector<Vec3> points; // VECTORPOINTS
 };
-Error parseAmbience(const std::string& text, Ambience& out);
+Error parseAmbience(const std::string &text, Ambience &out);
 // aud/ambient/<city>ambientcontainer.csv: the city's ambiences, by name.
-std::vector<std::string> parseAmbientContainer(const std::string& text);
+std::vector<std::string> parseAmbientContainer(const std::string &text);
 
 // How loud an ambience is `distance` from its nearest point: in full to
 // its least distance, falling evenly to nothing at its greatest.
-float ambientGain(const Ambience& a, float distance);
+float ambientGain(const Ambience &a, float distance);
 
 // A city's ambiences (its aud/ambient/<city>ambientcontainer.csv) round
 // the listener: each one's loops and its one-shots now and then, as loud
@@ -54,18 +54,18 @@ class AmbientSounds {
 public:
     AmbientSounds() = default;
     ~AmbientSounds() { clear(); }
-    AmbientSounds(const AmbientSounds&) = delete;
-    AmbientSounds& operator=(const AmbientSounds&) = delete;
+    AmbientSounds(const AmbientSounds &) = delete;
+    AmbientSounds &operator=(const AmbientSounds &) = delete;
 
-    Error load(const SearchSet& files, const std::string& map, audio::Mixer* mixer, uint32_t seed = 1);
+    Error load(const SearchSet &files, const std::string &map, audio::Mixer *mixer, uint32_t seed = 1);
     void clear();
     // Round the listener: where it is, its right (for each sound's pan;
     // none: all in the middle) and its velocity (for Doppler).
-    void update(float dt, const Vec3& listener, const Vec3& right = {}, const Vec3& velocity = {});
+    void update(float dt, const Vec3 &listener, const Vec3 &right = {}, const Vec3 &velocity = {});
     // All of them louder or quieter (the Audio Options' ambient: 0 off).
     void setGain(float gain) { _gain = gain; }
 
-    const std::vector<Ambience>& ambiences() const { return _ambiences; }
+    const std::vector<Ambience> &ambiences() const { return _ambiences; }
     // How many sounds are playing (for tests), and a voice's pan and pitch
     // as last set.
     size_t playing() const;
@@ -80,7 +80,7 @@ public:
 private:
     struct Voice {
         size_t ambience = 0;
-        const AmbientSample* sample = nullptr;
+        const AmbientSample *sample = nullptr;
         std::shared_ptr<const audio::Sound> sound;
         audio::SoundHandle handle = audio::kNoSound;
         float wait = 0; // a one-shot's seconds to its next play
@@ -88,7 +88,7 @@ private:
     };
     std::vector<Ambience> _ambiences;
     std::vector<Voice> _voices;
-    audio::Mixer* _mixer = nullptr;
+    audio::Mixer *_mixer = nullptr;
     std::mt19937 _random;
     float _gain = 1;
 };

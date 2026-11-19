@@ -67,21 +67,21 @@ struct Pkg {
     Vec3 offset{};
     std::vector<PkgXref> xrefs;
 
-    const PkgMesh* mesh(std::string_view name) const;
-    const PkgShader* shader(uint32_t paintJob, uint32_t index) const;
+    const PkgMesh *mesh(std::string_view name) const;
+    const PkgShader *shader(uint32_t paintJob, uint32_t index) const;
 };
 
-Error readPkg(const std::vector<uint8_t>& data, Pkg& out);
+Error readPkg(const std::vector<uint8_t> &data, Pkg &out);
 
 // Whether a model's part is one the game shows only when it's lit: a
 // car's lamps and their glows (HEADLIGHT0, HLIGHT, TLIGHT, BLIGHT,
 // RLIGHT, SLIGHT0, SIREN0, SRN0), a traffic light's (REDGLOWDAY...) and a
 // crossing's signs (WALK_NIGHT...).
-bool isLightPart(const std::string& part);
+bool isLightPart(const std::string &part);
 
 // The box round a model's body at its finest level: its unnamed meshes (or
 // BODY's) at H if it has them, else M, else L. False if it has none.
-bool bodyBounds(const Pkg& pkg, Vec3& low, Vec3& high);
+bool bodyBounds(const Pkg &pkg, Vec3 &low, Vec3 &high);
 
 // A part's placement (.mtx, next to the model: <model>_<part>.mtx).
 struct Mtx {
@@ -90,6 +90,6 @@ struct Mtx {
     Vec3 origin{};     // where it goes in the model
 };
 
-Error readMtx(const std::vector<uint8_t>& data, Mtx& out);
+Error readMtx(const std::vector<uint8_t> &data, Mtx &out);
 
 } // namespace reluva::age

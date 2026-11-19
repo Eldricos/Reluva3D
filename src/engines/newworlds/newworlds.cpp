@@ -40,9 +40,11 @@ using newworlds::TextureViewer;
 // Detection keys on glblgame.cat: patches tend to replace the executable but
 // not the large archives, so the executable is only required to exist.
 const std::vector<GameVariant> kVariants = {
-    {"newworlds", "Star Trek: New Worlds", "en", "windows",
-     {{"glblgame.cat", "9b5c322aef388f8e58e72b81bd9a91ad", 6883984},
-      {"STNW.exe", "", -1}}},
+    {"newworlds",
+     "Star Trek: New Worlds",
+     "en",
+     "windows",
+     {{"glblgame.cat", "9b5c322aef388f8e58e72b81bd9a91ad", 6883984}, {"STNW.exe", "", -1}}},
 };
 
 constexpr int kScreenW = 640;
@@ -50,7 +52,7 @@ constexpr int kScreenH = 480;
 
 class NewWorldsEngine : public Engine {
 public:
-    NewWorldsEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    NewWorldsEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
         if (Error err = openArchives())
@@ -68,14 +70,14 @@ public:
         audio::Mixer mixer(sys_.audioRate());
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioStop {
-            System& sys;
+            System &sys;
             bool on;
             ~AudioStop() {
                 if (on)
                     sys.stopAudio();
             }
         } audioStop{sys_, audioOut};
-        audio::Mixer* const output = audioOut ? &mixer : nullptr;
+        audio::Mixer *const output = audioOut ? &mixer : nullptr;
         SoundViewer sounds(sys_, screen_, archives_, output, target_.path);
         StringViewer strings(sys_, screen_, archives_);
         FontViewer fonts(sys_, screen_, archives_);
@@ -187,7 +189,7 @@ private:
             return Error::fail("No .cat archives in " + target_.path.string());
         std::sort(paths.begin(), paths.end());
 
-        for (const auto& p : paths) {
+        for (const auto &p : paths) {
             auto cat = std::make_unique<CatArchive>();
             if (Error err = cat->open(p))
                 return err;
@@ -196,7 +198,7 @@ private:
         return Error::success();
     }
 
-    System& sys_;
+    System &sys_;
     GameTarget target_;
     Surface screen_;
     newworlds::Archives archives_;
@@ -204,21 +206,21 @@ private:
 
 class NewWorldsMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "newworlds"; }
-    const char* name() const override { return "New Worlds"; }
+    const char *id() const override { return "newworlds"; }
+    const char *name() const override { return "New Worlds"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         return detectFromTable(id(), kVariants, dir);
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<NewWorldsEngine>(system, target);
     }
 };
 
 } // namespace
 
-const MetaEngine& newWorldsMetaEngine() {
+const MetaEngine &newWorldsMetaEngine() {
     static const NewWorldsMetaEngine instance;
     return instance;
 }

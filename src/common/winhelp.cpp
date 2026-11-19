@@ -18,13 +18,17 @@ constexpr size_t kFileHeader = 9, kTreeHeader = 38, kLinkHeader = 21, kBlockHead
 constexpr uint32_t kDecompressedBlock = 0x4000; // a compressed topic block, unpacked
 enum : uint8_t { kTopicHeader = 0x02, kDisplay = 0x20, kTable = 0x23 };
 
-uint16_t le16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) { return uint32_t(p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24); }
+uint16_t le16(const uint8_t *p) {
+    return uint16_t(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
+    return uint32_t(p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24);
+}
 
 // A run of bytes read from the front, every read checked.
 struct Reader {
-    const uint8_t* p;
-    const uint8_t* end;
+    const uint8_t *p;
+    const uint8_t *end;
     bool bad = false;
     bool has(size_t n) {
         if (size_t(end - p) < n)
@@ -58,10 +62,10 @@ struct Reader {
 
 // The file's own little file system: its directory, a B+ tree of names.
 struct HelpFile {
-    const std::vector<uint8_t>& data;
+    const std::vector<uint8_t> &data;
     std::map<std::string, std::pair<size_t, size_t>> files; // name: start and size of its contents
 
-    bool body(size_t at, size_t& start, size_t& size) const {
+    bool body(size_t at, size_t &start, size_t &size) const {
         if (at + kFileHeader > data.size())
             return false;
         const uint32_t used = le32(&data[at + 4]);
@@ -69,7 +73,7 @@ struct HelpFile {
         size = used;
         return start + size <= data.size();
     }
-    bool get(const std::string& name, const uint8_t*& p, size_t& size) const {
+    bool get(const std::string &name, const uint8_t *&p, size_t &size) const {
         auto it = files.find(name);
         if (it == files.end())
             return false;
@@ -80,29 +84,29 @@ struct HelpFile {
 };
 
 // Each leaf of a B+ tree in turn: f(entries, count, end).
-template <typename F>
-bool forEachLeaf(const uint8_t* tree, size_t size, F&& f) {
+template<typename F>
+bool forEachLeaf(const uint8_t *tree, size_t size, F &&f) {
     if (size < kTreeHeader || le16(tree) != kTreeMagic)
         return false;
     const uint16_t pageSize = le16(tree + 4);
     const int16_t root = int16_t(le16(tree + 26));
     const int16_t levels = int16_t(le16(tree + 32));
-    const uint8_t* pages = tree + kTreeHeader;
+    const uint8_t *pages = tree + kTreeHeader;
     const size_t pageCount = pageSize ? (size - kTreeHeader) / pageSize : 0;
-    auto page = [&](int16_t n) -> const uint8_t* {
+    auto page = [&](int16_t n) -> const uint8_t * {
         return n >= 0 && size_t(n) < pageCount ? pages + size_t(n) * pageSize : nullptr;
     };
     // Down the leftmost branch (an index page's first child is its
     // "previous page"), then along the leaves.
     int16_t n = root;
     for (int16_t level = 1; level < levels; ++level) {
-        const uint8_t* p = page(n);
+        const uint8_t *p = page(n);
         if (!p)
             return false;
         n = int16_t(le16(p + 4));
     }
     for (size_t guard = 0; n != -1 && guard <= pageCount; ++guard) {
-        const uint8_t* p = page(n);
+        const uint8_t *p = page(n);
         if (!p)
             return false;
         f(p + 8, int16_t(le16(p + 2)), p + pageSize);
@@ -115,7 +119,7 @@ bool forEachLeaf(const uint8_t* tree, size_t size, F&& f) {
 struct Phrases {
     std::vector<std::string> list;
 
-    Error load(const HelpFile& help) {
+    Error load(const HelpFile &help) {
         const uint8_t *index = nullptr, *image = nullptr;
         size_t indexSize = 0, imageSize = 0;
         if (!help.get("|PhrIndex", index, indexSize) || !help.get("|PhrImage", image, imageSize))
@@ -159,7 +163,7 @@ struct Phrases {
         return Error::success();
     }
 
-    std::string expand(const uint8_t* p, size_t n) const {
+    std::string expand(const uint8_t *p, size_t n) const {
         std::string out;
         auto phrase = [&](size_t i) {
             if (i < list.size())
@@ -174,7 +178,7 @@ struct Phrases {
                     phrase(128 + size_t(c / 4) * 256 + p[i++]);
             } else if ((c & 7) == 3) {
                 const size_t count = std::min<size_t>(c / 8 + 1, n - i);
-                out.append(reinterpret_cast<const char*>(p + i), count);
+                out.append(reinterpret_cast<const char *>(p + i), count);
                 i += count;
             } else if ((c & 15) == 7) {
                 out.append(c / 16 + 1, ' ');
@@ -187,7 +191,7 @@ struct Phrases {
 };
 
 // Windows' own characters as plain ASCII.
-std::string ascii(const std::string& s) {
+std::string ascii(const std::string &s) {
     std::string out;
     for (unsigned char c : s) {
         switch (c) {
@@ -232,7 +236,7 @@ std::string ascii(const std::string& s) {
 }
 
 // A paragraph's layout, skipped.
-void skipParagraph(Reader& r) {
+void skipParagraph(Reader &r) {
     r.skip(4);
     const uint16_t bits = r.u16();
     if (bits & 0x0001)
@@ -252,8 +256,8 @@ void skipParagraph(Reader& r) {
 
 // A text record's words: LinkData2's strings, each followed by the next of
 // LinkData1's commands (a paragraph's end, a tab, a picture...).
-std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::string& ld2,
-                       const std::function<int(uint32_t)>& linkTarget) {
+std::string recordText(uint8_t type, const uint8_t *ld1, size_t n1, const std::string &ld2,
+                       const std::function<int(uint32_t)> &linkTarget) {
     Reader r{ld1, ld1 + n1};
     r.longWord(); // the topic's size so far
     r.word();     // and this record's text's
@@ -386,7 +390,7 @@ std::string recordText(uint8_t type, const uint8_t* ld1, size_t n1, const std::s
 }
 
 // Tidied: lines without trailing spaces, at most one blank line between.
-std::string tidy(const std::string& s) {
+std::string tidy(const std::string &s) {
     std::string out;
     size_t blank = 0;
     for (size_t at = 0; at <= s.size();) {
@@ -411,7 +415,7 @@ std::string tidy(const std::string& s) {
 
 } // namespace
 
-std::vector<uint8_t> decompressLz77(const uint8_t* data, size_t size) {
+std::vector<uint8_t> decompressLz77(const uint8_t *data, size_t size) {
     // Eight items after each flag byte, lowest bit first: a 0 a byte as it
     // is, a 1 a 16-bit word: (length - 3) in its top 4 bits, (distance - 1)
     // back in the rest.
@@ -437,18 +441,18 @@ std::vector<uint8_t> decompressLz77(const uint8_t* data, size_t size) {
     return out;
 }
 
-Error openHelp(const std::vector<uint8_t>& file, HelpFile& help) {
+Error openHelp(const std::vector<uint8_t> &file, HelpFile &help) {
     if (file.size() < 16 || le32(file.data()) != kMagic)
         return Error::fail("not a Windows Help file");
     size_t dirStart = 0, dirSize = 0;
     if (!help.body(le32(&file[4]), dirStart, dirSize))
         return Error::fail("its directory is past its end");
-    const bool listed = forEachLeaf(file.data() + dirStart, dirSize, [&](const uint8_t* p, int n, const uint8_t* end) {
+    const bool listed = forEachLeaf(file.data() + dirStart, dirSize, [&](const uint8_t *p, int n, const uint8_t *end) {
         for (int i = 0; i < n && p < end; ++i) {
-            const uint8_t* zero = static_cast<const uint8_t*>(std::memchr(p, 0, size_t(end - p)));
+            const uint8_t *zero = static_cast<const uint8_t *>(std::memchr(p, 0, size_t(end - p)));
             if (!zero || end - zero < 5)
                 return;
-            const std::string name(reinterpret_cast<const char*>(p), size_t(zero - p));
+            const std::string name(reinterpret_cast<const char *>(p), size_t(zero - p));
             size_t start = 0, size = 0;
             if (help.body(le32(zero + 1), start, size))
                 help.files[name] = {start, size};
@@ -460,7 +464,7 @@ Error openHelp(const std::vector<uint8_t>& file, HelpFile& help) {
     return Error::success();
 }
 
-Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
+Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out) {
     out.clear();
     HelpFile help{file, {}};
     if (Error err = openHelp(file, help))
@@ -472,18 +476,18 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
     // the topic's title).
     std::map<uint32_t, uint32_t> contexts;
     std::vector<uint32_t> topicOffsets;
-    if (const uint8_t* tree = nullptr; true) {
+    if (const uint8_t *tree = nullptr; true) {
         size_t size = 0;
         if (help.get("|CONTEXT", tree, size))
-            forEachLeaf(tree, size, [&](const uint8_t* p, int n, const uint8_t* end) {
+            forEachLeaf(tree, size, [&](const uint8_t *p, int n, const uint8_t *end) {
                 for (int i = 0; i < n && end - p >= 8; ++i, p += 8)
                     contexts[le32(p)] = le32(p + 4);
             });
         if (help.get("|TTLBTREE", tree, size))
-            forEachLeaf(tree, size, [&](const uint8_t* p, int n, const uint8_t* end) {
+            forEachLeaf(tree, size, [&](const uint8_t *p, int n, const uint8_t *end) {
                 for (int i = 0; i < n && end - p >= 5; ++i) {
                     topicOffsets.push_back(le32(p));
-                    const uint8_t* zero = static_cast<const uint8_t*>(std::memchr(p + 4, 0, size_t(end - p - 4)));
+                    const uint8_t *zero = static_cast<const uint8_t *>(std::memchr(p + 4, 0, size_t(end - p - 4)));
                     if (!zero)
                         return;
                     p = zero + 1;
@@ -500,7 +504,7 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
     };
 
     // |SYSTEM: the version, and whether the topics are compressed.
-    const uint8_t* system = nullptr;
+    const uint8_t *system = nullptr;
     size_t systemSize = 0;
     if (!help.get("|SYSTEM", system, systemSize) || systemSize < 12 || le16(system) != kSystemMagic)
         return Error::fail("no |SYSTEM");
@@ -516,7 +520,7 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
     // |TOPIC: blocks, each a header and (compressed) records. A record's
     // place is its block's number times 0x4000 plus its offset in the
     // unpacked block, header counted.
-    const uint8_t* topic = nullptr;
+    const uint8_t *topic = nullptr;
     size_t topicSize = 0;
     if (!help.get("|TOPIC", topic, topicSize))
         return Error::fail("no |TOPIC");
@@ -533,7 +537,7 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
         }
     }
     const uint32_t perBlock = compressed ? kDecompressedBlock : uint32_t(blockSize);
-    auto offsetOf = [&](uint32_t pos, size_t& at) {
+    auto offsetOf = [&](uint32_t pos, size_t &at) {
         const size_t block = pos / perBlock, offset = pos % perBlock;
         if (block >= starts.size() || offset < kBlockHeader)
             return false;
@@ -547,18 +551,18 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
         size_t at = 0;
         if (!offsetOf(pos, at))
             break;
-        const uint8_t* link = stream.data() + at;
+        const uint8_t *link = stream.data() + at;
         const uint32_t size = le32(link), length2 = le32(link + 4), next = le32(link + 12), length1 = le32(link + 16);
         const uint8_t type = link[20];
         if (length1 < kLinkHeader || length1 > size || at + size > stream.size())
             break;
-        const uint8_t* ld1 = link + kLinkHeader;
+        const uint8_t *ld1 = link + kLinkHeader;
         const size_t n1 = length1 - kLinkHeader;
-        const uint8_t* raw2 = link + length1;
+        const uint8_t *raw2 = link + length1;
         const size_t n2 = size - length1;
         const std::string ld2 = length2 > n2 && !phrases.list.empty()
                                     ? phrases.expand(raw2, n2)
-                                    : std::string(reinterpret_cast<const char*>(raw2), std::min<size_t>(n2, length2));
+                                    : std::string(reinterpret_cast<const char *>(raw2), std::min<size_t>(n2, length2));
         if (type == kTopicHeader) {
             Topic t;
             t.title = ascii(ld2.substr(0, ld2.find('\0')));
@@ -573,12 +577,12 @@ Error readHelp(const std::vector<uint8_t>& file, std::vector<Topic>& out) {
             break;
         pos = next;
     }
-    for (Topic& t : out)
+    for (Topic &t : out)
         t.text = tidy(ascii(t.text));
     return out.empty() ? Error::fail("no topics") : Error::success();
 }
 
-std::string plainText(const std::string& text) {
+std::string plainText(const std::string &text) {
     std::string out;
     for (size_t i = 0; i < text.size(); ++i) {
         const char c = text[i];
@@ -592,7 +596,7 @@ std::string plainText(const std::string& text) {
     return out;
 }
 
-std::vector<uint8_t> unpackRuns(const uint8_t* data, size_t size) {
+std::vector<uint8_t> unpackRuns(const uint8_t *data, size_t size) {
     std::vector<uint8_t> out;
     for (size_t i = 0; i < size;) {
         const uint8_t n = data[i++];
@@ -607,12 +611,12 @@ std::vector<uint8_t> unpackRuns(const uint8_t* data, size_t size) {
     return out;
 }
 
-Error readPicture(const std::vector<uint8_t>& file, int number, Picture& out) {
+Error readPicture(const std::vector<uint8_t> &file, int number, Picture &out) {
     out = Picture{};
     HelpFile help{file, {}};
     if (Error err = openHelp(file, help))
         return err;
-    const uint8_t* data = nullptr;
+    const uint8_t *data = nullptr;
     size_t size = 0;
     const std::string name = "|bm" + std::to_string(number);
     if (!help.get(name, data, size) || size < 8)
@@ -621,7 +625,7 @@ Error readPicture(const std::vector<uint8_t>& file, int number, Picture& out) {
     // the first is read.
     if (le16(data) != 0x506C && le16(data) != 0x706C)
         return Error::fail(name + " isn't a picture file");
-    const uint8_t* picture = data + le32(data + 4);
+    const uint8_t *picture = data + le32(data + 4);
     if (picture + 2 > data + size)
         return Error::fail(name + " is short");
     // Each: its type (5 a device's bitmap, 6 a DIB, 8 a metafile, not
@@ -658,7 +662,7 @@ Error readPicture(const std::vector<uint8_t>& file, int number, Picture& out) {
     }
     if (picture + packedAt + packedSize > data + size)
         return Error::fail(name + ": its data is past its end");
-    const uint8_t* packed = picture + packedAt;
+    const uint8_t *packed = picture + packedAt;
     std::vector<uint8_t> pixels;
     switch (packing) {
     case 0:
@@ -687,12 +691,12 @@ Error readPicture(const std::vector<uint8_t>& file, int number, Picture& out) {
     out.height = int(height);
     out.rgba.resize(size_t(width) * height * 4);
     for (uint32_t y = 0; y < height; ++y) {
-        const uint8_t* row = pixels.data() + (height - 1 - y) * rowBytes;
-        uint8_t* to = out.rgba.data() + size_t(y) * width * 4;
+        const uint8_t *row = pixels.data() + (height - 1 - y) * rowBytes;
+        uint8_t *to = out.rgba.data() + size_t(y) * width * 4;
         for (uint32_t x = 0; x < width; ++x, to += 4) {
             uint32_t bgr = 0;
             if (bits == 24 || bits == 32) {
-                const uint8_t* p = row + x * (bits / 8);
+                const uint8_t *p = row + x * (bits / 8);
                 bgr = uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16;
             } else {
                 const uint32_t bit = x * bits;

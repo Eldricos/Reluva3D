@@ -15,10 +15,10 @@ namespace reluva::age {
 // by id. See docs/formats/age/mmlang.md.
 class GameStrings {
 public:
-    Error load(const SearchSet& files);
+    Error load(const SearchSet &files);
     bool loaded() const { return !_strings.empty(); }
     // The string, or `fallback` if there's none.
-    std::string get(uint32_t id, const std::string& fallback = {}) const;
+    std::string get(uint32_t id, const std::string &fallback = {}) const;
 
 private:
     std::map<uint32_t, std::string> _strings;

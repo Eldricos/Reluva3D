@@ -42,24 +42,24 @@ public:
         Surface surface;
     };
 
-    void add(const Vec3& a, const Vec3& b, const Vec3& c, Surface surface = {});
+    void add(const Vec3 &a, const Vec3 &b, const Vec3 &c, Surface surface = {});
     // Files the triangles into the grid; call after adding them all.
     void build(float cellSize = 8);
     size_t size() const { return _triangles.size(); }
     // A few more triangles, replaced as they move (a drawbridge's leaves),
     // checked along with those in the grid.
-    void setMoving(const std::vector<std::array<Vec3, 3>>& triangles, Surface surface = {});
+    void setMoving(const std::vector<std::array<Vec3, 3>> &triangles, Surface surface = {});
     // Takes out the triangles `drop` says to (after build(); the grid is
     // built again).
-    template <typename F>
-    void removeIf(F&& drop) {
-        std::erase_if(_triangles, [&](const Triangle& t) { return drop(t.a, t.b, t.c); });
+    template<typename F>
+    void removeIf(F &&drop) {
+        std::erase_if(_triangles, [&](const Triangle &t) { return drop(t.a, t.b, t.c); });
         build(_cellSize);
     }
     // The same by surface (a prop's triangles).
-    template <typename F>
-    void removeSurfaces(F&& drop) {
-        std::erase_if(_triangles, [&](const Triangle& t) { return drop(t.surface); });
+    template<typename F>
+    void removeSurfaces(F &&drop) {
+        std::erase_if(_triangles, [&](const Triangle &t) { return drop(t.surface); });
         build(_cellSize);
     }
     float cellSize() const { return _cellSize; }
@@ -71,7 +71,7 @@ public:
     };
     // The nearest triangle along a ray (`direction` of length 1) within
     // `maxDistance`.
-    bool raycast(const Vec3& origin, const Vec3& direction, float maxDistance, RayHit& hit) const;
+    bool raycast(const Vec3 &origin, const Vec3 &direction, float maxDistance, RayHit &hit) const;
 
     struct Contact {
         Vec3 normal{}; // out of the triangle, towards the sphere's centre
@@ -79,14 +79,14 @@ public:
         Surface surface;
     };
     // The deepest overlap of a sphere with the triangles.
-    bool sphereContact(const Vec3& center, float radius, Contact& contact) const;
+    bool sphereContact(const Vec3 &center, float radius, Contact &contact) const;
 
 private:
     using Cell = uint64_t;
     Cell cellOf(int ix, int iz) const { return uint64_t(uint32_t(ix)) << 32 | uint32_t(iz); }
     // Each triangle near the box (X, Z), once.
-    template <typename F>
-    void forEachNear(float x0, float z0, float x1, float z1, F&& f) const;
+    template<typename F>
+    void forEachNear(float x0, float z0, float x1, float z1, F &&f) const;
 
     std::vector<Triangle> _triangles;
     std::vector<Triangle> _moving;

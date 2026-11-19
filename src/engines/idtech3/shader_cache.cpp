@@ -23,32 +23,27 @@ constexpr float kPi = 3.14159265358979f;
 // Sort keys, as the original numbers them.
 constexpr float kSortPortal = 1, kSortOpaque = 3, kSortDecal = 4, kSortSeeThrough = 5, kSortBlend = 9;
 
-gfx::Blend blendFactor(const std::string& gl) {
-    static const std::pair<const char*, gfx::Blend> names[] = {
-        {"gl_zero", gfx::Blend::kZero},
-        {"gl_one", gfx::Blend::kOne},
-        {"gl_src_color", gfx::Blend::kSrcColor},
-        {"gl_one_minus_src_color", gfx::Blend::kOneMinusSrcColor},
-        {"gl_dst_color", gfx::Blend::kDstColor},
-        {"gl_one_minus_dst_color", gfx::Blend::kOneMinusDstColor},
-        {"gl_src_alpha", gfx::Blend::kSrcAlpha},
-        {"gl_one_minus_src_alpha", gfx::Blend::kOneMinusSrcAlpha},
-        {"gl_dst_alpha", gfx::Blend::kDstAlpha},
-        {"gl_one_minus_dst_alpha", gfx::Blend::kOneMinusDstAlpha},
+gfx::Blend blendFactor(const std::string &gl) {
+    static const std::pair<const char *, gfx::Blend> names[] = {
+        {"gl_zero", gfx::Blend::kZero},          {"gl_one", gfx::Blend::kOne},
+        {"gl_src_color", gfx::Blend::kSrcColor}, {"gl_one_minus_src_color", gfx::Blend::kOneMinusSrcColor},
+        {"gl_dst_color", gfx::Blend::kDstColor}, {"gl_one_minus_dst_color", gfx::Blend::kOneMinusDstColor},
+        {"gl_src_alpha", gfx::Blend::kSrcAlpha}, {"gl_one_minus_src_alpha", gfx::Blend::kOneMinusSrcAlpha},
+        {"gl_dst_alpha", gfx::Blend::kDstAlpha}, {"gl_one_minus_dst_alpha", gfx::Blend::kOneMinusDstAlpha},
     };
-    for (const auto& [name, b] : names)
+    for (const auto &[name, b] : names)
         if (gl == name)
             return b;
     return gfx::Blend::kOne; // gl_src_alpha_saturate isn't supported
 }
 
-bool stageBlends(const ShaderStage& s) {
+bool stageBlends(const ShaderStage &s) {
     if (s.blendSrc.empty())
         return false;
     return !(blendFactor(s.blendSrc) == gfx::Blend::kOne && blendFactor(s.blendDst) == gfx::Blend::kZero);
 }
 
-std::string stripExtension(const std::string& name) {
+std::string stripExtension(const std::string &name) {
     const size_t dot = name.find_last_of('.');
     const size_t slash = name.find_last_of("/\\");
     return dot != std::string::npos && (slash == std::string::npos || dot > slash) ? name.substr(0, dot) : name;
@@ -60,7 +55,7 @@ struct Affine {
 };
 
 // `op` applied after `m`.
-Affine then(const Affine& m, const Affine& op) {
+Affine then(const Affine &m, const Affine &op) {
     Affine r;
     r.r0 = {op.r0[0] * m.r0[0] + op.r0[1] * m.r1[0], op.r0[0] * m.r0[1] + op.r0[1] * m.r1[1],
             op.r0[0] * m.r0[2] + op.r0[1] * m.r1[2] + op.r0[2]};
@@ -70,7 +65,7 @@ Affine then(const Affine& m, const Affine& op) {
 }
 
 // One tcMod at `time` as an affine map (turb is handled by the caller).
-Affine tcModMatrix(const ShaderStage::TcMod& m, float time) {
+Affine tcModMatrix(const ShaderStage::TcMod &m, float time) {
     using T = ShaderStage::TcMod::Type;
     Affine a;
     switch (m.type) {
@@ -112,17 +107,19 @@ Affine tcModMatrix(const ShaderStage::TcMod& m, float time) {
 }
 
 gfx::Cull cullOf(ShaderDef::Cull c) {
-    return c == ShaderDef::Cull::Front ? gfx::Cull::kFront : c == ShaderDef::Cull::Back ? gfx::Cull::kBack
-                                                                                       : gfx::Cull::kNone;
+    return c == ShaderDef::Cull::Front  ? gfx::Cull::kFront
+           : c == ShaderDef::Cull::Back ? gfx::Cull::kBack
+                                        : gfx::Cull::kNone;
 }
 
 } // namespace
 
-ShaderCache::ShaderCache(gfx::Renderer3D& renderer, const SearchSet& files, const ShaderLibrary& shaders)
-    : r_(renderer), files_(files), shaders_(shaders) {}
+ShaderCache::ShaderCache(gfx::Renderer3D &renderer, const SearchSet &files, const ShaderLibrary &shaders)
+    : r_(renderer), files_(files), shaders_(shaders) {
+}
 
 void ShaderCache::clear() {
-    for (auto& [name, t] : images_)
+    for (auto &[name, t] : images_)
         if (t != missingTexture_)
             r_.destroyTexture(t);
     images_.clear();
@@ -147,7 +144,7 @@ gfx::TextureId ShaderCache::white() {
     return whiteTexture_;
 }
 
-gfx::TextureId ShaderCache::image(const std::string& name, bool clamp, bool mipmaps, bool picmip) {
+gfx::TextureId ShaderCache::image(const std::string &name, bool clamp, bool mipmaps, bool picmip) {
     const std::string key = normalizeArchiveName(stripExtension(name)) + (clamp ? "|clamp" : "") +
                             (mipmaps ? "" : "|nomip") + (picmip ? "|picmip" : "");
     if (auto it = images_.find(key); it != images_.end())
@@ -210,7 +207,7 @@ gfx::TextureId ShaderCache::image(const std::string& name, bool clamp, bool mipm
     return id;
 }
 
-ShaderCache::Stage ShaderCache::makeStage(const ShaderStage& def, const ShaderDef& shader) {
+ShaderCache::Stage ShaderCache::makeStage(const ShaderStage &def, const ShaderDef &shader) {
     Stage st;
     st.def = &def;
     st.fps = def.animFps;
@@ -219,7 +216,7 @@ ShaderCache::Stage ShaderCache::makeStage(const ShaderStage& def, const ShaderDe
     } else if (def.whiteImage || def.maps.empty()) {
         st.frames = {white()};
     } else {
-        for (const std::string& m : def.maps)
+        for (const std::string &m : def.maps)
             st.frames.push_back(image(m, def.clamp, !shader.noMipmaps, !shader.noPicmip));
     }
 
@@ -237,19 +234,29 @@ ShaderCache::Stage ShaderCache::makeStage(const ShaderStage& def, const ShaderDe
 
     using T = ShaderStage::TcGen;
     switch (def.tcGen) {
-    case T::Default: st.texGen = def.lightmap ? gfx::TexGen::kUv2 : gfx::TexGen::kUv; break;
-    case T::Base: st.texGen = gfx::TexGen::kUv; break;
-    case T::Lightmap: st.texGen = gfx::TexGen::kUv2; break;
-    case T::Environment: st.texGen = gfx::TexGen::kEnvironment; break;
-    case T::Vector: st.texGen = gfx::TexGen::kVector; break;
+    case T::Default:
+        st.texGen = def.lightmap ? gfx::TexGen::kUv2 : gfx::TexGen::kUv;
+        break;
+    case T::Base:
+        st.texGen = gfx::TexGen::kUv;
+        break;
+    case T::Lightmap:
+        st.texGen = gfx::TexGen::kUv2;
+        break;
+    case T::Environment:
+        st.texGen = gfx::TexGen::kEnvironment;
+        break;
+    case T::Vector:
+        st.texGen = gfx::TexGen::kVector;
+        break;
     }
     return st;
 }
 
-ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting lighting, bool sky) {
+ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting lighting, bool sky) {
     Material m;
     m.lighting = lighting;
-    for (const std::string& u : def.unknown)
+    for (const std::string &u : def.unknown)
         note("unknown directive " + u);
     // Sky surfaces show the sky drawn behind everything; fog volumes'
     // surfaces only mark the volume.
@@ -261,16 +268,16 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
     // this over it; how far off it's drawn, the alphaGen portal range.
     if (def.portal) {
         m.portal = true;
-        for (const ShaderStage& s : def.stages)
+        for (const ShaderStage &s : def.stages)
             if (s.alphaGen == ShaderStage::AlphaGen::Portal)
                 m.portalRange = std::max(m.portalRange, s.portalRange);
     }
 
-    for (const ShaderStage& s : def.stages)
+    for (const ShaderStage &s : def.stages)
         m.stages.push_back(makeStage(s, def));
 
     size_t used = 0;
-    for (const ShaderDeform& d : def.deforms) {
+    for (const ShaderDeform &d : def.deforms) {
         using T = ShaderDeform::Type;
         gfx::Deform g;
         if (d.type == T::Wave) {
@@ -294,8 +301,8 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
             m.autosprite = d.type == T::Autosprite ? 1 : 2;
             continue;
         } else {
-            static const char* const names[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
-                                                "text", "projectionShadow", "?"};
+            static const char *const names[] = {
+                "wave", "normal", "bulge", "move", "autosprite", "autosprite2", "text", "projectionShadow", "?"};
             note(std::string("deformVertexes ") + names[size_t(d.type)]);
             continue;
         }
@@ -315,7 +322,7 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
     } else {
         m.sort = kSortOpaque;
         if (stageBlends(def.stages.front()))
-            for (const Stage& s : m.stages)
+            for (const Stage &s : m.stages)
                 if (stageBlends(*s.def)) {
                     m.sort = s.state.depthWrite ? kSortSeeThrough : kSortBlend;
                     break;
@@ -324,12 +331,12 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef& def, Lighting l
     return m;
 }
 
-int ShaderCache::material(const ShaderDef& def, Lighting lighting, bool sky) {
+int ShaderCache::material(const ShaderDef &def, Lighting lighting, bool sky) {
     if (lighting == Lighting::TwoD && !(def.noMipmaps && def.noPicmip)) {
         // Pictures (menus, the HUD) are registered without mipmaps, so the
         // texture detail and filter settings leave them alone.
         // The copy is kept: the material's stages point into it.
-        ShaderDef& flat = implicit_.emplace_back(def);
+        ShaderDef &flat = implicit_.emplace_back(def);
         flat.noMipmaps = flat.noPicmip = true;
         materials_.push_back(makeMaterial(flat, lighting, sky));
         return static_cast<int>(materials_.size()) - 1;
@@ -338,15 +345,15 @@ int ShaderCache::material(const ShaderDef& def, Lighting lighting, bool sky) {
     return static_cast<int>(materials_.size()) - 1;
 }
 
-int ShaderCache::material(const std::string& name, Lighting lighting) {
+int ShaderCache::material(const std::string &name, Lighting lighting) {
     const auto key = std::make_pair(normalizeArchiveName(name), lighting);
     if (auto it = byName_.find(key); it != byName_.end())
         return it->second;
-    const ShaderDef* def = shaders_.find(name);
+    const ShaderDef *def = shaders_.find(name);
     if (!def) {
         // The original's implicit shaders: the image times the lightmap,
         // the vertex colours, or the light.
-        ShaderDef& d = implicit_.emplace_back();
+        ShaderDef &d = implicit_.emplace_back();
         d.name = name;
         ShaderStage tex;
         tex.maps = {name};
@@ -376,8 +383,8 @@ int ShaderCache::material(const std::string& name, Lighting lighting) {
             tex.alphaGen = ShaderStage::AlphaGen::Vertex;
             d.stages = {tex};
         } else {
-            tex.rgbGen = lighting == Lighting::Vertex ? ShaderStage::RgbGen::ExactVertex
-                                                      : ShaderStage::RgbGen::LightingDiffuse;
+            tex.rgbGen =
+                lighting == Lighting::Vertex ? ShaderStage::RgbGen::ExactVertex : ShaderStage::RgbGen::LightingDiffuse;
             d.stages = {tex};
         }
         def = &d;
@@ -387,12 +394,12 @@ int ShaderCache::material(const std::string& name, Lighting lighting) {
     return index;
 }
 
-void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time, bool sky,
-                       const std::array<float, 4>* entity) const {
+void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky,
+                       const std::array<float, 4> *entity) const {
     const std::array<float, 4> ent = entity ? *entity : std::array<float, 4>{1, 1, 1, 1};
-    const Material& m = materials_[size_t(material)];
-    for (const Stage& st : m.stages) {
-        const ShaderStage& d = *st.def;
+    const Material &m = materials_[size_t(material)];
+    for (const Stage &st : m.stages) {
+        const ShaderStage &d = *st.def;
         gfx::DrawCall call = base;
         call.time = time;
         call.deforms = m.deforms;
@@ -410,14 +417,14 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         // tcMods in order; a turb splits them into before and after.
         Affine pre, post;
         bool turbSeen = false;
-        for (const ShaderStage::TcMod& mod : d.tcMods) {
+        for (const ShaderStage::TcMod &mod : d.tcMods) {
             if (mod.type == ShaderStage::TcMod::Type::Turb && !turbSeen) {
                 turbSeen = true;
                 call.turbAmplitude = mod.wave.amplitude;
                 call.turbPhase = mod.wave.phase + time * mod.wave.frequency;
                 continue;
             }
-            Affine& target = turbSeen ? post : pre;
+            Affine &target = turbSeen ? post : pre;
             target = then(target, tcModMatrix(mod, time));
         }
         call.preRow0 = pre.r0;
@@ -435,17 +442,28 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
         switch (d.rgbGen) {
         case R::Vertex:
         case R::ExactVertex:
-        case R::LightingDiffuse: call.rgbSource = lit; break;
-        case R::OneMinusVertex: call.rgbSource = gfx::ColorSource::kOneMinusVertex; break;
+        case R::LightingDiffuse:
+            call.rgbSource = lit;
+            break;
+        case R::OneMinusVertex:
+            call.rgbSource = gfx::ColorSource::kOneMinusVertex;
+            break;
         case R::Wave: {
             const float v = std::clamp(gfx::evaluate(d.rgbWave, time), 0.0f, 1.0f);
             call.color = {v, v, v, 1};
             break;
         }
-        case R::Const: call.color = {d.rgbConst[0], d.rgbConst[1], d.rgbConst[2], 1}; break;
-        case R::Entity: call.color = {ent[0], ent[1], ent[2], 1}; break;
-        case R::OneMinusEntity: call.color = {1 - ent[0], 1 - ent[1], 1 - ent[2], 1}; break;
-        default: break; // identity: white
+        case R::Const:
+            call.color = {d.rgbConst[0], d.rgbConst[1], d.rgbConst[2], 1};
+            break;
+        case R::Entity:
+            call.color = {ent[0], ent[1], ent[2], 1};
+            break;
+        case R::OneMinusEntity:
+            call.color = {1 - ent[0], 1 - ent[1], 1 - ent[2], 1};
+            break;
+        default:
+            break; // identity: white
         }
         // Lit by its vertices (no lightmap, or the vertex lighting
         // setting): a lightmap stage is the vertex colours instead.
@@ -457,13 +475,26 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
             if (m.lighting != Lighting::Diffuse) // models: opaque
                 call.alphaSource = gfx::ColorSource::kVertex;
             break;
-        case A::OneMinusVertex: call.alphaSource = gfx::ColorSource::kOneMinusVertex; break;
-        case A::Wave: call.color[3] = std::clamp(gfx::evaluate(d.alphaWave, time), 0.0f, 1.0f); break;
-        case A::Const: call.color[3] = d.alphaConst; break;
-        case A::Entity: call.color[3] = ent[3]; break;
-        case A::OneMinusEntity: call.color[3] = 1 - ent[3]; break;
-        case A::Portal: call.fogDistance = d.portalRange; break; // see-through near, the stage's own far off
-        default: break; // identity, lightingSpecular: opaque
+        case A::OneMinusVertex:
+            call.alphaSource = gfx::ColorSource::kOneMinusVertex;
+            break;
+        case A::Wave:
+            call.color[3] = std::clamp(gfx::evaluate(d.alphaWave, time), 0.0f, 1.0f);
+            break;
+        case A::Const:
+            call.color[3] = d.alphaConst;
+            break;
+        case A::Entity:
+            call.color[3] = ent[3];
+            break;
+        case A::OneMinusEntity:
+            call.color[3] = 1 - ent[3];
+            break;
+        case A::Portal:
+            call.fogDistance = d.portalRange;
+            break; // see-through near, the stage's own far off
+        default:
+            break; // identity, lightingSpecular: opaque
         }
 
         if (m.lighting == Lighting::TwoD) {
@@ -483,9 +514,9 @@ void ShaderCache::draw(int material, const gfx::DrawCall& base, gfx::TextureId l
     }
 }
 
-void ShaderCache::drawFog(int material, const gfx::DrawCall& base, const std::array<float, 3>& color,
-                          float distance, float time) const {
-    const Material& m = materials_[size_t(material)];
+void ShaderCache::drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
+                          float time) const {
+    const Material &m = materials_[size_t(material)];
     if (m.stages.empty() || distance <= 0)
         return;
     gfx::DrawCall call = base;

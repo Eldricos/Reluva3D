@@ -18,7 +18,7 @@ namespace {
 
 constexpr size_t kMaxDumpBytes = 1 << 20; // hex dumps stop after this much
 
-std::string topFolder(const std::string& name) {
+std::string topFolder(const std::string &name) {
     const size_t slash = name.find('/');
     return slash == std::string::npos ? std::string() : normalizeArchiveName(name.substr(0, slash));
 }
@@ -38,14 +38,16 @@ std::string formatSize(uint64_t size) {
 
 // --- Page ------------------------------------------------------------------------------
 
-void Page::clear(uint8_t r, uint8_t g, uint8_t b) { fill(0, 0, _ctx.screen.w, _ctx.screen.h, r, g, b); }
+void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
+    fill(0, 0, _ctx.screen.w, _ctx.screen.h, r, g, b);
+}
 
 void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
-    Surface& s = _ctx.screen;
+    Surface &s = _ctx.screen;
     const int x0 = std::max(x, 0), y0 = std::max(y, 0);
     const int x1 = std::min(x + w, s.w), y1 = std::min(y + h, s.h);
     for (int yy = y0; yy < y1; ++yy) {
-        uint8_t* p = s.row(yy) + x0 * 4;
+        uint8_t *p = s.row(yy) + x0 * 4;
         for (int xx = x0; xx < x1; ++xx, p += 4) {
             p[0] = r;
             p[1] = g;
@@ -55,13 +57,15 @@ void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
     }
 }
 
-void Page::text(int x, int y, const std::string& s, Color c) { font::drawText(_ctx.screen, x, y, s, c); }
+void Page::text(int x, int y, const std::string &s, Color c) {
+    font::drawText(_ctx.screen, x, y, s, c);
+}
 
-void Page::setTitle(const std::string& detail) {
+void Page::setTitle(const std::string &detail) {
     _ctx.sys.setWindowTitle(std::string("Reluva - ") + _ctx.game.name + " - " + name() + ": " + detail);
 }
 
-std::string kindOf(const std::string& name) {
+std::string kindOf(const std::string &name) {
     std::string file = name.substr(name.rfind('/') + 1);
     file = file.substr(0, file.find('.'));
     return normalizeArchiveName(file.substr(0, file.find('_')));
@@ -69,7 +73,7 @@ std::string kindOf(const std::string& name) {
 
 // --- fileLines --------------------------------------------------------------------------
 
-std::vector<std::string> fileLines(const std::vector<uint8_t>& data, bool& isText) {
+std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText) {
     // Text: no zero bytes, and control characters only as line ends and
     // tabs. The game's text files are code page 1252, shown as Latin-1.
     isText = std::none_of(data.begin(), data.end(), [](uint8_t c) {
@@ -118,12 +122,12 @@ std::vector<std::string> fileLines(const std::vector<uint8_t>& data, bool& isTex
 
 // --- FileViewer -------------------------------------------------------------------------
 
-FileViewer::FileViewer(ViewerContext& ctx) : Page(ctx) {
-    for (const std::string& n : ctx.files.list()) {
+FileViewer::FileViewer(ViewerContext &ctx) : Page(ctx) {
+    for (const std::string &n : ctx.files.list()) {
         Row r{n, {}, 0};
-        if (const Archive* a = ctx.files.find(n)) {
+        if (const Archive *a = ctx.files.find(n)) {
             r.source = std::filesystem::path(a->describe()).filename().string();
-            if (auto* ar = dynamic_cast<const ArArchive*>(a)) {
+            if (auto *ar = dynamic_cast<const ArArchive *>(a)) {
                 r.size = ar->entry(n)->size;
             } else {
                 std::error_code ec;
@@ -148,21 +152,23 @@ void FileViewer::applyFolder() {
     _selected = _top = 0;
 }
 
-int FileViewer::rows() const { return (_ctx.screen.h - 4 * font::kLineHeight) / font::kLineHeight; }
+int FileViewer::rows() const {
+    return (_ctx.screen.h - 4 * font::kLineHeight) / font::kLineHeight;
+}
 
 void FileViewer::activate() {
     setTitle(std::to_string(_files.size()) + " files in " + std::to_string(_ctx.files.size()) + " archives");
     draw();
 }
 
-bool FileViewer::takesKey(const Event& ev) const {
+bool FileViewer::takesKey(const Event &ev) const {
     return _viewing && ev.type == EventType::kKeyDown && ev.key == key::kEscape;
 }
 
 void FileViewer::open() {
     if (_shown.empty())
         return;
-    const Row& r = _files[_shown[size_t(_selected)]];
+    const Row &r = _files[_shown[size_t(_selected)]];
     std::vector<uint8_t> data;
     if (Error err = _ctx.files.read(r.name, data)) {
         _lines = {err.message};
@@ -176,7 +182,7 @@ void FileViewer::open() {
     setTitle(_viewName);
 }
 
-void FileViewer::handleEvent(const Event& ev) {
+void FileViewer::handleEvent(const Event &ev) {
     const int page = rows();
     int step = 0;
     if (ev.type == EventType::kMouseWheel)
@@ -254,7 +260,7 @@ void FileViewer::draw() {
     }
 
     std::string order;
-    for (const Archive* a : _ctx.files.archives()) {
+    for (const Archive *a : _ctx.files.archives()) {
         if (!order.empty())
             order += ", ";
         order += std::filesystem::path(a->describe()).filename().string();
@@ -265,19 +271,17 @@ void FileViewer::draw() {
              std::to_string(_shown.size()) + " files; Enter opens",
          {150, 200, 255});
     if (!_ctx.warnings.empty())
-        text(4, 4 + 2 * lh,
-             std::to_string(_ctx.warnings.size()) + " problems, the first: " + _ctx.warnings.front(),
+        text(4, 4 + 2 * lh, std::to_string(_ctx.warnings.size()) + " problems, the first: " + _ctx.warnings.front(),
              {255, 120, 120});
     const int sourceX = _ctx.screen.w - 18 * font::kAdvance;
     for (int i = 0; i < page && _top + i < static_cast<int>(_shown.size()); ++i) {
-        const Row& r = _files[_shown[size_t(_top + i)]];
+        const Row &r = _files[_shown[size_t(_top + i)]];
         const int y = 4 * lh + i * lh;
         if (_top + i == _selected)
             fill(0, y - 1, _ctx.screen.w, lh, 50, 60, 90);
         text(4, y, r.name);
         const std::string size = formatSize(r.size);
-        text(sourceX - 2 * font::kAdvance - static_cast<int>(size.size()) * font::kAdvance, y, size,
-             {180, 180, 180});
+        text(sourceX - 2 * font::kAdvance - static_cast<int>(size.size()) * font::kAdvance, y, size, {180, 180, 180});
         text(sourceX, y, r.source, {140, 140, 140});
     }
 }

@@ -18,12 +18,12 @@ constexpr float kReflection = 0.6f;
 
 } // namespace
 
-gfx::Mat4 matrixOf(const Mat3& r, const Vec3& p) {
+gfx::Mat4 matrixOf(const Mat3 &r, const Vec3 &p) {
     return {r.x[0], r.x[1], r.x[2], 0, r.y[0], r.y[1], r.y[2], 0, r.z[0], r.z[1], r.z[2], 0, p[0], p[1], p[2], 1};
 }
 
-Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const SearchSet& files,
-                     const std::string& car, uint32_t paintJob) {
+Error CarActor::load(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files, const std::string &car,
+                     uint32_t paintJob) {
     unload();
     _renderer = &renderer;
     if (Error err = loadCarSetup(files, car, setup))
@@ -39,24 +39,25 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
         return Error::fail(file + ": " + err.message);
     paintJobs = std::max(1u, pkg.paintJobs);
     paintJob %= paintJobs;
-    auto isWheel = [](const std::string& part) { return part.rfind("WHL", 0) == 0; };
+    auto isWheel = [](const std::string &part) { return part.rfind("WHL", 0) == 0; };
     buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, _body,
-                   [&](const std::string& part) { return !isWheel(part); });
+                   [&](const std::string &part) { return !isWheel(part); });
     _clean.clear();
     _damaged.clear();
-    for (const ModelDraw& d : _body.draws) {
+    for (const ModelDraw &d : _body.draws) {
         bool translucent;
         _clean.push_back(d.texture);
         _damaged.push_back(d.textureName.empty() ? 0 : textures.get(d.textureName + "_dmg", translucent, true));
     }
     for (int i = 0; i < 4; ++i) {
         const std::string name = "WHL" + std::to_string(i);
-        buildModelMesh(renderer, textures, files, file, pkg, "H", paintJob, false, _wheels[size_t(i)],
-                       [&](const std::string& part) { return part == name; }, false);
+        buildModelMesh(
+            renderer, textures, files, file, pkg, "H", paintJob, false, _wheels[size_t(i)],
+            [&](const std::string &part) { return part == name; }, false);
     }
-    auto lamp = [&](const char* part, ModelMesh& out) {
+    auto lamp = [&](const char *part, ModelMesh &out) {
         buildModelMesh(renderer, textures, files, file, pkg, "", paintJob, true, out,
-                       [&](const std::string& p) { return p == part; });
+                       [&](const std::string &p) { return p == part; });
     };
     lamp("HLIGHT", _head);
     lamp("TLIGHT", _tail);
@@ -64,7 +65,7 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
     lamp("RLIGHT", _reverse);
     _headlights.clear();
     _sirenLamps.clear();
-    for (const PkgMesh& m : pkg.meshes) {
+    for (const PkgMesh &m : pkg.meshes) {
         const std::string part = m.part();
         std::vector<uint8_t> placement;
         Mtx mtx;
@@ -74,7 +75,7 @@ Error CarActor::load(gfx::Renderer3D& renderer, TextureCache& textures, const Se
         if (part[0] == 'H') {
             _headlights.push_back(mtx.origin);
         } else if (!m.groups.empty()) {
-            const PkgShader* sh = pkg.shader(paintJob, m.groups.front().shader);
+            const PkgShader *sh = pkg.shader(paintJob, m.groups.front().shader);
             _sirenLamps.push_back({mtx.origin, sh ? std::array<float, 3>{sh->diffuse[0], sh->diffuse[1], sh->diffuse[2]}
                                                   : std::array<float, 3>{1, 1, 1}});
         }
@@ -90,16 +91,16 @@ void CarActor::unload() {
     if (!_renderer)
         return;
     destroyModelMesh(*_renderer, _body);
-    for (ModelMesh& w : _wheels)
+    for (ModelMesh &w : _wheels)
         destroyModelMesh(*_renderer, w);
-    for (ModelMesh& m : _sirens)
+    for (ModelMesh &m : _sirens)
         destroyModelMesh(*_renderer, m);
-    for (ModelMesh* m : {&_head, &_tail, &_brake, &_reverse})
+    for (ModelMesh *m : {&_head, &_tail, &_brake, &_reverse})
         destroyModelMesh(*_renderer, *m);
     _renderer = nullptr;
 }
 
-void CarActor::draw(const SceneLight& light) const {
+void CarActor::draw(const SceneLight &light) const {
     if (!_renderer)
         return;
     const gfx::Mat4 carMatrix = matrixOf(sim.orientation, sim.position);
@@ -108,8 +109,8 @@ void CarActor::draw(const SceneLight& light) const {
         if (!translucent && g_reflections)
             drawModelReflection(*_renderer, _body, carMatrix, light, reflectionMap, kReflection);
         for (int i = 0; i < 4; ++i) {
-            const CarSim::Wheel& w = sim.wheels[size_t(i)];
-            const AxleSetup& axle = i < 2 ? setup.front : setup.back;
+            const CarSim::Wheel &w = sim.wheels[size_t(i)];
+            const AxleSetup &axle = i < 2 ? setup.front : setup.back;
             const Vec3 at = setup.wheels[size_t(i)] + Vec3{0, w.compression - axle.suspensionExtent, 0};
             // Steered about the vertical, rolling about the axle.
             const Mat3 turn = Mat3::rotationY(w.steer) * Mat3::rotation({1, 0, 0}, -w.spin);
@@ -131,7 +132,7 @@ void CarActor::draw(const SceneLight& light) const {
     }
 }
 
-void CarActor::dent(const Vec3& at, float radius) {
+void CarActor::dent(const Vec3 &at, float radius) {
     for (size_t i = 0; i < _body.draws.size() && i < _damaged.size(); ++i)
         if (_damaged[i] && length(_body.draws[i].center - at) <= radius)
             _body.draws[i].texture = _damaged[i];
@@ -142,14 +143,14 @@ void CarActor::mend() {
         _body.draws[i].texture = _clean[i];
 }
 
-void CarActor::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {
+void CarActor::drawFlares(const FlareDrawer &flares, const Vec3 &eye) const {
     if (!_renderer)
         return;
     const Vec3 toEye = normalized(eye - sim.position);
     // Headlights seen from in front of the car.
     const float facing = dot(-sim.orientation.z, toEye);
     if (lamps.head && facing > 0)
-        for (const Vec3& h : _headlights)
+        for (const Vec3 &h : _headlights)
             flares.draw(sim.position + sim.orientation * h, 1.6f, {facing, facing * 0.95f, facing * 0.8f}, eye);
     // The sirens lit (the first half, then the second: blue, then red),
     // from all round.
@@ -159,22 +160,22 @@ void CarActor::drawFlares(const FlareDrawer& flares, const Vec3& eye) const {
                 flares.draw(sim.position + sim.orientation * _sirenLamps[i].first, 2.0f, _sirenLamps[i].second, eye);
 }
 
-bool CarActor::headlightPool(gfx::DynamicLight& out) const {
+bool CarActor::headlightPool(gfx::DynamicLight &out) const {
     if (!_renderer || !lamps.head)
         return false;
     out = {sim.position - sim.orientation.z * 10.0f + sim.orientation.y * 1.0f, 13, {0.6f, 0.55f, 0.45f}};
     return true;
 }
 
-std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string& car) {
+std::vector<CarCamera> loadCarCameras(const SearchSet &files, const std::string &car) {
     std::vector<CarCamera> cameras;
-    for (const char* which : {"_near.camTrackCS", "_far.camTrackCS", ".camPovCS"}) {
+    for (const char *which : {"_near.camTrackCS", "_far.camTrackCS", ".camPovCS"}) {
         std::vector<uint8_t> data;
         TuneNode root;
-        if (files.read("tune/camera/" + car + which, data) ||
-            parseTune(std::string(data.begin(), data.end()), root) || root.children.empty())
+        if (files.read("tune/camera/" + car + which, data) || parseTune(std::string(data.begin(), data.end()), root) ||
+            root.children.empty())
             continue;
-        const TuneNode& n = root.children.front();
+        const TuneNode &n = root.children.front();
         CarCamera c;
         c.inside = std::string(which) == ".camPovCS";
         for (size_t k = 0; k < 3; ++k) {
@@ -222,7 +223,7 @@ std::vector<CarCamera> loadCarCameras(const SearchSet& files, const std::string&
     return cameras;
 }
 
-CameraView CameraBlend::apply(const CameraView& to, float dt) {
+CameraView CameraBlend::apply(const CameraView &to, float dt) {
     if (left <= 0 || total <= 0)
         return to;
     left = std::max(0.0f, left - dt);
@@ -235,7 +236,7 @@ CameraView CameraBlend::apply(const CameraView& to, float dt) {
     return v;
 }
 
-CameraView updateCarCamera(const CarCamera& cam, const CarSim& sim, float dt, CameraFollow& follow, bool reset) {
+CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, CameraFollow &follow, bool reset) {
     constexpr float kFrameRate = 30; // HillLerp is a frame's
     CameraView v;
     if (cam.inside) {

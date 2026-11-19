@@ -90,27 +90,27 @@ struct AasNode {
 class AasWorld {
 public:
     // Reads a .aas file (version 4, or 5 with its header scrambled).
-    Error load(const std::vector<uint8_t>& data);
+    Error load(const std::vector<uint8_t> &data);
     bool loaded() const { return loaded_; }
     int32_t bspChecksum() const { return bspChecksum_; }
 
     int areaCount() const { return int(areas_.size()); }
-    const AasArea& area(int n) const { return areas_[size_t(n)]; }
-    const AasAreaSettings& settings(int n) const { return settings_[size_t(n)]; }
-    const std::vector<AasReach>& reachabilities() const { return reach_; }
-    const std::vector<AasFace>& faces() const { return faces_; }
-    const std::vector<int>& faceIndex() const { return faceIndex_; }
-    const std::vector<AasPlane>& planes() const { return planes_; }
+    const AasArea &area(int n) const { return areas_[size_t(n)]; }
+    const AasAreaSettings &settings(int n) const { return settings_[size_t(n)]; }
+    const std::vector<AasReach> &reachabilities() const { return reach_; }
+    const std::vector<AasFace> &faces() const { return faces_; }
+    const std::vector<int> &faceIndex() const { return faceIndex_; }
+    const std::vector<AasPlane> &planes() const { return planes_; }
     bool validArea(int n) const { return n > 0 && n < areaCount(); }
 
     // The area a point is in, 0 if in solid.
-    int pointArea(const Vec3f& point) const;
+    int pointArea(const Vec3f &point) const;
     // The areas a line passes through, in order, and where it enters
     // each (if `points`), at most `max`.
-    int traceAreas(const Vec3f& start, const Vec3f& end, std::vector<int>& areas, std::vector<Vec3f>* points,
+    int traceAreas(const Vec3f &start, const Vec3f &end, std::vector<int> &areas, std::vector<Vec3f> *points,
                    int max) const;
     // The box of a player standing (presence::Normal) or crouching.
-    static void presenceBox(int presenceType, Vec3f& mins, Vec3f& maxs);
+    static void presenceBox(int presenceType, Vec3f &mins, Vec3f &maxs);
 
     bool grounded(int a) const { return validArea(a) && (settings(a).flags & areaflag::Grounded); }
     bool swim(int a) const { return validArea(a) && (settings(a).flags & areaflag::Liquid); }
@@ -123,14 +123,14 @@ public:
     int contentsTravelFlags(int area) const;
     // Hundredths of a second to cross an area from one point to another
     // (walking, crouching or swimming as the area asks), at least 1.
-    int areaTravelTime(int area, const Vec3f& from, const Vec3f& to) const;
+    int areaTravelTime(int area, const Vec3f &from, const Vec3f &to) const;
 
     // The quickest way from an area (from `origin` in it, if given) to a
     // goal area using only `travelFlags`: its time and the first
     // reachability to take (an index into reachabilities()). False if
     // there is none. In the goal area already: time 1, reachability 0.
-    bool route(int area, const Vec3f* origin, int goalArea, int travelFlags, int& time, int& reach);
-    int travelTime(int area, const Vec3f& origin, int goalArea, int travelFlags);
+    bool route(int area, const Vec3f *origin, int goalArea, int travelFlags, int &time, int &reach);
+    int travelTime(int area, const Vec3f &origin, int goalArea, int travelFlags);
     // Turns an area on or off for routing (doors closing...); returns
     // whether it was on.
     bool enableArea(int area, bool enable);
@@ -145,8 +145,8 @@ private:
         std::vector<int> time; // 0: no way
         std::vector<int> reach;
     };
-    const RouteTable& table(int goalArea, int travelFlags);
-    bool usable(const AasReach& r, int travelFlags) const;
+    const RouteTable &table(int goalArea, int travelFlags);
+    bool usable(const AasReach &r, int travelFlags) const;
 
     bool loaded_ = false;
     int32_t bspChecksum_ = 0;
@@ -159,8 +159,8 @@ private:
     std::vector<AasAreaSettings> settings_;
     std::vector<AasReach> reach_;
     std::vector<AasNode> nodes_;
-    std::vector<int> reachArea_;               // the area each reachability leaves from
-    std::vector<std::vector<int>> into_;        // per area, the reachabilities leading into it
+    std::vector<int> reachArea_;                       // the area each reachability leaves from
+    std::vector<std::vector<int>> into_;               // per area, the reachabilities leading into it
     std::map<std::pair<int, int>, RouteTable> tables_; // by goal area and travel flags
 };
 

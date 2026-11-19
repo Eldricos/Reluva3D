@@ -7,19 +7,19 @@ namespace reluva {
 
 // Each engine exposes one accessor. Add new engines here, guarded by the
 // RELUVA_ENGINE_* define CMake sets when the engine is enabled.
-const MetaEngine& testbedMetaEngine();
+const MetaEngine &testbedMetaEngine();
 #ifdef RELUVA_ENGINE_NEWWORLDS
-const MetaEngine& newWorldsMetaEngine();
+const MetaEngine &newWorldsMetaEngine();
 #endif
 #ifdef RELUVA_ENGINE_IDTECH3
-const MetaEngine& idTech3MetaEngine();
+const MetaEngine &idTech3MetaEngine();
 #endif
 #ifdef RELUVA_ENGINE_AGE
-const MetaEngine& ageMetaEngine();
+const MetaEngine &ageMetaEngine();
 #endif
 
-const std::vector<const MetaEngine*>& allEngines() {
-    static const std::vector<const MetaEngine*> kEngines = {
+const std::vector<const MetaEngine *> &allEngines() {
+    static const std::vector<const MetaEngine *> kEngines = {
         &testbedMetaEngine(),
 #ifdef RELUVA_ENGINE_NEWWORLDS
         &newWorldsMetaEngine(),
@@ -34,16 +34,16 @@ const std::vector<const MetaEngine*>& allEngines() {
     return kEngines;
 }
 
-const MetaEngine* findEngine(std::string_view id) {
-    for (const MetaEngine* e : allEngines())
+const MetaEngine *findEngine(std::string_view id) {
+    for (const MetaEngine *e : allEngines())
         if (id == e->id())
             return e;
     return nullptr;
 }
 
-std::vector<DetectedGame> detectGames(const std::filesystem::path& dir) {
+std::vector<DetectedGame> detectGames(const std::filesystem::path &dir) {
     std::vector<DetectedGame> all;
-    for (const MetaEngine* e : allEngines()) {
+    for (const MetaEngine *e : allEngines()) {
         auto found = e->detect(dir);
         all.insert(all.end(), found.begin(), found.end());
     }

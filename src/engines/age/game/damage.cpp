@@ -23,15 +23,15 @@ constexpr float kSpewLongest = 3; // seconds a spew with no time limit goes on
 
 } // namespace
 
-Error parseDamageSetup(std::string_view text, DamageSetup& out) {
+Error parseDamageSetup(std::string_view text, DamageSetup &out) {
     out = DamageSetup{};
     TuneNode root;
     if (Error err = parseTune(text, root))
         return err;
     if (root.children.empty())
         return Error::fail("empty damage settings");
-    const TuneNode& n = root.children.front();
-    auto vec = [&](const char* name, const Vec3& fallback = {}) {
+    const TuneNode &n = root.children.front();
+    auto vec = [&](const char *name, const Vec3 &fallback = {}) {
         return Vec3{n.number(name, 0, fallback[0]), n.number(name, 1, fallback[1]), n.number(name, 2, fallback[2])};
     };
     out.maxDamage = n.number("MaxDamage", 0, out.maxDamage);
@@ -45,9 +45,9 @@ Error parseDamageSetup(std::string_view text, DamageSetup& out) {
     return Error::success();
 }
 
-BirthRule parseBirthRule(const TuneNode& n) {
+BirthRule parseBirthRule(const TuneNode &n) {
     BirthRule s;
-    auto vec = [&](const char* name, const Vec3& fallback = {}) {
+    auto vec = [&](const char *name, const Vec3 &fallback = {}) {
         return Vec3{n.number(name, 0, fallback[0]), n.number(name, 1, fallback[1]), n.number(name, 2, fallback[2])};
     };
     s.positionVar = vec("PositionVar");
@@ -67,7 +67,7 @@ BirthRule parseBirthRule(const TuneNode& n) {
     s.frame = int(n.number("TexFrameStart"));
     s.frameEnd = std::max(s.frame, int(n.number("TexFrameEnd", 0, float(s.frame))));
     // A signed 32-bit ARGB (read whole: a float would lose its low bits).
-    const TuneNode* color = n.child("Color");
+    const TuneNode *color = n.child("Color");
     const uint32_t argb =
         color && !color->values.empty() ? uint32_t(std::strtoll(color->values[0].c_str(), nullptr, 10)) : 0xffffffffu;
     s.color = {float(argb >> 16 & 0xff) / 255, float(argb >> 8 & 0xff) / 255, float(argb & 0xff) / 255,
@@ -75,7 +75,7 @@ BirthRule parseBirthRule(const TuneNode& n) {
     return s;
 }
 
-Error loadDamageSetup(const SearchSet& files, const std::string& car, DamageSetup& out) {
+Error loadDamageSetup(const SearchSet &files, const std::string &car, DamageSetup &out) {
     std::vector<uint8_t> data;
     if (Error err = files.read("tune/vehicle/" + car + ".vehCarDamage", data)) {
         out = DamageSetup{};
@@ -84,7 +84,7 @@ Error loadDamageSetup(const SearchSet& files, const std::string& car, DamageSetu
     return parseDamageSetup(std::string(data.begin(), data.end()), out);
 }
 
-float CarDamage::knock(const DamageSetup& setup, float impulse) {
+float CarDamage::knock(const DamageSetup &setup, float impulse) {
     if (impulse <= setup.impactThreshold)
         return 0;
     const float before = _damage;
@@ -92,22 +92,22 @@ float CarDamage::knock(const DamageSetup& setup, float impulse) {
     return _damage - before;
 }
 
-void CarDamage::update(const DamageSetup& setup, float dt) {
+void CarDamage::update(const DamageSetup &setup, float dt) {
     _damage = std::max(0.0f, _damage - setup.regenerateRate * dt);
 }
 
-void CarWear::load(const SearchSet& files, const std::string& car, CarActor& actor) {
+void CarWear::load(const SearchSet &files, const std::string &car, CarActor &actor) {
     loadDamageSetup(files, car, setup); // the defaults without
     mend(actor);
 }
 
-void CarWear::mend(CarActor& actor) {
+void CarWear::mend(CarActor &actor) {
     damage.reset();
     puffs = 0;
     actor.mend();
 }
 
-void CarWear::update(float dt, CarActor& actor, SmokePuffs* smoke) {
+void CarWear::update(float dt, CarActor &actor, SmokePuffs *smoke) {
     if (actor.sim.impact > 0 && damage.knock(setup, actor.sim.impact) > 0) {
         actor.dent(actor.sim.impactAt, setup.textureRadius);
         ++dents;
@@ -118,13 +118,13 @@ void CarWear::update(float dt, CarActor& actor, SmokePuffs* smoke) {
     puff(dt, actor, smoke);
 }
 
-void CarWear::puff(float dt, const CarActor& actor, SmokePuffs* smoke) {
+void CarWear::puff(float dt, const CarActor &actor, SmokePuffs *smoke) {
     if (!smoke || !damage.smoking(setup))
         return;
     // From 10 puffs a second at MedDamage to 30 wrecked, from each place.
     const float span = std::max(1.0f, setup.maxDamage - setup.medDamage);
     puffs += dt * (10 + 20 * std::min(1.0f, (damage.damage() - setup.medDamage) / span));
-    const CarSim& sim = actor.sim;
+    const CarSim &sim = actor.sim;
     for (; puffs >= 1; puffs -= 1) {
         smoke->emit(setup.smoke, sim.position + sim.orientation * setup.smokeOffset, sim.velocity);
         if (length(setup.smokeOffset2 - setup.smokeOffset) > 0.01f)
@@ -132,7 +132,7 @@ void CarWear::puff(float dt, const CarActor& actor, SmokePuffs* smoke) {
     }
 }
 
-SmokePuffs::SmokePuffs(gfx::Renderer3D& renderer, TextureCache& textures) : _renderer(renderer), _textures(textures) {
+SmokePuffs::SmokePuffs(gfx::Renderer3D &renderer, TextureCache &textures) : _renderer(renderer), _textures(textures) {
     std::vector<gfx::Vertex> v(4);
     const float corners[4][2] = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}};
     for (size_t i = 0; i < 4; ++i) {
@@ -147,7 +147,7 @@ SmokePuffs::SmokePuffs(gfx::Renderer3D& renderer, TextureCache& textures) : _ren
     _smoke = look("fxpt8");
 }
 
-SmokePuffs::Look SmokePuffs::look(const std::string& texture) {
+SmokePuffs::Look SmokePuffs::look(const std::string &texture) {
     auto it = _looks.find(texture);
     if (it != _looks.end())
         return it->second;
@@ -165,7 +165,7 @@ SmokePuffs::~SmokePuffs() {
         _renderer.destroyMesh(_quad);
 }
 
-void SmokePuffs::emit(const BirthRule& rule, const Vec3& at, const Vec3& carVelocity, const Look* look) {
+void SmokePuffs::emit(const BirthRule &rule, const Vec3 &at, const Vec3 &carVelocity, const Look *look) {
     std::uniform_real_distribution<float> either(-1, 1);
     Puff p;
     p.position = at;
@@ -188,7 +188,7 @@ void SmokePuffs::emit(const BirthRule& rule, const Vec3& at, const Vec3& carVelo
         _puffs.push_back(p);
 }
 
-void SmokePuffs::burst(const BirthRule& rule, const Vec3& at, const Vec3& velocity, const Look& look) {
+void SmokePuffs::burst(const BirthRule &rule, const Vec3 &at, const Vec3 &velocity, const Look &look) {
     for (int i = 0; i < std::max(1, std::min(rule.initialBlast, kMostBlast)); ++i)
         emit(rule, at, velocity, &look);
     if (rule.spewRate > 0)
@@ -204,8 +204,8 @@ namespace {
 // looks like it.
 struct WheelEffectName {
     int index;
-    const char* rule;
-    const char* texture;
+    const char *rule;
+    const char *texture;
 };
 constexpr WheelEffectName kWheelEffects[] = {
     {1, "dust", "fxpt8"},  {2, "grass", "fxpt4"},  {4, "smoke", "fxpt8"},
@@ -217,13 +217,13 @@ constexpr float kWheelRolling = 1.5f; // m/s: a wheel at an effect slipping at 0
 
 } // namespace
 
-void SmokePuffs::loadWheelEffects(const SearchSet& files) {
-    for (const WheelEffectName& e : kWheelEffects) {
-        WheelEffect& w = _wheelEffects[size_t(e.index)];
+void SmokePuffs::loadWheelEffects(const SearchSet &files) {
+    for (const WheelEffectName &e : kWheelEffects) {
+        WheelEffect &w = _wheelEffects[size_t(e.index)];
         std::vector<uint8_t> data;
         TuneNode root;
         if (files.read(std::string("tune/effects/") + e.rule + ".asBirthRule", data) ||
-            parseTune(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()), root) ||
+            parseTune(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), root) ||
             root.children.empty())
             continue;
         w.rule = parseBirthRule(root.children.front());
@@ -238,13 +238,13 @@ void SmokePuffs::loadWheelEffects(const SearchSet& files) {
     }
 }
 
-void SmokePuffs::wheels(float dt, const CarSim& car) {
-    std::array<float, 8>& owed = _wheelOwed[&car];
+void SmokePuffs::wheels(float dt, const CarSim &car) {
+    std::array<float, 8> &owed = _wheelOwed[&car];
     const float speed = length(car.velocity);
     for (size_t i = 0; i < car.wheels.size(); ++i) {
-        const CarSim::Wheel& w = car.wheels[i];
+        const CarSim::Wheel &w = car.wheels[i];
         for (size_t k = 0; k < 2; ++k) {
-            float& due = owed[i * 2 + k];
+            float &due = owed[i * 2 + k];
             const int index = w.contact ? w.surface.particles[k] : -1;
             if (index < 0 || size_t(index) >= _wheelEffects.size() || !_wheelEffects[size_t(index)].loaded) {
                 due = 0;
@@ -256,7 +256,7 @@ void SmokePuffs::wheels(float dt, const CarSim& car) {
             const float share = threshold > 0 ? std::clamp((w.slip - threshold) / (1 - threshold), 0.0f, 1.0f)
                                               : std::min(1.0f, speed / 10) * (speed > kWheelRolling);
             due += dt * kWheelRate * share;
-            const WheelEffect& e = _wheelEffects[size_t(index)];
+            const WheelEffect &e = _wheelEffects[size_t(index)];
             std::uniform_real_distribution<float> either(-1, 1);
             for (; due >= 1; due -= 1) {
                 // At the tyre's foot, across the surface's width and up its height.
@@ -271,13 +271,13 @@ void SmokePuffs::wheels(float dt, const CarSim& car) {
 }
 
 void SmokePuffs::update(float dt) {
-    for (Spew& s : _spews) {
+    for (Spew &s : _spews) {
         s.left -= dt;
         for (s.owed += s.rule.spewRate * dt; s.owed >= 1; s.owed -= 1)
             emit(s.rule, s.at, s.velocity, &s.look);
     }
-    _spews.erase(std::remove_if(_spews.begin(), _spews.end(), [](const Spew& s) { return s.left <= 0; }), _spews.end());
-    for (Puff& p : _puffs) {
+    _spews.erase(std::remove_if(_spews.begin(), _spews.end(), [](const Spew &s) { return s.left <= 0; }), _spews.end());
+    for (Puff &p : _puffs) {
         p.age += dt;
         p.velocity[1] += p.gravity * dt;
         p.velocity = p.velocity * (1 / (1 + dt * (1 + p.drag))); // air drag, and the rule's
@@ -285,14 +285,14 @@ void SmokePuffs::update(float dt) {
         p.radius = std::max(0.01f, p.radius + p.grow * dt);
         p.color[3] = std::clamp(p.color[3] + p.fade * dt, 0.0f, 1.0f);
     }
-    _puffs.erase(std::remove_if(_puffs.begin(), _puffs.end(), [](const Puff& p) { return p.age >= p.life; }),
+    _puffs.erase(std::remove_if(_puffs.begin(), _puffs.end(), [](const Puff &p) { return p.age >= p.life; }),
                  _puffs.end());
 }
 
-void SmokePuffs::draw(const Vec3& eye) const {
+void SmokePuffs::draw(const Vec3 &eye) const {
     if (!_quad)
         return;
-    for (const Puff& p : _puffs) {
+    for (const Puff &p : _puffs) {
         if (!p.look.texture)
             continue;
         Vec3 toEye = eye - p.position;

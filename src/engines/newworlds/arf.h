@@ -24,11 +24,11 @@ struct PartTransform {
 constexpr size_t kTransformSize = 58;
 
 // Reads the record at data[at]; false if it isn't one (no position chunk).
-bool readTransform(const std::vector<uint8_t>& data, size_t at, PartTransform& out);
+bool readTransform(const std::vector<uint8_t> &data, size_t at, PartTransform &out);
 
 // An .arf (chunk tag 0x25): one animation frame, u32 count and a transform
 // per animated part, in the order of the .mdl's animated list
 // (geo/kln/conbee00.arf ... conbee15.arf; geo/fed/fcmwalk0.arf ...).
-Error parseArf(const std::vector<uint8_t>& data, std::vector<PartTransform>& out);
+Error parseArf(const std::vector<uint8_t> &data, std::vector<PartTransform> &out);
 
 } // namespace reluva::newworlds

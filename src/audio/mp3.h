@@ -15,6 +15,6 @@ namespace reluva::audio {
 // (third_party/minimp3). An ID3v2 tag at the start is skipped. Fails if the
 // data holds no MP3 frames, or if the sample rate or channel count changes
 // partway.
-Error decodeMp3(const std::vector<uint8_t>& data, Sound& out);
+Error decodeMp3(const std::vector<uint8_t> &data, Sound &out);
 
 } // namespace reluva::audio

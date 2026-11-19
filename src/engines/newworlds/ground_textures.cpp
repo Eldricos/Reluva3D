@@ -28,32 +28,32 @@ Role faceRole(float flatness, float z) {
 
 class Names {
 public:
-    explicit Names(const std::vector<std::string>& stems) : stems_(stems) {}
-    bool has(const std::string& s) const { return std::find(stems_.begin(), stems_.end(), s) != stems_.end(); }
+    explicit Names(const std::vector<std::string> &stems) : stems_(stems) {}
+    bool has(const std::string &s) const { return std::find(stems_.begin(), stems_.end(), s) != stems_.end(); }
     // The first family with a texture numbered like the model, else its 01,
     // else any texture of the family.
-    std::string pick(std::initializer_list<const char*> families, const std::string& number) const {
-        for (const char* f : families)
+    std::string pick(std::initializer_list<const char *> families, const std::string &number) const {
+        for (const char *f : families)
             if (!number.empty() && has(f + number))
                 return f + number;
-        for (const char* f : families)
+        for (const char *f : families)
             if (has(std::string(f) + "01"))
                 return std::string(f) + "01";
-        for (const char* f : families)
-            for (const std::string& s : stems_)
+        for (const char *f : families)
+            for (const std::string &s : stems_)
                 if (s.rfind(f, 0) == 0)
                     return s;
         return {};
     }
 
 private:
-    const std::vector<std::string>& stems_;
+    const std::vector<std::string> &stems_;
 };
 
 } // namespace
 
-std::vector<std::string> chooseGroundTextures(const std::string& modelStem, const GeoModel& model,
-                                              const std::vector<std::string>& planetStems) {
+std::vector<std::string> chooseGroundTextures(const std::string &modelStem, const GeoModel &model,
+                                              const std::vector<std::string> &planetStems) {
     const Names names(planetStems);
     // "alpin_07" -> family "alpin", number "07".
     std::string family = modelStem, number;
@@ -68,23 +68,23 @@ std::vector<std::string> chooseGroundTextures(const std::string& modelStem, cons
 
     // Only the plain ground tiles (alpin_07, des_07, ice_07) share numbers with
     // their textures; crack_03 isn't low03.
-    static const char* const kSpecial[] = {"hole", "water", "concrete", "concact", "needle",
-                                           "arche", "brid", "crack", "ramp", "mount"};
-    const bool plain = std::none_of(std::begin(kSpecial), std::end(kSpecial),
-                                    [&](const char* f) { return family == f; });
+    static const char *const kSpecial[] = {"hole",  "water", "concrete", "concact", "needle",
+                                           "arche", "brid",  "crack",    "ramp",    "mount"};
+    const bool plain =
+        std::none_of(std::begin(kSpecial), std::end(kSpecial), [&](const char *f) { return family == f; });
     const std::string roleNumber = plain ? number : std::string();
 
     // Each slot's role: the one covering most of its faces' area.
     size_t slots = 0;
-    for (const auto& face : model.faces)
+    for (const auto &face : model.faces)
         slots = std::max<size_t>(slots, face.corners.back().extra[4] + 1);
     std::vector<std::array<float, kRoles>> area(slots, std::array<float, kRoles>{});
-    for (const auto& face : model.faces) {
-        const auto& verts = model.parts[face.part].vertices;
+    for (const auto &face : model.faces) {
+        const auto &verts = model.parts[face.part].vertices;
         float nx = 0, ny = 0, nz = 0, z = 0; // Newell's method
         for (size_t i = 0; i < face.corners.size(); ++i) {
-            const auto& a = verts[face.corners[i].vertex];
-            const auto& b = verts[face.corners[(i + 1) % face.corners.size()].vertex];
+            const auto &a = verts[face.corners[i].vertex];
+            const auto &b = verts[face.corners[(i + 1) % face.corners.size()].vertex];
             nx += (a.y - b.y) * (a.z + b.z);
             ny += (a.z - b.z) * (a.x + b.x);
             nz += (a.x - b.x) * (a.y + b.y);
@@ -102,7 +102,7 @@ std::vector<std::string> chooseGroundTextures(const std::string& modelStem, cons
     // (green01, sand01, blue01; the other three have patterns drawn for
     // particular tiles).
     auto low = [&] {
-        for (const char* f : {"low", "ice"})
+        for (const char *f : {"low", "ice"})
             if (!roleNumber.empty() && names.has(f + roleNumber))
                 return f + roleNumber;
         if (names.has("low07"))
@@ -111,19 +111,23 @@ std::vector<std::string> chooseGroundTextures(const std::string& modelStem, cons
     };
     auto byRole = [&](Role r) -> std::string {
         switch (r) {
-        case Top: return names.pick({"top", "snow"}, roleNumber);
-        case Middle: return names.pick({"med", "rock"}, roleNumber);
-        case Low: return low();
+        case Top:
+            return names.pick({"top", "snow"}, roleNumber);
+        case Middle:
+            return names.pick({"med", "rock"}, roleNumber);
+        case Low:
+            return low();
         case Pit:
         case Slope:
-        case kRoles: break;
+        case kRoles:
+            break;
         }
         return names.pick({"cliff"}, roleNumber);
     };
 
     std::vector<std::string> out;
     for (size_t s = 0; s < slots; ++s) {
-        const auto& a = area[s];
+        const auto &a = area[s];
         const Role role = Role(std::max_element(a.begin(), a.end()) - a.begin());
         const bool slope = role == Slope || role == Pit;
         std::string pick;

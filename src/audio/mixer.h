@@ -32,7 +32,7 @@ constexpr int kMaxPan = 127;    // pan runs -127 (left) .. 127 (right)
 class Stream {
 public:
     virtual ~Stream() = default;
-    virtual void read(float* out, int frames) = 0;
+    virtual void read(float *out, int frames) = 0;
 };
 
 // Mixes any number of decoded sounds into the System's stereo output:
@@ -65,7 +65,7 @@ public:
     // A stream plays, at its type's volume, until removed (which waits for
     // a mix() under way to finish, so the stream may then be destroyed).
     void addStream(std::shared_ptr<Stream> stream, SoundType type);
-    void removeStream(const Stream* stream);
+    void removeStream(const Stream *stream);
 
     void setTypeVolume(SoundType type, int volume);
     // The whole mix to the left (-kMaxPan) or right (kMaxPan).
@@ -76,7 +76,7 @@ public:
 
     // Fills `frames` stereo frames (interleaved signed 16-bit) with every
     // playing sound; silence when none is. The System's audio callback.
-    void mix(int16_t* out, int frames);
+    void mix(int16_t *out, int frames);
 
 private:
     struct Channel {
@@ -89,8 +89,8 @@ private:
         double position = 0; // in the sound's frames
         bool done = false;
     };
-    Channel* find(SoundHandle handle);
-    const Channel* find(SoundHandle handle) const;
+    Channel *find(SoundHandle handle);
+    const Channel *find(SoundHandle handle) const;
 
     const int _outputRate;
     mutable std::mutex _mutex;
@@ -105,6 +105,6 @@ private:
 
 // Starts the System's audio output with the mixer as its source. The mixer
 // must outlive the output: call sys.stopAudio() before destroying it.
-Error startMixerOutput(System& sys, Mixer& mixer);
+Error startMixerOutput(System &sys, Mixer &mixer);
 
 } // namespace reluva::audio

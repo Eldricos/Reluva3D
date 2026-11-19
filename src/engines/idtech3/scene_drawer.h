@@ -32,8 +32,8 @@ constexpr int32_t kNoWorldModel = 1;
 // lighting origin, axes (forward, left, up), origin, frame, old frame
 // and how far back towards it, custom skin.
 namespace refent {
-constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80,
-                 OldFrame = 96, BackLerp = 100, SkinNum = 104, CustomSkin = 108;
+constexpr size_t Type = 0, Flags = 4, Model = 8, LightingOrigin = 12, Axes = 28, Origin = 68, Frame = 80, OldFrame = 96,
+                 BackLerp = 100, SkinNum = 104, CustomSkin = 108;
 constexpr int32_t TypeModel = 0;
 // Elite Force's effect types, read from what its client game adds when
 // firing (see eliteforce-syscalls.md): a sprite facing the camera (1:
@@ -47,8 +47,8 @@ constexpr int32_t TypeModel = 0;
 // or cone round the first axis (13: radii at 132 and 136, height at 140,
 // 144 the texture's repeats round it), and electricity from the origin to
 // the old origin (14: width 132, jitter 136, texture scale 140).
-constexpr int32_t TypeSprite = 1, TypeQuad = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12,
-                  TypeCylinder = 13, TypeBolt = 14;
+constexpr int32_t TypeSprite = 1, TypeQuad = 2, TypeLine = 9, TypeTaperedLine = 11, TypeCurve = 12, TypeCylinder = 13,
+                  TypeBolt = 14;
 // A mirror's or portal's camera (game-run -cgame on a map with a mirror:
 // origin and old origin the same, at the mirror; axes as cleared).
 constexpr int32_t TypePortal = 8;
@@ -64,32 +64,32 @@ constexpr float kDepthHackRange = 0.3f;
 } // namespace refent
 
 // Reading the structures the programs hand over, kept as bytes.
-int32_t readInt(const std::vector<uint8_t>& bytes, size_t at);
-float readFloat(const std::vector<uint8_t>& bytes, size_t at);
-gfx::Vec3 readVec(const std::vector<uint8_t>& bytes, size_t at);
+int32_t readInt(const std::vector<uint8_t> &bytes, size_t at);
+float readFloat(const std::vector<uint8_t> &bytes, size_t at);
+gfx::Vec3 readVec(const std::vector<uint8_t> &bytes, size_t at);
 
 // Draws what a game program (the client game, the menus) hands over:
 // its 2D pictures, and each RenderScene's view of its entities, polygons
 // and lights, the level with it when the view has it.
 class SceneDrawer {
 public:
-    SceneDrawer(gfx::Renderer3D& renderer, ShaderCache& shaders, ModelCache& models)
+    SceneDrawer(gfx::Renderer3D &renderer, ShaderCache &shaders, ModelCache &models)
         : r_(renderer), shaders_(shaders), models_(models) {}
 
     // The program's handles, by which it names models, skins and shaders.
     struct Handles {
-        const HandleTable* models = nullptr;
-        const HandleTable* skins = nullptr;
-        const HandleTable* shaders = nullptr;
+        const HandleTable *models = nullptr;
+        const HandleTable *skins = nullptr;
+        const HandleTable *shaders = nullptr;
     };
-    void setHandles(const Handles& handles) { handles_ = handles; }
+    void setHandles(const Handles &handles) { handles_ = handles; }
     // Forgets what the handles were loaded as (a new program, or the
     // caches cleared).
     void reset();
 
     // Pictures [first, last) over the frame, in the program's screen
     // (screenW x screenH, scaled to the frame); `time` in seconds.
-    void drawPictures(const std::vector<eliteforce::Picture>& pictures, size_t first, size_t last, int screenW,
+    void drawPictures(const std::vector<eliteforce::Picture> &pictures, size_t first, size_t last, int screenW,
                       int screenH, float time);
 
     // `view` of `scene`, its rectangle (refdef_t's x, y, width, height in
@@ -98,37 +98,36 @@ public:
     // lights models without one. After beginFrame(); `firstView` says
     // whether depths are already clear. `time` in seconds is the shaders'
     // clock; dynamic lights only if `dynamicLights`.
-    void drawView(const eliteforce::Scene& scene, const eliteforce::View& view, int screenW, int screenH,
-                  float time, bool firstView, WorldRenderer* world, const LightGrid* grid, bool dynamicLights);
+    void drawView(const eliteforce::Scene &scene, const eliteforce::View &view, int screenW, int screenH, float time,
+                  bool firstView, WorldRenderer *world, const LightGrid *grid, bool dynamicLights);
 
     // What the last view drew, for the info line.
-    const gfx::Vec3& eye() const { return eye_; }
+    const gfx::Vec3 &eye() const { return eye_; }
     size_t placedCount() const { return placed_.size(); }
     size_t effectCount() const { return effects_.size(); }
     size_t lightCount() const { return lights_.size(); }
     int otherEntities() const { return otherEntities_; }
     int portalViews() const { return portalViews_; }
-    const std::set<std::string>& unloadable() const { return unloadable_; }
+    const std::set<std::string> &unloadable() const { return unloadable_; }
 
 private:
-    void placeEntities(const eliteforce::Scene& scene, const eliteforce::View& view, const LightGrid& grid,
-                       float time);
-    void addEffect(const std::vector<uint8_t>& entity, const gfx::Vec3& left, const gfx::Vec3& up, float time);
+    void placeEntities(const eliteforce::Scene &scene, const eliteforce::View &view, const LightGrid &grid, float time);
+    void addEffect(const std::vector<uint8_t> &entity, const gfx::Vec3 &left, const gfx::Vec3 &up, float time);
     void drawEffects(float time, float sortMin, float sortMax);
-    static std::array<float, 4> entityColor(const std::vector<uint8_t>& entity);
-    static float shaderTime(const std::vector<uint8_t>& entity, float time);
+    static std::array<float, 4> entityColor(const std::vector<uint8_t> &entity);
+    static float shaderTime(const std::vector<uint8_t> &entity, float time);
     int modelId(int32_t handle);
     // The level of detail to draw `model` at, where it is in the view.
-    int lodLevel(int model, int frame, const gfx::Vec3& origin) const;
-    int material(std::vector<int>& cache, int32_t handle, Lighting lighting);
-    void addDynamicLights(PointLight& light, const gfx::Vec3& at) const;
-    static const std::string& name(const HandleTable* table, int32_t handle);
+    int lodLevel(int model, int frame, const gfx::Vec3 &origin) const;
+    int material(std::vector<int> &cache, int32_t handle, Lighting lighting);
+    void addDynamicLights(PointLight &light, const gfx::Vec3 &at) const;
+    static const std::string &name(const HandleTable *table, int32_t handle);
 
-    gfx::Renderer3D& r_;
-    ShaderCache& shaders_;
-    ModelCache& models_;
+    gfx::Renderer3D &r_;
+    ShaderCache &shaders_;
+    ModelCache &models_;
     Handles handles_;
-    std::map<int32_t, int> modelIds_; // the program's model handle -> models_ id (-1: can't load)
+    std::map<int32_t, int> modelIds_;                     // the program's model handle -> models_ id (-1: can't load)
     std::vector<int> pictureMaterials_, effectMaterials_; // by shader handle; -2 not made yet
     // This view's model entities, ready to draw.
     struct Placed {
@@ -136,11 +135,11 @@ private:
         float backLerp = 0;
         gfx::Mat4 transform{};
         PointLight light;
-        const Skin* skin = nullptr;
+        const Skin *skin = nullptr;
         std::string shader; // in place of the model's own, if set
         std::array<float, 4> color{1, 1, 1, 1};
-        float shaderTime = 0;   // seconds: when its shader animations start
-        bool depthHack = false; // kept in front (the player's weapon)
+        float shaderTime = 0;                          // seconds: when its shader animations start
+        bool depthHack = false;                        // kept in front (the player's weapon)
         bool thirdPerson = false, firstPerson = false; // only through mirrors; not through them
     };
     std::vector<Placed> placed_;
@@ -154,9 +153,9 @@ private:
     std::vector<PortalEntity> portalEntities_;
     std::vector<uint8_t> mainRefdef_;
     int portalViews_ = 0; // drawn so far, for the info line
-    void drawLayers(float time, WorldRenderer* world, bool throughPortal);
-    void drawPortalView(WorldRenderer& world, const std::array<uint8_t, 32>& areaMask, const gfx::Vec3& left,
-                        float fovY, float aspect, const gfx::Mat4& mainViewProj, float time);
+    void drawLayers(float time, WorldRenderer *world, bool throughPortal);
+    void drawPortalView(WorldRenderer &world, const std::array<uint8_t, 32> &areaMask, const gfx::Vec3 &left,
+                        float fovY, float aspect, const gfx::Mat4 &mainViewProj, float time);
 
     // This view's effects (sprites, beams, marks): in one mesh, each with
     // the program's shader handle.
@@ -176,7 +175,7 @@ private:
     std::minstd_rand effectRandom_;         // electricity's jitter
     std::vector<gfx::DynamicLight> lights_; // this view's
     gfx::Vec3 eye_{}, forward_{1, 0, 0};
-    float focal_ = 1; // the view's 1 / tan(half its height's angle)
+    float focal_ = 1;                  // the view's 1 / tan(half its height's angle)
     int otherEntities_ = 0;            // entities not drawn (kinds not done yet)
     std::set<std::string> unloadable_; // models this view couldn't draw
 };

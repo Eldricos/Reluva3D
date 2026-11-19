@@ -11,7 +11,7 @@
 
 namespace reluva::age {
 
-Error mountGame(SearchSet& set, const std::filesystem::path& install, std::vector<std::string>& warnings) {
+Error mountGame(SearchSet &set, const std::filesystem::path &install, std::vector<std::string> &warnings) {
     std::vector<std::filesystem::path> archives;
     std::error_code ec;
     for (std::filesystem::directory_iterator it(install, ec), end; !ec && it != end; it.increment(ec))
@@ -19,12 +19,12 @@ Error mountGame(SearchSet& set, const std::filesystem::path& install, std::vecto
             archives.push_back(it->path());
     if (archives.empty())
         return Error::fail("No .ar archives in " + install.string());
-    std::sort(archives.begin(), archives.end(), [](const auto& a, const auto& b) {
+    std::sort(archives.begin(), archives.end(), [](const auto &a, const auto &b) {
         return fs::toLower(a.filename().string()) < fs::toLower(b.filename().string());
     });
 
     int priority = 0;
-    for (const auto& p : archives) {
+    for (const auto &p : archives) {
         auto ar = std::make_unique<ArArchive>();
         if (Error err = ar->open(p)) {
             warnings.push_back(err.message);

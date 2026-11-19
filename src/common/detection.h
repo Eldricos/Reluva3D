@@ -16,9 +16,9 @@ constexpr uint64_t kDetectionHashBytes = 5000;
 
 // One file that must be present for a game variant to match.
 struct FileSignature {
-    std::string name;     // relative path, matched case-insensitively
-    std::string md5;      // of the first kDetectionHashBytes bytes; empty = any
-    int64_t size = -1;    // exact file size; -1 = any
+    std::string name;  // relative path, matched case-insensitively
+    std::string md5;   // of the first kDetectionHashBytes bytes; empty = any
+    int64_t size = -1; // exact file size; -1 = any
 };
 
 // One release of a game (language, platform, patch level...).
@@ -39,8 +39,7 @@ struct DetectedGame {
 };
 
 // Return every variant in `table` whose files all match inside `dir`.
-std::vector<DetectedGame> detectFromTable(const std::string& engineId,
-                                          const std::vector<GameVariant>& table,
-                                          const std::filesystem::path& dir);
+std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
+                                          const std::filesystem::path &dir);
 
 } // namespace reluva

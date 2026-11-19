@@ -47,33 +47,62 @@ float seconds(int32_t timeCents) {
     return std::pow(2.0f, float(timeCents) / 65536.0f / 1200.0f);
 }
 
-float dbToGain(float db) { return db <= kSilentDb ? 0 : std::pow(10.0f, db / 20); }
+float dbToGain(float db) {
+    return db <= kSilentDb ? 0 : std::pow(10.0f, db / 20);
+}
 
 } // namespace
 
-DlsSynth::Articulation DlsSynth::articulate(const std::vector<DlsConnection>& instrument,
-                                            const std::vector<DlsConnection>& region) {
+DlsSynth::Articulation DlsSynth::articulate(const std::vector<DlsConnection> &instrument,
+                                            const std::vector<DlsConnection> &region) {
     Articulation a;
     // The instrument's, then the region's over them.
-    for (const std::vector<DlsConnection>* list : {&instrument, &region})
-        for (const DlsConnection& c : *list) {
+    for (const std::vector<DlsConnection> *list : {&instrument, &region})
+        for (const DlsConnection &c : *list) {
             const float v = float(c.scale) / 65536.0f;
             if (c.source == kSrcNone && c.control == kSrcNone) {
                 switch (c.destination) {
-                case kDstAttenuation: a.gainDb = float(c.scale) / 655360.0f; break; // negative: quieter
-                case kDstPan: a.pan = v / 1000; break;
-                case kDstPitch: a.tuneCents = v; break;
-                case kDstLfoFrequency: a.lfoFrequency = 440 * std::pow(2.0f, (v - 6900) / 1200); break;
-                case kDstLfoDelay: a.lfoDelay = seconds(c.scale); break;
-                case kDstEg1Attack: a.volume.attack = seconds(c.scale); break;
-                case kDstEg1Decay: a.volume.decay = seconds(c.scale); break;
-                case kDstEg1Release: a.volume.release = seconds(c.scale); break;
-                case kDstEg1Sustain: a.volume.sustain = std::clamp(v / 1000, 0.0f, 1.0f); break;
-                case kDstEg2Attack: a.pitch.attack = seconds(c.scale); break;
-                case kDstEg2Decay: a.pitch.decay = seconds(c.scale); break;
-                case kDstEg2Release: a.pitch.release = seconds(c.scale); break;
-                case kDstEg2Sustain: a.pitch.sustain = std::clamp(v / 1000, 0.0f, 1.0f); break;
-                default: break;
+                case kDstAttenuation:
+                    a.gainDb = float(c.scale) / 655360.0f;
+                    break; // negative: quieter
+                case kDstPan:
+                    a.pan = v / 1000;
+                    break;
+                case kDstPitch:
+                    a.tuneCents = v;
+                    break;
+                case kDstLfoFrequency:
+                    a.lfoFrequency = 440 * std::pow(2.0f, (v - 6900) / 1200);
+                    break;
+                case kDstLfoDelay:
+                    a.lfoDelay = seconds(c.scale);
+                    break;
+                case kDstEg1Attack:
+                    a.volume.attack = seconds(c.scale);
+                    break;
+                case kDstEg1Decay:
+                    a.volume.decay = seconds(c.scale);
+                    break;
+                case kDstEg1Release:
+                    a.volume.release = seconds(c.scale);
+                    break;
+                case kDstEg1Sustain:
+                    a.volume.sustain = std::clamp(v / 1000, 0.0f, 1.0f);
+                    break;
+                case kDstEg2Attack:
+                    a.pitch.attack = seconds(c.scale);
+                    break;
+                case kDstEg2Decay:
+                    a.pitch.decay = seconds(c.scale);
+                    break;
+                case kDstEg2Release:
+                    a.pitch.release = seconds(c.scale);
+                    break;
+                case kDstEg2Sustain:
+                    a.pitch.sustain = std::clamp(v / 1000, 0.0f, 1.0f);
+                    break;
+                default:
+                    break;
                 }
             } else if (c.source == kSrcLfo && c.destination == kDstPitch) {
                 if (c.control == kSrcModWheel)
@@ -91,7 +120,7 @@ DlsSynth::Articulation DlsSynth::articulate(const std::vector<DlsConnection>& in
     return a;
 }
 
-float DlsSynth::envelopeLevel(const Envelope& e, float t, float releasedAt, float releaseLevel, bool decibels) {
+float DlsSynth::envelopeLevel(const Envelope &e, float t, float releasedAt, float releaseLevel, bool decibels) {
     // Attack rises evenly; decay falls (in decibels for volume, evenly
     // for pitch) over its time from full towards nothing, holding at the
     // sustain level; release falls the same from where it was. A volume
@@ -124,7 +153,7 @@ float DlsSynth::envelopeLevel(const Envelope& e, float t, float releasedAt, floa
     return std::max(sustain, fall(1, t, e.decay));
 }
 
-void DlsSynth::setInstrument(int channel, const DlsCollection* collection, const DlsInstrument* instrument) {
+void DlsSynth::setInstrument(int channel, const DlsCollection *collection, const DlsInstrument *instrument) {
     if (channel < 0 || size_t(channel) >= _channels.size())
         return;
     _channels[size_t(channel)].collection = collection;
@@ -164,25 +193,25 @@ void DlsSynth::setTranspose(int channel, int semitones) {
 void DlsSynth::noteOn(int channel, int key, int velocity) {
     if (channel < 0 || size_t(channel) >= _channels.size() || velocity <= 0)
         return;
-    const Channel& ch = _channels[size_t(channel)];
+    const Channel &ch = _channels[size_t(channel)];
     if (!ch.instrument || !ch.collection)
         return;
     key = std::clamp(key + ch.transpose, 0, 127);
-    for (const DlsRegion& r : ch.instrument->regions) {
+    for (const DlsRegion &r : ch.instrument->regions) {
         // Level 1 collections leave the velocity range 0-0: any.
         const bool anyVelocity = r.velocityHigh == 0;
         if (key < r.keyLow || key > r.keyHigh ||
             (!anyVelocity && (velocity < r.velocityLow || velocity > r.velocityHigh)))
             continue;
-        const DlsWave& wave = ch.collection->waves[r.wave];
+        const DlsWave &wave = ch.collection->waves[r.wave];
         if (wave.samples.empty() || wave.rate <= 0)
             continue;
         // A region in a key group stops the group's other notes (a hi-hat
         // closing over an open one).
         if (r.keyGroup)
-            for (Voice& v : _voices)
+            for (Voice &v : _voices)
                 if (v.channel == channel && v.releasedAt < 0 && v.key != key)
-                    for (const DlsRegion& o : ch.instrument->regions)
+                    for (const DlsRegion &o : ch.instrument->regions)
                         if (o.keyGroup == r.keyGroup && v.key >= o.keyLow && v.key <= o.keyHigh) {
                             v.releasedAt = v.time;
                             v.releaseLevel = v.level;
@@ -206,9 +235,9 @@ void DlsSynth::noteOn(int channel, int key, int velocity) {
 void DlsSynth::noteOff(int channel, int key) {
     if (channel < 0 || size_t(channel) >= _channels.size())
         return;
-    const Channel& ch = _channels[size_t(channel)];
+    const Channel &ch = _channels[size_t(channel)];
     key = std::clamp(key + ch.transpose, 0, 127);
-    for (Voice& v : _voices)
+    for (Voice &v : _voices)
         if (v.channel == channel && v.key == key && v.releasedAt < 0 && !v.held) {
             if (ch.sustain) {
                 v.held = true;
@@ -225,7 +254,7 @@ void DlsSynth::setSustain(int channel, bool down) {
     _channels[size_t(channel)].sustain = down;
     if (down)
         return;
-    for (Voice& v : _voices)
+    for (Voice &v : _voices)
         if (v.channel == channel && v.held) {
             v.held = false;
             v.releasedAt = v.time;
@@ -233,25 +262,27 @@ void DlsSynth::setSustain(int channel, bool down) {
         }
 }
 
-void DlsSynth::allNotesOff() { _voices.clear(); }
+void DlsSynth::allNotesOff() {
+    _voices.clear();
+}
 
 void DlsSynth::releaseAll() {
-    for (Voice& v : _voices)
+    for (Voice &v : _voices)
         if (v.releasedAt < 0) {
             v.held = false;
             v.releasedAt = v.time;
             v.releaseLevel = v.level;
         }
-    for (Channel& c : _channels)
+    for (Channel &c : _channels)
         c.sustain = false;
 }
 
-void DlsSynth::render(float* out, size_t frames, float gain) {
+void DlsSynth::render(float *out, size_t frames, float gain) {
     constexpr size_t kBlock = 32; // controls (envelopes, LFO) worked out this often
     const float dt = 1.0f / float(_rate);
-    for (Voice& v : _voices) {
-        const Channel& ch = _channels[size_t(v.channel)];
-        const std::vector<int16_t>& s = v.wave->samples;
+    for (Voice &v : _voices) {
+        const Channel &ch = _channels[size_t(v.channel)];
+        const std::vector<int16_t> &s = v.wave->samples;
         // A loop running past the wave's end (MoogBass: from 3,455 for
         // 3,456 of 3,456 samples) is taken as ending at it, as long.
         if (v.info.looped && double(v.info.loopStart) + double(v.info.loopLength) > double(s.size())) {
@@ -301,7 +332,7 @@ void DlsSynth::render(float* out, size_t frames, float gain) {
             v.time += float(n) * dt;
         }
     }
-    _voices.erase(std::remove_if(_voices.begin(), _voices.end(), [](const Voice& v) { return v.done; }), _voices.end());
+    _voices.erase(std::remove_if(_voices.begin(), _voices.end(), [](const Voice &v) { return v.done; }), _voices.end());
 }
 
 } // namespace reluva::audio

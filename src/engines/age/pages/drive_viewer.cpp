@@ -26,12 +26,14 @@ constexpr float kMph = 2.23694f; // miles an hour per metre a second
 // None, light, normal (London's cruising [Density], 0.1), heavy: shares of
 // the lanes' capacity (traffic.h).
 constexpr float kTrafficLevels[] = {0, 0.05f, 0.1f, 0.25f};
-const char* const kTrafficNames[] = {"no traffic", "light traffic", "normal traffic", "heavy traffic"};
+const char *const kTrafficNames[] = {"no traffic", "light traffic", "normal traffic", "heavy traffic"};
 constexpr float kPedLevels[] = {0, 0.05f, 0.1f, 0.2f}; // the pedestrians' density with each
 
-std::string textOf(const std::vector<uint8_t>& data) { return std::string(data.begin(), data.end()); }
+std::string textOf(const std::vector<uint8_t> &data) {
+    return std::string(data.begin(), data.end());
+}
 
-std::string iniValue(const std::string& text, const std::string& key) {
+std::string iniValue(const std::string &text, const std::string &key) {
     size_t at = 0;
     while (at < text.size()) {
         size_t eol = text.find('\n', at);
@@ -49,9 +51,9 @@ std::string iniValue(const std::string& text, const std::string& key) {
 
 } // namespace
 
-std::vector<CarInfo> findCars(const SearchSet& files) {
+std::vector<CarInfo> findCars(const SearchSet &files) {
     std::vector<CarInfo> cars;
-    for (const std::string& n : files.list()) {
+    for (const std::string &n : files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("tune/", 0) != 0 || key.size() < 5 || key.compare(key.size() - 5, 5, ".info") != 0)
             continue;
@@ -73,10 +75,12 @@ std::vector<CarInfo> findCars(const SearchSet& files) {
     return cars;
 }
 
-Control controlOf(uint32_t k) { return currentOptions().controlOf(k); }
+Control controlOf(uint32_t k) {
+    return currentOptions().controlOf(k);
+}
 
-void applyGraphicsOptions(CityScene& scene, CityLife& life) {
-    const GameOptions& o = currentOptions();
+void applyGraphicsOptions(CityScene &scene, CityLife &life) {
+    const GameOptions &o = currentOptions();
     static const float kDetail[4] = {0.4f, 0.6f, 0.8f, 1.0f};
     scene.setSkyShown(o.texturedSky);
     scene.setCloudShadows(o.cloudShadows);
@@ -87,13 +91,19 @@ void applyGraphicsOptions(CityScene& scene, CityLife& life) {
     life.setAmbientGain(o.ambient ? 1.0f : 0.0f);
 }
 
-int textureHalvings() { return 3 - std::clamp(currentOptions().textureQuality, 0, 3); }
+int textureHalvings() {
+    return 3 - std::clamp(currentOptions().textureQuality, 0, 3);
+}
 
-float pedestrianShare() { return currentOptions().pedestrians ? 1.0f : 0.0f; }
+float pedestrianShare() {
+    return currentOptions().pedestrians ? 1.0f : 0.0f;
+}
 
-bool headlightPoolsOn() { return currentOptions().lightingQuality >= 0.5f; }
+bool headlightPoolsOn() {
+    return currentOptions().lightingQuality >= 0.5f;
+}
 
-void applyControlOptions(CarSim& sim) {
+void applyControlOptions(CarSim &sim) {
     sim.autoReverse = currentOptions().autoReverse;
     sim.steerRate = currentOptions().steerRate();
 }
@@ -114,7 +124,8 @@ uint32_t driveKeyOf(uint32_t k) {
         return kDriveHorn;
     case Control::kReverse:
         return kDriveReverse;
-    default: return 0;
+    default:
+        return 0;
     }
 }
 
@@ -128,7 +139,7 @@ CarControls controlsOf(uint32_t keys) {
     return c;
 }
 
-void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damage, const HudPictures& pictures) {
+void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damage, const HudPictures &pictures) {
     const int h = overlay.h;
     if (pictures.loaded()) {
         pictures.gauges(overlay, sim, damage);
@@ -143,11 +154,11 @@ void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damag
     const std::string gear = sim.gear < 0 ? "R" : std::to_string(sim.gear);
     font::drawText(overlay, right - 24, h - 70, gear, {255, 210, 80}, 2);
     // The revs as a bar, red past the optimum.
-    const CarSetup& setup = sim.setup();
+    const CarSetup &setup = sim.setup();
     const float revs = std::clamp(sim.rpm / setup.maxRpm, 0.0f, 1.0f);
     const int barX = speedX, barY = h - 22, barW = right - speedX, barH = 8;
     for (int yy = barY; yy < barY + barH; ++yy) {
-        uint8_t* p = overlay.row(yy) + barX * 4;
+        uint8_t *p = overlay.row(yy) + barX * 4;
         for (int x = 0; x < barW; ++x, p += 4) {
             const bool lit = x < int(revs * float(barW));
             const bool red = float(x) / float(barW) > setup.optRpm / setup.maxRpm;
@@ -159,7 +170,7 @@ void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damag
     }
     // The damage, thinner, under it.
     for (int yy = barY + barH + 3; yy < barY + barH + 7 && yy < h; ++yy) {
-        uint8_t* p = overlay.row(yy) + barX * 4;
+        uint8_t *p = overlay.row(yy) + barX * 4;
         for (int x = 0; x < barW; ++x, p += 4) {
             const bool lit = x < int(std::clamp(damage, 0.0f, 1.0f) * float(barW));
             p[0] = lit ? 255 : 40;
@@ -170,8 +181,8 @@ void drawSpeedometer(Surface& overlay, const CarSim& sim, int right, float damag
     }
 }
 
-void drawRearMirror(gfx::Renderer3D& renderer, const CarSim& sim, float farClip,
-                    const std::function<void(const gfx::Mat4& viewProj, const Vec3& eye)>& world) {
+void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
+                    const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world) {
     constexpr int kX = 447, kY = 0, kW = 193, kH = 77;
     constexpr float kFov = 25; // degrees, up and down
     // From the driver's head, looking back level.
@@ -193,9 +204,12 @@ void drawRearMirror(gfx::Renderer3D& renderer, const CarSim& sim, float farClip,
     renderer.clearDepth();
 }
 
-DriveViewer::DriveViewer(ViewerContext& ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {}
+DriveViewer::DriveViewer(ViewerContext &ctx) : Page(ctx), _cities(findCities(ctx.files)), _cars(findCars(ctx.files)) {
+}
 
-DriveViewer::~DriveViewer() { deactivate(); }
+DriveViewer::~DriveViewer() {
+    deactivate();
+}
 
 void DriveViewer::deactivate() {
     _siren.stop();
@@ -252,7 +266,7 @@ void DriveViewer::loadCity(int index) {
 void DriveViewer::cutBridgeGaps() {
     // What the city has across the drawbridges' gaps goes: the leaves are
     // the road there.
-    auto inGap = [&](const Vec3& a, const Vec3& b, const Vec3& c) { return _life.gizmos().inGap(a, b, c); };
+    auto inGap = [&](const Vec3 &a, const Vec3 &b, const Vec3 &c) { return _life.gizmos().inGap(a, b, c); };
     _scene->hide(inGap);
     _world.removeIf(inGap);
 }
@@ -282,7 +296,7 @@ void DriveViewer::startLife() {
 
 void DriveViewer::loadCar(int index) {
     _carIndex = index;
-    const CarInfo& car = _cars[size_t(_carIndex)];
+    const CarInfo &car = _cars[size_t(_carIndex)];
     setTitle(car.description + " in " + _cities[size_t(_city)].name);
     if (Error err = _car.load(*_renderer, _scene->textures(), _ctx.files, car.base, _paintJob))
         _error = err.message;
@@ -327,7 +341,7 @@ void DriveViewer::resetCar() {
     _fill = true;
 }
 
-void DriveViewer::handleEvent(const Event& ev) {
+void DriveViewer::handleEvent(const Event &ev) {
     if (!_renderer || _cars.empty())
         return;
     // A game controller: its sticks and triggers drive, its buttons press
@@ -400,7 +414,7 @@ void DriveViewer::handleEvent(const Event& ev) {
             _lighting = (_lighting + 1) % 16;
             _scene->setLighting(_lighting);
             if (rain != (_lighting % 4 == 3)) {
-                startLife(); // the pedestrians dressed for the weather
+                startLife();   // the pedestrians dressed for the weather
                 startSounds(); // the tyres on wet roads
             }
         } else if (ev.key == key::kF1 + 5) {
@@ -425,9 +439,9 @@ void DriveViewer::handleEvent(const Event& ev) {
 void DriveViewer::drawHud() {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     const int lh = font::kLineHeight;
-    const CarInfo& car = _cars[size_t(_carIndex)];
+    const CarInfo &car = _cars[size_t(_carIndex)];
     int y = 4;
-    auto line = [&](const std::string& s, Color c) {
+    auto line = [&](const std::string &s, Color c) {
         font::drawText(_overlay, 4, y, s, c);
         y += lh;
     };
@@ -437,7 +451,7 @@ void DriveViewer::drawHud() {
     if (!_error.empty())
         line(_error, {255, 120, 120});
     if (_showInfo) {
-        const char* const cameraNames[] = {"near", "far", "in the car"};
+        const char *const cameraNames[] = {"near", "far", "in the car"};
         line(std::string("camera: ") + cameraNames[std::min(_camera, 2)] +
                  " (C); Up/Down, Left/Right, Space; Enter horn; " +
                  (_manual ? "manual (T), A/Z gears" : "automatic (T)") +
@@ -450,7 +464,7 @@ void DriveViewer::drawHud() {
                       _life.police().count(), _life.police().patrolling(), _car.hasSiren() ? "; Enter siren" : "");
         line(life, {230, 230, 230});
         char buf[160];
-        const Vec3& p = _car.sim.position;
+        const Vec3 &p = _car.sim.position;
         std::snprintf(buf, sizeof buf, "%zu collision triangles (%zu placed models' bounds); at %.0f %.0f %.0f",
                       _world.size(), _boundsUsed, p[0], p[1], p[2]);
         line(buf, {230, 230, 230});
@@ -496,9 +510,9 @@ void DriveViewer::update(uint64_t nowMs) {
         _music.update(dt, music);
         // A second off the ground: the tune's big-air motif, once a jump.
         {
-            const CarSim& air = _car.sim;
+            const CarSim &air = _car.sim;
             const bool off =
-                std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel& w) { return w.contact; });
+                std::none_of(air.wheels.begin(), air.wheels.end(), [](const CarSim::Wheel &w) { return w.contact; });
             _airFor = off ? _airFor + dt : 0;
             if (_airFor >= kBigAir && !_airPlayed) {
                 _music.bigAir();
@@ -514,7 +528,7 @@ void DriveViewer::update(uint64_t nowMs) {
     _life.setLamps(_scene->lampsLit(), _scene->night());
     _life.update(dt, _car.sim, {}, _world, _roads, _fill);
     // What flies out of the props knocked down: coins, papers, leaves.
-    for (const Props::Burst& b : _life.takeBursts())
+    for (const Props::Burst &b : _life.takeBursts())
         if (_smoke)
             _smoke->burst(b.rule, b.at, b.velocity, _smoke->look(b.texture));
     _fill = false;
@@ -547,7 +561,7 @@ void DriveViewer::update(uint64_t nowMs) {
         _busted = 3;
     }
 
-    const CarCamera& cam = _cameras[size_t(_camera)];
+    const CarCamera &cam = _cameras[size_t(_camera)];
     const CameraView view =
         _view.apply(_blend.apply(updateCarCamera(cam, _car.sim, dt, _cameraPos, _cameraReset), dt), cam, _car.sim, dt);
     _lastView = view;
@@ -581,14 +595,14 @@ void DriveViewer::update(uint64_t nowMs) {
                    normalized(view.target - view.eye), view.up, float(kFrameW) / float(kFrameH), _scene->light());
     }
     if (_mirror)
-        drawRearMirror(*_renderer, _car.sim, currentOptions().farClip(), [&](const gfx::Mat4& vp, const Vec3& eye) {
+        drawRearMirror(*_renderer, _car.sim, currentOptions().farClip(), [&](const gfx::Mat4 &vp, const Vec3 &eye) {
             _scene->draw(vp, eye, true, true);
             _life.draw(*_renderer, _scene->models(), _scene->light(), vp, eye);
         });
     // The map: the player, the police.
     _hudMap.update(dt);
     std::vector<HudMapIcon> icons;
-    for (CarSim* c : _life.police().cars())
+    for (CarSim *c : _life.police().cars())
         icons.push_back({c->position, -c->orientation.z, hudcolor::kPolice, false});
     icons.push_back({_car.sim.position, -_car.sim.orientation.z, hudcolor::kPlayer, false});
     _hudMap.draw(*_renderer, _scene->models(), _car.sim.position, -_car.sim.orientation.z, icons, kFrameW, kFrameH);
