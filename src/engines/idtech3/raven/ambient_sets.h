@@ -15,21 +15,25 @@
 
 namespace reluva::idtech3::raven {
 
-// Ambient sound sets, as Elite Force's and Jedi Knight's engines keep them
-// (sound/sound.txt; see docs/engines/idtech3/games/stvef/systems/sp-interface.md):
-// named groups of sounds the client game asks the engine to play.
-//
-// - A general set is the level's background: a looping sound and, every
-//   so often, one of its other sounds, heard everywhere. Changing to
-//   another cross-fades over a second.
-// - A local set belongs to an entity: the same, but heard within its
-//   radius.
-// - A brush model set lists the sounds a door or platform makes at each
-//   stage of its move.
+/**
+ * Ambient sound sets, as Elite Force's and Jedi Knight's engines keep them
+ * (sound/sound.txt; see docs/engines/idtech3/games/stvef/systems/sp-interface.md):
+ * named groups of sounds the client game asks the engine to play.
+ *
+ * - A general set is the level's background: a looping sound and, every
+ *   so often, one of its other sounds, heard everywhere. Changing to
+ *   another cross-fades over a second.
+ * - A local set belongs to an entity: the same, but heard within its
+ *   radius.
+ * - A brush model set lists the sounds a door or platform makes at each
+ *   stage of its move.
+ */
 class AmbientSets {
 public:
+    /** The kinds of set, as above. */
     enum class Kind { kGeneral, kLocal, kBModel };
 
+    /** One set, as sound.txt defines it. */
     struct Set {
         std::string name;
         Kind kind = Kind::kGeneral;
@@ -49,8 +53,10 @@ public:
         int64_t fadeStart = 0;
     };
 
-    // A sound to play: a loop (to keep only while asked for each frame),
-    // or one played once. Volume 0 to 1.
+    /**
+     * A sound to play: a loop (to keep only while asked for each frame),
+     * or one played once. Volume 0 to 1.
+     */
     struct Sound {
         bool loop = false;
         int entity = 0;
@@ -59,30 +65,44 @@ public:
         std::string name;
     };
 
+    /** With none read; `seed` starts the random choices, so runs can repeat. */
     explicit AmbientSets(uint32_t seed = 0) : _random(seed) { clear(); }
 
-    // The sets the level uses (AS_AddPrecacheEntry); "#clear" forgets them
-    // and the general set playing. Only these are kept by parse().
+    /**
+     * The sets the level uses (AS_AddPrecacheEntry); "#clear" forgets them
+     * and the general set playing. Only these are kept by parse().
+     */
     void addPrecacheEntry(std::string_view name);
-    // Reads sound/sound.txt's text (AS_ParseSets): the sets asked for.
-    // Problems (an unknown keyword, a set asked for but missing) go to
-    // `warnings`. False if the file isn't an ambient set file.
+    /**
+     * Reads sound/sound.txt's text (AS_ParseSets): the sets asked for,
+     * replacing those read before. Problems (an unknown keyword, a set
+     * asked for but missing) go to `warnings`.
+     * @return False if the file isn't an ambient set file.
+     */
     bool parse(std::string_view text, std::vector<std::string> &warnings);
+    /** Whether parse() has read the sets since the last clear(). */
     bool parsed() const { return _parsed; }
+    /** Forgets the sets read, and the general set playing (not the sets asked for). */
     void clear();
 
+    /** A set by name, ignoring case; null if it wasn't read. */
     const Set *find(std::string_view name) const;
+    /** How many sets were read. */
     size_t size() const { return _sets.size(); }
 
-    // The level's general set this frame, heard at `origin` (the view),
-    // at `nowMs` (S_UpdateAmbientSet).
+    /**
+     * The level's general set this frame, heard at `origin` (the view),
+     * at `nowMs` (S_UpdateAmbientSet).
+     */
     std::vector<Sound> updateGeneral(std::string_view name, const Vec3f &origin, int64_t nowMs);
-    // A local set on entity `entity` at `origin`, heard from `listener`;
-    // `lastMs` is when it last played a sound, and the result's time is
-    // the new one (S_AddLocalSet).
+    /**
+     * A local set on entity `entity` at `origin`, heard from `listener`;
+     * `lastMs` is when it last played a sound, and the result's time is
+     * the new one (S_AddLocalSet).
+     */
     std::vector<Sound> addLocal(std::string_view name, const Vec3f &listener, const Vec3f &origin, int entity,
                                 int64_t &lastMs, int64_t nowMs);
-    // A brush model set's sound for `stage`, or empty (AS_GetBModelSound).
+    /** A brush model set's sound for `stage`, or empty (AS_GetBModelSound). */
     std::string bmodelSound(std::string_view name, int stage) const;
 
 private:

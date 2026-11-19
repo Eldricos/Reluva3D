@@ -28,10 +28,17 @@
 
 namespace reluva::idtech3 {
 
-// Elite Force's single player: the retail game code (efgamex86.dll, run in
-// the x86 interpreter) on its maps, drawn as the Play page draws Holomatch.
+/**
+ * Elite Force's single player: the retail game code (efgamex86.dll, run in
+ * the x86 interpreter) on its maps, drawn as the Play page draws Holomatch.
+ */
 class SpPlayPage : public Page {
 public:
+    /**
+     * Reads the game code (and its menus' efuix86.dll, if there) from
+     * PageContext::singlePlayerPath, and lists the maps but multiplayer's,
+     * the game's first map to start. Shows nothing without the game code.
+     */
     explicit SpPlayPage(PageContext &ctx);
     ~SpPlayPage() override;
     const char *name() const override { return "Single player"; }

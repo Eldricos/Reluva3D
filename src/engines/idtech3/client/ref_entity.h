@@ -8,10 +8,13 @@
 
 namespace reluva::idtech3 {
 
-// refEntity_t, what a client game adds to the scene, as each game lays it
-// out. The fields up to the shader's time are Quake III's in all of them;
-// what follows, and the numbering of the kinds of entity past a model,
-// is each game's own (eliteforce/ref_entity.h has Elite Force's).
+/**
+ * refEntity_t, what a client game adds to the scene, as each game lays it
+ * out: its size and each field's offset in bytes. The fields up to the
+ * shader's time are Quake III's in all of them; what follows, and the
+ * numbering of the kinds of entity past a model, is each game's own
+ * (eliteforce/ref_entity.h has Elite Force's).
+ */
 struct RefEntityLayout {
     size_t size = 140; // Quake III's
     // Quake III's: its type (0: a model), render flags, model, lighting
@@ -60,11 +63,13 @@ struct RefEntityLayout {
     int32_t typePortal = 7;
 };
 
-// Render flags (Quake III's, the same in the games after it): drawn only
-// in mirrors and portals (the player's own body); not through them;
-// drawn in front of everything else, its depth kept to the nearest 0.3
-// of the range (the player's weapon and its flash); lit from the
-// lighting origin.
+/**
+ * Render flags (Quake III's, the same in the games after it): drawn only
+ * in mirrors and portals (the player's own body); not through them;
+ * drawn in front of everything else, its depth kept to the nearest 0.3
+ * of the range (the player's weapon and its flash); lit from the
+ * lighting origin.
+ */
 namespace refent {
 constexpr int32_t kThirdPerson = 2;
 constexpr int32_t kFirstPerson = 4;

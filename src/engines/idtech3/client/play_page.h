@@ -30,8 +30,18 @@
 
 namespace reluva::idtech3 {
 
+/**
+ * The Play page (page.h): a Holomatch level run by the game's own code,
+ * on its own server, a server on another machine, or from a recorded
+ * demo.
+ */
 class PlayPage : public Page {
 public:
+    /**
+     * Lists the game's maps, a Holomatch one (hm_) first to start; none
+     * unless the game is Elite Force with its vm/qagame.qvm and
+     * vm/cgame.qvm.
+     */
     explicit PlayPage(PageContext &ctx);
     ~PlayPage() override;
     const char *name() const override { return "Play"; }

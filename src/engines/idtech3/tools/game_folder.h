@@ -15,13 +15,18 @@
 
 namespace reluva::idtech3::tool {
 
-// The game folder's install (the folder above it) and its own name, for
-// the mods list ("$modlist").
+/**
+ * The game folder's install (the folder above it) and its own name, for
+ * the mods list ("$modlist").
+ */
 std::pair<std::filesystem::path, std::string> idTech3Folders(const char *folder);
 
-// Mounts the game folder, or prints why it can't. `skip`: paks left out
-// (lower case), as the launcher leaves out the Expansion Pack's when it's
-// turned off.
+/**
+ * Mounts the game folder, printing its warnings to stderr.
+ * @param skip Paks left out (lower case), as the launcher leaves out the
+ *        Expansion Pack's when it's turned off.
+ * @return False, having printed why, if it can't be mounted.
+ */
 bool mountIdTech3(const char *folder, reluva::SearchSet &set, const std::vector<std::string> &skip = {});
 
 } // namespace reluva::idtech3::tool

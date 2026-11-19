@@ -16,9 +16,11 @@
 
 namespace reluva::idtech3 {
 
-// Quake III's key numbers, which the game code (menus, bindings) uses,
-// Elite Force's taken to be the same: ASCII for printable keys, then its
-// own list from 128.
+/**
+ * Quake III's key numbers, which the game code (menus, bindings) uses,
+ * Elite Force's taken to be the same: ASCII for printable keys, then its
+ * own list from 128.
+ */
 namespace q3key {
 constexpr int32_t kTab = 9;
 constexpr int32_t kEnter = 13;
@@ -53,31 +55,46 @@ constexpr int32_t kWheelUp = 184;
 constexpr int32_t kCount = 256;
 } // namespace q3key
 
-// The game's number for a key or mouse button (0 for none).
+/** The game's number for a key or mouse button (0 for none). */
+///@{
 int32_t toQ3Key(uint32_t key);
 int32_t toQ3Button(MouseButton button);
+///@}
 
-// What each key does: the console command it runs ("+forward", "weapon
-// 3"...), as the original's bind command sets and its config files keep.
+/**
+ * What each key does: the console command it runs ("+forward", "weapon
+ * 3"...), as the original's bind command sets and its config files keep.
+ */
 class KeyBindings {
 public:
-    // A key's name in config files and the menus ("w", "SPACE", "MOUSE2"),
-    // and back (-1 for an unknown name; case doesn't matter).
+    /**
+     * A key's name in config files and the menus ("w", "SPACE", "MOUSE2"),
+     * and back (-1 for an unknown name; case doesn't matter).
+     */
+    ///@{
     static std::string keyName(int32_t key);
     static int32_t keyNumber(std::string_view name);
+    ///@}
 
+    /** A key's command, or empty if it's unbound or out of range. */
     const std::string &get(int32_t key) const;
+    /** Binds a key (an empty command unbinds it); a key out of range is ignored. */
     void set(int32_t key, std::string command);
+    /** Unbinds every key. */
     void clear();
+    /** Whether no key is bound. */
     bool empty() const;
 
-    // Runs a config file's text: bind, unbind and unbindall here, set,
-    // seta (and sets, setu) into `cvars`; anything else is left out
-    // (counted in `ignored` if given). exec runs another file, read by
-    // `readFile` if given.
+    /**
+     * Runs a config file's text: bind, unbind and unbindall here, set,
+     * seta (and sets, setu) into `cvars`; anything else is left out
+     * (counted in `ignored` if given). exec runs another file (".cfg"
+     * added to a name without an extension), read by `readFile` if given.
+     * @param depth How many execs deep this text is; past 8 they're left out.
+     */
     void execute(std::string_view text, CvarStore &cvars, int *ignored = nullptr,
                  const std::function<bool(const std::string &, std::string &)> &readFile = nullptr, int depth = 0);
-    // The bindings as a config file's lines (unbindall first).
+    /** The bindings as a config file's lines (unbindall first). */
     std::string write() const;
 
     // Whether set() or clear() has changed anything since last cleared.
@@ -87,11 +104,15 @@ private:
     std::array<std::string, q3key::kCount> _commands;
 };
 
-// A command line split into words as the original's console does: at
-// white space, a quoted string as one word, // ending it.
+/**
+ * A command line split into words as the original's console does: at
+ * white space, a quoted string as one word, // ending it.
+ */
 std::vector<std::string> splitCommand(std::string_view line);
-// A config file's text split into commands: at new lines and at
-// semicolons outside quotes.
+/**
+ * A config file's text split into commands: at new lines and at
+ * semicolons outside quotes, // comments left out; empty ones aren't kept.
+ */
 std::vector<std::string> splitCommands(std::string_view text);
 
 } // namespace reluva::idtech3

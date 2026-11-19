@@ -12,9 +12,12 @@
 
 namespace reluva::idtech3::botlib {
 
-// A token of a bot script (the files under botfiles/: characters, item
-// and weapon weights, chats), after the preprocessor.
+/**
+ * A token of a bot script (the files under botfiles/: characters, item
+ * and weapon weights, chats), after the preprocessor.
+ */
 struct BotToken {
+    /** What kind of token: a "string", a 'literal', a number, a name or punctuation. */
     enum class Type { kString, kLiteral, kNumber, kName, kPunctuation } type = Type::kName;
     std::string text; // a string's or literal's without its quotes
     double number = 0;
@@ -23,44 +26,56 @@ struct BotToken {
     int line = 0;
     bool lineStart = false;   // the first on its line
     bool spaceBefore = false; // white space just before it
+    /** Whether it's `t` (and not a string that reads the same). */
     bool is(const char *t) const { return type != Type::kString && text == t; }
 };
 
-// Reads the bot library's scripts the way its preprocessor does, a C-like
-// one: #include, #define (with parameters), #undef, #if/#ifdef/#ifndef/
-// #elif/#else/#endif with integer and float expressions, and
-// $evalint(...)/$evalfloat(...) in the text. Facts of the format from the
-// GPL ioquake3 bot library (l_precomp.c, l_script.c); new code. Includes
-// are looked up through `load`, which is given paths as written (the bot
-// library's base folder, botfiles/, is the loader's business).
+/**
+ * Reads the bot library's scripts the way its preprocessor does, a C-like
+ * one: `#include`, `#define` (with parameters), `#undef`,
+ * `#if`/`#ifdef`/`#ifndef`/`#elif`/`#else`/`#endif` with integer and float
+ * expressions, and `$evalint(...)`/`$evalfloat(...)` in the text. Facts of the format from the
+ * GPL ioquake3 bot library (l_precomp.c, l_script.c); new code. Includes
+ * are looked up through `load`, which is given paths as written (the bot
+ * library's base folder, botfiles/, is the loader's business).
+ */
 class BotScript {
 public:
+    /** Reads the file at `path` into `text`; false if it can't. */
     using Loader = std::function<bool(const std::string &path, std::string &text)>;
-    // `defines`: lines of "NAME value" defined before the file is read
-    // (the game's global defines).
+    /**
+     * Reading files through `load`.
+     * @param defines Lines of "NAME value" defined before the file is read
+     *        (the game's global defines).
+     */
     BotScript(Loader load, const std::vector<std::string> &defines = {});
     ~BotScript();
 
+    /** Starts reading the file at `path`; false (with error() set) if it can't be read. */
     bool open(const std::string &path);
-    // Reads text directly, as if from a file named `name`.
+    /** Reads text directly, as if from a file named `name`. */
     void openText(const std::string &name, const std::string &text);
 
-    // The next token, false at the end or on an error.
+    /** The next token, false at the end or on an error. */
     bool next(BotToken &token);
+    /** Puts a token back, to be the next one read. */
     void unread(const BotToken &token);
-    // The next token if it is `text`.
+    /** Takes the next token if it is `text`. */
     bool check(const char *text);
-    // The next token, which must be `text` (else an error).
+    /** The next token, which must be `text` (else an error). */
     bool expect(const char *text);
-    // A number with an optional sign before it.
+    /** A number with an optional sign before it (else an error). */
     bool readNumber(double &value, bool *isFloat = nullptr);
+    /** A quoted string (else an error). */
     bool readString(std::string &value);
-    // Skips a { ... } block whose opening brace was read.
+    /** Skips a { ... } block whose opening brace was read. */
     bool skipBlock();
 
-    // The first error, with where it is ("file:line: ...").
+    /** The first error, with where it is ("file:line: ..."); empty if none. */
     const std::string &error() const { return _error; }
+    /** Makes `message` the error, at the last token, unless there's one already. */
     void fail(const std::string &message);
+    /** Where the last token read was: "file:line". */
     std::string where() const;
 
 private:

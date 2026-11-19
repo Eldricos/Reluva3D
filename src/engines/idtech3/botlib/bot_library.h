@@ -19,7 +19,7 @@
 
 namespace reluva::idtech3::botlib {
 
-// The bot library's error codes (0: none), as the game reads them.
+/** The bot library's error codes (0: none), as the game reads them. */
 namespace blerr {
 constexpr int kNone = 0;
 constexpr int kLibraryNotSetup = 1;
@@ -36,10 +36,12 @@ constexpr int kCannotLoadWeaponWeights = 11;
 constexpr int kCannotLoadWeaponConfig = 12;
 } // namespace blerr
 
-// What a bot does this frame (the elementary actions), which the game
-// turns into its user command. Elite Force's values, the bot library's
-// older ones (read from the game's conversion; docs/engines/idtech3/games/stvef/systems/syscalls.md):
-// jumping and moving up share a bit, as do crouching and moving down.
+/**
+ * What a bot does this frame (the elementary actions), which the game
+ * turns into its user command. Elite Force's values, the bot library's
+ * older ones (read from the game's conversion; docs/engines/idtech3/games/stvef/systems/syscalls.md):
+ * jumping and moving up share a bit, as do crouching and moving down.
+ */
 namespace action {
 constexpr int kAttack = 0x1;
 constexpr int kUse = 0x2;
@@ -60,6 +62,7 @@ constexpr int kAltAttack = 0x2000;
 constexpr int kJumpedLastFrame = 0x10000000;
 } // namespace action
 
+/** A bot's elementary actions this frame, as the game reads them back. */
 struct BotInput {
     float thinkTime = 0;
     Vec3f dir{};
@@ -69,7 +72,7 @@ struct BotInput {
     int weapon = 0;
 };
 
-// What a bot goes for: an item, a spot.
+/** What a bot goes for: an item, a spot. */
 struct BotGoal {
     Vec3f origin{};
     int area = 0;
@@ -86,7 +89,7 @@ constexpr int kRoam = 2;
 constexpr int kDropped = 4;
 } // namespace goalflag
 
-// How moving went this frame, for the game.
+/** How moving went this frame, for the game. */
 struct BotMoveResult {
     bool failure = false;
     int type = 0;
@@ -125,7 +128,7 @@ constexpr int kWalk = 1;
 constexpr int kCrouch = 2;
 constexpr int kJump = 4;
 } // namespace movetype
-// The state the game sets each frame before moving (bot_initmove_t).
+/** The state the game sets each frame before moving (bot_initmove_t). */
 struct BotInitMove {
     Vec3f origin{};
     Vec3f velocity{};
@@ -138,7 +141,7 @@ struct BotInitMove {
     int orMoveFlags = 0;
 };
 
-// Why a movement prediction stopped (what the game asked to stop at).
+/** Why a movement prediction stopped (what the game asked to stop at). */
 namespace stopevent {
 constexpr int kNone = 0;
 constexpr int kHitGround = 1;
@@ -156,7 +159,7 @@ constexpr int kHitBoundingBox = 2048;
 constexpr int kTouchClusterPortal = 4096;
 } // namespace stopevent
 
-// Where a player moving as given ends up (aas_clientmove_t).
+/** Where a player moving as given ends up (aas_clientmove_t). */
 struct BotClientMove {
     Vec3f endPos{};
     int endArea = 0;
@@ -173,7 +176,7 @@ struct BotClientMove {
     int frames = 0;
 };
 
-// Contents the bot library traces against (Quake III's numbers).
+/** Contents the bot library traces against (Quake III's numbers). */
 namespace contents {
 constexpr int kSolid = 1;
 constexpr int kLava = 8;
@@ -183,7 +186,7 @@ constexpr int kPlayerClip = 0x10000;
 constexpr int kBody = 0x2000000;
 } // namespace contents
 
-// An entity as the game describes it to the bot library each frame.
+/** An entity as the game describes it to the bot library each frame. */
 struct BotEntityState {
     int type = 0;
     int flags = 0;
@@ -205,7 +208,7 @@ struct BotEntityState {
     int torsoAnim = 0;
 };
 
-// And as the bot library tells the game about it.
+/** And as the bot library tells the game about it. */
 struct BotEntityInfo {
     bool valid = false;
     int type = 0;
@@ -232,11 +235,17 @@ struct BotEntityInfo {
     int torsoAnim = 0;
 };
 
-// The engine side of Quake III's bot library, as Elite Force's game code
-// uses it: its settings, the level's .aas map, the entities, the bots'
-// characters and what each bot does each frame. Behaviour read from the
-// GPL ioquake3 bot library (be_interface.c, be_aas_*.c, be_ea.c,
-// be_ai_char.c); new code.
+/**
+ * The engine side of Quake III's bot library, as Elite Force's game code
+ * uses it: its settings, the level's .aas map, the entities, the bots'
+ * characters and what each bot does each frame. Behaviour read from the
+ * GPL ioquake3 bot library (be_interface.c, be_aas_*.c, be_ea.c,
+ * be_ai_char.c); new code.
+ *
+ * The goal, weapon and move states have handles from 1, as the library
+ * hands them out; calls with a handle that isn't one do nothing (or fail,
+ * where they return something).
+ */
 class BotLibrary {
 public:
     static constexpr int kMaxClients = 64;
@@ -248,7 +257,7 @@ public:
     // A command a bot sends as if typed ("say hello").
     std::function<void(int client, const std::string &command)> clientCommand;
     std::function<void(const std::string &text)> print;
-    // A box swept through the world and its entities (the engine's trace).
+    /** A box swept through the world and its entities (the engine's trace). */
     struct Trace {
         float fraction = 1;
         Vec3f end{};
@@ -269,28 +278,66 @@ public:
     std::function<bool(int entity, const std::string &key, std::string &value)> entityKey;
     int entityCount = 0;
 
+    /**
+     * Starts the library, reading the chat's shared files; shutdown()
+     * forgets the level, its entities and every bot's states.
+     * @return A blerr code.
+     */
+    ///@{
     int setup();
     int shutdown();
+    ///@}
+    /** Whether setup() has run (and shutdown() not since). */
     bool isSetup() const { return _setup; }
+    /** The library's settings ("phys_gravity", the chat's files...), by name; empty if unset. */
+    ///@{
     void setLibVar(const std::string &name, const std::string &value) { _libVars[name] = value; }
     std::string libVar(const std::string &name) const;
+    ///@}
+    /** Adds a line "NAME value" defined before each bot script is read. */
     void addGlobalDefine(const std::string &text) { _defines.push_back(text); }
-    // Loads maps/<name>.aas.
+    /**
+     * Loads maps/`mapName`.aas, then the level's brush models, the item and
+     * weapon descriptions and the level's items.
+     * @return A blerr code.
+     */
     int loadMap(const std::string &mapName);
+    /**
+     * A new frame at `time` (seconds): the entities count as gone until
+     * updated again.
+     * @return A blerr code.
+     */
     int startFrame(float time);
+    /**
+     * An entity as the game has it this frame (null leaves it gone).
+     * @return A blerr code.
+     */
     int updateEntity(int number, const BotEntityState *state);
+    /** The time startFrame() was last given. */
     float time() const { return _time; }
 
+    /** The level's .aas map, and whether one is loaded. */
+    ///@{
     AasWorld &aas() { return _aas; }
     bool aasInitialized() const { return _aas.loaded(); }
+    ///@}
+    /** What the library knows of an entity (an invalid one for a number out of range). */
     const BotEntityInfo &entityInfo(int number) const;
 
-    // A loader for the bot scripts: paths under botfiles/.
+    /** A loader for the bot scripts: paths under botfiles/. */
     BotScript::Loader scriptLoader() const;
+    /** The lines addGlobalDefine() added. */
     const std::vector<std::string> &globalDefines() const { return _defines; }
+    /** The bots' characters. */
     BotCharacters &characters() { return _characters; }
 
-    // Elementary actions.
+    /**
+     * Elementary actions. A client out of range is taken as the nearest
+     * one. A jump is only made every other frame, so the game sees the key
+     * let go; a move's speed is held to kMaxUserMove; getInput gives the
+     * frame's actions, and resetInput clears them for the next.
+     */
+    ///@{
     BotInput &input(int client) { return _inputs[size_t(std::clamp(client, 0, kMaxClients - 1))]; }
     void say(int client, const std::string &text) { command(client, "say " + text); }
     void sayTeam(int client, const std::string &text) { command(client, "say_team " + text); }
@@ -300,12 +347,18 @@ public:
     void move(int client, const Vec3f &dir, float speed);
     BotInput getInput(int client, float thinkTime);
     void resetInput(int client);
+    ///@}
 
     // Chat (bot_chat.cpp): its shared files read at setup.
     BotChat chat;
 
-    // Goals (bot_goals.cpp): the level's items, each bot's goal stack and
-    // goals to avoid for a while, and choosing items by their weights.
+    /**
+     * Goals (bot_goals.cpp): the level's items, each bot's goal stack (8
+     * deep at most) and goals to avoid for a while, and choosing items by
+     * their weights. An item chosen as a long-term (Ltg) or nearby (Nbg)
+     * goal is pushed on the stack and avoided until it can have come back.
+     */
+    ///@{
     int allocGoalState(int client);
     void freeGoalState(int handle);
     void resetGoalState(int handle);
@@ -329,17 +382,34 @@ public:
     std::string goalName(int number) const;
     int nextCampSpotGoal(int num, BotGoal &goal) const;
     bool mapLocationGoal(const std::string &name, BotGoal &goal) const;
-    // The area a bot at a point is in, or its last one with reachabilities.
+    ///@}
+    /**
+     * The area a bot at a point is in, if it leads anywhere; else one just
+     * below or around it that does; else the point's own.
+     */
     int reachabilityArea(const Vec3f &origin) const;
 
-    // Weapons (bot_weapons.cpp).
+    /**
+     * Weapons (bot_weapons.cpp): each bot's weapon weights, and the weapon
+     * worth most by them (0 if none is worth anything).
+     */
+    ///@{
     int allocWeaponState();
     void freeWeaponState(int handle);
     int loadWeaponWeights(int handle, const std::string &file);
     int chooseBestFightWeapon(int handle, const std::vector<int> &inventory) const;
+    ///@}
+    /** A weapon's description, or null for a number past them (or 0). */
     const WeaponInfo *weaponInfo(int weapon) const;
 
-    // Movement (bot_move.cpp): following routes, per kind of travel.
+    /**
+     * Movement (bot_move.cpp): following routes, per kind of travel. The
+     * game sets a bot's state each frame (initMoveState); moveToGoal then
+     * gives the actions taking it along its route, and moveInDirection
+     * walks it one way unless that leads off a ledge or into slime or
+     * lava. A reachability tried a few times over is given up on for a while.
+     */
+    ///@{
     int allocMoveState();
     void freeMoveState(int handle);
     void resetMoveState(int handle);
@@ -348,12 +418,17 @@ public:
     bool moveInDirection(int handle, const Vec3f &dir, float speed, int type);
     void resetAvoidReach(int handle);
     void resetLastAvoidReach(int handle);
+    ///@}
+    /** A point `lookahead` units along the bot's route, to look at while moving. */
     bool movementViewTarget(int handle, const BotGoal &goal, int travelFlags, float lookahead, Vec3f &target);
+    /** The first point on the route from `origin` the goal can be seen from. */
     bool predictVisiblePosition(const Vec3f &origin, int area, const BotGoal &goal, int travelFlags, Vec3f &target);
-    // A player's movement simulated frame by frame (`frameTime` seconds
-    // each): moving by `cmdMove` (a direction and speed; up to jump, down
-    // a lot to crouch) for the first `cmdFrames`, falling, sliding along
-    // walls and up steps, until one of the `stopEvents` or `maxFrames`.
+    /**
+     * A player's movement simulated frame by frame (`frameTime` seconds
+     * each): moving by `cmdMove` (a direction and speed; up to jump, down
+     * a lot to crouch) for the first `cmdFrames`, falling, sliding along
+     * walls and up steps, until one of the `stopEvents` or `maxFrames`.
+     */
     bool predictClientMovement(BotClientMove &move, int entity, const Vec3f &origin, int presenceType, bool onGround,
                                const Vec3f &velocity, const Vec3f &cmdMove, int cmdFrames, int maxFrames,
                                float frameTime, int stopEvents, int stopArea);

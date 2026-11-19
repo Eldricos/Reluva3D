@@ -11,29 +11,40 @@
 
 namespace reluva::idtech3 {
 
-// The light at a point, for lighting models: an ambient colour, a
-// directed colour and the direction it comes from (towards the light),
-// colours 0-255.
+/**
+ * The light at a point, for lighting models: an ambient colour, a
+ * directed colour and the direction it comes from (towards the light),
+ * colours 0-255.
+ */
 struct PointLight {
     std::array<float, 3> ambient{};
     std::array<float, 3> directed{};
     std::array<float, 3> direction{0, 0, 1};
 };
 
-// A map's light grid (see docs/engines/idtech3/formats/bsp.md): light sampled on
-// a regular grid over the world, by default every 64 x 64 x 128 units.
+/**
+ * A map's light grid (see docs/engines/idtech3/formats/bsp.md): light sampled on
+ * a regular grid over the world, by default every 64 x 64 x 128 units.
+ */
 class LightGrid {
 public:
-    // `cellSize` from the worldspawn's "gridsize" key, if it has one. A
-    // grid whose size doesn't match the world's bounds is left empty.
+    /**
+     * Takes the map's grid, its colours brightened as the renderer's.
+     * @param cellSize From the worldspawn's "gridsize" key, if it has one.
+     *        A grid whose size doesn't match the world's bounds is left
+     *        empty.
+     */
     void build(const Bsp &bsp, std::array<float, 3> cellSize = {64, 64, 128});
+    /** Whether there's no grid (none built, or the map's didn't fit). */
     bool empty() const { return _data.empty(); }
 
-    // Blends the eight surrounding grid points, skipping those inside walls
-    // (all black), as the original does; adds its minimum ambient light
-    // for models unless `forModel` is false (the light as the grid has it,
-    // as the renderer's LightForPoint gives the games). Without a grid: a
-    // fixed light from above.
+    /**
+     * The light at `pos`. Blends the eight surrounding grid points, skipping
+     * those inside walls (all black), as the original does; adds its
+     * minimum ambient light for models unless `forModel` is false (the
+     * light as the grid has it, as the renderer's LightForPoint gives the
+     * games). Without a grid: a fixed light from above.
+     */
     PointLight sample(const std::array<float, 3> &pos, bool forModel = true) const;
 
 private:

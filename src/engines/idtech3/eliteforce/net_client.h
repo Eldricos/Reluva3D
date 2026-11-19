@@ -19,15 +19,19 @@
 
 namespace reluva::idtech3::eliteforce {
 
-// The player's side of Elite Force's network play (protocol 24,
-// docs/engines/idtech3/games/stvef/systems/network.md): it joins a server (getchallenge, connect),
-// takes its game state and snapshots, and sends the player's commands
-// and what they type. The page runs the client game with what it
-// gathers, as with its own server.
+/**
+ * The player's side of Elite Force's network play (protocol 24,
+ * docs/engines/idtech3/games/stvef/systems/network.md): it joins a server (getchallenge, connect),
+ * takes its game state and snapshots, and sends the player's commands
+ * and what they type. The page runs the client game with what it
+ * gathers, as with its own server.
+ */
 class NetClient {
 public:
-    // Quake III's connection states, which the menus' connecting screen
-    // shows (uiClientState_t).
+    /**
+     * Quake III's connection states, which the menus' connecting screen
+     * shows (uiClientState_t).
+     */
     enum class State : int32_t {
         kDisconnected = 1,
         kConnecting = 3,  // asking for a challenge
@@ -37,77 +41,110 @@ public:
         kActive = 8,      // playing
     };
 
-    // `userinfo`: the player's settings (name, model...); the protocol,
-    // qport and challenge are added.
+    /**
+     * Joins `server` through `socket`, starting at the next frame().
+     * @param userinfo The player's settings (name, model...); the
+     *        protocol, qport and challenge are added.
+     */
     NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address &server, std::string userinfo,
               uint16_t qport);
-    // Playing a recorded match instead (a .efdemo file, as the original's
-    // client writes it: each message the server sent, after its sequence
-    // number and length, ending with -1 -1). Nothing is sent; the
-    // messages are taken in as the time shown reaches them, and the
-    // state goes to Disconnected at the end.
+    /**
+     * Playing a recorded match instead (a .efdemo file, as the original's
+     * client writes it: each message the server sent, after its sequence
+     * number and length, ending with -1 -1). Nothing is sent; the
+     * messages are taken in as the time shown reaches them, and the
+     * state goes to Disconnected at the end.
+     */
     explicit NetClient(std::vector<uint8_t> demo);
+    /** Whether it's playing a demo, and whether that has ended. */
+    ///@{
     bool playingDemo() const { return _demo; }
     bool demoFinished() const { return _demo && _state == State::kDisconnected; }
+    ///@}
 
-    // Reads what has come and sends what's due; `now` in ms.
+    /**
+     * Reads what has come and sends what's due; `now` in ms. A server not
+     * heard from for a while counts as gone (Disconnected).
+     */
     void frame(uint64_t now);
-    // The player's command for this moment (its serverTime from
-    // serverTime()); they go out at most cl_maxpackets a second, each
-    // packet with the ones since the one before the last.
+    /**
+     * The player's command for this moment (its serverTime from
+     * serverTime()); they go out at most cl_maxpackets a second, each
+     * packet with the ones since the one before the last.
+     */
     void addCommand(const GameHost::UserCommand &cmd);
-    // Something the player typed for the server ("say hi"...), sent until
-    // it's acknowledged.
+    /**
+     * Something the player typed for the server ("say hi"...), sent until
+     * it's acknowledged.
+     */
     void addClientCommand(const std::string &text);
-    // The player's settings changed (sent as a userinfo command).
+    /** The player's settings changed (sent as a userinfo command). */
     void setUserinfo(const std::string &userinfo);
-    // Leaving: the server is told (three times, in case some are lost).
+    /** Leaving: the server is told (three times, in case some are lost). */
     void disconnect();
-    // The player has loaded the level: from now on its moves are sent.
+    /** The player has loaded the level: from now on its moves are sent. */
     void setLoaded() {
         if (_state == State::kPrimed)
             _state = State::kActive;
     }
 
-    // Downloading a pak the server has and this player hasn't (the
-    // name as the server lists it: "baseEF/name.pk3"): asked for, then
-    // its blocks taken and acknowledged one by one. Snapshots are ignored
-    // meanwhile.
+    /**
+     * Downloading a pak the server has and this player hasn't (the
+     * name as the server lists it: "baseEF/name.pk3"): asked for, then
+     * its blocks taken and acknowledged one by one. Snapshots are ignored
+     * meanwhile.
+     */
     void download(const std::string &remoteName);
+    /** The download going on: whether there's one, its name, its size (-1 until known) and the bytes so far. */
+    ///@{
     bool downloading() const { return !_downloadName.empty(); }
     const std::string &downloadName() const { return _downloadName; }
-    int32_t downloadSize() const { return _downloadSize; } // -1 until known
+    int32_t downloadSize() const { return _downloadSize; }
     size_t downloadCount() const { return _downloadData.size(); }
-    // A download that has finished: its name and bytes (false if none).
+    ///@}
+    /** A download that has finished: its name and bytes (false if none). */
     bool takeDownload(std::string &name, std::vector<uint8_t> &data);
 
+    /** Where joining (or the demo) has got to. */
     State state() const { return _state; }
+    /** The server it joins. */
     const reluva::net::Address &server() const { return _server; }
+    /** How many times it has asked in the step of joining it's at. */
     int connectPackets() const { return _connectPackets; }
-    // Why it isn't connected, or what the server said ("print").
+    /** Why it isn't connected, or what the server said ("print"). */
     const std::string &message() const { return _message; }
 
-    // The game state: configstrings, the command sequence it started at
-    // and the incoming message it came with (for the client game's
-    // Init), whether it has come; a new one means a new level.
+    /**
+     * The game state: configstrings, the command sequence it started at
+     * and the incoming message it came with (for the client game's
+     * Init); a new one means a new level.
+     */
+    ///@{
     const std::map<int32_t, std::string> &configstrings() const { return _configstrings; }
     int32_t gamestateCommandSequence() const { return _gamestateSequence; }
     int32_t gamestateMessage() const { return _gamestateMessage; }
-    // The number the server's pure check seeds pak checksums with.
+    ///@}
+    /** The number the server's pure check seeds pak checksums with. */
     int32_t checksumFeed() const { return _checksumFeed; }
+    /** Whether a new game state has come since the last call. */
     bool takeNewGamestate() {
         const bool got = _newGamestate;
         _newGamestate = false;
         return got;
     }
-    // Snapshots that came since the last call, oldest first.
+    /** Snapshots that came since the last call, oldest first. */
     std::vector<GameHost::Snapshot> takeSnapshots() { return std::move(_newSnapshots); }
-    // The commands the server sent, by sequence from 1 (those before the
-    // game state's are empty).
+    /**
+     * The commands the server sent, by sequence from 1 (those before the
+     * game state's are empty).
+     */
     const std::vector<std::string> &serverCommands() const { return _serverCommands; }
-    // The time to show the level at, following the server's clock as
-    // the original's client does (a little behind the newest snapshot).
+    /**
+     * The time to show the level at, following the server's clock as
+     * the original's client does (a little behind the newest snapshot).
+     */
     int32_t serverTime() const { return _serverTime; }
+    /** Whether a snapshot has come, so serverTime() means something. */
     bool hasSnapshot() const { return _haveSnapshot; }
 
 private:

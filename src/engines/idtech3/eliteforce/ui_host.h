@@ -23,14 +23,18 @@
 
 namespace reluva::idtech3::eliteforce {
 
-// Elite Force's menus: vm/ui.qvm run with the engine side of its system
-// calls, in Elite Force's numbering, as worked out in
-// docs/engines/idtech3/games/stvef/systems/syscalls.md. Drawing is recorded, not
-// done: each frame's pictures are collected for whatever shows them.
+/**
+ * Elite Force's menus: vm/ui.qvm run with the engine side of its system
+ * calls, in Elite Force's numbering, as worked out in
+ * docs/engines/idtech3/games/stvef/systems/syscalls.md. Drawing is recorded, not
+ * done: each frame's pictures are collected for whatever shows them.
+ */
 class UiHost {
 public:
-    // vmMain's commands (Quake III's order; GetApiVersion and Init are
-    // confirmed on Elite Force's ui.qvm).
+    /**
+     * vmMain's commands (Quake III's order; GetApiVersion and Init are
+     * confirmed on Elite Force's ui.qvm).
+     */
     enum Command : int32_t {
         kGetApiVersion = 0,
         kInit = 1,
@@ -45,67 +49,91 @@ public:
     };
     static constexpr int32_t kApiVersion = 4; // what Elite Force's ui.qvm reports
 
-    // One picture: a part (s1,t1)-(s2,t2) of a shader stretched over a
-    // screen rectangle, tinted by the colour set before it.
+    /**
+     * One picture: a part (s1,t1)-(s2,t2) of a shader stretched over a
+     * screen rectangle, tinted by the colour set before it.
+     */
     using Picture = idtech3::Picture;
 
+    /** Over the game's files and the cvars the menus share, which must outlive it. */
     UiHost(const SearchSet &files, CvarStore &cvars);
 
-    // Reads vm/ui.qvm and checks its API version.
+    /**
+     * Reads vm/ui.qvm and checks its API version, creating the engine's
+     * settings the menus read (protocol, the master servers...).
+     */
     Error load();
-    // vmMain(command, args...).
+    /** vmMain(command, args...), with or without its result. */
+    ///@{
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
     Error call(int32_t command, const std::vector<int32_t> &args = {}) {
         int32_t ignored;
         return call(command, args, ignored);
     }
+    ///@}
 
-    // One frame of the menus at `time` (ms), the way the original engine
-    // runs them while not connected to a game: if no menu covers the
-    // screen (one just closed itself, say), the main menu opens; then
-    // they draw (pictures()).
+    /**
+     * One frame of the menus at `time` (ms), the way the original engine
+     * runs them while not connected to a game: if no menu covers the
+     * screen (one just closed itself, say), the main menu opens; then
+     * they draw (pictures()).
+     */
     Error refresh(int32_t time);
 
-    // What GetGlconfig reports, in pixels.
+    /** What GetGlconfig reports, in pixels. */
     void setScreenSize(int width, int height) {
         _width = width;
         _height = height;
     }
-    // Where in glconfig_t Quake III's 17 words (maxTextureSize ...
-    // vidWidth, vidHeight ...) start: 5124 in Elite Force, after a word of
-    // its own (docs/engines/idtech3/games/stvef/systems/syscalls.md). For trying
-    // other layouts.
+    /**
+     * Where in glconfig_t Quake III's 17 words (maxTextureSize ...
+     * vidWidth, vidHeight ...) start: 5124 in Elite Force, after a word of
+     * its own (docs/engines/idtech3/games/stvef/systems/syscalls.md). For trying
+     * other layouts.
+     */
     void setGlconfigWords(int32_t offset) { _glconfigWords = offset; }
-    // Where the CD key the menus take (call 57) is kept; none: it's only
-    // remembered while running.
+    /**
+     * Where the CD key the menus take (call 57) is kept; none: it's only
+     * remembered while running.
+     */
     void setKeyFile(std::filesystem::path path) { _keyFile = std::move(path); }
-    // The clock Milliseconds reports.
+    /** The clock Milliseconds reports (refresh() sets it too). */
     void setTime(int32_t ms) { _time = ms; }
 
+    /** The menus' program. */
     Qvm &vm() { return _vm; }
+    /** The pictures drawn since clearPictures(), in order. */
     const std::vector<Picture> &pictures() const { return _pictures; }
-    // The 3D scenes drawn among them (the player model in Player
-    // settings...), each over the pictures before it.
+    /**
+     * The 3D scenes drawn among them (the player model in Player
+     * settings...), each over the pictures before it.
+     */
     const Scene &scene() const { return _scene; }
-    // Forgets the last frame's pictures and scenes, before the next.
+    /** Forgets the last frame's pictures and scenes, before the next. */
     void clearPictures() {
         _pictures.clear();
         _scene = Scene{};
     }
+    /** The shaders, models, skins and sounds the menus have registered, by their handles. */
+    ///@{
     const HandleTable &shaders() const { return _shaders; }
     const HandleTable &models() const { return _models; }
     const HandleTable &skins() const { return _skins; }
     const HandleTable &sounds() const { return _sounds; }
+    ///@}
     // Text the menus print; by default, kept in log().
     std::function<void(const std::string &)> print;
+    /** What the menus have printed, when `print` isn't set. */
     const std::string &log() const { return _log; }
-    // Commands the menus run (Cmd_ExecuteText), in order.
+    /** Commands the menus run (Cmd_ExecuteText), in order. */
     const std::vector<std::string> &commands() const { return _commands; }
-    // Calls not implemented yet: number -> how many times.
+    /** Calls not implemented yet: number -> how many times. */
     const std::map<int, int> &unhandled() const { return _unhandled; }
-    // The last system calls made (oldest first), with their first
-    // arguments and any text they point at, for reports when the menus
-    // stop. The CD key is left out.
+    /**
+     * The last system calls made (oldest first), with their first
+     * arguments and any text they point at, for reports when the menus
+     * stop. The CD key is left out.
+     */
     std::vector<std::string> recentCalls() const;
     // S_StartLocalSound: a registered sound to play now, not placed in the
     // world, on a channel (a new sound on the same channel, other than 0,
@@ -113,8 +141,10 @@ public:
     std::function<void(const std::string &sound, int channel)> startLocalSound;
     // What keys do, which the Controls menu shows and changes; none if not set.
     KeyBindings *bindings = nullptr;
-    // The install whose mods the Mods menu lists ("$modlist"), and its base
-    // game's folder.
+    /**
+     * The install whose mods the Mods menu lists ("$modlist"), and its base
+     * game's folder.
+     */
     void setModRoot(const std::filesystem::path &install, const std::string &baseDir) {
         _vmFiles.setModRoot(install, baseDir);
     }
@@ -127,11 +157,13 @@ public:
     ServerBrowser *browser = nullptr;
     std::function<bool(const std::string &host, uint32_t &ip)> resolveHost;
     uint64_t now = 0;
-    // What GetClientState reports (uiClientState_t), for the connecting
-    // screen: connState as Quake III's (1 disconnected, 3 connecting, 4
-    // challenging, 5 connected, 6 loading, 7 primed, 8 active), how many
-    // connect requests were sent, the player's number, the server's name,
-    // and the messages to show.
+    /**
+     * What GetClientState reports (uiClientState_t), for the connecting
+     * screen: connState as Quake III's (1 disconnected, 3 connecting, 4
+     * challenging, 5 connected, 6 loading, 7 primed, 8 active), how many
+     * connect requests were sent, the player's number, the server's name,
+     * and the messages to show.
+     */
     struct ClientState {
         int32_t connState = 1;
         int32_t connectPacketCount = 0;
@@ -144,7 +176,7 @@ public:
     // The configstrings GetConfigString reads (a match's, for the in-game
     // menu); none if unset.
     std::function<std::string(int32_t index)> configstring;
-    // Their key catcher (KEYCATCH_UI, 2, while they take the keys).
+    /** Their key catcher (KEYCATCH_UI, 2, while they take the keys). */
     int32_t catcher() const { return _catcher; }
 
 private:

@@ -16,8 +16,10 @@
 
 namespace reluva::idtech3 {
 
-// What the server's world needs of an entity, as its game has it now (read
-// from the game's own structure, laid out as that game lays it out).
+/**
+ * What the server's world needs of an entity, as its game has it now (read
+ * from the game's own structure, laid out as that game lays it out).
+ */
 struct EntityShape {
     Vec3f origin{};
     Vec3f angles{};
@@ -29,42 +31,60 @@ struct EntityShape {
     int32_t modelIndex = 0; // a brush model's, in the map
 };
 
-// The server's side of the world, as Quake III's server keeps it for its
-// game: the entities the game links, each where its box last was (with
-// the areas and clusters it touches), found again by a tree splitting the
-// level in two four times over, as the original's; and moves, points and
-// boxes tested against the level and those entities.
-//
-// Entities are looked at in order of their numbers, whatever the tree
-// gives, so which one a move hits first doesn't depend on where it is.
+/**
+ * The server's side of the world, as Quake III's server keeps it for its
+ * game: the entities the game links, each where its box last was (with
+ * the areas and clusters it touches), found again by a tree splitting the
+ * level in two four times over, as the original's; and moves, points and
+ * boxes tested against the level and those entities.
+ *
+ * Entities are looked at in order of their numbers, whatever the tree
+ * gives, so which one a move hits first doesn't depend on where it is.
+ */
 class ServerWorld {
 public:
-    // Reads entity `n`'s shape now; false if it has none.
+    /** Reads entity `n`'s shape now; false if it has none. */
     using ShapeReader = std::function<bool(int32_t n, EntityShape &out)>;
+    /** Reading the entities' shapes through `shape`, with no level yet. */
     explicit ServerWorld(ShapeReader shape) : _shape(std::move(shape)) {}
 
-    // A level (none: only entities, and no areas); forgets the entities.
-    // The portals are the game's doors between areas; `noAreas` says
-    // whether every area counts as joined (the original's cm_noAreas).
+    /**
+     * A level (none: only entities, and no areas); forgets the entities.
+     * The map, world and portals must outlive their use here. The portals
+     * are the game's doors between areas; `noAreas` says whether every area
+     * counts as joined (the original's cm_noAreas).
+     */
     void setLevel(const Bsp *map, const CollisionWorld *world, const AreaPortals *portals,
                   std::function<bool()> noAreas = {});
+    /** The doors between areas, in place of setLevel's. */
     void setPortals(const AreaPortals *portals) { _portals = portals; }
+    /** Unlinks every entity, keeping the level. */
     void clear();
 
-    // Links entity `n` where `shape` puts it: its box (`absMin`, `absMax`
-    // out: its extent a unit larger all round, a turned brush model's by
-    // its farthest corner), areas and clusters kept.
+    /**
+     * Links entity `n` where `shape` puts it: its box (`absMin`, `absMax`
+     * out: its extent a unit larger all round, a turned brush model's by
+     * its farthest corner), areas and clusters kept.
+     */
     void link(int32_t n, const EntityShape &shape, Vec3f &absMin, Vec3f &absMax);
-    // Linked without a place (a game whose entities can't be read): moves
-    // and boxes look at it everywhere.
+    /**
+     * Linked without a place (a game whose entities can't be read): moves
+     * and boxes look at it everywhere.
+     */
     void linkUnplaced(int32_t n);
+    /** Takes an entity out of the world. */
     void unlink(int32_t n);
+    /** The entities linked, and whether one is. */
+    ///@{
     const std::set<int32_t> &linked() const { return _linked; }
     bool isLinked(int32_t n) const { return _linked.count(n) != 0; }
+    ///@}
 
-    // Where a linked entity is: its box, the one or two areas it touches
-    // (-1 if none; two for a door between them), the clusters it touches
-    // (those inside the map), and how many leafs it's in.
+    /**
+     * Where a linked entity is: its box, the one or two areas it touches
+     * (-1 if none; two for a door between them), the clusters it touches
+     * (those inside the map), and how many leafs it's in.
+     */
     struct Placement {
         Vec3f absMin{};
         Vec3f absMax{};
@@ -73,30 +93,45 @@ public:
         size_t leafCount = 0;
         bool everywhere = false; // linked unplaced
     };
+    /** Where entity `n` is, or null if it isn't linked. */
     const Placement *placement(int32_t n) const;
-    // The same worked out for a box (for an entity linked another way).
+    /** The same worked out for a box (for an entity linked another way). */
     Placement place(const Vec3f &absMin, const Vec3f &absMax) const;
 
+    /** Whether two areas join up through open doors (always, with noAreas). */
     bool areasConnected(int area1, int area2) const;
 
-    // A box (mins, maxs about the point) moved from start to end against
-    // the level and the linked entities whose contents are in `mask`, but
-    // `pass` and what it owns or owns it (-1: none). `hit` gets the entity
-    // stopped at (kWorld, or kNone).
+    /** The entity numbers trace() gives for the level, and for nothing hit. */
+    ///@{
     static constexpr int32_t kWorld = 1022;
     static constexpr int32_t kNone = 1023;
+    ///@}
+    /**
+     * A box (mins, maxs about the point) moved from start to end against
+     * the level and the linked entities whose contents are in `mask`, but
+     * `pass` and what it owns or owns it (-1: none). `hit` gets the entity
+     * stopped at (kWorld, or kNone).
+     * @param entities Whether the entities count, or only the level.
+     */
     TraceResult trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
                       int32_t mask, int32_t &hit, bool entities = true) const;
-    // The contents at a point: the level's and the entities' it's in, but
-    // `pass`'s.
+    /**
+     * The contents at a point: the level's and the entities' it's in, but
+     * `pass`'s.
+     */
     int32_t pointContents(const Vec3f &point, int32_t pass) const;
-    // The linked entities whose boxes touch [mins, maxs], in order.
+    /**
+     * Replaces `out` with the linked entities whose boxes touch [mins, maxs]
+     * (and those linked without a place), in order.
+     */
     void entitiesInBox(const Vec3f &mins, const Vec3f &maxs, std::vector<int32_t> &out) const;
 
-    // An entity's size as the original's server tells the client game
-    // (entityState_t's solid): `brushModel` for a brush model, else for a
-    // solid box (contents solid or body) its half width, depth below and
-    // height above (+32), a byte each; 0 for what isn't solid.
+    /**
+     * An entity's size as the original's server tells the client game
+     * (entityState_t's solid): `brushModel` for a brush model, else for a
+     * solid box (contents solid or body) its half width, depth below and
+     * height above (+32), a byte each; 0 for what isn't solid.
+     */
     static int32_t packedSolid(const EntityShape &shape, int32_t brushModel);
 
 private:
