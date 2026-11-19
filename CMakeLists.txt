@@ -12,6 +12,7 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # than Visual Studio accepts (error C2026).
 option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
 option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
+option(RELUVA_ENGINE_UNREAL "Build the Unreal Engine 1 engine (Star Trek: Deep Space Nine - The Fallen)" ON)
 
 include(FetchContent)
 
@@ -165,6 +166,57 @@ if(RELUVA_ENGINE_IDTECH3)
         src/engines/idtech3/world_viewer.cpp)
     target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
 endif()
+if(RELUVA_ENGINE_UNREAL)
+    target_sources(reluva_engines PRIVATE
+        src/engines/unreal/unreal.cpp
+        src/engines/unreal/games.cpp
+        src/engines/unreal/package.cpp
+        src/engines/unreal/package_set.cpp
+        src/engines/unreal/properties.cpp
+        src/engines/unreal/texture.cpp
+        src/engines/unreal/sound.cpp
+        src/engines/unreal/model.cpp
+        src/engines/unreal/collision.cpp
+        src/engines/unreal/lighting.cpp
+        src/engines/unreal/zones.cpp
+        src/engines/unreal/procedural.cpp
+        src/engines/unreal/script.cpp
+        src/engines/unreal/script_text.cpp
+        src/engines/unreal/vm.cpp
+        src/engines/unreal/vm_natives_core.cpp
+        src/engines/unreal/vm_level.cpp
+        src/engines/unreal/vm_physics.cpp
+        src/engines/unreal/vm_save.cpp
+        src/engines/unreal/game_save.cpp
+        src/engines/unreal/game_save_write.cpp
+        src/engines/unreal/package_writer.cpp
+        src/engines/unreal/vm_sound.cpp
+        src/engines/unreal/vm_splines.cpp
+        src/engines/unreal/vm_anim.cpp
+        src/engines/unreal/vm_attach.cpp
+        src/engines/unreal/vm_paths.cpp
+        src/engines/unreal/vm_dialog.cpp
+        src/engines/unreal/vm_effects.cpp
+        src/engines/unreal/vm_climbing.cpp
+        src/engines/unreal/vm_effect_physics.cpp
+        src/engines/unreal/vm_console.cpp
+        src/engines/unreal/vm_travel.cpp
+        src/engines/unreal/vm_documents.cpp
+        src/engines/unreal/vm_canvas.cpp
+        src/engines/unreal/font.cpp
+        src/engines/unreal/dialog_table.cpp
+        src/engines/unreal/level_audio.cpp
+        src/engines/unreal/level_play.cpp
+        src/engines/unreal/actors.cpp
+        src/engines/unreal/class_defaults.cpp
+        src/engines/unreal/mesh.cpp
+        src/engines/unreal/mesh_render.cpp
+        src/engines/unreal/viewers.cpp
+        src/engines/unreal/map_viewer.cpp
+        src/engines/unreal/mesh_viewer.cpp
+        src/engines/unreal/movie_viewer.cpp)
+    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_UNREAL)
+endif()
 target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
@@ -176,7 +228,7 @@ add_executable(reluva
 target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
 
 # --- developer tools -----------------------------------------------------------
-add_executable(reluva-tool src/tools/reluva_tool.cpp)
+add_executable(reluva-tool src/tools/reluva_tool.cpp src/tools/soft_renderer.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 
 # --- tests ----------------------------------------------------------------------
@@ -198,5 +250,11 @@ if(RELUVA_BUILD_TESTS)
         target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
         target_include_directories(reluva_idtech3_tests PRIVATE tests)
         add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
+    endif()
+
+    if(RELUVA_ENGINE_UNREAL)
+        add_executable(reluva_unreal_tests tests/test_unreal.cpp)
+        target_link_libraries(reluva_unreal_tests PRIVATE reluva_engines reluva_warnings)
+        add_test(NAME unreal COMMAND reluva_unreal_tests)
     endif()
 endif()

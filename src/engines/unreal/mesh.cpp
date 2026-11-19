@@ -1,0 +1,3027 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/unreal/mesh.h"
+
+#include "engines/unreal/package_set.h"
+
+#include "common/fs.h"
+
+#include <algorithm>
+#include <memory>
+#include <mutex>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <cstring>
+#include <functional>
+#include <map>
+#include <optional>
+
+namespace reluva::unreal {
+
+namespace {
+
+Vec3f readVector(Reader& r) {
+    Vec3f v;
+    for (float& f : v)
+        f = r.f32();
+    return v;
+}
+
+// An array's count, checked against what's left (each element taking at
+// least `minSize` bytes).
+bool count(Reader& r, size_t minSize, size_t& n) {
+    const int32_t c = r.index();
+    if (!r.ok() || c < 0 || size_t(c) * minSize > r.remaining()) {
+        r.fail();
+        return false;
+    }
+    n = size_t(c);
+    return true;
+}
+
+// A lazy array: from version 63 the file offset just past it comes first.
+// Returns that offset (0 before 63) and the count.
+bool lazyCount(Reader& r, int version, size_t minSize, size_t& end, size_t& n) {
+    end = version >= 63 ? size_t(uint32_t(r.i32())) : 0;
+    return count(r, minSize, n);
+}
+
+void skipArray(Reader& r, size_t elementSize) {
+    size_t n = 0;
+    if (count(r, elementSize, n))
+        r.skip(n * elementSize);
+}
+
+void skipLazy(Reader& r, int version, size_t elementSize) {
+    size_t end = 0, n = 0;
+    if (!lazyCount(r, version, elementSize, end, n))
+        return;
+    if (end)
+        r.seek(end);
+    else
+        r.skip(n * elementSize);
+}
+
+// What follows the textures: per-frame bounds, the frame counts and
+// placement, and for a LodMesh its faces, wedges and materials (as
+// triangles).
+struct MeshTail {
+    int32_t frameVerts = 0, animFrames = 0;
+    Vec3f scale{}, origin{};
+    Rotator rotOrigin;
+    int32_t modelVerts = 0, specialVerts = 0;
+    std::vector<MeshTri> tris;
+};
+
+Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
+    auto fail = [&](const char* why) { return Error::fail(why); };
+    skipArray(r, 25); // per-frame bounding boxes
+    skipArray(r, 16); // and spheres
+    out.frameVerts = r.i32();
+    out.animFrames = r.i32();
+    r.u32(); // AND of the triangles' flags
+    r.u32(); // OR
+    out.scale = readVector(r);
+    out.origin = readVector(r);
+    out.rotOrigin.pitch = r.i32();
+    out.rotOrigin.yaw = r.i32();
+    out.rotOrigin.roll = r.i32();
+    r.i32(); // current polygon
+    r.i32(); // current vertex
+    if (ver == 65)
+        r.f32();
+    else if (ver >= 66)
+        skipArray(r, 4); // texture levels of detail
+    if (!r.ok())
+        return fail("the mesh's fields run past the end");
+    if (!lod)
+        return Error::success();
+
+    skipArray(r, 2); // collapse point thus
+    skipArray(r, 2); // face level
+    size_t faces = 0;
+    if (!count(r, 8, faces))
+        return fail("faces run past the end");
+    std::vector<std::array<uint16_t, 4>> faceList(faces);
+    for (auto& f : faceList)
+        for (uint16_t& v : f)
+            v = r.u16();
+    skipArray(r, 2); // collapse wedge thus
+    size_t wedges = 0;
+    if (!count(r, 4, wedges))
+        return fail("wedges run past the end");
+    struct Wedge {
+        uint16_t vertex;
+        float u, v;
+    };
+    std::vector<Wedge> wedgeList(wedges);
+    for (Wedge& w : wedgeList) {
+        w.vertex = r.u16();
+        w.u = float(r.u8()) / 256;
+        w.v = float(r.u8()) / 256;
+    }
+    size_t materials = 0;
+    if (!count(r, 8, materials))
+        return fail("materials run past the end");
+    std::vector<std::pair<uint32_t, int32_t>> materialList(materials);
+    for (auto& m : materialList) {
+        m.first = r.u32();
+        m.second = r.i32();
+    }
+    skipArray(r, 8); // special faces (weapon triangles)
+    out.modelVerts = r.i32();
+    out.specialVerts = r.i32();
+    r.skip(4 * 6);   // level-of-detail settings
+    skipArray(r, 2); // remap anim verts
+    r.i32();         // old frame verts
+    if (!r.ok())
+        return fail("the level-of-detail fields run past the end");
+    // Faces through wedges to vertices; a frame's special vertices (for
+    // the weapon triangle) come before the model's.
+    for (const auto& f : faceList) {
+        MeshTri t;
+        if (f[3] >= materialList.size())
+            return fail("a face's material is out of range");
+        for (size_t k = 0; k < 3; ++k) {
+            if (f[k] >= wedgeList.size())
+                return fail("a face's wedge is out of range");
+            const Wedge& w = wedgeList[f[k]];
+            t.vertex[k] = int32_t(w.vertex) + out.specialVerts;
+            t.uv[k] = {w.u, w.v};
+        }
+        t.polyFlags = materialList[f[3]].first;
+        t.textureIndex = materialList[f[3]].second;
+        out.tris.push_back(t);
+    }
+    return Error::success();
+}
+
+bool sane(float f) { return std::isfinite(f) && std::fabs(f) < 1e6f; }
+
+// Whether a tail read from somewhere holds together: frame counts,
+// placement, and for a LodMesh the vertex counts.
+bool plausible(const MeshTail& t, bool lod) {
+    if (t.frameVerts <= 0 || t.animFrames <= 0 || int64_t(t.frameVerts) * t.animFrames > 10000000)
+        return false;
+    for (float f : t.scale)
+        if (!sane(f) || std::fabs(f) < 1e-6f)
+            return false;
+    for (float f : t.origin)
+        if (!sane(f))
+            return false;
+    if (lod && (t.modelVerts + t.specialVerts != t.frameVerts || t.tris.empty()))
+        return false;
+    return true;
+}
+
+Vec3f unpackVertex(uint32_t p) {
+    return {float(int32_t(p << 21) >> 21), float(int32_t(p << 10) >> 21), float(int32_t(p) >> 22)};
+}
+
+// The vertices in an imported-model block (data[from, to), file offsets):
+// an array of (i32 count, i32 count again, i32 1) and that many packed
+// vertices, of all frames at once, or else one such array per frame.
+// Many of The Fallen's animated meshes keep fewer such frames than they
+// have (keyframes, between other arrays not worked out yet): then the
+// first is used for every frame, and `keys` says how many were found
+// (0 when every frame was).
+bool findVertexBlock(const std::vector<uint8_t>& data, size_t base, size_t from, size_t to, const MeshTail& t,
+                     std::vector<Vec3f>& out, int& keys, bool& perFrame) {
+    keys = 0;
+    perFrame = false;
+    const auto frame = uint32_t(t.frameVerts), total = uint32_t(t.frameVerts) * uint32_t(t.animFrames);
+    auto u32At = [&](size_t at) {
+        const uint8_t* p = data.data() + (at - base);
+        return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+    };
+    auto block = [&](size_t at, uint32_t n) {
+        return at + 12 + size_t(n) * 4 <= to && u32At(at) == n && u32At(at + 4) == n && u32At(at + 8) == 1;
+    };
+    auto take = [&](size_t at, uint32_t n) {
+        for (uint32_t k = 0; k < n; ++k)
+            out.push_back(unpackVertex(u32At(at + 12 + 4 * size_t(k))));
+    };
+    for (size_t at = from; at + 12 <= to; ++at)
+        if (block(at, total)) {
+            take(at, total);
+            return true;
+        }
+    // One array per frame, it seemed; they're really the clips' vertex
+    // keys (see findClipTable), so as many as the frames needn't be them.
+    perFrame = true;
+    for (size_t at = from; at + 12 <= to; ++at) {
+        if (!block(at, frame))
+            continue;
+        take(at, frame);
+        at += 12 + size_t(frame) * 4 - 1;
+        if (out.size() == total)
+            return true;
+    }
+    if (out.empty())
+        return false;
+    keys = int(out.size() / frame);
+    out.resize(frame);
+    for (int32_t f = 1; f < t.animFrames; ++f)
+        out.insert(out.end(), out.begin(), out.begin() + frame);
+    return true;
+}
+
+// Which way the vertices go: the block keeps them a second time as
+// floats, placed (`(n, n, 128)` and n x 3 floats, n = FrameVerts). Of the
+// 24 axis-aligned turns, the one that takes the first frame's packed
+// vertices (by Scale and Origin) closest onto those, if close; both
+// about their middles, as the float copy can be moved too.
+std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t>& data, size_t base, size_t from,
+                                               size_t to, const Mesh& mesh, const MeshTail& t) {
+    const auto n = uint32_t(t.frameVerts);
+    auto u32At = [&](size_t at) {
+        const uint8_t* p = data.data() + (at - base);
+        return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+    };
+    auto f32At = [&](size_t at) {
+        const uint32_t bits = u32At(at);
+        float f;
+        std::memcpy(&f, &bits, 4);
+        return f;
+    };
+    // The first frame, by Scale and Origin, and its extent.
+    std::vector<Vec3f> scaled(n);
+    float extent = 0;
+    for (uint32_t k = 0; k < n; ++k) {
+        for (size_t a = 0; a < 3; ++a) {
+            scaled[k][a] = (mesh.verts[k][a] - t.origin[a]) * t.scale[a];
+            extent = std::max(extent, std::fabs(scaled[k][a]));
+        }
+    }
+    if (extent <= 0)
+        return std::nullopt;
+    // Compared about their middles: the float copy can be moved as well.
+    Vec3f mid{};
+    for (const Vec3f& v : scaled)
+        for (size_t a = 0; a < 3; ++a)
+            mid[a] += v[a] / float(n);
+    extent = 0;
+    for (Vec3f& v : scaled)
+        for (size_t a = 0; a < 3; ++a) {
+            v[a] -= mid[a];
+            extent = std::max(extent, std::fabs(v[a]));
+        }
+    if (extent <= 0)
+        return std::nullopt;
+    // The 24 turns: each output axis takes an input axis, signed, with
+    // determinant +1.
+    std::vector<std::array<Vec3f, 3>> turns;
+    const int perms[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
+    for (const auto& p : perms)
+        for (int signs = 0; signs < 8; ++signs) {
+            std::array<Vec3f, 3> m{};
+            for (size_t row = 0; row < 3; ++row)
+                m[row][size_t(p[row])] = (signs >> row) & 1 ? -1.0f : 1.0f;
+            const float det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+                              m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+                              m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+            if (det > 0)
+                turns.push_back(m);
+        }
+    std::optional<std::array<Vec3f, 3>> best;
+    float bestError = 0;
+    for (size_t at = from; at + 12 + size_t(n) * 12 <= to; ++at) {
+        if (u32At(at) != n || u32At(at + 4) != n || u32At(at + 8) != 128)
+            continue;
+        Vec3f floatMid{};
+        for (uint32_t k = 0; k < n; ++k)
+            for (size_t a = 0; a < 3; ++a)
+                floatMid[a] += f32At(at + 12 + 12 * size_t(k) + 4 * a) / float(n);
+        for (const auto& m : turns) {
+            float err = 0;
+            for (uint32_t k = 0; k < n && std::isfinite(err); ++k)
+                for (size_t row = 0; row < 3; ++row) {
+                    const float want = f32At(at + 12 + 12 * size_t(k) + 4 * row) - floatMid[row];
+                    const float got = m[row][0] * scaled[k][0] + m[row][1] * scaled[k][1] + m[row][2] * scaled[k][2];
+                    err += (want - got) * (want - got);
+                }
+            if (!std::isfinite(err))
+                break;
+            if (!best || err < bestError) {
+                best = m;
+                bestError = err;
+            }
+        }
+    }
+    // Close: within 5% of the mesh's size on average (the packed vertices
+    // are rounded to whole units).
+    if (!best || std::sqrt(bestError / float(3 * n)) > 0.05f * extent)
+        return std::nullopt;
+    return best;
+}
+
+// Meshes built on a skeleton (The Fallen's characters) keep no packed
+// vertices: the block has a record per bone instead, a tree written depth
+// first (see mesh.md):
+//   u16 length and the bone's name; (n, n, 8) and n i32s, the animation
+//   groups (body parts) it's in; (k, k, 128) and k float xyz, the bone's
+//   vertices in its own space; (k, k, 128) and k float weights;
+//   (k, k, 128) and k i32s, which of the frame's vertices each is; 12
+//   floats, a 4x3 offset, and an i32; 12 floats, the bone's 4x3 placement
+//   in its parent's space (rows: X, Y, Z axes, then the origin), and an
+//   i32 (each matrix's shortcut flags: 1 no translation, 2 3x3 identity,
+//   4 unit rows); (c, c, f) and c clips, each (n, n, f) and n position
+//   keys (time, xyz), (m, m, f) and m rotation keys (time, 6 bytes), and
+//   two i32s (positions static, rotations static); then (h, h, 4) and its
+//   h children's records. (The third of each array's header is the
+//   array's grow step, not a type.)
+struct BoneRecord {
+    std::string name;
+    int parent = -1;
+    uint32_t vertices = 0;
+    size_t positions = 0, weights = 0, indices = 0; // file offsets of the arrays
+    std::array<float, 12> offset{}, placement{};
+    uint32_t kind = 0, clips = 0;
+    size_t clipsAt = 0; // the first clip
+    struct Clip {
+        size_t positions = 0, rotations = 0; // file offsets of the keys
+        uint32_t nPositions = 0, nRotations = 0;
+        // Its last 8 bytes, two i32s (C3DBONEANIM's two flags): its
+        // positions, its rotations static (the engine samples key 0 of
+        // that kind only, not between keys).
+        bool staticPositions = false, staticRotations = false;
+    };
+    std::vector<Clip> clipList; // when they read
+    std::vector<int> groups;    // the animation groups (body parts) it's in, by index
+    size_t start = 0;   // where its record starts (its name)
+    size_t end = 0;     // past its own fields (before its children); 0: its clips didn't read
+    // Its joint limits for the IK, in radians, from its bind pose: about
+    // its Y (min, max), X and Z (the engine's default +-30 degrees).
+    std::array<float, 6> limits{-0.5236f, 0.5236f, -0.5236f, 0.5236f, -0.5236f, 0.5236f};
+};
+
+struct BoneReader {
+    const std::vector<uint8_t>& data;
+    size_t base, from, to;
+    size_t failedAt = 0; // where a record didn't hold together
+
+    uint32_t u32(size_t at) const {
+        const uint8_t* p = data.data() + (at - base);
+        return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+    }
+    float f32(size_t at) const {
+        const uint32_t bits = u32(at);
+        float f;
+        std::memcpy(&f, &bits, 4);
+        return f;
+    }
+    bool header(size_t at, uint32_t& n, uint32_t& flags) const {
+        if (at < from || at + 12 > to)
+            return false;
+        n = u32(at);
+        flags = u32(at + 8);
+        return u32(at + 4) == n && n < 1000000;
+    }
+    bool name(size_t at, std::string& out) const {
+        if (at < from || at + 2 > to)
+            return false;
+        // Some are empty (GrigariMarauder's), some end in a tab (VortaFeMale's "Box03").
+        const size_t len = size_t(data[at - base]) | size_t(data[at - base + 1]) << 8;
+        if (len > 64 || at + 2 + len > to)
+            return false;
+        out.assign(reinterpret_cast<const char*>(data.data() + (at - base) + 2), len);
+        return std::all_of(out.begin(), out.end(), [](char c) { return c == '\t' || (c >= 32 && c < 127); });
+    }
+
+    // The first bone from `start`: a name just before an (n, n, 8) header
+    // that the vertex arrays follow. 0 if there's none.
+    size_t first(size_t start = 0) const {
+        for (size_t at = std::max(start, from); at + 24 < to; ++at) {
+            uint32_t n = 0, flags = 0, k = 0, kf = 0;
+            if (!header(at, n, flags) || flags != 8 || n == 0 || n > 64)
+                continue;
+            if (!header(at + 12 + 4 * size_t(n), k, kf) || kf != 128)
+                continue;
+            for (size_t len = 1; len <= 64 && at >= std::max(start, from) + len + 2; ++len) {
+                std::string s;
+                if (name(at - 2 - len, s) && s.size() == len)
+                    return at - 2 - len;
+            }
+        }
+        return 0;
+    }
+
+    // A bone's own fields from `at` (its name). Its clips' keys are
+    // stepped over too, to find its children; if they don't read, `end`
+    // stays 0 and its children aren't known, but the bone still is.
+    bool record(size_t at, BoneRecord& b) const {
+        uint32_t n = 0, flags = 0;
+        if (!name(at, b.name))
+            return false;
+        b.start = at;
+        size_t p = at + 2 + b.name.size();
+        if (!header(p, n, flags) || flags != 8 || n > 64)
+            return false;
+        b.groups.clear();
+        for (uint32_t g = 0; g < n; ++g)
+            b.groups.push_back(int(u32(p + 12 + 4 * size_t(g))));
+        p += 12 + 4 * size_t(n);
+        // Keyframed meshes' bones (ARD_AmmoCrate's) keep weights and
+        // indices but no positions, which their packed frames have: such a
+        // bone places no vertices.
+        size_t* arrays[3] = {&b.positions, &b.weights, &b.indices};
+        uint32_t counts[3] = {};
+        for (int a = 0; a < 3; ++a) {
+            if (!header(p, counts[a], flags) || flags != 128 || (a == 2 && counts[2] != counts[1]))
+                return false;
+            *arrays[a] = p + 12;
+            p += 12 + size_t(counts[a]) * (a == 0 ? 12 : 4);
+        }
+        b.vertices = counts[0] == counts[1] ? counts[0] : 0;
+        if (p + 104 > to)
+            return false;
+        for (size_t c = 0; c < 12; ++c) {
+            b.offset[c] = f32(p + 4 * c);
+            b.placement[c] = f32(p + 52 + 4 * c);
+            if (!sane(b.offset[c]) || !sane(b.placement[c]))
+                return false;
+        }
+        p += 100;
+        b.kind = u32(p);
+        p += 4;
+        b.end = 0;
+        if (!header(p, b.clips, flags))
+            return true;
+        p += 12;
+        b.clipsAt = p;
+        std::vector<BoneRecord::Clip> clips;
+        for (uint32_t c = 0; c < b.clips; ++c) {
+            BoneRecord::Clip k;
+            if (!header(p, k.nPositions, flags) || p + 12 + 16 * size_t(k.nPositions) > to)
+                return true;
+            k.positions = p + 12;
+            p += 12 + 16 * size_t(k.nPositions);
+            if (!header(p, k.nRotations, flags) || p + 12 + 10 * size_t(k.nRotations) + 8 > to)
+                return true;
+            k.rotations = p + 12;
+            p += 12 + 10 * size_t(k.nRotations);
+            k.staticPositions = u32(p) != 0;
+            k.staticRotations = u32(p + 4) != 0;
+            p += 8;
+            clips.push_back(k);
+        }
+        b.clipList = std::move(clips);
+        b.end = p;
+        return true;
+    }
+
+    // Every bone, in file order, each found by its own fields; then their
+    // parents, from each bone's children ((h, h, 4) after its clips, their
+    // records following depth first, then the bone's last fields). A bone
+    // whose clips or children aren't understood keeps its own children
+    // unknown (they're placed as if at the root; failedAt says where).
+    // Returns whether all were.
+    bool all(std::vector<BoneRecord>& out) {
+        out.clear();
+        for (size_t at = first(); at; at = first(at + 1)) {
+            BoneRecord b;
+            if (!record(at, b))
+                continue;
+            out.push_back(b);
+            at = b.indices; // past its name and arrays' headers
+        }
+        std::map<size_t, int> byStart;
+        for (size_t i = 0; i < out.size(); ++i)
+            byStart[out[i].start] = int(i);
+        std::vector<bool> reached(out.size(), false);
+        failedAt = 0;
+        // Where bone i's subtree ends, 0 if that's not known.
+        std::function<size_t(int, int)> subtree = [&](int i, int depth) -> size_t {
+            reached[size_t(i)] = true;
+            const size_t start = out[size_t(i)].start, end = out[size_t(i)].end;
+            if (!end || depth > 256) {
+                if (!failedAt)
+                    failedAt = start;
+                return 0;
+            }
+            uint32_t children = 0, flags = 0;
+            size_t p = end;
+            if (!header(p, children, flags) || flags != 4) {
+                if (!failedAt)
+                    failedAt = p;
+                return 0;
+            }
+            p += 12;
+            for (uint32_t c = 0; c < children; ++c) {
+                auto it = byStart.find(p);
+                if (it == byStart.end()) {
+                    // A bone the search for names missed (an empty name).
+                    BoneRecord nb;
+                    if (!record(p, nb)) {
+                        if (!failedAt)
+                            failedAt = p;
+                        return 0;
+                    }
+                    out.push_back(nb);
+                    reached.push_back(false);
+                    it = byStart.emplace(p, int(out.size() - 1)).first;
+                }
+                out[size_t(it->second)].parent = i;
+                if ((p = subtree(it->second, depth + 1)) == 0)
+                    return 0;
+            }
+            // After its children, the bone's last fields: a 4x3 matrix
+            // (identity so far), an i32 7, 2 floats (+-1e38), 2 more, 6
+            // (joint limits? +-30 degrees), then two arrays of i32s
+            // (usually empty).
+            if (p + 92 > to || u32(p + 48) != 7) {
+                if (!failedAt)
+                    failedAt = p;
+                return 0;
+            }
+            // The 10 floats after the i32 7: two of +-1e38, two more, then
+            // the joint limits (min and max about Y, X and Z).
+            for (size_t k = 0; k < 6; ++k) {
+                const float v = f32(p + 68 + 4 * k);
+                if (std::isfinite(v) && std::fabs(v) < 10)
+                    out[size_t(i)].limits[k] = v;
+            }
+            p += 92;
+            for (int a = 0; a < 2; ++a) {
+                uint32_t n = 0;
+                if (!header(p, n, flags) || p + 12 + 4 * size_t(n) > to) {
+                    if (!failedAt)
+                        failedAt = p;
+                    return 0;
+                }
+                p += 12 + 4 * size_t(n);
+            }
+            return p;
+        };
+        for (size_t i = 0; i < out.size(); ++i)
+            if (!reached[i])
+                subtree(int(i), 0);
+        // In file order, where parents come before their children (so a
+        // bone's parent is always placed first).
+        std::vector<size_t> order(out.size());
+        for (size_t i = 0; i < order.size(); ++i)
+            order[i] = i;
+        std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return out[a].start < out[b].start; });
+        std::vector<int> newIndex(out.size());
+        for (size_t i = 0; i < order.size(); ++i)
+            newIndex[order[i]] = int(i);
+        std::vector<BoneRecord> sorted;
+        for (size_t i : order) {
+            sorted.push_back(out[i]);
+            if (sorted.back().parent >= 0)
+                sorted.back().parent = newIndex[size_t(sorted.back().parent)];
+        }
+        out = std::move(sorted);
+        return failedAt == 0;
+    }
+};
+
+// 4x3 matrices as row vectors use them: p * m is p's rows X, Y, Z summed
+// and the origin added.
+using Mat43 = std::array<float, 12>;
+Vec3f times(const Mat43& m, const Vec3f& v) {
+    return {v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9], v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10],
+            v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11]};
+}
+// a then b.
+Mat43 then(const Mat43& a, const Mat43& b) {
+    Mat43 out{};
+    for (size_t row = 0; row < 4; ++row)
+        for (size_t c = 0; c < 3; ++c) {
+            float v = row == 3 ? b[9 + c] : 0;
+            for (size_t k = 0; k < 3; ++k)
+                v += a[row * 3 + k] * b[k * 3 + c];
+            out[row * 3 + c] = v;
+        }
+    return out;
+}
+
+// A rotation key's 6 bytes: x, y and z as 11, 11 and 10 bits (0 to the
+// top of each standing for -1 to 1, as packed vertices' are), then w - 1
+// as a signed 16-bit fraction of 32767. w - 1 runs from -2 to 0, so for a
+// negative w (past -1) it wraps round: a positive number stands for that
+// less 65536. Read without the wrap, those keys had w over 1 (1.5 where
+// x, y and z leave 0.46 for it), and a bone flipped half a turn between
+// them and its neighbours: FireRunR's right elbow, the gun swinging down
+// and back, its tip 10 to 17 units under the meshes' own precomputed
+// place. Checked: x^2+y^2+z^2+w^2 comes to 1 on every key looked at, and a
+// bone's keys turn it smoothly.
+std::array<float, 4> rotationKey(const uint8_t* p) {
+    const uint32_t xyz = uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+    const int32_t raw = int32_t(uint16_t(p[4] | p[5] << 8));
+    const int32_t w = raw == 0 ? 0 : raw - 65536; // w - 1: 0, or below (wrapped or not, the same)
+    return {float(xyz & 0x7ff) / 2047 * 2 - 1, float((xyz >> 11) & 0x7ff) / 2047 * 2 - 1,
+            float(xyz >> 22) / 1023 * 2 - 1, 1 + float(w) / 32767};
+}
+
+// A quaternion's turn as a row-vector matrix: the usual (column-vector)
+// rotation matrix of it, taken as rows, which turns row vectors by its
+// conjugate. That's how the keys are meant (below).
+Mat43 rotation(std::array<float, 4> q) {
+    const float n = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    if (n <= 0)
+        return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+    const float x = q[0] / n, y = q[1] / n, z = q[2] / n, w = q[3] / n;
+    return {1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
+            2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+            2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y),
+            0, 0, 0};
+}
+
+std::array<float, 4> slerp(std::array<float, 4> a, std::array<float, 4> b, float t) {
+    float dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+    if (dot < 0) {
+        for (float& c : b)
+            c = -c;
+        dot = -dot;
+    }
+    float wa = 1 - t, wb = t;
+    if (dot < 0.9995f) {
+        const float th = std::acos(std::min(dot, 1.0f)), s = std::sin(th);
+        wa = std::sin((1 - t) * th) / s;
+        wb = std::sin(t * th) / s;
+    }
+    return {a[0] * wa + b[0] * wb, a[1] * wa + b[1] * wb, a[2] * wa + b[2] * wb, a[3] * wa + b[3] * wb};
+}
+
+// The Fallen's skeletal animation: a clip per animation, in the order of
+// their frames, each clip's keys in seconds at 30 frames a second (a clip
+// with no keys after 0 is one frame). A bone at time t in a clip turns by
+// its rotation key's conjugate, then by its placement's turn, from its
+// placement's origin moved by its position key (in its parent's space).
+// Checked on BajFanatic: in clip 0 at time 0 the bones put every vertex
+// shared between bones in the same place to within 0.03 units (with the
+// placements alone, 1.5), so the vertices are bound in that pose; clips
+// match the animations' frame counts exactly (BajFanatic's 4 its 50
+// frames, GrigSentryDrone's 30 its 1626).
+struct BonePoser {
+    const BoneReader& r;
+    const std::vector<BoneRecord>& bones;
+    // A clip's length in frames: its last key's time.
+    int clipFrames(size_t c) const {
+        float last = 0;
+        for (const BoneRecord& b : bones) {
+            if (c >= b.clipList.size())
+                continue;
+            const BoneRecord::Clip& k = b.clipList[c];
+            if (k.nPositions)
+                last = std::max(last, r.f32(k.positions + 16 * size_t(k.nPositions - 1)));
+            if (k.nRotations)
+                last = std::max(last, r.f32(k.rotations + 10 * size_t(k.nRotations - 1)));
+        }
+        return std::max(1, int(std::lround(last * 30)));
+    }
+    // Bone b's placement in its parent at time t of clip c.
+    Mat43 local(const BoneRecord& b, size_t c, float t) const { return localWith(b, r, b, c, t, false); }
+
+    // The same with another skeleton's keys for it (`keys`, read by
+    // `kr`): an animation set's (below), the bones matched by name.
+    // As the engine's key sampler: before the first key, the first; past
+    // the last, the last held, or looping the first; between, blended,
+    // a loop's last stretch toward the first key (its last key standing
+    // for the first again).
+    static Mat43 localWith(const BoneRecord& b, const BoneReader& r, const BoneRecord& keys, size_t c, float t,
+                           bool loop) {
+        Mat43 m = b.placement;
+        if (c >= keys.clipList.size())
+            return m;
+        const BoneRecord::Clip& k = keys.clipList[c];
+        if (k.nRotations) {
+            const uint32_t n = k.staticRotations ? 1 : k.nRotations;
+            size_t i = 0;
+            while (i + 1 < n && r.f32(k.rotations + 10 * (i + 1)) <= t)
+                ++i;
+            if (loop && n > 1 && i + 1 == n && t >= r.f32(k.rotations + 10 * i))
+                i = 0; // past the last key, looping: the first
+            auto q = rotationKey(r.data.data() + (k.rotations + 10 * i + 4 - r.base));
+            if (i + 1 < n && t > r.f32(k.rotations + 10 * i)) {
+                const float t0 = r.f32(k.rotations + 10 * i), t1 = r.f32(k.rotations + 10 * (i + 1));
+                const size_t to = loop && i + 2 == n ? 0 : i + 1;
+                if (t1 > t0 && t > t0)
+                    q = slerp(q, rotationKey(r.data.data() + (k.rotations + 10 * to + 4 - r.base)),
+                              std::min(1.0f, (t - t0) / (t1 - t0)));
+            }
+            Mat43 turn = b.placement;
+            turn[9] = turn[10] = turn[11] = 0;
+            m = then(rotation(q), turn);
+            m[9] = b.placement[9];
+            m[10] = b.placement[10];
+            m[11] = b.placement[11];
+        }
+        if (k.nPositions) {
+            const uint32_t n = k.staticPositions ? 1 : k.nPositions;
+            size_t i = 0;
+            while (i + 1 < n && r.f32(k.positions + 16 * (i + 1)) <= t)
+                ++i;
+            if (loop && n > 1 && i + 1 == n && t >= r.f32(k.positions + 16 * i))
+                i = 0;
+            Vec3f d{r.f32(k.positions + 16 * i + 4), r.f32(k.positions + 16 * i + 8), r.f32(k.positions + 16 * i + 12)};
+            if (i + 1 < n && t > r.f32(k.positions + 16 * i)) {
+                const float t0 = r.f32(k.positions + 16 * i), t1 = r.f32(k.positions + 16 * (i + 1));
+                const size_t to = loop && i + 2 == n ? 0 : i + 1;
+                if (t1 > t0 && t > t0) {
+                    const float f = std::min(1.0f, (t - t0) / (t1 - t0));
+                    for (size_t a = 0; a < 3; ++a)
+                        d[a] += f * (r.f32(k.positions + 16 * to + 4 + 4 * a) - d[a]);
+                }
+            }
+            // Its keys are in 3ds Max's axes (Z up, the figure facing -Y, its
+            // right -X); the skeleton's are Y up, facing -Z, right +X (the
+            // rotation keys are in those already). A crouch's drop was
+            // going backwards, a run's bob forwards and back.
+            d = {-d[0], d[2], d[1]};
+            for (size_t a = 0; a < 3; ++a)
+                m[9 + a] += sane(d[a]) ? d[a] : 0;
+        }
+        return m;
+    }
+};
+
+// One frame of a skeleton's vertices into `out` (frameVerts of them, in
+// packed units by Scale and Origin), each bone placed in its parent by
+// `local(i)`. Returns how many vertices some bone placed.
+template <class Local>
+size_t poseVertices(const BoneReader& r, const std::vector<BoneRecord>& bones, size_t frame, const Vec3f& scale,
+                    const Vec3f& origin, Vec3f* out, Local&& local) {
+    std::vector<Vec3f> sum(frame, Vec3f{});
+    std::vector<float> weight(frame, 0);
+    std::vector<Mat43> world(bones.size());
+    for (size_t i = 0; i < bones.size(); ++i) {
+        const BoneRecord& b = bones[i];
+        const Mat43 m = local(i);
+        world[i] = b.parent >= 0 ? then(m, world[size_t(b.parent)]) : m;
+        for (uint32_t j = 0; j < b.vertices; ++j) {
+            const size_t v = r.u32(b.indices + 4 * size_t(j));
+            const float w = r.f32(b.weights + 4 * size_t(j));
+            const Vec3f p{r.f32(b.positions + 12 * size_t(j)), r.f32(b.positions + 12 * size_t(j) + 4),
+                          r.f32(b.positions + 12 * size_t(j) + 8)};
+            if (v >= frame || !sane(w) || !sane(p[0]) || !sane(p[1]) || !sane(p[2]))
+                continue;
+            const Vec3f placed = times(world[i], p);
+            for (size_t a = 0; a < 3; ++a)
+                sum[v][a] += w * placed[a];
+            weight[v] += w;
+        }
+    }
+    size_t placed = 0;
+    for (size_t v = 0; v < frame; ++v) {
+        placed += weight[v] > 0;
+        for (size_t a = 0; a < 3; ++a)
+            out[v][a] = (weight[v] > 0 ? sum[v][a] / weight[v] : 0) / scale[a] + origin[a];
+    }
+    return placed;
+}
+
+// A vertex is the weighted sum of where its bones put it: p * the bone's
+// placement * its parents', up to the root (as row vectors; KiraCellLight's
+// one bone, "root", turns its float vertices into exactly its packed ones
+// so). The "offset" matrix isn't part of it: with it, bones disagree
+// about shared vertices by 5 units, without it by 1.5, and with the keys
+// (above) by 0.03. Every frame posed so when the clips add up to the
+// mesh's frames, else every frame in clip 0's first pose. Back into packed
+// units by Scale and Origin. Returns the bones (0 if the block isn't a
+// skeleton); `animated` says whether the frames were posed from the clips.
+int poseFromBones(const std::vector<uint8_t>& data, size_t base, size_t from, size_t to, const MeshTail& t,
+                  std::vector<Vec3f>& out, bool& animated) {
+    BoneReader r{data, base, from, to};
+    std::vector<BoneRecord> bones;
+    r.all(bones);
+    animated = false;
+    if (bones.empty())
+        return 0;
+    const BonePoser poser{r, bones};
+    // Which clip and time each frame is.
+    const size_t clips = bones[0].clipList.size();
+    bool clipsRead = clips > 0;
+    for (const BoneRecord& b : bones)
+        clipsRead = clipsRead && b.clipList.size() == clips;
+    std::vector<std::pair<size_t, float>> frames;
+    if (clipsRead)
+        for (size_t c = 0; c < clips; ++c)
+            for (int f = 0, n = poser.clipFrames(c); f < n; ++f)
+                frames.push_back({c, float(f) / 30});
+    animated = clipsRead && frames.size() == size_t(t.animFrames);
+    const auto frame = size_t(t.frameVerts);
+    out.assign(frame * size_t(t.animFrames), Vec3f{});
+    const size_t posed = animated ? frames.size() : 1;
+    for (size_t f = 0; f < posed; ++f) {
+        const size_t placed = poseVertices(r, bones, frame, t.scale, t.origin, out.data() + f * frame, [&](size_t i) {
+            return clipsRead ? poser.local(bones[i], animated ? frames[f].first : 0, animated ? frames[f].second : 0)
+                             : bones[i].placement;
+        });
+        // Most vertices have to be placed, or this isn't the mesh's skeleton.
+        if (f == 0 && placed * 10 < frame * 9)
+            return 0;
+    }
+    for (size_t f = posed; f < size_t(t.animFrames); ++f)
+        std::copy(out.begin(), out.begin() + std::ptrdiff_t(frame), out.begin() + std::ptrdiff_t(f * frame));
+    return int(bones.size());
+}
+
+// The Fallen's clips by name: before the bones, a table of the mesh's own
+// animations, (c, c, 4) and c x (u16 length and name, f32 seconds, i32 2,
+// u16 length and group), and after it another (c, c, 4) and c runs of
+// vertex keys for them (most empty): (k, k, 5) and k x (f32 time,
+// (n, n, 1) and n packed vertices (FrameVerts), (m, m, 64) and m x 12
+// bytes, a 24-byte bounding box). A clip with vertex keys is that vertex
+// animation (an ammo crate, a creature, a face's Blink or Phonemes); the
+// others are the bones' clip of the same index. Checked: ARD_TortureMachine's
+// 10 runs last its 10 animations' 400 frames; Quark's 5 clips are
+// BarFidget, BaseReference, Blink, Eyebrows and Phonemes, the last three
+// with vertex keys (2, 3 and 8), the bones holding still there.
+struct NamedClip {
+    std::string name;
+    std::vector<std::pair<float, size_t>> keys; // time, file offset of its packed vertices
+};
+
+// `keysEnd`: where the vertex keys' runs end (the face table follows).
+std::vector<NamedClip> findClipTable(const BoneReader& r, size_t frameVerts, size_t* keysEnd = nullptr) {
+    auto header = [&](size_t at, uint32_t flags, uint32_t& n) {
+        uint32_t f = 0;
+        return r.header(at, n, f) && f == flags;
+    };
+    for (size_t at = r.from; at + 12 < r.to; ++at) {
+        uint32_t c = 0;
+        if (!header(at, 4, c) || c == 0 || c > 4096)
+            continue;
+        // The names.
+        std::vector<NamedClip> clips(c);
+        size_t p = at + 12;
+        bool ok = true;
+        for (NamedClip& clip : clips) {
+            std::string group;
+            if (!r.name(p, clip.name) || clip.name.empty() || p + 2 + clip.name.size() + 8 > r.to) {
+                ok = false;
+                break;
+            }
+            p += 2 + clip.name.size();
+            const float seconds = r.f32(p);
+            p += 8;
+            if (!sane(seconds) || seconds < 0 || !r.name(p, group)) {
+                ok = false;
+                break;
+            }
+            p += 2 + group.size();
+        }
+        if (!ok)
+            continue;
+        // Its vertex keys: the next (c, c, 4) whose runs read.
+        for (size_t q = p; q + 12 < r.to; ++q) {
+            uint32_t c2 = 0;
+            if (!header(q, 4, c2) || c2 != c)
+                continue;
+            size_t k = q + 12;
+            bool runs = true;
+            for (NamedClip& clip : clips) {
+                clip.keys.clear();
+                uint32_t n = 0;
+                if (!header(k, 5, n)) {
+                    runs = false;
+                    break;
+                }
+                k += 12;
+                for (uint32_t j = 0; j < n && runs; ++j) {
+                    uint32_t v = 0, m = 0;
+                    if (k + 4 > r.to || !header(k + 4, 1, v) || v != frameVerts) {
+                        runs = false;
+                        break;
+                    }
+                    clip.keys.push_back({r.f32(k), k + 16});
+                    k += 16 + 4 * size_t(v);
+                    if (!header(k, 64, m) || k + 12 + 12 * size_t(m) + 24 > r.to) {
+                        runs = false;
+                        break;
+                    }
+                    k += 12 + 12 * size_t(m) + 24;
+                }
+            }
+            if (runs) {
+                if (keysEnd)
+                    *keysEnd = k;
+                return clips;
+            }
+        }
+        // The names without vertex keys (an animation set's).
+        for (NamedClip& clip : clips)
+            clip.keys.clear();
+        return clips;
+    }
+    return {};
+}
+
+// Fills the frames of a mesh's own animations from its named clips: each
+// frame at its time in the clip (30 a second), from the clip's vertex keys
+// (between two, blended) or else from its bones. Returns the frames filled.
+int framesFromClips(const std::vector<uint8_t>& data, size_t base, size_t from, size_t to, Mesh& mesh,
+                    int& bonesUsed) {
+    bonesUsed = 0;
+    const BoneReader r{data, base, from, to};
+    const std::vector<NamedClip> clips = findClipTable(r, size_t(mesh.frameVerts));
+    if (clips.empty())
+        return 0;
+    std::vector<BoneRecord> bones;
+    BoneReader(r).all(bones);
+    bool bonesUsable = !bones.empty();
+    for (const BoneRecord& b : bones)
+        bonesUsable = bonesUsable && b.clipList.size() == clips.size();
+    const BonePoser poser{r, bones};
+    const auto frame = size_t(mesh.frameVerts);
+    int filled = 0;
+    std::vector<Vec3f> pose(frame);
+    for (const MeshAnimSeq& a : mesh.anims) {
+        if (a.startFrame < 0 || a.numFrames <= 0 || a.startFrame + a.numFrames > mesh.animFrames)
+            continue;
+        size_t c = 0;
+        while (c < clips.size() && fs::toLower(clips[c].name) != fs::toLower(a.name))
+            ++c;
+        if (c == clips.size())
+            continue;
+        const NamedClip& clip = clips[c];
+        for (int f = 0; f < a.numFrames; ++f) {
+            const float t = float(f) / 30;
+            Vec3f* out = mesh.verts.data() + size_t(a.startFrame + f) * frame;
+            if (!clip.keys.empty()) {
+                size_t i = 0;
+                while (i + 1 < clip.keys.size() && clip.keys[i + 1].first <= t)
+                    ++i;
+                float blend = 0;
+                if (i + 1 < clip.keys.size() && clip.keys[i + 1].first > clip.keys[i].first && t > clip.keys[i].first)
+                    blend = std::min(1.0f, (t - clip.keys[i].first) / (clip.keys[i + 1].first - clip.keys[i].first));
+                for (size_t v = 0; v < frame; ++v) {
+                    Vec3f p = unpackVertex(r.u32(clip.keys[i].second + 4 * v));
+                    if (blend > 0) {
+                        const Vec3f q = unpackVertex(r.u32(clip.keys[i + 1].second + 4 * v));
+                        for (size_t k = 0; k < 3; ++k)
+                            p[k] += blend * (q[k] - p[k]);
+                    }
+                    out[v] = p;
+                }
+                ++filled;
+            } else if (bonesUsable &&
+                       poseVertices(r, bones, frame, mesh.scale, mesh.origin, pose.data(),
+                                    [&](size_t i) { return poser.local(bones[i], c, t); }) * 10 >= frame * 9) {
+                std::copy(pose.begin(), pose.end(), out);
+                ++filled;
+                // One bone is a prop (a chair's "root"), not a character.
+                if (bones.size() > 1)
+                    bonesUsed = int(bones.size());
+            }
+        }
+    }
+    return filled;
+}
+
+// The turn most of The Fallen's imported meshes' float copies show
+// (159 of 180 that have one); for those without one to fit.
+constexpr std::array<Vec3f, 3> kUsualImportAxes{Vec3f{1, 0, 0}, Vec3f{0, 0, 1}, Vec3f{0, -1, 0}};
+
+} // namespace
+
+bool isMeshClass(std::string_view className) {
+    const std::string c = fs::toLower(className);
+    return c == "mesh" || c == "lodmesh";
+}
+
+const MeshAnimSeq* Mesh::findAnim(std::string_view name) const {
+    const std::string wanted = fs::toLower(name);
+    for (const MeshAnimSeq& a : anims)
+        if (fs::toLower(a.name) == wanted)
+            return &a;
+    return nullptr;
+}
+
+// The attachment points: after the block's groups (FullBody, LowerTorso,
+// UpperTorso: (g, g, 10) and names), two empty (0, 0, 10) arrays, then
+// (n, n, 5) and per point: a name (16-bit length), i32 type (1: on a
+// triangle, 2: on the mesh's origin), i32 triangle, 12 floats (its turn,
+// rows X Y Z, then its offset) and i32 kind (4 or 7); then the shared
+// animation sets it uses and places worked out in advance (below).
+// Checked: on The
+// Fallen's 419 meshes with the block, every one reads; ARD_PrisonRat's
+// BitePoint is a triangle at the end of its body on its middle line, the
+// phaser rifle's FirePoint a triangle at the end of its barrel.
+namespace {
+
+void readAttachPoints(const std::vector<uint8_t>& data, Mesh& out) {
+    static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
+    size_t at = std::string::npos;
+    for (size_t i = 0; i + sizeof anchor + 12 <= data.size(); ++i)
+        if (std::memcmp(data.data() + i, anchor, sizeof anchor) == 0)
+            at = i + sizeof anchor;
+    if (at == std::string::npos)
+        return;
+    auto i32 = [&](size_t p) {
+        int32_t v;
+        std::memcpy(&v, data.data() + p, 4);
+        return v;
+    };
+    auto f32 = [&](size_t p) {
+        float v;
+        std::memcpy(&v, data.data() + p, 4);
+        return v;
+    };
+    const int32_t n = i32(at);
+    if (n <= 0 || n != i32(at + 4) || i32(at + 8) != 5 || n > 1000)
+        return;
+    size_t p = at + 12;
+    std::vector<MeshAttachPoint> points;
+    for (int32_t k = 0; k < n; ++k) {
+        if (p + 2 > data.size())
+            return;
+        const size_t len = size_t(data[p]) | size_t(data[p + 1]) << 8;
+        if (len == 0 || p + 2 + len + 4 + 4 + 48 + 4 > data.size())
+            return;
+        MeshAttachPoint a;
+        a.name.assign(reinterpret_cast<const char*>(data.data() + p + 2), len);
+        p += 2 + len;
+        a.type = i32(p);
+        a.triangle = i32(p + 4);
+        if (a.type != 1 && a.type != 2)
+            return;
+        for (size_t row = 0; row < 3; ++row)
+            for (size_t c = 0; c < 3; ++c)
+                a.axes[row][c] = f32(p + 8 + 4 * (row * 3 + c));
+        for (size_t c = 0; c < 3; ++c)
+            a.offset[c] = f32(p + 44 + 4 * c);
+        a.kind = i32(p + 56);
+        p += 60;
+        if (!sane(a.offset[0]) || !sane(a.offset[1]) || !sane(a.offset[2]))
+            return;
+        points.push_back(std::move(a));
+    }
+    out.attachPoints = std::move(points);
+    // Then (s, s, 5) the shared animation sets it uses (names, 16-bit
+    // lengths: "shared.Male"), and (m, m, 4) places worked out in advance:
+    // per place a name, 12 floats and i32 kind, from the mesh's origin (as
+    // a type 2 point).
+    if (p + 12 > data.size() || i32(p) != i32(p + 4) || i32(p + 8) != 5 || i32(p) < 0 || i32(p) > 100)
+        return;
+    const int32_t sets = i32(p);
+    p += 12;
+    for (int32_t k = 0; k < sets; ++k) {
+        if (p + 2 > data.size())
+            return;
+        const size_t len = size_t(data[p]) | size_t(data[p + 1]) << 8;
+        if (p + 2 + len > data.size())
+            return;
+        out.animationSetNames.emplace_back(reinterpret_cast<const char*>(data.data() + p + 2), len);
+        p += 2 + len;
+    }
+    if (p + 12 > data.size() || i32(p) != i32(p + 4) || i32(p + 8) != 4 || i32(p) < 0 || i32(p) > 1000)
+        return;
+    const int32_t m = i32(p);
+    p += 12;
+    std::vector<MeshAttachPoint> places;
+    for (int32_t k = 0; k < m; ++k) {
+        if (p + 2 > data.size())
+            return;
+        const size_t len = size_t(data[p]) | size_t(data[p + 1]) << 8;
+        if (len == 0 || p + 2 + len + 48 + 4 > data.size())
+            return;
+        MeshAttachPoint a;
+        a.name.assign(reinterpret_cast<const char*>(data.data() + p + 2), len);
+        p += 2 + len;
+        a.type = 2;
+        for (size_t row = 0; row < 3; ++row)
+            for (size_t c = 0; c < 3; ++c)
+                a.axes[row][c] = f32(p + 4 * (row * 3 + c));
+        for (size_t c = 0; c < 3; ++c)
+            a.offset[c] = f32(p + 36 + 4 * c);
+        a.kind = i32(p + 48);
+        p += 52;
+        if (!sane(a.offset[0]) || !sane(a.offset[1]) || !sane(a.offset[2]))
+            return;
+        places.push_back(std::move(a));
+    }
+    out.precomputedPoints = std::move(places);
+}
+
+} // namespace
+
+Error readMesh(const Package& package, int index, Mesh& out) {
+    out = Mesh{};
+    std::vector<uint8_t> data;
+    if (Error err = package.readExport(index, data))
+        return err;
+    const std::string what = package.path(index + 1);
+    const int ver = package.version();
+    Reader r(data, size_t(package.exports()[size_t(index)].serialOffset));
+    PropertyList props;
+    if (Error err = beginObject(package, index, r, props))
+        return err;
+    out.lod = fs::toLower(package.className(index + 1)) == "lodmesh";
+    auto fail = [&](const std::string& why) {
+        return Error::fail(what + ": " + why + " (at file offset " + std::to_string(r.pos()) + ")");
+    };
+
+    // As any primitive: bounding box and sphere.
+    r.skip(25);
+    r.skip(ver > 61 ? 16 : 12);
+
+    // Vertices, all frames'. Their size is told by the lazy array's end:
+    // 4 bytes (11, 11 and 10 bits) as usual, or 8 (16 bits each).
+    size_t end = 0, n = 0;
+    if (!lazyCount(r, ver, 4, end, n))
+        return fail("vertices run past the end");
+    if (n && end > r.pos() && (end - r.pos()) % n == 0)
+        out.vertexBytes = int((end - r.pos()) / n);
+    if (out.vertexBytes != 4 && out.vertexBytes != 8)
+        return fail(std::to_string(out.vertexBytes) + "-byte vertices");
+    out.verts.resize(n);
+    for (Vec3f& v : out.verts) {
+        if (out.vertexBytes == 4) {
+            const uint32_t p = r.u32();
+            v = {float(int32_t(p << 21) >> 21), float(int32_t(p << 10) >> 21), float(int32_t(p) >> 22)};
+        } else {
+            v[0] = float(r.i16());
+            v[1] = float(r.i16());
+            v[2] = float(r.i16());
+            r.skip(2);
+        }
+    }
+    if (!r.ok())
+        return fail("vertices run past the end");
+
+    // Triangles (a LodMesh keeps its own below, these are empty).
+    if (!lazyCount(r, ver, 20, end, n))
+        return fail("triangles run past the end");
+    if (end && n && end - r.pos() != n * 20)
+        return fail("triangles of " + std::to_string((end - r.pos()) / n) + " bytes");
+    out.tris.resize(n);
+    for (MeshTri& t : out.tris) {
+        for (int32_t& v : t.vertex)
+            v = r.u16();
+        for (auto& uv : t.uv) {
+            uv[0] = float(r.u8()) / 256;
+            uv[1] = float(r.u8()) / 256;
+        }
+        t.polyFlags = r.u32();
+        t.textureIndex = r.i32();
+    }
+
+    // Animation sequences, each with its notifications (time, function).
+    if (!count(r, 16, n))
+        return fail("animation sequences run past the end");
+    out.anims.resize(n);
+    for (MeshAnimSeq& a : out.anims) {
+        a.name = package.name(r.index());
+        a.group = package.name(r.index());
+        a.startFrame = r.i32();
+        a.numFrames = r.i32();
+        size_t notifies = 0;
+        if (!count(r, 5, notifies))
+            return fail("animation notifications run past the end");
+        for (size_t k = 0; k < notifies; ++k) {
+            MeshAnimSeq::Notify note;
+            note.time = r.f32();
+            note.function = package.name(r.index());
+            a.notifies.push_back(std::move(note));
+        }
+        a.rate = r.f32();
+    }
+    if (!r.ok())
+        return fail("animation sequences run past the end");
+
+    skipLazy(r, ver, 8); // connects: per vertex, its triangles
+    r.skip(25);          // bounding box
+    r.skip(ver > 61 ? 16 : 12);
+    skipLazy(r, ver, 4); // vertex links
+    if (!count(r, 1, n))
+        return fail("textures run past the end");
+    out.textures.resize(n);
+    for (int32_t& t : out.textures)
+        t = r.index();
+    const size_t afterTextures = r.pos();
+    size_t blockEnd = 0;     // where an imported-model block ends
+    bool vertexKeys = false; // its vertices were the clips' keys, not every frame
+
+    // The standard layout: the tail right here, the vertices read above.
+    MeshTail tail;
+    Reader t = r;
+    Error err = readTail(t, ver, out.lod, tail);
+    if (!err && (out.verts.empty() || size_t(tail.frameVerts) * size_t(tail.animFrames) != out.verts.size()))
+        err = Error::fail("no vertices where expected");
+    if (!err) {
+        out.trailingBytes = t.remaining();
+    } else {
+        // The Fallen's layout: an imported-model block before the tail,
+        // holding the vertices. Its tail is where the standard fields
+        // read from to exactly the end and agree with themselves, found
+        // from the end back (the block can be large; the tail is near the end).
+        const size_t end = r.end();
+        bool found = false;
+        blockEnd = 0;
+        for (size_t at = end; at-- > afterTextures && !found;) {
+            Reader c = r;
+            c.seek(at);
+            MeshTail candidate;
+            if (readTail(c, ver, out.lod, candidate) || c.remaining() != 0 || !plausible(candidate, out.lod))
+                continue;
+            std::vector<Vec3f> verts;
+            int keys = 0, bones = 0;
+            bool animated = false, perFrame = false;
+            const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
+            // The standard vertices, and a few bytes before the standard
+            // fields (Shared.u's glass and debris fragments have an i32 0).
+            if (!out.verts.empty() && out.verts.size() == size_t(candidate.frameVerts) * size_t(candidate.animFrames)) {
+                tail = std::move(candidate);
+                out.importBlock = at - afterTextures;
+                blockEnd = at;
+                found = true;
+                break;
+            }
+            if (!findVertexBlock(data, base, afterTextures, at, candidate, verts, keys, perFrame) &&
+                (bones = poseFromBones(data, base, afterTextures, at, candidate, verts, animated)) == 0)
+                continue;
+            // Keyframed (some frames of vertices only): its bones, if they
+            // animate every frame, do better.
+            if (keys) {
+                std::vector<Vec3f> posed;
+                bool all = false;
+                if (const int n = poseFromBones(data, base, afterTextures, at, candidate, posed, all); n && all) {
+                    verts = std::move(posed);
+                    bones = n;
+                    animated = true;
+                    keys = 0;
+                }
+            }
+            out.bones = bones;
+            out.bonesAnimated = animated;
+            tail = std::move(candidate);
+            out.verts = std::move(verts);
+            out.keyFrames = keys;
+            vertexKeys = perFrame && bones == 0;
+            out.vertexBytes = 4;
+            out.importBlock = at - afterTextures;
+            blockEnd = at;
+            out.importAxes = importAxes(data, size_t(package.exports()[size_t(index)].serialOffset), afterTextures, at,
+                                        out, tail);
+            if (!out.importAxes) {
+                out.importAxes = kUsualImportAxes;
+                out.importAxesGuessed = !bones;
+            }
+            found = true;
+        }
+        if (!found)
+            return fail("neither the standard layout (" + err.message + ") nor an imported-model block before the "
+                        "standard fields fits");
+    }
+    out.frameVerts = tail.frameVerts;
+    out.animFrames = tail.animFrames;
+    out.scale = tail.scale;
+    out.origin = tail.origin;
+    out.rotOrigin = tail.rotOrigin;
+    if (out.lod)
+        out.tris = std::move(tail.tris);
+    else if (out.tris.empty())
+        return fail("its triangles aren't in the standard place (a Mesh with an imported-model block isn't read yet)");
+
+    // The pieces have to agree, which they won't if a layout above is off.
+    if (out.frameVerts <= 0 || out.animFrames <= 0 ||
+        size_t(out.frameVerts) * size_t(out.animFrames) != out.verts.size())
+        return fail(std::to_string(out.verts.size()) + " vertices for " + std::to_string(out.animFrames) +
+                    " frames of " + std::to_string(out.frameVerts));
+    for (const MeshTri& t : out.tris)
+        for (int32_t v : t.vertex)
+            if (v < 0 || v >= out.frameVerts)
+                return fail("a triangle's vertex is out of range");
+    // The Fallen's clips by name: every frame of the mesh's own animations
+    // from their vertex keys or bones (better than what's above where the
+    // vertices were only some keyframes).
+    if (blockEnd && (out.keyFrames || out.bones || vertexKeys || std::getenv("RELUVA_CLIPS_ALWAYS"))) {
+        const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
+        int bonesUsed = 0;
+        if (const int filled = framesFromClips(data, base, afterTextures, blockEnd, out, bonesUsed); filled > 0) {
+            out.framesFromClips = filled;
+            out.keyFrames = 0;
+            // A skeleton that places the mesh (so it can take shared animations).
+            if (bonesUsed && !out.bones) {
+                out.bones = bonesUsed;
+                out.bonesAnimated = true;
+            }
+        }
+    }
+
+    // Animations whose frames run past the mesh's are left out (The
+    // Fallen's JadziaDax has a test one like that), not the whole mesh.
+    // The Fallen's characters list many of those: another mesh's.
+    for (const MeshAnimSeq& a : out.anims)
+        if (a.startFrame < 0 || a.numFrames < 0 || a.startFrame + a.numFrames > out.animFrames)
+            out.otherAnims.push_back(a);
+    const size_t anims = out.anims.size();
+    std::erase_if(out.anims, [&](const MeshAnimSeq& a) {
+        return a.startFrame < 0 || a.numFrames < 0 || a.startFrame + a.numFrames > out.animFrames;
+    });
+    out.droppedAnims = int(anims - out.anims.size());
+    if (out.importBlock)
+        readAttachPoints(data, out);
+    return Error::success();
+}
+
+// The IK chains a skeleton keeps (Engine.dll's C3DIKCHAIN; only
+// Shared.Male's has them, and the player takes them through its alt
+// meshes): after the body parts' names, (n, n, 10) and per chain its name,
+// its root and end bones (u16-long strings), a 4x3 matrix and its flags
+// (the effector, in the end bone's axes; 7 the identity), (s, s, 10) steps
+// of a bone and the axis it turns about (0 Y, 1 X, 2 Z), the iterations
+// and a tolerance. Each step's bone limits are its own skeleton's.
+struct IkChain {
+    std::string name, root, end;
+    Mat43 effector{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+    std::vector<std::pair<std::string, int>> steps;
+    std::vector<std::array<float, 6>> limits; // per step
+    int iterations = 0;
+    float tolerance = 0;
+};
+
+std::vector<IkChain> findIkChains(const BoneReader& r, const std::vector<BoneRecord>& bones) {
+    std::vector<IkChain> out;
+    auto limitsOf = [&](const std::string& bone) {
+        for (const BoneRecord& b : bones)
+            if (fs::toLower(b.name) == fs::toLower(bone))
+                return b.limits;
+        return BoneRecord{}.limits;
+    };
+    auto known = [&](const std::string& bone) {
+        return std::any_of(bones.begin(), bones.end(),
+                           [&](const BoneRecord& b) { return fs::toLower(b.name) == fs::toLower(bone); });
+    };
+    for (size_t at = r.from; at + 12 < r.to; ++at) {
+        uint32_t n = 0, flags = 0;
+        if (!r.header(at, n, flags) || flags != 10 || n == 0 || n > 32)
+            continue;
+        std::vector<IkChain> chains;
+        size_t p = at + 12;
+        bool ok = true;
+        auto str = [&](std::string& s) {
+            if (!r.name(p, s) || s.empty())
+                return false;
+            p += 2 + s.size();
+            return true;
+        };
+        for (uint32_t c = 0; ok && c < n; ++c) {
+            IkChain k;
+            ok = str(k.name) && str(k.root) && str(k.end) && known(k.root) && known(k.end) && p + 52 + 12 <= r.to;
+            if (!ok)
+                break;
+            const uint32_t matFlags = r.u32(p + 48);
+            if (matFlags != 7)
+                for (size_t i = 0; i < 12; ++i)
+                    k.effector[i] = r.f32(p + 4 * i);
+            p += 52;
+            uint32_t steps = 0, sf = 0;
+            ok = r.header(p, steps, sf) && steps <= 64;
+            p += 12;
+            for (uint32_t i = 0; ok && i < steps; ++i) {
+                std::string bone;
+                ok = str(bone) && known(bone) && p + 4 <= r.to;
+                if (!ok)
+                    break;
+                const int axis = int(r.u32(p));
+                p += 4;
+                ok = axis >= 0 && axis <= 2;
+                k.steps.emplace_back(bone, axis);
+                k.limits.push_back(limitsOf(bone));
+            }
+            ok = ok && p + 8 <= r.to;
+            if (!ok)
+                break;
+            k.iterations = int(r.u32(p));
+            k.tolerance = r.f32(p + 4);
+            p += 8;
+            ok = k.iterations > 0 && k.iterations <= 64 && std::isfinite(k.tolerance);
+            chains.push_back(std::move(k));
+        }
+        if (ok && chains.size() == n)
+            return chains;
+    }
+    return out;
+}
+
+struct AnimationSet::Impl {
+    std::vector<uint8_t> data;
+    size_t base = 0, from = 0, to = 0;
+    std::vector<BoneRecord> bones;
+    std::vector<IkChain> chains;
+    std::vector<int> clipStart, clipFrames; // per clip
+    std::vector<std::string> clipNames;     // lower case, if it names them
+    BoneReader reader() const { return BoneReader{data, base, from, to}; }
+};
+
+AnimationSet::AnimationSet() = default;
+AnimationSet::~AnimationSet() = default;
+AnimationSet::AnimationSet(AnimationSet&&) noexcept = default;
+AnimationSet& AnimationSet::operator=(AnimationSet&&) noexcept = default;
+
+int AnimationSet::frames() const {
+    return impl && !impl->clipStart.empty() ? impl->clipStart.back() + impl->clipFrames.back() : 0;
+}
+
+int AnimationSet::clipFor(int32_t startFrame, int32_t numFrames, std::string_view name) const {
+    if (!impl)
+        return -1;
+    const auto it = std::lower_bound(impl->clipStart.begin(), impl->clipStart.end(), startFrame);
+    if (it == impl->clipStart.end() || *it != startFrame)
+        return -1;
+    const auto c = size_t(it - impl->clipStart.begin());
+    if (impl->clipFrames[c] != numFrames)
+        return -1;
+    if (!name.empty() && c < impl->clipNames.size() && impl->clipNames[c] != fs::toLower(name))
+        return -1;
+    return int(c);
+}
+
+namespace {
+
+// An export's data after its properties, and the skeleton in it.
+Error readBones(const Package& package, int index, std::vector<uint8_t>& data, size_t& from,
+                std::vector<BoneRecord>& bones) {
+    if (Error err = package.readExport(index, data))
+        return err;
+    const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
+    Reader r(data, base);
+    PropertyList props;
+    if (Error err = beginObject(package, index, r, props))
+        return err;
+    from = r.pos();
+    BoneReader br{data, base, from, base + data.size()};
+    br.all(bones);
+    if (bones.empty())
+        return Error::fail(package.path(index + 1) + ": no skeleton");
+    return Error::success();
+}
+
+} // namespace
+
+Error readAnimationSet(const Package& package, int index, AnimationSet& out) {
+    auto impl = std::make_unique<AnimationSet::Impl>();
+    if (Error err = readBones(package, index, impl->data, impl->from, impl->bones))
+        return err;
+    impl->base = size_t(package.exports()[size_t(index)].serialOffset);
+    impl->to = impl->base + impl->data.size();
+    const size_t clips = impl->bones[0].clipList.size();
+    for (const BoneRecord& b : impl->bones)
+        if (b.clipList.size() != clips)
+            return Error::fail(package.path(index + 1) + ": its bones' clips don't agree");
+    const BoneReader r = impl->reader();
+    const BonePoser poser{r, impl->bones};
+    int start = 0;
+    for (size_t c = 0; c < clips; ++c) {
+        impl->clipStart.push_back(start);
+        impl->clipFrames.push_back(poser.clipFrames(c));
+        start += impl->clipFrames.back();
+    }
+    if (clips == 0)
+        return Error::fail(package.path(index + 1) + ": no clips");
+    for (const NamedClip& c : findClipTable(r, 0))
+        impl->clipNames.push_back(fs::toLower(c.name));
+    if (impl->clipNames.size() != clips)
+        impl->clipNames.clear();
+    impl->chains = findIkChains(r, impl->bones);
+    out.impl = std::move(impl);
+    return Error::success();
+}
+
+Error borrowAnimation(const Package& package, int index, const AnimationSet& set, int clip, const MeshAnimSeq& seq,
+                      Mesh& mesh) {
+    if (!set.impl || clip < 0 || size_t(clip) >= set.impl->clipFrames.size())
+        return Error::fail("no such clip");
+    std::vector<uint8_t> data;
+    size_t from = 0;
+    std::vector<BoneRecord> bones;
+    if (Error err = readBones(package, index, data, from, bones))
+        return err;
+    const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
+    const BoneReader r{data, base, from, base + data.size()};
+    const BoneReader sr = set.impl->reader();
+    // The set's bone for each of the mesh's, by name.
+    std::vector<const BoneRecord*> keys(bones.size(), nullptr);
+    size_t matched = 0;
+    for (size_t i = 0; i < bones.size(); ++i)
+        for (const BoneRecord& sb : set.impl->bones)
+            if (sb.name == bones[i].name) {
+                keys[i] = &sb;
+                ++matched;
+                break;
+            }
+    if (matched * 2 < bones.size())
+        return Error::fail(package.path(index + 1) + ": its bones aren't the set's");
+    const auto frame = size_t(mesh.frameVerts);
+    const int n = set.impl->clipFrames[size_t(clip)];
+    const size_t first = mesh.verts.size();
+    mesh.verts.resize(first + frame * size_t(n));
+    for (int f = 0; f < n; ++f)
+        poseVertices(r, bones, frame, mesh.scale, mesh.origin, mesh.verts.data() + first + size_t(f) * frame,
+                     [&](size_t i) {
+                         return keys[i] ? BonePoser::localWith(bones[i], sr, *keys[i], size_t(clip), float(f) / 30, false)
+                                        : bones[i].placement;
+                     });
+    MeshAnimSeq a = seq;
+    a.startFrame = mesh.animFrames;
+    a.numFrames = n;
+    mesh.anims.push_back(a);
+    mesh.animFrames += n;
+    return Error::success();
+}
+
+std::vector<AnimationSet> findAnimationSets(const PackageSet& packages) {
+    std::vector<AnimationSet> out;
+    for (const std::string& name : packages.names(".u")) {
+        const Package* p = packages.get(name);
+        if (!p)
+            continue;
+        for (size_t i = 0; i < p->exports().size(); ++i) {
+            if (fs::toLower(p->className(int32_t(i) + 1)) != "mesh")
+                continue;
+            AnimationSet set;
+            if (readAnimationSet(*p, int(i), set))
+                continue;
+            uint32_t vertices = 0;
+            for (const BoneRecord& b : set.impl->bones)
+                vertices += b.vertices;
+            if (vertices == 0)
+                out.push_back(std::move(set));
+        }
+    }
+    return out;
+}
+
+std::shared_ptr<const std::vector<AnimationSet>> sharedAnimationSets(const PackageSet& packages) {
+    static std::mutex lock;
+    static std::map<const PackageSet*, std::weak_ptr<const std::vector<AnimationSet>>> read;
+    std::lock_guard<std::mutex> guard(lock);
+    if (auto have = read[&packages].lock())
+        return have;
+    auto sets = std::make_shared<const std::vector<AnimationSet>>(findAnimationSets(packages));
+    read[&packages] = sets;
+    return sets;
+}
+
+bool borrowNamedAnimation(const Package& package, int index, const std::vector<AnimationSet>& sets,
+                          std::string_view name, Mesh& mesh) {
+    if (!mesh.bones || mesh.findAnim(name))
+        return false;
+    const std::string wanted = fs::toLower(name);
+    for (const MeshAnimSeq& seq : mesh.otherAnims) {
+        if (fs::toLower(seq.name) != wanted)
+            continue;
+        for (const AnimationSet& set : sets)
+            if (const int clip = set.clipFor(seq.startFrame, seq.numFrames, seq.name); clip >= 0) {
+                const MeshAnimSeq copy = seq; // mesh.otherAnims may not survive the borrowing
+                return !borrowAnimation(package, index, set, clip, copy, mesh);
+            }
+        return false;
+    }
+    return false;
+}
+
+std::vector<std::string> describeMeshLayout(const Package& package, int index) {
+    std::vector<std::string> out;
+    std::vector<uint8_t> data;
+    if (package.readExport(index, data))
+        return out;
+    const size_t base = size_t(package.exports()[size_t(index)].serialOffset), end = base + data.size();
+    auto u32At = [&](size_t at) {
+        const uint8_t* p = data.data() + (at - base);
+        return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+    };
+    Reader r(data, base);
+    PropertyList props;
+    if (beginObject(package, index, r, props))
+        return out;
+    const size_t start = r.pos();
+    char line[160];
+    out.push_back("Array headers (i32 n, i32 n, i32 flags; n 1-1000000), offsets from the properties' end:");
+    auto header = [&](size_t at) {
+        const uint32_t n = u32At(at);
+        return at + 12 <= end && n != 0 && n <= 1000000 && u32At(at + 4) == n && u32At(at + 8) <= 0xffff;
+    };
+    for (size_t at = start; at + 12 <= end; ++at) {
+        // A header seen a byte early (its count shifted up) is left out.
+        if (!header(at) || header(at + 1))
+            continue;
+        std::snprintf(line, sizeof line, "  +%zu: n %u, flags %u", at - start, u32At(at), u32At(at + 8));
+        out.push_back(line);
+    }
+    out.push_back("Places the standard tail reads from to the end, holding together:");
+    const bool lod = fs::toLower(package.className(index + 1)) == "lodmesh";
+    for (size_t at = start; at < end; ++at) {
+        Reader c = r;
+        c.seek(at);
+        MeshTail t;
+        if (readTail(c, package.version(), lod, t) || c.remaining() != 0 || !plausible(t, lod))
+            continue;
+        std::snprintf(line, sizeof line, "  +%zu: %d vertices x %d frames, scale %g %g %g, %zu triangles", at - start,
+                      t.frameVerts, t.animFrames, double(t.scale[0]), double(t.scale[1]), double(t.scale[2]),
+                      t.tris.size());
+        out.push_back(line);
+    }
+    return out;
+}
+
+std::vector<std::string> describeBones(const Package& package, int index) {
+    std::vector<std::string> out;
+    std::vector<uint8_t> data;
+    if (package.readExport(index, data))
+        return out;
+    const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
+    size_t start = base;
+    {
+        Reader r(data, base);
+        PropertyList props;
+        if (beginObject(package, index, r, props))
+            return out;
+        start = r.pos();
+    }
+    BoneReader r{data, base, start, base + data.size()};
+    const size_t first = r.first();
+    if (!first)
+        return out;
+    std::vector<BoneRecord> bones;
+    const bool whole = r.all(bones);
+    out.push_back("Bones (offsets from the properties' end; the first at +" + std::to_string(first - start) + "):");
+    std::vector<int> depth(bones.size(), 0);
+    char line[512];
+    int shown = 0;
+    for (size_t i = 0; i < bones.size(); ++i) {
+        const BoneRecord& b = bones[i];
+        depth[i] = b.parent >= 0 ? depth[size_t(b.parent)] + 1 : 1;
+        const int d = depth[i] * 2;
+        std::snprintf(line, sizeof line, "%*s%s: %u vertices, origin (%g %g %g), kind %u, %u clips", d, "",
+                      b.name.c_str(), b.vertices, double(b.placement[9]), double(b.placement[10]),
+                      double(b.placement[11]), b.kind, b.clips);
+        out.push_back(line);
+        if (!b.end) {
+            out.push_back(std::string(size_t(d) + 2, ' ') + "its clips aren't understood, so neither are its children");
+            continue;
+        }
+        std::string keys;
+        size_t p = b.clipsAt;
+        for (uint32_t c = 0; c < b.clips; ++c) {
+            const uint32_t np = r.u32(p);
+            const size_t pos = p + 12;
+            p = pos + 16 * size_t(np);
+            const uint32_t nr = r.u32(p);
+            const size_t rot = p + 12;
+            p = rot + 10 * size_t(nr) + 8;
+            if (c < 6) {
+                std::snprintf(line, sizeof line, " %u/%u", np, nr);
+                keys += line;
+            }
+            // A few clips' keys, decoded, for checking.
+            if (nr >= 3 && shown < 3) {
+                ++shown;
+                out.push_back(std::string(size_t(d) + 4, ' ') + "clip " + std::to_string(c) +
+                              " rotation keys (time: x y z w):");
+                for (uint32_t j = 0; j < nr && j < 12; ++j) {
+                    const auto q = rotationKey(data.data() + (rot + 10 * size_t(j) + 4 - base));
+                    std::snprintf(line, sizeof line, "%*s%.4f: %.3f %.3f %.3f %.3f", d + 6, "",
+                                  double(r.f32(rot + 10 * size_t(j))), double(q[0]), double(q[1]), double(q[2]),
+                                  double(q[3]));
+                    out.push_back(line);
+                }
+            }
+        }
+        out.push_back(std::string(size_t(d) + 2, ' ') + "keys (position/rotation) of the first clips:" + keys);
+    }
+    if (whole) {
+        out.push_back(std::to_string(bones.size()) + " bones, all in one tree");
+    } else {
+        int w = std::snprintf(line, sizeof line,
+                              "%zu bones; at +%zu not understood (some bones' parents not known, placed from the "
+                              "root):",
+                              bones.size(), r.failedAt - start);
+        for (size_t k = 0; k < 64 && r.failedAt + k < base + data.size(); ++k)
+            w += std::snprintf(line + w, sizeof line - size_t(w), " %02x", data[r.failedAt + k - base]);
+        out.push_back(line);
+    }
+    return out;
+}
+
+// --- Posed at draw time ---------------------------------------------------------------------
+
+namespace {
+
+Vec3f vsub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
+Vec3f vadd(const Vec3f& a, const Vec3f& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
+Vec3f vmul(const Vec3f& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
+float vdot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+Vec3f vcross(const Vec3f& a, const Vec3f& b) {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+}
+float vlen(const Vec3f& a) { return std::sqrt(vdot(a, a)); }
+Vec3f vunit(const Vec3f& a) {
+    const float l = vlen(a);
+    return l > 1e-6f ? vmul(a, 1 / l) : Vec3f{0, 0, 0};
+}
+
+Vec3f rowOf(const Mat43& m, size_t row) { return {m[row * 3], m[row * 3 + 1], m[row * 3 + 2]}; }
+void setRow(Mat43& m, size_t row, const Vec3f& v) {
+    for (size_t c = 0; c < 3; ++c)
+        m[row * 3 + c] = v[c];
+}
+
+// The matrix that undoes m (its turn may scale).
+Mat43 inverseOf(const Mat43& m) {
+    const float a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h = m[7], i = m[8];
+    const float det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+    if (std::fabs(det) < 1e-12f)
+        return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+    const float k = 1 / det;
+    Mat43 out{(e * i - f * h) * k, (c * h - b * i) * k, (b * f - c * e) * k,
+              (f * g - d * i) * k, (a * i - c * g) * k, (c * d - a * f) * k,
+              (d * h - e * g) * k, (b * g - a * h) * k, (a * e - b * d) * k, 0, 0, 0};
+    const Vec3f t{m[9], m[10], m[11]};
+    for (size_t col = 0; col < 3; ++col)
+        out[9 + col] = -(t[0] * out[col] + t[1] * out[3 + col] + t[2] * out[6 + col]);
+    return out;
+}
+
+// A turn by `radians` about `axis` (a unit vector), as a row-vector matrix:
+// p * it is p turned (right-handed about the axis).
+Mat43 turnAbout(const Vec3f& axis, float radians) {
+    const float c = std::cos(radians), s = std::sin(radians), t = 1 - c;
+    const float x = axis[0], y = axis[1], z = axis[2];
+    // The column-vector matrix's transpose.
+    return {t * x * x + c,     t * x * y + s * z, t * x * z - s * y,
+            t * x * y - s * z, t * y * y + c,     t * y * z + s * x,
+            t * x * z + s * y, t * y * z - s * x, t * z * z + c,
+            0, 0, 0};
+}
+
+// The least turn that takes direction u to direction v.
+Mat43 turnFromTo(const Vec3f& u, const Vec3f& v) {
+    const Vec3f a = vunit(u), b = vunit(v);
+    const Vec3f axis = vcross(a, b);
+    const float sine = vlen(axis), cosine = vdot(a, b);
+    if (sine < 1e-6f) {
+        if (cosine > 0)
+            return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+        // Opposite: half a turn about any axis across them.
+        Vec3f across = vcross(a, Vec3f{1, 0, 0});
+        if (vlen(across) < 1e-3f)
+            across = vcross(a, Vec3f{0, 1, 0});
+        return turnAbout(vunit(across), 3.14159265f);
+    }
+    return turnAbout(vmul(axis, 1 / sine), std::atan2(sine, cosine));
+}
+
+// Axes `from` moved `t` of the way to `to`, kept square to each other.
+std::array<Vec3f, 3> blendAxes(const std::array<Vec3f, 3>& from, const std::array<Vec3f, 3>& to, float t) {
+    std::array<Vec3f, 3> m;
+    for (size_t k = 0; k < 3; ++k)
+        m[k] = vadd(from[k], vmul(vsub(to[k], from[k]), t));
+    const Vec3f x = vunit(m[0]);
+    const Vec3f y = vunit(vsub(m[1], vmul(x, vdot(m[1], x))));
+    Vec3f z = vsub(m[2], vadd(vmul(x, vdot(m[2], x)), vmul(y, vdot(m[2], y))));
+    z = vunit(z);
+    if (vlen(x) == 0 || vlen(y) == 0 || vlen(z) == 0)
+        return t < 0.5f ? from : to;
+    return {x, y, z};
+}
+
+} // namespace
+
+struct LayeredPoser::Impl {
+    std::vector<uint8_t> data;
+    size_t base = 0, from = 0;
+    std::vector<BoneRecord> bones;
+    std::vector<IkChain> chains; // its own, else its shared sets' (Male's)
+    // Its animation groups' names (FullBody, LowerTorso, UpperTorso), in
+    // order: the bones' group lists index them.
+    std::vector<std::string> groupNames;
+    const IkChain* chain(const std::string& name) const {
+        for (const IkChain& c : chains)
+            if (fs::toLower(c.name) == fs::toLower(name))
+                return &c;
+        return nullptr;
+    }
+    std::vector<int> clipStart; // the mesh's own clips: where each one's frames start
+    Mesh mesh;                  // its tables (frames dropped)
+    const std::vector<AnimationSet>* sets = nullptr;
+    // Each set's bone for each of the mesh's, by name, worked out once.
+    mutable std::map<const AnimationSet*, std::vector<const BoneRecord*>> keys;
+    // The face's clips (those with vertex keys: Blink, EyeBrows,
+    // Phonemes), the neutral face they start from (packed units), and
+    // each bone's place in the pose that face is in.
+    std::vector<NamedClip> faceClips;
+    std::vector<Vec3f> neutral;
+    std::vector<Mat43> faceWorlds;
+    // The face table (the engine's): for each of the mesh's clips by
+    // index, the attachment point its keys are in, the vertices it moves,
+    // and its keys (a time, then each vertex's place in the point's frame,
+    // in the skeleton's units).
+    struct FaceEntry {
+        int32_t attach = 0;
+        std::vector<uint32_t> vertices;
+        std::vector<std::pair<float, std::vector<Vec3f>>> keys;
+    };
+    std::vector<FaceEntry> faceTable;
+    std::vector<std::string> clipNames;
+    bool faceFrame(const FaceEntry& e, const std::vector<Vec3f>& bone, Mat43& frame) const;
+    void placeFaces(const std::vector<Face>& faces, std::vector<Vec3f>& out) const;
+    // Each vertex's bones and weights.
+    std::vector<std::vector<std::pair<uint32_t, float>>> vertexBones;
+    // The actor's forward, side and up axes in the skeleton's space.
+    std::array<Vec3f, 3> actorAxes{Vec3f{1, 0, 0}, Vec3f{0, 1, 0}, Vec3f{0, 0, 1}};
+    Mat43 cleared(const Mat43& over, const Mat43& parentWorld, const Mat43& bindWorld, std::array<bool, 3> clear,
+                  float weight) const;
+    mutable std::vector<Mat43> bindWorlds; // each bone's place in the skeleton in its bind pose, once asked for
+
+    BoneReader reader() const { return BoneReader{data, base, from, base + data.size()}; }
+    bool locals(Anim base, float fraction, const std::vector<Layer>& layers,
+                std::vector<std::array<float, 12>>& out, const Adjust* adjust = nullptr) const;
+    bool localsUncached(Anim base, float fraction, const std::vector<Layer>& layers,
+                        std::vector<std::array<float, 12>>& out, const Adjust* adjust) const;
+    // The last poses worked out and what each was worked out from (byte
+    // for byte): the scripts' bone queries and the drawing ask for the
+    // same pose each tick, and its IK is the costliest part. A few, as
+    // the characters sharing a mesh share this.
+    struct Cached {
+        std::string key;
+        std::vector<Mat43> locals;
+    };
+    mutable std::array<Cached, 8> cache;
+    mutable size_t cacheNext = 0;
+    void adjusted(std::vector<Mat43>& local, const Adjust& adjust) const;
+    void solveChains(std::vector<Mat43>& local, const Adjust::Reach& r, const IkChain& place,
+                     const IkChain* turn) const;
+    void addFaces(const std::vector<Face>& faces, const std::vector<Mat43>& world, std::vector<Vec3f>& out) const;
+    // Each bone's place in the skeleton (its parents' placements and its own).
+    std::vector<Mat43> worlds(const std::vector<Mat43>& local) const {
+        std::vector<Mat43> world(local.size());
+        for (size_t i = 0; i < local.size(); ++i)
+            world[i] = bones[i].parent >= 0 ? then(local[i], world[size_t(bones[i].parent)]) : local[i];
+        return world;
+    }
+    // A bone placed at `world` in the skeleton: its placement in its parent.
+    Mat43 inParent(size_t i, const Mat43& world, const std::vector<Mat43>& worlds) const {
+        return bones[i].parent >= 0 ? then(world, inverseOf(worlds[size_t(bones[i].parent)])) : world;
+    }
+    int indexOf(std::string_view name) const {
+        const std::string wanted = fs::toLower(name);
+        for (size_t i = 0; i < bones.size(); ++i)
+            if (fs::toLower(bones[i].name) == wanted)
+                return int(i);
+        return -1;
+    }
+
+    // Where an animation's keys are: the clip, and with `set` another
+    // skeleton's; false if it isn't the mesh's.
+    bool find(std::string_view anim, const AnimationSet*& set, size_t& clip, int& frames) const {
+        set = nullptr;
+        const std::string wanted = fs::toLower(anim);
+        for (const MeshAnimSeq& a : mesh.anims)
+            if (fs::toLower(a.name) == wanted) {
+                const auto it = std::find(clipStart.begin(), clipStart.end(), a.startFrame);
+                if (it == clipStart.end())
+                    return false;
+                clip = size_t(it - clipStart.begin());
+                frames = a.numFrames;
+                return true;
+            }
+        for (const MeshAnimSeq& a : mesh.otherAnims)
+            if (fs::toLower(a.name) == wanted && sets)
+                for (const AnimationSet& s : *sets)
+                    if (const int c = s.clipFor(a.startFrame, a.numFrames, a.name); c >= 0) {
+                        set = &s;
+                        clip = size_t(c);
+                        frames = a.numFrames;
+                        return true;
+                    }
+        return false;
+    }
+    const std::vector<const BoneRecord*>& keysOf(const AnimationSet& set) const {
+        auto it = keys.find(&set);
+        if (it == keys.end()) {
+            std::vector<const BoneRecord*> k(bones.size(), nullptr);
+            for (size_t i = 0; i < bones.size(); ++i)
+                for (const BoneRecord& sb : set.impl->bones)
+                    if (sb.name == bones[i].name) {
+                        k[i] = &sb;
+                        break;
+                    }
+            it = keys.emplace(&set, std::move(k)).first;
+        }
+        return it->second;
+    }
+};
+
+LayeredPoser::LayeredPoser() = default;
+LayeredPoser::~LayeredPoser() = default;
+
+// The animation groups' names in a skeleton's block: (g, g, 10) and g
+// names (u16 length, text), just before the two empty (0, 0, 10) arrays
+// the attachment points follow. Empty if not found.
+std::vector<std::string> findGroupNames(const std::vector<uint8_t>& data) {
+        static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
+        const std::vector<uint8_t>& d = data;
+        size_t at = std::string::npos;
+        for (size_t i = 0; i + sizeof anchor <= d.size(); ++i)
+            if (std::memcmp(d.data() + i, anchor, sizeof anchor) == 0)
+                at = i;
+        auto u32 = [&](size_t q) {
+            uint32_t v;
+            std::memcpy(&v, d.data() + q, 4);
+            return v;
+        };
+        for (size_t back = 14; at != std::string::npos && back < 512 && back <= at; ++back) {
+            const size_t s0 = at - back;
+            const uint32_t g = u32(s0);
+            if (g == 0 || g > 16 || u32(s0 + 4) != g || u32(s0 + 8) != 10)
+                continue;
+            std::vector<std::string> names;
+            size_t q = s0 + 12;
+            for (uint32_t k = 0; k < g && q + 2 <= at; ++k) {
+                const size_t len = size_t(d[q]) | size_t(d[q + 1]) << 8;
+                if (q + 2 + len > at)
+                    break;
+                names.emplace_back(reinterpret_cast<const char*>(d.data() + q + 2), len);
+                q += 2 + len;
+            }
+            if (names.size() == g && q == at) {
+                return names;
+            }
+        }
+        return {};
+}
+
+std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package& package, int index, const std::vector<AnimationSet>& sets) {
+    auto impl = std::make_unique<Impl>();
+    if (readMesh(package, index, impl->mesh) || impl->mesh.bones == 0)
+        return nullptr;
+    impl->mesh.verts.clear();
+    impl->mesh.verts.shrink_to_fit();
+    if (readBones(package, index, impl->data, impl->from, impl->bones))
+        return nullptr;
+    impl->base = size_t(package.exports()[size_t(index)].serialOffset);
+    impl->sets = &sets;
+    const BoneReader r = impl->reader();
+    impl->chains = findIkChains(r, impl->bones);
+    impl->groupNames = findGroupNames(impl->data);
+    for (size_t k = 0; impl->chains.empty() && k < sets.size(); ++k)
+        if (sets[k].impl && !sets[k].impl->chains.empty())
+            impl->chains = sets[k].impl->chains;
+    const BonePoser poser{r, impl->bones};
+    int start = 0;
+    for (size_t c = 0; c < impl->bones[0].clipList.size(); ++c) {
+        impl->clipStart.push_back(start);
+        start += poser.clipFrames(c);
+    }
+    const auto frame = size_t(impl->mesh.frameVerts);
+    size_t keysEnd = 0;
+    const std::vector<NamedClip> clips = findClipTable(r, frame, &keysEnd);
+    for (const NamedClip& c : clips) {
+        impl->clipNames.push_back(c.name);
+        if (!c.keys.empty())
+            impl->faceClips.push_back(c);
+    }
+    // The face table, straight after the vertex keys: (c, c, 4), then for
+    // each clip an i32 attachment point, (n, n, 64) and n i32 vertices,
+    // (k, k, 5) and k keys: an f32 time, (m, m, 64) and m x 3 f32.
+    if (keysEnd) {
+        uint32_t c = 0, f = 0;
+        size_t at = keysEnd;
+        bool ok = r.header(at, c, f) && c == clips.size();
+        at += 12;
+        for (uint32_t e = 0; ok && e < c; ++e) {
+            Impl::FaceEntry entry;
+            uint32_t n = 0, k = 0;
+            ok = at + 4 <= r.to;
+            if (!ok)
+                break;
+            entry.attach = int32_t(r.u32(at));
+            at += 4;
+            ok = r.header(at, n, f) && at + 12 + 4 * size_t(n) <= r.to;
+            if (!ok)
+                break;
+            for (uint32_t j = 0; j < n; ++j)
+                entry.vertices.push_back(r.u32(at + 12 + 4 * size_t(j)));
+            at += 12 + 4 * size_t(n);
+            ok = r.header(at, k, f);
+            at += 12;
+            for (uint32_t j = 0; ok && j < k; ++j) {
+                uint32_t m = 0;
+                const float time = r.f32(at);
+                ok = r.header(at + 4, m, f) && m == n && at + 16 + 12 * size_t(m) <= r.to;
+                if (!ok)
+                    break;
+                std::vector<Vec3f> places(m);
+                for (uint32_t q = 0; q < m; ++q)
+                    places[q] = {r.f32(at + 16 + 12 * size_t(q)), r.f32(at + 20 + 12 * size_t(q)),
+                                 r.f32(at + 24 + 12 * size_t(q))};
+                entry.keys.push_back({time, std::move(places)});
+                at += 16 + 12 * size_t(m);
+            }
+            impl->faceTable.push_back(std::move(entry));
+        }
+        if (!ok)
+            impl->faceTable.clear();
+    }
+    impl->vertexBones.resize(frame);
+    for (size_t i = 0; i < impl->bones.size(); ++i) {
+        const BoneRecord& b = impl->bones[i];
+        for (uint32_t j = 0; j < b.vertices; ++j) {
+            const size_t v = r.u32(b.indices + 4 * size_t(j));
+            const float w = r.f32(b.weights + 4 * size_t(j));
+            if (v < frame && sane(w) && w > 0)
+                impl->vertexBones[v].push_back({uint32_t(i), w});
+        }
+    }
+    if (!impl->faceClips.empty()) {
+        const size_t at = impl->faceClips[0].keys[0].second;
+        for (size_t v = 0; v < frame; ++v)
+            impl->neutral.push_back(unpackVertex(r.u32(at + 4 * v)));
+        // The neutral face is in BaseReference's pose (to within a few
+        // units at the hands, on Quark), else the bones' own placements.
+        std::vector<Mat43> ref(impl->bones.size());
+        size_t refClip = SIZE_MAX;
+        for (size_t c = 0; c < clips.size(); ++c)
+            if (fs::toLower(clips[c].name) == "basereference")
+                refClip = c;
+        for (size_t i = 0; i < ref.size(); ++i)
+            ref[i] = refClip < impl->bones[i].clipList.size() ? poser.local(impl->bones[i], refClip, 0)
+                                                               : impl->bones[i].placement;
+        impl->faceWorlds = impl->worlds(ref);
+    }
+    auto out = std::make_unique<LayeredPoser>();
+    out->impl = std::move(impl);
+    return out;
+}
+
+std::vector<bool> LayeredPoser::part(std::string_view bone, bool rest) const {
+    const std::vector<BoneRecord>& bones = impl->bones;
+    const std::string wanted = fs::toLower(bone);
+    std::vector<bool> in(bones.size(), false);
+    bool found = false;
+    // Parents come before their children.
+    for (size_t i = 0; i < bones.size(); ++i) {
+        const bool root = fs::toLower(bones[i].name) == wanted;
+        found = found || root;
+        in[i] = root || (bones[i].parent >= 0 && in[size_t(bones[i].parent)]);
+    }
+    if (!found)
+        return {};
+    if (rest)
+        in.flip();
+    return in;
+}
+
+// Each bone's place in its parent: from `base` `fraction` through it, the
+// bones of each layer's part blended towards its animation's. False if an
+// animation isn't the mesh's.
+bool LayeredPoser::Impl::locals(Anim baseAnim, float fraction, const std::vector<Layer>& layers,
+                                std::vector<std::array<float, 12>>& out, const Adjust* adjust) const {
+    std::string key;
+    auto bytes = [&](const void* p, size_t n) { key.append(static_cast<const char*>(p), n); };
+    auto text = [&](std::string_view t) {
+        const size_t n = t.size();
+        bytes(&n, sizeof n);
+        key.append(t);
+    };
+    auto vec = [&](const Vec3f& v) { bytes(v.data(), sizeof(float) * 3); };
+    text(baseAnim.name);
+    key.push_back(baseAnim.loop ? 'L' : 'H');
+    bytes(&fraction, sizeof fraction);
+    for (const Vec3f& a : actorAxes)
+        vec(a);
+    for (const Layer& l : layers) {
+        text(l.anim);
+        bytes(&l.fraction, sizeof l.fraction);
+        if (l.part)
+            for (bool in : *l.part)
+                key.push_back(in ? '1' : '0');
+        key.push_back('/');
+        bytes(&l.weight, sizeof l.weight);
+        for (bool c : l.clear)
+            key.push_back(c ? '1' : '0');
+        key.push_back(l.loop ? 'L' : 'H');
+        bytes(&l.group, sizeof l.group);
+        bytes(&l.clearBone, sizeof l.clearBone);
+        bytes(&l.from, sizeof l.from); // the same pose while a fade lasts
+        key.push_back(l.fadingOut ? 'O' : 'I');
+    }
+    key.push_back(adjust ? 'A' : '-');
+    if (adjust) {
+        for (const Adjust::Turn& t : adjust->turns) {
+            text(t.bone);
+            bytes(&t.axis, sizeof t.axis);
+            bytes(&t.radians, sizeof t.radians);
+        }
+        key.push_back('|');
+        for (const Adjust::SpaceTurn& t : adjust->spaceTurns) {
+            text(t.bone);
+            for (const Vec3f& v : t.turn)
+                vec(v);
+        }
+        key.push_back('|');
+        for (const Adjust::Op& o : adjust->ops) {
+            key.push_back(char('0' + o.kind));
+            text(o.bone);
+            bytes(&o.axis, sizeof o.axis);
+            bytes(&o.radians, sizeof o.radians);
+            for (const Vec3f& v : o.turn)
+                vec(v);
+            for (bool c : o.remove)
+                key.push_back(c ? '1' : '0');
+        }
+        key.push_back('|');
+        for (const Adjust::Reach& r : adjust->reaches) {
+            text(r.bone);
+            text(r.placeChain);
+            text(r.turnChain);
+            bytes(&r.placeWeight, sizeof r.placeWeight);
+            bytes(&r.turnWeight, sizeof r.turnWeight);
+            vec(r.at);
+            vec(r.offset);
+            for (const Vec3f& v : r.axes)
+                vec(v);
+            key.push_back(r.onBase ? '1' : '0');
+        }
+    }
+    for (const Cached& c : cache)
+        if (c.key == key && c.locals.size() == bones.size()) {
+            out = c.locals;
+            return true;
+        }
+    if (!localsUncached(baseAnim, fraction, layers, out, adjust))
+        return false;
+    Cached& slot = cache[cacheNext];
+    cacheNext = (cacheNext + 1) % cache.size();
+    slot.key = std::move(key);
+    slot.locals = out;
+    return true;
+}
+
+bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std::vector<Layer>& layers,
+                                        std::vector<std::array<float, 12>>& out, const Adjust* adjust) const {
+    const BoneReader r = reader();
+    struct Source {
+        const AnimationSet* set = nullptr;
+        size_t clip = 0;
+        float time = 0; // seconds into the clip (its keys are 30 a second)
+        bool loop = false;
+    };
+    auto sourceOf = [&](std::string_view anim, float f, Source& src, bool loop) {
+        src.loop = loop;
+        int frames = 0;
+        if (!find(anim, src.set, src.clip, frames))
+            return false;
+        // Frame fraction * frames, as the frames were posed (30 a second).
+        src.time = std::min(std::max(0.0f, f) * float(frames), float(std::max(0, frames - 1))) / 30;
+        return true;
+    };
+    auto local = [&](const Source& src, size_t i) {
+        const BoneRecord& b = bones[i];
+        if (!src.set)
+            return BonePoser::localWith(b, r, b, src.clip, src.time, src.loop);
+        const BoneRecord* k = keysOf(*src.set)[i];
+        return k ? BonePoser::localWith(b, src.set->impl->reader(), *k, src.clip, src.time, src.loop) : b.placement;
+    };
+    Source under;
+    if (!sourceOf(baseAnim.name, fraction, under, baseAnim.loop))
+        return false;
+    std::vector<Source> over(layers.size());
+    for (size_t l = 0; l < layers.size(); ++l)
+        if (!sourceOf(layers[l].anim, layers[l].fraction, over[l], layers[l].loop))
+            return false;
+    // The base animation, with the reaches done to it first.
+    std::vector<Mat43> base(bones.size());
+    for (size_t i = 0; i < bones.size(); ++i)
+        base[i] = local(under, i);
+    Adjust onBase, after;
+    if (adjust) {
+        after = *adjust;
+        after.reaches.clear();
+        // A reach of the skeleton's own chains is done after the layers
+        // (OnBasePose there resets the chain's bones instead); Reluva's
+        // stand-in for others reaches from the base animation.
+        for (const Adjust::Reach& reach : adjust->reaches)
+            (reach.onBase && !chain(reach.placeChain) ? onBase : after).reaches.push_back(reach);
+        if (!onBase.reaches.empty())
+            adjusted(base, onBase);
+    }
+    out.resize(bones.size());
+    // The layers by their groups, lowest first: of those on a bone, the
+    // highest group's wins it (one fading in over what was there).
+    std::vector<size_t> order(layers.size());
+    for (size_t l = 0; l < order.size(); ++l)
+        order[l] = l;
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        const int ga = layers[a].group < 0 ? 1 << 20 : layers[a].group;
+        const int gb = layers[b].group < 0 ? 1 << 20 : layers[b].group;
+        return ga < gb;
+    });
+    if (bindWorlds.size() != bones.size()) {
+        std::vector<Mat43> bind(bones.size());
+        for (size_t k = 0; k < bones.size(); ++k)
+            bind[k] = bones[k].placement;
+        bindWorlds = worlds(bind);
+    }
+    for (size_t i = 0; i < bones.size(); ++i) {
+        Mat43 placed = base[i];
+        for (const size_t l : order) {
+            const Layer& layer = layers[l];
+            if (!layer.part || i >= layer.part->size() || !(*layer.part)[i] || layer.weight <= 0)
+                continue;
+            Mat43 theirs = local(over[l], i);
+            // Its clear, on its InheritBone (else, with none named, on the
+            // part's first bone).
+            const bool target = layer.clearBone >= 0
+                                    ? size_t(layer.clearBone) == i
+                                    : bones[i].parent < 0 || !(*layer.part)[size_t(bones[i].parent)];
+            if (target && (layer.clear[0] || layer.clear[1] || layer.clear[2])) {
+                Mat43 parentWorld{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+                for (int p = bones[i].parent; p >= 0; p = bones[size_t(p)].parent)
+                    parentWorld = then(parentWorld, out[size_t(p)]);
+                theirs = cleared(theirs, parentWorld, bindWorlds[i], layer.clear, layer.weight);
+            }
+            const float w = std::min(1.0f, layer.weight);
+            if (layer.from && i < layer.from->size()) {
+                // As Engine.dll fades: from the pose showing when the fade
+                // began, held there; in, toward the layer's; out, toward
+                // what's under it now (its weight falling 1 to 0).
+                const Mat43& shown = (*layer.from)[i];
+                if (layer.fadingOut)
+                    for (size_t k = 0; k < placed.size(); ++k)
+                        placed[k] += (shown[k] - placed[k]) * w;
+                else
+                    for (size_t k = 0; k < placed.size(); ++k)
+                        placed[k] = shown[k] + (theirs[k] - shown[k]) * w;
+                continue;
+            }
+            for (size_t k = 0; k < placed.size(); ++k)
+                placed[k] += (theirs[k] - placed[k]) * w;
+        }
+        out[i] = placed;
+    }
+    if (!after.empty())
+        adjusted(out, after);
+    return true;
+}
+
+// The clear on a layer's InheritBone, as the engine does it: the bone's
+// turn from its bind pose, in the skeleton's space (its place in the
+// skeleton less its bind place's, no move), split into a turn about one
+// of the skeleton's axes (Y yaw, the actor's up; X pitch; Z roll) and the
+// rest. One axis cleared: the turn about it taken off; two: only the turn
+// about the third kept; all three: none, the bone as in its bind pose.
+// Where it is stays; and the result is blended in by the layer's weight.
+Mat43 LayeredPoser::Impl::cleared(const Mat43& over, const Mat43& parentWorld, const Mat43& bindWorld,
+                                  std::array<bool, 3> clear, float weight) const {
+    const Mat43 wo = then(over, parentWorld);
+    Mat43 bind = bindWorld;
+    bind[9] = bind[10] = bind[11] = 0;
+    Mat43 now = wo;
+    now[9] = now[10] = now[11] = 0;
+    Mat43 rel = then(inverseOf(bind), now);
+    // The quaternion whose rotation() this is.
+    const float tr = rel[0] + rel[4] + rel[8];
+    std::array<float, 4> q{};
+    if (tr > 0) {
+        const float r = std::sqrt(1 + tr) * 2;
+        q = {(rel[7] - rel[5]) / r, (rel[2] - rel[6]) / r, (rel[3] - rel[1]) / r, r / 4};
+    } else if (rel[0] > rel[4] && rel[0] > rel[8]) {
+        const float r = std::sqrt(1 + rel[0] - rel[4] - rel[8]) * 2;
+        q = {r / 4, (rel[1] + rel[3]) / r, (rel[2] + rel[6]) / r, (rel[7] - rel[5]) / r};
+    } else if (rel[4] > rel[8]) {
+        const float r = std::sqrt(1 + rel[4] - rel[0] - rel[8]) * 2;
+        q = {(rel[1] + rel[3]) / r, r / 4, (rel[5] + rel[7]) / r, (rel[2] - rel[6]) / r};
+    } else {
+        const float r = std::sqrt(1 + rel[8] - rel[0] - rel[4]) * 2;
+        q = {(rel[2] + rel[6]) / r, (rel[5] + rel[7]) / r, r / 4, (rel[3] - rel[1]) / r};
+    }
+    // Yaw, pitch, roll: about the skeleton's Y, X, Z.
+    const std::array<int, 3> axisOf{1, 0, 2};
+    auto twist = [&](int axis) { // its turn about that axis alone
+        std::array<float, 4> t{0, 0, 0, q[3]};
+        t[size_t(axis)] = q[size_t(axis)];
+        const float n = std::sqrt(t[size_t(axis)] * t[size_t(axis)] + t[3] * t[3]);
+        if (n < 1e-6f)
+            return std::array<float, 4>{0, 0, 0, 1};
+        for (float& c : t)
+            c /= n;
+        return t;
+    };
+    const int count = int(clear[0]) + int(clear[1]) + int(clear[2]);
+    if (count == 3) {
+        q = {0, 0, 0, 1};
+    } else if (count == 2) {
+        for (size_t k = 0; k < 3; ++k)
+            if (!clear[k])
+                q = twist(axisOf[k]);
+    } else if (count == 1) {
+        for (size_t k = 0; k < 3; ++k)
+            if (clear[k]) {
+                const std::array<float, 4> t = twist(axisOf[k]);
+                const std::array<float, 4> tc{-t[0], -t[1], -t[2], t[3]};
+                q = {q[3] * tc[0] + q[0] * tc[3] + q[1] * tc[2] - q[2] * tc[1],
+                     q[3] * tc[1] - q[0] * tc[2] + q[1] * tc[3] + q[2] * tc[0],
+                     q[3] * tc[2] + q[0] * tc[1] - q[1] * tc[0] + q[2] * tc[3],
+                     q[3] * tc[3] - q[0] * tc[0] - q[1] * tc[1] - q[2] * tc[2]};
+            }
+    }
+    Mat43 w = then(bind, rotation(q));
+    for (size_t c = 0; c < 3; ++c)
+        w[9 + c] = wo[9 + c];
+    const Mat43 local = then(w, inverseOf(parentWorld));
+    Mat43 out = over;
+    const float f = std::clamp(weight, 0.0f, 1.0f);
+    for (size_t k = 0; k < out.size(); ++k)
+        out[k] += (local[k] - out[k]) * f;
+    return out;
+}
+
+void LayeredPoser::setPlacement(const std::array<Vec3f, 3>& skeletonInActor) {
+    // The actor's axis k in the skeleton: the k-th parts of where the
+    // skeleton's axes go.
+    for (size_t k = 0; k < 3; ++k)
+        impl->actorAxes[k] = {skeletonInActor[0][k], skeletonInActor[1][k], skeletonInActor[2][k]};
+}
+
+// The scripts' turns, then each limb's reach: its upper bone turned so the
+// middle joint is where the two bones' lengths put it on the way to the
+// target (kept in the plane they bend in now), the middle bone turned to
+// point at the target, and the end bone given its axes.
+void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjust) const {
+    for (const Adjust::Op& op : adjust.ops) {
+        const int i = indexOf(op.bone);
+        if (i < 0)
+            continue;
+        const size_t b = size_t(i);
+        if (op.kind == Adjust::Op::Own) {
+            if (op.axis < 0 || op.axis > 2)
+                continue;
+            Vec3f axis{};
+            axis[size_t(op.axis)] = 1;
+            local[b] = then(turnAbout(axis, op.radians), local[b]);
+            continue;
+        }
+        const std::vector<Mat43> world = worlds(local);
+        Mat43 w{};
+        if (op.kind == Adjust::Op::Space) {
+            Mat43 turn{};
+            for (size_t k = 0; k < 3; ++k)
+                setRow(turn, k, op.turn[k]);
+            w = then(world[b], turn);
+        } else {
+            // Its turn from its bind pose, X = Bind^-1 Current, as yaw (Y),
+            // pitch (X), roll (Z): X = roll, then pitch, then yaw.
+            std::vector<Mat43> bind(bones.size());
+            for (size_t k = 0; k < bones.size(); ++k)
+                bind[k] = bones[k].placement;
+            const Mat43 bindWorld = worlds(bind)[b];
+            Mat43 inverse{};
+            for (size_t r = 0; r < 3; ++r)
+                for (size_t c = 0; c < 3; ++c)
+                    inverse[r * 3 + c] = bindWorld[c * 3 + r];
+            Mat43 rot = world[b];
+            rot[9] = rot[10] = rot[11] = 0;
+            const Mat43 x = then(inverse, rot);
+            float pitch = std::asin(std::clamp(-x[7], -1.0f, 1.0f));
+            // Engine.dll's: no yaw when the X row is (nearly) straight up
+            // or down; the roll as the angle between the yawed X axis and
+            // the turned one, none under a cosine of 0.9999 (about 0.8
+            // degrees), signed by which side of the Z row it falls.
+            const float level = std::sqrt(x[6] * x[6] + x[8] * x[8]);
+            float yaw = level < 0.0001f ? 0 : std::atan2(x[6], x[8]);
+            const float v[3] = {std::cos(yaw), 0, -std::sin(yaw)};
+            const float d = v[0] * x[0] + v[1] * x[1] + v[2] * x[2];
+            float roll = 0;
+            if (d < 0.9999f) {
+                const float cross[3] = {v[1] * x[2] - v[2] * x[1], v[2] * x[0] - v[0] * x[2], v[0] * x[1] - v[1] * x[0]};
+                const float side = cross[0] * x[6] + cross[1] * x[7] + cross[2] * x[8];
+                roll = std::acos(std::clamp(d, -1.0f, 1.0f)) * (side < 0 ? -1.0f : 1.0f);
+            }
+            if (op.remove[0])
+                pitch = 0;
+            if (op.remove[1])
+                yaw = 0;
+            if (op.remove[2])
+                roll = 0;
+            const Mat43 kept = then(then(turnAbout({0, 0, 1}, roll), turnAbout({1, 0, 0}, pitch)), turnAbout({0, 1, 0}, yaw));
+            Mat43 bindRot = bindWorld;
+            bindRot[9] = bindRot[10] = bindRot[11] = 0;
+            w = then(bindRot, kept);
+        }
+        for (size_t c = 0; c < 3; ++c)
+            w[9 + c] = world[b][9 + c];
+        local[b] = inParent(b, w, world);
+    }
+    for (const Adjust::Turn& t : adjust.turns) {
+        const int i = indexOf(t.bone);
+        if (i < 0 || t.axis < 0 || t.axis > 2)
+            continue;
+        Vec3f axis{};
+        axis[size_t(t.axis)] = 1;
+        local[size_t(i)] = then(turnAbout(axis, t.radians), local[size_t(i)]);
+    }
+    // Turning a bone where it is: its axes turned, its origin kept.
+    auto turnInPlace = [&](size_t i, const Mat43& turn) {
+        const std::vector<Mat43> world = worlds(local);
+        Mat43 w = then(world[i], turn);
+        for (size_t c = 0; c < 3; ++c)
+            w[9 + c] = world[i][9 + c];
+        local[i] = inParent(i, w, world);
+    };
+    for (const Adjust::SpaceTurn& t : adjust.spaceTurns) {
+        const int i = indexOf(t.bone);
+        if (i < 0)
+            continue;
+        Mat43 turn{};
+        for (size_t k = 0; k < 3; ++k)
+            setRow(turn, k, t.turn[k]);
+        turnInPlace(size_t(i), turn);
+    }
+    for (const Adjust::Reach& r : adjust.reaches) {
+        if (const IkChain* c = chain(r.placeChain); c && (r.placeWeight > 0 || r.turnWeight > 0)) {
+            solveChains(local, r, *c, chain(r.turnChain));
+            continue;
+        }
+        const int end = indexOf(r.bone);
+        const int middle = end >= 0 ? bones[size_t(end)].parent : -1;
+        const int upper = middle >= 0 ? bones[size_t(middle)].parent : -1;
+        if (upper < 0)
+            continue;
+        std::vector<Mat43> world = worlds(local);
+        const Mat43& handNow = world[size_t(end)];
+        const std::array<Vec3f, 3> axesNow{rowOf(handNow, 0), rowOf(handNow, 1), rowOf(handNow, 2)};
+        const bool turning = r.turnWeight > 0;
+        const std::array<Vec3f, 3> axes =
+            turning ? blendAxes(axesNow, r.axes, std::min(1.0f, r.turnWeight)) : axesNow;
+        // Where the end bone's origin should go for its offset to reach.
+        const Vec3f from = rowOf(handNow, 3);
+        Vec3f target = from;
+        if (r.placeWeight > 0) {
+            Vec3f wanted = r.at;
+            for (size_t k = 0; k < 3; ++k)
+                wanted = vsub(wanted, vmul(axes[k], r.offset[k]));
+            target = vadd(from, vmul(vsub(wanted, from), std::min(1.0f, r.placeWeight)));
+        }
+        const Vec3f s = rowOf(world[size_t(upper)], 3), e = rowOf(world[size_t(middle)], 3);
+        const float a = vlen(vsub(e, s)), b = vlen(vsub(from, e));
+        if (r.placeWeight > 0 && a > 1e-4f && b > 1e-4f) {
+            Vec3f toTarget = vsub(target, s);
+            const float d = std::clamp(vlen(toTarget), std::fabs(a - b) + 1e-3f, a + b - 1e-3f);
+            const Vec3f dir = vlen(toTarget) > 1e-6f ? vunit(toTarget) : vunit(vsub(from, s));
+            // Which way the joint bends: as it does now, square to the reach.
+            Vec3f bend = vsub(vsub(e, s), vmul(dir, vdot(vsub(e, s), dir)));
+            if (vlen(bend) < 1e-4f) {
+                bend = vcross(dir, Vec3f{0, 0, 1});
+                if (vlen(bend) < 1e-4f)
+                    bend = vcross(dir, Vec3f{1, 0, 0});
+            }
+            bend = vunit(bend);
+            const float along = (a * a + d * d - b * b) / (2 * d);
+            const float out = std::sqrt(std::max(0.0f, a * a - along * along));
+            const Vec3f joint = vadd(s, vadd(vmul(dir, along), vmul(bend, out)));
+            turnInPlace(size_t(upper), turnFromTo(vsub(e, s), vsub(joint, s)));
+            world = worlds(local);
+            const Vec3f reach = vsub(vadd(s, vmul(dir, d)), joint);
+            if (turning) {
+                // The middle bone as the end bone's axes and the animation's
+                // wrist would have it, swung to point at the target: the
+                // wrist bent as the animation bends it, not twisted (the
+                // skin between them, where a hand's grip points are, keeps
+                // its shape).
+                Mat43 hand{};
+                for (size_t k = 0; k < 3; ++k)
+                    setRow(hand, k, axes[k]);
+                Mat43 wrist = local[size_t(end)];
+                const Vec3f toEnd = rowOf(wrist, 3);
+                wrist[9] = wrist[10] = wrist[11] = 0;
+                Mat43 mid = then(inverseOf(wrist), hand);
+                const Vec3f pointing = vadd(vadd(vmul(rowOf(mid, 0), toEnd[0]), vmul(rowOf(mid, 1), toEnd[1])),
+                                            vmul(rowOf(mid, 2), toEnd[2]));
+                mid = then(mid, turnFromTo(pointing, reach));
+                for (size_t c = 0; c < 3; ++c)
+                    mid[9 + c] = world[size_t(middle)][9 + c];
+                local[size_t(middle)] = inParent(size_t(middle), mid, world);
+            } else {
+                const Vec3f endNow = rowOf(world[size_t(end)], 3);
+                turnInPlace(size_t(middle), turnFromTo(vsub(endNow, joint), reach));
+            }
+            world = worlds(local);
+        }
+        if (turning) {
+            Mat43 w = world[size_t(end)];
+            for (size_t k = 0; k < 3; ++k)
+                setRow(w, k, axes[k]);
+            local[size_t(end)] = inParent(size_t(end), w, world);
+        }
+    }
+}
+
+namespace {
+
+// Turns about one axis as Engine.dll's C3D code makes them (row vectors):
+// k 0 about Y, 1 about X, 2 about Z.
+Mat43 axisTurn(int k, float a) {
+    const float c = std::cos(a), s = std::sin(a);
+    if (k == 0)
+        return {c, 0, -s, 0, 1, 0, s, 0, c, 0, 0, 0};
+    if (k == 1)
+        return {1, 0, 0, 0, c, s, 0, -s, c, 0, 0, 0};
+    return {c, s, 0, -s, c, 0, 0, 0, 1, 0, 0, 0};
+}
+// Its Euler angles (about Y, X, Z) for E = Rz(c) Rx(b) Ry(a), and back.
+std::array<float, 3> eulerOf(const Mat43& m) {
+    const float b = std::asin(std::clamp(-m[7], -1.0f, 1.0f));
+    return {std::atan2(m[6], m[8]), b, std::atan2(m[1], m[4])};
+}
+Mat43 fromEuler(const std::array<float, 3>& e) {
+    return then(then(axisTurn(2, e[2]), axisTurn(1, e[1])), axisTurn(0, e[0]));
+}
+std::array<float, 4> quatOf(const Mat43& m) {
+    // The inverse of rotation(): its matrix taken as the usual one of q.
+    const float t = m[0] + m[4] + m[8];
+    std::array<float, 4> q{};
+    if (t > 0) {
+        const float s = std::sqrt(t + 1) * 2;
+        q = {(m[7] - m[5]) / s, (m[2] - m[6]) / s, (m[3] - m[1]) / s, s / 4};
+    } else if (m[0] > m[4] && m[0] > m[8]) {
+        const float s = std::sqrt(1 + m[0] - m[4] - m[8]) * 2;
+        q = {s / 4, (m[1] + m[3]) / s, (m[2] + m[6]) / s, (m[7] - m[5]) / s};
+    } else if (m[4] > m[8]) {
+        const float s = std::sqrt(1 + m[4] - m[0] - m[8]) * 2;
+        q = {(m[1] + m[3]) / s, s / 4, (m[5] + m[7]) / s, (m[2] - m[6]) / s};
+    } else {
+        const float s = std::sqrt(1 + m[8] - m[0] - m[4]) * 2;
+        q = {(m[2] + m[6]) / s, (m[5] + m[7]) / s, s / 4, (m[3] - m[1]) / s};
+    }
+    return q;
+}
+
+} // namespace
+
+// An arm's or leg's reach, as Engine.dll's C3D solver (0x1048d930): the
+// chain's steps in order, `iterations` times, each turning one bone about
+// one of its axes. A bone's turn from its bind pose (M0 = local x
+// Bind^-1) is taken as Euler angles about Y, X and Z (E = Rz Rx Ry), and
+// the step's angle set afresh to bring the end bone's origin (the
+// effector; its matrix moves it by its translation) round toward the
+// target, kept within the bone's limits for that axis (X also to +-90
+// degrees). Done from the pose as animated, or from the bind pose with
+// `onBase` (C3DApplyIKOnBasePose). Then each of the chain's bones is
+// turned that much of the way from where it was by the weight (a
+// quaternion's slerp). The hand's or foot's chain then sets that bone's
+// turn outright (its effector's turn undone), blended the same way.
+void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Reach& r, const IkChain& place,
+                                     const IkChain* turn) const {
+    const int root = indexOf(place.root), end = indexOf(place.end);
+    if (root < 0 || end < 0)
+        return;
+    std::vector<size_t> chainBones;
+    for (int b = end; b >= 0; b = bones[size_t(b)].parent) {
+        chainBones.push_back(size_t(b));
+        if (b == root)
+            break;
+    }
+    if (r.placeWeight > 0) {
+        std::vector<Mat43> saved(chainBones.size());
+        for (size_t i = 0; i < chainBones.size(); ++i)
+            saved[i] = local[chainBones[i]];
+        if (r.onBase)
+            for (size_t b : chainBones)
+                local[b] = bones[b].placement;
+        const Vec3f target = r.at;
+        const Vec3f effOffset = rowOf(place.effector, 3);
+        for (int it = 0; it < place.iterations; ++it) {
+            bool done = false;
+            for (size_t s = 0; s < place.steps.size() && !done; ++s) {
+                const int n = indexOf(place.steps[s].first);
+                const int k = place.steps[s].second;
+                if (n < 0)
+                    continue;
+                const size_t b = size_t(n);
+                std::vector<Mat43> world = worlds(local);
+                const Mat43& bind = bones[b].placement;
+                Mat43 m0 = then(local[b], inverseOf(bind));
+                const Vec3f m0t = rowOf(m0, 3);
+                m0[9] = m0[10] = m0[11] = 0;
+                std::array<float, 3> e = eulerOf(m0);
+                // The frame the bone's own turn is done in: its bind
+                // placement in its parent.
+                Mat43 frame = bind;
+                for (size_t c = 0; c < 3; ++c)
+                    frame[9 + c] += m0t[0] * bind[c] + m0t[1] * bind[3 + c] + m0t[2] * bind[6 + c];
+                if (bones[b].parent >= 0)
+                    frame = then(frame, world[size_t(bones[b].parent)]);
+                // The effector and the target in the bone's own space.
+                Vec3f effWorld = rowOf(world[size_t(end)], 3);
+                for (size_t q = 0; q < 3; ++q)
+                    effWorld = vadd(effWorld, vmul(rowOf(world[size_t(end)], q), effOffset[q]));
+                const Mat43 own = then(m0, frame);
+                const Mat43 ownInv = inverseOf(own);
+                auto pointIn = [](const Mat43& m, const Vec3f& v) {
+                    return Vec3f{v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9], v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10],
+                                 v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11]};
+                };
+                // u: the effector before the bone's own turn; t: the target
+                // in the frame, before it.
+                const Vec3f u = pointIn(ownInv, effWorld);
+                const Vec3f t = pointIn(inverseOf(frame), target);
+                // E = Rz Rx Ry: the turns before the step's axis and after it.
+                Mat43 pre{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0}, post = pre;
+                if (k == 0)
+                    pre = then(axisTurn(2, e[2]), axisTurn(1, e[1]));
+                else if (k == 1) {
+                    pre = axisTurn(2, e[2]);
+                    post = axisTurn(0, e[0]);
+                } else
+                    post = then(axisTurn(1, e[1]), axisTurn(0, e[0]));
+                const Vec3f x = pointIn(pre, u);
+                const Vec3f y = pointIn(inverseOf(post), t);
+                // In the plane square to the axis: the angle from x to y.
+                const size_t i0 = k == 0 ? 2 : k == 1 ? 1 : 0, i1 = k == 0 ? 0 : k == 1 ? 2 : 1;
+                const float ax = std::atan2(x[i1], x[i0]), ay = std::atan2(y[i1], y[i0]);
+                float angle = ay - ax;
+                // The sign as axisTurn turns: try both, keep the closer.
+                auto miss = [&](float a) {
+                    const Vec3f z = pointIn(axisTurn(k, a), x);
+                    return (z[i0] - y[i0]) * (z[i0] - y[i0]) + (z[i1] - y[i1]) * (z[i1] - y[i1]);
+                };
+                if (miss(-angle) < miss(angle))
+                    angle = -angle;
+                const std::array<float, 6>& lim = place.limits[s];
+                float lo = lim[size_t(2 * k)], hi = lim[size_t(2 * k + 1)];
+                if (k == 1) {
+                    lo = std::max(lo, -1.5708f);
+                    hi = std::min(hi, 1.5708f);
+                }
+                e[size_t(k)] = std::clamp(angle, std::min(lo, hi), std::max(lo, hi));
+                Mat43 turned = fromEuler(e);
+                for (size_t c = 0; c < 3; ++c)
+                    turned[9 + c] = m0t[c];
+                local[b] = then(turned, bind);
+                // Close enough (the chains' tolerance is 0: never early).
+                world = worlds(local);
+                Vec3f now = rowOf(world[size_t(end)], 3);
+                for (size_t q = 0; q < 3; ++q)
+                    now = vadd(now, vmul(rowOf(world[size_t(end)], q), effOffset[q]));
+                done = vlen(vsub(now, target)) < place.tolerance;
+            }
+            if (done)
+                break;
+        }
+        // Blended back toward the pose by the weight.
+        const float w = std::clamp(r.placeWeight, 0.0f, 1.0f);
+        for (size_t i = 0; i < chainBones.size(); ++i) {
+            const size_t b = chainBones[i];
+            Mat43 out = rotation(slerp(quatOf(saved[i]), quatOf(local[b]), w));
+            for (size_t c = 0; c < 3; ++c)
+                out[9 + c] = saved[i][9 + c];
+            local[b] = out;
+        }
+    }
+    if (r.turnWeight > 0) {
+        // The hand's (or foot's) turn outright: the wanted axes, its
+        // effector's turn undone; then blended by the weight.
+        const IkChain* tc = turn;
+        const int hb = tc ? indexOf(tc->root) : end;
+        if (hb < 0)
+            return;
+        const size_t h = size_t(hb);
+        std::vector<Mat43> world = worlds(local);
+        Mat43 wanted{};
+        for (size_t k = 0; k < 3; ++k)
+            setRow(wanted, k, r.axes[k]);
+        if (tc) {
+            Mat43 eff = tc->effector;
+            eff[9] = eff[10] = eff[11] = 0;
+            wanted = then(inverseOf(eff), wanted);
+        }
+        Mat43 nowRot = world[h];
+        nowRot[9] = nowRot[10] = nowRot[11] = 0;
+        Mat43 w = rotation(slerp(quatOf(nowRot), quatOf(wanted), std::clamp(r.turnWeight, 0.0f, 1.0f)));
+        for (size_t c = 0; c < 3; ++c)
+            w[9 + c] = world[h][9 + c];
+        local[h] = inParent(h, w, world);
+    }
+}
+
+bool LayeredPoser::pose(Anim base, float fraction, const std::vector<Layer>& layers,
+                        std::vector<Vec3f>& out, const Adjust* adjust, const std::vector<Face>* faces) const {
+    const Impl& m = *impl;
+    std::vector<Mat43> local;
+    if (!m.locals(base, fraction, layers, local, adjust))
+        return false;
+    const auto frame = size_t(m.mesh.frameVerts);
+    out.assign(frame, Vec3f{});
+    poseVertices(m.reader(), m.bones, frame, m.mesh.scale, m.mesh.origin, out.data(), [&](size_t i) { return local[i]; });
+    if (faces && !faces->empty()) {
+        if (!m.faceTable.empty())
+            m.placeFaces(*faces, out);
+        else if (!m.faceClips.empty())
+            m.addFaces(*faces, m.worlds(local), out);
+    }
+    return true;
+}
+
+bool LayeredPoser::hasFace() const {
+    return !impl->faceClips.empty() ||
+           std::any_of(impl->faceTable.begin(), impl->faceTable.end(), [](const auto& e) { return !e.keys.empty(); });
+}
+
+// A face entry's frame, as the engine builds it: its attachment point's
+// own turn and offset (none at all when its kind has 7; only the offset
+// with 6), then, for a point on a triangle, the triangle's frame on the
+// posed mesh: X from its first corner to its third, Y the normal (the
+// first edge across the second), Z = X x Y, from its first corner.
+// `bone`: the posed vertices in the skeleton's units.
+bool LayeredPoser::Impl::faceFrame(const FaceEntry& e, const std::vector<Vec3f>& bone, Mat43& frame) const {
+    if (e.attach < 0 || size_t(e.attach) >= mesh.attachPoints.size())
+        return false;
+    const MeshAttachPoint& p = mesh.attachPoints[size_t(e.attach)];
+    Mat43 own{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+    if ((p.kind & 7) != 7) {
+        if ((p.kind & 6) != 6)
+            for (size_t k = 0; k < 3; ++k)
+                setRow(own, k, p.axes[k]);
+        own[9] = p.offset[0], own[10] = p.offset[1], own[11] = p.offset[2];
+    }
+    if (p.type != 1) {
+        frame = own;
+        return true;
+    }
+    if (p.triangle < 0 || size_t(p.triangle) >= mesh.tris.size())
+        return false;
+    const MeshTri& t = mesh.tris[size_t(p.triangle)];
+    Vec3f c[3];
+    for (size_t k = 0; k < 3; ++k) {
+        if (size_t(t.vertex[k]) >= bone.size())
+            return false;
+        c[k] = bone[size_t(t.vertex[k])];
+    }
+    const Vec3f e1 = vsub(c[1], c[0]), e2 = vsub(c[2], c[0]);
+    auto unit = [](Vec3f v) {
+        const float l = std::sqrt(vdot(v, v));
+        return l > 0 ? vmul(v, 1 / l) : v;
+    };
+    auto cross = [](const Vec3f& a, const Vec3f& b) {
+        return Vec3f{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+    };
+    const Vec3f x = unit(e2), y = unit(cross(e1, e2)), z = cross(x, y);
+    Mat43 tri{};
+    setRow(tri, 0, x);
+    setRow(tri, 1, y);
+    setRow(tri, 2, z);
+    tri[9] = c[0][0], tri[10] = c[0][1], tri[11] = c[0][2];
+    frame = then(own, tri);
+    return true;
+}
+
+// The face, as the engine poses it: each channel's entry (the clip of its
+// name, by index) at its time, between keys blended, placed by its
+// frame; each vertex it lists pulled there by the channel's weight, from
+// where the body put it (a tween cross-faded from its last time and
+// weight). Channels go in turn, each from the last's result.
+void LayeredPoser::Impl::placeFaces(const std::vector<Face>& faces, std::vector<Vec3f>& out) const {
+    const Vec3f& scale = mesh.scale;
+    const Vec3f& origin = mesh.origin;
+    auto toBone = [&](const Vec3f& v) {
+        return Vec3f{(v[0] - origin[0]) * scale[0], (v[1] - origin[1]) * scale[1], (v[2] - origin[2]) * scale[2]};
+    };
+    std::vector<Vec3f> posed(out.size());
+    for (size_t v = 0; v < out.size(); ++v)
+        posed[v] = toBone(out[v]);
+    for (const Face& f : faces) {
+        const std::string wanted = fs::toLower(f.anim);
+        size_t clip = SIZE_MAX;
+        for (size_t c = 0; c < clipNames.size(); ++c)
+            if (fs::toLower(clipNames[c]) == wanted)
+                clip = c;
+        if (clip >= faceTable.size() || faceTable[clip].keys.empty())
+            continue;
+        const FaceEntry& e = faceTable[clip];
+        Mat43 frame{};
+        if (!faceFrame(e, posed, frame))
+            continue;
+        auto keyed = [&](float t, size_t j) {
+            const auto& keys = e.keys;
+            if (t <= keys.front().first || keys.size() == 1)
+                return keys.front().second[j];
+            if (t >= keys.back().first)
+                return keys.back().second[j];
+            size_t i = 1;
+            while (keys[i].first <= t)
+                ++i;
+            const float span = keys[i].first - keys[i - 1].first;
+            const float b = span > 0 ? (t - keys[i - 1].first) / span : 1;
+            return vadd(vmul(keys[i - 1].second[j], 1 - b), vmul(keys[i].second[j], b));
+        };
+        for (size_t j = 0; j < e.vertices.size(); ++j) {
+            const uint32_t v = e.vertices[j];
+            if (v >= out.size())
+                continue;
+            const Vec3f now = toBone(out[v]);
+            const Vec3f to = times(frame, keyed(f.seconds, j));
+            Vec3f place = vadd(vmul(to, f.weight), vmul(now, 1 - f.weight));
+            if (f.mix < 1) {
+                const Vec3f from = times(frame, keyed(f.fromSeconds, j));
+                const Vec3f was = vadd(vmul(from, f.fromWeight), vmul(now, 1 - f.fromWeight));
+                place = vadd(vmul(place, f.mix), vmul(was, 1 - f.mix));
+            }
+            for (size_t c = 0; c < 3; ++c)
+                out[v][c] = scale[c] != 0 ? place[c] / scale[c] + origin[c] : out[v][c];
+        }
+    }
+}
+
+// The face: each channel's key at its time (between two, blended) less
+// the neutral face, by its weight; each vertex's share turned as its bones
+// are turned from the neutral face's pose to this one, and added.
+void LayeredPoser::Impl::addFaces(const std::vector<Face>& faces, const std::vector<Mat43>& world,
+                                  std::vector<Vec3f>& out) const {
+    const BoneReader r = reader();
+    const size_t frame = out.size();
+    std::vector<Vec3f> delta(frame, Vec3f{});
+    bool any = false;
+    for (const Face& f : faces) {
+        const std::string wanted = fs::toLower(f.anim);
+        const NamedClip* clip = nullptr;
+        for (const NamedClip& c : faceClips)
+            if (fs::toLower(c.name) == wanted)
+                clip = &c;
+        if (!clip || clip->keys.empty())
+            continue;
+        // Its keys at a time: the first before the first, the last after
+        // the last, else between the two either side.
+        struct At {
+            size_t i = 0;
+            float blend = 0;
+        };
+        auto at = [&](float seconds) {
+            At a;
+            while (a.i + 1 < clip->keys.size() && clip->keys[a.i + 1].first <= seconds)
+                ++a.i;
+            if (a.i + 1 < clip->keys.size() && clip->keys[a.i + 1].first > clip->keys[a.i].first &&
+                seconds > clip->keys[a.i].first)
+                a.blend = std::min(1.0f, (seconds - clip->keys[a.i].first) /
+                                             (clip->keys[a.i + 1].first - clip->keys[a.i].first));
+            return a;
+        };
+        auto keyed = [&](const At& a, size_t v) {
+            Vec3f p = unpackVertex(r.u32(clip->keys[a.i].second + 4 * v));
+            if (a.blend > 0) {
+                const Vec3f q = unpackVertex(r.u32(clip->keys[a.i + 1].second + 4 * v));
+                p = vadd(p, vmul(vsub(q, p), a.blend));
+            }
+            return p;
+        };
+        const At to = at(f.seconds), from = at(f.fromSeconds);
+        const float wTo = f.weight * f.mix, wFrom = f.fromWeight * (1 - f.mix);
+        if (wTo == 0 && wFrom == 0)
+            continue;
+        for (size_t v = 0; v < frame && v < neutral.size(); ++v) {
+            Vec3f d = vmul(vsub(keyed(to, v), neutral[v]), wTo);
+            if (wFrom != 0)
+                d = vadd(d, vmul(vsub(keyed(from, v), neutral[v]), wFrom));
+            if (vdot(d, d) > 1e-6f) {
+                delta[v] = vadd(delta[v], d);
+                any = true;
+            }
+        }
+    }
+    if (!any)
+        return;
+    // Each bone's turn from the neutral face's pose to this one.
+    std::vector<Mat43> turn(world.size());
+    for (size_t b = 0; b < world.size() && b < faceWorlds.size(); ++b) {
+        turn[b] = then(inverseOf(faceWorlds[b]), world[b]);
+        turn[b][9] = turn[b][10] = turn[b][11] = 0;
+    }
+    const Vec3f& scale = mesh.scale;
+    for (size_t v = 0; v < frame; ++v) {
+        if (vdot(delta[v], delta[v]) <= 0 || v >= vertexBones.size())
+            continue;
+        // In the skeleton's units, turned, back into packed ones.
+        const Vec3f d{delta[v][0] * scale[0], delta[v][1] * scale[1], delta[v][2] * scale[2]};
+        Vec3f sum{};
+        float weight = 0;
+        for (const auto& [b, w] : vertexBones[v]) {
+            if (b >= turn.size())
+                continue;
+            sum = vadd(sum, vmul(times(turn[b], d), w));
+            weight += w;
+        }
+        if (weight <= 0)
+            continue;
+        for (size_t c = 0; c < 3; ++c)
+            out[v][c] += sum[c] / weight / scale[c];
+    }
+}
+
+std::string LayeredPoser::parentOf(std::string_view name) const {
+    const std::string wanted = fs::toLower(name);
+    for (const BoneRecord& b : impl->bones)
+        if (fs::toLower(b.name) == wanted)
+            return b.parent >= 0 ? impl->bones[size_t(b.parent)].name : std::string();
+    return {};
+}
+
+bool LayeredPoser::hasBone(std::string_view name) const {
+    const std::string wanted = fs::toLower(name);
+    for (const BoneRecord& b : impl->bones)
+        if (fs::toLower(b.name) == wanted)
+            return true;
+    return false;
+}
+
+bool LayeredPoser::skeleton(Anim base, float fraction, const std::vector<Layer>& layers,
+                            std::vector<std::array<float, 12>>& worlds, const Adjust* adjust) const {
+    std::vector<Mat43> local;
+    if (!impl->locals(base, fraction, layers, local, adjust))
+        return false;
+    worlds = impl->worlds(local);
+    return true;
+}
+
+std::vector<std::array<float, 12>> LayeredPoser::bindSkeleton() const {
+    std::vector<Mat43> bind(impl->bones.size());
+    for (size_t k = 0; k < impl->bones.size(); ++k)
+        bind[k] = impl->bones[k].placement;
+    return impl->worlds(bind);
+}
+
+int LayeredPoser::boneIndex(std::string_view name) const { return impl->indexOf(name); }
+
+bool LayeredPoser::locals(Anim base, float fraction, const std::vector<Layer>& layers,
+                          std::vector<std::array<float, 12>>& out) const {
+    return impl->locals(base, fraction, layers, out, nullptr);
+}
+
+int LayeredPoser::groupIndex(std::string_view name) const {
+    for (size_t g = 0; g < impl->groupNames.size(); ++g)
+        if (fs::toLower(impl->groupNames[g]) == fs::toLower(name))
+            return int(g);
+    return -1;
+}
+
+std::vector<bool> LayeredPoser::groupPart(std::string_view name) const {
+    const int g = groupIndex(name);
+    if (g < 0)
+        return {};
+    std::vector<bool> in(impl->bones.size(), false);
+    for (size_t i = 0; i < impl->bones.size(); ++i)
+        in[i] = std::find(impl->bones[i].groups.begin(), impl->bones[i].groups.end(), g) != impl->bones[i].groups.end();
+    return in;
+}
+
+bool LayeredPoser::hasChain(const std::string& name) const { return impl->chain(name) != nullptr; }
+
+std::string LayeredPoser::boneName(int index) const {
+    return index >= 0 && size_t(index) < impl->bones.size() ? impl->bones[size_t(index)].name : std::string();
+}
+
+int LayeredPoser::mainBone(const std::array<int32_t, 3>& vertices) const {
+    std::map<uint32_t, float> sum;
+    for (const int32_t v : vertices)
+        if (v >= 0 && size_t(v) < impl->vertexBones.size())
+            for (const auto& [b, w] : impl->vertexBones[size_t(v)])
+                sum[b] += w;
+    int best = -1;
+    float most = 0;
+    for (const auto& [b, w] : sum)
+        if (w > most) {
+            most = w;
+            best = int(b);
+        }
+    return best;
+}
+
+bool LayeredPoser::boneInSkeleton(Anim base, float fraction, const std::vector<Layer>& layers,
+                                  std::string_view name, Vec3f& origin, std::array<Vec3f, 3>& axes,
+                                  const Adjust* adjust) const {
+    const Impl& m = *impl;
+    const int which = m.indexOf(name);
+    std::vector<Mat43> local;
+    if (which < 0 || !m.locals(base, fraction, layers, local, adjust))
+        return false;
+    // Up its parents (each before its children) to the root.
+    Mat43 world = local[size_t(which)];
+    for (int p = m.bones[size_t(which)].parent; p >= 0; p = m.bones[size_t(p)].parent)
+        world = then(world, local[size_t(p)]);
+    origin = rowOf(world, 3);
+    for (size_t row = 0; row < 3; ++row)
+        axes[row] = rowOf(world, row);
+    return true;
+}
+
+bool LayeredPoser::bone(Anim base, float fraction, const std::vector<Layer>& layers, std::string_view name,
+                        Vec3f& origin, std::array<Vec3f, 3>& axes, const Adjust* adjust) const {
+    if (!boneInSkeleton(base, fraction, layers, name, origin, axes, adjust))
+        return false;
+    // Into packed units, as the vertices are (by Scale and Origin).
+    const Mesh& mesh = impl->mesh;
+    for (size_t c = 0; c < 3; ++c) {
+        origin[c] = origin[c] / mesh.scale[c] + mesh.origin[c];
+        for (size_t row = 0; row < 3; ++row)
+            axes[row][c] /= mesh.scale[c];
+    }
+    return true;
+}
+
+} // namespace reluva::unreal

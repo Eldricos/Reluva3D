@@ -1,0 +1,3444 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// The data viewer's Maps page: a level's BSP polygons drawn on the GPU,
+// textured and lit by its lightmaps, its movers (doors, lifts) from their
+// own brushes and its sky seen from the sky zone, with a fly camera
+// starting at the level's PlayerStart.
+
+#include "engines/unreal/viewers.h"
+
+#include "engines/unreal/actors.h"
+#include "engines/unreal/class_defaults.h"
+#include "engines/unreal/lighting.h"
+#include "engines/unreal/procedural.h"
+#include "engines/unreal/vm_level.h"
+#include "engines/unreal/properties.h"
+#include "engines/unreal/texture.h"
+
+#include "common/font.h"
+#include "common/fs.h"
+
+#include <algorithm>
+#include <bit>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <map>
+#include <set>
+#include <tuple>
+
+namespace reluva::unreal {
+
+namespace {
+
+constexpr int kFrameW = 960;
+constexpr int kFrameH = 720;
+constexpr float kPi = 3.14159265358979f;
+constexpr float kSpeed = 400;    // units per second
+constexpr float kEyeHeight = 27; // above a PlayerStart's location, roughly a player's eyes
+// The frame's colours are multiplied by this before the display gamma:
+// none, the lights' units being the original's (lighting.md).
+constexpr float kExposure = 1;
+
+enum Held { Forward, Back, Left, Right, Up, Down, Fast, TurnLeft, TurnRight, LookUp, LookDown, Fire, HeldCount };
+
+// Unreal's axes are left-handed (X forward, Y right, Z up); the renderer's
+// are right-handed, so Y is negated on the way in.
+gfx::Vec3 toWorld(const Vec3f& v) { return {v[0], -v[1], v[2]}; }
+
+// A sprite's colour, as Render.dll's DrawActorSprite has it: its
+// ColorFilter, times its ScaleGlow (each part at most 1) unless that's 1.
+std::array<float, 3> spriteTint(const std::array<float, 3>& filter, float glow) {
+    std::array<float, 3> c = filter;
+    if (glow != 1)
+        for (float& v : c)
+            v = std::min(v * glow, 1.0f);
+    for (float& v : c)
+        v *= kExposure;
+    return c;
+}
+
+// The surface flags that change how a polygon is drawn, for grouping.
+constexpr uint32_t kDrawFlags = polyflag::Masked | polyflag::Translucent | polyflag::Modulated |
+                                polyflag::FakeBackdrop | polyflag::Unlit | polyflag::TwoSided | polyflag::Mirrored;
+
+// UE1's flag for a surface in a fog zone (PF_RenderFog), kept on the
+// level's batches for the volume lights' pass.
+constexpr uint32_t kRenderFog = 0x40000000;
+
+bool blended(uint32_t flags) { return flags & (polyflag::Translucent | polyflag::Modulated); }
+
+// Column-major 4x4 matrices for placing movers (gfx3d.h's conventions).
+gfx::Mat4 translation(const Vec3f& t) {
+    gfx::Mat4 m = gfx::identity();
+    m[12] = t[0];
+    m[13] = t[1];
+    m[14] = t[2];
+    return m;
+}
+gfx::Mat4 scaling(const Vec3f& s) {
+    gfx::Mat4 m = gfx::identity();
+    m[0] = s[0];
+    m[5] = s[1];
+    m[10] = s[2];
+    return m;
+}
+gfx::Mat4 rotation(const Rotator& r) {
+    const std::array<Vec3f, 3> axes = rotationAxes(r);
+    gfx::Mat4 m = gfx::identity();
+    for (size_t c = 0; c < 3; ++c)
+        for (size_t k = 0; k < 3; ++k)
+            m[c * 4 + k] = axes[c][k];
+    return m;
+}
+
+// The light at a point facing `n` from every light, without shadows (for
+// movers, which the level's lightmaps don't cover), at most kMaxLight.
+Vec3f lightAt(const LevelLights& lights, const Vec3f& p, const Vec3f& n) {
+    Vec3f total{0.1f, 0.1f, 0.1f}; // a little, so unlit sides aren't black
+    for (const LightSource& l : lights.unique) {
+        const Vec3f d{l.position[0] - p[0], l.position[1] - p[1], l.position[2] - p[2]};
+        const float straight = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        const float dist = lightDistance(l, p);
+        if (dist >= l.radius || straight <= 0)
+            continue;
+        float amount = lightFalloff(dist / l.radius);
+        if (l.incidence)
+            amount *= std::max(0.0f, (n[0] * d[0] + n[1] * d[1] + n[2] * d[2]) / straight);
+        for (size_t k = 0; k < 3; ++k)
+            total[k] += l.color[k] * amount;
+    }
+    for (float& c : total)
+        c = std::min(c, kMaxLight);
+    return total;
+}
+
+} // namespace
+
+MapViewer::MapViewer(ViewerContext& ctx) : Page(ctx), names_(ctx.packages.mapNames()) {}
+
+MapViewer::~MapViewer() { deactivate(); }
+
+void MapViewer::deactivate() {
+    unload();
+    renderer_ = nullptr;
+}
+
+void MapViewer::unload() {
+    if (!renderer_)
+        return;
+    if (mesh_)
+        renderer_->destroyMesh(mesh_);
+    if (moverMesh_)
+        renderer_->destroyMesh(moverMesh_);
+    mesh_ = moverMesh_ = 0;
+    movers_.clear();
+    if (spriteQuad_)
+        renderer_->destroyMesh(spriteQuad_);
+    spriteQuad_ = 0;
+    sprites_.clear();
+    for (const GpuMesh& g : gpuMeshes_)
+        if (g.mesh)
+            renderer_->destroyMesh(g.mesh);
+    gpuMeshes_.clear();
+    meshes_.clear();
+    posedTopology_.clear();
+    liveMeshes_.clear(); // indexes into meshes_
+    meshActors_.clear();
+    jump_ = -1;
+    sky_.reset();
+    for (gfx::TextureId t : textures_)
+        renderer_->destroyTexture(t);
+    textures_.clear();
+    batches_.clear();
+    tints_.clear();
+    surfRanges_.clear();
+    swappedBatches_.clear();
+    swappedSerial_ = -1;
+    animatedLightmaps_.clear();
+    animatedTextures_.clear();
+    animatedSince_.clear();
+    uniqueByRef_.clear();
+    actorFades_.clear();
+    changingLights_.clear();
+    lightmapPages_.clear();
+    textureCache_.clear();
+    seeThroughTextures_.clear();
+    hudFlis_.clear();
+    lights_ = {};
+    shadows_.clear();
+    stopPlay();
+    posers_.clear();
+}
+
+void MapViewer::activate() {
+    gfx::Renderer3D* device = nullptr;
+    if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, device)) {
+        renderer_ = nullptr;
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        clear(16, 18, 24);
+        text(4, 4, "The Maps page needs 3D rendering, which isn't available:", {255, 120, 120});
+        text(4, 4 + font::kLineHeight, err.message);
+        text(4, 4 + 3 * font::kLineHeight, "Tab: the other pages still work.");
+        setTitle("3D rendering not available");
+        return;
+    }
+    recorder_ = std::make_unique<TextureUseRecorder>(*device);
+    renderer_ = recorder_.get();
+    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlayTop_ = overlayBottom_ = 0;
+    load(index_);
+}
+
+void MapViewer::load(int index) {
+    unload();
+    index_ = index;
+    error_.clear();
+    info_.clear();
+    const std::string& name = names_[size_t(index)];
+    setTitle(name + " (" + std::to_string(index + 1) + "/" + std::to_string(names_.size()) + ")");
+    info_.push_back(name + ctx_.packages.extension(name) + "  " + std::to_string(index + 1) + "/" + std::to_string(names_.size()));
+
+    start_ = {0, 0, 0};
+    startYaw_ = 0;
+    using Clock = std::chrono::steady_clock;
+    const auto t0 = Clock::now();
+    auto ms = [](Clock::time_point a, Clock::time_point b) {
+        return std::chrono::duration<double, std::milli>(b - a).count();
+    };
+    const Package* pkg = ctx_.packages.get(name);
+    Model model;
+    std::string modelError;
+    zones_ = {};
+    zonesSeen_ = ~uint64_t(0);
+    if (!pkg) {
+        error_ = ctx_.packages.error(name);
+    } else if (findLevelModel(*pkg, &model, &modelError) < 0) {
+        error_ = modelError.empty() ? "No level geometry (a Model with BSP nodes) found" : modelError;
+    }
+    if (!error_.empty()) {
+        toStart();
+        return;
+    }
+
+    // The level's scripts, started (and a second of play): what they
+    // change by the time play begins (lights turned off, editor icons
+    // hidden, actors destroyed). P turns this off.
+    const auto tModel = Clock::now();
+    LevelStart start;
+    std::string startError;
+    bool started = false;
+    if (runScripts_) {
+        if (Error err = runLevelStart(ctx_.packages, *pkg, defaultGameType(ctx_.packages), 1.0f, start))
+            startError = err.message;
+        else
+            started = true;
+    }
+    const ScriptedActors* scripted = started ? &start.changed : nullptr;
+
+    // The lightmaps, lit from the level's lights, as textures.
+    lights_ = gatherLights(ctx_.packages, *pkg, model, scripted);
+    shadows_.clear();
+    staticLightRefs_.clear();
+    for (const int32_t ref : model.lights)
+        if (ref)
+            staticLightRefs_.insert(ref);
+    const LevelLights& lights = lights_;
+    const auto tLights = Clock::now();
+    LightmapAtlas atlas = buildLightmaps(model, lights);
+    const auto tLightmaps = Clock::now();
+    std::vector<gfx::TextureId> pages;
+    for (const image::Image& page : atlas.pages) {
+        gfx::TextureParams params;
+        params.clamp = true;
+        params.mipmaps = false;
+        gfx::TextureId id = 0;
+        if (renderer_->createTexture(page.w, page.h, page.rgba.data(), params, id))
+            id = 0;
+        else
+            textures_.push_back(id);
+        pages.push_back(id);
+    }
+    hasLightmaps_ = !atlas.pages.empty();
+    lightmapPages_ = pages;
+    changingLights_ = lights.animated;
+    lightLevels_.clear();
+    mapLevels_.clear();
+    for (const LightSource& l : changingLights_) {
+        lightLevels_.push_back(l.startsOff ? 0.0f : lightLevel(l, 0));
+        mapLevels_.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
+    }
+    animatedLightmaps_ = std::move(atlas.animated);
+    staleLightmaps_.assign(animatedLightmaps_.size(), false);
+    lightTime_ = 0;
+
+    // Group the polygons by texture, drawing flags and lightmap page.
+    const std::vector<Polygon> polys = levelPolygons(model);
+    // And by the zones they're seen from, to leave out those not seen.
+    zones_.build(model);
+    leafLights_.clear();
+    for (const Leaf& l : model.leaves)
+        leafLights_.push_back(l.permeating);
+    volumes_.clear();
+    for (const LightSource& l : lights_.unique)
+        if (l.volumeRadius > 0 && (l.volumeFog > 0 || l.volumeColor[0] + l.volumeColor[1] + l.volumeColor[2] > 0))
+            volumes_.push_back(&l);
+    // The surfaces in fog zones (bFogZone): those volume lights show on.
+    uint64_t fogZones = 0;
+    for (size_t z = 0; z < lights_.zoneFog.size() && z < 64; ++z)
+        if (lights_.zoneFog[z])
+            fogZones |= uint64_t(1) << z;
+    std::map<std::tuple<bool, int32_t, uint32_t, int, uint64_t>, std::vector<const Polygon*>> groups;
+    for (const Polygon& p : polys) {
+        const BspSurf& s = model.surfs[size_t(p.surf)];
+        uint32_t flags = s.polyFlags & kDrawFlags;
+        if (p.zones & fogZones)
+            flags |= kRenderFog;
+        int page = blended(flags) || (flags & polyflag::FakeBackdrop) ? -1 : atlas.surfs[size_t(p.surf)].page;
+        if (flags & polyflag::Mirrored) // a mirror: a batch of its own, for its plane
+            page = -2 - p.surf;
+        groups[{blended(flags), s.texture, flags, page, zones_.portalCount() ? p.zones : ~uint64_t(0)}].push_back(&p);
+    }
+
+    std::vector<gfx::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    // Each texture uploaded once; its size divides texture coordinates.
+    int missing = 0;
+    std::string firstMissing;
+    auto textureOf = [&](const ObjectRef& tex, bool masked = false) {
+        bool unreadable = false;
+        const auto t = this->textureOf(tex, &unreadable, masked);
+        if (unreadable) {
+            ++missing;
+            if (firstMissing.empty())
+                firstMissing = tex.package->path(tex.exportIndex + 1);
+        }
+        return t;
+    };
+    auto textureFor = [&](const Package& from, int32_t ref, uint32_t flags) -> std::pair<gfx::TextureId, std::array<int, 2>> {
+        const ObjectRef tex = ctx_.packages.resolve(from, ref);
+        if (!tex && ref != 0) {
+            ++missing;
+            if (firstMissing.empty())
+                firstMissing = from.path(ref);
+        }
+        return textureOf(tex, (flags & polyflag::Masked) != 0);
+    };
+    const gfx::Vec3 light = [] {
+        const float l = std::sqrt(0.3f * 0.3f + 0.5f * 0.5f + 0.8f * 0.8f);
+        return gfx::Vec3{0.3f / l, 0.5f / l, 0.8f / l};
+    }();
+    for (const auto& [key, group] : groups) {
+        const auto& [isBlended, textureRef, flags, page, zones] = key;
+        Batch batch;
+        batch.polyFlags = flags;
+        batch.zones = zones;
+        batch.lightmap = page >= 0 ? pages[size_t(page)] : 0;
+        if ((flags & polyflag::Mirrored) && !group.empty() && !group[0]->points.empty()) {
+            batch.mirrorNormal = toWorld(group[0]->normal);
+            const gfx::Vec3 on = toWorld(group[0]->points[0]);
+            batch.mirrorD = batch.mirrorNormal[0] * on[0] + batch.mirrorNormal[1] * on[1] + batch.mirrorNormal[2] * on[2];
+        }
+        batch.firstIndex = uint32_t(indices.size());
+        const auto [textureId, size] = textureFor(*pkg, textureRef, flags);
+        batch.texture = textureId;
+        batch.textureRef = ctx_.packages.resolve(*pkg, textureRef);
+        for (const Polygon* p : group) {
+            const auto base = uint32_t(vertices.size());
+            if (p->points.size() >= 3)
+                surfRanges_[p->surf].push_back(
+                    {batches_.size(), uint32_t(indices.size()), uint32_t(p->points.size() - 2) * 3});
+            const gfx::Vec3 n = toWorld(p->normal);
+            const float facing = n[0] * light[0] + n[1] * light[1] + n[2] * light[2];
+            const auto shade = uint8_t((flags & polyflag::Unlit) ? 255 : 150 + int(90 * facing));
+            for (size_t k = 0; k < p->points.size(); ++k) {
+                gfx::Vertex v{};
+                const gfx::Vec3 w = toWorld(p->points[k]);
+                std::copy(w.begin(), w.end(), v.pos);
+                v.uv[0] = p->texels[k][0] / float(size[0]);
+                v.uv[1] = p->texels[k][1] / float(size[1]);
+                if (page >= 0) {
+                    const auto lm = atlas.uv(p->surf, p->points[k]);
+                    v.uv2[0] = lm[0];
+                    v.uv2[1] = lm[1];
+                }
+                std::copy(n.begin(), n.end(), v.normal);
+                v.color[0] = v.color[1] = v.color[2] = shade;
+                v.color[3] = 255;
+                vertices.push_back(v);
+            }
+            for (size_t k = 2; k < p->points.size(); ++k) {
+                indices.push_back(base);
+                indices.push_back(base + uint32_t(k) - 1);
+                indices.push_back(base + uint32_t(k));
+            }
+        }
+        // A translucent surface the lights reach: its tint's samples.
+        if ((flags & polyflag::Translucent) && !(flags & polyflag::Unlit) && hasLightmaps_) {
+            std::vector<TintSample> samples;
+            for (const Polygon* p : group) {
+                const LightmapPlacement& pl = atlas.surfs[size_t(p->surf)];
+                if (pl.page < 0 || size_t(pl.page) >= atlas.pages.size() || p->points.empty())
+                    continue;
+                std::vector<Vec3f> at = p->points;
+                Vec3f mid{};
+                for (const Vec3f& q : p->points)
+                    for (size_t k = 0; k < 3; ++k)
+                        mid[k] += q[k] / float(p->points.size());
+                at.push_back(mid);
+                const image::Image& img = atlas.pages[size_t(pl.page)];
+                for (const Vec3f& q : at) {
+                    const auto uv = atlas.uv(p->surf, q);
+                    const int x = std::clamp(int(uv[0] * float(atlas.pageSize)), 0, img.w - 1);
+                    const int y = std::clamp(int(uv[1] * float(atlas.pageSize)), 0, img.h - 1);
+                    TintSample t;
+                    t.at = q;
+                    for (size_t a = 0; a < animatedLightmaps_.size() && t.anim < 0; ++a) {
+                        const AnimatedLightmap& m = animatedLightmaps_[a];
+                        if (m.page == pl.page && x >= m.x && x < m.x + m.w && y >= m.y && y < m.y + m.h) {
+                            t.anim = int(a);
+                            t.texel = size_t(y - m.y) * size_t(m.w) + size_t(x - m.x);
+                        }
+                    }
+                    const uint8_t* px = img.pixel(x, y);
+                    t.light = {float(px[0]) / 255 * 2, float(px[1]) / 255 * 2, float(px[2]) / 255 * 2};
+                    samples.push_back(t);
+                }
+            }
+            if (!samples.empty()) {
+                batch.tint = int(tints_.size());
+                tints_.push_back(std::move(samples));
+            }
+        }
+        batch.indexCount = uint32_t(indices.size()) - batch.firstIndex;
+        if (batch.indexCount)
+            batches_.push_back(batch);
+    }
+    if (!indices.empty())
+        if (Error err = renderer_->createMesh(vertices, indices, mesh_))
+            error_ = err.message;
+
+    // The movers: each brush's polygons in its own coordinates, grouped by
+    // texture and flags, lit (without shadows) where it starts.
+    std::vector<std::string> moverErrors;
+    std::vector<Mover> movers = findMovers(ctx_.packages, *pkg, &moverErrors);
+    vertices.clear();
+    indices.clear();
+    for (Mover& m : movers) {
+        MoverDraw d;
+        d.key = d.target = m.keyNum;
+        d.mover = std::move(m);
+        for (const Poly& p : d.mover.polys)
+            for (const Vec3f& v : p.vertices) {
+                const Vec3f q{(v[0] - d.mover.prePivot[0]) * d.mover.mainScale[0] * d.mover.postScale[0],
+                              (v[1] - d.mover.prePivot[1]) * d.mover.mainScale[1] * d.mover.postScale[1],
+                              (v[2] - d.mover.prePivot[2]) * d.mover.mainScale[2] * d.mover.postScale[2]};
+                d.reach = std::max(d.reach, std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2]));
+            }
+        const gfx::Mat4 place = moverTransform(d);
+        d.built = place;
+        std::map<std::pair<int32_t, uint32_t>, std::vector<const Poly*>> moverGroups;
+        for (const Poly& p : d.mover.polys)
+            if (p.vertices.size() >= 3 && !(p.polyFlags & (polyflag::Invisible | polyflag::Portal)))
+                moverGroups[{p.texture, p.polyFlags & kDrawFlags}].push_back(&p);
+        for (const auto& [key, group] : moverGroups) {
+            Batch batch;
+            batch.polyFlags = key.second;
+            batch.firstIndex = uint32_t(indices.size());
+            const auto [textureId, size] = textureFor(*pkg, key.first, key.second);
+            batch.texture = textureId;
+            for (const Poly* p : group) {
+                const auto base = uint32_t(vertices.size());
+                // The normal as the mover is placed, in Unreal's axes: where
+                // its tip goes less where the origin goes, made unit length.
+                const gfx::Vec3 origin = gfx::transformPoint(place, Vec3f{});
+                const gfx::Vec3 tip = gfx::transformPoint(place, p->normal);
+                Vec3f normal{tip[0] - origin[0], -(tip[1] - origin[1]), tip[2] - origin[2]};
+                const float len = std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+                for (float& c : normal)
+                    c = len > 0 ? c / len : 0;
+                for (const Vec3f& v : p->vertices) {
+                    gfx::Vertex vx{};
+                    std::copy(v.begin(), v.end(), vx.pos);
+                    const Vec3f d2{v[0] - p->base[0], v[1] - p->base[1], v[2] - p->base[2]};
+                    vx.uv[0] = (d2[0] * p->textureU[0] + d2[1] * p->textureU[1] + d2[2] * p->textureU[2] + float(p->panU)) /
+                               float(size[0]);
+                    vx.uv[1] = (d2[0] * p->textureV[0] + d2[1] * p->textureV[1] + d2[2] * p->textureV[2] + float(p->panV)) /
+                               float(size[1]);
+                    std::copy(p->normal.begin(), p->normal.end(), vx.normal);
+                    const gfx::Vec3 w = gfx::transformPoint(place, v);
+                    const Vec3f light = (key.second & polyflag::Unlit)
+                                            ? Vec3f{1, 1, 1}
+                                            : lightAt(lights, Vec3f{w[0], -w[1], w[2]}, normal);
+                    for (size_t k = 0; k < 3; ++k)
+                        vx.color[k] = uint8_t(light[k] * 255 + 0.5f);
+                    vx.color[3] = 255;
+                    vertices.push_back(vx);
+                }
+                for (size_t k = 2; k < p->vertices.size(); ++k) {
+                    indices.push_back(base);
+                    indices.push_back(base + uint32_t(k) - 1);
+                    indices.push_back(base + uint32_t(k));
+                }
+            }
+            batch.indexCount = uint32_t(indices.size()) - batch.firstIndex;
+            if (batch.indexCount)
+                d.batches.push_back(batch);
+        }
+        movers_.push_back(std::move(d));
+    }
+    if (!indices.empty())
+        if (Error err = renderer_->createMesh(vertices, indices, moverMesh_))
+            error_ = err.message;
+    sky_ = findSkyZone(ctx_.packages, *pkg);
+    // Each zone's sky, as ZoneInfo.LinkToSkybox links it: the SkyZoneInfo
+    // tagged the zone's Event, else the first there is. The view shows its
+    // own zone's (CM_ArdPrison's two: the sun for CM07A, a moon for CM07B).
+    zoneSkies_.clear();
+    if (sky_) {
+        ClassDefaults defaults(ctx_.packages);
+        std::vector<std::pair<std::string, Vec3f>> skies;
+        for (size_t i = 0; i < pkg->exports().size(); ++i) {
+            if (pkg->exports()[i].classRef == 0 || !isA(ctx_.packages, *pkg, int(i), "SkyZoneInfo"))
+                continue;
+            ActorProperties props;
+            std::array<float, 3> at{};
+            if (!defaults.actorProperties(*pkg, int(i), props) && props.vector("Location", at))
+                skies.emplace_back(fs::toLower(props.nameValue("Tag")), Vec3f{at[0], at[1], at[2]});
+        }
+        for (const Zone& z : model.zones) {
+            std::optional<Vec3f> sky = sky_;
+            const ObjectRef zone = z.actor ? ctx_.packages.resolve(*pkg, z.actor) : ObjectRef{};
+            ActorProperties props;
+            if (zone && !defaults.actorProperties(*zone.package, zone.exportIndex, props)) {
+                const std::string event = fs::toLower(props.nameValue("Event"));
+                if (!event.empty() && event != "none")
+                    for (const auto& [tag, at] : skies)
+                        if (tag == event) {
+                            sky = at;
+                            break;
+                        }
+            }
+            zoneSkies_.push_back(sky);
+        }
+    }
+
+    // Actors drawn as meshes: each mesh read and uploaded once; its skins
+    // by texture index (MultiSkins, else Skin, else the mesh's own); lit
+    // by the level's lights where it stands.
+    ClassDefaults defaults(ctx_.packages);
+    MeshActorStats meshStats;
+    std::map<std::pair<const Package*, int>, int> meshIndex; // -1: unreadable
+    int badMeshes = 0, borrowed = 0;
+    std::string firstBadMesh;
+    const std::vector<MeshActor> meshActors = findMeshActors(ctx_.packages, *pkg, defaults, &meshStats, scripted);
+    // The animations each mesh's actors play, and the idles that may stand
+    // in for a one-frame pose (below).
+    std::map<std::pair<const Package*, int>, std::set<std::string>> wanted;
+    for (const MeshActor& a : meshActors) {
+        auto& w = wanted[{a.mesh.package, a.mesh.exportIndex}];
+        if (!a.animSequence.empty())
+            w.insert(a.animSequence);
+        w.insert(idleFor(a.animSequence));
+    }
+    for (const MeshActor& a : meshActors) {
+        auto it = meshIndex.find({a.mesh.package, a.mesh.exportIndex});
+        if (it == meshIndex.end()) {
+            Mesh mesh;
+            GpuMesh gpu;
+            Error err = readMesh(*a.mesh.package, a.mesh.exportIndex, mesh);
+            // Characters' animations past their own frames, from the shared
+            // animation sets (read the first time one's needed).
+            if (!err && mesh.bones)
+                for (const std::string& seq : wanted[{a.mesh.package, a.mesh.exportIndex}]) {
+                    if (mesh.findAnim(seq))
+                        continue;
+                    if (!ctx_.animationSets) {
+                        const auto t0 = Clock::now();
+                        ctx_.sets();
+                        animationSetsMs_ = int(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - t0).count());
+                    }
+                    borrowed += borrowNamedAnimation(*a.mesh.package, a.mesh.exportIndex, ctx_.sets(), seq, mesh);
+                }
+            if (!err)
+                err = uploadMesh(*renderer_, mesh, gpu, ctx_.meshTurn, ctx_.meshYawQuarters);
+            int at = -1;
+            if (err) {
+                ++badMeshes;
+                if (firstBadMesh.empty())
+                    firstBadMesh = err.message;
+            } else {
+                at = int(meshes_.size());
+                meshes_.push_back(std::move(mesh));
+                gpuMeshes_.push_back(gpu);
+            }
+            it = meshIndex.emplace(std::make_pair(a.mesh.package, a.mesh.exportIndex), at).first;
+        }
+        if (it->second < 0)
+            continue;
+        const Mesh& mesh = meshes_[size_t(it->second)];
+        MeshDraw d;
+        d.mesh = size_t(it->second);
+        d.label = a.name + " (" + a.mesh.package->path(a.mesh.exportIndex + 1) +
+                  (mesh.bones ? ", " + std::to_string(mesh.bones) + " bones" : std::string()) + ")";
+        d.at = toWorld(a.location);
+        d.drawScale = a.drawScale;
+        d.skeletal = mesh.bones > 0;
+        d.placement = meshPlacement(a.location, a.rotation, a.drawScale, a.prePivot);
+        for (size_t k = 0; k < std::max<size_t>(mesh.textures.size(), 8); ++k) {
+            ObjectRef tex = k < a.multiSkins.size() ? a.multiSkins[k] : ObjectRef{};
+            if (!tex)
+                tex = a.skin;
+            if (!tex && k < mesh.textures.size())
+                tex = ctx_.packages.resolve(*a.mesh.package, mesh.textures[k]);
+            d.textures.push_back(textureOf(tex).first);
+        }
+        d.light = meshLightAt(a.location);
+        const MeshAnimSeq* anim = mesh.findAnim(a.animSequence);
+        // Characters are placed in a one-frame pose (BaseRelax, BaseReady),
+        // which the game's scripts follow with an idle loop: its idle
+        // (Idle1, or IdleReady1 for a ready pose), which every humanoid's
+        // list has, so they move when animations play.
+        if (mesh.bones && (!anim || anim->numFrames <= 1))
+            if (const MeshAnimSeq* idle = mesh.findAnim(idleFor(a.animSequence)))
+                anim = idle;
+        if (anim) {
+            d.anim = int(anim - mesh.anims.data());
+        } else if (mesh.bones) {
+            // A character naming an animation its mesh doesn't have (the
+            // Grigari drones' "BaseReady"): its idle, as the game's scripts
+            // would play something.
+            for (size_t k = 0; k < mesh.anims.size() && d.anim < 0; ++k)
+                if (fs::toLower(mesh.anims[k].name).find("idle") != std::string::npos && mesh.anims[k].numFrames > 1)
+                    d.anim = int(k);
+        }
+        d.startFraction = a.animFrame;
+        meshActors_.push_back(std::move(d));
+    }
+
+    // Actors drawn as sprites, on one square turned to face the camera.
+    SpriteActorStats spriteStats;
+    for (const SpriteActor& a : findSpriteActors(ctx_.packages, *pkg, defaults, &spriteStats, scripted)) {
+        const auto [texture, size] = textureOf(a.texture);
+        if (!texture)
+            continue;
+        SpriteDraw d;
+        d.texture = texture;
+        d.at = toWorld(Vec3f{a.location[0] - a.prePivot[0], a.location[1] - a.prePivot[1], a.location[2] - a.prePivot[2]});
+        d.width = float(size[0]) * a.drawScale;
+        d.height = float(size[1]) * a.drawScale;
+        d.style = a.style;
+        d.vertical = a.vertical;
+        // Lit by the level's lights where it stands, as meshes are, unless
+        // unlit or blended (glowing effects).
+        Vec3f light{1, 1, 1};
+        if (!a.unlit && a.style != kStyleTranslucent && a.style != kStyleModulated) {
+            light = {0.15f, 0.15f, 0.15f};
+            for (const LightSource& l : lights.unique) {
+                const float dist = lightDistance(l, a.location);
+                if (dist < l.radius)
+                    for (size_t k = 0; k < 3; ++k)
+                        light[k] += l.color[k] * lightFalloff(dist / l.radius);
+            }
+            for (float& c : light)
+                c = std::min(c, kMaxLight);
+        }
+        // Tinted as a live one is (spriteTint: its ColorFilter and glow).
+        const std::array<float, 3> tint = spriteTint({a.colorFilter[0], a.colorFilter[1], a.colorFilter[2]}, a.scaleGlow);
+        for (size_t k = 0; k < 3; ++k)
+            d.color[k] = light[k] * tint[k];
+        sprites_.push_back(d);
+    }
+    {
+        // A square of side 1 across X (right) and Y (up), its texture
+        // upright: the sprites', and the HUD's tiles when playing.
+        std::vector<gfx::Vertex> quad(4);
+        const float corners[4][2] = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}};
+        for (size_t k = 0; k < 4; ++k) {
+            quad[k] = {{corners[k][0], corners[k][1], 0}, {corners[k][0] + 0.5f, 0.5f - corners[k][1]}, {0, 0},
+                       {0, 0, 1}, {255, 255, 255, 255}};
+        }
+        if (Error err = renderer_->createMesh(quad, {0, 1, 2, 0, 2, 3}, spriteQuad_))
+            sprites_.clear();
+    }
+    const auto tMesh = Clock::now();
+
+    // Start at the first PlayerStart, or above the level's middle.
+    for (int i = 0; i < 3; ++i)
+        start_[size_t(i)] = (model.boundsMin[size_t(i)] + model.boundsMax[size_t(i)]) / 2;
+    start_ = toWorld(start_);
+    for (int i : pkg->exportsOfClass("PlayerStart")) {
+        std::vector<uint8_t> data;
+        PropertyList props;
+        if (pkg->readExport(i, data))
+            continue;
+        Reader r(data, size_t(pkg->exports()[size_t(i)].serialOffset));
+        std::array<float, 3> loc;
+        if (beginObject(*pkg, i, r, props) || !props.vector("Location", loc))
+            continue;
+        loc[2] += kEyeHeight;
+        start_ = toWorld(loc);
+        Rotator rot;
+        if (props.rotator("Rotation", rot))
+            startYaw_ = -float(rot.yaw) * 2 * kPi / 65536; // negated with Y
+        break;
+    }
+    toStart();
+
+    char line[320];
+    std::snprintf(line, sizeof line, "version %d/%d: %zu nodes, %zu surfaces, %zu polygons, %zu triangles in %zu batches",
+                  pkg->version(), pkg->licensee(), model.nodes.size(), model.surfs.size(), polys.size(),
+                  indices.size() / 3, batches_.size());
+    info_.push_back(line);
+    std::snprintf(line, sizeof line, "%zu textures%s%s", textures_.size(),
+                  missing ? ", missing or undecodable: " : "", missing ? std::to_string(missing).c_str() : "");
+    info_.push_back(missing ? std::string(line) + " (first: " + firstMissing + ")" : std::string(line));
+    if (!model.hasLighting()) {
+        info_.push_back("No lightmaps: " + model.lightingError);
+    } else {
+        const LightmapAtlas::Stats& st = atlas.stats;
+        std::snprintf(line, sizeof line,
+                      "lightmaps: %d surfaces (%d lit) on %zu pages, %zu lights (%d unreadable, %zu pulsing or "
+                      "flickering over %zu lightmaps), %d grids off fit",
+                      st.lightmaps, st.lit, atlas.pages.size(), lights.unique.size(), lights.unreadable,
+                      changingLights_.size(), animatedLightmaps_.size(), st.badFit);
+        info_.push_back(line);
+    }
+    std::snprintf(line, sizeof line,
+                  "loaded in %.0f ms: model %.0f, light actors %.0f, lightmaps %.0f, textures and mesh %.0f",
+                  ms(t0, tMesh), ms(t0, tModel), ms(tModel, tLights), ms(tLights, tLightmaps), ms(tLightmaps, tMesh));
+    info_.push_back(line);
+    std::snprintf(line, sizeof line, "%zu movers%s; sky zone: %s", movers_.size(),
+                  moverErrors.empty() ? "" : (", " + std::to_string(moverErrors.size()) + " unreadable").c_str(),
+                  sky_ ? "yes" : "none");
+    info_.push_back(moverErrors.empty() ? std::string(line) : std::string(line) + " (first: " + moverErrors[0] + ")");
+    std::snprintf(line, sizeof line,
+                  "%zu actors drawn as %zu meshes (%d with the mesh from class defaults, %d hidden, %d meshes "
+                  "unreadable); class defaults found %d, not %d",
+                  meshActors_.size(), meshes_.size(), meshStats.fromDefaults, meshStats.hidden, badMeshes,
+                  defaults.found(), defaults.missing());
+    info_.push_back(line);
+    const auto turned = std::count_if(meshes_.begin(), meshes_.end(), [](const Mesh& m) { return bool(m.importAxes); });
+    if (turned)
+        info_.push_back(std::to_string(turned) + " imported meshes turned from their packed vertices: drawn " +
+                        meshTurnName(ctx_.meshTurn) + " (M changes), then " +
+                        std::to_string(ctx_.meshYawQuarters * 90) + " degrees of yaw (Y changes)");
+    if (borrowed)
+        info_.push_back(std::to_string(borrowed) + " animations given to characters from " +
+                        std::to_string(ctx_.animationSets ? ctx_.animationSets->size() : 0) +
+                        " shared animation sets (read in " + std::to_string(animationSetsMs_) + " ms)");
+    if (!firstBadMesh.empty())
+        info_.push_back("First unreadable mesh: " + firstBadMesh);
+    std::snprintf(line, sizeof line, "%zu sprites (%d editor icons and %d hidden left out); %zu animated textures",
+                  sprites_.size(), spriteStats.editorOnly, spriteStats.hidden, animatedTextures_.size());
+    info_.push_back(line);
+    if (started) {
+        std::snprintf(line, sizeof line,
+                      "scripts started in %.0f ms (P turns them off), player %s: %d lights changed, %d actors hidden, %d shown, "
+                      "%d drawn differently, %d destroyed; %zu kinds of script error, %zu natives not written, None "
+                      "accessed %d times",
+                      start.milliseconds, start.player.empty() ? ("none, " + start.loginError).c_str() : start.player.c_str(),
+                      start.lights, start.hidden, start.shown, start.drawTypes, start.removed, start.errors,
+                      start.missingNatives, start.accessedNone);
+        info_.push_back(line);
+    } else {
+        info_.push_back(runScripts_ ? "scripts didn't start: " + startError : "scripts off (P turns them on)");
+    }
+    info_.push_back("Not drawn yet: light effects' patterns across surfaces (a torch's waver, water's shimmer: as brightness only)");
+}
+
+bool MapViewer::watchActor(const std::string& name) {
+    if (!play_)
+        return false;
+    for (VmObject* a : play_->level().actors()) {
+        if (a->deleted || fs::toLower(play_->vm().nameText(a->name)) != fs::toLower(name))
+            continue;
+        LevelPlay::Look look;
+        if (!play_->look(a, look))
+            return false;
+        // In front of it, a little above, looking back at it.
+        const Value* radius = a->find(play_->vm(), "CollisionRadius");
+        const float back = std::max(60.0f, (radius ? radius->asFloat() : 20) * 4);
+        const Vec3f ahead = rotationAxes(look.rotation)[0];
+        const Vec3f eye{look.location[0] + ahead[0] * back, look.location[1] + ahead[1] * back,
+                        look.location[2] + back * 0.3f};
+        pos_ = toWorld(eye);
+        const gfx::Vec3 d{look.location[0] - eye[0], -(look.location[1] - eye[1]), look.location[2] - eye[2]};
+        yaw_ = std::atan2(d[1], d[0]);
+        pitch_ = std::atan2(d[2], std::sqrt(d[0] * d[0] + d[1] * d[1]));
+        freeCam_ = true;
+        return true;
+    }
+    return false;
+}
+
+void MapViewer::placeCamera(const Vec3f& at, float yaw, float pitch) {
+    pos_ = toWorld(at);
+    yaw_ = -yaw * kPi / 180;
+    pitch_ = pitch * kPi / 180;
+}
+
+std::vector<std::pair<std::string, Vec3f>> MapViewer::actorPlaces(const std::string& classPart) {
+    std::vector<std::pair<std::string, Vec3f>> out;
+    if (!play_)
+        return out;
+    Vm& vm = play_->vm();
+    for (VmObject* a : play_->level().actors()) {
+        if (a->deleted || !a->cls || a->cls->name.find(classPart) == std::string::npos)
+            continue;
+        const Value* at = a->find(vm, "Location");
+        const auto l = at ? Vm::vectorOf(*at) : std::array<float, 3>{};
+        out.push_back({vm.nameText(a->name), Vec3f{l[0], l[1], l[2]}});
+    }
+    return out;
+}
+
+bool MapViewer::teleportPlayer(const std::string& name, const Vec3f& offset, float yaw) {
+    if (!play_ || !play_->player())
+        return false;
+    Vm& vm = play_->vm();
+    for (VmObject* a : play_->level().actors()) {
+        if (a->deleted || fs::toLower(vm.nameText(a->name)) != fs::toLower(name))
+            continue;
+        const Value* at = a->find(vm, "Location");
+        if (!at)
+            return false;
+        const auto l = Vm::vectorOf(*at);
+        VmObject* p = play_->player();
+        play_->level().setLocation(p, {l[0] + offset[0], l[1] + offset[1], l[2] + offset[2]});
+        const int32_t units = int32_t(std::lround(yaw * 65536 / 360)) & 0xffff;
+        for (const char* rot : {"Rotation", "ViewRotation"})
+            if (Value* r = p->find(vm, rot))
+                *r = vm.rotatorValue(0, units, 0);
+        if (Value* v = p->find(vm, "Velocity"))
+            *v = vm.vectorValue(0, 0, 0);
+        // Falling, onto whatever's under it, if walking (going into water
+        // has already set it swimming).
+        if (Value* ph = p->find(vm, "Physics"); ph && ph->i == 1)
+            ph->i = 2;
+        return true;
+    }
+    return false;
+}
+
+bool MapViewer::callFunction(const std::string& name, const std::string& function) {
+    if (!play_)
+        return false;
+    Vm& vm = play_->vm();
+    const bool player = fs::toLower(name) == "player";
+    for (VmObject* a : play_->level().actors())
+        if (!a->deleted && (player ? a == play_->player() : fs::toLower(vm.nameText(a->name)) == fs::toLower(name))) {
+            vm.callEvent(a, function.c_str());
+            return true;
+        }
+    return false;
+}
+
+std::string MapViewer::consoleCommand(const std::string& command) {
+    if (!play_ || !play_->player())
+        return "no player";
+    const Value v = play_->vm().callEvent(play_->player(), "ConsoleCommand", {Value::stringValue(command)});
+    return v.s;
+}
+
+std::string MapViewer::describeActor(const std::string& name) {
+    if (!play_)
+        return "not playing";
+    Vm& vm = play_->vm();
+    for (VmObject* a : play_->level().actors()) {
+        if (a->deleted || fs::toLower(vm.nameText(a->name)) != fs::toLower(name))
+            continue;
+        auto num = [&](const char* p) {
+            const Value* v = a->find(vm, p);
+            return v ? v->asFloat() : 0.0f;
+        };
+        auto flag = [&](const char* p) {
+            const Value* v = a->find(vm, p);
+            return v && v->asBool();
+        };
+        const Value* at = a->find(vm, "Location");
+        const auto l = at ? Vm::vectorOf(*at) : std::array<float, 3>{};
+        auto object = [&](const char* p) {
+            const Value* v = a->find(vm, p);
+            return v && v->asObject() ? vm.nameText(v->o->name) : std::string("None");
+        };
+        char buf[512];
+        std::snprintf(buf, sizeof buf,
+                      "%s at %.1f %.1f %.1f, state %s, physics %d, radius %.0f height %.0f%s%s%s; draw type %d, "
+                      "style %d, scale %.2f, glow %.2f, mesh %s, skin %s, texture %s, %zu copies",
+                      a->cls->name.c_str(), double(l[0]), double(l[1]), double(l[2]),
+                      a->state ? a->state->name.c_str() : "none", int(num("Physics")), double(num("CollisionRadius")),
+                      double(num("CollisionHeight")), flag("bCollideActors") ? ", collides with actors" : "",
+                      flag("bHidden") ? ", hidden" : "", a->disabled.empty() ? "" : ", some events disabled",
+                      int(num("DrawType")), int(num("Style")), double(num("DrawScale")), double(num("ScaleGlow")),
+                      object("Mesh").c_str(), object("Skin").c_str(), object("Texture").c_str(),
+                      play_->level().multiMeshes(a).size());
+        std::string out = buf;
+        if (num("LightType") != 0 || num("LightBrightness") != 0) {
+            char light[160];
+            std::snprintf(light, sizeof light, "; light type %d, brightness %d, hue %d, saturation %d, radius %d, effect %d",
+                          int(num("LightType")), int(num("LightBrightness")), int(num("LightHue")),
+                          int(num("LightSaturation")), int(num("LightRadius")), int(num("LightEffect")));
+            out += light;
+        }
+        // Its layers (C3DPlayAnim): group, sequence, frame, weight and its
+        // change a second, rate; loop, held at its end, clears.
+        if (const auto* layers = play_->level().layersOf(a))
+            for (const auto& [group, l] : *layers) {
+                char layer[256];
+                std::snprintf(layer, sizeof layer, "; layer %s: %s at %.2f, weight %.2f (%+.2f/s), rate %.2f%s%s%s%s%s",
+                              vm.nameText(group).c_str(), l.sequence ? vm.nameText(l.sequence).c_str() : "none",
+                              double(l.frame), double(l.weight), double(l.weightRate), double(l.rate),
+                              l.loop ? ", looping" : "", l.finished ? ", at its end" : "", l.clear[0] ? ", clear yaw" : "",
+                              l.clear[1] ? ", clear pitch" : "", l.clear[2] ? ", clear roll" : "");
+                out += layer;
+            }
+        return out;
+    }
+    return "no such actor";
+}
+
+std::string MapViewer::describeView() {
+    if (!play_)
+        return "not playing";
+    char buf[200];
+    auto deg = [](int32_t r) { return double(int16_t(r & 0xffff)) * 360 / 65536; };
+    std::snprintf(buf, sizeof buf, "at %.1f %.1f %.1f, pitch %.1f yaw %.1f roll %.1f, fov %.1f", double(view_.location[0]),
+                  double(view_.location[1]), double(view_.location[2]), deg(view_.rotation.pitch), deg(view_.rotation.yaw),
+                  deg(view_.rotation.roll), double(view_.fov));
+    std::string out = buf;
+    const std::array<float, 3> at{view_.location[0], view_.location[1], view_.location[2]};
+    if (play_->level().inSolid(at))
+        out += ", in solid";
+    // How many actors are asleep (unseen for 5 seconds: bForceStasis).
+    size_t asleep = 0;
+    for (VmObject* a : play_->level().actors())
+        if (const Value* v = a->deleted ? nullptr : a->find(play_->vm(), "bForceStasis"); v && v->asBool())
+            ++asleep;
+    out += ", " + std::to_string(asleep) + " actors asleep";
+    return out;
+}
+
+std::string MapViewer::actorProperty(const std::string& name, const std::string& property) {
+    if (!play_)
+        return "not playing";
+    Vm& vm = play_->vm();
+    // "player": the player's pawn, whatever it's called.
+    const bool player = fs::toLower(name) == "player";
+    for (VmObject* a : play_->level().actors())
+        if (!a->deleted && (player ? a == play_->player() : fs::toLower(vm.nameText(a->name)) == fs::toLower(name))) {
+            const Value* v = a->find(vm, property);
+            if (!v)
+                return "no such property";
+            if (v->type != VType::Struct || v->fields.empty())
+                return vm.toString(*v);
+            std::string out = "(";
+            for (const Value& f : v->fields)
+                out += (out.size() > 1 ? ", " : "") + vm.toString(f);
+            return out + ")";
+        }
+    return "no such actor";
+}
+
+std::vector<std::string> MapViewer::linesSaid() {
+    std::vector<std::string> out;
+    if (!play_)
+        return out;
+    ScriptLevel& level = play_->level();
+    for (size_t k = 0; k < level.linesSaid().size(); ++k) {
+        const int i = level.linesSaid()[k];
+        const DialogLine& l = level.dialogLines()[size_t(i)];
+        char at[32];
+        std::snprintf(at, sizeof at, "%7.2f ", k < level.linesSaidAt().size() ? level.linesSaidAt()[k] : 0.0f);
+        out.push_back(at + l.key() + ": " + l.text + (l.event.empty() ? "" : " [" + l.event + "]"));
+    }
+    return out;
+}
+
+float MapViewer::playTime() const { return play_ ? play_->time() : 0; }
+
+std::string MapViewer::describePlayer() {
+    if (!play_ || !play_->player())
+        return "no player";
+    Vm& vm = play_->vm();
+    VmObject* p = play_->player();
+    auto vec = [&](const char* name) {
+        const Value* v = p->find(vm, name);
+        if (!v)
+            return std::string("?");
+        const auto a = Vm::vectorOf(*v);
+        char buf[96];
+        std::snprintf(buf, sizeof buf, "%.1f %.1f %.1f", double(a[0]), double(a[1]), double(a[2]));
+        return std::string(buf);
+    };
+    const Value* physics = p->find(vm, "Physics");
+    const Value* seq = p->find(vm, "AnimSequence");
+    const Value* frame = p->find(vm, "AnimFrame");
+    char buf[64];
+    std::snprintf(buf, sizeof buf, " %.2f", double(frame ? frame->asFloat() : 0));
+    const Value* rot = p->find(vm, "Rotation");
+    const int yaw = rot ? int(std::lround(double(Vm::rotatorOf(*rot)[1] & 0xffff) * 360 / 65536)) : 0;
+    std::string weapon = "none";
+    if (const Value* w = p->find(vm, "Weapon"); w && w->asObject()) {
+        weapon = vm.nameText(w->o->name);
+        if (const Value* ammo = w->o->find(vm, "AmmoType"); ammo && ammo->asObject())
+            if (const Value* n = ammo->o->find(vm, "AmmoAmount"))
+                weapon += " (" + std::to_string(n->asInt()) + ")";
+    }
+    return "weapon " + weapon + ", at " + vec("Location") + ", yaw " + std::to_string(yaw) + ", velocity " + vec("Velocity") + ", state " + play_->playerState() +
+           ", physics " + std::to_string(physics ? physics->asInt() : -1) + ", anim " +
+           (seq ? vm.nameText(seq->i) : std::string("?")) + buf;
+}
+
+bool MapViewer::selectMap(const std::string& name) {
+    for (size_t i = 0; i < names_.size(); ++i)
+        if (fs::toLower(names_[i]) == fs::toLower(name)) {
+            if (renderer_)
+                load(int(i));
+            else
+                index_ = int(i);
+            return true;
+        }
+    return false;
+}
+
+void MapViewer::toStart() {
+    pos_ = start_;
+    yaw_ = startYaw_;
+    pitch_ = 0;
+}
+
+namespace {
+
+// A key as the engine names it to the console (EInputKey): 13 Enter, 27
+// Escape, 37 to 40 the arrows, letters and digits as their capitals' ASCII,
+// 0x70 F1...; 0 for one it doesn't know.
+int inputKey(uint32_t k) {
+    if (k >= 'a' && k <= 'z')
+        return int(k - 'a' + 'A');
+    if ((k >= '0' && k <= '9') || k == key::Space || k == key::Tab || k == key::Backspace || k == key::Escape)
+        return int(k);
+    if (k >= key::F1 && k < key::F1 + 12)
+        return int(0x70 + k - key::F1);
+    switch (k) {
+    case key::Return: case key::KpEnter: return 13;
+    case key::Left: return 37;
+    case key::Up: return 38;
+    case key::Right: return 39;
+    case key::Down: return 40;
+    case key::LShift: case key::RShift: return 16;
+    case key::LCtrl: case key::RCtrl: return 17;
+    case key::LAlt: case key::RAlt: return 18;
+    case key::PageUp: return 0x21;
+    case key::PageDown: return 0x22;
+    case key::End: return 0x23;
+    case key::Home: return 0x24;
+    case key::Insert: return 0x2d;
+    case key::Delete: return 0x2e;
+    default: return 0;
+    }
+}
+
+} // namespace
+
+void MapViewer::handleEvent(const Event& ev) {
+    if (!renderer_ || names_.empty())
+        return;
+    // Playing with the game's view, each key goes to the game's console
+    // first, as the engine hands them on: while its menus show, it takes
+    // the arrows and Enter, and the page leaves them be.
+    if (play_ && !freeCam_ && (ev.type == EventType::KeyDown || ev.type == EventType::KeyUp) && !ev.repeat &&
+        !(ev.type == EventType::KeyDown && ev.key == 'v'))
+        if (const int k = inputKey(ev.key)) {
+            // The menu's keys (Enter, the arrows) are the game's whatever
+            // KeyEvent answers: the HUD's says false having acted on Enter.
+            const bool menuKey = play_->menuShowing() && (k == 13 || (k >= 37 && k <= 40));
+            if ((play_->consoleKey(k, ev.type == EventType::KeyDown) || menuKey) && ev.type == EventType::KeyDown) {
+                for (bool& h : held_)
+                    h = false;
+                return;
+            }
+        }
+    auto hold = [&](uint32_t k, bool down) {
+        if (play_ && !freeCam_) // playing, the arrows turn and look, and Ctrl or F fires
+            switch (k) {
+            case key::Left: held_[TurnLeft] = down; return true;
+            case key::Right: held_[TurnRight] = down; return true;
+            case key::Up: held_[LookUp] = down; return true;
+            case key::Down: held_[LookDown] = down; return true;
+            case key::LCtrl: case key::RCtrl: case 'f': held_[Fire] = down; return true;
+            default: break;
+            }
+        switch (k) {
+        case 'w': held_[Forward] = down; return true;
+        case 's': held_[Back] = down; return true;
+        case 'a': held_[Left] = down; return true;
+        case 'd': held_[Right] = down; return true;
+        case key::Space: case 'e': held_[Up] = down; return true;
+        case 'c': case 'q': held_[Down] = down; return true;
+        case key::LShift: case key::RShift: held_[Fast] = down; return true;
+        default: return false;
+        }
+    };
+    if (ev.type == EventType::KeyUp) {
+        if (play_ && !freeCam_ && ev.key >= key::F1 && ev.key < key::F1 + 12)
+            play_->pressKey("F" + std::to_string(ev.key - key::F1 + 1), false);
+        hold(ev.key, false);
+    } else if (ev.type == EventType::KeyDown) {
+        if (play_ && !ev.repeat && ev.key == 'v') { // the camera let loose, or back to the game's
+            freeCam_ = !freeCam_;
+            for (bool& h : held_)
+                h = false;
+            return;
+        }
+        if (play_ && !freeCam_ && !ev.repeat) { // the keys bound to exec functions
+            if (ev.key == key::Space)
+                play_->press("Jump");
+            else if (ev.key == key::LCtrl || ev.key == key::RCtrl || ev.key == 'f')
+                play_->press("Fire");
+            else if (ev.key >= '0' && ev.key <= '9') // the weapons, as the game binds them
+                play_->pressKey(std::string(1, char(ev.key)));
+            else if (ev.key >= key::F1 && ev.key < key::F1 + 12) // the communicator, the tricorder...
+                play_->pressKey("F" + std::to_string(ev.key - key::F1 + 1));
+            else if (ev.key == key::Escape) { // the game's menu (ShowMenu)
+                play_->pressKey("Escape");
+                return;
+            }
+        }
+        if (hold(ev.key, true) || ev.repeat)
+            return;
+        if (ev.key == key::Return || ev.key == key::KpEnter) {
+            for (bool& h : held_)
+                h = false;
+            if (play_)
+                stopPlay();
+            else
+                startPlay();
+            return;
+        }
+        const int n = int(names_.size());
+        if (ev.key == key::Left || ev.key == key::Right)
+            load((index_ + (ev.key == key::Left ? n - 1 : 1)) % n);
+        else if (ev.key == 'r')
+            toStart();
+        else if (ev.key == 'i')
+            showInfo_ = !showInfo_;
+        else if (ev.key == 't')
+            textured_ = !textured_;
+        else if (ev.key == 'l')
+            lightmaps_ = !lightmaps_;
+        else if (ev.key == '[')
+            lightScale_ = std::max(0.1f, lightScale_ / 1.25f);
+        else if (ev.key == ']')
+            lightScale_ = std::min(8.0f, lightScale_ * 1.25f);
+        else if (ev.key == '-')
+            displayGamma_ = std::max(0.5f, displayGamma_ - 0.05f);
+        else if (ev.key == '=')
+            displayGamma_ = std::min(2.5f, displayGamma_ + 0.05f);
+        else if (ev.key == 'k')
+            showSky_ = !showSky_;
+        else if (ev.key == 'z')
+            zoneCulling_ = !zoneCulling_;
+        else if (ev.key == 'n')
+            animate_ = !animate_;
+        else if (ev.key == 'g' || ev.key == 'h')
+            jumpToMeshActor(ev.key == 'h');
+        else if (ev.key == 'm' || ev.key == 'y') {
+            if (ev.key == 'm')
+                ctx_.meshTurn = MeshTurn((int(ctx_.meshTurn) + 1) % 3);
+            else
+                ctx_.meshYawQuarters = (ctx_.meshYawQuarters + 1) % 4;
+            // Kept where it is: only the meshes need uploading again, but
+            // the level loads quickly enough to just load it again.
+            const auto pos = pos_;
+            const float yaw = yaw_, pitch = pitch_;
+            load(index_);
+            pos_ = pos;
+            yaw_ = yaw;
+            pitch_ = pitch;
+        }
+        else if (ev.key == 'p') {
+            runScripts_ = !runScripts_;
+            const auto pos = pos_;
+            const float yaw = yaw_, pitch = pitch_;
+            load(index_);
+            pos_ = pos;
+            yaw_ = yaw;
+            pitch_ = pitch;
+        }
+        else if (ev.key == 'o')
+            for (MoverDraw& m : movers_)
+                if (m.key == m.target && m.mover.numKeys > 1) {
+                    m.target = (m.key + 1) % m.mover.numKeys;
+                    m.t = 0;
+                }
+    } else if (play_ && !freeCam_ && play_->windowsOpen() &&
+               (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)) {
+        // The game's windows (the options) open: the mouse is theirs, its
+        // pointer where the page's is, its buttons keys 1 and 2.
+        play_->consoleMouse(float(ev.mouseX), float(ev.mouseY));
+        if (ev.type != EventType::MouseMove && (ev.button == MouseButton::Left || ev.button == MouseButton::Right))
+            play_->consoleKey(ev.button == MouseButton::Left ? 1 : 2, ev.type == EventType::MouseDown);
+    } else if (play_ && !freeCam_ && play_->menuShowing() &&
+               (ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) &&
+               (ev.button == MouseButton::Left || ev.button == MouseButton::Right)) {
+        // The HUD's menus: the buttons as the game binds them (LeftMouse
+        // Fire selects, RightMouse AltFire steps the choice), not a drag.
+        const bool left = ev.button == MouseButton::Left, down = ev.type == EventType::MouseDown;
+        if (!play_->consoleKey(left ? 1 : 2, down))
+            play_->pressKey(left ? "LeftMouse" : "RightMouse", down);
+    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+        dragging_ = true;
+        lastX_ = ev.mouseX;
+        lastY_ = ev.mouseY;
+    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+        dragging_ = false;
+    } else if (ev.type == EventType::MouseMove && dragging_ && play_ && !freeCam_) {
+        // Playing, the mouse's movement goes to the player's input.
+        mouseDx_ += float(ev.mouseX - lastX_);
+        mouseDy_ -= float(ev.mouseY - lastY_);
+        lastX_ = ev.mouseX;
+        lastY_ = ev.mouseY;
+    } else if (ev.type == EventType::MouseMove && dragging_) {
+        yaw_ -= float(ev.mouseX - lastX_) * 0.005f;
+        pitch_ = std::clamp(pitch_ - float(ev.mouseY - lastY_) * 0.005f, -1.55f, 1.55f);
+        lastX_ = ev.mouseX;
+        lastY_ = ev.mouseY;
+    }
+}
+
+void MapViewer::update(uint64_t nowMs) {
+    if (!renderer_)
+        return;
+    const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
+    lastMs_ = nowMs;
+
+    if (play_) {
+        const auto playFrom = std::chrono::steady_clock::now();
+        updatePlay(dt);
+        frameTimes_.play = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - playFrom).count();
+        // Its sounds, heard from the game's camera.
+        if (ctx_.mixer && !audio_)
+            audio_ = std::make_unique<LevelAudio>(*ctx_.mixer, ctx_.packages);
+        if (audio_)
+            audio_->update(*play_, view_.location, view_.rotation, dt);
+        if (play_->quitAsked())
+            stopPlay();
+        else if (const std::string url = play_->takeTravel(); !url.empty())
+            travel(url);
+    }
+    if (!play_ || freeCam_) { // flying: not playing, or playing with the camera let loose (V)
+        if (!play_)
+            fov_ = 90; // Unreal's default field of view, across
+        const gfx::Vec3 f{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
+        const gfx::Vec3 r{std::sin(yaw_), -std::cos(yaw_), 0};
+        const float step = kSpeed * (held_[Fast] ? 3.0f : 1.0f) * dt;
+        for (size_t k = 0; k < 3; ++k) {
+            pos_[k] += f[k] * step * float(held_[Forward] - held_[Back]);
+            pos_[k] += r[k] * step * float(held_[Right] - held_[Left]);
+        }
+        pos_[2] += step * float(held_[Up] - held_[Down]);
+    }
+    const gfx::Vec3 forward{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
+    const gfx::Vec3 right{std::sin(yaw_), -std::cos(yaw_), 0};
+
+    const float aspect = float(kFrameW) / float(kFrameH);
+    const float fovY = 2 * std::atan(std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360) / aspect);
+    gfx::Mat4 viewProj =
+        gfx::multiply(gfx::perspective(fovY, aspect, 4, 65536), gfx::lookAlong(pos_, forward, {0, 0, 1}));
+    // Movers between keyframes, at their own pace.
+    for (MoverDraw& m : movers_)
+        if (m.key != m.target) {
+            m.t += dt / std::max(0.05f, m.mover.moveTime);
+            if (m.t >= 1) {
+                m.key = m.target;
+                m.t = 0;
+            }
+        }
+
+    updateLightmaps(dt);
+    updateAnimatedTextures(dt);
+    gatherDynamicLights(pos_);
+    // The Fallen's distance fog: the camera's zone's (DistanceFogging, the
+    // depth at which all is its DistanceFogColor), growing evenly from the
+    // camera (Direct3D's linear table fog from 0 to it); nothing beyond it
+    // is drawn (Render.dll's SetDistanceClipping puts the far plane there),
+    // but the sky.
+    fog_ = {};
+    if (play_)
+        fog_.distance = play_->distanceFog(Vec3f{pos_[0], -pos_[1], pos_[2]}, fog_.color);
+    if (fog_.distance > 0)
+        viewProj = gfx::multiply(gfx::perspective(fovY, aspect, 4, std::max(fog_.distance, 8.0f)),
+                                 gfx::lookAlong(pos_, forward, {0, 0, 1}));
+
+    // The renderer raises colours to 1 / its gamma.
+    renderer_->setGamma(1 / displayGamma_);
+    const gfx::Mat4 proj = gfx::perspective(fovY, aspect, 4, 65536);
+    const bool sky = sky_ && showSky_;
+    if (sky) {
+        // The sky first: the level seen from the sky zone, looking the
+        // same way; then the view, from scratch, with the backdrop
+        // surfaces leaving it showing.
+        Vec3f skyAt = *sky_;
+        if (const int z = zones_.zoneAt(Vec3f{pos_[0], -pos_[1], pos_[2]}); z >= 0 && size_t(z) < zoneSkies_.size() &&
+                                                                          zoneSkies_[size_t(z)])
+            skyAt = *zoneSkies_[size_t(z)];
+        const gfx::Vec3 eye = toWorld(skyAt);
+        const gfx::Mat4 skyView = gfx::multiply(proj, gfx::lookAlong(eye, forward, {0, 0, 1}));
+        seeZonesFrom(eye, skyView, false);
+        renderer_->beginFrame(skyView, eye, {20, 24, 40});
+        drawBatches(levelBatches(), mesh_, gfx::identity(), true);
+        drawSurfaceSwaps();
+        renderer_->clearDepth();
+        renderer_->setView(viewProj, pos_);
+    } else {
+        renderer_->beginFrame(viewProj, pos_, {20, 24, 40});
+    }
+    seeZonesFrom(pos_, viewProj, true);
+    if (animate_)
+        animTime_ += dt;
+    if (play_)
+        coronaDt_ = dt;
+    // The last frame's posed meshes, drawn by now.
+    for (const GpuMesh& g : posedMeshes_)
+        if (g.mesh)
+            renderer_->destroyMesh(g.mesh);
+    posedMeshes_.clear();
+    drawMirrors(proj, gfx::lookAlong(pos_, forward, {0, 0, 1}), viewProj, pos_, forward, right, 0, nullptr);
+    // Backdrop surfaces: with the sky, only their depth, hiding what's
+    // behind them; without it, a plain colour.
+    for (const Batch& b : batches_) {
+        if (!(b.polyFlags & polyflag::FakeBackdrop) || !(b.zones & zonesSeen_))
+            continue;
+        gfx::DrawCall call;
+        call.mesh = mesh_;
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        call.state.cull = gfx::Cull::None;
+        call.color = {0.15f, 0.2f, 0.35f, 1};
+        if (sky) {
+            call.state.src = gfx::Blend::Zero;
+            call.state.dst = gfx::Blend::One;
+        }
+        renderer_->draw(call);
+    }
+    drawWorld(forward, right, pos_);
+    if (play_)
+        drawScreenFlash(forward, right);
+    if (play_ && !freeCam_)
+        drawGameHud();
+    drawOverlay(nowMs);
+    if (play_)
+        drawPlayHud();
+    const auto endFrom = std::chrono::steady_clock::now();
+    renderer_->endFrame(&overlay_);
+    frameTimes_.endFrame = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - endFrom).count();
+}
+
+// The game's own HUD, over the world: the player's PreRender and
+// PostRender with the canvas (ScriptLevel::renderHud), then the actors and
+// tiles they drew, in screen pixels: cut out where see-through, translucent ones added,
+// modulated ones multiplied in.
+void MapViewer::drawGameHud() {
+    const int w = renderer_->width(), h = renderer_->height();
+    ScriptLevel::HudView v;
+    v.location = {view_.location[0], view_.location[1], view_.location[2]};
+    v.rotation = {view_.rotation.pitch, view_.rotation.yaw, view_.rotation.roll};
+    v.fov = view_.fov;
+    v.width = w;
+    v.height = h;
+    play_->level().renderHud(v);
+    const ScriptLevel::Hud& hud = play_->level().hud();
+    gfx::Mat4 pixels = gfx::identity();
+    pixels[0] = 2.0f / float(w);
+    pixels[5] = -2.0f / float(h);
+    pixels[10] = 0;
+    pixels[12] = -1;
+    pixels[13] = 1;
+    // In the order the HUD drew them: the actors over the tiles before
+    // them, each in its view (the camera and rectangle SetRenderFrame set:
+    // a talker's head in its portrait), the depth cleared first if asked.
+    size_t next = 0;
+    bool flat = false; // set for tiles
+    auto drawActorsUpTo = [&](size_t tiles) {
+        std::vector<SpriteDraw> sprites;
+        while (next < hud.actors.size() && hud.actors[next].afterTiles <= tiles) {
+            const ScriptLevel::HudActor& a = hud.actors[next++];
+            const ScriptLevel::HudView& v = a.view;
+            const auto axes = rotationAxes(Rotator{v.rotation[0], v.rotation[1], v.rotation[2]});
+            const gfx::Vec3 eye = toWorld(Vec3f{v.location[0], v.location[1], v.location[2]});
+            const gfx::Vec3 ahead = toWorld(axes[0]), up = toWorld(axes[2]);
+            const gfx::Vec3 side{-toWorld(axes[1])[0], -toWorld(axes[1])[1], -toWorld(axes[1])[2]};
+            const float aspect = float(v.width) / float(std::max(1, v.height));
+            const float fovY = 2 * std::atan(std::tan(std::clamp(v.fov, 1.0f, 170.0f) * kPi / 360) / aspect);
+            renderer_->setViewport(v.x, v.y, v.width, v.height);
+            renderer_->setView(gfx::multiply(gfx::perspective(fovY, aspect, 1, 65536), gfx::lookAlong(eye, ahead, up)),
+                               eye);
+            if (a.clearZ)
+                renderer_->clearDepth();
+            sprites.clear();
+            drawLiveActor(a.actor, sprites, &a);
+            drawSprites(sprites, ahead, side);
+            flat = false;
+        }
+        renderer_->setViewport(0, 0, w, h);
+    };
+    for (size_t i = 0; i < hud.tiles.size(); ++i) {
+        if (next < hud.actors.size() && hud.actors[next].afterTiles <= i)
+            drawActorsUpTo(i);
+        if (!flat) {
+            renderer_->setView(pixels, gfx::Vec3{0, 0, 0});
+            flat = true;
+        }
+        const ScriptLevel::HudTile& t = hud.tiles[i];
+        const auto [id, size] = t.frame > 0 ? hudFliTexture(t.texture, t.frame, t.seeThrough)
+                                            : hudTexture(t.texture, t.seeThrough);
+        if (!id)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = spriteQuad_;
+        call.indexCount = 6;
+        call.model = gfx::identity();
+        // The quad's corners are -0.5..0.5 with v down from its top.
+        call.model[0] = t.w;
+        call.model[5] = -t.h;
+        call.model[12] = t.x + t.w / 2;
+        call.model[13] = t.y + t.h / 2;
+        call.texture = id;
+        const float tw = float(size[0]), th = float(size[1]);
+        call.preRow0 = {t.ul / tw, 0, t.u / tw};
+        call.preRow1 = {0, t.vl / th, t.v / th};
+        call.color = {float(t.color[0]) / 255, float(t.color[1]) / 255, float(t.color[2]) / 255, 1};
+        call.state.cull = gfx::Cull::None;
+        call.state.depthTest = false;
+        call.state.depthWrite = false;
+        // See-through texels stay so in every style (letters are drawn
+        // masked however they blend).
+        call.state.alphaTest = gfx::AlphaTest::Ge128;
+        if (t.style == kStyleTranslucent) {
+            call.state.src = call.state.dst = gfx::Blend::One;
+        } else if (t.style == kStyleModulated) {
+            call.color = {1, 1, 1, 1};
+            call.state.src = gfx::Blend::DstColor;
+            call.state.dst = gfx::Blend::SrcColor;
+        }
+        renderer_->draw(call);
+    }
+    drawActorsUpTo(hud.tiles.size());
+}
+
+// An FliTexture's frame for the HUD: its animation shown at that frame and
+// uploaded when it changes (one texture each, and each way of colour 0).
+std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::hudFliTexture(const ObjectRef& tex, int frame,
+                                                                      bool seeThrough) {
+    auto key = std::make_tuple(tex.package, tex.exportIndex, seeThrough);
+    auto it = hudFlis_.find(key);
+    if (it == hudFlis_.end()) {
+        HudFli f;
+        f.anim = openAnimatedTexture(ctx_.packages, *tex.package, tex.exportIndex);
+        if (f.anim) {
+            f.anim->showFrame(frame, seeThrough);
+            f.frame = frame;
+            const image::Image& img = f.anim->image();
+            gfx::TextureParams params;
+            params.nearest = true;
+            params.mipmaps = false;
+            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), params, f.id))
+                textures_.push_back(f.id);
+            else
+                f.id = 0;
+        }
+        it = hudFlis_.emplace(key, std::move(f)).first;
+    }
+    HudFli& f = it->second;
+    if (!f.anim || !f.id)
+        return textureOf(tex);
+    if (f.frame != frame && f.anim->showFrame(frame, seeThrough)) {
+        const image::Image& img = f.anim->image();
+        renderer_->updateTextures({{f.id, 0, 0, img.w, img.h, img.rgba.data()}});
+    }
+    f.frame = frame;
+    return {f.id, {std::max(1, f.anim->image().w), std::max(1, f.anim->image().h)}};
+}
+
+// A texture for the HUD, with its colour 0 see-through if asked (letters,
+// masked tiles), kept by both.
+std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::hudTexture(const ObjectRef& tex, bool seeThrough) {
+    if (!seeThrough)
+        return textureOf(tex);
+    auto it = seeThroughTextures_.find({tex.package, tex.exportIndex});
+    if (it == seeThroughTextures_.end()) {
+        image::Image img;
+        gfx::TextureId id = 0;
+        gfx::TextureParams params;
+        params.nearest = true;
+        params.mipmaps = false;
+        if (!decodeTexture(ctx_.packages, *tex.package, tex.exportIndex, img, nullptr, true) &&
+            !renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id))
+            textures_.push_back(id);
+        else
+            id = 0;
+        it = seeThroughTextures_
+                 .emplace(std::make_pair(tex.package, tex.exportIndex),
+                          std::make_pair(id, std::array<int, 2>{std::max(1, img.w), std::max(1, img.h)}))
+                 .first;
+    }
+    return it->second;
+}
+
+// The sprites, facing the camera: those drawn solid first, then the
+// blended ones over them (not hiding what's behind).
+void MapViewer::drawSprites(const std::vector<SpriteDraw>& sprites, const gfx::Vec3& forward, const gfx::Vec3& right) {
+    const gfx::Vec3 up{right[1] * forward[2] - right[2] * forward[1], right[2] * forward[0] - right[0] * forward[2],
+                       right[0] * forward[1] - right[1] * forward[0]};
+    for (int blendedPass = 0; blendedPass < 2; ++blendedPass)
+        for (const SpriteDraw& d : sprites) {
+            const bool blend = d.style == kStyleTranslucent || d.style == kStyleModulated;
+            if (blend != (blendedPass == 1))
+                continue;
+            // Vertical sprites stay upright, turning only about Z.
+            const gfx::Vec3 u = d.oriented ? d.up : d.vertical ? gfx::Vec3{0, 0, 1} : up;
+            const gfx::Vec3 r = d.oriented ? d.right : right;
+            gfx::DrawCall call;
+            call.mesh = spriteQuad_;
+            call.indexCount = 6;
+            call.model = gfx::identity();
+            for (size_t k = 0; k < 3; ++k) {
+                call.model[k] = r[k] * d.width;
+                call.model[4 + k] = u[k] * d.height;
+                call.model[8 + k] = -forward[k];
+                call.model[12 + k] = d.at[k];
+            }
+            call.state.depthBias = d.oriented;
+            if (d.onTop)
+                call.state.depthTest = false;
+            call.texture = textured_ ? d.texture : 0;
+            call.color = {d.color[0], d.color[1], d.color[2], 1};
+            call.state.cull = gfx::Cull::None;
+            if (d.style == kStyleTranslucent) {
+                call.state.src = call.state.dst = gfx::Blend::One;
+                call.state.depthWrite = false;
+            } else if (d.style == kStyleModulated) {
+                // The background times the texture, doubled: grey leaves it as is.
+                call.color = {1, 1, 1, 1};
+                call.state.src = gfx::Blend::DstColor;
+                call.state.dst = gfx::Blend::SrcColor;
+                call.state.depthWrite = false;
+            } else {
+                call.state.alphaTest = gfx::AlphaTest::Ge128; // masked: index 0 see-through
+            }
+            renderer_->draw(call);
+        }
+}
+
+// Moves the fire, water, wet, ice and FLC textures on, uploading those that
+// changed.
+// Fire, water and the rest tick as UE1's do: only those drawn (since the
+// last time here), each by the time since it last ticked, so one unseen a
+// while takes that time at once. Their own pace allows one step for it.
+void MapViewer::updateAnimatedTextures(float dt) {
+    std::vector<gfx::TextureRegion> regions;
+    animatedSince_.resize(animatedTextures_.size(), 0);
+    const std::unordered_set<gfx::TextureId>* used = recorder_ ? &recorder_->used() : nullptr;
+    for (size_t i = 0; i < animatedTextures_.size(); ++i) {
+        const auto& [id, anim] = animatedTextures_[i];
+        animatedSince_[i] += dt;
+        if (used && !used->count(id))
+            continue;
+        const float since = animatedSince_[i];
+        animatedSince_[i] = 0;
+        if (anim->advance(since))
+            regions.push_back({id, 0, 0, anim->image().w, anim->image().h, anim->image().rgba.data()});
+    }
+    if (recorder_)
+        recorder_->used().clear();
+    if (!regions.empty())
+        renderer_->updateTextures(regions);
+}
+
+// A changing light's share of its brightness now: its curve; while
+// playing, a light the scripts may change as its live actor is (its
+// LightType and LightBrightness: a TriggerLight fading, a light turned
+// off, or destroyed).
+float MapViewer::liveLightLevel(const LightSource& l, bool whole) {
+    if (!play_ && l.startsOff)
+        return 0; // as the level starts: its scripts haven't turned it on
+    if (!play_ || !l.scripted || !l.ref)
+        return lightLevel(l, l.type, lightTime_, whole);
+    VmObject* a = play_->actorAt(l.ref);
+    if (!a)
+        return 0;
+    Vm& vm = play_->vm();
+    const Value* type = a->find(vm, "LightType");
+    const Value* brightness = a->find(vm, "LightBrightness");
+    const float share = brightness && l.brightness ? float(brightness->asInt()) / float(l.brightness) : 1;
+    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, lightTime_, whole) * share, 0.0f, 2.0f);
+}
+
+// Redraws the lightmaps that pulsing, flickering... lights reach, where
+// those lights' brightness changed, and those with a light effect's
+// pattern on them every frame (it moves across them). Meshes take each
+// light's level as a whole (lightLevels_); the lightmaps theirs less a
+// pattern, which lightPattern gives texel by texel (mapLevels_). Only
+// lightmaps in a zone seen are drawn; the others are drawn when it is.
+void MapViewer::updateLightmaps(float dt) {
+    lightTime_ += dt;
+    std::vector<bool> changed(changingLights_.size(), false);
+    patternNow_.resize(changingLights_.size());
+    for (size_t i = 0; i < changingLights_.size(); ++i) {
+        lightLevels_[i] = liveLightLevel(changingLights_[i]);
+        const float level = liveLightLevel(changingLights_[i], false);
+        const bool pattern = hasLightPattern(changingLights_[i]) && level > 0;
+        if (pattern)
+            patternNow_[i] = patternNow(changingLights_[i], lightTime_);
+        if (pattern || std::fabs(level - mapLevels_[i]) * 255 >= 1) {
+            mapLevels_[i] = level;
+            changed[i] = true;
+        }
+    }
+    staleLightmaps_.resize(animatedLightmaps_.size(), false);
+    std::vector<std::vector<uint8_t>> pixels;
+    std::vector<gfx::TextureRegion> regions;
+    for (size_t k = 0; k < animatedLightmaps_.size(); ++k) {
+        const AnimatedLightmap& m = animatedLightmaps_[k];
+        const bool redraw = staleLightmaps_[k] || std::any_of(m.lights.begin(), m.lights.end(), [&](const AnimatedLightmap::Light& l) {
+                                return changed[size_t(l.index)];
+                            });
+        if (!redraw || size_t(m.page) >= lightmapPages_.size() || !lightmapPages_[size_t(m.page)])
+            continue;
+        if (m.zone >= 0 && m.zone < 64 && !((zonesSeen_ >> m.zone) & 1)) {
+            staleLightmaps_[k] = true;
+            continue;
+        }
+        staleLightmaps_[k] = false;
+        pixels.emplace_back();
+        m.draw(mapLevels_, pixels.back(), &changingLights_, &patternNow_);
+        regions.push_back({lightmapPages_[size_t(m.page)], m.x, m.y, m.w, m.h, nullptr});
+    }
+    if (regions.empty())
+        return;
+    for (size_t i = 0; i < regions.size(); ++i)
+        regions[i].rgba = pixels[i].data();
+    renderer_->updateTextures(regions);
+}
+
+// The idle loop a character placed in pose `anim` plays (see load()).
+std::string MapViewer::idleFor(const std::string& anim) {
+    return fs::toLower(anim).rfind("baseready", 0) == 0 ? "IdleReady1" : "Idle1";
+}
+
+// Puts the camera before the next placed mesh (or the next whose mesh is
+// posed from bones: the characters), looking at it along X.
+void MapViewer::jumpToMeshActor(bool skeletalOnly) {
+    const int n = int(meshActors_.size());
+    for (int step = 1; step <= n; ++step) {
+        const int i = (jump_ + step) % n;
+        const MeshDraw& d = meshActors_[size_t(i)];
+        if (skeletalOnly && !d.skeletal)
+            continue;
+        jump_ = i;
+        // Back from it by its size as placed (The Fallen's Arachnids are
+        // drawn at 0.03 of their mesh: backing off by the mesh's own size
+        // went through the walls).
+        const GpuMesh& g = gpuMeshes_[d.mesh];
+        const float back = std::clamp(g.radius * std::fabs(d.drawScale) * 3, 30.0f, 400.0f);
+        pos_ = {d.at[0] - back, d.at[1], d.at[2] + back * 0.25f};
+        yaw_ = 0;
+        pitch_ = -0.24f;
+        return;
+    }
+}
+
+gfx::Mat4 MapViewer::moverTransform(const MoverDraw& d) const {
+    const Mover& m = d.mover;
+    // Where it is between its two keyframes.
+    const Vec3f base = m.basePosition();
+    const Rotator baseRot = m.baseRotation();
+    const Vec3f& a = m.keyPos[size_t(d.key)];
+    const Vec3f& b = m.keyPos[size_t(d.target)];
+    const Rotator& ra = m.keyRot[size_t(d.key)];
+    const Rotator& rb = m.keyRot[size_t(d.target)];
+    const float t = d.t;
+    const Vec3f location{base[0] + a[0] + (b[0] - a[0]) * t, base[1] + a[1] + (b[1] - a[1]) * t,
+                         base[2] + a[2] + (b[2] - a[2]) * t};
+    const Rotator rot{baseRot.pitch + ra.pitch + int32_t(float(rb.pitch - ra.pitch) * t),
+                      baseRot.yaw + ra.yaw + int32_t(float(rb.yaw - ra.yaw) * t),
+                      baseRot.roll + ra.roll + int32_t(float(rb.roll - ra.roll) * t)};
+    return moverPlacement(m, location, rot);
+}
+
+gfx::Mat4 MapViewer::moverPlacement(const Mover& m, const Vec3f& location, const Rotator& rot) {
+    // location + postScale * (rotation * (mainScale * (v - prePivot))),
+    // then Y negated into the renderer's axes.
+    const gfx::Mat4 flip = scaling({1, -1, 1});
+    gfx::Mat4 m4 = gfx::multiply(flip, translation(location));
+    m4 = gfx::multiply(m4, scaling(m.postScale));
+    m4 = gfx::multiply(m4, rotation(rot));
+    m4 = gfx::multiply(m4, scaling(m.mainScale));
+    return gfx::multiply(m4, translation({-m.prePivot[0], -m.prePivot[1], -m.prePivot[2]}));
+}
+
+// The zones seen from `eye` (gfx's coordinates) through the portals, for
+// drawBatches to leave out the rest.
+void MapViewer::seeZonesFrom(const gfx::Vec3& eye, const gfx::Mat4& viewProj, bool mainView) {
+    const Vec3f at{eye[0], -eye[1], eye[2]}; // Unreal's coordinates have y the other way
+    if (!zoneCulling_) {
+        zonesSeen_ = ~uint64_t(0);
+    } else {
+        gfx::Mat4 flip = gfx::identity();
+        flip[5] = -1;
+        zonesSeen_ = zones_.visible(at, gfx::multiply(viewProj, flip));
+    }
+    // The zones' render times (The Fallen's sleep); the view's zone, the
+    // main view's only (not the sky's).
+    if (play_)
+        play_->zonesDrawn(zonesSeen_, mainView ? zones_.zoneAt(at) : -1);
+}
+
+// The level's batches, playing: with the textures the scripts have swapped
+// for others everywhere (SetSurfaceTexture's bReplaceAllWorld).
+const std::vector<MapViewer::Batch>& MapViewer::levelBatches() {
+    if (!play_ || play_->level().surfaceSwaps().world.empty())
+        return batches_;
+    const ScriptLevel::SurfaceSwaps& swaps = play_->level().surfaceSwaps();
+    if (swappedSerial_ != swaps.serial) {
+        swappedSerial_ = swaps.serial;
+        swappedBatches_ = batches_;
+        for (Batch& b : swappedBatches_)
+            if (auto it = swaps.world.find({b.textureRef.package, b.textureRef.exportIndex}); it != swaps.world.end())
+                b.texture = textureOf(it->second, nullptr, (b.polyFlags & polyflag::Masked) != 0).first;
+    }
+    return swappedBatches_;
+}
+
+// One surface's texture swapped (SetSurfaceTexture): its polygons drawn
+// again over themselves with the new one, then its lightmap. The texture
+// coordinates are the old texture's, so a new one of another size would
+// be stretched; The Fallen's switches swap textures of one size.
+void MapViewer::drawSurfaceSwaps() {
+    if (!play_)
+        return;
+    for (const auto& [surf, tex] : play_->level().surfaceSwaps().surfaces) {
+        auto it = surfRanges_.find(surf);
+        if (it == surfRanges_.end())
+            continue;
+        for (const SurfRange& r : it->second) {
+            if (r.batch >= batches_.size())
+                continue;
+            Batch b = batches_[r.batch];
+            b.firstIndex = r.firstIndex;
+            b.indexCount = r.indexCount;
+            b.texture = textureOf(tex, nullptr, (b.polyFlags & polyflag::Masked) != 0).first;
+            drawBatches({b}, mesh_, gfx::identity(), true, true);
+        }
+    }
+}
+
+Vec3f MapViewer::tintOf(int tint) const {
+    const std::vector<TintSample>& samples = tints_[size_t(tint)];
+    Vec3f sum{};
+    for (const TintSample& t : samples) {
+        Vec3f light = t.light;
+        if (t.anim >= 0) {
+            const AnimatedLightmap& m = animatedLightmaps_[size_t(t.anim)];
+            light = m.base[t.texel];
+            for (const AnimatedLightmap::Light& l : m.lights) {
+                const float level = size_t(l.index) < mapLevels_.size() ? mapLevels_[size_t(l.index)] : 1;
+                for (size_t k = 0; k < 3; ++k)
+                    light[k] += l.share[t.texel][k] * level;
+            }
+        }
+        for (const LightSource& l : dynamic_) {
+            const float dist = lightDistance(l, t.at);
+            if (dist < l.radius)
+                for (size_t k = 0; k < 3; ++k)
+                    light[k] += l.color[k] * lightFalloff(dist / l.radius);
+        }
+        for (size_t k = 0; k < 3; ++k)
+            sum[k] += std::min(light[k], kMaxLight);
+    }
+    // Twice the average, at most the texture's own colour: fitted to a
+    // recording of the original's logos (lit by a TriggerLight that only
+    // reaches 60% before its dispatcher puts it out, they show at about
+    // their texture's colour; the plain average was 2.5 times too dark).
+    for (float& v : sum)
+        v = std::min(kMaxLight, 2 * v / float(std::max<size_t>(samples.size(), 1)));
+    return sum;
+}
+
+void MapViewer::drawBatches(const std::vector<Batch>& batches, gfx::MeshId mesh, const gfx::Mat4& model,
+                            bool levelLit, bool over, const MeshLight* moverLight) {
+    auto lit = [&](const Batch& b) {
+        return levelLit && lightmaps_ && b.lightmap && !blended(b.polyFlags) &&
+               !(b.polyFlags & (polyflag::FakeBackdrop | polyflag::Unlit));
+    };
+    for (const Batch& b : batches) {
+        if ((b.polyFlags & polyflag::FakeBackdrop) || !(b.zones & zonesSeen_))
+            continue;
+        if (&b == mirrorThrough_) // the mirror the view is through
+            continue;
+        gfx::DrawCall call;
+        call.mesh = mesh;
+        call.model = model;
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        if ((b.polyFlags & polyflag::Mirrored) && !blended(b.polyFlags) && mirrorLevel_ < 3 && renderer_->hasStencil()) {
+            // An opaque mirror shows only what it reflects: its depth, to
+            // hide what's behind it.
+            call.state.src = gfx::Blend::Zero;
+            call.state.dst = gfx::Blend::One;
+            call.state.cull = gfx::Cull::None;
+            renderer_->draw(call);
+            continue;
+        }
+        // One-sided, as UE1's surfaces are (their back, the way our
+        // winding goes, is the renderer's front), unless flagged two-sided:
+        // a camera in solid sees through the wall it's in. M03_SiskoL1A's
+        // opening rides down inside the rock beside the lift shaft, looking
+        // in at the far wall's lamp and braces; drawn two-sided, all it saw
+        // was the back of the near wall.
+        // A mover's polygons (its brush's) wind the other way round: from
+        // inside M04_WorfL1a's turbolift, culled as the level's, all that
+        // showed was its brush's untextured outer faces from behind.
+        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::None
+                          : moverLight                              ? gfx::Cull::Back
+                                                                    : gfx::Cull::Front;
+        call.texture = textured_ ? b.texture : 0;
+        // With a lightmap the second pass lights it; else the vertex colours
+        // (shading by facing, or a mover's light).
+        call.rgbSource = lit(b) ? gfx::ColorSource::Constant : gfx::ColorSource::Vertex;
+        if (moverLight && !(b.polyFlags & polyflag::Unlit) && !blended(b.polyFlags)) {
+            call.rgbSource = gfx::ColorSource::Lighting;
+            call.ambientLight = moverLight->ambient;
+            call.directedLight = moverLight->directed;
+            call.lightDirection = moverLight->direction;
+            if (moverLight->perVertex) {
+                call.surfaceLighting = true;
+                call.vertexLightCount = int(std::min<size_t>(moverLight->lights.size(), gfx::kMaxVertexLights));
+                for (int i = 0; i < call.vertexLightCount; ++i)
+                    call.vertexLights[size_t(i)] = moverLight->lights[size_t(i)];
+            }
+        }
+        if (!(b.polyFlags & polyflag::Modulated)) // those multiply what's there, so stay as they are
+            call.color = {kExposure, kExposure, kExposure, 1};
+        if (b.tint >= 0 && lightmaps_) {
+            const Vec3f t = tintOf(b.tint);
+            call.color = {kExposure * t[0] * lightScale_, kExposure * t[1] * lightScale_, kExposure * t[2] * lightScale_, 1};
+        }
+        if (b.polyFlags & polyflag::Masked)
+            call.state.alphaTest = gfx::AlphaTest::Ge128;
+        if (over) // drawn over what's there already
+            call.state.depthEqual = true;
+        if (b.polyFlags & polyflag::Translucent) {
+            call.state.src = gfx::Blend::One;
+            call.state.dst = gfx::Blend::OneMinusSrcColor;
+            call.state.depthWrite = false;
+        } else if (b.polyFlags & polyflag::Modulated) {
+            call.state.src = gfx::Blend::DstColor;
+            call.state.dst = gfx::Blend::SrcColor;
+            call.state.depthWrite = false;
+            call.rgbSource = gfx::ColorSource::Constant;
+        }
+        renderer_->draw(call);
+        if (lit(b)) {
+            // The lightmap over it, doubled (dst * src * 2).
+            gfx::DrawCall light = call;
+            light.texture = b.lightmap;
+            light.texGen = gfx::TexGen::Uv2;
+            light.rgbSource = gfx::ColorSource::Constant;
+            light.color = {lightScale_, lightScale_, lightScale_, 1};
+            light.state.src = gfx::Blend::DstColor;
+            light.state.dst = gfx::Blend::SrcColor;
+            light.state.depthEqual = true;
+            light.state.depthWrite = false;
+            light.state.alphaTest = gfx::AlphaTest::None;
+            renderer_->draw(light);
+        }
+        // The lights that move and change (a spark's flash, an
+        // explosion's) added over it: its texture times their light, as
+        // UE1 adds dynamic light to the lightmap's.
+        if (!dynamic_.empty() && !over && !blended(b.polyFlags) && !(b.polyFlags & polyflag::Unlit) && call.texture) {
+            gfx::DrawCall dyn = call;
+            dyn.dynamicLightsTextured = true;
+            dyn.state.src = gfx::Blend::One;
+            dyn.state.dst = gfx::Blend::One;
+            dyn.state.depthEqual = true;
+            dyn.state.depthWrite = false;
+            renderer_->draw(dyn);
+        }
+        // The zone's distance fog over it, last.
+        if (fog_.distance > 0 && !over && !blended(b.polyFlags))
+            drawFogOver(*renderer_, call, fog_);
+    }
+}
+
+// The level's volume lights (VolumeRadius) over its surfaces in fog zones,
+// as the original's volumetric lighting does through their fog maps: at
+// each point, for each light, how much of its sphere lies between the
+// camera and the surface (its density 1 - (d / r)^2 along the line, 1
+// straight through the middle); its colour (VolumeBrightness) times that
+// added, and what's there dimmed by its VolumeFog times that (blended
+// One, OneMinusSrcAlpha).
+void MapViewer::drawVolumes(const gfx::Vec3& eye) {
+    if (volumes_.empty() || !lightmaps_)
+        return;
+    const Vec3f e{eye[0], -eye[1], eye[2]};
+    std::vector<std::pair<float, const LightSource*>> near;
+    for (const LightSource* l : volumes_) {
+        const float dx = l->position[0] - e[0], dy = l->position[1] - e[1], dz = l->position[2] - e[2];
+        near.push_back({std::sqrt(dx * dx + dy * dy + dz * dz) - l->volumeRadius, l});
+    }
+    std::sort(near.begin(), near.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::vector<gfx::DynamicLight> lights;
+    for (size_t i = 0; i < near.size() && i < size_t(gfx::kMaxDynamicLights); ++i) {
+        const LightSource& l = *near[i].second;
+        lights.push_back({toWorld(l.position), l.volumeRadius,
+                          {l.volumeColor[0] * kExposure, l.volumeColor[1] * kExposure, l.volumeColor[2] * kExposure},
+                          l.volumeFog});
+    }
+    renderer_->setVolumeLights(lights);
+    volumesOver(levelBatches(), mesh_, gfx::identity(), gfx::Cull::Front, true);
+}
+
+// The volume lights over batches drawn (the level's in fog zones, flagged
+// so; or all of a mover's in one), where they left their depth.
+void MapViewer::volumesOver(const std::vector<Batch>& batches, gfx::MeshId mesh, const gfx::Mat4& model,
+                            gfx::Cull cull, bool flagged) {
+    for (const Batch& b : batches) {
+        if ((flagged && !(b.polyFlags & kRenderFog)) || (b.polyFlags & polyflag::FakeBackdrop) ||
+            blended(b.polyFlags) || !(b.zones & zonesSeen_) || &b == mirrorThrough_)
+            continue;
+        gfx::DrawCall call;
+        call.mesh = mesh;
+        call.model = model;
+        call.firstIndex = b.firstIndex;
+        call.indexCount = b.indexCount;
+        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::None : cull;
+        drawVolumeOver(*renderer_, call);
+    }
+}
+
+bool MapViewer::inFogZone(const Vec3f& at) const {
+    if (volumes_.empty() || !lightmaps_)
+        return false;
+    const int z = zones_.zoneAt(at);
+    return z >= 0 && size_t(z) < lights_.zoneFog.size() && lights_.zoneFog[size_t(z)];
+}
+
+// The lit actors that aren't the level's own lights (those are in its
+// lightmaps) nor static (as in UE1, those light the world only through
+// lightmaps): their light as it is now, the nearest kMaxDynamicLights to
+// the eye given to the renderer.
+void MapViewer::gatherDynamicLights(const gfx::Vec3& eye) {
+    dynamic_.clear();
+    if (!play_)
+        return;
+    play_->level().litActors(litScratch_);
+    const Package* map = &play_->map();
+    for (const ScriptLevel::LitActor& a : litScratch_) {
+        if (a.isStatic || (a.actor->package == map && staticLightRefs_.count(a.actor->exportIndex + 1)))
+            continue;
+        LightSource l;
+        l.position = {a.location[0], a.location[1], a.location[2]};
+        l.radius = kRadiusUnit * (float(a.radius) + 1);
+        l.type = a.type;
+        l.effect = a.effect;
+        l.period = float(std::max<uint8_t>(a.period, 1)) / 35;
+        l.phase = float(a.phase) / 256;
+        const float level = lightLevel(l, lightTime_);
+        if (level <= 0)
+            continue;
+        // As the level's lights: the original lights with them the same way.
+        const Vec3f c = lightColor(a.hue, a.saturation, a.brightness, lights_.levelBrightness);
+        l.color = {c[0] * level, c[1] * level, c[2] * level};
+        l.key = a.actor;
+        dynamic_.push_back(l);
+    }
+    const Vec3f e{eye[0], -eye[1], eye[2]};
+    auto dist2 = [&](const LightSource& l) {
+        const float dx = l.position[0] - e[0], dy = l.position[1] - e[1], dz = l.position[2] - e[2];
+        return dx * dx + dy * dy + dz * dz;
+    };
+    if (dynamic_.size() > size_t(gfx::kMaxDynamicLights)) {
+        std::partial_sort(dynamic_.begin(), dynamic_.begin() + gfx::kMaxDynamicLights, dynamic_.end(),
+                          [&](const LightSource& a, const LightSource& b) { return dist2(a) < dist2(b); });
+        dynamic_.resize(size_t(gfx::kMaxDynamicLights));
+    }
+    std::vector<gfx::DynamicLight> lights;
+    for (const LightSource& l : dynamic_)
+        lights.push_back({toWorld(l.position), l.radius, {l.color[0], l.color[1], l.color[2]}});
+    renderer_->setDynamicLights(lights);
+}
+
+void MapViewer::drawOverlay(uint64_t nowMs) {
+    ++frames_;
+    if (nowMs - fpsStart_ >= 1000) {
+        fps_ = float(frames_) * 1000.0f / float(nowMs - fpsStart_);
+        fpsStart_ = nowMs;
+        frames_ = 0;
+    }
+    // Only the rows drawn last frame are cleared: the box at the top, the
+    // play lines at the bottom (clearing all 2.7 MB a frame cost a tenth).
+    const size_t rowBytes = size_t(kFrameW) * 4;
+    const size_t top = std::min(size_t(std::clamp(overlayTop_, 0, kFrameH)) * rowBytes, overlay_.pixels.size());
+    const size_t bottom = std::min(size_t(std::clamp(overlayBottom_, 0, kFrameH)) * rowBytes, overlay_.pixels.size());
+    std::fill(overlay_.pixels.begin() + ptrdiff_t(bottom), overlay_.pixels.end(), uint8_t(0));
+    overlayBottom_ = kFrameH;
+    // A cut scene's black bars are the HUD's own (CTV_Hud.RenderLetterBox,
+    // with the subtitles drawn over them).
+    if (!showInfo_ && error_.empty()) {
+        std::fill(overlay_.pixels.begin(), overlay_.pixels.begin() + ptrdiff_t(top), uint8_t(0));
+        overlayTop_ = 0;
+        overlayLines_.clear();
+        return;
+    }
+    std::vector<std::string> lines = info_;
+    const size_t errorLine = error_.empty() ? size_t(-1) : lines.size();
+    if (!error_.empty())
+        lines.push_back(error_);
+    if (!playError_.empty())
+        lines.push_back("Can't play: " + playError_);
+    lines.push_back(!play_     ? "Enter plays the level"
+                    : freeCam_ ? "Playing, the camera loose (V back to the game's): W/S/A/D, Space/C and drag fly it"
+                               : "Playing (Enter stops): W/S move, A/D step aside, arrows turn and look, drag to look, Space "
+                                 "jumps, C crouches, Ctrl or F fires, 0-9 pick weapons, F1-F12 as the game binds them, Esc the game's menu, V lets "
+                                 "the camera loose");
+    char where[240];
+    // Shown in Unreal's own coordinates.
+    const std::string zones =
+        !zones_.portalCount() ? "no zone portals"
+        : !zoneCulling_       ? "all zones drawn (Z)"
+        : zonesSeen_ == ~uint64_t(0)
+            ? "all zones seen"
+        : std::popcount(zonesSeen_) == 1
+            ? "1 zone seen (Z draws all)"
+            : std::to_string(std::popcount(zonesSeen_)) + " zones seen (Z draws all)";
+    std::snprintf(where, sizeof where,
+                  "at %.0f %.0f %.0f, %.0f fps; lightmaps %s, brightness x%.2f, display gamma %.2f; %s", pos_[0],
+                  -pos_[1], pos_[2], fps_, !hasLightmaps_ ? "none" : lightmaps_ ? "on" : "off", lightScale_,
+                  displayGamma_, zones.c_str());
+    lines.push_back(where);
+    if (jump_ >= 0 && size_t(jump_) < meshActors_.size()) {
+        const MeshDraw& d = meshActors_[size_t(jump_)];
+        std::snprintf(where, sizeof where, "mesh actor %d of %zu: %s, at %.0f %.0f %.0f (G next, H next posed from bones)",
+                      jump_ + 1, meshActors_.size(), d.label.c_str(), d.at[0], -d.at[1], d.at[2]);
+        lines.push_back(where);
+    }
+    const int lh = font::kLineHeight;
+    size_t widest = 0;
+    for (const std::string& l : lines)
+        widest = std::max(widest, font::length(l));
+    const int boxW = std::min(kFrameW, int(widest) * font::kAdvance + 8),
+              boxH = std::min(kFrameH, int(lines.size()) * lh + 6);
+    // The box is kept from frame to frame (nothing else draws up there):
+    // only the lines that changed (the place and the frame rate, mostly)
+    // are drawn again. Drawing all its text each frame cost a twentieth.
+    const bool same = boxW == overlayBoxW_ && boxH == overlayTop_ && lines.size() == overlayLines_.size() &&
+                      errorLine == overlayErrorLine_ && bottom >= top;
+    auto band = [&](int from, int to) {
+        for (int y = std::max(0, from); y < std::min(to, boxH); ++y) {
+            uint8_t* p = overlay_.row(y);
+            std::fill(p, p + size_t(kFrameW) * 4, uint8_t(0));
+            for (int x = 0; x < boxW; ++x)
+                p[x * 4 + 3] = 150;
+        }
+    };
+    if (!same) {
+        std::fill(overlay_.pixels.begin(), overlay_.pixels.begin() + ptrdiff_t(top), uint8_t(0));
+        band(0, boxH);
+        overlayLines_.assign(lines.size(), std::string(1, '\0'));
+    }
+    overlayTop_ = boxH;
+    overlayBoxW_ = boxW;
+    overlayErrorLine_ = errorLine;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (overlayLines_[i] == lines[i])
+            continue;
+        if (same)
+            band(3 + int(i) * lh, 3 + int(i + 1) * lh);
+        font::drawText(overlay_, 4, 3 + int(i) * lh, lines[i],
+                       i == errorLine ? Color{255, 120, 120} : Color{230, 230, 230});
+        overlayLines_[i] = lines[i];
+    }
+}
+
+std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::textureOf(const ObjectRef& tex, bool* unreadable,
+                                                                  bool masked) {
+    if (!tex)
+        return {0, {64, 64}};
+    auto it = textureCache_.find({tex.package, tex.exportIndex, masked});
+    if (it == textureCache_.end()) {
+        image::Image img;
+        gfx::TextureId id = 0;
+        TextureInfo ti;
+        // A masked surface leaves colour 0 out whether or not its texture
+        // is marked masked (CM_SpaceStation's windows, an FLC over the hull).
+        if (decodeTexture(ctx_.packages, *tex.package, tex.exportIndex, img, &ti, masked)) {
+            if (unreadable)
+                *unreadable = true;
+        } else {
+            // Fire, water, wet, ice and FLC textures play, redrawn as they
+            // change (so without mipmaps, which updates don't redo).
+            std::unique_ptr<AnimatedTexture> anim;
+            if (isAnimatedTextureClass(tex.package->className(tex.exportIndex + 1)))
+                anim = openAnimatedTexture(ctx_.packages, *tex.package, tex.exportIndex);
+            if (anim && masked && anim->frames() > 0)
+                anim->showFrame(1, true);
+            if (anim && anim->image().w == img.w && anim->image().h == img.h)
+                img = anim->image();
+            else
+                anim.reset();
+            gfx::TextureParams params;
+            params.nearest = (ti.polyFlags & polyflag::NoSmooth) != 0;
+            params.mipmaps = !anim;
+            if (!renderer_->createTexture(img.w, img.h, img.rgba.data(), params, id)) {
+                textures_.push_back(id);
+                if (anim)
+                    animatedTextures_.push_back({id, std::move(anim)});
+            } else {
+                id = 0;
+            }
+        }
+        it = textureCache_
+                 .emplace(std::make_tuple(tex.package, tex.exportIndex, masked),
+                          std::make_pair(id, std::array<int, 2>{std::max(1, img.w), std::max(1, img.h)}))
+                 .first;
+    }
+    return it->second;
+}
+
+// The lights reaching where an actor stands: some all round, the rest
+// from their average direction.
+MeshLight MapViewer::meshLightAt(const Vec3f& at, const LevelPlay::Look* actor, const void* who) const {
+    MeshLight light;
+    if (actor) {
+        // A live actor is lit by its lights per vertex (actorLights), all
+        // round only by the zone's ambient and its glow.
+        actorLights(at, *actor, light, who);
+        return light;
+    }
+    Vec3f total{}, toward{};
+    // The level's lights as bright as they are now (pulsing, flickering,
+    // turned off by scripts), then the lights that move and change.
+    // While playing, only lights that see it: the level's walls (its BSP)
+    // between a light and the actor keep its light off it, as they keep it
+    // off the walls behind them (Sisko lit white in M03_SiskoL1A's red room
+    // by the yellow lamps of the rooms round it).
+    float sum = 0;
+    // A special lit light (bSpecialLit) lights none of them: CM11_LabRitual's
+    // eight blue halos high over the room washed Obanak blue, where the
+    // recording has his face lit by the altar's fire.
+    auto add = [&](const LightSource& l, float level) {
+        if (level <= 0 || l.specialLit)
+            return;
+        const Vec3f dv{l.position[0] - at[0], l.position[1] - at[1], l.position[2] - at[2]};
+        const float straight = std::sqrt(dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2]);
+        const float dist = lightDistance(l, at);
+        if (dist >= l.radius || straight <= 0)
+            return;
+        if (play_ && play_->wallBetween(at, l.position))
+            return;
+        const float amount = lightFalloff(dist / l.radius) * level;
+        sum += amount;
+        for (size_t k = 0; k < 3; ++k) {
+            total[k] += l.color[k] * amount;
+            toward[k] += dv[k] / straight * amount;
+        }
+    };
+    for (const LightSource& l : lights_.unique)
+        add(l, levelOf(l));
+    for (const LightSource& l : dynamic_)
+        add(l, 1);
+    // At most the texture's own colour where the light falls full on it,
+    // as the lightmaps are: ambient and directed together under kMaxLight.
+    // Each capped alone, they reached twice it, washing characters' faces
+    // under bright lights out to pale (the opening's Terrell, against a
+    // recording of the original). UE1 lights a mesh's vertices by which way
+    // they face each light; with one direction to give, light from all
+    // round becomes ambient and light from one side stays directed (how
+    // far apart they are: 1 less the length of their summed directions over
+    // their sum). Half of it all ambient lit CM10_KiraL1A's guards, under
+    // two lamps over the door, as brightly in front as on top, where the
+    // recording has them dark against it.
+    const float len = std::sqrt(toward[0] * toward[0] + toward[1] * toward[1] + toward[2] * toward[2]);
+    const float spread = sum > 0 ? std::clamp(1 - len / sum, 0.0f, 1.0f) : 1.0f;
+    for (size_t k = 0; k < 3; ++k) {
+        light.ambient[k] = std::min(kMaxLight, 0.15f + 0.5f * spread * total[k]);
+        light.directed[k] = std::min((1 - 0.3f * spread) * total[k], std::max(0.0f, kMaxLight - light.ambient[k]));
+    }
+    light.direction = len > 0 ? toWorld(Vec3f{toward[0] / len, toward[1] / len, toward[2] / len}) : gfx::Vec3{0, 0, 1};
+    return light;
+}
+
+// The world as seen: the level's surfaces, the volume lights over them,
+// the movers and the actors (or, not playing, the placed meshes and
+// sprites), from `eye` looking along `forward`.
+void MapViewer::drawWorld(const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& eye) {
+    drawBatches(levelBatches(), mesh_, gfx::identity(), true);
+    drawSurfaceSwaps();
+    drawVolumes(eye);
+    for (size_t i = 0; i < movers_.size(); ++i) {
+        const MoverDraw& m = movers_[i];
+        VmObject* live = play_ && i < moverActors_.size() ? moverActors_[i] : nullptr;
+        LevelPlay::Look look;
+        // Lit where it is now, by the lights as they are now.
+        Vec3f at;
+        gfx::Mat4 place;
+        if (live && play_->look(live, look)) {
+            at = look.location;
+            place = moverPlacement(m.mover, look.location, look.rotation);
+        } else {
+            place = moverTransform(m);
+            at = Vec3f{place[12], -place[13], place[14]};
+        }
+        // As Render.dll lights a mover's surfaces: a bDynamicLightMover by
+        // the lights permeating its leaf (each in front of the surface, no
+        // shadows) and the dynamic lights, where it is now; any other by
+        // the lightmaps it was built with, which go with it as it moves
+        // (Reluva: its vertices' light worked out when the level was read,
+        // from every light reaching them, without shadows).
+        const bool baked = !m.mover.dynamicLight;
+        const MeshLight light = baked ? MeshLight{} : dynamicMoverLight(at, m.reach);
+        drawBatches(m.batches, moverMesh_, place, false, false, baked ? nullptr : &light);
+        if (inFogZone(at))
+            volumesOver(m.batches, moverMesh_, place, gfx::Cull::Back, false);
+    }
+    if (play_) {
+        drawLiveActors(forward, right);
+    } else {
+        for (const MeshDraw& d : meshActors_) {
+            const Mesh& mesh = meshes_[d.mesh];
+            const MeshAnimSeq* anim = d.anim >= 0 ? &mesh.anims[size_t(d.anim)] : nullptr;
+            drawMesh(*renderer_, gpuMeshes_[d.mesh], d.placement, poseAt(mesh, anim, animTime_, d.startFraction),
+                     textured_ ? d.textures : std::vector<gfx::TextureId>{}, d.light, kExposure);
+        }
+        drawSprites(sprites_, forward, right);
+    }
+}
+
+// Mirrors (surfaces flagged Mirrored: Sisko's desk in Ops, the glass
+// panes of M01_SiskoL1B): as the original's OccludeBsp does, each seen
+// from its front shows the world reflected in its plane, mirrors in it
+// too, up to three reflections deep. Each is drawn where the mirror is
+// (the stencil raised a level there), nothing behind its plane (the
+// projection's near plane moved onto it), its actors, movers and
+// sprites too (not their shadows or coronas); then the mark lowered again
+// and the depth cleared, for the view it's in to draw its own world over
+// it: the mirror's own texture if it's translucent or modulated, else only
+// its depth, and whatever stands before it. Called before the view's own
+// world, with that view (`level` reflections deep, through `through`).
+void MapViewer::drawMirrors(const gfx::Mat4& proj, const gfx::Mat4& view, const gfx::Mat4& viewProj,
+                            const gfx::Vec3& eye, const gfx::Vec3& forward, const gfx::Vec3& right, int level,
+                            const Batch* through) {
+    if (!renderer_->hasStencil() || level >= 3)
+        return;
+    int drawn = 0;
+    for (const Batch& m : levelBatches()) {
+        if (!(m.polyFlags & polyflag::Mirrored) || &m == through || !(m.zones & zonesSeen_) || drawn >= 4)
+            continue;
+        const gfx::Vec3 n = m.mirrorNormal;
+        const float side = n[0] * eye[0] + n[1] * eye[1] + n[2] * eye[2] - m.mirrorD;
+        if (side <= 0) // seen from behind
+            continue;
+        ++drawn;
+        // Where the mirror is: marked a level up.
+        gfx::DrawCall mark;
+        mark.mesh = mesh_;
+        mark.firstIndex = m.firstIndex;
+        mark.indexCount = m.indexCount;
+        mark.state.src = gfx::Blend::Zero;
+        mark.state.dst = gfx::Blend::One;
+        mark.state.depthWrite = false;
+        mark.state.cull = gfx::Cull::None;
+        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Mark, uint8_t(level + 1));
+        renderer_->draw(mark);
+        // The world reflected in the plane: x - 2 (n.x - d) n.
+        gfx::Mat4 reflect = gfx::identity();
+        for (size_t c = 0; c < 3; ++c)
+            for (size_t r = 0; r < 3; ++r)
+                reflect[c * 4 + r] -= 2 * n[r] * n[c];
+        for (size_t r = 0; r < 3; ++r)
+            reflect[12 + r] = 2 * m.mirrorD * n[r];
+        const gfx::Mat4 mirrorView = gfx::multiply(view, reflect);
+        // Its near plane on the mirror's: in the camera's space the plane
+        // facing back, -n.x + d >= 0 kept (the reflection's side).
+        const gfx::Vec3 on{n[0] * m.mirrorD, n[1] * m.mirrorD, n[2] * m.mirrorD};
+        std::array<float, 4> c{};
+        for (size_t r = 0; r < 3; ++r)
+            c[r] = -(view[0 * 4 + r] * n[0] + view[1 * 4 + r] * n[1] + view[2 * 4 + r] * n[2]);
+        const gfx::Vec3 onView = gfx::transformPoint(view, on);
+        c[3] = -(c[0] * onView[0] + c[1] * onView[1] + c[2] * onView[2]);
+        gfx::Mat4 p = proj;
+        // Lengyel's oblique near plane, for depth 0-1.
+        auto sgn = [](float v) { return v > 0 ? 1.0f : v < 0 ? -1.0f : 0.0f; };
+        const std::array<float, 4> q{(sgn(c[0]) - p[8]) / p[0], (sgn(c[1]) - p[9]) / p[5], -1, (1 + p[10]) / p[14]};
+        const float cq = c[0] * q[0] + c[1] * q[1] + c[2] * q[2] + c[3] * q[3];
+        if (std::fabs(cq) > 1e-9f)
+            for (size_t k = 0; k < 4; ++k)
+                p[k * 4 + 2] = c[k] / cq;
+        const gfx::Mat4 mirrorViewProj = gfx::multiply(p, mirrorView);
+        const gfx::Vec3 mirrorEye = gfx::transformPoint(reflect, eye);
+        auto turn = [&](const gfx::Vec3& v) { // a direction reflected
+            const float k = 2 * (n[0] * v[0] + n[1] * v[1] + n[2] * v[2]);
+            return gfx::Vec3{v[0] - k * n[0], v[1] - k * n[1], v[2] - k * n[2]};
+        };
+        const gfx::Vec3 mirrorForward = turn(forward), mirrorRight = turn(right);
+        renderer_->setView(mirrorViewProj, mirrorEye);
+        renderer_->setMirrored((level + 1) % 2 == 1);
+        const int saved = mirrorLevel_;
+        const Batch* savedThrough = mirrorThrough_;
+        mirrorLevel_ = level + 1;
+        mirrorThrough_ = &m;
+        // The mirrors seen in it first, then its world, only where it is.
+        drawMirrors(proj, mirrorView, mirrorViewProj, mirrorEye, mirrorForward, mirrorRight, level + 1, &m);
+        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Inside, uint8_t(level + 1));
+        drawWorld(mirrorForward, mirrorRight, mirrorEye);
+        mirrorLevel_ = saved;
+        mirrorThrough_ = savedThrough;
+        // Back to the view it's in: the mark lowered where the mirror is,
+        // whatever's in front of it, and the depth forgotten.
+        renderer_->setMirrored(level % 2 == 1);
+        renderer_->setView(viewProj, eye);
+        mark.state.depthTest = false;
+        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Unmark, uint8_t(level + 1));
+        renderer_->draw(mark);
+        renderer_->clearDepth();
+        if (level > 0)
+            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Inside, uint8_t(level));
+        else
+            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::None);
+    }
+}
+
+// The mover's brushes have no lightmaps of their own (their models' are
+// stale, pointing at no surface), so its vertices are lit as the level's
+// surfaces are, where it is now: the lights reaching its brush (at most
+// six, the brightest there, a light smaller than the brush counted for
+// the share of it it reaches), each colour x (1 - 3 f^2 + 2 f^3) x the
+// facing (a cylinder light 1 - f^2 across), with its zone's ambient
+// light, at most 1; without the lights' shadows. Reluva's reading: how
+// the original's moving-brush tracker lights them isn't known.
+MeshLight MapViewer::dynamicMoverLight(const Vec3f& at, float reach) const {
+    MeshLight light;
+    struct Candidate {
+        const LightSource* l;
+        float level, importance;
+    };
+    std::vector<Candidate> found;
+    auto consider = [&](const LightSource& l, float level) {
+        if (level <= 0 || l.specialLit || l.radius <= 0)
+            return;
+        const float dist = lightDistance(l, at);
+        if (dist >= l.radius + reach)
+            return;
+        const float near = std::max(0.0f, dist - reach);
+        const float share = reach > l.radius ? l.radius / reach : 1.0f;
+        found.push_back({&l, level, float(l.brightness) * level * (1 - near / l.radius) * share});
+    };
+    const int leaf = zones_.leafAt(at);
+    if (leaf >= 0 && size_t(leaf) < leafLights_.size() && leafLights_[size_t(leaf)] >= 0)
+        for (size_t i = size_t(leafLights_[size_t(leaf)]); i < lights_.sources.size() && lights_.sources[i].radius > 0; ++i)
+            consider(lights_.sources[i], levelOf(lights_.sources[i]));
+    for (const LightSource& l : dynamic_)
+        consider(l, 1);
+    // The renderer takes six: the most of them.
+    std::stable_sort(found.begin(), found.end(),
+                     [](const Candidate& a, const Candidate& b) { return a.importance > b.importance; });
+    for (size_t i = 0; i < found.size() && i < size_t(gfx::kMaxVertexLights); ++i) {
+        gfx::VertexLight v;
+        v.position = toWorld(found[i].l->position);
+        v.radius = found[i].l->radius;
+        v.cylinder = found[i].l->cylinder;
+        for (size_t k = 0; k < 3; ++k)
+            v.color[k] = found[i].l->color[k] * found[i].level;
+        light.lights.push_back(v);
+    }
+    const int zone = zones_.zoneAt(at);
+    const Vec3f ambient = zone >= 0 && size_t(zone) < lights_.zoneAmbient.size() ? lights_.zoneAmbient[size_t(zone)]
+                                                                                 : Vec3f{};
+    light.ambient = {ambient[0], ambient[1], ambient[2]};
+    light.directed = {0, 0, 0};
+    light.perVertex = true;
+    return light;
+}
+
+MeshLight MapViewer::moverLightAt(const Vec3f& at, float reach, size_t* reaching) const {
+    MeshLight light;
+    struct Candidate {
+        const LightSource* l;
+        float level, importance;
+    };
+    std::vector<Candidate> found;
+    auto consider = [&](const LightSource& l, float level) {
+        if (level <= 0 || l.specialLit || l.radius <= 0)
+            return;
+        const float dist = lightDistance(l, at);
+        if (dist >= l.radius + reach)
+            return;
+        const float near = std::max(0.0f, dist - reach);
+        // On a brush larger than the light's reach, only so much of it is
+        // lit: CM_ArdPrison's docked Defiant (Mover10, 5000 across) was
+        // otherwise given six bright lamps of radius 50 to 100 by its
+        // pivot and left black, not the station's lights of 4000 round it.
+        const float share = reach > l.radius ? l.radius / reach : 1.0f;
+        found.push_back({&l, level, float(l.brightness) * level * (1 - near / l.radius) * share});
+    };
+    for (const LightSource& l : lights_.unique)
+        consider(l, levelOf(l));
+    for (const LightSource& l : dynamic_)
+        consider(l, 1);
+    std::stable_sort(found.begin(), found.end(),
+                     [](const Candidate& a, const Candidate& b) { return a.importance > b.importance; });
+    if (reaching)
+        *reaching = found.size();
+    for (size_t i = 0; i < found.size() && i < size_t(gfx::kMaxVertexLights); ++i) {
+        gfx::VertexLight v;
+        v.position = toWorld(found[i].l->position);
+        v.radius = found[i].l->radius;
+        v.cylinder = found[i].l->cylinder;
+        for (size_t k = 0; k < 3; ++k)
+            v.color[k] = found[i].l->color[k] * found[i].level;
+        light.lights.push_back(v);
+    }
+    const int zone = zones_.zoneAt(at);
+    const Vec3f ambient = zone >= 0 && size_t(zone) < lights_.zoneAmbient.size() ? lights_.zoneAmbient[size_t(zone)]
+                                                                                 : Vec3f{};
+    light.ambient = {ambient[0], ambient[1], ambient[2]};
+    light.directed = {0, 0, 0};
+    light.perVertex = true;
+    return light;
+}
+
+// An actor's mesh in its style; a MultiTexture one (bMultiTextureOn) twice,
+// as the original's DrawMesh does: its own skins in MultiTextureOneStyle
+// with MultiTextureOneScaleGlow, then over them MultiTextureTwo (else its
+// skins again) in MultiTextureTwoStyle with MultiTextureTwoScaleGlow,
+// environment mapped if bMultiTextureEnvMap, pushed out along its normals
+// by MultiTextureTwoFatness / 16 - 8 world units. A blended pass's glow is
+// its alpha; an unlit one's (bMultiTexture...Unlit) its colour, times
+// ColorFilter; a lit one keeps that much of its light.
+void MapViewer::drawActorMesh(const GpuMesh& gpu, const gfx::Mat4& placement, const MeshPose& pose,
+                              const std::vector<gfx::TextureId>& skins, const MeshLight& light,
+                              const LevelPlay::Look& look) {
+    const LevelPlay::Look::MultiTexture& m = look.multi;
+    MeshFog fog = fog_;
+    fog.volumes = inFogZone(look.location);
+    if (!m.on) {
+        drawMesh(*renderer_, gpu, placement, pose, skins, light, kExposure, look.style, &fog);
+        return;
+    }
+    const gfx::Vec3 filter{m.colorFilter[0], m.colorFilter[1], m.colorFilter[2]};
+    MeshPass one;
+    one.glow = m.oneGlow;
+    one.unlit = m.oneUnlit;
+    one.unlitColor = filter;
+    drawMesh(*renderer_, gpu, placement, pose, skins, light, kExposure, m.oneStyle, &fog, &one);
+    MeshPass two;
+    two.second = true;
+    two.glow = m.twoGlow;
+    two.unlit = m.twoUnlit;
+    two.unlitColor = filter;
+    two.texture = m.two && textured_ ? textureOf(m.two).first : 0;
+    two.envMap = m.envMap;
+    // World units to the mesh's own (its placement's scale).
+    float scale = 0;
+    for (int c = 0; c < 3; ++c)
+        scale += std::sqrt(placement[size_t(c * 4)] * placement[size_t(c * 4)] +
+                           placement[size_t(c * 4 + 1)] * placement[size_t(c * 4 + 1)] +
+                           placement[size_t(c * 4 + 2)] * placement[size_t(c * 4 + 2)]) / 3;
+    if (scale > 0)
+        two.fatness = (float(m.twoFatness) / 16 - 8) / scale;
+    MeshFog over = fog; // the volume lights once, over the first pass
+    over.volumes = false;
+    drawMesh(*renderer_, gpu, placement, pose, skins, light, kExposure, m.twoStyle, &over, &two);
+}
+
+// An actor's light as the original's renderer works it out (Render.dll's
+// actor lighting, read for what it does): the lights reaching it, most
+// important first ((1 - distance / radius) x brightness), down to an
+// eighth of the first's, at most three that stay where they are and
+// others while there are fewer than three, each seen from it (no wall
+// between; lights that move needn't be). Its ambient light is its zone's
+// ambient through the engine's colour curve plus AmbientGlow / 255 (255:
+// pulsing, 0.25 + 0.2 sin 8t). Each vertex then adds 1.4 x ScaleGlow x
+// its lights (gfx::DrawCall::vertexLights), at most 1.
+void MapViewer::actorLights(const Vec3f& at, const LevelPlay::Look& look, MeshLight& light, const void* who) const {
+    // As Render.dll's light manager for an actor (SetupForActor): the
+    // candidates are the lights it was lit by last frame (kept to fade
+    // out), then the level's lights permeating its BSP leaf, then the
+    // lights that move. Each is kept if its radius passes the straight
+    // distance (a cylinder light's too) and weighed (1 - distance /
+    // radius) x LightBrightness. In that order of weight, at most three
+    // that stay put (bStatic), and lights that don't while fewer than
+    // three are taken in all; under an eighth of the first taken's weight,
+    // passed over. A light that doesn't move must see the actor (a line
+    // through the BSP; the engine looks again 1 frame in 16). Each fades
+    // in as it's taken and out as it isn't, a full fade in a third of a
+    // second (768 of 255 a second), lighting it as it fades out.
+    struct Candidate {
+        const LightSource* l;
+        float level, importance;
+        bool isStatic, moves;
+        uint64_t key;
+    };
+    std::vector<Candidate> found;
+    std::set<uint64_t> listed;
+    auto consider = [&](const LightSource& l, float level, bool moves, uint64_t key) {
+        if (level <= 0 || l.specialLit || l.radius <= 0 || !listed.insert(key).second)
+            return;
+        const float dx = l.position[0] - at[0], dy = l.position[1] - at[1], dz = l.position[2] - at[2];
+        const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+        if (dist >= l.radius)
+            return;
+        found.push_back({&l, level, (1 - dist / l.radius) * float(l.brightness), l.isStatic, moves, key});
+    };
+    ActorFade* fade = nullptr;
+    bool fresh = true;
+    float step = 1;
+    if (who) {
+        ActorFade& f = actorFades_[who];
+        fresh = f.time < 0;
+        step = fresh ? 1 : std::clamp((lightTime_ - f.time) * 768 / 255, 0.0f, 1.0f);
+        f.time = lightTime_;
+        fade = &f;
+    }
+    // The level's lights by their actor (ref); those that move by theirs.
+    const int leaf = zones_.leafAt(at);
+    std::map<int32_t, const LightSource*> byRef;
+    if (leaf >= 0 && size_t(leaf) < leafLights_.size() && leafLights_[size_t(leaf)] >= 0)
+        for (size_t i = size_t(leafLights_[size_t(leaf)]); i < lights_.sources.size() && lights_.sources[i].ref; ++i)
+            byRef[lights_.sources[i].ref] = &lights_.sources[i];
+    if (uniqueByRef_.empty())
+        for (const LightSource& u : lights_.unique)
+            if (u.ref)
+                uniqueByRef_.emplace(u.ref, &u);
+    auto level = [&](int32_t ref, uint64_t key) {
+        if (auto it = uniqueByRef_.find(ref); it != uniqueByRef_.end())
+            consider(*it->second, levelOf(*it->second), false, key);
+    };
+    if (fade)
+        for (const auto& [key, f] : fade->lights) {
+            (void)f;
+            if (!(key >> 63)) // a moving light is found below if still near
+                level(int32_t(key), key);
+        }
+    for (const auto& [ref, l] : byRef) {
+        (void)l;
+        level(ref, uint64_t(ref));
+    }
+    for (const LightSource& l : dynamic_)
+        consider(l, 1, true, (uint64_t(1) << 63) | uint64_t(uintptr_t(l.key)));
+    std::stable_sort(found.begin(), found.end(),
+                     [](const Candidate& a, const Candidate& b) { return a.importance > b.importance; });
+    int total = 0, still = 0;
+    float threshold = -1;
+    std::map<uint64_t, float> next;
+    for (const Candidate& c : look.unlit ? std::vector<Candidate>{} : found) {
+        float was = fade && fade->lights.count(c.key) ? fade->lights[c.key] : 0;
+        bool taken = false;
+        if (c.importance >= threshold && (c.isStatic ? still : total) < 3) {
+            // A distance fog light (LightEffect 20) needs no line to the
+            // actor (no light in the game is one).
+            const bool sees = c.moves || c.l->effect == 20 || !play_ || !play_->wallBetween(at, c.l->position);
+            if (sees) {
+                taken = true;
+                ++total;
+                if (c.isStatic)
+                    ++still;
+                if (threshold < 0)
+                    threshold = c.importance / 8;
+            }
+        }
+        const float now = taken ? (fresh ? 1.0f : std::min(1.0f, was + step)) : std::max(0.0f, was - step);
+        if (now <= 0)
+            continue;
+        if (next.size() < 16)
+            next[c.key] = now;
+        gfx::VertexLight v;
+        // Shaded as a point light, a cylinder light too (Render.dll's actor
+        // lighting has no cylinder case).
+        v.position = toWorld(c.l->position);
+        v.radius = c.l->radius;
+        // The lightmaps' colours are doubled (lightColor); actors' aren't.
+        for (size_t k = 0; k < 3; ++k)
+            v.color[k] = c.l->color[k] * c.level / 2 * (who ? now : 1.0f);
+        light.lights.push_back(v);
+    }
+    if (fade)
+        fade->lights = std::move(next);
+    const int zone = zones_.zoneAt(at);
+    const Vec3f zoneAmbient = zone >= 0 && size_t(zone) < lights_.zoneActorAmbient.size()
+                                  ? lights_.zoneActorAmbient[size_t(zone)]
+                                  : Vec3f{};
+    const float glow = look.ambientGlow == 255 ? 0.25f + 0.2f * std::sin(8 * lightTime_)
+                                               : float(look.ambientGlow) / 255;
+    // bUnlit: no lights, half of them all round instead (1.4 x ScaleGlow
+    // x 0.5).
+    const float unlit = look.unlit ? 0.7f * look.scaleGlow : 0;
+    if (look.unlit)
+        light.lights.clear();
+    for (size_t k = 0; k < 3; ++k) {
+        light.ambient[k] = std::min(1.0f, zoneAmbient[k] + glow + unlit);
+        light.directed[k] = 0;
+    }
+    light.perVertex = true;
+    light.scale = 1.4f * look.scaleGlow;
+    light.specular = look.specular;
+}
+
+// --- Playing --------------------------------------------------------------------------------
+
+Error MapViewer::saveGame(const std::string& name) {
+    if (!play_)
+        return Error::fail("not playing");
+    return play_->level().saveGame(name);
+}
+
+void MapViewer::travel(const std::string& url, bool items) {
+    const std::string lower = fs::toLower(url);
+    if (items && play_)
+        play_->level().travelItems() = true;
+    // What goes with the player, as the engine has it: its played time
+    // always; on "?RESTART" what it came into this level with, else with
+    // ClientTravel's bItems its pawn and inventory (the travel text), else
+    // nothing. (A saved game loaded has its own.)
+    pendingTravel_.clear();
+    pendingPlayedTime_ = -1;
+    if (play_ && lower.find("?load=") == std::string::npos) {
+        ScriptLevel& level = play_->level();
+        if (VmObject* p = play_->player())
+            if (const Value* t = p->find(play_->vm(), "GamePlayedTime"))
+                pendingPlayedTime_ = t->asFloat();
+        if (lower.find("?restart") != std::string::npos)
+            pendingTravel_ = level.incomingTravel();
+        else if (level.travelItems())
+            pendingTravel_ = level.exportTravel();
+    }
+    // "?RESTART": the map again, from where it began.
+    if (lower.rfind("?restart", 0) == 0) {
+        const std::string portal = portal_;
+        startPlay(portal);
+        return;
+    }
+    // "?LOAD=Save1.dss": a saved game, on its own map.
+    if (const size_t load = lower.find("?load="); load != std::string::npos) {
+        std::string name = url.substr(load + 6);
+        name = name.substr(0, name.find('?'));
+        const std::filesystem::path file = ctx_.saveFolder / name;
+        ScriptLevel::SaveInfo info;
+        if (ctx_.saveFolder.empty() || ScriptLevel::readSaveInfo(file, info)) {
+            // None there: the game's word for it (its quick load).
+            if (play_)
+                play_->hudEvent(1010);
+            return;
+        }
+        // The original's: the save is the level itself, opened as a map.
+        if (info.byGame) {
+            const std::string level = ctx_.packages.addLater(file);
+            if (std::find(names_.begin(), names_.end(), level) == names_.end())
+                names_.push_back(level);
+            if (!selectMap(level)) {
+                stopPlay();
+                playError_ = "load " + name + ": doesn't open";
+                return;
+            }
+            startPlay({});
+            return;
+        }
+        if (!selectMap(info.map)) {
+            stopPlay();
+            playError_ = "load " + name + ": no map " + info.map;
+            return;
+        }
+        startPlay({}, file);
+        return;
+    }
+    std::string where = url.substr(0, url.find('?'));
+    const size_t cut = where.find_first_of("/#");
+    const std::string portal = cut == std::string::npos ? std::string() : where.substr(cut + 1);
+    std::string map = where.substr(0, cut);
+    if (const size_t dot = map.rfind('.'); dot != std::string::npos)
+        map = map.substr(0, dot);
+    if (!selectMap(map)) {
+        stopPlay();
+        playError_ = "travel to " + url + ": no map " + map;
+        return;
+    }
+    startPlay(portal);
+}
+
+void MapViewer::startPlay(const std::string& portal, const std::filesystem::path& saved) {
+    stopPlay();
+    const Package* pkg = names_.empty() ? nullptr : ctx_.packages.get(names_[size_t(index_)]);
+    if (!pkg || !error_.empty())
+        return;
+    auto play = std::make_unique<LevelPlay>(ctx_.packages, *pkg);
+    play->level().incomingTravel() = std::exchange(pendingTravel_, std::string());
+    play->level().carriedPlayedTime() = std::exchange(pendingPlayedTime_, -1.0f);
+    if (Error err = play->start(portal, saved, ctx_.saveFolder)) {
+        playError_ = err.message;
+        return;
+    }
+    if (!play->player()) {
+        playError_ = "no player logged in: " + play->loginError();
+        return;
+    }
+    // Each mover's live actor, by its path in the map.
+    std::map<std::string, VmObject*> byPath;
+    for (VmObject* a : play->level().actors())
+        if (a->package == pkg && a->exportIndex >= 0)
+            byPath[pkg->path(a->exportIndex + 1)] = a;
+    moverActors_.clear();
+    for (const MoverDraw& m : movers_) {
+        auto it = byPath.find(m.mover.name);
+        moverActors_.push_back(it == byPath.end() ? nullptr : it->second);
+    }
+    playError_.clear();
+    portal_ = portal;
+    playClock_ = 0;
+    held_[Fast] = false;
+    play_ = std::move(play);
+}
+
+void MapViewer::stopPlay() {
+    shadows_.clear(); // keyed by the play's actors
+    freeCam_ = false;
+    if (renderer_)
+        for (const GpuMesh& g : posedMeshes_)
+            if (g.mesh)
+                renderer_->destroyMesh(g.mesh);
+    posedMeshes_.clear();
+    if (audio_)
+        audio_->reset();
+    play_.reset();
+    moverActors_.clear();
+    // The live actors' meshes stay uploaded (in meshes_), for playing again.
+}
+
+void MapViewer::updatePlay(float dt) {
+    ScriptLevel::Controls& c = play_->controls();
+    if (freeCam_) { // the keys fly the camera: the player stands
+        c = {};
+        play_->advance(dt);
+        playClock_ += dt;
+        view_ = play_->view();
+        return;
+    }
+    c.forward = float(held_[Forward] - held_[Back]);
+    c.strafe = float(held_[Right] - held_[Left]);
+    c.turn = float(held_[TurnRight] - held_[TurnLeft]);
+    c.lookUp = float(held_[LookUp] - held_[LookDown]);
+    c.mouseX += mouseDx_;
+    c.mouseY += mouseDy_;
+    c.jump = held_[Up];
+    c.duck = held_[Down]; // C, as the game binds it (Duck)
+    c.fire = held_[Fire];
+    mouseDx_ = mouseDy_ = 0;
+    play_->advance(dt);
+    playClock_ += dt;
+    // The camera where the game puts it.
+    view_ = play_->view();
+    pos_ = toWorld(view_.location);
+    // The way it looks, from its rotation's direction: the game's camera
+    // writes the same direction with the yaw turned round and the pitch
+    // past straight up when it's ahead of the player (CTVE_Camera), which
+    // taken as yaw and pitch alone looks straight down.
+    const Vec3f f = rotationAxes(view_.rotation)[0];
+    yaw_ = std::atan2(-f[1], f[0]); // negated with Y
+    pitch_ = std::clamp(std::asin(std::clamp(f[2], -1.0f, 1.0f)), -1.55f, 1.55f);
+    fov_ = view_.fov;
+}
+
+int MapViewer::liveMesh(const ObjectRef& ref, const std::string& anim) {
+    auto it = liveMeshes_.find({ref.package, ref.exportIndex});
+    if (it == liveMeshes_.end()) {
+        Mesh mesh;
+        GpuMesh gpu;
+        int at = -1;
+        if (!readMesh(*ref.package, ref.exportIndex, mesh) &&
+            !uploadMesh(*renderer_, mesh, gpu, ctx_.meshTurn, ctx_.meshYawQuarters)) {
+            at = int(meshes_.size());
+            meshes_.push_back(std::move(mesh));
+            gpuMeshes_.push_back(gpu);
+        }
+        it = liveMeshes_.emplace(std::make_pair(ref.package, ref.exportIndex), at).first;
+    }
+    const int at = it->second;
+    if (at < 0 || anim.empty())
+        return at;
+    // A character's animation from the shared sets, the first time it plays
+    // one its mesh doesn't have: borrowed, and the mesh uploaded again.
+    Mesh& mesh = meshes_[size_t(at)];
+    if (mesh.bones && !mesh.findAnim(anim) && borrowNamedAnimation(*ref.package, ref.exportIndex, ctx_.sets(), anim, mesh)) {
+        GpuMesh gpu;
+        if (!uploadMesh(*renderer_, mesh, gpu, ctx_.meshTurn, ctx_.meshYawQuarters)) {
+            if (gpuMeshes_[size_t(at)].mesh)
+                renderer_->destroyMesh(gpuMeshes_[size_t(at)].mesh);
+            gpuMeshes_[size_t(at)] = gpu;
+        }
+    }
+    return at;
+}
+
+// The level's actors as they are now: meshes posed where their animation
+// is (AnimFrame), and sprites.
+void MapViewer::drawLiveActors(const gfx::Vec3& forward, const gfx::Vec3& right) {
+    std::vector<SpriteDraw> sprites;
+    // Only those that may be seen: not hidden, in a zone seen (the rest
+    // aren't drawn, so their scripts aren't asked to get them ready).
+    for (VmObject* a : play_->level().actors())
+        if (play_->mayBeSeen(a, zonesSeen_))
+            drawLiveActor(a, sprites);
+    addDecals(sprites);
+    if (mirrorLevel_ == 0) // not in a mirror: their fading goes by the camera's view
+        addCoronas(sprites, forward, coronaDt_);
+    drawSprites(sprites, forward, right);
+}
+
+// The player's screen flash, over the scene (not the HUD): every pixel
+// times its FlashScale, plus its FlashFog, as UE1's renderer does. The
+// scripts work both out each tick (PlayerPawn.ViewFlash): the head's zone's
+// ViewFlash and ViewFog (a water zone's blue-green: The Fallen's
+// CTV_H20Zone, ViewFog 0.13 0.20 0.17), and the flashes of being hurt or
+// picking things up (ClientFlash). Drawn as one quad before the camera,
+// its colour the fog, its alpha the scale.
+void MapViewer::drawScreenFlash(const gfx::Vec3& forward, const gfx::Vec3& right) {
+    VmObject* p = play_ ? play_->player() : nullptr;
+    if (!p || !spriteQuad_)
+        return;
+    Vm& vm = play_->vm();
+    const Value* scaleV = p->find(vm, "FlashScale");
+    const Value* fogV = p->find(vm, "FlashFog");
+    if (!scaleV || !fogV)
+        return;
+    const auto scale = Vm::vectorOf(*scaleV);
+    const auto fog = Vm::vectorOf(*fogV);
+    const float s = std::clamp(scale[0], 0.0f, 4.0f);
+    const float f[3] = {std::clamp(fog[0], 0.0f, 1.0f), std::clamp(fog[1], 0.0f, 1.0f), std::clamp(fog[2], 0.0f, 1.0f)};
+    if (std::fabs(s - 1) < 0.01f && f[0] + f[1] + f[2] < 0.01f)
+        return;
+    const gfx::Vec3 up{right[1] * forward[2] - right[2] * forward[1], right[2] * forward[0] - right[0] * forward[2],
+                       right[0] * forward[1] - right[1] * forward[0]};
+    const float d = 16, size = 2 * d * std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360) * 1.5f;
+    gfx::DrawCall call;
+    call.mesh = spriteQuad_;
+    call.indexCount = 6;
+    call.model = gfx::identity();
+    for (size_t k = 0; k < 3; ++k) {
+        call.model[k] = right[k] * size;
+        call.model[4 + k] = up[k] * size;
+        call.model[8 + k] = -forward[k];
+        call.model[12 + k] = pos_[k] + forward[k] * d;
+    }
+    call.texture = 0;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::Constant;
+    if (s <= 1) { // dst x scale + fog
+        call.color = {f[0], f[1], f[2], s};
+        call.state.src = gfx::Blend::One;
+        call.state.dst = gfx::Blend::SrcAlpha;
+    } else { // brighter than it is: dst x 1 + dst x (scale - 1), then the fog
+        call.color = {s - 1, s - 1, s - 1, 1};
+        call.state.src = gfx::Blend::DstColor;
+        call.state.dst = gfx::Blend::One;
+    }
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::None;
+    renderer_->draw(call);
+    if (s > 1 && f[0] + f[1] + f[2] >= 0.01f) {
+        call.color = {f[0], f[1], f[2], 1};
+        call.state.src = gfx::Blend::One;
+        call.state.dst = gfx::Blend::One;
+        renderer_->draw(call);
+    }
+}
+
+// Coronas, as Render.dll draws them: of the lights permeating the
+// leaf the camera is in (the level model's leaf list) and the moving
+// lights reaching it, each with bCorona and a Skin, at most 32, those with
+// a clear line from the light to the camera; each frame every corona's
+// glow drops by the frame's time and a seen one's rises by twice that (in
+// over a second, out over a second), gone at 0. Drawn as its Skin,
+// translucent, over everything, centred where the light is on the
+// screen, the frame's width x DrawScale x 0.8 pixels across, in its
+// light's hue made whiter by its saturation, times the glow (its
+// brightness not used).
+void MapViewer::addCoronas(std::vector<SpriteDraw>& sprites, const gfx::Vec3& forward, float dt) {
+    play_->coronas(coronaScratch_);
+    const Vec3f eye{pos_[0], -pos_[1], pos_[2]};
+    const float tanHalf = std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360);
+    // The level's lights reaching the camera's leaf.
+    std::set<int32_t> permeating;
+    if (const int leaf = zones_.leafAt(eye); leaf >= 0 && size_t(leaf) < leafLights_.size() && leafLights_[size_t(leaf)] >= 0)
+        for (size_t i = size_t(leafLights_[size_t(leaf)]); i < lights_.sources.size() && lights_.sources[i].ref; ++i)
+            permeating.insert(lights_.sources[i].ref);
+    // Every glow down by the frame's time.
+    for (auto it = coronaFade_.begin(); it != coronaFade_.end();) {
+        it->second -= dt;
+        it = it->second < 0 ? coronaFade_.erase(it) : std::next(it);
+    }
+    for (const LevelPlay::Corona& c : coronaScratch_) {
+        const bool candidate = c.isStatic ? permeating.count(c.ref) != 0
+                                          : std::sqrt((c.location[0] - eye[0]) * (c.location[0] - eye[0]) +
+                                                      (c.location[1] - eye[1]) * (c.location[1] - eye[1]) +
+                                                      (c.location[2] - eye[2]) * (c.location[2] - eye[2])) < c.radius;
+        if (candidate && !play_->wallBetween(c.location, eye)) {
+            auto it = coronaFade_.find(c.actor);
+            if (it != coronaFade_.end())
+                it->second = std::min(1.0f, it->second + 2 * dt);
+            else if (coronaFade_.size() < 32)
+                coronaFade_[c.actor] = std::min(1.0f, 2 * dt);
+        }
+    }
+    for (const LevelPlay::Corona& c : coronaScratch_) {
+        auto it = coronaFade_.find(c.actor);
+        if (it == coronaFade_.end())
+            continue;
+        const float fade = it->second;
+        const gfx::Vec3 at = toWorld(c.location);
+        const float depth = (at[0] - pos_[0]) * forward[0] + (at[1] - pos_[1]) * forward[1] + (at[2] - pos_[2]) * forward[2];
+        if (fade <= 0 || depth <= 1)
+            continue;
+        const auto [texture, size] = textureOf(c.texture);
+        if (!texture)
+            continue;
+        // Its colour: the hue in three thirds, whitened by the saturation.
+        const float h = float(c.hue);
+        Vec3f col = c.hue < 86 ? Vec3f{(85 - h) / 85, h / 85, 0}
+                    : c.hue < 171 ? Vec3f{0, (170 - h) / 85, (h - 85) / 85}
+                                  : Vec3f{(h - 170) / 85, 0, (255 - h) / 84};
+        const float white = float(c.saturation) / 255;
+        for (float& x : col)
+            x = (x + (1 - x) * white) * fade;
+        const float pixels = float(kFrameW) * c.drawScale * 0.8f;
+        const float world = pixels * depth * 2 * tanHalf / float(kFrameW);
+        SpriteDraw d;
+        d.texture = texture;
+        d.at = at;
+        d.width = d.height = world;
+        d.style = kStyleTranslucent;
+        d.color = {col[0], col[1], col[2]};
+        d.onTop = true;
+        sprites.push_back(d);
+    }
+}
+
+// The Fallen's characters cast shadows of their own shape (actors with
+// bProjectsShadows, from lights with bActorShadows: every Light by
+// default): its renderer says so (GetRendererFlags bit 2), and its blob
+// shadows (CTV_Shadow) step aside. As the original's renderer does it
+// (Render.dll's PrepareProjectedShadow and DrawProjectedShadow, read for
+// what they do; docs/engines/unreal/lighting.md): the mesh flattened from
+// one light onto the floor under it, darkest close to its feet, its
+// strength easing in and out as it moves between lights.
+void MapViewer::drawShadow(VmObject* a, const Vec3f& at) {
+    if (mirrorLevel_ > 0) // in a mirror: the stencil is the mirror's
+        return;
+    Vm& vm = play_->vm();
+    const Value* casts = a->find(vm, "bProjectsShadows");
+    if (!casts || !casts->asBool())
+        return;
+    auto number = [&](VmObject* o, const char* name, float fallback) {
+        const Value* v = o->find(vm, name);
+        return v ? v->asFloat() : fallback;
+    };
+    auto flag = [&](VmObject* o, const char* name) {
+        const Value* v = o->find(vm, name);
+        return v && v->asBool();
+    };
+    // A weapon held casts from its holder's light, faded by its ScaleGlow.
+    VmObject* caster = a;
+    Vec3f from = at;
+    float glow = 1;
+    if (vm.isA(a, "Weapon") && flag(a, "bHeldItem")) {
+        const Value* owner = a->find(vm, "Owner");
+        if (owner && owner->asObject()) {
+            glow = number(a, "ScaleGlow", 1);
+            caster = owner->asObject();
+            if (const Value* loc = caster->find(vm, "Location")) {
+                const auto l = Vm::vectorOf(*loc);
+                from = {l[0], l[1], l[2]};
+            }
+        }
+    }
+    // One that fades with a blended overlay (a cloak) fades its shadow too.
+    if (flag(caster, "bMultiTextureOn")) {
+        const Value* style = caster->find(vm, "MultiTextureOneStyle");
+        if (style && style->asInt() == 5) // STY_Blended
+            glow = number(caster, "MultiTextureOneScaleGlow", 1);
+    }
+    const float height = std::max(1.0f, number(caster, "CollisionHeight", 40));
+    const float radius = std::max(1.0f, number(caster, "CollisionRadius", 20));
+    // The floor: within four times its half height straight down, not too
+    // steep, and facing the camera.
+    std::array<float, 3> hit{}, normal{};
+    const std::array<float, 3> top{from[0], from[1], from[2]}, down{from[0], from[1], from[2] - 4 * height};
+    if (!play_->level().trace(nullptr, top, down, {0, 0, 0}, false, hit, normal) || normal[2] < 0.7f)
+        return;
+    const Vec3f eye{pos_[0], -pos_[1], pos_[2]};
+    if ((hit[0] - eye[0]) * normal[0] + (hit[1] - eye[1]) * normal[1] + (hit[2] - eye[2]) * normal[2] > 0)
+        return;
+    // Fainter far off: 900 / its depth in the view, at most 3.5.
+    const gfx::Vec3 forward{std::cos(pitch_) * std::cos(yaw_), std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_)};
+    const gfx::Vec3 hw = toWorld(Vec3f{hit[0], hit[1], hit[2]});
+    const float depth = (hw[0] - pos_[0]) * forward[0] + (hw[1] - pos_[1]) * forward[1] + (hw[2] - pos_[2]) * forward[2];
+    if (depth <= 0)
+        return;
+    const float nearness = std::min(900 / depth, 3.5f);
+    if (nearness < 0.05f)
+        return;
+    // The light: of those that cast actor shadows and reach the floor
+    // there (walls between or not), the one giving the most (brightness
+    // times 1 - distance / radius, less in a brighter zone), the one it had
+    // kept unless another gives 0.02 more.
+    const Vec3f floor{hit[0], hit[1], hit[2]};
+    const int zone = zones_.zoneAt(floor);
+    const float ambient = zone >= 0 && size_t(zone) < lights_.zoneAmbientBrightness.size()
+                              ? float(lights_.zoneAmbientBrightness[size_t(zone)]) / 255
+                              : 0;
+    ShadowState& state = shadows_[caster];
+    auto amountOf = [&](const LightSource& l) {
+        const float dx = l.position[0] - floor[0], dy = l.position[1] - floor[1], dz = l.position[2] - floor[2];
+        const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+        if (!l.actorShadows || l.specialLit || dist >= l.radius)
+            return 0.0f;
+        return float(l.brightness) / 255 * levelOf(l) * (1 - dist / l.radius) / (1 + ambient);
+    };
+    int best = -1;
+    float bestAmount = 0.01f, keptAmount = 0;
+    for (size_t i = 0; i < lights_.unique.size(); ++i) {
+        const float amount = amountOf(lights_.unique[i]);
+        if (int(i) == state.light)
+            keptAmount = amount;
+        if (amount > bestAmount) {
+            bestAmount = amount;
+            best = int(i);
+        }
+    }
+    float amount = bestAmount;
+    if (state.light >= 0 && best != state.light && keptAmount > 0 && bestAmount - keptAmount < 0.02f) {
+        best = state.light;
+        amount = keptAmount;
+    }
+    // Its strength eases towards that (1.3 a second), and when the light
+    // changes it fades out before the new one fades in; after 3 s unseen,
+    // or to or from a light that moves, it jumps.
+    const float target = best >= 0 ? std::min(amount * nearness, 1.0f) : 0;
+    const float now = play_->time();
+    const float since = state.seen ? now - state.lastSeen : 1e9f;
+    const float step = std::clamp(since * 1.3f, 0.0f, 1.0f);
+    auto still = [&](int i) { return i < 0 || lights_.unique[size_t(i)].isStatic; };
+    if (state.seen && since <= 3 && still(state.light) && still(best)) {
+        if (best == state.light) {
+            state.strength = std::min(state.strength + step, target);
+        } else {
+            state.strength = std::max(state.strength - step, 0.0f);
+            if (state.strength < 0.05f)
+                state.light = best;
+        }
+    } else {
+        state.strength = target;
+        state.light = best;
+    }
+    state.seen = true;
+    state.lastSeen = now;
+    if (state.light < 0 || state.strength < 0.05f)
+        return;
+    // The light at least twice the caster's size above it, and at least
+    // half its distance across: a light low beside it casts no endless
+    // shadow.
+    const Vec3f n{normal[0], normal[1], normal[2]};
+    Vec3f light = lights_.unique[size_t(state.light)].position;
+    const Vec3f rel{light[0] - from[0], light[1] - from[1], light[2] - from[2]};
+    const float above = rel[0] * n[0] + rel[1] * n[1] + rel[2] * n[2];
+    const float across = std::sqrt(std::max(0.0f, rel[0] * rel[0] + rel[1] * rel[1] + rel[2] * rel[2] - above * above));
+    const float least = std::max(2 * std::max(height, radius), across * 0.5f);
+    if (above < least)
+        for (size_t k = 0; k < 3; ++k)
+            light[k] += n[k] * (least - above);
+    const float lx = light[0] - from[0], ly = light[1] - from[1], lz = light[2] - from[2];
+    // Just off the floor (more far off), each vertex darkened by
+    // min(strength x 50, 35) over how far past the caster it falls along
+    // the light's ray, at most 0.8.
+    const float lift = 0.1f + 0.005f * std::max(depth, 0.0f);
+    const gfx::Vec3 nw = toWorld(n);
+    const gfx::Vec3 p = toWorld(Vec3f{hit[0] + n[0] * lift, hit[1] + n[1] * lift, hit[2] + n[2] * lift});
+    const float d = nw[0] * p[0] + nw[1] * p[1] + nw[2] * p[2];
+    ShadowShade shade;
+    shade.light = toWorld(light);
+    shade.reach = std::sqrt(lx * lx + ly * ly + lz * lz);
+    shade.strength = std::min(glow * state.strength * 50, 35.0f);
+    shade.most = 0.8f;
+    const gfx::Mat4 flatten = planarShadow(shade.light, nw, d);
+    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Once);
+    drawMeshShadow(*renderer_, lastMesh_.gpu, gfx::multiply(flatten, lastMesh_.placement), lastMesh_.pose, shade);
+    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::None);
+}
+
+// One of the level's actors, as it looks now: a mesh drawn, a sprite kept
+// for drawSprites. Hidden ones only if `evenHidden` (the HUD draws some).
+void MapViewer::drawLiveActor(VmObject* a, std::vector<SpriteDraw>& sprites, const ScriptLevel::HudActor* hud) {
+    constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
+    const bool evenHidden = hud != nullptr;
+    LevelPlay::Look look;
+    // Drawn for the HUD: as it looked when the HUD asked.
+    auto asAsked = [&] {
+        if (!hud)
+            return;
+        look.drawType = hud->drawType;
+        look.style = uint8_t(hud->style);
+        look.scaleGlow = hud->scaleGlow;
+    };
+    if (!play_->look(a, look))
+        return;
+    asAsked();
+    if (look.hidden && !evenHidden)
+        return;
+    // The Fallen's copies of it (MultiMesh), drawn in its place unless it
+    // asks to be drawn itself as well.
+    if (!hud) {
+        std::vector<LevelPlay::Copy> copies;
+        if (play_->copies(a, copies)) {
+            drawCopies(a, look, copies, sprites);
+            if (!look.renderInitial)
+                return;
+        }
+    }
+    if (look.drawType == kDrawMesh && look.mesh) {
+        // About to be drawn: its scripts get their say first, and it's
+        // drawn as they leave it.
+        play_->preRender(a);
+        look = {};
+        if (!play_->look(a, look))
+            return;
+        asAsked();
+        if ((look.hidden && !evenHidden) || look.drawType != kDrawMesh || !look.mesh)
+            return;
+        if (!look.tweenFrom.empty())
+            liveMesh(look.mesh, look.tweenFrom); // borrowed too, if it's from the shared sets
+        const int at = liveMesh(look.mesh, look.animSequence);
+        if (at < 0)
+            return;
+        const Mesh& mesh = meshes_[size_t(at)];
+        const MeshAnimSeq* anim = mesh.findAnim(look.animSequence);
+        MeshPose pose = poseAtFraction(mesh, anim, look.animFrame, look.animLoop);
+        // Tweening into it: from the frame it was showing to its first.
+        if (const MeshAnimSeq* from = look.tweenFrom.empty() ? nullptr : mesh.findAnim(look.tweenFrom);
+            from && anim && look.animFrame < 0) {
+            const MeshPose old = poseAtFraction(mesh, from, look.tweenFromFrame, look.tweenFromLoop);
+            pose = {old.lerp < 0.5f ? old.frame : old.next, pose.frame, tweenProgress(look, *anim)};
+        }
+        std::vector<gfx::TextureId> skins;
+        for (size_t k = 0; k < std::max<size_t>(mesh.textures.size(), 8); ++k) {
+            ObjectRef tex = k < look.multiSkins.size() ? look.multiSkins[k] : ObjectRef{};
+            if (!tex)
+                tex = look.skin;
+            if (!tex && k < mesh.textures.size())
+                tex = ctx_.packages.resolve(*look.mesh.package, mesh.textures[k]);
+            if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
+                tex = look.texture;
+            skins.push_back(textured_ ? textureOf(tex).first : 0);
+        }
+        play_->drawn(a);
+        const gfx::Mat4 placement = meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot);
+        const MeshLight light = meshLightAt(look.location, &look, a);
+        lastMesh_ = {};
+        if ((look.layers.empty() && look.adjust.empty() && look.faces.empty()) || !mesh.bones ||
+            !drawLayered(a, look, at, placement, skins, light))
+        {
+            lastMesh_ = {};
+            drawActorMesh(gpuMeshes_[size_t(at)], placement, pose, skins, light, look);
+            lastMesh_ = {true, gpuMeshes_[size_t(at)], placement, pose};
+        }
+        if (!hud && lastMesh_.set && look.style == 1)
+            drawShadow(a, look.location);
+    } else if ((look.drawType == kDrawSprite || look.drawType == kDrawVerticalSprite ||
+                look.drawType == kDrawSpriteAnimOnce) && look.texture) {
+        const auto [texture, size] = textureOf(look.texture);
+        if (!texture)
+            return;
+        play_->drawn(a);
+        SpriteDraw d;
+        d.texture = texture;
+        d.at = toWorld(Vec3f{look.location[0] - look.prePivot[0], look.location[1] - look.prePivot[1],
+                             look.location[2] - look.prePivot[2]});
+        d.width = float(size[0]) * look.drawScale;
+        d.height = float(size[1]) * look.drawScale;
+        d.style = look.style;
+        d.vertical = look.drawType == kDrawVerticalSprite;
+        d.color = spriteTint(look.colorFilter, look.scaleGlow);
+        sprites.push_back(d);
+    }
+}
+
+// An actor's copies: its mesh posed as it is (its animation now) in each
+// one's place, turned, scaled by DrawScale and along its own axes by
+// AxisScale (along its axes before RotOrigin), in its style, as bright as its ScaleGlow (where it's lit, or
+// wholly if the actor's unlit); or, for a sprite, its texture (the copy's
+// own, else the actor's) facing the camera.
+void MapViewer::drawCopies(VmObject* a, const LevelPlay::Look& look, const std::vector<LevelPlay::Copy>& copies,
+                           std::vector<SpriteDraw>& sprites) {
+    constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
+    play_->drawn(a);
+    if (look.drawType == kDrawMesh && look.mesh) {
+        const int at = liveMesh(look.mesh, look.animSequence);
+        if (at < 0)
+            return;
+        const Mesh& mesh = meshes_[size_t(at)];
+        std::vector<gfx::TextureId> skins;
+        for (size_t k = 0; k < std::max<size_t>(mesh.textures.size(), 8); ++k) {
+            ObjectRef tex = k < look.multiSkins.size() ? look.multiSkins[k] : ObjectRef{};
+            if (!tex)
+                tex = look.skin;
+            if (!tex && k < mesh.textures.size())
+                tex = ctx_.packages.resolve(*look.mesh.package, mesh.textures[k]);
+            if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
+                tex = look.texture;
+            skins.push_back(textured_ ? textureOf(tex).first : 0);
+        }
+        const MeshPose pose = poseAtFraction(mesh, mesh.findAnim(look.animSequence), look.animFrame, look.animLoop);
+        for (const LevelPlay::Copy& c : copies) {
+            const gfx::Mat4 placement =
+                gfx::multiply(meshPlacement(c.location, c.rotation, c.drawScale, look.prePivot),
+                              meshAxisScaling(mesh, c.axisScale));
+            MeshLight light = look.unlit ? MeshLight{{1, 1, 1}, {}, {0, 0, 1}} : meshLightAt(c.location);
+            for (size_t k = 0; k < 3; ++k) {
+                light.ambient[k] *= c.scaleGlow;
+                light.directed[k] *= c.scaleGlow;
+            }
+            drawMesh(*renderer_, gpuMeshes_[size_t(at)], placement, pose, skins, light, kExposure, c.style, &fog_);
+        }
+    } else if (look.drawType == kDrawSprite || look.drawType == kDrawVerticalSprite ||
+               look.drawType == kDrawSpriteAnimOnce) {
+        for (const LevelPlay::Copy& c : copies) {
+            const auto [texture, size] = textureOf(c.texture ? c.texture : look.texture);
+            if (!texture)
+                continue;
+            SpriteDraw d;
+            d.texture = texture;
+            d.at = toWorld(c.location);
+            d.width = float(size[0]) * c.drawScale;
+            d.height = float(size[1]) * c.drawScale;
+            d.style = c.style;
+            d.vertical = look.drawType == kDrawVerticalSprite;
+            d.color = spriteTint(c.colorFilter, c.scaleGlow);
+            sprites.push_back(d);
+        }
+    }
+}
+
+// The decals stuck to the world: their texture flat on the surface, its
+// size by their scale, multiplying what's under it (grey leaves it as it
+// is: marks, scorches, footprints).
+void MapViewer::addDecals(std::vector<SpriteDraw>& sprites) {
+    for (const ScriptLevel::Decal& d : play_->decals()) {
+        const auto [texture, size] = textureOf(d.texture);
+        if (!texture)
+            continue;
+        const std::array<float, 3>& n = d.normal;
+        const std::array<float, 3>& u = d.up;
+        const Vec3f right{u[1] * n[2] - u[2] * n[1], u[2] * n[0] - u[0] * n[2], u[0] * n[1] - u[1] * n[0]};
+        SpriteDraw s;
+        s.texture = texture;
+        s.at = toWorld(Vec3f{d.at[0] + n[0] * 0.5f, d.at[1] + n[1] * 0.5f, d.at[2] + n[2] * 0.5f});
+        s.width = float(size[0]) * d.scale;
+        s.height = float(size[1]) * d.scale;
+        s.style = kStyleModulated;
+        s.oriented = true;
+        s.right = toWorld(right);
+        s.up = toWorld(Vec3f{u[0], u[1], u[2]});
+        sprites.push_back(s);
+    }
+}
+
+// How far through its tween into its animation an actor is (0 at the
+// start, 1 there): AnimFrame rises from -1/frames to 0.
+float MapViewer::tweenProgress(const LevelPlay::Look& look, const MeshAnimSeq& anim) {
+    return std::clamp(1 + look.animFrame * float(std::max(1, anim.numFrames)), 0.0f, 1.0f);
+}
+
+// A mesh with layered animations playing on parts of it, its bones bent
+// by its scripts, or its face moved: posed now from its own animation and theirs, uploaded as one frame (kept until the next
+// frame is drawn) and drawn. False if it can't be (no skeleton, an
+// animation it hasn't): drawn as its own animation alone then.
+bool MapViewer::drawLayered(VmObject* actor, const LevelPlay::Look& look, int at, const gfx::Mat4& placement,
+                            const std::vector<gfx::TextureId>& skins, const MeshLight& light) {
+    auto it = posers_.find({look.mesh.package, look.mesh.exportIndex});
+    if (it == posers_.end()) {
+        Poser p;
+        p.poser = LayeredPoser::open(*look.mesh.package, look.mesh.exportIndex, ctx_.sets());
+        if (p.poser) {
+            // Where its skeleton's axes go as it's drawn.
+            const Mesh& m = meshes_[size_t(at)];
+            const Vec3f zero = placeMeshVertex(m, m.origin, ctx_.meshTurn, ctx_.meshYawQuarters);
+            std::array<Vec3f, 3> axes{};
+            for (size_t k = 0; k < 3; ++k) {
+                Vec3f step = m.origin;
+                step[k] += m.scale[k] != 0 ? 1 / m.scale[k] : 0;
+                const Vec3f to = placeMeshVertex(m, step, ctx_.meshTurn, ctx_.meshYawQuarters);
+                axes[k] = {to[0] - zero[0], to[1] - zero[1], to[2] - zero[2]};
+            }
+            p.poser->setPlacement(axes);
+        }
+        it = posers_.emplace(std::make_pair(look.mesh.package, look.mesh.exportIndex), std::move(p)).first;
+    }
+    Poser& p = it->second;
+    if (!p.poser)
+        return false;
+    std::vector<LayeredPoser::Layer> layers;
+    for (const LevelPlay::Look::Layer& l : look.layers) {
+        // Its group's bones (the mesh's lists), else the bone's and those
+        // under it (or all but those).
+        const std::pair<std::string, bool> key{l.group + "|" + l.bone, l.rest};
+        auto part = p.parts.find(key);
+        if (part == p.parts.end()) {
+            std::vector<bool> bones = p.poser->groupPart(l.group);
+            if (bones.empty())
+                bones = p.poser->part(l.bone, l.rest);
+            part = p.parts.emplace(key, std::move(bones)).first;
+        }
+        if (!part->second.empty())
+            layers.push_back({l.anim, l.frame, &part->second, l.weight, l.clear, l.loop, p.poser->groupIndex(l.group),
+                              l.bone.empty() ? -1 : p.poser->boneIndex(l.bone), l.from.get(), l.fadingOut});
+    }
+    std::vector<LayeredPoser::Face> faces;
+    if (p.poser->hasFace())
+        for (const LevelPlay::Look::Face& f : look.faces)
+            faces.push_back({f.anim, f.seconds, f.weight, f.fromSeconds, f.fromWeight, f.mix});
+    // The level's poser for it, when the mesh is turned as the level has
+    // it: it has worked this pose out already for the scripts' bone
+    // queries this tick, IK and all, and keeps it.
+    LayeredPoser* poser = p.poser.get();
+    if (play_ && actor && ctx_.meshTurn == MeshTurn::Reverse && ctx_.meshYawQuarters == kImportYawQuarters)
+        if (LayeredPoser* shared = play_->level().poserOf(actor))
+            poser = shared;
+    std::vector<Vec3f> verts;
+    if ((layers.empty() && look.adjust.empty() && faces.empty()) ||
+        !poser->pose({look.animSequence, look.animLoop}, look.animFrame, layers, verts, &look.adjust, &faces))
+        return false;
+    // Tweening into its animation: from the pose it was in.
+    const Mesh& own = meshes_[size_t(at)];
+    if (const MeshAnimSeq* anim = own.findAnim(look.animSequence); anim && look.animFrame < 0 && !look.tweenFrom.empty()) {
+        std::vector<Vec3f> old;
+        if (p.poser->pose({look.tweenFrom, look.tweenFromLoop}, look.tweenFromFrame, layers, old, &look.adjust, &faces) &&
+            old.size() == verts.size()) {
+            const float t = tweenProgress(look, *anim);
+            for (size_t v = 0; v < verts.size(); ++v)
+                for (size_t k = 0; k < 3; ++k)
+                    verts[v][k] = old[v][k] + (verts[v][k] - old[v][k]) * t;
+        }
+    }
+    // One frame of the mesh: its vertices swapped for the posed ones while
+    // it's uploaded.
+    Mesh& mesh = meshes_[size_t(at)];
+    if (verts.size() != size_t(mesh.frameVerts))
+        return false;
+    std::swap(mesh.verts, verts);
+    const int32_t frames = mesh.animFrames;
+    mesh.animFrames = 1;
+    GpuMesh gpu;
+    auto topology = posedTopology_.find(at);
+    if (topology == posedTopology_.end()) {
+        MeshTopology t;
+        buildMeshTopology(mesh, t); // none: the upload below fails as uploadMesh's would
+        topology = posedTopology_.emplace(at, std::move(t)).first;
+    }
+    const Error err = topology->second.indices.empty()
+                          ? Error::fail("the mesh has no visible triangles")
+                          : uploadMesh(*renderer_, mesh, topology->second, gpu, ctx_.meshTurn, ctx_.meshYawQuarters);
+    mesh.animFrames = frames;
+    std::swap(mesh.verts, verts);
+    if (err)
+        return false;
+    posedMeshes_.push_back(gpu);
+    drawActorMesh(gpu, placement, MeshPose{}, skins, light, look);
+    lastMesh_ = {true, gpu, placement, MeshPose{}};
+    return true;
+}
+
+// A line of how the game's going (the cut scene's bars are drawn under
+// the info, drawOverlay).
+void MapViewer::drawPlayHud() {
+    char line[200];
+    const std::string title = play_->title();
+    std::snprintf(line, sizeof line, "%s%s%s  health %d  %s  %.0f s played%s%s", title.c_str(), title.empty() ? "" : "  ",
+                  play_->player()->cls->name.c_str(),
+                  play_->health(), play_->playerState().c_str(), double(play_->time()),
+                  view_.letterbox ? "  (cut scene)" : "",
+                  play_->behind() > 1 ? ("  " + std::to_string(int(play_->behind())) + " s behind real time").c_str() : "");
+    const int y = kFrameH - font::kLineHeight - 4;
+    const int width = std::min(kFrameW, int(font::length(line)) * font::kAdvance + 8);
+    // With the game's own HUD drawn, between its panels at the bottom
+    // corners, and its objectives and subtitles are its own.
+    const bool gameHud = !play_->level().hud().tiles.empty();
+    const int left = gameHud ? std::max(0, (kFrameW - width) / 2) : 0;
+    overlayBottom_ = std::min(overlayBottom_, std::max(0, y - 2));
+    for (int yy = y - 2; yy < kFrameH; ++yy) {
+        uint8_t* p = overlay_.row(yy);
+        for (int x = left; x < std::min(kFrameW, left + width); ++x)
+            p[x * 4 + 3] = std::max<uint8_t>(p[x * 4 + 3], 150);
+    }
+    font::drawText(overlay_, left + 4, y, line, Color{230, 230, 230});
+    if (gameHud)
+        return;
+    // The objectives active now, above it.
+    int above = y - 2;
+    const std::vector<std::string> objectives = play_->activeObjectives();
+    if (!objectives.empty()) {
+        std::string list = "Objectives:";
+        for (const std::string& o : objectives)
+            list += (list.size() > 11 ? "; " : " ") + o;
+        const size_t columns = size_t(kFrameW - 8) / size_t(font::kAdvance);
+        if (list.size() > columns)
+            list = list.substr(0, columns - 3) + "...";
+        above -= font::kLineHeight + 2;
+        const int w = std::min(kFrameW, int(font::length(list)) * font::kAdvance + 8);
+        overlayBottom_ = std::min(overlayBottom_, std::max(0, above - 1));
+        for (int yy = above - 1; yy < above + font::kLineHeight; ++yy) {
+            uint8_t* p = overlay_.row(yy);
+            for (int x = 0; x < w; ++x)
+                p[x * 4 + 3] = std::max<uint8_t>(p[x * 4 + 3], 150);
+        }
+        font::drawText(overlay_, 4, above, list.c_str(), Color{160, 200, 255});
+    }
+    drawSubtitles(above - 6);
+}
+
+// The lines being said, above the status line: who says it (the main
+// characters by name, the rest by their code) and the line, wrapped.
+void MapViewer::drawSubtitles(int bottom) {
+    static const std::map<std::string, std::string> names = {
+        {"KRA", "Kira"}, {"SKO", "Sisko"}, {"WRF", "Worf"},   {"OBN", "O'Brien"}, {"DAX", "Dax"},
+        {"BSR", "Bashir"}, {"ODO", "Odo"}, {"OBK", "Obanak"}, {"GRK", "Garak"},   {"CPU", "Computer"},
+    };
+    const size_t columns = size_t(kFrameW - 16) / size_t(font::kAdvance);
+    std::vector<std::string> rows;
+    for (const ScriptLevel::Subtitle& s : play_->level().subtitles()) {
+        auto it = names.find(s.speaker);
+        std::string text = (it != names.end() ? it->second : s.speaker) + ": " + s.text;
+        while (!text.empty()) {
+            size_t cut = text.size() <= columns ? text.size() : text.rfind(' ', columns);
+            if (cut == std::string::npos || cut == 0)
+                cut = std::min(columns, text.size());
+            rows.push_back(text.substr(0, cut));
+            text.erase(0, std::min(text.size(), cut + 1));
+        }
+    }
+    int y = bottom - int(rows.size()) * font::kLineHeight;
+    if (!rows.empty())
+        overlayBottom_ = std::min(overlayBottom_, std::max(0, y - 1));
+    for (const std::string& row : rows) {
+        const int width = int(font::length(row.c_str())) * font::kAdvance + 8;
+        const int x = std::max(0, (kFrameW - width) / 2);
+        for (int yy = std::max(0, y - 1); yy < std::min(kFrameH, y + font::kLineHeight); ++yy) {
+            uint8_t* p = overlay_.row(yy);
+            for (int xx = x; xx < std::min(kFrameW, x + width); ++xx)
+                p[xx * 4 + 3] = std::max<uint8_t>(p[xx * 4 + 3], 170);
+        }
+        font::drawText(overlay_, x + 4, y, row.c_str(), Color{255, 240, 160});
+        y += font::kLineHeight;
+    }
+}
+
+} // namespace reluva::unreal
