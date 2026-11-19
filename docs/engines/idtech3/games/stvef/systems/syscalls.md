@@ -97,9 +97,9 @@ Structures the engine fills in:
   compute their scale (`qvm-dis -ref`): the word at 5164 times 1/640, the
   word at 5168 times 1/480, so `vidWidth` is at 5164 and `vidHeight` at
   5168, Quake III's words 10 and 11 counted from 5124. With these, the
-  main menu's pictures fill a 640×480 screen as expected. (Writing Quake
-  III's 11,332 bytes had left the screen size at 0 and overwritten the
-  menus' own variables.) What the extra word at 5120 means is unknown;
+  main menu's pictures fill a 640×480 screen as expected. (Quake III's
+  11,332 bytes would leave the screen size at 0 and overwrite the menus'
+  own variables.) What the extra word at 5120 means is unknown;
   Reluva leaves it 0.
 - `uiClientState_t` (call 44), assumed to be Quake III's: connection state
   (1 = disconnected), two more words, three 1024-byte strings.
@@ -131,8 +131,8 @@ rule again, keeps the key in the game's folder in its data directory
 that it's taken. The menus ask for a key whenever `ui_cdkeychecked` is 0
 when the main menu opens, and set it once one is accepted; with a kept key
 Reluva sets it after `Init`, as an earlier accepted entry would have.
-Answering 57 as if it were `GetCDKey` had overwritten the typed key with
-an empty one and declined every key. The menus never read the key back.
+Answered as if it were `GetCDKey`, 57 would overwrite the typed key with
+an empty one and decline every key. The menus never read the key back.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
 `reluva-tool idtech3 ui-run` and shown by the Menu page (`client/menu_page.cpp`).
@@ -573,12 +573,12 @@ the radius), and models within reach add 16 * radius^2 / distance^2
 times the colour to their directed light, from the light's direction. Call 107 is `floor`: its one call site
 (instruction 33934) passes one value and turns the float it returns into
 a whole number (`CVFI`), as Quake III's client game numbers it; answered
-with 0 before, effects that round a time or a count went wrong.
+with 0, effects that round a time or a count would go wrong.
 
 The Play page draws these as quads and ribbons with their shaders, the colour
 at 116 in their vertices and for rgbGen and alphaGen entity; a line's
 texture runs across it in s and along it in t (along it in s, the
-phaser's beam showed stripes). Models with a custom shader (112) are
+phaser's beam shows stripes). Models with a custom shader (112) are
 drawn with it in place of their own, in the entity's colour. Shader
 animations start at the entity's shader time, taken to be Quake III's
 128 (seconds of the level) when it holds a time that has come. Neither polygons nor
@@ -595,14 +595,14 @@ the player's time, then gives the server the player's command stamped
 with that time, which the client game then predicts from the snapshots:
 as the original's client stamps commands with the snapshots' time, a
 command never ahead of the server. Given first, up to a frame ahead,
-with frames of 50 ms or more the client game stopped producing the
+with frames of 50 ms or more the client game stops producing the
 player's events (`game-run -cgame -give -events -weapon 7`: 31 fire
 sounds in 3 s at 50 ms per command with the server first, none with the
 command first).
 
 Reluva's server runs a frame every 50 ms (Quake III's default `sv_fps
-20`; it ran every 100 ms before, which made events and anything the
-client game doesn't smooth itself move in coarse steps). Models are
+20`; every 100 ms, events and anything the client game doesn't smooth
+itself would move in coarse steps). Models are
 drawn between their frame (80) and old frame (96), blended by the
 back-lerp (100) on the GPU, as the client game asks.
 

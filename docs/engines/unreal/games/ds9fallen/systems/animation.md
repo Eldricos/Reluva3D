@@ -95,8 +95,8 @@ natives:
   UpperTorso, every bone in FullBody. A layer poses its group's bones;
   of the layers on a bone, the highest group's wins it outright (the
   actor's own animation, FullBody, under them all). A mesh with no
-  group list keeps Reluva's earlier reading (the InheritBone and those
-  under it; a group named lower, the rest).
+  group list gets Reluva's own split (the InheritBone and those under
+  it; a group named lower, the rest).
 - **Starting:** `C3DPlayAnim(Group, Sequence, Boned, Rate, TweenTime,
   InheritBone, ...)` and `C3DLoopAnim` play the sequence on the group's
   bones. The InheritBone and its clears are set only when a bone is

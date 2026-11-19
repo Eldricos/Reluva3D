@@ -384,9 +384,9 @@ front, in three passes. A pass's first hit is the answer:
    (`GrannyGetPickingRay`) against the box (`OBBMin`, `OBBMax`) of each
    of its meshes' bone bindings whose bone's name has `Bip01` in it,
    posed as now (`GrannyGetWorldPose4x4`, `GrannyRayIntersectsBox`).
-   (Reluva first had this the other way round, bones for those with a
-   rectangle; a recording of the game putting the snowshoes on
-   Antoinette, whose record there has no rectangle, showed it wrong.)
+   (Not the other way round, bones for those with a rectangle: a
+   recording of the game putting the snowshoes on Antoinette, whose
+   record there has no rectangle, shows it.)
 3. Everything, by its hit test.
 
 The mouse and clicks use it with the same arguments; the torn letter

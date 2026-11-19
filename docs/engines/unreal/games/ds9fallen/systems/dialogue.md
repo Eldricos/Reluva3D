@@ -67,8 +67,8 @@ the code is Reluva's own.
     `TestCondition` reads it as met (and logs "Test Failed").
   - `LowAmmo( 0.2 )` has a `.`, so the engine takes it for a variable
     and it never holds: the six hail options that ask for ammunition
-    when low are never picked, and the beam-down below can't happen as
-    it did before in Reluva. The original game's log would show it.
+    when low are never picked, and the beam-down below can't happen.
+    The original game's log would show it.
 - **`IsDialogLineSpecial`:** a line never said yet, numbered under 800,
   and with a tag longer than a speaker's code or a condition. The HUD
   shows that a crewmate has something to say when hailing them would
@@ -188,8 +188,7 @@ the code is Reluva's own.
   - **Every tick**, for every pawn within the gates or not, its
     `DLG_OldHealth`, `DLG_OldEnemy` and `DLG_OldCommand` are what it has
     now. So a change while it's far off is never voiced.
-  - Over all maps' first 3 seconds the AI says 2 lines, where Reluva's
-    own earlier reading (1500 units, its own timers) had 9.
+  - Over all maps' first 3 seconds the AI says 2 lines.
 - Over all maps' first 20 seconds, 30 dialogues start (66 lines said)
   and the AI says 11 lines of its own. FindBestDialogLine finds no line
   130 times: mostly scripts asking whether a pawn has a line to say.

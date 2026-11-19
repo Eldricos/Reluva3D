@@ -141,6 +141,6 @@ and [systems/collision.md](../systems/collision.md) sweeps through its BSP.
 - **Where the facts come from:** as for [package.md](package.md).
 - **How it was checked:** the geometry on The Fallen (October 2026): all
   74 maps read and draw (the largest, M03_KiraL2, 25619 BSP nodes). The
-  lighting data after the vertices was first tested on models built by
-  the unit tests; every map's lighting now reads with no bytes left over
+  lighting data after the vertices is tested on models built by the unit
+  tests, and every map's lighting reads with no bytes left over
   ([systems/lighting.md](../systems/lighting.md)).

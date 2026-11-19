@@ -30,7 +30,7 @@ scenes, two Granny files, the text tables, two backgrounds):
   in Granny's compressed formats. All three are decoded natively, worked
   out from the game's `granny2.dll` and checked against it byte for byte
   (bit for bit for the curves) on every file of the install. The engine
-  no longer needs the DLL; the tools still run it in the x86 interpreter
+  doesn't need the DLL; the tools still run it in the x86 interpreter
   to compare. Skeletons, skinned meshes, textures and the animation
   curves all work. Poirot renders textured and walking. See
   [../../formats/gr2.md](../../formats/gr2.md).
@@ -170,28 +170,28 @@ GPU, drawn) and the present (the GPU's frame and the overlay shown).
 route in a window drawing every frame, so builds can be compared on the
 same scenes.
 
-What was done about it, checked by screenshots of the route identical
-byte for byte before and after:
+What Reluva does about it, each checked by screenshots of the route
+identical byte for byte with and without it:
 
-- **Drawn once a frame.** The 2D was put together again by each thing
-  that changed it in a frame (twice in a conversation: the box and the
-  characters); now once, at the end.
+- **Drawn once a frame.** The 2D is put together once, at the end of
+  the frame, not again by each thing that changes it (twice in a
+  conversation: the box and the characters).
 - **No clearing for nothing.** With 3D, the pictures go into layers kept
-  on the GPU and the screen buffer is only the overlay; clearing it to
-  black first, a byte at a time, cost 3 ms a frame.
+  on the GPU and the screen buffer is only the overlay, so it isn't
+  cleared to black first (a byte at a time, that costs 3 ms a frame).
 - **Characters skinned on every core.** Each character's and prop's
   skinning and per-vertex lighting (the game's fixed-function lighting,
   done as Direct3D does it) is work of its own, so they're done at once
   (`common/parallel.h`), then drawn in their order.
-- **Meshes kept on the GPU.** A character's meshes were made anew each
-  frame, each with two uploads in command buffers of their own; now
-  they're made once and only their vertices replaced, the uploads of a
-  frame sent together in one command buffer before its draws
-  (`setMeshVertices`, `SdlGpuRenderer::flush`).
+- **Meshes kept on the GPU.** A character's meshes are made once and
+  only their vertices replaced, the uploads of a frame sent together in
+  one command buffer before its draws (`setMeshVertices`,
+  `SdlGpuRenderer::flush`), not made anew each frame with two uploads in
+  command buffers of their own.
 
 In the market at the start of the game (Sirkeci.Market_03, measured
-under a software GPU, so the present isn't a real card's), the 2D went
-from 5 to 2.3 ms a frame and the characters from 9 to 3.4 ms.
+under a software GPU, so the present isn't a real card's), the 2D takes
+2.3 ms a frame and the characters 3.4 ms.
 
 ## Using it
 

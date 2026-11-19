@@ -115,9 +115,8 @@ part held to at most 1, unless the glow is exactly 1, when the filter is
 taken as it is. A MultiMesh copy (`DrawActorSpriteMM`) puts its own
 `ColorFilter`, glow, texture, style and place on the actor for that
 one draw. 71 of the game's classes set `ColorFilter`: steam, smoke,
-sparks, projectiles' trails and others. Reluva drew them all untinted
-until November 2026. The sprites placed in the maps, drawn before the
-scripts run, are tinted the same way.
+sparks, projectiles' trails and others. The sprites placed in the maps,
+drawn before the scripts run, are tinted the same way.
 
 Most actors are sprites by default (Engine.Actor's `DrawType`), but
 those only the editor shows are `bHidden`, or hide themselves when the
@@ -140,10 +139,10 @@ defaults are the last thing in a class's data, after its script and
 just after its config name (and before that, the class it's within).
 
 They are read with the rest of the class ([script.md](../formats/script.md)):
-after its fields, its config name. (Until classes were read, they were
-found by guessing where the list started from where it ended; on The
-Fallen that went wrong in 810 of 1,442 classes, losing the first
-property (bStatic, in most) and inventing junk ones ("Engine", "System").) `unreal check`
+after its fields, its config name. (Guessing where the list starts from
+where it ends goes wrong in 810 of The Fallen's 1,442 classes, losing
+the first property (bStatic, in most) and inventing junk ones
+("Engine", "System").) `unreal check`
 counts the classes whose defaults were found and weren't. An actor's properties are then
 its own over its class's defaults over each parent's
 (`ClassDefaults::actorProperties()`), each property's object references

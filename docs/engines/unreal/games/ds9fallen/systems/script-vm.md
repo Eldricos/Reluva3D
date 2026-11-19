@@ -82,7 +82,7 @@ class's own section, by its name alone (`[DS9_Hud]`), of its package's
 `.int`, else of `Classes.int`, where The Fallen keeps them all (2,131
 lines). Each is looked for in the `int` folder beside System, then in
 System, where the engine's own are (Engine.int, UMenu.int, SoftDrv.int).
-Without them the HUD's menus had bullets and no words ("RESUME GAME",
+Without them the HUD's menus would have bullets and no words ("RESUME GAME",
 "MISSION OBJECTIVES"...). `Localize(Section, Key, Package)` reads the
 same files, without the quotes the engine's put round their values. One
 that's missing is `<?int?Package.Section.Key?>`, as the engine marks it.
@@ -96,8 +96,8 @@ gives it:
 
 The scripts depend on this: The Fallen's `GetMissionLevel` takes the
 mission number from `string(Level)`, `GetItemName` strips the package off
-a class's, and the mutator list compares against `Package.Class`. While
-it gave the name alone, every level counted as mission 100.
+a class's, and the mutator list compares against `Package.Class`. Given
+the name alone, every level would count as mission 100.
 
 ### The interpreter
 
@@ -159,9 +159,9 @@ against the switch's, jumping on to the next label until one matches or
 the default. A `case` label reached by falling through from the case
 above is passed over, not tested again. Labels with no code between them
 share the code after the last (`case 38: case 40: case 13:` in the
-console's `KeyEvent`). Testing each label as it was reached took the
-first match on to the next label, failed it there and jumped past the
-shared code: the menu's arrows never reached the HUD.
+console's `KeyEvent`). Testing each label as it's reached would take
+the first match on to the next label, fail it there and jump past the
+shared code: the menu's arrows would never reach the HUD.
 
 ## In Reluva
 

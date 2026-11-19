@@ -36,13 +36,11 @@ the guided tour at the Adventure's start.
   drawn correctly: the camera flies over the board, and the goal text says
   to click to begin. A click (1900) starts the exercise: the text bar
   becomes the camera controls and the go button. (Frame numbers depend on
-  how many instructions frames take: before the cycle counter's stand-in
-  ([speed.md](../research/speed.md)), the menu was up by frame 100 and the mission began at 420. The
-  frames quoted in the investigation that follows are from then.)
+  how many instructions frames take, so on the stand-ins, the cycle
+  counter's above all: [speed.md](../research/speed.md).)
 
-  Then it goes no further: Dash stands still and the go button does
-  nothing. Traced (with `-watch`, `-calls` and `-dump`, below), the cause
-  is sound:
+  Without sound it goes no further: Dash stands still and the go button
+  does nothing. Traced (with `-watch`, `-calls` and `-dump`, below):
   - Input works. The stop button (bottom left) opens the in-game menu
     (Keep Playing, Start Over, Skip Training Mission...).
   - The go button (`GoStop`) is locked on purpose. Clicks reach
@@ -57,25 +55,24 @@ the guided tour at the Adventure's start.
     `0xea7d`, which a state's entry code sends.
   - In the Adventure, "Skip Training Mission" leads to Mission One. There
     that state is entered when the mission loads, go unlocks, and the
-    mission plays: go starts Dash running, and the others move. So
-    simulation, input and interface are fine.
+    mission plays: go starts Dash running, and the others move.
   - The Training Area (M0010) is driven by voice lines: `Locale_en.pac`
     has `M0010_010`, `M0010_020A`/`B`, ... up to `110`. Each step waits for
-    its line. But every `DDStreamingAudioManager::AddSource` returns null
-    (no A3D, so `NiA3dSoundSystem::Startup` fails), including the two the
-    begin click starts. So the first line never "finishes", and nothing
-    ever ends the lock.
-  - So the fix was the A3D stand-in (step 5 of
+    its line. Without A3D, `NiA3dSoundSystem::Startup` fails and every
+    `DDStreamingAudioManager::AddSource` returns null, including the two
+    the begin click starts. So the first line never "finishes", and
+    nothing ever ends the lock.
+  - So Reluva stands in for A3D (step 5 of
     [PLAN.md](../PLAN.md#phases)): streaming sources that
-    exist, play and end. With it, the begin click plays `M0010_010`
+    exist, play and end. The begin click plays `M0010_010`
     (10.3 seconds) and then `M0010_020A` (1 second), each for its full
     length. The training then highlights a tile on the board and waits
-    for the player. That needed real wave events: the streaming manager
+    for the player. That needs real wave events: the streaming manager
     refills a source's buffer each time play passes the event at its
     middle (`DDStreamingAudioManager::UpdateBuffers`, `InitStreamData`).
-    With every event read as set, it raced through the file, and the
-    first line ended after about 3 seconds.
-  - From there the training is a guided tour, and it now plays to the
+    With every event read as set, it would race through the file, the
+    first line ending after about 3 seconds.
+  - From there the training is a guided tour, and it plays to the
     end. Each step plays a line, then waits for the player to do one
     thing. Played with the fixed clock (`-fixed-clock`, above: time
     follows the instructions run, so each run repeats) and the route below, Dash runs on

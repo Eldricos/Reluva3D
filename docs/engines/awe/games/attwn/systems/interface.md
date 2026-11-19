@@ -121,7 +121,6 @@ pages of their own.
   them after `start:01a` and `talk marston a forcegen`. The text's ends
   within 1 to 4 pixels of the footage's (the words' widths within 1.5 %:
   TrueType's edges against Windows'), its rows 1 to 2 pixels higher, the
-  gaps between words the same. That showed Reluva putting two spaces
-  after a sentence's end in a line that fits, which the game doesn't
-  (fixed, [dialogue.md](dialogue.md#the-columns)). The box's
-  pictures and colours were compared with the footage before.
+  gaps between words the same. A line that fits has one space after a
+  sentence's end, not two ([dialogue.md](dialogue.md#the-columns)). The
+  box's pictures and colours were compared with the footage as well.

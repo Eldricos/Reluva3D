@@ -41,11 +41,11 @@ its shots there.
       that player turned the camera (its view changes faster than the
       camera ever holds a base), and the camera before Go decides the
       bases used afterwards.
-    - What was wrong in ours was the FPU's precision (below): at 53 bits
-      the camera pushed into the skull until its texture filled the
-      screen; with Direct3D's single precision it frames the skull as
-      the original does.
-    - How the camera chooses, as traced on the way (`at-run -watch`
+    - The FPU's precision (below) decides it: at 53 bits the camera
+      pushes into the skull until its texture fills the screen; with
+      Direct3D's single precision it frames the skull as the original
+      does.
+    - How the camera chooses, as traced (`at-run -watch`
       from frame 3400 with `-from`):
     - DDIcam (LoadComp) films the action of the highest priority: Dash's
       (30, `t0011.dll`), then the plunger lock's (220, `og0019b.dll`),
@@ -147,22 +147,21 @@ its shots there.
       89 s). Its view changes a little at about 85 s, where the chain's
       5 + 2 seconds and the music would bring `REWARD_CAM`. Ours films
       the door opening first.
-  - Found on the way: Direct3D 7 puts the FPU in single precision
+  - Direct3D 7 puts the FPU in single precision
     (24 bits) when it makes a device, and on its calls, unless the
     program passed `DDSCL_FPUPRESERVE`. LEGO Alpha Team passes
     `MULTITHREADED | EXCLUSIVE | ALLOWREBOOT | FULLSCREEN`, so on a real
-    machine its sums run in single precision. Ours left the FPU at 53
-    bits; now `CreateDevice` and `BeginScene` set it as Direct3D does.
-    It changes the run's details (which base the camera takes for the
-    door); Mission One still plays through to "We did it!" and saves,
-    and all 54 missions still load and run past Go to frame 3700.
-  - Found on the way: `DDCaps::CalcProcSpeed` (LoadComp) times the
+    machine its sums run in single precision. Ours sets it in
+    `CreateDevice` and `BeginScene` as Direct3D does. It decides the
+    run's details (which base the camera takes for the door); with it
+    Mission One plays through to "We did it!" and saves, and all 54
+    missions load and run past Go to frame 3700.
+  - `DDCaps::CalcProcSpeed` (LoadComp) times the
     processor with RDTSC across `Sleep(500)`, and recommends shadows,
     environment animation and other detail (`MakeRecs`) above 250 and
-    350 million cycles a second. Our RDTSC counted instructions, which
-    don't move during a Sleep, so it found nearly nothing. RDTSC now
-    reads a 1 GHz counter going by the process's clock
-    (`Cpu::timeStamp`).
+    350 million cycles a second. Counting instructions, which don't move
+    during a Sleep, it would find nearly nothing, so our RDTSC reads a
+    1 GHz counter going by the process's clock (`Cpu::timeStamp`).
   - "We did it!" offers Next Mission, Instant Replay! and Return to HQ, and
     the game saves on its own: `HighSpace  M1010` (the furthest mission
     any Adventure has finished, which Single Missions now offers) and

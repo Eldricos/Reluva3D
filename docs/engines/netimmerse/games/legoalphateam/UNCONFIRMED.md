@@ -87,7 +87,7 @@ Fields the format documents still mark as guesses:
   size; neither is in the copy studied, so they haven't been compared);
   other languages presumably ship `Locale_<xx>.pac`. Only the English
   version has been seen. (`BaseClassComp.dll` and `BehaviorComp.dll`'s
-  roles are now known from their exports.)
+  roles are known from their exports.)
 
 ## Settled
 

@@ -65,8 +65,8 @@ and loaded after every action, and wandering off it. The search's route,
 credits, passes all four.
 
 The search (`awe game-run <game> -solve`) takes some hours here, over
-several runs of the step, each going on from the last. On the way it
-needed what this game has of its own: the machines and the puzzle
+several runs of the step, each going on from the last. It needs what
+this game has of its own: the machines and the puzzle
 screens, its one timer, items lying about (`ITEM`), its inventory's
 Combine and Examine, the tools' clicks kept off its sack and journal.
 The tools stop the timer and let time pass by a wait, tried before an

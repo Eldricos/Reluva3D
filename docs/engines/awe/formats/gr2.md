@@ -216,7 +216,8 @@ length; a new one is read as a value in [0, 65).
 `reluva-tool awe files-check <game> -oodle` on the full install: 1,803 files,
 4,034 compressed sections (181 MB decompressed), all identical to the
 DLL's. The DLL in the interpreter took 757 s (summed over the threads),
-the native decoder 10 s. `awe files-check -gr2` went from 260 s to 5 s.
+the native decoder 10 s. `awe files-check -gr2` takes 5 s with the
+native decoder, 260 s with the DLL.
 
 The unit test encodes a short stream by hand (`tests/engines/awe/unit/formats.cpp`): a
 model's first two symbols need no table, so a few plain values and bits
@@ -262,9 +263,8 @@ prints the whole tree.
   in). It filters linearly, between levels too (`0x4273bb`: stages 0 and
   1, magnification, minification and MIP filters all 2), but with one
   level there's nothing to filter between: the characters have no
-  mipmaps. Reluva makes them as the file says (`ModelTexture::levels`);
-  until the merge with main it had the GPU make a whole chain, which
-  blurred distant characters a little.
+  mipmaps. Reluva makes them as the file says (`ModelTexture::levels`):
+  a whole chain made by the GPU would blur distant characters a little.
 - **Animations:** one per file: name, duration (walk: 0.8 s), time step
   (1/60), and a track group of transform tracks, one per bone. The 2.5
   exporter writes plain curves: `Degree` (2 here), `Knots` (times) and
@@ -464,19 +464,18 @@ how they're read. `reluva-tool awe pose-check <game> <model> <animation>
 granny2.dll's `GrannyInstantiateModel`, `GrannyPlayControlledAnimation`,
 `GrannySetModelClock`, `GrannySampleModelAnimations` and
 `GrannyBuildWorldPose` in the interpreter; then compares every bone's
-world matrix. It found that an old-format curve with no knots (most
+world matrix. It shows that an old-format curve with no knots (most
 animation files have some, 1,666 of them) is the identity to Granny: no
-move, no turn, unit scale. Reluva had kept the bone's rest transform
-there. Where the rest isn't the identity that changes the pose: Count
-Andrenyi's `sitidle1`, for one, has empty orientation curves for his neck
-and collarbones, and Reluva sat him slumped forward with his head down
-where the game has him upright (found against the walkthrough, Part 7,
-6:16 to 6:44). Reluva now reads such a curve as the identity.
+move, no turn, unit scale, not the bone's rest transform. Reluva reads
+it so. Where the rest isn't the identity that changes the pose: Count
+Andrenyi's `sitidle1`, for one, has empty orientation curves for his
+neck and collarbones, and with the rest transform he'd sit slumped
+forward with his head down where the game has him upright (seen against
+the walkthrough, Part 7, 6:16 to 6:44).
 
 Over every character model and its animations that don't carry it
 along (1,689 pairs, at 0, a third and two thirds of each), every bone
-then agrees within 0.01; before, 337 of them differed, across 20
-characters. The animations that carry the character along
+agrees within 0.01. The animations that carry the character along
 (walks, runs, turns, and Antoinette's `blizzard2`, whose root
 moves) differ by the root's motion alone: Granny's sampling takes
 it out of the pose; Reluva takes it out where it places the character
@@ -705,32 +704,27 @@ masks leave `GrannyRootBone`, which carries the motion, at weight 0, so
 in the pose they're played with it stays at rest and the body doesn't
 go along at all: there's nothing to take out (`Motion::carried`, the
 drift with the slot's mask applied; the full drift still sets the
-pace). Taking out the full drift from such a walk held the body back
-through each loop, then let it jump a stride ahead as the loop began
-again.
+pace). Taking out the full drift from such a walk would hold the body
+back through each loop, then let it jump a stride ahead as the loop
+began again.
 
 It's taken out of each animation as it's blended, at its own point of
 its loop (`Animator::carryBack`), not of the character as a whole: from
 the highest bone between `GrannyRootBone` and `Bip01` that the animation
-moves. Taking it out of the whole character by the newest base alone, as
-Reluva did, threw the body forward or back whenever two walks or a walk
-and an idle faded into each other: a click while walking, a walk's end,
-a turn handing over to the walk (up to 330 units in a frame, measured on
+moves. Taken out of the whole character by the newest base alone, it
+would throw the body forward or back whenever two walks or a walk and
+an idle fade into each other: a click while walking, a walk's end, a
+turn handing over to the walk (up to 330 units in a frame, measured on
 the pelvis). A turn's step aside (`rotater180`'s 115 units) is taken out
-before the turn is: taken out after, it put the body up to twice that
-off the spot by the turn's end, then snapped it back.
+before the turn is: taken out after, it would put the body up to twice
+that off the spot by the turn's end, then snap it back.
 
 A bone an animation has no track for isn't moved by it at all, as
 Granny binds only the tracks there are; with nothing else playing on it,
 it's at rest. The talks have tracks for the head and jaw alone (11 to 15
 of a character's 83 to 99 bones) and no mask: blending their missing
-bones' rest pose in at the talk's weight pulled the body toward the
+bones' rest pose in at the talk's weight would pull the body toward the
 bind pose ("A-pose") as each line began.
-
-Before this, Reluva never wrapped round, and kept only a curve's first
-four values. On `poirot_walk`, looping, it was off by up to 239 units
-(the root, near the end) and 0.003 in an orientation. Scale/shear curves
-with more than one knot would have lost five of their nine values.
 
 ## Sources and checks
 

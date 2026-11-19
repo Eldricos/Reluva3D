@@ -41,8 +41,7 @@ for the game.
   objects, which the game's `.FIN` models are, under a header of their
   own: [fin.md](games/legoalphateam/formats/fin.md)), the scene graph, rendering through `gfx::Renderer3D`, sound
   through `src/audio`. Built when `engines.cfg` has `netimmerse=enabled`, as it does by
-  default (it was off at first, which left the launcher not recognising
-  the game in a default build).
+  default (without it, the launcher doesn't recognise the game).
 - Game id `legoalphateam`, with what is specific to it in
   `src/engines/netimmerse/alphateam/`.
 - Formats documented under

@@ -100,12 +100,10 @@ unlike the first. ARD_AmmoCrate's 100 frames are its one still pose, as
 no script animates it. `unreal check` counts no mesh left showing its first
 frame for all of them (`Mesh::keyFrames`).
 
-**`unreal check` on The Fallen** after this layout was added (October 2026):
-306 of 455 LodMeshes and 4 of 9 Meshes read (all now: see Classic Meshes
-below). JadziaDax failed only for an
-animation (aaThumbTest2) running past its frames; such animations are now
-left out rather than the mesh. All the rest read since (November 2026:
-455 of 455 LodMeshes, the 6 Meshes with geometry). `unreal probe` lists the
+**`unreal check` on The Fallen** (November 2026): 455 of 455 LodMeshes
+and the 6 Meshes with geometry read (see Classic Meshes below). An
+animation running past its frames (JadziaDax's aaThumbTest2) is left out
+rather than the mesh. `unreal probe` lists the
 block's array headers and every place the standard tail could start.
 
 **Classic Meshes** (not LodMesh): The Fallen has 9.
@@ -247,12 +245,12 @@ and k x (f32 time, `(n, n, 1)` and n packed vertices, `(m, m, 64)` and m x
 Eyebrows and Phonemes); the others are the bones' clip of the same index.
 Each of the mesh's animations is the clip of its name, its frames at
 their times (30 a second), between keys blended. The per-frame vertex
-arrays found earlier are these keys, which is why "keyframed" meshes had
-fewer than their frames, and why taking them in order as frames went
-wrong where a clip's keys aren't one a frame (Baj_ImpulseShip's 2-key
-one-frame Hover shifted everything after it). Checked: the 243 meshes
-that keep one array of every frame match the clips to within a packed
-unit; the 180 that keep only keys or bones are now filled every frame
+arrays are these keys, which is why "keyframed" meshes have fewer than
+their frames; taken in order as frames, they go wrong where a clip's
+keys aren't one a frame (Baj_ImpulseShip's 2-key one-frame Hover shifts
+everything after it). Checked: the 243 meshes that keep one array of
+every frame match the clips to within a packed unit; the 180 that keep
+only keys or bones are filled every frame
 from them; the 38 glass and debris fragments in Shared.u have an i32 0
 before their standard fields and otherwise read as standard meshes.
 
@@ -333,7 +331,7 @@ They're in the skeleton's units (Scale applied, from the origin, the
 import turn not applied), not the float copy's. Checked: JemHaddar has a
 GunTip of its own (type 1, on its gun). Posed through each firing
 animation, the tip comes within 2 to 5.4 units of six of its seven places
-(the seventh, `FireRunRGunTipLoc`, is now within 2.1 too). Read in the float copy's
+(the seventh, `FireRunRGunTipLoc`, within 2.1). Read in the float copy's
 space, it is 18 to 100 units off every one.
 
 Checked:
@@ -362,12 +360,12 @@ Checked:
     the 65 within 5.
   - Every one's turn is the place's exactly (rows' dot products summing
     to 3.00).
-  - Reluva's earlier reading (the triangle's middle, in its bone's axes)
-    was 3.6 units off on average, 47 within 5, and only the barrel's
-    line matched.
-  - `FireRunRGunTipLoc` was 10 to 17 units under its place until the
-    rotation keys' w was read with its wrap (below): its right elbow
-    flipped half a turn between keys.
+  - Taken as the triangle's middle in its bone's axes, the point is 3.6
+    units off on average, 47 within 5, and only the barrel's line
+    matches.
+  - Without the rotation keys' w read with its wrap (below),
+    `FireRunRGunTipLoc` is 10 to 17 units under its place: its right
+    elbow flips half a turn between keys.
   - A pose with no skeleton (an animation of vertex keys) uses the same
     frame.
 

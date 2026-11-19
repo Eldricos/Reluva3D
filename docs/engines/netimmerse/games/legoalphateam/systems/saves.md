@@ -25,14 +25,13 @@ Adventure has got, and the settings.
     runs asks first, "Keep
     playing" or "Quit" ("Return to launcher") (`System::confirmQuit`, a
     message box in the SDL backend).
-  - Two things in our run-time had to be fixed for it. The `ofstream`
-    destructor that LoadComp inlines in `DDInfo::Save` reads `filebuf`'s
-    close flag at +0x48 and deletes a string pointer at +0x44, which ours
-    hadn't kept there (it deleted garbage and crashed). And the file is
-    opened in text mode, so on Windows it has CR-LF line ends: our
-    MSVCRT had made every file binary, so a saved `P0Space` kept its CR
-    and wasn't recognised. Text mode now reads CR-LF as LF and writes LF
-    as CR-LF.
+  - Two things in our run-time matter for it. The `ofstream` destructor
+    that LoadComp inlines in `DDInfo::Save` reads `filebuf`'s close flag
+    at +0x48 and deletes a string pointer at +0x44, so ours keeps them
+    there (else it deletes garbage and crashes). And the file is opened
+    in text mode, so on Windows it has CR-LF line ends: our MSVCRT's
+    text mode reads CR-LF as LF and writes LF as CR-LF (with every file
+    binary, a saved `P0Space` keeps its CR and isn't recognised).
   - Checked: a `Game.txt` with `P0Space  M1020` (CR-LF) shows "On the
     Right Path" on the first Adventure card, and choosing it starts that
     mission.
