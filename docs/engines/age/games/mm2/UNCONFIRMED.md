@@ -22,9 +22,12 @@ None: the game's code isn't read.
 ## Inferred
 
 - **The car simulation**: what each `.vehCarSim` number does is Reluva's
-  model, checked only by the cars' top speeds against the menus' figures
-  ([car-simulation.md](systems/car-simulation.md)). A recording of a
-  car's acceleration and turning on a known road would settle it.
+  model, checked against the game's figures by how the cars rank: top
+  speed and the quarter mile follow them, 0-60 mph much less, as grip
+  holds nearly every car below 60
+  ([car-simulation.md](systems/car-simulation.md#against-the-games-figures)).
+  A recording of a few cars' starts and turns on a known road would
+  settle it.
 - **Traffic density**: the files give a density, Reluva reads it as a
   share of a lane's capacity ([traffic.md](systems/traffic.md#how-many)).
 - **Police, pedestrians and opponents**: when the police chase and bust,
