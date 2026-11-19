@@ -2806,7 +2806,7 @@ void LevelView::startPlay(const std::string &portal, const std::filesystem::path
     auto play = std::make_unique<LevelPlay>(_ctx.packages, *pkg);
     play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
     play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
-    if (Error err = play->start(portal, saved, _ctx.saveFolder)) {
+    if (Error err = play->start(portal, saved, _ctx.saveFolder, _ctx.configFolder)) {
         _playError = err.message;
         return;
     }

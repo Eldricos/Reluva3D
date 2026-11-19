@@ -380,12 +380,16 @@ VmStruct *Vm::structAt(const Package &package, int exportIndex) {
     c->exportIndex = exportIndex;
     c->owner = c;
     c->classFlags = so.classFlags;
+    if (so.configName)
+        c->configName = package.name(so.configName);
     _structs.emplace(key, std::move(owned));
     if (e.superRef) {
         const ObjectRef sup = _packages.resolve(package, e.superRef);
         VmClass *parent = sup ? classAt(*sup.package, sup.exportIndex) : nullptr;
         c->super = parent;
         if (parent) {
+            if (c->configName.empty())
+                c->configName = parent->configName;
             c->properties = parent->properties;
             c->slots = parent->slots;
             c->defaults = parent->defaults;
@@ -476,10 +480,137 @@ void Vm::setFromText(const VmProperty &prop, Value &v, const std::string &text) 
 }
 
 // A setting changed while running (a console command's "set"): it comes
-// before the .ini files' for as long as this VM lasts; the files aren't
-// written.
+// before the .ini files' for as long as this VM lasts.
 void Vm::setConfig(const std::string &section, const std::string &key, const std::string &value) {
     _configSet[lower(section)][lower(key)] = value;
+}
+
+// A class's config file, as the engine names them: "System" is the game's
+// own .ini (DS9.ini), anything else that name's (User.ini). Written in the
+// config folder, so the game's install is left as it is.
+std::filesystem::path Vm::configFile(const std::string &configName) const {
+    if (_configFolder.empty())
+        return {};
+    if ((configName.empty() || lower(configName) == "system") && !_packages.iniFile().empty())
+        return _configFolder / _packages.iniFile().filename();
+    if (configName.empty())
+        return _configFolder / "System.ini";
+    return _configFolder / (configName + ".ini");
+}
+
+// A value as SaveConfig writes it: a float with six places, a byte of an
+// enum by the enum's name, the rest as scripts see them.
+std::string Vm::configText(const VmProperty &prop, const Value &v) const {
+    if (v.type == VType::kFloat) {
+        char buf[64];
+        std::snprintf(buf, sizeof buf, "%f", double(v.f));
+        return buf;
+    }
+    if (v.type == VType::kByte && prop.enumNames && size_t(v.i) < prop.enumNames->size())
+        return nameText((*prop.enumNames)[size_t(v.i)]);
+    return toString(v);
+}
+
+void Vm::saveConfig(const VmClass &cls, const std::vector<Value> &values) {
+    const std::filesystem::path file = configFile(cls.configName);
+    if (file.empty() || !cls.package)
+        return;
+    std::vector<std::array<std::string, 3>> settings; // section, key, value
+    for (const VmProperty *prop : cls.properties) {
+        if (!(prop->flags & (propflag::kConfig | propflag::kGlobalConfig)) || prop->type == VType::kStruct)
+            continue;
+        // As applyConfig reads it: the class's own section, or a
+        // globalconfig property's declaring class's.
+        std::string section = cls.package->name() + "." + cls.name;
+        if (prop->flags & propflag::kGlobalConfig)
+            for (const VmClass *up = &cls; up; up = up->parent())
+                if (std::find(up->properties.begin(), up->properties.end(), prop) != up->properties.end() &&
+                    up->package)
+                    section = up->package->name() + "." + up->name;
+        for (int k = 0; k < prop->arrayDim; ++k) {
+            const size_t slot = size_t(prop->slot + k);
+            if (slot >= values.size())
+                continue;
+            const std::string key = prop->arrayDim > 1 ? prop->name + "[" + std::to_string(k) + "]" : prop->name;
+            settings.push_back({section, key, configText(*prop, values[slot])});
+        }
+    }
+    writeSettings(file, settings);
+}
+
+void Vm::saveSetting(const std::string &configName, const std::string &section, const std::string &key,
+                     const std::string &value) {
+    if (const std::filesystem::path file = configFile(configName); !file.empty())
+        writeSettings(file, {{section, key, value}});
+}
+
+// Settings (section, key, value) into an .ini: each put in place of its
+// key's line in its section, else at the section's end, else in a section
+// of its own; the rest of the file kept as it is.
+void Vm::writeSettings(const std::filesystem::path &file, const std::vector<std::array<std::string, 3>> &settings) {
+    if (settings.empty())
+        return;
+    std::vector<std::string> lines;
+    if (FILE *f = std::fopen(file.string().c_str(), "rb")) {
+        std::string text;
+        char buf[4096];
+        for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;)
+            text.append(buf, n);
+        std::fclose(f);
+        for (size_t at = 0; at < text.size();) {
+            size_t end = text.find('\n', at);
+            if (end == std::string::npos)
+                end = text.size();
+            std::string line = text.substr(at, end - at);
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            lines.push_back(line);
+            at = end + 1;
+        }
+    }
+    auto sectionAt = [&](size_t i) {
+        const std::string &l = lines[i];
+        return l.size() >= 2 && l.front() == '[' && l.back() == ']' ? lower(l.substr(1, l.size() - 2)) : std::string();
+    };
+    for (const auto &[section, key, value] : settings) {
+        _configSet[lower(section)][lower(key)] = value;
+        const std::string line = key + "=" + value;
+        size_t i = 0;
+        while (i < lines.size() && sectionAt(i) != lower(section))
+            ++i;
+        if (i == lines.size()) {
+            if (!lines.empty() && !lines.back().empty())
+                lines.emplace_back();
+            lines.push_back("[" + section + "]");
+            lines.push_back(line);
+            continue;
+        }
+        size_t last = i;
+        bool done = false;
+        for (size_t j = i + 1;
+             j < lines.size() && sectionAt(j).empty() && !(lines[j].size() >= 2 && lines[j][0] == '['); ++j) {
+            const size_t eq = lines[j].find('=');
+            if (eq != std::string::npos && lower(lines[j].substr(0, eq)) == lower(key)) {
+                lines[j] = line;
+                done = true;
+                break;
+            }
+            if (!lines[j].empty())
+                last = j;
+        }
+        if (!done)
+            lines.insert(lines.begin() + std::ptrdiff_t(last + 1), line);
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(file.parent_path(), ec);
+    if (FILE *f = std::fopen(file.string().c_str(), "wb")) {
+        for (const std::string &l : lines) {
+            std::fputs(l.c_str(), f);
+            std::fputs("\r\n", f);
+        }
+        std::fclose(f);
+    }
+    _iniFiles.erase(file.string());
 }
 
 // A text file of [Section] and Key=Value lines (an .ini, an .int), sections
@@ -524,8 +655,14 @@ const std::string *Vm::configSetting(const std::string &section, const std::stri
     if (auto sec = _configSet.find(lower(section)); sec != _configSet.end())
         if (auto value = sec->second.find(lower(key)); value != sec->second.end())
             return &value->second;
+    // Those written (SaveConfig) before the game's own.
     const std::filesystem::path system = _packages.iniFile().parent_path();
-    for (const std::filesystem::path &file : {system / "User.ini", system / "DefUser.ini", _packages.iniFile()}) {
+    std::vector<std::filesystem::path> files;
+    if (!_configFolder.empty())
+        files = {configFile("User"), configFile("System")};
+    for (const std::filesystem::path &f : {system / "User.ini", system / "DefUser.ini", _packages.iniFile()})
+        files.push_back(f);
+    for (const std::filesystem::path &file : files) {
         const IniFile &ini = iniFileAt(file);
         auto sec = ini.find(lower(section));
         if (sec == ini.end())

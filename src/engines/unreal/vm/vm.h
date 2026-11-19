@@ -19,6 +19,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <optional>
@@ -197,6 +198,7 @@ struct VmClass : VmState {
     VmClass *parent() const { return static_cast<VmClass *>(super); }
     std::map<NameId, VmState *> states; // its own
     uint32_t classFlags = 0;
+    std::string configName;     // its config file: "System", "User" (its parent's if it names none)
     VmObject *object = nullptr; // the class as an object (class values point here)
     bool isA(const VmClass *other) const;
 };
@@ -366,6 +368,20 @@ public:
     int applyLocalizedActor(VmObject *actor, const std::string &map);
     const std::string *configSetting(const std::string &section, const std::string &key);
     void setConfig(const std::string &section, const std::string &key, const std::string &value);
+    /**
+     * Where settings are written (Reluva's folder for the game, not the
+     * game's own); empty: they last only as long as this VM.
+     */
+    void setConfigFolder(std::filesystem::path folder) { _configFolder = std::move(folder); }
+    /**
+     * SaveConfig: `cls`'s config properties, from `values` (an object's or
+     * the class's defaults), written to its config file in the config
+     * folder, as Core.dll's SaveConfig (0x10150f90).
+     */
+    void saveConfig(const VmClass &cls, const std::vector<Value> &values);
+    /** One setting written to the config file `configName` names ("User", "System"). */
+    void saveSetting(const std::string &configName, const std::string &section, const std::string &key,
+                     const std::string &value);
     void setFromText(const VmProperty &prop, Value &v, const std::string &text);
     /** An object's name or a class's, as scripts see it. */
     std::string objectName(const VmObject *o) const;
@@ -462,7 +478,11 @@ private:
     using IniFile = std::map<std::string, std::map<std::string, std::string>>; // section, key (lower case): value
     std::map<std::string, IniFile> _iniFiles;
     IniFile _configSet; // settings changed while running (setConfig)
+    std::filesystem::path _configFolder;
     const IniFile &iniFileAt(const std::filesystem::path &file);
+    std::filesystem::path configFile(const std::string &configName) const;
+    std::string configText(const VmProperty &prop, const Value &v) const;
+    void writeSettings(const std::filesystem::path &file, const std::vector<std::array<std::string, 3>> &settings);
     std::map<std::pair<const Package *, int>, VmProperty *> _properties;
     std::deque<VmProperty> _propertyStore;
     std::deque<std::vector<NameId>> _enumStore;

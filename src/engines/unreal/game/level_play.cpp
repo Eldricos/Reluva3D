@@ -49,7 +49,8 @@ LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
 }
 
 Error LevelPlay::start(const std::string &portal, const std::filesystem::path &saved,
-                       const std::filesystem::path &saveFolder) {
+                       const std::filesystem::path &saveFolder, const std::filesystem::path &configFolder) {
+    _vm->setConfigFolder(configFolder);
     if (Error err = _level->load())
         return err;
     _level->setSaveFolder(saveFolder);

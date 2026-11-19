@@ -76,9 +76,11 @@ Console commands (`ConsoleCommand`, `vm_console.cpp`):
     the feet), then takes it. M05_SiskoL1a's breather at (3205, -2204)
     is in a nook open only to +Y, and is taken from there.
 - `set` changes one ([script-vm.md](script-vm.md)), and the class's property in its defaults and
-  every object of it.
+  every object of it, and writes the class's settings; `SaveConfig`, which
+  the options windows call when they close, writes them too, so the
+  options stay set from level to level and the next time the game runs.
 - `KEYNAME n`, `KEYBINDING Key` and `SET Input Key Command` read and change
-  the bindings. The controls page lists them ("LEFTMOUSE OR CTRL"), and
+  the bindings (written to User.ini's `[Engine.Input]`). The controls page lists them ("LEFTMOUSE OR CTRL"), and
   the page's keys follow what it sets.
 - `GetCurrentRes`, `GetRes` give the page's size; the colour depth is 32.
 - The world and skin detail (`[WinDrv.WindowsClient]` `TextureDetail`,

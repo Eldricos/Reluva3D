@@ -15,6 +15,9 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   shadow bits, a rule fitted to the recording, until this build's own
   footage or the later build's map says which
   ([lighting.md](systems/lighting.md)).
+- **Settings are written to Reluva's folder for the game** (`Config`),
+  not into the game's `System` folder as the original writes them, so
+  the install is left as it is ([script-vm.md](systems/script-vm.md)).
 - **The recording's later build.** Where the recording differs from these
   files only by being a later build (its end credits' "Thanks to" block,
   which `DS9_Credits` here doesn't have), Reluva follows its own scripts
@@ -28,9 +31,6 @@ there, dividing by 0) are reported and carried on from, not fixed
 
 ## Not yet as the original
 
-- **Settings aren't written.** A console command's `set` (the options
-  windows) changes a setting for as long as the VM runs; the `.ini` files
-  aren't written ([script-vm.md](systems/script-vm.md)).
 - **Saved games:** the dialogue's lines under way are neither restored
   nor written, and the Level's model and reach list aren't renumbered
   ([saves.md](systems/saves.md), [save.md](formats/save.md)).

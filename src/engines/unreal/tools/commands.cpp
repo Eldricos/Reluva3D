@@ -481,7 +481,7 @@ private:
 // play <game folder> <map> [step...]: the Maps page on that map, driven
 // by steps, its frames drawn in software. Steps: play (Enter), wait <s>,
 // travel <url> (to "Map/Portal" and playing, as the game's ClientTravel;
-// "?load=Save1.dss" a saved game), saves <dir> (where games are saved),
+// "?load=Save1.dss" a saved game), saves <dir> (where games are saved), config <dir> (where settings are written),
 // savegame <name> (the level saved now: QuickSave, else the next Save<n>),
 // wav <file.wav> (the sound heard since the last, mixed offline), sounds
 // (what's playing),
@@ -500,7 +500,7 @@ int cmdUePlay(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool unreal play <game folder> <map> [play | wait <s> | hold <key> <s> | "
-            "teleport <actor> <dx> <dy> <dz> <yaw> | camera <x> <y> <z> <yaw> <pitch> | places <class> | where | view | lines | actor <name> | prop <actor> <property> | call <actor> <function> | console <command> | down <key> | up <key> | press <key> | travel <url> [items] | saves <dir> | watch <actor> | "
+            "teleport <actor> <dx> <dy> <dz> <yaw> | camera <x> <y> <z> <yaw> <pitch> | places <class> | where | view | lines | actor <name> | prop <actor> <property> | call <actor> <function> | console <command> | down <key> | up <key> | press <key> | travel <url> [items] | saves <dir> | config <dir> | watch <actor> | "
             "drag <dx> <dy> | click <x> <y> | shot <file.ppm>]...\n");
         return 2;
     }
@@ -617,6 +617,8 @@ int cmdUePlay(int argc, char **argv) {
             std::printf("savegame: %s\n", err ? err.message.c_str() : "saved");
         } else if (step == "saves" && i + 1 < argc) {
             ctx.saveFolder = argv[++i];
+        } else if (step == "config" && i + 1 < argc) {
+            ctx.configFolder = argv[++i];
         } else if (step == "travel" && i + 1 < argc) {
             const std::string url = argv[++i];
             // "items" after it: with the player's things (bItems).

@@ -64,14 +64,33 @@ Classes' `config` properties take the player's and the game's settings
 from the `.ini` files as the class loads (`Vm::applyConfig`):
 - a `config` property from the class's own section (`[Engine.HUD]`);
 - a `globalconfig` one from the section of the class that declares it;
-- User.ini first, then DefUser.ini, then the game's own `.ini`;
+- the settings Reluva has written first (below), then User.ini, then
+  DefUser.ini, then the game's own `.ini`;
 - an array's elements as `Key[n]`; structs aren't read.
 
 So the HUD shows dialogue (`bDisplayDialog=True`) but not cut scenes'
 subtitles (`bDisplaySubtitles=False`), as DefUser.ini has it, and the
-player's mouse sensitivity is 3. A console command's `set` (the options
-windows, below) changes a setting for as long as the VM runs, before the
-files' (`Vm::setConfig`); the files aren't written.
+player's mouse sensitivity is 3.
+
+Settings are written as Core.dll writes them. `SaveConfig()` (the options
+windows call it on the player, the HUD and the game type) writes every
+`config` and `globalconfig` property of the object's class, in the
+sections they're read from, to the class's config file: `config(User)`
+classes' to User.ini, `config(System)` classes' to the game's `.ini`
+(SaveConfig at 0x10150f90). Floats are written with six places, an
+enum's byte by its name. `StaticSaveConfig()` writes the class's
+defaults. A console command's `set` (the options windows, below) sets the
+property in the class's defaults and every object of it, then writes the
+class's settings as `SaveConfig` does (`GlobalSetProperty` ends so, at
+0x10151f45); `set Input Key Command` writes the binding to User.ini's
+`[Engine.Input]`. A setting goes in place of its key's line in its
+section, else at the section's end, else in a new section, the rest of
+the file left as it is (`Vm::saveConfig`).
+
+They're written to Reluva's folder for the game (`Config`, beside its
+`Saves`), not the game's `System` folder, so the install is left as it
+is; a level reads them from there first. With no such folder (the tools'
+runs, unless given `config <dir>`) a `set` lasts as long as the VM.
 
 Classes' `localized` properties, the text players read (menu items,
 messages), come from the game's `.int` files (`Vm::applyLocalized`): the

@@ -33,10 +33,10 @@ public:
      * Starts the level and logs a player in (as the .ini's [URL] says), at
      * the start tagged `portal` if one is given; or, given a saved game of
      * this map, carries on from it. `saveFolder`: where its games are
-     * saved and listed.
+     * saved and listed; `configFolder`: where its settings are written.
      */
     Error start(const std::string &portal = {}, const std::filesystem::path &saved = {},
-                const std::filesystem::path &saveFolder = {});
+                const std::filesystem::path &saveFolder = {}, const std::filesystem::path &configFolder = {});
 
     /**
      * Moves the level on by `seconds` of real time, in whole ticks: at
