@@ -229,8 +229,8 @@ behind the DLL's own tables.
    the tour with the game's `notarget` cheat, so no guard raises one.
    `doom_comm` plays to `doom_detention` and `doom_detention` to
    `doom_shields` by the tour, and `doom_shields` to `yavin_swamp`,
-   nothing new needed. `yavin_swamp` plays to `yavin_canyon` by the
-   tour. Next: the next levels the same way, and a console on the page.
+   nothing new needed. `yavin_swamp` plays to `yavin_canyon`, and
+   `yavin_canyon` to `yavin_courtyard`, by the tour. Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
