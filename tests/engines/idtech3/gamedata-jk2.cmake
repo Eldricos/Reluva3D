@@ -61,6 +61,7 @@
 #                 exit); cairn_assembly and cairn_reactor by the tour;
 #                 cairn_dock1 by the tour with notarget (its alarms).
 #   jk2-sp-doom   doom_comm, doom_detention and doom_shields by the tour.
+#   jk2-sp-yavin-assault  yavin_swamp by the tour.
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -172,6 +173,9 @@ elseif(STEP STREQUAL "jk2-sp-doom")
     record_run(doom_detention "ran 100 frames" idtech3 sp-run "${base}" doom_detention -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
     record_run(doom_shields "ran 100 frames" idtech3 sp-run "${base}" doom_shields -tour 5000 -fixedclock
+               -set helpUsObi 1 -next)
+elseif(STEP STREQUAL "jk2-sp-yavin-assault")
+    record_run(yavin_swamp "ran 100 frames" idtech3 sp-run "${base}" yavin_swamp -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
