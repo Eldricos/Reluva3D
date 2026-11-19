@@ -30,8 +30,11 @@
 
 namespace reluva::botf {
 
+/** The screen's size, in pixels: the game's own. */
+///@{
 constexpr int kScreenW = 800;
 constexpr int kScreenH = 600;
+///@}
 
 /** Fills a rectangle of an RGBA32 surface, clipped to it. */
 void fillRect(Surface &s, int x, int y, int w, int h, Color c);
@@ -44,9 +47,13 @@ void fillRect(Surface &s, int x, int y, int w, int h, Color c);
  */
 class ImageViewer {
 public:
+    /** Lists the images in the archives, which, like `sys` and `screen`, must outlive it. */
     ImageViewer(System &sys, Surface &screen, const std::vector<const Archive *> &archives);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _images.size(); }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page; it draws again. */
     void handleKey(uint32_t key);
 
 private:
@@ -71,9 +78,13 @@ private:
  */
 class FontViewer {
 public:
+    /** Lists the fonts in the archive, which, like `sys` and `screen`, must outlive it. */
     FontViewer(System &sys, Surface &screen, const Archive &archive);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _names.size(); }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page; it draws again. */
     void handleKey(uint32_t key);
 
 private:
@@ -95,9 +106,13 @@ private:
  */
 class TextViewer {
 public:
+    /** Lists the tables in the archive, which, like `sys` and `screen`, must outlive it. */
     TextViewer(System &sys, Surface &screen, const Archive &archive);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _tables.size(); }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page; it draws again. */
     void handleKey(uint32_t key);
 
 private:
@@ -126,9 +141,13 @@ private:
  */
 class DataViewer {
 public:
+    /** Lists the tables whose file is in the archive, which, like `sys` and `screen`, must outlive it. */
     DataViewer(System &sys, Surface &screen, const Archive &archive);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _files.size(); }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page; it draws again. */
     void handleKey(uint32_t key);
 
 private:
@@ -157,9 +176,13 @@ private:
  */
 class LayoutViewer {
 public:
+    /** Lists the layouts in the archive, which, like `sys` and `screen`, must outlive it. */
     LayoutViewer(System &sys, Surface &screen, const Archive &archive);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _names.size(); }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page; it draws again. */
     void handleKey(uint32_t key);
 
 private:
@@ -194,15 +217,20 @@ public:
     /** `mixer` may be null (no audio device): sounds are listed, not played. */
     SoundViewer(System &sys, Surface &screen, std::vector<std::pair<std::string, const SndArchive *>> archives,
                 audio::Mixer *mixer);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _items.size(); }
+    /** Draws the page as it's shown. */
     void activate();
-    void deactivate(); // stops what's playing
+    /** Called as another page is shown: stops what's playing. */
+    void deactivate();
+    /** A key pressed on the page; it draws again. */
     void handleKey(uint32_t key);
-    void update(uint64_t nowMs); // redraws while a sound plays
+    /** Draws the page again while a sound plays; `nowMs` is the system's clock. */
+    void update(uint64_t nowMs);
 
 private:
     struct Item {
-        size_t archive; // index into archives_
+        size_t archive; // index into _archives
         size_t index;   // entry, or piece for music.snd
     };
     void select(size_t index);
