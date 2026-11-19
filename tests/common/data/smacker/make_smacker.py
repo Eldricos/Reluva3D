@@ -6,8 +6,9 @@
     python3 make_smacker.py OUT_DIR
 
 Creates test2.smk (SMK2, packed 8-bit mono audio), test4.smk (SMK4, packed
-16-bit stereo audio) and long.smk (40 frames, for the action sequence tests). Every block type, the escape (recent value) leaves of the
-Huffman trees, palette set/keep/copy commands and both audio paths are used.
+16-bit stereo audio) and long.smk (40 frames, for the action sequence
+tests). Every block type, the escape (recent value) leaves of the Huffman
+trees, palette set/keep/copy commands and both audio paths are used.
 The expected frames and audio come from an independent decoder (FFmpeg):
 
     ffmpeg -i test2.smk -f rawvideo -pix_fmt rgb24 test2.rgb
@@ -23,10 +24,12 @@ RUNS = list(range(1, 60)) + [128, 256, 512, 1024, 2048]
 
 
 class BitWriter:
+    """Bits written as Smacker reads them: each byte filled from its lowest bit."""
     def __init__(self):
         self.bits = []
 
     def put(self, value, n):
+        """Appends the low `n` bits of `value`, the lowest first."""
         for i in range(n):
             self.bits.append((value >> i) & 1)
 
@@ -46,6 +49,7 @@ def balanced(leaves):
 
 
 def codes(tree, prefix=()):
+    """{leaf: its code, a tuple of bits} of a tree."""
     if tree[0] == "leaf":
         return {tree[1]: prefix}
     out = codes(tree[1], prefix + (0,))
@@ -54,17 +58,20 @@ def codes(tree, prefix=()):
 
 
 class SmallTree:
+    """A Huffman tree of 8-bit values, balanced: a big tree's byte trees, and the audio's."""
     def __init__(self, values):
         self.values = sorted(set(values))
         self.tree = balanced(self.values)
         self.codes = codes(self.tree)
 
     def write(self, bw):
+        """Writes the tree: a 1, its nodes, then a 0."""
         bw.put(1, 1)                       # present
         self._write(bw, self.tree)
         bw.put(0, 1)                       # end
 
     def _write(self, bw, t):
+        """Writes a node: 0 and the leaf's value, or 1 and its two children."""
         if t[0] == "leaf":
             bw.put(0, 1)
             bw.put(t[1], 8)
@@ -74,6 +81,7 @@ class SmallTree:
             self._write(bw, t[2])
 
     def encode(self, bw, v):
+        """Writes a value's code."""
         for b in self.codes[v]:
             bw.put(b, 1)
 
@@ -90,10 +98,12 @@ class BigTree:
         self.values = set()
 
     def new_frame(self):
+        """Starts a frame's list of symbols, the recent values cleared as each frame clears them."""
         self.cache = [0, 0, 0]
         self.emits.append([])
 
     def emit(self, v, rng):
+        """Adds a value to the frame's symbols, as an escape half the times it's a recent value."""
         # Use an escape leaf when the value is in the cache, half of the time.
         sym = ("val", v)
         for i in range(3):
@@ -107,6 +117,7 @@ class BigTree:
             self.cache = [v, self.cache[0], self.cache[1]]
 
     def build(self):
+        """Makes the tree over the values used and the escapes, and the trees of their bytes."""
         leaves = [("val", v) for v in sorted(self.values)] + [("esc", i) for i in range(3)]
         self.tree = balanced(leaves)
         self.codes = codes(self.tree)
@@ -116,6 +127,7 @@ class BigTree:
         self.nodes = 2 * len(leaves)
 
     def write(self, bw):
+        """Writes the tree: a 1, its low and high bytes' trees, the escapes' values, its nodes, then a 0."""
         bw.put(1, 1)
         self.lo.write(bw)
         self.hi.write(bw)
@@ -125,6 +137,7 @@ class BigTree:
         bw.put(0, 1)
 
     def _write(self, bw, t):
+        """Writes a node: 0 and the leaf's value through the byte trees, or 1 and its two children."""
         if t[0] == "leaf":
             bw.put(0, 1)
             kind, x = t[1]
@@ -137,11 +150,13 @@ class BigTree:
             self._write(bw, t[2])
 
     def encode(self, bw, sym):
+        """Writes a symbol's code."""
         for b in self.codes[sym]:
             bw.put(b, 1)
 
 
 def palette_chunk(commands):
+    """A palette chunk of the commands: its length in 4-byte units, then the commands, padded."""
     data = bytearray(commands)
     size = len(data) + 1
     size = (size + 3) & ~3
@@ -189,6 +204,7 @@ def pack_audio(samples, stereo, bits16):
 
 
 def make(path, smk4, stereo, bits16, seed, nframes=4):
+    """Writes a 32x16 Smacker file of `nframes` frames: random blocks, ramps of sound, palettes in frames 0 and 2."""
     rng = random.Random(seed)
     w, h = 32, 16
     blocks = (w // 4) * (h // 4)
@@ -261,6 +277,7 @@ def make(path, smk4, stereo, bits16, seed, nframes=4):
         pos = {k: 0 for k in names}
 
         def put(k):
+            """Writes the next symbol of tree `k` for this frame."""
             trees[k].encode(vb, trees[k].emits[f][pos[k]])
             pos[k] += 1
 
