@@ -169,7 +169,7 @@ timing is the recordings'.
 
 Reluva plays the turn as above. The walks into a room, from a door or
 out of a passage, follow the way-finder since November 2026; before, they
-went straight to the place. `tools/clue-re/harness/doorwalk` checks them
+went straight to the place. `tools/clue-re/harness/doorwalk.cpp` checks them
 on the game's own house: every door's way and every passage's.
 
 ## Sources and checks

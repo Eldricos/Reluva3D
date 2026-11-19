@@ -41,7 +41,7 @@ opponents, traffic, the police, replays. This is how New Worlds is done.
   part to get right.
 
 **B. Hosted.** Run the retail `nfs3.exe` in the x86 interpreter, as
-Elite Force's single-player DLLs are run (`docs/engines/x86.md`):
+Elite Force's single-player DLLs are run ([docs/common/x86/](../../../../common/x86/README.md)):
 
 - THRASH is implemented natively on `gfx::Renderer3D` (a GPU backend
   for the game's own draw calls).
@@ -68,7 +68,7 @@ fallback, reusing all of the data layer.
 ## Phases
 
 Each phase ends with something runnable and with its findings written
-under `docs/formats/nfs/`, as CONTRIBUTING.md asks.
+under [formats/](formats/) and [systems/](systems/), as CONTRIBUTING.md asks.
 
 ### Phase 0: skeleton and detection (done)
 
@@ -109,7 +109,7 @@ What was planned:
 
 ### Phase 1: archives, images, text (done)
 
-What was built, with each format written up in `docs/formats/nfs/`:
+What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Readers** for each format, checked against every retail file:
   - [viv.md](formats/viv.md): archives, as an `Archive`;
@@ -151,7 +151,7 @@ What was planned:
 
 ### Phase 2: models and tracks in 3D (done)
 
-What was built, with each format written up in `docs/formats/nfs/`:
+What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Readers**, each checked on every retail file (`reluva-tool nfs survey`):
   - [fce.md](formats/fce.md): car and object models;
@@ -366,7 +366,7 @@ What was planned:
 
 ### Phase 3: sound and video (done)
 
-What was built, with each format written up in `docs/formats/nfs/`:
+What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Decoders**, each checked on every retail file (`reluva-tool nfs survey`):
   - [bnk.md](formats/bnk.md): sound banks. Their codecs are in
