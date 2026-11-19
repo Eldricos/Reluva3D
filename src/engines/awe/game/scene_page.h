@@ -42,24 +42,20 @@
 
 namespace reluva::awe {
 
-// The game's settings, as its options screen sets them (0x490048..):
-// volumes and brightness 0..10, the rest on (1) or off.
+/**
+ * The game's settings, as its options screen sets them (0x490048..):
+ * volumes and brightness 0..10, the rest on (1) or off.
+ */
 struct GameOptions {
+    /** The settings, by their index in `values`. */
     enum { kMusic, kSound, kGamma, kCaptions, kShadows, kWater, kFog, kRain, kAntiAlias, kCount };
     int values[kCount];
+    /** The game's defaults. */
     GameOptions();
+    /** A setting, by its index. */
     int get(int i) const { return values[i]; }
 };
 
-/**
- * The game: its scenes (Locations/<location>/<scene>.ac2) shown and
- * played, with the scripts, the characters, the conversations and the
- * game's screens. A game starts when the page is shown.
- *
- * The data viewer's Scenes page (SceneBrowser, pages/scene_browser.h) is
- * this page with the scene browser over it, through the hooks below;
- * reluva has none of it.
- */
 namespace motoe {
 struct TornLetter;
 struct Safe;
@@ -69,6 +65,15 @@ namespace attwn {
 struct DepositBox;
 } // namespace attwn
 
+/**
+ * The game: its scenes (`Locations/<location>/<scene>.ac2`) shown and
+ * played, with the scripts, the characters, the conversations and the
+ * game's screens. A game starts when the page is shown.
+ *
+ * The data viewer's Scenes page (SceneBrowser, pages/scene_browser.h) is
+ * this page with the scene browser over it, through the hooks below;
+ * reluva has none of it.
+ */
 class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
     /** @param gameTitle The window's title: the game's name. */
@@ -85,27 +90,39 @@ public:
     bool wantsEscape() const override { return _movie != nullptr || _playing; }
     bool quitRequested() const override { return _quit; }
 
-    // For tools (reluva-tool awe game-run; scene_autoplay.cpp): a game started
-    // without the menus at an act ("04a": its PreLoad, location and Post
-    // Load) or from a developer's save ("slot7"); every line of the script
-    // log passed on; and a player who only waits: movies skipped, the
-    // first choice taken, lines cut short (what it did, "" if nothing).
+    // For tools (reluva-tool awe game-run; scene_autoplay.cpp).
+
+    /**
+     * A new game started without the menus at an act ("04a": its PreLoad,
+     * location and Post Load) or from a developer's save ("slot7"); "new"
+     * leaves it at the main menu.
+     */
     void startAt(const std::string &where);
-    // A script run as the scenes' are (a tool's: "startpass michel").
+    /** A script run as the scenes' are (a tool's: "startpass michel"). */
     void runCommands(const std::string &script) { _runner->run(script); }
+    // Every line of the script log, passed on.
     std::function<void(const std::string &line)> onLog;
+    /**
+     * A player who only waits: the yes/no box closed, movies skipped, the
+     * choice `chooser` picks (else the one taken least) taken, lines cut
+     * short when cutLines.
+     * @return What it did, "" if nothing.
+     */
     std::string autoplay();
     // Whether autoplay cuts each line short (a tool in a hurry), or lets it
     // play out, its voice too.
     bool cutLines = true;
-    // Nothing drawn (a tool that only follows the scripts). Drawing again,
-    // the page is drawn at once, as it is now (the scene may have changed
-    // meanwhile).
+    /**
+     * Nothing drawn (a tool that only follows the scripts). Drawing again,
+     * the page is drawn at once, as it is now (the scene may have changed
+     * meanwhile).
+     */
     void setDrawing(bool on) {
         const bool was = std::exchange(_drawing, on);
         if (on && !was)
             draw();
     }
+    /** Where the game is and what it's busy with, for a tool's report. */
     struct GameStatus {
         std::string scene;
         std::string act;
@@ -117,58 +134,84 @@ public:
         bool puzzle = false;
         bool fading = false;
     };
+    /** The game's status now. */
     GameStatus status() const;
     // For the tools: And Then There Were None's timer (GameState::clock)
     // stopped, so a route doesn't depend on how fast its lines go by, and
-    // time passed on purpose.
+    // time passed on purpose (passTime).
     bool clockRuns = true;
+    /** Moves And Then There Were None's timer on by `seconds`. */
     void passTime(float seconds) { _state.clock += seconds; }
     /** Whether it shows one of the game's menus, the main menu among them. */
     bool inMenu() const { return inMenuScene() || atMainMenu(); }
-    // The hotspots and characters that could be clicked now, and a click
-    // on one (its script run, as a click runs it).
+    /**
+     * The hotspots, characters and pictures that could be clicked now, by
+     * their names (else their files), in the scene's order; and a click on
+     * one (its script run, as a click runs it; false if there's no such
+     * one).
+     */
+    ///@{
     std::vector<std::string> clickables() const;
     bool click(size_t i);
-    // Where a player's mouse would click the clickable i: a point where
-    // the game's pick finds it (0x435eb0) and clicks are taken, its
-    // rectangle tried first; false if there's none on the screen.
+    ///@}
+    /**
+     * Where a player's mouse would click the clickable i: a point where
+     * the game's pick finds it (0x435eb0) and clicks are taken, its
+     * rectangle tried first; false if there's none on the screen.
+     */
     bool pointFor(size_t i, int &x, int &y) const;
-    // The same with an item in hand (a use's point): the pick tries more.
+    /** The same with an item in hand (a use's point): the pick tries more. */
     bool pointFor(size_t i, int &x, int &y, const std::string &holding);
-    // An item taken up into the hand, as the inventory's click takes it.
+    /** An item taken up into the hand, as the inventory's click takes it. */
     void takeUp(const std::string &item) { holdItem(item); }
-    bool clickRuns(size_t i) const; // whether it has a script (Antoinette may not)
-    // The inventory (scene_inventory.cpp): an item used on an object, as
-    // the game does when one in hand is clicked on it (0x41c050: its
-    // conditional scripts asking for it, else uselist.txt for a
-    // character, else "can't"); items combined (combinelist.txt). The
-    // items the clickable i asks for, that Poirot has, and one used on it.
+    /** Whether the clickable i has a script (Antoinette may not). */
+    bool clickRuns(size_t i) const;
+
+    // The inventory (scene_inventory.cpp).
+
+    /**
+     * An item used on an object, as the game does when one in hand is
+     * clicked on it (0x41c050): its conditional scripts asking for it,
+     * else uselist.txt for a character, else "can't" (false then).
+     */
     bool useItem(const std::string &item, const Ac2Record &target);
+    /** Items combined (combinelist.txt), as the combine page or the game's own inventory does. */
     bool combineItems(const std::vector<std::string> &parts);
+    /** The items the clickable i asks for (its scripts' "use", uselist.txt) that Poirot has. */
     std::vector<std::string> itemsFor(size_t i);
-    // Of those, the ones the cursor shows would be taken (0x419e90).
+    /** Of those, the ones the cursor shows would be taken (0x419e90). */
     std::vector<std::string> usableItems(size_t i);
+    /** An item used on the clickable i, as useItem(). */
     bool useOn(const std::string &item, size_t i);
-    // The parts of each combinelist.txt row that could be combined now.
+    /** The parts of each combinelist.txt row that could be combined now. */
     std::vector<std::vector<std::string>> combinations();
-    // The items a combinelist.txt row lets be taken apart now, and one
-    // taken apart (the combine page's right-hand box, then the gears).
+    /**
+     * The items a combinelist.txt row lets be taken apart now, and one
+     * taken apart (the combine page's right-hand box, then the gears).
+     */
+    ///@{
     std::vector<std::string> decombinable();
     bool decombineItem(const std::string &item);
-    // The game's own inventory's Examine (GameOverlay::examinable): what
-    // it would do something with now, and those items examined.
+    ///@}
+    /**
+     * The game's own inventory's Examine (GameOverlay::examinable): what
+     * it would do something with now, and those items examined; none, or
+     * false, without a window of its own.
+     */
+    ///@{
     std::vector<std::vector<std::string>> examinable() const;
     bool examineItems(const std::vector<std::string> &items);
-    // For a player that searches (reluva-tool awe game-run -solve): the story
-    // state; the game saved to memory and loaded from it as the save and
-    // load screens do; who picks the dialogue's choices (the index, or -1
-    // for the tool's own: the one taken least); the items whose back has
-    // an Examine Event and that back looked at; the bar's cars that can
-    // be travelled to now and the travel; whether clicks are taken now
-    // (nothing runs, or the runner is unlocked).
+    ///@}
+
+    // For a player that searches (reluva-tool awe game-run -solve).
+
+    /** The story state. */
     const GameState &gameState() const { return _state; }
-    // Every clause of a condition the game tests is told (GameState::onTest);
-    // and whether a condition holds now, untold.
+    /**
+     * Every clause of a condition the game tests is told
+     * (GameState::onTest); and whether a condition holds now, untold.
+     */
+    ///@{
     void watchConditions(std::function<void(std::string_view, bool)> f) { _state.onTest = std::move(f); }
     bool holds(const std::string &condition) {
         auto watch = std::move(_state.onTest);
@@ -177,41 +220,71 @@ public:
         _state.onTest = std::move(watch);
         return h;
     }
+    ///@}
+    /**
+     * The game saved to memory, and loaded from it as the save and load
+     * screens do (false if the save doesn't read).
+     */
+    ///@{
     std::vector<uint8_t> saveToMemory() const;
     bool loadFromMemory(const std::vector<uint8_t> &data);
-    // (For the tools' save and load: as if the scene had been entered with
-    // that scene left last, its objects tested again for "lastscene".)
+    ///@}
+    /**
+     * For the tools' save and load: as if the scene had been entered with
+     * that scene left last, its objects tested again for "lastscene".
+     */
     void setLastScene(const std::string &scene) {
         _state.lastScene = scene;
         retestObjects();
     }
+    // Who picks the dialogue's choices: the index, or -1 for the tool's
+    // own (the one taken least).
     std::function<int(const std::vector<std::string> &choices)> chooser;
+    /** The items whose back has an Examine Event, and that back looked at (false if it can't be). */
+    ///@{
     std::vector<std::string> flippableItems();
     bool flipItem(const std::string &item);
+    ///@}
+    /** The bar's cars that can be travelled to now, and the travel (false if it can't be). */
+    ///@{
     std::vector<int> travelCars();
     bool travel(int car);
-    // The fingerprint cards the magnifier would match (a person's print
-    // and a thing's whose Flipped Description names it), not compared yet;
-    // a pair compared, as the cards page does with them shown.
+    ///@}
+    /**
+     * The fingerprint cards the magnifier would match (a person's print
+     * and a thing's whose Flipped Description names it), not compared yet;
+     * a pair compared, as the cards page does with them shown.
+     */
+    ///@{
     std::vector<std::pair<std::string, std::string>> matchingPrints();
     bool comparePrintCards(const std::string &person, const std::string &thing);
+    ///@}
+    /** Whether clicks are taken now: the runner unlocked, no conversation or movie on. */
     bool clickable() const { return !_runner->locked() && !_dialogue->active() && !_movie; }
-    // The puzzle screen open ("tornletter", "safe", "puzzlebox"; "" none),
-    // whether it's solved, and the next of a player's inputs that solve it,
-    // worked out from the puzzle's own checks and made as the mouse makes
-    // them (false if there's none to make now).
+    /**
+     * The puzzle screen open ("tornletter", "puzzlebox", "depositbox", or
+     * the safe's SafeRules::kind; "" none), whether it's solved, and the
+     * next of a player's inputs that solve it, worked out from the
+     * puzzle's own checks and made as the mouse makes them (false if
+     * there's none to make now).
+     */
+    ///@{
     std::string puzzleOpen() const;
     bool puzzleSolved() const;
     bool puzzleStep();
+    ///@}
 
-    // A player's hand (scene_interface.cpp): what the mouse or a key does
-    // next towards a goal, decided from what's on the screen now. An item
-    // is taken up from the inventory window's page and the window put
-    // away before it's used; a car is gone to by the bar, shown by the
-    // mouse at the top; combining puts the parts in the combine page's
-    // boxes and turns the gears; and so on. So a route can be played by
-    // the mouse and keys alone (awe game-run -hand).
+    /**
+     * A player's hand (scene_interface.cpp): what the mouse or a key does
+     * next towards a goal, decided from what's on the screen now. An item
+     * is taken up from the inventory window's page and the window put
+     * away before it's used; a car is gone to by the bar, shown by the
+     * mouse at the top; combining puts the parts in the combine page's
+     * boxes and turns the gears; and so on. So a route can be played by
+     * the mouse and keys alone (awe game-run -hand).
+     */
     struct HandGoal {
+        /** What's to be done. */
         enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare, kExamine } kind = Kind::kClick;
         size_t target = 0;              // Click, Use: the clickable
         std::vector<std::string> items; // Use, Flip: the item; Combine, Examine: the parts; Compare: person, thing
@@ -219,21 +292,26 @@ public:
         bool done = false;              // the last input made
         bool failed = false;            // no way to do it from here
     };
+    /** An input a player makes: none now, the mouse moved, a click, a right click, or a key. */
     struct HandInput {
+        /** The kinds of input. */
         enum class Kind { kNone, kMove, kClick, kRightClick, kKey } kind = Kind::kNone;
         int x = 0;
         int y = 0;
         uint32_t key = 0;
     };
+    /** The next input towards `goal`, which it marks done or failed. */
     HandInput handStep(HandGoal &goal);
-    // The same through the game's own inventory (GameOverlay::hand).
+    /** The same through the game's own inventory (GameOverlay::hand). */
     HandInput handStepOverlay(HandGoal &goal);
-    // The window and hand as words (for a tool's report).
+    /** The window and hand as words (for a tool's report). */
     std::string handState() const;
-    // What the game asks of a player while it runs: a movie skipped
-    // (Escape), the yes/no box's Yes, the choice `chooser` picks (else the
-    // one taken least) clicked in the box, and, when cutLines, each line
-    // clicked through once a click ends it.
+    /**
+     * What the game asks of a player while it runs: a movie skipped
+     * (Escape), the yes/no box's Yes, the choice `chooser` picks (else the
+     * one taken least) clicked in the box, and, when cutLines, each line
+     * clicked through once a click ends it.
+     */
     HandInput handWhileRunning();
 
 protected:
@@ -264,8 +342,7 @@ private:
         std::shared_ptr<GpuModel> model;
         std::unique_ptr<Actor> actor;
         gfx::Mat4 placement{};
-        // Its Bip01 bones' boxes as posed at pickFrame (the pick's, made
-        // again once the page has moved on).
+        /** A Bip01 bone's box as posed at pickFrame (the pick's, made again once the page has moved on). */
         struct PickBox {
             gfx::Mat4 m;
             const float *lo;
@@ -321,6 +398,7 @@ private:
         // Outdoors (scene_outdoors.cpp): the footprints it has left, the
         // time into its stride (+0x14f4) and the foot next down (+0x14f8),
         // and its breath in the cold.
+        /** A footprint left. */
         struct Footprint {
             std::shared_ptr<GpuModel> model;
             float x = 0;
@@ -432,6 +510,7 @@ private:
         int page = 0;
         int row = 0;
         std::string name; // save: the name typed
+        /** A row shown: its slot's save, if there is one. */
         struct Row {
             bool exists = false;
             std::string description;
@@ -543,9 +622,8 @@ private:
     bool slotClick(int x, int y);
     void slotKey(uint32_t key);
     void drawSlots();
-    // The yes/no box (0x432930): its question and its kind (0 quit the
-    // program, 1 quit the game, 2 overwrite a save); the choice's rows.
-    // The yes/no popup (0x432930): its question, what a yes does, Yes's
+    // The yes/no popup (0x432930): its question, its kind (what a yes
+    // does: 0 quit the program, 1 quit the game, 2 overwrite a save), Yes's
     // and No's places as last drawn, and which the mouse is over.
     struct YesNo {
         std::string text;
@@ -803,7 +881,7 @@ private:
     // The camera's walk grid and the last path found.
     WalkGrid _grid;
     std::vector<WalkGrid::Cell> _path;
-    // The scripts' state: tags, items and the act are state_'s.
+    // The scripts' state: tags, items and the act are _state's.
     std::unique_ptr<ScriptRunner> _runner;
     std::unique_ptr<DialogueManager> _dialogue;
     std::map<std::string, int> _autoChoices; // how often the tool's player took each choice
@@ -836,13 +914,6 @@ private:
     std::map<const Ac2Record *, std::pair<int, image::Image>> _fadedPictures;
     void updateObjectFades(float dt);
     void nightParticles(std::vector<ParticleSystem::Point> &points) const;
-    // "movie": the one playing over everything, its subtitles, the runner
-    // waiting on it; and whether a scene is shown (one not "inscene" is
-    // left for the movie: black until the next scene).
-    // The game's load state machine (0x422a90) for a location: an act's,
-    // or a scene's in another place (after a fade out). Its scene files
-    // are read one an update behind the loading screen; then the act's
-    // Post Load runs, or the scene is shown and fades in.
     // And Then There Were None's act change (GameFlow::actLoading): faded
     // in to the loading picture, the act's characters a step each, faded
     // out, then the start script and the "act" event over.
@@ -855,6 +926,10 @@ private:
     } _actLoad;
     void updateActLoad();
     void drawActLoad();
+    // The game's load state machine (0x422a90) for a location: an act's,
+    // or a scene's in another place (after a fade out). Its scene files
+    // are read one an update behind the loading screen; then the act's
+    // Post Load runs, or the scene is shown and fades in.
     struct LocationLoad {
         int state = 0; // 0 none, 1 fading out, 2 loading, 3 fading the loading screen out, 4 fading the scene in
         bool forAct = false;
@@ -879,6 +954,9 @@ private:
     // The location's scene files the game would load (0x423830): variants
     // for the act in place of their base; LOAD 0 ones are read on demand.
     std::vector<std::string> locationFiles(const std::string &location) const;
+    // "movie": the one playing over everything, its subtitles, the runner
+    // waiting on it; and whether a scene is shown (one not "inscene" is
+    // left for the movie: black until the next scene).
     std::unique_ptr<MoviePlayer> _movie;
     std::string _movieName;
     std::vector<Subtitle> _movieSubtitles;
@@ -894,7 +972,7 @@ private:
     // loaded, 0x433290) keeps it, while its scenes are kept.
     bool _boxOpenedHere = false;
     // What else a character carried when its scene was left, by the same
-    // key as npcPositions_ (the game keeps the scene, and the character
+    // key as _npcPositions (the game keeps the scene, and the character
     // as scripts left it).
     struct KeptCharacter {
         bool paused = false;
@@ -945,8 +1023,10 @@ private:
     // (opaque) before them all. Each is a texture, and where its pictures
     // take the shadows off (a byte a pixel; none for layer 0).
     struct PictureLayer {
-        // Drawn in turn: pictures put together over the whole frame, or
-        // one drawn alone where it is (one that scrolls, a video loop).
+        /**
+         * Drawn in turn: pictures put together over the whole frame, or
+         * one drawn alone where it is (one that scrolls, a video loop).
+         */
         struct Part {
             gfx::TextureId texture = 0; // put together; 0 for one alone
             const Ac2Record *alone = nullptr;
@@ -975,7 +1055,7 @@ private:
     void drawPointSprites(const ParticleSystem &system);
     uint64_t _layersMade = 0; // a new scene's layers are new
     std::vector<PictureLayer> _layers;
-    std::vector<ModelSlot> _characterOrder; // characters_ and footprints in depth order, as draw() found it
+    std::vector<ModelSlot> _characterOrder; // _characters and footprints in depth order, as draw() found it
     gfx::MeshId _quad = 0;
     std::vector<Character> _characters;
     std::map<std::string, std::shared_ptr<GpuModel>> _models;

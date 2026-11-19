@@ -22,34 +22,38 @@
 
 namespace reluva::awe {
 
-// UTF-16 (little-endian unless a byte order mark says otherwise) as UTF-8,
-// the byte order mark dropped. Bytes without one that don't look like
-// UTF-16 are taken as Windows-1252.
+/**
+ * UTF-16 (little-endian unless a byte order mark says otherwise) as UTF-8,
+ * the byte order mark dropped; UTF-8 with its byte order mark as it is,
+ * the mark dropped. Bytes without one that don't look like UTF-16 are
+ * taken as Windows-1252.
+ */
 std::string decodeText(const std::vector<uint8_t> &data);
 
+/** A table: its first row's headings and the rows under them, each cell trimmed of spaces. */
 struct Table {
     std::vector<std::string> headings;
     std::vector<std::vector<std::string>> rows; // empty rows left out
 
-    // The column with this heading (ignoring case), or -1.
+    /** The column with this heading (ignoring case), or -1. */
     int column(std::string_view heading) const;
-    // A row's cell, "" if it has none there.
+    /** A row's cell, "" if it has none there. */
     const std::string &cell(size_t row, int column) const;
-    // The first row whose first cell is `key` (ignoring case), or -1.
+    /** The first row whose first cell is `key` (ignoring case), or -1. */
     int find(std::string_view key) const;
 };
 
+/** Reads a table from its decoded text; a row whose cells are all blank is left out. */
 Table parseTable(std::string_view text);
 
-// One script command: its words, split at spaces ("talk dia_debenham a+"
-// -> talk, dia_debenham, a+).
+/** One script command: its words, split at spaces ("talk dia_debenham a+" -> talk, dia_debenham, a+). */
 struct Command {
     std::vector<std::string> words;
+    /** The first word; there must be one. */
     const std::string &verb() const { return words.front(); }
 };
 
-// Splits a cell's commands at commas (or an event file's at line ends).
-// A "0" cell means none.
+/** Splits a cell's commands at commas (or an event file's at line ends). A "0" cell means none. */
 std::vector<Command> parseCommands(std::string_view text);
 
 } // namespace reluva::awe

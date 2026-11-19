@@ -22,7 +22,7 @@
 
 namespace reluva::awe {
 
-// A row of a dialogue table.
+/** A row of a dialogue table. */
 struct DialogueLine {
     // as written ("02a", "a", "1", "a")
     std::string name;
@@ -55,24 +55,25 @@ struct DialogueLine {
     int repeatCode = -1; // Repeat's letter, else -1
     int alternative = 0; // 0, or one more than the line before if that has the same nest
 
-    // Its recording: sound/vo/<name><act><part><thread><nest>[_<alternative>].wav
-    // ("dia_observation02aa1a.wav", "gen_locked01aa_1.wav").
+    /**
+     * Its recording, lower case:
+     * `sound/vo/<name><act><part><thread><nest>[_<alternative>].wav`
+     * ("dia_observation02aa1a.wav", "gen_locked01aa_1.wav").
+     */
     std::string voiceFile() const;
 };
 
-// The dialogue's codes, as text: for the event files' names and the
-// "talk" conditions.
+/**
+ * The dialogue's codes (DialogueLine's) from their text: for the event
+ * files' names and the "talk" conditions.
+ */
+///@{
 int dialoguePartCode(std::string_view s);
 int dialogueThreadCode(std::string_view s);
 int dialogueNestCode(std::string_view s);
+///@}
 
-// "talk <name> <code> [options]" (0x40ba25), and "cantalk" with the same
-// words (0x407f24): the code's letters are the part, thread and nest; a
-// number n the part n + 99, none part 100; a "+" at its end goes on to the
-// next part. Options: nogen, forcegen, nogreet, or an alternative's
-// number. `gen` is the default (a character was clicked; cantalk: on).
-// And Then There Were None's (0x40d5f0) reads one option, and has no
-// nogreet or "+" (`rules`).
+/** A "talk"'s words, read: what DialogueManager::talk() takes. */
 struct TalkArgs {
     std::string name;
     int part = 100;
@@ -83,13 +84,23 @@ struct TalkArgs {
     bool plus = false;
     bool greet = true;
 };
+/**
+ * "talk `<name>` `<code>` [options]" (0x40ba25), and "cantalk" with the same
+ * words (0x407f24): the code's letters are the part, thread and nest; a
+ * number n the part n + 99, none part 100; a "+" at its end goes on to the
+ * next part. Options: nogen, forcegen, nogreet, or an alternative's
+ * number. `gen` is the default (a character was clicked; cantalk: on).
+ * And Then There Were None's (0x40d5f0) reads one option, and has no
+ * nogreet or "+" (`rules`).
+ */
 TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen, const DialogueRules &rules = {});
 
-// A conversation's part (one Name and Conver.), its threads in order.
+/** A conversation's part (one Name and Conver.), its threads in order. */
 struct DialoguePart {
     std::string name;
     std::string act;
     int code = 0;
+    /** A thread: its lines in order, and how far it has got. */
     struct Thread {
         int code = 0;
         std::vector<DialogueLine> lines;
@@ -102,17 +113,24 @@ struct DialoguePart {
     std::vector<Thread> threads;
 };
 
+/** Every conversation the dialogue tables loaded hold, by part. */
 class DialogueBook {
 public:
-    // Adds a table's rows: a new part whenever the Name or Conver.
-    // changes, a new thread whenever the Thread does (0x438f00).
+    /**
+     * Adds a table's rows: a new part whenever the Name or Conver.
+     * changes, a new thread whenever the Thread does (0x438f00).
+     */
     void add(const Table &table);
+    /** Drops every part. */
     void clear() { _parts.clear(); }
-    // The first part of that name and code; null if none.
+    /** The first part of that name and code; null if none. */
     DialoguePart *find(std::string_view name, int code);
+    /** Every part, in the order added. */
+    ///@{
     std::vector<DialoguePart> &parts() { return _parts; }
     const std::vector<DialoguePart> &parts() const { return _parts; }
-    // All the lines of a conversation, in table order.
+    ///@}
+    /** All the lines of a conversation, in table order. */
     std::vector<const DialogueLine *> conversation(std::string_view name) const;
 
     // How the game's tables are laid out (games.h): Orient Express's unless
@@ -123,115 +141,161 @@ private:
     std::vector<DialoguePart> _parts;
 };
 
-// What a conversation needs from the game around it.
+/** What a conversation needs from the game around it. */
 class DialogueHost {
 public:
     virtual ~DialogueHost() = default;
-    // Starts a line's recording; false if there's none.
+    /** Starts a line's recording; false if there's none. */
     virtual bool playVoice(const std::string &file) = 0;
+    /** Whether the recording is still playing, and stopping it. */
+    ///@{
     virtual bool voicePlaying() = 0;
     virtual void stopVoice() = 0;
-    // A file's text ("" if there's none): the lines' event files.
+    ///@}
+    /** A file's text ("" if there's none): the lines' event files. */
     virtual std::string readText(const std::string &file) = 0;
-    // The scene's name ("salon_01"), for the "met them here" tags.
+    /** The scene's name ("salon_01"), for the "met them here" tags. */
     virtual std::string sceneName() = 0;
-    // A speaker turns to look as its line's Target says ("antoinette up"),
-    // or (empty) back home at the end.
+    /** A speaker turns to look as its line's Target says ("antoinette up"), or (empty) back home at the end. */
     virtual void turnHead(const std::string &speaker, const std::string &target) {
         (void)speaker;
         (void)target;
     }
-    // The speaker's talking: a line starts (talkidle1: 0x404720) and ends
-    // (0x404760); the mouth moves or stops (0x4046c0, 0x4046f0).
+    /**
+     * The speaker's talking: a line starts (talkidle1: 0x404720) and ends
+     * (0x404760); the mouth moves or stops (0x4046c0, 0x4046f0).
+     */
+    ///@{
     virtual void lineStarted(const std::string &speaker) { (void)speaker; }
     virtual void lineEnded(const std::string &speaker) { (void)speaker; }
     virtual void mouth(const std::string &speaker, bool on) {
         (void)speaker;
         (void)on;
     }
-    // The voice's level now (0x425140): 0 silent, more when it's loud; -1
-    // if unknown.
+    ///@}
+    /** The voice's level now (0x425140): 0 silent, more when it's loud; -1 if unknown. */
     virtual int voiceLevel() { return -1; }
-    // The rows a line's text takes in the box, wrapped as drawn: for a box
-    // sized by them (And Then There Were None's).
+    /**
+     * The rows a line's text takes in the box, wrapped as drawn: for a box
+     * sized by them (And Then There Were None's).
+     */
     virtual int textRows(const std::string &text) {
         (void)text;
         return 1;
     }
-    // A conversation found and starting (not a dry run): the inventory
-    // window closes and what's in hand goes back (0x43a670).
+    /**
+     * A conversation found and starting (not a dry run): the inventory
+     * window closes and what's in hand goes back (0x43a670).
+     */
     virtual void talkStarting(const std::string &name) { (void)name; }
 };
 
+/** The conversations: one played at a time, its box and choices, its lines' scripts run. */
 class DialogueManager {
 public:
+    /**
+     * A manager with no tables, Orient Express's rules; sets `state`'s
+     * partTold to its own test. `state`, `scripts` and `host` must outlive
+     * it.
+     */
     DialogueManager(GameState &state, ScriptHost &scripts, DialogueHost &host);
 
+    /** The tables loaded. */
     DialogueBook &book() { return _book; }
-    // The game's tables and rules (games.h), and its frame's height, the
-    // box sliding in from its foot: Orient Express's unless set.
+    /**
+     * The game's tables and rules (games.h), and its frame's height, the
+     * box sliding in from its foot: Orient Express's unless set.
+     */
     void setGame(const GameInfo &game);
+    /** How its game's conversations go. */
     const DialogueRules &rules() const { return _rules; }
 
-    // "talk <name> <code> [options]" (0x40ba25 -> 0x43a630): part, thread
-    // and nest from the code's letters (-1 for none), `gen` to offer the
-    // generic lines (an NPC clicked, or forcegen), `number` to pick an
-    // alternative (1 on, -1 at random), `plus` to go on to the next part
-    // when one runs dry, `greet` to play the opening. True if it started;
-    // then `runner` hears "talk" done when it's over.
+    /**
+     * "talk `<name>` `<code>` [options]" (0x40ba25 -> 0x43a630).
+     * @param part The part, thread and nest from the code's letters (-1 for
+     *        none; the thread and nest too).
+     * @param gen Offer the generic lines (an NPC clicked, or forcegen).
+     * @param number Pick an alternative (1 on, -1 at random).
+     * @param plus Go on to the next part when one runs dry.
+     * @param greet Play the opening.
+     * @return True if it started; then `runner` hears "talk" done when
+     *         it's over.
+     */
     bool talk(ScriptRunner &runner, const std::string &name, int part, int thread, int nest, bool gen, int number,
               bool plus, bool greet);
-    // Whether that "talk" would start: the "cantalk" condition's dry run
-    // (0x407f24), nothing shown or said. False while a conversation is on.
+    /**
+     * Whether that "talk" would start: the "cantalk" condition's dry run
+     * (0x407f24), nothing shown or said. False while a conversation is on.
+     */
     bool canTalk(const std::string &name, int part, int thread, int nest, bool gen, int number, bool plus, bool greet);
-    // The "nothing to say" line (0x43a550), for an NPC with nothing left.
+    /** The "nothing to say" line (0x43a550), for an NPC with nothing left. */
     bool noTalk(ScriptRunner &runner);
     /** Whatever conversation is on, gone at once, nothing more of it run (a new game, a game loaded). */
     void drop();
-    // Moves things on by `seconds`.
+    /** Moves things on by `seconds`. */
     void update(float seconds);
-    // A click: a choice, or the line cut short (after half a second).
+    /** A click: a choice, or the line cut short (after half a second). */
     void click(int x, int y);
+    /** The mouse moved: the choice under it highlighted (a picture before the rows). */
     void mouseMove(int x, int y);
-    // The mouse wheel while choosing (0x43d810, 0x43d850): `steps`
-    // notches, away from the user (> 0) to the choice before, towards
-    // (< 0) to the one after. Its choice stays until the mouse leaves
-    // (x, y).
+    /**
+     * The mouse wheel while choosing (0x43d810, 0x43d850): `steps`
+     * notches, away from the user (> 0) to the choice before, towards
+     * (< 0) to the one after. Its choice stays until the mouse leaves
+     * (x, y).
+     */
     void wheel(int steps, int x, int y);
-    // Whether the wheel chose last and the mouse hasn't moved since: the
-    // cursor is hidden then (0x43d7f0).
+    /** Whether the wheel chose last and the mouse hasn't moved since: the cursor is hidden then (0x43d7f0). */
     bool wheelChoosing() const { return _wheelX != -1 && _wheelY != -1; }
-    // The middle button (the wheel pressed): the highlighted choice taken
-    // (0x43d890).
+    /** The middle button (the wheel pressed): the highlighted choice taken (0x43d890). */
     void middleClick();
-    // Without a mouse (tools): choice i taken, or the line cut short as a
-    // click would; false if neither can be done now.
+    /**
+     * Without a mouse (tools): choice i taken, or the line cut short as a
+     * click would; false if neither can be done now.
+     */
     bool choose(int i);
-    // Whether a choice or a click would be taken now (no box sliding, no
-    // Prevent or pause under way).
+    /** Whether a choice or a click would be taken now (no box sliding, no Prevent or pause under way). */
     bool ready() const { return _slide == 0 && !_waitPrevent && !_pending && _pause < 0; }
-    // Whether a click now would end the line being said (click()).
+    /** Whether a click now would end the line being said (click()). */
     bool lineSkippable() const;
 
-    // A tag every "met them here" tag of the scene is set to when it's
-    // left (0x43aee0).
+    /** The scene is left: its "met them here" tags (its name, a space, ...) set to 2 (0x43aee0). */
     void leaveScene(const std::string &scene);
 
     // What to draw.
+
+    /** Whether a conversation is on. */
     bool active() const { return _active; }
+    /**
+     * Whether the box is up: during a conversation, but not while a Povent
+     * that walks or rotates someone runs, unless the choices are shown.
+     */
     bool boxShown() const;
+    /** The box's top (it slides in and out from the frame's foot) and its height, in pixels. */
+    ///@{
     int boxTop() const { return int(_boxY); }
     int boxHeight() const { return _boxHeight; }
-    int window() const { return _window; } // 0: dialoguewin01, 1: dialoguewin02, 2: 03
+    ///@}
+    /** The box's picture: 0 dialoguewin01, 1 dialoguewin02, 2 dialoguewin03. */
+    int window() const { return _window; }
+    /** Whether the choices are shown. */
     bool choosing() const { return _choosing; }
-    // The line being said and its colour (Orient Express's fonts.txt's: 8
-    // the player, 9 and 10 the others; 6 the choices).
+    /**
+     * The line being said (null while choosing or between lines) and its
+     * colour (Orient Express's fonts.txt's: 8 the player, 9 and 10 the
+     * others; 6 the choices).
+     */
+    ///@{
     const DialogueLine *line() const;
     int colour() const { return _colour; }
-    // Whether the line's text is drawn now (0x43cf90): not while its
-    // Prevent or a Povent runs, nothing is pending, nor in the pause before
-    // the next line. The box is drawn empty meanwhile.
+    ///@}
+    /**
+     * Whether the line's text is drawn now (0x43cf90): not while its
+     * Prevent or a Povent runs, nothing is pending, nor in the pause before
+     * the next line. The box is drawn empty meanwhile.
+     */
     bool lineShown() const { return !_waitPrevent && !_pending && _pause < 0 && _povent.idle(); }
+    /** A choice offered: its text, and the thread it plays. */
     struct Choice {
         std::string text;
         DialoguePart *part;
@@ -240,11 +304,16 @@ public:
         // act 8's evidence), else empty.
         std::string picture;
     };
+    /** The choices offered, and the one highlighted (-1 none). */
+    ///@{
     const std::vector<Choice> &choices() const { return _choices; }
     int highlighted() const { return _highlighted; }
-    // Where each choice is, from the box's drawing, for the mouse: its
-    // text row, and its picture if it has one; a picture is tried before
-    // the rows (0x43c810).
+    ///@}
+    /**
+     * Where a choice is, from the box's drawing, for the mouse: its text
+     * row, or its picture if it has one; a picture is tried before the
+     * rows (0x43c810).
+     */
     struct ChoiceArea {
         int x = 0;
         int y = 0;
@@ -253,8 +322,11 @@ public:
         int choice = -1;
         bool picture = false;
     };
+    /** Where each choice is, as the box was last drawn. */
+    ///@{
     void setChoiceAreas(std::vector<ChoiceArea> areas) { _choiceAreas = std::move(areas); }
     const std::vector<ChoiceArea> &choiceAreas() const { return _choiceAreas; }
+    ///@}
 
     // For a log.
     std::function<void(const std::string &line)> onLog;
@@ -301,7 +373,7 @@ private:
     ScriptRunner *_caller = nullptr; // the runner whose "talk" this is
 
     DialoguePart *_part = nullptr;
-    // indices into part_
+    // indices into _part
     int _thread = -1;
     int _line = -1;
     bool _active = false;
@@ -331,10 +403,9 @@ private:
     std::vector<std::string> _turned;
     // The box.
     float _boxY = 768;
-    // slide: 1 in, 2 out
     int _boxHeight = 160;
     int _window = 0;
-    int _slide = 0;
+    int _slide = 0; // 1 in, 2 out
     // Choices.
     std::vector<Choice> _choices;
     std::vector<ChoiceArea> _choiceAreas;

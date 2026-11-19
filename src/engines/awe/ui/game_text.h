@@ -20,8 +20,7 @@
 
 namespace reluva::awe {
 
-// A use of text, as fonts.txt lists them: "dialogue", "location
-// descriptions"...
+/** A use of text, as fonts.txt lists them: "dialogue", "location descriptions"... */
 struct TextStyle {
     std::string use;
     std::string fontName;
@@ -33,22 +32,31 @@ struct TextStyle {
     float pixels = 16;         // the size for font's draw calls
 };
 
+/** A game's fonts, their uses and its colours, from text/fonts.txt or its code. */
 class GameFonts {
 public:
-    // Reads fonts.txt and loads the fonts it names that the game has; or,
-    // for a game whose code sets up its fonts (`fixed`), those.
+    /**
+     * Reads fonts.txt and loads the fonts it names that the game has; or,
+     * for a game whose code sets up its fonts (`fixed`), those. Fails only
+     * if fonts.txt can't be read: a font that won't load leaves its
+     * style's `font` null.
+     */
     Error load(const Archive &files, const std::vector<GameFont> &fixed = {});
 
-    // The style whose use starts with `use` ("dialogue"), or null.
+    /** The style whose use starts with `use` ("dialogue"), or null. */
     const TextStyle *style(std::string_view use) const;
-    // A colour by its use ("dialogue for main character"), or `fallback`.
+    /** A colour by its use ("dialogue for main character"), or `fallback`. */
     Color colour(std::string_view use, Color fallback = {255, 255, 255}) const;
-    // A colour by its place in the list (the game's colour numbers).
+    /** A colour by its place in the list (the game's colour numbers). */
     Color colourAt(size_t index, Color fallback = {255, 255, 255}) const;
+    /** Every style, in the file's order. */
     const std::vector<TextStyle> &styles() const { return _styles; }
 
-    // Draws text in a style: its shadow (one pixel down and right, the
-    // shadow colour) first if it has one.
+    /**
+     * Draws text in a style: its shadow (one pixel down and right, the
+     * shadow colour) first if it has one.
+     * @return The x after the text; `x` if the style has no font.
+     */
     int draw(Surface &dst, const TextStyle &style, int x, int y, std::string_view utf8, Color colour,
              uint8_t alpha = 255) const;
 
@@ -59,7 +67,7 @@ private:
     Color _shadow{0, 0, 0};
 };
 
-// A movie's subtitles: who speaks, what, and when (seconds from its start).
+/** A movie's subtitle: who speaks, what, and when (seconds from its start). */
 struct Subtitle {
     std::string name; // the movie it's for (the Name column: the game plays a movie's by its name)
     std::string speaker;
@@ -67,21 +75,26 @@ struct Subtitle {
     double start = 0;
     double end = 0;
 };
-// Reads a movie's subtitle table (its Speaker, Line and Duration columns;
-// Duration is "start, length").
+/** Reads a movie's subtitle table (its Speaker, Line and Duration columns; Duration is "start, length"). */
 std::vector<Subtitle> parseSubtitles(std::string_view text);
-// The rows named for `movie` (lower case, without its extension), and
-// those named for none: the game starts its subtitles as the conversation
-// of that name (0x42ae7d), so logos.txt, a copy of intro's, shows nothing.
+/**
+ * The rows named for `movie` (lower case, without its extension), and
+ * those named for none: the game starts its subtitles as the conversation
+ * of that name (0x42ae7d), so logos.txt, a copy of intro's, shows nothing.
+ */
 std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string &movie);
 
-// Text broken into rows no wider than `width` as the game breaks it: at
-// spaces, two kept after a sentence's end (game_text.cpp).
+/**
+ * Text broken into rows no wider than `width` as the game breaks it: at
+ * spaces, two kept after a sentence's end (game_text.cpp).
+ */
 std::vector<std::string> gameRows(ttf::Font &font, float pixels, const std::string &text, int width);
-// A line, a choice or a subtitle as the game draws it: whole, as written,
-// when it's no wider than `width` (no second space after a sentence: its
-// width measured first, 0x43dbfa, And Then There Were None's 0x434c26);
-// else its gameRows.
+/**
+ * A line, a choice or a subtitle as the game draws it: whole, as written,
+ * when it's no wider than `width` (no second space after a sentence: its
+ * width measured first, 0x43dbfa, And Then There Were None's 0x434c26);
+ * else its gameRows.
+ */
 std::vector<std::string> lineRows(ttf::Font &font, float pixels, const std::string &text, int width);
 
 } // namespace reluva::awe

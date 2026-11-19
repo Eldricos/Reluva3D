@@ -14,6 +14,7 @@
 
 namespace reluva::awe {
 
+/** A scene's camera, from its CAMR record. */
 struct SceneCamera {
     // vertical, radians
     float fovY = 0.785f;
@@ -23,40 +24,54 @@ struct SceneCamera {
     float elevAzimRoll[3] = {0, 0, 0}; // radians
     float offset[3] = {0, 0, 0};       // from that point, in the camera's axes
 
+    /** The camera of a CAMR record (its fov, near, far, x/y/z, pitch/yaw/roll and offsets). */
     static SceneCamera fromRecord(const Ac2Record &camr);
 
-    // World to camera: back by the offset, the rotation's inverse, then
-    // the position's inverse. The rotation is azimuth about Y, then
-    // elevation about X, then roll about Z; the camera looks down -Z.
+    /**
+     * World to camera: the position taken off, the rotation undone, then
+     * back by the offset. The rotation is azimuth about Y, then elevation
+     * about X, then roll about Z; the camera looks down -Z.
+     */
     gfx::Mat4 view() const;
-    // For gfx's depth range (0 near, 1 far).
+    /**
+     * The perspective, for gfx's depth range (0 near, 1 far); a near plane
+     * of 0 or less is taken as 1, and a far one not past it as 10000.
+     */
     gfx::Mat4 projection(float aspect = 4.0f / 3.0f) const;
+    /** projection() times view(). */
     gfx::Mat4 viewProjection(float aspect = 4.0f / 3.0f) const;
-    // Where the camera is: the position, plus the offset turned.
+    /** Where the camera is: the position, plus the offset turned. */
     gfx::Vec3 eye() const;
-    // Where a world point lands on a width x height screen (pixels, y
-    // down); false if it's behind the camera.
+    /** Where a world point lands on a width x height screen (pixels, y down); false if it's behind the camera. */
     bool project(const float world[3], int width, int height, float &x, float &y) const;
-    // The ray through a screen point (pixels, y down) from the eye, in
-    // the world, as GrannyGetPickingRay gives it (its direction not of
-    // unit length).
+    /**
+     * The ray through a screen point (pixels, y down) from the eye, in
+     * the world, as GrannyGetPickingRay gives it (its direction not of
+     * unit length).
+     */
     void ray(float sx, float sy, int width, int height, gfx::Vec3 &from, gfx::Vec3 &dir) const;
-    // Where the ray through a screen point (pixels, y down) meets the
-    // floor (y = 0), as the game finds where a click lands
-    // (GrannyGetPickingRay, then the floor plane: motoe.exe 0x406f20);
-    // false if it doesn't.
+    /**
+     * Where the ray through a screen point (pixels, y down) meets the
+     * floor (y = 0), as the game finds where a click lands
+     * (GrannyGetPickingRay, then the floor plane: motoe.exe 0x406f20);
+     * false if it doesn't.
+     */
     bool floorAt(float sx, float sy, int width, int height, float &x, float &z) const;
 };
 
-// The game turns every model to its own axes when it loads it
-// (GrannyComputeBasisConversion: right +X, up +Y, back +Z, the file's own
-// units), from 3D Studio MAX's (up +Z, back -Y): (x, y, z) -> (x, z, -y).
-// Then a character stands at its position, turned by rotY about Y.
+/**
+ * The game turns every model to its own axes when it loads it
+ * (GrannyComputeBasisConversion: right +X, up +Y, back +Z, the file's own
+ * units), from 3D Studio MAX's (up +Z, back -Y): (x, y, z) -> (x, z, -y).
+ * Then a character stands at its position, turned by rotY about Y.
+ */
 gfx::Mat4 characterMatrix(float x, float y, float z, float rotY);
-// The same with the object's pitch (rotX), roll (rotZ) and scale, as the
-// game places a model (0x425e60): the basis conversion, then
-// D3DXMatrixTransformation's scaling, the rotation (yaw rotY, pitch rotX,
-// roll rotZ) and the position.
+/**
+ * The same with the object's pitch (rotX), roll (rotZ) and scale, as the
+ * game places a model (0x425e60): the basis conversion, then
+ * D3DXMatrixTransformation's scaling, the rotation (yaw rotY, pitch rotX,
+ * roll rotZ) and the position.
+ */
 gfx::Mat4 characterMatrix(float x, float y, float z, float rotX, float rotY, float rotZ, const float scale[3]);
 
 } // namespace reluva::awe
