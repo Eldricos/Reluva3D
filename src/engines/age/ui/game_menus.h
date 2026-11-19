@@ -65,26 +65,28 @@ public:
     void open(Screen s);
     Screen screen() const { return _screen; }
     bool isOpen() const { return _screen != Screen::kNone; }
-    // A dialog over the menu that opened it (drawn first).
+    /** A dialog over the menu that opened it (drawn first). */
     bool isDialog() const { return isOpen() && overlay(_screen); }
     Action handle(const Event &ev);
     void draw(Surface &overlay, uint64_t nowMs);
     bool typing() const;
-    // After a replay: ask whether to save it, under this name.
+    /** After a replay: ask whether to save it, under this name. */
     void askToSaveReplay(const std::string &name);
-    // Save the replay played as (the replay's own Save).
+    /** Save the replay played as (the replay's own Save). */
     void nameReplay(const std::string &name);
-    // The drivers and their records, for the driver dialogs (and the
-    // cities, for the records' tables).
+    /**
+     * The drivers and their records, for the driver dialogs (and the
+     * cities, for the records' tables).
+     */
     void setDrivers(DriverRoster *roster, PlayerRecord *record, const std::vector<CityInfo> *cities) {
         _roster = roster;
         _record = record;
         _cities = cities;
     }
-    // The race menu's choice, for Change Race Options and Race Locales.
+    /** The race menu's choice, for Change Race Options and Race Locales. */
     void setFrontEnd(FrontEnd *front) { _front = front; }
     const std::filesystem::path &replayFile() const { return _replayFile; }
-    // A recording to say now (the time or weather chosen, an alert), once.
+    /** A recording to say now (the time or weather chosen, an alert), once. */
     std::string takeVoice() { return std::exchange(_voice, std::string()); }
     const std::string &replayName() const { return _name; }
 

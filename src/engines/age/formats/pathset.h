@@ -12,10 +12,12 @@
 
 namespace reluva::age {
 
-// Paths for things that move about a city by themselves (.pathset,
-// "PTH1", race/<city>/): ferries, boats and ducks on the water, the
-// leaves of drawbridges, parked cars and trains. See
-// docs/engines/age/games/mm2/formats/pathset.md.
+/**
+ * Paths for things that move about a city by themselves (.pathset,
+ * "PTH1", race/<city>/): ferries, boats and ducks on the water, the
+ * leaves of drawbridges, parked cars and trains. See
+ * docs/engines/age/games/mm2/formats/pathset.md.
+ */
 struct PathsetPath {
     std::string name;  // as stored: a model, maybe after "open:" or "inactive:"
     std::string model; // without the prefix
@@ -29,13 +31,15 @@ struct PathsetPath {
     float speed() const { return float(end >> 8 & 0xff) / 10; } // m/s, as Reluva reads it
 };
 
-// Reads as many whole paths as there are (one retail file stops short).
+/** Reads as many whole paths as there are (one retail file stops short). */
 Error readPathset(const std::vector<uint8_t> &data, std::vector<PathsetPath> &out);
 
-// A city's paths of a kind (race/<map>/<map>_<kind>.pathset: "ferry",
-// "parkedcar"...), with a race's own (<map>_<kind>_<variant>.pathset) over
-// them: a race's path for the same model starting within 5 m of one of the
-// city's takes its place, the rest are added. Missing files give none.
+/**
+ * A city's paths of a kind (race/<map>/<map>_<kind>.pathset: "ferry",
+ * "parkedcar"...), with a race's own (<map>_<kind>_<variant>.pathset) over
+ * them: a race's path for the same model starting within 5 m of one of the
+ * city's takes its place, the rest are added. Missing files give none.
+ */
 std::vector<PathsetPath> readCityPaths(const SearchSet &files, const std::string &map, const std::string &kind,
                                        const std::string &variant = "");
 

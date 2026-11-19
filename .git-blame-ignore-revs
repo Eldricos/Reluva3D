@@ -52,3 +52,4 @@ b365a3532418422b1e4113216ef69124acb071e3 # Rename: the shared code the age branc
 c6ea55278d722da89fb33390177f10ad6b667650 # Format: the age branch's sources with main's .clang-format
 b3822e453d237958c8fcc4ac7a7906264b915c25 # Format: the age tests and tools
 3875df3b4618d1a901621097764dab0775001934 # Split: the age engine's last members declared several to a line
+cb61f467764f543ca75ea672f6a8b1dee9bfc689 # Doxygen: age's headers and 5 shared ones, // blocks above public declarations made /** */

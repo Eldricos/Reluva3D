@@ -25,7 +25,7 @@ struct PkgVertex {
     float uv[2] = {};
 };
 
-// Triangles drawn with one shader.
+/** Triangles drawn with one shader. */
 struct PkgGroup {
     uint32_t shader = 0; // index within a paint job's shaders
     std::vector<PkgVertex> vertices;
@@ -37,7 +37,7 @@ struct PkgMesh {
     uint32_t fvf = 0; // Direct3D's flexible vertex format the vertices were stored in
     std::vector<PkgGroup> groups;
 
-    // "BODY_H" -> part "BODY", level "H"; a mesh named just "H" has part "".
+    /** "BODY_H" -> part "BODY", level "H"; a mesh named just "H" has part "". */
     std::string part() const;
     std::string level() const;
 };
@@ -54,7 +54,7 @@ struct PkgShader {
     float shininess = 0;
 };
 
-// A model placed inside this one (a light, a door), by name.
+/** A model placed inside this one (a light, a door), by name. */
 struct PkgXref {
     std::string name;
     std::array<float, 12> matrix{}; // three axes, then the position
@@ -77,17 +77,21 @@ struct Pkg {
 
 Error readPkg(const std::vector<uint8_t> &data, Pkg &out);
 
-// Whether a model's part is one the game shows only when it's lit: a
-// car's lamps and their glows (HEADLIGHT0, HLIGHT, TLIGHT, BLIGHT,
-// RLIGHT, SLIGHT0, SIREN0, SRN0), a traffic light's (REDGLOWDAY...) and a
-// crossing's signs (WALK_NIGHT...).
+/**
+ * Whether a model's part is one the game shows only when it's lit: a
+ * car's lamps and their glows (HEADLIGHT0, HLIGHT, TLIGHT, BLIGHT,
+ * RLIGHT, SLIGHT0, SIREN0, SRN0), a traffic light's (REDGLOWDAY...) and a
+ * crossing's signs (WALK_NIGHT...).
+ */
 bool isLightPart(const std::string &part);
 
-// The box round a model's body at its finest level: its unnamed meshes (or
-// BODY's) at H if it has them, else M, else L. False if it has none.
+/**
+ * The box round a model's body at its finest level: its unnamed meshes (or
+ * BODY's) at H if it has them, else M, else L. False if it has none.
+ */
 bool bodyBounds(const Pkg &pkg, Vec3 &low, Vec3 &high);
 
-// A part's placement (.mtx, next to the model: <model>_<part>.mtx).
+/** A part's placement (.mtx, next to the model: <model>_<part>.mtx). */
 struct Mtx {
     // the part's bounds as modelled
     Vec3 min{};

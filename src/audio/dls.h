@@ -16,7 +16,7 @@ namespace reluva::audio {
 // waves, with articulations (envelopes, LFO) as connection blocks. See
 // docs/common/audio/dls.md.
 
-// How a wave is played: its root key and tuning, gain and loop.
+/** How a wave is played: its root key and tuning, gain and loop. */
 struct DlsSampleInfo {
     int unityNote = 60; // the key it plays at as recorded
     int fineTune = 0;   // cents
@@ -34,7 +34,7 @@ struct DlsWave {
     std::string name;
 };
 
-// One connection: a source (and a control) scaled into a destination.
+/** One connection: a source (and a control) scaled into a destination. */
 struct DlsConnection {
     uint16_t source = 0;
     uint16_t control = 0;
@@ -71,8 +71,10 @@ struct DlsCollection {
     std::vector<DlsWave> waves;
     std::string name;
 
-    // The instrument for a bank and program (bank as DlsInstrument::bank,
-    // with kDrums), or null.
+    /**
+     * The instrument for a bank and program (bank as DlsInstrument::bank,
+     * with kDrums), or null.
+     */
     const DlsInstrument *find(uint32_t bank, uint32_t program) const;
 };
 

@@ -18,12 +18,14 @@
 
 namespace reluva::age {
 
-// The things that move by themselves along a city's path sets
-// (race/<city>/<city>_ferry, _sailboat, _bridge and _train.pathset):
-// ferries, tugs, water taxis, sailboards and ducks going round their
-// paths, drawbridges whose leaves rise and fall (and the gates that stand
-// still), and London's Underground trains. The way they move is Reluva's;
-// see docs/engines/age/games/mm2/systems/boats-and-bridges.md.
+/**
+ * The things that move by themselves along a city's path sets
+ * (race/<city>/<city>_ferry, _sailboat, _bridge and _train.pathset):
+ * ferries, tugs, water taxis, sailboards and ducks going round their
+ * paths, drawbridges whose leaves rise and fall (and the gates that stand
+ * still), and London's Underground trains. The way they move is Reluva's;
+ * see docs/engines/age/games/mm2/systems/boats-and-bridges.md.
+ */
 class Gizmos {
 public:
     Gizmos() = default;
@@ -44,39 +46,49 @@ public:
     static constexpr float kTrainAccel = 1;
     static constexpr float kTrainStand = 15;
 
-    // The city's files, and a race's (<city>_bridge_<variant>.pathset...)
-    // over them where it has its own: a path in both, the same model
-    // starting within 5 m, is the race's.
-    // With `mixer`, the trains are heard (aud/ambient/subwaycar.csv's loop).
+    /**
+     * The city's files, and a race's (<city>_bridge_<variant>.pathset...)
+     * over them where it has its own: a path in both, the same model
+     * starting within 5 m, is the race's.
+     * With `mixer`, the trains are heard (aud/ambient/subwaycar.csv's loop).
+     */
     Error load(const SearchSet &files, const std::string &map, const std::string &variant = "",
                audio::Mixer *mixer = nullptr);
     void clear();
 
-    // Moves them, and puts the leaves' road surfaces in `world` (as
-    // moving triangles); the trains are heard from `listener`.
+    /**
+     * Moves them, and puts the leaves' road surfaces in `world` (as
+     * moving triangles); the trains are heard from `listener`.
+     */
     void update(float dt, CollisionWorld &world, const Vec3 &listener = {});
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye) const;
-    // Lines of solid road users across each bridge that isn't down, and
-    // along each train, for the traffic to stop at.
+    /**
+     * Lines of solid road users across each bridge that isn't down, and
+     * along each train, for the traffic to stop at.
+     */
     void users(std::vector<RoadUser> &out) const;
-    // A driven car against the trains (which don't give); returns the
-    // hardest knock (change of speed, m/s), 0 if none.
+    /**
+     * A driven car against the trains (which don't give); returns the
+     * hardest knock (change of speed, m/s), 0 if none.
+     */
     float collide(CarSim &car) const;
-    // The trains shove the traffic out of their way.
+    /** The trains shove the traffic out of their way. */
     void push(Traffic &traffic) const;
 
-    // A triangle of the city across a drawbridge's gap (its middle under a
-    // leaf, near the road): taken out where the leaves are.
+    /**
+     * A triangle of the city across a drawbridge's gap (its middle under a
+     * leaf, near the road): taken out where the leaves are.
+     */
     bool inGap(const Vec3 &a, const Vec3 &b, const Vec3 &c) const;
 
     size_t boats() const { return _boats.size(); }
     size_t bridges() const { return _bridges.size(); }
     size_t trains() const { return _trains.size(); }
-    // Where a train's first carriage is, and how fast it's going.
+    /** Where a train's first carriage is, and how fast it's going. */
     Vec3 trainPosition(size_t train) const { return _trains[train].carriages.front().center; }
     float trainSpeed(size_t train) const { return _trains[train].speed; }
-    // 0 down .. 1 up, for a bridge.
+    /** 0 down .. 1 up, for a bridge. */
     float raised(size_t bridge) const { return _bridges[bridge].raised; }
 
 private:
@@ -131,7 +143,7 @@ private:
         std::vector<Carriage> carriages;
         float span() const { return float(kCarriages) * length + float(kCarriages - 1) * gap; }
         Vec3 velocity() const;
-        // Spheres of `radius` along its carriages, for knocking the traffic.
+        /** Spheres of `radius` along its carriages, for knocking the traffic. */
         std::vector<Vec3> spheres(float radius) const;
     };
     struct Bounds {

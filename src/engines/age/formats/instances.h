@@ -12,8 +12,10 @@
 
 namespace reluva::age {
 
-// A model placed in a city (.inst: city/sf.inst, city/london.inst). See
-// docs/engines/age/games/mm2/formats/inst.md.
+/**
+ * A model placed in a city (.inst: city/sf.inst, city/london.inst). See
+ * docs/engines/age/games/mm2/formats/inst.md.
+ */
 struct Instance {
     uint16_t block = 0; // the PSDL block it stands in
     uint16_t flags = 0; // meaning not known yet

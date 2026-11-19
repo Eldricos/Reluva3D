@@ -20,18 +20,20 @@
 
 namespace reluva::age {
 
-// A city the menus offer: tune/<name>.cinfo's MapName and LocalizedName.
+/** A city the menus offer: tune/<name>.cinfo's MapName and LocalizedName. */
 struct CityInfo {
     std::string map;  // the files' stem: "sf"
     std::string name; // "San Francisco"
 };
 
-// Every city whose .cinfo and .psdl are there.
+/** Every city whose .cinfo and .psdl are there. */
 std::vector<CityInfo> findCities(const SearchSet &files);
 
-// A city ready to draw: its streets and buildings (PSDL), the models its
-// .inst places, its sky dome and one of its 16 lightings. Shared by the
-// pages that show a city.
+/**
+ * A city ready to draw: its streets and buildings (PSDL), the models its
+ * .inst places, its sky dome and one of its 16 lightings. Shared by the
+ * pages that show a city.
+ */
 class CityScene {
 public:
     CityScene(gfx::Renderer3D &renderer, const SearchSet &files);
@@ -41,57 +43,77 @@ public:
 
     Error load(const std::string &map);
 
-    // 0-15: time (morning, noon, evening, night) x 4 + weather (clear,
-    // cloudy, foggy, rainy), as .lt00-.lt15 and the sky dome's paint jobs.
+    /**
+     * 0-15: time (morning, noon, evening, night) x 4 + weather (clear,
+     * cloudy, foggy, rainy), as .lt00-.lt15 and the sky dome's paint jobs.
+     */
     void setLighting(int index);
     int lighting() const { return _lighting; }
     std::string lightingName() const;
     const SceneLight &light() const { return _light; }
-    // Lamps lit: in the evening and at night, and in fog and rain.
+    /** Lamps lit: in the evening and at night, and in fog and rain. */
     bool lampsLit() const { return _lighting / 4 >= 2 || _lighting % 4 >= 2; }
-    // The warning lights the landmarks' xrefs mark (`sp_light_red_f`,
-    // `sp_light_white_f`: a tiny untextured triangle each), as flares
-    // while the lamps are lit (pkg.md).
+    /**
+     * The warning lights the landmarks' xrefs mark (`sp_light_red_f`,
+     * `sp_light_white_f`: a tiny untextured triangle each), as flares
+     * while the lamps are lit (pkg.md).
+     */
     void drawBeacons(const FlareDrawer &flares, const Vec3 &eye) const;
     size_t beacons() const { return _beacons.size(); }
     bool night() const { return _lighting / 4 == 3; }
 
-    // Draws the sky round `eye`, the city, then (if `models`) the placed
-    // models in view; returns how many models were drawn. Between
-    // Renderer3D::beginFrame and endFrame. With visibility on, only the
-    // blocks the city's .cpvs says can be seen from the eye's block (and
-    // the models in them) are drawn. `again`: a second view in the same
-    // frame (a mirror), with the blocks chosen for the first.
+    /**
+     * Draws the sky round `eye`, the city, then (if `models`) the placed
+     * models in view; returns how many models were drawn. Between
+     * Renderer3D::beginFrame and endFrame. With visibility on, only the
+     * blocks the city's .cpvs says can be seen from the eye's block (and
+     * the models in them) are drawn. `again`: a second view in the same
+     * frame (a mirror), with the blocks chosen for the first.
+     */
     size_t draw(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, bool models, bool again = false);
-    // Brightens the city's opaque surfaces drawn by draw() with `lights`
-    // (the nearest gfx::kMaxDynamicLights to `eye`): headlights on the road.
+    /**
+     * Brightens the city's opaque surfaces drawn by draw() with `lights`
+     * (the nearest gfx::kMaxDynamicLights to `eye`): headlights on the road.
+     */
     void drawDynamicLights(std::vector<gfx::DynamicLight> lights, const gfx::Vec3 &eye);
-    // Stops drawing the city's triangles `drop` says to (what lies across
-    // a drawbridge's gap); for good, until the next load().
+    /**
+     * Stops drawing the city's triangles `drop` says to (what lies across
+     * a drawbridge's gap); for good, until the next load().
+     */
     void hide(const std::function<bool(const Vec3 &a, const Vec3 &b, const Vec3 &c)> &drop);
 
-    // Culling by the city's visibility file (on by default, where there is
-    // one).
+    /**
+     * Culling by the city's visibility file (on by default, where there is
+     * one).
+     */
     void setVisibility(bool on) { _visibilityOn = on; }
-    // The Graphics Options: the textured sky (else the fog's colour behind
-    // the city), how far placed models are drawn, and their detail (1 the
-    // finest: a level is chosen as if they were 1/detail further away).
+    /**
+     * The Graphics Options: the textured sky (else the fog's colour behind
+     * the city), how far placed models are drawn, and their detail (1 the
+     * finest: a level is chosen as if they were 1/detail further away).
+     */
     void setSkyShown(bool on) { _skyShown = on; }
-    // Cloud Shadows (the Graphics Options): 0 none, 1 low (still), 2 high
-    // (drifting with the wind by day). At night, the night tile's pools.
+    /**
+     * Cloud Shadows (the Graphics Options): 0 none, 1 low (still), 2 high
+     * (drifting with the wind by day). At night, the night tile's pools.
+     */
     void setCloudShadows(int level) { _cloudShadows = level; }
     void setModelDistance(float metres) { _modelDistance = metres; }
     void setModelDetail(float detail) { _detail = detail; }
     bool visibility() const { return _visibilityOn && !_pvs.empty(); }
-    // The block the eye was last in (0: none, or visibility off), and how
-    // many blocks were drawn from it.
+    /**
+     * The block the eye was last in (0: none, or visibility off), and how
+     * many blocks were drawn from it.
+     */
     size_t viewBlock() const { return _viewBlock; }
     size_t blocksDrawn() const { return _blocksDrawn; }
-    // The block `p` stands in (on or over its ground, up to 30 m above its
-    // highest point), or 0.
+    /**
+     * The block `p` stands in (on or over its ground, up to 30 m above its
+     * highest point), or 0.
+     */
     size_t blockAt(const Vec3 &p) const;
 
-    // What was loaded, for the pages' info and the collision world.
+    /** What was loaded, for the pages' info and the collision world. */
     const std::vector<std::string> &notes() const { return _notes; }
     const Psdl &psdl() const { return _psdl; }
     const CityMesh &mesh() const { return _mesh; }
@@ -184,7 +206,7 @@ private:
     SceneLight _light;
 };
 
-// A city instance's matrix (three axes and a position) as a 4x4.
+/** A city instance's matrix (three axes and a position) as a 4x4. */
 gfx::Mat4 instanceMatrix(const std::array<float, 12> &m);
 
 } // namespace reluva::age

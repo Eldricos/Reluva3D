@@ -14,8 +14,10 @@
 
 namespace reluva::age {
 
-// A car in a scene: its simulation and its model, the wheels drawn where
-// the simulation has them. Shared by the pages that drive cars.
+/**
+ * A car in a scene: its simulation and its model, the wheels drawn where
+ * the simulation has them. Shared by the pages that drive cars.
+ */
 class CarActor {
 public:
     CarActor() = default;
@@ -23,7 +25,7 @@ public:
     CarActor &operator=(const CarActor &) = delete;
     ~CarActor() { unload(); }
 
-    // geometry/<car>.pkg and its simulation's files (loadCarSetup).
+    /** geometry/<car>.pkg and its simulation's files (loadCarSetup). */
     Error load(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files, const std::string &car,
                uint32_t paintJob);
     void unload();
@@ -41,22 +43,28 @@ public:
     // SIREN1, and flares at its SRN squares): 0 off, else 1 or 2 for which
     // half is lit.
     int siren = 0;
-    // Its lamps: headlights and tail lights, brake lights, reversing
-    // lights (HLIGHT, TLIGHT, BLIGHT, RLIGHT).
+    /**
+     * Its lamps: headlights and tail lights, brake lights, reversing
+     * lights (HLIGHT, TLIGHT, BLIGHT, RLIGHT).
+     */
     struct Lamps {
         bool head = false;
         bool brake = false;
         bool reverse = false;
     } lamps;
     bool hasSiren() const { return _sirens[0].mesh || !_sirenLamps.empty(); }
-    // Flares at its headlights (its HEADLIGHT squares) when they're on, and
-    // at its sirens, seen from `eye`.
+    /**
+     * Flares at its headlights (its HEADLIGHT squares) when they're on, and
+     * at its sirens, seen from `eye`.
+     */
     void drawFlares(const FlareDrawer &flares, const Vec3 &eye) const;
-    // Where its headlights light the road ahead, when they're on.
+    /** Where its headlights light the road ahead, when they're on. */
     bool headlightPool(gfx::DynamicLight &out) const;
-    // Damage: the body's parts within `radius` of a point (in the car's
-    // frame) take their damaged textures (<texture>_dmg), where they have
-    // them; mend() puts them back.
+    /**
+     * Damage: the body's parts within `radius` of a point (in the car's
+     * frame) take their damaged textures (<texture>_dmg), where they have
+     * them; mend() puts them back.
+     */
     void dent(const Vec3 &at, float radius);
     void mend();
 
@@ -76,7 +84,7 @@ private:
     std::vector<std::pair<Vec3, std::array<float, 3>>> _sirenLamps; // SRN squares: where, colour
 };
 
-// A car's cameras (tune/camera): near and far following it, and in it.
+/** A car's cameras (tune/camera): near and far following it, and in it. */
 struct CarCamera {
     bool inside = false; // in the car (camPovCS), else following it (camTrackCS)
     Vec3 offset{0, 1, 4};
@@ -132,14 +140,16 @@ struct CarCamera {
 };
 std::vector<CarCamera> loadCarCameras(const SearchSet &files, const std::string &car);
 
-// Where a camera puts the eye for a car this frame; `follow` keeps a
-// following camera's position between frames (`reset` jumps it there).
+/**
+ * Where a camera puts the eye for a car this frame; `follow` keeps a
+ * following camera's position between frames (`reset` jumps it there).
+ */
 struct CameraView {
     Vec3 eye{};
     Vec3 target{};
     Vec3 up{0, 1, 0};
 };
-// What a following camera keeps from frame to frame.
+/** What a following camera keeps from frame to frame. */
 struct CameraFollow {
     Vec3 position{};
     float rate = 0;       // its approach rate now
@@ -150,8 +160,10 @@ struct CameraFollow {
     float slope = 0; // the hill's sine it's tilted by
 };
 CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, CameraFollow &follow, bool reset);
-// A change of camera blended over the new one's BlendTime: start() with
-// the view before it, then each frame's view through apply().
+/**
+ * A change of camera blended over the new one's BlendTime: start() with
+ * the view before it, then each frame's view through apply().
+ */
 struct CameraBlend {
     CameraView from;
     float left = 0;
@@ -163,7 +175,7 @@ struct CameraBlend {
     CameraView apply(const CameraView &to, float dt);
 };
 
-// The 4x4 of a rotation and a position.
+/** The 4x4 of a rotation and a position. */
 gfx::Mat4 matrixOf(const Mat3 &r, const Vec3 &p);
 
 } // namespace reluva::age

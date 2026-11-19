@@ -21,7 +21,7 @@ namespace reluva::age {
 
 class HelpViewer {
 public:
-    // Reads the help; false (and why) if it isn't there or can't be read.
+    /** Reads the help; false (and why) if it isn't there or can't be read. */
     Error load(const SearchSet &files);
     bool loaded() const { return !_list.empty(); }
 
@@ -30,8 +30,10 @@ public:
     void handle(const Event &ev); // closes itself on Esc from the list
     void draw(Surface &overlay) const;
 
-    // For tests: the topic being read (-1: the list), its links (each the
-    // topic it goes to), the one chosen.
+    /**
+     * For tests: the topic being read (-1: the list), its links (each the
+     * topic it goes to), the one chosen.
+     */
     int reading() const { return _reading; }
     const std::vector<int> &links() const { return _links; }
     int chosenLink() const { return _link; }
