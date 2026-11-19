@@ -1,0 +1,9 @@
+# The record of unreal.engine (tests/engines/unreal/engine.cpp).
+# Written by `reluva-tests unreal.engine --update`; review its diff before committing.
+detect.empty: 0
+detect.games: 1
+detect.game: ds9fallen
+packages.names: Core Engine Walls
+packages.warning: Search path ../Maps/*.dsm: no such folder
+ini.local_map: Title.dsm
+texture.brick: 4x2 fe669295fc4e385c

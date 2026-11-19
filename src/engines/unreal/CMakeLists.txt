@@ -68,3 +68,20 @@ reluva_add_engine_tools(unreal
     SOURCES
         tools/commands.cpp
         tools/soft_renderer.cpp)
+
+# Its tests (tests/engines/unreal/), in reluva-tests: the unit tests by
+# topic, on packages built in the tests, and the engine test, without game
+# files (a small install of its own; its record in data/engine-record.txt).
+# See docs/DEVELOPMENT.md (Tests).
+set(tests ${PROJECT_SOURCE_DIR}/tests/engines/unreal)
+reluva_add_engine_tests(unreal
+    SOURCES
+        ${tests}/unit/packages.cpp
+        ${tests}/unit/textures.cpp
+        ${tests}/unit/sounds.cpp
+        ${tests}/unit/levels.cpp
+        ${tests}/unit/meshes.cpp
+        ${tests}/unit/script.cpp
+        ${tests}/engine.cpp
+    TOPICS
+        unit.packages unit.textures unit.sounds unit.levels unit.meshes unit.script engine)
