@@ -39,7 +39,7 @@ constexpr uint32_t kInvalidHandle = 0xffffffffu;
 
 } // namespace
 
-// --- Arena ---------------------------------------------------------------------
+// Arena.
 
 Arena::Arena(Cpu &cpu, uint32_t start, uint32_t end) : _cpu(cpu) {
     if (end > start)
@@ -93,7 +93,7 @@ uint32_t Arena::alloc(uint32_t size, uint32_t align) {
         const uint32_t aligned = (start + align - 1) & ~(align - 1);
         return !(aligned < start || uint64_t(aligned - start) + size > length);
     };
-    // The first fit (the lowest start that holds it), as walking free_ in
+    // The first fit (the lowest start that holds it), as walking _free in
     // order finds it: the first of each bucket whose sizes all hold it, and
     // the blocks of the buckets that may, in order up to that.
     const uint64_t surely = uint64_t(size) + align - 1;
@@ -171,7 +171,7 @@ uint32_t Arena::freeBytes() const {
     return n;
 }
 
-// --- The process ---------------------------------------------------------------
+// The process.
 
 uint32_t Win32Process::Module::exportAddress(const std::string &function) const {
     for (const PeImage::Export &e : image.exports)
@@ -235,7 +235,7 @@ Win32Process::Win32Process(Cpu &cpu, std::string exeName, bool loadsExe, bool st
     addStandIns();
 }
 
-// --- Threads
+// Threads.
 
 namespace {
 constexpr uint32_t kThreadStackSize = 1u << 20;
@@ -564,7 +564,7 @@ Error Win32Process::attach(const Module &m) {
     return Error::success();
 }
 
-// --- KERNEL32's stand-ins ---------------------------------------------------------
+// KERNEL32's stand-ins.
 
 void Win32Process::addStandIns() {
     Cpu &c = _cpu;
@@ -779,7 +779,8 @@ void Win32Process::addStandIns() {
     stdcall(k, "GetTickCount", 0, [this](Cpu &) { return milliseconds(); });
     stdcall("WINMM.dll", "timeGetTime", 0, [this](Cpu &) { return milliseconds(); });
 
-    // Files: only the standard handles, whose output is passed on.
+    // Files: the standard handles, whose output is passed on, and WriteFile
+    // to a file openFile opened; win32_files.cpp has the rest.
     stdcall(k, "GetStdHandle", 1, [](Cpu &c) {
         const int32_t which = int32_t(c.arg(0));
         return which >= -12 && which <= -10 ? kStdHandles + uint32_t(-10 - which) : kInvalidHandle;

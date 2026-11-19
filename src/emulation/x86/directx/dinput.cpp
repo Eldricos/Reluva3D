@@ -127,8 +127,8 @@ public:
     std::vector<Object> objects;
     uint32_t dataSize = 0;
     bool relative = true;
-    // The device's state.
-    // position; movement since last read
+    // The device's state: each axis's position, and its movement since the
+    // last read.
     int axes[3]{};
     int motion[3]{};
     bool buttons[8]{};

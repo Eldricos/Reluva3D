@@ -97,7 +97,7 @@ std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) cons
                               std::max(0, w->height - f.top - f.bottom)};
 }
 
-// --- Input
+// Input.
 
 bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
     // Scan codes of the letters a to z, and of the digits 1 to 9 then 0, on
@@ -303,7 +303,7 @@ void Win32Process::addUserStandIns() {
         c.write32(p + 12, uint32_t(bottom));
     };
 
-    // --- Classes and windows
+    // Classes and windows.
     // RegisterClassA(WNDCLASSA*): the procedure is at +4, the name at +36.
     stdcall(u, "RegisterClassA", 1, [this](Cpu &c) {
         const uint32_t p = c.arg(0);
@@ -492,7 +492,7 @@ void Win32Process::addUserStandIns() {
         }
     });
 
-    // --- Messages
+    // Messages.
     stdcall(u, "PostMessageA", 4, [this](Cpu &c) {
         postMessage(c.arg(0), c.arg(1), c.arg(2), c.arg(3));
         return 1u;
@@ -594,7 +594,7 @@ void Win32Process::addUserStandIns() {
         }
     });
 
-    // --- Icons, cursors and the mouse pointer
+    // Icons, cursors and the mouse pointer.
     stdcall(u, "LoadIconA", 2, [](Cpu &c) { return kResourceHandles + (c.arg(1) & 0xffff); });
     stdcall(u, "LoadCursorA", 2, [](Cpu &c) { return kResourceHandles + (c.arg(1) & 0xffff); });
     stdcall(u, "SetCursor", 1, [](Cpu &) { return 0u; });
@@ -632,7 +632,7 @@ void Win32Process::addUserStandIns() {
     stdcall(u, "GetKeyState", 1, keyState);
     stdcall(u, "GetAsyncKeyState", 1, keyState);
 
-    // --- Device contexts
+    // Device contexts.
     stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
     stdcall(u, "ReleaseDC", 2, [](Cpu &) { return 1u; });
     // GetDeviceCaps(dc, index): the desktop's.

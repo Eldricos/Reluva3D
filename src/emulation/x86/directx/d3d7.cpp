@@ -44,8 +44,8 @@ void writeMatrix(Cpu &c, uint32_t p, const Matrix &m) {
         c.write32(p + 4 * i, asBits(m[i]));
 }
 
-// The devices offered, best first as programs expect to find them listed
-// last: software emulation, then the hardware one.
+// The devices offered, in the order programs expect, the best last:
+// software emulation, then the hardware one.
 struct DeviceKind {
     const char *description;
     const char *name;
@@ -154,7 +154,7 @@ VertexLayout::VertexLayout(uint32_t fvf) {
     size = at;
 }
 
-// --- IDirect3D7 (on the DirectDraw object)
+// IDirect3D7 (on the DirectDraw object)
 
 // Direct3D 7 puts the calling thread's FPU in single precision (24 bits),
 // when it makes a device and when it's called, unless the program asked it
@@ -244,7 +244,7 @@ std::optional<uint32_t> DirectDraw::invoke3d(const ComInterface &iface, int inde
     return std::nullopt;
 }
 
-// --- Vertex buffers
+// Vertex buffers.
 
 VertexBuffer::~VertexBuffer() {
     if (s && memory)
@@ -277,7 +277,7 @@ std::optional<uint32_t> VertexBuffer::invoke(const ComInterface &iface, int inde
     return std::nullopt;
 }
 
-// --- The device's states
+// The device's states.
 
 Device::Device(DirectX::State *state, std::shared_ptr<Surface> renderTarget) : target(std::move(renderTarget)) {
     s = state;
