@@ -68,9 +68,12 @@ add_library(reluva_common STATIC
     src/common/audio/decode.cpp
     src/common/audio/mixer.cpp
     src/common/audio/mp3.cpp
+    src/common/audio/tracker.cpp
     src/common/audio/wav.cpp
     src/common/font.cpp
-    src/common/text.cpp)
+    src/common/text.cpp
+    src/common/video/avi.cpp
+    src/common/video/cinepak.cpp)
 target_include_directories(reluva_common PUBLIC src)
 # Third-party headers (third_party/, see each README) as system includes, so
 # our warnings don't apply to them.

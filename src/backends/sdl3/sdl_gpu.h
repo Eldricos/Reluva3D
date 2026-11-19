@@ -31,6 +31,7 @@ public:
     Error createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
                         gfx::TextureId& out) override;
     void destroyTexture(gfx::TextureId id) override;
+    Error updateTextures(const std::vector<gfx::TextureRegion>& regions) override;
     Error createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
                      gfx::MeshId& out) override;
     void destroyMesh(gfx::MeshId id) override;
@@ -45,11 +46,18 @@ public:
         lights_.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
                                                                              gfx::kMaxDynamicLights));
     }
+    void setVolumeLights(const std::vector<gfx::DynamicLight>& lights) override {
+        volumes_.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
+                                                                              gfx::kMaxDynamicLights));
+    }
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override;
     void clearDepth() override;
+    void clearDepthAndStencil() override;
+    bool clearStencil_ = false; // clearDepth clears the marks too
     bool hasStencil() const override { return hasStencil_; }
-    void setStencilMode(StencilMode mode) override;
+    void setStencilMode(StencilMode mode, uint8_t level = 1) override;
+    uint8_t stencilRef_ = 1; // the reference the mode compares with
     void setMirrored(bool mirrored) override { mirrored_ = mirrored; }
     void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
@@ -114,7 +122,7 @@ private:
     SDL_GPUGraphicsPipeline* boundPipeline_ = nullptr;
     gfx::MeshId boundMesh_ = 0;
     int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
-    std::vector<gfx::DynamicLight> lights_;
+    std::vector<gfx::DynamicLight> lights_, volumes_;
 };
 
 } // namespace reluva

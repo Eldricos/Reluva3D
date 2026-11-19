@@ -37,12 +37,15 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 texVec1;  // xyz: for v
     vec4 color;
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
-                   // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
+                   // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting, 4 shadow), w: fog distance (0 off)
     vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions
-    vec4 ambient;  // xyz: ambient light for the lighting colour source
-    vec4 directed; // xyz: directed light
+    vec4 ambient;  // xyz: ambient light for the lighting colour source; shadow: the light, w its reach
+    vec4 directed; // xyz: directed light; shadow: x strength, y most darkness
     vec4 lightDir; // xyz: towards the light, world space
     DeformData deforms[2];
+    vec4 vlPos[6];   // vertex lights (gfx::kMaxVertexLights): xyz, radius
+    vec4 vlColor[6];
+    vec4 vlParams;   // x: how many, y: scale, z: specular, w: 1 lit as surfaces are
 };
 
 const float TAU = 6.28318530718;
@@ -75,8 +78,48 @@ float wave(float func, float base, float amp, float phase, float freq, float t) 
     return base + amp * v;
 }
 
-vec4 source(float which, vec4 vertexColor, vec3 normal) {
+vec4 source(float which, vec4 vertexColor, vec3 normal, vec3 world) {
     int w = int(which + 0.5);
+    if (w == 4) {
+        float off = abs(distance(world, ambient.xyz) - ambient.w);
+        float dark = off > 0.0 ? min(directed.x / off, directed.y) : directed.y;
+        return vec4(vec3(1.0 - dark), 1.0);
+    }
+    if (w == 3 && vlParams.x > 0.5) {
+        // UE1's actor lighting (gfx::DrawCall::vertexLights).
+        vec3 sum = vec3(0.0);
+        vec3 view = world - eye.xyz;
+        float viewLen = length(view);
+        for (int i = 0; i < 6; ++i) {
+            if (float(i) >= vlParams.x)
+                break;
+            vec3 d = vlPos[i].xyz - world;
+            float dist = length(d);
+            if (vlParams.w > 0.5) { // as surfaces are lit
+                if (vlColor[i].w > 0.5) {
+                    float f = length(d.xy) / vlPos[i].w;
+                    if (f < 1.0)
+                        sum += vlColor[i].rgb * (1.0 - f * f);
+                } else {
+                    float f = dist / vlPos[i].w;
+                    if (f < 1.0 && dist > 0.0)
+                        sum += vlColor[i].rgb * ((1.0 - 3.0 * f * f + 2.0 * f * f * f) * max(dot(d, normal) / dist, 0.0));
+                }
+                continue;
+            }
+            float fall = 1.0 - dist / vlPos[i].w;
+            if (fall <= 0.0 || dist <= 0.0)
+                continue;
+            float c = dot(d, normal) / dist + 1.0;
+            float amount = max(c * c - 1.5, 0.0);
+            vec3 mirrored = vlPos[i].xyz - 2.0 * dot(normal, d) * normal;
+            float s = dot(mirrored - world, view) * vlParams.z;
+            if (s > 0.0 && viewLen > 0.0)
+                amount += 6.0 * s * s / (dist * dist * viewLen * viewLen);
+            sum += vlColor[i].rgb * (amount * fall);
+        }
+        return vec4(min(ambient.rgb + vlParams.y * sum, vec3(1.0)), 1.0);
+    }
     if (w == 3)
         return vec4(clamp(ambient.rgb + directed.rgb * max(dot(normal, lightDir.xyz), 0.0), 0.0, 1.0), 1.0);
     return w == 1 ? vertexColor : (w == 2 ? vec4(1.0) - vertexColor : vec4(1.0));
@@ -97,7 +140,8 @@ void main() {
             pos += deforms[i].c.xyz * wave(deforms[i].a.y, deforms[i].a.z, deforms[i].a.w, deforms[i].b.x, deforms[i].b.y, t);
         }
     }
-    vec3 world = mode2.x > 0.5 ? pos + eye.xyz : (model * vec4(pos, 1.0)).xyz;
+    vec4 placed = model * vec4(pos, 1.0);
+    vec3 world = mode2.x > 0.5 ? pos + eye.xyz : placed.xyz / placed.w; // w: 1 but for a projection (a planar shadow)
     vec3 normal = normalize(mat3(model) * baseNormal);
 
     vec2 uv;
@@ -123,9 +167,9 @@ void main() {
     h = vec3(uv, 1.0);
     outUv = vec2(dot(postRow0.xyz, h), dot(postRow1.xyz, h));
 
-    outColor = vec4(source(mode.y, inColor, normal).rgb, source(mode.z, inColor, normal).a) * color;
-    if (mode.w > 0.0)
-        outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
-    outWorld = world;
     gl_Position = viewProj * vec4(world, 1.0);
+    outColor = vec4(source(mode.y, inColor, normal, world).rgb, source(mode.z, inColor, normal, world).a) * color;
+    if (mode.w > 0.0) // fog: by depth in the view (Direct3D's table fog)
+        outColor = vec4(color.rgb, clamp(gl_Position.w / mode.w, 0.0, 1.0));
+    outWorld = world;
 }

@@ -50,6 +50,27 @@ public:
 
     void setVolume(SoundHandle handle, int volume);
     void setPan(SoundHandle handle, int pan);
+    // Its speed and pitch together: 1 as recorded, 2 an octave up.
+    void setPitch(SoundHandle handle, double pitch);
+    // How muffled it is, 0 (as recorded) to 1: a low-pass filter whose
+    // cutoff falls to about a kilohertz (a sound heard through a wall).
+    void setMuffle(SoundHandle handle, float muffle);
+    // A 2nd-order Butterworth filter on it: low-pass or high-pass at
+    // `hz` (clamped to 20 Hz - half the output rate); kind None removes it.
+    enum class Filter { None, LowPass, HighPass };
+    void setFilter(SoundHandle handle, Filter kind, float hz);
+    // A reverb on it (a Schroeder reverb: four combs, two all-passes),
+    // `mix` of it wet (0 none): `seconds` for its tail to fall 60 dB,
+    // the wet sound low-passed at `dampHz`, after `predelay` seconds.
+    // `tail`: how long it goes on through silence once the sound has
+    // ended (not looping), its echoes dying away.
+    struct Reverb {
+        float mix = 0, seconds = 3, dampHz = 5000, predelay = 0, tail = 0;
+    };
+    void setReverb(SoundHandle handle, const Reverb& reverb);
+    // Moves it to `frame` of its own frames (past the end: it ends, or
+    // wraps if it loops).
+    void seek(SoundHandle handle, double frame);
     void setTypeVolume(SoundType type, int volume);
     int typeVolume(SoundType type) const;
 
@@ -67,8 +88,34 @@ private:
         int volume, pan;
         bool loop;
         double position = 0; // in the sound's frames
+        double pitch = 1;
+        float muffle = 0;
+        double lowL = 0, lowR = 0; // the low-pass filter's last output
         bool done = false;
+        // A biquad's coefficients and its state per side (x1 x2 y1 y2).
+        struct Biquad {
+            double a0 = 1, a1 = 0, a2 = 0, b1 = 0, b2 = 0;
+            double state[2][4] = {};
+            double run(int side, double x);
+        };
+        Filter filter = Filter::None;
+        float filterHz = 0;
+        Biquad biquad;
+        struct ReverbState {
+            Reverb params;
+            Biquad damp;
+            std::vector<double> pre;
+            size_t preAt = 0;
+            std::vector<double> comb[4];
+            size_t combAt[4] = {};
+            double combGain[4] = {};
+            std::vector<double> pass1, pass2[2];
+            size_t pass1At = 0, pass2At[2] = {};
+        };
+        std::shared_ptr<ReverbState> reverb; // none: dry
+        double tailLeft = -1;                // output frames of reverb tail still to go (-1: not begun)
     };
+    void setUpReverb(Channel& c, const Reverb& r) const;
     Channel* find(SoundHandle handle);
     const Channel* find(SoundHandle handle) const;
 
