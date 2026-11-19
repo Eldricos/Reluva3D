@@ -224,7 +224,10 @@ behind the DLL's own tables.
    fight. `cairn_bay` plays to `cairn_assembly` by the tour (from the
    opening's end, sparing Luke) then a route riding the lift to the
    exit. `cairn_assembly` plays to `cairn_reactor` and `cairn_reactor`
-   to `cairn_dock1` by the tour, nothing new needed. Next: the next levels the same way, and a console on the page.
+   to `cairn_dock1` by the tour, nothing new needed. `cairn_dock1`, a
+   stealth level whose alarms end in a capture, plays to `doom_comm` by
+   the tour with the game's `notarget` cheat, so no guard raises one.
+   Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

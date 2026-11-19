@@ -349,10 +349,15 @@ yet: a console on the page.
   -next` plays it to `maptransition cairn_reactor`, nothing new needed.
 - **cairn_reactor:** `sp-run cairn_reactor -tour 5000 -set helpUsObi 1
   -next` plays it to `maptransition cairn_dock1`, nothing new needed.
-- **cairn_dock1 (not through yet):** a stealth level. A guard who sees
-  Kyle sends an officer running to an alarm button; the alarm brings the
-  capture scene (`imprisoned`), which kills Kyle and fails the mission,
-  so the tour's open fighting doesn't get through. Things found on the
+- **cairn_dock1:** a stealth level. A guard who sees Kyle sends an
+  officer running to an alarm button; the alarm brings the capture
+  scene (`imprisoned`), which kills Kyle and fails the mission, so the
+  tour's open fighting doesn't get through. With the game's `notarget`
+  cheat (`-cmd notarget`) no guard sees him, and `sp-run cairn_dock1
+  -tour 5000 -cmd notarget -spare cairn_vertical -set helpUsObi 1 -next`
+  plays it to `maptransition doom_comm` (cinematic 26 and the movie
+  `jk07` on the way); `-spare cairn_vertical` leaves out a lift's
+  trigger where the player was crushed. Things found on the
   way: a spot over an electrified floor (a `trigger_hurt` whose damage
   isn't stopped by god mode) kills a player dropped there, so the tour
   now counts a spot over a hurt with nothing solid between as in it, and
