@@ -89,7 +89,12 @@ per-frame `Update`), as read from them; the code is Reluva's own.
     fed a quarter of the first on the left, 0.15 on the right. The
     rooms are EAX 1's 26 (Room: 0.417 wet, 0.4 s; Hangar: 0.5, 10 s;
     Underwater: 1, 1.5 s, all damped). The zones' `bReverbZone`,
-    `MasterGain`, `CutoffHz`, `Delay` and `Gain` aren't read. A flat
+    `bRaytraceReverb`, `SpeedOfSound`, `MasterGain`, `CutoffHz`,
+    `Delay` and `Gain` aren't read, by Reluva or the original: Miles.dll's
+    `RenderAudioGeometry` (0x10608790) reads only the listener's zone's
+    `bWaterZone`, `ZoneRoomType` and `ZoneRoomFactor`, calling
+    `AIL_set_3D_room_type` when the room changes, and Engine.dll only
+    sends `bReverbZone` to network clients. A flat
     sound and the music have none. Once a sound's data has run out its
     reverb goes on through silence: the provider streams it in 32 KB
     buffers and pads with silence until the sixth refill, about five

@@ -61,9 +61,6 @@ full playthrough's recording has been
 
 - **Meshes with no float copy** are given the usual import turn
   (KiraCellLight's) ([mesh.md](formats/mesh.md)).
-- **Which MP3 the game plays when:** the music cues in
-  `Sounds/Music.uax` and the maps' scripts, presumably
-  ([sound.md](formats/sound.md), [sound.md](systems/sound.md)).
 
 ## Settled
 

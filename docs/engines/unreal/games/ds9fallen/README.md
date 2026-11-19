@@ -47,9 +47,13 @@ nothing here can fill: no dialogue table for mission 12.
 
 ### Speed
 
-M10_WorfL1A, the slowest map, runs 20 seconds of play in about 12.5 to
-15 of CPU in `unreal play`, which prepares every frame for drawing.
-M03_KiraL2 takes about 5 (November 2026). The scripts alone
+M10_WorfL1A, the slowest map, runs 20 seconds of play in about 5.8 s of
+CPU in `unreal play`, which prepares every frame for drawing, after 0.8 s
+starting; M03_KiraL2 and M04_KiraL1 take about 2.5 (November 2026, on
+this container's CPU). Of a short run of M10, a quarter is the level's
+ticks (mostly scripts), a sixth preparing the draws, a tenth the
+procedural textures and 7% the sound (the music's MP3 decoding most);
+allocating and freeing the VM's values is about a tenth throughout. The scripts alone
 (`unreal run -all`) take at most 2.9 s for a map's 20 s, and 128 s for
 all 74 maps. What's left most is posing and lighting the characters for
 drawing, the HUD's scripts and the viewer's own text. The work done so
