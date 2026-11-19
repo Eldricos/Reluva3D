@@ -15,7 +15,7 @@ namespace reluva::age {
 class CarSim;
 
 /**
- * The game's HUD pictures (texture/*.tga, made for a 640 x 480 screen),
+ * The game's HUD pictures (texture/<name>.tga, made for a 640 x 480 screen),
  * where the game puts them (measured on its own screens, see
  * docs/engines/age/games/mm2/systems/hud.md): bottom left the speed (DIGITAC_*), the
  * gear (DIGITAC_GEAR_*), the revs (SPEED_TICKS) and the damage meter

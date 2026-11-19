@@ -22,7 +22,7 @@ struct TuneNode;
 
 /**
  * How particles are made: a birth rule, as a .vehCarDamage, the props'
- * .dgBangerData (its BirthRule block) and tune/effects/*.asBirthRule have
+ * .dgBangerData (its BirthRule block) and tune/effects/<name>.asBirthRule have
  * them.
  */
 struct BirthRule {
@@ -145,7 +145,7 @@ public:
     void burst(const BirthRule &rule, const Vec3 &at, const Vec3 &velocity, const Look &look);
     /**
      * What a car's wheels throw up from what they're on (the surfaces'
-     * particles): tune/effects/*.asBirthRule, by Reluva's reading of the
+     * particles): tune/effects/<name>.asBirthRule, by Reluva's reading of the
      * materials' effect numbers (see docs/engines/age/games/mm2/systems/damage.md).
      */
     void loadWheelEffects(const SearchSet &files);
