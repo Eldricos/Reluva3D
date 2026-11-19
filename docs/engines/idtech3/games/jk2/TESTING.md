@@ -51,8 +51,8 @@
   (bespin_undercity: the tour, then the R5 droid's drive to the exit
   lift; bespin_streets by the tour; bespin_platform by the tour then
   its route, the doors' console and Tavion's fight), `jk2-sp-cairn`
-  (cairn_bay: the tour, then the lift to the exit; cairn_assembly by
-  the tour). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  (cairn_bay: the tour, then the lift to the exit; cairn_assembly and
+  cairn_reactor by the tour). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

@@ -58,7 +58,7 @@
 #                 tour; bespin_platform by the tour, then its route (the
 #                 doors' console, cinematic 22, Tavion).
 #   jk2-sp-cairn  cairn_bay: the tour, then its route (the lift to the
-#                 exit); cairn_assembly by the tour.
+#                 exit); cairn_assembly and cairn_reactor by the tour.
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -159,6 +159,8 @@ elseif(STEP STREQUAL "jk2-sp-cairn")
                -spare cinematic24_luke -spare cinematic25_luke -spare run_remove
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/cairn_bay.txt" -fixedclock -set helpUsObi 1 -next)
     record_run(cairn_assembly "ran 100 frames" idtech3 sp-run "${base}" cairn_assembly -tour 5000 -fixedclock
+               -set helpUsObi 1 -next)
+    record_run(cairn_reactor "ran 100 frames" idtech3 sp-run "${base}" cairn_reactor -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)

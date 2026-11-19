@@ -347,6 +347,8 @@ yet: a console on the page.
   -set helpUsObi 1 -next` plays it to `maptransition cairn_assembly`.
 - **cairn_assembly:** `sp-run cairn_assembly -tour 5000 -set helpUsObi 1
   -next` plays it to `maptransition cairn_reactor`, nothing new needed.
+- **cairn_reactor:** `sp-run cairn_reactor -tour 5000 -set helpUsObi 1
+  -next` plays it to `maptransition cairn_dock1`, nothing new needed.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split
