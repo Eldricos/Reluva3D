@@ -369,7 +369,10 @@ yet: a console on the page.
   -next` plays it to `maptransition yavin_canyon`, nothing new needed.
 - **yavin_canyon:** `sp-run yavin_canyon -tour 5000 -set helpUsObi 1
   -next` plays it to `maptransition yavin_courtyard`, nothing new
-  needed. Things found on the
+  needed.
+- **yavin_courtyard:** `sp-run yavin_courtyard -tour 5000 -set
+  helpUsObi 1 -next` plays it to `maptransition yavin_final`, nothing
+  new needed. Things found on the
   way: a spot over an electrified floor (a `trigger_hurt` whose damage
   isn't stopped by god mode) kills a player dropped there, so the tour
   now counts a spot over a hurt with nothing solid between as in it, and

@@ -54,8 +54,8 @@
   (cairn_bay: the tour, then the lift to the exit; cairn_assembly and
   cairn_reactor by the tour; cairn_dock1 by the tour with `notarget`),
   `jk2-sp-doom` (doom_comm, doom_detention and doom_shields by the
-  tour), `jk2-sp-yavin-assault` (yavin_swamp and yavin_canyon by the
-  tour). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  tour), `jk2-sp-yavin-assault` (yavin_swamp, yavin_canyon and
+  yavin_courtyard by the tour). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover
