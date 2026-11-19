@@ -2,7 +2,7 @@
 
 Which of a city's PSDL blocks ([psdl.md](psdl.md)) can be seen from
 which: `city/sf.cpvs` and `city/london.cpvs`, with the files they were
-made from beside them. Read by `src/engines/age/pvs.cpp`; the scene draws
+made from beside them. Read by `src/engines/age/formats/pvs.cpp`; the scene draws
 only the blocks seen from the eye's block, and the models standing in
 them.
 

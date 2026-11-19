@@ -2,7 +2,7 @@
 
 Midtown Madness 2's models, `geometry/*.pkg` in `mm2core.ar` (1,040 of
 them: cars, buildings, props, bridges), with `.mtx` files placing their
-parts. Read by `src/engines/age/pkg.cpp`; `reluva-tool pkg-info` shows
+parts. Read by `src/engines/age/formats/pkg.cpp`; `reluva-tool pkg-info` shows
 one or reads a game's.
 
 ## How this was worked out

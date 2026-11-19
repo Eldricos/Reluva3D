@@ -119,13 +119,13 @@
 #include "engines/newworlds/model_render.h"
 #endif
 #ifdef RELUVA_ENGINE_AGE
-#include "engines/age/ar_archive.h"
-#include "engines/age/city_mesh.h"
+#include "engines/age/formats/ar_archive.h"
+#include "engines/age/render/city_mesh.h"
 #include "engines/age/filesystem.h"
-#include "engines/age/instances.h"
-#include "engines/age/psdl.h"
-#include "engines/age/pkg.h"
-#include "engines/age/texture.h"
+#include "engines/age/formats/instances.h"
+#include "engines/age/formats/psdl.h"
+#include "engines/age/formats/pkg.h"
+#include "engines/age/formats/texture.h"
 #endif
 #include "graphics/font.h"
 #include "common/fs.h"

@@ -2,7 +2,7 @@
 
 Models' collision shapes, `bound/<model>_BOUND.bnd` in `mm2core.ar` (525
 files: every car, props, landmarks; building fronts have none). Read by
-`src/engines/age/bound.cpp`. `.bbnd` (324) is the same in binary, read
+`src/engines/age/formats/bound.cpp`. `.bbnd` (324) is the same in binary, read
 where there's no `.bnd`; `.ter` (184) is a grid and edge data for a bound, not read.
 
 ## How this was worked out

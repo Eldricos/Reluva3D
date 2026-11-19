@@ -249,7 +249,7 @@ then, its band's instruments on its own channels.
 ## Replays
 
 The game's instant replay, and replays kept: Reluva's own files
-(`engines/age/replay.h`).
+(`engines/age/formats/replay.h`).
 
 **What a replay is.** It's the race run again, not a film of it. Every
 race (and lesson) is recorded as it's driven:

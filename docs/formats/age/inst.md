@@ -2,7 +2,7 @@
 
 The models a city places (buildings, lamp posts, bridges, signs):
 `city/sf.inst` (3,763) and `city/london.inst` (1,997) in `mm2core.ar`.
-Read by `src/engines/age/instances.cpp`.
+Read by `src/engines/age/formats/instances.cpp`.
 
 ## How this was worked out
 

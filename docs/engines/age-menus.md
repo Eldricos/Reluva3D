@@ -130,7 +130,7 @@ Every screen has the navigation bar at the top right, where the
 The game keeps its options in the Windows registry. Reluva keeps them
 in its own file, `options.txt` in the game's save folder: lines of a
 name and a value (`effectsvolume 0.8`, `key throttle 256 119`), read
-when the Race and Drive pages open. See `engines/age/options.h`.
+when the Race and Drive pages open. See `engines/age/game/options.h`.
 
 | Screen | Background | What's there |
 |---|---|---|

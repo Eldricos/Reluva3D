@@ -5,7 +5,7 @@
 
 // Small vector and 3x3 matrix helpers for the simulation and collisions.
 
-#include "engines/age/pkg.h"
+#include "engines/age/formats/pkg.h"
 
 #include <cmath>
 

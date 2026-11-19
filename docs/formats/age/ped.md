@@ -5,7 +5,7 @@ The people on the sidewalks: four models (`pedmodel_man`, `_manw`,
 on a skeleton of 19 bones, and 66 animations shared by the men and by the
 women. All in `mm2core.ar`'s `anim/` folder, but the colours, which are
 in the models' packages (`geometry/pedmodel_*.pkg`). Read by
-`src/engines/age/ped_model.cpp`.
+`src/engines/age/render/ped_model.cpp`.
 
 Worked out from the files (all but the animations are text) and by
 drawing the result with Reluva's renderer until walkers walked.

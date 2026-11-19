@@ -3,7 +3,7 @@
 The game's text: `mmlang.dll` in the install folder, a Windows DLL whose
 only resources are string tables (42 of them, 667 strings, in English in
 the retail release). Read by `src/common/pe.cpp` (`readPeStrings`) and
-`src/engines/age/lang.cpp`; nothing in it is run.
+`src/engines/age/formats/lang.cpp`; nothing in it is run.
 
 ## How this was worked out
 

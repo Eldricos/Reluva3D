@@ -4,7 +4,7 @@
 #include "engines/age/filesystem.h"
 
 #include "common/fs.h"
-#include "engines/age/ar_archive.h"
+#include "engines/age/formats/ar_archive.h"
 
 #include <algorithm>
 #include <memory>

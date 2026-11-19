@@ -2,7 +2,7 @@
 
 `city/sf.bai` and `city/london.bai` in `mm2core.ar`: each city's roads as
 the computer-driven cars see them, with their lanes, sidewalks and tram
-lines, and the junctions joining them. Read by `src/engines/age/bai.cpp`.
+lines, and the junctions joining them. Read by `src/engines/age/formats/bai.cpp`.
 
 Worked out from the two files alone, with a few lines of throwaway
 Python: guessing at a field's size, parsing every road with that guess,

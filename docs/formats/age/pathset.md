@@ -7,7 +7,7 @@ moving things use them: `race/<city>/<city>_ferry.pathset`,
 their own (`<city>_bridge_race0.pathset`, `london_ferry_crash9.pathset`,
 ...), and the cities' and races' props, decals and checkpoint layouts
 use the same form (`city/<city>/props.pathset`, `race/<city>/circuit0.pathset`,
-...). Read by `src/engines/age/pathset.cpp`. Worked out from the files:
+...). Read by `src/engines/age/formats/pathset.cpp`. Worked out from the files:
 86 of them in the archives, plus 15 in backup folders (`city/sf/bak/`).
 
 ## Layout

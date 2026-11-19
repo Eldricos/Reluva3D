@@ -1,0 +1,777 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// Ambient traffic on the road map (bai.h) as the aimap settles it
+// (aimap.h); the rules are Reluva's, described in
+// docs/engines/age-traffic.md.
+
+#include "engines/age/game/traffic.h"
+
+#include "engines/age/render/car_actor.h"
+#include "engines/age/formats/pkg.h"
+#include "engines/age/formats/tune.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace reluva::age {
+
+namespace {
+
+constexpr float kPi = 3.14159265358979f;
+constexpr float kAccel = 3;          // m/s^2
+constexpr float kBrake = 7;          // m/s^2
+constexpr float kLook = 30;          // metres ahead it slows for others
+constexpr float kGap = 3;            // metres kept behind what's ahead
+constexpr float kSpawnNear = 140;    // out of sight: no nearer than this
+constexpr float kSpawnFar = 300;
+constexpr float kForget = 340;       // left out beyond this
+constexpr float kPiece = 20;         // metres: the lanes are counted in pieces this long at most
+constexpr float kNearAgain = 20;     // metres the focus moves before the lane near it is counted again
+constexpr float kHoldLimit = 6;      // seconds held at a junction before going anyway
+constexpr float kLooseFriction = 6;  // m/s^2 slowing a knocked car
+constexpr float kLaneChange = 2.5f;  // seconds moving across to another lane
+constexpr float kSignalTurn = 40;    // metres before a junction it indicates its turn
+
+float flat(const Vec3& v) { return std::sqrt(v[0] * v[0] + v[2] * v[2]); }
+
+std::vector<float> distances(const std::vector<Vec3>& points) {
+    std::vector<float> at(points.size(), 0);
+    for (size_t i = 1; i < points.size(); ++i)
+        at[i] = at[i - 1] + length(points[i] - points[i - 1]);
+    return at;
+}
+
+float yawOf(const Vec3& heading) { return std::atan2(-heading[0], -heading[2]); }
+
+} // namespace
+
+Vec3 pointAlong(const std::vector<Vec3>& points, const std::vector<float>& at, float s, Vec3* heading) {
+    if (points.empty())
+        return {};
+    if (points.size() == 1) {
+        if (heading)
+            *heading = {0, 0, -1};
+        return points[0];
+    }
+    s = std::clamp(s, 0.0f, at.back());
+    size_t i = size_t(std::upper_bound(at.begin(), at.end(), s) - at.begin());
+    i = std::clamp<size_t>(i, 1, points.size() - 1);
+    const float seg = at[i] - at[i - 1];
+    const float t = seg > 1e-4f ? (s - at[i - 1]) / seg : 0;
+    if (heading) {
+        // Smoothed over a few metres either side, so it turns rather than
+        // snapping at each point.
+        const Vec3 a = pointAlong(points, at, std::max(0.0f, s - 2), nullptr);
+        const Vec3 b = pointAlong(points, at, std::min(at.back(), s + 2), nullptr);
+        const Vec3 d = b - a;
+        *heading = length(d) > 1e-3f ? normalized(d) : normalized(points[i] - points[i - 1]);
+    }
+    return points[i - 1] + (points[i] - points[i - 1]) * t;
+}
+
+void TrafficNetwork::build(const AiRoadMap& map, const AiMapSettings& settings) {
+    lanes_.clear();
+    leaving_.assign(map.junctions.size(), {});
+    roadsAt_.clear();
+    for (const AiJunction& j : map.junctions)
+        roadsAt_.push_back(j.roads.size());
+    for (const AiRoad& road : map.roads) {
+        float speed = settings.speedLimit > 0 ? settings.speedLimit : road.speedLimit;
+        bool spawns = true;
+        float share = 1;
+        for (const auto& e : settings.exceptions)
+            if (e.road == road.id) {
+                spawns = e.density > 0;
+                share = std::max(0.0f, e.density);
+                if (e.speedLimit > 0)
+                    speed = e.speedLimit;
+            }
+        for (int side = 0; side < 2; ++side) {
+            // The lanes are stored the way they're driven where traffic
+            // keeps right (side 1's from the road's first point to its
+            // last, side 0's back); where it keeps left, the other way.
+            const bool forward = (side == 1) != settings.driveOnLeft;
+            int previous = -1; // the lane beside, across the road
+            for (const auto& points : road.sides[size_t(side)].lanes) {
+                if (points.size() < 2) {
+                    previous = -1;
+                    continue;
+                }
+                TrafficLane lane;
+                lane.road = road.id;
+                lane.side = side;
+                lane.points = points;
+                if (settings.driveOnLeft)
+                    std::reverse(lane.points.begin(), lane.points.end());
+                lane.at = distances(lane.points);
+                lane.from = road.ends[forward ? 1 : 0].junction;
+                lane.to = road.ends[forward ? 0 : 1].junction;
+                lane.toSlot = road.ends[forward ? 0 : 1].slot;
+                lane.toEnd = forward ? 0 : 1;
+                lane.control = road.ends[size_t(lane.toEnd)].control;
+                lane.speed = speed;
+                // Roads flagged 0x2 (the Underground's, some ramps and
+                // alleys: none has a sidewalk) are Reluva's reading of
+                // roads not for traffic.
+                lane.open = !(road.flags & 2);
+                lane.spawns = spawns && lane.open;
+                lane.share = lane.spawns ? share : 0;
+                if (lane.length() < 1) {
+                    previous = -1;
+                    continue;
+                }
+                // Across the road from side 0's middle outwards, or from
+                // a one-way road's left: which is left as driven depends on
+                // the way it runs.
+                const int me = int(lanes_.size());
+                if (previous >= 0) {
+                    const Vec3 heading = lane.points[1] - lane.points[0];
+                    const Vec3 toPrevious = lanes_[size_t(previous)].points.front() - lane.points.front();
+                    const bool previousOnRight = heading[0] * toPrevious[2] - heading[2] * toPrevious[0] > 0;
+                    (previousOnRight ? lane.right : lane.left) = previous;
+                    (previousOnRight ? lanes_[size_t(previous)].left : lanes_[size_t(previous)].right) = me;
+                }
+                previous = me;
+                leaving_[lane.from].push_back(uint32_t(lanes_.size()));
+                lanes_.push_back(std::move(lane));
+            }
+        }
+    }
+}
+
+void Traffic::setup(const SearchSet& files, const AiRoadMap& map, const AiMapSettings& settings, uint32_t seed) {
+    network_.build(map, settings);
+    holders_.assign(network_.junctions(), {});
+    clear();
+    kinds_.clear();
+    rng_.seed(seed);
+    for (const auto& a : settings.ambients)
+        if (files.has("geometry/" + a.model + ".pkg"))
+            kinds_[size_t(kindOf(files, a.model))].upTo = a.upTo;
+    ambient_ = kinds_.size();
+    // The lanes in pieces of up to 20 m.
+    pieces_.clear();
+    near_.clear();
+    nearFrom_ = {1e9f, 0, 1e9f};
+    const auto& lanes = network_.lanes();
+    for (uint32_t li = 0; li < lanes.size(); ++li) {
+        const TrafficLane& l = lanes[li];
+        if (!l.spawns || l.share <= 0)
+            continue;
+        const int n = std::max(1, int(std::ceil(l.length() / kPiece)));
+        for (int k = 0; k < n; ++k) {
+            Piece p;
+            p.lane = li;
+            p.from = l.length() * float(k) / float(n);
+            p.to = l.length() * float(k + 1) / float(n);
+            p.middle = pointAlong(l.points, l.at, (p.from + p.to) / 2);
+            p.weight = (p.to - p.from) * l.share;
+            pieces_.push_back(p);
+        }
+    }
+}
+
+void Traffic::findNear(const Vec3& focus) {
+    // Again once the focus has moved on a little.
+    if (flat(focus - nearFrom_) < kNearAgain)
+        return;
+    nearFrom_ = focus;
+    near_.clear();
+    nearLane_ = 0;
+    for (uint32_t i = 0; i < pieces_.size(); ++i)
+        if (flat(pieces_[i].middle - focus) < kForget) {
+            near_.push_back(i);
+            nearLane_ += pieces_[i].weight;
+        }
+}
+
+size_t Traffic::carsWanted(const Vec3& focus) {
+    findNear(focus);
+    const float cars = std::clamp(density_, 0.0f, 1.0f) * nearLane_ / kLaneAtFull;
+    return std::min<size_t>(size_t(std::lround(cars)), size_t(std::max(0, carLimit_)));
+}
+
+int Traffic::kindOf(const SearchSet& files, const std::string& model) {
+    for (size_t i = 0; i < kinds_.size(); ++i)
+        if (kinds_[i].model == model)
+            return int(i);
+    Kind k;
+    k.model = model;
+    std::vector<uint8_t> data;
+    TuneNode root;
+    Pkg pkg;
+    Vec3 low, high;
+    if (!files.read("tune/vehicle/" + model + ".aiVehicleData", data) &&
+        !parseTune(std::string(data.begin(), data.end()), root) && !root.children.empty()) {
+        const TuneNode& n = root.children.front();
+        for (size_t i = 0; i < 3; ++i)
+            k.size[i] = n.number("Size", i, k.size[i]);
+        k.mass = n.number("Mass", 0, k.mass);
+    } else if (!files.read("geometry/" + model + ".pkg", data) && !readPkg(data, pkg) &&
+               bodyBounds(pkg, low, high)) {
+        // A parked car without settings (London's sp_pcar): its body's size.
+        k.size = high - low;
+    }
+    kinds_.push_back(k);
+    return int(kinds_.size()) - 1;
+}
+
+bool Traffic::besideLane(const Vec3& a, const Vec3& b) const {
+    const Vec3 middle = (a + b) * 0.5f;
+    Vec3 dir = b - a;
+    dir[1] = 0;
+    if (flat(dir) < 1e-3f)
+        return false;
+    dir = dir * (1 / flat(dir));
+    for (const TrafficLane& l : network_.lanes())
+        for (size_t i = 0; i + 1 < l.points.size(); ++i) {
+            Vec3 seg = l.points[i + 1] - l.points[i];
+            seg[1] = 0;
+            const float len = flat(seg);
+            if (len < 1e-3f)
+                continue;
+            seg = seg * (1 / len);
+            const Vec3 rel = middle - l.points[i];
+            const float t = rel[0] * seg[0] + rel[2] * seg[2];
+            const float side = std::fabs(rel[0] * seg[2] - rel[2] * seg[0]);
+            if (t > -2 && t < len + 2 && side < 5 && std::fabs(rel[1]) < 3 &&
+                std::fabs(dir[0] * seg[0] + dir[2] * seg[2]) > 0.85f)
+                return true;
+        }
+    return false;
+}
+
+void Traffic::park(const SearchSet& files, const std::vector<PathsetPath>& lines,
+                   const std::vector<std::string>& models) {
+    std::erase_if(cars_, [](const Car& c) { return c.parked; });
+    parked_ = 0;
+    std::vector<int> pool;
+    for (const std::string& m : models)
+        if (files.has("geometry/" + m + ".pkg"))
+            pool.push_back(kindOf(files, m));
+    if (pool.empty())
+        for (size_t i = 0; i < ambient_; ++i)
+            if (kinds_[i].mass <= 3000)
+                pool.push_back(int(i));
+    for (const PathsetPath& l : lines) {
+        if (l.points.size() < 2)
+            continue;
+        int own = -1;
+        if (l.model.rfind("PATH", 0) != 0) {
+            if (!files.has("geometry/" + l.model + ".pkg"))
+                continue;
+            own = kindOf(files, l.model);
+        } else if (pool.empty()) {
+            continue;
+        }
+        const std::vector<float> at = distances(l.points);
+        // Along a road (by the curb), nose to tail with the gap the end
+        // word's second byte gives in tenths of a metre, as Reluva reads it
+        // (see pathset.md); elsewhere (a car park's row of bays) side by
+        // side, a metre apart, facing right of the line.
+        const bool curb = besideLane(l.points.front(), l.points.back());
+        const float gap = curb ? std::clamp(float(l.end >> 8 & 0xff) / 10, 0.5f, 30.0f) : 1;
+        for (float s = gap / 2;;) {
+            const int kind = own >= 0 ? own : pool[rng_() % pool.size()];
+            const float len = kinds_[size_t(kind)].size[curb ? 2 : 0];
+            if (s + len > at.back())
+                break;
+            if (rng_() % 6 != 0) { // a space left here and there
+                Car c;
+                c.kind = kind;
+                c.paintJob = uint32_t(rng_() % 8);
+                c.parked = true;
+                Vec3 along;
+                c.position = pointAlong(l.points, at, s + len / 2, &along);
+                c.heading = curb ? along : normalized(cross(along, Vec3{0, 1, 0}));
+                c.yaw = yawOf(c.heading);
+                cars_.push_back(std::move(c));
+                ++parked_;
+            }
+            s += len + gap;
+        }
+    }
+}
+
+int Traffic::pickKind() {
+    const float r = std::uniform_real_distribution<float>(0, 1)(rng_);
+    for (size_t i = 0; i < ambient_; ++i)
+        if (r < kinds_[i].upTo)
+            return int(i);
+    return int(ambient_) - 1;
+}
+
+std::vector<uint32_t> TrafficNetwork::waysOn(int lane) const {
+    const TrafficLane& l = lanes_[size_t(lane)];
+    const auto& out = leaving_[l.to];
+    std::vector<uint32_t> ways;
+    for (int pass = 0; pass < 3 && ways.empty(); ++pass)
+        for (uint32_t k : out)
+            if ((pass == 2 || lanes_[k].road != l.road) && (pass > 0 || lanes_[k].open))
+                ways.push_back(k);
+    return ways;
+}
+
+int Traffic::pickNext(int lane) {
+    // On to another road, an open one if there is (back along the same
+    // road only if that's the only way).
+    const std::vector<uint32_t> ways = network_.waysOn(lane);
+    if (ways.empty())
+        return -1;
+    return int(ways[std::uniform_int_distribution<size_t>(0, ways.size() - 1)(rng_)]);
+}
+
+void Traffic::startOn(Car& c, int lane, float s) {
+    const TrafficLane& l = network_.lanes()[size_t(lane)];
+    c.lane = lane;
+    c.crossing = false;
+    c.path = l.points;
+    c.at = l.at;
+    c.s = s;
+    c.maxSpeed = l.speed * c.pace;
+    c.nextLane = pickNext(lane);
+    c.gaveWay = false;
+    // Which way the next lane turns from this one.
+    c.turn = 0;
+    if (c.nextLane >= 0) {
+        const TrafficLane& n = network_.lanes()[size_t(c.nextLane)];
+        const Vec3 d0 = normalized(l.points.back() - l.points[l.points.size() - 2]);
+        const Vec3 d1 = normalized(n.points[1] - n.points[0]);
+        const float y = d0[2] * d1[0] - d0[0] * d1[2]; // < 0 turning right
+        c.turn = y < -0.4f ? 1 : y > 0.4f ? -1 : 0;
+    }
+}
+
+void Traffic::enterJunction(Car& c) {
+    // A curve from the end of this lane to the start of the next, as long
+    // as the gap between, slowed for how sharply it turns.
+    const TrafficLane& from = network_.lanes()[size_t(c.lane)];
+    const TrafficLane& to = network_.lanes()[size_t(c.nextLane)];
+    const Vec3 p0 = from.points.back(), p1 = to.points.front();
+    Vec3 d0 = normalized(from.points.back() - from.points[from.points.size() - 2]);
+    Vec3 d1 = normalized(to.points[1] - to.points[0]);
+    const float span = std::max(1.0f, length(p1 - p0));
+    std::vector<Vec3> curve;
+    for (int i = 0; i <= 10; ++i) {
+        const float t = float(i) / 10, t2 = t * t, t3 = t2 * t;
+        curve.push_back(p0 * (2 * t3 - 3 * t2 + 1) + d0 * ((t3 - 2 * t2 + t) * span) + p1 * (-2 * t3 + 3 * t2) +
+                        d1 * ((t3 - t2) * span));
+    }
+    const float turn = std::acos(std::clamp(d0[0] * d1[0] + d0[2] * d1[2], -1.0f, 1.0f));
+    c.crossing = true;
+    c.path = std::move(curve);
+    c.at = distances(c.path);
+    c.s = 0;
+    c.maxSpeed = std::max(5.0f, from.speed * c.pace - (from.speed * c.pace - 6) * std::min(1.0f, turn / (kPi / 2)));
+}
+
+bool Traffic::tryHold(Car& c, uint32_t junction) {
+    // A junction is taken by the cars from one road at a time, or at a
+    // crossroads from two opposite roads (the junction lists its roads in
+    // order round it), as a green light would let them.
+    auto& h = holders_[junction];
+    const TrafficLane& mine = network_.lanes()[size_t(c.lane)];
+    const bool crossroads = network_.roadsAt(junction) == 4;
+    for (size_t lane : h) {
+        const TrafficLane& other = network_.lanes()[lane];
+        const bool together = other.road == mine.road || (crossroads && other.toSlot % 2 == mine.toSlot % 2);
+        if (!together && c.waited < kHoldLimit)
+            return false;
+    }
+    h.push_back(size_t(c.lane));
+    c.holding = int(junction);
+    return true;
+}
+
+bool Traffic::mayEnter(Car& c, bool canStop) {
+    // A red light (or amber where it can stop), a give-way end until it's
+    // stopped, then its turn at the junction.
+    const TrafficLane& l = network_.lanes()[size_t(c.lane)];
+    if (lights_ && l.control == 1 && lights_->has(l.road, l.toEnd)) {
+        const Signal s = lights_->signal(l.road, l.toEnd);
+        if (s == Signal::Red || (s == Signal::Yellow && canStop))
+            return false;
+    } else if (l.control == 0 && !c.gaveWay) {
+        if (c.speed > 0.5f || c.at.back() - c.s > 4)
+            return false;
+        c.gaveWay = true;
+    }
+    return tryHold(c, l.to);
+}
+
+void Traffic::changeLane(Car& c, const std::vector<RoadUser>& others) {
+    // Into a lane beside going the same way, if there's room there.
+    const TrafficLane& l = network_.lanes()[size_t(c.lane)];
+    for (int to : {l.left, l.right}) {
+        if (to < 0)
+            continue;
+        const TrafficLane& n = network_.lanes()[size_t(to)];
+        const float s = c.s * n.length() / std::max(1.0f, l.length());
+        Vec3 heading;
+        const Vec3 p = pointAlong(n.points, n.at, s, &heading);
+        bool clear = flat(p - c.position) < 8;
+        auto blocks = [&](const Vec3& q) {
+            const Vec3 rel = q - p;
+            const float along = rel[0] * heading[0] + rel[2] * heading[2];
+            return along > -15 && along < 20 && flat(rel - heading * along) < 2.5f;
+        };
+        for (const Car& o : cars_)
+            clear = clear && (&o == &c || !blocks(o.position));
+        for (const RoadUser& u : others)
+            clear = clear && !blocks(u.position);
+        if (!clear)
+            continue;
+        const Vec3 was = c.position;
+        startOn(c, to, s);
+        c.shift = was - p;
+        c.shiftLeft = 1;
+        const Vec3 right{-heading[2], 0, heading[0]};
+        c.indicate = dot(p - was, right) > 0 ? 1 : -1;
+        c.indicateTime = kLaneChange;
+        return;
+    }
+}
+
+void Traffic::release(Car& c) {
+    if (c.holding < 0)
+        return;
+    auto& h = holders_[size_t(c.holding)];
+    const auto it = std::find(h.begin(), h.end(), size_t(c.lane));
+    if (it != h.end())
+        h.erase(it);
+    c.holding = -1;
+}
+
+void Traffic::place(Car& c) {
+    Vec3 heading;
+    c.position = pointAlong(c.path, c.at, c.s, &heading) + c.shift * c.shiftLeft;
+    c.heading = heading;
+    c.yaw = yawOf(heading);
+}
+
+void Traffic::update(float dt, const Vec3& focus, const std::vector<RoadUser>& others, const CollisionWorld& world,
+                     bool fill) {
+    if (ambient_ == 0 || network_.lanes().empty())
+        return;
+    clock_ += dt;
+    // Leave out those far away.
+    for (size_t i = 0; i < cars_.size();) {
+        if (!cars_[i].parked && flat(cars_[i].position - focus) > kForget) {
+            release(cars_[i]);
+            cars_[i] = std::move(cars_.back());
+            cars_.pop_back();
+        } else {
+            ++i;
+        }
+    }
+    // Start new ones, out of sight unless filling: on a piece of lane
+    // within reach, each as likely as its length (and its lane's share).
+    const size_t wanted = carsWanted(focus);
+    const auto& lanes = network_.lanes();
+    std::vector<float> upTo;
+    if (count() < wanted) {
+        upTo.reserve(near_.size());
+        float sum = 0;
+        for (uint32_t i : near_)
+            upTo.push_back(sum += pieces_[i].weight);
+    }
+    for (int tries = fill ? 4000 : 200; tries > 0 && count() < wanted && !upTo.empty() && upTo.back() > 0; --tries) {
+        const float pick = std::uniform_real_distribution<float>(0, upTo.back())(rng_);
+        const Piece& piece =
+            pieces_[near_[size_t(std::upper_bound(upTo.begin(), upTo.end(), pick) - upTo.begin()) % near_.size()]];
+        const size_t li = piece.lane;
+        const TrafficLane& l = lanes[li];
+        const float s = std::uniform_real_distribution<float>(piece.from, piece.to)(rng_);
+        const Vec3 p = pointAlong(l.points, l.at, s);
+        const float d = flat(p - focus);
+        if (d > kSpawnFar || d < (fill ? 25 : kSpawnNear))
+            continue;
+        bool clear = true;
+        for (const Car& o : cars_)
+            clear = clear && (o.parked || flat(o.position - p) > 14);
+        for (const RoadUser& u : others)
+            clear = clear && flat(u.position - p) > 20;
+        if (!clear)
+            continue;
+        Car c;
+        c.kind = pickKind();
+        c.paintJob = uint32_t(rng_() % 8);
+        const float heavy = kinds_[size_t(c.kind)].mass > 3000 ? 0.75f : 1;
+        c.pace = std::uniform_real_distribution<float>(0.85f, 1.05f)(rng_) * heavy;
+        startOn(c, int(li), s);
+        c.speed = c.maxSpeed * 0.8f;
+        place(c);
+        cars_.push_back(std::move(c));
+    }
+
+    for (Car& c : cars_) {
+        if (c.parked && !c.loose) {
+            if (!c.settled) { // stood on the ground at its line (not a deck above)
+                CollisionWorld::RayHit hit;
+                if (world.raycast(c.position + Vec3{0, 1, 0}, {0, -1, 0}, 3, hit))
+                    c.position[1] = hit.point[1];
+                c.settled = true;
+            }
+            continue;
+        }
+        if (c.loose) {
+            // Sliding to a stop where it was knocked.
+            const float v = flat(c.velocity);
+            const float slow = std::min(v, kLooseFriction * dt);
+            if (v > 1e-3f)
+                c.velocity = c.velocity * ((v - slow) / v);
+            c.velocity[1] = 0;
+            c.position += c.velocity * dt;
+            c.yaw += c.spin * dt;
+            c.spin *= std::max(0.0f, 1 - 2 * dt);
+            const Vec3 from = c.position + Vec3{0, 2, 0};
+            CollisionWorld::RayHit hit;
+            if (world.raycast(from, {0, -1, 0}, 6, hit))
+                c.position[1] = hit.point[1];
+            continue;
+        }
+        // How fast it may go: its lane's limit (or the curve's), what's
+        // ahead, and whether the junction ahead is its to cross.
+        float target = c.maxSpeed;
+        float nearest = kLook, nearestSpeed = 0;
+        {
+            // Held up for long, it goes on through what's in its way, but
+            // for what's solid.
+            const bool ghosting = c.ghost > 0;
+            if (ghosting)
+                c.ghost -= dt;
+            auto consider = [&](const Vec3& p, float speed, float width = 2.2f) {
+                const Vec3 rel = p - c.position;
+                const float ahead = rel[0] * c.heading[0] + rel[2] * c.heading[2];
+                if (ahead <= 0 || ahead > nearest)
+                    return;
+                const float side = flat(rel - c.heading * ahead);
+                if (side < width && std::fabs(rel[1]) < 4) {
+                    nearest = ahead;
+                    nearestSpeed = speed;
+                }
+            };
+            // A parked car only when it stands out into the lane.
+            for (const Car& o : cars_)
+                if (&o != &c && !ghosting)
+                    consider(o.position, o.loose ? 0 : o.speed, o.parked && !o.loose ? 1.6f : 2.2f);
+            for (const RoadUser& u : others)
+                if (!ghosting || u.solid)
+                    consider(u.position, flat(u.velocity));
+            if (nearest < kLook) {
+                const float room = std::max(0.0f, nearest - 5 - kGap);
+                target = std::min(target, std::sqrt(2 * kBrake * room));
+            }
+        }
+        bool atLine = false; // held at the end of its lane (a light, giving way, its turn)
+        if (!c.crossing && c.holding >= 0 && lights_) {
+            // Given its turn on green but not there yet: a red light it can
+            // still stop for takes it back.
+            const TrafficLane& l = network_.lanes()[size_t(c.lane)];
+            const float left = c.at.back() - c.s;
+            if (l.control == 1 && lights_->signal(l.road, l.toEnd) == Signal::Red &&
+                left > c.speed * c.speed / (2 * kBrake))
+                release(c);
+        }
+        if (!c.crossing && c.holding < 0 && c.nextLane >= 0) {
+            const float left = c.at.back() - c.s;
+            const float stopping = c.speed * c.speed / (2 * kBrake) + 4;
+            if (left < stopping && !mayEnter(c, true)) {
+                target = std::min(target, std::sqrt(2 * kBrake * std::max(0.0f, left - 2)));
+                atLine = true;
+            }
+        }
+        // Held up behind something slow: round it, where it can.
+        c.laneWait = laneChanges_ && !c.crossing && nearest < 25 && nearestSpeed < c.maxSpeed - 3
+                         ? c.laneWait + dt
+                         : 0;
+        if (c.laneWait > 1.5f && c.shiftLeft <= 0 && c.holding < 0 && c.s > 10 && c.at.back() - c.s > 40) {
+            c.laneWait = 0;
+            changeLane(c, others);
+        }
+        if (atLine) {
+            c.waited = 0; // waiting its turn, not stuck
+        } else if (target < 0.5f && c.speed < 0.5f) {
+            c.waited += dt;
+            if (c.waited > 10 && c.ghost <= 0)
+                c.ghost = 3; // held up for long by something that isn't moving: go on through
+        } else if (c.speed > 2) {
+            c.waited = 0;
+        }
+        c.braking = target < c.speed - 0.2f;
+        c.speed = c.speed < target ? std::min(target, c.speed + kAccel * dt) : std::max(target, c.speed - kBrake * dt);
+        c.s += c.speed * dt;
+        c.shiftLeft = std::max(0.0f, c.shiftLeft - dt / kLaneChange);
+        c.indicateTime = std::max(0.0f, c.indicateTime - dt);
+        // Indicating a lane change, else the turn ahead.
+        if (c.indicateTime <= 0)
+            c.indicate = c.crossing || c.at.back() - c.s < kSignalTurn ? c.turn : 0;
+        // On along its way: across the junction, then onto the next lane.
+        while (c.s >= c.at.back()) {
+            const float over = c.s - c.at.back();
+            if (c.nextLane < 0) { // a dead end: turn round on another lane later
+                c.s = c.at.back();
+                c.speed = 0;
+                break;
+            }
+            if (!c.crossing) {
+                if (c.holding < 0 && !mayEnter(c, false)) {
+                    c.s = c.at.back();
+                    c.speed = 0;
+                    break;
+                }
+                enterJunction(c);
+                c.s = over;
+            } else {
+                release(c);
+                startOn(c, c.nextLane, over);
+            }
+        }
+        place(c);
+    }
+}
+
+float Traffic::collide(CarSim& car) {
+    float radius;
+    const auto bumpers = car.bumpers(radius);
+    return collide({bumpers.begin(), bumpers.end()}, radius, car.setup().mass, car.position, car.velocity);
+}
+
+float Traffic::collide(const std::vector<Vec3>& spheres, float radius, float ma, Vec3& position, Vec3& velocity) {
+    float hardest = 0;
+    float reach = 0; // how far the spheres are from `position`
+    for (const Vec3& p : spheres)
+        reach = std::max(reach, flat(p - position) + radius);
+    for (Car& c : cars_) {
+        const Kind& k = kinds_[size_t(c.kind)];
+        if (flat(c.position - position) > k.size[2] + reach + 4)
+            continue;
+        const Mat3 turn = Mat3::rotationY(c.yaw);
+        const Vec3 right = turn.x, back = turn.z;
+        const float hw = k.size[0] / 2, hl = k.size[2] / 2;
+        for (const Vec3& p : spheres) {
+            const Vec3 d = p - c.position;
+            if (d[1] < -1 || d[1] > k.size[1] + 1.5f)
+                continue;
+            const float lx = dot(d, right), lz = dot(d, back);
+            const float cx = std::clamp(lx, -hw, hw), cz = std::clamp(lz, -hl, hl);
+            float nx = lx - cx, nz = lz - cz;
+            float dist = std::sqrt(nx * nx + nz * nz);
+            float depth;
+            if (dist > 1e-4f) {
+                depth = radius - dist;
+                nx /= dist;
+                nz /= dist;
+            } else { // the middle inside: out the nearest side
+                const float ox = hw - std::fabs(lx), oz = hl - std::fabs(lz);
+                if (ox < oz) {
+                    nx = lx < 0 ? -1.0f : 1.0f;
+                    nz = 0;
+                    depth = ox + radius;
+                } else {
+                    nx = 0;
+                    nz = lz < 0 ? -1.0f : 1.0f;
+                    depth = oz + radius;
+                }
+            }
+            if (depth <= 0)
+                continue;
+            Vec3 n = right * nx + back * nz; // from the traffic car to the driven one
+            n[1] = 0;
+            n = normalized(n);
+            const float mb = k.mass;
+            position += n * (depth * mb / (ma + mb));
+            c.position -= n * (depth * ma / (ma + mb));
+            const Vec3 vb = c.loose ? c.velocity : c.heading * c.speed;
+            const float closing = dot(velocity - vb, n);
+            if (closing < 0) {
+                const float j = -1.3f * closing / (1 / ma + 1 / mb);
+                velocity += n * (j / ma);
+                if (!c.loose) {
+                    // Knocked off its lane: it slides to a stop and stays.
+                    release(c);
+                    c.loose = true;
+                    c.velocity = vb;
+                }
+                c.velocity -= n * (j / mb);
+                const Vec3 arm = c.position - (p - n * radius);
+                const float inertia = mb * (k.size[0] * k.size[0] + k.size[2] * k.size[2]) / 12;
+                c.spin += (arm[2] * n[0] - arm[0] * n[2]) * j / inertia;
+                hardest = std::max(hardest, j / ma);
+            }
+            break;
+        }
+    }
+    return hardest;
+}
+
+void Traffic::parkedPlaces(std::vector<std::pair<Vec3, Vec3>>& out) const {
+    for (const Car& c : cars_)
+        if (c.parked)
+            out.push_back({c.position, c.loose ? Mat3::rotationY(c.yaw) * Vec3{0, 0, -1} : c.heading});
+}
+
+void Traffic::users(std::vector<RoadUser>& out) const {
+    for (const Car& c : cars_)
+        if (!c.parked || c.loose) // parked ones are at the side of the road
+            out.push_back({c.position, c.loose ? c.velocity : c.heading * c.speed});
+}
+
+void Traffic::draw(gfx::Renderer3D& renderer, ModelCache& models, const SceneLight& light,
+                   const gfx::Mat4& viewProj, const Vec3& eye, bool night, const FlareDrawer* flares) {
+    const ViewFrustum frustum(viewProj);
+    const bool blink = int(clock_ * 3) % 2 == 0;
+    for (bool translucent : {false, true})
+        for (const Car& c : cars_) {
+            const std::string& name = kinds_[size_t(c.kind)].model;
+            const ModelCache::Model& m = models.get(name, c.paintJob);
+            if (!m.ok)
+                continue;
+            const float d = length(c.position - eye);
+            if (c.parked && d > kForget)
+                continue;
+            if (!frustum.visible(c.position + Vec3{0, 1, 0}, m.radius + 1))
+                continue;
+            const size_t level = std::min(m.levels.size() - 1, size_t(d < 40 ? 0 : d < 100 ? 1 : d < 200 ? 2 : 3));
+            // Upright, pitched along its way while driven.
+            Vec3 ahead = c.loose ? Mat3::rotationY(c.yaw) * Vec3{0, 0, -1} : c.heading;
+            Vec3 right = cross(ahead, {0, 1, 0});
+            right = length(right) > 1e-3f ? normalized(right) : Vec3{1, 0, 0};
+            const Vec3 up = cross(right, ahead);
+            const Mat3 axes{right, up, -ahead};
+            const gfx::Mat4 at = matrixOf(axes, c.position);
+            drawModelMesh(renderer, m.levels[level], at, light, translucent);
+            if (!translucent || c.loose || c.parked || d > 200)
+                continue;
+            // Its lamps: tail lights at night (brighter braking), brake
+            // lights by day, indicators, headlights at night.
+            if (night || c.braking)
+                drawModelMesh(renderer, models.part(name, "TLIGHT", c.paintJob), at, light, true);
+            if (night && c.braking)
+                drawModelMesh(renderer, models.part(name, "TLIGHT", c.paintJob), at, light, true);
+            if (c.indicate != 0 && blink)
+                drawModelMesh(renderer, models.part(name, c.indicate < 0 ? "SLIGHT0" : "SLIGHT1", c.paintJob), at,
+                              light, true);
+            if (!night)
+                continue;
+            drawModelMesh(renderer, models.part(name, "HLIGHT", c.paintJob), at, light, true);
+            // Flares at the headlights, seen from in front.
+            const float facing = dot(ahead, normalized(eye - c.position));
+            if (!flares || facing <= 0 || d > 150)
+                continue;
+            for (const char* lamp : {"HEADLIGHT0", "HEADLIGHT1"}) {
+                Vec3 o;
+                if (models.partOrigin(name, lamp, o))
+                    flares->draw(c.position + axes * o, 1.4f, {facing, facing * 0.95f, facing * 0.8f}, eye);
+            }
+        }
+}
+
+void Traffic::headlightPools(std::vector<gfx::DynamicLight>& out, const Vec3& eye, float distance) const {
+    for (const Car& c : cars_)
+        if (!c.loose && !c.parked && length(c.position - eye) < distance)
+            out.push_back({c.position + c.heading * 9.0f + Vec3{0, 1, 0}, 11, {0.55f, 0.5f, 0.4f}});
+}
+
+} // namespace reluva::age

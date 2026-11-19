@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/age/audio/music.h"
+
+#include <sstream>
+
+namespace reluva::age {
+
+namespace {
+
+constexpr float kIdleAfter = 4;  // seconds stopped before the idle music
+constexpr float kStopped = 1.5f; // m/s: below this, stopped
+constexpr float kMoving = 5;     // and above this, on the move again
+
+std::vector<std::string> fields(const std::string& line) {
+    std::vector<std::string> out;
+    std::istringstream in(line);
+    std::string f;
+    while (std::getline(in, f, ','))
+        out.push_back(f);
+    return out;
+}
+
+} // namespace
+
+std::vector<MusicSet> parseMusicSets(const std::string& text, bool race) {
+    std::vector<MusicSet> out;
+    std::istringstream in(text);
+    std::string line;
+    std::getline(in, line); // the header
+    while (std::getline(in, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+            line.pop_back();
+        const std::vector<std::string> f = fields(line);
+        if (f.size() < 6 || f[0].empty())
+            continue;
+        MusicSet s;
+        s.start = f[0];
+        s.back = f[1];
+        s.idle = f[2];
+        if (race) {
+            s.idleCops = f[3];
+            s.cops = f[4];
+            s.pause = f[5];
+            s.results = f.size() > 6 ? f[6] : std::string();
+        } else {
+            s.cops = f[3];
+            s.idleCops = f[4];
+            s.pause = f[5];
+        }
+        // Then the big-air motif's style, name and band (after the results
+        // in the race file).
+        const size_t air = race ? 7 : 6;
+        if (f.size() > air + 2) {
+            s.airStyle = f[air];
+            s.airMotif = f[air + 1];
+            s.airBand = f[air + 2];
+        }
+        out.push_back(s);
+    }
+    return out;
+}
+
+namespace {
+
+std::vector<MusicSet> readSets(const SearchSet& files, bool race) {
+    std::vector<uint8_t> data;
+    const std::string list = race ? "aud/dmusic/csv_files/singlerace.csv" : "aud/dmusic/csv_files/singleroam.csv";
+    if (files.read(list, data))
+        return {};
+    return parseMusicSets(std::string(data.begin(), data.end()), race);
+}
+
+} // namespace
+
+std::vector<std::string> GameMusic::trackNames(const SearchSet& files) {
+    std::vector<std::string> names;
+    for (bool race : {true, false})
+        for (const MusicSet& s : readSets(files, race)) {
+            std::string n = s.start;
+            if (n.size() > 5 && n.compare(n.size() - 5, 5, "Start") == 0)
+                n.resize(n.size() - 5);
+            names.push_back(n);
+        }
+    return names;
+}
+
+Error GameMusic::startTrack(const SearchSet& files, audio::Mixer& mixer, size_t track) {
+    const std::vector<MusicSet> race = readSets(files, true);
+    const bool isRace = track < race.size();
+    const std::vector<MusicSet> sets = isRace ? race : readSets(files, false);
+    const size_t index = isRace ? track : track - race.size();
+    if (index >= sets.size())
+        return Error::fail("no such track");
+    return start(files, mixer, isRace, uint32_t(index));
+}
+
+Error GameMusic::start(const SearchSet& files, audio::Mixer& mixer, bool race, uint32_t seed) {
+    if (performance_ && !menu_ && mixer_ == &mixer && race == race_ && seed == seed_) {
+        still_ = 0;
+        idle_ = wasPaused_ = false;
+        return Error::success();
+    }
+    stop();
+    race_ = race;
+    seed_ = seed;
+    const std::vector<MusicSet> sets = readSets(files, race);
+    if (sets.empty())
+        return Error::fail(std::string(race ? "singlerace" : "singleroam") + ".csv: no music");
+    set_ = sets[seed % sets.size()];
+    const SearchSet* source = &files;
+    performance_ = std::make_shared<audio::DmPerformance>(
+        mixer.outputRate(),
+        [source](const std::string& name, std::vector<uint8_t>& out) {
+            return !source->read("aud/dmusic/" + name, out);
+        },
+        seed);
+    mixer_ = &mixer;
+    // Every segment the tune may switch to, read now rather than mid-race.
+    for (const std::string* seg : {&set_.back, &set_.idle, &set_.idleCops, &set_.cops, &set_.pause, &set_.results})
+        if (!seg->empty())
+            performance_->prepare(*seg + ".sgt");
+    mixer.addStream(performance_, audio::SoundType::Music);
+    still_ = 0;
+    idle_ = wasChased_ = wasPaused_ = false;
+    wanted_.clear();
+    want(set_.start);
+    return Error::success();
+}
+
+Error GameMusic::startMenu(const SearchSet& files, audio::Mixer& mixer) {
+    stop();
+    // "Music segment" then its name.
+    std::string segment = "UI";
+    std::vector<uint8_t> data;
+    if (!files.read("aud/dmusic/csv_files/ui.csv", data)) {
+        const std::vector<std::string> lines = [&] {
+            std::vector<std::string> out;
+            std::istringstream in(std::string(data.begin(), data.end()));
+            for (std::string l; std::getline(in, l);) {
+                while (!l.empty() && (l.back() == '\r' || l.back() == ' '))
+                    l.pop_back();
+                if (!l.empty())
+                    out.push_back(l);
+            }
+            return out;
+        }();
+        if (lines.size() >= 2)
+            segment = lines[1];
+    }
+    const SearchSet* source = &files;
+    performance_ = std::make_shared<audio::DmPerformance>(
+        mixer.outputRate(),
+        [source](const std::string& name, std::vector<uint8_t>& out) {
+            return !source->read("aud/dmusic/" + name, out);
+        },
+        1);
+    mixer_ = &mixer;
+    mixer.addStream(performance_, audio::SoundType::Music);
+    wanted_ = segment;
+    menu_ = true;
+    return performance_->play(segment + ".sgt");
+}
+
+void GameMusic::stop() {
+    if (mixer_ && performance_)
+        mixer_->removeStream(performance_.get());
+    performance_.reset();
+    mixer_ = nullptr;
+    menu_ = false;
+    wanted_.clear();
+}
+
+void GameMusic::want(const std::string& segment) {
+    if (!performance_ || segment.empty() || segment == wanted_)
+        return;
+    wanted_ = segment;
+    performance_->play(segment + ".sgt");
+}
+
+void GameMusic::bigAir() {
+    if (performance_ && !menu_ && !set_.airStyle.empty() && !set_.airMotif.empty())
+        performance_->playMotif(set_.airStyle + ".sty", set_.airMotif,
+                                set_.airBand.empty() ? "" : set_.airBand + ".bnd");
+}
+
+void GameMusic::update(float dt, const State& s) {
+    if (!performance_)
+        return;
+    if (s.finished) {
+        want(set_.results);
+        return;
+    }
+    if (s.paused) {
+        want(set_.pause);
+        wasPaused_ = true;
+        return;
+    }
+    still_ = s.speed < kStopped ? still_ + dt : 0;
+    const bool wasIdle = idle_;
+    if (still_ > kIdleAfter)
+        idle_ = true;
+    else if (s.speed > kMoving)
+        idle_ = false;
+    if (idle_) {
+        want(s.chased ? set_.idleCops : set_.idle);
+    } else if (s.chased || s.lastStretch) {
+        // The race's last stretch speeds up too: the chase segment (see
+        // docs/engines/age-footage.md).
+        want(set_.cops);
+    } else if (wasIdle || wasChased_ || wasPaused_) {
+        // On the move again, out of a chase or back from the pause.
+        want(set_.back);
+    }
+    wasChased_ = s.chased || s.lastStretch;
+    wasPaused_ = false;
+}
+
+} // namespace reluva::age

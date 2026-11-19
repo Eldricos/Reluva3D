@@ -15,7 +15,7 @@ clear-noon {
 
 Cars' `.vehCarSim`, `.vehCarDamage` and the like, cameras, the HUD maps
 (`.mmHudMap`) and the cities' lighting use it. Read by
-`src/engines/age/tune.cpp` into a tree; names are matched ignoring case.
+`src/engines/age/formats/tune.cpp` into a tree; names are matched ignoring case.
 Worked out from the files themselves; values are separated by spaces or
 tabs, lines end in CR LF. A few names are two words (`Approach Rate`,
 `Ocean Color` in `.mmHudMap`); the tree has them as the first word with

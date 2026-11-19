@@ -5,7 +5,7 @@ A city's streets, sidewalks, ground and buildings: `city/sf.psdl` and
 the developers' file names have it). The geometry isn't stored as
 triangles: each block of the city is a list of attributes (a road strip,
 a building front, a roof) that the triangles are generated from. Read by
-`src/engines/age/psdl.cpp`, drawn by `city_mesh.cpp`; `reluva-tool
+`src/engines/age/formats/psdl.cpp`, drawn by `city_mesh.cpp`; `reluva-tool
 psdl-info` shows a city's.
 
 ## How this was worked out

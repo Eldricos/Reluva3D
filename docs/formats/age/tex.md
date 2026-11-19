@@ -1,7 +1,7 @@
 # .tex textures
 
 Midtown Madness 2's textures, `texture/*.tex` in `mm2tex.ar` (3,665 of
-them). Read by `src/engines/age/texture.cpp`; `reluva-tool tex-info`
+them). Read by `src/engines/age/formats/texture.cpp`; `reluva-tool tex-info`
 shows one or surveys a game's.
 
 ## How this was worked out

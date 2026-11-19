@@ -3,7 +3,7 @@
 The Angel Game Engine keeps a game's data in `.ar` archives. Midtown
 Madness 2 ships four in its install folder (and on the CD's `GAME` folder,
 the same files with upper-case names): `mm2core.ar`, `mm2tex.ar`,
-`mm2aud.ar` and `mm2audex.ar`. Read by `src/engines/age/ar_archive.cpp`.
+`mm2aud.ar` and `mm2audex.ar`. Read by `src/engines/age/formats/ar_archive.cpp`.
 
 ## How this was worked out
 

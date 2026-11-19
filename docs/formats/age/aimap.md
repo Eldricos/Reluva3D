@@ -4,7 +4,7 @@ Text files saying what the computer-driven cars, the pedestrians and the
 police are: `city/<map>.aimap` for each city, then a file for each race
 (`race/<city>/<race><n>.aimap` for Amateur, `.aimap_p` for Professional,
 checkpoint races named `race`) and for cruising (`race/<city>/roam.aimap`).
-Read by `src/engines/age/aimap.cpp`. Worked out from the files, which
+Read by `src/engines/age/formats/aimap.cpp`. Worked out from the files, which
 carry their own comments; 209 were read.
 
 ## Form

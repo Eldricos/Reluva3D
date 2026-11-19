@@ -6,7 +6,7 @@
 #include "engines/age/viewers.h"
 
 #include "graphics/font.h"
-#include "engines/age/ar_archive.h"
+#include "engines/age/formats/ar_archive.h"
 
 #include <algorithm>
 #include <cstdio>

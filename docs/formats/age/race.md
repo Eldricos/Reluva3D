@@ -1,7 +1,7 @@
 # Race files
 
 A city's races: their names in `tune/<city>.cinfo`, everything else in
-`race/<city>/` in `mm2core.ar`. Read by `src/engines/age/race.cpp`. Worked
+`race/<city>/` in `mm2core.ar`. Read by `src/engines/age/formats/race.cpp`. Worked
 out from the files (they're CSV and `Key=Value` text) and by driving them
 on the Race page.
 
