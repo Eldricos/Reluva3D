@@ -9,7 +9,9 @@ a Doxygen block, and blocks Doxygen can't read (an unknown command, an
 HTML tag that is really a <placeholder>: put it in `backticks`).
 
 Undocumented data members aren't listed: the guide leaves a field's
-comment a plain // one.
+comment a plain // one. Nor are overrides: their documentation is the
+base's, which is listed itself if it has none (Doxygen can miss the
+match when the two spell a type differently, gfx::Vertex and Vertex).
 
     python3 tools/check-doxygen.py                every header
     python3 tools/check-doxygen.py <file or folder>...   only those
@@ -40,6 +42,8 @@ OUTPUT = "build-docs"
 WARNING = re.compile(r"^(.*?):(\d+): warning: (.*)$")
 # A field: the guide keeps its comment a // one.
 VARIABLE = re.compile(r"\(variable\) of .* is not documented")
+# An override: documented by its base.
+OVERRIDE = re.compile(r"\boverride (?:=0 )?\(function\) of .* is not documented")
 
 
 def run_doxygen():
@@ -90,7 +94,7 @@ def main():
     # inherits it.
     found = []
     for path, line, text in sorted(set(run_doxygen())):
-        if VARIABLE.search(text):
+        if VARIABLE.search(text) or OVERRIDE.search(text):
             continue
         if only is not None and path not in only:
             continue
