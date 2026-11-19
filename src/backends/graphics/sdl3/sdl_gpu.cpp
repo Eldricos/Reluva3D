@@ -45,6 +45,11 @@ struct VertexUniforms {
     float directed[4];
     float lightDir[4];
     DeformUniforms deforms[2];
+    float fillColor[2][4];
+    float fillDir[2][4];
+    float matAmbient[4]; // w: 1 to light as Direct3D does
+    float matEmissive[4];
+    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none)
     float vlPos[gfx::kMaxVertexLights][4];   // xyz, radius
     float vlColor[gfx::kMaxVertexLights][4]; // rgb
     float vlParams[4];                       // count, scale, specular
@@ -56,6 +61,7 @@ struct FragmentUniforms {
     float lightCount[4];
     float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
     float lightColor[gfx::kMaxDynamicLights][4];
+    float linearFogColor[4];
 };
 
 SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
@@ -1028,6 +1034,15 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     vu.mode2[2] = call.fogDepth;
     vu.mode2[3] = call.tableFogFromDepth ? 1.0f : 0.0f;
     put(vu.fogPlane, call.fogPlane);
+    for (size_t k = 0; k < 2; ++k) {
+        put(vu.fillColor[k], call.fillLight[k]);
+        put(vu.fillDir[k], call.fillDirection[k]);
+    }
+    put(vu.matAmbient, call.materialAmbient);
+    vu.matAmbient[3] = call.materialLit ? 1.0f : 0.0f;
+    put(vu.matEmissive, call.materialEmissive);
+    vu.linearFog[0] = call.fogNear;
+    vu.linearFog[1] = call.fogFar;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform &d = call.deforms[i];
         DeformUniforms &u = vu.deforms[i];
@@ -1054,6 +1069,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     fu.blend[1] = blendDst;
     std::copy(call.tableFogColor.begin(), call.tableFogColor.end(), fu.fog);
     fu.fog[3] = call.tableFog;
+    std::copy(call.fogColor.begin(), call.fogColor.end(), fu.linearFogColor);
     if (call.texture == _frameTexture) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / _gamma;

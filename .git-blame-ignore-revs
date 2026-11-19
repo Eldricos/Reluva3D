@@ -44,3 +44,11 @@ a80e57a91ceed740314183e911d7ade115826238 # audio: the tracker player's names as 
 0df2d43de9862e27780cd76726ed7ddd95409adf # unreal: one variable per declaration
 07211ac34a16bdca1dd286dbcc415b33c5aa172b # unreal: one member per declaration
 ebd201bee4f3c5a73f2a6d81742b8dc5a5c25332 # tests: one member per declaration in the tracker's test
+
+# The age engine, brought to main's style before its merge (tools/tidy.py
+# --rename-declared-in, tools/format.py, tools/split_members.py --fix)
+b365a3532418422b1e4113216ef69124acb071e3 # Rename: the shared code the age branch added, to the coding guide's names
+95788f98c795b222f9f129f6aa60822dfe6302a0 # Rename: the age engine, to the coding guide's names
+c6ea55278d722da89fb33390177f10ad6b667650 # Format: the age branch's sources with main's .clang-format
+b3822e453d237958c8fcc4ac7a7906264b915c25 # Format: the age tests and tools
+3875df3b4618d1a901621097764dab0775001934 # Split: the age engine's last members declared several to a line

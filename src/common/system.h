@@ -97,6 +97,8 @@ public:
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
+    // The window put away (minimised), for a game's own minimise button.
+    virtual void minimizeWindow() {}
     // The desktop's own mode, on the display the window is on (or the
     // primary): its size and bits per pixel. False when not known.
     virtual bool desktopMode(int &width, int &height, int &bits) {
@@ -155,6 +157,14 @@ public:
     // The broadcast address of each network the machine is on (255.255.255.255
     // reaches only one of them when there are several).
     virtual std::vector<uint32_t> broadcastAddresses() { return {}; }
+    // For asking a router to pass a port on (common/portmap.h): one HTTP
+    // exchange over TCP, and the default gateways. Called from a thread of
+    // its own; none without a network.
+    virtual bool httpExchange(const net::Address & /*to*/, const std::string & /*request*/, std::string & /*response*/,
+                              uint32_t & /*localIp*/, int /*timeoutMs*/) {
+        return false;
+    }
+    virtual std::vector<uint32_t> gateways() { return {}; }
     // The machine's sockets, TCP and UDP, for a game's own socket calls
     // (net::Sockets); null when there's no network.
     virtual std::shared_ptr<net::Sockets> sockets() { return nullptr; }

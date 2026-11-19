@@ -216,6 +216,21 @@ struct DrawCall {
     Vec3 ambientLight{};
     Vec3 directedLight{};
     Vec3 lightDirection{0, 0, 1}; // towards the light, in world space
+    // Two more directed lights (fills) for ColorSource::Lighting, added
+    // as the first is: each a colour (none by default) and the way to it.
+    std::array<Vec3, 2> fillLight{};
+    std::array<Vec3, 2> fillDirection{};
+    // Lit as Direct3D lights a material (with ColorSource::Lighting):
+    // emissive + materialAmbient x ambientLight + color x the directed
+    // lights, rather than color x (ambient + directed).
+    bool materialLit = false;
+    Vec3 materialAmbient{};
+    Vec3 materialEmissive{};
+    // Fog mixed in after texturing: none nearer than fogNear, all fogColor
+    // from fogFar on (fogFar 0: none). Black fades additive draws out.
+    Vec3 fogColor{};
+    float fogNear = 0;
+    float fogFar = 0;
     // Instead of the directed light, these lights: each vertex gets
     // min(1, ambientLight + vertexLightScale x the sum over them of colour
     // x (1 - distance / radius) x (max(0, (cos + 1)^2 - 1.5) + 6 x

@@ -179,6 +179,27 @@ void testFilters() {
     CHECK(!m.isPlaying(tb));
 }
 
+// The balance quietens the far side linearly, and leaves the near side.
+void testBalance() {
+    using namespace reluva::audio;
+    Mixer m(22050);
+    std::vector<int16_t> out(8);
+    auto s = std::make_shared<Sound>();
+    s->rate = 22050;
+    s->channels = 1;
+    s->samples = {1000, 1000, 1000, 1000};
+    m.play(s, SoundType::kEffects);
+    m.setBalance(kMaxPan);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 0 && out[1] == 1000);
+    m.setBalance(-kMaxPan / 2 - 1);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 1000 && out[1] > 450 && out[1] < 550);
+    m.setBalance(0);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 1000 && out[1] == 1000);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -187,4 +208,5 @@ static const reluva::test::Suite
                                     {"loop and rate", [](const std::filesystem::path &) { testLoopAndRate(); }},
                                     {"output stream", [](const std::filesystem::path &) { testOutputStream(); }},
                                     {"filters", [](const std::filesystem::path &) { testFilters(); }},
+                                    {"balance", [](const std::filesystem::path &) { testBalance(); }},
                                 });

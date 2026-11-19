@@ -6,6 +6,7 @@
 #include "common/types.h"
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -78,5 +79,10 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out);
 // The data of the first resource of a type (16: the version information),
 // whatever its name and language; empty if there's none.
 std::vector<uint8_t> findResource(const PeImage &pe, const std::vector<uint8_t> &file, uint32_t type);
+
+// The image's string table resources (type 6: blocks of 16 strings, block
+// n holding the ids (n - 1) * 16 to n * 16 - 1), by id, in UTF-8; the
+// first language of each block. Empty strings are left out.
+Error readPeStrings(const std::vector<uint8_t> &file, const PeImage &image, std::map<uint32_t, std::string> &out);
 
 } // namespace reluva
