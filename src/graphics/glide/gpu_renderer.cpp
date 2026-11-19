@@ -199,7 +199,7 @@ private:
     void download(Pipeline &p, int slot);
     uint32_t stateFor(Pipeline &p);
     // A primitive over rows rowFirst.. of buffer rows (spans already in
-    // spans_ from spanAt), its values' plane.
+    // _spans from spanAt), its values' plane.
     size_t addPrim(Pipeline &p, uint32_t flags, int rowFirst, int rows, uint32_t spanAt, int x0, int x1, float fx0,
                    float fy0, const Values &base, const float *dx, const float *dy, bool writesAux);
     void addPixel(Pipeline &p, int x, int y, const Values &v);
@@ -219,7 +219,7 @@ private:
     int _tmus = 0;
     uint32_t _tmuBytes = 0;
     std::array<bool, Pipeline::kSlots> _gpuNewer{};  // drawn on the GPU since read back
-    std::array<bool, Pipeline::kSlots> _hostKnown{}; // the host's copy was read back (snapshot_ is it)
+    std::array<bool, Pipeline::kSlots> _hostKnown{}; // the host's copy was read back (_snapshot is it)
     std::array<std::vector<uint16_t>, Pipeline::kSlots> _snapshot;
     bool _checkHost = false;
 
@@ -745,8 +745,6 @@ void GpuRenderer::flush() {
     _haveState = false;
     _tableAt.fill(-1);
 }
-
-// --- Comparing ------------------------------------------------------------------
 
 class ComparingRenderer : public Renderer {
 public:

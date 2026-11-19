@@ -32,7 +32,7 @@ layout(std140, set = 2, binding = 0) uniform Params {
     uint tileOffsets, tileList, activeTiles, pad0;
 };
 
-// Values iterated across a primitive (software_renderer.cpp's Param).
+// Values iterated across a primitive (raster_setup.h's Param).
 const int kR = 0, kG = 1, kB = 2, kA = 3, kZ = 4, kW = 5, kS0 = 6, kParams = 15;
 const uint kPrimWords = 52u;
 
@@ -61,7 +61,7 @@ int TI(int tmu, int i) { return int(T(tmu, i)); }
 
 int scaleBy(int v, int f) { return (v * (f + 1)) >> 8; }
 
-// --- The combine units (pixel.cpp) ------------------------------------------------
+// The combine units (pixel.cpp).
 
 int combineChannel(int func, bool invert, int local, int other, int localAlpha, int factor) {
     int v = 0;
@@ -110,7 +110,7 @@ int textureCombineFactor(int factor, int local, int otherAlpha, int localAlpha, 
     }
 }
 
-// --- Textures (textures.cpp) -------------------------------------------------------
+// Textures (textures.cpp).
 
 uint texByte(uint at) { return (texmem[at >> 2] >> ((at & 3u) * 8u)) & 0xffu; }
 
@@ -246,7 +246,7 @@ ivec4 sampleTmu(int tmu, int x, int row, out int lodFraction, out float rawLod) 
     return ((c00 * (256 - wx) + c10 * wx) * (256 - wy) + (c01 * (256 - wx) + c11 * wx) * wy) >> 16;
 }
 
-// --- Depth, fog, dither (pixel.h) ------------------------------------------------
+// Depth, fog, dither (pixel.h).
 
 int floatDepth(float oow) {
     if (!(oow < 1.0))
@@ -320,7 +320,7 @@ bool compareFn(int func, int a, int b) {
     }
 }
 
-// --- One pixel (software_renderer.cpp, shade) ------------------------------------
+// One pixel (software_renderer.cpp, shade).
 
 void shade(int x, int row) {
     const uint pixels = width * height;

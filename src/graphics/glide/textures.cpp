@@ -11,12 +11,14 @@ namespace reluva::glide {
 
 namespace {
 
+// A field widened to 8 bits by repeating its bits from the top:
+// widen3 is {v[2:0], v[2:0], v[2:1]}, widen2 {v, v, v, v}.
 uint32_t widen3(uint32_t v) {
     return (v << 5 | v << 2 | v >> 1) & 0xff;
-} // {v[2:0], v[2:0], v[2:1]}
+}
 uint32_t widen2(uint32_t v) {
     return v * 0x55;
-} // {v, v, v, v}
+}
 uint32_t widen4(uint32_t v) {
     return v * 0x11;
 }
