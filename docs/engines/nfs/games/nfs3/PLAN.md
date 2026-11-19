@@ -1627,7 +1627,8 @@ references.
 ### Merged into main (November 2026, done)
 
 The branch was merged into main after main's reorganisation, following
-docs/code-style-migration.md for a branch made before it:
+[DEVELOPMENT.md](../../../../DEVELOPMENT.md#a-branch-made-before-the-reorganisation)
+for a branch made before it:
 
 - **The layout.** The engine is in the standard layout
   (`src/engines/nfs/`: `formats/`, `render/`, `pages/`, `host/`,

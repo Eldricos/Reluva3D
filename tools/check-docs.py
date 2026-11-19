@@ -81,8 +81,8 @@ ADDRESS = re.compile(r"\b0x[0-9a-fA-F]{4,}\b(?!`? bytes)")
 # A path from the repository's root, in backticks.
 PATH = re.compile(r"`((?:src|tests|tools|cmake|docs)/[A-Za-z0-9_./-]*[A-Za-z0-9_-])/?`")
 # Pages whose paths aren't this repository's: a port's table of its source
-# project's files, branch names that look like paths, a plan's examples.
-PATHS_NOT_OURS = ("PORTING.md", "docs/COMMIT_STANDARD.md", "docs/code-style-migration.md")
+# project's files, and branch names that look like paths.
+PATHS_NOT_OURS = ("PORTING.md", "docs/COMMIT_STANDARD.md")
 # A command, after "reluva-tool": an engine's id and its command, or a shared one.
 TOOL = re.compile(r"reluva-tool ([a-z0-9][a-z0-9-]*)(?: ([a-z0-9][a-z0-9-]*))?")
 # A list of commands in the source: Commands kCommands("<engine or empty>", { {"name", ...
