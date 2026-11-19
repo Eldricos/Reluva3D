@@ -310,6 +310,14 @@ yet: a console on the page.
   cinematic20_kyle -spare cinematic20_lando -replay
   tests/engines/idtech3/data/routes/ns_starpad.txt -set helpUsObi 1
   -next` plays it to `maptransition bespin_undercity`.
+- **bespin_undercity:** opening the droid's door wakes an R5, whose
+  death fails the mission (it's spared). It drives into the exit lift,
+  presses the panel, backs up and switches on the lift's trigger; the
+  player stepping in ends the level. A teleport onto the droid kills
+  the player, so the route stands beside it. `sp-run bespin_undercity
+  -tour 5000 -spare droid -replay
+  tests/engines/idtech3/data/routes/bespin_undercity.txt -set helpUsObi
+  1 -next` plays it to `maptransition bespin_streets`.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split

@@ -47,7 +47,9 @@
   scene then the level change; yavin_trial by the tour),
   `jk2-sp-nar-shaddaa` (ns_streets: the tour, then its route, the scrap
   car and its two switches; ns_hideout by the tour; ns_starpad by the
-  tour then its route, about forty minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  tour then its route, about forty minutes), `jk2-sp-bespin`
+  (bespin_undercity: the tour, then the R5 droid's drive to the exit
+  lift). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

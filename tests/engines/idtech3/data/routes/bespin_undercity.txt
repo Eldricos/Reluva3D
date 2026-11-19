@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# bespin_undercity's way out, for sp-run -tour 5000 -replay (with -spare
+# droid, set helpUsObi 1): the tour opens the droid's door, which wakes
+# the R5; it drives into the exit lift, presses its panel, backs up and
+# switches on the lift's trigger, which ends the level when the player
+# steps in. Here, from the tour's end: a minute for the droid's drive,
+# then the lift, beside the droid rather than on it (a teleport onto it
+# kills).
+@until +60000 0 0
+/setviewpos 4648 200 13848 90
+@until +10000 0 0

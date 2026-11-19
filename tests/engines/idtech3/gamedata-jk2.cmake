@@ -53,6 +53,8 @@
 #                 ns_hideout by the tour; ns_starpad by the tour, then
 #                 its route (the hangar squads, the roof doors, the fuel
 #                 code, the Lady Luck's gun). About forty minutes.
+#   jk2-sp-bespin  bespin_undercity: the tour, then its route (the R5
+#                 droid's drive to the exit lift).
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -141,6 +143,9 @@ elseif(STEP STREQUAL "jk2-sp-nar-shaddaa")
     record_run(ns_starpad "ran 100 frames" idtech3 sp-run "${base}" ns_starpad -tour 5000 -spare lando
                -spare cinematic20_kyle -spare cinematic20_lando
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/ns_starpad.txt" -fixedclock -set helpUsObi 1 -next)
+elseif(STEP STREQUAL "jk2-sp-bespin")
+    record_run(bespin_undercity "ran 100 frames" idtech3 sp-run "${base}" bespin_undercity -tour 5000 -spare droid
+               -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/bespin_undercity.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)
