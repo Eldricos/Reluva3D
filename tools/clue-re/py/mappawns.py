@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where the pawns are on the board seen from above, in recordings' frames:
+the map found by ovr.png, each pawn by pawnN.png, and their squares named
+from board.txt.
+
+    python3 -I py/mappawns.py FRAMES_FOLDER
+"""
+
 import cv2, numpy as np, glob, sys, collections, json
 ovr=cv2.imread('ovr.png').astype(np.float32)
 pawns=[cv2.imread('pawn%d.png'%i).astype(np.float32) for i in range(6)]

@@ -69,10 +69,12 @@ problems = []
 
 
 def problem(path, message):
+    """Notes a problem with a file, to be printed at the end."""
     problems.append(f"{os.path.relpath(path, ROOT)}: {message}")
 
 
 def markdown_files():
+    """Every .md file in the repository, in order, but in the folders SKIP_DIRS and SKIP_PREFIXES name."""
     for top, dirs, files in os.walk(ROOT):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith(SKIP_PREFIXES))
         for name in sorted(files):
@@ -93,6 +95,7 @@ anchor_cache = {}
 
 
 def anchors(path):
+    """The anchors of a page's headings outside code blocks, a repeat's with -1, -2... after it."""
     if path not in anchor_cache:
         found, seen, fenced = set(), {}, False
         with open(path, encoding="utf-8") as f:
@@ -126,6 +129,7 @@ def check_tags(path):
 
 
 def check_links(path):
+    """Relative links outside code go to a file that's there, an #anchor to its heading."""
     if os.path.relpath(path, ROOT).replace(os.sep, "/").startswith(TEMPLATES + "/"):
         return
     fenced = False
@@ -196,6 +200,7 @@ def check_page_folder(folder, label):
 
 
 def check_engines():
+    """Each engine's, or each of its games', folder has the standard pages; an engine's titles name it."""
     engines = os.path.join(ROOT, "docs", "engines")
     for engine in sorted(os.listdir(engines)):
         folder = os.path.join(engines, engine)
@@ -268,6 +273,7 @@ def check_pages(sub):
 
 
 def check_common():
+    """Each page under docs/common/ has the standard's headings, in order, and a Confidence."""
     common = os.path.join(ROOT, "docs", "common")
     for top, _, files in os.walk(common):
         for name in sorted(files):
@@ -290,6 +296,7 @@ def check_common():
 
 
 def check_names():
+    """Folders and pages in docs/ are named as the standard says (engines exempted aside)."""
     docs = os.path.join(ROOT, "docs")
     for top, dirs, files in os.walk(docs):
         rel = os.path.relpath(top, docs).replace(os.sep, "/")

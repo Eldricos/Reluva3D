@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""locate.py with the lighting taken out (local contrast normalised) and
+several pictures of the house to choose from.
+
+    python3 -I py/locate2.py HOUSE.png[,HOUSE.png...] FRAME.png...
+"""
+
 import sys, cv2, numpy as np
 def prep(img):
+    """A picture in grey with its local mean and contrast taken out."""
     g=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY).astype(np.float32)
     # local contrast normalisation removes the lighting
     mu=cv2.GaussianBlur(g,(0,0),12); sd=np.sqrt(cv2.GaussianBlur((g-mu)**2,(0,0),12))+6

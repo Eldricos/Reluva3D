@@ -1,9 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""An early reader of the EIMG pictures' headers, both versions (Reluva's own
+reader replaced it). Run alone, it checks every picture in the .res files
+under clue_dl/: their fields, and whether their rows decode exactly.
+
+    python3 -I py/eimg2.py
+"""
+
 import sys,struct,collections,glob
 sys.path.insert(0,'tools'); from ddrv import load, entries
 def header(r):
+    """An EIMG's header fields and pixel data, by its version."""
     ver=struct.unpack('<I',r[4:8])[0]
     if ver==0x200:
         typ,w,h=struct.unpack('<III',r[12:24]); b24=r[24]; pitch=struct.unpack('<I',r[25:29])[0]
@@ -13,6 +21,7 @@ def header(r):
         w,h,bpp,typ=struct.unpack('<HHII',r[12:24]); mid=r[24:40]; w2,h2=struct.unpack('<HH',r[40:44]); key=r[44:48]; ds=struct.unpack('<I',r[48:52])[0]
         return dict(ver=ver,typ=typ,w=w,h=h,bpp=bpp,mid=mid,w2=w2,h2=h2,key=key,ds=ds,data=r[52:52+ds],hdr=52)
 def rle(data,w,h):
+    """(bytes used, rows decoded, rows wider than `w`) of an EIMG's runs."""
     i=0; rows=0; px=0; over=0
     for y in range(h):
         x=0

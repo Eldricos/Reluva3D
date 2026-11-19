@@ -67,6 +67,7 @@ def tga_header(data, off):
 
 
 def describe_tga(h):
+    """A header from tga_header(), as the report's words."""
     w, hgt, bits, desc, size, img_type, id_len, cmap_len = h
     return (f"TGA type {img_type} {w}x{hgt} {bits}-bit, descriptor {desc:#04x}, "
             f"id length {id_len}, colour map {cmap_len}, "
@@ -74,8 +75,8 @@ def describe_tga(h):
 
 
 class Lzss:
-    """alt.res's LZSS decoder, with its state kept between calls so the
-    stream can be read file by file (see decode_files)."""
+    """alt.res's LZSS decoder for the data from `pos`, its state kept
+    between calls to read()."""
 
     def __init__(self, src, pos):
         self.src = src
@@ -84,10 +85,12 @@ class Lzss:
         self.reset_window()
 
     def reset_window(self):
+        """A window of 4096 zeros, written from position 1."""
         self.window = bytearray(4096)
         self.r = 1  # where writing starts, docs/engines/botf/formats/alt-res.md
 
     def new_flags(self):
+        """Makes the next read start with a new flag byte."""
         self.flags = 0
 
     def read(self, count, out):
@@ -144,6 +147,7 @@ def checksums(data):
 def crc16s(data):
     """The common table-free CRC-16s; slow in Python, so used on small inputs."""
     def crc(poly, init, reflect, xorout):
+        """One CRC-16 of `data`, worked out bit by bit."""
         c = init
         if reflect:
             for b in data:
@@ -167,6 +171,7 @@ def crc16s(data):
 
 
 def probe_alt(path, report):
+    """Reports alt.res's directory and each file decoded, and which candidate checks match."""
     data = path.read_bytes()
     report.append(f"== {path.name}: {len(data):,} bytes")
     dir_off, count = struct.unpack_from("<II", data, 16)
@@ -224,11 +229,13 @@ def probe_alt(path, report):
 
 
 def ima_header_ok(b, channels):
+    """Whether `b` starts with a plausible IMA ADPCM block header for each channel."""
     return all(len(b) >= 4 * (c + 1) and b[4 * c + 2] <= 88 and b[4 * c + 3] == 0
                for c in range(channels))
 
 
 def wav_fmt(b):
+    """A WAV's format, as the report's words; None if `b` isn't a WAV."""
     if b[:4] != b"RIFF" or b[8:12] != b"WAVE":
         return None
     pos = 12
@@ -242,6 +249,7 @@ def wav_fmt(b):
 
 
 def probe_snd_entries(f, entries, report, file_size):
+    """Reports each directory entry, and what its sound's first bytes look like."""
     flags = {}
     for n, (off, size, third, flag) in enumerate(entries):
         flags[flag] = flags.get(flag, 0) + 1
@@ -259,6 +267,7 @@ def probe_snd_entries(f, entries, report, file_size):
 
 
 def probe_snd(path, report):
+    """Reports a .snd file's directory (music.snd's 16 lists) and its entries."""
     size = path.stat().st_size
     report.append(f"== {path.name}: {size:,} bytes")
     with open(path, "rb") as f:
@@ -303,6 +312,7 @@ def main():
     report = []
 
     def first(name):
+        """`name` in the install, or else on the CD; None if neither has it."""
         return find(args.install, name) or find(args.cd, name)
 
     for name, probe in [("alt.res", probe_alt), ("sfx.snd", probe_snd),

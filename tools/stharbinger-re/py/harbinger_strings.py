@@ -29,6 +29,7 @@ from pathlib import Path
 
 
 class LE:
+    """DEEP.EXE's LE program: its objects loaded at their addresses, and its fixups."""
     def __init__(self, data):
         self.d = d = data
         self.base_mz, self.le = self.find_le(d)
@@ -62,6 +63,7 @@ class LE:
 
     @staticmethod
     def find_le(d):
+        """(offset of the MZ stub the LE header belongs to, offset of the LE header); exits if none."""
         for m in re.finditer(b"LE\x00\x00\x00\x00\x00\x00", d):
             le = m.start()
             if 1 <= struct.unpack_from("<H", d, le + 8)[0] <= 4:
@@ -72,6 +74,7 @@ class LE:
         raise SystemExit("no LE header found")
 
     def read_fixups(self, fpt_off, frt_off):
+        """(source address, target address, source type) of every internal fixup; exits on imports."""
         d, fpt, frt = self.d, self.le + fpt_off, self.le + frt_off
         offs = struct.unpack_from("<%dI" % (self.npages + 1), d, fpt)
         page_obj = {}
@@ -109,6 +112,7 @@ class LE:
         return out
 
     def obj_at(self, va):
+        """The object holding address `va`, or None."""
         for o in self.objects:
             if o["base"] <= va < o["base"] + o["vsize"]:
                 return o
@@ -116,6 +120,7 @@ class LE:
 
 
 def find_strings(obj, minlen=4):
+    """(address, text) of each zero-terminated printable string in an object that is a third letters or digits."""
     out = []
     for m in re.finditer(rb"[\x20-\x7e\t\r\n]{%d,}\x00" % minlen, obj["image"]):
         s = m.group()[:-1].decode("latin-1")
@@ -134,6 +139,7 @@ NAME_RES = [FUNC_RE,
 
 
 def function_name(s):
+    """The function a debug message names ("Func_Name: ..." and the like), or None."""
     for rx in NAME_RES:
         m = rx.match(s)
         if m:
@@ -142,6 +148,7 @@ def function_name(s):
 
 
 def category(s):
+    """What a string is: a file name, a debug message, a format string, the runtime's, or other text."""
     if FILE_RE.search(s.strip()):
         return "file"
     if function_name(s):

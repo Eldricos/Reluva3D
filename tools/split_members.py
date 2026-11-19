@@ -74,6 +74,7 @@ def outside_templates(text):
 
 
 def libclang():
+    """clang.cindex, its library the one LIBCLANG names, or else Ubuntu's libclang 18."""
     import clang.cindex as ci
 
     path = os.environ.get("LIBCLANG")
@@ -87,6 +88,7 @@ def libclang():
 
 
 def compile_args(entry):
+    """A compile command's arguments for libclang: without the compiler, -c, -o and the file."""
     args = entry["arguments"] if "arguments" in entry else shlex.split(entry["command"])
     out, skip = [], False
     for a in args[1:]:
@@ -115,6 +117,7 @@ def groups_in(job):
               ci.CursorKind.NAMESPACE, ci.CursorKind.TRANSLATION_UNIT, ci.CursorKind.LINKAGE_SPEC)
 
     def walk(cursor):
+        """Notes the fields and variables declared in Reluva's files under `cursor`, by declaration."""
         for child in cursor.get_children():
             loc = child.extent.start
             if loc.file is None:
@@ -251,6 +254,7 @@ def main():
     skip = generated()
 
     def wanted(path):
+        """Whether a file's declarations are split: not a generated file, and under those named if any."""
         if any(fnmatch.fnmatch(path, g) for g in skip):
             return False
         return not only or any(path == o or path.startswith(o + "/") for o in only)

@@ -31,6 +31,7 @@ SPEAKERS = {
 
 
 def parse_line(text):
+    """(choice label in [brackets] or None, the spoken text, the recording notes in {braces}) of a line."""
     label = None
     m = re.match(r"\s*\[([^\]]*)\]", text)
     if m:

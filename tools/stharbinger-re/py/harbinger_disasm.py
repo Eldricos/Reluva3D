@@ -22,6 +22,7 @@ import harbinger_strings as HS
 
 
 def load_names(path):
+    """{address: name} from a file of "ADDRESS NAME" lines (hex); empty if there's no file."""
     names = {}
     if path and os.path.exists(path):
         for line in open(path):
@@ -32,6 +33,7 @@ def load_names(path):
 
 
 def disassemble(exe, start, end, names, out):
+    """Writes the code from `start` to `end`, a line an instruction, with fixups' targets, strings and names."""
     le = HS.LE(open(exe, "rb").read())
     code = le.objects[0]
     img, base = code["image"], code["base"]

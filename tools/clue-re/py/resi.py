@@ -1,10 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""An early reader of dialogInfo.res (Reluva's own reader replaced it): its
+fonts, and each dialog's header and controls.
+
+    python3 -I py/resi.py dialogInfo.res
+"""
+
 import struct,sys
 def parse(d):
+    """(fonts, dialogs, end offset) of a dialogInfo.res."""
     assert d[:4]==b'RESI'; nd,nf=d[4],d[5]; p=6
     def s():
+        """The next string: a length byte, then the text and a 0 (nothing for '')."""
         nonlocal p; n=d[p]; p+=1
         if n==0: return ''
         t=d[p:p+n].decode('latin-1'); p+=n+1; return t

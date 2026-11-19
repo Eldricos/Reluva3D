@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Calls into a Windows program's imports: each instruction going through an
+import whose name holds TEXT, with the instructions before it.
+
+    python3 -I py/xref.py PROGRAM.exe TEXT BEFORE
+"""
+
 import sys, pefile, capstone
 pe=pefile.PE(sys.argv[1]); base=pe.OPTIONAL_HEADER.ImageBase
 iat={}

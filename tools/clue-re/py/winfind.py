@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where the windows over the game are in recordings' frames: the Esc menu,
+save, preferences, rules and loser windows (NAME.ppm) matched in each
+folder's *.jpg.
+
+    python3 -I py/winfind.py FOLDER...
+"""
+
 import cv2, numpy as np, glob, sys, collections
 T={n:cv2.imread(n+'.ppm').astype(np.float32) for n in ('escmain','escsave','loser','escpref','escrules')}
 res=collections.defaultdict(collections.Counter); ex={}

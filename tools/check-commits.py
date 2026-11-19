@@ -16,7 +16,7 @@ origin/main..HEAD.
 - Bodies: lines of 72 characters at most, but for trailers, URLs, indented
   lines and lines without spaces.
 - A Signed-off-by: trailer on every commit but merges.
-- The branch: <kind>/<scope>-<topic>, or claude/... .
+- The branch: <kind>/<scope>-<topic>, or claude/..., dependabot/... or main.
 - No game files added or changed, in any commit, merges included.
 """
 
@@ -48,10 +48,12 @@ problems = []
 
 
 def git(*args):
+    """What git prints, run at the top of the repository; raises if it fails."""
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout
 
 
 def problem(where, message):
+    """Notes a problem, to be printed at the end."""
     problems.append(f"{where}: {message}")
 
 
@@ -73,6 +75,7 @@ TRAILER = re.compile(r"^[A-Za-z][A-Za-z-]*: ")
 
 
 def check_message(sha, message, known):
+    """Checks a commit's subject, the lengths of its body's lines and its Signed-off-by: trailer."""
     where = sha[:10]
     lines = message.rstrip("\n").split("\n")
     subject = lines[0]
@@ -104,6 +107,7 @@ def check_message(sha, message, known):
 
 
 def check_files(sha, parents):
+    """Checks the files a commit adds or changes: no game's file types, none too large."""
     where = sha[:10]
     base = parents[0] if parents else "4b825dc642cb6eb9a060e54bf8d69288fbee4904"  # the empty tree
     changed = git("diff", "--name-only", "--diff-filter=AMR", base, sha).split("\n")
@@ -117,6 +121,7 @@ def check_files(sha, parents):
 
 
 def check_branch(name):
+    """Checks the branch's name; a detached HEAD and BRANCH_FREE's branches pass."""
     if not name or name == "HEAD" or name.startswith(BRANCH_FREE):
         return
     if not BRANCH.match(name):
