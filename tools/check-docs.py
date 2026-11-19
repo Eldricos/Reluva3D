@@ -11,8 +11,10 @@ and exits with 1 if there is any. CI runs it on every push.
   that exists, and every #anchor to a heading that's there.
 - Engines: each engine's folder (or, for an engine with games/, each
   game's folder) has the five standard pages, and the engine its README.
-- Format and system pages: a status line with a Confidence, and a
-  "Sources and checks" section.
+- Format and system pages: a status line with a Confidence, and their
+  template's ## headings, in order.
+- Engines' and games' READMEs: their template's ## headings, in order.
+- Headings hold no addresses, but in research/ notes.
 - Common pages: their five headings, in order, and a Confidence.
 - research/ folders: a README.md.
 - Names: standard pages and guides in capitals, every other page and
@@ -58,6 +60,20 @@ STANDARD_HEADINGS = {
     "REVERSE_ENGINEERING.md": ["Ground rules", "Sources", "Methods", "The tools", "Working files not included"],
     "PLAN.md": ["Goal", "Phases", "Decisions"],
 }
+# The ## headings of a format or system page (docs/templates/), in order;
+# those ending in "?" may be left out.
+PAGE_HEADINGS = {
+    "formats": ["Overview", "Layout", "Behaviour?", "In Reluva", "Sources and checks", "Open questions?"],
+    "systems": ["Overview", "How it works", "In Reluva", "Sources and checks", "Open questions?"],
+}
+# The ## headings an engine's README and a game's README have, in order,
+# among any others of their own (docs/templates/engine/, docs/templates/game/).
+README_HEADINGS = {
+    "engine": ["Games", "Where it stands", "Using it", "This folder", "Code", "Tests"],
+    "game": ["Releases", "Where it stands", "Using it", "This folder"],
+}
+# An address: four hex digits or more, but for a size ("0x40 bytes").
+ADDRESS = re.compile(r"\b0x[0-9a-fA-F]{4,}\b(?!`? bytes)")
 # The words an italic tag may use: *(inferred)*.
 TAG_WORDS = {"confirmed", "from the code", "seen, not traced", "inferred", "guessed", "published"}
 STATUS_WORDS = {"formats": {"decoded", "partial", "unknown"}, "systems": {"done", "partial", "not started"}}
@@ -170,8 +186,23 @@ def check_titles(folder, name):
             problem(page, f'its title is "# {name}: <topic>"')
 
 
+def h2(page):
+    return [l[3:].strip() for l in text(page).split("\n") if l.startswith("## ")]
+
+
+def check_readme(page, kind):
+    """An engine's or a game's README has its template's headings, in order."""
+    if not os.path.isfile(page):
+        return
+    found = h2(page)
+    wanted = README_HEADINGS[kind]
+    if [h for h in found if h in wanted] != wanted:
+        problem(page, f"its ## headings include the template's, in order: {', '.join(wanted)}")
+
+
 def check_page_folder(folder, label):
     """A folder that holds an engine's or a game's own pages."""
+    check_readme(os.path.join(folder, "README.md"), "game" if label.startswith("game") else "engine")
     for name in STANDARD_PAGES:
         if not os.path.isfile(os.path.join(folder, name)):
             problem(folder, f"{label} has no {name}")
@@ -205,6 +236,7 @@ def check_engines():
         if os.path.isdir(games):
             if not os.path.isfile(os.path.join(folder, "README.md")):
                 problem(folder, "the engine has no README.md")
+            check_readme(os.path.join(folder, "README.md"), "engine")
             for game in sorted(os.listdir(games)):
                 if os.path.isdir(os.path.join(games, game)):
                     check_page_folder(os.path.join(games, game), f"game {game}")
@@ -263,8 +295,12 @@ def check_pages(sub):
             if "Status" in f and f["Status"] not in words:
                 allowed = ", ".join(sorted(words))
                 problem(page, f"Status \"{f['Status']}\" isn't one of: {allowed}")
-        if not re.search(r"^## Sources and checks$", body, re.M):
-            problem(page, 'no "## Sources and checks" section')
+        found = h2(page)
+        template = PAGE_HEADINGS[os.path.basename(sub)]
+        wanted = [h.rstrip("?") for h in template if not h.endswith("?") or h.rstrip("?") in found]
+        if found != wanted:
+            problem(page, f"its ## headings are the template's: {', '.join(h.rstrip('?') for h in template)}"
+                    " (Behaviour and Open questions may be left out)")
 
 
 def check_common():
@@ -289,6 +325,19 @@ def check_common():
                 check_confidence(page, line.split("**Confidence:**", 1)[1])
 
 
+def check_headings(path):
+    """Headings carry no addresses: those go on the section's first line."""
+    rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+    if "/research/" in rel or any(rel.startswith(f"docs/engines/{e}/") for e in EXEMPT_ENGINES):
+        return
+    fence = False
+    for number, line in enumerate(text(path).split("\n"), 1):
+        if line.startswith("```"):
+            fence = not fence
+        elif not fence and line.startswith("#") and ADDRESS.search(line):
+            problem(path, f"line {number}: an address in a heading (it goes on the section's first line)")
+
+
 def check_names():
     docs = os.path.join(ROOT, "docs")
     for top, dirs, files in os.walk(docs):
@@ -309,6 +358,7 @@ def main():
     for path in markdown_files():
         check_links(path)
         check_tags(path)
+        check_headings(path)
     check_engines()
     check_common()
     check_names()
