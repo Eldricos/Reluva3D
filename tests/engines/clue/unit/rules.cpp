@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Clue engine's unit tests: The rules: dealing, suggestions, disproving,
+// The Clue engine's unit tests: the rules: dealing, suggestions, disproving,
 // accusations; the notebook; computer players.
 
 #include "engines/clue/game/ai.h"

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Clue engine's unit tests: Saved games: written and read back.
+// The Clue engine's unit tests: saved games: written and read back.
 
 #include "engines/clue/game/ai.h"
 #include "engines/clue/game/board.h"

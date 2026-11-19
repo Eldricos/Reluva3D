@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Need for Speed III's unit tests: finding the game and its CD, the folders and
+// file listings, and the game's files by kind.
+//
 //   reluva-tests nfs.unit.detection
 
 #include "tests/engines/nfs/fixtures.h"

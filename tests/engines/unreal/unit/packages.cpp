@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The package reader: compact indices, the name, import and export tables, tagged properties, finding packages and games, map extensions, dialogue tables.
+// The package reader: compact indices, the name, import and export tables,
+// tagged properties, finding packages and games, map extensions, dialogue
+// tables.
 //
 //   reluva-tests unreal.unit.packages
 
