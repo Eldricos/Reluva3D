@@ -80,7 +80,7 @@ public:
      * actors are spawned or move).
      */
     void updateRegion(VmObject *actor);
-    int editorCameras() const { return _editorCameras; } // UnrealEd's cameras, left out
+    int editorOnly() const { return _editorOnly; } // the editor's actors (cameras, brushes), left out
     /**
      * The renderer drew these zones (bit n, zone n) this frame, the view
      * in `cameraZone` (-1 not known): the zones' render times, which The
@@ -831,9 +831,8 @@ public:
     };
     void litActors(std::vector<LitActor> &out);
     /** A noise the AI may hear (MakeNoise; weapons' and projectiles' sounds). */
-    void makeNoise(VmObject *maker, float loudness);
     /** A sound played as a noise the AI hears (PlaySound, PlayDummySound). */
-    void soundNoise(VmObject *maker, float radius);
+    void soundNoise(VmObject *maker, float radius, bool dummy = false);
     /**
      * Whether the player hears a sound played by `source` as far as
      * `radius` (CheckHearSound), its volume lowered through walls.
@@ -1194,7 +1193,6 @@ private:
     const ReachSpec *specAt(VmObject *node, const char *list, int k);
     bool moverAllows(VmObject *pawn, const ReachSpec &s);
     bool canMoveTo(VmObject *pawn, VmObject *from, VmObject *to);
-    std::map<VmObject *, float> _noiseQuiet; // pawns: no noise heard before this time
     std::mt19937 _barkRandom{13579};
     std::vector<std::pair<VmObject *, int>> _soundStops;
     struct TrackedSound {
@@ -1250,7 +1248,7 @@ private:
     int _placedGhosts = 0;
     int _localizedSet = 0;
     std::vector<VmObject *> _movers; // the level's, which traces of the world meet
-    int _editorCameras = 0;
+    int _editorOnly = 0;
     std::vector<VmObject *> _actors;
     std::vector<VmObject *> _ghosts;
     LevelExtras _saved;                            // a saved game's Level extras (a map's are empty)

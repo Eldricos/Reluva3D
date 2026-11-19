@@ -122,15 +122,12 @@ Error ScriptLevel::load() {
             _vm.reportError("the level's actor " + _map.path(ref) + " has no class that loads");
             continue;
         }
-        // UnrealEd keeps its viewports' cameras in the level as Camera
-        // actors, which are PlayerPawns: left out, or the player logging
-        // in would take one over (GameInfo.Login reuses a PlayerPawn
-        // without a player).
-        bool camera = false;
-        for (const VmClass *c = cls; c && !camera; c = c->parent())
-            camera = lowerText(c->name) == "camera";
-        if (camera) {
-            ++_editorCameras;
+        // Exports for the editor alone (neither loaded for a client nor a
+        // server: UnrealEd's cameras and building brushes) aren't made, as
+        // the game's linker makes nothing for them (Core.dll 0x1012d02b).
+        // The cameras are PlayerPawns: GameInfo.Login would take one over.
+        if (!(e.flags & (objflag::kLoadForClient | objflag::kLoadForServer))) {
+            ++_editorOnly;
             continue;
         }
         VmObject *a = _vm.create(cls, _vm.name(_map.objectName(ref)));
@@ -482,74 +479,6 @@ void ScriptLevel::litActors(std::vector<LitActor> &out) {
         const Value *isStatic = prop(a, "bStatic");
         l.isStatic = isStatic && isStatic->asBool();
         out.push_back(l);
-    }
-}
-
-// A noise an actor makes (MakeNoise; a sound played without bNoHearNoise):
-// each pawn but the player and whoever made it hears it if it's loud
-// enough where the pawn is: Loudness x 800 over the distance, halved with
-// the world between, against its HearingThreshold (with the usual 1, a
-// shot of loudness 1 carries 800 units in the open). Its HearNoise
-// (Loudness, the maker): The Fallen's AI turns to search, or attacks if
-// it can see the maker. One noise a pawn every fifth of a second. Reluva's
-// reading: UE1's rule isn't in the scripts.
-void ScriptLevel::makeNoise(VmObject *maker, float loudness) {
-    if (!maker || maker->deleted || loudness <= 0)
-        return;
-    const Value *at = prop(maker, "Location");
-    if (!at)
-        return;
-    const auto from = Vm::vectorOf(*at);
-    const Value *ownerValue = prop(maker, "Owner");
-    VmObject *owner = ownerValue ? ownerValue->asObject() : nullptr;
-    const Value *instigatorValue = prop(maker, "Instigator");
-    VmObject *instigator = instigatorValue ? instigatorValue->asObject() : nullptr;
-    // Only a pawn's noise is heard (one's own, its weapon's or shot's, or
-    // what it set off: an Instigator), as UE1's MakeNoise asks; the
-    // level's ambient sounds aren't.
-    auto isPawn = [&](VmObject *a) {
-        if (!a || a->deleted)
-            return false;
-        auto it = _pawnClasses.find(a->cls);
-        if (it == _pawnClasses.end())
-            it = _pawnClasses.emplace(a->cls, _vm.isA(a, "Pawn")).first;
-        return it->second;
-    };
-    if (!isPawn(maker) && !isPawn(instigator) && !isPawn(owner))
-        return;
-    ++noise.made;
-    const std::vector<VmObject *> now = _actors;
-    for (VmObject *p : now) {
-        if (p == maker || p == owner || p == instigator || p == _player || p->deleted)
-            continue;
-        if (!isPawn(p))
-            continue;
-        const Value *health = prop(p, "Health");
-        if (health && health->asInt() <= 0)
-            continue;
-        float &quiet = _noiseQuiet[p];
-        if (quiet > _time)
-            continue;
-        const Value *loc = prop(p, "Location");
-        if (!loc)
-            continue;
-        const auto to = Vm::vectorOf(*loc);
-        const float dx = to[0] - from[0];
-        const float dy = to[1] - from[1];
-        const float dz = to[2] - from[2];
-        const float dist = std::max(1.0f, std::sqrt(dx * dx + dy * dy + dz * dz));
-        float heard = loudness * 800 / dist;
-        const Value *threshold = prop(p, "HearingThreshold");
-        const float need = threshold ? std::max(0.01f, threshold->asFloat()) : 1;
-        if (heard < need)
-            continue;
-        if (!lineOfSight(p, from, to))
-            heard *= 0.5f;
-        if (heard < need)
-            continue;
-        quiet = _time + 0.2f;
-        ++noise.heard;
-        _vm.callEvent(p, "HearNoise", {Value::floatValue(heard), Value::objectValue(maker)});
     }
 }
 
@@ -952,7 +881,6 @@ void ScriptLevel::destroy(VmObject *a) {
     _decals.erase(a);
     _sparkFlash.erase(a);
     _clambers.erase(a);
-    _noiseQuiet.erase(a);
 }
 
 void ScriptLevel::makeGhost(VmObject *a, bool ghost) {
@@ -1270,11 +1198,10 @@ void registerEngineNatives(Vm &vm) {
         if (c.self && c.self->latent && c.self->sleeping > 0)
             c.self->sleeping = 0;
     });
-    // MakeNoise(float Loudness): the AI hears it (ScriptLevel::makeNoise).
-    reg("Actor.MakeNoise", [](NativeCall &c) {
-        if (c.vm.level && c.self)
-            c.vm.level->makeNoise(c.self, c.f(0));
-    });
+    // MakeNoise(float Loudness): nothing. Engine.dll's is empty (0x10420460),
+    // and its hearing check (CheckNoiseHearing) only returns; the AI hears
+    // sounds (ScriptLevel::soundNoise).
+    reg("Actor.MakeNoise", [](NativeCall &) {});
     // Not heard: a demo's sounds. Sounds themselves are vm_sound.cpp's.
     reg("Actor.DemoPlaySound", [](NativeCall &) {});
     reg("Actor.GetRegion", [](NativeCall &c) { // GetRegion(Vector Point, out PointRegion Region)
