@@ -45,11 +45,17 @@
 
 namespace reluva::netimmerse {
 
+/** The 2D screen's size, in pixels: the game's own. */
+///@{
 constexpr int kScreenW = 640;
 constexpr int kScreenH = 480;
+///@}
 
-// What every page shares: the platform, a 2D screen for the pages that
-// draw on it, and the game's archives by name ("Map.pac") and together.
+/**
+ * What every page shares: the platform, a 2D screen for the pages that
+ * draw on it, and the game's archives by name ("Map.pac") and together.
+ * The viewer owns all of it, for as long as the pages live.
+ */
 struct ViewerContext {
     System &sys;
     Surface &screen;
@@ -59,32 +65,44 @@ struct ViewerContext {
     audio::Mixer *mixer; // nullptr without an audio device
 };
 
+/** One of the viewer's pages, shown one at a time. */
 class Page {
 public:
+    /** Keeps `ctx`, which must outlive the page. */
     explicit Page(ViewerContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
-    // Whether the page has anything to show; empty ones are skipped.
+    /** Whether the page has anything to show; empty ones are skipped. */
     virtual bool empty() const = 0;
+    /** Called as the page is shown: it sets up the screen it draws on. */
     virtual void activate() = 0;
+    /** Called as another page takes the screen, or the viewer closes. */
     virtual void deactivate() {}
+    /** An event for the page (but Tab and Esc, which the viewer takes). */
     virtual void handleEvent(const Event &ev) = 0;
-    // Draws a frame (and presents it).
+    /** Draws a frame (and presents it); `nowMs` is the system's clock. */
     virtual void update(uint64_t nowMs) = 0;
 
 protected:
+    /** Sets the window's title to "Reluva - `game` - `what`". */
     void setTitle(const std::string &what);
-    // The 2D screen, for pages that use it.
+    /** Puts the 2D screen (kScreenW by kScreenH, RGBA32) in the window, for pages that draw on it. */
     void use2D();
+    /** Fills the 2D screen with an opaque colour. */
     void clear(uint8_t r, uint8_t g, uint8_t b);
+    /** Writes on the 2D screen in the built-in font, `scale` times its size. */
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230}, int scale = 1);
 
     ViewerContext &_ctx;
 };
 
-// What each archive holds.
+/** What each archive holds, and the archives that couldn't be read. */
 class ArchivesPage : public Page {
 public:
+    /**
+     * @param lines Each archive's name and what it holds.
+     * @param errors Why archives couldn't be read, shown in red.
+     */
     ArchivesPage(ViewerContext &ctx, std::vector<std::pair<std::string, std::string>> lines,
                  std::vector<std::string> errors);
     bool empty() const override { return false; }
@@ -97,8 +115,13 @@ private:
     std::vector<std::string> _errors;
 };
 
+/**
+ * Every .FIN model in Fin.pac in 3D, animated, with its clips' sounds; keys
+ * in the comment at the top.
+ */
 class ModelPage : public Page {
 public:
+    /** Lists the models; nothing is read until the page is shown. */
     explicit ModelPage(ViewerContext &ctx);
     ~ModelPage() override;
     bool empty() const override { return _names.empty(); }
@@ -187,8 +210,10 @@ private:
     uint32_t _footprintCount = 0;
 };
 
+/** Every .TGA image in the archives. */
 class TexturePage : public Page {
 public:
+    /** Lists the images; each is read as it's shown. */
     explicit TexturePage(ViewerContext &ctx);
     bool empty() const override { return _entries.empty(); }
     void activate() override { show(_index); }
@@ -205,8 +230,10 @@ private:
     int _index = 0;
 };
 
+/** The game's .DDF fonts, drawn from their TGA pages. */
 class FontPage : public Page {
 public:
+    /** Lists the fonts; each is read as it's shown. */
     explicit FontPage(ViewerContext &ctx);
     bool empty() const override { return _entries.empty(); }
     void activate() override { show(_index); }
@@ -227,8 +254,10 @@ private:
     std::string _error;
 };
 
+/** Every .DDS sound in the archives, played through the context's mixer. */
 class SoundPage : public Page {
 public:
+    /** Lists the sounds; each is read as it's selected. */
     explicit SoundPage(ViewerContext &ctx);
     bool empty() const override { return _entries.empty(); }
     void activate() override;
@@ -251,8 +280,10 @@ private:
     std::string _info;
 };
 
+/** The language's text files (.TXT) and the puzzles (.PUZ). */
 class TextPage : public Page {
 public:
+    /** Lists the files; each is read as it's shown. */
     explicit TextPage(ViewerContext &ctx);
     bool empty() const override { return _files.empty(); }
     void activate() override { show(_index); }
