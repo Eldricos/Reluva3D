@@ -1255,7 +1255,6 @@ bool ScriptLevel::outOfWorld(VmObject *a, int physics) {
 }
 
 void ScriptLevel::move(VmObject *a, int physics, float dt) {
-    Value *physicsValue = prop(a, "Physics");
     if (physics == kPhysNone)
         return;
     if (outOfWorld(a, physics))
@@ -1321,19 +1320,15 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
         if (!_vm.isA(a, "Pawn"))
             break; // a pawn's physics only
         const bool swim = physics == kPhysSwimming;
+        if (swim && _vm.isA(a, "CTVE_PlayerPawn")) {
+            swimPlayer(a, dt);
+            break;
+        }
         if (swim && !_vm.isA(a, "PlayerPawn")) {
             swimPawn(a, dt, false);
             break;
         }
         swimOrFly(a, dt, swim);
-        if (swim && !a->deleted) {
-            Value *r = prop(a, "Region");
-            VmObject *z = r && !r->fields.empty() ? r->fields[0].asObject() : nullptr;
-            if (!z || !boolOf(prop(z, "bWaterZone"))) {
-                physicsValue->i = kPhysFalling;
-                _vm.callEvent(a, "Falling");
-            }
-        }
         break;
     }
     case kPhysProjectile: {
@@ -1602,6 +1597,142 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
         *r = _vm.rotatorValue(int32_t(std::lround(std::atan2(v[2], std::hypot(v[0], v[1])) * 32768 / 3.14159265f)) &
                                   0xffff,
                               int32_t(std::lround(std::atan2(v[1], v[0]) * 32768 / 3.14159265f)) & 0xffff, 0);
+}
+
+namespace {
+
+constexpr float kNoSurface = -9999999;
+
+} // namespace
+
+// The player's chest above its Location: ChestHeight of its height (its
+// whole height when swimming, as updateBodyRegions measures it).
+float ScriptLevel::chestOffset(VmObject *a) {
+    return floatOf(prop(a, "ChestHeight"), 0.65f) * floatOf(prop(a, "CollisionHeight"), 49.5f);
+}
+
+// The surface over the player: the water line between it and 100 over its
+// height, if the one is in the water and the other isn't (Engine.dll's
+// findWaterLine for The Fallen's player keeps it, 0x10370f70).
+void ScriptLevel::measureWaterSurface(VmObject *a) {
+    const Vec at = vecOf(prop(a, "Location"));
+    const Vec top = add(at, {0, 0, floatOf(prop(a, "CollisionHeight"), 49.5f) + 100});
+    _waterSurface[a] = waterAt(at) && !waterAt(top) ? findWaterLine(at, top)[2] : kNoSurface;
+}
+
+// The player's chest kept in the water (AdjustToWaterSurface, 0x10371240),
+// after a move from `from` to `to`. Chest in the water: the surface
+// measured again. Out of it: the player moved back down to the water line
+// (and 0.1 under it), along the move if it started under the line, else
+// straight down, sliding along a wall in up to three goes. If the chest is
+// still dry (on the bottom of a shore, say), Landed((0,0,1)) and true: the
+// scripts decide what it does next.
+bool ScriptLevel::adjustToWaterSurface(VmObject *a, const Vec &from, const Vec &to) {
+    const Vec up{0, 0, chestOffset(a)};
+    const Vec chestTo = add(to, up);
+    if (waterAt(chestTo)) {
+        measureWaterSurface(a);
+        return false;
+    }
+    const Vec chestFrom = add(from, up);
+    const Vec line = waterAt(chestFrom) ? findWaterLine(chestFrom, chestTo) : chestFrom;
+    const float drop = chestTo[2] - line[2] + 0.1f;
+    const Vec move = sub(to, from);
+    Vec back{0, 0, -drop};
+    if (waterAt(chestFrom) && move[2] > 0.01f)
+        back = mul(move, -drop / move[2]);
+    for (int k = 0; k < 3 && dot(back, back) > 1e-6f; ++k) {
+        const MoveHit h = moveActor(a, back);
+        if (a->deleted)
+            return true;
+        if (!h.hit() || h.normal[2] >= 0.65f)
+            break;
+        // Along the wall, made long enough to come down as far still.
+        const float wantZ = back[2] * (1 - h.time);
+        back = mul(sub(back, mul(h.normal, dot(back, h.normal))), 1 - h.time);
+        if (back[2] < -1e-4f)
+            back = mul(back, wantZ / back[2]);
+    }
+    if (!waterAt(add(vecOf(prop(a, "Location")), up))) {
+        _vm.callEvent(a, "Landed", {_vm.vectorValue(0, 0, 1)});
+        return true;
+    }
+    measureWaterSurface(a);
+    return false;
+}
+
+// The Fallen's player swimming (ACTVE_PlayerPawn::physSwimming,
+// 0x10371a60), not the engine's pawns' swim: the chest kept in the water;
+// near the surface (the chest within 1 of it) the player floats there,
+// not rising out; no buoyancy; three moves at most, sliding along walls,
+// the surface a ceiling against slopes; at the surface a wall can be a
+// ledge to clamber onto or a ladder to climb. No HitWall; its Velocity is
+// what it swims at, not what it moved, flat at the surface.
+void ScriptLevel::swimPlayer(VmObject *a, float dt) {
+    Value *vel = prop(a, "Velocity");
+    if (!vel || dt <= 0)
+        return;
+    const Vec start = vecOf(prop(a, "Location"));
+    if (adjustToWaterSurface(a, start, start) || a->deleted)
+        return;
+    Vec accel = vecOf(prop(a, "Acceleration"));
+    bool atSurface = false;
+    if (auto it = _waterSurface.find(a); it != _waterSurface.end() && it->second > -100000) {
+        const float depth = std::clamp(it->second - (start[2] + chestOffset(a)), 0.0f, 100.0f);
+        if (depth < 100 && accel[2] > -240)
+            accel[2] = std::min(accel[2], depth);
+        atSurface = depth < 1;
+    }
+    // In the water the chest is in: its friction, not the Region's.
+    float friction = 1.2f;
+    if (const Value *r = prop(a, "ChestRegion"); r && !r->fields.empty())
+        if (VmObject *zone = r->fields[0].asObject())
+            friction = floatOf(prop(zone, "ZoneFluidFriction"), friction);
+    const ZoneFeel z = zoneFeel(a);
+    Vec v = vecOf(vel);
+    calcVelocity(a, v, accel, dt, floatOf(prop(a, "WaterSpeed"), 200), friction, true, false, false, z.gravity);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
+
+    Vec delta = mul(add(v, z.velocity), dt);
+    const Vec desired = normalOf(delta);
+    Vec lastNormal{};
+    float timeLeft = 1;
+    for (int k = 0; k < 3 && timeLeft > 0.01f; ++k) {
+        if (atSurface && delta[2] > 0 && lastNormal[2] < 0.65f)
+            delta[2] = 0;
+        const Vec from = vecOf(prop(a, "Location"));
+        const MoveHit h = moveActor(a, delta);
+        if (a->deleted)
+            return;
+        if (!atSurface) {
+            if (adjustToWaterSurface(a, from, add(from, delta)) || a->deleted)
+                return;
+        } else if (h.hit() && h.actor == _levelInfo) {
+            const Vec flat{delta[0], delta[1], 0};
+            if (testForLedge(a, h.normal, flat)) {
+                if (askClimb(a, h.normal, kPhysClambering))
+                    return;
+            } else if (checkClimbing(a, h.normal, flat, true, false, true, true) &&
+                       askClimb(a, h.normal, kPhysClimbing)) {
+                return;
+            }
+        }
+        if (!h.hit())
+            break;
+        timeLeft *= 1 - h.time;
+        const Vec left = mul(delta, 1 - h.time);
+        if (atSurface && h.normal[2] > 0 && h.normal[2] < 0.65f)
+            delta = twoWallAdjust(desired, left, h.normal, {0, 0, -1}, h.time);
+        else if (k == 0)
+            delta = sub(left, mul(h.normal, dot(left, h.normal)));
+        else
+            delta = twoWallAdjust(desired, left, h.normal, lastNormal, h.time);
+        lastNormal = h.normal;
+    }
+    if (atSurface && !a->deleted) {
+        v = vecOf(vel);
+        _vm.setVector(*vel, v[0], v[1], 0);
+    }
 }
 
 void ScriptLevel::calcVelocity(VmObject *a, Vec &v, Vec &accel, float dt, float maxSpeed, float friction, bool fluid,
@@ -2191,10 +2322,6 @@ void ScriptLevel::swimOrFly(VmObject *a, float dt, bool swim) {
     const Vec delta = mul(zoneMoves ? add(v, z.velocity) : v, dt);
     MoveHit h = moveActor(a, delta);
     if (a->deleted)
-        return;
-    // The player swimming into a wall: a ledge or ladder there, as
-    // walking (Engine.dll's physSwimming asks the same tests).
-    if (swim && h.hit() && climbBlocked(a, h.actor, h.normal, mul(delta, 1 - h.time)))
         return;
     if (h.hit()) {
         const Vec gravDir{0, 0, z.gravity[2] > 0 ? 1.0f : -1.0f};

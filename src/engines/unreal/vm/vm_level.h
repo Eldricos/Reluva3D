@@ -921,6 +921,13 @@ private:
     void pawnRotation(VmObject *a, float dt, const std::array<float, 3> &velocityBefore);
     std::array<float, 3> findWaterLine(const std::array<float, 3> &in, const std::array<float, 3> &out);
     void swimPawn(VmObject *a, float dt, bool fish);
+    void swimPlayer(VmObject *a, float dt);
+    bool adjustToWaterSurface(VmObject *a, const std::array<float, 3> &from, const std::array<float, 3> &to);
+    void measureWaterSurface(VmObject *a);
+    float chestOffset(VmObject *a);
+    // The water's surface over each swimming player, as last measured
+    // (kNoSurface: none above it).
+    std::map<VmObject *, float> _waterSurface;
     void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining);
     void fallPlayer(VmObject *a, float dt);
     void fall(VmObject *a, float dt);

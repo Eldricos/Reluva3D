@@ -87,9 +87,10 @@ the player to face into the wall before asking its scripts'
     (`CrchWalkF`, height 32.5) and goes on under it until the ceiling
     slopes too low even for that. Walking back out, the player stands up
     again.
-  - **Out of water:** on M01_KiraL1B at (-1589, -5514), swimming into a
-    rim 20 over the water floats the player up to it, then
-    `PlayerClambering` pulls up onto it. Into a wall with no room over
+  - **Out of water:** swimming at the surface into a rim over the
+    water, `TestForLedge` finds it and `PlayerClambering` pulls up onto
+    it. The player has to swim up to the surface first: it doesn't float
+    ([movement.md](movement.md)). Into a wall with no room over
     the water (M11_SiskoL1a), the player stays swimming.
   - **A ladder's edges:** on TrainingRoom, walking into the 32-wide
     ladder at (32, 1625) 15 off its middle puts the player 4 off it

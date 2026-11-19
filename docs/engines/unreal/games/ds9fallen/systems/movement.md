@@ -77,7 +77,7 @@ Physics each tick, after the actor's scripts:
 | Walking, other pawns | `calcVelocity`, then in steps of at most 0.05 s when going far, up to 4 (8 for pawns not The Fallen's). What stops a move is stepped up (`stepUp`: up `MaxStepHeight`, across, down; a square wall tried as a step again, else slid along; landing on a slope steeper than 0.7 undone). It's kept 1.9 to 2.4 above the floor (0.7 or flatter). With no floor, a pawn that can't jump (`bCanJump`) or is walking (`bIsWalking`) goes back, stops, and gives its move up (`MoveTimer` −1). Others fall with the rest of the tick. Velocity is what it moved, flat. A CTVE pawn's rise or drop on a step is eased out of how it's drawn (`PivotOffset`, into `PrePivot`, at 10 a second). |
 | Falling, the player | Gravity 1.4 times the zone's, times 1 − 2.2·dt (kept to 0.5-1), `AirControl` of `AccelRate` across, up to the terminal velocity. One move with up to four slides, `HitWall` (head-on-ness, speed) at the first only. Landing on anything flatter than 0.65. Its velocity is then what it moved. |
 | Falling, everything else | Steps of at most 0.1 s (8 at most), each moving at the average of its velocity at the start and end, split at the top of an arc. A pawn's air control is less with something just ahead. Landing on more than 0.7 (`Landed`, then walking, or still for an actor, and the rest of the tick walked). Steeper: `HitWall` and along it, then along both. `bBounce`: `HitWall` and its script bounces it. |
-| Swimming, flying | A pawn's only: `calcVelocity` in the fluid (`WaterSpeed` or `AirSpeed`, the zone's fluid friction; swimmers float by `Buoyancy` against `Mass`, and don't brake). A flier: one move, stepping up a low wall, else sliding. An AI swimmer (APawn::physSwimming, `Swim`): the move with the zone's current in up to three goes; out of the water, back to the water line (`findWaterLine`, by halving) or back where it was; head on into a wall (`MinHitWall`), `HitWall` and stop, else along it; its velocity what it moved. It never leaves the water itself: its scripts' `ZoneChange` do that. The player's own swimming is Reluva's, falling once out of the water. |
+| Swimming, flying | A pawn's only: `calcVelocity` in the fluid (`WaterSpeed` or `AirSpeed`, the zone's fluid friction; swimmers float by `Buoyancy` against `Mass`, and don't brake). A flier: one move, stepping up a low wall, else sliding. An AI swimmer (APawn::physSwimming, `Swim`): the move with the zone's current in up to three goes; out of the water, back to the water line (`findWaterLine`, by halving) or back where it was; head on into a wall (`MinHitWall`), `HitWall` and stop, else along it; its velocity what it moved. It never leaves the water itself: its scripts' `ZoneChange` do that. The player's is The Fallen's own (ACTVE_PlayerPawn::physSwimming, 0x10371a60), below. |
 | Projectile | Its velocity plus acceleration; `HitWall` on the world. |
 | Rotating | `RotationRate` each second, or toward `DesiredRotation` with `bRotateToDesired`. Only in this physics (and The Fallen's single-axis ones) does an actor turn, after its move. An AI pawn turns after its move (APawn::physicsRotation; not climbing walls; Newtonian ones as actors do): set to turn to `DesiredRotation`, its yaw at `RotationRate.Yaw` a second, its pitch the desired's within `RotationRate.Pitch` of level, and with a `RotationRate.Roll` a lean into turns at speed (the sideways change of its velocity, 4096 walking or 28000 else over `AccelRate`, at most the roll rate, eased in at 5 a second, back level at 8). Then its `MoveTimer` counts down. |
 | Moving brush | While its script has it going (`InterpolateTo` sets `bInterpolating`): a mover from its old key toward its next by `PhysAlpha`, eased in and out if it glides by time. It carries the actors based on it and sends `InterpolateEnd` at the end. |
@@ -118,6 +118,41 @@ the rest are Reluva's reading of what the scripts set and leave undone.
 | Fish | As an AI swimmer (kept in the water), then pulled on toward its `Destination` when that's over 20 away (`AccelRate`; the pull also kept in `LastSeenPos`), held to `WaterSpeed` and facing the way it swims with no roll; its velocity not what it moved. |
 | EXP_Trail | An explosion's trail: by its velocity and acceleration, through everything; then curling (its copies' base: `Angle` the torque, `Acceleration` the axis its scripts change), the axis crossed with the way it goes by dt x Angle x 2500, kept to its speed. |
 | The rest | Only their copies move (see [effects.md](effects.md)). |
+
+**The player swimming** is The Fallen's own (`ACTVE_PlayerPawn::physSwimming`,
+0x10371a60), not the engine's pawns':
+- The chest (`ChestHeight` of its height) is kept in the water
+  (`AdjustToWaterSurface`, 0x10371240). Out of it after a move, the
+  player is moved back down to the water line and 0.1 under: along the
+  move if it started under the line, else straight down, sliding along a
+  wall in up to three goes. If the chest is still dry, the player is told
+  `Landed((0,0,1))` and its scripts take it from there (on a shore it
+  stands and walks). In the water, the surface over it is measured: the
+  water line up to 100 over its height (the player's `findWaterLine`,
+  0x10370f70, keeps it).
+- Near the surface (the chest under it by less than 100) the upward
+  acceleration is held to the depth, so it slows as it gets there; within
+  1 the player is at the surface: it doesn't rise out (an upward move's
+  Z is dropped unless against a slope), and its Velocity's Z is 0.
+- The velocity is the player's own `calcVelocity` with `WaterSpeed` and
+  the friction of the zone its chest is in; no buoyancy, no gravity.
+- Up to three moves, while over 0.01 of the tick is left, with the
+  zone's current: sliding along a wall, then `TwoWallAdjust`; at the
+  surface against a slope (its normal's Z between 0 and 0.65) the surface
+  is the second wall, a ceiling. At the surface a wall of the level can
+  be a ledge to clamber onto (`TestForLedge`, then `ChangePhysics(13)`)
+  or a ladder (`CheckClimbing`, then `ChangePhysics(14)`), as in
+  [climbing.md](climbing.md). No `HitWall`.
+- Its Velocity is what it swims at, not what it moved.
+
+So the player stays in the water until it swims to the surface and onto
+a ledge, a ladder or a shore. On M01_KiraL1B from (-1840, -5572), the
+bottom: Space takes it up 30 to the surface, where it floats; swimming on
+west, it reaches the shore at -1938 and stands. Not done: after a
+`TestForLedge` that finds only a step, Engine.dll moves the player down
+by `MaxStepHeight` + 2 and, the chest out of the water, has it land and
+walk (0x1037201c); how that test's step value is made isn't settled, so
+the step is left to the shore's `Landed`.
 
 Walls are told as the engine's `processHitWall`: nothing for a pawn
 hit, or with no acceleration; a pawn going (toward its `Destination`;
