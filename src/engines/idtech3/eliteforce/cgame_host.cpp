@@ -288,7 +288,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     switch (number) {
     case kPrint: {
         const std::string text = str(0, 4096);
-        // Kept (the last 4 KB) as well as handed on.
+        // Kept as well as handed on: cut back to the last 4 KB once past 8 KB.
         _log += text;
         if (_log.size() > 8192)
             _log.erase(0, _log.size() - 4096);
