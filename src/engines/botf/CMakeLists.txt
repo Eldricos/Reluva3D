@@ -21,6 +21,19 @@ reluva_add_engine(botf
         ui/layout_screen.cpp
         ui/setup_screen.cpp)
 
+# Its data viewer, for reluva-viewer only: reluva, which players get,
+# doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
+reluva_add_engine_viewers(botf
+    ACCESSOR botfMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/data_viewer.cpp
+        pages/font_viewer.cpp
+        pages/image_viewer.cpp
+        pages/layout_viewer.cpp
+        pages/sound_viewer.cpp
+        pages/text_viewer.cpp)
+
 # Its reluva-tool commands (reluva-tool help botf lists them).
 reluva_add_engine_tools(botf
     SOURCES
