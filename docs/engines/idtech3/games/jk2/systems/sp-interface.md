@@ -318,6 +318,9 @@ yet: a console on the page.
   -tour 5000 -spare droid -replay
   tests/engines/idtech3/data/routes/bespin_undercity.txt -set helpUsObi
   1 -next` plays it to `maptransition bespin_streets`.
+- **bespin_streets:** `sp-run bespin_streets -tour 5000 -set helpUsObi 1
+  -next` plays it to `maptransition bespin_platform`, nothing new
+  needed.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split

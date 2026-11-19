@@ -49,7 +49,7 @@
   car and its two switches; ns_hideout by the tour; ns_starpad by the
   tour then its route, about forty minutes), `jk2-sp-bespin`
   (bespin_undercity: the tour, then the R5 droid's drive to the exit
-  lift). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  lift; bespin_streets by the tour). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

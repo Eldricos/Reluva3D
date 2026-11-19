@@ -216,7 +216,8 @@ behind the DLL's own tables.
    roof doors, the fuel code, the cockpit and the Lady Luck's gun.
    `bespin_undercity` plays to `bespin_streets` by the tour (sparing
    the R5 droid, whose death fails the mission), then a short route:
-   the droid's drive to the exit lift, then the lift. Next: the next levels the same way, and a console on the page.
+   the droid's drive to the exit lift, then the lift. `bespin_streets`
+   plays to `bespin_platform` by the tour, nothing new needed. Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
