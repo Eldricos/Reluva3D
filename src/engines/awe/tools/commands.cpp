@@ -1,0 +1,1190 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// reluva-tool's commands for the AWE engine's games (Agatha Christie:
+// Murder on the Orient Express): see docs/engines/awe/README.md.
+
+#include "engines/awe/tools/tools.h"
+
+#include "engines/awe/formats/ac2.h"
+#include "engines/awe/formats/bink_dll.h"
+#include "engines/awe/game/camera.h"
+#include "engines/awe/formats/gr2.h"
+#include "engines/awe/formats/granny_dll.h"
+#include "engines/awe/formats/model.h"
+#include "engines/awe/formats/savegame.h"
+#include "engines/awe/game/story.h"
+#include "engines/awe/formats/tables.h"
+#include "engines/awe/pages/viewers.h"
+#include "common/archive.h"
+#include "image/image.h"
+#include "common/system.h"
+#include "video/bink.h"
+#include "devtools/tool.h"
+
+#include <algorithm>
+#include <cmath>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <deque>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+namespace {
+
+namespace awe = reluva::awe;
+using reluva::awe::HeadlessSystem;
+
+bool readFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        std::fprintf(stderr, "can't open %s\n", path.string().c_str());
+        return false;
+    }
+    out.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    return true;
+}
+
+// granny2.dll from beside the file, its folder's parents, or `-dll path`.
+bool loadGranny(const std::filesystem::path& near, const std::string& given, awe::GrannyDll& dll) {
+    std::filesystem::path path = given;
+    if (path.empty())
+        for (std::filesystem::path dir = std::filesystem::absolute(near).parent_path(); !dir.empty();
+             dir = dir.parent_path()) {
+            for (const char* name : {"granny2.dll", "GRANNY2.DLL", "Granny2.dll"})
+                if (std::filesystem::exists(dir / name)) {
+                    path = dir / name;
+                    break;
+                }
+            if (!path.empty() || dir == dir.parent_path())
+                break;
+        }
+    if (path.empty()) {
+        std::fprintf(stderr, "granny2.dll not found near %s (give it with -dll)\n", near.string().c_str());
+        return false;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(path, data))
+        return false;
+    if (reluva::Error e = dll.load(data)) {
+        std::fprintf(stderr, "%s: %s\n", path.string().c_str(), e.message.c_str());
+        return false;
+    }
+    return true;
+}
+
+int cmdGr2Info(int argc, char** argv) {
+    std::string file;
+    unsigned maxElements = 4;
+    bool tree = false;
+    for (int i = 2; i < argc; i++) {
+        if (std::strcmp(argv[i], "-t") == 0)
+            tree = true;
+        else if (std::strcmp(argv[i], "-n") == 0 && i + 1 < argc)
+            maxElements = unsigned(std::strtoul(argv[++i], nullptr, 10)), tree = true;
+        else
+            file = argv[i];
+    }
+    if (file.empty()) {
+        std::fprintf(stderr, "usage: reluva-tool awe gr2-info <file.gr2> [-t] [-n elements]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(file, data))
+        return 1;
+    awe::Gr2File gr2;
+    const reluva::Error err = gr2.open(data);
+    std::printf("format %u, type tag 0x%08x, %zu sections\n", gr2.version(), gr2.typeTag(), gr2.sections().size());
+    static const char* const kCompression[] = {"none", "Oodle0", "Oodle1"};
+    for (size_t i = 0; i < gr2.sections().size(); i++) {
+        const awe::Gr2Section& s = gr2.sections()[i];
+        std::printf("  %zu: %-6s %8u -> %8u bytes, align %2u, stops %u %u, %u fixups, %u marshalling\n", i,
+                    s.compression < 3 ? kCompression[s.compression] : "?", s.compressedSize, s.size, s.alignment,
+                    s.stop0, s.stop1, s.fixupCount, s.marshallingCount);
+    }
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    if (tree)
+        std::fputs(gr2.dump(maxElements).c_str(), stdout);
+    return 0;
+}
+
+// Opens a .gr2 file, and loads the granny2.dll found near it (for its
+// textures and compressed curves).
+bool openGr2(const std::string& file, awe::GrannyDll& dll, awe::Gr2File& gr2) {
+    std::vector<uint8_t> data;
+    if (!readFile(file, data))
+        return false;
+    if (!dll.loaded() && !loadGranny(file, "", dll))
+        return false;
+    const reluva::Error err = gr2.open(data);
+    if (err) {
+        std::fprintf(stderr, "%s: %s\n", file.c_str(), err.message.c_str());
+        return false;
+    }
+    return true;
+}
+
+// Summarises a model; optionally poses it with an animation and writes
+// it as Wavefront OBJ (with its textures as TGA files beside it).
+int cmdGr2Model(int argc, char** argv) {
+    std::string file, animFile, objFile, trackBone;
+    float time = 0;
+    for (int i = 2; i < argc; i++) {
+        if (std::strcmp(argv[i], "-anim") == 0 && i + 2 < argc) {
+            animFile = argv[++i];
+            time = std::strtof(argv[++i], nullptr);
+        } else if (std::strcmp(argv[i], "-obj") == 0 && i + 1 < argc) {
+            objFile = argv[++i];
+        } else if (std::strcmp(argv[i], "-track") == 0 && i + 1 < argc) {
+            trackBone = argv[++i];
+        } else {
+            file = argv[i];
+        }
+    }
+    if (file.empty()) {
+        std::fprintf(stderr, "usage: reluva-tool awe model-dump <model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] "
+                             "[-track bone]\n");
+        return 2;
+    }
+    awe::GrannyDll dll;
+    awe::Gr2File gr2;
+    if (!openGr2(file, dll, gr2))
+        return 1;
+    awe::Model model;
+    if (reluva::Error e = awe::loadModel(gr2, model)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("model \"%s\": %zu bones, %zu meshes, %zu textures, %g units per metre\n", model.name.c_str(),
+                model.bones.size(), model.meshes.size(), model.textures.size(), model.unitsPerMeter);
+    for (const awe::ModelMesh& m : model.meshes) {
+        std::printf("  mesh %-24s %6zu vertices %6zu triangles, textures", m.name.c_str(), m.vertices.size(),
+                    m.indices.size() / 3);
+        for (const auto& g : m.groups)
+            std::printf(" %d", g.texture);
+        std::printf("\n");
+    }
+    for (size_t i = 0; i < model.textures.size(); i++) {
+        const awe::ModelTexture& t = model.textures[i];
+        std::printf("  texture %zu: %s %dx%d%s\n", i, t.name.c_str(), t.width, t.height,
+                    t.rgba.empty() ? " (not decoded)" : "");
+    }
+    awe::Animation anim;
+    awe::Gr2File animGr2;
+    if (!animFile.empty()) {
+        if (!openGr2(animFile, dll, animGr2))
+            return 1;
+        if (reluva::Error e = awe::loadAnimation(animGr2, anim)) {
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+            return 1;
+        }
+        size_t matched = 0;
+        for (const awe::AnimationTrack& t : anim.tracks)
+            for (const awe::Bone& b : model.bones)
+                matched += b.name == t.bone;
+        std::printf("animation \"%s\": %.3f s (step %.4f), %zu tracks, %zu on the model's bones\n", anim.name.c_str(),
+                    anim.duration, anim.timeStep, anim.tracks.size(), matched);
+        if (!anim.mask.empty()) {
+            // Its track mask: the bones it weighs, by weight.
+            std::map<float, std::vector<std::string>> byWeight;
+            for (const auto& [bone, w] : anim.mask)
+                byWeight[w].push_back(bone);
+            std::printf("track mask:");
+            for (const auto& [w, bones] : byWeight)
+                std::printf(" %g on %zu bones (%s%s);", w, bones.size(), bones[0].c_str(), bones.size() > 1 ? "..." : "");
+            std::printf("\n");
+        }
+    }
+    if (!trackBone.empty()) {
+        // The bone's place in the model (its own axes) through the
+        // animation, a line per time step.
+        int bone = -1;
+        for (size_t b = 0; b < model.bones.size(); b++)
+            if (model.bones[b].name == trackBone)
+                bone = int(b);
+        if (bone < 0) {
+            std::fprintf(stderr, "no bone %s\n", trackBone.c_str());
+            return 1;
+        }
+        const float step = anim.timeStep > 0 ? anim.timeStep : 1 / 60.0f;
+        awe::Pose pose;
+        for (float t = 0; t <= anim.duration + step / 2; t += step) {
+            awe::computePose(model, animFile.empty() ? nullptr : &anim, t, pose);
+            const awe::Mat4& m = pose.world[size_t(bone)];
+            std::printf("%.4f %g %g %g\n", t, m[12], m[13], m[14]);
+        }
+    }
+    if (objFile.empty())
+        return 0;
+    awe::Pose pose;
+    awe::computePose(model, animFile.empty() ? nullptr : &anim, time, pose);
+    const std::filesystem::path obj = objFile;
+    std::ofstream out(obj);
+    std::ofstream mtl(std::filesystem::path(obj).replace_extension(".mtl"));
+    out << "mtllib " << std::filesystem::path(obj).replace_extension(".mtl").filename().string() << "\n";
+    for (size_t i = 0; i < model.textures.size(); i++) {
+        const awe::ModelTexture& t = model.textures[i];
+        const std::string tga = obj.stem().string() + "_tex" + std::to_string(i) + ".tga";
+        mtl << "newmtl tex" << i << "\nKd 1 1 1\n";
+        if (!t.rgba.empty()) {
+            reluva::image::Image img;
+            img.w = t.width;
+            img.h = t.height;
+            img.rgba = t.rgba;
+            const std::vector<uint8_t> bytes = reluva::image::encodeTga(img);
+            std::ofstream(obj.parent_path() / tga, std::ios::binary)
+                .write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+            mtl << "map_Kd " << tga << "\n";
+        }
+    }
+    size_t base = 1;
+    std::vector<std::array<float, 3>> positions, normals;
+    for (const awe::ModelMesh& m : model.meshes) {
+        awe::skin(m, pose, positions, normals);
+        out << "o " << m.name << "\n";
+        for (size_t v = 0; v < m.vertices.size(); v++) {
+            out << "v " << positions[v][0] << ' ' << positions[v][1] << ' ' << positions[v][2] << "\n";
+            out << "vn " << normals[v][0] << ' ' << normals[v][1] << ' ' << normals[v][2] << "\n";
+            out << "vt " << m.vertices[v].uv[0] << ' ' << 1 - m.vertices[v].uv[1] << "\n";
+        }
+        for (const auto& g : m.groups) {
+            out << "usemtl tex" << g.texture << "\n";
+            for (uint32_t i = g.firstIndex; i + 2 < g.firstIndex + g.indexCount; i += 3) {
+                out << 'f';
+                for (int k = 0; k < 3; k++) {
+                    const size_t idx = base + m.indices[i + uint32_t(k)];
+                    out << ' ' << idx << '/' << idx << '/' << idx;
+                }
+                out << "\n";
+            }
+        }
+        base += m.vertices.size();
+    }
+    std::printf("wrote %s\n", objFile.c_str());
+    return 0;
+}
+
+// Reads scene files and prints what they hold; with several files, only
+// whether each reads to its end.
+int cmdAc2Dump(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe ac2-dump <scene.ac2>...\n");
+        return 2;
+    }
+    int failed = 0;
+    for (int i = 2; i < argc; i++) {
+        std::vector<uint8_t> data;
+        if (!readFile(argv[i], data)) {
+            failed++;
+            continue;
+        }
+        awe::Ac2Scene scene;
+        const reluva::Error err = awe::parseAc2(data, scene);
+        if (argc == 3)
+            std::fputs(awe::dumpAc2(scene).c_str(), stdout);
+        else
+            std::printf("%-60s %zu records%s%s\n", argv[i], scene.records.size(), err ? ": " : "",
+                        err ? err.message.c_str() : "");
+        if (err) {
+            if (argc == 3)
+                std::fprintf(stderr, "%s\n", err.message.c_str());
+            failed++;
+        }
+    }
+    return failed ? 1 : 0;
+}
+
+// Prints a text table (Text/*.txt) row by row, cells as the game's
+// script commands where they parse as some.
+int cmdAweTable(int argc, char** argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe table-show <file.txt>\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data))
+        return 1;
+    const awe::Table t = awe::parseTable(awe::decodeText(data));
+    std::printf("%zu columns, %zu rows\n", t.headings.size(), t.rows.size());
+    for (size_t r = 0; r < t.rows.size(); r++) {
+        std::printf("[%zu]\n", r);
+        for (size_t c = 0; c < t.rows[r].size(); c++) {
+            if (t.rows[r][c].empty())
+                continue;
+            std::printf("  %s: %s\n", c < t.headings.size() ? t.headings[c].c_str() : "?", t.rows[r][c].c_str());
+            const std::vector<awe::Command> cmds = awe::parseCommands(t.rows[r][c]);
+            if (cmds.size() > 1)
+                for (const awe::Command& cmd : cmds) {
+                    std::printf("    -");
+                    for (const std::string& w : cmd.words)
+                        std::printf(" [%s]", w.c_str());
+                    std::printf("\n");
+                }
+        }
+    }
+    return 0;
+}
+
+// Shows a page of the engine's viewer without a window, presses keys on
+// it, and saves the screen as a TGA file.
+int cmdAweShot(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool awe page-shot <game folder> <scenes|pictures|text|sounds|movies> <out.tga> "
+                             "[key...]\n  keys: left right up down pgup pgdn home end esc enter f1..f12, or one character;\n"
+                             "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
+                             "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse, rclick:x,y\n"
+                             "  right-clicks; start:<act|slotN> starts a game there, run:<script> runs a script\n"
+                             "  (the scenes page)\n");
+        return 2;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    HeadlessSystem sys;
+    reluva::Surface screen;
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    awe::GameFonts fonts;
+    const bool haveFonts = !fonts.load(files);
+    // "savedir:<folder>" among the keys: where the game's saves go.
+    std::filesystem::path saves;
+    for (int i = 5; i < argc; i++)
+        if (std::strncmp(argv[i], "savedir:", 8) == 0)
+            saves = argv[i] + 8;
+    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr, {}, -1};
+    std::unique_ptr<awe::Page> page;
+    const std::string which = argv[3];
+    if (which == "scenes")
+        page = std::make_unique<awe::ScenePage>(ctx);
+    else if (which == "pictures")
+        page = std::make_unique<awe::PicturePage>(ctx);
+    else if (which == "text")
+        page = std::make_unique<awe::TextPage>(ctx);
+    else if (which == "sounds")
+        page = std::make_unique<awe::SoundPage>(ctx);
+    else if (which == "movies")
+        page = std::make_unique<awe::MoviePage>(ctx);
+    else {
+        std::fprintf(stderr, "unknown page %s\n", which.c_str());
+        return 2;
+    }
+    std::printf("%zu items\n", page->count());
+    page->activate();
+    for (int i = 5; i < argc; i++) {
+        const std::string k = argv[i];
+        if (k.rfind("ms:", 0) == 0) {
+            // Time passing, a frame each 10 ms.
+            const uint64_t until = sys.now + std::strtoull(k.c_str() + 3, nullptr, 10);
+            while (sys.now < until) {
+                sys.now += 10;
+                page->update(sys.now);
+            }
+            continue;
+        }
+        if (k.rfind("savedir:", 0) == 0)
+            continue;
+        if (k.rfind("run:", 0) == 0) {
+            // A script run, as a scene's.
+            if (auto* scenes = dynamic_cast<awe::ScenePage*>(page.get()))
+                scenes->runCommands(k.substr(4));
+            continue;
+        }
+        if (k.rfind("start:", 0) == 0) {
+            // A game started at an act or a developer's save, played on
+            // till it settles (as awe game-run does).
+            if (auto* scenes = dynamic_cast<awe::ScenePage*>(page.get())) {
+                scenes->startAt(k.substr(6));
+                for (int quiet = 0, n = 0; n < 60000 && quiet < 300; n++) {
+                    sys.now += 10;
+                    scenes->update(sys.now);
+                    scenes->autoplay();
+                    const awe::ScenePage::GameStatus st = scenes->status();
+                    quiet = st.idle && !st.talking && !st.movie && !st.loading && !st.fading ? quiet + 1 : 0;
+                }
+            }
+            continue;
+        }
+        reluva::Event ev;
+        if (k.rfind("click:", 0) == 0 || k.rfind("move:", 0) == 0 || k.rfind("release:", 0) == 0 ||
+            k.rfind("rclick:", 0) == 0) {
+            // The mouse moved to, clicked at (left or right), or let go at
+            // x,y on the screen.
+            const bool right = k.rfind("rclick:", 0) == 0, click = k[0] == 'c' || right,
+                       release = k.rfind("release:", 0) == 0;
+            const char* at = k.c_str() + (right ? 7 : click ? 6 : release ? 8 : 5);
+            char* end = nullptr;
+            ev.mouseX = int(std::strtol(at, &end, 10));
+            ev.mouseY = end && *end == ',' ? int(std::strtol(end + 1, nullptr, 10)) : 0;
+            ev.type = click     ? reluva::EventType::MouseDown
+                      : release ? reluva::EventType::MouseUp
+                                : reluva::EventType::MouseMove;
+            ev.button = right ? reluva::MouseButton::Right
+                        : click || release ? reluva::MouseButton::Left
+                                           : reluva::MouseButton::None;
+            ev.clicks = click ? 1 : 0;
+            page->handleEvent(ev);
+            continue;
+        }
+        ev.type = reluva::EventType::KeyDown;
+        namespace key = reluva::key;
+        ev.key = k == "left" ? key::Left : k == "right" ? key::Right : k == "up" ? key::Up : k == "down" ? key::Down
+               : k == "pgup" ? key::PageUp : k == "pgdn" ? key::PageDown : k == "home" ? key::Home
+               : k == "end" ? key::End : k == "esc" ? key::Escape : k == "enter" ? key::Return
+               : k.size() > 1 && k[0] == 'f' ? key::F1 + uint32_t(std::atoi(k.c_str() + 1) - 1)
+                                             : uint32_t(uint8_t(k[0]));
+        page->handleEvent(ev);
+    }
+    page->update(sys.now);
+    reluva::image::Image img;
+    img.w = sys.last.w;
+    img.h = sys.last.h;
+    img.rgba = sys.last.pixels;
+    const std::vector<uint8_t> tga = reluva::image::encodeTga(img);
+    std::ofstream(argv[4], std::ios::binary).write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+    return 0;
+}
+
+// Plays the acts without a player (the Scenes page's autoplay): each act
+// started as "act <x>" starts it, or each developer's save loaded, then
+// moved on till it settles (nothing running, nothing said) or sticks (an
+// event that doesn't end). With -hotspots, every hotspot and character of
+// the scene it settles in is then clicked, each from the act afresh; with
+// -explore n, n clicks follow, each the one tried least so far. What
+// the scripts ask that Reluva doesn't do, or can't find, is listed.
+// reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]: the
+// checks a change to the engine should pass, one after another, each a
+// whole game from a new game: the route by the mouse; by the player's
+// hand alone (inputs only); saved and loaded after every action; and
+// wandering off it (two seeds, one with -quick). With -3d the first runs
+// with a window's renderer (under a display). The route is a playthrough
+// file (awe game-run -solve; its own, made from the install, isn't committed:
+// it names the game's files); if the file isn't there it's searched for
+// first, with -mouse -characters, and kept there.
+int cmdAweRegress(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]\n");
+        return 1;
+    }
+    const std::string game = argv[2], route = argv[3];
+    bool threeD = false, quick = false;
+    for (int i = 4; i < argc; i++) {
+        threeD |= std::strcmp(argv[i], "-3d") == 0;
+        quick |= std::strcmp(argv[i], "-quick") == 0;
+    }
+    auto run = [&](const std::string& name, std::vector<std::string> args) {
+        std::vector<std::string> all = {argv[0], "game-run", game};
+        all.insert(all.end(), args.begin(), args.end());
+        std::vector<char*> av;
+        for (std::string& a : all)
+            av.push_back(a.data());
+        std::printf("== %s\n", name.c_str());
+        std::fflush(stdout);
+        const auto began = std::chrono::steady_clock::now();
+        const int rc = reluva::awe::aweCommandSolve(int(av.size()), av.data());
+        const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+        std::printf("== %s: %s in %.0f s\n\n", name.c_str(), rc == 0 ? "passed" : "FAILED", secs);
+        std::fflush(stdout);
+        return rc == 0;
+    };
+    if (!std::filesystem::exists(route) &&
+        !run("the route searched for (" + route + ")", {"-solve", route, "-mouse", "-characters"}))
+        return 1;
+    std::vector<std::pair<std::string, bool>> results;
+    std::vector<std::string> first = {"-play", route, "-mouse", "-sound"};
+    first.push_back(threeD ? "-3d" : "-characters");
+    const std::string firstName = "the route by the mouse, with sound" + std::string(threeD ? " and 3D" : "");
+    results.emplace_back(firstName, run(firstName, first));
+    results.emplace_back("the route by the hand alone", run("the route by the hand alone",
+                                                             {"-play", route, "-hand", "-characters"}));
+    results.emplace_back("saved and loaded after every action",
+                         run("saved and loaded after every action", {"-play", route, "-mouse", "-characters", "-reloadeach"}));
+    for (const char* seed : quick ? std::vector<const char*>{"1"} : std::vector<const char*>{"1", "2"})
+        results.emplace_back(std::string("wandering off the route, seed ") + seed,
+                             run(std::string("wandering off the route, seed ") + seed,
+                                 {"-play", route, "-mouse", "-characters", "-wander", "10", seed}));
+    int failed = 0;
+    std::printf("== summary\n");
+    for (const auto& [name, ok] : results) {
+        std::printf("  %-50s %s\n", name.c_str(), ok ? "passed" : "FAILED");
+        failed += !ok;
+    }
+    std::printf("%s\n", failed ? "FAILED" : "all passed");
+    return failed ? 1 : 0;
+}
+
+// reluva-tool awe bink-check <game folder> <movie.bik>... [-frames n]: each movie
+// decoded by Reluva and by the game's binkw32.dll (run in the x86
+// interpreter, its frames copied out as the game copies them), frame by
+// frame: how many pixels differ, and by how much at most.
+int cmdAweBink(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool awe bink-check <game folder> <movie.bik>... [-frames n]\n");
+        return 1;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    size_t limit = SIZE_MAX;
+    bool yuv = false; // -yuv: the planes, before the colour conversion
+    std::vector<std::string> movies;
+    for (int i = 3; i < argc; i++)
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            limit = size_t(std::atol(argv[++i]));
+        else if (std::strcmp(argv[i], "-yuv") == 0)
+            yuv = true;
+        else
+            movies.push_back(argv[i]);
+    std::vector<uint8_t> dllData;
+    if (files.read("binkw32.dll", dllData)) {
+        std::fprintf(stderr, "can't read binkw32.dll\n");
+        return 1;
+    }
+    awe::BinkDll dll;
+    if (reluva::Error e = dll.load(dllData)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    int failed = 0;
+    for (const std::string& movie : movies) {
+        std::vector<uint8_t> data;
+        reluva::bink::Movie bink;
+        if (files.read(movie, data) || bink.open(data)) {
+            std::printf("%s: can't read it\n", movie.c_str());
+            failed++;
+            continue;
+        }
+        int w = 0, h = 0;
+        uint32_t frames = 0;
+        if (reluva::Error e = dll.open(data, w, h, frames)) {
+            std::printf("%s: binkw32.dll: %s\n", movie.c_str(), e.message.c_str());
+            failed++;
+            continue;
+        }
+        reluva::bink::Movie& dec = bink;
+        // A plane of the last frame decoded, and its row length.
+        auto plane = [&](int i) { return dec.decodedPlane(i).data(); };
+        auto stride = [&](int i) { return dec.pitch(i); };
+        const bool alpha = bink.hasAlpha(); // an alpha plane: the game's surface 5
+        size_t compared = 0, same = 0, worstFrame = 0;
+        int worst = 0;
+        uint64_t differing = 0, superwhite = 0;
+        std::vector<uint8_t> theirs, ours;
+        for (size_t i = 0; i < size_t(bink.frameCount()) && i < frames && i < limit; i++) {
+            bool more = false;
+            if (reluva::Error e = dec.nextFrame(more)) {
+                std::printf("%s frame %zu: %s\n", movie.c_str(), i, e.message.c_str());
+                break;
+            }
+            if (reluva::Error e = yuv ? dll.frameYuy2(theirs) : dll.frame(theirs, alpha)) {
+                std::printf("%s frame %zu: binkw32.dll: %s\n", movie.c_str(), i, e.message.c_str());
+                break;
+            }
+            int frameWorst = 0;
+            uint64_t frameDiffering = 0;
+            if (yuv) {
+                // Y for every pixel; U and V for each pair, from the
+                // half-size planes' row y / 2.
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++) {
+                        const uint8_t* t = theirs.data() + (size_t(y) * size_t(w) + size_t(x & ~1)) * 2;
+                        int d = std::abs(int(plane(0)[y * stride(0) + x]) - int(t[(x & 1) * 2]));
+                        if ((x & 1) == 0) {
+                            const int cx = x / 2, cy = y / 2;
+                            d = std::max(d, std::abs(int(plane(1)[cy * stride(1) + cx]) - int(t[1])));
+                            d = std::max(d, std::abs(int(plane(2)[cy * stride(2) + cx]) - int(t[3])));
+                        }
+                        frameDiffering += d != 0;
+                        frameWorst = std::max(frameWorst, d);
+                    }
+                ours.clear();
+            } else {
+                dec.toRgba(ours, reluva::bink::Movie::Rgb::Binkw32);
+            }
+            for (size_t p = 0; p + 3 < ours.size() && p + 3 < theirs.size(); p += 4) {
+                // Theirs is B, G, R, X (A with alpha).
+                int d = 0;
+                for (int c = 0; c < 3; c++)
+                    d = std::max(d, std::abs(int(ours[p + size_t(c)]) - int(theirs[p + 2 - size_t(c)])));
+                if (alpha)
+                    d = std::max(d, std::abs(int(ours[p + 3]) - int(theirs[p + 3])));
+                // Over Y 235 the DLL's path without MMX (the interpreter's)
+                // clamps Y and its MMX path, which Reluva follows, doesn't:
+                // counted apart.
+                const size_t px = p / 4;
+                if (d && plane(0)[int(px / size_t(w)) * stride(0) + int(px % size_t(w))] > 235) {
+                    superwhite++;
+                    continue;
+                }
+                frameDiffering += d != 0;
+                frameWorst = std::max(frameWorst, d);
+            }
+            compared++;
+            same += frameDiffering == 0;
+            differing += frameDiffering;
+            if (frameWorst > worst)
+                worst = frameWorst, worstFrame = i;
+        }
+        dll.close();
+        std::printf("%s: %dx%d, %zu frames compared, %zu the same; %llu pixels differ, by at most %d (frame %zu)"
+                    "; %llu more over Y 235 (the DLL's path without MMX)\n",
+                    movie.c_str(), w, h, compared, same, (unsigned long long)differing, worst, worstFrame,
+                    (unsigned long long)superwhite);
+        failed += same != compared;
+    }
+    return failed ? 1 : 0;
+}
+
+// reluva-tool awe pose-check <game folder> <model.gr2> <animation.gr2> [seconds...]:
+// the model posed by the animation, Reluva's way (computePose) and
+// granny2.dll's (run in the x86 interpreter), bone by bone: the largest
+// difference in each bone's world matrix.
+int cmdAwePose(int argc, char** argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool awe pose-check <game folder> <model.gr2> <animation.gr2> [seconds...]\n");
+        return 1;
+    }
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::vector<uint8_t> dllData, modelData, animData;
+    if (files.read("granny2.dll", dllData) || files.read(argv[3], modelData) || files.read(argv[4], animData)) {
+        std::fprintf(stderr, "can't read granny2.dll, %s or %s\n", argv[3], argv[4]);
+        return 1;
+    }
+    awe::GrannyDll dll;
+    if (reluva::Error e = dll.load(dllData)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    awe::Gr2File modelFile, animFile;
+    awe::Model model;
+    awe::Animation anim;
+    if (reluva::Error e = modelFile.open(modelData); e || awe::loadModel(modelFile, model)) {
+        std::fprintf(stderr, "can't load the model\n");
+        return 1;
+    }
+    if (reluva::Error e = animFile.open(animData); e || awe::loadAnimation(animFile, anim)) {
+        std::fprintf(stderr, "can't load the animation\n");
+        return 1;
+    }
+    awe::GrannyDll::LoadedFile dm, da;
+    if (reluva::Error e = dll.loadFile(modelData, dm); e || dll.loadFile(animData, da)) {
+        std::fprintf(stderr, "granny2.dll can't load them\n");
+        return 1;
+    }
+    std::vector<float> times;
+    for (int i = 5; i < argc; i++)
+        times.push_back(float(std::atof(argv[i])));
+    if (times.empty())
+        times = {0.0f, anim.duration / 3, anim.duration * 2 / 3};
+    int worst = 0;
+    for (float t : times) {
+        std::vector<std::array<float, 16>> theirs;
+        if (reluva::Error e = dll.worldPose(dm, da, t, theirs)) {
+            std::fprintf(stderr, "granny2.dll: %s\n", e.message.c_str());
+            return 1;
+        }
+        awe::Pose ours;
+        awe::computePose(model, &anim, t, ours);
+        std::printf("t %.3f: %zu bones (granny2.dll %zu)\n", t, ours.world.size(), theirs.size());
+        for (size_t b = 0; b < std::min(ours.world.size(), theirs.size()); b++) {
+            float d = 0;
+            for (size_t k = 0; k < 16; k++)
+                d = std::max(d, std::abs(ours.world[b][k] - theirs[b][k]));
+            if (d > 0.01f) {
+                worst++;
+                std::printf("  %-28s differs by %.3f (ours at %.1f %.1f %.1f, granny2.dll at %.1f %.1f %.1f)\n",
+                            model.bones[b].name.c_str(), d, ours.world[b][12], ours.world[b][13], ours.world[b][14],
+                            theirs[b][12], theirs[b][13], theirs[b][14]);
+            }
+        }
+    }
+    std::printf("%d bone poses differ by more than 0.01\n", worst);
+    return worst ? 1 : 0;
+}
+
+int cmdAweActs(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe game-run <game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n");
+        return 2;
+    }
+    for (int i = 3; i < argc; i++)
+        if (std::strcmp(argv[i], "-solve") == 0 || std::strcmp(argv[i], "-play") == 0)
+            return awe::aweCommandSolve(argc, argv);
+    reluva::DirectoryArchive files;
+    if (reluva::Error e = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::vector<std::string> targets;
+    bool verbose = false, hotspots = false;
+    int explore = 0;
+    double limit = 900;
+    for (int i = 3; i < argc; i++) {
+        const std::string a = argv[i];
+        if (a == "-v")
+            verbose = true;
+        else if (a == "-hotspots")
+            hotspots = true;
+        else if (a == "-explore" && i + 1 < argc)
+            explore = std::atoi(argv[++i]);
+        else if (a == "-t" && i + 1 < argc)
+            limit = std::atof(argv[++i]);
+        else
+            targets.push_back(a);
+    }
+    if (targets.empty()) {
+        std::vector<uint8_t> data;
+        if (!files.read("text/acts.txt", data))
+            for (const awe::ActRow& r : awe::readActs(awe::parseTable(awe::decodeText(data))))
+                targets.push_back(r.act);
+        for (int i = 0; i < 15; i++)
+            targets.push_back("slot" + std::to_string(i));
+    }
+    HeadlessSystem sys;
+    reluva::Surface screen;
+    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::RGBA32);
+    awe::ViewerContext ctx{sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run",
+                           nullptr, {}, -1};
+    int problems = 0;
+    // Runs the game on till it settles; false if it sticks.
+    auto settle = [&](awe::ScenePage& page, std::vector<std::string>& log, const std::string& what) {
+        const uint64_t start = sys.now;
+        uint64_t quietSince = 0, eventSince = sys.now;
+        std::string lastEvent;
+        while (sys.now - start < uint64_t(limit * 1000)) {
+            sys.now += 40; // 25 frames a second
+            page.update(sys.now);
+            const std::string did = page.autoplay();
+            if (!did.empty())
+                log.push_back("  [player] " + did);
+            else if (page.status().puzzle)
+                return true; // a puzzle, a menu: for a player to do
+            const awe::ScenePage::GameStatus st = page.status();
+            if (st.event != lastEvent || st.idle)
+                lastEvent = st.event, eventSince = sys.now;
+            if (!st.idle && sys.now - eventSince > 120000) {
+                log.push_back("  STUCK: " + st.event + " (in " + st.scene + ")");
+                return false;
+            }
+            const bool quiet = st.idle && !st.talking && !st.movie && !st.loading && !st.fading;
+            if (!quiet)
+                quietSince = 0;
+            else if (!quietSince)
+                quietSince = sys.now;
+            else if (sys.now - quietSince > 3000)
+                return true;
+        }
+        log.push_back("  STUCK: still going after " + std::to_string(int(limit)) + " s (" + what + ")");
+        return false;
+    };
+    auto isProblem = [](const std::string& l) {
+        for (const char* p : {"not done yet", "(no scene", "(no saved game", "STUCK", "(no conversation", "(no event"})
+            if (l.find(p) != std::string::npos)
+                return true;
+        return false;
+    };
+    auto report = [&](const std::vector<std::string>& log, const awe::ScenePage::GameStatus& st,
+                      const std::string& what) {
+        int n = 0;
+        for (const std::string& l : log)
+            if (verbose || isProblem(l)) {
+                std::printf("%s\n", l.c_str());
+                n += isProblem(l);
+            }
+        std::printf("%s: act %s, scene %s%s, %d problem(s)\n", what.c_str(), st.act.c_str(), st.scene.c_str(),
+                    st.puzzle ? " (a puzzle or menu open)" : "", n);
+        problems += n;
+    };
+    for (const std::string& target : targets) {
+        awe::ScenePage page(ctx);
+        std::vector<std::string> log;
+        page.onLog = [&](const std::string& l) { log.push_back(l); };
+        page.setDrawing(false);
+        page.activate();
+        page.startAt(target);
+        settle(page, log, target);
+        report(log, page.status(), target);
+        if (explore > 0) {
+            // On from there: each time the click (or item used, or items
+            // combined in the inventory) tried least often so far in that
+            // scene, the first of those.
+            std::map<std::string, int> tried;
+            std::set<std::string> scenes{page.status().scene};
+            int steps = 0;
+            for (; steps < explore; steps++) {
+                const std::string scene = page.status().scene;
+                const std::vector<std::string> spots = page.clickables();
+                std::string best;
+                size_t bestI = 0;
+                std::string bestItem;
+                int bestN = 1 << 30;
+                for (size_t i = 0; i < spots.size(); i++) {
+                    std::vector<std::string> items = page.itemsFor(i);
+                    items.insert(items.begin(), "");
+                    for (const std::string& item : items) {
+                        const std::string key = scene + "|" + std::to_string(i) + spots[i] + "|" + item;
+                        if (tried[key] < bestN)
+                            bestN = tried[key], best = key, bestI = i, bestItem = item;
+                    }
+                }
+                const std::vector<std::vector<std::string>> combos = page.combinations();
+                std::vector<std::string> bestCombo;
+                for (const std::vector<std::string>& c : combos) {
+                    std::string key = scene + "|combine";
+                    for (const std::string& p : c)
+                        key += " " + p;
+                    if (tried[key] < bestN)
+                        bestN = tried[key], best = key, bestCombo = c;
+                }
+                if (best.empty()) {
+                    std::printf("  (nothing to click in %s)\n", scene.c_str());
+                    break;
+                }
+                tried[best]++;
+                log.clear();
+                if (!bestCombo.empty()) {
+                    std::string what;
+                    for (const std::string& p : bestCombo)
+                        what += (what.empty() ? "" : " + ") + p;
+                    log.push_back("  [player] combine " + what + " in " + scene);
+                    page.combineItems(bestCombo);
+                } else
+                    log.push_back("  [player] " + (bestItem.empty() ? "click " : "use " + bestItem + " on ") +
+                                  spots[bestI] + " in " + scene);
+                // (An item it can't take yet is Antoinette's "can't": on.)
+                if (bestCombo.empty() && (bestItem.empty() ? !page.click(bestI) : (page.useOn(bestItem, bestI), false))) {
+                    std::printf("  (%s didn't run)\n", log.back().c_str());
+                    break;
+                }
+                const bool ok = settle(page, log, target);
+                const awe::ScenePage::GameStatus st = page.status();
+                scenes.insert(st.scene);
+                int n = 0;
+                for (const std::string& l : log)
+                    if (verbose || isProblem(l)) {
+                        std::printf("%s\n", l.c_str());
+                        n += isProblem(l);
+                    }
+                problems += n;
+                if (n || verbose)
+                    std::printf("    -> act %s, scene %s\n", st.act.c_str(), st.scene.c_str());
+                if (!ok)
+                    break;
+            }
+            std::printf("  %s explored: %d steps, %zu scenes, at act %s, scene %s\n", target.c_str(), steps,
+                        scenes.size(), page.status().act.c_str(), page.status().scene.c_str());
+        }
+        if (!hotspots)
+            continue;
+        // Each a click, or an item it asks for used on it ("" a click).
+        const std::vector<std::string> spots = page.clickables();
+        std::vector<std::pair<size_t, std::string>> tries;
+        for (size_t i = 0; i < spots.size(); i++) {
+            tries.emplace_back(i, "");
+            for (const std::string& item : page.itemsFor(i))
+                tries.emplace_back(i, item);
+        }
+        for (const auto& [i, item] : tries) {
+            awe::ScenePage again(ctx);
+            std::vector<std::string> log2;
+            again.onLog = [&](const std::string& l) { log2.push_back(l); };
+            again.setDrawing(false);
+            again.activate();
+            again.startAt(target);
+            settle(again, log2, target);
+            log2.clear();
+            if (item.empty() ? !again.click(i) : !again.useOn(item, i))
+                continue;
+            const std::string what = (item.empty() ? "click " : "use " + item + " on ") + spots[i];
+            settle(again, log2, target + " " + what);
+            report(log2, again.status(), "  " + target + " " + what);
+        }
+    }
+    std::printf("%d problem(s)\n", problems);
+    return problems ? 1 : 0;
+}
+
+// A scene's camera as granny2.dll builds it, and where the scene's
+// characters (and any points given) land on the screen.
+int cmdAweCamera(int argc, char** argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool awe camera-check <game folder> <scene.ac2> [x y z]...\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    awe::Ac2Scene scene;
+    if (!readFile(argv[3], data) || awe::parseAc2(data, scene).ok == false) {
+        std::fprintf(stderr, "can't read %s\n", argv[3]);
+        return 1;
+    }
+    const awe::Ac2Record* cam = scene.camera();
+    if (!cam) {
+        std::fprintf(stderr, "no camera in %s\n", argv[3]);
+        return 1;
+    }
+    awe::GrannyDll dll;
+    if (!loadGranny(std::filesystem::path(argv[2]) / "x", "", dll))
+        return 1;
+    awe::GrannyDll::Camera c;
+    c.fovY = cam->f("fov"), c.nearPlane = cam->f("near"), c.farPlane = cam->f("far");
+    const char* const pos[3] = {"x", "y", "z"};
+    const char* const ear[3] = {"pitch", "yaw", "roll"};
+    const char* const off[3] = {"offsetX", "offsetY", "offsetZ"};
+    for (int k = 0; k < 3; k++)
+        c.position[k] = cam->f(pos[k]), c.elevAzimRoll[k] = cam->f(ear[k]), c.offset[k] = cam->f(off[k]);
+    std::vector<float> points;
+    std::vector<std::string> names;
+    for (const awe::Ac2Record* o : scene.objects())
+        if (o->tag == "NPCX" || o->tag == "PCXX")
+            for (float h : {0.0f, 170.0f}) {
+                points.insert(points.end(), {o->f("x"), o->f("y") + h, o->f("z")});
+                names.push_back(o->text("file") + (h > 0 ? " +170" : " feet"));
+            }
+    for (int i = 4; i + 2 < argc; i += 3) {
+        points.insert(points.end(), {std::strtof(argv[i], nullptr), std::strtof(argv[i + 1], nullptr),
+                                     std::strtof(argv[i + 2], nullptr)});
+        names.push_back("point");
+    }
+    float view[16], proj[16];
+    std::vector<float> window;
+    if (reluva::Error e = dll.camera(c, 1024, 768, view, proj, &points, &window)) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    auto print = [](const char* name, const float* m) {
+        std::printf("%s (columns):\n", name);
+        for (int col = 0; col < 4; col++)
+            std::printf("  %10.4f %10.4f %10.4f %10.4f\n", m[col * 4], m[col * 4 + 1], m[col * 4 + 2], m[col * 4 + 3]);
+    };
+    print("view", view);
+    print("projection", proj);
+    // Reluva's own camera, to compare.
+    const awe::SceneCamera native = awe::SceneCamera::fromRecord(*cam);
+    const reluva::gfx::Mat4 nv = native.view();
+    float worst = 0;
+    for (int k = 0; k < 16; k++)
+        worst = std::max(worst, std::abs(nv[size_t(k)] - view[k]) / (k >= 12 ? 100.0f : 1.0f));
+    std::printf("Reluva's view matrix differs by at most %g (translations / 100)\n", worst);
+    std::printf("screen y from the top; DLL then Reluva:\n");
+    for (size_t i = 0; i < names.size(); i++) {
+        float x = 0, y = 0;
+        native.project(&points[i * 3], 1024, 768, x, y);
+        std::printf("%-50s (%7.1f %7.1f %7.1f) -> (%7.1f, %7.1f)  (%7.1f, %7.1f)\n", names[i].c_str(), points[i * 3],
+                    points[i * 3 + 1], points[i * 3 + 2], window[i * 3], 768 - window[i * 3 + 1], x, y);
+    }
+    return worst < 0.01f ? 0 : 1;
+}
+
+// A Bink file's header, audio tracks and frames.
+int cmdBinkInfo(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe bink-info <file.bik> [-frames] [-yuv out.yuv [frames]] [-tga first] [-wav out.wav]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data))
+        return 1;
+    reluva::bink::Movie bink;
+    if (reluva::Error e = bink.open(std::move(data))) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    const double fps = bink.rateDenominator() ? double(bink.rateNumerator()) / bink.rateDenominator() : 0;
+    std::printf("Bink revision '%c': %dx%d, %u frames at %u/%u (%.3f fps), flags 0x%08x%s%s, largest frame %u bytes\n",
+                bink.revision(), bink.width(), bink.height(), bink.frameCount(), bink.rateNumerator(),
+                bink.rateDenominator(), fps, bink.flags(), bink.hasAlpha() ? " (alpha)" : "",
+                bink.flags() & (1u << 17) ? " (grey)" : "", bink.largestFrame());
+    for (const reluva::bink::Movie::Track& t : bink.audioTracks())
+        std::printf("  audio track: %d Hz, %d channel%s, %s\n", t.rate, t.channels, t.channels == 1 ? "" : "s",
+                    t.dct ? "DCT" : "RDFT");
+    bool list = false;
+    std::string yuvFile, tgaPrefix, wavFile;
+    size_t yuvFrames = bink.frameCount(), tgaFrame = 0;
+    for (int i = 3; i < argc; i++) {
+        if (std::strcmp(argv[i], "-frames") == 0)
+            list = true;
+        else if (std::strcmp(argv[i], "-yuv") == 0 && i + 1 < argc) {
+            yuvFile = argv[++i];
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                yuvFrames = std::strtoul(argv[++i], nullptr, 10);
+        } else if (std::strcmp(argv[i], "-wav") == 0 && i + 1 < argc) {
+            wavFile = argv[++i];
+        } else if (std::strcmp(argv[i], "-tga") == 0 && i + 1 < argc) {
+            tgaFrame = std::strtoul(argv[++i], nullptr, 10);
+            tgaPrefix = std::string(argv[2]) + "_frame";
+        }
+    }
+    if (!wavFile.empty() && bink.audioRate() > 0) {
+        // The first audio track, as a 16-bit WAV file.
+        std::vector<int16_t> pcm;
+        if (reluva::Error e = bink.decodeAllAudio(pcm))
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+        const int rate = bink.audioRate(), channels = bink.audioChannels();
+        std::ofstream wav(wavFile, std::ios::binary);
+        auto u32 = [&](uint32_t v) { wav.write(reinterpret_cast<const char*>(&v), 4); };
+        auto u16 = [&](uint16_t v) { wav.write(reinterpret_cast<const char*>(&v), 2); };
+        const uint32_t bytes = uint32_t(pcm.size() * 2);
+        wav.write("RIFF", 4), u32(36 + bytes), wav.write("WAVEfmt ", 8), u32(16), u16(1), u16(uint16_t(channels));
+        u32(uint32_t(rate)), u32(uint32_t(rate * channels * 2)), u16(uint16_t(channels * 2)), u16(16);
+        wav.write("data", 4), u32(bytes);
+        wav.write(reinterpret_cast<const char*>(pcm.data()), std::streamsize(bytes));
+        std::printf("wrote %s: %zu samples a channel (%.2f s)\n", wavFile.c_str(), pcm.size() / size_t(channels),
+                    double(pcm.size()) / channels / rate);
+    }
+    if (!yuvFile.empty() || !tgaPrefix.empty()) {
+        // Decodes the video: as raw YUV 4:2:0 (as ffmpeg -pix_fmt yuv420p
+        // writes it, to compare), and one frame as a TGA picture.
+        std::ofstream yuv;
+        if (!yuvFile.empty())
+            yuv.open(yuvFile, std::ios::binary);
+        const size_t last = std::max(yuvFile.empty() ? 0 : yuvFrames, tgaPrefix.empty() ? 0 : tgaFrame + 1);
+        const auto start = std::chrono::steady_clock::now();
+        for (size_t i = 0; i < last && i < bink.frameCount(); i++) {
+            bool more = false;
+            if (reluva::Error e = bink.nextFrame(more))
+                std::fprintf(stderr, "frame %zu: %s\n", i, e.message.c_str());
+            if (yuv && i < yuvFrames)
+                for (int p = 0; p < 3; p++) {
+                    const int w = p ? (bink.width() + 1) / 2 : bink.width(), h = p ? (bink.height() + 1) / 2 : bink.height();
+                    for (int y = 0; y < h; y++)
+                        yuv.write(reinterpret_cast<const char*>(bink.decodedPlane(p).data() + y * bink.pitch(p)), w);
+                }
+            if (!tgaPrefix.empty() && i == tgaFrame) {
+                reluva::image::Image img;
+                img.w = bink.width();
+                img.h = bink.height();
+                bink.toRgba(img.rgba, reluva::bink::Movie::Rgb::Binkw32);
+                const std::vector<uint8_t> tga = reluva::image::encodeTga(img);
+                const std::string name = tgaPrefix + std::to_string(i) + ".tga";
+                std::ofstream(name, std::ios::binary).write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+                std::printf("wrote %s\n", name.c_str());
+            }
+        }
+        std::printf("decoded %zu frames in %.2f s\n", last,
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+    }
+    size_t keyframes = 0, bytes = 0;
+    for (uint32_t i = 0; i < bink.frameCount(); i++) {
+        const reluva::bink::Movie::FrameInfo f = bink.frameInfo(i);
+        keyframes += f.key;
+        bytes += f.size;
+        if (list)
+            std::printf("  frame %4u%s: %6u bytes\n", i, f.key ? " key" : "    ", f.size);
+    }
+    std::printf("%zu keyframes; %zu bytes of frames\n", keyframes, bytes);
+    return 0;
+}
+
+// A saved game's records, and whether writing it back gives a file of the
+// same size (the buffers' old memory aside, the same layout).
+int cmdAweSave(int argc, char** argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool awe save-check <slot.ac2>... [-v]\n");
+        return 2;
+    }
+    bool verbose = false;
+    for (int i = 2; i < argc; i++)
+        verbose |= std::strcmp(argv[i], "-v") == 0;
+    int failed = 0;
+    for (int i = 2; i < argc; i++) {
+        if (std::strcmp(argv[i], "-v") == 0)
+            continue;
+        std::vector<uint8_t> data;
+        awe::SaveGame save;
+        if (!readFile(argv[i], data)) {
+            std::printf("%s: can't read\n", argv[i]);
+            failed++;
+            continue;
+        }
+        if (reluva::Error e = awe::readSaveGame(data, save)) {
+            std::printf("%s: %s\n", argv[i], e.message.c_str());
+            failed++;
+            continue;
+        }
+        const size_t again = awe::writeSaveGame(save).size();
+        std::printf("%s: \"%s\" %s %s, act %02d%c, %s, %s; time %d weather %d moving %d; %zu tags, %zu timers, "
+                    "%zu text tags, %zu positions, %zu talks, %zu items%s%s; written back %zu bytes of %zu\n",
+                    argv[i], save.description.c_str(), save.date.c_str(), save.time.c_str(), save.actMajor,
+                    char('a' + save.actMinor - 1), save.location.c_str(), save.scene.c_str(), save.timeOfDay,
+                    save.weather, save.moving, save.tags.size(), save.timers.size(), save.texts.size(),
+                    save.positions.size(), save.talks.size(), save.items.size(), save.player ? ", player" : "",
+                    save.follower ? ", follower" : "", again, data.size());
+        if (again != data.size())
+            failed++;
+        if (verbose) {
+            for (const auto& [n, v] : save.tags)
+                std::printf("  tag %s = %d\n", n.c_str(), v);
+            for (const auto& [n, v] : save.timers)
+                std::printf("  timer %s = %d\n", n.c_str(), v);
+            for (const auto& [n, v] : save.texts)
+                std::printf("  text %s = %s\n", n.c_str(), v.c_str());
+            for (const auto& p : save.positions)
+                std::printf("  position %s %s (%g, %g, %g) turned %g\n", p.scene.c_str(), p.character.c_str(),
+                            p.at.position[0], p.at.position[1], p.at.position[2], p.at.rotation[1]);
+            for (const auto& k : save.talks)
+                std::printf("  talk %s %s part %d thread %d status %d nest %d\n", k.name.c_str(), k.act.c_str(),
+                            k.part, k.thread, k.status, k.nest);
+            for (const auto& it : save.items)
+                std::printf("  item %s state %d slot %d page %d\n", it.name.c_str(), it.state, it.slot, it.page);
+        }
+    }
+    return failed ? 1 : 0;
+}
+
+} // namespace
+
+// The engine's reluva-tool commands (reluva-tool help awe lists them).
+const reluva::tool::Commands commands("awe", {
+    {"files-check", "<game folder> [-gr2|-ac2|-text|-bik|-sound|-oodle] [-only text] [-textures] [-curves] [-j threads] [-v]",
+     "read every file of an install of the kind asked (all by default) and report what doesn't read",
+     aweCheckCommand},
+    {"camera-check", "<game folder> <scene.ac2> [x y z]...",
+     "a scene's camera by Reluva and by granny2.dll, and where points land on the screen by each", cmdAweCamera},
+    {"bink-info", "<file.bik> [-frames]", "a Bink movie's header and frames; -yuv, -wav, -tga to decode it", cmdBinkInfo},
+    {"gr2-info", "<file.gr2> [-t] [-n elements]", "a Granny file's sections and elements", cmdGr2Info},
+    {"model-dump", "<model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]",
+     "a model's meshes and skeleton, posed by an animation, written as OBJ", cmdGr2Model},
+    {"table-show", "<file.txt>", "a text table as the engine reads it", cmdAweTable},
+    {"page-shot", "<game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]",
+     "a page of the viewer drawn without a window after the keys, clicks and waits given, saved as a TGA",
+     cmdAweShot},
+    {"game-run",
+     "<game folder> [act|slotN...] [-hotspots] [-explore n] [-t seconds] [-v]\n"
+     "      <game folder> -solve <out.txt> [-from <playthrough>] [-budget n] [-level n] [-noclimb] [-goal text] "
+     "[-characters] [-v]\n"
+     "      <game folder> -play <playthrough> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters] "
+     "[-sound] [-wav file] [-shot n out.tga] [-v]",
+     "play the acts without a player as far as they go; -solve searches for a way from a new game to the "
+     "credits, -play plays one back (-3d in a window, -draw drawing every frame)",
+     cmdAweActs},
+    {"game-check", "<game folder> <route.txt> [-3d] [-quick]",
+     "the checks a change should pass: the route by the mouse and by the hand, saved and loaded after every "
+     "action, and wandering off it",
+     cmdAweRegress},
+    {"pose-check", "<game folder> <model.gr2> <animation.gr2> [seconds...]",
+     "a model posed by an animation, by Reluva and by granny2.dll, compared bone by bone", cmdAwePose},
+    {"bink-check", "<game folder> <movie.bik>... [-frames n] [-yuv]",
+     "movies decoded by Reluva and by the game's binkw32.dll, compared pixel by pixel", cmdAweBink},
+    {"ac2-dump", "<scene.ac2>...", "a scene's records and fields", cmdAc2Dump},
+    {"path-check", "<game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]",
+     "paths planned by Reluva's port and by motoe.exe's code, compared", reluva::awe::aweCommandPath},
+    {"script-check", "<game folder> [-v]", "every script in the install read, and the verbs it uses that Reluva lacks",
+     reluva::awe::aweCommandScripts},
+    {"save-check", "<slot.ac2>... [-v]", "a saved game's records, read and written back", cmdAweSave},
+});

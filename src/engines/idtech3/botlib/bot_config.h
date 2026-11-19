@@ -15,7 +15,7 @@ namespace reluva::idtech3::botlib {
 
 // The bots' configuration files, read with the bot scripts' preprocessor.
 // Formats read from the GPL ioquake3 bot library (be_ai_weight.c,
-// be_ai_goal.c, be_ai_weap.c, l_struct.c); docs/formats/idtech3/aas.md.
+// be_ai_goal.c, be_ai_weap.c, l_struct.c); docs/engines/idtech3/formats/aas.md.
 
 // Fuzzy weights (items' and weapons' worth to a bot): per name, nested
 // switches on the bot's inventory,

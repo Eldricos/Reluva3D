@@ -1,0 +1,5 @@
+start: d71f70379ec2277e | stopped at frame 300, after 3183003454 instructions
+start.frame00001: 6ed736103c019541
+start.frame00100: 850f7c1dfbd90da8
+start.frame00200: 785e248f99ebe5fb
+start.frame00300: 169c5e8dcb72bcd9

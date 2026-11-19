@@ -1,0 +1,4 @@
+script: d0fec0d07f5a6b80 | 2 COM02X    124/124 symbol arguments named
+summary: 38a83b551b17ef1e
+dialogue: 9a52db10c6a08ceb | 5941 lines, 68 conversations -> <output>/scripts/listings/dialogue
+dialogue.txt: cfe707a91282f2d6

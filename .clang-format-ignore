@@ -1,0 +1,23 @@
+# Files clang-format leaves alone (clang-format 18 or later reads this).
+# Generated files: regenerate them instead of editing; byte tables and
+# blobs aren't laid out by the coding guide's rules.
+
+# Elsewhere clang-format is turned off by a .clang-format with
+# DisableFormat, which covers a whole folder at any depth (clang-format 18
+# matches * and ** here one folder level only):
+#   third_party/.clang-format    code from other projects
+#   <build folder>/.clang-format written by CMake: SDL3 and Dear ImGui,
+#                                which CMake downloads into _deps/
+# src/backends/sdl3/ is Reluva's own code and is formatted.
+
+# Generated (each names the script that writes it)
+src/backends/graphics/sdl3/shaders/compiled.h
+src/emulation/x86/runtime/msvcp60_dll.h
+src/video/indeo5_tables.cpp
+src/engines/stgenerations/formats/opcodes.cpp
+tests/common/data/*.h
+tests/engines/idtech3/data/qvm/*_qvm.h
+
+# Large constant tables transcribed from the original programs
+src/video/bink_tables.cpp
+

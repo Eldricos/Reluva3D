@@ -1,0 +1,8 @@
+# The record of awe.engine (tests/engines/awe/engine.cpp).
+# Written by `reluva-tests awe.engine --update`; review its diff before committing.
+detect: motoe Agatha Christie: Murder on the Orient Express (unknown release)
+run.result: ok
+run.size: 1024x768
+run.screens: 1065 d43a342c8c4f5f72
+run.titles: Scenes: Locations/Menu.Main/menu.main_01.ac2 / Scenes: Locations/Test/test_01.ac2 / Scenes: Locations/Test/test_02.ac2
+run.files: Saved.Games/quick.ac2 (test, Locations\Test\test_02.ac2; tags opened=1)

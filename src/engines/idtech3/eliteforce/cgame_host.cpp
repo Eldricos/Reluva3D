@@ -3,7 +3,8 @@
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 
-#include "engines/idtech3/md3.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/formats/shader.h"
 
 #include <array>
 #include <cstdlib>
@@ -19,7 +20,7 @@ namespace {
 
 // Elite Force cgame.qvm system calls (Quake III's client game order; the
 // seen ones checked against the game's own calls, see
-// docs/formats/idtech3/eliteforce-syscalls.md).
+// docs/engines/idtech3/games/stvef/systems/syscalls.md).
 enum CgameCall : int {
     Print = 0,
     Error_ = 1,
@@ -78,7 +79,12 @@ enum CgameCall : int {
     GetUserCmd = 55,
     SetUserCmdValue = 56,
     RRegisterShaderNoMip = 57,
+    RRegisterShader3D = 59, // (name) -> handle, 0 if there's no such picture
     MemoryRemaining = 58,
+    // ("model", text): made once, for the local player only, with a name
+    // the client game put together in a buffer of its own; taken as
+    // setting that cvar, as it would the model the player now has.
+    SetLocalCvar = 60,
     Floor = 107, // (x) -> x rounded down, a float; Quake III's client game number too
 };
 
@@ -98,12 +104,19 @@ constexpr int32_t kGlconfigSize = 5192;
 // snapshot buffer is 52740 bytes after the first; the fields it reads
 // through its snapshot pointers match): Quake III's, with Elite Force's
 // player and entity states.
-constexpr int32_t kSnapshotSize = 52740;
+// After the player state (1.0's 460 bytes, patch 1.2's 468) the offsets
+// follow from its size: 504, 508, 52732, 52736 and 52740 bytes with 1.0's.
 constexpr int32_t kSnapServerTime = 8, kSnapPlayerState = 44;
 constexpr int32_t kSnapAreaMask = 12; // 32 bytes: a bit set for each area hidden behind a closed door
-constexpr int32_t kSnapNumEntities = 504, kSnapEntities = 508;
-constexpr int32_t kSnapNumServerCommands = 52732, kSnapServerCommandSequence = 52736;
 constexpr int32_t kMaxSnapshotEntities = 256;
+struct SnapshotLayout {
+    int32_t numEntities, entities, numServerCommands, serverCommandSequence, size;
+};
+SnapshotLayout snapshotLayout(int32_t playerStateSize) {
+    const int32_t numEntities = kSnapPlayerState + playerStateSize, entities = numEntities + 4;
+    const int32_t numServerCommands = entities + kMaxSnapshotEntities * GameHost::kEntityStateSize;
+    return {numEntities, entities, numServerCommands, numServerCommands + 4, numServerCommands + 8};
+}
 
 constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
 
@@ -168,7 +181,13 @@ std::vector<std::string> tokenize(const std::string& line) {
 } // namespace
 
 void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
-    ++snapshotNumber_;
+    // Numbered as the original's client numbers them, by the message they
+    // came in: Init's serverMessageNum is the game state's, and the client
+    // game takes only snapshots numbered after it.
+    if (snapshot.messageNum > snapshotNumber_)
+        snapshotNumber_ = snapshot.messageNum;
+    else
+        ++snapshotNumber_;
     snapshotTime_ = snapshot.serverTime;
     snapshots_[snapshotNumber_] = std::move(snapshot);
     while (snapshots_.size() > 32)
@@ -185,6 +204,7 @@ Error CgameHost::load() {
         return Error::fail("vm/cgame.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/cgame.qvm: " + err.message);
+    layout_ = detectLayout(vm_);
     return Error::success();
 }
 
@@ -278,7 +298,13 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case CvarUpdate: cvars_.updateVmCvar(vm, a[0]); return 0;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0; // forced, as the original's Cvar_Set
+    case SetLocalCvar:
+        // Holomatch's engine sets the cvar forced (read-only ones too),
+        // without counting it as a change of the player's settings to send.
+        // Reluva sends them only on connecting, so a forced set is enough.
+        cvars_.set(str(0, 256), str(1, 256), true);
+        return 0;
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case Argc: return int32_t(args_.size());
     case Argv: vm.writeString(a[1], a[0] >= 0 && size_t(a[0]) < args_.size() ? args_[size_t(a[0])] : "", a[2]); return 0;
@@ -293,6 +319,8 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;
     case AddCommand: commands_.push_back(str(0, 64)); return 0;
+    case SendClientCommand: clientCommands_.push_back(str(0, 1024)); return 0;
+    case SendConsoleCommand: consoleCommands_.push_back(str(0, 1024)); return 0;
     case UpdateScreen: // the loading screen
         if (updateScreen)
             updateScreen();
@@ -322,6 +350,12 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case RRegisterSkin: return skins_.add(str(0, 256));
     case RRegisterShader:
     case RRegisterShaderNoMip: return shaders_.add(str(0, 256));
+    case RRegisterShader3D: {
+        // The CTF flags' team pictures (models/flags/<team>_red): 0 for a
+        // team without one, and the client game takes the default.
+        const std::string name = str(0, 256);
+        return findImage(files_, name).empty() ? 0 : shaders_.add(name);
+    }
     case RClearScene: scene_.clear(); return 0;
     case RSetColor: // (rgba or 0 for white)
         if (!a[0])
@@ -369,21 +403,24 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case GetSnapshot: { // (number, snapshot_t*) -> whether it's still there
         snapshotRequests_.emplace_back(a[0], a[1]);
         const auto it = snapshots_.find(a[0]);
-        if (it == snapshots_.end() || !vm.checkWrite(a[1], kSnapshotSize))
+        const SnapshotLayout l = snapshotLayout(layout_.playerStateSize);
+        if (it == snapshots_.end() || !vm.checkWrite(a[1], l.size))
             return 0;
         const GameHost::Snapshot& s = it->second;
-        std::memset(&vm.memory()[size_t(a[1])], 0, size_t(kSnapNumEntities)); // flags, ping, area mask (all visible)
+        std::memset(&vm.memory()[size_t(a[1])], 0, size_t(l.numEntities)); // flags, ping, area mask (all visible)
+        vm.writeInt(a[1], s.snapFlags);
         vm.writeInt(a[1] + kSnapServerTime, s.serverTime);
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapAreaMask)], s.areaMask.data(), s.areaMask.size());
         std::memcpy(&vm.memory()[size_t(a[1] + kSnapPlayerState)], s.playerState.data(),
-                    std::min(s.playerState.size(), size_t(GameHost::kPlayerStateSize)));
+                    std::min(s.playerState.size(), size_t(layout_.playerStateSize)));
         const auto count = int32_t(std::min(s.entities.size(), size_t(kMaxSnapshotEntities)));
-        vm.writeInt(a[1] + kSnapNumEntities, count);
+        vm.writeInt(a[1] + l.numEntities, count);
         for (int32_t i = 0; i < count; ++i)
-            std::memcpy(&vm.memory()[size_t(a[1] + kSnapEntities + i * GameHost::kEntityStateSize)],
-                        s.entities[size_t(i)].data(), size_t(GameHost::kEntityStateSize));
-        vm.writeInt(a[1] + kSnapNumServerCommands, 0);
-        vm.writeInt(a[1] + kSnapServerCommandSequence, s.serverCommandSequence);
+            std::memcpy(&vm.memory()[size_t(a[1] + l.entities + i * GameHost::kEntityStateSize)],
+                        s.entities[size_t(i)].data(),
+                        std::min(s.entities[size_t(i)].size(), size_t(GameHost::kEntityStateSize)));
+        vm.writeInt(a[1] + l.numServerCommands, 0);
+        vm.writeInt(a[1] + l.serverCommandSequence, s.serverCommandSequence);
         return 1;
     }
     case CmInlineModel: return a[0]; // the map's model n is clip model n
@@ -394,27 +431,7 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         }
         return kTempBoxModel;
     case CmPointContents: // (point, model)
-    case CmTransformedPointContents: { // (point, model, origin, angles): turning not yet followed
-        Vec3f p{};
-        for (int i = 0; i < 3; ++i) {
-            p[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
-            if (number == CmTransformedPointContents && a[2])
-                p[size_t(i)] -= Qvm::asFloat(vm.readInt(a[2] + 4 * i));
-        }
-        if (a[1] == kTempBoxModel) {
-            for (int i = 0; i < 3; ++i)
-                if (p[size_t(i)] < tempBoxMins_[size_t(i)] || p[size_t(i)] > tempBoxMaxs_[size_t(i)])
-                    return 0;
-            return contents::Body;
-        }
-        if (!map_)
-            return 0;
-        if (!world_)
-            world_ = std::make_unique<CollisionWorld>(*map_);
-        return world_->pointContents(p, a[1]);
-    }
-    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
-    case CmTransformedBoxTrace: { // ... origin, angles: turning not yet followed
+    case CmTransformedPointContents: { // (point, model, origin, angles)
         auto vec = [&](int32_t addr) {
             Vec3f v{};
             if (addr)
@@ -422,22 +439,51 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
                     v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
             return v;
         };
-        Vec3f start = vec(a[1]), end = vec(a[2]);
-        const Vec3f mins = vec(a[3]), maxs = vec(a[4]), origin = number == CmTransformedBoxTrace ? vec(a[7]) : Vec3f{};
-        for (int i = 0; i < 3; ++i) {
-            start[size_t(i)] -= origin[size_t(i)];
-            end[size_t(i)] -= origin[size_t(i)];
+        const bool transformed = number == CmTransformedPointContents;
+        const Vec3f point = vec(a[0]), origin = transformed ? vec(a[2]) : Vec3f{},
+                    angles = transformed ? vec(a[3]) : Vec3f{};
+        if (a[1] == kTempBoxModel) {
+            for (int i = 0; i < 3; ++i) {
+                const float p = point[size_t(i)] - origin[size_t(i)];
+                if (p < tempBoxMins_[size_t(i)] || p > tempBoxMaxs_[size_t(i)])
+                    return 0;
+            }
+            return contents::Body;
         }
+        if (!map_)
+            return 0;
+        if (!world_)
+            world_ = std::make_unique<CollisionWorld>(*map_);
+        return world_->transformedPointContents(point, a[1], origin, angles);
+    }
+    case CmBoxTrace: // (results, start, end, mins, maxs, model, brushmask)
+    case CmTransformedBoxTrace: { // ... origin, angles
+        auto vec = [&](int32_t addr) {
+            Vec3f v{};
+            if (addr)
+                for (int i = 0; i < 3; ++i)
+                    v[size_t(i)] = Qvm::asFloat(vm.readInt(addr + 4 * i));
+            return v;
+        };
+        const bool transformed = number == CmTransformedBoxTrace;
+        const Vec3f start = vec(a[1]), end = vec(a[2]), mins = vec(a[3]), maxs = vec(a[4]);
+        const Vec3f origin = transformed ? vec(a[7]) : Vec3f{}, angles = transformed ? vec(a[8]) : Vec3f{};
         TraceResult t;
-        if (a[5] == kTempBoxModel)
-            t = CollisionWorld::traceBox(start, end, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
-        else if (map_) {
+        if (a[5] == kTempBoxModel) {
+            // A box isn't turned, as the original's.
+            Vec3f s = start, e = end;
+            for (int i = 0; i < 3; ++i) {
+                s[size_t(i)] -= origin[size_t(i)];
+                e[size_t(i)] -= origin[size_t(i)];
+            }
+            t = CollisionWorld::traceBox(s, e, mins, maxs, tempBoxMins_, tempBoxMaxs_, contents::Body);
+            for (int i = 0; i < 3; ++i)
+                t.endPos[size_t(i)] += origin[size_t(i)];
+        } else if (map_) {
             if (!world_)
                 world_ = std::make_unique<CollisionWorld>(*map_);
-            t = world_->trace(start, end, mins, maxs, a[5], a[6]);
+            t = world_->transformedTrace(start, end, mins, maxs, a[5], a[6], origin, angles);
         }
-        for (int i = 0; i < 3; ++i)
-            t.endPos[size_t(i)] += origin[size_t(i)];
         writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023);
         return 0;
     }
@@ -528,7 +574,27 @@ int32_t CgameHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case GetServerCommand: { // (sequence) -> whether it's there; it becomes Argc/Argv
         if (a[0] < 1 || size_t(a[0]) > serverCommands_.size())
             return 0;
-        args_ = tokenize(serverCommands_[size_t(a[0] - 1)]);
+        // As the original's client, the engine acts on some first: a
+        // configstring that changed (cs index "text", or in pieces, bcs0,
+        // bcs1... bcs2, which the client game doesn't see until the last,
+        // as one cs) is set before the client game hears of it.
+        std::string text = serverCommands_[size_t(a[0] - 1)];
+        args_ = tokenize(text);
+        const std::string verb = args_.empty() ? std::string() : args_[0];
+        if ((verb == "bcs0" || verb == "bcs1" || verb == "bcs2") && args_.size() >= 3) {
+            if (verb == "bcs0")
+                bigConfigstring_.clear();
+            bigConfigstring_ += args_[2];
+            if (verb != "bcs2")
+                return 0;
+            text = "cs " + args_[1] + " \"" + bigConfigstring_ + "\"";
+            args_ = {"cs", args_[1], bigConfigstring_};
+        }
+        if (!args_.empty() && args_[0] == "cs" && args_.size() >= 2) {
+            const int32_t index = std::atoi(args_[1].c_str());
+            if (index >= 0 && index < kMaxConfigstrings)
+                configstrings_[index] = args_.size() >= 3 ? args_[2] : std::string();
+        }
         return 1;
     }
     case Floor: return Qvm::fromFloat(std::floor(Qvm::asFloat(a[0])));

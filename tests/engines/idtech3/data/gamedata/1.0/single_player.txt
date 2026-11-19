@@ -1,0 +1,3 @@
+borg1: a7b92b7019d930ec | 100 frames run (level time 6400 ms): 561 entities, 359 linked, 128878585 instructions
+voy1: 5cfaa0ac71c27aa9 | 100 frames run (level time 6400 ms): 184 entities, 96 linked, 50112155 instructions
+stasis1: 3109db20c0acdc95 | 100 frames run (level time 6400 ms): 737 entities, 314 linked, 126013584 instructions

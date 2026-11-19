@@ -29,7 +29,7 @@ constexpr int None = 0, LibraryNotSetup = 1, InvalidEntityNumber = 2, NoAasFile 
 
 // What a bot does this frame (the elementary actions), which the game
 // turns into its user command. Elite Force's values, the bot library's
-// older ones (read from the game's conversion; eliteforce-syscalls.md):
+// older ones (read from the game's conversion; docs/engines/idtech3/games/stvef/systems/syscalls.md):
 // jumping and moving up share a bit, as do crouching and moving down.
 namespace action {
 constexpr int Attack = 0x1, Use = 0x2, Respawn = 0x4, Jump = 0x8, MoveUp = 0x8, Crouch = 0x10, MoveDown = 0x10,

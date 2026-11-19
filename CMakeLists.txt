@@ -1,20 +1,79 @@
 cmake_minimum_required(VERSION 3.24)
 project(reluva VERSION 0.1.0 LANGUAGES C CXX)
 
+# Optimized unless asked otherwise: the x86 interpreter and the software
+# rasterizer are many times slower in a debug build.
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Visual Studio: the interpreter's stand-ins and handlers are thousands of
+# lambdas and template instances, more sections than an object file holds
+# by default in a debug build (error C1128); and the sources are UTF-8,
+# whatever the system's code page.
+if(MSVC)
+    add_compile_options(/bigobj /utf-8)
+    # Visual Studio's "x64-Release" configuration is CMake's RelWithDebInfo,
+    # whose defaults are made for debugging: /Ob1 inlines only what's
+    # marked inline, and /INCREMENTAL links every call through a jump stub.
+    # The interpreter calls a handler for every instruction it runs, so a
+    # profile of LEGO Alpha Team found these costing much of the game's
+    # thread. Inline fully and link plainly, keeping the debug information.
+    foreach(lang C CXX)
+        string(REPLACE "/Ob1" "/Ob2" CMAKE_${lang}_FLAGS_RELWITHDEBINFO "${CMAKE_${lang}_FLAGS_RELWITHDEBINFO}")
+    endforeach()
+    foreach(kind EXE SHARED MODULE)
+        string(REGEX REPLACE "/INCREMENTAL(:[A-Z]+)?" "/INCREMENTAL:NO" CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO
+               "${CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO}")
+        string(APPEND CMAKE_${kind}_LINKER_FLAGS_RELWITHDEBINFO " /OPT:REF /OPT:ICF")
+    endforeach()
+endif()
+
+# Floating point as written, with no multiply and add fused into one step:
+# Clang does that by default on ARM (and GCC wherever FMA is available),
+# which rounds differently. The game code expects the original's x86
+# results (collision, movement, what a networked game agrees on), the same
+# on every machine. Visual Studio doesn't fuse unless asked.
+if(NOT MSVC)
+    add_compile_options(-ffp-contract=off)
+endif()
+
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
 option(RELUVA_BUILD_TESTS "Build unit tests" ON)
-# Engines can be left out of the build, like ScummVM's. New Worlds is off
-# by default for now: two of its source files hold string literals longer
-# than Visual Studio accepts (error C2026).
-option(RELUVA_ENGINE_NEWWORLDS "Build the Star Trek: New Worlds engine" OFF)
-option(RELUVA_ENGINE_IDTECH3 "Build the id Tech 3 engine (Star Trek: Voyager - Elite Force)" ON)
-option(RELUVA_ENGINE_UNREAL "Build the Unreal Engine 1 engine (Star Trek: Deep Space Nine - The Fallen)" ON)
+if(RELUVA_BUILD_TESTS)
+    enable_testing()
+endif()
+# Which engines are built: engines.cfg (see cmake/ReluvaEngines.cmake).
+include(cmake/ReluvaEngines.cmake)
 
 include(FetchContent)
+
+# clang-format leaves the build folder alone: the code downloaded into it
+# (SDL3, Dear ImGui in _deps/) isn't ours, and an IDE often makes its build
+# folder inside the checkout (out/, cmake-build-*/). A .clang-format there
+# turns formatting off, but SDL brings a .clang-format of its own, which
+# is nearer to its files; so a .clang-format-ignore too, which clang-format
+# checks first. Its patterns match one folder level each (clang-format 18),
+# hence one per depth. Not in an in-source build, where this would switch
+# it off for Reluva's own code.
+set(ignore_all "# Written by Reluva's CMakeLists.txt: no formatting in the build folder.\n")
+set(level "*")
+foreach(depth RANGE 1 16)
+    string(APPEND ignore_all "${level}\n")
+    string(APPEND level "/*")
+endforeach()
+foreach(dir IN ITEMS "${CMAKE_BINARY_DIR}" "${FETCHCONTENT_BASE_DIR}")
+    if(dir AND NOT dir STREQUAL CMAKE_SOURCE_DIR)
+        file(WRITE "${dir}/.clang-format"
+             "# Written by Reluva's CMakeLists.txt: no formatting in the build folder.\n"
+             "DisableFormat: true\nSortIncludes: Never\n")
+        file(WRITE "${dir}/.clang-format-ignore" "${ignore_all}")
+    endif()
+endforeach()
 
 # --- SDL3 -------------------------------------------------------------------
 if(RELUVA_USE_SYSTEM_SDL)
@@ -56,205 +115,48 @@ else()
     target_compile_options(reluva_warnings INTERFACE -Wall -Wextra -Wpedantic)
 endif()
 
-# --- common: platform-independent core, no SDL allowed here -------------------
-add_library(reluva_common STATIC
-    src/common/config.cpp
-    src/common/fs.cpp
-    src/common/md5.cpp
-    src/common/archive.cpp
-    src/common/zip.cpp
-    src/common/image.cpp
-    src/common/gfx3d.cpp
-    src/common/detection.cpp
-    src/common/audio/decode.cpp
-    src/common/audio/mixer.cpp
-    src/common/audio/mp3.cpp
-    src/common/audio/tracker.cpp
-    src/common/audio/wav.cpp
-    src/common/font.cpp
-    src/common/text.cpp
-    src/common/video/avi.cpp
-    src/common/video/cinepak.cpp)
-target_include_directories(reluva_common PUBLIC src)
-# Third-party headers (third_party/, see each README) as system includes, so
-# our warnings don't apply to them.
-target_include_directories(reluva_common SYSTEM PRIVATE third_party/minimp3 third_party/stb)
-target_link_libraries(reluva_common PRIVATE reluva_warnings)
+# --- shared code: a library per folder (each folder's CMakeLists.txt) ------
+# common/ is the core the others build on; none of them may use SDL.
+add_subdirectory(src/common)
+add_subdirectory(src/audio)
+add_subdirectory(src/graphics)
+add_subdirectory(src/image)
+add_subdirectory(src/video)
+add_subdirectory(src/emulation)
 
-# --- engines: talk only to common/ --------------------------------------------
-add_library(reluva_engines STATIC
-    src/engines/registry.cpp
-    src/engines/testbed/testbed.cpp)
-if(RELUVA_ENGINE_NEWWORLDS)
-    target_sources(reluva_engines PRIVATE
-        src/engines/newworlds/newworlds.cpp
-        src/engines/newworlds/cat_archive.cpp
-        src/engines/newworlds/string_table.cpp
-        src/engines/newworlds/texture.cpp
-        src/engines/newworlds/geo.cpp
-        src/engines/newworlds/gmf.cpp
-        src/engines/newworlds/model_textures.cpp
-        src/engines/newworlds/ground_textures.cpp
-        src/engines/newworlds/mdl.cpp
-        src/engines/newworlds/arf.cpp
-        src/engines/newworlds/map_viewer.cpp
-        src/engines/newworlds/mission_viewer.cpp
-        src/engines/newworlds/briefing.cpp
-        src/engines/newworlds/mission_script.cpp
-        src/engines/newworlds/mission_scripts.cpp
-        src/engines/newworlds/game_ui.cpp
-        src/engines/newworlds/colony.cpp
-        src/engines/newworlds/model_render.cpp
-        src/engines/newworlds/star_system.cpp
-        src/engines/newworlds/world.cpp
-        src/engines/newworlds/model_pose.cpp
-        src/engines/newworlds/economy.cpp
-        src/engines/newworlds/model_viewer.cpp
-        src/engines/newworlds/texture_viewer.cpp
-        src/engines/newworlds/sound_viewer.cpp
-        src/engines/newworlds/string_viewer.cpp
-        src/engines/newworlds/fif.cpp
-        src/engines/newworlds/font_viewer.cpp
-        src/engines/newworlds/levels.cpp)
-    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_NEWWORLDS)
-endif()
-if(RELUVA_ENGINE_IDTECH3)
-    target_sources(reluva_engines PRIVATE
-        src/engines/idtech3/idtech3.cpp
-        src/engines/idtech3/games.cpp
-        src/engines/idtech3/filesystem.cpp
-        src/engines/idtech3/lexer.cpp
-        src/engines/idtech3/marks.cpp
-        src/engines/idtech3/mdr.cpp
-        src/engines/idtech3/botlib/aas.cpp
-        src/engines/idtech3/botlib/bot_chat.cpp
-        src/engines/idtech3/botlib/bot_config.cpp
-        src/engines/idtech3/botlib/bot_goals.cpp
-        src/engines/idtech3/botlib/bot_library.cpp
-        src/engines/idtech3/botlib/bot_move.cpp
-        src/engines/idtech3/botlib/bot_weapons.cpp
-        src/engines/idtech3/botlib/bot_script.cpp
-        src/engines/idtech3/botlib/character.cpp
-        src/engines/idtech3/player_animation.cpp
-        src/engines/idtech3/sound_system.cpp
-        src/engines/idtech3/entities.cpp
-        src/engines/idtech3/shader.cpp
-        src/engines/idtech3/bindings.cpp
-        src/engines/idtech3/bsp.cpp
-        src/engines/idtech3/viewers.cpp
-        src/engines/idtech3/map_viewer.cpp
-        src/engines/idtech3/patch.cpp
-        src/engines/idtech3/world_renderer.cpp
-    src/engines/idtech3/shader_cache.cpp
-    src/engines/idtech3/md3.cpp
-    src/engines/idtech3/light_grid.cpp
-    src/engines/idtech3/model_cache.cpp
-    src/engines/idtech3/model_viewer.cpp
-    src/engines/idtech3/menu_viewer.cpp
-    src/engines/idtech3/play_viewer.cpp
-    src/engines/idtech3/scene_drawer.cpp
-    src/engines/idtech3/qvm.cpp
-    src/engines/idtech3/cvars.cpp
-    src/engines/idtech3/sounds.cpp
-    src/engines/idtech3/collision.cpp
-    src/engines/idtech3/vm_services.cpp
-    src/engines/idtech3/eliteforce/ui_host.cpp
-    src/engines/idtech3/eliteforce/game_host.cpp
-    src/engines/idtech3/eliteforce/game_bots.cpp
-    src/engines/idtech3/eliteforce/cgame_host.cpp
-    src/engines/idtech3/eliteforce/scene.cpp
-        src/engines/idtech3/world_viewer.cpp)
-    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_IDTECH3)
-endif()
-if(RELUVA_ENGINE_UNREAL)
-    target_sources(reluva_engines PRIVATE
-        src/engines/unreal/unreal.cpp
-        src/engines/unreal/games.cpp
-        src/engines/unreal/package.cpp
-        src/engines/unreal/package_set.cpp
-        src/engines/unreal/properties.cpp
-        src/engines/unreal/texture.cpp
-        src/engines/unreal/sound.cpp
-        src/engines/unreal/model.cpp
-        src/engines/unreal/collision.cpp
-        src/engines/unreal/lighting.cpp
-        src/engines/unreal/zones.cpp
-        src/engines/unreal/procedural.cpp
-        src/engines/unreal/script.cpp
-        src/engines/unreal/script_text.cpp
-        src/engines/unreal/vm.cpp
-        src/engines/unreal/vm_natives_core.cpp
-        src/engines/unreal/vm_level.cpp
-        src/engines/unreal/vm_physics.cpp
-        src/engines/unreal/vm_save.cpp
-        src/engines/unreal/game_save.cpp
-        src/engines/unreal/game_save_write.cpp
-        src/engines/unreal/package_writer.cpp
-        src/engines/unreal/vm_sound.cpp
-        src/engines/unreal/vm_splines.cpp
-        src/engines/unreal/vm_anim.cpp
-        src/engines/unreal/vm_attach.cpp
-        src/engines/unreal/vm_paths.cpp
-        src/engines/unreal/vm_dialog.cpp
-        src/engines/unreal/vm_effects.cpp
-        src/engines/unreal/vm_climbing.cpp
-        src/engines/unreal/vm_effect_physics.cpp
-        src/engines/unreal/vm_console.cpp
-        src/engines/unreal/vm_travel.cpp
-        src/engines/unreal/vm_documents.cpp
-        src/engines/unreal/vm_canvas.cpp
-        src/engines/unreal/font.cpp
-        src/engines/unreal/dialog_table.cpp
-        src/engines/unreal/level_audio.cpp
-        src/engines/unreal/level_play.cpp
-        src/engines/unreal/actors.cpp
-        src/engines/unreal/class_defaults.cpp
-        src/engines/unreal/mesh.cpp
-        src/engines/unreal/mesh_render.cpp
-        src/engines/unreal/viewers.cpp
-        src/engines/unreal/map_viewer.cpp
-        src/engines/unreal/mesh_viewer.cpp
-        src/engines/unreal/movie_viewer.cpp)
-    target_compile_definitions(reluva_engines PUBLIC RELUVA_ENGINE_UNREAL)
-endif()
-target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warnings)
+# Everything an engine may use. Engines link this and nothing else from
+# src/: not the backends, the launcher or the tools.
+add_library(reluva_shared INTERFACE)
+target_link_libraries(reluva_shared INTERFACE reluva_common reluva_audio reluva_graphics reluva_image reluva_video
+                                              reluva_emulation)
 
-# --- executable: SDL3 backend + ImGui launcher --------------------------------
-add_executable(reluva
-    src/main.cpp
-    src/backends/sdl3/sdl_system.cpp
-    src/backends/sdl3/sdl_gpu.cpp
-    src/launcher/launcher.cpp)
-target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
+# --- engines: talk only to the shared code (reluva_shared) ---------------------
+# Each engine's own CMakeLists.txt (src/engines/<engine>/) declares it; the
+# ones engines.cfg enables are built, with the registry over them
+# (reluva_engines).
+reluva_configure_engines()
 
-# --- developer tools -----------------------------------------------------------
-add_executable(reluva-tool src/tools/reluva_tool.cpp src/tools/soft_renderer.cpp)
-target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
+# --- backends, launcher, programs ---------------------------------------------
+# Every program at the top of the build folder (build/reluva,
+# build/reluva-tool; build/Release/... with Visual Studio), wherever its
+# CMakeLists.txt is: the docs, CI and people's habits run them from there.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+add_subdirectory(src/backends)
+add_subdirectory(src/gui)
+# reluva: the program (src/base/)
+add_subdirectory(src/base)
+# reluva-render-check and reluva-tool (src/devtools/)
+add_subdirectory(src/devtools)
 
 # --- tests ----------------------------------------------------------------------
-if(RELUVA_BUILD_TESTS)
-    enable_testing()
-    add_executable(reluva_tests tests/test_common.cpp)
-    target_link_libraries(reluva_tests PRIVATE reluva_common reluva_warnings)
-    target_include_directories(reluva_tests PRIVATE tests)
-    add_test(NAME common COMMAND reluva_tests)
-
-    if(RELUVA_ENGINE_NEWWORLDS)
-        add_executable(reluva_newworlds_tests tests/test_newworlds_cat.cpp)
-        target_link_libraries(reluva_newworlds_tests PRIVATE reluva_engines reluva_warnings)
-        add_test(NAME newworlds_cat COMMAND reluva_newworlds_tests)
-    endif()
-
-    if(RELUVA_ENGINE_IDTECH3)
-        add_executable(reluva_idtech3_tests tests/test_idtech3.cpp)
-        target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
-        target_include_directories(reluva_idtech3_tests PRIVATE tests)
-        add_test(NAME idtech3 COMMAND reluva_idtech3_tests)
-    endif()
-
-    if(RELUVA_ENGINE_UNREAL)
-        add_executable(reluva_unreal_tests tests/test_unreal.cpp)
-        target_link_libraries(reluva_unreal_tests PRIVATE reluva_engines reluva_warnings)
-        add_test(NAME unreal COMMAND reluva_unreal_tests)
-    endif()
-endif()
+# reluva-tests: the shared code's tests (tests/common/) and each enabled
+# engine's (reluva_add_engine_tests in its CMakeLists.txt). See
+# docs/DEVELOPMENT.md (Tests).
+reluva_add_tests(common
+    SOURCES ${PROJECT_SOURCE_DIR}/tests/common/unit.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/jit.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/windows.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/indeo.cpp
+    TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
+        unit.jit unit.windows unit.indeo)
+reluva_finish_tests()

@@ -3,8 +3,11 @@
 
 // Testbed: a built-in "game" that exercises the System interface (palette
 // graphics, input, timing, audio) so the backend can be checked without any
-// game data. Esc returns to the launcher, Space toggles a test tone.
+// game data. Esc returns to the launcher, Space toggles a test tone, C
+// switches between the system's pointer and a cursor of the game's own
+// (System::setMouseCursor).
 
+#include "graphics/cursor.h"
 #include "engines/engine.h"
 
 #include <atomic>
@@ -25,7 +28,7 @@ public:
     Error run() override {
         if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
             return err;
-        sys_.setWindowTitle("Reluva - Testbed (Esc: back, Space: tone)");
+        sys_.setWindowTitle("Reluva - Testbed (Esc: back, Space: tone, C: cursor)");
         screen_.create(kWidth, kHeight, PixelFormat::CLUT8);
 
         const int rate = sys_.audioRate();
@@ -60,6 +63,8 @@ public:
                         running = false;
                     else if (ev.key == key::Space && !ev.repeat)
                         toneOn_ = !toneOn_;
+                    else if (ev.key == 'c' && !ev.repeat)
+                        toggleCursor();
                     break;
                 case EventType::MouseMove:
                     mouseX_ = ev.mouseX;
@@ -81,6 +86,30 @@ public:
     }
 
 private:
+    // An arrow in two colours, drawn here, with its hotspot at its tip.
+    void toggleCursor() {
+        customCursor_ = !customCursor_;
+        if (!customCursor_) {
+            sys_.setMouseCursor(nullptr);
+            return;
+        }
+        static const char* const kArrow[] = {
+            "X.........", "XX........", "XOX.......", "XOOX......", "XOOOX.....", "XOOOOX....",
+            "XOOOOOX...", "XOOOOOOX..", "XOOOOOOOX.", "XOOOOOXXXX", "XOOXOOX...", "XOX.XOOX..",
+            "XX..XOOX..", "X....XOOX.", ".....XOOX.", "......XX..",
+        };
+        constexpr int w = 10, h = 16;
+        uint8_t pixels[w * h];
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
+                pixels[y * w + x] = kArrow[y][x] == 'X' ? 1 : kArrow[y][x] == 'O' ? 2 : 0;
+        uint8_t palette[768] = {};
+        palette[3] = 20, palette[4] = 20, palette[5] = 60;     // 1: the outline, dark blue
+        palette[6] = 255, palette[7] = 200, palette[8] = 40;   // 2: the inside, amber
+        const Cursor c = cursor::fromIndexed(pixels, w, h, w, palette, 0, 0, 0);
+        sys_.setMouseCursor(&c);
+    }
+
     void drawFrame(uint64_t t) {
         // Static plasma pattern in indices 0-254; animation comes purely from
         // palette cycling, the way many games of the era did it.
@@ -124,6 +153,7 @@ private:
     Surface screen_;
     Surface plasma_;
     int mouseX_ = kWidth / 2, mouseY_ = kHeight / 2;
+    bool customCursor_ = false;
     std::atomic<bool> toneOn_{false};
     double phase_ = 0; // audio thread only
 };

@@ -5,14 +5,16 @@
 
 #include "common/archive.h"
 #include "common/types.h"
-#include "engines/idtech3/bindings.h"
+#include "engines/idtech3/eliteforce/game_layout.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/botlib/bot_library.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
+#include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/entities.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/vm/vm_services.h"
 
 #include <array>
 #include <cstdint>
@@ -21,13 +23,14 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::idtech3::eliteforce {
 
 // Elite Force's game logic (vm/qagame.qvm, the server side of Holomatch)
 // run with the engine side of its system calls, in Elite Force's
-// numbering (docs/formats/idtech3/eliteforce-syscalls.md). For now it
+// numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md). For now it
 // loads a level: the map's entities are handed over, and what the game
 // does with them is recorded. Calls that would fill in the game's own
 // structures (traces, brush models) wait until their layouts are known;
@@ -66,8 +69,41 @@ public:
     // ClientBegin, which puts them in the level.
     Error connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused);
     Error beginClient(int32_t clientNum);
+    // map_restart, done now: the game code restarted in place and
+    // everyone back in the level (a full change to the same map, through
+    // requestedMap(), if the game type or player count changed).
+    Error restartLevel();
+    // How many restarts there have been (the server tells players of each).
+    int restarts() const { return restarts_; }
+    // A level the game or a player asked for (map, devmap), for the page to
+    // load and hand to changeLevel(); empty if none.
+    // What the original's map commands set before the level starts:
+    // spmap and spdevmap make it a solo match (g_gametype 2, no warmup,
+    // room for 8), and the bots already there leave; map and devmap end a
+    // solo match's game type (free for all), devmap's bots leaving too.
+    // Whether the bots leave.
+    static bool applyMapCommand(CvarStore& cvars, std::string_view verb);
+    bool levelRequested() const { return !requestedMap_.empty(); }
+    std::string takeRequestedMap() { return std::exchange(requestedMap_, std::string()); }
+    // A new level: the game code started afresh on it and everyone
+    // connected again; `players` gets the players (not bots), who are put
+    // in the level when they've loaded it.
+    Error changeLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
+                      std::vector<int32_t>& players);
+    const std::string& mapName() const { return mapName_; }
+    // A player's settings changed (their userinfo, ClientUserinfoChanged).
+    Error userinfoChanged(int32_t clientNum, const std::string& userinfo);
+    // A player leaving (ClientDisconnect); their slot is free again.
+    Error disconnectClient(int32_t clientNum);
+    // Whether no player or bot has slot `clientNum`.
+    bool clientSlotFree(int32_t clientNum) const { return !clientsInUse_.count(clientNum); }
+    // Keeps a client number from bots (BotAllocateClient): the local
+    // player's, who joins after the level has started and the game has
+    // added a solo match's bots.
+    void reserveClient(int32_t clientNum) { reserved_.insert(clientNum); }
+    bool isBot(int32_t clientNum) const { return botClients_.count(clientNum) != 0; }
     // A player's input for one moment, as Elite Force's usercmd_t (24
-    // bytes, see eliteforce-syscalls.md): Quake III's fields with the
+    // bytes, see docs/engines/idtech3/games/stvef/systems/syscalls.md): Quake III's fields with the
     // buttons before the angles.
     struct UserCommand {
         int32_t serverTime = 0;          // ms, the level time it applies to
@@ -102,6 +138,9 @@ public:
 
     Qvm& vm() { return vm_; }
     int32_t levelTime() const { return levelTime_; }
+    // The layout the game code was built with (1.0 or patch 1.2's), known
+    // once it's loaded.
+    const GameLayout& layout() const { return layout_; }
 
     // What the game has told the engine.
     struct GameData {
@@ -138,14 +177,21 @@ public:
         std::vector<uint8_t> playerState;
         std::vector<std::vector<uint8_t>> entities; // entity states, in entity order
         int32_t serverCommandSequence = 0;
+        // The server message it came in (from a server elsewhere or a
+        // demo), which the client game numbers it by; 0 for one of our
+        // own server's, numbered as they come.
+        int32_t messageNum = 0;
         // A bit set for each area the player's isn't joined to (behind a
         // closed door), as the original's server works it out; the client
         // game hands it to the renderer.
         std::array<uint8_t, 32> areaMask{};
+        // 2: sent while the player is still loading the level (not
+        // active); 4: changes with each level; 1: delayed by the rate.
+        int32_t snapFlags = 0;
     };
     // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
     static constexpr int32_t kFrameMs = 50;
-    static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204;
+    static constexpr int32_t kPlayerStateSize = 460, kEntityStateSize = 204; // 1.0's; see layout()
     // A word of the player state the original's network protocol doesn't
     // send, which snapshots carry as 0.
     static constexpr int32_t kPlayerStateServerOnly = 48;
@@ -156,9 +202,12 @@ public:
     int32_t svFlagsOffset();
     std::pair<int, int> svFlagsEvidence();
     // How many times each system call has been made since the start.
-    const std::map<int, int>& callCounts() const { return callCounts_; }
+    std::map<int, int> callCounts() const { return callCounts_.map(); }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
-    const std::set<int32_t>& linked() const { return linked_; }
+    const std::set<int32_t>& linked() const { return serverWorld_.linked(); }
+    // The files the game code and its bots have read since the level
+    // started (the map is handed over, not read), by name.
+    const std::set<std::string>& filesRead() const { return filesRead_; }
     // The map's areas (cut by its doors' portals), and how many times
     // InPvs said no only because a closed door stood between.
     int areaCount() const { return world_ ? world_->areaCount() : 0; }
@@ -169,6 +218,10 @@ public:
     const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
     // Clients the game dropped, with its reason.
     const std::map<int32_t, std::string>& dropped() const { return dropped_; }
+    // Every DropClient, in order: the client and the reason.
+    const std::vector<std::pair<int32_t, std::string>>& drops() const { return drops_; }
+    // Entity `number`'s state (its first 204 bytes); empty if there's none.
+    std::vector<uint8_t> entityState(int32_t number);
     // Commands the game ran (SendConsoleCommand), in order.
     const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
 
@@ -178,6 +231,7 @@ public:
     std::function<void(int number, const int32_t* args)> trace;
 
 private:
+    bool changingLevel_ = false; // startLevel called by changeLevel
     int32_t systemCall(Qvm& vm, int number, const int32_t* args);
     // The next token of the entity text, the way the original parses it:
     // a quoted string, or anything up to white space. Empty at the end.
@@ -196,36 +250,55 @@ private:
     int32_t botCall(Qvm& vm, int number, const int32_t* args);
     void runBotFrame();
     void runQueuedConsoleCommands();
+    bool engineCommand(const std::vector<std::string>& words);
+    Error reloadGame();
+    Error reconnectClients(const std::set<int32_t>& clients, bool beginHumans);
     std::vector<int32_t> botSnapshotEntities(int32_t clientNum);
+    // What a snapshot for a player holds (in entity order), and from where
+    // they look.
+    std::vector<int32_t> visibleEntities(int32_t clientNum);
+    Vec3f eyeOf(int32_t clientNum);
+    // Entity `n` as the server's world sees it.
+    bool entityShape(int32_t n, EntityShape& out);
 
     const SearchSet& files_;
     CvarStore& cvars_;
     Qvm vm_;
     VmFiles vmFiles_;
+    std::set<std::string> filesRead_;
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_; // which areas join up through open doors
+    ServerWorld serverWorld_; // the entities linked, and moves against them
     int closedDoorBlocks_ = 0; // InPvs answers a closed door made "no"
     std::string entityText_;
     std::vector<std::string> args_; // the command being handled
     size_t entityPos_ = 0;
     GameData gameData_;
+    GameLayout layout_ = kLayout10;
+    std::vector<uint8_t> qvmData_; // for restarting the game code
+    std::string mapName_, requestedMap_;
+    bool killBots_ = false; // the map command asking for the next level drops the bots
+    int32_t randomSeed_ = 0;
+    int32_t restartTime_ = 0; // a delayed map_restart's level time (0: none)
+    int restarts_ = 0;
+    std::string levelGametype_, levelMaxClients_; // as the level started
     int snapshotsMade_ = 0;
-    std::set<int32_t> linked_;
     std::map<int32_t, std::string> configstrings_;
     std::vector<std::string> consoleCommands_;
     std::map<int32_t, std::string> userinfo_;
     std::map<int32_t, UserCommand> commands_;
     std::vector<std::pair<int32_t, std::string>> serverCommands_;
     std::map<int32_t, std::string> dropped_;
+    std::vector<std::pair<int32_t, std::string>> drops_;
     std::string log_;
     std::map<int, int> unhandled_;
-    std::map<int, int> callCounts_;
+    CallCounts callCounts_;
     int32_t levelTime_ = 0;
     uint64_t startMs_ = 0;
     // Bots.
     botlib::BotLibrary bots_;
-    std::set<int32_t> clientsInUse_, botClients_;
+    std::set<int32_t> clientsInUse_, botClients_, reserved_;
     std::map<int32_t, size_t> botMessagesRead_;           // per bot, server commands read so far
     std::map<int32_t, std::vector<int32_t>> botSnapshots_; // per bot, the entities it sees this frame
     std::vector<Entity> bspEntities_;

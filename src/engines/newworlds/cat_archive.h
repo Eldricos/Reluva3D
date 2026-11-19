@@ -15,7 +15,7 @@
 
 namespace reluva::newworlds {
 
-// Chunk tags in .cat archives. See docs/formats/newworlds/cat.md.
+// Chunk tags in .cat archives. See docs/engines/newworlds/cat.md.
 namespace cattag {
 constexpr uint16_t Group = 0x00;      // container, purpose unknown
 constexpr uint16_t Root = 0x01;

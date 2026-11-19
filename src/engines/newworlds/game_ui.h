@@ -17,7 +17,7 @@ namespace reluva::newworlds {
 // The in-game interface's look, from a side's GUI archive (fedgui, kligui,
 // romgui): its frame pieces, fonts, icons and portraits, and panels drawn
 // with them where recordings of play show the game's (see
-// docs/formats/newworlds/gui.md#the-in-game-interface). Not playable: the
+// docs/engines/newworlds/gui.md#the-in-game-interface). Not playable: the
 // panels show what they're given.
 class GameUi {
 public:

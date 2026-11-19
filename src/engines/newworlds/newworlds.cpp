@@ -12,6 +12,7 @@
 // strings or fonts (see viewers.h for the keys). Tab switches between them;
 // Esc goes back to the launcher.
 
+#include "common/settings.h"
 #include "engines/engine.h"
 #include "engines/newworlds/viewers.h"
 #include "common/fs.h"
@@ -66,6 +67,7 @@ public:
         // One mixer for every page, playing for as long as the engine runs;
         // without an audio device the pages show and don't play.
         audio::Mixer mixer(sys_.audioRate());
+        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioStop {
             System& sys;

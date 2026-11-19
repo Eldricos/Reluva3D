@@ -5,16 +5,16 @@
 
 #include "common/archive.h"
 #include "common/types.h"
-#include "engines/idtech3/bsp.h"
+#include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
-#include "engines/idtech3/eliteforce/scene.h"
-#include "engines/idtech3/marks.h"
-#include "engines/idtech3/md3.h"
-#include "engines/idtech3/qvm.h"
-#include "engines/idtech3/sound_system.h"
-#include "engines/idtech3/vm_services.h"
+#include "engines/idtech3/client/scene.h"
+#include "engines/idtech3/formats/marks.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/vm/qvm.h"
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/vm/vm_services.h"
 
 #include <array>
 #include <cstdint>
@@ -22,13 +22,14 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::idtech3::eliteforce {
 
 // Elite Force's client game (vm/cgame.qvm: the player's view, HUD and
 // effects) run with the engine side of its system calls, in Elite Force's
-// numbering (docs/formats/idtech3/eliteforce-syscalls.md). For now it
+// numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md). For now it
 // starts: it's given the server's configstrings as its game state, and
 // what it loads and registers is recorded. Snapshots and drawing come
 // next; calls not implemented are counted in unhandled().
@@ -61,7 +62,7 @@ public:
     // GetServerCommand hands over, by sequence number from 1).
     void setServerCommands(std::vector<std::string> commands) { serverCommands_ = std::move(commands); }
     // Its 2D drawing since clearPictures() (the loading screen, the HUD).
-    using Picture = eliteforce::Picture;
+    using Picture = idtech3::Picture;
     const std::vector<Picture>& pictures() const { return pictures_; }
     void clearPictures() { pictures_.clear(); }
     // The weapon the client game last selected (SetUserCmdValue), which
@@ -75,9 +76,9 @@ public:
             userCommands_.erase(userCommands_.begin());
     }
     // A frame's 3D scene, as the client game hands it over (scene.h).
-    using SceneEntity = eliteforce::SceneEntity;
-    using View = eliteforce::View;
-    using Scene = eliteforce::Scene;
+    using SceneEntity = idtech3::SceneEntity;
+    using View = idtech3::View;
+    using Scene = idtech3::Scene;
     const Scene& scene() const { return scene_; }
     void clearScene() { scene_ = Scene{}; }
     // Where the client game asked for each snapshot (GetSnapshot's
@@ -88,6 +89,8 @@ public:
     Error consoleCommand(const std::string& text, bool& handled);
 
     Qvm& vm() { return vm_; }
+    // The layout its code was built with (1.0 or patch 1.2's), once loaded.
+    const GameLayout& layout() const { return layout_; }
     // What it registered, by handle.
     const HandleTable& models() const { return models_; }
     const HandleTable& skins() const { return skins_; }
@@ -95,6 +98,11 @@ public:
     const HandleTable& sounds() const { return sounds_; }
     // The console commands it added (AddCommand).
     const std::vector<std::string>& commands() const { return commands_; }
+    // What it asked to send the server as the player's (SendClientCommand:
+    // "score" while the scores are shown...) and to run at the console
+    // (SendConsoleCommand), since last taken, in order.
+    std::vector<std::string> takeClientCommands() { return std::exchange(clientCommands_, {}); }
+    std::vector<std::string> takeConsoleCommands() { return std::exchange(consoleCommands_, {}); }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
     const std::string& collisionMap() const { return collisionMap_; }
@@ -125,6 +133,7 @@ private:
     const SearchSet& files_;
     CvarStore& cvars_;
     Qvm vm_;
+    GameLayout layout_ = kLayout10;
     VmFiles vmFiles_;
     std::map<int32_t, std::string> configstrings_;
     HandleTable models_, skins_, shaders_, sounds_;
@@ -134,11 +143,13 @@ private:
     std::shared_ptr<const Bsp> map_;
     std::string log_;
     std::map<int, int> unhandled_;
+    std::vector<std::string> clientCommands_, consoleCommands_;
     std::map<int, std::array<int32_t, 6>> firstUnhandled_;
     int32_t time_ = 0;
     int32_t snapshotNumber_ = 0, snapshotTime_ = 0;
     std::map<int32_t, GameHost::Snapshot> snapshots_; // by number
     std::vector<std::string> serverCommands_;
+    std::string bigConfigstring_; // a long configstring coming in pieces (bcs0, bcs1, bcs2)
     std::vector<std::string> args_; // the command being handled, split as Quake III's Cmd_TokenizeString does
     std::vector<Picture> pictures_;
     std::array<float, 4> color_{1, 1, 1, 1};

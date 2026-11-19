@@ -6,7 +6,7 @@
 // up, the level's .aas map, the entities, the bots' commands), the map
 // queries (300 on), the elementary actions (400 on) and the AI (500 on).
 // Quake III's numbering, which Elite Force's game uses in the ranges
-// 200-211, 303-318, 401-427 and 500-572 (see eliteforce-syscalls.md);
+// 200-211, 303-318, 401-427 and 500-572 (see docs/engines/idtech3/games/stvef/systems/syscalls.md);
 // where Elite Force's may differ it's marked. The structures are Quake
 // III's (botlib.h, be_aas.h, be_ai_*.h of the GPL ioquake3 source), read
 // for their layout; the code is new.
@@ -56,7 +56,7 @@ enum BotCall : int {
     AasSwimming = 317,
     AasPredictClientMovement = 318,
     // Elementary actions: Elite Force's order (found from its calls: what
-    // each passes and where; see eliteforce-syscalls.md), with an alt
+    // each passes and where; see docs/engines/idtech3/games/stvef/systems/syscalls.md), with an alt
     // attack at the end.
     EaSay = 400,
     EaSayTeam = 401,
@@ -180,6 +180,12 @@ constexpr int32_t kMatchSize = 328;      // bot_match_t: text, type, subtype, 8 
 } // namespace
 
 Error GameHost::serverCommand(const std::string& text, bool* handled) {
+    // The engine's own commands first (map_restart, map, kick...).
+    if (engineCommand(splitCommand(text))) {
+        if (handled)
+            *handled = true;
+        return Error::success();
+    }
     args_ = splitCommand(text);
     int32_t result = 0;
     Error err = call(ConsoleCommand, {}, result);
@@ -191,9 +197,9 @@ Error GameHost::serverCommand(const std::string& text, bool* handled) {
 
 void GameHost::runQueuedConsoleCommands() {
     // What the game asked the server to run (SendConsoleCommand): the
-    // engine's own commands aren't here yet, so each goes back to the game
-    // as a console command (addbot, kick...), as the original does with
-    // commands it doesn't know.
+    // engine's own commands, and the rest back to the game as a console
+    // command (addbot...), as the original does with commands it doesn't
+    // know.
     while (consoleCommandsRun_ < consoleCommands_.size()) {
         const std::string text = consoleCommands_[consoleCommandsRun_++];
         for (const std::string& command : splitCommands(text)) {
@@ -212,15 +218,15 @@ std::vector<int32_t> GameHost::botSnapshotEntities(int32_t clientNum) {
     // game is sent (not SVF_NOCLIENT), but itself, that its eyes could see
     // (the PVS); brush models always.
     std::vector<int32_t> out;
-    const Vec3f origin = entityVec(clientNum, ent::CurrentOrigin);
+    const Vec3f origin = entityVec(clientNum, layout_.currentOrigin);
     const Vec3f eye{origin[0], origin[1], origin[2] + 26};
     const int32_t svFlags = svFlagsOffset();
     const int eyeLeaf = world_ ? world_->leafAt(eye) : -1;
-    for (const int32_t n : linked_) {
+    for (const int32_t n : serverWorld_.linked()) {
         if (n == clientNum || (entityInt(n, svFlags) & 1))
             continue;
-        if (eyeLeaf >= 0 && !entityInt(n, ent::BModel)) {
-            const int leaf = world_->leafAt(entityVec(n, ent::CurrentOrigin));
+        if (eyeLeaf >= 0 && !entityInt(n, layout_.bmodel)) {
+            const int leaf = world_->leafAt(entityVec(n, layout_.currentOrigin));
             if (leaf >= 0 && !map_->clusterVisible(map_->leafs[size_t(eyeLeaf)].cluster, map_->leafs[size_t(leaf)].cluster))
                 continue;
         }
@@ -338,7 +344,7 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
     case BotAllocateClient: { // -> a free client number for a bot, -1 if none
         const int32_t max = std::max(1, cvars_.integer("sv_maxclients"));
         for (int32_t c = 0; c < max; ++c)
-            if (!clientsInUse_.count(c)) {
+            if (!clientsInUse_.count(c) && !reserved_.count(c)) {
                 clientsInUse_.insert(c);
                 botClients_.insert(c);
                 botMessagesRead_[c] = serverCommands_.size();
@@ -352,7 +358,12 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         botSnapshots_.erase(a[0]);
         return 0;
     case LibSetup:
-        b.readFile = [this](const std::string& path, std::vector<uint8_t>& data) { return !files_.read(path, data); };
+        b.readFile = [this](const std::string& path, std::vector<uint8_t>& data) {
+            if (files_.read(path, data))
+                return false;
+            filesRead_.insert(path);
+            return true;
+        };
         b.clientCommand = [this](int client, const std::string& text) { clientCommand(client, text); };
         b.print = [this](const std::string& text) {
             if (print)
@@ -389,9 +400,9 @@ int32_t GameHost::botCall(Qvm& vm, int number, const int32_t* a) {
         b.moverOrigin = [this](int model, Vec3f& origin) {
             // The linked brush entity with that model, as the original's
             // bot library finds a lift.
-            for (const int32_t n : linked_)
-                if (entityInt(n, ent::BModel) && entityInt(n, ent::ModelIndex) == model) {
-                    origin = entityVec(n, ent::CurrentOrigin);
+            for (const int32_t n : serverWorld_.linked())
+                if (entityInt(n, layout_.bmodel) && entityInt(n, layout_.modelIndex) == model) {
+                    origin = entityVec(n, layout_.currentOrigin);
                     return true;
                 }
             return false;

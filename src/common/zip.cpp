@@ -7,7 +7,7 @@
 
 #include "common/zip.h"
 
-#include "stb_image.h" // inflate only; image.cpp holds the implementation
+#include "stb_image.h" // inflate only; stb_image.cpp holds the implementation
 
 #include <algorithm>
 #include <array>
@@ -65,6 +65,26 @@ Error inflateRaw(const uint8_t* data, size_t dataSize, size_t size, std::vector<
                                                      reinterpret_cast<const char*>(data), static_cast<int>(dataSize));
     if (got < 0 || static_cast<size_t>(got) != size)
         return Error::fail("Damaged deflate data");
+    return Error::success();
+}
+
+Error inflateZlib(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out) {
+    // The header: method 8 (deflate), no preset dictionary, and a check
+    // that makes the two bytes a multiple of 31.
+    if (dataSize < 6 || (data[0] & 0x0f) != 8 || (data[1] & 0x20) || ((data[0] << 8) | data[1]) % 31)
+        return Error::fail("Not a zlib stream");
+    if (Error err = inflateRaw(data + 2, dataSize - 2, size, out))
+        return err;
+    uint32_t a = 1, b = 0;
+    for (uint8_t v : out) {
+        a = (a + v) % 65521;
+        b = (b + a) % 65521;
+    }
+    // stb stops at the deflate data's last block; the Adler-32 is the
+    // stream's last 4 bytes, big-endian.
+    const uint8_t* t = data + dataSize - 4;
+    if (((b << 16) | a) != (uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | t[3]))
+        return Error::fail("Damaged zlib data (Adler-32)");
     return Error::success();
 }
 
@@ -163,6 +183,16 @@ Error ZipArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
 }
 
 Error ZipArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
+    bool crcOk = true;
+    if (Error err = readUnchecked(e, out, crcOk))
+        return err;
+    if (!crcOk)
+        return Error::fail(path_.string() + ": " + e.name + ": CRC mismatch");
+    return Error::success();
+}
+
+Error ZipArchive::readUnchecked(const Entry& e, std::vector<uint8_t>& out, bool& crcOk) const {
+    crcOk = true;
     const std::string where = path_.string() + ": " + e.name;
     // Opened per read so a const archive can be read from several threads.
     std::ifstream in(path_, std::ios::binary);
@@ -186,8 +216,11 @@ Error ZipArchive::read(const Entry& e, std::vector<uint8_t>& out) const {
     } else {
         return Error::fail(where + ": unsupported compression method " + std::to_string(e.method));
     }
-    if (crc32(out.data(), out.size()) != e.crc)
-        return Error::fail(where + ": CRC mismatch");
+    if (crc32(out.data(), out.size()) != e.crc) {
+        if (e.method != 0)
+            return Error::fail(where + ": CRC mismatch");
+        crcOk = false;
+    }
     return Error::success();
 }
 

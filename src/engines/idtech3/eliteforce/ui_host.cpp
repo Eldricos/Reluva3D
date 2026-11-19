@@ -3,8 +3,13 @@
 
 #include "engines/idtech3/eliteforce/ui_host.h"
 
-#include "engines/idtech3/md3.h"
+#include "engines/idtech3/eliteforce/game_info.h"
 
+#include "engines/idtech3/formats/md3.h"
+
+#include "common/fs.h"
+
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -14,7 +19,7 @@ namespace reluva::idtech3::eliteforce {
 namespace {
 
 // Elite Force ui.qvm system calls. The evidence for each number is in
-// docs/formats/idtech3/eliteforce-syscalls.md.
+// docs/engines/idtech3/games/stvef/systems/syscalls.md.
 enum UiCall : int {
     Error_ = 0,
     Print = 1,
@@ -61,6 +66,14 @@ enum UiCall : int {
     GetGlconfig = 43,
     GetClientState = 44,
     GetConfigString = 45,
+    LanGetLocalServerCount = 46,
+    LanGetLocalServerAddressString = 47, // (n, buffer, size)
+    LanGetGlobalServerCount = 48,
+    LanGetGlobalServerAddressString = 49,
+    LanGetPingQueueCount = 50,
+    LanClearPing = 51,   // (n)
+    LanGetPing = 52,     // (n, buffer, size, &time)
+    LanGetPingInfo = 53, // (n, buffer, size)
     CvarRegister = 54,
     CvarUpdate = 55,
     MemoryRemaining = 56,
@@ -89,6 +102,24 @@ Error UiHost::load() {
         return Error::fail("vm/ui.qvm: " + err.message);
     if (Error err = vm_.load(data))
         return Error::fail("vm/ui.qvm: " + err.message);
+    // The Expansion Pack's menus: patch 1.2's show the Holomatch modes'
+    // buttons and the settings that go with them when ui_cdkeychecked2 is
+    // 1, which the original's engine sets when baseEF/expefq3.key (the
+    // Expansion Pack's CD key) is there and isn't the game's own
+    // (efq3.key). Reluva shows them anyway unless reluva_modeButtons is 0:
+    // the modes are in the 1.2 game code, which is all they need.
+    {
+        std::vector<uint8_t> expansion, base;
+        const bool hasExpansionKey = !files_.read("expefq3.key", expansion) && !expansion.empty() &&
+                                     (files_.read("efq3.key", base) || base != expansion);
+        cvars_.create("reluva_modeButtons", "1", CvarStore::Archive);
+        cvars_.create("ui_cdkeychecked2", "0", CvarStore::ReadOnly);
+        cvars_.set("ui_cdkeychecked2", hasExpansionKey || cvars_.integer("reluva_modeButtons") ? "1" : "0", true);
+    }
+    // The engine's settings the server list reads: its protocol, and the
+    // master servers.
+    cvars_.create("protocol", "24", CvarStore::ServerInfo | CvarStore::ReadOnly);
+    masterServerNames(cvars_, masterServers());
     int32_t version = 0;
     if (Error err = call(GetApiVersion, {}, version))
         return err;
@@ -113,7 +144,10 @@ Error UiHost::refresh(int32_t time) {
     int32_t fullscreen = 0;
     if (Error err = call(IsFullscreen, {}, fullscreen))
         return err;
-    if (!fullscreen && !mainMenuNotFullscreen_) {
+    // Disconnected, the menus always show something covering the screen:
+    // the main menu, if nothing else, as the original's engine reopens it
+    // (only then: over a match, the in-game menu doesn't cover it).
+    if (!fullscreen && clientState.connState <= 1 && !mainMenuNotFullscreen_) {
         if (Error err = call(SetActiveMenu, {1})) // the main menu
             return err;
         // It should cover the screen now; if it doesn't, opening it every
@@ -180,7 +214,57 @@ void UiHost::writeClientState(int32_t address) {
     if (!vm_.checkWrite(address, kClientStateSize))
         return;
     std::memset(&vm_.memory()[size_t(address)], 0, kClientStateSize);
-    vm_.writeInt(address, 1); // connState: disconnected
+    vm_.writeInt(address, clientState.connState);
+    vm_.writeInt(address + 4, clientState.connectPacketCount);
+    vm_.writeInt(address + 8, clientState.clientNum);
+    vm_.writeString(address + 12, clientState.serverName, 1024);
+    vm_.writeString(address + 12 + 1024, clientState.updateInfo, 1024);
+    vm_.writeString(address + 12 + 2048, clientState.message, 1024);
+}
+
+bool UiHost::browserCommand(const std::string& line) {
+    // The server list's own commands, run at once as the original runs
+    // them (EXEC_NOW), so the menus see their pings straight away.
+    if (!browser)
+        return false;
+    const std::vector<std::string> words = splitCommand(line);
+    if (words.empty())
+        return false;
+    const std::string verb = fs::toLower(words[0]);
+    if (verb == "localservers") {
+        browser->localServers(now);
+        return true;
+    }
+    if (verb == "globalservers") {
+        // globalservers <master> <protocol> [keywords]: Elite Force numbers
+        // the masters from 0 (sv_master1); Raven's being gone, 0 asks
+        // every master set (sv_master2 is the community's).
+        const int master = words.size() > 1 ? std::atoi(words[1].c_str()) : 0;
+        const int protocol = words.size() > 2 && std::atoi(words[2].c_str()) ? std::atoi(words[2].c_str()) : 24;
+        std::string keywords;
+        for (size_t i = 3; i < words.size(); ++i)
+            keywords += (keywords.empty() ? "" : " ") + words[i];
+        const std::vector<std::string> names = masterServerNames(cvars_, masterServers());
+        std::vector<net::Address> masters;
+        for (size_t i = 0; i < names.size(); ++i) {
+            if (master > 0 && cvars_.string("sv_master" + std::to_string(master + 1)) != names[i])
+                continue;
+            const auto [host, port] = net::splitHostPort(names[i], ServerBrowser::kMasterPort);
+            uint32_t ip = 0;
+            if (resolveHost && resolveHost(host, ip))
+                masters.push_back({ip, port});
+        }
+        browser->globalServers(masters, protocol, keywords);
+        return true;
+    }
+    if (verb == "ping" && words.size() >= 2) {
+        const auto [host, port] = net::splitHostPort(words.back(), ServerBrowser::kServerPort);
+        uint32_t ip = 0;
+        if (resolveHost && resolveHost(host, ip))
+            browser->ping({ip, port}, now);
+        return true;
+    }
+    return false;
 }
 
 std::vector<std::string> UiHost::recentCalls() const {
@@ -237,14 +321,16 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
         return 0;
     }
     case Milliseconds: return time_;
-    case CvarSet: cvars_.set(str(0, 256), str(1, 256)); return 0;
+    // Set at once, as the original engine's Cvar_Set (forced: a latched
+    // variable too; only what's typed at the console waits for a level).
+    case CvarSet: cvars_.set(str(0, 256), str(1, 256), true); return 0;
     case CvarVariableValue: return Qvm::fromFloat(cvars_.value(str(0, 256)));
     case CvarVariableStringBuffer: vm.writeString(a[1], cvars_.string(str(0, 256)), a[2]); return 0;
     case CvarSetValue: {
         // Quake III writes whole numbers without a decimal point.
         const float v = f(1);
         const std::string text = v == float(int32_t(v)) ? std::to_string(int32_t(v)) : std::to_string(v);
-        cvars_.set(str(0, 256), text);
+        cvars_.set(str(0, 256), text, true);
         return 0;
     }
     case CvarReset:
@@ -262,7 +348,15 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     }
     case Argc: return 0;
     case Argv: vm.writeString(a[1], "", a[2]); return 0;
-    case CmdExecuteText: commands_.push_back(str(1, 4096)); return 0;
+    case CmdExecuteText: {
+        const std::string text = str(1, 4096);
+        bool handled = false;
+        for (const std::string& command : splitCommands(text))
+            handled = browserCommand(command) || handled;
+        if (!handled)
+            commands_.push_back(text);
+        return 0;
+    }
     case FsFOpenFile: return vmFiles_.open(vm, a[0], a[1], a[2]);
     case FsRead: return vmFiles_.read(vm, a[0], a[1], a[2]);
     case FsFCloseFile: vmFiles_.close(a[0]); return 0;
@@ -321,7 +415,36 @@ int32_t UiHost::systemCall(Qvm& vm, int number, const int32_t* a) {
     case GetClipboardData: vm.writeString(a[0], "", a[1]); return 0;
     case GetGlconfig: writeGlconfig(a[0]); return 0;
     case GetClientState: writeClientState(a[0]); return 0;
-    case GetConfigString: vm.writeString(a[1], "", a[2]); return 0;
+    case LanGetLocalServerCount: return browser ? browser->localServerCount() : 0;
+    case LanGetLocalServerAddressString:
+        vm.writeString(a[1], browser ? browser->localServerAddress(a[0]) : std::string(), a[2]);
+        return 0;
+    case LanGetGlobalServerCount: return browser ? browser->globalServerCount() : 0;
+    case LanGetGlobalServerAddressString:
+        vm.writeString(a[1], browser ? browser->globalServerAddress(a[0]) : std::string(), a[2]);
+        return 0;
+    case LanGetPingQueueCount: return browser ? browser->pingQueueCount() : 0;
+    case LanClearPing:
+        if (browser)
+            browser->clearPing(a[0]);
+        return 0;
+    case LanGetPing: {
+        std::string address;
+        int time = 0;
+        if (browser)
+            browser->getPing(a[0], now, cvars_.integer("cl_maxPing") ? cvars_.integer("cl_maxPing") : 800, address,
+                             time);
+        vm.writeString(a[1], address, a[2]);
+        if (vm.checkWrite(a[3], 4))
+            vm.writeInt(a[3], time);
+        return 0;
+    }
+    case LanGetPingInfo: vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]); return 0;
+    case GetConfigString: { // (index, buffer, size) -> whether there's one
+        const std::string text = configstring ? configstring(a[0]) : std::string();
+        vm.writeString(a[1], text, a[2]);
+        return configstring ? 1 : 0;
+    }
     case CvarRegister: {
         const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), a[3]);
         if (a[0])

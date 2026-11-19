@@ -24,5 +24,9 @@ has to be our own, written from information we are allowed to use.
 
 When you add support for a file format or a game mechanic, record how it was
 worked out (e.g. "header layout found by comparing 40 .xyz files" or
-"timings measured from a gameplay recording") in `docs/` or in the commit
-message. This record shows the work was done independently.
+"timings measured from a gameplay recording") in `docs/`, on the page for
+that format or mechanic, with how sure it is: see
+[Sources and confidence](docs/DOCUMENTATION_STANDARD.md#sources-and-confidence).
+For a small change the commit message may give more detail, but the docs
+must say the same: nobody should need the commit history to find where a
+fact came from. This record shows the work was done independently.

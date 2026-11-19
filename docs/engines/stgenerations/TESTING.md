@@ -1,0 +1,137 @@
+# Star Trek: Generations: testing
+
+## Automated checks
+
+### Tests without the game's files
+
+Run by `reluva-tests stgenerations` (and ctest, and CI on every system):
+
+| Suite | What it covers |
+|---|---|
+| `stgenerations.unit.script` | Script files and the script VM: the program's layout, arithmetic, conditions, states and events, locals, natives, parents, the opcode table |
+| `stgenerations.unit.level` | Levels: tables, textures, the map, surfaces and skies, the 3D renderer and its lighting, walking (walls, steps, falls, jumps, gaps), missions (scripts, items, punches, flow, settings), actors, projectiles, doors and lifts, line of sight |
+| `stgenerations.unit.hud` | The HUD: inventory, panels, effects, dragging items, the item held up, unprojecting, the dissolves |
+| `stgenerations.unit.combat` | Space combat's data (textures, models, ship classes, missions), its projection, the story driving the bridge |
+| `stgenerations.unit.campaign` | The story's script; the captain's menu |
+| `stgenerations.unit.sound` | The missions' sounds: file names, subtitles, cues, positions, events |
+| `stgenerations.unit.formats` | Fonts, subtitles, overlays, sprite sets, script files |
+| `stgenerations.unit.canvas` | The game's drawing surface, BMPs, palettes |
+| `stgenerations.unit.audio` | The game's sound calls on Reluva's mixer |
+| `stgenerations.unit.detection` | The installed game and its CDs found, importing them (all at once, a part at a time, the whole copy of a damaged one, between the CDs or the install and a CD), the files then searched |
+| `stgenerations.engine` | The whole engine, on a game built in code: imported as the launcher does, then played: the title, the menu, a new game's movie, an automatic save, the bridge, a saved game named and loaded, the settings, quitting through the credits; recorded in `tests/engines/stgenerations/data/engine-record.txt` |
+
+STG-Engine's tests are all here, as these suites ([PORTING.md](PORTING.md#tests)).
+
+### With the game's files
+
+`RELUVA_STGENERATIONS=<the game's folder> ctest -L gamedata` (Reluva's
+import of the game, or the install and both CDs side by side), steps
+`stgenerations.gamedata.<step>` (`tests/engines/stgenerations/gamedata.cmake`):
+
+| Step | What it runs |
+|---|---|
+| `release` | What the game is, its parts, its files' signatures |
+| `archives` | Every archive's every file read |
+| `pictures` | Every bitmap, overlay, sprite set and font |
+| `levels` | Every away mission's level, textures, sky and script |
+| `sounds` | Every sound |
+| `movies` | Every movie's frames and sound |
+| `front_end` | The title, the menu, a new game, its movies skipped, the bridge, a save named and loaded |
+| `mission` | The first away mission: its briefing, PROCEED, a few steps in |
+| `combat` | The first space combat: the briefing, PROCEED, the helm's orders, phasers, a torpedo |
+
+The records (`tests/engines/stgenerations/data/gamedata/english/`) were
+made on Linux from an import of the 2 CD English release. They hold only
+checksums, counts and summary lines. The play steps run the game's code,
+3D included: their records may differ in the last bits on other systems
+(see [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests)); keep a baseline
+of your own there.
+
+## A playthrough by hand
+
+### Still to check
+
+- **A full playthrough** in Reluva, every mission and combat, through each
+  ending.
+- **The unconfirmed details** ([UNCONFIRMED.md](UNCONFIRMED.md)), against
+  the original.
+- **The Controls screen:** the defaults match the original's; a key
+  clicked into a box moves there from any other action, and the old key
+  stops working; Accept keeps it after a restart, Cancel drops it; Mouse
+  Look takes only the left or right button. In a mission Shift runs, and
+  holding the right button turns and tilts the view towards the mouse
+  (with Lookspring on, letting go levels it). Changed keys work in space
+  combat too.
+- **Space combat:** a save made in a fight (the Save panel reads "Save game
+  at start of current encounter") starts that fight again; a hit on an
+  enemy's shields flashes on its side towards the shot; hits on the
+  Enterprise shake the screen, and dim it once a shield is badly hurt; the
+  shield facing display shows each ship inside its coloured sphere; the
+  viewscreen and radar sliders zoom and set the range.
+- **Each away mission,** in particular:
+
+  | Mission | Check in particular |
+  |---|---|
+  | AMARGOS1 | The bodies Riker beams up disappear (in STG-Engine, once, one stayed; it couldn't be made to happen again). The lifts, and the door that once stuck |
+  | AMARGOS2 | The helmet overlay (helm.ovr) over the view when it's worn |
+  | ANTILIOS | Water: wading, swimming under the surface and climbing out, with the low gravity under water; the tinted screen effects |
+  | ARVADA1 | Actors told to guard something stay near it rather than following the player |
+  | BERSUS | The same for its guards (actors 38-47); water, as in Antilios |
+  | ENTERP | The finale on the Enterprise |
+  | EPSION | The SHELL overlay over the view; the yellow streak transitions |
+  | GALORN1, GALORN2 | The BIGCROP overlay over the view |
+  | QURASH | The helmet overlay |
+  | VERID1 | The finale with Soran |
+
+- **Other systems:** Windows and macOS, a real sound card, a high-density screen (the
+  pointer's second picture).
+- **Other releases:** no other language or build has been seen.
+
+## Last checked
+
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| Not recorded | The 2 CD English release, an import | Linux | The game-files test's records made ([With the game's files](#with-the-games-files)) |
+| Not recorded | The 2 CD English release, installed, and both CDs | Not recorded | Its files read, imported and played ([below](#checked-on-the-games-own-files)) |
+
+### Checked on the game's own files
+
+With a copy of the 2 CD English release (installed, and both CDs):
+
+- **Recognised:** `sgens.exe` and `DATA/COMMON.DAT` match STG-Engine's
+  signatures exactly.
+- **Imported:** the install and, from the CDs, the story, space combat,
+  the music and the movies (1.2 GB).
+- **Read:** all 18 archives (8175 files), 1218 bitmaps, 33 overlays, 97
+  sprite sets, 5 fonts, all 12 levels and their scripts, 4129 sounds, all
+  14 movies (every frame).
+- **Movies:** every frame of `MOV_07.AVI` matches FFmpeg's decoding to the
+  pixel.
+- **Played** (`reluva-tool stgenerations play`, its pictures looked at):
+  the title and the captain's menu; New, the prologue's movie; the bridge,
+  with the crew's subtitled speech; a game saved under a typed name and
+  loaded back; the first away mission's transition, 3D view, HUD and
+  walking; space combat's briefing and console.
+- **In a window** (`reluva` under X, SDL's renderer): the picture scaled,
+  clicks where they should be, the game's pointer as the system's.
+- **Against STG-Engine itself:** STG-Engine, built from its `main` and run
+  headless on the same files, went into the first away mission, walked a
+  few steps and quick-saved. That save, copied in as `stg.s00`, loads in
+  this engine (F7 in a mission, its quick load, or the menu): the 3D
+  view it shows is the same as STG-Engine's when it saved, pixel for
+  pixel, the console's status line aside. So STG-Engine's saves carry
+  over, and the port draws a mission as STG-Engine did.
+
+That copy has a few damaged files, which the game reads as the original
+would:
+
+| File | What's wrong | What happens |
+|---|---|---|
+| `MUSIC.1`: `MUSI9038`, `MUSI2507`; `MUSIC.2`: `MUSI9020`, `MUSI9055`, `LOSE1`, `MUSI1502` | Stored with a few bits wrong (their CRCs don't match) | Played as they are, a warning in the console |
+| Disc 1's `STELLAR.DAT`: `SOUND/VOICES/COMP0213`, `COMP0152` | Damaged; disc 2's copy is whole | Import Game copies disc 2's |
+| `GALORN1.DAT`: `galorn1/sounds/troi0083.wav` | Damaged, in the install and on disc 2 alike | That line of Troi's is silent; a whole `GALORN1.DAT` (in the install or on a CD) is the one Import Game copies |
+
+The install also holds folders of files someone took out of the archives
+(`DATA/amargos1/`, `COMMON/` and others, 194 pictures); the game doesn't
+read loose files below `DATA/` (nor did the original), so they make no
+difference.

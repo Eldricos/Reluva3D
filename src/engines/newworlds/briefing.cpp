@@ -67,7 +67,7 @@ constexpr Site kR1Rival{165, 323}, kR2Colony{260, 356}, kJ1RColony{111, 442}, kJ
 constexpr Site kJ3RColony{103, 311}, kJ4RColony{276, 380}, kR9Colony{308, 428}, kJ6RColony{92, 196};
 constexpr Site kJ7RColony{200, 324}, kR12Colony{260, 264}, kR14Colony{260, 272};
 
-// The briefings as recorded play showed them (docs/formats/newworlds/play-*.md):
+// The briefings as recorded play showed them (docs/engines/newworlds/play-*.md):
 // which page and view went with each clip. Where the recording didn't show
 // a step (a clip not heard), the step is a guess from its neighbours.
 const std::vector<Script>& recordedScripts() {

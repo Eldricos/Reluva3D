@@ -1,0 +1,32 @@
+// markdownlint (https://github.com/DavidAnson/markdownlint), run by CI on
+// every push: npx markdownlint-cli2@0.23.3. Only the rules below are on:
+// the headings' shape, as docs/DOCUMENTATION_STANDARD.md has them, and a
+// few basics. Content checks (links, an engine's pages, status lines) are
+// tools/check-docs.py's.
+{
+  "config": {
+    "default": false,
+    // Headings
+    "MD001": true,                          // one level at a time: ## then ###, not ####
+    "MD003": { "style": "atx" },            // # Heading, not underlined
+    "MD018": true,                          // a space after the #
+    "MD019": true,                          // only one
+    "MD022": true,                          // a blank line around each heading
+    "MD023": true,                          // headings start at the line's start
+    "MD024": { "siblings_only": true },     // no two sections of the same name side by side
+    "MD025": true,                          // one # title a page
+    "MD026": { "punctuation": ".,;:!" },    // no full stop or colon ending a heading
+    "MD041": true,                          // a page starts with its # title
+    // Basics
+    "MD009": true,                          // no spaces at a line's end
+    "MD012": true,                          // no runs of blank lines
+    "MD042": true,                          // no empty links
+    "MD047": true                           // a file ends with one newline
+  },
+  "globs": ["**/*.md"],
+  "ignores": [
+    "build/**", "third_party/**", "node_modules/**",
+    "**/research/**",             // working notes, kept as they were written
+    "docs/engines/newworlds/**"   // not brought in line yet (tools/check-docs.py)
+  ]
+}
