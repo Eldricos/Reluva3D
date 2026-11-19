@@ -171,7 +171,7 @@ public:
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return true; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
     bool takesKey(const Event &ev) const override;
     bool wantsToQuit() const override { return _quit; }
 

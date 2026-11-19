@@ -128,7 +128,7 @@ public:
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return true; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
 
 private:
     void show(int index);
@@ -169,7 +169,7 @@ public:
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return true; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
 
 private:
     void load(int index);
@@ -205,7 +205,7 @@ public:
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return true; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
 
 private:
     void loadCity(int index);

@@ -85,3 +85,20 @@ reluva_add_engine_viewers(age
 reluva_add_engine_tools(age
     SOURCES
         tools/files.cpp)
+
+# Its tests (tests/engines/age/), in reluva-tests: the unit tests by topic,
+# on files built in the tests, and the engine test, without game files (a
+# small install of its own run as a game and in the data viewer; its
+# record in data/engine-record.txt). See docs/DEVELOPMENT.md (Tests).
+set(tests ${PROJECT_SOURCE_DIR}/tests/engines/age)
+reluva_add_engine_tests(age
+    SOURCES
+        ${tests}/unit/detection.cpp
+        ${tests}/unit/formats.cpp
+        ${tests}/unit/driving.cpp
+        ${tests}/unit/city.cpp
+        ${tests}/unit/game.cpp
+        ${tests}/unit/network.cpp
+        ${tests}/engine.cpp
+    TOPICS
+        unit.detection unit.formats unit.driving unit.city unit.game unit.network engine)
