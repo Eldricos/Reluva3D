@@ -1,6 +1,6 @@
 # Unreal Engine 1: compiled UnrealScript
 
-Status: **read** (`src/engines/unreal/script.cpp`), **written out as
+Status: **read** (`src/engines/unreal/vm/script.cpp`), **written out as
 text** (`script_text.cpp`, `reluva-tool ue-script`); not run yet.
 **Checked on The Fallen** (`reluva-tool ue-check`, October 2026): all
 40,603 script objects in its 175 packages read, 11,911 of them with

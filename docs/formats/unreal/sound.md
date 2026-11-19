@@ -1,6 +1,6 @@
 # Unreal Engine 1: sounds and music
 
-Status: **implemented** (`src/engines/unreal/sound.cpp`) for Sound; the
+Status: **implemented** (`src/engines/unreal/formats/sound.cpp`) for Sound; the
 same reader extracts Music. **Checked on The Fallen** (October 2026): 2868 of
 2930 sounds decode. The other 62 (looping ones such as
 `Looping_Fear.moan_fear_lp`, music cues such as `Trks_MagicBeaut.orb_thme`)

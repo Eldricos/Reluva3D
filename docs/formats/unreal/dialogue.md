@@ -1,6 +1,6 @@
 # The Fallen: dialogue tables
 
-Status: **implemented** (`src/engines/unreal/dialog_table.cpp`), read by
+Status: **implemented** (`src/engines/unreal/formats/dialog_table.cpp`), read by
 the level's dialogue (`vm_dialog.cpp`, [unreal_vm.md](../../engines/unreal_vm.md)).
 **Checked on The Fallen** (October 2026): the 12 tables in the install's
 `int` folder give 2040 lines.

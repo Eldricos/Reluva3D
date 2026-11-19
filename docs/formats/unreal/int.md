@@ -1,8 +1,8 @@
 # The Fallen: documents, objectives and map strings (int/*.int)
 
 Status: **implemented**: the documents, the maps' objectives and titles
-(`src/engines/unreal/vm_documents.cpp`), and the actors' strings
-(`Vm::applyLocalizedActor` in `src/engines/unreal/vm.cpp`).
+(`src/engines/unreal/vm/vm_documents.cpp`), and the actors' strings
+(`Vm::applyLocalizedActor` in `src/engines/unreal/vm/vm.cpp`).
 **Checked on The Fallen** (October 2026).
 
 Beside the dialogue tables ([dialogue.md](dialogue.md)), the install's

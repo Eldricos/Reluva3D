@@ -15,8 +15,8 @@
 #include "audio/mixer.h"
 #include "engines/engine.h"
 #include "engines/unreal/games.h"
-#include "engines/unreal/package_set.h"
-#include "engines/unreal/viewers.h"
+#include "engines/unreal/formats/package_set.h"
+#include "engines/unreal/pages/viewers.h"
 
 #include <algorithm>
 #include <chrono>

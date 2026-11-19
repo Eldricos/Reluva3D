@@ -1,6 +1,6 @@
 # Unreal Engine 1: packages (`.u`, `.unr`, `.utx`, `.uax`, `.umx`)
 
-Status: **implemented** (`src/engines/unreal/package.cpp`,
+Status: **implemented** (`src/engines/unreal/formats/package.cpp`,
 `properties.cpp`). **Checked on The Fallen** (`reluva-tool ue-check`,
 October 2026): all 175 packages open (49 of version 71, 20 of 72, 106 of
 73, licensee 0), and every one of their 3801 palettes reads, so the

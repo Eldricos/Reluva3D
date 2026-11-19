@@ -1,6 +1,6 @@
 # Unreal Engine 1: fonts
 
-Status: **implemented** (`src/engines/unreal/font.cpp`), drawn by the HUD
+Status: **implemented** (`src/engines/unreal/formats/font.cpp`), drawn by the HUD
 ([unreal_vm.md](../../engines/unreal_vm.md)). **Checked on The Fallen**
 (October 2026): every one of Engine.u's fonts reads to its end.
 

@@ -1,6 +1,6 @@
 # Unreal Engine 1: models (BSP)
 
-Status: **implemented** (`src/engines/unreal/model.cpp`). Geometry
+Status: **implemented** (`src/engines/unreal/formats/model.cpp`). Geometry
 **checked on The Fallen** (October 2026): all 74 maps read and draw. The
 lighting data after the vertices is tested on models built by the unit
 tests, **not yet on The Fallen's**. Sources as in [package.md](package.md).

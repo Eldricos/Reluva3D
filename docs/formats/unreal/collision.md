@@ -1,7 +1,7 @@
 # Unreal Engine 1: collision against a level
 
 How Reluva tells solid from open space in a level, and sweeps points and
-boxes through it (`engines/unreal/collision.h`). It reads only what the
+boxes through it (`engines/unreal/game/collision.h`). It reads only what the
 level's model already holds ([model.md](model.md)): its BSP nodes, its
 leaf hulls and the "root outside" flag. The boxes follow Engine.dll's
 `UModel::PointCheck` and `LineCheck`, read for what they do and written

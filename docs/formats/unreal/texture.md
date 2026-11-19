@@ -1,6 +1,6 @@
 # Unreal Engine 1: textures and palettes
 
-Status: **implemented** (`src/engines/unreal/texture.cpp`) for P8, DXT1,
+Status: **implemented** (`src/engines/unreal/formats/texture.cpp`) for P8, DXT1,
 RGB8 and RGBA8. **Checked on The Fallen** (`reluva-tool ue-check`,
 October 2026): all 3801 palettes read and 4029 of 4211 textures decode.
 The other 182 were procedural textures (FireTexture, WetTexture...: force

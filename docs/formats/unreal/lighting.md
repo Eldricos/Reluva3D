@@ -1,6 +1,6 @@
 # Unreal Engine 1: static lighting (lightmaps)
 
-Status: **implemented** (`src/engines/unreal/lighting.cpp`, drawn by the
+Status: **implemented** (`src/engines/unreal/render/lighting.cpp`, drawn by the
 Maps page). **Data checked on The Fallen** (`reluva-tool ue-check`,
 October 2026): every map's lighting reads, with no bytes left over after
 the model's last field; 345952 lightmaps over the 74 maps, every

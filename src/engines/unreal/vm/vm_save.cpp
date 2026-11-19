@@ -1,0 +1,1166 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// Saved games, for a running level (ScriptLevel): the level as it is now
+// written to a file of Reluva's own (not the original's, which saves the
+// level as a package), and a level started from one. What's kept: every
+// object the level's actors lead to (their properties, states, state
+// code's place, latent waits, timers), the map's actors that are gone,
+// and the engine's own records of them (touching, moves under way,
+// animation layers and waits, skin channels, attachments, bends, the
+// dialogue). The HUD's load list (DrawLoadGameList, LoadByFileID,
+// DeleteByFileID) is here too. See docs/engines/unreal_vm.md.
+
+#include "engines/unreal/vm/vm_level.h"
+
+#include "engines/unreal/formats/game_save.h"
+
+#include "common/fs.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <ctime>
+#include <fstream>
+#include <functional>
+#include <iterator>
+
+namespace reluva::unreal {
+
+namespace {
+
+// 2: with the ghosts; 3: a layer's whole state (its clears, least rate and
+// what it's fading in over). 2 still reads.
+constexpr char kMagic[8] = {'R', 'L', 'V', 'S', 'A', 'V', 'E', '3'};
+// The version a file is (its magic's last byte), 0 if it isn't one.
+int saveVersion(const char *magic) {
+    if (std::memcmp(magic, kMagic, 7) != 0 || (magic[7] != '2' && magic[7] != '3'))
+        return 0;
+    return magic[7] - '0';
+}
+
+class Out {
+public:
+    void u8(uint8_t v) { s_.push_back(char(v)); }
+    void i32(int32_t v) { raw(&v, 4); }
+    void f32(float v) { raw(&v, 4); }
+    void i64(int64_t v) { raw(&v, 8); }
+    void str(const std::string &v) {
+        i32(int32_t(v.size()));
+        s_ += v;
+    }
+    void vec(const std::array<float, 3> &v) {
+        for (float f : v)
+            f32(f);
+    }
+    const std::string &data() const { return s_; }
+
+private:
+    void raw(const void *p, size_t n) { s_.append(static_cast<const char *>(p), n); }
+    std::string s_;
+};
+
+class In {
+public:
+    explicit In(std::string data) : d_(std::move(data)) {}
+    uint8_t u8() {
+        uint8_t v = 0;
+        raw(&v, 1);
+        return v;
+    }
+    int32_t i32() {
+        int32_t v = 0;
+        raw(&v, 4);
+        return v;
+    }
+    float f32() {
+        float v = 0;
+        raw(&v, 4);
+        return v;
+    }
+    int64_t i64() {
+        int64_t v = 0;
+        raw(&v, 8);
+        return v;
+    }
+    std::string str() {
+        const int32_t n = i32();
+        if (n < 0 || size_t(n) > d_.size() - at_) {
+            ok_ = false;
+            return {};
+        }
+        std::string v = d_.substr(at_, size_t(n));
+        at_ += size_t(n);
+        return v;
+    }
+    std::array<float, 3> vec() { return {f32(), f32(), f32()}; }
+    // A count of things to read, each at least `least` bytes: refused if
+    // the file can't hold that many.
+    int32_t count(size_t least = 1) {
+        const int32_t n = i32();
+        if (n < 0 || size_t(n) * least > d_.size() - at_) {
+            ok_ = false;
+            return 0;
+        }
+        return n;
+    }
+    bool ok() const { return ok_; }
+
+private:
+    void raw(void *p, size_t n) {
+        if (n > d_.size() - at_) {
+            ok_ = false;
+            std::memset(p, 0, n);
+            return;
+        }
+        std::memcpy(p, d_.data() + at_, n);
+        at_ += n;
+    }
+    std::string d_;
+    size_t at_ = 0;
+    bool ok_ = true;
+};
+
+// How an object reference is written.
+enum RefKind : uint8_t {
+    RefNone,
+    RefSaved,    // one of the saved objects, by its number
+    RefPackage,  // an object of a package (a texture, a mesh): its package and export
+    RefClass,    // a class, by its package and name (or its name, made up by the engine)
+    RefViewport, // the player's viewport, console and canvas: the new level's own
+    RefConsole,
+    RefCanvas,
+    RefMapExport, // one of the map's objects that isn't an actor (its Level)
+};
+
+std::string qualifiedName(const VmClass *c) {
+    return c->package ? c->package->name() + "." + c->name : c->name;
+}
+
+std::string readFile(const std::filesystem::path &file) {
+    std::ifstream in(file, std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+} // namespace
+
+// The header: what's in it, which map, when.
+Error ScriptLevel::readSaveInfo(const std::filesystem::path &file, SaveInfo &out) {
+    // The original's: the level as a package, named from its title and
+    // the time played ("Bajoran_Ship_-_Ke'el_Tul-97.dsa"), dated by the
+    // file (as the game's load list has them).
+    if (isPackageFile(file.string())) {
+        out.file = file;
+        out.byGame = true;
+        out.map = file.stem().string();
+        out.description = out.map;
+        std::replace(out.description.begin(), out.description.end(), '_', ' ');
+        std::error_code ec;
+        const auto when = std::filesystem::last_write_time(file, ec);
+        if (!ec)
+            out.time = std::chrono::duration_cast<std::chrono::seconds>(
+                           (when - std::filesystem::file_time_type::clock::now()) +
+                           std::chrono::system_clock::now().time_since_epoch())
+                           .count();
+        return Error::success();
+    }
+    std::ifstream f(file, std::ios::binary);
+    char magic[8] = {};
+    if (!f.read(magic, 8) || !saveVersion(magic))
+        return Error::fail(file.string() + ": not a saved game of Reluva's");
+    std::string head(4096, '\0');
+    f.read(head.data(), std::streamsize(head.size()));
+    head.resize(size_t(f.gcount()));
+    In in(head);
+    out.file = file;
+    out.map = in.str();
+    out.description = in.str();
+    out.time = in.i64();
+    return in.ok() ? Error::success() : Error::fail(file.string() + ": cut short");
+}
+
+// The saved games in the save folder, newest first: QuickSave.dsa and
+// <Title>-<n>.dsa, the game's own names: Reluva's files and the original's.
+std::vector<ScriptLevel::SaveInfo> ScriptLevel::savedGames() const {
+    std::vector<SaveInfo> out;
+    std::error_code ec;
+    if (saveFolder_.empty())
+        return out;
+    for (const auto &entry : std::filesystem::directory_iterator(saveFolder_, ec)) {
+        const std::string ext = fs::toLower(entry.path().extension().string());
+        SaveInfo info;
+        if ((ext == ".dss" || ext == ".dsa") && !readSaveInfo(entry.path(), info))
+            out.push_back(std::move(info));
+    }
+    std::sort(out.begin(), out.end(), [](const SaveInfo &a, const SaveInfo &b) {
+        return a.time != b.time ? a.time > b.time : a.file.filename() < b.file.filename();
+    });
+    return out;
+}
+
+// The level saved, in Reluva's own format: "QuickSave" to QuickSave.dsa,
+// anything else as the game names its saves.
+Error ScriptLevel::saveGame(const std::string &slot) {
+    if (saveFolder_.empty())
+        return Error::fail("no folder to save games in");
+    std::error_code ec;
+    std::filesystem::create_directories(saveFolder_, ec);
+    std::filesystem::path file;
+    std::string description;
+    if (fs::toLower(slot) == "quicksave") {
+        file = saveFolder_ / "QuickSave.dsa";
+        description = "QuickSave";
+    } else {
+        // Named as the game names them: the level's title (else its name),
+        // spaces as underscores, then the seconds played, counting up past
+        // any already there.
+        if (const Value *title = levelInfo_->find(vm_, "Title"); title && !title->s.empty())
+            description = title->s;
+        else
+            description = map_.name();
+        std::string base = description.substr(0, 64);
+        std::replace(base.begin(), base.end(), ' ', '_');
+        const Value *played = player_ ? prop(player_, "GamePlayedTime") : nullptr;
+        int n = played ? int(played->asFloat()) : 0;
+        while (std::filesystem::exists(saveFolder_ / (base + "-" + std::to_string(n) + ".dsa"), ec))
+            ++n;
+        file = saveFolder_ / (base + "-" + std::to_string(n) + ".dsa");
+    }
+    // As the original saves it, so the original loads it too (Reluva's
+    // own format, below, stays for its older saves).
+    if (!reluvaFormat_)
+        return writeGameSave(file.string());
+
+    // The objects: the level's actors and what they lead to that the level
+    // made (not the packages' objects, nor the engine's viewport, console
+    // and canvas, which a loaded level makes anew).
+    VmObject *viewport = nullptr;
+    VmObject *console = nullptr;
+    if (player_)
+        if (const Value *v = player_->find(vm_, "Player"); v && v->asObject()) {
+            viewport = v->o;
+            if (const Value *c = viewport->find(vm_, "Console"))
+                console = c->asObject();
+        }
+    std::vector<VmObject *> saved;
+    std::map<const VmObject *, int> ids;
+    auto mapActor = [&](const VmObject *o) { return o->package == &map_ && o->isActor && o->exportIndex >= 0; };
+    auto wanted = [&](const VmObject *o) {
+        return o && !o->deleted && !o->asClass && o->cls && (!o->package || mapActor(o)) && o != viewport &&
+               o != console && o != canvas_ && (o->package || o->cls->package);
+    };
+    auto add = [&](VmObject *o) {
+        if (wanted(o) && !ids.count(o)) {
+            ids[o] = int(saved.size());
+            saved.push_back(o);
+        }
+    };
+    for (VmObject *a : actors_)
+        add(a);
+    for (VmObject *g : ghosts_)
+        add(g);
+    std::function<void(const Value &)> follow = [&](const Value &v) {
+        if (v.type == VType::Object)
+            add(v.o);
+        for (const Value &f : v.fields)
+            follow(f);
+    };
+    for (size_t k = 0; k < saved.size(); ++k)
+        for (const Value &v : saved[k]->values)
+            follow(v);
+
+    Out out;
+    out.str(map_.name());
+    out.str(description);
+    out.i64(int64_t(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())));
+    auto ref = [&](const VmObject *o) {
+        if (!o || o->deleted) {
+            out.u8(RefNone);
+        } else if (auto it = ids.find(o); it != ids.end()) {
+            out.u8(RefSaved);
+            out.i32(it->second);
+        } else if (o == viewport) {
+            out.u8(RefViewport);
+        } else if (o == console) {
+            out.u8(RefConsole);
+        } else if (o == canvas_) {
+            out.u8(RefCanvas);
+        } else if (o->asClass) {
+            out.u8(RefClass);
+            out.str(qualifiedName(o->asClass));
+        } else if (o->package == &map_ && o->exportIndex >= 0) {
+            out.u8(RefMapExport);
+            out.i32(o->exportIndex);
+        } else if (o->package && o->exportIndex >= 0) {
+            out.u8(RefPackage);
+            out.str(o->package->name());
+            out.i32(o->exportIndex);
+        } else {
+            out.u8(RefNone);
+        }
+    };
+    std::function<void(const Value &)> value = [&](const Value &v) {
+        out.u8(uint8_t(v.type));
+        switch (v.type) {
+        case VType::Byte:
+        case VType::Int:
+        case VType::Bool:
+            out.i32(v.i);
+            break;
+        case VType::Name:
+            out.str(v.i ? vm_.nameText(v.i) : std::string());
+            break;
+        case VType::Float:
+            out.f32(v.f);
+            break;
+        case VType::String:
+            out.str(v.s);
+            break;
+        case VType::Object:
+            ref(v.o);
+            break;
+        case VType::Struct:
+            out.i32(int32_t(v.fields.size()));
+            for (const Value &f : v.fields)
+                value(f);
+            break;
+        case VType::None:
+            break;
+        }
+    };
+    auto name = [&](NameId n) { out.str(n ? vm_.nameText(n) : std::string()); };
+
+    out.i32(int32_t(saved.size()));
+    for (const VmObject *o : saved) {
+        if (mapActor(o)) {
+            out.u8(0);
+            out.i32(o->exportIndex);
+        } else {
+            out.u8(1);
+            out.str(qualifiedName(o->cls));
+            name(o->name);
+        }
+    }
+    for (const VmObject *o : saved) {
+        out.i32(int32_t(o->values.size()));
+        for (const Value &v : o->values)
+            value(v);
+        name(o->state ? o->state->nameId : 0);
+        int depth = -1, d = 0;
+        for (const VmStruct *s = o->state; s && s->kind == VmStruct::Kind::State; s = s->super, ++d)
+            if (s == o->codeState)
+                depth = d;
+        out.i32(depth);
+        out.i32(o->codeAt);
+        out.f32(o->sleeping);
+        out.u8(o->latent);
+        out.i32(o->stateSerial);
+        out.i32(int32_t(o->disabled.size()));
+        for (NameId n : o->disabled)
+            name(n);
+        out.f32(o->timerRate);
+        out.f32(o->timerCount);
+        out.u8(o->timerLoop);
+    }
+
+    // The level's own records.
+    auto has = [&](const VmObject *o) { return ids.count(o) > 0; };
+    out.i32(int32_t(std::count_if(actors_.begin(), actors_.end(), has)));
+    for (VmObject *a : actors_)
+        if (has(a))
+            out.i32(ids[a]);
+    out.i32(int32_t(std::count_if(ghosts_.begin(), ghosts_.end(), has)));
+    for (VmObject *g : ghosts_)
+        if (has(g))
+            out.i32(ids[g]);
+    ref(player_);
+    ref(game_);
+    out.f32(time_);
+    out.i32(ticks_);
+    auto keyed = [&](const auto &table, auto &&write) {
+        out.i32(int32_t(std::count_if(table.begin(), table.end(), [&](const auto &e) { return has(e.first); })));
+        for (const auto &[o, entry] : table)
+            if (has(o)) {
+                out.i32(ids[o]);
+                write(entry);
+            }
+    };
+    keyed(touching_, [&](const std::vector<VmObject *> &list) {
+        out.i32(int32_t(list.size()));
+        for (VmObject *t : list)
+            ref(t);
+    });
+    keyed(goals_, [&](const Goal &g) {
+        out.u8(uint8_t(g.kind));
+        out.vec(g.point);
+        ref(g.target);
+        out.u8(g.facing);
+        out.vec(g.focus);
+        ref(g.focusActor);
+        out.f32(g.speed);
+        out.f32(g.timeLeft);
+        out.i32(g.stateSerial);
+    });
+    out.i32(int32_t(std::count_if(fallers_.begin(), fallers_.end(), has)));
+    for (VmObject *f : fallers_)
+        if (has(f))
+            out.i32(ids[f]);
+    keyed(animWaits_, [&](int serial) { out.i32(serial); });
+    keyed(layers_, [&](const std::map<NameId, AnimLayer> &groups) {
+        out.i32(int32_t(groups.size()));
+        for (const auto &[group, l] : groups) {
+            name(group);
+            name(l.sequence);
+            name(l.bone);
+            out.u8(l.rest);
+            out.f32(l.frame);
+            out.f32(l.rate);
+            out.u8(l.loop);
+            out.u8(l.finished);
+            out.f32(l.weight);
+            out.f32(l.weightRate);
+            out.f32(l.minRate);
+            for (bool c : l.clear)
+                out.u8(c);
+            name(l.fromSequence);
+            out.f32(l.fromFrame);
+            out.f32(l.fromWeight);
+            out.u8(l.fromLoop);
+        }
+    });
+    keyed(skins_, [&](const SkinChannels &channels) {
+        out.i32(int32_t(channels.size()));
+        for (const auto &[tag, s] : channels) {
+            name(tag);
+            name(s.sequence);
+            out.f32(s.frame);
+            out.f32(s.weight);
+            out.f32(s.fromFrame);
+            out.f32(s.fromWeight);
+            out.f32(s.elapsed);
+            out.f32(s.duration);
+            out.u8(s.tweening);
+            out.u8(s.pending);
+            name(s.pendingSequence);
+            out.f32(s.pendingFrame);
+            out.f32(s.pendingWeight);
+            out.f32(s.pendingTween);
+        }
+    });
+    keyed(layerWaits_, [&](const std::pair<NameId, int> &w) {
+        name(w.first);
+        out.i32(w.second);
+    });
+    keyed(attachments_, [&](const Attachment &a) {
+        ref(a.parent);
+        name(a.parentPoint);
+        name(a.childPoint);
+    });
+    keyed(bends_, [&](const Bends &b) {
+        // This tick's turns, kept so a frame drawn before the scripts next
+        // run shows them.
+        const bool current = b.opsTick == int64_t(ticks_) || b.opsTick + 1 == int64_t(ticks_);
+        out.i32(current ? int32_t(b.ops.size()) : 0);
+        if (current)
+            for (const Bends::Op &op : b.ops) {
+                out.i32(op.kind);
+                name(op.bone);
+                out.i32(op.axis);
+                out.f32(op.degrees);
+                for (int32_t k : op.rotation)
+                    out.i32(k);
+                for (bool r : op.remove)
+                    out.u8(r);
+            }
+        for (const Bends::Ik &ik : b.limbs) {
+            out.u8(ik.place);
+            out.u8(ik.turn);
+            out.vec(ik.at);
+            for (const Vec &axis : ik.axes)
+                out.vec(axis);
+            out.f32(ik.placeWeight);
+            out.f32(ik.turnWeight);
+        }
+        // The effectors are worked out again from the next tick's animation.
+    });
+    out.u8(dialogLoaded_);
+    out.i32(int32_t(dialogPlays_.size()));
+    for (int n : dialogPlays_)
+        out.i32(n);
+    out.i32(int32_t(dialogThreads_.size()));
+    for (const DialogThread &t : dialogThreads_) {
+        out.i32(t.id);
+        out.i32(t.line);
+        ref(t.self);
+        ref(t.speaker);
+        ref(t.listener);
+        out.f32(t.seconds);
+        out.f32(t.timeLeft);
+        out.f32(t.elapsed);
+        out.u8(t.queued);
+        out.u8(t.hudClock);
+        out.i32(t.back);
+        out.str(t.backPattern);
+    }
+    out.i32(nextDialogThread_);
+    out.i32(int32_t(dialogRandom_));
+    out.i32(int32_t(surfaceSwaps_.surfaces.size()));
+    for (const auto &[surf, tex] : surfaceSwaps_.surfaces) {
+        out.i32(surf);
+        out.str(tex.package->name());
+        out.i32(tex.exportIndex);
+    }
+    out.i32(int32_t(surfaceSwaps_.world.size()));
+    for (const auto &[from, to] : surfaceSwaps_.world) {
+        out.str(from.first->name());
+        out.i32(from.second);
+        out.str(to.package->name());
+        out.i32(to.exportIndex);
+    }
+    const auto &counts = vm_.nameCounts();
+    out.i32(int32_t(counts.size()));
+    for (const auto &[cls, n] : counts) {
+        out.str(qualifiedName(cls));
+        out.i32(n);
+    }
+
+    // The textures' own properties, which the scripts change and the
+    // engine keeps across a load, its packages staying loaded: the HUD's
+    // places (SetHudData), the FLC textures' playing (Mode, FrameNum).
+    std::vector<const VmObject *> textures;
+    for (const auto &o : vm_.objects())
+        if (o->package && o->package != &map_ && o->exportIndex >= 0 && !o->asClass && !o->deleted && o->cls &&
+            vm_.isA(o.get(), "Texture"))
+            textures.push_back(o.get());
+    out.i32(int32_t(textures.size()));
+    for (const VmObject *t : textures) {
+        out.str(t->package->name());
+        out.i32(t->exportIndex);
+        out.i32(int32_t(t->values.size()));
+        for (const Value &v : t->values)
+            value(v);
+    }
+
+    const std::filesystem::path partial = file.string() + ".part";
+    {
+        std::ofstream f(partial, std::ios::binary | std::ios::trunc);
+        f.write(kMagic, 8);
+        f.write(out.data().data(), std::streamsize(out.data().size()));
+        if (!f)
+            return Error::fail(partial.string() + ": couldn't be written");
+    }
+    std::filesystem::rename(partial, file, ec);
+    if (ec)
+        return Error::fail(file.string() + ": " + ec.message());
+    return Error::success();
+}
+
+// The level as a saved game has it, in place of starting it and logging
+// the player in: the map's actors (just loaded) given their saved
+// properties, those gone removed, the level's own made again, then the
+// level's records. The player gets a new viewport and console, and
+// bJustLoaded, as the engine sets it; and the game isn't paused (it saves
+// paused).
+Error ScriptLevel::restore(const std::filesystem::path &file) {
+    std::string data = readFile(file);
+    const int version = data.size() < 8 ? 0 : saveVersion(data.data());
+    if (!version)
+        return Error::fail(file.string() + ": not a saved game of Reluva's");
+    In in(data.substr(8));
+    if (in.str() != map_.name())
+        return Error::fail(file.string() + ": saved on another map");
+    in.str();
+    in.i64();
+
+    std::map<int, VmObject *> byExport;
+    for (VmObject *a : actors_)
+        if (a->exportIndex >= 0)
+            byExport[a->exportIndex] = a;
+    std::vector<VmObject *> objects;
+    std::set<VmObject *> kept;
+    const int32_t n = in.count(5);
+    for (int32_t k = 0; k < n && in.ok(); ++k) {
+        VmObject *o = nullptr;
+        if (in.u8() == 0) {
+            auto it = byExport.find(in.i32());
+            if (it != byExport.end())
+                o = it->second;
+        } else {
+            const std::string cls = in.str();
+            const std::string objName = in.str();
+            if (VmClass *c = vm_.findClass(cls))
+                o = vm_.create(c, vm_.name(objName));
+        }
+        if (!o)
+            return Error::fail(file.string() + ": an object that can't be made again");
+        objects.push_back(o);
+        kept.insert(o);
+    }
+    for (VmObject *a : actors_)
+        if (!kept.count(a))
+            a->deleted = true;
+
+    VmObject *viewport = nullptr; // made once the player is known
+    auto ref = [&]() -> VmObject * {
+        switch (in.u8()) {
+        case RefSaved: {
+            const int32_t id = in.i32();
+            return id >= 0 && size_t(id) < objects.size() ? objects[size_t(id)] : nullptr;
+        }
+        case RefPackage: {
+            const std::string package = in.str();
+            const int32_t index = in.i32();
+            const Package *p = vm_.packages().get(package);
+            return p ? vm_.objectAt(*p, index + 1) : nullptr;
+        }
+        case RefClass: {
+            VmClass *c = vm_.findClass(in.str());
+            return c ? c->object : nullptr;
+        }
+        case RefMapExport:
+            return vm_.objectAt(map_, in.i32() + 1);
+        case RefViewport:
+            return reinterpret_cast<VmObject *>(1); // put right once it's made
+        case RefConsole:
+            return reinterpret_cast<VmObject *>(2);
+        case RefCanvas:
+            return reinterpret_cast<VmObject *>(3);
+        default:
+            return nullptr;
+        }
+    };
+    std::vector<Value *> clientRefs; // values pointing at the viewport, console, canvas
+    // A value read into its slot (whose struct it keeps), or, if the slot's
+    // type isn't what was saved, read and dropped.
+    std::function<void(Value &, bool)> value = [&](Value &v, bool keep) {
+        const auto type = VType(in.u8());
+        Value read;
+        keep = keep && type == v.type;
+        Value &to = keep ? v : read;
+        to.type = type;
+        switch (type) {
+        case VType::Byte:
+        case VType::Int:
+        case VType::Bool:
+            to.i = in.i32();
+            break;
+        case VType::Name: {
+            const std::string text = in.str();
+            to.i = text.empty() ? 0 : vm_.name(text);
+            break;
+        }
+        case VType::Float:
+            to.f = in.f32();
+            break;
+        case VType::String:
+            to.s = in.str();
+            break;
+        case VType::Object:
+            to.o = ref();
+            if (reinterpret_cast<uintptr_t>(to.o) <= 3 && to.o) {
+                if (keep)
+                    clientRefs.push_back(&to);
+                else
+                    to.o = nullptr;
+            }
+            break;
+        case VType::Struct: {
+            const int32_t fields = in.count(1);
+            if (size_t(fields) != to.fields.size())
+                to.fields.resize(size_t(fields));
+            for (Value &f : to.fields)
+                value(f, keep);
+            break;
+        }
+        case VType::None:
+            break;
+        }
+    };
+    auto name = [&]() -> NameId {
+        const std::string text = in.str();
+        return text.empty() ? 0 : vm_.name(text);
+    };
+    for (VmObject *o : objects) {
+        const int32_t count = in.count(1);
+        if (size_t(count) != o->values.size())
+            return Error::fail(file.string() + ": " + o->cls->name + "'s properties don't match its class");
+        for (Value &v : o->values)
+            value(v, true);
+        const NameId stateName = name();
+        o->state = stateName ? vm_.findState(o->cls, stateName) : nullptr;
+        const int32_t depth = in.i32();
+        o->codeState = nullptr;
+        int d = 0;
+        for (VmStruct *s = o->state; s && s->kind == VmStruct::Kind::State; s = s->super, ++d)
+            if (d == depth)
+                o->codeState = static_cast<VmState *>(s);
+        o->codeAt = in.i32();
+        if (!o->codeState)
+            o->codeAt = -1;
+        o->sleeping = in.f32();
+        o->latent = in.u8() != 0;
+        o->stateSerial = in.i32();
+        o->disabled.clear();
+        for (int32_t k = in.count(4); k > 0; --k)
+            o->disabled.insert(name());
+        o->timerRate = in.f32();
+        o->timerCount = in.f32();
+        o->timerLoop = in.u8() != 0;
+    }
+
+    actors_.clear();
+    for (int32_t k = in.count(4); k > 0; --k) {
+        const int32_t id = in.i32();
+        if (id >= 0 && size_t(id) < objects.size())
+            actors_.push_back(objects[size_t(id)]);
+    }
+    ghosts_.clear();
+    for (int32_t k = in.count(4); k > 0; --k) {
+        const int32_t id = in.i32();
+        if (id >= 0 && size_t(id) < objects.size())
+            ghosts_.push_back(objects[size_t(id)]);
+    }
+    player_ = ref();
+    game_ = ref();
+    time_ = in.f32();
+    ticks_ = in.i32();
+    auto object = [&]() -> VmObject * {
+        const int32_t id = in.i32();
+        return id >= 0 && size_t(id) < objects.size() ? objects[size_t(id)] : nullptr;
+    };
+    auto keyed = [&](auto &&read) {
+        for (int32_t k = in.count(4); k > 0 && in.ok(); --k) {
+            VmObject *o = object();
+            read(o);
+        }
+    };
+    touching_.clear();
+    keyed([&](VmObject *o) {
+        std::vector<VmObject *> &list = touching_[o];
+        for (int32_t k = in.count(1); k > 0; --k)
+            if (VmObject *t = ref())
+                list.push_back(t);
+    });
+    goals_.clear();
+    keyed([&](VmObject *o) {
+        Goal g;
+        g.kind = Goal::Kind(in.u8());
+        g.point = in.vec();
+        g.target = ref();
+        g.facing = in.u8() != 0;
+        g.focus = in.vec();
+        g.focusActor = ref();
+        g.speed = in.f32();
+        g.timeLeft = in.f32();
+        g.stateSerial = in.i32();
+        goals_[o] = g;
+    });
+    fallers_.clear();
+    for (int32_t k = in.count(4); k > 0; --k)
+        if (VmObject *o = object())
+            fallers_.insert(o);
+    animWaits_.clear();
+    keyed([&](VmObject *o) { animWaits_[o] = in.i32(); });
+    layers_.clear();
+    keyed([&](VmObject *o) {
+        for (int32_t k = in.count(4); k > 0; --k) {
+            const NameId group = name();
+            AnimLayer l;
+            l.sequence = name();
+            l.bone = name();
+            l.rest = in.u8() != 0;
+            l.frame = in.f32();
+            l.rate = in.f32();
+            l.loop = in.u8() != 0;
+            l.finished = in.u8() != 0;
+            l.weight = in.f32();
+            l.weightRate = in.f32();
+            if (version >= 3) {
+                l.minRate = in.f32();
+                for (bool &c : l.clear)
+                    c = in.u8() != 0;
+                l.fromSequence = name();
+                l.fromFrame = in.f32();
+                l.fromWeight = in.f32();
+                l.fromLoop = in.u8() != 0;
+            }
+            layers_[o][group] = l;
+        }
+    });
+    skins_.clear();
+    keyed([&](VmObject *o) {
+        for (int32_t k = in.count(4); k > 0; --k) {
+            const NameId tag = name();
+            SkinChannel s;
+            s.sequence = name();
+            s.frame = in.f32();
+            s.weight = in.f32();
+            s.fromFrame = in.f32();
+            s.fromWeight = in.f32();
+            s.elapsed = in.f32();
+            s.duration = in.f32();
+            s.tweening = in.u8() != 0;
+            s.pending = in.u8() != 0;
+            s.pendingSequence = name();
+            s.pendingFrame = in.f32();
+            s.pendingWeight = in.f32();
+            s.pendingTween = in.f32();
+            skins_[o].push_back({tag, s});
+        }
+    });
+    layerWaits_.clear();
+    keyed([&](VmObject *o) {
+        const NameId group = name();
+        layerWaits_[o] = {group, in.i32()};
+    });
+    attachments_.clear();
+    keyed([&](VmObject *o) {
+        Attachment a;
+        a.parent = ref();
+        a.parentPoint = name();
+        a.childPoint = name();
+        attachments_[o] = a;
+    });
+    bends_.clear();
+    keyed([&](VmObject *o) {
+        Bends &b = bends_[o];
+        for (int32_t k = in.count(4); k > 0; --k) {
+            Bends::Op op;
+            op.kind = in.i32();
+            op.bone = name();
+            op.axis = in.i32();
+            op.degrees = in.f32();
+            for (int32_t &v : op.rotation)
+                v = in.i32();
+            for (bool &r : op.remove)
+                r = in.u8() != 0;
+            b.ops.push_back(op);
+        }
+        b.opsTick = int64_t(ticks_);
+        for (Bends::Ik &ik : b.limbs) {
+            ik.place = in.u8() != 0;
+            ik.turn = in.u8() != 0;
+            ik.at = in.vec();
+            for (Vec &axis : ik.axes)
+                axis = in.vec();
+            ik.placeWeight = in.f32();
+            ik.turnWeight = in.f32();
+        }
+    });
+    if (in.u8())
+        loadDialog();
+    const int32_t plays = in.count(4);
+    for (int32_t k = 0; k < plays; ++k) {
+        const int32_t p = in.i32();
+        if (size_t(k) < dialogPlays_.size())
+            dialogPlays_[size_t(k)] = p;
+    }
+    dialogThreads_.clear();
+    for (int32_t k = in.count(4); k > 0; --k) {
+        DialogThread t;
+        t.id = in.i32();
+        t.line = in.i32();
+        t.self = ref();
+        t.speaker = ref();
+        t.listener = ref();
+        t.seconds = in.f32();
+        t.timeLeft = in.f32();
+        t.elapsed = in.f32();
+        t.queued = in.u8() != 0;
+        t.hudClock = in.u8() != 0;
+        t.back = in.i32();
+        t.backPattern = in.str();
+        t.phoneme = 0;
+        if (t.line >= 0 && size_t(t.line) < dialogLines_.size())
+            dialogThreads_.push_back(t);
+    }
+    nextDialogThread_ = in.i32();
+    dialogRandom_ = uint32_t(in.i32());
+    surfaceSwaps_ = {};
+    auto packageRef = [&]() -> ObjectRef {
+        const Package *p = vm_.packages().get(in.str());
+        const int32_t index = in.i32();
+        return p ? ObjectRef{p, index} : ObjectRef{};
+    };
+    for (int32_t k = in.count(12); k > 0; --k) {
+        const int32_t surf = in.i32();
+        if (const ObjectRef tex = packageRef())
+            surfaceSwaps_.surfaces[surf] = tex;
+    }
+    for (int32_t k = in.count(16); k > 0; --k) {
+        const ObjectRef from = packageRef(), to = packageRef();
+        if (from && to)
+            surfaceSwaps_.world[{from.package, from.exportIndex}] = to;
+    }
+    surfaceSwaps_.serial = 1;
+    for (int32_t k = in.count(8); k > 0; --k) {
+        const std::string cls = in.str();
+        const int32_t count = in.i32();
+        if (VmClass *c = vm_.findClass(cls))
+            vm_.nameCounts()[c] = std::max(vm_.nameCounts()[c], count);
+    }
+    for (int32_t k = in.count(12); k > 0 && in.ok(); --k) {
+        const std::string package = in.str();
+        const int32_t index = in.i32();
+        const Package *p = vm_.packages().get(package);
+        VmObject *t = p ? vm_.objectAt(*p, index + 1) : nullptr;
+        const int32_t count = in.count(1);
+        const bool fits = t && size_t(count) == t->values.size();
+        Value scratch;
+        for (int32_t v = 0; v < count && in.ok(); ++v)
+            value(fits ? t->values[size_t(v)] : scratch, fits);
+    }
+    if (!in.ok() || !player_ || !game_)
+        return Error::fail(file.string() + ": cut short");
+
+    // The engine's side of the player, made anew, and what pointed at the
+    // old one pointed at it.
+    attachViewport();
+    if (const Value *v = player_->find(vm_, "Player"))
+        viewport = v->asObject();
+    VmObject *console = this->console();
+    for (Value *v : clientRefs) {
+        const auto which = reinterpret_cast<uintptr_t>(v->o);
+        v->o = which == 1 ? viewport : which == 2 ? console : canvas();
+    }
+    if (Value *v = player_->find(vm_, "bJustLoaded"))
+        *v = Value::boolValue(true);
+    if (Value *v = levelInfo_->find(vm_, "Pauser"))
+        *v = Value::stringValue("");
+    collidersTick_ = -1;
+    posed_.clear();
+    posedBones_.clear();
+    return Error::success();
+}
+
+void registerSaveNatives(Vm &vm) {
+    auto reg = [&](const char *name, NativeFn fn) { vm.registerNative(name, std::move(fn)); };
+    // DrawLoadGameList(): each saved game to the HUD's DrawLoadGameFile(Id,
+    // its name, when), newest first, from 1.
+    reg("CTVE_Hud.DrawLoadGameList", [](NativeCall &c) {
+        if (!c.vm.level || !c.self)
+            return;
+        int id = 0;
+        for (const ScriptLevel::SaveInfo &s : c.vm.level->savedGames()) {
+            char when[32] = {};
+            const std::time_t t = std::time_t(s.time);
+            if (const std::tm *tm = std::localtime(&t))
+                std::strftime(when, sizeof when, "%Y-%m-%d %H:%M", tm);
+            c.vm.callEvent(c.self, "DrawLoadGameFile",
+                           {Value::intValue(++id), Value::stringValue(s.description), Value::stringValue(when)});
+        }
+    });
+    // LoadByFileID(int Id): that game's file to the HUD's HudLoadFile, which
+    // travels to it ("?LOAD=Save1.dss").
+    reg("CTVE_Hud.LoadByFileID", [](NativeCall &c) {
+        if (!c.vm.level || !c.self)
+            return;
+        const auto saves = c.vm.level->savedGames();
+        if (c.i(0) >= 1 && size_t(c.i(0)) <= saves.size())
+            c.vm.callEvent(c.self, "HudLoadFile",
+                           {Value::stringValue(saves[size_t(c.i(0) - 1)].file.filename().string())});
+    });
+    // DeleteByFileID(int Id): that game's file deleted.
+    reg("CTVE_Hud.DeleteByFileID", [](NativeCall &c) {
+        if (!c.vm.level)
+            return;
+        const auto saves = c.vm.level->savedGames();
+        if (c.i(0) >= 1 && size_t(c.i(0)) <= saves.size()) {
+            std::error_code ec;
+            std::filesystem::remove(saves[size_t(c.i(0) - 1)].file, ec);
+        }
+    });
+}
+
+// --- The original's saved games ---------------------------------------------------------
+
+bool ScriptLevel::savedByGame() const {
+    const Value *begun = levelInfo_ ? levelInfo_->find(vm_, "bBegunPlay") : nullptr;
+    return begun && begun->asBool();
+}
+
+// A saved game of the original's, as the engine's LoadMap takes it up: the
+// level as saved (bBegunPlay set, so nothing begins again); its time; each
+// actor back in the state, and at the place in its state code, it was
+// saved in; its animation groups and face channels (its C3D mesh state);
+// the dialogue table's counts; the sounds that were playing, from where
+// they were; the player's bJustLoaded; then the player logs in again,
+// taking up the saved pawn (GameInfo.Login reuses a PlayerPawn without a
+// player), and the game's unpaused.
+VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::string &error) {
+    vm_.holdEvents = false;
+    if (const Value *g = prop(levelInfo_, "Game"))
+        game_ = g->asObject();
+    if (const Value *t = prop(levelInfo_, "TimeSeconds"))
+        time_ = t->asFloat();
+    lipLast_ = time_;
+    // The states.
+    for (const auto &[a, f] : savedFrames_) {
+        if (a->deleted || !f.stateNode)
+            continue;
+        const ObjectRef st = vm_.packages().resolve(map_, f.stateNode);
+        if (!st)
+            continue;
+        const std::string stateName = st.package->objectName(st.exportIndex + 1);
+        VmState *state = a->cls ? vm_.findState(a->cls, vm_.name(stateName)) : nullptr;
+        if (!state || state == a->cls)
+            continue;
+        a->state = state;
+        ++a->stateSerial;
+        a->codeState = nullptr;
+        a->codeAt = -1;
+        if (!f.node || f.offset < 0)
+            continue;
+        // Its code: the state of that name in the class the node is in.
+        const ObjectRef node = vm_.packages().resolve(map_, f.node);
+        if (!node)
+            continue;
+        const std::string path = node.package->path(node.exportIndex + 1);
+        const std::string owner = path.substr(0, path.find('.'));
+        VmState *code = nullptr;
+        for (VmStruct *s = state; s && s->kind == VmStruct::Kind::State; s = s->super)
+            if (auto *ss = static_cast<VmState *>(s); ss->owner && fs::toLower(ss->owner->name) == fs::toLower(owner)) {
+                code = ss;
+                break;
+            }
+        if (!code)
+            continue;
+        // The statement at the offset (the one after the latent call it
+        // waits in); waiting in anything but Sleep, the call made again
+        // (a move, a FinishAnim: the actor's properties have what it needs).
+        int at = -1, before = -1;
+        uint32_t best = 0, bestBefore = 0;
+        for (const auto &[off, statement] : code->statementAt) {
+            if (off >= uint32_t(f.offset) && (at < 0 || off < best))
+                at = statement, best = off;
+            if (off < uint32_t(f.offset) && (before < 0 || off > bestBefore))
+                before = statement, bestBefore = off;
+        }
+        a->codeState = code;
+        a->codeAt = at;
+        if (f.latent != 0) {
+            if (f.latent == 256) { // Sleep: what's left of it
+                const Value *left = prop(a, "LatentFloat");
+                a->latent = true;
+                a->sleeping = left ? left->asFloat() : 0;
+            } else if (before >= 0) {
+                a->codeAt = before;
+            }
+        }
+    }
+    // What each actor was touching (its Touching), so nothing it's in
+    // already is touched again.
+    for (VmObject *a : actors_)
+        if (const Value *t = prop(a, "Touching"))
+            for (size_t k = 0; k < 4; ++k)
+                if (VmObject *o = t[k].asObject(); o && !o->deleted)
+                    touching_[a].push_back(o);
+    // The C3D mesh states: the layers on the body and the face channels.
+    for (VmObject *a : actors_) {
+        const Value *ms = prop(a, "C3DOurMeshState");
+        VmObject *o = ms ? ms->asObject() : nullptr;
+        if (!o || !o->package || o->exportIndex < 0)
+            continue;
+        MeshState m;
+        if (readMeshState(*o->package, o->exportIndex, m))
+            continue;
+        for (const MeshStateGroup &g : m.groups) {
+            const bool active = !g.sequence.empty() && fs::toLower(g.sequence) != "nonactive";
+            if (g.group.rfind("sk", 0) == 0) {
+                SkinChannel c;
+                if (active)
+                    c.sequence = vm_.name(g.sequence);
+                c.frame = g.frame;
+                c.weight = g.weight;
+                c.fromFrame = g.fromFrame;
+                c.fromWeight = g.fromWeight;
+                c.elapsed = g.elapsed;
+                c.duration = g.duration;
+                c.tweening = g.state == 5;
+                if (!g.pendingSequence.empty() && fs::toLower(g.pendingSequence) != "nonactive") {
+                    c.pending = true;
+                    c.pendingSequence = vm_.name(g.pendingSequence);
+                    c.pendingFrame = g.pendingFrame;
+                    c.pendingWeight = g.pendingWeight;
+                    c.pendingTween = g.pendingTween;
+                }
+                skins_[a].push_back({vm_.name(g.group), c});
+            } else if (active && (g.type == 1 || g.type == 2) && fs::toLower(g.group) != "fullbody") {
+                // A body group, by its mode: looping or not, held, a tween,
+                // fading in or out (its time gone of its length).
+                AnimLayer l;
+                l.sequence = vm_.name(g.sequence);
+                l.bone = g.bone.empty() ? 0 : vm_.name(g.bone);
+                l.rest = fs::toLower(g.group) == "lowertorso";
+                l.frame = g.frame;
+                l.rate = g.state == 5 ? 0 : g.rate;
+                l.loop = g.state == 3 || g.state == 4;
+                l.finished = g.state == 0;
+                const float fade = g.duration > 0 ? std::clamp(g.elapsed / g.duration, 0.0f, 1.0f) : 1;
+                l.weight = 1;
+                if (g.state == 2 || g.state == 4 || g.state == 5) {
+                    l.weight = fade;
+                    l.weightRate = g.duration > 0 ? 1 / g.duration : 1e6f;
+                } else if (g.state == 6) {
+                    l.weight = 1 - fade;
+                    l.weightRate = g.duration > 0 ? -1 / g.duration : -1e6f;
+                }
+                for (size_t k = 0; k < 3; ++k)
+                    l.clear[k] = g.clear[k] != 0;
+                layers_[a][vm_.name(g.group)] = l;
+            }
+        }
+    }
+    // How often each line's been said.
+    loadDialog();
+    std::map<std::string, int> said;
+    for (const LevelExtras::Line &l : saved_.lines)
+        if (l.said > 0)
+            said[l.key] = l.said;
+    for (size_t i = 0; i < dialogRecs_.size(); ++i)
+        if (auto it = said.find(dialogRecs_[i].key); it != said.end())
+            dialogPlays_[i] = it->second;
+    // The sounds playing (the music's the player's CurrentMusic, which the
+    // page starts again from the HUD's StartTimeOffset).
+    for (const LevelExtras::Sound &snd : saved_.sounds) {
+        VmObject *a = snd.actor > 0 ? vm_.objectAt(map_, snd.actor) : nullptr;
+        const size_t dot = snd.path.find('.');
+        const Package *p = dot == std::string::npos ? nullptr : vm_.packages().get(snd.path.substr(0, dot));
+        const std::string name = snd.path.substr(snd.path.rfind('.') + 1);
+        const int e = p ? p->findExport(name, "Sound") : -1;
+        if (!a || e < 0)
+            continue;
+        VmObject *sound = vm_.objectAt(*p, e + 1);
+        if (soundName(sound).find("MUSIC") != std::string::npos || streamedSound(sound)) {
+            // Music: the player's, from where it was.
+            if (const Value *who = prop(levelInfo_, "Player"); who && who->asObject())
+                if (Value *v = prop(who->o, "CurrentMusic"))
+                    v->o = sound;
+            music_.volume = snd.volume;
+            music_.startSeconds = std::max(0.0f, time_ - snd.start);
+            ++music_.serial;
+            continue;
+        }
+        SoundRequest r;
+        r.actor = a;
+        r.sound = {p, e};
+        r.slot = snd.id < 0 ? 0 : (snd.id >> 1) & 7;
+        r.noOverride = snd.id >= 0 && (snd.id & 1);
+        r.volume = snd.volume;
+        r.radius = snd.radius;
+        r.pitch = snd.pitch;
+        r.startSeconds = std::max(0.0f, time_ - snd.start);
+        soundRequests_.push_back(r);
+    }
+    // The player, back.
+    if (Value *v = prop(levelInfo_, "Pauser"))
+        *v = Value::stringValue("");
+    options_ = "?load";
+    VmObject *player = login({}, playerName, error, {});
+    if (player)
+        if (Value *v = prop(player, "bJustLoaded"))
+            *v = Value::boolValue(true);
+    return player;
+}
+
+} // namespace reluva::unreal
