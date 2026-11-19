@@ -24,16 +24,16 @@ struct Color {
 };
 
 enum class PixelFormat {
-    CLUT8,  // 8-bit palette indices, colours set with System::setPalette
-    RGBA32, // 4 bytes per pixel in memory order R, G, B, A
+    kCluT8,  // 8-bit palette indices, colours set with System::setPalette
+    kRgbA32, // 4 bytes per pixel in memory order R, G, B, A
 };
 
-inline int bytesPerPixel(PixelFormat f) { return f == PixelFormat::CLUT8 ? 1 : 4; }
+inline int bytesPerPixel(PixelFormat f) { return f == PixelFormat::kCluT8 ? 1 : 4; }
 
 // A simple owned pixel buffer, used as the game's framebuffer.
 struct Surface {
     int w = 0, h = 0, pitch = 0;
-    PixelFormat format = PixelFormat::CLUT8;
+    PixelFormat format = PixelFormat::kCluT8;
     std::vector<uint8_t> pixels;
 
     void create(int width, int height, PixelFormat fmt) {

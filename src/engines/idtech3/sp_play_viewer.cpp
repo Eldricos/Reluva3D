@@ -67,14 +67,14 @@ void SpPlayViewer::activate() {
     ctx_.sys.setVideoMode(frameW_, frameH_, video.fullscreen);
     if (Error err = ctx_.sys.init3D(frameW_, frameH_, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "Single player needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
+    overlay_.create(frameW_, frameH_, PixelFormat::kRgbA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
@@ -194,27 +194,27 @@ bool SpPlayViewer::held(const char* button) const {
 }
 
 bool SpPlayViewer::takesKey(const Event& ev) const {
-    return ev.type == EventType::KeyDown && ev.key == key::Escape && !(ev.mods & keymod::Ctrl);
+    return ev.type == EventType::kKeyDown && ev.key == key::kEscape && !(ev.mods & keymod::kCtrl);
 }
 
 void SpPlayViewer::handleEvent(const Event& ev) {
-    if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
         ctx_.requestPage = "Menu";
         return;
     }
     if (!renderer_ || names_.empty())
         return;
     switch (ev.type) {
-    case EventType::KeyDown:
-    case EventType::KeyUp: {
-        const bool down = ev.type == EventType::KeyDown;
-        if (down && (ev.mods & keymod::Ctrl)) {
+    case EventType::kKeyDown:
+    case EventType::kKeyUp: {
+        const bool down = ev.type == EventType::kKeyDown;
+        if (down && (ev.mods & keymod::kCtrl)) {
             // Reluva's own: restart, another map, the info line.
             const int n = int(names_.size());
             if (ev.key == 'r')
                 return start(index_);
-            if (ev.key == key::PageUp || ev.key == key::PageDown)
-                return start((index_ + (ev.key == key::PageUp ? n - 1 : 1)) % n);
+            if (ev.key == key::kPageUp || ev.key == key::kPageDown)
+                return start((index_ + (ev.key == key::kPageUp ? n - 1 : 1)) % n);
             if (ev.key == 'i') {
                 showInfo_ = !showInfo_;
                 return;
@@ -226,12 +226,12 @@ void SpPlayViewer::handleEvent(const Event& ev) {
             runBinding(ctx_.bindings.get(k), k, down);
         break;
     }
-    case EventType::MouseDown:
-    case EventType::MouseUp:
+    case EventType::kMouseDown:
+    case EventType::kMouseUp:
         if (const int32_t k = toQ3Button(ev.button))
-            runBinding(ctx_.bindings.get(k), k, ev.type == EventType::MouseDown);
+            runBinding(ctx_.bindings.get(k), k, ev.type == EventType::kMouseDown);
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         mouseX_ += ev.moveX;
         mouseY_ += ev.moveY;
         break;

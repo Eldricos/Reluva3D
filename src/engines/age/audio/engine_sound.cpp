@@ -117,7 +117,7 @@ Error EngineSound::start(audio::Mixer& mixer, const SearchSet& files, const std:
         bool ok = (!files.read("aud/aud22/engines/" + s.wave + ".22k.wav", data) ||
                    !files.read("aud/aud11/" + s.wave + ".11k.wav", data)) &&
                   !audio::decodeSound(data, *sound);
-        playing_.push_back(ok ? mixer.play(sound, audio::SoundType::Effects, 0, 0, true) : audio::kNoSound);
+        playing_.push_back(ok ? mixer.play(sound, audio::SoundType::kEffects, 0, 0, true) : audio::kNoSound);
     }
     return Error::success();
 }
@@ -212,7 +212,7 @@ void SirenSound::update(float dt, float volume) {
         if (playing_ != audio::kNoSound)
             mixer_->stop(playing_);
         const auto& sound = sounds_[size_t(current_)];
-        playing_ = sound ? mixer_->play(sound, audio::SoundType::Effects, 0, 0, true) : audio::kNoSound;
+        playing_ = sound ? mixer_->play(sound, audio::SoundType::kEffects, 0, 0, true) : audio::kNoSound;
     }
     if (playing_ != audio::kNoSound)
         mixer_->setVolume(playing_, int(std::clamp(volume, 0.0f, 1.0f) * samples_[size_t(current_)].volume *
@@ -368,7 +368,7 @@ void CarSounds::loop(audio::SoundHandle& handle, const SoundPtr& sound, float vo
         return;
     }
     if (handle == audio::kNoSound)
-        handle = mixer_->play(sound, audio::SoundType::Effects, 0, 0, true);
+        handle = mixer_->play(sound, audio::SoundType::kEffects, 0, 0, true);
     mixer_->setVolume(handle, int(std::clamp(volume, 0.0f, 1.0f) * float(audio::kMaxVolume)));
     mixer_->setPitch(handle, pitch);
 }
@@ -379,7 +379,7 @@ void CarSounds::update(float dt, const CarSim& car, bool horn) {
     // The horn, held; the clutch on changing gear.
     loop(hornPlaying_, horn_, horn ? car_.hornVolume : 0, 1);
     if (car.gear != lastGear_ && clutch_)
-        mixer_->play(clutch_, audio::SoundType::Effects, int(car_.clutchVolume * float(audio::kMaxVolume)));
+        mixer_->play(clutch_, audio::SoundType::kEffects, int(car_.clutchVolume * float(audio::kMaxVolume)));
     lastGear_ = car.gear;
 
     // The tyres: on the surface most of the wheels touching are on.
@@ -442,7 +442,7 @@ void CarSounds::update(float dt, const CarSim& car, bool horn) {
                 continue;
             const float g = std::clamp((car.impact - s.minForce) / std::max(1.0f, s.maxForce - s.minForce), 0.0f, 1.0f);
             const audio::SoundHandle h =
-                mixer_->play(wallSounds_[k], audio::SoundType::Effects,
+                mixer_->play(wallSounds_[k], audio::SoundType::kEffects,
                              int((s.minVolume + (s.maxVolume - s.minVolume) * g) * float(audio::kMaxVolume)));
             if (h != audio::kNoSound)
                 mixer_->setPitch(h, s.pitch);
@@ -458,7 +458,7 @@ void CarSounds::update(float dt, const CarSim& car, bool horn) {
         bump = std::max(bump, w.bump);
     if (suspension_ && bumpWait_ <= 0 && bump >= bumpMin_) {
         const float g = std::clamp((bump - bumpMin_) / std::max(0.01f, bumpMax_ - bumpMin_), 0.0f, 1.0f);
-        mixer_->play(suspension_, audio::SoundType::Effects,
+        mixer_->play(suspension_, audio::SoundType::kEffects,
                      int((bumpMinVolume + (bumpMaxVolume - bumpMinVolume) * g) * float(audio::kMaxVolume)));
         bumpWait_ = 0.3f;
     }

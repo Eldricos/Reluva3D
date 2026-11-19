@@ -59,19 +59,19 @@ std::string lastError() { return std::strerror(errno); }
 
 class SystemSocket : public UdpSocket {
 public:
-    SystemSocket(SocketHandle s, uint16_t port) : s_(s), port_(port) {}
-    ~SystemSocket() override { closeSocket(s_); }
+    SystemSocket(SocketHandle s, uint16_t port) : _s(s), _port(port) {}
+    ~SystemSocket() override { closeSocket(_s); }
     SystemSocket(const SystemSocket&) = delete;
     SystemSocket& operator=(const SystemSocket&) = delete;
 
-    uint16_t port() const override { return port_; }
+    uint16_t port() const override { return _port; }
 
     bool send(const Address& to, const std::vector<uint8_t>& data) override {
         sockaddr_in a{};
         a.sin_family = AF_INET;
         a.sin_addr.s_addr = htonl(to.ip);
         a.sin_port = htons(to.port);
-        const auto sent = sendto(s_, reinterpret_cast<const char*>(data.data()), int(data.size()), 0,
+        const auto sent = sendto(_s, reinterpret_cast<const char*>(data.data()), int(data.size()), 0,
                                  reinterpret_cast<const sockaddr*>(&a), sizeof a);
         return sent >= 0 && size_t(sent) == data.size();
     }
@@ -83,7 +83,7 @@ public:
             sockaddr_in a{};
             socklen_t length = sizeof a;
             data.resize(65536);
-            const auto got = recvfrom(s_, reinterpret_cast<char*>(data.data()), int(data.size()), 0,
+            const auto got = recvfrom(_s, reinterpret_cast<char*>(data.data()), int(data.size()), 0,
                                       reinterpret_cast<sockaddr*>(&a), &length);
             if (got < 0) {
 #ifdef _WIN32
@@ -102,8 +102,8 @@ public:
     }
 
 private:
-    SocketHandle s_;
-    uint16_t port_;
+    SocketHandle _s;
+    uint16_t _port;
 };
 
 } // namespace

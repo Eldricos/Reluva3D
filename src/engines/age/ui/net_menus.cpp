@@ -607,7 +607,7 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
     Action action = Action::None;
     if (!messagePicture_.empty()) {
         // A message: any key or click puts it away.
-        if (ev.type == EventType::KeyDown || (ev.type == EventType::MouseDown && ev.button == MouseButton::Left)) {
+        if (ev.type == EventType::kKeyDown || (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)) {
             message_.clear();
             messagePicture_.clear();
         }
@@ -615,7 +615,7 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
         return action;
     }
     if (session_ && session_->joining()) {
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
             leave();
             go(Screen::Sessions);
         }
@@ -626,14 +626,14 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
         return action;
     focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
     const Item& item = list[size_t(focus_)];
-    if (ev.type == EventType::TextInput && item.text) {
+    if (ev.type == EventType::kTextInput && item.text) {
         if (std::string* t = textOf(item.widget))
             for (const char* c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && t->size() < (item.widget == "Chat Entry" ? 100u : 31u))
                     t->push_back(*c);
         return action;
     }
-    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         // The Host Race Menu's arrows step their values.
         if (screen_ == Screen::HostRace) {
             static const std::pair<const char*, const char*> kArrows[] = {{"RACE UP", "RACE NAME"},
@@ -681,12 +681,12 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
             }
         return action;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return action;
     switch (ev.key) {
-    case key::Up:
-    case key::Down: {
-        const int step = ev.key == key::Down ? 1 : -1;
+    case key::kUp:
+    case key::kDown: {
+        const int step = ev.key == key::kDown ? 1 : -1;
         for (size_t tries = 0; tries < list.size(); ++tries) {
             focus_ = (focus_ + step + int(list.size())) % int(list.size());
             if (list[size_t(focus_)].enabled)
@@ -694,17 +694,17 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
         }
         break;
     }
-    case key::Left:
-    case key::Right:
+    case key::kLeft:
+    case key::kRight:
         if (!item.button && !item.text)
-            change(item, ev.key == key::Right ? 1 : -1);
+            change(item, ev.key == key::kRight ? 1 : -1);
         break;
-    case key::Backspace:
+    case key::kBackspace:
         if (std::string* t = item.text ? textOf(item.widget) : nullptr; t && !t->empty())
             t->pop_back();
         break;
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         if (item.button)
             activate(item, action);
         else if (item.widget == "Chat Entry") {
@@ -719,7 +719,7 @@ NetMenus::Action NetMenus::handle(const Event& ev) {
         else if (screen_ == Screen::HostRace)
             activate(list.back(), action); // done
         break;
-    case key::Escape:
+    case key::kEscape:
         switch (screen_) {
         case Screen::Sessions:
             leave();
@@ -766,13 +766,13 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
     if (mapper_ && mapper_->done() && !mapperSaid_) {
         mapperSaid_ = true;
         const net::PortMapping m = mapper_->result();
-        if (m.way == net::PortMapping::Way::None)
+        if (m.way == net::PortMapping::Way::kNone)
             say(m.why + ": for players on the Internet, pass UDP port " + std::to_string(kNetPort) +
                     " on to this computer by hand",
                 true);
         else
             say(std::string("The router passes the port on (") +
-                    (m.way == net::PortMapping::Way::Upnp ? "UPnP" : "NAT-PMP") + "): players on the Internet join " +
+                    (m.way == net::PortMapping::Way::kUpnp ? "UPnP" : "NAT-PMP") + "): players on the Internet join " +
                     (m.externalIp ? net::Address{m.externalIp, m.externalPort}.toString()
                                   : "this computer's Internet address"),
                 true);

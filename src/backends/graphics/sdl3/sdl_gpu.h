@@ -21,7 +21,7 @@ namespace reluva {
 // share one GPU device.
 class SdlGpuRenderer : public gfx::Renderer3D {
 public:
-    SdlGpuRenderer(SDL_GPUDevice* device, SDL_Renderer* renderer) : device_(device), renderer_(renderer) {}
+    SdlGpuRenderer(SDL_GPUDevice* device, SDL_Renderer* renderer) : _device(device), _renderer(renderer) {}
     ~SdlGpuRenderer() override;
     SdlGpuRenderer(const SdlGpuRenderer&) = delete;
     SdlGpuRenderer& operator=(const SdlGpuRenderer&) = delete;
@@ -36,33 +36,33 @@ public:
     void destroyMesh(gfx::MeshId id) override;
     Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
     Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override;
-    int width() const override { return width_; }
-    int height() const override { return height_; }
+    int width() const override { return _width; }
+    int height() const override { return _height; }
     std::string deviceName() const override;
     void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
     void draw(const gfx::DrawCall& call) override;
     void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override {
-        lights_.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
+        _lights.assign(lights.begin(), lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()),
                                                                              gfx::kMaxDynamicLights));
     }
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override;
     void clearDepth() override;
-    bool hasStencil() const override { return hasStencil_; }
+    bool hasStencil() const override { return _hasStencil; }
     void setStencilMode(StencilMode mode) override;
-    void setMirrored(bool mirrored) override { mirrored_ = mirrored; }
-    void setGamma(float gamma) override { gamma_ = gamma > 0.05f ? gamma : 1.0f; }
+    void setMirrored(bool mirrored) override { _mirrored = mirrored; }
+    void setGamma(float gamma) override { _gamma = gamma > 0.05f ? gamma : 1.0f; }
     void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override {
-        viewProj_ = viewProj;
-        eye_ = eye;
+        _viewProj = viewProj;
+        _eye = eye;
     }
     void endFrame(const Surface* overlay) override;
-    void captureNextFrame() override { captureWanted_ = true; }
+    void captureNextFrame() override { _captureWanted = true; }
     bool takeCapture(std::vector<uint8_t>& rgba) override {
-        if (capture_.empty())
+        if (_capture.empty())
             return false;
-        rgba.swap(capture_);
-        capture_.clear();
+        rgba.swap(_capture);
+        _capture.clear();
         return true;
     }
 
@@ -85,47 +85,47 @@ private:
     bool upload(const void* data, uint32_t size, SDL_GPUBuffer* buffer, bool cycle = false);
     SDL_GPUGraphicsPipeline* pipeline(const gfx::DrawState& state);
 
-    SDL_GPUDevice* device_;
-    SDL_Renderer* renderer_;
-    int width_ = 0, height_ = 0;
-    SDL_GPUTextureFormat depthFormat_ = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
-    bool hasStencil_ = false;
-    StencilMode stencilMode_ = StencilMode::None;
-    bool mirrored_ = false;
-    SDL_GPUTexture* color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
-    SDL_GPUTexture* depth_ = nullptr;
-    SDL_Texture* colorView_ = nullptr;
-    SDL_Texture* overlay_ = nullptr;
+    SDL_GPUDevice* _device;
+    SDL_Renderer* _renderer;
+    int _width = 0, _height = 0;
+    SDL_GPUTextureFormat _depthFormat = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
+    bool _hasStencil = false;
+    StencilMode _stencilMode = StencilMode::kNone;
+    bool _mirrored = false;
+    SDL_GPUTexture* _color = nullptr; // the frame, wrapped by colorView_ for the renderer
+    SDL_GPUTexture* _depth = nullptr;
+    SDL_Texture* _colorView = nullptr;
+    SDL_Texture* _overlay = nullptr;
     // The frame through the brightness curve, shown instead when it isn't
     // 1: drawn from the frame (a texture of it, frameTexture_) with a quad
     // over the whole of it.
-    SDL_GPUViewport viewport_{};
-    float maxDepth_ = 1;
-    float gamma_ = 1;
-    SDL_GPUTexture* gammaFrame_ = nullptr;
-    SDL_Texture* gammaView_ = nullptr;
-    gfx::TextureId frameTexture_ = 0;
-    bool captureWanted_ = false;
-    std::vector<uint8_t> capture_; // the frame kept by captureNextFrame()
-    gfx::MeshId screenQuad_ = 0;
-    SDL_GPUShader* vertexShader_ = nullptr;
-    SDL_GPUShader* fragmentShader_ = nullptr;
-    SDL_GPUSampler* samplers_[32] = {}; // by clamp | mipmaps << 1 | nearest << 2 | mipNearest << 3 | anisotropic << 4
-    std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline*> pipelines_; // by packed DrawState
-    std::unordered_map<gfx::TextureId, Texture> textures_;
-    std::unordered_map<gfx::MeshId, Mesh> meshes_;
-    uint32_t nextId_ = 1;
-    gfx::TextureId white_ = 0;
+    SDL_GPUViewport _viewport{};
+    float _maxDepth = 1;
+    float _gamma = 1;
+    SDL_GPUTexture* _gammaFrame = nullptr;
+    SDL_Texture* _gammaView = nullptr;
+    gfx::TextureId _frameTexture = 0;
+    bool _captureWanted = false;
+    std::vector<uint8_t> _capture; // the frame kept by captureNextFrame()
+    gfx::MeshId _screenQuad = 0;
+    SDL_GPUShader* _vertexShader = nullptr;
+    SDL_GPUShader* _fragmentShader = nullptr;
+    SDL_GPUSampler* _samplers[32] = {}; // by clamp | mipmaps << 1 | nearest << 2 | mipNearest << 3 | anisotropic << 4
+    std::unordered_map<uint32_t, SDL_GPUGraphicsPipeline*> _pipelines; // by packed DrawState
+    std::unordered_map<gfx::TextureId, Texture> _textures;
+    std::unordered_map<gfx::MeshId, Mesh> _meshes;
+    uint32_t _nextId = 1;
+    gfx::TextureId _white = 0;
 
     // The frame being drawn.
-    SDL_GPUCommandBuffer* cmd_ = nullptr;
-    SDL_GPURenderPass* pass_ = nullptr;
-    gfx::Mat4 viewProj_{};
-    gfx::Vec3 eye_{};
-    SDL_GPUGraphicsPipeline* boundPipeline_ = nullptr;
-    gfx::MeshId boundMesh_ = 0;
-    int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
-    std::vector<gfx::DynamicLight> lights_;
+    SDL_GPUCommandBuffer* _cmd = nullptr;
+    SDL_GPURenderPass* _pass = nullptr;
+    gfx::Mat4 _viewProj{};
+    gfx::Vec3 _eye{};
+    SDL_GPUGraphicsPipeline* _boundPipeline = nullptr;
+    gfx::MeshId _boundMesh = 0;
+    int32_t _boundOffset = 0, _boundOldOffset = 0; // the vertex buffers' bindings, in vertices
+    std::vector<gfx::DynamicLight> _lights;
 };
 
 } // namespace reluva

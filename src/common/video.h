@@ -41,7 +41,7 @@ public:
 
 private:
     explicit Movie(std::unique_ptr<Impl> impl);
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<Impl> _impl;
 };
 
 } // namespace reluva::video

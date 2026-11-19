@@ -57,7 +57,7 @@ std::vector<uint8_t> encodeTga(const Image& img) {
 }
 
 void blit(Surface& dst, const Image& img, int x, int y) {
-    if (dst.format != PixelFormat::RGBA32)
+    if (dst.format != PixelFormat::kRgbA32)
         return;
     for (int sy = 0; sy < img.h; ++sy) {
         const int dy = y + sy;

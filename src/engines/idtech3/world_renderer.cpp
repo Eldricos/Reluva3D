@@ -249,7 +249,7 @@ Error WorldRenderer::load(const Bsp& bsp, const ShaderLibrary& library) {
             }
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
-            const bool deformed = mat.deforms[0].type != gfx::Deform::Type::None;
+            const bool deformed = mat.deforms[0].type != gfx::Deform::Type::kNone;
             if (mi == 0 && out.size() > offset) {
                 Placed p{key, offset, uint32_t(out.size()) - offset, {1e9f, 1e9f, 1e9f}, {-1e9f, -1e9f, -1e9f}};
                 for (size_t vi = base; vi < vertices.size(); ++vi)
@@ -356,7 +356,7 @@ void WorldRenderer::drawSky(float time) const {
             call.texture = skySides_[side];
             call.followCamera = true;
             call.state.depthTest = call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             r_.draw(call);
         }
         if (skyMaterial_ >= 0) {
@@ -378,11 +378,11 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight>& ligh
     call.dynamicLights = true;
     const ViewSlot* view = culled();
     // Over what's drawn: the result is what's there times (1 + the light).
-    call.state.src = gfx::Blend::DstColor;
-    call.state.dst = gfx::Blend::One;
+    call.state.src = gfx::Blend::kDstColor;
+    call.state.dst = gfx::Blend::kOne;
     call.state.depthEqual = true;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     for (const LitSurface& s : litSurfaces_) {
         // Only those drawn this frame, from where they are in its list.
         uint32_t first = s.firstIndex;

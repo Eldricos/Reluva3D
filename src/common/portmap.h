@@ -55,8 +55,8 @@ std::vector<uint8_t> natPmpMapRequest(uint16_t internalPort, uint16_t externalPo
 bool natPmpMapReply(const std::vector<uint8_t>& reply, uint16_t& externalPort, uint32_t& lifetime, int& result);
 
 struct PortMapping {
-    enum class Way { None, Upnp, NatPmp };
-    Way way = Way::None;
+    enum class Way { kNone, kUpnp, kNatPmp };
+    Way way = Way::kNone;
     uint32_t externalIp = 0; // the address others reach (0: not known)
     uint16_t externalPort = 0;
     std::string why; // when it didn't work
@@ -88,7 +88,7 @@ public:
     PortMapper(const PortMapper&) = delete;
     PortMapper& operator=(const PortMapper&) = delete;
 
-    bool done() const { return done_; }
+    bool done() const { return _done; }
     PortMapping result() const;
 
     PortMapping map();
@@ -99,19 +99,19 @@ private:
     bool mapNatPmp(PortMapping& out);
     void work();
 
-    Transport transport_;
-    uint16_t port_;
-    std::thread thread_;
-    mutable std::mutex mutex_;
-    std::condition_variable wake_;
-    bool stop_ = false;
-    std::atomic<bool> done_{false};
-    PortMapping result_;
+    Transport _transport;
+    uint16_t _port;
+    std::thread _thread;
+    mutable std::mutex _mutex;
+    std::condition_variable _wake;
+    bool _stop = false;
+    std::atomic<bool> _done{false};
+    PortMapping _result;
     // What's needed to take it away again.
-    Url control_;
-    std::string serviceType_;
-    uint32_t gateway_ = 0;
-    uint32_t lifetime_ = 0; // NAT-PMP's seconds, renewed at half
+    Url _control;
+    std::string _serviceType;
+    uint32_t _gateway = 0;
+    uint32_t _lifetime = 0; // NAT-PMP's seconds, renewed at half
 };
 
 } // namespace reluva::net

@@ -70,21 +70,21 @@ void FileViewer::activate() {
 
 void FileViewer::handleEvent(const Event& ev) {
     const int rows = (ctx_.screen.h - 4 * font::kLineHeight) / font::kLineHeight;
-    if (ev.type == EventType::MouseWheel)
+    if (ev.type == EventType::kMouseWheel)
         top_ -= ev.wheelY * 3;
-    else if (ev.type != EventType::KeyDown)
+    else if (ev.type != EventType::kKeyDown)
         return;
-    else if (ev.key == key::Up)
+    else if (ev.key == key::kUp)
         --top_;
-    else if (ev.key == key::Down)
+    else if (ev.key == key::kDown)
         ++top_;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         top_ -= rows;
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         top_ += rows;
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         top_ = 0;
-    else if (ev.key == key::End)
+    else if (ev.key == key::kEnd)
         top_ = static_cast<int>(files_.size());
     else
         return;
@@ -126,20 +126,20 @@ TextureViewer::TextureViewer(ViewerContext& ctx) : Page(ctx) {
 }
 
 void TextureViewer::handleEvent(const Event& ev) {
-    if (ev.type != EventType::KeyDown || names_.empty())
+    if (ev.type != EventType::kKeyDown || names_.empty())
         return;
     int i = index_;
-    if (ev.key == key::Left)
+    if (ev.key == key::kLeft)
         --i;
-    else if (ev.key == key::Right)
+    else if (ev.key == key::kRight)
         ++i;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         i -= 10;
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         i += 10;
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         i = 0;
-    else if (ev.key == key::End)
+    else if (ev.key == key::kEnd)
         i = static_cast<int>(names_.size()) - 1;
     else
         return;

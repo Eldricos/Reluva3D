@@ -55,30 +55,30 @@ void TextureViewer::show(int index) {
 }
 
 void TextureViewer::handleEvent(const Event& ev) {
-    if (ev.type != EventType::KeyDown || names_.empty())
+    if (ev.type != EventType::kKeyDown || names_.empty())
         return;
     const int n = static_cast<int>(names_.size());
     int i = index_;
-    if (ev.key == key::Left)
+    if (ev.key == key::kLeft)
         i = (i + n - 1) % n;
-    else if (ev.key == key::Right)
+    else if (ev.key == key::kRight)
         i = (i + 1) % n;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         i = std::max(0, i - 10);
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         i = std::min(n - 1, i + 10);
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         i = 0;
-    else if (ev.key == key::End)
+    else if (ev.key == key::kEnd)
         i = n - 1;
-    else if (ev.key == key::Up || ev.key == key::Down) {
+    else if (ev.key == key::kUp || ev.key == key::kDown) {
         // The first texture of the next (or previous) kind.
-        const int step = ev.key == key::Down ? 1 : n - 1;
+        const int step = ev.key == key::kDown ? 1 : n - 1;
         const std::string kind = kindOf(names_[size_t(i)]);
         do
             i = (i + step) % n;
         while (i != index_ && kindOf(names_[size_t(i)]) == kind);
-        if (ev.key == key::Up)
+        if (ev.key == key::kUp)
             while (i > 0 && kindOf(names_[size_t(i - 1)]) == kindOf(names_[size_t(i)]))
                 --i;
     } else if (ev.key == '+' || ev.key == '=') {

@@ -25,52 +25,52 @@ uint32_t translateKey(SDL_Keycode k) {
     if (k < 128)
         return k; // SDL keycodes match ASCII for printable keys
     switch (k) {
-    case SDLK_UP: return key::Up;
-    case SDLK_DOWN: return key::Down;
-    case SDLK_LEFT: return key::Left;
-    case SDLK_RIGHT: return key::Right;
-    case SDLK_INSERT: return key::Insert;
-    case SDLK_HOME: return key::Home;
-    case SDLK_END: return key::End;
-    case SDLK_PAGEUP: return key::PageUp;
-    case SDLK_PAGEDOWN: return key::PageDown;
-    case SDLK_LSHIFT: return key::LShift;
-    case SDLK_RSHIFT: return key::RShift;
-    case SDLK_LCTRL: return key::LCtrl;
-    case SDLK_RCTRL: return key::RCtrl;
-    case SDLK_LALT: return key::LAlt;
-    case SDLK_RALT: return key::RAlt;
+    case SDLK_UP: return key::kUp;
+    case SDLK_DOWN: return key::kDown;
+    case SDLK_LEFT: return key::kLeft;
+    case SDLK_RIGHT: return key::kRight;
+    case SDLK_INSERT: return key::kInsert;
+    case SDLK_HOME: return key::kHome;
+    case SDLK_END: return key::kEnd;
+    case SDLK_PAGEUP: return key::kPageUp;
+    case SDLK_PAGEDOWN: return key::kPageDown;
+    case SDLK_LSHIFT: return key::kLShift;
+    case SDLK_RSHIFT: return key::kRShift;
+    case SDLK_LCTRL: return key::kLCtrl;
+    case SDLK_RCTRL: return key::kRCtrl;
+    case SDLK_LALT: return key::kLAlt;
+    case SDLK_RALT: return key::kRAlt;
     default: break;
     }
     if (k >= SDLK_F1 && k <= SDLK_F12)
-        return key::F1 + (k - SDLK_F1);
+        return key::kF1 + (k - SDLK_F1);
     // The keypad's keys keep their own codes with NumLock off too (SDL3
     // reports KP_8, not Up), so engines can use them as keys of their own.
     if (k >= SDLK_KP_1 && k <= SDLK_KP_9)
-        return key::Kp0 + 1 + (k - SDLK_KP_1);
+        return key::kKp0 + 1 + (k - SDLK_KP_1);
     if (k == SDLK_KP_0)
-        return key::Kp0;
+        return key::kKp0;
     if (k == SDLK_KP_PERIOD)
-        return key::KpPeriod;
+        return key::kKpPeriod;
     if (k == SDLK_KP_ENTER)
-        return key::KpEnter;
-    return key::Unknown;
+        return key::kKpEnter;
+    return key::kUnknown;
 }
 
 uint16_t translateMods(SDL_Keymod m) {
     uint16_t out = 0;
-    if (m & SDL_KMOD_SHIFT) out |= keymod::Shift;
-    if (m & SDL_KMOD_CTRL) out |= keymod::Ctrl;
-    if (m & SDL_KMOD_ALT) out |= keymod::Alt;
+    if (m & SDL_KMOD_SHIFT) out |= keymod::kShift;
+    if (m & SDL_KMOD_CTRL) out |= keymod::kCtrl;
+    if (m & SDL_KMOD_ALT) out |= keymod::kAlt;
     return out;
 }
 
 MouseButton translateButton(uint8_t b) {
     switch (b) {
-    case SDL_BUTTON_LEFT: return MouseButton::Left;
-    case SDL_BUTTON_RIGHT: return MouseButton::Right;
-    case SDL_BUTTON_MIDDLE: return MouseButton::Middle;
-    default: return MouseButton::None;
+    case SDL_BUTTON_LEFT: return MouseButton::kLeft;
+    case SDL_BUTTON_RIGHT: return MouseButton::kRight;
+    case SDL_BUTTON_MIDDLE: return MouseButton::kMiddle;
+    default: return MouseButton::kNone;
     }
 }
 
@@ -80,17 +80,17 @@ SdlSystem::SdlSystem() = default;
 
 SdlSystem::~SdlSystem() {
     stopAudio();
-    for (SDL_Gamepad* p : pads_)
+    for (SDL_Gamepad* p : _pads)
         SDL_CloseGamepad(p);
     release3D();
-    if (gameTexture_)
-        SDL_DestroyTexture(gameTexture_);
-    if (renderer_)
-        SDL_DestroyRenderer(renderer_);
-    if (gpu_)
-        SDL_DestroyGPUDevice(gpu_);
-    if (window_)
-        SDL_DestroyWindow(window_);
+    if (_gameTexture)
+        SDL_DestroyTexture(_gameTexture);
+    if (_renderer)
+        SDL_DestroyRenderer(_renderer);
+    if (_gpu)
+        SDL_DestroyGPUDevice(_gpu);
+    if (_window)
+        SDL_DestroyWindow(_window);
     SDL_Quit();
 }
 
@@ -101,9 +101,9 @@ Error SdlSystem::init() {
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
         SDL_Log("Audio unavailable: %s", SDL_GetError());
 
-    window_ = SDL_CreateWindow("Reluva", 1280, 800,
+    _window = SDL_CreateWindow("Reluva", 1280, 800,
                                SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    if (!window_)
+    if (!_window)
         return Error::fail(std::string("SDL_CreateWindow failed: ") + SDL_GetError());
 
     // The renderer runs on a GPU device of our own when it can, so engines
@@ -111,156 +111,156 @@ Error SdlSystem::init() {
     // renderer (SDL_RENDER_DRIVER) other than "gpu" skips this.
     const char* driver = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
     if (!driver || std::strcmp(driver, "gpu") == 0) {
-        gpu_ = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
-        if (gpu_) {
-            renderer_ = SDL_CreateGPURenderer(gpu_, window_);
-            if (!renderer_) {
-                SDL_DestroyGPUDevice(gpu_);
-                gpu_ = nullptr;
+        _gpu = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
+        if (_gpu) {
+            _renderer = SDL_CreateGPURenderer(_gpu, _window);
+            if (!_renderer) {
+                SDL_DestroyGPUDevice(_gpu);
+                _gpu = nullptr;
             }
         }
-        if (!gpu_)
+        if (!_gpu)
             SDL_Log("No GPU device, so no 3D: %s", SDL_GetError());
     }
-    if (!renderer_)
-        renderer_ = SDL_CreateRenderer(window_, nullptr);
-    if (!renderer_)
+    if (!_renderer)
+        _renderer = SDL_CreateRenderer(_window, nullptr);
+    if (!_renderer)
         return Error::fail(std::string("SDL_CreateRenderer failed: ") + SDL_GetError());
-    SDL_SetRenderVSync(renderer_, 1);
+    SDL_SetRenderVSync(_renderer, 1);
 
-    SDL_Log("Video driver: %s, renderer: %s%s%s%s%s", SDL_GetCurrentVideoDriver(), SDL_GetRendererName(renderer_),
-            gpu_ ? ", GPU driver: " : "", gpu_ ? SDL_GetGPUDeviceDriver(gpu_) : "", gpu_ ? ", device: " : "",
-            gpu_ ? SDL_GetStringProperty(SDL_GetGPUDeviceProperties(gpu_), SDL_PROP_GPU_DEVICE_NAME_STRING, "?") : "");
+    SDL_Log("Video driver: %s, renderer: %s%s%s%s%s", SDL_GetCurrentVideoDriver(), SDL_GetRendererName(_renderer),
+            _gpu ? ", GPU driver: " : "", _gpu ? SDL_GetGPUDeviceDriver(_gpu) : "", _gpu ? ", device: " : "",
+            _gpu ? SDL_GetStringProperty(SDL_GetGPUDeviceProperties(_gpu), SDL_PROP_GPU_DEVICE_NAME_STRING, "?") : "");
     return Error::success();
 }
 
-void SdlSystem::release3D() { renderer3d_.reset(); }
+void SdlSystem::release3D() { _renderer3d.reset(); }
 
 Error SdlSystem::init3D(int width, int height, gfx::Renderer3D*& out) {
     out = nullptr;
     release3D();
-    if (!gpu_)
+    if (!_gpu)
         return Error::fail("3D rendering needs a GPU with Vulkan or Metal support");
-    if (gameTexture_) {
-        SDL_DestroyTexture(gameTexture_);
-        gameTexture_ = nullptr;
+    if (_gameTexture) {
+        SDL_DestroyTexture(_gameTexture);
+        _gameTexture = nullptr;
     }
-    gameW_ = gameH_ = 0;
-    auto r = std::make_unique<SdlGpuRenderer>(gpu_, renderer_);
+    _gameW = _gameH = 0;
+    auto r = std::make_unique<SdlGpuRenderer>(_gpu, _renderer);
     if (Error err = r->init(width, height))
         return err;
-    renderer3d_ = std::move(r);
-    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
-    out = renderer3d_.get();
+    _renderer3d = std::move(r);
+    SDL_SetRenderLogicalPresentation(_renderer, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    out = _renderer3d.get();
     return Error::success();
 }
 
 void SdlSystem::resetForLauncher() {
     stopAudio();
-    SDL_StopTextInput(window_);
+    SDL_StopTextInput(_window);
     SDL_ShowCursor();
-    relativeMouse_ = false;
-    SDL_SetWindowRelativeMouseMode(window_, false);
-    SDL_SetWindowFullscreen(window_, false);
+    _relativeMouse = false;
+    SDL_SetWindowRelativeMouseMode(_window, false);
+    SDL_SetWindowFullscreen(_window, false);
     release3D();
-    if (gameTexture_) {
-        SDL_DestroyTexture(gameTexture_);
-        gameTexture_ = nullptr;
+    if (_gameTexture) {
+        SDL_DestroyTexture(_gameTexture);
+        _gameTexture = nullptr;
     }
-    gameW_ = gameH_ = 0;
-    SDL_SetRenderLogicalPresentation(renderer_, 0, 0, SDL_LOGICAL_PRESENTATION_DISABLED);
-    SDL_SetWindowTitle(window_, "Reluva");
+    _gameW = _gameH = 0;
+    SDL_SetRenderLogicalPresentation(_renderer, 0, 0, SDL_LOGICAL_PRESENTATION_DISABLED);
+    SDL_SetWindowTitle(_window, "Reluva");
 }
 
 Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
     release3D();
-    if (gameTexture_)
-        SDL_DestroyTexture(gameTexture_);
-    gameTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32,
+    if (_gameTexture)
+        SDL_DestroyTexture(_gameTexture);
+    _gameTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGBA32,
                                      SDL_TEXTUREACCESS_STREAMING, width, height);
-    if (!gameTexture_)
+    if (!_gameTexture)
         return Error::fail(std::string("SDL_CreateTexture failed: ") + SDL_GetError());
-    SDL_SetTextureScaleMode(gameTexture_, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(_gameTexture, SDL_SCALEMODE_NEAREST);
 
-    gameW_ = width;
-    gameH_ = height;
-    gameFormat_ = format;
-    convertBuffer_.assign(static_cast<size_t>(width) * height, 0);
+    _gameW = width;
+    _gameH = height;
+    _gameFormat = format;
+    _convertBuffer.assign(static_cast<size_t>(width) * height, 0);
     for (int i = 0; i < 256; ++i)
-        palette_[i] = packRgba(0, 0, 0, 255);
+        _palette[i] = packRgba(0, 0, 0, 255);
 
     // Letterbox the game framebuffer into the window at any size, and map
     // mouse coordinates back into framebuffer pixels.
-    SDL_SetRenderLogicalPresentation(renderer_, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetRenderLogicalPresentation(_renderer, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
     return Error::success();
 }
 
 void SdlSystem::setPalette(const Color* colors, int start, int count) {
     for (int i = 0; i < count && start + i < 256; ++i)
-        palette_[start + i] = packRgba(colors[i].r, colors[i].g, colors[i].b, 255);
+        _palette[start + i] = packRgba(colors[i].r, colors[i].g, colors[i].b, 255);
 }
 
 void SdlSystem::updateScreen(const Surface& surface) {
-    if (!gameTexture_ || surface.w != gameW_ || surface.h != gameH_ || surface.format != gameFormat_)
+    if (!_gameTexture || surface.w != _gameW || surface.h != _gameH || surface.format != _gameFormat)
         return;
 
-    if (surface.format == PixelFormat::CLUT8) {
+    if (surface.format == PixelFormat::kCluT8) {
         for (int y = 0; y < surface.h; ++y) {
             const uint8_t* src = surface.row(y);
-            uint32_t* dst = convertBuffer_.data() + static_cast<size_t>(y) * gameW_;
+            uint32_t* dst = _convertBuffer.data() + static_cast<size_t>(y) * _gameW;
             for (int x = 0; x < surface.w; ++x)
-                dst[x] = palette_[src[x]];
+                dst[x] = _palette[src[x]];
         }
-        SDL_UpdateTexture(gameTexture_, nullptr, convertBuffer_.data(), gameW_ * 4);
+        SDL_UpdateTexture(_gameTexture, nullptr, _convertBuffer.data(), _gameW * 4);
     } else {
-        SDL_UpdateTexture(gameTexture_, nullptr, surface.pixels.data(), surface.pitch);
+        SDL_UpdateTexture(_gameTexture, nullptr, surface.pixels.data(), surface.pitch);
     }
 
-    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
-    SDL_RenderClear(renderer_);
-    SDL_RenderTexture(renderer_, gameTexture_, nullptr, nullptr);
-    SDL_RenderPresent(renderer_);
+    SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(_renderer);
+    SDL_RenderTexture(_renderer, _gameTexture, nullptr, nullptr);
+    SDL_RenderPresent(_renderer);
 }
 
-void SdlSystem::setWindowTitle(const std::string& title) { SDL_SetWindowTitle(window_, title.c_str()); }
+void SdlSystem::setWindowTitle(const std::string& title) { SDL_SetWindowTitle(_window, title.c_str()); }
 
 bool SdlSystem::pollEvent(Event& out) {
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
-        SDL_ConvertEventToRenderCoordinates(renderer_, &ev);
+        SDL_ConvertEventToRenderCoordinates(_renderer, &ev);
         out = Event{};
         switch (ev.type) {
         case SDL_EVENT_QUIT:
-            quitRequested_ = true;
-            out.type = EventType::Quit;
+            _quitRequested = true;
+            out.type = EventType::kQuit;
             return true;
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
             // Ctrl+F5 is the global "return to launcher" hotkey.
             if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.key == SDLK_F5 && (ev.key.mod & SDL_KMOD_CTRL)) {
-                out.type = EventType::ReturnToLauncher;
+                out.type = EventType::kReturnToLauncher;
                 return true;
             }
             // Alt+Enter toggles fullscreen.
             if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.key == SDLK_RETURN && (ev.key.mod & SDL_KMOD_ALT)) {
-                bool fs = SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN;
-                SDL_SetWindowFullscreen(window_, !fs);
+                bool fs = SDL_GetWindowFlags(_window) & SDL_WINDOW_FULLSCREEN;
+                SDL_SetWindowFullscreen(_window, !fs);
                 continue;
             }
-            out.type = ev.type == SDL_EVENT_KEY_DOWN ? EventType::KeyDown : EventType::KeyUp;
+            out.type = ev.type == SDL_EVENT_KEY_DOWN ? EventType::kKeyDown : EventType::kKeyUp;
             out.key = translateKey(ev.key.key);
             out.mods = translateMods(ev.key.mod);
             out.repeat = ev.key.repeat;
             return true;
         case SDL_EVENT_GAMEPAD_ADDED:
             if (SDL_Gamepad* p = SDL_OpenGamepad(ev.gdevice.which))
-                pads_.push_back(p);
+                _pads.push_back(p);
             continue;
         case SDL_EVENT_GAMEPAD_REMOVED:
-            for (size_t i = 0; i < pads_.size(); ++i)
-                if (SDL_GetGamepadID(pads_[i]) == ev.gdevice.which) {
-                    SDL_CloseGamepad(pads_[i]);
-                    pads_.erase(pads_.begin() + std::ptrdiff_t(i));
+            for (size_t i = 0; i < _pads.size(); ++i)
+                if (SDL_GetGamepadID(_pads[i]) == ev.gdevice.which) {
+                    SDL_CloseGamepad(_pads[i]);
+                    _pads.erase(_pads.begin() + std::ptrdiff_t(i));
                     break;
                 }
             continue;
@@ -269,18 +269,18 @@ bool SdlSystem::pollEvent(Event& out) {
             // SDL's buttons up to the d-pad are in pad::Button's order.
             if (ev.gbutton.button >= pad::kButtons)
                 continue;
-            out.type = ev.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? EventType::PadDown : EventType::PadUp;
+            out.type = ev.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? EventType::kPadDown : EventType::kPadUp;
             out.pad = ev.gbutton.button;
             return true;
         case SDL_EVENT_GAMEPAD_AXIS_MOTION:
             if (ev.gaxis.axis >= pad::kAxes)
                 continue;
-            out.type = EventType::PadAxis;
+            out.type = EventType::kPadAxis;
             out.pad = ev.gaxis.axis;
             out.value = std::max(-1.0f, float(ev.gaxis.value) / 32767.0f);
             return true;
         case SDL_EVENT_MOUSE_MOTION:
-            out.type = EventType::MouseMove;
+            out.type = EventType::kMouseMove;
             out.mouseX = static_cast<int>(ev.motion.x);
             out.mouseY = static_cast<int>(ev.motion.y);
             out.moveX = ev.motion.xrel;
@@ -289,7 +289,7 @@ bool SdlSystem::pollEvent(Event& out) {
             return true;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            out.type = ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? EventType::MouseDown : EventType::MouseUp;
+            out.type = ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? EventType::kMouseDown : EventType::kMouseUp;
             out.button = translateButton(ev.button.button);
             out.mouseX = static_cast<int>(ev.button.x);
             out.mouseY = static_cast<int>(ev.button.y);
@@ -297,13 +297,13 @@ bool SdlSystem::pollEvent(Event& out) {
             out.mods = translateMods(SDL_GetModState());
             return true;
         case SDL_EVENT_MOUSE_WHEEL:
-            out.type = EventType::MouseWheel;
+            out.type = EventType::kMouseWheel;
             out.wheelY = ev.wheel.integer_y;
             return true;
         case SDL_EVENT_TEXT_INPUT:
             if (!ev.text.text)
                 break;
-            out.type = EventType::TextInput;
+            out.type = EventType::kTextInput;
             SDL_strlcpy(out.text, ev.text.text, sizeof out.text);
             return true;
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
@@ -312,9 +312,9 @@ bool SdlSystem::pollEvent(Event& out) {
         case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
             // The window changed under a held mouse: hold it again, as some
             // systems let it go.
-            if (relativeMouse_) {
-                SDL_SetWindowRelativeMouseMode(window_, false);
-                SDL_SetWindowRelativeMouseMode(window_, true);
+            if (_relativeMouse) {
+                SDL_SetWindowRelativeMouseMode(_window, false);
+                SDL_SetWindowRelativeMouseMode(_window, true);
             }
             break;
         default:
@@ -326,9 +326,9 @@ bool SdlSystem::pollEvent(Event& out) {
 
 void SdlSystem::setTextInput(bool on) {
     if (on)
-        SDL_StartTextInput(window_);
+        SDL_StartTextInput(_window);
     else
-        SDL_StopTextInput(window_);
+        SDL_StopTextInput(_window);
 }
 
 void SdlSystem::setMouseCursorVisible(bool visible) {
@@ -340,42 +340,42 @@ void SdlSystem::setMouseCursorVisible(bool visible) {
 
 void SdlSystem::rumble(float low, float high, uint32_t ms) {
     auto motor = [](float v) { return Uint16(std::clamp(v, 0.0f, 1.0f) * 65535); };
-    for (SDL_Gamepad* p : pads_)
+    for (SDL_Gamepad* p : _pads)
         SDL_RumbleGamepad(p, motor(low), motor(high), ms);
 }
 
 void SdlSystem::minimizeWindow() {
-    if (window_)
-        SDL_MinimizeWindow(window_);
+    if (_window)
+        SDL_MinimizeWindow(_window);
 }
 
 void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
-    if (!window_)
+    if (!_window)
         return;
     // Fullscreen at the desktop's own mode (null), which needs no mode switch.
-    const bool wasFullscreen = (SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN) != 0;
+    const bool wasFullscreen = (SDL_GetWindowFlags(_window) & SDL_WINDOW_FULLSCREEN) != 0;
     if (fullscreen != wasFullscreen) {
-        SDL_SetWindowFullscreenMode(window_, nullptr);
-        SDL_SetWindowFullscreen(window_, fullscreen);
+        SDL_SetWindowFullscreenMode(_window, nullptr);
+        SDL_SetWindowFullscreen(_window, fullscreen);
     }
     SDL_Rect usable{};
     int w = 0, h = 0;
-    SDL_GetWindowSize(window_, &w, &h);
+    SDL_GetWindowSize(_window, &w, &h);
     if (!fullscreen && (w != width || h != height) &&
-        SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window_), &usable) && width <= usable.w &&
-        height <= usable.h && !(SDL_GetWindowFlags(window_) & SDL_WINDOW_MAXIMIZED))
-        SDL_SetWindowSize(window_, width, height);
+        SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(_window), &usable) && width <= usable.w &&
+        height <= usable.h && !(SDL_GetWindowFlags(_window) & SDL_WINDOW_MAXIMIZED))
+        SDL_SetWindowSize(_window, width, height);
     // The changes happen in their own time on some systems: wait, so the
     // mouse is held by the window as it ends up.
-    SDL_SyncWindow(window_);
-    if (relativeMouse_)
-        SDL_SetWindowRelativeMouseMode(window_, true);
+    SDL_SyncWindow(_window);
+    if (_relativeMouse)
+        SDL_SetWindowRelativeMouseMode(_window, true);
 }
 
 void SdlSystem::setRelativeMouse(bool on) {
-    relativeMouse_ = on;
-    if (window_)
-        SDL_SetWindowRelativeMouseMode(window_, on);
+    _relativeMouse = on;
+    if (_window)
+        SDL_SetWindowRelativeMouseMode(_window, on);
 }
 
 uint64_t SdlSystem::getMillis() const { return SDL_GetTicks(); }
@@ -387,28 +387,28 @@ void SDLCALL SdlSystem::audioThunk(void* userdata, SDL_AudioStream* stream, int 
     const int frames = additional / (2 * static_cast<int>(sizeof(int16_t)));
     if (frames <= 0)
         return;
-    self->audioBuffer_.resize(static_cast<size_t>(frames) * 2);
-    self->audioCallback_(self->audioBuffer_.data(), frames);
-    SDL_PutAudioStreamData(stream, self->audioBuffer_.data(), frames * 4);
+    self->_audioBuffer.resize(static_cast<size_t>(frames) * 2);
+    self->_audioCallback(self->_audioBuffer.data(), frames);
+    SDL_PutAudioStreamData(stream, self->_audioBuffer.data(), frames * 4);
 }
 
 Error SdlSystem::startAudio(AudioCallback callback) {
     stopAudio();
-    audioCallback_ = std::move(callback);
+    _audioCallback = std::move(callback);
     const SDL_AudioSpec spec{SDL_AUDIO_S16, 2, kAudioRate};
-    audioStream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audioThunk, this);
-    if (!audioStream_)
+    _audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audioThunk, this);
+    if (!_audioStream)
         return Error::fail(std::string("Cannot open audio: ") + SDL_GetError());
-    SDL_ResumeAudioStreamDevice(audioStream_);
+    SDL_ResumeAudioStreamDevice(_audioStream);
     return Error::success();
 }
 
 void SdlSystem::stopAudio() {
-    if (audioStream_) {
-        SDL_DestroyAudioStream(audioStream_); // stops the callback before returning
-        audioStream_ = nullptr;
+    if (_audioStream) {
+        SDL_DestroyAudioStream(_audioStream); // stops the callback before returning
+        _audioStream = nullptr;
     }
-    audioCallback_ = nullptr;
+    _audioCallback = nullptr;
 }
 
 Error SdlSystem::openUdp(uint16_t port, std::unique_ptr<net::UdpSocket>& out) {

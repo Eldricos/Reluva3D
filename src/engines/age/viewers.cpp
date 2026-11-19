@@ -156,7 +156,7 @@ void FileViewer::activate() {
 }
 
 bool FileViewer::takesKey(const Event& ev) const {
-    return viewing_ && ev.type == EventType::KeyDown && ev.key == key::Escape;
+    return viewing_ && ev.type == EventType::kKeyDown && ev.key == key::kEscape;
 }
 
 void FileViewer::open() {
@@ -179,25 +179,25 @@ void FileViewer::open() {
 void FileViewer::handleEvent(const Event& ev) {
     const int page = rows();
     int step = 0;
-    if (ev.type == EventType::MouseWheel)
+    if (ev.type == EventType::kMouseWheel)
         step = -ev.wheelY * 3;
-    else if (ev.type != EventType::KeyDown)
+    else if (ev.type != EventType::kKeyDown)
         return;
-    else if (ev.key == key::Up)
+    else if (ev.key == key::kUp)
         step = -1;
-    else if (ev.key == key::Down)
+    else if (ev.key == key::kDown)
         step = 1;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         step = -page;
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         step = page;
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         step = -1 << 30;
-    else if (ev.key == key::End)
+    else if (ev.key == key::kEnd)
         step = 1 << 30;
 
     if (viewing_) {
-        if (ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::Backspace)) {
+        if (ev.type == EventType::kKeyDown && (ev.key == key::kEscape || ev.key == key::kBackspace)) {
             viewing_ = false;
             lines_.clear();
             activate();
@@ -209,14 +209,14 @@ void FileViewer::handleEvent(const Event& ev) {
         return;
     }
 
-    if (ev.type == EventType::KeyDown && (ev.key == key::Return || ev.key == key::KpEnter)) {
+    if (ev.type == EventType::kKeyDown && (ev.key == key::kReturn || ev.key == key::kKpEnter)) {
         open();
         draw();
         return;
     }
-    if (ev.type == EventType::KeyDown && (ev.key == key::Left || ev.key == key::Right) && !folders_.empty()) {
+    if (ev.type == EventType::kKeyDown && (ev.key == key::kLeft || ev.key == key::kRight) && !folders_.empty()) {
         const int n = static_cast<int>(folders_.size()) + 1; // with "all" as -1
-        folder_ = (folder_ + 1 + (ev.key == key::Right ? 1 : n - 1)) % n - 1;
+        folder_ = (folder_ + 1 + (ev.key == key::kRight ? 1 : n - 1)) % n - 1;
         applyFolder();
         draw();
         return;
@@ -225,7 +225,7 @@ void FileViewer::handleEvent(const Event& ev) {
         return;
     // The wheel scrolls the list; keys move the selection, the list following.
     const int count = static_cast<int>(shown_.size());
-    if (ev.type == EventType::MouseWheel) {
+    if (ev.type == EventType::kMouseWheel) {
         top_ = std::clamp(top_ + step, 0, std::max(0, count - page));
         selected_ = std::clamp(selected_, top_, std::min(count, top_ + page) - 1);
     } else {

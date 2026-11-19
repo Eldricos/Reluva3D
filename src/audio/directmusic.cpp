@@ -406,36 +406,36 @@ int dmMusicToMidi(uint16_t value, int mode, const DmChord& chord) {
 }
 
 DmPerformance::DmPerformance(int rate, Loader loader, uint32_t seed)
-    : rate_(rate), loader_(std::move(loader)), random_(seed), synth_(rate) {
-    bendRange_.fill(2);
+    : _rate(rate), _loader(std::move(loader)), _random(seed), _synth(rate) {
+    _bendRange.fill(2);
 }
 
 std::shared_ptr<const DmSegment> DmPerformance::segment(const std::string& file) {
-    if (auto it = segments_.find(file); it != segments_.end())
+    if (auto it = _segments.find(file); it != _segments.end())
         return it->second;
     std::vector<uint8_t> data;
     auto s = std::make_shared<DmSegment>();
-    if (!loader_(file, data) || readDmSegment(data, *s))
+    if (!_loader(file, data) || readDmSegment(data, *s))
         s.reset();
-    segments_[file] = s;
+    _segments[file] = s;
     return s;
 }
 
 std::shared_ptr<const DmStyle> DmPerformance::style(const std::string& file) {
-    if (auto it = styles_.find(file); it != styles_.end())
+    if (auto it = _styles.find(file); it != _styles.end())
         return it->second;
     std::vector<uint8_t> data;
     auto s = std::make_shared<DmStyle>();
-    if (!loader_(file, data) || readDmStyle(data, *s))
+    if (!_loader(file, data) || readDmStyle(data, *s))
         s.reset();
-    styles_[file] = s;
+    _styles[file] = s;
     return s;
 }
 
 const DlsCollection* DmPerformance::collection(const std::string& file) {
     // Loaded by play(): the audio thread only looks.
-    const auto it = collections_.find(file);
-    return it != collections_.end() ? it->second.get() : nullptr;
+    const auto it = _collections.find(file);
+    return it != _collections.end() ? it->second.get() : nullptr;
 }
 
 void DmPerformance::applyBand(const DmBand& band) {
@@ -447,10 +447,10 @@ void DmPerformance::applyBand(const DmBand& band) {
         const DlsInstrument* inst = c ? c->find(bank, i.patch & 0x7f) : nullptr;
         if (!inst)
             continue; // a General MIDI instrument: none to play here
-        synth_.setInstrument(i.channel, c, inst);
-        synth_.setVolume(i.channel, i.volume);
-        synth_.setPan(i.channel, i.pan);
-        synth_.setTranspose(i.channel, i.transpose);
+        _synth.setInstrument(i.channel, c, inst);
+        _synth.setVolume(i.channel, i.volume);
+        _synth.setPan(i.channel, i.pan);
+        _synth.setTranspose(i.channel, i.transpose);
     }
 }
 
@@ -470,29 +470,29 @@ Error DmPerformance::playMotif(const std::string& styleFile, const std::string& 
         return Error::fail("no motif " + motif + " in " + styleFile);
     DmBand band;
     std::vector<uint8_t> data;
-    const bool hasBand = !bandFile.empty() && loader_(bandFile, data) && !readDmBand(data, band);
+    const bool hasBand = !bandFile.empty() && _loader(bandFile, data) && !readDmBand(data, band);
     std::map<std::string, std::unique_ptr<DlsCollection>> loaded;
     for (const DmInstrument& i : band.instruments) {
         const std::string& f = i.dls.file;
-        if (f.empty() || loaded.count(f) || known_.count(f))
+        if (f.empty() || loaded.count(f) || _known.count(f))
             continue;
         auto c = std::make_unique<DlsCollection>();
-        if (std::vector<uint8_t> d; !loader_(f, d) || readDls(d, *c))
+        if (std::vector<uint8_t> d; !_loader(f, d) || readDls(d, *c))
             c.reset();
         loaded[f] = std::move(c);
-        known_.insert(f);
+        _known.insert(f);
     }
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(_mutex);
     for (auto& [f, c] : loaded)
-        collections_[f] = std::move(c);
-    if (!playing_)
+        _collections[f] = std::move(c);
+    if (!_playing)
         return Error::fail("no segment playing");
     if (hasBand)
         applyBand(band);
     const int measureTicks = st->timeSig.measureTicks();
     for (int m = 0; m < std::max(1, pattern->measures); ++m)
-        addPattern(*st, *pattern, m, performanceTick_ + double(m * measureTicks));
-    std::stable_sort(events_.begin(), events_.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
+        addPattern(*st, *pattern, m, _performanceTick + double(m * measureTicks));
+    std::stable_sort(_events.begin(), _events.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
     return Error::success();
 }
 
@@ -517,86 +517,86 @@ Error DmPerformance::load(const std::string& file, bool queue) {
                 wanted.push_back(i.dls.file);
     std::map<std::string, std::unique_ptr<DlsCollection>> loaded;
     for (const std::string& f : wanted) {
-        if (f.empty() || loaded.count(f) || known_.count(f))
+        if (f.empty() || loaded.count(f) || _known.count(f))
             continue;
         std::vector<uint8_t> data;
         auto c = std::make_unique<DlsCollection>();
-        if (!loader_(f, data) || readDls(data, *c))
+        if (!_loader(f, data) || readDls(data, *c))
             c.reset();
         loaded[f] = std::move(c);
-        known_.insert(f);
+        _known.insert(f);
     }
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(_mutex);
     for (auto& [f, c] : loaded)
-        collections_[f] = std::move(c);
+        _collections[f] = std::move(c);
     if (queue) {
-        pending_ = s;
-        pendingStyle_ = st;
+        _pending = s;
+        _pendingStyle = st;
     }
     return Error::success();
 }
 
 void DmPerformance::stop() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    playing_.reset();
-    pending_.reset();
-    pendingStyle_.reset();
-    events_.clear();
-    synth_.releaseAll();
+    std::lock_guard<std::mutex> lock(_mutex);
+    _playing.reset();
+    _pending.reset();
+    _pendingStyle.reset();
+    _events.clear();
+    _synth.releaseAll();
 }
 
 bool DmPerformance::playing() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return playing_ || pending_;
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _playing || _pending;
 }
 
 std::string DmPerformance::current() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return playing_ ? playing_->segment->name : std::string();
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _playing ? _playing->segment->name : std::string();
 }
 
 void DmPerformance::setVolume(float volume) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    volume_ = std::max(0.0f, volume);
+    std::lock_guard<std::mutex> lock(_mutex);
+    _volume = std::max(0.0f, volume);
 }
 
 void DmPerformance::startPending() {
     // Whatever was playing lets go; the new segment starts here.
-    events_.clear();
-    synth_.releaseAll();
-    playing_ = std::make_unique<Playing>();
-    playing_->segment = std::move(pending_);
-    pending_.reset();
-    playing_->style = std::move(pendingStyle_);
-    playing_->segmentTick = playing_->segment->playStart;
-    playing_->repeatsLeft = playing_->segment->repeats;
-    if (playing_->segment->bands.empty() && playing_->style && !playing_->style->bands.empty())
-        applyBand(playing_->style->bands.front());
-    variationState_.clear();
-    instanceVariation_.clear();
-    measureEnd_ = performanceTick_;
+    _events.clear();
+    _synth.releaseAll();
+    _playing = std::make_unique<Playing>();
+    _playing->segment = std::move(_pending);
+    _pending.reset();
+    _playing->style = std::move(_pendingStyle);
+    _playing->segmentTick = _playing->segment->playStart;
+    _playing->repeatsLeft = _playing->segment->repeats;
+    if (_playing->segment->bands.empty() && _playing->style && !_playing->style->bands.empty())
+        applyBand(_playing->style->bands.front());
+    _variationState.clear();
+    _instanceVariation.clear();
+    _measureEnd = _performanceTick;
 }
 
 double DmPerformance::tempoAt(double tick) const {
-    double tempo = playing_ && playing_->style ? playing_->style->tempo : 120;
-    if (playing_)
-        for (const auto& [time, bpm] : playing_->segment->tempos)
+    double tempo = _playing && _playing->style ? _playing->style->tempo : 120;
+    if (_playing)
+        for (const auto& [time, bpm] : _playing->segment->tempos)
             if (time <= tick)
                 tempo = bpm;
     return tempo;
 }
 
 const DmChord& DmPerformance::chordAt(double tick) const {
-    const DmChord* c = &defaultChord_;
-    if (playing_)
-        for (const DmChord& ch : playing_->segment->chords)
+    const DmChord* c = &_defaultChord;
+    if (_playing)
+        for (const DmChord& ch : _playing->segment->chords)
             if (ch.time <= tick)
                 c = &ch;
     return *c;
 }
 
 void DmPerformance::choosePattern(int measure) {
-    Playing& p = *playing_;
+    Playing& p = *_playing;
     if (!p.style)
         return;
     // A command at this measure: its groove level (randomised within its
@@ -610,7 +610,7 @@ void DmPerformance::choosePattern(int measure) {
         if (command->groove > 0) {
             const int range = command->grooveRange & ~1;
             p.groove = std::clamp(command->groove +
-                                      (range ? std::uniform_int_distribution<int>(-range / 2, range / 2)(random_) : 0),
+                                      (range ? std::uniform_int_distribution<int>(-range / 2, range / 2)(_random) : 0),
                                   1, 100);
         }
         switch (command->command) {
@@ -646,7 +646,7 @@ void DmPerformance::choosePattern(int measure) {
         }
     if (best.empty())
         return;
-    p.pattern = best[std::uniform_int_distribution<size_t>(0, best.size() - 1)(random_)];
+    p.pattern = best[std::uniform_int_distribution<size_t>(0, best.size() - 1)(_random)];
     p.measuresLeft = p.pattern->measures;
 }
 
@@ -668,12 +668,12 @@ void DmPerformance::addCurve(const DmCurve& c, double start, int channel) {
         } else {
             continue;
         }
-        events_.push_back(e);
+        _events.push_back(e);
     }
 }
 
 void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, int measureInPattern, double start) {
-    Playing& p = *playing_;
+    Playing& p = *_playing;
     // Each part's variation, chosen as the pattern starts; parts with a
     // lock id share theirs (a motif's style's kept apart from the tune's).
     std::map<int, int> locked;
@@ -683,7 +683,7 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
         const DmPartRef& ref = pattern.parts[r];
         const DmPart& part = style.parts[ref.part];
         const size_t key = patternIndex << 8 | r;
-        if (measureInPattern == 0 || !instanceVariation_.count(key)) {
+        if (measureInPattern == 0 || !_instanceVariation.count(key)) {
             std::vector<int> choices = part.variations();
             if (choices.empty())
                 choices.push_back(0);
@@ -691,10 +691,10 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
             if (ref.lockId && locked.count(ref.lockId)) {
                 chosen = locked[ref.lockId];
             } else {
-                const auto last = variationState_.find(key);
-                const int previous = last != variationState_.end() ? last->second : -1;
+                const auto last = _variationState.find(key);
+                const int previous = last != _variationState.end() ? last->second : -1;
                 const auto pick = [&] {
-                    return choices[std::uniform_int_distribution<size_t>(0, choices.size() - 1)(random_)];
+                    return choices[std::uniform_int_distribution<size_t>(0, choices.size() - 1)(_random)];
                 };
                 switch (ref.randomVariation) {
                 case 0:   // in order
@@ -717,10 +717,10 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
                 if (ref.lockId)
                     locked[ref.lockId] = chosen;
             }
-            variationState_[key] = chosen;
-            instanceVariation_[key] = chosen;
+            _variationState[key] = chosen;
+            _instanceVariation[key] = chosen;
         }
-        const uint32_t mask = uint32_t(1) << instanceVariation_[key];
+        const uint32_t mask = uint32_t(1) << _instanceVariation[key];
         const int playMode = part.playMode;
         const int measure = measureInPattern % std::max(1, part.measures);
         const int measureTicks = part.timeSig.measureTicks();
@@ -733,24 +733,24 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
             double tick = start + double(at - measure * measureTicks + n.offset);
             if (n.timeRange) {
                 const int r = actualRange(n.timeRange) / 2;
-                tick += std::uniform_int_distribution<int>(-r, r)(random_);
+                tick += std::uniform_int_distribution<int>(-r, r)(_random);
             }
             int duration = n.duration;
             if (n.durationRange) {
                 const int r = actualRange(n.durationRange) / 2;
-                duration += std::uniform_int_distribution<int>(-r, r)(random_);
+                duration += std::uniform_int_distribution<int>(-r, r)(_random);
             }
             int velocity = n.velocity;
             if (n.velocityRange)
-                velocity += std::uniform_int_distribution<int>(-n.velocityRange / 2, n.velocityRange / 2)(random_);
+                velocity += std::uniform_int_distribution<int>(-n.velocityRange / 2, n.velocityRange / 2)(_random);
             const int mode = n.playMode == kPartsMode ? playMode : n.playMode;
             const int key =
                 dmMusicToMidi(n.musicValue, mode, chordAt(p.segmentTick + double(at - measure * measureTicks)));
             if (key < 0)
                 continue;
-            tick = std::max(tick, performanceTick_);
-            events_.push_back({tick, 1, ref.channel, key, std::clamp(velocity, 1, 127), 0});
-            events_.push_back({tick + std::max(1, duration), 0, ref.channel, key, 0, 0});
+            tick = std::max(tick, _performanceTick);
+            _events.push_back({tick, 1, ref.channel, key, std::clamp(velocity, 1, 127), 0});
+            _events.push_back({tick + std::max(1, duration), 0, ref.channel, key, 0, 0});
         }
         for (const DmCurve& c : part.curves) {
             if (!(c.variations & mask))
@@ -758,14 +758,14 @@ void DmPerformance::addPattern(const DmStyle& style, const DmPattern& pattern, i
             const int at = part.timeSig.gridTicks(c.grid);
             if (at / measureTicks != measure)
                 continue;
-            addCurve(c, std::max(performanceTick_, start + double(at - measure * measureTicks + c.offset)),
+            addCurve(c, std::max(_performanceTick, start + double(at - measure * measureTicks + c.offset)),
                      ref.channel);
         }
     }
 }
 
 void DmPerformance::composeMeasure(double start) {
-    Playing& p = *playing_;
+    Playing& p = *_playing;
     const DmSegment& s = *p.segment;
     const int measureTicks = p.style ? p.style->timeSig.measureTicks() : DmTimeSig{}.measureTicks();
     // Looping: back from the loop's end while repeats are left.
@@ -776,7 +776,7 @@ void DmPerformance::composeMeasure(double start) {
         p.measuresLeft = 0;
     }
     if (p.segmentTick >= s.length) {
-        playing_.reset(); // finished
+        _playing.reset(); // finished
         return;
     }
     const double from = p.segmentTick, to = from + measureTicks;
@@ -795,75 +795,75 @@ void DmPerformance::composeMeasure(double start) {
             continue;
         const double tick = start + (e.time - from);
         if ((e.status & 0xf0) == 0x90 && e.data2 > 0) {
-            events_.push_back({tick, 1, e.channel, e.data1, e.data2, 0});
-            events_.push_back({tick + std::max(1, e.duration), 0, e.channel, e.data1, 0, 0});
+            _events.push_back({tick, 1, e.channel, e.data1, e.data2, 0});
+            _events.push_back({tick + std::max(1, e.duration), 0, e.channel, e.data1, 0, 0});
         } else if ((e.status & 0xf0) == 0xb0) {
-            events_.push_back({tick, 2, e.channel, e.data1, 0, float(e.data2)});
+            _events.push_back({tick, 2, e.channel, e.data1, 0, float(e.data2)});
         }
     }
     for (const DmCurve& c : s.sequenceCurves)
         if (c.grid >= from && c.grid < to)
             addCurve(c, start + (c.grid - from), c.channel);
-    std::stable_sort(events_.begin(), events_.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
+    std::stable_sort(_events.begin(), _events.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; });
     p.segmentTick = to;
-    measureEnd_ = start + measureTicks;
+    _measureEnd = start + measureTicks;
 }
 
 void DmPerformance::dispatch(const Event& e) {
     switch (e.kind) {
-    case 0: synth_.noteOff(e.channel, e.data1); break;
-    case 1: synth_.noteOn(e.channel, e.data1, e.data2); break;
+    case 0: _synth.noteOff(e.channel, e.data1); break;
+    case 1: _synth.noteOn(e.channel, e.data1, e.data2); break;
     case 2: {
         const int v = std::clamp(int(std::lround(e.value)), 0, 127);
         switch (e.data1) {
-        case 1: synth_.setModWheel(e.channel, v); break;
-        case 7: synth_.setVolume(e.channel, v); break;
-        case 10: synth_.setPan(e.channel, v); break;
-        case 11: synth_.setExpression(e.channel, v); break;
-        case 64: synth_.setSustain(e.channel, v >= 64); break;
+        case 1: _synth.setModWheel(e.channel, v); break;
+        case 7: _synth.setVolume(e.channel, v); break;
+        case 10: _synth.setPan(e.channel, v); break;
+        case 11: _synth.setExpression(e.channel, v); break;
+        case 64: _synth.setSustain(e.channel, v >= 64); break;
         default: break;
         }
         break;
     }
     case 3:
-        synth_.setPitchBend(e.channel, (e.value - 8192) / 8192 * bendRange_[size_t(e.channel) % bendRange_.size()]);
+        _synth.setPitchBend(e.channel, (e.value - 8192) / 8192 * _bendRange[size_t(e.channel) % _bendRange.size()]);
         break;
     default: break;
     }
 }
 
 void DmPerformance::read(float* out, int frames) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(_mutex);
     int done = 0;
     while (done < frames) {
-        if (!playing_ && pending_)
+        if (!_playing && _pending)
             startPending();
-        if (playing_ && performanceTick_ + 1e-6 >= measureEnd_) {
-            if (pending_)
+        if (_playing && _performanceTick + 1e-6 >= _measureEnd) {
+            if (_pending)
                 startPending();
-            composeMeasure(measureEnd_);
+            composeMeasure(_measureEnd);
         }
         size_t used = 0;
-        while (used < events_.size() && events_[used].tick <= performanceTick_ + 1e-6)
-            dispatch(events_[used++]);
-        events_.erase(events_.begin(), events_.begin() + std::ptrdiff_t(used));
+        while (used < _events.size() && _events[used].tick <= _performanceTick + 1e-6)
+            dispatch(_events[used++]);
+        _events.erase(_events.begin(), _events.begin() + std::ptrdiff_t(used));
         int n = frames - done;
         double ticksPerFrame = 0;
-        if (playing_) {
-            ticksPerFrame = tempoAt(playing_->segmentTick) / 60.0 * kDmPulsesPerQuarter / rate_;
-            double next = measureEnd_;
-            if (!events_.empty())
-                next = std::min(next, events_.front().tick);
-            n = std::clamp(int(std::ceil((next - performanceTick_) / ticksPerFrame - 1e-9)), 1, n);
-        } else if (!events_.empty()) {
+        if (_playing) {
+            ticksPerFrame = tempoAt(_playing->segmentTick) / 60.0 * kDmPulsesPerQuarter / _rate;
+            double next = _measureEnd;
+            if (!_events.empty())
+                next = std::min(next, _events.front().tick);
+            n = std::clamp(int(std::ceil((next - _performanceTick) / ticksPerFrame - 1e-9)), 1, n);
+        } else if (!_events.empty()) {
             // Note-offs left after the music stopped.
-            for (const Event& e : events_)
+            for (const Event& e : _events)
                 if (e.kind == 0)
                     dispatch(e);
-            events_.clear();
+            _events.clear();
         }
-        synth_.render(out + 2 * done, size_t(n), volume_ * kMasterGain);
-        performanceTick_ += n * ticksPerFrame;
+        _synth.render(out + 2 * done, size_t(n), _volume * kMasterGain);
+        _performanceTick += n * ticksPerFrame;
         done += n;
     }
 }

@@ -488,7 +488,7 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     Action action = Action::None;
     if (screen_ == Screen::Splash) {
         // Any key or click goes on to the main menu.
-        if (ev.type == EventType::KeyDown || (ev.type == EventType::MouseDown && ev.button == MouseButton::Left)) {
+        if (ev.type == EventType::kKeyDown || (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)) {
             go(Screen::Main);
             action = Action::Changed;
         }
@@ -498,7 +498,7 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
     if (list.empty())
         return action;
     focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
-    if (ev.type == EventType::MouseMove) {
+    if (ev.type == EventType::kMouseMove) {
         // Pointed at: focused (and its word said), as the game's are.
         for (size_t i = 0; i < list.size(); ++i)
             if (list[i].enabled && hit(list[i], ev.mouseX, ev.mouseY)) {
@@ -507,7 +507,7 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
             }
         return action;
     }
-    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         for (size_t i = 0; i < list.size(); ++i)
             if (hit(list[i], ev.mouseX, ev.mouseY)) {
                 focus_ = int(i);
@@ -527,13 +527,13 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
             }
         return action;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return action;
     const Item& item = list[size_t(focus_)];
     switch (ev.key) {
-    case key::Up:
-    case key::Down: {
-        const int step = ev.key == key::Down ? 1 : -1;
+    case key::kUp:
+    case key::kDown: {
+        const int step = ev.key == key::kDown ? 1 : -1;
         for (size_t tries = 0; tries < list.size(); ++tries) {
             focus_ = (focus_ + step + int(list.size())) % int(list.size());
             if (list[size_t(focus_)].enabled)
@@ -541,10 +541,10 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
         }
         break;
     }
-    case key::Left:
-    case key::Right:
+    case key::kLeft:
+    case key::kRight:
         if (!item.button) {
-            change(item, ev.key == key::Right ? 1 : -1);
+            change(item, ev.key == key::kRight ? 1 : -1);
             if (driverChanged_) {
                 driverChanged_ = false;
                 return Action::DriverChanged;
@@ -552,8 +552,8 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
             action = Action::Changed;
         }
         break;
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         if (item.button)
             activate(item, action);
         else if (screen_ == Screen::Races && item.widget == "RACE LOCALE")
@@ -565,7 +565,7 @@ FrontEnd::Action FrontEnd::handle(const Event& ev) {
         else if (screen_ == Screen::Garage)
             activate({"vesel_godrive", true}, action);
         break;
-    case key::Escape:
+    case key::kEscape:
         if (screen_ == Screen::Garage)
             go(afterGarage_);
         else if (screen_ == Screen::Showcase) {

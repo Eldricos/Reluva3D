@@ -419,7 +419,7 @@ void PedModel::draw(const gfx::Mat4& model, int move, float time, uint32_t paint
         call.backLerp = f - std::floor(f);
         call.model = model;
         call.color = colors[std::min(i, colors.size() - 1)];
-        call.rgbSource = gfx::ColorSource::Lighting;
+        call.rgbSource = gfx::ColorSource::kLighting;
         call.ambientLight = light.ambient;
         call.directedLight = light.directed;
         call.lightDirection = light.direction;

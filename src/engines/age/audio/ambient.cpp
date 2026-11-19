@@ -237,7 +237,7 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
                 continue;
             const bool heard = std::find(loops.begin(), loops.end(), i) != loops.end();
             if (heard && v.handle == audio::kNoSound)
-                v.handle = mixer_->play(v.sound, audio::SoundType::Effects, volume, v.heard.pan, true);
+                v.handle = mixer_->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, true);
             else if (!heard && v.handle != audio::kNoSound) {
                 mixer_->stop(v.handle);
                 v.handle = audio::kNoSound;
@@ -255,7 +255,7 @@ void AmbientSounds::update(float dt, const Vec3& listener, const Vec3& right, co
         const float low = std::max(0.5f, v.sample->low), high = std::max(low, v.sample->high);
         v.wait = std::uniform_real_distribution<float>(low, high)(random_);
         if (gain > 0.01f && mixer_ && v.sound && v.handle == audio::kNoSound && busy < kMostVoices) {
-            v.handle = mixer_->play(v.sound, audio::SoundType::Effects, volume, v.heard.pan, false);
+            v.handle = mixer_->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, false);
             mixer_->setPitch(v.handle, v.heard.pitch);
             ++busy;
         }

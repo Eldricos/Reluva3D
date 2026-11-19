@@ -27,8 +27,8 @@ std::string normalizeArchiveName(std::string_view name) {
 // --- DirectoryArchive ------------------------------------------------------------
 
 Error DirectoryArchive::open(const std::filesystem::path& dir) {
-    dir_ = dir;
-    files_.clear();
+    _dir = dir;
+    _files.clear();
     std::error_code ec;
     if (!std::filesystem::is_directory(dir, ec))
         return Error::fail("Not a folder: " + dir.string());
@@ -36,7 +36,7 @@ Error DirectoryArchive::open(const std::filesystem::path& dir) {
         if (!it->is_regular_file(ec))
             continue;
         const std::string rel = it->path().lexically_relative(dir).generic_string();
-        files_.emplace(normalizeArchiveName(rel), it->path());
+        _files.emplace(normalizeArchiveName(rel), it->path());
     }
     if (ec)
         return Error::fail("Cannot list " + dir.string() + ": " + ec.message());
@@ -45,20 +45,20 @@ Error DirectoryArchive::open(const std::filesystem::path& dir) {
 
 std::vector<std::string> DirectoryArchive::list() const {
     std::vector<std::string> names;
-    names.reserve(files_.size());
-    for (const auto& [key, path] : files_)
-        names.push_back(path.lexically_relative(dir_).generic_string());
+    names.reserve(_files.size());
+    for (const auto& [key, path] : _files)
+        names.push_back(path.lexically_relative(_dir).generic_string());
     return names;
 }
 
 bool DirectoryArchive::has(std::string_view name) const {
-    return files_.count(normalizeArchiveName(name)) != 0;
+    return _files.count(normalizeArchiveName(name)) != 0;
 }
 
 Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
-    auto it = files_.find(normalizeArchiveName(name));
-    if (it == files_.end())
-        return Error::fail(std::string(name) + " not found in " + dir_.string());
+    auto it = _files.find(normalizeArchiveName(name));
+    if (it == _files.end())
+        return Error::fail(std::string(name) + " not found in " + _dir.string());
     std::ifstream in(it->second, std::ios::binary | std::ios::ate);
     if (!in)
         return Error::fail("Cannot open " + it->second.string());
@@ -75,13 +75,13 @@ Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t>& out) c
 void SearchSet::add(std::unique_ptr<Archive> archive, int priority) {
     // Before the first member of lower or equal priority: newest first
     // among equals.
-    auto at = std::find_if(members_.begin(), members_.end(),
+    auto at = std::find_if(_members.begin(), _members.end(),
                            [priority](const Member& m) { return m.priority <= priority; });
-    members_.insert(at, Member{std::move(archive), priority});
+    _members.insert(at, Member{std::move(archive), priority});
 }
 
 const Archive* SearchSet::find(std::string_view name) const {
-    for (const Member& m : members_)
+    for (const Member& m : _members)
         if (m.archive->has(name))
             return m.archive.get();
     return nullptr;
@@ -95,7 +95,7 @@ Error SearchSet::read(std::string_view name, std::vector<uint8_t>& out) const {
 
 std::vector<std::string> SearchSet::list() const {
     std::map<std::string, std::string> names; // normalized -> spelling of the first archive
-    for (const Member& m : members_)
+    for (const Member& m : _members)
         for (std::string& n : m.archive->list())
             names.try_emplace(normalizeArchiveName(n), std::move(n));
     std::vector<std::string> out;
@@ -107,7 +107,7 @@ std::vector<std::string> SearchSet::list() const {
 
 std::vector<const Archive*> SearchSet::archives() const {
     std::vector<const Archive*> out;
-    for (const Member& m : members_)
+    for (const Member& m : _members)
         out.push_back(m.archive.get());
     return out;
 }

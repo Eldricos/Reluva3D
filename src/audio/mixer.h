@@ -16,7 +16,7 @@ namespace reluva::audio {
 
 // What a sound is, for the per-type volumes (a game's music, speech and
 // effects settings).
-enum class SoundType { Music, Speech, Effects };
+enum class SoundType { kMusic, kSpeech, kEffects };
 constexpr int kSoundTypes = 3;
 
 // A playing sound, as returned by Mixer::play; 0 is never one.
@@ -72,7 +72,7 @@ public:
     void setBalance(int balance);
     int typeVolume(SoundType type) const;
 
-    int outputRate() const { return outputRate_; }
+    int outputRate() const { return _outputRate; }
 
     // Fills `frames` stereo frames (interleaved signed 16-bit) with every
     // playing sound; silence when none is. The System's audio callback.
@@ -92,15 +92,15 @@ private:
     Channel* find(SoundHandle handle);
     const Channel* find(SoundHandle handle) const;
 
-    const int outputRate_;
-    mutable std::mutex mutex_;
-    std::vector<Channel> channels_;
-    SoundHandle nextHandle_ = 1;
-    int typeVolume_[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
-    int balance_ = 0;
-    std::vector<int32_t> accumulator_; // mix()'s working buffer, stereo
-    std::vector<std::pair<std::shared_ptr<Stream>, SoundType>> streams_;
-    std::vector<float> streamBuffer_;
+    const int _outputRate;
+    mutable std::mutex _mutex;
+    std::vector<Channel> _channels;
+    SoundHandle _nextHandle = 1;
+    int _typeVolume[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
+    int _balance = 0;
+    std::vector<int32_t> _accumulator; // mix()'s working buffer, stereo
+    std::vector<std::pair<std::shared_ptr<Stream>, SoundType>> _streams;
+    std::vector<float> _streamBuffer;
 };
 
 // Starts the System's audio output with the mixer as its source. The mixer

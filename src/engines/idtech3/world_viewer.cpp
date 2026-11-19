@@ -55,7 +55,7 @@ void WorldViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         // No 3D here: say so on the 2D framebuffer.
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The World page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -63,7 +63,7 @@ void WorldViewer::activate() {
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
     device_ = renderer_->deviceName();
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     world_ = std::make_unique<WorldRenderer>(*renderer_, *shaders_);
@@ -189,31 +189,31 @@ void WorldViewer::handleEvent(const Event& ev) {
         case 's': held_[Back] = down; return true;
         case 'a': held_[Left] = down; return true;
         case 'd': held_[Right] = down; return true;
-        case key::Space: case 'e': held_[Up] = down; return true;
+        case key::kSpace: case 'e': held_[Up] = down; return true;
         case 'c': case 'q': held_[Down] = down; return true;
-        case key::LShift: case key::RShift: held_[Fast] = down; return true;
+        case key::kLShift: case key::kRShift: held_[Fast] = down; return true;
         default: return false;
         }
     };
-    if (ev.type == EventType::KeyUp) {
+    if (ev.type == EventType::kKeyUp) {
         hold(ev.key, false);
-    } else if (ev.type == EventType::KeyDown) {
+    } else if (ev.type == EventType::kKeyDown) {
         if (hold(ev.key, true) || ev.repeat)
             return;
         const int n = static_cast<int>(names_.size());
-        if (ev.key == key::Left || ev.key == key::Right)
-            load((index_ + (ev.key == key::Left ? n - 1 : 1)) % n);
+        if (ev.key == key::kLeft || ev.key == key::kRight)
+            load((index_ + (ev.key == key::kLeft ? n - 1 : 1)) % n);
         else if (ev.key == 'r')
             toStart();
         else if (ev.key == 'i')
             showInfo_ = !showInfo_;
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         dragging_ = true;
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         dragging_ = false;
-    } else if (ev.type == EventType::MouseMove && dragging_) {
+    } else if (ev.type == EventType::kMouseMove && dragging_) {
         yaw_ -= float(ev.mouseX - lastX_) * 0.005f;
         pitch_ = std::clamp(pitch_ - float(ev.mouseY - lastY_) * 0.005f, -1.55f, 1.55f);
         lastX_ = ev.mouseX;

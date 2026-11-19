@@ -201,17 +201,17 @@ void HelpViewer::handle(const Event& ev) {
             reading_ = -1;
         }
     };
-    if (ev.type == EventType::MouseWheel) {
+    if (ev.type == EventType::kMouseWheel) {
         scroll(-ev.wheelY * 3);
         return;
     }
-    if (ev.type == EventType::MouseDown) {
-        if (ev.button == MouseButton::Right) {
+    if (ev.type == EventType::kMouseDown) {
+        if (ev.button == MouseButton::kRight) {
             if (reading_ >= 0)
                 back();
             else
                 open_ = false;
-        } else if (ev.button == MouseButton::Left && ev.mouseY >= kTop && ev.mouseY < kBottom) {
+        } else if (ev.button == MouseButton::kLeft && ev.mouseY >= kTop && ev.mouseY < kBottom) {
             const int row = (ev.mouseY - kTop) / kRow;
             if (reading_ < 0) {
                 const int at = top_ + row;
@@ -230,46 +230,46 @@ void HelpViewer::handle(const Event& ev) {
         }
         return;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     switch (ev.key) {
-    case key::Up:
+    case key::kUp:
         scroll(-1);
         break;
-    case key::Down:
+    case key::kDown:
         scroll(1);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         scroll(-page);
         break;
-    case key::PageDown:
-    case key::Space:
+    case key::kPageDown:
+    case key::kSpace:
         scroll(page);
         break;
-    case key::Home:
+    case key::kHome:
         scroll(-100000);
         break;
-    case key::End:
+    case key::kEnd:
         scroll(100000);
         break;
-    case key::Tab: // the next link (Shift: the one before)
+    case key::kTab: // the next link (Shift: the one before)
         if (reading_ >= 0 && !links_.empty()) {
             const int n = int(links_.size());
-            link_ = ((link_ < 0 ? 0 : link_) + ((ev.mods & keymod::Shift) ? n - 1 : 1)) % n;
+            link_ = ((link_ < 0 ? 0 : link_) + ((ev.mods & keymod::kShift) ? n - 1 : 1)) % n;
             showLink(link_);
         }
         break;
-    case key::Return:
-    case key::KpEnter:
-    case key::Right:
+    case key::kReturn:
+    case key::kKpEnter:
+    case key::kRight:
         if (reading_ < 0) {
             back_.clear();
             openTopic(list_[size_t(row_)], false);
-        } else if (ev.key != key::Right) {
+        } else if (ev.key != key::kRight) {
             follow(link_);
         }
         break;
-    case key::Escape:
+    case key::kEscape:
         if (reading_ >= 0) {
             reading_ = -1;
             back_.clear();
@@ -277,8 +277,8 @@ void HelpViewer::handle(const Event& ev) {
             open_ = false;
         }
         break;
-    case key::Backspace:
-    case key::Left:
+    case key::kBackspace:
+    case key::kLeft:
         if (reading_ >= 0)
             back();
         break;

@@ -385,17 +385,17 @@ void CityScene::drawCloudShadows() {
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
         call.texture = clouds;
-        call.texGen = gfx::TexGen::Vector;
+        call.texGen = gfx::TexGen::kVector;
         call.texVector0 = {1 / kTile, 0, 0};
         call.texVector1 = {0, 0, 1 / kTile};
         call.preRow0 = {1, 0, std::fmod(drift, 1.0f)};
         call.preRow1 = {0, 1, std::fmod(drift * 0.6f, 1.0f)};
-        call.state.src = gfx::Blend::Zero; // what's there times the shadow's alpha
-        call.state.dst = gfx::Blend::SrcAlpha;
+        call.state.src = gfx::Blend::kZero; // what's there times the shadow's alpha
+        call.state.dst = gfx::Blend::kSrcAlpha;
         call.state.depthEqual = true;
         call.state.depthWrite = false;
         call.state.depthBias = false;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         renderer_.draw(call);
     }
 }
@@ -426,7 +426,7 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
             call.model = at;
             call.texture = d.texture;
             call.state.depthTest = call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             renderer_.draw(call);
         }
     }
@@ -445,14 +445,14 @@ size_t CityScene::draw(const gfx::Mat4& viewProj, const gfx::Vec3& eye, bool mod
             call.firstIndex = b.firstIndex;
             call.indexCount = b.indexCount;
             call.texture = textures_->frame(b.texture);
-            call.rgbSource = gfx::ColorSource::Vertex; // lit by relightCity
-            call.state.cull = gfx::Cull::None;
+            call.rgbSource = gfx::ColorSource::kVertex; // lit by relightCity
+            call.state.cull = gfx::Cull::kNone;
             call.state.depthBias = pass == 1;
             if (pass == 1) {
-                call.state.src = gfx::Blend::SrcAlpha;
-                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+                call.state.src = gfx::Blend::kSrcAlpha;
+                call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
                 call.state.depthWrite = false;
-                call.state.alphaTest = gfx::AlphaTest::Gt0;
+                call.state.alphaTest = gfx::AlphaTest::kGt0;
             }
             applyFog(call, light_);
             renderer_.draw(call);
@@ -502,11 +502,11 @@ void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const g
         call.indexCount = b.indexCount;
         call.dynamicLights = true;
         // Over what's drawn: what's there times (1 + the light).
-        call.state.src = gfx::Blend::DstColor;
-        call.state.dst = gfx::Blend::One;
+        call.state.src = gfx::Blend::kDstColor;
+        call.state.dst = gfx::Blend::kOne;
         call.state.depthEqual = true;
         call.state.depthWrite = false;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         renderer_.draw(call);
     }
 }

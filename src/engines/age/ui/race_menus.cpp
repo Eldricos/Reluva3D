@@ -67,8 +67,8 @@ void RaceViewer::playVoice(const std::string& clip) {
         return;
     auto sound = std::make_shared<audio::Sound>();
     if (!audio::decodeSound(data, *sound)) {
-        ctx_.mixer->stopType(audio::SoundType::Speech);
-        ctx_.mixer->play(sound, audio::SoundType::Speech);
+        ctx_.mixer->stopType(audio::SoundType::kSpeech);
+        ctx_.mixer->play(sound, audio::SoundType::kSpeech);
     }
 }
 
@@ -90,7 +90,7 @@ bool RaceViewer::playMovie(float dt) {
             return false;
         movieTime_ = 0;
         if (ctx_.mixer && movie_->sound().frames())
-            movieSound_ = ctx_.mixer->play(std::make_shared<audio::Sound>(movie_->sound()), audio::SoundType::Music);
+            movieSound_ = ctx_.mixer->play(std::make_shared<audio::Sound>(movie_->sound()), audio::SoundType::kMusic);
     }
     if (!movie_)
         return false;
@@ -149,27 +149,27 @@ void RaceViewer::instantReplay(ReplayReturn back) {
 
 void RaceViewer::pauseEvent(const Event& ev) {
     int key = ev.key;
-    if (ev.type == EventType::MouseDown) {
+    if (ev.type == EventType::kMouseDown) {
         // A line clicked: as Enter on it.
         const int i = (ev.mouseY - kPauseTop + kPauseStep / 4) / kPauseStep;
         if (ev.mouseY < kPauseTop - kPauseStep / 4 || i >= kPauseItems || ev.mouseX < 100 || ev.mouseX >= kFrameW - 100)
             return;
         pauseFocus_ = i;
-        key = key::Return;
-    } else if (ev.type != EventType::KeyDown)
+        key = key::kReturn;
+    } else if (ev.type != EventType::kKeyDown)
         return;
     switch (key) {
-    case key::Up:
+    case key::kUp:
         pauseFocus_ = (pauseFocus_ + kPauseItems - 1) % kPauseItems;
         break;
-    case key::Down:
+    case key::kDown:
         pauseFocus_ = (pauseFocus_ + 1) % kPauseItems;
         break;
-    case key::Escape:
+    case key::kEscape:
         paused_ = false;
         break;
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         switch (pauseFocus_) {
         case kResume:
             paused_ = false;
@@ -200,20 +200,20 @@ void RaceViewer::pauseEvent(const Event& ev) {
 void RaceViewer::resultsEvent(const Event& ev) {
     auto enabled = [&](int b) { return b != kResNext || nextRaceOpen(); };
     int key = ev.key;
-    if (ev.type == EventType::MouseDown) {
+    if (ev.type == EventType::kMouseDown) {
         // A button clicked: as Enter on it.
         const int b = (ev.mouseY - kResultTop) / kResultStep;
         if (ev.mouseY < kResultTop || b >= kResultButtons || !enabled(b) || ev.mouseX < kResultX ||
             ev.mouseX >= kResultX + 230)
             return;
         resultsFocus_ = b;
-        key = key::Return;
-    } else if (ev.type != EventType::KeyDown)
+        key = key::kReturn;
+    } else if (ev.type != EventType::kKeyDown)
         return;
     switch (key) {
-    case key::Up:
-    case key::Down: {
-        const int step = ev.key == key::Down ? 1 : kResultButtons - 1;
+    case key::kUp:
+    case key::kDown: {
+        const int step = ev.key == key::kDown ? 1 : kResultButtons - 1;
         do
             resultsFocus_ = (resultsFocus_ + step) % kResultButtons;
         while (!enabled(resultsFocus_));
@@ -224,12 +224,12 @@ void RaceViewer::resultsEvent(const Event& ev) {
         life_.stop();
         startRace();
         break;
-    case key::Escape:
+    case key::kEscape:
         results_ = false;
         endRace();
         break;
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         switch (resultsFocus_) {
         case kResRestart:
             results_ = false;

@@ -542,7 +542,7 @@ void RaceViewer::announce(const GoldEvent& e) {
         return;
     auto sound = std::make_shared<audio::Sound>();
     if (!audio::decodeSound(data, *sound))
-        ctx_.mixer->play(sound, audio::SoundType::Speech);
+        ctx_.mixer->play(sound, audio::SoundType::kSpeech);
 }
 
 void RaceViewer::stepNet(float dt) {
@@ -720,18 +720,18 @@ bool RaceViewer::netEvent(const Event& ev) {
         return false;
     // Typing a line to the others (T, then Enter).
     if (chatting_) {
-        if (ev.type == EventType::TextInput) {
+        if (ev.type == EventType::kTextInput) {
             for (const char* c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && chatLine_.size() < 100)
                     chatLine_.push_back(*c);
-        } else if (ev.type == EventType::KeyDown) {
-            if (ev.key == key::Return || ev.key == key::KpEnter) {
+        } else if (ev.type == EventType::kKeyDown) {
+            if (ev.key == key::kReturn || ev.key == key::kKpEnter) {
                 if (net_ && net_->session() && !chatLine_.empty())
                     net_->session()->say(chatLine_);
                 chatting_ = false;
-            } else if (ev.key == key::Escape) {
+            } else if (ev.key == key::kEscape) {
                 chatting_ = false;
-            } else if (ev.key == key::Backspace && !chatLine_.empty()) {
+            } else if (ev.key == key::kBackspace && !chatLine_.empty()) {
                 chatLine_.pop_back();
             }
             if (!chatting_)
@@ -739,7 +739,7 @@ bool RaceViewer::netEvent(const Event& ev) {
         }
         return true;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return false;
     NetSession* session = net_ ? net_->session() : nullptr;
     if (controlOf(ev.key) == Control::Chat) {
@@ -749,13 +749,13 @@ bool RaceViewer::netEvent(const Event& ev) {
         ctx_.sys.setTextInput(true);
         return true;
     }
-    const bool enter = ev.key == key::Return || ev.key == key::KpEnter;
-    if (ev.key == key::Escape || (state_ == State::Finished && enter)) {
+    const bool enter = ev.key == key::kReturn || ev.key == key::kKpEnter;
+    if (ev.key == key::kEscape || (state_ == State::Finished && enter)) {
         // The host takes everyone back to the lobby; a player leaves (Esc)
         // or waits for the host (Enter).
         if (session && session->isHost())
             session->backToLobby();
-        else if (ev.key == key::Escape) {
+        else if (ev.key == key::kEscape) {
             net_->leave();
             endNetGame();
             netMenus_ = true;

@@ -276,7 +276,7 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
         call.model = model;
         call.texture = animate ? animate->frame(d.texture) : d.texture;
         call.color = d.color;
-        call.rgbSource = d.lit ? gfx::ColorSource::Lighting : gfx::ColorSource::Constant;
+        call.rgbSource = d.lit ? gfx::ColorSource::kLighting : gfx::ColorSource::kConstant;
         call.ambientLight = light.ambient;
         call.directedLight = light.directed;
         call.lightDirection = light.direction;
@@ -289,14 +289,14 @@ void drawModelMesh(gfx::Renderer3D& renderer, const ModelMesh& mesh, const gfx::
         call.materialEmissive = d.emissive;
         applyFog(call, light, d.glow);
         if (d.glow) {
-            call.state.src = call.state.dst = gfx::Blend::One;
+            call.state.src = call.state.dst = gfx::Blend::kOne;
             call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
         } else if (translucent) {
-            call.state.src = gfx::Blend::SrcAlpha;
-            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            call.state.src = gfx::Blend::kSrcAlpha;
+            call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
             call.state.depthWrite = false;
-            call.state.alphaTest = gfx::AlphaTest::Gt0;
+            call.state.alphaTest = gfx::AlphaTest::kGt0;
         }
         renderer.draw(call);
     }
@@ -317,12 +317,12 @@ void drawModelReflection(gfx::Renderer3D& renderer, const ModelMesh& mesh, const
         call.texture = map;
         // The renderer's reflection gives (0.5 + r.y / 2, 0.5 - r.z / 2);
         // a sphere map wants the way across in u and up at the top in v.
-        call.texGen = gfx::TexGen::Environment;
+        call.texGen = gfx::TexGen::kEnvironment;
         call.preRow0 = {0, -1, 1};
         call.preRow1 = {-1, 0, 1};
         const float k = d.shininess * strength;
         call.color = {k, k, k, 1};
-        call.state.src = call.state.dst = gfx::Blend::One;
+        call.state.src = call.state.dst = gfx::Blend::kOne;
         call.state.depthEqual = true;
         call.state.depthWrite = false;
         applyFog(call, light, true);
@@ -457,9 +457,9 @@ void FlareDrawer::draw(const Vec3& at, float size, const std::array<float, 3>& c
                   axes.z[0], axes.z[1], axes.z[2], 0, p[0], p[1], p[2], 1};
     call.texture = texture_;
     call.color = {color[0], color[1], color[2], 1};
-    call.state.src = call.state.dst = gfx::Blend::One;
+    call.state.src = call.state.dst = gfx::Blend::kOne;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     renderer_.draw(call);
 }
 

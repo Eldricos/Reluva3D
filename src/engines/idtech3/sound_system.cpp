@@ -108,7 +108,7 @@ void SoundSystem::startSound(const std::optional<Vec3f>& origin, int entity, int
         note(name, entity, what + (!sound ? "not found" : "skipped as a repeat"));
         return;
     }
-    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0);
+    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::kEffects, 0);
     if (handle == audio::kNoSound)
         return;
     char volume[48];
@@ -125,7 +125,7 @@ void SoundSystem::startLocalSound(const std::string& name, int channel) {
          (!sound ? "not found" : ok ? "played" : "skipped as a repeat"));
     if (!ok)
         return;
-    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects);
+    const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::kEffects);
     if (handle != audio::kNoSound)
         playing_.push_back({handle, -1, channel, std::nullopt, true, name, nowMs_});
 }
@@ -193,7 +193,7 @@ void SoundSystem::startBackgroundTrack(const std::string& intro, const std::stri
     if (!first)
         first = musicLoop_;
     if (first)
-        music_ = mixer_.play(first, audio::SoundType::Music, audio::kMaxVolume, 0, !musicIntro_);
+        music_ = mixer_.play(first, audio::SoundType::kMusic, audio::kMaxVolume, 0, !musicIntro_);
 }
 
 void SoundSystem::stopBackgroundTrack() {
@@ -230,7 +230,7 @@ void SoundSystem::endFrame() {
             const auto sound = find(key.second);
             if (!sound)
                 continue;
-            const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::Effects, 0, 0, true);
+            const audio::SoundHandle handle = mixer_.play(sound, audio::SoundType::kEffects, 0, 0, true);
             if (handle == audio::kNoSound)
                 continue;
             it = loops_.emplace(key, handle).first;
@@ -241,14 +241,14 @@ void SoundSystem::endFrame() {
     // The music: the loop once the intro is over.
     if (musicIntro_ && music_ != audio::kNoSound && !mixer_.isPlaying(music_)) {
         musicIntro_ = false;
-        music_ = musicLoop_ ? mixer_.play(musicLoop_, audio::SoundType::Music, audio::kMaxVolume, 0, true)
+        music_ = musicLoop_ ? mixer_.play(musicLoop_, audio::SoundType::kMusic, audio::kMaxVolume, 0, true)
                             : audio::kNoSound;
     }
 }
 
 void SoundSystem::setVolumes(float effects, float music) {
-    mixer_.setTypeVolume(audio::SoundType::Effects, int(std::clamp(effects, 0.0f, 1.0f) * float(audio::kMaxVolume)));
-    mixer_.setTypeVolume(audio::SoundType::Music, int(std::clamp(music, 0.0f, 1.0f) * float(audio::kMaxVolume)));
+    mixer_.setTypeVolume(audio::SoundType::kEffects, int(std::clamp(effects, 0.0f, 1.0f) * float(audio::kMaxVolume)));
+    mixer_.setTypeVolume(audio::SoundType::kMusic, int(std::clamp(music, 0.0f, 1.0f) * float(audio::kMaxVolume)));
 }
 
 void SoundSystem::stopAll() {

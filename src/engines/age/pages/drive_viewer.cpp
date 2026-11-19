@@ -213,7 +213,7 @@ void DriveViewer::deactivate() {
 void DriveViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The Drive page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -221,7 +221,7 @@ void DriveViewer::activate() {
         return;
     }
     scene_ = std::make_unique<CityScene>(*renderer_, ctx_.files);
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
     applySoundOptions(loadOptions(ctx_.savePath), ctx_.mixer);
     keys_ = 0;
     lastMs_ = 0;
@@ -332,16 +332,16 @@ void DriveViewer::handleEvent(const Event& ev) {
         return;
     // A game controller: its sticks and triggers drive, its buttons press
     // keys.
-    if (ev.type == EventType::PadAxis) {
+    if (ev.type == EventType::kPadAxis) {
         pad_.axis(ev.pad, ev.value);
         return;
     }
-    if (ev.type == EventType::PadDown || ev.type == EventType::PadUp) {
+    if (ev.type == EventType::kPadDown || ev.type == EventType::kPadUp) {
         if (Event key; padKeyEvent(ev, true, currentOptions(), key))
             handleEvent(key);
         return;
     }
-    if (ev.type == EventType::KeyDown) {
+    if (ev.type == EventType::kKeyDown) {
         const Control control = controlOf(ev.key);
         if (control == Control::Horn && car_.hasSiren()) { // a police car's horn is its siren
             sirenOn_ = !sirenOn_;
@@ -351,7 +351,7 @@ void DriveViewer::handleEvent(const Event& ev) {
             keys_ |= d;
             return;
         }
-        if (ev.key == key::F1) {
+        if (ev.key == key::kF1) {
             view_.controlsList = !view_.controlsList; // stops the drive while it's up
             keys_ = 0;
             return;
@@ -367,11 +367,11 @@ void DriveViewer::handleEvent(const Event& ev) {
             return;
         }
         const int cars = int(cars_.size()), cities = int(cities_.size());
-        if (ev.key == key::PageUp || ev.key == key::PageDown) {
+        if (ev.key == key::kPageUp || ev.key == key::kPageDown) {
             paintJob_ = 0;
-            loadCar((carIndex_ + (ev.key == key::PageDown ? 1 : cars - 1)) % cars);
-        } else if (ev.key == key::Home || ev.key == key::End) {
-            loadCity((city_ + (ev.key == key::End ? 1 : cities - 1)) % cities);
+            loadCar((carIndex_ + (ev.key == key::kPageDown ? 1 : cars - 1)) % cars);
+        } else if (ev.key == key::kHome || ev.key == key::kEnd) {
+            loadCity((city_ + (ev.key == key::kEnd ? 1 : cities - 1)) % cities);
         } else if (control == Control::ChangeCamera) {
             camera_ = (camera_ + 1) % int(cameras_.size());
             cameraReset_ = true;
@@ -392,10 +392,10 @@ void DriveViewer::handleEvent(const Event& ev) {
             mirror_ = !mirror_;
             // The page's own keys, on function keys clear of the game's controls
             // (F4 is the game's restart).
-        } else if (ev.key == key::F1 + 7) {
+        } else if (ev.key == key::kF1 + 7) {
             ++paintJob_;
             loadCar(carIndex_);
-        } else if (ev.key == key::F1 + 4) {
+        } else if (ev.key == key::kF1 + 4) {
             const bool rain = lighting_ % 4 == 3;
             lighting_ = (lighting_ + 1) % 16;
             scene_->setLighting(lighting_);
@@ -403,20 +403,20 @@ void DriveViewer::handleEvent(const Event& ev) {
                 startLife(); // the pedestrians dressed for the weather
                 startSounds(); // the tyres on wet roads
             }
-        } else if (ev.key == key::F1 + 5) {
+        } else if (ev.key == key::kF1 + 5) {
             trafficLevel_ = (trafficLevel_ + 1) % 4;
             life_.setTrafficDensity(kTrafficLevels[trafficLevel_]);
             life_.setPedDensity(kPedLevels[trafficLevel_] * pedestrianShare());
-        } else if (ev.key == key::F1 + 6) {
+        } else if (ev.key == key::kF1 + 6) {
             cops_ = !cops_;
             startLife();
-        } else if (ev.key == key::F1 + 3) {
+        } else if (ev.key == key::kF1 + 3) {
             resetCar();
             life_.police().forgive();
-        } else if (ev.key == key::F1 + 8) {
+        } else if (ev.key == key::kF1 + 8) {
             showInfo_ = !showInfo_;
         }
-    } else if (ev.type == EventType::KeyUp) {
+    } else if (ev.type == EventType::kKeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
         view_.press(controlOf(ev.key), false);
     }

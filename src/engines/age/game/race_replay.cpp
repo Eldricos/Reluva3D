@@ -231,7 +231,7 @@ void RaceViewer::replayButton(int which) {
 }
 
 bool RaceViewer::replayEvent(const Event& ev) {
-    if (ev.type == EventType::MouseDown) {
+    if (ev.type == EventType::kMouseDown) {
         // A word on the bar clicked.
         if (ev.mouseY < kBarY - 4 || ev.mouseY >= kBarY + 22)
             return true;
@@ -247,29 +247,29 @@ bool RaceViewer::replayEvent(const Event& ev) {
         }
         return true;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return true;
     switch (ev.key) {
-    case key::Left:
+    case key::kLeft:
         replayFocus_ = (replayFocus_ + kButtons - 1) % kButtons;
         break;
-    case key::Right:
+    case key::kRight:
         replayFocus_ = (replayFocus_ + 1) % kButtons;
         break;
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         replayButton(replayFocus_);
         break;
-    case key::Space:
+    case key::kSpace:
         replayButton(kPlay);
         break;
-    case key::Backspace:
+    case key::kBackspace:
         replayButton(kRew);
         break;
     case '.':
         replayButton(kStep);
         break;
-    case key::Escape:
+    case key::kEscape:
         replayButton(kQuit);
         break;
     default:

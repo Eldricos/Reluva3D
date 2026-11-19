@@ -655,7 +655,7 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     if (list.empty())
         return Action::None;
     focus_ = std::clamp(focus_, 0, int(list.size()) - 1);
-    if (ev.type == EventType::MouseMove && !waitingForKey_) {
+    if (ev.type == EventType::kMouseMove && !waitingForKey_) {
         // Pointed at: focused, as the game's are.
         for (size_t i = 0; i < list.size(); ++i) {
             int w = 0, h = 0;
@@ -669,14 +669,14 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
     const Item& item = list[size_t(focus_)];
     // Customize Controls, waiting for the key to give a control.
     if (waitingForKey_) {
-        if (ev.type != EventType::KeyDown)
+        if (ev.type != EventType::kKeyDown)
             return Action::None;
         waitingForKey_ = false;
-        if (ev.key == key::Escape)
+        if (ev.key == key::kEscape)
             return Action::None;
         const Control c = Control(row_);
         uint32_t& slot = edit_.keys[size_t(row_)][size_t(column_)];
-        if (ev.key == key::Backspace || ev.key == key::Delete) {
+        if (ev.key == key::kBackspace || ev.key == key::kDelete) {
             slot = 0;
             return Action::None;
         }
@@ -688,36 +688,36 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         return Action::None;
     }
     if (screen_ == Screen::NewDriver && focus_ == 0) {
-        if (ev.type == EventType::TextInput) {
+        if (ev.type == EventType::kTextInput) {
             for (const char* c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && newName_.size() < 20)
                     newName_.push_back(*c);
             return Action::None;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Backspace) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
             if (!newName_.empty())
                 newName_.pop_back();
             return Action::None;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Space)
+        if (ev.type == EventType::kKeyDown && ev.key == key::kSpace)
             return Action::None;
     }
     if (screen_ == Screen::ReplayName) {
-        if (ev.type == EventType::TextInput) {
+        if (ev.type == EventType::kTextInput) {
             for (const char* c = ev.text; *c; ++c)
                 if (static_cast<unsigned char>(*c) >= 32 && name_.size() < 40)
                     name_.push_back(*c);
             return Action::None;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Backspace) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
             if (!name_.empty())
                 name_.pop_back();
             return Action::None;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Space)
+        if (ev.type == EventType::kKeyDown && ev.key == key::kSpace)
             return Action::None; // typed, as text
     }
-    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         for (size_t i = 0; i < list.size(); ++i) {
             int w = 0, h = 0;
             if (!list[i].enabled || !hit(list[i], ev.mouseX, ev.mouseY, w, h))
@@ -748,12 +748,12 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         }
         return Action::None;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return Action::None;
     switch (ev.key) {
-    case key::Up:
-    case key::Down: {
-        const int dir = ev.key == key::Down ? 1 : -1;
+    case key::kUp:
+    case key::kDown: {
+        const int dir = ev.key == key::kDown ? 1 : -1;
         if (item.kind == Kind::List && screen_ == Screen::CitySelection) {
             if (cities_ && int(cityRow_) + dir >= 0 && size_t(int(cityRow_) + dir) < cities_->size()) {
                 cityRow_ = size_t(int(cityRow_) + dir);
@@ -782,16 +782,16 @@ GameMenus::Action GameMenus::handle(const Event& ev) {
         }
         break;
     }
-    case key::Left:
-    case key::Right:
+    case key::kLeft:
+    case key::kRight:
         if (item.enabled && item.kind != Kind::Button && item.kind != Kind::Check)
-            step(item, ev.key == key::Right ? 1 : -1);
+            step(item, ev.key == key::kRight ? 1 : -1);
         break;
-    case key::Return:
-    case key::KpEnter:
-    case key::Space:
+    case key::kReturn:
+    case key::kKpEnter:
+    case key::kSpace:
         return activate(item);
-    case key::Escape:
+    case key::kEscape:
         switch (screen_) {
         case Screen::Options:
         case Screen::Quit:

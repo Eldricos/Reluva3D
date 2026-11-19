@@ -12,7 +12,7 @@
 
 namespace reluva {
 
-Launcher::Launcher(SdlSystem& system, Config& config) : sys_(system), config_(config) {
+Launcher::Launcher(SdlSystem& system, Config& config) : _sys(system), _config(config) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -26,10 +26,10 @@ Launcher::Launcher(SdlSystem& system, Config& config) : sys_(system), config_(co
     ImGui::GetStyle().ScaleAllSizes(scale);
     ImGui::GetStyle().FontScaleDpi = scale;
 
-    ImGui_ImplSDL3_InitForSDLRenderer(sys_.window(), sys_.renderer());
-    ImGui_ImplSDLRenderer3_Init(sys_.renderer());
+    ImGui_ImplSDL3_InitForSDLRenderer(_sys.window(), _sys.renderer());
+    ImGui_ImplSDLRenderer3_Init(_sys.renderer());
 
-    selected_ = config_.get(Config::kGlobalSection, "last_target");
+    _selected = _config.get(Config::kGlobalSection, "last_target");
 }
 
 Launcher::~Launcher() {
@@ -39,8 +39,8 @@ Launcher::~Launcher() {
 }
 
 std::optional<GameTarget> Launcher::run() {
-    sys_.resetForLauncher();
-    SDL_Renderer* renderer = sys_.renderer();
+    _sys.resetForLauncher();
+    SDL_Renderer* renderer = _sys.renderer();
 
     std::optional<GameTarget> launch;
     bool quit = false;
@@ -51,7 +51,7 @@ std::optional<GameTarget> Launcher::run() {
             if (ev.type == SDL_EVENT_QUIT)
                 quit = true;
         }
-        if (SDL_GetWindowFlags(sys_.window()) & SDL_WINDOW_MINIMIZED) {
+        if (SDL_GetWindowFlags(_sys.window()) & SDL_WINDOW_MINIMIZED) {
             SDL_Delay(16);
             continue;
         }
@@ -74,8 +74,8 @@ std::optional<GameTarget> Launcher::run() {
     SDL_SetRenderScale(renderer, 1.0f, 1.0f);
 
     if (launch) {
-        config_.set(Config::kGlobalSection, "last_target", launch->target);
-        config_.save();
+        _config.set(Config::kGlobalSection, "last_target", launch->target);
+        _config.save();
     }
     return launch;
 }
@@ -98,18 +98,18 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
 
     // Game list
     ImGui::BeginChild("games", ImVec2(-buttonsWidth, -footer), ImGuiChildFlags_Borders);
-    const auto targets = config_.targets();
+    const auto targets = _config.targets();
     if (targets.empty())
         ImGui::TextDisabled("No games yet. Use \"Add Game...\" and pick a game's install folder.");
     for (const std::string& name : targets) {
-        std::string label = config_.get(name, "description", name) + "##" + name;
-        if (ImGui::Selectable(label.c_str(), selected_ == name, ImGuiSelectableFlags_AllowDoubleClick)) {
-            selected_ = name;
+        std::string label = _config.get(name, "description", name) + "##" + name;
+        if (ImGui::Selectable(label.c_str(), _selected == name, ImGuiSelectableFlags_AllowDoubleClick)) {
+            _selected = name;
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                 launch = targetFromConfig(name);
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", config_.get(name, "path").c_str());
+            ImGui::SetTooltip("%s", _config.get(name, "path").c_str());
     }
     ImGui::EndChild();
 
@@ -117,26 +117,26 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     ImGui::SameLine();
     ImGui::BeginGroup();
     const ImVec2 bsize(-1, 0);
-    const bool haveSelection = config_.hasSection(selected_) && selected_ != Config::kGlobalSection;
+    const bool haveSelection = _config.hasSection(_selected) && _selected != Config::kGlobalSection;
 
     ImGui::BeginDisabled(!haveSelection);
     if (ImGui::Button("Start", bsize))
-        launch = targetFromConfig(selected_);
+        launch = targetFromConfig(_selected);
     ImGui::EndDisabled();
 
-    ImGui::BeginDisabled(pickInProgress_);
+    ImGui::BeginDisabled(_pickInProgress);
     if (ImGui::Button("Add Game...", bsize)) {
-        pickInProgress_ = true;
-        SDL_ShowOpenFolderDialog(pickFolderCallback, this, sys_.window(), nullptr, false);
+        _pickInProgress = true;
+        SDL_ShowOpenFolderDialog(pickFolderCallback, this, _sys.window(), nullptr, false);
     }
     ImGui::EndDisabled();
 
     ImGui::BeginDisabled(!haveSelection);
     if (ImGui::Button("Remove", bsize)) {
-        config_.removeSection(selected_);
-        config_.save();
-        status_ = "Removed " + selected_;
-        selected_.clear();
+        _config.removeSection(_selected);
+        _config.save();
+        _status = "Removed " + _selected;
+        _selected.clear();
     }
     ImGui::EndDisabled();
 
@@ -151,24 +151,24 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
 
     // Status bar
     ImGui::Separator();
-    ImGui::TextUnformatted(status_.empty() ? "Ready." : status_.c_str());
+    ImGui::TextUnformatted(_status.empty() ? "Ready." : _status.c_str());
 
     // Several games matched one folder: let the user pick.
-    if (!pendingChoices_.empty()) {
+    if (!_pendingChoices.empty()) {
         ImGui::OpenPopup("Choose game");
         if (ImGui::BeginPopupModal("Choose game", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::TextUnformatted("Several games match this folder:");
-            for (const DetectedGame& g : pendingChoices_) {
+            for (const DetectedGame& g : _pendingChoices) {
                 std::string label = g.description + " (" + g.language + ", " + g.platform + ")";
                 if (ImGui::Selectable(label.c_str())) {
-                    addGame(g, pendingPath_);
-                    pendingChoices_.clear();
+                    addGame(g, _pendingPath);
+                    _pendingChoices.clear();
                     ImGui::CloseCurrentPopup();
                     break;
                 }
             }
             if (ImGui::Button("Cancel")) {
-                pendingChoices_.clear();
+                _pendingChoices.clear();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
@@ -181,59 +181,59 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
 void SDLCALL Launcher::pickFolderCallback(void* userdata, const char* const* files, int) {
     auto* self = static_cast<Launcher*>(userdata);
     {
-        std::lock_guard lock(self->pickMutex_);
+        std::lock_guard lock(self->_pickMutex);
         if (!files)
-            self->pickError_ = std::string("Folder dialog failed: ") + SDL_GetError();
+            self->_pickError = std::string("Folder dialog failed: ") + SDL_GetError();
         else if (files[0])
-            self->pickedFolder_ = files[0];
+            self->_pickedFolder = files[0];
     }
-    self->pickInProgress_ = false;
+    self->_pickInProgress = false;
 }
 
 void Launcher::handlePickedFolder() {
     std::optional<std::string> folder, error;
     {
-        std::lock_guard lock(pickMutex_);
-        folder.swap(pickedFolder_);
-        error.swap(pickError_);
+        std::lock_guard lock(_pickMutex);
+        folder.swap(_pickedFolder);
+        error.swap(_pickError);
     }
     if (error)
-        status_ = *error;
+        _status = *error;
     if (!folder)
         return;
 
     auto found = detectGames(*folder);
     if (found.empty()) {
-        status_ = "No supported game found in " + *folder;
+        _status = "No supported game found in " + *folder;
     } else if (found.size() == 1) {
         addGame(found.front(), *folder);
     } else {
-        pendingPath_ = *folder;
-        pendingChoices_ = std::move(found);
+        _pendingPath = *folder;
+        _pendingChoices = std::move(found);
     }
 }
 
 void Launcher::addGame(const DetectedGame& game, const std::string& path) {
     std::string name = game.gameId;
-    for (int n = 2; config_.hasSection(name); ++n)
+    for (int n = 2; _config.hasSection(name); ++n)
         name = game.gameId + "-" + std::to_string(n);
 
-    config_.set(name, "engine", game.engineId);
-    config_.set(name, "gameid", game.gameId);
-    config_.set(name, "description", game.description);
-    config_.set(name, "language", game.language);
-    config_.set(name, "platform", game.platform);
-    config_.set(name, "path", path);
-    if (Error err = config_.save())
-        status_ = err.message;
+    _config.set(name, "engine", game.engineId);
+    _config.set(name, "gameid", game.gameId);
+    _config.set(name, "description", game.description);
+    _config.set(name, "language", game.language);
+    _config.set(name, "platform", game.platform);
+    _config.set(name, "path", path);
+    if (Error err = _config.save())
+        _status = err.message;
     else
-        status_ = "Added " + game.description;
-    selected_ = name;
+        _status = "Added " + game.description;
+    _selected = name;
 }
 
 GameTarget Launcher::targetFromConfig(const std::string& name) const {
-    return GameTarget{name, config_.get(name, "engine"), config_.get(name, "gameid"),
-                      config_.get(name, "description", name), config_.get(name, "path"), {}};
+    return GameTarget{name, _config.get(name, "engine"), _config.get(name, "gameid"),
+                      _config.get(name, "description", name), _config.get(name, "path"), {}};
 }
 
 } // namespace reluva

@@ -307,7 +307,7 @@ void Police::update(float dt, CarSim& player, const CollisionWorld& world, const
     if (bustTimer_ >= kBustTime && !busted_) {
         busted_ = true;
         if (mixer_ && arrest_)
-            mixer_->play(arrest_, audio::SoundType::Effects);
+            mixer_->play(arrest_, audio::SoundType::kEffects);
     }
     // The siren of the nearest chasing car, quieter with distance.
     siren_.update(dt, nearestChase < kSirenHeard ? (1 - nearestChase / kSirenHeard) * 0.8f : 0.0f);

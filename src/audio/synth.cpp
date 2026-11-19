@@ -125,46 +125,46 @@ float DlsSynth::envelopeLevel(const Envelope& e, float t, float releasedAt, floa
 }
 
 void DlsSynth::setInstrument(int channel, const DlsCollection* collection, const DlsInstrument* instrument) {
-    if (channel < 0 || size_t(channel) >= channels_.size())
+    if (channel < 0 || size_t(channel) >= _channels.size())
         return;
-    channels_[size_t(channel)].collection = collection;
-    channels_[size_t(channel)].instrument = instrument;
+    _channels[size_t(channel)].collection = collection;
+    _channels[size_t(channel)].instrument = instrument;
 }
 
 void DlsSynth::setVolume(int channel, int volume) {
-    if (channel >= 0 && size_t(channel) < channels_.size())
-        channels_[size_t(channel)].volume = float(std::clamp(volume, 0, 127)) / 127;
+    if (channel >= 0 && size_t(channel) < _channels.size())
+        _channels[size_t(channel)].volume = float(std::clamp(volume, 0, 127)) / 127;
 }
 
 void DlsSynth::setExpression(int channel, int expression) {
-    if (channel >= 0 && size_t(channel) < channels_.size())
-        channels_[size_t(channel)].expression = float(std::clamp(expression, 0, 127)) / 127;
+    if (channel >= 0 && size_t(channel) < _channels.size())
+        _channels[size_t(channel)].expression = float(std::clamp(expression, 0, 127)) / 127;
 }
 
 void DlsSynth::setPan(int channel, int pan) {
-    if (channel >= 0 && size_t(channel) < channels_.size())
-        channels_[size_t(channel)].pan = float(std::clamp(pan, 0, 127)) / 127;
+    if (channel >= 0 && size_t(channel) < _channels.size())
+        _channels[size_t(channel)].pan = float(std::clamp(pan, 0, 127)) / 127;
 }
 
 void DlsSynth::setModWheel(int channel, int value) {
-    if (channel >= 0 && size_t(channel) < channels_.size())
-        channels_[size_t(channel)].modWheel = float(std::clamp(value, 0, 127)) / 127;
+    if (channel >= 0 && size_t(channel) < _channels.size())
+        _channels[size_t(channel)].modWheel = float(std::clamp(value, 0, 127)) / 127;
 }
 
 void DlsSynth::setPitchBend(int channel, float semitones) {
-    if (channel >= 0 && size_t(channel) < channels_.size())
-        channels_[size_t(channel)].bend = semitones;
+    if (channel >= 0 && size_t(channel) < _channels.size())
+        _channels[size_t(channel)].bend = semitones;
 }
 
 void DlsSynth::setTranspose(int channel, int semitones) {
-    if (channel >= 0 && size_t(channel) < channels_.size())
-        channels_[size_t(channel)].transpose = semitones;
+    if (channel >= 0 && size_t(channel) < _channels.size())
+        _channels[size_t(channel)].transpose = semitones;
 }
 
 void DlsSynth::noteOn(int channel, int key, int velocity) {
-    if (channel < 0 || size_t(channel) >= channels_.size() || velocity <= 0)
+    if (channel < 0 || size_t(channel) >= _channels.size() || velocity <= 0)
         return;
-    const Channel& ch = channels_[size_t(channel)];
+    const Channel& ch = _channels[size_t(channel)];
     if (!ch.instrument || !ch.collection)
         return;
     key = std::clamp(key + ch.transpose, 0, 127);
@@ -180,7 +180,7 @@ void DlsSynth::noteOn(int channel, int key, int velocity) {
         // A region in a key group stops the group's other notes (a hi-hat
         // closing over an open one).
         if (r.keyGroup)
-            for (Voice& v : voices_)
+            for (Voice& v : _voices)
                 if (v.channel == channel && v.releasedAt < 0 && v.key != key)
                     for (const DlsRegion& o : ch.instrument->regions)
                         if (o.keyGroup == r.keyGroup && v.key >= o.keyLow && v.key <= o.keyHigh) {
@@ -198,17 +198,17 @@ void DlsSynth::noteOn(int channel, int key, int velocity) {
         // Velocity: its square, as gain (DLS's default curve).
         const float vel = float(velocity) / 127;
         v.velocityGain = vel * vel * dbToGain(v.art.gainDb + float(v.info.gain) / 655360.0f);
-        voices_.push_back(v);
+        _voices.push_back(v);
         break;
     }
 }
 
 void DlsSynth::noteOff(int channel, int key) {
-    if (channel < 0 || size_t(channel) >= channels_.size())
+    if (channel < 0 || size_t(channel) >= _channels.size())
         return;
-    const Channel& ch = channels_[size_t(channel)];
+    const Channel& ch = _channels[size_t(channel)];
     key = std::clamp(key + ch.transpose, 0, 127);
-    for (Voice& v : voices_)
+    for (Voice& v : _voices)
         if (v.channel == channel && v.key == key && v.releasedAt < 0 && !v.held) {
             if (ch.sustain) {
                 v.held = true;
@@ -220,12 +220,12 @@ void DlsSynth::noteOff(int channel, int key) {
 }
 
 void DlsSynth::setSustain(int channel, bool down) {
-    if (channel < 0 || size_t(channel) >= channels_.size())
+    if (channel < 0 || size_t(channel) >= _channels.size())
         return;
-    channels_[size_t(channel)].sustain = down;
+    _channels[size_t(channel)].sustain = down;
     if (down)
         return;
-    for (Voice& v : voices_)
+    for (Voice& v : _voices)
         if (v.channel == channel && v.held) {
             v.held = false;
             v.releasedAt = v.time;
@@ -233,24 +233,24 @@ void DlsSynth::setSustain(int channel, bool down) {
         }
 }
 
-void DlsSynth::allNotesOff() { voices_.clear(); }
+void DlsSynth::allNotesOff() { _voices.clear(); }
 
 void DlsSynth::releaseAll() {
-    for (Voice& v : voices_)
+    for (Voice& v : _voices)
         if (v.releasedAt < 0) {
             v.held = false;
             v.releasedAt = v.time;
             v.releaseLevel = v.level;
         }
-    for (Channel& c : channels_)
+    for (Channel& c : _channels)
         c.sustain = false;
 }
 
 void DlsSynth::render(float* out, size_t frames, float gain) {
     constexpr size_t kBlock = 32; // controls (envelopes, LFO) worked out this often
-    const float dt = 1.0f / float(rate_);
-    for (Voice& v : voices_) {
-        const Channel& ch = channels_[size_t(v.channel)];
+    const float dt = 1.0f / float(_rate);
+    for (Voice& v : _voices) {
+        const Channel& ch = _channels[size_t(v.channel)];
         const std::vector<int16_t>& s = v.wave->samples;
         // A loop running past the wave's end (MoogBass: from 3,455 for
         // 3,456 of 3,456 samples) is taken as ending at it, as long.
@@ -278,7 +278,7 @@ void DlsSynth::render(float* out, size_t frames, float gain) {
                 cents += lfo * (v.art.lfoPitchCents + v.art.lfoModPitchCents * ch.modWheel);
                 lfoGain = dbToGain(lfo * v.art.lfoGainDb);
             }
-            const double step = double(v.wave->rate) / double(rate_) * std::pow(2.0, double(cents) / 1200.0);
+            const double step = double(v.wave->rate) / double(_rate) * std::pow(2.0, double(cents) / 1200.0);
             const float amp = level * lfoGain * v.velocityGain * ch.volume * ch.volume * ch.expression * gain;
             const float pan = std::clamp(ch.pan + v.art.pan, 0.0f, 1.0f);
             const float left = amp * std::cos(pan * 1.5707963f), right = amp * std::sin(pan * 1.5707963f);
@@ -301,7 +301,7 @@ void DlsSynth::render(float* out, size_t frames, float gain) {
             v.time += float(n) * dt;
         }
     }
-    voices_.erase(std::remove_if(voices_.begin(), voices_.end(), [](const Voice& v) { return v.done; }), voices_.end());
+    _voices.erase(std::remove_if(_voices.begin(), _voices.end(), [](const Voice& v) { return v.done; }), _voices.end());
 }
 
 } // namespace reluva::audio

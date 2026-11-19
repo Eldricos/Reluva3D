@@ -70,9 +70,9 @@ private:
         std::deque<std::pair<Address, std::vector<uint8_t>>> datagrams;
         bool open = false;
     };
-    std::vector<std::pair<uint16_t, std::shared_ptr<Queue>>> queues_;
-    bool (*drop_)(const Address&, const Address&, size_t) = nullptr;
-    size_t sent_ = 0;
+    std::vector<std::pair<uint16_t, std::shared_ptr<Queue>>> _queues;
+    bool (*_drop)(const Address&, const Address&, size_t) = nullptr;
+    size_t _sent = 0;
     bool deliver(const Address& from, const Address& to, const std::vector<uint8_t>& data);
 };
 

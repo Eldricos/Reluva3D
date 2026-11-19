@@ -23,10 +23,10 @@ public:
     explicit TestbedEngine(System& system) : sys_(system) {}
 
     Error run() override {
-        if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::CLUT8))
+        if (Error err = sys_.initGraphics(kWidth, kHeight, PixelFormat::kCluT8))
             return err;
         sys_.setWindowTitle("Reluva - Testbed (Esc: back, Space: tone)");
-        screen_.create(kWidth, kHeight, PixelFormat::CLUT8);
+        screen_.create(kWidth, kHeight, PixelFormat::kCluT8);
 
         const int rate = sys_.audioRate();
         // Audio failing is not fatal for the testbed; it just stays silent.
@@ -51,17 +51,17 @@ public:
             Event ev;
             while (sys_.pollEvent(ev)) {
                 switch (ev.type) {
-                case EventType::Quit:
-                case EventType::ReturnToLauncher:
+                case EventType::kQuit:
+                case EventType::kReturnToLauncher:
                     running = false;
                     break;
-                case EventType::KeyDown:
-                    if (ev.key == key::Escape)
+                case EventType::kKeyDown:
+                    if (ev.key == key::kEscape)
                         running = false;
-                    else if (ev.key == key::Space && !ev.repeat)
+                    else if (ev.key == key::kSpace && !ev.repeat)
                         toneOn_ = !toneOn_;
                     break;
-                case EventType::MouseMove:
+                case EventType::kMouseMove:
                     mouseX_ = ev.mouseX;
                     mouseY_ = ev.mouseY;
                     break;
@@ -85,7 +85,7 @@ private:
         // Static plasma pattern in indices 0-254; animation comes purely from
         // palette cycling, the way many games of the era did it.
         if (plasma_.pixels.empty()) {
-            plasma_.create(kWidth, kHeight, PixelFormat::CLUT8);
+            plasma_.create(kWidth, kHeight, PixelFormat::kCluT8);
             for (int y = 0; y < kHeight; ++y) {
                 uint8_t* row = plasma_.row(y);
                 for (int x = 0; x < kWidth; ++x) {

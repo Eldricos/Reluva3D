@@ -29,12 +29,12 @@ struct ControlInfo {
     uint32_t first, second;
 };
 constexpr ControlInfo kInfo[kControls] = {
-    {280, "Throttle", key::Up, 0},
-    {281, "Brakes", key::Down, 0},
-    {283, "Steer Left", key::Left, 0},
-    {284, "Steer Right", key::Right, 0},
-    {307, "Handbrake", key::Space, 0},
-    {279, "Horn", key::Return, 0},
+    {280, "Throttle", key::kUp, 0},
+    {281, "Brakes", key::kDown, 0},
+    {283, "Steer Left", key::kLeft, 0},
+    {284, "Steer Right", key::kRight, 0},
+    {307, "Handbrake", key::kSpace, 0},
+    {279, "Horn", key::kReturn, 0},
     {291, "Shift Up", 'a', 0},
     {292, "Shift Down", 'z', 0},
     {293, "Reverse", 'r', 0},
@@ -42,16 +42,16 @@ constexpr ControlInfo kInfo[kControls] = {
     {276, "Change Camera", 'c', 0},
     {299, "Map Zoom", 'e', 0},
     {298, "Full Screen Map", 'q', 0},
-    {296, "Map Toggle", key::Tab, 0},
+    {296, "Map Toggle", key::kTab, 0},
     {297, "HUD Toggle", 'h', 0},
-    {305, "Rear View Mirror", key::Backspace, 0},
+    {305, "Rear View Mirror", key::kBackspace, 0},
     {294, "Next Checkpoint", 's', 0},
     {295, "Prev. Checkpoint", 'x', 0},
     {277, "Thrill Cam", 'v', 0},
-    {286, "Look Left", key::Kp0 + 4, 0},
-    {285, "Look Right", key::Kp0 + 6, 0},
-    {287, "Look Back", key::Kp0 + 2, 0},
-    {288, "Look Forward", key::Kp0 + 8, 0},
+    {286, "Look Left", key::kKp0 + 4, 0},
+    {285, "Look Right", key::kKp0 + 6, 0},
+    {287, "Look Back", key::kKp0 + 2, 0},
+    {288, "Look Forward", key::kKp0 + 8, 0},
     {289, "Wide Angle", 'w', 0},
     {290, "Dashboard On/Off", 'd', 0},
     {300, "Rotating Map", 'f', 0},
@@ -81,57 +81,57 @@ std::string keyName(uint32_t k) {
     switch (k) {
     case 0:
         return "-";
-    case key::Up:
+    case key::kUp:
         return "Up";
-    case key::Down:
+    case key::kDown:
         return "Down";
-    case key::Left:
+    case key::kLeft:
         return "Left";
-    case key::Right:
+    case key::kRight:
         return "Right";
-    case key::Space:
+    case key::kSpace:
         return "Space";
-    case key::Return:
+    case key::kReturn:
         return "Enter";
-    case key::Tab:
+    case key::kTab:
         return "Tab";
-    case key::Backspace:
+    case key::kBackspace:
         return "Backspace";
-    case key::Insert:
+    case key::kInsert:
         return "Insert";
-    case key::Delete:
+    case key::kDelete:
         return "Delete";
-    case key::Home:
+    case key::kHome:
         return "Home";
-    case key::End:
+    case key::kEnd:
         return "End";
-    case key::PageUp:
+    case key::kPageUp:
         return "Page Up";
-    case key::PageDown:
+    case key::kPageDown:
         return "Page Down";
-    case key::LShift:
+    case key::kLShift:
         return "Left Shift";
-    case key::RShift:
+    case key::kRShift:
         return "Right Shift";
-    case key::LCtrl:
+    case key::kLCtrl:
         return "Left Ctrl";
-    case key::RCtrl:
+    case key::kRCtrl:
         return "Right Ctrl";
-    case key::LAlt:
+    case key::kLAlt:
         return "Left Alt";
-    case key::RAlt:
+    case key::kRAlt:
         return "Right Alt";
-    case key::KpEnter:
+    case key::kKpEnter:
         return "Keypad Enter";
-    case key::KpPeriod:
+    case key::kKpPeriod:
         return "Keypad .";
     default:
         break;
     }
-    if (k >= key::F1 && k < key::F1 + 12)
-        return "F" + std::to_string(k - key::F1 + 1);
-    if (k >= key::Kp0 && k < key::Kp0 + 10)
-        return "Keypad " + std::to_string(k - key::Kp0);
+    if (k >= key::kF1 && k < key::kF1 + 12)
+        return "F" + std::to_string(k - key::kF1 + 1);
+    if (k >= key::kKp0 && k < key::kKp0 + 10)
+        return "Keypad " + std::to_string(k - key::kKp0);
     if (k > 32 && k < 127)
         return std::string(1, char(std::toupper(int(k))));
     return "Key " + std::to_string(k);
@@ -307,9 +307,9 @@ void applySoundOptions(const GameOptions& o, audio::Mixer* mixer) {
     if (!mixer)
         return;
     auto level = [](bool on, float v) { return on ? int(std::clamp(v, 0.0f, 1.0f) * audio::kMaxVolume) : 0; };
-    mixer->setTypeVolume(audio::SoundType::Effects, level(o.soundFx, o.effectsVolume));
-    mixer->setTypeVolume(audio::SoundType::Music, level(o.music, o.musicVolume));
-    mixer->setTypeVolume(audio::SoundType::Speech, level(o.commentary, 1));
+    mixer->setTypeVolume(audio::SoundType::kEffects, level(o.soundFx, o.effectsVolume));
+    mixer->setTypeVolume(audio::SoundType::kMusic, level(o.music, o.musicVolume));
+    mixer->setTypeVolume(audio::SoundType::kSpeech, level(o.commentary, 1));
     mixer->setBalance(int(o.balance * audio::kMaxPan));
 }
 

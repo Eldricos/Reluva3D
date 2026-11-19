@@ -41,32 +41,32 @@ constexpr KeyName kKeyNames[] = {
 
 int32_t toQ3Key(uint32_t k) {
     switch (k) {
-    case key::Tab: return q3key::Tab;
-    case key::Return: return q3key::Enter;
-    case key::KpEnter: return q3key::KpEnter;
-    case key::Escape: return q3key::Escape;
-    case key::Space: return q3key::Space;
-    case key::Backspace: return q3key::Backspace;
-    case key::Delete: return q3key::Delete;
-    case key::Up: return q3key::Up;
-    case key::Down: return q3key::Down;
-    case key::Left: return q3key::Left;
-    case key::Right: return q3key::Right;
-    case key::Insert: return q3key::Insert;
-    case key::Home: return q3key::Home;
-    case key::End: return q3key::End;
-    case key::PageUp: return q3key::PageUp;
-    case key::PageDown: return q3key::PageDown;
-    case key::LShift:
-    case key::RShift: return q3key::Shift;
-    case key::LCtrl:
-    case key::RCtrl: return q3key::Ctrl;
-    case key::LAlt:
-    case key::RAlt: return q3key::Alt;
+    case key::kTab: return q3key::Tab;
+    case key::kReturn: return q3key::Enter;
+    case key::kKpEnter: return q3key::KpEnter;
+    case key::kEscape: return q3key::Escape;
+    case key::kSpace: return q3key::Space;
+    case key::kBackspace: return q3key::Backspace;
+    case key::kDelete: return q3key::Delete;
+    case key::kUp: return q3key::Up;
+    case key::kDown: return q3key::Down;
+    case key::kLeft: return q3key::Left;
+    case key::kRight: return q3key::Right;
+    case key::kInsert: return q3key::Insert;
+    case key::kHome: return q3key::Home;
+    case key::kEnd: return q3key::End;
+    case key::kPageUp: return q3key::PageUp;
+    case key::kPageDown: return q3key::PageDown;
+    case key::kLShift:
+    case key::kRShift: return q3key::Shift;
+    case key::kLCtrl:
+    case key::kRCtrl: return q3key::Ctrl;
+    case key::kLAlt:
+    case key::kRAlt: return q3key::Alt;
     default: break;
     }
-    if (k >= key::F1 && k < key::F1 + 12)
-        return q3key::F1 + int32_t(k - key::F1);
+    if (k >= key::kF1 && k < key::kF1 + 12)
+        return q3key::F1 + int32_t(k - key::kF1);
     if (k > 32 && k < 127)
         return int32_t(k);
     return 0;
@@ -74,9 +74,9 @@ int32_t toQ3Key(uint32_t k) {
 
 int32_t toQ3Button(MouseButton b) {
     switch (b) {
-    case MouseButton::Left: return q3key::Mouse1;
-    case MouseButton::Right: return q3key::Mouse2;
-    case MouseButton::Middle: return q3key::Mouse3;
+    case MouseButton::kLeft: return q3key::Mouse1;
+    case MouseButton::kRight: return q3key::Mouse2;
+    case MouseButton::kMiddle: return q3key::Mouse3;
     default: return 0;
     }
 }

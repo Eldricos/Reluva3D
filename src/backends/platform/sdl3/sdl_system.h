@@ -24,12 +24,12 @@ public:
     Error init();
 
     // Used by the launcher, which draws with ImGui directly on SDL.
-    SDL_Window* window() const { return window_; }
-    SDL_Renderer* renderer() const { return renderer_; }
+    SDL_Window* window() const { return _window; }
+    SDL_Renderer* renderer() const { return _renderer; }
     // Drop the game framebuffer and return the window to launcher mode.
     void resetForLauncher();
     // True once the user closed the window during a game.
-    bool quitRequested() const { return quitRequested_; }
+    bool quitRequested() const { return _quitRequested; }
 
     // System
     Error initGraphics(int width, int height, PixelFormat format) override;
@@ -61,22 +61,22 @@ private:
     static void SDLCALL audioThunk(void* userdata, SDL_AudioStream* stream, int additional, int total);
     void release3D();
 
-    SDL_Window* window_ = nullptr;
-    bool relativeMouse_ = false; // held by setRelativeMouse, held again when the window changes
-    SDL_Renderer* renderer_ = nullptr;
-    SDL_GPUDevice* gpu_ = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
-    std::unique_ptr<SdlGpuRenderer> renderer3d_;
-    SDL_Texture* gameTexture_ = nullptr;
-    int gameW_ = 0, gameH_ = 0;
-    PixelFormat gameFormat_ = PixelFormat::CLUT8;
-    uint32_t palette_[256] = {};          // RGBA32, byte order R,G,B,A
-    std::vector<uint32_t> convertBuffer_; // CLUT8 -> RGBA32 staging
-    bool quitRequested_ = false;
-    std::vector<SDL_Gamepad*> pads_; // opened as they're plugged in
+    SDL_Window* _window = nullptr;
+    bool _relativeMouse = false; // held by setRelativeMouse, held again when the window changes
+    SDL_Renderer* _renderer = nullptr;
+    SDL_GPUDevice* _gpu = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
+    std::unique_ptr<SdlGpuRenderer> _renderer3d;
+    SDL_Texture* _gameTexture = nullptr;
+    int _gameW = 0, _gameH = 0;
+    PixelFormat _gameFormat = PixelFormat::kCluT8;
+    uint32_t _palette[256] = {};          // RGBA32, byte order R,G,B,A
+    std::vector<uint32_t> _convertBuffer; // CLUT8 -> RGBA32 staging
+    bool _quitRequested = false;
+    std::vector<SDL_Gamepad*> _pads; // opened as they're plugged in
 
-    SDL_AudioStream* audioStream_ = nullptr;
-    AudioCallback audioCallback_;
-    std::vector<int16_t> audioBuffer_; // audio thread only
+    SDL_AudioStream* _audioStream = nullptr;
+    AudioCallback _audioCallback;
+    std::vector<int16_t> _audioBuffer; // audio thread only
 };
 
 } // namespace reluva

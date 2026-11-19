@@ -233,21 +233,21 @@ std::unique_ptr<Movie> Movie::open(std::vector<uint8_t> data, std::string& error
     return std::unique_ptr<Movie>(new Movie(std::move(impl)));
 }
 
-int Movie::width() const { return impl_->video->width; }
-int Movie::height() const { return impl_->video->height; }
+int Movie::width() const { return _impl->video->width; }
+int Movie::height() const { return _impl->video->height; }
 
 double Movie::duration() const {
-    return impl_->format->duration > 0 ? double(impl_->format->duration) / AV_TIME_BASE : 0;
+    return _impl->format->duration > 0 ? double(_impl->format->duration) / AV_TIME_BASE : 0;
 }
 
 bool Movie::frameAt(double seconds, image::Image& out) {
-    if (impl_->shown < 0 && !impl_->decodeNext())
+    if (_impl->shown < 0 && !_impl->decodeNext())
         return false;
     // On to the last picture due by now.
-    while (impl_->shown + impl_->frameTime <= seconds)
-        if (!impl_->decodeNext())
+    while (_impl->shown + _impl->frameTime <= seconds)
+        if (!_impl->decodeNext())
             return false;
-    out = impl_->picture;
+    out = _impl->picture;
     return true;
 }
 
@@ -271,9 +271,9 @@ bool Movie::frameAt(double, image::Image&) { return false; }
 
 #endif
 
-Movie::Movie(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
+Movie::Movie(std::unique_ptr<Impl> impl) : _impl(std::move(impl)) {}
 Movie::~Movie() = default;
 
-const audio::Sound& Movie::sound() const { return impl_->sound; }
+const audio::Sound& Movie::sound() const { return _impl->sound; }
 
 } // namespace reluva::video

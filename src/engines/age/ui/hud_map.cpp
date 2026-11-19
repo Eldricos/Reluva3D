@@ -158,7 +158,7 @@ void HudMap::draw(gfx::Renderer3D& renderer, ModelCache& models, const Vec3& cen
         call.color = color;
         call.state.depthTest = false;
         call.state.depthWrite = false;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         renderer.draw(call);
     };
     // The ocean, as far as can be seen, then the map.

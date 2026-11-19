@@ -125,7 +125,7 @@ static void testFont() {
     using namespace reluva;
     CHECK(font::length("Caf\xc3\xa9 \xe2\x80\x99") == 6); // é and ’ are one character each
     Surface s;
-    s.create(20, 12, PixelFormat::RGBA32);
+    s.create(20, 12, PixelFormat::kRgbA32);
     const int end = font::drawText(s, 1, 1, "I|", {255, 0, 0});
     CHECK(end == 1 + 2 * font::kAdvance);
     // 'I' has its middle column set from row 1 to 5 and a bar on row 0.
@@ -196,7 +196,7 @@ static void testMixer() {
     std::vector<int16_t> out(40);
     Mixer m(22050);
     // A sound at the output rate plays sample for sample, then stops and frees its channel.
-    const SoundHandle a = m.play(make(22050, 1, std::vector<int16_t>(10, 1000)), SoundType::Effects);
+    const SoundHandle a = m.play(make(22050, 1, std::vector<int16_t>(10, 1000)), SoundType::kEffects);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 12);
     CHECK(out[0] == 1000 && out[1] == 1000 && out[18] == 1000 && out[19] == 1000 && out[20] == 0 && out[23] == 0);
@@ -204,41 +204,41 @@ static void testMixer() {
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[7] == 0); // silence with nothing playing
     // Two sounds add up, and clamp at 16 bits.
-    m.play(make(22050, 1, {30000, 1000}), SoundType::Effects);
-    m.play(make(22050, 1, {30000, -3000}), SoundType::Music);
+    m.play(make(22050, 1, {30000, 1000}), SoundType::kEffects);
+    m.play(make(22050, 1, {30000, -3000}), SoundType::kMusic);
     m.mix(out.data(), 2);
     CHECK(out[0] == 32767 && out[2] == -2000 && out[3] == -2000);
     // Volumes: the sound's and its type's multiply.
-    m.setTypeVolume(SoundType::Music, kMaxVolume / 2);
-    m.play(make(22050, 1, {1000}), SoundType::Music, kMaxVolume / 2);
+    m.setTypeVolume(SoundType::kMusic, kMaxVolume / 2);
+    m.play(make(22050, 1, {1000}), SoundType::kMusic, kMaxVolume / 2);
     m.mix(out.data(), 1);
-    CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::Music) == 128);
-    m.setTypeVolume(SoundType::Music, kMaxVolume);
+    CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::kMusic) == 128);
+    m.setTypeVolume(SoundType::kMusic, kMaxVolume);
     // Pan: full right silences the left.
-    m.play(make(22050, 1, {1000}), SoundType::Speech, kMaxVolume, kMaxPan);
+    m.play(make(22050, 1, {1000}), SoundType::kSpeech, kMaxVolume, kMaxPan);
     m.mix(out.data(), 1);
     CHECK(out[0] == 0 && out[1] == 1000);
     // Resampling: an 11025 Hz ramp at 22050 Hz gets a frame in between each.
-    const SoundHandle r = m.play(make(11025, 1, {0, 100, 200, 300}), SoundType::Effects);
+    const SoundHandle r = m.play(make(11025, 1, {0, 100, 200, 300}), SoundType::kEffects);
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 50 && out[4] == 100 && out[6] == 150 && m.position(r) == 2.0);
     m.stopAll();
     // Pitch: twice as high plays every other frame.
-    const SoundHandle p = m.play(make(22050, 1, {0, 100, 200, 300, 400}), SoundType::Effects);
+    const SoundHandle p = m.play(make(22050, 1, {0, 100, 200, 300, 400}), SoundType::kEffects);
     m.setPitch(p, 2);
     m.mix(out.data(), 2);
     CHECK(out[0] == 0 && out[2] == 200 && m.position(p) == 4.0);
     m.stopAll();
     // Stereo keeps its channels; a loop repeats until stopped.
-    const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::Music, kMaxVolume, 0, true);
+    const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::kMusic, kMaxVolume, 0, true);
     m.mix(out.data(), 5);
     CHECK(out[0] == 10 && out[1] == -10 && out[2] == 20 && out[3] == -20 && out[4] == 10 && out[8] == 10);
-    CHECK(m.isPlaying(l) && m.isTypePlaying(SoundType::Music) && !m.isTypePlaying(SoundType::Speech));
-    m.stopType(SoundType::Music);
+    CHECK(m.isPlaying(l) && m.isTypePlaying(SoundType::kMusic) && !m.isTypePlaying(SoundType::kSpeech));
+    m.stopType(SoundType::kMusic);
     m.mix(out.data(), 2);
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
-    CHECK(m.play(nullptr, SoundType::Effects) == kNoSound && m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+    CHECK(m.play(nullptr, SoundType::kEffects) == kNoSound && m.play(make(22050, 1, {}), SoundType::kEffects) == kNoSound);
 }
 
 static void testZip(const std::filesystem::path& tmp) {
@@ -387,7 +387,7 @@ static void testImage() {
 
     // Blending half-transparent red over black.
     Surface s;
-    s.create(2, 1, PixelFormat::RGBA32);
+    s.create(2, 1, PixelFormat::kRgbA32);
     img.w = 1;
     img.h = 1;
     img.rgba = {255, 0, 0, 128};
@@ -982,7 +982,7 @@ static void testPortMap() {
     {
         PortMapper mapper(upnp, 28520, false);
         const PortMapping m = mapper.map();
-        CHECK(m.way == PortMapping::Way::Upnp && m.externalIp == 0xCB007107 && m.externalPort == 28520 &&
+        CHECK(m.way == PortMapping::Way::kUpnp && m.externalIp == 0xCB007107 && m.externalPort == 28520 &&
               mapper.done());
         CHECK(posted.size() == 1 && posted[0].find("POST /ctl/IPConn") == 0 &&
               posted[0].find("<NewInternalClient>192.168.1.23</NewInternalClient>") != std::string::npos &&
@@ -1011,7 +1011,7 @@ static void testPortMap() {
     {
         PortMapper mapper(pmp, 28520, false);
         const PortMapping m = mapper.map();
-        CHECK(m.way == PortMapping::Way::NatPmp && m.externalPort == 28520 && m.externalIp == 0xC6336402);
+        CHECK(m.way == PortMapping::Way::kNatPmp && m.externalPort == 28520 && m.externalIp == 0xC6336402);
         mapper.unmap();
         CHECK(!asked.empty() && asked.back().size() == 12 && asked.back()[11] == 0 && asked.back()[8] == 0);
     }
@@ -1023,14 +1023,14 @@ static void testPortMap() {
         PortMapper mapper(pmp, 28520);
         for (int i = 0; i < 2000 && !mapper.done(); ++i)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        CHECK(mapper.done() && mapper.result().way == PortMapping::Way::NatPmp);
+        CHECK(mapper.done() && mapper.result().way == PortMapping::Way::kNatPmp);
     }
     CHECK(asked.size() >= 3 && asked.back().size() == 12 && asked.back()[11] == 0);
 
     // Neither: said so.
     PortMapper none(PortMapper::Transport{}, 28520, false);
     const PortMapping m = none.map();
-    CHECK(m.way == PortMapping::Way::None && !m.why.empty());
+    CHECK(m.way == PortMapping::Way::kNone && !m.why.empty());
 }
 
 void testMovie() {

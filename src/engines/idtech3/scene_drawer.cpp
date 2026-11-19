@@ -399,13 +399,13 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
     // Where the surface is on the screen, marked; the view through it
     // drawn only there (its own sky first), turned inside out for a mirror.
     gfx::DrawState shape;
-    shape.src = gfx::Blend::Zero;
-    shape.dst = gfx::Blend::One; // colours kept
+    shape.src = gfx::Blend::kZero;
+    shape.dst = gfx::Blend::kOne; // colours kept
     shape.depthTest = shape.depthWrite = false;
-    shape.cull = gfx::Cull::None;
-    r_.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+    shape.cull = gfx::Cull::kNone;
+    r_.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
     world.drawSurfaceShape(surface.surface, shape);
-    r_.setStencilMode(gfx::Renderer3D::StencilMode::Inside);
+    r_.setStencilMode(gfx::Renderer3D::StencilMode::kInside);
     r_.setMirrored(mirrored);
     r_.setView(viewProj, eye);
     world.setView(1, entity->oldOrigin, areaMask, viewProj);
@@ -415,7 +415,7 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
     // Back to the main view: the surface's depth written, so nothing
     // behind it draws over what's seen through it.
     r_.setMirrored(false);
-    r_.setStencilMode(gfx::Renderer3D::StencilMode::None);
+    r_.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     r_.clearDepth();
     r_.setView(mainViewProj, eye_);
     world.setView(0, eye_, areaMask, mainViewProj);

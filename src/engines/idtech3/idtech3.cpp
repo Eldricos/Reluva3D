@@ -51,9 +51,9 @@ public:
         // page lists what went wrong.
         shaders_.load(files_, &warnings);
 
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRgbA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::RGBA32);
+        screen_.create(kScreenW, kScreenH, PixelFormat::kRgbA32);
 
         // One mixer for every page's sounds; without audio output, none.
         audio::Mixer mixer(sys_.audioRate());
@@ -101,7 +101,7 @@ public:
             const bool was3D = pages[page]->uses3D();
             pages[page]->deactivate();
             if (was3D)
-                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::RGBA32))
+                if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRgbA32))
                     return err;
             page = next;
             pages[page]->activate();
@@ -111,12 +111,12 @@ public:
         while (true) {
             Event ev;
             while (sys_.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 const bool pageKey = pages[page]->takesKey(ev);
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey)
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pageKey)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab && !pageKey) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab && !pageKey) {
                     size_t next = page;
                     do
                         next = (next + 1) % pages.size();

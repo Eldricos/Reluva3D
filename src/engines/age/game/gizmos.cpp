@@ -184,7 +184,7 @@ void Gizmos::update(float dt, CollisionWorld& world, const Vec3& listener) {
                 volume =
                     std::max(volume, (1 - length(c.center - listener) / 150) * (0.3f + 0.7f * t.speed / kTrainSpeed));
         if (volume > 0.01f && trainPlaying_ == audio::kNoSound)
-            trainPlaying_ = mixer_->play(trainSound_, audio::SoundType::Effects, 0, 0, true);
+            trainPlaying_ = mixer_->play(trainSound_, audio::SoundType::kEffects, 0, 0, true);
         if (trainPlaying_ != audio::kNoSound)
             mixer_->setVolume(trainPlaying_, int(0.98f * std::clamp(volume, 0.0f, 1.0f) * audio::kMaxVolume));
     }

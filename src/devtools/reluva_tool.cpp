@@ -5056,7 +5056,7 @@ int cmdShaderCheck(int argc, char** argv) {
         if (examples.size() < 3 && std::find(examples.begin(), examples.end(), d.name) == examples.end())
             examples.push_back(d.name);
     };
-    static const char* const deformNames[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
+    static const char* const kDeformNames[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
                                               "text", "projectionShadow", "other"};
     for (const q3::ShaderDef& d : shaders.all()) {
         for (const std::string& u : d.unknown)
@@ -5064,7 +5064,7 @@ int cmdShaderCheck(int argc, char** argv) {
         for (const q3::ShaderDeform& df : d.deforms)
             if (df.type != q3::ShaderDeform::Type::Wave && df.type != q3::ShaderDeform::Type::Bulge &&
                 df.type != q3::ShaderDeform::Type::Move && df.type != q3::ShaderDeform::Type::Normal)
-                add(std::string("not drawn: deformVertexes ") + deformNames[size_t(df.type)], d);
+                add(std::string("not drawn: deformVertexes ") + kDeformNames[size_t(df.type)], d);
         if (d.deforms.size() > 2)
             add("not drawn: more than two deformVertexes", d);
         if (d.portal)

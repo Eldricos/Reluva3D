@@ -2762,10 +2762,10 @@ static void testTextureQuality(const std::filesystem::path& tmp) {
 static void testPadInput() {
     // The sticks with their dead zones, added to the keys.
     PadDrive pad;
-    pad.axis(pad::LeftX, 0.1f);
+    pad.axis(pad::kLeftX, 0.1f);
     CHECK(pad.steer == 0 && pad.idle());
-    pad.axis(pad::LeftX, -1);
-    pad.axis(pad::RightTrigger, 0.5f);
+    pad.axis(pad::kLeftX, -1);
+    pad.axis(pad::kRightTrigger, 0.5f);
     CHECK(pad.steer == -1 && pad.throttle > 0.45f && pad.throttle < 0.5f);
     CarControls c;
     c.brake = 1;
@@ -2773,15 +2773,15 @@ static void testPadInput() {
     CHECK(c.steer == -1 && c.throttle == pad.throttle && c.brake == 1);
     // Buttons: the controls' keys while driving, the menus' keys otherwise.
     GameOptions o;
-    CHECK(padKey(pad::South, true, o) == o.keys[size_t(Control::Handbrake)][0]);
-    CHECK(padKey(pad::RightShoulder, true, o) == o.keys[size_t(Control::ShiftUp)][0]);
-    CHECK(padKey(pad::Start, true, o) == key::Escape && padKey(pad::South, false, o) == key::Return);
-    CHECK(padKey(pad::DpadDown, false, o) == key::Down && padKey(pad::Guide, true, o) == 0);
+    CHECK(padKey(pad::kSouth, true, o) == o.keys[size_t(Control::Handbrake)][0]);
+    CHECK(padKey(pad::kRightShoulder, true, o) == o.keys[size_t(Control::ShiftUp)][0]);
+    CHECK(padKey(pad::kStart, true, o) == key::kEscape && padKey(pad::kSouth, false, o) == key::kReturn);
+    CHECK(padKey(pad::kDpadDown, false, o) == key::kDown && padKey(pad::kGuide, true, o) == 0);
     Event ev, k;
-    ev.type = EventType::PadUp;
-    ev.pad = pad::East;
-    CHECK(padKeyEvent(ev, false, o, k) && k.type == EventType::KeyUp && k.key == key::Escape);
-    ev.type = EventType::PadAxis;
+    ev.type = EventType::kPadUp;
+    ev.pad = pad::kEast;
+    CHECK(padKeyEvent(ev, false, o, k) && k.type == EventType::kKeyUp && k.key == key::kEscape);
+    ev.type = EventType::kPadAxis;
     CHECK(!padKeyEvent(ev, false, o, k));
     CHECK(padRumble(1) == 0 && padRumble(15) == 1 && padRumble(8) > 0);
 }
@@ -2789,16 +2789,16 @@ static void testPadInput() {
 static void testOptions(const std::filesystem::path& tmp) {
     // The defaults: the game's (its help's keyboard table), its names.
     GameOptions o;
-    CHECK(o.controlOf(key::Up) == Control::Throttle && o.controlOf('w') == Control::WideAngle &&
-          o.controlOf(' ') == Control::Handbrake && o.controlOf(key::Return) == Control::Horn &&
-          o.controlOf('q') == Control::FullScreenMap && o.controlOf(key::Tab) == Control::MapToggle &&
-          o.controlOf('h') == Control::HudToggle && o.controlOf(key::Backspace) == Control::RearViewMirror &&
+    CHECK(o.controlOf(key::kUp) == Control::Throttle && o.controlOf('w') == Control::WideAngle &&
+          o.controlOf(' ') == Control::Handbrake && o.controlOf(key::kReturn) == Control::Horn &&
+          o.controlOf('q') == Control::FullScreenMap && o.controlOf(key::kTab) == Control::MapToggle &&
+          o.controlOf('h') == Control::HudToggle && o.controlOf(key::kBackspace) == Control::RearViewMirror &&
           o.controlOf('s') == Control::NextCheckpoint && o.controlOf('a') == Control::ShiftUp &&
-          o.controlOf('v') == Control::ThrillCam && o.controlOf(key::Kp0 + 2) == Control::LookBack &&
+          o.controlOf('v') == Control::ThrillCam && o.controlOf(key::kKp0 + 2) == Control::LookBack &&
           o.controlOf('f') == Control::RotatingMap && o.controlOf('5') == Control::CdNext &&
           o.controlOf('i') == Control::OpponentPosition && o.keys[size_t(Control::CameraPan)][0] == 0);
     CHECK(controlStringId(Control::Throttle) == 280 && controlStringId(Control::RearViewMirror) == 305 &&
-          keyName(key::Up) == "Up" && keyName('w') == "W" && keyName(key::F1 + 2) == "F3");
+          keyName(key::kUp) == "Up" && keyName('w') == "W" && keyName(key::kF1 + 2) == "F3");
     CHECK(o.otherWith('z', Control::Throttle) == Control::ShiftDown &&
           o.otherWith('z', Control::ShiftDown) == Control::Count);
 
@@ -2818,9 +2818,9 @@ static void testOptions(const std::filesystem::path& tmp) {
     CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
           std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 &&
           back.textureQuality == 2 && back.cloudShadows == 1 && back.startInCar &&
-          back.controlOf('j') == Control::Horn && back.controlOf(key::Return) == Control::Count);
+          back.controlOf('j') == Control::Horn && back.controlOf(key::kReturn) == Control::Count);
     back.resetControls();
-    CHECK(back.controlOf(key::Return) == Control::Horn && !back.startInCar && !back.music); // the audio stays
+    CHECK(back.controlOf(key::kReturn) == Control::Horn && !back.startInCar && !back.music); // the audio stays
     GameOptions none;
     CHECK(!none.load(tmp / "nothing") && none.music); // no file yet: the defaults
     CHECK(GameOptions().farClip() == 4000 && o.steerRate() == 1);

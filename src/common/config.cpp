@@ -17,8 +17,8 @@ static std::string trim(const std::string& s) {
 }
 
 Error Config::load(const std::filesystem::path& path) {
-    path_ = path;
-    sections_.clear();
+    _path = path;
+    _sections.clear();
 
     std::ifstream in(path);
     if (!in)
@@ -31,50 +31,50 @@ Error Config::load(const std::filesystem::path& path) {
             continue;
         if (line.front() == '[' && line.back() == ']') {
             section = trim(line.substr(1, line.size() - 2));
-            sections_[section];
+            _sections[section];
             continue;
         }
         size_t eq = line.find('=');
         if (eq == std::string::npos || section.empty())
             continue;
-        sections_[section][trim(line.substr(0, eq))] = trim(line.substr(eq + 1));
+        _sections[section][trim(line.substr(0, eq))] = trim(line.substr(eq + 1));
     }
     return Error::success();
 }
 
 Error Config::save() const {
-    std::ofstream out(path_, std::ios::trunc);
+    std::ofstream out(_path, std::ios::trunc);
     if (!out)
-        return Error::fail("Cannot write " + path_.string());
-    for (const auto& [name, values] : sections_) {
+        return Error::fail("Cannot write " + _path.string());
+    for (const auto& [name, values] : _sections) {
         out << '[' << name << "]\n";
         for (const auto& [k, v] : values)
             out << k << '=' << v << '\n';
         out << '\n';
     }
-    return out ? Error::success() : Error::fail("Error writing " + path_.string());
+    return out ? Error::success() : Error::fail("Error writing " + _path.string());
 }
 
 std::string Config::get(const std::string& section, const std::string& key,
                         const std::string& fallback) const {
-    auto s = sections_.find(section);
-    if (s == sections_.end())
+    auto s = _sections.find(section);
+    if (s == _sections.end())
         return fallback;
     auto v = s->second.find(key);
     return v == s->second.end() ? fallback : v->second;
 }
 
 void Config::set(const std::string& section, const std::string& key, const std::string& value) {
-    sections_[section][key] = value;
+    _sections[section][key] = value;
 }
 
-bool Config::hasSection(const std::string& section) const { return sections_.count(section) != 0; }
+bool Config::hasSection(const std::string& section) const { return _sections.count(section) != 0; }
 
-void Config::removeSection(const std::string& section) { sections_.erase(section); }
+void Config::removeSection(const std::string& section) { _sections.erase(section); }
 
 std::vector<std::string> Config::targets() const {
     std::vector<std::string> out;
-    for (const auto& [name, values] : sections_)
+    for (const auto& [name, values] : _sections)
         if (name != kGlobalSection)
             out.push_back(name);
     return out;

@@ -91,7 +91,7 @@ void RaceViewer::deactivate() {
 void RaceViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The Race page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -99,7 +99,7 @@ void RaceViewer::activate() {
         return;
     }
     scene_ = std::make_unique<CityScene>(*renderer_, ctx_.files);
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
     applySoundOptions(loadOptions(ctx_.savePath), ctx_.mixer);
     strings_.load(ctx_.files);
     roster_.load(ctx_.savePath);
@@ -162,9 +162,9 @@ bool RaceViewer::takesKey(const Event& ev) const {
     // In the game's menus Esc goes back (and on the main menu asks to
     // quit); in a race it's the race's.
     // In a race, Tab is the game's too (its Map Toggle), not the next page.
-    return ev.type == EventType::KeyDown &&
-           (((state_ != State::Menu || netMenus_ || front_) && ev.key == key::Escape) ||
-            (state_ != State::Menu && !racers_.empty() && ev.key == key::Tab));
+    return ev.type == EventType::kKeyDown &&
+           (((state_ != State::Menu || netMenus_ || front_) && ev.key == key::kEscape) ||
+            (state_ != State::Menu && !racers_.empty() && ev.key == key::kTab));
 }
 
 bool RaceViewer::raceIsOpen(int index) const {
@@ -809,12 +809,12 @@ void RaceViewer::handleEvent(const Event& ev) {
         return;
     // A game controller: its sticks and triggers drive (not while a replay
     // plays back its own), its buttons press keys.
-    if (ev.type == EventType::PadAxis) {
+    if (ev.type == EventType::kPadAxis) {
         if (!replaying_)
             pad_.axis(ev.pad, ev.value);
         return;
     }
-    if (ev.type == EventType::PadDown || ev.type == EventType::PadUp) {
+    if (ev.type == EventType::kPadDown || ev.type == EventType::kPadUp) {
         const bool driving = state_ != State::Menu && !racers_.empty() && !paused_ && !results_ && !replaying_ &&
                              !(game_ && game_->isOpen()) && !(help_ && help_->isOpen());
         if (Event key; padKeyEvent(ev, driving, currentOptions(), key))
@@ -831,20 +831,20 @@ void RaceViewer::handleEvent(const Event& ev) {
     }
     if (netEvent(ev))
         return;
-    if (ev.type == EventType::KeyUp) {
+    if (ev.type == EventType::kKeyUp) {
         keys_ &= ~driveKeyOf(ev.key);
         view_.press(controlOf(ev.key), false);
         return;
     }
-    if (ev.type == EventType::MouseMove) {
+    if (ev.type == EventType::kMouseMove) {
         if (state_ == State::Menu && front_)
             menuEvent(ev); // pointed at
         return;
     }
-    if (ev.type == EventType::MouseDown) {
+    if (ev.type == EventType::kMouseDown) {
         // A click: on the game's menus, the race's pause menu, results or
         // replay bar.
-        if (ev.button != MouseButton::Left)
+        if (ev.button != MouseButton::kLeft)
             return;
         if (state_ == State::Menu) {
             if (front_)
@@ -857,7 +857,7 @@ void RaceViewer::handleEvent(const Event& ev) {
             pauseEvent(ev);
         return;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     if (state_ == State::Menu && front_) {
         menuEvent(ev);
@@ -866,12 +866,12 @@ void RaceViewer::handleEvent(const Event& ev) {
     if (state_ == State::Menu) {
         const int fields = 5;
         auto wrap = [](int v, int n) { return n > 0 ? (v % n + n) % n : 0; };
-        if (ev.key == key::Up)
+        if (ev.key == key::kUp)
             field_ = wrap(field_ - 1, fields);
-        else if (ev.key == key::Down)
+        else if (ev.key == key::kDown)
             field_ = wrap(field_ + 1, fields);
-        else if (ev.key == key::Left || ev.key == key::Right) {
-            const int step = ev.key == key::Right ? 1 : -1;
+        else if (ev.key == key::kLeft || ev.key == key::kRight) {
+            const int step = ev.key == key::kRight ? 1 : -1;
             switch (field_) {
             case 0:
                 city_ = wrap(city_ + step, int(cities_.size()));
@@ -897,7 +897,7 @@ void RaceViewer::handleEvent(const Event& ev) {
                 if (!raceNames_.empty())
                     loadRace(ctx_.files, map, kKinds[kind_], raceIndex_, race_);
             }
-        } else if (ev.key == key::Return || ev.key == key::KpEnter) {
+        } else if (ev.key == key::kReturn || ev.key == key::kKpEnter) {
             startRace();
         } else if (ev.key == 'u') {
             openAll_ = !openAll_;
@@ -917,14 +917,14 @@ void RaceViewer::handleEvent(const Event& ev) {
         pauseEvent(ev);
         return;
     }
-    if (!netGame_ && ev.key == key::Escape) {
+    if (!netGame_ && ev.key == key::kEscape) {
         // Esc stops the race: the game's in-race menu.
         paused_ = true;
         pauseFocus_ = 0;
         keys_ = 0;
         return;
     }
-    if (!netGame_ && state_ == State::Finished && (ev.key == key::Return || ev.key == key::KpEnter)) {
+    if (!netGame_ && state_ == State::Finished && (ev.key == key::kReturn || ev.key == key::kKpEnter)) {
         results_ = true; // the game's results screen
         resultsFocus_ = nextRaceOpen() ? 1 : 0;
         return;
@@ -933,7 +933,7 @@ void RaceViewer::handleEvent(const Event& ev) {
         instantReplay(ReplayReturn::Results); // the instant replay
         return;
     }
-    if (state_ == State::Finished && lesson() && (ev.key == 'r' || ev.key == key::Return || ev.key == key::KpEnter)) {
+    if (state_ == State::Finished && lesson() && (ev.key == 'r' || ev.key == key::kReturn || ev.key == key::kKpEnter)) {
         // Restart the lesson (R), or (Enter) go on to the next once passed.
         const bool next =
             ev.key != 'r' && judge_.result() == LessonJudge::Result::Passed && raceIndex_ + 1 < int(raceNames_.size());
@@ -944,11 +944,11 @@ void RaceViewer::handleEvent(const Event& ev) {
             return;
         }
     }
-    if (ev.key == key::Escape || (state_ == State::Finished && (ev.key == key::Return || ev.key == key::KpEnter))) {
+    if (ev.key == key::kEscape || (state_ == State::Finished && (ev.key == key::kReturn || ev.key == key::kKpEnter))) {
         endRace();
         return;
     }
-    if (ev.key == key::F1) {
+    if (ev.key == key::kF1) {
         // The controls' list (a race alone stops while it's up).
         view_.controlsList = !view_.controlsList;
         keys_ = 0;
@@ -989,7 +989,7 @@ void RaceViewer::handleEvent(const Event& ev) {
 void RaceViewer::menuEvent(const Event& ev) {
     if (movie_) {
         // A key or a click skips the opening movie, to the menus.
-        if (ev.type == EventType::KeyDown || (ev.type == EventType::MouseDown && ev.button == MouseButton::Left)) {
+        if (ev.type == EventType::kKeyDown || (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)) {
             endMovie();
             front_->leaveSplash();
         }
@@ -1198,7 +1198,7 @@ void RaceViewer::drawArrowTo(const Vec3& target, bool blitz, bool little) {
         call.model = matrixOf(turn, at);
         call.texture = d.texture;
         call.state.depthTest = false;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         renderer_->draw(call);
     }
 }

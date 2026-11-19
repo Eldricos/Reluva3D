@@ -213,26 +213,26 @@ private:
     const DmChord& chordAt(double segmentTick) const;
     void dispatch(const Event& e);
 
-    int rate_;
-    Loader loader_;
-    std::mt19937 random_;
-    mutable std::mutex mutex_;
-    DlsSynth synth_;
-    float volume_ = 1;
-    std::map<std::string, std::shared_ptr<const DmSegment>> segments_;
-    std::map<std::string, std::shared_ptr<const DmStyle>> styles_;
-    std::map<std::string, std::unique_ptr<DlsCollection>> collections_;
-    std::unique_ptr<Playing> playing_;
-    std::shared_ptr<const DmSegment> pending_;
-    std::shared_ptr<const DmStyle> pendingStyle_;
-    std::set<std::string> known_; // collections play() has read (the caller's thread's)
-    double performanceTick_ = 0;
-    double measureEnd_ = 0;                   // performance tick where the measure being played ends
-    std::vector<Event> events_;               // kept sorted by tick
-    std::map<size_t, int> variationState_;    // each pattern part's last variation (for the in-order modes)
-    std::map<size_t, int> instanceVariation_; // and the one it plays now
-    std::array<float, 64> bendRange_{};
-    DmChord defaultChord_;
+    int _rate;
+    Loader _loader;
+    std::mt19937 _random;
+    mutable std::mutex _mutex;
+    DlsSynth _synth;
+    float _volume = 1;
+    std::map<std::string, std::shared_ptr<const DmSegment>> _segments;
+    std::map<std::string, std::shared_ptr<const DmStyle>> _styles;
+    std::map<std::string, std::unique_ptr<DlsCollection>> _collections;
+    std::unique_ptr<Playing> _playing;
+    std::shared_ptr<const DmSegment> _pending;
+    std::shared_ptr<const DmStyle> _pendingStyle;
+    std::set<std::string> _known; // collections play() has read (the caller's thread's)
+    double _performanceTick = 0;
+    double _measureEnd = 0;                   // performance tick where the measure being played ends
+    std::vector<Event> _events;               // kept sorted by tick
+    std::map<size_t, int> _variationState;    // each pattern part's last variation (for the in-order modes)
+    std::map<size_t, int> _instanceVariation; // and the one it plays now
+    std::array<float, 64> _bendRange{};
+    DmChord _defaultChord;
 };
 
 } // namespace reluva::audio

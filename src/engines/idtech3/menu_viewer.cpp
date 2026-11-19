@@ -37,14 +37,14 @@ void MenuViewer::activate() {
     ctx_.sys.setVideoMode(frameW_, frameH_, video.fullscreen);
     if (Error err = ctx_.sys.init3D(frameW_, frameH_, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The Menu page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(frameW_, frameH_, PixelFormat::RGBA32);
+    overlay_.create(frameW_, frameH_, PixelFormat::kRgbA32);
     shaders_ = std::make_unique<ShaderCache>(*renderer_, ctx_.files, ctx_.shaders);
     models_ = std::make_unique<ModelCache>(*renderer_, *shaders_, ctx_.files);
     // The settings reach the models the menus show (pictures keep theirs).
@@ -241,7 +241,7 @@ void MenuViewer::playSound(const std::string& name, int channel) {
     const CvarStore::Cvar* volume = cvars_.find("s_volume");
     const float scale = volume ? std::clamp(std::strtof(volume->value.c_str(), nullptr), 0.0f, 1.0f) : 0.8f;
     const audio::SoundHandle handle =
-        ctx_.mixer->play(sound, audio::SoundType::Effects, int(scale * float(audio::kMaxVolume)));
+        ctx_.mixer->play(sound, audio::SoundType::kEffects, int(scale * float(audio::kMaxVolume)));
     if (channel != 0)
         channels_[channel] = handle;
 }
@@ -265,11 +265,11 @@ void MenuViewer::deactivate() {
 
 bool MenuViewer::takesKey(const Event& ev) const {
     // Esc and Tab belong to the menus; with Ctrl they leave, as elsewhere.
-    return ui_ && !(ev.mods & keymod::Ctrl);
+    return ui_ && !(ev.mods & keymod::kCtrl);
 }
 
 void MenuViewer::handleEvent(const Event& ev) {
-    if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
+    if (ev.type == EventType::kKeyDown && ev.key == 'r' && (ev.mods & keymod::kCtrl)) {
         // Ctrl+R: start the menus again, stopped or not.
         ui_.reset();
         error_.clear();
@@ -284,18 +284,18 @@ void MenuViewer::handleEvent(const Event& ev) {
     // Only presses: Elite Force's menus act on a release as on a press
     // (a click counted twice), so the original's engine can't have sent
     // them releases.
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         if (const int32_t k = toQ3Key(ev.key))
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
         break;
-    case EventType::TextInput:
+    case EventType::kTextInput:
         // Characters for text fields, each as a key press with the
         // character flag (the original's menus go by Latin-1).
         for (uint32_t cp : decodeUtf8(ev.text))
             if (cp >= 32 && cp < 256 && cp != 127 && !err)
                 err = ui_->call(eliteforce::UiHost::KeyEvent, {int32_t(cp) | q3key::CharFlag, 1});
         break;
-    case EventType::MouseDown:
+    case EventType::kMouseDown:
         // Clicks land where the mouse is.
         mouseX_ = ev.mouseX;
         mouseY_ = ev.mouseY;
@@ -306,13 +306,13 @@ void MenuViewer::handleEvent(const Event& ev) {
         if (const int32_t k = toQ3Button(ev.button))
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
         break;
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         if (ev.wheelY) {
             const int32_t k = ev.wheelY > 0 ? q3key::WheelUp : q3key::WheelDown;
             err = ui_->call(eliteforce::UiHost::KeyEvent, {k, 1});
         }
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         // Followed in update(), once per frame.
         mouseX_ = ev.mouseX;
         mouseY_ = ev.mouseY;

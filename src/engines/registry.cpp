@@ -19,7 +19,7 @@ const MetaEngine& ageMetaEngine();
 #endif
 
 const std::vector<const MetaEngine*>& allEngines() {
-    static const std::vector<const MetaEngine*> engines = {
+    static const std::vector<const MetaEngine*> kEngines = {
         &testbedMetaEngine(),
 #ifdef RELUVA_ENGINE_NEWWORLDS
         &newWorldsMetaEngine(),
@@ -31,7 +31,7 @@ const std::vector<const MetaEngine*>& allEngines() {
         &ageMetaEngine(),
 #endif
     };
-    return engines;
+    return kEngines;
 }
 
 const MetaEngine* findEngine(std::string_view id) {

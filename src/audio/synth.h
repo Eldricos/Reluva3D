@@ -17,9 +17,9 @@ namespace reluva::audio {
 // pitch envelope, LFO). Renders 16-bit stereo. See docs/formats/dls.md.
 class DlsSynth {
 public:
-    explicit DlsSynth(int rate) : rate_(rate) {}
+    explicit DlsSynth(int rate) : _rate(rate) {}
 
-    int rate() const { return rate_; }
+    int rate() const { return _rate; }
     // A channel's instrument (null: silent), and its controls (0-127).
     void setInstrument(int channel, const DlsCollection* collection, const DlsInstrument* instrument);
     void setVolume(int channel, int volume);         // CC 7
@@ -39,7 +39,7 @@ public:
     // Adds `frames` stereo frames to `out` (interleaved, so 2 x frames
     // values), mixed at `gain`.
     void render(float* out, size_t frames, float gain = 1);
-    size_t voices() const { return voices_.size(); }
+    size_t voices() const { return _voices.size(); }
 
 private:
     struct Channel {
@@ -80,9 +80,9 @@ private:
                                    const std::vector<DlsConnection>& region);
     static float envelopeLevel(const Envelope& e, float time, float releasedAt, float releaseLevel, bool decibels);
 
-    int rate_;
-    std::array<Channel, 64> channels_{};
-    std::vector<Voice> voices_;
+    int _rate;
+    std::array<Channel, 64> _channels{};
+    std::vector<Voice> _voices;
 };
 
 } // namespace reluva::audio

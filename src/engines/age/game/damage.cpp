@@ -318,10 +318,10 @@ void SmokePuffs::draw(const Vec3& eye) const {
         call.postRow1 = {0, part, part * float(f / g)};
         call.color = p.color;
         call.color[3] *= 1 - p.age / p.life; // fading out over its life
-        call.state.src = gfx::Blend::SrcAlpha;
-        call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+        call.state.src = gfx::Blend::kSrcAlpha;
+        call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
         call.state.depthWrite = false;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         renderer_.draw(call);
     }
 }

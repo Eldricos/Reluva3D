@@ -42,7 +42,7 @@ void ModelViewer::deactivate() {
 void ModelViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRgbA32);
         clear(16, 18, 24);
         text(4, 4, "The Models page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -50,7 +50,7 @@ void ModelViewer::activate() {
         return;
     }
     textures_ = std::make_unique<TextureCache>(*renderer_, ctx_.files);
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRgbA32);
     show(index_);
 }
 
@@ -99,29 +99,29 @@ void ModelViewer::resetView() {
 void ModelViewer::handleEvent(const Event& ev) {
     if (!renderer_ || names_.empty())
         return;
-    if (ev.type == EventType::KeyDown) {
+    if (ev.type == EventType::kKeyDown) {
         const int n = static_cast<int>(names_.size());
         int i = index_;
-        if (ev.key == key::Left)
+        if (ev.key == key::kLeft)
             i = (i + n - 1) % n;
-        else if (ev.key == key::Right)
+        else if (ev.key == key::kRight)
             i = (i + 1) % n;
-        else if (ev.key == key::PageUp)
+        else if (ev.key == key::kPageUp)
             i = std::max(0, i - 10);
-        else if (ev.key == key::PageDown)
+        else if (ev.key == key::kPageDown)
             i = std::min(n - 1, i + 10);
-        else if (ev.key == key::Home)
+        else if (ev.key == key::kHome)
             i = 0;
-        else if (ev.key == key::End)
+        else if (ev.key == key::kEnd)
             i = n - 1;
-        else if (ev.key == key::Up || ev.key == key::Down) {
+        else if (ev.key == key::kUp || ev.key == key::kDown) {
             // The first model of the next (or previous) kind.
-            const int step = ev.key == key::Down ? 1 : n - 1;
+            const int step = ev.key == key::kDown ? 1 : n - 1;
             const std::string kind = kindOf(names_[size_t(i)]);
             do
                 i = (i + step) % n;
             while (i != index_ && kindOf(names_[size_t(i)]) == kind);
-            if (ev.key == key::Up)
+            if (ev.key == key::kUp)
                 while (i > 0 && kindOf(names_[size_t(i - 1)]) == kindOf(names_[size_t(i)]))
                     --i;
         } else if (ev.key == 'l' && levels_.size() > 1) {
@@ -144,18 +144,18 @@ void ModelViewer::handleEvent(const Event& ev) {
         }
         if (i != index_)
             show(i);
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         dragging_ = true;
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         dragging_ = false;
-    } else if (ev.type == EventType::MouseMove && dragging_) {
+    } else if (ev.type == EventType::kMouseMove && dragging_) {
         yaw_ -= float(ev.mouseX - lastX_) * 0.01f;
         pitch_ = std::clamp(pitch_ + float(ev.mouseY - lastY_) * 0.01f, -1.5f, 1.5f);
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseWheel) {
+    } else if (ev.type == EventType::kMouseWheel) {
         distance_ = std::max(radius_ * 0.2f, distance_ * std::pow(0.9f, float(ev.wheelY)));
     }
 }

@@ -270,36 +270,36 @@ PortMapper::Transport PortMapper::through(System& sys) {
 }
 
 PortMapper::PortMapper(Transport transport, uint16_t port, bool threaded)
-    : transport_(std::move(transport)), port_(port) {
+    : _transport(std::move(transport)), _port(port) {
     if (threaded)
-        thread_ = std::thread([this] { work(); });
+        _thread = std::thread([this] { work(); });
 }
 
 PortMapper::~PortMapper() {
-    if (thread_.joinable()) {
+    if (_thread.joinable()) {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            stop_ = true;
+            std::lock_guard<std::mutex> lock(_mutex);
+            _stop = true;
         }
-        wake_.notify_all();
-        thread_.join();
+        _wake.notify_all();
+        _thread.join();
     }
 }
 
 PortMapping PortMapper::result() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return result_;
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _result;
 }
 
 void PortMapper::work() {
     map();
     // NAT-PMP's mapping lasts its lifetime: asked again at half of it.
-    std::unique_lock<std::mutex> lock(mutex_);
-    while (!stop_) {
-        const auto every = std::chrono::seconds(std::max<uint32_t>(60, lifetime_ / 2));
-        if (wake_.wait_for(lock, lifetime_ ? every : std::chrono::hours(24), [this] { return stop_; }))
+    std::unique_lock<std::mutex> lock(_mutex);
+    while (!_stop) {
+        const auto every = std::chrono::seconds(std::max<uint32_t>(60, _lifetime / 2));
+        if (_wake.wait_for(lock, _lifetime ? every : std::chrono::hours(24), [this] { return _stop; }))
             break;
-        if (result_.way == PortMapping::Way::NatPmp) {
+        if (_result.way == PortMapping::Way::kNatPmp) {
             lock.unlock();
             PortMapping again;
             mapNatPmp(again);
@@ -317,15 +317,15 @@ PortMapping PortMapper::map() {
         out.why = "The router didn't answer UPnP or NAT-PMP";
     }
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        result_ = out;
+        std::lock_guard<std::mutex> lock(_mutex);
+        _result = out;
     }
-    done_ = true;
+    _done = true;
     return out;
 }
 
 bool PortMapper::mapUpnp(PortMapping& out) {
-    if (!transport_.udp || !transport_.http)
+    if (!_transport.udp || !_transport.http)
         return false;
     // Gateways found by an SSDP search, each asked for its description.
     std::vector<std::string> locations;
@@ -333,7 +333,7 @@ bool PortMapper::mapUpnp(PortMapping& out) {
          {"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:service:WANIPConnection:1"}) {
         const std::string search = ssdpSearch(target);
         for (const auto& [from, data] :
-             transport_.udp(kSsdp, std::vector<uint8_t>(search.begin(), search.end()), transport_.waitMs)) {
+             _transport.udp(kSsdp, std::vector<uint8_t>(search.begin(), search.end()), _transport.waitMs)) {
             std::string url;
             if (ssdpLocation(std::string(data.begin(), data.end()), url) &&
                 std::find(locations.begin(), locations.end(), url) == locations.end())
@@ -347,7 +347,7 @@ bool PortMapper::mapUpnp(PortMapping& out) {
         std::string response;
         uint32_t localIp = 0;
         int status = 0;
-        if (!parseUrl(location, where) || !transport_.http({where.ip, where.port}, httpGet(where), response, localIp))
+        if (!parseUrl(location, where) || !_transport.http({where.ip, where.port}, httpGet(where), response, localIp))
             continue;
         const std::string description = httpBody(response, status);
         std::string type;
@@ -360,15 +360,15 @@ bool PortMapper::mapUpnp(PortMapping& out) {
         for (const char* lease : {"0", "86400"}) {
             const std::string request = soapRequest(control, type, "AddPortMapping",
                                                     {{"NewRemoteHost", ""},
-                                                     {"NewExternalPort", std::to_string(port_)},
+                                                     {"NewExternalPort", std::to_string(_port)},
                                                      {"NewProtocol", "UDP"},
-                                                     {"NewInternalPort", std::to_string(port_)},
+                                                     {"NewInternalPort", std::to_string(_port)},
                                                      {"NewInternalClient", ipText(localIp)},
                                                      {"NewEnabled", "1"},
                                                      {"NewPortMappingDescription", "Reluva"},
                                                      {"NewLeaseDuration", lease}});
             uint32_t ignored = 0;
-            if (transport_.http({control.ip, control.port}, request, response, ignored)) {
+            if (_transport.http({control.ip, control.port}, request, response, ignored)) {
                 httpBody(response, status);
                 if (status == 200) {
                     mapped = true;
@@ -378,29 +378,29 @@ bool PortMapper::mapUpnp(PortMapping& out) {
         }
         if (!mapped)
             continue;
-        out.way = PortMapping::Way::Upnp;
-        out.externalPort = port_;
+        out.way = PortMapping::Way::kUpnp;
+        out.externalPort = _port;
         uint32_t ignored = 0;
-        if (transport_.http({control.ip, control.port}, soapRequest(control, type, "GetExternalIPAddress", {}),
+        if (_transport.http({control.ip, control.port}, soapRequest(control, type, "GetExternalIPAddress", {}),
                             response, ignored)) {
             Address a;
             if (parseAddress(xmlValue(httpBody(response, status), "NewExternalIPAddress"), 0, a))
                 out.externalIp = a.ip;
         }
-        std::lock_guard<std::mutex> lock(mutex_);
-        control_ = control;
-        serviceType_ = type;
+        std::lock_guard<std::mutex> lock(_mutex);
+        _control = control;
+        _serviceType = type;
         return true;
     }
     return false;
 }
 
 bool PortMapper::mapNatPmp(PortMapping& out) {
-    if (!transport_.udp)
+    if (!_transport.udp)
         return false;
-    for (uint32_t gateway : transport_.gateways) {
+    for (uint32_t gateway : _transport.gateways) {
         const auto map =
-            transport_.udp({gateway, kNatPmpPort}, natPmpMapRequest(port_, port_, kNatPmpLifetime), transport_.waitMs);
+            _transport.udp({gateway, kNatPmpPort}, natPmpMapRequest(_port, _port, kNatPmpLifetime), _transport.waitMs);
         uint16_t external = 0;
         uint32_t lifetime = 0;
         int result = -1;
@@ -409,17 +409,17 @@ bool PortMapper::mapNatPmp(PortMapping& out) {
             ok = ok || (natPmpMapReply(data, external, lifetime, result) && result == 0);
         if (!ok)
             continue;
-        out.way = PortMapping::Way::NatPmp;
+        out.way = PortMapping::Way::kNatPmp;
         out.externalPort = external;
         for (const auto& [from, data] :
-             transport_.udp({gateway, kNatPmpPort}, natPmpAddressRequest(), transport_.waitMs)) {
+             _transport.udp({gateway, kNatPmpPort}, natPmpAddressRequest(), _transport.waitMs)) {
             uint32_t ip = 0;
             if (natPmpAddressReply(data, ip, result) && result == 0)
                 out.externalIp = ip;
         }
-        std::lock_guard<std::mutex> lock(mutex_);
-        gateway_ = gateway;
-        lifetime_ = lifetime;
+        std::lock_guard<std::mutex> lock(_mutex);
+        _gateway = gateway;
+        _lifetime = lifetime;
         return true;
     }
     return false;
@@ -431,25 +431,25 @@ void PortMapper::unmap() {
     std::string type;
     uint32_t gateway = 0;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        was = result_;
-        control = control_;
-        type = serviceType_;
-        gateway = gateway_;
-        result_ = PortMapping{};
+        std::lock_guard<std::mutex> lock(_mutex);
+        was = _result;
+        control = _control;
+        type = _serviceType;
+        gateway = _gateway;
+        _result = PortMapping{};
     }
-    if (was.way == PortMapping::Way::Upnp && transport_.http) {
+    if (was.way == PortMapping::Way::kUpnp && _transport.http) {
         std::string response;
         uint32_t ignored = 0;
-        transport_.http(
+        _transport.http(
             {control.ip, control.port},
             soapRequest(
                 control, type, "DeletePortMapping",
                 {{"NewRemoteHost", ""}, {"NewExternalPort", std::to_string(was.externalPort)}, {"NewProtocol", "UDP"}}),
             response, ignored);
-    } else if (was.way == PortMapping::Way::NatPmp && transport_.udp) {
+    } else if (was.way == PortMapping::Way::kNatPmp && _transport.udp) {
         // A lifetime of 0 takes it away (RFC 6886 3.4).
-        transport_.udp({gateway, kNatPmpPort}, natPmpMapRequest(port_, 0, 0), transport_.waitMs / 4);
+        _transport.udp({gateway, kNatPmpPort}, natPmpMapRequest(_port, 0, 0), _transport.waitMs / 4);
     }
 }
 
