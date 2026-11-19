@@ -1200,15 +1200,47 @@ void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
         return;
     }
     case kPhysParticle: {
-        // Without copies (physParticle): drifting by its velocity and
-        // acceleration, through everything (no collision, no events).
+        // Without copies (physParticle, 0x1035d430): drifting through
+        // everything (no collision, no events, its zone not looked at).
+        // Owned by a generator, slowed by its DeltaSpeed and pushed by its
+        // Forces and wind as well as its own acceleration. In its last
+        // second its DrawScale and ScaleGlow fade with its LifeSpan (as
+        // the generator's bFadeSize and bFadeGlow say; both without one).
         if (const Value *mm = prop(a, "MultiMesh"); mm && mm->asObject())
             return;
-        v = add(v, mul(accel, dt));
+        const Value *ownerValue = prop(a, "Owner");
+        VmObject *owner = ownerValue ? ownerValue->asObject() : nullptr;
+        const bool generator = owner && _vm.isA(owner, "CTVE_Generator");
+        auto ownerFloat = [&](const char *name) {
+            const Value *val = prop(owner, name);
+            return val ? val->asFloat() : 0.0f;
+        };
+        auto ownerVec = [&](const char *name) {
+            const Value *val = prop(owner, name);
+            return val ? Vm::vectorOf(*val) : Vec{};
+        };
+        Vec push = accel;
+        if (generator) {
+            if (const float speed = length(v); speed > 0)
+                v = mul(v, std::max(0.0f, speed - ownerFloat("DeltaSpeed") * dt) / speed);
+            push = add(push, add(ownerVec("Forces"), ownerVec("WindForce")));
+        }
+        v = add(v, mul(push, dt));
         _vm.setVector(*velocityValue, v[0], v[1], v[2]);
         const Vec l = add(Vm::vectorOf(*loc), mul(v, dt));
         _vm.setVector(*loc, l[0], l[1], l[2]);
-        updateRegion(a);
+        const Value *lifeSpan = prop(a, "LifeSpan");
+        if (const float life = lifeSpan ? lifeSpan->asFloat() : 0; life > 0 && life < 1) {
+            const float keep = life / (life + dt);
+            for (const char *name : {"DrawScale", "ScaleGlow"}) {
+                const Value *flag = generator
+                                        ? prop(owner, std::string_view(name) == "DrawScale" ? "bFadeSize" : "bFadeGlow")
+                                        : nullptr;
+                const bool fade = !generator || (flag && flag->asBool());
+                if (Value *val = prop(a, name); val && fade)
+                    *val = Value::floatValue(val->asFloat() * keep);
+            }
+        }
         return;
     }
     case kPhysNewtonian: {
@@ -1275,7 +1307,8 @@ void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
         // through everything, then curls (its copies' base: Angle the
         // trail's torque, Acceleration the axis, which its scripts change):
         // the axis crossed with the way it goes, by dt x Angle x 2500,
-        // kept to its speed.
+        // kept to its speed; none with an Angle of 0 or less (Engine.dll's
+        // physEXP_Trail, 0x1035bf40).
         v = add(v, mul(accel, dt));
         {
             const Vec l = add(Vm::vectorOf(*loc), mul(v, dt));
@@ -1286,7 +1319,7 @@ void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
             VmObject *base = head->asObject();
             const Value *torque = prop(base, "Angle");
             const float speed = length(v);
-            if (torque && torque->asFloat() != 0 && speed > 0) {
+            if (torque && torque->asFloat() > 0 && speed > 0) {
                 const Vec axis = prop(base, "Acceleration") ? Vm::vectorOf(*prop(base, "Acceleration")) : Vec{};
                 const Vec d = normal(v);
                 const Vec c{axis[1] * d[2] - axis[2] * d[1], axis[2] * d[0] - axis[0] * d[2],

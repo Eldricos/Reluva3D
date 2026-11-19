@@ -101,8 +101,20 @@ The Fallen added its own modes (past 10): the player's climbing,
 free flight, fish, interpolation and one for each kind of effect.
 `vm_climbing.cpp` and `vm_effect_physics.cpp` work them. The player's
 three (Climbing, Hanging, Clambering) are as Engine.dll's
-`ACTVE_PlayerPawn::physClimbing`, `physHanging` and `physClambering`;
-the rest are Reluva's reading of what the scripts set and leave undone.
+`ACTVE_PlayerPawn::physClimbing`, `physHanging` and `physClambering`.
+The rest are each a function of Engine.dll's (`AActor::performPhysics`,
+0x10358a90, switches on the mode), read for Interpolating, Trailer,
+Particle, Newtonian, Fish, the single-axis turns and EXP_Trail (a curl
+only for an `Angle` over 0); the other effects' modes are Reluva's
+reading of what the scripts set and leave undone.
+
+A pawn moves only in the modes its own class's switch has: The Fallen's
+player (0x10368c80) walking, falling, swimming, flying, on a path
+(Interpolating, CTVE_Interpolating) and climbing, hanging or clambering;
+The Fallen's other pawns (0x10363310) walking, falling, swimming,
+flying, on a path, Spider and Newtonian; a plain pawn (0x10361a70)
+those and SimpleWalking and Fish. In any other mode a pawn stays where
+it is.
 
 | Physics | What it does |
 |---|---|
@@ -113,8 +125,8 @@ the rest are Reluva's reading of what the scripts set and leave undone.
 | Clambering | Up at `DodgeClickTimer` units a second (its scripts' `PlayClambering` sets 100 or 130; Kira's 104 or 130) until the feet are over `LedgeHeight`, feeling 4 units forward; clear there (or 4 over), `Landed` with the normal of what it felt (none if clear), which sets the rise to 0. Then forward at 120 a second until stopped, when `ChangePhysics(Walking)`; its scripts' `AnimEnd` walks too. Blocked rising: `ChangePhysics(Falling)`. |
 | RotatingYaw, RotatingPitch | Turning about the one axis by `RotationRate` a second, only with `bFixedRotationDir` (round and round) or `bRotateToDesired` (the shorter way to `DesiredRotation`, then `EndedRotation`). Before, Reluva turned them twice, so ARD_TortureMachine turned at double speed and never backward. |
 | SimpleWalking (a plain pawn's: the leeches) | As APawn::physSimpleWalking: forward the way it faces at `GroundSpeed` (its acceleration has no say; `AccelRate` held at 300), along the floor found 10 over and under where that takes it, 2 above it. Blocked going down, the plain move; level or up, 60 a second up then across; no sliding. No floor ahead, or none 10 under it after: `Falling`. On a slope steeper than 0.6: `HitWall`. The Fallen's own pawns don't move in it. Spider (11): no script uses it. |
-| Particle | No gravity: its velocity changed by its acceleration (a ship lifting off, debris settled), moved through everything, with no events. One that makes copies stays where its scripts put it. |
-| Newtonian | Free flight by momentum. A pawn (the Vulture, the Wraith, the Arachnid): `calcVelocity` with no friction (its velocity steered toward its acceleration, at most `AccelRate`, up to `AirSpeed` times `DesiredSpeed` if not a player); an actor (a thrown drum) keeps its velocity, which only its scripts change. On a wall a pawn steps up a low one; else the wall is told (`processHitWall`) and it slides, a second wall told and the move bent along both. A pawn's velocity is then what it moved. |
+| Particle | As physParticle (0x1035d430): no gravity; its velocity changed by its acceleration (a ship lifting off, debris settled), and, if a `CTVE_Generator` owns it, slowed by its `DeltaSpeed` and pushed by its `Forces` and wind too; moved through everything, its zone not looked at, with no events. In its last second its `DrawScale` and `ScaleGlow` fade with its `LifeSpan` (as the generator's `bFadeSize`, `bFadeGlow` say; both without one). One that makes copies stays where its scripts put it. |
+| Newtonian | Free flight by momentum. A pawn (the Vulture, the Wraith, the Arachnid): `calcVelocity` with no friction (its velocity steered toward its acceleration, at most `AccelRate`, up to `AirSpeed` times `DesiredSpeed`; a player never moves in it); an actor (a thrown drum) keeps its velocity, which only its scripts change. On a wall a pawn steps up a low one; else the wall is told (`processHitWall`) and it slides, a second wall told and the move bent along both. A pawn's velocity is then what it moved. |
 | Fish | As an AI swimmer (kept in the water), then pulled on toward its `Destination` when that's over 20 away (`AccelRate`; the pull also kept in `LastSeenPos`), held to `WaterSpeed` and facing the way it swims with no roll; its velocity not what it moved. |
 | EXP_Trail | An explosion's trail: by its velocity and acceleration, through everything; then curling (its copies' base: `Angle` the torque, `Acceleration` the axis its scripts change), the axis crossed with the way it goes by dt x Angle x 2500, kept to its speed. |
 | The rest | Only their copies move (see [effects.md](effects.md)). |

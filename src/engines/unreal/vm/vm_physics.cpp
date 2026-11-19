@@ -1254,8 +1254,43 @@ bool ScriptLevel::outOfWorld(VmObject *a, int physics) {
     return true;
 }
 
+namespace {
+
+// The modes each kind of pawn moves in, by its class's own physics switch
+// in Engine.dll: The Fallen's player (0x10368c80) walks, falls, swims,
+// flies, follows a path and climbs; its other pawns (0x10363310) also
+// trail and fly by momentum; a plain pawn (0x10361a70) also walks simply
+// and swims as a fish. In any other mode a pawn doesn't move.
+bool pawnMoves(int physics, bool player, bool fallen) {
+    switch (physics) {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 8:
+    case 9:
+        return true;
+    case 13:
+    case 14:
+    case 15:
+        return player;
+    case 11:
+    case 17:
+        return !player;
+    case 32:
+    case 35:
+        return !player && !fallen;
+    default:
+        return false;
+    }
+}
+
+} // namespace
+
 void ScriptLevel::move(VmObject *a, int physics, float dt) {
     if (physics == kPhysNone)
+        return;
+    if (_vm.isA(a, "Pawn") && !pawnMoves(physics, _vm.isA(a, "CTVE_PlayerPawn"), _vm.isA(a, "CTVE_Pawn")))
         return;
     if (outOfWorld(a, physics))
         return;

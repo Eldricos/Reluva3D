@@ -81,7 +81,13 @@ where none fitted, even about the middles. Those have no float copy: their
 `(FrameVerts, FrameVerts, 128)` array holds one float per vertex, all 1.0
 (weights, say), not three. Drawn as stored they lie on their backs as the
 chairs did, so they're given the usual turn (KiraCellLight's) and the
-same opposite-way drawing.
+same opposite-way drawing. Engine.dll settles it for them: its C3D frame
+builder takes a mesh's points from C3D space to Unreal's by one fixed
+swap of axes for every mesh, (x, y, z) to (-z, -x, y) (0x1032b980; the
+way back at 0x1032d61e), reading no RotOrigin, and unpacks packed
+vertices as they are (0x104ae44e), so a mesh drawn from its packed
+vertices is turned exactly so: Reluva's turn and three quarter turns of
+yaw.
 
 Turned so, they stand up but face their right (in CM05_Kira and the
 rest): imported meshes are also given three quarter turns of yaw (a
