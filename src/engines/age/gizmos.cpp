@@ -3,7 +3,7 @@
 
 #include "engines/age/gizmos.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 #include "engines/age/car_actor.h"
 #include "engines/age/pkg.h"
 

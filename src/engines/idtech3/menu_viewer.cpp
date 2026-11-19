@@ -7,7 +7,7 @@
 #include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

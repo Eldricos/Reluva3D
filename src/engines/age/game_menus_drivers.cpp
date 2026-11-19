@@ -9,7 +9,7 @@
 
 #include "engines/age/game_menus.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/age/race.h"
 
 #include <algorithm>

@@ -8,7 +8,7 @@
 // mesh with a draw per group.
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/age/pkg.h"
 #include "engines/age/texture.h"
 

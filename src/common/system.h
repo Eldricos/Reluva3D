@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/events.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/net.h"
 #include "common/types.h"
 

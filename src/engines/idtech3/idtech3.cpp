@@ -14,7 +14,7 @@
 // Tab switches pages; Esc goes back to the launcher (on the Menu page,
 // Ctrl+Tab and Ctrl+Esc, as the menus take Tab and Esc).
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/zip.h"
 #include "engines/engine.h"

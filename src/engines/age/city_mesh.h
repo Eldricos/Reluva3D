@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/age/psdl.h"
 
 #include <string>

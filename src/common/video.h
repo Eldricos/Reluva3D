@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "common/audio/sound.h"
-#include "common/image.h"
+#include "audio/sound.h"
+#include "image/image.h"
 
 #include <cstdint>
 #include <memory>

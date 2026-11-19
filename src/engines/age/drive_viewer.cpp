@@ -8,7 +8,7 @@
 
 #include "engines/age/viewers.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/age/city_collision.h"
 
 #include <algorithm>

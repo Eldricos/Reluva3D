@@ -90,9 +90,9 @@ one, Reluva falls back to SDL's usual renderer: everything else works and the
 World page says 3D isn't available. Setting `SDL_RENDER_DRIVER` to another
 renderer (e.g. `opengl`) forces that fallback.
 
-The shaders are compiled into `src/backends/sdl3/shaders/compiled.h`, which is
+The shaders are compiled into `src/backends/graphics/sdl3/shaders/compiled.h`, which is
 committed. Only after changing `draw.vert` or `draw.frag` run
-`src/backends/sdl3/shaders/build.sh`, which needs `glslang-tools` and
+`src/backends/graphics/sdl3/shaders/build.sh`, which needs `glslang-tools` and
 `spirv-cross`.
 
 **IDE (optional):** VS Code with the *CMake Tools* and *C/C++* extensions opens

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/audio/sound.h"
+#include "audio/sound.h"
 
 #include <memory>
 #include <string>
@@ -15,7 +15,7 @@
 namespace reluva::idtech3 {
 
 // A game's sounds by name ("sound/interface/button1.wav"), read from its
-// search path and decoded on first use (WAV or MP3, common/audio), then
+// search path and decoded on first use (WAV or MP3, audio), then
 // kept. A sound that can't be read or decoded is remembered as missing
 // rather than tried again.
 class SoundLibrary {

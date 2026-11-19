@@ -5,7 +5,7 @@
 
 #include "engines/age/police.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 #include "engines/age/race.h"
 
 #include <algorithm>

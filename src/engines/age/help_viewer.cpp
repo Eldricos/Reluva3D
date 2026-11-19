@@ -3,7 +3,7 @@
 
 #include "engines/age/help_viewer.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <cstdio>

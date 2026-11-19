@@ -4,8 +4,8 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/audio/directmusic.h"
-#include "common/audio/mixer.h"
+#include "audio/directmusic.h"
+#include "audio/mixer.h"
 
 #include <memory>
 #include <string>

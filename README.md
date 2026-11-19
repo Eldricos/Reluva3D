@@ -18,7 +18,7 @@ src/common/        platform-independent core: System interface, events,
 third_party/       outside code Reluva builds in, each with its licence (minimp3, stb_image)
 src/backends/sdl3/ the only code that touches SDL (window, rendering, input, audio),
                    including 3D on SDL's GPU API and its shaders
-src/launcher/      Dear ImGui game list: add / remove / start games
+src/gui/      Dear ImGui game list: add / remove / start games
 src/engines/       one directory per engine, plus registry.cpp listing them
   testbed/         built-in test "game" that exercises the backend
   newworlds/       Star Trek: New Worlds: readers for its archives and their
@@ -30,7 +30,7 @@ src/engines/       one directory per engine, plus registry.cpp listing them
                    Midtown Madness 2: its archives, textures, models and
                    cities, its races, traffic, pedestrians and police, and a
                    cruise mode (docs/engines/age.md)
-src/tools/         reluva-tool, utilities for studying game data
+src/devtools/         reluva-tool, utilities for studying game data
 tests/             unit tests for common/ and the engines
 ```
 

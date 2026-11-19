@@ -9,7 +9,7 @@
 
 #include "engines/age/net_menus.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/age/race.h"
 #include "engines/age/viewers.h"
 

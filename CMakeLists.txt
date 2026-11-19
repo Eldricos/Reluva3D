@@ -67,26 +67,26 @@ add_library(reluva_common STATIC
     src/common/md4.cpp
     src/common/archive.cpp
     src/common/zip.cpp
-    src/common/image.cpp
-    src/common/gfx3d.cpp
+    src/image/image.cpp
+    src/graphics/gfx3d.cpp
     src/common/net.cpp
     src/common/pe.cpp
-    src/common/x86/cpu.cpp
-    src/common/x86/fpu.cpp
-    src/common/x86/win32.cpp
-    src/common/x86/format.cpp
+    src/emulation/x86/cpu.cpp
+    src/emulation/x86/fpu.cpp
+    src/emulation/x86/win32.cpp
+    src/emulation/x86/format.cpp
     src/common/detection.cpp
     src/common/riff.cpp
     src/common/winhelp.cpp
     src/common/portmap.cpp
-    src/common/audio/decode.cpp
-    src/common/audio/directmusic.cpp
-    src/common/audio/dls.cpp
-    src/common/audio/synth.cpp
-    src/common/audio/mixer.cpp
-    src/common/audio/mp3.cpp
-    src/common/audio/wav.cpp
-    src/common/font.cpp
+    src/audio/decode.cpp
+    src/audio/directmusic.cpp
+    src/audio/dls.cpp
+    src/audio/synth.cpp
+    src/audio/mixer.cpp
+    src/audio/mp3.cpp
+    src/audio/wav.cpp
+    src/graphics/font.cpp
     src/common/text.cpp
     src/common/video.cpp)
 target_include_directories(reluva_common PUBLIC src)
@@ -277,18 +277,18 @@ target_link_libraries(reluva_engines PUBLIC reluva_common PRIVATE reluva_warning
 
 # --- executable: SDL3 backend + ImGui launcher --------------------------------
 add_executable(reluva
-    src/main.cpp
-    src/backends/sdl3/sdl_system.cpp
-    src/backends/sdl3/sdl_gpu.cpp
-    src/backends/sockets/socket_net.cpp
-    src/launcher/launcher.cpp)
+    src/base/main.cpp
+    src/backends/platform/sdl3/sdl_system.cpp
+    src/backends/graphics/sdl3/sdl_gpu.cpp
+    src/backends/networking/sockets/socket_net.cpp
+    src/gui/launcher.cpp)
 target_link_libraries(reluva PRIVATE reluva_engines imgui SDL3::SDL3 reluva_warnings)
 if(WIN32)
     target_link_libraries(reluva PRIVATE ws2_32 iphlpapi)
 endif()
 
 # --- developer tools -----------------------------------------------------------
-add_executable(reluva-tool src/tools/reluva_tool.cpp src/backends/sockets/socket_net.cpp)
+add_executable(reluva-tool src/devtools/reluva_tool.cpp src/backends/networking/sockets/socket_net.cpp)
 target_link_libraries(reluva-tool PRIVATE reluva_engines reluva_warnings)
 if(WIN32)
     target_link_libraries(reluva-tool PRIVATE ws2_32 iphlpapi)
@@ -309,7 +309,7 @@ if(RELUVA_BUILD_TESTS)
     endif()
 
     if(RELUVA_ENGINE_IDTECH3)
-        add_executable(reluva_idtech3_tests tests/test_idtech3.cpp src/backends/sockets/socket_net.cpp)
+        add_executable(reluva_idtech3_tests tests/test_idtech3.cpp src/backends/networking/sockets/socket_net.cpp)
         target_link_libraries(reluva_idtech3_tests PRIVATE reluva_engines reluva_warnings)
         if(WIN32)
             target_link_libraries(reluva_idtech3_tests PRIVATE ws2_32 iphlpapi)

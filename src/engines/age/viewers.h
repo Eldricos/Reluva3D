@@ -48,10 +48,10 @@
 // dump, scrolled the same way; Esc or Backspace goes back to the list.
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/video.h"
 #include "common/system.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/age/car.h"
 #include "engines/age/car_actor.h"
 #include "engines/age/city_life.h"

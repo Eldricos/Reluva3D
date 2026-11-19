@@ -4,7 +4,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 
 #include "common/md4.h"
-#include "common/x86/format.h"
+#include "emulation/x86/format.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
 
 #include <algorithm>

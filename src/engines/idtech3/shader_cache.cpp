@@ -8,7 +8,7 @@
 
 #include "engines/idtech3/shader_cache.h"
 
-#include "common/image.h"
+#include "image/image.h"
 
 #include <algorithm>
 #include <cmath>

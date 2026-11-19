@@ -1,0 +1,28 @@
+# The shared code the Need for Speed III branch added before the source
+# layout of November 2026 (2026-11-src-layout.txt), sorted by subject as
+# that layout has it. Apply with: python3 tools/relocate.py <this file>
+
+# The Glide stand-in: the 3D pipeline itself is graphics (a renderer of
+# Glide's model, in software or on the GPU, which any engine could drive);
+# what serves it as glide2x.dll and glide3x.dll to a game's own code is the
+# Windows emulator's, beside its DirectX.
+src/common/glide/glide_x86.cpp     src/emulation/x86/glide/glide_x86.cpp
+src/common/glide/glide_x86.h       src/emulation/x86/glide/glide_x86.h
+src/common/glide/glide2_x86.cpp    src/emulation/x86/glide/glide2_x86.cpp
+src/common/glide/glide2_x86.h      src/emulation/x86/glide/glide2_x86.h
+src/common/glide/glide3_x86.cpp    src/emulation/x86/glide/glide3_x86.cpp
+src/common/glide/glide3_x86.h      src/emulation/x86/glide/glide3_x86.h
+src/common/glide/                  src/graphics/glide/            bare
+
+# GPU compute, an interface beside the 3D renderer's (gfx3d.h), and SDL's
+# side of it, beside sdl_gpu.
+src/common/gpu_compute.cpp         src/graphics/gpu_compute.cpp
+src/common/gpu_compute.h           src/graphics/gpu_compute.h
+src/backends/sdl3/sdl_compute.cpp  src/backends/graphics/sdl3/sdl_compute.cpp
+src/backends/sdl3/sdl_compute.h    src/backends/graphics/sdl3/sdl_compute.h
+# Game controllers are input: the platform's.
+src/backends/sdl3/sdl_controller.cpp  src/backends/platform/sdl3/sdl_controller.cpp
+src/backends/sdl3/sdl_controller.h    src/backends/platform/sdl3/sdl_controller.h
+
+# The Glide stand-in's docs: shared code's, by subject.
+docs/engines/glide.md              docs/common/graphics/glide.md

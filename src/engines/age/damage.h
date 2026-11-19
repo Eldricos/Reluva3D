@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/types.h"
 #include "engines/age/car_actor.h"
 #include "engines/age/render_cache.h"

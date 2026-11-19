@@ -9,8 +9,8 @@
 
 #include "engines/age/viewers.h"
 
-#include "common/audio/decode.h"
-#include "common/font.h"
+#include "audio/decode.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <cmath>

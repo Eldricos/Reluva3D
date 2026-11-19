@@ -9,7 +9,7 @@
 
 #include "engines/age/viewers.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <cmath>

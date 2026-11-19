@@ -8,7 +8,7 @@
 #include "engines/idtech3/shader_cache.h"
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 
 #include <algorithm>
 #include <map>

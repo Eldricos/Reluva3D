@@ -8,7 +8,7 @@
 // text file (options.txt) in the game's save folder; the game's own
 // settings are in the Windows registry. See docs/engines/age-menus.md.
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/types.h"
 
 #include <array>

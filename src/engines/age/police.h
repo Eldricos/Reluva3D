@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/age/aimap.h"
 #include "engines/age/car_actor.h"
 #include "engines/age/engine_sound.h"

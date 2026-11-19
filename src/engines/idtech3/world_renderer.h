@@ -6,7 +6,7 @@
 #include "engines/idtech3/bsp.h"
 #include "engines/idtech3/shader_cache.h"
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 
 #include <array>
 #include <string>

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/age/car.h"
 
 #include <memory>

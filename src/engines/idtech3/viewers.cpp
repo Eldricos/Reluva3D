@@ -5,7 +5,7 @@
 
 #include "engines/idtech3/viewers.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 
 #include <algorithm>
 #include <cctype>

@@ -8,7 +8,7 @@
 
 #include "engines/age/front_end.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/age/texture.h"
 #include "engines/age/viewers.h"
 

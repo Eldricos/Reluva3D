@@ -6,7 +6,7 @@
 #include "engines/idtech3/shader.h"
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 
 #include <deque>
 #include <map>

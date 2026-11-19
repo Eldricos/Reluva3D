@@ -12,7 +12,7 @@
 // mounts the game's archives, runs its races, drives its cars round its
 // cities and shows its models, textures and files.
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/age/filesystem.h"
 #include "engines/age/games.h"
 #include "engines/age/viewers.h"

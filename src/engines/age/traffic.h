@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/age/aimap.h"
 #include "engines/age/bai.h"
 #include "engines/age/car.h"

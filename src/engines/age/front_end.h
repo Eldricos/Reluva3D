@@ -5,7 +5,7 @@
 
 #include "common/archive.h"
 #include "common/events.h"
-#include "common/image.h"
+#include "image/image.h"
 #include "common/types.h"
 #include "engines/age/city_scene.h"
 #include "engines/age/lang.h"

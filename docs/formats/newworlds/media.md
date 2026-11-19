@@ -117,7 +117,7 @@ music.
 
 ## In Reluva
 
-The shared audio code (`src/common/audio/`, for every engine) decodes both
+The shared audio code (`src/audio/`, for every engine) decodes both
 formats: `decodeSound` picks WAV (PCM, IMA ADPCM) or MP3 (through minimp3,
 `third_party/minimp3`) by content, and `Mixer` (`mixer.h`) plays any number of decoded sounds at
 once: resampled to the output rate, each with its volume, pan and looping,

@@ -3,7 +3,7 @@
 
 #include "engines/age/options.h"
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
 
 #include <algorithm>

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/age/city_mesh.h"
 #include "engines/age/instances.h"
 #include "engines/age/psdl.h"

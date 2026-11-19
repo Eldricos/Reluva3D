@@ -3,7 +3,7 @@
 
 #include "engines/age/engine_sound.h"
 
-#include "common/audio/decode.h"
+#include "audio/decode.h"
 
 #include <algorithm>
 #include <cctype>

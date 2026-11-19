@@ -18,8 +18,8 @@
 #include "engines/idtech3/scene_drawer.h"
 #include "engines/idtech3/viewers.h"
 
-#include "common/font.h"
-#include "common/image.h"
+#include "graphics/font.h"
+#include "image/image.h"
 #include "common/zip.h"
 #include "common/fs.h"
 

@@ -2,7 +2,7 @@
 
 Microsoft DirectMusic's interactive music, as Midtown Madness 2 uses it
 (`aud/dmusic`: 62 segments, 17 styles, a band, 14 DLS collections; see
-[dls.md](dls.md)). Read and played by `common/audio/directmusic.cpp`.
+[dls.md](dls.md)). Read and played by `audio/directmusic.cpp`.
 
 ## How this was worked out
 

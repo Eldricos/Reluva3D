@@ -4,8 +4,8 @@
 #pragma once
 
 #include "common/archive.h"
-#include "common/audio/mixer.h"
-#include "common/gfx3d.h"
+#include "audio/mixer.h"
+#include "graphics/gfx3d.h"
 #include "engines/age/collision.h"
 #include "engines/age/pathset.h"
 #include "engines/age/render_cache.h"

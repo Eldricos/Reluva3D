@@ -1,0 +1,16 @@
+# The identifier renames of November 2026 (docs/code-style-migration.md,
+# phase 4), in order: one line of tools/tidy.py arguments each. A branch
+# made before them runs every line, from the repository's top:
+#   grep -v '^#' tools/renames/2026-11-identifiers.txt | while read -r args; do
+#       python3 tools/tidy.py $args || break; done
+--rename-declared-in src/engines/testbed src/engines/testbed
+--rename-declared-in src/engines/netimmerse --rename-declared-in tests/engines/netimmerse src/engines/netimmerse tests/engines/netimmerse
+--rename-declared-in src/engines/stharbinger --rename-declared-in tests/engines/stharbinger src/engines/stharbinger tests/engines/stharbinger
+--rename-declared-in src/engines/stgenerations --rename-declared-in tests/engines/stgenerations src/engines/stgenerations tests/engines/stgenerations
+--rename-declared-in src/engines/clue --rename-declared-in tests/engines/clue src/engines/clue tests/engines/clue
+--rename-declared-in src/engines/awe --rename-declared-in tests/engines/awe src/engines/awe tests/engines/awe
+--rename-declared-in src/engines/newworlds --rename-declared-in tests/engines/newworlds src/engines/newworlds tests/engines/newworlds
+--rename-declared-in src/engines/nfs --rename-declared-in tests/engines/nfs src/engines/nfs tests/engines/nfs
+--rename-declared-in src/engines/idtech3 --rename-declared-in tests/engines/idtech3 src/engines/idtech3 tests/engines/idtech3
+--rename-declared-in src/common --rename-declared-in src/audio --rename-declared-in src/video --rename-declared-in src/graphics --rename-declared-in src/image --rename-declared-in src/emulation --rename-declared-in src/backends --rename-declared-in src/gui --rename-declared-in src/base --rename-declared-in src/devtools --rename-declared-in src/engines/engine.h --rename-declared-in src/engines/registry.h --rename-declared-in src/engines/registry.cpp
+--rename-declared-in tests/common --rename-declared-in tests/support

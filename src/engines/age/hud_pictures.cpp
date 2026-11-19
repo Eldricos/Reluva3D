@@ -3,7 +3,7 @@
 
 #include "engines/age/hud_pictures.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "engines/age/car.h"
 #include "engines/age/texture.h"
 

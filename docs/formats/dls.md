@@ -2,8 +2,8 @@
 
 Downloadable Sounds, Level 1: the instrument sets DirectMusic music plays
 on (Midtown Madness 2's `aud/dmusic/*.dls`: 14 collections, 204
-instruments, 368 waves). Read by `common/audio/dls.cpp`, played by
-`common/audio/synth.cpp`.
+instruments, 368 waves). Read by `audio/dls.cpp`, played by
+`audio/synth.cpp`.
 
 ## How this was worked out
 
