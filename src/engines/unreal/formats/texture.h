@@ -45,7 +45,9 @@ struct Palette {
 Error readPalette(const Package &package, int exportIndex, Palette &out);
 
 struct TextureInfo {
-    int width = 0, height = 0; // of the first mipmap
+    // of the first mipmap
+    int width = 0;
+    int height = 0;
     uint8_t format = 0;
     int mipCount = 0;
     bool masked = false;     // palette index 0 is see-through

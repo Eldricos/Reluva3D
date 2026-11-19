@@ -54,7 +54,8 @@ private:
 
     std::vector<std::string> _names;
     int _index = 0;
-    int _selected = 0, _top = 0;
+    int _selected = 0;
+    int _top = 0;
     bool _showProps = false;
 };
 
@@ -160,9 +161,15 @@ private:
     size_t _ownAnimCount = 0;
     int32_t _ownFrames = 0;
     void pick(int choice);
-    bool _playing = true, _showInfo = true, _dragging = false;
-    float _time = 0, _yaw = 0, _pitch = 0.3f, _distance = 200;
-    int _lastX = 0, _lastY = 0;
+    bool _playing = true;
+    bool _showInfo = true;
+    bool _dragging = false;
+    float _time = 0;
+    float _yaw = 0;
+    float _pitch = 0.3f;
+    float _distance = 200;
+    int _lastX = 0;
+    int _lastY = 0;
     uint64_t _lastMs = 0;
 };
 

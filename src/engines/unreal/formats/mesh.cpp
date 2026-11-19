@@ -69,10 +69,13 @@ void skipLazy(Reader &r, int version, size_t elementSize) {
 // placement, and for a LodMesh its faces, wedges and materials (as
 // triangles).
 struct MeshTail {
-    int32_t frameVerts = 0, animFrames = 0;
-    Vec3f scale{}, origin{};
+    int32_t frameVerts = 0;
+    int32_t animFrames = 0;
+    Vec3f scale{};
+    Vec3f origin{};
     Rotator rotOrigin;
-    int32_t modelVerts = 0, specialVerts = 0;
+    int32_t modelVerts = 0;
+    int32_t specialVerts = 0;
     std::vector<MeshTri> tris;
 };
 
@@ -115,7 +118,8 @@ Error readTail(Reader &r, int ver, bool lod, MeshTail &out) {
         return fail("wedges run past the end");
     struct Wedge {
         uint16_t vertex;
-        float u, v;
+        float u;
+        float v;
     };
     std::vector<Wedge> wedgeList(wedges);
     for (Wedge &w : wedgeList) {
@@ -340,17 +344,26 @@ struct BoneRecord {
     std::string name;
     int parent = -1;
     uint32_t vertices = 0;
-    size_t positions = 0, weights = 0, indices = 0; // file offsets of the arrays
-    std::array<float, 12> offset{}, placement{};
-    uint32_t kind = 0, clips = 0;
+    // file offsets of the arrays
+    size_t positions = 0;
+    size_t weights = 0;
+    size_t indices = 0;
+    std::array<float, 12> offset{};
+    std::array<float, 12> placement{};
+    uint32_t kind = 0;
+    uint32_t clips = 0;
     size_t clipsAt = 0; // the first clip
     struct Clip {
-        size_t positions = 0, rotations = 0; // file offsets of the keys
-        uint32_t nPositions = 0, nRotations = 0;
+        // file offsets of the keys
+        size_t positions = 0;
+        size_t rotations = 0;
+        uint32_t nPositions = 0;
+        uint32_t nRotations = 0;
         // Its last 8 bytes, two i32s (C3DBONEANIM's two flags): its
         // positions, its rotations static (the engine samples key 0 of
         // that kind only, not between keys).
-        bool staticPositions = false, staticRotations = false;
+        bool staticPositions = false;
+        bool staticRotations = false;
     };
     std::vector<Clip> clipList; // when they read
     std::vector<int> groups;    // the animation groups (body parts) it's in, by index
@@ -363,7 +376,9 @@ struct BoneRecord {
 
 struct BoneReader {
     const std::vector<uint8_t> &data;
-    size_t base, from, to;
+    size_t base;
+    size_t from;
+    size_t to;
     size_t failedAt = 0; // where a record didn't hold together
 
     uint32_t u32(size_t at) const {
@@ -1358,7 +1373,9 @@ Error readMesh(const Package &package, int index, Mesh &out) {
 // of a bone and the axis it turns about (0 Y, 1 X, 2 Z), the iterations
 // and a tolerance. Each step's bone limits are its own skeleton's.
 struct IkChain {
-    std::string name, root, end;
+    std::string name;
+    std::string root;
+    std::string end;
     Mat43 effector{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
     std::vector<std::pair<std::string, int>> steps;
     std::vector<std::array<float, 6>> limits; // per step
@@ -1434,11 +1451,15 @@ std::vector<IkChain> findIkChains(const BoneReader &r, const std::vector<BoneRec
 
 struct AnimationSet::Impl {
     std::vector<uint8_t> data;
-    size_t base = 0, from = 0, to = 0;
+    size_t base = 0;
+    size_t from = 0;
+    size_t to = 0;
     std::vector<BoneRecord> bones;
     std::vector<IkChain> chains;
-    std::vector<int> clipStart, clipFrames; // per clip
-    std::vector<std::string> clipNames;     // lower case, if it names them
+    // per clip
+    std::vector<int> clipStart;
+    std::vector<int> clipFrames;
+    std::vector<std::string> clipNames; // lower case, if it names them
     BoneReader reader() const { return BoneReader{data, base, from, to}; }
 };
 
@@ -1862,7 +1883,8 @@ std::array<Vec3f, 3> blendAxes(const std::array<Vec3f, 3> &from, const std::arra
 
 struct LayeredPoser::Impl {
     std::vector<uint8_t> data;
-    size_t base = 0, from = 0;
+    size_t base = 0;
+    size_t from = 0;
     std::vector<BoneRecord> bones;
     std::vector<IkChain> chains; // its own, else its shared sets' (Male's)
     // Its animation groups' names (FullBody, LowerTorso, UpperTorso), in

@@ -64,7 +64,8 @@ public:
 
 private:
     const uint8_t *_data;
-    size_t _size, _base;
+    size_t _size;
+    size_t _base;
     size_t _pos = 0;
     bool _ok = true;
 };
@@ -76,7 +77,8 @@ struct NameEntry {
 
 // An object another package defines. Names are indices into the name table.
 struct Import {
-    int32_t classPackage = 0, className = 0;
+    int32_t classPackage = 0;
+    int32_t className = 0;
     int32_t package = 0; // object reference: the import's outer (its group or package)
     int32_t objectName = 0;
 };
@@ -88,7 +90,8 @@ struct Export {
     int32_t package = 0;  // object reference: the outer (a group), 0 for the package itself
     int32_t objectName = 0;
     uint32_t flags = 0;
-    int32_t serialSize = 0, serialOffset = 0;
+    int32_t serialSize = 0;
+    int32_t serialOffset = 0;
 };
 
 // Object references, as packages store them: > 0 the export at ref - 1,
@@ -153,7 +156,8 @@ private:
     std::string _name;
     std::filesystem::path _file;
     std::vector<uint8_t> _memory; // the whole file, for packages opened from memory
-    int _version = 0, _licensee = 0;
+    int _version = 0;
+    int _licensee = 0;
     uint32_t _flags = 0;
     uint64_t _fileSize = 0;
     std::vector<NameEntry> _names;

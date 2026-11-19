@@ -70,7 +70,8 @@ private:
     std::map<std::string, int32_t> _importIndex; // "classpackage.classname path", lower case
     struct Out {
         Export e;
-        bool replaced = false, dropped = false;
+        bool replaced = false;
+        bool dropped = false;
         std::vector<uint8_t> data;
     };
     std::vector<Out> _exports;

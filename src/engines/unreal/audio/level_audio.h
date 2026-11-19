@@ -69,8 +69,13 @@ private:
     const PackageSet &_packages;
     std::map<std::pair<const Package *, int>, std::shared_ptr<const audio::Sound>> _sounds; // null: unreadable
 
-    Vec3f _listener{}, _right{0, 1, 0}, _forward{1, 0, 0}, _up{0, 0, 1};
-    bool _stereo = true, _reverse = false, _surround = false;
+    Vec3f _listener{};
+    Vec3f _right{0, 1, 0};
+    Vec3f _forward{1, 0, 0};
+    Vec3f _up{0, 0, 1};
+    bool _stereo = true;
+    bool _reverse = false;
+    bool _surround = false;
     int _channels = 16;
     float _musicSetting = 1; // MusicVolume / 255
 
@@ -79,12 +84,14 @@ private:
         VmObject *actor = nullptr; // followed while it lasts
         int slot = 0;
         Vec3f at{};
-        float radius = 0, volume = 1;
+        float radius = 0;
+        float volume = 1;
         bool everywhere = false; // a voice: not placed
         bool noOverride = false;
         bool filtered = false; // mixed flat (2D), not positional (3D)
         bool speech = false;   // a voice: no Doppler
-        float obstruction = 0, pitch = 1;
+        float obstruction = 0;
+        float pitch = 1;
         float tail = 0; // its reverb's tail once it has ended (seconds)
         ObjectRef sound;
     };
@@ -94,8 +101,12 @@ private:
     struct Ambient {
         audio::SoundHandle handle = audio::kNoSound;
         std::pair<const Package *, int> sound{};
-        bool music = false, streamed = false;
-        float volume = 0, fade = 1, fadeRate = 0; // fadeRate: a second (music: 1/3 in, -1/3 out)
+        bool music = false;
+        bool streamed = false;
+        // fadeRate: a second (music: 1/3 in, -1/3 out)
+        float volume = 0;
+        float fade = 1;
+        float fadeRate = 0;
         float radius = 0;
         Vec3f at{};
     };
@@ -108,7 +119,9 @@ private:
     bool _musicStreamed = true;
     struct Fade {
         audio::SoundHandle handle;
-        float volume, left; // its loudness (0-1) and seconds to go
+        // its loudness (0-1) and seconds to go
+        float volume;
+        float left;
     };
     std::vector<Fade> _fading;
 };

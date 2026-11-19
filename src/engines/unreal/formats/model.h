@@ -23,8 +23,13 @@ struct BspNode {
     std::array<float, 4> plane{}; // normal and distance
     uint64_t zoneMask = 0;
     uint8_t flags = 0;
-    int32_t vertPool = 0, surf = 0, back = 0, front = 0, planeNode = 0;
-    int32_t collisionBound = 0, renderBound = 0;
+    int32_t vertPool = 0;
+    int32_t surf = 0;
+    int32_t back = 0;
+    int32_t front = 0;
+    int32_t planeNode = 0;
+    int32_t collisionBound = 0;
+    int32_t renderBound = 0;
     uint8_t zone[2] = {};
     uint8_t vertexCount = 0;
     int32_t leaf[2] = {};
@@ -33,19 +38,27 @@ struct BspNode {
 struct BspSurf {
     int32_t texture = 0; // object reference
     uint32_t polyFlags = 0;
-    int32_t base = 0, normal = 0, textureU = 0, textureV = 0; // into points / vectors
-    int32_t lightMap = 0, brushPoly = 0;
-    int16_t panU = 0, panV = 0;
+    // into points / vectors
+    int32_t base = 0;
+    int32_t normal = 0;
+    int32_t textureU = 0;
+    int32_t textureV = 0;
+    int32_t lightMap = 0;
+    int32_t brushPoly = 0;
+    int16_t panU = 0;
+    int16_t panV = 0;
     int32_t actor = 0; // object reference: the brush it came from
 };
 
 struct BspVert {
-    int32_t point = 0, side = 0;
+    int32_t point = 0;
+    int32_t side = 0;
 };
 
 struct Zone {
     int32_t actor = 0; // object reference: the ZoneInfo (or LevelInfo for zone 0)
-    uint64_t connectivity = 0, visibility = 0;
+    uint64_t connectivity = 0;
+    uint64_t visibility = 0;
 };
 
 // Where a surface's lightmap is: a grid of uClamp x vClamp sample points
@@ -55,23 +68,30 @@ struct Zone {
 struct LightMapIndex {
     int32_t dataOffset = 0;
     Vec3f pan{};
-    int32_t uClamp = 0, vClamp = 0;
-    float uScale = 0, vScale = 0;
+    int32_t uClamp = 0;
+    int32_t vClamp = 0;
+    float uScale = 0;
+    float vScale = 0;
     int32_t lightActors = -1; // into Model::lights: the lights, up to a 0
 };
 
 struct Leaf {
-    int32_t zone = 0, permeating = 0, volumetric = 0;
+    int32_t zone = 0;
+    int32_t permeating = 0;
+    int32_t volumetric = 0;
     uint64_t visibleZones = 0;
 };
 
 struct Model {
-    Vec3f boundsMin{}, boundsMax{};
-    std::vector<Vec3f> vectors, points;
+    Vec3f boundsMin{};
+    Vec3f boundsMax{};
+    std::vector<Vec3f> vectors;
+    std::vector<Vec3f> points;
     std::vector<BspNode> nodes;
     std::vector<BspSurf> surfs;
     std::vector<BspVert> verts;
-    int32_t sharedSides = 0, zoneCount = 0;
+    int32_t sharedSides = 0;
+    int32_t zoneCount = 0;
 
     // After the vertices: what lighting needs. If these don't read (a
     // layout this reader doesn't know), the geometry still does and

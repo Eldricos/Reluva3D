@@ -95,10 +95,16 @@ struct PackageWriter {
     int version = 69;
     std::vector<std::string> names{"None"};
     struct Imp {
-        int32_t classPackage, className, package, objectName;
+        int32_t classPackage;
+        int32_t className;
+        int32_t package;
+        int32_t objectName;
     };
     struct Exp {
-        int32_t classRef, superRef, package, objectName;
+        int32_t classRef;
+        int32_t superRef;
+        int32_t package;
+        int32_t objectName;
         uint32_t flags;
         std::vector<uint8_t> data;
     };

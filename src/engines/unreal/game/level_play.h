@@ -99,7 +99,9 @@ public:
         bool streamed = false; // one of the MP3s (at the music volume)
         bool music = false;    // named MUSIC: heard alike everywhere in range, faded in and out
         Vec3f at{};
-        float radius = 0, volume = 0, pitch = 1;
+        float radius = 0;
+        float volume = 0;
+        float pitch = 1;
     };
     void ambientSounds(std::vector<Ambient> &out);
     VmObject *currentMusic() { return _level->currentMusic(); }
@@ -128,15 +130,19 @@ public:
 
     // How an actor looks, as its properties say now.
     struct Look {
-        Vec3f location{}, prePivot{};
+        Vec3f location{};
+        Vec3f prePivot{};
         Rotator rotation;
         float drawScale = 1;
         int drawType = 0; // 1 sprite, 2 mesh, 3 brush...
         bool hidden = false;
-        ObjectRef mesh, skin, texture;
+        ObjectRef mesh;
+        ObjectRef skin;
+        ObjectRef texture;
         std::array<ObjectRef, 8> multiSkins{};
         std::string animSequence;
-        float animFrame = 0, animRate = 0;
+        float animFrame = 0;
+        float animRate = 0;
         bool animLoop = false;
         // Tweening into it (animFrame below 0): what it's tweening from.
         std::string tweenFrom;
@@ -149,11 +155,16 @@ public:
         // The Fallen's MultiTexture: drawn twice, its own skins in one style
         // and glow, then MultiTextureTwo over them in another (bMultiTextureOn).
         struct MultiTexture {
-            bool on = false, envMap = false;
+            bool on = false;
+            bool envMap = false;
             ObjectRef two;
-            uint8_t oneStyle = 1, twoStyle = 1, twoFatness = 128;
-            float oneGlow = 1, twoGlow = 1;
-            bool oneUnlit = false, twoUnlit = false;
+            uint8_t oneStyle = 1;
+            uint8_t twoStyle = 1;
+            uint8_t twoFatness = 128;
+            float oneGlow = 1;
+            float twoGlow = 1;
+            bool oneUnlit = false;
+            bool twoUnlit = false;
             std::array<float, 3> colorFilter{1, 1, 1};
         } multi;
         float specular = 1;         // Specular: its highlights' strength
@@ -161,9 +172,11 @@ public:
         bool renderInitial = false; // bMultiMeshRenderInitial: drawn itself as well as its copies
         // The Fallen's layered animations on parts of it (C3DPlayAnim).
         struct Layer {
-            std::string anim, bone;
+            std::string anim;
+            std::string bone;
             bool rest = false; // the part is all but the bone and those under it
-            float frame = 0, weight = 0;
+            float frame = 0;
+            float weight = 0;
             std::array<bool, 3> clear{}; // its first bone keeps the actor's own yaw, pitch, roll
             bool loop = false;
             std::string group; // its animation group's name (FullBody, LowerTorso, UpperTorso)
@@ -176,8 +189,12 @@ public:
         // Blink, EyeBrows, Phonemes), seconds into each.
         struct Face {
             std::string anim;
-            float seconds = 0, weight = 0;
-            float fromSeconds = 0, fromWeight = 0, mix = 1; // a tween's cross-fade
+            float seconds = 0;
+            float weight = 0;
+            // a tween's cross-fade
+            float fromSeconds = 0;
+            float fromWeight = 0;
+            float mix = 1;
         };
         std::vector<Face> faces;
         // What its scripts do to its bones on top (a back bent, a hand on a gun).
@@ -200,7 +217,8 @@ public:
         ObjectRef texture; // its Skin
         float drawScale = 1;
         int zone = -1;
-        uint8_t hue = 0, saturation = 255;
+        uint8_t hue = 0;
+        uint8_t saturation = 255;
         float radius = 0;     // its light's, world units (25 x (LightRadius + 1))
         bool isStatic = true; // bStatic: one of the level's own lights
         int32_t ref = 0;      // its export (object reference) in the level, 0 if spawned
@@ -213,9 +231,11 @@ public:
     // drawn as itself); with one, it's drawn as its copies only, even none
     // yet, unless it asks to be drawn as well (renderInitial).
     struct Copy {
-        Vec3f location{}, axisScale{1, 1, 1};
+        Vec3f location{};
+        Vec3f axisScale{1, 1, 1};
         Rotator rotation;
-        float drawScale = 1, scaleGlow = 1;
+        float drawScale = 1;
+        float scaleGlow = 1;
         std::array<float, 3> colorFilter{1, 1, 1};
         ObjectRef texture;
         uint8_t style = 1;
@@ -292,7 +312,8 @@ private:
     int _regionZoneField = -1; // ZoneNumber's place in PointRegion
     std::unordered_map<const VmClass *, std::array<int, kFieldCount>> _slots;
     struct AmbientKind {
-        bool known = false, keypoint = false;
+        bool known = false;
+        bool keypoint = false;
     };
     std::unordered_map<const VmClass *, AmbientKind> _ambientKinds;
     std::array<NameId, kFieldCount> _names{};
@@ -316,7 +337,9 @@ private:
     std::unordered_map<WallKey, bool, WallHash> _walls; // wallBetween's answers
     VmObject *_player = nullptr;
     std::string _loginError;
-    float _time = 0, _owed = 0, _behind = 0;
+    float _time = 0;
+    float _owed = 0;
+    float _behind = 0;
 };
 
 } // namespace reluva::unreal

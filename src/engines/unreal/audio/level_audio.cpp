@@ -26,7 +26,9 @@ float dot(const Vec3f &a, const Vec3f &b) {
 // how much of it is wet, its time in seconds, its damping (0-1 of a
 // quarter of the output rate).
 struct RoomPreset {
-    float mix, seconds, damp;
+    float mix;
+    float seconds;
+    float damp;
 };
 constexpr RoomPreset kRooms[26] = {
     {0, 1.493f, .5f},       {.25f, .1f, 0},         {.417f, .4f, .666f},   {.653f, 1.499f, .166f},

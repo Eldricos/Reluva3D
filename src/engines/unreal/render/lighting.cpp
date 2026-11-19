@@ -21,9 +21,18 @@ constexpr float kPi = 3.14159265358979f;
 constexpr uint8_t kEffectStaticSpot = 8;
 constexpr uint8_t kEffectSpotlight = 12;
 constexpr uint8_t kEffectNonIncidence = 13;
-constexpr uint8_t kEffectTorchWaver = 1, kEffectFireWaver = 2, kEffectWateryShimmer = 3, kEffectSearchlight = 4,
-                  kEffectSlowWave = 5, kEffectFastWave = 6, kEffectShock = 9, kEffectDisco = 10, kEffectShell = 14,
-                  kEffectInterference = 16, kEffectCylinder = 17, kEffectRotor = 18;
+constexpr uint8_t kEffectTorchWaver = 1;
+constexpr uint8_t kEffectFireWaver = 2;
+constexpr uint8_t kEffectWateryShimmer = 3;
+constexpr uint8_t kEffectSearchlight = 4;
+constexpr uint8_t kEffectSlowWave = 5;
+constexpr uint8_t kEffectFastWave = 6;
+constexpr uint8_t kEffectShock = 9;
+constexpr uint8_t kEffectDisco = 10;
+constexpr uint8_t kEffectShell = 14;
+constexpr uint8_t kEffectInterference = 16;
+constexpr uint8_t kEffectCylinder = 17;
+constexpr uint8_t kEffectRotor = 18;
 // The original's random numbers are drawn afresh every frame; Reluva's
 // step 35 times a second (the engine's tick).
 constexpr float kFrameRate = 35;
@@ -507,10 +516,14 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
 
     struct Grid {
         int surf = -1;
-        int w = 0, h = 0; // samples
-        int zone = 0;     // for ambient-only blocks (surf -1)
-        Vec3f uAxis{}, vAxis{};
-        float uOffset = 0, vOffset = 0;
+        // samples
+        int w = 0;
+        int h = 0;
+        int zone = 0; // for ambient-only blocks (surf -1)
+        Vec3f uAxis{};
+        Vec3f vAxis{};
+        float uOffset = 0;
+        float vOffset = 0;
     };
     std::vector<Grid> grids;
     std::map<int, size_t> ambientBlock; // zone -> its grid

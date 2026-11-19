@@ -23,7 +23,8 @@ namespace reluva::unreal {
 // and how often it's been said) and the sounds playing when it was saved.
 struct LevelExtras {
     std::vector<int32_t> actors; // object references (0: none)
-    std::string urlMap, urlPortal;
+    std::string urlMap;
+    std::string urlPortal;
     std::vector<int32_t> ghosts;
     struct Line {
         std::string key; // TYPE SPEAKER LISTENER ID MISSION
@@ -34,7 +35,11 @@ struct LevelExtras {
         int32_t actor = 0; // object reference
         int32_t id = 0;    // the audio driver's: actor x 16 + slot x 2 + no-override; below 0 slot none
         std::string path;  // Package.Group.Name
-        float volume = 1, radius = 0, pitch = 1, start = 0; // start: in the level's seconds
+        // start: in the level's seconds
+        float volume = 1;
+        float radius = 0;
+        float pitch = 1;
+        float start = 0;
     };
     std::vector<Sound> sounds;
 };
@@ -44,7 +49,8 @@ Error readLevelExtras(const Package &package, LevelExtras &out);
 // LowerTorso, UpperTorso, then its face channels sk3...) as the engine
 // keeps them.
 struct MeshStateGroup {
-    std::string group, sequence;
+    std::string group;
+    std::string sequence;
     int32_t source = 0;
     float frame = 0;  // seconds into the sequence (a face channel's), or the body's 0-1
     int32_t type = 0; // a body group's Boned (1 true, 2 false); 4 a face channel
@@ -52,10 +58,16 @@ struct MeshStateGroup {
     // fading in to play once, 3 looping, 4 fading in to loop, 5 tweening
     // (C3DTweenAnim), 6 fading out. A face channel's: 0 held, 5 tweening.
     int32_t state = 0;
-    float rate = 1, weight = 1;
-    float fromFrame = 0, fromWeight = 0, elapsed = 0, duration = 1;
+    float rate = 1;
+    float weight = 1;
+    float fromFrame = 0;
+    float fromWeight = 0;
+    float elapsed = 0;
+    float duration = 1;
     std::string pendingSequence;
-    float pendingFrame = 0, pendingWeight = 0, pendingTween = 0;
+    float pendingFrame = 0;
+    float pendingWeight = 0;
+    float pendingTween = 0;
     std::string bone;               // its InheritBone: what its clears turn
     std::array<int32_t, 3> clear{}; // ClearYaw, ClearPitch, ClearRoll (fairly sure)
 };

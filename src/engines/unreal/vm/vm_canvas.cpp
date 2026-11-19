@@ -154,7 +154,15 @@ namespace {
 
 // The canvas's state as the natives use it.
 struct Pen {
-    float orgX = 0, orgY = 0, clipX = 0, clipY = 0, curX = 0, curY = 0, spaceX = 0, spaceY = 0, curYL = 0;
+    float orgX = 0;
+    float orgY = 0;
+    float clipX = 0;
+    float clipY = 0;
+    float curX = 0;
+    float curY = 0;
+    float spaceX = 0;
+    float spaceY = 0;
+    float curYL = 0;
     std::array<uint8_t, 3> color{255, 255, 255};
     uint8_t style = kStyleNormal;
     bool center = false;

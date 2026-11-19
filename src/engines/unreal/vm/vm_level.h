@@ -82,14 +82,20 @@ public:
     // left/right, looking down/up); at full, the .ini's aliases give 300
     // (150 turning).
     struct Controls {
-        float forward = 0, strafe = 0, turn = 0, lookUp = 0;
+        float forward = 0;
+        float strafe = 0;
+        float turn = 0;
+        float lookUp = 0;
         // The mouse's movement since the last tick (the input's aMouseX,
         // aMouseY), used up by the next.
-        float mouseX = 0, mouseY = 0;
+        float mouseX = 0;
+        float mouseY = 0;
         // Buttons held: jump (Space: bExtra1, and aUp up), duck (C: bDuck,
         // and aUp down) and fire (bFire). Pressing one also calls its exec
         // function (LevelPlay::press).
-        bool jump = false, duck = false, fire = false;
+        bool jump = false;
+        bool duck = false;
+        bool fire = false;
     } controls;
 
     // Moves the world on: the player's input (PlayerInput) and PlayerTick,
@@ -157,7 +163,8 @@ public:
         bool facing = false;
         std::array<float, 3> focus{};
         VmObject *focusActor = nullptr;
-        float speed = 1, timeLeft = 10;
+        float speed = 1;
+        float timeLeft = 10;
         int stateSerial = 0;
     };
     void setGoal(VmObject *pawn, const Goal &goal);
@@ -170,7 +177,9 @@ public:
         int distance = 0;
         VmObject *start = nullptr;
         VmObject *end = nullptr;
-        int radius = 0, height = 0, flags = 0;
+        int radius = 0;
+        int height = 0;
+        int flags = 0;
         bool pruned = false;
     };
     const std::vector<VmObject *> &navigationPoints();
@@ -219,7 +228,9 @@ public:
     int evalCondition(const std::string &condition, VmObject *actor);
     // The lines being said now: the speaker's code, the text, the type.
     struct Subtitle {
-        std::string speaker, text, type;
+        std::string speaker;
+        std::string text;
+        std::string type;
     };
     std::vector<Subtitle> subtitles() const;
     // The HUD (vm_canvas.cpp): each frame, the canvas handed to the
@@ -233,12 +244,22 @@ public:
         std::array<float, 3> location{};
         std::array<int32_t, 3> rotation{};
         float fov = 90;
-        int width = 640, height = 480;
-        int x = 0, y = 0; // the rectangle's top left
+        int width = 640;
+        int height = 480;
+        // the rectangle's top left
+        int x = 0;
+        int y = 0;
     };
     struct HudTile {
         ObjectRef texture;
-        float x = 0, y = 0, w = 0, h = 0, u = 0, v = 0, ul = 0, vl = 0;
+        float x = 0;
+        float y = 0;
+        float w = 0;
+        float h = 0;
+        float u = 0;
+        float v = 0;
+        float ul = 0;
+        float vl = 0;
         std::array<uint8_t, 3> color{255, 255, 255};
         uint8_t style = 1;       // Actor's ERenderStyle: 1 normal, 2 masked, 3 translucent, 4 modulated
         bool seeThrough = false; // its texture's colour 0 see-through (letters, masked tiles)
@@ -251,7 +272,8 @@ public:
         size_t afterTiles = 0; // drawn after this many tiles, over them
         // How it looked as it was asked for (the HUD sets these just for
         // the call: a portrait's fade): draw type, style, glow.
-        int drawType = 0, style = 1;
+        int drawType = 0;
+        int style = 1;
         float scaleGlow = 1;
     };
     struct Hud {
@@ -279,11 +301,20 @@ public:
     const std::vector<std::pair<std::string, std::string>> *intSection(const std::string &file,
                                                                        const std::string &section);
     struct DialogStats {
-        int started = 0, lines = 0, notFound = 0, unknownConditions = 0, barks = 0;
+        int started = 0;
+        int lines = 0;
+        int notFound = 0;
+        int unknownConditions = 0;
+        int barks = 0;
     } dialog;
     struct PathStats {
-        int straight = 0, found = 0, failed = 0;
-        int noStart = 0, noEnd = 0, noRoute = 0; // why it failed: no point near the pawn, near the goal, no way between
+        int straight = 0;
+        int found = 0;
+        int failed = 0;
+        // why it failed: no point near the pawn, near the goal, no way between
+        int noStart = 0;
+        int noEnd = 0;
+        int noRoute = 0;
     } paths;
 
     // Animation (vm_anim.cpp): PlayAnim and LoopAnim's start (`rate` times
@@ -312,17 +343,23 @@ public:
     // Blink, EyeBrows or Phonemes each), set by C3DTweenSkinAnimDelay.
     struct AnimLayer {
         NameId sequence = 0;
-        NameId bone = 0;           // where the part starts
-        bool rest = false;         // the part is the skeleton but that (LowerTorso)
-        float frame = 0, rate = 0; // as AnimFrame (below 0: tweening into it) and AnimRate
-        bool loop = false, finished = false;
-        float weight = 0, weightRate = 0; // how much it shows (0-1), and its change a second
-        float minRate = 0;                // with a negative rate (scaled by speed), the least it goes at
-        std::array<bool, 3> clear{};      // its first bone keeps the actor's own turn in yaw, pitch, roll
+        NameId bone = 0;   // where the part starts
+        bool rest = false; // the part is the skeleton but that (LowerTorso)
+        // as AnimFrame (below 0: tweening into it) and AnimRate
+        float frame = 0;
+        float rate = 0;
+        bool loop = false;
+        bool finished = false;
+        // how much it shows (0-1), and its change a second
+        float weight = 0;
+        float weightRate = 0;
+        float minRate = 0;           // with a negative rate (scaled by speed), the least it goes at
+        std::array<bool, 3> clear{}; // its first bone keeps the actor's own turn in yaw, pitch, roll
         // The layer it replaced, held where it was under this one while
         // this one fades in over it.
         NameId fromSequence = 0;
-        float fromFrame = 0, fromWeight = 0;
+        float fromFrame = 0;
+        float fromWeight = 0;
         bool fromLoop = false;
         // The pose showing when its fade (in or out) began, each bone in
         // its parent, before IK: Engine.dll blends a fading part's bones
@@ -338,13 +375,18 @@ public:
     // start at its next tick (C3DTweenSkinAnimDelay).
     struct SkinChannel {
         NameId sequence = 0;
-        float frame = 0, weight = 1;
-        float fromFrame = 0, fromWeight = 0;
-        float elapsed = 0, duration = 1;
+        float frame = 0;
+        float weight = 1;
+        float fromFrame = 0;
+        float fromWeight = 0;
+        float elapsed = 0;
+        float duration = 1;
         bool tweening = false;
         bool pending = false;
         NameId pendingSequence = 0;
-        float pendingFrame = 0, pendingWeight = 0, pendingTween = 0;
+        float pendingFrame = 0;
+        float pendingWeight = 0;
+        float pendingTween = 0;
     };
     using SkinChannels = std::vector<std::pair<NameId, SkinChannel>>; // in the order made
     const std::map<NameId, AnimLayer> *layersOf(VmObject *actor) const;
@@ -411,7 +453,13 @@ public:
     LayeredPoser *poserOf(VmObject *actor);
     // Movement so far, for diagnostics.
     struct MovementStats {
-        int moves = 0, blockedByWorld = 0, blockedByActors = 0, steps = 0, landings = 0, touches = 0, zoneChanges = 0;
+        int moves = 0;
+        int blockedByWorld = 0;
+        int blockedByActors = 0;
+        int steps = 0;
+        int landings = 0;
+        int touches = 0;
+        int zoneChanges = 0;
         int refused = 0;       // placed (SetLocation, spawned) where there's no room, nor near
         int spawnsRefused = 0; // of those, spawns, so not made (as SpawnActor fails)
         int gaveUp = 0;        // latent moves (MoveTo...) that timed out short of their goal
@@ -438,14 +486,18 @@ public:
         VmObject *actor = nullptr; // heard from where it is; none: everywhere (a voice)
         ObjectRef sound;
         int slot = 0; // ESoundSlot: 0 none, 5 talk...; one sound a slot an actor
-        float volume = 1, radius = 0, pitch = 1;
+        float volume = 1;
+        float radius = 0;
+        float pitch = 1;
         bool noOverride = false; // nothing may play over it in its slot
         bool speech = false;     // a voice (its name has DIALOG): at the speech volume
         bool loop = false;       // its name has LOOPING
         // The actor's sound filter when played (LowPass, HighPass: a
         // filtered sound is mixed flat, and walls in the way quieten it by
         // its ObstructionFactor).
-        float lowPass = 0, highPass = 0, obstruction = 0;
+        float lowPass = 0;
+        float highPass = 0;
+        float obstruction = 0;
         float startSeconds = 0; // where in it to start (a saved game's sounds)
     };
     std::vector<SoundRequest> &soundRequests() { return _soundRequests; }
@@ -465,7 +517,8 @@ public:
     // volume and where in it to start (the HUD's StartTimeOffset); each such
     // play counts, so the same track can start again.
     struct Music {
-        float volume = 1, startSeconds = 0;
+        float volume = 1;
+        float startSeconds = 0;
         int serial = 0;
     };
     Music &music() { return _music; }
@@ -482,9 +535,11 @@ public:
     // own files, under the game's names (QuickSave.dsa, Save<n>.dss).
     struct SaveInfo {
         std::filesystem::path file;
-        std::string map, description; // the map's name; "QuickSave" or the level's title
-        int64_t time = 0;             // when, in seconds since 1970
-        bool byGame = false;          // the original's (a package: the level itself)
+        // the map's name; "QuickSave" or the level's title
+        std::string map;
+        std::string description;
+        int64_t time = 0;    // when, in seconds since 1970
+        bool byGame = false; // the original's (a package: the level itself)
     };
     void setSaveFolder(std::filesystem::path folder) { _saveFolder = std::move(folder); }
     static Error readSaveInfo(const std::filesystem::path &file, SaveInfo &out);
@@ -570,7 +625,9 @@ public:
     // Decals stuck to the world: where, facing out which way, their top
     // which way, their texture and its scale.
     struct Decal {
-        std::array<float, 3> at{}, normal{}, up{};
+        std::array<float, 3> at{};
+        std::array<float, 3> normal{};
+        std::array<float, 3> up{};
         ObjectRef texture;
         float scale = 1;
     };
@@ -582,7 +639,8 @@ public:
     // and the hanging, climbing and clambering physics.
     struct Sweep {
         float time = 1;
-        std::array<float, 3> at{}, normal{};
+        std::array<float, 3> at{};
+        std::array<float, 3> normal{};
         VmObject *actor = nullptr;
         bool hit() const { return actor != nullptr; }
     };
@@ -611,8 +669,14 @@ public:
     // Moved there at once, the camera's smoothing told (LocationOffset).
     void setLocation(VmObject *a, const std::array<float, 3> &to);
     struct Clamber {
-        std::array<float, 3> from{}, forward{};
-        float ledge = 0, reach = 0, seconds = 0, startFrame = -1, lastFrame = 0, done = 0;
+        std::array<float, 3> from{};
+        std::array<float, 3> forward{};
+        float ledge = 0;
+        float reach = 0;
+        float seconds = 0;
+        float startFrame = -1;
+        float lastFrame = 0;
+        float done = 0;
         std::array<float, 3> to(float height) const;
     };
     // The actors giving light now (a LightType and some brightness): where,
@@ -621,7 +685,14 @@ public:
     struct LitActor {
         VmObject *actor = nullptr;
         std::array<float, 3> location{};
-        uint8_t type = 0, brightness = 0, hue = 0, saturation = 255, radius = 0, period = 32, phase = 0, effect = 0;
+        uint8_t type = 0;
+        uint8_t brightness = 0;
+        uint8_t hue = 0;
+        uint8_t saturation = 255;
+        uint8_t radius = 0;
+        uint8_t period = 32;
+        uint8_t phase = 0;
+        uint8_t effect = 0;
         bool isStatic = false; // bStatic
     };
     void litActors(std::vector<LitActor> &out);
@@ -636,7 +707,8 @@ public:
     bool listenerAt(Vec &at);
     static std::string soundName(VmObject *sound);
     struct NoiseStats {
-        int made = 0, heard = 0;
+        int made = 0;
+        int heard = 0;
     } noise;
     // A script changed an actor's collision (SetCollision): the list of
     // those that collide is made again.
@@ -664,8 +736,12 @@ private:
     void endLayerWait(VmObject *actor, NameId group);
     std::array<float, 3> extentOf(VmObject *a);
     struct BrushBox {
-        std::array<float, 3> min{}, max{}; // in the brush's own coordinates
-        std::array<float, 3> prePivot{}, mainScale{1, 1, 1}, postScale{1, 1, 1};
+        // in the brush's own coordinates
+        std::array<float, 3> min{};
+        std::array<float, 3> max{};
+        std::array<float, 3> prePivot{};
+        std::array<float, 3> mainScale{1, 1, 1};
+        std::array<float, 3> postScale{1, 1, 1};
         float radius = 0;             // how far its brush reaches from where the mover is, however it's turned
         std::shared_ptr<Model> model; // its own BSP, if it has one
         std::shared_ptr<LevelCollision> collision;
@@ -678,8 +754,11 @@ private:
     void hitWall(VmObject *a, const MoveHit &h);
     // Movement as Engine.dll's (vm_physics.cpp).
     struct ZoneFeel {
-        std::array<float, 3> gravity{0, 0, -950}, velocity{};
-        float groundFriction = 8, fluidFriction = 1.2f, terminal = 2500;
+        std::array<float, 3> gravity{0, 0, -950};
+        std::array<float, 3> velocity{};
+        float groundFriction = 8;
+        float fluidFriction = 1.2f;
+        float terminal = 2500;
         bool water = false;
     };
     ZoneFeel zoneFeel(VmObject *a);
@@ -739,8 +818,15 @@ private:
 
 public:
     struct CollideSlots {
-        int location = -1, radius = -1, height = -1, collideActors = -1, blockActors = -1, blockPlayers = -1,
-            isPlayer = -1, owner = -1, base = -1;
+        int location = -1;
+        int radius = -1;
+        int height = -1;
+        int collideActors = -1;
+        int blockActors = -1;
+        int blockPlayers = -1;
+        int isPlayer = -1;
+        int owner = -1;
+        int base = -1;
         bool mover = false;
     };
 
@@ -787,7 +873,8 @@ private:
     void forgetPose(VmObject *actor);
     struct Attachment {
         VmObject *parent = nullptr;
-        NameId parentPoint = 0, childPoint = 0;
+        NameId parentPoint = 0;
+        NameId childPoint = 0;
     };
     std::map<VmObject *, Attachment> _attachments;
     struct Bends {
@@ -805,10 +892,12 @@ private:
         int64_t opsTick = -2;
         // Each limb's IK (0 left arm, 1 right arm, 2 left leg, 3 right leg).
         struct Ik {
-            bool place = false, turn = false;
+            bool place = false;
+            bool turn = false;
             Vec at{};
             std::array<Vec, 3> axes{};
-            float placeWeight = 0, turnWeight = 0;
+            float placeWeight = 0;
+            float turnWeight = 0;
             bool onBase = false; // reaching from the actor's own animation, under the layers
         };
         std::array<Ik, 4> limbs;
@@ -827,7 +916,8 @@ private:
     std::map<VmObject *, Bends> _bends;
     void loadPaths();
     Hud _hud;
-    HudView _hudView, _hudFrame;
+    HudView _hudView;
+    HudView _hudFrame;
     bool _hudFrameClear = false;
     struct Fli {
         int frames = 0;
@@ -843,7 +933,8 @@ private:
     // its conditions, its own lines), who says it and to whom, and how
     // long until it's done.
     struct DialogThread {
-        int id = 0, line = 0;
+        int id = 0;
+        int line = 0;
         VmObject *self = nullptr;
         VmObject *speaker = nullptr;
         VmObject *listener = nullptr;
@@ -866,9 +957,13 @@ private:
         std::string key;
         int group = 9;
         bool runOn = false;
-        int next = -1, back = -1;
-        std::string nextPattern, backPattern;
-        std::string tag, event, condition;
+        int next = -1;
+        int back = -1;
+        std::string nextPattern;
+        std::string backPattern;
+        std::string tag;
+        std::string event;
+        std::string condition;
         int flags = 0;
     };
     std::vector<DialogRec> _dialogRecs;
@@ -880,7 +975,8 @@ private:
     // words and their phonemes (its WAV's phnm chunk), and the sounds
     // playing that have them, each moving its actor's mouth.
     struct LipWord {
-        float start = 0, end = 0;
+        float start = 0;
+        float end = 0;
         std::vector<std::pair<uint16_t, float>> phonemes; // IPA letter, start
     };
     std::map<std::pair<const Package *, int>, std::vector<LipWord>> _lipWords;
@@ -907,7 +1003,8 @@ private:
     void endLine(DialogThread &t, bool cut);
     static bool keyFits(const std::string &pattern, const std::string &key, bool strict = false);
     struct PendingLine {
-        int thread = 0, line = -1;
+        int thread = 0;
+        int line = -1;
         VmObject *caller = nullptr;
         int back = -1;
         std::string backPattern;
@@ -926,14 +1023,18 @@ private:
     // bEndPoint, previousPath, cost...), kept between searches as the
     // engine keeps it (bClearPaths false reuses it).
     struct NavState {
-        int visited = 10000000, bestPathWeight = 0, cost = 0, previous = -1;
+        int visited = 10000000;
+        int bestPathWeight = 0;
+        int cost = 0;
+        int previous = -1;
         bool endPoint = false;
     };
     std::vector<NavState> _navState;
     std::map<VmObject *, size_t> _navIndex;
     struct ClosestCache {
         bool filled = false;
-        std::array<float, 3> center{}, last{};
+        std::array<float, 3> center{};
+        std::array<float, 3> last{};
         float radius = 0;
         std::vector<std::pair<float, VmObject *>> nodes;
     } _closest;
@@ -951,7 +1052,8 @@ private:
     std::vector<std::pair<VmObject *, int>> _soundStops;
     struct TrackedSound {
         SoundRequest request;
-        float start = 0, seconds = 0;
+        float start = 0;
+        float seconds = 0;
     };
     std::vector<TrackedSound> _trackedSounds;
     void writeMeshGroups(ByteWriter &b, VmObject *actor);
@@ -1054,9 +1156,15 @@ std::string defaultGameType(const PackageSet &packages);
 // brightness). For drawing a level as it looks when play begins.
 struct LevelStart {
     ScriptedActors changed;
-    int removed = 0, hidden = 0, shown = 0, drawTypes = 0, lights = 0; // actors changed each way
+    // actors changed each way
+    int removed = 0;
+    int hidden = 0;
+    int shown = 0;
+    int drawTypes = 0;
+    int lights = 0;
     double milliseconds = 0;
-    size_t errors = 0, missingNatives = 0;
+    size_t errors = 0;
+    size_t missingNatives = 0;
     int accessedNone = 0;
     std::string player;     // the player's class, once logged in
     std::string loginError; // why the player couldn't log in, if not
@@ -1098,7 +1206,12 @@ void reseedEffectPhysicsRandom();
 void reseedCoreRandom();
 // A map's reach list as stored (object references, not yet actors).
 struct RawReachSpec {
-    int distance = 0, start = 0, end = 0, radius = 0, height = 0, flags = 0;
+    int distance = 0;
+    int start = 0;
+    int end = 0;
+    int radius = 0;
+    int height = 0;
+    int flags = 0;
     bool pruned = false;
 };
 Error readReachSpecs(const Package &map, std::vector<RawReachSpec> &out);

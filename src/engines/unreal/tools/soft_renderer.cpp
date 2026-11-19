@@ -14,10 +14,20 @@ namespace {
 // A vertex after the model and view: clip position, then what's
 // interpolated across the triangle.
 struct ClipVertex {
-    float x, y, z, w;
-    float u, v;
-    float r, g, b, a;
-    float wx, wy, wz; // where it is in the world (for the dynamic lights)
+    float x;
+    float y;
+    float z;
+    float w;
+    float u;
+    float v;
+    float r;
+    float g;
+    float b;
+    float a;
+    // where it is in the world (for the dynamic lights)
+    float wx;
+    float wy;
+    float wz;
 };
 
 ClipVertex mix(const ClipVertex &p, const ClipVertex &q, float t) {

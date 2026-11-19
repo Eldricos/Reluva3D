@@ -26,7 +26,11 @@ namespace {
 using Vec = std::array<float, 3>;
 
 constexpr float kPi = 3.14159265358979f;
-constexpr int kPhysWalking = 1, kPhysFalling = 2, kPhysClambering = 13, kPhysClimbing = 14, kPhysHanging = 15;
+constexpr int kPhysWalking = 1;
+constexpr int kPhysFalling = 2;
+constexpr int kPhysClambering = 13;
+constexpr int kPhysClimbing = 14;
+constexpr int kPhysHanging = 15;
 constexpr int kLadderTag = 1; // Texture.TexTag's TT_Ladder
 
 Vec add(const Vec &a, const Vec &b) {

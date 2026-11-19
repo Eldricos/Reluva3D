@@ -966,7 +966,10 @@ int cmdUeProbe(int argc, char **argv) {
 // taken in that frame or in the frame of the bone the triangle moves with
 // (mesh.md). Each place's line printed if `print`.
 struct PointsCheck {
-    int places = 0, within5 = 0, triangleX = 0, boneX = 0;
+    int places = 0;
+    int within5 = 0;
+    int triangleX = 0;
+    int boneX = 0;
     double miss = 0; // units, all together
 };
 PointsCheck checkAttachPoints(const reluva::unreal::PackageSet &set, bool print) {
@@ -1509,7 +1512,8 @@ int cmdUeCheck(int argc, char **argv) {
 
     std::map<std::string, int> versions;
     struct Tally {
-        int ok = 0, failed = 0;
+        int ok = 0;
+        int failed = 0;
         std::vector<std::string> examples;
     };
     std::map<std::string, Tally> tallies;

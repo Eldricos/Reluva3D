@@ -21,7 +21,8 @@ struct GpuMesh {
     int32_t frameVertices = 0; // GPU vertices per frame
     int32_t frames = 0;
     struct Batch {
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
         int32_t textureIndex = 0;
         uint32_t polyFlags = 0;
     };
@@ -82,7 +83,8 @@ gfx::Mat4 meshAxisScaling(const Mesh &mesh, const Vec3f &scale);
 
 // Which frames to draw: between two, `lerp` of the way to the second.
 struct MeshPose {
-    int32_t frame = 0, next = 0;
+    int32_t frame = 0;
+    int32_t next = 0;
     float lerp = 0;
 };
 // An animation `time` seconds in (looping at its rate); a still frame
@@ -94,12 +96,16 @@ MeshPose poseAt(const Mesh &mesh, const MeshAnimSeq *anim, float time, float sta
 MeshPose poseAtFraction(const Mesh &mesh, const MeshAnimSeq *anim, float fraction, bool loop);
 
 struct MeshLight {
-    gfx::Vec3 ambient{1, 1, 1}, directed{}, direction{0, 0, 1}; // direction in the renderer's axes
+    // direction in the renderer's axes
+    gfx::Vec3 ambient{1, 1, 1};
+    gfx::Vec3 directed{};
+    gfx::Vec3 direction{0, 0, 1};
     // An actor's: its lights worked out on each vertex as UE1 does
     // (gfx::DrawCall::vertexLights), not the directed light.
     std::vector<gfx::VertexLight> lights;
     bool perVertex = false;
-    float scale = 1, specular = 0;
+    float scale = 1;
+    float specular = 0;
 };
 
 // Draws it: `textures` by texture index (0: untextured), `exposure` as
@@ -142,7 +148,9 @@ void drawVolumeOver(gfx::Renderer3D &renderer, const gfx::DrawCall &drawn);
 // is left (gfx::ColorSource::kShadow).
 struct ShadowShade {
     gfx::Vec3 light{};
-    float reach = 0, strength = 0, most = 0;
+    float reach = 0;
+    float strength = 0;
+    float most = 0;
 };
 // A mesh's shadow: drawn through `placement` (its placement, then flattened
 // onto the floor) as a colour multiplying what's there, not written to

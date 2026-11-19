@@ -21,14 +21,20 @@ enum class TrackerFormat { kMOD, kS3M, kXM, kIT };
 
 // TrackerCell::note: 0 none, 1..120 a note (1 = C-0; 61 = C-5, which plays a
 // sample at its c5speed), or one of these.
-constexpr uint8_t kNoteFade = 253, kNoteCut = 254, kNoteOff = 255;
+constexpr uint8_t kNoteFade = 253;
+constexpr uint8_t kNoteCut = 254;
+constexpr uint8_t kNoteOff = 255;
 
 // One channel's entry in a pattern row. The volume column and effect are in
 // the player's own codes (tracker.cpp), which the loaders translate to.
 struct TrackerCell {
-    uint8_t note = 0, instrument = 0; // instrument 1-based, 0 none
-    uint8_t volCmd = 0, volParam = 0;
-    uint8_t effect = 0, param = 0;
+    // instrument 1-based, 0 none
+    uint8_t note = 0;
+    uint8_t instrument = 0;
+    uint8_t volCmd = 0;
+    uint8_t volParam = 0;
+    uint8_t effect = 0;
+    uint8_t param = 0;
 };
 
 struct TrackerPattern {
@@ -38,10 +44,16 @@ struct TrackerPattern {
 
 struct TrackerSample {
     std::vector<int16_t> data; // mono
-    bool loop = false, pingPong = false;
-    size_t loopStart = 0, loopEnd = 0;             // frames, loopEnd past the last
-    bool sustain = false, sustainPingPong = false; // IT's sustain loop, while the key is held
-    size_t sustainStart = 0, sustainEnd = 0;
+    bool loop = false;
+    bool pingPong = false;
+    // frames, loopEnd past the last
+    size_t loopStart = 0;
+    size_t loopEnd = 0;
+    // IT's sustain loop, while the key is held
+    bool sustain = false;
+    bool sustainPingPong = false;
+    size_t sustainStart = 0;
+    size_t sustainEnd = 0;
     double c5speed = 8363; // Hz at C-5 (MOD/XM finetune folded in)
     int relativeNote = 0;  // XM
     int volume = 64;       // default, 0..64
@@ -51,18 +63,27 @@ struct TrackerSample {
 
 struct TrackerEnvelope {
     struct Point {
-        int tick, value; // value 0..64 (pan: 32 is the middle)
+        // value 0..64 (pan: 32 is the middle)
+        int tick;
+        int value;
     };
     std::vector<Point> points;
-    bool enabled = false, loop = false, sustain = false;
-    int loopStart = 0, loopEnd = 0, sustainStart = 0, sustainEnd = 0; // point indices
+    bool enabled = false;
+    bool loop = false;
+    bool sustain = false;
+    // point indices
+    int loopStart = 0;
+    int loopEnd = 0;
+    int sustainStart = 0;
+    int sustainEnd = 0;
 };
 
 // XM and IT instruments: which sample each note plays, and envelopes.
 struct TrackerInstrument {
     std::array<uint8_t, 120> sample{}; // per note, 1-based, 0 none
     std::array<uint8_t, 120> note{};   // the note played instead (IT's note map)
-    TrackerEnvelope volumeEnvelope, panEnvelope;
+    TrackerEnvelope volumeEnvelope;
+    TrackerEnvelope panEnvelope;
     int fadeout = 0;        // per tick after release, out of 65536
     int globalVolume = 128; // 0..128
     int pan = -1;           // default pan 0..255, -1 none
@@ -73,7 +94,8 @@ struct TrackerModule {
     TrackerFormat format = TrackerFormat::kMOD;
     std::string title;
     int channels = 0;
-    int speed = 6, tempo = 125;
+    int speed = 6;
+    int tempo = 125;
     int globalVolume = 128;    // 0..128
     int mixVolume = 64;        // 64 is unity (S3M master volume, IT mix volume)
     bool linearSlides = false; // pitch in 1/64 semitones (XM/IT flag), else Amiga periods

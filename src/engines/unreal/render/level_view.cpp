@@ -2445,7 +2445,8 @@ MeshLight LevelView::dynamicMoverLight(const Vec3f &at, float reach) const {
     MeshLight light;
     struct Candidate {
         const LightSource *l;
-        float level, importance;
+        float level;
+        float importance;
     };
     std::vector<Candidate> found;
     auto consider = [&](const LightSource &l, float level) {
@@ -2490,7 +2491,8 @@ MeshLight LevelView::moverLightAt(const Vec3f &at, float reach, size_t *reaching
     MeshLight light;
     struct Candidate {
         const LightSource *l;
-        float level, importance;
+        float level;
+        float importance;
     };
     std::vector<Candidate> found;
     auto consider = [&](const LightSource &l, float level) {
@@ -2602,8 +2604,10 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
     // second (768 of 255 a second), lighting it as it fades out.
     struct Candidate {
         const LightSource *l;
-        float level, importance;
-        bool isStatic, moves;
+        float level;
+        float importance;
+        bool isStatic;
+        bool moves;
         uint64_t key;
     };
     std::vector<Candidate> found;

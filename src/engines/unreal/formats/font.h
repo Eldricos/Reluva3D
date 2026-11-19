@@ -15,7 +15,11 @@
 namespace reluva::unreal {
 
 struct FontCharacter {
-    int32_t u = 0, v = 0, width = 0, height = 0; // on its page's texture, in texels
+    // on its page's texture, in texels
+    int32_t u = 0;
+    int32_t v = 0;
+    int32_t width = 0;
+    int32_t height = 0;
 };
 
 struct FontPage {

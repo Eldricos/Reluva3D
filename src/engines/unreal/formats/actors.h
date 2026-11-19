@@ -23,13 +23,20 @@ namespace reluva::unreal {
 
 // A brush polygon (a Polys object's), in the brush's own coordinates.
 struct Poly {
-    Vec3f base{}, normal{}, textureU{}, textureV{};
+    Vec3f base{};
+    Vec3f normal{};
+    Vec3f textureU{};
+    Vec3f textureV{};
     std::vector<Vec3f> vertices;
     uint32_t polyFlags = 0;
-    int32_t actor = 0, texture = 0; // object references
-    int32_t itemName = 0;           // name index
-    int32_t link = 0, brushPoly = 0;
-    int16_t panU = 0, panV = 0;
+    // object references
+    int32_t actor = 0;
+    int32_t texture = 0;
+    int32_t itemName = 0; // name index
+    int32_t link = 0;
+    int32_t brushPoly = 0;
+    int16_t panU = 0;
+    int16_t panV = 0;
 };
 
 // Reads a Polys object; `trailing`, if given, is set to the bytes left
@@ -48,12 +55,15 @@ struct Mover {
     std::vector<Poly> polys;
     // Placement: a brush point v goes to
     // location + postScale * (rotation * (mainScale * (v - prePivot))).
-    Vec3f location{}, prePivot{};
+    Vec3f location{};
+    Vec3f prePivot{};
     Rotator rotation;
-    Vec3f mainScale{1, 1, 1}, postScale{1, 1, 1};
+    Vec3f mainScale{1, 1, 1};
+    Vec3f postScale{1, 1, 1};
     // Keyframes, relative to the base (the location and rotation less
     // the current key's); the mover is saved at keyNum.
-    int numKeys = 1, keyNum = 0;
+    int numKeys = 1;
+    int keyNum = 0;
     std::array<Vec3f, 8> keyPos{};
     std::array<Rotator, 8> keyRot{};
     float moveTime = 1; // seconds between keys
@@ -78,7 +88,8 @@ struct ScriptedActor {
     bool removed = false; // destroyed
     int hidden = -1;      // bHidden now: 1 hidden, 0 shown
     int drawType = -1;
-    int lightType = -1, lightBrightness = -1;
+    int lightType = -1;
+    int lightBrightness = -1;
 };
 using ScriptedActors = std::map<int, ScriptedActor>;
 
@@ -87,7 +98,8 @@ using ScriptedActors = std::map<int, ScriptedActor>;
 struct MeshActor {
     std::string name;
     ObjectRef mesh;
-    Vec3f location{}, prePivot{};
+    Vec3f location{};
+    Vec3f prePivot{};
     Rotator rotation;
     float drawScale = 1;
     std::string animSequence;
@@ -110,10 +122,14 @@ std::vector<MeshActor> findMeshActors(const PackageSet &packages, const Package 
                                       MeshActorStats *stats = nullptr, const ScriptedActors *scripted = nullptr);
 
 // Engine.Actor's ERenderStyle: how an actor's sprite or mesh blends.
-constexpr uint8_t kStyleNormal = 1, kStyleMasked = 2, kStyleTranslucent = 3, kStyleModulated = 4;
+constexpr uint8_t kStyleNormal = 1;
+constexpr uint8_t kStyleMasked = 2;
+constexpr uint8_t kStyleTranslucent = 3;
+constexpr uint8_t kStyleModulated = 4;
 // The Fallen's two more: alpha-blended by the actor's glow, and multiplying
 // what's behind (Direct3D's ZERO, SRCCOLOR).
-constexpr uint8_t kStyleBlended = 5, kStyleSubtractive = 6;
+constexpr uint8_t kStyleBlended = 5;
+constexpr uint8_t kStyleSubtractive = 6;
 
 // An actor drawn as a sprite (DrawType DT_Sprite, DT_VerticalSprite or
 // DT_SpriteAnimOnce): its texture facing the camera, DrawScale world
@@ -121,7 +137,8 @@ constexpr uint8_t kStyleBlended = 5, kStyleSubtractive = 6;
 struct SpriteActor {
     std::string name;
     ObjectRef texture;
-    Vec3f location{}, prePivot{};
+    Vec3f location{};
+    Vec3f prePivot{};
     float drawScale = 1;
     float scaleGlow = 1;        // its brightness
     Vec3f colorFilter{1, 1, 1}; // ColorFilter: its tint (Render.dll's DrawActorSprite)

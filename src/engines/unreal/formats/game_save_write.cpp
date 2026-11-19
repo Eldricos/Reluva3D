@@ -513,9 +513,13 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     writeDialogEngine(L, w);
     // The sounds playing (the music the HUD's, playing since it began).
     struct Entry {
-        int32_t actor, id;
+        int32_t actor;
+        int32_t id;
         std::string path;
-        float volume, radius, pitch, start;
+        float volume;
+        float radius;
+        float pitch;
+        float start;
     };
     std::vector<Entry> sounds;
     auto pathOf = [](const ObjectRef &s) { return s.package->name() + "." + s.package->path(s.exportIndex + 1); };
@@ -562,11 +566,22 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
         b.bytes(s.data(), s.size());
     };
     struct G {
-        std::string group, sequence = "NONACTIVE";
-        int32_t source = 0, type = 2, state = 0;
-        float frame = 0, rate = 1, weight = 1, fromWeight = 0, fromFrame = 0, elapsed = 0, duration = 1;
+        std::string group;
+        std::string sequence = "NONACTIVE";
+        int32_t source = 0;
+        int32_t type = 2;
+        int32_t state = 0;
+        float frame = 0;
+        float rate = 1;
+        float weight = 1;
+        float fromWeight = 0;
+        float fromFrame = 0;
+        float elapsed = 0;
+        float duration = 1;
         std::string pending;
-        float pendingFrame = 0, pendingWeight = 0, pendingTween = 0;
+        float pendingFrame = 0;
+        float pendingWeight = 0;
+        float pendingTween = 0;
         std::string bone;
         std::array<int32_t, 3> clear{};
     };

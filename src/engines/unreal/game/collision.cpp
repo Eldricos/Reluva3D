@@ -206,7 +206,9 @@ bool LevelCollision::solid(const Vec3f &c, const Vec3f &e) const {
 }
 
 struct LevelCollision::Sweep {
-    Vec3f start{}, end{}, extent{};
+    Vec3f start{};
+    Vec3f end{};
+    Vec3f extent{};
     Vec3f hullNormal{}; // the hull plane hit, when bestEntry says so
     int32_t hullNode = -1;
     float best = 2;    // the earliest time solid space was entered

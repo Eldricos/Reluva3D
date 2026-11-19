@@ -176,7 +176,9 @@ struct VmState : VmStruct {
     std::map<NameId, VmFunction *> functions; // its own
     std::map<NameId, uint32_t> labels;        // state code labels
     uint32_t stateFlags = 0;
-    uint64_t probeMask = 0, ignoreMask = ~0ull; // the events it (or its class) has, and those it doesn't ignore
+    // the events it (or its class) has, and those it doesn't ignore
+    uint64_t probeMask = 0;
+    uint64_t ignoreMask = ~0ull;
 };
 
 struct VmClass : VmState {
@@ -207,7 +209,8 @@ struct VmObject {
     bool latent = false;          // waiting in a latent function
     int stateSerial = 0;          // counts state changes, so running state code sees one
     std::set<NameId> disabled;    // events Disable()d (Tick, Timer...)
-    float timerRate = 0, timerCount = 0;
+    float timerRate = 0;
+    float timerCount = 0;
     bool timerLoop = false;
 
     Value *find(Vm &vm, std::string_view property);
@@ -341,7 +344,9 @@ public:
 
     // What happened, for diagnostics.
     struct Stats {
-        uint64_t calls = 0, statements = 0, nativeCalls = 0;
+        uint64_t calls = 0;
+        uint64_t statements = 0;
+        uint64_t nativeCalls = 0;
         int accessedNone = 0;
         std::map<std::string, int> missingNatives; // "Class.Function" -> calls
         std::map<std::string, int> errors;         // message -> times

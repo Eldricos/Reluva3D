@@ -48,7 +48,10 @@ struct Property {
 };
 
 struct Rotator {
-    int32_t pitch = 0, yaw = 0, roll = 0; // 65536 to a full turn
+    // 65536 to a full turn
+    int32_t pitch = 0;
+    int32_t yaw = 0;
+    int32_t roll = 0;
 };
 
 class PropertyList {
@@ -86,7 +89,10 @@ Error readProperties(const Package &package, Reader &r, PropertyList &out);
 // none).
 struct StateFrame {
     bool has = false;
-    int32_t node = 0, stateNode = 0, latent = 0, offset = -1;
+    int32_t node = 0;
+    int32_t stateNode = 0;
+    int32_t latent = 0;
+    int32_t offset = -1;
     uint64_t probeMask = 0;
 };
 Error beginObject(const Package &package, int index, Reader &r, PropertyList &out, StateFrame *frame = nullptr);

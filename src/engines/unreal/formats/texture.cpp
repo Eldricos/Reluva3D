@@ -125,7 +125,8 @@ static Error decodeAt(const PackageSet &packages, const Package &package, int in
     struct Mip {
         size_t dataAt = 0;
         int32_t size = 0;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
     };
     auto readMips = [&](std::vector<Mip> &mips) -> Error {
         const int32_t count = r.index();

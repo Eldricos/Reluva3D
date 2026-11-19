@@ -58,7 +58,8 @@ public:
 private:
     const PackageSet &_packages;
     std::map<std::pair<const Package *, int>, std::optional<PropertyList>> _cache;
-    int _found = 0, _missing = 0;
+    int _found = 0;
+    int _missing = 0;
 };
 
 } // namespace reluva::unreal

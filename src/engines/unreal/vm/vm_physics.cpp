@@ -26,9 +26,18 @@ using Vec = std::array<float, 3>;
 
 constexpr float kPi = 3.14159265358979f;
 constexpr float kWalkable = 0.7f; // floors face up at least this much (about 45 degrees)
-constexpr int kPhysNone = 0, kPhysWalking = 1, kPhysFalling = 2, kPhysSwimming = 3, kPhysFlying = 4, kPhysRotating = 5,
-              kPhysProjectile = 6, kPhysMovingBrush = 10, kPhysClambering = 13, kPhysClimbing = 14, kPhysHanging = 15,
-              kPhysSimpleWalking = 32;
+constexpr int kPhysNone = 0;
+constexpr int kPhysWalking = 1;
+constexpr int kPhysFalling = 2;
+constexpr int kPhysSwimming = 3;
+constexpr int kPhysFlying = 4;
+constexpr int kPhysRotating = 5;
+constexpr int kPhysProjectile = 6;
+constexpr int kPhysMovingBrush = 10;
+constexpr int kPhysClambering = 13;
+constexpr int kPhysClimbing = 14;
+constexpr int kPhysHanging = 15;
+constexpr int kPhysSimpleWalking = 32;
 
 Vec add(const Vec &a, const Vec &b) {
     return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};

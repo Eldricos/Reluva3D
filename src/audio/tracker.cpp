@@ -19,7 +19,8 @@ namespace {
 
 constexpr size_t kMaxSampleFrames = size_t(1) << 24;
 constexpr size_t kMaxTotalFrames = size_t(1) << 26;
-constexpr int kMaxRows = 256, kMaxChannels = 64;
+constexpr int kMaxRows = 256;
+constexpr int kMaxChannels = 64;
 constexpr double kAmigaClock = 14317056.0; // period (x4 Amiga units) to Hz
 
 // The player's effects; each format's letters map onto these.
@@ -1073,17 +1074,38 @@ private:
         const TrackerInstrument *ins = nullptr;
         TrackerCell cell;
         int param = 0; // the effect's, after memory
-        int lastIns = 0, lastNote = 60;
-        bool playing = false, backward = false, keyOn = true, fading = false;
-        double pos = 0, period = 0, target = 0;
-        int volume = 64, chanVol = 64, pan = 128, fade = 65536;
-        int volEnvPos = 0, panEnvPos = 0;
+        int lastIns = 0;
+        int lastNote = 60;
+        bool playing = false;
+        bool backward = false;
+        bool keyOn = true;
+        bool fading = false;
+        double pos = 0;
+        double period = 0;
+        double target = 0;
+        int volume = 64;
+        int chanVol = 64;
+        int pan = 128;
+        int fade = 65536;
+        int volEnvPos = 0;
+        int panEnvPos = 0;
         uint8_t mem[kFxCount] = {};
         int portaSpeed = 0;
-        int vibPos = 0, vibSpeed = 0, vibDepth = 0, vibWave = 0;
-        int tremPos = 0, tremSpeed = 0, tremDepth = 0, tremWave = 0;
-        int vibDelta = 0, tremDelta = 0, arp = 0;
-        int retrigCount = 0, loopRow = 0, loopCount = 0, delayTick = 0;
+        int vibPos = 0;
+        int vibSpeed = 0;
+        int vibDepth = 0;
+        int vibWave = 0;
+        int tremPos = 0;
+        int tremSpeed = 0;
+        int tremDepth = 0;
+        int tremWave = 0;
+        int vibDelta = 0;
+        int tremDelta = 0;
+        int arp = 0;
+        int retrigCount = 0;
+        int loopRow = 0;
+        int loopCount = 0;
+        int delayTick = 0;
     };
 
     const TrackerPattern &pattern(int order) const {
@@ -1112,10 +1134,19 @@ private:
     const int _rate;
     TrackerPattern _empty;
     std::vector<Channel> _ch;
-    int _speed, _tempo, _globalVolume;
-    int _order = 0, _row = 0, _tick = 0, _patDelay = 0, _jumpOrder = -1, _breakRow = -1, _loopJump = -1;
+    int _speed;
+    int _tempo;
+    int _globalVolume;
+    int _order = 0;
+    int _row = 0;
+    int _tick = 0;
+    int _patDelay = 0;
+    int _jumpOrder = -1;
+    int _breakRow = -1;
+    int _loopJump = -1;
     bool _done = false;
-    size_t _frames = 0, _loopFrame = 0;
+    size_t _frames = 0;
+    size_t _loopFrame = 0;
     std::vector<std::vector<int64_t>> _visited; // per order and row: the frame it first played at
     double _gain;
 };

@@ -36,7 +36,8 @@ public:
 private:
     struct Node {
         std::array<float, 4> plane{};
-        int32_t front = 0, back = 0;
+        int32_t front = 0;
+        int32_t back = 0;
         uint8_t zone[2] = {};
         int32_t leaf[2] = {};
     };
@@ -44,7 +45,8 @@ private:
     struct Portal {
         uint8_t zone[2] = {};
         std::vector<Vec3f> points;
-        Vec3f min{}, max{};
+        Vec3f min{};
+        Vec3f max{};
     };
     std::vector<Portal> _portals;
     std::array<std::vector<uint32_t>, 64> _byZone; // the portals on each zone

@@ -20,8 +20,10 @@
 namespace reluva::unreal {
 
 struct MeshAnimSeq {
-    std::string name, group;
-    int32_t startFrame = 0, numFrames = 0;
+    std::string name;
+    std::string group;
+    int32_t startFrame = 0;
+    int32_t numFrames = 0;
     float rate = 0; // frames per second
     // Functions called on the actor as the animation passes their time
     // (0-1 through it).
@@ -63,7 +65,8 @@ struct Mesh {
     std::vector<MeshTri> tris; // vertex indices into one frame
     std::vector<MeshAnimSeq> anims;
     std::vector<int32_t> textures; // object references, by texture index
-    Vec3f scale{1, 1, 1}, origin{};
+    Vec3f scale{1, 1, 1};
+    Vec3f origin{};
     Rotator rotOrigin;
     size_t trailingBytes = 0; // left after the last field read
     // The Fallen's layout: how many bytes of imported-model block (holding
@@ -224,9 +227,12 @@ public:
             std::string bone;
             // The skeleton's IK chains it is, if it has them: the reach's
             // (an arm's or leg's) and the turn's (a hand's or foot's).
-            std::string placeChain, turnChain;
-            float placeWeight = 0, turnWeight = 0;
-            Vec3f at{}, offset{};
+            std::string placeChain;
+            std::string turnChain;
+            float placeWeight = 0;
+            float turnWeight = 0;
+            Vec3f at{};
+            Vec3f offset{};
             std::array<Vec3f, 3> axes{};
             bool onBase = false; // done to the base animation, before the layers
         };
@@ -259,8 +265,11 @@ public:
     // (`fromSeconds`, `fromWeight`) to these: the two shapes cross-faded.
     struct Face {
         std::string_view anim;
-        float seconds = 0, weight = 1;
-        float fromSeconds = 0, fromWeight = 0, mix = 1;
+        float seconds = 0;
+        float weight = 1;
+        float fromSeconds = 0;
+        float fromWeight = 0;
+        float mix = 1;
     };
     // ... and the face's channels over that.
     bool pose(Anim base, float fraction, const std::vector<Layer> &layers, std::vector<Vec3f> &out,

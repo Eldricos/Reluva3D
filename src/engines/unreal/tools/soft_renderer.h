@@ -82,10 +82,13 @@ public:
     int lastTriangles() const { return _lastTriangles; }
 
 private:
-    std::vector<gfx::DynamicLight> _lights, _volumes;
+    std::vector<gfx::DynamicLight> _lights;
+    std::vector<gfx::DynamicLight> _volumes;
     struct Texture {
-        int w = 0, h = 0;
-        bool clamp = false, nearest = false;
+        int w = 0;
+        int h = 0;
+        bool clamp = false;
+        bool nearest = false;
         std::vector<uint8_t> rgba;
     };
     struct Mesh {
@@ -94,8 +97,10 @@ private:
         std::vector<uint32_t> indices;
     };
 
-    int _w, _h;
-    Surface _color, _frame;
+    int _w;
+    int _h;
+    Surface _color;
+    Surface _frame;
     std::vector<float> _depth;
     std::vector<uint8_t> _stencil; // marks, cleared each frame
     StencilMode _stencilMode = StencilMode::kNone;
@@ -104,9 +109,18 @@ private:
     uint32_t _nextId = 1;
     gfx::Mat4 _viewProj = gfx::identity();
     gfx::Vec3 _eye{};
-    int _vx = 0, _vy = 0, _vw = 0, _vh = 0; // the viewport
-    float _depthRange = 1, _gamma = 1;
-    int _frames = 0, _draws = 0, _triangles = 0, _lastDraws = 0, _lastTriangles = 0;
+    // the viewport
+    int _vx = 0;
+    int _vy = 0;
+    int _vw = 0;
+    int _vh = 0;
+    float _depthRange = 1;
+    float _gamma = 1;
+    int _frames = 0;
+    int _draws = 0;
+    int _triangles = 0;
+    int _lastDraws = 0;
+    int _lastTriangles = 0;
 };
 
 } // namespace reluva::tools

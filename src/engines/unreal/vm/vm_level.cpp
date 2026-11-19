@@ -1074,7 +1074,10 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
         return err;
     struct Saved {
         VmObject *actor;
-        int drawType, hidden, lightType, lightBrightness;
+        int drawType;
+        int hidden;
+        int lightType;
+        int lightBrightness;
     };
     auto byteOf = [&](VmObject *a, const char *name) {
         const Value *v = a->find(vm, name);

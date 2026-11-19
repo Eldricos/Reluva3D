@@ -19,7 +19,11 @@ constexpr float kPortalMargin = 32;
 constexpr float kWindowDepth = 512;
 
 struct Rect {
-    float x0 = 1, y0 = 1, x1 = -1, y1 = -1; // empty
+    // empty
+    float x0 = 1;
+    float y0 = 1;
+    float x1 = -1;
+    float y1 = -1;
     bool empty() const { return x0 >= x1 || y0 >= y1; }
 };
 

@@ -438,9 +438,12 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     // The blockers: inside one (its footprint, under its top).
     struct Block {
         Vec at;
-        float radius, height;
+        float radius;
+        float height;
         bool box;
-        float x, y, z;
+        float x;
+        float y;
+        float z;
     };
     std::vector<Block> blocks;
     const Value *numBlocks = prop(weather, "NumBlocks");

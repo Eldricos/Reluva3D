@@ -43,8 +43,14 @@ Vec3f mixedLightColor(uint8_t hue, uint8_t saturation, uint8_t brightness);
 
 // Engine.Actor's ELightType: how a light's brightness changes over time.
 // The rest (the two texture palette ones) are drawn steady.
-constexpr uint8_t kLightNone = 0, kLightSteady = 1, kLightPulse = 2, kLightBlink = 3, kLightFlicker = 4,
-                  kLightStrobe = 5, kLightBackdrop = 6, kLightSubtlePulse = 7;
+constexpr uint8_t kLightNone = 0;
+constexpr uint8_t kLightSteady = 1;
+constexpr uint8_t kLightPulse = 2;
+constexpr uint8_t kLightBlink = 3;
+constexpr uint8_t kLightFlicker = 4;
+constexpr uint8_t kLightStrobe = 5;
+constexpr uint8_t kLightBackdrop = 6;
+constexpr uint8_t kLightSubtlePulse = 7;
 
 struct LightSource {
     Vec3f position{};
@@ -57,7 +63,8 @@ struct LightSource {
     // How its brightness changes (its LightType: kLightPulse...), with a
     // cycle of `period` seconds started `phase` (0-1) of the way through.
     uint8_t type = kLightSteady;
-    float period = 1, phase = 0;
+    float period = 1;
+    float phase = 0;
     // Its LightEffect (Engine.Actor's ELightEffect). Cylinder (17) lights
     // to its radius across, at any height; the wavers, shimmer, waves,
     // disco and rotor make patterns that move across the surfaces it
@@ -69,10 +76,12 @@ struct LightSource {
     bool specialLit = false;
     // bActorShadows (every Light by default): characters' projected
     // shadows may fall from it. bStatic: it stays where it is.
-    bool actorShadows = false, isStatic = false;
+    bool actorShadows = false;
+    bool isStatic = false;
     // Its volume (VolumeRadius, VolumeBrightness): in a fog zone, a sphere
     // of that radius glowing in its colour; radius 0 for none.
-    float volumeRadius = 0, volumeFog = 0;
+    float volumeRadius = 0;
+    float volumeFog = 0;
     Vec3f volumeColor{};
     // Its actor (an object reference in the level's package), its own
     // LightBrightness, and whether scripts may change it while the game
@@ -99,7 +108,9 @@ bool hasLightPattern(const LightSource &light);
 // direction (yaw and pitch, radians) and distance from it, found once.
 struct PatternPoint {
     Vec3f offset{};
-    float yaw = 0, pitch = 0, distance = 0;
+    float yaw = 0;
+    float pitch = 0;
+    float distance = 0;
 };
 PatternPoint patternPoint(const Vec3f &offset);
 // What a pattern needs of the time, worked out once a frame for each light.
@@ -162,16 +173,23 @@ struct LightmapPlacement {
     // dot(P, vAxis) + vOffset); sample (i, j) is at (i, j). In the page,
     // sample (0, 0) is the texel at (x, y). For a surface without a
     // lightmap the axes are zero: every point is that one texel.
-    int x = 0, y = 0;
-    Vec3f uAxis{}, vAxis{};
-    float uOffset = 0, vOffset = 0;
+    int x = 0;
+    int y = 0;
+    Vec3f uAxis{};
+    Vec3f vAxis{};
+    float uOffset = 0;
+    float vOffset = 0;
 };
 
 // A lightmap that lights whose brightness changes reach, redrawn as they
 // do: its rectangle in its page (the border included), its light without
 // them, and each one's at full brightness.
 struct AnimatedLightmap {
-    int page = 0, x = 0, y = 0, w = 0, h = 0;
+    int page = 0;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
     std::vector<Vec3f> base; // w * h, rows top to bottom
     struct Light {
         int index = 0;                    // in LevelLights::animated
@@ -195,10 +213,12 @@ struct LightmapAtlas {
 
     // How the surfaces' sample grids lined up with them (see lighting.md).
     struct Stats {
-        int lightmaps = 0, lit = 0; // surfaces with a lightmap; their samples some light reached
-        int fromBounds = 0;         // grids the pan didn't place, started at the polygon's corner instead
-        int badFit = 0;             // grids that don't cover their polygon even so
-        int tooLarge = 0;           // lightmaps larger than a page (drawn with ambient light)
+        // surfaces with a lightmap; their samples some light reached
+        int lightmaps = 0;
+        int lit = 0;
+        int fromBounds = 0; // grids the pan didn't place, started at the polygon's corner instead
+        int badFit = 0;     // grids that don't cover their polygon even so
+        int tooLarge = 0;   // lightmaps larger than a page (drawn with ambient light)
     } stats;
 
     // The texture coordinates (0-1 in the surface's page) of a point.

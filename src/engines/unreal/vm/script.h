@@ -21,17 +21,43 @@ namespace reluva::unreal {
 
 // Property flags (a property's PropertyFlags).
 namespace propflag {
-constexpr uint32_t kEdit = 0x1, kConst = 0x2, kInput = 0x4, kExportObject = 0x8, kOptionalParm = 0x10, kNet = 0x20,
-                   kConstRef = 0x40, kParm = 0x80, kOutParm = 0x100, kSkipParm = 0x200, kReturnParm = 0x400,
-                   kCoerceParm = 0x800, kNative = 0x1000, kTransient = 0x2000, kConfig = 0x4000, kLocalized = 0x8000,
-                   kTravel = 0x10000, kEditConst = 0x20000, kGlobalConfig = 0x40000;
+constexpr uint32_t kEdit = 0x1;
+constexpr uint32_t kConst = 0x2;
+constexpr uint32_t kInput = 0x4;
+constexpr uint32_t kExportObject = 0x8;
+constexpr uint32_t kOptionalParm = 0x10;
+constexpr uint32_t kNet = 0x20;
+constexpr uint32_t kConstRef = 0x40;
+constexpr uint32_t kParm = 0x80;
+constexpr uint32_t kOutParm = 0x100;
+constexpr uint32_t kSkipParm = 0x200;
+constexpr uint32_t kReturnParm = 0x400;
+constexpr uint32_t kCoerceParm = 0x800;
+constexpr uint32_t kNative = 0x1000;
+constexpr uint32_t kTransient = 0x2000;
+constexpr uint32_t kConfig = 0x4000;
+constexpr uint32_t kLocalized = 0x8000;
+constexpr uint32_t kTravel = 0x10000;
+constexpr uint32_t kEditConst = 0x20000;
+constexpr uint32_t kGlobalConfig = 0x40000;
 } // namespace propflag
 
 // Function flags (a function's FunctionFlags).
 namespace funcflag {
-constexpr uint32_t kFinal = 0x1, kDefined = 0x2, kIterator = 0x4, kLatent = 0x8, kPreOperator = 0x10, kSingular = 0x20,
-                   kNet = 0x40, kNetReliable = 0x80, kSimulated = 0x100, kExec = 0x200, kNative = 0x400, kEvent = 0x800,
-                   kOperator = 0x1000, kStatic = 0x2000;
+constexpr uint32_t kFinal = 0x1;
+constexpr uint32_t kDefined = 0x2;
+constexpr uint32_t kIterator = 0x4;
+constexpr uint32_t kLatent = 0x8;
+constexpr uint32_t kPreOperator = 0x10;
+constexpr uint32_t kSingular = 0x20;
+constexpr uint32_t kNet = 0x40;
+constexpr uint32_t kNetReliable = 0x80;
+constexpr uint32_t kSimulated = 0x100;
+constexpr uint32_t kExec = 0x200;
+constexpr uint32_t kNative = 0x400;
+constexpr uint32_t kEvent = 0x800;
+constexpr uint32_t kOperator = 0x1000;
+constexpr uint32_t kStatic = 0x2000;
 } // namespace funcflag
 
 // The bytecode's tokens (the first byte of each expression).
@@ -126,7 +152,8 @@ Error decodeCode(const Package &package, Reader &r, uint32_t scriptSize, Code &o
 struct ScriptObject {
     enum class Kind { kConst, kEnum, kProperty, kStruct, kFunction, kState, kClass } kind = Kind::kConst;
     std::string className; // the export's class ("IntProperty", "Function"...)
-    int32_t super = 0, next = 0;
+    int32_t super = 0;
+    int32_t next = 0;
 
     // Const: its value as written in the source.
     std::string constValue;
@@ -145,8 +172,11 @@ struct ScriptObject {
     int32_t fixedCount = 0;
 
     // Struct and up.
-    int32_t scriptText = 0, children = 0, friendlyName = 0;
-    int32_t line = 0, textPos = 0;
+    int32_t scriptText = 0;
+    int32_t children = 0;
+    int32_t friendlyName = 0;
+    int32_t line = 0;
+    int32_t textPos = 0;
     Code code;
 
     // Function.
@@ -155,7 +185,8 @@ struct ScriptObject {
     uint32_t functionFlags = 0;
 
     // State and Class.
-    uint64_t probeMask = 0, ignoreMask = 0;
+    uint64_t probeMask = 0;
+    uint64_t ignoreMask = 0;
     uint16_t labelTableOffset = 0;
     uint32_t stateFlags = 0;
 
@@ -164,7 +195,8 @@ struct ScriptObject {
     std::array<uint8_t, 16> guid{};
     struct Dependency {
         int32_t cls = 0;
-        uint32_t deep = 0, scriptTextCrc = 0;
+        uint32_t deep = 0;
+        uint32_t scriptTextCrc = 0;
     };
     std::vector<Dependency> dependencies;
     std::vector<int32_t> packageImports; // name indices

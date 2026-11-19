@@ -143,7 +143,8 @@ private:
     void drawOverlay(uint64_t nowMs);
 
     struct Batch {
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
         gfx::TextureId texture = 0;
         gfx::TextureId lightmap = 0; // 0: none (unlit, blended, or the level has no lighting)
         uint32_t polyFlags = 0;
@@ -176,7 +177,8 @@ private:
     // texture (SetSurfaceTexture).
     struct SurfRange {
         size_t batch;
-        uint32_t firstIndex, indexCount;
+        uint32_t firstIndex;
+        uint32_t indexCount;
     };
     std::map<int, std::vector<SurfRange>> _surfRanges;
     // The level's batches as the scripts' swaps leave them (whole-world
@@ -191,10 +193,12 @@ private:
     struct MoverDraw {
         Mover mover;
         std::vector<Batch> batches;
-        int key = 0, target = 0; // moving from key to target
-        float t = 0;             // 0-1 of the way
-        float reach = 0;         // how far its brush reaches from its pivot
-        gfx::Mat4 built{};       // where its vertices' baked light was worked out
+        // moving from key to target
+        int key = 0;
+        int target = 0;
+        float t = 0;       // 0-1 of the way
+        float reach = 0;   // how far its brush reaches from its pivot
+        gfx::Mat4 built{}; // where its vertices' baked light was worked out
     };
     // A mover's light: the lights reaching its brush, worked out on its
     // vertices as surfaces are lit (no lightmap of its own); `reaching`,
@@ -253,7 +257,8 @@ public:
     // (submitting, presenting); the rest of update is preparing and
     // handing over the draws. For RELUVA_BENCH.
     struct FrameTimes {
-        double play = 0, endFrame = 0;
+        double play = 0;
+        double endFrame = 0;
     };
     const FrameTimes &frameTimes() const { return _frameTimes; }
 
@@ -281,8 +286,10 @@ private:
     // Actors drawn as sprites.
     struct SpriteDraw {
         gfx::TextureId texture = 0;
-        gfx::Vec3 at{};              // its centre, the renderer's axes
-        float width = 0, height = 0; // world units
+        gfx::Vec3 at{}; // its centre, the renderer's axes
+        // world units
+        float width = 0;
+        float height = 0;
         std::array<float, 3> color{1, 1, 1};
         uint8_t style = kStyleNormal;
         bool vertical = false;
@@ -290,7 +297,8 @@ private:
         // wall): its right and up, in the renderer's axes; pulled towards
         // the camera so it shows on the surface it's on.
         bool oriented = false;
-        gfx::Vec3 right{}, up{};
+        gfx::Vec3 right{};
+        gfx::Vec3 up{};
         bool onTop = false; // drawn over everything (a corona: hidden by walls by a trace instead)
     };
     // Lights' coronas while playing (bCorona): added to `sprites`, each
@@ -386,15 +394,18 @@ private:
     // Each caster's shadow: its light (in lights_.unique), how strong.
     struct ShadowState {
         int light = -1;
-        float strength = 0, lastSeen = 0;
+        float strength = 0;
+        float lastSeen = 0;
         bool seen = false;
     };
     std::map<VmObject *, ShadowState> _shadows;
     bool drawLayered(VmObject *actor, const LevelPlay::Look &look, int mesh, const gfx::Mat4 &placement,
                      const std::vector<gfx::TextureId> &skins, const MeshLight &light);
-    float _playClock = 0, _fov = 90;
+    float _playClock = 0;
+    float _fov = 90;
     LevelPlay::View _view;
-    float _mouseDx = 0, _mouseDy = 0;
+    float _mouseDx = 0;
+    float _mouseDy = 0;
     bool _freeCam = false; // playing with the camera flown (V), the player standing
     Surface _overlay;
     std::string _error;
@@ -428,7 +439,9 @@ private:
     std::unique_ptr<TextureUseRecorder> _recorder; // renderer_ while shown: what's drawn
     // The overlay's rows drawn last frame, cleared before the next: [0,
     // top) and [bottom, the frame's height).
-    int _overlayTop = 0, _overlayBottom = 0; // the first frame clears it all
+    // the first frame clears it all
+    int _overlayTop = 0;
+    int _overlayBottom = 0;
     // The info box's lines as drawn, its width and its error line: kept
     // between frames, only changed lines drawn again (drawOverlay).
     std::vector<std::string> _overlayLines;
@@ -437,12 +450,18 @@ private:
 
     // Fly camera, in the renderer's world: Unreal's axes with Y negated
     // (so right-handed), Z up; yaw 0 looks along +X.
-    std::array<float, 3> _start{}, _pos{};
-    float _startYaw = 0, _yaw = 0, _pitch = 0;
+    std::array<float, 3> _start{};
+    std::array<float, 3> _pos{};
+    float _startYaw = 0;
+    float _yaw = 0;
+    float _pitch = 0;
     bool _held[12] = {}; // by map_viewer.cpp's Held
-    bool _dragging = false, _showInfo = true;
-    int _lastX = 0, _lastY = 0;
-    uint64_t _lastMs = 0, _fpsStart = 0;
+    bool _dragging = false;
+    bool _showInfo = true;
+    int _lastX = 0;
+    int _lastY = 0;
+    uint64_t _lastMs = 0;
+    uint64_t _fpsStart = 0;
     int _frames = 0;
     float _fps = 0;
 };

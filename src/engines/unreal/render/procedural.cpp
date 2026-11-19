@@ -26,8 +26,11 @@ struct TextureData {
     size_t base = 0;   // the export's offset in the file, as Reader positions count
     size_t native = 0; // where the class's own data starts (a Reader position)
     PropertyList props;
-    int width = 0, height = 0;
-    size_t mip0 = 0, mip0Size = 0; // the first mipmap's bytes (an index into data)
+    int width = 0;
+    int height = 0;
+    // the first mipmap's bytes (an index into data)
+    size_t mip0 = 0;
+    size_t mip0Size = 0;
 };
 
 Error readTextureData(const Package &package, int index, TextureData &out) {
@@ -100,7 +103,9 @@ void toRgba(const std::vector<uint8_t> &indices, const Palette &palette, bool ma
 // unless it's past 1 / MinFrameRate (the rates kept to 0.01-100), when only
 // that much is taken off, so a slow display catches up.
 struct Pace {
-    float fastest = 0, slowest = 0; // the shortest and longest time between steps; fastest 0: every frame
+    // the shortest and longest time between steps; fastest 0: every frame
+    float fastest = 0;
+    float slowest = 0;
     float sum = 0;
     explicit Pace(const PropertyList &props) {
         const float most = props.number("MaxFrameRate");
@@ -231,7 +236,14 @@ int8_t s8(uint8_t v) {
 class Fire : public AnimatedTexture {
 public:
     struct SparkData {
-        uint8_t type = 0, heat = 0, x = 0, y = 0, a = 0, b = 0, c = 0, d = 0;
+        uint8_t type = 0;
+        uint8_t heat = 0;
+        uint8_t x = 0;
+        uint8_t y = 0;
+        uint8_t a = 0;
+        uint8_t b = 0;
+        uint8_t c = 0;
+        uint8_t d = 0;
     };
 
     Fire(int w, int h, const PropertyList &props, Palette palette, std::vector<SparkData> sparks)
@@ -659,14 +671,20 @@ private:
         _heat.swap(_next);
     }
 
-    int _w, _h;
+    int _w;
+    int _h;
     int _ubits = 0;
-    uint8_t _um = 0, _vm = 0;
+    uint8_t _um = 0;
+    uint8_t _vm = 0;
     Palette _palette;
     std::vector<SparkData> _sparks; // the placed ones first, then the moving ones they made
-    size_t _count = 0, _limit = 0;
-    std::vector<uint8_t> _heat, _next;
-    bool _rising = false, _masked = false, _starsOn = true;
+    size_t _count = 0;
+    size_t _limit = 0;
+    std::vector<uint8_t> _heat;
+    std::vector<uint8_t> _next;
+    bool _rising = false;
+    bool _masked = false;
+    bool _starsOn = true;
     int _keep = 220;
     std::array<uint8_t, 1024> _cool{}; // the heat four pixels sum to, spread and cooled
     uint32_t _phase = 0;               // GlobalPhase
@@ -721,7 +739,14 @@ enum Drop : uint8_t {
 class Water : public AnimatedTexture {
 public:
     struct DropData {
-        uint8_t type = 0, depth = 0, x = 0, y = 0, a = 0, b = 0, c = 0, d = 0;
+        uint8_t type = 0;
+        uint8_t depth = 0;
+        uint8_t x = 0;
+        uint8_t y = 0;
+        uint8_t a = 0;
+        uint8_t b = 0;
+        uint8_t c = 0;
+        uint8_t d = 0;
     };
 
     // `source`: a wet texture's source picture, already the texture's size;
@@ -981,14 +1006,19 @@ private:
         }
     }
 
-    int _w, _h, _fw;
+    int _w;
+    int _h;
+    int _fw;
     Palette _palette;
     std::vector<DropData> _drops;
     image::Image _source;
     const char *_kind;
     std::vector<uint8_t> _field;
-    std::vector<int> _sums, _across, _slope; // slopes' working rows
-    std::array<uint8_t, 1024> _table{};      // the slope + 512: a wave's palette index, a wet's shift (signed)
+    // slopes' working rows
+    std::vector<int> _sums;
+    std::vector<int> _across;
+    std::vector<int> _slope;
+    std::array<uint8_t, 1024> _table{}; // the slope + 512: a wave's palette index, a wet's shift (signed)
     uint8_t _parity = 0;
     bool _masked = false;
     Pace _pace;
@@ -1132,10 +1162,20 @@ private:
     image::Image _source;
     std::vector<uint8_t> _glass;
     uint8_t _panning = kLinear;
-    bool _realTime = false, _moveIce = false;
-    float _hSpeed = 0, _vSpeed = 0, _frequency = 1, _amplitude = 1;
-    float _clock = 0, _uPan = 0, _vPan = 0, _u = 0, _v = 0, _held = 0;
-    int _drawnU = 0, _drawnV = 0;
+    bool _realTime = false;
+    bool _moveIce = false;
+    float _hSpeed = 0;
+    float _vSpeed = 0;
+    float _frequency = 1;
+    float _amplitude = 1;
+    float _clock = 0;
+    float _uPan = 0;
+    float _vPan = 0;
+    float _u = 0;
+    float _v = 0;
+    float _held = 0;
+    int _drawnU = 0;
+    int _drawnV = 0;
     Pace _pace;
 };
 
@@ -1350,7 +1390,10 @@ private:
             _pixels[size_t(y) * size_t(_fw) + size_t(x)] = v;
     }
 
-    int _w, _h, _fw, _fh;
+    int _w;
+    int _h;
+    int _fw;
+    int _fh;
     Palette _palette;
     bool _masked;
     std::vector<uint8_t> _data;
@@ -1361,7 +1404,8 @@ private:
     size_t _current = 0;
     float _time = 0;
     Palette _firstPalette; // the palette before any frame's
-    bool _seeThrough = false, _shown = false;
+    bool _seeThrough = false;
+    bool _shown = false;
     float _baseFrameSeconds = 1.0f / 30;
 };
 
