@@ -15,6 +15,7 @@
 #include "engines/age/game/net_session.h"
 
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -104,6 +105,7 @@ private:
     void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
     void say(const std::string &s, bool system);
     void startHosting();
+    std::map<std::string, float> topSpeeds() const;
     void joinAddress(const net::Address &address);
     void refreshRaces();
     void message(const std::string &text, const std::string &picture = "msg_dlg");

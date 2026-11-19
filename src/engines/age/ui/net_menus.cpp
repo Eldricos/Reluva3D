@@ -11,6 +11,7 @@
 
 #include "graphics/font.h"
 #include "engines/age/formats/race.h"
+#include "engines/age/game/car.h"
 #include "engines/age/ui/screen.h"
 
 #include <algorithm>
@@ -417,6 +418,17 @@ void NetMenus::refreshRaces() {
     _settings.race = uint8_t(std::min<size_t>(_settings.race, _raceNames.empty() ? 0 : _raceNames.size() - 1));
 }
 
+// Every car's top speed, for the host's check of the others' cars.
+std::map<std::string, float> NetMenus::topSpeeds() const {
+    std::map<std::string, float> speeds;
+    for (const CarInfo &car : _cars) {
+        CarSetup setup;
+        if (!loadCarSetup(_files, car.base, setup))
+            speeds[car.base] = setup.highSpeed;
+    }
+    return speeds;
+}
+
 void NetMenus::startHosting() {
     std::unique_ptr<net::UdpSocket> socket;
     if (Error err = _sys.openUdp(kNetPort, socket); err || !socket) {
@@ -428,6 +440,7 @@ void NetMenus::startHosting() {
     }
     _browser.reset();
     _session = NetSession::host(std::move(socket), _netName, _settings, _password);
+    _session->setTopSpeeds(topSpeeds());
     _session->setCar(_myCar, uint8_t(_myPaint));
     // The computer players: the game's names for opponents, in cars from
     // the list.
@@ -447,6 +460,7 @@ void NetMenus::joinAddress(const net::Address &address) {
         return;
     }
     _session = NetSession::join(std::move(socket), address, _netName, _password);
+    _session->setTopSpeeds(topSpeeds());
     _session->setCar(_myCar, uint8_t(_myPaint));
     _lines.clear();
     _lastChatSeq = 0;

@@ -197,6 +197,14 @@ public:
     /** The others' cars, by player, oldest first. */
     const std::map<uint8_t, std::deque<NetCarState>> &cars() const { return _cars; }
     /**
+     * Each car's top speed (m/s, by base name), so the host can hold a
+     * player's car to its own and not only to what no car does. Given to
+     * every session, as any player may take over as host.
+     */
+    void setTopSpeeds(std::map<std::string, float> speeds) { _topSpeeds = std::move(speeds); }
+    /** The fastest a player's car may be said to go: its top speed with room for a slope or a knock. */
+    float speedLimit(uint8_t id) const;
+    /**
      * The host's checks: how many of a player's car states it turned down
      * (moving faster than a car can, or stamped ahead of the clock).
      */
@@ -264,6 +272,7 @@ private:
     uint32_t _nonceCount = 0;
     std::array<uint8_t, 16> _secret{}; // the host's own, for its challenges
     std::map<uint8_t, int> _rejected;
+    std::map<std::string, float> _topSpeeds;
     uint64_t _loadingSinceMs = 0;
     uint64_t _goMs = 0; // when the race clock reaches 0
 

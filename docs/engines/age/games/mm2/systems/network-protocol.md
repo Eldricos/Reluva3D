@@ -91,11 +91,20 @@ itself goes in the clear.
 
 The host doesn't take a player's word for everything:
 
-- **Cars.** A state stamped more than a second past the host's clock,
-  moving faster than 110 m/s, or further from the last state than 2 m
-  plus 110 m/s for the time between, is thrown away, unless the car
-  says it has been put back since (fallen out of the city, or stuck: a
-  count in each state). The fastest cars top out near 70 m/s.
+- **Cars.** A state is thrown away, unless the car says it has been put
+  back since (fallen out of the city, or stuck: a count in each state),
+  if it's:
+  - stamped more than a second past the host's clock;
+  - moving faster than 110 m/s, or further from the last state than 2 m
+    plus 110 m/s for the time between (no car goes that fast: the
+    fastest top out near 70 m/s);
+  - moving along the ground faster than its own car can, or further
+    along the ground than that would take it. A car's limit is its top
+    speed (`.vehCarSim`'s top gear at the redline, `High`) a quarter
+    over, and 10 m/s more, for a hill or a knock from another car: a
+    Beetle at 40 m/s is held to 60. Falling isn't held to it, as a jump
+    can be steep. Every machine reads the cars' top speeds from its own
+    files, as any player may take over as host.
 - **Cheaters.** Five states thrown away and the player is called a
   cheater, in the game's words: "*name* is a cheater" (41) to the others,
   "You are a cheater" (46) to them.

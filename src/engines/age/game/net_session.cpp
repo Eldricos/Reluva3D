@@ -47,7 +47,11 @@ constexpr uint64_t kJoinEveryMs = 500;
 constexpr uint64_t kJoinTimeoutMs = 5000;
 constexpr size_t kChatKept = 8;
 constexpr size_t kStatesKept = 32;
-constexpr float kFastest = 110;               // m/s no car goes (the fastest top out near 70)
+constexpr float kFastest = 110; // m/s no car goes (the fastest top out near 70)
+// A car may be said to go its top speed by this much and this many m/s
+// more: down a hill, or knocked on by another.
+constexpr float kTopSpeedShare = 1.25f;
+constexpr float kTopSpeedSlack = 10;
 constexpr float kAheadOfClock = 1;            // seconds a car's state may be stamped past the host's clock
 constexpr int kCheater = 5;                   // states turned down before a player's called a cheater
 constexpr uint32_t kChatUnknown = 0xFFFFFFFF; // a new host doesn't know what chat it has of a player
@@ -1109,16 +1113,30 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
     }
 }
 
+float NetSession::speedLimit(uint8_t id) const {
+    const NetPlayer *p = player(id);
+    const auto it = p ? _topSpeeds.find(p->car) : _topSpeeds.end();
+    if (it == _topSpeeds.end())
+        return kFastest;
+    return std::min(kFastest, it->second * kTopSpeedShare + kTopSpeedSlack);
+}
+
 bool NetSession::plausible(uint8_t id, const NetCarState &s) {
     // What a player's machine says of its car, as the host checks it: not
-    // stamped ahead of the race clock, and not further from where it last
-    // was than a car can go in the time, unless it's been put back since.
-    bool ok = s.clock <= clock(_nowMs) + kAheadOfClock && length(s.velocity) < kFastest;
+    // stamped ahead of the race clock, not faster than no car goes, nor
+    // along the ground faster than its own car can, and not further from
+    // where it last was than that in the time, unless it's been put back
+    // since. Falling is left to the first: a jump may be steep.
+    const float limit = speedLimit(id);
+    const auto flat = [](const Vec3 &v) { return std::sqrt(v[0] * v[0] + v[2] * v[2]); };
+    bool ok = s.clock <= clock(_nowMs) + kAheadOfClock && length(s.velocity) < kFastest && flat(s.velocity) < limit;
     const auto it = _cars.find(id);
     if (ok && it != _cars.end() && !it->second.empty()) {
         const NetCarState &last = it->second.back();
         const float dt = s.clock - last.clock;
-        if (dt > 0 && s.resets == last.resets && length(s.position - last.position) > 2 + kFastest * dt)
+        if (dt > 0 && s.resets == last.resets &&
+            (length(s.position - last.position) > 2 + kFastest * dt ||
+             flat(s.position - last.position) > 2 + limit * dt))
             ok = false;
     }
     if (ok)

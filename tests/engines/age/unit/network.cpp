@@ -256,6 +256,42 @@ void testNetSessionMore() {
           std::fabs(carl->clock(t) - host->clock(t)) < 0.1f);
     carl->setLoaded();
 
+    // A car is held to its own top speed (with room for a hill or a
+    // knock), not only to what no car does; falling isn't held to it.
+    host->setTopSpeeds({{"vpbug", 40}});
+    carl->setCar("vpbug", 0);
+    run(300);
+    ann->setCar("vpnotlisted", 0);
+    run(300);
+    CHECK(std::fabs(host->speedLimit(3) - 60) < 1e-3f && std::fabs(host->speedLimit(1) - 110) < 1e-3f);
+    NetCarState c;
+    c.position = {100, 0, 100};
+    for (const float speed : {45.0f, 55.0f}) { // within the room
+        c.clock = carl->clock(t);
+        c.velocity = {speed, 0, 0};
+        carl->sendCar(c);
+        run(100);
+        c.position[0] += speed / 10;
+    }
+    c.clock = carl->clock(t);
+    c.velocity = {0, -80, 0}; // falling
+    carl->sendCar(c);
+    run(100);
+    CHECK(host->rejected(3) == 0);
+    c.clock = carl->clock(t);
+    c.velocity = {75, 0, 0}; // a Beetle at 75 m/s: tuned, not driven
+    carl->sendCar(c);
+    run(100);
+    // (Sent again until the next, so turned down more than once.)
+    const int once = host->rejected(3);
+    CHECK(once >= 1 && host->cars().at(3).back().velocity[0] < 1);
+    c.clock = carl->clock(t);
+    c.velocity = {40, 0, 0};
+    c.position[0] += 20; // 0.2 s on from the last believed: within what no car does, past what a Beetle does
+    carl->sendCar(c);
+    run(100);
+    CHECK(host->rejected(3) > once && host->cars().at(3).back().velocity[0] < 1);
+
     // The host's checks: a car that jumps 500 m in a tenth of a second
     // isn't believed, unless it's been put back; five of those and the
     // player's called a cheater.
