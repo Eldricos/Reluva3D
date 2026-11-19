@@ -16,7 +16,7 @@
 #include "engines/unreal/properties.h"
 #include "engines/unreal/texture.h"
 
-#include "common/font.h"
+#include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>

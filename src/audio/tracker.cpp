@@ -7,7 +7,7 @@
 // compression. Every format is turned into one form (tracker.h) with the
 // player's own effect codes below, which one player runs.
 
-#include "common/audio/tracker.h"
+#include "audio/tracker.h"
 
 #include <algorithm>
 #include <cmath>

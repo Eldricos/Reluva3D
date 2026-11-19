@@ -8,7 +8,7 @@
 // the music and the dialogue's voices, at the game's volume settings. See
 // docs/engines/unreal_vm.md.
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/unreal/level_play.h"
 
 #include <map>

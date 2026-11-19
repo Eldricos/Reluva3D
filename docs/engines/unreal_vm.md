@@ -2268,7 +2268,7 @@ as it plays on, the player standing, and V again gives it back to the
 game.
 
 `reluva-tool ue-play` plays the page without a window, through a
-software renderer (`tools/soft_renderer.cpp`: textured, depth tested,
+software renderer (`devtools/soft_renderer.cpp`: textured, depth tested,
 blended triangles, enough to see a frame), driven by steps:
 `play`, `wait <s>`, `hold <key> <s>`, `down`/`up <key>`, `press <key>`
 (letters, `left` `right` `up` `down`, `space`, `enter`, `escape`, `f1`...),

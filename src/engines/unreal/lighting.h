@@ -11,7 +11,7 @@
 // level loads, into lightmap textures packed into pages. See
 // docs/formats/unreal/lighting.md.
 
-#include "common/image.h"
+#include "image/image.h"
 #include "engines/unreal/actors.h"
 #include "engines/unreal/model.h"
 #include "engines/unreal/package_set.h"

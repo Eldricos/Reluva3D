@@ -11,10 +11,10 @@
 #include "engines/unreal/texture.h"
 #include "engines/unreal/procedural.h"
 
-#include "common/audio/decode.h"
-#include "common/font.h"
+#include "audio/decode.h"
+#include "graphics/font.h"
 #include "common/fs.h"
-#include "common/image.h"
+#include "image/image.h"
 
 #include <algorithm>
 #include <cstdio>

@@ -7,7 +7,7 @@
 // texture coordinate pair once per frame), drawn at a frame, or between
 // two, by offsetting into them. Shared by the Maps and Meshes pages.
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "engines/unreal/mesh.h"
 
 #include <array>

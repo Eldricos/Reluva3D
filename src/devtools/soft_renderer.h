@@ -14,7 +14,7 @@
 // texture coordinate rows and turbulence, dynamic lights, stencil,
 // mirroring, environment and vector texture coordinates.
 
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/types.h"
 
 #include <map>

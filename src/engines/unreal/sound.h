@@ -9,7 +9,7 @@
 // files in its mp3 folder instead, each with a placeholder Sound of the
 // same name. See docs/formats/unreal/sound.md.
 
-#include "common/audio/sound.h"
+#include "audio/sound.h"
 #include "engines/unreal/package.h"
 #include "engines/unreal/package_set.h"
 

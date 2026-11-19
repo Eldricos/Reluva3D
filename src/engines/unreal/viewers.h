@@ -49,12 +49,12 @@
 #include "engines/unreal/texture.h"
 #include "engines/unreal/zones.h"
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "common/events.h"
-#include "common/gfx3d.h"
+#include "graphics/gfx3d.h"
 #include "common/system.h"
-#include "common/video/avi.h"
-#include "common/video/cinepak.h"
+#include "video/avi.h"
+#include "video/cinepak.h"
 
 #include <array>
 #include <cstdint>

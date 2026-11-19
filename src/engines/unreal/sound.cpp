@@ -5,8 +5,8 @@
 
 #include "engines/unreal/properties.h"
 
-#include "common/audio/decode.h"
-#include "common/audio/tracker.h"
+#include "audio/decode.h"
+#include "audio/tracker.h"
 #include "common/fs.h"
 
 #include <cctype>

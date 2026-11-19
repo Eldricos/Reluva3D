@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "tools/soft_renderer.h"
+#include "devtools/soft_renderer.h"
 
 #include <algorithm>
 #include <array>

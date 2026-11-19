@@ -28,13 +28,13 @@ Sound and Music objects hold a whole file:
 | compact | name index of the format: `WAV` for sounds; a tracker format for music (`IT`, `S3M`, `XM`, `MOD`) |
 | i32 | from version 63: the file offset just past the data |
 | compact | size |
-| bytes | the file: a RIFF WAVE for sounds, decoded by `common/audio/wav.cpp` |
+| bytes | the file: a RIFF WAVE for sounds, decoded by `audio/wav.cpp` |
 
 Whether Music has exactly this layout in every version is to be checked
 (`reluva-tool ue-check` counts music objects read and played).
 
 A Music object's module plays through Reluva's tracker player
-(`common/audio/tracker.cpp`, written from the formats' public
+(`audio/tracker.cpp`, written from the formats' public
 descriptions): MOD (M.K., FLTn, xCHN), S3M, XM (instruments, envelopes,
 delta samples) and IT (samples or instruments, envelopes, compressed
 samples). It renders the song from an order (a UE1 song section) at

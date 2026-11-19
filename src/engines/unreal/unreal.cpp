@@ -12,7 +12,7 @@
 // For now the engine is a data viewer (see viewers.h for the keys): it
 // finds the game's packages and shows its maps, textures and sounds.
 
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/engine.h"
 #include "engines/unreal/games.h"
 #include "engines/unreal/package_set.h"

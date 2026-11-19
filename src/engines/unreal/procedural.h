@@ -12,7 +12,7 @@
 // what the settings describe, to be compared with the original running.
 // See docs/formats/unreal/texture.md.
 
-#include "common/image.h"
+#include "image/image.h"
 #include "engines/unreal/package_set.h"
 
 #include <memory>

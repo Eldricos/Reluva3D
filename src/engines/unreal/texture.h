@@ -7,7 +7,7 @@
 // packages; maps carry their own in the MyLevel group). See
 // docs/formats/unreal/texture.md.
 
-#include "common/image.h"
+#include "image/image.h"
 #include "engines/unreal/package_set.h"
 #include "engines/unreal/properties.h"
 

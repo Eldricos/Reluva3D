@@ -3,8 +3,8 @@
 
 // Tests for the Unreal Engine 1 engine's readers, on packages built here.
 
-#include "common/audio/decode.h"
-#include "common/audio/wav.h"
+#include "audio/decode.h"
+#include "audio/wav.h"
 #include "data/tone440_mp3.h"
 #include "engines/registry.h"
 #include "engines/unreal/dialog_table.h"
