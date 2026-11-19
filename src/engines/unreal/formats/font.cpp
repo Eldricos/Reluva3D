@@ -5,6 +5,8 @@
 
 #include "engines/unreal/formats/properties.h"
 
+#include <algorithm>
+
 namespace reluva::unreal {
 
 // After its properties: the pages (a compact count; each its texture's

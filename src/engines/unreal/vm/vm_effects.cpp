@@ -14,6 +14,7 @@
 
 #include "engines/unreal/formats/actors.h"
 
+#include <algorithm>
 #include <cmath>
 #include <random>
 

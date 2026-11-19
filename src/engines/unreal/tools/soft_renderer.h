@@ -17,6 +17,7 @@
 #include "graphics/gfx3d.h"
 #include "common/types.h"
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
