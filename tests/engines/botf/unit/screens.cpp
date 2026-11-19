@@ -1,0 +1,209 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// Birth of the Federation's unit tests: the game setup and empire selection screens.
+
+#include "common/events.h"
+#include "engines/botf/formats/lexicon.h"
+#include "engines/botf/ui/assets.h"
+#include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/setup_screen.h"
+
+#include "tests/engines/botf/unit/helpers.h"
+#include "tests/support/test.h"
+
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <filesystem>
+#include <string>
+#include <vector>
+
+using namespace reluva;
+using namespace reluva::botf;
+using namespace reluva::botf::test;
+
+namespace {
+
+void testSetupScreen() {
+    // A setup layout with the screen's buttons in a row, 10x10 each, and an
+    // empty main menu.
+    const std::vector<int32_t> ids = {9201, 9202, 9207, 9209, 9211, 9212, 9214, 9215, 9217,
+                                      9219, 9221, 9223, 9225, 9227, 9229, 9231, 9233, 9234};
+    Bytes setup;
+    put32(setup, 2);
+    putWidget(setup, 1, 9200, 0, 0, 800, 600, "none");
+    putWindowCounts(setup, {{2, uint32_t(ids.size())}});
+    for (size_t i = 0; i < ids.size(); ++i) {
+        putWidget(setup, 2, uint32_t(ids[i]), uint32_t(i * 20), 100, 10, 10, "none");
+        put32(setup, 0xffffffff);
+        setup.push_back(0);
+        put32(setup, 0);
+        put32(setup, 0);
+        putName(setup, "none");
+        putName(setup, "none");
+    }
+    Bytes menu;
+    put32(menu, 2);
+    putWidget(menu, 1, 138, 0, 0, 800, 600, "none");
+    putWindowCounts(menu, {});
+    MemoryArchive archive;
+    archive.files["gmesetup.wdf"] = setup;
+    archive.files["opening.wdf"] = menu;
+    Assets assets(archive);
+    Lexicon lexicon;
+    SetupScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+
+    auto click = [&](int32_t id, uint16_t mods = 0) {
+        const size_t i = size_t(std::find(ids.begin(), ids.end(), id) - ids.begin());
+        SetupScreen::Result r = SetupScreen::Result::kOpen;
+        for (EventType t : {EventType::kMouseDown, EventType::kMouseUp}) {
+            Event e;
+            e.type = t;
+            e.button = MouseButton::kLeft;
+            e.mods = mods;
+            e.mouseX = int(i) * 20 + 5;
+            e.mouseY = 105;
+            r = screen.handle(e);
+        }
+        return r;
+    };
+    // The manual's defaults.
+    const GameSetup &s = screen.setup();
+    CHECK(s.civilization == (std::array<int, 5>{1, 1, 1, 1, 1}) && s.minorRaces == 3 && s.difficulty == 2);
+    CHECK(s.randomEvents && s.manualCombat && s.victory == 0 && s.galaxyShape == 0 && s.galaxySize == 1);
+    // Each click moves to the next choice, round to the first.
+    click(9209);
+    CHECK(s.difficulty == 3);
+    click(9209);
+    click(9209);
+    CHECK(s.difficulty == 0);
+    click(9207);
+    CHECK(s.minorRaces == 0);
+    click(9217);
+    click(9219);
+    click(9221);
+    CHECK(!s.randomEvents && !s.manualCombat && s.victory == 1);
+    click(9234);
+    click(9233);
+    CHECK(s.galaxyShape == 1 && s.galaxySize == 2);
+    // Civilization levels: one empire, or with Shift all of them.
+    click(9225);
+    CHECK(s.civilization == (std::array<int, 5>{1, 2, 1, 1, 1}));
+    click(9225, keymod::kShift);
+    CHECK(s.civilization == (std::array<int, 5>{2, 2, 2, 2, 2}));
+    click(9225, keymod::kShift);
+    CHECK(s.civilization == (std::array<int, 5>{3, 3, 3, 3, 3}));
+    // Only "none" is known for the timers.
+    click(9212);
+    click(9211);
+    CHECK(s.strategicTimer == 0);
+    // Letting go off the button does nothing; Accept and Cancel end it.
+    Event down;
+    down.type = EventType::kMouseDown;
+    down.button = MouseButton::kLeft;
+    down.mouseX = 2 * 20 + 5;
+    down.mouseY = 105;
+    screen.handle(down);
+    Event up = down;
+    up.type = EventType::kMouseUp;
+    up.mouseY = 300;
+    screen.handle(up);
+    CHECK(s.minorRaces == 0);
+    CHECK(click(9201) == SetupScreen::Result::kAccepted && click(9202) == SetupScreen::Result::kCancelled);
+    Event ret;
+    ret.type = EventType::kKeyDown;
+    ret.key = key::kReturn;
+    CHECK(screen.handle(ret) == SetupScreen::Result::kAccepted);
+
+    // Drawing without the pictures and fonts doesn't fail.
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(surface);
+
+    // A layout without the screen's widgets is refused.
+    archive.files["gmesetup.wdf"] = menu;
+    SetupScreen other(assets, lexicon);
+    CHECK(other.load());
+}
+
+void testEmpireScreen() {
+    // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
+    // and Cancel, a hidden button, and the description's text box.
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 9000, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, 8}, {14, 1}});
+    auto button = [&](uint32_t id, uint32_t x, uint32_t y) {
+        putWidget(f, 2, id, x, y, 100, 20, "none");
+        put32(f, 0xffffffff);
+        f.push_back(2);
+        put32(f, 0);
+        put32(f, 0);
+        putName(f, "none");
+        putName(f, "none");
+    };
+    for (uint32_t i = 0; i < 5; ++i)
+        button(9105 + i, 0, 100 + i * 50);
+    button(9110, 400, 500);
+    button(9111, 0, 500);
+    button(9124, 200, 100);
+    putWidget(f, 14, 9112, 300, 100, 240, 340, "none");
+    for (uint32_t v : {0u, 0u, 240u, 340u})
+        put32(f, v);
+    putFont(f, 0, 0, 0, "human20.fnt");
+    Bytes menu;
+    put32(menu, 2);
+    putWidget(menu, 1, 138, 0, 0, 800, 600, "none");
+    putWindowCounts(menu, {});
+    MemoryArchive archive;
+    archive.files["emppick.wdf"] = f;
+    archive.files["opening.wdf"] = menu;
+    Assets assets(archive);
+    Lexicon lexicon;
+    EmpireScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+
+    auto mouse = [&](EventType t, int x, int y) {
+        Event e;
+        e.type = t;
+        e.button = t == EventType::kMouseMove ? MouseButton::kNone : MouseButton::kLeft;
+        e.mouseX = x;
+        e.mouseY = y;
+        return screen.handle(e);
+    };
+    auto click = [&](int x, int y) {
+        mouse(EventType::kMouseDown, x, y);
+        return mouse(EventType::kMouseUp, x, y);
+    };
+    Event ret;
+    ret.type = EventType::kKeyDown;
+    ret.key = key::kReturn;
+    // Nothing chosen: Accept and Return do nothing.
+    CHECK(screen.chosen() == -1);
+    CHECK(click(450, 510) == EmpireScreen::Result::kOpen && screen.handle(ret) == EmpireScreen::Result::kOpen);
+    // Clicking a name chooses that empire (race.rst's order); pointing doesn't.
+    mouse(EventType::kMouseMove, 50, 210);
+    CHECK(screen.chosen() == -1);
+    click(50, 160);
+    CHECK(screen.chosen() == 1);
+    // The hidden button isn't there.
+    click(250, 110);
+    CHECK(screen.chosen() == 1);
+    CHECK(click(450, 510) == EmpireScreen::Result::kAccepted);
+    CHECK(click(50, 510) == EmpireScreen::Result::kCancelled);
+    screen.reset();
+    CHECK(screen.chosen() == -1);
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(surface);
+}
+
+} // namespace
+
+static const reluva::test::Suite
+    kSuite("botf.unit.screens", {
+                                    {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
+                                    {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
+                                });
