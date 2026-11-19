@@ -84,15 +84,76 @@ of them); each file is `{ assetGlobalDef { ... } menuDef { ... } ... }`.
   `transition`, `defer`, `rundeferred`. A lone `;` between them is
   skipped, so the menus' scripts often leave it out. Any other word goes
   to the engine's own script handler (0x49f6e9), which takes the next
-  word as its command: that's how `uiScript startgame` works. If the
-  handler doesn't know it, the script ends. `play` plays its sound on
-  channel 0 (0x49e1e0); `exec` runs a console command after the frame.
-- **`uiScript` commands** the menus use: `startgame` (all menus closed,
-  then `map kejim_post`, 0x49a3d9), `closeingame`, `closedatapad`,
-  `loadAuto`, `loadgame`, `savegame`, `deletegame`,
-  `ReadSaveDirectory`, `loadControls`, `saveControls`, `resetdefaults`,
-  `glCustom`, `getvideosetup`, `updatevideosetup`, `update <cvar>`, the
-  datapad's `next...`/`prev...` pages, `Quit`, `Leave`, `clearError`.
+  word as its command: that's how `uiScript startgame` works. A command
+  that returns 0 ends the script; the engine's handler only says so of
+  a name it doesn't know ("unknown UI script", 0x49a5c1) and goes on.
+  `play` plays its sound on channel 0 (0x49e1e0); `exec` runs a console
+  command after the frame. `defer VideoSetup <menu>` (0x49dfd0,
+  0x499e80): if `ui_r_modified` is set, that menu opens (a warning) and
+  the rest of the script is kept for `rundeferred`, which runs it
+  (0x49e020); `activate <menu> <item>` runs that item's action.
+- **`uiScript` commands** (0x499ef0):
+  - `startgame`: all menus closed, then `map kejim_post` (0x49a3d9);
+    `startmap <map>` the same for that map.
+  - `closeingame`, `closedatapad`: the keys back to the game, unpaused,
+    the menus closed and the HUD's `mainhud` opened; `closedatapad` also
+    clears `cg_updatedDataPadForcePower1` to `...3` and
+    `cg_updatedDataPadObjective`.
+  - `loadAuto`: `load auto`; `loadgame`: `load <the save chosen>`, the
+    menus closed first; `deletegame`: `wipe <the save chosen>`;
+    `savegame`: the first of `jkii00` to `jkii99` that isn't a saved
+    game, its comment `ui_gameDesc` (0x49a112, 0x49a5e0), then `save`
+    it. Each reads the list again after.
+  - `ReadSaveDirectory`: the list read again when next asked for.
+  - `resetdefaults`: `cvar_restart`, `exec default.cfg`, `vid_restart`,
+    `com_introPlayed 1` (0x49c5e0).
+  - `getvideosetup` copies 15 video settings to the menus' own
+    (`r_mode` to `ui_r_mode`... and `cg_shadows` to `ui_cg_shadows`);
+    `updatevideosetup` copies them back, clears `ui_r_modified` and runs
+    `vid_restart` (0x49c2c0, 0x49c160). `glCustom` sets
+    `ui_r_glCustom 4`; `update <setting>` makes a setting's knock-on
+    changes (0x49b140: the video presets, the player's name, `s_khz`).
+  - The datapad's `nextDataPadWeapon`... run the client game's commands
+    `dpweapnext`, `dpweapprev`, `dpforcenext`, `dpforceprev`,
+    `dpinvnext`, `dpinvprev` (0x49a283 on).
+  - `Quit`: `quit`; `Leave`: `disconnect`, then the main menu;
+    `clearError`: `com_errorMessage` emptied; `loadControls`,
+    `saveControls`: the bindings read from, or written to, the engine.
+- **Saved games' list** (feeder 0, `FEEDER_SAVEGAMES`; ReadSaveDirectory
+  at 0x49c620): `saves/*.sav` but `current`; `auto` isn't listed but
+  sets `ui_ResumeOK`; at most 100, each's description, time, level and
+  the time as `asctime` writes it, newest first. Its two columns are the
+  description and the date (0x499b60); other feeders have no rows in
+  single player. Choosing one (0x49a6b0) sets `ui_SelectionOK` (whether
+  it's in the list) and `ui_gameDesc` (its description), and reads its
+  picture.
+- **List boxes** (0x4a09c0): a scroll bar down the right, 16 wide (its
+  up arrow, bar, down arrow and thumb: `gfx/menus/scrollbar*.tga`); rows
+  from the rectangle's corner, 1 in, each column's text 4 more in plus
+  the column's place, at most its letters; the chosen row's highlight 2
+  in, 6 below the row's top, `elementheight` high and the width less the
+  bar and 4, in the item's outline colour.
+- **Key binding** (0x4a3960): a click or Enter on a bind item waits for
+  a key (the menu's other items made inactive). Then Esc gives up, `\``
+  is ignored, Backspace unbinds the command's keys; another key is taken
+  from any command in the binding list it had, and becomes the
+  command's first key, or its second, or if it has two already both are
+  unbound and it's the first.
+- **Owner draws** (0x49b7f0, by number less 200): 203 to 206 the
+  datapad's pages, each the client game's vmMain command 11 (the
+  datapad's frame and the player's health, armour and ammunition) then
+  12 to 15 (mission, weapons, inventory, Force powers) through the
+  engine (0x40b790); 236 the chosen saved game's picture (512 by 512)
+  over the item, its level's name under it; 242 the crosshair (its keys
+  step `cg_drawCrosshair` 0 to 9); 249 the video driver's OpenGL
+  details; 250 `MENUS_WAITINGFORKEY` while a binding waits, which
+  1.02a's string packages haven't.
+- **Model items** (0x4a1490): a view of the item's rectangle 1 in, 45
+  degrees each way, no world; the model's first frame's bounds put it
+  as far off as 3.73 times half its height, centred up and across;
+  it turns 0.05 degrees a millisecond, whatever `model_angle` and
+  `model_rotation` say; drawn lit from its own origin, no shadow
+  (flags 0xc0).
 - **Opening a menu by the engine** (0x499310, `UI_SetActiveMenu`):
   `mainMenu` (the server stopped, the keys to the menus, `mainMenu`
   opened, `error_popmenu` too if `com_errorMessage` is set), `ingame` (the
@@ -139,13 +200,26 @@ by `textalignx` and `textaligny` (its top, as Raven's fonts draw), the
 focused item's text in the menu's focus colour (not pulsing), a
 multi's value 8 units after its text, the slider 96 by 16.
 
-Not yet: list boxes (the saved games), key binding, edit fields typed
-in, the owner draws (the datapad's pages, the player's Force powers),
-the logo's model (`ITEM_TYPE_MODEL`), fading and `transition`, `orbit`,
-the video settings' `defer` warning, the `uiScript` commands other than
-`startgame`, `closeingame`, `closedatapad`, `loadAuto`, `Quit` and
-`Leave`; the HUD's `mainhud` isn't closed with the in-game menus
-(Reluva keeps the HUD's menus apart).
+The list boxes, key binding, the owner draws and model items are as
+above: the saved games are those in the game's `saves/` and the Play
+page's own folder, read with Reluva's reader of the engine's chunks
+(sp-saves.md), their pictures decoded from the JPEG kept. The datapad's
+pages are the client game's (`SpGameHost::drawDataPad`), its pictures
+then numbered among the menus' shaders. Edit fields take what's typed
+onto their setting's value, Backspace taking the last letter off, as
+Team Arena's (its cursor moving within the text isn't done); a cursor
+blinks after the text meanwhile. A list box's rows are chosen by a
+click or the arrows, a second click within 300 ms on the same row a
+double click, the wheel and the bar's arrows scroll (Team Arena's way,
+unconfirmed); Enter runs its action (the save menu's: save).
+
+Not yet: fading (`fadein`, `fadeout`, `fadeClamp`... and the items'
+`appearance_slot` coming in one after another), `transition`,
+`orbit`; owner draw 249 (OpenGL details, which Reluva's renderer
+hasn't) and `update`'s presets for an OpenGL renderer; the HUD's
+`mainhud` isn't closed with the in-game menus (Reluva keeps the HUD's
+menus apart); `loadControls` and `saveControls` do nothing, the
+bindings being Reluva's own, kept as they change.
 
 ## Sources and checks
 
@@ -171,4 +245,11 @@ the video settings' `defer` warning, the `uiScript` commands other than
   frame and buttons, without the owner draws. A game-data step
   (`jk2-sp-menus`) records the way from the main menu through New Game,
   Jedi Knight and Begin Game to `map kejim_post`, and the in-game menu
-  and the datapad opened.
+  and the datapad opened. `sp-run -datapad` draws the client game's
+  datapad pages on kejim_post; `-saveload -savefile` writes the saved
+  game, which `sp-menus -savedir` lists in the load menu and loads; a
+  key is bound in Controls. Drawn from their pictures, the load menu,
+  Controls and the datapad's mission and weapons pages look as the
+  original's do. A unit test ("Jedi Outcast's menu items") runs the list,
+  binding, edit field, datapad owner draw, `defer` and the save, load
+  and delete scripts on made-up menus and saved games.

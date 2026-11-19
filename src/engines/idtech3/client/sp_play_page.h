@@ -174,6 +174,9 @@ private:
     // SpGameHost::screenShot), and a level change waiting for the frame
     // it's taken from.
     std::vector<uint8_t> _nextScreenShot;
+    // Jedi Outcast's game as the in-game menu opened (a 512 x 512 JPEG), the
+    // picture of a save made from the menus.
+    std::vector<uint8_t> _menuShot;
     // The next level's arrival point and whether it's a level change (the
     // Expansion Pack's maptransition <map> <spawn target>).
     std::string _nextSpawnTarget;

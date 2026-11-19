@@ -26,6 +26,7 @@
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/jk2/sp_menus.h"
+#include "engines/idtech3/jk2/sp_savegame.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
@@ -666,15 +667,207 @@ static void testJediMenus(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static const reluva::test::Suite
-    kSuite("idtech3.unit.game-code",
-           {
-               {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
-               {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
-               {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
-               {"Jedi Outcast's menus", [](const std::filesystem::path &tmp) { testJediMenus(tmp / "jk2menus"); }},
-               {"map commands", [](const std::filesystem::path &) { testMapCommands(); }},
-               {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
-               {"compressed save chunks", [](const std::filesystem::path &) { testCompressedSaveChunks(); }},
-               {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
-           });
+// Jedi Outcast's menus' other items: the saved games' list and the scripts
+// that save, load and delete; a key binding; an edit field; the datapad's
+// owner draw; a script put off by "defer".
+static void testJediMenuItems(const std::filesystem::path &tmp) {
+    namespace jk2 = reluva::idtech3::jk2;
+    std::filesystem::remove_all(tmp);
+    const char *list = "{\n loadMenu { \"ui/items.menu\" }\n}\n";
+    const char *items = R"({
+  menuDef {
+    name "itemsMenu"
+    rect 0 0 640 480
+    onOpen { uiScript ReadSaveDirectory }
+    itemDef {
+      name savelist
+      type ITEM_TYPE_LISTBOX
+      rect 100 100 300 100
+      elementheight 16
+      feeder FEEDER_SAVEGAMES
+      columns 2 2 35 150 155 25 100
+      visible 1
+      doubleclick { uiScript loadgame }
+    }
+    itemDef {
+      name bind
+      type ITEM_TYPE_BIND
+      text "Jump:"
+      cvar "+moveup"
+      rect 100 250 200 20
+      visible 1
+    }
+    itemDef {
+      name desc
+      type ITEM_TYPE_EDITFIELD
+      text "Desc:"
+      cvar ui_gameDesc
+      maxChars 6
+      rect 100 300 200 20
+      visible 1
+    }
+    itemDef {
+      name pad
+      rect 0 0 640 400
+      ownerdraw 203
+      visible 1
+      decoration
+    }
+    itemDef {
+      name save
+      type ITEM_TYPE_BUTTON
+      text "Save"
+      rect 100 350 200 20
+      visible 1
+      action { defer VideoSetup warnMenu ; uiScript savegame }
+    }
+    itemDef {
+      name delete
+      type ITEM_TYPE_BUTTON
+      text "Delete"
+      rect 100 400 200 20
+      visible 1
+      action { uiScript deletegame }
+    }
+  }
+  menuDef {
+    name "warnMenu"
+    rect 0 0 640 480
+    itemDef {
+      name ok
+      type ITEM_TYPE_BUTTON
+      text "OK"
+      rect 100 100 200 20
+      visible 1
+      action { close warnMenu ; rundeferred }
+    }
+  }
+})";
+    test::writeFile(tmp / "base" / "assets0.pk3", test::buildZip({{"ui/menus.txt", test::toBytes(list), {}},
+                                                                  {"ui/items.menu", test::toBytes(items), {}}}));
+    // Two saved games (just their engine chunks: the menus read no more),
+    // the older first, and an autosave.
+    const std::filesystem::path saveDir = tmp / "saves";
+    std::filesystem::create_directories(saveDir);
+    auto writeSave = [&](const std::string &name, const std::string &comment, int32_t time) {
+        raven::SaveWriter w;
+        jk2::SaveHeader header;
+        header.comment = comment;
+        header.time = time;
+        header.map = "kejim_post";
+        CvarStore none;
+        jk2::writeSaveHeader(w, none, header);
+        test::writeFile(saveDir / (name + ".sav"), w.bytes());
+    };
+    writeSave("jkii00", "older", 1000);
+    writeSave("jkii01", "newer", 2000);
+    writeSave("auto", "---> kejim_post", 3000);
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "base", 0, warnings));
+    CvarStore cvars;
+    KeyBindings bindings;
+    jk2::SpMenus menus(set, cvars);
+    menus.bindings = &bindings;
+    menus.saveDir = saveDir;
+    menus.readSave = [&](const std::string &name, std::vector<uint8_t> &file) {
+        std::ifstream in(saveDir / (name + ".sav"), std::ios::binary);
+        file.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        return bool(in) || !file.empty();
+    };
+    // The datapad's pages, as a client game would draw them.
+    HandleTable gameShaders;
+    gameShaders.add("gfx/hud/datapad");
+    std::vector<int32_t> pages;
+    menus.drawDataPad = [&](int32_t command, std::vector<Picture> &out) -> const HandleTable * {
+        pages.push_back(command);
+        out.push_back({0, 0, 640, 400, 0, 0, 1, 1, 1, {1, 1, 1, 1}});
+        return &gameShaders;
+    };
+    CHECK(!menus.load());
+    CHECK(!menus.setActiveMenu("itemsMenu"));
+
+    // The list: newest first, the autosave left out but making Resume
+    // possible; the first chosen.
+    CHECK(menus.saves().size() == 2);
+    CHECK(menus.saves()[0].name == "jkii01" && menus.saves()[0].comment == "newer");
+    CHECK(menus.saves()[1].name == "jkii00");
+    CHECK(cvars.string("ui_ResumeOK") == "1");
+    CHECK(cvars.string("ui_SelectionOK") == "1" && cvars.string("ui_gameDesc") == "newer");
+    CHECK(!menus.refresh(0));
+    CHECK((pages == std::vector<int32_t>{11, 12}));
+    CHECK(std::any_of(menus.pictures().begin(), menus.pictures().end(),
+                      [&](const Picture &p) { return menus.shaders().name(p.shader) == "gfx/hud/datapad"; }));
+
+    // The second row clicked (the mouse from the middle to its row), then
+    // clicked again soon: loaded.
+    CHECK(!menus.mouseEvent(-100, 125 - 240));
+    CHECK(menus.focusedItem() == "savelist");
+    CHECK(!menus.keyEvent(q3key::kMouse1));
+    CHECK(cvars.string("ui_gameDesc") == "older");
+    CHECK(!menus.refresh(100));
+    CHECK(!menus.keyEvent(q3key::kMouse1));
+    CHECK((menus.takeCommands() == std::vector<std::string>{"load jkii00"}));
+    CHECK(menus.openMenus().empty());
+
+    // A binding: Enter, then the key; Backspace unbinds.
+    CHECK(!menus.setActiveMenu("itemsMenu"));
+    CHECK(!menus.mouseEvent(0, 260 - int32_t(menus.cursor()[1])));
+    CHECK(menus.focusedItem() == "bind");
+    CHECK(!menus.keyEvent(q3key::kEnter) && menus.waitingForKey());
+    CHECK(!menus.keyEvent(q3key::kSpace) && !menus.waitingForKey());
+    CHECK(bindings.get(q3key::kSpace) == "+moveup");
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK(!menus.keyEvent(q3key::kEscape) && !menus.waitingForKey());
+    CHECK(bindings.get(q3key::kSpace) == "+moveup");
+    CHECK(menus.openMenus().size() == 1);
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK(!menus.keyEvent(q3key::kBackspace));
+    CHECK(bindings.get(q3key::kSpace).empty());
+
+    // The edit field: typed onto what it holds (the chosen game's
+    // description), at most 6 letters.
+    cvars.set("ui_gameDesc", "B");
+    CHECK(!menus.mouseEvent(0, 50));
+    CHECK(menus.focusedItem() == "desc");
+    CHECK(!menus.keyEvent(q3key::kEnter) && menus.editing());
+    for (const char c : std::string("espin!!"))
+        CHECK(!menus.keyEvent(int32_t(uint8_t(c)) | q3key::kCharFlag));
+    CHECK(!menus.keyEvent(q3key::kBackspace));
+    CHECK(!menus.keyEvent(q3key::kEnter) && !menus.editing());
+    CHECK(cvars.string("ui_gameDesc") == "Bespi");
+
+    // Save: put off while the video settings were changed, the warning's
+    // OK running the rest; into the first free slot, with the description.
+    cvars.set("ui_r_modified", "1");
+    CHECK(!menus.mouseEvent(0, 50));
+    CHECK(menus.focusedItem() == "save");
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK((menus.openMenus() == std::vector<std::string>{"itemsMenu", "warnMenu"}));
+    CHECK(menus.takeCommands().empty());
+    CHECK(!menus.mouseEvent(0, 110 - int32_t(menus.cursor()[1])));
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK((menus.takeCommands() == std::vector<std::string>{"save jkii02"}));
+    CHECK(menus.saveComment == "Bespi");
+
+    // Delete: the one chosen.
+    CHECK(!menus.mouseEvent(0, 410 - int32_t(menus.cursor()[1])));
+    CHECK(menus.focusedItem() == "delete");
+    CHECK(!menus.keyEvent(q3key::kEnter));
+    CHECK((menus.takeCommands() == std::vector<std::string>{"wipe jkii00"}));
+    std::filesystem::remove_all(tmp);
+}
+
+static const reluva::test::Suite kSuite(
+    "idtech3.unit.game-code",
+    {
+        {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
+        {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
+        {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
+        {"Jedi Outcast's menus", [](const std::filesystem::path &tmp) { testJediMenus(tmp / "jk2menus"); }},
+        {"Jedi Outcast's menu items", [](const std::filesystem::path &tmp) { testJediMenuItems(tmp / "jk2items"); }},
+        {"map commands", [](const std::filesystem::path &) { testMapCommands(); }},
+        {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
+        {"compressed save chunks", [](const std::filesystem::path &) { testCompressedSaveChunks(); }},
+        {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
+    });

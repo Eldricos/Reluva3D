@@ -1517,6 +1517,31 @@ bool SpGameHost::cameraPosition(Vec3f &at) {
     return on != 0;
 }
 
+Error SpGameHost::drawDataPad(int command, std::vector<Picture> &out) {
+    // From the menus' refresh, between the client game's frames: what
+    // those draw is kept aside.
+    out.clear();
+    if (!_cgameRunning || command < kCgDrawDataPadHud || command > kCgDrawDataPadForcePowers)
+        return Error::success();
+    Scene sceneBefore = std::move(_scene);
+    std::vector<Picture> picturesBefore = std::move(_pictures);
+    std::vector<ScreenShotDraw> shotsBefore = std::move(_shots);
+    const std::array<float, 4> colorBefore = _color;
+    _scene = {};
+    _pictures.clear();
+    _shots.clear();
+    _color = {1, 1, 1, 1};
+    syncCvars();
+    uint32_t ignored = 0;
+    const Error e = _cpu->call(_cgameVmMain, {uint32_t(command)}, ignored);
+    out = std::move(_pictures);
+    _scene = std::move(sceneBefore);
+    _pictures = std::move(picturesBefore);
+    _shots = std::move(shotsBefore);
+    _color = colorBefore;
+    return e;
+}
+
 Error SpGameHost::clientConsoleCommand(const std::string &text) {
     tokenize(text);
     if (_args.empty())

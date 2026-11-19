@@ -342,6 +342,16 @@ void SpPlayPage::startMenus() {
         return readSave(name, file) && saveFits(file);
     };
     ui.askGame = [this](uint32_t flag) { return _game ? _game->allowedToSaveHere(flag) : flag; };
+    if (jediMenus)
+        jediMenus->drawDataPad = [this](int32_t command, std::vector<Picture> &out) -> const HandleTable * {
+            if (!_game || !_game->clientGameRunning())
+                return nullptr;
+            if (Error err = _game->drawDataPad(command, out)) {
+                stop("The game stopped: " + err.message);
+                return nullptr;
+            }
+            return &_game->shaders();
+        };
     Error err = jediMenus ? jediMenus->load() : efMenus->load(_uiDll);
     if (jediMenus)
         _ui = std::move(jediMenus);
@@ -903,6 +913,8 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
     std::vector<uint8_t> shot = picture;
     if (shot.empty() && autosave)
         shot = levelShot(_map);
+    if (shot.empty() && !autosave && menusHaveKeys())
+        shot = _menuShot;
     if (shot.empty() && !autosave) {
         _pendingSave = name;
         return;
@@ -1340,8 +1352,9 @@ void SpPlayPage::update(uint64_t nowMs) {
                     std::memcpy(&shot[size_t((255 - y) * 256 + x) * 4],
                                 &rgba[(size_t(y * h / 256) * size_t(w) + size_t(x * w / 256)) * 4], 4);
         }
-        if (!_pendingSave.empty()) {
-            // Jedi Outcast's picture: 512 x 512, as a JPEG.
+        if (!_pendingSave.empty() || (jedi() && !_pendingMenu.empty())) {
+            // Jedi Outcast's picture: 512 x 512, as a JPEG. The game as
+            // the in-game menu opens is kept for a save made from it.
             std::vector<uint8_t> jpeg;
             if (!shot.empty()) {
                 image::Image frame;
@@ -1351,7 +1364,9 @@ void SpPlayPage::update(uint64_t nowMs) {
                 jpeg = image::encodeJpeg(boxScaled(frame, jk2::kShotSize), jk2::kShotQuality);
             }
             const std::string name = std::exchange(_pendingSave, std::string());
-            if (!jpeg.empty())
+            if (name.empty())
+                _menuShot = std::move(jpeg);
+            else if (!jpeg.empty())
                 saveGame(name, false, jpeg);
             else
                 _lastCommand = "Failed to save " + name + ": the screen couldn't be taken";

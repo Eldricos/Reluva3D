@@ -249,8 +249,10 @@ behind the DLL's own tables.
    and `datapad` the datapad. The Play page runs them for Jedi Outcast,
    after the opening logos; on the game's own files the main, New Game
    and in-game menus look as the original's (a game-data step,
-   `jk2-sp-menus`). Next: the list boxes (saved games), key binding, the
-   owner draws, the logo's model and the datapad's pages.
+   `jk2-sp-menus`). Then the rest: the saved games' list (load, save,
+   delete, resume), key binding, edit fields, the datapad's pages (the
+   client game's, through the owner draws), the logo's model, the video
+   settings' scripts. Left: fading and the items' timed appearance.
 9. **Single player complete**: saved games (Raven's chunks, shared with
    Elite Force in `raven/savegame`), dynamic music (`ext_data/dms.dat`),
    speech with lip sync, all 26 levels played through; a game-files step

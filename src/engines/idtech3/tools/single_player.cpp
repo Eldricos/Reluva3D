@@ -381,10 +381,20 @@ void printPictures(int frame, const reluva::idtech3::SpMenuHost &ui, bool fullsc
 int runJediMenus(const reluva::SearchSet &set, reluva::idtech3::CvarStore &cvars,
                  reluva::idtech3::KeyBindings &bindings, const std::string &menu, int frames,
                  const std::vector<std::pair<int, int32_t>> &keys,
-                 const std::vector<std::pair<int, std::array<int32_t, 2>>> &moves, const std::string &picturesPath) {
+                 const std::vector<std::pair<int, std::array<int32_t, 2>>> &moves, const std::string &picturesPath,
+                 const std::filesystem::path &saveDir) {
     namespace q3 = reluva::idtech3;
     q3::jk2::SpMenus ui(set, cvars);
     ui.bindings = &bindings;
+    ui.saveDir = saveDir;
+    ui.readSave = [&](const std::string &name, std::vector<uint8_t> &file) {
+        std::ifstream in(saveDir / (name + ".sav"), std::ios::binary);
+        if (!saveDir.empty() && in) {
+            file.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+            return true;
+        }
+        return !set.read("saves/" + name + ".sav", file);
+    };
     ui.print = [](const std::string &text) {
         std::printf("menus: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
@@ -403,7 +413,8 @@ int runJediMenus(const reluva::SearchSet &set, reluva::idtech3::CvarStore &cvars
     std::string focus;
     auto report = [&](int f) {
         for (const std::string &command : ui.takeCommands())
-            std::printf("[frame %d] command: %s\n", f, command.c_str());
+            std::printf("[frame %d] command: %s%s\n", f, command.c_str(),
+                        command.rfind("save ", 0) == 0 ? (" (\"" + ui.saveComment + "\")").c_str() : "");
         if (ui.openMenus() != open || ui.focusedItem() != focus) {
             open = ui.openMenus();
             focus = ui.focusedItem();
@@ -436,6 +447,14 @@ int runJediMenus(const reluva::SearchSet &set, reluva::idtech3::CvarStore &cvars
         if (f == 0 || f == frames - 1)
             printPictures(f, ui, ui.fullscreen());
     }
+    for (const auto &s : ui.saves())
+        // (Not when it was saved, which is in the local time zone.)
+        std::printf("saved game listed: %s \"%s\" %s\n", s.name.c_str(), s.comment.c_str(), s.map.c_str());
+    if (!bindings.empty())
+        std::printf("bindings:\n%s", bindings.write().c_str());
+    std::printf("ui_SelectionOK %s, ui_ResumeOK %s, ui_gameDesc \"%s\", %zu raw pictures, %zu scenes\n",
+                cvars.string("ui_SelectionOK").c_str(), cvars.string("ui_ResumeOK").c_str(),
+                cvars.string("ui_gameDesc").c_str(), ui.rawImages().size(), ui.scene().views.size());
     if (!picturesPath.empty()) {
         // The last frame's pictures, a line each: "x y w h s1 t1 s2 t2 r g b a shader".
         std::ofstream out(picturesPath);
@@ -457,8 +476,8 @@ int cmdSpMenus(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr,
                      "usage: reluva-tool idtech3 sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
-                     "[-menu name] [-key frame key]... [-mouse frame dx dy]... [-set name value]... [-fixedclock] "
-                     "[-skippak pak]...\n");
+                     "[-menu name] [-key frame key]... [-mouse frame dx dy]... [-pictures file] [-savedir folder] "
+                     "[-set name value]... [-fixedclock] [-skippak pak]...\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -471,7 +490,8 @@ int cmdSpMenus(int argc, char **argv) {
     std::string menu = "main";
     std::vector<std::pair<int, int32_t>> keys;                 // (frame, key)
     std::vector<std::pair<int, std::array<int32_t, 2>>> moves; // (frame, (dx, dy)): Jedi Outcast's
-    std::string picturesPath; // -pictures file: Jedi Outcast's last frame's pictures written there
+    std::string picturesPath;      // -pictures file: Jedi Outcast's last frame's pictures written there
+    std::filesystem::path saveDir; // -savedir folder: saved games listed from there too
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -489,6 +509,8 @@ int cmdSpMenus(int argc, char **argv) {
             i += 2;
         } else if (std::strcmp(argv[i], "-pictures") == 0 && i + 1 < argc) {
             picturesPath = argv[++i];
+        } else if (std::strcmp(argv[i], "-savedir") == 0 && i + 1 < argc) {
+            saveDir = argv[++i];
         } else if (std::strcmp(argv[i], "-mouse") == 0 && i + 3 < argc) {
             moves.push_back({std::atoi(argv[i + 1]), {std::atoi(argv[i + 2]), std::atoi(argv[i + 3])}});
             i += 3;
@@ -520,7 +542,7 @@ int cmdSpMenus(int argc, char **argv) {
         cvars.set(name, value);
     q3::KeyBindings bindings;
     if (dllPath.empty() && set.has("ui/menus.txt"))
-        return runJediMenus(set, cvars, bindings, menu, frames, keys, moves, picturesPath);
+        return runJediMenus(set, cvars, bindings, menu, frames, keys, moves, picturesPath, saveDir);
     if (dllPath.empty()) {
         std::fprintf(stderr, "efuix86.dll isn't beside %s; give it with -dll\n", argv[2]);
         return 1;
@@ -583,7 +605,7 @@ int cmdSpRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-            "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-next] [-fixedclock] [-skippak pak]...\n"
+            "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload [-savefile path]] [-datapad] [-next] [-fixedclock] [-skippak pak]...\n"
             "       [-replay <name>.input | -tour <ms> [-rounds n] [-spare name]...]\n"
             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
             "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
@@ -611,6 +633,8 @@ int cmdSpRun(int argc, char **argv) {
     std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
     bool fixedClock = false;           // -fixedclock: the game's clock moves with its level time, for runs that repeat
     bool saveLoad = false;             // -saveload: save at the end, load into a fresh game
+    std::string saveFile;              // -savefile path: that save written there too
+    bool dataPad = false;              // -datapad: the client game's datapad pages drawn at the end
     bool followNext = false;           // -next: the level change the game asked for, followed
     std::string loadName;              // -load save: a saved game (its name in saves/, or a file)
     std::string dumpRoute;             // -dumproute file: the tour's route written there
@@ -646,6 +670,10 @@ int cmdSpRun(int argc, char **argv) {
             fixedClock = true;
         else if (std::strcmp(argv[i], "-saveload") == 0)
             saveLoad = true;
+        else if (std::strcmp(argv[i], "-savefile") == 0 && i + 1 < argc)
+            saveFile = argv[++i];
+        else if (std::strcmp(argv[i], "-datapad") == 0)
+            dataPad = runCgame = true;
         else if (std::strcmp(argv[i], "-next") == 0)
             followNext = true;
         else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
@@ -1205,6 +1233,22 @@ int cmdSpRun(int argc, char **argv) {
     // -saveload: the game's own part of a saved game (WriteLevel), then a
     // fresh copy of the game started on the level as for loading it
     // (ReadLevel), as a check that what it writes reads back.
+    if (dataPad && game.jedi() && game.clientGameRunning()) {
+        // Each page as the menus' owner draws ask for it: what's drawn.
+        for (int command = ef::SpGameHost::kCgDrawDataPadHud; command <= ef::SpGameHost::kCgDrawDataPadForcePowers;
+             ++command) {
+            std::vector<q3::Picture> drawn;
+            if (reluva::Error e = game.drawDataPad(command, drawn))
+                return failed("The datapad", e), 1;
+            std::map<std::string, int> shown;
+            for (const q3::Picture &p : drawn)
+                ++shown[game.shaders().name(p.shader)];
+            std::printf("datapad %d: %zu pictures:", command, drawn.size());
+            for (const auto &[name, count] : shown)
+                std::printf(" %d x %s", count, name.c_str());
+            std::printf("\n");
+        }
+    }
     if (saveLoad) {
         namespace efs = reluva::idtech3::eliteforce;
         namespace jk2 = reluva::idtech3::jk2;
@@ -1225,6 +1269,10 @@ int cmdSpRun(int argc, char **argv) {
         if (e)
             return failed("WriteLevel", e), 1;
         std::printf("saved: %zu bytes from the game\n", w.bytes().size());
+        if (!saveFile.empty()) {
+            std::ofstream out(saveFile, std::ios::binary);
+            out.write(reinterpret_cast<const char *>(w.bytes().data()), std::streamsize(w.bytes().size()));
+        }
         {
             // Its chunks: each id in the order first written, how many and
             // their lengths (one, or the smallest and largest).
@@ -1587,7 +1635,7 @@ const Commands kCommands(
          "report what they draw and run",
          cmdSpMenus},
         {"sp-run",
-         "<game folder> <map | -load saved game> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-replay file.input | -tour ms [-spare name]...] [-fixedclock] [-skippak pak]...",
+         "<game folder> <map | -load saved game> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload [-savefile path]] [-datapad] [-replay file.input | -tour ms [-spare name]...] [-fixedclock] [-skippak pak]...",
          "run Elite Force's or Jedi Outcast's single-player game code (efgamex86.dll, jk2gamex86.dll, in the "
          "x86 interpreter) on a map, with a player; report what it does",
          cmdSpRun},

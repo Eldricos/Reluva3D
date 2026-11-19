@@ -34,7 +34,9 @@
   `jk2-sp-menus` (`sp-menus`: the single-player menus as `jk2sp.exe`
   runs them, from the main menu by mouse and keys through New Game,
   Jedi Knight and Begin Game to `map kejim_post`; the in-game menu and
-  the datapad opened),
+  the datapad opened; the client game's datapad pages, with a saved game
+  written then loaded from the load menu's list; a key bound in
+  Controls),
   `jk2-sp-tour` (`sp-run -tour`: kejim_post, then kejim_base, played
   through with cheats from the end of the opening, every trigger
   touched and the nearest stormtroopers fought between them with every

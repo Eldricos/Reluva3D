@@ -5,12 +5,19 @@
 
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/formats/lexer.h"
+#include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/jk2/ref_entity.h"
+#include "engines/idtech3/jk2/sp_savegame.h"
+#include "engines/idtech3/raven/savegame.h"
 
 #include "common/fs.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <filesystem>
 #include <optional>
 #include <utility>
 
@@ -32,6 +39,25 @@ constexpr float kSliderThumbWidth = 12;
 constexpr float kSliderThumbHeight = 20;
 // The gap between an item's text and its value; as Team Arena's.
 constexpr float kValueGap = 8;
+// A list box's scroll bar: its width, and its arrows' and thumb's size
+// (0x4a0a0a).
+constexpr float kScrollbarSize = 16;
+// Two clicks on a list box this close (ms) are a double click; as Team
+// Arena's.
+constexpr int32_t kDoubleClickMs = 300;
+// The saved games listed at most (0x49c770).
+constexpr size_t kMaxSaves = 100;
+// A model item's view (0x4a1584 on): 45 degrees each way; the model as
+// far off as its height times this, so it fits; turning this many degrees
+// a millisecond.
+constexpr float kModelFov = 45;
+constexpr float kModelDistance = 3.731343283582089f;
+constexpr float kModelTurn = 0.05f;
+// What the model is drawn with: lit from its own origin, no shadow (0x4a16cd).
+constexpr int32_t kModelFlags = 0xc0;
+constexpr float kPi = 3.14159265358979f;
+// The list box feeder for the saved games (FEEDER_SAVEGAMES).
+constexpr float kFeederSaves = 0;
 
 std::string lower(std::string_view s) {
     return fs::toLower(std::string(s));
@@ -109,6 +135,10 @@ Error SpMenus::load() {
     _white = _shaders.add("white");
     _sliderBar = _shaders.add("menu/new/slider");
     _sliderThumb = _shaders.add("menu/new/sliderthumb");
+    _scrollBar = _shaders.add("gfx/menus/scrollbar.tga");
+    _scrollUp = _shaders.add("gfx/menus/scrollbar_arrow_up_a.tga");
+    _scrollDown = _shaders.add("gfx/menus/scrollbar_arrow_dwn_a.tga");
+    _scrollThumb = _shaders.add("gfx/menus/scrollbar_thumb.tga");
     auto readText = [&](const std::string &name, std::string &out) {
         std::vector<uint8_t> data;
         Error err = _files.read(name, data);
@@ -207,6 +237,8 @@ void SpMenus::readWindow(const MenuEntries &entries, Window &w) {
             w.backColor = color(e.args);
         } else if (key == "bordercolor") {
             w.borderColor = color(e.args);
+        } else if (key == "outlinecolor") {
+            w.outlineColor = color(e.args);
         } else if (key == "background" && !e.args.empty()) {
             w.background = _shaders.add(e.args[0]);
         } else if (key == "visible") {
@@ -273,6 +305,32 @@ SpMenus::Item SpMenus::readItem(const MenuItemDef &def) {
             item.enableCvar = words(e.block);
         } else if (key == "disablecvar") {
             item.disableCvar = words(e.block);
+        } else if (key == "maxchars") {
+            item.maxChars = int32_t(number(e.args, 0));
+        } else if (key == "ownerdraw") {
+            item.ownerDraw = int32_t(number(e.args, 0));
+        } else if (key == "elementheight") {
+            item.elementHeight = number(e.args, 0);
+        } else if (key == "feeder" && !e.args.empty()) {
+            item.feeder = same(e.args[0], "FEEDER_SAVEGAMES") ? kFeederSaves : number(e.args, 0);
+        } else if (key == "columns") {
+            // How many, then each one's place, width and letters at most.
+            const auto n = size_t(std::max(0.0f, number(e.args, 0)));
+            for (size_t c = 0; c < n; ++c)
+                item.columns.push_back(
+                    {number(e.args, 1 + c * 3), number(e.args, 2 + c * 3), int32_t(number(e.args, 3 + c * 3))});
+        } else if (key == "doubleclick") {
+            item.doubleClick = e.block;
+        } else if (key == "asset_model" && !e.args.empty()) {
+            // Framed by its first frame's bounds, as the renderer gives
+            // them (0x4a1574).
+            std::vector<uint8_t> data;
+            Md3Model model;
+            if (!_files.read(e.args[0], data) && !parseMd3(data, model) && !model.frames.empty()) {
+                item.model = _models.add(e.args[0]);
+                item.modelMins = model.frames[0].mins;
+                item.modelMaxs = model.frames[0].maxs;
+            }
         }
     }
     return item;
@@ -474,20 +532,44 @@ void SpMenus::runScript(Menu &menu, const Tokens &script) {
                 menu.backColor = c;
             else if (which == "bordercolor")
                 menu.borderColor = c;
-        } else if (cmd == "setitemflag" || cmd == "activate") {
+        } else if (cmd == "setitemflag") {
             arg();
             arg();
+        } else if (cmd == "activate") {
+            // "activate <menu> <item>": that item's action run (0x49dd00).
+            const std::string menuName = arg();
+            const std::string itemName = arg();
+            if (Menu *m = findMenu(menuName))
+                for (Item &i : m->items)
+                    if (same(i.name, itemName)) {
+                        runScript(*m, i.action);
+                        break;
+                    }
         } else if (cmd == "defer") {
-            // "defer VideoSetup <menu>": a warning menu for when the video
-            // settings changed, which Reluva doesn't ask for.
-            arg();
-            arg();
+            // "defer VideoSetup <menu>": if the video settings were
+            // changed, that menu opens (a warning) and the rest of the
+            // script waits for its "rundeferred" (0x49dfd0, 0x499e80).
+            if (same(arg(), "VideoSetup")) {
+                const std::string warning = arg();
+                if (_cvars.integer("ui_r_modified") != 0) {
+                    open(warning);
+                    _deferredMenu = &menu;
+                    _deferred.assign(script.begin() + std::ptrdiff_t(at), script.end());
+                    return;
+                }
+            }
+        } else if (cmd == "rundeferred") {
+            // The script put off, which stays kept (0x49e020).
+            if (_deferredMenu && !_deferred.empty()) {
+                const Tokens deferred = _deferred;
+                runScript(*_deferredMenu, deferred);
+            }
         } else if (cmd == "orbit") {
             at = std::min(at + 6, script.size());
         } else if (cmd == "transition") {
             at = std::min(at + 11, script.size());
-        } else if (cmd == "opengotomenu" || cmd == "rundeferred") {
-            // Nothing to open or run: no "goto" menu nor deferred script is kept.
+        } else if (cmd == "opengotomenu") {
+            // Nothing to open: no "goto" menu is kept.
         } else if (!runUiScript(menu, script, at)) {
             return;
         }
@@ -495,40 +577,134 @@ void SpMenus::runScript(Menu &menu, const Tokens &script) {
 }
 
 bool SpMenus::runUiScript(Menu &menu, const Tokens &script, size_t &at) {
+    // The engine's own (0x499ef0): each a name, some with arguments after.
     if (at >= script.size())
         return false;
-    const std::string name = lower(script[at++]);
+    auto arg = [&]() -> std::string { return at < script.size() ? script[at++] : std::string(); };
+    const std::string name = lower(arg());
+    auto closeToGame = [&]() {
+        closeAll();
+        _catcher &= ~kCatchUi;
+    };
     if (name == "startgame") {
         startGame();
-    } else if (name == "closeingame" || name == "closedatapad") {
-        closeAll();
-        _catcher &= ~kCatchUi;
+    } else if (name == "startmap") {
+        closeToGame();
+        _commands.push_back("map " + arg());
+    } else if (name == "closeingame") {
+        closeToGame();
+    } else if (name == "closedatapad") {
+        // The pages' "updated" marks cleared too (0x49a4f0).
+        closeToGame();
+        for (const char *mark : {"cg_updatedDataPadForcePower1", "cg_updatedDataPadForcePower2",
+                                 "cg_updatedDataPadForcePower3", "cg_updatedDataPadObjective"})
+            _cvars.set(mark, "0");
     } else if (name == "loadauto") {
-        closeAll();
-        _catcher &= ~kCatchUi;
+        closeToGame();
         _commands.emplace_back("load auto");
+    } else if (name == "loadgame") {
+        // The saved game chosen (0x49a029).
+        if (_saveChosen >= 0 && size_t(_saveChosen) < saves().size()) {
+            closeToGame();
+            _commands.push_back("load " + _saves[size_t(_saveChosen)].name);
+        }
+    } else if (name == "deletegame") {
+        if (_saveChosen >= 0 && size_t(_saveChosen) < saves().size()) {
+            _commands.push_back("wipe " + _saves[size_t(_saveChosen)].name);
+            _savesRead = false;
+        }
+    } else if (name == "savegame") {
+        // Into the first of jkii00 to jkii99 that's free, with the
+        // description typed (0x49a112, 0x49a5e0).
+        std::string slot;
+        for (int n = 0; n < 100 && slot.empty(); ++n) {
+            char candidate[16];
+            std::snprintf(candidate, sizeof candidate, "jkii%02d", n);
+            std::vector<uint8_t> file;
+            if (!readSave || !readSave(candidate, file))
+                slot = candidate;
+        }
+        if (!slot.empty()) {
+            saveComment = _cvars.string("ui_gameDesc");
+            _commands.push_back("save " + slot);
+        }
+        _savesRead = false;
+    } else if (name == "readsavedirectory") {
+        _savesRead = false;
     } else if (name == "quit") {
         _commands.emplace_back("quit");
     } else if (name == "leave") {
+        // To the main menu (0x49a1f4), which disconnecting opens.
         closeAll();
         _commands.emplace_back("disconnect");
-    } else if (name == "update" || name == "setvid1data") {
-        if (at < script.size())
-            ++at;
-    } else if (name == "glcustom" || name == "getvideosetup" || name == "getvid1data" || name == "updatevideosetup" ||
-               name == "loadcontrols" || name == "savecontrols" || name == "resetdefaults" ||
-               name == "readsavedirectory" || name == "loadgame" || name == "savegame" || name == "deletegame" ||
-               name == "clearerror" || name == "updateforcestatus" || name == "nextdatapadweapon" ||
-               name == "prevdatapadweapon" || name == "nextdatapadforcepower" || name == "prevdatapadforcepower" ||
-               name == "nextdatapadinventory" || name == "prevdatapadinventory" || name == "setforce" ||
-               name == "savetemplate") {
-        // Known, but not done yet (sp-menus.md, "Not yet").
-        if (print)
-            print("menus: uiScript " + name + " isn't done yet\n");
-    } else {
-        if (print)
-            print("menus: unknown script command " + name + " in " + menu.name + "\n");
-        return false;
+    } else if (name == "controls") {
+        // A menu that 1.02a's files don't have (0x49a1ac).
+        _cvars.set("cl_paused", "1");
+        _catcher = kCatchUi;
+        closeAll();
+        open("setup_menu2");
+    } else if (name == "resetdefaults") {
+        // (0x49c5e0)
+        _commands.emplace_back("cvar_restart");
+        _commands.emplace_back("exec default.cfg");
+        _commands.emplace_back("vid_restart");
+        _cvars.set("com_introPlayed", "1");
+    } else if (name == "clearerror") {
+        _cvars.set("com_errorMessage", "");
+    } else if (name == "glcustom") {
+        _cvars.set("ui_r_glCustom", "4");
+    } else if (name == "getvideosetup" || name == "updatevideosetup") {
+        // The video settings copied to the menus' own (ui_r_...) to be
+        // changed, or back, the video then restarted (0x49c2c0, 0x49c160).
+        static const std::pair<const char *, const char *> kVideo[] = {
+            {"ui_r_mode", "r_mode"},
+            {"ui_r_fullscreen", "r_fullscreen"},
+            {"ui_r_colorbits", "r_colorbits"},
+            {"ui_r_lodbias", "r_lodbias"},
+            {"ui_r_picmip", "r_picmip"},
+            {"ui_r_texturebits", "r_texturebits"},
+            {"ui_r_texturemode", "r_texturemode"},
+            {"ui_r_detailtextures", "r_detailtextures"},
+            {"ui_r_ext_compress_textures", "r_ext_compress_textures"},
+            {"ui_r_depthbits", "r_depthbits"},
+            {"ui_r_subdivisions", "r_subdivisions"},
+            {"ui_r_fastSky", "r_fastSky"},
+            {"ui_r_inGameVideo", "r_inGameVideo"},
+            {"ui_r_allowExtensions", "r_allowExtensions"},
+            {"ui_cg_shadows", "cg_shadows"},
+        };
+        const bool get = name == "getvideosetup";
+        for (const auto &[own, real] : kVideo)
+            if (get)
+                _cvars.set(own, _cvars.string(real));
+            else
+                _cvars.set(real, _cvars.string(own));
+        _cvars.set("ui_r_modified", "0");
+        if (!get)
+            _commands.emplace_back("vid_restart");
+    } else if (name == "nextdatapadforcepower" || name == "prevdatapadforcepower" || name == "nextdatapadweapon" ||
+               name == "prevdatapadweapon" || name == "nextdatapadinventory" || name == "prevdatapadinventory") {
+        // The client game's own commands (0x49a283 on).
+        static const std::pair<const char *, const char *> kPages[] = {
+            {"nextdatapadforcepower", "dpforcenext"}, {"prevdatapadforcepower", "dpforceprev"},
+            {"nextdatapadweapon", "dpweapnext"},      {"prevdatapadweapon", "dpweapprev"},
+            {"nextdatapadinventory", "dpinvnext"},    {"prevdatapadinventory", "dpinvprev"},
+        };
+        for (const auto &[script, command] : kPages)
+            if (name == script)
+                _commands.emplace_back(command);
+    } else if (name == "checkvid1data") {
+        arg();
+        arg();
+    } else if (name == "update") {
+        // A setting's knock-on changes (0x49b140): those of an OpenGL
+        // renderer's presets, which Reluva's renderer doesn't have.
+        arg();
+    } else if (name == "loadcontrols" || name == "savecontrols") {
+        // The bindings are Reluva's own, kept as they're changed.
+    } else if (print) {
+        // Said, and the script goes on (0x49a5c1).
+        print("menus: unknown UI script " + name + " in " + menu.name + "\n");
     }
     return true;
 }
@@ -666,6 +842,15 @@ void SpMenus::itemKey(Menu &menu, Item &item, int32_t key) {
         runScript(menu, item.action);
         break;
     }
+    case kBind:
+        // Then waiting for the key (0x4a396c).
+        if (click || enter)
+            _bindItem = &item;
+        break;
+    case kEditField:
+        if (click || enter)
+            _editItem = &item;
+        break;
     default:
         if (click || enter)
             runScript(menu, item.action);
@@ -674,6 +859,16 @@ void SpMenus::itemKey(Menu &menu, Item &item, int32_t key) {
 }
 
 Error SpMenus::keyEvent(int32_t key) {
+    // A binding waiting for its key, or an edit field, takes every key.
+    if (_bindItem) {
+        if (!(key & q3key::kCharFlag))
+            bindKey(key);
+        return {};
+    }
+    if (_editItem) {
+        editKey(key);
+        return {};
+    }
     Menu *menu = focusedMenu();
     if (!menu || (key & q3key::kCharFlag))
         return {};
@@ -681,16 +876,220 @@ Error SpMenus::keyEvent(int32_t key) {
         runScript(*menu, menu->onEsc);
         return {};
     }
+    Item *focused = nullptr;
+    for (Item &item : menu->items)
+        if (item.focus && canFocus(item))
+            focused = &item;
+    if (focused && focused->type == kListBox &&
+        (key == q3key::kMouse1 || key == q3key::kUp || key == q3key::kDown || key == q3key::kWheelUp ||
+         key == q3key::kWheelDown)) {
+        listKey(*menu, *focused, key);
+        return {};
+    }
     if (key == q3key::kUp || key == q3key::kDown || key == q3key::kTab) {
         moveFocus(*menu, key == q3key::kUp ? -1 : 1);
         return {};
     }
-    for (Item &item : menu->items)
-        if (item.focus && canFocus(item)) {
-            itemKey(*menu, item, key);
-            break;
-        }
+    if (focused)
+        itemKey(*menu, *focused, key);
     return {};
+}
+
+void SpMenus::bindKey(int32_t key) {
+    // As jk2sp.exe's (0x4a3a71 on): Esc gives up, ` is ignored, Backspace
+    // unbinds the command's keys; another key is bound to the command,
+    // taken from whatever it did, as its first or second key, or in place
+    // of both if it has two already.
+    Item &item = *_bindItem;
+    if (key == q3key::kEscape) {
+        _bindItem = nullptr;
+        return;
+    }
+    if (key == '`')
+        return;
+    _bindItem = nullptr;
+    if (!bindings || item.cvar.empty())
+        return;
+    std::vector<int32_t> keys;
+    for (int32_t k = 0; k < q3key::kCount && keys.size() < 2; ++k)
+        if (same(bindings->get(k), item.cvar))
+            keys.push_back(k);
+    if (key == q3key::kBackspace) {
+        for (const int32_t k : keys)
+            bindings->set(k, "");
+        return;
+    }
+    if (keys.size() == 2 && keys[0] != key && keys[1] != key)
+        for (const int32_t k : keys)
+            bindings->set(k, "");
+    bindings->set(key, item.cvar);
+}
+
+void SpMenus::editKey(int32_t key) {
+    // Letters typed onto the field's setting, Backspace taking the last
+    // off; Enter, Esc, Tab, the arrows or a click end it. As Team Arena's,
+    // without its cursor moving within the text.
+    Item &item = *_editItem;
+    std::string value = _cvars.string(item.cvar);
+    if (key & q3key::kCharFlag) {
+        const auto c = char(key & 0xff);
+        if (item.maxChars <= 0 || int32_t(value.size()) < item.maxChars)
+            _cvars.set(item.cvar, value + c);
+    } else if (key == q3key::kBackspace) {
+        if (!value.empty()) {
+            value.pop_back();
+            _cvars.set(item.cvar, value);
+        }
+    } else if (key == q3key::kEnter || key == q3key::kKpEnter || key == q3key::kEscape || key == q3key::kTab ||
+               key == q3key::kUp || key == q3key::kDown || key == q3key::kMouse1) {
+        _editItem = nullptr;
+    }
+}
+
+int32_t SpMenus::listCount(const Item &item) {
+    return item.feeder == kFeederSaves ? int32_t(saves().size()) : 0;
+}
+
+int32_t SpMenus::listRows(const Item &item) const {
+    return item.elementHeight > 0 ? std::max(1, int32_t((item.rect[3] - 2) / item.elementHeight)) : 1;
+}
+
+std::string SpMenus::listText(const Item &item, int32_t row, size_t column) {
+    // The saved games' description, then when they were saved (0x499b60);
+    // other feeders have no text in single player.
+    if (item.feeder != kFeederSaves || row < 0 || size_t(row) >= saves().size())
+        return {};
+    const SaveEntry &e = _saves[size_t(row)];
+    return column == 0 ? e.comment : column == 1 ? e.date : std::string();
+}
+
+void SpMenus::listKey(Menu &menu, Item &item, int32_t key) {
+    // Rows chosen by a click or the arrows, a second click soon after a
+    // double click; the scroll bar's arrows and the wheel scroll. As Team
+    // Arena's.
+    const int32_t count = listCount(item);
+    const int32_t rows = listRows(item);
+    auto scroll = [&](int32_t by) { item.startPos = std::clamp(item.startPos + by, 0, std::max(0, count - rows)); };
+    const int32_t chosen = item.feeder == kFeederSaves ? _saveChosen : -1;
+    if (key == q3key::kWheelUp || key == q3key::kWheelDown) {
+        scroll(key == q3key::kWheelUp ? -1 : 1);
+        return;
+    }
+    if (key == q3key::kUp || key == q3key::kDown) {
+        const int32_t row = std::clamp(chosen + (key == q3key::kUp ? -1 : 1), 0, std::max(0, count - 1));
+        if (row < item.startPos)
+            item.startPos = row;
+        else if (row >= item.startPos + rows)
+            item.startPos = row - rows + 1;
+        if (count > 0 && item.feeder == kFeederSaves)
+            listSelect(row);
+        return;
+    }
+    const Rect &r = item.rect;
+    if (!inside(r, _cursorX, _cursorY))
+        return;
+    if (_cursorX >= r[0] + r[2] - kScrollbarSize - 1) {
+        if (_cursorY < r[1] + kScrollbarSize + 1)
+            scroll(-1);
+        else if (_cursorY > r[1] + r[3] - kScrollbarSize - 1)
+            scroll(1);
+        else
+            scroll(_cursorY < r[1] + r[3] / 2 ? -rows : rows);
+        return;
+    }
+    const int32_t row = item.startPos + int32_t((_cursorY - r[1] - 1) / item.elementHeight);
+    if (_time < item.lastClickTime + kDoubleClickMs && row == item.lastClickRow)
+        runScript(menu, item.doubleClick);
+    item.lastClickTime = _time;
+    item.lastClickRow = row;
+    if (row >= 0 && row < count && item.feeder == kFeederSaves)
+        listSelect(row);
+}
+
+const std::vector<SpMenus::SaveEntry> &SpMenus::saves() {
+    if (!_savesRead)
+        readSaves();
+    return _saves;
+}
+
+void SpMenus::readSaves() {
+    // As ReadSaveDirectory (0x49c620): the game's saves/*.sav and Reluva's
+    // own, all but "current"; "auto" isn't listed but makes Resume
+    // possible. Newest first, 100 at most.
+    _savesRead = true;
+    _saves.clear();
+    _cvars.set("ui_gameDesc", "");
+    _cvars.set("ui_SelectionOK", "0");
+    _cvars.set("ui_ResumeOK", "0");
+    std::vector<std::string> names;
+    for (const std::string &n : _files.list()) {
+        const std::string key = lower(n);
+        if (key.rfind("saves/", 0) == 0 && key.size() > 10 && key.compare(key.size() - 4, 4, ".sav") == 0 &&
+            key.find('/', 6) == std::string::npos)
+            names.push_back(key.substr(6, key.size() - 10));
+    }
+    std::error_code ec;
+    for (std::filesystem::directory_iterator it(saveDir, ec), end; !saveDir.empty() && !ec && it != end;
+         it.increment(ec)) {
+        const std::u8string u8 = it->path().filename().u8string();
+        const std::string n = lower(std::string(u8.begin(), u8.end()));
+        if (it->is_regular_file(ec) && n.size() > 4 && n.compare(n.size() - 4, 4, ".sav") == 0)
+            names.push_back(n.substr(0, n.size() - 4));
+    }
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    for (const std::string &n : names) {
+        if (n == "current" || (listSave && !listSave(n)))
+            continue;
+        if (n == "auto") {
+            _cvars.set("ui_ResumeOK", "1");
+            continue;
+        }
+        std::vector<uint8_t> file;
+        if (!readSave || !readSave(n, file))
+            continue;
+        raven::SaveReader r(std::move(file));
+        CvarStore ignored;
+        SaveHeader header;
+        if (readSaveHeader(r, ignored, header))
+            continue;
+        SaveEntry e;
+        e.name = n;
+        e.comment = header.comment;
+        e.time = header.time;
+        e.map = header.map;
+        const std::time_t t = header.time;
+        if (const std::tm *tm = std::localtime(&t)) {
+            // asctime's form, without its line break.
+            char when[64];
+            std::strftime(when, sizeof when, "%a %b %d %H:%M:%S %Y", tm);
+            e.date = when;
+        }
+        _saves.push_back(std::move(e));
+        if (_saves.size() == kMaxSaves)
+            break;
+    }
+    std::stable_sort(_saves.begin(), _saves.end(),
+                     [](const SaveEntry &a, const SaveEntry &b) { return a.time > b.time; });
+    listSelect(_saveChosen);
+}
+
+void SpMenus::listSelect(int32_t row) {
+    // The saved game chosen: whether there's one, its description for the
+    // save menu to start from, its picture (0x49a6b0).
+    _saveChosen = row;
+    const bool ok = row >= 0 && size_t(row) < _saves.size();
+    _cvars.set("ui_SelectionOK", ok ? "1" : "0");
+    _cvars.set("ui_gameDesc", ok ? _saves[size_t(row)].comment : std::string());
+    _savePicture = {};
+    std::vector<uint8_t> file;
+    if (!ok || !readSave || !readSave(_saves[size_t(row)].name, file))
+        return;
+    raven::SaveReader r(std::move(file));
+    CvarStore ignored;
+    SaveHeader header;
+    if (!readSaveHeader(r, ignored, header) && image::decode(header.shot, _savePicture))
+        _savePicture = {};
 }
 
 Error SpMenus::mouseEvent(int32_t dx, int32_t dy) {
@@ -864,6 +1263,12 @@ std::string SpMenus::itemValue(const Item &item) const {
 
 void SpMenus::drawItem(const Menu &menu, const Item &item) {
     drawWindow(item);
+    if (item.type == kListBox)
+        return drawListBox(item);
+    if (item.ownerDraw)
+        return drawOwnerDraw(item);
+    if (item.type == kModel)
+        return drawModel(item);
     if (item.text.empty() && item.type != kSlider)
         return;
     // The text placed by its alignment from the rectangle's corner, its
@@ -887,9 +1292,144 @@ void SpMenus::drawItem(const Menu &menu, const Item &item) {
                  c, _sliderThumb);
         return;
     }
-    const std::string value = itemValue(item);
+    std::string value = itemValue(item);
+    // A cursor after what's typed while it's being typed; a binding
+    // waiting for its key shows none (as Team Arena's).
+    if (&item == _editItem && (_time / 250) % 2 == 0)
+        value += '_';
+    if (&item == _bindItem)
+        value = "???";
     if (!value.empty())
         drawText(valueX, y, item.textScale, c, value, item.textStyle, item.font);
+}
+
+void SpMenus::drawListBox(const Item &item) {
+    // A vertical list as jk2sp.exe draws it (0x4a09c0): the scroll bar
+    // down its right (arrows, bar, thumb, 16 wide); each row's columns'
+    // text from the rectangle's corner, 1 in, then 4 more and the column's
+    // place; the chosen row's highlight 6 below its top, in the outline
+    // colour.
+    const Rect &r = item.rect;
+    const int32_t count = listCount(item);
+    const int32_t rows = listRows(item);
+    const float barX = r[0] + r[2] - kScrollbarSize - 1;
+    drawRect({barX, r[1] + 1, kScrollbarSize, kScrollbarSize}, {1, 1, 1, 1}, _scrollUp);
+    drawRect({barX, r[1] + kScrollbarSize, kScrollbarSize, r[3] - kScrollbarSize * 2}, {1, 1, 1, 1}, _scrollBar);
+    drawRect({barX, r[1] + r[3] - kScrollbarSize - 1, kScrollbarSize, kScrollbarSize}, {1, 1, 1, 1}, _scrollDown);
+    const float travel = r[3] - kScrollbarSize * 3 - 2;
+    const float frac = count > rows ? float(item.startPos) / float(count - rows) : 0;
+    drawRect({barX, r[1] + kScrollbarSize + frac * travel, kScrollbarSize, kScrollbarSize}, {1, 1, 1, 1}, _scrollThumb);
+    const int32_t chosen = item.feeder == kFeederSaves ? _saveChosen : -1;
+    for (int32_t i = 0; i < rows && item.startPos + i < count; ++i) {
+        const int32_t row = item.startPos + i;
+        const float y = r[1] + 1 + float(i) * item.elementHeight;
+        for (size_t c = 0; c < item.columns.size(); ++c) {
+            std::string t = listText(item, row, c);
+            if (item.columns[c].maxChars > 0 && int32_t(t.size()) > item.columns[c].maxChars)
+                t.resize(size_t(item.columns[c].maxChars));
+            if (!t.empty())
+                drawText(r[0] + 1 + 4 + item.columns[c].pos, y, item.textScale, item.foreColor, t, item.textStyle,
+                         item.font);
+        }
+        if (item.columns.empty())
+            if (const std::string t = listText(item, row, 0); !t.empty())
+                drawText(r[0] + 1 + 4, y, item.textScale, item.foreColor, t, item.textStyle, item.font);
+        if (row == chosen)
+            drawRect({r[0] + 1 + 2, y + 6, r[2] - kScrollbarSize - 4, item.elementHeight}, item.outlineColor, _white);
+    }
+}
+
+void SpMenus::drawOwnerDraw(const Item &item) {
+    // The engine's own drawing for an item (0x49b7f0).
+    const Rect &r = item.rect;
+    switch (item.ownerDraw) {
+    case 203:
+    case 204:
+    case 205:
+    case 206: {
+        // The datapad: the client game draws its frame, then the mission,
+        // weapons, inventory or Force powers page (0x49b877 on).
+        if (!drawDataPad)
+            break;
+        for (const int32_t command : {11, 11 + item.ownerDraw - 202}) {
+            std::vector<Picture> drawn;
+            const HandleTable *table = drawDataPad(command, drawn);
+            for (Picture p : drawn) {
+                p.shader = table ? _shaders.add(table->name(p.shader)) : 0;
+                _pictures.push_back(p);
+            }
+        }
+        break;
+    }
+    case 236:
+        // The chosen saved game's picture, and under it the level it's of
+        // (0x49b8d3).
+        if (!_savePicture.rgba.empty()) {
+            SpMenuHost::RawImage image;
+            image.x = r[0];
+            image.y = r[1];
+            image.w = r[2];
+            image.h = r[3];
+            image.cols = _savePicture.w;
+            image.rows = _savePicture.h;
+            image.rgba = _savePicture.rgba;
+            _raw.push_back(std::move(image));
+        }
+        if (_saveChosen >= 0 && size_t(_saveChosen) < saves().size())
+            drawText(r[0], r[1] + r[3], item.textScale, item.foreColor, _saves[size_t(_saveChosen)].map, 0, item.font);
+        break;
+    case 250:
+        // While a binding waits for its key (0x49bb00), the string
+        // package's MENUS_WAITINGFORKEY, which 1.02a's packages haven't.
+        if (_bindItem)
+            if (const std::string t = text("@MENUS_WAITINGFORKEY"); !t.empty() && t[0] != '@')
+                drawText(r[0], r[1], item.textScale, item.foreColor, t, 0, item.font);
+        break;
+    default:
+        // 249 is the video driver page's OpenGL details, which Reluva's
+        // renderer hasn't; 200, 201 and 242 no menu uses.
+        break;
+    }
+}
+
+void SpMenus::drawModel(const Item &item) {
+    // As jk2sp.exe (0x4a1490): a view 45 degrees each way within the
+    // rectangle (1 in), no world; the model as far off as makes its height
+    // fit, centred across and up, turning with the clock (its
+    // model_angle and model_rotation unused).
+    if (!item.model)
+        return;
+    const Rect &r = item.rect;
+    const auto &lo = item.modelMins;
+    const auto &hi = item.modelMaxs;
+    const std::array<float, 3> origin{0.5f * (hi[2] - lo[2]) * kModelDistance, 0.5f * (lo[1] + hi[1]),
+                                      -0.5f * (lo[2] + hi[2])};
+    const float yaw = float(_time) * kModelTurn * kPi / 180.0f;
+    const RefEntityLayout &l = kSpRefEntityLayout;
+    std::vector<uint8_t> ent(l.size, 0);
+    auto put = [&ent](size_t at, auto value) { std::memcpy(ent.data() + at, &value, sizeof value); };
+    put(l.type, int32_t(l.typeModel));
+    put(l.flags, kModelFlags);
+    put(l.model, item.model);
+    const float axes[9] = {std::cos(yaw), std::sin(yaw), 0, -std::sin(yaw), std::cos(yaw), 0, 0, 0, 1};
+    std::memcpy(ent.data() + l.axes, axes, sizeof axes);
+    std::memcpy(ent.data() + l.origin, origin.data(), sizeof(float) * 3);
+    std::memcpy(ent.data() + l.oldOrigin, origin.data(), sizeof(float) * 3);
+    std::memcpy(ent.data() + l.lightingOrigin, origin.data(), sizeof(float) * 3);
+    std::array<uint8_t, kRefdefSize> refdef{};
+    auto def = [&refdef](size_t at, auto value) { std::memcpy(refdef.data() + at, &value, sizeof value); };
+    def(0, int32_t(r[0] + 1));
+    def(4, int32_t(r[1] + 1));
+    def(8, int32_t(r[2] - 2));
+    def(12, int32_t(r[3] - 2));
+    def(16, kModelFov);
+    def(20, kModelFov);
+    def(36, 1.0f);
+    def(52, 1.0f);
+    def(68, 1.0f);
+    def(76, int32_t(1)); // no world
+    _scene.addEntity(ent.data(), ent.size(), int32_t(ent.size()));
+    _scene.render(refdef.data(), _pictures.size());
 }
 
 void SpMenus::drawMenu(const Menu &menu) {

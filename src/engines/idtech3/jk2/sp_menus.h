@@ -10,8 +10,10 @@
 #include "engines/idtech3/raven/strings.h"
 
 #include "common/archive.h"
+#include "image/image.h"
 
 #include <array>
+#include <functional>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -63,6 +65,29 @@ public:
     std::string focusedItem() const;
     /** Where the cursor is, in the 640 x 480 screen. */
     std::array<float, 2> cursor() const { return {_cursorX, _cursorY}; }
+    /** Whether a key binding waits for its key, or an edit field is being typed in. */
+    bool waitingForKey() const { return _bindItem != nullptr; }
+    bool editing() const { return _editItem != nullptr; }
+
+    /** A saved game as the save and load menus list it. */
+    struct SaveEntry {
+        std::string name;    // the file's, without its folder or ".sav"
+        std::string comment; // its description
+        std::string date;    // when it was saved, as the C library's asctime
+        int32_t time = 0;
+        std::string map;
+    };
+    /** The saved games listed (read again when a menu's ReadSaveDirectory asks). */
+    const std::vector<SaveEntry> &saves();
+
+    // --- What the engine provides, besides SpMenuHost's ------------------------
+    /**
+     * The client game's datapad pages (owner draws 203 to 206): its vmMain
+     * with `command` (11 the frame, 12 to 15 the mission, weapons,
+     * inventory and Force powers), the pictures it drew put in `out`.
+     * @return the table their shaders are numbered in; nullptr if there's no game.
+     */
+    std::function<const HandleTable *(int32_t command, std::vector<Picture> &out)> drawDataPad;
 
     Error keyEvent(int32_t key) override;
     Error mouseEvent(int32_t dx, int32_t dy) override;
@@ -91,6 +116,7 @@ private:
         Color foreColor{1, 1, 1, 1};
         Color backColor{0, 0, 0, 0};
         Color borderColor{0, 0, 0, 0};
+        Color outlineColor{0, 0, 0, 0}; // a list box's chosen row
         bool foreColorSet = false;
         int32_t background = 0; // shader handle
         bool visible = false;
@@ -126,6 +152,29 @@ private:
         Tokens hideCvar;
         Tokens enableCvar;
         Tokens disableCvar;
+        // An edit field's: the most letters it takes.
+        int32_t maxChars = 0;
+        // An owner draw's number (200 on); 0 for none.
+        int32_t ownerDraw = 0;
+        // A list box's: its rows' height, its feeder (0: the saved
+        // games), its columns (where, how wide, letters at most), the
+        // first row shown and the row chosen; its double click's script.
+        float elementHeight = 16;
+        float feeder = -1;
+        struct Column {
+            float pos = 0;
+            float width = 0;
+            int32_t maxChars = 0;
+        };
+        std::vector<Column> columns;
+        int32_t startPos = 0;
+        Tokens doubleClick;
+        int32_t lastClickRow = -1;
+        int32_t lastClickTime = 0;
+        // A model item's: its model's handle and its first frame's bounds.
+        int32_t model = 0;
+        std::array<float, 3> modelMins{};
+        std::array<float, 3> modelMaxs{};
         bool mouseOver = false;
         bool focus = false;
     };
@@ -165,6 +214,14 @@ private:
     void mouseMove(Menu &menu);
     void moveFocus(Menu &menu, int step);
     void itemKey(Menu &menu, Item &item, int32_t key);
+    void bindKey(int32_t key);
+    void editKey(int32_t key);
+    void listKey(Menu &menu, Item &item, int32_t key);
+    int32_t listCount(const Item &item);
+    int32_t listRows(const Item &item) const;
+    std::string listText(const Item &item, int32_t row, size_t column);
+    void listSelect(int32_t row);
+    void readSaves();
     void startGame();
 
     void drawMenu(const Menu &menu);
@@ -175,6 +232,9 @@ private:
     int32_t fontHandle(int32_t font) const;
     float textWidth(const std::string &s, float scale, int32_t font) const;
     std::string itemValue(const Item &item) const;
+    void drawListBox(const Item &item);
+    void drawOwnerDraw(const Item &item);
+    void drawModel(const Item &item);
 
     const SearchSet &_files;
     CvarStore &_cvars;
@@ -188,11 +248,26 @@ private:
     int32_t _white = 0;
     int32_t _sliderBar = 0;
     int32_t _sliderThumb = 0;
+    int32_t _scrollBar = 0;
+    int32_t _scrollUp = 0;
+    int32_t _scrollDown = 0;
+    int32_t _scrollThumb = 0;
     std::string _focusSound;
     float _cursorX = 320;
     float _cursorY = 240;
     int32_t _time = 0;
     std::vector<uint8_t> _capture;
+    Item *_bindItem = nullptr; // the binding waiting for its key
+    Item *_editItem = nullptr; // the edit field being typed in
+    // A script put off by "defer" until "rundeferred", and its menu.
+    Menu *_deferredMenu = nullptr;
+    Tokens _deferred;
+    // The saved games (read again when ReadSaveDirectory asks: _savesRead
+    // false), the one chosen and its picture (top row first; empty: none).
+    std::vector<SaveEntry> _saves;
+    bool _savesRead = false;
+    int32_t _saveChosen = 0;
+    image::Image _savePicture;
 };
 
 } // namespace reluva::idtech3::jk2

@@ -67,7 +67,10 @@
 #   jk2-sp-menus  the single-player menus, run as jk2sp.exe runs them:
 #                 the main menu, the mouse onto Load, New Game by Enter,
 #                 Jedi Knight and Begin Game clicked, to "map kejim_post";
-#                 then the in-game menu and the datapad opened (sp-menus)
+#                 then the in-game menu and the datapad opened (sp-menus);
+#                 the client game's datapad pages (sp-run -datapad), with
+#                 a saved game written and then loaded from the load
+#                 menu's list; a key bound in Controls
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -133,6 +136,17 @@ elseif(STEP STREQUAL "jk2-sp-menus")
                -key 3 ENTER -mouse 4 50 175 -key 5 MOUSE1 -mouse 6 130 155 -key 7 MOUSE1)
     record_run(ingame "menus read" idtech3 sp-menus "${base}" -menu ingame -frames 1)
     record_run(datapad "menus read" idtech3 sp-menus "${base}" -menu datapad -frames 1)
+    # A saved game of kejim_post for the load menu, and the client game's
+    # datapad pages as the datapad's owner draws ask for them.
+    set(saves "${OUTPUT}/${STEP}/saves")
+    file(REMOVE_RECURSE "${saves}")
+    file(MAKE_DIRECTORY "${saves}")
+    record_run(datapad-pages "datapad 15" idtech3 sp-run "${base}" kejim_post -frames 20 -fixedclock -saveload
+               -savefile "${saves}/jkii00.sav" -datapad)
+    record_run(load-game "command: load" idtech3 sp-menus "${base}" -savedir "${saves}" -menu loadgameMenu
+               -frames 4 -mouse 1 -100 -40 -key 2 MOUSE1 -key 3 MOUSE1)
+    record_run(controls "bind" idtech3 sp-menus "${base}" -menu controlsMenu -frames 5 -mouse 1 80 -60
+               -key 2 MOUSE1 -key 3 g -key 4 DOWNARROW)
 elseif(STEP STREQUAL "jk2-single-player")
     record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame -saveload)
 elseif(STEP STREQUAL "jk2-sp-tour")

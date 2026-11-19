@@ -1,3 +1,6 @@
-new-game: 26716c0efc78c093 | [frame 7] command: map kejim_post
-ingame: c73627e3c2ea8188 | 21 menus read: mainMenu newgameMenu loadgameMenu controlsMenu setupMenu creditsMenu quitMenu ingameMainMenu ingamesaveMenu ingameloadMenu ingameControlsMenu ingameSetupMenu ingamequitMenu datapadForcePowersMenu datapadInventoryMenu datapadMissionMenu datapadWeaponsMenu error_popmenu videowarningMenu ingamevideowarningMenu videodriverMenu
-datapad: 19c800bb4b252b47 | 21 menus read: mainMenu newgameMenu loadgameMenu controlsMenu setupMenu creditsMenu quitMenu ingameMainMenu ingamesaveMenu ingameloadMenu ingameControlsMenu ingameSetupMenu ingamequitMenu datapadForcePowersMenu datapadInventoryMenu datapadMissionMenu datapadWeaponsMenu error_popmenu videowarningMenu ingamevideowarningMenu videodriverMenu
+new-game: 763a060be97cf875 | [frame 7] command: map kejim_post
+ingame: b1cd15a6c7276a89 | 21 menus read: mainMenu newgameMenu loadgameMenu controlsMenu setupMenu creditsMenu quitMenu ingameMainMenu ingamesaveMenu ingameloadMenu ingameControlsMenu ingameSetupMenu ingamequitMenu datapadForcePowersMenu datapadInventoryMenu datapadMissionMenu datapadWeaponsMenu error_popmenu videowarningMenu ingamevideowarningMenu videodriverMenu
+datapad: 02f735405373139d | 21 menus read: mainMenu newgameMenu loadgameMenu controlsMenu setupMenu creditsMenu quitMenu ingameMainMenu ingamesaveMenu ingameloadMenu ingameControlsMenu ingameSetupMenu ingamequitMenu datapadForcePowersMenu datapadInventoryMenu datapadMissionMenu datapadWeaponsMenu error_popmenu videowarningMenu ingamevideowarningMenu videodriverMenu
+datapad-pages: 7466f3d527ab4d2f | datapad 15: 4 pictures: 2 x gfx/hud/background_f 2 x gfx/hud/prong_on_f
+load-game: a4c41127ba3d7079 | [frame 3] command: load jkii00
+controls: e4e6b1733943157b | bind g "weapon 1"

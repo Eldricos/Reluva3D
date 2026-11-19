@@ -207,6 +207,10 @@ public:
         kCgDrawActiveFrame = 3, // (serverTime, stereo)
         kCgCrosshairPlayer = 4,
         kCgCameraPos = 5, // (vec3 out) -> whether a camera is running
+        // Jedi Outcast's datapad (jk2sp.exe's 0x40b790): its frame, then
+        // the mission, weapons, inventory and Force powers pages.
+        kCgDrawDataPadHud = 11,
+        kCgDrawDataPadForcePowers = 15,
     };
     // A player's input, as SP's usercmd_t (28 bytes): server time 0,
     // buttons 4, weapon 8 (a byte), angles 12 (65536 a turn), forward,
@@ -259,6 +263,12 @@ public:
     // The client game's loading screen into scene() and pictures(), from
     // inside its start (updateScreen).
     Error drawLoadingFrame();
+    /**
+     * One of Jedi Outcast's datapad commands (kCgDrawDataPadHud to
+     * kCgDrawDataPadForcePowers), for the menus' owner draws.
+     * @param out gets what it drew, its shaders numbered in shaders().
+     */
+    Error drawDataPad(int command, std::vector<Picture> &out);
     // Called when the client game asks for the screen to be shown
     // (UpdateScreen, as it loads); none: nothing is shown.
     std::function<void()> updateScreen;
