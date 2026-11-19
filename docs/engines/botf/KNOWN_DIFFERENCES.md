@@ -19,14 +19,17 @@ None yet.
 ## Not yet as the original
 
 - **The game starts at the main menu,** without the opening movie.
-- **On the main menu,** only New Single Player Game and Quit Game do
-  anything yet; Continue, Save Game and Retire can't be used (as in the
-  game with nothing in progress), and New Multiplayer Game, Load Game,
-  Options and Hall of Fame do nothing. The version ("1.0.2" in the game)
+- **On the main menu,** only New Single Player Game, Options and Quit
+  Game do anything yet; Continue, Save Game and Retire can't be used (as in
+  the game with nothing in progress), and New Multiplayer Game, Load Game
+  and Hall of Fame do nothing. The version ("1.0.2" in the game)
   isn't drawn.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
 - **The timers offer only None,** as their other choices aren't known.
+- **The options aren't kept** between runs, and change nothing yet: there's
+  no sound or movie to set the volume of, no sample plays when a volume
+  changes, and 3D acceleration means nothing to Reluva.
 
 ## Additions outside the game
 

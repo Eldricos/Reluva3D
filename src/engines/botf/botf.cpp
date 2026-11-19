@@ -3,8 +3,8 @@
 
 // Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
 // releases it recognises, making an Engine to run one) and its Engine,
-// which so far runs the main menu and the start of a new game: the game
-// setup screen, then the empire selection screen
+// which so far runs the main menu, the options screen and the start of a
+// new game: the game setup screen, then the empire selection screen
 // (docs/engines/botf/systems/screens.md).
 
 #include "common/zip.h"
@@ -13,6 +13,7 @@
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/main_menu.h"
+#include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "engines/engine.h"
 
@@ -55,10 +56,27 @@ const std::vector<GameVariant> kFallback = {
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
+// The settings the game setup screen and the options screen share: the
+// manual says each can change them.
+void preferencesToSetup(const GameOptions &o, GameSetup &s) {
+    s.strategicTimer = o.strategicTimer;
+    s.tacticalTimer = o.tacticalTimer;
+    s.randomEvents = o.randomEvents;
+    s.manualCombat = o.manualCombat;
+}
+
+void preferencesToOptions(const GameSetup &s, GameOptions &o) {
+    o.strategicTimer = s.strategicTimer;
+    o.tacticalTimer = s.tacticalTimer;
+    o.randomEvents = s.randomEvents;
+    o.manualCombat = s.manualCombat;
+}
+
 /**
- * The game running: the main menu, and from its New Single Player Game the
- * game setup screen, then the empire selection screen. There's no game to
- * start yet, so the empire screen's Accept comes back to the main menu.
+ * The game running: the main menu, its options screen, and from its New
+ * Single Player Game the game setup screen, then the empire selection
+ * screen. There's no game to start yet, so the empire screen's Accept comes
+ * back to the main menu.
  */
 class BotfEngine : public Engine {
 public:
@@ -77,9 +95,12 @@ public:
             _lexicon.load(data);
         Assets assets(_stbof);
         MainMenu menu(assets, _lexicon);
+        OptionsScreen options(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
         if (Error err = menu.load())
+            return err;
+        if (Error err = options.load())
             return err;
         if (Error err = setup.load())
             return err;
@@ -91,7 +112,7 @@ public:
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        enum class Showing { kMenu, kSetup, kEmpires };
+        enum class Showing { kMenu, kOptions, kSetup, kEmpires };
         Showing showing = Showing::kMenu;
         bool redraw = true;
         while (true) {
@@ -104,21 +125,32 @@ public:
                     // convenience the game hasn't got.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         return Error::success();
-                    // The menu's other choices (loading, the options, the
-                    // Hall of Fame, multiplayer) aren't there yet, and do
-                    // nothing.
+                    // The menu's other choices (loading, the Hall of Fame,
+                    // multiplayer) aren't there yet, and do nothing.
                     const MainMenu::Choice c = menu.handle(ev);
                     if (c == MainMenu::Choice::kQuit)
                         return Error::success();
                     if (c == MainMenu::Choice::kNewSinglePlayer) {
                         setup.setup() = GameSetup{};
+                        preferencesToSetup(_options, setup.setup());
                         showing = Showing::kSetup;
                     }
+                    if (c == MainMenu::Choice::kOptions) {
+                        options.open(_options);
+                        showing = Showing::kOptions;
+                    }
+                } else if (showing == Showing::kOptions) {
+                    const OptionsScreen::Result r = options.handle(ev);
+                    if (r == OptionsScreen::Result::kAccepted)
+                        _options = options.options();
+                    if (r != OptionsScreen::Result::kOpen)
+                        showing = Showing::kMenu;
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)
                         showing = Showing::kMenu;
                     if (r == SetupScreen::Result::kAccepted) {
+                        preferencesToOptions(setup.setup(), _options);
                         showing = Showing::kEmpires;
                         empires.reset();
                         empires.setLevels(setup.setup().civilization);
@@ -136,6 +168,8 @@ public:
                 std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
                 if (showing == Showing::kMenu)
                     menu.draw(screen);
+                else if (showing == Showing::kOptions)
+                    options.draw(screen);
                 else if (showing == Showing::kSetup)
                     setup.draw(screen);
                 else
@@ -152,6 +186,7 @@ private:
     GameTarget _target;
     ZipArchive _stbof;
     Lexicon _lexicon;
+    GameOptions _options; // as the manual gives their defaults; not kept between runs yet
 };
 
 /**

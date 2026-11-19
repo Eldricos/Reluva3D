@@ -16,5 +16,14 @@ setup.again: 6a876819c35a62ea
 menu.again: 138ab6ca9773e725
 empires.second chosen: 5d2dd68cbe8b5b1c
 menu.after a new game: 138ab6ca9773e725
+options.shown: 5522329f080b41c5
+options.combat changed: f5994d1ac4f00db3
+options.volume pressed: 49ce1f8a48dea15b
+options.volume dragged: a59265a88e73df97
+menu.options cancelled: 3295b1e72c1f56e5
+options.again: 5522329f080b41c5
+menu.options accepted: 3295b1e72c1f56e5
+setup.with the options: f1f24d46deb0c711
+menu.last: 138ab6ca9773e725
 run: ok
 run.screen: 800x600

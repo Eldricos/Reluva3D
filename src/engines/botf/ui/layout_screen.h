@@ -58,6 +58,8 @@ protected:
     // lines `lineGap` pixels further apart than the font's.
     void drawText(Surface &screen, int32_t textBox, const std::string &text, Color color, int lineGap = -1) const;
     void drawPicture(Surface &screen, int32_t widget, const std::string &file) const;
+    // The colour a text box's font names, or black.
+    Color fontColor(int32_t textBox) const;
     // The lexicon's entry, or `english` when there's no lexicon.
     std::string word(int entry, const char *english) const;
 

@@ -20,13 +20,13 @@ Engine id `botf`, in `src/engines/botf/`.
   Game opens the game setup screen over it, then the empire selection
   screen, all working from the game's own layouts, pictures, fonts and
   words, and matched against a recording of the game. There's no game to
-  start yet: the empire screen's Accept comes back to the main menu, and
-  the menu's other buttons do nothing yet.
+  start yet: the empire screen's Accept comes back to the main menu. The
+  menu's Options opens the options screen; its other buttons do nothing
+  yet.
 - **The data viewer** (`reluva-viewer`) shows the pictures, fonts, sounds,
   text and data tables, and the window layouts.
 - **Not yet:** the opening movie, the main menu's other screens (loading,
-  saving, the options, the Hall of Fame), the galaxy map and every screen
-  after it;
+  saving, the Hall of Fame), the galaxy map and every screen after it;
   the game's rules; the `.hob` models and their `.gif` textures; the AVI
   movies; saves; multiplayer.
 
@@ -43,8 +43,10 @@ The plan is in [PLAN.md](PLAN.md).
   game setup screen, where a click changes a setting (Shift and a click
   sets every empire's civilization level), then Accept for the empire
   selection screen, where pointing at an empire shows its description and
-  a click chooses it. Cancel goes back a screen; Quit Game, or Esc on the
-  main menu, goes back to the launcher.
+  a click chooses it. Options for the options screen: a click on a volume
+  bar sets it (or drag along it), a click on a setting changes it, and
+  Accept keeps the changes. Cancel goes back a screen; Quit Game, or Esc on
+  the main menu, goes back to the launcher.
 - **The data viewer:** `reluva-viewer` with the game. Tab moves between
   its pages:
   - **Images:** Left/Right step through `stbof.res`'s and `alt.res`'s

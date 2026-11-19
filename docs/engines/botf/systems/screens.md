@@ -4,9 +4,9 @@
 
 ## Overview
 
-The screens rebuilt so far: the main menu, and those that start a new
-game, the game setup ("Configuration") screen and the empire selection
-screen. Each is put
+The screens rebuilt so far: the main menu, the options screen, and those
+that start a new game, the game setup ("Configuration") screen and the
+empire selection screen. Each is put
 back together from its window layout ([formats/wdf.md](../formats/wdf.md)),
 the manual (what each control does, its choices and defaults),
 `lexicon.dic` ([formats/lexicon.md](../formats/lexicon.md)) for its words,
@@ -45,15 +45,73 @@ and their order on the screen, as the recording shows them.
   Player Game lights as the pointer reaches it, before the click.
 - **Buttons that can't be used:** at the start, with no game in progress,
   Continue, Save Game and Retire are dimmed and don't light. Reluva draws
-  them at 35% of their brightness *(inferred)*: the recording doesn't show
-  one button both ways, but the figure is the one that, with the panels'
-  dimming below, matches every button the recording shows.
+  them at 35% of their brightness *(seen, not traced)*: against their own
+  `mc*1` pictures, the recording's buttons that can be used come out at
+  82-89% (the recording's own levels), these three at 29-33%, 35-39% of
+  the others.
 - **Behind a panel** (game setup, empire selection) every button is dimmed
-  further: in the recording the six buttons that could be used are about
-  28% as bright as on the menu, and the three that couldn't 80% of their
-  own. Reluva draws them all at 35% of 80%, 28% *(inferred)*.
+  further, those that can't be used no more than the rest: all nine come
+  out at 20-26% of their pictures, 24-30% of the menu's own buttons.
+  Reluva draws them all at 35% of 80%, 28% *(seen, not traced)*.
 - **The version:** the recording's menu shows "1.0.2" at its bottom left,
   which isn't in the layout: the executable draws it.
+
+### Options
+
+`options.wdf`, opened by the main menu's Options: a background
+(`optbkgnd.tga`), Accept (8100) and Cancel (8101) at the bottom, as on the
+other panels. The manual (chapter 13) names what it sets: four volumes, and
+"Game Preferences", the settings the game setup screen also has, plus two of
+its own. The widgets are matched to them by their order on the screen and
+their pictures' names; there's no recording of this screen yet.
+
+| Control | Widgets | What it sets (the manual) | Shows |
+|---|---|---|---|
+| Title | text box 8122 | | "VOLUME CONTROL" (1416) |
+| Voice, Video Playback, Background Music, Sound Effects | sliders 8102-8105, names in text boxes 8123-8126 | each volume, off at the left | "VOICE", "VIDEO", "MUSIC", "SFX" (1413, 1411, 797, 1113) |
+| 3D acceleration | button 8107 (`3dacc`), value in 8160 | not in the manual (below) | YES or NO |
+| Tactical Combat | button 8106 (`tac_bar`), value in 8161 | Manual (default) or Automatic | MANUAL or AUTOMATIC |
+| Random Events | button 8108 (`rdm_bar`), value in 8162 | Yes (default) or No | ON or OFF |
+| Autosave | button 8109 (`asave`), value in 8163 | Yes (default) or No | YES or NO |
+| Strategic Timer | arrows 8115 (less) and 8114 (more), name in 8116, value in 8117 | as on the game setup screen | "NONE" |
+| Tactical Timer | arrows 8119 and 8118, name in 8120, value in 8121 | the same | "NONE" |
+
+- **The settings' names** are in their buttons' pictures (234x24, as
+  `3dacc.tga` and `3dacc_on.tga`), not in text; the numbers in brackets are
+  the words' `lexicon.dic` entries, found by their text *(inferred: which
+  box shows which)*.
+- **3D acceleration** isn't in the manual, which has Tool Tips instead;
+  the layout has no Tool Tips control. The bar's pictures are `3dacc`, and
+  `lexicon.dic`'s entry 0 is "The 3d accelerator options have changed. You
+  must exit and restart the program for this change to take effect." What
+  it chooses between, and its default, aren't known: Reluva shows YES or
+  NO, YES at first *(guessed)*.
+- **Shared with the game setup screen:** the manual says Random Events,
+  Tactical Combat and the two timers can be set here or there. Reluva keeps
+  one set: a new game's setup starts from the options, and the setup's
+  Accept writes them back *(inferred)*. The setup screen shows Random
+  Events as ON or OFF in the recording, where the manual says Yes and No;
+  this screen shows it the same way *(guessed)*.
+- **A volume** is 0 to 127 in 41 cells of 7 pixels (the slider's maximum,
+  cells and width). The layout names `vol-bar.tga`, the cells lit, for the
+  slider; `volbarof.tga` beside it in `stbof.res`, the same size, has them
+  unlit, though no layout names it. Reluva draws the lit bar and covers the
+  cells past the volume with the unlit one; a click lights the cell under
+  the mouse and those left of it, and dragging follows the mouse
+  *(inferred)*. The manual: "After you adjust a volume slider, a sound
+  sample will play so you can hear the new volume level." The volumes start
+  at the maximum *(guessed)*.
+- **Accept** keeps the changes and **Cancel** drops them (the manual); both
+  go back to the main menu.
+- **Colours:** the text boxes' fonts name their own, a pale green for the
+  title (145, 200, 145) and a light blue for the rest (25, 190, 250), as the
+  reader takes them. Reluva uses those *(guessed)*: on the game setup screen
+  the recording's colours aren't the files'.
+- **Not used:** four pictures without a picture (8110-8113, 144 wide, 96 or
+  128 high) beside the settings' values, perhaps where a list of choices
+  opens *(guessed)*; `asavebkg.tga` is 144x96.
+- **Behind it:** drawn over the main menu, dimmed, as the other panels are
+  *(guessed)*.
 
 ### Game setup
 
@@ -137,11 +195,12 @@ the screen, and checked against the recording:
   can't be used drawn dimmed and the one under the pointer lit, text drawn
   in a text box's font and alignment, and wrapped as the empire screen's
   description is. The dimmed pictures are made by `ui/assets.cpp`.
-- `ui/main_menu.cpp`, `ui/setup_screen.cpp` and `ui/empire_screen.cpp`:
-  each screen's controls.
-- `botf.cpp` runs them as the game does, from the main menu. There's no
-  game to start yet, so the empire screen's Accept comes back to the main
-  menu, and the menu's other buttons do nothing yet
+- `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/setup_screen.cpp` and
+  `ui/empire_screen.cpp`: each screen's controls.
+- `botf.cpp` runs them as the game does, from the main menu, and keeps
+  the options (while it runs: they aren't saved yet). There's no game to
+  start yet, so the empire screen's Accept comes back to the main menu, and
+  the menu's other buttons do nothing yet
   ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 - A button shows its "selected" picture while it's held *(guessed)*; the
   empire screen's Accept does nothing until an empire is chosen
@@ -149,31 +208,39 @@ the screen, and checked against the recording:
 
 ## Sources and checks
 
-- **Where the facts come from:** `gmesetup.wdf`, `emppick.wdf` and
-  `opening.wdf`; the manual's chapters 4 ("Main Menu") and 5 ("Single
-  Player Game", First Edition, May 1999) for each control's job, choices
-  and defaults; a recording of the game ("Let's Play Star Trek Birth of the
+- **Where the facts come from:** `gmesetup.wdf`, `emppick.wdf`,
+  `opening.wdf` and `options.wdf`; the manual's chapters 4 ("Main Menu"), 5
+  ("Single Player Game") and 13 ("Game Options", First Edition, May 1999)
+  for each control's job, choices and defaults; a recording of the game ("Let's Play Star Trek Birth of the
   Federation, UFP, p1": the main menu at 0:00-0:57, game setup at
-  0:57-1:17, empire selection at 1:16-1:45), October 2026. The buttons'
-  brightness was measured on the recording's frames, the menu's and the
-  setup screen's, against parts of the screen that are the same in both.
+  0:57-1:17, empire selection at 1:16-1:45), October 2026. The menu
+  buttons' brightness was measured on the recording's frames against the
+  bottom six rows of each `mc*1` and `mc*2` picture, from the English
+  `stbof.res`, November 2026: each picture's best fit, picture 1 for every
+  button in every frame.
 - **How it was checked:** the screens' text, drawn by Reluva with the
   English `lexicon.dic`, laid over stills of the recording (scaled from its
   960x720 to 800x600), every value landing on the game's own; the
   description's line breaks worked out from the font's widths against the
   recording's. `botf.unit.screens` checks the controls' choices and the
   menu's buttons, and `botf.engine` goes from the main menu through both
-  screens and back.
+  screens and back, and through the options, cancelled and accepted. The
+  options screen hasn't been seen: it's from its layout and the manual.
 
 ## Open questions
 
 - The timers' choices beyond None.
 - Whether the game shows a held button's "selected" picture on the setup
   and empire screens, as the main menu does under the pointer.
-- How the game dims a button that can't be used, and the menu behind a
-  panel: the 35% and 80% are inferred from the recording, not the game's
-  own pictures. Settled by comparing the `mc*1` and `mc*2` pictures with
-  the recording.
+- Whether the pointer lights a main menu button. In the recording's first
+  50 seconds the pointer rests at (625, 483), inside Quit Game's rectangle
+  near its left edge, and Quit Game shows its first picture: the pointer's
+  hot spot may not be where it's drawn, or only the button's picture, not
+  its rectangle, may count.
+- The options screen as the game draws it: its colours, 3D acceleration's
+  choices, whether a volume's click works as Reluva's does, and the
+  pictures 8110-8113. Settled by a recording or screenshots of it.
+- Where the game keeps the options between runs.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
 - What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an

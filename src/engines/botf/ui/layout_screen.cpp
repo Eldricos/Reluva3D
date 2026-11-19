@@ -136,6 +136,11 @@ void LayoutScreen::drawPicture(Surface &screen, int32_t widget, const std::strin
             blitClipped(screen, *img, p->x, p->y, p->x, p->y, p->widget->w, p->widget->h);
 }
 
+Color LayoutScreen::fontColor(int32_t textBox) const {
+    const Placed *p = find(textBox);
+    return p && !p->widget->fonts.empty() ? p->widget->fonts[0].color : Color{};
+}
+
 std::string LayoutScreen::word(int entry, const char *english) const {
     const std::string &w = _lexicon[size_t(entry)];
     return w.empty() ? english : w;

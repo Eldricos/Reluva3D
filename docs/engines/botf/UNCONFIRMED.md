@@ -19,15 +19,25 @@ None: nothing of the game's code has been read.
 - **The speech and music's sample rate,** 22,050 Hz, isn't stored: it's
   the rate the sound effects use, and the one they sound right at
   ([formats/snd.md](formats/snd.md)).
-- **How dim the game draws buttons that can't be used** (35%) and the
-  main menu behind a panel (80% of that): figures that match every button
-  the recording shows, but not measured on the game's own pictures
-  ([systems/screens.md](systems/screens.md)). Settled by: the `mc*.tga`
-  pictures against the recording.
 - **The button under the pointer is drawn with its second picture:** the
-  recording shows it lighter ([systems/screens.md](systems/screens.md)).
+  recording shows it lighter, though elsewhere it shows the pointer inside
+  Quit Game's rectangle and the button not lit
+  ([systems/screens.md](systems/screens.md)). Settled by: pointing at each
+  button's edges in the running game.
+- **The options screen:** which text box shows which word, a volume's
+  click lighting the cells up to the mouse, `volbarof.tga` as the unlit
+  bar, and the settings the game setup screen shares with it kept as one
+  set ([systems/screens.md](systems/screens.md)). Settled by: a recording
+  or screenshots of the screen.
 
 ## Guessed
+
+- **On the options screen:** 3D acceleration's choices (Reluva shows YES
+  or NO) and default, the volumes starting at the maximum, Random Events
+  shown as ON or OFF as on the setup screen, the text in its fonts' own
+  colours, and the screen drawn over the dimmed main menu
+  ([systems/screens.md](systems/screens.md)). Settled by: the running
+  game.
 
 - **On the screens:** a button shows its "selected" picture while it's
   held; the empire screen's Accept does nothing until an empire is
@@ -41,6 +51,10 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
+- **November 2026:** how dim the main menu draws buttons that can't be
+  used (35%) and every button behind a panel (28%), measured on the
+  recording against the `mc*.tga` pictures
+  ([systems/screens.md](systems/screens.md)).
 - **November 2026:** the main menu dimmed behind the game setup and empire
   selection screens, from the recording.
 - **November 2026:** the text boxes' alignment (their fonts' first two

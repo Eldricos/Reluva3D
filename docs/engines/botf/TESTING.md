@@ -15,7 +15,7 @@ files):
 | `botf.unit.fonts` | The `.fnt` fonts' glyphs found by their frames, drawing and wrapping text |
 | `botf.unit.tables` | The `.tdb` text tables, the data tables' layouts (and that every built-in layout fits its records), `lexicon.dic` |
 | `botf.unit.layouts` | The `.wdf` layouts (nested windows, each widget type, cut-short files), the `.mnu` menus, the colour key, dimmed pictures |
-| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
+| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options screen's settings and volumes (clicked and dragged); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
 
 IMA ADPCM without a WAV header, which the `.snd` archives need, is
 checked with the shared audio code, in `common.unit.audio`.
@@ -23,14 +23,16 @@ checked with the shared audio code, in `common.unit.audio`.
 ### The basic engine test
 
 `botf.engine` (`tests/engines/botf/engine.cpp`), without the game's
-files: an install of its own (a `stbof.res` with a main menu, the game
-setup and empire selection layouts, pictures of plain colours, fonts and a
+files: an install of its own (a `stbof.res` with a main menu, the
+options, game setup and empire selection layouts, pictures of plain colours, fonts and a
 `lexicon.dic`), recognised as an unknown release, then the game run
 headless: the main menu, a button pointed at and a dimmed one pressed,
 New Single Player Game, the setup screen clicked (a setting, an empire's
 level, Shift and every empire's), Accept, an empire chosen, Cancel back to
-the setup and the menu, a new game again accepted back to the menu, and
-Quit Game. Each screen's checksum is in its record
+the setup and the menu, a new game again accepted back to the menu; the
+options, a setting changed and a volume dragged, then cancelled; the
+options again, tactical combat changed and accepted, and a new game's
+setup showing it; and Quit Game. Each screen's checksum is in its record
 (`data/engine-record.txt`).
 
 ### The game-files test
@@ -56,8 +58,12 @@ colours, what pressed buttons and the main menu behind look like.
 5. Accept: the empire selection screen, each empire's level as set.
    Point at each empire for its description; click one to choose it.
 6. Cancel goes back to the setup, with its settings kept, and its Cancel
-   to the main menu; Quit Game leaves.
-7. In `reluva-viewer`, every page: every picture, font, sound, table and
+   to the main menu.
+7. Options: the options screen, every volume full, Manual, On, Yes. Click
+   and drag along a volume bar; click each setting. Cancel, then Options
+   again: nothing changed. Change Tactical Combat, Accept, then New Single
+   Player Game: the setup shows Automatic. Quit Game leaves.
+8. In `reluva-viewer`, every page: every picture, font, sound, table and
    layout opens.
 
 ## Last checked

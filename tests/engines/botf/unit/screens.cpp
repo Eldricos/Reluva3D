@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Birth of the Federation's unit tests: the game setup and empire selection screens.
+// Birth of the Federation's unit tests: the main menu, the options screen,
+// and the game setup and empire selection screens.
 
 #include "common/events.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/main_menu.h"
+#include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 
 #include "tests/engines/botf/unit/helpers.h"
@@ -25,6 +27,15 @@ using namespace reluva::botf;
 using namespace reluva::botf::test;
 
 namespace {
+
+// A layout of a window and nothing in it.
+Bytes emptyLayout(uint32_t id) {
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, id, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {});
+    return f;
+}
 
 void testSetupScreen() {
     // A setup layout with the screen's buttons in a row, 10x10 each, and an
@@ -184,6 +195,93 @@ void testMainMenu() {
     CHECK(bool(other.load()));
 }
 
+void testOptionsScreen() {
+    // The options layout's buttons in a row, 10x10 each, its title's text
+    // box, and four volume sliders of 41 cells, 7 pixels each, one under
+    // another from x 100; an empty main menu.
+    const std::vector<uint32_t> ids = {8100, 8101, 8106, 8107, 8108, 8109, 8114, 8115, 8118, 8119};
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 43, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, uint32_t(ids.size())}, {7, 4}, {14, 1}});
+    for (size_t i = 0; i < ids.size(); ++i) {
+        putWidget(f, 2, ids[i], uint32_t(i * 20), 500, 10, 10, "none");
+        put32(f, 0xffffffff);
+        f.push_back(2);
+        put32(f, 0);
+        put32(f, 0);
+        putName(f, "none");
+        putName(f, "none");
+    }
+    for (uint32_t i = 0; i < 4; ++i) {
+        putWidget(f, 7, 8102 + i, 100, 200 + 30 * i, 287, 19, "none");
+        put16(f, 0);
+        for (const uint32_t v : {127U, 41U, 287U, 0U})
+            put32(f, v);
+        for (int n = 0; n < 4; ++n)
+            putName(f, "none");
+        for (int n = 0; n < 3; ++n)
+            put32(f, 0);
+    }
+    putWidget(f, 14, 8122, 226, 153, 160, 29, "none");
+    for (const uint32_t v : {0U, 0U, 160U, 29U})
+        put32(f, v);
+    putFont(f, 145, 200, 145, "human28.fnt");
+    MemoryArchive archive;
+    archive.files["options.wdf"] = f;
+    archive.files["opening.wdf"] = emptyLayout(138);
+    Assets assets(archive);
+    Lexicon lexicon;
+    OptionsScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+    auto mouse = [&](EventType t, int x, int y) {
+        Event e;
+        e.type = t;
+        e.button = t == EventType::kMouseMove ? MouseButton::kNone : MouseButton::kLeft;
+        e.mouseX = x;
+        e.mouseY = y;
+        return screen.handle(e);
+    };
+    auto click = [&](size_t i) {
+        mouse(EventType::kMouseDown, int(i * 20) + 5, 505);
+        return mouse(EventType::kMouseUp, int(i * 20) + 5, 505);
+    };
+    // The manual's defaults.
+    const GameOptions defaults;
+    CHECK(defaults.manualCombat && defaults.randomEvents && defaults.autosave && defaults.strategicTimer == 0);
+    // Each bar changes its setting; the timers' arrows have only "None".
+    for (size_t i = 2; i < ids.size(); ++i)
+        CHECK(click(i) == OptionsScreen::Result::kOpen);
+    const GameOptions &o = screen.options();
+    CHECK(!o.manualCombat && !o.accelerated3d && !o.randomEvents && !o.autosave);
+    CHECK(o.strategicTimer == 0 && o.tacticalTimer == 0);
+    // A click on a volume's bar lights the cell under it and those left of
+    // it; a drag follows the mouse, past either end.
+    mouse(EventType::kMouseDown, 100, 205);
+    CHECK(o.volume[0] == 3); // one cell of 41, of 127
+    mouse(EventType::kMouseMove, 100 + 20 * 7 + 3, 300);
+    CHECK(o.volume[0] == 65);
+    mouse(EventType::kMouseMove, 50, 300);
+    CHECK(o.volume[0] == 0);
+    mouse(EventType::kMouseMove, 500, 300);
+    mouse(EventType::kMouseUp, 500, 300);
+    CHECK(o.volume[0] == GameOptions::kMaxVolume);
+    // Once the mouse is up, moving it changes nothing.
+    mouse(EventType::kMouseMove, 100, 300);
+    CHECK(o.volume[0] == GameOptions::kMaxVolume && o.volume[3] == GameOptions::kMaxVolume);
+    mouse(EventType::kMouseDown, 100, 295);
+    mouse(EventType::kMouseMove, 60, 295);
+    mouse(EventType::kMouseUp, 60, 295);
+    CHECK(o.volume[3] == 0);
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(surface);
+    CHECK(click(0) == OptionsScreen::Result::kAccepted && click(1) == OptionsScreen::Result::kCancelled);
+    // Opening it again shows the options it's given.
+    screen.open(defaults);
+    CHECK(screen.options().autosave && screen.options().volume[3] == GameOptions::kMaxVolume);
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -261,6 +359,7 @@ void testEmpireScreen() {
 static const reluva::test::Suite
     kSuite("botf.unit.screens", {
                                     {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
+                                    {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
                                     {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                                     {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
                                 });
