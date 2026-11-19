@@ -1,28 +1,39 @@
 # Star Trek: Birth of the Federation: unconfirmed items
 
 What Reluva does that hasn't been checked against the running original.
-
-<!-- Each item: what Reluva does, what it rests on, and what would settle
-it (a recording, a screenshot, a trace), with a link to its page. -->
+Each page marks the rest of what it hasn't confirmed; these are the items
+that change how Reluva behaves.
 
 ## Read from the code, not seen running
 
-None yet.
+None: nothing of the game's code has been read.
 
 ## Seen running, not traced in the code
 
-None yet.
+- **The screens' text colours** are measured from a recording, as the
+  files don't hold them ([systems/screens.md](systems/screens.md)).
+  Settled by: the game's own pixels, from screenshots of the running game.
 
 ## Inferred
 
-None yet.
+- **The speech and music's sample rate,** 22,050 Hz, isn't stored: it's
+  the rate the sound effects use, and the one they sound right at
+  ([formats/snd.md](formats/snd.md)).
 
 ## Guessed
 
-None yet.
+- **On the screens:** a button shows its "selected" picture while it's
+  held; the empire screen's Accept does nothing until an empire is
+  chosen; clicking an emblem chooses its empire; the emblems drawn are
+  `es_?icn0`, not `es_?icn1` ([systems/screens.md](systems/screens.md)).
+  Settled by: watching them in the running game.
+- **The colour key is magenta** (31, 0, 31 in 15-bit colour): the
+  executable sets it, and magenta is what the pictures leave undrawn
+  ([formats/wdf.md](formats/wdf.md)). Settled by: no picture showing pink
+  where the game shows none.
 
 ## Settled
 
-<!-- Items confirmed or corrected since: the date, and how. Once the page
-it belongs to says so, an item can go. -->
-None yet.
+- **November 2026:** the text boxes' alignment (their fonts' first two
+  flags) and the game setup screen's galaxy pictures, from a recording
+  ([systems/screens.md](systems/screens.md)).
