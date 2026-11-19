@@ -59,9 +59,6 @@ full playthrough's recording has been
 
 ## Guessed
 
-- **The bone axis order and the IK natives** are Reluva's own readings
-  until compared with the original running ([bones.md](systems/bones.md),
-  [animation.md](systems/animation.md)).
 - **Meshes with no float copy** are given the usual import turn
   (KiraCellLight's) ([mesh.md](formats/mesh.md)).
 - **Which MP3 the game plays when:** the music cues in
@@ -70,6 +67,10 @@ full playthrough's recording has been
 
 ## Settled
 
+- **The bones' axes and the IK** (November 2026): the axis swap,
+  `C3DApplyRotation`'s and `C3DApplyWorldRotation`'s order, and
+  `C3DApplyIK`'s chains, joint limits and solve are as Engine.dll has
+  them ([bones.md](systems/bones.md)).
 - **Character normals** (November 2026): Render.dll makes each vertex's
   normal from the triangles' winding alone; Reluva had guessed which way
   was out from each mesh's middle, which turned the EVA suit's inward.

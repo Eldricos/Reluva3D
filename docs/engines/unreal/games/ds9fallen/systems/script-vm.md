@@ -13,16 +13,13 @@ the keyboard and mouse, seen from the game's own camera, the AI finding
 its way along the level's paths and the characters' lines shown as
 they're said, and its own HUD and menus drawn over it, the menus
 travelling from map to map, games saved and loaded, and its sounds and
-music heard. It isn't the
-game yet: some of The Fallen's own engine functions are still missing
-([level.md](level.md)). Every class of the game loads (`vm.cpp`), every default
+music heard. Every class of the game loads (`vm.cpp`), every default
 property converts to its type, and all 74 maps start: their actors made,
 the game type spawned, the start-up events sent, the player logged in as
-the level's character, then twenty seconds of ticks, with no crash. The
-script errors left are mistakes in the game's own scripts ([level.md](level.md)) and
-None accessed where natives not written yet would have filled
-something in. The Maps page draws each level as its scripts leave it
-when play begins.
+the level's character, then twenty seconds of ticks, with no crash and
+no native missing. The script errors and None accesses left are the
+game's own scripts' ([level.md](level.md)). The Maps page draws each
+level as its scripts leave it when play begins.
 
 What the VM does in a level is on the pages for each part:
 [the level's actors and ticks](level.md), [movement](movement.md) and
@@ -146,13 +143,15 @@ up by `DynamicLoadObject` is taken only as an object of the class asked:
 Natives are C++ functions registered by the qualified name of the
 function declaring them (`Object.Add_IntInt`): all of Core's Object
 (`vm_natives_core.cpp`: the operators for every type, maths, vectors and
-rotators, strings, states, `IsA`, `DynamicLoadObject`...), and the
-Engine ones a level needs so far (`vm_level.cpp`): `Spawn`, `Destroy`,
+rotators, strings, states, `IsA`, `DynamicLoadObject`...), and every
+Engine and The Fallen's own native the game's scripts call
+(`vm_level.cpp` and the files beside it): `Spawn`, `Destroy`,
 `SetTimer`, `Sleep`, location, rotation and collision setters, the actor
 iterators (`AllActors`, `ChildActors`, `BasedActors`, `RadiusActors` and
-the visible ones by radius, `RadiusPawns`, `AllPawns`), the pawn list, animation
-groups from the actor's mesh. A native not written yet returns an empty
-value and is counted.
+the visible ones by radius, `RadiusPawns`, `AllPawns`), the pawn list,
+animation groups from the actor's mesh, and the rest on the pages
+above. A native with no function (none, over all 74 maps' runs) returns
+an empty value and is counted, as `unreal run`'s "natives missing".
 
 A `switch` finds its case itself: the labels in turn, each one's value
 against the switch's, jumping on to the next label until one matches or

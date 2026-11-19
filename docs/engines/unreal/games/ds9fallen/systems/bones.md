@@ -173,15 +173,15 @@ M04_KiraL1, once 2 is pressed, Kira holds the phaser rifle at her hip
 facing where she faces, both hands on its grips, its muzzle 27 units
 ahead of the right hand's.
 
-Not done:
-- (Checked against Engine.dll, November 2026: a bone's place's axes
-  (`C3DGetJointWorldPos`: the actor's X is the bone's −Z, Y its −X, Z
-  its +Y, through a fixed swap), `C3DApplyRotation` turning about the
-  bone's own X (pitch), Y (yaw) and Z (roll) before its local place,
-  and `C3DApplyWorldRotation` turning the bone within the skeleton by
-  the rotator carried through that swap, the actor's own turn left out
-  (Reluva takes the swap from the mesh's placement, the same for The
-  Fallen's meshes): all as Reluva has them.)
+Checked against Engine.dll (November 2026):
+- **The bones' axes.** A bone's place's axes (`C3DGetJointWorldPos`:
+  the actor's X is the bone's −Z, Y its −X, Z its +Y, through a fixed
+  swap), `C3DApplyRotation` turning about the bone's own X (pitch), Y
+  (yaw) and Z (roll) before its local place, and `C3DApplyWorldRotation`
+  turning the bone within the skeleton by the rotator carried through
+  that swap, the actor's own turn left out (Reluva takes the swap from
+  the mesh's placement, the same for The Fallen's meshes): all as
+  Reluva has them.
 - **The IK, as Engine.dll's** (`C3DApplyIK` and its solver, read November
   2026):
   - **The chains are data.** Shared.u's `Male` keeps eight (the player

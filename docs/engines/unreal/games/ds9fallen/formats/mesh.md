@@ -54,9 +54,9 @@ of the standard tail is found from the end back as the place it reads
 from to exactly the end, agreeing with itself (frame counts above 0, a
 sane Scale and Origin, for a LodMesh FrameVerts = model + special
 vertices and some faces); the vertices are the block's `(N, N, 1)` array
-of N = FrameVerts x AnimFrames packed vertices, or one such array per
-frame (which animated meshes are expected to use, still to be seen on
-the data). On KiraCellLight this gives its 12 vertices, its 14 triangles
+of N = FrameVerts x AnimFrames packed vertices, or else the first of
+the `(FrameVerts, FrameVerts, 1)` arrays, which are the clips' vertex
+keys (see "Keyframed meshes" below). On KiraCellLight this gives its 12 vertices, its 14 triangles
 (8 with texture 0, 6 with texture 1, as the block's header counts) and
 Scale (0.0307, 0.0307, 0.0614), with no bytes over.
 
