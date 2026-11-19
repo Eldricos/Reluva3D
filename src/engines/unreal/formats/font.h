@@ -15,7 +15,7 @@
 namespace reluva::unreal {
 
 struct FontCharacter {
-    // on its page's texture, in texels
+    /** on its page's texture, in texels */
     int32_t u = 0;
     int32_t v = 0;
     int32_t width = 0;
@@ -30,7 +30,7 @@ struct FontPage {
 struct Font {
     std::vector<FontPage> pages;
     int charactersPerPage = 256;
-    // A character's page and rectangle; none for one past the pages.
+    /** A character's page and rectangle; none for one past the pages. */
     const FontCharacter *character(uint32_t c, const FontPage **page = nullptr) const;
 };
 

@@ -11,10 +11,12 @@
 
 namespace reluva::unreal {
 
-// The renderer as the Maps page draws with it, noting which textures its
-// draws used since asked last (UE1 ticks a procedural texture only as it's
-// drawn: UTexture::Get calls Update, which ticks it by the time since it
-// was last updated).
+/**
+ * The renderer as the Maps page draws with it, noting which textures its
+ * draws used since asked last (UE1 ticks a procedural texture only as it's
+ * drawn: UTexture::Get calls Update, which ticks it by the time since it
+ * was last updated).
+ */
 class TextureUseRecorder : public gfx::Renderer3D {
 public:
     explicit TextureUseRecorder(gfx::Renderer3D &to) : _to(to) {}
@@ -84,56 +86,72 @@ public:
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return _renderer != nullptr; }
-    // Shows the map of that name (once active); false if there's none.
+    /** Shows the map of that name (once active); false if there's none. */
     bool selectMap(const std::string &name);
     bool playing() const { return _play != nullptr; }
-    // As the game's own screen rather than the data viewer's page: the info
-    // hidden, and the viewer's keys (picking maps, free camera, stopping
-    // play, the drawing toggles) only in developer builds.
+    /**
+     * As the game's own screen rather than the data viewer's page: the info
+     * hidden, and the viewer's keys (picking maps, free camera, stopping
+     * play, the drawing toggles) only in developer builds.
+     */
     void setGame(bool game) {
         _game = game;
         _showInfo = !game;
     }
-    // What the level being played has playing (LevelAudio::describe).
+    /** What the level being played has playing (LevelAudio::describe). */
     std::vector<std::string> sounds() const { return _audio ? _audio->describe() : std::vector<std::string>{}; }
-    // The level being played saved now, as the game's SaveGame command does.
+    /** The level being played saved now, as the game's SaveGame command does. */
     Error saveGame(const std::string &name);
-    // The game's ClientTravel ("CM01a_SW/CM01_A_Sisko01?options"): that
-    // map loaded and played from the start the portal tags.
-    // `items`: as ClientTravel's bItems (else as the level last asked).
+    /**
+     * The game's ClientTravel ("CM01a_SW/CM01_A_Sisko01?options"): that
+     * map loaded and played from the start the portal tags.
+     * `items`: as ClientTravel's bItems (else as the level last asked).
+     */
     void travel(const std::string &url, bool items = false);
-    // Playing with the game's own view, Escape is the game's (its menu).
+    /** Playing with the game's own view, Escape is the game's (its menu). */
     bool ownsKey(uint32_t k) const override { return _play && !_freeCam && k == key::kEscape; }
-    // Playing: the camera let loose, in front of the live actor of that
-    // name looking at it; false if there's none.
+    /**
+     * Playing: the camera let loose, in front of the live actor of that
+     * name looking at it; false if there's none.
+     */
     bool watchActor(const std::string &name);
     float liveLightLevel(const LightSource &l, bool whole = true);
-    // The player put by an actor (`offset` from it, facing `yaw` degrees),
-    // falling; and where it is, its state and physics (ue-play's tests).
+    /**
+     * The player put by an actor (`offset` from it, facing `yaw` degrees),
+     * falling; and where it is, its state and physics (ue-play's tests).
+     */
     bool teleportPlayer(const std::string &name, const Vec3f &offset, float yaw);
-    // The fly camera put at a place in Unreal's axes, facing yaw and pitch
-    // degrees (when not playing); and the live actors whose class has
-    // `classPart` in its name, with where they are (ue-play's tests: views
-    // to match against a recording).
+    /**
+     * The fly camera put at a place in Unreal's axes, facing yaw and pitch
+     * degrees (when not playing); and the live actors whose class has
+     * `classPart` in its name, with where they are (ue-play's tests: views
+     * to match against a recording).
+     */
     void placeCamera(const Vec3f &at, float yaw, float pitch);
     std::vector<std::pair<std::string, Vec3f>> actorPlaces(const std::string &classPart);
     std::string describePlayer();
-    // The level's seconds played (0 if not playing).
+    /** The level's seconds played (0 if not playing). */
     float playTime() const;
-    // A console command as the player types it (its ConsoleCommand), and
-    // what it answers; ue-play's tests.
+    /**
+     * A console command as the player types it (its ConsoleCommand), and
+     * what it answers; ue-play's tests.
+     */
     std::string consoleCommand(const std::string &command);
-    // A live actor's event or function with no arguments run ("player":
-    // the player's pawn); ue-play's tests (BeginEvent: the use key).
+    /**
+     * A live actor's event or function with no arguments run ("player":
+     * the player's pawn); ue-play's tests (BeginEvent: the use key).
+     */
     bool callFunction(const std::string &actor, const std::string &function);
-    // A live actor of that name: where it is, its state, physics and
-    // collision, whether it's hidden ("no such actor" if there's none).
+    /**
+     * A live actor of that name: where it is, its state, physics and
+     * collision, whether it's hidden ("no such actor" if there's none).
+     */
     std::string describeActor(const std::string &name);
-    // The game's camera now: where, its pitch, yaw and roll (degrees) and field of view.
+    /** The game's camera now: where, its pitch, yaw and roll (degrees) and field of view. */
     std::string describeView();
-    // A live actor's property as text ("no such actor/property" else).
+    /** A live actor's property as text ("no such actor/property" else). */
     std::string actorProperty(const std::string &name, const std::string &property);
-    // The dialogue lines said so far, a key and its text each.
+    /** The dialogue lines said so far, a key and its text each. */
     std::vector<std::string> linesSaid();
 
 private:
@@ -252,10 +270,12 @@ private:
     void seeZonesFrom(const gfx::Vec3 &eye, const gfx::Mat4 &viewProj, bool mainView);
 
 public:
-    // The last frame's times (ms): the level's ticks (its scripts, physics,
-    // animation, posing for the scripts) and the renderer's endFrame
-    // (submitting, presenting); the rest of update is preparing and
-    // handing over the draws. For RELUVA_BENCH.
+    /**
+     * The last frame's times (ms): the level's ticks (its scripts, physics,
+     * animation, posing for the scripts) and the renderer's endFrame
+     * (submitting, presenting); the rest of update is preparing and
+     * handing over the draws. For RELUVA_BENCH.
+     */
     struct FrameTimes {
         double play = 0;
         double endFrame = 0;

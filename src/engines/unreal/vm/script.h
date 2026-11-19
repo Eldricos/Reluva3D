@@ -122,8 +122,10 @@ enum : uint8_t {
 };
 } // namespace token
 
-// One expression of bytecode, its operands, and its subexpressions (by
-// index into Code::exprs).
+/**
+ * One expression of bytecode, its operands, and its subexpressions (by
+ * index into Code::exprs).
+ */
 struct Expr {
     uint8_t token = 0;
     uint32_t offset = 0;   // where it starts, counted as the engine does in memory (see script.md)
@@ -144,34 +146,38 @@ struct Code {
     uint32_t size = 0;           // in memory
 };
 
-// Decodes `scriptSize` bytes of bytecode (as the engine counts them in
-// memory) from `r`; fails if the tokens don't end exactly there.
+/**
+ * Decodes `scriptSize` bytes of bytecode (as the engine counts them in
+ * memory) from `r`; fails if the tokens don't end exactly there.
+ */
 Error decodeCode(const Package &package, Reader &r, uint32_t scriptSize, Code &out);
 
-// A UField subclass's export, read: which kind it is and what it stores.
+/** A UField subclass's export, read: which kind it is and what it stores. */
 struct ScriptObject {
     enum class Kind { kConst, kEnum, kProperty, kStruct, kFunction, kState, kClass } kind = Kind::kConst;
     std::string className; // the export's class ("IntProperty", "Function"...)
     int32_t super = 0;
     int32_t next = 0;
 
-    // Const: its value as written in the source.
+    /** Const: its value as written in the source. */
     std::string constValue;
-    // Enum: its names (name indices).
+    /** Enum: its names (name indices). */
     std::vector<int32_t> enumNames;
 
-    // Property.
+    /** Property. */
     int32_t arrayDim = 1;
     uint32_t propertyFlags = 0;
     int32_t category = 0; // name index
     uint16_t repOffset = 0;
-    // Byte: its enum; Object, Class: its class; Struct: its struct; Array:
-    // its inner property; FixedArray: its inner property.
+    /**
+     * Byte: its enum; Object, Class: its class; Struct: its struct; Array:
+     * its inner property; FixedArray: its inner property.
+     */
     int32_t propertyRef = 0;
     int32_t metaClass = 0; // Class: the classes it holds are this or below
     int32_t fixedCount = 0;
 
-    // Struct and up.
+    /** Struct and up. */
     int32_t scriptText = 0;
     int32_t children = 0;
     int32_t friendlyName = 0;
@@ -179,18 +185,18 @@ struct ScriptObject {
     int32_t textPos = 0;
     Code code;
 
-    // Function.
+    /** Function. */
     uint16_t native = 0;
     uint8_t operatorPrecedence = 0;
     uint32_t functionFlags = 0;
 
-    // State and Class.
+    /** State and Class. */
     uint64_t probeMask = 0;
     uint64_t ignoreMask = 0;
     uint16_t labelTableOffset = 0;
     uint32_t stateFlags = 0;
 
-    // Class.
+    /** Class. */
     uint32_t classFlags = 0;
     std::array<uint8_t, 16> guid{};
     struct Dependency {
@@ -207,7 +213,7 @@ struct ScriptObject {
     size_t trailing = 0; // bytes left after what was read (none expected)
 };
 
-// Whether an export's class is one of the UField subclasses above.
+/** Whether an export's class is one of the UField subclasses above. */
 bool isScriptClass(std::string_view className);
 
 Error readScriptObject(const Package &package, int exportIndex, ScriptObject &out);

@@ -45,15 +45,17 @@ struct ViewContext {
     const GameInfo &game;
     const std::vector<std::string> &warnings;
     audio::Mixer *mixer = nullptr; // none if the system has no audio
-    // How imported-model meshes are turned, on both 3D pages (M changes it).
+    /** How imported-model meshes are turned, on both 3D pages (M changes it). */
     MeshTurn meshTurn = MeshTurn::kReverse;
     int meshYawQuarters = kImportYawQuarters; // and about Z (Y changes it)
-    // Where the game's saved games go (GameTarget::savePath's "Saves");
-    // empty: none can be saved.
+    /**
+     * Where the game's saved games go (GameTarget::savePath's "Saves");
+     * empty: none can be saved.
+     */
     std::filesystem::path saveFolder{};
-    // The game's own folder (its movies are found from it).
+    /** The game's own folder (its movies are found from it). */
     std::filesystem::path gameFolder{};
-    // The Fallen's shared animation sets, read the first time a page needs them.
+    /** The Fallen's shared animation sets, read the first time a page needs them. */
     std::shared_ptr<const std::vector<AnimationSet>> animationSets{};
     const std::vector<AnimationSet> &sets() {
         if (!animationSets)
@@ -74,8 +76,10 @@ public:
     virtual void handleEvent(const Event &ev) = 0;
     virtual void update(uint64_t /*nowMs*/) {}
     virtual bool uses3D() const { return false; }
-    // A key the page takes before the viewer's own use of it (Escape
-    // leaving): a game's while it plays.
+    /**
+     * A key the page takes before the viewer's own use of it (Escape
+     * leaving): a game's while it plays.
+     */
     virtual bool ownsKey(uint32_t /*key*/) const { return false; }
 
 protected:

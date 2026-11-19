@@ -25,8 +25,10 @@ struct MeshAnimSeq {
     int32_t startFrame = 0;
     int32_t numFrames = 0;
     float rate = 0; // frames per second
-    // Functions called on the actor as the animation passes their time
-    // (0-1 through it).
+    /**
+     * Functions called on the actor as the animation passes their time
+     * (0-1 through it).
+     */
     struct Notify {
         float time = 0;
         std::string function;
@@ -34,8 +36,10 @@ struct MeshAnimSeq {
     std::vector<Notify> notifies;
 };
 
-// A triangle: three of a frame's vertices, each corner's texture
-// coordinates (0-1), which of the mesh's textures it uses, and its flags.
+/**
+ * A triangle: three of a frame's vertices, each corner's texture
+ * coordinates (0-1), which of the mesh's textures it uses, and its flags.
+ */
 struct MeshTri {
     std::array<int32_t, 3> vertex{};
     std::array<std::array<float, 2>, 3> uv{};
@@ -43,10 +47,12 @@ struct MeshTri {
     uint32_t polyFlags = 0;
 };
 
-// The Fallen's attachment points (kept in its imported-model block): named
-// places on a mesh, moving with it, where what's held or worn is put
-// (C3DAttach) and where effects start (C3DGetAttachPtCoords: GunTip,
-// FirePoint, KickPoint...). See mesh.md.
+/**
+ * The Fallen's attachment points (kept in its imported-model block): named
+ * places on a mesh, moving with it, where what's held or worn is put
+ * (C3DAttach) and where effects start (C3DGetAttachPtCoords: GunTip,
+ * FirePoint, KickPoint...). See mesh.md.
+ */
 struct MeshAttachPoint {
     std::string name;
     int type = 1;          // 1: on a triangle, following it as the mesh moves; 2: on the mesh's own origin
@@ -69,48 +75,64 @@ struct Mesh {
     Vec3f origin{};
     Rotator rotOrigin;
     size_t trailingBytes = 0; // left after the last field read
-    // The Fallen's layout: how many bytes of imported-model block (holding
-    // the vertices) came between the textures and the standard fields; 0
-    // for the standard layout.
+    /**
+     * The Fallen's layout: how many bytes of imported-model block (holding
+     * the vertices) came between the textures and the standard fields; 0
+     * for the standard layout.
+     */
     size_t importBlock = 0;
-    // Its float copy of the vertices shows they're turned from how the
-    // packed ones lie: that turn (rows: output axes), applied after Scale
-    // and Origin and before RotOrigin. None for the standard layout.
+    /**
+     * Its float copy of the vertices shows they're turned from how the
+     * packed ones lie: that turn (rows: output axes), applied after Scale
+     * and Origin and before RotOrigin. None for the standard layout.
+     */
     std::optional<std::array<Vec3f, 3>> importAxes;
-    // Without a float copy to fit (most keep per-vertex weights where
-    // KiraCellLight keeps its copy), the turn most of them show is taken.
+    /**
+     * Without a float copy to fit (most keep per-vertex weights where
+     * KiraCellLight keeps its copy), the turn most of them show is taken.
+     */
     bool importAxesGuessed = false;
-    // The Fallen's keyframed meshes: how many frames of vertices were
-    // found, fewer than animFrames; the first is used for every frame
-    // until the rest is worked out. 0: every frame was found.
+    /**
+     * The Fallen's keyframed meshes: how many frames of vertices were
+     * found, fewer than animFrames; the first is used for every frame
+     * until the rest is worked out. 0: every frame was found.
+     */
     int keyFrames = 0;
-    // The Fallen's meshes built on a skeleton: how many bones they were
-    // posed from (0 for the others), and whether every frame was posed
-    // from their animation keys (else all are the pose they're bound in).
+    /**
+     * The Fallen's meshes built on a skeleton: how many bones they were
+     * posed from (0 for the others), and whether every frame was posed
+     * from their animation keys (else all are the pose they're bound in).
+     */
     int bones = 0;
     bool bonesAnimated = false;
-    // The Fallen's frames filled from their clips by name (vertex keys or
-    // bones; see mesh.md), 0 if none.
+    /**
+     * The Fallen's frames filled from their clips by name (vertex keys or
+     * bones; see mesh.md), 0 if none.
+     */
     int framesFromClips = 0;
     int droppedAnims = 0;                // animations left out, their frames past the mesh's
     std::vector<MeshAnimSeq> otherAnims; // those animations
     std::vector<MeshAttachPoint> attachPoints;
-    // Places worked out in advance (C3DGetAttachPtCoordsPrecomputed: the
-    // gun's tip in a firing pose, FireGunTipLoc...), from the mesh's origin
-    // as a type 2 point.
+    /**
+     * Places worked out in advance (C3DGetAttachPtCoordsPrecomputed: the
+     * gun's tip in a firing pose, FireGunTipLoc...), from the mesh's origin
+     * as a type 2 point.
+     */
     std::vector<MeshAttachPoint> precomputedPoints;
     std::vector<std::string> animationSetNames; // the shared sets its animations come from ("shared.Male")
 
     const MeshAnimSeq *findAnim(std::string_view name) const;
 };
 
-// Reads a Mesh or LodMesh export.
+/** Reads a Mesh or LodMesh export. */
 Error readMesh(const Package &package, int exportIndex, Mesh &out);
 
-// The Fallen's shared animations: Mesh exports with a skeleton and no
-// vertices (Male, Female, MaleTwo in Shared.u), whose clips, end to end,
-// are the frames characters' animations past their own frames point into
-// (see mesh.md).
+/**
+ * The Fallen's shared animations: Mesh exports with a skeleton and no
+ * vertices (Male, Female, MaleTwo in Shared.u), whose clips, end to end,
+ * are the frames characters' animations past their own frames point into
+ * (see mesh.md).
+ */
 class AnimationSet {
 public:
     AnimationSet();
@@ -118,8 +140,10 @@ public:
     AnimationSet(AnimationSet &&) noexcept;
     AnimationSet &operator=(AnimationSet &&) noexcept;
     int frames() const; // its clips' frames together
-    // The clip whose frames a sequence's are exactly (and, where the set
-    // names its clips, of its name), or -1.
+    /**
+     * The clip whose frames a sequence's are exactly (and, where the set
+     * names its clips, of its name), or -1.
+     */
     int clipFor(int32_t startFrame, int32_t numFrames, std::string_view name = {}) const;
 
     struct Impl;
@@ -127,50 +151,68 @@ public:
 };
 Error readAnimationSet(const Package &package, int exportIndex, AnimationSet &out);
 
-// Adds an animation to a mesh built on a skeleton (read from `package`'s
-// `exportIndex`): `set`'s clip `clip`, its bones' keys given to the mesh's
-// bones of the same names, as frames after the mesh's; the animation is
-// `seq` over them.
+/**
+ * Adds an animation to a mesh built on a skeleton (read from `package`'s
+ * `exportIndex`): `set`'s clip `clip`, its bones' keys given to the mesh's
+ * bones of the same names, as frames after the mesh's; the animation is
+ * `seq` over them.
+ */
 Error borrowAnimation(const Package &package, int exportIndex, const AnimationSet &set, int clip,
                       const MeshAnimSeq &seq, Mesh &mesh);
 
-// Every animation set in the packages' .u files (Mesh exports with a
-// skeleton, clips and no vertices).
+/**
+ * Every animation set in the packages' .u files (Mesh exports with a
+ * skeleton, clips and no vertices).
+ */
 class PackageSet;
 std::vector<AnimationSet> findAnimationSets(const PackageSet &packages);
-// The same, read once for a package set while anyone holds them (the
-// Maps page and the level playing share them).
+/**
+ * The same, read once for a package set while anyone holds them (the
+ * Maps page and the level playing share them).
+ */
 std::shared_ptr<const std::vector<AnimationSet>> sharedAnimationSets(const PackageSet &packages);
 
-// For a mesh built on a skeleton: borrows the animation `name` (one of
-// those its frames don't have, Mesh::otherAnims) from the set with a clip
-// for exactly its frames. Whether one did.
+/**
+ * For a mesh built on a skeleton: borrows the animation `name` (one of
+ * those its frames don't have, Mesh::otherAnims) from the set with a clip
+ * for exactly its frames. Whether one did.
+ */
 bool borrowNamedAnimation(const Package &package, int exportIndex, const std::vector<AnimationSet> &sets,
                           std::string_view name, Mesh &mesh);
 
-// A mesh built on a skeleton, posed at draw time from more than one
-// animation: The Fallen's layered animation (C3DPlayAnim) plays one on a
-// part of the skeleton over the actor's own, which the frames posed when
-// it's read (one animation each) can't show.
+/**
+ * A mesh built on a skeleton, posed at draw time from more than one
+ * animation: The Fallen's layered animation (C3DPlayAnim) plays one on a
+ * part of the skeleton over the actor's own, which the frames posed when
+ * it's read (one animation each) can't show.
+ */
 class LayeredPoser {
 public:
     LayeredPoser();
     ~LayeredPoser();
-    // Its skeleton and animation tables (read again from its export); the
-    // shared sets for those past its own frames. None if it has no bones.
+    /**
+     * Its skeleton and animation tables (read again from its export); the
+     * shared sets for those past its own frames. None if it has no bones.
+     */
     static std::unique_ptr<LayeredPoser> open(const Package &package, int exportIndex,
                                               const std::vector<AnimationSet> &sets);
-    // The bones from `bone` down (with `rest`, all the others); empty if
-    // there's no bone of that name.
+    /**
+     * The bones from `bone` down (with `rest`, all the others); empty if
+     * there's no bone of that name.
+     */
     std::vector<bool> part(std::string_view bone, bool rest) const;
-    // Its animation groups (the engine's: FullBody, LowerTorso,
-    // UpperTorso), by name (-1 if none such), and a group's bones (empty
-    // if there's no such group): the bones whose own lists name it.
+    /**
+     * Its animation groups (the engine's: FullBody, LowerTorso,
+     * UpperTorso), by name (-1 if none such), and a group's bones (empty
+     * if there's no such group): the bones whose own lists name it.
+     */
     int groupIndex(std::string_view name) const;
     std::vector<bool> groupPart(std::string_view name) const;
-    // The animation under the layers: its name, and whether it's looping
-    // (the engine's sampler then blends its last stretch toward the
-    // first key, not the last).
+    /**
+     * The animation under the layers: its name, and whether it's looping
+     * (the engine's sampler then blends its last stretch toward the
+     * first key, not the last).
+     */
     struct Anim {
         std::string_view name;
         bool loop = false;
@@ -183,46 +225,60 @@ public:
         float fraction = 0; // through it, as an actor's AnimFrame
         const std::vector<bool> *part = nullptr;
         float weight = 1; // how much it shows over what's under it
-        // The part's first bone keeps the turn it has under the layer about
-        // the actor's up, side and forward axes (C3DPlayAnim's ClearYaw,
-        // ClearPitch, ClearRoll), taking only the rest of the layer's.
+        /**
+         * The part's first bone keeps the turn it has under the layer about
+         * the actor's up, side and forward axes (C3DPlayAnim's ClearYaw,
+         * ClearPitch, ClearRoll), taking only the rest of the layer's.
+         */
         std::array<bool, 3> clear{};
         bool loop = false; // C3DLoopAnim's (else C3DPlayAnim's, held at its end)
-        // Its animation group's index (groupIndex; -1 none known): of the
-        // layers on a bone, the highest group's wins it, as the engine has
-        // it. And the bone its clear is done on (its InheritBone; -1 none).
+        /**
+         * Its animation group's index (groupIndex; -1 none known): of the
+         * layers on a bone, the highest group's wins it, as the engine has
+         * it. And the bone its clear is done on (its InheritBone; -1 none).
+         */
         int group = -1;
         int clearBone = -1;
-        // Fading (Engine.dll's way): the pose showing when the fade began
-        // (each bone in its parent), blended from: in, toward this layer's
-        // pose; out (`fadingOut`), toward what's under. None: crossfaded by
-        // weight from what's under now.
+        /**
+         * Fading (Engine.dll's way): the pose showing when the fade began
+         * (each bone in its parent), blended from: in, toward this layer's
+         * pose; out (`fadingOut`), toward what's under. None: crossfaded by
+         * weight from what's under now.
+         */
         const std::vector<std::array<float, 12>> *from = nullptr;
         bool fadingOut = false;
     };
-    // Where the skeleton's axes go in the actor's space (as the mesh is
-    // placed): for the layers' clear, which needs the actor's axes.
+    /**
+     * Where the skeleton's axes go in the actor's space (as the mesh is
+     * placed): for the layers' clear, which needs the actor's axes.
+     */
     void setPlacement(const std::array<Vec3f, 3> &skeletonInActor) const;
-    // What's done to the pose on top of its animations (The Fallen's
-    // scripts bend the back, turn the head, reach for a gun), in the
-    // skeleton's space: the bones' own units and axes, as placed vertices
-    // are before the mesh's turn. Done in this order.
+    /**
+     * What's done to the pose on top of its animations (The Fallen's
+     * scripts bend the back, turn the head, reach for a gun), in the
+     * skeleton's space: the bones' own units and axes, as placed vertices
+     * are before the mesh's turn. Done in this order.
+     */
     struct Adjust {
-        // A bone turned about one of its own axes (0 X, 1 Y, 2 Z).
+        /** A bone turned about one of its own axes (0 X, 1 Y, 2 Z). */
         struct Turn {
             std::string bone;
             int axis = 0;
             float radians = 0;
         };
-        // A bone turned about its origin by `turn` (rows: where the
-        // skeleton's X, Y and Z go), its children with it.
+        /**
+         * A bone turned about its origin by `turn` (rows: where the
+         * skeleton's X, Y and Z go), its children with it.
+         */
         struct SpaceTurn {
             std::string bone;
             std::array<Vec3f, 3> turn{};
         };
-        // A limb's end bone reaching (the two bones above it bent so that
-        // `offset`, in its own axes, comes to `at`) and turned so its axes
-        // are `axes`; each blended in by its weight (0 none, 1 all).
+        /**
+         * A limb's end bone reaching (the two bones above it bent so that
+         * `offset`, in its own axes, comes to `at`) and turned so its axes
+         * are `axes`; each blended in by its weight (0 none, 1 all).
+         */
         struct Reach {
             std::string bone;
             // The skeleton's IK chains it is, if it has them: the reach's
@@ -238,11 +294,13 @@ public:
         };
         std::vector<Turn> turns;
         std::vector<SpaceTurn> spaceTurns;
-        // The scripts' bone turns this tick, in the order made, each on
-        // the pose as the ones before left it (C3DApplyRotation: about the
-        // bone's own axis; C3DApplyWorldRotation: `turn` in the skeleton's
-        // space, about its origin; C3DRemoveRotation: the bone's yaw (Y),
-        // pitch (X) and/or roll (Z) away from its bind pose taken out).
+        /**
+         * The scripts' bone turns this tick, in the order made, each on
+         * the pose as the ones before left it (C3DApplyRotation: about the
+         * bone's own axis; C3DApplyWorldRotation: `turn` in the skeleton's
+         * space, about its origin; C3DRemoveRotation: the bone's yaw (Y),
+         * pitch (X) and/or roll (Z) away from its bind pose taken out).
+         */
         struct Op {
             enum Kind { kOwn, kSpace, kRemove } kind = kOwn;
             std::string bone;
@@ -255,14 +313,16 @@ public:
         std::vector<Reach> reaches;
         bool empty() const { return turns.empty() && spaceTurns.empty() && ops.empty() && reaches.empty(); }
     };
-    // One frame of vertices (FrameVerts, in packed units as Mesh::verts):
-    // every bone placed as `base` has it `fraction` through, then the
-    // bones of each layer's part blended towards where its animation has
-    // them, then `adjust`. False if an animation isn't the mesh's.
-    // A face channel (C3DSetSkinAnim): one of the face's vertex-key clips
-    // (Blink, EyeBrows, Phonemes) `seconds` into it, by `weight`.
-    // While it tweens, `mix` of the way from its last frame and weight
-    // (`fromSeconds`, `fromWeight`) to these: the two shapes cross-faded.
+    /**
+     * One frame of vertices (FrameVerts, in packed units as Mesh::verts):
+     * every bone placed as `base` has it `fraction` through, then the
+     * bones of each layer's part blended towards where its animation has
+     * them, then `adjust`. False if an animation isn't the mesh's.
+     * A face channel (C3DSetSkinAnim): one of the face's vertex-key clips
+     * (Blink, EyeBrows, Phonemes) `seconds` into it, by `weight`.
+     * While it tweens, `mix` of the way from its last frame and weight
+     * (`fromSeconds`, `fromWeight`) to these: the two shapes cross-faded.
+     */
     struct Face {
         std::string_view anim;
         float seconds = 0;
@@ -271,39 +331,47 @@ public:
         float fromWeight = 0;
         float mix = 1;
     };
-    // ... and the face's channels over that.
+    /** ... and the face's channels over that. */
     bool pose(Anim base, float fraction, const std::vector<Layer> &layers, std::vector<Vec3f> &out,
               const Adjust *adjust = nullptr, const std::vector<Face> *faces = nullptr) const;
-    // Each bone's place in its parent in that pose, before any adjusting
-    // (a fade's starting pose).
+    /**
+     * Each bone's place in its parent in that pose, before any adjusting
+     * (a fade's starting pose).
+     */
     bool locals(Anim base, float fraction, const std::vector<Layer> &layers,
                 std::vector<std::array<float, 12>> &out) const;
-    // Whether it has a face (clips of vertex keys) to pose.
+    /** Whether it has a face (clips of vertex keys) to pose. */
     bool hasFace() const;
-    // A bone's place in the same pose: its origin and axes (rows X, Y, Z),
-    // in packed units as the vertices. False if there's no such bone or an
-    // animation isn't the mesh's.
+    /**
+     * A bone's place in the same pose: its origin and axes (rows X, Y, Z),
+     * in packed units as the vertices. False if there's no such bone or an
+     * animation isn't the mesh's.
+     */
     bool bone(Anim base, float fraction, const std::vector<Layer> &layers, std::string_view name, Vec3f &origin,
               std::array<Vec3f, 3> &axes, const Adjust *adjust = nullptr) const;
-    // Every bone's place in the skeleton's space in the same pose (rows X,
-    // Y, Z and the origin, each bone in order), and a bone's index (-1 if
-    // there's none), for asking after many bones of one pose.
+    /**
+     * Every bone's place in the skeleton's space in the same pose (rows X,
+     * Y, Z and the origin, each bone in order), and a bone's index (-1 if
+     * there's none), for asking after many bones of one pose.
+     */
     bool skeleton(Anim base, float fraction, const std::vector<Layer> &layers,
                   std::vector<std::array<float, 12>> &worlds, const Adjust *adjust = nullptr) const;
-    // Every bone's place in the skeleton's space in its bind pose.
+    /** Every bone's place in the skeleton's space in its bind pose. */
     std::vector<std::array<float, 12>> bindSkeleton() const;
     int boneIndex(std::string_view name) const;
-    // Whether it has (or borrows from its shared sets) the IK chain.
+    /** Whether it has (or borrows from its shared sets) the IK chain. */
     bool hasChain(const std::string &name) const;
     std::string boneName(int index) const;
-    // The bone that moves these vertices most (by their weights summed): a
-    // triangle's, which its attachment point turns with. -1 if none.
+    /**
+     * The bone that moves these vertices most (by their weights summed): a
+     * triangle's, which its attachment point turns with. -1 if none.
+     */
     int mainBone(const std::array<int32_t, 3> &vertices) const;
-    // The same in the skeleton's space (as Adjust).
+    /** The same in the skeleton's space (as Adjust). */
     bool boneInSkeleton(Anim base, float fraction, const std::vector<Layer> &layers, std::string_view name,
                         Vec3f &origin, std::array<Vec3f, 3> &axes, const Adjust *adjust = nullptr) const;
     bool hasBone(std::string_view name) const;
-    // A bone's parent's name (empty for the root).
+    /** A bone's parent's name (empty for the root). */
     std::string parentOf(std::string_view name) const;
 
     struct Impl;
@@ -312,14 +380,18 @@ public:
 
 bool isMeshClass(std::string_view className);
 
-// For working out a mesh's layout (reluva-tool ue-probe): the arrays
-// that look like an imported-model block's ((n, n, flags) headers), and
-// every place the standard tail could start and hold together.
+/**
+ * For working out a mesh's layout (reluva-tool ue-probe): the arrays
+ * that look like an imported-model block's ((n, n, flags) headers), and
+ * every place the standard tail could start and hold together.
+ */
 std::vector<std::string> describeMeshLayout(const Package &package, int exportIndex);
 
-// For a mesh built on a skeleton: its bones as a tree, each with its
-// vertices, placement and animation clips (key counts, times, and the
-// first rotation keys' bytes, their encoding not yet worked out).
+/**
+ * For a mesh built on a skeleton: its bones as a tree, each with its
+ * vertices, placement and animation clips (key counts, times, and the
+ * first rotation keys' bytes, their encoding not yet worked out).
+ */
 std::vector<std::string> describeBones(const Package &package, int exportIndex);
 
 } // namespace reluva::unreal

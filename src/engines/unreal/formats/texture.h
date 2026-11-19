@@ -17,7 +17,7 @@
 
 namespace reluva::unreal {
 
-// How a texture's pixels are stored (its Format property).
+/** How a texture's pixels are stored (its Format property). */
 enum class TextureFormat : uint8_t { kP8 = 0, kRgbA7 = 1, kRgB16 = 2, kDxT1 = 3, kRgB8 = 4, kRgbA8 = 5 };
 const char *formatName(uint8_t format);
 
@@ -45,7 +45,7 @@ struct Palette {
 Error readPalette(const Package &package, int exportIndex, Palette &out);
 
 struct TextureInfo {
-    // of the first mipmap
+    /** of the first mipmap */
     int width = 0;
     int height = 0;
     uint8_t format = 0;
@@ -53,27 +53,35 @@ struct TextureInfo {
     bool masked = false;     // palette index 0 is see-through
     uint32_t polyFlags = 0;  // how surfaces using it draw by default
     std::string paletteName; // the palette's path, for viewers
-    // Set when the texture stores no pixels (a procedural texture, made
-    // while the game runs) and a stand-in was decoded instead: what it is.
+    /**
+     * Set when the texture stores no pixels (a procedural texture, made
+     * while the game runs) and a stand-in was decoded instead: what it is.
+     */
     std::string standIn;
-    // Its pixels came from the compressed copy (bHasComp, CompFormat), the
-    // first list's top mipmap being empty.
+    /**
+     * Its pixels came from the compressed copy (bHasComp, CompFormat), the
+     * first list's top mipmap being empty.
+     */
     bool fromComp = false;
 };
 
-// Decodes a texture's first mipmap to RGBA. The palette is looked up
-// through `packages` (it can be in another package, though it rarely is).
-// Procedural textures that store no pixels get a still stand-in of their
-// size (see TextureInfo::standIn): Wet and Ice textures their source
-// texture, the others (Fire, Wave, Water) a gradient through their
-// palette, until their effects are worked out. With `seeThroughZero`, a
-// palette texture's colour 0 is see-through as a masked one's is, whether
-// or not it's marked so (fonts aren't, and draw that way).
+/**
+ * Decodes a texture's first mipmap to RGBA. The palette is looked up
+ * through `packages` (it can be in another package, though it rarely is).
+ * Procedural textures that store no pixels get a still stand-in of their
+ * size (see TextureInfo::standIn): Wet and Ice textures their source
+ * texture, the others (Fire, Wave, Water) a gradient through their
+ * palette, until their effects are worked out. With `seeThroughZero`, a
+ * palette texture's colour 0 is see-through as a masked one's is, whether
+ * or not it's marked so (fonts aren't, and draw that way).
+ */
 Error decodeTexture(const PackageSet &packages, const Package &package, int exportIndex, image::Image &out,
                     TextureInfo *info = nullptr, bool seeThroughZero = false);
 
-// Whether a class name is a texture's (Texture and its procedural
-// subclasses, which keep a first frame in their mipmaps).
+/**
+ * Whether a class name is a texture's (Texture and its procedural
+ * subclasses, which keep a first frame in their mipmaps).
+ */
 bool isTextureClass(std::string_view className);
 
 } // namespace reluva::unreal

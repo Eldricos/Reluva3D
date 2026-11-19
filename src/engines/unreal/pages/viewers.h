@@ -59,19 +59,21 @@ private:
     bool _showProps = false;
 };
 
-// Steps through the exports of some classes, package by package.
+/** Steps through the exports of some classes, package by package. */
 class ObjectBrowser {
 public:
-    // Over the named packages, in order.
+    /** Over the named packages, in order. */
     ObjectBrowser(const PackageSet &packages, std::vector<std::string> names, bool (*wanted)(std::string_view));
     size_t packageCount() const { return _names.size(); }
-    // Moves within the package (by objects) or between packages (skipping
-    // those with none); false if there's nothing.
+    /**
+     * Moves within the package (by objects) or between packages (skipping
+     * those with none); false if there's nothing.
+     */
     bool step(int objects);
     bool stepPackage(int packages);
     const Package *package() const;
     int exportIndex() const;
-    // "3/40 in Package (2/12)".
+    /** "3/40 in Package (2/12)". */
     std::string where() const;
 
 private:

@@ -21,9 +21,11 @@
 
 namespace reluva::unreal {
 
-// An actor's properties: its own, then its class's defaults and each
-// parent's, most specific first. Object references are resolved in the
-// package each property came from.
+/**
+ * An actor's properties: its own, then its class's defaults and each
+ * parent's, most specific first. Object references are resolved in the
+ * package each property came from.
+ */
 class ActorProperties {
 public:
     struct Layer {
@@ -46,10 +48,10 @@ class ClassDefaults {
 public:
     explicit ClassDefaults(const PackageSet &packages) : _packages(packages) {}
 
-    // A class export's own default properties; nullptr if they weren't found.
+    /** A class export's own default properties; nullptr if they weren't found. */
     const PropertyList *defaults(const Package &package, int classExport);
 
-    // An actor's properties with its classes' defaults under them.
+    /** An actor's properties with its classes' defaults under them. */
     Error actorProperties(const Package &package, int exportIndex, ActorProperties &out);
 
     int found() const { return _found; }

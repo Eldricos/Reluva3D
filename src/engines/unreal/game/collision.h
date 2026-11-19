@@ -20,9 +20,9 @@ class LevelCollision {
 public:
     explicit LevelCollision(const Model &model) : _model(model) {}
 
-    // Whether a point is in solid space.
+    /** Whether a point is in solid space. */
     bool solid(const Vec3f &point) const;
-    // Whether a box (centre, half sizes) overlaps solid space.
+    /** Whether a box (centre, half sizes) overlaps solid space. */
     bool solid(const Vec3f &centre, const Vec3f &extent) const;
 
     struct Hit {
@@ -33,7 +33,7 @@ public:
         int32_t node = -1;       // the node whose plane it stopped at (its coplanar ones share it)
         bool hit() const { return time < 1 || startSolid; }
     };
-    // Sweeps a box (half sizes `extent`; zero for a line) from start to end.
+    /** Sweeps a box (half sizes `extent`; zero for a line) from start to end. */
     Hit trace(const Vec3f &start, const Vec3f &end, const Vec3f &extent = {}) const;
 
 private:

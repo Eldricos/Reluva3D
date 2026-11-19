@@ -19,15 +19,17 @@
 
 namespace reluva::unreal {
 
-// The Paths a game's .ini gives, relative to its System folder; these when
-// it gives none.
+/**
+ * The Paths a game's .ini gives, relative to its System folder; these when
+ * it gives none.
+ */
 std::vector<std::string> defaultSearchPaths();
-// The Paths= lines of an .ini's [Core.System] section, in order.
+/** The Paths= lines of an .ini's [Core.System] section, in order. */
 std::vector<std::string> parseSearchPaths(std::string_view ini);
-// A key's value in an .ini's section (both in any case); empty if it has none.
+/** A key's value in an .ini's section (both in any case); empty if it has none. */
 std::string iniValue(std::string_view ini, std::string_view section, std::string_view key);
 
-// An export found through a package set.
+/** An export found through a package set. */
 struct ObjectRef {
     const Package *package = nullptr;
     int exportIndex = -1;
@@ -36,39 +38,53 @@ struct ObjectRef {
 
 class PackageSet {
 public:
-    // Indexes the packages under a game folder: its System folder's .ini
-    // (`iniName` first, else any with Paths lines) says where to look.
-    // Problems that don't stop the game are added to `warnings`.
+    /**
+     * Indexes the packages under a game folder: its System folder's .ini
+     * (`iniName` first, else any with Paths lines) says where to look.
+     * Problems that don't stop the game are added to `warnings`.
+     */
     Error open(const std::filesystem::path &gameDir, std::string_view iniName,
                std::vector<std::string> *warnings = nullptr);
-    // Adds one package, from disk or from memory (tests); the first of a
-    // name wins, as with the search path.
+    /**
+     * Adds one package, from disk or from memory (tests); the first of a
+     * name wins, as with the search path.
+     */
     void addFile(const std::filesystem::path &file);
     void addMemory(const std::string &name, const std::string &extension, std::vector<uint8_t> data);
-    // A package found later (a saved game of the original's, opened as the
-    // level it is): added under its file's name, which it returns.
+    /**
+     * A package found later (a saved game of the original's, opened as the
+     * level it is): added under its file's name, which it returns.
+     */
     std::string addLater(const std::filesystem::path &file) const;
 
-    // The package of that name (no extension, any case), opened on first
-    // use; nullptr if there's none or it won't open (see error()).
+    /**
+     * The package of that name (no extension, any case), opened on first
+     * use; nullptr if there's none or it won't open (see error()).
+     */
     const Package *get(std::string_view name) const;
     std::string error(std::string_view name) const;
 
-    // Where an object reference made in `from` leads: an export of `from`,
-    // or for an import the export it names in the package it comes from.
+    /**
+     * Where an object reference made in `from` leads: an export of `from`,
+     * or for an import the export it names in the package it comes from.
+     */
     ObjectRef resolve(const Package &from, int32_t ref) const;
 
-    // Every package's name, sorted, optionally only those with the
-    // extension (".utx").
+    /**
+     * Every package's name, sorted, optionally only those with the
+     * extension (".utx").
+     */
     std::vector<std::string> names(std::string_view extension = {}) const;
     std::string extension(std::string_view name) const;
-    // Maps: packages with the extension the search path gives its Maps
-    // folder (The Fallen's are .dsm), or .unr.
+    /**
+     * Maps: packages with the extension the search path gives its Maps
+     * folder (The Fallen's are .dsm), or .unr.
+     */
     bool isMap(std::string_view name) const;
     std::vector<std::string> mapNames() const;
     const std::vector<std::string> &searchPaths() const { return _paths; }
     std::filesystem::path iniFile() const { return _ini; }
-    // The game folder open() was given (empty for sets built by hand).
+    /** The game folder open() was given (empty for sets built by hand). */
     const std::filesystem::path &gameDir() const { return _gameDir; }
 
 private:

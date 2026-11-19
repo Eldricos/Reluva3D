@@ -18,9 +18,11 @@
 
 namespace reluva::unreal {
 
-// The Level object past its actor list: its URL, the ghosts (actors out of
-// the level for now), the dialogue table as said so far (each line's key
-// and how often it's been said) and the sounds playing when it was saved.
+/**
+ * The Level object past its actor list: its URL, the ghosts (actors out of
+ * the level for now), the dialogue table as said so far (each line's key
+ * and how often it's been said) and the sounds playing when it was saved.
+ */
 struct LevelExtras {
     std::vector<int32_t> actors; // object references (0: none)
     std::string urlMap;
@@ -35,7 +37,7 @@ struct LevelExtras {
         int32_t actor = 0; // object reference
         int32_t id = 0;    // the audio driver's: actor x 16 + slot x 2 + no-override; below 0 slot none
         std::string path;  // Package.Group.Name
-        // start: in the level's seconds
+        /** start: in the level's seconds */
         float volume = 1;
         float radius = 0;
         float pitch = 1;
@@ -45,18 +47,22 @@ struct LevelExtras {
 };
 Error readLevelExtras(const Package &package, LevelExtras &out);
 
-// A C3DMESHSTATE: an actor's animation groups (its mesh's own, FullBody,
-// LowerTorso, UpperTorso, then its face channels sk3...) as the engine
-// keeps them.
+/**
+ * A C3DMESHSTATE: an actor's animation groups (its mesh's own, FullBody,
+ * LowerTorso, UpperTorso, then its face channels sk3...) as the engine
+ * keeps them.
+ */
 struct MeshStateGroup {
     std::string group;
     std::string sequence;
     int32_t source = 0;
     float frame = 0;  // seconds into the sequence (a face channel's), or the body's 0-1
     int32_t type = 0; // a body group's Boned (1 true, 2 false); 4 a face channel
-    // The group's mode (Engine.dll's): 0 held still, 1 playing once, 2
-    // fading in to play once, 3 looping, 4 fading in to loop, 5 tweening
-    // (C3DTweenAnim), 6 fading out. A face channel's: 0 held, 5 tweening.
+    /**
+     * The group's mode (Engine.dll's): 0 held still, 1 playing once, 2
+     * fading in to play once, 3 looping, 4 fading in to loop, 5 tweening
+     * (C3DTweenAnim), 6 fading out. A face channel's: 0 held, 5 tweening.
+     */
     int32_t state = 0;
     float rate = 1;
     float weight = 1;
@@ -77,14 +83,18 @@ struct MeshState {
 };
 Error readMeshState(const Package &package, int exportIndex, MeshState &out);
 
-// Where a C3D mesh state's animation groups are in its export's data
-// (from the start of its count to the end of the last).
+/**
+ * Where a C3D mesh state's animation groups are in its export's data
+ * (from the start of its count to the end of the last).
+ */
 bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
-// Where, in a Level object's data, the model reference starts and the
-// reach list ends (copied as they are into a saved game's).
+/**
+ * Where, in a Level object's data, the model reference starts and the
+ * reach list ends (copied as they are into a saved game's).
+ */
 bool levelModelSpan(const std::vector<uint8_t> &data, int version, size_t &begin, size_t &end);
 
-// Whether a file is a package (a saved game of the original's, not Reluva's own).
+/** Whether a file is a package (a saved game of the original's, not Reluva's own). */
 bool isPackageFile(const std::string &path);
 
 } // namespace reluva::unreal

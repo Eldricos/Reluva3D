@@ -22,18 +22,24 @@ public:
     LevelAudio(audio::Mixer &mixer, const PackageSet &packages);
     ~LevelAudio();
 
-    // A frame: the level's new sounds started, every sound's loudness and
-    // side worked out again from where it is and where the listener (the
-    // camera) is and faces, the ambient sounds and music brought up to
-    // date. `seconds`: since the last frame.
+    /**
+     * A frame: the level's new sounds started, every sound's loudness and
+     * side worked out again from where it is and where the listener (the
+     * camera) is and faces, the ambient sounds and music brought up to
+     * date. `seconds`: since the last frame.
+     */
     void update(LevelPlay &play, const Vec3f &listener, const Rotator &facing, float seconds);
-    // Every sound stopped, and what it knew of the level forgotten (a level
-    // stopped or another started). The decoded sounds are kept.
+    /**
+     * Every sound stopped, and what it knew of the level forgotten (a level
+     * stopped or another started). The decoded sounds are kept.
+     */
     void reset();
 
     size_t playingCount() const { return _playing.size() + _ambient.size() + (_music ? 1 : 0); }
-    // What's playing, a line each (its kind and sound), then how many
-    // one-off sounds have started and the last few.
+    /**
+     * What's playing, a line each (its kind and sound), then how many
+     * one-off sounds have started and the last few.
+     */
     std::vector<std::string> describe() const;
 
 private:

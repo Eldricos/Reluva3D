@@ -48,7 +48,7 @@ struct Property {
 };
 
 struct Rotator {
-    // 65536 to a full turn
+    /** 65536 to a full turn */
     int32_t pitch = 0;
     int32_t yaw = 0;
     int32_t roll = 0;
@@ -60,33 +60,37 @@ public:
 
     const Property *find(std::string_view name, int arrayIndex = 0) const;
 
-    // A property's value read as the type asked for; `fallback` when it's
-    // missing (the class's default, which packages don't store) or too short.
+    /**
+     * A property's value read as the type asked for; `fallback` when it's
+     * missing (the class's default, which packages don't store) or too short.
+     */
     int32_t integer(std::string_view name, int32_t fallback = 0, int arrayIndex = 0) const;
     float number(std::string_view name, float fallback = 0, int arrayIndex = 0) const;
     uint8_t byte(std::string_view name, uint8_t fallback = 0, int arrayIndex = 0) const;
     bool boolean(std::string_view name, bool fallback = false, int arrayIndex = 0) const;
-    // Object and Class properties: an object reference into the package.
+    /** Object and Class properties: an object reference into the package. */
     int32_t object(std::string_view name, int arrayIndex = 0) const;
-    // Name properties: the name table index.
+    /** Name properties: the name table index. */
     int32_t nameIndex(std::string_view name, int32_t fallback = -1, int arrayIndex = 0) const;
-    // Struct properties holding a Vector (or Vector properties).
+    /** Struct properties holding a Vector (or Vector properties). */
     bool vector(std::string_view name, std::array<float, 3> &out, int arrayIndex = 0) const;
     bool rotator(std::string_view name, Rotator &out, int arrayIndex = 0) const;
-    // Str and String properties.
+    /** Str and String properties. */
     std::string string(std::string_view name, int version, int arrayIndex = 0) const;
 };
 
-// Reads tagged properties up to "None".
+/** Reads tagged properties up to "None". */
 Error readProperties(const Package &package, Reader &r, PropertyList &out);
 
-// Reads the start of an export's data up to the class's own data: its
-// state frame, if it has one, and its properties. Classes (whose data is
-// laid out differently) are refused.
-// The state an object was saved in (objects with HasStack: a saved game's
-// actors): its code's node and its state (object references), the events
-// it ignores, its latent action, and where in the node's code it is (-1
-// none).
+/**
+ * Reads the start of an export's data up to the class's own data: its
+ * state frame, if it has one, and its properties. Classes (whose data is
+ * laid out differently) are refused.
+ * The state an object was saved in (objects with HasStack: a saved game's
+ * actors): its code's node and its state (object references), the events
+ * it ignores, its latent action, and where in the node's code it is (-1
+ * none).
+ */
 struct StateFrame {
     bool has = false;
     int32_t node = 0;
@@ -97,7 +101,7 @@ struct StateFrame {
 };
 Error beginObject(const Package &package, int index, Reader &r, PropertyList &out, StateFrame *frame = nullptr);
 
-// A property's value as text, for viewers and tools.
+/** A property's value as text, for viewers and tools. */
 std::string describe(const Package &package, const Property &p);
 
 } // namespace reluva::unreal

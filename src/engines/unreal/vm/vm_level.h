@@ -31,8 +31,10 @@
 
 namespace reluva::unreal {
 
-// The level's actor list (the Level object's Actors): object references,
-// 0 for empty slots.
+/**
+ * The level's actor list (the Level object's Actors): object references,
+ * 0 for empty slots.
+ */
 Error readLevelActors(const Package &map, std::vector<int32_t> &out);
 
 class ByteWriter;
@@ -43,123 +45,161 @@ public:
     ScriptLevel(Vm &vm, const Package &map);
     ~ScriptLevel();
 
-    // Makes the level's actors.
+    /** Makes the level's actors. */
     Error load();
-    // Spawns the game type (the LevelInfo's DefaultGameType, else
-    // `defaultGame`, "Package.Class") and sends every actor the start-up
-    // events: the game's InitGame, then each actor's PreBeginPlay and
-    // BeginPlay, then PostBeginPlay, then SetInitialState.
+    /**
+     * Spawns the game type (the LevelInfo's DefaultGameType, else
+     * `defaultGame`, "Package.Class") and sends every actor the start-up
+     * events: the game's InitGame, then each actor's PreBeginPlay and
+     * BeginPlay, then PostBeginPlay, then SetInitialState.
+     */
     void beginPlay(const std::string &defaultGame);
-    // A player joining, as the engine logs one in (after beginPlay): the
-    // start the game type picks (its FindPlayerStart), the character that
-    // start names (The Fallen's CTVE_PlayerStart.Player; else `playerClass`,
-    // "Package.Class", the .ini's [URL] Class), spawned by the game type's
-    // Login; a viewport and console given to it; then Possess,
-    // TravelPostAccept and the game type's PostLogin. nullptr, with
-    // `error`, if Login refuses.
-    // `portal`: the tag of the start to begin at (a travel URL's
-    // "Map/Portal"), else the first.
+    /**
+     * A player joining, as the engine logs one in (after beginPlay): the
+     * start the game type picks (its FindPlayerStart), the character that
+     * start names (The Fallen's CTVE_PlayerStart.Player; else `playerClass`,
+     * "Package.Class", the .ini's [URL] Class), spawned by the game type's
+     * Login; a viewport and console given to it; then Possess,
+     * TravelPostAccept and the game type's PostLogin. nullptr, with
+     * `error`, if Login refuses.
+     * `portal`: the tag of the start to begin at (a travel URL's
+     * "Map/Portal"), else the first.
+     */
     VmObject *login(const std::string &playerClass, const std::string &playerName, std::string &error,
                     const std::string &portal = {});
     VmObject *player() const { return _player; }
 
-    // Where a point is in the level: its zone and leaf, found down the
-    // level's BSP (the zone and leaf on the point's side of the last node).
-    // A PointRegion value (Zone, iLeaf, ZoneNumber).
+    /**
+     * Where a point is in the level: its zone and leaf, found down the
+     * level's BSP (the zone and leaf on the point's side of the last node).
+     * A PointRegion value (Zone, iLeaf, ZoneNumber).
+     */
     Value regionAt(const std::array<float, 3> &point);
-    // Sets an actor's Region from its Location (as the engine does when
-    // actors are spawned or move).
+    /**
+     * Sets an actor's Region from its Location (as the engine does when
+     * actors are spawned or move).
+     */
     void updateRegion(VmObject *actor);
     int editorCameras() const { return _editorCameras; } // UnrealEd's cameras, left out
-    // The renderer drew these zones (bit n, zone n) this frame, the view
-    // in `cameraZone` (-1 not known): the zones' render times, which The
-    // Fallen's sleep goes by for actors that show nothing of their own.
-    // Until a renderer says so, nothing sleeps (a run with no view).
+    /**
+     * The renderer drew these zones (bit n, zone n) this frame, the view
+     * in `cameraZone` (-1 not known): the zones' render times, which The
+     * Fallen's sleep goes by for actors that show nothing of their own.
+     * Until a renderer says so, nothing sleeps (a run with no view).
+     */
     void zonesRendered(uint64_t zones, int cameraZone = -1);
 
-    // The player's controls this tick, as the engine's input sets them
-    // from the keys held (-1 to 1 each: back/forward, left/right, turning
-    // left/right, looking down/up); at full, the .ini's aliases give 300
-    // (150 turning).
+    /**
+     * The player's controls this tick, as the engine's input sets them
+     * from the keys held (-1 to 1 each: back/forward, left/right, turning
+     * left/right, looking down/up); at full, the .ini's aliases give 300
+     * (150 turning).
+     */
     struct Controls {
         float forward = 0;
         float strafe = 0;
         float turn = 0;
         float lookUp = 0;
-        // The mouse's movement since the last tick (the input's aMouseX,
-        // aMouseY), used up by the next.
+        /**
+         * The mouse's movement since the last tick (the input's aMouseX,
+         * aMouseY), used up by the next.
+         */
         float mouseX = 0;
         float mouseY = 0;
-        // Buttons held: jump (Space: bExtra1, and aUp up), duck (C: bDuck,
-        // and aUp down) and fire (bFire). Pressing one also calls its exec
-        // function (LevelPlay::press).
+        /**
+         * Buttons held: jump (Space: bExtra1, and aUp up), duck (C: bDuck,
+         * and aUp down) and fire (bFire). Pressing one also calls its exec
+         * function (LevelPlay::press).
+         */
         bool jump = false;
         bool duck = false;
         bool fire = false;
     } controls;
 
-    // Moves the world on: the player's input (PlayerInput) and PlayerTick,
-    // each actor's timer, Tick and state code, then its physics
-    // (vm_physics.cpp).
+    /**
+     * Moves the world on: the player's input (PlayerInput) and PlayerTick,
+     * each actor's timer, Tick and state code, then its physics
+     * (vm_physics.cpp).
+     */
     void tick(float seconds);
 
-    // Movement against the level (vm_physics.cpp). An actor's collision is
-    // a cylinder (CollisionRadius, CollisionHeight), a box of those half
-    // sizes against the world.
+    /**
+     * Movement against the level (vm_physics.cpp). An actor's collision is
+     * a cylinder (CollisionRadius, CollisionHeight), a box of those half
+     * sizes against the world.
+     */
     struct MoveHit {
         float time = 1; // 0-1 of the move made
         std::array<float, 3> normal{};
         VmObject *actor = nullptr; // what stopped it: an actor, or the LevelInfo for the world
         bool hit() const { return time < 1; }
     };
-    // Moves an actor by `delta` until something blocks it (the world if it
-    // collides with it, actors and movers that block it), then updates its
-    // region (ZoneChange) and what it touches (Touch, UnTouch).
+    /**
+     * Moves an actor by `delta` until something blocks it (the world if it
+     * collides with it, actors and movers that block it), then updates its
+     * region (ZoneChange) and what it touches (Touch, UnTouch).
+     */
     MoveHit moveActor(VmObject *actor, const std::array<float, 3> &delta);
-    // As moveActor, stepping up ledges and sliding along walls.
+    /** As moveActor, stepping up ledges and sliding along walls. */
     MoveHit moveSmooth(VmObject *actor, const std::array<float, 3> &delta);
-    // Runs an actor's physics (its Physics) for a time.
+    /** Runs an actor's physics (its Physics) for a time. */
     void physics(VmObject *actor, float seconds);
-    // A line or box traced through the level (and, if asked, its actors):
-    // what it hit (the LevelInfo for the world), where and facing which way.
-    // Whether the level's BSP is in the way from `start` to `end`, short
-    // of the last `slack` units (movers aren't counted); not if `end` is
-    // in solid space.
+    /**
+     * A line or box traced through the level (and, if asked, its actors):
+     * what it hit (the LevelInfo for the world), where and facing which way.
+     * Whether the level's BSP is in the way from `start` to `end`, short
+     * of the last `slack` units (movers aren't counted); not if `end` is
+     * in solid space.
+     */
     bool worldBetween(const std::array<float, 3> &start, const std::array<float, 3> &end, float slack = 0);
-    // Whether a point is in the level's solid space.
+    /** Whether a point is in the level's solid space. */
     bool inSolid(const std::array<float, 3> &point);
     VmObject *trace(VmObject *self, const std::array<float, 3> &start, const std::array<float, 3> &end,
                     const std::array<float, 3> &extent, bool actors, std::array<float, 3> &hitLocation,
                     std::array<float, 3> &hitNormal);
-    // Whether a box at a point is clear of the world and the movers that
-    // block (but `self`).
+    /**
+     * Whether a box at a point is clear of the world and the movers that
+     * block (but `self`).
+     */
     bool clear(const std::array<float, 3> &point, const std::array<float, 3> &extent, VmObject *self = nullptr);
-    // A new collision size (ResizeActor), its feet kept where they were
-    // (alignToFloor) or its top (alignToTop); where it no longer fits,
-    // moved to a place nearby that it does (adjustToFit). False, and left as
-    // it was, if it can't be.
+    /**
+     * A new collision size (ResizeActor), its feet kept where they were
+     * (alignToFloor) or its top (alignToTop); where it no longer fits,
+     * moved to a place nearby that it does (adjustToFit). False, and left as
+     * it was, if it can't be.
+     */
     bool resize(VmObject *actor, float radius, float height, bool alignToFloor, bool adjustToFit, bool alignToTop);
-    // A pawn's way round what blocks it on its way to its Destination
-    // (PickWallAdjust): a step aside, left or right, from which it can go
-    // on; its Destination moved there. False if there's none.
+    /**
+     * A pawn's way round what blocks it on its way to its Destination
+     * (PickWallAdjust): a step aside, left or right, from which it can go
+     * on; its Destination moved there. False if there's none.
+     */
     bool pickWallAdjust(VmObject *pawn);
-    // Puts an actor somewhere it fits, near `point` if it doesn't there
-    // (as the engine's FindSpot finds it, if it collides with the world;
-    // or with bCollideWhenPlacing too when `spawning`); false, and left
-    // where it was, if there's nowhere near.
+    /**
+     * Puts an actor somewhere it fits, near `point` if it doesn't there
+     * (as the engine's FindSpot finds it, if it collides with the world;
+     * or with bCollideWhenPlacing too when `spawning`); false, and left
+     * where it was, if there's nowhere near.
+     */
     bool place(VmObject *actor, const std::array<float, 3> &point, bool spawning = false);
-    // FindSpot: `at` moved to where a box of `extent` fits near it, as
-    // Engine.dll's ULevel::FindSpot and AdjustSpot do; false if nowhere.
+    /**
+     * FindSpot: `at` moved to where a box of `extent` fits near it, as
+     * Engine.dll's ULevel::FindSpot and AdjustSpot do; false if nowhere.
+     */
     bool findSpot(const std::array<float, 3> &extent, std::array<float, 3> &at);
-    // A pawn moving or turning towards something until there (latent
-    // MoveTo, MoveToward, TurnTo, TurnToward, WaitForLanding,
-    // FinishRotation): what it's after.
+    /**
+     * A pawn moving or turning towards something until there (latent
+     * MoveTo, MoveToward, TurnTo, TurnToward, WaitForLanding,
+     * FinishRotation): what it's after.
+     */
     struct Goal {
         enum class Kind { kMove, kTurn, kLand, kRotation } kind = Kind::kMove;
         std::array<float, 3> point{};
         VmObject *target = nullptr;
-        // While moving, facing this place or actor rather than the way it
-        // goes (StrafeTo, StrafeFacing).
+        /**
+         * While moving, facing this place or actor rather than the way it
+         * goes (StrafeTo, StrafeFacing).
+         */
         bool facing = false;
         std::array<float, 3> focus{};
         VmObject *focusActor = nullptr;
@@ -169,10 +209,12 @@ public:
     };
     void setGoal(VmObject *pawn, const Goal &goal);
 
-    // The AI's paths (vm_paths.cpp): the level's navigation points, linked
-    // by the reach list stored in its Level object (each reach from one
-    // point to another: its length, the biggest pawn that fits along it,
-    // how it's got along: walking, flying, swimming, jumping...).
+    /**
+     * The AI's paths (vm_paths.cpp): the level's navigation points, linked
+     * by the reach list stored in its Level object (each reach from one
+     * point to another: its length, the biggest pawn that fits along it,
+     * how it's got along: walking, flying, swimming, jumping...).
+     */
     struct ReachSpec {
         int distance = 0;
         VmObject *start = nullptr;
@@ -184,13 +226,17 @@ public:
     };
     const std::vector<VmObject *> &navigationPoints();
     const std::vector<ReachSpec> &reachSpecs() const { return _reachSpecs; }
-    // The next point on a pawn's way to an actor (or a place), its route in
-    // its RouteCache: the goal itself if it can go straight there, none if
-    // there's no way.
+    /**
+     * The next point on a pawn's way to an actor (or a place), its route in
+     * its RouteCache: the goal itself if it can go straight there, none if
+     * there's no way.
+     */
     VmObject *findPath(VmObject *pawn, VmObject *goal, const std::array<float, 3> *point, bool singlePath = false,
                        bool clear = true);
-    // FindPathTo/Toward as the natives: then the bShootSpecial, SpecialPause
-    // and SpecialGoal bookkeeping and a node's SpecialHandling.
+    /**
+     * FindPathTo/Toward as the natives: then the bShootSpecial, SpecialPause
+     * and SpecialGoal bookkeeping and a node's SpecialHandling.
+     */
     VmObject *findPathNative(VmObject *pawn, VmObject *goal, const std::array<float, 3> *point, bool singlePath,
                              bool clear);
     VmObject *handleSpecial(VmObject *pawn, VmObject *result);
@@ -204,49 +250,55 @@ public:
     bool pb(VmObject *a, const char *name);
     std::array<float, 3> pv(VmObject *a, const char *name);
     bool coinFlip() { return std::uniform_int_distribution<int>(0, 1)(_barkRandom) == 0; }
-    // Nothing in the world between the two places.
+    /** Nothing in the world between the two places. */
     bool lineOfSight(VmObject *self, const std::array<float, 3> &from, const std::array<float, 3> &to);
-    // The Fallen's dialogue (vm_dialog.cpp): lines from the game's
-    // dialogue tables, picked for this mission and player
-    // (FindBestDialogLine) and played (StartDialog), each said for as long
-    // as its voice lasts, then the line it leads to.
+    /**
+     * The Fallen's dialogue (vm_dialog.cpp): lines from the game's
+     * dialogue tables, picked for this mission and player
+     * (FindBestDialogLine) and played (StartDialog), each said for as long
+     * as its voice lasts, then the line it leads to.
+     */
     const std::vector<DialogLine> &dialogLines();
     int findDialogLine(const std::string &type, NameId filterTag, NameId listener, NameId speaker,
                        const std::string &lineId, int &index, VmObject *caller = nullptr);
-    // CTVE_DialogInput.DialogTick: the AI's own lines, each tick (`input`
-    // the dialogue input, whose PawnSurrenderOrPray it asks).
+    /**
+     * CTVE_DialogInput.DialogTick: the AI's own lines, each tick (`input`
+     * the dialogue input, whose PawnSurrenderOrPray it asks).
+     */
     void dialogTick(VmObject *input, float seconds);
     int startDialog(VmObject *self, const std::string &type, NameId filterTag, NameId listener, NameId speaker,
                     const std::string &lineId); // the thread's number, 0 if no line would do
     bool dialogPlaying(int thread) const;
     bool dialogLineSpecial(int index);
-    // The lines begun so far, in order (their indexes; the last 256).
+    /** The lines begun so far, in order (their indexes; the last 256). */
     const std::vector<int> &linesSaid() const { return _dialogSaid; }
     const std::vector<float> &linesSaidAt() const { return _dialogSaidAt; } // the level's seconds
     bool testCondition(const std::string &condition);
-    // A condition about `actor`: 1 met, 0 not, -1 not one the engine knows.
+    /** A condition about `actor`: 1 met, 0 not, -1 not one the engine knows. */
     int evalCondition(const std::string &condition, VmObject *actor);
-    // The lines being said now: the speaker's code, the text, the type.
+    /** The lines being said now: the speaker's code, the text, the type. */
     struct Subtitle {
         std::string speaker;
         std::string text;
         std::string type;
     };
     std::vector<Subtitle> subtitles() const;
-    // The HUD (vm_canvas.cpp): each frame, the canvas handed to the
-    // player's PreRender and PostRender, and what its natives drew: tiles
-    // (a texture's rectangle, in texels, drawn at a rectangle of the
-    // screen, in pixels; letters are tiles from their font's pages) and
-    // actors drawn over the world (a held weapon, a talker's picture).
-    // A view: a camera and the rectangle of the screen it's drawn in (the
-    // whole screen, or one SetRenderFrame sets: a talker's portrait).
+    /**
+     * The HUD (vm_canvas.cpp): each frame, the canvas handed to the
+     * player's PreRender and PostRender, and what its natives drew: tiles
+     * (a texture's rectangle, in texels, drawn at a rectangle of the
+     * screen, in pixels; letters are tiles from their font's pages) and
+     * actors drawn over the world (a held weapon, a talker's picture).
+     * A view: a camera and the rectangle of the screen it's drawn in (the
+     * whole screen, or one SetRenderFrame sets: a talker's portrait).
+     */
     struct HudView {
         std::array<float, 3> location{};
         std::array<int32_t, 3> rotation{};
         float fov = 90;
         int width = 640;
         int height = 480;
-        // the rectangle's top left
+        /** the rectangle's top left */
         int x = 0;
         int y = 0;
     };
@@ -270,8 +322,10 @@ public:
         bool clearZ = false;   // the depth cleared before it
         HudView view;          // the camera and rectangle it's drawn in
         size_t afterTiles = 0; // drawn after this many tiles, over them
-        // How it looked as it was asked for (the HUD sets these just for
-        // the call: a portrait's fade): draw type, style, glow.
+        /**
+         * How it looked as it was asked for (the HUD sets these just for
+         * the call: a portrait's fade): draw type, style, glow.
+         */
         int drawType = 0;
         int style = 1;
         float scaleGlow = 1;
@@ -281,12 +335,16 @@ public:
         std::vector<HudActor> actors;
     };
     void renderHud(const HudView &view);
-    // The view DrawActor draws in now, set by SetRenderFrame; whether its
-    // depth is still to be cleared (ClearZ) before the next actor.
+    /**
+     * The view DrawActor draws in now, set by SetRenderFrame; whether its
+     * depth is still to be cleared (ClearZ) before the next actor.
+     */
     HudView &hudFrame() { return _hudFrame; }
     bool &hudFrameClear() { return _hudFrameClear; }
-    // The FliTextures the HUD draws, played on each tick as their own
-    // properties say (Mode, Rate, FrameNum, FrameTime).
+    /**
+     * The FliTextures the HUD draws, played on each tick as their own
+     * properties say (Mode, Rate, FrameNum, FrameTime).
+     */
     void trackFli(VmObject *texture);
     void tickFlis(float seconds);
     Hud &hud() { return _hud; }
@@ -294,9 +352,11 @@ public:
     const Font *fontOf(VmObject *font);
     VmObject *canvas();
 
-    // The game's text files (vm_documents.cpp): the int folder, and a
-    // section of one of its .int files, its keys and values in order
-    // (none if there's no such file or section).
+    /**
+     * The game's text files (vm_documents.cpp): the int folder, and a
+     * section of one of its .int files, its keys and values in order
+     * (none if there's no such file or section).
+     */
     std::filesystem::path intFolder() const;
     const std::vector<std::pair<std::string, std::string>> *intSection(const std::string &file,
                                                                        const std::string &section);
@@ -311,24 +371,28 @@ public:
         int straight = 0;
         int found = 0;
         int failed = 0;
-        // why it failed: no point near the pawn, near the goal, no way between
+        /** why it failed: no point near the pawn, near the goal, no way between */
         int noStart = 0;
         int noEnd = 0;
         int noRoute = 0;
     } paths;
 
-    // Animation (vm_anim.cpp): PlayAnim and LoopAnim's start (`rate` times
-    // the sequence's own speed, after a tween of `tween` seconds),
-    // TweenAnim's, whether one's playing or tweening, and a latent
-    // FinishAnim's wait for its end.
-    // A negative rate is scaled by the actor's speed, never below
-    // `minRate` (LoopAnim's MinRate, as `rate` is: times its own speed).
+    /**
+     * Animation (vm_anim.cpp): PlayAnim and LoopAnim's start (`rate` times
+     * the sequence's own speed, after a tween of `tween` seconds),
+     * TweenAnim's, whether one's playing or tweening, and a latent
+     * FinishAnim's wait for its end.
+     * A negative rate is scaled by the actor's speed, never below
+     * `minRate` (LoopAnim's MinRate, as `rate` is: times its own speed).
+     */
     void startAnim(VmObject *actor, NameId sequence, float rate, float tween, bool loop, float minRate = 0);
     void tweenAnim(VmObject *actor, NameId sequence, float seconds);
     bool animating(VmObject *actor);
     void waitForAnim(VmObject *actor);
-    // While an actor tweens into an animation (AnimFrame below 0): the
-    // animation it was showing when the tween began, and where in it.
+    /**
+     * While an actor tweens into an animation (AnimFrame below 0): the
+     * animation it was showing when the tween began, and where in it.
+     */
     struct TweenFrom {
         NameId sequence = 0;
         float frame = 0;
@@ -336,43 +400,51 @@ public:
     };
     const TweenFrom *tweenFromOf(VmObject *actor) const;
 
-    // The Fallen's layered animation (vm_anim.cpp, C3DPlayAnim and kin):
-    // an animation on part of a skeleton (a group, 'UpperTorso': a bone
-    // and those under it; 'LowerTorso': the rest), over the actor's own,
-    // fading in and out by its weight; and its face's channels (a frame of
-    // Blink, EyeBrows or Phonemes each), set by C3DTweenSkinAnimDelay.
+    /**
+     * The Fallen's layered animation (vm_anim.cpp, C3DPlayAnim and kin):
+     * an animation on part of a skeleton (a group, 'UpperTorso': a bone
+     * and those under it; 'LowerTorso': the rest), over the actor's own,
+     * fading in and out by its weight; and its face's channels (a frame of
+     * Blink, EyeBrows or Phonemes each), set by C3DTweenSkinAnimDelay.
+     */
     struct AnimLayer {
         NameId sequence = 0;
         NameId bone = 0;   // where the part starts
         bool rest = false; // the part is the skeleton but that (LowerTorso)
-        // as AnimFrame (below 0: tweening into it) and AnimRate
+        /** as AnimFrame (below 0: tweening into it) and AnimRate */
         float frame = 0;
         float rate = 0;
         bool loop = false;
         bool finished = false;
-        // how much it shows (0-1), and its change a second
+        /** how much it shows (0-1), and its change a second */
         float weight = 0;
         float weightRate = 0;
         float minRate = 0;           // with a negative rate (scaled by speed), the least it goes at
         std::array<bool, 3> clear{}; // its first bone keeps the actor's own turn in yaw, pitch, roll
-        // The layer it replaced, held where it was under this one while
-        // this one fades in over it.
+        /**
+         * The layer it replaced, held where it was under this one while
+         * this one fades in over it.
+         */
         NameId fromSequence = 0;
         float fromFrame = 0;
         float fromWeight = 0;
         bool fromLoop = false;
-        // The pose showing when its fade (in or out) began, each bone in
-        // its parent, before IK: Engine.dll blends a fading part's bones
-        // from it, held there (in toward the layer, out toward what's
-        // under). None if it couldn't be had: then the layer it replaced
-        // is held under it instead (fromSequence).
+        /**
+         * The pose showing when its fade (in or out) began, each bone in
+         * its parent, before IK: Engine.dll blends a fading part's bones
+         * from it, held there (in toward the layer, out toward what's
+         * under). None if it couldn't be had: then the layer it replaced
+         * is held under it instead (fromSequence).
+         */
         std::shared_ptr<const std::vector<std::array<float, 12>>> shown;
     };
-    // A face channel, as the engine keeps it (an AnimGroupState after the
-    // mesh's own groups): its sequence, frame (seconds into it) and
-    // weight; while tweening (C3DTweenSkinAnim), the frame and weight it
-    // started from and how far through it is; and a tween asked for to
-    // start at its next tick (C3DTweenSkinAnimDelay).
+    /**
+     * A face channel, as the engine keeps it (an AnimGroupState after the
+     * mesh's own groups): its sequence, frame (seconds into it) and
+     * weight; while tweening (C3DTweenSkinAnim), the frame and weight it
+     * started from and how far through it is; and a tween asked for to
+     * start at its next tick (C3DTweenSkinAnimDelay).
+     */
     struct SkinChannel {
         NameId sequence = 0;
         float frame = 0;
@@ -395,15 +467,17 @@ public:
                    float minRate = 0, std::array<bool, 3> clear = {});
     void tweenLayer(VmObject *actor, NameId group, NameId sequence, float seconds, NameId bone,
                     std::array<bool, 3> clear = {});
-    // An animation's rate now: a negative one is scaled by the actor's
-    // speed, at least `minRate`.
+    /**
+     * An animation's rate now: a negative one is scaled by the actor's
+     * speed, at least `minRate`.
+     */
     float rateNow(VmObject *actor, float rate, float minRate);
     void tweenOutLayer(VmObject *actor, NameId group, float seconds);
     bool layerAnimating(VmObject *actor, NameId group);
     void stopLayerLooping(VmObject *actor, NameId group);
     void waitForLayer(VmObject *actor, NameId group);
     NameId newSkinChannel(VmObject *actor);
-    // How: 0 at once (C3DSetSkinAnim), 1 tweened (C3DTweenSkinAnim), 2 tweened from its next tick (...Delay).
+    /** How: 0 at once (C3DSetSkinAnim), 1 tweened (C3DTweenSkinAnim), 2 tweened from its next tick (...Delay). */
     void setSkin(VmObject *actor, NameId tag, NameId sequence, float frame, float weight, float tween, int how);
     void clearSkin(VmObject *actor, NameId tag);
     void copySkins(VmObject *to, VmObject *from);
@@ -416,42 +490,56 @@ public:
     // animations count. False if its mesh has no such part.
     using Vec = std::array<float, 3>;
     using Rot = std::array<int32_t, 3>;
-    // A bone: in the world, from the actor (unturned), from its parent
-    // bone in the world's axes, or its place in its parent bone.
+    /**
+     * A bone: in the world, from the actor (unturned), from its parent
+     * bone in the world's axes, or its place in its parent bone.
+     */
     enum class BonePlace { kWorld, kLocal, kWorldRel, kInParent };
     bool boneAt(VmObject *actor, NameId bone, BonePlace place, Vec &location, Rot &rotation);
     bool attachPointAt(VmObject *actor, NameId point, bool precomputed, bool world, Vec &location, Rot &rotation);
     bool hasBone(VmObject *actor, NameId bone);
     int attachPointCount(VmObject *actor);
-    // C3DAttach: `child` kept, from each tick on, with its point `childPoint`
-    // on `parent`'s `parentPoint` (a weapon's RightHand in the player's
-    // hand); C3DDetach lets it go.
+    /**
+     * C3DAttach: `child` kept, from each tick on, with its point `childPoint`
+     * on `parent`'s `parentPoint` (a weapon's RightHand in the player's
+     * hand); C3DDetach lets it go.
+     */
     void attach(VmObject *child, VmObject *parent, NameId parentPoint, NameId childPoint);
     void detach(VmObject *child, VmObject *parent);
-    // What the scripts do to an actor's bones on top of its animations,
-    // kept until changed: C3DApplyRotation turns a bone about one of its
-    // own axes (degrees), C3DApplyWorldRotation by a rotator in the
-    // actor's axes. An IK chain (C3DSetIkTarget...) bends a limb so its
-    // hand or foot reaches a place in the world, or turns it to axes
-    // there, blended in by a weight, until C3DClearIkTarget. False if
-    // there's no such chain.
+    /**
+     * What the scripts do to an actor's bones on top of its animations,
+     * kept until changed: C3DApplyRotation turns a bone about one of its
+     * own axes (degrees), C3DApplyWorldRotation by a rotator in the
+     * actor's axes. An IK chain (C3DSetIkTarget...) bends a limb so its
+     * hand or foot reaches a place in the world, or turns it to axes
+     * there, blended in by a weight, until C3DClearIkTarget. False if
+     * there's no such chain.
+     */
     void turnBone(VmObject *actor, NameId bone, int axis, float degrees);
     void turnBoneInActor(VmObject *actor, NameId bone, const Rot &rotation);
     bool setIk(VmObject *actor, NameId chain, const Vec *at, const std::array<Vec, 3> *axes, float weight);
     void clearIk(VmObject *actor, NameId chain);
-    // C3DRemoveRotation: the bone's turns (C3DApplyRotation's and
-    // C3DApplyWorldRotation's) taken off about those axes.
+    /**
+     * C3DRemoveRotation: the bone's turns (C3DApplyRotation's and
+     * C3DApplyWorldRotation's) taken off about those axes.
+     */
     void removeBoneTurn(VmObject *actor, NameId bone, bool yaw, bool pitch, bool roll);
-    // C3DApplyIKOnBasePose: whether a chain's IK reaches from the actor's
-    // own animation, the layers then over it (else after them).
+    /**
+     * C3DApplyIKOnBasePose: whether a chain's IK reaches from the actor's
+     * own animation, the layers then over it (else after them).
+     */
     void ikOnBase(VmObject *actor, NameId chain, bool onBase);
-    // All of that as the poser takes it, with the actor where it is now
-    // (empty if nothing's done to its bones).
+    /**
+     * All of that as the poser takes it, with the actor where it is now
+     * (empty if nothing's done to its bones).
+     */
     LayeredPoser::Adjust boneAdjust(VmObject *actor);
-    // The poser the level poses an actor's mesh with (its scripts' bone
-    // queries), for the drawing to share: it keeps the last pose it made.
+    /**
+     * The poser the level poses an actor's mesh with (its scripts' bone
+     * queries), for the drawing to share: it keeps the last pose it made.
+     */
     LayeredPoser *poserOf(VmObject *actor);
-    // Movement so far, for diagnostics.
+    /** Movement so far, for diagnostics. */
     struct MovementStats {
         int moves = 0;
         int blockedByWorld = 0;
@@ -468,20 +556,26 @@ public:
     Vm &vm() { return _vm; }
     const Package &map() const { return _map; }
     VmObject *levelInfo() const { return _levelInfo; }
-    // Paused: Level.Pauser set (SetPause: the menus). Time stands still;
-    // only the player's PlayerTick and actors with bAlwaysTick (the HUD)
-    // run.
+    /**
+     * Paused: Level.Pauser set (SetPause: the menus). Time stands still;
+     * only the player's PlayerTick and actors with bAlwaysTick (the HUD)
+     * run.
+     */
     bool paused() const;
-    // The console's side (vm_console.cpp): the keys held down (EInputKey
-    // codes, for IsKeyDown), where the game asked to travel (ClientTravel:
-    // "CM01a_SW/CM01_A_Sisko01", a map and the start to log in at), and
-    // whether it asked to quit (ConsoleCommand "Exit").
-    // The player's console (its viewport's), if it has one.
+    /**
+     * The console's side (vm_console.cpp): the keys held down (EInputKey
+     * codes, for IsKeyDown), where the game asked to travel (ClientTravel:
+     * "CM01a_SW/CM01_A_Sisko01", a map and the start to log in at), and
+     * whether it asked to quit (ConsoleCommand "Exit").
+     * The player's console (its viewport's), if it has one.
+     */
     VmObject *console();
 
-    // Sounds (vm_sound.cpp). What the scripts have asked to play since the
-    // page last took them (PlaySound; a dialogue line's voice), and the
-    // music.
+    /**
+     * Sounds (vm_sound.cpp). What the scripts have asked to play since the
+     * page last took them (PlaySound; a dialogue line's voice), and the
+     * music.
+     */
     struct SoundRequest {
         VmObject *actor = nullptr; // heard from where it is; none: everywhere (a voice)
         ObjectRef sound;
@@ -492,30 +586,36 @@ public:
         bool noOverride = false; // nothing may play over it in its slot
         bool speech = false;     // a voice (its name has DIALOG): at the speech volume
         bool loop = false;       // its name has LOOPING
-        // The actor's sound filter when played (LowPass, HighPass: a
-        // filtered sound is mixed flat, and walls in the way quieten it by
-        // its ObstructionFactor).
+        /**
+         * The actor's sound filter when played (LowPass, HighPass: a
+         * filtered sound is mixed flat, and walls in the way quieten it by
+         * its ObstructionFactor).
+         */
         float lowPass = 0;
         float highPass = 0;
         float obstruction = 0;
         float startSeconds = 0; // where in it to start (a saved game's sounds)
     };
     std::vector<SoundRequest> &soundRequests() { return _soundRequests; }
-    // A sound played by an actor: its lip-sync (vm_sound.cpp), if it has any.
+    /** A sound played by an actor: its lip-sync (vm_sound.cpp), if it has any. */
     void lipSyncPlay(VmObject *actor, int slot, bool noOverride, const Package *package, int exportIndex);
-    // What's playing as the audio driver's tracker keeps it (a saved game
-    // holds it): each sound an actor played, until it's done or replaced.
+    /**
+     * What's playing as the audio driver's tracker keeps it (a saved game
+     * holds it): each sound an actor played, until it's done or replaced.
+     */
     void trackSound(const SoundRequest &r, float seconds);
     void trackMusic(VmObject *actor, float startSeconds);
-    // Writes the level as the original saves it (a package: game_save_write.cpp).
+    /** Writes the level as the original saves it (a package: game_save_write.cpp). */
     Error writeGameSave(const std::string &path);
     bool reluvaFormat = false; // save in Reluva's own format instead
-    // Sounds stopped (an actor's slot: a line cut off), for the page.
+    /** Sounds stopped (an actor's slot: a line cut off), for the page. */
     std::vector<std::pair<VmObject *, int>> &soundStops() { return _soundStops; }
-    // The music is the streamed sound the player's CurrentMusic names. One
-    // the scripts play (a music trigger's PlaySound) sets it, with its
-    // volume and where in it to start (the HUD's StartTimeOffset); each such
-    // play counts, so the same track can start again.
+    /**
+     * The music is the streamed sound the player's CurrentMusic names. One
+     * the scripts play (a music trigger's PlaySound) sets it, with its
+     * volume and where in it to start (the HUD's StartTimeOffset); each such
+     * play counts, so the same track can start again.
+     */
     struct Music {
         float volume = 1;
         float startSeconds = 0;
@@ -524,18 +624,22 @@ public:
     Music &music() { return _music; }
     VmObject *currentMusic();
     void musicEnded(VmObject *sound); // CurrentMusic back to None, if it's still that
-    // Whether a Sound is one of The Fallen's streamed (MP3) ones: music.
+    /** Whether a Sound is one of The Fallen's streamed (MP3) ones: music. */
     bool streamedSound(VmObject *sound);
-    // The console's sound commands: every sound stopped (KillSound), and
-    // the master volume for now (SetMasterVolume; below 0: the setting's).
+    /**
+     * The console's sound commands: every sound stopped (KillSound), and
+     * the master volume for now (SetMasterVolume; below 0: the setting's).
+     */
     bool &killSounds() { return _killSounds; }
     float &masterVolume() { return _masterVolume; }
 
-    // Saved games (vm_save.cpp), in the folder the page gives: Reluva's
-    // own files, under the game's names (QuickSave.dsa, Save<n>.dss).
+    /**
+     * Saved games (vm_save.cpp), in the folder the page gives: Reluva's
+     * own files, under the game's names (QuickSave.dsa, Save<n>.dss).
+     */
     struct SaveInfo {
         std::filesystem::path file;
-        // the map's name; "QuickSave" or the level's title
+        /** the map's name; "QuickSave" or the level's title */
         std::string map;
         std::string description;
         int64_t time = 0;    // when, in seconds since 1970
@@ -545,47 +649,61 @@ public:
     static Error readSaveInfo(const std::filesystem::path &file, SaveInfo &out);
     std::vector<SaveInfo> savedGames() const;
     Error saveGame(const std::string &name);
-    // The level as a saved game of this map has it, in place of
-    // beginPlay() and login().
+    /**
+     * The level as a saved game of this map has it, in place of
+     * beginPlay() and login().
+     */
     Error restore(const std::filesystem::path &file);
-    // A saved game of the original's: the level loaded is the save's own
-    // package (bBegunPlay set), so instead of beginPlay and login, this.
+    /**
+     * A saved game of the original's: the level loaded is the save's own
+     * package (bBegunPlay set), so instead of beginPlay and login, this.
+     */
     bool savedByGame() const;
     VmObject *resumeSavedGame(const std::string &playerName, std::string &error);
     std::set<int> &keysDown() { return _keysDown; }
     std::string &travel() { return _travel; }
-    // Travelling with the player's things (vm_travel.cpp): ClientTravel's
-    // bItems; the player's pawn and inventory written out as the engine's
-    // travel text; and the text this level was entered with, put back on
-    // the player at login. The Fallen's engine carries the player's
-    // GamePlayedTime over any travel too (below 0: none to carry).
+    /**
+     * Travelling with the player's things (vm_travel.cpp): ClientTravel's
+     * bItems; the player's pawn and inventory written out as the engine's
+     * travel text; and the text this level was entered with, put back on
+     * the player at login. The Fallen's engine carries the player's
+     * GamePlayedTime over any travel too (below 0: none to carry).
+     */
     bool &travelItems() { return _travelItems; }
     std::string exportTravel();
     std::string &incomingTravel() { return _incomingTravel; }
     float &carriedPlayedTime() { return _carriedPlayedTime; }
     bool &quitAsked() { return _quitAsked; }
-    // Skipping a cut scene (FastForward): the level run at speed until the
-    // game turns it off, when the letterbox goes.
+    /**
+     * Skipping a cut scene (FastForward): the level run at speed until the
+     * game turns it off, when the letterbox goes.
+     */
     bool &fastForward() { return _fastForward; }
     VmObject *game() const { return _game; }
     const std::vector<VmObject *> &actors() const { return _actors; }
     float time() const { return _time; }
 
-    // An actor of a class, as Actor.Spawn makes one: its owner, tag,
-    // place; the start-up events sent. nullptr if the class isn't an
-    // actor's.
+    /**
+     * An actor of a class, as Actor.Spawn makes one: its owner, tag,
+     * place; the start-up events sent. nullptr if the class isn't an
+     * actor's.
+     */
     VmObject *spawn(VmClass *cls, VmObject *owner, NameId tag, const Value *location, const Value *rotation);
-    // The texture of the level's surface a line from start to end meets
-    // first; null if it meets none (GetSurfaceTexture: what's underfoot).
+    /**
+     * The texture of the level's surface a line from start to end meets
+     * first; null if it meets none (GetSurfaceTexture: what's underfoot).
+     */
     VmObject *surfaceTexture(const std::array<float, 3> &start, const std::array<float, 3> &end);
     int nodeAt(const std::array<float, 3> &start, const std::array<float, 3> &end, std::array<float, 3> &where);
     bool nodeSideExtent(const std::array<float, 3> &start, const std::array<float, 3> &end,
                         const std::array<float, 3> &side, float &lo, float &hi);
-    // That surface's index in the level's model; -1 if none.
+    /** That surface's index in the level's model; -1 if none. */
     int surfaceAt(const std::array<float, 3> &start, const std::array<float, 3> &end);
-    // Textures the scripts have swapped (SetSurfaceTexture): one surface's,
-    // or every surface with a texture (bReplaceAllWorld), by its old one.
-    // `surfaceSerial` counts the changes.
+    /**
+     * Textures the scripts have swapped (SetSurfaceTexture): one surface's,
+     * or every surface with a texture (bReplaceAllWorld), by its old one.
+     * `surfaceSerial` counts the changes.
+     */
     struct SurfaceSwaps {
         std::map<int, ObjectRef> surfaces;
         std::map<std::pair<const Package *, int>, ObjectRef> world;
@@ -594,23 +712,31 @@ public:
     const SurfaceSwaps &surfaceSwaps() const { return _surfaceSwaps; }
     void swapSurfaceTexture(int surf, VmObject *texture, bool wholeWorld);
     void destroy(VmObject *actor);
-    // Ghosts (MakeGhost): actors taken out of the level for now, not
-    // ticked, drawn, collided with or found by AllActors, until made
-    // actors again (GhostActors brings them back as it finds them).
+    /**
+     * Ghosts (MakeGhost): actors taken out of the level for now, not
+     * ticked, drawn, collided with or found by AllActors, until made
+     * actors again (GhostActors brings them back as it finds them).
+     */
     void makeGhost(VmObject *actor, bool ghost);
     const std::vector<VmObject *> &ghosts() const { return _ghosts; }
     int placedGhosts() const { return _placedGhosts; } // set aside at the start, placed as ghosts
     int localizedSet() const { return _localizedSet; } // actors' strings from the map's .int
-    // The camera the line being said asks for (its table's CAMERA column:
-    // "CAM(A:x,y,z,pitch,yaw,roll F:fov D:dist)" in the world, R: the same
-    // from the speaker); false if it asks for none of those.
+    /**
+     * The camera the line being said asks for (its table's CAMERA column:
+     * "CAM(A:x,y,z,pitch,yaw,roll F:fov D:dist)" in the world, R: the same
+     * from the speaker); false if it asks for none of those.
+     */
     bool dialogueCamera(std::array<float, 3> &at, std::array<int32_t, 3> &rotation, float &fov, float &dist);
-    // The Fallen's effects (vm_effects.cpp). An actor's copies (its
-    // MultiMesh list), in use, in order; each tick they move and age.
+    /**
+     * The Fallen's effects (vm_effects.cpp). An actor's copies (its
+     * MultiMesh list), in use, in order; each tick they move and age.
+     */
     std::vector<VmObject *> multiMeshes(VmObject *actor);
     void moveMultiMeshes(VmObject *actor, float seconds); // as its physics mode has them (vm_effect_physics.cpp)
-    // The Fallen's physics modes that move the actor itself (trailing its
-    // owner, drifting, free flight, fish, interpolation...).
+    /**
+     * The Fallen's physics modes that move the actor itself (trailing its
+     * owner, drifting, free flight, fish, interpolation...).
+     */
     void fallenPhysics(VmObject *a, int physics, float dt);
     void interpolate(VmObject *a, float dt);
     void chainSparkTick(VmObject *spark, float seconds);
@@ -618,12 +744,16 @@ public:
     void updateBeamSections(VmObject *beam, float seconds);
     void sparkTick(VmObject *sparks, float seconds);
     void weatherTick(VmObject *weather, float seconds, bool fill);
-    // Where the water's surface is on the way from `start` to `end` (the
-    // first point where it goes in or out of a water zone); `start` if it
-    // doesn't cross one.
+    /**
+     * Where the water's surface is on the way from `start` to `end` (the
+     * first point where it goes in or out of a water zone); `start` if it
+     * doesn't cross one.
+     */
     std::array<float, 3> waterLine(const std::array<float, 3> &start, const std::array<float, 3> &end);
-    // Decals stuck to the world: where, facing out which way, their top
-    // which way, their texture and its scale.
+    /**
+     * Decals stuck to the world: where, facing out which way, their top
+     * which way, their texture and its scale.
+     */
     struct Decal {
         std::array<float, 3> at{};
         std::array<float, 3> normal{};
@@ -634,9 +764,11 @@ public:
     VmObject *attachDecal(VmObject *decal, float distance, const std::array<float, 3> &direction);
     void detachDecal(VmObject *decal) { _decals.erase(decal); }
     const std::map<VmObject *, Decal> &decals() const { return _decals; }
-    // The Fallen's player climbing (vm_climbing.cpp): what's ahead (a
-    // wall, a ladder on it, a ledge on top), checked as it walks or falls,
-    // and the hanging, climbing and clambering physics.
+    /**
+     * The Fallen's player climbing (vm_climbing.cpp): what's ahead (a
+     * wall, a ladder on it, a ledge on top), checked as it walks or falls,
+     * and the hanging, climbing and clambering physics.
+     */
     struct Sweep {
         float time = 1;
         std::array<float, 3> at{};
@@ -660,13 +792,13 @@ public:
     bool askClimb(VmObject *a, const std::array<float, 3> &wallNormal, int physics);
     void forceDuck(VmObject *a);
     bool duckUnder(VmObject *a, const std::array<float, 3> &dir);
-    // A player's walk blocked by a wall: a ledge or ladder there taken.
+    /** A player's walk blocked by a wall: a ledge or ladder there taken. */
     bool climbBlocked(VmObject *a, VmObject *by, const std::array<float, 3> &hitNormal,
                       const std::array<float, 3> &left);
     void climbCheck(VmObject *a, bool falling, float dt);
     void climbPhysics(VmObject *a, int physics, float dt);
     void endClamber(VmObject *a);
-    // Moved there at once, the camera's smoothing told (LocationOffset).
+    /** Moved there at once, the camera's smoothing told (LocationOffset). */
     void setLocation(VmObject *a, const std::array<float, 3> &to);
     struct Clamber {
         std::array<float, 3> from{};
@@ -679,9 +811,11 @@ public:
         float done = 0;
         std::array<float, 3> to(float height) const;
     };
-    // The actors giving light now (a LightType and some brightness): where,
-    // and their light's settings, for the lights that move and change
-    // while the game runs (a spark's flash, an explosion's, a flashlight).
+    /**
+     * The actors giving light now (a LightType and some brightness): where,
+     * and their light's settings, for the lights that move and change
+     * while the game runs (a spark's flash, an explosion's, a flashlight).
+     */
     struct LitActor {
         VmObject *actor = nullptr;
         std::array<float, 3> location{};
@@ -696,25 +830,31 @@ public:
         bool isStatic = false; // bStatic
     };
     void litActors(std::vector<LitActor> &out);
-    // A noise the AI may hear (MakeNoise; weapons' and projectiles' sounds).
+    /** A noise the AI may hear (MakeNoise; weapons' and projectiles' sounds). */
     void makeNoise(VmObject *maker, float loudness);
-    // A sound played as a noise the AI hears (PlaySound, PlayDummySound).
+    /** A sound played as a noise the AI hears (PlaySound, PlayDummySound). */
     void soundNoise(VmObject *maker, float radius);
-    // Whether the player hears a sound played by `source` as far as
-    // `radius` (CheckHearSound), its volume lowered through walls.
+    /**
+     * Whether the player hears a sound played by `source` as far as
+     * `radius` (CheckHearSound), its volume lowered through walls.
+     */
     bool hearsSound(VmObject *source, float radius, float &volume);
-    // Where the player hears from: its view target, else its camera.
+    /** Where the player hears from: its view target, else its camera. */
     bool listenerAt(Vec &at);
     static std::string soundName(VmObject *sound);
     struct NoiseStats {
         int made = 0;
         int heard = 0;
     } noise;
-    // A script changed an actor's collision (SetCollision): the list of
-    // those that collide is made again.
+    /**
+     * A script changed an actor's collision (SetCollision): the list of
+     * those that collide is made again.
+     */
     void collisionChanged() { _collidingDirty = true; }
-    // One actor's tick on its own (ScriptTick: the HUD's portrait, kept
-    // going while the game's paused): its scripts and its animation.
+    /**
+     * One actor's tick on its own (ScriptTick: the HUD's portrait, kept
+     * going while the game's paused): its scripts and its animation.
+     */
     void tickActor(VmObject *actor, float seconds);
 
 private:
@@ -1140,23 +1280,29 @@ private:
     float _masterVolume = -1;
 };
 
-// A setting from a game's .ini ("Engine.Engine", "DefaultGame"); empty if
-// it isn't there.
+/**
+ * A setting from a game's .ini ("Engine.Engine", "DefaultGame"); empty if
+ * it isn't there.
+ */
 std::string iniSetting(const PackageSet &packages, std::string_view section, std::string_view key);
-// The same from another .ini in the game's System folder ("User.ini").
+/** The same from another .ini in the game's System folder ("User.ini"). */
 std::string iniSetting(const PackageSet &packages, std::string_view file, std::string_view section,
                        std::string_view key);
-// The game type a game's levels run with: its .ini's [Engine.Engine]
-// DefaultGame ("DS9.DS9_GameInfo"), else Engine's GameInfo.
+/**
+ * The game type a game's levels run with: its .ini's [Engine.Engine]
+ * DefaultGame ("DS9.DS9_GameInfo"), else Engine's GameInfo.
+ */
 std::string defaultGameType(const PackageSet &packages);
 
-// A level's start, run for what it changes: its scripts' start-up events,
-// a player logging in, and `seconds` of ticks, then each placed actor compared with how it was
-// saved (destroyed, hidden, its draw type, its light's type and
-// brightness). For drawing a level as it looks when play begins.
+/**
+ * A level's start, run for what it changes: its scripts' start-up events,
+ * a player logging in, and `seconds` of ticks, then each placed actor compared with how it was
+ * saved (destroyed, hidden, its draw type, its light's type and
+ * brightness). For drawing a level as it looks when play begins.
+ */
 struct LevelStart {
     ScriptedActors changed;
-    // actors changed each way
+    /** actors changed each way */
     int removed = 0;
     int hidden = 0;
     int shown = 0;
@@ -1172,39 +1318,43 @@ struct LevelStart {
 Error runLevelStart(const PackageSet &packages, const Package &map, const std::string &defaultGame, float seconds,
                     LevelStart &out);
 
-// The natives of Engine's Actor and its subclasses that a level needs
-// (registered once per VM; they work on vm.level).
+/**
+ * The natives of Engine's Actor and its subclasses that a level needs
+ * (registered once per VM; they work on vm.level).
+ */
 void registerEngineNatives(Vm &vm);
-// The movement natives (Move, MoveSmooth, SetLocation, Trace, PointCheck,
-// SetPhysics, Pawn's MoveTo and kin): vm_physics.cpp.
+/**
+ * The movement natives (Move, MoveSmooth, SetLocation, Trace, PointCheck,
+ * SetPhysics, Pawn's MoveTo and kin): vm_physics.cpp.
+ */
 void registerMovementNatives(Vm &vm);
-// The Fallen's splines (vm_splines.cpp).
+/** The Fallen's splines (vm_splines.cpp). */
 void registerSplineNatives(Vm &vm);
-// The animation natives (vm_anim.cpp).
+/** The animation natives (vm_anim.cpp). */
 void registerAnimationNatives(Vm &vm);
-// Bones, attachment points and attaching (vm_attach.cpp).
+/** Bones, attachment points and attaching (vm_attach.cpp). */
 void registerAttachNatives(Vm &vm);
-// The AI's paths (vm_paths.cpp).
+/** The AI's paths (vm_paths.cpp). */
 void registerPathNatives(Vm &vm);
-// The Fallen's dialogue (vm_dialog.cpp).
+/** The Fallen's dialogue (vm_dialog.cpp). */
 void registerDialogNatives(Vm &vm);
-// The Fallen's documents and objectives (vm_documents.cpp).
+/** The Fallen's documents and objectives (vm_documents.cpp). */
 void registerDocumentNatives(Vm &vm);
-// The HUD's canvas (vm_canvas.cpp).
+/** The HUD's canvas (vm_canvas.cpp). */
 void registerCanvasNatives(Vm &vm);
-// The console's commands, keys and travel (vm_console.cpp).
+/** The console's commands, keys and travel (vm_console.cpp). */
 void registerConsoleNatives(Vm &vm);
-// The HUD's saved games list (vm_save.cpp).
+/** The HUD's saved games list (vm_save.cpp). */
 void registerSaveNatives(Vm &vm);
-// Sounds and music (vm_sound.cpp).
+/** Sounds and music (vm_sound.cpp). */
 void registerSoundNatives(Vm &vm);
-// The Fallen's effects: arcs, beams, decals (vm_effects.cpp).
+/** The Fallen's effects: arcs, beams, decals (vm_effects.cpp). */
 void registerEffectNatives(Vm &vm);
-// Their random numbers started again, as each level starts (and Core's).
+/** Their random numbers started again, as each level starts (and Core's). */
 void reseedEffectRandom();
 void reseedEffectPhysicsRandom();
 void reseedCoreRandom();
-// A map's reach list as stored (object references, not yet actors).
+/** A map's reach list as stored (object references, not yet actors). */
 struct RawReachSpec {
     int distance = 0;
     int start = 0;

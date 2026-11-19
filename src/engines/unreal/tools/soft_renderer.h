@@ -61,7 +61,7 @@ public:
     void setMirrored(bool) override {}
     void setGamma(float gamma) override { _gamma = gamma; }
     void endFrame(const Surface *overlay) override;
-    // Every finished frame is kept (frame()), so the next one is too.
+    /** Every finished frame is kept (frame()), so the next one is too. */
     void captureNextFrame() override { capture = true; }
     bool takeCapture(std::vector<uint8_t> &rgba) override {
         if (!capture || _frame.pixels.empty())
@@ -71,13 +71,15 @@ public:
         return true;
     }
 
-    // Whether draws are done (when only some frames are wanted, the rest
-    // cost nothing).
+    /**
+     * Whether draws are done (when only some frames are wanted, the rest
+     * cost nothing).
+     */
     bool drawing = true;
-    // The last finished frame (RGBA32), and how many frames there were.
+    /** The last finished frame (RGBA32), and how many frames there were. */
     const Surface &frame() const { return _frame; }
     int frames() const { return _frames; }
-    // Draw calls and triangles drawn in the last frame.
+    /** Draw calls and triangles drawn in the last frame. */
     int lastDraws() const { return _lastDraws; }
     int lastTriangles() const { return _lastTriangles; }
 

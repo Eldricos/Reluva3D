@@ -19,16 +19,20 @@ namespace reluva::audio {
 
 enum class TrackerFormat { kMOD, kS3M, kXM, kIT };
 
-// TrackerCell::note: 0 none, 1..120 a note (1 = C-0; 61 = C-5, which plays a
-// sample at its c5speed), or one of these.
+/**
+ * TrackerCell::note: 0 none, 1..120 a note (1 = C-0; 61 = C-5, which plays a
+ * sample at its c5speed), or one of these.
+ */
 constexpr uint8_t kNoteFade = 253;
 constexpr uint8_t kNoteCut = 254;
 constexpr uint8_t kNoteOff = 255;
 
-// One channel's entry in a pattern row. The volume column and effect are in
-// the player's own codes (tracker.cpp), which the loaders translate to.
+/**
+ * One channel's entry in a pattern row. The volume column and effect are in
+ * the player's own codes (tracker.cpp), which the loaders translate to.
+ */
 struct TrackerCell {
-    // instrument 1-based, 0 none
+    /** instrument 1-based, 0 none */
     uint8_t note = 0;
     uint8_t instrument = 0;
     uint8_t volCmd = 0;
@@ -46,10 +50,10 @@ struct TrackerSample {
     std::vector<int16_t> data; // mono
     bool loop = false;
     bool pingPong = false;
-    // frames, loopEnd past the last
+    /** frames, loopEnd past the last */
     size_t loopStart = 0;
     size_t loopEnd = 0;
-    // IT's sustain loop, while the key is held
+    /** IT's sustain loop, while the key is held */
     bool sustain = false;
     bool sustainPingPong = false;
     size_t sustainStart = 0;
@@ -63,7 +67,7 @@ struct TrackerSample {
 
 struct TrackerEnvelope {
     struct Point {
-        // value 0..64 (pan: 32 is the middle)
+        /** value 0..64 (pan: 32 is the middle) */
         int tick;
         int value;
     };
@@ -71,14 +75,14 @@ struct TrackerEnvelope {
     bool enabled = false;
     bool loop = false;
     bool sustain = false;
-    // point indices
+    /** point indices */
     int loopStart = 0;
     int loopEnd = 0;
     int sustainStart = 0;
     int sustainEnd = 0;
 };
 
-// XM and IT instruments: which sample each note plays, and envelopes.
+/** XM and IT instruments: which sample each note plays, and envelopes. */
 struct TrackerInstrument {
     std::array<uint8_t, 120> sample{}; // per note, 1-based, 0 none
     std::array<uint8_t, 120> note{};   // the note played instead (IT's note map)
@@ -89,7 +93,7 @@ struct TrackerInstrument {
     int pan = -1;           // default pan 0..255, -1 none
 };
 
-// A tracker module (MOD, S3M, XM or IT) read from its file's bytes.
+/** A tracker module (MOD, S3M, XM or IT) read from its file's bytes. */
 struct TrackerModule {
     TrackerFormat format = TrackerFormat::kMOD;
     std::string title;
@@ -111,16 +115,18 @@ struct TrackerModule {
     std::vector<uint8_t> channelVolume;         // 0..64 per channel
 };
 
-// Reads a module, its format told by its contents.
+/** Reads a module, its format told by its contents. */
 Error loadTrackerModule(const std::vector<uint8_t> &data, TrackerModule &out);
 
-// "MOD", "S3M", "XM" or "IT".
+/** "MOD", "S3M", "XM" or "IT". */
 std::string trackerFormat(const TrackerModule &m);
 
-// Renders the song to 16-bit stereo at `rate`, from order `startOrder` (a
-// UE1 "song section"), until it ends or loops back (to a row already played)
-// or `maxSeconds` pass. out.loopStart is where the loop goes back to and
-// out.loopEnd its end, so the sound can be played looped.
+/**
+ * Renders the song to 16-bit stereo at `rate`, from order `startOrder` (a
+ * UE1 "song section"), until it ends or loops back (to a row already played)
+ * or `maxSeconds` pass. out.loopStart is where the loop goes back to and
+ * out.loopEnd its end, so the sound can be played looped.
+ */
 Error renderTrackerModule(const TrackerModule &m, int rate, int startOrder, double maxSeconds, Sound &out);
 
 } // namespace reluva::audio

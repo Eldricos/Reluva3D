@@ -24,16 +24,18 @@ namespace reluva::unreal {
 class AnimatedTexture {
 public:
     virtual ~AnimatedTexture() = default;
-    // The current picture (RGBA, the texture's size).
+    /** The current picture (RGBA, the texture's size). */
     const image::Image &image() const { return _image; }
-    // Moves on by `seconds`; true if the picture changed.
+    /** Moves on by `seconds`; true if the picture changed. */
     virtual bool advance(float seconds) = 0;
-    // What it is: "fire", "water", "wave", "wet", "ice", "FLC".
+    /** What it is: "fire", "water", "wave", "wet", "ice", "FLC". */
     virtual const char *kind() const = 0;
-    // For one played frame by frame (an FLC: The Fallen's HUD picks its
-    // frames itself): how many frames, how long each shows at rate 1, and
-    // the picture showing frame `n` (from 1), its colour 0 see-through if
-    // asked; false if it was showing already.
+    /**
+     * For one played frame by frame (an FLC: The Fallen's HUD picks its
+     * frames itself): how many frames, how long each shows at rate 1, and
+     * the picture showing frame `n` (from 1), its colour 0 see-through if
+     * asked; false if it was showing already.
+     */
     virtual int frames() const { return 0; }
     virtual float frameSeconds() const { return 0; }
     virtual bool showFrame(int n, bool seeThrough) {
@@ -46,11 +48,13 @@ protected:
     image::Image _image;
 };
 
-// Whether a texture class is one AnimatedTexture plays.
+/** Whether a texture class is one AnimatedTexture plays. */
 bool isAnimatedTextureClass(std::string_view className);
 
-// A texture's animation, showing its first picture; nullptr (with
-// `error` set, if given) when it isn't one or doesn't read.
+/**
+ * A texture's animation, showing its first picture; nullptr (with
+ * `error` set, if given) when it isn't one or doesn't read.
+ */
 std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet &packages, const Package &package,
                                                      int exportIndex, std::string *error = nullptr);
 

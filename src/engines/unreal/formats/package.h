@@ -30,11 +30,13 @@ namespace objflag {
 constexpr uint32_t kHasStack = 0x02000000; // a state frame comes before the properties
 } // namespace objflag
 
-// Reads little-endian values from a buffer, bounds-checked: reading past
-// the end sets a failure flag and returns zeros, so callers check ok()
-// once after a run of reads. Positions are absolute: `base` is the file
-// offset of data[0] (an export's data read on its own still sees the
-// offsets the file stores).
+/**
+ * Reads little-endian values from a buffer, bounds-checked: reading past
+ * the end sets a failure flag and returns zeros, so callers check ok()
+ * once after a run of reads. Positions are absolute: `base` is the file
+ * offset of data[0] (an export's data read on its own still sees the
+ * offsets the file stores).
+ */
 class Reader {
 public:
     Reader(const uint8_t *data, size_t size, size_t base = 0) : _data(data), _size(size), _base(base) {}
@@ -55,11 +57,13 @@ public:
     int32_t i32() { return static_cast<int32_t>(u32()); }
     uint64_t u64();
     float f32();
-    // The engine's compact integer: 1 to 5 bytes, see package.md.
+    /** The engine's compact integer: 1 to 5 bytes, see package.md. */
     int32_t index();
     bool bytes(void *out, size_t n);
-    // A string as packages of `version` store them: before 64 NUL
-    // terminated, from 64 a compact length (counting the NUL) first.
+    /**
+     * A string as packages of `version` store them: before 64 NUL
+     * terminated, from 64 a compact length (counting the NUL) first.
+     */
     std::string string(int version);
 
 private:
@@ -75,7 +79,7 @@ struct NameEntry {
     uint32_t flags = 0;
 };
 
-// An object another package defines. Names are indices into the name table.
+/** An object another package defines. Names are indices into the name table. */
 struct Import {
     int32_t classPackage = 0;
     int32_t className = 0;
@@ -83,7 +87,7 @@ struct Import {
     int32_t objectName = 0;
 };
 
-// An object this package defines.
+/** An object this package defines. */
 struct Export {
     int32_t classRef = 0; // object reference; 0: the object is a class
     int32_t superRef = 0; // object reference: what a class or struct extends
@@ -94,8 +98,10 @@ struct Export {
     int32_t serialOffset = 0;
 };
 
-// Object references, as packages store them: > 0 the export at ref - 1,
-// < 0 the import at -ref - 1, 0 none.
+/**
+ * Object references, as packages store them: > 0 the export at ref - 1,
+ * < 0 the import at -ref - 1, 0 none.
+ */
 inline bool isExport(int32_t ref) {
     return ref > 0;
 }
@@ -111,10 +117,12 @@ inline int importIndex(int32_t ref) {
 
 class Package {
 public:
-    // Reads the header and tables from a file; export data is read from the
-    // file when asked for. `name` defaults to the file's stem.
+    /**
+     * Reads the header and tables from a file; export data is read from the
+     * file when asked for. `name` defaults to the file's stem.
+     */
     Error open(const std::filesystem::path &file);
-    // The same from a whole file in memory (kept).
+    /** The same from a whole file in memory (kept). */
     Error openMemory(std::vector<uint8_t> data, std::string name);
 
     const std::string &name() const { return _name; }
@@ -128,26 +136,30 @@ public:
     const std::vector<Import> &imports() const { return _imports; }
     const std::vector<Export> &exports() const { return _exports; }
 
-    // A name table entry; "" when out of range.
+    /** A name table entry; "" when out of range. */
     const std::string &name(int32_t index) const;
-    // An object's own name and its class's name ("Class" for classes).
+    /** An object's own name and its class's name ("Class" for classes). */
     std::string objectName(int32_t ref) const;
     std::string className(int32_t ref) const;
-    // Its outers' names and its own, joined by dots ("Group.Name"); for an
-    // import, starting with the package it comes from.
+    /**
+     * Its outers' names and its own, joined by dots ("Group.Name"); for an
+     * import, starting with the package it comes from.
+     */
     std::string path(int32_t ref) const;
-    // The package an import comes from: its outermost outer's name.
+    /** The package an import comes from: its outermost outer's name. */
     std::string importPackage(int index) const;
 
-    // The first export of that name (and class, unless empty), ignoring
-    // case; -1 if none.
+    /**
+     * The first export of that name (and class, unless empty), ignoring
+     * case; -1 if none.
+     */
     int findExport(std::string_view objectName, std::string_view className = {}) const;
-    // Every export of that name, ignoring case, in table order.
+    /** Every export of that name, ignoring case, in table order. */
     const std::vector<int> &exportsNamed(std::string_view objectName) const;
-    // Every export whose class has that name, ignoring case.
+    /** Every export whose class has that name, ignoring case. */
     std::vector<int> exportsOfClass(std::string_view className) const;
 
-    // An export's data, and a reader over it at its file offset.
+    /** An export's data, and a reader over it at its file offset. */
     Error readExport(int index, std::vector<uint8_t> &out) const;
 
 private:

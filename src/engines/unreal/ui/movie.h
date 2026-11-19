@@ -25,8 +25,10 @@ public:
     void update(uint64_t nowMs) override;
     bool ownsKey(uint32_t key) const override { return key == key::kEscape && playing(); }
 
-    // Plays the movie whose file is named `name` (any case); false if
-    // there's none.
+    /**
+     * Plays the movie whose file is named `name` (any case); false if
+     * there's none.
+     */
     bool play(const std::string &name);
     bool playing() const { return _movie != nullptr; }
 

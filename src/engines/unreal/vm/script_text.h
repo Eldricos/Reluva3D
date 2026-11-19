@@ -16,8 +16,10 @@
 
 namespace reluva::unreal {
 
-// The native functions the packages declare, by number (each declared
-// once), for showing native calls by name and operators as operators.
+/**
+ * The native functions the packages declare, by number (each declared
+ * once), for showing native calls by name and operators as operators.
+ */
 struct NativeFunction {
     std::string name;   // the function's own name ("Not_PreBool")
     std::string symbol; // what scripts write: its friendly name ("!")
@@ -36,8 +38,10 @@ private:
     std::map<int, NativeFunction> _natives;
 };
 
-// A class (its declarations, functions, states and defaults), a struct, a
-// function or a state, as text.
+/**
+ * A class (its declarations, functions, states and defaults), a struct, a
+ * function or a state, as text.
+ */
 std::string scriptText(const PackageSet &packages, const Package &package, int exportIndex, const NativeTable &natives);
 
 } // namespace reluva::unreal
