@@ -1,23 +1,45 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine. Started from the template
-// (cmake/NewEngine.cmake): so far it recognises nothing and shows an empty
-// screen.
+// Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
+// releases it recognises, making an Engine to run one) and its Engine,
+// which so far shows an empty screen.
 
 #include "engines/engine.h"
+
+#include <memory>
+#include <vector>
 
 namespace reluva::botf {
 
 namespace {
 
-// The releases it recognises: files that must be there, with the MD5 of
-// their start and their size, as `reluva --hash <files...>` prints them.
-// A folder matching every file of a variant is that release.
+// Detection keys on the data files: trek.exe is only SafeDisc's loader
+// (docs/engines/botf/README.md), and a patched or replaced one shouldn't
+// stop a copy being recognised.
 const std::vector<GameVariant> kVariants = {
-    // {"<game id>", "<Game name> (<release>)", "en", "windows",
-    //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
+    {"botf",
+     "Star Trek: Birth of the Federation",
+     "en",
+     "windows",
+     {{"stbof.res", "2e888c1eaefa901da9e2dbd6229798a5", 79901501},
+      {"english.snd", "806bf768303d60745c792fae58ec506f", 39509316}}},
+    // stbof.res as on the CD's GERMAN folder; german.snd isn't hashed yet.
+    {"botf",
+     "Star Trek: Birth of the Federation",
+     "de",
+     "windows",
+     {{"stbof.res", "21df64c3479690c70f50bfc0bed3792b", 79385299}, {"german.snd", "", -1}}},
+};
+
+// The same game by its files' names alone, for releases not in kVariants:
+// used only when nothing there matches.
+const std::vector<GameVariant> kFallback = {
+    {"botf",
+     "Star Trek: Birth of the Federation (unknown release)",
+     "",
+     "windows",
+     {{"stbof.res", "", -1}, {"sfx.snd", "", -1}}},
 };
 
 /**
@@ -25,7 +47,7 @@ const std::vector<GameVariant> kVariants = {
  */
 class BotfEngine : public Engine {
 public:
-    BotfEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
+    BotfEngine(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
         if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
@@ -46,8 +68,8 @@ public:
     }
 
 private:
-    static constexpr int kWidth = 640;
-    static constexpr int kHeight = 480;
+    static constexpr int kWidth = 800; // the game's own resolution
+    static constexpr int kHeight = 600;
     System &_sys;
     GameTarget _target;
 };
@@ -62,7 +84,10 @@ public:
     const char *name() const override { return "Star Trek: Birth of the Federation"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
-        return detectFromTable(id(), kVariants, dir);
+        auto found = detectFromTable(id(), kVariants, dir);
+        if (found.empty())
+            found = detectFromTable(id(), kFallback, dir);
+        return found;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
