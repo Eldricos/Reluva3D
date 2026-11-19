@@ -4,18 +4,56 @@
 
 ## Overview
 
-The screens rebuilt so far: those that start a new game, the game setup
-("Configuration") screen and the empire selection screen. Each is put
+The screens rebuilt so far: the main menu, and those that start a new
+game, the game setup ("Configuration") screen and the empire selection
+screen. Each is put
 back together from its window layout ([formats/wdf.md](../formats/wdf.md)),
 the manual (what each control does, its choices and defaults),
 `lexicon.dic` ([formats/lexicon.md](../formats/lexicon.md)) for its words,
 and a recording of the game for how it looks.
 
-Both are panels drawn over the main menu (`opening.wdf`), whose buttons
-stay visible on the right in the recording: the panel's background is
-magenta, the colour key, where the menu shows through.
+The game setup and empire selection screens are panels drawn over the
+main menu (`opening.wdf`), whose buttons stay visible on the right in the
+recording, dimmed: the panel's background is magenta, the colour key, where
+the menu shows through.
 
 ## How it works
+
+### Main menu
+
+`opening.wdf`: a background (`mnbkgrnd.tga`) and nine buttons down the
+right, each with two pictures. The first screen after the opening movie
+(the manual, chapter 4).
+
+| Button | Widget | Pictures | What it does (the manual) |
+|---|---|---|---|
+| Continue | 139 | `mccont1`, `mccont2` | Loads the last game played |
+| New Single Player Game | 140 | `mcnspg1`, `mcnspg2` | The game setup screen, then empire selection |
+| New Multiplayer Game | 141 | `mcnmpg1`, `mcnmpg2` | The multiplayer setup screen |
+| Load Game | 142 | `mcload1`, `mcload2` | The saved games (and the four tutorials) |
+| Save Game | 355 | `mcsave1`, `mcsave2` | Saves the game in progress, in one of 12 slots |
+| Options | 356 | `mcoptns1`, `mcoptns2` | The game's options |
+| Hall of Fame | 144 | `mcfame1`, `mcfame2` | The ten best games |
+| Retire | 9600 | `mcret1`, `mcret2` | The power graph, then the game ends |
+| Quit Game | 143 | `mcquit1`, `mcquit2` | Back to Windows |
+
+The widgets are matched to the manual's buttons by their pictures' names
+and their order on the screen, as the recording shows them.
+
+- **Pointing:** the button under the pointer is drawn lighter: its second
+  picture, the "selected" one *(inferred)*. In the recording New Single
+  Player Game lights as the pointer reaches it, before the click.
+- **Buttons that can't be used:** at the start, with no game in progress,
+  Continue, Save Game and Retire are dimmed and don't light. Reluva draws
+  them at 35% of their brightness *(inferred)*: the recording doesn't show
+  one button both ways, but the figure is the one that, with the panels'
+  dimming below, matches every button the recording shows.
+- **Behind a panel** (game setup, empire selection) every button is dimmed
+  further: in the recording the six buttons that could be used are about
+  28% as bright as on the menu, and the three that couldn't 80% of their
+  own. Reluva draws them all at 35% of 80%, 28% *(inferred)*.
+- **The version:** the recording's menu shows "1.0.2" at its bottom left,
+  which isn't in the layout: the executable draws it.
 
 ### Game setup
 
@@ -94,14 +132,17 @@ the screen, and checked against the recording:
 
 ## In Reluva
 
-- `ui/layout_screen.cpp`: what both screens share, a layout drawn over the
-  main menu, buttons found under the mouse, text drawn in a text box's font
-  and alignment, and wrapped as the empire screen's description is.
-- `ui/setup_screen.cpp` and `ui/empire_screen.cpp`: each screen's controls.
-- `botf.cpp` runs them as the game does. There's no game to start yet, so
-  the empire screen's Accept comes back to the setup, and the setup's
-  Cancel, which goes to the main menu in the game, goes back to the
-  launcher ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+- `ui/layout_screen.cpp`: what the screens share, a layout drawn over the
+  main menu (dimmed) or as it, buttons found under the mouse, buttons that
+  can't be used drawn dimmed and the one under the pointer lit, text drawn
+  in a text box's font and alignment, and wrapped as the empire screen's
+  description is. The dimmed pictures are made by `ui/assets.cpp`.
+- `ui/main_menu.cpp`, `ui/setup_screen.cpp` and `ui/empire_screen.cpp`:
+  each screen's controls.
+- `botf.cpp` runs them as the game does, from the main menu. There's no
+  game to start yet, so the empire screen's Accept comes back to the main
+  menu, and the menu's other buttons do nothing yet
+  ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 - A button shows its "selected" picture while it's held *(guessed)*; the
   empire screen's Accept does nothing until an empire is chosen
   *(guessed)*; clicking an emblem chooses its empire *(guessed)*.
@@ -109,24 +150,32 @@ the screen, and checked against the recording:
 ## Sources and checks
 
 - **Where the facts come from:** `gmesetup.wdf`, `emppick.wdf` and
-  `opening.wdf`; the manual's chapter 5 ("Single Player Game", First
-  Edition, May 1999) for each control's job, choices and defaults; a
-  recording of the game ("Let's Play Star Trek Birth of the Federation,
-  UFP, p1": game setup at 0:57-1:17, empire selection at 1:16-1:45),
-  October 2026.
+  `opening.wdf`; the manual's chapters 4 ("Main Menu") and 5 ("Single
+  Player Game", First Edition, May 1999) for each control's job, choices
+  and defaults; a recording of the game ("Let's Play Star Trek Birth of the
+  Federation, UFP, p1": the main menu at 0:00-0:57, game setup at
+  0:57-1:17, empire selection at 1:16-1:45), October 2026. The buttons'
+  brightness was measured on the recording's frames, the menu's and the
+  setup screen's, against parts of the screen that are the same in both.
 - **How it was checked:** the screens' text, drawn by Reluva with the
   English `lexicon.dic`, laid over stills of the recording (scaled from its
   960x720 to 800x600), every value landing on the game's own; the
   description's line breaks worked out from the font's widths against the
-  recording's. `botf.unit.screens` checks the controls' choices, and
-  `botf.engine` clicks through both screens.
+  recording's. `botf.unit.screens` checks the controls' choices and the
+  menu's buttons, and `botf.engine` goes from the main menu through both
+  screens and back.
 
 ## Open questions
 
 - The timers' choices beyond None.
-- Whether the game shows a held button's "selected" picture, and what the
-  main menu's buttons look like while a panel is open (in the recording
-  they look dimmed).
+- Whether the game shows a held button's "selected" picture on the setup
+  and empire screens, as the main menu does under the pointer.
+- How the game dims a button that can't be used, and the menu behind a
+  panel: the 35% and 80% are inferred from the recording, not the game's
+  own pictures. Settled by comparing the `mc*1` and `mc*2` pictures with
+  the recording.
+- When Continue can be used: with a saved game, or only with a game in
+  progress.
 - What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an
   emblem changes it.
 - How the game picks its text colours.

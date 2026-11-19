@@ -10,6 +10,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 
 // What the screens draw with, loaded from an archive (stbof.res) when first
 // asked for and kept: pictures (with the colour key applied), fonts and
@@ -25,6 +26,11 @@ public:
     const Archive &archive() const { return _archive; }
 
     const image::Image *picture(const std::string &name);
+    /**
+     * The picture with its colours at `percent` of their brightness, as the
+     * game draws buttons that can't be used (kept, like the picture).
+     */
+    const image::Image *dimmed(const std::string &name, int percent);
     const Font *font(const std::string &name);
     const MenuFile *menu(const std::string &name);
     /** Why the file couldn't be had ("missing", "can't decode" ...), or empty. */
@@ -33,6 +39,7 @@ public:
 private:
     const Archive &_archive;
     std::map<std::string, image::Image> _pictures;
+    std::map<std::pair<std::string, int>, image::Image> _dimmed;
     std::map<std::string, Font> _fonts;
     std::map<std::string, MenuFile> _menus;
     std::map<std::string, std::string> _failed;

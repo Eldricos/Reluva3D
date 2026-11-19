@@ -42,6 +42,20 @@ const image::Image *Assets::picture(const std::string &name) {
     });
 }
 
+const image::Image *Assets::dimmed(const std::string &name, int percent) {
+    const auto key = std::make_pair(name, percent);
+    if (auto it = _dimmed.find(key); it != _dimmed.end())
+        return &it->second;
+    const image::Image *img = picture(name);
+    if (!img)
+        return nullptr;
+    image::Image out = *img;
+    for (size_t i = 0; i + 3 < out.rgba.size(); i += 4)
+        for (size_t c = 0; c < 3; ++c)
+            out.rgba[i + c] = uint8_t(out.rgba[i + c] * percent / 100);
+    return &_dimmed.emplace(key, std::move(out)).first->second;
+}
+
 const Font *Assets::font(const std::string &name) {
     return cached(_archive, name, _fonts, _failed,
                   [](const std::vector<uint8_t> &data, Font &f) { return f.load(data); });

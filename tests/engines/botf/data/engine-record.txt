@@ -2,6 +2,9 @@
 # Written by `reluva-tests botf.engine --update`; review its diff before committing.
 detect.games: 1
 detect.description: Star Trek: Birth of the Federation (unknown release)
+menu.shown: aab57f3978016255
+menu.new game pointed at: 138ab6ca9773e725
+menu.continue pressed: aab57f3978016255
 setup.shown: 15c598cf926c446d
 setup.difficulty pressed: ea0143b10a698bad
 setup.difficulty changed: 6a876819c35a62ea
@@ -10,5 +13,8 @@ setup.levels all set: 6a876819c35a62ea
 empires.shown: 6700811f7ee4812c
 empires.third chosen: 4a6737e19641e48c
 setup.again: 6a876819c35a62ea
+menu.again: 138ab6ca9773e725
+empires.second chosen: 5d2dd68cbe8b5b1c
+menu.after a new game: 138ab6ca9773e725
 run: ok
 run.screen: 800x600

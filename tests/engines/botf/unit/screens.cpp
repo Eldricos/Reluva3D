@@ -7,6 +7,7 @@
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/setup_screen.h"
 
 #include "tests/engines/botf/unit/helpers.h"
@@ -128,6 +129,61 @@ void testSetupScreen() {
     CHECK(other.load());
 }
 
+void testMainMenu() {
+    // The menu's nine buttons in a column, 40 pixels apart, as opening.wdf
+    // has them (by id); nothing under it.
+    const std::vector<uint32_t> ids = {139, 140, 141, 142, 355, 356, 144, 9600, 143};
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 138, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, uint32_t(ids.size())}});
+    for (size_t i = 0; i < ids.size(); ++i) {
+        putWidget(f, 2, ids[i], 600, uint32_t(100 + 40 * i), 160, 36, "none");
+        put32(f, 0xffffffff);
+        f.push_back(0);
+        put32(f, 0);
+        put32(f, 0);
+        putName(f, "none");
+        putName(f, "none");
+    }
+    MemoryArchive archive;
+    archive.files["opening.wdf"] = f;
+    Assets assets(archive);
+    Lexicon lexicon;
+    MainMenu menu(assets, lexicon);
+    CHECK(!menu.load());
+    auto click = [&](size_t i) {
+        MainMenu::Choice c = MainMenu::Choice::kNone;
+        for (EventType t : {EventType::kMouseDown, EventType::kMouseUp}) {
+            Event e;
+            e.type = t;
+            e.button = MouseButton::kLeft;
+            e.mouseX = 650;
+            e.mouseY = 110 + 40 * int(i);
+            c = menu.handle(e);
+        }
+        return c;
+    };
+    // Without a game, Continue, Save Game and Retire do nothing.
+    CHECK(click(0) == MainMenu::Choice::kNone && click(4) == MainMenu::Choice::kNone &&
+          click(7) == MainMenu::Choice::kNone);
+    CHECK(click(1) == MainMenu::Choice::kNewSinglePlayer && click(2) == MainMenu::Choice::kNewMultiplayer);
+    CHECK(click(3) == MainMenu::Choice::kLoadGame && click(5) == MainMenu::Choice::kOptions);
+    CHECK(click(6) == MainMenu::Choice::kHallOfFame && click(8) == MainMenu::Choice::kQuit);
+    // With one, they can be used.
+    menu.setGameInProgress(true);
+    CHECK(click(0) == MainMenu::Choice::kContinue && click(4) == MainMenu::Choice::kSaveGame &&
+          click(7) == MainMenu::Choice::kRetire);
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    menu.draw(surface);
+
+    // The game setup layout isn't the main menu.
+    archive.files["opening.wdf"] = Bytes(8, 0);
+    MainMenu other(assets, lexicon);
+    CHECK(bool(other.load()));
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -204,6 +260,7 @@ void testEmpireScreen() {
 
 static const reluva::test::Suite
     kSuite("botf.unit.screens", {
+                                    {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
                                     {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                                     {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
                                 });

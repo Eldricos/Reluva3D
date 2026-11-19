@@ -10,20 +10,23 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   and from the CD's files wherever they are
   ([systems/game-files.md](systems/game-files.md)).
 
+- **Esc on the main menu leaves the game,** as Quit Game does.
+
 ## Bugs fixed
 
 None yet.
 
 ## Not yet as the original
 
-- **The game starts at the game setup screen,** not the opening movie and
-  the main menu; the setup's Cancel goes back to the launcher rather than
-  to the main menu.
-- **Accepting an empire comes back to the game setup screen:** there's no
-  game to start yet ([systems/screens.md](systems/screens.md)).
+- **The game starts at the main menu,** without the opening movie.
+- **On the main menu,** only New Single Player Game and Quit Game do
+  anything yet; Continue, Save Game and Retire can't be used (as in the
+  game with nothing in progress), and New Multiplayer Game, Load Game,
+  Options and Hall of Fame do nothing. The version ("1.0.2" in the game)
+  isn't drawn.
+- **Accepting an empire comes back to the main menu:** there's no game to
+  start yet ([systems/screens.md](systems/screens.md)).
 - **The timers offer only None,** as their other choices aren't known.
-- **The main menu behind the panels is drawn as it is,** where the
-  recording shows its buttons dimmed.
 
 ## Additions outside the game
 

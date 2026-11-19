@@ -18,10 +18,20 @@ Error loadLayout(Assets &assets, const char *name, WindowLayout &layout) {
     return Error::success();
 }
 
-void drawButton(Assets &assets, Surface &screen, const Widget &w, int x, int y, bool selected) {
+// How bright the game draws a button that can't be used, and the whole
+// main menu behind a panel, in percent: measured from a recording, where the
+// main menu's three buttons that can't be used yet are about 35% as bright
+// as the rest would be, and behind the game setup screen every button is
+// about 28% as bright as it is on the menu, those three 80% of their own.
+constexpr int kDisabledBrightness = 35;
+constexpr int kBehindPanelBrightness = kDisabledBrightness * 80 / 100;
+
+// A button's "normal" picture, or its "selected" one, at `brightness`
+// percent.
+void drawButton(Assets &assets, Surface &screen, const Widget &w, int x, int y, bool selected, int brightness) {
     for (const auto &[role, name] : w.pictures)
         if (role == (selected ? "selected" : "normal"))
-            if (const image::Image *img = assets.picture(name))
+            if (const image::Image *img = brightness < 100 ? assets.dimmed(name, brightness) : assets.picture(name))
                 blitClipped(screen, *img, x, y, x, y, w.w, w.h);
 }
 
@@ -34,9 +44,11 @@ std::string upperAscii(std::string s) {
     return s;
 }
 
-Error LayoutScreen::loadLayouts(const char *file, std::initializer_list<int32_t> needed) {
-    if (Error err = loadLayout(_assets, "opening.wdf", _menu))
-        return err;
+Error LayoutScreen::loadLayouts(const char *file, std::initializer_list<int32_t> needed, bool overMenu) {
+    _menu = WindowLayout{};
+    if (overMenu)
+        if (Error err = loadLayout(_assets, "opening.wdf", _menu))
+            return err;
     if (Error err = loadLayout(_assets, file, _layout))
         return err;
     _widgets.clear();
@@ -55,9 +67,14 @@ const LayoutScreen::Placed *LayoutScreen::find(int32_t id) const {
 
 int32_t LayoutScreen::buttonAt(int x, int y) const {
     for (const auto &[id, p] : _widgets)
-        if (p.widget->type == WidgetType::kButton && !_hidden.count(id) && p.contains(x, y))
+        if (p.widget->type == WidgetType::kButton && !_hidden.count(id) && !_disabled.count(id) && p.contains(x, y))
             return id;
     return 0;
+}
+
+void LayoutScreen::trackPointer(const Event &event) {
+    if (event.type == EventType::kMouseMove || event.type == EventType::kMouseDown || event.type == EventType::kMouseUp)
+        _pointed = buttonAt(event.mouseX, event.mouseY);
 }
 
 void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selected) const {
@@ -68,9 +85,16 @@ void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selecte
                 continue;
             if (const image::Image *img = w.background.empty() ? nullptr : _assets.picture(w.background))
                 blitClipped(screen, *img, lp.x, lp.y, lp.x, lp.y, w.w, w.h);
-            if (w.type == WidgetType::kButton)
-                drawButton(_assets, screen, w, lp.x, lp.y,
-                           layout == &_layout && (w.id == _pressed || selected.count(w.id)));
+            if (w.type != WidgetType::kButton)
+                continue;
+            if (layout == &_menu) {
+                drawButton(_assets, screen, w, lp.x, lp.y, false, kBehindPanelBrightness);
+                continue;
+            }
+            const bool disabled = _disabled.count(w.id) > 0;
+            const bool lit =
+                !disabled && (w.id == _pressed || selected.count(w.id) || (_highlightPointed && w.id == _pointed));
+            drawButton(_assets, screen, w, lp.x, lp.y, lit, disabled ? kDisabledBrightness : 100);
         }
 }
 

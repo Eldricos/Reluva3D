@@ -11,8 +11,8 @@
 //
 // The install is a stbof.res holding a main menu, the game setup and
 // empire selection layouts (each widget a picture of its own colour) and
-// a lexicon.dic; the run clicks through setup and empire selection and
-// back, as starting a new game does.
+// a lexicon.dic; the run goes from the main menu through setup and empire
+// selection and back, as starting a new game does, then quits.
 
 #include "common/headless_system.h"
 #include "engines/registry.h"
@@ -107,7 +107,15 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
 void makeInstall(const std::filesystem::path &dir) {
     std::vector<test::ZipFile> files;
     auto add = [&](const std::string &name, Bytes data) { files.push_back({name, std::move(data), {}}); };
-    add("opening.wdf", layout(138, "menu.tga", {{2, 139, 621, 100, 164, 40, "mc"}}));
+    // The main menu's nine buttons, where the game has them: Continue, New
+    // Single Player Game ... Quit Game, 47 pixels apart.
+    std::vector<LayoutWidget> menu;
+    uint32_t y = 100;
+    for (const uint32_t id : {139U, 140U, 141U, 142U, 355U, 356U, 144U, 9600U, 143U}) {
+        menu.push_back({2, id, 621, y, 164, 40, "mc"});
+        y += 47;
+    }
+    add("opening.wdf", layout(138, "menu.tga", menu));
     std::vector<LayoutWidget> setup = {{2, 9201, 453, 502, 159, 36, "ok"}, {2, 9202, 16, 502, 159, 36, "no"}};
     std::vector<LayoutWidget> empires = {{2, 9110, 452, 502, 160, 36, "ok"}, {2, 9111, 16, 502, 160, 36, "no"}};
     uint32_t x = 0;
@@ -148,6 +156,14 @@ void makeInstall(const std::filesystem::path &dir) {
     add("lexicon.dic", makeLexicon({"word"}));
     writeFile(dir / "stbof.res", test::buildZip(files));
     writeFile(dir / "sfx.snd", Bytes(4, 0));
+}
+
+Event pointAt(int x, int y) {
+    Event e;
+    e.type = EventType::kMouseMove;
+    e.mouseX = x;
+    e.mouseY = y;
+    return e;
 }
 
 Event click(int x, int y, bool down, uint16_t mods = 0) {
@@ -210,7 +226,14 @@ void engineTest(const std::filesystem::path &tmp) {
         const auto setupButton = [](int n, bool down, uint16_t mods = 0) {
             return click(n * 40 + 15, 115, down, mods);
         };
+        // The main menu's buttons are 47 pixels apart from y 100.
+        const auto menuButton = [](int n, bool down) { return click(700, 100 + 47 * n + 20, down); };
         const std::vector<std::pair<std::string, Event>> script = {
+            {"menu.shown", pointAt(700, 100 + 47 + 20)},
+            {"menu.new game pointed at", menuButton(0, true)}, // Continue, which can't be used yet
+            {"menu.continue pressed", menuButton(0, false)},
+            {"", menuButton(1, true)}, // New Single Player Game
+            {"", menuButton(1, false)},
             {"setup.shown", setupButton(1, true)}, // difficulty
             {"setup.difficulty pressed", setupButton(1, false)},
             {"setup.difficulty changed", setupButton(10, true)}, // the second empire's level
@@ -223,8 +246,18 @@ void engineTest(const std::filesystem::path &tmp) {
             {"empires.third chosen", click(100, 300, false)},
             {"", click(30, 510, true)}, // Cancel: back to the setup
             {"", click(30, 510, false)},
-            {"setup.again", click(30, 510, true)}, // its Cancel: the end
+            {"setup.again", click(30, 510, true)}, // its Cancel: back to the menu
             {"", click(30, 510, false)},
+            {"menu.again", menuButton(1, true)}, // a new game again, this time accepted
+            {"", menuButton(1, false)},
+            {"", click(460, 510, true)},
+            {"", click(460, 510, false)},
+            {"", click(100, 230, true)}, // the second empire
+            {"", click(100, 230, false)},
+            {"empires.second chosen", click(460, 510, true)}, // Accept: no game yet, the menu
+            {"", click(460, 510, false)},
+            {"menu.after a new game", menuButton(8, true)}, // Quit Game: the end
+            {"", menuButton(8, false)},
         };
         ScriptedSystem sys(rec, script);
         GameTarget target;

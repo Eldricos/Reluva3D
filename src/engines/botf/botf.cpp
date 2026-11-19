@@ -3,14 +3,16 @@
 
 // Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
 // releases it recognises, making an Engine to run one) and its Engine,
-// which so far runs the start of a new game: the game setup screen, then
-// the empire selection screen (docs/engines/botf/systems/screens.md).
+// which so far runs the main menu and the start of a new game: the game
+// setup screen, then the empire selection screen
+// (docs/engines/botf/systems/screens.md).
 
 #include "common/zip.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "engines/engine.h"
 
@@ -54,10 +56,9 @@ constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
 /**
- * The game running: the game setup screen, and from its Accept the empire
- * selection screen. There's no game to start yet, so the empire screen's
- * Accept comes back to the setup; the setup's Cancel, which goes to the
- * main menu in the game, goes back to the launcher.
+ * The game running: the main menu, and from its New Single Player Game the
+ * game setup screen, then the empire selection screen. There's no game to
+ * start yet, so the empire screen's Accept comes back to the main menu.
  */
 class BotfEngine : public Engine {
 public:
@@ -75,8 +76,11 @@ public:
         if (!_stbof.read("lexicon.dic", data))
             _lexicon.load(data);
         Assets assets(_stbof);
+        MainMenu menu(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
+        if (Error err = menu.load())
+            return err;
         if (Error err = setup.load())
             return err;
         if (Error err = empires.load())
@@ -87,35 +91,55 @@ public:
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        bool choosingEmpire = false;
+        enum class Showing { kMenu, kSetup, kEmpires };
+        Showing showing = Showing::kMenu;
         bool redraw = true;
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (!choosingEmpire) {
+                if (showing == Showing::kMenu) {
+                    // Esc on the main menu leaves, as its Quit Game does: a
+                    // convenience the game hasn't got.
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+                        return Error::success();
+                    // The menu's other choices (loading, the options, the
+                    // Hall of Fame, multiplayer) aren't there yet, and do
+                    // nothing.
+                    const MainMenu::Choice c = menu.handle(ev);
+                    if (c == MainMenu::Choice::kQuit)
+                        return Error::success();
+                    if (c == MainMenu::Choice::kNewSinglePlayer) {
+                        setup.setup() = GameSetup{};
+                        showing = Showing::kSetup;
+                    }
+                } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)
-                        return Error::success();
+                        showing = Showing::kMenu;
                     if (r == SetupScreen::Result::kAccepted) {
-                        choosingEmpire = true;
+                        showing = Showing::kEmpires;
                         empires.reset();
                         empires.setLevels(setup.setup().civilization);
                     }
                 } else {
                     const EmpireScreen::Result r = empires.handle(ev);
-                    if (r == EmpireScreen::Result::kAccepted || r == EmpireScreen::Result::kCancelled)
-                        choosingEmpire = false;
+                    if (r == EmpireScreen::Result::kAccepted)
+                        showing = Showing::kMenu;
+                    if (r == EmpireScreen::Result::kCancelled)
+                        showing = Showing::kSetup;
                 }
                 redraw = redraw || ev.type != EventType::kKeyUp;
             }
             if (redraw) {
                 std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
-                if (choosingEmpire)
-                    empires.draw(screen);
-                else
+                if (showing == Showing::kMenu)
+                    menu.draw(screen);
+                else if (showing == Showing::kSetup)
                     setup.draw(screen);
+                else
+                    empires.draw(screen);
                 redraw = false;
             }
             _sys.updateScreen(screen);

@@ -19,6 +19,7 @@ reluva_add_engine(botf
         ui/assets.cpp
         ui/empire_screen.cpp
         ui/layout_screen.cpp
+        ui/main_menu.cpp
         ui/setup_screen.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,
