@@ -44,13 +44,13 @@ namespace stdfs = std::filesystem;
 
 namespace reluva::nfs::testing {
 
+/** Writes a small file, making its folders. */
 inline void touch(const stdfs::path &file, const std::string &contents = "x") {
     stdfs::create_directories(file.parent_path());
     std::ofstream(file, std::ios::binary) << contents;
 }
 
-// An install as the game's installer lays it out (mixed case), without the
-// CD's music and movies.
+/** An install as the game's installer lays it out (mixed case), without the CD's music and movies. */
 inline void makeInstall(const stdfs::path &dir) {
     touch(dir / "nfs3.exe");
     touch(dir / "GameData/Tracks/trk000/tr00.frd");
@@ -62,7 +62,7 @@ inline void makeInstall(const stdfs::path &dir) {
     touch(dir / "GameData/CarModel/Traffic/0000/car.viv");
 }
 
-// The CD, in its lower-case spelling, with the music and movies.
+/** The CD, in its lower-case spelling, with the music and movies. */
 inline void makeCd(const stdfs::path &dir) {
     touch(dir / "nfs3.exe");
     touch(dir / "gamedata/tracks/trk000/tr00.frd");
@@ -74,6 +74,8 @@ inline void makeCd(const stdfs::path &dir) {
 
 using Bytes = std::vector<uint8_t>;
 
+/** Appends a value, little-endian, or big-endian for put32be. */
+///@{
 inline void put16(Bytes &b, unsigned v) {
     b.push_back(uint8_t(v));
     b.push_back(uint8_t(v >> 8));
@@ -89,10 +91,14 @@ inline void put32be(Bytes &b, uint32_t v) {
         b.push_back(uint8_t(v >> s));
 }
 
+///@}
+
+/** Appends the first `n` bytes of `s`. */
 inline void putText(Bytes &b, const char *s, size_t n) {
     b.insert(b.end(), s, s + n);
 }
 
+/** A BIGF (.viv) archive of the files (name, contents), its numbers big-endian and each file 4-byte aligned. */
 inline Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &files) {
     uint32_t dirSize = 16;
     for (const auto &f : files)
@@ -119,8 +125,10 @@ inline Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &fil
     return b;
 }
 
-// A shape block: the type, the offset to the next block (0: last), then
-// width, height, centre and position.
+/**
+ * Appends a shape block's header: the type, the 24-bit offset to the next
+ * block (0: the last), then width, height, centre and position.
+ */
 inline void putShapeHeader(Bytes &b, uint8_t type, uint32_t next, int w, int h, int cx, int cy, int x, int y) {
     b.push_back(type);
     b.push_back(uint8_t(next));
@@ -134,6 +142,7 @@ inline void putShapeHeader(Bytes &b, uint8_t type, uint32_t next, int w, int h, 
     put16(b, unsigned(y) & 0xffff);
 }
 
+/** An SHPI shape bank (GIMX) of the shapes, each a 4-character name and its blocks. */
 inline Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>> &shapes) {
     Bytes b = {'S', 'H', 'P', 'I'};
     put32(b, 0);
@@ -153,6 +162,8 @@ inline Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>> &sha
     return b;
 }
 
+/** Writes a value, little-endian, at `at`, which must already be inside `b`. */
+///@{
 inline void putFloat(Bytes &b, size_t at, float f) {
     uint32_t v;
     std::memcpy(&v, &f, 4);
@@ -165,12 +176,16 @@ inline void putU32(Bytes &b, size_t at, uint32_t v) {
         b[at + i] = uint8_t(v >> (8 * i));
 }
 
+///@}
+
+/** Appends a float, little-endian. */
 inline void putF(Bytes &b, float f) {
     uint32_t v;
     std::memcpy(&v, &f, 4);
     put32(b, v);
 }
 
+/** Appends a track polygon: its four vertices, its texture and the flag bytes every test polygon has. */
 inline void putPolygon(Bytes &b, std::array<uint16_t, 4> v, uint16_t texture) {
     for (uint16_t i : v)
         put16(b, i);
@@ -180,8 +195,10 @@ inline void putPolygon(Bytes &b, std::array<uint16_t, 4> v, uint16_t texture) {
     b.push_back(0xf9);
 }
 
-// A one-block track (frd.md): the header, the block, its polygons and
-// object layers, the extra object groups and the texture table.
+/**
+ * A one-block track (frd.md): the header, the block, its polygons and
+ * object layers, the extra object groups and the texture table.
+ */
 inline Bytes makeTrack() {
     Bytes b(28, 0);
     put32(b, 0); // one block, stored as one less
@@ -280,8 +297,12 @@ inline Bytes makeTrack() {
     return b;
 }
 
-// A straight road along +z, a point every 4: two lanes each side, 4
-// wide (the bytes 8), walls 10 away, road strips in lanes 5-8.
+/**
+ * A straight road along +z, a point every 4: two lanes each side, 4 wide
+ * (the bytes 8), walls 10 away, road strips in lanes 5-8.
+ * @param codes Each point's cover codes (bits 16-23 of `unknown`): the low
+ *        nibble the right side's, the high one the left's (pointCovered).
+ */
 inline TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
     TrackCollision col;
     for (int i = 0; i < points; ++i) {
@@ -298,7 +319,7 @@ inline TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
     return col;
 }
 
-// A PT header: tags (tag, length, big-endian value), then 0xFF.
+/** A PT header: tags (tag, length, big-endian value), then 0xFF. */
 inline Bytes ptHeader(const std::vector<std::pair<uint8_t, uint32_t>> &tags) {
     Bytes b = {'P', 'T', 0, 0, 0x06, 1, 25, 0xfd};
     for (auto [tag, value] : tags) {
@@ -312,18 +333,20 @@ inline Bytes ptHeader(const std::vector<std::pair<uint8_t, uint32_t>> &tags) {
     return b;
 }
 
-// Bits as a MAD frame holds them: 16-bit little-endian words, each from its
-// top bit.
+/** Bits as a MAD frame holds them: 16-bit little-endian words, each from its top bit. */
 struct MadBits {
     std::vector<bool> bits;
+    /** Appends the low `n` bits of `v`, the highest first. */
     void put(uint32_t v, int n) {
         for (int i = n - 1; i >= 0; --i)
             bits.push_back((v >> i) & 1);
     }
+    /** Appends a code written as a string of '0' and '1'. */
     void code(const char *s) {
         for (; *s; ++s)
             bits.push_back(*s == '1');
     }
+    /** The words, the last padded with zeros. */
     Bytes bytes() const {
         Bytes out;
         for (size_t w = 0; w * 16 < bits.size(); ++w) {
@@ -336,6 +359,7 @@ struct MadBits {
     }
 };
 
+/** A 16-pixel-high MAD movie frame of `kind` holding the bits. */
 inline Bytes madFrame(char kind, const MadBits &bits, int qscale = 1, int width = 16) {
     Bytes f = {'M', 'A', 'D', uint8_t(kind)};
     const Bytes body = bits.bytes();
