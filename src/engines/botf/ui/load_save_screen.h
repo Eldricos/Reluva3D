@@ -36,8 +36,9 @@ public:
     Error load(); // the two layouts
     /**
      * Shows `slots`, none of them chosen. Loading, empty slots can't be
-     * chosen; saving, the slot chosen shows `description` (UTF-8), the
-     * game's to save, to be typed over.
+     * chosen; saving, the slot chosen keeps its saved game's description,
+     * or an empty one shows `description` (UTF-8), the game's to save,
+     * either to be typed over.
      */
     void open(const Slots &slots, Mode mode, const std::string &description = {});
     void draw(Surface &screen) const;
@@ -64,6 +65,7 @@ private:
     Slots _slots;
     Mode _mode = Mode::kLoad;
     std::string _description;
+    std::string _newDescription; // saving: an empty slot's description at first
     int _chosen = -1;
     bool _cursorShown = true;
 };

@@ -55,7 +55,8 @@ Error LoadSaveScreen::load() {
 void LoadSaveScreen::open(const Slots &slots, Mode mode, const std::string &description) {
     _slots = slots;
     _mode = mode;
-    _description = description;
+    _newDescription = description;
+    _description.clear();
     _chosen = -1;
     _pressed = 0;
     _disabled.clear();
@@ -123,6 +124,10 @@ LoadSaveScreen::Result LoadSaveScreen::handle(const Event &e) {
             if (id == slotButton(i) && (_mode == Mode::kSave || _slots[size_t(i)])) {
                 _chosen = i;
                 _disabled.erase(kAccept);
+                // Saving over a game keeps its description, to be typed
+                // over (the game does); an empty slot takes the new one's.
+                const std::optional<SaveSummary> &save = _slots[size_t(i)];
+                _description = save ? save->description : _newDescription;
             }
     }
     return Result::kOpen;

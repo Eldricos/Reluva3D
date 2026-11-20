@@ -370,8 +370,11 @@ void testLoadSaveScreen() {
         return screen.handle(e);
     };
     typed("x"); // nothing chosen: not typed
-    CHECK(screen.description() == "Ring" && key(key::kReturn) == LoadSaveScreen::Result::kOpen);
-    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1);
+    CHECK(screen.description().empty() && key(key::kReturn) == LoadSaveScreen::Result::kOpen);
+    // A saved game's slot keeps its description; an empty one takes the
+    // new game's.
+    CHECK(slot(3) == LoadSaveScreen::Result::kOpen && screen.description() == "Spiral");
+    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1 && screen.description() == "Ring");
     key(key::kBackspace);
     typed("s \xc3\xa9\xe2\x82\xac"); // 's', a space, 'é'; the font has no euro sign
     CHECK(screen.description() == "Rins \xc3\xa9");

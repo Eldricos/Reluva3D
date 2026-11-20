@@ -198,10 +198,11 @@ game."
   pointer: Accept dimmed, the tutorials in the first four slots.
 - **The chosen slot** lights (its second picture, framed in yellow), and
   its file's name and description turn pink, (239, 182, 198), measured
-  from a screenshot. The description is the game's to save: at first its
-  galaxy's shape ("Ring"), the manual's "galaxy type" *(guessed)*: which
-  words, and whether the size goes with them, aren't known. Typing changes
-  it, and Backspace takes the last character away; only characters the
+  from a screenshot. A slot with a saved game keeps its description when
+  chosen ("Tutorial #1" stays, seen in the game), to be typed over. An
+  empty slot's is the game to save's: Reluva gives it the galaxy's shape
+  ("Ring"), the manual's "galaxy type" *(guessed)*: which words, and
+  whether the size goes with them, aren't known. Typing changes it, and Backspace takes the last character away; only characters the
   field's font has (all in Windows-1252, as `gameInfo` keeps them), up to
   50 and the field's 370 pixels. Reluva takes what's typed whichever field
   was clicked *(guessed)*.
@@ -376,8 +377,8 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Save Game: the description it starts with, and how fast the cursor
-  flashes. Settled by choosing a slot before typing, and a recording.
+- Save Game: an empty slot's description when chosen, and how fast the
+  cursor flashes. Settled by choosing an empty slot, and a recording.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses

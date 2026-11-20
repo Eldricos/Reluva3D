@@ -33,11 +33,12 @@ None: nothing of the game's code has been read.
 
 ## Guessed
 
-- **On Save Game:** the description it starts with (the galaxy's shape),
+- **On Save Game:** an empty slot's description when chosen (the galaxy's
+  shape),
   typing whichever field was clicked, the cursor's flashing every half a
   second, and on Load Game the chosen slot's text pink too
   ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
-  a slot just chosen, a recording, and a slot chosen on Load Game.
+  an empty slot just chosen, a recording, and a slot chosen on Load Game.
 
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
