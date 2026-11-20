@@ -1743,10 +1743,32 @@ void ScriptLevel::swimPlayer(VmObject *a, float dt) {
             if (adjustToWaterSurface(a, from, add(from, delta)) || a->deleted)
                 return;
         } else if (h.hit() && h.actor == _levelInfo) {
+            // A ledge to clamber onto; else a step, up which the player is
+            // moved, then down MaxStepHeight + 2: with its chest out of the
+            // water there, it lands and walks (0x10371fa7); else a ladder.
             const Vec flat{delta[0], delta[1], 0};
+            float step = 0;
             if (testForLedge(a, h.normal, flat)) {
                 if (askClimb(a, h.normal, kPhysClambering))
                     return;
+                step = floatOf(prop(a, "LedgeDepth")) / (2 * defaultRadius(a));
+            } else {
+                step = swimStepUp(a, h.normal, delta);
+            }
+            if (step > 0) {
+                moveActor(a, {0, 0, -(floatOf(prop(a, "MaxStepHeight"), 25) + 2)});
+                if (a->deleted)
+                    return;
+                const Vec now = vecOf(prop(a, "Location"));
+                if (!waterAt(add(now, {0, 0, chestOffset(a)}))) {
+                    if (Value *old = prop(a, "OldLocation"))
+                        _vm.setVector(*old, now[0], now[1], now[2]);
+                    _vm.callEvent(a, "Landed", {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2])});
+                    if (!a->deleted)
+                        if (Value *p = prop(a, "Physics"))
+                            p->i = kPhysWalking;
+                    return;
+                }
             } else if (checkClimbing(a, h.normal, flat, true, false, true, true) &&
                        askClimb(a, h.normal, kPhysClimbing)) {
                 return;

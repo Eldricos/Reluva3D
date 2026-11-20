@@ -787,6 +787,7 @@ public:
     bool handHold(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool hangLedge(VmObject *a, const std::array<float, 3> &normal, std::array<float, 3> &at);
     bool testForLedge(VmObject *a, const std::array<float, 3> &hitNormal, const std::array<float, 3> &dir);
+    float swimStepUp(VmObject *a, const std::array<float, 3> &hitNormal, const std::array<float, 3> &delta);
     bool checkClimbing(VmObject *a, const std::array<float, 3> &wallNormal, const std::array<float, 3> &dir, bool snap,
                        bool feet, bool chest, bool head);
     bool askClimb(VmObject *a, const std::array<float, 3> &wallNormal, int physics);

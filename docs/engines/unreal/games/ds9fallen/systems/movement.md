@@ -159,11 +159,14 @@ it is.
 So the player stays in the water until it swims to the surface and onto
 a ledge, a ladder or a shore. On M01_KiraL1B from (-1840, -5572), the
 bottom: Space takes it up 30 to the surface, where it floats; swimming on
-west, it reaches the shore at -1938 and stands. Not done: after a
-`TestForLedge` that finds only a step, Engine.dll moves the player down
-by `MaxStepHeight` + 2 and, the chest out of the water, has it land and
-walk (0x1037201c); how that test's step value is made isn't settled, so
-the step is left to the shore's `Landed`.
+west, it reaches the shore at -1938 and stands. A ledge its scripts
+won't clamber onto, or a step no higher than `MaxStepHeight` + 1 that
+`TestForLedge` steps the player up onto (up at least 1 and on by the
+move, again higher if stopped on a slope, put back if it can't go on;
+0x1036badd), are followed by a step down of `MaxStepHeight` + 2: with
+the chest then out of the water, the player lands and walks
+(0x10371fa7). No swim in The Fallen's maps meets such a step: every wall
+`unreal ledges` lists to swim into rises over 40.
 
 Walls are told as the engine's `processHitWall`: nothing for a pawn
 hit, or with no acceleration; a pawn going (toward its `Destination`;

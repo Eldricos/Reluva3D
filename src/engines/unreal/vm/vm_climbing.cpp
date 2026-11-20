@@ -256,6 +256,56 @@ bool ScriptLevel::testForLedge(VmObject *a, const Vec &hitNormal, const Vec &dir
            (!item || item->asInt() >= 0) && strongFooting(a, hitNormal, at) && handHold(a, hitNormal, at);
 }
 
+// TestForLedge's step up (0x1036badd), as a swimmer at the surface meets
+// it: a step no higher than MaxStepHeight + 1 ahead, at least 0.4 of the
+// class's radius deep (a third of a unit's depth or more, as the engine's
+// share comes to), with room over it: the player moved up onto it (at
+// least 1) and on by the move (at least 3 across); stopped at once there
+// on a slope, up MaxStepHeight + 1 and on again. How far on it got (0
+// when it didn't, the player put back down). The ducking the engine's
+// test does in its stead isn't done while swimming.
+float ScriptLevel::swimStepUp(VmObject *a, const Vec &hitNormal, const Vec &delta) {
+    const Value *loc = prop(a, "Location");
+    if (!loc || length(flat(delta)) < 1e-4f)
+        return 0;
+    const Vec at = Vm::vectorOf(*loc);
+    const Vec f = flat(delta);
+    const float dR = defaultRadius(a);
+    const float radius = climbFloat(a, "CollisionRadius", 17);
+    const float height = climbFloat(a, "CollisionHeight", 49.5f);
+    const float step = climbFloat(a, "MaxStepHeight", 25);
+    const float arm = climbFloat(a, "ArmCollisionHeight", 7.5f);
+    const float stand = climbFloat(a, "StandCollisionHeight", 49.5f);
+    const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
+    // The probe as TestForLedge sizes it: a ledge's when head on to an
+    // upright wall, else a step's.
+    const bool headOn =
+        std::fabs(hitNormal[2]) < 0.1f && dot(f, hitNormal) < -0.85f && dot(viewX(a), hitNormal) < -0.85f && !crouching;
+    const float r = headOn ? testStepUp(a, 2 * (arm + stand), stand, at, mul(f, 2 * dR), {radius, radius, height})
+                           : testStepUp(a, step, height, at, mul(f, 2 * dR), {radius, radius, height});
+    const float depth = r * 2 * dR;
+    const float rise = climbFloat(a, "LedgeHeight", 0) - (at[2] - height);
+    if (r <= 0 || rise == 0 || rise > step + 1 || depth < 0.4f * dR || std::clamp(depth / 3, 0.0f, 1.0f) <= 0.99f)
+        return 0;
+    if (!crouching && climbFloat(a, "HeadRoom", height) < height)
+        return 0;
+    const Vec forward = std::hypot(delta[0], delta[1]) < 3 ? mul(f, 3) : Vec{delta[0], delta[1], 0};
+    float up = std::max(rise, 1.0f);
+    moveActor(a, {0, 0, up});
+    MoveHit on = moveActor(a, forward);
+    const Value *ln = prop(a, "LedgeNormal");
+    if (on.time < 0.01f && ln && Vm::vectorOf(*ln)[2] < 0.999f && up < step + 1) {
+        up = step + 1;
+        moveActor(a, {0, 0, up});
+        on = moveActor(a, forward);
+    }
+    if (on.time < 0.01f) {
+        moveActor(a, {0, 0, -up});
+        return 0;
+    }
+    return on.time;
+}
+
 // ForceDuck: the player made to crouch where it is (its scripts' walking
 // state shrinks it to its ducked height and keeps it so while
 // CollisionHeightOverride is set and it's near ForceDuckLocation).
