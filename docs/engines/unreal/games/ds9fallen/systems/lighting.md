@@ -315,7 +315,11 @@ Lights the scripts may change (any class but plain `Light`, like
 the same way, starting as they are (one that starts off, at nothing:
 kept at the brightness it was placed with, so it lights once its scripts
 turn it on; one put out at the start, a `CTV_TriggerLight` not initially
-on, was dropped and never lit),
+on, was dropped and never lit). In a saved game a light its scripts had
+out at the time has 0 for its brightness: its `InitialBrightness` (both
+trigger lights keep it, set as they begin) stands for the brightness it
+was placed with, or it was dropped too (on M04_KiraL1, 36 lights and 163
+lit surfaces fewer after loading a save),
 and while the game runs follow their live actor: its `LightType` and
 `LightBrightness` against the brightness it was placed with (a
 TriggerLight fading, a light switched off or destroyed). With them and

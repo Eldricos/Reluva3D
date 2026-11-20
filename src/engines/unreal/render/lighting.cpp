@@ -81,7 +81,12 @@ bool readLight(const PackageSet &packages, const Package &package, int32_t ref, 
     // brightness 64 and radius 64. Lights the level lists are lights, so
     // a missing LightType counts as steady.
     l.type = changed && changed->lightType >= 0 ? uint8_t(changed->lightType) : props.byte("LightType", kLightSteady);
-    const uint8_t placed = props.byte("LightBrightness", 64);
+    // Its brightness as placed; in a saved game, one its scripts had put
+    // out keeps it as InitialBrightness (a TriggerLight's or
+    // CTV_TriggerLight's, set as it began).
+    uint8_t placed = props.byte("LightBrightness", 64);
+    if (placed == 0)
+        placed = uint8_t(std::clamp(props.number("InitialBrightness", 0), 0.0f, 255.0f));
     uint8_t brightness = changed && changed->lightBrightness >= 0 ? uint8_t(changed->lightBrightness) : placed;
     // Scripts may turn it on later (a TriggerLight waiting for its
     // trigger, one a trigger names by its Tag): kept at the brightness it
