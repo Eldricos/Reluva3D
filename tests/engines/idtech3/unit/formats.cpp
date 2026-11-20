@@ -730,6 +730,11 @@ static void testGhoul2Collision() {
     jk2::traceGhoul2(off, world, {0, 0, 0}, {90, 2, 2}, {110, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
     jk2::traceGhoul2(models, world, {0, 0, 0}, {90, 2, 2}, {95, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
     CHECK(hits.empty());
+    // A model flagged "no collide" isn't met at all.
+    std::vector<Ghoul2Pose> ghost = models;
+    ghost[0].noCollide = true;
+    jk2::traceGhoul2(ghost, world, {0, 0, 0}, {90, 2, 2}, {110, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
+    CHECK(hits.empty());
 }
 
 static void testGhoul2Instances() {
@@ -820,6 +825,28 @@ static void testGhoul2Instances() {
     CHECK(g2.removeModel(h, 1) && !g2.hasModel(h, 1));
     g2.remove(h);
     CHECK(!g2.has(h) && g2.has(copy));
+    // As single player's engine keeps it: a new origin on the child's bolt
+    // draws the instance with that bolt (10 along y) at its origin; the
+    // "no collide" flag carried to what's drawn; drawn from a root
+    // surface the mesh hasn't, nothing.
+    Ghoul2Instances::ModelState state;
+    state.file = "test/model.glm";
+    state.bolts = {{0, -1}}; // the child's bone
+    state.flags = Ghoul2Instances::kModelNewOrigin | Ghoul2Instances::kModelNoCollide;
+    state.newOrigin = 0;
+    g2.setInstance(50, {state}, {});
+    drawn.clear();
+    CHECK(g2.drawn(50, 0, drawn) && drawn.size() == 1);
+    if (drawn.size() == 1)
+        CHECK(near(drawn[0].placement[7], -10) && near(drawn[0].placement[3], 0) && drawn[0].noCollide &&
+              drawn[0].surfaceOn[0]);
+    state.rootSurface = 5;
+    state.flags = 0;
+    g2.setInstance(50, {state}, {});
+    drawn.clear();
+    CHECK(g2.drawn(50, 0, drawn) && drawn.size() == 1);
+    if (drawn.size() == 1)
+        CHECK(!drawn[0].surfaceOn[0] && !drawn[0].noCollide && near(drawn[0].placement[7], 0));
 }
 
 static void testBsp() {

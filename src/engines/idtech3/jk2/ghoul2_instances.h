@@ -161,7 +161,16 @@ public:
         std::map<int, int32_t> surfaceFlags;    // by surface
         std::map<int, Bone34> angles;           // by bone: the override's matrix
         std::map<int, int32_t> angleFlags;
+        int rootSurface = 0;    // drawn from this surface down
+        int32_t flags = 0;      // kModelNoCollide, kModelNewOrigin
+        int32_t newOrigin = -1; // the bolt the instance is drawn round, with kModelNewOrigin
     };
+    // A model's flags (CGhoul2Info's): traces pass through it; its
+    // instance is drawn with the bolt newOrigin names at its origin.
+    static constexpr int32_t kModelNoCollide = 1;
+    static constexpr int32_t kModelNewOrigin = 8;
+    // A surface's flag: nothing under it is drawn or met by traces.
+    static constexpr int32_t kSurfaceNoDescendants = 0x100;
     // The instance at `handle` made (or replaced) from `models`; their
     // animations, by bone, follow in `animations` (one map a model).
     void setInstance(int32_t handle, const std::vector<ModelState> &models,
@@ -184,6 +193,9 @@ private:
         std::vector<Bolt> bolts;
         std::map<int, int32_t> surfaceFlags; // by surface: the module's on/off over the mesh's own
         int32_t boltLink = -1;
+        int rootSurface = 0;
+        int32_t flags = 0;
+        int32_t newOrigin = -1;
         bool used = true;
         // The last pose worked out, for the time it was for: the module asks
         // for bolts many times a frame.

@@ -93,6 +93,7 @@ struct Ghoul2Pose {
     std::vector<Bone34> bones;
     Bone34 placement{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
     std::vector<bool> surfaceOn; // by the mesh's surfaces
+    bool noCollide = false;      // traces pass through it
     int32_t customSkin = 0;
     std::string file;
 };

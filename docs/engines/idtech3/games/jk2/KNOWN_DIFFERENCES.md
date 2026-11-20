@@ -26,10 +26,7 @@ None yet.
 
 In single player ([PLAN.md](PLAN.md)): `loadtransition`'s
 hub saves aren't made, and a save isn't refused while a cinematic plays
-([systems/sp-saves.md](systems/sp-saves.md)); a Ghoul2 model's "no
-collide" flag and a surface's "no descendants" aren't heeded by traces,
-and no hit location is looked up from a model's skin
-([systems/sp-ghoul2.md](systems/sp-ghoul2.md)). In the maps:
+([systems/sp-saves.md](systems/sp-saves.md)). In the maps:
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where
   they stand up close, where the original's move as it drops the curve's

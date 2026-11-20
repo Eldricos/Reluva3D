@@ -182,7 +182,7 @@ void traceGhoul2(const std::vector<Ghoul2Pose> &models, const Bone34 &world, con
     std::vector<Md3Vertex> verts;
     for (size_t m = 0; m < models.size() && !w.done; ++m) {
         const Ghoul2Pose &pose = models[m];
-        if (!pose.glm || pose.glm->lods.empty())
+        if (!pose.glm || pose.glm->lods.empty() || pose.noCollide)
             continue;
         const auto &level = pose.glm->lods[size_t(std::clamp(lod, 0, int(pose.glm->lods.size()) - 1))];
         // The surfaces from the roots down, children after their parent

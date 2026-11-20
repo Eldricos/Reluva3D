@@ -235,7 +235,11 @@ behind the DLL's own tables.
    route, Desann's fight, to the closing cinematics and the game's end
    (`endscreendissolve`): every level of the campaign plays through.
    The page has the console, drawn as jk2sp.exe's
-   ([systems/console.md](systems/console.md)).
+   ([systems/console.md](systems/console.md)). Ghoul2's last details:
+   the game's remaining slots (removing a surface, the two debug
+   listings), the "no collide" and "no descendants" flags in traces and
+   drawing, and the new origin moving a severed limb
+   ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)).
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

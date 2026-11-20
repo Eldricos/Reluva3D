@@ -154,6 +154,9 @@ void Ghoul2Instances::setInstance(int32_t handle, const std::vector<ModelState> 
         m.surfaceFlags = s.surfaceFlags;
         m.angles = s.angles;
         m.angleFlags = s.angleFlags;
+        m.rootSurface = s.rootSurface;
+        m.flags = s.flags;
+        m.newOrigin = s.newOrigin;
         if (i < animations.size())
             m.animations = animations[i];
         inst.models.push_back(std::move(m));
@@ -699,14 +702,47 @@ bool Ghoul2Instances::drawn(int32_t handle, int32_t time, std::vector<Drawn> &ou
         d.customSkin = m.customSkin;
         d.bones = posed(m, time);
         d.placement = modelPlacement(it->second, m, time, 0);
-        d.surfaceOn.resize(m.glm->surfaces.size());
-        for (size_t i = 0; i < d.surfaceOn.size(); ++i) {
-            uint32_t flags = m.glm->surfaces[i].flags;
-            if (const auto f = m.surfaceFlags.find(int(i)); f != m.surfaceFlags.end())
+        d.noCollide = (m.flags & kModelNoCollide) != 0;
+        // From the root surface down, as the original's renderer and
+        // traces walk them: each drawn if it's on, nothing under one
+        // flagged "no descendants".
+        const auto &surfaces = m.glm->surfaces;
+        d.surfaceOn.assign(surfaces.size(), false);
+        std::vector<int> walk;
+        if (m.rootSurface >= 0 && size_t(m.rootSurface) < surfaces.size())
+            walk.push_back(m.rootSurface);
+        std::vector<bool> seen(surfaces.size(), false);
+        while (!walk.empty()) {
+            const int s = walk.back();
+            walk.pop_back();
+            if (seen[size_t(s)])
+                continue;
+            seen[size_t(s)] = true;
+            uint32_t flags = surfaces[size_t(s)].flags;
+            if (const auto f = m.surfaceFlags.find(s); f != m.surfaceFlags.end())
                 flags = (flags & kGlmSurfaceTag) | uint32_t(f->second);
-            d.surfaceOn[i] = (flags & (kGlmSurfaceTag | kGlmSurfaceOff)) == 0;
+            d.surfaceOn[size_t(s)] = (flags & (kGlmSurfaceTag | kGlmSurfaceOff)) == 0;
+            if (flags & uint32_t(kSurfaceNoDescendants))
+                continue;
+            for (const int child : surfaces[size_t(s)].children)
+                if (child >= 0 && size_t(child) < surfaces.size())
+                    walk.push_back(child);
         }
         out.push_back(std::move(d));
+    }
+    // The first model with a new origin moves the whole instance so that
+    // bolt is at its origin, unturned (jk2sp.exe's root matrix, 0x468193).
+    for (const Model &m : it->second.models) {
+        if (!m.used || !m.glm || !(m.flags & kModelNewOrigin))
+            continue;
+        if (m.newOrigin >= 0 && size_t(m.newOrigin) < m.bolts.size()) {
+            const Bone34 bolt = mul(modelPlacement(it->second, m, time, 0),
+                                    boltInModel(m, m.bolts[size_t(m.newOrigin)], posed(m, time)));
+            for (Drawn &d : out)
+                for (size_t r = 0; r < 3; ++r)
+                    d.placement[r * 4 + 3] -= bolt[r * 4 + 3];
+        }
+        break;
     }
     return true;
 }

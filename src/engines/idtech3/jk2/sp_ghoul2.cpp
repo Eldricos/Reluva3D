@@ -487,6 +487,9 @@ void SpGameHost::syncGhoul2Pose(int32_t handle, uint32_t vector) {
         // number for it, which the client game's list turns into this).
         m.customSkin = int32_t(_cpu->read32(info + kSkin));
         m.boltLink = int32_t(_cpu->read32(info + kModelBoltLink));
+        m.rootSurface = int32_t(_cpu->read32(info + kSurfaceRoot));
+        m.flags = int32_t(_cpu->read32(info + kFlags));
+        m.newOrigin = int32_t(_cpu->read32(info + kNewOrigin));
         for (uint32_t b = 0, n = vectorCount(info + kBolts, kBoltSize); b < n; ++b) {
             const uint32_t r = vectorAt(info + kBolts, kBoltSize, b);
             m.bolts.emplace_back(int32_t(_cpu->read32(r)), int32_t(_cpu->read32(r + 4)));
@@ -788,6 +791,61 @@ void SpGameHost::addGhoul2Imports() {
                 return _cpu->read32(r);
         }
         return files->mesh.surfaces[size_t(surface)].flags;
+    });
+    slot("G2API_RemoveSurface", [this](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info *, index into its surface list): that entry made
+        // unused (its surface -1, 0x45ac90) and the cached frame dropped;
+        // 0 for -1 or a model that can't be read (0x451eb0).
+        const uint32_t info = c.arg(0);
+        const auto index = int32_t(c.arg(1));
+        if (!ghoul2FilesOf(info))
+            return 0;
+        _cpu->write32(info + kMeshFrameNum, 0);
+        if (index == -1 || uint32_t(index) >= vectorCount(info + kSurfaces, kSurfaceRecordSize))
+            return 0;
+        _cpu->write32(vectorAt(info + kSurfaces, kSurfaceRecordSize, uint32_t(index)) + 4, 0xffffffffu);
+        return 1;
+    });
+    auto logging = [this]() { return _cvars.value("r_logFile") != 0; };
+    slot("G2API_ListSurfaces", [this, logging](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info *): the mesh's surfaces printed, with their
+        // children while r_logFile is set (0x457110), for the client
+        // game's testlistsurfaces.
+        const Ghoul2Files *files = ghoul2FilesOf(c.arg(0));
+        if (!files || !print)
+            return 0;
+        for (size_t i = 0; i < files->mesh.surfaces.size(); ++i) {
+            const GlmSurfaceInfo &s = files->mesh.surfaces[i];
+            print("Surface " + std::to_string(i) + " Name " + s.name + "\n");
+            if (!logging())
+                continue;
+            print("Num Descendants " + std::to_string(s.children.size()) + "\n");
+            for (const int child : s.children)
+                print("Descendant " + std::to_string(child) + "\n");
+        }
+        return 0;
+    });
+    slot("G2API_ListBones", [this, logging](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info *, frame): the skeleton's bones printed, each with
+        // where its base pose puts it, and while r_logFile is set the
+        // count of its children once a child (0x4571e0: the frame unused).
+        const Ghoul2Files *files = ghoul2FilesOf(c.arg(0));
+        if (!files || !files->hasSkeleton || !print)
+            return 0;
+        for (size_t i = 0; i < files->skeleton.bones.size(); ++i) {
+            const GlaBone &b = files->skeleton.bones[i];
+            print("Bone " + std::to_string(i) + " Name " + b.name + "\n");
+            char line[128];
+            std::snprintf(line, sizeof line, "X pos %f, Y pos %f, Z pos %f\n", double(b.basePose[3]),
+                          double(b.basePose[7]), double(b.basePose[11]));
+            print(line);
+            if (!logging())
+                continue;
+            print("Num Descendants " + std::to_string(b.children.size()) + "\n");
+            for (size_t k = 0; k < b.children.size(); ++k)
+                print("Num Descendants " + std::to_string(b.children.size()) + "\n");
+        }
+        return 0;
     });
     slot("G2API_RemoveBolt", [this](x86::Cpu &c) -> uint32_t {
         // (CGhoul2Info *, bolt): used once less, given back at none.

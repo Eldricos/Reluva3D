@@ -149,9 +149,12 @@ face (the front when the ray runs along its normal). With one, the test
 is looser: a triangle counts unless its corners all lie beyond the same
 side of a box around the ray, across it, before its start or past its
 end; its first corner stands for where it was met. A type 2 trace stops
-at the first triangle; any stops when the 16 records are full. The
-material and hit location are left 0 (the source's texture lookup is
-commented out).
+at the first triangle; any stops when the 16 records are full.
+
+1.02a leaves a record's material and hit location 0 too: both of its
+record writers, without a width and with one, zero them (0x4582c6,
+0x458a60). The game works out the part of the body hit from the
+surface's name instead (below).
 
 `G2API_GetSurfaceName` (slot 86, 0x453780) gives the game a surface's
 name from its number, which it turns into the part of the body hit;
@@ -203,14 +206,38 @@ draws one whose instance has no models.
 
 Collision is done as above (`jk2/ghoul2_collision`): the game's traces
 reach a Ghoul2 body only where they meet its triangles, posed as they're
-drawn, and the game reads which part was hit from the records. A model's
-"no collide" flag and a surface's "no descendants" aren't heeded yet.
-Copying an instance and the new origin are answered as above, but a
-model is still drawn from its own root, not the bolt its new origin
-names. Not yet answered (they stop the game, by name):
-`G2API_CollisionDetect` called by the game itself, the matrix
-overrides, adding and removing surfaces and bones, and surface
-parents. Saving and loading instances (entries 95 to 98) are as
+drawn, and the game reads which part was hit from the records. A model
+flagged "no collide" (1, at 0x9c) isn't tried.
+
+**Surfaces on and off:** a model's surfaces are walked from its root
+surface (0xa4 in its record) down, as the GPL source does *(published)*: a
+surface flagged "no descendants" (0x100) keeps none of its children,
+drawn or traced, which is how a body cut in two loses the part beyond
+the cut. All 71
+1.02a meshes have surface 0 as their only root.
+
+**The new origin:** an instance whose first model flagged with a new
+origin (8) has that bolt is moved, every model of it, by minus the
+bolt's place, as the renderer does when it sets up the instance's
+matrices (0x468193): a severed limb, copied from the whole body, then
+turns about its cut, not the body's feet.
+
+**Surfaces removed and listed:** `G2API_RemoveSurface` (slot 50,
+0x451eb0 then 0x45ac90) takes the surface off the model's surface list
+by setting its number there to -1 and makes the mesh pose again (0x98
+set 0); 1, or 0 if the list's index is -1. `G2API_ListSurfaces` (slot
+73, 0x457110) prints each surface as `Surface %i Name %s`, and with
+`r_logFile` its descendants; `G2API_ListBones` (slot 74, 0x4571e0) each
+bone as `Bone %i Name %s` and its base pose's place, `X pos %f, Y pos
+%f, Z pos %f`, its frame argument unused. The game calls these two only
+from its debug commands `testlistsurfaces` and `testlistbones`.
+
+**Never called:** `jk2gamex86.dll` never reaches the table's other
+remaining slots (no code loads them from its copy of the table,
+0x203abc28): `G2API_CollisionDetect` from the game itself, the matrix
+overrides, adding surfaces and bones, removing bones, and surface
+parents. Reluva stops the game, by name, if one is ever called. Saving
+and loading instances (entries 95 to 98) are as
 [sp-saves.md](sp-saves.md) says.
 
 ## Sources and checks
