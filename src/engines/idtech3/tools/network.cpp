@@ -22,6 +22,7 @@
 #include "common/pe.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -192,10 +193,10 @@ int cmdNetRun(int argc, char **argv) {
     std::string err;
     q3::CvarStore cvars;
     // The game's own protocol, and the settings its players send.
-    const q3::GameInfo &info = gameOfFolder(argv[2]);
+    const q3::GameInfo info = gameOfFolder(argv[2]);
     const q3::GameCode code =
         info.code == q3::GameCode::kJediOutcast ? q3::GameCode::kJediOutcast : q3::GameCode::kEliteForce;
-    const ef::NetProtocol &protocol = ef::netProtocol(code);
+    const ef::NetProtocol &protocol = ef::netProtocol(code, info.jediRelease);
     auto userinfoFor = [&](const std::string &player) {
         std::string userinfo = "\\name\\" + player + "\\model\\munro\\handicap\\100\\snaps\\20\\rate\\25000";
         if (!info.clientCvars.empty()) {
@@ -291,7 +292,7 @@ int cmdNetRun(int argc, char **argv) {
         cvars.set("dedicated", "2");
     for (const auto &[n, v] : sets)
         cvars.set(n, v);
-    ef::GameHost game(set, cvars, code);
+    ef::GameHost game(set, cvars, code, info.jediRelease);
     game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
@@ -602,27 +603,42 @@ int cmdHuffmanCheck(int argc, char **argv) {
 }
 
 // Jedi Outcast's entity and player-state deltas, keyed user commands and
-// the client's XOR against jk2mp.exe's own
-// (1.02a's), run in the x86 interpreter on made-up states that use every
-// field of its tables: what each writes must be the same bits, and what
-// each reads back from the other's the same state.
+// the client's XOR against jk2mp.exe's own (1.02a's, 1.03's or 1.04's),
+// run in the x86 interpreter on made-up states that use every field of its
+// tables: what each writes must be the same bits, and what each reads back
+// from the other's the same state.
 int cmdDeltaCheck(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 delta-check <jk2mp.exe> [pairs]\n");
         return 2;
     }
     namespace jk2 = reluva::idtech3::jk2;
-    constexpr uint32_t kBuildTree = 0x4326f0;
-    constexpr uint32_t kWriteEntity = 0x431aa0;
-    constexpr uint32_t kReadEntity = 0x431cd0;
-    constexpr uint32_t kWritePlayer = 0x431f60;
-    constexpr uint32_t kReadPlayer = 0x432340;
-    constexpr uint32_t kReadBits = 0x4311b0;
-    constexpr uint32_t kWriteCommand = 0x431750;
-    constexpr uint32_t kReadCommand = 0x431900;
-    constexpr uint32_t kEntityFields = 0x4f5ab0;
-    constexpr uint32_t kPlayerFields = 0x4f5e20;
-    constexpr uint32_t kShowNet = 0x8ca3d0; // cl_shownet, read by the readers
+    // Each release's routines and tables (its tree builder's Huffman
+    // counts and its entity reader's cl_shownet tell them apart).
+    struct Release {
+        const char *name;
+        bool patched;
+        uint32_t buildTree;
+        uint32_t writeEntity;
+        uint32_t readEntity;
+        uint32_t writePlayer;
+        uint32_t readPlayer;
+        uint32_t readBits;
+        uint32_t writeCommand;
+        uint32_t readCommand;
+        uint32_t entityFields;
+        uint32_t playerFields;
+        uint32_t counts;
+        uint32_t showNet;
+    };
+    constexpr std::array<Release, 3> kReleases = {{
+        {"1.02a", false, 0x4326f0, 0x431aa0, 0x431cd0, 0x431f60, 0x432340, 0x4311b0, 0x431750, 0x431900, 0x4f5ab0,
+         0x4f5e20, 0x4f6310, 0x8ca3d0},
+        {"1.03", true, 0x433070, 0x432420, 0x432650, 0x4328e0, 0x432cc0, 0x431b30, 0x4320d0, 0x432280, 0x4fce48,
+         0x4fd1b8, 0x4fd6c8, 0x8d8bd8},
+        {"1.04", true, 0x433090, 0x432440, 0x432670, 0x432900, 0x432ce0, 0x431b50, 0x4320f0, 0x4322a0, 0x4fce48,
+         0x4fd1b8, 0x4fd6c8, 0x8d8be8},
+    }};
     constexpr uint32_t kMemory = 32u << 20;
     constexpr uint32_t kScratch = kMemory - (4u << 20);
     constexpr uint32_t kCvar = kScratch;
@@ -650,10 +666,30 @@ int cmdDeltaCheck(int argc, char **argv) {
     for (const auto &sec : pe.sections)
         for (uint32_t i = 0; i < sec.rawSize && i < sec.virtualSize && sec.rawOffset + i < file.size(); ++i)
             cpu.write8(uint32_t(pe.imageBase) + sec.virtualAddress + i, file[sec.rawOffset + i]);
-    if (cpu.read32(kBuildTree + 0x1d) != 0x4f6310 || cpu.read32(kReadEntity + 0x76) != kShowNet) {
-        std::fprintf(stderr, "%s: not 1.02a's jk2mp.exe\n", argv[2]);
+    const Release *found = nullptr;
+    for (const Release &r : kReleases)
+        if (cpu.read32(r.buildTree + 0x1d) == r.counts && cpu.read32(r.readEntity + 0x76) == r.showNet)
+            found = &r;
+    if (!found) {
+        std::fprintf(stderr, "%s: not 1.02a's, 1.03's or 1.04's jk2mp.exe\n", argv[2]);
         return 1;
     }
+    const Release &rel = *found;
+    std::printf("jk2mp.exe %s\n", rel.name);
+    const uint32_t kBuildTree = rel.buildTree;
+    const uint32_t kWriteEntity = rel.writeEntity;
+    const uint32_t kReadEntity = rel.readEntity;
+    const uint32_t kWritePlayer = rel.writePlayer;
+    const uint32_t kReadPlayer = rel.readPlayer;
+    const uint32_t kReadBits = rel.readBits;
+    const uint32_t kWriteCommand = rel.writeCommand;
+    const uint32_t kReadCommand = rel.readCommand;
+    const uint32_t kShowNet = rel.showNet;
+    const size_t playerSize = rel.patched ? jk2::kNetPlayerStateSizePatched : jk2::kNetPlayerStateSize;
+    auto writeEntity = rel.patched ? jk2::writeEntityDeltaPatched : jk2::writeEntityDelta;
+    auto readEntity = rel.patched ? jk2::readEntityDeltaPatched : jk2::readEntityDelta;
+    auto writePlayer = rel.patched ? jk2::writePlayerDeltaPatched : jk2::writePlayerDelta;
+    auto readPlayer = rel.patched ? jk2::readPlayerDeltaPatched : jk2::readPlayerDelta;
     cpu.setStack(kMemory - 4096);
     uint32_t result = 0;
     auto run = [&](uint32_t at, std::initializer_list<uint32_t> args) {
@@ -681,8 +717,8 @@ int cmdDeltaCheck(int argc, char **argv) {
         }
         return out;
     };
-    const std::vector<Field> entityFields = fields(kEntityFields, jk2::kNetEntityStateSize);
-    const std::vector<Field> playerFields = fields(kPlayerFields, jk2::kNetPlayerStateSize);
+    const std::vector<Field> entityFields = fields(rel.entityFields, jk2::kNetEntityStateSize);
+    const std::vector<Field> playerFields = fields(rel.playerFields, uint32_t(playerSize));
     uint32_t seed = 7;
     auto random = [&] {
         seed = seed * 1103515245u + 12345u;
@@ -788,7 +824,7 @@ int cmdDeltaCheck(int argc, char **argv) {
         newMsg({});
         run(kWriteEntity, {kMsg, kFrom, kTo, uint32_t(n % 8 == 0)});
         reluva::idtech3::wire::MessageWriter w(code);
-        jk2::writeEntityDelta(w, from, to, n % 8 == 0);
+        writeEntity(w, from, to, n % 8 == 0);
         entityBits += w.bitCount();
         if (!sameBits(w)) {
             if (entityWriteDiffer < 4)
@@ -808,7 +844,7 @@ int cmdDeltaCheck(int argc, char **argv) {
         reluva::idtech3::wire::MessageReader r(w.bytes(), code);
         std::vector<uint8_t> mine;
         const int32_t myNumber = int32_t(r.bits(10));
-        const bool removed = jk2::readEntityDelta(r, myNumber, from, mine);
+        const bool removed = readEntity(r, myNumber, from, mine);
         // An entity gone from the snapshot: the original gives its state no number (1023).
         if (removed ? cpu.read32(kOut) != 1023 : (theirs != mine || mine != to || uint32_t(myNumber) != readNumber)) {
             if (entityReadDiffer < 4) {
@@ -829,7 +865,7 @@ int cmdDeltaCheck(int argc, char **argv) {
         }
     }
     for (int n = 0; n < pairs; ++n) {
-        makePair(playerFields, jk2::kNetPlayerStateSize, from, to);
+        makePair(playerFields, playerSize, from, to);
         // stats at 216, persistant at 280, ammo at 408 (as the writer reads
         // them, 16 bits sent), powerups at 344 (32 bits); 16 each.
         for (const uint32_t at : {216u, 280u, 408u})
@@ -842,7 +878,7 @@ int cmdDeltaCheck(int argc, char **argv) {
         newMsg({});
         run(kWritePlayer, {kMsg, kFrom, kTo});
         reluva::idtech3::wire::MessageWriter w(code);
-        jk2::writePlayerDelta(w, from, to);
+        writePlayer(w, from, to);
         playerBits += w.bitCount();
         if (!sameBits(w)) {
             if (playerWriteDiffer < 4)
@@ -852,12 +888,12 @@ int cmdDeltaCheck(int argc, char **argv) {
             continue;
         }
         newMsg(w.bytes());
-        load(kOut, std::vector<uint8_t>(jk2::kNetPlayerStateSize, 0));
+        load(kOut, std::vector<uint8_t>(playerSize, 0));
         run(kReadPlayer, {kMsg, kFrom, kOut});
-        const std::vector<uint8_t> theirs = fetch(kOut, jk2::kNetPlayerStateSize);
+        const std::vector<uint8_t> theirs = fetch(kOut, playerSize);
         reluva::idtech3::wire::MessageReader r(w.bytes(), code);
         std::vector<uint8_t> mine;
-        jk2::readPlayerDelta(r, from, mine);
+        readPlayer(r, from, mine);
         if (theirs != mine || mine != to) {
             if (playerReadDiffer < 4) {
                 size_t at = 0;
@@ -961,15 +997,18 @@ int cmdDeltaCheck(int argc, char **argv) {
         }
         previous = next;
     }
-    // The client's XOR (0x40e0c0): from byte 12, keyed by the challenge
+    // The client's XOR (1.02a's 0x40e0c0): from byte 12, keyed by the challenge
     // (0x821330) and the message's server id and acknowledgement (its
     // first longs), the text the server command its third names (slots of
     // 1,024 bytes from 0x84134c).
     constexpr uint32_t kClientEncode = 0x40e0c0;
     constexpr uint32_t kChallenge = 0x821330;
     constexpr uint32_t kServerCommands = 0x84134c;
+    // Only 1.02a's: the patches' globals weren't looked for (their XOR's
+    // code is 1.02a's, 0x40e7c0 and 0x40e7d0).
     int xorDiffer = 0;
-    for (int n = 0; n < pairs; ++n) {
+    const int xorPairs = rel.patched ? 0 : pairs;
+    for (int n = 0; n < xorPairs; ++n) {
         reluva::idtech3::wire::MessageWriter w(code);
         const auto serverId = int32_t(random());
         const auto acknowledge = int32_t(random());
@@ -1009,7 +1048,7 @@ int cmdDeltaCheck(int argc, char **argv) {
                 playerBits, playerWriteDiffer, playerReadDiffer);
     std::printf("%d keyed user commands: %d written differently from jk2mp.exe, %d read back differently\n", pairs,
                 commandWriteDiffer, commandReadDiffer);
-    std::printf("%d client messages XORed: %d differ from jk2mp.exe's\n", pairs, xorDiffer);
+    std::printf("%d client messages XORed: %d differ from jk2mp.exe's\n", xorPairs, xorDiffer);
     return entityWriteDiffer || entityReadDiffer || playerWriteDiffer || playerReadDiffer || commandWriteDiffer ||
                    commandReadDiffer || xorDiffer
                ? 1

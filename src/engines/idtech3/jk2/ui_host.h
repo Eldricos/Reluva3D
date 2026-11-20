@@ -7,6 +7,7 @@
 #include "engines/idtech3/client/menu_host.h"
 #include "engines/idtech3/client/server_lists.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/games.h"
 #include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/vm/qvm.h"
@@ -31,9 +32,12 @@ namespace reluva::idtech3::jk2 {
 // and scaled to the frame.
 class UiHost : public MenuHost {
 public:
-    static constexpr int32_t kApiVersion = 6; // what Jedi Outcast 1.02a's ui.qvm reports
+    static constexpr int32_t kApiVersion = 6;        // what Jedi Outcast 1.02a's ui.qvm reports
+    static constexpr int32_t kPatchedApiVersion = 7; // 1.03's and 1.04's (jk2mp.exe 1.03, 0x411e7c)
 
-    UiHost(const SearchSet &files, CvarStore &cvars);
+    // `release`: whose engine's calls and API version to take (1.03's and
+    // 1.04's: 7, the language's calls new at 61 to 63).
+    UiHost(const SearchSet &files, CvarStore &cvars, JediRelease release = JediRelease::k102a);
 
     Error load() override;
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result) override;
@@ -102,6 +106,7 @@ private:
     std::array<float, 4> _color{1, 1, 1, 1};
     std::vector<std::string> _commands;
     ServerLists _servers;
+    JediRelease _release;
     std::filesystem::path _favoritesFile; // none: kept only while running
     std::map<int, int> _unhandled;
     std::string _log;

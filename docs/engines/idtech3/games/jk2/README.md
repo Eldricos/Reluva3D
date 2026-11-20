@@ -9,8 +9,8 @@ engine as Raven changed it, a generation after Elite Force's.
 | Release | Recognised by | State |
 |---|---|---|
 | English, Windows, 1.02a | `base/assets0.pk3`, 534,984,353 bytes, `54693e39dc8c122c8ba724664a584b60` (MD5 of its first 5,000 bytes, as detection hashes) | Recognised and imported; single player and multiplayer play |
-| Patch 1.03 (over 1.02a) | `base/assets2.pk3`, 3,764,210 bytes, `5c0f7ea1a27338c7cd4b1136ff20a357` (first 5,000 bytes); its single player by `jk2gamex86.dll`, 1,331,200 bytes, `aa34145abd2e072b1f427c517d06c0d2` | Recognised; single player plays (every level through, saved and loaded, as 1.02a's); its multiplayer menus (`ui.qvm`, API 7) don't run yet |
-| Patch 1.04 (over 1.03) | `base/assets5.pk3`, 550,829 bytes, `f108a4abf075a1961212a9f92f331e7c` (first 5,000 bytes) | Recognised; multiplayer only, single player staying 1.03's |
+| Patch 1.03 (over 1.02a) | `base/assets2.pk3`, 3,764,210 bytes, `5c0f7ea1a27338c7cd4b1136ff20a357` (first 5,000 bytes); its single player by `jk2gamex86.dll`, 1,331,200 bytes, `aa34145abd2e072b1f427c517d06c0d2` | Recognised; single player plays (every level through, saved and loaded, as 1.02a's); multiplayer's menus, matches and network play (protocol 15, its new tables) run |
+| Patch 1.04 (over 1.03) | `base/assets5.pk3`, 550,829 bytes, `f108a4abf075a1961212a9f92f331e7c` (first 5,000 bytes) | Recognised; multiplayer only, single player staying 1.03's: its menus, matches and network play (protocol 16) run |
 
 Other releases are found by `base/assets0.pk3`'s name alone, as "unknown
 release".
@@ -53,16 +53,16 @@ the cabinets beside it hold only the installer's own files.
 | Part | State |
 |---|---|
 | Detection | The English 1.02a release by `assets0.pk3`'s hash, its patches by their paks' (1.03, 1.04) and single player's by its game DLL's; others by its name, as "unknown release". The consoles' version lines follow the release found |
-| Import | From the CD (`GAMEDATA/GameData/`), an install (`GameData/`) or the game folder: `base`'s paks, saved games (`saves/*.sav`) and recordings (`demos/*.dm_15`), and `jk2gamex86.dll` beside it |
+| Import | From the CD (`GAMEDATA/GameData/`), an install (`GameData/`) or the game folder: `base`'s paks, saved games (`saves/*.sav`) and recordings (`demos/*.dm_15`, 1.04's `.dm_16`), and `jk2gamex86.dll` beside it |
 | File system | Elite Force's: `base`'s loose files over its paks |
 | Shader scripts | Read from `shaders/` (1187 in 1.02a); its 18 directives of its own all read: `oneshotAnimMap`, `clampAnimMap` and surface sprites drawn (the grass and ferns on Yavin's levels), `videoMap` playing its RoQ video, the rest with nothing to draw ([shader.md](../../formats/shader.md)) |
 | Maps | All 41 read (Raven's RBSP: light styles, shared light grid points, the level's fog) and drawn in `reluva-viewer`'s World and Maps pages, every light style full there; in a match, as the client game sets them ([rbsp.md](../../formats/rbsp.md)) |
 | Models | Its MD3 models (276) placed by the maps' entities; its Ghoul2 meshes (71) and skeletons (21) read, posed on the CPU, skinned and animated in `reluva-viewer`'s Models page ([ghoul2.md](../../formats/ghoul2.md)) |
-| Text and fonts | Its 30 string packages (English, French, German) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
+| Text and fonts | Its 30 string packages (English, French, German; the patches' add Chinese and Spanish) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
 | Videos | Its 15 RoQ videos decode, with their sound; played in `reluva-viewer`'s Videos page and as video textures ([roq.md](../../../../common/video/roq.md)) |
 | Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls, Create Server and Join Server, with the local, Internet and favourite server lists ([systems/syscalls.md](systems/syscalls.md)) |
 | Multiplayer game | A local match from Create Server's Begin on the Play page: the level, the HUD, the force menu on joining, the player moving, the Ghoul2 bodies drawn, Raven's effects; bots play ([systems/game-calls.md](systems/game-calls.md), [systems/cgame-calls.md](systems/cgame-calls.md)) |
-| Network play | Protocol 15: Join Server finds and joins servers on the local network, and others can join a match the Play page hosts; played against the retail game both ways ([systems/network.md](systems/network.md)) |
+| Network play | Protocol 15 (1.02a, 1.03) and 16 (1.04): Join Server finds and joins servers on the local network, and others can join a match the Play page hosts; 1.02a's played against the retail game both ways, the patches' not yet ([systems/network.md](systems/network.md)) |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
 

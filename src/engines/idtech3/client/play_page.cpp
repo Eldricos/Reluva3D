@@ -251,7 +251,7 @@ bool PlayPage::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
 
 Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                                 int32_t commandSequence) {
-    _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars, _ctx.game.code);
+    _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars, _ctx.game.code, _ctx.game.jediRelease);
     _cgame->print = [this](const std::string &text) { addPrint(text, true); };
     _cgame->setLightGrid(&_grid);
     _scene->setHandles({&_cgame->models(), &_cgame->skins(), &_cgame->shaders()});
@@ -301,7 +301,7 @@ void PlayPage::start(int index) {
     // intro, which holds new players in place, is off until there's a
     // way to watch it.
     _cvars.set("g_holoIntro", "0");
-    _game = std::make_unique<eliteforce::GameHost>(_ctx.files, _cvars, _ctx.game.code);
+    _game = std::make_unique<eliteforce::GameHost>(_ctx.files, _cvars, _ctx.game.code, _ctx.game.jediRelease);
     _game->print = [this](const std::string &text) { addPrint(text, false); };
     _console.dropPartial(0);
     closeTyping();
@@ -547,7 +547,7 @@ void PlayPage::startHosting() {
         return;
     }
     _server = std::make_unique<eliteforce::NetServer>(*_game, _cvars, std::move(socket),
-                                                      eliteforce::netProtocol(_ctx.game.code));
+                                                      eliteforce::netProtocol(_ctx.game.code, _ctx.game.jediRelease));
     _server->print = [this](const std::string &text) { addPrint(text, false); };
     _server->resolveHost = [this](const std::string &host, uint32_t &ip) { return _ctx.sys.resolveHost(host, ip); };
     _server->reserve(0);
@@ -577,7 +577,7 @@ void PlayPage::connect(const std::string &address) {
     _joinState = eliteforce::NetClient::State::kDisconnected;
     addPrint("Joining " + address + "\n", false);
     _client = std::make_unique<eliteforce::NetClient>(std::move(socket), net::Address{ip, port}, userinfo(), qport,
-                                                      eliteforce::netProtocol(_ctx.game.code));
+                                                      eliteforce::netProtocol(_ctx.game.code, _ctx.game.jediRelease));
     _sentUserinfo = userinfo();
     _lastMs = 0;
 }

@@ -63,8 +63,8 @@ enum GameCall : int {
 
 } // namespace
 
-GameHost::GameHost(const SearchSet &files, CvarStore &cvars, GameCode game)
-    : _files(files), _cvars(cvars), _game(game), _vmFiles(files),
+GameHost::GameHost(const SearchSet &files, CvarStore &cvars, GameCode game, JediRelease release)
+    : _files(files), _cvars(cvars), _game(game), _release(release), _vmFiles(files),
       _serverWorld([this](int32_t n, EntityShape &out) { return entityShape(n, out); }) {
     _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
     _vmFiles.setOnRead([this](const std::string &name) { _filesRead.insert(name); });
@@ -96,7 +96,7 @@ Error GameHost::load() {
         return Error::fail(name + ": " + err.message);
     if (Error err = _vm.load(data))
         return Error::fail(name + ": " + err.message);
-    _layout = jk2 ? kLayoutJk2 : detectLayout(_vm);
+    _layout = jk2 ? jk2Layout(_release) : detectLayout(_vm);
     _qvmData = std::move(data);
     return Error::success();
 }
@@ -116,9 +116,22 @@ Error GameHost::startLevel(const std::string &mapName, std::shared_ptr<const Bsp
     // (Jedi Outcast's protocol 15, its limits...), for a host started
     // without a session. Elite Force's are among those created below, in
     // the order its server info lists them.
-    if (_game != GameCode::kEliteForce)
-        for (const GameInfo::StartCvar &c : gameWithCode(_game).serverCvars)
+    if (_game != GameCode::kEliteForce) {
+        const GameInfo &info = gameWithCode(_game);
+        // A patch's own in place of the same names', in the same order.
+        const char *patch = _release == JediRelease::k104 ? "1.04" : _release == JediRelease::k103 ? "1.03" : "";
+        const auto it = info.patchServerCvars.find(patch);
+        const std::vector<GameInfo::StartCvar> none;
+        const std::vector<GameInfo::StartCvar> &patched = it != info.patchServerCvars.end() ? it->second : none;
+        for (const GameInfo::StartCvar &c : info.serverCvars) {
+            const auto mine = std::find_if(patched.begin(), patched.end(),
+                                           [&](const GameInfo::StartCvar &p) { return p.name == c.name; });
+            const GameInfo::StartCvar &use = mine != patched.end() ? *mine : c;
+            _cvars.create(use.name, use.value, use.flags);
+        }
+        for (const GameInfo::StartCvar &c : patched)
             _cvars.create(c.name, c.value, c.flags);
+    }
     // The level after this one: the same again unless the game or a
     // command says otherwise, as the original's server sets it on
     // spawning a level (for a level change, when the map command ran:

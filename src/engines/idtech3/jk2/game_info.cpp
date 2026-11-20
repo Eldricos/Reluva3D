@@ -94,6 +94,21 @@ GameInfo gameInfo() {
         {"sv_allowDownload", "0", kS},
         // Its network protocol, which the server list's search names.
         {"protocol", "15", kS | CvarStore::kReadOnly},
+        // (0x44e6a7 in 1.04, as each release's.)
+        {"version", "JK2MP: v1.02a win-x86 Mar  3 2002", kS | CvarStore::kReadOnly},
+    };
+    // 1.04's, named by its protocol (jk2mp.exe 1.04, 0x40a400).
+    g.patchDemoExtensions = {{"1.04", {".dm_16"}}};
+    // The patches' (1.03 keeping protocol 15, 1.04 16); from 1.03 on only
+    // the game code sets g_needpass.
+    g.patchServerCvars = {
+        {"1.03",
+         {{"g_needpass", "0", kS | CvarStore::kReadOnly},
+          {"version", "JK2MP: v1.03 win-x86 Apr 30 2002", kS | CvarStore::kReadOnly}}},
+        {"1.04",
+         {{"g_needpass", "0", kS | CvarStore::kReadOnly},
+          {"protocol", "16", kS | CvarStore::kReadOnly},
+          {"version", "JK2MP: v1.04 win-x86 Jul  3 2002", kS | CvarStore::kReadOnly}}},
     };
     // As jk2mp.exe's client registers them (0x40c9a2 on).
     constexpr int32_t kUA = CvarStore::kUserInfo | CvarStore::kArchive;

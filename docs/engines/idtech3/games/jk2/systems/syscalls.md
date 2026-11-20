@@ -155,6 +155,40 @@ config (`jk2mpconfig.cfg`, unless started in safe mode) and
 `autoexec.cfg` (0x429aac–0x429ad4); Reluva runs its own `reluva.cfg` in
 the player's config's place.
 
+### Patches
+
+The 1.03 patch replaces multiplayer's three QVMs (in `assets2.pk3`), and
+1.04 replaces them again (`assets5.pk3`); the engine changes alike in
+both. Reluva tells the releases apart by their paks (`GameInfo::
+jediRelease`, [../README.md](../README.md), Releases) and gives each its
+own ways (`jk2mp.exe` 1.02a, 1.03 and 1.04 compared function by
+function):
+
+- **The API.** 1.03's and 1.04's `ui.qvm` returns 7 from `vmMain(0)`; their
+  engines accept only 7 (1.03 0x411e7c, 1.04 0x411e9c), 1.02a's 6.
+- **Three new calls at 61 to 63** (1.03's jump table at 0x410e98), 1.02a's
+  62 to 92 moving to 64 to 94: 61 `Language_IsAsian` (`sp_language` 4, 5
+  or 8, 0x4773e0), 62 `Language_UsesSpaces` (0 for 5 or 8, 0x477410), 63
+  `AnyLanguage_ReadCharFromString(text, &advance, &trailingPunctuation)`
+  (0x4771b0): the character, its size in bytes written to the second
+  argument, and, given a third, whether it's punctuation that may end a
+  line. Reluva's languages are one byte a letter: the size is always 1;
+  the punctuation is `.,!?;:` *(guessed)*: the original's list wasn't read.
+- **Keys.** The engine numbers keys its own way from 1.03 on (its key
+  names at 0x4f6bbc in 1.04, 16 bytes a key): Enter 10, Backspace 8, the
+  arrows 170 to 173, F1 28, `MOUSE1` 141, and more; characters and typed
+  text (`1024` and up) as before. Reluva changes a key's number where it
+  meets the menus: the key event's, and the key calls' (33 to 36), whose
+  bindings stay in Quake III's numbers (`jk2/patched_keys.h`).
+- **The server lists.** `LAN_GetServerInfo` gives `needpass`, `truejedi`,
+  `wdisable` and `fdisable` in `sv_allowAnonymous`'s place, as servers of
+  these releases send them (see [network.md](network.md), Patches).
+- **Text.** The patch's string packages (`strip/MENUS0.sp` to `MENUS3.sp`)
+  add Chinese and Spanish ([strings.md](../../../formats/strings.md)).
+- **The settings shown.** `version` says the release's
+  (`JK2MP: v1.03 win-x86 Apr 30 2002`, `JK2MP: v1.04 win-x86 Jul  3
+  2002`), and 1.04's `protocol` is 16.
+
 ## Sources and checks
 
 - **Where the facts come from:** 1.02a's `ui.qvm`, through `qvm-info`
@@ -173,7 +207,11 @@ the player's config's place.
   (`idtech3.unit.network`, "server lists") covers the lists, pings,
   favourites and status. A game-files step (`jk2-menus`) records the
   main menu, Setup, Create Server and Join Server reached by clicking.
-  Not compared with the original's screens.
+  Not compared with the original's screens. The same step runs on 1.03's
+  and 1.04's menus (records `jk2-1.03/`, `jk2-1.04/`), their text found
+  and the clicks reaching Create Server and Join Server; a unit test
+  (`idtech3.unit.input`, "key bindings") turns every key to 1.04's
+  number and back.
 
 ### Open questions
 

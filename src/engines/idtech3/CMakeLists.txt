@@ -76,6 +76,7 @@ reluva_add_engine(idtech3
         jk2/sp_menus.cpp
         jk2/ghoul2_instances.cpp
         jk2/net_fields.cpp
+        jk2/patched_keys.cpp
         jk2/ui_host.cpp
         raven/ambient_sets.cpp
         raven/effect_file.cpp

@@ -211,6 +211,34 @@ Release describeRelease(const std::filesystem::path &dir, const GameInfo &game) 
     return r;
 }
 
+GameInfo forRelease(const GameInfo &game, const std::filesystem::path &dir) {
+    GameInfo g = game;
+    const Release release = describeRelease(dir, game);
+    if (const auto it = g.patchConsoleVersions.find(release.patch); it != g.patchConsoleVersions.end())
+        g.consoleVersion = it->second;
+    if (const auto it = g.spPatchConsoleVersions.find(release.singlePlayerPatch); it != g.spPatchConsoleVersions.end())
+        g.spConsoleVersion = it->second;
+    if (g.code == GameCode::kJediOutcast)
+        g.jediRelease = release.patch == "1.04"   ? JediRelease::k104
+                        : release.patch == "1.03" ? JediRelease::k103
+                                                  : JediRelease::k102a;
+    if (const auto it = g.patchDemoExtensions.find(release.patch); it != g.patchDemoExtensions.end())
+        g.demoExtensions = it->second;
+    // The server's cvars as its engine registers them.
+    if (const auto it = g.patchServerCvars.find(release.patch); it != g.patchServerCvars.end())
+        for (const GameInfo::StartCvar &c : it->second) {
+            bool replaced = false;
+            for (GameInfo::StartCvar &mine : g.serverCvars)
+                if (mine.name == c.name) {
+                    mine = c;
+                    replaced = true;
+                }
+            if (!replaced)
+                g.serverCvars.push_back(c);
+        }
+    return g;
+}
+
 // The same games by file names alone, for releases whose hashes aren't in
 // detectionTable() yet. Used only when nothing there matches.
 const std::vector<GameVariant> &fallbackTable() {

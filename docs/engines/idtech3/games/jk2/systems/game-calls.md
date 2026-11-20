@@ -58,6 +58,28 @@ them with `LocateGameData`).
 Jedi Outcast's bots find their way by the module's own waypoints
 (`botroutes/*.wnt`): it makes no area-system call but 303.
 
+### Patches
+
+1.03's and 1.04's `jk2mpgame.qvm` (the same calls in both; `jk2mp.exe`
+1.03's jump table, from 0x44b400):
+
+- **Ghoul2**: 588 is new, the client game's 285 (`GetBoltMatrix_NoRecNoRot`
+  (the name *(inferred)*)), and 1.02a's 588 to 599 move to 589 to 600; 601 is
+  new, `G2API_CollisionDetect`, with the client game's 12 arguments
+  ([cgame-calls.md](cgame-calls.md), Patches), the server's own space for
+  the posed triangles. The trace call still never collides with Ghoul2
+  models: 601 is how the module's saber code does (1.03's `SV_Trace`,
+  0x451500, unchanged).
+- **The structures**: the player state is 1,380 bytes
+  ([network.md](network.md), Patches) and the clients 1,800; the
+  entities stay 828.
+- **The settings**: `version` says the release's, and 1.04's `protocol`
+  is 16; 1.03 makes `g_needpass` a read-only server setting.
+
+Reluva answers 588 as 587 (as the client game's 285) and 601 with the
+traces its saber hits use, and takes each release's player state size
+(`jk2Layout`).
+
 ### Joining a match
 
 A player who connects starts as a spectator, the module sending `nfr

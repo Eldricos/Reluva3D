@@ -21,6 +21,8 @@ namespace reluva::idtech3::jk2 {
 
 constexpr int32_t kNetEntityStateSize = 296;
 constexpr int32_t kNetPlayerStateSize = 1368;
+// 1.03's and 1.04's: 12 bytes inserted at 608 (jk2mp.exe 1.03, 0x564).
+constexpr int32_t kNetPlayerStateSizePatched = 1380;
 
 // The Huffman code of its messages: jk2mp.exe's byte counts (0x4f6310).
 const wire::Huffman &messageHuffman();
@@ -33,6 +35,14 @@ bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<u
 
 void writePlayerDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to);
 void readPlayerDelta(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to);
+// The same with 1.03's and 1.04's tables (modelGhoul2 wider, three player
+// fields more, the player state 1,380 bytes).
+void writeEntityDeltaPatched(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to,
+                             bool force);
+bool readEntityDeltaPatched(wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
+                            std::vector<uint8_t> &to);
+void writePlayerDeltaPatched(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to);
+void readPlayerDeltaPatched(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to);
 
 // A command as a change from the one before it, its fields XORed with
 // `key` (worked out alike at both ends from the level's checksum feed, the

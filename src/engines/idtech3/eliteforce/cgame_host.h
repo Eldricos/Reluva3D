@@ -55,7 +55,10 @@ public:
 
     // `game`: whose client game it runs, Elite Force's or Jedi Outcast's
     // multiplayer one.
-    CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game = GameCode::kEliteForce);
+    // `release`: Jedi Outcast's, whose engines number the calls and lay out
+    // the player state differently.
+    CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game = GameCode::kEliteForce,
+              JediRelease release = JediRelease::k102a);
 
     // Reads vm/cgame.qvm.
     Error load();
@@ -200,6 +203,7 @@ private:
     const SearchSet &_files;
     CvarStore &_cvars;
     GameCode _game;
+    JediRelease _release;
     Qvm _vm;
     GameLayout _layout = kLayout10;
     VmFiles _vmFiles;

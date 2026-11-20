@@ -1,4 +1,4 @@
-# Jedi Outcast: the multiplayer network protocol (15)
+# Jedi Outcast: the multiplayer network protocol (15, 16)
 
 > **Status:** done · **Code:** `src/engines/idtech3/wire/huffman.cpp`, `wire/message.cpp`, `wire/netchan.cpp`, `src/engines/idtech3/jk2/net_fields.cpp`, `eliteforce/net_protocol.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** jk2mp.exe 1.02a's own tables and Huffman code, run in Reluva's x86 interpreter (November 2026); Reluva to Reluva, and the retail game both ways · **Confidence:** the tables and the Huffman code confirmed; the rest from the code unless marked
 
@@ -199,6 +199,35 @@ As Quake III 1.32's:
 - **Client messages** are Elite Force's (the level's id, the message and
   command acknowledged, commands, then moves) and end with 5.
 
+### Patches
+
+1.03 changes the wire without changing the protocol's number; 1.04
+changes the number to 16 and nothing else on the wire (`jk2mp.exe`
+1.02a, 1.03 and 1.04 compared function by function):
+
+- **The player state** is 12 bytes longer (1,380): three new one-bit
+  fields after `isJediMaster` (604), at 608, 612 and 616
+  (`forceRestricted`, `trueJedi`, `trueNonJedi` by the table's names),
+  and every field from 608 on moved 12 bytes along: 108 fields (the table
+  at 0x4fd1b8 in both). The arrays stay where they were.
+- **The entity state** keeps its size; `modelGhoul2` (field 44) is sent in
+  5 bits, not 4 (the table at 0x4fce48).
+- **The protocol** stays 15 in 1.03, so a 1.02a player and a 1.03 server
+  pass each other's check and then misread every player state; nothing
+  in the handshake tells them apart *(inferred)*. 1.04's is
+  16: the connect, the server's check and answer, the info and the
+  `protocol` setting (from 0x40ba09 to 0x44f0cb), and its recordings end
+  `.dm_16`.
+- **The server's info** (1.03's SVC_Info, 0x44f160) has no `pure`; after
+  `gametype` it gives `needpass` (`g_needpass`), `truejedi`
+  (`g_jediVmerc`), `wdisable` (`g_duelWeaponDisable` in a duel, game type
+  3, else `g_weaponDisable`) and `fdisable` (`g_forcePowerDisable`).
+- Unchanged: the Huffman code, the netchan (1.04 only checks fragments'
+  lengths harder), user commands, the messages' order and the ports.
+
+Reluva takes the release from the game's paks: `netProtocol()` gives
+1.03's and 1.04's tables and info, and 1.04's number.
+
 ## In Reluva
 
 `NetProtocol` (`eliteforce/net_protocol.cpp`) names what differs between
@@ -261,6 +290,10 @@ every server has since Raven's authorize server went).
     It found Reluva's messages a byte short when their bits ended on a
     byte boundary (above), which the retail game would have read as past
     their end.
+    The same on 1.03's and 1.04's `jk2mp.exe` (their routines from
+    0x432420 and 0x432440, the client's XOR left out), November 2026:
+    2,000 of each, written and read back the same, with their 108 player
+    fields.
   - A unit test (`idtech3.unit.network`, "jedi outcast heartbeat"): the
     heartbeat's text and port, none again within 5 minutes, one at a new
     level and two at shutdown. Not seen reaching a real master: in

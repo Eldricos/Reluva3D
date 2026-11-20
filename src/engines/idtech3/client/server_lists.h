@@ -46,6 +46,12 @@ public:
         int32_t maxPing = 0;
         int32_t ping = -1; // -1: not asked yet; 0: no answer (or not yet)
         int32_t allowAnonymous = 0;
+        // Jedi Outcast 1.03's: a password needed, Jedi versus mercenaries,
+        // the weapons and Force powers turned off (bits).
+        int32_t needPass = 0;
+        int32_t trueJedi = 0;
+        int32_t weaponDisable = 0;
+        int32_t forceDisable = 0;
     };
 
     // The local search (the "localservers" command): the list starts again,
@@ -62,7 +68,9 @@ public:
     const Server *server(int32_t source, int32_t n) const;
     // What LAN_GetServerInfo gives the menus: the server's fields as an
     // info string (hostname, mapname, clients, sv_maxclients, ping...).
-    static std::string info(const Server &s);
+    // `jediPatched`: as Jedi Outcast 1.03's engine gives it, these four in
+    // place of sv_allowAnonymous.
+    static std::string info(const Server &s, bool jediPatched = false);
     // Pings every visible server not asked yet, and takes in the answers
     // (and the servers given up on, after `maxPing` ms, cl_maxPing);
     // true while any is waiting or has just answered.

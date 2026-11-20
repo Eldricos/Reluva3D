@@ -310,7 +310,17 @@ std::string NetServer::infoString(const std::string &challenge) const {
         setInfoValue(info, "g_humanplayers", std::to_string(humans));
     setInfoValue(info, "sv_maxclients", std::to_string(maxClients));
     setInfoValue(info, "gametype", std::to_string(_cvars.integer("g_gametype")));
-    setInfoValue(info, "pure", _pure ? "1" : "0");
+    if (_protocol.jediPatchedInfo) {
+        // As 1.03's SVC_Info (0x44f160): the weapons a duel's or the rest's.
+        setInfoValue(info, "needpass", std::to_string(_cvars.integer("g_needpass")));
+        setInfoValue(info, "truejedi", std::to_string(_cvars.integer("g_jediVmerc")));
+        setInfoValue(info, "wdisable",
+                     std::to_string(_cvars.integer(_cvars.integer("g_gametype") == 3 ? "g_duelWeaponDisable"
+                                                                                     : "g_weaponDisable")));
+        setInfoValue(info, "fdisable", std::to_string(_cvars.integer("g_forcePowerDisable")));
+    } else {
+        setInfoValue(info, "pure", _pure ? "1" : "0");
+    }
     if (_protocol.keyed)
         setInfoValue(info, "sv_allowAnonymous", "0");
     return info;

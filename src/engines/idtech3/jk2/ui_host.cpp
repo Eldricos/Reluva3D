@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/formats/md3.h"
 #include "engines/idtech3/jk2/game_info.h"
+#include "engines/idtech3/jk2/patched_keys.h"
 
 #include "common/fs.h"
 
@@ -119,7 +120,8 @@ constexpr int32_t kClientStateSize = 12 + 3 * 1024;
 
 } // namespace
 
-UiHost::UiHost(const SearchSet &files, CvarStore &cvars) : _files(files), _cvars(cvars), _vmFiles(files) {
+UiHost::UiHost(const SearchSet &files, CvarStore &cvars, JediRelease release)
+    : _files(files), _cvars(cvars), _vmFiles(files), _release(release) {
     _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
@@ -132,13 +134,19 @@ Error UiHost::load() {
     int32_t version = 0;
     if (Error err = call(kGetApiVersion, {}, version))
         return err;
-    if (version != kApiVersion)
+    const int32_t want = _release == JediRelease::k102a ? kApiVersion : kPatchedApiVersion;
+    if (version != want)
         return Error::fail("vm/ui.qvm reports API version " + std::to_string(version) + ", not " +
-                           std::to_string(kApiVersion));
+                           std::to_string(want));
     return Error::success();
 }
 
 Error UiHost::call(int32_t command, const std::vector<int32_t> &args, int32_t &result) {
+    if (_release != JediRelease::k102a && command == kKeyEvent && !args.empty()) {
+        std::vector<int32_t> keyed = args;
+        keyed[0] = toPatchedKey(args[0]);
+        return _vm.call(command, keyed, result);
+    }
     return _vm.call(command, args, result);
 }
 
@@ -233,7 +241,7 @@ int32_t UiHost::serverListCall(Qvm &vm, int number, const int32_t *a) {
     }
     case kLanGetServerInfo: {
         const ServerLists::Server *s = _servers.server(a[0], a[1]);
-        vm.writeString(a[2], s ? ServerLists::info(*s) : std::string(), a[3]);
+        vm.writeString(a[2], s ? ServerLists::info(*s, _release != JediRelease::k102a) : std::string(), a[3]);
         return 0;
     }
     case kLanMarkServerVisible: // (source, n or -1, visible)
@@ -375,6 +383,30 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     }
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
     auto f = [&](int i) { return Qvm::asFloat(a[i]); };
+    if (_release != JediRelease::k102a) {
+        // 1.03's numbering (jk2mp.exe 1.03's jump table): the language's
+        // calls at 61 to 63, ReadCharFromString with its new arguments, and
+        // 1.02a's 62 to 92 at 64 to 94.
+        const int32_t language = _cvars.integer("sp_language");
+        if (number == kAnyLanguageReadCharFromString)
+            return language == 4 || language == 5 || language == 8 ? 1 : 0; // Language_IsAsian
+        if (number == kAnyLanguageReadCharFromString + 1)
+            return language == 5 || language == 8 ? 0 : 1; // Language_UsesSpaces
+        if (number == kAnyLanguageReadCharFromString + 2)
+            return _fonts.call(
+                vm, FontSet::kReadCharAdvance, a, _time,
+                [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
+                       const std::array<float, 4> &color) { addPicture(x, y, w, h, s1, t1, s2, t2, shader, color); });
+        if (number >= kAnyLanguageReadCharFromString + 3 && number <= kAnyLanguageReadCharFromString + 33)
+            number -= 2;
+    }
+    // The key calls' key in Quake III's numbers (the bindings' own).
+    std::array<int32_t, 4> keyArgs{};
+    if (_release != JediRelease::k102a && number >= kKeyKeynumToStringBuf && number <= kKeyIsDown) {
+        std::copy(a, a + keyArgs.size(), keyArgs.begin());
+        keyArgs[0] = fromPatchedKey(a[0]);
+        a = keyArgs.data();
+    }
     int32_t result = 0;
     if (commonSystemCall(vm, number, a, result))
         return result;

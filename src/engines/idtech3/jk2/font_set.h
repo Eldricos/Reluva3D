@@ -36,6 +36,9 @@ public:
         kStrHeightPixels, // (font, scale) -> height
         kDrawString,      // (x, y, text, rgba, font, letters at most or -1, scale)
         kReadChar,        // (char **) -> the letter there, the pointer moved past it
+        // 1.03's: (text, int *advance, qboolean *trailing punctuation or 0)
+        // -> the letter there, how many bytes it took.
+        kReadCharAdvance,
     };
     // A piece of text to draw: a part of the font's picture over a
     // rectangle, in the 640 x 480 the modules draw in.

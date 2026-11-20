@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/idtech3/games.h"
 #include "engines/idtech3/vm/qvm.h"
 
 #include <cstdint>
@@ -137,6 +138,19 @@ constexpr GameLayout kLayoutJk2{
     .maxConfigstrings = 1400,
     .glconfigWords = 3 * 1024 + 8192,
 };
+// Jedi Outcast 1.03's and 1.04's: a player state of 1,380 bytes (12
+// inserted at 608), the rest as 1.02a's (jk2mp.exe 1.03's state copies,
+// 0x564).
+constexpr GameLayout kLayoutJk2Patched = [] {
+    GameLayout l = kLayoutJk2;
+    l.version = 103;
+    l.playerStateSize = 1380;
+    return l;
+}();
+// A Jedi Outcast release's.
+constexpr const GameLayout &jk2Layout(JediRelease release) {
+    return release == JediRelease::k102a ? kLayoutJk2 : kLayoutJk2Patched;
+}
 constexpr int32_t kSolidBrushModel = 0xffffff;
 
 // Which layout Elite Force's game code was built with: 1.2's copies

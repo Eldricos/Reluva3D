@@ -66,7 +66,8 @@
   yavin_courtyard by the tour; yavin_final by the tour then Desann's
   fight, to the game's end). Every level's step also saves the game
   where the tour left it and loads the save into a fresh game, which
-  runs 20 frames (`-saveload`). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`, and `jk2-1.03/` for patch 1.03 (all but `jk2-menus`, whose 1.03 menus don't run yet). See
+  runs 20 frames (`-saveload`). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`, `jk2-1.03/` for
+  patch 1.03 and `jk2-1.04/` for patch 1.04, every step. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover
@@ -84,7 +85,10 @@ another machine (or `reluva-tool idtech3 net-run <base> -join
 0`) found and joined from Join Server; the message code against
 jk2mp.exe's own (`reluva-tool idtech3 huffman-check <jk2mp.exe>`, which
 needs an install: an import has no jk2mp.exe), and the deltas, commands
-and XOR too (`reluva-tool idtech3 delta-check <jk2mp.exe>`); Join
+and XOR too (`reluva-tool idtech3 delta-check <jk2mp.exe>`, 1.03's
+and 1.04's too, but for their XOR); with a 1.03 or 1.04 install,
+Reluva's matches against the retail game of the same patch both ways;
+Join
 Server's lists
 against real servers: the local network, the Internet (Get New List with
 Source: Internet), a favourite added and kept after restarting, and
@@ -100,3 +104,4 @@ Not playable yet.
 |---|---|---|---|
 | 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps; every map in the World page; Ghoul2 people and droids in the Models page |
 | 2026-11-15 | English 1.02a | Linux | `huffman-check` and `delta-check` against the install's jk2mp.exe: all agree |
+| 2026-11-20 | Patches 1.03, 1.04 | Linux | `delta-check` against each install's jk2mp.exe: all agree; every game-files step on each (records `jk2-1.03/`, `jk2-1.04/`) |

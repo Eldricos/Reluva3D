@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/jk2/ghoul2_instances.h"
 
+#include "engines/idtech3/jk2/ghoul2_collision.h"
+
 #include "common/fs.h"
 
 #include <algorithm>
@@ -780,6 +782,66 @@ int32_t Ghoul2Instances::call(Qvm &vm, Call which, const int32_t *a) {
         for (int i = 0; i < 12; ++i)
             vm.writeInt(a[3] + 4 * i, Qvm::fromFloat(m[size_t(i)]));
         return 1;
+    }
+    case kCollisionDetect: {
+        // As 1.03's engine (jk2mp.exe 0x4abf60): the triangles of the
+        // instance, posed at the time given and placed by its angles,
+        // origin and scale, that the ray meets, added to the records the
+        // game holds (entity -1: free) and kept nearest first; the
+        // records as single player's (sp-ghoul2.md, Collision).
+        constexpr int32_t kRecordSize = 64;
+        const auto records = int32_t(kMaxGhoul2Hits);
+        if (!vm.checkWrite(a[0], records * kRecordSize))
+            return 0;
+        std::vector<Drawn> models;
+        if (!drawn(a[1], a[4], models) || models.empty())
+            return 0;
+        auto f = [&](int32_t at) { return Qvm::asFloat(vm.readInt(at)); };
+        auto v3 = [&](int32_t at) { return std::array<float, 3>{f(at), f(at + 4), f(at + 8)}; };
+        std::vector<Ghoul2Hit> hits;
+        for (int32_t i = 0; i < records; ++i) {
+            const int32_t at = a[0] + i * kRecordSize;
+            if (vm.readInt(at + 4) == -1)
+                continue;
+            Ghoul2Hit h;
+            h.distance = f(at);
+            h.entity = vm.readInt(at + 4);
+            h.model = vm.readInt(at + 8);
+            h.polygon = vm.readInt(at + 12);
+            h.surface = vm.readInt(at + 16);
+            h.position = v3(at + 20);
+            h.normal = v3(at + 32);
+            h.flags = vm.readInt(at + 44);
+            h.baryI = f(at + 56);
+            h.baryJ = f(at + 60);
+            hits.push_back(h);
+        }
+        const size_t before = hits.size();
+        const Vec3 scale = vec(8);
+        traceGhoul2(models, worldMatrix(vec(2), vec(3)), {float(scale[0]), float(scale[1]), float(scale[2])},
+                    {f(a[6]), f(a[6] + 4), f(a[6] + 8)}, {f(a[7]), f(a[7] + 4), f(a[7] + 8)}, a[5], Ghoul2Trace(a[9]),
+                    a[10], Qvm::asFloat(a[11]), hits);
+        if (hits.size() == before)
+            return 0;
+        for (size_t i = 0; i < hits.size() && i < kMaxGhoul2Hits; ++i) {
+            const int32_t at = a[0] + int32_t(i) * kRecordSize;
+            const Ghoul2Hit &h = hits[i];
+            vm.writeInt(at, Qvm::fromFloat(h.distance));
+            vm.writeInt(at + 4, h.entity);
+            vm.writeInt(at + 8, h.model);
+            vm.writeInt(at + 12, h.polygon);
+            vm.writeInt(at + 16, h.surface);
+            for (int k = 0; k < 3; ++k) {
+                vm.writeInt(at + 20 + 4 * k, Qvm::fromFloat(h.position[size_t(k)]));
+                vm.writeInt(at + 32 + 4 * k, Qvm::fromFloat(h.normal[size_t(k)]));
+            }
+            vm.writeInt(at + 44, h.flags);
+            vm.writeInt(at + 48, 0); // material and hit location, as single player's
+            vm.writeInt(at + 52, 0);
+            vm.writeInt(at + 56, Qvm::fromFloat(h.baryI));
+            vm.writeInt(at + 60, Qvm::fromFloat(h.baryJ));
+        }
+        return 0;
     }
     case kInitGhoul2Model: {
         if (!vm.checkWrite(a[0], 4))

@@ -26,6 +26,10 @@ namespace reluva::idtech3 {
 // out per game). None: its files can be looked at, but not played. Jedi
 // Outcast: its multiplayer menus.
 enum class GameCode { kNone, kEliteForce, kJediOutcast };
+// Jedi Outcast's multiplayer releases, whose engines number their modules'
+// calls and lay out the player state differently
+// (docs/engines/idtech3/games/jk2/systems/syscalls.md, Patches).
+enum class JediRelease { k102a, k103, k104 };
 
 // A player model's three parts ("model/skin").
 struct PlayerModels {
@@ -48,6 +52,8 @@ struct GameInfo {
     // Its recorded matches' extensions, in baseDir/demos (lower case).
     std::vector<std::string> demoExtensions;
     GameCode code = GameCode::kNone;
+    // Jedi Outcast's multiplayer release (forRelease sets it).
+    JediRelease jediRelease = JediRelease::k102a;
     // Its servers' first port, and its master servers' (Elite Force's
     // unless set).
     uint16_t serverPort = 27960;
@@ -89,6 +95,10 @@ struct GameInfo {
         int32_t flags = 0;
     };
     std::vector<StartCvar> serverCvars;
+    // Those a later release registers otherwise, by patch level.
+    std::map<std::string, std::vector<StartCvar>> patchServerCvars;
+    // A later release's recordings' file types, by patch level.
+    std::map<std::string, std::vector<std::string>> patchDemoExtensions;
     // The client's settings its engine registers at start that the game
     // module reads from a player's userinfo (the UserInfo ones), and their
     // defaults: Jedi Outcast's force powers, models, colours...
@@ -167,6 +177,9 @@ struct Release {
     bool expansionSinglePlayer = false;
 };
 Release describeRelease(const std::filesystem::path &dir, const GameInfo &game);
+// The game as the release in `dir` has it: its consoles' version lines,
+// the server's version and protocol, Jedi Outcast's release.
+GameInfo forRelease(const GameInfo &game, const std::filesystem::path &dir);
 
 // The Expansion Pack's pak, as the game folder holds it.
 constexpr const char *kExpansionPak = "pak3.pk3";

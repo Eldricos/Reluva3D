@@ -26,8 +26,8 @@ std::pair<std::filesystem::path, std::string> idTech3Folders(const char *folder)
 // turned off.
 bool mountIdTech3(const char *folder, reluva::SearchSet &set, const std::vector<std::string> &skip = {});
 
-// The game whose folder it is (by the install above it), for what differs
-// between games: where its shader scripts are.
-const reluva::idtech3::GameInfo &gameOfFolder(const char *folder);
+// The game whose folder it is (by the install above it), as its release
+// has it, for what differs between games and releases.
+reluva::idtech3::GameInfo gameOfFolder(const char *folder);
 
 } // namespace reluva::idtech3::tool

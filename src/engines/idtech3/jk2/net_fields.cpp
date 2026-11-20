@@ -4,6 +4,7 @@
 #include "engines/idtech3/jk2/net_fields.h"
 
 #include <array>
+#include <span>
 #include <cstring>
 
 namespace reluva::idtech3::jk2 {
@@ -202,6 +203,36 @@ constexpr std::array<Field, 105> kPlayerFields{{
     {1360, 0},  // lastHitLoc[1]
 }};
 
+// 1.03's and 1.04's (their tables at 0x4fce48 and 0x4fd1b8): modelGhoul2
+// a bit wider; three new player fields after isJediMaster
+// (forceRestricted, trueJedi, trueNonJedi), the player state 12 bytes
+// longer from offset 608, every field from there on moved with it.
+constexpr size_t kModelGhoul2Field = 44;
+constexpr size_t kIsJediMasterField = 75;
+constexpr int32_t kInsertedAt = 608;
+constexpr int32_t kInserted = 12;
+constexpr std::array<Field, 73> kEntityFieldsPatched = [] {
+    auto t = kEntityFields;
+    t[kModelGhoul2Field].bits = 5;
+    return t;
+}();
+constexpr std::array<Field, 108> kPlayerFieldsPatched = [] {
+    std::array<Field, 108> t{};
+    size_t n = 0;
+    for (size_t i = 0; i < kPlayerFields.size(); ++i) {
+        Field f = kPlayerFields[i];
+        if (f.offset >= kInsertedAt)
+            f.offset += kInserted;
+        t[n++] = f;
+        if (i == kIsJediMasterField) {
+            t[n++] = {kInsertedAt, 1};
+            t[n++] = {kInsertedAt + 4, 1};
+            t[n++] = {kInsertedAt + 8, 1};
+        }
+    }
+    return t;
+}();
+
 // The player state's arrays, in the order they're sent: stats, persistant,
 // ammo (16-bit elements), powerups (32-bit); 16 elements each.
 struct ArrayGroup {
@@ -290,10 +321,9 @@ int32_t readFloat(wire::MessageReader &r) {
 }
 
 // How many fields to send: up to the last that changed.
-template<size_t N>
-int changedCount(const std::array<Field, N> &fields, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to) {
+int changedCount(std::span<const Field> fields, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to) {
     int count = 0;
-    for (size_t i = 0; i < N; ++i)
+    for (size_t i = 0; i < fields.size(); ++i)
         if (wordAt(from, fields[i].offset) != wordAt(to, fields[i].offset))
             count = int(i) + 1;
     return count;
@@ -329,9 +359,11 @@ void writeEntityRemoved(wire::MessageWriter &w, int32_t number) {
     w.bits(1, 1);
 }
 
-void writeEntityDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to,
-                      bool force) {
-    const int count = changedCount(kEntityFields, from, to);
+namespace {
+
+void entityDelta(std::span<const Field> fields, wire::MessageWriter &w, const std::vector<uint8_t> &from,
+                 const std::vector<uint8_t> &to, bool force) {
+    const int count = changedCount(fields, from, to);
     if (count == 0 && !force)
         return;
     w.bits(uint32_t(wordAt(to, 0)), kEntityNumberBits);
@@ -343,7 +375,7 @@ void writeEntityDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, 
     w.bits(1, 1);
     w.byte(uint32_t(count));
     for (int i = 0; i < count; ++i) {
-        const Field &f = kEntityFields[size_t(i)];
+        const Field &f = fields[size_t(i)];
         const int32_t v = wordAt(to, f.offset);
         if (wordAt(from, f.offset) == v) {
             w.bits(0, 1);
@@ -365,8 +397,8 @@ void writeEntityDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, 
     }
 }
 
-bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
-                     std::vector<uint8_t> &to) {
+bool readEntity(std::span<const Field> fields, wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
+                std::vector<uint8_t> &to) {
     to.assign(kNetEntityStateSize, 0);
     if (r.bits(1)) {
         setWord(to, 0, 1023);
@@ -378,8 +410,8 @@ bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<u
     if (!r.bits(1))
         return false;
     const auto count = int(r.byte());
-    for (int i = 0; i < count && i < int(kEntityFields.size()); ++i) {
-        const Field &f = kEntityFields[size_t(i)];
+    for (int i = 0; i < count && i < int(fields.size()); ++i) {
+        const Field &f = fields[size_t(i)];
         if (!r.bits(1))
             continue;
         if (f.bits == 0)
@@ -390,11 +422,12 @@ bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<u
     return false;
 }
 
-void writePlayerDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to) {
-    const int count = changedCount(kPlayerFields, from, to);
+void playerDelta(std::span<const Field> fields, wire::MessageWriter &w, const std::vector<uint8_t> &from,
+                 const std::vector<uint8_t> &to) {
+    const int count = changedCount(fields, from, to);
     w.byte(uint32_t(count));
     for (int i = 0; i < count; ++i) {
-        const Field &f = kPlayerFields[size_t(i)];
+        const Field &f = fields[size_t(i)];
         const int32_t v = wordAt(to, f.offset);
         if (wordAt(from, f.offset) == v) {
             w.bits(0, 1);
@@ -429,12 +462,13 @@ void writePlayerDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, 
     }
 }
 
-void readPlayerDelta(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to) {
+void readPlayer(std::span<const Field> fields, size_t size, wire::MessageReader &r, const std::vector<uint8_t> &from,
+                std::vector<uint8_t> &to) {
     to = from;
-    to.resize(kNetPlayerStateSize, 0);
+    to.resize(size, 0);
     const auto count = int(r.byte());
-    for (int i = 0; i < count && i < int(kPlayerFields.size()); ++i) {
-        const Field &f = kPlayerFields[size_t(i)];
+    for (int i = 0; i < count && i < int(fields.size()); ++i) {
+        const Field &f = fields[size_t(i)];
         if (!r.bits(1))
             continue;
         setWord(to, f.offset, f.bits == 0 ? readFloat(r) : readField(r, f.bits));
@@ -449,6 +483,44 @@ void readPlayerDelta(wire::MessageReader &r, const std::vector<uint8_t> &from, s
             if (mask & (1u << i))
                 setWord(to, g.offset + 4 * i, g.bits == 16 ? r.signedBits(16) : int32_t(r.bits(32)));
     }
+}
+
+} // namespace
+
+void writeEntityDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to,
+                      bool force) {
+    entityDelta(kEntityFields, w, from, to, force);
+}
+
+bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
+                     std::vector<uint8_t> &to) {
+    return readEntity(kEntityFields, r, number, from, to);
+}
+
+void writePlayerDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to) {
+    playerDelta(kPlayerFields, w, from, to);
+}
+
+void readPlayerDelta(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to) {
+    readPlayer(kPlayerFields, kNetPlayerStateSize, r, from, to);
+}
+
+void writeEntityDeltaPatched(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to,
+                             bool force) {
+    entityDelta(kEntityFieldsPatched, w, from, to, force);
+}
+
+bool readEntityDeltaPatched(wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
+                            std::vector<uint8_t> &to) {
+    return readEntity(kEntityFieldsPatched, r, number, from, to);
+}
+
+void writePlayerDeltaPatched(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to) {
+    playerDelta(kPlayerFieldsPatched, w, from, to);
+}
+
+void readPlayerDeltaPatched(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to) {
+    readPlayer(kPlayerFieldsPatched, kNetPlayerStateSizePatched, r, from, to);
 }
 
 void writeUserCommand(wire::MessageWriter &w, int32_t key, const eliteforce::GameHost::UserCommand &from,

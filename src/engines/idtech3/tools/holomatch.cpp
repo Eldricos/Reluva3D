@@ -117,7 +117,7 @@ int cmdUiRun(int argc, char **argv) {
     std::unique_ptr<q3::MenuHost> host;
     ef::UiHost *efHost = nullptr;
     if (gameOfFolder(argv[2]).code == q3::GameCode::kJediOutcast) {
-        host = std::make_unique<reluva::idtech3::jk2::UiHost>(set, cvars);
+        host = std::make_unique<reluva::idtech3::jk2::UiHost>(set, cvars, gameOfFolder(argv[2]).jediRelease);
     } else {
         auto own = std::make_unique<ef::UiHost>(set, cvars);
         efHost = own.get();
@@ -340,7 +340,7 @@ int cmdGameRun(int argc, char **argv) {
         cgameFrames = std::max(cgameFrames, 10 + 10 * kFramesPerWeapon);
     for (const auto &[name, value] : settings)
         cvars.set(name, value);
-    ef::GameHost game(set, cvars, gameOfFolder(argv[2]).code);
+    ef::GameHost game(set, cvars, gameOfFolder(argv[2]).code, gameOfFolder(argv[2]).jediRelease);
     game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
@@ -681,7 +681,7 @@ int cmdGameRun(int argc, char **argv) {
 
     if (ok && runCgame) {
         // The player's client game, started with what the server has set.
-        ef::CgameHost cgame(set, cvars, gameOfFolder(argv[2]).code);
+        ef::CgameHost cgame(set, cvars, gameOfFolder(argv[2]).code, gameOfFolder(argv[2]).jediRelease);
         cgame.print = [](const std::string &text) {
             std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
         };

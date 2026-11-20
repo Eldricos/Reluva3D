@@ -22,16 +22,9 @@ constexpr int kScreenW = 640;
 constexpr int kScreenH = 480;
 
 GameInfo gameFor(const GameTarget &target) {
-    // As the release in its folder has it: its patches' console lines.
+    // As the release in its folder has it.
     const GameInfo *found = findGame(target.gameId);
-    GameInfo game = found ? *found : games().front();
-    const Release release = describeRelease(target.path, game);
-    if (const auto it = game.patchConsoleVersions.find(release.patch); it != game.patchConsoleVersions.end())
-        game.consoleVersion = it->second;
-    if (const auto it = game.spPatchConsoleVersions.find(release.singlePlayerPatch);
-        it != game.spPatchConsoleVersions.end())
-        game.spConsoleVersion = it->second;
-    return game;
+    return forRelease(found ? *found : games().front(), target.path);
 }
 
 } // namespace

@@ -6,6 +6,7 @@
 #include "common/fs.h"
 
 #include <cmath>
+#include <cstring>
 
 namespace reluva::idtech3::jk2 {
 
@@ -108,6 +109,19 @@ int32_t FontSet::call(Qvm &vm, Call which, const int32_t *a, int32_t timeMs, con
             return 0;
         const auto c = int32_t(uint8_t(vm.memory()[size_t(at)]));
         vm.writeInt(a[0], at + 1);
+        return c;
+    }
+    case kReadCharAdvance: {
+        // As 1.03's (jk2mp.exe 0x4771b0): one byte a letter here too; and
+        // whether it's punctuation that may end a line (its list for
+        // these languages taken as . , ! ? ; : (guessed)).
+        if (!vm.valid(a[0], 1))
+            return 0;
+        const auto c = int32_t(uint8_t(vm.memory()[size_t(a[0])]));
+        if (a[1] && vm.valid(a[1], 4))
+            vm.writeInt(a[1], 1);
+        if (a[2] && vm.valid(a[2], 4))
+            vm.writeInt(a[2], std::strchr(".,!?;:", c) && c ? 1 : 0);
         return c;
     }
     }

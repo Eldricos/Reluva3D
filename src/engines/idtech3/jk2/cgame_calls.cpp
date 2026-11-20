@@ -180,12 +180,34 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
     auto f = [&](int i) { return Qvm::asFloat(a[i]); };
     // Word k of the vector argument i points at.
     auto f3 = [&](int i, int k) { return Qvm::asFloat(vm.readInt(a[i] + 4 * k)); };
+    auto draw = [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
+                       const std::array<float, 4> &color) {
+        _pictures.push_back({x, y, w, h, s1, t1, s2, t2, shader, color});
+    };
+    if (_release != JediRelease::k102a) {
+        // 1.03's numbering (jk2mp.exe 1.03's jump table): the language's
+        // calls at 52 to 54 (ReadCharFromString with its new arguments);
+        // Ghoul2's GetBolt_NoRec_NoRot new at 285 (answered as NoRec, its
+        // engine's second flag not worked out: guessed), CollisionDetect at
+        // 287, and 1.02a's 285 to 300 at 286 and 288 to 302.
+        const int32_t language = _cvars.integer("sp_language");
+        if (number == kReadCharFromString)
+            return language == 4 || language == 5 || language == 8 ? 1 : 0; // Language_IsAsian
+        if (number == kReadCharFromString + 1)
+            return language == 5 || language == 8 ? 0 : 1; // Language_UsesSpaces
+        if (number == kReadCharFromString + 2)
+            return _fonts.call(vm, jk2::FontSet::kReadCharAdvance, a, _time, draw);
+        if (number == kG2ListSurfaces + 7)
+            number = kG2ListSurfaces + 6;
+        else if (number == kG2ListSurfaces + 8)
+            number = kG2ListSurfaces + 7;
+        else if (number == kG2ListSurfaces + 9)
+            return _ghoul2.call(vm, jk2::Ghoul2Instances::kCollisionDetect, a);
+        else if (number >= kG2ListSurfaces + 10 && number <= kSetSharedBuffer + 2)
+            number -= 2;
+    }
     if (number >= kRegisterFont && number <= kReadCharFromString)
-        return _fonts.call(vm, jk2::FontSet::Call(number - kRegisterFont), a, _time,
-                           [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2,
-                                  int32_t shader, const std::array<float, 4> &color) {
-                               _pictures.push_back({x, y, w, h, s1, t1, s2, t2, shader, color});
-                           });
+        return _fonts.call(vm, jk2::FontSet::Call(number - kRegisterFont), a, _time, draw);
     if (number >= kPcAddGlobalDefine && number <= kPcRemoveAllGlobalDefines)
         return _scripts.call(vm, botlib::ScriptCalls::Call(number - kPcAddGlobalDefine), a);
     if (number == kFxAddLine || (number >= kFxRegisterEffect && number <= kFxAddSprite))

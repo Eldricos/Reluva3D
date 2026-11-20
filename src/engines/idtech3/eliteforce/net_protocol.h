@@ -56,6 +56,10 @@ struct NetProtocol {
     bool downloadReason = false;
     // Where a player's score is in the player state (persistant[0]).
     int32_t scoreOffset = 268;
+    // Jedi Outcast 1.03's and 1.04's server info: no `pure`, but whether a
+    // password is needed, Jedi versus mercenaries, and the weapons and
+    // Force powers turned off.
+    bool jediPatchedInfo = false;
     int32_t entityStateSize = 204;
     int32_t playerStateSize = 468;
 
@@ -79,8 +83,9 @@ struct NetProtocol {
 };
 
 const NetProtocol &eliteForceProtocol();
-const NetProtocol &jediOutcastProtocol();
-const NetProtocol &netProtocol(GameCode game);
+// Jedi Outcast's, as `release`'s engine has it (its version, its tables).
+const NetProtocol &jediOutcastProtocol(JediRelease release = JediRelease::k102a);
+const NetProtocol &netProtocol(GameCode game, JediRelease release = JediRelease::k102a);
 
 // Quake III 1.32's XOR of a message (keyed protocols): each byte from
 // `start` on with a key that starts at `key` and takes in `text`'s

@@ -36,9 +36,10 @@ NetProtocol makeEliteForce() {
     return p;
 }
 
-NetProtocol makeJediOutcast() {
+NetProtocol makeJediOutcast(JediRelease release) {
     NetProtocol p;
-    p.version = 15;
+    // 1.03 kept 15 though its tables changed; 1.04's is 16.
+    p.version = release == JediRelease::k104 ? 16 : 15;
     p.code = &jk2::messageHuffman();
     p.scramble = false;
     p.keyed = true;
@@ -55,12 +56,14 @@ NetProtocol makeJediOutcast() {
     p.quakeHeartbeat = true;
     p.scoreOffset = 280;
     p.entityStateSize = jk2::kNetEntityStateSize;
-    p.playerStateSize = jk2::kNetPlayerStateSize;
-    p.writeEntityDelta = jk2::writeEntityDelta;
+    const bool patched = release != JediRelease::k102a;
+    p.jediPatchedInfo = patched;
+    p.playerStateSize = patched ? jk2::kNetPlayerStateSizePatched : jk2::kNetPlayerStateSize;
+    p.writeEntityDelta = patched ? jk2::writeEntityDeltaPatched : jk2::writeEntityDelta;
     p.writeEntityRemoved = jk2::writeEntityRemoved;
-    p.readEntityDelta = jk2::readEntityDelta;
-    p.writePlayerDelta = jk2::writePlayerDelta;
-    p.readPlayerDelta = jk2::readPlayerDelta;
+    p.readEntityDelta = patched ? jk2::readEntityDeltaPatched : jk2::readEntityDelta;
+    p.writePlayerDelta = patched ? jk2::writePlayerDeltaPatched : jk2::writePlayerDelta;
+    p.readPlayerDelta = patched ? jk2::readPlayerDeltaPatched : jk2::readPlayerDelta;
     p.writeUserCommand = jk2::writeUserCommand;
     p.readUserCommand = jk2::readUserCommand;
     return p;
@@ -73,13 +76,15 @@ const NetProtocol &eliteForceProtocol() {
     return kProtocol;
 }
 
-const NetProtocol &jediOutcastProtocol() {
-    static const NetProtocol kProtocol = makeJediOutcast();
-    return kProtocol;
+const NetProtocol &jediOutcastProtocol(JediRelease release) {
+    static const NetProtocol k102a = makeJediOutcast(JediRelease::k102a);
+    static const NetProtocol k103 = makeJediOutcast(JediRelease::k103);
+    static const NetProtocol k104 = makeJediOutcast(JediRelease::k104);
+    return release == JediRelease::k104 ? k104 : release == JediRelease::k103 ? k103 : k102a;
 }
 
-const NetProtocol &netProtocol(GameCode game) {
-    return game == GameCode::kJediOutcast ? jediOutcastProtocol() : eliteForceProtocol();
+const NetProtocol &netProtocol(GameCode game, JediRelease release) {
+    return game == GameCode::kJediOutcast ? jediOutcastProtocol(release) : eliteForceProtocol();
 }
 
 void xorMessage(std::vector<uint8_t> &message, size_t start, uint8_t key, const std::string &text) {

@@ -58,7 +58,10 @@ public:
 
     // `game`: whose game module it runs, Elite Force's or Jedi Outcast's
     // multiplayer one, numbered and laid out as that game's.
-    GameHost(const SearchSet &files, CvarStore &cvars, GameCode game = GameCode::kEliteForce);
+    // `release`: Jedi Outcast's, whose engines number the game's calls and
+    // lay out its player state differently.
+    GameHost(const SearchSet &files, CvarStore &cvars, GameCode game = GameCode::kEliteForce,
+             JediRelease release = JediRelease::k102a);
 
     // Reads the game module (vm/qagame.qvm; Jedi Outcast's vm/jk2mpgame.qvm).
     Error load();
@@ -290,6 +293,7 @@ private:
     const SearchSet &_files;
     CvarStore &_cvars;
     GameCode _game;
+    JediRelease _release;
     Qvm _vm;
     VmFiles _vmFiles;
     std::set<std::string> _filesRead;

@@ -79,6 +79,32 @@ system and Ghoul2 (4 to 24).
 | 278–299 | Ghoul2 | instances posed by their animations and angle overrides, bolts from bones and tag surfaces, models hung from bolts, surfaces on and off ([ghoul2.md](../../../formats/ghoul2.md), Animation) |
 | 300 | `SetSharedBuffer` | kept: where the engine's effects system and the module trade data |
 
+### Patches
+
+1.03's and 1.04's `cgame.qvm` (the same calls in both; `jk2mp.exe` 1.03's
+jump table, from 0x4017a0):
+
+- **The text calls**: 52 `Language_IsAsian` and 53
+  `Language_UsesSpaces` are new, and `AnyLanguage_ReadCharFromString` moves
+  to 54 with the menus' three arguments ([syscalls.md](syscalls.md),
+  Patches).
+- **Ghoul2**: 285 is new, `GetBoltMatrix_NoRecNoRot` (the name *(inferred)*):
+  285's bolt with two of the engine's flags set (0x1b1d23c and
+  0x1b1d26c), the first of which 284 sets too; 1.02a's 285 and 286 to 300
+  move to 286 and 288 to 302; 287 is new, `G2API_CollisionDetect`
+  (below).
+- **`G2API_CollisionDetect`** (records, instance, angles, origin, time,
+  entity, start, end, scale, trace flags, detail, radius) traces a line
+  through an instance's posed triangles (the engine's 0x4abf60) and fills
+  up to 16 records of 64 bytes, the entity at 4 (-1 an empty one), sorted
+  by distance, the float at 0.
+- **The snapshot** is 77,212 bytes, the player state 1,380
+  ([network.md](network.md), Patches).
+
+Reluva answers 285 as 284, the bolt's turn kept
+([../KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)), 287 with the triangles Reluva traces saber hits with,
+and the rest by their 1.02a numbers.
+
 ## Sources and checks
 
 - **Where the facts come from:** 1.02a's `cgame.qvm` (its calls with

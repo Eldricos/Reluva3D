@@ -72,6 +72,9 @@ public:
         kSetRootSurface,         // (ghoul2, model, surface)
         kSetSurfaceOnOff,        // (ghoul2, surface, flags)
         kSetNewOrigin,           // (ghoul2, bolt)
+        // 1.03's: (records out, ghoul2, angles, origin, time, entity, start,
+        // end, scale, trace type, lod, radius); 16 records of 64 bytes.
+        kCollisionDetect,
     };
     int32_t call(Qvm &vm, Call which, const int32_t *args);
 

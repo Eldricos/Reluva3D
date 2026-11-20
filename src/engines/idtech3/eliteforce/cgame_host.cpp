@@ -219,8 +219,8 @@ void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
         _snapshots.erase(_snapshots.begin());
 }
 
-CgameHost::CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game)
-    : _files(files), _cvars(cvars), _game(game), _vmFiles(files) {
+CgameHost::CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game, JediRelease release)
+    : _files(files), _cvars(cvars), _game(game), _release(release), _vmFiles(files) {
     _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
@@ -230,7 +230,7 @@ Error CgameHost::load() {
         return Error::fail("vm/cgame.qvm: " + err.message);
     if (Error err = _vm.load(data))
         return Error::fail("vm/cgame.qvm: " + err.message);
-    _layout = _game == GameCode::kJediOutcast ? kLayoutJk2 : detectLayout(_vm);
+    _layout = _game == GameCode::kJediOutcast ? jk2Layout(_release) : detectLayout(_vm);
     return Error::success();
 }
 

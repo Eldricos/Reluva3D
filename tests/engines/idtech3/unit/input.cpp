@@ -31,6 +31,7 @@
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
+#include "engines/idtech3/jk2/patched_keys.h"
 #include "engines/idtech3/formats/lexer.h"
 #include "engines/idtech3/formats/marks.h"
 #include "engines/idtech3/render/light_grid.h"
@@ -168,6 +169,18 @@ void testKeyBindings() {
         CHECK(again.get(k) == b.get(k));
     const auto parts = reluva::idtech3::splitCommands("a \"b;c\"; d\ne // f; g");
     CHECK(parts.size() == 3 && parts[0] == "a \"b;c\"" && reluva::idtech3::splitCommand(parts[0]).size() == 2);
+
+    // Jedi Outcast 1.03's and 1.04's numbers, and back: every key Quake III
+    // has a name for that they have too.
+    using reluva::idtech3::jk2::fromPatchedKey;
+    using reluva::idtech3::jk2::toPatchedKey;
+    CHECK(toPatchedKey(q3key::kMouse1) == 141 && toPatchedKey(q3key::kEnter) == 10 && toPatchedKey(q3key::kUp) == 170);
+    CHECK(toPatchedKey('w') == 'w' && toPatchedKey(q3key::kCharFlag | 'W') == (q3key::kCharFlag | 'W'));
+    CHECK(toPatchedKey(185) == 256 && toPatchedKey(217) == 288 && toPatchedKey(q3key::kF1 + 12) == 0);
+    for (int32_t k = 1; k < q3key::kCount; ++k)
+        if (toPatchedKey(k) != 0)
+            CHECK(fromPatchedKey(toPatchedKey(k)) == k);
+    CHECK(fromPatchedKey(26) == 0); // CONSOLE: Quake III has no such key
 }
 
 void testVideoSettings() {

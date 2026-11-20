@@ -61,7 +61,7 @@ bool MenuLayer::start(int32_t menu) {
     _cvars.create("color", "4", player);
     JoystickInput::registerCvars(_cvars); // the Controls menu's joystick settings
     if (_ctx.game.code == GameCode::kJediOutcast)
-        _ui = std::make_unique<jk2::UiHost>(_ctx.files, _cvars);
+        _ui = std::make_unique<jk2::UiHost>(_ctx.files, _cvars, _ctx.game.jediRelease);
     else
         _ui = std::make_unique<eliteforce::UiHost>(_ctx.files, _cvars);
     _ui->setModRoot(_ctx.installPath, _ctx.game.baseDir);

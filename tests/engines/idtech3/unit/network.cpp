@@ -725,6 +725,24 @@ static void testJk2Wire() {
     jk2::readPlayerDelta(rp, ps2, gotPs);
     CHECK(gotPs == ps2 && !rp.overflowed());
 
+    // 1.03's and 1.04's tables: modelGhoul2 takes 17 (five bits); the
+    // three fields at 608 to 616, and genericEnemyIndex moved to 624.
+    std::vector<uint8_t> pe = from;
+    put(pe, 204, 17);
+    std::vector<uint8_t> pp(jk2::kNetPlayerStateSizePatched, 0);
+    put(pp, 604, 1);
+    put(pp, 608, 1);
+    put(pp, 616, 1);
+    put(pp, 624, 77);
+    wire::MessageWriter wpp(&code);
+    jk2::writeEntityDeltaPatched(wpp, from, pe, false);
+    jk2::writePlayerDeltaPatched(wpp, {}, pp);
+    wire::MessageReader rpp(wpp.bytes(), &code);
+    std::vector<uint8_t> gotPe;
+    CHECK(rpp.bits(10) == 42 && !jk2::readEntityDeltaPatched(rpp, 42, from, gotPe) && gotPe == pe);
+    jk2::readPlayerDeltaPatched(rpp, {}, gotPs);
+    CHECK(gotPs == pp && !rpp.overflowed());
+
     // Commands, keyed: back as they went; an unchanged one is two bits.
     ef::GameHost::UserCommand a;
     a.serverTime = 1000;
@@ -1013,7 +1031,8 @@ static void testServerLists(const std::filesystem::path &tmp) {
     CHECK(lists.count(ServerLists::kLocal) == 1 && lists.server(ServerLists::kLocal, 0)->ping == -1);
     CHECK(lists.updateVisiblePings(browser, ServerLists::kLocal, 200, 800));
     CHECK(drain("getinfo xxx") == 1);
-    reply("infoResponse\n\\hostname\\Local\\mapname\\ffa_bespin\\clients\\3\\sv_maxclients\\8\\gametype\\0\n");
+    reply("infoResponse\n\\hostname\\Local\\mapname\\ffa_bespin\\clients\\3\\sv_maxclients\\8\\gametype\\0"
+          "\\needpass\\1\\wdisable\\24\n");
     browser.update(230);
     CHECK(lists.updateVisiblePings(browser, ServerLists::kLocal, 240, 800));
     const ServerLists::Server *s = lists.server(ServerLists::kLocal, 0);
@@ -1022,6 +1041,10 @@ static void testServerLists(const std::filesystem::path &tmp) {
     const std::string info = ServerLists::info(*s);
     CHECK(info.find("\\hostname\\Local") != std::string::npos && info.find("\\ping\\30") != std::string::npos &&
           info.find("\\addr\\127.0.0.1:27960") != std::string::npos);
+    // 1.03's and 1.04's keys in sv_allowAnonymous's place.
+    const std::string patched = ServerLists::info(*s, true);
+    CHECK(patched.find("\\needpass\\1") != std::string::npos && patched.find("\\wdisable\\24") != std::string::npos &&
+          patched.find("\\truejedi\\0") != std::string::npos && patched.find("sv_allowAnonymous") == std::string::npos);
     // Visibility is kept by slot through another search.
     lists.searchLocal(browser, 1000);
     drain("getinfo xxx");

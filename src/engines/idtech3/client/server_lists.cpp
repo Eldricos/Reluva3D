@@ -72,7 +72,7 @@ const ServerLists::Server *ServerLists::server(int32_t source, int32_t n) const 
     return l && n >= 0 && n < int32_t(l->size()) ? &(*l)[size_t(n)] : nullptr;
 }
 
-std::string ServerLists::info(const Server &s) {
+std::string ServerLists::info(const Server &s, bool jediPatched) {
     std::string out;
     setInfoValue(out, "hostname", s.hostName);
     setInfoValue(out, "mapname", s.mapName);
@@ -85,6 +85,14 @@ std::string ServerLists::info(const Server &s) {
     setInfoValue(out, "gametype", std::to_string(s.gameType));
     setInfoValue(out, "nettype", std::to_string(s.netType));
     setInfoValue(out, "addr", s.address.toString());
+    if (jediPatched) {
+        // (jk2mp.exe 1.03's LAN_GetServerInfo.)
+        setInfoValue(out, "needpass", std::to_string(s.needPass));
+        setInfoValue(out, "truejedi", std::to_string(s.trueJedi));
+        setInfoValue(out, "wdisable", std::to_string(s.weaponDisable));
+        setInfoValue(out, "fdisable", std::to_string(s.forceDisable));
+        return out;
+    }
     setInfoValue(out, "sv_allowAnonymous", std::to_string(s.allowAnonymous));
     return out;
 }
@@ -106,6 +114,10 @@ void ServerLists::setInfo(const net::Address &address, const std::string &info, 
                 s.minPing = number(info, "minping");
                 s.maxPing = number(info, "maxping");
                 s.allowAnonymous = number(info, "sv_allowAnonymous");
+                s.needPass = number(info, "needpass");
+                s.trueJedi = number(info, "truejedi");
+                s.weaponDisable = number(info, "wdisable");
+                s.forceDisable = number(info, "fdisable");
             }
             s.ping = ping;
         }

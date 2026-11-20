@@ -277,8 +277,13 @@ behind the DLL's own tables.
     single player playing every level through, its game's API 7 and
     renumbered client game calls answered
     ([systems/sp-interface.md](systems/sp-interface.md), Patch 1.03);
-    its game-data records in `jk2-1.03/`. Left: 1.03's and 1.04's
-    multiplayer (their QVMs' API 7), other languages, the Mac release.
+    its game-data records in `jk2-1.03/`. Both patches' multiplayer:
+    their menus' API 7 and key numbers, the new and renumbered calls,
+    the longer player state and 1.04's protocol 16, checked against their
+    `jk2mp.exe`'s own delta code
+    ([systems/syscalls.md](systems/syscalls.md),
+    [systems/network.md](systems/network.md), Patches); records in
+    `jk2-1.03/` and `jk2-1.04/`. Left: other languages, the Mac release.
 11. **Extras, once everything above is done and tested**: EAX
     environmental sound (`eagle/*.eal`) and force feedback
     (`forcecfg/*.fcf`, which the original plays through `FFC10.dll`).
