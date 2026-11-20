@@ -65,7 +65,7 @@ A font (48 bytes):
 
 | Offset | Type | Field | Confidence |
 |---|---|---|---|
-| 0 | `u8[3]` | colour: red, blue, green (in that order, as the editor reads it) | published |
+| 0 | `u8[3]` | colour: red, blue, green (in that order, as the editor reads it): the options screen's names show in it (below) | confirmed |
 | 3 | `i32[7]` | flags, all 0 or a single 1: [0] right-aligned, [1] centred, neither: left-aligned; [2] and [3] not known | confirmed |
 | 31 | `i32` | 1: use this font, 0: the game's default | published |
 | 35 | `char[13]` | the font (a `.fnt` in `stbof.res`, see [fnt.md](fnt.md)) | confirmed |
@@ -113,7 +113,8 @@ ways (K toggles the colour key). The unit tests (`botf.unit.layouts`:
   commit `7ee45c4b`, files `ue/edit/res/stbof/files/wdf/` and
   `ue/gui/stbof/wdf/`), read for the layout only, October 2026; see
   [tables.md](tables.md#other-sources). The alignment flags from a
-  recording of the game setup screen.
+  recording of the game setup screen; the colour's byte order from a
+  screenshot of the options screen, November 2026.
 - **How it was checked:** against every `.wdf` of the English `stbof.res`
   (`tools/botf-re/botf_res_sample.py --ext wdf mnu --all-whole`), October
   2026: all 377 read, their widgets drawn where the game shows them (by
@@ -127,6 +128,9 @@ ways (K toggles the colour key). The unit tests (`botf.unit.layouts`:
 - What the fonts' third and fourth flags and the 0s and -1s mean.
 - How the game finds a widget: presumably by its id, from the executable
   *(guessed)*.
-- What the colour is: in the game setup screen the timers' `00 ff 00`
-  shows as pale green with some red, which no order of the bytes gives
+- Which text the colour applies to. On the options screen the names show
+  in it (its light blue, stored `19 fa be`, is (25, 190, 250) only in this
+  order), but the values beside them, with the same font, don't; on the
+  game setup screen the timers' `00 ff 00` shows as pale green with some
+  red. The executable presumably colours the values itself *(inferred)*
   (see [screens.md](../systems/screens.md)).

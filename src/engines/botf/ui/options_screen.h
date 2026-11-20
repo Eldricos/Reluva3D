@@ -10,10 +10,10 @@
 #include <array>
 
 // The options screen (options.wdf), opened from the main menu: the four
-// volumes, 3D acceleration, tactical combat, random events, autosave and
-// the two timers. What each control is, and its defaults, are the manual's
-// (chapter 13); its words lexicon.dic's; which widget is which, the
-// layout's order on the screen (docs/engines/botf/systems/screens.md).
+// volumes, tool tips, tactical combat, random events, autosave and the two
+// timers. What each control is, and its defaults, are the manual's
+// (chapter 13); its words lexicon.dic's; which widget is which and how it
+// looks, a screenshot of the game's (docs/engines/botf/systems/screens.md).
 
 namespace reluva::botf {
 
@@ -21,9 +21,13 @@ namespace reluva::botf {
 struct GameOptions {
     static constexpr int kMaxVolume = 127; // the sliders' maximum, from the layout
 
-    /** Voice, video playback, background music and sound effects, 0 (off) to kMaxVolume. */
-    std::array<int, 4> volume{kMaxVolume, kMaxVolume, kMaxVolume, kMaxVolume};
-    bool accelerated3d = true;
+    /**
+     * Voice, video playback, background music and sound effects, 0 (off) to
+     * kMaxVolume; at first as an installed game showed them, 33 cells of 41
+     * and video's all 41.
+     */
+    std::array<int, 4> volume{102, kMaxVolume, 102, 102};
+    bool toolTips = true;
     bool manualCombat = true;
     bool randomEvents = true;
     bool autosave = true;

@@ -62,56 +62,60 @@ and their order on the screen, as the recording shows them.
 (`optbkgnd.tga`), Accept (8100) and Cancel (8101) at the bottom, as on the
 other panels. The manual (chapter 13) names what it sets: four volumes, and
 "Game Preferences", the settings the game setup screen also has, plus two of
-its own. The widgets are matched to them by their order on the screen and
-their pictures' names; there's no recording of this screen yet.
+its own. The widgets were matched to them by their order on the screen,
+and checked against a screenshot of the game's screen.
 
 | Control | Widgets | What it sets (the manual) | Shows |
 |---|---|---|---|
 | Title | text box 8122 | | "VOLUME CONTROL" (1416) |
 | Voice, Video Playback, Background Music, Sound Effects | sliders 8102-8105, names in text boxes 8123-8126 | each volume, off at the left | "VOICE", "VIDEO", "MUSIC", "SFX" (1413, 1411, 797, 1113) |
-| 3D acceleration | button 8107 (`3dacc`), value in 8160 | not in the manual (below) | YES or NO |
+| Tool Tips | button 8107 (`3dacc`), value in 8160 | Yes (default) or No | YES or NO |
 | Tactical Combat | button 8106 (`tac_bar`), value in 8161 | Manual (default) or Automatic | MANUAL or AUTOMATIC |
-| Random Events | button 8108 (`rdm_bar`), value in 8162 | Yes (default) or No | ON or OFF |
+| Random Events | button 8108 (`rdm_bar`), value in 8162 | Yes (default) or No | YES or NO |
 | Autosave | button 8109 (`asave`), value in 8163 | Yes (default) or No | YES or NO |
-| Strategic Timer | arrows 8115 (less) and 8114 (more), name in 8116, value in 8117 | as on the game setup screen | "NONE" |
-| Tactical Timer | arrows 8119 and 8118, name in 8120, value in 8121 | the same | "NONE" |
+| Strategic Timer | arrows 8115 (less) and 8114 (more), name in 8116, value in 8117 | as on the game setup screen | "None" |
+| Tactical Timer | arrows 8119 and 8118, name in 8120, value in 8121 | the same | "None" |
 
-- **The settings' names** are in their buttons' pictures (234x24, as
-  `3dacc.tga` and `3dacc_on.tga`), not in text; the numbers in brackets are
-  the words' `lexicon.dic` entries, found by their text *(inferred: which
-  box shows which)*.
-- **3D acceleration** isn't in the manual, which has Tool Tips instead;
-  the layout has no Tool Tips control. The bar's pictures are `3dacc`, and
-  `lexicon.dic`'s entry 0 is "The 3d accelerator options have changed. You
-  must exit and restart the program for this change to take effect." What
-  it chooses between, and its default, aren't known: Reluva shows YES or
-  NO, YES at first *(guessed)*.
+- **The settings' names** are in their buttons' pictures (234x24), not in
+  text: "TOOLTIPS", "TACTICAL COMBAT OPTIONS", "RANDOM EVENTS",
+  "AUTOSAVE". The first bar's pictures are named `3dacc` but show Tool
+  Tips, as the manual has it. The numbers in brackets are the words'
+  `lexicon.dic` entries, found by their text.
+- **Values:** right-aligned in their boxes, as their fonts say. Random
+  Events shows YES here, where the game setup screen shows ON. The timers
+  show "None" as the entry has it, centred between their arrows, where the
+  setup screen shows "NONE".
 - **Shared with the game setup screen:** the manual says Random Events,
   Tactical Combat and the two timers can be set here or there. Reluva keeps
   one set: a new game's setup starts from the options, and the setup's
-  Accept writes them back *(inferred)*. The setup screen shows Random
-  Events as ON or OFF in the recording, where the manual says Yes and No;
-  this screen shows it the same way *(guessed)*.
+  Accept writes them back *(inferred)*.
 - **A volume** is 0 to 127 in 41 cells of 7 pixels (the slider's maximum,
-  cells and width). The layout names `vol-bar.tga`, the cells lit, for the
-  slider; `volbarof.tga` beside it in `stbof.res`, the same size, has them
-  unlit, though no layout names it. Reluva draws the lit bar and covers the
-  cells past the volume with the unlit one; a click lights the cell under
-  the mouse and those left of it, and dragging follows the mouse
-  *(inferred)*. The manual: "After you adjust a volume slider, a sound
-  sample will play so you can hear the new volume level." The volumes start
-  at the maximum *(guessed)*.
+  cells and width). The layout names `vol-bar.tga`, the cells lit, yellow
+  to red, for the slider; `volbarof.tga`, the same size, has them unlit
+  (dark purple), though no layout names it. In the screenshot the cells
+  are lit from the left and unlit past the volume, from the slider's own x
+  (the third pixel of each 7 lit), as Reluva draws them. A click lights the
+  cell under the mouse and those left of it, and dragging follows the
+  mouse *(guessed)*. The manual: "After you adjust a volume slider, a sound
+  sample will play so you can hear the new volume level."
+- **The volumes at first:** in the screenshot, from an installed game,
+  voice, music and sound effects have 33 cells of 41 lit and video all 41.
+  Reluva starts there (102, 127, 102, 102) *(inferred: they may be the
+  player's own, not the game's defaults)*.
 - **Accept** keeps the changes and **Cancel** drops them (the manual); both
   go back to the main menu.
-- **Colours:** the text boxes' fonts name their own, a pale green for the
-  title (145, 200, 145) and a light blue for the rest (25, 190, 250), as the
-  reader takes them. Reluva uses those *(guessed)*: on the game setup screen
-  the recording's colours aren't the files'.
-- **Not used:** four pictures without a picture (8110-8113, 144 wide, 96 or
-  128 high) beside the settings' values, perhaps where a list of choices
-  opens *(guessed)*; `asavebkg.tga` is 144x96.
-- **Behind it:** drawn over the main menu, dimmed, as the other panels are
-  *(guessed)*.
+- **Colours:** the title and the names are in their fonts' own colours, as
+  the screenshot has them to the 16-bit screen's precision: (145, 200,
+  145) shows as (140, 199, 140), (25, 190, 250) as (24, 186, 247). The
+  settings' values (24, 101, 189) and the timers' (173, 227, 115) aren't
+  their fonts': the executable's own, measured from the screenshot.
+- **Not shown:** four pictures without a picture (8110-8113, 144 wide, 96
+  or 128 high) beside the settings' values; nothing is drawn there in the
+  screenshot.
+- **Behind it:** drawn over the main menu, dimmed, as the other panels
+  are. The bar along the top reads "OPTIONS" where the menu's has none;
+  that isn't in the layout's text boxes, so presumably it's in
+  `optbkgnd.tga` *(guessed)*.
 
 ### Load Game
 
@@ -257,8 +261,10 @@ the screen, and checked against the recording:
   recording's. `botf.unit.screens` checks the controls' choices and the
   menu's buttons, and `botf.engine` goes from the main menu through both
   screens and back, through the options, cancelled and accepted, and
-  through Load Game with two saves. The options and Load Game screens
-  haven't been seen: they're from their layouts and the manual.
+  through Load Game with two saves. The options screen was checked against
+  a screenshot of the game (November 2026): every widget, word, value and
+  colour; Load Game hasn't been seen, and is from its layout and the
+  manual.
 
 ## Open questions
 
@@ -270,9 +276,11 @@ the screen, and checked against the recording:
   near its left edge, and Quit Game shows its first picture: the pointer's
   hot spot may not be where it's drawn, or only the button's picture, not
   its rectangle, may count.
-- The options screen as the game draws it: its colours, 3D acceleration's
-  choices, whether a volume's click works as Reluva's does, and the
-  pictures 8110-8113. Settled by a recording or screenshots of it.
+- On the options screen: whether a volume's click works as Reluva's does,
+  what the pictures 8110-8113 are for, and the volumes' own defaults.
+- Whether the game setup screen's values and timers are in the colours the
+  options screen's are, (24, 101, 189) and (173, 227, 115): its own were
+  measured from a video, whose colours run lighter and greyer.
 - Where the game keeps the options between runs.
 - Load Game as the game draws it: which field shows the name and which the
   description, what an empty slot shows, its text's colours, and whether

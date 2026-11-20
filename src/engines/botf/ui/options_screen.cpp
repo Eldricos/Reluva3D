@@ -10,7 +10,7 @@ namespace reluva::botf {
 namespace {
 
 // options.wdf's widgets, matched to the manual's controls by their order on
-// the screen.
+// the screen and checked against a screenshot of the game.
 constexpr int32_t kAccept = 8100;
 constexpr int32_t kCancel = 8101;
 constexpr int32_t kTitle = 8122;
@@ -19,8 +19,8 @@ constexpr std::array<int32_t, 4> kVolumes = {8102, 8103, 8104, 8105};
 constexpr std::array<int32_t, 4> kVolumeLabels = {8123, 8124, 8125, 8126};
 // The four settings' bars (their names are in their pictures) and the
 // boxes for their values, beside them.
-constexpr int32_t kAccelerated = 8107;
-constexpr int32_t kAcceleratedText = 8160;
+constexpr int32_t kToolTips = 8107; // its pictures are named 3dacc, but show "TOOLTIPS"
+constexpr int32_t kToolTipsText = 8160;
 constexpr int32_t kCombat = 8106;
 constexpr int32_t kCombatText = 8161;
 constexpr int32_t kRandomEvents = 8108;
@@ -40,19 +40,24 @@ constexpr int32_t kTacticalText = 8121;
 // the layout names, the same size, though no layout names it.
 constexpr const char *kUnlitBar = "volbarof.tga";
 
+// The settings' and timers' values aren't in their fonts' colours, as the
+// names are: measured from a screenshot of the game.
+constexpr Color kValueColor{24, 101, 189};
+constexpr Color kTimerColor{173, 227, 115};
+
 } // namespace
 
 Error OptionsScreen::load() {
     return loadLayouts("options.wdf", {kAccept, kCancel, kTitle, kVolumes[0], kVolumes[1], kVolumes[2], kVolumes[3],
-                                       kAccelerated, kCombat, kRandomEvents, kAutosave, kStrategicLess, kStrategicMore,
+                                       kToolTips, kCombat, kRandomEvents, kAutosave, kStrategicLess, kStrategicMore,
                                        kTacticalLess, kTacticalMore});
 }
 
 void OptionsScreen::click(int32_t id) {
     GameOptions &o = _options;
     switch (id) {
-    case kAccelerated:
-        o.accelerated3d = !o.accelerated3d;
+    case kToolTips:
+        o.toolTips = !o.toolTips;
         break;
     case kCombat:
         o.manualCombat = !o.manualCombat;
@@ -142,14 +147,19 @@ void OptionsScreen::draw(Surface &screen) const {
     text(kVolumeLabels[3], lex::kSoundEffects, "SFX");
     text(kStrategicLabel, lex::kStrategicTimer, "STRATEGIC TIMER");
     text(kTacticalLabel, lex::kTacticalTimer, "TACTICAL TIMER");
-    auto yesNo = [&](int32_t box, bool yes) { yes ? text(box, lex::kYes, "YES") : text(box, lex::kNo, "NO"); };
-    yesNo(kAcceleratedText, o.accelerated3d);
+    auto value = [&](int32_t box, int entry, const char *english) {
+        drawText(screen, box, word(entry, english), kValueColor);
+    };
+    // Random Events too shows YES or NO here, where the game setup screen
+    // shows ON or OFF.
+    auto yesNo = [&](int32_t box, bool yes) { yes ? value(box, lex::kYes, "YES") : value(box, lex::kNo, "NO"); };
+    yesNo(kToolTipsText, o.toolTips);
+    yesNo(kRandomEventsText, o.randomEvents);
     yesNo(kAutosaveText, o.autosave);
-    o.manualCombat ? text(kCombatText, lex::kManual, "MANUAL") : text(kCombatText, lex::kAutomatic, "AUTOMATIC");
-    // As the game setup screen shows the same setting.
-    o.randomEvents ? text(kRandomEventsText, lex::kOn, "ON") : text(kRandomEventsText, lex::kOff, "OFF");
-    drawText(screen, kStrategicText, upperAscii(word(lex::kNone, "None")), fontColor(kStrategicText));
-    drawText(screen, kTacticalText, upperAscii(word(lex::kNone, "None")), fontColor(kTacticalText));
+    o.manualCombat ? value(kCombatText, lex::kManual, "MANUAL") : value(kCombatText, lex::kAutomatic, "AUTOMATIC");
+    // "None" as the entry has it, where the game setup screen shows "NONE".
+    drawText(screen, kStrategicText, word(lex::kNone, "None"), kTimerColor);
+    drawText(screen, kTacticalText, word(lex::kNone, "None"), kTimerColor);
 }
 
 } // namespace reluva::botf

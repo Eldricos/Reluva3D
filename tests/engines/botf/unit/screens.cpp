@@ -254,7 +254,7 @@ void testOptionsScreen() {
     for (size_t i = 2; i < ids.size(); ++i)
         CHECK(click(i) == OptionsScreen::Result::kOpen);
     const GameOptions &o = screen.options();
-    CHECK(!o.manualCombat && !o.accelerated3d && !o.randomEvents && !o.autosave);
+    CHECK(!o.manualCombat && !o.toolTips && !o.randomEvents && !o.autosave);
     CHECK(o.strategicTimer == 0 && o.tacticalTimer == 0);
     // A click on a volume's bar lights the cell under it and those left of
     // it; a drag follows the mouse, past either end.
@@ -269,7 +269,7 @@ void testOptionsScreen() {
     CHECK(o.volume[0] == GameOptions::kMaxVolume);
     // Once the mouse is up, moving it changes nothing.
     mouse(EventType::kMouseMove, 100, 300);
-    CHECK(o.volume[0] == GameOptions::kMaxVolume && o.volume[3] == GameOptions::kMaxVolume);
+    CHECK(o.volume[0] == GameOptions::kMaxVolume && o.volume[3] == GameOptions{}.volume[3]);
     mouse(EventType::kMouseDown, 100, 295);
     mouse(EventType::kMouseMove, 60, 295);
     mouse(EventType::kMouseUp, 60, 295);
@@ -280,7 +280,7 @@ void testOptionsScreen() {
     CHECK(click(0) == OptionsScreen::Result::kAccepted && click(1) == OptionsScreen::Result::kCancelled);
     // Opening it again shows the options it's given.
     screen.open(defaults);
-    CHECK(screen.options().autosave && screen.options().volume[3] == GameOptions::kMaxVolume);
+    CHECK(screen.options().autosave && screen.options().volume[3] == defaults.volume[3]);
 }
 
 void testLoadScreen() {

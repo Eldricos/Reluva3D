@@ -16,12 +16,12 @@ setup.again: 6a876819c35a62ea
 menu.again: aab57f3978016255
 empires.second chosen: 5d2dd68cbe8b5b1c
 menu.after a new game: aab57f3978016255
-options.shown: 5522329f080b41c5
-options.combat changed: f5994d1ac4f00db3
-options.volume pressed: 49ce1f8a48dea15b
-options.volume dragged: a59265a88e73df97
+options.shown: e2828198ed79093b
+options.combat changed: 66a1c4db32002f36
+options.volume pressed: 3bb8698443a5100e
+options.volume dragged: 817886fb4c290b12
 menu.options cancelled: aab57f3978016255
-options.again: 5522329f080b41c5
+options.again: e2828198ed79093b
 menu.options accepted: aab57f3978016255
 setup.with the options: f1f24d46deb0c711
 menu.last: aab57f3978016255

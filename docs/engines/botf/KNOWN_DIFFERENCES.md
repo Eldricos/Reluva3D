@@ -31,7 +31,7 @@ None yet.
 - **The timers offer only None,** as their other choices aren't known.
 - **The options aren't kept** between runs, and change nothing yet: there's
   no sound or movie to set the volume of, no sample plays when a volume
-  changes, and 3D acceleration means nothing to Reluva.
+  changes, and there are no tool tips to turn off.
 
 ## Additions outside the game
 

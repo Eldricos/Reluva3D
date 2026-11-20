@@ -24,11 +24,11 @@ None: nothing of the game's code has been read.
   Quit Game's rectangle and the button not lit
   ([systems/screens.md](systems/screens.md)). Settled by: pointing at each
   button's edges in the running game.
-- **The options screen:** which text box shows which word, a volume's
-  click lighting the cells up to the mouse, `volbarof.tga` as the unlit
-  bar, and the settings the game setup screen shares with it kept as one
-  set ([systems/screens.md](systems/screens.md)). Settled by: a recording
-  or screenshots of the screen.
+- **The options screen:** the settings the game setup screen shares with
+  it kept as one set, and the volumes' first values, from one install's
+  screenshot ([systems/screens.md](systems/screens.md)). Settled by: a
+  fresh install's options, and a setting changed on one screen seen on
+  the other.
 
 - **Load Game's slots:** slot *n* is `game`*n*`.sav`, the left field its
   name and the right its description ([systems/screens.md](systems/screens.md),
@@ -41,12 +41,9 @@ None: nothing of the game's code has been read.
   one is, and the text's colours ([systems/screens.md](systems/screens.md)).
   Settled by: the running game.
 
-- **On the options screen:** 3D acceleration's choices (Reluva shows YES
-  or NO) and default, the volumes starting at the maximum, Random Events
-  shown as ON or OFF as on the setup screen, the text in its fonts' own
-  colours, and the screen drawn over the dimmed main menu
-  ([systems/screens.md](systems/screens.md)). Settled by: the running
-  game.
+- **On the options screen:** a click on a volume lighting the cells up to
+  the mouse, and dragging along it ([systems/screens.md](systems/screens.md)).
+  Settled by: the running game.
 
 - **On the screens:** a button shows its "selected" picture while it's
   held; the empire screen's Accept does nothing until an empire is
@@ -59,6 +56,13 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** the options screen from a screenshot: Tool Tips
+  where the bar's pictures are named `3dacc`, its words and their colours,
+  Random Events as YES, the timers' "None", the volume bars, and the
+  screen over the dimmed main menu ([systems/screens.md](systems/screens.md)).
+  With it, the layouts' font colours as stored red, blue, green
+  ([formats/wdf.md](formats/wdf.md)).
 
 - **November 2026:** how dim the main menu draws buttons that can't be
   used (35%) and every button behind a panel (28%), measured on the
