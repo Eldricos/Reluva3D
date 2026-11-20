@@ -17,6 +17,7 @@ add_library(reluva_common STATIC
     log.cpp
     md4.cpp
     crypto.cpp
+    meeting.cpp
     md5.cpp
     net.cpp
     pe.cpp

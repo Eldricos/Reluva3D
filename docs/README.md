@@ -50,6 +50,8 @@ Laid out as `src/common/` is, a page per component:
   topics, links and pictures.
 - **[crypto.md](common/crypto.md):** encryption for network play: X25519
   key agreement and ChaCha20-Poly1305.
+- **[meeting-server.md](common/meeting-server.md):** a meeting server
+  for network play, for players who can't reach each other.
 
 ## Engines: `engines/<engine>/`
 
