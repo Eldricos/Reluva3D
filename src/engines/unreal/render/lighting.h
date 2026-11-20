@@ -123,7 +123,7 @@ struct LightSource {
 struct LightClock {
     float time = 0;       // the level's time, seconds
     uint32_t frame = 0;   // frames drawn
-    bool strobeOn = true; // every strobe light's, flipped on each frame the time moved
+    bool strobeOn = true; // every strobe light's, flipped when one is worked out and the time moved
 };
 /** A clock `time` seconds in, its frames 35 a second (the viewer's). */
 LightClock lightClock(float time);

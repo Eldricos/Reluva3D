@@ -1721,6 +1721,21 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
     return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, _lightClock, whole) * share, 0.0f, 2.0f);
 }
 
+// Whether a strobe light reaches a lightmap in a zone seen.
+bool LevelView::strobeSeen() const {
+    if (std::none_of(_changingLights.begin(), _changingLights.end(),
+                     [](const LightSource &l) { return l.type == kLightStrobe; }))
+        return false;
+    for (const AnimatedLightmap &m : _animatedLightmaps) {
+        if (m.zone >= 0 && m.zone < 64 && !((_zonesSeen >> m.zone) & 1))
+            continue;
+        for (const AnimatedLightmap::Light &l : m.lights)
+            if (size_t(l.index) < _changingLights.size() && _changingLights[size_t(l.index)].type == kLightStrobe)
+                return true;
+    }
+    return false;
+}
+
 // Redraws the lightmaps that pulsing, flickering... lights reach, where
 // those lights' brightness changed, and those with a light effect's
 // pattern on them every frame (it moves across them). Meshes take each
@@ -1734,8 +1749,13 @@ void LevelView::updateLightmaps(float dt) {
     if (_play) {
         const float now = _play->level().time();
         ++_lightClock.frame;
-        if (now != _lightClock.time)
+        // Render.dll flips every strobe together when one is worked out
+        // and the level's time has moved since one last was (0x10b06ef0):
+        // so only on frames one lights a surface seen.
+        if (now != _strobeTime && strobeSeen()) {
             _lightClock.strobeOn = !_lightClock.strobeOn;
+            _strobeTime = now;
+        }
         _lightClock.time = now;
         _play->level().setRealTime(_lightTime);
     } else {

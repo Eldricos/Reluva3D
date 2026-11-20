@@ -460,6 +460,7 @@ private:
     // Lights whose brightness changes, and the lightmaps they reach,
     // redrawn as they do.
     void updateLightmaps(float dt);
+    bool strobeSeen() const;
     std::vector<gfx::TextureId> _lightmapPages;
     std::vector<LightSource> _changingLights;
     std::vector<float> _lightLevels;            // each one's brightness now, as a whole (meshes are lit by it)
@@ -470,6 +471,7 @@ private:
     std::vector<AnimatedLightmap> _animatedLightmaps;
     float _lightTime = 0;
     LightClock _lightClock; // the changing lights' (lighting.h)
+    float _strobeTime = 0;  // the level's time when the strobes were last worked out
     // Fire, water, wet, ice and FLC textures, playing.
     void updateAnimatedTextures(float dt);
     std::vector<std::pair<gfx::TextureId, std::unique_ptr<AnimatedTexture>>> _animatedTextures;

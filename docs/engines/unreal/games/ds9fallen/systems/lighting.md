@@ -287,7 +287,7 @@ real clock (0x10b0a242, 0x10b0a347).
 | Pulse | 0.6 + 0.39 sin, a cycle each `LightPeriod` 35ths of a second (at least 1) |
 | Subtle pulse | 0.9 + 0.09 sin, the same |
 | Blink | out when `TimeSeconds` x 35 x 65536 / (`LightPeriod` + 1) + `LightPhase` x 256, truncated, is odd (0x10b06e60): a new state almost every frame, held while paused |
-| Strobe | every strobe together: on and out by turns, flipping on each frame the level's time moved (0x10b06ef0) |
+| Strobe | every strobe together, on and out by turns: Render.dll keeps one state and the level's time it was last flipped at (0x10b06ef0, both zero at the start: lit). Each time a strobe light is worked out and the time has moved since, it flips, so it flips only on frames one is seen, once however many are. Reluva flips it on frames a strobe reaches a lightmap in a zone seen; a strobe that lights only actors doesn't flip it there |
 | Flicker | a random number each frame: out under 0.5, else that bright |
 | Backdrop | steady |
 | Texture palette once / loop | the colour and brightness of the light's `Skin` palette, by its life or its cycle (not done: none in The Fallen's maps light with it) |
