@@ -193,8 +193,9 @@ older game's slot, the older game will be erased in favor of the newer
 game."
 
 - **As Load Game,** but any slot can be chosen, an empty one too, and the
-  title is the layout's own, `ls_svlb.tga`, "SAVE GAME" *(inferred: from
-  its name and Load Game's using the other)*.
+  title is the layout's own, `ls_svlb.tga`, "SAVE GAME". A screenshot
+  before a slot is chosen matches Reluva's pixel for pixel but the
+  pointer: Accept dimmed, the tutorials in the first four slots.
 - **The chosen slot** shows its file's name and the description of the
   game to save: at first its galaxy's shape ("Ring"), the manual's "galaxy
   type" *(guessed)*: which words, and whether the size goes with them,
@@ -350,7 +351,7 @@ recording:
   2026): every widget, word, value and colour. Drawn by Reluva from the
   English `stbof.res` with the same games, the Hall of Fame, Load Game and
   the options match the screenshots pixel for pixel but for the pointer,
-  the 16-bit screen's rounding, and a few pixels of shading in digits.
+  the 16-bit screen's rounding, and a few pixels of `8` and `B`.
 
 ## Open questions
 
@@ -367,9 +368,8 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Save Game as the game draws it: the description it starts with, a
-  cursor, and whether the title is `ls_svlb.tga`. Settled by a screenshot
-  of the screen with a game in progress.
+- Save Game once a slot is chosen: the description it starts with, and a
+  cursor. Settled by a screenshot of a slot chosen.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses

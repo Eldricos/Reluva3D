@@ -50,6 +50,9 @@ whole fonts read). Reluva finds the cells by their frame lines (a column
 of frame colour all the way down a row ends a cell): in both whole fonts
 120 cells, in rows of 10, 26, 26, 32 and 26.
 
+The game doesn't draw a cell's last row, which only descenders reach: in
+screenshots the bottom row of `g` and `y` is blank where the sheet has it.
+
 The game advances by the cell's width + 1, so for those four glyphs a
 pixel further than the header says. Drawn with the header's advances,
 the text in screenshots of the Hall of Fame and Load Game screens drifts a
@@ -96,8 +99,8 @@ fonts and line wrapping.
 - How the game colours text exactly. It tints the grey glyphs: in the
   screenshots each grey gives one colour, the brightest grey the text's
   colour and the rest about in proportion, as Reluva draws them (within the
-  16-bit screen's rounding). In a few digits the game leaves a pixel blank
-  that the sheet has drawn; why isn't known.
+  16-bit screen's rounding). In `human15.fnt`'s `8` and `B` a few pixels
+  differ from the sheet's; why isn't known.
 - Bytes 1, 3, 16 and 17 and the values 10 and 86. Byte 2 is taken as the
   space's advance (there is no space glyph); the running game will show
   whether that's right.

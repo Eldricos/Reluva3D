@@ -39,12 +39,13 @@ void testFont() {
     CHECK(font.glyph(U' ') == nullptr && font.glyph(U'€') == nullptr);
     CHECK(font.measure("1 2") == 3 + 4 + 4);
 
-    // Drawing: the glyph's pixels, not its background pixel.
+    // Drawing: the glyph's pixels, not its background pixel, nor its cell's
+    // last row.
     Surface s;
     s.create(20, 10, PixelFormat::kRGBA32);
     CHECK(font.draw(s, 2, 1, "1") == 5);
     auto lit = [&](int x, int y) { return s.row(y)[size_t(x) * 4 + 3] != 0; };
-    CHECK(!lit(2, 1) && lit(3, 1) && lit(2, 2) && lit(3, 7) && !lit(4, 2) && !lit(2, 8));
+    CHECK(!lit(2, 1) && lit(3, 1) && lit(2, 2) && lit(3, 6) && !lit(3, 7) && !lit(4, 2) && !lit(2, 8));
     s.create(20, 10, PixelFormat::kRGBA32);
     font.draw(s, 0, 0, "1", Color{0, 0, 0});
     CHECK(s.row(1)[3] == 255 && s.row(1)[0] == 0 && s.row(1)[1] == 0); // tinted black, still drawn

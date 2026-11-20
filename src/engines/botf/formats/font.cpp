@@ -133,7 +133,9 @@ int Font::drawImpl(Surface &s, int x, int y, std::string_view utf8, std::optiona
             x += _spaceAdvance * scale;
             continue;
         }
-        for (int gy = 0; gy < g->h; ++gy)
+        // The cell's last row isn't drawn: the game leaves it out, as
+        // screenshots show under 'g' and 'y' (docs/engines/botf/formats/fnt.md).
+        for (int gy = 0; gy < g->h - 1; ++gy)
             for (int gx = 0; gx < g->w; ++gx) {
                 if (rgbaAt(_sheet, g->x + gx, g->y + gy) == _background)
                     continue;

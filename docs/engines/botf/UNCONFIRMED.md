@@ -34,9 +34,9 @@ None: nothing of the game's code has been read.
 ## Guessed
 
 - **On Save Game:** the description it starts with (the galaxy's shape),
-  typing whichever field was clicked, no cursor, and the title
+  typing whichever field was clicked, and no cursor
   ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
-  Save Game with a game in progress.
+  Save Game with a slot chosen.
 
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
@@ -55,6 +55,10 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** Save Game's title and its look before a slot is
+  chosen, and the glyphs' last row left undrawn, from a screenshot
+  ([systems/screens.md](systems/screens.md), [formats/fnt.md](formats/fnt.md)).
 
 - **November 2026:** the game setup screen's colours, from a screenshot:
   the values and timers as the options screen's, the levels (90, 207, 140)
