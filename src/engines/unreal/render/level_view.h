@@ -177,6 +177,8 @@ private:
                      const gfx::Vec3 &forward, const gfx::Vec3 &right, int level, const Batch *through);
     void drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye);
     std::array<float, 2> surfacePan(const Batch &b) const;
+    /** Whether a batch shows: one of its zones is seen, or it's drawn whatever is seen. */
+    bool seen(const Batch &b) const;
     int _mirrorLevel = 0;                  // how many reflections deep the view drawn is
     const Batch *_mirrorThrough = nullptr; // the mirror it's seen through
     // A translucent surface the level's lights light (The Fallen's logos,

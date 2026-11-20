@@ -80,7 +80,7 @@ std::array<float, 3> spriteTint(const std::array<float, 3> &filter, float glow) 
 // The surface flags that change how a polygon is drawn, for grouping.
 constexpr uint32_t kDrawFlags = polyflag::kMasked | polyflag::kTranslucent | polyflag::kModulated |
                                 polyflag::kFakeBackdrop | polyflag::kUnlit | polyflag::kTwoSided | polyflag::kMirrored |
-                                polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy;
+                                polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy | polyflag::kForceRender;
 constexpr uint32_t kPanFlags = polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy;
 
 // UE1's flag for a surface in a fog zone (PF_RenderFog), kept on the
@@ -1428,7 +1428,7 @@ void LevelView::update(uint64_t nowMs) {
     // Backdrop surfaces: with the sky, only their depth, hiding what's
     // behind them; without it, a plain colour.
     for (const Batch &b : _batches) {
-        if (!(b.polyFlags & polyflag::kFakeBackdrop) || !(b.zones & _zonesSeen))
+        if (!(b.polyFlags & polyflag::kFakeBackdrop) || !seen(b))
             continue;
         gfx::DrawCall call;
         call.mesh = _mesh;
@@ -1913,7 +1913,7 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
                !(b.polyFlags & (polyflag::kFakeBackdrop | polyflag::kUnlit));
     };
     for (const Batch &b : batches) {
-        if ((b.polyFlags & polyflag::kFakeBackdrop) || !(b.zones & _zonesSeen))
+        if ((b.polyFlags & polyflag::kFakeBackdrop) || !seen(b))
             continue;
         if (&b == _mirrorThrough) // the mirror the view is through
             continue;
@@ -2056,7 +2056,7 @@ void LevelView::volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh,
                             bool flagged) {
     for (const Batch &b : batches) {
         if ((flagged && !(b.polyFlags & kRenderFog)) || (b.polyFlags & polyflag::kFakeBackdrop) ||
-            blended(b.polyFlags) || !(b.zones & _zonesSeen) || &b == _mirrorThrough)
+            blended(b.polyFlags) || !seen(b) || &b == _mirrorThrough)
             continue;
         gfx::DrawCall call;
         call.mesh = mesh;
@@ -2335,6 +2335,10 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
 // sprites), from `eye` looking along `forward`.
 // How far a panning surface's texture has moved, in texels, as Render.dll
 // moves it (0x10b228f5): auto-panned 35 texels a second at its zone's
+bool LevelView::seen(const Batch &b) const {
+    return (b.polyFlags & polyflag::kForceRender) || (b.zones & _zonesSeen);
+}
+
 // TexUPanSpeed and TexVPanSpeed (counted in 1/256 texels, coming round
 // every 1024), and a wavy one swaying 4 cos 2.3t + 8 sin t across and
 // 4 sin 2.3t + 8 cos t down; t the level's time.
@@ -2420,7 +2424,7 @@ void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
         return;
     int drawn = 0;
     for (const Batch &m : levelBatches()) {
-        if (!(m.polyFlags & polyflag::kMirrored) || &m == through || !(m.zones & _zonesSeen) || drawn >= 4)
+        if (!(m.polyFlags & polyflag::kMirrored) || &m == through || !seen(m) || drawn >= 4)
             continue;
         const gfx::Vec3 n = m.mirrorNormal;
         const float side = n[0] * eye[0] + n[1] * eye[1] + n[2] * eye[2] - m.mirrorD;

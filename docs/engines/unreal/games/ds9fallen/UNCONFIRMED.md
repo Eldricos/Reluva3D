@@ -44,6 +44,14 @@ full playthrough's recording has been
   recording shows its rings' outward faces lit. Its lights look moved
   since its last lighting build ([lighting.md](systems/lighting.md)).
 
+## Inferred
+
+None yet.
+
+## Guessed
+
+None yet.
+
 ## Settled
 
 - **The animated textures' settings** (November 2026): their pacing,
