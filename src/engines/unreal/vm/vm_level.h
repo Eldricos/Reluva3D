@@ -941,8 +941,10 @@ private:
     void startBase(VmObject *a);
     void startAsSpawned(VmObject *a);
     std::string _options; // the URL's options, for InitGame and Login
-    void walkPlayer(VmObject *a, float dt);
-    void walkPawn(VmObject *a, float dt, int maxIterations);
+    void walkPlayer(VmObject *a, float dt, int iterations = 0);
+    void walkPawn(VmObject *a, float dt, int maxIterations, int iterations = 0);
+    void startSwimming(VmObject *a, const Vec &from, const Vec &oldVelocity, float tick, float remaining);
+    void playerStartSwimming(VmObject *a, const Vec &from);
     void simpleWalk(VmObject *a, float dt);
     void move(VmObject *a, int physics, float dt);
     void pawnRotation(VmObject *a, float dt, const std::array<float, 3> &velocityBefore);
@@ -955,9 +957,9 @@ private:
     // The water's surface over each swimming player, as last measured
     // (kNoSurface: none above it).
     std::map<VmObject *, float> _waterSurface;
-    void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining);
+    void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining, int iterations = 0);
     void fallPlayer(VmObject *a, float dt);
-    void fall(VmObject *a, float dt);
+    void fall(VmObject *a, float dt, int iterations = 0);
     void swimOrFly(VmObject *a, float dt, bool swim);
     void updateBodyRegions(VmObject *a, bool events);
     bool moverNear(VmObject *mover, const std::array<float, 3> &start, const std::array<float, 3> &delta,

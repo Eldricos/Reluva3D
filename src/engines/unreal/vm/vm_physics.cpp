@@ -1551,11 +1551,14 @@ void ScriptLevel::pawnRotation(VmObject *a, float dt, const Vec &velocityBefore)
 }
 
 // The water line between a point in the water and one out of it, found by
-// halving (APawn::findWaterLine): the last point found in the water.
+// halving to within 0.1 squared (APawn::findWaterLine, 0x10367ee0): the
+// last point found in the water. Given them the other way round, as
+// startSwimming does, it's `in` itself unless the first halfway point is
+// wet, then near `out`.
 Vec ScriptLevel::findWaterLine(const Vec &in, const Vec &out) {
     Vec a = in;
     Vec b = out;
-    for (int k = 0; k < 40 && dot(sub(b, a), sub(b, a)) > 0.01f; ++k) {
+    for (int k = 0; k < 64 && dot(sub(b, a), sub(b, a)) >= 0.1f; ++k) {
         const Vec m = mul(add(a, b), 0.5f);
         if (waterAt({m[0], m[1], m[2]}))
             a = m;
@@ -1925,7 +1928,7 @@ void ScriptLevel::setBase(VmObject *a, VmObject *base) {
 // floor's slope with up to three slides, told HitWall at each wall; then
 // down onto the floor (sliding down one too steep), else falling; its
 // velocity what it really moved.
-void ScriptLevel::walkPlayer(VmObject *a, float dt) {
+void ScriptLevel::walkPlayer(VmObject *a, float dt, int iterations) {
     Value *vel = prop(a, "Velocity");
     Value *accelValue = prop(a, "Acceleration");
     const Vec start = vecOf(prop(a, "Location"));
@@ -1993,8 +1996,12 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     };
     bool stepped = false;
     float remaining = 1;
-    for (int it = 0; it < 3 && remaining > 0.01f && !none(delta); ++it) {
+    for (int it = iterations; it < 3 && remaining > 0.01f && !none(delta); ++it) {
         const MoveHit h = moveActor(a, delta);
+        if (!a->deleted && physicsOf(a) == kPhysSwimming) {
+            playerStartSwimming(a, start);
+            return;
+        }
         if (a->deleted)
             return;
         if (!h.hit())
@@ -2102,7 +2109,7 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
 // most 0.05 s when going far, up to 4 (8 for non-CTVE pawns); stepping up
 // what stops them; kept 1.9-2.4 above the floor; off a ledge only if they
 // can jump, else back and their move given up; velocity what they moved.
-void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
+void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations, int iterations) {
     Value *vel = prop(a, "Velocity");
     Value *accelValue = prop(a, "Acceleration");
     const ZoneFeel z = zoneFeel(a);
@@ -2128,7 +2135,9 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     const Vec down = mul(gravDir, stepHeight + 2);
     const Vec e = extentOf(a);
     float remaining = dt;
-    for (int it = 0; it < maxIterations && remaining > 0 && !a->deleted; ++it) {
+    // The count goes on from the one it's given (a landing's falling
+    // steps), as Engine.dll's (0x104295fa).
+    for (int it = iterations; it < maxIterations && remaining > 0 && !a->deleted; ++it) {
         const Vec old = vecOf(prop(a, "Location"));
         float tick = remaining;
         if (remaining > 0.05f && (_vm.isA(a, "PlayerPawn") || dot(desired, desired) * remaining * remaining > 400))
@@ -2149,12 +2158,16 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
                     remaining += tick * (1 - std::min(1.0f, length(moved) / length(delta)));
                     _vm.callEvent(a, "Falling");
                     if (remaining > 0.01f && !a->deleted)
-                        fall(a, remaining);
+                        fall(a, remaining, it + 1);
                     return;
                 }
             }
         } else {
             remaining = 0;
+        }
+        if (physicsOf(a) == kPhysSwimming) { // into the water (its ZoneChange)
+            startSwimming(a, old, vecOf(vel), tick, remaining);
+            return;
         }
         // The floor: kept between 1.9 and 2.4 above it.
         const Vec here = vecOf(prop(a, "Location"));
@@ -2174,6 +2187,10 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
                 moveActor(a, mul(gravDir, -(2.1f - floorDist)));
             }
             onFloor = n[2] >= kWalkable;
+        }
+        if (physicsOf(a) == kPhysSwimming) {
+            startSwimming(a, old, vecOf(vel), tick, remaining);
+            return;
         }
         if (onFloor)
             continue;
@@ -2202,7 +2219,7 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
         soFar[2] = 0;
         _vm.setVector(*vel, soFar[0], soFar[1], 0);
         if (remaining > 0.01f)
-            fall(a, remaining);
+            fall(a, remaining, it + 1);
         return;
     }
     if (a->deleted)
@@ -2211,9 +2228,65 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     _vm.setVector(*vel, moved[0], moved[1], 0);
 }
 
+// A pawn come into the water mid-move (APawn::startSwimming, 0x10432c90):
+// back to the water line from where the step began (only where that's
+// in its first half: else all the way back, out of it), the time that
+// took given back; its velocity what it moved, doubled less what it had
+// (at most 4000), unless just teleported; falling slowly, sped down; then
+// it swims the rest of the tick. The engine divides by nothing when it's
+// put all the way back; Reluva leaves the velocity then.
+void ScriptLevel::startSwimming(VmObject *a, const Vec &from, const Vec &oldVelocity, float tick, float remaining) {
+    const Vec here = vecOf(prop(a, "Location"));
+    const Vec end = findWaterLine(from, here);
+    const float moved = length(sub(here, from));
+    float waterTime = 0;
+    if (end != here && moved > 0) {
+        waterTime = tick * length(sub(end, here)) / moved;
+        remaining += waterTime;
+        moveActor(a, sub(end, here));
+        if (a->deleted)
+            return;
+    }
+    Value *vel = prop(a, "Velocity");
+    if (!vel)
+        return;
+    Vec v = vecOf(vel);
+    if (!boolOf(prop(a, "bJustTeleported")) && tick - waterTime > 1e-4f) {
+        v = mul(sub(vecOf(prop(a, "Location")), from), 1 / (tick - waterTime));
+        v = sub(mul(v, 2), oldVelocity);
+        if (dot(v, v) > 16000000)
+            v = mul(normalOf(v), 4000);
+    }
+    if (v[2] > -160 && v[2] < 0)
+        v[2] = -80 - 0.7f * length(v);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
+    if (remaining > 0.01f && !a->deleted)
+        swimPawn(a, remaining, false);
+}
+
+// The player come into the water (ACTVE_PlayerPawn::startSwimming,
+// 0x10370e60): the tick's move ends there, its velocity as it is. The
+// surface is measured by halving between its chest where the move began
+// and where it is (0x10370f70), and known only if that ends with the one
+// wet and the other dry (as the chest comes up out of it); else none, and
+// physSwimming finds it again.
+void ScriptLevel::playerStartSwimming(VmObject *a, const Vec &from) {
+    const Vec up{0, 0, chestOffset(a)};
+    Vec wet = add(from, up);
+    Vec dry = add(vecOf(prop(a, "Location")), up);
+    for (int k = 0; k < 64 && dot(sub(dry, wet), sub(dry, wet)) >= 0.1f; ++k) {
+        const Vec m = mul(add(wet, dry), 0.5f);
+        if (waterAt({m[0], m[1], m[2]}))
+            wet = m;
+        else
+            dry = m;
+    }
+    _waterSurface[a] = waterAt(wet) && !waterAt(dry) ? wet[2] : kNoSurface;
+}
+
 // Landing (processLanded): Landed, then walking (a pawn) or still, and
-// the rest of the tick walked.
-void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remaining) {
+// the rest of the tick walked, its count of steps going on from the fall's.
+void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remaining, int iterations) {
     ++movement.landings;
     const bool player = _vm.isA(a, "CTVE_PlayerPawn");
     if (player)
@@ -2233,11 +2306,14 @@ void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remainin
         Value *accel = prop(a, "Acceleration");
         const Vec dir = normalOf(vecOf(accel));
         _vm.setVector(*accel, dir[0], dir[1], dir[2]);
+        // On from the falling steps it took (0x104301d2, 0x1036f904): a
+        // CTVE pawn walks as any pawn here, 8 steps less those; the
+        // player's three goes less those (none after the third).
         if (remaining > 0.01f) {
             if (player)
-                walkPlayer(a, remaining);
+                walkPlayer(a, remaining, iterations);
             else
-                walkPawn(a, remaining, 8);
+                walkPawn(a, remaining, 8, iterations);
         }
     }
 }
@@ -2274,11 +2350,15 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
     for (int it = 1; it <= 4 && remaining > 0.01f && !a->deleted; ++it) {
         const Vec dir = normalOf(delta);
         const MoveHit h = moveActor(a, delta);
+        if (!a->deleted && physicsOf(a) == kPhysSwimming) {
+            playerStartSwimming(a, start);
+            return;
+        }
         if (a->deleted || !h.hit())
             break;
         remaining -= remaining * h.time;
         if (h.normal[2] > 0.65f || (it == 4 && v[2] <= 1 && h.actor == lastActor && remaining <= 0.99f)) {
-            landed(a, h.normal, h.actor, remaining * dt);
+            landed(a, h.normal, h.actor, remaining * dt, it);
             return;
         }
         if (it == 1) {
@@ -2303,7 +2383,7 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
 // each moving at the average of its start and end velocity; split at the
 // top of an arc; a little air control (less with something just ahead);
 // landing on more than 0.7, sliding along anything steeper.
-void ScriptLevel::fall(VmObject *a, float dt) {
+void ScriptLevel::fall(VmObject *a, float dt, int iterations) {
     Value *vel = prop(a, "Velocity");
     Value *accelValue = prop(a, "Acceleration");
     const Vec savedAccel = vecOf(accelValue);
@@ -2342,7 +2422,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
     const bool zoneMoves = !pawn || _vm.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 40000;
     float remaining = dt;
     int bounces = 0;
-    for (int it = 0; it < 8 && remaining > 0 && !a->deleted; ++it) {
+    for (int it = iterations; it < 8 && remaining > 0 && !a->deleted; ++it) {
         float tick = remaining > 0.1f ? std::min(0.1f, remaining * 0.5f) : remaining;
         const Vec old = vecOf(prop(a, "Location"));
         const Vec oldV = vecOf(vel);
@@ -2370,6 +2450,10 @@ void ScriptLevel::fall(VmObject *a, float dt) {
         _vm.setVector(*vel, v[0], v[1], v[2]);
         const Vec adjusted = mul(zoneMoves ? add(v, z.velocity) : v, tick);
         MoveHit h = moveActor(a, adjusted);
+        if (!a->deleted && pawn && physicsOf(a) == kPhysSwimming) {
+            startSwimming(a, old, oldV, tick, remaining + (1 - h.time) * tick);
+            return;
+        }
         if (a->deleted || physicsOf(a) != kPhysFalling)
             return;
         if (h.hit()) {
@@ -2387,7 +2471,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                     const Vec landedV = mul(sub(vecOf(prop(a, "Location")), old), 1 / (tick * h.time));
                     _vm.setVector(*vel, landedV[0], landedV[1], landedV[2]);
                 }
-                landed(a, h.normal, h.actor, remaining);
+                landed(a, h.normal, h.actor, remaining, it + 1);
                 break;
             }
             hitWall(a, h);
@@ -2400,7 +2484,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                     return;
                 if (h2.hit()) {
                     if (h2.normal[2] > kWalkable) {
-                        landed(a, h2.normal, h2.actor, remaining);
+                        landed(a, h2.normal, h2.actor, remaining, it + 1);
                         break;
                     }
                     hitWall(a, h2);
@@ -2414,7 +2498,8 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                     if (a->deleted)
                         return;
                     if (ditch || (h3.hit() && h3.normal[2] > kWalkable)) {
-                        landed(a, h3.hit() ? h3.normal : Vec{0, 0, 1}, h3.actor ? h3.actor : h2.actor, remaining);
+                        landed(a, h3.hit() ? h3.normal : Vec{0, 0, 1}, h3.actor ? h3.actor : h2.actor, remaining,
+                               it + 1);
                         break;
                     }
                 }
