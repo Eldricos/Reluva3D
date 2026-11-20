@@ -7,6 +7,7 @@
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/console_drawer.h"
 #include "engines/idtech3/client/console_state.h"
+#include "engines/idtech3/render/world_effects.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
@@ -323,10 +324,53 @@ static void testConsoleState() {
     CHECK(c.slide(1400, false, 3) == 0);
 }
 
+static void testWorldEffects() {
+    // The rain: started by its command, set by others, faded in only in
+    // the open and out of water, its drops falling and starting again.
+    WorldEffects w;
+    CHECK(!w.command("rain alpha 0.3")); // no rain yet
+    CHECK(!w.command("snow init 100"));
+    CHECK(w.command("rain init 50") && w.raining());
+    CHECK(w.command("rain alpha 0.3") && w.command("rain fall -100 -90") && !w.command("rain sideways"));
+    std::vector<gfx::Vertex> tris;
+    w.update(0.1f, 0);
+    w.triangles({0, 0, 0}, {0, 1, 0}, tris);
+    CHECK(tris.empty() && w.fade() == 0); // indoors: none
+    w.update(1, WorldEffects::kContentsOutside | WorldEffects::kContentsWater);
+    CHECK(w.fade() == 0);
+    w.update(1, WorldEffects::kContentsOutside);
+    CHECK(w.fade() == 0.5f);
+    w.triangles({100, 200, 300}, {0, 1, 0}, tris);
+    CHECK(tris.size() == 150);
+    // Each a drop, across by a fifth of the left axis, then 5 down; round
+    // the eye (within 20 across, 20 under to 40 over); no more opaque than
+    // the alpha times the fade.
+    bool near = true;
+    bool faint = true;
+    for (size_t i = 0; i < tris.size(); i += 3) {
+        const gfx::Vertex &a = tris[i];
+        const gfx::Vertex &b = tris[i + 1];
+        const gfx::Vertex &c = tris[i + 2];
+        near = near && std::abs(b.pos[1] - a.pos[1] - 0.2f) < 1e-3f && std::abs(c.pos[2] - b.pos[2] + 5) < 1e-3f &&
+               a.pos[2] >= 300 - 20.1f && a.pos[2] <= 340.1f;
+        faint = faint && a.color[3] <= uint8_t(0.3f * 0.5f * 255 + 1);
+    }
+    CHECK(near && faint);
+    // Falling for a while, they stay round the eye; "rain remove" stops it.
+    for (int i = 0; i < 100; ++i)
+        w.update(0.05f, WorldEffects::kContentsOutside);
+    tris.clear();
+    w.triangles({0, 0, 0}, {0, 1, 0}, tris);
+    CHECK(tris.size() == 150 && w.fade() == 1);
+    CHECK(std::all_of(tris.begin(), tris.end(), [](const gfx::Vertex &v) { return v.pos[2] > -26 && v.pos[2] < 41; }));
+    CHECK(w.command("rain remove") && !w.raining());
+}
+
 static const reluva::test::Suite
     kSuite("idtech3.unit.input", {
                                      {"console", [](const std::filesystem::path &) { testConsole(); }},
                                      {"console state", [](const std::filesystem::path &) { testConsoleState(); }},
+                                     {"world effects", [](const std::filesystem::path &) { testWorldEffects(); }},
                                      {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
                                      {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
                                      {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},

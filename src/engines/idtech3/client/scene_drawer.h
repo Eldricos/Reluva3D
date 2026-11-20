@@ -89,6 +89,10 @@ public:
     void drawView(const Scene &scene, const View &view, int screenW, int screenH, float time, bool firstView,
                   WorldRenderer *world, const LightGrid *grid, bool dynamicLights);
 
+    // Triangles (three vertices each) in the world, drawn with `material`
+    // over everything else by the next view with the level: the weather.
+    void setWorldEffects(int material, std::vector<gfx::Vertex> vertices);
+
     // What the last view drew, for the info line.
     const gfx::Vec3 &eye() const { return _eye; }
     size_t placedCount() const { return _placed.size(); }
@@ -197,6 +201,8 @@ private:
         float sort = 0;    // its material's
     };
     std::vector<Effect> _effects;
+    int _worldEffectMaterial = -1;
+    std::vector<gfx::Vertex> _worldEffects;
     gfx::MeshId _effectMesh = 0; // _effects' vertices, while a view is drawn
     std::vector<gfx::Vertex> _effectVertices;
     std::vector<uint32_t> _effectIndices;

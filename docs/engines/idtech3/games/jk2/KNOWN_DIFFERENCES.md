@@ -33,10 +33,11 @@ and no hit location is looked up from a model's skin
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where
   they stand up close, where the original's move as it drops the curve's
-  detail; the wind's gusts come at Reluva's own random times; and the
-  rain and snow system (`r_we`), which would also set the wind and the
-  weather sprites, isn't there ([shader.md](../../formats/shader.md),
-  In Reluva).
+  detail; the wind's gusts come at Reluva's own random times; and
+  multiplayer's rain and snow system (`r_we`), which would also set the
+  wind and the weather sprites, isn't there ([shader.md](../../formats/shader.md),
+  In Reluva). Single player's rain is there, its drops and gusts
+  Reluva's own random draws ([systems/sp-weather.md](systems/sp-weather.md)).
 
 In the multiplayer game:
 

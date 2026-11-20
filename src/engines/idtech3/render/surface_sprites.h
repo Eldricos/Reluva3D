@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/idtech3/cvars.h"
 #include "engines/idtech3/formats/shader.h"
 
 #include "graphics/gfx3d.h"
@@ -28,6 +29,11 @@ struct SurfaceSpriteWeather {
     float windPointY = 0;
     float surfaceWeather = 0; // how much weather sprites show (0: none)
 };
+
+// Jedi Outcast's renderer settings for them (r_windSpeed, r_windAngle...,
+// r_surfaceWeather), registered with its engines' defaults (no wind, no
+// weather sprites; jk2sp.exe's at 0x46e97b on, jk2mp.exe's alike).
+SurfaceSpriteWeather surfaceSpriteSettings(CvarStore &cvars);
 
 // Raven's surface sprites over a level's surfaces (Jedi Outcast on; see
 // docs/engines/idtech3/formats/shader.md): the grass, vines and bubbles a

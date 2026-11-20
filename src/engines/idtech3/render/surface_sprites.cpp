@@ -227,6 +227,23 @@ std::vector<float> SurfaceSpriteSet::sorts() const {
     return out;
 }
 
+SurfaceSpriteWeather surfaceSpriteSettings(CvarStore &cvars) {
+    auto setting = [&](const char *name, const char *byDefault) {
+        cvars.create(name, byDefault, 0);
+        return cvars.value(name);
+    };
+    SurfaceSpriteWeather w;
+    w.windSpeed = setting("r_windSpeed", "0");
+    w.windAngle = setting("r_windAngle", "0");
+    w.windGust = setting("r_windGust", "0");
+    w.windDampFactor = setting("r_windDampFactor", "0.1");
+    w.windPointForce = setting("r_windPointForce", "0");
+    w.windPointX = setting("r_windPointX", "0");
+    w.windPointY = setting("r_windPointY", "0");
+    w.surfaceWeather = setting("r_surfaceWeather", "0");
+    return w;
+}
+
 void SurfaceSpriteSet::frame(int32_t timeMs, float fovX, const SurfaceSpriteWeather &w) {
     // As the original's R_SurfaceSpriteFrameUpdate: once for each time.
     if (timeMs == _lastTime)

@@ -84,6 +84,7 @@ reluva_add_engine(idtech3
         raven/savegame.cpp
         raven/strings.cpp
         render/light_grid.cpp
+        render/world_effects.cpp
         render/model_cache.cpp
         render/patch.cpp
         render/shader_cache.cpp

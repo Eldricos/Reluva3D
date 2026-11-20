@@ -80,6 +80,7 @@ files; what comes next is in the [plan](PLAN.md).
 | [systems/sp-menus.md](systems/sp-menus.md) | Single player's menus, which the engine runs |
 | [systems/sp-cinematics.md](systems/sp-cinematics.md) | Single player's movies and the opening text crawl |
 | [systems/sp-saves.md](systems/sp-saves.md) | Single player's saved games |
+| [systems/sp-weather.md](systems/sp-weather.md) | Single player's weather: the rain |
 
 ## Terms
 

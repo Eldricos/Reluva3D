@@ -157,6 +157,19 @@ gfx::TextureId ShaderCache::white() {
     return _whiteTexture;
 }
 
+void ShaderCache::addImage(const std::string &name, const image::Image &image, bool clamp, bool nearest) {
+    const std::string key = normalizeArchiveName(stripExtension(name)) + (clamp ? "|clamp" : "") + "|nomip";
+    if (auto it = _images.find(key); it != _images.end() && it->second != _missingTexture)
+        _r.destroyTexture(it->second);
+    gfx::TextureParams params;
+    params.clamp = clamp;
+    params.mipmaps = false;
+    params.nearest = nearest;
+    gfx::TextureId id = 0;
+    if (!_r.createTexture(image.w, image.h, image.rgba.data(), params, id) && id)
+        _images[key] = id;
+}
+
 gfx::TextureId ShaderCache::image(const std::string &name, bool clamp, bool mipmaps, bool picmip) {
     const std::string key = normalizeArchiveName(stripExtension(name)) + (clamp ? "|clamp" : "") +
                             (mipmaps ? "" : "|nomip") + (picmip ? "|picmip" : "");

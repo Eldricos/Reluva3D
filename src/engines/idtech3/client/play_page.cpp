@@ -1335,24 +1335,10 @@ eliteforce::GameHost::UserCommand PlayPage::buildCommand() {
 }
 
 SurfaceSpriteWeather PlayPage::surfaceSpriteWeather() {
-    // Jedi Outcast's renderer settings for the surface sprites' wind and
-    // weather, with jk2mp.exe's defaults (no wind, no weather sprites).
-    SurfaceSpriteWeather w;
+    // Jedi Outcast's renderer settings; none for other games.
     if (_ctx.game.code != GameCode::kJediOutcast)
-        return w;
-    auto setting = [&](const char *name, const char *byDefault) {
-        _cvars.create(name, byDefault, 0);
-        return _cvars.value(name);
-    };
-    w.windSpeed = setting("r_windSpeed", "0");
-    w.windAngle = setting("r_windAngle", "0");
-    w.windGust = setting("r_windGust", "0");
-    w.windDampFactor = setting("r_windDampFactor", "0.1");
-    w.windPointForce = setting("r_windPointForce", "0");
-    w.windPointX = setting("r_windPointX", "0");
-    w.windPointY = setting("r_windPointY", "0");
-    w.surfaceWeather = setting("r_surfaceWeather", "0");
-    return w;
+        return {};
+    return surfaceSpriteSettings(_cvars);
 }
 
 void PlayPage::applyViewLimits(int32_t serverTime) {

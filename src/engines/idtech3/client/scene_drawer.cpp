@@ -398,6 +398,25 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
         _effectMesh = 0;
     }
     _r.setDepthRange(1);
+    if (world && !throughPortal && _worldEffectMaterial >= 0 && !_worldEffects.empty()) {
+        std::vector<uint32_t> indices(_worldEffects.size());
+        for (size_t i = 0; i < indices.size(); ++i)
+            indices[i] = uint32_t(i);
+        gfx::MeshId mesh = 0;
+        if (!_r.createMesh(_worldEffects, indices, mesh) && mesh) {
+            gfx::DrawCall call;
+            call.mesh = mesh;
+            call.indexCount = uint32_t(indices.size());
+            _shaders.draw(_worldEffectMaterial, call, 0, time);
+            _r.destroyMesh(mesh);
+        }
+        _worldEffects.clear();
+    }
+}
+
+void SceneDrawer::setWorldEffects(int material, std::vector<gfx::Vertex> vertices) {
+    _worldEffectMaterial = material;
+    _worldEffects = std::move(vertices);
 }
 
 namespace {

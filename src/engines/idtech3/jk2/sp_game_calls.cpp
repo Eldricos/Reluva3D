@@ -336,6 +336,8 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         return 0;
     }
     case 89: // R_WorldEffectCommand(text): the weather system's
+        if (worldEffectCommand)
+            worldEffectCommand(str(0, 256));
         return 0;
     // The menus, as jk2sp.exe's (0x49f970 on): a file read in a parse
     // session, its tokens asked for one at a time, each menuDef read from

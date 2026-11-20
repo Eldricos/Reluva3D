@@ -263,6 +263,12 @@ public:
     // The client game's loading screen into scene() and pictures(), from
     // inside its start (updateScreen).
     Error drawLoadingFrame();
+    // Jedi Outcast's weather commands from the client game (its call 89,
+    // R_WorldEffectCommand: "rain init 500"...), for the renderer.
+    std::function<void(const std::string &)> worldEffectCommand;
+    // The level's contents at a point (the brushes', not the entities'), as
+    // the renderer asks for the eye's; 0 without a level.
+    int32_t worldContents(const Vec3f &point) const;
     /**
      * One of Jedi Outcast's datapad commands (kCgDrawDataPadHud to
      * kCgDrawDataPadForcePowers), for the menus' owner draws.

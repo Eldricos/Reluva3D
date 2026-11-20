@@ -1517,6 +1517,10 @@ bool SpGameHost::cameraPosition(Vec3f &at) {
     return on != 0;
 }
 
+int32_t SpGameHost::worldContents(const Vec3f &point) const {
+    return _world ? _world->pointContents(point, 0) : 0;
+}
+
 Error SpGameHost::drawDataPad(int command, std::vector<Picture> &out) {
     // From the menus' refresh, between the client game's frames: what
     // those draw is kept aside.

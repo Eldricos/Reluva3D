@@ -8,6 +8,7 @@
 
 #include "common/archive.h"
 #include "graphics/gfx3d.h"
+#include "image/image.h"
 
 #include <deque>
 #include <map>
@@ -78,6 +79,10 @@ public:
     // `from` undoes it. Until clear().
     void remap(const std::string &from, const std::string &to, float timeOffset);
 
+    // An image the engine makes itself, found by `name` as image() finds
+    // files (clamped and without mipmaps, as asked of image()); nearest
+    // filtering if `nearest`. Until clear().
+    void addImage(const std::string &name, const image::Image &image, bool clamp, bool nearest);
     // `picmip`: the texture detail setting may make it smaller.
     gfx::TextureId image(const std::string &name, bool clamp, bool mipmaps, bool picmip = false);
     // The video settings for textures loaded from now on: each halved
