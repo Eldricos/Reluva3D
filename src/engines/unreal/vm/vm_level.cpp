@@ -992,6 +992,61 @@ std::string defaultGameType(const PackageSet &packages) {
     return game.empty() ? "Engine.GameInfo" : game;
 }
 
+namespace {
+
+int byteProp(Vm &vm, VmObject *a, const char *name) {
+    const Value *v = a->find(vm, name);
+    return v ? v->asInt() : -1;
+}
+
+} // namespace
+
+LevelStartWatch::LevelStartWatch(ScriptLevel &level, const Package &map) : _vm(level.vm()) {
+    for (VmObject *a : level.actors())
+        if (a->package == &map)
+            _before.push_back({a->exportIndex, a, byteProp(_vm, a, "DrawType"), byteProp(_vm, a, "bHidden"),
+                               byteProp(_vm, a, "LightType"), byteProp(_vm, a, "LightBrightness")});
+}
+
+void LevelStartWatch::finish(LevelStart &out) const {
+    for (const Was &was : _before) {
+        VmObject *a = was.actor;
+        ScriptedActor c;
+        bool any = false;
+        if (a->deleted) {
+            c.removed = any = true;
+            ++out.removed;
+        } else {
+            if (byteProp(_vm, a, "bHidden") != was.hidden) {
+                c.hidden = byteProp(_vm, a, "bHidden");
+                any = true;
+                if (c.hidden == 1)
+                    ++out.hidden;
+                else
+                    ++out.shown;
+            }
+            if (byteProp(_vm, a, "DrawType") != was.drawType) {
+                c.drawType = byteProp(_vm, a, "DrawType");
+                any = true;
+                ++out.drawTypes;
+            }
+            const int type = byteProp(_vm, a, "LightType");
+            const int brightness = byteProp(_vm, a, "LightBrightness");
+            if (type != was.lightType || brightness != was.lightBrightness) {
+                c.lightType = type;
+                c.lightBrightness = brightness;
+                any = true;
+                ++out.lights;
+            }
+        }
+        if (any)
+            out.changed[was.exportIndex] = c;
+    }
+    out.errors = _vm.stats.errors.size();
+    out.missingNatives = _vm.stats.missingNatives.size();
+    out.accessedNone = _vm.stats.accessedNone;
+}
+
 Error runLevelStart(const PackageSet &packages, const Package &map, const std::string &defaultGame, float seconds,
                     LevelStart &out) {
     out = {};
@@ -1000,23 +1055,7 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
     ScriptLevel level(vm, map);
     if (Error err = level.load())
         return err;
-    struct Saved {
-        VmObject *actor;
-        int drawType;
-        int hidden;
-        int lightType;
-        int lightBrightness;
-    };
-    auto byteOf = [&](VmObject *a, const char *name) {
-        const Value *v = a->find(vm, name);
-        return v ? v->asInt() : -1;
-    };
-    std::vector<std::pair<int, Saved>> before;
-    for (VmObject *a : level.actors())
-        if (a->package == &map)
-            before.push_back({a->exportIndex,
-                              {a, byteOf(a, "DrawType"), byteOf(a, "bHidden"), byteOf(a, "LightType"),
-                               byteOf(a, "LightBrightness")}});
+    const LevelStartWatch watch(level, map);
     std::string loginError;
     VmObject *p = nullptr;
     if (level.savedByGame()) { // a saved game of the original's
@@ -1030,43 +1069,8 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
     out.loginError = loginError;
     for (int i = 0; i < int(seconds * 30); ++i)
         level.tick(1.0f / 30);
-    for (const auto &[index, was] : before) {
-        VmObject *a = was.actor;
-        ScriptedActor c;
-        bool any = false;
-        if (a->deleted) {
-            c.removed = any = true;
-            ++out.removed;
-        } else {
-            if (byteOf(a, "bHidden") != was.hidden) {
-                c.hidden = byteOf(a, "bHidden");
-                any = true;
-                if (c.hidden == 1)
-                    ++out.hidden;
-                else
-                    ++out.shown;
-            }
-            if (byteOf(a, "DrawType") != was.drawType) {
-                c.drawType = byteOf(a, "DrawType");
-                any = true;
-                ++out.drawTypes;
-            }
-            const int type = byteOf(a, "LightType");
-            const int brightness = byteOf(a, "LightBrightness");
-            if (type != was.lightType || brightness != was.lightBrightness) {
-                c.lightType = type;
-                c.lightBrightness = brightness;
-                any = true;
-                ++out.lights;
-            }
-        }
-        if (any)
-            out.changed[index] = c;
-    }
+    watch.finish(out);
     out.milliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    out.errors = vm.stats.errors.size();
-    out.missingNatives = vm.stats.missingNatives.size();
-    out.accessedNone = vm.stats.accessedNone;
     return Error::success();
 }
 

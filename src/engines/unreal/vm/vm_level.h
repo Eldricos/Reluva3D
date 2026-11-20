@@ -1326,6 +1326,30 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
                     LevelStart &out);
 
 /**
+ * A level's placed actors as they were saved, taken before its start, to
+ * tell afterwards what the start changed (as runLevelStart does): for
+ * a level started to be played, which needn't be started again to draw.
+ */
+class LevelStartWatch {
+public:
+    LevelStartWatch(ScriptLevel &level, const Package &map);
+    /** What changed since, into `out` (its changes and their counts). */
+    void finish(LevelStart &out) const;
+
+private:
+    struct Was {
+        int exportIndex;
+        VmObject *actor;
+        int drawType;
+        int hidden;
+        int lightType;
+        int lightBrightness;
+    };
+    Vm &_vm;
+    std::vector<Was> _before;
+};
+
+/**
  * The natives of Engine's Actor and its subclasses that a level needs
  * (registered once per VM; they work on vm.level).
  */

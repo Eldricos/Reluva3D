@@ -389,6 +389,17 @@ private:
     // index into meshes_ / gpuMeshes_, -1 if it doesn't read.
     int liveMesh(const ObjectRef &mesh, const std::string &anim);
     std::unique_ptr<LevelPlay> _play;
+    // A travel's level, started as it loads (its start's changes drawn
+    // from it, rather than from a second start), for startPlay to take.
+    struct StartOnLoad {
+        bool wanted = false;
+        std::string portal;
+        std::filesystem::path saved;
+    };
+    StartOnLoad _startOnLoad;
+    std::unique_ptr<LevelPlay> _started;
+    std::string _startedError;
+    std::unique_ptr<LevelPlay> startForPlay(const Package &map, LevelStart &changes, std::string &error);
     std::unique_ptr<LevelAudio> _audio; // its sounds, when there's a mixer
     std::string _playError;
     std::string _portal;                  // the start playing began at, for the game's ?RESTART

@@ -34,9 +34,12 @@ public:
      * the start tagged `portal` if one is given; or, given a saved game of
      * this map, carries on from it. `saveFolder`: where its games are
      * saved and listed; `configFolder`: where its settings are written.
+     * Given `changes`, what the start changed in the placed actors goes
+     * there, as runLevelStart tells it (with no ticks run).
      */
     Error start(const std::string &portal = {}, const std::filesystem::path &saved = {},
-                const std::filesystem::path &saveFolder = {}, const std::filesystem::path &configFolder = {});
+                const std::filesystem::path &saveFolder = {}, const std::filesystem::path &configFolder = {},
+                LevelStart *changes = nullptr);
 
     /**
      * Moves the level on by `seconds` of real time, in whole ticks: at

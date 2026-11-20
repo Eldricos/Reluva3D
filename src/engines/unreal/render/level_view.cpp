@@ -253,7 +253,16 @@ void LevelView::load(int index) {
     LevelStart start;
     std::string startError;
     bool started = false;
-    if (_runScripts) {
+    // Travelling to it to play, the play's own start serves (its scripts
+    // as they start, before any tick; those that change a light later are
+    // followed live).
+    _started.reset();
+    _startedError.clear();
+    if (_startOnLoad.wanted) {
+        _started = startForPlay(*pkg, start, _startedError);
+        started = _started != nullptr;
+        startError = _startedError;
+    } else if (_runScripts) {
         if (Error err = runLevelStart(_ctx.packages, *pkg, defaultGameType(_ctx.packages), 1.0f, start))
             startError = err.message;
         else
@@ -2771,7 +2780,9 @@ void LevelView::travel(const std::string &url, bool items) {
             const std::string level = _ctx.packages.addLater(file);
             if (std::find(_names.begin(), _names.end(), level) == _names.end())
                 _names.push_back(level);
+            _startOnLoad = {true, {}, {}};
             if (!selectMap(level)) {
+                _startOnLoad = {};
                 stopPlay();
                 _playError = "load " + name + ": doesn't open";
                 return;
@@ -2779,7 +2790,9 @@ void LevelView::travel(const std::string &url, bool items) {
             startPlay({});
             return;
         }
+        _startOnLoad = {true, {}, file};
         if (!selectMap(info.map)) {
+            _startOnLoad = {};
             stopPlay();
             _playError = "load " + name + ": no map " + info.map;
             return;
@@ -2793,7 +2806,9 @@ void LevelView::travel(const std::string &url, bool items) {
     std::string map = where.substr(0, cut);
     if (const size_t dot = map.rfind('.'); dot != std::string::npos)
         map = map.substr(0, dot);
+    _startOnLoad = {true, portal, {}};
     if (!selectMap(map)) {
+        _startOnLoad = {};
         stopPlay();
         _playError = "travel to " + url + ": no map " + map;
         return;
@@ -2801,17 +2816,42 @@ void LevelView::travel(const std::string &url, bool items) {
     startPlay(portal);
 }
 
+// A level started to be played, what its start changed in `changes`;
+// none, and why in `error`, if it couldn't start.
+std::unique_ptr<LevelPlay> LevelView::startForPlay(const Package &map, LevelStart &changes, std::string &error) {
+    auto play = std::make_unique<LevelPlay>(_ctx.packages, map);
+    play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
+    play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
+    const auto t0 = std::chrono::steady_clock::now();
+    if (Error err =
+            play->start(_startOnLoad.portal, _startOnLoad.saved, _ctx.saveFolder, _ctx.configFolder, &changes)) {
+        error = err.message;
+        return nullptr;
+    }
+    changes.milliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    return play;
+}
+
 void LevelView::startPlay(const std::string &portal, const std::filesystem::path &saved) {
     stopPlay();
     const Package *pkg = _names.empty() ? nullptr : _ctx.packages.get(_names[size_t(_index)]);
+    std::unique_ptr<LevelPlay> play = std::move(_started);
+    const std::string startedError = std::exchange(_startedError, std::string());
+    const bool startedOnLoad = std::exchange(_startOnLoad, {}).wanted;
     if (!pkg || !_error.empty())
         return;
-    auto play = std::make_unique<LevelPlay>(_ctx.packages, *pkg);
-    play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
-    play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
-    if (Error err = play->start(portal, saved, _ctx.saveFolder, _ctx.configFolder)) {
-        _playError = err.message;
+    if (startedOnLoad && !play && !startedError.empty()) {
+        _playError = startedError;
         return;
+    }
+    if (!play) {
+        play = std::make_unique<LevelPlay>(_ctx.packages, *pkg);
+        play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
+        play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
+        if (Error err = play->start(portal, saved, _ctx.saveFolder, _ctx.configFolder)) {
+            _playError = err.message;
+            return;
+        }
     }
     if (!play->player()) {
         _playError = "no player logged in: " + play->loginError();

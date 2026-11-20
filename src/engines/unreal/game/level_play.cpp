@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 
+#include <optional>
 #include <algorithm>
 #include <cstring>
 #include <chrono>
@@ -49,25 +50,33 @@ LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
 }
 
 Error LevelPlay::start(const std::string &portal, const std::filesystem::path &saved,
-                       const std::filesystem::path &saveFolder, const std::filesystem::path &configFolder) {
+                       const std::filesystem::path &saveFolder, const std::filesystem::path &configFolder,
+                       LevelStart *changes) {
     _vm->setConfigFolder(configFolder);
     if (Error err = _level->load())
         return err;
     _level->setSaveFolder(saveFolder);
+    std::optional<LevelStartWatch> watch;
+    if (changes) {
+        *changes = {};
+        watch.emplace(*_level, _map);
+    }
     if (!saved.empty()) {
         if (Error err = _level->restore(saved))
             return err;
         _player = _level->player();
-        return Error::success();
-    }
-    // A saved game of the original's: the map is its package.
-    if (_level->savedByGame()) {
+    } else if (_level->savedByGame()) { // a saved game of the original's: the map is its package
         _player = _level->resumeSavedGame(iniSetting(_packages, "URL", "Name"), _loginError);
-        return Error::success();
+    } else {
+        _level->beginPlay(defaultGameType(_packages));
+        _player = _level->login(iniSetting(_packages, "URL", "Class"), iniSetting(_packages, "URL", "Name"),
+                                _loginError, portal);
     }
-    _level->beginPlay(defaultGameType(_packages));
-    _player =
-        _level->login(iniSetting(_packages, "URL", "Class"), iniSetting(_packages, "URL", "Name"), _loginError, portal);
+    if (watch) {
+        watch->finish(*changes);
+        changes->player = _player ? _player->cls->name : std::string();
+        changes->loginError = _loginError;
+    }
     return Error::success();
 }
 
