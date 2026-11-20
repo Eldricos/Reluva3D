@@ -803,7 +803,7 @@ public:
     bool strongFooting(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool handHold(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool hangLedge(VmObject *a, const std::array<float, 3> &normal, std::array<float, 3> &at);
-    bool testForLedge(VmObject *a, Sweep hit, const std::array<float, 3> &delta, float *out = nullptr);
+    bool testForLedge(VmObject *a, Sweep &hit, const std::array<float, 3> &delta, float *out = nullptr);
     float stepUpOnto(VmObject *a, float rise, const std::array<float, 3> &delta);
     bool checkClimbing(VmObject *a, const std::array<float, 3> &wallNormal, const std::array<float, 3> &dir, bool snap,
                        bool feet, bool chest, bool head);
@@ -1086,6 +1086,9 @@ private:
     };
     void tickFli(VmObject *texture, const Fli &fli, float seconds);
     double _realTime = 0;
+    // The node a walk last stepped up against, as Engine.dll keeps it for
+    // every walker (0x1054aa40): -2 after any other wall, -1 none.
+    int32_t _lastLedgeNode = -2;
     std::map<VmObject *, Fli> _flis;
     VmObject *_canvas = nullptr;
     std::map<std::pair<const Package *, int>, std::shared_ptr<Font>> _fonts;

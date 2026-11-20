@@ -36,14 +36,6 @@ there, dividing by 0) are reported and carried on from, not fixed
   ([save.md](formats/save.md)).
 - **The AI's paths:** jumping and dropping reaches aren't done
   ([ai.md](systems/ai.md)).
-- **The player's walk** ([movement.md](systems/movement.md)): a
-  `CTVE_NavigationAssist` it touches doesn't pull it onto its line or
-  keep walls from being told `HitWall`; the step a walk last went up
-  isn't remembered for the next frame's floor test (Engine.dll keeps
-  its BSP node, `0x1054aa40`); the two view heights the engine eases
-  over a step (unnamed, at `0xc10` and `0xbfc`) aren't eased; and a walk
-  whose physics a wall's `HitWall` changed ends there, where the
-  engine finishes the move and the floor test.
 - **Mission 12** has no dialogue table in any copy of the game: its
   voices are in `m12_Dialogue.uax`, their text nowhere
   ([dialogue-tables.md](formats/dialogue-tables.md)).

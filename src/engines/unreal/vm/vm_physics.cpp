@@ -1760,7 +1760,8 @@ void ScriptLevel::swimPlayer(VmObject *a, float dt) {
             // water there, it lands and walks (0x10371fa7); else a ladder.
             const Vec flat{delta[0], delta[1], 0};
             float step = 0;
-            if (testForLedge(a, sweepOf(h), flat, &step)) {
+            Sweep hitNow = sweepOf(h);
+            if (testForLedge(a, hitNow, flat, &step)) {
                 if (askClimb(a, h.normal, kPhysClambering))
                     return;
                 step = floatOf(prop(a, "LedgeDepth")) / (2 * defaultRadius(a));
@@ -1925,19 +1926,56 @@ void ScriptLevel::setBase(VmObject *a, VmObject *base) {
 // velocity what it really moved.
 void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     Value *vel = prop(a, "Velocity");
+    Value *accelValue = prop(a, "Acceleration");
     const Vec start = vecOf(prop(a, "Location"));
     const ZoneFeel z = zoneFeel(a);
-    // Pushing on: the auto-duck's timer, set back by a fall or a real move.
-    if (Value *t = prop(a, "PushToAutoDuckTimer"))
-        *t = Value::floatValue(t->asFloat() + dt);
-    Vec v = vecOf(vel);
+    auto setFlag = [&](const char *name, bool on) {
+        if (Value *f = prop(a, name))
+            *f = Value::boolValue(on);
+    };
+    setFlag("bStepped", false);
+    Vec accel = vecOf(accelValue);
+    // A narrow opening's assist it's touching (CTVE_NavigationAssist with
+    // bNarrowOpening) keeps it to the assist's line when heading its way:
+    // only the push along the assist's X is kept, and the push toward its
+    // line, all of it this frame (0x1036c157).
+    bool onAssist = false;
+    if (const VmProperty *touching = a->cls->findProperty(_vm.name("Touching")))
+        for (int k = 0; k < std::min(4, touching->arrayDim); ++k) {
+            VmObject *t = a->values[size_t(touching->slot + k)].asObject();
+            if (!t || t->deleted || !_vm.isA(t, "CTVE_NavigationAssist") || !boolOf(prop(t, "bNarrowOpening")))
+                continue;
+            onAssist = true;
+            const Vec at = vecOf(prop(t, "Location"));
+            const float dx = at[0] - start[0];
+            const float dy = at[1] - start[1];
+            const Vec push = mul(accel, dt);
+            if (length(push) <= 0 || std::hypot(dx, dy) <= 0.1f || dx * push[0] + dy * push[1] <= 0)
+                continue;
+            const Value *r = prop(t, "Rotation");
+            const auto rot = r ? Vm::rotatorOf(*r) : std::array<int32_t, 3>{};
+            const auto f = rotationAxes({rot[0], rot[1], rot[2]});
+            const Vec x{f[0][0], f[0][1], f[0][2]};
+            accel = mul(x, dot(x, accel));
+            const float along = x[0] * dx + x[1] * dy;
+            const Vec onLine = add(start, mul(x, along));
+            accel[0] += (at[0] - onLine[0]) / dt;
+            accel[1] += (at[1] - onLine[1]) / dt;
+        }
+    // On a pawn: pushed off it.
     if (Value *b = prop(a, "Base"); b && b->asObject() && _vm.isA(b->o, "Pawn")) {
         Vec away = sub(start, vecOf(prop(b->o, "Location")));
         away[2] = 0;
-        v = add(v, mul(normalOf(away), 100));
+        accel = add(accel, mul(normalOf(away), 100));
     }
-    Vec accel = vecOf(prop(a, "Acceleration"));
+    // Pushing on: the auto-duck's timer, set back by a fall or a real move.
+    if (Value *t = prop(a, "PushToAutoDuckTimer"))
+        *t = Value::floatValue(t->asFloat() + dt);
     accel[2] = 0;
+    if (accelValue)
+        _vm.setVector(*accelValue, accel[0], accel[1], accel[2]);
+    setFlag("bJustTeleported", false);
+    Vec v = vecOf(vel);
     calcVelocity(a, v, accel, dt, floatOf(prop(a, "GroundSpeed"), 320), z.groundFriction, false, true, false,
                  z.gravity);
     _vm.setVector(*vel, v[0], v[1], v[2]);
@@ -1965,57 +2003,68 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
         // TestForLedge on whatever stopped it: a ledge to clamber onto (the
         // walk ends if the scripts take it); else the share of the move a
         // step up or a duck took, and on with the rest (0x1036c0e0).
+        _lastLedgeNode = -2;
+        Sweep hit = sweepOf(h);
         float out = 0;
-        if (testForLedge(a, sweepOf(h), delta, &out) && askClimb(a, h.normal, kPhysClambering))
+        if (testForLedge(a, hit, delta, &out) && askClimb(a, hit.normal, kPhysClambering))
             return;
         if (a->deleted)
             return;
         if (out > 0) {
             ++movement.steps;
             stepped = true;
+            setFlag("bStepped", true);
+            _lastLedgeNode = hit.node;
             remaining -= out * remaining;
             delta = mul(delta, 1 - out);
             continue;
         }
-        if (h.actor == _levelInfo && checkClimbing(a, h.normal, delta, true, false, true, true) &&
-            askClimb(a, h.normal, kPhysClimbing))
+        if (hit.node >= 0 && checkClimbing(a, hit.normal, delta, true, false, true, true) &&
+            askClimb(a, hit.normal, kPhysClimbing))
             return;
         if (a->deleted || none(delta))
             break;
-        // Along it, the player told how head-on and how fast.
+        // Along it, the player told how head-on and how fast (not by a
+        // narrow opening's assist, which keeps it going).
         const float len = length(delta);
-        const float into = dot(h.normal, delta) / len;
-        delta = sub(delta, mul(h.normal, into * len));
+        const float into = dot(hit.normal, delta) / len;
+        delta = sub(delta, mul(hit.normal, into * len));
+        if (onAssist)
+            continue;
         const float flatSpeed = std::hypot(v[0], v[1]);
         const float slid = std::hypot(delta[0], delta[1]) * remaining / dt;
-        _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(h.actor)});
+        _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(hit.actor)});
         if (a->deleted)
             return;
         if (into < -0.8f)
             break;
     }
-    if (a->deleted || physicsOf(a) != kPhysWalking)
-        return;
-    // Down onto the floor, for real; down a slope too steep to stand on.
+    // Down onto the floor, for real (whatever its scripts made of its
+    // physics meanwhile); down a slope too steep to stand on, but not the
+    // one it just stepped onto.
     const Vec down{0, 0, -(stepHeight + 2)};
     MoveHit floor = moveActor(a, down);
     if (a->deleted)
         return;
-    if (floor.hit() && floor.normal[2] < 0.65f && !stepped) {
-        const MoveHit slope = moveActor(a, sub(down, mul(floor.normal, dot(down, floor.normal))));
-        if (slope.hit() && slope.normal[2] < 0.65f)
+    if (floor.node > 0 && size_t(floor.node) < _model.nodes.size())
+        if (Value *t = prop(a, "FloorTexture"))
+            *t = Value::objectValue(surfaceTextureOf(_model.nodes[size_t(floor.node)].surf));
+    if (floor.hit() && floor.normal[2] < 0.65f && !stepped && _lastLedgeNode != floor.node) {
+        floor = moveActor(a, sub(down, mul(floor.normal, dot(down, floor.normal))));
+        if (a->deleted)
+            return;
+        if (floor.hit() && floor.normal[2] < 0.65f) {
             stepped = true;
+            setFlag("bStepped", true);
+        }
     }
     if (floor.hit()) {
         setBase(a, floor.actor == _levelInfo ? _levelInfo : floor.actor);
         if (floorValue)
             _vm.setVector(*floorValue, floor.normal[0], floor.normal[1], floor.normal[2]);
-        const Vec here = vecOf(prop(a, "Location"));
-        if (Value *t = prop(a, "FloorTexture"))
-            *t =
-                Value::objectValue(surfaceTexture(here, add(here, {0, 0, -(floatOf(prop(a, "CollisionHeight")) + 4)})));
     }
-    if ((!floor.hit() || floor.normal[2] < 0.65f) && !stepped) {
+    const bool steppedOnto = _lastLedgeNode != -1 && _lastLedgeNode == floor.node;
+    if ((!floor.hit() || floor.normal[2] < 0.65f) && !stepped && !steppedOnto) {
         if (floorValue)
             _vm.setVector(*floorValue, 0, 0, 0);
         moveActor(a, mul(down, -floor.time));
@@ -2028,14 +2077,24 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
             *t = Value::floatValue(0);
         return;
     }
+    if (boolOf(prop(a, "bJustTeleported")))
+        return;
+    const Vec here = vecOf(prop(a, "Location"));
     Vec now = vecOf(vel);
     if (!stepped) {
-        now = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
+        now = mul(sub(here, start), 1 / dt);
         _vm.setVector(*vel, now[0], now[1], now[2]);
     }
     if (length(now) > 10)
         if (Value *t = prop(a, "PushToAutoDuckTimer"))
             *t = Value::floatValue(0);
+    // The view's offsets take up the rise or drop, and its scripts ease
+    // them away (UpdateEyeHeight): a step isn't a jolt.
+    for (const char *name : {"PivotOffset", "LocationOffset"})
+        if (Value *o = prop(a, name)) {
+            const Vec off = vecOf(o);
+            _vm.setVector(*o, off[0], off[1], off[2] + start[2] - here[2]);
+        }
 }
 
 // Other pawns' walking (APawn / ACTVE_Pawn::physWalking): in steps of at

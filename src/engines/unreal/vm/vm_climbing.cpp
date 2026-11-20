@@ -366,7 +366,7 @@ bool ScriptLevel::hangLedge(VmObject *a, const Vec &normal, Vec &at) {
 // flat (0.9), with footing and a hand hold. With `out`, a lower step: the
 // share of the move it took (0x1036badd), the player ducked or moved up
 // onto it.
-bool ScriptLevel::testForLedge(VmObject *a, Sweep hit, const Vec &delta, float *out) {
+bool ScriptLevel::testForLedge(VmObject *a, Sweep &hit, const Vec &delta, float *out) {
     if (out)
         *out = 0;
     const Vec f = flat(delta);
@@ -667,7 +667,8 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
             }
         } else if (d[2] > 0) {
             const MoveHit h = moveActor(a, mul(x, 4));
-            if (!a->deleted && h.hit() && testForLedge(a, sweepOf(h), mul(x, 4)) &&
+            Sweep hit = sweepOf(h);
+            if (!a->deleted && h.hit() && testForLedge(a, hit, mul(x, 4)) &&
                 _vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysClambering)}).asBool())
                 return;
         } else if (_vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysFalling)}).asBool()) {
