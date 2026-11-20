@@ -23,6 +23,12 @@ glyph[]:
   uint8  pixels[height][width]
 ```
 
+## In Reluva
+
+`Font` (`src/engines/stgenerations/formats/font.h`) reads them, for the
+game's text and the bridge's. `reluva-tool stgenerations pictures <game
+folder>` decodes every font with the pictures.
+
 ## Sources and checks
 
 From reading the game's files, the 2 CD Windows release, while the engine was STG-Engine ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how). All values are little-endian.

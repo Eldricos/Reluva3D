@@ -84,11 +84,10 @@ reports a Pentium, so any CPU-specific paths stay off).
   imports (`src/emulation/x86/win32_system.cpp`: system information, the
   performance counter, critical sections and events for one thread, date
   and time text).
-- Every DLL's start-up (static constructors and `DllMain`) now runs
+- Every DLL's start-up (static constructors and `DllMain`) runs
   through: 130,057 instructions, NiMain's processor check included.
 - Done: USER32 and GDI32 (`win32_user.cpp`), the registry (ADVAPI32) and
-  COM start-up (ole32) (`win32_registry.cpp`). Everything the game imports
-  is now stood in for except DirectDraw (3 imports) and DirectInput (1).
+  COM start-up (ole32) (`win32_registry.cpp`).
 - What the program does before it needs DirectDraw (`at-run -log` lists
   every stand-in called):
   - checks the CD;
@@ -109,19 +108,18 @@ reports a Pentium, so any CPU-specific paths stay off).
   Then it shows its loading screen and plays its attract-mode demo: the
   levels, with lightmaps, water, transparency and animated minifigures,
   under the logo and "Click the mouse to begin!".
-- Fixed on the way:
-  - `VirtualAlloc` handed out addresses already in use. The behaviour
+- What the stand-ins need to get right:
+  - `VirtualAlloc` hands out no address already in use: the behaviour
     DLLs ask for NiMain's and DDPackedDirFileLib's base, 0x10000000.
-  - `LoadLibraryA` now loads DLLs from the game folder.
+  - `LoadLibraryA` loads DLLs from the game folder.
     `LegoLogicComp.dll` is needed only by behaviour DLLs.
   - Export names may be up to 4 KB; one of DDPackedDirFileLib's is 530
     characters.
   - Every DLL stood in for (DDRAW's, MSVCRT's...) has a module handle for
     `GetProcAddress`. NiDirect3d finds `DirectDrawCreateEx` that way.
-- `at-run -shots <folder>` saves the frames shown (TGA). 3 billion
-  instructions take about 100 seconds and show 74 frames, so the game runs
-  at under one frame a second for now; speed is step 6
-  ([speed.md](../research/speed.md)).
+- `at-run -shots <folder>` saves the frames shown (TGA). How fast the
+  game runs is in [Where it stands](../README.md#where-it-stands) and
+  [speed.md](../research/speed.md).
 
 ## In Reluva
 

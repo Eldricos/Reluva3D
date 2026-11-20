@@ -2,40 +2,15 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/bnk.cpp`, `src/audio/ea_audio.cpp` · **Checked on:** every bank read and decoded · **Confidence:** confirmed unless marked
 
-Implemented
+## Overview
 
-- banks and PT headers: `src/engines/nfs/formats/bnk.cpp`;
-- the codecs: `src/audio/ea_audio.cpp`.
+EA's sound banks: a table of slots, each pointing to a PT header that
+describes one sound, then the audio, in PCM, EA-XA ADPCM or MicroTalk.
+The game's race sounds, engines and speech come from them (below).
 
-On the install and the CD, all 976 banks read and all 11,775 sounds
-decode (`reluva-tool nfs survey`).
+## Layout
 
-## Sources and checks
-
-October 2026:
-
-- **Banks and PT headers.** Read off hex dumps, then checked with a
-  survey script over every bank:
-  - tag frequencies and values;
-  - each sound's bytes per sample from the spacing of the data offsets,
-    which separates three codings.
-- **EA-XA.** From CD-XA ADPCM, which it derives from:
-  - CD-XA's filters fit, and the shift nibble's range (0-12, mostly 3-5)
-    is CD-XA's;
-  - high nibble first gives 20 times less clipping than the other order;
-  - decoded, the sounds are as smooth as the PCM ones;
-  - a car-description narration's spectrogram is plainly speech.
-- **MicroTalk.** Compression 9 is EA MicroTalk, as in Beasts & Bumpkins'
-  PT files. Reluva's decoder is written from the algorithm as described
-  by Andrew D'Addesio's public-domain utkencode
-  (github.com/daddesio/utkencode), read as a reference:
-  - its constant tables are the format's, and were compared value for
-    value;
-  - on all 1,869 English speech sounds (52 million samples), Reluva's
-    output equals that decoder's, sample for sample;
-  - a decoded police radio call's spectrogram is speech over radio hiss.
-
-## Bank layout
+### Bank layout
 
 All values are little-endian unless noted.
 
@@ -55,17 +30,17 @@ and +0x0C for version 2 (`0x50265b`-`0x5026d9`; other versions get a
 warning and are read as 2). Checked in October 2026: so read,
 `Gen3d.bnk` (version 4) has its sounds in the same slots as `Gen.bnk`
 (0, 1, 5, 10, 11, 15, 18, 24, 25, 29-35, 37, 40-47). Reluva's
-`parseSoundBank` reads them so too. Until October 2026 it read every
-bank's slots from 12, so for the 74 version-4 banks (car engines,
-`gen3d`, `siren3d`, `tr3d*`, `tram*`) its slot numbers were two too high
-and the last two slots were lost; the Tracks page's placed sounds,
-which name slots of `tr3d*`, played the wrong ones.
+`parseSoundBank` reads them so too. Read from 12 in every bank, the 74
+version-4 banks (car engines, `gen3d`, `siren3d`, `tr3d*`, `tram*`)
+would have their slot numbers two too high and lose their last two
+slots, and the Tracks page's placed sounds, which name slots of
+`tr3d*`, would play the wrong ones.
 
 A slot of 0 or −1 is empty. A few slots (a couple of hundred) point
 into the audio data, at no header: leftovers by the look of them, and
 taken as empty.
 
-## PT headers
+### PT headers
 
 `PT\0\0`, then tags:
 
@@ -137,7 +112,7 @@ None of the install's 4,426 sounds has `0x00`, `0x14`, `0x16`, `0x18`,
 `0x1A`, `0x1B` or `0x25` (October 2026, a survey of the 408 banks on the
 install, alternatives included).
 
-## Patch parameters
+### Patch parameters
 
 From the routines above (random amounts come from `0x5224e0`, which
 gives −x to x):
@@ -314,10 +289,9 @@ result, MMX at L = 127 differs by RMS 78 steps (max 255), nearly all
 the 127/128 gain (−42 dB); with the gain taken out, by a mean of −1.0
 and RMS 1.15 steps (max 2), at L = 64 −0.75 and 0.93.
 
-**Run on the interpreter** (November 2026). Until then Reluva's x86 core
-had no MMX, so the comparison above stayed numerical, from the
-transcription (checked against the disassembly again at `0x51f774`,
-`0x52092d`). Extended to mixes, with the Corvette's `car.bnk` 0 and 1
+**Run on the interpreter** (November 2026), against the transcription
+(checked against the disassembly again at `0x51f774`, `0x52092d`), and
+extended to mixes, with the Corvette's `car.bnk` 0 and 1
 and `Gen.bnk` 29, 32 and 41 (a scratch script, not in the repo):
 - **Rounding adds up.** With the gain taken out, 1, 2, 3 and 5 voices at
   L = 32 differ from the float mix by a mean of −0.8, −1.8, −2.6 and
@@ -334,7 +308,7 @@ and `Gen.bnk` 29, 32 and 41 (a scratch script, not in the repo):
   apart. In the other order the two agree (RMS 211, the gain). So only
   then does the order of the voices matter, and only with MMX.
 
-The interpreter now decodes MMX ([x86.md](../../../../../common/x86/README.md)), and
+The interpreter decodes MMX ([x86.md](../../../../../common/x86/README.md)), and
 `reluva-tool nfs host -mmx` has CPUID report it. Every MMX instruction in
 `nfs3.exe` was found by a scan of the code database (`tools/nfs-re`,
 358 instructions in 19 routines; a linear sweep of `.text` with
@@ -561,7 +535,53 @@ Which sounds use which coding:
 Some PCM sounds run past the next sound's data or the end of the bank.
 Reluva uses as much as is there.
 
-## Which bank a race sound comes from
+### EA-XA ADPCM
+
+- Mono in banks: 28 samples in each 15-byte frame.
+- The frame's first byte holds the filter (high nibble, 0-3) and the
+  shift (low nibble, 0-12).
+- 14 bytes of 4-bit residuals follow, high nibble first.
+
+Decoding a residual:
+
+    sample = residual × 2^(12 − shift) + (c1 × previous + c2 × before_previous + 128) >> 8
+
+clamped to 16 bits. The filters (c1, c2) are CD-XA's, in 1/256ths:
+(0, 0), (240, 0), (460, −208), (392, −220).
+
+Filter numbers above 3 appear only in final, partly used frames (fewer
+than 0.1% of frames); Reluva uses no prediction for them.
+
+### MicroTalk
+
+Mono, 22,050 Hz, 432 samples a frame, about 1.7 bits a sample here.
+
+The stream:
+
+- starts with header bits: reduced bandwidth, the multi-pulse threshold,
+  the fixed gains;
+- then holds frames back to back, bits read lowest first.
+
+Each frame holds:
+
+- 12 reflection coefficients, interpolated over the frame;
+- four 108-sample subframes. Each has a pitch lag and gain, a fixed gain,
+  and an excitation: multi-pulse (pulses and runs of zeros, coded by two
+  models) or a coarse residual, at full or half bandwidth.
+
+Synthesis is a 12th-order LPC filter. See the reference in Sources and checks for the
+details.
+
+Two details of the original's memory layout matter for exact output, and
+Reluva's decoder keeps them:
+
+- the adaptive codebook is read on into the frame being decoded;
+- a pitch lag over 216 in the first subframe reads into the decoder's
+  state before the codebook.
+
+## Behaviour
+
+### Which bank a race sound comes from
 
 Read from `nfs3.exe` (November 2026). At a race's start `0x413bc0`
 loads the banks into a table of 12-byte entries at `0x571124`
@@ -608,7 +628,7 @@ objects' sounds (slots 20, 21) are slots of the track's bank. The voice
 slots are listed in [nfs.md](../PLAN.md) (Dolby, which voices
 are behind).
 
-## The moving objects' sounds
+### The moving objects' sounds
 
 Read from `nfs3.exe` (November 2026), `0x410e30`, each sound step.
 
@@ -872,7 +892,7 @@ few ms apart. The level (RMS of 16-bit samples, by 0.5 or 0.25 s):
   not standing out; the correlation of `sq-rr2` (above) didn't find it
   either.
 
-## Seen in footage (November 2026)
+### Seen in footage (November 2026)
 
 From 18 YouTube recordings of the original game (`Hometown_Day` and so
 on, one race per track by day and night; AAC, so good for what plays
@@ -949,7 +969,7 @@ night clips have no sound 31 or 0 to find (above).
   [physics.md](../systems/physics.md) (The radio), and what each says in What
   the radio lines say, below.
 
-## What the radio lines say
+### What the radio lines say
 
 Worked out in November 2026 (`c5-speech`): the English `off00A`-`C`,
 `off02A`, `disp00`, `disp02`, `copspch` and one car's `IP..spch` banks
@@ -1154,59 +1174,22 @@ covered bridges (0x43, Hometown's row for slices 171-224), over 100
 mph (0x3C); then the dispatcher: all units be advised (0x10), unit 46
 (0x15), "in pursuit of" the car (0x00), the same place (0x43).
 
-## EA-XA ADPCM
+## In Reluva
 
-- Mono in banks: 28 samples in each 15-byte frame.
-- The frame's first byte holds the filter (high nibble, 0-3) and the
-  shift (low nibble, 0-12).
-- 14 bytes of 4-bit residuals follow, high nibble first.
+Implemented:
 
-Decoding a residual:
+- banks and PT headers: `src/engines/nfs/formats/bnk.cpp`
+  (`parseSoundBank`);
+- the codecs: `src/audio/ea_audio.cpp`.
 
-    sample = residual × 2^(12 − shift) + (c1 × previous + c2 × before_previous + 128) >> 8
+On the install and the CD, all 976 banks read and all 11,775 sounds
+decode (`reluva-tool nfs survey`).
 
-clamped to 16 bits. The filters (c1, c2) are CD-XA's, in 1/256ths:
-(0, 0), (240, 0), (460, −208), (392, −220).
-
-Filter numbers above 3 appear only in final, partly used frames (fewer
-than 0.1% of frames); Reluva uses no prediction for them.
-
-## MicroTalk
-
-Mono, 22,050 Hz, 432 samples a frame, about 1.7 bits a sample here.
-
-The stream:
-
-- starts with header bits: reduced bandwidth, the multi-pulse threshold,
-  the fixed gains;
-- then holds frames back to back, bits read lowest first.
-
-Each frame holds:
-
-- 12 reflection coefficients, interpolated over the frame;
-- four 108-sample subframes. Each has a pitch lag and gain, a fixed gain,
-  and an excitation: multi-pulse (pulses and runs of zeros, coded by two
-  models) or a coarse residual, at full or half bandwidth.
-
-Synthesis is a 12th-order LPC filter. See the reference above for the
-details.
-
-Two details of the original's memory layout matter for exact output, and
-Reluva's decoder keeps them:
-
-- the adaptive codebook is read on into the frame being decoded;
-- a pitch lag over 216 in the first subframe reads into the decoder's
-  state before the codebook.
-
-## Tools
-
-- `reluva-tool bnk-info <file.bnk | file.viv name>` lists the sounds and
+- `reluva-tool nfs bnk-info <file.bnk | file.viv name>` lists the sounds and
   their tags.
-- `reluva-tool bnk-wav ... <dir>` writes each sound as a WAV file.
+- `reluva-tool nfs bnk-wav ... <dir>` writes each sound as a WAV file.
 
-## On the Sounds page
-
-A sound with a loop (the engines, ambiences) plays it over and over until
+On the data viewer's Sounds page, a sound with a loop (the engines, ambiences) plays it over and over until
 stopped, the loop's ends marked on its waveform. A sound with a bend
 range is played as the game plays it: Left and Right move its bend, 4 at
 a time. In a car's banks (beside its `carp.txt`) they move its revs
@@ -1215,3 +1198,28 @@ redline, at key 60 and the game's bend for those revs; the header shows
 the revs, bend and cents. Elsewhere a sound is played at its own root
 key, as the key a caller would play isn't known. A sound without a bend
 range moves a semitone at a time.
+
+## Sources and checks
+
+October 2026:
+
+- **Banks and PT headers.** Read off hex dumps, then checked with a
+  survey script over every bank:
+  - tag frequencies and values;
+  - each sound's bytes per sample from the spacing of the data offsets,
+    which separates three codings.
+- **EA-XA.** From CD-XA ADPCM, which it derives from:
+  - CD-XA's filters fit, and the shift nibble's range (0-12, mostly 3-5)
+    is CD-XA's;
+  - high nibble first gives 20 times less clipping than the other order;
+  - decoded, the sounds are as smooth as the PCM ones;
+  - a car-description narration's spectrogram is plainly speech.
+- **MicroTalk.** Compression 9 is EA MicroTalk, as in Beasts & Bumpkins'
+  PT files. Reluva's decoder is written from the algorithm as described
+  by Andrew D'Addesio's public-domain utkencode
+  (github.com/daddesio/utkencode), read as a reference:
+  - its constant tables are the format's, and were compared value for
+    value;
+  - on all 1,869 English speech sounds (52 million samples), Reluva's
+    output equals that decoder's, sample for sample;
+  - a decoded police radio call's spectrogram is speech over radio hiss.

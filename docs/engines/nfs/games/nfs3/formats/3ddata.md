@@ -2,11 +2,11 @@
 
 > **Status:** partial · **Code:** `src/engines/nfs/host/game_host.cpp` (none: not read) · **Checked on:** the 3D Device Setup files, compared with what the program writes · **Confidence:** from the code unless marked
 
-Documented, not needed by Reluva. Neither the game nor its
+## Overview
+
+Neither the game nor its
 renderer DLLs read these files; only the install's 3D Device Setup
 program does, to choose which renderer DLL the game is told to load.
-Reluva tells the game its renderer itself (`GameHost`'s registry, "Thrash
-Driver"), so nothing here is implemented.
 
 The install's `3dSetup` folder holds 3D Device Setup (`3dsetup.exe` and
 `3dsetupm.exe`, Microsoft's compiler with MFC, 1998-08-12), its card
@@ -19,35 +19,9 @@ voodoo2a.dll). Its readme says to run `3DDATA.EXE` ("it appears that
 nothing happens"), copy `3ddata.dat` over the install's, copy the DLL,
 then pick the Voodoo3 in 3D Device Setup.
 
-## Sources and checks
+## Layout
 
-November 2026, from the files alone (nothing was run): the CD and
-install copies, `pefile` for imports and sections, `capstone` for the
-code, with small scripts kept outside the repo (the session's work
-folder). No 3dfx or EA source was used.
-
-- **Who opens `3ddata.dat`.** Its name was searched for in every program
-  and DLL of the install and the CD: only `3dsetup.exe` and
-  `3dsetupm.exe` have it (four times each). `nfs3.exe`, `softtria.dll`,
-  `d3da.dll`, `voodooa.dll`, both `voodoo2a.dll`s, `eacsnd.dll` and
-  `d3dtest.dll` have neither the file's name nor its keys ("regname",
-  "CARD_", "Triple Buffer", "D3D-3Dfx") nor the registry key the
-  `3ddata` programs write ("3D Data"). Neither `3ddata` program can
-  open a file: the CD's imports no `CreateFileA` or `ReadFile` at all,
-  and the install's code has no reference to the name.
-- **`3dsetup.exe`'s readers** were followed from the four references to
-  the name (`0x402766`, `0x404f46`, `0x405544`, `0x4059c8`): each opens
-  "3ddata.dat" relative to the current folder with MFC's text file class
-  and reads it a line at a time.
-- **The `3ddata` programs** were read whole (the CD's `0x401000`-
-  `0x401c1a`, one function filling a table and one writing the
-  registry), and their tables dumped from the pointers the code indexes
-  (the CD's names at `0x40f030`, modules `0x40f12c`, groups `0x40f180`,
-  type counts `0x40f1d4`, vendor and device IDs `0x40f228`/`0x40f570`;
-  the install's at `0x409840` onwards, found by the pointer to its first
-  name).
-
-## 3ddata.dat
+### 3ddata.dat
 
 Plain text, lines ended by CR LF (the last without one), no header, no
 section names. Four kinds of line, each found by its own pass over the
@@ -98,7 +72,9 @@ override (`0x4031d9`, then `0x403581`-`0x4037b3`). The readme's "3dfx
 Voodoo3 appears twice" is not this file's doing: `D3D-3Dfx` is off in
 both, and its second entry is only for the three names above.
 
-## What 3D Device Setup does with it
+## Behaviour
+
+### What 3D Device Setup does with it
 
 `0x40298e`: it opens `HKEY_LOCAL_MACHINE\SOFTWARE\Electronic Arts\3D
 Data` (written by the `3ddata` programs, below), reads "Cards" and the
@@ -125,7 +101,7 @@ Voodoo3 at all (the install's has no line for it, so the card isn't a
 candidate even when detected), and it sends the Voodoo3 to
 `voodoo2a.dll`, the file the patch replaces.
 
-## 3DDATA.EXE and 3ddata.exe
+### 3DDATA.EXE and 3ddata.exe
 
 Each writes a fixed card table, compiled in, into the registry, and
 shows a message box only on failure ("couldn't create main key"):
@@ -153,7 +129,10 @@ first: without its Voodoo3 entry in the registry, the new
 `3ddata.dat`'s Voodoo3 line has no card to match. Run after it, the
 install's older program leaves its newer table alone.
 
-## For Reluva
+## In Reluva
+
+Documented, not needed by Reluva. Reluva tells the game its renderer itself (`GameHost`'s registry, "Thrash
+Driver"), so nothing here is implemented.
 
 Nothing to do. The game never sees these files; it sees only the
 registry values 3D Device Setup leaves, which Reluva's host gives it
@@ -162,3 +141,31 @@ directly (the renderer named by `GameHost::Options::renderer` or
 over is the mapping it confirms: the patch meant the Voodoo3 to run the
 game through `voodoo2a.dll`, as Reluva's `-glidedll` runs the patch DLL
 on its Voodoo3 board.
+
+## Sources and checks
+
+November 2026, from the files alone (nothing was run): the CD and
+install copies, `pefile` for imports and sections, `capstone` for the
+code, with small scripts kept outside the repo (the session's work
+folder). No 3dfx or EA source was used.
+
+- **Who opens `3ddata.dat`.** Its name was searched for in every program
+  and DLL of the install and the CD: only `3dsetup.exe` and
+  `3dsetupm.exe` have it (four times each). `nfs3.exe`, `softtria.dll`,
+  `d3da.dll`, `voodooa.dll`, both `voodoo2a.dll`s, `eacsnd.dll` and
+  `d3dtest.dll` have neither the file's name nor its keys ("regname",
+  "CARD_", "Triple Buffer", "D3D-3Dfx") nor the registry key the
+  `3ddata` programs write ("3D Data"). Neither `3ddata` program can
+  open a file: the CD's imports no `CreateFileA` or `ReadFile` at all,
+  and the install's code has no reference to the name.
+- **`3dsetup.exe`'s readers** were followed from the four references to
+  the name (`0x402766`, `0x404f46`, `0x405544`, `0x4059c8`): each opens
+  "3ddata.dat" relative to the current folder with MFC's text file class
+  and reads it a line at a time.
+- **The `3ddata` programs** were read whole (the CD's `0x401000`-
+  `0x401c1a`, one function filling a table and one writing the
+  registry), and their tables dumped from the pointers the code indexes
+  (the CD's names at `0x40f030`, modules `0x40f12c`, groups `0x40f180`,
+  type counts `0x40f1d4`, vendor and device IDs `0x40f228`/`0x40f570`;
+  the install's at `0x409840` onwards, found by the pointer to its first
+  name).

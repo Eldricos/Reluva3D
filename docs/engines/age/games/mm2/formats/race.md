@@ -2,12 +2,16 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/race.cpp` · **Checked on:** the English release, both cities' races · **Confidence:** confirmed unless marked
 
+## Overview
+
 A city's races: their names in `tune/<city>.cinfo`, everything else in
 `race/<city>/` in `mm2core.ar`. Read by `src/engines/age/formats/race.cpp`. Worked
 out from the files (they're CSV and `Key=Value` text) and by driving them
 on the Race page.
 
-## tune/<city>.cinfo
+## Layout
+
+### tune/<city>.cinfo
 
 ```
 LocalizedName=San Francisco
@@ -30,7 +34,7 @@ before it are placed at MustPlace or better
 lessons have no names here; they're in `mmlang.dll`
 ([mmlang.md](mmlang.md)).
 
-## Settings: mmblitzdata.csv, mmcircuitdata.csv, mmracedata.csv
+### Settings: mmblitzdata.csv, mmcircuitdata.csv, mmracedata.csv
 
 A heading line, then one row a race (as many as the .cinfo's count:
 checkpoint races are the `race` files): a description (`none`), then ten
@@ -53,7 +57,7 @@ columns twice, amateur then professional:
 `lesson3`, `midtrm1`, ... `final13`) has the same columns; Reluva takes
 each lesson's time of day and weather from it.
 
-## Checkpoints: <blitz|circuit|race><n>waypoints.csv
+### Checkpoints: <blitz|circuit|race><n>waypoints.csv
 
 ```
 x,y,z,a,radius,frame rate,state changes,texture changes,msg
@@ -67,7 +71,7 @@ checkpoint is to the east; Circuit 0 starts at -90 and heads west).
 races; circuits' files call that column "poly count" (11 throughout) and
 Reluva gives their gates 15 m. The last three columns are 0 throughout.
 
-## Opponents: <file><n>-<a|p>-<i>.opp
+### Opponents: <file><n>-<a|p>-<i>.opp
 
 One file per opponent per difficulty (`a` amateur, `p` professional):
 
@@ -106,7 +110,7 @@ Blitz, a few for other modes), London 324.
 Which car each opponent drives, and its skill, are in the race's
 aimap ([aimap.md](aimap.md)).
 
-## Crash Course: crash<n>data.csv
+### Crash Course: crash<n>data.csv
 
 Each lesson (`crash0`-`crash12` in each city) has a row of its own:
 
@@ -141,7 +145,7 @@ The lesson's `crash<n>.aimap` names its opponents' paths
 or to drive among. Its `copchase` aimap lists 14 police and
 `CopChaseDistance` 150.
 
-## Cops & Robbers: multicopwaypoints.csv
+### Cops & Robbers: multicopwaypoints.csv
 
 In the waypoint files' form (x, y, z, a heading, then columns that are 0
 throughout): 44 places in San Francisco, 46 in London, spread across the
@@ -154,15 +158,15 @@ San Francisco's `cir1_strtpnts` to `cir9_strtpnts` (no extension: one
 to eight rows each, the same columns with one more 0) look like start
 grids, but don't match the circuits' starts by number. Not used.
 
-## Cruise: roam.aimap
+### Cruise: roam.aimap
 
 `race/<city>/roam.aimap` (and `.aimap_p`): the aimap form
 ([aimap.md](aimap.md)) with no race beside it: police (19 in San
 Francisco, 20 at Professional; 20 in London), no opponents, and in
 London the traffic's density and types. Reluva reads it for the race
-menu's Cruise ([cruise-and-stunt.md](../systems/cruise-and-stunt.md#cruise-and-the-stunt)).
+menu's Cruise ([cruise-and-stunt.md](../systems/cruise-and-stunt.md#how-it-works)).
 
-## The stunt: accel0waypoints.csv
+### The stunt: accel0waypoints.csv
 
 San Francisco's `accel0waypoints.csv`: five points in the waypoint
 files' form, in a straight line from (-1284, 40, 854) down to (-1, -1,
@@ -173,6 +177,15 @@ Reluva runs it as Cruise's second race there.
 Not read: `stunt0waypoints.csv` (one point), `stunt0.aimap`,
 `jump0waypoints.csv`-`jump2waypoints.csv`, `jump0.aimap` and
 `ramp.pathset`.
+
+## In Reluva
+
+Read by `src/engines/age/formats/race.cpp` (`raceNames`,
+`raceUnlocking`, `loadRace`). The race menu is `ui/game_menus_drivers.cpp`;
+`game/race_screen.cpp` runs the races, `game/lesson.cpp` the Crash
+Course, `game/cops_robbers.cpp` Cops & Robbers and `game/race_cruise.cpp`
+Cruise and the stunt (an addition: [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#additions-outside-the-game)).
+The Race page plays them. No `reluva-tool` command reads them.
 
 ## Sources and checks
 

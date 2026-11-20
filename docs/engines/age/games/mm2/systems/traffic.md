@@ -6,7 +6,9 @@
 
 The traffic: how much, where it drives, the lights it stops at, parked cars, London's trains, and the cars' lamps. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## How many
+## How it works
+
+### How many
 
 The game's figure for traffic is a density: the races' Ambient column
 (0-0.9; most 0.1-0.3), the lessons' AmbDensity (0-0.3), the aimaps'
@@ -29,7 +31,7 @@ lanes' capacity:
 - At most 160 cars (Reluva's limit for drawing and steering them); the
   races at 0.5 and over reach it.
 - New cars start on a piece of lane each as likely as its length.
-  (Before, a lane was picked first, so short lanes were overfilled.)
+  (Picking a lane first would overfill short lanes.)
 
 | | Drive page | Race page |
 |---|---|---|
@@ -37,10 +39,7 @@ lanes' capacity:
 | Pedestrians | 0, 0.05, 0.1 and 0.2 with those, times 300, at most 60 | the race's Peds column (mostly 0-0.1) times 300, at most 60 |
 | Police | `race/<city>/roam.aimap`'s (O turns them off) | as many of the race's aimap police as its Cops column |
 
-Before this, the density was a share of a fixed 60 cars, the same
-downtown as on a bridge: a race at 0.2 had 12.
-
-## Traffic
+### Traffic
 
 - **Models**: the city aimap's ambient models, picked by their shares,
   each in one of its 8 paint jobs; their size and mass from
@@ -103,7 +102,7 @@ slow or stopped, such as the player.
   the traffic doesn't start there, and turns into them only where
   there's no other way; police patrols likewise.
 
-## Parked cars
+### Parked cars
 
 The cities' parked-car lines ([pathset.md](../formats/pathset.md))
 are filled when a page starts, about 545 cars in London and 215 in San
@@ -120,7 +119,7 @@ pedestrians don't see them. A driven car (or a train) knocks one as it
 knocks the traffic: it slides to a stop, spinning, and is then kept clear
 of like a knocked traffic car.
 
-## Underground trains
+### Underground trains
 
 London's eight train paths each carry a train of three `va_ug_l`
 carriages, set on the path by two bogies 1.5 m in from each carriage's
@@ -137,7 +136,7 @@ for an open bridge. The nearest train is heard as the game's
 the PSDL ([psdl.md](../formats/psdl.md)): walls 5.5 m high and an
 arched roof 7 m up.
 
-## Traffic lights
+### Traffic lights
 
 The cities' instance files place no traffic lights: they stand at the
 road ends whose control is 1 (533 in San Francisco, 519 in London), on
@@ -165,7 +164,7 @@ junction starts at its own point in the cycle. The glows are the model's
 `NIGHT`; its pedestrian signal shows `WALK` while the road has red and
 `NOWALK` otherwise. The timing is Reluva's.
 
-## Lamps and flares
+### Lamps and flares
 
 The driven cars (the player's, the opponents', the police's) show their
 models' lamps in the same way: `HLIGHT` and `TLIGHT` with the headlights,
@@ -179,6 +178,16 @@ the camera and added to what's behind (1.4-1.6 m across, 2 m for sirens),
 in the square's colour for sirens; headlight flares fade as the car turns
 away. Headlights also light a pool of the road 9-10 m ahead (the
 renderer's dynamic lights, the 16 nearest the camera).
+
+## In Reluva
+
+- `Traffic` and `TrafficNetwork` (`src/engines/age/game/traffic.{h,cpp}`):
+  the road users and their lanes.
+- `TrafficLights` (`src/engines/age/game/traffic_lights.{h,cpp}`).
+- `CityLife` (`src/engines/age/game/city_life.{h,cpp}`) keeps the
+  city's traffic, trains, boats and the rest together.
+- `CarActor` (`src/engines/age/render/car_actor.{h,cpp}`) draws a car
+  and its lamps.
 
 ## Sources and checks
 

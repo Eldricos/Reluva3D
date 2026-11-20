@@ -65,8 +65,9 @@ cylinders, as boxes for the world). Reach along a normal is
 
   These bevels and box faces are what keep a box from stopping early at
   an outside corner, where planes only widened would cross in front of
-  it. Before this, M07_SiskoL1A's player start (by a ramp) fit nowhere,
-  and a box stuck in such a sliver on M04_SiskoL1 kept landing in place.
+  it. Without them, M07_SiskoL1A's player start (by a ramp) fits
+  nowhere, and a box stuck in such a sliver on M04_SiskoL1 keeps landing
+  in place.
 
 ### Sweeps
 

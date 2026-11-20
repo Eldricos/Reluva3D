@@ -116,6 +116,14 @@ storm, are `main_anim`'s animations, placed by the game: `Alt1anim`
 the suspects' portraits, the ticker) is `ui.a`'s, placed by the game too:
 see [screen.md](../systems/screen.md#layout).
 
+## In Reluva
+
+`parseResi` (`src/engines/clue/formats/resi.h`) reads it into a `Resi`; the
+front end (`ui/frontend.h`) and the game (`game/play.h`) lay out their menus
+and windows from it, and `Fonts` (`ui/ui.h`) takes its fonts.
+`reluva-tool clue check <game folder>` reads it and finds every picture it
+names.
+
 ## Sources and checks
 
 - **Where the facts come from:** the order of the reads is from `EGuiResourceInfo::Load(CFile*)` in

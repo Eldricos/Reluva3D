@@ -112,28 +112,27 @@ DS9_FederationPhaserRifleAmmo AmmoAmount 20`),
 prepares each frame for drawing as the Maps page does: it poses, lights
 and uploads the characters and runs the HUD. Only the drawing itself is
 left out.
-- M10_WorfL1A, the slowest map, now takes about 12.5 to 15 s; it took
-  21.5 s before the work below. M03_KiraL2 takes about 5 s (12 s before).
+- M10_WorfL1A, the slowest map, takes about 12.5 to 15 s; M03_KiraL2
+  about 5 s.
 - The scripts alone (`unreal run -all`, no drawing at all) take 128 s for
   all 74 maps. The slowest is M11_WorfL1, at 2.9 s for its 20 s.
-- The work:
+- What's done for it:
   - **Fire, water and the other procedural textures** tick only when
     they're drawn, as UE1's do. Engine.dll's `UTexture::Update(Time)`
     ticks a texture by the time since it last updated, and the renderer
     gets each texture it draws through `UTexture::Get`, which calls it.
-    The Maps page now notes which textures each frame draws
-    (`TextureUseRecorder`) and ticks only those. Before, every one in the
-    level stepped every frame, seen or not.
+    The Maps page notes which textures each frame draws
+    (`TextureUseRecorder`) and ticks only those.
   - **The water texture's step and slopes** read their rows directly,
     without a modulo for every cell. The picture is the same.
-  - **Packages are read whole at once.** They had been read a byte at a
-    time through stream iterators, a fifth of a level's start.
+  - **Packages are read whole at once.** Read a byte at a time through
+    stream iterators, they would take a fifth of a level's start.
   - **Answers kept:**
     - `VmObject::find` with a string literal remembers its slot for each
       class.
     - The level's walls between a light and an actor (`wallBetween`) are
       remembered for the same two places, since the BSP doesn't move. A
-      character standing still asked it of every light each frame.
+      character standing still asks it of every light each frame.
   - **The overlay:** only the rows drawn on the frame before are
     cleared, not all 2.7 MB of it.
 - What's left most, from callgrind on M10_WorfL1A:
@@ -145,18 +144,18 @@ left out.
   - Sounds decoded from MP3 the first time each is heard, and meshes
     read as they first come into view: once each.
 
-The biggest maps' ticks took twice as long. Profiled on M03_KiraL2
-(callgrind, then stack samples later in the run), these made it about
-twice as fast (20 seconds of play: 21.6 s, now about 10.7 s):
+For the biggest maps' ticks, profiled on M03_KiraL2 (callgrind, then
+stack samples later in the run; 20 seconds of play in about 10.7 s):
 - The moves' loops (blocking, touching, traces) go through only the
   actors that collide with actors: a list made each tick (again when
   `SetCollision` changes one), not all 4,000. Traces read the classes'
   collision slots rather than asking `isA` by name.
 - Movers far from a move are passed over by their brush's bounding
-  sphere before the costly test in their own space. That also ended a
-  bug: a flat mover brush (a force field's sheet) makes a BSP of one
-  plane, solid all the way behind it; CM04_Lab refused 301 placings 2000
-  units from one. Overlaps are also kept inside the brush's box.
+  sphere before the costly test in their own space. That also matters
+  for a flat mover brush (a force field's sheet), which makes a BSP of
+  one plane, solid all the way behind it: without it, CM04_Lab refuses
+  301 placings 2000 units from one. Overlaps are also kept inside the
+  brush's box.
 - Names are lower-cased on the stack; a struct's properties are found by
   an index; a native's code, whether a function is `&&` or `||` and
   whether it has out parameters are found once; frames make their

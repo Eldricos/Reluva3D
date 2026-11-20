@@ -114,8 +114,7 @@ Two recorded games played on the board from above (the VM recording,
 rested on in rooms were the hall's (27, 17) (26, 17), the lounge's
 (32, 16), the conservatory's (18, 32), the billiard room's (18, 27)
 (17, 27), the library's (18, 21) (17, 21), and in the dining room and
-ballroom their neighbours. (Reluva placed suspects on those recorded
-squares before this was read; `Board::standing()` keeps a list of the
+ballroom their neighbours. (`Board::standing()` keeps a list of the
 kind for the rules' own use.)
 
 ### Moving
@@ -125,6 +124,13 @@ go side to side, never diagonally; a room is one step from the square
 before its door, and its doors' squares one step from it; no square
 twice in a move, none another suspect stands on; a room ends the move,
 and the one left can't be entered again in the same turn.
+
+## In Reluva
+
+`Board::build` (`src/engines/clue/game/board.h`) reads the board from a
+`clue.lvl` already read as a `Level`; the rules (`game/rules.h`) and the
+computer players move on it. `reluva-tool clue board <clue.lvl>` draws what
+it reads.
 
 ## Sources and checks
 

@@ -2,23 +2,16 @@
 
 > **Status:** partial · **Code:** `src/engines/age/formats/bai.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
+## Overview
+
 `city/sf.bai` and `city/london.bai` in `mm2core.ar`: each city's roads as
 the computer-driven cars see them, with their lanes, sidewalks and tram
 lines, and the junctions joining them. Read by `src/engines/age/formats/bai.cpp`.
 
-Worked out from the two files alone, with a few lines of throwaway
-Python: guessing at a field's size, parsing every road with that guess,
-and checking that the next road's number came out one more than the last
-and that the coordinates landed in the city. Both files then parse to
-their last byte but a table at the end that isn't needed (379 roads and
-214 junctions in San Francisco, 540 and 328 in London). Much of the file
-is structures written straight from memory: unused room is filled with
-`cd` and `fd` bytes, which is what a debug build's allocator leaves.
+## Layout
 
 All numbers are little-endian; floats are 32-bit; points are three floats
 (x, y, z) in the city's coordinates, as the PSDL's.
-
-## Layout
 
 ```
 "CAI1"
@@ -97,7 +90,7 @@ u16 roads
 u32 road[roads]        in order round it (3 or 4, a few 2 or 5)
 ```
 
-## Sides and which way the lanes run
+### Sides and which way the lanes run
 
 Side 0 is on the left going from a road's first point to its last, side
 1 on the right: worked out from the axes (`across` points to side 0's
@@ -112,7 +105,7 @@ and every two-way road's lanes lie on the right of the way they're
 stored in, in both cities (a one-way road's spread across its middle). London's aimap says its traffic keeps left
 ([aimap.md](aimap.md)), so there the cars drive every lane the other way.
 
-## The ends' control and points
+### The ends' control and points
 
 An end has its two points exactly when lanes arrive at it (by the
 right-hand reading above): 1,478 of the 1,838 ends, every one of them;
@@ -137,7 +130,7 @@ cities), 0 as giving way (minor roads into T-junctions) and 3 as no
 control (the main road through a T-junction, ends nothing arrives at).
 That reading is a guess from where they fall.
 
-## Road flags and kinds
+### Road flags and kinds
 
 Worked out by comparing every road of both cities (919) with what's
 known of it (its lanes, tracks, sidewalks, the blocks it's in, the PSDL's
@@ -184,7 +177,7 @@ two lanes 2.5 and 7.5 out; a one-way road's lanes across the middle are
 irregular), then the half width. A side with no lanes has the second
 value unset and the half width third.
 
-## After the junctions: roads near each block
+### After the junctions: roads near each block
 
 A u32, the PSDL's stored block count (1,172 in San Francisco, 1,342 in
 London, block 0 included), then twice that many lists, each a u16 count
@@ -222,11 +215,28 @@ Worked out by reading the lists against the roads' sidewalk kinds and
 the junctions' road lists. A lookup of nearby roads for each block, for
 placing traffic and people; Reluva works out its own from the roads.
 
+## In Reluva
+
+Read by `src/engines/age/formats/bai.cpp` (`readBai`, into
+`AiRoadMap`). `game/city_life.cpp` loads it for a city, and
+`game/road_graph.cpp`, `game/traffic.cpp`, `game/pedestrians.cpp`,
+`game/traffic_lights.cpp` and `game/props.cpp` drive, walk and furnish
+its roads. `reluva-tool age check` reads both files.
+
 ## Sources and checks
 
-- **Where the facts come from:** None.
+Worked out from the two files alone, with a few lines of throwaway
+Python: guessing at a field's size, parsing every road with that guess,
+and checking that the next road's number came out one more than the last
+and that the coordinates landed in the city. Both files then parse to
+their last byte but a table at the end that isn't needed (379 roads and
+214 junctions in San Francisco, 540 and 328 in London). Much of the file
+is structures written straight from memory: unused room is filled with
+`cd` and `fd` bytes, which is what a debug build's allocator leaves.
+
+- **Where the facts come from:** the two files alone, as above.
 - **How it was checked:** both files parsed to their last byte; `reluva-tool age check`; `age.unit.city`.
 
 ## Open questions
 
-Nothing; the table after the junctions is below.
+Nothing; the table after the junctions is above.

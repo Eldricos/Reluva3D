@@ -2,22 +2,17 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/fsh.cpp` · **Checked on:** every picture bank · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/fsh.cpp`). It reads all 694
-banks (15,990 pictures) in the NFS III install and on its CD, including
-those inside `.viv` archives and compressed as `.qfs`
-([refpack.md](refpack.md)).
+## Overview
 
-Sources:
+Banks of pictures ("shapes"), each a chain of blocks: the picture,
+then what's attached to it, such as a palette. They're on their own,
+inside `.viv` archives, or compressed as `.qfs` ([refpack.md](refpack.md)).
 
-- the NFS modding community's FSH notes, for the overall layout;
-- the record types, block sizes, palettes and attached blocks, counted on
-  the retail files with survey scripts (October 2026);
-- the colours, checked by eye on decoded pictures: the title screen, car
-  art, cockpits and track textures.
+## Layout
 
 All values are little-endian.
 
-## Header and directory
+### Header and directory
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -27,7 +22,7 @@ All values are little-endian.
 | 12 | 4 | directory id: `GIMX` in every NFS III file |
 | 16 | 8 × n | per shape: 4-character name, u32 offset |
 
-## Blocks
+### Blocks
 
 A shape is a chain of blocks. Each block starts with:
 
@@ -193,7 +188,9 @@ Attached blocks after the picture:
 Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
 clear pixels, and 24 are entirely clear.
 
-## Track texture sets
+## Behaviour
+
+### Track texture sets
 
 Each track has two sets of each texture file:
 
@@ -212,12 +209,28 @@ A track's polygons name their pictures by place in the sheet, not by
 name, and the names skip or repeat on most sheets ([frd.md](frd.md),
 Textures).
 
-## Tools
+## In Reluva
 
-- `reluva-tool fsh-info <file> [name in .viv]` lists the shapes.
-- `reluva-tool fsh-dump ... <dir>` writes them as TGA files.
+Read by `parseShapeBank` and `decodeShape`
+(`src/engines/nfs/formats/fsh.cpp`). It reads all 694
+banks (15,990 pictures) in the NFS III install and on its CD, including
+those inside `.viv` archives and compressed as `.qfs`
+([refpack.md](refpack.md)).
+
+The data viewer's Textures and Cockpits pages show them.
+
+- `reluva-tool nfs fsh-info <file> [name in .viv]` lists the shapes.
+- `reluva-tool nfs fsh-dump ... <dir>` writes them as TGA files.
 
 ## Sources and checks
 
 - **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
 - **How it was checked:** the reader run on every picture bank to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+
+Where the layout came from:
+
+- the NFS modding community's FSH notes, for the overall layout;
+- the record types, block sizes, palettes and attached blocks, counted on
+  the retail files with survey scripts (October 2026);
+- the colours, checked by eye on decoded pictures: the title screen, car
+  art, cockpits and track textures.

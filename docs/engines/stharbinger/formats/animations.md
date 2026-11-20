@@ -31,6 +31,14 @@ and the low six bits are a count *n*:
 
 The last row may be followed by one more "new row" byte.
 
+## In Reluva
+
+`RleAnimation` (`src/engines/stharbinger/formats/graphics.h`) reads them; the
+action sequences' sprites go through `loadWithHeader`, which keeps their
+first 8 bytes. The data viewer shows each scene's animations, and
+`reluva-tool stharbinger extract <out folder> <game folder>` writes them out
+as `.png`.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

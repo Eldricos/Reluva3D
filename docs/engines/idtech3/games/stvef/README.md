@@ -6,6 +6,17 @@ Elite Force shares with every Quake III engine game, are in the engine's
 [formats/](../../formats/); where the engine stands with this game is on
 the [engine's page](../../README.md#where-it-stands).
 
+## Releases
+
+| Release | Recognised by | State |
+|---|---|---|
+| The English Windows CD (1.0), or an install of it | `baseEF/pak0.pk3`, by its hash (`detectionTable()`, `src/engines/idtech3/games.cpp`) | Playable |
+| Patched to 1.1 or 1.2 | `baseEF/pak1.pk3` (1.1) and `pak2.pk3` (1.2), by their hashes, shown in the game's description | Playable |
+| The Expansion Pack | `baseEF/pak3.pk3` and its own single player DLLs, by their hashes | Playable, with the game's *Use the Expansion Pack* setting |
+
+Other releases (the Mac's, other languages) are found by their files'
+names and shown as "unknown release".
+
 ## Where it stands
 
 How far Reluva has got with Elite Force, part by part. The

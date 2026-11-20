@@ -43,7 +43,7 @@ None yet.
   gameplay footage of chapter 4, and so in the code read again, which
   passes over a missing nest asked for (`0x431ee5`; Orient Express's
   `0x439ca0` too). Reluva stopped the thread there, leaving Narracott in
-  Blore's close-up and hidden; it plays on now.
+  Blore's close-up and hidden; it plays on.
   [systems/dialogue.md](systems/dialogue.md).
 - **The objects' fields** mean what Orient Express's do, each the code
   reads ([formats/ac1.md](formats/ac1.md)); the rest are the editor's or

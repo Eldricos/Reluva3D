@@ -427,6 +427,20 @@ plays at 64 (0x26784) and conversation speech at 75 (0x2B24A). Everything else
 countdown's tick) plays at the library default of 127. There is no master or
 user volume setting.
 
+## In Reluva
+
+`Game` (`src/engines/stharbinger/game/game.h`) runs the scripts:
+`game_script.cpp` the scene interpreter, `game_anim.cpp` the animations,
+`game_dialogue.cpp` the conversations, `game_video.cpp` the videos,
+`arcade.cpp` the action sequences, `game_menu.cpp` the game menu and
+`game_extras.cpp` the credits and the deck map. Where it differs from
+DEEP.EXE is in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
+- `reluva-tool stharbinger script <game folder> <out folder>` lists the
+  scene and dialogue scripts in the notation above.
+- `reluva-tool stharbinger conversations <game folder> [runs]` plays every
+  conversation through, picking replies at random.
+
 ## Sources and checks
 
 - **Where the facts come from:** DEEP.EXE's code, at the addresses given

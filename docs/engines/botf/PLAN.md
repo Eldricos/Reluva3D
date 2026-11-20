@@ -24,7 +24,7 @@ with recordings of the original filling what the data can't show.
 5. **The first screens** (done): the main menu, game setup and empire
    selection ([systems/screens.md](systems/screens.md)).
 6. **Models** (next): the `.hob` models with their `.gif` textures, on a
-   Models page with `src/graphics/gfx3d`.
+   Models page with `src/graphics/gfx3d.h`.
 7. **Movies:** the CD's AVI movies (Cinepak video), through the shared
    video code.
 8. **Saves:** the `.sav` format, worked out by comparing saves taken a

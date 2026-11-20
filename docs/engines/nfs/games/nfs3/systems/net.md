@@ -2,32 +2,17 @@
 
 > **Status:** done · **Code:** `src/engines/nfs/host/winsock.cpp`, `serial.cpp` · **Confidence:** from the code unless marked
 
+## Overview
+
 What two copies of `nfs3.exe` say to each other in multiplayer, over TCP
 and over IPX. Worked out in October 2026 from traffic between two copies
 in `reluva-tool nfs host` (`-netlog`, which writes each message sent and received)
 and from the game's own code, read in its disassembly. Integers are
 little-endian unless marked BE (big-endian).
 
-## Sources and checks
+## How it works
 
-- **Captures.** Two copies on one machine (`-net -netaddr 127.0.0.2` and
-  `127.0.0.3`): one hosts, the other joins, a chat line is typed, both
-  ready up and race Hometown for about a minute. Once over TCP, once over
-  IPX (carried over UDP, [nfs.md](../PLAN.md)). Later runs over
-  TCP paused, continued, restarted and quit from the pause menu, held
-  each control key in turn, and had a copy without the other's car; runs
-  over serial and modem links lost packets on purpose (`-netdrop`).
-- **Code.** The Winsock calls go through thunks (send `0x533e26`, recv
-  `0x533e2c`, sendto `0x533e32`, recvfrom `0x533e5c`). From their callers
-  to EA's network library (its source names: `cmn\connect.c`,
-  `cmn\layer.c`, `cmn\netgathr.c`, `win\tcp.c`, `win\ipx.c`), and from
-  that to the game's dispatcher.
-- **Checks.** The IPX checksum was recomputed over all 9,869 captured
-  data packets, every one matching. The dispatcher's table was read from
-  the file. Field meanings marked *unknown* below are copied whole by the
-  game into structures whose use wasn't followed.
-
-## Layers
+### Layers
 
 | Layer | What it is |
 |---|---|
@@ -43,7 +28,7 @@ it. A length over the connection's limit is fatal; the receive buffer is
 **Topology.** A star: the host relays player records (03) and chat (0a)
 and sends the combined race frames (06), in both captures.
 
-## Messages
+### Messages
 
 The dispatcher (`0x4a6440`) calls the handler for types below 0x13 from
 the table at `0x55ecbc`, given the connection, the message and its
@@ -490,7 +475,7 @@ bytes: the race's variables, then 16 cars of 0x6C bytes at `0x6fd52c` +
 car × 0x6C (the record a race car points to at +0x220, `0x42c780`; the
 host keeps a copy of all 16, `0x4c5ee9`), then the starting order (8
 u32 at +0x850, `0x6fdbec`). The table of cars below counts from
-`0x6fd53c`, 0x10 into each record, as it was first read; add 0x10 for
+`0x6fd53c`, 0x10 into each record; add 0x10 for
 the record's own offsets. The header's
 words are the variables at `0x6fd39c` + offset: +0x18 the seed
 (`0x6fd3b4`), +0x14 the kind of play (`0x6fd3b0`, 4), +0x118 the laps,
@@ -736,7 +721,7 @@ the one after cleared it. Poked in time (`0x474ca0`) the player's cop
 starts in state 3 by itself, and chases once its siren (H) is on and a
 racer near is speeding ([physics.md](physics.md)).
 
-## IPX
+### IPX
 
 IPX datagrams start with a BE tag, `0xEA` and three letters, and carry at
 most 280 bytes after it (`0x4f60b0`); the socket (`socket(6, 2, 1000)` at
@@ -995,7 +980,7 @@ dropped and fails, and `0x4a60e0` tries again after sleeping 10 + 50 × i
 ms. With every 50th send failing, the same message went 10-16 ms later
 (9 of 9). How far ahead a TCP copy gets is the lockstep's: 0-4 frames.
 
-## Serial
+### Serial
 
 Over a serial link (a null-modem cable, stood in for as TCP) the game
 first looks for a modem: `+++`, then `ATE1` and CR, `AT` and CR. With
@@ -1022,7 +1007,36 @@ comparison is skipped: the host is chosen before the call (`0x7a22da`,
 `0x4c4039`). In both modem captures copy A hosted, though in m7 its count
 was the lower.
 
-## What isn't known
+## In Reluva
+
+The game's own code sends and reads these messages; Reluva gives it the
+network underneath. `src/engines/nfs/host/winsock.cpp` is the game's
+Winsock on the machine's network, IPX carried over UDP;
+`src/engines/nfs/host/serial.cpp` its COM ports and modem, each a link
+over TCP (`serial=`, `modem=`; nfs host `-serial`, `-modem`).
+`positionalupdates=on` chooses the positional updates' mode (above).
+These are listed in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
+## Sources and checks
+
+- **Captures.** Two copies on one machine (`-net -netaddr 127.0.0.2` and
+  `127.0.0.3`): one hosts, the other joins, a chat line is typed, both
+  ready up and race Hometown for about a minute. Once over TCP, once over
+  IPX (carried over UDP, [nfs.md](../PLAN.md)). Later runs over
+  TCP paused, continued, restarted and quit from the pause menu, held
+  each control key in turn, and had a copy without the other's car; runs
+  over serial and modem links lost packets on purpose (`-netdrop`).
+- **Code.** The Winsock calls go through thunks (send `0x533e26`, recv
+  `0x533e2c`, sendto `0x533e32`, recvfrom `0x533e5c`). From their callers
+  to EA's network library (its source names: `cmn\connect.c`,
+  `cmn\layer.c`, `cmn\netgathr.c`, `win\tcp.c`, `win\ipx.c`), and from
+  that to the game's dispatcher.
+- **Checks.** The IPX checksum was recomputed over all 9,869 captured
+  data packets, every one matching. The dispatcher's table was read from
+  the file. Field meanings marked *unknown* below are copied whole by the
+  game into structures whose use wasn't followed.
+
+## Open questions
 
 - Whether the header's +0x150 is read through a pointer; why the
   players' driver numbers were 0 and 6. (Answered above: the records'

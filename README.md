@@ -334,7 +334,11 @@ third_party/         outside code built in, each with its licence (minimp3, stb_
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 
-Each folder under `src/` that is a library has its own `CMakeLists.txt`.
+Each folder under `src/` that is a library has its own `CMakeLists.txt`
+and links only the libraries it uses: `reluva_common`, then
+`reluva_audio`, `reluva_graphics`, `reluva_image`, `reluva_video` and
+`reluva_emulation`. Engines link `reluva_shared`, which is all of those,
+and nothing else under `src/`.
 
 Engines use only the shared code (`common/`, `audio/`, `video/`,
 `graphics/`, `image/`, `emulation/`) and `src/engines/engine.h`. They

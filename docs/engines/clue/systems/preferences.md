@@ -28,6 +28,12 @@ executable has no `IBasicAudio`), so it plays at the system's volume.
 Reluva does the same: the videos (the intro, the deal, the suggestions,
 the prison) at full whatever the sliders.
 
+## In Reluva
+
+`Preferences` in `src/engines/clue/ui/frontend.h` holds them, and reads the
+original's `Prefs.ini` the first time. Keeping them in Reluva's own
+`preferences.ini` is listed in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 Over all of these, Reluva's launcher has its own **Master volume** (0% to
 200%, a setting every engine has): it scales everything the game plays,
 the music and the videos included. The original has nothing like it; at

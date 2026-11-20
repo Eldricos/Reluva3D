@@ -68,9 +68,9 @@ limit, counts it and jumps to its code. It reads the table's slot from
 an index of its own (`Jit::setEntry`: start, epoch, code, count; 16
 bytes a slot, 512 KB), which `runCached` keeps as each slot is checked,
 built or made, and `Jit::reset` empties: the 512-byte blocks themselves
-are a 16 MB table the processor's caches don't hold, and its first read
-had been half the dispatch's time, a tenth of the game's thread, in a
-profile on Visual Studio's build. A native at eip is called from the
+are a 16 MB table the processor's caches don't hold, and reading it
+first takes half the dispatch's time, a tenth of the game's thread, in
+a profile on Visual Studio's build. A native at eip is called from the
 dispatch too (`Cpu::jitCallNative`, as `step` calls it), which goes on
 after it unless the native asked the thread to yield; the run that
 native may call back into can make the buffer afresh, as the only made
@@ -90,9 +90,9 @@ block's code depends on nothing in the table, which another block may
 take the place of: it has its own copy of its decoded instructions,
 which the handlers it calls are given and the count's record
 (`Cpu::_counting`, for `uncountBlock`) points at, in a header before
-the code. A profile on Visual Studio's build had the index's lookup a
-fourteenth of the game's thread; the links took 9% off the attract
-sequence's thread here. A block's code is made on its second run: many
+the code. Without the links, the index's lookup is a fourteenth of the
+game's thread in a profile on Visual Studio's build; the links take 9%
+off the attract sequence's thread. A block's code is made on its second run: many
 blocks run once before another address takes their place in the table.
 The table is two-way: a block is in either slot of a pair, found by
 Fibonacci hashing (`Cpu::slotOf`), the one used less lately replaced.
@@ -102,8 +102,8 @@ million times in 1500 frames, whatever the hash.
 A block with code that another takes the place of is kept aside by its
 address (`Cpu::_spare`, up to 32768, then all forgotten) and put back,
 decoded and made, when its address comes round with the same bytes
-(`Cpu::rebuild`): making blocks again had been a fifteenth of the
-game's thread in a profile.
+(`Cpu::rebuild`): without it, making blocks again is a fifteenth of
+the game's thread in a profile.
 
 ## Sources and checks
 
@@ -119,7 +119,7 @@ made, 26% less than the loop with the ALU, the jumps and the
 dispatch too, and 35% less (35 s from 54 s) with the blocks kept aside
 and the x87 unit made, with the same instructions and frames at both
 resolutions. Calling every instruction's handler from
-native code, without making any, had been 5% slower than the loop: the
+native code, without making any, is 5% slower than the loop: the
 code is several times the size of the loop's, and the calls' gain was
 less than the instruction cache's misses. Next: shifts, the x87
 compares, and jumping straight to a block known in advance (a relative
