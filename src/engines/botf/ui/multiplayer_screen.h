@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/botf/ui/layout_screen.h"
 
+#include <array>
 #include <string>
 
 // The Multiplayer Setup screen (mpsetup.wdf), opened by the main menu's New
@@ -25,8 +26,13 @@ public:
     enum class Result { kOpen, kCancelled };
     enum class Role { kNone, kHost, kJoin };
     enum class Connection { kNone, kNetwork, kModem, kSerial };
-    /** The fields that take typing, in the order Tab goes through them. */
-    enum class Field { kNone, kGameName, kPlayerName, kPassword, kHostAddress };
+    /**
+     * The fields that take typing: the three under Cancel, in the order
+     * Tab goes through them, the network's host address, and the modem's
+     * address book's rows.
+     */
+    enum class Field { kNone, kGameName, kPlayerName, kPassword, kHostAddress, kAddress };
+    static constexpr int kAddressRows = 7;
 
     MultiplayerScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
     Error load(); // the layout, its panels and the main menu
@@ -42,8 +48,10 @@ public:
     Role role() const { return _role; }
     Connection connection() const { return _connection; }
     Field field() const { return _field; }
-    /** A field's text, UTF-8. */
-    const std::string &text(Field field) const;
+    /** The address book's row typed in (with Field::kAddress). */
+    int addressRow() const { return _addressRow; }
+    /** A field's text, UTF-8; for kAddress, `row`'s. */
+    const std::string &text(Field field, int row = 0) const;
     /** Whether the flashing cursor is shown just now. */
     void setCursorShown(bool shown) { _cursorShown = shown; }
 
@@ -59,6 +67,8 @@ private:
     std::string _playerName;
     std::string _password;
     std::string _hostAddress;
+    std::array<std::string, kAddressRows> _addresses;
+    int _addressRow = 0;
     int _connectPanel = -1; // mpconn.wdf
     int _networkPanel = -1;
     int _modemPanel = -1;

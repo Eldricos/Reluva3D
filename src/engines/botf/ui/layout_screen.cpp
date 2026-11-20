@@ -30,13 +30,32 @@ Error loadLayout(Assets &assets, const char *name, WindowLayout &layout) {
 constexpr int kDisabledBrightness = 35;
 constexpr int kBehindPanelBrightness = kDisabledBrightness * 80 / 100;
 
+// A rectangle: x, y, width, height.
+struct Box {
+    int x;
+    int y;
+    int w;
+    int h;
+};
+
+// A picture at (x, y), cut to the widget's `w` by `h` and to `clip`.
+void blitWithin(Surface &screen, const image::Image &img, int x, int y, int w, int h, const Box &clip) {
+    const int x0 = std::max(x, clip.x);
+    const int y0 = std::max(y, clip.y);
+    const int x1 = std::min(x + w, clip.x + clip.w);
+    const int y1 = std::min(y + h, clip.y + clip.h);
+    if (x1 > x0 && y1 > y0)
+        blitClipped(screen, img, x, y, x0, y0, x1 - x0, y1 - y0);
+}
+
 // A button's "normal" picture, or its "selected" one, at `brightness`
 // percent.
-void drawButton(Assets &assets, Surface &screen, const Widget &w, int x, int y, bool selected, int brightness) {
+void drawButton(Assets &assets, Surface &screen, const Widget &w, int x, int y, bool selected, int brightness,
+                const Box &clip) {
     for (const auto &[role, name] : w.pictures)
         if (role == (selected ? "selected" : "normal"))
             if (const image::Image *img = brightness < 100 ? assets.dimmed(name, brightness) : assets.picture(name))
-                blitClipped(screen, *img, x, y, x, y, w.w, w.h);
+                blitWithin(screen, *img, x, y, w.w, w.h, clip);
 }
 
 } // namespace
@@ -74,6 +93,8 @@ Error LayoutScreen::addPanel(const char *file, int32_t place, std::initializer_l
         return err;
     p->x = at->x;
     p->y = at->y;
+    p->w = at->widget->w;
+    p->h = at->widget->h;
     panel = int(_panels.size());
     // Not its window, whose id (0) others share: drawn as the panel's.
     for (const WindowLayout::Placed &w : p->layout.placed())
@@ -114,7 +135,9 @@ void LayoutScreen::trackPointer(const Event &event) {
 }
 
 void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selected) const {
-    auto draw = [&](const WindowLayout &layout, int dx, int dy, bool menu) {
+    // A panel is cut to its place: mpconn.wdf is 3 pixels taller than
+    // Multiplayer Setup's place for it, and the game leaves them out.
+    auto draw = [&](const WindowLayout &layout, int dx, int dy, bool menu, const Box &clip) {
         for (const WindowLayout::Placed &lp : layout.placed()) {
             const Widget &w = *lp.widget;
             const int x = dx + lp.x;
@@ -122,24 +145,25 @@ void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selecte
             if (!menu && _hidden.count(w.id))
                 continue;
             if (const image::Image *img = w.background.empty() ? nullptr : _assets.picture(w.background))
-                blitClipped(screen, *img, x, y, x, y, w.w, w.h);
+                blitWithin(screen, *img, x, y, w.w, w.h, clip);
             if (w.type != WidgetType::kButton)
                 continue;
             if (menu) {
-                drawButton(_assets, screen, w, x, y, false, kBehindPanelBrightness);
+                drawButton(_assets, screen, w, x, y, false, kBehindPanelBrightness, clip);
                 continue;
             }
             const bool disabled = _disabled.count(w.id) > 0;
             const bool lit =
                 !disabled && (w.id == _pressed || selected.count(w.id) || (_highlightPointed && w.id == _pointed));
-            drawButton(_assets, screen, w, x, y, lit, disabled ? kDisabledBrightness : 100);
+            drawButton(_assets, screen, w, x, y, lit, disabled ? kDisabledBrightness : 100, clip);
         }
     };
-    draw(_menu, 0, 0, true);
-    draw(_layout, 0, 0, false);
+    const Box all{0, 0, screen.w, screen.h};
+    draw(_menu, 0, 0, true, all);
+    draw(_layout, 0, 0, false, all);
     for (const auto &panel : _panels)
         if (panel->shown)
-            draw(panel->layout, panel->x, panel->y, false);
+            draw(panel->layout, panel->x, panel->y, false, {panel->x, panel->y, panel->w, panel->h});
 }
 
 void LayoutScreen::typeInto(std::string &text, int32_t textBox, const char *utf8, size_t maxCharacters) const {

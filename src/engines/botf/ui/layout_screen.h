@@ -92,8 +92,10 @@ protected:
     /** A panel: its layout, where it's drawn, and whether it's shown. */
     struct Panel {
         WindowLayout layout;
-        int x = 0;
+        int x = 0; // its place: where it's drawn, and what it's cut to
         int y = 0;
+        int w = 0;
+        int h = 0;
         bool shown = false;
     };
     std::vector<std::unique_ptr<Panel>> _panels; // owned apart, as _widgets points into them

@@ -15,7 +15,7 @@ files):
 | `botf.unit.fonts` | The `.fnt` fonts' glyphs found by their frames, drawing and wrapping text |
 | `botf.unit.tables` | The `.tdb` text tables, the data tables' layouts (and that every built-in layout fits its records), `lexicon.dic` |
 | `botf.unit.layouts` | The `.wdf` layouts (nested windows, each widget type, cut-short files), the `.mnu` menus, the colour key, dimmed pictures |
-| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options and setup read from `Stbof.ini`; the options screen's settings and volumes (clicked and dragged); the Hall of Fame's rows and Return; Multiplayer Setup's panels, fields, Tab and the password's limit; Load Game's slots (an empty one, choosing, Accept), and Save Game's (an empty one chosen, its description typed and erased, up to its field's width, the cursor's place and flashing); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
+| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options and setup read from `Stbof.ini`; the options screen's settings and volumes (clicked and dragged); the Hall of Fame's rows and Return; Multiplayer Setup's panels, fields, the address book, Tab and the password's limit; Load Game's slots (an empty one, choosing, Accept), and Save Game's (an empty one chosen, its description typed and erased, up to its field's width, the cursor's place and flashing); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
 
 IMA ADPCM without a WAV header, which the `.snd` archives need, is
 checked with the shared audio code, in `common.unit.audio`.

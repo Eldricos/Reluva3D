@@ -241,15 +241,25 @@ pixel for pixel but the pointer.
   for the manual's "status connection messages", 211), `mpcmod.wdf` (an
   address book of seven numbers, Connect 491) or `mpcser.wdf` (the baud
   rate, 14,400 to 115,200, 442-446; the port, COM1-COM4, 447-450; Connect
-  451). Both places are empty in the screenshot. Reluva shows the types
-  once Host or Join is chosen, and a type's settings once it's chosen, the
-  choices lit as kind 2 buttons are *(guessed)*; drawn so, each panel
-  fits the screen's frame around its place.
+  451). Both places are empty as the screen opens. Choosing Host or Join
+  (the same for both) shows the types, and choosing a type its settings,
+  the choices lit as kind 2 buttons are; the network starts on TCP/IP.
+  A panel is cut to its place: `mpconn.wdf` is 134 pixels high, its place
+  131, and the game leaves out the 3 rows past it. Screenshots of each
+  panel, and of Join with Serial, 14.4 and COM 1, match Reluva's pixel for
+  pixel but the pointer and a few orange specks the game leaves at the
+  bottom of the screen (40 pixels, in each).
 - **Typing:** a field takes typing once clicked, or with Tab, which goes
-  round the three; the host's address once its button is clicked. Reluva
-  types nowhere until then, shows the text in Load Game's teal with Save
-  Game's cursor, and the password as typed *(guessed)*; names only as
+  round the three; the host's address once its button is clicked, and an
+  address book row once it's clicked. The field typed in shows its
+  picture's lit version (`m_plynm1.tga` for `m_plynm0.tga` ...; the host's
+  address its button's second picture, an address row nothing) and its
+  text in orange (255, 150, 16) with Save Game's cursor; the others' text
+  is blue (24, 101, 189). The password shows an X for each character.
+  Reluva types nowhere until a field is clicked *(guessed)*; names only as
   long as their field's width.
+- **Serial:** in one screenshot nothing is chosen, in another 14.4 and
+  COM 1; Reluva starts with nothing *(guessed)*.
 - **Connect** does nothing: Reluva can't play over a network, modem or
   serial cable ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
   Cancel goes back to the main menu.
@@ -418,9 +428,8 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Multiplayer Setup's panels and fields as the game shows them: when each
-  panel appears, the choices made at first, the text's colour, and the
-  password's. Settled by screenshots after Host, Network and some typing.
+- Multiplayer Setup: whether the serial panel starts with a baud rate and
+  a port chosen, and a field typed in before one's clicked.
 - Save Game: an empty slot's description when chosen, and how fast the
   cursor flashes. Settled by choosing an empty slot, and a recording.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that

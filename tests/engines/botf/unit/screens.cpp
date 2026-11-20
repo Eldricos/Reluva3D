@@ -558,7 +558,8 @@ void testMultiplayerScreen() {
                                                {2, 207, 35, 94, 261, 36},
                                                {2, 210, 135, 288, 158, 36},
                                                {14, 714, 40, 113, 252, 17}});
-    archive.files["mpcmod.wdf"] = smallLayout(303, 408, {{2, 491, 135, 288, 158, 36}});
+    archive.files["mpcmod.wdf"] =
+        smallLayout(303, 408, {{2, 491, 135, 288, 158, 36}, {2, 486, 34, 98, 262, 25}, {14, 492, 39, 102, 253, 17}});
     archive.files["mpcser.wdf"] = smallLayout(303, 408, {{2, 451, 135, 288, 158, 36}, {2, 442, 36, 147, 80, 19}});
     Assets assets(archive);
     Lexicon lexicon;
@@ -599,6 +600,11 @@ void testMultiplayerScreen() {
     CHECK(screen.connection() == MultiplayerScreen::Connection::kNetwork);
     mouse(200, 250);
     CHECK(screen.connection() == MultiplayerScreen::Connection::kModem);
+    // The modem's address book: its first row typed in once clicked.
+    mouse(400, 300);
+    typed("555-1234");
+    CHECK(screen.field() == MultiplayerScreen::Field::kAddress && screen.addressRow() == 0 &&
+          screen.text(MultiplayerScreen::Field::kAddress, 0) == "555-1234");
     // Typing goes nowhere until a field is clicked; Tab goes round them.
     typed("x");
     CHECK(screen.text(MultiplayerScreen::Field::kGameName).empty());

@@ -3,6 +3,9 @@
 
 #include "engines/botf/ui/multiplayer_screen.h"
 
+#include "common/text.h"
+
+#include <algorithm>
 #include <set>
 
 namespace reluva::botf {
@@ -15,6 +18,8 @@ constexpr int32_t kHost = 108;
 constexpr int32_t kJoin = 109;
 constexpr int32_t kCancel = 114;
 constexpr int32_t kGameNameField = 702; // pictures, clicked to type in
+// The field typed in shows its picture's lit version (m_gmnm1.tga for
+// the layout's m_gmnm0.tga ...), in a screenshot of the player's name.
 constexpr int32_t kPlayerNameField = 703;
 constexpr int32_t kPasswordField = 701;
 constexpr int32_t kGameNameText = 112;
@@ -35,9 +40,13 @@ constexpr int32_t kIpx = 203;
 constexpr int32_t kHostAddressField = 207; // a button, clicked to type in
 constexpr int32_t kHostAddressText = 714;
 constexpr int32_t kNetworkConnect = 210;
-// mpcmod.wdf and mpcser.wdf's Connect, and the serial panel's baud rates
-// (14,400 to 115,200) and ports (COM1-COM4).
+// mpcmod.wdf: Connect, and the address book's rows, buttons typed in once
+// clicked, each with its text box, top down.
 constexpr int32_t kModemConnect = 491;
+constexpr std::array<int32_t, MultiplayerScreen::kAddressRows> kAddressRowButtons = {486, 487, 488, 489, 490, 499, 195};
+constexpr std::array<int32_t, MultiplayerScreen::kAddressRows> kAddressRowTexts = {492, 493, 494, 495, 496, 497, 498};
+// mpcser.wdf's Connect, and the serial panel's baud rates (14,400 to
+// 115,200) and ports (COM1-COM4).
 constexpr int32_t kSerialConnect = 451;
 const std::set<int32_t> kBauds = {442, 443, 444, 445, 446};
 const std::set<int32_t> kPorts = {447, 448, 449, 450};
@@ -47,9 +56,10 @@ const std::set<int32_t> kPorts = {447, 448, 449, 450};
 constexpr size_t kMaxPassword = 13;
 constexpr size_t kMaxName = 64;
 
-// The fields' text: Load Game's colour, taken for the same game's fields
-// (not seen with text yet).
-constexpr Color kTextColor{0, 166, 156};
+// The fields' text, and the one being typed in's, measured from a
+// screenshot; the password shows an X for each character typed.
+constexpr Color kTextColor{24, 101, 189};
+constexpr Color kTypingColor{255, 150, 16};
 
 } // namespace
 
@@ -76,7 +86,7 @@ void MultiplayerScreen::open() {
         showPanel(panel, false);
 }
 
-const std::string &MultiplayerScreen::text(Field field) const {
+const std::string &MultiplayerScreen::text(Field field, int row) const {
     static const std::string kEmpty;
     switch (field) {
     case Field::kGameName:
@@ -87,6 +97,8 @@ const std::string &MultiplayerScreen::text(Field field) const {
         return _password;
     case Field::kHostAddress:
         return _hostAddress;
+    case Field::kAddress:
+        return row >= 0 && row < kAddressRows ? _addresses[size_t(row)] : kEmpty;
     default:
         return kEmpty;
     }
@@ -102,6 +114,8 @@ std::string *MultiplayerScreen::edited() {
         return &_password;
     case Field::kHostAddress:
         return &_hostAddress;
+    case Field::kAddress:
+        return &_addresses[size_t(_addressRow)];
     default:
         return nullptr;
     }
@@ -118,12 +132,16 @@ void MultiplayerScreen::click(int32_t id) {
         showPanel(_networkPanel, id == kNetwork);
         showPanel(_modemPanel, id == kModem);
         showPanel(_serialPanel, id == kSerial);
-        if (_field == Field::kHostAddress && id != kNetwork)
+        if ((_field == Field::kHostAddress && id != kNetwork) || (_field == Field::kAddress && id != kModem))
             _field = Field::kNone;
     } else if (id == kTcpIp || id == kIpx) {
         _ipx = id == kIpx;
     } else if (id == kHostAddressField) {
         _field = Field::kHostAddress;
+    } else if (const auto *row = std::find(kAddressRowButtons.begin(), kAddressRowButtons.end(), id);
+               row != kAddressRowButtons.end()) {
+        _field = Field::kAddress;
+        _addressRow = int(row - kAddressRowButtons.begin());
     } else if (kBauds.count(id)) {
         _baud = id;
     } else if (kPorts.count(id)) {
@@ -147,6 +165,7 @@ MultiplayerScreen::Result MultiplayerScreen::handle(const Event &e) {
         const int32_t box = _field == Field::kGameName     ? kGameNameText
                             : _field == Field::kPlayerName ? kPlayerNameText
                             : _field == Field::kPassword   ? kPasswordText
+                            : _field == Field::kAddress    ? kAddressRowTexts[size_t(_addressRow)]
                                                            : kHostAddressText;
         if (e.type == EventType::kTextInput) {
             typeInto(*t, box, e.text, _field == Field::kPassword ? kMaxPassword : kMaxName);
@@ -191,7 +210,9 @@ void MultiplayerScreen::draw(Surface &screen) const {
                                                        : kSerial);
     if (_connection == Connection::kNetwork)
         lit.insert(_ipx ? kIpx : kTcpIp);
-    if (_connection == Connection::kNetwork && _field == Field::kHostAddress)
+    // The host's address shows its button's second picture while it's
+    // typed in; the address book's rows don't change (screenshots).
+    if (_field == Field::kHostAddress)
         lit.insert(kHostAddressField);
     if (_connection == Connection::kSerial) {
         if (_baud)
@@ -200,17 +221,34 @@ void MultiplayerScreen::draw(Surface &screen) const {
             lit.insert(_port);
     }
     drawLayouts(screen, lit);
-    const std::pair<int32_t, Field> boxes[] = {{kGameNameText, Field::kGameName},
-                                               {kPlayerNameText, Field::kPlayerName},
-                                               {kPasswordText, Field::kPassword},
-                                               {kHostAddressText, Field::kHostAddress}};
-    for (const auto &[box, field] : boxes) {
-        if (field == Field::kHostAddress && !panelShown(_networkPanel))
-            continue;
-        drawText(screen, box, text(field), kTextColor);
-        if (field == _field && _cursorShown)
-            drawCursor(screen, box, text(field));
-    }
+    const std::pair<Field, std::pair<int32_t, const char *>> litFields[] = {
+        {Field::kGameName, {kGameNameField, "m_gmnm1.tga"}},
+        {Field::kPlayerName, {kPlayerNameField, "m_plynm1.tga"}},
+        {Field::kPassword, {kPasswordField, "m_pswrd1.tga"}}};
+    for (const auto &[f, picture] : litFields)
+        if (f == _field)
+            drawPicture(screen, picture.first, picture.second);
+    auto field = [&](int32_t box, Field f, int row, bool masked) {
+        const bool typing = f == _field && (f != Field::kAddress || row == _addressRow);
+        std::string shown = text(f, row);
+        if (masked) {
+            size_t characters = 0;
+            for (size_t i = 0; i < shown.size(); ++characters)
+                text::nextUtf8(shown, i);
+            shown.assign(characters, 'X');
+        }
+        drawText(screen, box, shown, typing ? kTypingColor : kTextColor);
+        if (typing && _cursorShown)
+            drawCursor(screen, box, shown);
+    };
+    field(kGameNameText, Field::kGameName, 0, false);
+    field(kPlayerNameText, Field::kPlayerName, 0, false);
+    field(kPasswordText, Field::kPassword, 0, true);
+    if (panelShown(_networkPanel))
+        field(kHostAddressText, Field::kHostAddress, 0, false);
+    if (panelShown(_modemPanel))
+        for (int row = 0; row < kAddressRows; ++row)
+            field(kAddressRowTexts[size_t(row)], Field::kAddress, row, false);
 }
 
 } // namespace reluva::botf
