@@ -260,7 +260,8 @@ behind the DLL's own tables.
    `jk2-sp-menus`). Then the rest: the saved games' list (load, save,
    delete, resume), key binding, edit fields, the datapad's pages (the
    client game's, through the owner draws), the logo's model, the video
-   settings' scripts. Left: fading and the items' timed appearance.
+   settings' scripts. Then fading, moving, the items' appearance slots,
+   the focused item's pulsing colour and `update`'s presets: done.
 9. **Single player complete**: saved games (Raven's chunks, shared with
    Elite Force in `raven/savegame`), dynamic music (`ext_data/dms.dat`),
    speech with lip sync, all 26 levels played through; a game-files step

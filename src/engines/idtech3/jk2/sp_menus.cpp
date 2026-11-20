@@ -212,6 +212,12 @@ void SpMenus::readAssets(const MenuEntries &entries) {
             _cursorShader = _shaders.add(e.args[0]);
         else if (key == "itemfocussound")
             _focusSound = e.args[0];
+        else if (key == "fadeclamp")
+            _fadeClamp = number(e.args, 0);
+        else if (key == "fadecycle")
+            _fadeCycle = int32_t(number(e.args, 0));
+        else if (key == "fadeamount")
+            _fadeAmount = number(e.args, 0);
     }
 }
 
@@ -321,6 +327,8 @@ SpMenus::Item SpMenus::readItem(const MenuItemDef &def) {
                     {number(e.args, 1 + c * 3), number(e.args, 2 + c * 3), int32_t(number(e.args, 3 + c * 3))});
         } else if (key == "doubleclick") {
             item.doubleClick = e.block;
+        } else if (key == "appearance_slot") {
+            item.appearanceSlot = int32_t(number(e.args, 0));
         } else if (key == "asset_model" && !e.args.empty()) {
             // Framed by its first frame's bounds, as the renderer gives
             // them (0x4a1574).
@@ -337,7 +345,12 @@ SpMenus::Item SpMenus::readItem(const MenuItemDef &def) {
 }
 
 void SpMenus::readMenu(const MenuDef &def) {
+    // A new menu fades as the assets say until it says otherwise
+    // (0x49fa6e).
     Menu m;
+    m.fadeClamp = _fadeClamp;
+    m.fadeCycle = _fadeCycle;
+    m.fadeAmount = _fadeAmount;
     readWindow(def, m);
     for (const MenuEntry &e : def.entries) {
         const std::string key = lower(e.key);
@@ -363,6 +376,14 @@ void SpMenus::readMenu(const MenuDef &def) {
             m.onClose = e.block;
         else if (key == "onesc")
             m.onEsc = e.block;
+        else if (key == "fadeclamp")
+            m.fadeClamp = number(e.args, 0);
+        else if (key == "fadecycle")
+            m.fadeCycle = int32_t(number(e.args, 0));
+        else if (key == "fadeamount")
+            m.fadeAmount = number(e.args, 0);
+        else if (key == "appearanceincrement")
+            m.appearanceIncrement = number(e.args, 0);
     }
     // Every menu starts closed, whatever its "visible" says: they're opened
     // by name.
@@ -421,9 +442,12 @@ void SpMenus::open(std::string_view name) {
             _menus[i].focus = false;
             _openStack.push_back(i);
         }
+    // Its items' appearances start again from none (0x49f849).
     target->visible = true;
     target->focus = true;
     runScript(*target, target->onOpen);
+    target->appearanceTime = 0;
+    target->appearanceCount = 0;
 }
 
 void SpMenus::close(Menu &m) {
@@ -478,9 +502,12 @@ void SpMenus::runScript(Menu &menu, const Tokens &script) {
                     i->focus = i->mouseOver = false;
             }
         } else if (cmd == "fadein" || cmd == "fadeout") {
-            // Shown or hidden at once: Reluva doesn't fade them.
-            for (Item *i : items(arg()))
-                i->visible = cmd == "fadein";
+            // Shown, and fading from its alpha as it is (0x49d550).
+            for (Item *i : items(arg())) {
+                i->visible = true;
+                i->fadingOut = cmd == "fadeout";
+                i->fadingIn = !i->fadingOut;
+            }
         } else if (cmd == "open") {
             open(arg());
         } else if (cmd == "close") {
@@ -565,14 +592,103 @@ void SpMenus::runScript(Menu &menu, const Tokens &script) {
                 runScript(*_deferredMenu, deferred);
             }
         } else if (cmd == "orbit") {
-            at = std::min(at + 6, script.size());
+            // "orbit <item> <x> <y> <cx> <cy> <ms>": shown, placed at x,
+            // y, and turning round cx, cy (0x49d9e0).
+            const std::string name = arg();
+            std::array<float, 4> v{};
+            for (float &f : v)
+                f = std::strtof(arg().c_str(), nullptr);
+            const auto time = int32_t(std::atoi(arg().c_str()));
+            for (Item *i : items(name)) {
+                i->visible = i->orbiting = true;
+                i->offsetTime = time;
+                i->orbitCenter = {v[2], v[3]};
+                i->rect[0] = v[0];
+                i->rect[1] = v[1];
+            }
         } else if (cmd == "transition") {
-            at = std::min(at + 11, script.size());
+            // "transition <item> <from x y w h> <to x y w h> <ms> <steps>":
+            // shown at the first rectangle and moving to the second, each
+            // side by its whole distance over the steps (0x49d880).
+            const std::string name = arg();
+            Rect from{};
+            Rect to{};
+            for (float &f : from)
+                f = std::strtof(arg().c_str(), nullptr);
+            for (float &f : to)
+                f = std::strtof(arg().c_str(), nullptr);
+            const auto time = int32_t(std::atoi(arg().c_str()));
+            const float steps = std::strtof(arg().c_str(), nullptr);
+            for (Item *i : items(name)) {
+                i->visible = i->inTransition = true;
+                i->rect = from;
+                i->target = to;
+                i->offsetTime = time;
+                for (size_t k = 0; k < 4; ++k)
+                    i->step[k] = float(std::abs(int32_t(to[k] - from[k]))) * (1 / steps);
+            }
         } else if (cmd == "opengotomenu") {
             // Nothing to open: no "goto" menu is kept.
         } else if (!runUiScript(menu, script, at)) {
             return;
         }
+    }
+}
+
+void SpMenus::updateSetting(const std::string &name) {
+    // A setting's knock-on changes, as jk2sp.exe's "update" (0x49b140):
+    // the value read as a whole number decides them.
+    const auto value = int32_t(_cvars.value(name));
+    auto set = [&](const char *cvar, const char *v) { _cvars.set(cvar, v); };
+    if (same(name, "s_khz")) {
+        _commands.emplace_back("snd_restart");
+    } else if (same(name, "ui_SetName")) {
+        set("name", _cvars.string("ui_Name").c_str());
+    } else if (same(name, "ui_setRate")) {
+        const float rate = _cvars.value("rate");
+        set("cl_maxpackets", rate >= 5000 ? "30" : "15");
+        set("cl_packetdup", rate >= 5000 || rate < 4000 ? "1" : "2");
+    } else if (same(name, "ui_GetName")) {
+        set("ui_Name", _cvars.string("name").c_str());
+    } else if (same(name, "ui_r_colorbits")) {
+        // The depth buffer's bits to go with the colour's.
+        if (value == 0 || value == 16)
+            set("ui_r_depthbits", value == 0 ? "0" : "16");
+        else if (value == 32)
+            set("ui_r_depthbits", "24");
+    } else if (same(name, "ui_r_lodbias")) {
+        // The curves' subdivisions to go with the detail.
+        if (value >= 0 && value <= 2)
+            set("ui_r_subdivisions", value == 0 ? "4" : value == 1 ? "12" : "20");
+    } else if (same(name, "ui_r_glCustom")) {
+        // The quality presets, high to fastest (the table at 0x49b5dc).
+        struct Preset {
+            const char *subdivisions, *lodbias, *colorbits, *depthbits, *picmip, *mode, *texturebits, *fastSky,
+                *inGameVideo, *textureMode;
+        };
+        static const Preset kPresets[] = {
+            {"4", "0", "32", "24", "0", "4", "32", "0", "1", "GL_LINEAR_MIPMAP_LINEAR"},
+            {"4", "0", "0", "24", "1", "3", "0", "0", "1", "GL_LINEAR_MIPMAP_LINEAR"},
+            {"12", "1", "0", "0", "2", "3", "0", "1", "0", "GL_LINEAR_MIPMAP_NEAREST"},
+            {"20", "2", "16", "16", "3", "3", "16", "1", "0", "GL_LINEAR_MIPMAP_NEAREST"},
+        };
+        if (value >= 0 && value <= 3) {
+            const Preset &p = kPresets[value];
+            set("ui_r_fullScreen", "1");
+            set("ui_r_subdivisions", p.subdivisions);
+            set("ui_r_lodbias", p.lodbias);
+            set("ui_r_colorbits", p.colorbits);
+            set("ui_r_depthbits", p.depthbits);
+            set("ui_r_picmip", p.picmip);
+            set("ui_r_mode", p.mode);
+            set("ui_r_texturebits", p.texturebits);
+            set("ui_r_fastSky", p.fastSky);
+            set("ui_r_inGameVideo", p.inGameVideo);
+            set("ui_r_texturemode", p.textureMode);
+        }
+    } else if (same(name, "ui_mousePitch")) {
+        // Inverted looking up and down, or not.
+        set("m_pitch", value == 0 ? "0.022" : "-0.022");
     }
 }
 
@@ -697,9 +813,7 @@ bool SpMenus::runUiScript(Menu &menu, const Tokens &script, size_t &at) {
         arg();
         arg();
     } else if (name == "update") {
-        // A setting's knock-on changes (0x49b140): those of an OpenGL
-        // renderer's presets, which Reluva's renderer doesn't have.
-        arg();
+        updateSetting(arg());
     } else if (name == "loadcontrols" || name == "savecontrols") {
         // The bindings are Reluva's own, kept as they're changed.
     } else if (print) {
@@ -1177,7 +1291,7 @@ Error SpMenus::refresh(int32_t time) {
     _scene = Scene{};
     // Every menu open, in the order read; then the cursor over them.
     bool any = false;
-    for (const Menu &m : _menus)
+    for (Menu &m : _menus)
         if (m.visible) {
             drawMenu(m);
             any = true;
@@ -1191,11 +1305,17 @@ void SpMenus::drawRect(const Rect &r, const Color &c, int32_t shader) {
     _pictures.push_back({r[0], r[1], r[2], r[3], 0, 0, 1, 1, shader, c});
 }
 
-void SpMenus::drawWindow(const Window &w) {
+void SpMenus::drawWindow(Window &w, const Menu &menu) {
+    // A filled window with a picture draws it in its back colour, which
+    // fades (0x4a2909).
     const Rect &r = w.rect;
-    if (w.style == kStyleFilled)
+    if (w.style == kStyleFilled && w.background) {
+        fade(w, w.backColor[3], menu);
+        drawRect(r, w.backColor, w.background);
+    } else if (w.style == kStyleFilled) {
         drawRect(r, w.backColor, _white);
-    else if (w.style == kStyleShader && w.background)
+    }
+    if (w.style == kStyleShader && w.background)
         drawRect(r, w.foreColorSet ? w.foreColor : Color{1, 1, 1, 1}, w.background);
     // Borders: 1 all round, 2 top and bottom, 3 the sides.
     const float b = w.borderSize;
@@ -1261,19 +1381,108 @@ std::string SpMenus::itemValue(const Item &item) const {
     }
 }
 
-void SpMenus::drawItem(const Menu &menu, const Item &item) {
-    drawWindow(item);
+void SpMenus::fade(Window &w, float &alpha, const Menu &menu) const {
+    // As jk2sp.exe's (0x4a2760): each fade cycle, a fade out takes the
+    // fade amount off the alpha, the window hidden once it's down to 0; a
+    // fade in adds it up to the menu's clamp.
+    if ((!w.fadingIn && !w.fadingOut) || _time <= w.nextTime)
+        return;
+    w.nextTime = _time + menu.fadeCycle;
+    if (w.fadingOut) {
+        alpha -= menu.fadeAmount;
+        if (alpha <= 0)
+            w.fadingOut = w.visible = false;
+    } else {
+        alpha += menu.fadeAmount;
+        if (alpha >= menu.fadeClamp) {
+            alpha = menu.fadeClamp;
+            w.fadingIn = false;
+        }
+    }
+}
+
+void SpMenus::move(Item &item) const {
+    // As the item painter's start (0x4a20d0), a step each offsetTime ms:
+    // an orbit turns the item's middle 3 degrees round its centre; a
+    // transition takes each side of its rectangle a step nearer the
+    // target, ending once all four are there.
+    Rect &r = item.rect;
+    if (item.orbiting && _time > item.nextTime) {
+        item.nextTime = _time + item.offsetTime;
+        constexpr double kTurn = 3 * 3.14159265358979323846 / 180;
+        const float w = r[2] * 0.5f;
+        const float h = r[3] * 0.5f;
+        const float rx = r[0] + w - item.orbitCenter[0];
+        const float ry = r[1] + h - item.orbitCenter[1];
+        const auto c = float(std::cos(kTurn));
+        const auto s = float(std::sin(kTurn));
+        r[0] = rx * c - ry * s + item.orbitCenter[0] - w;
+        r[1] = rx * s + ry * c + item.orbitCenter[1] - h;
+    }
+    if (item.inTransition && _time > item.nextTime) {
+        item.nextTime = _time + item.offsetTime;
+        int done = 0;
+        for (size_t i = 0; i < 4; ++i) {
+            if (r[i] == item.target[i]) {
+                ++done;
+            } else if (r[i] < item.target[i]) {
+                r[i] += item.step[i];
+                if (r[i] > item.target[i]) {
+                    r[i] = item.target[i];
+                    ++done;
+                }
+            } else {
+                r[i] -= item.step[i];
+                if (r[i] < item.target[i]) {
+                    r[i] = item.target[i];
+                    ++done;
+                }
+            }
+        }
+        if (done == 4)
+            item.inTransition = false;
+    }
+}
+
+SpMenus::Color SpMenus::textColor(const Menu &menu, Item &item) {
+    // As jk2sp.exe's (0x4a02f0): the fore colour, its alpha faded; with
+    // the focus, the menu's focus colour pulsing down to 0.8 of itself
+    // and back (the time over 75 ms as the sine's angle); the menu's
+    // disabled colour if the item's setting disables it; grey while
+    // another of its menu's items waits for a key.
+    fade(item, item.foreColor[3], menu);
+    Color c = item.foreColor;
+    if (item.focus) {
+        const float t = 0.5f + 0.5f * std::sin(float(_time / 75));
+        for (size_t i = 0; i < 4; ++i) {
+            const float focus = menu.focusColor[i];
+            c[i] = std::clamp(focus + (focus * 0.8f - focus) * t, 0.0f, 1.0f);
+        }
+    }
+    if (!enabled(item))
+        c = menu.disableColor;
+    if (_bindItem && _bindItem != &item &&
+        std::any_of(menu.items.begin(), menu.items.end(), [&](const Item &i) { return &i == _bindItem; }))
+        c = {0.5f, 0.5f, 0.5f, 1};
+    return c;
+}
+
+void SpMenus::drawItem(const Menu &menu, Item &item) {
+    move(item);
+    drawWindow(item, menu);
     if (item.type == kListBox)
         return drawListBox(item);
-    if (item.ownerDraw)
+    if (item.ownerDraw) {
+        fade(item, item.foreColor[3], menu);
         return drawOwnerDraw(item);
+    }
     if (item.type == kModel)
         return drawModel(item);
     if (item.text.empty() && item.type != kSlider)
         return;
     // The text placed by its alignment from the rectangle's corner, its
-    // top at textaligny; the focus's colour while it has it.
-    const Color c = !enabled(item) ? menu.disableColor : item.focus ? menu.focusColor : item.foreColor;
+    // top at textaligny.
+    const Color c = textColor(menu, item);
     const float w = textWidth(item.text, item.textScale, item.font);
     float x = item.rect[0] + item.textAlignX;
     if (item.textAlign == kCenter)
@@ -1385,9 +1594,16 @@ void SpMenus::drawOwnerDraw(const Item &item) {
             if (const std::string t = text("@MENUS_WAITINGFORKEY"); !t.empty() && t[0] != '@')
                 drawText(r[0], r[1], item.textScale, item.foreColor, t, 0, item.font);
         break;
+    case 249:
+        // The video driver page's details (0x49bb50): OpenGL's vendor,
+        // version, pixel format and extensions, a line each from the top.
+        // Reluva's renderer isn't OpenGL: its own description is shown on
+        // the first line, and the rest left out.
+        if (!rendererName.empty())
+            drawText(r[0], r[1], item.textScale, item.foreColor, rendererName, item.textStyle, item.font);
+        break;
     default:
-        // 249 is the video driver page's OpenGL details, which Reluva's
-        // renderer hasn't; 200, 201 and 242 no menu uses.
+        // 200, 201 and 242 no menu uses.
         break;
     }
 }
@@ -1432,10 +1648,21 @@ void SpMenus::drawModel(const Item &item) {
     _scene.render(refdef.data(), _pictures.size());
 }
 
-void SpMenus::drawMenu(const Menu &menu) {
-    drawWindow(menu);
+void SpMenus::drawMenu(Menu &menu) {
+    drawWindow(menu, menu);
     const Item *described = nullptr;
-    for (const Item &item : menu.items) {
+    for (Item &item : menu.items) {
+        // An item with an appearance slot waits for the menu's count to
+        // reach it, the count going up one each appearanceIncrement ms
+        // from its opening (0x49ff22).
+        if (item.appearanceSlot != 0) {
+            if (float(_time) > menu.appearanceTime) {
+                ++menu.appearanceCount;
+                menu.appearanceTime = float(_time) + menu.appearanceIncrement;
+            }
+            if (item.appearanceSlot > menu.appearanceCount)
+                continue;
+        }
         if (!shown(item))
             continue;
         drawItem(menu, item);

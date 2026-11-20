@@ -858,6 +858,121 @@ static void testJediMenuItems(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testJediMenuMotion(const std::filesystem::path &tmp) {
+    // Fading, a transition, an orbit and appearance slots, each a step as
+    // the menu's clock passes its time; and "update"'s presets.
+    namespace jk2 = reluva::idtech3::jk2;
+    std::filesystem::remove_all(tmp);
+    const char *list = "{\n loadMenu { \"ui/motion.menu\" }\n}\n";
+    const char *motion = R"({
+  assetGlobalDef {
+    fadeClamp 1.0
+    fadeCycle 10
+    fadeAmount 0.25
+  }
+  menuDef {
+    name "motionMenu"
+    rect 0 0 640 480
+    appearanceIncrement 100
+    onOpen {
+      fadeout fader ; transition mover 0 300 10 10 30 300 10 10 50 3 ; orbit orb 100 0 0 0 50 ;
+      setcvar ui_r_glCustom 2 ; uiScript update ui_r_glCustom ;
+      setcvar ui_r_colorbits 32 ; uiScript update ui_r_colorbits
+    }
+    itemDef {
+      name fader
+      style WINDOW_STYLE_FILLED
+      background "gfx/fader"
+      backcolor 1 1 1 1
+      rect 0 200 10 10
+      visible 1
+    }
+    itemDef {
+      name mover
+      style WINDOW_STYLE_FILLED
+      backcolor 1 1 1 1
+      rect 0 0 10 10
+      visible 0
+    }
+    itemDef {
+      name orb
+      style WINDOW_STYLE_FILLED
+      backcolor 1 1 1 1
+      rect 0 0 20 20
+      visible 0
+    }
+    itemDef {
+      name late
+      style WINDOW_STYLE_FILLED
+      backcolor 1 1 1 1
+      rect 0 400 10 10
+      appearance_slot 2
+      visible 1
+    }
+  }
+})";
+    test::writeFile(tmp / "base" / "assets0.pk3", test::buildZip({{"ui/menus.txt", test::toBytes(list), {}},
+                                                                  {"ui/motion.menu", test::toBytes(motion), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "base", 0, warnings));
+    CvarStore cvars;
+    jk2::SpMenus menus(set, cvars);
+    CHECK(!menus.load());
+    CHECK(!menus.setActiveMenu("motionMenu"));
+    // "update": the third quality preset, then 32-bit colour's depth.
+    CHECK(cvars.string("ui_r_picmip") == "2" && cvars.string("ui_r_subdivisions") == "12");
+    CHECK(cvars.string("ui_r_texturemode") == "GL_LINEAR_MIPMAP_NEAREST");
+    CHECK(cvars.string("ui_r_depthbits") == "24");
+    auto find = [&](auto &&match) -> const Picture * {
+        for (const Picture &p : menus.pictures())
+            if (match(p))
+                return &p;
+        return nullptr;
+    };
+    auto fader = [&] { return find([](const Picture &p) { return p.y == 200; }); };
+    auto mover = [&] { return find([](const Picture &p) { return p.y == 300; }); };
+    auto orb = [&] { return find([](const Picture &p) { return p.w == 20; }); };
+    auto late = [&] { return find([](const Picture &p) { return p.y == 400; }); };
+    auto near = [](float a, float b) { return std::fabs(a - b) < 0.01f; };
+    // The orbit: the item's middle (110, 10 from the centre) turned 3
+    // degrees a step.
+    auto orbited = [&](int steps) {
+        float x = 100;
+        float y = 0;
+        const double a = 3 * 3.14159265358979323846 / 180;
+        for (int i = 0; i < steps; ++i) {
+            const float rx = x + 10;
+            const float ry = y + 10;
+            x = rx * float(std::cos(a)) - ry * float(std::sin(a)) - 10;
+            y = rx * float(std::sin(a)) + ry * float(std::cos(a)) - 10;
+        }
+        const Picture *p = orb();
+        return p && near(p->x, x) && near(p->y, y);
+    };
+
+    CHECK(!menus.refresh(10));
+    CHECK(fader() && near(fader()->color[3], 0.75f));
+    CHECK(mover() && near(mover()->x, 10));
+    CHECK(orbited(1));
+    CHECK(!late()); // its slot comes 100 ms after the first
+    CHECK(!menus.refresh(70));
+    CHECK(fader() && near(fader()->color[3], 0.5f));
+    CHECK(mover() && near(mover()->x, 20));
+    CHECK(orbited(2));
+    CHECK(!late());
+    CHECK(!menus.refresh(130));
+    CHECK(fader() && near(fader()->color[3], 0.25f));
+    CHECK(mover() && near(mover()->x, 30));
+    CHECK(late());
+    CHECK(!menus.refresh(190));
+    CHECK(fader() && near(fader()->color[3], 0)); // faded out: hidden after this frame
+    CHECK(mover() && near(mover()->x, 30));
+    CHECK(!menus.refresh(250));
+    CHECK(!fader());
+    std::filesystem::remove_all(tmp);
+}
+
 static const reluva::test::Suite kSuite(
     "idtech3.unit.game-code",
     {
@@ -866,6 +981,7 @@ static const reluva::test::Suite kSuite(
         {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
         {"Jedi Outcast's menus", [](const std::filesystem::path &tmp) { testJediMenus(tmp / "jk2menus"); }},
         {"Jedi Outcast's menu items", [](const std::filesystem::path &tmp) { testJediMenuItems(tmp / "jk2items"); }},
+        {"Jedi Outcast's menu motion", [](const std::filesystem::path &tmp) { testJediMenuMotion(tmp / "jk2motion"); }},
         {"map commands", [](const std::filesystem::path &) { testMapCommands(); }},
         {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
         {"compressed save chunks", [](const std::filesystem::path &) { testCompressedSaveChunks(); }},

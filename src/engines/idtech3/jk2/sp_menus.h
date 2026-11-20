@@ -88,6 +88,8 @@ public:
      * @return the table their shaders are numbered in; nullptr if there's no game.
      */
     std::function<const HandleTable *(int32_t command, std::vector<Picture> &out)> drawDataPad;
+    /** The renderer's own description, shown where the video driver page shows OpenGL's (owner draw 249). */
+    std::string rendererName;
 
     Error keyEvent(int32_t key) override;
     Error mouseEvent(int32_t dx, int32_t dy) override;
@@ -121,6 +123,18 @@ private:
         int32_t background = 0; // shader handle
         bool visible = false;
         bool decoration = false;
+        // Fading in or out (fadein, fadeout), a step each fade cycle; a
+        // transition's or an orbit's step each offsetTime ms. One clock
+        // for them all, the time of the next step (0x6c).
+        bool fadingIn = false;
+        bool fadingOut = false;
+        bool inTransition = false;
+        bool orbiting = false;
+        int32_t nextTime = 0;
+        int32_t offsetTime = 0;
+        Rect target{}; // where a transition ends
+        Rect step{};   // how far it goes each step
+        std::array<float, 2> orbitCenter{};
     };
     struct Item : Window {
         int32_t type = kText;
@@ -175,6 +189,9 @@ private:
         int32_t model = 0;
         std::array<float, 3> modelMins{};
         std::array<float, 3> modelMaxs{};
+        // Drawn from the menu's opening once its count of appearances
+        // reaches this; 0 at once.
+        int32_t appearanceSlot = 0;
         bool mouseOver = false;
         bool focus = false;
     };
@@ -192,6 +209,16 @@ private:
         Tokens onEsc;
         std::vector<Item> items;
         bool focus = false;
+        // Its items' fading, the assets' unless it says: the alpha faded
+        // up to, the milliseconds between steps, a step's change.
+        float fadeClamp = 0;
+        int32_t fadeCycle = 0;
+        float fadeAmount = 0;
+        // Its items' appearance slots: milliseconds between them, when the
+        // next is due and how many have come since it opened.
+        float appearanceIncrement = 0;
+        float appearanceTime = 0;
+        int32_t appearanceCount = 0;
     };
 
     void readAssets(const MenuEntries &entries);
@@ -207,6 +234,7 @@ private:
     void closeAll();
     void runScript(Menu &menu, const Tokens &script);
     bool runUiScript(Menu &menu, const Tokens &script, size_t &at);
+    void updateSetting(const std::string &name);
     void setFocus(Menu &menu, Item &item);
     bool shown(const Item &item) const;
     bool enabled(const Item &item) const;
@@ -224,9 +252,12 @@ private:
     void readSaves();
     void startGame();
 
-    void drawMenu(const Menu &menu);
-    void drawItem(const Menu &menu, const Item &item);
-    void drawWindow(const Window &w);
+    void drawMenu(Menu &menu);
+    void drawItem(const Menu &menu, Item &item);
+    void drawWindow(Window &w, const Menu &menu);
+    void fade(Window &w, float &alpha, const Menu &menu) const;
+    void move(Item &item) const;
+    Color textColor(const Menu &menu, Item &item);
     void drawRect(const Rect &r, const Color &c, int32_t shader);
     void drawText(float x, float y, float scale, const Color &c, const std::string &s, int32_t style, int32_t font);
     int32_t fontHandle(int32_t font) const;
@@ -253,6 +284,9 @@ private:
     int32_t _scrollDown = 0;
     int32_t _scrollThumb = 0;
     std::string _focusSound;
+    float _fadeClamp = 0;
+    int32_t _fadeCycle = 0;
+    float _fadeAmount = 0;
     float _cursorX = 320;
     float _cursorY = 240;
     int32_t _time = 0;

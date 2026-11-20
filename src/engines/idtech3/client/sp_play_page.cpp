@@ -367,6 +367,8 @@ void SpPlayPage::startMenus() {
         return readSave(name, file) && saveFits(file);
     };
     ui.askGame = [this](uint32_t flag) { return _game ? _game->allowedToSaveHere(flag) : flag; };
+    if (jediMenus && _renderer)
+        jediMenus->rendererName = _renderer->deviceName();
     if (jediMenus)
         jediMenus->drawDataPad = [this](int32_t command, std::vector<Picture> &out) -> const HandleTable * {
             if (!_game || !_game->clientGameRunning())

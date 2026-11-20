@@ -26,7 +26,7 @@ What Reluva does that hasn't been checked against the running original.
 - The network protocol's level changes, downloads and long matches, and
   a Reluva server's heartbeats to a real master, haven't been tried
   against the retail game ([systems/network.md](systems/network.md)).
-- Single player's menus place text, colour the focused item, draw
+- Single player's menus place text, draw
   multi values and sliders, scroll and double-click list boxes and edit
   fields' text as Team Arena's menu code does, not traced in
   `jk2sp.exe`; the logo's model hasn't been seen drawn (no display here); drawn from the game's own menus they look right, but

@@ -135,7 +135,9 @@ elseif(STEP STREQUAL "jk2-sp-menus")
     record_run(new-game "command: map" idtech3 sp-menus "${base}" -frames 8 -mouse 1 -10 -110 -key 2 UPARROW
                -key 3 ENTER -mouse 4 50 175 -key 5 MOUSE1 -mouse 6 130 155 -key 7 MOUSE1)
     record_run(ingame "menus read" idtech3 sp-menus "${base}" -menu ingame -frames 1)
-    record_run(datapad "menus read" idtech3 sp-menus "${base}" -menu datapad -frames 1)
+    # Two frames: its items have appearance slots, the first of them
+    # shown once the clock passes the opening's (frame 0 is at 0 ms).
+    record_run(datapad "menus read" idtech3 sp-menus "${base}" -menu datapad -frames 2)
     # A saved game of kejim_post for the load menu, and the client game's
     # datapad pages as the datapad's owner draws ask for them.
     set(saves "${OUTPUT}/${STEP}/saves")
