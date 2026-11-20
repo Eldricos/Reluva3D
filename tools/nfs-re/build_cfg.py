@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 """Step 1: load nfs3.exe in angr, run CFGFast once, and save
-   - db.json   : functions, blocks, call graph, data xrefs, strings (plain data)
-Run once (a few minutes); the query tools only read the caches."""
+   - cfg_db.json: functions, blocks, call graph, data xrefs, strings (plain data)
+in NFSRE_DATA (build/nfsre/ by default). Run once, by build_all.sh (a few
+minutes); the query tools only read the caches."""
 import sys, time, json, pickle, logging, os
 sys.setrecursionlimit(100000)
 logging.getLogger('angr').setLevel(logging.ERROR)

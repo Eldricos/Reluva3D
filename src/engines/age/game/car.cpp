@@ -29,7 +29,7 @@ constexpr float kMetresPerSecondPerMph = 0.44704f;
 constexpr float kFrictionScale = 3;
 constexpr float kHullRadius = 0.2f;     // spheres round the hull's corners
 constexpr float kSteerRate = 3;         // full lock and back, per second
-constexpr float kEngineBraking = 0.04f; // likewise
+constexpr float kEngineBraking = 0.04f; // off the throttle in gear: a share of the load, as rolling resistance is
 
 std::string textOf(const std::vector<uint8_t> &data) {
     return std::string(data.begin(), data.end());
@@ -298,7 +298,6 @@ void CarSim::substep(const CarControls &controls, const CollisionWorld &world, f
     force -= velocity * (airSpeed * _setup.drag);
     force -= orientation.y * (_setup.down * airSpeed * airSpeed);
 
-    // The wheels.
     const int driven = _setup.drivetrain == 2 ? 4 : 2;
     for (int i = 0; i < 4; ++i) {
         Wheel &w = wheels[size_t(i)];

@@ -6,7 +6,7 @@
 // and set, quitting, the screen's size), the keys held down (IsKeyDown)
 // and travel to another map (ClientTravel). The keys reach the console's
 // own KeyEvent first (LevelPlay::consoleKey). And the cut scenes'
-// fast-forward. See docs/engines/unreal_vm.md.
+// fast-forward. See docs/engines/unreal/games/ds9fallen/systems/menus.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

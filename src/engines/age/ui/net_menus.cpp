@@ -314,7 +314,7 @@ std::vector<NetMenus::Item> NetMenus::items() const {
     const Item done = button("dlg_done", "dlg_done", 4);
     switch (_screen) {
     case Screen::kSessions:
-        // TCP/IP only: the zone, IPX, serial and modem are the past's.
+        // TCP/IP only: the zone, IPX, serial and modem aren't offered.
         // (The zone's picture has five states, though widget.csv says four.)
         return {button("sess_zn", "sess_zn", 5, false),
                 button("sess_ipx", "sess_ipx", 5, false),

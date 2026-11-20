@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Reads the ticker in a recording's frames (vm/tg/*.png, two a second from
+500 s): each strip's column profile matched against tl.pgm's, the ticker
+sentences drawn by harness/tickerlines.
+
+    python3 -I py/tickmatch.py
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs
@@ -18,7 +25,7 @@ for i,f in enumerate(fs):
     a=np.array(Image.open(f)).astype(np.float32)[:,X0:X1]; a[:3]=0; a[15:]=0
     b=(a>110).astype(np.float32); p=b.sum(0)
     if p.sum()<50: continue
-    # mask out the right end where the pointer lives sometimes: use full
+    # The pointer is sometimes over the right end; the whole width is used all the same.
     best=(-1,None,0)
     # cross-correlate column profiles with shifts (text may have scrolled)
     P=np.fft.rfft(p,2048); C=np.fft.rfft(cp,2048,axis=1)

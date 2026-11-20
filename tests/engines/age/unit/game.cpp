@@ -416,7 +416,7 @@ void testReplays(const std::filesystem::path &tmp) {
 void testDrivers(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp);
-    // Before there were drivers: the record that was is the first's.
+    // A record saved without drivers becomes the first driver's.
     PlayerRecord old;
     CHECK(!old.load(tmp));
     old.raced("sf", RaceKind::kBlitz, 2, false, 1, 61.5f);

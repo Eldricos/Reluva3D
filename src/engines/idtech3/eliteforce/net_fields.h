@@ -22,22 +22,31 @@ constexpr int32_t kNetPlayerStateSize = 468; // patch 1.2's; 1.0's is 460, which
 constexpr int kEntityNumberBits = 10;
 constexpr int32_t kNoEntity = 1023; // ends a snapshot's entity list
 
-// An entity's change from `from` to `to` (its number taken from `to`):
-// nothing if unchanged unless `force` (new entities, baselines).
+/**
+ * An entity's change from `from` to `to` (its number taken from `to`):
+ * nothing if unchanged unless `force` (new entities, baselines).
+ */
 void writeEntityDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to,
                       bool force);
-// An entity gone since the old snapshot.
+/** An entity gone since the old snapshot. */
 void writeEntityRemoved(wire::MessageWriter &w, int32_t number);
-// After its number (already read): whether it was removed; if not, `to`
-// is `from` with the changes.
+/**
+ * After its number (already read): whether it was removed (`to` then
+ * empty); if not, `to` is `from` with the changes.
+ */
 bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
                      std::vector<uint8_t> &to);
 
+/** A player state's change from `from` to `to`, and reading one back. */
+///@{
 void writePlayerDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to);
 void readPlayerDelta(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to);
+///@}
 
-// A command as a change from the one before it in the same packet.
+/** A command as a change from the one before it in the same packet, and reading one back. */
+///@{
 void writeUserCommand(wire::MessageWriter &w, const GameHost::UserCommand &from, const GameHost::UserCommand &to);
 GameHost::UserCommand readUserCommand(wire::MessageReader &r, const GameHost::UserCommand &from);
+///@}
 
 } // namespace reluva::idtech3::eliteforce

@@ -256,7 +256,7 @@ void Win32Process::addRegistryStandIns() {
         return 0u;
     });
 
-    // --- COM
+    // COM.
     stdcall(o, "CoInitialize", 1, [](Cpu &) { return 0u; }); // S_OK
     stdcall(o, "CoInitializeEx", 2, [](Cpu &) { return 0u; });
     stdcall(o, "CoUninitialize", 0, [](Cpu &) { return 0u; });

@@ -69,8 +69,8 @@ KeyMap KeyMap::starshipDefaults() {
 }
 
 void KeyMap::findKeys(uint8_t action, int &first, int &second) const {
-    // 0x485CF0 keeps the first key found in the low uint8_t until a second
-    // shifts it up; the panel shows the low uint8_t first.
+    // 0x485CF0 keeps the first key found in the low byte until a second
+    // shifts it up; the panel shows the low byte first.
     int found[2] = {-1, -1};
     int count = 0;
     for (int vk = 0; vk < kKeys && count < 2; vk++) {

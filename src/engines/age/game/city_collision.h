@@ -17,7 +17,7 @@ namespace reluva::age {
  * A city's collisions: the streets, ground and walls generated from its
  * PSDL; its facade bounds as walls up to their height (they stand where
  * placed building fronts are, which have no bounds of their own); and the
- * bounds (bound/<model>_BOUND.bnd) of the models it places. Returns how
+ * bounds (`bound/<model>_BOUND.bnd`) of the models it places. Returns how
  * many placed models had a bound.
  */
 size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMesh &mesh,

@@ -13,19 +13,26 @@
 
 namespace reluva::nfs {
 
-// A .viv archive (EA's "BIGF"), as docs/engines/nfs/games/nfs3/formats/viv.md describes. The
-// archives are small (the largest retail one is about 1.6 MB), so the whole
-// file is kept in memory.
+/**
+ * A .viv archive (EA's "BIGF"), as docs/engines/nfs/games/nfs3/formats/viv.md
+ * describes. The archives are small (the largest retail one is about
+ * 1.6 MB), so the whole file is kept in memory.
+ */
 class VivArchive : public Archive {
 public:
+    /** One file in the archive. */
     struct Entry {
         std::string name; // as stored
         uint32_t offset = 0;
         uint32_t size = 0;
     };
 
+    /**
+     * Reads the whole file and its directory; fails if a file in it runs
+     * past the end.
+     */
     Error open(const std::filesystem::path &path);
-    // An archive already in memory; `name` is for messages.
+    /** The same for an archive already in memory; `name` is for messages. */
     Error open(std::vector<uint8_t> data, std::string name);
 
     std::vector<std::string> list() const override;
@@ -33,13 +40,14 @@ public:
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return _name; }
 
+    /** Every file, in the directory's order. */
     const std::vector<Entry> &entries() const { return _entries; }
 
 private:
     std::string _name;
     std::vector<uint8_t> _data;
     std::vector<Entry> _entries;
-    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> _entries index
 };
 
 } // namespace reluva::nfs

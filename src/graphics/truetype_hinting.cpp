@@ -160,7 +160,7 @@ struct Hinter::Tables {
 struct Hinter::Size {
     int ppem = 0;
     int unitsPerEm = 0;
-    /** Font units in 26.6 at this size. */
+    // Font units in 26.6 at this size.
     int32_t scaled(int64_t v) const { return int32_t(divRound(v * ppem * 64, unitsPerEm)); }
     std::vector<int32_t> cvt;
     std::vector<int32_t> storage;

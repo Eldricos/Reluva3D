@@ -7,7 +7,7 @@
 // almost always a RIFF WAVE, kept inside the object. Music (.umx) is stored
 // the same way, as tracker modules. The Fallen keeps its music as MP3
 // files in its mp3 folder instead, each with a placeholder Sound of the
-// same name. See docs/formats/unreal/sound.md.
+// same name. See docs/engines/unreal/games/ds9fallen/formats/sound.md.
 
 #include "audio/sound.h"
 #include "engines/unreal/formats/package.h"
@@ -21,12 +21,13 @@
 
 namespace reluva::unreal {
 
+/** The whole sound or music file a Sound or Music object keeps. */
 struct EmbeddedFile {
     std::string format; // the object's Format name: "WAV", "IT", "S3M"...
     std::vector<uint8_t> data;
     /**
-     * A few bytes that aren't a sound: The Fallen keeps some sounds as
-     * the 4 bytes "X \r\n", with nothing to play.
+     * A few bytes that aren't a sound (under 16, and not a RIFF): The
+     * Fallen keeps some sounds as the 4 bytes "X \r\n", with nothing to play.
      */
     bool isPlaceholder() const;
 };

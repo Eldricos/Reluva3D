@@ -40,23 +40,36 @@ Table readCharacters(std::string_view text);
 /** The inventory panel. */
 class Inventory {
 public:
+    /** Reads text/itemlist.txt from `host`'s files: each item's description and what Examine does with it. */
     explicit Inventory(OverlayHost &host);
 
+    /** As GameOverlay's, passed on by the game's window that holds it and the journal. */
+    ///@{
     void update(float seconds);
     void draw(Surface &dst, const GameFonts &fonts);
     bool click(int x, int y);
+    ///@}
     /** Opens or closes it (0x417e20). */
     void toggle();
     /** Shut at once, a new item in the bag, as an act changes (0x417f70). */
     void shut();
     /** "examine": the close-up of what's in the tray (0x419bd0). */
     void examine();
-    /** Puts the close-up away (0x41a010): `tab` 2 (the journal's Docs) uses the item up. */
+    /**
+     * Puts the close-up away (0x41a010): `tab` 2 (the journal's Docs) uses
+     * the item up.
+     * @param said A movie's close-up ends with Narracott's word on it.
+     */
     void closeExamine(int tab, bool said);
+    /** Whether the panel is out. */
     bool open() const { return _open; }
+    /** The panel's left edge: -341 shut, -8 out. */
     float x() const { return _x; }
+    /** The page shown, and how many there are (2 to 12). */
+    ///@{
     int page() const { return _page; }
     int pages() const { return _pages; }
+    ///@}
     /** The slot under the screen's (x, y), -1 for none: a page's 12, then the tray's 144 to 147. */
     int slotAt(int x, int y) const;
     /** The items in the tray (slots 144 to 147), in slot order. */
@@ -64,8 +77,10 @@ public:
     /** The item under the mouse (its description shows), when nothing's in hand. */
     void hover(int x, int y);
     /** The Examine and Combine buttons (0x419790, 0x41a740). */
+    ///@{
     void examineButton();
     void combineButton();
+    ///@}
     /** The tray emptied onto the pages and `items` put in it, as a player would: false if one isn't in the bag. */
     bool toTray(const std::vector<std::string> &items);
     /**

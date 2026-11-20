@@ -10,8 +10,8 @@
 // fd_set, hostent, WSADATA) in the game's memory, its error numbers, and
 // its blocking: a socket blocks unless the game makes it non-blocking
 // (FIONBIO), and a blocked call lets the game's other threads run while it
-// waits. Without a network, WSAStartup fails as before and the game offers
-// no network play.
+// waits. Without a network, WSAStartup fails and the game offers no
+// network play.
 
 #include "engines/nfs/host/game_host.h"
 

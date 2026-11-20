@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""tickmatch.py by the text's shape rather than its column profile: each
+strip's text, cut to its widest run, matched against the sentences of
+about its width.
+
+    python3 -I py/tickmatch2.py
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs
@@ -10,6 +17,7 @@ tl=np.array(Image.open('tl.pgm')).astype(np.float32).reshape(-1,18,640)
 lines=[l.rstrip('\r\n') for l in open(os.path.join(GAME, 'Data', 'Classic', 'Text', 'TickerStrings.txt'),encoding='cp1252')]
 X0,X1=60,590
 def ext(b, gap=12):
+    """The columns of the text's run with the most ink (runs split at gaps over `gap`), or None."""
     c=np.where(b.sum(0)>0)[0]
     if not len(c): return None
     groups=[[c[0],c[0],0]]
@@ -25,6 +33,7 @@ for i in range(len(tl)):
     cands.append((e[1]-e[0]+1, bb[r.min():r.max()+1].astype(np.float32)))
 widths=np.array([c[0] for c in cands])
 def blur(x):
+    """The picture blurred by a 1-2-1 filter both ways."""
     k=np.array([0.25,0.5,0.25])
     x=np.apply_along_axis(lambda r: np.convolve(r,k,'same'),1,x)
     return np.apply_along_axis(lambda r: np.convolve(r,k,'same'),0,x)

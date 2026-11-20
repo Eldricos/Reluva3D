@@ -26,12 +26,16 @@
 
 namespace reluva::glide {
 
+/** The stand-in for glide2x.dll, its exports added when made. */
 class Glide2Dll : public GlideDll {
 public:
-    // `memory` is where guest-visible buffers (linear frame buffer locks)
-    // are allocated.
+    /**
+     * `memory` is where guest-visible buffers (linear frame buffer locks)
+     * are allocated.
+     */
     Glide2Dll(x86::Cpu &cpu, x86::Arena &memory, Board board = {});
 
+    /** The Glide 2 front end the exports call. */
     Glide2 &glide() { return _glide; }
 
 private:

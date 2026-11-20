@@ -26,12 +26,21 @@ namespace reluva::age {
  */
 class CityLife {
 public:
-    /** city/<map>.bai and city/<map>.aimap. */
+    /**
+     * Reads the city's road map (`city/<map>.bai`), its settings
+     * (`city/<map>.aimap`) and its blocks' street furniture rules (its
+     * .psdl). Fails only without the road map.
+     */
     Error load(const SearchSet &files, const std::string &map);
+    /** The city's settings and road map, as load() read them. */
+    ///@{
     const AiMapSettings &citySettings() const { return _city; }
     const AiRoadMap &roadMap() const { return _roads; }
+    ///@}
+    /** Whether load() found a road map with roads. */
     bool loaded() const { return !_roads.roads.empty(); }
 
+    /** How start() fills the city. */
     struct Options {
         // densities, 0..1
         float traffic = 0;
@@ -49,9 +58,13 @@ public:
      */
     Error start(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
                 const AiMapSettings &settings, const Options &options, audio::Mixer *mixer);
+    /** Takes everyone away, and stops their sounds. */
     void stop();
+    /** Changes the traffic's and the pedestrians' densities, 0..1. */
+    ///@{
     void setTrafficDensity(float d) { _traffic.setDensity(d); }
     void setPedDensity(float d) { _peds.setDensity(d); }
+    ///@}
     /**
      * Evening, night, fog or rain: the cars' headlights on; `night`: the
      * traffic lights' night glows.
@@ -66,6 +79,11 @@ public:
      */
     void update(float dt, CarSim &player, const std::vector<CarSim *> &others, CollisionWorld &world,
                 const RoadGraph &roads, bool fill = false);
+    /**
+     * Draws them all; with `flares`, the police's lamps and (at night) the
+     * props' glows too. The first draw also prepares the props, with the
+     * models then at hand.
+     */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye, const FlareDrawer *flares = nullptr);
     /** Where the traffic's and the police's headlights light the road. */
@@ -77,16 +95,20 @@ public:
      */
     int carTouches() const { return _carTouches; }
 
+    /** The parts it runs. */
+    ///@{
     Traffic &traffic() { return _traffic; }
     Pedestrians &pedestrians() { return _peds; }
     Police &police() { return _police; }
     const TrafficLights &lights() const { return _lights; }
     const Gizmos &gizmos() const { return _gizmos; }
+    ///@}
     /** The city's ambient sounds (aud/ambient). */
     const AmbientSounds &ambient() const { return _ambient; }
+    /** How loud the ambient sounds are (see AmbientSounds::setGain). */
     void setAmbientGain(float gain) { _ambient.setGain(gain); }
     /**
-     * The props (city/<map>/props.pathset) and traffic lights, which cars
+     * The props (`city/<map>/props.pathset`) and traffic lights, which cars
      * can knock down.
      */
     const Props &props() const { return _props; }

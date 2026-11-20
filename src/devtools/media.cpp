@@ -212,7 +212,9 @@ int cmdProLogic(int argc, char **argv) {
         std::printf("    time   mid  side |     L     C     R     S  S pass | steer   dir rear%%\n");
     for (size_t start = 0; start < frames; start += window) {
         const size_t n = std::min(window, frames - start);
-        // the direction: a mean of 2 theta, by steering
+        // The direction comes round again at 180 degrees, so it's averaged
+        // as a vector at twice its angle, each frame's weighted by its
+        // steering.
         double e[7] = {};
         double steer = 0;
         double dirX = 0;

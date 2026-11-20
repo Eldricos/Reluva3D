@@ -21,34 +21,61 @@
 
 namespace reluva::clue {
 
-// Who holds each card, as far as can be told: the seats 0-5 and the case
-// file (kCaseFile).
+/**
+ * Who holds each card, as far as can be told: the seats 0-5 and the case
+ * file (kCaseFile).
+ */
 class Notebook {
 public:
+    /** The case file's owner number, after the seats'. */
     static constexpr int kCaseFile = kSuspectCount;
+    /** How many owners there are: the seats and the case file. */
     static constexpr int kOwners = kSuspectCount + 1;
+    /** Whether an owner holds a card: not known, yes or no. */
     enum Mark : uint8_t { kUnknown, kYes, kNo };
 
-    // A fresh notebook for the seat `me`: its hand known, the seats not
-    // playing holding nothing, every playing seat `handSize` cards.
+    /**
+     * A fresh notebook for the seat `me`: its hand known, the seats not
+     * playing holding nothing, every seat as many cards as its hand has.
+     * @param countCards Deduce from how many cards each holds.
+     * @param useClues Take in holdsOneOf() (else it's ignored).
+     */
     void reset(const Game &game, int me, bool countCards, bool useClues);
 
+    /** What is known of whether `owner` holds `card`. */
     Mark mark(int card, int owner) const { return _marks[size_t(card)][size_t(owner)]; }
-    int holder(int card) const; // the owner known to hold it, or -1
+    /** The owner known to hold a card, or -1. */
+    int holder(int card) const;
+    /** Whether a card is known to be in, or out of, the case file. */
+    ///@{
     bool inCaseFile(int card) const { return mark(card, kCaseFile) == kYes; }
     bool outOfCaseFile(int card) const { return mark(card, kCaseFile) == kNo; }
-    int solved(int kind) const; // 0 suspects, 1 weapons, 2 rooms: the card known in the case file, or -1
+    ///@}
+    /** Of a kind (0 suspects, 1 weapons, 2 rooms), the card known in the case file, or -1. */
+    int solved(int kind) const;
+    /** Whether all three of the case file's cards are known. */
     bool complete() const { return solved(0) >= 0 && solved(1) >= 0 && solved(2) >= 0; }
-    int unknownCount() const; // cards whose place isn't known
+    /** How many cards' places aren't known. */
+    int unknownCount() const;
 
-    // What can be seen happen.
-    void holds(int owner, int card);                             // shown it, or it's in one's hand
-    void lacks(int owner, int card);                             // couldn't show it
-    void holdsOneOf(int owner, const std::array<int, 3> &cards); // showed one, not seen which
-    void notAll(const std::array<int, 3> &cards);                // a wrong accusation: not all three in the case file
+    /**
+     * What can be seen happen: an owner holds a card (shown it, or it's in
+     * one's hand), lacks one (couldn't show it), showed one of three (not
+     * seen which), or a wrong accusation (not all three in the case file).
+     * Each is deduced from at once.
+     */
+    ///@{
+    void holds(int owner, int card);
+    void lacks(int owner, int card);
+    void holdsOneOf(int owner, const std::array<int, 3> &cards);
+    void notAll(const std::array<int, 3> &cards);
+    ///@}
 
+    /** Writes the notebook as text, and reads it back; load() fails on damaged text. */
+    ///@{
     void save(std::ostream &out) const;
     Error load(std::istream &in);
+    ///@}
 
 private:
     void set(int card, int owner, Mark m);
@@ -63,29 +90,51 @@ private:
     bool _contradiction = false;
 };
 
+/**
+ * A computer player, as Clue.exe plays one: what it knows of who holds
+ * which card, kept as Clue.exe keeps it, and its choices. Its level sets
+ * what it takes in of others' suggestions and accusations, and two of its
+ * choices.
+ */
 class ComputerPlayer {
 public:
+    /** The set-up screen's levels. */
     enum Level { kNovice, kNormal, kExpert };
 
+    /** A fresh player for seat `me`: its own hand known; `seed` starts its chances. */
     void reset(const Game &game, int me, uint32_t seed, int level = kExpert);
 
-    // After a suggestion is answered (or not): what this player can see of
-    // it. A wrong accusation: what was accused, and by whom.
+    /**
+     * After a suggestion is answered (or not): what this player can see of
+     * it. A wrong accusation: what was accused, and by whom.
+     */
+    ///@{
     void observe(const Game &game);
     void observeAccusation(const Accusation &a, int accuser);
+    ///@}
 
+    /** What it does next in its turn. */
     enum class Action { kRoll, kPassage, kWalk, kSuggest, kAccuse, kEndTurn };
+    /** What it does next, from where the turn is. */
     Action decide(const Game &game);
+    /** The walk it takes, one of the game's destinations; empty if there's none. */
     std::vector<Place> chooseWalk(const Game &game);
+    /** The suspect and weapon it suggests, in the room it's in. */
     Accusation chooseSuggestion(const Game &game);
+    /** Its accusation: the answer it has found (only once ready()). */
     Accusation chooseAccusation() const;
+    /** The card it shows `suggester` of those it can, or -1 if it has none. */
     int chooseShow(const Game &game, int suggester);
 
+    /** Whether it knows all three cards of the answer. */
     bool ready() const;
 
-    // Saved and loaded with the game (the board's distances worked out again).
+    /** Saved and loaded with the game (the board's distances worked out again). */
+    ///@{
     void save(std::ostream &out) const;
     Error load(std::istream &in, const Game &game);
+    ///@}
+    /** Its level, a Level. */
     int level() const { return _level; }
 
 private:

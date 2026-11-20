@@ -105,8 +105,8 @@ Board bansheeBoard() {
 }
 
 bool boardByName(const std::string &spec, Board &out, bool *desktopClamped) {
-    // The name, then ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N" to change
-    // the sizes ("voodoo1,tmu=4": the 6 MB card).
+    // The name, then options that change the sizes ("voodoo1,tmu=4": the
+    // 6 MB card) or the desktop.
     if (desktopClamped)
         *desktopClamped = false;
     const std::string name = spec.substr(0, spec.find(','));

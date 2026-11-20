@@ -24,12 +24,14 @@ using reluva::Error;
 using reluva::nfs::VivArchive;
 namespace stdfs = std::filesystem;
 
+/** `s` with its ASCII letters in lower case. */
 inline std::string lowerAscii(std::string s) {
     for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
+/** `s` with every character but ASCII letters and digits made '_', for a name in an .obj file. */
 inline std::string safeObjName(const std::string &s) {
     std::string out;
     for (char c : s)
@@ -37,11 +39,13 @@ inline std::string safeObjName(const std::string &s) {
     return out;
 }
 
+/** Prints the error to stderr; 1, for a command to return. */
 inline int fail(const Error &err) {
     std::fprintf(stderr, "%s\n", err.message.c_str());
     return 1;
 }
 
+/** A whole file; false if it can't be opened. */
 inline bool readFile(const stdfs::path &path, std::vector<uint8_t> &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
@@ -50,6 +54,7 @@ inline bool readFile(const stdfs::path &path, std::vector<uint8_t> &out) {
     return true;
 }
 
+/** Writes a file, making its folders; false if it can't be written. */
 inline bool writeFile(const stdfs::path &path, const std::vector<uint8_t> &data) {
     std::error_code ec;
     stdfs::create_directories(path.parent_path(), ec);
@@ -58,8 +63,10 @@ inline bool writeFile(const stdfs::path &path, const std::vector<uint8_t> &data)
     return static_cast<bool>(f);
 }
 
-// A name from an archive as a file name in an output folder, or empty if
-// it could escape it.
+/**
+ * A name from an archive as a file name in an output folder, or empty if
+ * it could escape it.
+ */
 inline stdfs::path safeName(const std::string &name) {
     const stdfs::path rel(name);
     if (rel.empty() || rel.is_absolute() || rel.has_root_name())
@@ -70,7 +77,7 @@ inline stdfs::path safeName(const std::string &name) {
     return rel;
 }
 
-// A file's contents, or a file's in a .viv when `inner` is given.
+/** A file's contents, or a file's in a .viv when `inner` is given. */
 inline Error load(const char *file, const char *inner, std::vector<uint8_t> &out) {
     if (!inner) {
         if (!readFile(file, out))

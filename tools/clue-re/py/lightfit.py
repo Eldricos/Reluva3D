@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Fits a model of the house's lighting to two frames: an ambient level, the
+lamps' light and the light round the suspect, each falling off with
+distance, searched over a grid, to the ratio of each frame (vm2h/42.png,
+72.png) to a reference rendering of it (idN.ppm). Also reads the objects'
+ids and places there (idN, idN.txt).
+
+    python3 -I py/lightfit.py
+"""
+
 from PIL import Image
 import numpy as np
 data=[]
@@ -20,6 +29,7 @@ for t,who in ((42,'character:Oscarlet'),(72,'character:Omustard')):
     data.append((r,X,Y,dl,sus))
     print(t,len(lamps),'lamps, suspect',sus, len(r))
 def model(p, X,Y,dl,sus):
+    """The modelled brightness at (X, Y): the lamps' or the suspect's light, whichever is more."""
     amb,lc,lf,lp,sc,sf,sp,h=p
     L=lambda d,c,f,pk: amb+(pk-amb)*np.clip(1-(d-c)/f,0,1)
     ds=np.hypot(X-sus[0],Y-(sus[1]-h))

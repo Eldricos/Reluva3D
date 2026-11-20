@@ -14,28 +14,41 @@ namespace reluva::log {
 #define RELUVA_PRINTF(fmt, args)
 #endif
 
-// How much an engine's debug() messages print: 0 (the default) none, and
-// more the higher it is. An engine's developer settings set it.
+/**
+ * How much an engine's debug() messages print: 0 (the default) none, and
+ * more the higher it is. An engine's developer settings set it.
+ */
+///@{
 void setDebugLevel(int level);
 int debugLevel();
+///@}
 
-// A line on the console (stderr): debug() only up to the debug level,
-// warning() always, marked as one.
+/**
+ * A line on the console (stderr), formatted as printf does: debug() only
+ * when `level` is at most the debug level, warning() always, marked as one.
+ */
+///@{
 void debug(int level, const char *fmt, ...) RELUVA_PRINTF(2, 3);
 void warning(const char *fmt, ...) RELUVA_PRINTF(1, 2);
+///@}
 
 } // namespace reluva::log
 
 namespace reluva {
 
-// While it lives, everything written to stderr (the engines' messages, and
-// SDL's log through it) also goes to a file: `reluva.log` in Reluva's data
-// folder, the run before's kept as `reluva-previous.log`. A console that
-// closes with the program, or a build without one, then loses nothing.
-// The stream goes through a pipe that a thread copies to both the file and
-// wherever stderr went before.
+/**
+ * While it lives, everything written to stderr (the engines' messages, and
+ * SDL's log through it) also goes to a file: `reluva.log` in Reluva's data
+ * folder, the run before's kept as `reluva-previous.log`. A console that
+ * closes with the program, or a build without one, then loses nothing.
+ *
+ * The stream goes through a pipe that a thread copies to both the file and
+ * wherever stderr went before. If the file can't be made, stderr is left
+ * alone.
+ */
 class StderrLog {
 public:
+    /** Starts copying to `file`; the destructor puts stderr back as it was. */
     explicit StderrLog(const std::filesystem::path &file);
     ~StderrLog();
     StderrLog(const StderrLog &) = delete;

@@ -16,23 +16,27 @@
 
 namespace reluva::idtech3 {
 
-// How a surface is lit, which decides the original's implicit shader for
-// names without a script and what $lightmap and lightingDiffuse mean:
-// lightmapped map surfaces, map surfaces lit by their vertex colours, and
-// models lit by a light (the light grid, for models in a map); and
-// pictures drawn flat on the screen (menus, the HUD), tinted by their
-// vertex colours, with no depth test or culling.
-// Effect: the game's sprites and beams, whose colour is in their
-// vertices; both sides drawn.
+/**
+ * How a surface is lit, which decides the original's implicit shader for
+ * names without a script and what $lightmap and lightingDiffuse mean:
+ * lightmapped map surfaces, map surfaces lit by their vertex colours, and
+ * models lit by a light (the light grid, for models in a map); and
+ * pictures drawn flat on the screen (menus, the HUD), tinted by their
+ * vertex colours, with no depth test or culling.
+ * Effect: the game's sprites and beams, whose colour is in their
+ * vertices; both sides drawn.
+ */
 enum class Lighting { kLightmap, kVertex, kDiffuse, kTwoD, kEffect };
 
-// Shaders turned into what the GPU draws, shared by everything a page
-// shows: each stage's textures loaded and states decided once, the parts
-// that change with time evaluated per draw. The rules follow the
-// original renderer, see docs/engines/idtech3/formats/shader.md.
+/**
+ * Shaders turned into what the GPU draws, shared by everything a page
+ * shows: each stage's textures loaded and states decided once, the parts
+ * that change with time evaluated per draw. The rules follow the
+ * original renderer, see docs/engines/idtech3/formats/shader.md.
+ */
 class ShaderCache {
 public:
-    // One stage, resolved.
+    /** One stage, resolved. */
     struct Stage {
         std::vector<gfx::TextureId> frames; // empty for a $lightmap stage
         float fps = 0;
@@ -41,6 +45,7 @@ public:
         const ShaderStage *def = nullptr;
         gfx::TexGen texGen = gfx::TexGen::kUv;
     };
+    /** A shader made ready to draw, lit one way. */
     struct Material {
         bool skip = false; // sky, fog volume, nodraw or no stages
         float sort = 3;
@@ -54,27 +59,42 @@ public:
         float portalRange = 0; // beyond which a portal's view isn't drawn (mirrors: always is)
     };
 
+    /** Drawing with `renderer`, images from `files` and scripts from `shaders`, which must outlive it. */
     ShaderCache(gfx::Renderer3D &renderer, const SearchSet &files, const ShaderLibrary &shaders);
     ~ShaderCache() { clear(); }
     ShaderCache(const ShaderCache &) = delete;
     ShaderCache &operator=(const ShaderCache &) = delete;
 
-    // Frees every texture; materials handed out before are invalid.
+    /** Frees every texture; materials handed out before are invalid. */
     void clear();
 
-    // The material for a shader name lit one way, made on first use.
+    /**
+     * The material for a shader name lit one way, made on first use: the
+     * script of that name, or the original's implicit shader for the image
+     * of that name.
+     */
     int material(const std::string &name, Lighting lighting);
-    // A material from a shader definition, which must outlive the cache.
-    // `sky`: a sky shader's stages, its cloud layers (other materials skip
-    // sky shaders).
+    /**
+     * A new material from a shader definition, which must outlive the cache
+     * (a picture's is copied).
+     * @param sky A sky shader's stages, its cloud layers (other materials
+     *        skip sky shaders).
+     */
     int material(const ShaderDef &def, Lighting lighting, bool sky = false);
+    /** A material by the number material() gave. */
     const Material &get(int material) const { return _materials[size_t(material)]; }
 
-    // `picmip`: the texture detail setting may make it smaller.
+    /**
+     * An image's texture, loaded once for each set of flags; grey checks
+     * if it can't be found or read.
+     * @param picmip Whether the texture detail setting may make it smaller.
+     */
     gfx::TextureId image(const std::string &name, bool clamp, bool mipmaps, bool picmip = false);
-    // The video settings for textures loaded from now on: each halved
-    // `picmip` times (unless its shader says nopicmip), and how mipmapped
-    // ones are filtered (r_texturemode).
+    /**
+     * The video settings for textures loaded from now on: each halved
+     * `picmip` times (unless its shader says nopicmip), and how mipmapped
+     * ones are filtered (r_texturemode).
+     */
     struct TextureOptions {
         int picmip = 0;
         bool nearest = false;
@@ -82,26 +102,36 @@ public:
         bool mipNearest = false;
         bool anisotropic = false; // r_ext_texture_filter_anisotropic
     };
+    /** Sets the TextureOptions for textures loaded from now on. */
     void setTextureOptions(const TextureOptions &options) { _textureOptions = options; }
+    /** A white pixel's texture, made on first use. */
     gfx::TextureId white();
 
-    // Draws every stage of `material` over the geometry `base` describes
-    // (mesh, index range, vertex offset, model matrix, light). `lightmap`
-    // is what $lightmap stages show (0: white). `sky` draws cloud layers
-    // around the camera, behind everything.
-    // `entity`: the colour rgbGen and alphaGen entity ask for (white if
-    // not given).
+    /**
+     * Draws every stage of `material` over the geometry `base` describes
+     * (mesh, index range, vertex offset, model matrix, light). `time` in
+     * seconds is the shaders' clock.
+     * @param lightmap What $lightmap stages show (0: white).
+     * @param sky Draws cloud layers around the camera, behind everything.
+     * @param entity The colour rgbGen and alphaGen entity ask for (white if
+     *        not given).
+     */
     void draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky = false,
               const std::array<float, 4> *entity = nullptr) const;
-    // A fog pass over geometry drawn with `material`.
-    // `distance`: the fog's depth for opaque; `plane`: its surface (see
-    // gfx::DrawCall::fogPlane).
+    /**
+     * A fog pass over geometry drawn with `material`.
+     * @param distance The fog's depth for opaque.
+     * @param plane Its surface (see gfx::DrawCall::fogPlane).
+     */
     void drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
                  const std::array<float, 4> &plane, float time) const;
 
+    /** How many images have been asked for, and how many of those were missing. */
+    ///@{
     size_t imageCount() const { return _images.size(); }
     int missingImages() const { return _missing; }
-    // Features met that aren't drawn, with how many shaders use each.
+    ///@}
+    /** Features met that aren't drawn, with how many shaders use each. */
     const std::map<std::string, int> &unsupported() const { return _unsupported; }
 
 private:

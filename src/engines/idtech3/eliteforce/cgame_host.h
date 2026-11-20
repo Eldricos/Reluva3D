@@ -27,16 +27,21 @@
 
 namespace reluva::idtech3::eliteforce {
 
-// Elite Force's client game (vm/cgame.qvm: the player's view, HUD and
-// effects) run with the engine side of its system calls, in Elite Force's
-// numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md). For now it
-// starts: it's given the server's configstrings as its game state, and
-// what it loads and registers is recorded. Snapshots and drawing come
-// next; calls not implemented are counted in unhandled().
+/**
+ * Elite Force's client game (vm/cgame.qvm: the player's view, HUD and
+ * effects) run with the engine side of its system calls, in Elite Force's
+ * numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md). It's
+ * given the server's configstrings as its game state, then snapshots and
+ * the player's commands; what it draws (pictures and a 3D scene) and what
+ * it loads and registers are recorded for the page. Calls not implemented
+ * are counted in unhandled().
+ */
 class CgameHost {
 public:
-    // vmMain's commands (Quake III's order; Init seen on Elite Force's
-    // cgame.qvm).
+    /**
+     * vmMain's commands (Quake III's order; Init seen on Elite Force's
+     * cgame.qvm).
+     */
     enum Command : int32_t {
         kInit = 0, // (serverMessageNum, serverCommandSequence, clientNum)
         kShutdown = 1,
@@ -44,71 +49,107 @@ public:
         kDrawActiveFrame = 3, // (serverTime, stereoView, demoPlayback)
     };
 
+    /** Over the game's files and the cvars it shares, which must outlive it. */
     CgameHost(const SearchSet &files, CvarStore &cvars);
 
-    // Reads vm/cgame.qvm.
+    /** Reads vm/cgame.qvm, and tells its layout (layout()). */
     Error load();
-    // The configstrings the server has set, as the client receives them
-    // (its game state).
+    /**
+     * The configstrings the server has set, as the client receives them
+     * (its game state).
+     */
     void setConfigstrings(std::map<int32_t, std::string> configstrings) { _configstrings = std::move(configstrings); }
-    // CG_INIT for the player `clientNum`.
+    /** CG_INIT for the player `clientNum`. */
     Error init(int32_t clientNum, int32_t serverMessageNum = 0, int32_t serverCommandSequence = 0);
+    /** vmMain(command, args...). */
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
-    // A new snapshot from the server, numbered from 1: what
-    // GetCurrentSnapshotNumber reports and GetSnapshot hands over (the
-    // last 32 are kept).
+    /**
+     * A new snapshot from the server: what GetCurrentSnapshotNumber
+     * reports and GetSnapshot hands over (the last 32 are kept). It's
+     * numbered by the message it came in, or one after the last if that's
+     * no later.
+     */
     void newSnapshot(GameHost::Snapshot snapshot);
-    // The commands the server has sent this player, in order (what
-    // GetServerCommand hands over, by sequence number from 1).
+    /**
+     * The commands the server has sent this player, in order (what
+     * GetServerCommand hands over, by sequence number from 1).
+     */
     void setServerCommands(std::vector<std::string> commands) { _serverCommands = std::move(commands); }
-    // Its 2D drawing since clearPictures() (the loading screen, the HUD).
+    /** A picture it drew. */
     using Picture = idtech3::Picture;
+    /** Its 2D drawing since clearPictures() (the loading screen, the HUD). */
+    ///@{
     const std::vector<Picture> &pictures() const { return _pictures; }
     void clearPictures() { _pictures.clear(); }
-    // The weapon the client game last selected (SetUserCmdValue), which
-    // the player's next commands carry.
+    ///@}
+    /**
+     * The weapon the client game last selected (SetUserCmdValue), which
+     * the player's next commands carry.
+     */
     int32_t weaponSelect() const { return _weaponSelect; }
-    // A command the player gave (numbered from 1), for the client game's
-    // prediction: GetCurrentCmdNumber, GetUserCmd (the last 64 kept).
+    /**
+     * A command the player gave (numbered from 1), for the client game's
+     * prediction: GetCurrentCmdNumber, GetUserCmd (the last 64 kept).
+     */
     void addUserCommand(const GameHost::UserCommand &cmd) {
         _userCommands[++_userCommandNumber] = cmd;
         while (_userCommands.size() > 64)
             _userCommands.erase(_userCommands.begin());
     }
-    // A frame's 3D scene, as the client game hands it over (scene.h).
+    /** A frame's 3D scene, as the client game hands it over (scene.h). */
+    ///@{
     using SceneEntity = idtech3::SceneEntity;
     using View = idtech3::View;
     using Scene = idtech3::Scene;
+    ///@}
+    /** The scene it has drawn since clearScene(). */
+    ///@{
     const Scene &scene() const { return _scene; }
     void clearScene() { _scene = Scene{}; }
-    // Where the client game asked for each snapshot (GetSnapshot's
-    // number and buffer), in order.
+    ///@}
+    /**
+     * Where the client game asked for each snapshot (GetSnapshot's
+     * number and buffer), in order.
+     */
     const std::vector<std::pair<int32_t, int32_t>> &snapshotRequests() const { return _snapshotRequests; }
-    // A command typed or bound to a key that the client game may handle
-    // itself (CG_CONSOLE_COMMAND: "weapnext", "weapon 3"...): whether it did.
+    /**
+     * A command typed or bound to a key that the client game may handle
+     * itself (CG_CONSOLE_COMMAND: "weapnext", "weapon 3"...): whether it did.
+     */
     Error consoleCommand(const std::string &text, bool &handled);
 
+    /** The client game's program. */
     Qvm &vm() { return _vm; }
-    // The layout its code was built with (1.0 or patch 1.2's), once loaded.
+    /** The layout its code was built with (1.0 or patch 1.2's), once loaded. */
     const GameLayout &layout() const { return _layout; }
-    // What it registered, by handle.
+    /** What it registered, by handle. */
+    ///@{
     const HandleTable &models() const { return _models; }
     const HandleTable &skins() const { return _skins; }
     const HandleTable &shaders() const { return _shaders; }
     const HandleTable &sounds() const { return _sounds; }
-    // The console commands it added (AddCommand).
+    ///@}
+    /** The console commands it added (AddCommand). */
     const std::vector<std::string> &commands() const { return _commands; }
-    // What it asked to send the server as the player's (SendClientCommand:
-    // "score" while the scores are shown...) and to run at the console
-    // (SendConsoleCommand), since last taken, in order.
+    /**
+     * What it asked to send the server as the player's (SendClientCommand:
+     * "score" while the scores are shown...) and to run at the console
+     * (SendConsoleCommand), since last taken, in order.
+     */
+    ///@{
     std::vector<std::string> takeClientCommands() { return std::exchange(_clientCommands, {}); }
     std::vector<std::string> takeConsoleCommands() { return std::exchange(_consoleCommands, {}); }
-    // The map it asked for, for collision (CM_LoadMap) and drawing
-    // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
+    ///@}
+    /**
+     * The map it asked for, for collision (CM_LoadMap) and drawing
+     * (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
+     */
+    ///@{
     const std::string &collisionMap() const { return _collisionMap; }
     const std::string &worldMap() const { return _worldMap; }
     const std::pair<std::string, std::string> &music() const { return _music; }
-    // The loaded collision map, if CM_LoadMap found it.
+    ///@}
+    /** The loaded collision map, if CM_LoadMap found it. */
     std::shared_ptr<const Bsp> map() const { return _map; }
 
     // Where its sounds go (S_StartSound...); none if not set.
@@ -119,9 +160,11 @@ public:
     // UpdateScreen: while it loads, the client game asks for the screen to
     // be shown as it stands (its loading information); unset, nothing is.
     std::function<void()> updateScreen;
+    /** The last of what it has printed (4 to 8 KB), whether or not `print` is set. */
     const std::string &log() const { return _log; }
+    /** Calls not implemented yet: number -> how many times. */
     const std::map<int, int> &unhandled() const { return _unhandled; }
-    // The arguments of the first call to each call not implemented.
+    /** The arguments of the first call to each call not implemented. */
     const std::map<int, std::array<int32_t, 6>> &firstUnhandled() const { return _firstUnhandled; }
     std::function<void(int number, const int32_t *args)> trace;
 

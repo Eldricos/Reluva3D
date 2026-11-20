@@ -140,7 +140,7 @@ void ProLogicDecoder::frame(float ltf, float rtf, float *out) {
     out[kL] = float(o[kL]);
     out[kC] = float(o[kC]);
     out[kR] = float(o[kR]);
-    out[kS] = _delay[_delayPos]; // the oldest: delay_.size() - 1 frames ago
+    out[kS] = _delay[_delayPos]; // the oldest: _delay.size() - 1 frames ago
 }
 
 void layOutChannels(const float *lcrs, int frames, int channels, int16_t *out) {

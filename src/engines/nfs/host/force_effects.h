@@ -11,13 +11,17 @@
 
 namespace reluva::nfs {
 
-// A DirectInput force feedback effect (IDirectInputEffect) as the game
-// sets it: DIEFFECT and its type-specific parameters, and whether it's
-// playing. Times are in microseconds, as DirectInput has them; levels in
-// its units, 10000 the most (DI_FFNOMINALMAX).
+/**
+ * A DirectInput force feedback effect (IDirectInputEffect) as the game
+ * sets it: DIEFFECT and its type-specific parameters, and whether it's
+ * playing. Times are in microseconds, as DirectInput has them; levels in
+ * its units, 10000 the most (DI_FFNOMINALMAX).
+ */
 struct DiEffect {
-    // Its kind, from the first part of its GUID (GUID_ConstantForce...,
-    // 13541C2x-8E33-11D0-9AD0-00A0C9A06E35).
+    /**
+     * Its kind, from the first part of its GUID (GUID_ConstantForce...,
+     * 13541C2x-8E33-11D0-9AD0-00A0C9A06E35).
+     */
     enum Kind {
         kConstant,
         kRamp,
@@ -32,6 +36,7 @@ struct DiEffect {
         kFriction,
         kCustom
     };
+    /** The kind of an effect by its GUID's first part; false for one that isn't a kind above. */
     static bool kindOf(uint32_t guidData1, Kind &kind);
     Kind kind = kConstant;
 
@@ -45,8 +50,10 @@ struct DiEffect {
     int xAxis = 0;
     uint32_t coordinates = 0x10;
     int32_t direction[3] = {1, 0, 0};
-    // The part of the push along X (-1..1) from its axes and direction,
-    // the sign the side it comes from (+ from +X).
+    /**
+     * The part of the push along X (-1..1) from its axes and direction,
+     * the sign the side it comes from (+ from +X).
+     */
     float alongX() const;
     bool envelope = false;
     uint32_t attackLevel = 0;
@@ -70,17 +77,23 @@ struct DiEffect {
     uint64_t startedMs = 0;
     uint32_t iterations = 1;
 
-    // Reads what DIEFFECT at `at` gives, for the DIEP_ parts in `which`
-    // (SetParameters' flags; CreateEffect sets all). `read32` reads the
-    // game's memory.
+    /**
+     * Reads what DIEFFECT at `at` gives, for the DIEP_ parts in `which`
+     * (SetParameters' flags; CreateEffect sets all). `read32` reads the
+     * game's memory.
+     */
     void set(const std::function<uint32_t(uint32_t)> &read32, uint32_t at, uint32_t which);
-    // Whether it plays at `nowMs`: started, past its delay and not past
-    // its iterations.
+    /**
+     * Whether it plays at `nowMs`: started, past its delay and not past
+     * its iterations.
+     */
     bool active(uint64_t nowMs) const;
 };
 
-// What the effects playing add up to at `nowMs`, with the device's gain
-// (DIPROP_FFGAIN, 0..10000).
+/**
+ * What the effects playing add up to at `nowMs`, with the device's gain
+ * (DIPROP_FFGAIN, 0..10000).
+ */
 GamepadForce sumForces(const std::vector<const DiEffect *> &effects, uint32_t deviceGain, uint64_t nowMs);
 
 } // namespace reluva::nfs

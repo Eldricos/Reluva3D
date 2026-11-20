@@ -19,20 +19,24 @@ namespace reluva::age {
 // docs/engines/age/games/mm2/formats/race.md.
 
 /**
- * Cruise: the race menu's driving about the city, with no race; and,
- * under it where the city has one, the game's "Stunt Mode: Acceleration"
- * (race/<city>/accel0waypoints.csv). See docs/engines/age/games/mm2/systems/races.md.
+ * A kind of race. Cruise is the race menu's driving about the city, with no
+ * race; and, under it where the city has one, the game's "Stunt Mode:
+ * Acceleration" (`race/<city>/accel0waypoints.csv`). See
+ * docs/engines/age/games/mm2/systems/races.md.
  */
 enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
 /**
- * A Cruise's "races": the cruise itself, then the stunt where there's one.
- * Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
- * unfinished "Stunt Prototype" (stunt0: a start and an aimap).
+ * Cruise's entries, by index: the cruise itself, the stunt (accel0) where
+ * the city has one, and San Francisco's unfinished "Stunt Prototype"
+ * (stunt0: a start and an aimap).
  */
+///@{
 constexpr int kCruiseRace = 0;
 constexpr int kStuntRace = 1;
 constexpr int kPrototypeRace = 2;
-const char *raceKindName(RaceKind kind); // "Blitz"...
+///@}
+/** The kind's name, as the .cinfo's keys have it: "Blitz", "Crash Course"... */
+const char *raceKindName(RaceKind kind);
 
 /** One difficulty's columns of a race's row. */
 struct RaceSettings {
@@ -50,6 +54,7 @@ struct RaceSettings {
     int difficulty = 0;
 };
 
+/** A race's checkpoint, or a point a car starts at. */
 struct Waypoint {
     Vec3 position{};
     float heading = 0; // degrees: 0 faces -Z, 90 faces +X
@@ -72,7 +77,7 @@ enum class LessonEvent : int {
 };
 
 /**
- * A lesson's row of race/<city>/crash<n>data.csv: Filename, Event,
+ * A lesson's row of `race/<city>/crash<n>data.csv`: Filename, Event,
  * Checkpoints, TimeLimit, AmbDensity and five "extra" columns.
  */
 struct LessonSettings {
@@ -84,6 +89,7 @@ struct LessonSettings {
     std::array<float, 5> extra{};
 };
 
+/** A race as loadRace reads it: its settings, checkpoints and opponents. */
 struct RaceDefinition {
     RaceKind kind = RaceKind::kBlitz;
     int index = 0;
@@ -112,30 +118,59 @@ struct RaceUnlocking {
     int mustPlace = 3;
     int group = 3;
 };
+/**
+ * A city's, from its `tune/<city>.cinfo`; the defaults (3 and 3) for a
+ * value it hasn't, or without one.
+ */
 RaceUnlocking raceUnlocking(const SearchSet &files, const std::string &city);
 
-/** How many races of a kind a city has, and their names (.cinfo). */
+/**
+ * The names of a city's races of a kind, one for each race it has. Most
+ * kinds' come from the .cinfo (none without one; "Blitz 2" for a name it
+ * leaves empty); Crash Course's from mmlang.dll, one for each lesson's
+ * file; Cruise's from mmlang.dll, with the stunts where the city has them.
+ */
 std::vector<std::string> raceNames(const SearchSet &files, const std::string &city, RaceKind kind);
 
+/**
+ * Reads a race's files. Fails on a file it needs that isn't there or won't
+ * read; an opponent's path that won't read is left out. A cruise gets
+ * Reluva's own starting conditions and, but for the cruise itself, its
+ * stunt's points.
+ */
 Error loadRace(const SearchSet &files, const std::string &city, RaceKind kind, int index, RaceDefinition &out);
 
 /**
  * The race's settings for the computer-driven cars, people and police:
- * race/<city>/<file><n>.aimap, or .aimap_p for a professional run (see
- * aimap.h).
+ * `race/<city>/<file><n>.aimap`, or .aimap_p for a professional run (see
+ * aimap.h). A cruise's are roam's, the stunts' accel0's and stunt0's.
  */
 std::string raceAiMapName(const std::string &city, RaceKind kind, int index, bool professional);
 /** The race's own name in its files: "blitz3", "circuit0", "race5". */
 std::string raceStem(RaceKind kind, int index);
 
-/** Parsers for the files, for tests. */
+// The parsers for the files, public for tests.
+
+/**
+ * A race's row of `mm<kind>data.csv`: the amateur, then the professional
+ * columns. Fails if there's no row for it.
+ */
 Error parseRaceSettings(const std::string &csv, int index, std::array<RaceSettings, 2> &out);
 /**
- * `radius`: the fifth column is a radius whatever the heading calls it
- * (Crash Course's files call it "poly count" too, but it varies).
+ * A race's checkpoints (x, y, z, heading, then a radius where the heading
+ * line names one). Fails on a line of fewer than four values, or fewer
+ * than two points.
+ * @param radius Read the fifth column as a radius whatever the heading
+ *        calls it (Crash Course's files call it "poly count" too, but it
+ *        varies).
  */
 Error parseWaypoints(const std::string &csv, std::vector<Waypoint> &out, bool radius = false);
+/**
+ * An opponent's .opp file: the start, then the points of its path. Fails
+ * without a point after the start.
+ */
 Error parseOpponentPath(const std::string &csv, RaceDefinition::Opponent &out);
+/** A lesson's `crash<n>data.csv`. Fails without its row, or a file in it. */
 Error parseLessonSettings(const std::string &csv, LessonSettings &out);
 
 /** A waypoint heading (degrees) as a turn about Y, as CarSim::reset takes. */

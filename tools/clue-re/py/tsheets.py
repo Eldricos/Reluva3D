@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Sheets of a recording's ticker strips (tk_NAME/*.png, two a second), each
+new strip once, stamped with its time, to read by eye.
+
+    python3 -I py/tsheets.py NAME
+"""
+
 import numpy as np, glob, sys
 from PIL import Image, ImageDraw
 v=sys.argv[1]

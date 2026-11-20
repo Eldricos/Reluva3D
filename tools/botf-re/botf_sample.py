@@ -51,12 +51,14 @@ def find(folder, name, want_dir=False):
 
 
 def read_range(path, offset, count):
+    """`count` bytes of a file from `offset` (fewer at its end)."""
     with open(path, "rb") as f:
         f.seek(offset)
         return f.read(count)
 
 
 def describe_magic(head):
+    """What a file's first bytes say it is, in words."""
     if head[:4] == b"PK\x03\x04":
         return "zip (local file header)"
     if head[:4] == b"RIFF":
@@ -92,6 +94,7 @@ def avi_codecs(head):
 
 
 def sample(path, label, out, report, tail=False, head_bytes=HEAD_BYTES, root=None):
+    """Saves a file's first bytes (and its last, with `tail`) and reports it; returns the first."""
     size = path.stat().st_size
     head = read_range(path, 0, head_bytes)
     detect = hashlib.md5(read_range(path, 0, DETECTION_HASH_BYTES)).hexdigest()
@@ -110,6 +113,7 @@ def sample(path, label, out, report, tail=False, head_bytes=HEAD_BYTES, root=Non
 
 
 def list_zip(path, report):
+    """Reports a zip's entries (name, sizes, method, CRC), counted by method and extension."""
     try:
         with zipfile.ZipFile(path) as z:
             infos = z.infolist()

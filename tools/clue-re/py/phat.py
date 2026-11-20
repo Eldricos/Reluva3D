@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where sounds play in a recording, by whitened cross-correlation (for
+sounds under music): the recording and wav8/NAME.raw as 8 kHz mono 16-bit,
+hits over THR (default 25) times the local spread.
+
+    python3 -I py/phat.py RECORDING.raw NAME...
+"""
+
 import numpy as np, sys
 rec=np.fromfile(sys.argv[1],dtype=np.int16).astype(np.float32)
 sr=8000; N=len(rec)

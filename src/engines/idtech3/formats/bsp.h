@@ -12,21 +12,20 @@
 
 namespace reluva::idtech3 {
 
-// A compiled map (.bsp, "IBSP" version 46). Field names follow the lumps
-// described in docs/engines/idtech3/formats/bsp.md; all values are little-endian
-// in the file and converted on load.
-
+/** A shader the map's surfaces and brushes use, with its flags as compiled in. */
 struct BspShader {
     std::string name;
     int32_t surfaceFlags = 0;
     int32_t contentFlags = 0;
 };
 
+/** A plane: the points p with dot(normal, p) == dist. */
 struct BspPlane {
     std::array<float, 3> normal{};
     float dist = 0;
 };
 
+/** A node of the BSP tree: the plane splitting it, its two children (front first), and its bounds. */
 struct BspNode {
     int32_t plane = 0;
     std::array<int32_t, 2> children{}; // negative: -(leaf + 1)
@@ -34,6 +33,7 @@ struct BspNode {
     std::array<int32_t, 3> maxs{};
 };
 
+/** A leaf of the BSP tree: its cluster and area, bounds, and its surfaces and brushes. */
 struct BspLeaf {
     int32_t cluster = 0; // -1: outside the map
     int32_t area = 0;
@@ -45,7 +45,7 @@ struct BspLeaf {
     int32_t numLeafBrushes = 0;
 };
 
-// Model 0 is the world; the others are brush entities' ("*1", "*2"...).
+/** A model: model 0 is the world; the others are brush entities' ("*1", "*2"...). */
 struct BspModel {
     std::array<float, 3> mins{};
     std::array<float, 3> maxs{};
@@ -55,17 +55,20 @@ struct BspModel {
     int32_t numBrushes = 0;
 };
 
+/** A brush, a convex volume: its sides and its shader. */
 struct BspBrush {
     int32_t firstSide = 0;
     int32_t numSides = 0;
     int32_t shader = 0;
 };
 
+/** One side of a brush: its plane and shader. */
 struct BspBrushSide {
     int32_t plane = 0;
     int32_t shader = 0;
 };
 
+/** A vertex of the map's surfaces. */
 struct BspVertex {
     std::array<float, 3> pos{};
     std::array<float, 2> st{};       // texture coordinates
@@ -74,14 +77,17 @@ struct BspVertex {
     std::array<uint8_t, 4> color{};
 };
 
+/** A fog volume: its shader and the brush it fills. */
 struct BspFog {
     std::string shader;
     int32_t brush = 0;
     int32_t visibleSide = 0; // -1: none
 };
 
+/** What a surface is, as the file numbers it. */
 enum class SurfaceType : int32_t { kBad = 0, kPlanar = 1, kPatch = 2, kTriangleSoup = 3, kFlare = 4 };
 
+/** A surface of the map: its shader, fog, vertices and indices, and lightmap. */
 struct BspSurface {
     int32_t shader = 0;
     int32_t fog = 0; // -1: none
@@ -102,6 +108,11 @@ struct BspSurface {
 
 constexpr int kLightmapSize = 128; // lightmaps are 128x128 RGB
 
+/**
+ * A compiled map (.bsp, "IBSP" version 46), as parseBsp reads it. Field
+ * names follow the lumps described in docs/engines/idtech3/formats/bsp.md;
+ * all values are little-endian in the file and converted on load.
+ */
 struct Bsp {
     int32_t version = 0;
     std::string entities; // the entity lump's text, see entities.h
@@ -124,27 +135,35 @@ struct Bsp {
     int32_t visClusterBytes = 0;
     std::vector<uint8_t> visData; // visClusters * visClusterBytes bits
 
-    // Values the original engine tolerates and parseBsp() corrected, as
-    // described in bsp.md: how many surfaces had each.
+    /**
+     * Values the original engine tolerates and parseBsp() corrected, as
+     * described in bsp.md: how many surfaces had each.
+     */
     struct Fixes {
         int lightmaps = 0; // lightmap past the end: now -1 (vertex lighting)
         int fogs = 0;      // fog that doesn't exist: now -1
         int flares = 0;    // flare or Bad surface with vertices or indices: now none
         int types = 0;     // unknown surface type: now Bad
+        /** The corrections of every kind. */
         int total() const { return lightmaps + fogs + flares + types; }
     } fixes;
 
+    /** How many lightmaps the map has. */
     size_t lightmapCount() const { return lightmaps.size() / (kLightmapSize * kLightmapSize * 3); }
-    // Whether cluster `to` can be seen from cluster `from`. Without vis data
-    // (or for clusters outside the map) everything is visible.
+    /**
+     * Whether cluster `to` can be seen from cluster `from`. Without vis data
+     * (or for clusters outside the map) everything is visible.
+     */
     bool clusterVisible(int from, int to) const;
 };
 
-// Parse a whole .bsp file. Checks the header, that every lump lies inside
-// the file and holds whole records, and that every index between lumps is
-// in range, so the rest of the engine can trust the result. Out-of-range
-// values the original engine tolerates are corrected instead (see `fixes`);
-// errors name the record, the field and its value.
+/**
+ * Parses a whole .bsp file. Checks the header, that every lump lies inside
+ * the file and holds whole records, and that every index between lumps is
+ * in range, so the rest of the engine can trust the result. Out-of-range
+ * values the original engine tolerates are corrected instead (see `fixes`);
+ * errors name the record, the field and its value.
+ */
 Error parseBsp(const std::vector<uint8_t> &data, Bsp &out);
 
 } // namespace reluva::idtech3

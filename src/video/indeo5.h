@@ -11,23 +11,37 @@
 
 namespace reluva::video {
 
-// Intel Indeo Video Interactive 5 (fourcc IV50): a picture in YUV 4:1:0
-// (chroma a quarter the size each way), each plane split into bands
-// (luma optionally into four wavelet bands), each band into tiles and
-// macroblocks of 8x8 or 4x4 blocks: slant-transformed, quantised,
-// run-length and Huffman coded, with motion compensation from the frame
-// before. See docs/common/video/indeo5.md.
+/**
+ * Intel Indeo Video Interactive 5 (fourcc IV50): a picture in YUV 4:1:0
+ * (chroma a quarter the size each way), each plane split into bands
+ * (luma optionally into four wavelet bands), each band into tiles and
+ * macroblocks of 8x8 or 4x4 blocks: slant-transformed, quantised,
+ * run-length and Huffman coded, with motion compensation from the frame
+ * before. See docs/common/video/indeo5.md.
+ */
 class Indeo5Decoder {
 public:
     Indeo5Decoder();
-    // Decodes a frame. An empty one (a dropped frame) keeps the picture.
+    /**
+     * Decodes a frame. An empty one (a dropped frame) keeps the picture.
+     * @return An error for a frame before the first key frame, or one that
+     *         is damaged or cut short.
+     */
     Error decode(const uint8_t *data, size_t size);
+    /** The picture's size in pixels, as the last GOP header gave it (0 before one). */
+    ///@{
     int width() const { return _planes[0].width; }
     int height() const { return _planes[0].height; }
-    // The picture: luma, then the two chroma planes (Cb, Cr), each
-    // width × height bytes, 0..255.
+    ///@}
+    /**
+     * The picture: luma, then the two chroma planes (Cb, Cr), each its
+     * plane's size (the chroma a quarter of width() and height()), 0..255.
+     */
     void yuv(std::vector<uint8_t> &y, std::vector<uint8_t> &cb, std::vector<uint8_t> &cr) const;
-    // The picture as RGBA, `pitch` bytes a row (BT.601 video range).
+    /**
+     * The picture as RGBA (BT.601 video range, opaque) into `out`, which
+     * holds height() rows of `pitch` bytes, each at least width() x 4.
+     */
     void rgba(uint8_t *out, int pitch) const;
 
 private:
@@ -35,8 +49,7 @@ private:
         int x = 0;
         int y = 0;
         int offset = 0;
-        // type: 0 intra, 1 inter
-        uint8_t type = 0;
+        uint8_t type = 0; // 0 intra, 1 inter
         uint8_t cbp = 0;
         int8_t qDelta = 0;
         int8_t mvX = 0;

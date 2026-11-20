@@ -11,7 +11,7 @@ from common import *
 ARGREGS = ('eax', 'edx', 'ebx', 'ecx')
 
 def arg_shape(fa):
-    """(number of register args, number of stack args) from the entry block and ret imm"""
+    """(register arguments, stack arguments): registers read before written in the entry block, ret's immediate."""
     D = db()
     f = D['funcs'].get(fa)
     if not f:
@@ -51,7 +51,7 @@ def arg_shape(fa):
     return nreg, nstk
 
 def angr_structs(syms, arch):
-    """SimStruct types for our structs, with padding between the known fields"""
+    """angr SimStruct types for our structs, with padding between the known fields."""
     from angr.sim_type import (SimStruct, SimTypeFixedSizeArray, SimTypeChar, SimTypeShort, SimTypeInt,
                                SimTypeFloat, SimTypePointer, SimTypeBottom)
     from collections import OrderedDict
@@ -91,6 +91,7 @@ def angr_structs(syms, arch):
     return {k: v.with_arch(arch) for k, v in out.items()}
 
 def decompile(fa, syms, show_asm_on_fail=True):
+    """angr's C for the function at `fa`, with Watcom's convention and the type flow's argument types."""
     logging.disable(logging.CRITICAL)
     import angr
     from angr.calling_conventions import SimCC, SimRegArg, SimStackArg
@@ -99,6 +100,7 @@ def decompile(fa, syms, show_asm_on_fail=True):
     from angr.enums import Flavors
 
     class SimCCWatcom(SimCC):
+        """Watcom's register convention: eax, edx, ebx, ecx, then the stack, which the callee pops."""
         ARG_REGS = ['eax', 'edx', 'ebx', 'ecx']
         FP_ARG_REGS = []
         RETURN_VAL = SimRegArg('eax', 4)
@@ -152,7 +154,7 @@ def decompile(fa, syms, show_asm_on_fail=True):
     return dec.codegen.text
 
 def struct_evidence(fa):
-    """{struct: set(offsets)} accessed in this function, from fields.pkl"""
+    """({struct: offsets accessed}, its arguments' types) for this function, from fields.pkl."""
     F = pickle.load(open(os.path.join(STORE, 'fields.pkl'), 'rb'))
     D = db()
     ev = {}
@@ -162,6 +164,7 @@ def struct_evidence(fa):
     return ev, F['args'].get(fa, {})
 
 def rename(text, fa, syms, show_types=False):
+    """The decompiled text with symbols.json's names: angr's structs matched to ours, fields, globals, functions."""
     ev, args = struct_evidence(fa)
     # 1. angr's struct typedefs: offsets -> pick our struct
     tdefs = {}
@@ -173,6 +176,7 @@ def rename(text, fa, syms, show_types=False):
         tdefs[name] = fields
     mapping = {}
     def score(fields, S):
+        """How well angr's struct fits our struct S: 10 for each offset this function uses, 1 for a known field."""
         offs = {o for o, (k, t) in fields.items() if k == 'field'}
         if not offs or max(offs) >= syms.structs[S]['size']:
             return -1
@@ -200,9 +204,11 @@ def rename(text, fa, syms, show_types=False):
     for m in re.finditer(r'^\s*(?:struct\s+)?(\w+) \*+(v\d+|a\d+)\b', text, re.M):
         decl[m.group(2)] = m.group(1)
     def fld(tname, off):
+        """(our struct, field name) for an offset in angr's struct `tname`."""
         S = mapping.get(tname)
         return (S, syms.field_name(S, off)) if S else (None, None)
     def chain(m):
+        """A var->field_x->field_y chain with our fields' names."""
         var, rest = m.group(1), m.group(2)
         t = decl.get(var)
         out = var
@@ -222,11 +228,13 @@ def rename(text, fa, syms, show_types=False):
     text = re.sub(r'\b(v\d+|a\d+)((?:->(?:field|padding)_[0-9a-f]+(?:\[[^\]]*\])?)+)', chain, text)
     # typedef bodies: rename fields
     def tdef(m):
+        """An angr typedef with our struct's names for its fields."""
         name, body = m.group(1), m.group(2)
         S = mapping.get(name)
         if not S:
             return m.group(0)
         def fl(fm):
+            """A field_x in the typedef with our name for it."""
             n = syms.field_name(S, int(fm.group(2), 16))
             return fm.group(0) if not n or fm.group(1) != 'field' else n.replace('[', '_').replace(']', '').replace('+', '_')
         body = re.sub(r'\b(field|padding)_([0-9a-f]+)\b', fl, body)
@@ -236,6 +244,7 @@ def rename(text, fa, syms, show_types=False):
         text = re.sub(r'\b%s\b' % name, S, text)
     # 3. globals and functions
     def g(m):
+        """The name for angr's g_ or sub_ address, or the text as it is."""
         a = int(m.group(1), 16)
         n = syms.data_name(a) or syms.fname(a)
         return n if n else m.group(0)
@@ -243,6 +252,7 @@ def rename(text, fa, syms, show_types=False):
     text = re.sub(r'\bsub_([0-9a-f]{6,8})\b', g, text)
     # integer literals that are float bit patterns (x87 compares done as int compares)
     def fl(m):
+        """A literal that is a float's bit pattern, with the float beside it."""
         v = int(m.group(0), 0) & 0xffffffff
         if 0x3a000000 <= v <= 0x4a000000 or 0xba000000 <= v <= 0xca000000:
             import struct as _s

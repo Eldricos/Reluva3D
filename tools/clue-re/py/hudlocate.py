@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where the bar's pieces are in a frame: each animation's first frames
+matched against the whole frame, with the picture's place, size and part
+offset.
+
+    python3 -I py/hudlocate.py FRAME.png ANIMATION...
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs

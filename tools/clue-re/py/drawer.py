@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Which frame of the drawer's animations a recording's frame shows, and
+where: each animation's frames matched against the drawer's corner of the
+screen (x 505-640, y 405-470).
+
+    python3 -I py/drawer.py FRAME.png ANIMATION...
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs

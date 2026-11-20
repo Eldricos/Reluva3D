@@ -3,8 +3,7 @@
 
 // The game's sound calls (engines/stgenerations/audio.h) on Reluva's mixer:
 // raw PCM, WAV files played once or looped, handles, volumes and balance,
-// pausing. STG-Engine's tests of its own mixer, as the game's calls now
-// reach Reluva's (whose own tests are common.unit.audio).
+// pausing. The mixer itself is tested by common.unit.audio.
 
 #include "tests/engines/stgenerations/support.h"
 

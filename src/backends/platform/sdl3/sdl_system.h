@@ -15,6 +15,11 @@ namespace reluva {
 
 class SdlGpuRenderer;
 
+/**
+ * The System on SDL 3: one window, drawn with SDL's renderer (on a GPU
+ * device of its own where there is one, which 3D needs), its sound, input,
+ * game controller and the operating system's sockets.
+ */
 class SdlSystem : public System {
 public:
     SdlSystem();
@@ -22,17 +27,30 @@ public:
     SdlSystem(const SdlSystem &) = delete;
     SdlSystem &operator=(const SdlSystem &) = delete;
 
+    /**
+     * Starts SDL and opens the window and its renderer. Without a sound
+     * device it still succeeds (startAudio says so later); without a GPU
+     * device, with no 3D.
+     */
     Error init();
 
-    // Used by the launcher, which draws with ImGui directly on SDL.
+    /** The window and its renderer, for the launcher, which draws with ImGui directly on SDL. */
+    ///@{
     SDL_Window *window() const { return _window; }
     SDL_Renderer *renderer() const { return _renderer; }
-    // Drop the game framebuffer and return the window to launcher mode.
+    ///@}
+    /**
+     * Drops the game's picture, sound and display settings, and gives the
+     * window back to the launcher as it was.
+     */
     void resetForLauncher();
-    // True once the user closed the window during a game.
+    /**
+     * True once the user closed the window during a game (and didn't take
+     * it back when confirmQuit asked).
+     */
     bool quitRequested() const { return _quitRequested; }
 
-    // System
+    // System's.
     Error initGraphics(int width, int height, PixelFormat format) override;
     void setPalette(const Color *colors, int start, int count) override;
     void updateScreen(const Surface &surface) override;
@@ -70,7 +88,7 @@ private:
     static constexpr int kAudioRate = 44100;
     static void SDLCALL audioThunk(void *userdata, SDL_AudioStream *stream, int additional, int total);
     void release3D();
-    // The game's picture, width x height, shown as display_ says: scaled
+    // The game's picture, width x height, shown as _display says: scaled
     // into the window (and the window sized, if asked).
     void applyPresentation(int width, int height);
     // The game's cursor (setMouseCursor) made again for how the picture is
@@ -90,7 +108,7 @@ private:
     SDL_JoystickID _joystickId = 0;
     bool _relativeMouse = false; // held by setRelativeMouse, held again when the window changes
     SDL_Renderer *_renderer = nullptr;
-    SDL_GPUDevice *_gpu = nullptr; // set when renderer_ runs on SDL's GPU API, which 3D needs
+    SDL_GPUDevice *_gpu = nullptr; // set when _renderer runs on SDL's GPU API, which 3D needs
     std::unique_ptr<SdlGpuRenderer> _renderer3d;
     SDL_Texture *_gameTexture = nullptr;
     int _gameW = 0;
@@ -102,8 +120,8 @@ private:
 
     std::optional<Cursor> _cursor;    // the game's, as it gave it
     SDL_Cursor *_sdlCursor = nullptr; // it as the system's pointer
-    float _sdlCursorScale = 0;        // the scale sdlCursor_ was made at
-    bool _softwareCursor = false;     // drawn by us instead (cursorTexture_)
+    float _sdlCursorScale = 0;        // the scale _sdlCursor was made at
+    bool _softwareCursor = false;     // drawn by us instead (_cursorTexture)
     SDL_Texture *_cursorTexture = nullptr;
     bool _cursorVisible = true; // setMouseCursorVisible
     bool _mouseInside = false;  // the mouse is over the window

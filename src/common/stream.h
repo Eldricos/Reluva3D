@@ -12,18 +12,28 @@
 
 namespace reluva {
 
-// Bytes read in order, with little-endian values: for decoders that walk a
-// file (or a part of one) rather than index into it. Reading past the end
-// gives zeros and sets err().
+/**
+ * Bytes read in order: for decoders that walk a file (or a part of one)
+ * rather than index into it. A value read past the end has 0 for the
+ * bytes that weren't there and sets err(), which stays set: a decoder can
+ * read a whole record and check once at its end.
+ */
 class ReadStream {
 public:
     virtual ~ReadStream() = default;
 
-    // Reads up to `size` bytes; returns how many were read.
+    /** Reads up to `size` bytes; returns how many were read. */
     virtual uint32_t read(void *data, uint32_t size) = 0;
+    /**
+     * Whether a read has asked for more than was left (not merely whether
+     * the position is at the end), until the next seek.
+     */
     virtual bool eos() const = 0;
+    /** Whether a value or a fixed string read ran past the end. */
     bool err() const { return _err; }
 
+    /** The next value, little-endian (LE) or big-endian (BE). */
+    ///@{
     uint8_t readByte();
     uint16_t readUint16LE();
     uint32_t readUint32LE();
@@ -31,34 +41,54 @@ public:
     int32_t readSint32LE() { return int32_t(readUint32LE()); }
     uint16_t readUint16BE();
     uint32_t readUint32BE();
-    // `len` bytes, up to the first NUL among them.
+    ///@}
+    /** A string in a field of `len` bytes: all are read, and it ends at the first NUL among them. */
     std::string readFixedString(uint32_t len);
-    // Up to a NUL byte (not included) or the end.
+    /** Up to a NUL byte (read, but not included) or the end. */
     std::string readCString();
 
 protected:
     bool _err = false;
 };
 
+/** A ReadStream whose size is known, and which can be read from anywhere. */
 class SeekableReadStream : public ReadStream {
 public:
+    /** Where the next read starts, in bytes from the start, and how many there are. */
+    ///@{
     virtual int64_t pos() const = 0;
     virtual int64_t size() const = 0;
-    // `whence` is SEEK_SET, SEEK_CUR or SEEK_END.
+    ///@}
+    /**
+     * Moves where the next read starts, as fseek does.
+     * @param whence SEEK_SET, SEEK_CUR or SEEK_END.
+     * @return False, without moving, for a place before the start or past
+     *         the end.
+     */
     virtual bool seek(int64_t offset, int whence = SEEK_SET) = 0;
+    /** Moves `n` bytes on, as seek() does. */
     bool skip(uint32_t n) { return seek(n, SEEK_CUR); }
-    // The rest of the stream.
+    /** The rest of the stream. */
     std::vector<uint8_t> readAll();
-    // Up to the end of the line (LF, CR LF or CR; not included) or of the
-    // stream.
+    /**
+     * Up to the end of the line (LF, CR LF or CR; not included) or of the
+     * stream.
+     */
     std::string readLine();
 };
 
-// A stream over bytes in memory: its own, or a part of a buffer shared with
-// other streams (an archive's members).
+/**
+ * A stream over bytes in memory: its own, or a part of a buffer shared with
+ * other streams (an archive's members).
+ */
 class MemoryReadStream : public SeekableReadStream {
 public:
+    /** Over `data`, which it keeps. */
     explicit MemoryReadStream(std::vector<uint8_t> data);
+    /**
+     * Over `size` bytes of `buffer` from `offset`, cut short where the
+     * buffer ends. The buffer lives as long as any stream over it does.
+     */
     MemoryReadStream(std::shared_ptr<const std::vector<uint8_t>> buffer, uint32_t offset, uint32_t size);
 
     uint32_t read(void *data, uint32_t size) override;
@@ -66,6 +96,7 @@ public:
     int64_t pos() const override { return _pos; }
     int64_t size() const override { return _size; }
     bool seek(int64_t offset, int whence = SEEK_SET) override;
+    /** The stream's first byte (not where it's at): good while the stream is. */
     const uint8_t *data() const { return _buffer->data() + _offset; }
 
 private:
@@ -76,28 +107,37 @@ private:
     bool _eos = false;
 };
 
-// Bytes written in order, with little-endian values.
+/** Bytes written in order into memory, growing as needed. */
 class MemoryWriteStream {
 public:
+    /** Bytes as they are. */
     void write(const void *data, uint32_t size);
+    /** A value, little-endian (LE) or big-endian (BE). */
+    ///@{
     void writeByte(uint8_t v) { _data.push_back(v); }
     void writeUint16LE(uint16_t v);
     void writeUint32LE(uint32_t v);
     void writeUint16BE(uint16_t v);
     void writeUint32BE(uint32_t v);
-    // The string's bytes, without a NUL.
+    ///@}
+    /** The string's bytes, without a NUL. */
     void writeString(const std::string &s) { write(s.data(), uint32_t(s.size())); }
-    // A string in a field of `size` bytes, padded with NULs (cut if longer).
+    /** A string in a field of `size` bytes, padded with NULs (cut if longer). */
     void writeFixedString(const std::string &s, uint32_t size);
+    /** Everything written so far, and how many bytes that is. */
+    ///@{
     const std::vector<uint8_t> &data() const { return _data; }
     uint32_t size() const { return uint32_t(_data.size()); }
+    ///@}
 
 private:
     std::vector<uint8_t> _data;
 };
 
-// A whole file into memory, and back; false if it can't be read (written).
+/** A whole file into memory, and back; false if it can't be read (written). */
+///@{
 bool readFile(const std::filesystem::path &path, std::vector<uint8_t> &out);
 bool writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &data);
+///@}
 
 } // namespace reluva

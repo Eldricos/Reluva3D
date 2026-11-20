@@ -235,8 +235,6 @@ Vertex Glide2::convert(const Glide2Vertex &v) const {
     return o;
 }
 
-// --- Drawing -------------------------------------------------------------------
-
 void Glide2::drawTriangle(const Glide2Vertex &a, const Glide2Vertex &b, const Glide2Vertex &c) {
     _pipeline.triangle(convert(a), convert(b), convert(c));
     drawn();
@@ -330,8 +328,6 @@ void Glide2::renderBuffer(int buffer) {
     if (buffer == kBufferFront || buffer == kBufferBack)
         _pipeline.state().renderBuffer = buffer;
 }
-
-// --- State -----------------------------------------------------------------------
 
 void Glide2::colorCombine(int function, int factor, int local, int other, bool invert) {
     _pipeline.state().color = {{function, factor, invert}, local, other};
@@ -503,8 +499,6 @@ void Glide2::glideSetState(uint32_t token) {
     else
         notImplemented("grGlideSetState", "a GrState Reluva didn't fill: ignored");
 }
-
-// --- Textures --------------------------------------------------------------------
 
 TextureInfo Glide2::textureInfo(int smallLod, int largeLod, int aspect, int format) {
     TextureInfo t;
@@ -684,49 +678,49 @@ void Glide2::texCombineFunction(int tmu, int function) {
     int alphaFactor = kFactorZero;
     bool invert = false;
     switch (function) {
-    case 0x0:
+    case 0x0: // ZERO
         fn = kFuncZero;
-        break; // ZERO
-    case 0x1:
+        break;
+    case 0x1: // DECAL
         fn = kFuncLocal;
-        break; // DECAL
-    case 0x2:
+        break;
+    case 0x2: // OTHER
         fn = kFuncScaleOther;
         rgbFactor = alphaFactor = kFactorOne;
-        break; // OTHER
-    case 0x3:
+        break;
+    case 0x3: // ADD
         fn = kFuncScaleOtherAddLocal;
         rgbFactor = alphaFactor = kFactorOne;
-        break; // ADD
-    case 0x4:
+        break;
+    case 0x4: // MULTIPLY
         fn = kFuncScaleOther;
         rgbFactor = kFactorLocal;
         alphaFactor = kFactorLocalAlpha;
-        break; // MULTIPLY
-    case 0x5:
+        break;
+    case 0x5: // SUBTRACT
         fn = kFuncScaleOtherMinusLocal;
         rgbFactor = alphaFactor = kFactorOne;
-        break; // SUBTRACT
-    case 0x6:
+        break;
+    case 0x6: // DETAIL
         fn = kFuncScaleOtherMinusLocalAddLocal;
         rgbFactor = alphaFactor = kFactorTextureAlpha;
-        break; // DETAIL
+        break;
     case 0x7:
         fn = kFuncScaleOtherMinusLocalAddLocal;
         rgbFactor = alphaFactor = kFactorOneMinusTextureAlpha;
         break;
-    case 0x8:
+    case 0x8: // TRILINEAR_ODD
         fn = kFuncScaleOtherMinusLocalAddLocal;
         rgbFactor = alphaFactor = kFactorTextureRgb;
-        break; // TRILINEAR_ODD
+        break;
     case 0x9:
         fn = kFuncScaleOtherMinusLocalAddLocal;
         rgbFactor = alphaFactor = kFactorOneMinusLodFraction;
         break;
-    case 0xa:
+    case 0xa: // ONE
         fn = kFuncZero;
         invert = true;
-        break; // ONE
+        break;
     default:
         notImplemented("grTexCombineFunction " + std::to_string(function), "unknown function");
         return;
@@ -782,48 +776,48 @@ void Glide2::guColorCombineFunction(int function) {
     case 0x0:
         set(kFuncZero, kFactorZero, kLocalConstant, kOtherConstant);
         break;
-    case 0x1:
+    case 0x1: // CCRGB
         set(kFuncLocal, kFactorZero, kLocalConstant, kOtherConstant);
-        break; // CCRGB
-    case 0x2:  // ITRGB
-    case 0x3:
+        break;
+    case 0x2: // ITRGB
+    case 0x3: // ITRGB_DELTA0
         set(kFuncLocal, kFactorZero, kLocalIterated, kOtherConstant);
-        break; // ITRGB_DELTA0
-    case 0x4:
+        break;
+    case 0x4: // DECAL_TEXTURE
         set(kFuncScaleOther, kFactorOne, kLocalConstant, kOtherTexture);
-        break; // DECAL_TEXTURE
-    case 0x5:
+        break;
+    case 0x5: // TEXTURE_TIMES_CCRGB
         set(kFuncScaleOther, kFactorLocal, kLocalConstant, kOtherTexture);
-        break; // TEXTURE_TIMES_CCRGB
-    case 0x6:
+        break;
+    case 0x6: // TEXTURE_TIMES_ITRGB, and its _DELTA0
     case 0x7:
         set(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture);
-        break; // TEXTURE_TIMES_ITRGB(_DELTA0)
+        break;
     case 0x8:
         set(kFuncScaleOtherAddLocalAlpha, kFactorLocal, kLocalIterated, kOtherTexture);
         break;
-    case 0x9:
+    case 0x9: // TEXTURE_TIMES_ALPHA
         set(kFuncScaleOther, kFactorLocalAlpha, kLocalIterated, kOtherTexture);
-        break; // TEXTURE_TIMES_ALPHA
-    case 0xa:  // TEXTURE_TIMES_ALPHA_ADD_ITRGB
-    case 0xe:
+        break;
+    case 0xa: // TEXTURE_TIMES_ALPHA_ADD_ITRGB
+    case 0xe: // DIFF_SPEC_A
         set(kFuncScaleOtherAddLocal, kFactorLocalAlpha, kLocalIterated, kOtherTexture);
-        break; // DIFF_SPEC_A
-    case 0xb:
+        break;
+    case 0xb: // TEXTURE_ADD_ITRGB
         set(kFuncScaleOtherAddLocal, kFactorOne, kLocalIterated, kOtherTexture);
-        break; // TEXTURE_ADD_ITRGB
-    case 0xc:
+        break;
+    case 0xc: // TEXTURE_SUB_ITRGB
         set(kFuncScaleOtherMinusLocal, kFactorOne, kLocalIterated, kOtherTexture);
-        break; // TEXTURE_SUB_ITRGB
+        break;
     case 0xd:
         set(kFuncScaleOtherMinusLocalAddLocal, kFactorTextureAlpha, kLocalConstant, kOtherIterated);
         break;
-    case 0xf:
+    case 0xf: // DIFF_SPEC_B
         set(kFuncScaleOtherAddLocalAlpha, kFactorLocal, kLocalIterated, kOtherTexture);
-        break; // DIFF_SPEC_B
-    case 0x10:
+        break;
+    case 0x10: // ONE
         set(kFuncZero, kFactorZero, kLocalConstant, kOtherConstant, true);
-        break; // ONE
+        break;
     default:
         notImplemented("guColorCombineFunction " + std::to_string(function), "unknown function");
         break;
@@ -832,15 +826,15 @@ void Glide2::guColorCombineFunction(int function) {
 
 void Glide2::guAlphaSource(int mode) {
     switch (mode) {
-    case 0x0:
+    case 0x0: // CC_ALPHA
         alphaCombine(kFuncLocal, kFactorZero, kLocalConstant, kOtherConstant, false);
-        break; // CC_ALPHA
-    case 0x1:
+        break;
+    case 0x1: // ITERATED
         alphaCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherConstant, false);
-        break; // ITERATED
-    case 0x2:
+        break;
+    case 0x2: // TEXTURE
         alphaCombine(kFuncScaleOther, kFactorOne, kLocalConstant, kOtherTexture, false);
-        break; // TEXTURE
+        break;
     case 0x3:
         alphaCombine(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture, false);
         break;
@@ -849,8 +843,6 @@ void Glide2::guAlphaSource(int mode) {
         break;
     }
 }
-
-// --- The texture manager -----------------------------------------------------------
 
 uint32_t Glide2::guTexAllocateMemory(int tmu, int evenOdd, int width, int height, int format, int mipmapMode,
                                      int smallLod, int largeLod, int aspect, int clampS, int clampT, int minFilter,
@@ -874,8 +866,8 @@ uint32_t Glide2::guTexAllocateMemory(int tmu, int evenOdd, int width, int height
     m.size = texTextureMemRequired(m.evenOdd, m.info);
     // From the TMU's next free address; a mipmap level can't straddle the
     // 2 MB line (Glide 2.4 Programming Guide, Texture Memory: "a mipmap
-    // level cannot straddle the 2Mbyte boundary"), so one that would
-    // starts on it.
+    // level cannot straddle the 2Mbyte boundary"), so a mipmap that would
+    // cross it starts on it.
     uint32_t start = std::max(_texNext[size_t(tmu)], texMinAddress(tmu));
     constexpr uint32_t k2Mb = 2u << 20;
     if (m.size && start / k2Mb != (start + m.size - 1) / k2Mb)
@@ -987,8 +979,6 @@ void Glide2::guTexSource(uint32_t id) {
     }
     _texCurrent[size_t(m.tmu)] = id;
 }
-
-// --- The linear frame buffer -----------------------------------------------------
 
 bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock &out) {
     if (!_pipeline.isOpen() || !_pipeline.buffer(buffer))
@@ -1194,8 +1184,6 @@ bool Glide2::lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, u
         }
     return true;
 }
-
-// --- Statistics ------------------------------------------------------------------
 
 void Glide2::sstPerfStats(uint32_t out[5]) const {
     const PixelStats &s = _pipeline.stats;

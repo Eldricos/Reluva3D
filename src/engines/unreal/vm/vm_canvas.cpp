@@ -7,7 +7,7 @@
 // list of tiles (a texture's rectangle at a place on the screen, with a
 // colour and a style) for the page to draw over the world. Text is tiles
 // too, one a letter, from its font's pages (font.h). See
-// docs/engines/unreal_vm.md.
+// docs/engines/unreal/games/ds9fallen/systems/hud.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

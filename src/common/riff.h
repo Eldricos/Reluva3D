@@ -24,19 +24,23 @@ struct RiffChunk {
     size_t size = 0;
     std::vector<RiffChunk> children;
 
+    /** Whether it's a RIFF or LIST chunk, which has children. */
     bool isList() const { return id == "RIFF" || id == "LIST"; }
-    /** The first child with this id (and for RIFF/LIST, form type), or null. */
+    /** The first child with this id, or null. */
     const RiffChunk *find(const std::string &id) const;
+    /** The first child list of this form type, or null. */
     const RiffChunk *findList(const std::string &type) const;
     /** Every child list of this form type. */
     std::vector<const RiffChunk *> lists(const std::string &type) const;
 
     /** Little-endian reads within the chunk (0 past its end). */
+    ///@{
     uint8_t u8(size_t at) const { return at < size ? data[at] : 0; }
     uint16_t u16(size_t at) const { return uint16_t(u8(at) | u8(at + 1) << 8); }
     uint32_t u32(size_t at) const { return uint32_t(u16(at) | uint32_t(u16(at + 2)) << 16); }
     int16_t s16(size_t at) const { return int16_t(u16(at)); }
     int32_t s32(size_t at) const { return int32_t(u32(at)); }
+    ///@}
     /** A UTF-16 string chunk (UNAM...), as ASCII (other characters as '?'). */
     std::string text16() const;
 };

@@ -41,6 +41,7 @@ FOLDERS = ("src/", "tests/")
 
 
 def git(*args):
+    """What git prints; raises if it fails."""
     return subprocess.check_output(["git", *args], text=True)
 
 
@@ -62,7 +63,7 @@ def find_tool(name, env):
 
 
 def changed_since(base):
-    """Files changed between where HEAD left `base` and the working tree."""
+    """Files changed between where HEAD left `base` and the working tree, new ones included."""
     if base is None:
         for candidate in ("origin/main", "main"):
             if subprocess.run(["git", "rev-parse", "-q", "--verify", candidate], capture_output=True).returncode == 0:
@@ -77,6 +78,7 @@ def changed_since(base):
 
 
 def select(paths):
+    """The C and C++ files in src/ and tests/, new ones too: those under `paths` if given."""
     tracked = git("ls-files", *FOLDERS).splitlines() + git("ls-files", "--others", "--exclude-standard", *FOLDERS).splitlines()
     out = []
     for f in tracked:
@@ -152,6 +154,7 @@ def main():
     clang_format = find_tool("clang-format", "CLANG_FORMAT")
 
     def needs(f):
+        """(file, lines clang-format would change: 0 for none, None if it failed, its error)."""
         # clang-format prints nothing for a file .clang-format-ignore lists.
         out = subprocess.run([clang_format, "--style=file", f], capture_output=True, text=True, encoding="utf-8")
         if out.returncode != 0:

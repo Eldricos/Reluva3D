@@ -55,7 +55,7 @@ int tagValue(const GameState &state, const std::string &name, int unset) {
 
 } // namespace
 
-// --- The bookcase ------------------------------------------------------------------------
+// The bookcase.
 
 void ScenePage::bookcaseAction(const std::string &word, const std::string &arg) {
     // Its shelves' hotspots take a book down ("action takebook<n>") or put
@@ -67,7 +67,7 @@ void ScenePage::bookcaseAction(const std::string &word, const std::string &arg) 
         return;
     const std::string tag = "bookshelf" + std::to_string(shelf);
     if (word.find("takebook") != std::string::npos) {
-        // 0x4081f0
+        // A book taken down (0x4081f0).
         playSound("interface\\inventory");
         const int book = tagValue(_state, tag, kFirstBooks[shelf]);
         if (book >= 1 && book <= 3)
@@ -97,7 +97,7 @@ void ScenePage::bookcaseAction(const std::string &word, const std::string &arg) 
         _runner->run("talk narracottgen 122");
 }
 
-// --- The deposit boxes -------------------------------------------------------------------
+// The deposit boxes.
 
 void ScenePage::openDepositBox() {
     // 0x408de0: the letters' order and which drawers are shut, as text
@@ -198,7 +198,7 @@ void ScenePage::depositUpdate(float seconds) {
     if (d.timer > 0)
         return;
     d.timer = 0;
-    // 0x4097b0
+    // The swap (0x4097b0).
     playSound("sfx\\boxclose2");
     int first = -1;
     for (int i = 0; i < 12; i++)

@@ -21,12 +21,17 @@
 
 namespace reluva::awe {
 
+/** A character's animations playing, and the pose they make. */
 class Animator {
 public:
+    /** How many animations may play at once. */
     static constexpr int kSlots = 10;
+    /** The layers a slot plays on. */
     enum Layer { kBody = 0, kHead = 1, kEyes = 2 };
+    /** A slot's state: playing, easing out at its end, or stopped and easing out. */
     enum State { kPlaying = 0, kEnding = 1, kStopped = 2 };
 
+    /** An animation playing, and how. */
     struct Slot {
         std::string name; // as asked for, lower case ("idle1", "headleft")
         std::shared_ptr<const Animation> animation;
@@ -46,58 +51,80 @@ public:
         // out as it plays: a walk's, a run's or a turn's (Actor::motion).
         float carried[3] = {0, 0, 0};
         float carriedTurn = 0; // degrees about the model's up
-        // Its weight now: eased in and out (Granny's smooth curve).
+        /** Its weight now: eased in and out (Granny's smooth curve). */
         float weight() const;
-        // Seconds into the animation.
+        /** Seconds into the animation. */
         float time() const;
-        // How its curves go on past their ends: wrapping round while it
-        // loops for ever, or into the loop before or after when there is
-        // one (granny2.dll's control loop state, 0x5001bbe0).
+        /**
+         * How its curves go on past their ends: wrapping round while it
+         * loops for ever, or into the loop before or after when there is
+         * one (granny2.dll's control loop state, 0x5001bbe0).
+         */
         CurveLoop loop() const;
     };
 
+    /** Nothing playing, on `model`, which must outlive it. */
     explicit Animator(const Model &model) : _model(&model) {}
+    /** The character's model. */
     const Model &model() const { return *_model; }
 
-    // Plays an animation (0x429f50): `loops` times (0: for ever), easing
-    // in over `ease` seconds. `weight`, if not 0, replaces its mask's
-    // weights (a gesture played lightly over what's under it). A base
-    // animation eases the last base out. False if all ten slots are
-    // taken.
+    /**
+     * Plays an animation (0x429f50): `loops` times (0: for ever), easing
+     * in over `ease` seconds. `weight`, if not 0, replaces its mask's
+     * weights (a gesture played lightly over what's under it). A base
+     * animation eases the last base out. False if all ten slots are
+     * taken.
+     */
     bool play(std::string_view name, std::shared_ptr<const Animation> animation, int layer, bool base, int loops,
               float ease, float weight = 0);
-    // The pose's mask (0x429f50, rebuilt as each base animation plays): a
-    // weight by model bone that limits what plays over the base, so that a
-    // seated character's gestures leave its legs to the base (MODL's
-    // "TrackMasksit"). Empty: none.
+    /**
+     * The pose's mask (0x429f50, rebuilt as each base animation plays): a
+     * weight by model bone that limits what plays over the base, so that a
+     * seated character's gestures leave its legs to the base (MODL's
+     * "TrackMasksit"). Empty: none.
+     */
+    ///@{
     void setPoseMask(std::vector<float> mask) { _poseMask = std::move(mask); }
     const std::vector<float> &poseMask() const { return _poseMask; }
-    // A model's track mask by name ("sit": its bones' "TrackMasksit"), each
-    // bone without a weight taking its parent's; empty if it has none.
+    ///@}
+    /**
+     * A model's track mask by name ("sit": its bones' "TrackMasksit"), each
+     * bone without a weight taking its parent's; empty if it has none.
+     */
     static std::vector<float> modelMask(const Model &model, std::string_view name);
 
-    // The last animation played carries the root so far each loop (see
-    // Slot::carried).
+    /** The last animation played carries the root so far each loop (see Slot::carried). */
     void setCarry(const float carried[3], float turn);
-    // Eases out (over `seconds`, or each one's own ease if negative) and
-    // stops the slots `which` picks; a stopped slot doesn't report its end.
+    /**
+     * Eases out (over `seconds`, or each one's own ease if negative) and
+     * stops the slots `which` picks; a stopped slot doesn't report its end.
+     */
     void stop(const std::function<bool(const Slot &)> &which, float seconds = -1);
-    // Moves the clocks on. A finite animation eases out over its last
-    // ease's time ("ending"), then ends ("finished", unless stopped).
+    /**
+     * Moves the clocks on. A finite animation eases out over its last
+     * ease's time ("ending"), then ends ("finished", unless stopped).
+     */
     void update(float seconds);
-    // The body's pose, with the head and eyes over it.
+    /** The body's pose, with the head and eyes over it. */
     void pose(Pose &out, const std::vector<BoneTurn> *turns = nullptr) const;
-    // Another model posed by the same animations, by its bones' names: a
-    // prop the character holds, whose bones its animations move too.
+    /**
+     * Another model posed by the same animations, by its bones' names: a
+     * prop the character holds, whose bones its animations move too.
+     */
     void poseFor(const Model &other, Pose &out) const;
 
+    /** The slots in use, in the order played. */
     const std::vector<Slot> &slots() const { return _slots; }
-    // The slot playing `name` (not stopped), or null.
+    /** The slot playing `name` (not stopped), or null. */
     const Slot *find(std::string_view name) const;
-    // Whether a slot whose name contains `part` is playing.
+    /** Whether a slot whose name contains `part` is playing. */
     bool playing(std::string_view part) const;
+    /** The base animation playing last (not stopped), or null. */
     const Slot *base() const;
 
+    // Told, after update() has moved every clock, of a finite animation
+    // that has started easing out at its end, and of one that has ended
+    // (not one stopped).
     std::function<void(const Slot &)> onEnding;
     std::function<void(const Slot &)> onFinished;
 

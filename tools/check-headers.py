@@ -67,6 +67,7 @@ def comment_of(path):
 
 
 def source_files():
+    """(path, comment marker) of each source file git lists, but third_party/'s and DATA's."""
     names = subprocess.run(["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
     for path in names.split("\n"):
         if not path or path.startswith("third_party/") or path in DATA:
@@ -79,12 +80,14 @@ def source_files():
 
 
 def has_header(lines):
+    """Whether the SPDX line is in the first six, with the copyright line right after it."""
     head = lines[:6]
     spdx = next((i for i, l in enumerate(head) if SPDX in l), None)
     return spdx is not None and spdx + 1 < len(lines) and COPYRIGHT.search(lines[spdx + 1]) is not None
 
 
 def add_header(path, marker, lines):
+    """Writes the file with the license lines first, after a #! line if it has one."""
     year = datetime.date.today().year
     header = [f"{marker} {SPDX}", f"{marker} Copyright (C) {year} The Reluva contributors"]
     at = 1 if lines and lines[0].startswith("#!") else 0

@@ -13,9 +13,12 @@
 
 namespace reluva::nfs {
 
-// A frame of THRASH's drawing as a list, for drawing on the GPU: screen
-// space triangles in batches of one state, in the order drawn.
+/**
+ * A frame of THRASH's drawing as a list, for drawing on the GPU: screen
+ * space triangles in batches of one state, in the order drawn.
+ */
 struct ThrashFrame {
+    /** A screen-space vertex, as the game sent it. */
     struct Vertex {
         // pixels, and 1/w for perspective-correct texturing
         float x;
@@ -26,13 +29,14 @@ struct ThrashFrame {
         float u;
         float v;
     };
+    /** A run of triangles drawn with one state. */
     struct Batch {
         uint32_t texture = 0; // the renderer DLL's handle; 0 for none
         bool wrap = true;
         bool blend = false; // alpha blending on (state 0xa), as `blendMode` (state 0x68) says
         int blendMode = 0;
         int cull = 0; // state 2
-        // The texture filter: -1 as the page draws (ThrashGpu::nearest),
+        // The texture filter: -1 as ThrashGpu::nearest says,
         // 0 point-sampled, 1 bilinear. Set only for d3da's device
         // (NativeThrash::setDirect3D), from state 7.
         int filter = -1;
@@ -45,6 +49,7 @@ struct ThrashFrame {
         uint32_t first = 0;
         uint32_t count = 0;
     };
+    /** A texture made or changed, as RGBA. */
     struct Texture {
         uint32_t handle = 0;
         int width = 0;
@@ -62,69 +67,88 @@ struct ThrashFrame {
     int flip[4] = {0, 0, 640, 480};
 };
 
-// How much fog covers what's at w (a vertex's 1/rhw), 0 to 1, for the
-// value setstate(0xe) gave: the curve voodoo2a.dll builds Glide's fog
-// table from (docs/engines/nfs/games/nfs3/systems/thrash.md, Fog). 0 gives none.
+/**
+ * How much fog covers what's at w (a vertex's 1/rhw), 0 to 1, for the
+ * value setstate(0xe) gave: the curve voodoo2a.dll builds Glide's fog
+ * table from (docs/engines/nfs/games/nfs3/systems/thrash.md, Fog). 0 gives none.
+ */
 float glideFog(float w, float value);
 
-// THRASH's drawing done natively (docs/engines/nfs/games/nfs3/systems/thrash.md): the
-// triangles, quads, lines and points the game sends, rasterized in C++
-// into the 16-bit (5:6:5) surface the software renderer would have drawn
-// into. The renderer DLL still keeps its own books (textures, windows,
-// page flips); this keeps a copy of each texture as the game gave it.
+/**
+ * THRASH's drawing done natively (docs/engines/nfs/games/nfs3/systems/thrash.md): the
+ * triangles, quads, lines and points the game sends, rasterized in C++
+ * into the 16-bit (5:6:5) surface the software renderer would have drawn
+ * into. The renderer DLL still keeps its own books (textures, windows,
+ * page flips); this keeps a copy of each texture as the game gave it.
+ */
 class NativeThrash {
 public:
+    /** Reads the game's vertices and textures from `cpu`'s memory, which must outlive it. */
     explicit NativeThrash(x86::Cpu &cpu) : _cpu(cpu) {}
 
-    // Where drawing goes: 16-bit 5:6:5 pixels in emulated memory.
+    /** Where drawing goes: 16-bit 5:6:5 pixels in emulated memory. */
     void setTarget(uint32_t address, int pitch, int width, int height);
 
-    // Textures, by the renderer DLL's handle for them.
+    /** Makes a texture (white until updated), by the renderer DLL's handle for it. */
     void talloc(uint32_t handle, int width, int height, int format);
-    // `palette`: format 2's 256 colours (0x00RRGGBB), 0 to keep the last.
-    // Returns what softtria's does: the handle, or 0 for formats 3 and 4
-    // given no pixels.
+    /**
+     * Fills a texture from the pixels at `pixels` in emulated memory.
+     * @param palette Format 2's 256 colours (0x00RRGGBB), 0 to keep the last.
+     * @return What softtria's does: the handle, or 0 for formats 3 and 4
+     *         given no pixels.
+     */
     uint32_t tupdate(uint32_t handle, uint32_t pixels, uint32_t palette);
+    /** Forgets every texture; the next frame says so (ThrashFrame::resetTextures). */
     void treset() {
         _textures.clear();
         _changed.clear();
         _resetTextures = true;
     }
-    // Draws into a list rather than into memory, from now on.
+    /** Draws into a list rather than into memory, from now on. */
     void setRecording(bool on) { _recording = on; }
-    // Draws into memory too while recording (to compare the two).
+    /** Draws into memory too while recording (to compare the two). */
     void setAlsoRasterize(bool on) { _alsoRasterize = on; }
-    // A filled rectangle (a clear), into the list.
+    /** A filled rectangle (a clear), into the list. */
     void fill(int x0, int y0, int x1, int y1, uint32_t argb);
-    // The list drawn since the last call, with the textures changed.
+    /** The list drawn since the last call, with the textures changed. */
     ThrashFrame takeFrame();
 
+    /** THRASH's setstate: the texture, culling, blending, fog... (thrash.md). */
     void setState(uint32_t id, uint32_t value);
-    // Draws as d3da.dll sets up its Direct3D device and keeps it
-    // (docs/engines/nfs/games/nfs3/systems/thrash.md, d3da's device defaults), for a game told
-    // its renderer is d3da: textures bilinear-filtered (state 7 picks: 0
-    // point-sampled, 1 bilinear; nothing else changes it), no dithering
-    // (d3da's setstate ignores state 5). Fog, the blend modes and the
-    // texture blend (modulated, colour and alpha) are as without it: the
-    // game sends d3da no fog, and the rest is the same.
+    /**
+     * Draws as d3da.dll sets up its Direct3D device and keeps it
+     * (docs/engines/nfs/games/nfs3/systems/thrash.md, d3da's device defaults), for a game told
+     * its renderer is d3da: textures bilinear-filtered (state 7 picks: 0
+     * point-sampled, 1 bilinear; nothing else changes it), no dithering
+     * (d3da's setstate ignores state 5). Fog, the blend modes and the
+     * texture blend (modulated, colour and alpha) are as without it: the
+     * game sends d3da no fog, and the rest is the same.
+     */
     void setDirect3D(bool on);
+    /** Whether it draws as d3da's device (setDirect3D). */
     bool direct3D() const { return _direct3D; }
-    // Textures are bilinear-filtered, as both DLLs ask for (voodoo2a.dll
-    // sends itself state 7 1 after setvideomode, 0x6000208f; d3da's device
-    // starts LINEAR): thrash.md, Texture filtering. With this on they are
-    // point-sampled instead (reluva.ini's texturefilter=point); in the
-    // Direct3D look state 7 still picks.
+    /**
+     * Textures are bilinear-filtered, as both DLLs ask for (voodoo2a.dll
+     * sends itself state 7 1 after setvideomode, 0x6000208f; d3da's device
+     * starts LINEAR): thrash.md, Texture filtering. With this on they are
+     * point-sampled instead (reluva.ini's texturefilter=point); in the
+     * Direct3D look state 7 still picks.
+     */
     void setPointSampled(bool on);
+    /** The rectangle drawing is clipped to, in pixels (x1 and y1 exclusive). */
     void clip(int x0, int y0, int x1, int y1);
 
-    // Vertices are THRASH's 32-byte ones in emulated memory.
+    /** Draws a shape; vertices are THRASH's 32-byte ones in emulated memory. */
+    ///@{
     void triangle(uint32_t a, uint32_t b, uint32_t c);
     void quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
     void line(uint32_t a, uint32_t b);
     void point(uint32_t a);
+    ///@}
 
+    /** How many pixels it has written into memory, for reports. */
     uint64_t pixels() const { return _pixels; }
-    // Textures of a format not read yet, for reports.
+    /** Textures of a format not read yet, for reports. */
     const std::map<int, int> &unknownFormats() const { return _unknownFormats; }
 
 private:
@@ -190,7 +214,7 @@ private:
     float _fogValue = 0;
     std::array<float, 64> _fogTable{};
     uint32_t _fogColour = 0;
-    float fogAt(float w) const; // fogTable_ read as Glide reads it, 0 to 1
+    float fogAt(float w) const; // _fogTable read as Glide reads it, 0 to 1
     bool _recording = false;
     bool _alsoRasterize = false;
     ThrashFrame _frame;

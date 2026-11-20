@@ -24,50 +24,70 @@
 
 namespace reluva::idtech3::eliteforce {
 
-// The commands that tell a client the configstrings that changed from
-// `before` to `now`, as the original's server sends them: cs <index>
-// "<text>", or for one of 1000 characters or more, the pieces bcs0,
-// bcs1..., bcs2 (the client game hears of it at the last).
+/**
+ * The commands that tell a client the configstrings that changed from
+ * `before` to `now`, as the original's server sends them:
+ * `cs <index> "<text>"` (empty for one gone), or for one of 1000
+ * characters or more, the pieces bcs0, bcs1..., bcs2 (the client game
+ * hears of it at the last).
+ */
 std::vector<std::string> configstringCommands(const std::map<int32_t, std::string> &before,
                                               const std::map<int32_t, std::string> &now);
 
-// The server's side of Elite Force's network play (protocol 24, as the
-// retail game patched to 1.2 speaks it: docs/engines/idtech3/games/stvef/systems/network.md): players
-// on other machines find it (getinfo, getstatus), join it (getchallenge,
-// connect) and play, each with a connection of their own. It drives the
-// GameHost the page runs: their commands go to the game as they come,
-// and after each of the game's frames they're sent what changed
-// (configstrings, the game's commands to them) and, at their snapshot
-// rate, snapshots as changes from the last they had.
-//
-// The page's own player isn't one of them: they keep their slot (or
-// slots) in the game directly.
+/**
+ * The server's side of Elite Force's network play (protocol 24, as the
+ * retail game patched to 1.2 speaks it: docs/engines/idtech3/games/stvef/systems/network.md): players
+ * on other machines find it (getinfo, getstatus), join it (getchallenge,
+ * connect) and play, each with a connection of their own. It drives the
+ * GameHost the page runs: their commands go to the game as they come,
+ * and after each of the game's frames they're sent what changed
+ * (configstrings, the game's commands to them) and, at their snapshot
+ * rate, snapshots as changes from the last they had.
+ *
+ * The page's own player isn't one of them: they keep their slot (or
+ * slots) in the game directly.
+ */
 class NetServer {
 public:
+    /**
+     * Serving `game`, which must outlive it, on `socket`.
+     * @param cvars The server's settings (sv_timeout, sv_pure...), which
+     *        must outlive it.
+     */
     NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket);
-    // Tells everyone connected that the server has gone.
+    /** Tells everyone connected that the server has gone. */
     ~NetServer();
     NetServer(const NetServer &) = delete;
     NetServer &operator=(const NetServer &) = delete;
 
-    // The game's files, for the paks the level uses (which players
-    // missing them may download, if sv_allowDownload is on).
+    /**
+     * The game's files, for the paks the level uses (which players
+     * missing them may download, if sv_allowDownload is on).
+     */
     void setFiles(const SearchSet *files) { _files = files; }
-    // Whether this level checks players' paks (sv_pure 1 when it started).
+    /** Whether this level checks players' paks (sv_pure 1 when it started). */
     bool pure() const { return _pure; }
-    // Slots the network mustn't give out (the page's own player).
+    /** Slots the network mustn't give out (the page's own player). */
     void reserve(int32_t clientNum) { _reserved.insert(clientNum); }
-    // The level has (re)started: baselines and configstrings taken anew,
-    // and every player waits for the new game state.
+    /**
+     * The level has (re)started: baselines and configstrings taken anew,
+     * and every player waits for the new game state.
+     */
     void levelStarted();
-    // Reads and answers everything that has come; `now` in ms.
+    /**
+     * Reads and answers everything that has come; `now` in ms.
+     * @return An error if the game's code failed running a player's command.
+     */
     Error receive(uint64_t now);
-    // After a frame of the game's: what changed, and snapshots to those
-    // due one; players not heard from for sv_timeout seconds are dropped.
+    /**
+     * After a frame of the game's: what changed, and snapshots to those
+     * due one; players not heard from for sv_timeout seconds are dropped.
+     */
     Error frame(uint64_t now);
 
+    /** The port it listens on. */
     uint16_t port() const { return _socket->port(); }
-    // The players connected over the network: their slot and name.
+    /** The players connected over the network: their slot and name. */
     std::vector<std::pair<int32_t, std::string>> players() const;
     std::function<void(const std::string &)> print;
     // Turns a master server's name into its address (for the heartbeats a
@@ -118,8 +138,10 @@ private:
         size_t lastSentSize = 0;
         uint64_t lastSentMs = 0;
         std::deque<std::vector<uint8_t>> queued;
-        // A pak being downloaded: its name and bytes, the blocks the
-        // client has (clientBlock) and the next to send (xmitBlock).
+        /**
+         * A pak being downloaded: its name and bytes, the blocks the
+         * client has (clientBlock) and the next to send (xmitBlock).
+         */
         struct Download {
             std::string name;
             bool opened = false;

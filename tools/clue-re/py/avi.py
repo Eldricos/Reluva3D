@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""The chunk tree of AVI files: how many of each chunk at each depth, and the
+first bytes of the main, stream and format headers.
+
+    python3 -I py/avi.py FILE.avi...
+"""
+
 import sys,struct,collections
 def walk(d,p,end,depth,out):
+    """Appends (depth, id, size, offset) to `out` for each chunk from `p` to `end`, RIFF and LIST ones' contents too."""
     while p+8<=end:
         cid=d[p:p+4]; sz=struct.unpack('<I',d[p+4:p+8])[0]
         if cid in (b'RIFF',b'LIST'):

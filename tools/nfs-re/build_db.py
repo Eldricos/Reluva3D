@@ -111,10 +111,11 @@ for fa, f in funcs.items():
     for c in f['callees']:
         callers[c].add(fa)
 
-# --- xrefs from instructions ---------------------------------------------------
+# Data xrefs from instructions.
 # kinds: call jmp r w rw addr (immediate = address taken)  ; idx-* = with base/index regs
 xrefs = defaultdict(list)    # target -> [(ins, kind, size)]
 def inrange(v):
+    """Whether `v` is an address in the exe's code or data."""
     return TEXT[0] <= v < DATA[1]
 for a, (sz, mn, ostr, ops, rw) in insns.items():
     for op in ops:
@@ -140,7 +141,7 @@ for a, (sz, mn, ostr, ops, rw) in insns.items():
                 k = 'idx-' + k
             xrefs[disp].append((a, k, osz))
 
-# --- strings ---------------------------------------------------------------------
+# Strings.
 strings = {}
 for n, va, vs, rs, ra in sections():
     if n not in ('DGROUP', 'AUTO'):

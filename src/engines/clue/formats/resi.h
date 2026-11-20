@@ -15,6 +15,7 @@
 
 namespace reluva::clue {
 
+/** A font: its characters are an animation's frames. */
 struct ResiFont {
     uint32_t id = 0;
     std::string animation; // "largeu:Alargeu": frame n is character n
@@ -22,8 +23,9 @@ struct ResiFont {
     int32_t lineSpacing = 0;
 };
 
+/** A control of a dialog: an image, a text, a button, a text box or a slider. */
 struct ResiControl {
-    // The kinds, by what each kind of control is in the game's dialogs.
+    /** The kinds, by what each kind of control is in the game's dialogs. */
     enum Type : int32_t {
         kImage = 0,
         kText = 1,
@@ -59,23 +61,30 @@ struct ResiControl {
     std::array<int32_t, 28> raw{}; // the 112 bytes as stored (pointers among them)
 };
 
+/** A menu or dialog: its background and controls. */
 struct ResiDialog {
     int32_t id = 0;
     std::string background; // its animation, "menu:AmainBgnd"
     std::vector<ResiControl> controls;
     std::array<int32_t, 9> raw{};
 
+    /** The first control with this id, or nullptr. */
     const ResiControl *control(int32_t id) const;
 };
 
+/** dialogInfo.res's fonts and dialogs. */
 struct Resi {
     std::vector<ResiFont> fonts;
     std::vector<ResiDialog> dialogs;
 
+    /** The first dialog or font with this id, or nullptr. */
+    ///@{
     const ResiDialog *dialog(int32_t id) const;
     const ResiFont *font(uint32_t id) const;
+    ///@}
 };
 
+/** Reads dialogInfo.res, replacing what `out` held. */
 Error parseResi(const std::vector<uint8_t> &data, Resi &out);
 
 } // namespace reluva::clue

@@ -157,7 +157,7 @@ Error GameHost::startLevel(const std::string &mapName, std::shared_ptr<const Bsp
     if (Error err = call(kInit, {_levelTime, randomSeed, 0}, ignored))
         return err;
     updateInfoConfigstrings();
-    // "Run a few frames to allow everything to settle", as the original does.
+    // A few frames to let things settle, as the original's server runs them.
     for (int i = 0; i < 3; ++i)
         if (Error err = runFrame())
             return err;
@@ -768,7 +768,7 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     switch (number) {
     case kPrint: {
         const std::string text = str(0, 4096);
-        // Kept (the last 4 KB) as well as handed on.
+        // Kept as well as handed on: cut back to the last 4 KB once past 8 KB.
         _log += text;
         if (_log.size() > 8192)
             _log.erase(0, _log.size() - 4096);

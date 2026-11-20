@@ -21,28 +21,34 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// The actors of a level (GAME.LV2 type 6): their AI, movement, animation
-// and sprites, after the original's actor update (0x4C3C10) and animation
-// timer (0x4C4230).
-//
-// Each actor is in one of these modes, which scripts set:
-//
-// | Mode | Behaviour | Animation |
-// |------|-----------|-----------|
-// | 0 idle | stands | stand (sequence 0) |
-// | 1 | stands | pain (sequence 2) |
-// | 2 face | turns to face its target or the player; event 36 when facing | stand |
-// | 3 attack | as 2, and fires at the start of each animation cycle | attack (3) |
-// | 4, 5 | stands | deaths (4, 5) |
-// | 6 wander | walks around its home or the player, turning at random | walk (1) |
-// | 7 walk to | walks straight at its target or the player; event 36 while within reach | walk (1) |
-// | 8 hidden | removed from the level | |
-//
-// Every animation cycle ends with event 37. Nothing changes mode by itself;
-// scripts react to the events. Actors move with the player's collision
-// (walls, other actors, step height) and snap onto floors rather than fall.
+/**
+ * The actors of a level (GAME.LV2 type 6): their AI, movement, animation
+ * and sprites, after the original's actor update (0x4C3C10) and animation
+ * timer (0x4C4230).
+ *
+ * Each actor is in one of these modes, which scripts set:
+ *
+ * | Mode | Behaviour | Animation |
+ * |------|-----------|-----------|
+ * | 0 idle | stands | stand (sequence 0) |
+ * | 1 | stands | pain (sequence 2) |
+ * | 2 face | turns to face its target or the player; event 36 when facing | stand |
+ * | 3 attack | as 2, and fires at the start of each animation cycle | attack (3) |
+ * | 4, 5 | stands | deaths (4, 5) |
+ * | 6 wander | walks around its home or the player, turning at random | walk (1) |
+ * | 7 walk to | walks straight at its target or the player; event 36 while within reach | walk (1) |
+ * | 8 hidden | removed from the level | |
+ *
+ * Every animation cycle ends with event 37. Nothing changes mode by itself;
+ * scripts react to the events. Actors move with the player's collision
+ * (walls, other actors, step height) and snap onto floors rather than fall.
+ *
+ * An actor's parts share its script object id; the calls taking an id act
+ * on every part, and those that read take the first part's.
+ */
 class Actors {
 public:
+    /** An actor's mode, as the table above gives them. */
     enum Mode {
         kModeIdle = 0,
         kModePain = 1,
@@ -55,7 +61,7 @@ public:
         kModeHidden = 8
     };
 
-    // Script events actors raise, sent to the actor's object.
+    /** Script events actors raise, sent to the actor's object. */
     enum Event {
         kEventArrived = 36,
         kEventCycle = 37,
@@ -71,10 +77,12 @@ public:
         kEventKilled = 42
     };
 
-    // An actor object's toughness (SET_ACTOR_COMBAT_STATS). A hit with
-    // power above fullThreshold takes damage from both hit points and stun
-    // points; above stunThreshold from stun points only; above
-    // noticeThreshold it is only noticed.
+    /**
+     * An actor object's toughness (SET_ACTOR_COMBAT_STATS). A hit with
+     * power above fullThreshold takes damage from both hit points and stun
+     * points; above stunThreshold from stun points only; above
+     * noticeThreshold it is only noticed.
+     */
     struct CombatStats {
         int32_t fullThreshold = INT32_MAX;
         int32_t stunThreshold = INT32_MAX;
@@ -87,68 +95,86 @@ public:
     // In SET_ACTOR_COMBAT_STATS, this keeps a value as it is.
     static const int32_t kKeep = 0x8000;
 
+    /** An event for an actor's script object. */
     struct ScriptEvent {
         // The actor's script object id (id | 0xA000).
         uint16_t object;
         uint16_t event;
     };
 
-    // Loads sprite set NNN.gs2; returns false if it can't.
+    /** Loads sprite set NNN.gs2; returns false if it can't. */
     typedef std::function<bool(uint16_t number, SpriteSet &set)> SpriteLoader;
 
     static const uint16_t kObjectType = 0xA000;
 
-    // Places every actor on its floor and loads the sprite sets they use.
+    /**
+     * Places every actor on its floor and loads the sprite sets they use.
+     * The level must outlive it; each actor walks with a copy of prototype.
+     */
     Actors(const LevelFile &level, const Walker &prototype, const SpriteLoader &loader);
     ~Actors();
 
+    /** How many actors (parts) the level has. */
     int getCount() const { return (int)_actors.size(); }
 
-    // Advance by ms milliseconds (the original clamps this to 8-1000): run
-    // each actor's mode and animation, and collect the events raised. player
-    // is the player's walker; actors standing in zones it can't see are
-    // frozen, as in the original.
+    /**
+     * Advances by ms milliseconds (the original clamps this to 8-1000): runs
+     * each actor's mode and animation, and collects the events raised. player
+     * is the player's walker; actors standing in zones it can't see are
+     * frozen, as in the original.
+     */
     void update(uint32_t ms, const Walker &player, std::vector<ScriptEvent> &events);
 
-    // Actors as obstacles, for the player's walker. Updated in place.
+    /** Actors as obstacles, for the player's walker. Updated in place. */
     const std::vector<Walker::Obstacle> &getObstacles() const { return _obstacles; }
-    // The script object of the actor behind an obstacle.
+    /** The script object of the actor behind an obstacle, or 0. */
     uint16_t getObstacleObject(int obstacle) const;
 
-    // The sprites to draw, seen from (cameraX, cameraY).
+    /** Sets sprites to the actors to draw, seen from (cameraX, cameraY). */
     void getSprites(double cameraX, double cameraY, uint64_t visibleZones, std::vector<SpriteDraw> &sprites) const;
 
-    // Script control. id is an actor's script object id; ids without type
-    // bits are taken as actor ids, as the original's lookup (game.vt[0x15C]) does.
+    /**
+     * Whether an id is an actor's. In this and the rest of the script
+     * control, id is an actor's script object id; ids without type bits are
+     * taken as actor ids, as the original's lookup (game.vt[0x15C]) does.
+     */
     bool isActor(uint16_t id) const;
-    // Set the mode; target is the object to face, attack or walk to (0 = the player).
+    /** Sets the mode; target is the object to face, attack or walk to (0 = the player). */
     void setMode(uint16_t id, int mode, uint16_t target = 0);
-    // ACTOR_GO_TO: mode 7 towards a point (flyers climb or sink to its height).
+    /** ACTOR_GO_TO: mode 7 towards a point (flyers climb or sink to its height). */
     void goTo(uint16_t id, double x, double y, double z);
-    // Set or clear a flag on every part (0x400000 always active, 0x1000000 flyer).
+    /** Sets or clears a flag on every part (0x400000 always active, 0x1000000 flyer). */
     void setFlag(uint16_t id, uint32_t flag, bool on);
-    // GET_ALERTED_COUNT (0xEF): how many actors see the player now.
+    /** GET_ALERTED_COUNT (0xEF): how many actors see the player now. */
     int getAlertedCount() const;
-    // SET_ACTOR_TARGET (0x5B): a new target, in the same mode.
+    /** SET_ACTOR_TARGET (0x5B): a new target, in the same mode. */
     void setTarget(uint16_t id, uint16_t target);
-    // SET_ACTOR_ANIM_SPEED (0x5C): an animation's speed word (8.8).
+    /** SET_ACTOR_ANIM_SPEED (0x5C): an animation's speed word (8.8). */
     void setAnimationSpeed(uint16_t id, int animation, uint16_t speed);
-    // SET_ACTOR_CLIMB_ANGLE.
+    /** SET_ACTOR_CLIMB_ANGLE: the share of the speed that goes across is the angle's cosine. */
     void setClimbAngle(uint16_t id, int degrees);
-    // Position in world units and heading in 1/65536 turns.
+    /** Position in world units and heading in 1/65536 turns; false for no such actor. */
     bool getPosition(uint16_t id, double &x, double &y, double &z, uint16_t &heading) const;
+    /** Puts the actor at a point, on the floor there unless it flies (0x4B64C0). */
     void setPosition(uint16_t id, double x, double y, double z, uint16_t heading);
+    /** The settings scripts change, in world units, the heading in 1/65536 turns. */
+    ///@{
     void setHeading(uint16_t id, uint16_t heading);
     void setStepHeight(uint16_t id, double height);
     void setRadius(uint16_t id, double radius);
     void setBodyHeight(uint16_t id, double height);
     void setReach(uint16_t id, double reach);
+    ///@}
+    /** An animation's frame rate (LevelFile::Animation::rate); `mode` indexes the animations. */
     void setAnimationRate(uint16_t id, int mode, uint8_t rate);
-    // Wander settings (SET_ACTOR_COMBAT_PARAMS, 0x457703): what to wander
-    // about (guard mode 0 home, 1 the actor guardTarget, 2 the billboard
-    // guardTarget; target 0 is the player), the random turns and the
-    // distances. kKeep / kKeep32 (0x8000 / 0x80000000) leave a value as it is.
+    /** kKeep's 32-bit form, for the distances in Wander. */
     static const uint32_t kKeep32 = 0x80000000;
+    /**
+     * Wander settings (SET_ACTOR_COMBAT_PARAMS, 0x457703): what to wander
+     * about (guard mode 0 home, 1 the actor guardTarget, 2 the billboard
+     * guardTarget; target 0 is the player), the random turns and the
+     * distances. kKeep / kKeep32 (0x8000 / 0x80000000) leave a value as it is.
+     */
     struct Wander {
         int guardMode = kKeep;
         int guardTarget = kKeep;
@@ -160,34 +186,42 @@ public:
         uint32_t minWalk = kKeep32;
         uint32_t maxWalk = kKeep32;
     };
+    /** Sets what the actor wanders about, and how; see Wander. */
     void setWander(uint16_t id, const Wander &wander);
     // Saves from before guard targets (they wandered about the player).
     static const uint32_t kGuardSaveVersion = 7;
-    // Where a guard target is (0x4B5DF0: mode 1 an actor, else a billboard); false if it's gone.
+    /** Where a guard target is (0x4B5DF0: mode 1 an actor, else a billboard); false if it's gone. */
     bool getGuardPosition(int mode, uint16_t target, double &x, double &y) const;
-    // Distances for the proximity events between actors of class
-    // actorClass and the player (targetClass 0): radii[1] near, [2] lost,
-    // [3] in range, [4] out of range. radii[0] is unused, as in the original.
+    /**
+     * Distances for the proximity events between actors of class
+     * actorClass and the player (targetClass 0): radii[1] near, [2] lost,
+     * [3] in range, [4] out of range. radii[0] is unused, as in the original.
+     */
     void setProximity(int actorClass, int targetClass, const double radii[5]);
 
-    // Save or load every actor's state, and the settings scripts gave them.
+    /** Saves or loads every actor's state, and the settings scripts gave them. */
     void sync(Serializer &s);
 
-    // Set the stats; values of kKeep leave a stat as it is. Order as CombatStats.
+    /** Sets the stats; values of kKeep leave a stat as it is. Order as CombatStats. */
     void setCombatStats(uint16_t id, const int32_t values[7]);
+    /** The actor object's stats; the defaults if none were set. */
     CombatStats getCombatStats(uint16_t id) const;
-    // Actors on the same team don't hurt each other.
+    /** An actor object's team, 0 by default: actors on the same team don't hurt each other. */
+    ///@{
     void setTeam(uint16_t id, int16_t team);
     int16_t getTeam(uint16_t id) const;
-    // Take a hit (0x45747E): returns the event the actor's object gets
-    // (kEventHurt and so on), or 0 if it doesn't notice.
+    ///@}
+    /**
+     * Takes a hit (0x45747E): returns the event the actor's object gets
+     * (kEventHurt and so on), or 0 if it doesn't notice.
+     */
     uint16_t takeHit(uint16_t id, int damage, int power);
-    // The radius it collides and is hit with.
+    /** The radius it collides and is hit with; 0 for no such actor. */
     double getRadius(uint16_t id) const;
-    // The projectile type it fires in attack mode, or -1 for none.
+    /** The projectile type it fires in attack mode, or -1 for none. */
     void setWeapon(uint16_t id, int weapon);
 
-    // A shot an actor fired: where from and which way (radians, as Projectiles::fire).
+    /** A shot an actor fired: where from and which way (radians, as Projectiles::fire). */
     struct Shot {
         uint16_t shooter;
         int weapon;
@@ -197,12 +231,12 @@ public:
         double yaw;
         double pitch;
     };
-    // Move the shots fired since the last call into shots.
+    /** Moves the shots fired since the last call into shots. */
     void takeShots(std::vector<Shot> &shots);
-    // The actors, as things shots can hit.
+    /** Sets targets to the actors, as things shots can hit. */
     void getTargets(std::vector<Projectiles::Target> &targets) const;
 
-    // Headings: 65536 is a full turn, 0 faces +y and 16384 faces -x.
+    /** The heading of (dx, dy): 65536 is a full turn, 0 faces +y and 16384 faces -x. */
     static uint16_t headingTowards(double dx, double dy);
 
 private:

@@ -34,17 +34,22 @@ struct Widget {
     int h = 0;
     std::string desc;
 };
+/** Reads widget.csv's rows after its heading; rows of fewer than eight fields are left out. Fails without one. */
 Error parseWidgets(const std::string &csv, std::vector<Widget> &out);
 
 /**
- * The menus' pictures: jpg/<name>.jpg backgrounds and texture/<name>
+ * The menus' pictures: `jpg/<name>.jpg` backgrounds and `texture/<name>`
  * buttons (stacks of 4 or 5 states, one above another), read once.
  */
 class MenuPictures {
 public:
+    /** Reads from `files`, which must outlive it. */
     explicit MenuPictures(const SearchSet &files) : _files(files) {}
+    /** A background, and a button's picture, by name; nullptr if it isn't there. */
+    ///@{
     const image::Image *jpg(const std::string &name);
     const image::Image *texture(const std::string &name);
+    ///@}
 
 private:
     const SearchSet &_files;
@@ -55,8 +60,10 @@ private:
  * Draws `im` (scaled to w x h when given) over the overlay, blending by
  * its alpha; or one state of a stacked button.
  */
+///@{
 void drawPicture(Surface &overlay, const image::Image &im, int x, int y, int w = 0, int h = 0);
 void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int states, int state);
+///@}
 
 /**
  * The game's menus as Reluva draws them: the main menu, the races, the
@@ -66,10 +73,10 @@ void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int
 class FrontEnd {
 public:
     /**
-     * Splash: jpg/splash.jpg, shown first in place of the opening movie
-     * (logos.avi) when it can't be played (see RaceScreen::movie_).
-     * CrashIntro: jpg/ilon_bk, choosing the school; Showcase: the garage's
-     * car alone, the whole screen.
+     * A screen of the menus. Splash: jpg/splash.jpg, shown first in place
+     * of the opening movie (logos.avi) when it can't be played (see
+     * ScreenContext::openingPlayed). CrashIntro: jpg/ilon_bk, choosing the
+     * school; Showcase: the garage's car alone, the whole screen.
      */
     enum class Screen { kMain, kRaces, kCrashCourse, kGarage, kSplash, kCrashIntro, kShowcase };
     /** What the menus have chosen. */
@@ -95,6 +102,7 @@ public:
             float traffic = 0;
             float peds = 0;
             bool hidePeds = false;
+            /** Whether two are the same in every field. */
             bool operator==(const Conditions &) const = default;
         };
         Conditions conditions;
@@ -104,12 +112,14 @@ public:
     Choice::Conditions raceConditions() const;
     /** After the conditions are changed (the dialog). */
     void conditionsChanged() { _choice.changed = !(_choice.conditions == raceConditions()); }
+    /** How many opponents the chosen race has paths for, at the chosen level. */
     int mostOpponents() const;
     /**
      * Whether the race's conditions may be changed (the game's help: once
      * placed in it; a cruise's always).
      */
     bool conditionsOpen() const;
+    /** What handle() asks of the caller. */
     enum class Action {
         kNone,
         kChanged,
@@ -132,13 +142,21 @@ public:
     /** The drivers, for the main menu's SELECT DRIVER (Left/Right chooses). */
     void setDrivers(DriverRoster *roster) { _roster = roster; }
 
+    /**
+     * Reads widget.csv; the cities, cars, strings and record must outlive
+     * it (the record read again as it changes).
+     */
     FrontEnd(const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
              const GameStrings &strings, const PlayerRecord &record);
+    /** Whether the menus' files are there, with a city and a car to offer. */
     bool loaded() const { return _ok; }
 
+    /** Takes a key or click; what the caller is to do about it. */
     Action handle(const Event &ev);
+    /** Draws the screen over the 640 x 480 overlay. */
     void draw(Surface &overlay);
 
+    /** The screen showing. */
     Screen screen() const { return _screen; }
     /** Past the splash to the main menu (after the opening movie). */
     void leaveSplash() {
@@ -152,6 +170,7 @@ public:
     void afterRace() { go(_afterGarage); }
     /** The choice looked at again (another driver's record, say). */
     void refreshChoice() { refresh(); }
+    /** What the menus have chosen, to read or set. */
     Choice &choice() { return _choice; }
     /** The control with the focus (for the menus' voices). */
     std::string focusedWidget() const {
@@ -168,6 +187,7 @@ public:
         int w = 0;
         int h = 0;
     };
+    /** The garage's window for the car (empty off the garage). */
     Rect carWindow() const;
     // "U": everything open, whatever the record says.
     bool openAll = false;
@@ -183,9 +203,15 @@ public:
         _focus = 0;
         refresh();
     }
+    /**
+     * Whether a race of the chosen city and kind, a car, or a car's paint
+     * job is open to the driver at the chosen level (or openAll).
+     */
+    ///@{
     bool raceOpen(int index) const;
     bool carOpen(int car) const;
     bool paintOpen(int car, int paintJob) const;
+    ///@}
 
 private:
     struct Item {

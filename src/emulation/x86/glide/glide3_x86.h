@@ -18,12 +18,16 @@
 
 namespace reluva::glide {
 
+/** The stand-in for glide3x.dll, its exports added when made. */
 class Glide3Dll : public GlideDll {
 public:
-    // `memory` is where guest-visible buffers (linear frame buffer locks,
-    // grGetString's strings) are allocated.
+    /**
+     * `memory` is where guest-visible buffers (linear frame buffer locks,
+     * grGetString's strings) are allocated.
+     */
     Glide3Dll(x86::Cpu &cpu, x86::Arena &memory, Board board = voodoo3Board());
 
+    /** The Glide 3 front end the exports call. */
     Glide3 &glide() { return _glide; }
 
 private:

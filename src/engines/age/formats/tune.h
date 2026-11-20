@@ -37,7 +37,10 @@ struct TuneNode {
     float number(std::string_view name, size_t i = 0, float fallback = 0) const;
 };
 
-/** The file's blocks as the root's children. */
+/**
+ * The file's lines and blocks as the root's children. Fails on a "}" without
+ * a block, or a block not closed.
+ */
 Error parseTune(std::string_view text, TuneNode &root);
 
 } // namespace reluva::age

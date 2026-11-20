@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: The hosts that run the games' code: the server game, the client game, the menus, saved games.
+// id Tech 3 unit tests: the hosts that run the games' code: the server
+// game, the client game, the menus, saved games.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

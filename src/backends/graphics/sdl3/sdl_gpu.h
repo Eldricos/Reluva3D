@@ -16,20 +16,29 @@
 
 namespace reluva {
 
-// gfx::Renderer3D on SDL's GPU API (Vulkan, Metal). Frames are drawn into a
-// texture of the requested size which SDL's renderer then scales into the
-// window, with the 2D overlay on top, so the launcher's renderer and this
-// share one GPU device.
+/**
+ * gfx::Renderer3D on SDL's GPU API (Vulkan, Metal). Frames are drawn into a
+ * texture of the requested size which SDL's renderer then scales into the
+ * window, with the 2D overlay on top, so the launcher's renderer and this
+ * share one GPU device.
+ */
 class SdlGpuRenderer : public gfx::Renderer3D {
 public:
+    /**
+     * A renderer on `device`, shown through `renderer` (SDL's renderer on the
+     * same device); both stay the caller's, and must outlive it.
+     */
     SdlGpuRenderer(SDL_GPUDevice *device, SDL_Renderer *renderer) : _device(device), _renderer(renderer) {}
     ~SdlGpuRenderer() override;
     SdlGpuRenderer(const SdlGpuRenderer &) = delete;
     SdlGpuRenderer &operator=(const SdlGpuRenderer &) = delete;
 
+    /** Makes the shaders, the frame of `width` x `height` and its depth buffer. */
     Error init(int width, int height);
-    // Called after each frame is drawn into the window, before it's
-    // presented (in the frame's coordinates): the backend's software cursor.
+    /**
+     * Called after each frame is drawn into the window, before it's
+     * presented (in the frame's coordinates): the backend's software cursor.
+     */
     void setBeforePresent(std::function<void()> fn) { _beforePresent = std::move(fn); }
 
     Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
@@ -84,7 +93,7 @@ public:
 
 private:
     void capture(SDL_GPUTexture *frame);
-    // The multisampled targets for samples_ (none for 1), made again
+    // The multisampled targets for _samples (none for 1), made again
     // when it changes; the pipelines go with them.
     bool makeMultisampleTargets();
     // A pass over the frame: cleared (with `clear`) or kept, its depth
@@ -92,7 +101,7 @@ private:
     SDL_GPURenderPass *beginPass(const SDL_FColor *clear, bool keepStencil);
     struct Texture {
         SDL_GPUTexture *texture = nullptr;
-        int sampler = 0; // index into samplers_
+        int sampler = 0; // index into _samplers
     };
     struct Mesh {
         SDL_GPUBuffer *vertices = nullptr;
@@ -110,8 +119,7 @@ private:
     bool flush();
     struct PendingUpload {
         SDL_GPUBuffer *buffer;
-        // in staging_
-        uint32_t offset;
+        uint32_t offset; // in _staging
         uint32_t size;
         bool cycle;
     };
@@ -136,7 +144,7 @@ private:
     static constexpr int kTexturesPerWait = 8;
     static constexpr int kFramesInFlight = 2;
     int _texturesUnwaited = 0;                        // made since the last wait for everything
-    SDL_GPUFence *_frameFences[kFramesInFlight] = {}; // the last frames sent, by frameIndex_
+    SDL_GPUFence *_frameFences[kFramesInFlight] = {}; // the last frames sent, by _frameIndex
     unsigned _frameIndex = 0;
     SDL_GPUGraphicsPipeline *pipeline(const gfx::DrawState &state);
 
@@ -156,11 +164,11 @@ private:
     bool _mirrored = false;
     bool _keepFrame = false;          // frames begin with the last one's contents
     bool _frameAlphaUnused = false;   // source-alpha blends share a pipeline (draw)
-    SDL_GPUTexture *_color = nullptr; // the frame, wrapped by colorView_ for the renderer
+    SDL_GPUTexture *_color = nullptr; // the frame, wrapped by _colorView for the renderer
     SDL_GPUTexture *_depth = nullptr;
     // Multisampling: the count wanted, the count the targets have, and
-    // those targets, resolved into color_ at the end of each pass. The
-    // passes over the frame use passSamples_ (1 for the brightness pass).
+    // those targets, resolved into _color at the end of each pass. The
+    // passes over the frame use _passSamples (1 for the brightness pass).
     SDL_GPUSampleCount _wantSamples = SDL_GPU_SAMPLECOUNT_1;
     SDL_GPUSampleCount _samples = SDL_GPU_SAMPLECOUNT_1;
     SDL_GPUSampleCount _passSamples = SDL_GPU_SAMPLECOUNT_1;
@@ -170,7 +178,7 @@ private:
     SDL_Texture *_overlay = nullptr;
     std::function<void()> _beforePresent;
     // The frame through the brightness curve, shown instead when it isn't
-    // 1: drawn from the frame (a texture of it, frameTexture_) with a quad
+    // 1: drawn from the frame (a texture of it, _frameTexture) with a quad
     // over the whole of it.
     SDL_GPUViewport _viewport{};
     float _maxDepth = 1;

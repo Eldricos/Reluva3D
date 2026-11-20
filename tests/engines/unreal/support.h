@@ -48,9 +48,11 @@
 
 namespace reluva::unreal::test_data {
 
-// Little-endian output, with the engine's compact integers.
+/** Little-endian output, with the engine's compact integers. */
 struct Bytes {
     std::vector<uint8_t> b;
+    /** Appends a value. */
+    ///@{
     void u8(int v) { b.push_back(uint8_t(v)); }
     void u16(int v) { u8(v & 0xff), u8((v >> 8) & 0xff); }
     void u32(uint32_t v) {
@@ -64,6 +66,8 @@ struct Bytes {
         std::memcpy(&v, &f, 4);
         u32(v);
     }
+    ///@}
+    /** Appends a compact integer: sign and 6 bits, then 7 bits a byte, each byte's top bit saying more follow. */
     void index(int32_t v) {
         uint32_t a = uint32_t(v < 0 ? -v : v);
         uint8_t first = uint8_t((v < 0 ? 0x80 : 0) | (a & 0x3f));
@@ -79,27 +83,34 @@ struct Bytes {
             u8(next);
         }
     }
+    /** Appends a string and its 0, after its length as a compact integer from package version 64. */
     void str(const std::string &s, int version) {
         if (version >= 64)
             index(int32_t(s.size() + 1));
         b.insert(b.end(), s.begin(), s.end());
         u8(0);
     }
+    /** Appends bytes as they are. */
     void bytes(const std::vector<uint8_t> &d) { b.insert(b.end(), d.begin(), d.end()); }
+    /** Appends a vector's three floats. */
     void vec(float x, float y, float z) { f32(x), f32(y), f32(z); }
 };
 
-// Builds a package: names are added as used, exports' data written by the
-// test with the names' indices.
+/**
+ * Builds a package: names are added as used, exports' data written by the
+ * test with the names' indices.
+ */
 struct PackageWriter {
     int version = 69;
     std::vector<std::string> names{"None"};
+    /** An import, its names as indices into `names`. */
     struct Imp {
         int32_t classPackage;
         int32_t className;
         int32_t package;
         int32_t objectName;
     };
+    /** An export, its name as an index into `names`. */
     struct Exp {
         int32_t classRef;
         int32_t superRef;
@@ -111,6 +122,7 @@ struct PackageWriter {
     std::vector<Imp> imports;
     std::vector<Exp> exports;
 
+    /** A name's index, the name added if it's new. */
     int32_t name(const std::string &n) {
         for (size_t i = 0; i < names.size(); ++i)
             if (names[i] == n)
@@ -118,16 +130,18 @@ struct PackageWriter {
         names.push_back(n);
         return int32_t(names.size() - 1);
     }
-    // Returns the object reference.
+    /** Adds an import; returns its object reference (negative: -1 for the first). */
     int32_t addImport(const std::string &pkg, const std::string &cls, int32_t outer, const std::string &obj) {
         imports.push_back({name(pkg), name(cls), outer, name(obj)});
         return -int32_t(imports.size());
     }
+    /** Adds an export; returns its object reference (1 for the first). */
     int32_t addExport(int32_t cls, int32_t outer, const std::string &obj, std::vector<uint8_t> data,
                       uint32_t flags = 0) {
         exports.push_back({cls, 0, outer, name(obj), flags, std::move(data)});
         return int32_t(exports.size());
     }
+    /** The package file: the header, the exports' data, then the names, imports and exports. */
     std::vector<uint8_t> build() const {
         Bytes body;
         // Header written last, at a fixed size; the data follows it.
@@ -187,7 +201,12 @@ struct PackageWriter {
     }
 };
 
-// A property tag for a value of `size` bytes (sizes the short codes cover).
+/**
+ * Appends a property tag for a value of `size` bytes: the name, the type and
+ * the size's code, then the struct's name for a struct, a size byte for a
+ * size no short code covers (1, 2, 4, 12 and 16 have one), and a one-byte
+ * array index if it isn't 0.
+ */
 inline void tag(Bytes &o, PackageWriter &w, const std::string &name, PropertyType type, size_t size, int arrayIndex = 0,
                 const std::string &structName = {}) {
     o.index(w.name(name));
@@ -201,10 +220,12 @@ inline void tag(Bytes &o, PackageWriter &w, const std::string &name, PropertyTyp
         o.u8(arrayIndex);
 }
 
+/** Appends the "None" that ends a list of properties. */
 inline void endProps(Bytes &o, PackageWriter &w) {
     o.index(w.name("None"));
 }
 
+/** A package of a 4x2 masked texture, Brick, with one mipmap and its 256-colour palette, BrickPal. */
 inline std::vector<uint8_t> texturePackage() {
     PackageWriter w;
     const int32_t engine = w.addImport("Core", "Package", 0, "Engine");

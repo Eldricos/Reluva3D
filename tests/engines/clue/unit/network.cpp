@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Clue engine's unit tests: Network play over the in-memory network:
+// The Clue engine's unit tests: network play over the in-memory network:
 // finding a game, joining, the lobby, chat, the start, the players' actions
 // in one order, a lossy network, and a player gone.
 
@@ -32,9 +32,6 @@ using namespace reluva;
 using namespace reluva::clue;
 using namespace reluva::clue::testing;
 
-// Network play over the in-memory network: finding a game, joining, the
-// lobby, chat, the start, the players' actions in one order, a lossy
-// network, and a player gone.
 // About one datagram in three lost, by a hash of its number: not every
 // third, whose rhythm can meet the resends' and lose the same message each
 // time, as no real network would.

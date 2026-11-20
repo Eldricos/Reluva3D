@@ -15,7 +15,7 @@
 namespace reluva::age {
 
 /**
- * A car's engine sound (aud/cardata/player/<car>.csv): looped recordings,
+ * A car's engine sound (`aud/cardata/player/<car>.csv`): looped recordings,
  * each faded in and out over a range of RPM and pitched up with it. See
  * docs/engines/age/games/mm2/systems/car-sounds.md.
  */
@@ -35,15 +35,16 @@ struct EngineSample {
     float pitchEnd = 1;
 };
 
+/** A car's sound table: its horn, its clutch and its engine samples. */
 struct EngineSoundSetup {
-    // the clutch's: played on changing gear
     std::string horn;
-    std::string clutch;
+    std::string clutch; // played on changing gear
     float hornVolume = 1;
     float clutchVolume = 1;
     std::vector<EngineSample> samples;
 };
 
+/** Reads a car's sound table. Fails on one too short, or without engine samples. */
 Error readEngineSound(std::string_view csv, EngineSoundSetup &out);
 
 /**
@@ -59,14 +60,16 @@ public:
     ~EngineSound() { stop(); }
     /**
      * Loads and starts them (silent until update()); missing recordings
-     * are left out.
+     * are left out. Fails if the car's table won't read.
      */
     Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car);
     /**
+     * Sets each sample's volume and pitch for the engine's RPM and throttle.
      * `gain` (0..1) and `pan` (-1 left .. 1 right): another car's, heard
      * from a way off.
      */
     void update(float rpm, float throttle, float gain = 1, float pan = 0);
+    /** Stops the samples. */
     void stop();
 
 private:
@@ -86,14 +89,21 @@ struct SirenSample {
     float volume = 1;
     std::vector<std::pair<float, int>> next; // seconds to play, then the sample to go on to
 };
+/** Reads a siren table. Fails without a sample. */
 Error readSirenTable(std::string_view csv, std::vector<SirenSample> &out);
 
+/** A siren playing through the mixer, its samples taking turns as its table says. */
 class SirenSound {
 public:
     ~SirenSound() { stop(); }
+    /**
+     * Reads the table and its recordings (a missing one is silent). Fails
+     * if the table won't read.
+     */
     Error load(audio::Mixer &mixer, const SearchSet &files, const std::string &table);
     /** Plays at `volume` (0..1); 0 stops it, and it starts afresh next time. */
     void update(float dt, float volume);
+    /** Stops it; it starts afresh with the first sample. */
     void stop();
 
 private:
@@ -106,19 +116,15 @@ private:
     size_t _turns = 0; // which of a sample's ways on to take, in turn
 };
 
-/**
- * The tyres' sounds on each kind of surface (aud/cardata/player/
- * default_surfacedry.csv, _surfacewet.csv): a rolling sound louder and
- * higher with speed, and skids by how much the tyres slide. A surface's
- * number is its physics material's sound (materials.h).
- */
+/** A skid's recording, played while the tyres' slip is in its range (0..1). */
 struct SkidSample {
     std::string wave;
     float minSlip = 0;
     float maxSlip = 1;
 };
+/** A surface's sounds: rolling, and its skids. */
 struct SurfaceSound {
-    std::string wave; // NOSOUND for none
+    std::string wave; // the rolling sound; NOSOUND for none
     float maxSpeed = 125;
     float minVolume = 0;
     float maxVolume = 0;
@@ -128,16 +134,20 @@ struct SurfaceSound {
     float maxSkidVolume = 0.9f;
     std::vector<SkidSample> skids;
 };
+/**
+ * The tyres' sounds on each kind of surface (aud/cardata/player/
+ * default_surfacedry.csv, _surfacewet.csv): a rolling sound louder and
+ * higher with speed, and skids by how much the tyres slide. A surface's
+ * number is its physics material's sound (materials.h).
+ */
 struct SurfaceSounds {
     int tunnel = 0; // the surface used in tunnels (not used yet)
     std::vector<SurfaceSound> surfaces;
 };
+/** Reads a surfaces table. Fails without a surface. */
 Error readSurfaceSounds(std::string_view csv, SurfaceSounds &out);
 
-/**
- * Knocks (aud/cardata/player/default_impacts.csv): for each kind of thing
- * hit (WALL, LIGHT, SIGN...), samples by how hard.
- */
+/** A knock's recording, played for a knock within its range of force. */
 struct ImpactSample {
     std::string wave;
     float minVolume = 1;
@@ -146,11 +156,16 @@ struct ImpactSample {
     float maxForce = 1e9f;
     float pitch = 1;
 };
+/**
+ * Knocks (aud/cardata/player/default_impacts.csv): for each kind of thing
+ * hit (WALL, LIGHT, SIGN...), samples by how hard.
+ */
 struct ImpactSounds {
     std::string name; // "WALL"
     int id = 0;
     std::vector<ImpactSample> samples;
 };
+/** Reads an impacts table. Fails without a kind of thing hit. */
 Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds> &out);
 
 /**
@@ -162,10 +177,14 @@ Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds> &out);
 class CarSounds {
 public:
     ~CarSounds() { stop(); }
-    /** The car's table and the shared ones; `wet` takes the wet roads'. */
+    /**
+     * The car's table and the shared ones; `wet` takes the wet roads'.
+     * @return The first table that wouldn't read, though the rest are used.
+     */
     Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car, bool wet);
     /** Follows the car (its gear, wheels and impact); `horn` held sounds it. */
     void update(float dt, const CarSim &car, bool horn);
+    /** Stops the sounds that loop (the horn, rolling, skidding). */
     void stop();
 
 private:

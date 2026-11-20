@@ -9,10 +9,12 @@
 
 namespace reluva::stgenerations {
 
-// The away-team locations, as sgens.exe lists them (0x545600: records of
-// 132 bytes, a game class number, the PROCEED button's rectangle and the
-// folder). Each is a folder of a data archive holding GAME.LV2, GAME.BIN
-// and the rest.
+/**
+ * An away-team location, as sgens.exe lists them (0x545600: records of
+ * 132 bytes, a game class number, the PROCEED button's rectangle and the
+ * folder). Each is a folder of a data archive holding GAME.LV2, GAME.BIN
+ * and the rest.
+ */
 struct Location {
     // The folder, e.g. "VERID1".
     const char *folder;
@@ -23,9 +25,10 @@ struct Location {
     int proceedY;
 };
 
+/** The game's 15 away-team locations. */
 const std::vector<Location> &getLocations();
 
-// Find a location's GAME.LV2 among the resources; false if it isn't installed.
+/** Finds a location's GAME.LV2 among the resources; false if it isn't installed. */
 bool findLocationLevel(const ResourceManager &resources, const Location &location, ResourceRef &ref);
 
 } // namespace reluva::stgenerations

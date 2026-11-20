@@ -7,7 +7,7 @@
 // the physics modes scripts set (walking, falling, swimming, flying,
 // projectiles, rotating, movers gliding between keyframes); and pawns'
 // latent movement. Reluva's own model of UE1's movement, from what the
-// scripts set and expect: see docs/engines/unreal_vm.md.
+// scripts set and expect: see docs/engines/unreal/games/ds9fallen/systems/movement.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -189,7 +189,7 @@ std::string lower(const std::string &s) {
 
 } // namespace
 
-// --- Properties ----------------------------------------------------------------------------
+// Properties.
 
 // By the class and the name's text where it is: the engine side asks for
 // properties by string literals, many times an actor a tick, and interning
@@ -283,7 +283,7 @@ Vec ScriptLevel::extentOf(VmObject *a) {
     return {r, r, h};
 }
 
-// --- The world -----------------------------------------------------------------------------
+// The world.
 
 bool ScriptLevel::clear(const Vec &point, const Vec &extent, VmObject *self) {
     if (_collision && (extent[0] > 0 || extent[2] > 0 ? _collision->solid(Vec3f{point[0], point[1], point[2]},
@@ -573,7 +573,7 @@ bool ScriptLevel::moverOverlaps(VmObject *m, const Vec &centre, const Vec &e) {
     return sp.b->collision->solid(Vec3f{c[0], c[1], c[2]}, Vec3f{le[0], le[1], le[2]});
 }
 
-// --- Moving ---------------------------------------------------------------------------------
+// Moving.
 
 ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     MoveHit out;
@@ -1020,7 +1020,7 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
     return by;
 }
 
-// --- Physics ---------------------------------------------------------------------------------
+// Physics.
 
 void ScriptLevel::rotate(VmObject *a, float dt) {
     Value *rot = prop(a, "Rotation");
@@ -1356,8 +1356,8 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
     }
 }
 
-// --- Walking, falling, swimming, flying: as Engine.dll's ------------------------------------
-// (read for what they do; see docs/engines/unreal_vm.md, Movement.)
+// Walking, falling, swimming, flying: as Engine.dll's.
+// (read for what they do; see docs/engines/unreal/games/ds9fallen/systems/movement.md, Movement.)
 
 ScriptLevel::ZoneFeel ScriptLevel::zoneFeel(VmObject *a) {
     ZoneFeel z;
@@ -1376,11 +1376,6 @@ ScriptLevel::ZoneFeel ScriptLevel::zoneFeel(VmObject *a) {
     return z;
 }
 
-// Velocity towards the acceleration (calcVelocity): the acceleration only
-// capped at AccelRate (30% of it walking or crouching); turned towards
-// it by friction; with none, braking (the player's in one go and stopped
-// under 2.2 a second, the AI's in steps of 0.03 s and stopped under 10);
-// then up to the speed, walking easing down to 30% of it.
 // A crawler's walk (APawn::physSimpleWalking, SR3_Leech): forward the
 // way it faces at GroundSpeed (its acceleration aside, its AccelRate held
 // at 300), along the floor found 10 over and under where that takes it,
@@ -1604,6 +1599,11 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
                               int32_t(std::lround(std::atan2(v[1], v[0]) * 32768 / 3.14159265f)) & 0xffff, 0);
 }
 
+// Velocity towards the acceleration (calcVelocity): the acceleration only
+// capped at AccelRate (30% of it walking or crouching); turned towards
+// it by friction; with none, braking (the player's in one go and stopped
+// under 2.2 a second, the AI's in steps of 0.03 s and stopped under 10);
+// then up to the speed, walking easing down to 30% of it.
 void ScriptLevel::calcVelocity(VmObject *a, Vec &v, Vec &accel, float dt, float maxSpeed, float friction, bool fluid,
                                bool brake, bool buoyant, const Vec &gravity) {
     const bool player = _vm.isA(a, "CTVE_PlayerPawn");
@@ -2217,7 +2217,7 @@ void ScriptLevel::swimOrFly(VmObject *a, float dt, bool swim) {
     _vm.setVector(*vel, moved[0], moved[1], moved[2]);
 }
 
-// --- Natives ---------------------------------------------------------------------------------
+// Natives.
 
 void registerMovementNatives(Vm &vm) {
     auto reg = [&](const char *name, NativeFn fn) { vm.registerNative(name, std::move(fn)); };
@@ -2255,9 +2255,6 @@ void registerMovementNatives(Vm &vm) {
         c.args[1] = c.vm.vectorValue(n[0], n[1], n[2]);
         c.result = Value::objectValue(hit);
     });
-    // GetSurfaceTexture(Vector Start, Vector End): the texture of the
-    // level's surface between them (the footsteps' sound goes by its
-    // TexMaterial).
     // ResizeActor(float NewRadius, float NewHeight, optional bool
     // bAlignToFloor, optional bool bAdjustToFit, optional bool bAdjustToTop):
     // ScriptLevel::resize; the player crouches and crawls by it.
@@ -2278,6 +2275,9 @@ void registerMovementNatives(Vm &vm) {
     // PickWallAdjust(): ScriptLevel::pickWallAdjust.
     reg("Pawn.PickWallAdjust",
         [](NativeCall &c) { c.result = Value::boolValue(c.vm.level && c.self && c.vm.level->pickWallAdjust(c.self)); });
+    // GetSurfaceTexture(Vector Start, Vector End): the texture of the
+    // level's surface between them (the footsteps' sound goes by its
+    // TexMaterial).
     reg("Actor.GetSurfaceTexture", [](NativeCall &c) {
         c.result = Value::objectValue(
             c.vm.level ? c.vm.level->surfaceTexture(Vm::vectorOf(c.args[0]), Vm::vectorOf(c.args[1])) : nullptr);

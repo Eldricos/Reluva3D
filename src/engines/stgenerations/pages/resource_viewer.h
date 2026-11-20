@@ -21,6 +21,7 @@ namespace reluva::stgenerations {
  */
 class ResourceViewer : public Generations {
 public:
+    /** The viewer of the game `options` names, on `system`, which it doesn't own. */
     ResourceViewer(Platform *system, Options options);
 
 protected:

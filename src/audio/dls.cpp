@@ -27,8 +27,8 @@ DlsSampleInfo readSampleInfo(const RiffChunk &c) {
     return s;
 }
 
-// art1: its size, how many connections, then each (source, control,
-// destination, transform, scale).
+// art1 and art2: its size, how many connections, then each (source,
+// control, destination, transform, scale).
 void readArticulation(const RiffChunk *lart, std::vector<DlsConnection> &out) {
     if (!lart)
         return;

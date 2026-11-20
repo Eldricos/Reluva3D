@@ -65,8 +65,6 @@ std::vector<Entry> collect(const ViewerContext &ctx, std::initializer_list<const
 
 } // namespace
 
-// --- Page ---------------------------------------------------------------------
-
 void Page::setTitle(const std::string &what) {
     _ctx.sys.setWindowTitle("Reluva - " + _ctx.title + " - " + what);
 }
@@ -88,8 +86,6 @@ void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
 void Page::text(int x, int y, const std::string &s, Color c, int scale) {
     font::drawText(_ctx.screen, x, y, s, c, scale);
 }
-
-// --- Archives -----------------------------------------------------------------
 
 ArchivesPage::ArchivesPage(ViewerContext &ctx, std::vector<std::pair<std::string, std::string>> lines,
                            std::vector<std::string> errors)
@@ -126,8 +122,6 @@ void ArchivesPage::update(uint64_t) {
     text(24, kScreenH - 32, "Tab: next page   Esc: back to the launcher", grey);
     _ctx.sys.updateScreen(_ctx.screen);
 }
-
-// --- Textures -----------------------------------------------------------------
 
 TexturePage::TexturePage(ViewerContext &ctx) : Page(ctx), _entries(collect<Entry>(ctx, {"tga"})) {
 }
@@ -220,8 +214,6 @@ void TexturePage::update(uint64_t) {
     text(8, kScreenH - 14, "Left/Right, PageUp/PageDown, Home/End: step   F: next archive", {150, 150, 150});
     _ctx.sys.updateScreen(_ctx.screen);
 }
-
-// --- Fonts --------------------------------------------------------------------
 
 FontPage::FontPage(ViewerContext &ctx) : Page(ctx), _entries(collect<Entry>(ctx, {"ddf"})) {
 }
@@ -320,8 +312,6 @@ void FontPage::update(uint64_t) {
     text(8, kScreenH - 14, "Left/Right: step   P: pages or sample", {150, 150, 150});
     _ctx.sys.updateScreen(_ctx.screen);
 }
-
-// --- Sounds -------------------------------------------------------------------
 
 SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx), _entries(collect<Entry>(ctx, {"dds"})) {
 }
@@ -447,8 +437,6 @@ void SoundPage::update(uint64_t) {
          {150, 150, 150});
     _ctx.sys.updateScreen(_ctx.screen);
 }
-
-// --- Text ---------------------------------------------------------------------
 
 TextPage::TextPage(ViewerContext &ctx) : Page(ctx), _files(collect<File>(ctx, {"txt", "puz"})) {
 }

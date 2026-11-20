@@ -23,6 +23,7 @@
 
 namespace reluva::awe {
 
+/** A section's entry in the file's table. */
 struct Gr2Section {
     uint32_t compression = 0; // 0 none, 1 Oodle0, 2 Oodle1
     uint32_t dataOffset = 0;
@@ -38,12 +39,11 @@ struct Gr2Section {
     uint32_t marshallingCount = 0;
 };
 
-// Decompresses one section's data: `format` is Gr2Section::compression,
-// `out` already sized to the section's size.
+/** Decompresses one section's data: `format` is Gr2Section::compression, `out` already sized to the section's size. */
 using Gr2Decompressor = std::function<Error(uint32_t format, const std::vector<uint8_t> &in, uint32_t stop0,
                                             uint32_t stop1, std::vector<uint8_t> &out)>;
 
-// A member's type (Granny's granny_member_type).
+/** A member's type (Granny's granny_member_type). */
 enum class Gr2Type : uint32_t {
     kEnd = 0,
     kInline = 1,            // the referenced type's members, in place
@@ -69,8 +69,10 @@ enum class Gr2Type : uint32_t {
     kReal16 = 21,
     kEmptyReference = 22,
 };
+/** A member type's name, for tools. */
 const char *gr2TypeName(Gr2Type type);
 
+/** A member of a type, as its definition gives it. */
 struct Gr2Member {
     Gr2Type type = Gr2Type::kEnd;
     std::string name;
@@ -80,8 +82,10 @@ struct Gr2Member {
     uint32_t size = 0;       // in bytes, the array's whole width
 };
 
-// A Granny 2.x transform: which parts are set, then position, orientation
-// (a quaternion x, y, z, w) and a 3x3 scale/shear matrix (rows).
+/**
+ * A Granny 2.x transform: which parts are set, then position, orientation
+ * (a quaternion x, y, z, w) and a 3x3 scale/shear matrix (rows).
+ */
 struct Gr2Transform {
     uint32_t flags = 0;
     float position[3] = {0, 0, 0};
@@ -91,39 +95,55 @@ struct Gr2Transform {
 
 class Gr2File;
 
-// An object in a file: its type and where it is. Members are found by
-// name; a missing one reads as 0, "" or an empty reference.
+/**
+ * An object in a file: its type and where it is. Members are found by
+ * name; a missing one reads as 0, "" or an empty reference.
+ */
 class Gr2Object {
 public:
+    /** No object (not valid()). */
     Gr2Object() = default;
+    /** The object at `address` in `file`'s memory, of the type whose members are at `type`. */
     Gr2Object(const Gr2File *file, uint32_t type, uint32_t address) : _file(file), _type(type), _address(address) {}
 
+    /** Whether it's an object: a file, a type and an address. */
     bool valid() const { return _file && _type && _address; }
+    /** Where it is, and its type's members' address, in the file's memory. */
+    ///@{
     uint32_t address() const { return _address; }
     uint32_t type() const { return _type; }
+    ///@}
+    /** Its type's members; none if it isn't valid(). */
     const std::vector<Gr2Member> &members() const;
+    /** The member of that name, or null. */
     const Gr2Member *member(std::string_view name) const;
 
-    // Numbers: the i'th value of an array member, converted.
+    /** Numbers: the i'th value of an array member, converted. */
     double number(std::string_view name, uint32_t index = 0) const;
+    /** A String member's text; "" if it isn't one. */
     std::string string(std::string_view name) const;
+    /** A Transform member; the identity if it isn't one. */
     Gr2Transform transform(std::string_view name) const;
-    // Reference, VariantReference or Inline member: the object.
+    /** Reference, VariantReference or Inline member: the object. */
     Gr2Object object(std::string_view name) const;
-    // ReferenceToArray, ArrayOfReferences or ReferenceToVariantArray: the
-    // elements.
+    /** ReferenceToArray, ArrayOfReferences or ReferenceToVariantArray: the elements. */
+    ///@{
     uint32_t count(std::string_view name) const;
     Gr2Object element(std::string_view name, uint32_t index) const;
+    ///@}
 
-    // The raw data of a ReferenceToArray or ReferenceToVariantArray (its
-    // elements' type, their address, how many, the size of one), for
-    // reading vertex arrays in bulk.
+    /**
+     * The raw data of a ReferenceToArray or ReferenceToVariantArray (its
+     * elements' type, their address, how many, the size of one), for
+     * reading vertex arrays in bulk.
+     */
     struct Array {
         uint32_t type = 0;
         uint32_t address = 0;
         uint32_t count = 0;
         uint32_t stride = 0;
     };
+    /** An array member's raw data. */
     Array array(std::string_view name) const;
 
 private:
@@ -132,40 +152,57 @@ private:
     uint32_t _address = 0;
 };
 
+/** A .gr2 file read into memory, its sections decompressed and their pointers fixed up. */
 class Gr2File {
 public:
-    // Reads, decompresses and fixes up every section. Without a
-    // decompressor, sections are decompressed natively (gr2Decompress).
+    /**
+     * Reads, decompresses and fixes up every section. Without a
+     * decompressor, sections are decompressed natively (gr2Decompress).
+     */
     Error open(const std::vector<uint8_t> &file, const Gr2Decompressor &decompress = {});
 
+    /** The file format's version: 6, the only one read. */
     uint32_t version() const { return _version; }
-    // The file as it was given to open().
+    /** The file as it was given to open(). */
     const std::vector<uint8_t> &bytes() const { return _bytes; }
+    /** The header's type tag (0x80000013 in the files read). */
     uint32_t typeTag() const { return _typeTag; }
+    /** The table of sections. */
     const std::vector<Gr2Section> &sections() const { return _sections; }
+    /** The root object (its file info). */
     Gr2Object root() const { return Gr2Object(this, _rootType, _rootObject); }
 
-    // The sections are laid out one after another in one block of memory,
-    // from address 16 on so that 0 is a null pointer; fixed-up pointers
-    // are addresses in it.
+    /**
+     * The sections are laid out one after another in one block of memory,
+     * from address 16 on so that 0 is a null pointer; fixed-up pointers
+     * are addresses in it.
+     */
     const std::vector<uint8_t> &memory() const { return _memory; }
+    /** Where a section starts in memory(). */
     uint32_t sectionAddress(size_t section) const { return _sectionBase[section]; }
+    /** Whether `size` bytes at `address` are all in memory() (0 never is). */
     bool valid(uint32_t address, uint32_t size) const {
         return address != 0 && address <= _memory.size() && size <= _memory.size() - address;
     }
+    /** Values in memory(), little-endian; 0 (or "") where they aren't all in it. */
+    ///@{
     uint8_t read8(uint32_t a) const { return valid(a, 1) ? _memory[a] : 0; }
     uint16_t read16(uint32_t a) const;
     uint32_t read32(uint32_t a) const;
     float readFloat(uint32_t a) const;
+    ///@}
+    /** A NUL-terminated string in memory(), cut at its end or at 4096 characters. */
     std::string readString(uint32_t a) const;
 
-    // A type's members (cached), each with its offset and size.
+    /** A type's members (cached), each with its offset and size. */
     const std::vector<Gr2Member> &members(uint32_t type) const;
-    // The size of an object of the type.
+    /** The size of an object of the type. */
     uint32_t typeSize(uint32_t type) const;
 
-    // Writes the tree under the root as indented text, `maxElements` of
-    // each array at most, for tools.
+    /**
+     * Writes the tree under the root as indented text, `maxElements` of
+     * each array at most and `maxDepth` levels down, for tools.
+     */
     std::string dump(uint32_t maxElements = 4, int maxDepth = 12) const;
 
 private:
@@ -180,8 +217,7 @@ private:
     mutable std::map<uint32_t, std::vector<Gr2Member>> _typeCache;
 };
 
-// The size of one value of a member type (with 32-bit pointers); 0 for
-// Inline, whose size is its referenced type's.
+/** The size of one value of a member type (with 32-bit pointers); 0 for Inline, whose size is its referenced type's. */
 uint32_t gr2ValueSize(Gr2Type type);
 
 } // namespace reluva::awe

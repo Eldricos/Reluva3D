@@ -19,15 +19,14 @@ constexpr float kBrakeEarly = 6; // metres before a corner it means to be down t
 constexpr float kLookBase = 8;
 constexpr float kLookPerSpeed = 0.6f;
 constexpr float kLookMost = 35;
-constexpr float kLookFar = 160; // metres of the way ahead it plans for
-constexpr float kSpurClose = 3; // metres: back where it was two points ago, a spur's been driven
-constexpr float kLookLeast = 4;
+constexpr float kLookFar = 160;        // metres of the way ahead it plans for
+constexpr float kSpurClose = 3;        // metres: back where it was two points ago, a spur's been driven
+constexpr float kLookLeast = 4;        // metres ahead it steers for, at the least
 constexpr float kLookLeastTime = 0.4f; // seconds ahead it steers for, at the least
 constexpr float kTurningBrake = 0.4f;  // the brake it uses while steering hard
-constexpr float kSteerGrip =
-    10; // m/s^2 the steering asks of the tyres at most       // metres ahead it steers for, at the least
-constexpr float kCornerSpan = 8; // metres either side of a point over which its corner's turn is measured
-constexpr float kMostCut = 4;    // metres it cuts a corner by (its line from the path's corners)
+constexpr float kSteerGrip = 10;       // m/s^2 the steering asks of the tyres at most
+constexpr float kCornerSpan = 8;       // metres either side of a point over which its corner's turn is measured
+constexpr float kMostCut = 4;          // metres it cuts a corner by (its line from the path's corners)
 constexpr float kPi = 3.14159265358979f;
 
 Vec3 flat(Vec3 v) {

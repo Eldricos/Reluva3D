@@ -16,38 +16,56 @@ namespace reluva::ttf {
 
 class Hinter;
 
-// A TrueType font (a game's own .ttf), drawn anti-aliased into RGBA32
-// surfaces. Uses stb_truetype (third_party/stb) for the outlines and their
-// coverage; a font with hinting programs is fitted to the pixel grid by
-// them first, at a whole number of pixels to the em, as Windows draws it
-// (truetype_hinting.h). Glyphs are rendered once per size and kept.
+/**
+ * A TrueType font (a game's own .ttf), drawn anti-aliased into RGBA32
+ * surfaces. Uses stb_truetype (third_party/stb) for the outlines and their
+ * coverage; a font with hinting programs is fitted to the pixel grid by
+ * them first, at a whole number of pixels to the em, as Windows draws it
+ * (truetype_hinting.h). Glyphs are rendered once per size and kept.
+ *
+ * Sizes (`pixels`) are in pixels from the top of the tallest letters to the
+ * bottom of the lowest (the font's ascent minus its descent).
+ */
 class Font {
 public:
+    /** No font until load(). */
     Font();
     ~Font();
     Font(const Font &) = delete;
     Font &operator=(const Font &) = delete;
 
+    /** Takes the font file (the first font of a collection); fails if it isn't TrueType. */
     Error load(std::vector<uint8_t> data);
+    /** Whether a font was loaded. */
     bool loaded() const { return !_data.empty(); }
 
-    // Sizes are in pixels from the top of the tallest letters to the bottom
-    // of the lowest (the font's ascent minus its descent).
+    /** From one line to the next, the font's line gap included: whole pixels, rounded up. */
     int lineHeight(float pixels) const;
-    // The size (as above) of a font of `points`, as Windows makes it at 96
-    // pixels an inch: an em of points x 96 / 72 pixels.
+    /**
+     * The size of a font of `points`, as Windows makes it at 96 pixels an
+     * inch: an em of points x 96 / 72 pixels. `points` itself before a font
+     * is loaded.
+     */
     float sizeForPoints(float points) const;
+    /** From the top of a line to its baseline, in whole pixels. */
     int ascent(float pixels) const;
+    /** How far the text advances, in whole pixels rounded up. */
     int width(std::string_view utf8, float pixels);
 
-    // Draws UTF-8 text with the top of its line at (x, y), clipped to the
-    // surface, blended by its coverage times `alpha` (the surface's alpha
-    // raised as it is, so it can be an overlay); returns the x after it.
+    /**
+     * Draws UTF-8 text with the top of its line at (x, y), clipped to the
+     * surface, blended by its coverage times `alpha` (the surface's alpha
+     * raised as it is, so it can be an overlay). Nothing on a surface
+     * that isn't RGBA32.
+     * @return The x after it.
+     */
     int draw(Surface &dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha = 255);
 
-    // The text broken into lines no wider than `maxWidth`, at spaces where
-    // it can be (a word too long for a line is left whole), and at line
-    // ends.
+    /**
+     * The text broken into lines no wider than `maxWidth`, at spaces where
+     * it can be (a word too long for a line is left whole), and at line
+     * ends.
+     */
     std::vector<std::string> wrap(std::string_view utf8, float pixels, int maxWidth);
 
 private:

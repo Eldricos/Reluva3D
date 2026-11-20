@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: Input and settings: the joystick, key bindings, video settings.
+// id Tech 3 unit tests: input and settings: the joystick, key bindings,
+// video settings.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

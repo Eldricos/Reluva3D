@@ -76,6 +76,7 @@ void Player::work() {
     // Each frame shown: kept for the engine; then the input waiting. The
     // input is also taken whenever the program looks for a message and
     // finds none.
+    //
     // Frames shown a flip late: a frame's drawing goes on while the program
     // works out the next, about a quarter quicker, for a frame's delay.
     game.directX().presentLate = true;
@@ -156,7 +157,7 @@ void Player::drain() {
             break;
         }
         case EventType::kMouseWheel:
-            p.mouseWheel(ev.wheelY * 120);
+            p.mouseWheel(ev.wheelY * 120); // Windows' WHEEL_DELTA a notch
             break;
         case EventType::kKeyDown:
         case EventType::kKeyUp: {

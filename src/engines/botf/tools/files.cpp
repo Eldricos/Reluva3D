@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool's Star Trek: Birth of the Federation commands for a game's files. Add a command as a
-// function and a line in the table at the end (src/devtools/tool.h); add a
-// file to reluva_add_engine_tools in the engine's CMakeLists.txt.
+// reluva-tool's Star Trek: Birth of the Federation commands for a game's
+// files. Add a command as a function and a line in the table at the end
+// (src/devtools/tool.h); add a file to reluva_add_engine_tools in the
+// engine's CMakeLists.txt.
 
 #include "devtools/tool.h"
 

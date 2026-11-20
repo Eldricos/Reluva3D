@@ -12,17 +12,21 @@
 
 namespace reluva::idtech3::botlib {
 
-// A bot's character (botfiles/bots/<name>_c.c): numbered characteristics
-// (its name, aim, aggression, reaction time...), each an integer, a float
-// or a string, given per skill level:
-//
-//     skill 1 { CHARACTERISTIC_NAME "Munro" CHARACTERISTIC_ATTACK_SKILL 0.3 ... }
-//
-// How characters are chosen, completed and blended between skills was
-// read from the GPL ioquake3 bot library (be_ai_char.c); new code.
+/**
+ * A bot's character (botfiles/bots/`name`_c.c): numbered characteristics
+ * (its name, aim, aggression, reaction time...), each an integer, a float
+ * or a string, given per skill level:
+ *
+ *     skill 1 { CHARACTERISTIC_NAME "Munro" CHARACTERISTIC_ATTACK_SKILL 0.3 ... }
+ *
+ * How characters are chosen, completed and blended between skills was
+ * read from the GPL ioquake3 bot library (be_ai_char.c); new code.
+ */
 struct BotCharacter {
     static constexpr int kCount = 80;
+    /** One characteristic's value, of the type the file gives it. */
     struct Value {
+        /** What the value is: none given, or which of the three. */
         enum class Type { kNone, kInteger, kFloat, kString } type = Type::kNone;
         int integer = 0;
         float number = 0;
@@ -33,27 +37,43 @@ struct BotCharacter {
     std::array<Value, kCount> values;
 };
 
+/** The characters bots have loaded, by handle, as the bot library hands them out. */
 class BotCharacters {
 public:
-    // Reads `file` from the scripts with `load`; nullptr when it has no
-    // such skill (`skill` < 0: the first it has) or can't be read.
+    /**
+     * Reads `file` from the scripts with `load`; nullptr when it has no
+     * such skill (`skill` < 0: the first it has) or can't be read.
+     */
     static std::unique_ptr<BotCharacter> read(const BotScript::Loader &load, const std::string &file, int skill,
                                               std::string *error = nullptr);
 
-    // The original's choice: the skill clamped to 1..5; skills 1, 4 and 5
-    // read as they are (or the nearest the file has, or the default
-    // character's), others blended between 1 and 4 or 4 and 5; what the
-    // file leaves out taken from the default character
-    // (bots/default_c.c). A handle from 1, 0 if none could be read.
+    /**
+     * Loads a character the original's way: the skill clamped to 1..5;
+     * skills 1, 4 and 5 read as they are (or the nearest the file has, or
+     * the default character's), others blended between 1 and 4 or 4 and
+     * 5 (the floats; the rest are the lower skill's); what the file leaves
+     * out taken from the default character (bots/default_c.c).
+     * @return A handle from 1, or 0 if none could be read.
+     */
     int load(const BotScript::Loader &load, const std::string &file, float skill, std::string *log = nullptr);
+    /** Frees a handle, for a later load() to reuse. */
     void free(int handle);
+    /** The character a handle holds, or null. */
     const BotCharacter *get(int handle) const;
 
+    /**
+     * Characteristic `index` of a character, as a float, an integer (each
+     * from either kind of number) or a string; 0 or empty for a handle,
+     * index or type that doesn't fit. The bounded ones are clamped to
+     * [min, max].
+     */
+    ///@{
     float floatValue(int handle, int index) const;
     float boundedFloat(int handle, int index, float min, float max) const;
     int integer(int handle, int index) const;
     int boundedInteger(int handle, int index, int min, int max) const;
     std::string string(int handle, int index) const;
+    ///@}
 
 private:
     std::unique_ptr<BotCharacter> loadSkill(const BotScript::Loader &load, const std::string &file, int skill,

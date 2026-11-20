@@ -16,10 +16,12 @@
 
 namespace reluva::unreal {
 
+/** A mesh uploaded with uploadMesh: its frames' vertices and its draws. */
 struct GpuMesh {
     gfx::MeshId mesh = 0;
     int32_t frameVertices = 0; // GPU vertices per frame
     int32_t frames = 0;
+    /** The triangles of one texture and set of flags, as a range of indices. */
     struct Batch {
         uint32_t firstIndex = 0;
         uint32_t indexCount = 0;
@@ -27,10 +29,8 @@ struct GpuMesh {
         uint32_t polyFlags = 0;
     };
     std::vector<Batch> batches;
-    /**
-     * Frame 0's extent, after the mesh's own placement (Scale, Origin,
-     * RotOrigin), in Unreal's axes.
-     */
+    // Frame 0's extent, after the mesh's own placement (Scale, Origin,
+    // RotOrigin), in Unreal's axes.
     Vec3f center{};
     float radius = 1;
 };
@@ -42,6 +42,7 @@ struct GpuMesh {
  * and people up (CM05_Kira); the others are kept for comparing.
  */
 enum class MeshTurn { kNone, kFloatCopy, kReverse };
+/** How a MeshTurn is described to the user ("turned the opposite way"). */
 const char *meshTurnName(MeshTurn turn);
 
 /**
@@ -54,15 +55,20 @@ struct MeshTopology {
     std::vector<uint32_t> indices;
     std::vector<GpuMesh::Batch> batches;
 };
+/** Works out a mesh's MeshTopology (invisible triangles left out). */
 Error buildMeshTopology(const Mesh &mesh, MeshTopology &out);
 
 /**
- * Uploads a mesh; positions are placed by its Scale, Origin and RotOrigin.
- * Imported meshes are also turned about Z by `yawQuarters` quarter turns
- * (each 16384 of yaw): with only the turn above, The Fallen's face their
- * right; 3 (three quarters, i.e. a quarter turn back) faces them ahead.
+ * The quarter turns about Z that face The Fallen's imported meshes ahead:
+ * with only their import turn they face their right, and 3 (three
+ * quarters, i.e. a quarter turn back) faces them ahead.
  */
 constexpr int kImportYawQuarters = 3;
+/**
+ * Uploads a mesh; positions are placed by its Scale, Origin and RotOrigin.
+ * Imported meshes are also turned about Z by `yawQuarters` quarter turns
+ * (each 16384 of yaw).
+ */
 Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, GpuMesh &out, MeshTurn turn = MeshTurn::kReverse,
                  int yawQuarters = kImportYawQuarters);
 /** The same with its topology already worked out. */
@@ -76,10 +82,12 @@ Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, const MeshTopology
  * from the origin: type 2 attachment points, the precomputed places)
  * turned the same way. Unreal's axes.
  */
+///@{
 Vec3f placeMeshVertex(const Mesh &mesh, const Vec3f &packed, MeshTurn turn = MeshTurn::kReverse,
                       int yawQuarters = kImportYawQuarters);
 Vec3f placeMeshScaled(const Mesh &mesh, const Vec3f &v, MeshTurn turn = MeshTurn::kReverse,
                       int yawQuarters = kImportYawQuarters);
+///@}
 
 /**
  * Where an actor puts its mesh: Location + PrePivot, turned by Rotation,
@@ -113,11 +121,11 @@ MeshPose poseAt(const Mesh &mesh, const MeshAnimSeq *anim, float time, float sta
  */
 MeshPose poseAtFraction(const Mesh &mesh, const MeshAnimSeq *anim, float fraction, bool loop);
 
+/** How a mesh is lit: an ambient and a directed light, or its lights per vertex. */
 struct MeshLight {
-    /** direction in the renderer's axes */
     gfx::Vec3 ambient{1, 1, 1};
     gfx::Vec3 directed{};
-    gfx::Vec3 direction{0, 0, 1};
+    gfx::Vec3 direction{0, 0, 1}; // in the renderer's axes
     /**
      * An actor's: its lights worked out on each vertex as UE1 does
      * (gfx::DrawCall::vertexLights), not the directed light.
@@ -128,13 +136,7 @@ struct MeshLight {
     float specular = 0;
 };
 
-/**
- * Draws it: `textures` by texture index (0: untextured), `exposure` as
- * the Maps page's; `style` the actor's (actors.h's kStyle...: translucent,
- * modulated and masked apply to the whole mesh, as its polygons' own
- * flags do to them).
- * Distance fog over what's drawn: its colour, full at `distance` (0 none).
- */
+/** Distance fog over what's drawn: its colour, full at `distance` (0 none). */
 struct MeshFog {
     std::array<float, 3> color{};
     float distance = 0;
@@ -160,6 +162,12 @@ struct MeshPass {
     bool envMap = false;
     float fatness = 0;
 };
+/**
+ * Draws a mesh at a pose: `textures` by texture index (0: untextured),
+ * `exposure` as the Maps page's; `style` the actor's (actors.h's
+ * kStyle...: translucent, modulated and masked apply to the whole mesh, as
+ * its polygons' own flags do to them); `fog` and `pass` if any.
+ */
 void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &placement, const MeshPose &pose,
               const std::vector<gfx::TextureId> &textures, const MeshLight &light, float exposure, uint8_t style = 1,
               const MeshFog *fog = nullptr, const MeshPass *pass = nullptr);

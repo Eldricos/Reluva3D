@@ -15,6 +15,10 @@ GameInfo gameInfo() {
     g.code = GameCode::kEliteForce;
     g.refEntity = kRefEntityLayout;
     g.spRefEntity = kSpRefEntityLayout;
+    // The command's button bits: attack 1 (Quake III's) and alt attack 32
+    // (Elite Force's own), found with reluva-tool idtech3 game-run -buttons: holding
+    // either changes the same player state words (weapon time, ammunition,
+    // events). See docs/engines/idtech3/games/stvef/systems/syscalls.md.
     g.buttonAttack = 1;
     g.buttonAltAttack = 32;
     g.playerModel = "munro";

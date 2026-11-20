@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: space combat: its GIF textures, .ras
+// models, ship classes and missions, the projection, the bridge the
+// campaign drives, and shields.
+
 #include "tests/engines/stgenerations/support.h"
 
 #include "common/bytes.h"
@@ -20,7 +24,7 @@ using namespace reluva::stgenerations;
 
 namespace {
 
-// Not kPi: MSVC only has it with _USE_MATH_DEFINES.
+// Not M_PI: MSVC only has it with _USE_MATH_DEFINES.
 constexpr double kPi = 3.14159265358979323846;
 
 typedef std::vector<uint8_t> Bytes;

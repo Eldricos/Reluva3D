@@ -1370,8 +1370,8 @@ void Generations::updateWalkStatus() {
 
 Error Generations::start() {
     // Numbers drawn and not used, as the data viewer draws its 400 stars
-    // (resource_viewer.cpp): the game-files records (front_end, mission,
-    // combat) were made with the sequence that follows them.
+    // (resource_viewer.cpp): the game-files test's records (front_end,
+    // mission, combat) were made with the sequence that follows them.
     for (int i = 0; i < 400; i++) {
         _random.getRandomNumberRng(0, 2000);
         _random.getRandomNumberRng(0, 2000);

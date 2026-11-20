@@ -145,6 +145,7 @@ void applyVideoSettings(const VideoSettings &v, ShaderCache &shaders, WorldRende
 /** A screen of a game, shown by a Session one at a time. */
 class Page {
 public:
+    /** On the game's shared context, which must outlive it. */
     explicit Page(PageContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
@@ -156,7 +157,9 @@ public:
     virtual void activate() = 0;
     /** Called before switching away. */
     virtual void deactivate() {}
+    /** An input event while the page is shown (but Esc, unless takesKey). */
     virtual void handleEvent(const Event &ev) = 0;
+    /** Called once a frame while the page is shown, with the system's clock in milliseconds. */
     virtual void update(uint64_t /*nowMs*/) {}
     /**
      * Whether the page draws with System::init3D; the session puts the 2D
@@ -167,9 +170,14 @@ public:
     virtual bool takesKey(const Event & /*ev*/) const { return false; }
 
 protected:
+    /** Fills the whole screen, or a rectangle of it (cut to the screen), with a colour. */
+    ///@{
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
+    ///@}
+    /** Draws text in the built-in font, its top left at (x, y). */
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
+    /** Titles the window "Reluva - `game` (`mod`) - `page`: `detail`". */
     void setTitle(const std::string &detail);
 
     PageContext &_ctx;

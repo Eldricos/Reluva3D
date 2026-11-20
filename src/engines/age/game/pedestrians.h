@@ -23,16 +23,36 @@ namespace reluva::age {
  */
 class Pedestrians {
 public:
+    /**
+     * Loads the aimap's models and finds the road map's sidewalks, starting
+     * with no one about. Fails with the first model that won't load only if
+     * none does.
+     */
     Error setup(gfx::Renderer3D &renderer, const SearchSet &files, const AiRoadMap &map, const AiMapSettings &settings,
                 bool rain, uint32_t seed);
+    /** Lets the models, the sidewalks and the people go. */
     void unload();
+    /** Takes everyone away (the models and sidewalks stay). */
     void clear() { _peds.clear(); }
-    /** 0..1: how many there are about the focus (1 = kPedsAtFull). */
+    /**
+     * 0..1: how many there are about the focus, as a share of kPedsAtFull;
+     * no more than 60 are about at once.
+     */
     void setDensity(float density) { _density = density; }
 
+    /**
+     * Moves everyone on, takes away those far from `focus` and adds more
+     * out of its sight (70-120 m away).
+     * @param cars Those they dive out of the way of.
+     * @param world Where the ground is, for those diving.
+     * @param fill Add them as near as 5 m, and many more tries at once: for
+     *        the start of a race.
+     */
     void update(float dt, const Vec3 &focus, const std::vector<RoadUser> &cars, const CollisionWorld &world,
                 bool fill = false);
+    /** Draws those within 120 m of the eye. */
     void draw(const gfx::Mat4 &viewProj, const Vec3 &eye, const SceneLight &light) const;
+    /** How many are about. */
     size_t count() const { return _peds.size(); }
 
     static constexpr int kPedsAtFull = 300;

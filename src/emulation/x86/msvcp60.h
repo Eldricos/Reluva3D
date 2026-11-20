@@ -8,11 +8,14 @@
 
 namespace reluva::x86 {
 
-// Loads Reluva's own MSVCP60.dll (runtime/msvcp60.cpp, built into the
-// program) into the process: the C++ library of Visual C++ 6, for programs
-// that import it. Its imports are MSVCRT's, so addMsvcrt() comes first;
-// load it before the modules that import from it, and attach it before
-// theirs too.
+/**
+ * Loads Reluva's own MSVCP60.dll (runtime/msvcp60.cpp, built into the
+ * program) into the process: the C++ library of Visual C++ 6, for programs
+ * that import it. Its imports are MSVCRT's, so addMsvcrt() comes first;
+ * load it before the modules that import from it, and attach it before
+ * theirs too.
+ * @param out The module loaded, or null if it failed.
+ */
 Error loadMsvcp60(Win32Process &process, const Win32Process::Module *&out);
 
 } // namespace reluva::x86

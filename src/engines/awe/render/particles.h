@@ -17,6 +17,7 @@
 
 namespace reluva::awe {
 
+/** A particle object's fields, each beside the offset it has in the game's object. */
 struct ParticleSettings {
     std::string texture;
     float position[3] = {0, 0, 0};    // the emitter, in the world (y up)
@@ -51,26 +52,33 @@ struct ParticleSettings {
     int signY = 1;
     int signZ = 0;
 
-    // From a scene's object, over its class's defaults.
+    /** From a scene's object, over its class's defaults. */
     static ParticleSettings fromRecord(const Ac2Record &o);
 };
 
+/** A particle object's particles, moved on as the game moves them. */
 class ParticleSystem {
 public:
+    /** No particles yet; `seed` starts its random numbers, the C library's rand()'s. */
     explicit ParticleSystem(ParticleSettings settings, uint32_t seed = 1);
+    /** The settings it was made with. */
     const ParticleSettings &settings() const { return _s; }
-    // Moves the particles on by `dt` seconds, emitting new ones.
+    /** Moves the particles on by `dt` seconds, emitting new ones. */
     void update(float dt);
-    // Moves the emitter, and sets the velocity the particles emitted from
-    // now on get (a character's breath follows its mouth: 0x426046).
+    /**
+     * Moves the emitter, and sets the velocity the particles emitted from
+     * now on get (a character's breath follows its mouth: 0x426046).
+     */
     void setEmitter(const float position[3], const float velocity[3]);
 
+    /** A particle to draw: where, and its colour and alpha (faded in and out). */
     struct Point {
         float position[3];
         uint8_t rgba[4];
     };
-    // What's drawn, each particle `copies` times over.
+    /** What's drawn, each particle `copies` times over. */
     void points(std::vector<Point> &out) const;
+    /** How many particles there are. */
     size_t count() const { return _particles.size(); }
 
 private:

@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""When the Esc menu is on screen in recordings: esclogo.png matched against
+the top of each frame in esc_NAME/, printed as runs of minutes:seconds
+(a frame a second).
+
+    python3 -I py/escfind.py NAME...
+"""
+
 import cv2, numpy as np, glob, sys
 t=cv2.imread('esclogo.png').astype(np.float32)
 for n in sys.argv[1:]:

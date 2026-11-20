@@ -17,6 +17,7 @@ namespace reluva::botf {
 // in a companion file of zero-terminated strings. Each table is described by
 // a TableLayout; fields not worked out yet aren't listed, and show as bytes.
 
+/** How a field's bytes are read. */
 enum class FieldType {
     kText, // zero-terminated within `size` bytes (what follows the zero is leftover)
     kU8,   // `size` of them
@@ -38,6 +39,7 @@ struct Field {
 
 /** How a table's file is laid out: its count, header, records and fields. */
 struct TableLayout {
+    /** Where the number of records comes from: a count at the file's start, or the file's size. */
     enum class Count { kU16AtStart, kU32AtStart, kFileSize };
 
     const char *file;         // "race.rst"
@@ -47,11 +49,9 @@ struct TableLayout {
     uint32_t recordSize;
     std::vector<Field> fields;
     int nameField = 0;         // index into fields, or -1 for none
-    int descriptionField = -1; // a U32 offset into the descriptions, or -1
-    /**
-     * Names for records that hold none: a fixed list, or a list of
-     * fixed-size strings at an offset in the header (the .wtf tables).
-     */
+    int descriptionField = -1; // index into fields of a U32 offset into the descriptions, or -1
+    // Names for records that hold none: a fixed list, or a list of
+    // fixed-size strings at an offset in the header (the .wtf tables).
     std::vector<const char *> recordNames = {};
     uint32_t headerNamesAt = 0;
     uint32_t headerNameSize = 0;
@@ -63,19 +63,32 @@ const std::vector<TableLayout> &tableLayouts();
 /** A table read with its layout: its records, their fields' values and descriptions. */
 class DataTable {
 public:
-    /** `descriptions` may be empty when the table has none or it's missing. */
+    /**
+     * Reads a table with its layout, which must outlive it.
+     * @param descriptions The companion file; empty when the table has none or it's missing.
+     * @return An error if the records don't fit in the data, or (counted by
+     *         the file's size) aren't a whole number.
+     */
     Error load(const TableLayout &layout, std::vector<uint8_t> data, std::vector<uint8_t> descriptions = {});
 
+    /** The layout it was loaded with; only after load(). */
     const TableLayout &layout() const { return *_layout; }
+    /** How many records it has. */
     size_t count() const { return _count; }
+    /** Record `i`'s bytes, `i` below count(). */
     const uint8_t *record(size_t i) const { return _data.data() + _layout->headerSize + i * _layout->recordSize; }
     /**
      * A field's value as text: strings as they are (Windows-1252 decoded),
      * numbers in decimal, U8 arrays space-separated.
      */
     std::string value(size_t record, const Field &field) const;
+    /**
+     * A record's name: from the layout's list, the header's names or its
+     * name field; else its number.
+     */
     std::string name(size_t record) const;
-    std::string description(size_t record) const; // empty if none
+    /** A record's description from the companion file, or empty if none. */
+    std::string description(size_t record) const;
     /** Which of a record's bytes no field covers, as [begin, end) ranges. */
     std::vector<std::pair<uint32_t, uint32_t>> unknownRanges() const;
 

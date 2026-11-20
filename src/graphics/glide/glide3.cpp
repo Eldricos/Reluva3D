@@ -43,8 +43,6 @@ Glide3::Glide3(Board board) : _board(board), _core(board) {
     _layout.space = g3::kWindowCoords;
 }
 
-// --- Start-up, the board ------------------------------------------------------------
-
 uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
     std::vector<int32_t> v;
     const Pipeline &p = _core.pipeline();
@@ -64,9 +62,9 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
             return 0;
         v = {8};
         break;
-    case g3::kFifoFullness:
+    case g3::kFifoFullness: // the FIFO empty: nothing waits
         v = {0, 0};
-        break; // the FIFO empty: nothing waits
+        break;
     case g3::kFogTableEntries:
         v = {_board.fogTableEntries};
         break;
@@ -94,10 +92,10 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
     case g3::kMaxTextureAspectRatio:
         v = {3};
         break;
-    // Not a UMA configuration: frame buffer and textures apart (Reference
-    // Manual, grGet: GR_MEMORY_UMA is then 0).
-    // The Voodoo3 and Banshee: "The total number of bytes if a UMA
-    // configuration", FB and TMU then 0.
+    // The frame buffer's and the textures' memory apart, GR_MEMORY_UMA 0
+    // (Reference Manual, grGet); or on a UMA board (the Banshee, Voodoo3)
+    // GR_MEMORY_UMA "The total number of bytes if a UMA configuration",
+    // and the other two 0.
     case g3::kMemoryFb:
         v = {_board.uma ? 0 : int32_t(_board.frameBufferMemory)};
         break;
@@ -300,8 +298,6 @@ void Glide3::disable(uint32_t mode) {
             texMipMapMode(i, _mipmapAsked[size_t(i)], _lodBlend[size_t(i)]);
 }
 
-// --- Vertices --------------------------------------------------------------------------
-
 void Glide3::coordinateSpace(uint32_t mode) {
     _layout.space = mode;
 }
@@ -408,8 +404,8 @@ Vertex Glide3::readVertex(const uint8_t *at) {
         }
         return v;
     }
-    // Clip coordinates: kept as given here (clipVertex_), then clipped
-    // and divided by w (project).
+    // Clip coordinates: kept as given in _clip, which the drawing functions
+    // clip, then divided by w (project).
     ClipVertex &c = _clip;
     c.window = false;
     c.v = v;
@@ -455,10 +451,10 @@ Vertex Glide3::project(const ClipVertex &c) const {
     return out;
 }
 
-// --- Clipping against the view volume ----------------------------------------------
-// The view volume of clip coordinates: -w <= x, y <= w, and -w <= z <= w
-// when z is given ("If z buffering is enabled, z should be in the range
-// [-w..+w]"; x/w and y/w are "normalized device coordinates", Glide 3.0
+// Clipping against the view volume. The view volume of clip coordinates:
+// -w <= x, y <= w, and -w <= z <= w when z is given ("If z buffering is
+// enabled, z should be in the range [-w..+w]"; x/w and y/w are
+// "normalized device coordinates", Glide 3.0
 // Programming Guide, Coordinate Spaces). The manuals leave geometric
 // clipping to the application ("proper geometric clipping should be done by
 // the application", grClipWindow); Reluva clips what's outside so that
@@ -654,8 +650,6 @@ void Glide3::clipPoint(const ClipVertex &a, bool aa) {
         _core.point(project(a));
 }
 
-// --- Drawing ---------------------------------------------------------------------------
-
 namespace {
 // Each TMU's own s, t and 1/w, which the layouts always give (the pipeline
 // reads them as Glide 2's stw hints say).
@@ -792,8 +786,6 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t *> &
     _lastMode = 0xffffffffu;
 }
 
-// --- State ------------------------------------------------------------------------------
-
 void Glide3::fogMode(int mode) {
     const int extra = mode & (kFogMult2 | kFogAdd2);
     switch (mode & 0xff) {
@@ -853,8 +845,6 @@ void Glide3::texMipMapMode(int tmu, int mode, bool lodBlend) {
         mode = kMipmapNearest;
     _core.texMipMapMode(tmu, mode, lodBlend);
 }
-
-// --- Textures -------------------------------------------------------------------------
 
 Glide2TexInfo Glide3::toGlide2(const Glide3TexInfo &info) {
     // Glide 2's numbers count down from GR_LOD_256 and GR_ASPECT_8x1.

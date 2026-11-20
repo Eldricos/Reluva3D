@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Meshes: vertex and skeletal ones, the shared animation sets, imported-model blocks, class defaults for placed meshes, poses and rotations.
+// Meshes: vertex and skeletal ones, the shared animation sets, imported-
+// model blocks, class defaults for placed meshes, poses and rotations.
 //
 //   reluva-tests unreal.unit.meshes
 
@@ -310,7 +311,7 @@ void testImportedMeshBlock() {
     Package p;
     CHECK(!p.openMemory(w.build(), "Meshes"));
     // A Mesh with the block and its triangles where they usually are reads
-    // too (The Fallen's own have none there, and are refused for now).
+    // too (The Fallen's own have none there, and are refused).
     Mesh m;
     CHECK(!readMesh(p, 0, m) && m.importBlock > 0 && m.tris.size() == 1 && m.verts.size() == 6);
 }

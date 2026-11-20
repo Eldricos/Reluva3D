@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Runs Clue.exe's game-screen set-up (0x435050) and layout in Unicorn, with
+EagleM's window calls, MFC's CString, SmartHeap and USER32 stood in for,
+and prints every window's place. Needs sizes.txt (the pictures' sizes:
+harness/uisizes writes it) in CLUE_WORK.
+
+    python3 -I emu/run.py [ADDRESS]      (hex: where to start, 0x435050 if not given)
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs
@@ -12,6 +20,7 @@ d=open(EXE,'rb').read()
 pe=struct.unpack_from('<I',d,0x3c)[0]; n=struct.unpack_from('<H',d,pe+6)[0]; opt=struct.unpack_from('<H',d,pe+20)[0]
 secs=[struct.unpack_from('<8sIIII',d,pe+24+opt+40*i) for i in range(n)]
 def off(rva):
+    """The file offset of an RVA in Clue.exe."""
     for nm,vs,va,rs,ra in secs:
         if va<=rva<va+max(vs,rs): return rva-va+ra
 mu=Uc(UC_ARCH_X86,UC_MODE_32)
@@ -22,9 +31,11 @@ HEAP=0x30000000; mu.mem_map(HEAP,0x1000000); heap=[HEAP+0x1000]
 STACK=0x7f000000; mu.mem_map(STACK-0x100000,0x100000)
 DATA=0x40000000; mu.mem_map(DATA,0x100000); data=[DATA]
 def alloc(sz,base=heap):
+    """`sz` zeroed bytes, 16-byte aligned, from the heap (or the area `base` names)."""
     a=(base[0]+15)&~15; base[0]=a+sz; mu.mem_write(a,b'\0'*sz); return a
 stubs={}  # addr -> name
 def stub(name):
+    """A stand-in for an import or a method: a RET that handle() runs it at."""
     a=STUB+16*len(stubs); stubs[a]=name; mu.mem_write(a,b'\xc3'); return a
 # imports
 imp=struct.unpack_from('<I',d,pe+24+104)[0]; o=off(imp)
@@ -40,6 +51,7 @@ while True:
         name=('%s#%d'%(dll,e&0xffff)) if e&0x80000000 else d[off(e)+2:d.index(b'\0',off(e)+2)].decode()
         iat[0x400000+iatr+4*k]=name; k+=1
 def mgr_object(prefix,slots=64):
+    """An object whose vtable's `slots` methods are all stand-ins named after `prefix`."""
     obj=alloc(64,data); vt=alloc(4*slots,data)
     for s in range(slots): mu.mem_write(vt+4*s,struct.pack('<I',stub('%s::virt%d'%(prefix,s*4))))
     mu.mem_write(obj,struct.pack('<I',vt)); return obj
@@ -52,8 +64,8 @@ for slot,name in iat.items():
         mu.mem_write(slot,struct.pack('<I',cell))
     else:
         mu.mem_write(slot,struct.pack('<I',stub(name)))
-# arg sizes from MSVC mangling
 def argbytes(name):
+    """(calling convention letter, bytes of arguments) from an MSVC-mangled name, or None."""
     m=re.match(r'\?[^@]+@(?:[^@]+@)*@([A-Z])([A-Z]?)',name)
     if not m: return None
     body=name[name.index('@@')+2:]
@@ -64,6 +76,7 @@ def argbytes(name):
         cc=body[2]; rest=body[3:]
     i=0
     def typ(i):
+        """(size, next index) of the type at `i`."""
         c=rest[i]
         if c in 'PQAB':
             i+=2  # cv
@@ -75,11 +88,13 @@ def argbytes(name):
         if c in 'NO': return 8,i+1
         return 4,i+1
     def qname(j):
+        """The index past a qualified name that starts at `j`."""
         while True:
             if rest[j]=='@': return j+1
             if rest[j].isdigit(): j+=1
             else: j=rest.index('@',j)+1
     def skip(i):
+        """The index past the type at `i`."""
         c=rest[i]
         if c in 'PQAB': return skip(i+2)
         if c in 'VU': return qname(i+1)
@@ -87,6 +102,7 @@ def argbytes(name):
         if c=='_': return i+2
         return i+1
     def t2(i):
+        """(bytes it takes on the stack, next index) of the type at `i`."""
         c=rest[i]
         if c in 'PQAB': return 4,skip(i)
         if c in 'VUW': return 4,skip(i)
@@ -103,6 +119,7 @@ import pickle
 INS=pickle.load(open(os.path.join(WORK, 'insns.pkl'),'rb'))
 INDEX={a:k for k,(a,m,o) in enumerate(INS)}
 def pushes_before(ra):
+    """How many pushes come before the call that returns to `ra`: its arguments."""
     k=INDEX.get(ra)
     if k is None: return 0
     k-=1; n=0; j=k-1
@@ -120,12 +137,15 @@ for l in open(os.path.join(WORK, 'sizes.txt')):
     p=l.split(); sizes[p[0].lower()]=(int(p[1]),int(p[2]))
 def rd(a): return struct.unpack('<I',mu.mem_read(a,4))[0]
 def rds(a):
+    """The zero-terminated string at `a`."""
     b=bytes(mu.mem_read(a,128)); return b[:b.index(0)].decode('latin1')
 def arg(i): return rd(mu.reg_read(UC_X86_REG_ESP)+4+4*i)
 def win(obj):
+    """What's known of the window object `obj`, made if new."""
     if obj not in windows: windows[obj]={'id':None,'x':0,'y':0,'w':0,'h':0,'parent':0,'img':None,'shown':None}
     return windows[obj]
 def absrect(obj):
+    """A window's rectangle on the screen: its place added up through its parents."""
     w=windows.get(obj); x=y=0
     if not w: return (0,0,0,0)
     o=obj; ax=ay=0; depth=0
@@ -141,8 +161,10 @@ CSTR={540:('ctor0',0),535:('ctor1',4),537:('ctor1',4),800:('dtor',0),858:('assig
       2614:('empty',0),2915:('ptr',4)}
 bufs={}
 def setstr(obj,t):
+    """Makes a CString at `obj` hold `t`."""
     b=alloc(len(t)+32); mu.mem_write(b+12,t.encode('latin1')+b'\0'); bufs[b+12]=t; mu.mem_write(obj,struct.pack('<I',b+12))
 def text(x):
+    """The text of a CString (or a pointer to one), or the string at `x`."""
     if x in bufs: return bufs[x]
     try:
         p=rd(x)
@@ -152,6 +174,7 @@ def text(x):
     except Exception: return ''
 nexthandle=[0x5000]
 def handle(name):
+    """Does what the stand-in `name` stands for, then returns from the call."""
     ecx=mu.reg_read(UC_X86_REG_ECX); ret=0; nm=name
     if name=='SHW32.dll#70':   # SmartHeap MemAllocPtr(pool, size, flags), stdcall
         a=alloc(max(arg(1),16)); esp=mu.reg_read(UC_X86_REG_ESP); ra=rd(esp)
@@ -198,6 +221,7 @@ def handle(name):
         r=absrect(ecx); mu.mem_write(arg(0),struct.pack('<4i',*r))
     elif short=='?GetClientRect@EGuiWindow':
         W=win(ecx); mu.mem_write(arg(0),struct.pack('<4i',0,0,W['w'],W['h']))
+    # MoveWindow's coordinates are relative to the window's parent.
     elif short=='?MoveWindow@EGuiWindowManager':
         w0=arg(0); x,y,w,h=[struct.unpack('<i',struct.pack('<I',arg(i)))[0] for i in range(1,5)]
         W=win(w0); W.update(x=x,y=y,w=w,h=h); W.setdefault('moves',[]).append((x,y,w,h))
@@ -207,7 +231,6 @@ def handle(name):
     elif short=='?MoveWindow@EGuiWindow':
         x,y,w,h=[struct.unpack('<i',struct.pack('<I',arg(i)))[0] for i in range(4)]
         W=win(ecx); W.update(x=x,y=y,w=w,h=h); W.setdefault('moves',[]).append((x,y,w,h))
-        # MoveWindow coordinates are relative to parent
     elif short=='?ShowWindow@EGuiWindowManager':
         win(arg(0))['shown']=arg(1); ret=1
     elif name=='SetRect':
@@ -256,13 +279,16 @@ def handle(name):
     esp=mu.reg_read(UC_X86_REG_ESP); ra=rd(esp)
     mu.reg_write(UC_X86_REG_EAX,ret); mu.reg_write(UC_X86_REG_ESP,esp+4+pop); mu.reg_write(UC_X86_REG_EIP,ra)
 def hook(uc,addr,size,ud):
+    """Runs the stand-in at `addr`, if one is there."""
     if addr in stubs: handle(stubs[addr])
 mu.hook_add(UC_HOOK_CODE,hook,begin=STUB,end=STUB+0x100000)
 def bad(uc,access,addr,size,value,ud):
+    """Reports an access to memory that isn't mapped, which stops the run."""
     print('bad access',hex(addr),'at',hex(uc.reg_read(UC_X86_REG_EIP))); return False
 mu.hook_add(UC_HOOK_MEM_UNMAPPED,bad)
 trail=[]
 def blk(uc,addr,size,ud):
+    """Keeps the last 30 blocks run, for a report if the run stops."""
     trail.append(addr)
     if len(trail)>30: trail.pop(0)
 mu.hook_add(UC_HOOK_BLOCK,blk)
@@ -274,6 +300,7 @@ this=alloc(0x400)
 tib=alloc(0x1000,data); mu.mem_write(tib,struct.pack('<I',0xffffffff)); mu.mem_write(tib+0x18,struct.pack('<I',tib))
 GDT=alloc(0x100,data)
 def desc(base,limit,access,flags):
+    """A GDT descriptor."""
     return struct.pack('<Q', (limit&0xffff) | ((base&0xffffff)<<16) | (access<<40) | (((limit>>16)&0xf)<<48) | (flags<<52) | (((base>>24)&0xff)<<56))
 mu.mem_write(GDT+8*3, desc(tib,0xfff,0x93,0x4))
 mu.reg_write(UC_X86_REG_GDTR,(0,GDT,0xff,0))

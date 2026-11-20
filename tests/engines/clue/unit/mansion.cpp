@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Clue engine's unit tests: The mansion: what's drawn in front of what,
+// The Clue engine's unit tests: the mansion: what's drawn in front of what,
 // hot spots, lighting, and a mansion built from a level.
 
 #include "engines/clue/game/ai.h"

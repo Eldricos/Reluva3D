@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Need for Speed III's unit tests: what the game's program is given in the x86
+// emulator: force feedback, DirectSound 3D's model, and THRASH's fog,
+// Direct3D look and blending.
+//
 //   reluva-tests nfs.unit.host
 
 #include "tests/engines/nfs/fixtures.h"

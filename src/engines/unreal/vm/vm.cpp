@@ -50,7 +50,7 @@ VType typeOfProperty(std::string_view cls) {
 
 } // namespace
 
-// --- Values --------------------------------------------------------------------------
+// Values.
 
 Value Value::byteValue(int v) {
     Value x;
@@ -194,7 +194,7 @@ const std::string &NativeCall::s(size_t k) const {
     return k < args.size() ? args[k].s : kEmpty;
 }
 
-// --- The VM: names and loading ---------------------------------------------------------
+// The VM: names and loading.
 
 Vm::Vm(const PackageSet &packages) : _packages(packages) {
     name("None"); // id 0
@@ -967,7 +967,7 @@ Value Vm::readStruct(const VmStruct &st, const Package &package, Reader &r) {
     return v;
 }
 
-// --- Values, converted -----------------------------------------------------------------
+// Values, converted.
 
 std::string Vm::toString(const Value &v) const {
     char buf[96];
@@ -1226,7 +1226,7 @@ void Vm::registerNative(std::string_view qualifiedName, NativeFn fn) {
     ++_nativeGeneration;
 }
 
-// --- The interpreter -----------------------------------------------------------------------
+// The interpreter.
 
 class Interpreter {
 public:
@@ -1919,7 +1919,7 @@ private:
     Vm &_vm;
 };
 
-// --- Calls, states, ticking -------------------------------------------------------------
+// Calls, states, ticking.
 
 VmFunction *Vm::findFunction(VmObject *self, NameId fname, bool global) {
     if (!self)

@@ -41,8 +41,10 @@
 
 namespace reluva::unreal {
 
+/** The Packages page: every package's exports, and their properties. */
 class PackageViewer : public Page {
 public:
+    /** Lists every package in the set. */
     explicit PackageViewer(ViewContext &ctx);
     const char *name() const override { return "Packages"; }
     size_t count() const override { return _names.size(); }
@@ -62,17 +64,27 @@ private:
 /** Steps through the exports of some classes, package by package. */
 class ObjectBrowser {
 public:
-    /** Over the named packages, in order. */
+    /**
+     * Over the named packages, in order; `wanted` says by its class name
+     * whether an export is one to step through. Nothing is loaded until
+     * the first step.
+     */
     ObjectBrowser(const PackageSet &packages, std::vector<std::string> names, bool (*wanted)(std::string_view));
+    /** How many packages it was given, with wanted exports or not. */
     size_t packageCount() const { return _names.size(); }
     /**
      * Moves within the package (by objects) or between packages (skipping
      * those with none); false if there's nothing.
      */
+    ///@{
     bool step(int objects);
     bool stepPackage(int packages);
+    ///@}
+    /** Where it is: the package and the export; nullptr and -1 at none. */
+    ///@{
     const Package *package() const;
     int exportIndex() const;
+    ///@}
     /** "3/40 in Package (2/12)". */
     std::string where() const;
 
@@ -87,8 +99,10 @@ private:
     int _object = 0;
 };
 
+/** The Textures page: each texture, its animation played if it has one. */
 class TextureViewer : public Page {
 public:
+    /** Over the .utx packages, then the maps', then the .u ones. */
     explicit TextureViewer(ViewContext &ctx);
     const char *name() const override { return "Textures"; }
     size_t count() const override { return _browser.packageCount(); }
@@ -109,8 +123,10 @@ private:
     uint64_t _lastMs = 0;
 };
 
+/** The Sounds page: each Sound object, played through the mixer. */
 class SoundViewer : public Page {
 public:
+    /** Over the .uax packages, then the .umx ones, then the maps and the .u ones. */
     explicit SoundViewer(ViewContext &ctx);
     ~SoundViewer() override;
     const char *name() const override { return "Sounds"; }
@@ -128,8 +144,10 @@ private:
     audio::SoundHandle _playing = audio::kNoSound;
 };
 
+/** The Meshes page: each Mesh and LodMesh, drawn by the GPU and animated. */
 class MeshViewer : public Page {
 public:
+    /** Over the .u packages first (where meshes usually are), then the maps, then the .utx ones. */
     explicit MeshViewer(ViewContext &ctx);
     ~MeshViewer() override;
     const char *name() const override { return "Meshes"; }
@@ -154,12 +172,12 @@ private:
     std::string _error;
     std::vector<std::string> _info;
     Surface _overlay;
-    int _anim = -1; // into mesh_.anims
+    int _anim = -1; // into _mesh.anims
     // The animations to step through: the mesh's own, then (built on bones)
     // those of the shared sets its list names, borrowed when picked.
     std::vector<std::string> _choices;
     int _choice = -1;
-    size_t _ownAnims = 0; // of choices_, the mesh's own
+    size_t _ownAnims = 0; // of _choices, the mesh's own
     size_t _ownAnimCount = 0;
     int32_t _ownFrames = 0;
     void pick(int choice);

@@ -8,16 +8,18 @@
 
 namespace reluva::stgenerations {
 
-// A key map as the original's SGENS.CFG holds two of them (cfg+0x138 for
-// away missions, cfg+0x238 for space combat): 256 bytes indexed by a
-// Windows virtual-key code, each the action that key does, 0xFF for none.
-// Virtual keys 1, 2 and 4 are the left, right and middle mouse buttons.
+/**
+ * A key map as the original's SGENS.CFG holds two of them (cfg+0x138 for
+ * away missions, cfg+0x238 for space combat): 256 bytes indexed by a
+ * Windows virtual-key code, each the action that key does, 0xFF for none.
+ * Virtual keys 1, 2 and 4 are the left, right and middle mouse buttons.
+ */
 class KeyMap {
 public:
     static const int kKeys = 256;
     static const uint8_t kNone = 0xFF;
 
-    // The away actions (the switch in 0x43E8FB; action 0 does nothing).
+    /** The away actions (the switch in 0x43E8FB; action 0 does nothing). */
     enum AwayAction {
         kAwayForward = 1,
         kAwayBackward = 2,
@@ -34,7 +36,7 @@ public:
         kAwayAttack = 19,
         kAwayMouseLook = 52
     };
-    // The space combat actions (0x4A6976).
+    /** The space combat actions (0x4A6976). */
     enum StarshipAction {
         kShipClimb = 0,
         kShipDive = 1,
@@ -56,34 +58,44 @@ public:
     static const uint8_t kAwayPanel[kAwayActions];
     static const uint8_t kStarshipPanel[kStarshipActions];
 
+    /** A map with no key bound. */
     KeyMap() { clear(); }
+    /** Unbinds every key. */
     void clear();
-    // The defaults, as 0x488977 and 0x488A23 write them when SGENS.CFG is missing.
+    /** The defaults, as 0x488977 and 0x488A23 write them when SGENS.CFG is missing. */
+    ///@{
     static KeyMap awayDefaults();
     static KeyMap starshipDefaults();
+    ///@}
 
-    // The action of virtual key vk, or kNone.
+    /** The action of virtual key vk, or kNone (also for a vk out of range). */
     uint8_t get(int vk) const { return vk >= 0 && vk < kKeys ? _map[vk] : kNone; }
+    /** Binds virtual key vk to an action (kNone unbinds it); a vk out of range is ignored. */
     void set(int vk, uint8_t action) {
         if (vk >= 0 && vk < kKeys)
             _map[vk] = action;
     }
-    // The first two keys bound to action, as the Controls panel shows them
-    // (0x485CF0): with one, it is first and second is -1; with two, the
-    // higher key comes first. -1 for none.
+    /**
+     * The first two keys bound to action, as the Controls panel shows them
+     * (0x485CF0): with one, it is first and second is -1; with two, the
+     * higher key comes first. -1 for none.
+     */
     void findKeys(uint8_t action, int &first, int &second) const;
 
-    // As text for the configuration: "vk:action" pairs in hex, by commas.
+    /** As text for the configuration: "vk:action" pairs in hex, by commas. */
     std::string toString() const;
-    // Read toString()'s text; false (and the map unchanged) if it isn't valid.
+    /** Reads toString()'s text; false (and the map unchanged) if it isn't valid. */
     bool fromString(const std::string &text);
 
+    /** Whether two maps bind every key alike. */
+    ///@{
     bool operator==(const KeyMap &o) const;
     bool operator!=(const KeyMap &o) const { return !(*this == o); }
+    ///@}
 
-    // The virtual key of a key, as Windows numbers it, or -1.
+    /** The virtual key of a key (common/events.h's codes), as Windows numbers it, or -1. */
     static int virtualKey(uint32_t key);
-    // The Controls panel's name for a virtual key (0x48639D).
+    /** The Controls panel's name for a virtual key (0x48639D); "?!?" for one it has no name for. */
     static std::string keyName(int vk);
 
 private:

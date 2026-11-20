@@ -30,28 +30,39 @@ public:
         const Widget *widget = nullptr;
         int x = 0;
         int y = 0;
+        /** Whether the screen's point (px, py) is inside the widget. */
         bool contains(int px, int py) const { return px >= x && py >= y && px < x + widget->w && py < y + widget->h; }
     };
 
 protected:
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     LayoutScreen(Assets &assets, const Lexicon &lexicon) : _assets(assets), _lexicon(lexicon) {}
 
-    // Reads opening.wdf and the screen's layout, and checks it has the
-    // widgets the screen needs.
+    /**
+     * Reads opening.wdf and the screen's layout, and checks it has the
+     * widgets the screen needs.
+     */
     Error loadLayouts(const char *file, std::initializer_list<int32_t> needed);
+    /** The layout's widget with this id, or nullptr. */
     const Placed *find(int32_t id) const;
-    // The button under the mouse, among those not hidden; or 0.
+    /** The layout's button under the mouse, among those not hidden; or 0. */
     int32_t buttonAt(int x, int y) const;
-    // The main menu, then the layout: backgrounds and buttons (the pressed
-    // one with its "selected" picture, as are those `selected` names),
-    // parents before children, leaving out the `hidden` widgets.
+    /**
+     * The main menu, then the layout: backgrounds and buttons (the pressed
+     * one with its "selected" picture, as are those `selected` names),
+     * parents before children, leaving out the layout's `_hidden` widgets.
+     */
     void drawLayouts(Surface &screen, const std::set<int32_t> &selected = {}) const;
-    // Text in a text box, in its font and alignment, in the middle of its
-    // height; or, with `lineGap`, wrapped to its width from its top, the
-    // lines `lineGap` pixels further apart than the font's.
+    /**
+     * Text in a text box, in its font and alignment, in the middle of its
+     * height; or, with `lineGap`, wrapped to its width from its top, the
+     * lines `lineGap` pixels further apart than the font's. Nothing is drawn
+     * if the box or its font is missing.
+     */
     void drawText(Surface &screen, int32_t textBox, const std::string &text, Color color, int lineGap = -1) const;
+    /** A picture file drawn at a widget's place, clipped to its size. */
     void drawPicture(Surface &screen, int32_t widget, const std::string &file) const;
-    // The lexicon's entry, or `english` when there's no lexicon.
+    /** The lexicon's entry, or `english` when it has none (an empty lexicon). */
     std::string word(int entry, const char *english) const;
 
     Assets &_assets;

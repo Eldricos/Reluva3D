@@ -78,8 +78,7 @@ constexpr Rect kExamine{129, 328, 171, 370};
 constexpr Rect kCombine{177, 328, 217, 370};
 constexpr Color kText{0xd2, 0xaa, 0x6e}; // 0xffd2aa6e (0x4187a3)
 
-// State: Orient Express's numbers (GameState): 1 just taken, 2 in the
-// bag, 3 in hand, 4 used.
+// A cell's list of items ("a, b"): the names, lower case.
 std::vector<std::string> names(std::string list) {
     if (list.size() >= 2 && list.front() == '"' && list.back() == '"')
         list = list.substr(1, list.size() - 2);

@@ -34,6 +34,7 @@ constexpr uint8_t kFacade = 11;       // bottom, top, u repeat, v repeat, left, 
 constexpr uint8_t kRoof = 12;         // height, then a triangle fan
 } // namespace psdlattr
 
+/** One of a block's attributes: its type (psdlattr), and its words. */
 struct PsdlAttribute {
     uint8_t type = 0;
     uint8_t subtype = 0;
@@ -41,6 +42,7 @@ struct PsdlAttribute {
     std::vector<uint16_t> words;
 };
 
+/** A block of the city: its outline and the attributes it's built from. */
 struct PsdlBlock {
     // The block's outline: each vertex and the block beyond that edge (0: none).
     std::vector<std::pair<uint16_t, uint16_t>> perimeter;
@@ -72,6 +74,7 @@ struct PsdlRoad {
     std::vector<int32_t> blocks;      // its blocks, negative in 23 of San Francisco's roads
 };
 
+/** A city's .psdl file. */
 struct Psdl {
     std::vector<Vec3> vertices;
     std::vector<float> heights;
@@ -88,6 +91,11 @@ struct Psdl {
     std::string texture(uint32_t index) const;
 };
 
+/**
+ * Reads a .psdl file. Fails without "PSD0" version 2, on an unknown
+ * attribute, or on anything past the file's end. A file that ends after
+ * the city's bounds (no roads) isn't an error.
+ */
 Error readPsdl(const std::vector<uint8_t> &data, Psdl &out);
 
 /**
