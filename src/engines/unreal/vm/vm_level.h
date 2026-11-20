@@ -132,6 +132,7 @@ public:
         float time = 1; // 0-1 of the move made
         std::array<float, 3> normal{};
         VmObject *actor = nullptr; // what stopped it: an actor, or the LevelInfo for the world
+        int32_t node = -1;         // the level's BSP node it stopped at, -1 for anything else
         bool hit() const { return time < 1; }
     };
     /**
@@ -156,7 +157,7 @@ public:
     bool inSolid(const std::array<float, 3> &point);
     VmObject *trace(VmObject *self, const std::array<float, 3> &start, const std::array<float, 3> &end,
                     const std::array<float, 3> &extent, bool actors, std::array<float, 3> &hitLocation,
-                    std::array<float, 3> &hitNormal);
+                    std::array<float, 3> &hitNormal, int32_t *node = nullptr);
     /**
      * Whether a box at a point is clear of the world and the movers that
      * block (but `self`).
@@ -694,6 +695,8 @@ public:
      * first; null if it meets none (GetSurfaceTexture: what's underfoot).
      */
     VmObject *surfaceTexture(const std::array<float, 3> &start, const std::array<float, 3> &end);
+    /** A surface's texture now (scripts may have swapped it); null if it has none. */
+    VmObject *surfaceTextureOf(int surf);
     int nodeAt(const std::array<float, 3> &start, const std::array<float, 3> &end, std::array<float, 3> &where);
     bool nodeSideExtent(const std::array<float, 3> &start, const std::array<float, 3> &end,
                         const std::array<float, 3> &side, float &lo, float &hi);
@@ -774,28 +777,36 @@ public:
         std::array<float, 3> at{};
         std::array<float, 3> normal{};
         VmObject *actor = nullptr;
+        int32_t node = -1; // the level's BSP node hit, -1 for anything else
         bool hit() const { return actor != nullptr; }
     };
+    static Sweep sweepOf(const MoveHit &h) {
+        Sweep s;
+        s.time = h.time;
+        s.normal = h.normal;
+        s.actor = h.hit() ? h.actor : nullptr;
+        s.node = h.node;
+        return s;
+    }
     Sweep sweep(VmObject *a, const std::array<float, 3> &from, const std::array<float, 3> &to,
                 const std::array<float, 3> &extent);
     float climbFloat(VmObject *a, const char *name, float otherwise);
     std::array<float, 3> viewX(VmObject *a);
     float defaultRadius(VmObject *a);
-    float testStepUp(VmObject *a, float stepHeight, float height, const std::array<float, 3> &start,
-                     const std::array<float, 3> &forward, const std::array<float, 3> &extent);
+    float testStepUp(VmObject *a, Sweep &hit, float stepHeight, float height, const std::array<float, 3> &start,
+                     std::array<float, 3> delta, const std::array<float, 3> &extent);
+    int32_t touchingNode(int32_t node, const std::array<float, 3> &normal, const std::array<float, 3> &at, float radius,
+                         float height);
+    float nodeTop(int32_t node);
     bool strongFooting(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool handHold(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool hangLedge(VmObject *a, const std::array<float, 3> &normal, std::array<float, 3> &at);
-    bool testForLedge(VmObject *a, const std::array<float, 3> &hitNormal, const std::array<float, 3> &dir);
-    float swimStepUp(VmObject *a, const std::array<float, 3> &hitNormal, const std::array<float, 3> &delta);
+    bool testForLedge(VmObject *a, Sweep hit, const std::array<float, 3> &delta, float *out = nullptr);
+    float stepUpOnto(VmObject *a, float rise, const std::array<float, 3> &delta);
     bool checkClimbing(VmObject *a, const std::array<float, 3> &wallNormal, const std::array<float, 3> &dir, bool snap,
                        bool feet, bool chest, bool head);
     bool askClimb(VmObject *a, const std::array<float, 3> &wallNormal, int physics);
     void forceDuck(VmObject *a);
-    bool duckUnder(VmObject *a, const std::array<float, 3> &dir);
-    /** A player's walk blocked by a wall: a ledge or ladder there taken. */
-    bool climbBlocked(VmObject *a, VmObject *by, const std::array<float, 3> &hitNormal,
-                      const std::array<float, 3> &left);
     void climbCheck(VmObject *a, bool falling, float dt);
     void climbPhysics(VmObject *a, int physics, float dt);
     void endClamber(VmObject *a);

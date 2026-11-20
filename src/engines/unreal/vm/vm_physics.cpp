@@ -588,6 +588,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     float time = 1;
     Vec n{};
     VmObject *by = nullptr;
+    int32_t node = -1;
     // As ULevel::MoveActor: swept 2 units further than asked, and stopped
     // 2 units back along its way from what it hits.
     const float asked = length(delta);
@@ -618,6 +619,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
             time = h.time;
             n = {h.normal[0], h.normal[1], h.normal[2]};
             by = _levelInfo;
+            node = h.node;
         }
     }
     // Actors and movers that block it.
@@ -650,6 +652,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
                 time = t;
                 n = on;
                 by = o;
+                node = -1;
             }
         }
     }
@@ -672,6 +675,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     out.time = time;
     out.normal = n;
     out.actor = by;
+    out.node = node;
     // Then, as the engine: what it bumped told (Bump2 then Bump, the other
     // first), what it touches, and last its zone.
     if (by && by != _levelInfo) {
@@ -927,8 +931,11 @@ bool ScriptLevel::nodeSideExtent(const Vec &start, const Vec &end, const Vec &si
 
 // A surface's texture as it is now: swapped by the scripts, or its own.
 VmObject *ScriptLevel::surfaceTexture(const Vec &start, const Vec &end) {
-    const int surf = surfaceAt(start, end);
-    if (surf < 0)
+    return surfaceTextureOf(surfaceAt(start, end));
+}
+
+VmObject *ScriptLevel::surfaceTextureOf(int surf) {
+    if (surf < 0 || size_t(surf) >= _model.surfs.size())
         return nullptr;
     ObjectRef tex = _vm.packages().resolve(_map, _model.surfs[size_t(surf)].texture);
     if (auto it = _surfaceSwaps.surfaces.find(surf); it != _surfaceSwaps.surfaces.end())
@@ -972,10 +979,11 @@ bool ScriptLevel::worldBetween(const Vec &start, const Vec &end, float slack) {
 }
 
 VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, const Vec &extent, bool actors,
-                             Vec &hitLocation, Vec &hitNormal) {
+                             Vec &hitLocation, Vec &hitNormal, int32_t *node) {
     float time = 1;
     VmObject *by = nullptr;
     Vec n{};
+    int32_t bsp = -1;
     if (_collision) {
         const LevelCollision::Hit h = _collision->trace(
             Vec3f{start[0], start[1], start[2]}, Vec3f{end[0], end[1], end[2]}, Vec3f{extent[0], extent[1], extent[2]});
@@ -983,6 +991,7 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
             time = h.time;
             n = {h.normal[0], h.normal[1], h.normal[2]};
             by = _levelInfo;
+            bsp = h.node;
         }
     }
     // Movers count as the world; other actors only if asked.
@@ -1006,6 +1015,7 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
                 time = t;
                 n = on;
                 by = o;
+                bsp = -1;
             }
         };
         if (actors)
@@ -1017,6 +1027,8 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
     }
     hitLocation = add(start, mul(sub(end, start), time));
     hitNormal = n;
+    if (node)
+        *node = bsp;
     return by;
 }
 
@@ -1748,12 +1760,10 @@ void ScriptLevel::swimPlayer(VmObject *a, float dt) {
             // water there, it lands and walks (0x10371fa7); else a ladder.
             const Vec flat{delta[0], delta[1], 0};
             float step = 0;
-            if (testForLedge(a, h.normal, flat)) {
+            if (testForLedge(a, sweepOf(h), flat, &step)) {
                 if (askClimb(a, h.normal, kPhysClambering))
                     return;
                 step = floatOf(prop(a, "LedgeDepth")) / (2 * defaultRadius(a));
-            } else {
-                step = swimStepUp(a, h.normal, delta);
             }
             if (step > 0) {
                 moveActor(a, {0, 0, -(floatOf(prop(a, "MaxStepHeight"), 25) + 2)});
@@ -1915,17 +1925,19 @@ void ScriptLevel::setBase(VmObject *a, VmObject *base) {
 // velocity what it really moved.
 void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     Value *vel = prop(a, "Velocity");
-    Value *accelValue = prop(a, "Acceleration");
     const Vec start = vecOf(prop(a, "Location"));
     const ZoneFeel z = zoneFeel(a);
-    Vec accel = vecOf(accelValue);
+    // Pushing on: the auto-duck's timer, set back by a fall or a real move.
+    if (Value *t = prop(a, "PushToAutoDuckTimer"))
+        *t = Value::floatValue(t->asFloat() + dt);
+    Vec v = vecOf(vel);
     if (Value *b = prop(a, "Base"); b && b->asObject() && _vm.isA(b->o, "Pawn")) {
         Vec away = sub(start, vecOf(prop(b->o, "Location")));
         away[2] = 0;
-        accel = add(accel, mul(normalOf(away), 100));
+        v = add(v, mul(normalOf(away), 100));
     }
+    Vec accel = vecOf(prop(a, "Acceleration"));
     accel[2] = 0;
-    Vec v = vecOf(vel);
     calcVelocity(a, v, accel, dt, floatOf(prop(a, "GroundSpeed"), 320), z.groundFriction, false, true, false,
                  z.gravity);
     _vm.setVector(*vel, v[0], v[1], v[2]);
@@ -1937,58 +1949,54 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     const Vec floorN = floorValue ? vecOf(floorValue) : Vec{0, 0, 1};
     delta = sub(delta, mul(floorN, dot(delta, floorN)));
     const float stepHeight = floatOf(prop(a, "MaxStepHeight"), 25);
+    auto none = [](const Vec &d) {
+        return std::fabs(d[0]) < 1e-4f && std::fabs(d[1]) < 1e-4f && std::fabs(d[2]) < 1e-4f;
+    };
     bool stepped = false;
     float remaining = 1;
-    for (int it = 0; it < 3 && remaining > 0.01f && !a->deleted; ++it) {
-        if (std::fabs(delta[0]) < 1e-4f && std::fabs(delta[1]) < 1e-4f && std::fabs(delta[2]) < 1e-4f)
-            break;
-        const Vec dir = normalOf(delta);
-        const Vec was = vecOf(prop(a, "Location"));
+    for (int it = 0; it < 3 && remaining > 0.01f && !none(delta); ++it) {
         const MoveHit h = moveActor(a, delta);
-        if (a->deleted || !h.hit())
+        if (a->deleted)
+            return;
+        if (!h.hit())
             break;
         remaining -= h.time * remaining;
         delta = mul(delta, 1 - h.time);
-        // A ledge or a ladder there (Engine.dll's TestForLedge, then
-        // CheckClimbing, on the move left): the walk ends.
-        if (h.normal[2] < 0.65f && climbBlocked(a, h.actor, h.normal, delta))
+        // TestForLedge on whatever stopped it: a ledge to clamber onto (the
+        // walk ends if the scripts take it); else the share of the move a
+        // step up or a duck took, and on with the rest (0x1036c0e0).
+        float out = 0;
+        if (testForLedge(a, sweepOf(h), delta, &out) && askClimb(a, h.normal, kPhysClambering))
             return;
-        // A step up (the engine's ledge test does it for small steps): up, across, down.
-        if (h.normal[2] < 0.65f && remaining > 0.01f) {
-            Value *loc = prop(a, "Location");
-            const Value here = *loc;
-            const MoveHit up = moveActor(a, {0, 0, stepHeight});
-            const MoveHit across = moveActor(a, delta);
-            const MoveHit down = moveActor(a, {0, 0, -(stepHeight * up.time + 2)});
-            if (across.time > 0 && down.hit() && down.normal[2] >= 0.65f && !a->deleted) {
-                ++movement.steps;
-                stepped = true;
-                remaining -= across.time * remaining;
-                delta = mul(delta, 1 - across.time);
-                continue;
-            }
-            *loc = here;
-            updateRegion(a);
+        if (a->deleted)
+            return;
+        if (out > 0) {
+            ++movement.steps;
+            stepped = true;
+            remaining -= out * remaining;
+            delta = mul(delta, 1 - out);
+            continue;
         }
-        // Along the wall, the player told how head-on and how fast.
-        const float into = dot(dir, h.normal);
-        delta = sub(delta, mul(h.normal, into * length(delta)));
-        const Vec vNow = vecOf(vel);
-        const float flatSpeed = std::sqrt(vNow[0] * vNow[0] + vNow[1] * vNow[1]);
-        const float slid = std::sqrt(delta[0] * delta[0] + delta[1] * delta[1]) * remaining / dt;
-        if (h.normal[2] < 0.65f)
-            _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(h.actor)});
-        (void)was;
-        if (a->deleted || physicsOf(a) != kPhysWalking || into < -0.8f)
+        if (h.actor == _levelInfo && checkClimbing(a, h.normal, delta, true, false, true, true) &&
+            askClimb(a, h.normal, kPhysClimbing))
+            return;
+        if (a->deleted || none(delta))
+            break;
+        // Along it, the player told how head-on and how fast.
+        const float len = length(delta);
+        const float into = dot(h.normal, delta) / len;
+        delta = sub(delta, mul(h.normal, into * len));
+        const float flatSpeed = std::hypot(v[0], v[1]);
+        const float slid = std::hypot(delta[0], delta[1]) * remaining / dt;
+        _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(h.actor)});
+        if (a->deleted)
+            return;
+        if (into < -0.8f)
             break;
     }
     if (a->deleted || physicsOf(a) != kPhysWalking)
         return;
-    // Pushing on: the auto-duck's timer (Engine.dll's physWalking adds
-    // each frame's time; a fall or a real move sets it back to 0).
-    if (Value *t = prop(a, "PushToAutoDuckTimer"))
-        *t = Value::floatValue(t->asFloat() + dt);
-    // Down onto the floor, for real.
+    // Down onto the floor, for real; down a slope too steep to stand on.
     const Vec down{0, 0, -(stepHeight + 2)};
     MoveHit floor = moveActor(a, down);
     if (a->deleted)
@@ -2020,13 +2028,14 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
             *t = Value::floatValue(0);
         return;
     }
+    Vec now = vecOf(vel);
     if (!stepped) {
-        const Vec moved = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
-        _vm.setVector(*vel, moved[0], moved[1], moved[2]);
-        if (length(moved) > 10)
-            if (Value *t = prop(a, "PushToAutoDuckTimer"))
-                *t = Value::floatValue(0);
+        now = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
+        _vm.setVector(*vel, now[0], now[1], now[2]);
     }
+    if (length(now) > 10)
+        if (Value *t = prop(a, "PushToAutoDuckTimer"))
+            *t = Value::floatValue(0);
 }
 
 // Other pawns' walking (APawn / ACTVE_Pawn::physWalking): in steps of at
