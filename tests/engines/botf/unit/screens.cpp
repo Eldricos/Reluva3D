@@ -463,6 +463,13 @@ void testFromIni() {
     CHECK(s.galaxyShape == 1 && s.galaxySize == 0 && s.minorRaces == 0 && s.difficulty == 0);
     CHECK(s.civilization[0] == 0 && s.civilization[1] == 1 && s.civilization[4] == 4);
     // Without the file, or with values out of range, the manual's defaults.
+    // Written back as the game writes them: manual combat is DETAILED.
+    CHECK(optionsIniValues(o).at("TACTICAL") == "ABSTRACT" && optionsIniValues(o).at("TOOLTIPS") == "OFF");
+    GameOptions manual = o;
+    manual.manualCombat = true;
+    CHECK(optionsIniValues(manual).at("TACTICAL") == "DETAILED");
+    CHECK(optionsFromIni(parseStbofIni("TACTICAL=DETAILED\r\n")).manualCombat);
+    CHECK(setupIniValues(s).at("DIFFICULTY") == "1" && setupIniValues(s).at("SHAPE") == "1");
     const GameOptions none = optionsFromIni({});
     CHECK(none.manualCombat && none.toolTips && none.volume[2] == 100 && none.volume[1] == 127);
     const GameSetup odd = setupFromIni(parseStbofIni("SHAPE=9\nDIFFICULTY=0\n"));

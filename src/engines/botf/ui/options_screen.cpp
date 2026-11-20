@@ -102,8 +102,8 @@ GameOptions optionsFromIni(const std::map<std::string, std::string> &ini) {
     onOff("TOOLTIPS", o.toolTips);
     onOff("AUTOSAVE", o.autosave);
     onOff("RANDOMEVENTS", o.randomEvents);
-    // ABSTRACT is automatic combat; what manual is called there isn't known,
-    // so anything else is taken as it.
+    // ABSTRACT is automatic combat, DETAILED manual; anything else is taken
+    // as manual, the default.
     if (const std::string *v = value("TACTICAL"))
         o.manualCombat = *v != "ABSTRACT";
     return o;
@@ -122,8 +122,7 @@ std::map<std::string, std::string> optionsIniValues(const GameOptions &o) {
         {"TIMELIMIT", std::to_string(o.strategicTimer)},
         {"TACTIMELIMIT", std::to_string(o.tacticalTimer)},
     };
-    if (!o.manualCombat)
-        v["TACTICAL"] = "ABSTRACT";
+    v["TACTICAL"] = o.manualCombat ? "DETAILED" : "ABSTRACT";
     return v;
 }
 

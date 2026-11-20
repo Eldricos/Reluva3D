@@ -44,8 +44,8 @@ GameOptions optionsFromIni(const std::map<std::string, std::string> &ini);
 
 /**
  * The options as the game writes them into Stbof.ini: the volumes, tool
- * tips, autosave, random events, the timers, and tactical combat when it's
- * automatic (manual's word isn't known, so it's left as it is).
+ * tips, autosave, random events, the timers, and tactical combat
+ * (ABSTRACT automatic, DETAILED manual).
  */
 std::map<std::string, std::string> optionsIniValues(const GameOptions &options);
 

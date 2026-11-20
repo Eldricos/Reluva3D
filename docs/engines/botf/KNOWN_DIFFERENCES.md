@@ -43,8 +43,7 @@ None yet.
   ([systems/sound.md](systems/sound.md)).
 - **`Stbof.ini` is edited, not rewritten:** Reluva sets the options' and
   the last setup's keys in it as the game does, but leaves the rest of the
-  file as it is, where the game writes all of it out in its own order; and
-  manual combat isn't written, its word not being known
+  file as it is, where the game writes all of it out in its own order
   ([systems/game-files.md](systems/game-files.md)). The volumes set the
   music, speech and effects; there are no movies or tool tips yet to set.
 
