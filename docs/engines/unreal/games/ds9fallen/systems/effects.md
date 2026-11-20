@@ -181,19 +181,41 @@ known.
   next burst is due in about `AverageBurstTime`, else at random up to
   `MaxWaitTime`. Its light (`saveLightType`) flashes for a tenth of a
   second.
-- **Rain and snow** (`CTVE_Weather.WeatherTick`, `InitialSetUp`): drops
-  fall up to `SpawnRange` around `SeedLocation`, which its scripts keep
-  ahead of the player. There are 4000 x `Intensity` of them (the scripts
-  hold it at 0.1); it comes up or down at `DeltaIntensityRate` as it's
-  turned on and off. New drops start `DropHeight` above (at every height
-  for `InitialSetUp`) and fall at `FallRate` (give or take
-  `FallRateVariance`), blown by `DropVelocity`'s wind. The wind drifts at
-  random toward up to `MaxLateralMove`. Each drop lasts until it meets
-  the world below, traced as it starts, so roofs shelter what's under
-  them. None start inside the weather blockers its scripts gathered
-  (`Block`: a cylinder or a box), or only inside them with
-  `bInvertWeatherBlockers`. Drops left far behind as the player moves
-  go.
+- **Rain and snow** (`CTVE_Weather.WeatherTick`, 0x10349230;
+  `InitialSetUp`, 0x103496e0). Its scripts keep `SeedLocation` upwind of
+  the player and the weather itself at the player's feet.
+  - **How hard:** `Intensity` comes up toward `MaxIntensity` at
+    `DeltaIntensityRate` a second while `bActive` (the scripts hold it
+    at 0.1), and down when not; at 0 it stops (`bShutDown`).
+  - **The wind:** each tick, with a chance of `WindActivity`, a new one
+    to turn to (`DestWind`: any way, `MaxLateralMove` across, falling at
+    `FallRate`); `DropVelocity` goes straight toward it at
+    `WindActivity` x 2500 a second.
+  - **The blockers** (`Block`: a box or an upright cylinder) near the
+    seed are found every 0.4 s (`CheckBlocks`, 0x10349e50: within half
+    the larger spawn range, 1300 then, and `CheckBlockRange` of its
+    footprint), and `bPlayerSheltered` set if one is over the player.
+  - **New drops:** dt x `Intensity` x 2000 a tick, whole ones (about 200
+    a second), none at 0.01 or under (`Generate`, 0x10349910). Each
+    starts over a square `SpawnRange` across about the seed,
+    `DropHeight` up and up to `DropHeightRange` more, at `DropVelocity`
+    (slower by up to `FallRateVariance`), `Size` and up to
+    `SizeVariance` more, rolled at random, and at `StartScaleGlow`,
+    which nothing sets, so it fades in (its physics brings it up to
+    `MaxScaleGlow` at 1 a second). It lasts until it's down to the
+    weather's height (the player's feet): the world doesn't stop it.
+    With blockers near, one born inside or under one is gone at once and
+    one falling onto one stops there; with none, it sways sideways,
+    `FallRate` x `Chaos` any way. With `bInvertWeatherBlockers` drops
+    fall only inside the blockers near, straight down, and none with
+    none near.
+  - **The fill** (`InitialSetUp`, when the level starts and when the
+    player jumps far) makes `Intensity` x 2000 at once from the
+    weather's own place in still air, each moved on along its fall by a
+    random share of its life. The drops already there stay.
+  - Before, Reluva kept 4000 x `Intensity` alive, started them at full
+    brightness, ended them where a trace met the world, and dropped
+    those left far behind.
 - **Decals** (`Decal.AttachDecal`, `DetachDecal`): stuck to the world
   surface within the trace distance behind them. They lie flat on it,
   their top along the direction given or their rotation's Z, and are
