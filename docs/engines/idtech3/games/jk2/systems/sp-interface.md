@@ -171,10 +171,11 @@ beside the game's folder and runs it.
 The client game's calls are answered as the table above says, Elite
 Force's handling shared where the call and what it passes are the same
 (`SpGameHost::cgameCall` with Elite Force's number), the snapshot and
-scene entity sizes per game (`SpGameHost::CgameLayout`). Not yet
-answered: the cinematics (90–94), which 1.02a's client game never
-calls and which would stop the game with their number. The weather's `R_WorldEffectCommand` (89) goes to the page's
-weather ([sp-weather.md](sp-weather.md)). The Ghoul2 trace type and level of detail `trace` is given
+scene entity sizes per game (`SpGameHost::CgameLayout`). The
+cinematics' calls (90–94) aren't answered: 1.02a's client game never
+makes them, so one would stop the game with its number
+([sp-cinematics.md](sp-cinematics.md)). The weather's `R_WorldEffectCommand` (89) goes to the page's weather
+([sp-weather.md](sp-weather.md)). The Ghoul2 trace type and level of detail `trace` is given
 decide whether a trace meets a Ghoul2 body's triangles or only its box
 ([sp-ghoul2.md](sp-ghoul2.md), Collision): with the box alone, a
 rocket stopped at an AT-ST's box and stayed there, neither bursting nor

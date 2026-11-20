@@ -205,8 +205,9 @@ The game's Ghoul2 calls are answered by `jk2::Ghoul2Instances`
 (Animation, above). Multiplayer 1.02a never collides with the posed
 mesh: its engine's traces don't, and neither module asks (see
 [UNCONFIRMED.md](../games/jk2/UNCONFIRMED.md), Settled); hits are its
-entities' boxes. Not yet: single player's calls (Jedi Outcast's plan,
-phase 7).
+entities' boxes. Single player's game does collide with them, its
+traces meeting the posed triangles; its calls are answered as
+[sp-ghoul2.md](../games/jk2/systems/sp-ghoul2.md) says.
 
 ## Sources and checks
 

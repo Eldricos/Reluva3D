@@ -98,7 +98,7 @@ behind the DLL's own tables.
    multiplayer menus show players as icons, so there's no model in Player
    settings to draw; Ghoul2 in a menu waits for single player's. The
    server lists find servers (the local network, the masters,
-   favourites); joining one and Begin wait for phase 6.
+   favourites); joining one and Begin came with phase 6.
 6. **Multiplayer game** (done): `jk2mpgame.qvm` and `cgame.qvm` hosts, their
    system calls, and the engine's Ghoul2 calls they make (animation, bolts,
    collision against Ghoul2 models for hits and the saber); the Play page
