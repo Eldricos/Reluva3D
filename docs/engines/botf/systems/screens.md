@@ -256,10 +256,10 @@ pixel for pixel but the pointer.
   address its button's second picture, an address row nothing) and its
   text in orange (255, 150, 16) with Save Game's cursor; the others' text
   is blue (24, 101, 189). The password shows an X for each character.
-  Reluva types nowhere until a field is clicked *(guessed)*; names only as
-  long as their field's width.
-- **Serial:** in one screenshot nothing is chosen, in another 14.4 and
-  COM 1; Reluva starts with nothing *(guessed)*.
+  Nothing is typed until a field is clicked (the user, in the game);
+  names only as long as their field's width.
+- **Serial** starts with no baud rate or port chosen (the user, in the
+  game); a click lights one of each.
 - **Connect** does nothing: Reluva can't play over a network, modem or
   serial cable ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
   Cancel goes back to the main menu.
@@ -428,8 +428,6 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Multiplayer Setup: whether the serial panel starts with a baud rate and
-  a port chosen, and a field typed in before one's clicked.
 - Save Game: an empty slot's description when chosen, and how fast the
   cursor flashes. Settled by choosing an empty slot, and a recording.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that

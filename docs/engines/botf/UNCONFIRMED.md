@@ -33,11 +33,6 @@ None: nothing of the game's code has been read.
 
 ## Guessed
 
-- **On Multiplayer Setup:** no field typed in until clicked, and nothing
-  chosen on the serial panel at first
-  ([systems/screens.md](systems/screens.md)). Settled by: the running
-  game.
-
 - **On Save Game:** an empty slot's description when chosen (the galaxy's
   shape),
   typing whichever field was clicked, and the cursor's flashing every half
@@ -64,7 +59,9 @@ None: nothing of the game's code has been read.
 
 - **November 2026:** Multiplayer Setup's panels, when they appear and cut
   to their places, and its fields' look while typed in and not, the
-  password as X's, from screenshots ([systems/screens.md](systems/screens.md)).
+  password as X's, from screenshots; no field typed in until clicked, and
+  nothing chosen on the serial panel at first, from the user's play
+  ([systems/screens.md](systems/screens.md)).
 
 - **November 2026:** Load Game's chosen slot, pink as on Save Game, from a
   screenshot ([systems/screens.md](systems/screens.md)).
