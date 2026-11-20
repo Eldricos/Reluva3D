@@ -428,17 +428,24 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     case kPhysSteamJet:
         if (!generator)
             return;
+        // (physSteamJet, 0x1035e980: before it's blown off a copy with no
+        // life is left be, and one is never gone, only blown off and then
+        // moved and grown once more that tick.)
         for (VmObject *mm : copies) {
             moveThenAccel(mm);
             set(mm, "DrawScale", f(mm, "DrawScale") + f(owner, "DeltaSize") * dt);
             if (!b(mm, "bUse")) {
-                if (!lifeIfAny(mm))
+                const float l = f(mm, "LifeSpan");
+                if (l <= 0)
                     continue;
-                if (f(mm, "LifeSpan") > 1)
+                set(mm, "LifeSpan", l - dt);
+                if (l - dt > 1)
                     continue;
                 setv(mm, "Acceleration", mul(add(vrand(), vec(owner, "MMEventLocation")), 30));
                 set(mm, "LifeSpan", 0.5f);
                 setBool(mm, "bUse", true);
+                moveThenAccel(mm);
+                set(mm, "DrawScale", f(mm, "DrawScale") + f(owner, "DeltaSize") * dt);
             }
             set(mm, "ScaleGlow", 2 * f(owner, "MaxScaleGlow", 1) * f(mm, "LifeSpan"));
             lifeIfAny(mm);
@@ -485,6 +492,9 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
             }
             const float l = f(mm, "LifeSpan");
             set(mm, "ScaleGlow", l < 0.5f ? 2 * l * glow : frand());
+            // (Gone before its ember: a dying spark leaves none.)
+            if (!lifeAlways(mm))
+                continue;
             set(mm, "Angle", f(mm, "Angle") - dt);
             if (!b(mm, "bUse") && f(mm, "Angle") < 0) {
                 trail(mm, frand() * f(mm, "Phase") * 0.25f, frand() * 0.6f, glow);
@@ -492,7 +502,6 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
                      add(vec(mm, "Velocity"), {frand() * 30 - 15, frand() * 30 - 15, frand() * 30 - 15}));
                 set(mm, "Angle", 0.01f + 0.02f * frand());
             }
-            lifeAlways(mm);
         }
         return;
     }
@@ -501,7 +510,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     // surface (the generator's SeedLocation.Z) one becomes a pop (the
     // generator's SpecialTexture) for a moment and the generator's
     // bMMEvent is raised there (its scripts make a ripple); with no pop
-    // texture it's just gone.
+    // texture it's just gone. A copy showing the pop texture (none too, if
+    // the generator has none) is a pop.
     case kPhysBubble: {
         if (!generator)
             return;
@@ -510,7 +520,7 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
         VmObject *pop = popValue ? popValue->asObject() : nullptr;
         for (VmObject *mm : copies) {
             const Value *t = prop(mm, "Texture");
-            if (pop && t && t->asObject() == pop) {
+            if (t && t->asObject() == pop) {
                 set(mm, "DrawScale", f(mm, "DrawScale") + 0.3f * dt);
                 Vec l = vec(mm, "Location");
                 l[2] += 10 * dt;
@@ -706,7 +716,7 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
                          {lo[0] + (hi[0] - lo[0]) * frand(), lo[1] + (hi[1] - lo[1]) * frand(),
                           lo[2] + (hi[2] - lo[2]) * frand()});
                 }
-                const float top = std::max(lo[2], hi[2]);
+                const float top = hi[2];
                 if (feeding && at[2] < top - 5)
                     setv(mm, "Vect1",
                          {lo[0] + (hi[0] - lo[0]) * (0.2f + 0.6f * frand()),
@@ -715,10 +725,11 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
             if (!feeding && b(mm, "bUse"))
                 setv(mm, "Vect1", add(before, {frand() * 4 - 2, frand() * 4 - 2, frand() * 4 - 2}));
             const Vec to = sub(vec(mm, "Vect1"), at);
-            if (length(to) < 1)
+            const bool there = length(to) < 1;
+            if (there)
                 phase = 0;
             set(mm, "Phase", phase);
-            const Vec a = mul(normal(to), speed);
+            const Vec a = there ? to : mul(normal(to), speed);
             setv(mm, "Acceleration", a);
             Vec v = add(vec(mm, "Velocity"), mul(a, dt));
             if (length(v) > 10)
@@ -728,8 +739,7 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
                 at[k] = std::clamp(at[k], std::min(lo[k], hi[k]), std::max(lo[k], hi[k]));
             setv(mm, "Velocity", v);
             setv(mm, "Location", at);
-            if (length(v) > 0)
-                setRot(mm, facing(v));
+            setRot(mm, facing(v));
             before = at;
             first = false;
         }
@@ -750,9 +760,9 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
         const bool normalFire = settings[2] == 1;
         const float cap = f(owner, "TweenRate");
         VmObject *smoke = texAt(actor, "Tex", 0);
+        // (Its life counted down first, the puff gone once updated: 0x10359fa0.)
         for (VmObject *mm : copies) {
-            if (!lifeAlways(mm))
-                continue;
+            set(mm, "LifeSpan", f(mm, "LifeSpan") - dt);
             float phase = f(mm, "Phase") - dt;
             int stage = int(f(mm, "Angle"));
             if (phase < 0) {
@@ -819,6 +829,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
             if (cap != 0 && glow > cap)
                 glow = cap;
             set(mm, "ScaleGlow", glow);
+            if (f(mm, "LifeSpan") <= 0)
+                gone(mm);
         }
         return;
     }
@@ -876,18 +888,18 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
                 for (float &k : a)
                     k += (2 * frand() - 1) * f(mm, "Phase");
                 setv(mm, "Acceleration", a);
-                setv(mm, "Vect2", vrand());
+                setv(mm, "Vect2", {2 * frand() - 1, 2 * frand() - 1, 2 * frand() - 1});
             }
             accelThenMove(mm);
             setv(mm, "ColorFilter", add(c1, mul(sub(c2, c1), frand())));
             const float l = f(mm, "LifeSpan");
+            // Under a second left, a particle's brightness is its random
+            // share of what's left, a cinder's no more than that.
             float glow = frand();
-            if (!cinder)
-                glow *= l;
             if (l < 1)
-                glow = std::min(glow, l);
+                glow = cinder ? std::min(glow, l) : glow * l;
             set(mm, "ScaleGlow", glow);
-            if (twist != 0 && !b(mm, "bUse"))
+            if (twist > 0 && !b(mm, "bUse"))
                 curl(mm, vec(mm, "Vect2"), dt * twist * 300);
             if (!lifeAlways(mm))
                 continue;
@@ -922,7 +934,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
             accelThenMove(mm);
             setv(mm, "ColorFilter", {0.6f * frand(), 1, 0.6f * frand()});
             const Vec at = vec(mm, "Location");
-            const float along = dot(sub(at, from), x);
+            // How far it is from the thrower, straight (0x10359850).
+            const float along = length(sub(at, from));
             if (along < reach - 50) {
                 setv(mm, "Acceleration", mul(sub(add(from, mul(x, along)), at), 100));
             } else if (f(mm, "Use1") == 0) {
@@ -954,7 +967,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
                     setv(mm, "Acceleration", {0, 0, 0});
                     setBool(mm, "bUse", true);
                 }
-                continue;
+                if (!b(mm, "bUse"))
+                    continue;
             }
             const float size = f(mm, "DrawScale") - 0.2f * dt;
             set(mm, "DrawScale", size);
@@ -1001,6 +1015,8 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     // actor's Acceleration.Z, at most 1) plus a half.
     case kPhysEmPulseRifle:
     case kPhysEmPulseRifleQuad: {
+        if (!owner)
+            return;
         const float power = std::min(1.0f, vec(actor, "Acceleration")[2]);
         for (VmObject *mm : copies) {
             const float l = f(mm, "LifeSpan");
@@ -1034,6 +1050,29 @@ void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
             lifeAlways(mm);
         }
         return;
+    // Rain and snow (physWeather, 0x10360c10): pushed by their velocity
+    // and acceleration and the wind (a third of the weather's
+    // DropVelocity across, none with bCheckBlocks), brightening 1 a second
+    // up to the weather's MaxScaleGlow, fading in their last half second.
+    case kPhysWeather: {
+        const bool weather = _vm.isA(actor, "CTVE_Weather");
+        const float most = weather ? f(actor, "MaxScaleGlow", 1) : 1;
+        Vec wind{};
+        if (weather && !b(actor, "bCheckBlocks")) {
+            wind = mul(vec(actor, "DropVelocity"), 0.33f);
+            wind[2] = 0;
+        }
+        for (VmObject *mm : copies) {
+            accelThenMove(mm, wind);
+            const float l = f(mm, "LifeSpan");
+            if (l > 0 && l < 0.5f)
+                set(mm, "ScaleGlow", 2 * most * l);
+            else if (f(mm, "ScaleGlow") < most)
+                set(mm, "ScaleGlow", f(mm, "ScaleGlow") + dt);
+            lifeIfAny(mm);
+        }
+        return;
+    }
     case kPhysPlasmaJet:
         for (VmObject *mm : copies) {
             accelThenMove(mm);

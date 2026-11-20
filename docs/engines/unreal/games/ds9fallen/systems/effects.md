@@ -40,7 +40,10 @@ known.
   whole life. Some count a copy's life down only while it has one;
   the explosions', the fire's and the plasma jet's count it down
   always, so a copy given none is gone on its first tick.
-  - Left alone: beams (`BeamSustain`).
+  - Left alone: beams (`BeamSustain`), whose sections their scripts lay
+    out with `UpdateBeamSections`, which works only while the beam is in
+    that mode (0x10379196): once firing stops and the scripts set it to
+    none, the sections stay as they were.
   - Spark (an arc's segments): laid on the arc's curve again when it's
     updated (the base copy holds it, below), then every tick each jolted
     a random way by its `Use1` (the two ends `Use2`), as bright as the
@@ -112,7 +115,8 @@ known.
   - PlasmaThrower: drawn onto the thrower's axis until 50 short of what
     it hits (`MMEventLocation`), then bounced off it (`WindDir`, the
     normal) and spread over it; green, growing.
-  - Lava: falling until under the generator, then still, shrinking away.
+  - Lava: falling until under the generator, then still, shrinking
+    away 0.2 a second from the tick it lands.
   - DisintigrationPhaser: sinking at 30 a second, fading 0.5 a second.
   - ExhaustJet: orange to red to pale, pulled back by the jet's own
     `Velocity.Z`, growing and fading a unit a second.
@@ -121,8 +125,12 @@ known.
     `Acceleration.Z`, at most 1) plus a half.
   - WaterRing: drifting, spreading by its `Angle` and fading by its
     `Phase` a second; gone when dark.
-  - SwarmObject, Lava, Weather and the rest: by their velocity and
-    acceleration (the swarm's scripts steer each by its acceleration).
+  - Weather (rain, snow): by their velocity and acceleration and the
+    wind (a third of the weather's `DropVelocity` across; none with
+    `bCheckBlocks`), brightening a unit a second up to its
+    `MaxScaleGlow`, fading in their last half second.
+  - SwarmObject and the rest: by their velocity and acceleration (the
+    swarm's scripts steer each by its acceleration).
 - **Arcs** (`CTVE_ChainSpark`), as Engine.dll's natives (read November
   2026):
   - `SpawnChain` makes `NumSegments` copies, each with `SpikeMag`
@@ -204,8 +212,10 @@ known.
 
 ## Sources and checks
 
-- **Where the facts come from:** Reluva's reading of what the scripts
-  set and expect; the original code isn't known.
+- **Where the facts come from:** each effect mode's function in
+  Engine.dll (`AActor::performPhysics`, 0x10358a90, picks it by the
+  mode; all of them read November 2026), and the scripts for what sets
+  them up.
 - **How it was checked:** in play, and some against the recordings
   ([research/playthrough.md](../research/playthrough.md)).
 

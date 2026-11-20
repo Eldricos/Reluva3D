@@ -46,16 +46,14 @@ full playthrough's recording has been
 
 ## Inferred
 
-- **The effects' own physics modes** (all but Particle, Newtonian, Fish,
-  the single-axis turns and EXP_Trail): Reluva's reading of what the
-  scripts set and leave undone ([movement.md](systems/movement.md),
-  [effects.md](systems/effects.md)).
 - **The animated textures' settings:** Reluva's own reading of their
   names and of the values in The Fallen's textures, checked where noted
   against Fire.dll and Engine.dll ([texture.md](formats/texture.md)).
 
 ## Settled
 
+- **The effects' physics modes** (November 2026): each read from its
+  function in Engine.dll ([effects.md](systems/effects.md)).
 - **Meshes drawn from packed vertices** (November 2026): Engine.dll's one
   fixed swap of axes is Reluva's turn ([mesh.md](formats/mesh.md)).
 - **Which pawns move in which modes** (November 2026): each pawn class's

@@ -236,6 +236,13 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
 // ripples: WaveLength waves a unit along it, travelling WaveTravelVelocity
 // a second.
 void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
+    // Only a sustained beam's (Physics BeamSustain, 39) with its copies, as
+    // Engine.dll's native (0x10379196): once its firing stops and its
+    // scripts set it to none, its sections stay as they were.
+    const Value *physics = prop(beam, "Physics");
+    const Value *copies = prop(beam, "MultiMesh");
+    if (!physics || physics->asInt() != 39 || !copies || !copies->asObject())
+        return;
     const VmProperty *list = beam->cls->findProperty(_vm.name("BeamSectionList"));
     if (!list)
         return;

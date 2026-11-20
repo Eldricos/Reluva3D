@@ -103,10 +103,9 @@ free flight, fish, interpolation and one for each kind of effect.
 three (Climbing, Hanging, Clambering) are as Engine.dll's
 `ACTVE_PlayerPawn::physClimbing`, `physHanging` and `physClambering`.
 The rest are each a function of Engine.dll's (`AActor::performPhysics`,
-0x10358a90, switches on the mode), read for Interpolating, Trailer,
-Particle, Newtonian, Fish, the single-axis turns and EXP_Trail (a curl
-only for an `Angle` over 0); the other effects' modes are Reluva's
-reading of what the scripts set and leave undone.
+0x10358a90, switches on the mode), all read: Interpolating, Trailer,
+Particle, Newtonian, Fish, the single-axis turns, and each effect's
+([effects.md](effects.md)).
 
 A pawn moves only in the modes its own class's switch has: The Fallen's
 player (0x10368c80) walking, falling, swimming, flying, on a path
