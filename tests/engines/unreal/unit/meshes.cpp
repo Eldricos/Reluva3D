@@ -262,7 +262,7 @@ void testImportedMeshBlock() {
         CHECK(m.importBlock > 0 && m.frameVerts == 3 && m.animFrames == 2 && m.verts.size() == 6);
         CHECK((m.verts[0] == Vec3f{-3, 0, 0}) && (m.verts[5] == Vec3f{0, 10, 5}) && m.tris.size() == 1);
         CHECK((m.scale == Vec3f{2, 2, 2}) && m.trailingBytes == 0 && m.findAnim("Wave"));
-        CHECK(m.keyFrames == 0 && m.importAxes && m.importAxesGuessed); // no float copy to fit
+        CHECK(m.keyFrames == 0 && m.importAxes);
     }
     {
         // Only the first frame's vertices: used for both frames.
@@ -286,7 +286,7 @@ void testImportedMeshBlock() {
         CHECK(!err && m.bones == 2 && m.verts.size() == 6);
         if (!err && m.verts.size() == 6)
             CHECK((m.verts[0] == Vec3f{-3, 0, 0}) && (m.verts[2] == Vec3f{0, 10, 0}) && m.verts[5] == m.verts[2] &&
-                  m.importAxes && !m.importAxesGuessed);
+                  m.importAxes);
         const auto lines = describeBones(p, 0);
         CHECK(!lines.empty() && lines.back().find("all in one tree") != std::string::npos);
     }

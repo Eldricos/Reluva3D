@@ -905,9 +905,7 @@ int cmdUeProbe(int argc, char **argv) {
             std::printf("  %d vertices x %d frames, %zu triangles, %zu animations (%d left out); import block %zu "
                         "bytes, %s\n",
                         m.frameVerts, m.animFrames, m.tris.size(), m.anims.size(), m.droppedAnims, m.importBlock,
-                        !m.importAxes         ? "no turn"
-                        : m.importAxesGuessed ? "no float copy (usual turn taken)"
-                                              : "turned as its float copy");
+                        m.importAxes ? "turned from C3D's axes" : "no turn");
         if (!err && m.keyFrames)
             std::printf("  %d of its %d frames of vertices found (the first is shown for all)\n", m.keyFrames,
                         m.animFrames);
@@ -1525,10 +1523,9 @@ int cmdUeCheck(int argc, char **argv) {
         std::vector<std::string> examples;
     };
     std::map<std::string, Tally> tallies;
-    std::map<std::string, std::pair<int, std::string>> meshTurns; // turn: how many, an example
-    std::map<std::string, bool> meshReads;                        // placed actors' meshes: whether they read
-    std::map<std::string, int> meshBones;                         // and how many bones they're posed from
-    std::map<std::string, int> animPlayed;                        // "mesh anim": 0 not found, 1 its own, 2 borrowed
+    std::map<std::string, bool> meshReads; // placed actors' meshes: whether they read
+    std::map<std::string, int> meshBones;  // and how many bones they're posed from
+    std::map<std::string, int> animPlayed; // "mesh anim": 0 not found, 1 its own, 2 borrowed
     std::optional<std::vector<AnimationSet>> animationSets;
     std::map<std::string, int> unreadPlaced; // those that don't: how many actors use them
     auto record = [&](const std::string &what, const reluva::Error &err) {
@@ -1657,23 +1654,7 @@ int cmdUeCheck(int argc, char **argv) {
                     record(cls == "lodmesh" ? "meshes (LodMesh)" : "meshes (Mesh)", err);
                 if (!err && m.vertexBytes != 4)
                     ++tallies["meshes with 8-byte vertices"].ok;
-                // Which way imported-model meshes' float copies are turned
-                // from their packed vertices (rows), and an example of each.
                 if (!err && m.importBlock) {
-                    std::string turn =
-                        !m.importAxes ? "none (standard vertices, no turn)" : "none to fit (usual turn taken)";
-                    if (m.importAxes && !m.importAxesGuessed) {
-                        turn.clear();
-                        for (const auto &row : *m.importAxes) {
-                            char buf[64];
-                            std::snprintf(buf, sizeof buf, "%s(%g %g %g)", turn.empty() ? "" : " ", double(row[0]),
-                                          double(row[1]), double(row[2]));
-                            turn += buf;
-                        }
-                    }
-                    auto &[n, example] = meshTurns[turn];
-                    if (n++ == 0)
-                        example = pkg->path(int32_t(i) + 1);
                     if (m.keyFrames)
                         ++tallies["meshes keyframed (first frame shown)"].ok;
                     if (m.bones)
@@ -1833,9 +1814,6 @@ int cmdUeCheck(int argc, char **argv) {
             std::printf("%s %s (%d)", k ? "," : "", byUse[k].second.c_str(), byUse[k].first);
         std::printf("%s\n", byUse.size() > 15 ? (", and " + std::to_string(byUse.size() - 15) + " more").c_str() : "");
     }
-    for (const auto &[turn, t] : meshTurns)
-        std::printf("meshes with an imported-model block, float copy %s: %d (e.g. %s)\n", turn.c_str(), t.first,
-                    t.second.c_str());
     printPointsCheck(checkAttachPoints(set, false));
     for (const auto &[what, t] : tallies) {
         std::printf("%-9s %6d decoded, %6d failed\n", what.c_str(), t.ok, t.failed);

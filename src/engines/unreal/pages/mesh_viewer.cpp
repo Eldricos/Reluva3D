@@ -153,10 +153,9 @@ void MeshViewer::show() {
     _info.push_back(line);
     if (_mesh.importAxes) {
         const auto &a = *_mesh.importAxes;
-        std::snprintf(line, sizeof line, "%s (rows %g %g %g / %g %g %g / %g %g %g); drawn %s (M), yaw %d (Y)",
-                      _mesh.importAxesGuessed ? "no float copy, usual turn" : "float copy turned", double(a[0][0]),
-                      double(a[0][1]), double(a[0][2]), double(a[1][0]), double(a[1][1]), double(a[1][2]),
-                      double(a[2][0]), double(a[2][1]), double(a[2][2]), meshTurnName(_ctx.meshTurn),
+        std::snprintf(line, sizeof line, "C3D's axes (rows %g %g %g / %g %g %g / %g %g %g); drawn %s (M), yaw %d (Y)",
+                      double(a[0][0]), double(a[0][1]), double(a[0][2]), double(a[1][0]), double(a[1][1]),
+                      double(a[1][2]), double(a[2][0]), double(a[2][1]), double(a[2][2]), meshTurnName(_ctx.meshTurn),
                       _ctx.meshYawQuarters * 90);
         _info.push_back(line);
     }
