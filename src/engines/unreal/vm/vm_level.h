@@ -1050,6 +1050,7 @@ private:
     bool attachFrame(VmObject *actor, ActorMesh &mesh, const MeshAttachPoint &point, Vec &at, std::array<Vec, 3> &axes,
                      std::array<Vec, 3> *raw = nullptr);
     void toWorld(VmObject *actor, Vec &at, std::array<Vec, 3> *axes);
+    Vec c3dScale(VmObject *actor);
     void placeAttached();
     std::map<const VmObject *, std::shared_ptr<ActorMesh>> _actorMeshes; // by mesh object
     std::shared_ptr<const std::vector<AnimationSet>> _animationSets;

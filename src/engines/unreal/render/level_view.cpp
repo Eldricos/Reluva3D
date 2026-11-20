@@ -3396,6 +3396,10 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
             const MeshPose old = poseAtFraction(mesh, from, look.tweenFromFrame, look.tweenFromLoop);
             pose = {old.lerp < 0.5f ? old.frame : old.next, pose.frame, tweenProgress(look, *anim)};
         }
+        if (look.particles) {
+            drawParticles(a, look, mesh, pose, sprites);
+            return;
+        }
         std::vector<gfx::TextureId> skins;
         for (size_t k = 0; k < std::max<size_t>(mesh.textures.size(), 8); ++k) {
             ObjectRef tex = k < look.multiSkins.size() ? look.multiSkins[k] : ObjectRef{};
@@ -3403,13 +3407,16 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
                 tex = look.skin;
             if (!tex && k < mesh.textures.size())
                 tex = _ctx.packages.resolve(*look.mesh.package, mesh.textures[k]);
-            if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
+            if (!tex) // no skin of its own: the actor's Texture
                 tex = look.texture;
             skins.push_back(_textured ? textureOf(tex).first : 0);
         }
         _play->drawn(a);
+        // DrawScale and AxisScale both, as Engine.dll's frame builders
+        // (0x1032b630, 0x103c8d37).
         const gfx::Mat4 placement =
-            meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot, look.preRotate);
+            gfx::multiply(meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot, look.preRotate),
+                          meshAxisScaling(mesh, look.axisScale));
         const MeshLight light = meshLightAt(look.location, &look, a);
         _lastMesh = {};
         if ((look.layers.empty() && look.adjust.empty() && look.faces.empty()) || !mesh.bones ||
@@ -3440,6 +3447,56 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
     }
 }
 
+// A bParticles mesh, as Render.dll's DrawMesh (0x10b0ef40): no
+// triangles, its Texture facing the camera at each vertex as posed,
+// DrawScale times the texture's size across; the mesh itself placed as if
+// DrawScale were 1 (0x1032b619). With bRandomFrame each vertex has one of
+// MultiSkins, by its index (0 to 7: index / 3, rounded), and none if that
+// one's empty. Tinted by ScaleGlow as a sprite.
+void LevelView::drawParticles(VmObject *a, const LevelPlay::Look &look, const Mesh &mesh, const MeshPose &pose,
+                              std::vector<SpriteDraw> &sprites) {
+    if (!look.texture)
+        return;
+    const auto n = size_t(mesh.frameVerts);
+    // Frames without their own vertices (keyFrames) use the first.
+    const size_t frames = n ? mesh.verts.size() / n : 0;
+    if (frames == 0)
+        return;
+    const size_t f0 = size_t(pose.frame) < frames ? size_t(pose.frame) : 0;
+    const size_t f1 = size_t(pose.next) < frames ? size_t(pose.next) : 0;
+    _play->drawn(a);
+    const gfx::Mat4 placement =
+        gfx::multiply(meshPlacement(look.location, look.rotation, 1, look.prePivot, look.preRotate),
+                      meshAxisScaling(mesh, look.axisScale));
+    const std::array<float, 3> tint = spriteTint(look.colorFilter, look.scaleGlow);
+    const auto [own, ownSize] = textureOf(look.texture);
+    for (size_t v = 0; v < n; ++v) {
+        gfx::TextureId texture = own;
+        std::array<int, 2> size = ownSize;
+        if (look.randomFrame) {
+            const ObjectRef skin = look.multiSkins[size_t(std::lround(float(v) / 3)) & 7];
+            if (!skin)
+                continue;
+            std::tie(texture, size) = textureOf(skin);
+        }
+        if (!texture)
+            continue;
+        Vec3f at{};
+        for (size_t c = 0; c < 3; ++c) {
+            const float x0 = mesh.verts[f0 * n + v][c];
+            at[c] = x0 + (mesh.verts[f1 * n + v][c] - x0) * pose.lerp;
+        }
+        SpriteDraw d;
+        d.texture = texture;
+        d.at = gfx::transformPoint(placement, placeMeshVertex(mesh, at, _ctx.meshTurn, _ctx.meshYawQuarters));
+        d.width = float(size[0]) * look.drawScale;
+        d.height = float(size[1]) * look.drawScale;
+        d.style = look.style;
+        d.color = tint;
+        sprites.push_back(d);
+    }
+}
+
 // An actor's copies: its mesh posed as it is (its animation now) in each
 // one's place, turned, scaled by DrawScale and along its own axes by
 // AxisScale (along its axes before RotOrigin), in its style, as bright as its ScaleGlow (where it's lit, or
@@ -3464,7 +3521,7 @@ void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
                 tex = look.skin;
             if (!tex && k < mesh.textures.size())
                 tex = _ctx.packages.resolve(*look.mesh.package, mesh.textures[k]);
-            if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
+            if (!tex) // no skin of its own: the actor's Texture
                 tex = look.texture;
             skins.push_back(_textured ? textureOf(tex).first : 0);
         }

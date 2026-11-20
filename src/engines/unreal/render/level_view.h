@@ -333,6 +333,8 @@ private:
     MeshFog _fog; // this frame's distance fog (none: distance 0)
     std::vector<LevelPlay::Corona> _coronaScratch;
     float _coronaDt = 0;
+    void drawParticles(VmObject *actor, const LevelPlay::Look &look, const Mesh &mesh, const MeshPose &pose,
+                       std::vector<SpriteDraw> &sprites);
     void drawCopies(VmObject *actor, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                     std::vector<SpriteDraw> &sprites);
     void addDecals(std::vector<SpriteDraw> &sprites);

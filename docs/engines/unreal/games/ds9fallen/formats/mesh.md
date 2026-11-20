@@ -100,7 +100,29 @@ mesh read). Reluva draws them so: before, it gave
 (0, 49152, 0), three more quarter turns of yaw, and no actor its
 PreRotate. No mesh has a non-zero Origin, imported or not, so its being
 left out changes nothing. A classic mesh does turn by RotOrigin and
-take off Origin (0x104119ea).
+take off Origin (0x104119ea), and is scaled by its Scale times
+`AxisScale` times DrawScale (`ULodMesh::GetFrame`, 0x103c8d37). Reluva
+draws every mesh actor with its AxisScale (it gave it only to MultiMesh
+copies): a squashed Arachnid corpse, the photon grenade's particle,
+`DS9_LaserCoreBeam`.
+
+**bParticles.** Every frame builder (0x1032b619, 0x10411951,
+0x103c8d1d, `AMD3DGetFrame` 0x10410f9a) takes DrawScale as 1 for an
+actor with `bParticles` (Actor's display flags, bit 4), and
+Render.dll's `DrawMesh` (0x10b0ef40) and `DrawLodMesh` (0x10b116f3)
+then draw no triangles: the actor's `Texture` facing the camera at
+each posed vertex, DrawScale times the texture's size across, in the
+actor's style and tinted by ScaleGlow; none if it has no Texture. With
+`bRandomFrame` a vertex's texture is `MultiSkins[round(index / 3) & 7]`
+(none where that one's empty). Its bounds take a scale of 1.5
+(0x104106ea). Only `CARD_TransporterTube` sets it: a spinning cloud
+of sparks drawn in towards its axis as its AxisScale shrinks.
+`DS9_Fan` and `CTV_Wind` have a `bParticles` of their own, for their
+scripts, that hides Actor's; Reluva reads Actor's. Reluva draws them
+so (`drawParticles`), checked by drawing a turret so: a sprite at each
+vertex, in its shape. Not done: an animated texture's frame following
+the actor's LifeSpan with bRandomFrame (no actor has both), a lit
+actor's light on the sprites (the tube is unlit), and the 1.5 bounds.
 
 **Keyframed meshes.** Many animated meshes keep fewer `(FrameVerts,
 FrameVerts, 1)` vertex arrays than they have frames: ARD_AmmoCrate 2 for
@@ -332,7 +354,7 @@ What the type means:
   float copy's way. Engine.dll settles it: a type 2 point is the stored
   matrix as it is, in the same space as the skeleton's posed vertices
   (`C3DGetWldToC3DTM` maps the world into that space; the mesh's Scale,
-  Origin and RotOrigin aren't read there). Reluva places it as it
+  Origin and RotOrigin aren't read there; see [bones.md](../systems/bones.md)). Reluva places it as it
   places those vertices, so a point and its mesh turn together.
 
 Then come `(s, s, 5)`, the shared animation sets the mesh's animations

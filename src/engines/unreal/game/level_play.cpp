@@ -45,9 +45,13 @@ LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
                                       "AmbientGlow",
                                       "Specular",
                                       "bMultiTextureOn",
-                                      "PreRotate"};
+                                      "PreRotate",
+                                      "AxisScale",
+                                      "bParticles",
+                                      "bRandomFrame"};
     for (size_t k = 0; k < kFieldCount; ++k)
         _names[k] = _vm->name(names[k]);
+    _actorName = _vm->name("Actor");
 }
 
 Error LevelPlay::start(const std::string &portal, const std::filesystem::path &saved,
@@ -472,8 +476,14 @@ const std::array<int, LevelPlay::kFieldCount> &LevelPlay::slotsOf(const VmClass 
     auto it = _slots.find(cls);
     if (it == _slots.end()) {
         std::array<int, kFieldCount> slots{};
+        // Actor's own display flags: DS9_Fan and CTV_Wind have a
+        // bParticles of their own, for their scripts, that hides it.
+        const VmClass *actor = cls;
+        while (actor && actor->nameId != _actorName)
+            actor = actor->parent();
         for (size_t k = 0; k < kFieldCount; ++k) {
-            const VmProperty *p = cls->findProperty(_names[k]);
+            const VmClass *owner = (k == kParticles || k == kRandomFrame) && actor ? actor : cls;
+            const VmProperty *p = owner->findProperty(_names[k]);
             slots[k] = p ? p->slot : -1;
             if (k == kRegion && p && p->structType && _regionZoneField < 0)
                 if (const VmProperty *z = p->structType->findProperty(_vm->name("ZoneNumber")))
@@ -617,6 +627,12 @@ bool LevelPlay::look(VmObject *a, Look &out) {
     }
     if (const Value *v = at(kDrawScale))
         out.drawScale = v->asFloat();
+    out.axisScale = {1, 1, 1};
+    vec(kAxisScale, out.axisScale);
+    const Value *particles = at(kParticles);
+    out.particles = particles && particles->asBool();
+    const Value *randomFrame = at(kRandomFrame);
+    out.randomFrame = randomFrame && randomFrame->asBool();
     if (const Value *v = at(kDrawType))
         out.drawType = v->asInt();
     if (const Value *v = at(kHidden))
