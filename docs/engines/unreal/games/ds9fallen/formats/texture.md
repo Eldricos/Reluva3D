@@ -87,7 +87,12 @@ texture steps at most once a frame (`UTexture::Tick`, 0x10459f00). Before
 its first step it's stepped `PrimeCount` times at once, warmed up as it
 loads (0x10459f2d): The Fallen's explosion and phaser fires (15 to 255)
 and the disruptor's hit (101). An ice texture's sliding goes by the
-clock; only its drawing is paced, and it's not primed (its own `Tick`).
+clock; only its drawing is paced, and it's not primed (its own `Tick`). The
+time is the real time since the texture was last drawn, with no limit
+of its own (the viewport's clock, 0x103da0e0): after a long stall it's
+`MinFrameRate` that keeps a slow texture from leaping. Reluva gives them
+that time; before, it held every frame's time to a tenth of a second,
+as it still does for the game's own tick.
 
 #### Flipbooks (AnimNext)
 

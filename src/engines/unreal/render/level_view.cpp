@@ -1330,7 +1330,12 @@ void LevelView::handleEvent(const Event &ev) {
 void LevelView::update(uint64_t nowMs) {
     if (!_renderer)
         return;
-    const float dt = _lastMs ? std::min(0.1f, float(nowMs - _lastMs) / 1000.0f) : 0.0f;
+    // The real time since the last frame, and as the game takes it (at
+    // most a tenth of a second at once). Textures go by the real time, as
+    // the engine's UTexture::Update does: a long wait is theirs to take
+    // (UTexture::Tick keeps a slow texture to MinFrameRate).
+    const float real = _lastMs ? float(nowMs - _lastMs) / 1000.0f : 0.0f;
+    const float dt = std::min(0.1f, real);
     _lastMs = nowMs;
 
     if (_play) {
@@ -1377,8 +1382,8 @@ void LevelView::update(uint64_t nowMs) {
             }
         }
 
-    updateLightmaps(dt);
-    updateAnimatedTextures(dt);
+    updateLightmaps(real);
+    updateAnimatedTextures(real);
     gatherDynamicLights(_pos);
     // The Fallen's distance fog: the camera's zone's (DistanceFogging, the
     // depth at which all is its DistanceFogColor), growing evenly from the
