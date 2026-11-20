@@ -343,11 +343,13 @@ public:
     HudView &hudFrame() { return _hudFrame; }
     bool &hudFrameClear() { return _hudFrameClear; }
     /**
-     * The FliTextures the HUD draws, played on each tick as their own
-     * properties say (Mode, Rate, FrameNum, FrameTime).
+     * An FliTexture drawn now (on the HUD or in the level): played on by
+     * the real time since it was last drawn, as its own properties say
+     * (Mode, Rate, FrameNum, FrameTime).
      */
-    void trackFli(VmObject *texture);
-    void tickFlis(float seconds);
+    void fliDrawn(VmObject *texture);
+    /** The real clock (seconds; it runs while paused) textures play by. */
+    void setRealTime(double now) { _realTime = now; }
     Hud &hud() { return _hud; }
     const HudView &hudView() const { return _hudView; }
     const Font *fontOf(VmObject *font);
@@ -1080,7 +1082,10 @@ private:
     struct Fli {
         int frames = 0;
         float frameSeconds = 1.0f / 30;
+        double drawn = 0; // the real time it was last drawn
     };
+    void tickFli(VmObject *texture, const Fli &fli, float seconds);
+    double _realTime = 0;
     std::map<VmObject *, Fli> _flis;
     VmObject *_canvas = nullptr;
     std::map<std::pair<const Package *, int>, std::shared_ptr<Font>> _fonts;

@@ -33,8 +33,8 @@ constexpr uint8_t kEffectShell = 14;
 constexpr uint8_t kEffectInterference = 16;
 constexpr uint8_t kEffectCylinder = 17;
 constexpr uint8_t kEffectRotor = 18;
-// The original's random numbers are drawn afresh every frame; Reluva's
-// step 35 times a second (the engine's tick).
+// The viewer's frames for the random lights, 35 a second (the engine's
+// tick); playing, they're the frames drawn.
 constexpr float kFrameRate = 35;
 
 Vec3f add(const Vec3f &a, const Vec3f &b) {
@@ -213,8 +213,16 @@ Vec3f zoneAmbientColor(uint8_t hue, uint8_t saturation, uint8_t brightness) {
     return c;
 }
 
+LightClock lightClock(float time) {
+    LightClock c;
+    c.time = time;
+    c.frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+    c.strobeOn = c.frame % 2 == 0;
+    return c;
+}
+
 float lightLevel(const LightSource &l, float time) {
-    return lightLevel(l, l.type, time);
+    return lightLevel(l, l.type, lightClock(time));
 }
 
 // 1 - 3 f^2 + 2 f^3 of the way out to its radius, as Render.dll's table
@@ -303,10 +311,11 @@ PatternPoint patternPoint(const Vec3f &o) {
     return p;
 }
 
-PatternNow patternNow(const LightSource &l, float time) {
+PatternNow patternNow(const LightSource &l, const LightClock &clock) {
     PatternNow n;
+    const float time = clock.time;
     n.time = time;
-    n.frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+    n.frame = clock.frame;
     // The searchlight's: 35 / LightPeriod radians a second, from LightPhase
     // (in 64ths of a turn).
     const float period = l.period * 35; // LightPeriod
@@ -380,25 +389,31 @@ float lightPattern(const LightSource &l, const PatternNow &now, const PatternPoi
     }
 }
 
-float lightLevel(const LightSource &l, uint8_t type, float time, bool whole) {
+float lightLevel(const LightSource &l, uint8_t type, const LightClock &clock, bool whole) {
+    const float time = clock.time;
     return (whole || !hasLightPattern(l) ? effectLevel(l, time) : 1.0f) * [&] {
         // How far through its cycle it is, 0-1.
         const float cycles = time / std::max(l.period, 1e-3f) + l.phase;
         const float at = cycles - std::floor(cycles);
-        // As Render.dll's GlobalLighting: a frame's step for the random ones.
-        const uint32_t frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+        const uint32_t frame = clock.frame;
         const uint32_t seed = lightSeed(l);
         switch (type) {
         case kLightPulse:
             return 0.6f + 0.39f * std::sin(2 * kPi * at);
         case kLightSubtlePulse:
             return 0.9f + 0.09f * std::sin(2 * kPi * at);
-        // On or out at random each frame (the parity of its phase in 65536ths).
-        case kLightBlink:
-            return noise(seed, frame) < 0.5f ? 1.0f : 0.0f;
-        // All of them together, on one frame and out the next.
+        // Out when its phase in 65536ths of a LightPeriod + 1 ticks' turn,
+        // whole, is odd (0x10b06e60): a new state almost every frame, but
+        // held while the game is paused.
+        case kLightBlink: {
+            const float period = std::round(l.period * 35) + 1;
+            const double x = double(time) * 35 * 65536 / period + std::round(l.phase * 256) * 256;
+            return (int64_t(x) & 1) ? 0.0f : 1.0f;
+        }
+        // All of them together, on one frame the time moved and out the
+        // next (0x10b06ef0).
         case kLightStrobe:
-            return frame % 2 == 0 ? 1.0f : 0.0f;
+            return clock.strobeOn ? 1.0f : 0.0f;
         // A random number each frame: out under a half, else that bright.
         case kLightFlicker: {
             const float r = noise(seed ^ 0x51ed270bu, frame);
@@ -642,10 +657,10 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
     // reach redrawn with them as they do (drawn at time 0 here).
     std::vector<float> startLevels;
     for (const LightSource &l : lights.animated)
-        startLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
+        startLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, lightClock(0), false));
     std::vector<PatternNow> startNow;
     for (const LightSource &l : lights.animated)
-        startNow.push_back(patternNow(l, 0));
+        startNow.push_back(patternNow(l, lightClock(0)));
     std::vector<uint8_t> rgba;
     for (size_t gi = 0; gi < grids.size(); ++gi) {
         const Grid &g = grids[gi];

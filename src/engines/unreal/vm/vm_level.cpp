@@ -597,7 +597,6 @@ void ScriptLevel::tick(float seconds) {
     tickDialog(seconds);
     // The audio driver's update: the mouths that follow the sounds.
     lipSyncUpdate();
-    tickFlis(seconds);
     ++_ticks;
     for (VmObject *a : _actors)
         if (a->deleted)

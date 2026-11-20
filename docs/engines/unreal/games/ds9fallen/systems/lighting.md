@@ -270,15 +270,24 @@ On The Fallen 1377 of the 29202 lights change: 567 pulse, 598 flicker,
 second (default 32), starting `LightPhase` 256ths of the way in.
 `lightLevel()` gives the share of the brightness at a time, as the
 original's renderer works it out (Render.dll's `GlobalLighting` and its
-table of type functions, read for what they do). Its random ones draw a
-new number every frame; Reluva steps them 35 times a second.
+table of type functions, read for what they do).
+
+The clocks: the timed ones (pulse, subtle pulse, blink, strobe, and the
+moving effects below) go by the level's `TimeSeconds`, which stops while
+the game is paused (Render.dll reads it from the level, 0x10b04aee to
+0x10b061fa). The random ones (flicker, torch and fire waver) take a
+table of 256 random numbers drawn afresh every frame drawn (0x10b19cb0,
+0x10baba3c), paused or not. Reluva does the same while playing; its
+viewer, with no level running, steps them 35 times a second. An actor's
+`AmbientGlow` pulse and the fading of the lights on an actor go by the
+real clock (0x10b0a242, 0x10b0a347).
 
 | Type | Brightness |
 |---|---|
 | Pulse | 0.6 + 0.39 sin, a cycle each `LightPeriod` 35ths of a second (at least 1) |
 | Subtle pulse | 0.9 + 0.09 sin, the same |
-| Blink | on or out at random each frame (the parity of its phase counted in 65536ths of a cycle) |
-| Strobe | every strobe on one frame and out the next, all together |
+| Blink | out when `TimeSeconds` x 35 x 65536 / (`LightPeriod` + 1) + `LightPhase` x 256, truncated, is odd (0x10b06e60): a new state almost every frame, held while paused |
+| Strobe | every strobe together: on and out by turns, flipping on each frame the level's time moved (0x10b06ef0) |
 | Flicker | a random number each frame: out under 0.5, else that bright |
 | Backdrop | steady |
 | Texture palette once / loop | the colour and brightness of the light's `Skin` palette, by its life or its cycle (not done: none in The Fallen's maps light with it) |
@@ -291,7 +300,7 @@ type's alone, no effect.
 | Effect | On the surfaces |
 |---|---|
 | Torch waver, fire waver | each texel times a new random number each frame: 0.95-1, 0.8-1 |
-| Watery shimmer | each texel 0.6-1, its number easing towards a new random one (a sixteenth of the way a tick) |
+| Watery shimmer | each texel 0.6-1, its number easing towards a new random one (a sixteenth of the way each 35th of a second of the level's time: still while paused) |
 | Slow wave, fast wave | 0.7 + 0.3 sin of rings 64 (32) units apart rolling out 35 units a second |
 | Searchlight | one beam a turn, a quarter of it wide, turning 35 / `LightPeriod` radians a second from `LightPhase` (64ths of a turn); dark within about 130 units of its axis |
 | Rotor | six beams round it, ½(1 + sin(6 yaw + 3.5 t)), even near its axis (within 100 units) |

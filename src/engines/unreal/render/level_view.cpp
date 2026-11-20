@@ -303,11 +303,12 @@ void LevelView::load(int index) {
     _mapLevels.clear();
     for (const LightSource &l : _changingLights) {
         _lightLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, 0));
-        _mapLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
+        _mapLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, lightClock(0), false));
     }
     _animatedLightmaps = std::move(atlas.animated);
     _staleLightmaps.assign(_animatedLightmaps.size(), false);
     _lightTime = 0;
+    _lightClock = {};
 
     // Group the polygons by texture, drawing flags and lightmap page.
     const std::vector<Polygon> polys = levelPolygons(model);
@@ -1672,7 +1673,7 @@ void LevelView::updateAnimatedTextures(float dt) {
         const float since = _animatedSince[i];
         _animatedSince[i] = 0;
         // While playing, an FLC shows the frame its texture's script side
-        // has (its Mode, FrameTime and FrameNum, as the level ticks them:
+        // has (its Mode, FrameTime and FrameNum, played on as it's drawn:
         // UFliTexture::Tick): one an explosion plays once stops.
         bool changed = false;
         VmObject *fli = nullptr;
@@ -1681,7 +1682,7 @@ void LevelView::updateAnimatedTextures(float dt) {
             fli = _play->vm().objectAt(*ref.package, ref.exportIndex + 1);
         }
         if (fli) {
-            _play->level().trackFli(fli);
+            _play->level().fliDrawn(fli);
             const Value *frame = fli->find(_play->vm(), "FrameNum");
             changed = anim->showFrame(frame ? std::max(1, frame->asInt()) : 1, _animatedRefs[i].second);
         } else {
@@ -1704,7 +1705,7 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
     if (!_play && l.startsOff)
         return 0; // as the level starts: its scripts haven't turned it on
     if (!_play || !l.scripted || !l.ref)
-        return lightLevel(l, l.type, _lightTime, whole);
+        return lightLevel(l, l.type, _lightClock, whole);
     VmObject *a = _play->actorAt(l.ref);
     if (!a)
         return 0;
@@ -1712,7 +1713,7 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
     const Value *type = a->find(vm, "LightType");
     const Value *brightness = a->find(vm, "LightBrightness");
     const float share = brightness && l.brightness ? float(brightness->asInt()) / float(l.brightness) : 1;
-    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, _lightTime, whole) * share, 0.0f, 2.0f);
+    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, _lightClock, whole) * share, 0.0f, 2.0f);
 }
 
 // Redraws the lightmaps that pulsing, flickering... lights reach, where
@@ -1723,6 +1724,18 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
 // lightmaps in a zone seen are drawn; the others are drawn when it is.
 void LevelView::updateLightmaps(float dt) {
     _lightTime += dt;
+    // Playing, the lights go by the level's time, the random ones by the
+    // frames drawn; textures play on by the real clock, paused or not.
+    if (_play) {
+        const float now = _play->level().time();
+        ++_lightClock.frame;
+        if (now != _lightClock.time)
+            _lightClock.strobeOn = !_lightClock.strobeOn;
+        _lightClock.time = now;
+        _play->level().setRealTime(_lightTime);
+    } else {
+        _lightClock = lightClock(_lightTime);
+    }
     std::vector<bool> changed(_changingLights.size(), false);
     _patternNow.resize(_changingLights.size());
     for (size_t i = 0; i < _changingLights.size(); ++i) {
@@ -1730,7 +1743,7 @@ void LevelView::updateLightmaps(float dt) {
         const float level = liveLightLevel(_changingLights[i], false);
         const bool pattern = hasLightPattern(_changingLights[i]) && level > 0;
         if (pattern)
-            _patternNow[i] = patternNow(_changingLights[i], _lightTime);
+            _patternNow[i] = patternNow(_changingLights[i], _lightClock);
         if (pattern || std::fabs(level - _mapLevels[i]) * 255 >= 1) {
             _mapLevels[i] = level;
             changed[i] = true;
@@ -2095,7 +2108,7 @@ void LevelView::gatherDynamicLights(const gfx::Vec3 &eye) {
         l.effect = a.effect;
         l.period = float(std::max<uint8_t>(a.period, 1)) / 35;
         l.phase = float(a.phase) / 256;
-        const float level = lightLevel(l, _lightTime);
+        const float level = lightLevel(l, l.type, _lightClock);
         if (level <= 0)
             continue;
         // As the level's lights: the original lights with them the same way.

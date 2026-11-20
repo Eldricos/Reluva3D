@@ -467,6 +467,7 @@ private:
     std::map<int, MeshTopology> _posedTopology; // by meshes_ index: those posed each frame
     std::vector<AnimatedLightmap> _animatedLightmaps;
     float _lightTime = 0;
+    LightClock _lightClock; // the changing lights' (lighting.h)
     // Fire, water, wet, ice and FLC textures, playing.
     void updateAnimatedTextures(float dt);
     std::vector<std::pair<gfx::TextureId, std::unique_ptr<AnimatedTexture>>> _animatedTextures;

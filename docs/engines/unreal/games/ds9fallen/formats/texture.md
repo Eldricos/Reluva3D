@@ -149,6 +149,15 @@ or a sprite too: an explosion's sprite, set to play once
 going back to an earlier frame decodes again from the first. A HUD tile
 that sees through colour 0 does so in every frame.
 
+Like every animated texture, an FLC is ticked as it's drawn, by the real
+time since it was last drawn (`UTexture::Update`, 0x104599c0, called
+from Render.dll and the canvas as they draw; the time is the viewport's
+real clock, 0x103da0e0), at most once a frame. So it plays on while the
+game is paused, isn't slowed by `TimeDilation`, and one not drawn for a
+while takes one long tick when it next is: longer than `Length`, it
+doesn't move. Reluva plays them so (before, on the level's ticks, even
+undrawn).
+
 #### Fire (FireTexture)
 
 As Fire.dll does it. Its routines were run in an x86 emulator against a
