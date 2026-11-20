@@ -953,6 +953,7 @@ int cmdSpRun(int argc, char **argv) {
         std::string line;
         int f = 0;
         int lastButtons = 0;
+        size_t watchedCommands = 0; // the game's console commands printed (-watch)
         // The commands for "@until": empty but for the buttons and weapon
         // given, every 50 ms up to that level time.
         std::vector<std::string> generated;
@@ -1179,6 +1180,10 @@ int cmdSpRun(int argc, char **argv) {
             // A level change ends the replay there, as the engine changes
             // level at once (what -next carries over is the player then).
             bool changing = false;
+            if (watch)
+                for (; watchedCommands < game.consoleCommands().size(); ++watchedCommands)
+                    std::printf("[%5d ms] console command: %s", game.levelTime(),
+                                game.consoleCommands()[watchedCommands].c_str());
             for (const std::string &c : game.consoleCommands()) {
                 const std::string word = reluva::fs::toLower(c.substr(0, c.find(' ')));
                 changing = changing || word == "maptransition" || word == "map";

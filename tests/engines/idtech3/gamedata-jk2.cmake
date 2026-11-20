@@ -39,8 +39,10 @@
 #                 their openings are over: every trigger touched, fighting
 #                 between them with every direct-fire weapon, to the level
 #                 change; Jan spared (her death fails the mission). Each
-#                 then the next level started with the player carried over
-#                 (-next). About seven minutes.
+#                 then saved and the save loaded into a fresh game, run
+#                 20 frames (-saveload), and the next level started with
+#                 the player carried over (-next); so with every level
+#                 below. About seven minutes.
 #   jk2-sp-artus  the same for artus_mine and artus_topside (their ways out
 #                 by written routes, data/routes/) and artus_detention;
 #                 then valley, a cutscene, left to play. About eight
@@ -156,63 +158,63 @@ elseif(STEP STREQUAL "jk2-single-player")
 elseif(STEP STREQUAL "jk2-sp-music")
     record_run(music-sets "with dynamic music" idtech3 music-sets "${base}")
 elseif(STEP STREQUAL "jk2-sp-tour")
-    record_run(kejim_post "ran 100 frames" idtech3 sp-run "${base}" kejim_post -tour 100000 -spare jan
+    record_run(kejim_post "ran 100 frames" idtech3 sp-run "${base}" kejim_post -saveload -tour 101000 -spare jan
                -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1 -next)
-    record_run(kejim_base "ran 100 frames" idtech3 sp-run "${base}" kejim_base -tour 5000 -spare cinematic3
+    record_run(kejim_base "ran 100 frames" idtech3 sp-run "${base}" kejim_base -saveload -tour 5000 -spare cinematic3
                -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-sp-artus")
-    record_run(artus_mine "ran 100 frames" idtech3 sp-run "${base}" artus_mine
+    record_run(artus_mine "ran 100 frames" idtech3 sp-run "${base}" artus_mine -saveload
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/artus_mine.txt" -fixedclock -set helpUsObi 1 -next)
-    record_run(artus_detention "ran 100 frames" idtech3 sp-run "${base}" artus_detention -tour 16000 -fixedclock
+    record_run(artus_detention "ran 100 frames" idtech3 sp-run "${base}" artus_detention -saveload -tour 16000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(artus_topside "ran 100 frames" idtech3 sp-run "${base}" artus_topside
+    record_run(artus_topside "ran 100 frames" idtech3 sp-run "${base}" artus_topside -saveload
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/artus_topside.txt" -fixedclock -set helpUsObi 1 -next)
-    record_run(valley "ran 100 frames" idtech3 sp-run "${base}" valley -frames 4000 -fixedclock -cgame -next)
+    record_run(valley "ran 100 frames" idtech3 sp-run "${base}" valley -saveload -frames 4000 -fixedclock -cgame -next)
 elseif(STEP STREQUAL "jk2-sp-yavin")
-    record_run(yavin_temple "ran 100 frames" idtech3 sp-run "${base}" yavin_temple
+    record_run(yavin_temple "ran 100 frames" idtech3 sp-run "${base}" yavin_temple -saveload
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/yavin_temple.txt" -fixedclock -set helpUsObi 1 -next)
-    record_run(yavin_trial "ran 100 frames" idtech3 sp-run "${base}" yavin_trial -tour 10000 -spare npc -fixedclock
+    record_run(yavin_trial "ran 100 frames" idtech3 sp-run "${base}" yavin_trial -saveload -tour 10000 -spare npc -fixedclock
                -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-sp-nar-shaddaa")
-    record_run(ns_streets "ran 100 frames" idtech3 sp-run "${base}" ns_streets -tour 45000 -spare kyle
+    record_run(ns_streets "ran 100 frames" idtech3 sp-run "${base}" ns_streets -saveload -tour 45000 -spare kyle
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/ns_streets.txt" -fixedclock -set helpUsObi 1 -next)
-    record_run(ns_hideout "ran 100 frames" idtech3 sp-run "${base}" ns_hideout -tour 5000 -fixedclock -set helpUsObi 1
+    record_run(ns_hideout "ran 100 frames" idtech3 sp-run "${base}" ns_hideout -saveload -tour 5000 -fixedclock -set helpUsObi 1
                -next)
-    record_run(ns_starpad "ran 100 frames" idtech3 sp-run "${base}" ns_starpad -tour 5000 -spare lando
+    record_run(ns_starpad "ran 100 frames" idtech3 sp-run "${base}" ns_starpad -saveload -tour 6000 -spare lando
                -spare cinematic20_kyle -spare cinematic20_lando
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/ns_starpad.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-sp-bespin")
-    record_run(bespin_undercity "ran 100 frames" idtech3 sp-run "${base}" bespin_undercity -tour 5000 -spare droid
+    record_run(bespin_undercity "ran 100 frames" idtech3 sp-run "${base}" bespin_undercity -saveload -tour 5000 -spare droid
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/bespin_undercity.txt" -fixedclock -set helpUsObi 1 -next)
-    record_run(bespin_streets "ran 100 frames" idtech3 sp-run "${base}" bespin_streets -tour 5000 -fixedclock
+    record_run(bespin_streets "ran 100 frames" idtech3 sp-run "${base}" bespin_streets -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(bespin_platform "ran 100 frames" idtech3 sp-run "${base}" bespin_platform -tour 5000
+    record_run(bespin_platform "ran 100 frames" idtech3 sp-run "${base}" bespin_platform -saveload -tour 5000
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/bespin_platform.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-sp-cairn")
-    record_run(cairn_bay "ran 100 frames" idtech3 sp-run "${base}" cairn_bay -tour 56000 -spare luke
+    record_run(cairn_bay "ran 100 frames" idtech3 sp-run "${base}" cairn_bay -saveload -tour 56000 -spare luke
                -spare cinematic24_luke -spare cinematic25_luke -spare run_remove
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/cairn_bay.txt" -fixedclock -set helpUsObi 1 -next)
-    record_run(cairn_assembly "ran 100 frames" idtech3 sp-run "${base}" cairn_assembly -tour 5000 -fixedclock
+    record_run(cairn_assembly "ran 100 frames" idtech3 sp-run "${base}" cairn_assembly -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(cairn_reactor "ran 100 frames" idtech3 sp-run "${base}" cairn_reactor -tour 5000 -fixedclock
+    record_run(cairn_reactor "ran 100 frames" idtech3 sp-run "${base}" cairn_reactor -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(cairn_dock1 "ran 100 frames" idtech3 sp-run "${base}" cairn_dock1 -tour 5000 -cmd notarget
+    record_run(cairn_dock1 "ran 100 frames" idtech3 sp-run "${base}" cairn_dock1 -saveload -tour 5000 -cmd notarget
                -spare cairn_vertical -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-sp-doom")
-    record_run(doom_comm "ran 100 frames" idtech3 sp-run "${base}" doom_comm -tour 5000 -fixedclock -set helpUsObi 1
+    record_run(doom_comm "ran 100 frames" idtech3 sp-run "${base}" doom_comm -saveload -tour 5000 -fixedclock -set helpUsObi 1
                -next)
-    record_run(doom_detention "ran 100 frames" idtech3 sp-run "${base}" doom_detention -tour 5000 -fixedclock
+    record_run(doom_detention "ran 100 frames" idtech3 sp-run "${base}" doom_detention -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(doom_shields "ran 100 frames" idtech3 sp-run "${base}" doom_shields -tour 5000 -fixedclock
+    record_run(doom_shields "ran 100 frames" idtech3 sp-run "${base}" doom_shields -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-sp-yavin-assault")
-    record_run(yavin_swamp "ran 100 frames" idtech3 sp-run "${base}" yavin_swamp -tour 5000 -fixedclock
+    record_run(yavin_swamp "ran 100 frames" idtech3 sp-run "${base}" yavin_swamp -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(yavin_canyon "ran 100 frames" idtech3 sp-run "${base}" yavin_canyon -tour 5000 -fixedclock
+    record_run(yavin_canyon "ran 100 frames" idtech3 sp-run "${base}" yavin_canyon -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(yavin_courtyard "ran 100 frames" idtech3 sp-run "${base}" yavin_courtyard -tour 5000 -fixedclock
+    record_run(yavin_courtyard "ran 100 frames" idtech3 sp-run "${base}" yavin_courtyard -saveload -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
-    record_run(yavin_final "console command: endscreendissolve" idtech3 sp-run "${base}" yavin_final -tour 5000
+    record_run(yavin_final "console command: endscreendissolve" idtech3 sp-run "${base}" yavin_final -saveload -tour 5000
                -spare real_desann -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/yavin_final.txt" -fixedclock
                -set helpUsObi 1)
 elseif(STEP STREQUAL "jk2-menus")

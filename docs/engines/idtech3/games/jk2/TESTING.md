@@ -64,7 +64,9 @@
   `jk2-sp-doom` (doom_comm, doom_detention and doom_shields by the
   tour), `jk2-sp-yavin-assault` (yavin_swamp, yavin_canyon and
   yavin_courtyard by the tour; yavin_final by the tour then Desann's
-  fight, to the game's end). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  fight, to the game's end). Every level's step also saves the game
+  where the tour left it and loads the save into a fresh game, which
+  runs 20 frames (`-saveload`). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

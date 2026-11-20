@@ -227,9 +227,9 @@ page has the console as [console.md](console.md) says.
   game breaking lines past its buffer into its copy of the engine's
   table. Without the second of frames, the cutscene's script found its
   actors before they'd spawned and waited for ever.
-- **Playing a level through:** `sp-run <base> kejim_post -tour 100000
+- **Playing a level through:** `sp-run <base> kejim_post -tour 101000
   -spare jan -spare cinematic1_jan -spare cinematic1_kyle -set
-  helpUsObi 1` plays the level with cheats from 100 s (the opening
+  helpUsObi 1` plays the level with cheats from 101 s (the opening
   over): every trigger touched in turn, fighting the nearest NPCs
   between them with every direct-fire weapon, the saber included, to
   the level change (`maptransition kejim_base`). It found the brush
@@ -318,7 +318,7 @@ page has the console as [console.md](console.md) says.
   name with its server flags and frame (how the panels were seen to
   take presses: not the first after a `setviewpos`). Two hidden
   cinematic actors that can't be hurt are spared by name, or the tour
-  fights them. `sp-run ns_starpad -tour 5000 -spare lando -spare
+  fights them. `sp-run ns_starpad -tour 6000 -spare lando -spare
   cinematic20_kyle -spare cinematic20_lando -replay
   tests/engines/idtech3/data/routes/ns_starpad.txt -set helpUsObi 1
   -next` plays it to `maptransition bespin_undercity`.

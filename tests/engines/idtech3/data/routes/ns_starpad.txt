@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 #
-# ns_starpad's way out, for sp-run -tour 5000 -replay (with -spare lando
+# ns_starpad's way out, for sp-run -tour 6000 -replay (with -spare lando
 # -spare cinematic20_kyle -spare cinematic20_lando, set helpUsObi 1). The
 # tour rides the elevator up with Lando, sets off the hangar attack and
 # brings him to the Lady Luck; here, from the tour's end:
