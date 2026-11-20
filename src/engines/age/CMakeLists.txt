@@ -85,7 +85,8 @@ reluva_add_engine_viewers(age
 reluva_add_engine_tools(age
     SOURCES
         tools/files.cpp
-        tools/play.cpp)
+        tools/play.cpp
+        tools/cars.cpp)
 
 # Its tests (tests/engines/age/), in reluva-tests: the unit tests by topic,
 # on files built in the tests, and the engine test, without game files (a
@@ -111,4 +112,4 @@ reluva_add_gamedata_test(age
     GAME mm2
     ENV RELUVA_MM2
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release archives files play viewer)
+    STEPS release archives files cars play viewer)

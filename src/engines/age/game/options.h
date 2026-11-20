@@ -93,33 +93,45 @@ struct GameOptions {
     bool startInCar = false;   // the in-car view first (POV)
     bool forceFeedback = true; // a game controller shakes when the car's knocked
     float steering = 0.5f;     // Steering Sensitivity, 0..1
+    // CONTROLLERS: what drives, as mmlang.dll's 581-584 name it. A game
+    // pad by default, so one plugged in works at once; the keyboard
+    // always does.
+    int controller = kGamePad;
+    float deadZone = 0.3f; // Joystick Dead Zone, 0..1 of the bar: up to half the stick's travel
+    // The network menus' meeting server ("host" or "host:port"), as last
+    // typed; empty for none.
+    std::string meetingServer;
     // Two keys for each control (0: none).
     std::array<std::array<uint32_t, 2>, kControls> keys{};
 
+    /** What drives (controller). */
+    enum : int { kKeyboardOnly = 0, kJoystick = 1, kGamePad = 2, kSteeringWheel = 3 };
+
+    /** The defaults, the keys the game's own (its help file's). */
     GameOptions() { resetControls(); }
-    /** A menu's options back to their defaults (the Control Options' keys too). */
-    ///@{
+    /** The Audio Options back to their defaults. */
     void resetAudio();
+    /** The Graphics Options back to their defaults. */
     void resetGraphics();
+    /** The Control Options back to their defaults, the keys too. */
     void resetControls();
-    ///@}
 
     /**
-     * Reads options.txt from the save folder; without one (or a folder),
-     * nothing changes.
+     * Reads options.txt from the save folder.
+     * @return Success, keeping the defaults, when there's no folder or no file yet.
      */
     Error load(const std::filesystem::path &folder);
-    /** Writes options.txt. Fails without a save folder, or if it can't write. */
+    /** Writes options.txt into the save folder, making the folder if need be; fails with no folder. */
     Error save(const std::filesystem::path &folder) const;
     /**
-     * The options from the file's text, the defaults for those it hasn't;
-     * values out of range are brought into it.
+     * Reads options.txt's text over the defaults: numbers out of range are
+     * clamped, and lines it doesn't know are skipped, so it never fails.
      */
     Error parse(const std::string &text);
-    /** The options as the file holds them. */
+    /** The options as options.txt holds them: a line a setting, then a line a control's keys. */
     std::string text() const;
 
-    /** The control a key is bound to, Control::kCount if none. */
+    /** The control a key is bound to, Control::kCount if none (or the key is 0). */
     Control controlOf(uint32_t key) const;
     /**
      * Another control with this key, Control::kCount if none (for the
@@ -133,6 +145,7 @@ struct GameOptions {
      */
     ///@{
     float farClip() const { return 800 + visibility * 3200; }
+    /** How fast the wheels turn as steered: 0.5 to 1.5 times the car's own, by the sensitivity. */
     float steerRate() const { return 0.5f + steering; }
     ///@}
 };
@@ -159,6 +172,7 @@ GameOptions loadOptions(const std::filesystem::path &folder);
  */
 ///@{
 const GameOptions &currentOptions();
+/** Puts @p options in force (they're copied). */
 void setCurrentOptions(const GameOptions &options);
 ///@}
 

@@ -86,14 +86,11 @@ public:
     /** Called every frame. */
     virtual void update(uint64_t /*nowMs*/) {}
     /**
-     * Whether it draws with System::init3D; the engine puts the 2D
+     * Whether the page draws with System::init3D; the engine puts the 2D
      * framebuffer back when leaving one.
      */
     virtual bool uses3D() const { return false; }
-    /**
-     * Whether Esc and Tab (which otherwise leave and switch pages) go to
-     * the page instead.
-     */
+    /** Whether Esc and Tab (which otherwise leave and switch pages) go to the page instead. */
     virtual bool takesKey(const Event & /*ev*/) const { return false; }
     /** Whether the player asked to leave the game (its Quit dialog). */
     virtual bool wantsToQuit() const { return false; }
@@ -146,11 +143,11 @@ enum DriveKeys : uint32_t {
 };
 /**
  * The race screen's events in its menu's order (Blitz, Circuit, Checkpoint,
- * Crash Course, Cruise).
+ * Crash Course, Cruise); an index out of range is held to the nearest end.
  */
 RaceKind racePageKind(int index);
 constexpr int kRacePageKinds = 5;
-/** What a key is bound to (the Control Options' keys); Control::kCount if nothing. */
+/** What a key is bound to (the Control Options' keys); Control::kCount for nothing. */
 Control controlOf(uint32_t key);
 /** The player's car takes the Control Options (auto reverse, steering). */
 void applyControlOptions(CarSim &sim);
@@ -190,23 +187,31 @@ void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
                     const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world);
 
 /**
- * The game: its menus, its races (Blitz, Circuit, Checkpoint) against
- * opponents driving their recorded paths, the Crash Course, Cruise and
- * the multiplayer games, from the game's own files.
+ * The game: its menus, and a race (Blitz, Circuit, Checkpoint) from the game's race files, against
+ * opponents driving their recorded paths; the Crash Course, Cruise and multiplayer too.
  */
 class RaceScreen : public Page {
 public:
-    /** Lists the cities and cars. */
+    /** Finds the cities and cars; nothing's loaded until activate(). */
     explicit RaceScreen(ScreenContext &ctx);
     ~RaceScreen() override;
+    /** "Race". */
     const char *name() const override { return "Race"; }
+    /** 1, or 0 if there's no city or no car to race with. */
     size_t count() const override { return _cities.empty() || _cars.empty() ? 0 : 1; }
+    /** Starts 3D rendering, loads the menus and the city; without 3D, says so on the screen. */
     void activate() override;
+    /** Leaves any session and lets go of the city, the cars and the renderer. */
     void deactivate() override;
+    /** A key, click or typing, for the menus or the race. */
     void handleEvent(const Event &ev) override;
+    /** Steps the race, the session and the menus, and draws the frame. */
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
+    /** Whether 3D rendering started; without it, it says so, paced as 2D. */
+    bool uses3D() const override { return _renderer != nullptr; }
+    /** Esc in the game's menus and in a race, and Tab (the Map Toggle) in a race. */
     bool takesKey(const Event &ev) const override;
+    /** Whether the player chose to quit from the game's menus. */
     bool wantsToQuit() const override { return _quit; }
 
 private:
@@ -467,6 +472,7 @@ private:
     uint8_t netIdOf(const Racer &r) const;
     std::vector<GoldGame::Car> netCars() const;
     void syncNetRacers();                                      // the cars as the session's players come and go
+    void takeOverBot(Racer &r);                                // an old host's computer player, now ours to drive
     void remoteLook(Racer &r, const NetCarState &s, float dt); // another's engine and damage
     void checkProgress(Racer &r, const NetCarState &s);        // the host's count of its checkpoints
     std::set<uint8_t> _unloadable;                             // players whose cars couldn't be loaded

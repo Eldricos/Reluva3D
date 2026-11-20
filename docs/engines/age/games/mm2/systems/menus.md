@@ -210,11 +210,28 @@ These dialogs in `widget.csv` aren't drawn:
   sessions have 8 at most, which the host's MAX PLAYERS keeps to.
 - **Cops & Robbers Settings** (menu 13): its controls' pictures
   (`copr_*`, `crt_*`, `aren_ready`) aren't among the files, nor is a
-  background for it. The Host Race Menu's Cops & Robbers panel and the
-  lobby's team buttons do its work.
-- **`xassign_dlg`** and **Control Warning**: no pictures (Control
-  Warning's `join_dlg` isn't shipped). Customize Controls' duplicate key
-  has its own, `ctrl_dlg`.
+  background for it. The Host Race Menu has the same choices with
+  pictures that are shipped (`free_cr`, `cpsvr_cr`, `robrs_cr` for its
+  three games, `none_cr`, `time_cr`, `point_cr` for its limits, and the
+  gold mass and limit's fields), and the lobby has the team buttons, so
+  this menu looks like an earlier design the released game dropped
+  *(inferred)*. Reluva leaves it out rather than draw a screen the game
+  likely never shows.
+- **`xassign_dlg`**: a Done button and nothing else, no picture and no
+  words in `mmlang.dll`, so what it said isn't known. Customize Controls'
+  duplicate key has its own dialog, `ctrl_dlg`.
+
+### Control Warning
+
+Control Warning (menu 21) has OK and Cancel where the defaults' dialog
+(`odef_dlg`) has them, but no picture (its `join_dlg` isn't shipped)
+and no words in `mmlang.dll`. Reluva uses it for something its
+Control Options needs: choosing a joystick, pad or wheel from the
+keyboard with none connected. It's drawn as a box the size of `odef_dlg`
+in `msg_dlg`'s purple, with Reluva's words, "NO GAME CONTROLLER IS
+CONNECTED. USE IT ANYWAY?", and the game's OK and Cancel. OK keeps the
+choice (one may be plugged in later), Cancel and Esc go back to the
+keyboard. What the game itself used it for isn't known *(guessed)*.
 - **`MessageBox`** is the game's general message box, `msg_dlg`: it's
   used wherever a message has no picture of its own.
 

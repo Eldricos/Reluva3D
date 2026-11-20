@@ -110,7 +110,7 @@ from the style's. So: C major 7 in C major.
 - **Patterns**: a pattern plays out its measures; at a command (or its
   end) another is chosen: of the embellishment asked for (else a plain
   one), whose groove range holds the level (else the nearest), at
-  random. Motifs aren't chosen. How the original weighs `bDestGroove` and
+  random. Motifs aren't chosen here: they're played on request (below). How the original weighs `bDestGroove` and
   the chord rhythm isn't documented, and isn't used.
 - **Variations**: each part plays one of its variations through a
   pattern. In use are the variations whose choice word has any chord bit
@@ -138,7 +138,12 @@ from the style's. So: C major 7 in C major.
   bands stay under full scale.
 
 Not read: `rhtm`, markers, resolutions, anticipations, chordmaps, audio
-paths, scripts. Motifs (the big-air jingle) aren't played yet.
+paths, scripts.
+
+- **Motifs**: a style's motif (a pattern marked as one) is played over
+  the segment playing, from that moment, on a band's instruments if one
+  is given, by `DmPerformance::playMotif`; the patterns chosen at a
+  command are never motifs.
 
 ## Sources and checks
 

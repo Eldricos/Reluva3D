@@ -240,9 +240,8 @@ private:
         bool loose = false;
         Vec3 velocity{};
         float spin = 0;
-        // settled: stood on the ground
         bool parked = false;
-        bool settled = false;
+        bool settled = false; // stood on the ground
     };
 
     int pickKind();

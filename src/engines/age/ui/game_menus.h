@@ -37,6 +37,7 @@ public:
         kAbout,
         kDefaults,        // odef_dlg: restore the defaults?
         kDuplicateKey,    // ctrl_dlg
+        kControlWarning,  // Control Warning: no game controller connected (Reluva's words)
         kQuit,            // quit_dlg
         kReplayList,      // rpl_bk: choose a replay file
         kReplayName,      // REDIT_BK: save as, or rename
@@ -62,21 +63,21 @@ public:
     };
 
     /**
-     * Reads widget.csv; `files`, `strings` and `sys` must outlive it.
-     * @param savePath Where the options and the replays are saved.
+     * Reads the menus' layout and pictures; loaded() says whether they came.
+     * @param mixer The sound output the Audio Options set; nullptr with none.
+     * @param savePath Where the options are saved and the replays found.
      */
     GameMenus(System &sys, const SearchSet &files, const GameStrings &strings, audio::Mixer *mixer,
               std::filesystem::path savePath);
-    /** Whether the menus' files are there. */
+    /** Whether the menus' layout (tune/widget.csv) and the Options' background were found. */
     bool loaded() const { return _ok; }
 
-    /** Opens a screen, the options as they are now to change. */
+    /** Opens a screen, starting from the options in force. */
     void open(Screen s);
-    /** The screen open, and whether one is. */
-    ///@{
+    /** The screen or dialog shown. */
     Screen screen() const { return _screen; }
+    /** Whether a screen or dialog is shown. */
     bool isOpen() const { return _screen != Screen::kNone; }
-    ///@}
     /** A dialog over the menu that opened it (drawn first). */
     bool isDialog() const { return isOpen() && overlay(_screen); }
     /** Takes a key or click; what the caller is to do about it. */
@@ -85,9 +86,9 @@ public:
     void draw(Surface &overlay, uint64_t nowMs);
     /** Whether keys are being typed into it (a name, or a key to bind). */
     bool typing() const;
-    /** After a replay: ask whether to save it, under this name. */
+    /** After a replay: ask whether to save it, under this name (cut at 40 characters). */
     void askToSaveReplay(const std::string &name);
-    /** Save the replay played as (the replay's own Save). */
+    /** Save the replay played as (the replay's own Save): opens the name to change, cut at 40 characters. */
     void nameReplay(const std::string &name);
     /**
      * The drivers and their records, for the driver dialogs (and the
@@ -133,6 +134,7 @@ private:
     bool hit(const Item &item, int x, int y, int &w, int &h) const;
     void drawItems(Surface &o, const std::vector<Item> &list, int focus) const;
     void drawScreenWords(Surface &o, uint64_t nowMs) const;
+    void drawControlWarning(Surface &o) const;
     void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
     Action done(); // the options kept, saved and put in force
     Action cancel();
@@ -148,6 +150,7 @@ private:
 
     Screen _screen = Screen::kNone;
     Screen _under = Screen::kNone; // the screen a dialog is over
+    int _controllerBefore = 0;     // CONTROLLERS before Control Warning asked
     int _focus = 0;
     GameOptions _edit;    // as changed on the screens
     GameOptions _entered; // as they were when the Options opened

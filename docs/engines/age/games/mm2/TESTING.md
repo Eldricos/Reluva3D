@@ -18,7 +18,7 @@ files built in the tests and needing no game files, so they run in CI:
 | `age.unit.driving` | The cars: collision, the simulation, engine sounds, their files, a game controller, texture quality |
 | `age.unit.city` | The city's life: opponents along their paths, the road graph, traffic, its lights and rules, police sirens, speed limits, boats and bridges, parked cars, trains, props, ambient sounds |
 | `age.unit.game` | The game: lessons, the player's record, the menus' layout, music, options, replays, drivers, cruising |
-| `age.unit.network` | Multiplayer: the session (finding, joining, passwords, joining late, a new host) and Cops & Robbers |
+| `age.unit.network` | Multiplayer: the session (finding, joining, passwords, joining late, a new host and the computer players kept, the host's checks, everything sealed, through a meeting server) and Cops & Robbers |
 
 The shared code the game uses has its own suites:
 `common.unit.directmusic` (DLS and DirectMusic),
@@ -68,6 +68,7 @@ variable the steps show as skipped.
 | `age.gamedata.release` | What the game is (`detect`) |
 | `age.gamedata.archives` | Every archive's files listed (`age ar-list`, each `.ar` in the folder) |
 | `age.gamedata.files` | Every texture, model, city, road map, placement list, path set and visibility file read; those it can't, named (`age check`) |
+| `age.gamedata.cars` | Every car driven on a flat plane by Reluva's simulation (0-60, 0-100, the quarter mile, top speed, 60-0), ranked against the game's figures for it (`age cars`; [car-simulation.md](systems/car-simulation.md#against-the-games-figures)) |
 | `age.gamedata.play` | The game run headless: the opening skipped, the race screen (which says it needs 3D) left (`age game-run`) |
 | `age.gamedata.viewer` | The data viewer run headless: its pages in turn, a few keys on the textures and the files, then **Esc** (`age viewer-run`) |
 
@@ -131,4 +132,4 @@ step's message says), and commit them. See
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 2026-11-19 | English | Linux | The automated checks: the unit tests, `age.engine`, and the game-files test's five steps against the `en` records |
+| 2026-11-19 | English | Linux | The automated checks: the unit tests, `age.engine`, and the game-files test's six steps against the `en` records |

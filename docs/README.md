@@ -47,6 +47,10 @@ Laid out as `src/common/` is, a page per component:
   draws them: their hinting programs run by Reluva's own interpreter.
 - **[winhelp.md](common/winhelp.md):** Windows Help files (`.hlp`): their
   topics, links and pictures.
+- **[crypto.md](common/crypto.md):** encryption for network play: X25519
+  key agreement and ChaCha20-Poly1305.
+- **[meeting-server.md](common/meeting-server.md):** a meeting server
+  for network play, for players who can't reach each other.
 
 ## Engines: `engines/<engine>/`
 

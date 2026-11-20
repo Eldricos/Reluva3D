@@ -10,7 +10,6 @@ namespace reluva::age {
 
 namespace {
 
-constexpr float kDeadZone = 0.15f;    // of a stick's travel, round the middle
 constexpr float kTriggerZone = 0.05f; // of a trigger's
 constexpr int kAxisLeftX = 0;         // GamepadState::axes' order
 constexpr int kAxisLeftTrigger = 4;
@@ -36,7 +35,7 @@ uint32_t keyOf(Control c, const GameOptions &o) {
 void PadDrive::axis(int axis, float value) {
     switch (axis) {
     case kAxisLeftX:
-        steer = outside(value, kDeadZone);
+        steer = outside(value, deadZone);
         break;
     case kAxisRightTrigger:
         throttle = outside(value, kTriggerZone);
@@ -59,9 +58,10 @@ void PadDrive::apply(CarControls &c) const {
 void pollPad(System &sys, PadDrive &pad, bool driving, bool axes, const GameOptions &options,
              std::vector<Event> &keys) {
     GamepadState state;
-    if (!sys.readGamepad(state)) {
-        state = {}; // unplugged: everything let go
+    if (options.controller == GameOptions::kKeyboardOnly || !sys.readGamepad(state)) {
+        state = {}; // the keyboard alone, or unplugged: everything let go
     }
+    pad.deadZone = options.deadZone * 0.5f;
     if (axes)
         for (int a : {kAxisLeftX, kAxisLeftTrigger, kAxisRightTrigger})
             pad.axis(a, state.axes[a]);

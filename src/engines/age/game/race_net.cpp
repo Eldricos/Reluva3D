@@ -396,6 +396,27 @@ void RaceScreen::remoteLook(Racer &r, const NetCarState &s, float dt) {
     r.wear->puff(dt, *r.car, _smoke.get());
 }
 
+void RaceScreen::takeOverBot(Racer &r) {
+    NetSession *session = _net->session();
+    r.botId = r.peer;
+    r.peer = kNoPlayer;
+    r.resets = r.seenResets; // its count goes on, so the others see no jump as a trick
+    r.engine.reset();
+    r.wear.reset();
+    const Vec3 at = r.car->sim.position;
+    if (NetMenus::hasRace(session->settings().mode)) {
+        // Through the checkpoints it hasn't reached, along the roads.
+        std::vector<Vec3> through;
+        for (size_t k = std::min(r.next, _targets.size()); k < _targets.size(); ++k)
+            through.push_back(_race.waypoints[_targets[k]].position);
+        size_t loopFrom = 0;
+        if (!through.empty())
+            r.driver.start(routePath(_roads, at, through, false, loopFrom, &_botRoads), 0, kBotSkill);
+    } else {
+        r.bot.start(session->seed() ^ (uint32_t(r.botId) * 2654435761u));
+    }
+}
+
 void RaceScreen::syncNetRacers() {
     // Players who've left (or a host that's gone, and its computer
     // players) take their cars with them; players who've joined since the
@@ -406,6 +427,12 @@ void RaceScreen::syncNetRacers() {
     _racers.erase(std::remove_if(_racers.begin() + 1, _racers.end(),
                                  [&](const Racer &r) { return !session->player(netIdOf(r)); }),
                   _racers.end());
+    // Taken over as host: the old host's computer players are ours to
+    // drive now, on from where their cars were.
+    if (session->isHost())
+        for (Racer &r : _racers)
+            if (const NetPlayer *p = r.peer != kNoPlayer ? session->player(r.peer) : nullptr; p && p->bot)
+                takeOverBot(r);
     for (const NetPlayer &p : session->players()) {
         if (p.id == session->myId() || _unloadable.count(p.id))
             continue;

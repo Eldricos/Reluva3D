@@ -107,6 +107,29 @@ speed (as much as the air's at 60 mph), and wheelspin that keeps a car
 at its sliding friction for good (the Bullet's back tyres' is 1.4 / 3,
 so it crawls).
 
+**How the cars rank** is what the bars can check. `reluva-tool age cars`
+drives every car on a flat plane (0-60 and 0-100 mph, the quarter mile,
+top speed, 60-0 braking) and ranks them, and the game-files test keeps
+its output (step `cars`). Over the 20 cars, as Spearman's rank agreement
+(1: the same order):
+
+| Compared | Agreement | What it says |
+|---|---|---|
+| The bars against their files: Top Speed and High, Horsepower and MaxHorsePower, Mass and Mass, Durability and `.vehCarDamage`'s MaxDamage | 0.92, 0.79, 0.73, 0.80 | Each bar ranks the cars much as its file's figure does, but isn't a scale of it |
+| Reluva's top speed and the Top Speed bar | 0.91 | As High is |
+| Reluva's quarter mile and power to weight (MaxHorsePower / Mass) | 0.79 | Past 60 mph the cars are as quick as their engines and weight make them |
+| Reluva's 0-60 and power to weight | 0.42 | Below 60 nearly every car is held by its tyres' grip, not its engine |
+
+So off the line Reluva's cars are closer than their engines would make
+them: 0-60 in 5.7 to 12 s, the 4x4 and the Ford pickup (550 hp for
+2,500 kg) in 6.4 and 6.6 s against the Panoz GT's 6.8. The Horsepower
+bar tracks the engine alone (the semi's 900 is among the slowest cars,
+rightly, for its 3,500 kg). Whether the game's cars are as close off the
+line, so whether the grip (StaticFric / 3) or the engine's units are
+right, needs a recording of a few cars' starts *(inferred)*. The 4x4's
+60-0 mph of 89 m, against 37-57 for the rest, is its file's: its front
+BrakeCoef is 0.062.
+
 Aero's **AngCDamp**, **AngVelDamp** and **AngVel2Damp** are a damper's
 three terms per axis (x pitch, y yaw, z roll): a constant against the
 turning, one with the turning and one with its square (the older layout
@@ -189,4 +212,4 @@ hand and is set upright on its roof.
 ## Sources and checks
 
 - **Where the facts come from:** each car's `.vehCarSim`, `.vehStuck`, `.info`, wheel `.mtx` and bounds; the menus' figures (top speed, horsepower) to compare with; public gameplay videos ([research/footage.md](../research/footage.md)).
-- **How it was checked:** `age.unit.driving`; the Drive page, every car in both cities; the cars' top speeds against their `.info` figures.
+- **How it was checked:** `age.unit.driving`; the Drive page, every car in both cities; the cars' top speeds against their `.info` figures; `reluva-tool age cars`, every car's runs ranked against the game's figures (the game-files test's `cars` step).

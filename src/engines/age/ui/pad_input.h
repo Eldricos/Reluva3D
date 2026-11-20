@@ -21,10 +21,11 @@ namespace reluva::age {
  * layout.
  */
 struct PadDrive {
-    float steer = 0;      // -1 (left) .. 1 (right)
-    float throttle = 0;   // 0..1
-    float brake = 0;      // 0..1
-    uint32_t buttons = 0; // GamepadButton bits held at the last poll
+    float steer = 0;
+    float throttle = 0;
+    float brake = 0;
+    uint32_t buttons = 0;   // GamepadButton bits held at the last poll
+    float deadZone = 0.15f; // of the stick's travel, round the middle (Joystick Dead Zone)
 
     /** An axis (GamepadState::axes' order) moved, with a dead zone round the middle. */
     void axis(int axis, float value);
