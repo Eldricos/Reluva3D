@@ -35,10 +35,9 @@ None: nothing of the game's code has been read.
 
 - **On Save Game:** an empty slot's description when chosen (the galaxy's
   shape),
-  typing whichever field was clicked, the cursor's flashing every half a
-  second, and on Load Game the chosen slot's text pink too
-  ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
-  an empty slot just chosen, a recording, and a slot chosen on Load Game.
+  typing whichever field was clicked, and the cursor's flashing every half
+  a second ([systems/screens.md](systems/screens.md)). Settled by: a
+  screenshot of an empty slot just chosen, and a recording.
 
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
@@ -57,6 +56,9 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** Load Game's chosen slot, pink as on Save Game, from a
+  screenshot ([systems/screens.md](systems/screens.md)).
 
 - **November 2026:** Save Game's chosen slot (pink text, the slot lit)
   and its cursor, from a screenshot ([systems/screens.md](systems/screens.md)).

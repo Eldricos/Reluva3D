@@ -212,7 +212,9 @@ game."
   matches it pixel for pixel, as does the whole screen but the pointer.
   How fast it flashes isn't known: Reluva shows it half a second and hides
   it half a second *(guessed)*.
-- **Loading,** Reluva colours the chosen slot's text pink too *(guessed)*.
+- **Loading,** the chosen slot's text is pink too, and Accept lit: a
+  screenshot with the first tutorial chosen matches Reluva's pixel for
+  pixel but the pointer.
 - **Accept** saves into the slot, its old game, if any, replaced; Cancel
   goes back.
 
