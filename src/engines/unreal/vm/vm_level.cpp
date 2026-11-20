@@ -361,7 +361,7 @@ VmObject *ScriptLevel::login(const std::string &playerClass, const std::string &
                    {nullptr, nullptr, &message, nullptr});
     _player = pawn.asObject();
     if (!_player) {
-        error = "Login refused: " + (message.s.empty() ? std::string("no reason given") : message.s);
+        error = "Login refused: " + (message.s.empty() ? std::string("no reason given") : message.s.str());
         return nullptr;
     }
     // Then as SpawnPlayActor goes on: the viewport (Possess), an

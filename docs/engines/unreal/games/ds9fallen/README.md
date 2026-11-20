@@ -102,9 +102,11 @@ far is in [systems/playing.md](systems/playing.md#in-reluva).
   found for the class and state it was last made on, a native call the
   function its number names, and an `IsA` by a class's name the name it
   interned: 11.76 billion, 20% fewer than at first. What's left is
-  mostly the values themselves: a struct value (a vector, a rotator) is
-  a list of whole values, made, copied and freed as one, which no
-  tighter form of the code would change.
+  mostly the values themselves. So a value's string, like its struct
+  fields, is nothing until it has one (a value is 48 bytes, from 72),
+  and a struct value's field list, let go, is kept for the next one,
+  room and all, so vectors and rotators are made without allocating:
+  11.05 billion, 25% fewer than at first.
 
 ## Using it
 

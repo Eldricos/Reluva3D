@@ -95,7 +95,7 @@ std::string ScriptLevel::travelText(const VmProperty &p, const Value &v) {
         return v.i ? _vm.nameText(v.i) : "None";
     case VType::kString: {
         std::string out = "\"";
-        for (char c : v.s)
+        for (char c : v.s.str())
             out += c == '"' ? '\'' : c;
         return out + "\"";
     }

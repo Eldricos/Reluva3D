@@ -16,8 +16,35 @@
 
 namespace reluva::unreal {
 
+namespace {
+
+// Field lists let go of, kept for the next struct value (most are a
+// vector's or rotator's three); at most so many.
+constexpr size_t kKeptFieldLists = 4096;
+std::vector<std::vector<Value> *> &keptFieldLists() {
+    thread_local std::vector<std::vector<Value> *> lists;
+    return lists;
+}
+
+} // namespace
+
+std::vector<Value> *Fields::take() {
+    std::vector<std::vector<Value> *> &kept = keptFieldLists();
+    if (kept.empty())
+        return new std::vector<Value>();
+    std::vector<Value> *v = kept.back();
+    kept.pop_back();
+    return v;
+}
+
 void Fields::release() {
-    delete _v;
+    _v->clear();
+    std::vector<std::vector<Value> *> &kept = keptFieldLists();
+    if (kept.size() < kKeptFieldLists && _v->capacity() <= 16)
+        kept.push_back(_v);
+    else
+        delete _v;
+    _v = nullptr;
 }
 
 namespace {
@@ -195,7 +222,7 @@ Value *VmObject::findLiteral(Vm &vm, const char *property, size_t length) {
 
 const std::string &NativeCall::s(size_t k) const {
     static const std::string kEmpty;
-    return k < args.size() ? args[k].s : kEmpty;
+    return k < args.size() ? args[k].s.str() : kEmpty;
 }
 
 // --- The VM: names and loading ---------------------------------------------------------
@@ -734,7 +761,7 @@ int Vm::applyLocalizedActor(VmObject *a, const std::string &map) {
         return 0;
     const std::string section = textInfo->s;
     const Value *fileName = a->find(*this, "FileName");
-    std::string file = fileName && !fileName->s.empty() ? fileName->s : map;
+    std::string file = fileName && !fileName->s.empty() ? fileName->s.str() : map;
     if (file.size() > 4 && lower(file.substr(file.size() - 4)) == ".int")
         file.resize(file.size() - 4);
     int set = 0;

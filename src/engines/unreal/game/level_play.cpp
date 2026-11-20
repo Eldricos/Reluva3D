@@ -745,7 +745,7 @@ int LevelPlay::health() {
 
 std::string LevelPlay::title() {
     const Value *v = _level->levelInfo() ? _level->levelInfo()->find(*_vm, "Title") : nullptr;
-    return v ? v->s : std::string();
+    return v ? v->s.str() : std::string();
 }
 
 std::vector<std::string> LevelPlay::activeObjectives() {

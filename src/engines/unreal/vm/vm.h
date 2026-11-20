@@ -48,6 +48,77 @@ using NameId = int32_t;
 
 enum class VType : uint8_t { kNone, kByte, kInt, kBool, kFloat, kName, kString, kObject, kStruct };
 
+/**
+ * A string value's text: as a std::string, but nothing at all until it has
+ * some, so the many values that aren't strings carry only a pointer.
+ */
+class Text {
+public:
+    Text() = default;
+    Text(const Text &other) : _s(other.empty() ? nullptr : new std::string(*other._s)) {}
+    Text(Text &&other) noexcept : _s(other._s) { other._s = nullptr; }
+    Text(const std::string &text)
+        : _s(text.empty() ? nullptr : new std::string(text)) {
+    } // NOLINT(google-explicit-constructor): stands in for a std::string
+    Text &operator=(const Text &other) {
+        if (this != &other)
+            *this = other.str();
+        return *this;
+    }
+    Text &operator=(Text &&other) noexcept {
+        std::swap(_s, other._s);
+        return *this;
+    }
+    Text &operator=(const std::string &text) {
+        if (text.empty())
+            clear();
+        else if (_s)
+            *_s = text;
+        else
+            _s = new std::string(text);
+        return *this;
+    }
+    Text &operator=(std::string &&text) {
+        if (text.empty())
+            clear();
+        else if (_s)
+            *_s = std::move(text);
+        else
+            _s = new std::string(std::move(text));
+        return *this;
+    }
+    Text &operator=(const char *text) { return *this = std::string(text); }
+    ~Text() { delete _s; }
+
+    const std::string &str() const { return _s ? *_s : emptyText(); }
+    operator const std::string &() const {
+        return str();
+    } // NOLINT(google-explicit-constructor): reads as a std::string
+    operator std::string_view() const { return str(); } // NOLINT(google-explicit-constructor): reads as a std::string
+    bool empty() const { return !_s || _s->empty(); }
+    size_t size() const { return _s ? _s->size() : 0; }
+    const char *c_str() const { return str().c_str(); } // NOLINT(readability-identifier-naming): std::string's name
+    void clear() {
+        if (_s)
+            _s->clear();
+    }
+    Text &operator+=(const std::string &more) {
+        if (!_s)
+            _s = new std::string();
+        *_s += more;
+        return *this;
+    }
+    bool operator==(const std::string &other) const { return str() == other; }
+    bool operator==(const Text &other) const { return str() == other.str(); }
+
+private:
+    static const std::string &emptyText() {
+        static const std::string kEmpty;
+        return kEmpty;
+    }
+    std::string *_s = nullptr;
+};
+
 struct Value;
 
 /**
@@ -85,6 +156,9 @@ public:
     void clear();
 
 private:
+    // A list from those let go before (emptied, their room kept), else a
+    // new one; and back to them.
+    static std::vector<Value> *take();
     void release();
     std::vector<Value> *_v = nullptr;
 };
@@ -94,7 +168,7 @@ struct Value {
     int32_t i = 0;                // Byte, Int, Bool (0 or 1), Name
     float f = 0;                  // Float
     VmObject *o = nullptr;        // Object; a class object for class values
-    std::string s;                // String
+    Text s;                       // String
     const VmStruct *st = nullptr; // Struct: which
     Fields fields;                // Struct: one per field slot
 
@@ -173,32 +247,49 @@ struct Value {
     bool asBoolSlow() const;
 };
 
-inline Fields::Fields(const Fields &other) : _v(other.empty() ? nullptr : new std::vector<Value>(*other._v)) {
+inline Fields::Fields(const Fields &other) {
+    if (!other.empty()) {
+        _v = take();
+        *_v = *other._v;
+    }
 }
-inline Fields::Fields(std::initializer_list<Value> list) : _v(list.size() ? new std::vector<Value>(list) : nullptr) {
+inline Fields::Fields(std::initializer_list<Value> list) {
+    if (list.size()) {
+        _v = take();
+        _v->assign(list);
+    }
 }
 inline Fields &Fields::operator=(const Fields &other) {
     if (this == &other)
         return *this;
     if (other.empty())
         clear();
-    else if (_v)
+    else {
+        if (!_v)
+            _v = take();
         *_v = *other._v;
-    else
-        _v = new std::vector<Value>(*other._v);
+    }
     return *this;
 }
 inline Fields &Fields::operator=(const std::vector<Value> &values) {
     if (values.empty())
         clear();
-    else if (_v)
+    else {
+        if (!_v)
+            _v = take();
         *_v = values;
-    else
-        _v = new std::vector<Value>(values);
+    }
     return *this;
 }
 inline Fields &Fields::operator=(std::initializer_list<Value> list) {
-    return *this = std::vector<Value>(list);
+    if (list.size() == 0) {
+        clear();
+    } else {
+        if (!_v)
+            _v = take();
+        _v->assign(list);
+    }
+    return *this;
 }
 inline size_t Fields::size() const {
     return _v ? _v->size() : 0;
@@ -223,7 +314,7 @@ inline const Value *Fields::end() const {
 }
 inline void Fields::resize(size_t n) {
     if (!_v && n)
-        _v = new std::vector<Value>();
+        _v = take();
     if (_v)
         _v->resize(n);
 }
