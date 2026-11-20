@@ -372,9 +372,11 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", click(460, 510, false)},
             {"menu.after a new game", menuButton(5, true)}, // Options
             {"", menuButton(5, false)},
-            {"options.shown", click(300, 345, true)}, // tactical combat
+            {"options.shown", click(300, 345, true)}, // tactical combat's list
             {"", click(300, 345, false)},
-            {"options.combat changed", click(400, 200, true)}, // a volume, dragged down
+            {"options.combat changed", click(700, 590, true)}, // elsewhere: the list closes
+            {"", click(700, 590, false)},
+            {"options.list closed", click(400, 200, true)}, // a volume, dragged down
             {"options.volume pressed", pointAt(330, 200)},
             {"options.volume dragged", click(330, 200, false)},
             {"", click(30, 510, true)}, // Cancel: nothing kept
@@ -383,8 +385,8 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", menuButton(5, false)},
             {"options.again", click(300, 345, true)}, // tactical combat's list
             {"", click(300, 345, false)},
-            {"options.list open", click(520, 415, true)}, // Automatic, kept this time
-            {"", click(520, 415, false)},
+            {"options.list open", click(520, 385, true)}, // Automatic, kept this time
+            {"", click(520, 385, false)},
             {"", click(500, 510, true)}, // Accept
             {"", click(500, 510, false)},
             {"menu.options accepted", menuButton(1, true)}, // a new game, combat automatic

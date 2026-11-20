@@ -279,18 +279,25 @@ void testOptionsScreen() {
     CHECK(!o.toolTips);
     choose(0, 0); // closed: a click there does nothing
     CHECK(!o.toolTips);
-    // A click elsewhere closes it unchanged; its bar again too.
+    // A click elsewhere only closes it, unchanged; its bar again too, and
+    // another setting's bar doesn't open that one's.
     click(2);
     mouse(EventType::kMouseDown, 750, 590);
     mouse(EventType::kMouseUp, 750, 590);
-    choose(1, 1);
+    choose(1, 0);
     CHECK(o.manualCombat);
     click(2);
     click(2);
-    choose(1, 1);
+    choose(1, 0);
     CHECK(o.manualCombat);
     click(2);
-    choose(1, 1);
+    click(4);
+    choose(2, 1);
+    CHECK(o.manualCombat && o.randomEvents);
+    // Tactical combat's list has Automatic first.
+    click(2);
+    choose(1, 0);
+    CHECK(!o.manualCombat);
     click(4);
     choose(2, 1);
     click(5);

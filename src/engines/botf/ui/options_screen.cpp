@@ -48,13 +48,14 @@ struct SettingList {
     int32_t setting;
     int32_t place;
     const char *background;
-    // Each choice: its lit and its plain picture. The first is "yes" (or
-    // manual combat).
+    // Each choice: its lit and its plain picture, in the game's order:
+    // "yes" first, but Automatic before Manual (screenshots of both).
     std::array<std::pair<const char *, const char *>, 2> choices;
+    bool firstIsOff = false; // the first choice sets the setting's flag false
 };
 const std::array<SettingList, 4> kLists = {{
     {kToolTips, 8111, "asavebkg.tga", {{{"yes_on.tga", "yestxtop.tga"}, {"no_on.tga", "notxtop.tga"}}}},
-    {kCombat, 8110, "tactbkg.tga", {{{"man_on.tga", "man-txt.tga"}, {"auto_on.tga", "autotxto.tga"}}}},
+    {kCombat, 8110, "tactbkg.tga", {{{"auto_on.tga", "autotxto.tga"}, {"man_on.tga", "man-txt.tga"}}}, true},
     {kRandomEvents, 8112, "asavebkg.tga", {{{"yes_on.tga", "yestxtop.tga"}, {"no_on.tga", "notxtop.tga"}}}},
     {kAutosave, 8113, "asavebkg.tga", {{{"yes_on.tga", "yestxtop.tga"}, {"no_on.tga", "notxtop.tga"}}}},
 }};
@@ -136,7 +137,7 @@ bool OptionsScreen::listChoice(int x, int y) {
                         : _list == kCombat       ? &o.manualCombat
                         : _list == kRandomEvents ? &o.randomEvents
                                                  : &o.autosave;
-        *setting = i == 0;
+        *setting = (i == 0) != list->firstIsOff;
         return true;
     }
     return false;
@@ -168,17 +169,14 @@ OptionsScreen::Result OptionsScreen::handle(const Event &e) {
     if (e.button != MouseButton::kLeft)
         return Result::kOpen;
     if (e.type == EventType::kMouseDown) {
-        // With a list open, a click chooses from it, or anywhere else closes
-        // it (and does what it would have done).
+        // With a list open, a click chooses from it; anywhere else, its bar
+        // too, it only closes the list (the user, in the game).
         if (_list) {
-            const int32_t list = _list;
-            if (listChoice(e.mouseX, e.mouseY)) {
-                _list = 0;
+            if (listChoice(e.mouseX, e.mouseY))
                 sound(UiSound::kClick);
-                return Result::kOpen;
-            }
-            if (buttonAt(e.mouseX, e.mouseY) != list)
-                _list = 0;
+            _list = 0;
+            _pressed = 0;
+            return Result::kOpen;
         }
         _pressed = buttonAt(e.mouseX, e.mouseY);
         for (const int32_t id : kVolumes)
@@ -219,10 +217,11 @@ void OptionsScreen::drawList(Surface &screen) const {
     if (const image::Image *bg = _assets.picture(list->background))
         blitClipped(screen, *bg, place->x, place->y, place->x, place->y, bg->w, bg->h);
     const GameOptions &o = _options;
-    const bool first = _list == kToolTips       ? o.toolTips
-                       : _list == kCombat       ? o.manualCombat
-                       : _list == kRandomEvents ? o.randomEvents
-                                                : o.autosave;
+    const bool flag = _list == kToolTips       ? o.toolTips
+                      : _list == kCombat       ? o.manualCombat
+                      : _list == kRandomEvents ? o.randomEvents
+                                               : o.autosave;
+    const bool first = flag != list->firstIsOff;
     for (int i = 0; i < 2; ++i) {
         const auto &[lit, plain] = list->choices[size_t(i)];
         const int x = place->x + kChoiceX;

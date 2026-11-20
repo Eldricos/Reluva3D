@@ -65,8 +65,9 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
-- **November 2026:** the options' settings' lists of choices, from a
-  recording and a screenshot of one open ([systems/screens.md](systems/screens.md)).
+- **November 2026:** the options' settings' lists of choices, their order
+  and how they close, from a recording, screenshots of two open and the
+  user's play ([systems/screens.md](systems/screens.md)).
 
 - **November 2026:** the main menu's music and its screens' sounds, from
   a recording with sound ([systems/sound.md](systems/sound.md)).

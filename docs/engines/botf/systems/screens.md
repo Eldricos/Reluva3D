@@ -127,11 +127,12 @@ and checked against a screenshot of the game's screen.
   same bar, for Tactical Combat by its name *(guessed)*) and the choices'
   buttons, 124x28, from (20, 36) in it and 32 apart: `yes_on.tga` /
   `yestxtop.tga`, `no_on.tga` / `notxtop.tga`, and for Tactical Combat
-  `man_on.tga` / `man-txt.tga`, `auto_on.tga` / `autotxto.tga`, the choice
-  set lit. A screenshot of Tool Tips' list open matches Reluva's pixel for
-  pixel but the pointer and a value peeking through. Reluva sets a choice
-  at a click and closes the list; a click elsewhere, or on the bar again,
-  closes it unchanged *(guessed)*.
+  `auto_on.tga` / `autotxto.tga` first, then `man_on.tga` / `man-txt.tga`,
+  the choice set lit. Screenshots of Tool Tips' and Tactical Combat's
+  lists open match Reluva's pixel for pixel but the pointer (and a value
+  peeking through). A choice is set at a click and the list closes; a
+  click anywhere else, the setting's bar too, only closes it, changing
+  nothing (the user, in the game).
 - **Behind it:** drawn over the main menu, dimmed, as the other panels
   are. The bar along the top reads "OPTIONS" where the menu's has none;
   that isn't in the layout's text boxes, so presumably it's in
@@ -441,8 +442,7 @@ recording:
   near its left edge, and Quit Game shows its first picture: the pointer's
   hot spot may not be where it's drawn, or only the button's picture, not
   its rectangle, may count.
-- On the options screen: whether a volume's click works as Reluva's does,
-  and how a setting's list closes.
+- On the options screen: whether a volume's click works as Reluva's does.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.

@@ -18,6 +18,7 @@ empires.second chosen: 2677c6bfad31d36c
 menu.after a new game: 3650ee45940809d6
 options.shown: c140c9b54566e967
 options.combat changed: cc1d8719ac32d2b7
+options.list closed: c140c9b54566e967
 options.volume pressed: 2c90efe67ff7280f
 options.volume dragged: cf88677c88a8c763
 menu.options cancelled: 3650ee45940809d6
