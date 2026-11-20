@@ -2,16 +2,17 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Birth of the Federation's unit tests: the main menu, the options, Load
-// Game and Hall of Fame screens, and the game setup and empire selection
+// Game, Save Game and Hall of Fame screens, and the game setup and empire selection
 // screens.
 
 #include "common/events.h"
+#include "engines/botf/formats/font.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
-#include "engines/botf/ui/load_screen.h"
+#include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
@@ -287,7 +288,7 @@ void testOptionsScreen() {
     CHECK(screen.options().autosave && screen.options().volume[3] == defaults.volume[3]);
 }
 
-void testLoadScreen() {
+void testLoadSaveScreen() {
     // Accept and Cancel, then the twelve slots, 600x20 each, one under
     // another from y 100, with their name and description boxes.
     Bytes f;
@@ -320,14 +321,14 @@ void testLoadScreen() {
     archive.files["human15.fnt"] = makeFont(16);
     Assets assets(archive);
     Lexicon lexicon;
-    LoadScreen screen(assets, lexicon);
+    LoadSaveScreen screen(assets, lexicon);
     CHECK(!screen.load());
-    LoadScreen::Slots slots;
+    LoadSaveScreen::Slots slots;
     slots[0] = SaveSummary{"Tutorial #1", "Irregular", 0, false};
     slots[3] = SaveSummary{"Mine", "Spiral", 120, false};
-    screen.open(slots);
+    screen.open(slots, LoadSaveScreen::Mode::kLoad);
     auto click = [&](int x, int y) {
-        LoadScreen::Result r = LoadScreen::Result::kOpen;
+        LoadSaveScreen::Result r = LoadSaveScreen::Result::kOpen;
         for (EventType t : {EventType::kMouseDown, EventType::kMouseUp}) {
             Event e;
             e.type = t;
@@ -340,18 +341,50 @@ void testLoadScreen() {
     };
     auto slot = [&](int i) { return click(300, 105 + 25 * i); };
     // Nothing chosen: Accept does nothing; an empty slot can't be chosen.
-    CHECK(screen.chosen() == -1 && click(20, 555) == LoadScreen::Result::kOpen);
-    CHECK(slot(1) == LoadScreen::Result::kOpen && screen.chosen() == -1);
-    CHECK(slot(3) == LoadScreen::Result::kOpen && screen.chosen() == 3);
-    CHECK(slot(0) == LoadScreen::Result::kOpen && screen.chosen() == 0);
+    CHECK(screen.chosen() == -1 && click(20, 555) == LoadSaveScreen::Result::kOpen);
+    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == -1);
+    CHECK(slot(3) == LoadSaveScreen::Result::kOpen && screen.chosen() == 3);
+    CHECK(slot(0) == LoadSaveScreen::Result::kOpen && screen.chosen() == 0);
     Surface surface;
     surface.create(800, 600, PixelFormat::kRGBA32);
     screen.draw(surface);
-    CHECK(click(20, 555) == LoadScreen::Result::kAccepted && screen.chosen() == 0);
-    CHECK(click(20, 575) == LoadScreen::Result::kCancelled);
+    CHECK(click(20, 555) == LoadSaveScreen::Result::kAccepted && screen.chosen() == 0);
+    CHECK(click(20, 575) == LoadSaveScreen::Result::kCancelled);
     // Opening it again chooses nothing.
-    screen.open(slots);
+    screen.open(slots, LoadSaveScreen::Mode::kLoad);
     CHECK(screen.chosen() == -1);
+
+    // Saving: an empty slot can be chosen, and its description typed over,
+    // as far as the field and the font allow.
+    screen.open(slots, LoadSaveScreen::Mode::kSave, "Ring");
+    auto key = [&](uint32_t k) {
+        Event e;
+        e.type = EventType::kKeyDown;
+        e.key = k;
+        return screen.handle(e);
+    };
+    auto typed = [&](const char *t) {
+        Event e;
+        e.type = EventType::kTextInput;
+        std::strncpy(e.text, t, sizeof e.text - 1);
+        return screen.handle(e);
+    };
+    typed("x"); // nothing chosen: not typed
+    CHECK(screen.description() == "Ring" && key(key::kReturn) == LoadSaveScreen::Result::kOpen);
+    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1);
+    key(key::kBackspace);
+    typed("s \xc3\xa9\xe2\x82\xac"); // 's', a space, 'é'; the font has no euro sign
+    CHECK(screen.description() == "Rins \xc3\xa9");
+    key(key::kBackspace);
+    CHECK(screen.description() == "Rins ");
+    screen.draw(surface);
+    // The field is 150 pixels, here 3 to 6 a character: it fills up.
+    for (int i = 0; i < 60; ++i)
+        typed("1");
+    Font font15;
+    CHECK(!font15.load(makeFont(16)));
+    CHECK(font15.measure(screen.description()) <= 150 && screen.description().size() < 60);
+    CHECK(click(20, 555) == LoadSaveScreen::Result::kAccepted && screen.chosen() == 1);
 }
 
 void testFromIni() {
@@ -521,7 +554,7 @@ static const reluva::test::Suite
     kSuite("botf.unit.screens", {
                                     {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
                                     {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
-                                    {"load game", [](const std::filesystem::path &) { testLoadScreen(); }},
+                                    {"load game", [](const std::filesystem::path &) { testLoadSaveScreen(); }},
                                     {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
                                     {"hall of fame", [](const std::filesystem::path &) { testFameScreen(); }},
                                     {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},

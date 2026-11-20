@@ -178,8 +178,33 @@ of twelve slots, the manual's "12 slots available for saved games".
   at 386, 102). The layout names `ls_svlb.tga` there, "SAVE GAME"; on this
   screen the game shows `ls_ldlb.tga`, "LOAD GAME", beside it in
   `stbof.res`. "NAME:" and "DESCRIPTION:" are in the background.
-- **Shared with Save Game:** the same layout (the file's name), where the
-  manual has the description typed in.
+- **Shared with Save Game,** below: the same layout (the file's name).
+
+### Save Game
+
+`loadsave.wdf` again, opened by the main menu's Save Game, which can be
+used only with a game in progress. The manual: "you have 12 slots
+available for saved games. To select a slot, click on the slot in either
+the Name Field or the Description Field. In the Description Field, the
+galaxy type of the saved game will appear. If you wish to change the text,
+click on the Description Field and type in your text. Click the Accept
+button to save the game and to resume play. If you save a new game in an
+older game's slot, the older game will be erased in favor of the newer
+game."
+
+- **As Load Game,** but any slot can be chosen, an empty one too, and the
+  title is the layout's own, `ls_svlb.tga`, "SAVE GAME" *(inferred: from
+  its name and Load Game's using the other)*.
+- **The chosen slot** shows its file's name and the description of the
+  game to save: at first its galaxy's shape ("Ring"), the manual's "galaxy
+  type" *(guessed)*: which words, and whether the size goes with them,
+  aren't known. Typing
+  changes it, and Backspace takes the last character away. Reluva takes
+  what's typed whichever field was clicked, without a cursor *(guessed)*;
+  only characters the field's font has (all in Windows-1252, as
+  `gameInfo` keeps them), up to 50 and the field's 370 pixels.
+- **Accept** saves into the slot, its old game, if any, replaced; Cancel
+  goes back.
 
 ### Game setup
 
@@ -287,7 +312,7 @@ recording:
   glyphs a pixel below the line's top (the cells' frame row above them),
   a single line's top centred in the box, `(height - line height) / 2`,
   measured on every screenshot's text. The dimmed pictures are made by `ui/assets.cpp`.
-- `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/load_screen.cpp`,
+- `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/load_save_screen.cpp`,
   `ui/fame_screen.cpp`, `ui/setup_screen.cpp` and `ui/empire_screen.cpp`:
   each screen's controls.
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
@@ -342,6 +367,9 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
+- Save Game as the game draws it: the description it starts with, a
+  cursor, and whether the title is `ls_svlb.tga`. Settled by a screenshot
+  of the screen with a game in progress.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses

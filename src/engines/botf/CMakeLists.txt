@@ -21,7 +21,7 @@ reluva_add_engine(botf
         ui/empire_screen.cpp
         ui/fame_screen.cpp
         ui/layout_screen.cpp
-        ui/load_screen.cpp
+        ui/load_save_screen.cpp
         ui/main_menu.cpp
         ui/options_screen.cpp
         ui/setup_screen.cpp)

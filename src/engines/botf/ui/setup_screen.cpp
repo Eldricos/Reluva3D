@@ -84,6 +84,16 @@ GameSetup setupFromIni(const std::map<std::string, std::string> &ini) {
     return s;
 }
 
+std::string galaxyShapeName(const Lexicon &lexicon, int shape) {
+    static const std::pair<int, const char *> kShapes[] = {{lex::kIrregular, "Irregular"},
+                                                           {lex::kElliptical, "Elliptical"},
+                                                           {lex::kRing, "Ring"},
+                                                           {lex::kSpiral, "Spiral"}};
+    const auto &[entry, english] = kShapes[std::clamp(shape, 0, 3)];
+    const std::string &w = lexicon[size_t(entry)];
+    return w.empty() ? english : w;
+}
+
 std::string civilizationLevel(const Lexicon &lexicon, int level) {
     static const std::pair<int, const char *> kLevels[] = {{lex::kBeginning, "BEGINNING"},
                                                            {lex::kEarly, "EARLY"},
@@ -189,10 +199,6 @@ void SetupScreen::draw(Surface &screen) {
                                                          {lex::kHard, "HARD"},
                                                          {lex::kImpossible, "IMPOSSIBLE"}};
     const std::pair<int, const char *> victories[] = {{lex::kDomination, "DOMINATION"}, {lex::kVendetta, "VENDETTA"}};
-    const std::pair<int, const char *> shapes[] = {{lex::kIrregular, "Irregular"},
-                                                   {lex::kElliptical, "Elliptical"},
-                                                   {lex::kRing, "Ring"},
-                                                   {lex::kSpiral, "Spiral"}};
     const std::pair<int, const char *> sizes[] = {
         {lex::kSmall, "Small"}, {lex::kMedium, "Medium"}, {lex::kLarge, "Large"}};
     auto value = [&](int32_t box, const std::pair<int, const char *> &w) {
@@ -203,7 +209,7 @@ void SetupScreen::draw(Surface &screen) {
     value(kRandomEventsText, s.randomEvents ? std::pair{lex::kOn, "ON"} : std::pair{lex::kOff, "OFF"});
     value(kCombatText, s.manualCombat ? std::pair{lex::kManual, "MANUAL"} : std::pair{lex::kAutomatic, "AUTOMATIC"});
     value(kVictoryText, victories[s.victory]);
-    value(kShapeText, shapes[s.galaxyShape]);
+    drawText(screen, kShapeText, galaxyShapeName(_lexicon, s.galaxyShape), kValueColor);
     value(kSizeText, sizes[s.galaxySize]);
     // The timers show "NONE" though the entry is "None".
     drawText(screen, kStrategicText, upperAscii(word(lex::kNone, "None")), kTimerColor);

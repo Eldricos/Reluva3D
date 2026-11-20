@@ -33,6 +33,11 @@ None: nothing of the game's code has been read.
 
 ## Guessed
 
+- **On Save Game:** the description it starts with (the galaxy's shape),
+  typing whichever field was clicked, no cursor, and the title
+  ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
+  Save Game with a game in progress.
+
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
 - **On the options screen:** a click on a volume lighting the cells up to

@@ -13,7 +13,7 @@
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
-#include "engines/botf/ui/load_screen.h"
+#include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
@@ -64,14 +64,14 @@ constexpr int kScreenH = 600;
 // case). Only the install's own: the CD has the tutorials' saves too, but a
 // slot emptied in the install should stay empty. A save that can't be read
 // shows as an empty slot.
-LoadScreen::Slots findSaves(const std::filesystem::path &dir) {
-    LoadScreen::Slots slots;
+LoadSaveScreen::Slots findSaves(const std::filesystem::path &dir) {
+    LoadSaveScreen::Slots slots;
     std::error_code ec;
     for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
         std::string name = entry.path().filename().string();
         for (char &c : name)
             c = char(std::tolower(static_cast<unsigned char>(c)));
-        for (int i = 0; i < LoadScreen::kSlots; ++i)
+        for (int i = 0; i < LoadSaveScreen::kSlots; ++i)
             if (name == "game" + std::to_string(i) + ".sav") {
                 SaveSummary save;
                 if (!readSaveSummary(entry.path(), save))
@@ -126,7 +126,7 @@ public:
         Assets assets(_stbof);
         MainMenu menu(assets, _lexicon);
         OptionsScreen options(assets, _lexicon);
-        LoadScreen loading(assets, _lexicon);
+        LoadSaveScreen loading(assets, _lexicon);
         FameScreen fame(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
@@ -172,7 +172,16 @@ public:
                         showing = Showing::kSetup;
                     }
                     if (c == MainMenu::Choice::kLoadGame) {
-                        loading.open(findSaves(_target.path));
+                        loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kLoad);
+                        showing = Showing::kLoad;
+                    }
+                    // Only with a game in progress, which there can't be yet:
+                    // the game's galaxy shape is the description at first,
+                    // as the manual says.
+                    if (c == MainMenu::Choice::kSaveGame) {
+                        loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kSave,
+                                     galaxyShapeName(_lexicon, lastSetup.galaxyShape));
+                        _sys.setTextInput(true);
                         showing = Showing::kLoad;
                     }
                     if (c == MainMenu::Choice::kHallOfFame) {
@@ -196,8 +205,11 @@ public:
                     if (fame.handle(ev))
                         showing = Showing::kMenu;
                 } else if (showing == Showing::kLoad) {
-                    if (loading.handle(ev) != LoadScreen::Result::kOpen)
+                    // Nothing is saved or loaded yet: there's no game.
+                    if (loading.handle(ev) != LoadSaveScreen::Result::kOpen) {
+                        _sys.setTextInput(false);
                         showing = Showing::kMenu;
+                    }
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)

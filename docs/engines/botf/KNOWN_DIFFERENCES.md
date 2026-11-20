@@ -28,7 +28,9 @@ None yet.
   will fill as games are won, once it can play them
   ([systems/screens.md](systems/screens.md)).
 - **Load Game's Accept comes back to the main menu:** saved games can't
-  be loaded yet. The version ("1.0.2" in the game)
+  be loaded yet. Save Game's screen is there, but as in the game it needs
+  a game in progress, which there can't be yet, and nothing would be
+  written. The version ("1.0.2" in the game)
   isn't drawn.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).

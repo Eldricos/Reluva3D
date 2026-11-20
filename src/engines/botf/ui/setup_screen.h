@@ -76,4 +76,7 @@ private:
  */
 std::string civilizationLevel(const Lexicon &lexicon, int level);
 
+/** The galaxy's shape as the screens name it: "Irregular" ... "Spiral". */
+std::string galaxyShapeName(const Lexicon &lexicon, int shape);
+
 } // namespace reluva::botf
