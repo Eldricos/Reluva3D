@@ -77,8 +77,9 @@ private:
     void runGameCommands();
     // Cinematics (video/<name> in the game's movie format): full screen, the game ended first
     // ("cinematic", then the nextmap cvar's command) or paused under it
-    // ("ingamecinematic"). Any typed key or a click skips one.
-    void startCinematic(const std::string &name, bool inGame);
+    // ("ingamecinematic"). Any typed key or a click skips one. `how`, the
+    // command's second word: "1" holds its last frame, "2" loops it.
+    void startCinematic(const std::string &name, bool inGame, const std::string &how = {});
     void endCinematic();
     void runCinematic(uint64_t nowMs);
     struct Cinematic {
@@ -89,6 +90,9 @@ private:
         // The movie's last frame kept once it ends (the text crawl's, which
         // ends the cinematic itself).
         bool hold = false;
+        bool loop = false;         // played again from its start when it ends
+        std::vector<uint8_t> file; // kept to play it again
+        std::shared_ptr<audio::Sound> soundData;
         bool crawl = false;
         audio::SoundHandle sound = audio::kNoSound;
     };

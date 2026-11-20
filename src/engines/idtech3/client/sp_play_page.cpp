@@ -148,7 +148,7 @@ void SpPlayPage::activate() {
     }
 }
 
-void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
+void SpPlayPage::startCinematic(const std::string &name, bool inGame, const std::string &how) {
     if (inGame && !(_game && _game->clientGameRunning()))
         return;
     std::string base = fs::toLower(name);
@@ -159,6 +159,9 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     std::vector<uint8_t> data;
     auto c = std::make_unique<Cinematic>();
     Error err = _ctx.files.read("video/" + base + _ctx.game.cinematicExtension, data);
+    c->loop = !how.empty() && how[0] == '2';
+    if (c->loop)
+        c->file = data;
     if (!err)
         err = c->movie.open(std::move(data), _ctx.game.cinematicExtension);
     if (err) {
@@ -170,15 +173,24 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     // over it and its music (jk2sp.exe, 0x404ad5).
     const GameInfo::TextCrawl &crawl = _ctx.game.textCrawl;
     c->crawl = !crawl.movie.empty() && base == crawl.movie;
-    c->hold = c->crawl;
+    c->hold = c->crawl || (!how.empty() && how[0] == '1') ||
+              std::find(_ctx.game.heldMovies.begin(), _ctx.game.heldMovies.end(), base) != _ctx.game.heldMovies.end();
+    // Its speech a sound of its own outside English (0x404a8f on).
+    std::string speech;
+    const std::string language = fs::toLower(_cvars.string("s_language"));
+    if (const auto it = _ctx.game.separateSpeech.find(base);
+        it != _ctx.game.separateSpeech.end() && !language.empty() && language != "english")
+        speech = it->second;
     if (c->crawl) {
         const int language = _cvars.find("sp_language") ? _cvars.integer("sp_language") : 0;
         _crawlShaders = HandleTable{};
         _crawlShaders.add(crawl.picture + std::to_string(language));
     }
     if (!inGame) {
-        // The game ends, the menus close.
+        // The game ends, the console and the menus close (0x403c74).
         endGame();
+        if (_consoleOpen)
+            closeConsole();
         if (_ui) {
             if (Error e = _ui->setActiveMenu(""))
                 menusStopped(e);
@@ -193,6 +205,9 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     if (c->crawl) {
         if (auto music = _soundLibrary.find(crawl.music); music && _ctx.mixer)
             c->sound = _ctx.mixer->play(music, audio::SoundType::kMusic, audio::kMaxVolume);
+    } else if (!speech.empty()) {
+        if (auto spoken = _soundLibrary.find(speech); spoken && _ctx.mixer)
+            c->sound = _ctx.mixer->play(spoken, audio::SoundType::kEffects, audio::kMaxVolume);
     } else if (!c->movie.decodeAllAudio(sound, rate, channels) && !sound.empty() && _ctx.mixer) {
         auto s = std::make_shared<audio::Sound>();
         s->rate = rate;
@@ -200,6 +215,8 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
         s->format = 1;
         s->samples = std::move(sound);
         c->sound = _ctx.mixer->play(s, audio::SoundType::kEffects, audio::kMaxVolume);
+        if (c->loop)
+            c->soundData = s;
     }
     _cinematic = std::move(c);
 }
@@ -238,6 +255,15 @@ void SpPlayPage::runCinematic(uint64_t nowMs) {
                 report("Cinematic: " + err.message);
             if (!err && c.hold)
                 break;
+            if (!err && c.loop && !c.movie.open(c.file, _ctx.game.cinematicExtension)) {
+                // From its start again, its sound with it.
+                c.startMs = nowMs;
+                if (c.soundData && _ctx.mixer) {
+                    _ctx.mixer->stop(c.sound);
+                    c.sound = _ctx.mixer->play(c.soundData, audio::SoundType::kEffects, audio::kMaxVolume);
+                }
+                break;
+            }
             return endCinematic();
         }
         decoded = true;
@@ -457,7 +483,7 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
                 menusStopped(err);
     } else if (cmd == "cinematic" || cmd == "ingamecinematic") {
         if (w.size() >= 2)
-            startCinematic(w[1], cmd == "ingamecinematic");
+            startCinematic(w[1], cmd == "ingamecinematic", w.size() >= 3 ? w[2] : std::string());
     } else if (cmd == "music") {
         if (_soundSystem && w.size() >= 2)
             _soundSystem->startBackgroundTrack(w[1], w.size() >= 3 ? w[2] : w[1]);
@@ -1366,7 +1392,12 @@ void SpPlayPage::update(uint64_t nowMs) {
                                   640, 480, 640, 480);
             if (_cinematic->crawl)
                 drawTextCrawl(nowMs - _cinematic->startMs);
+            // The console over it, if it's open (one in a level leaves it).
+            if (!_ctx.game.spConsoleVersion.empty())
+                drawConsole(nowMs, float(nowMs - _startMs) / 1000.0f);
             std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
+            if (_ctx.game.spConsoleVersion.empty() && _consoleOpen)
+                drawOwnConsole(_overlay, _console, (nowMs / 250) % 2 == 0);
             _renderer->endFrame(&_overlay);
             return;
         }

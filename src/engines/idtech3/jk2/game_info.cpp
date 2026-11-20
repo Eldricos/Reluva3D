@@ -52,6 +52,9 @@ GameInfo gameInfo() {
     g.cinematicExtension = ".roq";
     // jk2sp.exe's (0x404ad5): video/jk0101_sw.roq under menu/video/tc_<n>.
     g.textCrawl = {"jk0101_sw", "menu/video/tc_", "music/cinematic_1"};
+    // (0x404a69, 0x404b1b)
+    g.heldMovies = {"end"};
+    g.separateSpeech = {{"jk05", "sound/chars/video/cinematic_5"}, {"jk06", "sound/chars/video/cinematic_6"}};
     // As jk2mp.exe's server registers them at start (0x44dcfc on).
     constexpr int32_t kS = CvarStore::kServerInfo;
     constexpr int32_t kSA = CvarStore::kServerInfo | CvarStore::kArchive;

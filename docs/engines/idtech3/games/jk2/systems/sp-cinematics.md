@@ -29,13 +29,25 @@ crawl (`jk0101_sw`) and the approach to Kejim (`jk0101`).
 5. For `video/jk0101_sw.roq`, the crawl: the picture
    `menu/video/tc_<sp_language>` registered and kept with it, its last
    frame held, and `music/cinematic_1` its sound. For `jk05` and `jk06`
-   in a language other than English, their speech is a separate track
-   (`sound/chars/video/cinematic_5`, `_6`) and the movie's own silent.
+   in a language other than English (`s_language` neither `english` nor
+   empty, 0x404a8f), their speech is a separate track
+   (`sound/chars/video/cinematic_5`, `_6`), handed to the player in
+   place of the movie's own sound (0x404b67).
 6. Played at 640 x 480; one in a level sets `cl_paused` to 1, which stops
    the server's frames (0x437d40) until it ends.
 
+A movie out of a level (the system's) also shuts the console and closes
+the menus as it starts (0x403c74).
+
 `ingamecinematic` (0x404c20) plays it in the level (state 7) at once, or
-keeps it for when the level starts.
+keeps it for when the level starts. Both commands take `how` as their
+second word.
+
+The client game's own calls for movies (90 to 94: play, stop, run,
+draw, set extents; jk2sp.exe's 0x403a00, 0x402520, 0x402780,
+0x4046d0, 0x404650) aren't made by 1.02a's client game: its system
+call wrappers (through the pointer `dllEntry` keeps, 0x201172c8 in
+`jk2gamex86.dll`) cover the other numbers, none of 90 to 94.
 
 ### The opening crawl (0x404cc0)
 
@@ -65,11 +77,17 @@ as the original's game is paused before it sends more. The crawl
 (`GameInfo::textCrawl`) is drawn as above through the scene drawer,
 which takes a view reaching past the screen and its own field of view
 across (the game's `fov_x`, widened in a window wider than 4:3 as every
-view is), and its music plays as the movie's sound.
+view is), and its music plays as the movie's sound. A movie asked to be held
+(`how` "1", or one of `GameInfo::heldMovies`: `end`) stays on its last
+frame until skipped; one asked to loop ("2") starts again with its
+sound; out of a level, one shuts the console, and the console is drawn
+over a movie while it's open. Seen running: `cinematic openinglogos 1`
+from the console held the logos' last frame until a key. `jk05` and
+`jk06` outside English play their separate speech
+(`GameInfo::separateSpeech`) in place of the movie's sound.
 
-Not yet: the separate speech of `jk05` and `jk06` in other languages,
-the cinematics the client game plays itself (its calls 90 to 94), and
-the console's `cinematic` with a second word.
+The client game's movie calls (90 to 94), which 1.02a's client game
+never makes, still stop the game with their number.
 
 ## Sources and checks
 

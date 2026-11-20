@@ -119,6 +119,13 @@ struct GameInfo {
         std::string music;
     };
     TextCrawl textCrawl;
+    // Movies held at their last frame whatever the cinematic command
+    // asks (without their file type).
+    std::vector<std::string> heldMovies;
+    // Movies whose speech is a sound of its own outside English
+    // (s_language other than "english"), the movie's own then silent:
+    // movie -> sound.
+    std::map<std::string, std::string> separateSpeech;
 };
 
 // Every game the engine knows; nullptr if `gameId` isn't one.
