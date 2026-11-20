@@ -138,6 +138,8 @@ public:
         EmpireScreen empires(assets, _lexicon);
         if (Error err = menu.load())
             return err;
+        if (auto it = files.ini().find("VERSION"); it != files.ini().end())
+            menu.setVersion(it->second);
         if (Error err = options.load())
             return err;
         if (Error err = loading.load())

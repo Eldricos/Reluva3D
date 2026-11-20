@@ -54,8 +54,16 @@ and their order on the screen, as the recording shows them.
   further, those that can't be used no more than the rest: all nine come
   out at 20-26% of their pictures, 24-30% of the menu's own buttons.
   Reluva draws them all at 35% of 80%, 28% *(seen, not traced)*.
-- **The version:** the recording's menu shows "1.0.2" at its bottom left,
-  which isn't in the layout: the executable draws it.
+- **The version:** "1.0.2" at the bottom left, which isn't in the layout:
+  the executable draws it, presumably `Stbof.ini`'s `Version`
+  ([game-files.md](game-files.md)), as Reluva does *(inferred: the same
+  text)*. It's `human15.fnt`, its glyphs' corner at (20, 511), in the blue
+  (24, 101, 189) of the other screens' values: of every font and place
+  near, the one that lands on a screenshot's pixels. Without the key,
+  Reluva draws none.
+- **Checked against a screenshot** of the menu with the pointer on none
+  of its buttons: Reluva's matches it pixel for pixel but the pointer,
+  buttons and their dimming included.
 
 ### Options
 

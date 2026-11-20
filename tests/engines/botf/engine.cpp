@@ -117,7 +117,7 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
 // The install: the main menu's buttons down the right; the options
 // screen's volumes, settings and timers' arrows down the middle; Load
 // Game's slots, and two saved games; the Hall of Fame; Multiplayer Setup
-// and its panels; the setup
+// and its panels; Stbof.ini with the version; the setup
 // screen's buttons in a row along the top, the empire screen's names down
 // the left; Accept and Cancel at the bottom.
 void makeInstall(const std::filesystem::path &dir) {
@@ -252,6 +252,9 @@ void makeInstall(const std::filesystem::path &dir) {
     add("lexicon.dic", makeLexicon({"word"}));
     writeFile(dir / "stbof.res", test::buildZip(files));
     writeFile(dir / "sfx.snd", Bytes(4, 0));
+    // Stbof.ini with only the version, which the main menu shows.
+    const std::string ini = "Version=1.0.2\r\n";
+    writeFile(dir / "Stbof.ini", Bytes(ini.begin(), ini.end()));
     // Two saved games, in the first and fourth slots, one named in capitals
     // as some installs have them.
     writeFile(dir / "game0.sav", makeSave("Tutorial #1", "Irregular", 0));

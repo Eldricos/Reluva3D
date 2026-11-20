@@ -7,6 +7,9 @@
 #include "common/types.h"
 #include "engines/botf/ui/layout_screen.h"
 
+#include <string>
+#include <utility>
+
 // The main menu (opening.wdf): the first screen after the opening movie,
 // from which a game is started, loaded, saved or retired, the options and
 // the Hall of Fame are opened, and the game is left. What each button does
@@ -39,7 +42,12 @@ public:
      * Retire can't be used.
      */
     void setGameInProgress(bool inProgress);
-    void draw(Surface &screen) const { drawLayouts(screen); }
+    /**
+     * The version drawn at the bottom left, as the game draws Stbof.ini's
+     * (its "Version" key); none when empty.
+     */
+    void setVersion(std::string version) { _version = std::move(version); }
+    void draw(Surface &screen) const;
     /** The mouse: pointing at a button lights it, and a click on it chooses it. */
     Choice handle(const Event &event);
     /**
@@ -47,6 +55,9 @@ public:
      * moves, as the one it was on when the menu was left may not be under it.
      */
     void forgetPointer() { _pointed = 0; }
+
+private:
+    std::string _version;
 };
 
 } // namespace reluva::botf

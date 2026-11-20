@@ -57,6 +57,9 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
+- **November 2026:** the main menu's version, its font, place and colour,
+  and the whole menu, from a screenshot ([systems/screens.md](systems/screens.md)).
+
 - **November 2026:** Multiplayer Setup's panels, when they appear and cut
   to their places, and its fields' look while typed in and not, the
   password as X's, from screenshots; no field typed in until clicked, and

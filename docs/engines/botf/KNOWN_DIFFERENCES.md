@@ -32,8 +32,7 @@ None yet.
 - **Load Game's Accept comes back to the main menu:** saved games can't
   be loaded yet. Save Game's screen is there, but as in the game it needs
   a game in progress, which there can't be yet, and nothing would be
-  written. The version ("1.0.2" in the game)
-  isn't drawn.
+  written.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
 - **The timers offer only None,** as their other choices aren't known.

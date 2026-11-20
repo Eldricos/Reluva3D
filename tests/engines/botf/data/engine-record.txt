@@ -2,9 +2,9 @@
 # Written by `reluva-tests botf.engine --update`; review its diff before committing.
 detect.games: 1
 detect.description: Star Trek: Birth of the Federation (unknown release)
-menu.shown: aab57f3978016255
-menu.new game pointed at: 138ab6ca9773e725
-menu.continue pressed: aab57f3978016255
+menu.shown: 3650ee45940809d6
+menu.new game pointed at: 9c847392a4491606
+menu.continue pressed: 3650ee45940809d6
 setup.shown: c2b55b030cfbbf1f
 setup.difficulty pressed: 40f0596795bbbb5f
 setup.difficulty changed: 0dce04719f99d8ce
@@ -13,28 +13,28 @@ setup.levels all set: 0dce04719f99d8ce
 empires.shown: 66f734a1e12dcbbc
 empires.third chosen: c653e697a0263a5c
 setup.again: 0dce04719f99d8ce
-menu.again: aab57f3978016255
+menu.again: 3650ee45940809d6
 empires.second chosen: 2677c6bfad31d36c
-menu.after a new game: aab57f3978016255
+menu.after a new game: 3650ee45940809d6
 options.shown: c140c9b54566e967
 options.combat changed: ec301308a9450efa
 options.volume pressed: 4f27990d0b941552
 options.volume dragged: 3686f62abfa43fae
-menu.options cancelled: aab57f3978016255
+menu.options cancelled: 3650ee45940809d6
 options.again: c140c9b54566e967
-menu.options accepted: aab57f3978016255
+menu.options accepted: 3650ee45940809d6
 setup.with the options: dc7d236f73952b21
-menu.last: aab57f3978016255
+menu.last: 3650ee45940809d6
 load.shown: 7b4822baa08ae9b0
 load.empty slot clicked: 7b4822baa08ae9b0
 load.save chosen: 42e489e67660e3c8
-menu.after loading: aab57f3978016255
+menu.after loading: 3650ee45940809d6
 fame.shown: b9c59ecb83c3a745
-menu.after the hall of fame: aab57f3978016255
+menu.after the hall of fame: 3650ee45940809d6
 multiplayer.shown: afb042ae390cf735
 multiplayer.host: db701d89c3e17a3d
 multiplayer.network: 81b383611c6ef7bd
 multiplayer.name typed: 674679cf81f2d146
-menu.after multiplayer: aab57f3978016255
+menu.after multiplayer: 3650ee45940809d6
 run: ok
 run.screen: 800x600

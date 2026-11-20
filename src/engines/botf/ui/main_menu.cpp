@@ -23,6 +23,14 @@ constexpr int32_t kHallOfFame = 144;
 constexpr int32_t kRetire = 9600;
 constexpr int32_t kQuit = 143;
 
+// The version: not in the layout but drawn by the executable, in
+// human15.fnt with its glyphs' corner at (20, 511), in the blue the other
+// screens' values are (measured from a screenshot of the menu).
+constexpr const char *kVersionFont = "human15.fnt";
+constexpr int kVersionX = 20;
+constexpr int kVersionY = 511;
+constexpr Color kVersionColor{24, 101, 189};
+
 using Choice = MainMenu::Choice;
 
 constexpr std::array<std::pair<int32_t, Choice>, 9> kButtons = {{
@@ -47,6 +55,12 @@ Error MainMenu::load() {
         return err;
     setGameInProgress(false);
     return Error::success();
+}
+
+void MainMenu::draw(Surface &screen) const {
+    drawLayouts(screen);
+    if (const Font *font = _version.empty() ? nullptr : _assets.font(kVersionFont))
+        font->drawInColor(screen, kVersionX, kVersionY, _version, kVersionColor);
 }
 
 void MainMenu::setGameInProgress(bool inProgress) {
