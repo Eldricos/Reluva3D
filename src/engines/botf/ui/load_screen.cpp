@@ -3,6 +3,8 @@
 
 #include "engines/botf/ui/load_screen.h"
 
+#include <string>
+
 namespace reluva::botf {
 
 namespace {
@@ -14,6 +16,10 @@ constexpr int32_t kCancel = 9504;
 constexpr int32_t kFirstSlot = 9507;        // 9507, 9509 ... 9529
 constexpr int32_t kFirstName = 9506;        // 9506, 9508 ... 9528
 constexpr int32_t kFirstDescription = 9530; // 9530, 9532 ... 9552
+
+// The slots' text, measured from a screenshot of the game: not their
+// fonts' colours.
+constexpr Color kTextColor{0, 166, 156};
 
 int32_t slotButton(int slot) {
     return kFirstSlot + 2 * slot;
@@ -32,6 +38,8 @@ void LoadScreen::open(const Slots &slots) {
     _chosen = -1;
     _pressed = 0;
     _disabled.clear();
+    // Accept is dimmed until a slot is chosen, as in the game.
+    _disabled.insert(kAccept);
     for (int i = 0; i < kSlots; ++i)
         if (!_slots[size_t(i)])
             _disabled.insert(slotButton(i));
@@ -55,8 +63,10 @@ LoadScreen::Result LoadScreen::handle(const Event &e) {
         if (id == kCancel)
             return Result::kCancelled;
         for (int i = 0; i < kSlots; ++i)
-            if (id == slotButton(i))
+            if (id == slotButton(i)) {
                 _chosen = i;
+                _disabled.erase(kAccept);
+            }
     }
     return Result::kOpen;
 }
@@ -73,8 +83,9 @@ void LoadScreen::draw(Surface &screen) const {
             continue;
         const int32_t name = kFirstName + 2 * i;
         const int32_t description = kFirstDescription + 2 * i;
-        drawText(screen, name, save->name, fontColor(name));
-        drawText(screen, description, save->description, fontColor(description));
+        // The name field shows the slot's file, as the game names it.
+        drawText(screen, name, "game" + std::to_string(i) + ".sav", kTextColor);
+        drawText(screen, description, save->description, kTextColor);
     }
 }
 

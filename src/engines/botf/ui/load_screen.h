@@ -12,9 +12,9 @@
 #include <optional>
 
 // The Load Game screen (loadsave.wdf), opened from the main menu: the
-// twelve saved-game slots, each with its name and description; a click
-// lights one and Accept loads it. What it does is the manual's (chapter 4);
-// the slots' order and fields, the layout's
+// twelve saved-game slots, each with its file's name and its description;
+// a click lights one and Accept loads it. What it does is the manual's
+// (chapter 4); how it looks, a screenshot of the game's
 // (docs/engines/botf/systems/screens.md).
 
 namespace reluva::botf {
@@ -33,8 +33,8 @@ public:
     void open(const Slots &slots);
     void draw(Surface &screen) const;
     /**
-     * Mouse clicks: a slot chooses it, Accept loads the chosen one (and does
-     * nothing until one is), Cancel goes back; and Return/Escape for
+     * Mouse clicks: a slot chooses it, Accept loads the chosen one (and is
+     * dimmed until one is), Cancel goes back; and Return/Escape for
      * Accept/Cancel.
      */
     Result handle(const Event &event);

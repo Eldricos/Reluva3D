@@ -23,8 +23,8 @@ struct GameOptions {
 
     /**
      * Voice, video playback, background music and sound effects, 0 (off) to
-     * kMaxVolume; at first as an installed game showed them, 33 cells of 41
-     * and video's all 41.
+     * kMaxVolume; at first as a fresh install has them, 33 cells of 41 and
+     * video's all 41.
      */
     std::array<int, 4> volume{102, kMaxVolume, 102, 102};
     bool toolTips = true;

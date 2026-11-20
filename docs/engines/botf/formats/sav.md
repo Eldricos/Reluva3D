@@ -6,11 +6,11 @@
 
 A saved game is an archive of the game's state, one file per part of it
 (`gameInfo`, `techInfo`, the empires, the map, the AI ...). The install
-keeps one per Load Game slot, `game0.sav` to `game11.sav`, with
-`Auto.sav` and `Last.sav` beside them *(inferred: from their names; which
-slot is which file, and what `Auto` and `Last` are for, haven't been
-seen)*. Reluva reads only what the load and save screens show: each
-game's name and description.
+keeps one per Load Game slot, `game0.sav` to `game11.sav`, top down (a
+fresh install has the four tutorials as `game0.sav` to `game3.sav`), with
+`Auto.sav` and `Last.sav` beside them *(inferred: what `Auto` and `Last`
+are for)*. Reluva reads only what the load and save screens show: each
+game's description.
 
 ## Layout
 
@@ -69,9 +69,10 @@ with `AltResArchive`, takes its name from the header, and decodes
 
 ## Open questions
 
-- Whether the header's name and `gameInfo`'s description are what the
-  Load Game screen's name and description fields show, and which slot each
-  file is: settled by a saved game and a screenshot of the screen.
+- Whether the Load Game screen's description field shows `gameInfo`'s
+  description or the header's name (its name field shows the file's
+  name): settled by a tutorial's saved game, whose screen shows "Tutorial
+  #1".
 - What `Auto.sav` and `Last.sav` are: presumably autosave and the game the
   main menu's Continue loads.
 - The rest of `gameInfo`, and every other file in the archive.

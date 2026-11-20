@@ -98,10 +98,10 @@ and checked against a screenshot of the game's screen.
   cell under the mouse and those left of it, and dragging follows the
   mouse *(guessed)*. The manual: "After you adjust a volume slider, a sound
   sample will play so you can hear the new volume level."
-- **The volumes at first:** in the screenshot, from an installed game,
-  voice, music and sound effects have 33 cells of 41 lit and video all 41.
-  Reluva starts there (102, 127, 102, 102) *(inferred: they may be the
-  player's own, not the game's defaults)*.
+- **The volumes at first:** after a fresh install, voice, music and sound
+  effects have 33 cells of 41 lit and video all 41. Reluva starts there
+  (102, 127, 102, 102); the value behind 33 cells may be any of 100-103
+  *(inferred)*.
 - **Accept** keeps the changes and **Cancel** drops them (the manual); both
   go back to the main menu.
 - **Colours:** the title and the names are in their fonts' own colours, as
@@ -124,26 +124,29 @@ and checked against a screenshot of the game's screen.
 of twelve slots, the manual's "12 slots available for saved games".
 
 - **The slots** are buttons the width of the list (9507, 9509 ... 9529,
-  596x23, 26 pixels apart from y 175), with `ls_ldb1.tga` and, lit,
-  `ls_ldb2.tga`. On each, two text boxes in `human15.fnt`: on the left
-  (9506, 9508 ... 9528, 158 wide) the save's name, on the right (9530,
-  9532 ... 9552, 370 wide) its description, matched to the manual's "Name
-  Field" and "Description Field" by their order *(inferred)*. Slot *n* is
-  `game`*n*`.sav`, its name the archive header's and its description
-  `gameInfo`'s ([formats/sav.md](../formats/sav.md)) *(inferred)*.
+  596x23, 26 pixels apart from y 175), with `ls_ldb1.tga` (a round cap and
+  two framed fields) and, lit, `ls_ldb2.tga`. On each, two text boxes in
+  `human15.fnt`, left-aligned: on the left (9506, 9508 ... 9528, 158 wide,
+  under "NAME:") the slot's file, `game`*n*`.sav`; on the right (9530,
+  9532 ... 9552, 370 wide, under "DESCRIPTION:") its description. Slot *n*
+  is `game`*n*`.sav`, top down.
+- **After a fresh install** the first four slots hold the tutorials,
+  `game0.sav` to `game3.sav`, described "Tutorial #1" to "Tutorial #4";
+  the other eight show their empty fields. Whether the description is
+  `gameInfo`'s or the archive header's name isn't known: they may be the
+  same ([formats/sav.md](../formats/sav.md)). Reluva shows `gameInfo`'s
+  *(guessed)*.
 - **Choosing:** the manual: "click on its slot and the selected game will
   light up. Then click the Accept button to start that saved game." Reluva
-  lights the chosen slot with its second picture. An empty slot can't be
-  chosen, and Accept does nothing until a slot is *(guessed)*.
-- **The four tutorials** are saved games in four of the slots ("Tutorial
-  #1" to "Tutorial #4", the manual), installed with the game.
-- **The text** is in the boxes' own colours: the names' font names a near
-  black (1, 0, 0), the descriptions' the game's default, taken as black
-  *(guessed)*; the descriptions' font is right-aligned (its first flag),
-  as Reluva draws it.
-- **A picture,** `ls_svlb.tga` (9505, 194x36, at 386, 102) is in the
-  layout, drawn as it says. Its name suggests a "save" label, which the
-  Load Game screen might not show *(guessed)*.
+  lights the chosen slot with its second picture. Accept is dimmed until a
+  slot is chosen (about 38% as bright as Cancel in the screenshot, the main
+  menu's dimming), and an empty slot can't be chosen *(guessed)*.
+- **The text** is teal, (0, 166, 156), in both fields, measured from the
+  screenshot: not the fonts' colours (the names' font names (1, 0, 0)).
+- **The title:** `ls_svlb.tga` (9505, 194x36, at 386, 102) is the right
+  end of the bar along the top, reading "LOAD GAME"; Save Game presumably
+  shows another picture there *(guessed)*. "NAME:" and "DESCRIPTION:" are
+  in the background.
 - **Shared with Save Game:** the same layout (the file's name), where the
   manual has the description typed in.
 
@@ -261,10 +264,9 @@ the screen, and checked against the recording:
   recording's. `botf.unit.screens` checks the controls' choices and the
   menu's buttons, and `botf.engine` goes from the main menu through both
   screens and back, through the options, cancelled and accepted, and
-  through Load Game with two saves. The options screen was checked against
-  a screenshot of the game (November 2026): every widget, word, value and
-  colour; Load Game hasn't been seen, and is from its layout and the
-  manual.
+  through Load Game with two saves. The options and Load Game screens were
+  checked against screenshots of the game after a fresh install (November
+  2026): every widget, word, value and colour.
 
 ## Open questions
 
@@ -277,14 +279,15 @@ the screen, and checked against the recording:
   hot spot may not be where it's drawn, or only the button's picture, not
   its rectangle, may count.
 - On the options screen: whether a volume's click works as Reluva's does,
-  what the pictures 8110-8113 are for, and the volumes' own defaults.
+  and what the pictures 8110-8113 are for.
 - Whether the game setup screen's values and timers are in the colours the
   options screen's are, (24, 101, 189) and (173, 227, 115): its own were
   measured from a video, whose colours run lighter and greyer.
 - Where the game keeps the options between runs.
-- Load Game as the game draws it: which field shows the name and which the
-  description, what an empty slot shows, its text's colours, and whether
-  `ls_svlb.tga` is shown. Settled by a screenshot with saves in it.
+- Load Game: whether its description is `gameInfo`'s or the archive
+  header's name, and whether a slot whose file is `Game4.sav` on disk
+  shows that or `game4.sav`. Settled by a saved game's bytes, and a save
+  in such a slot.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
 - What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an

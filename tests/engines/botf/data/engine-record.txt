@@ -25,9 +25,9 @@ options.again: e2828198ed79093b
 menu.options accepted: aab57f3978016255
 setup.with the options: f1f24d46deb0c711
 menu.last: aab57f3978016255
-load.shown: 8893e537b5d7983d
-load.empty slot clicked: 8893e537b5d7983d
-load.save chosen: 9c5297666b0d154d
+load.shown: da1865fada544b25
+load.empty slot clicked: da1865fada544b25
+load.save chosen: b3104f77d3058a71
 menu.after loading: aab57f3978016255
 run: ok
 run.screen: 800x600
