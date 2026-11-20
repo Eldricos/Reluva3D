@@ -18,16 +18,17 @@
 
 namespace reluva::awe {
 
-// Where a character stood: CHAR, FLLW and POSI. Declared outside SaveGame
-// so it's complete before std::optional<SavedPlacement> is: inside the
-// class, Clang decides SavedPlacement isn't default-constructible (its
-// default member initializers aren't usable yet) and optional::emplace()
-// fails to compile.
+/** Where a character stood: CHAR, FLLW and POSI. */
+// Declared outside SaveGame so it's complete before
+// std::optional<SavedPlacement> is: inside the class, Clang decides
+// SavedPlacement isn't default-constructible (its default member
+// initializers aren't usable yet) and optional::emplace() fails to compile.
 struct SavedPlacement {
     float position[3] = {0, 0, 0};
     float rotation[3] = {0, 0, 0}; // radians; y is the heading
 };
 
+/** A saved game's records, each member by the tag it's saved under. */
 struct SaveGame {
     // "VGFDGFDG", "10:41", "11-02-06"
     std::string description;
@@ -43,7 +44,7 @@ struct SaveGame {
     std::string scene;
     int actMajor = 1;
     int actMinor = 1;
-    // ACTI: the act's row as the game held it (acts.txt isn't read again).
+    /** ACTI: the act's row as the game held it (acts.txt isn't read again). */
     struct Act {
         std::string preLoad;
         std::string location;
@@ -55,6 +56,7 @@ struct SaveGame {
         int timeOfDay = 0;
         int moving = 0;
     } act;
+    /** Where a character stood. */
     using Placement = SavedPlacement;
     // CHAR, FLLW
     std::optional<Placement> player;
@@ -64,15 +66,14 @@ struct SaveGame {
     std::vector<std::pair<std::string, int>> timers;
     float clock = 0; // TIMR without TIMS (And Then There Were None's one timer); Orient Express's is 0
     std::vector<std::pair<std::string, std::string>> texts; // STAT: text tags
-    // POSI: where characters were, by scene file and model file
-    // ("Sirkeci.Market_01.ac2", "klaus_model.gr2").
+    /** POSI: where characters were, by scene file and model file ("Sirkeci.Market_01.ac2", "klaus_model.gr2"). */
     struct Position {
         std::string scene;
         std::string character;
         Placement at;
     };
     std::vector<Position> positions;
-    // TALK: conversations' progress (part a = 0; thread "1" = 96).
+    /** TALK: conversations' progress (part a = 0; thread "1" = 96). */
     struct Talk {
         std::string name;
         std::string act;
@@ -86,6 +87,7 @@ struct SaveGame {
     // bag, 4 taken away but kept, 5 a passport, 6 a fingerprint card), its
     // slot and page (16 slots a page).
     int itemPage = 0;
+    /** An item as ITEM has it. */
     struct Item {
         std::string name;
         int state = 2;
@@ -95,10 +97,12 @@ struct SaveGame {
     std::vector<Item> items;
 };
 
-// How a game lays its saves out; Orient Express's by default. And Then
-// There Were None's (ac.exe 0x412e9f) has its text a byte a character
-// (Windows-1252) in buffers as many characters long, and no GLBM, ACTI or
-// TIMS.
+/**
+ * How a game lays its saves out; Orient Express's by default. And Then
+ * There Were None's (ac.exe 0x412e9f) has its text a byte a character
+ * (Windows-1252) in buffers as many characters long, and no GLBM, ACTI or
+ * TIMS.
+ */
 struct SaveLayout {
     bool narrow = false;
     bool moving = true; // GLBM, the train's moving
@@ -110,15 +114,15 @@ struct SaveLayout {
     bool shortCodes = false;
 };
 
-// Reads a saved game; fails on a record it doesn't know or a short file.
+/** Reads a saved game; fails on a record it doesn't know or a short file. */
 Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out, const SaveLayout &layout = {});
+/** A saved game's file, as the game writes it. */
 std::vector<uint8_t> writeSaveGame(const SaveGame &save, const SaveLayout &layout = {});
-// The first three records alone (0x412440): for the load screen's list.
+/** The first three records alone (0x412440): for the load screen's list. */
 Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time,
                      const SaveLayout &layout = {});
 
-// A 24-bit BMP of an RGBA picture (the slots' 256x192 thumbnails), as
-// the game writes them (alpha dropped).
+/** A 24-bit BMP of an RGBA picture (the slots' 256x192 thumbnails), as the game writes them (alpha dropped). */
 std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t> &rgba);
 
 } // namespace reluva::awe

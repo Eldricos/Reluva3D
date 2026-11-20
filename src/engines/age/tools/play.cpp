@@ -80,7 +80,8 @@ Event keyDown(uint32_t k) {
     return e;
 }
 
-// The game in the folder, printed; false, said, if there's none.
+// Detects the game in the folder and prints it; false, with a message, if
+// there's none.
 bool findGame(const std::filesystem::path &dir, std::vector<DetectedGame> &found) {
     const MetaEngine *engine = findEngine("age");
     if (engine)

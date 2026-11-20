@@ -21,7 +21,7 @@ namespace reluva::idtech3::botlib {
 // docs/engines/idtech3/formats/aas.md describes them. This is new code from that
 // description.
 
-// How a bot gets from one area to the next.
+/** How a bot gets from one area to the next. */
 namespace travel {
 constexpr int kInvalid = 1;
 constexpr int kWalk = 2;
@@ -45,7 +45,7 @@ constexpr int kFuncBob = 19;
 constexpr int kTypeMask = 0xffffff;
 } // namespace travel
 
-// Travel flags: which kinds of travel and which areas a route may use.
+/** Travel flags: which kinds of travel and which areas a route may use. */
 namespace tfl {
 constexpr int kInvalid = 0x1;
 constexpr int kWalk = 0x2;
@@ -79,7 +79,7 @@ constexpr int kDefault = kWalk | kCrouch | kBarrierJump | kJump | kLadder | kWal
                          kTeleport | kElevator | kAir | kWater | kJumpPad | kFuncBob;
 } // namespace tfl
 
-// What an area holds (its settings' contents) and its flags.
+/** What an area holds (its settings' contents). */
 namespace areacontents {
 constexpr int kWater = 1;
 constexpr int kLava = 2;
@@ -96,6 +96,7 @@ constexpr int kNotTeam1 = 2048;
 constexpr int kNotTeam2 = 4096;
 constexpr int kModelNumShift = 24;
 } // namespace areacontents
+/** An area's flags (its settings' flags). */
 namespace areaflag {
 constexpr int kGrounded = 1;
 constexpr int kLadder = 2;
@@ -103,11 +104,13 @@ constexpr int kLiquid = 4;
 constexpr int kDisabled = 8;
 constexpr int kBridge = 16;
 } // namespace areaflag
+/** How a player may be in an area: standing, crouching, or not at all. */
 namespace presence {
 constexpr int kNone = 1;
 constexpr int kNormal = 2;
 constexpr int kCrouch = 4;
 } // namespace presence
+/** A face's flags. */
 namespace faceflag {
 constexpr int kSolid = 1;
 constexpr int kLadder = 2;
@@ -118,11 +121,13 @@ constexpr int kLiquidSurface = 32;
 constexpr int kBridge = 64;
 } // namespace faceflag
 
+/** A plane of the file, with its type as the file gives it. */
 struct AasPlane {
     Vec3f normal{};
     float dist = 0;
     int type = 0;
 };
+/** A face of an area: its plane, flags, edges, and the areas in front and behind. */
 struct AasFace {
     int plane = 0;
     int flags = 0;
@@ -131,6 +136,7 @@ struct AasFace {
     int frontArea = 0;
     int backArea = 0;
 };
+/** An area: its faces and bounds. */
 struct AasArea {
     int numFaces = 0;
     int firstFace = 0;
@@ -138,6 +144,7 @@ struct AasArea {
     Vec3f maxs{};
     Vec3f center{};
 };
+/** An area's contents, flags, presence and cluster, and its reachabilities. */
 struct AasAreaSettings {
     int contents = 0;
     int flags = 0;
@@ -148,9 +155,11 @@ struct AasAreaSettings {
     int numReach = 0;
     int firstReach = 0;
 };
-// A way from one area into another: from `start` (in this area) to
-// `end` (in `area`), of a kind (travel::), taking `time` hundredths of a
-// second.
+/**
+ * A way from one area into another: from `start` (in this area) to
+ * `end` (in `area`), of a kind (travel::), taking `time` hundredths of a
+ * second.
+ */
 struct AasReach {
     int area = 0;
     int face = 0;
@@ -160,18 +169,31 @@ struct AasReach {
     int travelType = 0;
     int time = 0;
 };
+/** A node of the tree that finds the area a point is in. */
 struct AasNode {
     int plane = 0;
     int children[2] = {}; // > 0 a node, < 0 minus an area, 0 solid
 };
 
+/**
+ * A level's .aas file, loaded, and the routes through it, worked out as
+ * they're asked for and kept.
+ */
 class AasWorld {
 public:
-    // Reads a .aas file (version 4, or 5 with its header scrambled).
+    /** Reads a .aas file (version 4, or 5 with its header scrambled). */
     Error load(const std::vector<uint8_t> &data);
+    /** Whether a file has been loaded. */
     bool loaded() const { return _loaded; }
+    /** The checksum of the map the file was made for, as the file gives it. */
     int32_t bspChecksum() const { return _bspChecksum; }
 
+    /**
+     * The file's areas (area 0 isn't one), their settings, reachabilities,
+     * faces, face index and planes; area() and settings() take a number
+     * below areaCount().
+     */
+    ///@{
     int areaCount() const { return int(_areas.size()); }
     const AasArea &area(int n) const { return _areas[size_t(n)]; }
     const AasAreaSettings &settings(int n) const { return _settings[size_t(n)]; }
@@ -179,41 +201,61 @@ public:
     const std::vector<AasFace> &faces() const { return _faces; }
     const std::vector<int> &faceIndex() const { return _faceIndex; }
     const std::vector<AasPlane> &planes() const { return _planes; }
+    ///@}
+    /** Whether `n` is an area of the file (1 and up). */
     bool validArea(int n) const { return n > 0 && n < areaCount(); }
 
-    // The area a point is in, 0 if in solid.
+    /** The area a point is in, 0 if in solid. */
     int pointArea(const Vec3f &point) const;
-    // The areas a line passes through, in order, and where it enters
-    // each (if `points`), at most `max`.
+    /**
+     * The areas a line passes through, in order, and where it enters
+     * each (if `points`), at most `max`.
+     * @return How many areas it gave.
+     */
     int traceAreas(const Vec3f &start, const Vec3f &end, std::vector<int> &areas, std::vector<Vec3f> *points,
                    int max) const;
-    // The box of a player standing (presence::Normal) or crouching.
+    /** The box of a player standing (presence::kNormal) or crouching. */
     static void presenceBox(int presenceType, Vec3f &mins, Vec3f &maxs);
 
+    /** Whether an area has ground to stand on, is liquid, can only be crouched in, or is a ladder. */
+    ///@{
     bool grounded(int a) const { return validArea(a) && (settings(a).flags & areaflag::kGrounded); }
     bool swim(int a) const { return validArea(a) && (settings(a).flags & areaflag::kLiquid); }
     bool crouchOnly(int a) const { return validArea(a) && !(settings(a).presence & presence::kNormal); }
     bool ladder(int a) const { return validArea(a) && (settings(a).flags & areaflag::kLadder); }
+    ///@}
 
+    /** The travel flag (tfl::) a kind of travel (travel::) needs, with its team flags. */
     static int travelFlagForType(int travelType);
-    // The travel flags entering an area needs (its liquid or air, do not
-    // enter, a bridge...).
+    /**
+     * The travel flags entering an area needs (its liquid or air, do not
+     * enter, a bridge...).
+     */
     int contentsTravelFlags(int area) const;
-    // Hundredths of a second to cross an area from one point to another
-    // (walking, crouching or swimming as the area asks), at least 1.
+    /**
+     * Hundredths of a second to cross an area from one point to another
+     * (walking, crouching or swimming as the area asks), at least 1.
+     */
     int areaTravelTime(int area, const Vec3f &from, const Vec3f &to) const;
 
-    // The quickest way from an area (from `origin` in it, if given) to a
-    // goal area using only `travelFlags`: its time and the first
-    // reachability to take (an index into reachabilities()). False if
-    // there is none. In the goal area already: time 1, reachability 0.
+    /**
+     * The quickest way from an area (from `origin` in it, if given) to a
+     * goal area using only `travelFlags`: its time and the first
+     * reachability to take (an index into reachabilities()). False if
+     * there is none. In the goal area already: time 1, reachability 0.
+     */
     bool route(int area, const Vec3f *origin, int goalArea, int travelFlags, int &time, int &reach);
+    /** route()'s time, or 0 if there's no way. */
     int travelTime(int area, const Vec3f &origin, int goalArea, int travelFlags);
-    // Turns an area on or off for routing (doors closing...); returns
-    // whether it was on.
+    /**
+     * Turns an area on or off for routing (doors closing...); returns
+     * whether it was on.
+     */
     bool enableArea(int area, bool enable);
-    // The area's reachabilities after `reach` (an index; 0 for its
-    // first), 0 when there are no more.
+    /**
+     * The area's reachability after `reach` (an index; 0 for its first),
+     * 0 when there are no more.
+     */
     int nextReachability(int area, int reach) const;
 
 private:

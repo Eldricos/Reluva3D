@@ -26,45 +26,60 @@
 
 namespace reluva::idtech3::eliteforce {
 
-// Elite Force's single-player menus (efuix86.dll), run in the x86
-// interpreter in a process of their own, with the engine's side of their
-// interface (docs/engines/idtech3/games/stvef/systems/sp-interface.md, "The menus"):
-// the 59 functions Init is handed, and calls into the 12 GetUIAPI hands
-// back. Drawing is recorded, as the client game's, for the page to show.
+/**
+ * Elite Force's single-player menus (efuix86.dll), run in the x86
+ * interpreter in a process of their own, with the engine's side of their
+ * interface (docs/engines/idtech3/games/stvef/systems/sp-interface.md, "The menus"):
+ * the 59 functions Init is handed, and calls into the 12 GetUIAPI hands
+ * back. Drawing is recorded, as the client game's, for the page to show.
+ */
 class SpUiHost {
 public:
     static constexpr int32_t kApiVersion = 2;
     static constexpr uint32_t kMemory = 64u << 20;
-    // The key catcher's bit for the menus (the engine's KEYCATCH_UI): while
-    // it's set, keys go to them rather than to the game.
+    /**
+     * The key catcher's bit for the menus (the engine's KEYCATCH_UI): while
+     * it's set, keys go to them rather than to the game.
+     */
     static constexpr int32_t kCatchUi = 2;
 
+    /** Over the game's files and the cvars the menus share, which must outlive it. */
     SpUiHost(const SearchSet &files, CvarStore &cvars);
     ~SpUiHost();
 
-    // Loads the DLL (efuix86.dll's bytes), runs GetUIAPI and Init.
+    /** Loads the DLL (efuix86.dll's bytes), runs GetUIAPI and Init. */
     Error load(const std::vector<uint8_t> &dll);
 
-    // The engine's calls into the menus.
-    Error keyEvent(int32_t key); // a press (key | 1024: a typed character)
+    /**
+     * The engine's calls into the menus: a key press (key | 1024: a typed
+     * character), and the mouse moved.
+     */
+    ///@{
+    Error keyEvent(int32_t key);
     Error mouseEvent(int32_t dx, int32_t dy);
-    // Draws them (pictures(), scene()) at `time`, the real time in ms.
+    ///@}
+    /** Draws them (pictures(), scene()) at `time`, the real time in ms. */
     Error refresh(int32_t time);
-    // Whether they cover the whole screen (the game isn't drawn under).
+    /** Whether they cover the whole screen (the game isn't drawn under); false if the call fails. */
     bool fullscreen();
-    // The loading screen (export 8) as a level loads, into pictures(): the
-    // capture if there is one (a saved game's picture), else the menus'
-    // own, with `server` and `info` as the original's engine gives them.
+    /**
+     * The loading screen (export 8) as a level loads, into pictures(): the
+     * capture if there is one (a saved game's picture), else the menus'
+     * own, with `server` and `info` as the original's engine gives them.
+     */
     Error drawLoadingScreen(const std::string &server, const std::string &info);
-    // The connect text alone (export 9), over the client game's loading
-    // screen as it loads; into pictures().
+    /**
+     * The connect text alone (export 9), over the client game's loading
+     * screen as it loads; into pictures().
+     */
     Error drawConnectText(const std::string &server, const std::string &info);
-    // Opens a menu ("main", "ingame", "turbolift"), or closes them ("").
+    /** Opens a menu ("main", "ingame", "turbolift"), or closes them (""). */
     Error setActiveMenu(const std::string &name);
-    // A console command for them; `handled` gets whether they knew it.
+    /** A console command for them; `handled` gets whether they knew it. */
     Error consoleCommand(const std::string &text, bool *handled = nullptr);
 
-    // --- Saved games ----------------------------------------------------------
+    // Saved games.
+    /** The bytes of a saved game's picture: 256 x 256 RGBA. */
     static constexpr uint32_t kShotSize = 256 * 256 * 4;
     // A saved game's file by name (no folder or extension); false if
     // there's none.
@@ -76,21 +91,32 @@ public:
     std::function<bool(const std::string &name)> listSave;
     // The comment the save menu set for the next save (its description).
     std::string saveComment;
-    // The picture of the game for the next save, or of the saved game
-    // loading (256 x 256 RGBA, rows bottom first as the original's screen
-    // captures; the menus draw them upside down); empty: none.
+    /**
+     * The picture of the game for the next save, or of the saved game
+     * loading (256 x 256 RGBA, rows bottom first as the original's screen
+     * captures; the menus draw them upside down). Anything but kShotSize
+     * bytes sets none; capture() gives all zeros for none.
+     */
+    ///@{
     void setCapture(const std::vector<uint8_t> &rgba);
     std::vector<uint8_t> capture() const;
+    ///@}
 
-    // Who has the keys (kCatchUi while a menu is open), as they set it.
+    /** Who has the keys (kCatchUi while a menu is open), as they set it. */
+    ///@{
     int32_t catcher() const { return _catcher; }
     void setCatcher(int32_t c) { _catcher = c; }
+    ///@}
 
-    // The last refresh's drawing, and what it was drawn with.
+    /** The last refresh's drawing. */
+    ///@{
     const std::vector<Picture> &pictures() const { return _pictures; }
     const Scene &scene() const { return _scene; }
-    // Raw images drawn (DrawStretchRaw: a saved game's picture): where in
-    // the 640 x 480 screen, their size and RGBA pixels.
+    ///@}
+    /**
+     * Raw images drawn (DrawStretchRaw: a saved game's picture): where in
+     * the 640 x 480 screen, their size and RGBA pixels.
+     */
     struct RawImage {
         float x = 0;
         float y = 0;
@@ -100,17 +126,23 @@ public:
         int rows = 0;
         std::vector<uint8_t> rgba;
     };
+    /** The last refresh's raw images. */
     const std::vector<RawImage> &rawImages() const { return _raw; }
+    /** What the drawing was drawn with: the shaders, models, skins and sounds registered, by handle. */
+    ///@{
     const HandleTable &shaders() const { return _shaders; }
     const HandleTable &models() const { return _models; }
     const HandleTable &skins() const { return _skins; }
     const HandleTable &sounds() const { return _sounds; }
+    ///@}
 
-    // Commands the menus ran (Cmd_ExecuteText): "map borg1", "disconnect",
-    // "quit"... in order; taken (and cleared) by the caller.
+    /**
+     * Commands the menus ran (Cmd_ExecuteText): "map borg1", "disconnect",
+     * "quit"... in order; taken (and cleared) by the caller.
+     */
     std::vector<std::string> takeCommands() { return std::move(_commands); }
 
-    // --- What the engine provides ------------------------------------------
+    // What the engine provides.
     // What the menus print (Printf).
     std::function<void(const std::string &)> print;
     // The clock the game's code reads (milliseconds: GetTickCount,
@@ -139,8 +171,9 @@ public:
     // The connection state they're told (1: no game, 7: in one).
     int32_t connectionState = 1;
 
-    // Calls they made that aren't answered yet, by import slot.
+    /** Calls they made that aren't answered yet, by import slot, with how many times. */
     const std::map<int, int> &unhandled() const { return _unhandled; }
+    /** The interpreter they run in (valid after load()). */
     x86::Cpu &cpu() { return *_cpu; }
 
 private:

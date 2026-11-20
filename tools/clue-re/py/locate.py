@@ -1,9 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where each frame of a recording is in a picture of the whole house, by
+matching their edges.
+
+    python3 -I py/locate.py HOUSE.png FRAME.png...
+"""
+
 import sys, cv2, numpy as np
 house=cv2.imread(sys.argv[1]); H=cv2.cvtColor(house,cv2.COLOR_BGR2GRAY).astype(np.float32)
 def edges(g): 
+    """A picture's edges, normalised by their neighbourhood's."""
     gx=cv2.Sobel(g,cv2.CV_32F,1,0,ksize=3); gy=cv2.Sobel(g,cv2.CV_32F,0,1,ksize=3)
     m=cv2.magnitude(gx,gy); return m/(cv2.GaussianBlur(m,(31,31),0)+8)
 HE=edges(H)

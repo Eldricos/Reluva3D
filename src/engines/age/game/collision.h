@@ -41,8 +41,9 @@ struct CollisionSurface {
  */
 class CollisionWorld {
 public:
+    /** What a triangle is made of. */
     using Surface = CollisionSurface;
-    /** A triangle and its surface. */
+    /** A triangle to collide with. */
     struct Triangle {
         Vec3 a;
         Vec3 b;
@@ -51,11 +52,11 @@ public:
         Surface surface;
     };
 
-    /** Adds a triangle, found only after build(); one with no area is left out. */
+    /** Adds a triangle (one with no area is left out); build() files it. */
     void add(const Vec3 &a, const Vec3 &b, const Vec3 &c, Surface surface = {});
-    /** Files the triangles into the grid; call after adding them all. */
+    /** Files the triangles into the grid, of cells `cellSize` metres square; call after adding them all. */
     void build(float cellSize = 8);
-    /** The triangles added, not counting the moving ones. */
+    /** How many triangles there are, the moving ones left out. */
     size_t size() const { return _triangles.size(); }
     /**
      * A few more triangles, replaced as they move (a drawbridge's leaves),
@@ -77,10 +78,10 @@ public:
         std::erase_if(_triangles, [&](const Triangle &t) { return drop(t.surface); });
         build(_cellSize);
     }
-    /** The grid's cells' width, in metres. */
+    /** The grid's cells' size, in metres. */
     float cellSize() const { return _cellSize; }
 
-    /** Where a ray met a triangle. */
+    /** Where a ray hits a triangle. */
     struct RayHit {
         float distance = 0;
         Vec3 point{};
@@ -89,17 +90,17 @@ public:
     };
     /**
      * The nearest triangle along a ray (`direction` of length 1) within
-     * `maxDistance`.
+     * `maxDistance`; false if there's none.
      */
     bool raycast(const Vec3 &origin, const Vec3 &direction, float maxDistance, RayHit &hit) const;
 
-    /** How a sphere overlaps a triangle: the way out and how far. */
+    /** How a sphere overlaps a triangle. */
     struct Contact {
         Vec3 normal{}; // out of the triangle, towards the sphere's centre
         float depth = 0;
         Surface surface;
     };
-    /** The deepest overlap of a sphere with the triangles. */
+    /** The deepest overlap of a sphere with the triangles; false if it touches none. */
     bool sphereContact(const Vec3 &center, float radius, Contact &contact) const;
 
 private:

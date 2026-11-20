@@ -11,8 +11,13 @@ and exits with 1 if there is any. CI runs it on every push.
   that exists, and every #anchor to a heading that's there.
 - Engines: each engine's folder (or, for an engine with games/, each
   game's folder) has the five standard pages, and the engine its README.
-- Format and system pages: a status line with a Confidence, and a
-  "Sources and checks" section.
+- Format and system pages: a status line with a Confidence, and their
+  template's ## headings, in order.
+- Engines' and games' READMEs: their template's ## headings, in order.
+- Headings hold no addresses, but in research/ notes.
+- Paths and commands: a path from the repository's root in backticks
+  (`src/...`) names a file or folder git has, and `reluva-tool <engine>
+  <command>` names a command the source registers.
 - Common pages: their five headings, in order, and a Confidence.
 - research/ folders: a README.md.
 - Names: standard pages and guides in capitals, every other page and
@@ -21,6 +26,7 @@ and exits with 1 if there is any. CI runs it on every push.
 
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,6 +64,30 @@ STANDARD_HEADINGS = {
     "REVERSE_ENGINEERING.md": ["Ground rules", "Sources", "Methods", "The tools", "Working files not included"],
     "PLAN.md": ["Goal", "Phases", "Decisions"],
 }
+# The ## headings of a format or system page (docs/templates/), in order;
+# those ending in "?" may be left out.
+PAGE_HEADINGS = {
+    "formats": ["Overview", "Layout", "Behaviour?", "In Reluva", "Sources and checks", "Open questions?"],
+    "systems": ["Overview", "How it works", "In Reluva", "Sources and checks", "Open questions?"],
+}
+# The ## headings an engine's README and a game's README have, in order,
+# among any others of their own (docs/templates/engine/, docs/templates/game/).
+README_HEADINGS = {
+    "engine": ["Games", "Where it stands", "Using it", "This folder", "Code", "Tests"],
+    "game": ["Releases", "Where it stands", "Using it", "This folder"],
+}
+# An address: four hex digits or more, but for a size ("0x40 bytes").
+ADDRESS = re.compile(r"\b0x[0-9a-fA-F]{4,}\b(?!`? bytes)")
+# A path from the repository's root, in backticks.
+PATH = re.compile(r"`((?:src|tests|tools|cmake|docs)/[A-Za-z0-9_./-]*[A-Za-z0-9_-])/?`")
+# Pages whose paths aren't this repository's: a port's table of its source
+# project's files, and branch names that look like paths.
+PATHS_NOT_OURS = ("PORTING.md", "docs/COMMIT_STANDARD.md")
+# A command, after "reluva-tool": an engine's id and its command, or a shared one.
+TOOL = re.compile(r"reluva-tool ([a-z0-9][a-z0-9-]*)(?: ([a-z0-9][a-z0-9-]*))?")
+# A list of commands in the source: Commands kCommands("<engine or empty>", { {"name", ...
+COMMANDS = re.compile(r'\bCommands\s+\w+\s*\(\s*"([a-z0-9]*)"\s*,\s*\{(.*?)\}\s*\)\s*;', re.S)
+COMMAND = re.compile(r'\{\s*"([a-z0-9][a-z0-9-]*)"\s*,\s*"')
 # The words an italic tag may use: *(inferred)*.
 TAG_WORDS = {"confirmed", "from the code", "seen, not traced", "inferred", "guessed", "published"}
 STATUS_WORDS = {"formats": {"decoded", "partial", "unknown"}, "systems": {"done", "partial", "not started"}}
@@ -69,10 +99,12 @@ problems = []
 
 
 def problem(path, message):
+    """Notes a problem with a file, to be printed at the end."""
     problems.append(f"{os.path.relpath(path, ROOT)}: {message}")
 
 
 def markdown_files():
+    """Every .md file in the repository, in order, but in the folders SKIP_DIRS and SKIP_PREFIXES name."""
     for top, dirs, files in os.walk(ROOT):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith(SKIP_PREFIXES))
         for name in sorted(files):
@@ -93,6 +125,7 @@ anchor_cache = {}
 
 
 def anchors(path):
+    """The anchors of a page's headings outside code blocks, a repeat's with -1, -2... after it."""
     if path not in anchor_cache:
         found, seen, fenced = set(), {}, False
         with open(path, encoding="utf-8") as f:
@@ -126,6 +159,7 @@ def check_tags(path):
 
 
 def check_links(path):
+    """Relative links outside code go to a file that's there, an #anchor to its heading."""
     if os.path.relpath(path, ROOT).replace(os.sep, "/").startswith(TEMPLATES + "/"):
         return
     fenced = False
@@ -170,8 +204,23 @@ def check_titles(folder, name):
             problem(page, f'its title is "# {name}: <topic>"')
 
 
+def h2(page):
+    return [l[3:].strip() for l in text(page).split("\n") if l.startswith("## ")]
+
+
+def check_readme(page, kind):
+    """An engine's or a game's README has its template's headings, in order."""
+    if not os.path.isfile(page):
+        return
+    found = h2(page)
+    wanted = README_HEADINGS[kind]
+    if [h for h in found if h in wanted] != wanted:
+        problem(page, f"its ## headings include the template's, in order: {', '.join(wanted)}")
+
+
 def check_page_folder(folder, label):
     """A folder that holds an engine's or a game's own pages."""
+    check_readme(os.path.join(folder, "README.md"), "game" if label.startswith("game") else "engine")
     for name in STANDARD_PAGES:
         if not os.path.isfile(os.path.join(folder, name)):
             problem(folder, f"{label} has no {name}")
@@ -196,6 +245,7 @@ def check_page_folder(folder, label):
 
 
 def check_engines():
+    """Each engine's, or each of its games', folder has the standard pages; an engine's titles name it."""
     engines = os.path.join(ROOT, "docs", "engines")
     for engine in sorted(os.listdir(engines)):
         folder = os.path.join(engines, engine)
@@ -205,6 +255,7 @@ def check_engines():
         if os.path.isdir(games):
             if not os.path.isfile(os.path.join(folder, "README.md")):
                 problem(folder, "the engine has no README.md")
+            check_readme(os.path.join(folder, "README.md"), "engine")
             for game in sorted(os.listdir(games)):
                 if os.path.isdir(os.path.join(games, game)):
                     check_page_folder(os.path.join(games, game), f"game {game}")
@@ -263,11 +314,16 @@ def check_pages(sub):
             if "Status" in f and f["Status"] not in words:
                 allowed = ", ".join(sorted(words))
                 problem(page, f"Status \"{f['Status']}\" isn't one of: {allowed}")
-        if not re.search(r"^## Sources and checks$", body, re.M):
-            problem(page, 'no "## Sources and checks" section')
+        found = h2(page)
+        template = PAGE_HEADINGS[os.path.basename(sub)]
+        wanted = [h.rstrip("?") for h in template if not h.endswith("?") or h.rstrip("?") in found]
+        if found != wanted:
+            problem(page, f"its ## headings are the template's: {', '.join(h.rstrip('?') for h in template)}"
+                    " (Behaviour and Open questions may be left out)")
 
 
 def check_common():
+    """Each page under docs/common/ has the standard's headings, in order, and a Confidence."""
     common = os.path.join(ROOT, "docs", "common")
     for top, _, files in os.walk(common):
         for name in sorted(files):
@@ -289,7 +345,66 @@ def check_common():
                 check_confidence(page, line.split("**Confidence:**", 1)[1])
 
 
+def check_headings(path):
+    """Headings carry no addresses: those go on the section's first line."""
+    rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+    if "/research/" in rel or any(rel.startswith(f"docs/engines/{e}/") for e in EXEMPT_ENGINES):
+        return
+    fence = False
+    for number, line in enumerate(text(path).split("\n"), 1):
+        if line.startswith("```"):
+            fence = not fence
+        elif not fence and line.startswith("#") and ADDRESS.search(line):
+            problem(path, f"line {number}: an address in a heading (it goes on the section's first line)")
+
+
+def tracked():
+    """Every file git has, and every folder they're in."""
+    files = subprocess.run(["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.split("\n")
+    found = set(f for f in files if f)
+    for f in list(found):
+        while "/" in f:
+            f = f.rsplit("/", 1)[0]
+            found.add(f)
+    return found
+
+
+def tool_commands():
+    """{engine id or "": its reluva-tool commands}, as the source registers them."""
+    found = {}
+    for top, dirs, files in os.walk(os.path.join(ROOT, "src")):
+        for name in files:
+            if name.endswith((".cpp", ".h")):
+                with open(os.path.join(top, name), encoding="utf-8", errors="replace") as f:
+                    for m in COMMANDS.finditer(f.read()):
+                        found.setdefault(m.group(1), set()).update(COMMAND.findall(m.group(2)))
+    return found
+
+
+def check_paths_and_commands(path, paths, commands):
+    rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+    if "/research/" in rel or rel.startswith(TEMPLATES) or any(rel.startswith(f"docs/engines/{e}/") for e in EXEMPT_ENGINES):
+        return
+    check_paths = not rel.endswith(PATHS_NOT_OURS)
+    engines = set(os.listdir(os.path.join(ROOT, "src", "engines")))
+    for number, line in enumerate(text(path).split("\n"), 1):
+        if check_paths:
+            for m in PATH.finditer(line):
+                if m.group(1) not in paths:
+                    problem(path, f"line {number}: {m.group(1)} isn't in the repository")
+        for m in TOOL.finditer(line):
+            first, second = m.group(1), m.group(2)
+            if first in engines:
+                if second and second not in commands.get(first, set()):
+                    problem(path, f"line {number}: reluva-tool {first} has no command {second}")
+            elif first not in commands.get("", set()) and first not in ("help", "commands", "command"):
+                owner = [e for e, c in commands.items() if e and first in c]
+                hint = f" (it's reluva-tool {owner[0]} {first})" if owner else ""
+                problem(path, f"line {number}: reluva-tool has no command {first}{hint}")
+
+
 def check_names():
+    """Folders and pages in docs/ are named as the standard says (engines exempted aside)."""
     docs = os.path.join(ROOT, "docs")
     for top, dirs, files in os.walk(docs):
         rel = os.path.relpath(top, docs).replace(os.sep, "/")
@@ -306,9 +421,13 @@ def check_names():
 
 
 def main():
+    paths = tracked()
+    commands = tool_commands()
     for path in markdown_files():
         check_links(path)
         check_tags(path)
+        check_headings(path)
+        check_paths_and_commands(path, paths, commands)
     check_engines()
     check_common()
     check_names()

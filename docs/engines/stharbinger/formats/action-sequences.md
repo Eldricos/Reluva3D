@@ -40,6 +40,11 @@ sprites, the panel, explosions and torpedoes, and the music and voice cues.
 * **`VOICE\<NAME>.VCE`** (text): pairs of lines, a sound name and either a
   video frame number or `d<n>` (when damage first reaches `95 - 5 * (n / 5)`).
 
+## In Reluva
+
+`Arcade` (`src/engines/stharbinger/game/arcade.h`) reads these files and
+plays the sequence over its video.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

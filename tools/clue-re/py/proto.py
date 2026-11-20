@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""An early rendering of the house, before Reluva drew it: every placed
+object's picture at its isometric place, floors first. Also the readers
+of pictures, animations, objects and placements the other scripts import.
+
+    python3 -I py/proto.py DATA_FOLDER OUT.png
+"""
+
 import sys,struct,collections,glob,os; sys.path.insert(0,'tools')
 from ddrv import load, entries
 from lvl import level
@@ -9,13 +16,16 @@ ROOT=sys.argv[1]; OUT=sys.argv[2]
 files={os.path.basename(f).lower():f for f in glob.glob(ROOT+'/**/*',recursive=True) if os.path.isfile(f)}
 drives={}
 def drive(name):
+    """{name: bytes} of an archive's files, read once."""
     if name not in drives:
         d=load(files[name]); drives[name]=(d,{e[4].lower():d[e[2]:e[2]+e[3]] for e in entries(d)})
     return drives[name][1]
 def rec(full,ext):
+    """The record `drive:name` in the archive of that name with extension `ext`."""
     dr,n=full.split(':',1); return drive(dr.lower()+ext).get(n.lower())
 imgcache={}
 def image(full):
+    """(picture, x offset, y offset) of an EIMG resource, decoded once."""
     if full in imgcache: return imgcache[full]
     r=rec(full,'.res'); ver=struct.unpack('<I',r[4:8])[0]
     if ver==0x200: w,h=struct.unpack('<II',r[16:24]); ds=struct.unpack('<I',r[53:57])[0]; data=r[57:57+ds]; eol=0x80; ox=oy=0
@@ -32,6 +42,7 @@ def image(full):
     imgcache[full]=(im,ox,oy); return imgcache[full]
 def pstr(r,p): n=r[p]; return r[p+1:p+1+n].decode('latin-1'), p+1+n
 def anim(full):
+    """An ANIM's size, pictures, layers' frames and ISOA anchor."""
     r=rec(full,'.a'); p=6; nm,p=pstr(r,p); a,b,c=r[p:p+3]; p+=3
     nf,ni,w,h=struct.unpack('<HHHH',r[p:p+8]); p+=20; imgs=[]
     for i in range(ni): s,p=pstr(r,p); imgs.append(s)
@@ -42,12 +53,14 @@ def anim(full):
     if r[p:p+4]==b'ISOA': iso=True; anch=struct.unpack('<hh',r[p+8:p+12])
     return dict(w=w,h=h,imgs=imgs,layers=layers,anchor=anch,iso=iso)
 def obj(full):
+    """An object record's kind, first state and states' animations."""
     r=rec(full,'.o'); L,ver=struct.unpack('<HB',r[:3]); kind=r[35]; init=struct.unpack('<I',r[36:40])[0]; n=struct.unpack('<H',r[40:42])[0]
     states={}
     for i in range(n):
         q=42+34*i; sid=struct.unpack('<H',r[q:q+2])[0]; states[sid]=r[q+2:q+34].split(b'\0')[0].decode()
     return dict(kind=kind,init=init,states=states)
 def parse_recs(L):
+    """The level's placements: type, extra word, object, x, y and layer."""
     out=[]
     for r in L['recs'][:L['count']]:
         t=r[0]; p=1; extra=None

@@ -27,6 +27,12 @@ Orient Express was built first; And Then There Were None is being added.
   its scenes drawn, but not played yet:
   [games/attwn/](games/attwn/README.md#where-it-stands).
 
+## Using it
+
+Each game's page says how to add it and play it:
+[Murder on the Orient Express](games/motoe/README.md#using-it),
+[And Then There Were None](games/attwn/README.md#using-it).
+
 ## This folder
 
 | Page | What's in it |
@@ -38,3 +44,25 @@ Orient Express was built first; And Then There Were None is being added.
 A page goes in a game's folder when it was worked out from that game, and
 moves up to this folder once another game is found to share it. So far
 everything but Granny was read from Murder on the Orient Express.
+
+## Code
+
+| Path | What |
+|---|---|
+| `awe.cpp` | The `MetaEngine` and the `Engine` |
+| `games.h`, `games.cpp` | What the shared code needs to know of each game, and the detection table |
+| `formats/` | The files every game on it reads: scenes (`.ac2`), Granny models, Bink movies, saves, tables |
+| `game/` | The shared game: scenes, actors, the walk grid, scripts, dialogue, the story, saves |
+| `render/`, `ui/` | Drawing the scenes, and the game's screens |
+| `motoe/`, `attwn/` | Each game's own code: its puzzles, and for And Then There Were None its acts, journal and inventory |
+| `pages/` | The data viewer's pages (in `reluva-viewer`) |
+| `tools/` | `reluva-tool awe` commands (`reluva-tool help awe` lists them) |
+
+## Tests
+
+- `reluva-tests awe` runs its unit tests and its engine test
+  (`tests/engines/awe/`).
+- A game-files test, with your own copy of each game: see
+  [motoe's TESTING.md](games/motoe/TESTING.md#the-game-files-test-with-your-own-copy-of-the-game)
+  and
+  [attwn's](games/attwn/TESTING.md#the-game-files-test-with-your-own-copy-of-the-game).

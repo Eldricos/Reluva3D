@@ -526,7 +526,7 @@ void itVolume(unsigned v, TrackerCell &c) {
     c.volParam = uint8_t(p);
 }
 
-// --- MOD ---------------------------------------------------------------------
+// MOD files.
 
 int modChannels(const Reader &r) {
     if (!r.has(1080, 4))
@@ -604,7 +604,7 @@ Error loadMod(const Reader &r, TrackerModule &m) {
     return Error::success();
 }
 
-// --- S3M ---------------------------------------------------------------------
+// S3M files.
 
 Error loadS3m(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 0x60))
@@ -708,7 +708,7 @@ Error loadS3m(const Reader &r, TrackerModule &m) {
     return Error::success();
 }
 
-// --- XM ----------------------------------------------------------------------
+// XM files.
 
 void readXmEnvelope(const Reader &r, size_t points, unsigned count, unsigned sustain, unsigned loopStart,
                     unsigned loopEnd, unsigned type, TrackerEnvelope &e) {
@@ -833,7 +833,7 @@ Error loadXm(const Reader &r, TrackerModule &m) {
     return Error::success();
 }
 
-// --- IT ----------------------------------------------------------------------
+// IT files.
 
 void readItEnvelope(const Reader &r, size_t at, bool pan, TrackerEnvelope &e) {
     const unsigned flags = r.u8(at);
@@ -1022,7 +1022,7 @@ Error loadIt(const Reader &r, TrackerModule &m) {
     return Error::success();
 }
 
-// --- The player --------------------------------------------------------------
+// The player.
 
 int waveform(int type, int pos) {
     pos &= 63;

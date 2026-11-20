@@ -29,7 +29,11 @@
 # The "docs" job checks the documentation against
 # docs/DOCUMENTATION_STANDARD.md: tools/check-docs.py (links, each engine's
 # pages, status lines, names) and markdownlint (headings; its rules are in
-# .markdownlint-cli2.jsonc).
+# .markdownlint-cli2.jsonc). It also builds the API pages with Doxygen
+# (tools/check-doxygen.py): public classes and functions without a Doxygen
+# block in the headers a push or pull request changes show as warnings,
+# without failing it, and the count for the whole tree is in the summary.
+# The pages are kept as the run's artifact.
 #
 # The "commits" job checks a pull request's commits and branch name against
 # docs/COMMIT_STANDARD.md (tools/check-commits.py): subjects, bodies,
@@ -221,10 +225,43 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          # All history: the Doxygen step looks at what changed since the base.
+          fetch-depth: 0
       - name: Links, pages and names
         run: python3 tools/check-docs.py
       - name: Markdown
         run: npx --yes markdownlint-cli2@0.23.3
+      - name: Packages
+        if: always()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen
+      - name: Doxygen (changed headers)
+        # Warnings on the pull request's headers, not a failure: the tree
+        # is still being documented (docs/CODING_GUIDE.md, Documentation).
+        if: always()
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
+          python3 tools/check-doxygen.py --changed "$BASE" --github | tee doxygen.txt
+          python3 tools/check-doxygen.py --summary > doxygen-all.txt || true
+          {
+            echo "### Doxygen (tools/check-doxygen.py)"
+            echo "Changed headers: $(tail -n 1 doxygen.txt)"
+            echo '```'
+            cat doxygen-all.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: API pages
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-docs
+          path: build-docs/html
+          if-no-files-found: ignore
 
   style:
     name: Code style

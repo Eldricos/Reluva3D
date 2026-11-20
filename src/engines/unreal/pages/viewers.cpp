@@ -22,8 +22,6 @@
 
 namespace reluva::unreal {
 
-// --- PackageViewer ----------------------------------------------------------------------
-
 PackageViewer::PackageViewer(ViewContext &ctx) : Page(ctx), _names(ctx.packages.names()) {
 }
 
@@ -159,8 +157,6 @@ std::vector<std::string> soundPackages(const PackageSet &packages) {
 
 } // namespace
 
-// --- ObjectBrowser ----------------------------------------------------------------------
-
 ObjectBrowser::ObjectBrowser(const PackageSet &packages, std::vector<std::string> names,
                              bool (*wanted)(std::string_view))
     : _packages(packages), _wanted(wanted), _names(std::move(names)) {
@@ -224,8 +220,6 @@ std::string ObjectBrowser::where() const {
     return std::to_string(_object + 1) + "/" + std::to_string(_objects.size()) + " in " + _names[size_t(_package)] +
            " (" + std::to_string(_package + 1) + "/" + std::to_string(_names.size()) + ")";
 }
-
-// --- TextureViewer ----------------------------------------------------------------------
 
 TextureViewer::TextureViewer(ViewContext &ctx)
     : Page(ctx), _browser(ctx.packages, browsedPackages(ctx.packages, ".utx"), isTextureClass) {
@@ -342,8 +336,6 @@ void TextureViewer::draw() {
     else if (!info.standIn.empty())
         text(4, 4 + 2 * lh, "Stored without pixels: " + info.standIn, {255, 200, 120});
 }
-
-// --- SoundViewer ------------------------------------------------------------------------
 
 namespace {
 // Sounds and Music (a tracker module, rendered to play: other UE1 games').

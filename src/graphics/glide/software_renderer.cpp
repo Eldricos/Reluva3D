@@ -23,7 +23,7 @@ namespace {
 
 using namespace raster;
 
-// floor() to an int without the library call (in range; NaN gives 0).
+// floor() to an int without the library call (0 out of int's range or for NaN).
 inline int floorInt(float f) {
     if (!(f > -2.0e9f && f < 2.0e9f))
         return 0;
@@ -101,7 +101,7 @@ private:
         float dy[kParams] = {};
         bool derivatives = false;
         int params = kS0; // how many values to iterate: colour, z, w, then the TMUs used
-        // Each TMU's source, worked out once a primitive.
+        // Each TMU's source, worked out once for each primitive.
         struct Tmu {
             bool valid = false;
             bool perPixelLod = false; // mipmapping, or filters that differ by LOD
@@ -374,9 +374,9 @@ void SoftwareRenderer::shade(Setup &su, int x, int row, const Values &v) {
         case kFogWithTable:
             f = fogTableFactor(s.fogTable.data(), floatDepth(v.v[kW]));
             break;
-        default:
+        default: // GR_FOG_WITH_ITERATED_Z: the iterated z's high bits
             f = z >> 8;
-            break; // GR_FOG_WITH_ITERATED_Z: the iterated z's high bits
+            break;
         }
         c = applyFog(c, su.fogColor, f, s.fogMode);
     }

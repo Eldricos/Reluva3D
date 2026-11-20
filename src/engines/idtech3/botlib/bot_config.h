@@ -17,12 +17,15 @@ namespace reluva::idtech3::botlib {
 // Formats read from the GPL ioquake3 bot library (be_ai_weight.c,
 // be_ai_goal.c, be_ai_weap.c, l_struct.c); docs/engines/idtech3/formats/aas.md.
 
-// Fuzzy weights (items' and weapons' worth to a bot): per name, nested
-// switches on the bot's inventory,
-//
-//     weight "weapon_phaser" { switch (INVENTORY_PHASER) { case 1: return 0; default: return 50; } }
-//
-// a case applying while the inventory count is below its value.
+/**
+ * Fuzzy weights (items' and weapons' worth to a bot): per name, nested
+ * switches on the bot's inventory,
+ *
+ *     weight "weapon_phaser" { switch (INVENTORY_PHASER) { case 1: return 0; default: return 50; } }
+ *
+ * a case applying while the inventory count is below its value. This is
+ * one case: `child` the switch inside it, `next` the case after it.
+ */
 struct FuzzySwitch {
     int index = 0;    // inventory slot tested
     int value = 0;    // applies below this (the default: always)
@@ -30,18 +33,20 @@ struct FuzzySwitch {
     std::unique_ptr<FuzzySwitch> child;
     std::unique_ptr<FuzzySwitch> next;
 };
+/** A weight file's weights, each by name. */
 struct WeightConfig {
     std::string file;
     std::vector<std::pair<std::string, std::unique_ptr<FuzzySwitch>>> weights;
-    // The weight's number for a name, -1 if none.
+    /** The weight's number for a name, -1 if none. */
     int find(const std::string &name) const;
-    // A weight's value for an inventory (counts by slot).
+    /** A weight's value for an inventory (counts by slot); 0 for a number it hasn't. */
     float evaluate(int weight, const std::vector<int> &inventory) const;
 };
+/** Reads a weight file; nullptr, with why in `error` if given, if it can't be. */
 std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader &load, const std::string &file,
                                                std::string *error = nullptr);
 
-// Item descriptions (items.c): `iteminfo "classname" { name ... }`.
+/** Item descriptions (items.c): `iteminfo "classname" { name ... }`. */
 struct ItemInfo {
     std::string classname;
     std::string name;
@@ -53,11 +58,18 @@ struct ItemInfo {
     Vec3f mins{};
     Vec3f maxs{};
 };
+/**
+ * Reads an item file into `out`, in its order.
+ * @return False, with why in `error` if given, if it can't be read; `out`
+ *         then holds the items before the problem.
+ */
 bool readItemConfig(const BotScript::Loader &load, const std::string &file, std::vector<ItemInfo> &out,
                     std::string *error = nullptr);
 
-// Weapon and projectile descriptions (weapons.c): `weaponinfo { ... }`
-// and `projectileinfo { ... }`, each weapon with its projectile's.
+/**
+ * Weapon and projectile descriptions (weapons.c): `weaponinfo { ... }`
+ * and `projectileinfo { ... }`, each weapon with its projectile's.
+ */
 struct ProjectileInfo {
     std::string name;
     std::string model;
@@ -74,6 +86,7 @@ struct ProjectileInfo {
     float bounceFric = 0;
     float bounceStop = 0;
 };
+/** A weapon's description (see ProjectileInfo). */
 struct WeaponInfo {
     bool valid = false;
     int number = 0;
@@ -100,6 +113,12 @@ struct WeaponInfo {
     Vec3f angleOffset{};
     ProjectileInfo proj;
 };
+/**
+ * Reads a weapon file into `out`: 32 weapons by their numbers, those it
+ * doesn't describe not `valid`.
+ * @return False, with why in `error` if given, if it can't be read or a
+ *         weapon's projectile isn't described.
+ */
 bool readWeaponConfig(const BotScript::Loader &load, const std::string &file, std::vector<WeaponInfo> &out,
                       std::string *error = nullptr);
 

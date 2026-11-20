@@ -528,7 +528,7 @@ FrontEnd::Action FrontEnd::handle(const Event &ev) {
                 else {
                     // A field: its right half steps on, its left back.
                     const Widget *w = widget(list[i].widget);
-                    change(list[i], w && ev.mouseX < w->x + w->w / 2 ? -1 : 1); // the city's box: on
+                    change(list[i], w && ev.mouseX < w->x + w->w / 2 ? -1 : 1); // no widget (the city's box): on
                     if (_driverChanged) {
                         _driverChanged = false;
                         return Action::kDriverChanged;
@@ -776,8 +776,8 @@ void FrontEnd::draw(Surface &o) {
                 else
                     font::drawText(o, kPassColumn - 4, kCurriculumRows[i], "X", {120, 255, 120});
             }
-        // (The city: the background names its school; the heading's box,
-        // where it went, is under the navigation bar now.)
+        // (The city isn't written: the background names its school, and the
+        // heading's box is under the navigation bar.)
         font::drawText(o, 300, 380, "Left/Right: the city, the lesson   Enter: the garage", {200, 200, 255});
     } else if (_screen == Screen::kShowcase) {
         // The car alone, turning; its name and description.

@@ -11,8 +11,10 @@ namespace reluva::stgenerations {
 
 class BitmapDecoder;
 
-// One of the game's interface bitmaps: a strip of frames of frameHeight
-// rows (0 for one frame), drawn in the screen's palette.
+/**
+ * One of the game's interface bitmaps: a strip of frames of frameHeight
+ * rows (0 for one frame), drawn in the screen's palette.
+ */
 struct FramedImage {
     // The bitmap's own indices; keys are compared with these.
     Canvas surface;
@@ -22,6 +24,7 @@ struct FramedImage {
     uint8_t firstPixel = 0;
     int frameHeight = 0;
 
+    /** The keys draw() takes besides a palette index. */
     enum Key {
         kOpaque = -1,
         // See-through where a pixel matches the first one in the file, its
@@ -30,14 +33,24 @@ struct FramedImage {
         kFirstPixel = -2
     };
 
-    // Take a decoded bitmap; a negative frame height asks for that many frames.
+    /**
+     * Takes a decoded 8-bit bitmap, matching its colours to `palette`'s.
+     * @param frameHeight The rows in a frame; 0 for one frame, a negative
+     *        number for that many frames.
+     */
     void set(const BitmapDecoder &decoder, const Palette &palette, int frameHeight);
 
+    /** How many frames, and the rows in one. */
+    ///@{
     int getFrameCount() const;
     int getHeight() const { return frameHeight > 0 ? frameHeight : surface.h; }
+    ///@}
 
-    // Copy a frame to (x, y), skipping pixels equal to key (an index, or a
-    // Key). Frames count up from the bottom of the strip.
+    /**
+     * Copies a frame to (x, y), skipping pixels equal to key (an index, or a
+     * Key). Frames count up from the bottom of the strip; one out of range
+     * is the nearest there is.
+     */
     void draw(Canvas &dst, int frame, int x, int y, int key = kOpaque, const Rect *clip = nullptr) const;
 };
 

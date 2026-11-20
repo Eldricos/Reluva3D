@@ -15,7 +15,7 @@
 #include <system_error>
 #include <vector>
 
-// CHECK(a == b), saying what each side was when they differ (for numbers).
+/** CHECK(a == b), printing both expressions when they differ. */
 #define CHECK_EQUAL(a, b)                                                                                              \
     do {                                                                                                               \
         const auto checkA_ = (a);                                                                                      \
@@ -28,7 +28,7 @@
 
 namespace reluva::stgenerations::stgtest {
 
-// A folder for a test's files, made empty and removed afterwards.
+/** A folder for a test's files, made empty and removed afterwards. */
 class TempDir {
 public:
     TempDir() {
@@ -45,8 +45,10 @@ public:
     }
     TempDir(const TempDir &) = delete;
     TempDir &operator=(const TempDir &) = delete;
+    /** Where the folder is. */
     const std::filesystem::path &path() const { return _path; }
-    // A file relative to the folder, its folders made.
+    /** Writes a file relative to the folder, its folders made. */
+    ///@{
     void writeFile(const std::string &name, const std::vector<uint8_t> &data) const {
         const std::filesystem::path p = _path / name;
         std::error_code ec;
@@ -56,13 +58,16 @@ public:
     void writeFile(const std::string &name, const std::string &data) const {
         writeFile(name, std::vector<uint8_t>(data.begin(), data.end()));
     }
+    ///@}
 
 private:
     std::filesystem::path _path;
 };
 
-// An 8-bit BMP of width x height pixels (rows top first), or RLE8 data as
-// given; two colours: 0 black, 1 R 255 G 128 B 0.
+/**
+ * An 8-bit BMP of width x height pixels (rows top first), or RLE8 data as
+ * given; two colours: 0 black, 1 R 255 G 128 B 0.
+ */
 inline std::vector<uint8_t> makeBMP8(int width, int height, const std::vector<uint8_t> &pixels, bool rle) {
     MemoryWriteStream w;
     const int pitch = (width + 3) & ~3;

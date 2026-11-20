@@ -24,7 +24,8 @@ screen.
 ## Using it
 
 <!-- What a player needs: which folder to add (or import from a CD), any
-settings, the keys. -->
+settings, the keys. On an engine for a family of games, where each game's
+README says this, a line pointing to them. -->
 
 ## This folder
 

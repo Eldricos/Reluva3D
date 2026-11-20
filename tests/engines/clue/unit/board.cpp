@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Clue engine's unit tests: The board a level lays out: squares, doors,
+// The Clue engine's unit tests: the board a level lays out: squares, doors,
 // passages and moves (docs/engines/clue/formats/board.md).
 
 #include "engines/clue/game/ai.h"

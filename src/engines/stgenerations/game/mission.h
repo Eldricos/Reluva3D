@@ -26,27 +26,28 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// Runs a 3D level's scripts (GAME.BIN) against the level (GAME.LV2): the
-// role of the original's mission object (vtable 0x531768).
-//
-// At the start every script object enters state 0, in the order the
-// original visits them, and the "mission started" broadcast follows. After
-// that, scripts run when something happens:
-//
-// - **Timers** send event 1 to their object.
-// - **The player** touching a wall, stepping onto a floor or entering a
-//   billboard's area sends events to that thing's script object. The
-//   object's id is the record's id plus the type bits: 0x4000 walls,
-//   0xC000 floors, 0x2000 billboards, 0xA000 actors.
-// - **Scripts** signal each other.
-//
-// The natives the scripts call are implemented here as far as they are
-// understood. The rest balance the stack and are counted, so their
-// effects are simply missing (the HUD and panels, inventory, combat,
-// screen effects).
+/**
+ * Runs a 3D level's scripts (GAME.BIN) against the level (GAME.LV2): the
+ * role of the original's mission object (vtable 0x531768).
+ *
+ * At the start every script object enters state 0, in the order the
+ * original visits them, and the "mission started" broadcast follows. After
+ * that, scripts run when something happens:
+ *
+ * - **Timers** send event 1 to their object.
+ * - **The player** touching a wall, stepping onto a floor or entering a
+ *   billboard's area sends events to that thing's script object. The
+ *   object's id is the record's id plus the type bits: 0x4000 walls,
+ *   0xC000 floors, 0x2000 billboards, 0xA000 actors.
+ * - **Scripts** signal each other.
+ *
+ * The natives the scripts call are implemented here as far as they are
+ * understood. The rest balance the stack and are counted
+ * (getMissingNatives()), so their effects are simply missing.
+ */
 class Mission : public ScriptHost {
 public:
-    // Script events, as the original numbers them.
+    /** Script events, as the original numbers them. */
     enum Event {
         kEventTimer = 1,
         kEventSignal = 4,
@@ -74,7 +75,7 @@ public:
         kEventOutOfWater = 58
     };
 
-    // Type bits that turn a level record's id into its script object's id.
+    /** Type bits that turn a level record's id into its script object's id. */
     enum ObjectType {
         kTypeBillboard = 0x2000,
         kTypeWall = 0x4000,
@@ -84,43 +85,55 @@ public:
         kTypeMask = 0xE000
     };
 
-    // actors may be null for a level without them, and mixer null to run
-    // silently; soundFiles opens the sound files the scripts play.
+    /**
+     * The level's mission. The references and actors must outlive it.
+     * @param actors May be null for a level without them.
+     * @param mixer May be null to run silently.
+     * @param soundFiles Opens the sound files the scripts play.
+     */
     Mission(LevelFile &level, const ScriptFile &script, LevelRenderer &renderer, Walker &walker, Actors *actors,
             Mixer *mixer = nullptr, const MissionSound::FileOpener &soundFiles = nullptr);
     ~Mission() override;
 
-    // Start the level: every object to state 0, then the start broadcast.
+    /** Starts the level: every object to state 0, then the start broadcast. */
     void start();
 
-    // Advance the mission by ms milliseconds: run due timers and tell the
-    // scripts what the player's last move ran into. Call after moving the
-    // walker.
+    /**
+     * Advances the mission by ms milliseconds: runs due timers and tells the
+     * scripts what the player's last move ran into. Call after moving the
+     * walker.
+     */
     void update(uint32_t ms);
 
-    // Milliseconds since the mission started.
+    /** Milliseconds since the mission started. */
     uint32_t getTime() const { return _time; }
 
-    // If a script turned the player since the last call, the new yaw.
+    /** If a script turned the player since the last call, the new yaw. */
     bool takePlayerYaw(double &yaw);
-    // The camera's yaw, for scripts that ask which way the player faces.
+    /** The camera's yaw, for scripts that ask which way the player faces. */
     void setPlayerYaw(double yaw) { _currentYaw = yaw; }
 
+    /** The script interpreter, and the mission's sounds. */
+    ///@{
     ScriptVM &getVM() { return *_vm; }
     MissionSound &getSound() { return *_sound; }
+    ///@}
 
-    // A subtitle that started since the last call, and how long to show it.
+    /** A subtitle that started since the last call, and how long to show it. */
     bool takeSubtitle(std::string &text, uint32_t &durationMs) { return _sound->takeSubtitle(text, durationMs); }
 
-    // Natives called that aren't implemented, by opcode, with call counts.
+    /** Natives called that aren't implemented, by opcode, with call counts. */
     const std::map<uint16_t, int> &getMissingNatives() const { return _missing; }
 
+    /** The player's health. */
     int16_t getHealth() const { return _health; }
-    // Hurt the player (game.vt34C): source object, damage, and a kind (a shot's team).
+    /** Hurts the player (game.vt34C): source object, damage, and a kind (a shot's team). */
     void damagePlayer(int16_t source, int16_t damage, int16_t kind);
 
-    // The bare-hand attack (SET_PUNCH): an overlay played over the view, a
-    // frame at which it lands, what it does, and its sounds.
+    /**
+     * The bare-hand attack (SET_PUNCH): an overlay played over the view, a
+     * frame at which it lands, what it does, and its sounds.
+     */
     struct Punch {
         // Overlay file name, from the script's resources; empty for none.
         std::string image;
@@ -133,15 +146,18 @@ public:
         int hitSound = -1;
         int hitVolume = -1;
     };
+    /** The bare-hand attack the scripts set. */
     const Punch &getPunch() const { return _punch; }
-    // The punch starts: its swing sounds.
+    /** The punch starts: its swing sound. */
     void swing();
-    // The punch lands on what the view shows at its centre (code 19, 0x4364B8).
+    /** The punch lands on what the view shows at its centre (code 19, 0x4364B8). */
     void punch(const LevelRenderer::Pick &pick);
 
-    // An inventory item's behaviour (ATTACH_ITEM_BEHAVIOUR). Weapons and
-    // the like hold a charge (0x449DCD); each use costs the power level,
-    // which is also the damage of what they fire.
+    /**
+     * An inventory item's behaviour (ATTACH_ITEM_BEHAVIOUR). Weapons and
+     * the like hold a charge (0x449DCD); each use costs the power level,
+     * which is also the damage of what they fire.
+     */
     struct Item {
         int16_t kind = 0;
         int16_t b = 0;
@@ -153,42 +169,48 @@ public:
         // SET_ITEM_SETTING: how long the muzzle flashes, in ms.
         int32_t setting = 0;
     };
-    // An item's behaviour, or null.
+    /** An item's behaviour, or null. */
     const Item *getItem(uint16_t id) const {
         auto it = _items.find(id);
         return it == _items.end() ? nullptr : &it->second;
     }
-    // Set the active item's power level (the [ and ] keys, the weapon display), within 1 and its maximum.
+    /** Sets the active item's power level (the [ and ] keys, the weapon display), within 1 and its maximum. */
     void setItemLevel(int level);
 
+    /** What came of fireWeapon(). */
     enum FireResult {
         kNoWeapon, // nothing to fire: the player punches instead
         kEmpty,    // not enough charge
         kFired
     };
-    // Fire the active item if it is a weapon (0x43FDC4) from its muzzle
-    // (ahead, up and to the left of the eye) at what the view shows at
-    // (x, y): pick, the renderer's pick there, in a view w x h seen
-    // through camera.
+    /**
+     * Fires the active item if it is a weapon (0x43FDC4) from its muzzle
+     * (ahead, up and to the left of the eye) at what the view shows at
+     * (x, y): pick, the renderer's pick there, in a view w x h seen
+     * through camera.
+     */
     FireResult fireWeapon(const Camera &camera, const LevelRenderer::Pick &pick, int x, int y, int w, int h,
                           double ahead, double up, double left);
 
-    // The console: inventory, panels, body picture, map markers, screen effects.
+    /** The console: inventory, panels, body picture, map markers, screen effects. */
     Hud &getHud() { return _hud; }
-    // Use the item in an inventory slot, as clicking it does (event 45).
+    /**
+     * Uses the item in an inventory slot, as clicking it does (event 45);
+     * a weapon becomes the item in use.
+     */
     void useItem(int slot);
-    // Right click on an inventory slot (event 62).
+    /** Right click on an inventory slot (event 62). */
     void describeItem(int slot);
-    // An item dragged out of the inventory (event 63).
+    /** An item dragged out of the inventory (event 63). */
     void dropItem(int slot);
-    // Whether an item is one the player holds and fires.
+    /** Whether an item is one the player holds and fires. */
     bool isWeapon(uint16_t id) const;
-    // An item's kind (ATTACH_ITEM_BEHAVIOUR), or 0.
+    /** An item's kind (ATTACH_ITEM_BEHAVIOUR), or 0. */
     int getItemKind(uint16_t id) const {
         auto it = _items.find(id);
         return it == _items.end() ? 0 : it->second.kind;
     }
-    // Where an object (the player for 0) is.
+    /** Where an object (the player for 0) is; false if it isn't there. */
     bool locate(uint16_t id, double &x, double &y, double &z) const {
         Position position;
         if (!getPosition(id, position))
@@ -198,32 +220,39 @@ public:
         z = position.z;
         return true;
     }
-    // An item's frame in the mission's INVENT.BMP, or -1.
+    /** An item's frame in the mission's INVENT.BMP, or -1. */
     int getItemIcon(uint16_t id) const;
-    // GAME_MODE 2 or 3 asked for the left panel off or on its body view since the last call; 0 if not.
+    /** GAME_MODE 2 or 3 asked for the left panel off or on its body view since the last call; 0 if not. */
     int takeLeftPanelRequest() {
         int request = _leftPanelRequest;
         _leftPanelRequest = 0;
         return request;
     }
-    // Save or load the mission: the scripts, the world they changed, the
-    // player and the actors. Sounds playing aren't kept; shots in flight
-    // are dropped.
+    /**
+     * Saves or loads the mission: the scripts, the world they changed, the
+     * player and the actors. Sounds playing aren't kept; shots in flight
+     * are dropped.
+     */
     void sync(Serializer &s);
 
-    // END_MISSION (0xBF) or END_TRANSITION (0x92) has ended the location.
+    /** END_MISSION (0xBF) or END_TRANSITION (0x92) has ended the location. */
     bool isFinished() const { return _finished; }
-    // Every objective was done (event 8): what the original's campaign
-    // reads, as its controller's +0x10, to know the mission succeeded.
+    /**
+     * Every objective was done (event 8): what the original's campaign
+     * reads, as its controller's +0x10, to know the mission succeeded.
+     */
     bool isAccomplished() const { return _accomplished; }
 
-    // What a transition (0x91, 0x92) shows: the mission's BRIEFING.BMP or
-    // the game, and how bright, 0 (black) to 1. The original's blends may
-    // run differently; this fades through black.
+    /**
+     * What a transition (0x91, 0x92) shows: the mission's BRIEFING.BMP or
+     * the game, and how far its blends (see dissolve) have gone.
+     */
     struct TransitionView {
         bool active = false;
-        // The briefing gives way to the game, the game to black (the
-        // ending), or the game before a teleport to the game after it.
+        /**
+         * The briefing gives way to the game, the game to black (the
+         * ending), or the game before a teleport to the game after it.
+         */
         enum Kind { kBriefing, kEnding, kTeleport } kind = kBriefing;
         // 0x43E13A: 1 speckles grow over the first picture, 2 it
         // crossfades to the second under a quarter's speckles, 3 they
@@ -238,12 +267,16 @@ public:
         uint8_t g = 0;
         uint8_t b = 0;
     };
+    /** The transition going on now; one not active if there is none. */
     TransitionView getTransitionView() const;
+    /** Whether a transition holds the screen. */
     bool isInTransition() const { return _transition.active; }
 
-    // How the player moves (SET_PLAYER_MOTION, 0xB2), in the original's
-    // units; the viewer scales its own speeds by them. A speed of 0
-    // freezes the player for a cutscene.
+    /**
+     * How the player moves (SET_PLAYER_MOTION, 0xB2), in the original's
+     * units; the viewer scales its own speeds by them. A speed of 0
+     * freezes the player for a cutscene.
+     */
     struct Motion {
         double speed = 1.5;
         int turnRate = 15;
@@ -253,11 +286,14 @@ public:
         int lookAccel = 10;
         double jump = 13.9;
     };
+    /** How the player moves, as the scripts last set it. */
     const Motion &getMotion() const { return _motion; }
-    // SET_PLAYER_CONTROLS (0xAE): game+0x1E8, 0x5F by default. The bits
-    // (tested in 0x43AD04): 1 walk and strafe, 2 turn, 4 look up and down,
-    // 8 jump, 0x10 crouch, 0x20 the view bobs while walking (no script
-    // sets it), 0x40 in low gravity, walking goes where the view points.
+    /**
+     * SET_PLAYER_CONTROLS (0xAE): game+0x1E8, 0x5F by default. The bits
+     * (tested in 0x43AD04): 1 walk and strafe, 2 turn, 4 look up and down,
+     * 8 jump, 0x10 crouch, 0x20 the view bobs while walking (no script
+     * sets it), 0x40 in low gravity, walking goes where the view points.
+     */
     enum Control {
         kControlWalk = 1,
         kControlTurn = 2,
@@ -267,50 +303,66 @@ public:
         kControlBob = 0x20,
         kControlSwim = 0x40
     };
+    /** The controls the scripts allow the player, Control bits. */
     uint16_t getControls() const { return _controls; }
+    /** Whether LOW_GRAVITY (0xB5) is on. */
     bool isLowGravity() const { return _lowGravity; }
-    // Zones to draw as well as the player's: above the water while afloat.
+    /** Zones to draw as well as the player's: above the water while afloat. */
     uint64_t getExtraZones() const { return _waterZones; }
-    // GET_ARRAY/SET_ARRAY's words, which outlive a mission (0x56F844):
-    // verid1 leaves the player's health and phaser charge there.
+    /**
+     * GET_ARRAY/SET_ARRAY's words, which outlive a mission (0x56F844):
+     * verid1 leaves the player's health and phaser charge there. An array
+     * of another size than the mission's is ignored.
+     */
+    ///@{
     const std::vector<int16_t> &getCarriedArray() const { return _array; }
     void setCarriedArray(const std::vector<int16_t> &array) {
         if (array.size() == _array.size())
             _array = array;
     }
-    // GET_DIFFICULTY (0xD5) answers this; the original's default is 1.
+    ///@}
+    /** GET_DIFFICULTY (0xD5) answers this; the original's default is 1. */
     void setDifficulty(int difficulty) { _difficulty = difficulty; }
 
-    // SET_PLAYER_SPIN (0xAF): degrees a second the player is turned.
+    /** SET_PLAYER_SPIN (0xAF): degrees a second the player is turned. */
     int getSpin() const { return _spin; }
-    // SHOW_VIEW_OVERLAY (0xB8): an .OVR over the view, and its frame; no image for none.
+    /** SHOW_VIEW_OVERLAY (0xB8): an .OVR over the view, and how it's drawn; no image for none. */
     struct ViewOverlay {
         std::string image;
         // How it is drawn (0x409DDC): 1 or 2, centred (they differ only for a picture wider than the view); else not at all.
         int mode = 0;
     };
+    /** The scripts' overlay over the view. */
     const ViewOverlay &getViewOverlay() const { return _viewOverlay; }
-    // SET_MISSION_OUTCOME (0x97): codes left for the campaign.
+    /** SET_MISSION_OUTCOME (0x97): codes left for the campaign. */
     const std::vector<int32_t> &getOutcomes() const { return _outcomes; }
-    // The worn shield (SET_WORN_ITEM) and the script gauge (SET_WORN_GAUGE), or 0.
+    /** The worn shield (SET_WORN_ITEM) and the script gauge (SET_WORN_GAUGE), or 0. */
+    ///@{
     uint16_t getWornItem() const { return _wornItem; }
     uint16_t getGaugeItem() const { return _gaugeItem; }
+    ///@}
 
-    // The item in use (SET_ACTIVE_ITEM), or 0.
+    /** The item in use (SET_ACTIVE_ITEM), or 0. */
     uint16_t getActiveItem() const { return _activeItem; }
 
-    // Fire a projectile of the given type (see Projectiles::fire), sounding it.
+    /** Fires a projectile of the given type (see Projectiles::fire), sounding it. */
     void fire(int type, double x, double y, double z, double yaw, double pitch, int shooter);
+    /** The shots in flight, and the doors. */
+    ///@{
     Projectiles &getProjectiles() { return *_projectiles; }
     Movers &getMovers() { return *_movers; }
+    ///@}
 
     // ScriptHost
     void callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) override;
     void unhandledEvent(ScriptVM &vm, ScriptInstance &self, uint16_t event, const std::vector<int16_t> &args) override;
 
-    // Send an event to the object with the given id, if there is one.
+    /**
+     * Sends an event to the object with the given id, if there is one;
+     * the block's result, or 0.
+     */
     int16_t send(uint16_t id, uint16_t event, const std::vector<int16_t> &args = {});
-    // Send an event to every object that subscribed to broadcasts.
+    /** Sends an event to every object that subscribed to broadcasts. */
     void broadcast(uint16_t event, const std::vector<int16_t> &args = {});
 
 private:
@@ -381,7 +433,7 @@ private:
     std::map<uint16_t, Timer> _timers;
     // Objects that receive broadcasts, newest first.
     std::vector<uint16_t> _listeners;
-    // Screen effects still running: end time -> object to tell.
+    // GET_ARRAY/SET_ARRAY's words (see getCarriedArray()).
     std::vector<int16_t> _array;
 
     // Textures as loaded, for RESET_DEFAULT.

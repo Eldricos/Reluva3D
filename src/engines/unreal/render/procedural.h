@@ -10,7 +10,7 @@
 // it). The procedural ones store only their settings (fire's sparks,
 // water's drops); the pictures are made here, Reluva's own simulation of
 // what the settings describe, to be compared with the original running.
-// See docs/formats/unreal/texture.md.
+// See docs/engines/unreal/games/ds9fallen/formats/texture.md.
 
 #include "image/image.h"
 #include "engines/unreal/formats/package_set.h"
@@ -21,6 +21,7 @@
 
 namespace reluva::unreal {
 
+/** A texture whose picture changes as time passes (openAnimatedTexture). */
 class AnimatedTexture {
 public:
     virtual ~AnimatedTexture() = default;
@@ -34,8 +35,9 @@ public:
      * For one played frame by frame (an FLC: The Fallen's HUD picks its
      * frames itself): how many frames, how long each shows at rate 1, and
      * the picture showing frame `n` (from 1), its colour 0 see-through if
-     * asked; false if it was showing already.
+     * asked; false if it was showing already. Others have no frames.
      */
+    ///@{
     virtual int frames() const { return 0; }
     virtual float frameSeconds() const { return 0; }
     virtual bool showFrame(int n, bool seeThrough) {
@@ -43,6 +45,7 @@ public:
         (void)seeThrough;
         return false;
     }
+    ///@}
 
 protected:
     image::Image _image;

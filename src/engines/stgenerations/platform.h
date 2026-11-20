@@ -21,8 +21,10 @@
 
 namespace reluva::stgenerations {
 
-// What the game sees of the player's input, as the original's window
-// procedure got it. Platform::pollEvent makes these from Reluva's events.
+/**
+ * What the game sees of the player's input, as the original's window
+ * procedure got it. Platform::pollEvent makes these from Reluva's events.
+ */
 enum EventType {
     kEventInvalid = 0,
     kEventKeydown,
@@ -42,20 +44,26 @@ enum EventType {
     kEventFocusLost,
 };
 
-// Modifier keys held (KeyState::flags).
+/** Modifier keys held (KeyState::flags). */
 enum { kKbdCtrl = 1 << 0, kKbdAlt = 1 << 1, kKbdShift = 1 << 2 };
 
+/** A key pressed or let go, or a character typed. */
 struct KeyState {
     uint32_t keycode = key::kUnknown; // common/events.h codes
     // The character typed, while text input is on (Platform::setTextInput),
     // for printable keys; Backspace, Tab, Return and Escape always.
     uint16_t ascii = 0;
     uint8_t flags = 0;
+    /** No key, or a key code with its character and modifier flags. */
+    ///@{
     KeyState() = default;
     KeyState(uint32_t k, uint16_t a = 0, uint8_t f = 0) : keycode(k), ascii(a), flags(f) {}
+    ///@}
+    /** Whether all of the modifiers `f` are held. */
     bool hasFlags(uint8_t f) const { return (flags & f) == f; }
 };
 
+/** One of the player's inputs, with where the mouse was. */
 struct Event {
     EventType type = kEventInvalid;
     bool kbdRepeat = false;
@@ -63,79 +71,120 @@ struct Event {
     Point mouse; // in the game's 640x480
 };
 
-// The engine's side of Reluva's System, as the game uses it: one 640x480
-// screen in 8-bit or true colour, its palette, the mouse pointer the game
-// draws (shown by the System as its own pointer), the player's input and
-// what's held, the time, the mixer and the folder for saves and settings.
-// Tests make one over a System of their own.
+/**
+ * The engine's side of Reluva's System, as the game uses it: one 640x480
+ * screen in 8-bit or true colour, its palette, the mouse pointer the game
+ * draws (shown by the System as its own pointer), the player's input and
+ * what's held, the time, the mixer and the folder for saves and settings.
+ * Tests make one over a System of their own.
+ */
 class Platform {
 public:
-    // `mixer` may be null (no sound); `saveDir` is the game's own folder
-    // (GameTarget::savePath).
+    /**
+     * @param mixer May be null (no sound); not owned.
+     * @param saveDir The game's own folder (GameTarget::savePath); empty for
+     *        none, when nothing is read or written.
+     */
     Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir);
 
+    /** The System underneath. */
     System &system() { return _system; }
 
-    // --- The screen -------------------------------------------------------
-    // The screen's size and colours: 8-bit with a palette, or true colour
-    // (0xAARRGGBB). Its pixels are kept until the next updateScreen().
+    // The screen.
+
+    /**
+     * Sets the screen's size and colours: 8-bit with a palette, or true
+     * colour (0xAARRGGBB). A new screen starts black, in the palette last
+     * set; the same size and format again leaves it as it is.
+     */
     void initSize(int width, int height, Canvas::Format format = Canvas::kClut8);
+    /** The screen's size, and whether it's in true colour. */
+    ///@{
     int getWidth() const { return _screen.w; }
     int getHeight() const { return _screen.h; }
     bool isTrueColour() const { return !_screen.isClut8(); }
-    // `num` RGB triplets from `start`, 8 bits per channel.
+    ///@}
+    /** `num` RGB triplets from `start`, 8 bits per channel; past 255 is left out. */
+    ///@{
     void setPalette(const uint8_t *colors, unsigned start, unsigned num);
     void grabPalette(uint8_t *colors, unsigned start, unsigned num) const;
-    // Pixels in the screen's format onto it.
+    ///@}
+    /** Copies pixels in the screen's format, `pitch` bytes apart, onto it. */
     void copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h);
+    /** Shows what's been drawn on the screen. */
     void updateScreen();
+    /** The window's title. */
     void setWindowCaption(const std::string &caption);
-    // The frames shown, for tests.
+    /** The screen as drawn, for tests. */
     const Canvas &screen() const { return _screen; }
 
-    // --- The mouse pointer ------------------------------------------------
-    // Returns whether it was shown.
+    // The mouse pointer.
+
+    /** Shows or hides the pointer; returns whether it was shown. */
     bool showMouse(bool visible);
-    // The game's pointer: w x h pixels in the screen's format (8-bit:
-    // coloured from the palette, as it is when it changes), `keycolor` see-
-    // through, the hotspot at (hotspotX, hotspotY).
+    /**
+     * The game's pointer: w x h 8-bit pixels, coloured from the palette (as
+     * it is when it changes), `keycolor` see-through, the hotspot at
+     * (hotspotX, hotspotY).
+     */
     void setMouseCursor(const void *buf, unsigned w, unsigned h, int hotspotX, int hotspotY, uint32_t keycolor);
 
-    // --- Input ------------------------------------------------------------
-    // The next event; false when none is pending.
+    // Input.
+
+    /** The next event, those pushed first; false when none is pending. */
     bool pollEvent(Event &event);
+    /** An event for pollEvent() to give before the System's. */
     void pushEvent(const Event &event) { _queue.push_back(event); }
+    /** Where the mouse is, in the screen. */
     Point getMousePos() const { return _mouse; }
-    // Bit 0: left, bit 1: right, bit 2: middle.
+    /** The buttons held: bit 0 left, bit 1 right, bit 2 middle. */
     int getButtonState() const { return _buttons; }
+    /** The modifier keys held at the last key event (kKbdCtrl and the rest). */
     int getModifierState() const { return _modifiers; }
-    // Typed characters arrive in KeyState::ascii (for names typed in).
+    /** Typed characters arrive in KeyState::ascii (for names typed in). */
     void setTextInput(bool on);
-    // The player closed the window or went back to the launcher.
+    /** Whether the player closed the window or went back to the launcher, or quitGame() was called. */
     bool shouldQuit() const { return _quit; }
+    /** Makes shouldQuit() true. */
     void quitGame() { _quit = true; }
 
-    // --- Time -------------------------------------------------------------
+    // Time.
+
+    /** The System's clock, in ms, and waiting on it. */
+    ///@{
     uint32_t getMillis() const;
     void delayMillis(uint32_t ms);
+    ///@}
 
-    // --- Sound ------------------------------------------------------------
+    // Sound.
+
+    /** The mixer, or null with no sound. */
     audio::Mixer *getMixer() { return _mixer; }
-    // Whether the mixer is heard: without a sound device nothing pulls it,
-    // so the game plays nothing (as STG-Engine's mixer, not ready, did).
+    /**
+     * Whether the mixer is heard: without a sound device nothing pulls it,
+     * so the game plays nothing (as STG-Engine's mixer, not ready, did).
+     */
+    ///@{
     void setSoundOutput(bool on) { _soundOutput = on; }
     bool hasSoundOutput() const { return _soundOutput; }
+    ///@}
 
-    // --- Saves and settings -----------------------------------------------
-    // The game's own folder for its files (made when written to).
+    // Saves and settings.
+
+    /** The game's own folder for its files (made when written to). */
     const std::filesystem::path &saveDir() const { return _saveDir; }
-    // A file of it read whole into a stream; nullptr if it isn't there.
+    /** A file of it read whole into a stream; nullptr if it isn't there. */
     std::unique_ptr<SeekableReadStream> openForLoading(const std::string &name) const;
-    // Written whole, made with the folder if needed; false if it can't be.
+    /**
+     * Writes a file whole, making the folder if needed; false if it can't
+     * be. A failed write leaves the file as it was.
+     */
     bool saveFile(const std::string &name, const std::vector<uint8_t> &data);
+    /** Removes a file; false if it wasn't there or can't be. */
     bool removeFile(const std::string &name);
+    /** Whether a file is there. */
     bool fileExists(const std::string &name) const;
-    // Names of its files matching a pattern ('*' and '?'), sorted.
+    /** Names of its files matching a pattern ('*' and '?'), sorted. */
     std::vector<std::string> listFiles(const std::string &pattern) const;
 
 private:
@@ -147,7 +196,7 @@ private:
     audio::Mixer *_mixer;
     std::filesystem::path _saveDir;
     Canvas _screen;
-    Surface _frame; // screen_ as the System takes it
+    Surface _frame; // _screen as the System takes it
     Palette _palette;
     bool _graphics = false;
 

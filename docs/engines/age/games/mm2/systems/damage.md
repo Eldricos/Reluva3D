@@ -6,7 +6,7 @@
 
 How a car is damaged: its damage figure, its smoke, its damaged textures, and wrecking. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Damage
+## How it works
 
 `tune/vehicle/<car>.vehCarDamage`:
 
@@ -38,6 +38,12 @@ takes the body's parts within TextelDamageRadius to their damaged
 textures (`<texture>_dmg`: the Beetle has them for its front, back and
 sides), whole parts at a time rather than the game's painting round the
 point. The damage needle, and a damage meter on the HUD, show it.
+
+## In Reluva
+
+`CarDamage` and `SmokePuffs` (`src/engines/age/game/damage.{h,cpp}`).
+Whole parts take their damaged textures, rather than the game's painting
+round the point (above).
 
 ## Sources and checks
 

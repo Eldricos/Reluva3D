@@ -55,7 +55,7 @@ void Glide3Dll::addAll() {
     auto b = [](Cpu &c, int i) { return c.arg(i) != 0; };
     auto n = [](Cpu &c, int i) { return int(c.arg(i)); };
 
-    // --- Start-up, the board, shut-down -----------------------------------------------
+    // Start-up, the board, shut-down.
     add("grGlideInit", 0, [&c2](Cpu &) {
         c2.glideInit();
         return 0u;
@@ -183,9 +183,11 @@ void Glide3Dll::addAll() {
             g.glideSetState(c.read32(c.arg(0)));
         return 0u;
     });
-    // The vertex layout saved whole into the caller's buffer (64 bytes,
-    // grGet(GR_GLIDE_VERTEXLAYOUT_SIZE)): each parameter's offset, 0 when
-    // disabled... too many for 64 bytes, so as for the state, a number.
+    // The vertex layout saved into the caller's buffer (64 bytes,
+    // grGet(GR_GLIDE_VERTEXLAYOUT_SIZE)). The whole layout (each
+    // parameter's offset, 0 when disabled) doesn't fit, so, as for the
+    // state, the buffer holds a number for a copy kept here, and a mark
+    // that grGlideSetVertexLayout checks.
     add("grGlideGetVertexLayout", 4, [this, &g](Cpu &c) {
         if (guest(c.arg(0), 8)) {
             const uint32_t token = uint32_t(_layouts.size() + 1);
@@ -204,7 +206,7 @@ void Glide3Dll::addAll() {
         return 0u;
     });
 
-    // --- Drawing -------------------------------------------------------------------
+    // Drawing.
     add("grVertexLayout", 12, [&g](Cpu &c) {
         g.vertexLayout(c.arg(0), int32_t(c.arg(1)), c.arg(2));
         return 0u;
@@ -273,7 +275,7 @@ void Glide3Dll::addAll() {
         return 0u;
     });
 
-    // --- State ---------------------------------------------------------------------
+    // State.
     add("grColorCombine", 20, [&c2, n, b](Cpu &c) {
         c2.colorCombine(n(c, 0), n(c, 1), n(c, 2), n(c, 3), b(c, 4));
         return 0u;
@@ -373,7 +375,7 @@ void Glide3Dll::addAll() {
     });
     addFogUtilities();
 
-    // --- Textures ------------------------------------------------------------------
+    // Textures.
     add("grTexMinAddress", 4, [&c2, n](Cpu &c) { return c2.texMinAddress(n(c, 0)); });
     add("grTexMaxAddress", 4, [&c2, n](Cpu &c) { return c2.texMaxAddress(n(c, 0)); });
     add("grTexCalcMemRequired", 16,
@@ -456,7 +458,7 @@ void Glide3Dll::addAll() {
         return 0u;
     });
 
-    // --- The linear frame buffer ---------------------------------------------------
+    // The linear frame buffer.
     add("grLfbLock", 24,
         [this](Cpu &c) { return lfbLock(c.arg(0), c.arg(1), c.arg(2), c.arg(3), c.arg(4) != 0, c.arg(5)); });
     add("grLfbUnlock", 8, [this](Cpu &c) { return lfbUnlock(c.arg(0), c.arg(1)); });
@@ -499,7 +501,7 @@ void Glide3Dll::addAll() {
         return 0u;
     });
 
-    // --- Not stood in for yet: they log once and fail ----------------------------
+    // Not stood in for yet: they log once and fail.
     add("grLoadGammaTable", 16, [this, &g](Cpu &c) {
         const int n = int(std::min<uint32_t>(c.arg(0), 4096));
         const uint8_t *r = guest(c.arg(1), uint32_t(n) * 4);

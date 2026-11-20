@@ -12,21 +12,24 @@
 // and Enter goes back to the menu from the results. The race's traffic,
 // pedestrians and police are about as its settings say.
 //
-// Drive (3D): a car driven round a city. Up/Down (or W/S) accelerate and
-// brake (held when stopped, backs up), Left/Right (or A/D) steer, Space
-// is the handbrake. C changes the camera (near, far, in the car),
-// PageUp/PageDown the car, P its colour, Home/End the city, T the time and
-// weather, R puts the car back at the start, I shows or hides the info.
-// The city has traffic and people on its sidewalks (Y steps through none,
-// light, normal and heavy), traffic lights, and police, who chase a car
-// speeding past them (O turns them off and on); while not chasing they
-// patrol. In the evening, at night and in fog and rain the cars'
-// headlights are on. In a police car H turns its siren on and off.
+// Drive (3D): a car driven round a city, with the keys the Control
+// Options bind (by default Up/Down accelerate and brake, held when
+// stopped backing up, Left/Right steer, Space is the handbrake, C changes
+// the camera: near, far, in the car) and the game's view controls.
+// PageUp/PageDown change the car, F8 its colour, Home/End the city, F5
+// the time and weather; F4 puts the car back at the start, F9 shows or
+// hides the info. The city has traffic and people on its sidewalks (F6
+// steps through none, light, normal and heavy), traffic lights, and
+// police, who chase a car speeding past them (F7 turns them off and on);
+// while not chasing they patrol. In the evening, at night and in fog and
+// rain the cars' headlights are on. In a police car the horn turns its
+// siren on and off.
 //
 // World (3D): a city (London, San Francisco) flown through. Left/Right
 // pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
 // down, Shift goes faster, T steps through the 16 times and weathers, M
-// shows or hides the placed models, I the info, R returns to the start.
+// shows or hides the placed models, V turns the visibility culling off
+// and on, I the info, R returns to the start.
 //
 // Models (3D): every model (geometry/*.pkg), its parts placed by their
 // .mtx files. Left/Right step through them (PageUp/PageDown by 10,
@@ -67,20 +70,15 @@ std::string kindOf(const std::string &name);
  */
 std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText);
 
-/** The Files page: every file in the search path, and one opened as text or a hex dump. */
+/** The Files page: every file in the search path (keys in the comment at the top). */
 class FileViewer : public Page {
 public:
-    /** Lists the search path's files, with their archives and sizes, once. */
+    /** Lists the files. */
     explicit FileViewer(ScreenContext &ctx);
-    /** The page's name in the window's title. */
     const char *name() const override { return "Files"; }
-    /** The files found: with none, the page is skipped. */
     size_t count() const override { return _files.size(); }
-    /** Titles the page with the counts of files and archives and draws the list. */
     void activate() override;
-    /** The keys in the header's comment. */
     void handleEvent(const Event &ev) override;
-    /** Esc while a file is open, which goes back to the list instead of leaving. */
     bool takesKey(const Event &ev) const override;
 
 private:
@@ -110,18 +108,14 @@ private:
     int _lineTop = 0;
 };
 
-/** The Textures page: every texture, one at a time, over a checkerboard. */
+/** The Textures page: every texture, one at a time (keys in the comment at the top). */
 class TextureViewer : public Page {
 public:
-    /** Lists texture/*.tex and .tga and jpg/*.jpg, once. */
+    /** Lists the textures. */
     explicit TextureViewer(ScreenContext &ctx);
-    /** The page's name in the window's title. */
     const char *name() const override { return "Textures"; }
-    /** The textures found: with none, the page is skipped. */
     size_t count() const override { return _names.size(); }
-    /** Reads and shows the texture last shown (the first, at first). */
     void activate() override;
-    /** The keys in the header's comment. */
     void handleEvent(const Event &ev) override;
 
 private:
@@ -136,27 +130,19 @@ private:
     std::string _error;
 };
 
-/** The Models page: every model, its parts placed, turned and zoomed with the mouse. */
+/** The Models page: every model, one at a time (keys in the comment at the top). */
 class ModelViewer : public Page {
 public:
-    /** Lists geometry/*.pkg, once. */
+    /** Lists the models. */
     explicit ModelViewer(ScreenContext &ctx);
-    /** Frees the model's mesh and textures, as deactivate() does. */
     ~ModelViewer() override;
-    /** The page's name in the window's title. */
     const char *name() const override { return "Models"; }
-    /** The models found: with none, the page is skipped. */
     size_t count() const override { return _names.size(); }
-    /** Starts 3D rendering and shows the model last shown; without 3D, says why. */
     void activate() override;
-    /** Frees the model's mesh and textures. */
     void deactivate() override;
-    /** The keys and mouse in the header's comment. */
     void handleEvent(const Event &ev) override;
-    /** Draws the model, then the info over it. */
     void update(uint64_t nowMs) override;
-    /** Whether 3D rendering started: without it the page says so, paced as 2D. */
-    bool uses3D() const override { return _renderer != nullptr; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
 
 private:
     void show(int index);
@@ -192,28 +178,20 @@ private:
 /**
  * A city flown through: its streets and buildings from the PSDL, the
  * models placed in it, its sky, lit as at one of its 16 times and
- * weathers. Keys in the header's comment.
+ * weathers. Keys in the comment at the top of this file.
  */
 class WorldViewer : public Page {
 public:
-    /** Finds the cities, once; nothing is loaded until the page is shown. */
+    /** Lists the cities. */
     explicit WorldViewer(ScreenContext &ctx);
-    /** Frees the city, as deactivate() does. */
     ~WorldViewer() override;
-    /** The page's name in the window's title. */
     const char *name() const override { return "World"; }
-    /** The cities found: with none, the page is skipped. */
     size_t count() const override { return _cities.size(); }
-    /** Starts 3D rendering and loads the city last shown; without 3D, says why. */
     void activate() override;
-    /** Frees the city. */
     void deactivate() override;
-    /** The keys and mouse in the header's comment. */
     void handleEvent(const Event &ev) override;
-    /** Moves by the keys held for the time since the last frame (at most 0.1 s) and draws the city. */
     void update(uint64_t nowMs) override;
-    /** Whether 3D rendering started: without it the page says so, paced as 2D. */
-    bool uses3D() const override { return _renderer != nullptr; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
 
 private:
     void load(int index);
@@ -243,32 +221,20 @@ private:
 /**
  * A car driven round a city: Reluva's simulation of it (car.h) against
  * the city's collisions, seen from the car's own cameras, with its engine
- * sound and a HUD. Keys in the header's comment.
+ * sound and a HUD. Keys in the comment at the top of this file.
  */
 class DriveViewer : public Page {
 public:
-    /** Finds the cities and cars, once; nothing is loaded until the page is shown. */
+    /** Lists the cities and cars. */
     explicit DriveViewer(ScreenContext &ctx);
-    /** Stops the sounds and frees the city and car, as deactivate() does. */
     ~DriveViewer() override;
-    /** The page's name in the window's title. */
     const char *name() const override { return "Drive"; }
-    /** The cars found, or 0 (the page skipped) without a city to drive them in. */
     size_t count() const override { return _cities.empty() ? 0 : _cars.size(); }
-    /** Starts 3D rendering and loads the city and car last driven; without 3D, says why. */
     void activate() override;
-    /** Stops the sounds, the traffic and the music and frees the city and car. */
     void deactivate() override;
-    /** The keys in the header's comment, and the game's view controls. */
     void handleEvent(const Event &ev) override;
-    /**
-     * Steps the car, the city's life and the sounds by the time since the
-     * last frame (at most 0.1 s; none while the list of controls is up) and
-     * draws it all.
-     */
     void update(uint64_t nowMs) override;
-    /** Whether 3D rendering started: without it the page says so, paced as 2D. */
-    bool uses3D() const override { return _renderer != nullptr; }
+    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
 
 private:
     void loadCity(int index);

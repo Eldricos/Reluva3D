@@ -82,7 +82,7 @@ uint64_t fileTimeOf(const std::filesystem::path &path) {
 
 } // namespace
 
-// --- Drives (addDrive): their stand-ins, put in place of those above.
+// Drives (addDrive): their stand-ins, put in place of those for mapPath below.
 
 namespace {
 
@@ -907,7 +907,7 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "SetErrorMode", 1, [](Cpu &) { return 0u; });
 }
 
-// --- Files found through mapPath.
+// Files found through mapPath.
 
 std::string Win32Process::fullPath(const std::string &path) const {
     std::string p = path;

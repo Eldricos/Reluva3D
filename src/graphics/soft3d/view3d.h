@@ -13,11 +13,14 @@
 
 namespace reluva::soft3d {
 
+/** A point or direction in world or view space. */
 struct Vec {
     float x;
     float y;
     float z;
 };
+/** Vector arithmetic. */
+///@{
 inline Vec operator+(Vec a, Vec b) {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
 }
@@ -33,12 +36,14 @@ inline float dot(Vec a, Vec b) {
 inline Vec cross(Vec a, Vec b) {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
+///@}
+/** `a` at unit length; the zero vector stays zero. */
 inline Vec normalize(Vec a) {
     const float len = std::sqrt(dot(a, a));
     return len > 0 ? a * (1.0f / len) : Vec{0, 0, 0};
 }
 
-// A polygon corner in view space (x right, y up, z away from the camera).
+/** A polygon corner in view space (x right, y up, z away from the camera). */
 struct ViewVertex {
     float x;
     float y;
@@ -48,8 +53,10 @@ struct ViewVertex {
     float s = 1; // light level
 };
 
-// A camera looking at `centre` from `distance` away, turned by yaw about z and
-// raised by pitch, with a perspective projection onto a w x h screen.
+/**
+ * A camera looking at `centre` from `distance` away, turned by yaw about z and
+ * raised by pitch, with a perspective projection onto a w x h screen.
+ */
 struct OrbitCamera {
     Vec eye;
     Vec right;
@@ -60,6 +67,11 @@ struct OrbitCamera {
     float halfW;
     float halfH;
 
+    /**
+     * Places the camera.
+     * @param yaw Radians about z; 0 puts the camera on the -y side.
+     * @param pitch Radians up from level.
+     */
     OrbitCamera(Vec centre, float yaw, float pitch, float distance, int w, int h)
         : focal(float(h) * 1.2f), nearZ(distance * 0.01f), halfW(float(w) / 2), halfH(float(h) / 2) {
         const Vec toCamera{std::cos(pitch) * std::sin(yaw), -std::cos(pitch) * std::cos(yaw), std::sin(pitch)};
@@ -68,17 +80,20 @@ struct OrbitCamera {
         right = normalize(cross(forward, Vec{0, 0, 1}));
         up = cross(right, forward);
     }
+    /** A world point in view space, with its texture coordinates. */
     ViewVertex toView(Vec p, float u = 0, float v = 0) const {
         const Vec d = p - eye;
         return {dot(d, right), dot(d, up), dot(d, forward), u, v};
     }
+    /** A world direction in view space. */
     Vec directionToView(Vec n) const { return {dot(n, right), dot(n, up), dot(n, forward)}; }
+    /** A view-space point on the screen; z must be above 0 (clipNear first). */
     ScreenVertex project(const ViewVertex &p) const {
         return {halfW + focal * p.x / p.z, halfH - focal * p.y / p.z, 1.0f / p.z, p.u, p.v, p.s};
     }
 };
 
-// Keep the part of the polygon with z >= nearZ (Sutherland-Hodgman).
+/** The part of the polygon with z >= nearZ (Sutherland-Hodgman). */
 inline std::vector<ViewVertex> clipNear(const std::vector<ViewVertex> &in, float nearZ) {
     std::vector<ViewVertex> out;
     for (size_t i = 0; i < in.size(); ++i) {

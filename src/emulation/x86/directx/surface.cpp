@@ -227,7 +227,7 @@ Rect Rect::read(Cpu &c, uint32_t p) {
     return {int32_t(c.read32(p)), int32_t(c.read32(p + 4)), int32_t(c.read32(p + 8)), int32_t(c.read32(p + 12))};
 }
 
-// --- Surfaces
+// Surfaces.
 
 Surface::~Surface() {
     if (s && d.memory) {
@@ -514,7 +514,7 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     return std::nullopt;
 }
 
-// --- Blits and flips
+// Blits and flips.
 
 void Surface::fill(Rect r, uint32_t value) {
     r.left = std::max(r.left, 0), r.top = std::max(r.top, 0);
@@ -670,7 +670,7 @@ uint32_t Surface::flip(Cpu &, const ComInterface &) {
     return kDDOk;
 }
 
-// --- Palettes and clippers
+// Palettes and clippers.
 
 const ComInterface *Palette::query(const std::string &iid) {
     return iid == s->interfaces.palette.iid ? &s->interfaces.palette : nullptr;

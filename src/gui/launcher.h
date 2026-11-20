@@ -42,20 +42,29 @@ public:
     virtual void drawWindows() = 0;
 };
 
-// The game list UI, drawn with Dear ImGui on the SDL renderer.
+/** The game list UI, drawn with Dear ImGui on the SDL renderer. */
 class Launcher {
 public:
+    /**
+     * Sets Dear ImGui up on `system`'s window and renderer, for as long as
+     * the launcher lives; the selection starts at the game last started.
+     * `system` and `config` must outlive it.
+     */
     Launcher(SdlSystem &system, Config &config, LauncherPurpose purpose = LauncherPurpose::kPlay);
     ~Launcher();
     Launcher(const Launcher &) = delete;
     Launcher &operator=(const Launcher &) = delete;
 
-    // Show the launcher until the user starts a game (returned) or quits.
+    /**
+     * Shows the launcher until the user starts a game or quits.
+     * @return The game to start (remembered as the last one started), or
+     *         nothing if the user quit.
+     */
     std::optional<GameTarget> run();
 
-    // Shown in the status bar next time the launcher appears.
+    /** Shown in the status bar next time the launcher appears. */
     void setStatus(std::string message) { _status = std::move(message); }
-    // Where imported games go by default (a folder each).
+    /** Where imported games go by default (a folder each). */
     void setLibraryDir(std::filesystem::path dir) { _libraryDir = std::move(dir); }
     /** Adds `extension`'s buttons and windows; it must outlive the launcher's use of it. */
     void setExtension(LauncherExtension *extension) { _extension = extension; }

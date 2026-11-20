@@ -24,8 +24,6 @@ bool hasExtension(const std::string &name, std::initializer_list<const char *> e
 
 } // namespace
 
-// --- TextureViewer ----------------------------------------------------------------------
-
 TextureViewer::TextureViewer(PageContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list())
         if (hasExtension(n, {".tga", ".jpg", ".jpeg", ".png"}))

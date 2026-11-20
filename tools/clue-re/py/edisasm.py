@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
-# Disassembles !EagleM.dll's code into WORK/eagle.pkl for edis.py: a linear
-# sweep that starts again past each byte Capstone can't read (data among the
-# code would otherwise end it early).
+"""Disassembles !EagleM.dll's code into eagle.pkl in CLUE_WORK, for edis.py: a
+linear sweep that starts again past each byte Capstone can't read (data
+among the code would otherwise end it early).
+
+    python3 -I py/edisasm.py
+"""
 import os, struct, pickle, capstone
 GAME = os.environ.get('CLUE_GAME', 'game')
 WORK = os.environ.get('CLUE_WORK', '.')

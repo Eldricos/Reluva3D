@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: the campaign: its script run, the options
+// menu's panels and controls, key maps, and a campaign saved during a
+// combat.
+
 #include "tests/engines/stgenerations/support.h"
 
 #include "common/bytes.h"

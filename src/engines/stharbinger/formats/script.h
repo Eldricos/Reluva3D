@@ -10,7 +10,7 @@
 
 namespace reluva::stharbinger {
 
-// Argument slot types (the byte before each argument's data).
+/** Argument slot types (the byte before each argument's data). */
 enum ArgType {
     kArgNone = 0x00,   // unused slot, no data
     kArgByte = 0x01,   // 1 byte
@@ -23,24 +23,31 @@ enum ArgType {
     kArgConst = 0x40   // u16 constant
 };
 
+/** One argument of a directive: its slot, its type and its value. */
 struct Argument {
     uint8_t slot = 0;
     uint8_t type = kArgNone;
     uint32_t value = 0; // little-endian value of the data (first u16 for type 20)
 };
 
+/** One command of a script, with the arguments it has data for. */
 struct Directive {
     uint32_t offset = 0; // in the directive list's data
     uint8_t command = 0;
     std::vector<Argument> args; // only the slots that hold data
 
+    /** The argument in `slot`, or nullptr if the slot holds no data. */
     const Argument *getArg(int slot) const;
 };
 
+/** A script: its directives in order. */
 typedef std::vector<Directive> DirectiveList;
 
-// Scene commands, after DEEP.EXE's own names (a ? in docs/engines/stharbinger/systems/script-reference.md
-// marks names inferred from behaviour).
+/**
+ * Scene commands, after DEEP.EXE's own names (a ? in
+ * docs/engines/stharbinger/systems/script-reference.md marks names inferred
+ * from behaviour).
+ */
 enum Command {
     kCmdAnim = 0x64,
     kCmdSound = 0x65,
@@ -112,7 +119,7 @@ enum Command {
     kCmdLabel = 0xC8
 };
 
-// Keywords of ANIM and ANIMSEQ (DEEP.EXE table at 0x550D6).
+/** Keywords of ANIM and ANIMSEQ (DEEP.EXE table at 0x550D6). */
 enum AnimKeyword {
     kAnimLoop = 0,
     kAnimCycle = 1,
@@ -130,10 +137,10 @@ enum AnimKeyword {
     kAnimOneFrame = 13
 };
 
-// ANIMDEF modes.
+/** ANIMDEF modes. */
 enum AnimMode { kAnimModeOnTheFly = 0, kAnimModeFlyClear = 1, kAnimModeClear = 2 };
 
-// Hotspot cursors (HOTSPOT slot 6, HOTTYPE slot 1).
+/** Hotspot cursors (HOTSPOT slot 6, HOTTYPE slot 1). */
 enum Cursor {
     kCursorNormal = 0,
     kCursorForward = 1,
@@ -154,22 +161,27 @@ enum Cursor {
     kCursorShoot = 16
 };
 
+/** A cursor's name in lower case ("bearrite"), or "?". */
 const char *getCursorName(int cursor);
 
-// Number of argument slots of a command, or -1 if the byte is not a command
-// (DEEP.EXE table at 0x55140).
+/**
+ * Number of argument slots of a command, or -1 if the byte is not a command
+ * (DEEP.EXE table at 0x55140).
+ */
 int getArgCount(uint8_t command);
-// Number of data bytes after a slot type byte.
+/** Number of data bytes after a slot type byte. */
 int getArgSize(uint8_t type);
-// The command's name, or "op_XX".
+/** The command's name, or "op_XX". */
 std::string getCommandName(uint8_t command);
 
-// Parses a directive list (u16 count, then the directives) starting at `pos`.
-// On success `pos` is just past the list. On failure `error` says why.
+/**
+ * Parses a directive list (u16 count, then the directives) starting at `pos`.
+ * On success `pos` is just past the list. On failure `error` says why.
+ */
 bool readDirectiveList(const uint8_t *data, uint32_t size, uint32_t &pos, DirectiveList &out,
                        std::string *error = nullptr);
 
-// Name-list kinds, in the order of the archives CA ... CV.
+/** Name-list kinds, in the order of the archives CA ... CV. */
 enum ListKind {
     kListAnims,       // CA
     kListBackgrounds, // CB
@@ -181,29 +193,37 @@ enum ListKind {
     kListKindCount
 };
 
-const char *getListArchiveName(ListKind kind); // "CA" ...
-const char *getListTitle(ListKind kind);       // "animations" ...
+/** A list's archive ("CA" ...) and its title for listings ("animations" ...). */
+///@{
+const char *getListArchiveName(ListKind kind);
+const char *getListTitle(ListKind kind);
+///@}
 
+/** A name in one of a scene's name lists. */
 struct NameEntry {
     std::string name;
     std::string source; // the script file that defined it, e.g. BRIDGE.CCG
     uint8_t flag = 0;
 };
 
-// Name list entries: name NUL, source NUL, flag byte.
+/** Name list entries: name NUL, source NUL, flag byte. */
 std::vector<NameEntry> readNameList(const uint8_t *data, uint32_t size);
 
+/** A use of a symbol: the command and slot it's an argument of. */
 struct XrefEntry {
     std::string symbol;
     uint8_t command = 0;
     uint8_t slot = 0;
 };
 
-// CCS entries: symbol NUL, command byte, slot byte.
+/** CCS entries: symbol NUL, command byte, slot byte. */
 std::vector<XrefEntry> readXrefList(const uint8_t *data, uint32_t size);
 
-// The file a resource is stored in, relative to the DS9 directory:
-// ART/X/Y/NAME.CMP, ANIMS/XXXX/NAME.RLE or SOUND/NAME.RAW.
+/**
+ * The file a resource is stored in, relative to the DS9 directory:
+ * ART/X/Y/NAME.CMP, ANIMS/XXXX/NAME.RLE or SOUND/NAME.RAW; empty for
+ * another kind of list.
+ */
 std::string getResourcePath(ListKind kind, const std::string &name);
 
 } // namespace reluva::stharbinger

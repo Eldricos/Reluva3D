@@ -170,9 +170,10 @@ public:
         if (!_cmd)
             return;
         // At most kInFlight sent and not done: SDL's Vulkan backend keeps a
-        // descriptor-set cache for every command buffer in flight at once,
-        // for good (see SdlGpuRenderer::copyPass), and a batch each, with
-        // no wait until the frame's read-back, made hundreds.
+        // descriptor-set cache for good for every command buffer in flight
+        // at once (see kTexturesPerWait in sdl_gpu.h), and a command buffer
+        // for each batch, with no wait before the frame's read-back, made
+        // hundreds.
         if (_inFlight.size() >= kInFlight) {
             SDL_GPUFence *oldest = _inFlight.front();
             _inFlight.pop_front();

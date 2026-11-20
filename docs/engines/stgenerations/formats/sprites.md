@@ -43,6 +43,12 @@ decoder rather than misread. Only ANTILIOS.DAT has two, older than the
 `011.gs2` and `012.gs2` beside them, and the game only loads `NNN.gs2`
 (`0x4C01B0`), so they're leftovers.
 
+## In Reluva
+
+`SpriteSet` (`src/engines/stgenerations/formats/sprite.h`) reads GS2 files and
+refuses GSF ones. The data viewer shows them, and `reluva-tool stgenerations
+pictures <game folder>` decodes every set.
+
 ## Sources and checks
 
 From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [actors-draw](../research/actors-draw.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

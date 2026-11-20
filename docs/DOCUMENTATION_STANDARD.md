@@ -31,7 +31,11 @@ Every engine's folder has the same layout:
 | `PLAN.md` | Optional, while it's being built: the plan, its phases and the decisions taken. Facts go on their pages as they're found |
 
 **Every page starts from a template** in [templates/](templates/README.md),
-with its headings in the same order.
+and keeps its `##` headings: the same words, in the same order. A page's
+own topics go under them as `###`, never beside them as `##` (a format's
+records under Layout, a system's parts under How it works). A heading the
+template marks optional (Behaviour, Open questions, Terms) may be left
+out; the others stay, even when short.
 
 - **The five pages** are made with the engine (`cmake/NewEngine.cmake`,
   from `templates/engine/`) and kept even while short.
@@ -39,20 +43,30 @@ with its headings in the same order.
 - **A format or a system** gets its own page once there's something to
   say about it; a page that grows too big is split by topic, not kept as
   one long notes file.
+- **"In Reluva"** on a format or system page says what Reluva does with
+  what the page describes: the files and classes that do it, the data
+  viewer's page for it, the `reluva-tool` commands, and what's done
+  differently (which is also in `KNOWN_DIFFERENCES.md`). If Reluva doesn't
+  do it yet, it says so in a line. What the original does goes in the
+  sections before it, never in it.
 
 ## Engines for a family of games, and for one
 
 - **An engine for a family of games** (one known from the start to be
-  meant for more than one game, as `idtech3`, `awe` and `netimmerse` are)
-  keeps each game's docs in `games/<game id>/`, laid out as above: the
-  five pages and the three folders. The engine's own folder then holds its
-  `README.md` (the engine, and a table of its games) and only what holds
-  for every game on it, such as the engine's or a middleware's own file
-  formats in `formats/`. A page worked out from one game stays in that
-  game's folder until another game is found to share it, then moves up.
-- **An engine for one game** (`clue`, `stgenerations`, `stharbinger`)
-  keeps everything in its own folder, with no `games/`. If a second game
-  comes to it, it moves to the layout above.
+  meant for more than one game, as `age`, `awe`, `idtech3`,
+  `netimmerse`, `nfs` and `unreal` are) keeps each game's docs in
+  `games/<game id>/`, laid out as above: the five pages and the three
+  folders. The engine's own folder then holds its `README.md` (the
+  engine, and a table of its games) and only what holds for every game
+  on it, such as the engine's or a middleware's own file formats in
+  `formats/`. A page worked out from one game stays in that game's
+  folder until another game is found to share it, then moves up.
+  Its README keeps every section of the engine template: what holds for
+  every game is said there, and a section whose detail is each game's
+  own (Using it, mostly) points to the games' pages.
+- **An engine for one game** (`botf`, `clue`, `stgenerations`,
+  `stharbinger`) keeps everything in its own folder, with no `games/`.
+  If a second game comes to it, it moves to the layout above.
 
 ## Shared code: `common/`
 
@@ -95,6 +109,27 @@ that engine's docs, not here.
   is the game's name, and any other page is `# <Game or engine>: <topic>`.
   The title isn't repeated as the first `##`, and a page's status and code
   go in its status line, not in a heading.
+
+## Writing
+
+- **Say what is, not how it got there.** A page says what's known and
+  what Reluva does. What an earlier version of the page or of Reluva did,
+  and when that changed ("before this", "the page now does", "since
+  November 2026", "the first version of this page said", "0.82 before"),
+  belongs in the commit message. Where a reader could be misled (a
+  published source or an easy reading says otherwise), the page says so
+  as a fact with its source: "bytes 20-21 are the frame's number, not its
+  time". `TESTING.md`'s "Last checked" and `UNCONFIRMED.md`'s "Settled"
+  keep their dates and what settled each item.
+- **Paths name files and folders that exist.** Give them from the
+  repository's root (`src/engines/nfs/host/thrash.cpp`), unless the table
+  or list they're in has already named their folder (an engine README's
+  Code table).
+- **Commands are written as they're typed:** `reluva-tool <engine>
+  <command>` for an engine's (`reluva-tool age ar-list`), `reluva-tool
+  <command>` for a shared one (`reluva-tool detect`).
+- **Point to another section with a link** to its heading, not with
+  "above" or "below", which go wrong when a page is reorganised.
 
 ## Sources and confidence
 
@@ -147,8 +182,11 @@ python3 tools/check-docs.py
 
 checks that every relative link and `#anchor` goes somewhere, that each
 engine (or each game, in a family's engine) has its five pages, that each
-format and system page has a status line with a Confidence and a "Sources
-and checks", that Status, Confidence and italic tags use the standard's
+format and system page has a status line with a Confidence and its
+template's `##` headings in order, that each engine's and game's README
+has its template's sections, that no heading outside `research/` holds an
+address, that every path from the repository's root in backticks exists
+and every `reluva-tool` command is one it has, that Status, Confidence and italic tags use the standard's
 words, that the standard pages have their templates' headings, that every
 page's title starts with its engine's or game's name, that each common
 page has its headings in order, that each `research/` has a `README.md`,

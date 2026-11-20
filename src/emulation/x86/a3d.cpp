@@ -109,7 +109,8 @@ ComInterface makeListener() {
 }
 
 // Geometry (occlusions and reflections), drawn in an OpenGL-like way. It's
-// heard as nothing: the program's surfaces and materials are kept no record of.
+// heard as nothing: no record is kept of the program's surfaces and
+// materials.
 ComInterface makeGeom() {
     return {"IA3dGeom", kIidGeom,
             with({{"Enable", 1},

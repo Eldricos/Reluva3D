@@ -10,8 +10,6 @@
 
 namespace reluva::idtech3 {
 
-// --- FileViewer -------------------------------------------------------------------------
-
 FileViewer::FileViewer(PageContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list()) {
         const Archive *a = ctx.files.find(n);

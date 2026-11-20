@@ -22,79 +22,106 @@
 
 namespace reluva::awe {
 
+/** A character's animations as the game drives them, for one character in a scene. */
 class Actor {
 public:
-    // How it loads `<who>_<name>.gr2`: null if there's no such file.
+    /** How it loads `<who>_<name>.gr2`: null if there's no such file. */
     using Loader = std::function<std::shared_ptr<const Animation>(const std::string &name)>;
-    // Whether a condition holds (the renamed animations', MODL's).
+    /** Whether a condition holds (the renamed animations', MODL's). */
     using Test = std::function<bool(const std::string &condition)>;
 
-    // Its settings from the scene's record (MODL, ANIM; defaults else).
+    /** Its settings from the scene's record (MODL, ANIM; defaults else). */
     Actor(const Model &model, const Ac2Record *record, Loader load, Test test, unsigned seed = 1);
 
+    /** The animations it plays. */
+    ///@{
     Animator &animator() { return _animator; }
     const Animator &animator() const { return _animator; }
+    ///@}
 
-    // A full-body animation (idle1, walk, rotatel...: 0x4049e0), which
-    // replaces the last; else one laid over it.
+    /** A full-body animation (idle1, walk, rotatel...: 0x4049e0), which replaces the last; else one laid over it. */
     static bool isBase(std::string_view name);
-    // Plays an animation (0x404b00): its renamed file, or with MODL's
-    // prefix (sitidle1), or itself; `loops` 0 for ever; `ease` 0 for the
-    // default; `weight` 0 for its mask's. The name played, "" if none.
+    /**
+     * Plays an animation (0x404b00): its renamed file, or with MODL's
+     * prefix (sitidle1), or itself; `loops` 0 for ever; `ease` 0 for the
+     * default; `weight` 0 for its mask's. The name played, "" if none.
+     */
     std::string play(std::string_view name, int loops, float ease, float weight = 0);
-    // Placed in a scene (0x4052d0): idle1 for ever, or walk.
+    /** Placed in a scene (0x4052d0): idle1 for ever, or walk. */
     void activate(bool walking = false);
 
-    // "anim <name> [w] [loops] [ease]" (0x40c367): finite gestures fade
-    // first. The name it plays as ("" if none: no file); onAnimDone(that
-    // name) when it ends.
+    /**
+     * "anim `<name>` [w] [loops] [ease]" (0x40c367): finite gestures fade
+     * first. The name it plays as ("" if none: no file); onAnimDone(that
+     * name) when it ends.
+     */
     std::string anim(std::string_view name, float weight, int loops, float ease);
-    // The finite gestures on the body eased out over 0.3 s (0x4048f0): as
-    // a gesture is played, and as a walk starts.
+    /**
+     * The finite gestures on the body eased out over 0.3 s (0x4048f0): as
+     * a gesture is played, and as a walk starts.
+     */
     void stopGestures();
-    // "turn": the head toward a heading (degrees, the game's: 0 faces +Z,
-    // more is to the character's left), up (1), down (2) or level (0)
-    // (0x4412b0); within 2 degrees of the body's (`body`), nothing.
+    /**
+     * "turn": the head toward a heading (degrees, the game's: 0 faces +Z,
+     * more is to the character's left), up (1), down (2) or level (0)
+     * (0x4412b0); within 2 degrees of the body's (`body`), nothing.
+     */
     void turnHead(float heading, float body, int upDown);
-    // "turn up|down [w]" (headup, headdown), and "turn home".
+    /** "turn up|down [w]" (headup, headdown), and "turn home". */
+    ///@{
     void headAnimation(std::string_view name, float weight);
     void headHome();
-    // "look <left|right|home> [w]": the eyes (0x4411f0).
+    ///@}
+    /** "look `<left|right|home>` [w]": the eyes (0x4411f0). */
     void look(std::string_view where, float weight);
-    // "rotate": the body from `from` to a heading in degrees (0x441c90),
-    // the shorter way with the turning animation for how far; false if
-    // it's within 2 degrees already. onRotateDone() when it gets there.
+    /**
+     * "rotate": the body from `from` to a heading in degrees (0x441c90),
+     * the shorter way with the turning animation for how far; false if
+     * it's within 2 degrees already. onRotateDone() when it gets there.
+     */
     bool rotateTo(float heading, float from);
+    /** Whether rotateTo()'s turn is under way. */
     bool rotating() const { return _rotating; }
-    // "animate <seconds>": the animations' clocks jump on.
+    /** "animate `<seconds>`": the animations' clocks jump on. */
     void advance(float seconds);
 
-    // Dialogue: a line starts (0x404720), the mouth moves or not
-    // (0x4046c0, 0x4046f0), the line ends (0x404760).
+    /**
+     * Dialogue: a line starts (0x404720), the mouth moves or not
+     * (0x4046c0, 0x4046f0), the line ends (0x404760).
+     */
+    ///@{
     void lineStart();
     void mouth(bool on);
     void lineEnd();
-    // While a conversation is on screen idle variations wait.
+    ///@}
+    /** While a conversation is on screen idle variations wait. */
     void setConversation(bool on) { _conversation = on; }
 
-    // Moves on by `seconds`: blinks, idle variations, the animations, a
-    // rotation (the heading in degrees is the character's, turned here).
+    /**
+     * Moves on by `seconds`: blinks, idle variations, the animations, a
+     * rotation (the heading in degrees is the character's, turned here).
+     */
     void update(float seconds, float &heading);
 
-    // How far a base animation carries the body in one play: along the
-    // model's axes, and turned (degrees). From its root bone (Bip01).
-    // `carried` and `carriedTurn` are what's left of that in the pose
-    // played as the base: its mask can leave the bones that carry it at
-    // rest (the walks and runs leave GrannyRootBone out), and then the
-    // body doesn't go along with the clip at all.
+    /**
+     * How far a base animation carries the body in one play: along the
+     * model's axes, and turned (degrees). From its root bone (Bip01).
+     * `carried` and `carriedTurn` are what's left of that in the pose
+     * played as the base: its mask can leave the bones that carry it at
+     * rest (the walks and runs leave GrannyRootBone out), and then the
+     * body doesn't go along with the clip at all.
+     */
     struct Motion {
         float drift[3] = {0, 0, 0};
         float turn = 0;
         float carried[3] = {0, 0, 0};
         float carriedTurn = 0;
     };
+    /** An animation's Motion on this character, worked out once and kept. */
     Motion motion(const Animation &animation);
 
+    // An "anim"'s animation has ended (by the name anim() gave), and a
+    // rotateTo() has got there.
     std::function<void(const std::string &name)> onAnimDone;
     std::function<void()> onRotateDone;
 
@@ -132,7 +159,7 @@ private:
     unsigned _random;
 };
 
-// Degrees in [0, 360).
+/** Degrees in [0, 360). */
 float normalizeDegrees(float d);
 
 } // namespace reluva::awe

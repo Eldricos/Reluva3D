@@ -59,8 +59,8 @@ void GpuModel::skinAndLight(const Pose &pose, const gfx::Mat4 &placement, bool h
             continue;
         result.drawn = true;
         result.shine.clear();
-        // Skinned on the CPU into a new mesh each frame (characters have a
-        // few thousand vertices).
+        // Skinned on the CPU each frame (characters have a few thousand
+        // vertices).
         skin(mesh, pose, positions, normals);
         std::vector<gfx::Vertex> &verts = result.verts;
         std::vector<gfx::Vertex> &shine = result.shine;

@@ -1142,7 +1142,7 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
     return Error::success();
 }
 
-// --- Engine natives -------------------------------------------------------------------------
+// Engine natives.
 
 namespace {
 
@@ -1228,7 +1228,8 @@ void registerEngineNatives(Vm &vm) {
         c.self->timerLoop = c.b(1);
     });
     reg("Actor.Sleep", [](NativeCall &c) { c.latentSeconds = std::max(0.0f, c.f(0)); });
-    // Latent functions that wait for what isn't simulated yet: done at once.
+    // Latent functions done at once, not waiting (FinishInterpolation: for
+    // the interpolation's end, though interpolate() moves the actor now).
     for (const char *done : {"Actor.FinishInterpolation"})
         reg(done, [](NativeCall &c) { c.latentSeconds = 0; });
     reg("Actor.SetRotation", [=](NativeCall &c) {
@@ -1396,7 +1397,7 @@ void registerEngineNatives(Vm &vm) {
             if (c.vm.isA(v.o, "Pawn") && distance(location(c.vm, v.o), at) <= c.f(2))
                 c.items.push_back(v);
     });
-    reg("Actor.TouchingActors", [](NativeCall &) {}); // no collision yet
+    reg("Actor.TouchingActors", [](NativeCall &) {}); // lists none: the level's touching lists aren't read here
     reg("Actor.AllPawns", [](NativeCall &c) {
         for (Value &v : actorsOf(c.vm, c.args[0]))
             if (c.vm.isA(v.o, "Pawn"))

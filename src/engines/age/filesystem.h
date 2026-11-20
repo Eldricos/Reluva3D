@@ -13,10 +13,11 @@
 namespace reluva::age {
 
 /**
- * Add an install's files to the search set: every .ar archive in the game
+ * Adds an install's files to the search set: every .ar archive in the game
  * folder (later names, compared in lower case, before earlier ones), with
- * the folder's loose files above them. See docs/engines/age/games/mm2/formats/ar.md for what
- * is and isn't known about the original's order.
+ * the folder's loose files above them. See
+ * docs/engines/age/games/mm2/formats/ar.md for what is and isn't known
+ * about the original's order.
  *
  * An archive that can't be opened is skipped and reported in `warnings`;
  * a folder without any archive is an error.

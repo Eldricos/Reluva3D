@@ -71,7 +71,7 @@ struct DialogueTables {
     const char *characters = nullptr;
     /** A place's table ("%s" it), added as the act first meets the place; null: none so. */
     const char *places = nullptr;
-    /** Where a line's event file, <name>_<act>_<code>.txt, is looked for, in turn. */
+    /** Where a line's event file, `<name>_<act>_<code>.txt`, is looked for, in turn. */
     std::vector<const char *> events = {"text/dialogue/events/"};
 };
 
@@ -153,7 +153,7 @@ struct LightingRules {
     /**
      * At night outdoors (time 1 or more, OUTD), or late at night in a
      * scene marked FAKE (time 2), the scene's pictures are drawn in this
-     * colour instead of their own, the lights' glows (elements\lights)
+     * colour instead of their own, the lights' glows (`elements\lights`)
      * apart; zeros: never (Orient Express).
      */
     std::array<float, 3> nightPictures{0, 0, 0};
@@ -182,14 +182,14 @@ struct GameFlow {
     Error (*readActs)(const Archive &files, std::vector<ActRow> &out) = nullptr;
     /**
      * A scene's place (its folder in Locations), from its name; null: up
-     * to its first '_'. With `actFolders`, each place has an Act<NN><x>
+     * to its first '_'. With `actFolders`, each place has an `Act<NN><x>`
      * folder for an act's versions and Base for the rest, the act's first.
      */
     std::string (*placeOf)(const std::string &scene) = nullptr;
     bool actFolders = false;
     bool actMusic = false;                       ///< the act's Music plays when a scene's music entries name none
-    const char *musica = "sound\\music\\%s.mp3"; ///< what "musica <name>" plays, looping
-    const char *menu = "menu.%s_01";             ///< the scene "menu <name>" shows
+    const char *musica = "sound\\music\\%s.mp3"; ///< what "musica `<name>`" plays, looping
+    const char *menu = "menu.%s_01";             ///< the scene "menu `<name>`" shows
     const char *mainMenu = "menu.main";          ///< the main menu's place
     bool letterKeys = true;           ///< P, S and L open the in-game, save and load menus (Escape does either way)
     const char *newGame = "playover"; ///< the main menu's hotspot that starts a new game
@@ -204,7 +204,7 @@ struct GameFlow {
     const char *actLoadingWaitFont = nullptr; ///< "wait"'s and how far's
     std::array<int, 3> actLoadingRows{};      ///< the three's tops, each centred across
     /**
-     * "fade in|out <object>": the object's alpha in steps of 8, one an
+     * "fade in|out `<object>`": the object's alpha in steps of 8, one an
      * update at most, this many seconds apart, the script waiting; 0: the
      * object shown or hidden at once.
      */
@@ -304,7 +304,7 @@ struct InventoryRules {
     Table (*readCharacters)(std::string_view text) = nullptr;
     const char *combinations = "combinelist.txt"; ///< the table of items put together and taken apart
     const char *cantUse = "talk gen_cantuse 1";   ///< said when an item is used on nothing that takes it
-    const char *takeSound = nullptr;              ///< played by "take", by its name (sound\<it>.wav)
+    const char *takeSound = nullptr;              ///< played by "take", by its name (`sound\<it>.wav`)
     /** The states a save writes for Reluva's (1 just taken, 2 in the bag, 3 in hand, 4 used...), by index. */
     std::array<int, 8> saveStates{0, 1, 2, 3, 4, 5, 6, 7};
     int perPage = 16; ///< items a page, for a save's page numbers
@@ -313,7 +313,7 @@ struct InventoryRules {
 /** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
 struct GameSaves {
     SaveLayout layout;
-    const char *extension = ".ac2"; ///< slot<n> and this, a slot<n>.bmp beside each
+    const char *extension = ".ac2"; ///< `slot<n>` and this, a `slot<n>.bmp` beside each
     SlotLayout screen;              ///< how the save and load screens draw them
     /**
      * The save "savelast" writes (with the extension) and the condition
@@ -381,11 +381,11 @@ struct GameInfo {
     bool (*verb)(GameState &state, const std::vector<std::string> &words, std::string &then) = nullptr;
     /**
      * "timer" is one clock, the seconds since "timer start" (or "reset"),
-     * and "timer <n" "timer >n" compare it (ac.exe 0x40d9dd, 0x40a965);
-     * false: Orient Express's named timers that "time <n>" moves on.
+     * and "`timer <n`" "`timer >n`" compare it (ac.exe 0x40d9dd, 0x40a965);
+     * false: Orient Express's named timers that "time `<n>`" moves on.
      */
     bool clock = false;
-    /** The movie "movie <name>" plays (attwn's "coda", one of four); null: that name. */
+    /** The movie "movie `<name>`" plays (attwn's "coda", one of four); null: that name. */
     std::string (*movie)(const GameState &state, const std::string &name) = nullptr;
     DialogueTables dialogue;       ///< its dialogue tables' layout
     DialogueRules talk;            ///< how its conversations go

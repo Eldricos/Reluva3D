@@ -22,8 +22,8 @@ struct TuneNode;
 
 /**
  * How particles are made: a birth rule, as a .vehCarDamage, the props'
- * .dgBangerData (its BirthRule block) and tune/effects/<name>.asBirthRule have
- * them.
+ * .dgBangerData (its BirthRule block) and `tune/effects/<name>.asBirthRule`
+ * have them.
  */
 struct BirthRule {
     Vec3 positionVar{}; // metres either way
@@ -41,7 +41,7 @@ struct BirthRule {
     float dAlpha = 0;     // fading, in 255ths a frame
     float gravity = 0;    // metres a second squared, up
     int initialBlast = 0; // particles at once
-    // then a second, for that long (0: no end)
+    // then a second, for that long (0: no limit, which Reluva ends after 3 s)
     float spewRate = 0;
     float spewTime = 0;
     std::array<float, 4> color{1, 1, 1, 1};
@@ -49,48 +49,53 @@ struct BirthRule {
     int frame = 0;
     int frameEnd = 0;
 };
+/** A car's smoke's rule, from its .vehCarDamage. */
 using SmokeRule = BirthRule;
 /** From a rule's block (the fields above; the others aren't used). */
 BirthRule parseBirthRule(const TuneNode &n);
 
-/** tune/vehicle/<car>.vehCarDamage: see docs/engines/age/games/mm2/systems/damage.md. */
+/** `tune/vehicle/<car>.vehCarDamage`: see docs/engines/age/games/mm2/systems/damage.md. */
 struct DamageSetup {
     float maxDamage = 300000;     // wrecked
     float medDamage = 150000;     // smoking
     float impactThreshold = 1500; // knocks below this (kg m/s) do nothing
-    float regenerateRate = 0;     // a second
+    float regenerateRate = 0;     // damage mended a second
     float textureRadius = 2.7f;   // TextelDamageRadius: metres round a knock that look damaged
     // car-relative
     Vec3 smokeOffset{};
     Vec3 smokeOffset2{};
     SmokeRule smoke;
 };
-/** Reads a .vehCarDamage's text; fields it leaves out keep their defaults. */
+/** Reads a .vehCarDamage's text. Fails on bad text, or text with no block. */
 Error parseDamageSetup(std::string_view text, DamageSetup &out);
-/** Reads the car's .vehCarDamage; without one, @p out holds the defaults and the error says why. */
+/** Reads a car's .vehCarDamage; without one, fails and leaves the defaults. */
 Error loadDamageSetup(const SearchSet &files, const std::string &car, DamageSetup &out);
 
-/** A car's damage: knocks over the threshold add what they're over it. */
+/**
+ * A car's damage: knocks over the threshold add what they're over it, up
+ * to MaxDamage.
+ */
 class CarDamage {
 public:
-    /** Mends it: no damage. */
+    /** Mends it all. */
     void reset() { _damage = 0; }
-    /** Sets the damage, as another player's machine says. */
+    /** Sets the damage, as another player's machine says it is. */
     void set(float damage) { _damage = damage; }
     /** An impulse (kg m/s); what it added. */
     float knock(const DamageSetup &setup, float impulse);
-    /** Mends it by the setup's RegenerateRate over @p dt seconds, down to 0. */
+    /** Mends it as the setup's RegenerateRate says, over `dt` seconds. */
     void update(const DamageSetup &setup, float dt);
-    /** In the setup's units: impulse over the threshold, up to MaxDamage. */
+    /** The damage, in the setup's units (0 to MaxDamage). */
     float damage() const { return _damage; }
     /** 0..1 of the way to wrecked. */
     float fraction(const DamageSetup &setup) const {
         return setup.maxDamage > 0 ? std::min(1.0f, _damage / setup.maxDamage) : 0;
     }
-    /** At MedDamage or more. */
+    /** Whether it's at MedDamage (smoking), or MaxDamage (wrecked). */
+    ///@{
     bool smoking(const DamageSetup &setup) const { return _damage >= setup.medDamage; }
-    /** At MaxDamage. */
     bool wrecked(const DamageSetup &setup) const { return _damage >= setup.maxDamage; }
+    ///@}
 
 private:
     float _damage = 0;
@@ -110,7 +115,7 @@ struct CarWear {
 
     /** Its setup (the defaults without one), mended. */
     void load(const SearchSet &files, const std::string &car, CarActor &actor);
-    /** No damage, no puffs owed, and the body's dents gone. */
+    /** No damage, and the car's clean textures back. */
     void mend(CarActor &actor);
     /**
      * After the car's step: its knock (sim.impact) damages it and dents the
@@ -119,20 +124,21 @@ struct CarWear {
     void update(float dt, CarActor &actor, SmokePuffs *smoke);
     /** Its smoke alone, at the damage it has (another player's car). */
     void puff(float dt, const CarActor &actor, SmokePuffs *smoke);
-    /** 0..1 of the way to wrecked. */
+    /** As CarDamage's, with this setup. */
+    ///@{
     float fraction() const { return damage.fraction(setup); }
-    /** At its setup's MaxDamage. */
     bool wrecked() const { return damage.wrecked(setup); }
+    ///@}
 };
 
 /**
  * Particles: billboards of one of the game's particle textures
- * (texture/fxpt<n>), rising, falling and fading as their rules say. The
+ * (`texture/fxpt<n>`), rising, falling and fading as their rules say. The
  * cars' smoke is texture/fxpt8's (its four frames, two by two).
  */
 class SmokePuffs {
 public:
-    /** Draws with @p renderer and @p textures, which must outlive it. */
+    /** Makes the quad they're drawn with; `renderer` and `textures` must outlive it. */
     SmokePuffs(gfx::Renderer3D &renderer, TextureCache &textures);
     ~SmokePuffs();
     SmokePuffs(const SmokePuffs &) = delete;
@@ -146,13 +152,10 @@ public:
         gfx::TextureId texture = 0;
         int grid = 1;
     };
-    /** A particle texture's look, loaded the first time it's asked for. */
+    /** A texture's look, by its name (kept once found). */
     Look look(const std::string &texture);
 
-    /**
-     * One particle (the smoke's look by default), carried at half the car's
-     * velocity; none past 600 alive.
-     */
+    /** One particle (the smoke's look by default); none past 600 at once. */
     void emit(const BirthRule &rule, const Vec3 &at, const Vec3 &carVelocity, const Look *look = nullptr);
     /**
      * A rule's InitialBlast at once (at least one), then its SpewRate for
@@ -161,23 +164,24 @@ public:
     void burst(const BirthRule &rule, const Vec3 &at, const Vec3 &velocity, const Look &look);
     /**
      * What a car's wheels throw up from what they're on (the surfaces'
-     * particles): tune/effects/<name>.asBirthRule, by Reluva's reading of the
-     * materials' effect numbers (see docs/engines/age/games/mm2/systems/damage.md).
+     * particles): `tune/effects/<name>.asBirthRule`, by Reluva's reading of
+     * the materials' effect numbers (see
+     * docs/engines/age/games/mm2/systems/damage.md).
      */
     void loadWheelEffects(const SearchSet &files);
-    /** Throws up the particles of what the car's wheels slip, or roll, on. */
+    /** What a car's wheels throw up this frame, as loadWheelEffects read it. */
     void wheels(float dt, const CarSim &car);
-    /** Moves, grows and fades the particles over @p dt seconds; keeps the spews going. */
+    /** Moves the particles on, and makes those the bursts still owe. */
     void update(float dt);
-    /** Drops every particle, spew and what the wheels owe. */
+    /** Takes every particle and burst away. */
     void clear() {
         _puffs.clear();
         _spews.clear();
         _wheelOwed.clear();
     }
-    /** The particles alive. */
+    /** How many particles there are. */
     size_t count() const { return _puffs.size(); }
-    /** Each particle as a billboard facing @p eye, fading out over its life. */
+    /** Draws them facing the eye. */
     void draw(const Vec3 &eye) const;
 
 private:

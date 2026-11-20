@@ -24,18 +24,27 @@ namespace reluva::gfx {
 // which perspective() produces. Front faces are counter-clockwise on
 // screen.
 
+/** A 4x4 matrix, column-major (m[col * 4 + row]). */
 using Mat4 = std::array<float, 16>;
+/** A point or direction: x, y, z. */
 using Vec3 = std::array<float, 3>;
 
+/** The identity matrix. */
 Mat4 identity();
-Mat4 multiply(const Mat4 &a, const Mat4 &b); // a * b
-// fovY in radians; depth 0 at zNear, 1 at zFar.
+/** a * b: b applied first. */
+Mat4 multiply(const Mat4 &a, const Mat4 &b);
+/**
+ * A projection for a camera looking down -Z: depth 0 at zNear, 1 at zFar.
+ * @param fovY The vertical field of view, in radians.
+ * @param aspect Width over height.
+ */
 Mat4 perspective(float fovY, float aspect, float zNear, float zFar);
-// A view matrix looking from `eye` along `forward`, `up` roughly up.
+/** A view matrix looking from `eye` along `forward`, `up` roughly up. */
 Mat4 lookAlong(const Vec3 &eye, const Vec3 &forward, const Vec3 &up);
-// The point after M * (x, y, z, 1) and the divide by w.
+/** The point after M * (x, y, z, 1) and the divide by w (none for a w of 0). */
 Vec3 transformPoint(const Mat4 &m, const Vec3 &p);
 
+/** A mesh's vertex. */
 struct Vertex {
     float pos[3];
     float uv[2];  // first texture coordinates
@@ -44,9 +53,13 @@ struct Vertex {
     uint8_t color[4]; // RGBA, 255 = 1.0
 };
 
-using TextureId = uint32_t; // 0 = none
-using MeshId = uint32_t;    // 0 = none
+/** A texture or mesh the renderer made; 0 is none. */
+///@{
+using TextureId = uint32_t;
+using MeshId = uint32_t;
+///@}
 
+/** How a texture is sampled. */
 struct TextureParams {
     bool clamp = false;       // clamp coordinates to the edge instead of repeating
     bool mipmaps = true;      // generate mipmaps and filter between them
@@ -55,7 +68,7 @@ struct TextureParams {
     bool anisotropic = false; // anisotropic filtering, for mipmapped textures
 };
 
-// Blend factors for result = src * srcFactor + dst * dstFactor.
+/** Blend factors for result = src * srcFactor + dst * dstFactor. */
 enum class Blend : uint8_t {
     kZero,
     kOne,
@@ -68,10 +81,12 @@ enum class Blend : uint8_t {
     kDstAlpha,
     kOneMinusDstAlpha,
 };
+/** Which faces are culled: none, the back ones or the front ones. */
 enum class Cull : uint8_t { kNone, kBack, kFront };
-// Discard fragments by their alpha: none, alpha > 0, alpha < 0.5, alpha >= 0.5.
+/** Which fragments an alpha test keeps: all, alpha > 0, alpha < 0.5, alpha >= 0.5. */
 enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128 };
 
+/** How a draw call blends, tests depth and culls. */
 struct DrawState {
     // One/Zero: opaque
     Blend src = Blend::kOne;
@@ -83,12 +98,16 @@ struct DrawState {
     Cull cull = Cull::kBack;
     AlphaTest alphaTest = AlphaTest::kNone;
 
+    /** Equal when every field is. */
     bool operator==(const DrawState &) const = default;
 };
 
-// A periodic function of time: base + amplitude * f(phase + time * frequency),
-// f with period 1 and values in -1..1 (sawtooths 0..1).
+/** A Wave's f: noise is smoothly interpolated random values at whole numbers. */
 enum class WaveFunc : uint8_t { kSin, kTriangle, kSquare, kSawtooth, kInverseSawtooth, kNoise };
+/**
+ * A periodic function of time: base + amplitude * f(phase + time * frequency),
+ * f with period 1 and values in -1..1 (sawtooths 0..1).
+ */
 struct Wave {
     WaveFunc func = WaveFunc::kSin;
     float base = 0;
@@ -96,24 +115,29 @@ struct Wave {
     float phase = 0;
     float frequency = 0;
 };
-// The wave's value at `time` seconds, as the GPU computes it too.
+/** The wave's value at `time` seconds, as the GPU computes it too. */
 float evaluate(const Wave &wave, float time);
 
-// Where texture coordinates come from: the first or second set, a
-// reflection of the camera off the surface (environment mapping), or the
-// position's dot products with two vectors.
+/**
+ * Where texture coordinates come from: the first or second set, a
+ * reflection of the camera off the surface (environment mapping), or the
+ * position's dot products with two vectors.
+ */
 enum class TexGen : uint8_t { kUv, kUv2, kEnvironment, kVector };
-// Where colour and alpha come from (times DrawCall::color). Lighting: the
-// draw call's ambient light, plus its directed light times how much the
-// normal faces the light's direction (alpha 1).
-// Shadow: 1 - min(shadowStrength / |distance(position, shadowLight) -
-// shadowReach|, shadowMax) at each vertex, its place in the world (after
-// the model matrix, divided by its w): a projected shadow, darkest where
-// it falls close to its caster.
+/**
+ * Where colour and alpha come from (times DrawCall::color). Lighting: the
+ * draw call's ambient light, plus its directed light times how much the
+ * normal faces the light's direction (alpha 1). Shadow: 1 -
+ * min(shadowStrength / |distance(position, shadowLight) - shadowReach|,
+ * shadowMax) at each vertex, its place in the world (after the model
+ * matrix, divided by its w): a projected shadow, darkest where it falls
+ * close to its caster.
+ */
 enum class ColorSource : uint8_t { kConstant, kVertex, kOneMinusVertex, kLighting, kShadow };
 
-// Moves vertices on the GPU each frame.
+/** Moves vertices on the GPU each frame. */
 struct Deform {
+    /** What it does, as the fields below say for each. */
     enum class Type : uint8_t { kNone, kWave, kBulge, kMove, kNormal } type = Type::kNone;
     // Wave: along the normal by the wave's value, its phase offset by
     // (x + y + z) * spread. Move: by `vector` times the wave's value.
@@ -130,28 +154,36 @@ struct Deform {
     float speed = 0;
 };
 
-// A light added for a frame (a shot, an explosion): it brightens what's
-// within `radius` of `origin`, fading to nothing at the edge.
+/**
+ * A light added for a frame (a shot, an explosion): it brightens what's
+ * within `radius` of `origin`, fading to nothing at the edge.
+ */
 struct DynamicLight {
     Vec3 origin{};
     float radius = 0;
     Vec3 color{};  // 1 = full
     float fog = 0; // a volume light's: how much it hides what's behind it, through its middle
 };
+/** The most dynamic lights a draw takes (Renderer3D::setDynamicLights). */
 constexpr int kMaxDynamicLights = 16;
 
-// A light on a mesh's vertices (ColorSource::kLighting with
-// vertexLightCount > 0): UE1's actor lighting, worked out per vertex.
+/**
+ * A light on a mesh's vertices (ColorSource::kLighting with
+ * vertexLightCount > 0): UE1's actor lighting, worked out per vertex.
+ */
 struct VertexLight {
     Vec3 position{};
     float radius = 0;
     Vec3 color{};          // 1 = full
     bool cylinder = false; // surfaceLighting: by its distance across, whatever the facing
 };
+/** The most vertex lights a draw call has (DrawCall::vertexLights). */
 constexpr int kMaxVertexLights = 6;
-// How much of a volume light (a glowing sphere, densest at its centre and
-// fading to nothing at its radius, (1 - (d / r)^2)) lies between `eye` and
-// `at`: 1 for a line straight through the whole of it.
+/**
+ * How much of a volume light (a glowing sphere, densest at its centre and
+ * fading to nothing at its radius, (1 - (d / r)^2)) lies between `eye` and
+ * `at`: 1 for a line straight through the whole of it.
+ */
 inline float volumeGlow(const Vec3 &eye, const Vec3 &at, const DynamicLight &l) {
     const float rx = at[0] - eye[0];
     const float ry = at[1] - eye[1];
@@ -179,6 +211,7 @@ inline float volumeGlow(const Vec3 &eye, const Vec3 &at, const DynamicLight &l) 
     return amount * 3 / (4 * l.radius);
 }
 
+/** One draw: a run of a mesh's triangles, where and how to draw them. */
 struct DrawCall {
     MeshId mesh = 0;
     uint32_t firstIndex = 0;
@@ -289,7 +322,7 @@ struct DrawCall {
     DrawState state;
 };
 
-// A rectangle of new pixels for a texture (RGBA, w * h, rows top to bottom).
+/** A rectangle of new pixels for a texture (RGBA, w * h, rows top to bottom). */
 struct TextureRegion {
     TextureId texture = 0;
     int x = 0;
@@ -299,94 +332,132 @@ struct TextureRegion {
     const uint8_t *rgba = nullptr;
 };
 
+/**
+ * A GPU renderer for 3D engines (this file's opening comment says how it's
+ * used). Draws happen in order between beginFrame and endFrame.
+ */
 class Renderer3D {
 public:
     virtual ~Renderer3D() = default;
 
-    // RGBA pixels, rows top to bottom.
+    /** Makes a texture from RGBA pixels, rows top to bottom. */
     virtual Error createTexture(int width, int height, const uint8_t *rgba, const TextureParams &params,
                                 TextureId &out) = 0;
+    /** Frees a texture. */
     virtual void destroyTexture(TextureId id) = 0;
-    // Replaces rectangles of textures made without mipmaps (a lightmap as
-    // its lights change), all at once, before the frame's draws use them.
-    // A renderer that can't leaves them as they were.
+    /**
+     * Replaces rectangles of textures made without mipmaps (a lightmap as
+     * its lights change), all at once, before the frame's draws use them.
+     * A renderer that can't leaves them as they were.
+     */
     virtual Error updateTextures(const std::vector<TextureRegion> &regions) {
         (void)regions;
         return {};
     }
-    // Indices refer to `vertices`; every three make a triangle.
+    /** Makes a mesh: indices refer to `vertices`; every three make a triangle. */
     virtual Error createMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                              MeshId &out) = 0;
-    // A mesh of its own indices over another's vertices (shared, not
-    // copied; destroyed before that one), for another view's selection.
+    /**
+     * A mesh of its own indices over another's vertices (shared, not
+     * copied; destroyed before that one), for another view's selection.
+     */
     virtual Error createIndexedMesh(MeshId vertices, const std::vector<uint32_t> &indices, MeshId &out) = 0;
-    // Replaces a mesh's indices (its vertices kept), as a level's visible
-    // surfaces change.
+    /**
+     * Replaces a mesh's indices (its vertices kept), as a level's visible
+     * surfaces change.
+     */
     virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t> &indices) = 0;
-    // Replaces a mesh's vertices (its indices kept), as a skinned model
-    // moves each frame; draws after see the new ones, frames before the old.
+    /**
+     * Replaces a mesh's vertices (its indices kept), as a skinned model
+     * moves each frame; draws after see the new ones, frames before the old.
+     * A renderer that can't fails.
+     */
     virtual Error setMeshVertices(MeshId id, const std::vector<Vertex> &vertices) {
         (void)id, (void)vertices;
         return Error::fail("Vertices can't be replaced");
     }
+    /** Frees a mesh. */
     virtual void destroyMesh(MeshId id) = 0;
 
-    // The size given to System::init3D: the frame's pixels.
+    /** The size given to System::init3D: the frame's pixels. */
+    ///@{
     virtual int width() const = 0;
     virtual int height() const = 0;
-    // The GPU and driver doing the work, for diagnostics.
+    ///@}
+    /** The GPU and driver doing the work, for diagnostics. */
     virtual std::string deviceName() const = 0;
 
-    // Whether frames begin with what the last one left (true), as a
-    // software renderer's buffer does, rather than cleared (the default).
+    /**
+     * Whether frames begin with what the last one left (true), as a
+     * software renderer's buffer does, rather than cleared (the default).
+     */
     virtual void setKeepFrame(bool keep) { (void)keep; }
-    // That nothing reads the frame's alpha (no DstAlpha blend factors): the
-    // renderer may then leave it other than the blend factors say, and
-    // draw the blends of the source alpha (source factor zero, one or
-    // SrcAlpha; destination zero, one or OneMinusSrcAlpha) with one
-    // pipeline state, which costs less to switch between. Off by default.
+    /**
+     * That nothing reads the frame's alpha (no DstAlpha blend factors): the
+     * renderer may then leave it other than the blend factors say, and
+     * draw the blends of the source alpha (source factor zero, one or
+     * SrcAlpha; destination zero, one or OneMinusSrcAlpha) with one
+     * pipeline state, which costs less to switch between. Off by default.
+     */
     virtual void setFrameAlphaUnused(bool unused) { (void)unused; }
-    // A frame: begin, any number of draws (in order), end. `viewProj` maps
-    // world positions to clip space; `eye` is the camera's position.
+    /**
+     * Begins a frame: any number of draws (in order) follow, then endFrame.
+     * `viewProj` maps world positions to clip space; `eye` is the camera's
+     * position.
+     */
     virtual void beginFrame(const Mat4 &viewProj, const Vec3 &eye, Color clear) = 0;
+    /** Draws, in the frame begun. */
     virtual void draw(const DrawCall &call) = 0;
-    // A new view for the draws that follow, within the frame (a 2D layer
-    // over the 3D view).
+    /**
+     * A new view for the draws that follow, within the frame (a 2D layer
+     * over the 3D view).
+     */
     virtual void setView(const Mat4 &viewProj, const Vec3 &eye) = 0;
-    // The dynamic lights for draws with DrawCall::dynamicLights (at most
-    // kMaxDynamicLights; the rest are left out).
+    /**
+     * The dynamic lights for draws with DrawCall::dynamicLights (at most
+     * kMaxDynamicLights; the rest are left out).
+     */
     virtual void setDynamicLights(const std::vector<DynamicLight> &lights) = 0;
-    // The volume lights for draws with DrawCall::volumeLights (as many).
-    // A renderer without them draws no glow.
+    /**
+     * The volume lights for draws with DrawCall::volumeLights (as many).
+     * A renderer without them draws no glow.
+     */
     virtual void setVolumeLights(const std::vector<DynamicLight> &lights) { (void)lights; }
-    // Where the draws that follow land in the frame, in pixels (w or h 0:
-    // all of it), within the frame.
+    /**
+     * Where the draws that follow land in the frame, in pixels (w or h 0:
+     * all of it), within the frame.
+     */
     virtual void setViewport(int x, int y, int w, int h) = 0;
-    // The share of the depth range the draws that follow use, from the
-    // near end (1: all of it; reset each frame). Drawn with less, things
-    // stay in front of the rest, as the original's first-person weapon.
+    /**
+     * The share of the depth range the draws that follow use, from the
+     * near end (1: all of it; reset each frame). Drawn with less, things
+     * stay in front of the rest, as the original's first-person weapon.
+     */
     virtual void setDepthRange(float maxDepth) = 0;
-    // Forgets the depths drawn so far, so the draws that follow aren't
-    // hidden by them (a second scene over the first, as the original
-    // clears depth for each view).
+    /**
+     * Forgets the depths drawn so far, so the draws that follow aren't
+     * hidden by them (a second scene over the first, as the original
+     * clears depth for each view).
+     */
     virtual void clearDepth() = 0;
-    // The depth and the stencil's marks both cleared (after a mirror's pass).
+    /** The depth and the stencil's marks both cleared (after a mirror's pass). */
     virtual void clearDepthAndStencil() { clearDepth(); }
-    // A per-pixel mark (stencil) for drawing one view inside part of
-    // another, as a mirror: Mark marks where the draws that follow land
-    // (whatever their depth); Inside draws only where marked; None (the
-    // default, again each frame) neither. The marks are cleared each frame
-    // and kept by clearDepth(). Without a stencil buffer, false and no
-    // marks. SkyMark and SkyInside do the same with marks of their own (the
-    // sky, drawn only where the level's sky surfaces are seen), apart from
-    // the others.
-    //
-    // The level modes nest views inside views (a mirror seen in a mirror),
-    // at the level setStencilLevel gave: LevelMark raises the mark from level - 1 to level where
-    // the draws that follow land and pass the depth test; LevelInside draws
-    // only where it's level; Unmark lowers it from level to level - 1; Once
-    // (at level 1 only) draws only where not marked yet, marking it
-    // (overlapping shadows darkening once).
+    /**
+     * A per-pixel mark (stencil) for drawing one view inside part of
+     * another, as a mirror: Mark marks where the draws that follow land
+     * (whatever their depth); Inside draws only where marked; None (the
+     * default, again each frame) neither. The marks are cleared each frame
+     * and kept by clearDepth(). SkyMark and SkyInside do the same with
+     * marks of their own (the sky, drawn only where the level's sky
+     * surfaces are seen), apart from the others.
+     *
+     * The level modes nest views inside views (a mirror seen in a mirror),
+     * at the level setStencilLevel gave: LevelMark raises the mark from
+     * level - 1 to level where the draws that follow land and pass the
+     * depth test; LevelInside draws only where it's level; Unmark lowers it
+     * from level to level - 1; Once (at level 1 only) draws only where not
+     * marked yet, marking it (overlapping shadows darkening once).
+     */
     enum class StencilMode : uint8_t {
         kNone,
         kMark,
@@ -398,37 +469,54 @@ public:
         kOnce,
         kUnmark
     };
+    /** Whether it has a stencil buffer; without one, there are no marks. */
     virtual bool hasStencil() const = 0;
+    /** The stencil mode for the draws that follow. */
     virtual void setStencilMode(StencilMode mode) = 0;
-    // The level the level modes work at (1 by default, again each frame).
+    /** The level the level modes work at (1 by default, again each frame). */
     virtual void setStencilLevel(uint8_t level) { (void)level; }
-    // A value of the engine's own for Mark to write (where a draw passes
-    // its depth test) and Inside to compare with, whole: the stencil as a
-    // number (AWE's shadows: 1 shadowed, 2 the player, 0 the others),
-    // until the frame ends. Without it, Mark and Inside keep to their bit.
+    /**
+     * A value of the engine's own for Mark to write (where a draw passes
+     * its depth test) and Inside to compare with, whole: the stencil as a
+     * number (AWE's shadows: 1 shadowed, 2 the player, 0 the others),
+     * until the frame ends. Without it, Mark and Inside keep to their bit.
+     */
     virtual void setStencilReference(uint8_t ref) { (void)ref; }
-    // A mirrored view: the draws that follow have their faces' winding
-    // the other way round, so culling keeps the same faces (until set
-    // back, and each frame).
+    /**
+     * A mirrored view: the draws that follow have their faces' winding
+     * the other way round, so culling keeps the same faces (until set
+     * back, and each frame).
+     */
     virtual void setMirrored(bool mirrored) = 0;
-    // The brightness the finished frame is shown with: each colour raised
-    // to 1 / gamma (1: as drawn), as the original's brightness setting.
+    /**
+     * The brightness the finished frame is shown with: each colour raised
+     * to 1 / gamma (1: as drawn), as the original's brightness setting.
+     */
     virtual void setGamma(float gamma) = 0;
-    // Multisampling (anti-aliasing) for the frames that follow: up to
-    // `samples` samples a pixel, the most of 4, 2 and 1 at or below it
-    // that the device has. Returns the count used (1: none).
+    /**
+     * Multisampling (anti-aliasing) for the frames that follow: up to
+     * `samples` samples a pixel, the most of 4, 2 and 1 at or below it
+     * that the device has.
+     * @return The count used (1: none).
+     */
     virtual int setMultisampling(int samples) {
         (void)samples;
         return 1;
     }
-    // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
-    // by its alpha) on top if given.
+    /**
+     * Presents the frame, with `overlay` (RGBA32, the frame's size, blended
+     * by its alpha) on top if given.
+     */
     virtual void endFrame(const Surface *overlay) = 0;
-    // Keeps a copy of the next finished frame (as shown, brightness
-    // included, without the overlay) for takeCapture().
+    /**
+     * Keeps a copy of the next finished frame (as shown, brightness
+     * included, without the overlay) for takeCapture().
+     */
     virtual void captureNextFrame() = 0;
-    // The kept frame: width() x height(), RGBA, rows top to bottom; false
-    // if none was kept since the last call (or it couldn't be read back).
+    /**
+     * The kept frame: width() x height(), RGBA, rows top to bottom; false
+     * if none was kept since the last call (or it couldn't be read back).
+     */
     virtual bool takeCapture(std::vector<uint8_t> &rgba) = 0;
 };
 

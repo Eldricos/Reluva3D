@@ -14,7 +14,7 @@ namespace reluva::age {
 
 /**
  * Paths for things that move about a city by themselves (.pathset,
- * "PTH1", race/<city>/): ferries, boats and ducks on the water, the
+ * "PTH1", `race/<city>/`): ferries, boats and ducks on the water, the
  * leaves of drawbridges, parked cars and trains. See
  * docs/engines/age/games/mm2/formats/pathset.md.
  */
@@ -26,13 +26,10 @@ struct PathsetPath {
     uint32_t start = 0;        // the second word: the point it starts at, it seems
     std::vector<uint32_t> ids; // each point's first word (PSDL blocks, it seems)
     std::vector<Vec3> points;
-    uint32_t end = 0; // the last word: low byte 1 or 2, high byte 8-120
-    /**
-     * Whether it runs back and forth along its points (end's low byte 1)
-     * rather than round them (2), as Reluva reads it.
-     */
+    uint32_t end = 0; // the last word: low byte 1 or 2 (0 in props files), next byte 8-240
+    /** Whether it runs back and forth (low byte 1), as Reluva reads it, rather than round (2). */
     bool backAndForth() const { return (end & 0xff) == 1; }
-    /** Its speed in m/s, as Reluva reads end's second byte (tenths of a metre a second); a guess. */
+    /** The speed in m/s, as Reluva reads the second byte (a guess: tenths of one). */
     float speed() const { return float(end >> 8 & 0xff) / 10; }
 };
 
@@ -40,8 +37,8 @@ struct PathsetPath {
 Error readPathset(const std::vector<uint8_t> &data, std::vector<PathsetPath> &out);
 
 /**
- * A city's paths of a kind (race/<map>/<map>_<kind>.pathset: "ferry",
- * "parkedcar"...), with a race's own (<map>_<kind>_<variant>.pathset) over
+ * A city's paths of a kind (`race/<map>/<map>_<kind>.pathset`: "ferry",
+ * "parkedcar"...), with a race's own (`<map>_<kind>_<variant>.pathset`) over
  * them: a race's path for the same model starting within 5 m of one of the
  * city's takes its place, the rest are added. Missing files give none.
  */

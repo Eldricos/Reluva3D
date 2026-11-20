@@ -12,10 +12,13 @@
 
 namespace reluva {
 
-// A Windows executable or DLL (the PE/COFF format, from Microsoft's
-// published specification): what's needed to see what it holds and
-// needs, and to load it. 32-bit images (PE32) in full; 64-bit ones (PE32+)
-// as far as their headers.
+/**
+ * A Windows executable or DLL (the PE/COFF format, from Microsoft's
+ * published specification): what's needed to see what it holds and
+ * needs, and to load it. 32-bit images (PE32) in full; 64-bit ones (PE32+)
+ * as far as their headers. Addresses in it are RVAs (relative to the image
+ * base) unless named otherwise.
+ */
 struct PeImage {
     uint16_t machine = 0; // 0x14c: x86
     uint16_t characteristics = 0;
@@ -30,6 +33,7 @@ struct PeImage {
     uint16_t subsystem = 0;
     std::string linkerVersion;
 
+    /** A section of the image (.text, .data...): where it goes, and where its data is in the file. */
     struct Section {
         std::string name;
         uint32_t virtualAddress = 0;
@@ -41,6 +45,7 @@ struct PeImage {
     };
     std::vector<Section> sections;
 
+    /** A function or value the DLL exports. */
     struct Export {
         std::string name; // empty: by ordinal only
         uint32_t ordinal = 0;
@@ -50,12 +55,14 @@ struct PeImage {
     std::string exportName; // the DLL's own name, as its export directory gives it
     std::vector<Export> exports;
 
+    /** A function imported from a DLL. */
     struct Import {
         std::string name; // empty: by ordinal
         uint32_t ordinal = 0;
         uint32_t hint = 0;
         uint32_t iatRva = 0; // where the loader writes its address
     };
+    /** A DLL the image needs, and what it takes from it. */
     struct ImportedDll {
         std::string name;
         std::vector<Import> functions;
@@ -70,19 +77,24 @@ struct PeImage {
     uint32_t resourceSize = 0;
     std::vector<std::string> otherDirectories; // data directories present besides those above
 
-    // The file offset of an RVA, or -1 if it's in no section's file data.
+    /** The file offset of an RVA, or -1 if it's in no section's file data. */
     int64_t fileOffset(uint32_t rva) const;
 };
 
+/** Reads an executable's headers and tables; fails if it isn't a PE image. */
 Error parsePe(const std::vector<uint8_t> &file, PeImage &out);
 
-// The data of the first resource of a type (16: the version information),
-// whatever its name and language; empty if there's none.
+/**
+ * The data of the first resource of a type (16: the version information),
+ * whatever its name and language; empty if there's none.
+ */
 std::vector<uint8_t> findResource(const PeImage &pe, const std::vector<uint8_t> &file, uint32_t type);
 
-// The image's string table resources (type 6: blocks of 16 strings, block
-// n holding the ids (n - 1) * 16 to n * 16 - 1), by id, in UTF-8; the
-// first language of each block. Empty strings are left out.
+/**
+ * The image's string table resources (type 6: blocks of 16 strings, block
+ * n holding the ids (n - 1) * 16 to n * 16 - 1), by id, in UTF-8; the
+ * first language of each block. Empty strings are left out.
+ */
 Error readPeStrings(const std::vector<uint8_t> &file, const PeImage &image, std::map<uint32_t, std::string> &out);
 
 } // namespace reluva

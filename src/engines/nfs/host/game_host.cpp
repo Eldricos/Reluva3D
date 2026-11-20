@@ -249,8 +249,6 @@ constexpr KeyName kKeys[] = {
     {";", 0xba, 0x27},
 };
 
-// The character a key types, as TranslateMessage gives it (no shift): 0
-// for none.
 // Queues an event at its time: after those due no later, before those due
 // after it, so a script's events needn't be written in time order.
 template<typename Queue, typename Event>
@@ -261,6 +259,8 @@ void queueInOrder(Queue &queue, Event event) {
     queue.insert(at, event);
 }
 
+// The character a key types, as TranslateMessage gives it (no shift): 0
+// for none.
 char keyChar(const KeyName &k) {
     if (k.name[0] && !k.name[1] && k.name[0] >= 0x20 && k.name[0] < 0x7f)
         return k.name[0];
@@ -1126,7 +1126,7 @@ void GameHost::addUser() {
         return 0u;
     });
 
-    // Input: keys from Reluva's events (none yet), the cursor.
+    // Input: the keys' state as the queued key events left it, the cursor.
     provide(u, "GetAsyncKeyState", 1, [this](Cpu &c) { return _vkDown[c.arg(0) & 0xff] ? 0x8000u : 0u; });
     provide(u, "GetKeyState", 1, [this](Cpu &c) { return _vkDown[c.arg(0) & 0xff] ? 0xff80u : 0u; });
     provide(u, "GetKeyboardType", 1, [](Cpu &c) -> uint32_t { return c.arg(0) == 0 ? 4 : c.arg(0) == 2 ? 12 : 0; });

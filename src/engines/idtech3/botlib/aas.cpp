@@ -235,8 +235,8 @@ int AasWorld::contentsTravelFlags(int area) const {
 }
 
 int AasWorld::areaTravelTime(int area, const Vec3f &from, const Vec3f &to) const {
-    // Speeds: walking 300 units a second, crouching 100, swimming
-    // (counted as) 100; times in hundredths of a second.
+    // Times in hundredths of a second: walking at about 300 units a
+    // second, crouching at about 77, swimming at 100.
     const Vec3f d{to[0] - from[0], to[1] - from[1], to[2] - from[2]};
     const float factor = crouchOnly(area) ? 1.3f : swim(area) ? 1.0f : 0.33f;
     return std::max(1, int(length(d) * factor));

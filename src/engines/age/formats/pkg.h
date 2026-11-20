@@ -17,9 +17,10 @@ namespace reluva::age {
 // WHL0_M..., a building's H, M, L, VL), the shaders they draw with, and
 // models placed in it. See docs/engines/age/games/mm2/formats/pkg.md.
 
+/** A point or direction: x, y, z. */
 using Vec3 = std::array<float, 3>;
 
-/** A mesh's vertex, as read whatever format it was stored in. */
+/** A mesh's vertex. */
 struct PkgVertex {
     Vec3 pos{};
     Vec3 normal{}; // zero when the mesh has none
@@ -33,19 +34,20 @@ struct PkgGroup {
     std::vector<uint16_t> indices; // every three a triangle
 };
 
-/** One of a model's named meshes: a part at one level of detail. */
+/** A named mesh of a model: a part at one level of detail. */
 struct PkgMesh {
     std::string name; // e.g. "BODY_H"
     uint32_t fvf = 0; // Direct3D's flexible vertex format the vertices were stored in
     std::vector<PkgGroup> groups;
 
-    /** "BODY_H" -> part "BODY", level "H"; a mesh named just "H" has part "". */
+    /** "BODY_H" is part "BODY", level "H"; a mesh named just "H" has part "". */
+    ///@{
     std::string part() const;
-    /** "BODY_H" -> "H": the level of detail, H the finest, then M, L, VL; a name without '_' is all level. */
     std::string level() const;
+    ///@}
 };
 
-/** How a group is drawn: its texture and colours. */
+/** How a group of triangles is drawn: its texture and colours. */
 struct PkgShader {
     std::string texture; // empty: none
     // Colours (R, G, B, A), 1 = full. Shaders with byte colours store
@@ -64,7 +66,7 @@ struct PkgXref {
     std::array<float, 12> matrix{}; // three axes, then the position
 };
 
-/** A model read from a .pkg file. */
+/** A model: a .pkg file. */
 struct Pkg {
     std::vector<PkgMesh> meshes;
     // shaders[job * shadersPerJob + group.shader]: each paint job (a car's
@@ -72,19 +74,21 @@ struct Pkg {
     uint32_t paintJobs = 0;
     uint32_t shadersPerJob = 0;
     std::vector<PkgShader> shaders;
+    // Where the model's middle was before it was moved to its origin
+    // (pkg.md); nothing needs it.
     bool hasOffset = false;
     Vec3 offset{};
     std::vector<PkgXref> xrefs;
 
-    /** The first mesh with this name (case counts); nullptr if there is none. */
+    /** The mesh of that name (matched exactly), or nullptr. */
     const PkgMesh *mesh(std::string_view name) const;
-    /** A group's shader in a paint job; nullptr if either is out of range. */
+    /** A paint job's shader, or nullptr if there's no such job or index. */
     const PkgShader *shader(uint32_t paintJob, uint32_t index) const;
 };
 
 /**
- * Reads a PKG3 model: its shaders, offset, xrefs and meshes.
- * @return A failure naming the section that didn't read; other versions of PKG aren't read.
+ * Reads a .pkg file. Fails on anything but "PKG3", or on a section that
+ * doesn't read whole.
  */
 Error readPkg(const std::vector<uint8_t> &data, Pkg &out);
 
@@ -102,7 +106,7 @@ bool isLightPart(const std::string &part);
  */
 bool bodyBounds(const Pkg &pkg, Vec3 &low, Vec3 &high);
 
-/** A part's placement (.mtx, next to the model: <model>_<part>.mtx). */
+/** A part's placement (.mtx, next to the model: `<model>_<part>.mtx`). */
 struct Mtx {
     // the part's bounds as modelled
     Vec3 min{};
@@ -111,10 +115,7 @@ struct Mtx {
     Vec3 origin{}; // where it goes in the model
 };
 
-/**
- * Reads a part's placement: four vectors, 48 bytes.
- * @return A failure if the file is any other size.
- */
+/** Reads a .mtx file. Fails unless it's 48 bytes. */
 Error readMtx(const std::vector<uint8_t> &data, Mtx &out);
 
 } // namespace reluva::age

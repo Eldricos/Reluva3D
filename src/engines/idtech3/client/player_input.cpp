@@ -104,8 +104,8 @@ void PlayerInput::turn(const CvarStore &cvars, int32_t dtMs) {
     // Not held within straight up and down here: the game keeps the view
     // there, adding its own offset (the player state's delta angles, set
     // when spawning to face the spawn point's way). Holding the command's
-    // pitch as well left the view stuck above level whenever that offset
-    // pointed upwards. Kept to a turn either way, as it wraps anyway.
+    // pitch as well would leave the view stuck above level whenever that
+    // offset points upwards. Kept to a turn either way, as it wraps anyway.
     pitch = std::remainder(pitch, 360.0f);
 }
 

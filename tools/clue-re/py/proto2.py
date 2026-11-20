@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""proto.py's rendering of the house, leaving out objects of kind 11 and the
+layers listed.
+
+    python3 -I py/proto2.py SKIP_LAYERS OUT.png      (SKIP_LAYERS: e.g. 4,5, or '')
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs

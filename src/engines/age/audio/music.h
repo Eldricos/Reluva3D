@@ -15,7 +15,8 @@ namespace reluva::age {
 
 /**
  * One tune's segments by game state: a row of
- * aud/dmusic/csv_files/singlerace.csv or singleroam.csv.
+ * aud/dmusic/csv_files/singlerace.csv or singleroam.csv. Each is a
+ * segment's name, without its .sgt.
  */
 struct MusicSet {
     std::string start;
@@ -33,14 +34,16 @@ struct MusicSet {
 /**
  * The rows of one of those files (the race file's columns: start,
  * return, idle, idle with cops, cop chase, pause, results; the cruising
- * file's: start, return, idle, cop chase, idle with cops, pause).
+ * file's: start, return, idle, cop chase, idle with cops, pause; then
+ * the big-air motif's three). Rows of fewer than six fields are left out.
  */
 std::vector<MusicSet> parseMusicSets(const std::string &text, bool race);
 
 /**
  * The game's music: one tune's segments, switched (at the next measure)
  * by what's going on: started, stopped a while, chased by the police,
- * back on the move, paused, the results. See docs/engines/age/games/mm2/systems/music.md.
+ * back on the move, paused, the results. See
+ * docs/engines/age/games/mm2/systems/music.md.
  */
 class GameMusic {
 public:
@@ -58,19 +61,16 @@ public:
      * start segment's name less "Start" ("Enemy", "SunRoof"...).
      */
     static std::vector<std::string> trackNames(const SearchSet &files);
-    /**
-     * Plays one of trackNames()' tunes.
-     * @return A failure if there is no such track.
-     */
+    /** Starts one of trackNames()'s tunes, by its index. Fails if there's no such track. */
     Error startTrack(const SearchSet &files, audio::Mixer &mixer, size_t track);
     /** The menus' tune: aud/dmusic/csv_files/ui.csv's segment (UI.sgt). */
     Error startMenu(const SearchSet &files, audio::Mixer &mixer);
-    /** Whether the menus' tune is the one playing. */
+    /** Whether the menus' tune is playing. */
     bool playingMenu() const { return _menu && _performance; }
-    /** Stops the music; start() then plays its tune from the beginning. */
+    /** Stops the music. */
     void stop();
 
-    /** What's going on in the game, as the music follows it. */
+    /** What's going on, as the music follows it. */
     struct State {
         float speed = 0;     // the player's, m/s
         bool chased = false; // police after the player
@@ -79,9 +79,9 @@ public:
         bool lastStretch = false; // a race's final lap, or only the finish left
     };
     /**
-     * Switches to the segment for the state: the results, the pause, idle
-     * (with or without the police) after 4 s stopped, the chase
-     * (and a race's last stretch), or the return to the road after any of those.
+     * Switches the segment as `state` asks: the idle one after 4 s stopped
+     * (under 1.5 m/s) until it's going again (over 5 m/s), the chase's for
+     * a chase or the last stretch, the return's after either or the pause.
      */
     void update(float dt, const State &state);
     /** A big jump: the tune's big-air motif over it. */

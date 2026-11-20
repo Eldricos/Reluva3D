@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: Sounds: the library, the sound system, ambient sound sets.
+// id Tech 3 unit tests: sounds: the library, the sound system, ambient
+// sound sets.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

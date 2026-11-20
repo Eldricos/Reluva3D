@@ -6,7 +6,7 @@
 
 The boats, ducks and ferries on their paths, and the drawbridges. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Boats and drawbridges
+## How it works
 
 `Gizmos` (`gizmos.cpp`) moves the things on the cities' path sets
 ([pathset.md](../formats/pathset.md)): 17 boats in San Francisco (a
@@ -42,6 +42,13 @@ Francisco's Chinatown gate, which stands still.
 
 No ships were seen near a raised bridge in the footage, so the timer
 isn't tied to boats. Tower Bridge was down when crossed in Bridge Bash.
+
+## In Reluva
+
+`Gizmos` (`src/engines/age/game/gizmos.{h,cpp}`), kept by the city's
+`CityLife`, moves the boats and the bridges. They're seen on the World
+and Drive pages. The drawbridges' phases within the
+130 s are Reluva's (above).
 
 ## Sources and checks
 

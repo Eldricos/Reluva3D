@@ -13,34 +13,43 @@ namespace reluva::fs {
 
 namespace stdfs = std::filesystem;
 
+/** ASCII letters in lower case, other bytes as they are. */
 std::string toLower(std::string_view s);
 
-// Names in the order Windows lists a folder on NTFS (and the order the
-// games' Windows engines then see): compared with a-z taken as upper case,
-// so '_' comes after the letters, unlike a lower-case comparison. Other
-// bytes compare as they are (UTF-8 keeps code point order); names equal
-// but for case, which only other systems can hold, by their bytes. Used
-// wherever a folder's listing reaches a game, so Linux, macOS and Windows
-// give it the same order.
+/**
+ * Names in the order Windows lists a folder on NTFS (and the order the
+ * games' Windows engines then see): compared with a-z taken as upper case,
+ * so '_' comes after the letters, unlike a lower-case comparison. Other
+ * bytes compare as they are (UTF-8 keeps code point order); names equal
+ * but for case, which only other systems can hold, by their bytes. Used
+ * wherever a folder's listing reaches a game, so Linux, macOS and Windows
+ * give it the same order.
+ */
 bool windowsNameLess(std::string_view a, std::string_view b);
 
-// A name without the ";1" version some CD mounts show ("DEEP.EXE;1").
+/** A name without the ";1" version some CD mounts show ("DEEP.EXE;1"). */
 std::string_view withoutIsoVersion(std::string_view name);
 
-// Find a file under `dir` ignoring case, as old Windows/DOS games expect.
-// `relative` may contain '/' separated components ("data/sound.bin"); a
-// name with a CD's ";1" version is found too, if there's none without.
+/**
+ * Finds a file under `dir` ignoring case, as old Windows and DOS games
+ * expect. `relative` may have folders, '/' between them ("data/sound.bin");
+ * a name with a CD's ";1" version is found too, if there's none without.
+ */
 std::optional<stdfs::path> findFile(const stdfs::path &dir, std::string_view relative);
-// The same for a folder.
+/** The same for a folder. */
 std::optional<stdfs::path> findDirectory(const stdfs::path &dir, std::string_view relative);
 
-// A path as a DOS game names it, for comparing: upper case, '/' between
-// folders (none doubled, none at the end), and without the ";1" version
-// that some CD mounts show ("DATA\\Deep.exe;1" is "DATA/DEEP.EXE").
+/**
+ * A path as a DOS game names it, for comparing: upper case, '/' between
+ * folders (none doubled, none at the end), and without the ";1" version
+ * that some CD mounts show ("DATA\\Deep.exe;1" is "DATA/DEEP.EXE").
+ */
 std::string normalizeDosPath(std::string_view path);
 
-// MD5 (hex) of the first `maxBytes` bytes of a file, or of the whole file
-// when maxBytes is 0. Returns nullopt if the file can't be read.
+/**
+ * The MD5 (in hex) of the first `maxBytes` bytes of a file, or of the whole
+ * file when `maxBytes` is 0; nullopt if the file can't be read.
+ */
 std::optional<std::string> md5File(const stdfs::path &file, uint64_t maxBytes);
 
 } // namespace reluva::fs

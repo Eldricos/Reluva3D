@@ -279,7 +279,8 @@ uint32_t GlideDll::lfbLock(uint32_t type, uint32_t buffer, uint32_t writeMode, u
 
 uint32_t GlideDll::lfbUnlock(uint32_t type, uint32_t buffer) {
     _core->lfbUnlock(int(type), int(buffer));
-    // The mirrors of this buffer whose last lock this is.
+    // The first copy of this buffer that is locked; written back on its
+    // last unlock.
     for (auto &[key, m] : _mirrors) {
         if (m.lock.buffer != int(buffer) || m.locks == 0)
             continue;

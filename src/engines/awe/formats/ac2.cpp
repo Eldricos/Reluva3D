@@ -187,7 +187,7 @@ void counted(Reader &r, Ac2Record &rec, const FieldSpec (&spec)[N]) {
     r.counted(rec, spec, N);
 }
 
-// --- Objects -------------------------------------------------------------------
+// Objects.
 
 // Every object's common fields (motoe.exe 0x40fa20), the optional groups
 // as the class has them; one count for all.

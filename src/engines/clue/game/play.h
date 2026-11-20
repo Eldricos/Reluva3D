@@ -36,26 +36,31 @@
 
 namespace reluva::clue {
 
-// Clue.exe plays its sounds through Miles at the file's rate times (x + 1)
-// / 64, x what most calls pass as 0x40 (0x4330C0, 0x4331F0): 65/64, a
-// little faster and higher than recorded. A recording of the original has
-// its weather, voices, steps and menu sounds so (the CD's music, the videos
-// and the loading's loop not).
+/**
+ * Clue.exe plays its sounds through Miles at the file's rate times (x + 1)
+ * / 64, x what most calls pass as 0x40 (0x4330C0, 0x4331F0): 65/64, a
+ * little faster and higher than recorded. A recording of the original has
+ * its weather, voices, steps and menu sounds so (the CD's music, the videos
+ * and the loading's loop not).
+ */
 inline void playAsClueExe(audio::Sound &s) {
     s.rate = s.rate * 65 / 64;
 }
-// And at volume 100 of Miles' 127 (0x42EB80, 0x42ECB0, 0x42EBC0 pass 0x64),
-// under the master volume.
+/**
+ * And at volume 100 of Miles' 127 (0x42EB80, 0x42ECB0, 0x42EBC0 pass 0x64),
+ * under the master volume.
+ */
 constexpr int kClueSoundVolume = audio::kMaxVolume * 100 / 127;
 
-// Who plays a suspect, as the set-up screens choose.
+/** Who plays a suspect, as the set-up screens choose. */
 struct Player {
+    /** Nobody, a person or the computer. */
     enum Kind { kNone, kHuman, kComputer } kind = kNone;
     std::string name;
     int level = 1; // 0 novice, 1 normal, 2 expert
 };
 
-// The preferences the game looks at while it plays.
+/** The preferences the game looks at while it plays. */
 struct PlayLook {
     bool suggestMovies = true;
     bool autoNotes = true;
@@ -64,35 +69,60 @@ struct PlayLook {
     MansionLook mansion;
 };
 
+/**
+ * The game being played: the mansion with the suspects walking in it, the
+ * bar, the cards and the notepad, the in-game dialogs and videos, and the
+ * computer players' turns, over the rules' Game.
+ */
 class Play {
 public:
+    /**
+     * Plays on `screen` with what the front end has loaded; everything
+     * given must outlive it. `mixer` may be null (no sound).
+     */
     Play(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer, const Resi &resi, const Fonts &fonts,
          Mansion &mansion, const Level &level);
+    /** Stops its sounds. */
     ~Play();
 
+    /** A new game on this machine: who plays each suspect, the variant, and the deal's seed. */
     Error start(const std::array<Player, kSuspectCount> &players, bool noDieRoll, uint32_t seed);
-    // A game over a network: the session's lobby and deal; this machine
-    // plays its own suspect, the others' actions come through the session.
+    /**
+     * A game over a network: the session's lobby and deal; this machine
+     * plays its own suspect, the others' actions come through the session,
+     * which must outlive it.
+     */
     Error startNetwork(netplay::Session &session);
-    // Saved games: when it's a human's turn and nothing is going on.
+    /** Whether the game can be saved now: not a network game, a human's turn, and nothing going on. */
     bool canSave() const;
-    // What the music is to do, once: -1 stop, 2-4 that track; 0 nothing.
+    /** What the music is to do, once: -1 stop, 2-4 that track; 0 nothing. */
     int takeMusicCue() {
         const int cue = _musicCue;
         _musicCue = 0;
         return cue;
     }
+    /** Writes the game, and reads one back in place of start(); load() fails on a damaged one. */
+    ///@{
     void save(std::ostream &out) const;
-    Error load(std::istream &in); // in place of start()
+    Error load(std::istream &in);
+    ///@}
+    /** Takes the preferences in from now on. */
     void setLook(const PlayLook &look) { _look = look; }
 
+    /** A mouse or key event from the player. */
     void handleEvent(const Event &ev);
+    /** Moves the game on to `nowMs`: walks, videos, the computer players' turns, the network's actions. */
     void update(uint64_t nowMs);
+    /** Draws the game on the screen. */
     void draw();
+    /** Stops the video and every sound it plays. */
     void stopSounds();
 
-    bool finished() const { return _finished; } // the end's Continue clicked
+    /** Whether the game is over and the end's Continue was clicked. */
+    bool finished() const { return _finished; }
+    /** The suspect whose turn it is. */
     int turn() const { return _game.turn(); }
+    /** The game by the rules. */
     const Game &game() const { return _game; }
 
 private:

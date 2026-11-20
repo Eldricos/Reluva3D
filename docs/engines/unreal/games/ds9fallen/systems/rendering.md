@@ -62,8 +62,7 @@ renderer's StencilMode::Once) and has the per-vertex darkness in the
 renderers (`gfx::ColorSource::kShadow`). Against a recording of the
 original: Kira's shadow on M05_KiraL1's bridge floor falls the same way;
 the original's reaches further, maybe from another light it kept. On the
-Promenade shrine's platform, the light it chooses is now one beyond a
-wall that the earlier reading left out.
+Promenade shrine's platform, the light it chooses is one beyond a wall.
 
 ### Volumetric lights
 
@@ -160,19 +159,18 @@ so it can't take its lightmap texel by texel: it's tinted by its light,
 the average over its polygons' corners and middles of its lightmaps
 (following its changing lights) and the dynamic lights, times two, at
 most its texture's colour (fitted to the recording; the plain average
-was 2.5 times too dark). Drawn at full brightness before, the logos all
-showed at once, the Collective logo still there over The Fallen's; now
-each fades in and out with its light, the gaps between them as in the
-original.
+is 2.5 times too dark). So each logo fades in and out with its light,
+the gaps between them as in the original, rather than all showing at
+once, the Collective logo still there over The Fallen's.
 
 ### The screen flash
 
 The player's `FlashScale` and `FlashFog`, which `PlayerPawn.ViewFlash`
 works out each tick from the head's zone (`ViewFlash`, `ViewFog`) and
 the flashes of being hurt or picking things up, tint the scene: every
-pixel times the scale, plus the fog, under the HUD. Not applied before:
-underwater (The Fallen's `CTV_H20Zone`, ViewFog 0.13 0.20 0.17) the view
-was the land's colours where the recording is blue-green throughout.
+pixel times the scale, plus the fog, under the HUD. Underwater (The
+Fallen's `CTV_H20Zone`, ViewFog 0.13 0.20 0.17) that makes the view
+blue-green throughout, as in the recording.
 
 ### Distance fog
 
@@ -184,8 +182,8 @@ As the original does it (Render.dll's `SetDistanceClipping` and
 `SetDistanceFogging`, D3DDrv's `SetFogDistance`):
 
 - The camera's zone's own settings: its ZoneInfo's, or for a zone
-  without one the LevelInfo's. A ZoneInfo without them has no fog
-  (Reluva used to fall back to the LevelInfo's).
+  without one the LevelInfo's. A ZoneInfo without them has no fog, not
+  the LevelInfo's.
 - Fog grows linearly with depth in the view, from none at the camera to
   all `DistanceFogColor` at `DistanceFogging` (Direct3D's linear table
   fog, start 0, end that distance). A pass over the level's opaque and

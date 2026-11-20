@@ -15,7 +15,7 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// A 3D level (GAME.LV2), from the loader at 0x4BD130 in sgens.exe.
+// A 3D level's (GAME.LV2) layout, from the loader at 0x4BD130 in sgens.exe:
 //
 //   uint32   1 (version)
 //   uint32   record sizes[9]: 1024, 8, 292, 152, 140, 276, 196, 64, 24.
@@ -45,8 +45,11 @@ namespace reluva::stgenerations {
 // World space: x and y are the floor plan, z is height and grows upwards.
 // All coordinates are 16.16 fixed point. Fields were identified from the
 // renderer in sgens.exe (0x4C13F0 flats, 0x4C7D00 walls).
+
+/** A 3D level (GAME.LV2): its chunk directory, and the tables read from it. */
 class LevelFile {
 public:
+    /** The chunk types the level's tables are read from. */
     enum ChunkType {
         kChunkPalette = 1,
         kChunkVertices = 2,
@@ -64,6 +67,7 @@ public:
     // Palette index of the transparent colour (magenta) in textures.
     static const uint8_t kTransparent = 0xFF;
 
+    /** An entry of the chunk directory. */
     struct ChunkEntry {
         uint32_t size;
         uint32_t offset;
@@ -73,19 +77,21 @@ public:
         uint16_t countB;
     };
 
-    // Floor plan coordinates, 16.16 fixed point.
+    /** A point of the floor plan, 16.16 fixed point. */
     struct Vertex {
         int32_t x;
         int32_t y;
     };
 
-    // How a wall, flat or billboard is lit, from offsets 0x64-0x68.
-    //
-    // The renderer darkens each surface by one of 8 levels, 0 being fully
-    // lit and 7 nearly black (see buildShadeTables()). A surface in a light
-    // group gets its level from its brightness and the group's brightness,
-    // which the scripts can change; any other surface keeps the level
-    // stored in the file.
+    /**
+     * How a wall, flat or billboard is lit, from offsets 0x64-0x68.
+     *
+     * The renderer darkens each surface by one of 8 levels, 0 being fully
+     * lit and 7 nearly black (see buildShadeTables()). A surface in a light
+     * group gets its level from its brightness and the group's brightness,
+     * which the scripts can change; any other surface keeps the level
+     * stored in the file.
+     */
     struct LightInfo {
         // Light group, or 0.
         int16_t group;
@@ -94,13 +100,15 @@ public:
         // Fixed light level, used when group is 0.
         uint8_t level;
 
-        // The light level for a group brightness of percent (100 = on).
+        /** The light level for a group brightness of percent (100 = on). */
         int getLevel(int percent) const;
+        /** Saves or loads it. */
         void sync(Serializer &s);
     };
 
     static const int kLightLevels = 8;
 
+    /** A wall: a vertical quad between two vertices of the floor plan. */
     struct Wall {
         uint16_t vertex1;
         uint16_t vertex2;
@@ -177,8 +185,10 @@ public:
     // into it: drawn openings such as epsion's hanging plants.
     static const uint32_t kWallNoCollision = 0x1000;
 
-    // A floor or ceiling polygon. The original stores these in the same
-    // table and draws a floor only from above and a ceiling from below.
+    /**
+     * A floor or ceiling polygon (a flat). The original stores these in the
+     * same table and draws a floor only from above and a ceiling from below.
+     */
     struct Sector {
         // Vertex indices of the convex polygon, from offsets 266/268.
         std::vector<uint16_t> vertices;
@@ -217,7 +227,10 @@ public:
         // standing here, the first at or below the flat's height counts.
         std::vector<std::pair<int32_t, uint64_t>> zoneBands;
 
-        // The zones in play while the player stands here.
+        /**
+         * The zones in play while the player stands here: the first band at
+         * or below the flat's height, or activeZones if none is.
+         */
         uint64_t getActiveZones() const {
             for (const auto &band : zoneBands) {
                 if (band.first <= height)
@@ -226,6 +239,7 @@ public:
             return activeZones;
         }
 
+        /** Whether it's a ceiling, drawn from below, rather than a floor. */
         bool isCeiling() const { return (flags & kFlagCeiling) != 0; }
     };
 
@@ -245,7 +259,7 @@ public:
     // water surfaces (SET_FLAT_GROUPS).
     static const uint32_t kFlagPassThrough = 0x1000;
 
-    // A camera-facing sprite, standing on (x, y, z).
+    /** A camera-facing sprite, standing on (x, y, z). */
     struct Billboard {
         int32_t x;
         int32_t y;
@@ -276,7 +290,7 @@ public:
     // Keeps its height when dropped, as actors with the same flag do.
     static const uint32_t kBillboardFlyer = 0x1000000;
 
-    // One of an actor's animations (8 bytes at 0xC4 + 8 * entry).
+    /** One of an actor's animations (8 bytes at 0xC4 + 8 * entry). */
     struct Animation {
         // Distance walked per animation frame, 8.8 world units.
         uint16_t speed;
@@ -294,9 +308,11 @@ public:
 
     static const int kAnimationCount = 7;
 
-    // An actor (type 6): a character or object the scripts control, drawn
-    // from a sprite set. The original works on these records directly
-    // (0x4C3C10). Actors sharing an id are parts of one actor.
+    /**
+     * An actor (type 6): a character or object the scripts control, drawn
+     * from a sprite set. The original works on these records directly
+     * (0x4C3C10). Actors sharing an id are parts of one actor.
+     */
     struct Actor {
         // Script object (id | 0xA000), from offset 0x14.
         uint16_t objectId;
@@ -315,8 +331,8 @@ public:
         int32_t radius;
         int32_t bodyHeight;
         uint32_t flags;
-        /** Wander: turn back beyond outerRadius, walk home beyond homeRadius,
-         * turn on crossing innerRadius inwards. */
+        // Wander: turn back beyond outerRadius, walk home beyond homeRadius,
+        // turn on crossing innerRadius inwards.
         int32_t outerRadius;
         int32_t innerRadius;
         int32_t homeRadius;
@@ -346,6 +362,7 @@ public:
         LightInfo light;
     };
 
+    /** A texture (type 13), read by loadTexture(). */
     struct Texture {
         uint16_t id = 0;
         uint16_t flags = 0;
@@ -353,41 +370,64 @@ public:
         Canvas surface;
     };
 
+    /**
+     * Reads the file's directory and tables, keeping its bytes for the
+     * chunks read later; false (with a warning) if it's another version or
+     * damaged.
+     */
     bool load(SeekableReadStream &stream);
 
+    /** The chunk directory, in the file's order. */
     const std::vector<ChunkEntry> &getDirectory() const { return _directory; }
+    /** The first chunk of that type and id, or nullptr. */
     const ChunkEntry *findChunk(uint16_t type, uint16_t id) const;
-    // A chunk's bytes, or an empty vector if it is missing.
+    /** A chunk's bytes, or an empty vector if it is missing. */
     std::vector<uint8_t> getChunkData(uint16_t type, uint16_t id) const;
 
+    /** The level's palette and tables, as loaded and as the scripts have changed them since. */
+    ///@{
     const Palette &getPalette() const { return _palette; }
     const std::vector<Vertex> &getVertices() const { return _vertices; }
     const std::vector<Wall> &getWalls() const { return _walls; }
     const std::vector<Sector> &getSectors() const { return _sectors; }
     const std::vector<Billboard> &getBillboards() const { return _billboards; }
     const std::vector<Actor> &getActors() const { return _actors; }
+    ///@}
 
-    // Writable tables, for the scripts to change the level as it is played.
-    // Save or load what scripts change: the walls', flats' and billboards'
-    // textures, flags, lights and visibility, and where billboards are.
+    /**
+     * Saves or loads what scripts change: the walls', flats' and billboards'
+     * textures, flags and lights, flats' heights and zones, and where
+     * billboards are and whether they're hidden.
+     */
     void syncState(Serializer &s);
 
+    /**
+     * Writable tables, for the scripts to change the level as it is played;
+     * doors move vertices.
+     */
+    ///@{
     std::vector<Wall> &getWalls() { return _walls; }
-    // Doors move vertices.
     std::vector<Vertex> &getVertices() { return _vertices; }
-    // Recompute a wall's normal and distance from its vertices, as 0x4B76F0 does.
+    ///@}
+    /** Recomputes a wall's normal and distance from its vertices, as 0x4B76F0 does. */
     void updateWallGeometry(int index);
+    /** Writable tables, for the scripts to change the level as it is played. */
+    ///@{
     std::vector<Sector> &getSectors() { return _sectors; }
     std::vector<Billboard> &getBillboards() { return _billboards; }
+    ///@}
 
-    // The sky image, if the level has one. The header holds the image size
-    // at offset 16 and its height at offset 24; rows are stored in order.
+    /**
+     * The sky image, if the level has one. The header holds the image size
+     * at offset 16 and its height at offset 24; rows are stored in order.
+     */
     bool loadSky(Canvas &sky) const;
-    // The rows of a sky whose header height doesn't fit its size, or 0.
+    /** The rows of a sky whose header height doesn't fit its size, or 0. */
     uint32_t guessSkyHeight(const uint8_t *pixels, uint32_t size) const;
 
-    // Ids of all texture chunks, in directory order.
+    /** Ids of all texture chunks, in directory order. */
     std::vector<uint16_t> getTextureIds() const;
+    /** Reads a texture; false if there's no such chunk or it's damaged. */
     bool loadTexture(uint16_t id, Texture &texture) const;
 
 private:
@@ -403,8 +443,10 @@ private:
     std::vector<Actor> _actors;
 };
 
-// Draw a level's floor plan from above into dst: sectors filled, walls on
-// top, scaled to fit the surface. Colour indices refer to the level palette.
+/**
+ * Draws a level's floor plan from above into dst: sectors filled, walls on
+ * top, scaled to fit the surface. Colour indices refer to the level palette.
+ */
 void drawLevelMap(const LevelFile &level, Canvas &dst);
 
 } // namespace reluva::stgenerations

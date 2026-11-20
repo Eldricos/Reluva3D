@@ -5,7 +5,7 @@
 // (PlaySound, PlayOwnedSound), kept for the page to play (level_audio.cpp),
 // and the music, which is The Fallen's streamed sounds: one played sets
 // the player's CurrentMusic, and the page plays whatever that names. See
-// docs/engines/unreal_vm.md.
+// docs/engines/unreal/games/ds9fallen/systems/sound.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

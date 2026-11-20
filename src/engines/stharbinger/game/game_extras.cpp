@@ -68,7 +68,7 @@ const MapLocation kMapLocations[] = {
 
 } // namespace
 
-// ---- Credits ------------------------------------------------------------------
+// Credits
 
 void Game::startCredits(bool withBlank, bool fromMenu) {
     if (!_creditsLoaded) {
@@ -182,7 +182,7 @@ void Game::finishCredits() {
     }
 }
 
-// ---- The deck map --------------------------------------------------------------
+// The deck map
 
 bool Game::openDeckMap() {
     int location = _mapLocation;

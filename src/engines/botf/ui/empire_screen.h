@@ -20,15 +20,19 @@ namespace reluva::botf {
 /** The empire selection screen: choosing the empire to play. */
 class EmpireScreen : LayoutScreen {
 public:
+    /** Whether the screen is still open, or how it was left. */
     enum class Result { kOpen, kAccepted, kCancelled };
 
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     EmpireScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
+    /** Reads opening.wdf and emppick.wdf; fails if the layout lacks a widget the screen needs. */
     Error load();
     /**
      * Each empire's civilization level, as chosen on the setup screen
      * (0 Beginning ... 4 Advanced), in race.rst's order.
      */
     void setLevels(const std::array<int, 5> &levels) { _levels = levels; }
+    /** Draws the screen: the layouts, emblems and levels, and the description of the empire pointed at or chosen. */
     void draw(Surface &screen);
     /**
      * The mouse: pointing and clicking on an empire's name or emblem; Accept
@@ -41,6 +45,7 @@ public:
      * Romulans), or -1.
      */
     int chosen() const { return _chosen; }
+    /** Forgets the empire chosen and pointed at, for the screen to be shown again. */
     void reset() { _chosen = _pointed = -1; }
 
 private:

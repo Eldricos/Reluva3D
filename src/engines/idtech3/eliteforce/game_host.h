@@ -28,17 +28,19 @@
 
 namespace reluva::idtech3::eliteforce {
 
-// Elite Force's game logic (vm/qagame.qvm, the server side of Holomatch)
-// run with the engine side of its system calls, in Elite Force's
-// numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md). For now it
-// loads a level: the map's entities are handed over, and what the game
-// does with them is recorded. Calls that would fill in the game's own
-// structures (traces, brush models) wait until their layouts are known;
-// they're counted in unhandled().
+/**
+ * Elite Force's game logic (vm/qagame.qvm, the server side of Holomatch)
+ * run with the engine side of its system calls, in Elite Force's
+ * numbering (docs/engines/idtech3/games/stvef/systems/syscalls.md): its
+ * levels, the players and bots in them, and what it tells them. Calls
+ * not implemented yet are counted in unhandled().
+ */
 class GameHost {
 public:
-    // vmMain's commands (Quake III's order; Init confirmed on Elite
-    // Force's qagame.qvm).
+    /**
+     * vmMain's commands (Quake III's order; Init confirmed on Elite
+     * Force's qagame.qvm).
+     */
     enum Command : int32_t {
         kInit = 0, // (levelTime, randomSeed, restart)
         kShutdown = 1,
@@ -53,58 +55,86 @@ public:
         kBotAiStartFrame = 10,
     };
 
+    /** Over the game's files and the server's cvars, which must outlive it. */
     GameHost(const SearchSet &files, CvarStore &cvars);
 
-    // Reads vm/qagame.qvm.
+    /** Reads vm/qagame.qvm, and tells its layout (layout()). */
     Error load();
-    // Starts a level: sets the map's cvars, hands the game its entity
-    // text (the BSP's entity lump) and calls Init, then runs a few frames
-    // as the original server does to let things settle. The map is also
-    // what things collide with.
+    /**
+     * Starts a level: sets the map's cvars, hands the game its entity
+     * text (the BSP's entity lump) and calls Init, then runs a few frames
+     * as the original server does to let things settle. The map is also
+     * what things collide with.
+     */
     Error startLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed = 0);
+    /**
+     * One server frame (kFrameMs): a delayed map_restart if it's due, the
+     * bots' thinking, then the game's RunFrame and the commands it queued.
+     */
     Error runFrame();
-    // A player joining, as the original server does it: their userinfo
-    // (an info string: \\name\\...\\model\\...), then ClientConnect,
-    // which may refuse them (`refused` gets the game's reason), then
-    // ClientBegin, which puts them in the level.
+    /**
+     * A player joining, as the original server does it: their userinfo
+     * (an info string: \\name\\...\\model\\...), then ClientConnect,
+     * which may refuse them (`refused` gets the game's reason), then
+     * ClientBegin (beginClient), which puts them in the level.
+     */
+    ///@{
     Error connectClient(int32_t clientNum, const std::string &userinfo, std::string &refused);
     Error beginClient(int32_t clientNum);
-    // map_restart, done now: the game code restarted in place and
-    // everyone back in the level (a full change to the same map, through
-    // requestedMap(), if the game type or player count changed).
+    ///@}
+    /**
+     * map_restart, done now: the game code restarted in place and
+     * everyone back in the level (a full change to the same map, through
+     * takeRequestedMap(), if the game type or player count changed).
+     */
     Error restartLevel();
-    // How many restarts there have been (the server tells players of each).
+    /** How many restarts there have been (the server tells players of each). */
     int restarts() const { return _restarts; }
-    // A level the game or a player asked for (map, devmap), for the page to
-    // load and hand to changeLevel(); empty if none.
-    // What the original's map commands set before the level starts:
-    // spmap and spdevmap make it a solo match (g_gametype 2, no warmup,
-    // room for 8), and the bots already there leave; map and devmap end a
-    // solo match's game type (free for all), devmap's bots leaving too.
-    // Whether the bots leave.
+    /**
+     * What the original's map commands set before the level starts:
+     * spmap and spdevmap make it a solo match (g_gametype 2, no warmup,
+     * room for 8), and the bots already there leave; map and devmap end a
+     * solo match's game type (free for all), devmap's bots leaving too.
+     * @return Whether the bots leave.
+     */
     static bool applyMapCommand(CvarStore &cvars, std::string_view verb);
+    /**
+     * A level the game or a player asked for (map, devmap), for the page to
+     * load and hand to changeLevel(): whether there's one, and taking it
+     * (empty if none).
+     */
+    ///@{
     bool levelRequested() const { return !_requestedMap.empty(); }
     std::string takeRequestedMap() { return std::exchange(_requestedMap, std::string()); }
-    // A new level: the game code started afresh on it and everyone
-    // connected again; `players` gets the players (not bots), who are put
-    // in the level when they've loaded it.
+    ///@}
+    /**
+     * A new level: the game code started afresh on it and everyone
+     * connected again; `players` gets the players (not bots), who are put
+     * in the level when they've loaded it.
+     */
     Error changeLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
                       std::vector<int32_t> &players);
+    /** The level running. */
     const std::string &mapName() const { return _mapName; }
-    // A player's settings changed (their userinfo, ClientUserinfoChanged).
+    /** A player's settings changed (their userinfo, ClientUserinfoChanged). */
     Error userinfoChanged(int32_t clientNum, const std::string &userinfo);
-    // A player leaving (ClientDisconnect); their slot is free again.
+    /** A player leaving (ClientDisconnect); their slot is free again. */
     Error disconnectClient(int32_t clientNum);
-    // Whether no player or bot has slot `clientNum`.
+    /** Whether no player or bot has slot `clientNum`. */
     bool clientSlotFree(int32_t clientNum) const { return !_clientsInUse.count(clientNum); }
-    // Keeps a client number from bots (BotAllocateClient): the local
-    // player's, who joins after the level has started and the game has
-    // added a solo match's bots.
+    /**
+     * Keeps a client number from bots (BotAllocateClient): the local
+     * player's, who joins after the level has started and the game has
+     * added a solo match's bots.
+     */
     void reserveClient(int32_t clientNum) { _reserved.insert(clientNum); }
+    /** Whether a client is one of the bots. */
     bool isBot(int32_t clientNum) const { return _botClients.count(clientNum) != 0; }
-    // A player's input for one moment, as Elite Force's usercmd_t (24
-    // bytes, see docs/engines/idtech3/games/stvef/systems/syscalls.md): Quake III's fields with the
-    // buttons before the angles.
+    /**
+     * A player's input for one moment, as Elite Force's usercmd_t (24
+     * bytes, see docs/engines/idtech3/games/stvef/systems/syscalls.md): Quake III's fields with the
+     * buttons before the angles.
+     */
     struct UserCommand {
         int32_t serverTime = 0;          // ms, the level time it applies to
         std::array<int32_t, 3> angles{}; // view pitch, yaw, roll: 65536 = a full turn
@@ -115,37 +145,53 @@ public:
         int8_t right = 0;
         int8_t up = 0;
     };
-    // Hands the game a player's command and lets it act on it (ClientThink,
-    // which reads it with GetUsercmd), as the server does for each
-    // command a client sends.
+    /**
+     * Hands the game a player's command and lets it act on it (ClientThink,
+     * which reads it with GetUsercmd), as the server does for each
+     * command a client sends.
+     */
     Error clientThink(int32_t clientNum, const UserCommand &cmd);
-    // A command a player sent the server ("say hello", "kill"...), which
-    // the game reads with Argc and Argv (ClientCommand).
+    /**
+     * A command a player sent the server ("say hello", "kill"...), which
+     * the game reads with Argc and Argv (ClientCommand).
+     */
     Error clientCommand(int32_t clientNum, const std::string &text);
-    // A command typed at the server's console that the engine doesn't
-    // know ("addbot munro 3", "kick"...), handed to the game
-    // (ConsoleCommand); `handled` gets whether the game knew it.
+    /**
+     * A command typed at the server's console that the engine doesn't
+     * know ("addbot munro 3", "kick"...), handed to the game
+     * (ConsoleCommand); `handled` gets whether the game knew it.
+     */
     Error serverCommand(const std::string &text, bool *handled = nullptr);
-    // The bots (clients the game asked for with BotAllocateClient).
+    /** The bots (clients the game asked for with BotAllocateClient). */
     const std::set<int32_t> &botClients() const { return _botClients; }
+    /** The bot library the game's bots use. */
     botlib::BotLibrary &botLibrary() { return _bots; }
-    // Each system call of the bot library's ranges (200 on) with its first
-    // arguments the first few times it was made, for finding out what
-    // Elite Force's numbers are.
+    /**
+     * Each system call of the bot library's ranges (200 on) with its first
+     * arguments the first few times it was made, for finding out what
+     * Elite Force's numbers are.
+     */
     const std::map<int, std::vector<std::vector<int32_t>>> &botCallSamples() const { return _botCallSamples; }
-    // Writes a command into game code's memory, laid out as usercmd_t:
-    // server time 0, buttons 4 and weapon 5 (a byte each), angles 8,
-    // forward, right and up moves 20-22.
+    /**
+     * Writes a command into game code's memory, laid out as usercmd_t:
+     * server time 0, buttons 4 and weapon 5 (a byte each), angles 8,
+     * forward, right and up moves 20-22.
+     */
     static void writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd);
+    /** vmMain(command, args...). */
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
 
+    /** The game's program. */
     Qvm &vm() { return _vm; }
+    /** The level's time in ms, kFrameMs on each frame. */
     int32_t levelTime() const { return _levelTime; }
-    // The layout the game code was built with (1.0 or patch 1.2's), known
-    // once it's loaded.
+    /**
+     * The layout the game code was built with (1.0 or patch 1.2's), known
+     * once it's loaded.
+     */
     const GameLayout &layout() const { return _layout; }
 
-    // What the game has told the engine.
+    /** What the game has told the engine (LocateGameData). */
     struct GameData {
         int32_t entities = 0;   // address of the entity array
         int32_t count = 0;      // entities in use so far (the highest + 1)
@@ -153,28 +199,43 @@ public:
         int32_t clients = 0;    // address of the client array
         int32_t clientSize = 0;
     };
+    /** What the game has told the engine of its entities and clients. */
     const GameData &gameData() const { return _gameData; }
-    // A field of an entity, read from the game's memory (see the layout
-    // in game_host.cpp).
+    /**
+     * A field of an entity, read from the game's memory at a byte offset
+     * (see GameLayout); 0 for an entity there isn't.
+     */
+    ///@{
     int32_t entityInt(int32_t number, int32_t offset);
     Vec3f entityVec(int32_t number, int32_t offset);
-    // A field of a client (gclient_t, which starts with the player state).
+    ///@}
+    /**
+     * A field of a client (gclient_t, which starts with the player state);
+     * 0 for an offset past the client's size.
+     */
     int32_t clientInt(int32_t clientNum, int32_t offset);
-    // How many snapshots have been made (snapshot()), for counting.
+    /** How many snapshots have been made (snapshot()), for counting. */
     int snapshotsMade() const { return _snapshotsMade; }
+    /** A vector field of a client, as clientInt. */
     Vec3f clientVec(int32_t clientNum, int32_t offset);
-    // A trace as the game's Trace call makes it: the world and (unless
-    // `entities` is false) linked entities; `hit` gets what stopped it
-    // (an entity number, 1022 the world, 1023 nothing).
+    /** The one or two areas entity `n`'s box touched when last linked (-1 for none). */
     std::pair<int, int> entityAreas(int32_t n);
+    /** Whether two areas join up through open doors. */
     bool areasConnected(int area1, int area2) const;
+    /**
+     * A trace as the game's Trace call makes it: the world and (unless
+     * `entities` is false) linked entities; `hit` gets what stopped it
+     * (an entity number, 1022 the world, 1023 nothing).
+     */
     TraceResult traceMove(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
                           int32_t passEntity, int32_t mask, int32_t &hit, bool entities = true);
-    // What the server sends a player each frame: the level time, their
-    // player state and the entities they can see, copied byte for byte
-    // from the game's memory (the first 460 bytes of their client, the
-    // first 204 of each entity), and how many commands the game has sent
-    // them so far.
+    /**
+     * What the server sends a player each frame: the level time, their
+     * player state and the entities they can see, copied byte for byte
+     * from the game's memory (the start of their client, as long as the
+     * layout's player state; the first 204 bytes of each entity), and how
+     * many commands the game has sent them so far.
+     */
     struct Snapshot {
         int32_t serverTime = 0;
         std::vector<uint8_t> playerState;
@@ -192,46 +253,65 @@ public:
         // active); 4: changes with each level; 1: delayed by the rate.
         int32_t snapFlags = 0;
     };
-    // Milliseconds a server frame: 20 a second, Quake III's default sv_fps.
+    /** Milliseconds a server frame: 20 a second, Quake III's default sv_fps. */
     static constexpr int32_t kFrameMs = 50;
     // 1.0's; see layout()
     static constexpr int32_t kPlayerStateSize = 460;
     static constexpr int32_t kEntityStateSize = 204;
-    // A word of the player state the original's network protocol doesn't
-    // send, which snapshots carry as 0.
+    /**
+     * A word of the player state the original's network protocol doesn't
+     * send, which snapshots carry as 0.
+     */
     static constexpr int32_t kPlayerStateServerOnly = 48;
+    /** The snapshot for a client now. */
     Snapshot snapshot(int32_t clientNum);
-    // Where svFlags is in Elite Force's entities (208 or 212: one of the
-    // two words between `linked` and `bmodel`), found from the entities
-    // themselves, and the evidence: how many entities have flags at each.
+    /**
+     * Where svFlags is in Elite Force's entities (208 or 212: one of the
+     * two words between `linked` and `bmodel`), the layout's if it knows,
+     * else found from the entities themselves; and the evidence: how many
+     * linked entities have flags at each.
+     */
+    ///@{
     int32_t svFlagsOffset();
     std::pair<int, int> svFlagsEvidence();
-    // How many times each system call has been made since the start.
+    ///@}
+    /** How many times each system call has been made since the start. */
     std::map<int, int> callCounts() const { return _callCounts.map(); }
-    // Entity numbers linked into the world (LinkEntity), not unlinked since.
+    /** Entity numbers linked into the world (LinkEntity), not unlinked since. */
     const std::set<int32_t> &linked() const { return _serverWorld.linked(); }
-    // The files the game code and its bots have read since the level
-    // started (the map is handed over, not read), by name.
+    /**
+     * The files the game code and its bots have read since the level
+     * started (the map is handed over, not read), by name.
+     */
     const std::set<std::string> &filesRead() const { return _filesRead; }
-    // The map's areas (cut by its doors' portals), and how many times
-    // InPvs said no only because a closed door stood between.
+    /**
+     * The map's areas (cut by its doors' portals), and how many times
+     * InPvs said no only because a closed door stood between.
+     */
+    ///@{
     int areaCount() const { return _world ? _world->areaCount() : 0; }
     int closedDoorBlocks() const { return _closedDoorBlocks; }
+    ///@}
+    /** The configstrings the game has set (0 and 1 the server's info), by index. */
     const std::map<int32_t, std::string> &configstrings() const { return _configstrings; }
-    // What the game sent to clients (SendServerCommand), in order: the
-    // client (-1 for all) and the command text.
+    /**
+     * What the game sent to clients (SendServerCommand), in order: the
+     * client (-1 for all) and the command text.
+     */
     const std::vector<std::pair<int32_t, std::string>> &serverCommands() const { return _serverCommands; }
-    // Clients the game dropped, with its reason.
+    /** Clients the game dropped, with its reason. */
     const std::map<int32_t, std::string> &dropped() const { return _dropped; }
-    // Every DropClient, in order: the client and the reason.
+    /** Every DropClient, in order: the client and the reason. */
     const std::vector<std::pair<int32_t, std::string>> &drops() const { return _drops; }
-    // Entity `number`'s state (its first 204 bytes); empty if there's none.
+    /** Entity `number`'s state (its first 204 bytes); empty if there's none. */
     std::vector<uint8_t> entityState(int32_t number);
-    // Commands the game ran (SendConsoleCommand), in order.
+    /** Commands the game ran (SendConsoleCommand), in order. */
     const std::vector<std::string> &consoleCommands() const { return _consoleCommands; }
 
     std::function<void(const std::string &)> print;
+    /** The last of what the game has printed (4 to 8 KB), whether or not `print` is set. */
     const std::string &log() const { return _log; }
+    /** Calls not implemented yet: number -> how many times. */
     const std::map<int, int> &unhandled() const { return _unhandled; }
     std::function<void(int number, const int32_t *args)> trace;
 

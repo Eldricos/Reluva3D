@@ -20,7 +20,7 @@ namespace reluva::age {
 
 /**
  * The things that move by themselves along a city's path sets
- * (race/<city>/<city>_ferry, _sailboat, _bridge and _train.pathset):
+ * (`race/<city>/<city>_<kind>.pathset`: ferry, sailboat, bridge, train):
  * ferries, tugs, water taxis, sailboards and ducks going round their
  * paths, drawbridges whose leaves rise and fall (and the gates that stand
  * still), and London's Underground trains. The way they move is Reluva's;
@@ -47,14 +47,15 @@ public:
     static constexpr float kTrainStand = 15;
 
     /**
-     * The city's files, and a race's (<city>_bridge_<variant>.pathset...)
+     * The city's files, and a race's (`<city>_bridge_<variant>.pathset`...)
      * over them where it has its own: a path in both, the same model
      * starting within 5 m, is the race's.
      * With `mixer`, the trains are heard (aud/ambient/subwaycar.csv's loop).
+     * A path whose model isn't there is left out.
      */
     Error load(const SearchSet &files, const std::string &map, const std::string &variant = "",
                audio::Mixer *mixer = nullptr);
-    /** Stops the trains' sound and forgets everything loaded. */
+    /** Takes them all away, and stops the trains' sound. */
     void clear();
 
     /**
@@ -62,7 +63,7 @@ public:
      * moving triangles); the trains are heard from `listener`.
      */
     void update(float dt, CollisionWorld &world, const Vec3 &listener = {});
-    /** Draws those within 1200 m of `eye` and in view, at the level of detail their distance calls for. */
+    /** Draws those within 1200 m of the eye. */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye) const;
     /**
@@ -84,16 +85,17 @@ public:
      */
     bool inGap(const Vec3 &a, const Vec3 &b, const Vec3 &c) const;
 
-    /** How many boats (ferries, tugs, sailboards, ducks...) were loaded. */
+    /** How many boats, bridges and trains there are. */
+    ///@{
     size_t boats() const { return _boats.size(); }
-    /** How many drawbridges and gates were loaded. */
     size_t bridges() const { return _bridges.size(); }
-    /** How many trains were loaded. */
     size_t trains() const { return _trains.size(); }
-    /** Where a train's first carriage is. */
+    ///@}
+    /** Where a train's first carriage is, and how fast it's going (m/s). */
+    ///@{
     Vec3 trainPosition(size_t train) const { return _trains[train].carriages.front().center; }
-    /** How fast a train is going, in m/s. */
     float trainSpeed(size_t train) const { return _trains[train].speed; }
+    ///@}
     /** 0 down .. 1 up, for a bridge. */
     float raised(size_t bridge) const { return _bridges[bridge].raised; }
 
@@ -103,16 +105,16 @@ private:
         std::vector<Vec3> points; // closed (back to the first) unless going back and forth
         std::vector<float> at;
         bool backAndForth = false;
-        float speed = 2;
-        float s = 0;
-        float sway = 0; // where in its bobbing it is
-        int way = 1;
+        float speed = 2;  // m/s
+        float s = 0;      // metres along its points
+        float sway = 0;   // where in its bobbing it is
+        int way = 1;      // 1 along its points, -1 back
         float window = 3; // metres either side its heading is taken over
         Vec3 position{};
         Mat3 axes;
     };
     struct Leaf {
-        // where the leaf's hinge and tip are when it's down
+        // where they are when it's down
         Vec3 hinge{};
         Vec3 tip{};
         float width = 8;
@@ -120,12 +122,11 @@ private:
     struct Bridge {
         std::string model;
         std::vector<Leaf> leaves;
-        // standing: modelled about its middle (a gate)
         bool inactive = false;
-        bool standing = false;
-        float lift = 0;   // up off the path for a standing one
-        float offset = 0; // seconds into the cycle at clock 0
-        float raised = 0;
+        bool standing = false; // a gate, modelled about its middle: it stands still
+        float lift = 0;        // up off the path for a standing one
+        float offset = 0;      // seconds into the cycle at clock 0
+        float raised = 0;      // 0 down .. 1 up
     };
     struct Carriage {
         Vec3 center{};
@@ -143,8 +144,8 @@ private:
         float lift = 0;
         float u = 0; // its end nearer the line's start, along it
         float speed = 0;
-        float standing = 0;
-        int way = 1;
+        float standing = 0; // seconds left standing at the end of its line
+        int way = 1;        // 1 towards the line's end, -1 back
         std::vector<Carriage> carriages;
         float span() const { return float(kCarriages) * length + float(kCarriages - 1) * gap; }
         Vec3 velocity() const;

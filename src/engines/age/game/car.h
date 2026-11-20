@@ -8,8 +8,9 @@
 // The setup's numbers are the game's own (tune/vehicle/<car>.vehCarSim,
 // the wheels' .mtx placements, bound/<car>_BOUND.bnd); how they're used is
 // Reluva's model, worked out to drive like the game rather than taken
-// from it (its program is encrypted). See docs/engines/age/games/mm2/systems/car-simulation.md for
-// what each number does here and what's still to compare with the game.
+// from it (its program is encrypted). See
+// docs/engines/age/games/mm2/systems/car-simulation.md for what each number
+// does here and what's still to compare with the game.
 
 #include "common/archive.h"
 #include "engines/age/game/collision.h"
@@ -21,7 +22,7 @@
 
 namespace reluva::age {
 
-/** A pair of wheels' suspension, steering, brakes and tyres, from the .vehCarSim. */
+/** An axle's wheels: the .vehCarSim's WheelFront or WheelBack block. */
 struct AxleSetup {
     float suspensionExtent = 0.15f; // metres the wheel travels each way
     float suspensionFactor = 1;     // spring stiffness, 1 = holds the car at mid travel
@@ -34,7 +35,7 @@ struct AxleSetup {
     float rolling = 0.015f; // TireDragCoefLong: rolling resistance, a share of the load
 };
 
-/** What a car is, as its files say: the numbers Reluva's simulation drives it by. */
+/** A car's numbers from its files (loadCarSetup), which CarSim drives with. */
 struct CarSetup {
     std::string name; // "vpbug"
     float mass = 1000;
@@ -106,12 +107,14 @@ struct CarSetup {
 };
 
 /**
- * tune/vehicle/<car>.vehCarSim, geometry/<car>_WHL0-3.mtx and
- * bound/<car>_BOUND.bnd.
+ * Reads a car's setup: `tune/vehicle/<car>.vehCarSim` (with its .vehStuck
+ * and .vehGyro if it has them), `geometry/<car>_WHL0-3.mtx` and
+ * `bound/<car>_BOUND.bnd`. Fails without the .vehCarSim or a wheel's
+ * placement; without a bound, the hull is a box between the wheels.
  */
 Error loadCarSetup(const SearchSet &files, const std::string &car, CarSetup &out);
 
-/** What the driver does this step: the player's keys or a computer driver's. */
+/** What a driver asks of a car for a frame. */
 struct CarControls {
     float throttle = 0; // 0..1
     float brake = 0;    // 0..1; held when stopped, reverses
@@ -121,10 +124,10 @@ struct CarControls {
     bool reverse = false; // pressed when stopped: into reverse, or out of it
 };
 
-/** A car moving: Reluva's simulation of its body, wheels and gearbox in the city. */
+/** Reluva's simulation of a car (see the top of this file). */
 class CarSim {
 public:
-    /** A wheel's state, as the last step left it. */
+    /** A wheel as the last step left it. */
     struct Wheel {
         bool contact = false;
         float compression = 0; // metres up from fully extended
@@ -137,15 +140,18 @@ public:
     };
 
     /**
-     * Stands the car still at @p position, its wheels on the ground there, in
-     * first gear at idle; knocks and ballast are kept.
-     * @param yaw Radians, 0 facing -Z.
+     * Puts the car at rest on its wheels at `position`, turned `yaw` radians
+     * about Y (as headingToYaw gives), in first gear, with this setup.
      */
     void reset(const CarSetup &setup, const Vec3 &position, float yaw);
-    /** Advances by `dt` seconds in fixed steps. */
+    /**
+     * Advances by `dt` seconds (0.1 at most) in fixed steps of 1/120 s, the
+     * time left over kept for the next call. A car turned over and stuck is
+     * set upright.
+     */
     void step(const CarControls &controls, const CollisionWorld &world, float dt);
 
-    /** The setup reset() gave it. */
+    /** The setup reset() was given. */
     const CarSetup &setup() const { return _setup; }
     // Weight carried besides the car's own (Cops & Robbers' gold), kg.
     float ballast = 0;
@@ -155,7 +161,7 @@ public:
     // turns.
     bool autoReverse = false; // the player's car takes the option's
     float steerRate = 1;
-    /** In kg, the ballast with it. */
+    /** The car's mass with its ballast, kg. */
     float mass() const { return _setup.mass + ballast; }
     Vec3 position{};  // of the body's origin
     Mat3 orientation; // the body's axes: X right, Y up, Z back (cars face -Z)

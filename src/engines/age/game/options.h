@@ -6,7 +6,8 @@
 // The player's options, as the game's Options menus set them: sound,
 // graphics and the controls, the keys among them. Kept in Reluva's own
 // text file (options.txt) in the game's save folder; the game's own
-// settings are in the Windows registry. See docs/engines/age/games/mm2/systems/options.md.
+// settings are in the Windows registry. See
+// docs/engines/age/games/mm2/systems/options.md.
 
 #include "audio/mixer.h"
 #include "common/types.h"
@@ -56,14 +57,14 @@ enum class Control : int {
     kCount
 };
 constexpr int kControls = int(Control::kCount);
-/** The control's name's string number in mmlang.dll. */
+/** The id of a control's name in mmlang.dll. */
 uint32_t controlStringId(Control c);
-/** The control's English name, for when mmlang.dll isn't there. */
+/** A control's name in English, for when mmlang.dll hasn't it. */
 const char *controlFallbackName(Control c);
 /** A key's name, as Customize Controls shows it ("Up", "A", "Space"). */
 std::string keyName(uint32_t key);
 
-/** The player's options, as the Options menus set them and options.txt keeps them. */
+/** The player's options, as options.txt keeps them. */
 struct GameOptions {
     static constexpr const char *kFileName = "options.txt";
 
@@ -88,7 +89,7 @@ struct GameOptions {
     int textureQuality = 3;    // the same
     int cloudShadows = 2;      // 0 None, 1 Low, 2 High
     // Control Options.
-    bool autoReverse = true;   // the brake backs up when stopped
+    bool autoReverse = true;   // the throttle held against a wall backs the car away
     bool startInCar = false;   // the in-car view first (POV)
     bool forceFeedback = true; // a game controller shakes when the car's knocked
     float steering = 0.5f;     // Steering Sensitivity, 0..1
@@ -138,10 +139,15 @@ struct GameOptions {
      */
     Control otherWith(uint32_t key, Control except) const;
 
-    /** How far the city is drawn, in metres: 800 to 4000 by the visibility. */
+    /**
+     * What the options mean in numbers: how far the city is drawn (metres),
+     * and how fast the steering turns (CarSim::steerRate).
+     */
+    ///@{
     float farClip() const { return 800 + visibility * 3200; }
     /** How fast the wheels turn as steered: 0.5 to 1.5 times the car's own, by the sensitivity. */
     float steerRate() const { return 0.5f + steering; }
+    ///@}
 };
 
 /** A screen size, in pixels. */
@@ -149,7 +155,7 @@ struct Resolution {
     int w;
     int h;
 };
-/** The screen sizes the Graphics Options offer, from 640x480 to 1600x1200. */
+/** The Graphics Options' screen sizes, 640 x 480 to 1600 x 1200. */
 const std::array<Resolution, 5> &resolutions();
 
 /**
@@ -164,8 +170,10 @@ GameOptions loadOptions(const std::filesystem::path &folder);
  * The options in force, for what reads the keys and the sound levels;
  * the race screen loads them and the menus change them.
  */
+///@{
 const GameOptions &currentOptions();
 /** Puts @p options in force (they're copied). */
 void setCurrentOptions(const GameOptions &options);
+///@}
 
 } // namespace reluva::age

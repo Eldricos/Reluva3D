@@ -3,8 +3,8 @@
 
 // The data viewer's Maps page: a wireframe of a .bsp's world surfaces
 // (polygons, triangle soups and patch control grids) with an orbit camera,
-// and a summary of its lumps and entities. A stand-in until the engine has
-// a real renderer.
+// and a summary of its lumps and entities, drawn line by line on the 2D
+// screen rather than by the GPU renderer (the World page's).
 
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/pages/map_viewer.h"

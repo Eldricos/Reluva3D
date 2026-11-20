@@ -30,9 +30,11 @@ GPR = ('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp')
 ARGREGS = ('eax', 'edx', 'ebx', 'ecx')     # Watcom register calling convention
 
 def r32(r):
+    """The 32-bit register a register name is part of, or None."""
     return R32.get(r, r) if r else None
 
 def load_model():
+    """symbols.json as the analysis uses it: structs, pointer fields and globals, arrays, pointer tables, arguments."""
     sy = Syms()
     structs = {n: s for n, s in sy.structs.items()}
     ptrfields = {}   # (struct, off) -> struct
@@ -57,18 +59,21 @@ def load_model():
 SY, STRUCTS, PTRF, ARRAYS, PTABS, GPTR, CUR_ARGS = load_model()
 
 def in_array(a):
+    """(base, struct, element size) of the struct array holding `a`, or None."""
     for b, st, cnt, sz in ARRAYS:
         if b <= a < b + cnt * sz:
             return b, st, sz
     return None
 
 def ptab_at(a):
+    """(base, struct) of the pointer table holding `a`, or None."""
     for b, st, cnt in PTABS:
         if b <= a < b + 4 * cnt:
             return b, st
     return None
 
 def join(a, b):
+    """Two abstract values merged where control flow meets: what they have in common, or None."""
     if a == b:
         return a
     if a is None or b is None:
@@ -78,6 +83,7 @@ def join(a, b):
     return None
 
 def join_state(s1, s2):
+    """Two states merged where control flow meets: the registers and slots both know alike."""
     regs = {}
     for k in set(s1[0]) & set(s2[0]):
         v = join(s1[0][k], s2[0][k])
@@ -92,7 +98,7 @@ def join_state(s1, s2):
     return (regs, slots, stk)
 
 def addr_value(st, base, idx, scale, disp):
-    """abstract value of base + idx*scale + disp"""
+    """The abstract value of base + idx*scale + disp."""
     regs = st[0]
     bv = regs.get(base) if base else None
     iv = regs.get(idx) if idx else None
@@ -139,7 +145,7 @@ def addr_value(st, base, idx, scale, disp):
     return None
 
 def load_value(st, mem, osz):
-    """value loaded from memory operand"""
+    """The abstract value loaded from a memory operand."""
     _, base, idx, scale, disp, _, _ = mem
     base, idx = r32(base), r32(idx)
     if base == 'ebp' and idx is None and osz == 4:
@@ -168,7 +174,7 @@ def load_value(st, mem, osz):
     return None
 
 def mem_access_record(st, mem):
-    """(kind, struct-or-addr, off, conf, indexed) for a memory operand, or None"""
+    """(kind, struct or address, offset, confidence, indexed) for a memory operand, or None."""
     _, base, idx, scale, disp, osz, acc = mem
     base, idx = r32(base), r32(idx)
     if base in ('ebp', 'esp') and idx is None:
@@ -203,7 +209,7 @@ def mem_access_record(st, mem):
 STK_MAX = 16
 
 def step(st, a, ins, rec, calls_out, fa):
-    """transfer function; st is mutated copy. rec(...) records accesses."""
+    """The transfer function of one instruction: updates `st` in place, rec() noting its accesses."""
     sz, mn, ostr, ops, rw = ins
     regs, slots, stk = st
     # record memory accesses (before the update)
@@ -225,6 +231,7 @@ def step(st, a, ins, rec, calls_out, fa):
                     rec(a, r, op[6], op[5], mn, val)
     dst = ops[0] if ops else None
     def setr(r, v):
+        """Sets a register's value; None forgets it, and ESP is never tracked."""
         r = r32(r)
         if r == 'esp':
             return
@@ -233,6 +240,7 @@ def step(st, a, ins, rec, calls_out, fa):
         else:
             regs[r] = v
     def val(op):
+        """An operand's abstract value: a tracked register's, a constant, or a load's; None if unknown."""
         if op[0] == 'r':
             return regs.get(r32(op[1])) if op[1] in GPR or op[1] in ('esp',) else None
         if op[0] == 'i':
@@ -242,7 +250,7 @@ def step(st, a, ins, rec, calls_out, fa):
         return None
     full = lambda op: op[0] == 'r' and op[1] in GPR
     def symv(r, at):
-        """value of r; an unknown integer gets a symbol so i*4-i (= 3i) can be followed"""
+        """The value of r; an unknown integer gets a symbol, so that i*4-i (= 3i) can be followed."""
         r = r32(r)
         v = regs.get(r)
         if v is None and r in GPR and r != 'esp':
@@ -369,6 +377,7 @@ def step(st, a, ins, rec, calls_out, fa):
         regs.pop(r32(dst[1]), None)
 
 def analyse_function(fa, f, insns, entry_args, rec, calls_out):
+    """Runs the data flow over a function's blocks to a fixpoint, then records its accesses and calls."""
     blocks = {b: lst for b, lst in f['blocks']}
     edges = f['edges']
     entry = {r: ('a', r) for r in ARGREGS}
@@ -411,6 +420,7 @@ def analyse_function(fa, f, insns, entry_args, rec, calls_out):
             step(st, a, insns[a], rec, calls_out, fa)
 
 def run():
+    """Iterates the analysis over every function, inferring arguments' types, until none is new; writes fields.pkl."""
     t0 = time.time()
     D = db()
     insns, funcs = D['insns'], D['funcs']
@@ -420,6 +430,7 @@ def run():
         accesses = []
         calls = []
         def rec(a, r, acc, osz, mn, val):
+            """Notes one memory access."""
             accesses.append((a, r, acc, osz, val))
         for fa, f in funcs.items():
             co = []

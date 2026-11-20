@@ -115,6 +115,7 @@ Error decodeInfo(const uint8_t *data, size_t size, size_t info, const uint8_t *p
     if (width <= 0 || width > 8192 || height == 0 || height > 8192)
         return Error::fail("BMP: a size of " + std::to_string(width) + "x" + std::to_string(height));
 
+    // Without bit fields: 5-5-5 at 16 bits, 8-8-8 at 32.
     uint32_t rMask = 0x7C00;
     uint32_t gMask = 0x03E0;
     uint32_t bMask = 0x001F;

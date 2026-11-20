@@ -2,25 +2,19 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/ffn.cpp` · **Checked on:** every font · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/ffn.cpp`), and checked on all
-8 retail fonts:
+## Overview
+
+The game's bitmap fonts: a header, a table of glyphs and a 4-bit
+atlas. The 8 retail fonts are:
 
 - `FeData/text`: `arial10b`, `cred`, `cred10i`, `credi`, `sci20`;
 - `GameData/DashHud`: `cp16bi`, `cp1bi`, `small6`.
 
-Worked out from hex dumps of the retail fonts, October 2026:
-
-- **The atlas.** Each font's atlas size accounts for the rest of its file
-  exactly, with 4 bits per pixel. The nibble order was found by drawing
-  the atlas both ways: high nibble first gives clear letters, the other
-  order doesn't.
-- **The glyph fields.** Each glyph's box lies inside the atlas. Lines of
-  text drawn with the offsets and advances (`reluva-tool ffn-render`)
-  sit on a common baseline and are evenly spaced.
+## Layout
 
 All values are little-endian.
 
-## Header (32 bytes)
+### Header (32 bytes)
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -43,7 +37,7 @@ retail fonts too; Reluva applies them anyway (`Font::draw`,
 The game's two loaders (`setfont` at `0x4ef520`, `FONT_create` at
 `0x519f10`) were read in nfs3.exe (October 2026) for these fields.
 
-## Glyphs (11 bytes each, from offset 32)
+### Glyphs (11 bytes each, from offset 32)
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -65,18 +59,31 @@ Records past the count, and those of width 0, are ignored. `sci20` (the
 front end's big title font) draws many punctuation marks and lower-case
 letters as plain boxes, in its atlas.
 
-## Atlas
+### Atlas
 
 The atlas is a picture block as in [.fsh](fsh.md) files, of type `0x7A`:
 4 bits per pixel, high nibble first. Each pixel is coverage, from 0
 (clear) to 15 (solid); Reluva scales it to 0-255.
 
-## Tools
+## In Reluva
 
-`reluva-tool ffn-render <file.ffn> <out.tga> [text]` draws every
+Read as `Font` (`src/engines/nfs/formats/ffn.cpp`), and checked on all
+8 retail fonts. The data viewer's Fonts page shows them.
+
+`reluva-tool nfs ffn-render <file.ffn> <out.tga> [text]` draws every
 character, or the text given (as Windows-1252 bytes).
 
 ## Sources and checks
 
 - **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
 - **How it was checked:** the reader run on every font to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+
+Worked out from hex dumps of the retail fonts, October 2026:
+
+- **The atlas.** Each font's atlas size accounts for the rest of its file
+  exactly, with 4 bits per pixel. The nibble order was found by drawing
+  the atlas both ways: high nibble first gives clear letters, the other
+  order doesn't.
+- **The glyph fields.** Each glyph's box lies inside the atlas. Lines of
+  text drawn with the offsets and advances (`reluva-tool nfs ffn-render`)
+  sit on a common baseline and are evenly spaced.

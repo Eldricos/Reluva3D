@@ -38,6 +38,11 @@ public:
     /** The game `target` names; Elite Force for an id this engine doesn't know. */
     Session(System &system, GameTarget target);
 
+    /**
+     * Mounts the game's files (the Expansion Pack and the mod as its
+     * settings say) and shows its pages until the player leaves.
+     * @return An error if the files or the graphics can't be started.
+     */
     Error run() override;
 
 protected:

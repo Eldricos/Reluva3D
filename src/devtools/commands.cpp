@@ -15,8 +15,9 @@ namespace {
 
 using namespace reluva::tool;
 
-// A payload counts as a container if it splits exactly into chunks whose
-// tags look plausible. Small tag limit keeps random data from qualifying.
+// A payload counts as a container if it splits exactly into chunks (a
+// 16-bit tag, a 32-bit size) whose tags look plausible: up to 0x400, so
+// random data rarely does.
 bool tilesIntoChunks(const Bytes &d, size_t begin, size_t end) {
     if (end - begin < 6)
         return false;

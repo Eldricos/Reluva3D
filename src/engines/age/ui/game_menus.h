@@ -23,10 +23,10 @@
 
 namespace reluva::age {
 
-/** The Options and the main menu's dialogs, opened over the front end or a race. */
+/** The Options and the main menu's dialogs (see the top of this file). */
 class GameMenus {
 public:
-    /** The screen or dialog shown; kNone while the menus are closed. */
+    /** A screen or dialog of them; kNone while none is open. */
     enum class Screen {
         kNone,
         kOptions,
@@ -52,7 +52,7 @@ public:
         kCitySelection,   // cenv_dlg: Race Locales
         kLocked,          // lock_dlg: you cannot pick a locked vehicle
     };
-    /** What the menus want their caller to do next. */
+    /** What handle() asks of the caller. */
     enum class Action {
         kNone,
         kClosed,        // back to whatever opened it
@@ -80,11 +80,11 @@ public:
     bool isOpen() const { return _screen != Screen::kNone; }
     /** A dialog over the menu that opened it (drawn first). */
     bool isDialog() const { return isOpen() && overlay(_screen); }
-    /** Takes a key, click or typing; kNone while the menus are closed. */
+    /** Takes a key or click; what the caller is to do about it. */
     Action handle(const Event &ev);
-    /** Draws the screen shown into `overlay`; nothing while the menus are closed. */
+    /** Draws the screen open over the 640 x 480 overlay. */
     void draw(Surface &overlay, uint64_t nowMs);
-    /** Whether keys go to a field typed in, or to a control being given a key. */
+    /** Whether keys are being typed into it (a name, or a key to bind). */
     bool typing() const;
     /** After a replay: ask whether to save it, under this name (cut at 40 characters). */
     void askToSaveReplay(const std::string &name);
@@ -101,11 +101,11 @@ public:
     }
     /** The race menu's choice, for Change Race Options and Race Locales. */
     void setFrontEnd(FrontEnd *front) { _front = front; }
-    /** The replay file chosen to play (Action::kLoadReplay). */
+    /** The replay chosen to play (Action::kLoadReplay). */
     const std::filesystem::path &replayFile() const { return _replayFile; }
     /** A recording to say now (the time or weather chosen, an alert), once. */
     std::string takeVoice() { return std::exchange(_voice, std::string()); }
-    /** The name to save the replay under (Action::kSaveReplay). */
+    /** The name typed for the replay to save (Action::kSaveReplay). */
     const std::string &replayName() const { return _name; }
 
 private:

@@ -6,7 +6,9 @@
 
 The near, far and in-car cameras, and the dashboard seen from inside the car. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Cameras
+## How it works
+
+### Cameras
 
 `camTrackCS` (near and far): the camera sits at **Offset** from the car
 turned only with its heading (0, 1, 4.06 for the Beetle's near: a metre
@@ -58,7 +60,7 @@ and **CameraFar** (137-600 m: Reluva's far clip is the Graphics
 Options' visibility, and the game's own screens show the city farther
 off than 600 m).
 
-## The dashboard
+### The dashboard
 
 `geometry/<car>_dash.pkg` is flat parts in the camera's space: `dash`,
 `roof`, `wheel`, `speed_needle`, `tach_needle`, `damage_needle` and
@@ -85,6 +87,18 @@ car up to 8.5, so they aren't each dial's sweep. The gear indicator's
 texture is `R` for every car; Reluva shows `texture/r` backing up, `n`
 standing in first and `d` otherwise. The parts are sized for a 4:3
 screen; a wider view stretches them across.
+
+## In Reluva
+
+- The cameras: `CarCamera` and its `CameraFollow` and `CameraBlend`
+  (`src/engines/age/render/car_actor.{h,cpp}`).
+- The dashboard: `Dashboard` and `DashSetup`
+  (`src/engines/age/render/dashboard.{h,cpp}`).
+- The view keys a driving page keeps (Thrill Cam, looking round, Wide
+  Angle, the dashboard on and off): `ViewControls`
+  (`src/engines/age/ui/view_controls.{h,cpp}`).
+
+The `camTrackCS` fields Reluva doesn't use are listed above.
 
 ## Sources and checks
 

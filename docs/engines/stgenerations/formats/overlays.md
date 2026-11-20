@@ -31,6 +31,12 @@ are stacked top down, but each frame's rows are stored bottom up: only that
 way up do NUPLANT's nozzle tips sit on the hotspots sgens.exe gives its poses,
 and Kirk's fists in KIRKHIT swing up from the bottom of the view.
 
+## In Reluva
+
+`Overlay` (`src/engines/stgenerations/formats/overlay.h`) reads them, with
+the frame height set by whoever loads one. The data viewer shows them, and
+`reluva-tool stgenerations pictures <game folder>` decodes every one.
+
 ## Sources and checks
 
 From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [panels](../research/panels.md), [hud](../research/hud.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

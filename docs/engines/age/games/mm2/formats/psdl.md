@@ -2,6 +2,8 @@
 
 > **Status:** partial · **Code:** `src/engines/age/formats/psdl.cpp`, `src/engines/age/render/city_mesh.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
+## Overview
+
 A city's streets, sidewalks, ground and buildings: `city/sf.psdl` and
 `city/london.psdl` in `mm2core.ar` ("procedural street description", as
 the developers' file names have it). The geometry isn't stored as
@@ -77,7 +79,7 @@ count is the next word; otherwise the subtype is the count.
 | facade | 11,533 | 19,454 |
 | roof | 4,820 | 2,953 |
 
-## What the attributes draw
+### What the attributes draw
 
 Vertex heights are the ground's; heights in the heights table are
 absolute (a roof at 52.3 over ground at 36).
@@ -152,7 +154,7 @@ Texture coordinates for fans, roofs and road strips' lengths are
 Reluva's choice (a 10 m tile; a texture's height per strip width) until
 compared with the game.
 
-## Tunnels, walls and railings
+### Tunnels, walls and railings
 
 The tunnel attribute (286 in the two cities) puts walls along a road and
 sometimes a roof over it: London's Underground (`sub_tunnel`), San
@@ -230,7 +232,7 @@ at an end, both alternating along London's lines), so a closed end fills
 the arch's end above the first height. Reluva draws the arch as a sine
 across the strip in eight pieces.
 
-## Block flags
+### Block flags
 
 | Flag | Blocks | What they are |
 |---|---|---|
@@ -290,7 +292,7 @@ each block's editor number one per line (1,171 and 1,341 lines), and
 `.inst` puts that model in (15 in San Francisco; London's Underground
 models and its river wall).
 
-## The roads
+### The roads
 
 After the bounds: a u32 count (379 in San Francisco, 540 in London: as
 many as the `.bai` road map's roads, in the same order), then each road:
@@ -361,7 +363,7 @@ seems; the one other road with kind 1 both sides (363, `r6_royalred_l`)
 hasn't it. (Its 0x2 is the end control's value 3, not a sidewalk bit.) Reluva takes the controls and the
 trams from the `.bai`, which says the same.
 
-## Water
+### Water
 
 `city/<map>.water` is text: the water's height (-1.9 in San Francisco,
 -3.8 in London), then three blocks: empty blocks at that height under the
@@ -370,7 +372,9 @@ over their outlines in the first animated water texture the city's
 texture list names (`s_ocean-0007`, `s_thames-0009`; see
 [tex.md](tex.md)), and doesn't collide with it.
 
-## Low-detail roads
+## Behaviour
+
+### Low-detail roads
 
 A road strip's third texture is a low-detail version of its road
 (`r2_lo_f`) for 962 of the 1,019 road strips and divided roads. Reluva draws a block's roads in
@@ -378,7 +382,7 @@ that texture when the block is more than 150 m from the eye (worked out
 again when the eye moves 60 m or into another block). Whether the game
 does is still to be seen; divided roads keep their own.
 
-## Street furniture rules
+### Street furniture rules
 
 A road block's second byte is which of `city/<city>/proprules.csv`'s
 rules line its road's sidewalks: 1-20 in San Francisco, which has rules
@@ -386,6 +390,17 @@ rules line its road's sidewalks: 1-20 in San Francisco, which has rules
 `.bai` road whose blocks have one has the same in all of them (332 of San
 Francisco's 379 roads, 407 of London's 540; the rest, ramps and the
 like, none). See [pathset.md](pathset.md).
+
+## In Reluva
+
+Read by `src/engines/age/formats/psdl.cpp` (`readPsdl`); the city's mesh,
+with its tunnels, walls and dividers, is built by `render/city_mesh.cpp`,
+and the water and the low-detail roads are chosen by
+`render/city_scene.cpp`.
+`game/city_collision.cpp` collides with it, and `game/props.cpp` places
+the street furniture by the blocks' rules. The World page flies through
+it. `reluva-tool age psdl-info` shows what a city's file holds and
+writes it as an OBJ; `age check` reads both cities.
 
 ## Sources and checks
 
@@ -399,7 +414,7 @@ words) and the walk ended exactly at the next block every time. The
 words' first value in a block was always a header whose bits 3-6 took 13
 values; trying a length for each kind until every block of both cities
 (2,418 that aren't empty) ended exactly where its count says gave the
-rules below. Exactly one header in each block has bit 7 set; after it,
+rules above. Exactly one header in each block has bit 7 set; after it,
 in 98 blocks, only texture attributes follow.
 
 Which texture a texture attribute picks was settled by the names: read
@@ -407,7 +422,7 @@ as 1-based, road strips get `r2_f`, `r4_f`..., building tops get
 `sliver` and roofs get roof textures; read as 0-based they get sidewalk
 and window textures. What each attribute draws, and how heights and
 texture coordinates work, was settled by drawing it and looking (see the
-attributes below). The attributes' names (sliver, facade bound, road
+attributes above). The attributes' names (sliver, facade bound, road
 fan...) and some first guesses at their layouts came from what's
 remembered of the Midtown Madness modding community's public
 descriptions of this format; every rule here was then checked against

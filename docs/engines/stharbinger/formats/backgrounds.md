@@ -20,6 +20,12 @@ dictionary). It decompresses to 640×480 8-bit pixels. The palette is separate.
 768 bytes: 256 × RGB, 6-bit VGA values (0–63). When a background loads, the game
 loads `PALETTES/<background>.PAL` if it exists and otherwise keeps the current palette.
 
+## In Reluva
+
+`loadCMP` and `loadPAL` (`src/engines/stharbinger/formats/graphics.h`) read
+them. The data viewer shows each scene's backgrounds, and `reluva-tool
+stharbinger extract <out folder> <game folder>` writes them out as `.png`.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

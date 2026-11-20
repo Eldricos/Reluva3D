@@ -6,7 +6,7 @@
 
 Cops & Robbers: the gold, the bases, and the rules Reluva plays it by. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Cops & Robbers
+## How it works
 
 The event's description (`jpg/race_cop`) reads: "Get the gold to the
 bank or your hideout – without getting robbed by your opponents!"
@@ -88,6 +88,14 @@ tables name are there.
 players'. The arrow above the car points to the gold, or to your base
 when you have it. The map shows the gold and the bases, yours in the
 finish's colour. The checkpoint stands mark each base.
+
+## In Reluva
+
+`GoldGame` (`src/engines/age/game/cops_robbers.{h,cpp}`) keeps the gold
+and the score on the host, and `GoldBot` drives a computer player's
+goals ([multiplayer.md](multiplayer.md#computer-players)). The places'
+roles and counting deliveries rather than points are Reluva's
+(above).
 
 ## Sources and checks
 

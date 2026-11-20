@@ -39,8 +39,8 @@ std::unique_ptr<BotCharacter> BotCharacters::read(const BotScript::Loader &load,
                 break;
             continue;
         }
-        // Index and value pairs up to the closing brace.
         ch->skill = float(int(level));
+        // Index and value pairs up to the closing brace.
         while (script.next(t) && !t.is("}")) {
             if (t.type != BotToken::Type::kNumber || t.isFloat) {
                 script.fail("expected an integer index, found " + t.text);

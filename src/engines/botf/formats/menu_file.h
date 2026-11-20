@@ -25,7 +25,9 @@ struct MenuItem {
 /** A .mnu file: a pop-up menu's items, in order. */
 class MenuFile {
 public:
+    /** Reads the file, replacing the items; fails if they don't fit in it. */
     Error load(const std::vector<uint8_t> &data);
+    /** The items, in the menu's order. */
     const std::vector<MenuItem> &items() const { return _items; }
 
 private:

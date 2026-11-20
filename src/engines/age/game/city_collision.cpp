@@ -25,7 +25,7 @@ size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMe
     materials.load(files); // without them, every surface is the default
     for (const CityMesh::Batch &b : mesh.batches) {
         if (b.water || b.decal || b.detail == 2)
-            continue; // what's under the water is driven on; far-off roads are there near too
+            continue; // the bed under the water is driven on; a far-off road's near version is collided with
         const PhysicsMaterial &m = materials.forTexture(b.texture);
         if (m.depth >= kSinkDepth)
             continue; // deep water (the bay, the Thames): a car sinks
@@ -39,7 +39,8 @@ size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMe
         }
     }
 
-    // Facade bounds: a value, a height, the left and right vertices.
+    // Facade bounds: an angle (not needed here), a height, the left and
+    // right vertices.
     const size_t lastVertex = psdl.vertices.empty() ? 0 : psdl.vertices.size() - 1;
     for (const PsdlBlock &block : psdl.blocks)
         for (const PsdlAttribute &a : block.attributes) {

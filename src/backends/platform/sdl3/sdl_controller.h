@@ -7,7 +7,7 @@
 
 namespace reluva {
 
-// SdlSystem's game controller (sdl_controller.cpp).
+/** SdlSystem's game controller (sdl_controller.cpp): a gamepad, or a wheel. */
 struct SdlSystem::Controller {
     SDL_Gamepad *gamepad = nullptr;
     SDL_Joystick *wheel = nullptr; // a wheel with no gamepad layout
@@ -34,7 +34,9 @@ struct SdlSystem::Controller {
     uint16_t rumbleHigh = 0;
     uint64_t rumbleSentMs = 0;
 
+    /** The joystick under it, the gamepad's or the wheel; null if neither is open. */
     SDL_Joystick *joystick() const { return gamepad ? SDL_GetGamepadJoystick(gamepad) : wheel; }
+    /** Whether it's open and still plugged in. */
     bool connected() const { return gamepad ? SDL_GamepadConnected(gamepad) : wheel && SDL_JoystickConnected(wheel); }
 };
 

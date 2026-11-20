@@ -18,7 +18,7 @@ struct GameState;
 namespace reluva::awe::attwn {
 
 /**
- * "suspicion <who> [<|>]n" (ac.exe 0x40a6f1): the tag suspicion_<who>
+ * "`suspicion <who> [<|>]n`" (ac.exe 0x40a6f1): the tag `suspicion_<who>`
  * (0 if unset) compared with n; without '<' or '>', equal to it.
  * @param words The clause's words, the first lower case.
  * @return False if the word isn't one of the game's own.
@@ -27,18 +27,18 @@ bool condition(const GameState &state, const std::vector<std::string> &words, bo
 
 /**
  * Whether the machine named is put together (ac.exe 0x40e150), as the
- * condition "test <machine>" asks: its tags all set. Only the apple press
+ * condition "test `<machine>`" asks: its tags all set. Only the apple press
  * and the two radios can be.
  */
 bool machineReady(const GameState &state, const std::string &machine);
 
 /**
- * "inc needed|possible <act>..." (ac.exe 0x40bdad): if the act is one of
- * those named, its counter <act>_neededcounter or <act>_possiblecounter
+ * "inc needed|possible `<act>`..." (ac.exe 0x40bdad): if the act is one of
+ * those named, its counter `<act>_neededcounter` or `<act>_possiblecounter`
  * (0 if unset) goes up by 1. The chapters' tables end an act on them.
- * "suspicion <who> [+|-]n" (0x40d3df): the tag suspicion_<who> set to n,
+ * "`suspicion <who> [+|-]n`" (0x40d3df): the tag `suspicion_<who>` set to n,
  * or moved by it, kept to 0 or 1.
- * "test <machine> [<part>]" (0x40e2d0): the machine tried, by what's been
+ * "`test <machine> [<part>]`" (0x40e2d0): the machine tried, by what's been
  * done to it; `then` gets what it runs.
  * @return False if the verb isn't one of the game's own.
  */

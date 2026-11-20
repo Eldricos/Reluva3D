@@ -13,22 +13,28 @@
 
 namespace reluva::nfs {
 
-// A music file (.mus): segments one after another, each an SCHl header
-// (a PT header), an SCCl block count, SCDl data blocks and SCEl, as
-// docs/engines/nfs/games/nfs3/formats/mus.md describes. The data is kept; segments are
-// decoded when asked.
+/**
+ * A music file (.mus): segments one after another, each an SCHl header
+ * (a PT header), an SCCl block count, SCDl data blocks and SCEl, as
+ * docs/engines/nfs/games/nfs3/formats/mus.md describes. The data is kept;
+ * segments are decoded when asked.
+ */
 class MusicStream {
 public:
+    /** One segment: its header and where its data blocks are. */
     struct Segment {
         uint32_t offset = 0; // of its SCHl, in the file
         SoundHeader header;
         std::vector<std::pair<uint32_t, uint32_t>> blocks; // each SCDl's payload: offset, size
     };
 
+    /** Takes the file and finds its segments; fails if a chunk runs past the end. */
     Error open(std::vector<uint8_t> data);
+    /** The segments, in the file's order. */
     const std::vector<Segment> &segments() const { return _segments; }
-    // The segment starting at a file offset (as a map gives them), or -1.
+    /** The segment starting at a file offset (as a map gives them), or -1. */
     int segmentAt(uint32_t offset) const;
+    /** Decodes a segment; only stereo EA-XA and 16-bit PCM are known. */
     Error decode(size_t segment, audio::Sound &out) const;
 
 private:
@@ -36,16 +42,20 @@ private:
     std::vector<Segment> _segments;
 };
 
-// A Pathfinder map (.map, and .lin for a linear order): for each segment,
-// which one follows, by a control value from 0 to 100 (the race's
-// intensity, presumably).
+/**
+ * A Pathfinder map (.map, and .lin for a linear order): for each segment,
+ * which one follows, by a control value from 0 to 100 (the race's
+ * intensity, presumably).
+ */
 struct MusicMap {
+    /** Where a section goes next for a range of the control value. */
     struct Route {
         // the control value's range, inclusive
         int low = 0;
         int high = 0;
         int next = 0; // section
     };
+    /** A section: one segment of music, and where it can go next. */
     struct Section {
         int part = 0;              // the first byte: its row of events
         std::vector<Route> routes; // none: the music stops after it, unless an event is pending
@@ -62,14 +72,18 @@ struct MusicMap {
     std::vector<std::array<uint8_t, 16>> events;
     std::vector<uint32_t> offsets; // each section's segment, as a .mus file offset
 
-    // The section after `section` for a control value, as the game picks
-    // it: the first route whose range holds the value, else the same
-    // section again; -1 if the section has no routes (the music ends).
+    /**
+     * The section after `section` for a control value, as the game picks
+     * it: the first route whose range holds the value, else the same
+     * section again; -1 if the section has no routes (the music ends) or
+     * isn't there.
+     */
     int next(int section, int value) const;
-    // The section event `e` leads to from `section`; -1 if none.
+    /** The section event `e` (0-15) leads to from `section`; -1 if none. */
     int event(int section, int e) const;
 };
 
+/** Reads a map ("PFDx"); fails if its size doesn't fit its counts. */
 Error parseMusicMap(const std::vector<uint8_t> &data, MusicMap &out);
 
 } // namespace reluva::nfs

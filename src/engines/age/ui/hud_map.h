@@ -16,7 +16,7 @@
 namespace reluva::age {
 
 /**
- * tune/<city>.mmHudMap: where the HUD's map goes and how near it looks.
+ * `tune/<city>.mmHudMap`: where the HUD's map goes and how near it looks.
  * See docs/engines/age/games/mm2/systems/hud.md.
  */
 struct HudMapSetup {
@@ -40,10 +40,7 @@ struct HudMapSetup {
     float iconScaleMaxFS = 18;
     Vec3 ocean{0.084f, 0.7f, 0.94f}; // Ocean Color
 };
-/**
- * Reads a .mmHudMap, keeping the defaults for what it doesn't say.
- * @return A failure if it doesn't parse or is empty.
- */
+/** Reads a .mmHudMap; the defaults for what it leaves out. Fails on an empty file. */
 Error parseHudMapSetup(std::string_view text, HudMapSetup &out);
 
 /**
@@ -60,18 +57,18 @@ struct HudMapIcon {
 };
 
 namespace hudcolor {
-/** hudmap_tri's paint jobs as Reluva uses them. */
+// hudmap_tri's paint jobs as Reluva uses them.
 constexpr int kPlayer = 5;   // yellow
 constexpr int kOpponent = 4; // red
 constexpr int kPolice = 8;   // blue
-/** hudmap_square's. */
+// hudmap_square's.
 constexpr int kCheckpoint = 0; // RED_DOT
 constexpr int kNext = 2;       // GREEN_DOT
 constexpr int kFinish = 5;     // FINISH_DOT
 } // namespace hudcolor
 
 /**
- * The HUD's map: the city's geometry/hudmap_<city> (its map pictures laid
+ * The HUD's map: the city's `geometry/hudmap_<city>` (its map pictures laid
  * flat on the city's ground plan) on the ocean's colour, seen from above
  * the player, turned so the way they face is up.
  */
@@ -84,32 +81,36 @@ public:
 
     /** False if the city has none. */
     bool load(gfx::Renderer3D &renderer, const SearchSet &files, ModelCache &models, const std::string &map);
-    /** Frees the ocean's mesh from the renderer; nothing is drawn after. */
+    /** Lets its mesh go. */
     void unload();
-    /** Whether the last load() found the city's map. */
+    /** Whether load() found the city's map, and the settings it read. */
+    ///@{
     bool loaded() const { return _ok; }
-    /** The city's .mmHudMap, as loaded. */
     const HudMapSetup &setup() const { return _setup; }
+    ///@}
 
-    /** Near or far (eased to by update()). */
+    /** Map Zoom: near or far (eased there by update()). */
     void toggleZoom() { _zoomIn = !_zoomIn; }
-    /** The map full screen, or back in its corner. */
+    /** Full Screen Map on or off, and whether it's on. */
+    ///@{
     void toggleFullScreen() { _full = !_full; }
-    /** Whether the map is full screen. */
     bool fullScreen() const { return _full; }
+    ///@}
     /**
      * The corner map's sizes, then off (the game's Map Toggle: "toggle
      * between two different sizes of city map, or turn the map on and
      * off"); full screen shows either way. The larger is Reluva's: 1.6
      * times, its bottom right corner kept.
      */
+    ///@{
     void toggleShown() { _size = (_size + 1) % 3; }
-    /** Whether the map is drawn: in its corner, or full screen. */
     bool shown() const { return _size < 2 || _full; }
+    ///@}
     /** Turned with the player (the Rotating Map), else north up. */
+    ///@{
     void toggleRotating() { _rotating = !_rotating; }
-    /** Whether the map turns with the player (else north is up). */
     bool rotating() const { return _rotating; }
+    ///@}
     /** Eases the height towards the zoom's. */
     void update(float dt);
     /** The height it's seen from now. */

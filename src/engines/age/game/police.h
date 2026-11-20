@@ -29,19 +29,22 @@ namespace reluva::age {
  */
 class Police {
 public:
-    static constexpr float kNotice = 40;  // metres within which a cop sees the player speed
+    static constexpr float kNotice = 40;  // metres within which a cop sees the player speed, if the aimap gives none
     static constexpr float kBustTime = 3; // seconds held stopped beside a chasing cop
-    static constexpr float kGiveUp = 300; // metres behind for long, and it gives up
+    static constexpr float kGiveUp = 300; // metres behind for 8 s, and it gives up
 
     ~Police() { clear(); }
     /**
      * The first `count` (all if negative) of the aimap's police cars;
-     * their siren from `sirenTable` (see SirenSound).
+     * their siren from `sirenTable` (see SirenSound), and with it the
+     * arrest's sound, when there's a `mixer`. A car that won't load is left
+     * out.
+     * @return The first error met (a car, the siren), though the rest are set up.
      */
     Error setup(gfx::Renderer3D &renderer, TextureCache &textures, const SearchSet &files,
                 const AiMapSettings &settings, int count, audio::Mixer *mixer,
                 const std::string &sirenTable = "aud/cardata/opponent/policesiren.csv");
-    /** Takes the cars away, the siren stopped and the bust undone. */
+    /** Takes the cars away and stops the siren; no longer busted. */
     void clear();
     /**
      * Patrolling the lanes (stopping at the lights) while not chasing,
@@ -53,35 +56,40 @@ public:
     }
 
     /**
-     * `speedLimit` m/s: a player going half as fast again past a cop is
-     * chased. `traffic`: what a patrolling car keeps behind.
+     * Drives the police for a frame, bumping into the player's car.
+     * @param roads What a chasing car routes along.
+     * @param speedLimit m/s: a player going half as fast again past a cop is
+     *        chased; a patrolling car keeps to it.
+     * @param traffic What a patrolling car keeps behind.
      */
     void update(float dt, CarSim &player, const CollisionWorld &world, const RoadGraph &roads, float speedLimit,
                 const std::vector<RoadUser> &traffic = {});
-    /** The cars, as their CarActors draw them. */
+    /** Draws the cars, and their headlights' and sirens' flares. */
+    ///@{
     void draw(const SceneLight &light) const;
-    /** Flares at their headlights, when on, and at their sirens. */
     void drawFlares(const FlareDrawer &flares, const Vec3 &eye) const;
+    ///@}
     /** Their headlights on (evening, night, fog, rain). */
     void setLampsLit(bool lit) { _lampsLit = lit; }
-    /** Adds where their headlights light the road, for those with them on. */
+    /** Adds the pools of light their headlights throw on the road. */
     void headlightPools(std::vector<gfx::DynamicLight> &out) const;
 
-    /** Whether the player has been held stopped beside a chasing car for kBustTime; until forgive(). */
+    /** Whether the player has been busted (until forgive() or clear()). */
     bool busted() const { return _busted; }
     /** The player put back somewhere else: the chases end. */
     void forgive();
     /** Every car after the player at once (Crash Course's cop chases). */
     void chaseAll();
-    /** How many are chasing the player. */
+    /** How many cars are chasing the player, and how many patrolling. */
+    ///@{
     int chasing() const;
-    /** How many are patrolling the lanes, not chasing. */
     int patrolling() const;
-    /** The police cars that loaded. */
+    ///@}
+    /** How many police cars there are. */
     size_t count() const { return _cops.size(); }
-    /** Adds every car to @p out, for the traffic to keep clear of. */
+    /** Adds where the cars are and how they move, for other drivers and the pedestrians. */
     void users(std::vector<RoadUser> &out) const;
-    /** Their simulations, to bump into the other cars and the traffic; good until the next setup() or clear(). */
+    /** Their simulations, to bump into the other cars and the traffic. */
     std::vector<CarSim *> cars();
 
 private:

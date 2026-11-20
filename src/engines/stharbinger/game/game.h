@@ -22,63 +22,100 @@ namespace reluva::stharbinger {
 
 class Harbinger;
 
-// Runs the game: the scene scripts with their hotspots, timers, animations and
-// sounds. The behaviour follows DEEP.EXE (docs/engines/stharbinger/systems/script-reference.md, "Run-time
-// behaviour").
-//
-// Script model: when a scene is entered its script runs from the top until
-// RETURN; the script then idles and the player has control. Clicking an enabled
-// hotspot, a timer running out or an animation reaching its ANIMEND point runs
-// the script from the handler's label, again until RETURN. GOSUB and IF...SUBR
-// push a return point that RETURN pops first. ANIMSUSPEND, the fades and leaving
-// a scene make the script wait while animations keep playing.
+/**
+ * Runs the game: the scene scripts with their hotspots, timers, animations and
+ * sounds. The behaviour follows DEEP.EXE
+ * (docs/engines/stharbinger/systems/script-reference.md, "Run-time
+ * behaviour").
+ *
+ * Script model: when a scene is entered its script runs from the top until
+ * RETURN; the script then idles and the player has control. Clicking an enabled
+ * hotspot, a timer running out or an animation reaching its ANIMEND point runs
+ * the script from the handler's label, again until RETURN. GOSUB and IF...SUBR
+ * push a return point that RETURN pops first. ANIMSUSPEND, the fades and leaving
+ * a scene make the script wait while animations keep playing.
+ */
 class Game {
 public:
+    /** Runs `vm`'s scenes, which must be loaded (Harbinger::initResources()). */
     explicit Game(Harbinger *vm);
+    /** Stops every sound. */
     ~Game();
 
-    // `startScene` indexes Harbinger::getScenes(); -1 starts the game normally.
+    /**
+     * Runs the game until the player quits; returns 0. `startScene` indexes
+     * Harbinger::getScenes(); -1 starts the game normally, with its menu (or,
+     * as the original plays it, the intro on the very first run).
+     */
     int run(int startScene);
 
-    // For tests and debugging: drive the game without the real-time loop.
+    /** For tests and debugging: enters a scene (an index into Harbinger::getScenes()) without the real-time loop. */
     void start(int scene);
-    void runSteps(int steps); // 20 ms each
+    /** Runs `steps` game steps of 20 ms each. */
+    void runSteps(int steps);
+    /** A left click at (x, y), and the scene change it may make. */
     void click(int x, int y);
+    /** A script variable's value by name (ignoring case); 0 if it has none. */
     int32_t getVariable(const std::string &name) const;
-    // Animation state, for tests.
+    /**
+     * An animation of the scene's by name, for tests: whether it's drawn, and
+     * its frame (-1: none, or no such animation).
+     */
+    ///@{
     bool isAnimVisible(const std::string &name) const;
     int getAnimFrame(const std::string &name) const;
+    ///@}
+    /** The scene's name, or empty before the first. */
     const std::string &getSceneName() const;
+    /** Whether the script is running rather than idle. */
     bool isScriptRunning() const { return _thread.active; }
-    // The conversation, for tests: whether one runs, and the menu labels when
-    // the player is asked to choose.
+    /** For tests: whether a conversation, an action sequence or the game menu is up. */
+    ///@{
     bool isConversationActive() const { return _conv.active; }
     bool isArcadeActive() const { return _arcade != nullptr; }
     bool isMenuActive() const { return _menu.active; }
+    ///@}
+    /** Whether the menu's font loaded. */
     bool hasMenuFont() const { return !_font.empty(); }
+    /** For tests: whether the credits or the deck map is up. */
+    ///@{
     bool isCreditsActive() const { return _credits.active; }
     bool isDeckMapOpen() const { return _deckMap; }
+    ///@}
+    /** A key pressed (common/events.h codes), as the player would. */
     void pressKey(uint32_t key);
-    // For tests: press a menu button, answer a confirmation, type a save name.
+    /** For tests: press a menu button, answer a confirmation, type a save name. */
+    ///@{
     void pressMenuButton(int button) { menuButton(button); }
     void answerMenu(bool yes) { menuConfirm(yes); }
     void typeSaveName(const std::string &name);
+    ///@}
+    /** How many saved games the menu lists. */
     int getSaveCount() const { return int(_menu.saves.size()); }
+    /** The picture as the game last drew it. */
     const Surface &getScreen() const { return _screen; }
+    /** The mouse moved to (x, y). */
     void moveMouse(int x, int y);
-    // For tests: a right click (torpedo) at the given point.
+    /** For tests: a right click (torpedo) at the given point. */
     void rightClick(int x, int y);
+    /** The conversation's menu labels while the player is asked to choose; else none. */
     std::vector<std::string> getMenuLabels() const;
+    /** Picks entry `entry` of the conversation's menu, if one is waiting. */
     void pickMenuEntry(int entry);
-    // Plays DS9/<path> (e.g. "INTRO/VNM.SMK") on its own, for the data viewer
-    // (start_mode=video); 1 if it can't be opened.
+    /**
+     * Plays `DS9/<path>` (e.g. "INTRO/VNM.SMK") on its own, for the data viewer
+     * (start_mode=video); 1 if it can't be opened.
+     */
     int playVideoFile(const std::string &path);
-    // Starts a conversation by dialogue name in a scene that hosts it (after
-    // that scene's entry script). For testing the dialogue scripts.
+    /**
+     * Starts a conversation by dialogue name in a scene that hosts it (after
+     * that scene's entry script). For testing the dialogue scripts. False if
+     * no scene hosts it or it doesn't start.
+     */
     bool debugTalk(const std::string &dialogue);
 
 private:
-    // ---- Scene state ----------------------------------------------------
+    // Scene state
 
     struct Hotspot {
         bool defined = false;
@@ -140,7 +177,7 @@ private:
         int endLabel = -1; // ANIMEND
     };
 
-    // ---- Conversations (game_dialogue.cpp) -------------------------------
+    // Conversations (game_dialogue.cpp)
 
     static const int kMaxGroups = 50;
 
@@ -166,6 +203,7 @@ private:
         uint8_t done[kMaxGroups];       // DONE: group to go to when exhausted
         uint8_t emptyGoto[kMaxGroups];  // EMPTY: NPC group to go to when exhausted
         uint8_t emptyReply[kMaxGroups]; // EMPTY: menu to go to when exhausted
+        /** A DONEX or EMPTYX target: where an exhausted group goes. */
         struct Redirect {
             int target = -1; // -1: none
             ItemRef except;  // ignored when testing for "exhausted"
@@ -174,12 +212,14 @@ private:
         Redirect emptyXGoto[kMaxGroups];
         Redirect emptyXReply[kMaxGroups];
         std::vector<int> current; // per NPC group: the item it says next
+        /** An item's state: whether it's on, and whether it has been said. */
         struct ItemFlags {
             bool on = true;
             bool said = false;
         };
         std::vector<std::vector<ItemFlags>> npcFlags;
         std::vector<std::vector<ItemFlags>> choiceFlags;
+        /** A HOOK or THOOK on a group. */
         struct Hook {
             int group;
             int state; // 0 HOOK, 1 THOOK, 2 THOOK used up
@@ -219,6 +259,7 @@ private:
         bool jumpTaken = false;        // GOTO/REPLY ran: skip the rest of the lists
         std::vector<ItemRef> lastPick; // per choice group, this conversation
         std::vector<int> protagonistLines;
+        /** An item's flag as it was before TON or TOFF changed it. */
         struct TempFlag {
             ItemRef item;
             bool saved;
@@ -251,7 +292,7 @@ private:
         int picked = -1;
     };
 
-    // ---- Videos and cursors (game_video.cpp) ------------------------------
+    // Videos and cursors (game_video.cpp)
 
     struct VideoPlayback {
         bool active = false;
@@ -279,7 +320,7 @@ private:
         std::vector<uint8_t> pixels;
     };
 
-    // ---- The game menu (game_menu.cpp) -----------------------------------
+    // The game menu (game_menu.cpp)
 
     struct GameMenu {
         bool active = false;
@@ -303,7 +344,7 @@ private:
         Surface frame; // the menu picture, without the cursor
     };
 
-    // ---- Credits and deck map (game_extras.cpp) ----------------------------
+    // Credits and deck map (game_extras.cpp)
 
     struct CreditsScreen {
         bool active = false;
@@ -317,7 +358,7 @@ private:
         Palette palette;
     };
 
-    // ---- Script thread --------------------------------------------------
+    // Script thread
 
     enum WaitType {
         kWaitNone,

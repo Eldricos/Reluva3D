@@ -2,8 +2,10 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/texture.cpp` · **Checked on:** the English release, 3,665 textures · **Confidence:** confirmed unless marked
 
+## Overview
+
 Midtown Madness 2's textures, `texture/*.tex` in `mm2tex.ar` (3,665 of
-them). Read by `src/engines/age/formats/texture.cpp`; `reluva-tool tex-info`
+them). Read by `src/engines/age/formats/texture.cpp`; `reluva-tool age tex-info`
 shows one or surveys a game's.
 
 ## Layout
@@ -31,7 +33,7 @@ two are powers of two: `nl01_coit_top` (64 x 73) and
 `sf_wall_brick03_blkfence_2_l` (650 x 597), whose levels still halve
 (rounding down).
 
-## Flags
+### Flags
 
 | Flags | Count | Seen on |
 |---|---|---|
@@ -110,7 +112,7 @@ textures mostly kept their source size and a short mip chain (1,299 of
 the 1,413 have fewer levels than a full chain, against 40 of 1,791 of
 the rest), so the entry seems to set their detail too.
 
-## Animated textures
+### Animated textures
 
 Water is animated: `texture/s_ocean-0001.tex` to `-0030` and the like
 (121 frames in all for `s_ocean`, `s_pond`, `s_thames`, `s_water`), with
@@ -120,6 +122,14 @@ texture without the frame number (`s_ocean`), the cities' PSDL with one
 (`s_ocean-0007`, `s_thames-0009`). Reluva loads every frame of a texture
 that has a `.movie` and shows them in turn at that rate, from the one
 named.
+
+## In Reluva
+
+Read by `src/engines/age/formats/texture.cpp` (`decodeTex`,
+`loadTexture`); `render/render_cache.cpp` loads them for drawing, an
+animated texture's frames at its `.movie` rate. The Textures page shows
+every texture. `reluva-tool age tex-info` shows one's header and writes
+it as a TGA, or surveys a game's; `age check` decodes every one.
 
 ## Sources and checks
 
@@ -136,7 +146,7 @@ way round they're blue and orange. The 24- and 32-bit formats are R, G,
 B(, A): the US roads' centre lines (`r2_f`, format 17) come out yellow
 that way and cyan the other, and the red traffic light's glow
 (`s_red_glow`, format 18) averages 194, 2, 0 in its first three bytes.
-(The first version of this page had them all B, G, R, from the palette
-textures alone; the city's roads showed it wrong.)
+They aren't all B, G, R, as the palette textures alone suggest: the
+city's roads show it.
 
 - **How it was checked:** all 3,665 decode, in `reluva-tool age check`; `age.unit.formats`.

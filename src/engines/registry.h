@@ -11,12 +11,14 @@
 
 namespace reluva {
 
+/** Every engine built, the testbed first. */
 const std::vector<const MetaEngine *> &allEngines();
+/** The engine with this id (MetaEngine::id), or nullptr if none is built. */
 const MetaEngine *findEngine(std::string_view id);
 
-// Ask every engine whether it recognises the game in `dir`.
+/** What every engine recognises in `dir` (MetaEngine::detect), together. */
 std::vector<DetectedGame> detectGames(const std::filesystem::path &dir);
-// Ask every engine what it could import from `source`.
+/** What every engine could import from `source` (MetaEngine::planImport), together. */
 std::vector<ImportPlan> planImports(const std::filesystem::path &source);
 
 } // namespace reluva

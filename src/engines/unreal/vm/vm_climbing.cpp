@@ -11,7 +11,7 @@
 // CheckClimbing, TestStepUp, TestForHangLedge, TestForHandHold and the
 // three physics), read from its code and written anew; where Reluva's
 // collision has no counterpart (BSP node items, a ladder's edges) it does
-// without. See docs/engines/unreal_vm.md.
+// without. See docs/engines/unreal/games/ds9fallen/systems/climbing.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

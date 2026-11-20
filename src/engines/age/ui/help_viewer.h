@@ -19,29 +19,33 @@
 
 namespace reluva::age {
 
-/** The help, drawn over the menus while open; it has the keys and mouse then. */
+/** The help's pages over the menus: the list of topics, or a topic. */
 class HelpViewer {
 public:
-    /** Reads the help; false (and why) if it isn't there or can't be read. */
+    /** Reads the help; fails, saying why, if it isn't there or can't be read. */
     Error load(const SearchSet &files);
-    /** Whether the help read has topics to list. */
+    /** Whether load() found topics to list. */
     bool loaded() const { return !_list.empty(); }
 
-    /** Opens on the list of topics, if the help loaded. */
+    /** Opens it at the list of topics, and whether it's open. */
+    ///@{
     void open();
-    /** Whether it's open: over the menus, taking their keys. */
     bool isOpen() const { return _open; }
-    /** A key, click or wheel turn while open; closes itself on Esc (or a right click) from the list. */
+    ///@}
+    /** Takes the keys and clicks while open; closes itself on Esc from the list. */
     void handle(const Event &ev);
-    /** Draws the list or the topic over the 640 x 480 overlay, while open. */
+    /** Draws it over a 640 x 480 overlay. */
     void draw(Surface &overlay) const;
 
-    /** For tests: the topic being read (-1: the list). */
+    /**
+     * For tests: the topic being read (-1: the list), its links (each the
+     * topic it goes to), the one chosen.
+     */
+    ///@{
     int reading() const { return _reading; }
-    /** For tests: the topic's links, each the topic it goes to. */
     const std::vector<int> &links() const { return _links; }
-    /** For tests: the link chosen (an index into links(), -1: none). */
     int chosenLink() const { return _link; }
+    ///@}
 
 private:
     // A line of the topic as it's laid out: its characters, each one's link

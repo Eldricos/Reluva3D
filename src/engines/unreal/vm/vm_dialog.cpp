@@ -8,7 +8,7 @@
 // said for as long as its voice lasts, the speaker and listener set for
 // the scripts to see (Level.Talker...), the line shown on the HUD
 // (HudText), the speaker's mouth moved (C3DSpeechEvent), its events set
-// off, then the line it leads to. See docs/engines/unreal_vm.md.
+// off, then the line it leads to. See docs/engines/unreal/games/ds9fallen/systems/dialogue.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

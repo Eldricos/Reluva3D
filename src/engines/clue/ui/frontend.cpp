@@ -472,8 +472,8 @@ PlayLook FrontEnd::playLook() const {
     look.butlerVoice = _prefs.on[Preferences::kButlerVoice];
     look.walkAnimations = _prefs.on[Preferences::kWalkAnimations];
     look.mansion.lighting = _prefs.on[Preferences::kLighting];
-    // As a recording of the original shows them (docs/engines/clue/systems/playing.md):
-    // "Mansion Walls" off, no walls; "Translucency": what stands in front of
+    // As a recording of the original shows them
+    // (docs/engines/clue/systems/playing.md): "Mansion Walls" off, no walls; "Translucency": what stands in front of
     // the suspect whose turn it is see-through, or (off) left out.
     look.mansion.walls = _prefs.on[Preferences::kMansionWalls];
     look.mansion.inFront =

@@ -704,7 +704,7 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   mode, the line under the cursor → its thread → play), or by the mouse
   wheel moving the highlight (0x43d810, 0x43d850, from 0x416391 and
   0x4163b1) and the middle button taking it (0x43d890, from 0x4163c0; not
-  the keyboard, as first thought). Clicks are ignored while the box slides,
+  the keyboard). Clicks are ignored while the box slides,
   during the 0.4 s pause, and while Prevent or Povent run.
 * Picture choices (act 8's evidence): a choice whose current line's Notes
   name a `.jpg`, `.png` or `.tga` has that picture too (0x43cf90). The n
@@ -733,9 +733,9 @@ ends. Exits exist only with gen (NPC clicks or `forcegen`).
   part code (+0x80), thread code (+0x84), word status (+0x88), int resume nest
   (+0x8c, -1 = none). Find: 0x411030. Set (replace): 0x410f50. Delete: 0x4110d0.
   Cleared at 0x4107a5, and by `reset` (0x411aa0, the main menu's: a new
-  game starts with no conversation heard; Reluva kept it till this was
-  found, so Play after leaving a game for the menu found the first talk
-  half done), written to the save file at 0x41190e..., read back at
+  game starts with no conversation heard; kept, Play after leaving a
+  game for the menu would find the first talk half done), written to the
+  save file at 0x41190e..., read back at
   0x412373. Nothing is written while `+0x2c0` (the story state's "frozen" flag)
   is set.
 * Written only when a thread stops (4.5), and by `advance` (0x43b810: status 1,
@@ -814,11 +814,12 @@ talk's start closes the inventory and lets go of the item in hand
 comes to the same: no voice, no pause, no clicks), and starting them
 counts as a talk start.
 
-Found by the playthrough search (acts.md): Reluva had counted every
-available extra and thread at a part's start and in the menu, also those
-with no line to offer (step 8). A character's fingerprint offer, whose
-first line wants the ribbon and the menu cards, so kept a part that had
-been heard going, and `talk dia_hubbard a+` never went on to part b.
+Only extras and threads with a line to offer count, at a part's start
+and in the menu (step 8), as the playthrough search (acts.md) shows:
+counting every available one, a character's fingerprint offer, whose
+first line wants the ribbon and the menu cards, would keep a part that
+had been heard going, and `talk dia_hubbard a+` would never go on to
+part b.
 
 ## Sources and checks
 
@@ -920,10 +921,4 @@ Section 9 in this page's numbering.
 
     So the action waited on happens in the frame the Povent runner
     empties, and a line's Prevent and Event run while the box slides in.
-    Reluva had the action end the frame's update (so the pause began a
-    frame late), ran nothing while the box slid (so a line with a
-    Prevent waited for the box to be up, a third of a second), opened
-    the menu after a busy Povent without the opening's first-offer
-    flag, and was updated only while a conversation was active (so a
-    `talk` ended with its Povent runner still busy would never have
-    been told done). It now follows the order above.
+    Reluva follows the order above.

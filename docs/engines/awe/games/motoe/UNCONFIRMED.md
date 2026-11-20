@@ -72,7 +72,7 @@ Moved to their format pages; kept here so the reasoning can be found:
   copies the row's Translation, or its Text when that's empty or `0`,
   for WinMain's `CreateWindowExW` (`0x401a13`). The English install's is
   "Agatha Christie - Murder on the Orient Express" (the same as the CD's
-  `setup.ini` names the game). Reluva now reads it the same way.
+  `setup.ini` names the game). Reluva reads it the same way.
   [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md#additions-outside-the-game).
 
 - **The order of the dialogue's updates within a frame:** read in full
@@ -80,7 +80,7 @@ Moved to their format pages; kept here so the reasoning can be found:
   table: Prevent, run before the line is spoken, Event, alongside it, and
   Povent, after it.) The order: the Povent runner, then what waited on it
   in the same frame, the pause, the Prevent, the line's events, the box's
-  slide, the line's end. Reluva's differed in four small ways and now follows it.
+  slide, the line's end. Reluva follows it.
   [systems/dialogue.md](systems/dialogue.md), section 9, item 10.
 
 - **A character's routine when its scene is shown again:** started
@@ -100,13 +100,13 @@ Moved to their format pages; kept here so the reasoning can be found:
   [../../formats/gr2.md](../../formats/gr2.md).
 - **The x87's precision:** 24 bits, not 53. Direct3D 8's `CreateDevice`
   sets it, the game doesn't ask it not to, and the path-finder is made
-  after. At 53 bits 4 of 22,480 test paths differed from the game's; the
-  port now rounds as the game's FPU does and all agree.
+  after. At 53 bits 4 of 22,480 test paths differ from the game's; the
+  port rounds as the game's FPU does and all agree.
   [formats/ac2.md](formats/ac2.md).
 - **The wheel and the generic extras:** the game's steps walk only the
   part's own threads and the goodbye, passing over the extras; with
   nothing highlighted and no goodbye, a step back highlights nothing.
-  Reluva now does both. [systems/dialogue.md](systems/dialogue.md),
+  Reluva does both. [systems/dialogue.md](systems/dialogue.md),
   section 3.
 - **The "met them here" tags:** the greetings' own words confirm it:
   `gen_regreet1`'s "I don't think I'm quite done yet", `gen_regreet2`'s
@@ -117,8 +117,8 @@ Moved to their format pages; kept here so the reasoning can be found:
   section 6.
 - **Fade lengths:** the recordings' 0.27 to 0.47 s are the game's fade
   of at most one step a frame (0.32 s at the least; the 0.27 s within
-  the video's measurement), which Reluva's fades now follow, a step an
+  the video's measurement), which Reluva's fades follow, a step an
   update. [systems/acts.md](systems/acts.md).
 - **The save's thumbnail:** a 24-bit BMP. D3DX's BMP writer in the game
-  writes only 24- and 8-bit files; Reluva wrote 32-bit and now writes
-  24. [systems/saves.md](systems/saves.md).
+  writes only 24- and 8-bit files, and Reluva writes 24-bit too.
+  [systems/saves.md](systems/saves.md).

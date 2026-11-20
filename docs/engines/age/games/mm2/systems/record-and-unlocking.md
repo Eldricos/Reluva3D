@@ -6,21 +6,16 @@
 
 What each driver has done, and what it unlocks. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The record and unlocking
+## How it works
 
-Reluva keeps what each driver has done in a record of their own in the
-game's save folder. A record holds:
+Each driver has a record of what they've done. A record holds:
 
 - each race's best place and best time at each level (a Blitz finished
   in time counts as first);
 - the lessons passed;
 - the last race run (the main menu's Quick Race starts it again).
 
-The drivers are listed in `drivers.txt` (each one's record file, level
-and name). The first driver keeps `record.txt`, the record from before
-there were drivers; each new one gets a `record-<n>.txt`. These files
-are Reluva's own; the game's driver files (`.plr`) aren't read or
-written. The drivers are chosen, created and deleted on the main menu
+The drivers are chosen, created and deleted on the main menu
 ([drivers-and-records.md](drivers-and-records.md#drivers-and-records)).
 
 - **Races** open three at a time (the `.cinfo`'s UnlockGroup), each
@@ -56,6 +51,18 @@ written. The drivers are chosen, created and deleted on the main menu
   matched to its rule by car, city and kind; when a result opens it, its
   message shows on the results screen.
 - **U** in the menus opens everything, for looking round.
+
+## In Reluva
+
+Reluva keeps each driver's record in a file of its own in the game's
+save folder. The drivers are listed in `drivers.txt` (each one's record
+file, level and name). The first driver keeps `record.txt`, the record
+from before there were drivers; each new one gets a `record-<n>.txt`.
+These files are Reluva's own; the game's driver files (`.plr`) aren't
+read or written ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+`PlayerRecord`, `DriverRoster`, `UnlockRule` and `Reward`
+(`src/engines/age/game/record.{h,cpp}`) are the records, the drivers and
+the unlocking rules.
 
 ## Sources and checks
 

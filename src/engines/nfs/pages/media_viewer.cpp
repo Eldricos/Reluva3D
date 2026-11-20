@@ -68,8 +68,6 @@ const char *const kNoAudio = "No audio output: sounds can't be played";
 
 } // namespace
 
-// --- Sounds -------------------------------------------------------------------
-
 SoundPage::SoundPage(const GameFiles &files, audio::Mixer *mixer) : _files(files), _mixer(mixer) {
     _banks = files.withExtensions({".bnk"});
 }
@@ -314,8 +312,6 @@ void SoundPage::draw(Surface &s) {
         fill(s, kMargin + at, waveY, 1, kWaveH, kFillColor);
     }
 }
-
-// --- Music --------------------------------------------------------------------
 
 MusicPage::MusicPage(const GameFiles &files, audio::Mixer *mixer) : _files(files), _mixer(mixer) {
     _streams = files.withExtensions({".mus"});
@@ -623,8 +619,6 @@ void MusicPage::draw(Surface &s) {
     }
     text(s, kMargin, y, line, kTextColor);
 }
-
-// --- Movies -------------------------------------------------------------------
 
 MoviePage::MoviePage(const GameFiles &files, audio::Mixer *mixer) : _files(files), _mixer(mixer) {
     _movies = files.withExtensions({".mad"});

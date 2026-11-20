@@ -155,13 +155,13 @@ void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNu
     vm.writeInt(address + 52, entityNum);
 }
 
-// A command line split into words as Quake III's Cmd_TokenizeString does:
-// at white space, a quoted string as one word, // comments ending it.
 Vec3f readVec3(const Qvm &vm, int32_t address) {
     return {Qvm::asFloat(vm.readInt(address)), Qvm::asFloat(vm.readInt(address + 4)),
             Qvm::asFloat(vm.readInt(address + 8))};
 }
 
+// A command line split into words as Quake III's Cmd_TokenizeString does:
+// at white space, a quoted string as one word, // comments ending it.
 std::vector<std::string> tokenize(const std::string &line) {
     std::vector<std::string> words;
     size_t i = 0;
@@ -288,7 +288,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     switch (number) {
     case kPrint: {
         const std::string text = str(0, 4096);
-        // Kept (the last 4 KB) as well as handed on.
+        // Kept as well as handed on: cut back to the last 4 KB once past 8 KB.
         _log += text;
         if (_log.size() > 8192)
             _log.erase(0, _log.size() - 4096);

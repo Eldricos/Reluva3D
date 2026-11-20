@@ -1,7 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
-# Clean-room reading aid for Clue.exe: strings, references to addresses, disassembly.
+"""A clean-room reading aid for Clue.exe: strings, references to addresses,
+disassembly. Builds insns.pkl (every instruction) in CLUE_WORK the first
+time.
+
+    python3 -I py/rx.py str REGEX            strings matching, with their addresses
+    python3 -I py/rx.py ref ADDRESS [BEFORE] [AFTER]   instructions using that value
+    python3 -I py/rx.py dis ADDRESS COUNT    disassembly
+    python3 -I py/rx.py calls ADDRESS [BEFORE]         calls and jumps to it
+    python3 -I py/rx.py dword ADDRESS [N]    dwords in data
+    python3 -I py/rx.py func ADDRESS         the start of the function holding it
+
+Addresses in hex.
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs
@@ -9,9 +22,11 @@ import sys, re, pefile, capstone, pickle, os
 EXE = os.path.join(GAME, 'Clue.exe')
 pe = pefile.PE(EXE); base = pe.OPTIONAL_HEADER.ImageBase
 def secs():
+    """(name, address, bytes) of Clue.exe's sections."""
     for s in pe.sections: yield s.Name.rstrip(b'\0').decode(), base + s.VirtualAddress, s.get_data()
 cache = os.path.join(WORK, 'insns.pkl')
 def insns():
+    """Every instruction of Clue.exe's code as (address, mnemonic, operands), cached in insns.pkl."""
     if os.path.exists(cache): return pickle.load(open(cache, 'rb'))
     text = [s for s in pe.sections if s.Name.startswith(b'.text')][0]
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32); md.skipdata = True

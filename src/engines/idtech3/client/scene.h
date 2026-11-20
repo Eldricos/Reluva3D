@@ -19,8 +19,10 @@ namespace reluva::idtech3 {
 // ClearScene, AddRefEntityToScene, AddPolyToScene, AddLightToScene and
 // RenderScene).
 
-// 2D: a part of a shader stretched over a rectangle of the screen (in
-// 640x480), tinted.
+/**
+ * 2D: a part of a shader stretched over a rectangle of the screen (in
+ * 640x480), tinted.
+ */
 struct Picture {
     float x;
     float y;
@@ -37,19 +39,23 @@ struct Picture {
     float angle = 0;
 };
 
-// An entity added to the scene: its refEntity_t, kept as the 256 bytes
-// from its address, with the size of the memset that cleared it, if one
-// did (how its size was learnt).
+/**
+ * An entity added to the scene: its refEntity_t, kept as the 256 bytes
+ * from its address, with the size of the memset that cleared it, if one
+ * did (how its size was learnt).
+ */
 struct SceneEntity {
     std::vector<uint8_t> bytes;
     int32_t clearedSize = 0;
 };
 
-// Each RenderScene draws the entities added since the last ClearScene or
-// RenderScene from its own view (refdef_t, the 112 bytes the client game
-// clears at start-up: Quake III's without its text): the player's, and
-// others such as the HUD's heads and the menus' models, which don't draw
-// the world.
+/**
+ * One RenderScene: it draws the entities added since the last ClearScene
+ * or RenderScene from its own view (refdef_t, the 112 bytes the client
+ * game clears at start-up: Quake III's without its text): the player's,
+ * and others such as the HUD's heads and the menus' models, which don't
+ * draw the world.
+ */
 struct View {
     std::vector<uint8_t> refdef;
     // in entities
@@ -66,18 +72,23 @@ struct View {
     size_t picturesBefore = 0;
 };
 
+/** A frame's scenes: everything added to them, and each RenderScene's view of it. */
 struct Scene {
     std::vector<SceneEntity> entities; // every one added this frame
-    // Polygons (AddPolyToScene: shader, vertex count, the vertices'
-    // bytes, 24 each as Quake III's polyVert_t) and lights
-    // (AddLightToScene: origin, intensity, which is the radius it
-    // reaches, and colour).
+    /**
+     * A polygon added to the scene (AddPolyToScene): shader, vertex count,
+     * the vertices' bytes, 24 each as Quake III's polyVert_t.
+     */
     struct Poly {
         int32_t shader = 0;
         int32_t vertexCount = 0;
         std::vector<uint8_t> vertices;
     };
     std::vector<Poly> polys;
+    /**
+     * A light added to the scene (AddLightToScene): origin, intensity,
+     * which is the radius it reaches, and colour.
+     */
     struct Light {
         std::array<float, 3> origin{};
         float radius = 0;
@@ -91,27 +102,44 @@ struct Scene {
     size_t pendingPolys = 0;  // the same for polygons
     size_t pendingLights = 0; // and lights
 
-    // The calls, with the program's memory and arguments.
+    /**
+     * ClearScene: what was added since the last RenderScene is left out of
+     * the next (it stays in the frame's lists).
+     */
     void clear();
+    /**
+     * The calls, with the program's memory and arguments. What lies outside
+     * its memory is taken as nothing: an entity without bytes, a polygon
+     * without vertices, a light at the origin, the last view again.
+     * Polygons keep at most 256 vertices.
+     */
+    ///@{
     void addEntity(Qvm &vm, int32_t address, int32_t clearedSize);
     void addPoly(Qvm &vm, int32_t shader, int32_t count, int32_t address);
     void addLight(Qvm &vm, int32_t origin, float intensity, float r, float g, float b);
     void render(Qvm &vm, int32_t refdef, size_t picturesSoFar);
-    // The same from bytes already read (native programs' memory).
+    ///@}
+    /** The same from bytes already read (native programs' memory); null for none. */
+    ///@{
     void addEntity(const uint8_t *bytes, size_t size, int32_t clearedSize);
     void addPoly(int32_t shader, int32_t count, const uint8_t *vertices);
     void addLight(const std::array<float, 3> &origin, float intensity, float r, float g, float b);
     void render(const uint8_t *refdef, size_t picturesSoFar);
+    ///@}
 };
 
-// LerpTag (orientation_t*, model, startFrame, endFrame, frac, tagName):
-// `model`'s tag between two frames, the origin and axes blended (the axes
-// renormalised) as the original renderer does, written at `address`;
-// whether it was found (if not, at the origin, unrotated).
+/**
+ * LerpTag (orientation_t*, model, startFrame, endFrame, frac, tagName):
+ * `model`'s tag between two frames, the origin and axes blended (the axes
+ * renormalised) as the original renderer does, written at `address`. A
+ * tag not found is written at the origin, unrotated.
+ * @return 1 if the tag was found, else 0 (also when `address` can't be
+ *         written, and nothing is).
+ */
 int32_t writeLerpTag(Qvm &vm, int32_t address, const Md3Model *model, int32_t startFrame, int32_t endFrame, float frac,
                      const std::string &tagName);
 
-// The same tag as 12 floats (origin, then the three axes); whether found.
+/** The same tag as 12 floats (origin, then the three axes); whether found. */
 bool lerpTag(const Md3Model *model, int32_t startFrame, int32_t endFrame, float frac, const std::string &tagName,
              std::array<float, 12> &out);
 

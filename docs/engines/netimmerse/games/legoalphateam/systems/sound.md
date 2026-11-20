@@ -11,7 +11,7 @@ engine's mixer.
 ## How it works
 
 - Done: sound, through the A3D stand-in (`src/emulation/x86/a3d.cpp`,
-  docs/common/x86/README.md). `NiA3dSoundSystem::Startup` now succeeds, and
+  docs/common/x86/README.md). `NiA3dSoundSystem::Startup` succeeds, and
   `DDStreamingAudioManager::AddSource` returns sources. The streaming
   thread fills them as their play positions move, and the engine hears
   them through its mixer.
@@ -25,12 +25,20 @@ engine's mixer.
     and maximum distances of 200 to 300 and 600 to 10,000; the listener
     follows the camera (`NiA3dListener::A3dUpdate`, each frame from
     `NiA3dSoundSystem::Click`), right-handed with z up.
-  - Two faults kept all but the streamed sounds from being heard (both in
-    [a3d.md](../../../../../common/x86/a3d.md)): `GetWaveFormat` answering success for an empty source, so
-    `NiA3dSource::Load` never loaded the file, and the listener offered
-    under the wrong IID, so it stayed at the origin. With both fixed,
-    Mission One's skills and interface sounds load and play, placed
-    around the camera.
+  - Two things in the stand-in decide whether more than the streamed
+    sounds are heard (both in
+    [a3d.md](../../../../../common/x86/a3d.md)): `GetWaveFormat` doesn't
+    answer success for an empty source (else `NiA3dSource::Load` never
+    loads the file), and the listener is offered under the IID the game
+    asks for (else it stays at the origin). So Mission One's skills and
+    interface sounds load and play, placed around the camera.
+
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)). Its A3D sound goes to Reluva's stand-in
+(`src/emulation/x86/a3d.cpp`, [a3d.md](../../../../../common/x86/a3d.md)),
+which plays it through the engine's mixer. What it doesn't do of A3D is
+in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
 
 ## Sources and checks
 

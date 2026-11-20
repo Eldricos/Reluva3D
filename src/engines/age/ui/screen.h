@@ -54,7 +54,7 @@
 
 namespace reluva::age {
 
-/** What every page is given: the system, the screen and the game's files and settings; it outlives the pages. */
+/** What every page is given: the system, the game's files, where to save. */
 struct ScreenContext {
     System &sys;
     Surface &screen; // RGBA32
@@ -66,22 +66,22 @@ struct ScreenContext {
     bool openingPlayed = false;               // the opening movie has played: no splash picture after it
 };
 
-/** A screen runPages() shows: the game itself, or one of the data viewer's pages. */
+/** A screen runPages shows: one of the data viewer's pages, or the game. */
 class Page {
 public:
-    /** Keeps `ctx`, which must outlive the page. */
+    /** `ctx` must outlive the page. */
     explicit Page(ScreenContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
-    /** The page's name, for the window's title. */
+    /** Its name, for the window's title. */
     virtual const char *name() const = 0;
-    /** How many things it has to show; pages with nothing to show are skipped. */
+    /** How many things it has to show; a page with none is skipped. */
     virtual size_t count() const = 0;
-    /** Redraws and retitles after switching here. */
+    /** Redraws and retitles, after switching here. */
     virtual void activate() = 0;
-    /** Before switching away, and for every page as runPages() returns. */
+    /** Before switching away. */
     virtual void deactivate() {}
-    /** An event that runPages() hasn't taken for itself. */
+    /** An event the pages' runner hasn't taken. */
     virtual void handleEvent(const Event &ev) = 0;
     /** Called every frame. */
     virtual void update(uint64_t /*nowMs*/) {}
@@ -96,9 +96,13 @@ public:
     virtual bool wantsToQuit() const { return false; }
 
 protected:
+    /** Drawing on the 2D screen: all of it, a rectangle (clipped to it), a line of text. */
+    ///@{
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
+    ///@}
+    /** The window's title: the game's and the page's names, then `detail`. */
     void setTitle(const std::string &detail);
 
     ScreenContext &_ctx;
@@ -110,22 +114,23 @@ constexpr int kScreenH = 480;
 /**
  * Runs pages until the player leaves (Esc that no page takes, or the
  * window closed): the first with something to show first, Tab moving to
- * the next when `tabs` (the data viewer's) is set.
+ * the next when `tabs` (the data viewer's) is set. Fails if no page has
+ * anything to show.
  */
 Error runPages(System &sys, Surface &screen, std::vector<std::unique_ptr<Page>> &pages, bool tabs);
 
-/** A car the menus offer (tune/<car>.info), if its simulation and model are there. */
+/** A car the menus offer (`tune/<car>.info`). */
 struct CarInfo {
     std::string base;        // "vpbug"
     std::string description; // "VW New Beetle"
     std::vector<std::string> colors;
 };
-/** Every car the menus can offer, in the order the files list them. */
+/** Every car with a .info whose simulation and model are there too. */
 std::vector<CarInfo> findCars(const SearchSet &files);
 
 /**
- * The driving keys held, as bits, as the Drive page and the race screen read them: Up/W
- * throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
+ * The driving controls held, as the Drive page and the race screen keep
+ * them: each held by the keys the Control Options bind to it (driveKeyOf).
  */
 enum DriveKeys : uint32_t {
     kDriveThrottle = 1,
@@ -157,13 +162,13 @@ void applyGraphicsOptions(CityScene &scene, CityLife &life);
  * none at Very High, three at Low). Taken when a city is loaded.
  */
 int textureHalvings();
-/** The share of pedestrians the options leave (Show Pedestrians): 0 or 1. */
+/** The share of pedestrians the options leave (Show Pedestrians): all or none. */
 float pedestrianShare();
-/** Whether headlights light the road (the Lighting Quality). */
+/** Whether headlights light the road (the Lighting Quality, half or more). */
 bool headlightPoolsOn();
-/** The DriveKeys bit a key is bound to, or 0 for none. */
+/** The driving control (a DriveKeys bit) a key holds, or 0. */
 uint32_t driveKeyOf(uint32_t key);
-/** The car's controls from the DriveKeys held: full throttle, brake and lock, or none. */
+/** The car's controls for the driving controls held. */
 CarControls controlsOf(uint32_t keys);
 
 /**
@@ -340,8 +345,8 @@ private:
     LessonJudge _judge;
     std::string _beatenAll; // "You've beaten all the Blitz races!!", once they are
     float _finalLapFor = 0; // seconds "Final lap!" has left
-    float _sunkFor = 0;
-    float _resultsTime = 0; // seconds the results have been up     // and "Sleep with the fishes!", after a car's sunk
+    float _sunkFor = 0;     // seconds "Sleep with the fishes!" has left, after a car's sunk
+    float _resultsTime = 0; // seconds the results have been up
     int _lastLap = 0;
     std::vector<float> _lapEnds; // the clock at each of the player's laps' ends
     // the time shown after a checkpoint, and for how long yet

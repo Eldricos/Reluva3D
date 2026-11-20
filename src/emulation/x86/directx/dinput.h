@@ -9,14 +9,20 @@
 
 namespace reluva::x86 {
 
-// DirectInput (DINPUT.dll's DirectInputCreateA and DirectInputCreateEx, up
-// to DirectX 7's interfaces) for the programs that use it, written from
-// Microsoft's documentation: the system mouse and keyboard, read with the
-// data formats programs give (c_dfDIMouse, c_dfDIKeyboard or their own),
-// as an immediate state or a buffer of changes. They hear the input the
-// engine passes to the process (Win32Process::rawInput).
+/**
+ * DirectInput (DINPUT.dll's DirectInputCreateA and DirectInputCreateEx, up
+ * to DirectX 7's interfaces) for the programs that use it, written from
+ * Microsoft's documentation: the system mouse and keyboard, read with the
+ * data formats programs give (c_dfDIMouse, c_dfDIKeyboard or their own),
+ * as an immediate state or a buffer of changes. They hear the input the
+ * engine passes to the process (Win32Process::rawInput).
+ */
 class DirectInput {
 public:
+    /**
+     * Provides DINPUT.dll's two functions to `process`. Their stand-ins point
+     * into this object, so it has to outlive the program's use of them.
+     */
     explicit DirectInput(Win32Process &process);
     ~DirectInput();
 

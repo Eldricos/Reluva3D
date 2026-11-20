@@ -2,13 +2,10 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/viv.cpp` · **Checked on:** every archive · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/viv.cpp`), and checked on all
-115 retail archives in the NFS III install and on its CD.
+## Overview
 
-Sources: the layout as the NFS modding community describes EA's "BIGF"
-archives. Each field was confirmed on the retail files with a survey
-script, October 2026: magic, sizes, the first file's offset, alignment
-and order.
+EA's "BIGF" archives: a directory, then the files it lists. The
+game keeps its cars, speech and some front-end models in them (below).
 
 ## Layout
 
@@ -31,7 +28,7 @@ Each directory entry is:
 The entries are in the same order as the files' data. Files start on
 4-byte boundaries, with 0 to 3 bytes of padding between them.
 
-## What they hold in NFS III
+### What they hold in NFS III
 
 - **Cars** (`GameData/CarModel/<car>/car.viv`):
   - `carp.txt` (performance);
@@ -47,7 +44,19 @@ The entries are in the same order as the files' data. Files start on
 - **Front end:** `trkgo.viv` holds `go*.fce` and `go*.tga`, track models
   for the menus.
 
+## In Reluva
+
+Read as `VivArchive` (`src/engines/nfs/formats/viv.cpp`), and checked on all
+115 retail archives in the NFS III install and on its CD.
+`reluva-tool nfs viv-list` lists an archive's files and `viv-extract`
+writes them to a folder.
+
 ## Sources and checks
 
 - **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
 - **How it was checked:** the reader run on every archive to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+
+The layout is as the NFS modding community describes EA's "BIGF"
+archives. Each field was confirmed on the retail files with a survey
+script, October 2026: magic, sizes, the first file's offset, alignment
+and order.

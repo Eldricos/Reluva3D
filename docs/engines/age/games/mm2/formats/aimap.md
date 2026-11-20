@@ -2,6 +2,8 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/aimap.cpp` · **Checked on:** the English release, all 209 files · **Confidence:** confirmed unless marked
 
+## Overview
+
 Text files saying what the computer-driven cars, the pedestrians and the
 police are: `city/<map>.aimap` for each city, then a file for each race
 (`race/<city>/<race><n>.aimap` for Amateur, `.aimap_p` for Professional,
@@ -9,7 +11,9 @@ checkpoint races named `race`) and for cruising (`race/<city>/roam.aimap`).
 Read by `src/engines/age/formats/aimap.cpp`. Worked out from the files, which
 carry their own comments; 209 were read.
 
-## Form
+## Layout
+
+### Form
 
 `#` starts a comment line. A `[Section]` line, then its values; a list's
 first value is its count:
@@ -30,7 +34,7 @@ va_smallsuv_s 1.0 0
 Reluva reads a race's file over its city's, so the sections a race file
 leaves out keep the city's values.
 
-## Sections
+### Sections
 
 | Section | Values | Reluva |
 |---|---|---|
@@ -57,6 +61,14 @@ professional ones 0.93-1.00 in San Francisco's first race.
 Of the 19 police headings in San Francisco's cruising file, 10 are 0 and
 several cars stand off the road, so the headings couldn't be checked
 against the roads; Reluva reads them as the race files' headings.
+
+## In Reluva
+
+Read by `src/engines/age/formats/aimap.cpp` (`parseAiMap`, into
+`AiMapSettings`); used by `game/city_life.cpp`, `game/race_screen.cpp`
+and the Drive page (`pages/drive_viewer.cpp`). What it takes from each
+section is in the table's Reluva column. The Files page shows the files
+as text; no `reluva-tool` command reads them.
 
 ## Sources and checks
 

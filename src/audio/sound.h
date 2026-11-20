@@ -9,8 +9,10 @@
 
 namespace reluva::audio {
 
-// A decoded sound: signed 16-bit samples, interleaved when stereo. Every
-// decoder in audio produces one.
+/**
+ * A decoded sound: signed 16-bit samples, interleaved when stereo. Every
+ * decoder in audio produces one.
+ */
 struct Sound {
     int rate = 0;        // samples per second
     int channels = 0;    // 1 or 2
@@ -21,13 +23,16 @@ struct Sound {
     // loopStart up to (not including) loopEnd; loopEnd 0 for the whole.
     size_t loopStart = 0;
     size_t loopEnd = 0;
+    /** How many samples there are for each channel (0 with no channels). */
     size_t frames() const { return channels ? samples.size() / size_t(channels) : 0; }
 };
 
-// Sound::format for MP3 sources (not a WAV tag in use: those are 16-bit).
+/** Sound::format for MP3 sources (not a WAV tag in use: those are 16-bit). */
 constexpr int kFormatMp3 = 0x10055;
-// Sound::format for Electronic Arts' codecs (ea_audio.h).
+/** Sound::format for Electronic Arts' codecs (ea_audio.h). */
+///@{
 constexpr int kFormatEaXa = 0x1ea07;
 constexpr int kFormatMicroTalk = 0x1ea09;
+///@}
 
 } // namespace reluva::audio

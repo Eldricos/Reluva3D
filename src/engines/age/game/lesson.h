@@ -20,7 +20,7 @@ public:
     static constexpr float kEscape = 120;    // metres behind the car to follow, and it's escaped
     static constexpr float kMessageTime = 3; // seconds a message shows
 
-    /** How the lesson stands; once passed or failed it stays so. */
+    /** How the lesson stands. */
     enum class Result { kGoing, kPassed, kFailed };
 
     /** What happened this frame. */
@@ -41,24 +41,35 @@ public:
         int police = 0;             // police in the lesson
     };
 
-    /** Starts judging a lesson afresh, with its opening message. */
+    /** Starts judging a lesson, with its first message. */
     void start(const LessonSettings &lesson);
-    /** Judges a frame; before the start (a clock below 0) only the message's time runs. */
+    /**
+     * Judges a frame (before the start, while the clock is below 0, nothing
+     * changes).
+     * @return The result, which stays once passed or failed.
+     */
     Result step(const Frame &f);
-    /** How the lesson stands, as the last step() left it. */
+    /** The result so far. */
     Result result() const { return _result; }
 
     /**
-     * Seconds added (none: the penalties' messages, 216, belong to a
-     * group of the game's no lesson uses).
+     * Seconds added to the clock as penalties: always none, as the game's
+     * message for one (216) is in a group of messages no lesson uses.
      */
     float penalty() const { return _penalty; }
-    /** Seconds left (penalties counted), or -1 with no limit. */
+    /**
+     * Seconds left (penalties counted), or -1 with no limit (a Follow
+     * lesson's TimeLimit isn't one).
+     */
     float timeLeft(float clock) const;
-    /** The message to show now (0: none). */
+    /**
+     * The message to show now (0: none), and the minimum speed in mph for
+     * MinimumSpeed lessons' "Maintain %.0f".
+     */
+    ///@{
     uint32_t message() const { return _messageFor > 0 ? _message : 0; }
-    /** The minimum speed in mph, for MinimumSpeed lessons' "Maintain %.0f". */
     float minimumSpeed() const { return _lesson.extra[0]; }
+    ///@}
     /** A Destroy lesson's car has been rammed into submission. */
     bool destroyed() const { return _destroyed; }
 

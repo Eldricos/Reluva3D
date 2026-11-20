@@ -41,16 +41,16 @@ struct Tex {
 };
 
 /**
- * Reads a .tex file's header and decodes its first level.
- * @return A failure if it is empty, cut short or of a format not in texformat.
+ * Decodes a .tex file. Fails on an unknown format, or levels past the
+ * file's end (all are checked, though only the first is decoded).
  */
 Error decodeTex(const std::vector<uint8_t> &data, Tex &out);
 
 /**
  * A shader's texture by name, as models name them ("vpbugyellow_sd"):
- * texture/<name>.tex, else the first frame of an animated texture
- * (texture/<name>-0001.tex, played as tune/<name>.movie says), else
- * texture/<name>.tga. `format` is 0 for a .tga.
+ * `texture/<name>.tex`, else the first frame of an animated texture
+ * (`texture/<name>-0001.tex`, played as `tune/<name>.movie` says), else
+ * `texture/<name>.tga`. `format` is 0 for a .tga. Fails if there's none.
  */
 Error loadTexture(const SearchSet &files, std::string_view name, Tex &out);
 

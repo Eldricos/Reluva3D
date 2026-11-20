@@ -159,8 +159,8 @@ settings (difficulty, autosave, the last save shown) in
 copied in, and saves made in Reluva copied back. STDS9H kept them in its own
 folder (`~/.local/share/STDS9H/stds9h/harbinger/` on Linux,
 `%APPDATA%\STDS9H\stds9h\harbinger\` on Windows): copy its `savegame` folder
-and `dlas.ds9` across. STDS9H's `stds9h.ini` isn't read; its settings are
-Reluva's now.
+and `dlas.ds9` across. STDS9H's `stds9h.ini` isn't read: Reluva keeps its
+own settings.
 
 ## This folder
 

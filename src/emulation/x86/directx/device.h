@@ -22,10 +22,14 @@
 
 namespace reluva::x86::dx {
 
-using Matrix = std::array<float, 16>; // row-major, row vectors (D3DMATRIX)
+/** A D3DMATRIX: row-major, for row vectors. */
+using Matrix = std::array<float, 16>;
+/** The identity matrix. */
 Matrix identity();
+/** `a` then `b`: a × b, as row vectors take them. */
 Matrix multiply(const Matrix &a, const Matrix &b);
 
+/** A D3DCOLORVALUE: red, green, blue and alpha, 0 to 1 for a colour. */
 struct Color {
     float r = 0;
     float g = 0;
@@ -33,7 +37,7 @@ struct Color {
     float a = 0;
 };
 
-// D3DLIGHT7
+/** A D3DLIGHT7, and whether it's on. */
 struct Light {
     uint32_t type = 3; // POINT 1, SPOT 2, DIRECTIONAL 3
     Color diffuse;
@@ -51,7 +55,7 @@ struct Light {
     bool enabled = false;
 };
 
-// D3DMATERIAL7
+/** A D3DMATERIAL7. */
 struct Material {
     Color diffuse;
     Color ambient;
@@ -60,7 +64,7 @@ struct Material {
     float power = 0;
 };
 
-// A vertex on its way through the pipeline.
+/** A vertex on its way through the pipeline. */
 struct ClipVertex {
     // clip space; after projection, screen x, y, z and 1/w
     float x;
@@ -73,9 +77,12 @@ struct ClipVertex {
     float tex[8][2];
 };
 
-// A texture's pixels decoded to 0xAARRGGBB, one array per mip level, kept
-// until the surface changes.
+/**
+ * A texture's pixels decoded to 0xAARRGGBB, one array per mip level, kept
+ * until the surface changes.
+ */
 struct DecodedTexture {
+    /** One mip level's pixels. */
     struct Level {
         int width;
         int height;
@@ -90,6 +97,7 @@ struct DecodedTexture {
 class Device;
 struct VertexLayout;
 
+/** A D3DVIEWPORT7: the area drawn to, in pixels, and the depths it maps z to. */
 struct Viewport {
     int x = 0;
     int y = 0;
@@ -99,12 +107,14 @@ struct Viewport {
     float maxZ = 1;
 };
 
-// One draw's pixels: the states they go through, taken from the device
-// when it's made, and the drawing itself. A draw holds what it draws into,
-// so it can be drawn later, on another thread, whatever the device does
-// meanwhile.
+/**
+ * One draw's pixels: the states they go through, taken from the device
+ * when it's made, and the drawing itself. A draw holds what it draws into,
+ * so it can be drawn later, on another thread, whatever the device does
+ * meanwhile.
+ */
 struct Draw {
-    // What the pixels go through, taken from the states once per draw.
+    /** A texture stage's states, taken once per draw. */
     struct StageConfig {
         uint32_t colorOp;
         uint32_t colorArg1;
@@ -124,6 +134,7 @@ struct Draw {
         uint8_t source[4];
         bool usesTexture;
     };
+    /** What the pixels go through, taken from the render states once per draw. */
     struct PixelConfig {
         bool zTest = false;
         bool zWrite = false;
@@ -149,6 +160,7 @@ struct Draw {
         // Every stage SELECTARG1, SELECTARG2 or MODULATE (alpha also
         // DISABLE) of plain arguments: they're combined the quick way.
         bool simpleStages = false;
+        /** The target's format, where a quick path knows it: 565, X888, or any other. */
         enum class Target { kGeneric, kRgb565, kRgb888 } target = Target::kGeneric;
         double zMax = 0;
         uint32_t zBytes = 0;
@@ -164,8 +176,10 @@ struct Draw {
         int depthPitch = 0;
         uint32_t targetBytes = 0;
     };
-    // Each stage's texture as it's sampled for the triangle being drawn
-    // (its mip level, by `lod`), set by prepareSamplers.
+    /**
+     * A stage's texture as it's sampled for the triangle being drawn (its
+     * mip level, by Raster::lod), set by prepareSamplers.
+     */
     struct Sampler {
         const uint32_t *argb = nullptr; // none: no texture
         const uint8_t *keyed = nullptr;
@@ -180,9 +194,11 @@ struct Draw {
         uint32_t addressV = 0;
         uint32_t border = 0;
     };
-    // What a thread drawing needs of its own: the triangle's mip levels
-    // and samplers, and which rows are its (groups of 8, every `bands`th
-    // from `band`).
+    /**
+     * What a thread drawing needs of its own: the triangle's mip levels
+     * and samplers, and which rows are its (groups of 8, every `bands`th
+     * from `band`).
+     */
     struct Raster {
         float lod[8]{}; // the mip level each stage samples
         Sampler samplers[8];
@@ -197,12 +213,18 @@ struct Draw {
     std::shared_ptr<Surface> target;
     std::shared_ptr<Surface> depth;
 
-    // Fills a projected triangle.
+    /**
+     * Fills a projected triangle, within the viewport and the target: the
+     * pixels of `r`'s rows whose centres are inside, or on a top or left edge.
+     */
     void rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) const;
-    // One pixel: depth test, texture stages, alpha test, fog, blending.
-    // `attributes` are the vertex attributes there (diffuse, specular, then
-    // each stage's u and v).
+    /**
+     * One pixel: depth test, texture stages, alpha test, fog, blending.
+     * `attributes` are the vertex attributes there (diffuse, specular, then
+     * each stage's u and v).
+     */
     void pixel(Raster &r, int x, int y, float z, float eyeW, const float *attributes) const;
+    /** Sets `r`'s samplers for its mip levels (Raster::lod). */
     void prepareSamplers(Raster &r) const;
 
 private:
@@ -230,6 +252,7 @@ private:
 
 struct DrawQueue;
 
+/** An IDirect3DVertexBuffer7: `count` vertices of the `fvf` layout, in the process's memory. */
 class VertexBuffer : public ComObject {
 public:
     uint32_t fvf = 0;
@@ -242,6 +265,11 @@ public:
     ~VertexBuffer() override;
 };
 
+/**
+ * An IDirect3DDevice7, drawing into its target surface (and the Z buffer
+ * attached to it). Its draws are queued and drawn on threads of their own,
+ * unless DirectX::drawThreads is kOne.
+ */
 class Device : public ComObject {
 public:
     DirectX::State *s = nullptr;
@@ -251,13 +279,14 @@ public:
     std::array<std::array<uint32_t, 32>, 8> stageStates{};
     std::array<std::shared_ptr<Surface>, 8> textures;
     std::map<uint32_t, Matrix> transforms; // by D3DTRANSFORMSTATETYPE
+    /** The viewport's type, by the name the device's methods use. */
     using Viewport = dx::Viewport;
     Viewport viewport;
     Material material;
     std::map<uint32_t, Light> lights;
     std::vector<uint32_t> clipStatus = std::vector<uint32_t>(6, 0);
 
-    // State blocks: what a block sets, replayed by ApplyStateBlock.
+    /** A state block: what it sets, replayed by ApplyStateBlock. */
     struct StateBlock {
         std::map<uint32_t, uint32_t> renderStates;
         std::map<std::pair<uint32_t, uint32_t>, uint32_t> stageStates;
@@ -273,21 +302,37 @@ public:
 
     std::unordered_map<const Surface *, DecodedTexture> decoded;
 
+    /**
+     * A device drawing into `renderTarget`, with the Z buffer attached to
+     * it if there is one, and Direct3D 7's default states.
+     */
     Device(DirectX::State *state, std::shared_ptr<Surface> renderTarget);
     ~Device() override;
-    // Waits for the draws given so far to be drawn (they may be drawing on
-    // another thread): before anything else reads or writes the surfaces.
+    /**
+     * Waits for the draws given so far to be drawn (they may be drawing on
+     * another thread): before anything else reads or writes the surfaces.
+     */
     void finishDraws();
-    // Draws (and clears) queued so far, and waiting for the first so many.
+    /** The draws (and clears) queued so far, and waiting for the first so many to be drawn. */
+    ///@{
     uint64_t drawsQueued();
     void finishDrawsThrough(uint64_t count);
+    ///@}
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
 
-    // Draws vertices in the program's memory (FVF layout, `stride` apart);
-    // `indices` are 16-bit, or none.
+    /**
+     * Draws vertices in the program's memory (FVF layout, `stride` apart);
+     * `indices` are 16-bit, or none.
+     */
     void draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t stride, uint32_t vertexCount,
               uint32_t indices, uint32_t indexCount);
+    /**
+     * IDirect3DDevice7::Clear: the target to `color` (0xAARRGGBB, flag 1)
+     * and the Z buffer to `z` (0 to 1, flag 2), within the viewport.
+     * @param rects `count` D3DRECTs in the program's memory, clipped to the
+     *        viewport; 0 for the whole viewport.
+     */
     void clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z);
 
 private:
@@ -302,7 +347,7 @@ private:
     // The draw as the states are now.
     Draw current() const;
     // A draw's triangles, projected: drawn by rows on several threads, and
-    // (but with DirectX::DrawThreads::One) on threads of their own while
+    // (but with DirectX::DrawThreads::kOne) on threads of their own while
     // the program goes on (DrawQueue).
     std::vector<std::array<ClipVertex, 3>> _batch;
     bool _batching = false;
@@ -317,7 +362,7 @@ private:
     void configure();
 };
 
-// D3DFVF layout of one vertex.
+/** Where a vertex's parts are, by its D3DFVF code; offsets in bytes, -1 for none. */
 struct VertexLayout {
     int position = 0; // floats: 3 (XYZ), 4 (XYZRHW), 3 + blend weights
     bool rhw = false;
@@ -332,10 +377,14 @@ struct VertexLayout {
     int specularAt = -1;
     int texAt[8]{};
     int size = 0; // bytes
+    /** The layout `fvf` gives; `position` 0 if it has none. */
     explicit VertexLayout(uint32_t fvf);
 };
 
-// The D3DDEVICEDESC7 we describe ourselves with.
+/**
+ * Writes the D3DDEVICEDESC7 at `p` for the device `iid` names: the same
+ * for each, but the hardware one (kIidHalDevice) says it's hardware.
+ */
 void writeDeviceDesc(Cpu &c, uint32_t p, const std::string &iid);
 
 } // namespace reluva::x86::dx

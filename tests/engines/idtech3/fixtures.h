@@ -18,8 +18,12 @@
 
 namespace reluva::idtech3::fixtures {
 
-// A tiny map: one triangle in one leaf of a two-leaf tree, one brush,
-// one lightmap and vis data for two clusters.
+/**
+ * A tiny map: one triangle in one leaf of a two-leaf tree, one brush,
+ * one lightmap and vis data for two clusters.
+ * @param badIndex If 0 or more, the triangle's third index, in place of 2.
+ * @param lightmap, fog, type The surface's lightmap, fog and surface type.
+ */
 inline std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_t lightmap = 0, int32_t fog = -1,
                                      int32_t type = 1) {
     std::vector<uint8_t> lumps[17];
@@ -90,7 +94,8 @@ inline std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_
     i32(lumps[11], 0);
     i32(lumps[11], 1);
     i32(lumps[11], badIndex >= 0 ? badIndex : 2);
-    // Surface: shader 0, no fog, planar, vertices 0-2, indices 0-2, lightmap 0.
+    // Surface: shader 0, fog, type, vertices 0-2, indices 0-2, lightmap (by
+    // default no fog, planar, lightmap 0).
     for (int32_t x : {0, fog, type, 0, 3, 0, 3, lightmap, 0, 0, 16, 16})
         i32(lumps[13], x);
     for (int k = 0; k < 12; ++k)
@@ -116,8 +121,11 @@ inline std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_
     return out;
 }
 
-// A two-frame MD3 with one tag and one triangle; frame 1 is frame 0
-// moved up 64 units.
+/**
+ * A two-frame MD3 with one tag and one triangle; frame 1 is frame 0
+ * moved up 64 units.
+ * @param badIndex If 0 or more, the triangle's third index, in place of 2.
+ */
 inline std::vector<uint8_t> buildMd3(int badIndex = -1) {
     std::vector<uint8_t> out;
     auto i32 = [&](int32_t x) {
@@ -200,9 +208,11 @@ inline std::vector<uint8_t> buildMd3(int badIndex = -1) {
     return out;
 }
 
-// A small map for collision: a floor in the world (x and y -512..512, z
-// -64..0) and one brush model, *1, a door 16 x 128 x 128 standing on its
-// own origin.
+/**
+ * A small map for collision: a floor in the world (x and y -512..512, z
+ * -64..0) and one brush model, *1, a door 16 x 128 x 128 standing on its
+ * own origin.
+ */
 inline std::shared_ptr<Bsp> collisionMap() {
     auto bsp = std::make_shared<Bsp>();
     bsp->shaders.push_back({"textures/test/solid", 0, contents::kSolid});
@@ -253,7 +263,7 @@ inline std::shared_ptr<Bsp> collisionMap() {
     return bsp;
 }
 
-// Whether two floats are within a thousandth.
+/** Whether two floats are within a thousandth. */
 inline bool near(float a, float b) {
     return std::fabs(a - b) < 1e-3f;
 }

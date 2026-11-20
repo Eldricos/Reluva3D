@@ -6,7 +6,7 @@
 
 The city's ambient sounds. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Ambient sounds
+## How it works
 
 `AmbientSounds` (`ambient.cpp`) plays the city's ambiences
 (`aud/ambient/<city>ambientcontainer.csv`; the layout in
@@ -33,6 +33,13 @@ room. The **Audible area** is read by where the ambiences' points are:
 1 (the tube's voices, 7-15 m below the streets) heard only from more
 than 4 m underground, 2 (the buoys and sea lions, at the water) only
 from above that, 0 anywhere.
+
+## In Reluva
+
+`AmbientSounds` (`src/engines/age/audio/ambient.{h,cpp}`) reads each
+city's ambiences (`Ambience`, `AmbientSample`) and plays them round the
+player's car. The fall-off with distance, and treating sample types 1
+and 2 alike, are Reluva's (above).
 
 ## Sources and checks
 

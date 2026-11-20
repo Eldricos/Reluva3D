@@ -12,16 +12,23 @@
 // reluva-tool's commands for the AWE engine (registered in commands.cpp;
 // reluva-tool help awe lists them), and what they share.
 
-// reluva-tool awe files-check: every Granny file, scene and text file of an
-// install read, failures reported (check.cpp).
+/**
+ * reluva-tool awe files-check: every Granny file, scene and text file of an
+ * install read, failures reported (check.cpp).
+ */
 int aweCheckCommand(int argc, char **argv);
 
 namespace reluva::awe {
 
-// A renderer that keeps nothing and draws nothing: the scenes' characters
-// load (and run their routines) without a window.
+/**
+ * A renderer that keeps nothing and draws nothing: the scenes' characters
+ * load (and run their routines) without a window. Its textures and meshes
+ * get ids, every one new.
+ */
 class NullRenderer : public gfx::Renderer3D {
 public:
+    /** Renderer3D's, each doing nothing but give out ids; a 1024x768 window with no stencil. */
+    ///@{
     Error createTexture(int, int, const uint8_t *, const gfx::TextureParams &, gfx::TextureId &out) override {
         out = gfx::TextureId(++_next);
         return Error::success();
@@ -54,13 +61,16 @@ public:
     void endFrame(const Surface *) override {}
     void captureNextFrame() override {}
     bool takeCapture(std::vector<uint8_t> &) override { return false; }
+    ///@}
 
 private:
     uint32_t _next = 0;
 };
 
-// A System with no window: the last frame shown is kept, events come from
-// a queue.
+/**
+ * A System with no window: the last frame shown is kept, events come from
+ * a queue, and its clock is `now`, which only its user moves.
+ */
 class HeadlessSystem : public System {
 public:
     Surface last;
@@ -100,14 +110,11 @@ public:
     }
 };
 
-// reluva-tool awe path-check: the game's path between two cells beside Reluva's
-// (path.cpp).
+/** reluva-tool awe path-check: the game's path between two cells beside Reluva's (path.cpp). */
 int aweCommandPath(int argc, char **argv);
-// reluva-tool awe script-check: every script command of an install, by verb
-// (scripts.cpp).
+/** reluva-tool awe script-check: every script command of an install, by verb (scripts.cpp). */
 int aweCommandScripts(int argc, char **argv);
 
-// reluva-tool awe game-run -solve and -play: a playthrough searched for, and
-// one played back (play.cpp).
+/** reluva-tool awe game-run -solve and -play: a playthrough searched for, and one played back (play.cpp). */
 int aweCommandSolve(int argc, char **argv);
 } // namespace reluva::awe

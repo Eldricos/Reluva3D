@@ -17,12 +17,15 @@ the text, never in headings. -->
 
 <!-- As the original does it: the data it uses (link its formats/ pages),
 the rules, the timings. Give each fact's address in the executable, or the
-recording and time it was seen at. -->
+recording and time it was seen at. Each part is a ### here, never a ## of
+its own. -->
 
 ## In Reluva
 
-<!-- Where it's done (files, classes), and anything done differently (also
-listed in KNOWN_DIFFERENCES.md). -->
+<!-- Where it's done (files from the repository's root, classes), the
+viewer's page and the commands (reluva-tool <engine> <command>), and
+anything done differently (also listed in KNOWN_DIFFERENCES.md). Not done
+yet: say so in a line. -->
 
 ## Sources and checks
 

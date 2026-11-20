@@ -126,8 +126,8 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
                     coverage = 0;
                     break;
                 }
-                // The distance from the edge in pixels (E is in 1/256ths of
-                // a pixel squared times the edge's length in 1/16ths).
+                // The distance from the edge in pixels (E is that distance
+                // times the edge's length, both in 1/16 pixel).
                 const double d = double(-E) / (e[i].length * 16.0);
                 coverage *= std::max(0.0, 1.0 - d);
             }

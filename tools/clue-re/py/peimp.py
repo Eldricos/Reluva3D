@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Windows programs' sections, imports by library, and exports.
+
+    python3 -I py/peimp.py PROGRAM.exe...
+"""
+
 import sys, pefile
 for p in sys.argv[1:]:
     pe = pefile.PE(p)

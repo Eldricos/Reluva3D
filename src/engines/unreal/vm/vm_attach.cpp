@@ -10,7 +10,7 @@
 // tick; and what the scripts do to the bones on top of the animations
 // (C3DApplyRotation: a back bent; the IK chains: hands on a gun). The mesh
 // is placed as the Maps page draws it (mesh_render.h), so they agree. See
-// docs/engines/unreal_vm.md and mesh.md.
+// docs/engines/unreal/games/ds9fallen/systems/bones.md and mesh.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

@@ -73,28 +73,34 @@ using namespace reluva;
 using namespace reluva::age;
 using reluva::test::toBytes;
 
+/** π, as a float. */
 constexpr float kPi() {
     return 3.14159265358979f;
 }
 
+/** A file to put in an .ar archive (buildAr). */
 struct ArFile {
     std::string name;              // ending in '/' for a folder
     std::vector<uint8_t> data;     // contents
     std::vector<uint8_t> deflated; // if not empty: stored as these bytes
 };
 
+/** Writes `x` little-endian at `at`, which must be inside `v`. */
 inline void put32(std::vector<uint8_t> &v, size_t at, uint32_t x) {
     for (int i = 0; i < 4; ++i)
         v[at + size_t(i)] = uint8_t(x >> (8 * i));
 }
 
+/** `n` rounded up to the .ar archives' 2048-byte blocks. */
 inline size_t roundUp(size_t n) {
     return (n + 2047) / 2048 * 2048;
 }
 
-// An archive laid out as the retail ones are: the header in the first
-// 2048 bytes, then the directory and the names, each padded to 2048, then
-// each file's data starting on a 2048-byte boundary.
+/**
+ * An archive laid out as the retail ones are: the header in the first
+ * 2048 bytes, then the directory and the names, each padded to 2048, then
+ * each file's data starting on a 2048-byte boundary.
+ */
 inline std::vector<uint8_t> buildAr(const std::vector<ArFile> &files) {
     std::string names;
     std::vector<uint32_t> nameAt;
@@ -125,7 +131,7 @@ inline std::vector<uint8_t> buildAr(const std::vector<ArFile> &files) {
     return out;
 }
 
-// "textures/borg/borgfloor1\n" 12 times, raw-deflated by zlib.
+/** "textures/borg/borgfloor1\n" 12 times: the text kDeflated holds. */
 inline std::string repeatedText() {
     std::string text;
     for (int i = 0; i < 12; ++i)
@@ -133,14 +139,16 @@ inline std::string repeatedText() {
     return text;
 }
 
-// Little-endian writers for building files.
-// repeatedText(), raw-deflated by zlib.
+/** repeatedText(), raw-deflated by zlib. */
 inline const std::vector<uint8_t> kDeflated = {0x2b, 0x49, 0xad, 0x28, 0x29, 0x2d, 0x4a, 0x2d, 0xd6, 0x4f,
                                                0xca, 0x2f, 0x4a, 0x07, 0x13, 0x69, 0x39, 0xf9, 0xf9, 0x45,
                                                0x86, 0x5c, 0x25, 0xa3, 0x12, 0xe8, 0x12, 0x00};
 
+/** Builds a file's bytes: each call appends, little-endian, and returns the builder, so calls chain. */
 struct Bytes {
     std::vector<uint8_t> v;
+    /** Appends a value, or a string's bytes without a terminating 0. */
+    ///@{
     Bytes &u8(uint32_t x) {
         v.push_back(uint8_t(x));
         return *this;
@@ -156,23 +164,30 @@ struct Bytes {
         v.insert(v.end(), s.begin(), s.end());
         return *this;
     }
-    // A name as models store them: a length byte counting the zero after it.
+    ///@}
+    /** A name as models store them: a length byte counting the zero after it. */
     Bytes &name(const std::string &s) { return u8(uint32_t(s.size() + 1)).str(s).u8(0); }
+    /** Appends bytes as they are. */
     Bytes &bytes(const std::vector<uint8_t> &b) {
         v.insert(v.end(), b.begin(), b.end());
         return *this;
     }
 };
 
+/** Appends a .pkg FILE section: the tag, the name, the contents' size and the contents. */
 inline Bytes &fileSection(Bytes &b, const std::string &name, const std::vector<uint8_t> &contents) {
     return b.str("FILE").name(name).u32(uint32_t(contents.size())).bytes(contents);
 }
 
+/** A .tex file's header; the pixels follow it. */
 inline std::vector<uint8_t> texHeader(int w, int h, int format, int levels, uint32_t flags) {
     return Bytes().u16(uint32_t(w)).u16(uint32_t(h)).u16(uint32_t(format)).u16(uint32_t(levels)).u16(1).u32(flags).v;
 }
 
-// A mesh section's contents: one group of one triangle list.
+/**
+ * A .pkg mesh section's contents: one group of one triangle list. The
+ * vertices have normals if `fvf` has 0x10.
+ */
 inline std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std::vector<uint16_t> &indices,
                                         uint32_t vertexCount = 3) {
     Bytes b;
@@ -190,9 +205,12 @@ inline std::vector<uint8_t> meshSection(uint32_t fvf, uint32_t shader, const std
     return b.v;
 }
 
-// A small city: 6 vertices, heights 10, 20 and 1, two textures, one block.
-// A city of one block (by default with two perimeter edges), then `tail`
-// (its roads) after the bounds.
+/**
+ * A .psdl city of one block: 6 vertices, heights 10, 20 and 1, by default
+ * two textures and two perimeter edges, then `tail` (its roads) after the
+ * bounds.
+ * @param attributes The block's attribute words.
+ */
 inline std::vector<uint8_t> buildPsdl(const std::vector<uint16_t> &attributes, uint32_t version = 2,
                                       const std::vector<std::pair<uint16_t, uint16_t>> &perimeter = {{0, 0}, {1, 5}},
                                       const std::vector<std::string> &textures = {"r2_f", "swalk_f"},
@@ -219,6 +237,7 @@ inline std::vector<uint8_t> buildPsdl(const std::vector<uint16_t> &attributes, u
     return b.bytes(tail).v;
 }
 
+/** A car of about a real car's size: four wheels of radius 0.33 and a box hull of 8 corners. */
 inline CarSetup testCar() {
     CarSetup s;
     s.name = "test";
@@ -232,9 +251,11 @@ inline CarSetup testCar() {
     return s;
 }
 
-// A road map (docs/engines/age/games/mm2/formats/bai.md) of straight roads, each from one
-// junction to another: `lanes` lanes on side 1 (one-way, first to last)
-// and `back` on side 0, `n` points along it.
+/**
+ * A straight road for buildBai (docs/engines/age/games/mm2/formats/bai.md),
+ * from one junction to another: `lanes` lanes on side 1 (one-way, first to
+ * last) and `back` on side 0, `n` points along it.
+ */
 struct BaiRoad {
     Vec3 from;
     Vec3 to;
@@ -247,6 +268,10 @@ struct BaiRoad {
     uint16_t control = 1; // at both ends
 };
 
+/**
+ * One side of a road in a .bai file: its header and lane widths, then a
+ * row of points for each lane and for the sidewalk, curb and outer edge.
+ */
 inline void baiSide(Bytes &b, const BaiRoad &r, int lanes, int side) {
     b.u16(uint32_t(lanes)).u16(0).u16(0).u16(1).u16(0);
     for (int i = 0; i < (lanes + 1) * r.n; ++i)
@@ -272,6 +297,7 @@ inline void baiSide(Bytes &b, const BaiRoad &r, int lanes, int side) {
     row(sign * 10, false); // outer edge
 }
 
+/** A .bai road map of the roads, joined at the junctions (indexes into `junctions`). */
 inline std::vector<uint8_t> buildBai(const std::vector<BaiRoad> &roads, const std::vector<Vec3> &junctions) {
     Bytes b;
     b.str("CAI1").u16(uint32_t(junctions.size())).u16(uint32_t(roads.size()));
@@ -317,19 +343,20 @@ inline std::vector<uint8_t> buildBai(const std::vector<BaiRoad> &roads, const st
     return b.v;
 }
 
-// A loop of two one-way roads round a 200 m by 20 m rectangle.
+/** A loop of two one-way roads round a 200 m by 20 m rectangle. */
 inline std::vector<uint8_t> loopBai() {
     return buildBai({{{0, 0, 0}, {200, 0, 0}, 0, 1, 1, 0, 5}, {{200, 0, -20}, {0, 0, -20}, 1, 0, 1, 0, 5}},
                     {{-5, 0, -10}, {205, 0, -10}});
 }
 
-// A path set of the given paths: name, points and end word.
+/** A path for buildPathset: its name (cut or padded to 32 bytes), points and end word. */
 struct TestPath {
     std::string name;
     std::vector<Vec3> points;
     uint32_t end;
 };
 
+/** A .pathset file of the paths. */
 inline std::vector<uint8_t> buildPathset(const std::vector<TestPath> &paths) {
     Bytes b;
     b.str("PTH1").u32(uint32_t(paths.size())).u32(0);
@@ -344,6 +371,7 @@ inline std::vector<uint8_t> buildPathset(const std::vector<TestPath> &paths) {
     return b.v;
 }
 
+/** Whether two matrices are the same, each element within 1e-4. */
 inline bool sameMatrix(const Mat3 &a, const Mat3 &b) {
     const Vec3 ca[3] = {a.x, a.y, a.z};
     const Vec3 cb[3] = {b.x, b.y, b.z};
@@ -354,7 +382,7 @@ inline bool sameMatrix(const Mat3 &a, const Mat3 &b) {
     return true;
 }
 
-// A renderer that only remembers the textures' sizes.
+/** A renderer that only remembers the textures' sizes; meshes fail to be made. */
 struct SizeRenderer : gfx::Renderer3D {
     std::vector<std::pair<int, int>> sizes;
     Error createTexture(int w, int h, const uint8_t *, const gfx::TextureParams &, gfx::TextureId &out) override {

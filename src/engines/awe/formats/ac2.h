@@ -22,9 +22,12 @@
 
 namespace reluva::awe {
 
-// A field's value: a number (4 bytes, integer or float, 2 bytes
-// integer), text, or a list of text pairs or number pairs.
+/**
+ * A field's value: a number (4 bytes, integer or float, 2 bytes
+ * integer), text, or a list of text pairs or number pairs.
+ */
 struct Ac2Value {
+    /** How it's stored: kBytes for a field read as raw bytes (a camera's walk grid). */
     enum class Type : uint8_t { kU16, kU32, kF32, kText, kTextPairs, kNumberPairs, kBytes } type = Type::kU32;
     uint32_t raw = 0; // U16, U32, F32 (the float's bits)
     std::string text; // UTF-8
@@ -32,12 +35,15 @@ struct Ac2Value {
     std::vector<std::pair<uint32_t, uint32_t>> numbers;
     std::vector<uint8_t> bytes;
 
+    /** The number as a float: a U16 or U32 as a signed integer, an F32 as it is. */
     float f() const;
+    /** The raw bits as a signed integer (a U16 not sign-extended, unlike Ac2Record::i). */
     int32_t i() const { return int32_t(raw); }
-    // For display: the value as text.
+    /** For display: the value as text. */
     std::string str() const;
 };
 
+/** A record: its tag, its fields and the records that belong to it. */
 struct Ac2Record {
     std::string tag;
     // Fields in file order, named where their use is known, else by
@@ -46,13 +52,20 @@ struct Ac2Record {
     // Sub-records that follow an object's own fields (SPRT, MODL, ANIM...).
     std::vector<Ac2Record> parts;
 
+    /** The first field or part of that name or tag, or null. */
+    ///@{
     const Ac2Value *field(std::string_view name) const;
     const Ac2Record *part(std::string_view tag) const;
+    ///@}
+    /** A field's value as a float, a signed integer or text; 0 or "" if there's no such field. */
+    ///@{
     float f(std::string_view name) const;
     int32_t i(std::string_view name) const;
     std::string text(std::string_view name) const;
+    ///@}
 };
 
+/** A scene file's records, as read. */
 struct Ac2Scene {
     std::string path; // the scene's own name, as SCEN gives it
     size_t end = 0;   // the bytes read, to the end of DONE
@@ -63,29 +76,30 @@ struct Ac2Scene {
     // (npos: none merged).
     size_t actFrom = std::string::npos;
 
+    /** The first CAMR record, or null. */
     const Ac2Record *camera() const;
-    // Whether the record (one of `records`) is the act's version's own.
+    /** Whether the record (one of `records`) is the act's version's own. */
     bool fromAct(const Ac2Record *r) const {
         return actFrom != std::string::npos && r >= records.data() + actFrom && r < records.data() + records.size();
     }
-    // The objects (records the game creates an object for).
+    /** The objects (records the game creates an object for). */
     std::vector<const Ac2Record *> objects() const;
 };
 
-// Reads a scene. Stops with an error at a tag it doesn't know, keeping
-// what came before.
+/** Reads a scene. Stops with an error at a tag it doesn't know, keeping what came before. */
 Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out);
 
-// Reads an .ac1 scene (And Then There Were None's): .ac2's records, with
-// its text a byte a character (Windows-1252) in the same fixed buffers.
-// See docs/engines/awe/games/attwn/formats/ac1.md.
+/**
+ * Reads an .ac1 scene (And Then There Were None's): .ac2's records, with
+ * its text a byte a character (Windows-1252) in the same fixed buffers.
+ * See docs/engines/awe/games/attwn/formats/ac1.md.
+ */
 Error parseAc1(const std::vector<uint8_t> &data, Ac2Scene &out);
 
-// Whether a tag names an object (2DOB, SPOT, NPCX...) rather than a scene
-// setting.
+/** Whether a tag names an object (2DOB, SPOT, NPCX...) rather than a scene setting. */
 bool isAc2Object(std::string_view tag);
 
-// Writes the scene as indented text, for tools.
+/** Writes the scene as indented text, for tools. */
 std::string dumpAc2(const Ac2Scene &scene);
 
 } // namespace reluva::awe

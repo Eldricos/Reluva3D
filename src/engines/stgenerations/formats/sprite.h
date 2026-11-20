@@ -10,10 +10,7 @@
 
 namespace reluva::stgenerations {
 
-// A set of billboard sprites for the 3D away missions (.GS2), e.g. a
-// crew member walking (verid1/001.gs2) or a flame (008.gs2).
-//
-// Layout, worked out from verid1/001.gs2 and 008.gs2:
+// A sprite set's layout, worked out from verid1/001.gs2 and 008.gs2:
 //
 //   uint32   2 (version; .GSF files have 1 and a different layout)
 //   uint32   frame count
@@ -35,10 +32,17 @@ namespace reluva::stgenerations {
 //                                      pixels hold
 //
 // Both samples parse to exactly their end with the advertised frame count.
+
+/**
+ * A set of billboard sprites for the 3D away missions (.GS2), e.g. a
+ * crew member walking (verid1/001.gs2) or a flame (008.gs2).
+ */
 class SpriteSet {
 public:
+    /** The index of a pixel that isn't drawn. */
     static const uint8_t kTransparent = 0xFF;
 
+    /** One picture of the set. */
     struct Frame {
         // Upright image; transparent pixels hold kTransparent.
         Canvas surface;
@@ -47,15 +51,22 @@ public:
         double halfWidth = 0;
     };
 
+    /** Reads a version 2 set; false (with a warning) if it's another or damaged. */
     bool load(SeekableReadStream &stream);
 
+    /** The frames; `index` must be below getFrameCount(). */
+    ///@{
     int getFrameCount() const { return (int)_frames.size(); }
     const Frame &getFrame(int index) const { return _frames[index]; }
+    ///@}
+    /** The sequences, each a list of frame indices. */
     const std::vector<std::vector<uint8_t>> &getSequences() const { return _sequences; }
 
-    // Largest frame size, for laying frames out on screen.
+    /** The largest frame's width and height, for laying frames out on screen. */
+    ///@{
     int getMaxWidth() const;
     int getMaxHeight() const;
+    ///@}
 
 private:
     std::vector<Frame> _frames;

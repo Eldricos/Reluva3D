@@ -19,7 +19,8 @@
 
 namespace reluva::x86::dx {
 
-// --- Results ----------------------------------------------------------------------------
+/** The DDERR_ and D3DERR_ results the stand-ins return. */
+///@{
 constexpr uint32_t kDDOk = 0;
 constexpr uint32_t kDDErrGeneric = 0x80004005u;
 constexpr uint32_t kDDErrInvalidParams = 0x80070057u;
@@ -38,8 +39,9 @@ constexpr uint32_t kDDErrNotFlippable = 0x887601e5u;
 constexpr uint32_t kDDErrNoColorKey = 0x887600d7u;
 constexpr uint32_t kD3DErrInvalidVertexType = 0x887602d4u;
 constexpr uint32_t kDDErrCantCreateDc = 0x8876024bu;
+///@}
 
-// --- Pixel formats (DDPIXELFORMAT) ------------------------------------------------------
+/** DDPIXELFORMAT's flags. */
 enum : uint32_t {
     kPfAlphaPixels = 0x1,
     kPfFourCC = 0x4,
@@ -49,8 +51,11 @@ enum : uint32_t {
     kPfLuminance = 0x20000,
     kPfBumpDuDv = 0x80000
 };
+/**
+ * A DDPIXELFORMAT: the channels' masks. For a Z buffer, `bits` is its
+ * depth and `g` its Z mask (zFormat()).
+ */
 struct PixelFormat {
-    // for a Z buffer: bits, -, z mask, -
     uint32_t flags = 0;
     uint32_t fourCC = 0;
     uint32_t bits = 0;
@@ -58,22 +63,39 @@ struct PixelFormat {
     uint32_t g = 0;
     uint32_t b = 0;
     uint32_t a = 0;
+    /** Whether every field is the same. */
     bool operator==(const PixelFormat &o) const {
         return flags == o.flags && fourCC == o.fourCC && bits == o.bits && r == o.r && g == o.g && b == o.b && a == o.a;
     }
+    /** Whether it's a Z buffer's. */
     bool isZ() const { return flags & kPfZBuffer; }
+    /** Bytes per pixel. */
     uint32_t bytes() const { return (bits + 7) / 8; }
+    /** The DDPIXELFORMAT at `p` in the process's memory, and one written there (with its dwSize, 32). */
+    ///@{
     static PixelFormat read(Cpu &c, uint32_t p);
     void write(Cpu &c, uint32_t p) const;
-    // A pixel's value as 0xAARRGGBB (alpha 255 without an alpha mask), and back.
+    ///@}
+    /**
+     * A pixel's value as 0xAARRGGBB (alpha 255 without an alpha mask), and
+     * back. A palettized value is looked up in `palette` (256 colours as
+     * 0xAARRGGBB; without one, a grey of the index); from 0xAARRGGBB, it is
+     * the blue taken as the index.
+     */
+    ///@{
     uint32_t toArgb(uint32_t value, const uint32_t *palette) const;
     uint32_t fromArgb(uint32_t argb) const;
+    ///@}
 };
-// PixelFormat::toArgb for many pixels of one format: each channel's
-// position worked out once, its scaling to 8 bits a table.
+/**
+ * PixelFormat::toArgb for many pixels of one format: each channel's
+ * position worked out once, its scaling to 8 bits a table.
+ */
 class ArgbConverter {
 public:
+    /** A converter for `format`; `palette` (or null) has to outlive it. */
     ArgbConverter(const PixelFormat &format, const uint32_t *palette);
+    /** A pixel's value as 0xAARRGGBB, as PixelFormat::toArgb gives it. */
     uint32_t operator()(uint32_t value) const {
         if (_wide)
             return (*_wide)[value & 0xffff];
@@ -86,7 +108,7 @@ public:
             argb |= uint32_t(c.table[((value >> c.shift) & c.mask) >> c.drop]) << c.to;
         return argb;
     }
-    // `count` pixels from `bytes` (stored in the format) to `out`.
+    /** Converts `count` pixels from `bytes` (stored in the format) to `out`. */
     void row(const uint8_t *bytes, int count, uint32_t *out) const;
 
 private:
@@ -109,12 +131,14 @@ private:
     // an alpha channel).
     bool _direct = false;
 };
-PixelFormat rgbFormat(int bits); // 8 (palettized), 16 (565), 24, 32 (X888)
+/** The display's format at `bits` per pixel: 8 (palettized), 16 (565), 24, 32 (X888). */
+PixelFormat rgbFormat(int bits);
+/** A Z buffer's format at `bits` per pixel, all of them Z. */
 PixelFormat zFormat(int bits);
-// Texture formats offered: 565, 1555, 4444, 555, 8888, X888.
+/** Texture formats offered: 565, 1555, 4444, 555, 8888, X888. */
 std::vector<PixelFormat> textureFormats();
 
-// --- Surface capabilities (DDSCAPS2) ----------------------------------------------------
+/** DDSCAPS2's first word's flags. */
 enum : uint32_t {
     kCapsAlpha = 0x2,
     kCapsBackBuffer = 0x4,
@@ -134,17 +158,24 @@ enum : uint32_t {
     kCapsLocalVidMem = 0x10000000,
     kCapsNonLocalVidMem = 0x08000000
 };
+/** DDSCAPS2's second word's flags. */
+///@{
 constexpr uint32_t kCaps2TextureManage = 0x10;
 constexpr uint32_t kCaps2MipMapSubLevel = 0x10000;
+///@}
 
-// --- Surfaces ------------------------------------------------------------------------------
+/** A RECT: right and bottom are past the edge. */
 struct Rect {
     int left = 0;
     int top = 0;
     int right = 0;
     int bottom = 0;
+    /** Its size; negative if it's back to front. */
+    ///@{
     int width() const { return right - left; }
     int height() const { return bottom - top; }
+    ///@}
+    /** The RECT at `p` in the process's memory. */
     static Rect read(Cpu &c, uint32_t p);
 };
 
@@ -153,17 +184,18 @@ class Surface;
 class Palette;
 class Clipper;
 
+/** Where a surface's pixels are, and how they're laid out. */
 struct SurfaceData {
     int width = 0;
     int height = 0;
-    int pitch = 0;
+    int pitch = 0;       // bytes from one row to the next
     uint32_t memory = 0; // in the process
     PixelFormat format;
     std::array<uint32_t, 4> caps{};
     uint64_t version = 1; // changes whenever the pixels may have
 };
 
-// An IDirectDrawSurface7 (and the older surface interfaces).
+/** An IDirectDrawSurface7 (and the older surface interfaces). */
 class Surface : public ComObject {
 public:
     SurfaceData d;
@@ -191,23 +223,39 @@ public:
     const ComInterface *query(const std::string &iid) override;
     ~Surface() override;
 
-    uint32_t pixel(int x, int y) const; // the raw value
+    /**
+     * A pixel's value as stored, and one stored; unchecked against the
+     * surface's size (memory outside the process's reads 0).
+     */
+    ///@{
+    uint32_t pixel(int x, int y) const;
     void setPixel(int x, int y, uint32_t value);
+    ///@}
+    /** A pixel as 0xAARRGGBB. */
     uint32_t argb(int x, int y) const;
-    // The palette's 256 colours as 0xAARRGGBB, or nullptr.
+    /** The palette's 256 colours as 0xAARRGGBB, or nullptr. */
     const uint32_t *paletteArgb() const;
+    /** Notes that the pixels may have changed (d.version). */
     void touched() { ++d.version; }
 
+    /** IDirectDrawSurface's Flip, Blt and BltFast, their arguments read from `c`; a DD_OK or DDERR_ result. */
+    ///@{
     uint32_t flip(Cpu &c, const ComInterface &iface);
     uint32_t blt(Cpu &c);
     uint32_t bltFast(Cpu &c);
-    // Copies src's `from` onto `to` here, stretching; with a source colour
-    // key, its colours are left out.
+    ///@}
+    /**
+     * Copies src's `from` onto `to` here, stretching and clipped to both
+     * surfaces; with a source colour key, its colours are left out.
+     */
     void copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh);
+    /** Fills `r`, clipped to the surface, with a pixel's value. */
     void fill(Rect r, uint32_t value);
+    /** The whole surface. */
     Rect bounds() const { return {0, 0, d.width, d.height}; }
 };
 
+/** An IDirectDrawPalette. */
 class Palette : public ComObject {
 public:
     std::array<uint32_t, 256> argb{}; // from PALETTEENTRY's r, g, b
@@ -217,6 +265,7 @@ public:
     const ComInterface *query(const std::string &iid) override;
 };
 
+/** An IDirectDrawClipper: only the window it clips to. */
 class Clipper : public ComObject {
 public:
     uint32_t window = 0;
@@ -227,15 +276,17 @@ public:
 
 class Device;
 
-// The DirectDraw object: IDirectDraw to IDirectDraw7, and IDirect3D7 (which
-// programs get from it with QueryInterface).
+/**
+ * The DirectDraw object: IDirectDraw to IDirectDraw7, and IDirect3D7 (which
+ * programs get from it with QueryInterface).
+ */
 class DirectDraw : public ComObject {
 public:
     DirectX::State *s = nullptr;
     bool emulationOnly = false; // made for DirectDraw's software emulation
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
-    // IDirect3D7's methods (d3d7.cpp).
+    /** IDirect3D7's methods (d3d7.cpp), as ComObject::invoke runs them. */
     std::optional<uint32_t> invoke3d(const ComInterface &iface, int index, Cpu &c);
 
 private:
@@ -244,7 +295,7 @@ private:
     void writeCaps(Cpu &c, uint32_t p, bool hardware) const;
 };
 
-// --- Interfaces ------------------------------------------------------------------------------
+/** Each interface's methods, one set for a DirectX: ComHost::define makes their vtables. */
 struct Interfaces {
     ComInterface directDraw;
     ComInterface directDraw2;
@@ -264,7 +315,8 @@ struct Interfaces {
     Interfaces();
 };
 
-// IIDs.
+/** The interfaces' and devices' IIDs, as ComHost::guid writes them. */
+///@{
 extern const char *const kIidDirectDraw;
 extern const char *const kIidDirectDraw2;
 extern const char *const kIidDirectDraw4;
@@ -286,11 +338,13 @@ extern const char *const kIidRgbDevice;
 extern const char *const kIidMmxDevice;
 extern const char *const kIidRefDevice;
 extern const char *const kIidTexture2;
+///@}
 
 } // namespace reluva::x86::dx
 
 namespace reluva::x86 {
 
+/** What a DirectX's objects share: the display, the devices and the COM host. */
 struct DirectX::State {
     DirectX &owner;
     Win32Process &process;
@@ -318,6 +372,7 @@ struct DirectX::State {
     // The display's gamma ramp (IDirectDrawGammaControl): red, green and
     // blue, 256 entries each, 0..65535; applied to the frames shown.
     std::array<uint16_t, 768> gamma = identityGamma();
+    /** The ramp that changes nothing. */
     static std::array<uint16_t, 768> identityGamma() {
         std::array<uint16_t, 768> g{};
         for (size_t i = 0; i < 768; ++i)
@@ -333,15 +388,23 @@ struct DirectX::State {
     std::weak_ptr<dx::Surface> primary;
     std::shared_ptr<dx::DirectDraw> directDraw;
 
+    /** The state of `o`, whose objects live in `p`. */
     State(DirectX &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
+    /** Waits for every device's draws to be done. */
     void finishDraws();
-    // Copies the primary surface to the frame and tells the engine: once
-    // its draws are done, or (presentShown) as it is.
+    /**
+     * Copies the primary surface (with a window, its client area) to the
+     * frame and tells the engine: once its draws are done, or
+     * (presentShown) as it is.
+     */
+    ///@{
     void present();
     void presentShown();
+    ///@}
 
-    // Makes a surface's memory; 0 if there's no room.
+    /** Makes a surface's memory, setting its pitch; 0 if there's no room. */
     uint32_t allocate(dx::SurfaceData &d);
+    /** A surface with its memory; nullptr if there's no room. */
     std::shared_ptr<dx::Surface> makeSurface(int width, int height, const dx::PixelFormat &format,
                                              const std::array<uint32_t, 4> &caps);
 };

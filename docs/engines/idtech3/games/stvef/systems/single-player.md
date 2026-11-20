@@ -66,7 +66,7 @@ The server game also calls into its client half (`cg_viewsize`, sounds),
 through the system call function `dllEntry` hands it, so that's set up at
 load.
 
-Speed: about 50 million instructions a second in a Release build before
+Speed: about 50 million instructions a second in a Release build without
 the decoded-instruction cache, about 1.5 times that with it. A Debug build
 is much slower.
 

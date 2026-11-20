@@ -1159,12 +1159,20 @@ namespace {
 // the car runs wide unless pushed back. The controller (car_ai_model):
 // ai_ctl_slow (0x407c30) reversing or with +0x4F4 under 0; ai_ctl_slide
 // (0x407fa0) on a side of the slice with no lanes (aiModelSteer), more
-// than 0.04 x the surface's grip
-// off the point it steers at (dry: 1), under 0.5 m/s or slipping sideways
-// (+0xB8 over 2.5 and |+0x4EC| over half of +0x4F4);
-// 2.5 m/s); ai_ctl_slow under 13.41 m/s; else ai_ctl_rails (0x4076b0).
-// Gains from ai_gains_init (0x405e60).
+// than 0.04 x the surface's grip off the point it steers at (dry: 1),
+// under 0.5 m/s, after a hit, or slipping sideways (+0xB8 over 2.5 m/s and
+// |+0x4EC| over half of +0x4F4); ai_ctl_slow under 13.41 m/s; else
+// ai_ctl_rails (0x4076b0). Gains from ai_gains_init (0x405e60).
+
 constexpr float kPi = 3.14159265358979f;
+
+} // namespace
+
+int aiSlice(const AiCar &c) {
+    return c.roadSlice >= 0 ? c.roadSlice : c.slice;
+}
+
+namespace {
 
 // The point steered at (0x406e50 -> 0x406d40 with 0x406980): from 4
 // slices on, stepping one at a time towards the look-ahead slice
@@ -1174,14 +1182,6 @@ constexpr float kPi = 3.14159265358979f;
 // less, either way (|dot|), with the car's slice's: the first such slice
 // itself. On Hometown (track 0) a car on slices 0x225-0x235 takes the
 // look-ahead slice as it is (0x4069c2-0x4069dc).
-} // namespace
-
-int aiSlice(const AiCar &c) {
-    return c.roadSlice >= 0 ? c.roadSlice : c.slice;
-}
-
-namespace {
-
 int aiSteerSlice(const TrackCollision &col, const AiCar &me, int track) {
     const int n = static_cast<int>(col.road.size());
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
@@ -1330,12 +1330,6 @@ void aiBodyAxesOf(const TrackCollision &col, const AiCar &c, float yaw, std::arr
     right = unit3(cross3(up, forward));
 }
 
-// The aim and the speed (0x408870, 0x4066c0 with 0x4064f0 and 0x4063e0),
-// for one step of 64 a second. The computer's model (car_ai_physics
-// 0x4088f0) is a 32 Hz task: on the even steps only, its time step
-// 0x56ec58 1/32 s, so the aim moves 0.2 every other step (3.2 in the
-// half second, as t6-log's dumps have it). The car's own motion (its
-// side offset, heading) every step.
 float aiChord(const TrackCollision &col, int slice);
 
 } // namespace
@@ -1561,18 +1555,7 @@ void aiTiltedAxes(const TrackCollision &col, const AiCar &c, std::array<float, 3
 }
 
 namespace {
-// +0x7B8 is measured from +0x98 (0x4a2bc0), the body's centre, which
-// car_on_road (0x4a1610) keeps with its box's lowest corner on the road
-// polygon's plane (clearance +0x15C = (+0x98 - the point +0x148) . the up
-// +0x130 less |up . right| half width + |up . up| half height + |up .
-// forward| half length, car_clearance 0x4a0440; under 0 the centre is
-// pushed out along +0x130). The page's place is that centre brought
-// square onto the slice's plane (its right and the chord to the next
-// point), so the centre is above it along the plane's normal by H, with
-// (place + H normal - point) . up = the box's reach: the side as measured
-// gains H x (normal . the road's right). Along the polygon's up itself
-// the road's right (up x forward, 0x420230) measures nothing.
-// The body's centre over the page's place, along the normal `m` of the
+// The body's centre over the track viewer's place, along the normal `m` of the
 // slice's plane: the place + H x m puts the box's lowest corner on the
 // road polygon's plane (car_clearance 0x4a0440 at 0). 0 unset.
 float aiCentreHeight(const TrackCollision &col, const AiCar &c, std::array<float, 3> &m) {
@@ -1603,6 +1586,17 @@ float aiCentreHeight(const TrackCollision &col, const AiCar &c, std::array<float
     return (reach - dot3(d, c.roadUp)) / mn;
 }
 
+// +0x7B8 is measured from +0x98 (0x4a2bc0), the body's centre, which
+// car_on_road (0x4a1610) keeps with its box's lowest corner on the road
+// polygon's plane (clearance +0x15C = (+0x98 - the point +0x148) . the up
+// +0x130 less |up . right| half width + |up . up| half height + |up .
+// forward| half length, car_clearance 0x4a0440; under 0 the centre is
+// pushed out along +0x130). The track viewer's place is that centre brought
+// square onto the slice's plane (its right and the chord to the next
+// point), so the centre is above it along the plane's normal by H, with
+// (place + H normal - point) . up = the box's reach: the side as measured
+// gains H x (normal . the road's right). Along the polygon's up itself
+// the road's right (up x forward, 0x420230) measures nothing.
 float aiCentreLift(const TrackCollision &col, const AiCar &c) {
     std::array<float, 3> m{};
     const float h = aiCentreHeight(col, c, m);
@@ -2024,7 +2018,7 @@ bool aiRoadContact(AiCar &me, std::array<float, 3> &centre, const std::array<flo
 // slice's run (+0x14, +0x18 set, +0x6C 0) whose surface is neither 0 nor
 // 14; under that polygon's plane (its road vector's up, s16 x 2 / 65536,
 // through its point) it takes aiRoadContact. Without the track's
-// polygons the page tests every point against the car's own plane. The
+// polygons the track viewer tests every point against the car's own plane. The
 // pushes' total along `planeUp` comes back in `raised`.
 bool aiBodyUnderRoad(AiCar &me, std::array<float, 3> &centre, const std::array<float, 3> &planeUp,
                      const std::array<float, 3> &planePoint, const std::array<float, 3> &r,
@@ -2135,26 +2129,7 @@ void aiAirTurn(AiCar &car, const TrackCollision &col) {
     }
 }
 
-// car_landing (0x4a1ce0), each tick in the air with the clearance at
-// most 0.6. While the velocity goes into the road (its dot with the road
-// polygon's up +0x130 under 0) and car_body_under_road finds the body
-// under it (aiBodyUnderRoad, which pushes the car out and takes the
-// impulses), the clearance is 0 and, upright (+0x10C over 0.9,
-// 0x53c85c), the velocity's part along the up of the rows at +0x124 and
-// the three spins are x (0.5 + e) (0x53c874): e = the set-up's Suspension
-// Stiffness x 0.1 (0x53c864) x P's (+0x2E0), kept within 0 and 0.2
-// (0x53c86c); the set-up's is 1 for a computer car (`suspStiffness` is
-// P's). Nothing turns the speed into the road round: no bounce. Then,
-// with the speed along the up under 0.5 (0x5efddc), every spin under 0.6
-// (0x53c88c), the body flat (car_flat_or_roof 0x49fde0: |+0x10C| over
-// 0.9) and the clearance 0 or less, +0x164 is cleared (0x4a2068; the
-// on-road code takes the rest of the speed into the road the next tick);
-// else, upright, the skid levels are the yaw spin x 5 (0x53c894; only the
-// page's effects read them). The landing's own impact (+0x168 4 x the
-// speed into the road, +0x170 the surface | 0x10000) goes to no computer
-// car's controller: the impacts task reacts to hits by other cars only
-// (+0x16C set, 0x42b99d).
-// The body's centre (+0x98) as the page keeps it: its place on the
+// The body's centre (+0x98) as the track viewer keeps it: its place on the
 // slice's plane, raised along that plane's normal until the box's lowest
 // corner is on the road polygon's plane (aiCentreHeight), and the
 // clearance (`lift`) over it along the polygon's up `up`; with no polygon
@@ -2194,6 +2169,25 @@ void aiMoveCentre(AiCar &me, const TrackCollision &col, const std::array<float, 
     aiLocate(me, col, {place[0] + moved[0], place[1] + moved[1], place[2] + moved[2]});
 }
 
+// car_landing (0x4a1ce0), each tick in the air with the clearance at
+// most 0.6. While the velocity goes into the road (its dot with the road
+// polygon's up +0x130 under 0) and car_body_under_road finds the body
+// under it (aiBodyUnderRoad, which pushes the car out and takes the
+// impulses), the clearance is 0 and, upright (+0x10C over 0.9,
+// 0x53c85c), the velocity's part along the up of the rows at +0x124 and
+// the three spins are x (0.5 + e) (0x53c874): e = the set-up's Suspension
+// Stiffness x 0.1 (0x53c864) x P's (+0x2E0), kept within 0 and 0.2
+// (0x53c86c); the set-up's is 1 for a computer car (`suspStiffness` is
+// P's). Nothing turns the speed into the road round: no bounce. Then,
+// with the speed along the up under 0.5 (0x5efddc), every spin under 0.6
+// (0x53c88c), the body flat (car_flat_or_roof 0x49fde0: |+0x10C| over
+// 0.9) and the clearance 0 or less, +0x164 is cleared (0x4a2068; the
+// on-road code takes the rest of the speed into the road the next tick);
+// else, upright, the skid levels are the yaw spin x 5 (0x53c894; only the
+// track viewer's effects read them). The landing's own impact (+0x168 4 x the
+// speed into the road, +0x170 the surface | 0x10000) goes to no computer
+// car's controller: the impacts task reacts to hits by other cars only
+// (+0x16C set, 0x42b99d).
 void aiLanding(AiCar &me, const TrackCollision &col, const std::array<float, 3> &nu, float upright,
                const std::array<float, 3> &r, const std::array<float, 3> &u, const std::array<float, 3> &f) {
     const int n = static_cast<int>(col.road.size());
@@ -2211,7 +2205,7 @@ void aiLanding(AiCar &me, const TrackCollision &col, const std::array<float, 3> 
         // under the road moving away is pushed out too, and the push is the
         // whole vector, not only its part along this polygon's up: that part
         // goes to the clearance (`lift`), the rest moves the place across
-        // the slice's plane (the page keeps its place on it).
+        // the slice's plane (the track viewer keeps its place on it).
         (void)raised;
         aiMoveCentre(me, col, up, {centre[0] - before[0], centre[1] - before[1], centre[2] - before[2]});
         if (under) {
@@ -2340,7 +2334,7 @@ AiDynamics aiModelSteer(AiCar &me, const TrackCollision &col, int step, int trac
                 for (size_t k = 0; k < 3; ++k)
                     me.vel[k] -= me.downforce * 2.0f * along * gu[k];
         }
-        // Then, in the air (+0x164 set), its drag (aiAirDrag; the page has
+        // Then, in the air (+0x164 set), its drag (aiAirDrag; the track viewer has
         // no traffic).
         if (me.airTicks != 0)
             aiAirDrag(me.vel, gr, gu, gf, false);
@@ -2395,7 +2389,7 @@ AiDynamics aiModelSteer(AiCar &me, const TrackCollision &col, int step, int trac
         // it too, as the plane's up is now.
         if (me.roadUpSet) {
             if (me.liftPlaneSet && (me.liftUp != me.roadUp || me.liftPoint != me.roadPoint)) {
-                // The same centre over the new plane: the page's centre is put
+                // The same centre over the new plane: the track viewer's centre is put
                 // with the box's lowest corner on the plane (aiCentreHeight), so
                 // it moves by the two heights' difference along the slice's
                 // normal; the lift kept along the old up.
@@ -2968,7 +2962,7 @@ void aiPutOnGrid(AiCar &c, const Track &track, const TrackCollision &col, int sl
         return;
     slice = ((slice % n) + n) % n;
     // car_place_on_slice (0x4a0aa0): on the slice's point, along its right
-    // by the offset (and 0.5 up, then down onto the road: the page's place
+    // by the offset (and 0.5 up, then down onto the road: the track viewer's place
     // is on it), its track position searched there (0x4a08c0, 0x49ffa0).
     c.slice = slice;
     c.roadSlice = slice;
@@ -3022,6 +3016,12 @@ void aiPutOnGrid(AiCar &c, const Track &track, const TrackCollision &col, int sl
 
 namespace {
 
+// The aim and the speed (0x408870, 0x4066c0 with 0x4064f0 and 0x4063e0),
+// for one step of 64 a second. The computer's model (car_ai_physics
+// 0x4088f0) is a 32 Hz task: on the even steps only, its time step
+// 0x56ec58 1/32 s, so the aim moves 0.2 every other step (3.2 in the
+// half second, as t6-log's dumps have it). The car's own motion (its
+// side offset, heading) every step.
 void aiMove(AiCar &me, const AiCarData &data, bool weather, int step, const TrackCollision &col, int track) {
     // +0x7C4 as the race task took it (0x42ce70), before this tick's
     // gravity and forces.
@@ -3729,7 +3729,7 @@ void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, co
     aiMove(me, data, weather, step, col, track);
     if (me.putBackDue)
         aiPutBack(cars, self, col);
-    aiAdvance(me, col); // AiPhase::Both: the place moved too (car_move)
+    aiAdvance(me, col); // AiPhase::kBoth: the place moved too (car_move)
 }
 
 bool aiAtRaceStart(int distance, int place, int racers, bool backward, int extra) {
@@ -4322,7 +4322,7 @@ void aiPlaceAhead(std::vector<AiCar> &cars, size_t self, const TrackCollision &c
     me.lane = aiLaneAt(col.road[size_t(slice)], offset);
     me.ghostTicks = 64;
     // car_place_on_slice's rows (0x4a0980): the road polygon's 16.16 rows
-    // there (here facing the car's way, as the page keeps it).
+    // there (here facing the car's way, as the track viewer keeps it).
     if (me.roadTrack) {
         aiRoadFrame(*me.roadTrack, col, me);
         const float w = me.way < 0 ? -1.0f : 1.0f;
@@ -4377,8 +4377,8 @@ void aiResetTipped(std::vector<AiCar> &cars, size_t self, const TrackCollision &
     const float upright = dot3(u, up);
     const int surface = aiRoadSurfaceAt(me) < 0 ? 1 : aiRoadSurfaceAt(me);
     // 0x428fd1-0x429022, as ints: +0x10C over 0.75, +0xE4 and +0xEC under
-    // 1, the surface (+0x18C) not 14 or 0, +0x184 0 (never set on the
-    // page), +0x164 at most 5 (unsigned), +0x15C under 0.6: left as it is.
+    // 1, the surface (+0x18C) not 14 or 0, +0x184 0 (never set in the
+    // track viewer), +0x164 at most 5 (unsigned), +0x15C under 0.6: left as it is.
     if (upright > 0.75f && me.spinX < 1.0f && me.spinZ < 1.0f && surface != 14 && surface != 0 && me.airTicks <= 5 &&
         me.lift < 0.6f)
         return;
@@ -4501,7 +4501,7 @@ void aiTilt(AiCar &car, int step, const TrackCollision &col) {
         nu = {-nu[0], -nu[1], -nu[2]};
     // car_on_road turns the body towards the up of the rows it took the
     // velocity through (0x4a1a3d's frame, aiContactFrame), when the box
-    // touches (the clearance 0 or less); the page always.
+    // touches (the clearance 0 or less); the track viewer always.
     std::array<float, 3> f{};
     std::array<float, 3> r{};
     std::array<float, 3> u{};
@@ -4689,7 +4689,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
         return from <= slice && slice <= to;
     };
     // cop_ai_order_head (0x403000, 0x4028e0): facing the order's first
-    // slice; the page turns the car on the spot.
+    // slice; the track viewer turns the car on the spot.
     auto face = [&](bool against) {
         const int way = against ? -1 : 1;
         if (me.way != way) {
@@ -4806,7 +4806,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
         // cop_ai_spike_watch (0x403df0): radio once as the watched racer
         // is past the strip by less than 30 slices, clear it 50 past. The
         // game counts the slices the race's way (negated with g_backward);
-        // the page's racers may go either way, so by the racer's.
+        // the track viewer's racers may go either way, so by the racer's.
         if (me.stripOn && me.watching >= 0 && static_cast<size_t>(me.watching) < cars.size()) {
             const AiCar &w = cars[size_t(me.watching)];
             const int d = sliceDiff(me.stripSlice, w.slice) * w.way;
@@ -5213,7 +5213,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
                 break;
             }
             if (me.orderKind < 0)
-                break; // the page's run with the siren, with no order
+                break; // the track viewer's run with the siren, with no order
             if (!inRange(me.slice))
                 head();
             else if (me.copState == 8)
@@ -5278,7 +5278,7 @@ void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col,
     aiMove(me, data, weather, step, col, track);
     if (me.putBackDue)
         aiPutBack(cars, self, col);
-    aiAdvance(me, col); // AiPhase::Both: the place moved too (car_move)
+    aiAdvance(me, col); // AiPhase::kBoth: the place moved too (car_move)
 }
 
 std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t> &bytes) {

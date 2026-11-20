@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Clue engine's unit tests: The front end: a dialog drawn from
+// The Clue engine's unit tests: the front end: a dialog drawn from
 // dialogInfo.res, and the original's Prefs.ini.
 
 #include "engines/clue/game/ai.h"

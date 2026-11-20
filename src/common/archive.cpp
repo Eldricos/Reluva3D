@@ -26,8 +26,6 @@ std::string normalizeArchiveName(std::string_view name) {
     return out;
 }
 
-// --- DirectoryArchive ------------------------------------------------------------
-
 Error DirectoryArchive::open(const std::filesystem::path &dir, int maxDepth) {
     _dir = dir;
     _files.clear();
@@ -80,8 +78,6 @@ Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t> &out) c
         return Error::fail("Cannot read " + it->second.string());
     return Error::success();
 }
-
-// --- SearchSet --------------------------------------------------------------------
 
 void SearchSet::add(std::unique_ptr<Archive> archive, int priority) {
     // Before the first member of lower or equal priority: newest first

@@ -22,18 +22,20 @@
 
 namespace reluva::stgenerations {
 
-// The bridge: sgens.exe's strategic star map (module 0x47557D), where
-// Picard takes the Enterprise from star to star, scans for Soran and
-// beams down or engages.
-//
-// Above, the map of the ten stars of DESIGN/UNIVERSE.INI, with the fleets,
-// the Nexus and Picard and Data at the rail; below, the panel: the text
-// and scanner display, the stardate, and the buttons. Time passes only as
-// the player acts: a warp takes a stardate, a scan a tenth.
-//
-// The campaign runs it through its script commands (CampaignWorld); what
-// the player does comes back as events. It draws in true colour, as the
-// original's 16-bit screen did, every bitmap in its own palette.
+/**
+ * The bridge: sgens.exe's strategic star map (module 0x47557D), where
+ * Picard takes the Enterprise from star to star, scans for Soran and
+ * beams down or engages.
+ *
+ * Above, the map of the ten stars of DESIGN/UNIVERSE.INI, with the fleets,
+ * the Nexus and Picard and Data at the rail; below, the panel: the text
+ * and scanner display, the stardate, and the buttons. Time passes only as
+ * the player acts: a warp takes a stardate, a scan a tenth.
+ *
+ * The campaign runs it through its script commands (CampaignWorld); what
+ * the player does comes back as events. It draws in true colour, as the
+ * original's 16-bit screen did, every bitmap in its own palette.
+ */
 class Bridge : public CampaignWorld {
 public:
     static const int kWidth = 640;
@@ -41,20 +43,26 @@ public:
     static const int kSuns = 10;
     static const int kFleets = 25;
 
-    // What the player did that the campaign must act on.
+    /** What the player did that the campaign must act on. */
     struct Event {
+        /** What it was: beam down, engage, a fleet to fight, or the menu. */
         enum Type { kNone, kTransport, kTactical, kCombat, kOptions };
         Type type = kNone;
         // The fleet to fight (kCombat).
         int fleet = 0;
     };
 
+    /**
+     * The bridge, with STELLAR.DAT's data. The resources, the campaign and
+     * the random numbers must outlive it; the mixer may be null, for no
+     * sound.
+     */
     Bridge(const ResourceManager &resources, Mixer *mixer, Campaign &campaign, RandomSource &random);
     ~Bridge() override;
 
-    // Read UNIVERSE.INI and the pictures; false if STELLAR.DAT lacks them.
+    /** Reads UNIVERSE.INI and the pictures; false if STELLAR.DAT lacks them. */
     bool load();
-    // A new game: everything as UNIVERSE.INI starts it (0x4199F8).
+    /** A new game: everything as UNIVERSE.INI starts it (0x4199F8). */
     void reset();
 
     // CampaignWorld
@@ -68,29 +76,35 @@ public:
     bool isZooming() const override { return _zoomLeft > 0; }
     bool isEnterpriseIdle() const override;
 
+    /** Whether a star of the map has that name, in any case. */
     bool isSun(const std::string &name) const { return findSun(name) >= 0; }
 
-    // Another activity takes the screen: the bridge goes, with its sounds.
+    /** Another activity takes the screen: the bridge goes, with its sounds. */
     void hide();
+    /** Whether the bridge is up. */
     bool isShown() const { return _shown; }
 
-    // Run by ms.
+    /** Runs by ms. */
     void update(uint32_t ms);
-    // Draw on a 640 x 480 ARGB8888 surface.
+    /** Draws on a 640 x 480 ARGB8888 surface. */
     void draw(Canvas &screen);
 
+    /** The mouse and keys on the bridge. */
+    ///@{
     void mouseMove(int x, int y);
     void mouseDown(int x, int y);
     void mouseUp(int x, int y);
     void keyDown(const KeyState &key);
+    ///@}
+    /** The oldest event not yet taken, or one of type kNone. */
     Event takeEvent();
 
-    // Subtitles on or off.
+    /** Subtitles on or off. */
     void setSubtitles(bool on) { _subtitles = on; }
 
-    // Save or load the map's state (0x565AC0..), not the pictures.
+    /** Saves or loads the map's state (0x565AC0..), not the pictures. */
     void sync(Serializer &s);
-    // After loading: fleets that were warping are gone (0x419703).
+    /** After loading: fleets that were warping are gone (0x419703). */
     void afterLoad();
 
 private:

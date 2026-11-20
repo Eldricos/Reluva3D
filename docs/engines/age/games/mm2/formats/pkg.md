@@ -2,9 +2,11 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/pkg.cpp` · **Checked on:** the English release, 1,040 models · **Confidence:** confirmed unless marked
 
+## Overview
+
 Midtown Madness 2's models, `geometry/*.pkg` in `mm2core.ar` (1,040 of
 them: cars, buildings, props, bridges), with `.mtx` files placing their
-parts. Read by `src/engines/age/formats/pkg.cpp`; `reluva-tool pkg-info` shows
+parts. Read by `src/engines/age/formats/pkg.cpp`; `reluva-tool age pkg-info` shows
 one or reads a game's.
 
 ## Layout
@@ -148,7 +150,7 @@ The city draws the others where their matrix puts them in the model
 lamps are lit: red on the power station's chimneys and the Hyatt, white
 on Tower Bridge (steady: whether the game's blink isn't known).
 
-## What doesn't load
+### What doesn't load
 
 Six of the 1,040 files, none used by the game:
 
@@ -158,6 +160,16 @@ Six of the 1,040 files, none used by the game:
   dune buggy is `vpdune.pkg`).
 - `wf_hse_baywin03_stone_wht_5s_12_l.pkg`, `ww_bldg1_stone_tan_t6_20_l.pkg`:
   empty.
+
+## In Reluva
+
+Read by `src/engines/age/formats/pkg.cpp` (`readPkg`, and `readMtx` for
+the placements). The Models page (`pages/model_viewer.cpp`) shows every
+model with its parts placed, its paint jobs and levels of detail, and
+lists its xrefs; cars are drawn by `render/car_actor.cpp` and the city's
+models by `render/city_scene.cpp`. `reluva-tool age pkg-info` shows one
+model and writes it as an OBJ, or reads a game's; `age check` reads
+every model.
 
 ## Sources and checks
 
@@ -171,7 +183,7 @@ the vertices were followed by a count and 16-bit indices below the
 vertex count. With that, a parser was run over every model and checked
 that each section ends exactly where its size says and that the vertex
 and index counts add up to the totals in its header: 4,666 of the 4,668
-meshes do (the two that don't are below).
+meshes do (the two that don't are above).
 
 The shaders' layout was found the same way, checked by every one of the
 1,034 shader sections ending exactly at its size. Which colour is which:
@@ -189,4 +201,4 @@ right-handed with Y up and cars facing -Z: the Beetle's headlights are
 at -Z, its left front wheel at -X, and its steering wheel on the left
 (a left-hand-drive car); text on the bus reads the right way round.
 
-- **How it was checked:** 1,034 of 1,040 models load (the 6 that don't are named below, and in the game-files test's record); `age.unit.formats`.
+- **How it was checked:** 1,034 of 1,040 models load (the 6 that don't are named above, and in the game-files test's record); `age.unit.formats`.

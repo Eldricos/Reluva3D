@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Need for Speed III's unit tests: the computer's cars: gears, in the
+// air, driving, catching up, the police and their pursuits, cars hitting
+// each other, and the police's stops, spike strips and calls for help.
+//
 //   reluva-tests nfs.unit.computer
 
 #include "tests/engines/nfs/fixtures.h"
@@ -1223,7 +1227,7 @@ void testCarHits() {
     // police car beside it. Hits over 5 but not over 30 between a racer
     // and a police car (neither traffic, +0x200 bit 0x10: car_kind_from_role
     // 0x428700 gives police 0x20 and 2) start no smoke and so no fire, the
-    // smoke's ticks run with each step's car (as the Track page now runs
+    // smoke's ticks run with each step's car (as the Track page runs
     // them, from the cars' steps) for 200 steps; the same hit on a traffic
     // car smokes and stops once the car is down and still.
     {

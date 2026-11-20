@@ -2,35 +2,14 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/col.cpp` · **Checked on:** all 9 tracks' files · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/col.cpp`), and checked on all 9
-retail tracks.
+## Overview
 
-## Sources and checks
-
-October 2026, from hex dumps and survey scripts:
-
-- **Starting point.** The block ids follow the NFS modding community's
-  descriptions of NFS III's COL.
-- **Blocks.** Every block's size field accounts for exactly the space to
-  the next.
-- **Structures.** Every structure's size is 8 + 16 × vertices + 6 ×
-  polygons.
-- **Objects.** Every object's size is 8 + 20 × keys.
-- **Virtual road.** Its fields were read off the data:
-  - the positions step along the road (Hometown's first points, a few
-    metres apart, next to block 0's centre);
-  - the forward vector matches the step to the next point;
-  - the right vector is perpendicular to it.
-- **By eye.** Drawn as barriers on the Tracks page (**G**), the walls
-  follow every bend just outside the shoulders, the right one along the
-  fence.
-- **Mask and side codes.** From the nfs3.exe code that reads bytes 12
-  and 14 (found from every use of the points' pointer, `0x5dd948`), and
-  counts over all nine tracks' points.
-
-All values are little-endian.
+Each track's `.col` file: the virtual road the game drives on and keeps
+cars within, the 3D structures, and the moving objects, in blocks (below).
 
 ## Layout
+
+All values are little-endian.
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -113,9 +92,9 @@ each is byte / 128: in every one of the points' readers found from
 `0x4304b0`, `0x428ad0`, the race task `0x42ce70`); no 1/127 constant is
 read by any of them (the exe's two are the sound code's, `0x437e00`).
 Their lengths are then a little under 1 (Hometown's forwards and rights
-0.981-0.992, mean 0.987). Reluva had divided by 127; checked against the
-computer cars' side force per call (frd.md, The road's vectors are byte
-/ 128).
+0.981-0.992, mean 0.987). They aren't byte / 127, as unit vectors would
+suggest: checked against the computer cars' side force per call (frd.md,
+The road's vectors are byte / 128).
 | 28 | s32 | the left wall's distance from the point along −right, 16.16 |
 | 32 | s32 | the right wall's distance along right, 16.16 |
 
@@ -388,6 +367,8 @@ walls guide and the wall hits' particles (below) so far. The walls guide
 (Track page, key G) draws each side red on the left and green on the
 right, blue where the side's code is 3 and white where it is 5.
 
+## Behaviour
+
 ### Particles
 
 The wall hits' sparks, dust and smoke, read from nfs3.exe in October
@@ -499,8 +480,8 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
   sine: in `e6-runs/t8d`'s list the smoke's first corners are (+sin,
   +cos) × the half size, to 0.2 pixel for all 8 quads against the dumped
   angles, and the sine's part is 330.33 / 320 longer (36.0 against
-  35.1 for a half size of 36.1). Until November 2026 the Track page
-  took A as sin × half, which mirrors the picture across its diagonal.
+  35.1 for a half size of 36.1). A isn't sin × half, which would mirror
+  the picture across its diagonal.
 - With renderer flag bit 6 (`0x7a3a58`, Direct3D) set and the effects intensity
   under 1, kinds with `+0x58` bit 0 are dimmed (`0x4cbf2f`): each byte
   of the colour × round(f × 65536) >> 16 (`0x540448`, 65536.0), not
@@ -510,8 +491,8 @@ flags; quads are sorted by depth (`0x4c7610`) with the scene's.
   Direct3D look (Shift+Y; `dimParticle`).
 
 **Pictures** (`0x4cb590`): `SPnn` of `GameData/Render/pc/sfx.fsh` for
-kind nn by day, `SNnn` by night. The first account here had them the
-other way round; the code is `cmp dword [0x6fd4c8], 0` / `je 0x4cb5ad`
+kind nn by day, `SNnn` by night, not the other way round: the code is
+`cmp dword [0x6fd4c8], 0` / `je 0x4cb5ad`
 (`0x4cb64a`), and `0x4cb5ad` pushes `'SP%02d'` (`0x540430`), the
 fall-through `'SN%02d'` (`0x540428`); `0x4d4080` loads each into
 `0x7ddd68` + kind × 44 (November 2026). The day set is the brighter:
@@ -519,9 +500,7 @@ fall-through `'SN%02d'` (`0x540428`); `0x4d4080` loads each into
 9-75, their alphas the same (up to 217); in `e1-t8s0`'s THRASH list
 (Empire City by day, frame 2818) the smoke's texture is 33-153 in 4-bit
 steps, `SP06` as uploaded at 4:4:4:4. `SN03` (sparks) is 8 × 8, opaque,
-yellow; `SN02` (dust) a dark brown puff, 32 × 32 with alpha. The Track
-page took `SN` by day until November 2026, so its smoke and dust by day
-were the night's, about half as bright.
+yellow; `SN02` (dust) a dark brown puff, 32 × 32 with alpha.
 
 **In a THRASH list** (`e1-t8s0`, Empire City by day, Hot Pursuit with
 racer 1 held 18 m ahead by pokes; the particles' 600 slots dumped at sky
@@ -535,36 +514,38 @@ the frame's fog state, 475). The dump's positions projected with the
 dumped camera land on the quads' centres to 0.1 pixel, and their
 half sizes (size × 320 / depth) on the quads' extents.
 
-**Its brightness** (November 2026). By day the page's smoke was 9.5-10.7
-brighter than `reluva-tool nfs host`'s frame of the same moment (Empire City frame
-2816, the region round the held car's tail), the scenery beside it only
-1.5-4. The colour fade, the picture (`SP06`, 4:4:4:4 as uploaded), the
-fog (475, both) and the blend (source alpha over, both) agree; the
-difference was the host's 16-bit buffer, which truncated each blended
-layer where `voodoo2a.dll` has Glide dither 4x4 ([thrash.md](../systems/thrash.md),
-Dithering). With the dither the smoke is 2.8-4.1 under the page's and
-the scenery 0.8-2.4 (`e5-t8d0`). Of the 3-4 left (3.1-4.4 in `e6-runs/t8d`), about 1 was
-the picture: the game uploads `SP06` at 4:4:4:4 (`0x4d27e0`), which the
-page now does too (2.3-3.6 left); the rest is the host's truncating
+**Its brightness** (November 2026), against `reluva-tool nfs host`'s
+frame of the same moment (Empire City frame 2816, the region round the
+held car's tail). The colour fade, the picture (`SP06`, 4:4:4:4 as
+uploaded), the fog (475, both) and the blend (source alpha over, both)
+agree. Without dither, the host's 16-bit buffer truncates each blended
+layer, and the page's smoke is 9.5-10.7 brighter than the host's, the
+scenery beside it only 1.5-4; `voodoo2a.dll` has Glide dither 4x4
+([thrash.md](../systems/thrash.md),
+Dithering), and with the dither the smoke is 2.8-4.1 under the page's and
+the scenery 0.8-2.4 (`e5-t8d0`). Of the 3-4 left (3.1-4.4 in `e6-runs/t8d`), about 1 is
+the picture's depth: the game uploads `SP06` at 4:4:4:4 (`0x4d27e0`), as
+the page does (2.3-3.6 left with it); the rest is the host's truncating
 blend into 5:6:5, rounded to the nearest within 0-1 of the page's
 ([thrash.md](../systems/thrash.md), Dithering). How the Voodoo rounds isn't known,
 so that part stays.
 
 **Its spread over the car** (November 2026, `e7-runs`: `e6-runs/t8o`,
 frame 2816, against the page from the same dumps, the held car seen
-from its right rear). The page's smoke spread further over the car's
-front than the game's. The puffs' places and sizes were not the cause:
+from its right rear). With the picture's corners mirrored the page's
+smoke spreads further over the car's front than the game's. The puffs'
+places and sizes don't:
 the dump's 8 particles project onto the list's quads (`t8d`) to 0.1
 pixel and their half sizes to 0.2; no puff moves (velocities under 0.1
 m/s, held by the dump) and their depths (18.0-18.2 against the car's
-19.05) put them over the car in both. The cause was the picture's
-corners (above): `SP06`'s dense part sat on the other side of each puff.
-With the corners as the game sets them, over the car's front (434-456,
-238-256 of the 640 × 480 frame) the page went from +5.9, +6.1, +5.8 over
-the game's to +4.9, +5.0, +4.7, and the strip under the car (440-500,
-258-263) from +6.4, +6.9, +8.5 to +3.9, +4.3, +5.9; over the puffs
-behind the car (472-498, 236-258) it is +2.8, +3.4, +3.8 (+1.7, +2.5,
-+2.9 before). What is left over the front is mostly the car: without
+19.05) put them over the car in both. The picture's corners do
+(above): mirrored, `SP06`'s dense part sits on the other side of each
+puff. With the corners as the game sets them, over the car's front
+(434-456, 238-256 of the 640 × 480 frame) the page is +4.9, +5.0, +4.7
+over the game's (+5.9, +6.1, +5.8 mirrored), and the strip under the
+car (440-500, 258-263) +3.9, +4.3, +5.9 (+6.4, +6.9, +8.5); over the
+puffs behind the car (472-498, 236-258) it is +2.8, +3.4, +3.8 (+1.7,
++2.5, +2.9). What is left over the front is mostly the car: without
 the particles the page's car there is 85, 74, 61 where the game's frame
 (with its smoke) has 79, 75, 70, so the car's own shading differs.
 
@@ -717,13 +698,13 @@ for the children's, `0x540450` and `0x540458` 0.5, `0x5537b8` 22,
 `0x5372e4` 0.5, `0x5372e8` 15, the count `0x560ce4` 30) are the page's.
 The streak's corners on the screen (y down: the kept point twice, then
 (x + w, y + h) and (x − w, y − h); a dot (x, y), (x + w, y − h),
-(x + w, y + h), (x, y + h)) are what `streakCorners` makes. One fix:
-a particle quad's texture corners come from its picture's record
+(x + w, y + h), (x, y + h)) are what `streakCorners` makes.
+A particle quad's texture corners come from its picture's record
 (`+0x08`-`+0x24`), which `0x4d3f50` sets half a texel in from each edge
 (1 / (2 × width), `0x549438` = 2.0), and the polygon drawers use them
-for every quad without flag bit 1, streaks included; the page gave
-streaks the whole picture and every other quad 1/64, right only for 32 ×
-32 pictures. It now takes each picture's own half texel.
+for every quad without flag bit 1, streaks included. The page takes each
+picture's own half texel the same way; streaks don't get the whole
+picture, and 1/64 is right only for 32 × 32 pictures.
 
 **The surface table** (`0x553080`, rows of 0x24 bytes by surface,
 0x240 by the car's weather `+0x160`; read November 2026 with the wheel
@@ -950,7 +931,7 @@ surface 1 (the front wheels).
 
 **Verge clumps on the Track page** (checked November 2026, `i2-runs`):
 in Hometown's weather a computer car skidding with a wheel on a verge
-throws kind 11 as `0x42a280` says, and nothing was wrong to fix. In a
+throws kind 11 as `0x42a280` says. In a
 150 s run with two cops sent (C twice), 76 wheel steps had a skid level
 over 0 on surfaces 2 or 3 (cars sliding after hits, the sliding
 controller's level at 10). They are rare on their own: the cars keep to
@@ -1019,31 +1000,31 @@ cars' spin is their yaw, roll and pitch rates about their own axes, put
 into the world for the stop test; the status line names the last hit.
 In `g2/crash-3.png` (Hometown in the weather, a racer and a police car
 at a roadblock, strength 8) the burst's yellow streaks sit at the
-contact and a fire burns on the racer; the page's cars hit softer than
+contact; the page's cars hit softer than
 `Rain`'s truck (up to strength 8 against the truck's head-on 35 mph),
 so their dust puffs are smaller.
 
-**That fire** (November 2026). The status line names only the last
-hit, and a hit of 8 on a racer can't start the smoke: the code (`0x42ad15`
+**No smoke at a roadblock** (November 2026). A hit of 8 on a racer
+can't start the smoke: the code (`0x42ad15`
 compares the strength's bits with 30.0's, `0x41f00000`, unless `+0x200`
 has bit 0x10) needs traffic, and `car_kind_from_role` (`0x428700`) gives
 police cars 0x20 and 2, racers 1 (and 8 for the computer's), traffic
 alone 0x10; `car_pursuit_states` (`0x405740`) only toggles bit 2. The
 page's racers and police aren't traffic, and in three runs of the same
 roadblock (h2 `r1`-`r3`, dozens of hits each, strengths up to 21) no smoke
-started. So the fire must have come from an earlier hit over 30 (not
-seen again), but it should then have stopped once the car was down and still. It didn't
-because the page ran the cars' effects from the particles' loop, paced
-by the frame (up to 64 ticks a frame), while the cars moved at most 16
-steps a frame: every tick of a frame saw the frame's last car, so a hit's
-air tick (`+0x164`, one more for each hit over 5, `0x5373f4`) held the
-stop test off for the whole frame. With every hit made smoke (a debug
-build), one frame ran a smoke 20 ticks on one car state (`r4`); a frame
-of a second turns it to fire. The page now runs `tickCarEffects` from
-`moveCars` after each 64 Hz step's hits and moves, as `car_impacts_task`
-runs in the cars' Sc64 list: the same debug build's smokes then end in
-3-7 steps with the car's state changing each step (`r5`), and the
-roadblock shows sparks and dust, no smoke (`h2/after6-2.png`).
+started. A smoke from a hit over 30 stops once the car is down and
+still. The page runs `tickCarEffects` from `moveCars` after each 64 Hz
+step's hits and moves, as `car_impacts_task` runs in the cars' Sc64
+list, not from the particles' loop: that is paced by the frame (up to 64
+ticks a frame) while the cars move at most 16 steps a frame, so every
+tick of a frame would see the frame's last car, and a hit's air tick
+(`+0x164`, one more for each hit over 5, `0x5373f4`) would hold the stop
+test off for the whole frame. With every hit made smoke (a debug build),
+run from the particles' loop one frame ran a smoke 20 ticks on one car
+state (`r4`), and a frame of a second turns it to fire; run from
+`moveCars`, the smokes end in 3-7 steps with the car's state changing
+each step (`r5`), and the roadblock shows sparks and dust, no smoke
+(`h2/after6-2.png`).
 
 On the Tracks page a fast hit at 28 units (Summit block 196) gives a
 small orange cluster, then orange dots and short streaks spreading
@@ -1059,10 +1040,10 @@ triangles): set, THRASH state 0x68 (blend) goes to 1, source alpha and
 one, so the quad is added scaled by its alpha; clear, 0, source alpha
 over ([thrash.md](../systems/thrash.md)). The record's `+0x4` word picks the drawer
 (the table at `0x5f0780`, through `0x434950`). So sparks are added, as
-the Track page draws them; no longer inferred.
+the Track page draws them.
 
 **Inferred, not followed:** that the picture is multiplied by the corners'
-colour. (Which corner of the picture goes where is now from the list,
+colour. (Which corner of the picture goes where is from the list,
 above; where the picture's corners sit is from the code, Sparks against
 footage above.) That particles are fogged is from the smoke's quads in
 `e1-t8s0`'s list (above); a spark's streak hasn't been in a list. The Track page also works the streak in the world rather than
@@ -1269,3 +1250,33 @@ numbers, so a random pan); a camera jump (N, B, R, Shift+C) is a camera
 change (`Weather::cut`, `Weather::tails`; the page's camera is never in
 a car); the Direct3D look dims the drops and splashes. The random
 numbers are Reluva's.
+
+## In Reluva
+
+Read as `TrackCollision` (`src/engines/nfs/formats/col.cpp`), and checked
+on all 9 retail tracks. The Tracks page draws the walls from the virtual
+road (key G). The wall hits' particles and the weather are in
+`src/engines/nfs/render/particles.cpp` (Particles, Rain and snow, above).
+
+## Sources and checks
+
+October 2026, from hex dumps and survey scripts:
+
+- **Starting point.** The block ids follow the NFS modding community's
+  descriptions of NFS III's COL.
+- **Blocks.** Every block's size field accounts for exactly the space to
+  the next.
+- **Structures.** Every structure's size is 8 + 16 × vertices + 6 ×
+  polygons.
+- **Objects.** Every object's size is 8 + 20 × keys.
+- **Virtual road.** Its fields were read off the data:
+  - the positions step along the road (Hometown's first points, a few
+    metres apart, next to block 0's centre);
+  - the forward vector matches the step to the next point;
+  - the right vector is perpendicular to it.
+- **By eye.** Drawn as barriers on the Tracks page (**G**), the walls
+  follow every bend just outside the shoulders, the right one along the
+  fence.
+- **Mask and side codes.** From the nfs3.exe code that reads bytes 12
+  and 14 (found from every use of the points' pointer, `0x5dd948`), and
+  counts over all nine tracks' points.

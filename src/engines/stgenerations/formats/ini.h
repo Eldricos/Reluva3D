@@ -13,25 +13,35 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// A Windows-style INI file, looked up as GetPrivateProfileString does:
-// section and key names ignore case, and a section that appears twice
-// (UNIVERSE.INI repeats most of them at the end, with the scan texts)
-// holds the keys of both.
+/**
+ * A Windows-style INI file, looked up as GetPrivateProfileString does:
+ * section and key names ignore case, and a section that appears twice
+ * (UNIVERSE.INI repeats most of them at the end, with the scan texts)
+ * holds the keys of both. Where a key appears twice, the first wins.
+ */
 class IniFile {
 public:
+    /** Reads the file's text, forgetting what was there and the changes made. */
     void load(const std::string &text);
 
+    /** Whether there's such a section, and such a key in it. */
+    ///@{
     bool hasSection(const std::string &section) const;
     bool has(const std::string &section, const std::string &key) const;
+    ///@}
+    /** A key's value, or `fallback` if it isn't there. */
+    ///@{
     std::string get(const std::string &section, const std::string &key,
                     const std::string &fallback = std::string()) const;
     int getInt(const std::string &section, const std::string &key, int fallback = 0) const;
     double getDouble(const std::string &section, const std::string &key, double fallback = 0) const;
-    // TRUE/FALSE (or a number); fallback when missing.
+    ///@}
+    /** TRUE or YES (any case), or a number not 0; `fallback` when missing. */
     bool getBool(const std::string &section, const std::string &key, bool fallback = false) const;
+    /** Sets a key, making the section if needed, and remembers the change for syncChanges(). */
     void set(const std::string &section, const std::string &key, const std::string &value);
 
-    // Changes made with set(), which saved games keep.
+    /** Saves or loads the changes made with set(), which saved games keep. */
     void syncChanges(Serializer &s);
 
 private:

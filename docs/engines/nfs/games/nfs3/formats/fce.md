@@ -2,32 +2,20 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/fce.cpp` · **Checked on:** every model · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/fce.cpp`), and checked on all
-56 retail models:
+## Overview
+
+The game's 3D models: a header, then the parts' vertices and triangles.
+The 56 retail models are:
 
 - the cars, traffic and police cars (`car.fce` in each `car.viv`);
 - the front end's track models (`go*.fce` in `trkgo.viv`);
 - the cone and `cop0`-`cop4` in `GameData/Render/pc`.
 
-Sources and checks:
-
-- **Field order.** The order of the fields follows the NFS modding
-  community's descriptions of NFS III's FCE (as used by tools such as
-  FCEFinish).
-- **Layout.** Every offset and size below was checked on the retail models
-  with survey scripts, October 2026:
-  - each part's counts sum to the model's;
-  - each part's first vertex and triangle are the running totals;
-  - every triangle index falls inside its part;
-  - each table's size accounts for the space up to the next.
-  The name tables were found by looking for where the parts' names begin.
-- **By eye.** The Diablo, exported with `reluva-tool fce-obj` and
-  rendered with its `car00.tga`, has the right shape, and its skin lands
-  in the right places.
+## Layout
 
 All values are little-endian. Floats are 32-bit IEEE.
 
-## Header (`0x1F04` bytes)
+### Header (0x1F04 bytes)
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -65,7 +53,7 @@ The colours are the paint choices offered for the car. The values fit
 hue, saturation and brightness out of 255 (the Diablo's first is 30, 184,
 216); this is to be checked against the front end's colour picker.
 
-## Vertices and parts
+### Vertices and parts
 
 - Vertices and normals are 3 floats each.
 - A vertex is relative to its part's position.
@@ -98,7 +86,7 @@ The dummies are lights:
 - `TRLN`, `TRRN` at the rear;
 - `SMLN`, `SMRN` on some cars.
 
-## Triangles (56 bytes)
+### Triangles (56 bytes)
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -133,13 +121,13 @@ against their vertices' normals; the exceptions are the insides of the
 wheel arches, which face down and out (the Diablo's part 0 has 45 of its
 528 triangles wound against its smoothed normals, all flag `0x1` or
 `0x80` round the wheels; the F355's 53 of 484, all flag `0x1`). Seen
-from the side away from them, those are the thin black wedges the Track
-page showed sticking out by the wheels, at a car's corner (`d8-day1`'s
-F355 from behind: two thin black lines either side of it, gone in the
-game's frame; the arch triangles' texture there is black, `0.146,
-0.549` on the Diablo's skin), with or without the shadow, until it
-culled as the game does (November 2026:
-`carTriangleCorners`, a two-sided triangle in its mesh both ways round).
+from the side away from them, those show as thin black wedges sticking
+out by the wheels, at a car's corner, unless they're culled as the game
+does (`d8-day1`'s F355 from behind: two thin black lines either side of
+it, gone in the game's frame; the arch triangles' texture there is
+black, `0.146, 0.549` on the Diablo's skin), with or without the shadow.
+The Track page culls them so (`carTriangleCorners`, a two-sided triangle
+in its mesh both ways round).
 
 **Which parts at which distance** (`0x4bb5d0` → `0x4bb4c0`,
 `carDetailParts`). The car's detail is its box's mean view depth (the
@@ -150,8 +138,7 @@ night; 1 `car_draw_wheels` `0x4bab70` parts 5, 12, 6-9; 2 `0x4baa50`
 part 10; 3 `0x4ba960` part 11; past the last, not drawn. A model of
 fewer than 12 parts (traffic, police) takes parts 0-4 at 0-2
 (`0x4bb200`) and part 5 at 3 (`0x4bb110`). The reflection goes with the
-detail's body part (0, 5, 10 or 11) and the headlights. The Track page
-drew parts 0-4 and 12 at every distance until November 2026.
+detail's body part (0, 5, 10 or 11) and the headlights.
 
 **The reflection** (`0x49db70`, drawn at `0x43400f`): each reflecting
 triangle is drawn again with a sphere map of the track's sky (`CHRD`,
@@ -167,7 +154,69 @@ one, or none). Taking y downward on screen is Reluva's reading.
 Every car uses only page 0. The `Render/pc` models (the cone and
 `cop0`-`cop4`) use pages 0-6, from their `.art` files.
 
-## Lighting
+### `.art`: the `Render/pc` models' pages
+
+Worked out from the bytes (October 2026): one image after another to the
+end of the file, each a u32 width, a u32 height, then width × height
+pixels of 4 bytes: blue, green, red, alpha, the top row first. Page n is
+the n'th image. All six files end exactly after their last image:
+
+| File | Pages |
+|---|---|
+| `cone.art` | 64 × 128, 1 × 1 |
+| `cop0.art` | 5 of 16 × 16 |
+| `cop1.art` | 7 of 16 × 16 |
+| `cop2.art` | 6 of 1 × 1 (plain colours) |
+| `cop3.art` | 6 of 16 × 16 |
+| `cop4.art` | 32 × 32, 8 × 8, 8 × 8, 32 × 32, 8 × 8, 8 × 8 |
+
+The page counts match the highest page each model uses. Drawn with them
+on the Cars page, the cone is orange with white stripes, and the five
+`cop` models are police officers in different uniforms (presumably those
+standing at roadblocks). `cone.tga`, beside them, is the same picture as
+the cone's first page.
+
+### Coordinates and winding
+
+The units are metres, with +y up and +z the car's front.
+
+The space is left-handed (as Direct3D's): x right, y up, z forward. The
+evidence is the front end's spinning "NFS" logo (`gengo.viv/go00.fce`),
+whose letters read the right way round only when the model is mirrored
+into a right-handed space. The wheel names can't settle it, as they
+disagree with each other.
+
+Seen from outside, triangles wind clockwise: in 98% of them,
+(b − a) × (c − a) points away from the corners' normals.
+
+Reluva negates z when it reads models into its right-handed world. That
+makes them counter-clockwise from outside, which is `gfx3d`'s front face.
+
+## Behaviour
+
+### How the game loads a model
+
+Read from nfs3.exe (October 2026). The car loader (`0x4b7a60`) reads the
+whole file into memory and fixes it up in place (`0x49cfa0`):
+
+- it allocates 132 bytes per triangle and 4 per vertex, and stores the
+  pointer at `0x0000`;
+- it points each polygon's corners into the workspace at `0x001C`, at
+  the part's first vertex plus the index, 32 bytes each;
+- it copies each triangle's page, indices, flags and u, v (not bytes
+  16-27).
+
+The textures go into `0x1E04` (`0x49d320`): with one page, the car's
+TGA; with more, each `.art` image (`0x49d130`). A triangle's texture is
+`0x1E04`[page & 63] (`0x49dd56`).
+
+The workspace holds each vertex as drawn: screen x, y, z at 0, 4, 8; the
+lit colour (ARGB) at 16; clip flags at 20 (a triangle whose three
+corners share one is dropped); the reflection's u, v at 24 and 28,
+made from the normals (`0x49db70`). The files keep the last values the
+authoring tool computed: `amd7`'s has screen positions near 240, 274.
+
+### Lighting
 
 From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
 `0x4bab70` and its siblings):
@@ -270,8 +319,8 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   the car does. The roof lights pass 0 and −0.75: their own depth less
   0.75. The Tracks page does the same: each quad is moved along its ray
   to that depth and scaled with it, which leaves it on the same pixels.
-  Until November 2026 it pulled the T and H glows 0.3 towards the
-  camera instead, which let the body hide them when seen from the side.
+  A glow pulled a fixed 0.3 towards the camera instead is hidden by the
+  body when seen from the side.
 - **The rain's flares** (`0x491bc0`, November 2026; `rainFlare`). For
   each T or H glow drawn whose dummy's fifth letter isn't N, with the
   Special Effects option not Off, in the weather (`0x6fd4cc`), the car's
@@ -298,7 +347,7 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   polygon's vertex 1), drop the part along the up, and take the point
   back: the height is point.y + ((p − point) · right) right.y +
   ((p − point) · forward) forward.y. On a cambered road that isn't the
-  height straight below, which the page took until November 2026
+  height straight below; the page takes it the same way
   (`polygonRoadFrame`, `roadFrameHeight`). Without a polygon there is
   no flare. On Hometown and Lost Canyons the vector a road polygon's
   record picks is the polygon's own normal or its negative (a wall's),
@@ -347,7 +396,7 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   The reflection's pass, the glows and the rain's flares come with the
   same fog: an added picture is mixed towards the fog's colour and then
   added, so in fog a glow's dark edges add the fog's colour. The page
-  fogged the car so, but not its glows, flares and beams; now it does.
+  fogs the car, its glows, flares and beams so.
 
 The page compared with the game's frames (November 2026), its cars
 placed from the frame's car dump (`RELUVA_NFS_TRACK_CARS`) and its
@@ -355,9 +404,9 @@ camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
 - **The fog** (`t5-fog`, sky draw 500, frame 2700): the car facing the
   camera 36 ahead shows two white headlight glows, their short flares on
   the wet road below and no beam on both, the glows of the same size.
-  The page's car was paler, more fogged (145, 140, 141 on its lower
-  body against the game's 171, 168, 166): it was the Corvette, the
-  game's the F355 in silver (set-up key 2). With its own model and paint
+  With the Corvette in place of the game's F355 in silver (set-up key 2)
+  the page's car is paler, more fogged (145, 140, 141 on its lower
+  body against the game's 171, 168, 166). With its own model and paint
   (`RELUVA_NFS_TRACK_CARS_SETUP`, `d5-fog2`'s set-up dump) and the skin
   the right way up (below), the car's box (21 × 12 pixels) is 140, 134,
   128 on the page put through the host's 16-bit frame (frd.md,
@@ -365,7 +414,7 @@ camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
   130, its lower body 100, 97, 94 against 103, 99, 92. The game's car
   has the sharper contrast of point-sampled textures.
 - **By day** (`t6-day`, Hometown on the grid, sky draw 150, frame 2345;
-  four cars 19-74 ahead; `d5-day`'s set-up dump): the page now draws the
+  four cars 19-74 ahead; `d5-day`'s set-up dump): the page draws the
   game's models, the F355 19 ahead in silver, the `Cout` 37 ahead and
   two Corvettes, so the reflections compare on the same model. The
   F355's reflection colours are the game's exactly (`b7b7b4aa` and
@@ -379,7 +428,7 @@ camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
   light glows, small and of the same size, the bodies dark grey; the
   page's bodies a little lighter.
 
-## The skin's paint
+### The skin's paint
 
 From nfs3.exe (November 2026). The loader (`0x49d320` → `0x49cea0` →
 `0x49cd00`) turns `car00.tga` into the card's 1:5:5:5 texture (128 × 128
@@ -407,10 +456,9 @@ those kept; the skin as stored is 13.5 and 84.6 off there.
 pixel data from its start), whatever the header's origin bit: texture
 row 0 is the first row stored, the bottom one of every `car00.tga` but
 `Knoc`'s (byte 17 bit 5 clear). Reluva decodes images top row first, so
-until November 2026 the Track and Cars pages drew every skin upside
-down: the Corvette from behind showed no tail lights, the F355 its
-lights below its grille. Both pages now turn the rows back
-(`skinRowsAsStored`). Checked on the Cars page from behind and in front
+the Track and Cars pages turn the rows back (`skinRowsAsStored`): upside
+down, the Corvette from behind shows no tail lights, the F355 its
+lights below its grille. Checked on the Cars page from behind and in front
 (`RELUVA_NFS_CARS_VIEW`, November 2026): the Corvette's four round tail
 lights, the F355's and the Diablos' at the back with the plate below
 them, the F355's badge on its nose, the CLK-GTR's grille and lamps in
@@ -419,74 +467,30 @@ mirrored by the model's own texture coordinates, the same picture used
 for both sides). The game draws the skins point-sampled with no mipmaps
 ([thrash.md](../systems/thrash.md), Texture filtering), and so do the pages.
 
-## How the game loads a model
+## In Reluva
 
-Read from nfs3.exe (October 2026). The car loader (`0x4b7a60`) reads the
-whole file into memory and fixes it up in place (`0x49cfa0`):
+Read as `Model` (`src/engines/nfs/formats/fce.cpp`), and checked on all
+56 retail models. The data viewer's Cars page draws them.
 
-- it allocates 132 bytes per triangle and 4 per vertex, and stores the
-  pointer at `0x0000`;
-- it points each polygon's corners into the workspace at `0x001C`, at
-  the part's first vertex plus the index, 32 bytes each;
-- it copies each triangle's page, indices, flags and u, v (not bytes
-  16-27).
-
-The textures go into `0x1E04` (`0x49d320`): with one page, the car's
-TGA; with more, each `.art` image (`0x49d130`). A triangle's texture is
-`0x1E04`[page & 63] (`0x49dd56`).
-
-The workspace holds each vertex as drawn: screen x, y, z at 0, 4, 8; the
-lit colour (ARGB) at 16; clip flags at 20 (a triangle whose three
-corners share one is dropped); the reflection's u, v at 24 and 28,
-made from the normals (`0x49db70`). The files keep the last values the
-authoring tool computed: `amd7`'s has screen positions near 240, 274.
-
-## `.art`: the `Render/pc` models' pages
-
-Worked out from the bytes (October 2026): one image after another to the
-end of the file, each a u32 width, a u32 height, then width × height
-pixels of 4 bytes: blue, green, red, alpha, the top row first. Page n is
-the n'th image. All six files end exactly after their last image:
-
-| File | Pages |
-|---|---|
-| `cone.art` | 64 × 128, 1 × 1 |
-| `cop0.art` | 5 of 16 × 16 |
-| `cop1.art` | 7 of 16 × 16 |
-| `cop2.art` | 6 of 1 × 1 (plain colours) |
-| `cop3.art` | 6 of 16 × 16 |
-| `cop4.art` | 32 × 32, 8 × 8, 8 × 8, 32 × 32, 8 × 8, 8 × 8 |
-
-The page counts match the highest page each model uses. Drawn with them
-on the Cars page, the cone is orange with white stripes, and the five
-`cop` models are police officers in different uniforms (presumably those
-standing at roadblocks). `cone.tga`, beside them, is the same picture as
-the cone's first page.
-
-## Coordinates and winding
-
-The units are metres, with +y up and +z the car's front.
-
-The space is left-handed (as Direct3D's): x right, y up, z forward. The
-evidence is the front end's spinning "NFS" logo (`gengo.viv/go00.fce`),
-whose letters read the right way round only when the model is mirrored
-into a right-handed space. The wheel names can't settle it, as they
-disagree with each other.
-
-Seen from outside, triangles wind clockwise: in 98% of them,
-(b − a) × (c − a) points away from the corners' normals.
-
-Reluva negates z when it reads models into its right-handed world. That
-makes them counter-clockwise from outside, which is `gfx3d`'s front face.
-
-## Tools
-
-- `reluva-tool fce-info <file.fce | file.viv car.fce>` lists the parts,
+- `reluva-tool nfs fce-info <file.fce | file.viv car.fce>` lists the parts,
   dummies, colours, texture pages and flags.
-- `reluva-tool fce-obj ... <out.obj>` writes the model as Wavefront OBJ,
+- `reluva-tool nfs fce-obj ... <out.obj>` writes the model as Wavefront OBJ,
   placed and mirrored as Reluva draws it.
 
 ## Sources and checks
 
 - **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
 - **How it was checked:** the reader run on every model to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+- **Field order.** The order of the fields follows the NFS modding
+  community's descriptions of NFS III's FCE (as used by tools such as
+  FCEFinish).
+- **Layout.** Every offset and size on this page was checked on the retail models
+  with survey scripts, October 2026:
+  - each part's counts sum to the model's;
+  - each part's first vertex and triangle are the running totals;
+  - every triangle index falls inside its part;
+  - each table's size accounts for the space up to the next.
+  The name tables were found by looking for where the parts' names begin.
+- **By eye.** The Diablo, exported with `reluva-tool nfs fce-obj` and
+  rendered with its `car00.tga`, has the right shape, and its skin lands
+  in the right places.

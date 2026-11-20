@@ -1,16 +1,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where each of the game's sounds plays in a recording: the recording and
+wav8/NAME.raw (the sound's first 3 s) as 8 kHz mono 16-bit, normalised
+cross-correlation over THR (default 0.5).
+
+    python3 -I py/soundfind.py RECORDING.raw NAME...
+"""
+
 import numpy as np, glob, os, sys
 rec=np.fromfile(sys.argv[1],dtype=np.int16).astype(np.float32)
 names=sys.argv[2:]
 N=len(rec); sr=8000
-# local energy for normalisation
 def find(tpl, thr):
+    """(seconds, score) of each place the sound plays, in time order."""
     tpl=tpl-tpl.mean(); L=len(tpl)
     n=1<<int(np.ceil(np.log2(N+L)))
     R=np.fft.rfft(rec,n); T=np.fft.rfft(tpl[::-1],n)
     cc=np.fft.irfft(R*T,n)[L-1:L-1+N-L+1]
+    # The recording's energy under the sound at each offset, to normalise by.
     c2=np.concatenate([[0],np.cumsum(rec.astype(np.float64)**2)])
     e=np.sqrt(np.maximum(c2[L:L+len(cc)]-c2[:len(cc)],1e-6))
     tn=np.sqrt((tpl**2).sum())

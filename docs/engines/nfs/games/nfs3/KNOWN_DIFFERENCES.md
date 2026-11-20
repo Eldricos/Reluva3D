@@ -30,12 +30,10 @@ None yet.
 
 ## Not yet as the original
 
-- **Floating point.** Since the merge into main's emulator, the x87 unit's
+- **Floating point.** The emulator's x87 unit doesn't round the
   transcendental instructions (`FSIN`, `FCOS`, `FPTAN`, `FPATAN`, `F2XM1`,
-  `FYL2X`...) aren't rounded to the precision control's 24 bits, as Intel
-  documents; before, the branch rounded them. The game's results can
-  differ from the earlier runs' in the last bits (the hosted runs' end
-  states changed with the merge).
+  `FYL2X`...) to the precision control's 24 bits, as Intel documents.
+  The game's results can differ from the original's in the last bits.
 - The computer cars' model on the Tracks page (not the hosted game, which
   runs the game's own) still parts from the game's after about a minute
   ([PLAN.md](PLAN.md), Open questions).

@@ -18,7 +18,16 @@ Reluva's shared decoder ([bink.md](../../../../../common/video/bink.md)).
 - **Skipping.** A typed key (ASCII, Esc included) or the first mouse
   button skips a cinematic.
 - **Variants the engine also looks for:** `_lo` versions on slow machines,
-  and a German check. Reluva plays the plain name.
+  and a German check.
+
+## In Reluva
+
+`SpPlayPage` (`src/engines/idtech3/client/sp_play_page.cpp`) plays
+cinematics (`startCinematic`, `endCinematic`). It plays the plain name,
+not the `_lo` or German variants (also in
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+`reluva-tool idtech3 bink-decode` decodes a movie's frames and sound, to
+compare with another decoder.
 
 ## Sources and checks
 

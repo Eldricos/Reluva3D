@@ -14,6 +14,7 @@
 
 namespace reluva::awe {
 
+/** Where a picture goes on the screen: scaled, turned about its top-left corner, then moved. */
 struct SpriteTransform {
     // where the top-left corner goes
     float x = 0;
@@ -22,20 +23,25 @@ struct SpriteTransform {
     float scaleX = 1;
     float scaleY = 1;
     float roll = 0; // radians, clockwise on the screen
+    /** Whether it only moves the picture. */
     bool plain() const { return scaleX == 1 && scaleY == 1 && roll == 0; }
-    // Where the picture's point (u, v) lands.
+    /** Where the picture's point (u, v) lands. */
     void apply(float u, float v, float &outX, float &outY) const;
 };
 
-// Draws `img` over `dst`, blended by its alpha. With `keepAlpha`, `dst`'s
-// alpha becomes the coverage (for an overlay that goes over a 3D frame);
-// otherwise `dst` is taken as opaque.
+/**
+ * Draws `img` over `dst`, blended by its alpha. With `keepAlpha`, `dst`'s
+ * alpha becomes the coverage (for an overlay that goes over a 3D frame);
+ * otherwise `dst` is taken as opaque.
+ */
 void drawSprite(Surface &dst, const image::Image &img, const SpriteTransform &t, bool keepAlpha);
 
-// A Direct3D point sprite, as the game draws particles: `img` over a
-// square `size` pixels wide centred on (x, y), times `rgba` (the vertex
-// colour: texture times diffuse, alpha too), then blended by its alpha or
-// added. `keepAlpha` as for drawSprite.
+/**
+ * A Direct3D point sprite, as the game draws particles: `img` over a
+ * square `size` pixels wide centred on (x, y), times `rgba` (the vertex
+ * colour: texture times diffuse, alpha too), then blended by its alpha or
+ * added. `keepAlpha` as for drawSprite.
+ */
 void drawPointSprite(Surface &dst, const image::Image &img, float x, float y, float size, const uint8_t rgba[4],
                      bool additive, bool keepAlpha);
 

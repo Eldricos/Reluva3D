@@ -6,7 +6,7 @@
 
 The people on the sidewalks, walking and diving out of the way. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Pedestrians
+## How it works
 
 - **Models**: the city aimap's pairs, the second (dressed for rain) when
   the weather is rainy; each in one of its 48 paint jobs.
@@ -22,6 +22,12 @@ The people on the sidewalks, walking and diving out of the way. The game's progr
   dive left or right, then onto the ground and up again, as the moves'
   table chains them), carried by the animations' own movement; up again,
   they walk on from the nearest point of their sidewalk. They aren't hit.
+
+## In Reluva
+
+`Pedestrians` (`src/engines/age/game/pedestrians.{h,cpp}`) places and
+walks them, and `PedModel` (`src/engines/age/render/ped_model.{h,cpp}`)
+animates and draws them.
 
 ## Sources and checks
 

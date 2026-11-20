@@ -35,6 +35,14 @@ directive indexes in the scene's script.
 `DLAS.DS9` holds the settings: u32 difficulty (0..2), u32 autosave, u32 the save
 the menu showed last.
 
+## In Reluva
+
+`Game::saveGame` and `loadGame` (`src/engines/stharbinger/game/game_save.cpp`)
+write and read the original's format, and `loadSettings` and `saveSettings`
+`DLAS.DS9`. They are kept in Reluva's folder for the game, not the install's;
+that, the names of new saves and the fixes to the GOSUB stack and the
+dialogue redirections are in [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

@@ -83,9 +83,17 @@ A vertex's position in a frame is the sum, over its weights, of the
 weight times the bone's matrix applied to the offset (rotation, then the
 position added); its normal the sum of the weights times the rotation
 applied to the vertex's normal. Between two frames the original blends
-the bones' matrices; Reluva poses every frame when loading (as an `.md3`
-holds them) and blends the posed vertices on the GPU, which differs only
-in how a blend between two quite different frames bends.
+the bones' matrices.
+
+## In Reluva
+
+`parseMdr` (`src/engines/idtech3/formats/mdr.cpp`) reads a file into
+the same model as an `.md3`. Reluva poses every frame when loading (as an
+`.md3` holds them) and blends the posed vertices on the GPU, which differs
+only in how a blend between two quite different frames bends (also in
+the game's [KNOWN_DIFFERENCES.md](../games/stvef/KNOWN_DIFFERENCES.md)).
+The data viewer's Models page shows the models, and
+`reluva-tool idtech3 model-check` reads every model of a game.
 
 ## Sources and checks
 

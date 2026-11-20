@@ -28,18 +28,23 @@
 
 namespace reluva::clue {
 
-// The six suspects, in the game's order (Miss Scarlet plays first).
+/** The six suspects, in the game's order (Miss Scarlet plays first). */
 constexpr int kSuspects = 6;
 
-// Where the windows over the game go (the Esc menu and what it opens,
-// dialogs 35-39 and 44; 231 x 395): Clue.exe 0x435C7F places its exit
-// window at 320 less half its width across and in the middle between the
-// top frame (5) and the bar (413) down.
+/**
+ * Where the windows over the game go (the Esc menu and what it opens,
+ * dialogs 35-39 and 44; 231 x 395): Clue.exe 0x435C7F places its exit
+ * window at 320 less half its width across and in the middle between the
+ * top frame (5) and the bar (413) down.
+ */
+///@{
 constexpr int kOverGameX = 205;
 constexpr int kOverGameY = 11;
+///@}
 
-// The preferences screen's settings, saved between runs.
+/** The preferences screen's settings, saved between runs. */
 struct Preferences {
+    /** The on-off settings, in the screen's (and Prefs.ini's) order; kSwitches counts them. */
     enum Switch {
         kSuggestMovies,
         kLighting,
@@ -56,23 +61,49 @@ struct Preferences {
     int musicVolume = 50;
     int masterVolume = 50;
 
+    /**
+     * Reads and writes Reluva's own file of them (key=value lines). A
+     * missing file or key leaves the setting as it was; save() to an empty
+     * path does nothing.
+     */
+    ///@{
     void load(const std::filesystem::path &file);
     void save(const std::filesystem::path &file) const;
-    // The original's Prefs.ini (16 bytes: the seven switches, a byte, the
-    // music's and the master volume 0-10 as 32-bit numbers); false if it
-    // isn't one.
+    ///@}
+    /**
+     * The original's Prefs.ini (16 bytes: the seven switches, a byte, the
+     * music's and the master volume 0-10 as 32-bit numbers); false if it
+     * isn't one.
+     */
     bool loadOriginal(const std::vector<uint8_t> &bytes);
 };
 
+/**
+ * The game as it starts: the intro, the menus and their screens, setting
+ * up the players, then the game itself (Play) with its Esc menu.
+ */
 class FrontEnd {
 public:
+    /**
+     * Shows itself on `screen`; everything given must outlive it. `mixer`
+     * may be null (no sound); the preferences are kept in `prefsFile` (none
+     * if empty).
+     */
     FrontEnd(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer, std::filesystem::path prefsFile);
+    /** Stops the video and the music. */
     ~FrontEnd();
+    /**
+     * Reads dialogInfo.res and the preferences (the original's Prefs.ini the
+     * first time), and starts the intro; fails without dialogInfo.res.
+     */
     Error open();
 
+    /** A mouse or key event from the player. */
     void handleEvent(const Event &ev);
+    /** Moves on to `nowMs` and draws the screen. */
     void update(uint64_t nowMs);
-    bool quit() const { return _quit; } // the player chose Exit Game, Yes
+    /** Whether the player chose Exit Game, Yes. */
+    bool quit() const { return _quit; }
 
 private:
     enum class Screen {

@@ -6,12 +6,9 @@
 
 The Options screens, and how each option is applied. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Options
+## How it works
 
-The game keeps its options in the Windows registry. Reluva keeps them
-in its own file, `options.txt` in the game's save folder: lines of a
-name and a value (`effectsvolume 0.8`, `key throttle 256 119`), read
-when the Race and Drive pages open. See `engines/age/game/options.h`.
+The game keeps its options in the Windows registry.
 
 | Screen | Background | What's there |
 |---|---|---|
@@ -121,11 +118,10 @@ What the options do in Reluva:
     (which stops a race alone), Tab the map on and off, H the HUD
     (clock, list, speed, gear, revs and damage), Backspace the rear-view
     mirror, S and X the arrow to the next or the one before of the
-    checkpoints left. The help gives no chat key: Y is Reluva's. (Before,
-    Reluva's own defaults had WASD as well as the arrows; a saved
-    `options.txt` keeps its keys.) The help says Tab toggles "between two
-    different sizes of city map, or turn[s] the map on and off"; Reluva's
-    only turns it on and off.
+    checkpoints left. The help gives no chat key: Y is Reluva's. (A saved
+    `options.txt` keeps its own keys.) The help says Tab toggles "between
+    two different sizes of city map, or turn[s] the map on and off";
+    Reluva's does both.
   - The rest of the help's table: V the Thrill Cam, the number pad's 4,
     6, 2 and 8 to look left, right, back and forward in the car, W the
     wide view, D the dashboard, F the rotating map, 2-5 the CD player,
@@ -143,7 +139,7 @@ What the options do in Reluva:
       toggle the Dashboard View"). **Dashboard On/Off**: the car's
       dashboard in the car view.
     - **Rotating Map**: the corner map turned with the player, else north
-      up. **Map Toggle** (Tab) now goes through two sizes and off: the
+      up. **Map Toggle** (Tab) goes through two sizes and off: the
       corner's, 1.6 times it (its bottom right corner kept; the help
       doesn't give the second size), none.
     - **Camera Pan**: held, the follow camera goes round the car (1.2
@@ -170,6 +166,15 @@ What the options do in Reluva:
   already given to another control is refused with the game's
   `jpg/ctrl_dlg`: "Duplicate key or button, please make a different
   selection".
+
+## In Reluva
+
+Reluva keeps them in its own file, `options.txt` in the game's save
+folder: lines of a name and a value (`effectsvolume 0.8`, `key throttle
+256 119`), read when the Race and Drive pages open
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)). See `GameOptions`
+(`src/engines/age/game/options.{h,cpp}`); the screens are `GameMenus`'s
+(`src/engines/age/ui/game_menus.{h,cpp}`).
 
 ## Sources and checks
 

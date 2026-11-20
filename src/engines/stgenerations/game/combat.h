@@ -20,58 +20,75 @@
 
 namespace reluva::stgenerations {
 
-// Space combat (sgens.exe module 0x47B375, the "sc" library): the
-// Enterprise against the ships of COMBAT.DAT's SCn.MIS, seen through the
-// bridge's viewscreen above the tactical console.
-//
-// First the briefing (COMBATn.BMP with its PROCEED button), then the
-// fight: the helm (by hand, or Close, Evade, Maintain distance, Full stop
-// and Warp out), phasers in their firing arcs, photon torpedo salvos,
-// shields by facing, damage to systems, waves of enemies, explosions, the
-// crew's reports with subtitles. The enemies fly the original's own AI
-// (0x4A7C91): they head for the Enterprise until within three quarters of
-// phaser range, then hold their turn until they are out again; they fire
-// every seven seconds, swerve off when about to collide, break off when
-// badly hurt, and Soran keeps away while he has company. The TACTICS
-// scripts (*.BIN) in COMBAT.DAT are left over from development: the game
-// never attaches one to a ship.
-//
-// It ends won (every enemy gone, or Soran's ship beaten), lost (the
-// Enterprise warped out) or with the Enterprise destroyed.
+/**
+ * Space combat (sgens.exe module 0x47B375, the "sc" library): the
+ * Enterprise against the ships of COMBAT.DAT's SCn.MIS, seen through the
+ * bridge's viewscreen above the tactical console.
+ *
+ * First the briefing (COMBATn.BMP with its PROCEED button), then the
+ * fight: the helm (by hand, or Close, Evade, Maintain distance, Full stop
+ * and Warp out), phasers in their firing arcs, photon torpedo salvos,
+ * shields by facing, damage to systems, waves of enemies, explosions, the
+ * crew's reports with subtitles. The enemies fly the original's own AI
+ * (0x4A7C91): they head for the Enterprise until within three quarters of
+ * phaser range, then hold their turn until they are out again; they fire
+ * every seven seconds, swerve off when about to collide, break off when
+ * badly hurt, and Soran keeps away while he has company. The TACTICS
+ * scripts (*.BIN) in COMBAT.DAT are left over from development: the game
+ * never attaches one to a ship.
+ *
+ * It ends won (every enemy gone, or Soran's ship beaten), lost (the
+ * Enterprise warped out) or with the Enterprise destroyed.
+ */
 class SpaceCombat {
 public:
+    /** How the combat ended, or kRunning. */
     enum Result { kRunning, kWon, kLost, kDestroyed };
     static const int kWidth = 640;
     static const int kHeight = 480;
 
+    /**
+     * A combat with COMBAT.DAT's data. The resources, the mixer (which may
+     * be null, for no sound) and the random numbers must outlive it.
+     */
     SpaceCombat(const ResourceManager &resources, Mixer *mixer, RandomSource &random);
     ~SpaceCombat();
 
-    // Load combat n (1..25): its briefing, ships and console.
+    /** Loads combat n (1..25): its briefing, ships and console; false if its data isn't there. */
     bool load(int mission);
+    /** Whether the crew's words are written under the picture. */
     void setSubtitles(bool on) { _subtitles = on; }
-    // 0 Captain (more damage taken), 1 Lieutenant, 2 Ensign (less).
+    /** 0 Captain (more damage taken), 1 Lieutenant, 2 Ensign (less). */
     void setDifficulty(int difficulty) { _difficulty = difficulty; }
 
+    /** Runs the combat on by ms. */
     void update(uint32_t ms);
+    /** Draws the view and the console (or the briefing) on a true colour screen. */
     void draw(Canvas &screen);
-    // The player's starship keys (SGENS.CFG's cfg+0x238).
+    /** The player's starship keys (SGENS.CFG's cfg+0x238). */
     void setKeyMap(const KeyMap &keys) { _keys = keys; }
+    /** A key pressed or let go, through the key map and then the engine's own keys. */
+    ///@{
     void keyDown(const KeyState &key);
     void keyUp(const KeyState &key);
-    // Let go of every flight key.
+    ///@}
+    /** Lets go of every flight key. */
     void releaseKeys();
+    /** The mouse on the screen: the console's buttons and sliders, or steering on the viewscreen. */
+    ///@{
     void mouseMove(int x, int y);
     void mouseDown(int x, int y);
     void mouseUp(int x, int y);
-    // Esc: the options menu.
+    ///@}
+    /** Whether Esc asked for the options menu since the last call. */
     bool takeOptionsRequest();
 
-    // Over, once the closing speech and music have had their time.
+    /** Over, once the closing speech and music have had their time. */
     bool isFinished() const { return _finished; }
+    /** How it ended; kRunning until it has. */
     Result getResult() const { return _result; }
 
-    // Stop every sound (when the menu opens, say).
+    /** Stops every sound (when the menu opens, say). */
     void silence();
 
 private:

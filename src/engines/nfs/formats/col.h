@@ -11,16 +11,20 @@
 
 namespace reluva::nfs {
 
-// A track's .col file: the virtual road the game drives on, and the 3D
-// structures and paths of its moving objects, as docs/engines/nfs/games/nfs3/formats/col.md
-// describes. Coordinates are the track's (.frd).
+/**
+ * A track's .col file: the virtual road the game drives on, and the 3D
+ * structures and paths of its moving objects, as
+ * docs/engines/nfs/games/nfs3/formats/col.md describes. Coordinates are the
+ * track's (.frd).
+ */
 struct TrackCollision {
+    /** x, y, z. */
     using Vec3 = std::array<float, 3>;
 
-    // A point along the road, about eight per track block.
+    /** A point along the road, about eight per track block. */
     struct RoadPoint {
         Vec3 position{}; // 16.16 fixed point in the file
-        // unit vectors (signed bytes / 127)
+        // unit vectors (signed bytes / 128, as the game reads them: col.md)
         Vec3 normal{};
         Vec3 forward{};
         Vec3 right{};
@@ -30,17 +34,27 @@ struct TrackCollision {
         uint32_t unknown = 0;
         std::array<uint8_t, 3> extra{}; // the vectors' fourth bytes
 
-        // The lanes, from the fourth bytes: the count on each side (high 4
-        // bits left, low 4 right) and each side's lane width.
+        /**
+         * The lanes, from the fourth bytes: the count on each side (high 4
+         * bits left, low 4 right) and each side's lane width.
+         */
+        ///@{
         int leftLanes() const { return extra[0] >> 4; }
         int rightLanes() const { return extra[0] & 0x0f; }
-        // The road's edges, as the game finds them: lanes × width × ½ from
-        // the point, along −right and right.
+        ///@}
+        /**
+         * The road's edges, as the game finds them: lanes × width × ½ from
+         * the point, along −right and right.
+         */
+        ///@{
         float leftEdge() const { return leftLanes() * extra[1] * 0.5f; }
         float rightEdge() const { return rightLanes() * extra[2] * 0.5f; }
+        ///@}
     };
 
+    /** A 3D shape the objects use. */
     struct Structure {
+        /** A polygon: its texture and its four vertices' indices. */
         struct Polygon {
             uint16_t texture = 0;
             std::array<uint8_t, 4> vertices{};
@@ -50,8 +64,9 @@ struct TrackCollision {
         std::vector<Polygon> polygons;
     };
 
-    // An object (type 3: moving, by keys as .frd's; type 1: still).
+    /** An object (type 3: moving, by keys as .frd's; type 1: still). */
     struct Object {
+        /** Where a moving object is at one step of its path. */
         struct Key {
             std::array<int32_t, 3> position{}; // 16.16 fixed point
             std::array<int16_t, 4> rotation{}; // 2.14 fixed point quaternion
@@ -71,6 +86,10 @@ struct TrackCollision {
     std::vector<RoadPoint> road; // xbid 15
 };
 
+/**
+ * Reads a .col file; blocks of unknown ids are skipped. Fails if an object
+ * uses a structure that isn't there.
+ */
 Error parseCollision(const std::vector<uint8_t> &data, TrackCollision &out);
 
 } // namespace reluva::nfs

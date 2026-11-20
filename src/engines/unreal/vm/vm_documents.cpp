@@ -7,7 +7,7 @@
 // read section by section for CTVE_Document: which documents there are
 // (FindDocument), a section's settings as the actor's properties
 // (LocalizeDocument), and its lines handed to the actor's events to draw
-// (LoadDocument). See docs/engines/unreal_vm.md.
+// (LoadDocument). See docs/engines/unreal/games/ds9fallen/systems/documents.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -133,8 +133,7 @@ void registerDocumentNatives(Vm &vm) {
     // lines in order, each to the actor's event that draws it: Color
     // (SetColor), Text (LoadText: a line), IMAGE ("Package.Texture
     // Justify=Left": DefineImage; the HUD takes 2 as right and 3 as centred,
-    // anything else as left), Title
-    // (SetTitle).
+    // anything else as left), Title (SetTitle).
     reg("CTVE_Document.LoadDocument", [](NativeCall &c) {
         const auto *section = c.vm.level && c.self ? c.vm.level->intSection(c.s(1), c.s(0)) : nullptr;
         if (!section)

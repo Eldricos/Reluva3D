@@ -53,7 +53,7 @@ struct TrafficLane {
     bool spawns = true; // traffic starts on it (a race's exceptions leave some out)
     float share = 1;    // of the traffic's density on it (a race's exception: 0 or 1)
     bool open = true;   // traffic goes on it: not a road the road map flags 0x2 (bai.md)
-    /** In metres. */
+    /** Its length, in metres. */
     float length() const { return at.empty() ? 0 : at.back(); }
 };
 
@@ -61,23 +61,26 @@ struct TrafficLane {
 class TrafficNetwork {
 public:
     /**
-     * Makes the lanes from the road map, with the settings' speed limits, side
-     * of the road and per-road exceptions; lanes under 1 m are left out.
+     * The road map's lanes, the way traffic drives them (keeping left where
+     * the settings say), with the settings' speed limit and the race's
+     * exceptions.
      */
     void build(const AiRoadMap &map, const AiMapSettings &settings);
-    /** Every lane, both ways, in the road map's order of roads. */
+    /** Every lane, and the lanes (by index) leaving a junction. */
+    ///@{
     const std::vector<TrafficLane> &lanes() const { return _lanes; }
-    /** The lanes (into lanes()) leaving a junction, which must be in the map. */
     const std::vector<uint32_t> &leaving(uint32_t junction) const { return _leaving[junction]; }
+    ///@}
     /**
      * The ways on from a lane's end: open lanes onto other roads, else
      * any onto other roads, else any (back along the same road).
      */
     std::vector<uint32_t> waysOn(int lane) const;
-    /** How many roads meet at a junction, as the road map lists them (lanes or not). */
+    /** How many roads meet at a junction, and how many junctions there are. */
+    ///@{
     size_t roadsAt(uint32_t junction) const { return _roadsAt[junction]; }
-    /** The road map's junctions. */
     size_t junctions() const { return _leaving.size(); }
+    ///@}
 
 private:
     std::vector<TrafficLane> _lanes;
@@ -85,7 +88,11 @@ private:
     std::vector<size_t> _roadsAt;
 };
 
-/** Where a path is `s` along it, and which way it's heading there. */
+/**
+ * Where a path is `s` metres along it (kept within its ends), and which way
+ * it's heading there, smoothed over 2 m either side.
+ * @param at Each point's distance along the path.
+ */
 Vec3 pointAlong(const std::vector<Vec3> &points, const std::vector<float> &at, float s, Vec3 *heading = nullptr);
 
 /**
@@ -100,9 +107,13 @@ Vec3 pointAlong(const std::vector<Vec3> &points, const std::vector<float> &at, f
  */
 class Traffic {
 public:
-    /** tune/vehicle/<model>.aiVehicleData for each kind the aimap lists. */
+    /**
+     * Builds the lanes, and reads `tune/vehicle/<model>.aiVehicleData` for
+     * each kind the aimap lists (those without a model left out); no cars
+     * yet.
+     */
     void setup(const SearchSet &files, const AiRoadMap &map, const AiMapSettings &settings, uint32_t seed);
-    /** Takes every car away, the parked ones too. */
+    /** Takes every car away, parked ones too. */
     void clear() {
         _cars.clear();
         _parked = 0;
@@ -113,19 +124,20 @@ public:
      * 15 m/s); the aimaps' [Density] and the races' Ambient. Never more
      * than carLimit() cars.
      */
+    ///@{
     void setDensity(float density) { _density = density; }
-    /** As setDensity() set it. */
     float density() const { return _density; }
+    ///@}
     /** The lights they stop for (none: every junction is taken in turns). */
     void setLights(const TrafficLights *lights) { _lights = lights; }
-    /** Whether cars held up behind a slower one move to a lane beside it; off at first. */
+    /** Whether a car held up behind something slow moves into a lane beside it. */
     void setLaneChanges(bool on) { _laneChanges = on; }
     /**
-     * Cars parked along `lines` (race/<city>/<city>_parkedcar.pathset): nose
-     * to tail beside a road, facing from a line's first point to its last,
-     * else side by side; a line's own model, else one of `models` (none
-     * there: the aimap's ambient cars up to 3 tonnes). Replaces those parked
-     * before; after setup().
+     * Cars parked along `lines` (`race/<city>/<city>_parkedcar.pathset`):
+     * nose to tail beside a road, facing from a line's first point to its
+     * last, else side by side; a line's own model, else one of `models`
+     * (none there: the aimap's ambient cars up to 3 tonnes). Replaces those
+     * parked before; after setup().
      */
     void park(const SearchSet &files, const std::vector<PathsetPath> &lines, const std::vector<std::string> &models);
 
@@ -159,26 +171,29 @@ public:
      */
     void headlightPools(std::vector<gfx::DynamicLight> &out, const Vec3 &eye, float distance = 120) const;
 
-    /** The cars driving (and those knocked to a stop), not the parked ones. */
+    /** How many cars are driving (knocked ones too), and how many were parked. */
+    ///@{
     size_t count() const { return _cars.size() - _parked; }
-    /** The parked cars. */
     size_t parked() const { return _parked; }
+    ///@}
     /** Where the parked cars stand and which way they face (knocked or not). */
     void parkedPlaces(std::vector<std::pair<Vec3, Vec3>> &out) const;
-    /** Adds the cars to @p out, for others to keep clear of: all but parked ones not knocked. */
+    /** Adds the cars on the road (not those still parked), for others to keep clear of. */
     void users(std::vector<RoadUser> &out) const;
-    /** The lanes they drive, as setup() made them. */
+    /** The lanes they drive. */
     const TrafficNetwork &network() const { return _network; }
 
-    static constexpr float kLaneAtFull = 25;
-    static constexpr int kMostCars = 160;
-    /** The most cars to start, whatever the density asks for; kMostCars at first. */
+    static constexpr float kLaneAtFull = 25; // metres of lane a car, at density 1
+    static constexpr int kMostCars = 160;    // carLimit() unless set
+    /** The most cars driving at once, whatever the density. */
+    ///@{
     void setCarLimit(int cars) { _carLimit = cars; }
-    /** The most cars it starts. */
     int carLimit() const { return _carLimit; }
+    ///@}
     /**
-     * How many cars the density asks for about `focus`: the lane there
-     * (within 340 m, by each lane's share) over kLaneAtFull, times it.
+     * How many cars the density asks for about `focus`: the lanes within
+     * 340 m (each by its share) over kLaneAtFull, times the density; no
+     * more than carLimit().
      */
     size_t carsWanted(const Vec3 &focus);
 

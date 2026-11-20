@@ -72,6 +72,15 @@ key, or, for Mouse Look, anything but the left or right button. The cell's old
 key is unbound, the new key gets the cell's action, and any other cell
 showing the new key is emptied. Accept keeps the maps, Cancel drops them.
 
+## In Reluva
+
+`OptionsMenu` (`src/engines/stgenerations/game/optionsmenu.h`) draws and runs
+the menu, and `KeyMap` (`game/keymap.h`) holds the two key maps. The settings
+are kept with Reluva's own (`Generations::loadSettings` and `saveSettings`, in
+`game/frontend.cpp`), not in `SGENS.CFG`. Where the menu differs (it comes
+after the title, Escape on the Controls screen, no small window) is in
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 ## Sources and checks
 
 From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [frontend](../research/frontend.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

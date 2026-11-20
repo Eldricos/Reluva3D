@@ -20,7 +20,7 @@
 
 namespace reluva::age {
 
-/** The view controls' state, kept by a driving page from frame to frame. */
+/** The view controls' state, and the view they make of a camera's. */
 struct ViewControls {
     bool thrill = false;       // Thrill Cam
     bool thrillPlaced = false; // where it stands is chosen
@@ -40,9 +40,9 @@ struct ViewControls {
      * the pan.
      */
     CameraView apply(const CameraView &view, const CarCamera &cam, const CarSim &sim, float dt);
-    /** A camera's field of view, widened by kWide with Wide Angle on. */
+    /** A camera's field of view as Wide Angle leaves it. */
     float fov(float fov) const { return wide ? fov * kWide : fov; }
-    /** Whether the in-car view shows the dashboard: on, and not Wide Angle. */
+    /** Whether the dashboard is drawn (in the car): on, and not Wide Angle. */
     bool showDashboard() const { return dashboard && !wide; }
 
     static constexpr float kWide = 1.35f; // Wide Angle's share more of the view
@@ -63,7 +63,7 @@ struct CdPlayer {
 
     /** A CD control: true if it was one. */
     bool press(Control c, GameMusic &music, const SearchSet &files, audio::Mixer *mixer);
-    /** Lets the lit previous or next button go out, `dt` seconds on. */
+    /** Lets a pressed button's light go out after its moment. */
     void update(float dt) {
         pressedFor = std::max(0.0f, pressedFor - dt);
         if (pressedFor <= 0)

@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""The board from a level's listing (lines "NAME layer L at X, Y id N"): the
+hallway's squares, the rooms (connected floor squares, named by the
+furniture in them), the doors from the door tops, the suspects' starts and
+the secret passages.
+
+    python3 -I py/board.py LISTING.txt
+"""
+
 import re,collections,sys
 rows=[]
 for line in open(sys.argv[1]):
