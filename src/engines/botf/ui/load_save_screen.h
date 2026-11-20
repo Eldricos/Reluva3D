@@ -53,15 +53,19 @@ public:
     int chosen() const { return _chosen; }
     /** Saving: the description as typed, UTF-8. */
     const std::string &description() const { return _description; }
+    /** Saving: whether the flashing cursor is shown just now. */
+    void setCursorShown(bool shown) { _cursorShown = shown; }
 
 private:
     void type(const char *utf8);
     void erase();
+    void drawCursor(Surface &screen, int32_t box) const;
 
     Slots _slots;
     Mode _mode = Mode::kLoad;
     std::string _description;
     int _chosen = -1;
+    bool _cursorShown = true;
 };
 
 } // namespace reluva::botf

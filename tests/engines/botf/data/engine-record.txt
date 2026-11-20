@@ -27,7 +27,7 @@ setup.with the options: dc7d236f73952b21
 menu.last: aab57f3978016255
 load.shown: 7b4822baa08ae9b0
 load.empty slot clicked: 7b4822baa08ae9b0
-load.save chosen: 2b5c6860d506457d
+load.save chosen: 42e489e67660e3c8
 menu.after loading: aab57f3978016255
 fame.shown: b9c59ecb83c3a745
 menu.after the hall of fame: aab57f3978016255

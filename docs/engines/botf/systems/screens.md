@@ -196,14 +196,22 @@ game."
   title is the layout's own, `ls_svlb.tga`, "SAVE GAME". A screenshot
   before a slot is chosen matches Reluva's pixel for pixel but the
   pointer: Accept dimmed, the tutorials in the first four slots.
-- **The chosen slot** shows its file's name and the description of the
-  game to save: at first its galaxy's shape ("Ring"), the manual's "galaxy
-  type" *(guessed)*: which words, and whether the size goes with them,
-  aren't known. Typing
-  changes it, and Backspace takes the last character away. Reluva takes
-  what's typed whichever field was clicked, without a cursor *(guessed)*;
-  only characters the field's font has (all in Windows-1252, as
-  `gameInfo` keeps them), up to 50 and the field's 370 pixels.
+- **The chosen slot** lights (its second picture, framed in yellow), and
+  its file's name and description turn pink, (239, 182, 198), measured
+  from a screenshot. The description is the game's to save: at first its
+  galaxy's shape ("Ring"), the manual's "galaxy type" *(guessed)*: which
+  words, and whether the size goes with them, aren't known. Typing changes
+  it, and Backspace takes the last character away; only characters the
+  field's font has (all in Windows-1252, as `gameInfo` keeps them), up to
+  50 and the field's 370 pixels. Reluva takes what's typed whichever field
+  was clicked *(guessed)*.
+- **The cursor** is a white block, 8 pixels wide and as high as the
+  font's glyphs (15), just after the description's last glyph, and
+  flashes. In the screenshot, with "You can type here" typed, Reluva's
+  matches it pixel for pixel, as does the whole screen but the pointer.
+  How fast it flashes isn't known: Reluva shows it half a second and hides
+  it half a second *(guessed)*.
+- **Loading,** Reluva colours the chosen slot's text pink too *(guessed)*.
 - **Accept** saves into the slot, its old game, if any, replaced; Cancel
   goes back.
 
@@ -368,8 +376,8 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Save Game once a slot is chosen: the description it starts with, and a
-  cursor. Settled by a screenshot of a slot chosen.
+- Save Game: the description it starts with, and how fast the cursor
+  flashes. Settled by choosing a slot before typing, and a recording.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses

@@ -57,6 +57,10 @@ const std::vector<GameVariant> kFallback = {
      {{"stbof.res", "", -1}, {"sfx.snd", "", -1}}},
 };
 
+// How often Save Game's cursor flashes, on and off: the game's isn't
+// measured; about Windows' own caret's.
+constexpr uint64_t kCursorFlashMillis = 500;
+
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
@@ -152,6 +156,7 @@ public:
         Showing showing = Showing::kMenu;
         Showing shown = showing; // before the event
         bool redraw = true;
+        bool cursorShown = true;
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
@@ -232,6 +237,14 @@ public:
                     menu.forgetPointer();
                 shown = showing;
                 redraw = redraw || ev.type != EventType::kKeyUp;
+            }
+            if (showing == Showing::kLoad) {
+                const bool cursor = _sys.getMillis() / kCursorFlashMillis % 2 == 0;
+                if (cursor != cursorShown) {
+                    cursorShown = cursor;
+                    loading.setCursorShown(cursor);
+                    redraw = true;
+                }
             }
             if (redraw) {
                 std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));

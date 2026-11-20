@@ -384,6 +384,20 @@ void testLoadSaveScreen() {
     Font font15;
     CHECK(!font15.load(makeFont(16)));
     CHECK(font15.measure(screen.description()) <= 150 && screen.description().size() < 60);
+    // The cursor: a white block after the description, from its glyphs' top
+    // (box at 250, 125, 17 high; the font's lines 16), shown or not.
+    const int cursorX = 250 + font15.measure(screen.description());
+    auto white = [&](int x, int y) {
+        const uint8_t *p = surface.row(y) + size_t(x) * 4;
+        return p[0] == 255 && p[1] == 255 && p[2] == 255;
+    };
+    std::fill(surface.pixels.begin(), surface.pixels.end(), uint8_t(0));
+    screen.draw(surface);
+    CHECK(white(cursorX, 126) && white(cursorX + 7, 126 + 14) && !white(cursorX + 8, 126) && !white(cursorX, 125));
+    screen.setCursorShown(false);
+    std::fill(surface.pixels.begin(), surface.pixels.end(), uint8_t(0));
+    screen.draw(surface);
+    CHECK(!white(cursorX, 126));
     CHECK(click(20, 555) == LoadSaveScreen::Result::kAccepted && screen.chosen() == 1);
 }
 

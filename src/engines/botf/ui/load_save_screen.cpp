@@ -5,6 +5,7 @@
 
 #include "common/text.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
@@ -24,9 +25,13 @@ constexpr int32_t kFirstDescription = 9530; // 9530, 9532 ... 9552
 constexpr int32_t kTitle = 9505;
 constexpr const char *kLoadTitle = "ls_ldlb.tga";
 
-// The slots' text, measured from a screenshot of the game: not their
-// fonts' colours.
+// The slots' text, and the chosen slot's, measured from screenshots of the
+// game: not their fonts' colours.
 constexpr Color kTextColor{0, 166, 156};
+constexpr Color kChosenColor{239, 182, 198};
+// Saving, the cursor after the description: a white block 8 pixels wide,
+// as high as the font's glyphs (a screenshot).
+constexpr int kCursorWidth = 8;
 
 int32_t slotButton(int slot) {
     return kFirstSlot + 2 * slot;
@@ -139,10 +144,30 @@ void LoadSaveScreen::draw(Surface &screen) const {
             continue;
         const int32_t name = kFirstName + 2 * i;
         const int32_t description = kFirstDescription + 2 * i;
-        // The name field shows the slot's file, as the game names it.
-        drawText(screen, name, "game" + std::to_string(i) + ".sav", kTextColor);
-        drawText(screen, description, saving ? _description : save->description, kTextColor);
+        // The name field shows the slot's file, as the game names it; the
+        // chosen slot's text is pink.
+        const Color color = i == _chosen ? kChosenColor : kTextColor;
+        drawText(screen, name, "game" + std::to_string(i) + ".sav", color);
+        drawText(screen, description, saving ? _description : save->description, color);
+        if (saving && _cursorShown)
+            drawCursor(screen, description);
     }
+}
+
+void LoadSaveScreen::drawCursor(Surface &screen, int32_t box) const {
+    const Placed *p = find(box);
+    const Font *font = p && !p->widget->fonts.empty() ? _assets.font(p->widget->fonts[0].file) : nullptr;
+    if (!font)
+        return;
+    const Widget &w = *p->widget;
+    // Where the text's glyphs are: after its last one, from their top.
+    const int x0 = p->x + w.textX + font->measure(_description);
+    const int y0 = p->y + w.textY + (w.textH - font->lineHeight()) / 2 + 1;
+    for (int y = std::max(y0, 0); y < std::min(y0 + font->glyphHeight(), screen.h); ++y)
+        for (int x = std::max(x0, 0); x < std::min(x0 + kCursorWidth, screen.w); ++x) {
+            uint8_t *px = screen.row(y) + size_t(x) * 4;
+            px[0] = px[1] = px[2] = px[3] = 255;
+        }
 }
 
 } // namespace reluva::botf
