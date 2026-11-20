@@ -93,13 +93,13 @@ the player to face into the wall before asking its scripts'
   taken, as the engine's test does (its reach along the wall widened
   toward the box's corners on a slanted wall, and 0.1 more).
 - **Seen:**
-  - **The ladder:** on M01_KiraL2, walking into the ladder under
-    `CTVE_LadderTop2` climbed it at 120 a second, pulled up over the top
-    and walked on. Tried again in November 2026 from the floor at its
-    foot (-704, 4049), it isn't climbed, with this walk or the one
-    before it: the line ahead from the chest starts inside solid space
-    (a semisolid brush, Brush1274, is there), so no ladder texture is
-    found. Not yet looked into.
+  - **The ladder:** on M01_KiraL2, walking north into the ladder under
+    `CTVE_LadderTop2` from (-704, 3990) climbs it at 120 a second, pulls
+    up over the top and walks on. Its ladder texture is on the south
+    face of a thin box (Brush1396) set against a wall 96 thick; the
+    box's north face is inside the wall, where no one can stand (a line
+    from inside solid stops at once there, in Engine.dll's line check as
+    in Reluva's: 0x10461740).
   - **Pulling up:** on M01_SiskoL1A, walking into the ledges at (-362,
     2981) and (-316, 3222), 56 and 60 up, goes through `PlayerClambering`
     onto them.

@@ -44,8 +44,6 @@ there, dividing by 0) are reported and carried on from, not fixed
   over a step (unnamed, at `0xc10` and `0xbfc`) aren't eased; and a walk
   whose physics a wall's `HitWall` changed ends there, where the
   engine finishes the move and the floor test.
-- **M01_KiraL2's ladder** under `CTVE_LadderTop2` isn't climbed from its
-  foot ([climbing.md](systems/climbing.md)).
 - **Mission 12** has no dialogue table in any copy of the game: its
   voices are in `m12_Dialogue.uax`, their text nowhere
   ([dialogue-tables.md](formats/dialogue-tables.md)).
