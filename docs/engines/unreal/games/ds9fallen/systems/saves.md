@@ -60,10 +60,12 @@ seconds in and loaded back comes back the same: the player where it
 was, in its state, with its weapon.
 
 Reluva's own format (its older saves; `reluvaFormat` writes it) still
-loads (version 3 keeps a layer's whole state, its clears and what it's
-fading in over; version 2 reads). A file of it is the magic
-`RLVSAVE3` (or `RLVSAVE2`), then, little-endian, with strings as a
-length and their bytes:
+loads (version 4 keeps, for a line under way, the line whose
+RETURNLINE it carries, which a save of the original's names; version 3
+keeps a layer's whole state, its clears and what it's fading in over;
+2 and 3 read, a line under way in them carrying none). A file of it is
+the magic `RLVSAVE4` (or `RLVSAVE3`, `RLVSAVE2`), then, little-endian,
+with strings as a length and their bytes:
 - the map's name, the save's description and the time saved (Unix
   seconds, 64 bits);
 - the objects: each either one of the map's actors by its export, or

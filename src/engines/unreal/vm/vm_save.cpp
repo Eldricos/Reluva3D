@@ -30,11 +30,12 @@ namespace reluva::unreal {
 namespace {
 
 // 2: with the ghosts; 3: a layer's whole state (its clears, least rate and
-// what it's fading in over). 2 still reads.
-constexpr char kMagic[8] = {'R', 'L', 'V', 'S', 'A', 'V', 'E', '3'};
+// what it's fading in over); 4: the line whose RETURNLINE a line under way
+// keeps. 2 and 3 still read.
+constexpr char kMagic[8] = {'R', 'L', 'V', 'S', 'A', 'V', 'E', '4'};
 // The version a file is (its magic's last byte), 0 if it isn't one.
 int saveVersion(const char *magic) {
-    if (std::memcmp(magic, kMagic, 7) != 0 || (magic[7] != '2' && magic[7] != '3'))
+    if (std::memcmp(magic, kMagic, 7) != 0 || (magic[7] < '2' || magic[7] > '4'))
         return 0;
     return magic[7] - '0';
 }
@@ -502,6 +503,7 @@ Error ScriptLevel::saveGame(const std::string &slot) {
         out.u8(t.hudClock);
         out.i32(t.back);
         out.str(t.backPattern);
+        out.i32(t.backFrom);
     }
     out.i32(_nextDialogThread);
     out.i32(int32_t(_dialogRandom));
@@ -871,6 +873,9 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         t.hudClock = in.u8() != 0;
         t.back = in.i32();
         t.backPattern = in.str();
+        t.backFrom = version >= 4 ? in.i32() : -1;
+        if (t.backFrom >= int(_dialogLines.size()))
+            t.backFrom = -1;
         t.phoneme = 0;
         if (t.line >= 0 && size_t(t.line) < _dialogLines.size())
             _dialogThreads.push_back(t);
