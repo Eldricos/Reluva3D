@@ -12,8 +12,8 @@
 namespace reluva::botf {
 
 /**
- * Stbof.ini's KEY=VALUE lines (docs/engines/botf/formats/install.md), keys in upper
- * case. Lines without '=' are skipped.
+ * Stbof.ini's KEY=VALUE lines (docs/engines/botf/systems/game-files.md), keys
+ * in upper case. Lines without '=' are skipped.
  */
 std::map<std::string, std::string> parseStbofIni(std::string_view text);
 
@@ -36,11 +36,14 @@ public:
     std::string speechFile() const;
     /** Stbof.ini's CDPATH, when that folder exists here. */
     const std::optional<std::filesystem::path> &cdDir() const { return _cd; }
+    /** Stbof.ini's values, as parseStbofIni() gives them; empty without one. */
+    const std::map<std::string, std::string> &ini() const { return _ini; }
 
 private:
     std::filesystem::path _game;
     std::optional<std::filesystem::path> _cd;
     std::string _language = "ENGLISH";
+    std::map<std::string, std::string> _ini;
 };
 
 } // namespace reluva::botf

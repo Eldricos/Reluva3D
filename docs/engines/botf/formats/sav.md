@@ -66,14 +66,20 @@ of medium size, many minor races, Normal difficulty and random events on:
 | 0x268 | `i32` | minor races: 0 none, 1 few, 2 some, 3 many | 3 | 3: many |
 | 0x26C | `i16` | difficulty: 1 simple to 5 impossible, one more than the setup screen's order | 1 | 3: normal |
 | 0x26E | `i16` | random events: 1 on | 0 | 1: on |
-| 0x290 | `i32` | tactical combat: 0 manual (the editor: 2 automatic) *(published)* | 0 | 0 |
+| 0x290 | `i32` | tactical combat: 0 manual, 2 automatic (`last.sav`, beside `Stbof.ini`'s `TACTICAL=ABSTRACT`) | 0 | 0 |
 | 0x2A4, 0x2A8 | `i32` | the strategic and tactical timers: 0 none *(published)* | 0, 0 | 0, 0 |
 
-Each value checked is one of the two a save shows; the others in each
+A third save, the user's `last.sav` (664 files, at turn 318, the
+Federation), holds 2 for tactical combat, 1 (elliptical) for the shape, 0
+(small) for the size, no minor races, difficulty 1, every empire at 0
+and random events off: the setup `Stbof.ini` keeps
+([systems/game-files.md](../systems/game-files.md)). Its header's name is
+`auto.sav`, so it's presumably an autosave copied.
+
+Each value checked is one of those the saves show; the others in each
 field (a small or large galaxy, a spiral one ...) are the setup screen's
-order, which the ones seen fit *(inferred)*. Tactical combat and the
-timers weren't set away from their defaults, so their other values are
-the editor's. `auto.sav`'s description is empty, and its header's name is
+order, which the ones seen fit *(inferred)*. The timers weren't set away
+from none in any of them, so their other values are the editor's. `auto.sav`'s description is empty, and its header's name is
 `auto.sav`.
 
 ## In Reluva
@@ -107,8 +113,8 @@ on `game0.sav` it gives "game0.sav", "Tutorial #1", turn 0.
 - Which fill each file's window starts with: settled by a save with a
   reference into the unwritten window, or by `result.lst` once its pieces
   are read.
-- Tactical combat's and the timers' other values, from a game set up with
-  them.
-- What `Auto.sav` and `Last.sav` are: presumably autosave and the game the
-  main menu's Continue loads.
+- The timers' other values, from a game set up with them.
+- What `Auto.sav` and `Last.sav` are: presumably the autosave and the
+  game the main menu's Continue loads, `Last.sav` a copy of an autosave
+  (its header names it `auto.sav`).
 - The rest of `gameInfo`, and every other file in the archive.

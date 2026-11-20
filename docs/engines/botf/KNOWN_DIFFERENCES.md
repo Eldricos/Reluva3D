@@ -29,9 +29,11 @@ None yet.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
 - **The timers offer only None,** as their other choices aren't known.
-- **The options aren't kept** between runs, and change nothing yet: there's
-  no sound or movie to set the volume of, no sample plays when a volume
-  changes, and there are no tool tips to turn off.
+- **The options and the last setup aren't written back** to `Stbof.ini`:
+  Reluva starts from the file's, but leaves it as it is, so changes last
+  only while it runs. The options change nothing yet: there's no sound or
+  movie to set the volume of, no sample plays when a volume changes, and
+  there are no tool tips to turn off.
 
 ## Additions outside the game
 

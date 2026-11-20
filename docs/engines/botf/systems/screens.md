@@ -98,10 +98,11 @@ and checked against a screenshot of the game's screen.
   cell under the mouse and those left of it, and dragging follows the
   mouse *(guessed)*. The manual: "After you adjust a volume slider, a sound
   sample will play so you can hear the new volume level."
-- **The volumes at first:** after a fresh install, voice, music and sound
-  effects have 33 cells of 41 lit and video all 41. Reluva starts there
-  (102, 127, 102, 102); the value behind 33 cells may be any of 100-103
-  *(inferred)*.
+- **The volumes and settings at first** are `Stbof.ini`'s
+  ([game-files.md](game-files.md)): after a fresh install voice, music and
+  sound effects are 100 and video 127. 100 shows 33 cells of 41, so the
+  lit cells are the volume's share of 41 rounded up *(inferred)*. Without
+  the file, Reluva starts there and with the manual's settings.
 - **Accept** keeps the changes and **Cancel** drops them (the manual); both
   go back to the main menu.
 - **Colours:** the title and the names are in their fonts' own colours, as
@@ -151,8 +152,11 @@ of twelve slots, the manual's "12 slots available for saved games".
 
 ### Game setup
 
-`gmesetup.wdf`. The controls, matched to the manual's by their order on
-the screen, and checked against the recording:
+`gmesetup.wdf`. It opens with the last game's setup, from `Stbof.ini`
+([game-files.md](game-files.md)), or the last one accepted while Reluva
+runs; with neither, the manual's defaults below. The controls, matched to
+the manual's by their order on the screen, and checked against the
+recording:
 
 | Control | Widgets (button, text) | Choices (default first) |
 |---|---|---|
@@ -235,7 +239,8 @@ the screen, and checked against the recording:
   `ui/setup_screen.cpp` and `ui/empire_screen.cpp`: each screen's
   controls.
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
-  the options (while it runs: they aren't saved yet). Load Game lists the
+  the options and the last setup, starting from `Stbof.ini`'s (changes
+  aren't written back yet). Load Game lists the
   install's own saves, not the CD's. There's no game to start or load yet,
   so the empire screen's Accept and Load Game's come back to the main menu,
   and the menu's other buttons do nothing yet

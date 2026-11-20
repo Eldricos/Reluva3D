@@ -117,6 +117,10 @@ public:
         std::vector<uint8_t> data;
         if (!_stbof.read("lexicon.dic", data))
             _lexicon.load(data);
+        _options = optionsFromIni(files.ini());
+        // A new game's setup starts from the last one: Stbof.ini's, then the
+        // last accepted.
+        GameSetup lastSetup = setupFromIni(files.ini());
         Assets assets(_stbof);
         MainMenu menu(assets, _lexicon);
         OptionsScreen options(assets, _lexicon);
@@ -159,7 +163,7 @@ public:
                     if (c == MainMenu::Choice::kQuit)
                         return Error::success();
                     if (c == MainMenu::Choice::kNewSinglePlayer) {
-                        setup.setup() = GameSetup{};
+                        setup.setup() = lastSetup;
                         preferencesToSetup(_options, setup.setup());
                         showing = Showing::kSetup;
                     }
@@ -186,6 +190,7 @@ public:
                         showing = Showing::kMenu;
                     if (r == SetupScreen::Result::kAccepted) {
                         preferencesToOptions(setup.setup(), _options);
+                        lastSetup = setup.setup();
                         showing = Showing::kEmpires;
                         empires.reset();
                         empires.setLevels(setup.setup().civilization);
@@ -226,7 +231,7 @@ private:
     GameTarget _target;
     ZipArchive _stbof;
     Lexicon _lexicon;
-    GameOptions _options; // as the manual gives their defaults; not kept between runs yet
+    GameOptions _options; // from Stbof.ini; changes aren't written back yet
 };
 
 /**

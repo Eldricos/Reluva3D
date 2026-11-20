@@ -23,7 +23,7 @@ options.volume dragged: 817886fb4c290b12
 menu.options cancelled: aab57f3978016255
 options.again: e2828198ed79093b
 menu.options accepted: aab57f3978016255
-setup.with the options: f1f24d46deb0c711
+setup.with the options: fbc00b2b9b099bb2
 menu.last: aab57f3978016255
 load.shown: da1865fada544b25
 load.empty slot clicked: da1865fada544b25

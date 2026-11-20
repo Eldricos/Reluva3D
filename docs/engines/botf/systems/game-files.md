@@ -62,6 +62,53 @@ DIRECT X NOT 6.0 INSTALLED BY BOTF
 read from the CD. `LANGUAGE` names the CD's folder (`ENGLISH`, `GERMAN`),
 and the speech archive (`english.snd`, `german.snd`).
 
+Once the game has run, it keeps the options and the last game's setup
+there too. The user's, after a game, adds:
+
+```text
+VICTORY=KILLALL
+3D=SOFTWARE
+TACTICAL=ABSTRACT
+BORG=ON
+AUTOSAVE=ON
+TOOLTIPS=ON
+RANDOMEVENTS=OFF
+TURNSTATUS=OFF
+TIMELIMIT=0
+TACTIMELIMIT=0
+SHAPE=1
+SIZE=0
+RACENUM=0
+DIFFICULTY=1
+CIVLEVEL1=0
+...
+CIVLEVEL5=0
+ECONFILTER=55
+EVENTFILTER=177
+MILITARYFILTER=19
+SCREENVOLATILE=NO
+STARTINGSEED=1795138721
+Version=1.0.2
+```
+
+| Keys | What they are |
+|---|---|
+| `VOICEVOLUME`, `VIDEOVOLUME`, `MUSICVOLUME`, `FXVOLUME` | the options screen's volumes, 0 to 127: 100, 127, 100, 100 in both files seen, as a fresh install's options screen shows them |
+| `TOOLTIPS`, `AUTOSAVE`, `RANDOMEVENTS` | the options' settings, `ON` or `OFF` |
+| `TACTICAL` | tactical combat: `ABSTRACT` is automatic; manual's word isn't known |
+| `TIMELIMIT`, `TACTIMELIMIT` | the strategic and tactical timers, 0 none *(inferred)* |
+| `SHAPE`, `SIZE`, `RACENUM`, `DIFFICULTY`, `CIVLEVEL1`-`CIVLEVEL5` | the last game's setup, each as a saved game's `gameInfo` holds it ([formats/sav.md](../formats/sav.md)): difficulty 1 is simple |
+| `VICTORY` | the victory condition: `KILLALL` presumably domination *(guessed)* |
+| `3D`, `BORG`, `TURNSTATUS`, `SCREENVOLATILE`, the three `FILTER`s | not known yet: 3D drawing in software, the Borg, the turn status, and the galaxy map's filters (the manual's Military, Events and Economic buttons) *(guessed)* |
+| `STARTINGSEED` | the random seed of the last game (the Ultimate Editor: read by `trek.exe -n`) *(published)* |
+| `Version` | "1.0.2", the version the main menu draws |
+
+The setup keys match, value for value, the `last.sav` the user's install
+had beside them: an elliptical galaxy (1), small (0), no minor races,
+simple difficulty, every empire at Beginning, random events off, tactical
+combat automatic. Reluva starts the options screen and a new game's setup
+from them.
+
 ### Not needed by Reluva
 
 - In the install: `trek.exe` and `Trek.icd`; MicroProse's renderer

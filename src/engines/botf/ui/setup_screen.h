@@ -8,6 +8,7 @@
 #include "engines/botf/ui/layout_screen.h"
 
 #include <array>
+#include <map>
 #include <string>
 
 // The single-player game setup screen ("Configuration", gmesetup.wdf),
@@ -36,6 +37,13 @@ struct GameSetup {
     int galaxyShape = 0; // 0 irregular, 1 elliptical, 2 ring, 3 spiral
     int galaxySize = 1;  // 0 small, 1 medium, 2 large
 };
+
+/**
+ * The game setup Stbof.ini keeps, the last game's
+ * (docs/engines/botf/systems/game-files.md); the defaults for what it
+ * doesn't have.
+ */
+GameSetup setupFromIni(const std::map<std::string, std::string> &ini);
 
 /** The single-player game setup screen. */
 class SetupScreen : LayoutScreen {

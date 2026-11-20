@@ -4,6 +4,7 @@
 #include "engines/botf/ui/options_screen.h"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace reluva::botf {
 
@@ -46,6 +47,30 @@ constexpr Color kValueColor{24, 101, 189};
 constexpr Color kTimerColor{173, 227, 115};
 
 } // namespace
+
+GameOptions optionsFromIni(const std::map<std::string, std::string> &ini) {
+    GameOptions o;
+    auto value = [&](const char *key) -> const std::string * {
+        auto it = ini.find(key);
+        return it == ini.end() || it->second.empty() ? nullptr : &it->second;
+    };
+    auto onOff = [&](const char *key, bool &out) {
+        if (const std::string *v = value(key))
+            out = *v != "OFF";
+    };
+    const char *const volumes[] = {"VOICEVOLUME", "VIDEOVOLUME", "MUSICVOLUME", "FXVOLUME"};
+    for (size_t i = 0; i < o.volume.size(); ++i)
+        if (const std::string *v = value(volumes[i]))
+            o.volume[i] = std::clamp(std::atoi(v->c_str()), 0, GameOptions::kMaxVolume);
+    onOff("TOOLTIPS", o.toolTips);
+    onOff("AUTOSAVE", o.autosave);
+    onOff("RANDOMEVENTS", o.randomEvents);
+    // ABSTRACT is automatic combat; what manual is called there isn't known,
+    // so anything else is taken as it.
+    if (const std::string *v = value("TACTICAL"))
+        o.manualCombat = *v != "ABSTRACT";
+    return o;
+}
 
 Error OptionsScreen::load() {
     return loadLayouts("options.wdf", {kAccept, kCancel, kTitle, kVolumes[0], kVolumes[1], kVolumes[2], kVolumes[3],
@@ -133,7 +158,8 @@ void OptionsScreen::draw(Surface &screen) const {
         if (!unlit || cells <= 0)
             continue;
         const int cellW = p->widget->w / cells;
-        const int lit = (o.volume[i] * cells + GameOptions::kMaxVolume / 2) / GameOptions::kMaxVolume;
+        // Rounded up: the game's default 100 shows 33 cells, not 32.
+        const int lit = (o.volume[i] * cells + GameOptions::kMaxVolume - 1) / GameOptions::kMaxVolume;
         blitClipped(screen, *unlit, p->x, p->y, p->x + lit * cellW, p->y, p->widget->w - lit * cellW, p->widget->h);
     }
 

@@ -6,6 +6,7 @@
 
 #include "common/events.h"
 #include "engines/botf/formats/lexicon.h"
+#include "engines/botf/game_files.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/load_screen.h"
@@ -350,6 +351,25 @@ void testLoadScreen() {
     CHECK(screen.chosen() == -1);
 }
 
+void testFromIni() {
+    // Stbof.ini as the user's install had it after a game: every setting
+    // the two screens start from.
+    const auto ini = parseStbofIni("TACTICAL=ABSTRACT\r\nAUTOSAVE=ON\r\nTOOLTIPS=OFF\r\nRANDOMEVENTS=OFF\r\n"
+                                   "SHAPE=1\r\nSIZE=0\r\nRACENUM=0\r\nDIFFICULTY=1\r\nCIVLEVEL1=0\r\nCIVLEVEL5=4\r\n"
+                                   "MUSICVOLUME=90\r\nFXVOLUME=200\r\nVIDEOVOLUME=127\r\nVOICEVOLUME=0\r\n");
+    const GameOptions o = optionsFromIni(ini);
+    CHECK(!o.manualCombat && o.autosave && !o.toolTips && !o.randomEvents);
+    CHECK(o.volume[0] == 0 && o.volume[1] == 127 && o.volume[2] == 90 && o.volume[3] == GameOptions::kMaxVolume);
+    const GameSetup s = setupFromIni(ini);
+    CHECK(s.galaxyShape == 1 && s.galaxySize == 0 && s.minorRaces == 0 && s.difficulty == 0);
+    CHECK(s.civilization[0] == 0 && s.civilization[1] == 1 && s.civilization[4] == 4);
+    // Without the file, or with values out of range, the manual's defaults.
+    const GameOptions none = optionsFromIni({});
+    CHECK(none.manualCombat && none.toolTips && none.volume[2] == 100 && none.volume[1] == 127);
+    const GameSetup odd = setupFromIni(parseStbofIni("SHAPE=9\nDIFFICULTY=0\n"));
+    CHECK(odd.galaxyShape == 0 && odd.difficulty == 2);
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -429,6 +449,7 @@ static const reluva::test::Suite
                                     {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
                                     {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
                                     {"load game", [](const std::filesystem::path &) { testLoadScreen(); }},
+                                    {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
                                     {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                                     {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
                                 });

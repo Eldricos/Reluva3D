@@ -51,6 +51,11 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
+- **November 2026:** the options' default volumes (100, and 127 for
+  video), and `Stbof.ini` keeping the options and the last game's setup,
+  from the user's `Stbof.ini` and `last.sav`
+  ([systems/game-files.md](systems/game-files.md)).
+
 - **November 2026:** a saved game's archive and `gameInfo`'s description,
   checked on the tutorial's `game0.sav` ([formats/sav.md](formats/sav.md)).
 

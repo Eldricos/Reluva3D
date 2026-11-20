@@ -53,7 +53,8 @@ GameFiles::GameFiles(const std::filesystem::path &gameDir) : _game(gameDir) {
         return;
     std::ifstream in(*ini, std::ios::binary);
     const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    const auto values = parseStbofIni(text);
+    _ini = parseStbofIni(text);
+    const auto &values = _ini;
     if (auto it = values.find("LANGUAGE"); it != values.end() && !it->second.empty())
         _language = upper(it->second);
     if (auto it = values.find("CDPATH"); it != values.end() && !it->second.empty()) {

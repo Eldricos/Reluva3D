@@ -8,6 +8,8 @@
 #include "engines/botf/ui/layout_screen.h"
 
 #include <array>
+#include <map>
+#include <string>
 
 // The options screen (options.wdf), opened from the main menu: the four
 // volumes, tool tips, tactical combat, random events, autosave and the two
@@ -23,10 +25,9 @@ struct GameOptions {
 
     /**
      * Voice, video playback, background music and sound effects, 0 (off) to
-     * kMaxVolume; at first as a fresh install has them, 33 cells of 41 and
-     * video's all 41.
+     * kMaxVolume; at first as a fresh install's Stbof.ini has them.
      */
-    std::array<int, 4> volume{102, kMaxVolume, 102, 102};
+    std::array<int, 4> volume{100, kMaxVolume, 100, 100};
     bool toolTips = true;
     bool manualCombat = true;
     bool randomEvents = true;
@@ -34,6 +35,12 @@ struct GameOptions {
     int strategicTimer = 0; // 0 none; the other choices aren't known yet
     int tacticalTimer = 0;  // the same
 };
+
+/**
+ * The options as Stbof.ini keeps them (docs/engines/botf/systems/game-files.md);
+ * the defaults for what it doesn't have.
+ */
+GameOptions optionsFromIni(const std::map<std::string, std::string> &ini);
 
 /** The options screen. */
 class OptionsScreen : LayoutScreen {

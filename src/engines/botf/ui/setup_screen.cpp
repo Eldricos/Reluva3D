@@ -4,6 +4,7 @@
 #include "engines/botf/ui/setup_screen.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <vector>
 
 namespace reluva::botf {
@@ -58,6 +59,28 @@ Error SetupScreen::load() {
                        {kAccept, kCancel, kMinorRaces, kDifficulty, kStrategicLess, kStrategicMore, kTacticalLess,
                         kTacticalMore, kRandomEvents, kCombat, kVictory, kShape, kSize, kCivButtons[0], kCivButtons[1],
                         kCivButtons[2], kCivButtons[3], kCivButtons[4]});
+}
+
+GameSetup setupFromIni(const std::map<std::string, std::string> &ini) {
+    GameSetup s;
+    // Each value as a saved game's gameInfo holds it
+    // (docs/engines/botf/formats/sav.md), so the difficulty is one more than
+    // the screen's order.
+    auto number = [&](const char *key, int &out, int offset, int count) {
+        auto it = ini.find(key);
+        if (it == ini.end() || it->second.empty())
+            return;
+        const int v = std::atoi(it->second.c_str()) - offset;
+        if (v >= 0 && v < count)
+            out = v;
+    };
+    number("SHAPE", s.galaxyShape, 0, 4);
+    number("SIZE", s.galaxySize, 0, 3);
+    number("RACENUM", s.minorRaces, 0, 4);
+    number("DIFFICULTY", s.difficulty, 1, 5);
+    for (size_t i = 0; i < s.civilization.size(); ++i)
+        number(("CIVLEVEL" + std::to_string(i + 1)).c_str(), s.civilization[i], 0, 5);
+    return s;
 }
 
 std::string civilizationLevel(const Lexicon &lexicon, int level) {
