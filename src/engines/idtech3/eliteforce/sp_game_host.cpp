@@ -86,6 +86,10 @@ enum Import : int {
 constexpr int32_t kMaxEntities = 1024;
 constexpr uint32_t kCvarStructureSize = 44;
 constexpr uint32_t kArgvSize = 1024;
+// Arguments with a buffer each: the engines' Argv gives each argument's
+// own text, which stays while the game asks for the others (runscript
+// keeps its first while reading its second); beyond these, the last.
+constexpr uint32_t kArgvSlots = 16;
 
 uint32_t floatBits(float f) {
     uint32_t u;
@@ -178,7 +182,7 @@ Error SpGameHost::load(const std::vector<uint8_t> &dll, bool jedi) {
         return e;
     _imports = _process->memory().alloc(4 * (jedi ? kJediImportCount : _expansion ? kXpImportCount : kImportCount));
     _voiceVolume = _process->memory().alloc(4 * kMaxEntities);
-    _argvBuffer = _process->memory().alloc(kArgvSize);
+    _argvBuffer = _process->memory().alloc(kArgvSize * kArgvSlots);
     addImports();
     if (jedi)
         addJediImports();
@@ -1620,8 +1624,9 @@ void SpGameHost::addImports() {
     import(kArgc, [this](x86::Cpu &) { return uint32_t(_args.size()); });
     import(kArgv, [this](x86::Cpu &c) {
         const uint32_t n = c.arg(0);
-        c.writeString(_argvBuffer, n < _args.size() ? _args[n] : "", kArgvSize);
-        return _argvBuffer;
+        const uint32_t at = _argvBuffer + kArgvSize * std::min(n, kArgvSlots - 1);
+        c.writeString(at, n < _args.size() ? _args[n] : "", kArgvSize);
+        return at;
     });
 
     // Files: read from the game's search path; what it writes is kept

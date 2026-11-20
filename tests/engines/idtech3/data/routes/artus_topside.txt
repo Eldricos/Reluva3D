@@ -12,6 +12,9 @@
 # point (cinematic 9), and Desann's fight, lost as the script means:
 # Kyle undying, his death script the level's end. God mode is turned
 # off for it, and health isn't given (/give all would make it 999).
+# Whether Desann brings him down turns on the game's random draws, so
+# after a minute his death script is run as the game's runscript cheat
+# runs one.
 @until 16000 0 0
 /god
 /give weapons
@@ -385,4 +388,7 @@
 # Desann's fight, lost as the script means (Kyle undying, his death
 # script the end): god mode off for it
 /god
-@until 345200 0 0 0
+@until 285200 0 0 0
+# his death script, by the cheat (in this run he hasn't fallen by now)
+/runscript cinematics/cinematic9_run_end
+@until 405200 0 0 0
