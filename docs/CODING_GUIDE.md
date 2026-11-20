@@ -572,7 +572,7 @@ Public classes, methods and structures, in headers, get Doxygen blocks;
 everything else (private members, code inside functions, `.cpp` files)
 plain `//` comments. The rules above hold for both.
 
-New code uses Doxygen blocks from the start. Existing code has plain `//` comments: when you work on a file, turn the comments on its public classes, methods and structures into Doxygen blocks.
+Every header's public classes, methods and structures have Doxygen blocks, and new code has them from the start.
 
 A block starts with one sentence saying what it is or does, then more
 only if there is more to say. Use `@param` and `@return` only when they
