@@ -289,7 +289,14 @@ recording:
   measured from a video, whose colours run lighter and greyer.
 - Where the game keeps the options between runs.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
-  or `game4.sav`. Settled by a save in such a slot.
+  or `game4.sav`. Settled by a save in such a slot. (After a fresh install
+  that file is 0 bytes, and its slot shows empty: Reluva's reader refuses
+  it, so it shows empty too.)
+- The Hall of Fame's ten first entries ("Yobo the Tyrant ... 12865" in a
+  fresh install's screenshot) aren't in any file of the install or the CD:
+  not in `stbof.res` (each of its 6,013 files searched), the saves,
+  `Stbof.ini` or the registry. `Trek.icd`, SafeDisc's encrypted
+  executable, is the one place left, and it shows no readable text.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
 - What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an

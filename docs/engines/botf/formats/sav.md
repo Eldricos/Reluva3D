@@ -9,7 +9,11 @@ A saved game is an archive of the game's state, one file per part of it
 keeps one per Load Game slot, `game0.sav` to `game11.sav`, top down (a
 fresh install has the four tutorials as `game0.sav` to `game3.sav`), with
 `Auto.sav` and `Last.sav` beside them *(inferred: what `Auto` and `Last`
-are for)*. Reluva reads only what the load and save screens show: each
+are for)*. A fresh install has every one of them: the four tutorials, and
+the other ten files 0 bytes long (`Game4.sav` to `Game9.sav`, `Auto.sav`
+dated December 1998, `game10.sav` and `game11.sav` August 1998,
+`Last.sav` April 1999). An empty slot on the Load Game screen is one of
+those. Reluva reads only what the load and save screens show: each
 game's description.
 
 ## Layout
