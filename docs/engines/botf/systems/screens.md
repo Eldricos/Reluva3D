@@ -128,7 +128,8 @@ and checked against a screenshot of the game's screen.
   buttons, 124x28, from (20, 36) in it and 32 apart: `yes_on.tga` /
   `yestxtop.tga`, `no_on.tga` / `notxtop.tga`, and for Tactical Combat
   `auto_on.tga` / `autotxto.tga` first, then `man_on.tga` / `man-txt.tga`,
-  the choice set lit. Screenshots of Tool Tips' and Tactical Combat's
+  in that order whichever is set (the user, in the game), the choice set
+  lit. Screenshots of Tool Tips' and Tactical Combat's
   lists open match Reluva's pixel for pixel but the pointer (and a value
   peeking through). A choice is set at a click and the list closes; a
   click anywhere else, the setting's bar too, only closes it, changing
