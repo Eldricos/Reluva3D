@@ -74,7 +74,10 @@ per-frame `Update`), as read from them; the code is Reluva's own.
     a speed of sound of about 62,100 a second (0.355 / (0.355 ± speed ×
     5.715e-6), lower moving away), unclamped; away or toward judged
     from where it's handed the sound (ahead, without `UseSurround`).
-  - **Reverb** (`UseReverb`): the room where the camera is: in a water
+  - **Reverb** (`UseReverb`): the room where the camera is (the player's
+    `CameraRegion`, which its `PlayerCalcView` keeps at the camera; for a
+    viewer that isn't The Fallen's player Miles.dll would take its
+    `HeadRegion`, 0x10608790): in a water
     zone room 22 (Underwater) at 0.5, else the zone's `ZoneRoomType` at
     its `ZoneRoomFactor` (which the zone's script caps at 0.2; room 0
     none). Every positional sound goes through Miles' reverb filter
