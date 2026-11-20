@@ -3,7 +3,7 @@
 detect.games: 1
 detect.description: Star Trek: Birth of the Federation (unknown release)
 menu.shown: 3650ee45940809d6
-menu.new game pointed at: 9c847392a4491606
+menu.new game pointed at: e2406750c63cfac6
 menu.continue pressed: 3650ee45940809d6
 setup.shown: c2b55b030cfbbf1f
 setup.difficulty pressed: 40f0596795bbbb5f
@@ -36,7 +36,7 @@ menu.after the hall of fame: 3650ee45940809d6
 multiplayer.shown: afb042ae390cf735
 multiplayer.host: db701d89c3e17a3d
 multiplayer.network: 81b383611c6ef7bd
-multiplayer.name typed: 674679cf81f2d146
+multiplayer.name typed: e8bd9f706260aad6
 menu.after multiplayer: 3650ee45940809d6
 run: ok
 run.screen: 800x600

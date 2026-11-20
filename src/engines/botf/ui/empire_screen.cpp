@@ -64,6 +64,9 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
         return Result::kCancelled;
     if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown || e.type == EventType::kMouseUp)
         _pointed = empireAt(e.mouseX, e.mouseY);
+    // The name under the pointer pulses, unless it's the empire chosen,
+    // which shows its second picture.
+    setPulsing(_pointed >= 0 && _pointed != _chosen ? kNames[size_t(_pointed)] : 0);
     if (e.button != MouseButton::kLeft)
         return Result::kOpen;
     if (e.type == EventType::kMouseDown) {
@@ -72,7 +75,8 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
         // emblem chooses it too.
         if (const int empire = empireAt(e.mouseX, e.mouseY); empire >= 0) {
             _chosen = empire;
-            sound(UiSound::kSetupClick); // as the setup screen's (guessed)
+            // Each empire its own effect and speech (a recording).
+            sound(UiSound(int(UiSound::kCardassiansChosen) + empire));
         }
     } else if (e.type == EventType::kMouseUp) {
         const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
@@ -86,9 +90,9 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
 }
 
 void EmpireScreen::draw(Surface &screen) {
-    // The chosen empire's name shows its second picture. The game also
-    // tints the one under the pointer (red up, blue down, in a screenshot),
-    // in a way not worked out yet: Reluva leaves it as it is.
+    // The chosen empire's name shows its second picture; the one pointed
+    // at, if it isn't, pulses.
+    setPulsing(_pointed >= 0 && _pointed != _chosen ? kNames[size_t(_pointed)] : 0);
     std::set<int32_t> selected;
     if (_chosen >= 0)
         selected.insert(kNames[size_t(_chosen)]);

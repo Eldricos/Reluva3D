@@ -86,9 +86,9 @@ LoadSaveScreen::Result LoadSaveScreen::handle(const Event &e) {
                 // over (the game does); an empty slot takes the new one's.
                 const std::optional<SaveSummary> &save = _slots[size_t(i)];
                 _description = save ? save->description : _newDescription;
-                // A click and a spoken line, as Load Game does.
+                // A click and a spoken line, each mode its own.
                 sound(UiSound::kClick);
-                sound(UiSound::kGameChosen);
+                sound(_mode == Mode::kLoad ? UiSound::kGameChosen : UiSound::kSlotChosen);
             }
     }
     return Result::kOpen;

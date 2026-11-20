@@ -685,19 +685,23 @@ void testMultiplayerScreen() {
 }
 
 void testMenuMusic() {
-    // The menu music's segments: any but the one just played, every one in
-    // time; one segment only repeats.
+    // The menu music's segments: 0 or 1 first, then 2, 3 and 4, never the
+    // one just played, each in time.
     std::mt19937 random(7);
     std::array<int, 5> seen{};
-    int last = -1;
+    for (int start = 0; start < 20; ++start) {
+        const int first = nextSegment(-1, random);
+        CHECK(first == 0 || first == 1);
+        ++seen[size_t(first)];
+    }
+    int last = 0;
     for (int i = 0; i < 200; ++i) {
-        const int next = nextSegment(5, last, random);
-        CHECK(next >= 0 && next < 5 && next != last);
+        const int next = nextSegment(last, random);
+        CHECK(next >= 2 && next <= 4 && next != last);
         ++seen[size_t(next)];
         last = next;
     }
     CHECK(std::all_of(seen.begin(), seen.end(), [](int n) { return n > 0; }));
-    CHECK(nextSegment(1, 0, random) == 0 && nextSegment(1, -1, random) == 0);
 }
 
 void testEmpireScreen() {

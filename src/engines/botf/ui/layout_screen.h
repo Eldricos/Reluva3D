@@ -29,9 +29,16 @@ namespace reluva::botf {
 
 /** What a screen's controls sound like when used, for the engine to play. */
 enum class UiSound {
-    kClick,       // a button on most screens
-    kSetupClick,  // a control on the game setup and empire selection screens
-    kGameChosen,  // a saved game's slot chosen
+    kClick,      // a button on most screens
+    kSetupClick, // a control on the game setup and empire selection screens
+    kGameChosen, // a saved game's slot chosen, loading
+    kSlotChosen, // a slot chosen, saving
+    // An empire chosen on the empire selection screen, in race.rst's order.
+    kCardassiansChosen,
+    kFederationChosen,
+    kFerengiChosen,
+    kKlingonsChosen,
+    kRomulansChosen,
     kVoiceVolume, // the options' volumes set: each plays a sample
     kVideoVolume,
     kEffectsVolume,
@@ -40,6 +47,10 @@ enum class UiSound {
 /** A screen drawn from a .wdf layout, over the main menu or as it: what every such screen shares. */
 class LayoutScreen {
 public:
+    /** The time, in milliseconds, for a pulsing button; the engine's, each frame. */
+    void setTime(uint64_t millis) { _now = millis; }
+    /** Whether a button is pulsing: the screen changes as time passes. */
+    bool pulsing() const { return _pulsing != 0; }
     /** Where the screen's sounds go (the engine's); none by default. */
     void setSoundHandler(std::function<void(UiSound)> handler) { _sound = std::move(handler); }
 
@@ -68,12 +79,16 @@ protected:
     const Placed *find(int32_t id) const;
     // The button under the mouse, among those not hidden or disabled; or 0.
     int32_t buttonAt(int x, int y) const;
-    // Follows the pointer, for the button under it (with `_highlightPointed`).
+    // Follows the pointer, for the button under it.
     void trackPointer(const Event &event);
+    // The button that pulses, or 0: from its "selected" picture to nearly its
+    // normal one and back, from now (the button under the pointer, on the
+    // main menu and the empire selection screen's names).
+    void setPulsing(int32_t id);
     // The main menu, dimmed, then the layout: backgrounds and buttons (the
     // pressed one with its "selected" picture, as are those `selected`
-    // names, and the one under the pointer with `_highlightPointed`; the
-    // `_disabled` ones dimmed), parents before children, leaving out the
+    // names, and the pulsing one between its two; the `_disabled` ones
+    // dimmed), parents before children, leaving out the
     // `_hidden` widgets; then the panels shown, the same way.
     void drawLayouts(Surface &screen, const std::set<int32_t> &selected = {}) const;
     // Text in a text box, in its font and alignment, in the middle of its
@@ -121,7 +136,9 @@ protected:
     std::set<int32_t> _disabled;                 // buttons that can't be used just now
     int32_t _pressed = 0;                        // the button the mouse went down on, or 0
     int32_t _pointed = 0;                        // the button under the pointer, or 0
-    bool _highlightPointed = false;              // the button under the pointer shows its "selected" picture
+    int32_t _pulsing = 0;                        // the button pulsing (setPulsing), or 0
+    uint64_t _pulseStart = 0;                    // when it began, in setTime's milliseconds
+    uint64_t _now = 0;
     std::function<void(UiSound)> _sound;
 };
 

@@ -21,10 +21,18 @@ constexpr size_t kSetupClickEffect = 66; // the game setup screen's controls
 constexpr size_t kBackEffect = 50;       // back to the main menu; the effects volume's sample
 constexpr size_t kFameEffect = 75;       // opening the Hall of Fame
 constexpr size_t kVideoEffect = 162;     // the video volume's sample
-// english.snd's: opening the game setup screen; a saved game chosen; and
-// the voice volume's samples, one at random (these three heard).
+// An empire chosen: 60 for the Cardassians to 64 for the Romulans, in
+// race.rst's order.
+constexpr size_t kFirstEmpireEffect = 60;
+// english.snd's: opening the game setup screen and the empire selection
+// screen; a saved game chosen to load, and a slot to save in; an empire
+// chosen (318 to 322, as the effects); and the voice volume's samples, one
+// at random (these three heard).
 constexpr size_t kSetupSpeech = 1362;
+constexpr size_t kEmpiresSpeech = 1361;
 constexpr size_t kGameChosenSpeech = 323;
+constexpr size_t kSlotChosenSpeech = 722;
+constexpr size_t kFirstEmpireSpeech = 318;
 constexpr std::array<size_t, 3> kVoiceSamples = {351, 621, 725};
 
 // Effects and speech share _decoded's keys: speech's are offset by this.
@@ -38,12 +46,13 @@ int mixerVolume(int volume) {
 
 } // namespace
 
-int nextSegment(int count, int last, std::mt19937 &random) {
-    if (count <= 1)
-        return 0;
-    std::uniform_int_distribution<int> pick(0, last >= 0 && last < count ? count - 2 : count - 1);
-    const int n = pick(random);
-    return last >= 0 && n >= last ? n + 1 : n;
+int nextSegment(int last, std::mt19937 &random) {
+    if (last < 0)
+        return std::uniform_int_distribution<int>(0, 1)(random);
+    // 2, 3 or 4, not `last`: two to choose from when it's one of them.
+    const bool repeat = last >= 2 && last <= 4;
+    const int n = 2 + std::uniform_int_distribution<int>(0, repeat ? 1 : 2)(random);
+    return repeat && n >= last ? n + 1 : n;
 }
 
 MenuAudio::MenuAudio(System &system)
@@ -91,7 +100,9 @@ void MenuAudio::update() {
     // Two segments ahead: the next is decoded well before it's needed.
     const std::vector<size_t> &segments = _music.pieces()[kMenuPiece];
     while (_queue->queued() < 2) {
-        _lastSegment = nextSegment(int(segments.size()), _lastSegment, _random);
+        _lastSegment = nextSegment(_lastSegment, _random);
+        if (size_t(_lastSegment) >= segments.size())
+            return;
         auto sound = std::make_shared<audio::Sound>();
         if (_music.decode(segments[size_t(_lastSegment)], kDefaultAdpcmRate, *sound))
             return;
@@ -136,6 +147,19 @@ void MenuAudio::play(UiSound sound) {
     case UiSound::kGameChosen:
         speech(kGameChosenSpeech);
         break;
+    case UiSound::kSlotChosen:
+        speech(kSlotChosenSpeech);
+        break;
+    case UiSound::kCardassiansChosen:
+    case UiSound::kFederationChosen:
+    case UiSound::kFerengiChosen:
+    case UiSound::kKlingonsChosen:
+    case UiSound::kRomulansChosen: {
+        const size_t empire = size_t(int(sound) - int(UiSound::kCardassiansChosen));
+        effect(kFirstEmpireEffect + empire);
+        speech(kFirstEmpireSpeech + empire);
+        break;
+    }
     case UiSound::kVoiceVolume:
         speech(kVoiceSamples[std::uniform_int_distribution<size_t>(0, kVoiceSamples.size() - 1)(_random)]);
         break;
@@ -153,7 +177,12 @@ void MenuAudio::play(UiSound sound) {
 void MenuAudio::play(Move move) {
     switch (move) {
     case Move::kToSetup:
+        effect(kClickEffect);
         speech(kSetupSpeech);
+        break;
+    case Move::kToEmpires:
+        effect(kBackEffect);
+        speech(kEmpiresSpeech);
         break;
     case Move::kToOptions:
     case Move::kToLoad:

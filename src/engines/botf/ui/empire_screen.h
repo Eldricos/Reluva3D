@@ -20,7 +20,9 @@ namespace reluva::botf {
 /** The empire selection screen: choosing the empire to play. */
 class EmpireScreen : LayoutScreen {
 public:
+    using LayoutScreen::pulsing;
     using LayoutScreen::setSoundHandler;
+    using LayoutScreen::setTime;
     enum class Result { kOpen, kAccepted, kCancelled };
 
     EmpireScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
@@ -42,7 +44,10 @@ public:
      * Romulans), or -1.
      */
     int chosen() const { return _chosen; }
-    void reset() { _chosen = _pointed = -1; }
+    void reset() {
+        _chosen = _pointed = -1;
+        setPulsing(0);
+    }
 
 private:
     int empireAt(int x, int y) const;

@@ -64,9 +64,9 @@ const std::vector<GameVariant> kFallback = {
      {{"stbof.res", "", -1}, {"sfx.snd", "", -1}}},
 };
 
-// How often the typing cursors flash (Save Game, Multiplayer Setup), on and off: the game's isn't
-// measured; about Windows' own caret's.
-constexpr uint64_t kCursorFlashMillis = 500;
+// How long the typing cursors (Save Game, Multiplayer Setup) are shown,
+// then hidden: measured on a recording of the game, frame by frame.
+constexpr uint64_t kCursorFlashMillis = 300;
 
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
@@ -313,6 +313,7 @@ public:
                         values.merge(optionsIniValues(_options));
                         writeStbofIni(files, values);
                         showing = Showing::kEmpires;
+                        audio.play(MenuAudio::Move::kToEmpires);
                         empires.reset();
                         empires.setLevels(setup.setup().civilization);
                     }
@@ -334,6 +335,12 @@ public:
             // the music, are heard at the new one; Cancel puts them back.
             audio.setVolumes(showing == Showing::kOptions ? options.options() : _options);
             audio.update();
+            // A pulsing button changes with time: the main menu's, and the
+            // empire selection screen's names.
+            menu.setTime(_sys.getMillis());
+            empires.setTime(_sys.getMillis());
+            if ((showing == Showing::kMenu && menu.pulsing()) || (showing == Showing::kEmpires && empires.pulsing()))
+                redraw = true;
             if (showing == Showing::kLoad || showing == Showing::kMultiplayer) {
                 const bool cursor = _sys.getMillis() / kCursorFlashMillis % 2 == 0;
                 if (cursor != cursorShown) {

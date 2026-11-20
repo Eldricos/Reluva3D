@@ -19,38 +19,26 @@ None: nothing of the game's code has been read.
 - **The speech and music's sample rate,** 22,050 Hz, isn't stored: it's
   the rate the sound effects use, and the one they sound right at
   ([formats/snd.md](formats/snd.md)).
-- **The button under the pointer is drawn with its second picture:** the
-  recording shows it lighter, though elsewhere it shows the pointer inside
-  Quit Game's rectangle and the button not lit
-  ([systems/screens.md](systems/screens.md)). Settled by: pointing at each
-  button's edges in the running game.
 - **The options screen:** the settings the game setup screen shares with
   it kept as one set ([systems/screens.md](systems/screens.md)). Settled
   by: a setting changed on one screen seen on the other.
 - **A saved game's LZSS window** starts full of spaces for its text files,
   from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
   Settled by: `result.lst` decoded both ways once its pieces are read.
-
-- **The menu music's order:** a segment at random, never the one just
-  played, from one order heard ([systems/sound.md](systems/sound.md)).
-  Settled by: a longer recording, or `music.tbl` worked out.
+- **The menu music's order:** segment 0 or 1, then 2 to 4 at random,
+  never one twice in a row, from the orders heard
+  ([systems/sound.md](systems/sound.md)). Settled by: `music.tbl` worked
+  out.
 
 ## Guessed
 
-- **The opening movie:** in the screen's middle, black above and below,
-  and skipped by a key or a click ([systems/movies.md](systems/movies.md)).
-  Settled by: a screenshot during it.
-
-- **The menu's sounds not heard:** which of the same sound's entries, the
-  voice volume's lines, the empire screen's and Save Game's sounds
-  ([systems/sound.md](systems/sound.md)). Settled by: a recording of them.
-
+- **The menu's sounds:** which of the same sound's entries the game
+  plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
+  Settled by: the game's code, or many more slider moves.
 - **On Save Game:** an empty slot's description when chosen (the galaxy's
-  shape),
-  typing whichever field was clicked, and the cursor's flashing every half
-  a second ([systems/screens.md](systems/screens.md)). Settled by: a
-  screenshot of an empty slot just chosen, and a recording.
-
+  shape), and typing whichever field was clicked
+  ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
+  an empty slot just chosen.
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
 - **On the options screen:** a click on a volume lighting the cells up to
@@ -68,6 +56,13 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** the opening movie's place and skipping; buttons
+  pulsing under the pointer, and the pointer's hot spot; the cursor's
+  flashing; the menu music's order; the empire selection screen's and
+  Save Game's sounds: from screenshots and recordings by the user
+  ([systems/screens.md](systems/screens.md), [systems/sound.md](systems/sound.md),
+  [systems/movies.md](systems/movies.md)).
 
 - **November 2026:** `Stbof.ini` written only on Accept, and manual
   combat's `TACTICAL=DETAILED`, from the user's game and a copy of the file

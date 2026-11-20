@@ -20,13 +20,14 @@ Reluva plays the opening movie; the empires' wait for a game to start.
 - **Its sound is the install's `intro.wav`:** PCM, 16-bit stereo at 22,050
   Hz, 75.19 seconds, the movie's length to the frame. Reluva plays it with
   the picture following it.
-- **On the screen:** the game's 800x600, the picture in its middle, black
-  above and below *(guessed)*.
+- **On the screen:** the game's 800x600, the picture in its middle, rows
+  150 to 449, black above and below: a screenshot during it matches the
+  movie's frame 1061 there.
 - **The movie** is a flight past stars and planets, ending on the
   copyright notice.
 - **Before the main menu:** played at startup, unless `Stbof.ini` says
   `MOVIEON=OFF` ([game-files.md](game-files.md)). A key or a click skips it
-  *(guessed)*. Its sound is at the video volume ([sound.md](sound.md)).
+  (the user, in the game). Its sound is at the video volume ([sound.md](sound.md)).
 
 ## In Reluva
 
@@ -51,7 +52,5 @@ placing and playing a Cinepak movie to its end.
 
 ## Open questions
 
-- How the game places the movie on the screen, and whether a key or a
-  click skips it: settled by a screenshot during it, and trying.
 - When the empires' movies play: presumably after the empire selection
   screen, as a game starts.

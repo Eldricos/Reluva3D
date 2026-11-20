@@ -17,12 +17,13 @@ happening.
 ### The music
 
 `music.snd`'s first piece, its five segments (entries 0-4, 20 to 28
-seconds each), one after another with nothing between them. The order
-isn't fixed: the recording plays 0, 3, 2, 4, 3, 2, no segment twice in a
-row and segment 1 not at all in its two minutes. Reluva picks the next at
-random among the four not just played *(inferred: from the one order
-heard)*. Where it starts isn't known: the recording begins in segment 0.
-The music doesn't stop or start again going from screen to screen.
+seconds each), one after another with nothing between them. It begins
+with segment 0 or 1, and then plays only 2, 3 and 4, never one twice in a
+row: two recordings, two and seven minutes long, play 0, 3, 2, 4, 3, 2
+and 1, 2, 4, 2, 3, 2, 4, 3, 4, 3, 2, 3, 2, 4, 2, 4, 3, each segment
+starting where the one before ends. Reluva picks the first and each next
+at random among those *(inferred)*. The music
+doesn't stop or start again going from screen to screen.
 
 ### The sounds
 
@@ -32,7 +33,12 @@ every time; the times here are the picture's.
 | When | Sound | Archive entry |
 |---|---|---|
 | The main menu's buttons | none | |
-| Opening the game setup screen | speech, 1.7 seconds | `english.snd` 1362 |
+| Opening the game setup screen | the click, and speech, 1.7 seconds | `sfx.snd` 87, `english.snd` 1362 |
+| Its Accept, opening the empire selection screen | 0.5 seconds, and speech, 2.2 seconds | `sfx.snd` 50, `english.snd` 1361 |
+| An empire chosen | an effect and speech of its own, by `race.rst`'s order | `sfx.snd` 60-64, `english.snd` 318-322 |
+| Opening Save Game | the click | `sfx.snd` 87 |
+| A slot chosen on Save Game | the click, and speech, 1.6 seconds | `english.snd` 722 |
+| Save Game's Accept, back to the game | as going back to the menu, and speech | `sfx.snd` 50, `english.snd` 723 |
 | Opening Options or Load Game | a click, 0.1 seconds | `sfx.snd` 87 |
 | Opening the Hall of Fame | 1.2 seconds | `sfx.snd` 75 |
 | Opening Multiplayer Setup | none | |
@@ -51,9 +57,15 @@ every time; the times here are the picture's.
 - **The voice volume's lines:** four slider moves, three different lines.
   Reluva picks one of the three heard at random *(guessed: the game's
   choice may be wider)*.
-- **Not in the recording:** the empire selection screen and Save Game.
-  Reluva gives an empire chosen the setup screen's click, and opening
-  Save Game Load Game's *(guessed)*.
+- **Opening the game setup screen's click** is in one recording and not
+  the other; Reluva plays it.
+- **Not played yet:** Save Game's Accept (nothing is saved yet), and
+  Retire's screen (a click on Retire, then `sfx.snd` 53, 80 and 112 on
+  it), which needs a game.
+- **Two recordings:** the first, of the main menu's screens; the second,
+  of a new game set up, each empire chosen in turn, the game started,
+  saved, and retired. Starting the game from the empire selection screen
+  makes no sound.
 
 ### Volumes
 

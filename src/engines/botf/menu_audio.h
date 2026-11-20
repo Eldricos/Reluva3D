@@ -23,11 +23,11 @@
 namespace reluva::botf {
 
 /**
- * The next of a piece's `count` segments to play after `last` (-1 at the
- * start): any but the one just played (a recording shows no segment twice
- * in a row).
+ * The menu music's next segment after `last` (-1 at the start): 0 or 1 to
+ * begin with, then any of 2, 3 and 4 but the one just played (recordings,
+ * eight minutes of it).
  */
-int nextSegment(int count, int last, std::mt19937 &random);
+int nextSegment(int last, std::mt19937 &random);
 
 /** The main menu's music and sounds. Without an audio device, or the archives, it's silent. */
 class MenuAudio {
@@ -57,7 +57,7 @@ public:
     /** Plays a screen control's sound. */
     void play(UiSound sound);
     /** Going to a screen from the main menu, or back to it. */
-    enum class Move { kToSetup, kToOptions, kToLoad, kToSave, kToHallOfFame, kToMultiplayer, kToMenu };
+    enum class Move { kToSetup, kToEmpires, kToOptions, kToLoad, kToSave, kToHallOfFame, kToMultiplayer, kToMenu };
     void play(Move move);
 
 private:

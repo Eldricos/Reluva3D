@@ -48,6 +48,43 @@ void blitWithin(Surface &screen, const image::Image &img, int x, int y, int w, i
         blitClipped(screen, img, x, y, x0, y0, x1 - x0, y1 - y0);
 }
 
+// How far a pulsing button is towards its "selected" picture, `elapsed`
+// milliseconds after it began: all the way at once, then down to 14% over
+// 0.8 seconds and back up over 0.8, again and again (measured frame by frame
+// in a recording of the empire selection screen; screenshots of it and of
+// the main menu fall on the same curve).
+double pulseAmount(uint64_t elapsed) {
+    constexpr uint64_t kHalf = 800;
+    constexpr double kLowest = 0.14;
+    const double phase = double(elapsed % (2 * kHalf)) / kHalf; // 0 to 2
+    const double down = phase < 1 ? phase : 2 - phase;
+    return 1 - (1 - kLowest) * down;
+}
+
+// A button's "selected" picture over its normal one, `amount` of the way.
+void drawPulse(Assets &assets, Surface &screen, const Widget &w, int x, int y, double amount, const Box &clip) {
+    const image::Image *img = nullptr;
+    for (const auto &[role, name] : w.pictures)
+        if (role == "selected")
+            img = assets.picture(name);
+    if (!img)
+        return;
+    const int a = int(amount * 256);
+    const int x0 = std::max({x, clip.x, 0});
+    const int y0 = std::max({y, clip.y, 0});
+    const int x1 = std::min({x + w.w, x + img->w, clip.x + clip.w, screen.w});
+    const int y1 = std::min({y + w.h, y + img->h, clip.y + clip.h, screen.h});
+    for (int py = y0; py < y1; ++py)
+        for (int px = x0; px < x1; ++px) {
+            const uint8_t *s = img->pixel(px - x, py - y);
+            if (s[3] == 0)
+                continue; // the colour key
+            uint8_t *d = screen.row(py) + size_t(px) * 4;
+            for (int c = 0; c < 3; ++c)
+                d[c] = uint8_t((d[c] * (256 - a) + s[c] * a) >> 8);
+        }
+}
+
 // A button's "normal" picture, or its "selected" one, at `brightness`
 // percent.
 void drawButton(Assets &assets, Surface &screen, const Widget &w, int x, int y, bool selected, int brightness,
@@ -129,6 +166,12 @@ int32_t LayoutScreen::buttonAt(int x, int y) const {
     return 0;
 }
 
+void LayoutScreen::setPulsing(int32_t id) {
+    if (id != _pulsing)
+        _pulseStart = _now;
+    _pulsing = id;
+}
+
 void LayoutScreen::trackPointer(const Event &event) {
     if (event.type == EventType::kMouseMove || event.type == EventType::kMouseDown || event.type == EventType::kMouseUp)
         _pointed = buttonAt(event.mouseX, event.mouseY);
@@ -153,9 +196,10 @@ void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selecte
                 continue;
             }
             const bool disabled = _disabled.count(w.id) > 0;
-            const bool lit =
-                !disabled && (w.id == _pressed || selected.count(w.id) || (_highlightPointed && w.id == _pointed));
+            const bool lit = !disabled && (w.id == _pressed || selected.count(w.id));
             drawButton(_assets, screen, w, x, y, lit, disabled ? kDisabledBrightness : 100, clip);
+            if (!lit && !disabled && w.id == _pulsing)
+                drawPulse(_assets, screen, w, x, y, pulseAmount(_now - _pulseStart), clip);
         }
     };
     const Box all{0, 0, screen.w, screen.h};

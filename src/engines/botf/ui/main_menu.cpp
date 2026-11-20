@@ -74,6 +74,9 @@ void MainMenu::setGameInProgress(bool inProgress) {
 
 MainMenu::Choice MainMenu::handle(const Event &e) {
     trackPointer(e);
+    // The button under the pointer pulses (screenshots: the main menu's like
+    // the empire selection screen's names).
+    setPulsing(_pointed);
     if (e.button != MouseButton::kLeft)
         return Choice::kNone;
     if (e.type == EventType::kMouseDown) {

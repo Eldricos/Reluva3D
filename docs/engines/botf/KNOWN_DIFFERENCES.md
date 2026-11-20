@@ -34,7 +34,8 @@ None yet.
   written.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
-- **The timers offer only None,** as their other choices aren't known.
+- **The timers offer only None:** the game's go on to times ("01:00",
+  "00:15" seen), whose steps aren't known yet.
 - **The menu's sounds** are the ones a recording shows, but where the
   game has the same sound in several entries Reluva plays the first, the
   voice volume picks among only the three lines heard, and the video

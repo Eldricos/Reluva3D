@@ -41,9 +41,15 @@ right, each with two pictures. The first screen after the opening movie
 The widgets are matched to the manual's buttons by their pictures' names
 and their order on the screen, as the recording shows them.
 
-- **Pointing:** the button under the pointer is drawn lighter: its second
-  picture, the "selected" one *(inferred)*. In the recording New Single
-  Player Game lights as the pointer reaches it, before the click.
+- **Pointing:** the button under the pointer pulses: it shows its second
+  picture, the "selected" one, at once, then fades to 14% of the way from
+  its first to its second over 0.8 seconds and back over 0.8, again and
+  again, as the empire selection screen's names do (below). A button
+  counts as under the pointer when the pointer's hot spot, its crosshair's
+  middle, is in its rectangle: two screenshots, the hot spot on New Single
+  Player Game's top row and one row above it, show it lit and not. A
+  screenshot of it lit matches Reluva's, 0.3 seconds into the pulse, but
+  the pointer.
 - **Buttons that can't be used:** at the start, with no game in progress,
   Continue, Save Game and Retire are dimmed and don't light. Reluva draws
   them at 35% of their brightness *(seen, not traced)*: against their own
@@ -231,8 +237,8 @@ game."
   font's glyphs (15), just after the description's last glyph, and
   flashes. In the screenshot, with "You can type here" typed, Reluva's
   matches it pixel for pixel, as does the whole screen but the pointer.
-  How fast it flashes isn't known: Reluva shows it half a second and hides
-  it half a second *(guessed)*.
+  It's shown 0.3 seconds and hidden 0.3 seconds: a recording of the
+  Multiplayer Setup screen's, frame by frame, 9 frames of 30 each time.
 - **Loading,** the chosen slot's text is pink too, and Accept lit: a
   screenshot with the first tutorial chosen matches Reluva's pixel for
   pixel but the pointer.
@@ -329,6 +335,10 @@ recording:
   lands on the game's pixels but the two timers' "NONE", a pixel left of
   the game's. The options screen's timers, centred in the same way, match;
   why these don't isn't known.
+- **The timers' other choices** count minutes and seconds: a screenshot
+  has the strategic timer at "01:00" and the tactical at "00:15". Which
+  steps the arrows go through isn't known yet, so Reluva offers only
+  "NONE".
 
 ### Empire selection
 
@@ -353,11 +363,12 @@ recording:
 
 - **Choosing:** in the recording no empire is chosen at first; the one
   clicked shows its name button's second (yellow) picture and keeps it.
-  The emblems don't change. The name under the pointer is tinted, red a
-  little up and blue down from its first picture (a screenshot, and the
-  recording's frame before the click); how isn't worked out, and Reluva
-  doesn't tint it. Accept (9110) and Cancel (9111) as on the setup
-  screen.
+  The emblems don't change. The name under the pointer, if it isn't the
+  chosen one, pulses between its two pictures, as the main menu's buttons
+  do: measured frame by frame in a recording, the blend jumps to the
+  second picture as the pointer arrives, falls evenly to 14% in 0.8
+  seconds, rises again in 0.8, and so on; three screenshots fall on that
+  curve. Accept (9110) and Cancel (9111) as on the setup screen.
 - **The description** of the empire pointed at, as the manual says ("when
   the cursor passes over the empire's icon or name"), or else of the one
   chosen, in text box 9112 (`human20.fnt`, left-aligned). It isn't the
@@ -435,14 +446,10 @@ recording:
 
 ## Open questions
 
-- The timers' choices beyond None.
+- The timers' choices beyond None: "01:00" and "00:15" are seen, the steps
+  between not.
 - Whether the game shows a held button's "selected" picture on the setup
   and empire screens, as the main menu does under the pointer.
-- Whether the pointer lights a main menu button. In the recording's first
-  50 seconds the pointer rests at (625, 483), inside Quit Game's rectangle
-  near its left edge, and Quit Game shows its first picture: the pointer's
-  hot spot may not be where it's drawn, or only the button's picture, not
-  its rectangle, may count.
 - On the options screen: whether a volume's click works as Reluva's does.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
@@ -460,6 +467,5 @@ recording:
   executable, is the one place left, and it shows no readable text.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
-- What `es_?icn0`, `es_?0` and `es_?1` are for, and how the game tints a
-  name under the pointer.
+- What `es_?icn0`, `es_?0` and `es_?1` are for.
 - How the game picks its text colours.

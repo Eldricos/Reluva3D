@@ -35,7 +35,9 @@ public:
         kQuit,
     };
 
-    MainMenu(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) { _highlightPointed = true; }
+    using LayoutScreen::pulsing;
+    using LayoutScreen::setTime;
+    MainMenu(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
     Error load();
     /**
      * Whether a game is in progress: without one, Continue, Save Game and
@@ -54,7 +56,10 @@ public:
      * Coming back from another screen: no button is lit until the pointer
      * moves, as the one it was on when the menu was left may not be under it.
      */
-    void forgetPointer() { _pointed = 0; }
+    void forgetPointer() {
+        _pointed = 0;
+        setPulsing(0);
+    }
 
 private:
     std::string _version;
