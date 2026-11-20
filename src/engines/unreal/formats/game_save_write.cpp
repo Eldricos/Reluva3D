@@ -451,8 +451,24 @@ Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool c
     };
     std::vector<bool> keep(exports.size(), false);
     std::deque<size_t> leadsTo;
+    // (An actor deleted, by the level or in the map itself, isn't kept, as
+    // the original's saves have none: what points at it, a model's list of
+    // lights too, is none.)
+    auto deletedActor = [&](size_t i) {
+        if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && o->isActor)
+            if (refs.count(o) || o->deleted)
+                return o->deleted && !refs.count(o);
+        // One the level never had: deleted in the map itself (bDeleteMe).
+        std::vector<uint8_t> data;
+        if (_map.readExport(int(i), data))
+            return false;
+        Reader r(data, size_t(exports[i].serialOffset));
+        PropertyList props;
+        return !beginObject(_map, int(i), r, props) && props.boolean("bDeleteMe");
+    };
     auto keepRef = [&](int32_t ref) {
-        if (ref > 0 && size_t(ref) <= exports.size() && !keep[size_t(ref - 1)] && !editorOnly(size_t(ref - 1))) {
+        if (ref > 0 && size_t(ref) <= exports.size() && !keep[size_t(ref - 1)] && !editorOnly(size_t(ref - 1)) &&
+            !deletedActor(size_t(ref - 1))) {
             keep[size_t(ref - 1)] = true;
             leadsTo.push_back(size_t(ref - 1));
         }
@@ -474,13 +490,21 @@ Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool c
             leadsTo.push_back(size_t(outer - 1));
         }
         const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
-        if (cls != "model" && cls != "polys")
-            continue;
         std::vector<uint8_t> data;
         const bool stack = exports[i].flags & objflag::kHasStack;
-        renumber = !_map.readExport(int(i), data) &&
-                   (cls == "model" ? modelRefs(data, version, stack, mapNone, keepRef, same, scratch)
-                                   : polysRefs(data, stack, mapNone, keepRef, same, scratch));
+        if (cls == "model" || cls == "polys") {
+            renumber = !_map.readExport(int(i), data) &&
+                       (cls == "model" ? modelRefs(data, version, stack, mapNone, keepRef, same, scratch)
+                                       : polysRefs(data, stack, mapNone, keepRef, same, scratch));
+            continue;
+        }
+        // One kept as the map has it: what its properties lead to too.
+        // What the level has now leads where its values do.
+        if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && refs.count(o))
+            continue;
+        if (cls == "c3dmeshstate" || exports[i].serialSize <= 0)
+            continue;
+        renumber = !_map.readExport(int(i), data) && rewriteProperties(_map, data, stack, keepRef, same, scratch);
     }
     if (!renumber)
         keep.assign(exports.size(), true);
@@ -828,9 +852,7 @@ Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool c
     }
 
     // What the save keeps of the map as it is: its models and their
-    // polygons (renumbered), and the actors their lights still lead to
-    // that the level destroyed (as they are now) or never had (the map's
-    // own deleted ones, as the map has them).
+    // polygons, and the rest the level hasn't (its summary), renumbered.
     if (renumber)
         for (size_t i = 0; i < exports.size(); ++i) {
             const int32_t ref = fromMap(int32_t(i) + 1);
@@ -844,15 +866,9 @@ Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool c
                     (cls == "model" ? modelRefs(data, version, stack, mapNone, fromMap, baseNames, scratch)
                                     : polysRefs(data, stack, mapNone, fromMap, baseNames, scratch)))
                     w.setData(ref, std::move(scratch));
-            } else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1);
-                       o && o->isActor && o->deleted && !refs.count(o)) {
-                ByteWriter b;
-                properties(b, o);
-                w.setData(ref, std::move(b.data));
             } else if (w.baseData(ref) >= 0 && exports[i].serialSize > 0 && !_map.readExport(int(i), data)) {
                 // The rest kept as they are, their references renumbered: a
-                // mesh state's only name, others' properties (the level's
-                // summary, an actor the map itself had deleted).
+                // mesh state's only name, others' properties.
                 if (cls == "c3dmeshstate" ? leadingName(data, mapNone, baseNames, scratch)
                                           : rewriteProperties(_map, data, stack, fromMap, baseNames, scratch))
                     w.setData(ref, std::move(scratch));
@@ -1010,7 +1026,7 @@ Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool c
             whole = !_map.readExport(int(i), data) &&
                     (cls == "model" ? modelRefs(data, version, stack, mapNone, markRef, markName, scratch)
                                     : polysRefs(data, stack, mapNone, markRef, markName, scratch));
-        else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && (refs.count(o) || (o->isActor && o->deleted)))
+        else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && refs.count(o))
             continue; // written from the level as it is now
         else
             whole = !_map.readExport(int(i), data) &&

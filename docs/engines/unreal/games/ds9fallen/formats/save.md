@@ -176,10 +176,13 @@ is the map's data as it is; the rest comes from the running level.
   the original's save, the map that save was made on.
 - **The map's exports kept**, numbered again in their order before the
   new ones: those saved, the Level object, what its model and reach list
-  and the models and their polygons lead to (the actors in a model's
-  lights included: as they are now, should the level have destroyed one;
-  as the map has them, should the map itself hold one deleted, as
-  M01_SiskoL1A's Light82 is), and the packages they're in. The editor's
+  and the models and their polygons lead to, and the packages they're
+  in. Not an actor deleted, by the level or in the map itself
+  (`bDeleteMe`: M01_SiskoL1A's Light82 and five more lights, still in
+  its model's list of lights), as the original's saves have none; what
+  pointed at one, the model's list of lights too, is none (the
+  original's save of M01_SiskoL1A has its 771 lights, as Reluva's
+  now). The editor's
   own (UnrealEd's building brushes, their models and the polygon lists
   only those models lead to, its cameras, its text) are left out, as the
   game never loads them (Core.dll 0x1012d02b) and the original's saves
@@ -194,12 +197,12 @@ is the map's data as it is; the rest comes from the running level.
   again in their order: it's written twice, the first time to find
   them (those its writing asks for, the export table's, those in the
   map's data kept, and what each import is in and named).
-- A save of M01_SiskoL1A comes to 6.11 MB: 5703 names, 867 imports,
-  3689 exports (the map has 9011, 493 and 7682); the original's 6.19 MB,
-  6425, 592 and 4436. Both keep its 71 models and 71 polygon lists. The
-  original keeps more besides, what the map's leftovers lead to (Light82's
-  LevelInfo4, one of the editor's leftover LevelInfos, which is none
-  here).
+- A save of M01_SiskoL1A comes to 6.11 MB: 5692 names, 866 imports,
+  3681 exports (the map has 9011, 493 and 7682); the original's 6.19 MB,
+  6425, 592 and 4436. Both keep its 71 models, 71 polygon lists, 771
+  lights and one LevelInfo; what's left between them is what the level
+  had at the time (the original's has 2285 effect copies to 1529 here,
+  decals and a crosshair).
 
 ## Sources and checks
 
