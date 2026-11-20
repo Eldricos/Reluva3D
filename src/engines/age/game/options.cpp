@@ -215,6 +215,8 @@ std::string GameOptions::text() const {
       << textureQuality << "\ncloudshadows " << cloudShadows << "\nautoreverse " << autoReverse << "\nforcefeedback "
       << forceFeedback << "\nstartincar " << startInCar << "\nsteering " << steering << "\ncontroller " << controller
       << "\ndeadzone " << deadZone << "\n";
+    if (!meetingServer.empty())
+        o << "meetingserver " << meetingServer << "\n";
     for (int i = 0; i < kControls; ++i)
         o << "key " << kControlNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
@@ -279,6 +281,8 @@ Error GameOptions::parse(const std::string &text) {
             controller = int(number(value, 0, 3));
         else if (name == "deadzone")
             deadZone = number(value, 0, 1);
+        else if (name == "meetingserver")
+            meetingServer = value;
         else if (name == "key") {
             std::string second;
             l >> second;

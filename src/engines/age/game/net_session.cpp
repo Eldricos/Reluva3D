@@ -11,6 +11,7 @@
 
 #include "common/crypto.h"
 #include "common/md5.h"
+#include "common/meeting.h"
 
 #include <algorithm>
 #include <cmath>
@@ -132,6 +133,12 @@ public:
     size_t at;
     bool ok = true;
 };
+
+// Whether the other players could reach `a` without the host: not a
+// meeting server's connection, which only the host's socket knows.
+bool reachable(const net::Address &a) {
+    return a.port && !net::isMeetingAddress(a);
+}
 
 uint8_t typeOf(const std::vector<uint8_t> &d) {
     return d.size() >= 3 && d[0] == 'R' && d[1] == 'M' ? d[2] : 0;
@@ -636,7 +643,7 @@ void NetSession::leave() {
         bool bots = false;
         for (const NetPlayer &p : _players) {
             bots = bots || p.bot;
-            if (p.id != _myId && !p.bot && p.address.port) {
+            if (p.id != _myId && !p.bot && reachable(p.address)) {
                 ++left;
                 successor = std::min(successor, p.id);
             }
@@ -835,6 +842,36 @@ bool NetSession::unseal(const std::vector<uint8_t> &data, std::vector<uint8_t> &
     return true;
 }
 
+std::vector<uint8_t> NetSession::info(uint32_t time) const {
+    Writer w(kInfo);
+    w.u8(kNetVersion);
+    w.str(_sessionName);
+    w.u8(uint8_t(_settings.mode));
+    w.u8(_settings.city);
+    w.u8(uint8_t(_players.size()));
+    w.u8(_settings.maxPlayers);
+    w.u8(uint8_t((_phase != Phase::kLobby ? 1 : 0) | (_password.empty() ? 0 : 2)));
+    w.u32(time);
+    return w.out;
+}
+
+bool NetBrowser::parseInfo(const std::vector<uint8_t> &data, Found &f) {
+    if (typeOf(data) != kInfo)
+        return false;
+    Reader r(data);
+    f.sameVersion = r.u8() == kNetVersion;
+    f.name = r.str();
+    f.mode = NetMode(std::min<uint8_t>(r.u8(), uint8_t(NetMode::kCopsRobbers)));
+    f.city = r.u8();
+    f.players = r.u8();
+    f.maxPlayers = r.u8();
+    const uint8_t flags = r.u8();
+    f.time = r.u32();
+    f.playing = (flags & 1) != 0;
+    f.password = (flags & 2) != 0;
+    return r.ok;
+}
+
 void NetSession::receive(uint64_t nowMs) {
     net::Address from;
     std::vector<uint8_t> data;
@@ -879,17 +916,8 @@ void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t>
         const uint32_t time = r.u32();
         if (!r.ok)
             return;
-        Writer w(kInfo);
-        w.u8(kNetVersion);
-        w.str(_sessionName);
-        w.u8(uint8_t(_settings.mode));
-        w.u8(_settings.city);
-        w.u8(uint8_t(_players.size()));
-        w.u8(_settings.maxPlayers);
-        w.u8(uint8_t((_phase != Phase::kLobby ? 1 : 0) | (_password.empty() ? 0 : 2)));
-        w.u32(time);
         (void)version;
-        _socket->send(from, w.out);
+        _socket->send(from, info(time));
         return;
     }
     case kJoin: {
@@ -1354,7 +1382,7 @@ void NetSession::hostGone(uint64_t nowMs, uint8_t successor) {
     bool bots = false;
     for (const NetPlayer &p : _players) {
         bots = bots || p.bot;
-        if (p.id != _hostId && !p.bot && (p.address.port || p.id == _myId))
+        if (p.id != _hostId && !p.bot && (reachable(p.address) || p.id == _myId))
             left.push_back(p.id);
     }
     if (left.empty() || (left.size() < 2 && !bots)) {
@@ -1426,24 +1454,11 @@ void NetBrowser::update(uint64_t nowMs) {
     net::Address from;
     std::vector<uint8_t> data;
     for (int n = 0; n < 256 && _socket->receive(from, data); ++n) {
-        if (typeOf(data) != kInfo)
-            continue;
-        Reader r(data);
         Found f;
-        f.address = from;
-        f.sameVersion = r.u8() == kNetVersion;
-        f.name = r.str();
-        f.mode = NetMode(std::min<uint8_t>(r.u8(), uint8_t(NetMode::kCopsRobbers)));
-        f.city = r.u8();
-        f.players = r.u8();
-        f.maxPlayers = r.u8();
-        const uint8_t flags = r.u8();
-        const uint32_t time = r.u32();
-        if (!r.ok)
+        if (!parseInfo(data, f))
             continue;
-        f.playing = (flags & 1) != 0;
-        f.password = (flags & 2) != 0;
-        f.ping = uint16_t(std::min<uint32_t>(uint32_t(nowMs) - time, 65535));
+        f.address = from;
+        f.ping = uint16_t(std::min<uint32_t>(uint32_t(nowMs) - f.time, 65535));
         f.heardMs = nowMs;
         auto it = std::find_if(_found.begin(), _found.end(), [&](const Found &o) { return o.address == from; });
         if (it != _found.end())

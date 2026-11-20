@@ -11,10 +11,12 @@
 
 #include "common/system.h"
 #include "engines/age/ui/front_end.h"
+#include "common/meeting.h"
 #include "common/portmap.h"
 #include "engines/age/game/net_session.h"
 
 #include <deque>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -62,6 +64,8 @@ public:
     NetSession *session() { return _session.get(); }
     /** Back from the garage, with the car chosen, or from the game. */
     void carChosen(const std::string &car, int paintJob);
+    /** Where the options are saved: the meeting server typed is kept there. */
+    void setSavePath(std::filesystem::path path) { _savePath = std::move(path); }
     /** Goes to the lobby, or to the sessions found if we're in no session. */
     void showLobby();
     /** Out of the session, closing what hosting opened. */
@@ -123,6 +127,9 @@ private:
     void startHosting();
     std::map<std::string, float> topSpeeds() const;
     void joinAddress(const net::Address &address);
+    void joinMeeting(uint32_t id);
+    bool meetingServer(net::Address &out); // looked up again only when the text has changed
+    std::vector<NetBrowser::Found> sessionList() const;
     void refreshRaces();
     void message(const std::string &text, const std::string &picture = "msg_dlg");
     void drawDialog(Surface &o, const std::string &picture, const std::string &title) const;
@@ -155,7 +162,19 @@ private:
     bool _editing = false; // the host's settings from the lobby (else hosting anew)
     std::vector<std::string> _raceNames;
     size_t _ejectChoice = 0;
-    net::Address _pendingJoin; // a session that wants a password first
+    net::Address _pendingJoin;    // a session that wants a password first
+    uint32_t _pendingMeeting = 0; // the same, listed by the meeting server
+    // The meeting server (Reluva's: players who can't reach each other
+    // meet through it), as typed and as last looked up.
+    std::string _meetingServer;
+    std::string _meetingLooked;
+    net::Address _meetingAt;
+    std::unique_ptr<net::MeetingSocket> _meetingBrowser; // asks it for its sessions
+    net::MeetingSocket *_meetingHost = nullptr;          // the hosted session's socket, if listed there (it owns it)
+    uint64_t _meetingAskedMs = 0;
+    uint64_t _meetingSinceMs = 0; // when hosting there began, for saying it doesn't answer
+    std::filesystem::path _savePath;
+    bool _meetingSaid = false;
     uint32_t _lastChatSeq = 0;
     // a dialog over the screen, until a key
     std::string _message;

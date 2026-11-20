@@ -41,8 +41,9 @@ None yet.
   ([car-simulation.md](systems/car-simulation.md)).
 - **No police radio**: the game has no recordings for one, and Reluva
   plays none ([police.md](systems/police.md)).
-- **Multiplayer's gaps**: no hole punching between two players both
-  behind routers ([multiplayer.md](systems/multiplayer.md#not-done)).
+- **Multiplayer's gaps**: two players both behind routers that pass
+  nothing on need a meeting server someone runs
+  ([multiplayer.md](systems/multiplayer.md#not-done)).
 - **Two dialogs aren't drawn**, as their pictures aren't shipped:
   Cops & Robbers Settings (the Host Race Menu does its work) and
   `xassign_dlg` (what it said isn't known)
@@ -60,6 +61,9 @@ None yet.
 - **Computer players in multiplayer** to fill a session or play alone,
   and joining a game already playing
   ([multiplayer.md](systems/multiplayer.md)).
+- **A meeting server** for players who can't reach each other, and its
+  field on the sessions screen
+  ([network-protocol.md](systems/network-protocol.md#through-a-meeting-server)).
 - **San Francisco's stunt mode**, from the game's unused `accel0` files
   ([cruise-and-stunt.md](systems/cruise-and-stunt.md)).
 - **`reluva-tool age`** commands for the game's files

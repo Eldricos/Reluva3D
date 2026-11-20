@@ -12,6 +12,14 @@ On the Race page, the main menu's **Multiplayer** button opens the
 sessions screen.
 
 - **NET NAME**: type the name the others see.
+- **MEETING SERVER** (Reluva's, in the panel under the connections): for
+  players who can't reach each other, the address of a meeting server
+  (`reluva-tool meet-server`, run by someone the players can all reach),
+  as `host` or `host:port`. Hosting then lists the session there too, the
+  list below shows its sessions beside the network's ("via server" where
+  the ping would be), and joining one goes through it
+  ([network-protocol.md](network-protocol.md#through-a-meeting-server)).
+  It's kept in the options file for next time.
 - **HOST**: the host's options (an optional password, at most 2 to 8
   players, and how many computer players: below), then the host's
   settings, then **DONE** opens the session and goes to the lobby. The
@@ -23,7 +31,8 @@ sessions screen.
   every second. With none in the list, JOIN asks for an address: a host
   name or `a.b.c.d`, with `:port` if it isn't 28520. Over the Internet,
   the host's router has to pass UDP port 28520 on to the host, which
-  Reluva asks it to do (below).
+  Reluva asks it to do (below); where it won't, a meeting server
+  (above) can stand in.
 - **A game already playing** can be joined: the joiner loads straight
   into it, and the others see their car arrive. A player who leaves (or
   is ejected) takes their car with them.
@@ -142,7 +151,7 @@ The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
 
 | Screen | Background | Controls |
 |---|---|---|
-| Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
+| Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, MEETING SERVER (Reluva's), `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Enter an Address | `jpg/tcp_dlg` (400 x 330 at 120, 75: `menu.csv` gives it 300 x 225 at 170, 127) | TCP/IP Address, `dlg_can`, `dlg_done`. Left blank, back to the sessions (its words: "or leave blank to search for available session") |
 | Enter a valid password | `jpg/pass_dlg` | Password, `dlg_can`, `dlg_done` |
 | Host Options | `jpg/host_dlg` | Password, Max Players, Computer Players (Reluva's), `dlg_can`, `dlg_done` |
@@ -181,9 +190,10 @@ The descriptions at the bottom left are the game's pictures:
 
 ## Not done
 
-- **Hole punching**: two players both behind routers that won't pass a
-  port on can't reach each other; that needs a server of Reluva's own on
-  the Internet to meet through, which it hasn't.
+- **A meeting server of Reluva's own on the Internet**: players behind
+  routers that won't pass a port on need someone to run one
+  (`reluva-tool meet-server`) where they can all reach it; there's none
+  run for everyone.
 - **What the host can't see**: a car is held to its own top speed, but
   not to its acceleration, grip or weight: one tuned to corner or pull
   away better than it should, within its top speed, isn't caught.

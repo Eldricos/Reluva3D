@@ -206,7 +206,32 @@ Internet join, or that the router didn't answer and the port has to be
 passed on by hand. The mapping is taken away when the host leaves
 (`DeletePortMapping`, or a NAT-PMP lifetime of 0).
 
+## Through a meeting server
+
+Where neither router passes a port on, the players meet through a
+meeting server instead ([common/meeting-server.md](../../../../../common/meeting-server.md)),
+given on the sessions screen:
+
+- **Listed.** The host's socket is wrapped in a `MeetingSocket` for the
+  game `age`, and it publishes the session every few seconds with its
+  Info message as the server's description of it (what a search on the
+  network would get), so its players, event and password show as they
+  change.
+- **Found.** The sessions screen asks the server for the game's sessions
+  every two seconds and reads each description as it would an Info.
+- **Joined.** Joining one wraps the joiner's socket too, asks the server
+  to introduce it to the host, and joins the address the connection is
+  given. Everything above then goes as it would: the game's own
+  messages, sealed, carried straight between the two once they've
+  reached each other, else through the server. Either way the server
+  sees only sealed datagrams.
+- **Taking over.** A player the host reaches only through the meeting
+  server has a connection's address in the Lobby, which only the host's
+  socket knows, so the others can't reach it there: such players aren't
+  counted among those who could take over, and with none left the
+  session ends as it would.
+
 ## Sources and checks
 
-- **Where the facts come from:** Reluva's own design (the original's is DirectPlay); UPnP's and NAT-PMP's published specifications for the router; RFC 7748 and RFC 8439 for the encryption.
-- **How it was checked:** `age.unit.network` (with a test that listens in: the chat isn't on the wire, and a datagram sent again, changed, or made up in the clear does nothing), `common.unit.crypto` and `common.unit.portmap`.
+- **Where the facts come from:** Reluva's own design (the original's is DirectPlay); UPnP's and NAT-PMP's published specifications for the router; RFC 7748 and RFC 8439 for the encryption; the meeting server is Reluva's own.
+- **How it was checked:** `age.unit.network` (with a test that listens in: the chat isn't on the wire, and a datagram sent again, changed, or made up in the clear does nothing), `common.unit.crypto`, `common.unit.portmap` and `common.unit.meeting`; a session hosted and joined through a meeting server with the players walled off from each other (`age.unit.network`).

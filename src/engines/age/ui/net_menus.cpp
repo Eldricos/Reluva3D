@@ -98,6 +98,9 @@ NetMenus::NetMenus(System &sys, const SearchSet &files, const std::vector<CityIn
     }
     if (!cars.empty())
         _myCar = cars.front().base;
+    // Reluva's own: the meeting server, in the panel under the connections.
+    _widgets.push_back({"Net Select Menu", "MEETING SERVER", 46, 312, 214, 22, ""});
+    _meetingServer = currentOptions().meetingServer;
 }
 
 NetMenus::~NetMenus() {
@@ -229,9 +232,13 @@ void NetMenus::enter() {
 }
 
 void NetMenus::leave() {
+    if (_meetingHost)
+        _meetingHost->unpublish();
+    _meetingHost = nullptr;
     if (_session)
         _session->leave();
     _session.reset();
+    _meetingBrowser.reset();
     _mapper.reset(); // the router's port closed again
     _local.reset();
     _browser.reset();
@@ -323,6 +330,7 @@ std::vector<NetMenus::Item> NetMenus::items() const {
                 button("sess_ser", "sess_ser", 5, false),
                 button("sess_mod", "sess_mod", 5, false),
                 field("NET NAME", true),
+                field("MEETING SERVER", true),
                 button("sess_hst", "sess_hst", 4),
                 button("sess_jn", "sess_jn", 4),
                 field("textscroll"),
@@ -439,6 +447,18 @@ void NetMenus::startHosting() {
         message("Playing on this computer only: " + (err ? err.message : std::string("no network")));
     }
     _browser.reset();
+    _meetingBrowser.reset();
+    // Listed at the meeting server too, if one's given: its players reach
+    // this one through it.
+    _meetingHost = nullptr;
+    _meetingSaid = false;
+    net::Address meeting;
+    if (!_local && meetingServer(meeting)) {
+        auto listed = std::make_unique<net::MeetingSocket>(std::move(socket), meeting, "age");
+        _meetingHost = listed.get();
+        _meetingSinceMs = 0;
+        socket = std::move(listed);
+    }
     _session = NetSession::host(std::move(socket), _netName, _settings, _password);
     _session->setTopSpeeds(topSpeeds());
     _session->setCar(_myCar, uint8_t(_myPaint));
@@ -467,9 +487,72 @@ void NetMenus::joinAddress(const net::Address &address) {
     go(Screen::kLobby);
 }
 
+void NetMenus::joinMeeting(uint32_t id) {
+    net::Address meeting;
+    std::unique_ptr<net::UdpSocket> socket;
+    if (!meetingServer(meeting)) {
+        message("Can't find the meeting server " + _meetingServer);
+        return;
+    }
+    if (Error err = _sys.openUdp(0, socket); err || !socket) {
+        message("The network is not available");
+        return;
+    }
+    auto through = std::make_unique<net::MeetingSocket>(std::move(socket), meeting, "age");
+    const net::Address host = through->connect(id);
+    _meetingBrowser.reset();
+    _session = NetSession::join(std::move(through), host, _netName, _password);
+    _session->setTopSpeeds(topSpeeds());
+    _session->setCar(_myCar, uint8_t(_myPaint));
+    _lines.clear();
+    _lastChatSeq = 0;
+    go(Screen::kLobby);
+}
+
+bool NetMenus::meetingServer(net::Address &out) {
+    if (_meetingServer.empty())
+        return false;
+    if (_meetingServer != _meetingLooked) {
+        _meetingLooked = _meetingServer;
+        _meetingAt = {};
+        const auto [host, port] = net::splitHostPort(_meetingServer, net::kMeetingPort);
+        net::Address a;
+        a.port = port;
+        if (net::parseAddress(_meetingServer, net::kMeetingPort, a) || _sys.resolveHost(host, a.ip))
+            _meetingAt = a;
+        _meetingBrowser.reset();
+        // Kept for next time.
+        GameOptions options = currentOptions();
+        if (options.meetingServer != _meetingServer) {
+            options.meetingServer = _meetingServer;
+            setCurrentOptions(options);
+            if (!_savePath.empty())
+                options.save(_savePath);
+        }
+    }
+    out = _meetingAt;
+    return _meetingAt.port != 0;
+}
+
+std::vector<NetBrowser::Found> NetMenus::sessionList() const {
+    std::vector<NetBrowser::Found> list = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
+    if (_meetingBrowser)
+        for (const net::MeetingSocket::Listed &l : _meetingBrowser->listed()) {
+            NetBrowser::Found f;
+            if (!NetBrowser::parseInfo(l.info, f))
+                continue;
+            f.meetingId = l.id;
+            f.ping = 0;
+            list.push_back(f);
+        }
+    return list;
+}
+
 std::string *NetMenus::textOf(const std::string &w) {
     if (w == "NET NAME")
         return &_netName;
+    if (w == "MEETING SERVER")
+        return &_meetingServer;
     if (w == "TCP/IP Address")
         return &_address;
     if (w == "Password")
@@ -488,14 +571,17 @@ void NetMenus::activate(const Item &item, Action &action) {
         _password.clear();
         go(Screen::kHostOptions);
     } else if (w == "sess_jn") {
-        const auto &found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
+        const auto found = sessionList();
         if (_chosenSession < found.size()) {
             const auto &f = found[_chosenSession];
             _password.clear();
-            if (f.password) {
-                _pendingJoin = f.address;
+            _pendingJoin = f.address;
+            _pendingMeeting = f.meetingId;
+            if (f.password)
                 go(Screen::kPassword);
-            } else
+            else if (f.meetingId)
+                joinMeeting(f.meetingId);
+            else
                 joinAddress(f.address);
         } else
             go(Screen::kAddress);
@@ -520,7 +606,10 @@ void NetMenus::activate(const Item &item, Action &action) {
             _password.clear();
             joinAddress(a);
         } else if (_screen == Screen::kPassword) {
-            joinAddress(_pendingJoin);
+            if (_pendingMeeting)
+                joinMeeting(_pendingMeeting);
+            else
+                joinAddress(_pendingJoin);
         } else if (_screen == Screen::kHostOptions) {
             _settings.maxPlayers = std::clamp<uint8_t>(_settings.maxPlayers, 2, kMaxNetPlayers);
             go(Screen::kHostRace);
@@ -579,7 +668,7 @@ void NetMenus::change(const Item &item, int step) {
     auto wrap = [](int v, int n) { return n > 0 ? (v % n + n) % n : 0; };
     const std::string &w = item.widget;
     if (w == "textscroll") {
-        const size_t n = _browser ? _browser->sessions().size() : 0;
+        const size_t n = sessionList().size();
         _chosenSession = size_t(wrap(int(_chosenSession) + step, int(n)));
     } else if (w == "Max Players") {
         _settings.maxPlayers = uint8_t(std::clamp(_settings.maxPlayers + step, 2, kMaxNetPlayers));
@@ -701,7 +790,7 @@ NetMenus::Action NetMenus::handle(const Event &ev) {
                 else if (list[i].widget == "textscroll") {
                     const Widget *w = widget("textscroll");
                     const int row = (ev.mouseY - w->y - 4) / kRow - 1;
-                    if (row >= 0 && _browser && size_t(row) < _browser->sessions().size())
+                    if (row >= 0 && size_t(row) < sessionList().size())
                         _chosenSession = size_t(row);
                 } else if (!list[i].text) {
                     const Widget *w = widget(list[i].widget);
@@ -785,9 +874,50 @@ NetMenus::Action NetMenus::update(uint64_t nowMs) {
     Action action = Action::kNone;
     if (_browser && !_session)
         _browser->update(nowMs);
+    // The meeting server's sessions, asked for every two seconds while
+    // choosing (not while its address is being typed).
+    const auto list = items();
+    const bool typingServer =
+        _focus >= 0 && size_t(_focus) < list.size() && list[size_t(_focus)].widget == "MEETING SERVER";
+    if (!_session && _screen == Screen::kSessions && !typingServer) {
+        net::Address meeting;
+        if (!meetingServer(meeting)) {
+            _meetingBrowser.reset();
+        } else {
+            if (!_meetingBrowser) {
+                std::unique_ptr<net::UdpSocket> socket;
+                if (!_sys.openUdp(0, socket) && socket)
+                    _meetingBrowser = std::make_unique<net::MeetingSocket>(std::move(socket), meeting, "age");
+                _meetingAskedMs = 0;
+            }
+            if (_meetingBrowser && (!_meetingAskedMs || nowMs >= _meetingAskedMs + 2000)) {
+                _meetingAskedMs = nowMs;
+                _meetingBrowser->requestList();
+            }
+            net::Address from;
+            std::vector<uint8_t> data;
+            while (_meetingBrowser && _meetingBrowser->receive(from, data)) {}
+        }
+    }
     if (!_session)
         return action;
     _session->update(nowMs);
+    // Listed at the meeting server while hosting, with how the session
+    // stands; and whether it answered, said once.
+    if (_meetingHost && _session->isHost()) {
+        _meetingHost->publish(_session->sessionName(), _session->info());
+        if (!_meetingSaid && _meetingHost->published()) {
+            _meetingSaid = true;
+            say("Listed at the meeting server " + _meetingServer + ": players there can join", true);
+        } else if (!_meetingSaid && !_meetingHost->heardFromServerMs()) {
+            if (!_meetingSinceMs)
+                _meetingSinceMs = nowMs;
+            else if (nowMs > _meetingSinceMs + 6000) {
+                _meetingSaid = true;
+                say("The meeting server " + _meetingServer + " isn't answering", true);
+            }
+        }
+    }
     // Hosting on the network (from the start, or taken over): the router
     // asked to pass the port on, for players on the Internet.
     if (_session->isHost() && !_local && !_mapper) {
@@ -1093,7 +1223,7 @@ void NetMenus::draw(Surface &o, uint64_t nowMs) {
             text(o, "NET NAME", _netName + (_focus == 5 && (nowMs / 400) % 2 ? "_" : ""));
             font::drawText(o, kHeadingBox.x + 6, kHeadingBox.y + 6, "TCP/IP", {255, 230, 140});
             if (const Widget *w = widget("textscroll")) {
-                const auto &found = _browser ? _browser->sessions() : std::vector<NetBrowser::Found>{};
+                const auto found = sessionList();
                 int y = w->y + 4;
                 font::drawText(o, w->x + 6, y, "Session          Players  Event           Ping", {150, 200, 255});
                 y += kRow;
@@ -1103,8 +1233,11 @@ void NetMenus::draw(Surface &o, uint64_t nowMs) {
                 for (size_t i = 0; i < found.size() && i < 8; ++i) {
                     const auto &f = found[i];
                     char row[160];
-                    std::snprintf(row, sizeof row, "%-16.16s %d/%d      %-15.15s %d%s%s", f.name.c_str(), f.players,
-                                  f.maxPlayers, modeName(f.mode).c_str(), f.ping, f.playing ? " (playing)" : "",
+                    // A meeting server's sessions have no ping: what it is
+                    // depends on which way the datagrams end up going.
+                    const std::string ping = f.meetingId ? "via server" : std::to_string(f.ping);
+                    std::snprintf(row, sizeof row, "%-16.16s %d/%d      %-15.15s %s%s%s", f.name.c_str(), f.players,
+                                  f.maxPlayers, modeName(f.mode).c_str(), ping.c_str(), f.playing ? " (playing)" : "",
                                   f.password       ? " (password)"
                                   : !f.sameVersion ? " (other version)"
                                                    : "");
@@ -1112,6 +1245,32 @@ void NetMenus::draw(Surface &o, uint64_t nowMs) {
                                    i == _chosenSession ? Color{255, 255, 120} : Color{230, 230, 230});
                     y += kRow;
                 }
+            }
+            // The meeting server: Reluva's field, in the Net Name box's
+            // colours, with a word on what it's for and how it answers.
+            if (const Widget *w = widget("MEETING SERVER")) {
+                const bool focused = _focus == 6;
+                font::drawText(o, w->x, w->y - 16, "MEETING SERVER", {255, 255, 255});
+                for (int y = w->y; y < w->y + w->h; ++y)
+                    for (int x = w->x; x < w->x + w->w; ++x) {
+                        const bool edge = x == w->x || y == w->y || x == w->x + w->w - 1 || y == w->y + w->h - 1;
+                        uint8_t *p = &o.pixels[size_t(y) * size_t(o.pitch) + size_t(x) * 4];
+                        p[0] = edge ? (focused ? 255 : 82) : 8;
+                        p[1] = edge ? (focused ? 255 : 80) : 2;
+                        p[2] = edge ? (focused ? 120 : 163) : 46;
+                        p[3] = 255;
+                    }
+                text(o, "MEETING SERVER", _meetingServer + (focused && (nowMs / 400) % 2 ? "_" : ""));
+                std::string state = "When players can't reach each other";
+                if (!_meetingServer.empty() && !focused) {
+                    if (!_meetingAt.port)
+                        state = "Can't find that server";
+                    else if (!_meetingBrowser || !_meetingBrowser->heardFromServerMs())
+                        state = "Asking the server...";
+                    else
+                        state = std::to_string(_meetingBrowser->listed().size()) + " session(s) there";
+                }
+                font::drawText(o, w->x, w->y + w->h + 5, state, {20, 0, 64});
             }
             if (const image::Image *d = _pictures.jpg("mpst_tcp"))
                 drawPicture(o, *d, 40, 396);

@@ -97,6 +97,9 @@ struct GameOptions {
     // always does.
     int controller = kGamePad;
     float deadZone = 0.3f; // Joystick Dead Zone, 0..1 of the bar: up to half the stick's travel
+    // The network menus' meeting server ("host" or "host:port"), as last
+    // typed; empty for none.
+    std::string meetingServer;
     // Two keys for each control (0: none).
     std::array<std::array<uint32_t, 2>, kControls> keys{};
 

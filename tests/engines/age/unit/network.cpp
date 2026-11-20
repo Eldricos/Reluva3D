@@ -4,6 +4,7 @@
 // The Angel Game Engine's unit tests: multiplayer: the session and Cops & Robbers.
 // Every file is built in the test.
 
+#include "common/meeting.h"
 #include "tests/engines/age/support.h"
 
 using namespace reluva;
@@ -631,6 +632,83 @@ void testNetSealed() {
     CHECK(!bob->closed() && bob->settings().laps == 5);
 }
 
+// Players' routers that pass nothing between them: only the meeting
+// server reaches either.
+static bool walledOff(const net::Address &from, const net::Address &to, size_t) {
+    auto player = [](uint16_t port) { return port != net::kMeetingPort; };
+    return player(from.port) && player(to.port) && from.port != to.port;
+}
+
+// A session hosted and joined through a meeting server, the players
+// walled off from each other: listed there with the host's description,
+// joined through it, and played sealed through it; and a player only it
+// reaches can't take over as host.
+static void testNetThroughMeetingServer() {
+    auto network = net::LoopbackNetwork::create();
+    network->setDropFilter(walledOff);
+    uint64_t t = 1000;
+    const net::Address meetingAt{0x7f000001, net::kMeetingPort};
+    net::MeetingServer server(network->open(net::kMeetingPort));
+    auto listedSocket = std::make_unique<net::MeetingSocket>(network->open(kNetPort), meetingAt, "age");
+    net::MeetingSocket *listed = listedSocket.get();
+    listed->setClock([&] { return t; });
+    NetSettings settings;
+    settings.mode = NetMode::kCircuit;
+    auto host = NetSession::host(std::move(listedSocket), "Walled", settings, "swordfish");
+    std::vector<NetSession *> players;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            server.update(t);
+            if (host) {
+                host->update(t);
+                listed->publish(host->sessionName(), host->info());
+            }
+            for (NetSession *p : players)
+                p->update(t);
+        }
+    };
+    run(300);
+    CHECK(listed->published());
+
+    // Listed, with what a search on the network would have found.
+    net::MeetingSocket browser(network->open(0), meetingAt, "age");
+    browser.setClock([&] { return t; });
+    browser.requestList();
+    run(200);
+    net::Address from;
+    std::vector<uint8_t> data;
+    while (browser.receive(from, data)) {}
+    NetBrowser::Found found;
+    CHECK(browser.listed().size() == 1 && NetBrowser::parseInfo(browser.listed()[0].info, found) &&
+          found.name == "Walled" && found.mode == NetMode::kCircuit && found.password && found.players == 1);
+
+    // Joined through it, with the password.
+    auto joinThrough = [&](const std::string &name) {
+        auto socket = std::make_unique<net::MeetingSocket>(network->open(0), meetingAt, "age");
+        socket->setClock([&] { return t; });
+        const net::Address at = socket->connect(browser.listed()[0].id);
+        return NetSession::join(std::move(socket), at, name, "swordfish");
+    };
+    auto ann = joinThrough("Ann");
+    auto bob = joinThrough("Bob");
+    players = {ann.get(), bob.get()};
+    run(3000);
+    CHECK(ann->myId() == 1 && bob->myId() == 2 && host->players().size() == 3);
+    CHECK(host->player(1) && net::isMeetingAddress(host->player(1)->address));
+    ann->say("through the server");
+    run(1000);
+    CHECK(!bob->chat().empty() && bob->chat().back().text == "through the server");
+    CHECK(server.connections().size() == 2 && server.connections().begin()->second.relayed > 10);
+
+    // The host goes: Ann and Bob can only reach each other through the
+    // host's socket, so neither takes over.
+    host->leave();
+    host.reset();
+    run(300);
+    CHECK(ann->closed() && bob->closed());
+}
+
 static const reluva::test::Suite
     kSuite("age.unit.network",
            {
@@ -638,5 +716,6 @@ static const reluva::test::Suite
                {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
                {"bots outlive the host", [](const std::filesystem::path &) { testNetBotsOutliveHost(); }},
                {"sealed", [](const std::filesystem::path &) { testNetSealed(); }},
+               {"through a meeting server", [](const std::filesystem::path &) { testNetThroughMeetingServer(); }},
                {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
            });

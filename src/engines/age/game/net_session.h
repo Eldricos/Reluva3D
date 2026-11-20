@@ -258,6 +258,12 @@ public:
      * passed to everyone as it is. Ignored but on the host.
      */
     void setGameState(const std::vector<uint8_t> &state, bool over);
+    /**
+     * The host's description of the session, as it answers a search on
+     * the local network: what a meeting server lists for it too.
+     * @param time The asker's time, sent back for its ping (0 for a listing).
+     */
+    std::vector<uint8_t> info(uint32_t time = 0) const;
     /** The host's word on the game, as it last gave it; empty until it has. */
     const std::vector<uint8_t> &gameState() const { return _gameState; }
     /** Whether the host has said the game's over. */
@@ -385,7 +391,11 @@ public:
         bool sameVersion = true;
         uint16_t ping = 0;
         uint64_t heardMs = 0;
+        uint32_t time = 0;      // the asker's time it sent back
+        uint32_t meetingId = 0; // listed by a meeting server: its session there (0: found on the network)
     };
+    /** Reads a host's description (Info) into `f`; false if it isn't one. */
+    static bool parseInfo(const std::vector<uint8_t> &data, Found &f);
     /** Asks and listens on `socket`, which it keeps. */
     explicit NetBrowser(std::unique_ptr<net::UdpSocket> socket) : _socket(std::move(socket)) {}
     /** Where else to broadcast (System::broadcastAddresses). */
