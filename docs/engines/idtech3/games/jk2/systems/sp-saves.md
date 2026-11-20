@@ -36,10 +36,13 @@ ending a literal before three equal bytes in a row.
 
 ### Saving (0x438aa0, `save(name, autosave)`)
 
-A save the player makes is checked first (0x438a20): not during a
-cinematic, the client in the level (state 2), the map not one starting
+Any save but an autosave is checked first (0x438a20), silently:
+`cl_running` set, no in-game cinematic playing (the flag
+`CL_PlayCinematic` keeps, 0x4051e0), the client in the level (state 2,
+which a cinematic outside the game leaves), the map not one starting
 with `_`, the player's health above 0, and the game's
-`GameAllowedToSaveHere` (export 5). The save command (0x438390) also
+`GameAllowedToSaveHere` (export 5), which refuses while the game's own
+camera scenes play. The save command (0x438390) also
 refuses `current`, names with `..`, `/` or `\`, and the dead ("Can't
 savegame while dead!"). For the menus' quick save and autosave names,
 `quik*` and `auto*`, it takes the screen (0x40b600, 512 x 512), clears
@@ -83,18 +86,31 @@ reads its own, `ReadLevel(autosave, loadTransition)`.
 ### Automatic saves and level changes
 
 - **A level started** (0x43621e), but a map starting with `_`: a new
-  level is saved as `auto`, then as `auto_<map>`, both autosaves. A
-  level reached by `loadtransition` is saved as `hub/<map>`, then
-  `auto`, as saves the player made.
+  level is saved as `auto`, then as `auto_<map>`, both autosaves. One
+  loaded by `loadtransition` from its hub save (the load mode,
+  0x12c34a4, not 0, and the level-change flag 0x126b6d8 set) is saved as
+  `hub/<map>`, then `auto`, as saves the player made, their picture
+  the screen `loadtransition` took.
 - **`map`** (0x435510) clears `playersave` and the spawn target.
 - **`maptransition <map> <target>`** (0x4354d0) takes the screen, stores
   the player (above), sets the spawn target, and (0x435310) deletes
   `auto` but on a `_` map before starting the level. The game's `Init`
   is told of a level change (its last argument, 0x126b6d8) only by
   `loadtransition`, not by this.
-- **`loadtransition`** (0x435280), for hubs: stores the player, saves
-  the level left as `hub/<map>`, sets the spawn target, then loads
-  `hub/<next map>` if there is one, else starts it.
+- **`loadtransition <map> [<target>]`** (0x435280), for hubs: sets the
+  level-change flag (0x126b6d8), takes the screen, stores the player,
+  saves the level left as `hub/<map>` (a save the player makes, so
+  checked as above), sets the spawn target, then loads `hub/<next map>`
+  (0x4381f0: "Restoring game", without the load command's checks of
+  the name) or, if that fails, starts the map as `maptransition` does
+  (0x435310); the flag is cleared after. The game sends it from its
+  level changer (`target_level_change`, 0x200b3e00 in
+  `jk2gamex86.dll`) when its spawn flag 1 is set; no 1.02a map sets
+  it (`valley`'s has 2), so in the game as shipped it's only typed.
+  And the shipped game can't load a hub save: told of a level change,
+  its `ReadLevel` (0x200af940) reads the objectives (`OBJT`) before the
+  level's own (`LVLC`), the reverse of the order its `WriteLevel` writes
+  them in (0x200af901, 0x200af908), so the load stops with an error.
 
 ### After a death: `load *respawn` (0x438230)
 
@@ -128,8 +144,17 @@ loading screen. A key's commands run as typed at the original's
 console: the engine's own first (save, load, map), then the client
 game's and the game's.
 
-Not yet: `loadtransition` and its hub saves; the check for a cinematic
-playing before a save (the game's own check is made).
+`loadtransition` is as above: the screen taken as the next frame is
+drawn, the level left saved as `hub/<map>`, the next map's hub save
+loaded with the game told of a level change (`Init`'s and
+`ReadLevel`'s last argument), or the map started; the level reached
+from a hub save is saved again as `hub/<map>` and `auto`. Seen on the
+Play page: `loadtransition` from `kejim_base` to `kejim_post` saved
+`hub/kejim_base` and started `kejim_post`; back again, it saved
+`hub/kejim_post`, and loading `hub/kejim_base` stopped with the game's
+error above, as the original's would. A save is refused while any cinematic plays, one outside the game too,
+as the client's state then isn't 2 *(inferred)*.
+The `single-player` tool's level changes don't take `loadtransition`.
 
 ## Sources and checks
 

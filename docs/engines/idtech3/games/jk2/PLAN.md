@@ -239,7 +239,10 @@ behind the DLL's own tables.
    the game's remaining slots (removing a surface, the two debug
    listings), the "no collide" and "no descendants" flags in traces and
    drawing, and the new origin moving a severed limb
-   ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)).
+   ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)). `loadtransition` and
+   its hub saves, and no save while a cinematic plays; the shipped game
+   can't read its own hub saves back
+   ([systems/sp-saves.md](systems/sp-saves.md)).
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

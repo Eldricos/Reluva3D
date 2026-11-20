@@ -420,7 +420,15 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
     if (w.empty())
         return;
     const std::string cmd = fs::toLower(w[0]);
-    if (cmd == "map" || cmd == "devmap" || cmd == "spmap" || cmd == "maptransition") {
+    if (cmd == "loadtransition" && jedi()) {
+        if (w.size() < 2)
+            return;
+        if (_game && !_runningTransition) {
+            _pendingTransition = line; // the screen first, as below
+            return;
+        }
+        loadTransition(w);
+    } else if (cmd == "map" || cmd == "devmap" || cmd == "spmap" || cmd == "maptransition") {
         if (w.size() < 2)
             return;
         if (cmd == "maptransition" && _game && !_runningTransition) {
@@ -444,19 +452,16 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
                 std::filesystem::remove(_saveDir / "auto.sav", ec);
             }
         }
-        std::string map = fs::toLower(w[1]);
-        if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
-            map.resize(map.size() - 4);
-        const auto it = std::find(_names.begin(), _names.end(), "maps/" + map + ".bsp");
-        if (it == _names.end()) {
-            _error = "There's no map " + map;
+        const int index = mapIndex(w[1]);
+        if (index < 0) {
+            _error = "There's no map " + w[1];
             return;
         }
         _nextSpawnTarget = cmd == "maptransition" && w.size() >= 3 ? w[2] : std::string();
         // Jedi Outcast's game is told of a level change only by
-        // loadtransition (0x435293), which isn't done yet.
+        // loadtransition (0x435293).
         _nextLoadTransition = cmd == "maptransition" && !jedi();
-        start(int(it - _names.begin()));
+        start(index);
     } else if (cmd == "disconnect") {
         endGame();
         if (_ui)
@@ -711,7 +716,14 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
         // Jedi Outcast's also as auto_<map> (0x43621e).
         if (_game && _game->jedi())
             saveGame("auto_" + map, true);
+    } else if (_game && _game->jedi() && _game->loadTransition && !map.empty() && map[0] != '_') {
+        // One loadtransition loaded from its hub save is saved again as
+        // hub/<map>, then as auto, both as saves the player made (0x436283).
+        saveJediGame("hub/" + map, false, _hubShot, false);
+        if (_game)
+            saveJediGame("auto", false, _hubShot, false);
     }
+    _hubShot.clear();
 }
 
 bool SpPlayPage::readSave(const std::string &name, std::vector<uint8_t> &file) const {
@@ -926,9 +938,9 @@ bool SpPlayPage::writeSaveFile(const std::string &name, const std::vector<uint8_
     return true;
 }
 
-void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector<uint8_t> &picture) {
+void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector<uint8_t> &picture, bool command) {
     // As jk2sp.exe's save command (0x438390) and its saver (0x438aa0).
-    if (!autosave) {
+    if (!autosave && command) {
         if (_game->playerHealth() <= 0) {
             report("Can't savegame while dead!");
             return;
@@ -941,10 +953,17 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
             report("Bad savegame name.");
             return;
         }
-        // Its checks before saving (0x438a20): not on a "_" map, and
-        // where the game allows it.
-        if ((!_map.empty() && _map[0] == '_') || !_game->allowedToSaveHere(0))
+    }
+    if (!autosave) {
+        // The saver's own checks (0x438a20), silent: no cinematic playing
+        // (one in game by its flag, 0x4051e0; any other takes the client
+        // out of the level), not on a "_" map, the player alive, and where
+        // the game allows it.
+        if (_cinematic || (!_map.empty() && _map[0] == '_') || _game->playerHealth() <= 0 ||
+            !_game->allowedToSaveHere(0))
             return;
+    }
+    if (!autosave && command) {
         // The menus' quick save and autosave names, "quik*" and "auto*",
         // save as quik and auto.
         if (const std::string lower = fs::toLower(name); lower == "quik*" || lower == "auto*")
@@ -957,11 +976,11 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
     // The picture: an autosave's is the level's own, else the screen,
     // which is taken as the next frame is drawn (see update()).
     std::vector<uint8_t> shot = picture;
-    if (shot.empty() && autosave)
+    if (shot.empty() && (autosave || !command))
         shot = levelShot(_map);
     if (shot.empty() && !autosave && menusHaveKeys())
         shot = _menuShot;
-    if (shot.empty() && !autosave) {
+    if (shot.empty() && !autosave && command) {
         _pendingSave = name;
         return;
     }
@@ -988,7 +1007,7 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
         return stop("The game couldn't save: " + err.message);
     if (!writeSaveFile(name, w.bytes()))
         return;
-    if (!autosave)
+    if (!autosave && command)
         report("Saving game \"" + name + "\"... Done.");
 }
 
@@ -1010,11 +1029,11 @@ std::string SpPlayPage::savedMap(const std::string &name) const {
     return map;
 }
 
-void SpPlayPage::loadGame(std::string name) {
+bool SpPlayPage::loadGame(std::string name, bool command) {
     // As the original's load command: the engine's chunks, then the level
     // started for them and the game's own (start()).
     using raven::chunkId;
-    if (name == "*respawn" && jedi()) {
+    if (command && name == "*respawn" && jedi()) {
         // After dying (0x438230): the level's autosave if it's of this
         // level or nothing was loaded; else the saved game last loaded.
         // In the brig, the autosave if it can be read at all.
@@ -1023,24 +1042,24 @@ void SpPlayPage::loadGame(std::string name) {
             name = "auto";
         else
             name = _lastLoaded;
-    } else if (name == "*respawn") {
+    } else if (command && name == "*respawn") {
         // After dying: the saved game last loaded, if it's of this level;
         // else the level's start.
         name = !_lastLoaded.empty() && savedMap(_lastLoaded) == _map ? _lastLoaded : "auto";
     }
-    if (badSaveName(name)) {
+    if (command && badSaveName(name)) {
         report("Bad loadgame name.");
-        return;
+        return false;
     }
     std::vector<uint8_t> file;
     if (!readSave(name, file)) {
         report("Failed to open savegame " + name);
-        return;
+        return false;
     }
     if (!saveFits(file)) {
         report(name + (_expansion ? " was saved without the Expansion Pack, and can't be loaded with it on"
                                   : " was saved with the Expansion Pack, and can't be loaded with it off"));
-        return;
+        return false;
     }
     raven::SaveReader r(std::move(file));
     std::string map;
@@ -1062,12 +1081,12 @@ void SpPlayPage::loadGame(std::string name) {
     }
     if (err) {
         report("Couldn't read " + name + ": " + err.message);
-        return;
+        return false;
     }
     const auto it = std::find(_names.begin(), _names.end(), "maps/" + fs::toLower(map) + ".bsp");
     if (it == _names.end()) {
         report(name + " is of a map that isn't here: " + map);
-        return;
+        return false;
     }
     _lastLoaded = name;
     report("Loaded " + name);
@@ -1079,6 +1098,44 @@ void SpPlayPage::loadGame(std::string name) {
         _recording.open(_saveDir / (name + ".input"), std::ios::trunc);
         _recording << "# reluva input recording: serverTime buttons weapon pitch yaw roll forward right up\n";
     }
+    return true;
+}
+
+void SpPlayPage::loadTransition(const std::vector<std::string> &w) {
+    // As jk2sp.exe's loadtransition (0x435280): the player carried over,
+    // the level left saved as hub/<map>, then the next map's hub save
+    // loaded, or if there's none the map started as by maptransition; the
+    // game told of a level change either way.
+    if (_game) {
+        _game->savePlayer();
+        saveJediGame("hub/" + _map, false, _hubShot, false);
+    }
+    _nextSpawnTarget = w.size() >= 3 ? w[2] : std::string();
+    _nextLoadTransition = true;
+    if (!loadGame("hub/" + fs::toLower(w[1]), false)) {
+        const int index = mapIndex(w[1]);
+        if (index < 0) {
+            _error = "There's no map " + w[1];
+        } else {
+            if (_ui)
+                _ui->setCapture({});
+            if (w[1][0] != '_' && !_saveDir.empty()) {
+                std::error_code ec;
+                std::filesystem::remove(_saveDir / "auto.sav", ec);
+            }
+            start(index);
+        }
+    }
+    _nextSpawnTarget.clear();
+    _nextLoadTransition = false;
+}
+
+int SpPlayPage::mapIndex(std::string map) const {
+    map = fs::toLower(map);
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    const auto it = std::find(_names.begin(), _names.end(), "maps/" + map + ".bsp");
+    return it == _names.end() ? -1 : int(it - _names.begin());
 }
 
 void SpPlayPage::runPendingTransition() {
@@ -1428,7 +1485,9 @@ void SpPlayPage::update(uint64_t nowMs) {
                     std::memcpy(&shot[size_t((255 - y) * 256 + x) * 4],
                                 &rgba[(size_t(y * h / 256) * size_t(w) + size_t(x * w / 256)) * 4], 4);
         }
-        if (!_pendingSave.empty() || (jedi() && !_pendingMenu.empty())) {
+        const bool hub = !_pendingTransition.empty() && jedi() &&
+                         fs::toLower(splitCommand(_pendingTransition).front()) == "loadtransition";
+        if (!_pendingSave.empty() || (jedi() && (!_pendingMenu.empty() || hub))) {
             // Jedi Outcast's picture: 512 x 512, as a JPEG. The game as
             // the in-game menu opens is kept for a save made from it.
             std::vector<uint8_t> jpeg;
@@ -1439,8 +1498,10 @@ void SpPlayPage::update(uint64_t nowMs) {
                 frame.rgba = std::move(rgba);
                 jpeg = image::encodeJpeg(boxScaled(frame, jk2::kShotSize), jk2::kShotQuality);
             }
+            if (hub)
+                _hubShot = jpeg;
             const std::string name = std::exchange(_pendingSave, std::string());
-            if (name.empty())
+            if (name.empty() && !_pendingMenu.empty())
                 _menuShot = std::move(jpeg);
             else if (!jpeg.empty())
                 saveGame(name, false, jpeg);

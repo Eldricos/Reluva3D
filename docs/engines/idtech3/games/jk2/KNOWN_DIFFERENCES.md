@@ -24,9 +24,7 @@ None yet.
 
 ## Not yet as the original
 
-In single player ([PLAN.md](PLAN.md)): `loadtransition`'s
-hub saves aren't made, and a save isn't refused while a cinematic plays
-([systems/sp-saves.md](systems/sp-saves.md)). In the maps:
+In the maps:
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where
   they stand up close, where the original's move as it drops the curve's

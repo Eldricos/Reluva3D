@@ -56,7 +56,9 @@ private:
     // A save the player makes takes the screen as its picture unless
     // given one (Jedi Outcast's: the next frame drawn, `_pendingSave`).
     void saveGame(const std::string &name, bool autosave, const std::vector<uint8_t> &picture = {});
-    void saveJediGame(std::string name, bool autosave, const std::vector<uint8_t> &picture);
+    // `command`: made by the save command, with its checks of the name and
+    // its messages; else made by the engine itself (a hub's saves).
+    void saveJediGame(std::string name, bool autosave, const std::vector<uint8_t> &picture, bool command = true);
     bool writeSaveFile(const std::string &name, const std::vector<uint8_t> &bytes);
     // The map a saved game is of; empty if it can't be read.
     std::string savedMap(const std::string &name) const;
@@ -64,7 +66,14 @@ private:
     // Whether the game has menus: Elite Force's DLL beside its game, or
     // Jedi Outcast's, which its engine runs.
     bool hasMenus() const { return !_uiDll.empty() || jedi(); }
-    void loadGame(std::string name);
+    // Whether the saved game was read and its level started. `command`: by
+    // the load command, with its checks of the name ("*respawn" too).
+    bool loadGame(std::string name, bool command = true);
+    // Jedi Outcast's loadtransition <map> [<spawn target>], for hubs.
+    void loadTransition(const std::vector<std::string> &w);
+    // A map's place in _names, from its name with or without ".bsp"; -1 if
+    // it isn't there.
+    int mapIndex(std::string map) const;
     bool readSave(const std::string &name, std::vector<uint8_t> &file) const;
     // Whether the game code running can read a saved game: 1.x's and the
     // Expansion Pack's can't read each other's (eliteforce::saveKind);
@@ -201,6 +210,9 @@ private:
     // Jedi Outcast's game as the in-game menu opened (a 512 x 512 JPEG), the
     // picture of a save made from the menus.
     std::vector<uint8_t> _menuShot;
+    // The level left by Jedi Outcast's loadtransition (a 512 x 512 JPEG),
+    // the picture of the hub saves made as it's left and as the next starts.
+    std::vector<uint8_t> _hubShot;
     // The next level's arrival point and whether it's a level change (the
     // Expansion Pack's maptransition <map> <spawn target>).
     std::string _nextSpawnTarget;

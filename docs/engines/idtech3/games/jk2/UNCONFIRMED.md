@@ -64,6 +64,10 @@ What Reluva does that hasn't been checked against the running original.
   distance from the eye, as a fog volume the eye is inside
   ([rbsp.md](../../formats/rbsp.md)). To compare with the original's
   pictures of those levels.
+- A save is refused while a cinematic outside the game plays, as the
+  client isn't in the level then; the original's check reads only the
+  in-game cinematic's flag and the client's state
+  ([systems/sp-saves.md](systems/sp-saves.md)).
 
 ## Guessed
 
