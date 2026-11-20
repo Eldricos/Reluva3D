@@ -31,7 +31,6 @@ None: nothing of the game's code has been read.
   from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
   Settled by: `result.lst` decoded both ways once its pieces are read.
 
-
 ## Guessed
 
 - **On Load Game:** empty slots can't be chosen
