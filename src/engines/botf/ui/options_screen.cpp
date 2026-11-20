@@ -3,11 +3,14 @@
 
 #include "engines/botf/ui/options_screen.h"
 
+#include "engines/botf/ui/timers.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <set>
 #include <utility>
+#include <vector>
 
 namespace reluva::botf {
 
@@ -119,9 +122,13 @@ std::map<std::string, std::string> optionsIniValues(const GameOptions &o) {
         {"TOOLTIPS", onOff(o.toolTips)},
         {"AUTOSAVE", onOff(o.autosave)},
         {"RANDOMEVENTS", onOff(o.randomEvents)},
-        {"TIMELIMIT", std::to_string(o.strategicTimer)},
-        {"TACTIMELIMIT", std::to_string(o.tacticalTimer)},
     };
+    // How the game writes a timer that's set isn't known; none is 0, and
+    // the others leave the file's line as it is.
+    if (o.strategicTimer == 0)
+        v["TIMELIMIT"] = "0";
+    if (o.tacticalTimer == 0)
+        v["TACTIMELIMIT"] = "0";
     v["TACTICAL"] = o.manualCombat ? "DETAILED" : "ABSTRACT";
     return v;
 }
@@ -133,10 +140,16 @@ Error OptionsScreen::load() {
 }
 
 void OptionsScreen::click(int32_t id) {
-    // A setting opens its list of choices, or closes it if it's open. The
-    // timers' arrows do nothing: "None" is the only choice known yet.
+    // A setting opens its list of choices, or closes it if it's open; the
+    // timers' arrows step through their choices, stopping at either end
+    // (guessed).
     if (listOf(id))
         _list = _list == id ? 0 : id;
+    auto step = [](int &choice, int by, size_t count) { choice = std::clamp(choice + by, 0, int(count) - 1); };
+    if (id == kStrategicLess || id == kStrategicMore)
+        step(_options.strategicTimer, id == kStrategicMore ? 1 : -1, strategicTimerChoices().size());
+    if (id == kTacticalLess || id == kTacticalMore)
+        step(_options.tacticalTimer, id == kTacticalMore ? 1 : -1, tacticalTimerChoices().size());
 }
 
 bool OptionsScreen::listChoice(int x, int y) {
@@ -289,9 +302,14 @@ void OptionsScreen::draw(Surface &screen) const {
     yesNo(kRandomEventsText, o.randomEvents);
     yesNo(kAutosaveText, o.autosave);
     o.manualCombat ? value(kCombatText, lex::kManual, "MANUAL") : value(kCombatText, lex::kAutomatic, "AUTOMATIC");
-    // "None" as the entry has it, where the game setup screen shows "NONE".
-    drawText(screen, kStrategicText, word(lex::kNone, "None"), kTimerColor);
-    drawText(screen, kTacticalText, word(lex::kNone, "None"), kTimerColor);
+    // None as the entry has it, where the game setup screen shows "NONE";
+    // or the time.
+    auto timer = [&](int32_t box, const std::vector<int> &choices, int choice) {
+        const int seconds = choices[size_t(std::clamp(choice, 0, int(choices.size()) - 1))];
+        drawText(screen, box, seconds ? timerText(seconds) : word(lex::kNone, "None"), kTimerColor);
+    };
+    timer(kStrategicText, strategicTimerChoices(), o.strategicTimer);
+    timer(kTacticalText, tacticalTimerChoices(), o.tacticalTimer);
     drawList(screen); // over the values, as in the game
 }
 

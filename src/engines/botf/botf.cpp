@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -70,6 +71,17 @@ constexpr uint64_t kCursorFlashMillis = 300;
 
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
+
+// Stbof.ini's CURRENTGAME, the slot of the game last saved or loaded
+// (inferred), or -1.
+int currentGame(const std::map<std::string, std::string> &ini) {
+    const auto it = ini.find("CURRENTGAME");
+    if (it == ini.end() || it->second.empty())
+        return -1;
+    char *end = nullptr;
+    const long slot = std::strtol(it->second.c_str(), &end, 10);
+    return *end == '\0' && slot >= 0 && slot < LoadSaveScreen::kSlots ? int(slot) : -1;
+}
 
 // The saved games in the install's slots, game0.sav to game11.sav (any
 // case). Only the install's own: the CD has the tutorials' saves too, but a
@@ -248,12 +260,9 @@ public:
                         showing = Showing::kLoad;
                         audio.play(MenuAudio::Move::kToLoad);
                     }
-                    // Only with a game in progress, which there can't be yet:
-                    // the game's galaxy shape is the description at first,
-                    // as the manual says.
+                    // Only with a game in progress, which there can't be yet.
                     if (c == MainMenu::Choice::kSaveGame) {
-                        loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kSave,
-                                     galaxyShapeName(_lexicon, lastSetup.galaxyShape));
+                        loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kSave, currentGame(files.ini()));
                         _sys.setTextInput(true);
                         showing = Showing::kLoad;
                         audio.play(MenuAudio::Move::kToSave);

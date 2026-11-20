@@ -29,8 +29,8 @@ struct GameSetup {
     std::array<int, 5> civilization{1, 1, 1, 1, 1};
     int minorRaces = 3;     // 0 none, 1 few, 2 some, 3 many
     int difficulty = 2;     // 0 simple, 1 easy, 2 normal, 3 hard, 4 impossible
-    int strategicTimer = 0; // 0 none; the other choices aren't known yet
-    int tacticalTimer = 0;  // the same
+    int strategicTimer = 0; // an index into strategicTimerChoices(): 0 none
+    int tacticalTimer = 0;  // into tacticalTimerChoices()
     bool randomEvents = true;
     bool manualCombat = true;
     int victory = 0;     // 0 domination, 1 vendetta (team play is for multiplayer games)

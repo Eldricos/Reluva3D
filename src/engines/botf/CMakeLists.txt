@@ -26,7 +26,8 @@ reluva_add_engine(botf
         ui/main_menu.cpp
         ui/multiplayer_screen.cpp
         ui/options_screen.cpp
-        ui/setup_screen.cpp)
+        ui/setup_screen.cpp
+        ui/timers.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,
 # doesn't link it. See docs/DEVELOPMENT.md (The data viewer).

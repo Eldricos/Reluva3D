@@ -35,10 +35,13 @@ None: nothing of the game's code has been read.
 - **The menu's sounds:** which of the same sound's entries the game
   plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
   Settled by: the game's code, or many more slider moves.
-- **On Save Game:** an empty slot's description when chosen (the galaxy's
-  shape), and typing whichever field was clicked
-  ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
-  an empty slot just chosen.
+- **On Save Game:** typing whichever field was clicked, and the current
+  game's slot in red being `CURRENTGAME`'s
+  ([systems/screens.md](systems/screens.md)). Settled by: saving in
+  another slot.
+- **The timers' arrows** stopping at either end
+  ([systems/screens.md](systems/screens.md)). Settled by: the running
+  game.
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
 - **On the options screen:** a click on a volume lighting the cells up to

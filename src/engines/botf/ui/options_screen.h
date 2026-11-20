@@ -32,8 +32,8 @@ struct GameOptions {
     bool manualCombat = true;
     bool randomEvents = true;
     bool autosave = true;
-    int strategicTimer = 0; // 0 none; the other choices aren't known yet
-    int tacticalTimer = 0;  // the same
+    int strategicTimer = 0; // an index into strategicTimerChoices(): 0 none
+    int tacticalTimer = 0;  // into tacticalTimerChoices()
 };
 
 /**
@@ -44,8 +44,8 @@ GameOptions optionsFromIni(const std::map<std::string, std::string> &ini);
 
 /**
  * The options as the game writes them into Stbof.ini: the volumes, tool
- * tips, autosave, random events, the timers, and tactical combat
- * (ABSTRACT automatic, DETAILED manual).
+ * tips, autosave, random events, tactical combat (ABSTRACT automatic,
+ * DETAILED manual), and the timers when they're none (0).
  */
 std::map<std::string, std::string> optionsIniValues(const GameOptions &options);
 

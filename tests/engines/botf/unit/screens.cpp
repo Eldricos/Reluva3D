@@ -19,6 +19,7 @@
 #include "engines/botf/ui/multiplayer_screen.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
+#include "engines/botf/ui/timers.h"
 #include "image/image.h"
 
 #include "tests/engines/botf/unit/helpers.h"
@@ -117,10 +118,16 @@ void testSetupScreen() {
     CHECK(s.civilization == (std::array<int, 5>{2, 2, 2, 2, 2}));
     click(9225, keymod::kShift);
     CHECK(s.civilization == (std::array<int, 5>{3, 3, 3, 3, 3}));
-    // Only "none" is known for the timers.
+    // The timers' arrows step through their choices, stopping at the ends.
+    click(9212);
     click(9212);
     click(9211);
-    CHECK(s.strategicTimer == 0);
+    CHECK(s.strategicTimer == 1);
+    click(9214);
+    CHECK(s.tacticalTimer == 0);
+    for (int i = 0; i < 40; ++i)
+        click(9215);
+    CHECK(s.tacticalTimer == int(tacticalTimerChoices().size()) - 1);
     // Letting go off the button does nothing; Accept and Cancel end it.
     Event down;
     down.type = EventType::kMouseDown;
@@ -302,11 +309,13 @@ void testOptionsScreen() {
     choose(2, 1);
     click(5);
     choose(3, 1);
-    // The timers' arrows have only "None".
-    for (size_t i = 6; i < ids.size(); ++i)
+    // The timers' arrows (more, less) step through their choices, stopping
+    // at the ends; Stbof.ini gets a timer only when it's none.
+    for (size_t i : {6, 6, 6, 7, 8, 9, 9})
         CHECK(click(i) == OptionsScreen::Result::kOpen);
     CHECK(!o.manualCombat && !o.toolTips && !o.randomEvents && !o.autosave);
-    CHECK(o.strategicTimer == 0 && o.tacticalTimer == 0);
+    CHECK(o.strategicTimer == 2 && o.tacticalTimer == 0);
+    CHECK(!optionsIniValues(o).count("TIMELIMIT") && optionsIniValues(o).at("TACTIMELIMIT") == "0");
     // A click on a volume's bar lights the cell under it and those left of
     // it; a drag follows the mouse, past either end.
     mouse(EventType::kMouseDown, 100, 205);
@@ -400,9 +409,9 @@ void testLoadSaveScreen() {
     screen.open(slots, LoadSaveScreen::Mode::kLoad);
     CHECK(screen.chosen() == -1);
 
-    // Saving: an empty slot can be chosen, and its description typed over,
-    // as far as the field and the font allow.
-    screen.open(slots, LoadSaveScreen::Mode::kSave, "Ring");
+    // Saving: an empty slot can be chosen, and its description typed, as
+    // far as the field and the font allow; slot 3 is the current game.
+    screen.open(slots, LoadSaveScreen::Mode::kSave, 3);
     auto key = [&](uint32_t k) {
         Event e;
         e.type = EventType::kKeyDown;
@@ -417,10 +426,10 @@ void testLoadSaveScreen() {
     };
     typed("x"); // nothing chosen: not typed
     CHECK(screen.description().empty() && key(key::kReturn) == LoadSaveScreen::Result::kOpen);
-    // A saved game's slot keeps its description; an empty one takes the
-    // new game's.
+    // A saved game's slot keeps its description; an empty one's is empty.
     CHECK(slot(3) == LoadSaveScreen::Result::kOpen && screen.description() == "Spiral");
-    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1 && screen.description() == "Ring");
+    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1 && screen.description().empty());
+    typed("Ring");
     key(key::kBackspace);
     typed("s \xc3\xa9\xe2\x82\xac"); // 's', a space, 'é'; the font has no euro sign
     CHECK(screen.description() == "Rins \xc3\xa9");
@@ -447,7 +456,32 @@ void testLoadSaveScreen() {
     std::fill(surface.pixels.begin(), surface.pixels.end(), uint8_t(0));
     screen.draw(surface);
     CHECK(!white(cursorX, 126));
+    // The current game's slot is red (225, 28, 41), the chosen one pink
+    // (239, 182, 198), the font's shading aside; the others teal, no red.
+    auto any = [&](int top, auto test) {
+        for (int y = top; y < top + 25; ++y)
+            for (int x = 0; x < 800; ++x)
+                if (const uint8_t *p = surface.row(y) + size_t(x) * 4; test(p[0], p[1]))
+                    return true;
+        return false;
+    };
+    auto red = [](int r, int g) { return r > 0 && g * 4 < r; };
+    auto pink = [](int r, int g) { return r > 0 && g * 2 > r; };
+    CHECK(any(100 + 25 * 3, red) && !any(100 + 25 * 3, pink));
+    CHECK(any(100 + 25, pink) && !any(100 + 25, red) && !any(100, red));
     CHECK(click(20, 555) == LoadSaveScreen::Result::kAccepted && screen.chosen() == 1);
+}
+
+void testTimers() {
+    // The user's account of the game's choices.
+    const std::vector<int> &strategic = strategicTimerChoices();
+    const std::vector<int> &tactical = tacticalTimerChoices();
+    CHECK(strategic.size() == 25 && tactical.size() == 30);
+    CHECK(strategic[0] == 0 && strategic[1] == 60 && strategic[15] == 15 * 60 && strategic[16] == 20 * 60);
+    CHECK(strategic[17] == 25 * 60 && strategic[18] == 30 * 60 && strategic.back() == 90 * 60);
+    CHECK(tactical[1] == 15 && tactical[20] == 5 * 60 && tactical[21] == 6 * 60 && tactical[25] == 10 * 60);
+    CHECK(tactical[26] == 15 * 60 && tactical.back() == 30 * 60);
+    CHECK(timerText(15) == "00:15" && timerText(90 * 60) == "90:00" && timerText(65) == "01:05");
 }
 
 void testFromIni() {
@@ -785,6 +819,8 @@ static const reluva::test::Suite
                {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
                {"load game", [](const std::filesystem::path &) { testLoadSaveScreen(); }},
                {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
+               {"timers", [](const std::filesystem::path &) { testTimers(); }},
+               {"menu music", [](const std::filesystem::path &) { testMenuMusic(); }},
                {"hall of fame", [](const std::filesystem::path &) { testFameScreen(); }},
                {"multiplayer setup", [](const std::filesystem::path &) { testMultiplayerScreen(); }},
                {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},

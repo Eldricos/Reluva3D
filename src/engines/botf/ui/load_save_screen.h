@@ -38,10 +38,11 @@ public:
     /**
      * Shows `slots`, none of them chosen. Loading, empty slots can't be
      * chosen; saving, the slot chosen keeps its saved game's description,
-     * or an empty one shows `description` (UTF-8), the game's to save,
-     * either to be typed over.
+     * or an empty one's is empty, to be typed.
+     * @param current saving, the slot of the game last saved or loaded
+     *        (Stbof.ini's CURRENTGAME), shown in red; or -1
      */
-    void open(const Slots &slots, Mode mode, const std::string &description = {});
+    void open(const Slots &slots, Mode mode, int current = -1);
     void draw(Surface &screen) const;
     /**
      * Mouse clicks: a slot chooses it, Accept takes the chosen one (and is
@@ -62,7 +63,7 @@ private:
     Slots _slots;
     Mode _mode = Mode::kLoad;
     std::string _description;
-    std::string _newDescription; // saving: an empty slot's description at first
+    int _current = -1;
     int _chosen = -1;
     bool _cursorShown = true;
 };

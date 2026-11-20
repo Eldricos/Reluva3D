@@ -88,8 +88,8 @@ and checked against a screenshot of the game's screen.
 | Tactical Combat | button 8106 (`tac_bar`), value in 8161 | Manual (default) or Automatic | MANUAL or AUTOMATIC |
 | Random Events | button 8108 (`rdm_bar`), value in 8162 | Yes (default) or No | YES or NO |
 | Autosave | button 8109 (`asave`), value in 8163 | Yes (default) or No | YES or NO |
-| Strategic Timer | arrows 8115 (less) and 8114 (more), name in 8116, value in 8117 | as on the game setup screen | "None" |
-| Tactical Timer | arrows 8119 and 8118, name in 8120, value in 8121 | the same | "None" |
+| Strategic Timer | arrows 8115 (less) and 8114 (more), name in 8116, value in 8117 | as on the game setup screen | "None", or the time |
+| Tactical Timer | arrows 8119 and 8118, name in 8120, value in 8121 | the same | "None", or the time |
 
 - **The settings' names** are in their buttons' pictures (234x24), not in
   text: "TOOLTIPS", "TACTICAL COMBAT OPTIONS", "RANDOM EVENTS",
@@ -227,9 +227,9 @@ game."
   its file's name and description turn pink, (239, 182, 198), measured
   from a screenshot. A slot with a saved game keeps its description when
   chosen ("Tutorial #1" stays, seen in the game), to be typed over. An
-  empty slot's is the game to save's: Reluva gives it the galaxy's shape
-  ("Ring"), the manual's "galaxy type" *(guessed)*: which words, and
-  whether the size goes with them, aren't known. Typing changes it, and Backspace takes the last character away; only characters the
+  empty slot's is empty: a recording shows one chosen before anything is
+  typed (the manual's "galaxy type" isn't put there). Typing changes it,
+  and Backspace takes the last character away; only characters the
   field's font has (all in Windows-1252, as `gameInfo` keeps them), up to
   50 and the field's 370 pixels. Reluva takes what's typed whichever field
   was clicked *(guessed)*.
@@ -239,6 +239,11 @@ game."
   matches it pixel for pixel, as does the whole screen but the pointer.
   It's shown 0.3 seconds and hidden 0.3 seconds: a recording of the
   Multiplayer Setup screen's, frame by frame, 9 frames of 30 each time.
+- **The current game's slot,** the one `Stbof.ini`'s `CURRENTGAME`
+  names ([game-files.md](game-files.md)), has its text in red, (225, 28,
+  41), measured from a recording, which shows it so chosen or not. That
+  it's `CURRENTGAME`'s slot is *(inferred)*; Load Game shows the same slot
+  in teal (a screenshot), so Reluva draws it red on Save Game only.
 - **Loading,** the chosen slot's text is pink too, and Accept lit: a
   screenshot with the first tutorial chosen matches Reluva's pixel for
   pixel but the pointer.
@@ -303,8 +308,8 @@ recording:
 | Each empire's civilization level, Cardassian to Romulan | 9223/9224, 9225/9226, 9227/9228, 9229/9230, 9231/9232 | Early, Developed, Expanded, Advanced, Beginning. Shift and a click: every empire takes this one's level, or the next if they all have it |
 | Minor races | 9207/9208 | Many, None, Few, Some |
 | Difficulty | 9209/9210 | Normal, Hard, Impossible, Simple, Easy |
-| Strategic timer | 9211 (less), 9212 (more), 9213 | None; the others aren't known yet |
-| Tactical timer | 9214, 9215, 9216 | The same |
+| Strategic timer | 9211 (less), 9212 (more), 9213 | None, 01:00 to 15:00 a minute apart, 20:00, 25:00, 30:00 to 90:00 ten minutes apart |
+| Tactical timer | 9214, 9215, 9216 | None, 00:15 to 05:00 15 seconds apart, 06:00 to 10:00 a minute apart, 15:00 to 30:00 five minutes apart |
 | Random events | 9217/9218 | On, Off |
 | Tactical combat | 9219/9220 | Manual, Automatic |
 | Victory conditions | 9221/9222 | Domination, Vendetta (Team Play is for multiplayer games) |
@@ -334,11 +339,13 @@ recording:
   with the same setup (Ring, Medium, Automatic): every picture and text
   lands on the game's pixels but the two timers' "NONE", a pixel left of
   the game's. The options screen's timers, centred in the same way, match;
-  why these don't isn't known.
-- **The timers' other choices** count minutes and seconds: a screenshot
-  has the strategic timer at "01:00" and the tactical at "00:15". Which
-  steps the arrows go through isn't known yet, so Reluva offers only
-  "NONE".
+  why these don't isn't known. A screenshot with the timers at "01:00" and
+  "00:15" shows the same: Reluva's are the game's glyph for glyph, a pixel
+  to the left.
+- **The timers' choices,** minutes and seconds, as "MM:SS", are the
+  user's, stepping through them in the game: 25 for the strategic timer,
+  30 for the tactical, None first in both. The arrows step one choice;
+  Reluva stops them at either end *(guessed)*.
 
 ### Empire selection
 
@@ -446,16 +453,16 @@ recording:
 
 ## Open questions
 
-- The timers' choices beyond None: "01:00" and "00:15" are seen, the steps
-  between not.
+- Whether the timers' arrows stop at the ends or go round, and how
+  `Stbof.ini` keeps a timer that's set.
 - Whether the game shows a held button's "selected" picture on the setup
   and empire screens, as the main menu does under the pointer.
 - On the options screen: whether a volume's click works as Reluva's does.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Save Game: an empty slot's description when chosen, and how fast the
-  cursor flashes. Settled by choosing an empty slot, and a recording.
+- Save Game: which slot is red, and when. Settled by saving a game in
+  another slot.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses

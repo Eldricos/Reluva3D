@@ -25,6 +25,7 @@ constexpr const char *kLoadTitle = "ls_ldlb.tga";
 // game: not their fonts' colours.
 constexpr Color kTextColor{0, 166, 156};
 constexpr Color kChosenColor{239, 182, 198};
+constexpr Color kCurrentColor{225, 28, 41}; // measured from a recording
 
 int32_t slotButton(int slot) {
     return kFirstSlot + 2 * slot;
@@ -38,10 +39,10 @@ Error LoadSaveScreen::load() {
                         kFirstName + 2 * (kSlots - 1), kFirstDescription, kFirstDescription + 2 * (kSlots - 1)});
 }
 
-void LoadSaveScreen::open(const Slots &slots, Mode mode, const std::string &description) {
+void LoadSaveScreen::open(const Slots &slots, Mode mode, int current) {
     _slots = slots;
     _mode = mode;
-    _newDescription = description;
+    _current = mode == Mode::kSave ? current : -1;
     _description.clear();
     _chosen = -1;
     _pressed = 0;
@@ -83,9 +84,9 @@ LoadSaveScreen::Result LoadSaveScreen::handle(const Event &e) {
                 _chosen = i;
                 _disabled.erase(kAccept);
                 // Saving over a game keeps its description, to be typed
-                // over (the game does); an empty slot takes the new one's.
+                // over; an empty slot's is empty (the game does both).
                 const std::optional<SaveSummary> &save = _slots[size_t(i)];
-                _description = save ? save->description : _newDescription;
+                _description = save ? save->description : std::string();
                 // A click and a spoken line, each mode its own.
                 sound(UiSound::kClick);
                 sound(_mode == Mode::kLoad ? UiSound::kGameChosen : UiSound::kSlotChosen);
@@ -111,8 +112,9 @@ void LoadSaveScreen::draw(Surface &screen) const {
         const int32_t name = kFirstName + 2 * i;
         const int32_t description = kFirstDescription + 2 * i;
         // The name field shows the slot's file, as the game names it; the
-        // chosen slot's text is pink.
-        const Color color = i == _chosen ? kChosenColor : kTextColor;
+        // current game's text is red, chosen or not (inferred), the chosen
+        // slot's otherwise pink.
+        const Color color = i == _current ? kCurrentColor : i == _chosen ? kChosenColor : kTextColor;
         drawText(screen, name, "game" + std::to_string(i) + ".sav", color);
         drawText(screen, description, saving ? _description : save->description, color);
         if (saving && _cursorShown)

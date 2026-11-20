@@ -3,6 +3,8 @@
 
 #include "engines/botf/ui/setup_screen.h"
 
+#include "engines/botf/ui/timers.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <vector>
@@ -47,8 +49,6 @@ constexpr int32_t kSizePicture = 9203;
 constexpr Color kValueColor{24, 101, 189};  // the preferences and the galaxy
 constexpr Color kLevelColor{90, 207, 140};  // the civilization levels
 constexpr Color kTimerColor{173, 227, 115}; // the two timers
-
-constexpr int kTimerChoices = 1; // "None"; the others aren't known yet
 
 const char *const kShapePictures[] = {"cc_gsir.tga", "cc_gsel.tga", "cc_gsrg.tga", "cc_gssp.tga"};
 const char *const kSizePictures[] = {"cc_gzsm.tga", "cc_gzmd.tga", "cc_gzlg.tga"};
@@ -140,17 +140,19 @@ void SetupScreen::click(int32_t id, bool shift) {
     case kDifficulty:
         s.difficulty = (s.difficulty + 1) % 5;
         break;
+    // The arrows step through the timer's choices, stopping at either end
+    // (guessed).
     case kStrategicLess:
         s.strategicTimer = std::max(s.strategicTimer - 1, 0);
         break;
     case kStrategicMore:
-        s.strategicTimer = std::min(s.strategicTimer + 1, kTimerChoices - 1);
+        s.strategicTimer = std::min(s.strategicTimer + 1, int(strategicTimerChoices().size()) - 1);
         break;
     case kTacticalLess:
         s.tacticalTimer = std::max(s.tacticalTimer - 1, 0);
         break;
     case kTacticalMore:
-        s.tacticalTimer = std::min(s.tacticalTimer + 1, kTimerChoices - 1);
+        s.tacticalTimer = std::min(s.tacticalTimer + 1, int(tacticalTimerChoices().size()) - 1);
         break;
     case kRandomEvents:
         s.randomEvents = !s.randomEvents;
@@ -226,8 +228,13 @@ void SetupScreen::draw(Surface &screen) {
     drawText(screen, kShapeText, galaxyShapeName(_lexicon, s.galaxyShape), kValueColor);
     value(kSizeText, sizes[s.galaxySize]);
     // The timers show "NONE" though the entry is "None".
-    drawText(screen, kStrategicText, upperAscii(word(lex::kNone, "None")), kTimerColor);
-    drawText(screen, kTacticalText, upperAscii(word(lex::kNone, "None")), kTimerColor);
+    // None, or the time ("01:00"); here "NONE", where the entry is "None".
+    auto timer = [&](int32_t box, const std::vector<int> &choices, int choice) {
+        const int seconds = choices[size_t(std::clamp(choice, 0, int(choices.size()) - 1))];
+        drawText(screen, box, seconds ? timerText(seconds) : upperAscii(word(lex::kNone, "None")), kTimerColor);
+    };
+    timer(kStrategicText, strategicTimerChoices(), s.strategicTimer);
+    timer(kTacticalText, tacticalTimerChoices(), s.tacticalTimer);
 }
 
 } // namespace reluva::botf
