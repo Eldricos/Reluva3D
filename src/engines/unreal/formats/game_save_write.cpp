@@ -9,6 +9,7 @@
 // the objects they made) is written from the running level. See
 // docs/formats/unreal/save.md.
 
+#include "engines/unreal/formats/model.h"
 #include "engines/unreal/vm/vm_level.h"
 
 #include "engines/unreal/formats/game_save.h"
@@ -545,8 +546,30 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     L.i32(0);
     w.setData(levels.front() + 1, std::move(L.data));
 
-    // The map's actors the level no longer has (destroyed, editor-only)
-    // stay, unreferenced: the engine loads only what the level leads to.
+    // The map's actors the level no longer has (destroyed) stay,
+    // unreferenced: the engine loads only what the level leads to. Its
+    // exports for the editor alone (UnrealEd's building brushes, their
+    // models and polygons, its cameras) keep their numbers but no data:
+    // the game never loads them (Core.dll 0x1012d02b), and the original's
+    // saves have none.
+    // (A brush's polygons are loadable themselves, but only its model leads
+    // to them: those of models the game loads are kept.)
+    const auto &exports = _map.exports();
+    auto editorOnly = [&](size_t i) {
+        return !(exports[i].flags & (objflag::kLoadForClient | objflag::kLoadForServer));
+    };
+    std::set<int32_t> polysKept;
+    std::set<int32_t> polysDropped;
+    for (const int i : _map.exportsOfClass("Model")) {
+        Model m;
+        if (!readModel(_map, i, m, false) && m.polys > 0)
+            (editorOnly(size_t(i)) ? polysDropped : polysKept).insert(m.polys);
+    }
+    for (size_t i = 0; i < exports.size(); ++i) {
+        const auto ref = int32_t(i + 1);
+        if (exports[i].serialSize > 0 && (editorOnly(i) || (polysDropped.count(ref) && !polysKept.count(ref))))
+            w.setData(ref, {});
+    }
     return w.write(path);
 }
 

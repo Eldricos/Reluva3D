@@ -174,9 +174,13 @@ is the map's data as it is; the rest comes from the running level.
     place keeping the one before's, the same ones once.
 - **The URL's map** is the map's own name, or for a level loaded from
   the original's save, the map that save was made on.
-- **Not written:** the Level's model and reach list renumbered (the map's
-  own numbering is kept, so references are a byte longer here and
-  there).
+- **The map's editor-only exports** (UnrealEd's building brushes, their
+  models and the polygon lists only those models lead to, its cameras)
+  keep their numbers but no data, as the game never loads them (Core.dll
+  0x1012d02b); the original's saves leave them out altogether. A save of
+  M01_SiskoL1A comes to 6.3 MB so (8.4 with them), the original's 6.2.
+- **Not written:** the exports renumbered (the map's own numbering is
+  kept, so references are a byte longer here and there).
 
 ## Sources and checks
 
