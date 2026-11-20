@@ -334,9 +334,14 @@ page has the console as [console.md](console.md) says.
   -next` plays it to `maptransition cairn_bay`.
 - **cairn_bay:** the opening runs to 55 s, and the tour starts after it;
   Luke fights alongside and his death fails the mission, so he's
-  spared. One trigger out in the bay (`run_remove`'s) kills the player
-  at once, through god mode, a fifth of a second after a teleport there
-  (what by isn't worked out); the tour leaves it out. The exit trigger is
+  spared. One trigger out in the bay (`*22`, targeting `run_remove`)
+  runs the script `cairn_bay/remove_self`, `remove(self)`, on whatever
+  touches it (the runner's spawn flag 1): it clears away the troopers
+  that run off there. A teleport puts the tour's player in it, and the
+  game removes the player too: its remove takes a client's health to 0
+  and frees it a moment later *(published: the GPL source's
+  `Q3_RemoveEnt`)*, no damage, so god mode doesn't help. The game's own
+  doing, not Reluva's; the tour leaves the trigger out. The exit trigger is
   in a lift shaft whose bottom kills: the lift goes up and down in turn,
   and the exit is switched on only for the 4.3 s it waits below.
   `sp-run`'s `@onto name [+height]` stands the player on an entity, or
@@ -352,7 +357,8 @@ page has the console as [console.md](console.md) says.
 - **cairn_dock1:** a stealth level. A guard who sees Kyle sends an
   officer running to an alarm button; the alarm brings the capture
   scene (`imprisoned`), which kills Kyle and fails the mission, so the
-  tour's open fighting doesn't get through. With the game's `notarget`
+  tour's open fighting doesn't get through: the level as made, which a
+  route would have to sneak through. With the game's `notarget`
   cheat (`-cmd notarget`) no guard sees him, and `sp-run cairn_dock1
   -tour 5000 -cmd notarget -spare cairn_vertical -set helpUsObi 1 -next`
   plays it to `maptransition doom_comm` (cinematic 26 and the movie
