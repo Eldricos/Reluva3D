@@ -16,6 +16,10 @@ constexpr int32_t kCancel = 9504;
 constexpr int32_t kFirstSlot = 9507;        // 9507, 9509 ... 9529
 constexpr int32_t kFirstName = 9506;        // 9506, 9508 ... 9528
 constexpr int32_t kFirstDescription = 9530; // 9530, 9532 ... 9552
+// The title along the top: the layout names ls_svlb.tga ("SAVE GAME"); the
+// game shows ls_ldlb.tga ("LOAD GAME") there on this screen.
+constexpr int32_t kTitle = 9505;
+constexpr const char *kLoadTitle = "ls_ldlb.tga";
 
 // The slots' text, measured from a screenshot of the game: not their
 // fonts' colours.
@@ -38,11 +42,9 @@ void LoadScreen::open(const Slots &slots) {
     _chosen = -1;
     _pressed = 0;
     _disabled.clear();
-    // Accept is dimmed until a slot is chosen, as in the game.
+    // Accept is dimmed until a slot is chosen, as in the game; empty slots
+    // aren't dimmed, but can't be chosen.
     _disabled.insert(kAccept);
-    for (int i = 0; i < kSlots; ++i)
-        if (!_slots[size_t(i)])
-            _disabled.insert(slotButton(i));
 }
 
 LoadScreen::Result LoadScreen::handle(const Event &e) {
@@ -63,7 +65,7 @@ LoadScreen::Result LoadScreen::handle(const Event &e) {
         if (id == kCancel)
             return Result::kCancelled;
         for (int i = 0; i < kSlots; ++i)
-            if (id == slotButton(i)) {
+            if (id == slotButton(i) && _slots[size_t(i)]) {
                 _chosen = i;
                 _disabled.erase(kAccept);
             }
@@ -77,6 +79,7 @@ void LoadScreen::draw(Surface &screen) const {
     if (_chosen >= 0)
         lit.insert(slotButton(_chosen));
     drawLayouts(screen, lit);
+    drawPicture(screen, kTitle, kLoadTitle);
     for (int i = 0; i < kSlots; ++i) {
         const std::optional<SaveSummary> &save = _slots[size_t(i)];
         if (!save)

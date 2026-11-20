@@ -57,6 +57,9 @@ protected:
     // height; or, with `lineGap`, wrapped to its width from its top, the
     // lines `lineGap` pixels further apart than the font's.
     void drawText(Surface &screen, int32_t textBox, const std::string &text, Color color, int lineGap = -1) const;
+    // The same for a text box of another layout, its corner at (boxX, boxY).
+    void drawTextAt(Surface &screen, const Widget &textBox, int boxX, int boxY, const std::string &text, Color color,
+                    int lineGap = -1) const;
     void drawPicture(Surface &screen, int32_t widget, const std::string &file) const;
     // The colour a text box's font names, or black.
     Color fontColor(int32_t textBox) const;

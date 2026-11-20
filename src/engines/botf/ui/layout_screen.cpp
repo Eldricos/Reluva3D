@@ -99,16 +99,20 @@ void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selecte
 }
 
 void LayoutScreen::drawText(Surface &screen, int32_t textBox, const std::string &text, Color color, int lineGap) const {
-    const Placed *p = find(textBox);
-    if (!p || p->widget->fonts.empty())
+    if (const Placed *p = find(textBox))
+        drawTextAt(screen, *p->widget, p->x, p->y, text, color, lineGap);
+}
+
+void LayoutScreen::drawTextAt(Surface &screen, const Widget &w, int boxX, int boxY, const std::string &text,
+                              Color color, int lineGap) const {
+    if (w.fonts.empty())
         return;
-    const Widget &w = *p->widget;
     const WidgetFont &wf = w.fonts[0];
     const Font *f = _assets.font(wf.file);
     if (!f)
         return;
     auto line = [&](const std::string &s, int y) {
-        int x = p->x + w.textX;
+        int x = boxX + w.textX;
         if (wf.align() == WidgetFont::Align::kCenter)
             x += (w.textW - f->measure(s)) / 2;
         else if (wf.align() == WidgetFont::Align::kRight)
@@ -116,14 +120,13 @@ void LayoutScreen::drawText(Surface &screen, int32_t textBox, const std::string 
         f->drawInColor(screen, x, y, s, color);
     };
     if (lineGap < 0) {
-        line(text, p->y + w.textY + (w.textH - f->glyphHeight()) / 2);
+        // An odd pixel left over goes above: the options screen's title.
+        line(text, boxY + w.textY + (w.textH - f->glyphHeight() + 1) / 2);
         return;
     }
-    // A word fits when it and a space after it do (the game's breaks, in the
-    // empire selection screen's descriptions).
-    int y = p->y + w.textY;
-    for (const std::string &s : f->wrap(text, w.textW - f->spaceAdvance())) {
-        if (y + f->glyphHeight() > p->y + w.textY + w.textH)
+    int y = boxY + w.textY;
+    for (const std::string &s : f->wrap(text, w.textW)) {
+        if (y + f->glyphHeight() > boxY + w.textY + w.textH)
             break;
         line(s, y);
         y += f->lineHeight() + lineGap;

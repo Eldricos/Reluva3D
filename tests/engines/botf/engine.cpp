@@ -115,7 +115,7 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
 
 // The install: the main menu's buttons down the right; the options
 // screen's volumes, settings and timers' arrows down the middle; Load
-// Game's slots, and two saved games; the setup
+// Game's slots, and two saved games; the Hall of Fame; the setup
 // screen's buttons in a row along the top, the empire screen's names down
 // the left; Accept and Cancel at the bottom.
 void makeInstall(const std::filesystem::path &dir) {
@@ -168,6 +168,17 @@ void makeInstall(const std::filesystem::path &dir) {
         loading.push_back({14, 9530 + 2 * i, 236, 178 + 26 * i, 370, 17, "human15.fnt"});
     }
     add("loadsave.wdf", layout(0, "load.tga", loading));
+    // The Hall of Fame: Return and the ten rows' places, and a row's text
+    // boxes.
+    std::vector<LayoutWidget> fame = {{2, 9950, 595, 553, 160, 38, "ok"}};
+    for (uint32_t i = 0; i < 10; ++i)
+        fame.push_back({13, 9951 + i, 17, 171 + 38 * i, 768, 36, ""});
+    add("fame.wdf", layout(0, "fame.tga", fame));
+    add("fameitem.wdf", layout(0, "none",
+                               {{14, 9962, 52, 10, 205, 17, "human15.fnt"},
+                                {14, 9963, 296, 10, 300, 17, "human15.fnt"},
+                                {14, 9964, 598, 10, 145, 17, "human15.fnt"}}));
+    add("fame.tga", picture(800, 600, 40, 40, 10));
     add("load.tga", picture(800, 600, 20, 20, 60));
     std::vector<LayoutWidget> setup = {{2, 9201, 453, 502, 159, 36, "ok"}, {2, 9202, 16, 502, 159, 36, "no"}};
     std::vector<LayoutWidget> empires = {{2, 9110, 452, 502, 160, 36, "ok"}, {2, 9111, 16, 502, 160, 36, "no"}};
@@ -344,7 +355,11 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", click(300, 175 + 78 + 10, false)},
             {"load.save chosen", click(460, 510, true)}, // Accept: no game yet, the menu
             {"", click(460, 510, false)},
-            {"menu.after loading", menuButton(8, true)}, // Quit Game: the end
+            {"menu.after loading", menuButton(6, true)}, // Hall of Fame
+            {"", menuButton(6, false)},
+            {"fame.shown", click(600, 560, true)}, // Return
+            {"", click(600, 560, false)},
+            {"menu.after the hall of fame", menuButton(8, true)}, // Quit Game: the end
             {"", menuButton(8, false)},
         };
         ScriptedSystem sys(rec, script);

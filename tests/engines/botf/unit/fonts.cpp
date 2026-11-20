@@ -26,9 +26,10 @@ void testFont() {
     Font font;
     CHECK(!font.load(makeFont(8)));
     CHECK(font.lineHeight() == 8 && font.glyphHeight() == 7 && font.spaceAdvance() == 4);
-    // 'A' is glyph 10, the first of row 2: a pixel wider than its advance - 1.
+    // 'A' is glyph 10, the first of row 2: a pixel wider than the header's
+    // advance - 1, and advancing a pixel further than the header says.
     const Font::Glyph *a = font.glyph(U'A');
-    CHECK(a && a->x == 1 && a->y == 9 && a->w == 2 + 10 % 4 + 1 && a->h == 7 && a->advance == 2 + 10 % 4 + 1);
+    CHECK(a && a->x == 1 && a->y == 9 && a->w == 2 + 10 % 4 + 1 && a->h == 7 && a->advance == 2 + 10 % 4 + 2);
     const Font::Glyph *one = font.glyph(U'1');
     CHECK(one && one->x == 1 && one->y == 1 && one->w == 2 && one->advance == 3);
     const Font::Glyph *two = font.glyph(U'2');

@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Birth of the Federation's unit tests: the main menu, the options and Load
-// Game screens, and the game setup and empire selection screens.
+// Birth of the Federation's unit tests: the main menu, the options, Load
+// Game and Hall of Fame screens, and the game setup and empire selection
+// screens.
 
 #include "common/events.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/fame_screen.h"
 #include "engines/botf/ui/load_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
+#include "image/image.h"
 
 #include "tests/engines/botf/unit/helpers.h"
 #include "tests/support/test.h"
@@ -370,6 +373,76 @@ void testFromIni() {
     CHECK(odd.galaxyShape == 0 && odd.difficulty == 2);
 }
 
+void testFameScreen() {
+    // Return, the ten rows' places 40 pixels apart, and a row's three text
+    // boxes; a row frame for the Klingons.
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 0, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, 1}, {13, 10}});
+    putWidget(f, 2, 9950, 600, 550, 100, 30, "none");
+    put32(f, 0xffffffff);
+    f.push_back(0);
+    put32(f, 0);
+    put32(f, 0);
+    putName(f, "none");
+    putName(f, "none");
+    for (uint32_t i = 0; i < 10; ++i) {
+        putWidget(f, 13, 9951 + i, 17, 100 + 40 * i, 768, 36, "none");
+        put32(f, 0xffffffff);
+    }
+    Bytes item;
+    put32(item, 2);
+    putWidget(item, 1, 0, 0, 0, 768, 36, "none");
+    putWindowCounts(item, {{14, 3}});
+    for (const auto &[id, x] : {std::pair{9962U, 52U}, {9963U, 296U}, {9964U, 598U}}) {
+        putWidget(item, 14, id, x, 10, 140, 17, "none");
+        for (const uint32_t v : {0U, 0U, 140U, 17U})
+            put32(item, v);
+        putFont(item, 0, 0, 0, "human15.fnt");
+    }
+    MemoryArchive archive;
+    archive.files["fame.wdf"] = f;
+    archive.files["fameitem.wdf"] = item;
+    archive.files["human15.fnt"] = makeFont(16);
+    image::Image frame;
+    frame.w = 768;
+    frame.h = 36;
+    frame.rgba.assign(size_t(768) * 36 * 4, 200);
+    archive.files["hk_fm1.tga"] = image::encodeTga(frame);
+    Assets assets(archive);
+    Lexicon lexicon;
+    FameScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    // Empty, nothing is drawn in the rows; with a Klingon's game, its row
+    // has the Klingons' frame.
+    screen.draw(surface);
+    CHECK(surface.pixels[size_t(105 * 800 + 400) * 4] == 0);
+    screen.open({{"Yobo", 3, "Klingons 381", 12865}});
+    screen.draw(surface);
+    CHECK(surface.pixels[size_t(105 * 800 + 400) * 4] == 200);
+    CHECK(surface.pixels[size_t(145 * 800 + 400) * 4] == 0);
+    auto click = [&](int x, int y) {
+        bool left = false;
+        for (EventType t : {EventType::kMouseDown, EventType::kMouseUp}) {
+            Event e;
+            e.type = t;
+            e.button = MouseButton::kLeft;
+            e.mouseX = x;
+            e.mouseY = y;
+            left = screen.handle(e);
+        }
+        return left;
+    };
+    CHECK(!click(300, 300) && click(650, 560));
+    Event esc;
+    esc.type = EventType::kKeyDown;
+    esc.key = key::kEscape;
+    CHECK(screen.handle(esc));
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -450,6 +523,7 @@ static const reluva::test::Suite
                                     {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
                                     {"load game", [](const std::filesystem::path &) { testLoadScreen(); }},
                                     {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
+                                    {"hall of fame", [](const std::filesystem::path &) { testFameScreen(); }},
                                     {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                                     {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
                                 });

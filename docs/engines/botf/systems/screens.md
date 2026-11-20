@@ -4,9 +4,9 @@
 
 ## Overview
 
-The screens rebuilt so far: the main menu, the options and Load Game
-screens, and those that start a new game, the game setup ("Configuration") screen and the
-empire selection screen. Each is put
+The screens rebuilt so far: the main menu, the options, Load Game and
+Hall of Fame screens, and those that start a new game, the game setup
+("Configuration") screen and the empire selection screen. Each is put
 back together from its window layout ([formats/wdf.md](../formats/wdf.md)),
 the manual (what each control does, its choices and defaults),
 `lexicon.dic` ([formats/lexicon.md](../formats/lexicon.md)) for its words,
@@ -118,6 +118,36 @@ and checked against a screenshot of the game's screen.
   that isn't in the layout's text boxes, so presumably it's in
   `optbkgnd.tga` *(guessed)*.
 
+### Hall of Fame
+
+`fame.wdf`, opened by the main menu's Hall of Fame: a screen of its own,
+not drawn over the menu, with its background (`h_bk.tga`, "HALL OF FAME"
+along the top, "NAME:", "DESCRIPTION:" and "SCORE:" over the list) and
+Return (9950) at the bottom right. The manual: "lists the top 10 games.
+The name of the winning empire, the description of the victory and the
+winning score are listed."
+
+- **The rows:** ten empty picture widgets (9951-9960, 768x36, 38 pixels
+  apart from y 171) where a row goes. Each row is framed with its empire's
+  picture, `h?_fm1.tga` with the empire's letter (Cardassians `c`,
+  Federation `h`, Ferengi `f`, Klingons `k`, Romulans `r`): each of the
+  screenshot's rows matches its empire's frame and no other. On it,
+  `fameitem.wdf`'s three text boxes, from the row's corner: the name (9962,
+  at 52, 10), the description (9963, at 296, 10) and the score (9964, at
+  598, 10), all `human15.fnt`, left-aligned, in (24, 101, 189), measured.
+- **The descriptions** read as the empire, a number and the galaxy:
+  "Klingons 381 Large Ring Galaxy". The number is presumably the turn the
+  game was won *(guessed)*.
+- **After a fresh install** the list holds ten games ("Yobo the Tyrant",
+  Klingons, 12865 ... "Tony the Romulan", Romulans, 3253). They aren't in
+  any file of the install or the CD (open questions); Reluva's list starts
+  empty ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+- **Return** goes back to the main menu; Reluva also takes Return and Esc
+  *(guessed)*.
+- **Not used:** `hf_bk.tga` (500x200) and the empires' 91x26 buttons
+  (`hf_cbtn1.tga` "CARDASSIAN" ...), perhaps for entering a name after a
+  game *(guessed)*.
+
 ### Load Game
 
 `loadsave.wdf`, opened by the main menu's Load Game: a background
@@ -140,13 +170,14 @@ of twelve slots, the manual's "12 slots available for saved games".
   light up. Then click the Accept button to start that saved game." Reluva
   lights the chosen slot with its second picture. Accept is dimmed until a
   slot is chosen (about 38% as bright as Cancel in the screenshot, the main
-  menu's dimming), and an empty slot can't be chosen *(guessed)*.
+  menu's dimming). Empty slots are drawn as the others, not dimmed; one
+  can't be chosen *(guessed)*.
 - **The text** is teal, (0, 166, 156), in both fields, measured from the
   screenshot: not the fonts' colours (the names' font names (1, 0, 0)).
-- **The title:** `ls_svlb.tga` (9505, 194x36, at 386, 102) is the right
-  end of the bar along the top, reading "LOAD GAME"; Save Game presumably
-  shows another picture there *(guessed)*. "NAME:" and "DESCRIPTION:" are
-  in the background.
+- **The title:** the right end of the bar along the top (9505, 194x36,
+  at 386, 102). The layout names `ls_svlb.tga` there, "SAVE GAME"; on this
+  screen the game shows `ls_ldlb.tga`, "LOAD GAME", beside it in
+  `stbof.res`. "NAME:" and "DESCRIPTION:" are in the background.
 - **Shared with Save Game:** the same layout (the file's name), where the
   manual has the description typed in.
 
@@ -217,10 +248,13 @@ recording:
   race's description in `racedesc.rst` but `lexicon.dic`'s entries 270-274
   (found by the recording's text: "The Federation is a free society...").
   Its lines are 23 pixels apart (the font's 21 and 2 more), and break where
-  a word and a space after it no longer fit the box's 240 pixels: with the
-  font's widths, that breaks the Federation's 13 lines exactly where the
-  recording does, where wrapping at 240 without the space doesn't (line 8:
-  "...have a" / "more favorable...").
+  a word no longer fits the box's 240 pixels: with the font's advances as
+  the game uses them ([formats/fnt.md](../formats/fnt.md)), that breaks the
+  Federation's 13 lines exactly where the recording does (line 8: "...have
+  a" / "more favorable..."). With the header's advances it didn't, and a
+  rule that a space after the word must fit too had been taken instead;
+  both rules give the Federation's lines now, but not the Cardassians',
+  Klingons' or Romulans', which the recording doesn't show *(inferred)*.
 - **Not shown in single player:** five small buttons with number boxes
   (9124-9128, 9119-9123; for multiplayer *(guessed)*) and a 250x350
   picture under the description (9113; the `es_?0` and `es_?1` pictures are
@@ -236,8 +270,8 @@ recording:
   in a text box's font and alignment, and wrapped as the empire screen's
   description is. The dimmed pictures are made by `ui/assets.cpp`.
 - `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/load_screen.cpp`,
-  `ui/setup_screen.cpp` and `ui/empire_screen.cpp`: each screen's
-  controls.
+  `ui/fame_screen.cpp`, `ui/setup_screen.cpp` and `ui/empire_screen.cpp`:
+  each screen's controls.
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
   the options and the last setup, starting from `Stbof.ini`'s (changes
   aren't written back yet). Load Game lists the
@@ -270,7 +304,10 @@ recording:
   screens and back, through the options, cancelled and accepted, and
   through Load Game with two saves. The options and Load Game screens were
   checked against screenshots of the game after a fresh install (November
-  2026): every widget, word, value and colour.
+  2026): every widget, word, value and colour. Drawn by Reluva from the
+  English `stbof.res` with the same games, the Hall of Fame, Load Game and
+  the options match the screenshots pixel for pixel but for the pointer,
+  the 16-bit screen's rounding, and a few pixels of shading in digits.
 
 ## Open questions
 

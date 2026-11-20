@@ -14,7 +14,6 @@ namespace reluva::botf {
 namespace {
 
 constexpr size_t kHeaderSize = 260;
-constexpr size_t kWidths = 20; // offset of the 120 u16 widths
 constexpr int kRowLengths[] = {10, 26, 26, 32, 26};
 
 uint32_t rgbaAt(const image::Image &img, int x, int y) {
@@ -75,7 +74,12 @@ Error Font::load(const std::vector<uint8_t> &data) {
                 if (found < kRowLengths[row]) {
                     Glyph &g = _glyphs[size_t(glyph)];
                     g = {start, top, x - start, height, 0};
-                    g.advance = data[kWidths + 2 * size_t(glyph)] | data[kWidths + 2 * size_t(glyph) + 1] << 8;
+                    // The game advances by the cell's width and one pixel
+                    // more, as the header's advances say for every cell
+                    // but the first of rows 2-5 ('A', 'a', '`', 'ä'), a
+                    // pixel wider: there the header is a pixel short
+                    // (docs/engines/botf/formats/fnt.md).
+                    g.advance = x - start + 1;
                     ++glyph;
                 }
                 ++found;

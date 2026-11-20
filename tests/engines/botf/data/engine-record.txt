@@ -5,29 +5,31 @@ detect.description: Star Trek: Birth of the Federation (unknown release)
 menu.shown: aab57f3978016255
 menu.new game pointed at: 138ab6ca9773e725
 menu.continue pressed: aab57f3978016255
-setup.shown: 15c598cf926c446d
-setup.difficulty pressed: ea0143b10a698bad
-setup.difficulty changed: 6a876819c35a62ea
-setup.level changed: cde616867fde2eec
-setup.levels all set: 6a876819c35a62ea
-empires.shown: 6700811f7ee4812c
-empires.third chosen: 4a6737e19641e48c
-setup.again: 6a876819c35a62ea
+setup.shown: 9b681a7f52ca7e4d
+setup.difficulty pressed: 5d62ea56f1cd4d8d
+setup.difficulty changed: 52b3b25e54d65a1a
+setup.level changed: 5b40c02199f91da8
+setup.levels all set: 52b3b25e54d65a1a
+empires.shown: 0e067487f002a638
+empires.third chosen: 562b762594aaca18
+setup.again: 52b3b25e54d65a1a
 menu.again: aab57f3978016255
-empires.second chosen: 5d2dd68cbe8b5b1c
+empires.second chosen: 3afe928a0ad209e8
 menu.after a new game: aab57f3978016255
-options.shown: e2828198ed79093b
-options.combat changed: 66a1c4db32002f36
-options.volume pressed: 3bb8698443a5100e
-options.volume dragged: 817886fb4c290b12
+options.shown: 5c0a245a998bba9b
+options.combat changed: 70595d01487a229a
+options.volume pressed: eeade6b002ee2412
+options.volume dragged: 42e7e66a99e8db46
 menu.options cancelled: aab57f3978016255
-options.again: e2828198ed79093b
+options.again: 5c0a245a998bba9b
 menu.options accepted: aab57f3978016255
-setup.with the options: fbc00b2b9b099bb2
+setup.with the options: cfbbc9ab0f1be1ea
 menu.last: aab57f3978016255
-load.shown: da1865fada544b25
-load.empty slot clicked: da1865fada544b25
-load.save chosen: b3104f77d3058a71
+load.shown: 763a7152e2d53a2d
+load.empty slot clicked: 763a7152e2d53a2d
+load.save chosen: c3df39bc70852ef9
 menu.after loading: aab57f3978016255
+fame.shown: b9c59ecb83c3a745
+menu.after the hall of fame: aab57f3978016255
 run: ok
 run.screen: 800x600

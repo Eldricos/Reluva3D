@@ -3,8 +3,8 @@
 
 // Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
 // releases it recognises, making an Engine to run one) and its Engine,
-// which so far runs the main menu, the options and Load Game screens and
-// the start of a new game: the game setup screen, then the empire selection screen
+// which so far runs the main menu, the options, Load Game and Hall of Fame
+// screens and the start of a new game: the game setup screen, then the empire selection screen
 // (docs/engines/botf/systems/screens.md).
 
 #include "common/zip.h"
@@ -12,6 +12,7 @@
 #include "engines/botf/game_files.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/fame_screen.h"
 #include "engines/botf/ui/load_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/options_screen.h"
@@ -97,7 +98,8 @@ void preferencesToOptions(const GameSetup &s, GameOptions &o) {
 }
 
 /**
- * The game running: the main menu, its options and Load Game screens, and
+ * The game running: the main menu, its options, Load Game and Hall of Fame
+ * screens, and
  * from its New Single Player Game the game setup screen, then the empire
  * selection screen. There's no game to start or load yet, so the empire
  * screen's Accept and Load Game's come back to the main menu.
@@ -125,6 +127,7 @@ public:
         MainMenu menu(assets, _lexicon);
         OptionsScreen options(assets, _lexicon);
         LoadScreen loading(assets, _lexicon);
+        FameScreen fame(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
         if (Error err = menu.load())
@@ -132,6 +135,8 @@ public:
         if (Error err = options.load())
             return err;
         if (Error err = loading.load())
+            return err;
+        if (Error err = fame.load())
             return err;
         if (Error err = setup.load())
             return err;
@@ -143,7 +148,7 @@ public:
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        enum class Showing { kMenu, kOptions, kLoad, kSetup, kEmpires };
+        enum class Showing { kMenu, kOptions, kLoad, kFame, kSetup, kEmpires };
         Showing showing = Showing::kMenu;
         Showing shown = showing; // before the event
         bool redraw = true;
@@ -157,8 +162,7 @@ public:
                     // convenience the game hasn't got.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         return Error::success();
-                    // The menu's other choices (the Hall of Fame,
-                    // multiplayer) aren't there yet, and do nothing.
+                    // Multiplayer isn't there yet, and does nothing.
                     const MainMenu::Choice c = menu.handle(ev);
                     if (c == MainMenu::Choice::kQuit)
                         return Error::success();
@@ -171,6 +175,13 @@ public:
                         loading.open(findSaves(_target.path));
                         showing = Showing::kLoad;
                     }
+                    if (c == MainMenu::Choice::kHallOfFame) {
+                        // Reluva's own list, empty until it can finish a
+                        // game: the game's first ten entries aren't in its
+                        // files (docs/engines/botf/KNOWN_DIFFERENCES.md).
+                        fame.open({});
+                        showing = Showing::kFame;
+                    }
                     if (c == MainMenu::Choice::kOptions) {
                         options.open(_options);
                         showing = Showing::kOptions;
@@ -180,6 +191,9 @@ public:
                     if (r == OptionsScreen::Result::kAccepted)
                         _options = options.options();
                     if (r != OptionsScreen::Result::kOpen)
+                        showing = Showing::kMenu;
+                } else if (showing == Showing::kFame) {
+                    if (fame.handle(ev))
                         showing = Showing::kMenu;
                 } else if (showing == Showing::kLoad) {
                     if (loading.handle(ev) != LoadScreen::Result::kOpen)
@@ -215,6 +229,8 @@ public:
                     options.draw(screen);
                 else if (showing == Showing::kLoad)
                     loading.draw(screen);
+                else if (showing == Showing::kFame)
+                    fame.draw(screen);
                 else if (showing == Showing::kSetup)
                     setup.draw(screen);
                 else

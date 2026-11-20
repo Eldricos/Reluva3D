@@ -30,8 +30,8 @@ with recordings of the original filling what the data can't show.
 8. **Saves:** the `.sav` format, worked out by comparing saves taken a
    turn apart in the running game: the map of the game state the rules
    act on.
-9. **Screens:** the main menu's own screens (saving, the Hall of Fame;
-   the options and Load Game's list are done), the galaxy map, and the system, empire and
+9. **Screens:** the main menu's own screens (saving; the options, Load
+   Game's list and the Hall of Fame are done), the galaxy map, and the system, empire and
    diplomacy screens, from their layouts and recordings of the original.
 10. **Rules:** turn processing (production, research, growth, morale, the
     AI) and ship combat, from the data tables, documentation and

@@ -21,12 +21,12 @@ Engine id `botf`, in `src/engines/botf/`.
   screen, all working from the game's own layouts, pictures, fonts and
   words, and matched against a recording of the game. There's no game to
   start yet: the empire screen's Accept comes back to the main menu. The
-  menu's Options opens the options screen and Load Game the saved games'
-  slots; its other buttons do nothing yet.
+  menu's Options opens the options screen, Load Game the saved games'
+  slots, and Hall of Fame its list, empty so far; New Multiplayer Game
+  does nothing yet.
 - **The data viewer** (`reluva-viewer`) shows the pictures, fonts, sounds,
   text and data tables, and the window layouts.
-- **Not yet:** the opening movie, the main menu's other screens (saving,
-  the Hall of Fame), loading a game, the galaxy map and every screen after it;
+- **Not yet:** the opening movie, saving and loading a game, multiplayer, the galaxy map and every screen after it;
   the game's rules; the `.hob` models and their `.gif` textures; the AVI
   movies; saves; multiplayer.
 

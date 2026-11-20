@@ -19,10 +19,14 @@ None yet.
 ## Not yet as the original
 
 - **The game starts at the main menu,** without the opening movie.
-- **On the main menu,** only New Single Player Game, Load Game, Options
-  and Quit Game do anything yet; Continue, Save Game and Retire can't be
-  used (as in the game with nothing in progress), and New Multiplayer Game
-  and Hall of Fame do nothing.
+- **On the main menu,** New Multiplayer Game does nothing yet; Continue,
+  Save Game and Retire can't be used (as in the game with nothing in
+  progress).
+- **The Hall of Fame starts empty.** The game's list after a fresh install
+  holds ten games ("Yobo the Tyrant" ...), which aren't in any of its files
+  but its encrypted executable, so Reluva doesn't have them. Its own list
+  will fill as games are won, once it can play them
+  ([systems/screens.md](systems/screens.md)).
 - **Load Game's Accept comes back to the main menu:** saved games can't
   be loaded yet. The version ("1.0.2" in the game)
   isn't drawn.

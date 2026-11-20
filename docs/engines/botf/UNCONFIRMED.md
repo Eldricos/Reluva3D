@@ -31,6 +31,12 @@ None: nothing of the game's code has been read.
   from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
   Settled by: `result.lst` decoded both ways once its pieces are read.
 
+- **The empire screen's descriptions wrap where a word no longer fits the
+  box,** not where a word and a space after it don't: both give the
+  Federation's lines, the only ones the recording shows
+  ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
+  the Klingons', Romulans' or Cardassians' description.
+
 ## Guessed
 
 - **On Load Game:** empty slots can't be chosen
@@ -50,6 +56,12 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** the race letters `h` Federation and `f` Ferengi, the
+  fonts' advances (the cell's width + 1), and the description wrapping at
+  its box's width, from screenshots of the Hall of Fame and Load Game drawn
+  by Reluva from the game's files ([formats/fnt.md](formats/fnt.md),
+  [formats/stbof-res.md](formats/stbof-res.md)).
 
 - **November 2026:** the options' default volumes (100, and 127 for
   video), and `Stbof.ini` keeping the options and the last game's setup,

@@ -15,7 +15,7 @@ files):
 | `botf.unit.fonts` | The `.fnt` fonts' glyphs found by their frames, drawing and wrapping text |
 | `botf.unit.tables` | The `.tdb` text tables, the data tables' layouts (and that every built-in layout fits its records), `lexicon.dic` |
 | `botf.unit.layouts` | The `.wdf` layouts (nested windows, each widget type, cut-short files), the `.mnu` menus, the colour key, dimmed pictures |
-| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options and setup read from `Stbof.ini`; the options screen's settings and volumes (clicked and dragged); Load Game's slots (an empty one, choosing, Accept); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
+| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options and setup read from `Stbof.ini`; the options screen's settings and volumes (clicked and dragged); the Hall of Fame's rows and Return; Load Game's slots (an empty one, choosing, Accept); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
 
 IMA ADPCM without a WAV header, which the `.snd` archives need, is
 checked with the shared audio code, in `common.unit.audio`.
@@ -24,8 +24,8 @@ checked with the shared audio code, in `common.unit.audio`.
 
 `botf.engine` (`tests/engines/botf/engine.cpp`), without the game's
 files: an install of its own (a `stbof.res` with a main menu, the
-options, Load Game, game setup and empire selection layouts, two saved
-games, pictures of plain colours, fonts and a
+options, Load Game, Hall of Fame, game setup and empire selection
+layouts, two saved games, pictures of plain colours, fonts and a
 `lexicon.dic`), recognised as an unknown release, then the game run
 headless: the main menu, a button pointed at and a dimmed one pressed,
 New Single Player Game, the setup screen clicked (a setting, an empire's
@@ -34,7 +34,7 @@ the setup and the menu, a new game again accepted back to the menu; the
 options, a setting changed and a volume dragged, then cancelled; the
 options again, tactical combat changed and accepted, and a new game's
 setup showing it; Load Game, an empty slot clicked, a save chosen and
-accepted; and Quit Game. Each screen's checksum is in its record
+accepted; the Hall of Fame and its Return; and Quit Game. Each screen's checksum is in its record
 (`data/engine-record.txt`).
 
 ### The game-files test
@@ -67,9 +67,10 @@ colours, what pressed buttons and the main menu behind look like.
    Player Game: the setup shows Automatic.
 8. Load Game: the install's saved games in their slots, the tutorials
    among them. Click one: it lights. Accept comes back to the main menu.
-   Quit Game leaves.
-9. In `reluva-viewer`, every page: every picture, font, sound, table and
-   layout opens.
+9. Hall of Fame: its own screen, the list empty. Return comes back to the
+   main menu. Quit Game leaves.
+10. In `reluva-viewer`, every page: every picture, font, sound, table and
+    layout opens.
 
 ## Last checked
 
