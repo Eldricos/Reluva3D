@@ -7,8 +7,10 @@
 # the console (use, facing north), and use again to leave the camera's
 # view (in it, the player does nothing). The doors' unlocking switches on
 # the trigger for cinematic 22, at whose end Tavion comes; she blocks a
-# saber and blaster bolts, not rockets and the disruptor. Her death
-# script is cinematic 23, which changes the level.
+# saber and blaster bolts, and mostly rockets and the disruptor too, so
+# the flechette does most of the work: how long she lasts turns on the
+# game's random draws. Her death script is cinematic 23, which changes
+# the level.
 /setviewpos 1640 1488 440 90
 @until +300 0 0
 @until +500 32 0
@@ -19,11 +21,15 @@
 /setviewpos 2440 2004 24 90
 @until +85000 0 0
 # Tavion
-@repeat 30
+@repeat 100
 @nearest real_tavion +160
 @until +1000 1 9
 @nearest real_tavion
+@until +1000 1 8
+@nearest real_tavion
 @until +1000 1 4
+@nearest real_tavion
+@until +1000 1 8
 @end
 # cinematic 23
 @until +90000 0 0
