@@ -160,13 +160,45 @@ oriented quad 3, line 4, electricity 5, cylinder 6, beam 8, saber glow
 9, portal 10 *(published)*. The view (`refdef_t`) is Quake III's, without Elite
 Force's text.
 
+### Patch 1.03
+
+1.03's `jk2gamex86.dll` gives version 7 (its `GetGameAPI`, 0x200987d0),
+which 1.03's engine checks for (0x437708); the rest is as 1.02a's:
+
+- **The same tables and structures.** The import table is filled with
+  the same 103 functions in the same places (0x437293 on), each the
+  same code as 1.02a's; the export table is read the same way; the
+  entity (0x508 bytes), its shared part and the player's state, Ghoul2's
+  records and the saved games are as before. 1.03 reads 1.02a's saves
+  (its readme).
+- **The client game's calls are numbered anew** (its handler still at
+  0x401570, its jump table now at 0x402010, 115 calls): force feedback's
+  four calls (35 to 38) give way to six (35 to 40: start an effect,
+  stop it, stop them all, shake, register one by name and channel,
+  keep one playing), so 1.02a's 39 to 49 are 41 to 51; 52 is new,
+  `Language_UsesSpaces()` (0x460c50: 0 for `sp_language` 5 or 8, else
+  1); 1.02a's 50 is 53, and its 51 to 111 are 54 to 114, each with the
+  same arguments.
+- **Configstrings from 522 on move by 96**, for a block of force
+  feedback's effect names ("channel,name") at 522: the light styles at
+  619, the effects at 811, the music's state at 1003 (which the engine
+  reads, 0x428b50).
+- The engine's force feedback is new, through `IFC22.dll`: its own
+  console commands (`ff_info`, `ff_stopall`, `ff_restart`) and cvars
+  (`use_ff` now 1); the menus have keywords for it (`focusForce`,
+  `menuEnterForce`...), and the version line says `JK2: v1.03`.
+
 ## In Reluva
 
 `SpGameHost::load(dll, jedi)` loads the DLL in Jedi Outcast's mode:
 slots 0–41 answered as for the Expansion Pack, `Malloc` zeroing when
 asked, the entity layout above, the export table's longer list.
 `reluva-tool idtech3 sp-run <base folder> <map>` finds `jk2gamex86.dll`
-beside the game's folder and runs it.
+beside the game's folder and runs it. 1.03's runs too: its client
+game's calls are taken back to 1.02a's numbers, force feedback's
+answered as with it switched off (nothing, 0), `Language_UsesSpaces`
+from `sp_language`, and the music's state read from its configstring,
+1003.
 
 The client game's calls are answered as the table above says, Elite
 Force's handling shared where the call and what it passes are the same
@@ -214,7 +246,10 @@ page has the console as [console.md](console.md) says.
 - **Where the facts come from:** `jk2sp.exe` 1.02a: the table's fill
   (0x4368e0–0x436cf5), the version check (0x436d58), the client game's
   set-up (0x440740) and handler (0x43eea0, 0x401570), `linkentity`
-  (0x43a620). The GPL Jedi Outcast single-player source (`g_public.h`,
+  (0x43a620); `jk2sp.exe` and `jk2gamex86.dll` 1.03 against them, their
+  functions matched by their code with addresses masked out (the
+  table's fill 0x437293 on, the version check 0x437708, the client
+  game's jump table 0x402010, the music's read 0x428b50). The GPL Jedi Outcast single-player source (`g_public.h`,
   `cg_public.h`, `q_shared.h`) as a guide to the tables' order and the
   structures, *(published)* for the Ghoul2 slots' names.
 - **How it was checked:** `sp-run` on `kejim_post` loads the DLL, its

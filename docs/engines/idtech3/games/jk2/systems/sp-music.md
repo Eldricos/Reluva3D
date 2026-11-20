@@ -63,7 +63,7 @@ action piece's exits' transitions 4 to 7 and the explore piece's 8 to
 
 ### The state the game asks for
 
-The game writes configstring 907 at the end of each frame (0x20097c50):
+The game writes configstring 907 (1003 in 1.03) at the end of each frame (0x20097c50):
 `death` while the player is dead, `boss` or `silence` while a script
 has set them (`SET_MUSIC_STATE`), else, at most once a second, `action`
 while an armed enemy that's after the player (or an alert of danger)

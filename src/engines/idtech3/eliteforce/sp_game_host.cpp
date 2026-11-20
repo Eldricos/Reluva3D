@@ -207,8 +207,9 @@ Error SpGameHost::load(const std::vector<uint8_t> &dll, bool jedi) {
         return Error::fail("GetGameAPI gave no table");
     _exports = result;
     const int32_t version = int32_t(_cpu->read32(_exports));
-    if (version != kApiVersion)
+    if (version != kApiVersion && !(jedi && version == kJedi103ApiVersion))
         return Error::fail("The game is version " + std::to_string(version) + ", not " + std::to_string(kApiVersion));
+    _apiVersion = version;
     return Error::success();
 }
 

@@ -137,8 +137,27 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         std::memcpy(&v, &u, 4);
         return v;
     };
-    const int number = int(c.arg(0));
+    int number = int(c.arg(0));
     _cgameCallCounts.add(number);
+    if (_apiVersion == kJedi103ApiVersion) {
+        // 1.03's numbering (jk2sp.exe 1.03's handler, its jump table at
+        // 0x402010): force feedback's six calls at 35 to 40 in place of
+        // the four before, Language_UsesSpaces new at 52, and the rest
+        // after them moved on; each taken back to 1.02a's number.
+        if (number >= 35 && number <= 40)
+            return 0; // force feedback: none, as with it switched off
+        if (number == 52) {
+            // Language_UsesSpaces() (0x460c50): not for sp_language 5 or 8.
+            const int32_t language = _cvars.integer("sp_language");
+            return language == 5 || language == 8 ? 0u : 1u;
+        }
+        if (number >= 41 && number <= 51)
+            number -= 2;
+        else if (number == 53)
+            number = 50;
+        else if (number >= 54)
+            number -= 3;
+    }
     if (number <= 25)
         return cgameCall(c, number);
     if ((number >= 27 && number <= 34) || (number >= 39 && number <= 43))

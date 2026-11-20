@@ -32,6 +32,9 @@ constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 // Jedi Outcast's configstring of the music's state, which the game sets
 // and the engine reads each frame (0x428290).
 constexpr int32_t kMusicStateConfigString = 907;
+// 1.03's, as its configstrings from 522 on moved 96 for force
+// feedback's effects (0x428b50).
+constexpr int32_t kMusicStateConfigString103 = 1003;
 
 bool badSaveName(const std::string &name); // below
 
@@ -1429,7 +1432,9 @@ void SpPlayPage::runGame(uint64_t nowMs) {
     if (_soundSystem && jedi()) {
         // The music's state as the game asks for it (configstring 907).
         const auto &strings = _game->configstrings();
-        const auto it = strings.find(kMusicStateConfigString);
+        const auto it =
+            strings.find(_game->apiVersion() == eliteforce::SpGameHost::kJedi103ApiVersion ? kMusicStateConfigString103
+                                                                                           : kMusicStateConfigString);
         _soundSystem->setMusicState(it != strings.end() ? &it->second : nullptr);
         _soundSystem->setAllowDynamicMusic(setting("s_allowDynamicMusic", 1) != 0);
     }

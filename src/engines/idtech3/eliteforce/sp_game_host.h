@@ -94,6 +94,9 @@ public:
         kConsoleCommand = 13,
     };
     static constexpr int32_t kApiVersion = 6;
+    // Jedi Outcast 1.03's (its engine checks for it, 0x437708): the same
+    // tables, the client game's calls numbered anew (jediCgameCall).
+    static constexpr int32_t kJedi103ApiVersion = 7;
     static constexpr int32_t kFrameMs = 50;        // 20 frames a second, as the original's server
     static constexpr int32_t kSettleFrameMs = 100; // the frames run before anyone joins
     static constexpr int32_t kStartTimeMs = 1000;  // a level's time as the game starts
@@ -126,6 +129,8 @@ public:
     // version.
     Error load(const std::vector<uint8_t> &dll, bool jedi = false);
     bool jedi() const { return _jedi; }
+    // The game's API version: 6, or Jedi Outcast 1.03's 7.
+    int32_t apiVersion() const { return _apiVersion; }
     const char *dllName() const { return _jedi ? "jk2gamex86.dll" : "efgamex86.dll"; }
     const SpEntityLayout &entityLayout() const { return _entity; }
     // Jedi Outcast's light styles, as its client game last set them.
@@ -429,6 +434,7 @@ private:
     // the Expansion Pack's table, Malloc's tag and zeroing, then Ghoul2's
     // functions (jk2/sp_game_calls.cpp); its own client game calls.
     bool _jedi = false;
+    int32_t _apiVersion = kApiVersion;
     SpEntityLayout _entity = kEntity;
     void addJediImports();
     uint32_t jediCgameCall(x86::Cpu &c);
