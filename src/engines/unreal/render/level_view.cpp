@@ -3403,7 +3403,8 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
             skins.push_back(_textured ? textureOf(tex).first : 0);
         }
         _play->drawn(a);
-        const gfx::Mat4 placement = meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot);
+        const gfx::Mat4 placement =
+            meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot, look.preRotate);
         const MeshLight light = meshLightAt(look.location, &look, a);
         _lastMesh = {};
         if ((look.layers.empty() && look.adjust.empty() && look.faces.empty()) || !mesh.bones ||
@@ -3464,8 +3465,9 @@ void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
         }
         const MeshPose pose = poseAtFraction(mesh, mesh.findAnim(look.animSequence), look.animFrame, look.animLoop);
         for (const LevelPlay::Copy &c : copies) {
-            const gfx::Mat4 placement = gfx::multiply(meshPlacement(c.location, c.rotation, c.drawScale, look.prePivot),
-                                                      meshAxisScaling(mesh, c.axisScale));
+            const gfx::Mat4 placement =
+                gfx::multiply(meshPlacement(c.location, c.rotation, c.drawScale, look.prePivot, look.preRotate),
+                              meshAxisScaling(mesh, c.axisScale));
             MeshLight light = look.unlit ? MeshLight{} : meshLightAt(c.location);
             for (size_t k = 0; k < 3; ++k) {
                 light.ambient[k] *= c.scaleGlow;

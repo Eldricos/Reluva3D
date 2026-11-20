@@ -82,10 +82,12 @@ Vec3f placeMeshScaled(const Mesh &mesh, const Vec3f &v, MeshTurn turn = MeshTurn
                       int yawQuarters = kImportYawQuarters);
 
 /**
- * Where an actor puts its mesh: Location + PrePivot, turned by Rotation,
- * scaled by DrawScale; then into the renderer's axes (Y negated).
+ * Where an actor puts its mesh: Location + PrePivot, turned by Rotation
+ * and within it by PreRotate, scaled by DrawScale; then into the
+ * renderer's axes (Y negated).
  */
-gfx::Mat4 meshPlacement(const Vec3f &location, const Rotator &rotation, float drawScale, const Vec3f &prePivot);
+gfx::Mat4 meshPlacement(const Vec3f &location, const Rotator &rotation, float drawScale, const Vec3f &prePivot,
+                        const Rotator &preRotate = {});
 /**
  * A scale along the mesh's axes before its RotOrigin turns them (The
  * Fallen's AxisScale: CTV_Quad, turned a quarter, is narrowed along its

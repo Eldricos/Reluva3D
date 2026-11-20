@@ -164,6 +164,7 @@ public:
         Vec3f location{};
         Vec3f prePivot{};
         Rotator rotation;
+        Rotator preRotate; // a mesh's turn within Rotation
         float drawScale = 1;
         int drawType = 0; // 1 sprite, 2 mesh, 3 brush...
         bool hidden = false;
@@ -359,6 +360,7 @@ private:
         kAmbientGlow,
         kSpecularField,
         kMultiTextureOn,
+        kPreRotate,
         kFieldCount
     };
     const std::array<int, kFieldCount> &slotsOf(const VmClass *cls);

@@ -44,7 +44,8 @@ LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
                                       "bCorona",
                                       "AmbientGlow",
                                       "Specular",
-                                      "bMultiTextureOn"};
+                                      "bMultiTextureOn",
+                                      "PreRotate"};
     for (size_t k = 0; k < kFieldCount; ++k)
         _names[k] = _vm->name(names[k]);
 }
@@ -609,6 +610,10 @@ bool LevelPlay::look(VmObject *a, Look &out) {
     if (const Value *v = at(kRotation)) {
         const auto r = Vm::rotatorOf(*v);
         out.rotation = {r[0], r[1], r[2]};
+    }
+    if (const Value *v = at(kPreRotate)) {
+        const auto r = Vm::rotatorOf(*v);
+        out.preRotate = {r[0], r[1], r[2]};
     }
     if (const Value *v = at(kDrawScale))
         out.drawScale = v->asFloat();

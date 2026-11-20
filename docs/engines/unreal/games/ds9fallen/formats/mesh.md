@@ -88,6 +88,20 @@ rest): imported meshes are also given three quarter turns of yaw (a
 quarter turn back), to face ahead along X. The viewers' **Y** key steps
 through the four.
 
+Placed in the world, the C3D frame builder takes the actor's own
+placement and nothing else of the mesh's (0x1032b619 to 0x1032b75b):
+Location + PrePivot, turned by Rotation and within it by the actor's
+`PreRotate` (which scripts set: an attached item's `ItemRotationAdjust`,
+the phaser mine spinning), scaled by DrawScale times `AxisScale` along
+the turned axes. It never reads the mesh's Origin, RotOrigin or Scale
+(the C3D model's own scale does that job, the same as Scale in every
+mesh read). Reluva draws them so: before, it gave
+`DS9_CardassianWallTurretFX`, the one imported mesh with a RotOrigin
+(0, 49152, 0), three more quarter turns of yaw, and no actor its
+PreRotate. No mesh has a non-zero Origin, imported or not, so its being
+left out changes nothing. A classic mesh does turn by RotOrigin and
+take off Origin (0x104119ea).
+
 **Keyframed meshes.** Many animated meshes keep fewer `(FrameVerts,
 FrameVerts, 1)` vertex arrays than they have frames: ARD_AmmoCrate 2 for
 100 frames, ARD_TortureMachine about 250 for 400. Each array is followed

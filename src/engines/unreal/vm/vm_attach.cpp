@@ -54,6 +54,17 @@ Axes inFrame(const Axes &a, const Axes &f) {
     return out;
 }
 
+// The axes an actor's mesh is placed by: its Rotation's, turned within by
+// its PreRotate's (Engine.dll's C3D frame builder, 0x1032b703, 0x1032b727).
+Axes placedAxes(const Value *rotation, const Value *preRotate) {
+    auto axesFrom = [&](const Value *v) {
+        const auto r = v ? Vm::rotatorOf(*v) : std::array<int32_t, 3>{};
+        const auto f = rotationAxes({r[0], r[1], r[2]});
+        return Axes{Vec{f[0][0], f[0][1], f[0][2]}, Vec{f[1][0], f[1][1], f[1][2]}, Vec{f[2][0], f[2][1], f[2][2]}};
+    };
+    return inFrame(axesFrom(preRotate), axesFrom(rotation));
+}
+
 ScriptLevel::Rot rotOf(const Axes &axes) {
     const Rotator r = rotatorFromAxes({unit(axes[0]), unit(axes[1]), unit(axes[2])});
     return {r.pitch, r.yaw, r.roll};
@@ -249,16 +260,13 @@ const std::vector<ScriptLevel::Vec> *ScriptLevel::posedVertices(VmObject *a, Act
 }
 
 // From the actor's own space (as the mesh is placed, before DrawScale) to
-// the world: Location + PrePivot + its rotation of (DrawScale * the point),
-// as the mesh is drawn (meshPlacement).
+// the world: Location + PrePivot + its Rotation, and within it PreRotate,
+// of (DrawScale * the point), as the mesh is drawn (meshPlacement).
 void ScriptLevel::toWorld(VmObject *a, Vec &at, Axes *axes) {
     const Value *loc = prop(a, "Location");
     const Value *pivot = prop(a, "PrePivot");
-    const Value *rot = prop(a, "Rotation");
     const Value *scale = prop(a, "DrawScale");
-    const auto r = rot ? Vm::rotatorOf(*rot) : std::array<int32_t, 3>{};
-    const auto f = rotationAxes({r[0], r[1], r[2]});
-    const Axes frame{Vec{f[0][0], f[0][1], f[0][2]}, Vec{f[1][0], f[1][1], f[1][2]}, Vec{f[2][0], f[2][1], f[2][2]}};
+    const Axes frame = placedAxes(prop(a, "Rotation"), prop(a, "PreRotate"));
     const float ds = scale ? scale->asFloat() : 1;
     Vec w = add(loc ? Vm::vectorOf(*loc) : Vec{}, pivot ? Vm::vectorOf(*pivot) : Vec{});
     for (size_t j = 0; j < 3; ++j)
@@ -771,9 +779,8 @@ LayeredPoser::Adjust ScriptLevel::adjustOf(VmObject *a, ActorMesh &m) {
     // From the world into the actor's own space (as toWorld, undone).
     const Value *loc = prop(a, "Location");
     const Value *pivot = prop(a, "PrePivot");
-    const Value *rotValue = prop(a, "Rotation");
     const Value *scale = prop(a, "DrawScale");
-    const Axes frame = axesOf(rotValue ? Vm::rotatorOf(*rotValue) : Rot{});
+    const Axes frame = placedAxes(prop(a, "Rotation"), prop(a, "PreRotate"));
     const float ds = scale && scale->asFloat() != 0 ? scale->asFloat() : 1;
     const Vec base = add(loc ? Vm::vectorOf(*loc) : Vec{}, pivot ? Vm::vectorOf(*pivot) : Vec{});
     for (size_t l = 0; l < 4; ++l) {
