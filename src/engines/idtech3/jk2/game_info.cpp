@@ -24,6 +24,7 @@ GameInfo gameInfo() {
     // The multiplayer engine's (default.cfg is single player's).
     g.defaultConfig = "mpdefault.cfg";
     g.consoleVersion = "JK2MP: v1.02a"; // as jk2mp.exe draws it (0x4ef690)
+    g.spConsoleVersion = "JK2: v1.02a"; // as jk2sp.exe draws it (0x4d56b4)
     g.overbrightFullscreenOnly = true;  // 0x47ccd0: none in a window
     // Kyle Katarn, as its menus start a new player.
     g.playerModel = "kyle/default";

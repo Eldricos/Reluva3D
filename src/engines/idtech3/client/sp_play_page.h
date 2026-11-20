@@ -5,6 +5,8 @@
 
 #include "engines/idtech3/cinematic.h"
 #include "common/developer.h"
+#include "engines/idtech3/client/console_drawer.h"
+#include "engines/idtech3/client/console_state.h"
 #include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
@@ -100,6 +102,18 @@ private:
     void runGame(uint64_t nowMs);
     void runBinding(const std::string &line, int32_t key, bool down);
     void drawOverlay();
+    // The console: what's printed, the line typed (the console key opens
+    // it; Esc or the key again shuts it), drawn as the game's own where
+    // Reluva knows it (GameInfo::spConsoleVersion), else Reluva's own.
+    void consolePrint(const std::string &text);
+    void report(const std::string &text); // a line of Reluva's own
+    void openConsole(uint32_t key);       // `key`: the character of the key that opened it
+    void closeConsole();
+    void drawConsole(uint64_t nowMs, float time);
+    ConsoleState _console;
+    bool _consoleOpen = false;
+    ConsoleShaders _consoleShaders;
+    bool _consoleShadersLoaded = false;
     void runPendingTransition();
     // The client game's pictures from `drawn` up to `to` (both moved on),
     // its screen captures among them.
@@ -159,8 +173,6 @@ private:
     Surface _overlay;
     std::string _error;
     std::string _menuError;
-    std::string _lastCommand;
-    uint64_t _lastCommandMs = 0;
     uint64_t _startMs = 0;
     uint64_t _nowMs = 0;
     bool _showInfo = kDeveloperKeys; // without the keys, nothing could hide it

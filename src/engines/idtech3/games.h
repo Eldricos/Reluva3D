@@ -68,6 +68,8 @@ struct GameInfo {
     // The console's version line, for a game whose console Reluva draws
     // as its original does (client/console_drawer.h); empty: Reluva's own.
     std::string consoleVersion;
+    // The same for its single-player engine's console.
+    std::string spConsoleVersion;
     // The level's light brightened only in fullscreen with r_overBrightBits
     // on, by the screen's gamma ramp (Jedi Outcast); otherwise always.
     bool overbrightFullscreenOnly = false;

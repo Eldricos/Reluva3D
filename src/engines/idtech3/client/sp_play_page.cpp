@@ -162,8 +162,7 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     if (!err)
         err = c->movie.open(std::move(data), _ctx.game.cinematicExtension);
     if (err) {
-        _lastCommand = "Cinematic " + base + ": " + err.message;
-        _lastCommandMs = _nowMs;
+        report("Cinematic " + base + ": " + err.message);
         return;
     }
     c->inGame = inGame;
@@ -236,7 +235,7 @@ void SpPlayPage::runCinematic(uint64_t nowMs) {
         bool more = false;
         if (Error err = c.movie.nextFrame(more); err || !more) {
             if (err)
-                _lastCommand = "Cinematic: " + err.message;
+                report("Cinematic: " + err.message);
             if (!err && c.hold)
                 break;
             return endCinematic();
@@ -319,7 +318,7 @@ void SpPlayPage::startMenus() {
         efMenus->modBaseDir = _ctx.game.baseDir;
     }
     SpMenuHost &ui = jediMenus ? static_cast<SpMenuHost &>(*jediMenus) : *efMenus;
-    ui.print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
+    ui.print = [this](const std::string &text) { consolePrint(text); };
     ui.shaderExists = [this](const std::string &name) { return shaderFound(_ctx.shaders, _ctx.files, name); };
     ui.bindings = &_ctx.bindings;
     ui.startLocalSound = [this](const std::string &sound, int channel) {
@@ -394,8 +393,6 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
     const std::vector<std::string> w = splitCommand(line);
     if (w.empty())
         return;
-    _lastCommand = line;
-    _lastCommandMs = _nowMs;
     const std::string cmd = fs::toLower(w[0]);
     if (cmd == "map" || cmd == "devmap" || cmd == "spmap" || cmd == "maptransition") {
         if (w.size() < 2)
@@ -439,6 +436,18 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
         if (_ui)
             if (Error err = _ui->setActiveMenu("main"))
                 menusStopped(err);
+    } else if (cmd == "echo") {
+        std::string text;
+        for (size_t i = 1; i < w.size(); ++i)
+            text += (i > 1 ? " " : "") + w[i];
+        report(text);
+    } else if (cmd == "clear") {
+        _console.clear();
+    } else if (cmd == "toggleconsole") {
+        if (_consoleOpen)
+            closeConsole();
+        else
+            openConsole(0);
     } else if (cmd == "quit") {
         endGame();
         _ctx.requestPage = "Start";
@@ -465,18 +474,18 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
         if (w.size() == 2)
             saveGame(w[1], false);
         else
-            _lastCommand = "USAGE: save <filename>";
+            report("USAGE: save <filename>");
     } else if (cmd == "load") {
         if (w.size() == 2)
             loadGame(w[1]);
         else
-            _lastCommand = "USAGE: load <filename>";
+            report("USAGE: load <filename>");
     } else if (cmd == "wipe") {
         const std::string name = w.size() == 2 ? fs::toLower(w[1]) : std::string();
         if (name.empty() || name == "auto" || name == "exitholodeck" || _saveDir.empty()) {
-            _lastCommand = "Can't wipe 'auto' or 'exitholodeck'";
+            report("Can't wipe 'auto' or 'exitholodeck'");
         } else if (badSaveName(w[1])) {
-            _lastCommand = "Bad savegame name.";
+            report("Bad savegame name.");
         } else {
             std::error_code ec;
             std::filesystem::remove(_saveDir / (w[1] + ".sav"), ec);
@@ -560,6 +569,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _models->clear();
     _world->clear();
     _shaders->clear();
+    _consoleShadersLoaded = false;
     _input.yaw = _input.pitch = 0;
     _clientTime = 0;
     _lastMs = 0;
@@ -599,7 +609,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     // The game: the server half started on the level, the player joined,
     // then the client half.
     _game = std::make_unique<eliteforce::SpGameHost>(_ctx.files, _cvars);
-    _game->print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
+    _game->print = [this](const std::string &text) { consolePrint(text); };
     _game->modInstall = _ctx.installPath;
     _game->modBaseDir = _ctx.game.baseDir;
     _game->soundSystem = _soundSystem.get();
@@ -795,7 +805,7 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave, const std::vec
     // game's (WriteLevel), to saves/<name>.sav.
     using raven::chunkId;
     if (!_game || !_game->clientGameRunning()) {
-        _lastCommand = "You must be in a game to save.";
+        report("You must be in a game to save.");
         return;
     }
     if (_game->jedi()) {
@@ -804,20 +814,20 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave, const std::vec
     }
     if (!autosave) {
         if (!_map.empty() && _map[0] == '_') {
-            _lastCommand = "Cannot save on holodeck or brig.";
+            report("Cannot save on holodeck or brig.");
             return;
         }
         if (_game->playerHealth() <= 0) {
-            _lastCommand = "Can't savegame while dead!";
+            report("Can't savegame while dead!");
             return;
         }
         if (badSaveName(name)) {
-            _lastCommand = "Bad savegame name.";
+            report("Bad savegame name.");
             return;
         }
     }
     if (_saveDir.empty()) {
-        _lastCommand = "There's nowhere to save games.";
+        report("There's nowhere to save games.");
         return;
     }
     if (autosave)
@@ -855,7 +865,7 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave, const std::vec
     if (Error err = eliteforce::writeSaveLevel(w, *_game, autosave))
         return stop("The game couldn't save: " + err.message);
     if (writeSaveFile(name, w.bytes()) && !autosave)
-        _lastCommand = "Saved " + name;
+        report("Saved " + name);
 }
 
 bool SpPlayPage::writeSaveFile(const std::string &name, const std::vector<uint8_t> &bytes) {
@@ -868,13 +878,13 @@ bool SpPlayPage::writeSaveFile(const std::string &name, const std::vector<uint8_
         std::ofstream out(temp, std::ios::binary);
         out.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
         if (!out) {
-            _lastCommand = "Failed to create savegame " + temp.string();
+            report("Failed to create savegame " + temp.string());
             return false;
         }
     }
     std::filesystem::rename(temp, file, ec); // replaces the old one, which is kept if this fails
     if (ec) {
-        _lastCommand = "Couldn't write " + file.string() + ": " + ec.message();
+        report("Couldn't write " + file.string() + ": " + ec.message());
         return false;
     }
     return true;
@@ -884,15 +894,15 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
     // As jk2sp.exe's save command (0x438390) and its saver (0x438aa0).
     if (!autosave) {
         if (_game->playerHealth() <= 0) {
-            _lastCommand = "Can't savegame while dead!";
+            report("Can't savegame while dead!");
             return;
         }
         if (fs::toLower(name) == "current") {
-            _lastCommand = "Can't save to 'current'";
+            report("Can't save to 'current'");
             return;
         }
         if (badSaveName(name)) {
-            _lastCommand = "Bad savegame name.";
+            report("Bad savegame name.");
             return;
         }
         // Its checks before saving (0x438a20): not on a "_" map, and
@@ -905,7 +915,7 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
             name.resize(4);
     }
     if (_saveDir.empty()) {
-        _lastCommand = "There's nowhere to save games.";
+        report("There's nowhere to save games.");
         return;
     }
     // The picture: an autosave's is the level's own, else the screen,
@@ -943,7 +953,7 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
     if (!writeSaveFile(name, w.bytes()))
         return;
     if (!autosave)
-        _lastCommand = "Saving game \"" + name + "\"... Done.";
+        report("Saving game \"" + name + "\"... Done.");
 }
 
 std::string SpPlayPage::savedMap(const std::string &name) const {
@@ -983,17 +993,17 @@ void SpPlayPage::loadGame(std::string name) {
         name = !_lastLoaded.empty() && savedMap(_lastLoaded) == _map ? _lastLoaded : "auto";
     }
     if (badSaveName(name)) {
-        _lastCommand = "Bad loadgame name.";
+        report("Bad loadgame name.");
         return;
     }
     std::vector<uint8_t> file;
     if (!readSave(name, file)) {
-        _lastCommand = "Failed to open savegame " + name;
+        report("Failed to open savegame " + name);
         return;
     }
     if (!saveFits(file)) {
-        _lastCommand = name + (_expansion ? " was saved without the Expansion Pack, and can't be loaded with it on"
-                                          : " was saved with the Expansion Pack, and can't be loaded with it off");
+        report(name + (_expansion ? " was saved without the Expansion Pack, and can't be loaded with it on"
+                                  : " was saved with the Expansion Pack, and can't be loaded with it off"));
         return;
     }
     raven::SaveReader r(std::move(file));
@@ -1015,16 +1025,16 @@ void SpPlayPage::loadGame(std::string name) {
         shot = std::move(header.shot);
     }
     if (err) {
-        _lastCommand = "Couldn't read " + name + ": " + err.message;
+        report("Couldn't read " + name + ": " + err.message);
         return;
     }
     const auto it = std::find(_names.begin(), _names.end(), "maps/" + fs::toLower(map) + ".bsp");
     if (it == _names.end()) {
-        _lastCommand = name + " is of a map that isn't here: " + map;
+        report(name + " is of a map that isn't here: " + map);
         return;
     }
     _lastLoaded = name;
-    _lastCommand = "Loaded " + name;
+    report("Loaded " + name);
     if (_ui)
         _ui->setCapture(shot); // the loading screen shows it
     _nextScreenShot = shot;    // and so does the client game's
@@ -1088,6 +1098,31 @@ void SpPlayPage::handleEvent(const Event &ev) {
     if (ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp || ev.type == EventType::kJoyAxis ||
         ev.type == EventType::kJoyHat || ev.type == EventType::kJoyRemoved) {
         _joystick.event(ev);
+        return;
+    }
+    if (_consoleOpen) {
+        // The console has the keys: typing, the history, scrolling; Esc
+        // or the console key shut it.
+        switch (_console.handle(ev, true)) {
+        case ConsoleState::Action::kClose:
+            closeConsole();
+            break;
+        case ConsoleState::Action::kSubmit:
+            if (std::string line = _console.submit(true); !line.empty()) {
+                // Every line a command, a leading / or \ left out.
+                if (line[0] == '/' || line[0] == '\\')
+                    line.erase(0, 1);
+                runCommand(line);
+            }
+            break;
+        default:
+            break;
+        }
+        return;
+    }
+    if (ev.type == EventType::kKeyDown && ev.key == '`' && !ev.repeat && !(ev.mods & keymod::kCtrl)) {
+        // The console key, whatever it's bound to (0x405200: toggleconsole).
+        openConsole('`');
         return;
     }
     if (_cinematic) {
@@ -1369,7 +1404,7 @@ void SpPlayPage::update(uint64_t nowMs) {
             else if (!jpeg.empty())
                 saveGame(name, false, jpeg);
             else
-                _lastCommand = "Failed to save " + name + ": the screen couldn't be taken";
+                report("Failed to save " + name + ": the screen couldn't be taken");
         }
         if (!_pendingTransition.empty()) {
             _nextScreenShot = shot;
@@ -1389,10 +1424,11 @@ void SpPlayPage::update(uint64_t nowMs) {
     // The game waits while a menu has the keys, as the original's single
     // player pauses (cl_paused, which the in-game menu sets, back to 0
     // after); typed text goes to them meanwhile.
+    // (The console doesn't pause it: jk2sp.exe's only takes the keys.)
     const bool paused = menusHaveKeys();
-    if (paused != _textInput) {
-        _textInput = paused;
-        _ctx.sys.setTextInput(paused);
+    if ((paused || _consoleOpen) != _textInput) {
+        _textInput = paused || _consoleOpen;
+        _ctx.sys.setTextInput(_textInput);
     }
     if (paused) {
         _lastMs = nowMs;
@@ -1462,6 +1498,8 @@ void SpPlayPage::update(uint64_t nowMs) {
     }
     if (_ui)
         drawMenus(float(nowMs - _startMs) / 1000.0f);
+    if (!_ctx.game.spConsoleVersion.empty())
+        drawConsole(nowMs, time);
     _timing.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();
     if ((!_pendingMenu.empty() || !_pendingTransition.empty() || !_pendingSave.empty()) && !_capturing) {
@@ -1550,8 +1588,79 @@ void SpPlayPage::drawGamePictures(size_t &drawn, size_t &shotsDrawn, size_t to, 
     drawn = std::max(drawn, to);
 }
 
+void SpPlayPage::consolePrint(const std::string &text) {
+    // Into the console, each line also shown over the game a while, as
+    // the original's prints (and on the terminal, for following a run).
+    std::fputs(text.c_str(), stdout);
+    _console.print(text, true, _nowMs);
+}
+
+void SpPlayPage::report(const std::string &text) {
+    consolePrint(text + "\n");
+}
+
+void SpPlayPage::openConsole(uint32_t key) {
+    // The keys held let go; the notify lines cleared, as the original's
+    // toggle does (0x405200).
+    _input.releaseAll();
+    _console.beginTyping(key);
+    _console.clearNotify();
+    _consoleOpen = true;
+}
+
+void SpPlayPage::closeConsole() {
+    _console.clearField();
+    _console.clearNotify();
+    _consoleOpen = false;
+}
+
+void SpPlayPage::drawConsole(uint64_t nowMs, float time) {
+    // As jk2sp.exe's, which draws it as its multiplayer engine's does
+    // (console.md): dropped down over everything, or shut, the recent
+    // lines over the game while no menu has the keys.
+    const float speed = _cvars.find("scr_conspeed") ? _cvars.value("scr_conspeed") : 3.0f;
+    const float frac = _console.slide(nowMs, _consoleOpen, speed);
+    if (!_consoleShadersLoaded) {
+        _consoleShaders.charSet = _shaders->material("gfx/2d/charsgrid_med", Lighting::kTwoD);
+        _consoleShaders.console = _shaders->material("console", Lighting::kTwoD);
+        _consoleShaders.white = _shaders->material("white", Lighting::kTwoD);
+        _consoleShadersLoaded = true;
+    }
+    ConsoleFrame f;
+    f.screenW = _frameW;
+    f.screenH = _frameH;
+    f.frac = frac;
+    f.version = _ctx.game.spConsoleVersion;
+    f.lines = &_console.lines();
+    f.scroll = _console.scroll();
+    f.typing = _consoleOpen;
+    f.input = _console.field();
+    f.cursor = _console.cursor();
+    f.cursorOn = ((nowMs >> 8) & 1) == 0;
+    if (!menusHaveKeys() && _game) {
+        const float notifyMs = 1000.0f * (_cvars.find("con_notifytime") ? _cvars.value("con_notifytime") : 3.0f);
+        f.notify = _console.notify(nowMs, notifyMs);
+    }
+    _scene->drawMaterialPictures(consolePictures(f, _consoleShaders), 640, 480, time);
+}
+
 void SpPlayPage::drawOverlay() {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
+    if (_ctx.game.spConsoleVersion.empty()) {
+        // Reluva's own console for a game whose original's isn't drawn:
+        // open, over the top half; shut, the recent lines at the top.
+        const bool blink = (_nowMs / 250) % 2 == 0;
+        _console.expireNotify(_nowMs, 3000);
+        if (_consoleOpen) {
+            drawOwnConsole(_overlay, _console, blink);
+        } else if (!menusHaveKeys()) {
+            int notifyY = 4;
+            for (const auto &[when, text] : _console.notifyLines()) {
+                drawColouredText(_overlay, 4, notifyY, text);
+                notifyY += font::kLineHeight;
+            }
+        }
+    }
     auto line = [&](int y, const std::string &s, Color c) {
         // Text with a dark band behind it, for reading over the level.
         const int w = int(s.size()) * font::kAdvance + 8;
@@ -1578,8 +1687,6 @@ void SpPlayPage::drawOverlay() {
         y += font::kLineHeight;
     }
     std::vector<std::string> bottom;
-    if (!_lastCommand.empty() && _nowMs - _lastCommandMs < 4000)
-        bottom.push_back("The menus ran: " + _lastCommand);
     if (const auto *ef = dynamic_cast<const eliteforce::SpUiHost *>(_ui.get()); ef && !ef->unhandled().empty()) {
         std::string calls = "Menu functions not answered yet:";
         for (const auto &[slot, count] : ef->unhandled())

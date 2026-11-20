@@ -6,6 +6,7 @@
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/console_drawer.h"
+#include "engines/idtech3/client/console_state.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
@@ -255,9 +256,77 @@ static void testConsole() {
     CHECK(find(8, 16) != nullptr && find(10, 18) != nullptr && find(8, 16)->w == 16);
 }
 
+static void testConsoleState() {
+    // Printing: whole lines, each stream keeping its unfinished one; the
+    // notify lines the last four, shown a while.
+    ConsoleState c;
+    c.print("one\ntw", true, 1000);
+    c.print("three\n", false, 1000, 1);
+    c.print("o\n", true, 2000);
+    CHECK((c.lines() == std::deque<std::string>{"one", "three", "two"}));
+    CHECK((c.notify(2500, 3000) == std::vector<std::string>{"one", "two"}));
+    CHECK((c.notify(4500, 3000) == std::vector<std::string>{"two"}));
+    for (int i = 0; i < 5; ++i)
+        c.print("n\n", true, 3000);
+    CHECK(c.notifyLines().size() == 4);
+    c.expireNotify(7000, 3000);
+    CHECK(c.notifyLines().empty());
+
+    // Typing: the opening key's character left out, the console key too;
+    // editing; Enter keeps the line (quotes made apostrophes) in the
+    // history and the console.
+    auto text = [](const char *t) {
+        Event e;
+        e.type = EventType::kTextInput;
+        std::snprintf(e.text, sizeof e.text, "%s", t);
+        return e;
+    };
+    auto keyDown = [](uint32_t k) {
+        Event e;
+        e.type = EventType::kKeyDown;
+        e.key = k;
+        return e;
+    };
+    c.beginTyping('`');
+    CHECK(c.handle(text("`go~d\"x"), true) == ConsoleState::Action::kNone);
+    CHECK(c.field() == "god\"x");
+    c.handle(keyDown(key::kBackspace), true);
+    c.handle(keyDown(key::kLeft), true);
+    c.handle(keyDown(key::kDelete), true);
+    CHECK(c.field() == "god" && c.cursor() == 3);
+    c.handle(text(" 1"), true);
+    CHECK(c.handle(keyDown(key::kReturn), true) == ConsoleState::Action::kSubmit);
+    CHECK(c.submit(true) == "god 1" && c.field().empty());
+    CHECK(c.lines().back() == "]god 1");
+    c.handle(text("say \"hi\""), true);
+    CHECK(c.submit(true) == "say 'hi'");
+    // The history, back and forth; PageUp scrolls back; Esc and the
+    // console key close.
+    c.handle(keyDown(key::kUp), true);
+    CHECK(c.field() == "say 'hi'");
+    c.handle(keyDown(key::kUp), true);
+    CHECK(c.field() == "god 1");
+    c.handle(keyDown(key::kDown), true);
+    c.handle(keyDown(key::kDown), true);
+    CHECK(c.field().empty());
+    c.handle(keyDown(key::kPageUp), true);
+    CHECK(c.scroll() == 4);
+    c.print("more\n", false, 0);
+    CHECK(c.scroll() == 5);
+    CHECK(c.handle(keyDown(key::kEscape), true) == ConsoleState::Action::kClose);
+    CHECK(c.handle(keyDown('`'), true) == ConsoleState::Action::kClose);
+    CHECK(c.handle(keyDown('`'), false) == ConsoleState::Action::kNone);
+
+    // Dropping down at 3 screens a second: half open in a sixth of one.
+    CHECK(c.slide(1000, true, 3) == 0);
+    CHECK(c.slide(1100, true, 3) > 0.29f && c.slide(1200, true, 3) == 0.5f);
+    CHECK(c.slide(1400, false, 3) == 0);
+}
+
 static const reluva::test::Suite
     kSuite("idtech3.unit.input", {
                                      {"console", [](const std::filesystem::path &) { testConsole(); }},
+                                     {"console state", [](const std::filesystem::path &) { testConsoleState(); }},
                                      {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
                                      {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
                                      {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},

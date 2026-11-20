@@ -263,8 +263,8 @@ Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstri
     // On our own server, one ROFF system for both sides, as the original's.
     if (_game && !_client)
         _cgame->shareRoffs(_game->roffs());
-    _notify.clear();
-    _printPartial[1].clear();
+    _console.clearNotify();
+    _console.dropPartial(1);
     if (_ctx.mixer) {
         _soundSystem = std::make_unique<SoundSystem>(*_ctx.mixer, _soundLibrary);
         _cgame->soundSystem = _soundSystem.get();
@@ -303,7 +303,7 @@ void PlayPage::start(int index) {
     _cvars.set("g_holoIntro", "0");
     _game = std::make_unique<eliteforce::GameHost>(_ctx.files, _cvars, _ctx.game.code);
     _game->print = [this](const std::string &text) { addPrint(text, false); };
-    _printPartial[0].clear();
+    _console.dropPartial(0);
     closeTyping();
     Error err = _game->load();
     _game->reserveClient(0); // the player's, though bots may be added first
@@ -938,7 +938,7 @@ void PlayPage::consoleCommand(const std::string &text) {
         return;
     }
     if (verb == "clear") {
-        _consoleLines.clear();
+        _console.clear();
         return;
     }
     if (verb == "screenshot" || verb == "screenshotjpeg") {
@@ -1094,11 +1094,7 @@ void PlayPage::openTyping(Typing t, int32_t client, uint32_t key) {
     _input.releaseAll();
     _typing = t;
     _tellClient = client;
-    _field.clear();
-    _cursor = 0;
-    _consoleScroll = 0;
-    _historyPos = _history.size();
-    _swallowChar = key;
+    _console.beginTyping(key);
     _ctx.sys.setTextInput(true);
 }
 
@@ -1106,26 +1102,17 @@ void PlayPage::closeTyping() {
     if (_typing != Typing::kNone && _renderer)
         _ctx.sys.setTextInput(false);
     _typing = Typing::kNone;
-    _field.clear();
-    _cursor = 0;
+    _console.clearField();
 }
 
 void PlayPage::submitTyping() {
-    std::string text = _field;
     const Typing t = _typing;
-    _field.clear();
-    _cursor = 0;
+    std::string text = _console.submit(t == Typing::kConsole);
     if (t == Typing::kConsole) {
         // Lines starting / or \ are commands; others are said, as the
         // original's console does once connected.
         if (text.empty())
             return;
-        std::replace(text.begin(), text.end(), '"', '\'');
-        if (_history.empty() || _history.back() != text)
-            _history.push_back(text);
-        _historyPos = _history.size();
-        _consoleLines.push_back("]" + text);
-        _consoleScroll = 0;
         if (text[0] == '/' || text[0] == '\\')
             consoleCommand(text.substr(1));
         else
@@ -1146,80 +1133,12 @@ void PlayPage::submitTyping() {
 }
 
 void PlayPage::typingEvent(const Event &ev) {
-    if (ev.type == EventType::kTextInput) {
-        // Characters typed (Latin-1, as the original's), but the one of the
-        // key that opened the typing, and the console key in the console.
-        for (uint32_t cp : decodeUtf8(ev.text)) {
-            if (cp == _swallowChar) {
-                _swallowChar = 0;
-                continue;
-            }
-            _swallowChar = 0;
-            if (cp < 32 || cp == 127 || cp > 255 || _field.size() >= 255)
-                continue;
-            if (_typing == Typing::kConsole && (cp == '`' || cp == '~'))
-                continue;
-            _field.insert(_cursor++, 1, char(cp));
-        }
-        return;
-    }
-    if (ev.type != EventType::kKeyDown)
-        return;
-    _swallowChar = 0;
-    switch (ev.key) {
-    case key::kEscape:
+    switch (_console.handle(ev, _typing == Typing::kConsole)) {
+    case ConsoleState::Action::kClose:
         closeTyping();
         return;
-    case key::kReturn:
-    case key::kKpEnter:
+    case ConsoleState::Action::kSubmit:
         submitTyping();
-        return;
-    case key::kBackspace:
-        if (_cursor > 0)
-            _field.erase(--_cursor, 1);
-        return;
-    case key::kDelete:
-        if (_cursor < _field.size())
-            _field.erase(_cursor, 1);
-        return;
-    case key::kLeft:
-        _cursor = _cursor > 0 ? _cursor - 1 : 0;
-        return;
-    case key::kRight:
-        _cursor = std::min(_field.size(), _cursor + 1);
-        return;
-    case key::kHome:
-        _cursor = 0;
-        return;
-    case key::kEnd:
-        _cursor = _field.size();
-        return;
-    default:
-        break;
-    }
-    if (_typing != Typing::kConsole)
-        return;
-    switch (ev.key) {
-    case '`':
-        closeTyping();
-        return; // the console key closes it again
-    case key::kUp:
-    case key::kDown:
-        // Earlier lines typed, back and forth.
-        if (_history.empty())
-            return;
-        if (ev.key == key::kUp && _historyPos > 0)
-            --_historyPos;
-        else if (ev.key == key::kDown && _historyPos < _history.size())
-            ++_historyPos;
-        _field = _historyPos < _history.size() ? _history[_historyPos] : std::string();
-        _cursor = _field.size();
-        return;
-    case key::kPageUp:
-        _consoleScroll = std::min(_consoleScroll + 4, int(_consoleLines.size()));
-        return;
-    case key::kPageDown:
-        _consoleScroll = std::max(_consoleScroll - 4, 0);
         return;
     default:
         return;
@@ -1686,62 +1605,18 @@ void PlayPage::saveScreenshot() {
 }
 
 void PlayPage::addPrint(const std::string &text, bool notify) {
-    // Whole lines into the console (the last thousand); the client game's
-    // also on screen, each 3 seconds (the original's con_notifytime), at
-    // most the last 4.
-    std::string &partial = _printPartial[notify ? 1 : 0];
-    partial += text;
-    size_t end;
-    while ((end = partial.find('\n')) != std::string::npos) {
-        const std::string line = partial.substr(0, end);
-        partial.erase(0, end + 1);
-        _consoleLines.push_back(line);
-        while (_consoleLines.size() > 1000)
-            _consoleLines.pop_front();
-        if (_consoleScroll > 0)
-            ++_consoleScroll;
-        if (!notify)
-            continue;
-        _notify.emplace_back(_ctx.sys.getMillis(), line);
-        while (_notify.size() > 4)
-            _notify.pop_front();
-    }
+    // The client game's (notify) also shown over the game a while.
+    _console.print(text, notify, _ctx.sys.getMillis(), notify ? 1 : 0);
 }
 
 void PlayPage::drawColoured(int x, int y, const std::string &line) {
-    // A line in the original's colours (^0-^7), with a shadow.
-    static const Color kColors[8] = {{0, 0, 0},   {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
-                                     {0, 0, 255}, {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
-    Color color{255, 255, 255};
-    std::string run;
-    auto flush = [&] {
-        if (run.empty())
-            return;
-        font::drawText(_overlay, x + 1, y + 1, run, {0, 0, 0});
-        font::drawText(_overlay, x, y, run, color);
-        x += int(font::length(run)) * font::kAdvance;
-        run.clear();
-    };
-    for (size_t i = 0; i < line.size(); ++i) {
-        if (line[i] == '^' && i + 1 < line.size() && line[i + 1] != '^') {
-            flush();
-            color = kColors[(line[i + 1] - '0') & 7];
-            ++i;
-            continue;
-        }
-        run += line[i];
-    }
-    flush();
+    drawColouredText(_overlay, x, y, line);
 }
 
 void PlayPage::drawConsole(uint64_t nowMs, float time) {
     // Sliding at scr_conspeed screens a second towards half open or shut.
-    const float dt = _consoleFrameMs ? float(nowMs - _consoleFrameMs) / 1000.0f : 0.0f;
-    _consoleFrameMs = nowMs;
     const float speed = _cvars.find("scr_conspeed") ? _cvars.value("scr_conspeed") : 3.0f;
-    const float target = _typing == Typing::kConsole ? 0.5f : 0.0f;
-    _consoleFrac = _consoleFrac < target ? std::min(target, _consoleFrac + speed * dt)
-                                         : std::max(target, _consoleFrac - speed * dt);
+    const float frac = _console.slide(nowMs, _typing == Typing::kConsole, speed);
     if (!_consoleShadersLoaded) {
         _consoleShaders.charSet = _shaders->material("gfx/2d/charsgrid_med", Lighting::kTwoD);
         _consoleShaders.console = _shaders->material("console", Lighting::kTwoD);
@@ -1751,13 +1626,13 @@ void PlayPage::drawConsole(uint64_t nowMs, float time) {
     ConsoleFrame f;
     f.screenW = _frameW;
     f.screenH = _frameH;
-    f.frac = _consoleFrac;
+    f.frac = frac;
     f.version = _ctx.game.consoleVersion;
-    f.lines = &_consoleLines;
-    f.scroll = _consoleScroll;
+    f.lines = &_console.lines();
+    f.scroll = _console.scroll();
     f.typing = _typing == Typing::kConsole;
-    f.input = _field;
-    f.cursor = _cursor;
+    f.input = _console.field();
+    f.cursor = _console.cursor();
     f.cursorOn = ((nowMs >> 8) & 1) == 0;
     // Over the game only while no menu (the game's or the client game's)
     // has the keys.
@@ -1765,13 +1640,11 @@ void PlayPage::drawConsole(uint64_t nowMs, float time) {
     const bool menu = _menuOpen || (_cgame && (_cgame->catcher() & kMenuCatchers));
     if (!menu) {
         const float notifyMs = 1000.0f * (_cvars.find("con_notifytime") ? _cvars.value("con_notifytime") : 3.0f);
-        for (const auto &[when, line] : _notify)
-            if (float(nowMs - std::min(nowMs, when)) <= notifyMs)
-                f.notify.push_back(line);
+        f.notify = _console.notify(nowMs, notifyMs);
         if (_typing == Typing::kSay || _typing == Typing::kTell || _typing == Typing::kSayTeam) {
             f.chat = _typing == Typing::kSayTeam ? ConsoleFrame::Chat::kSayTeam : ConsoleFrame::Chat::kSay;
-            f.chatInput = _field;
-            f.chatCursor = _cursor;
+            f.chatInput = _console.field();
+            f.chatCursor = _console.cursor();
         }
     }
     _scene->drawMaterialPictures(consolePictures(f, _consoleShaders), 640, 480, time);
@@ -1779,32 +1652,13 @@ void PlayPage::drawConsole(uint64_t nowMs, float time) {
 
 void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
-    // (A line printed during this frame is stamped a little after nowMs.)
-    while (!_notify.empty() && _notify.front().first + 3000 < nowMs)
-        _notify.pop_front();
+    _console.expireNotify(nowMs, 3000);
     const int lh = font::kLineHeight;
     const bool blink = (nowMs / 250) % 2 == 0;
     const bool ownConsole = _ctx.game.consoleVersion.empty();
     if (ownConsole && _typing == Typing::kConsole) {
-        // The console over the top half: the lines printed, newest at the
-        // bottom (PageUp/PageDown scroll), and what's being typed.
-        const int height = _frameH / 2;
-        for (int yy = 0; yy < height; ++yy) {
-            uint8_t *p = _overlay.row(yy);
-            for (int x = 0; x < _frameW; ++x) {
-                p[x * 4 + 0] = 10, p[x * 4 + 1] = 14, p[x * 4 + 2] = 24;
-                p[x * 4 + 3] = 215;
-            }
-        }
-        for (int x = 0; x < _frameW; ++x) {
-            uint8_t *p = _overlay.row(height) + x * 4;
-            p[0] = 200, p[1] = 140, p[2] = 40, p[3] = 255;
-        }
-        int y = height - 2 * lh - 4;
-        drawColoured(4, height - lh - 4,
-                     "]" + _field.substr(0, _cursor) + (blink ? "_" : " ") + _field.substr(_cursor));
-        for (int i = int(_consoleLines.size()) - 1 - _consoleScroll; i >= 0 && y >= 0; --i, y -= lh)
-            drawColoured(4, y, _consoleLines[size_t(i)]);
+        // The console over the top half (PageUp/PageDown scroll).
+        drawOwnConsole(_overlay, _console, blink);
     } else {
         // Joining a server: how far it has got, in the middle.
         if (_client && (!_cgame || !_client->hasSnapshot())) {
@@ -1830,7 +1684,8 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
         }
         // The notify lines at the top, then a chat line being typed.
         int notifyY = 4;
-        for (const auto &[when, line] : ownConsole ? _notify : decltype(_notify){}) {
+        static const std::deque<std::pair<uint64_t, std::string>> kNone;
+        for (const auto &[when, line] : ownConsole ? _console.notifyLines() : kNone) {
             drawColoured(4, notifyY, line);
             notifyY += lh;
         }
@@ -1839,8 +1694,8 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
                                  : _typing == Typing::kSayTeam ? "Say Team: "
                                                                : "Tell: ";
             drawColoured(4, notifyY,
-                         std::string("^7") + prompt + _field.substr(0, _cursor) + (blink ? "_" : " ") +
-                             _field.substr(_cursor));
+                         std::string("^7") + prompt + _console.field().substr(0, _console.cursor()) +
+                             (blink ? "_" : " ") + _console.field().substr(_console.cursor()));
         }
     }
     // A screenshot keeps what the original draws itself (the console, chat

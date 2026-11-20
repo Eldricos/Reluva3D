@@ -234,7 +234,8 @@ behind the DLL's own tables.
    `yavin_final`, by the tour. `yavin_final` plays by the tour then a
    route, Desann's fight, to the closing cinematics and the game's end
    (`endscreendissolve`): every level of the campaign plays through.
-   Next: the next levels the same way, and a console on the page.
+   The page has the console, drawn as jk2sp.exe's
+   ([systems/console.md](systems/console.md)).
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

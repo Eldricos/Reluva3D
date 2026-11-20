@@ -24,10 +24,7 @@ None yet.
 
 ## Not yet as the original
 
-Single player isn't playable yet ([PLAN.md](PLAN.md)): the first level
-runs on the Play page, its opening included, plays through, and saves
-and loads, but the page has no console nor menus
-([systems/sp-interface.md](systems/sp-interface.md)); `loadtransition`'s
+In single player ([PLAN.md](PLAN.md)): `loadtransition`'s
 hub saves aren't made, and a save isn't refused while a cinematic plays
 ([systems/sp-saves.md](systems/sp-saves.md)); a Ghoul2 model's "no
 collide" flag and a surface's "no descendants" aren't heeded by traces,

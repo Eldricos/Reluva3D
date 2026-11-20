@@ -1,6 +1,6 @@
-# Jedi Outcast: the multiplayer console
+# Jedi Outcast: the console
 
-> **Status:** done · **Code:** `src/engines/idtech3/client/console_drawer.cpp`, `client/play_page.cpp` · **Checked against:** `jk2mp.exe` 1.02a's console drawing, read in its code; Reluva's screens · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/client/console_drawer.cpp`, `client/console_state.cpp`, `client/play_page.cpp`, `client/sp_play_page.cpp` · **Checked against:** `jk2mp.exe` 1.02a's console drawing, read in its code; `jk2sp.exe` 1.02a's toggle and version; Reluva's screens · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -66,13 +66,35 @@ Shut, during a match:
 Neither is drawn while a menu has the keys (the game's menus, or the
 client game's own).
 
+### Single player
+
+`jk2sp.exe` draws its console the same way, with the same character
+grid and shaders, its version `JK2: v1.02a` (0x4d56b4). Its default
+config binds `` ` `` and `~` to `toggleconsole` (0x405200), which flips
+the console's key catcher, clears the line typed and the notify lines;
+the game isn't paused under it. Every line typed is a command, a
+leading `/` or `\` left out.
+
 ## In Reluva
 
-`consolePictures` lays the console out as the 640 x 480 pictures above,
+`ConsoleState` keeps what both Play pages share: the lines printed (the
+last thousand, each print stream keeping its unfinished line), the
+notify lines (the last four), the line being typed with its history and
+how far it's dropped down. `consolePictures` lays the console out as the 640 x 480 pictures above,
 and the Play page draws them after everything else in the frame, so a
 screenshot keeps them as the original's do. Games without
 `GameInfo::consoleVersion` (Elite Force so far) keep Reluva's own
 console.
+
+The single-player Play page has the console too: what the game, the
+client game and the menus print, and Reluva's own messages (a save,
+a load, a command's error); the console key opens it over the game or
+the menus, Esc or the key shuts it, and each line typed runs as the
+page's commands do (`map`, `save`, `load`, `echo`, `clear`... and the
+game's own). Drawn as jk2sp.exe's for Jedi Outcast
+(`GameInfo::spConsoleVersion`), Reluva's own for Elite Force. Seen
+running in Reluva's window: dropped down over the main menu and over
+`kejim_post`, where `god` gets the game's answer.
 
 Differences:
 

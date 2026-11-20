@@ -9,6 +9,7 @@
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/console_drawer.h"
+#include "engines/idtech3/client/console_state.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
@@ -122,27 +123,17 @@ private:
     // (chat, kills, joins) shown at the top for a few seconds, as the
     // original's console does with its last lines.
     void addPrint(const std::string &text, bool notify);
-    std::deque<std::pair<uint64_t, std::string>> _notify;
-    std::string _printPartial[2]; // a line not yet ended, per game
-    std::deque<std::string> _consoleLines;
+    ConsoleState _console;
     // Typing: the console (~) or a chat line (messagemode, T).
     enum class Typing { kNone, kConsole, kSay, kSayTeam, kTell };
     Typing _typing = Typing::kNone;
-    std::string _field;
-    size_t _cursor = 0;
     int32_t _tellClient = -1;
-    uint32_t _swallowChar = 0;    // the character of the key that opened the typing
     uint32_t _bindingKeyChar = 0; // the character of the key whose binding is running
-    int _consoleScroll = 0;       // lines back from the newest
     // The original's console (GameInfo::consoleVersion): dropped down and
     // drawn as its engine draws it, over everything else.
     void drawConsole(uint64_t nowMs, float time);
-    float _consoleFrac = 0; // of the screen it covers, sliding to 0.5 open or 0 shut
-    uint64_t _consoleFrameMs = 0;
     ConsoleShaders _consoleShaders;
     bool _consoleShadersLoaded = false;
-    std::vector<std::string> _history;
-    size_t _historyPos = 0;
     void openTyping(Typing t, int32_t client = -1, uint32_t key = 0);
     void closeTyping();
     void typingEvent(const Event &ev);
