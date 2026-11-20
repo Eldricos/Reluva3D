@@ -263,9 +263,9 @@ page has the console as [console.md](console.md) says.
   game breaking lines past its buffer into its copy of the engine's
   table. Without the second of frames, the cutscene's script found its
   actors before they'd spawned and waited for ever.
-- **Playing a level through:** `sp-run <base> kejim_post -tour 101000
+- **Playing a level through:** `sp-run <base> kejim_post -tour 103000
   -spare jan -spare cinematic1_jan -spare cinematic1_kyle -set
-  helpUsObi 1` plays the level with cheats from 101 s (the opening
+  helpUsObi 1` plays the level with cheats from 103 s (the opening
   over): every trigger touched in turn, fighting the nearest NPCs
   between them with every direct-fire weapon, the saber included, to
   the level change (`maptransition kejim_base`). It found the brush

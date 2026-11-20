@@ -273,6 +273,12 @@ behind the DLL's own tables.
    ([TESTING.md](TESTING.md)).
 10. **Other releases**: the 1.03 and 1.04 patches, other languages
     (string packages already hold French and German), the Mac release.
+    So far: both patches recognised (README.md, Releases), and 1.03's
+    single player playing every level through, its game's API 7 and
+    renumbered client game calls answered
+    ([systems/sp-interface.md](systems/sp-interface.md), Patch 1.03);
+    its game-data records in `jk2-1.03/`. Left: 1.03's and 1.04's
+    multiplayer (their QVMs' API 7), other languages, the Mac release.
 11. **Extras, once everything above is done and tested**: EAX
     environmental sound (`eagle/*.eal`) and force feedback
     (`forcecfg/*.fcf`, which the original plays through `FFC10.dll`).

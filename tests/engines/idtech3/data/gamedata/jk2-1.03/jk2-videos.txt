@@ -1,0 +1,6 @@
+openinglogos: 15781ae065f5b3ec | 60 frames, 196980 samples
+openinglogos.pictures: 624c295834c646ba
+openinglogos.sound: 6b769053485400a2
+jk0101: f6b646cf4fac59ca | 60 frames, 98624 samples
+jk0101.pictures: 47ac50e50ef75ed4
+jk0101.sound: 95c3fe2b3c1c9511

@@ -158,7 +158,7 @@ elseif(STEP STREQUAL "jk2-single-player")
 elseif(STEP STREQUAL "jk2-sp-music")
     record_run(music-sets "with dynamic music" idtech3 music-sets "${base}")
 elseif(STEP STREQUAL "jk2-sp-tour")
-    record_run(kejim_post "ran 100 frames" idtech3 sp-run "${base}" kejim_post -saveload -tour 101000 -spare jan
+    record_run(kejim_post "ran 100 frames" idtech3 sp-run "${base}" kejim_post -saveload -tour 103000 -spare jan
                -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1 -next)
     record_run(kejim_base "ran 100 frames" idtech3 sp-run "${base}" kejim_base -saveload -tour 5000 -spare cinematic3
                -fixedclock -set helpUsObi 1 -next)

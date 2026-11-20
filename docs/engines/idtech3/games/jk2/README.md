@@ -9,7 +9,7 @@ engine as Raven changed it, a generation after Elite Force's.
 | Release | Recognised by | State |
 |---|---|---|
 | English, Windows, 1.02a | `base/assets0.pk3`, 534,984,353 bytes, `54693e39dc8c122c8ba724664a584b60` (MD5 of its first 5,000 bytes, as detection hashes) | Recognised and imported; single player and multiplayer play |
-| Patch 1.03 (over 1.02a) | `base/assets2.pk3`, 3,764,210 bytes, `5c0f7ea1a27338c7cd4b1136ff20a357` (first 5,000 bytes); its single player by `jk2gamex86.dll`, 1,331,200 bytes, `aa34145abd2e072b1f427c517d06c0d2` | Recognised; its single-player game code (game API 7) doesn't run yet |
+| Patch 1.03 (over 1.02a) | `base/assets2.pk3`, 3,764,210 bytes, `5c0f7ea1a27338c7cd4b1136ff20a357` (first 5,000 bytes); its single player by `jk2gamex86.dll`, 1,331,200 bytes, `aa34145abd2e072b1f427c517d06c0d2` | Recognised; single player plays (every level through, saved and loaded, as 1.02a's); its multiplayer menus (`ui.qvm`, API 7) don't run yet |
 | Patch 1.04 (over 1.03) | `base/assets5.pk3`, 550,829 bytes, `f108a4abf075a1961212a9f92f331e7c` (first 5,000 bytes) | Recognised; multiplayer only, single player staying 1.03's |
 
 Other releases are found by `base/assets0.pk3`'s name alone, as "unknown
