@@ -8,7 +8,9 @@ engine as Raven changed it, a generation after Elite Force's.
 
 | Release | Recognised by | State |
 |---|---|---|
-| English, Windows, 1.02a | `base/assets0.pk3`, 534,984,353 bytes, `54693e39dc8c122c8ba724664a584b60` (MD5 of its first 5,000 bytes, as detection hashes) | Recognised and imported; not playable yet |
+| English, Windows, 1.02a | `base/assets0.pk3`, 534,984,353 bytes, `54693e39dc8c122c8ba724664a584b60` (MD5 of its first 5,000 bytes, as detection hashes) | Recognised and imported; single player and multiplayer play |
+| Patch 1.03 (over 1.02a) | `base/assets2.pk3`, 3,764,210 bytes, `5c0f7ea1a27338c7cd4b1136ff20a357` (first 5,000 bytes); its single player by `jk2gamex86.dll`, 1,331,200 bytes, `aa34145abd2e072b1f427c517d06c0d2` | Recognised; its single-player game code (game API 7) doesn't run yet |
+| Patch 1.04 (over 1.03) | `base/assets5.pk3`, 550,829 bytes, `f108a4abf075a1961212a9f92f331e7c` (first 5,000 bytes) | Recognised; multiplayer only, single player staying 1.03's |
 
 Other releases are found by `base/assets0.pk3`'s name alone, as "unknown
 release".
@@ -23,6 +25,25 @@ The same release's files, by the MD5 of the whole file:
 | `jk2mp.exe` (multiplayer; says `JK2MP: v1.02a`) | `3dbfb179aa803eb7f7a0912556361723` | 1,126,400 |
 | `jk2gamex86.dll` (single player's game code; `8ec27068a054ceac7861fd648561bddb` by its first 5,000 bytes) | `acc8fc1cea330d1a0ac0646d3bd96fad` | 1,318,912 |
 
+The patches' files, by the MD5 of the whole file (each patch's
+installer, `JKIIUp103.exe` and `JKIIUp104.exe`, keeps them in a
+container of LucasArts' own, compressed, which Reluva doesn't read: the
+files are taken from an install the patch was put on):
+
+| File | Patch | MD5 | Bytes |
+|---|---|---|---|
+| `jk2sp.exe` (says `JK2: v1.03`) | 1.03 | `14bf5748add9be69fde5d6ed87c03bdd` | 1,069,114 |
+| `jk2gamex86.dll` | 1.03 | `0c386b92d2ce3470077fb395f5a141ee` | 1,331,200 |
+| `jk2mp.exe` (says `JK2MP: v1.03`) | 1.03 | `d7313fd8b41caba003eaf0d48fd740fd` | 1,155,072 |
+| `base/assets2.pk3` (multiplayer's code, four duel maps, EAX and force feedback files, menus) | 1.03 | `88369ad9f959cbe64a6d948f08305d20` | 3,764,210 |
+| `jk2mp.exe` (says `JK2MP: v1.04`) | 1.04 | `304d90c97e705fa852669a28657bee69` | 1,155,072 |
+| `base/assets5.pk3` (multiplayer's three QVMs) | 1.04 | `b7c34a06029798e178c075216ea37a9d` | 550,829 |
+
+1.03 also brings `OpenAL32.dll` anew and `IFC22.dll` (force feedback);
+`assets0.pk3`, `assets1.pk3`, `EaxMan.dll` and `FFC10.dll` stay as they
+were. 1.04 changes only multiplayer: its `version.inf` says
+`SinglePlayerVersion=1.03`, `MultiPlyaerVersion=1.04` (so spelt).
+
 `version.inf` beside them says version 1.02a for both. On the CD the game
 is in `GAMEDATA/GameData/` as plain files, the same files an install has;
 the cabinets beside it hold only the installer's own files.
@@ -31,7 +52,7 @@ the cabinets beside it hold only the installer's own files.
 
 | Part | State |
 |---|---|
-| Detection | The English 1.02a release by `assets0.pk3`'s hash; others by its name, as "unknown release" |
+| Detection | The English 1.02a release by `assets0.pk3`'s hash, its patches by their paks' (1.03, 1.04) and single player's by its game DLL's; others by its name, as "unknown release". The consoles' version lines follow the release found |
 | Import | From the CD (`GAMEDATA/GameData/`), an install (`GameData/`) or the game folder: `base`'s paks, saved games (`saves/*.sav`) and recordings (`demos/*.dm_15`), and `jk2gamex86.dll` beside it |
 | File system | Elite Force's: `base`'s loose files over its paks |
 | Shader scripts | Read from `shaders/` (1187 in 1.02a); its 18 directives of its own all read: `oneshotAnimMap`, `clampAnimMap` and surface sprites drawn (the grass and ferns on Yavin's levels), `videoMap` playing its RoQ video, the rest with nothing to draw ([shader.md](../../formats/shader.md)) |

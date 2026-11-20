@@ -25,7 +25,10 @@ GameInfo gameInfo() {
     g.defaultConfig = "mpdefault.cfg";
     g.consoleVersion = "JK2MP: v1.02a"; // as jk2mp.exe draws it (0x4ef690)
     g.spConsoleVersion = "JK2: v1.02a"; // as jk2sp.exe draws it (0x4d56b4)
-    g.overbrightFullscreenOnly = true;  // 0x47ccd0: none in a window
+    // The patches' programs' own.
+    g.patchConsoleVersions = {{"1.03", "JK2MP: v1.03"}, {"1.04", "JK2MP: v1.04"}};
+    g.spPatchConsoleVersions = {{"1.03", "JK2: v1.03"}};
+    g.overbrightFullscreenOnly = true; // 0x47ccd0: none in a window
     // Kyle Katarn, as its menus start a new player.
     g.playerModel = "kyle/default";
     // Its buttons, as jk2mp.exe names them: attack 0, alt attack 7, use 5,

@@ -21,9 +21,17 @@ namespace {
 constexpr int kScreenW = 640;
 constexpr int kScreenH = 480;
 
-const GameInfo &gameFor(const GameTarget &target) {
-    const GameInfo *game = findGame(target.gameId);
-    return game ? *game : games().front();
+GameInfo gameFor(const GameTarget &target) {
+    // As the release in its folder has it: its patches' console lines.
+    const GameInfo *found = findGame(target.gameId);
+    GameInfo game = found ? *found : games().front();
+    const Release release = describeRelease(target.path, game);
+    if (const auto it = game.patchConsoleVersions.find(release.patch); it != game.patchConsoleVersions.end())
+        game.consoleVersion = it->second;
+    if (const auto it = game.spPatchConsoleVersions.find(release.singlePlayerPatch);
+        it != game.spPatchConsoleVersions.end())
+        game.spConsoleVersion = it->second;
+    return game;
 }
 
 } // namespace

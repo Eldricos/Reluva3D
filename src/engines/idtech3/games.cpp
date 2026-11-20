@@ -97,9 +97,17 @@ constexpr KnownFile kExpansionDlls[] = {
     {"efuix86.dll", "ec037144abf33d861093784b8b62be90", 458824, ""},
 };
 
-// Jedi Outcast's game DLL, as its CD has it (1.02a).
+// Jedi Outcast's patches' paks: 1.04's (only multiplayer's code), and
+// 1.03's (its maps, menus and code), which 1.04 keeps.
+constexpr KnownFile kJk2PatchPaks[] = {
+    {"base/assets5.pk3", "f108a4abf075a1961212a9f92f331e7c", 550829, "1.04"},
+    {"base/assets2.pk3", "5c0f7ea1a27338c7cd4b1136ff20a357", 3764210, "1.03"},
+};
+// Its game DLL: the CD's (1.02a), and 1.03's, which 1.04 keeps (its
+// version.inf: "SinglePlayerVersion=1.03").
 constexpr KnownFile kJk2SpGameDlls[] = {
     {"jk2gamex86.dll", "8ec27068a054ceac7861fd648561bddb", 1318912, "1.02a"},
+    {"jk2gamex86.dll", "aa34145abd2e072b1f427c517d06c0d2", 1331200, "1.03"},
 };
 
 // What tells one game's releases apart: its patch level before any patch,
@@ -113,7 +121,7 @@ struct ReleaseFiles {
 
 const ReleaseFiles &releaseFiles(const GameInfo &game) {
     static const ReleaseFiles kEliteForce{"1.0", "as on the CD; online play needs 1.2", kPatchPaks, kSpGameDlls};
-    static const ReleaseFiles kJediOutcast{"1.02a", "", {}, kJk2SpGameDlls};
+    static const ReleaseFiles kJediOutcast{"1.02a", "", kJk2PatchPaks, kJk2SpGameDlls};
     return game.gameId == "jk2" ? kJediOutcast : kEliteForce;
 }
 

@@ -64,7 +64,7 @@ private:
 
     System &_sys;
     GameTarget _target;
-    const GameInfo &_game;
+    const GameInfo _game; // with its release's own details
     SearchSet _files;
     ShaderLibrary _shaders;
     Surface _screen;
