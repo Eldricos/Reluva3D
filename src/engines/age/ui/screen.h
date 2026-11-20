@@ -215,7 +215,7 @@ private:
         std::unique_ptr<CarActor> car;
         PathDriver driver; // opponents only
         std::string name;
-        size_t next = 0;           // index into targets_ of the next checkpoint (in any order: how many cleared)
+        size_t next = 0;           // index into _targets of the next checkpoint (in any order: how many cleared)
         std::vector<bool> cleared; // in a race in any order, those cleared
         size_t lastCleared = 0;
         float finishTime = -1;

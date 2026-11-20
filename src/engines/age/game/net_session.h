@@ -351,7 +351,7 @@ private:
     std::array<uint8_t, 16> _challengeNonce{}; // the host's challenge, for its proof back
     bool _haveChallenge = false;
     std::deque<std::string> _outbox; // chat not yet taken by the host
-    uint32_t _outSeq = 0;            // the sequence number of outbox_.front()
+    uint32_t _outSeq = 0;            // the sequence number of _outbox.front()
     bool _teamChosen = false;        // else the team's the host's choice
     uint32_t _lastPhaseRound = 0;
     uint64_t _echoMs = 0; // the host's echo of our last status's time

@@ -57,7 +57,7 @@ public:
 private:
     std::filesystem::path _path;
     std::vector<Entry> _entries;
-    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> _entries index
 };
 
 } // namespace reluva::age

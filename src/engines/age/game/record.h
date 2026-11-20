@@ -65,7 +65,7 @@ private:
     std::filesystem::path _path;
     std::map<std::string, int> _places;   // "sf blitz 3 p" -> best place
     std::map<std::string, bool> _lessons; // "sf 4"
-    std::map<std::string, float> _times;  // as places_, the best time
+    std::map<std::string, float> _times;  // as _places, the best time
     std::string _last;                    // "sf blitz 3"
 };
 

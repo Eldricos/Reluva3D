@@ -45,7 +45,7 @@ public:
 
 private:
     // A line of the topic as it's laid out: its characters, each one's link
-    // (an index into links_, or -1); or a picture's rows.
+    // (an index into _links, or -1); or a picture's rows.
     struct Line {
         std::string text;
         std::vector<int> link;

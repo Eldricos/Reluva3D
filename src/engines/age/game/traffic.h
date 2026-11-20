@@ -225,9 +225,8 @@ private:
         bool loose = false;
         Vec3 velocity{};
         float spin = 0;
-        // settled: stood on the ground
         bool parked = false;
-        bool settled = false;
+        bool settled = false; // stood on the ground
     };
 
     int pickKind();
@@ -260,7 +259,7 @@ private:
         float weight = 0; // its length times its lane's share
     };
     std::vector<Piece> _pieces;
-    std::vector<uint32_t> _near; // pieces within reach of nearFrom_
+    std::vector<uint32_t> _near; // pieces within reach of _nearFrom
     Vec3 _nearFrom{1e9f, 0, 1e9f};
     float _nearLane = 0; // their weights' sum
     void findNear(const Vec3 &focus);

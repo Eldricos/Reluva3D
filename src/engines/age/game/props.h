@@ -193,11 +193,11 @@ private:
             Vec3 spin{};
             Mat3 orientation;
             bool resting = false;
-            int effect = -1; // its particles (effects_)
+            int effect = -1; // its particles (_effects)
         };
         std::vector<Piece> pieces;
         bool apart = false;
-        int effect = -1;         // its particles (effects_)
+        int effect = -1;         // its particles (_effects)
         std::vector<Vec3> glows; // its lamps, in its own axes from its foot
     };
     struct Effect {

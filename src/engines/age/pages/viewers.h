@@ -97,8 +97,8 @@ private:
 
     std::vector<Row> _files;
     std::vector<std::string> _folders; // top-level folders, for Left/Right
-    int _folder = -1;                  // index into folders_, -1: all
-    std::vector<size_t> _shown;        // files_ indices in the folder
+    int _folder = -1;                  // index into _folders, -1: all
+    std::vector<size_t> _shown;        // _files indices in the folder
     int _selected = 0;
     int _top = 0;
 

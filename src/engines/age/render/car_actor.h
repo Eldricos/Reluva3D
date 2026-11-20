@@ -78,7 +78,7 @@ public:
 private:
     gfx::Renderer3D *_renderer = nullptr;
     ModelMesh _body;
-    // each body draw's textures (damaged_ 0: none)
+    // each body draw's textures (in _damaged, 0: none)
     std::vector<gfx::TextureId> _clean;
     std::vector<gfx::TextureId> _damaged;
     std::array<ModelMesh, 4> _wheels;

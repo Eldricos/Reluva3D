@@ -190,7 +190,7 @@ private:
     // The city's vertex colours for the lighting, and its mesh again.
     void relightCity();
     // The index buffer again: the triangles of the blocks seen from
-    // viewBlock_ (all of them for 0).
+    // _viewBlock (all of them for 0).
     void rebuildIndices();
 
     gfx::Renderer3D &_renderer;

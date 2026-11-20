@@ -103,17 +103,16 @@ private:
         std::vector<Vec3> points; // closed (back to the first) unless going back and forth
         std::vector<float> at;
         bool backAndForth = false;
-        // sway: where in its bobbing it is
         float speed = 2;
         float s = 0;
-        float sway = 0;
+        float sway = 0; // where in its bobbing it is
         int way = 1;
         float window = 3; // metres either side its heading is taken over
         Vec3 position{};
         Mat3 axes;
     };
     struct Leaf {
-        // down
+        // where the leaf's hinge and tip are when it's down
         Vec3 hinge{};
         Vec3 tip{};
         float width = 8;
