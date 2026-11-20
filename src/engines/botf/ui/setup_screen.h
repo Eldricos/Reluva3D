@@ -45,6 +45,13 @@ struct GameSetup {
  */
 GameSetup setupFromIni(const std::map<std::string, std::string> &ini);
 
+/**
+ * The setup as the game writes it into Stbof.ini, the last game's: the
+ * galaxy, the minor races, the difficulty and each empire's level (the
+ * preferences it shares with the options are optionsIniValues').
+ */
+std::map<std::string, std::string> setupIniValues(const GameSetup &setup);
+
 /** The single-player game setup screen. */
 class SetupScreen : LayoutScreen {
 public:

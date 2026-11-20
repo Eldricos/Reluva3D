@@ -26,6 +26,8 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -428,6 +430,13 @@ void engineTest(const std::filesystem::path &tmp) {
         const Error err = engine->create(sys, target)->run();
         rec.add("run", err ? "FAILED " + err.message : std::string("ok"));
         rec.add("run.screen", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
+        // Stbof.ini as the run left it: the options and the last setup
+        // accepted written into it, each line ending \r\n shown as |.
+        std::ifstream ini(dir / "Stbof.ini", std::ios::binary);
+        std::string text((std::istreambuf_iterator<char>(ini)), std::istreambuf_iterator<char>());
+        for (size_t at; (at = text.find("\r\n")) != std::string::npos;)
+            text.replace(at, 2, "|");
+        rec.add("stbof.ini", text);
     }
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/botf/data/engine-record.txt", "botf.engine",
               "tests/engines/botf/engine.cpp");

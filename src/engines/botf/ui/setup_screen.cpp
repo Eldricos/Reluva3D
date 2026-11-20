@@ -84,6 +84,18 @@ GameSetup setupFromIni(const std::map<std::string, std::string> &ini) {
     return s;
 }
 
+std::map<std::string, std::string> setupIniValues(const GameSetup &s) {
+    std::map<std::string, std::string> v = {
+        {"SHAPE", std::to_string(s.galaxyShape)},
+        {"SIZE", std::to_string(s.galaxySize)},
+        {"RACENUM", std::to_string(s.minorRaces)},
+        {"DIFFICULTY", std::to_string(s.difficulty + 1)}, // as setupFromIni reads it
+    };
+    for (size_t i = 0; i < s.civilization.size(); ++i)
+        v["CIVLEVEL" + std::to_string(i + 1)] = std::to_string(s.civilization[i]);
+    return v;
+}
+
 std::string galaxyShapeName(const Lexicon &lexicon, int shape) {
     static const std::pair<int, const char *> kShapes[] = {{lex::kIrregular, "Irregular"},
                                                            {lex::kElliptical, "Elliptical"},

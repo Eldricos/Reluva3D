@@ -11,7 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `botf.unit.detection` | Recognising the game, and an unknown release by its files' names |
-| `botf.unit.archives` | `alt.res`'s LZSS (with bytes from the retail file's start, a round trip, and the window's fill) and directory, a saved game's name, description and turn, the `.snd` archives' layouts, finding files through `Stbof.ini` |
+| `botf.unit.archives` | `Stbof.ini` edited as the game does (a played copy unchanged byte for byte, the installer's with keys added in the game's order); `alt.res`'s LZSS (with bytes from the retail file's start, a round trip, and the window's fill) and directory, a saved game's name, description and turn, the `.snd` archives' layouts, finding files through `Stbof.ini` |
 | `botf.unit.fonts` | The `.fnt` fonts' glyphs found by their frames, drawing and wrapping text |
 | `botf.unit.tables` | The `.tdb` text tables, the data tables' layouts (and that every built-in layout fits its records), `lexicon.dic` |
 | `botf.unit.layouts` | The `.wdf` layouts (nested windows, each widget type, cut-short files), the `.mnu` menus, the colour key, dimmed pictures |

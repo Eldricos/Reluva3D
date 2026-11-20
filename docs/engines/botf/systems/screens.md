@@ -397,8 +397,8 @@ recording:
   typing goes through `ui/layout_screen.cpp` for both screens that take
   it.
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
-  the options and the last setup, starting from `Stbof.ini`'s (changes
-  aren't written back yet). Load Game lists the
+  the options and the last setup, starting from `Stbof.ini`'s and writing
+  them back into it ([game-files.md](game-files.md)). Load Game lists the
   install's own saves, not the CD's. There's no game to start or load yet,
   so the empire screen's Accept and Load Game's come back to the main menu,
   and the menu's other buttons do nothing yet

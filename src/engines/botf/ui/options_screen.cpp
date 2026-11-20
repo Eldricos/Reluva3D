@@ -109,6 +109,24 @@ GameOptions optionsFromIni(const std::map<std::string, std::string> &ini) {
     return o;
 }
 
+std::map<std::string, std::string> optionsIniValues(const GameOptions &o) {
+    auto onOff = [](bool on) { return std::string(on ? "ON" : "OFF"); };
+    std::map<std::string, std::string> v = {
+        {"VOICEVOLUME", std::to_string(o.volume[0])},
+        {"VIDEOVOLUME", std::to_string(o.volume[1])},
+        {"MUSICVOLUME", std::to_string(o.volume[2])},
+        {"FXVOLUME", std::to_string(o.volume[3])},
+        {"TOOLTIPS", onOff(o.toolTips)},
+        {"AUTOSAVE", onOff(o.autosave)},
+        {"RANDOMEVENTS", onOff(o.randomEvents)},
+        {"TIMELIMIT", std::to_string(o.strategicTimer)},
+        {"TACTIMELIMIT", std::to_string(o.tacticalTimer)},
+    };
+    if (!o.manualCombat)
+        v["TACTICAL"] = "ABSTRACT";
+    return v;
+}
+
 Error OptionsScreen::load() {
     return loadLayouts("options.wdf", {kAccept, kCancel, kTitle, kVolumes[0], kVolumes[1], kVolumes[2], kVolumes[3],
                                        kToolTips, kCombat, kRandomEvents, kAutosave, kStrategicLess, kStrategicMore,

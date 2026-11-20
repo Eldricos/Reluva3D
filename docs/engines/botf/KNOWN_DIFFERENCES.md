@@ -41,10 +41,12 @@ None yet.
   voice volume picks among only the three lines heard, and the video
   volume's sample is scaled by the effects volume too
   ([systems/sound.md](systems/sound.md)).
-- **The options and the last setup aren't written back** to `Stbof.ini`:
-  Reluva starts from the file's, but leaves it as it is, so changes last
-  only while it runs. The volumes set the music, speech and effects; there
-  are no movies or tool tips yet to set.
+- **`Stbof.ini` is edited, not rewritten:** Reluva sets the options' and
+  the last setup's keys in it as the game does, but leaves the rest of the
+  file as it is, where the game writes all of it out in its own order; and
+  manual combat isn't written, its word not being known
+  ([systems/game-files.md](systems/game-files.md)). The volumes set the
+  music, speech and effects; there are no movies or tool tips yet to set.
 
 ## Additions outside the game
 

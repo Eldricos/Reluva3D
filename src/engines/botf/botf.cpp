@@ -24,6 +24,9 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -85,6 +88,21 @@ LoadSaveScreen::Slots findSaves(const std::filesystem::path &dir) {
             }
     }
     return slots;
+}
+
+// Sets `values` in the install's Stbof.ini, as the game does when the
+// options or a new game's setup are accepted; without the file, nothing.
+void writeStbofIni(const GameFiles &files, const std::map<std::string, std::string> &values) {
+    if (!files.iniPath())
+        return;
+    std::string text;
+    {
+        std::ifstream in(*files.iniPath(), std::ios::binary);
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    const std::string updated = updateStbofIni(text, values);
+    if (updated != text)
+        std::ofstream(*files.iniPath(), std::ios::binary).write(updated.data(), std::streamsize(updated.size()));
 }
 
 // The settings the game setup screen and the options screen share: the
@@ -230,8 +248,10 @@ public:
                     }
                 } else if (showing == Showing::kOptions) {
                     const OptionsScreen::Result r = options.handle(ev);
-                    if (r == OptionsScreen::Result::kAccepted)
+                    if (r == OptionsScreen::Result::kAccepted) {
                         _options = options.options();
+                        writeStbofIni(files, optionsIniValues(_options));
+                    }
                     if (r != OptionsScreen::Result::kOpen)
                         showing = Showing::kMenu;
                 } else if (showing == Showing::kMultiplayer) {
@@ -256,6 +276,11 @@ public:
                     if (r == SetupScreen::Result::kAccepted) {
                         preferencesToOptions(setup.setup(), _options);
                         lastSetup = setup.setup();
+                        // The game keeps a new game's setup, and the
+                        // preferences it shares with the options.
+                        auto values = setupIniValues(lastSetup);
+                        values.merge(optionsIniValues(_options));
+                        writeStbofIni(files, values);
                         showing = Showing::kEmpires;
                         empires.reset();
                         empires.setLevels(setup.setup().civilization);

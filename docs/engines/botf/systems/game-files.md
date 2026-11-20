@@ -109,6 +109,22 @@ simple difficulty, every empire at Beginning, random events off, tactical
 combat automatic. Reluva starts the options screen and a new game's setup
 from them.
 
+The game writes the file itself: the copy after a game has its keys in
+another order than the installer's, `MONO` and the installer's ^Z gone,
+the options' and the setup's keys added. Reluva writes it back as the game
+would, when the options are accepted (the volumes, `TOOLTIPS`, `AUTOSAVE`,
+`RANDOMEVENTS`, the timers, and `TACTICAL=ABSTRACT` for automatic combat)
+and when a new game's setup is (those, and `SHAPE`, `SIZE`, `RACENUM`,
+`DIFFICULTY`, the `CIVLEVEL`s) *(inferred)*: when the game writes them
+isn't known.
+It changes only those keys: one already there keeps its line, spelling
+and place; one that isn't goes where the game's own order (the played
+copy's, above) puts it. Every other line, the line endings and anything
+after the last stay as they are; the game's whole rewrite, with defaults
+for the keys Reluva doesn't know, isn't copied. Manual combat's word isn't
+known, so `TACTICAL` is left as it is for it. Without the file, none is
+made.
+
 ### Not needed by Reluva
 
 - In the install: `trek.exe` and `Trek.icd`; MicroProse's renderer

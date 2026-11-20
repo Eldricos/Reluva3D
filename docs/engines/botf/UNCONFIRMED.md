@@ -35,6 +35,11 @@ None: nothing of the game's code has been read.
   played, from one order heard ([systems/sound.md](systems/sound.md)).
   Settled by: a longer recording, or `music.tbl` worked out.
 
+- **When the game writes `Stbof.ini`:** on the options' and the setup's
+  Accept, as Reluva does ([systems/game-files.md](systems/game-files.md)).
+  Settled by: watching the file's time as the game is used; and manual
+  combat's word, by a copy of it with manual combat set.
+
 ## Guessed
 
 - **The menu's sounds not heard:** which of the same sound's entries, the
