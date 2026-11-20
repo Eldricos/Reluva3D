@@ -194,16 +194,17 @@ std::string lower(const std::string &s) {
 // By the class and the name's text where it is: the engine side asks for
 // properties by string literals, many times an actor a tick, and interning
 // the name each time took a third of a level's run.
-Value *ScriptLevel::prop(VmObject *a, const char *name) {
-    if (!a || !a->cls)
-        return nullptr;
-    const SlotKey key{a->cls, name};
+// A class's slot for a property (by its name's text's address), found by
+// name the first time; prop() keeps the latest in its cache.
+int ScriptLevel::propSlot(const VmClass *cls, const char *name) {
+    const SlotKey key{cls, name};
     auto it = _slots.find(key);
     if (it == _slots.end()) {
-        VmProperty *p = a->cls->findProperty(_vm.name(name));
+        const VmProperty *p = cls->findProperty(_vm.name(name));
         it = _slots.emplace(key, p ? p->slot : -1).first;
     }
-    return it->second >= 0 && size_t(it->second) < a->values.size() ? &a->values[size_t(it->second)] : nullptr;
+    _slotCache[slotHash(cls, name)] = {cls, name, it->second};
+    return it->second;
 }
 
 // Where a class's collision properties are in its values, found once: the

@@ -129,7 +129,7 @@ Vec ScriptLevel::copyVec(VmObject *mm, const char *name) {
 }
 void ScriptLevel::setCopyFloat(VmObject *mm, const char *name, float v) {
     if (Value *p = prop(mm, name))
-        *p = Value::floatValue(v);
+        p->setFloat(v);
 }
 void ScriptLevel::setCopyVec(VmObject *mm, const char *name, const Vec &v) {
     if (Value *p = prop(mm, name))

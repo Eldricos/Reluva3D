@@ -880,7 +880,14 @@ public:
 private:
     void init(VmObject *actor); // the engine's own properties of a new actor
     void attachViewport();      // the player's viewport and console
-    Value *prop(VmObject *a, const char *name);
+    Value *prop(VmObject *a, const char *name) {
+        if (!a || !a->cls)
+            return nullptr;
+        const SlotCached &c = _slotCache[slotHash(a->cls, name)];
+        const int slot = c.cls == a->cls && c.name == name ? c.slot : propSlot(a->cls, name);
+        return slot >= 0 && size_t(slot) < a->values.size() ? &a->values[size_t(slot)] : nullptr;
+    }
+    int propSlot(const VmClass *cls, const char *name);
     void updateTouching(VmObject *a);
     void steer(VmObject *pawn, float seconds);
     void rotate(VmObject *a, float seconds);
@@ -982,6 +989,17 @@ private:
         }
     };
     std::unordered_map<SlotKey, int, SlotHash> _slots;
+    // In front of it, the most recent by a cheap hash of the two addresses
+    // (prop is read millions of times a second).
+    struct SlotCached {
+        const VmClass *cls = nullptr;
+        const char *name = nullptr;
+        int slot = -1;
+    };
+    std::array<SlotCached, 4096> _slotCache{};
+    static size_t slotHash(const VmClass *cls, const char *name) {
+        return ((reinterpret_cast<uintptr_t>(cls) >> 4) * 0x9e3779b1u ^ reinterpret_cast<uintptr_t>(name)) & 4095;
+    }
 
 public:
     struct CollideSlots {

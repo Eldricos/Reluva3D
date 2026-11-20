@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <initializer_list>
 #include <vector>
 
 namespace reluva::unreal {
@@ -47,6 +48,47 @@ using NameId = int32_t;
 
 enum class VType : uint8_t { kNone, kByte, kInt, kBool, kFloat, kName, kString, kObject, kStruct };
 
+struct Value;
+
+/**
+ * A struct value's fields: as a vector of them, but nothing at all until
+ * it has some, so the many values that are numbers or objects are made,
+ * copied and dropped without one.
+ */
+class Fields {
+public:
+    Fields() = default;
+    Fields(const Fields &other);
+    Fields(Fields &&other) noexcept : _v(other._v) { other._v = nullptr; }
+    Fields(std::initializer_list<Value> list);
+    Fields &operator=(const Fields &other);
+    Fields &operator=(Fields &&other) noexcept {
+        std::swap(_v, other._v);
+        return *this;
+    }
+    Fields &operator=(const std::vector<Value> &values);
+    Fields &operator=(std::initializer_list<Value> list);
+    ~Fields() {
+        if (_v) [[unlikely]]
+            release();
+    }
+
+    size_t size() const;
+    bool empty() const { return size() == 0; }
+    Value &operator[](size_t k);
+    const Value &operator[](size_t k) const;
+    Value *begin();
+    Value *end();
+    const Value *begin() const;
+    const Value *end() const;
+    void resize(size_t n);
+    void clear();
+
+private:
+    void release();
+    std::vector<Value> *_v = nullptr;
+};
+
 struct Value {
     VType type = VType::kNone;
     int32_t i = 0;                // Byte, Int, Bool (0 or 1), Name
@@ -54,7 +96,7 @@ struct Value {
     VmObject *o = nullptr;        // Object; a class object for class values
     std::string s;                // String
     const VmStruct *st = nullptr; // Struct: which
-    std::vector<Value> fields;    // Struct: one per field slot
+    Fields fields;                // Struct: one per field slot
 
     Value() = default;
     /**
@@ -81,8 +123,25 @@ struct Value {
             fields = v.fields;
         return *this;
     }
-    Value(Value &&) noexcept = default;
-    Value &operator=(Value &&) noexcept = default;
+    // Moved, the string only if either has one (most don't).
+    Value(Value &&v) noexcept : type(v.type), i(v.i), f(v.f), o(v.o), st(v.st), fields(std::move(v.fields)) {
+        if (!v.s.empty())
+            s = std::move(v.s);
+    }
+    Value &operator=(Value &&v) noexcept {
+        type = v.type, i = v.i, f = v.f, o = v.o, st = v.st;
+        if (!v.s.empty() || !s.empty())
+            s = std::move(v.s);
+        fields = std::move(v.fields);
+        return *this;
+    }
+    /** Made a float, in place (no other value made and dropped). */
+    void setFloat(float v) {
+        if (type != VType::kFloat || !s.empty() || !fields.empty())
+            *this = floatValue(v);
+        else
+            f = v;
+    }
 
     static Value byteValue(int v);
     static Value intValue(int32_t v);
@@ -113,6 +172,65 @@ struct Value {
     float asFloatSlow() const;
     bool asBoolSlow() const;
 };
+
+inline Fields::Fields(const Fields &other) : _v(other.empty() ? nullptr : new std::vector<Value>(*other._v)) {
+}
+inline Fields::Fields(std::initializer_list<Value> list) : _v(list.size() ? new std::vector<Value>(list) : nullptr) {
+}
+inline Fields &Fields::operator=(const Fields &other) {
+    if (this == &other)
+        return *this;
+    if (other.empty())
+        clear();
+    else if (_v)
+        *_v = *other._v;
+    else
+        _v = new std::vector<Value>(*other._v);
+    return *this;
+}
+inline Fields &Fields::operator=(const std::vector<Value> &values) {
+    if (values.empty())
+        clear();
+    else if (_v)
+        *_v = values;
+    else
+        _v = new std::vector<Value>(values);
+    return *this;
+}
+inline Fields &Fields::operator=(std::initializer_list<Value> list) {
+    return *this = std::vector<Value>(list);
+}
+inline size_t Fields::size() const {
+    return _v ? _v->size() : 0;
+}
+inline Value &Fields::operator[](size_t k) {
+    return (*_v)[k];
+}
+inline const Value &Fields::operator[](size_t k) const {
+    return (*_v)[k];
+}
+inline Value *Fields::begin() {
+    return _v ? _v->data() : nullptr;
+}
+inline Value *Fields::end() {
+    return _v ? _v->data() + _v->size() : nullptr;
+}
+inline const Value *Fields::begin() const {
+    return _v ? _v->data() : nullptr;
+}
+inline const Value *Fields::end() const {
+    return _v ? _v->data() + _v->size() : nullptr;
+}
+inline void Fields::resize(size_t n) {
+    if (!_v && n)
+        _v = new std::vector<Value>();
+    if (_v)
+        _v->resize(n);
+}
+inline void Fields::clear() {
+    if (_v)
+        _v->clear();
+}
 
 struct VmProperty {
     std::string name;
@@ -346,8 +464,16 @@ public:
     /** A vector value set in place (no new value made, if it's a vector). */
     void setVector(Value &v, float x, float y, float z);
     Value rotatorValue(int32_t pitch, int32_t yaw, int32_t roll);
-    static std::array<float, 3> vectorOf(const Value &v);
-    static std::array<int32_t, 3> rotatorOf(const Value &v);
+    static std::array<float, 3> vectorOf(const Value &v) {
+        if (v.fields.size() < 3)
+            return {0, 0, 0};
+        return {v.fields[0].asFloat(), v.fields[1].asFloat(), v.fields[2].asFloat()};
+    }
+    static std::array<int32_t, 3> rotatorOf(const Value &v) {
+        if (v.fields.size() < 3)
+            return {0, 0, 0};
+        return {v.fields[0].asInt(), v.fields[1].asInt(), v.fields[2].asInt()};
+    }
     /**
      * Finds an object by its path ("Package.Group.Name"), for
      * DynamicLoadObject.
@@ -494,6 +620,17 @@ private:
     const VmStruct *_vectorStruct = nullptr;
     const VmStruct *_rotatorStruct = nullptr;
     int _depth = 0;
+    // Each call's arguments and flags, and each function's locals, kept
+    // by how deep the call is and used again by the next one there: their
+    // storage (and struct values' fields) isn't made afresh for every call.
+    struct CallSpace {
+        std::vector<Value> args;
+        std::vector<bool> given;
+    };
+    std::vector<CallSpace> _callSpace;
+    size_t _callNest = 0;
+    std::vector<std::vector<Value>> _localSpace;
+    size_t _localNest = 0;
 };
 
 /** The natives of Core's Object (operators, maths, strings, states). */

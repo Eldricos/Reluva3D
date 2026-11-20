@@ -16,6 +16,10 @@
 
 namespace reluva::unreal {
 
+void Fields::release() {
+    delete _v;
+}
+
 namespace {
 
 constexpr int kMaxDepth = 250;                  // nested calls before a script is stopped
@@ -1278,18 +1282,6 @@ Value Vm::rotatorValue(int32_t pitch, int32_t yaw, int32_t roll) {
     return v;
 }
 
-std::array<float, 3> Vm::vectorOf(const Value &v) {
-    if (v.fields.size() < 3)
-        return {0, 0, 0};
-    return {v.fields[0].asFloat(), v.fields[1].asFloat(), v.fields[2].asFloat()};
-}
-
-std::array<int32_t, 3> Vm::rotatorOf(const Value &v) {
-    if (v.fields.size() < 3)
-        return {0, 0, 0};
-    return {v.fields[0].asInt(), v.fields[1].asInt(), v.fields[2].asInt()};
-}
-
 bool Vm::callerSimulated() const {
     if (_running.empty() || _running.back()->kind != VmStruct::Kind::kFunction)
         return false;
@@ -1743,12 +1735,21 @@ public:
             fn->hasOut = std::any_of(fn->params.begin(), fn->params.end(),
                                      [](const VmProperty *p) { return p->flags & propflag::kOutParm; });
         }
-        std::vector<Value> args(fn->params.size());
+        const size_t depth = _vm._callNest++;
+        struct Leave {
+            size_t &nest;
+            ~Leave() { --nest; }
+        } leave{_vm._callNest};
+        if (_vm._callSpace.size() <= depth)
+            _vm._callSpace.resize(depth + 1);
+        std::vector<Value> args = std::move(_vm._callSpace[depth].args);
+        args.resize(fn->params.size());
         static const std::vector<Value *> kNoOuts;
         std::vector<Value *> outs;
         if (fn->hasOut)
             outs.assign(fn->params.size(), nullptr);
-        std::vector<bool> given(fn->params.size(), false);
+        std::vector<bool> given = std::move(_vm._callSpace[depth].given);
+        given.assign(fn->params.size(), false);
         // && and || leave their right side unevaluated when the left decides.
         const bool andOp = fn->logicOp == 1;
         const bool orOp = fn->logicOp == 2;
@@ -1774,11 +1775,14 @@ public:
                 args[k] = _vm.convert(eval(f, a, f.self), p);
             }
         }
-        return invoke(fn, target, std::move(args), fn->hasOut ? outs : kNoOuts, std::move(given), nullptr);
+        Value r = invoke(fn, target, args, fn->hasOut ? outs : kNoOuts, given, nullptr);
+        _vm._callSpace[depth].args = std::move(args);
+        _vm._callSpace[depth].given = std::move(given);
+        return r;
     }
 
-    Value invoke(VmFunction *fn, VmObject *self, std::vector<Value> args, const std::vector<Value *> &outs,
-                 std::vector<bool> given, std::vector<Value> *items, std::vector<Value> *items2 = nullptr) {
+    Value invoke(VmFunction *fn, VmObject *self, std::vector<Value> &args, const std::vector<Value *> &outs,
+                 std::vector<bool> &given, std::vector<Value> *items, std::vector<Value> *items2 = nullptr) {
         if (_vm._depth >= kMaxDepth) {
             _vm.reportError("calls nested too deep, at " + fn->qualified);
             return fn->returnValue ? fn->returnValue->zero() : Value();
@@ -1815,6 +1819,9 @@ public:
                 *items2 = std::move(c.items2);
             if (c.latentSeconds >= 0)
                 _vm._pendingLatent = c.latentSeconds;
+            // (Their storage back to the caller, to be used again.)
+            args = std::move(c.args);
+            given = std::move(c.given);
             if (fn->returnValue)
                 return _vm.convert(c.result, *fn->returnValue);
             return c.result;
@@ -1822,7 +1829,15 @@ public:
         Frame frame;
         frame.owner = fn;
         frame.self = self;
-        std::vector<Value> locals = fn->defaults;
+        const size_t depth = _vm._localNest++;
+        struct Leave {
+            size_t &nest;
+            ~Leave() { --nest; }
+        } leave{_vm._localNest};
+        if (_vm._localSpace.size() <= depth)
+            _vm._localSpace.resize(depth + 1);
+        std::vector<Value> locals = std::move(_vm._localSpace[depth]);
+        locals.assign(fn->defaults.begin(), fn->defaults.end());
         for (size_t k = 0; k < fn->params.size() && k < args.size(); ++k)
             _vm.assign(locals[size_t(fn->params[k]->slot)], args[k]);
         frame.locals = &locals;
@@ -1834,6 +1849,7 @@ public:
         for (size_t k = 0; k < outs.size() && k < fn->params.size(); ++k)
             if (outs[k])
                 _vm.assign(*outs[k], locals[size_t(fn->params[k]->slot)]);
+        _vm._localSpace[depth] = std::move(locals);
         if (fn->returnValue && frame.result.type != VType::kNone)
             return _vm.convert(frame.result, *fn->returnValue);
         return result;
@@ -1891,7 +1907,7 @@ private:
             }
         }
         // The out parameters aren't written back: the loop sets the first.
-        invoke(fn, target, std::move(args), {}, std::move(given), &it.items, &it.items2);
+        invoke(fn, target, args, {}, given, &it.items, &it.items2);
     }
 
     Value conversion(uint8_t t, const Value &v) {
@@ -2088,7 +2104,7 @@ Value Vm::invoke(VmFunction *f, VmObject *self, std::vector<Value> args, std::ve
         converted[k] = k < args.size() ? convert(args[k], *f->params[k]) : f->params[k]->zero();
     }
     outs.resize(f->params.size(), nullptr);
-    return in.invoke(f, self, std::move(converted), outs, std::move(given), nullptr);
+    return in.invoke(f, self, converted, outs, given, nullptr);
 }
 
 Value Vm::callEvent(VmObject *self, std::string_view function, std::vector<Value> args) {

@@ -87,6 +87,17 @@ far is in [systems/playing.md](systems/playing.md#in-reluva).
   the frames the same to the pixel.
 - The HUD is the game's own `PostRender` script once a frame (4%);
   only a faster VM makes it cheaper.
+- The VM (November 2026, measured in instructions under callgrind,
+  M10_WorfL1A's 20 s in `unreal run`: 14.66 billion before, 12.20
+  after, 17% fewer; `run -all` 82 s from 96, every map's record the
+  same to the call): a property the engine's code reads by name finds
+  its slot through a small cache in front of the class's table (it was
+  15% of the run, the effects' copies reading theirs for every copy on
+  every tick); a value's struct fields are nothing until it has some,
+  so the many values that are numbers or objects are made, copied and
+  dropped without a vector; a call's arguments and a function's locals
+  reuse the room of the call before at the same depth; a float is set
+  in place. Pooling vector values themselves, tried before, was slower.
 
 ## Using it
 
