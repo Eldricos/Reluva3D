@@ -807,6 +807,7 @@ void Vm::prepareCode(VmStruct &s) {
         if (s.code.statements[i] >= 0)
             s.statementAt[s.code.exprs[size_t(s.code.statements[i])].offset] = int(i);
     s.resolved.assign(s.code.exprs.size(), nullptr);
+    s.calls.assign(s.code.exprs.size(), {});
 }
 
 void Vm::addProperty(VmStruct &s, const Package &package, int index, const ScriptObject &so) {
@@ -1236,7 +1237,14 @@ bool Vm::equal(const Value &a, const Value &b) const {
 bool Vm::isA(const VmObject *o, std::string_view className) {
     if (!o || !o->cls)
         return false;
-    const NameId n = name(className);
+    // The class's name interned once for each text it's asked by (mostly
+    // the same literals, every tick), checked to be the same text.
+    IsACache &c = _isACache[(reinterpret_cast<uintptr_t>(className.data()) >> 3) % _isACache.size()];
+    if (c.text != className) {
+        c.text = className;
+        c.name = name(className);
+    }
+    const NameId n = c.name;
     for (const VmClass *c = o->cls; c; c = c->parent())
         if (c->nameId == n)
             return true;
@@ -1530,8 +1538,13 @@ public:
         const Code &code = f.owner->code;
         const Expr &x = code.exprs[size_t(i)];
         using namespace token;
-        if (x.native >= 0)
-            return call(f, x, ctx, _vm.nativeFunction(x.native));
+        if (x.native >= 0) {
+            // (Its function, found by its number once.)
+            const void *&fn = f.owner->resolved[size_t(i)];
+            if (!fn)
+                fn = _vm.nativeFunction(x.native);
+            return call(f, x, ctx, static_cast<VmFunction *>(const_cast<void *>(fn)));
+        }
         if (x.token >= kFirstConversion && x.token <= kLastConversion)
             return conversion(x.token, eval(f, arg(x, 0), ctx));
         switch (x.token) {
@@ -1563,8 +1576,25 @@ public:
         case kVirtualFunction:
         case kGlobalFunction: {
             VmObject *target = ctx ? ctx : f.self;
-            const NameId n = _vm.name(f.owner->package->name(x.ref));
-            VmFunction *fn = target ? _vm.findFunction(target, n, x.token == kGlobalFunction) : nullptr;
+            VmStruct::CallCache &cache = f.owner->calls[size_t(i)];
+            if (cache.name < 0)
+                cache.name = _vm.name(f.owner->package->name(x.ref));
+            const NameId n = cache.name;
+            VmFunction *fn = nullptr;
+            if (target) {
+                // A class's own (a static call) or its state's: as found before
+                // for the same class and state.
+                const VmClass *cls = target->asClass ? target->asClass : target->cls;
+                const VmStruct *state = target->asClass || x.token == kGlobalFunction ? nullptr : target->state;
+                if (cache.fn && cache.cls == cls && cache.state == state) {
+                    fn = cache.fn;
+                } else {
+                    fn = _vm.findFunction(target, n, x.token == kGlobalFunction);
+                    cache.cls = cls;
+                    cache.state = state;
+                    cache.fn = fn;
+                }
+            }
             if (!fn) {
                 _vm.reportError("no function " + _vm.nameText(n) + " for " +
                                 (target && target->cls ? target->cls->name : std::string("None")) + " (in " + where(f) +

@@ -264,6 +264,18 @@ struct VmStruct {
      * class...), filled in as the code runs.
      */
     mutable std::vector<const void *> resolved;
+    /**
+     * Each call by name's function name, and the function it found for the
+     * class and state it was last called on (they don't change while the
+     * game runs; a call on another looks again).
+     */
+    struct CallCache {
+        NameId name = -1;
+        const VmClass *cls = nullptr;
+        const VmStruct *state = nullptr;
+        VmFunction *fn = nullptr;
+    };
+    mutable std::vector<CallCache> calls;
 
     virtual ~VmStruct() = default;
     VmProperty *findProperty(NameId name) const;
@@ -628,6 +640,11 @@ private:
         std::vector<bool> given;
     };
     std::vector<CallSpace> _callSpace;
+    struct IsACache {
+        std::string text;
+        NameId name = 0;
+    };
+    std::array<IsACache, 256> _isACache;
     size_t _callNest = 0;
     std::vector<std::vector<Value>> _localSpace;
     size_t _localNest = 0;

@@ -98,6 +98,13 @@ far is in [systems/playing.md](systems/playing.md#in-reluva).
   dropped without a vector; a call's arguments and a function's locals
   reuse the room of the call before at the same depth; a float is set
   in place. Pooling vector values themselves, tried before, was slower.
+  Then each call by name keeps the name it interned and the function it
+  found for the class and state it was last made on, a native call the
+  function its number names, and an `IsA` by a class's name the name it
+  interned: 11.76 billion, 20% fewer than at first. What's left is
+  mostly the values themselves: a struct value (a vector, a rotator) is
+  a list of whole values, made, copied and freed as one, which no
+  tighter form of the code would change.
 
 ## Using it
 
