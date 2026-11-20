@@ -5,8 +5,9 @@
 
 // Writes an Unreal package (version 73, as The Fallen's), starting from
 // another's tables: its names, imports and exports keep their numbers, so
-// an export's data copied as it is still refers to the right objects. More
-// names, imports and exports are added after them. See
+// an export's data copied as it is still refers to the right objects (unless
+// only some exports are kept: then they're numbered again). More names,
+// imports and exports are added after them. See
 // docs/formats/unreal/package.md.
 
 #include "common/types.h"
@@ -64,6 +65,13 @@ public:
     void setData(int32_t ref, std::vector<uint8_t> data);
     /** Left out: written with no data (an object the level no longer has). */
     void drop(int32_t ref);
+    /**
+     * Only the base's exports `keep` marks (by index), numbered again in
+     * their order, the export table's references to them changed to match
+     * (those to one left out become none). Done before anything is added.
+     * @return each base reference's new one (by reference; 0 left out).
+     */
+    std::vector<int32_t> keepOnly(const std::vector<bool> &keep);
     size_t exportCount() const { return _exports.size(); }
 
     Error write(const std::string &path) const;
@@ -78,6 +86,7 @@ private:
         Export e;
         bool replaced = false;
         bool dropped = false;
+        int source = -1; // the base's export its data is, unless replaced
         std::vector<uint8_t> data;
     };
     std::vector<Out> _exports;

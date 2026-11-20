@@ -87,8 +87,29 @@ PackageWriter::PackageWriter(const Package &base) : _base(base) {
     for (const Export &e : base.exports()) {
         Out o;
         o.e = e;
+        o.source = int(_exports.size());
         _exports.push_back(std::move(o));
     }
+}
+
+std::vector<int32_t> PackageWriter::keepOnly(const std::vector<bool> &keep) {
+    std::vector<int32_t> renumbered(_exports.size() + 1, 0);
+    std::vector<Out> kept;
+    for (size_t i = 0; i < _exports.size(); ++i)
+        if (i < keep.size() && keep[i]) {
+            kept.push_back(std::move(_exports[i]));
+            renumbered[i + 1] = int32_t(kept.size());
+        }
+    auto again = [&](int32_t ref) {
+        return ref > 0 && size_t(ref) < renumbered.size() ? renumbered[size_t(ref)] : ref;
+    };
+    for (Out &o : kept) {
+        o.e.classRef = again(o.e.classRef);
+        o.e.superRef = again(o.e.superRef);
+        o.e.package = again(o.e.package);
+    }
+    _exports = std::move(kept);
+    return renumbered;
 }
 
 int32_t PackageWriter::name(const std::string &text) {
@@ -182,8 +203,8 @@ Error PackageWriter::write(const std::string &path) const {
         const Out &o = _exports[i];
         std::vector<uint8_t> copy;
         const std::vector<uint8_t> *data = &o.data;
-        if (!o.replaced && o.e.serialSize > 0) {
-            if (Error err = _base.readExport(int(i), copy))
+        if (!o.replaced && o.e.serialSize > 0 && o.source >= 0) {
+            if (Error err = _base.readExport(o.source, copy))
                 return err;
             data = &copy;
         }

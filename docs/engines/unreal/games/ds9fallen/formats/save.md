@@ -174,13 +174,25 @@ is the map's data as it is; the rest comes from the running level.
     place keeping the one before's, the same ones once.
 - **The URL's map** is the map's own name, or for a level loaded from
   the original's save, the map that save was made on.
-- **The map's editor-only exports** (UnrealEd's building brushes, their
-  models and the polygon lists only those models lead to, its cameras)
-  keep their numbers but no data, as the game never loads them (Core.dll
-  0x1012d02b); the original's saves leave them out altogether. A save of
-  M01_SiskoL1A comes to 6.3 MB so (8.4 with them), the original's 6.2.
-- **Not written:** the exports renumbered (the map's own numbering is
-  kept, so references are a byte longer here and there).
+- **The map's exports kept**, numbered again in their order before the
+  new ones: those saved, the Level object, what its model and reach list
+  and the models and their polygons lead to (the actors in a model's
+  lights included, as they are now, should the level have destroyed
+  one), and the packages they're in. The editor's own (UnrealEd's
+  building brushes, their models and the polygon lists only those models
+  lead to, its cameras, its text) are left out, as the game never loads
+  them (Core.dll 0x1012d02b) and the original's saves have none; what
+  pointed at them (a surface's or polygon's brush) is none. The map's
+  data kept as it is has its references renumbered: each surface's
+  texture and brush, each zone's actor, the Polys, the lights, each
+  polygon's brush and texture, and the reach list's model and ends (a
+  state frame before any of them too). Should one not read so, all are
+  kept, the editor's empty.
+  - A save of M01_SiskoL1A comes to 6.21 MB, 3689 exports (the map has
+    7682); the original's 6.19 MB, 4436. Both keep its 71 models and 71
+    polygon lists.
+  - Not trimmed: the names and imports (the map's, and those added), so
+    the tables are larger than the original's (11364 names to its 6425).
 
 ## Sources and checks
 

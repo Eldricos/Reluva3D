@@ -6,6 +6,7 @@
 //   reluva-tests unreal.unit.packages
 
 #include "engines/unreal/formats/game_save.h"
+#include "engines/unreal/formats/package_writer.h"
 #include "tests/engines/unreal/support.h"
 
 using namespace reluva;
@@ -29,7 +30,7 @@ void testCompactIndex() {
 
 void testPackageTables() {
     for (int version : {61, 69}) {
-        PackageWriter w;
+        test_data::PackageWriter w;
         w.version = version;
         const int32_t core = w.addImport("Core", "Package", 0, "Engine");
         const int32_t texClass = w.addImport("Core", "Class", core, "Texture");
@@ -47,13 +48,39 @@ void testPackageTables() {
     }
     Package bad;
     CHECK(bad.openMemory({1, 2, 3, 4}, "x"));
-    std::vector<uint8_t> cut = PackageWriter{}.build();
+    std::vector<uint8_t> cut = test_data::PackageWriter{}.build();
     cut.resize(cut.size() - 3);
     CHECK(bad.openMemory(cut, "x"));
 }
 
+// A package written again keeping only some of its exports: they're
+// numbered again, the table's references to them with them, and their data
+// comes along.
+void testKeepOnly(const std::filesystem::path &dir) {
+    test_data::PackageWriter w;
+    const int32_t core = w.addImport("Core", "Package", 0, "Engine");
+    const int32_t texClass = w.addImport("Core", "Class", core, "Texture");
+    const int32_t group = w.addExport(0, 0, "Walls", {});
+    Bytes d;
+    endProps(d, w);
+    w.addExport(texClass, group, "Old", d.b);
+    w.addExport(texClass, group, "Brick", d.b);
+    Package base;
+    CHECK(!base.openMemory(w.build(), "Test"));
+    reluva::unreal::PackageWriter again(base);
+    const std::vector<int32_t> numbers = again.keepOnly({true, false, true});
+    CHECK((numbers == std::vector<int32_t>{0, 1, 0, 2}) && again.exportCount() == 2);
+    const std::filesystem::path file = dir / "kept.u";
+    CHECK(!again.write(file.string()));
+    Package p;
+    CHECK(!p.open(file));
+    std::vector<uint8_t> data;
+    CHECK(p.exports().size() == 2 && p.path(2) == "Walls.Brick" && p.className(2) == "Texture");
+    CHECK(!p.readExport(1, data) && data == d.b);
+}
+
 void testProperties() {
-    PackageWriter w;
+    test_data::PackageWriter w;
     Bytes o;
     tag(o, w, "Count", PropertyType::kInt, 4);
     o.i32(-7);
@@ -185,7 +212,7 @@ void testDialogTable() {
 // A C3D mesh state as Engine.dll writes one (0x10327230): one IK request,
 // one group, one chain's target and one held actor, then the owner.
 void testMeshState() {
-    PackageWriter w;
+    test_data::PackageWriter w;
     w.version = 73;
     Bytes d;
     endProps(d, w);
@@ -278,6 +305,7 @@ static const reluva::test::Suite kSuite(
         {"compact index", [](const std::filesystem::path &) { testCompactIndex(); }},
         {"package tables", [](const std::filesystem::path &) { testPackageTables(); }},
         {"properties", [](const std::filesystem::path &) { testProperties(); }},
+        {"keeping some exports", testKeepOnly},
         {"search paths and detection", [](const std::filesystem::path &tmp) { testSearchPathsAndDetection(tmp); }},
         {"map extension", [](const std::filesystem::path &tmp) { testMapExtension(tmp); }},
         {"dialog table", [](const std::filesystem::path &) { testDialogTable(); }},

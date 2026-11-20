@@ -140,7 +140,10 @@ properties.
 starting from another's tables, so the base's names, imports and exports
 keep their numbers and an export's data copied as it is still refers to
 the right objects; names, imports (with the packages, groups and classes
-they're in) and exports are added after. The file is the header, the
+they're in) and exports are added after. It can first keep only some of
+the base's exports (`keepOnly`), numbered again in their order, the
+export table's references made to match; data copied as it is then has
+to be renumbered by whoever knows its layout. The file is the header, the
 names (each a string and its flags), the exports' data, the imports and
 the exports, each table entry as above; the generation the export and
 name counts. A saved game is written so ([save.md](save.md)).

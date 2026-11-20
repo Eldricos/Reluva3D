@@ -3,10 +3,11 @@
 
 // A level saved as the original game saves it: a package (.dsa) that the
 // original loads, and so does Reluva. It's written over the map's own
-// tables, so the parts the level hasn't changed (its BSP, the movers'
-// brushes, the lights' surfaces) are the map's data as they are, their
-// references still right; what the level has (its actors, their state,
-// the objects they made) is written from the running level. See
+// tables, those exports the game never loads left out and the rest numbered
+// again: the parts the level hasn't changed (its BSP, the movers' brushes,
+// the lights' surfaces) are the map's data, their references renumbered;
+// what the level has (its actors, their state, the objects they made) is
+// written from the running level. See
 // docs/formats/unreal/save.md.
 
 #include "engines/unreal/formats/model.h"
@@ -33,6 +34,174 @@ namespace {
 constexpr uint32_t kClassTransient = 0x8;
 constexpr uint32_t kActorFlags = 0x00070001 | objflag::kHasStack;
 constexpr uint32_t kObjectFlags = 0x00070000;
+
+// An object reference in the map's numbering to the save's (0: left out).
+using Renumber = std::function<int32_t(int32_t)>;
+
+// A copy of an export's data with its object references renumbered: the
+// bytes between them as they are, each reference written again.
+class RefCopy {
+public:
+    explicit RefCopy(const std::vector<uint8_t> &data) : r(data), _data(data) {}
+    Reader r;
+    int32_t ref(const Renumber &f) {
+        flush();
+        const int32_t v = r.index();
+        _out.index(f(v));
+        _from = r.pos();
+        return v;
+    }
+    // A state frame (an object flagged HasStack): its node and state, the
+    // events it ignores, its latent action, and in a node, where.
+    void frame(const Renumber &f) {
+        const int32_t node = ref(f);
+        ref(f);
+        r.skip(12);
+        if (node != 0)
+            r.index();
+    }
+    // An array's count, each element at least `least` bytes.
+    size_t count(size_t least) {
+        const int32_t n = r.index();
+        if (!r.ok() || n < 0 || size_t(n) * least > r.remaining()) {
+            r.fail();
+            return 0;
+        }
+        return size_t(n);
+    }
+    std::vector<uint8_t> finish() {
+        _out.data.insert(_out.data.end(), _data.begin() + std::ptrdiff_t(_from), _data.end());
+        return std::move(_out.data);
+    }
+
+private:
+    void flush() {
+        _out.data.insert(_out.data.end(), _data.begin() + std::ptrdiff_t(_from),
+                         _data.begin() + std::ptrdiff_t(r.pos()));
+        _from = r.pos();
+    }
+    const std::vector<uint8_t> &_data;
+    ByteWriter _out;
+    size_t _from = 0;
+};
+
+// A Model's references (model.cpp reads the rest): its state frame if it
+// has one, no properties, its
+// bounds, vectors, points and nodes; each surface's texture and actor (a
+// brush the editor built it from); its vertices; each zone's actor; its
+// Polys; its light maps, light bits, bounds, leaf hulls and leaves; its
+// lights (actors, each light map's list ended by none).
+bool modelRefs(const std::vector<uint8_t> &data, int version, bool stack, int32_t none, const Renumber &f,
+               std::vector<uint8_t> &out) {
+    RefCopy c(data);
+    Reader &r = c.r;
+    if (stack)
+        c.frame(f);
+    if (r.index() != none)
+        return false;
+    r.skip(version > 61 ? 41 : 37);
+    r.skip(c.count(12) * 12);
+    r.skip(c.count(12) * 12);
+    for (size_t n = c.count(43); n > 0 && r.ok(); --n) {
+        r.skip(25);
+        for (int k = 0; k < 7; ++k)
+            r.index();
+        r.skip(11);
+    }
+    for (size_t n = c.count(14); n > 0 && r.ok(); --n) {
+        c.ref(f);
+        r.u32();
+        for (int k = 0; k < 6; ++k)
+            r.index();
+        r.skip(4);
+        c.ref(f);
+    }
+    for (size_t n = c.count(2); n > 0 && r.ok(); --n) {
+        r.index();
+        r.index();
+    }
+    r.i32();
+    const int32_t zones = r.i32();
+    if (!r.ok() || zones < 0 || zones > 64)
+        return false;
+    for (int32_t z = 0; z < zones && r.ok(); ++z) {
+        c.ref(f);
+        r.skip(16);
+    }
+    c.ref(f);
+    for (size_t n = c.count(30); n > 0 && r.ok(); --n) {
+        r.skip(16);
+        r.index();
+        r.index();
+        r.skip(12);
+    }
+    r.skip(c.count(1));
+    r.skip(c.count(25) * 25);
+    r.skip(c.count(4) * 4);
+    for (size_t n = c.count(11); n > 0 && r.ok(); --n) {
+        r.index();
+        r.index();
+        r.index();
+        r.skip(8);
+    }
+    for (size_t n = c.count(1); n > 0 && r.ok(); --n)
+        c.ref(f);
+    if (!r.ok())
+        return false;
+    out = c.finish();
+    return true;
+}
+
+// A Polys object's references: its state frame if it has one, no
+// properties, the count twice, then each
+// polygon's actor (a brush) and texture.
+bool polysRefs(const std::vector<uint8_t> &data, bool stack, int32_t none, const Renumber &f,
+               std::vector<uint8_t> &out) {
+    RefCopy c(data);
+    Reader &r = c.r;
+    if (stack)
+        c.frame(f);
+    if (r.index() != none)
+        return false;
+    const int32_t count = r.i32();
+    r.i32();
+    if (!r.ok() || count < 0)
+        return false;
+    for (int32_t k = 0; k < count && r.ok(); ++k) {
+        const int32_t n = r.index();
+        if (n < 0 || n > 64)
+            return false;
+        r.skip(48 + size_t(n) * 12 + 4);
+        c.ref(f);
+        c.ref(f);
+        r.index();
+        r.index();
+        r.index();
+        r.skip(4);
+    }
+    if (!r.ok())
+        return false;
+    out = c.finish();
+    return true;
+}
+
+// The Level object's model and reach list (levelModelSpan): the model,
+// then each reach's start and end (navigation points).
+bool reachRefs(const std::vector<uint8_t> &span, const Renumber &f, std::vector<uint8_t> &out) {
+    RefCopy c(span);
+    Reader &r = c.r;
+    c.ref(f);
+    for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
+        r.i32();
+        c.ref(f);
+        c.ref(f);
+        r.skip(13);
+    }
+    if (!r.ok() || r.remaining() != 0)
+        return false;
+    out = c.finish();
+    return true;
+}
 
 bool transientClass(const VmClass *c) {
     for (; c; c = c->parent())
@@ -70,7 +239,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     const int version = _map.version();
     if (!_levelInfo || _levelInfo->package != &_map)
         return Error::fail("the level has no LevelInfo of its map's");
-    const int32_t levelOuter = _map.exports()[size_t(_levelInfo->exportIndex)].package;
+    const int32_t mapLevelOuter = _map.exports()[size_t(_levelInfo->exportIndex)].package;
 
     // What's saved: the level's actors and ghosts, and every object they
     // lead to that the level made, or that's one of the map's own; not the
@@ -119,16 +288,82 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         for (const Value &v : o->values)
             scan(v);
     }
-    // Their exports: the map's by their own numbers, the rest added, named
-    // as the level names them (made unique), in their outer.
+    // The map's exports kept, numbered again in their order: those saved,
+    // the Level object, what its model and reach list, the models and their
+    // polygons lead to, and the packages they're in. Not those for the
+    // editor alone (UnrealEd's building brushes, their models and polygons,
+    // its cameras), which the game never loads (Core.dll 0x1012d02b): the
+    // original's saves leave them out, and references to them are none.
+    // Should the map's data not read so, all are kept, those empty.
+    const auto &exports = _map.exports();
+    const std::vector<int> levels = _map.exportsOfClass("Level");
+    if (levels.empty())
+        return Error::fail(_map.name() + ": no Level object");
+    std::vector<uint8_t> mapLevel;
+    if (Error err = _map.readExport(levels.front(), mapLevel))
+        return err;
+    size_t modelBegin = 0;
+    size_t reachEnd = 0;
+    if (!levelModelSpan(mapLevel, version, modelBegin, reachEnd))
+        return Error::fail(_map.name() + ": its Level object doesn't read");
+    const std::vector<uint8_t> reach(mapLevel.begin() + std::ptrdiff_t(modelBegin),
+                                     mapLevel.begin() + std::ptrdiff_t(reachEnd));
+    auto editorOnly = [&](size_t i) {
+        return !(exports[i].flags & (objflag::kLoadForClient | objflag::kLoadForServer));
+    };
+    const int32_t noneName = w.name("None");
+    std::vector<bool> keep(exports.size(), false);
+    std::deque<size_t> leadsTo;
+    auto keepRef = [&](int32_t ref) {
+        if (ref > 0 && size_t(ref) <= exports.size() && !keep[size_t(ref - 1)] && !editorOnly(size_t(ref - 1))) {
+            keep[size_t(ref - 1)] = true;
+            leadsTo.push_back(size_t(ref - 1));
+        }
+        return ref;
+    };
+    for (VmObject *o : saved)
+        if (o->package == &_map)
+            keepRef(o->exportIndex + 1);
+    keepRef(levels.front() + 1);
+    std::vector<uint8_t> scratch;
+    bool renumber = reachRefs(reach, keepRef, scratch);
+    while (renumber && !leadsTo.empty()) {
+        const size_t i = leadsTo.front();
+        leadsTo.pop_front();
+        // Its package (or group), whatever its flags.
+        for (int32_t outer = exports[i].package; outer > 0 && !keep[size_t(outer - 1)];
+             outer = exports[size_t(outer - 1)].package) {
+            keep[size_t(outer - 1)] = true;
+            leadsTo.push_back(size_t(outer - 1));
+        }
+        const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
+        if (cls != "model" && cls != "polys")
+            continue;
+        std::vector<uint8_t> data;
+        const bool stack = exports[i].flags & objflag::kHasStack;
+        renumber = !_map.readExport(int(i), data) &&
+                   (cls == "model" ? modelRefs(data, version, stack, noneName, keepRef, scratch)
+                                   : polysRefs(data, stack, noneName, keepRef, scratch));
+    }
+    if (!renumber)
+        keep.assign(exports.size(), true);
+    const std::vector<int32_t> renumbered = w.keepOnly(keep);
+    auto fromMap = [&](int32_t ref) {
+        return ref > 0 && size_t(ref) < renumbered.size() ? renumbered[size_t(ref)] : ref;
+    };
+
+    // The new exports, named as the level names them (made unique), in their
+    // outer.
     std::set<std::pair<int32_t, std::string>> taken;    // outer, lower-case name
     std::map<const VmObject *, std::string> savedNames; // those renamed or new
-    for (size_t i = 0; i < _map.exports().size(); ++i)
-        taken.insert({_map.exports()[i].package, fs::toLower(_map.name(_map.exports()[i].objectName))});
+    for (size_t i = 0; i < exports.size(); ++i)
+        if (fromMap(int32_t(i) + 1) > 0)
+            taken.insert({fromMap(exports[i].package), fs::toLower(_map.name(exports[i].objectName))});
     auto classImport = [&](const VmClass *c) { return w.import(c->package->name() + "." + c->name, "Core", "Class"); };
     for (VmObject *o : saved)
         if (o->package == &_map)
-            refs[o] = o->exportIndex + 1;
+            refs[o] = fromMap(o->exportIndex + 1);
+    const int32_t levelOuter = fromMap(mapLevelOuter);
     for (VmObject *o : saved) {
         if (o->package)
             continue;
@@ -400,6 +635,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // The objects' data.
     for (VmObject *o : saved) {
         const int32_t ref = refs[o];
+        if (ref <= 0)
+            continue;
         if (o->package == &_map && !o->isActor) {
             // A mesh state: its groups as the actor's animation has them,
             // and what the actor holds.
@@ -451,17 +688,30 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         w.setData(ref, std::move(b.data));
     }
 
+    // What the save keeps of the map as it is: its models and their
+    // polygons (renumbered), and the actors their lights still lead to
+    // that the level destroyed (as they are now).
+    if (renumber)
+        for (size_t i = 0; i < exports.size(); ++i) {
+            const int32_t ref = fromMap(int32_t(i) + 1);
+            if (ref <= 0)
+                continue;
+            const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
+            std::vector<uint8_t> data;
+            const bool stack = exports[i].flags & objflag::kHasStack;
+            if (cls == "model" || cls == "polys") {
+                if (!_map.readExport(int(i), data) &&
+                    (cls == "model" ? modelRefs(data, version, stack, noneName, fromMap, scratch)
+                                    : polysRefs(data, stack, noneName, fromMap, scratch)))
+                    w.setData(ref, std::move(scratch));
+            } else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && o->isActor && !refs.count(o)) {
+                ByteWriter b;
+                properties(b, o);
+                w.setData(ref, std::move(b.data));
+            }
+        }
+
     // The Level object.
-    const std::vector<int> levels = _map.exportsOfClass("Level");
-    if (levels.empty())
-        return Error::fail(_map.name() + ": no Level object");
-    std::vector<uint8_t> mapLevel;
-    if (Error err = _map.readExport(levels.front(), mapLevel))
-        return err;
-    size_t modelBegin = 0;
-    size_t reachEnd = 0;
-    if (!levelModelSpan(mapLevel, version, modelBegin, reachEnd))
-        return Error::fail(_map.name() + ": its Level object doesn't read");
     ByteWriter L;
     L.index(w.name("None"));
     // The actors: the LevelInfo, the builder brush's place (none), the rest.
@@ -488,7 +738,10 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     L.i32(7777);
     L.i32(1);
     // The model and the reach list, as the map has them.
-    L.bytes(mapLevel.data() + modelBegin, reachEnd - modelBegin);
+    if (renumber && reachRefs(reach, fromMap, scratch))
+        L.append(scratch);
+    else
+        L.append(reach);
     const Value *now = prop(_levelInfo, "TimeSeconds");
     L.f32(now ? now->asFloat() : _time);
     L.index(0); // first deleted
@@ -544,31 +797,26 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         L.f32(e.start);
     }
     L.i32(0);
-    w.setData(levels.front() + 1, std::move(L.data));
+    w.setData(fromMap(levels.front() + 1), std::move(L.data));
 
-    // The map's actors the level no longer has (destroyed) stay,
-    // unreferenced: the engine loads only what the level leads to. Its
-    // exports for the editor alone (UnrealEd's building brushes, their
-    // models and polygons, its cameras) keep their numbers but no data:
-    // the game never loads them (Core.dll 0x1012d02b), and the original's
-    // saves have none.
-    // (A brush's polygons are loadable themselves, but only its model leads
-    // to them: those of models the game loads are kept.)
-    const auto &exports = _map.exports();
-    auto editorOnly = [&](size_t i) {
-        return !(exports[i].flags & (objflag::kLoadForClient | objflag::kLoadForServer));
-    };
-    std::set<int32_t> polysKept;
-    std::set<int32_t> polysDropped;
-    for (const int i : _map.exportsOfClass("Model")) {
-        Model m;
-        if (!readModel(_map, i, m, false) && m.polys > 0)
-            (editorOnly(size_t(i)) ? polysDropped : polysKept).insert(m.polys);
-    }
-    for (size_t i = 0; i < exports.size(); ++i) {
-        const auto ref = int32_t(i + 1);
-        if (exports[i].serialSize > 0 && (editorOnly(i) || (polysDropped.count(ref) && !polysKept.count(ref))))
-            w.setData(ref, {});
+    // Kept as the map numbers them: the map's actors the level no longer
+    // has stay, unreferenced (the engine loads only what the level leads
+    // to), and the editor's own, and the polygons only its models lead to,
+    // are left empty. (A brush's polygons are loadable themselves, but only
+    // its model leads to them: those of models the game loads are kept.)
+    if (!renumber) {
+        std::set<int32_t> polysKept;
+        std::set<int32_t> polysDropped;
+        for (const int i : _map.exportsOfClass("Model")) {
+            Model m;
+            if (!readModel(_map, i, m, false) && m.polys > 0)
+                (editorOnly(size_t(i)) ? polysDropped : polysKept).insert(m.polys);
+        }
+        for (size_t i = 0; i < exports.size(); ++i) {
+            const auto ref = int32_t(i + 1);
+            if (exports[i].serialSize > 0 && (editorOnly(i) || (polysDropped.count(ref) && !polysKept.count(ref))))
+                w.setData(ref, {});
+        }
     }
     return w.write(path);
 }
