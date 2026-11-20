@@ -207,13 +207,15 @@ void testMainMenu() {
 
 void testOptionsScreen() {
     // The options layout's buttons in a row, 10x10 each, its title's text
-    // box, and four volume sliders of 41 cells, 7 pixels each, one under
-    // another from x 100; an empty main menu.
+    // box, four volume sliders of 41 cells, 7 pixels each, one under
+    // another from x 100, and the settings' lists' places at x 600, 100
+    // apart (Tool Tips', Tactical Combat's, Random Events', Autosave's); an
+    // empty main menu.
     const std::vector<uint32_t> ids = {8100, 8101, 8106, 8107, 8108, 8109, 8114, 8115, 8118, 8119};
     Bytes f;
     put32(f, 2);
     putWidget(f, 1, 43, 0, 0, 800, 600, "none");
-    putWindowCounts(f, {{2, uint32_t(ids.size())}, {7, 4}, {14, 1}});
+    putWindowCounts(f, {{2, uint32_t(ids.size())}, {7, 4}, {13, 4}, {14, 1}});
     for (size_t i = 0; i < ids.size(); ++i) {
         putWidget(f, 2, ids[i], uint32_t(i * 20), 500, 10, 10, "none");
         put32(f, 0xffffffff);
@@ -232,6 +234,10 @@ void testOptionsScreen() {
             putName(f, "none");
         for (int n = 0; n < 3; ++n)
             put32(f, 0);
+    }
+    for (const auto &[id, y] : {std::pair{8111U, 0U}, {8110U, 100U}, {8112U, 200U}, {8113U, 300U}}) {
+        putWidget(f, 13, id, 600, y, 144, 96, "none");
+        put32(f, 0xffffffff);
     }
     putWidget(f, 14, 8122, 226, 153, 160, 29, "none");
     for (const uint32_t v : {0U, 0U, 160U, 29U})
@@ -259,10 +265,39 @@ void testOptionsScreen() {
     // The manual's defaults.
     const GameOptions defaults;
     CHECK(defaults.manualCombat && defaults.randomEvents && defaults.autosave && defaults.strategicTimer == 0);
-    // Each bar changes its setting; the timers' arrows have only "None".
-    for (size_t i = 2; i < ids.size(); ++i)
-        CHECK(click(i) == OptionsScreen::Result::kOpen);
+    // A setting opens its list, whose choices (yes, no) are 32 apart from
+    // 20, 36 in it: choosing one sets it and closes the list.
     const GameOptions &o = screen.options();
+    auto choose = [&](int list, int choice) {
+        const int x = 600 + 25;
+        const int y = 100 * list + 36 + 32 * choice + 5;
+        mouse(EventType::kMouseDown, x, y);
+        mouse(EventType::kMouseUp, x, y);
+    };
+    CHECK(click(3) == OptionsScreen::Result::kOpen && o.toolTips); // Tool Tips: only opened
+    choose(0, 1);
+    CHECK(!o.toolTips);
+    choose(0, 0); // closed: a click there does nothing
+    CHECK(!o.toolTips);
+    // A click elsewhere closes it unchanged; its bar again too.
+    click(2);
+    mouse(EventType::kMouseDown, 750, 590);
+    mouse(EventType::kMouseUp, 750, 590);
+    choose(1, 1);
+    CHECK(o.manualCombat);
+    click(2);
+    click(2);
+    choose(1, 1);
+    CHECK(o.manualCombat);
+    click(2);
+    choose(1, 1);
+    click(4);
+    choose(2, 1);
+    click(5);
+    choose(3, 1);
+    // The timers' arrows have only "None".
+    for (size_t i = 6; i < ids.size(); ++i)
+        CHECK(click(i) == OptionsScreen::Result::kOpen);
     CHECK(!o.manualCombat && !o.toolTips && !o.randomEvents && !o.autosave);
     CHECK(o.strategicTimer == 0 && o.tacticalTimer == 0);
     // A click on a volume's bar lights the cell under it and those left of

@@ -143,6 +143,10 @@ void makeInstall(const std::filesystem::path &dir) {
         options.push_back({2, id, 227, y, 234, 24, "bt"});
         y += 31;
     }
+    // The settings' lists' places, beside their rows.
+    for (const auto &[id, ty, h] : std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>{
+             {8111, 307, 128}, {8110, 338, 96}, {8112, 369, 96}, {8113, 400, 96}})
+        options.push_back({13, id, 468, ty, 144, h, ""});
     for (const uint32_t id : {8160U, 8161U, 8162U, 8163U})
         options.push_back({14, id, 463, 309 + 31 * (id - 8160), 131, 22, "human20.fnt"});
     // The title, the volumes' names, and the timers' names and values.
@@ -377,8 +381,10 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", click(30, 510, false)},
             {"menu.options cancelled", menuButton(5, true)},
             {"", menuButton(5, false)},
-            {"options.again", click(300, 345, true)}, // tactical combat, kept this time
+            {"options.again", click(300, 345, true)}, // tactical combat's list
             {"", click(300, 345, false)},
+            {"options.list open", click(520, 415, true)}, // Automatic, kept this time
+            {"", click(520, 415, false)},
             {"", click(500, 510, true)}, // Accept
             {"", click(500, 510, false)},
             {"menu.options accepted", menuButton(1, true)}, // a new game, combat automatic

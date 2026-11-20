@@ -52,7 +52,10 @@ public:
     OptionsScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
     Error load(); // the two layouts
     /** Shows `options`, to be changed until Accept or Cancel. */
-    void open(const GameOptions &options) { _options = options; }
+    void open(const GameOptions &options) {
+        _options = options;
+        _list = 0;
+    }
     void draw(Surface &screen) const;
     /**
      * Mouse clicks on the controls (a click on a setting changes it; a click
@@ -65,10 +68,13 @@ public:
 
 private:
     void click(int32_t id);
+    bool listChoice(int x, int y);
+    void drawList(Surface &screen) const;
     void setVolume(int32_t slider, int x);
 
     GameOptions _options;
     int32_t _dragging = 0; // the volume slider the mouse went down on, or 0
+    int32_t _list = 0;     // the setting whose list of choices is open, or 0
 };
 
 } // namespace reluva::botf

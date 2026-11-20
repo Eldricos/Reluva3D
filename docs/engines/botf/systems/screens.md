@@ -119,13 +119,19 @@ and checked against a screenshot of the game's screen.
   145) shows as (140, 199, 140), (25, 190, 250) as (24, 186, 247). The
   settings' values (24, 101, 189) and the timers' (173, 227, 115) aren't
   their fonts': the executable's own, measured from the screenshot.
-- **Not shown:** four pictures without a picture (8110-8113, 144 wide, 96
-  or 128 high) beside the settings' values; nothing is drawn there in the
-  screenshot.
-- **Settings as lists:** in a recording, clicking Tactical Combat Options
-  opens a list of its choices beside it, in the empty pictures' place
-  (8110-8113); Reluva changes the setting at a click instead, as the
-  screenshots didn't show the lists.
+- **Each setting's list of choices:** clicking a setting's bar opens a
+  list beside it, in the empty picture on its row (8111 Tool Tips, 8110
+  Tactical Combat, 8112 Random Events, 8113 Autosave), over the values;
+  the bar shows its lit picture meanwhile. The list is a background with a
+  bar along its top (`asavebkg.tga`, 144x96; `tactbkg.tga`, 144x128, the
+  same bar, for Tactical Combat by its name *(guessed)*) and the choices'
+  buttons, 124x28, from (20, 36) in it and 32 apart: `yes_on.tga` /
+  `yestxtop.tga`, `no_on.tga` / `notxtop.tga`, and for Tactical Combat
+  `man_on.tga` / `man-txt.tga`, `auto_on.tga` / `autotxto.tga`, the choice
+  set lit. A screenshot of Tool Tips' list open matches Reluva's pixel for
+  pixel but the pointer and a value peeking through. Reluva sets a choice
+  at a click and closes the list; a click elsewhere, or on the bar again,
+  closes it unchanged *(guessed)*.
 - **Behind it:** drawn over the main menu, dimmed, as the other panels
   are. The bar along the top reads "OPTIONS" where the menu's has none;
   that isn't in the layout's text boxes, so presumably it's in
@@ -436,7 +442,7 @@ recording:
   hot spot may not be where it's drawn, or only the button's picture, not
   its rectangle, may count.
 - On the options screen: whether a volume's click works as Reluva's does,
-  and the settings' lists of choices, seen open in a recording.
+  and how a setting's list closes.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
