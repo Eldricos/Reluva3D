@@ -82,7 +82,7 @@ Error parseStringPackage(std::string_view text, StringPackage &out) {
             StringPackage::Entry &e = out.entries.back();
             if (key == "REFERENCE")
                 e.reference = std::string(rest.substr(std::min(rest.find_first_not_of(" \t"), rest.size())));
-            else if (key.rfind("TEXT_LANGUAGE", 0) == 0 && key.size() == 14 && key[13] >= '1' && key[13] <= '3')
+            else if (key.rfind("TEXT_LANGUAGE", 0) == 0 && key.size() == 14 && key[13] >= '1' && key[13] <= '9')
                 e.text[size_t(key[13] - '1')] = quoted(rest);
             else if (key == "NOTES")
                 e.notes = quoted(rest);

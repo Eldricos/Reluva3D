@@ -187,6 +187,8 @@ which 1.03's engine checks for (0x437708); the rest is as 1.02a's:
   console commands (`ff_info`, `ff_stopall`, `ff_restart`) and cvars
   (`use_ff` now 1); the menus have keywords for it (`focusForce`,
   `menuEnterForce`...), and the version line says `JK2: v1.03`.
+- The string packages `assets2.pk3` brings (`strip/*.sp`) add Chinese
+  and Spanish text ([strings.md](../../../formats/strings.md)).
 
 ## In Reluva
 

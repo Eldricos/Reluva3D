@@ -24,7 +24,9 @@ struct StringPackage {
     struct Entry {
         int index = 0;
         std::string reference;
-        std::array<std::string, 3> text; // English, French, German; "\n" made a line break
+        // By TEXT_LANGUAGE1 to 9: English, French, German, and the
+        // patches' others (6 Big5 Chinese, 8 Spanish); "\n" a line break.
+        std::array<std::string, 9> text;
         std::string notes;
         std::string flags;
     };

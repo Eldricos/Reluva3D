@@ -465,14 +465,16 @@ static void testRavenText() {
     using namespace raven;
     // A string package: its header, entries by INDEX, text from the first
     // quote to the last (quotes inside kept), \n a line break.
-    const char *text = "VERSION 1\r\nCONFIG W:\\bin\\striped.cfg\r\nID 7\r\nREFERENCE INGAME\r\n"
-                       "DESCRIPTION \"in game text\"\r\nCOUNT 2\r\nINDEX 0\r\n{\r\n   REFERENCE OBJNONE\r\n"
-                       "   TEXT_LANGUAGE1 \"NONE\"\r\n   TEXT_LANGUAGE3 \"KEINE\"\r\n   FLAGS SP_FLAG9\r\n}\r\n"
-                       "INDEX 1\r\n{\r\n   REFERENCE SAY\r\n   NOTES \"a note\"\r\n"
-                       "   TEXT_LANGUAGE1 \"When you say \"troubling.\"\\nAgain\"\r\n}\r\n";
+    const char *text =
+        "VERSION 1\r\nCONFIG W:\\bin\\striped.cfg\r\nID 7\r\nREFERENCE INGAME\r\n"
+        "DESCRIPTION \"in game text\"\r\nCOUNT 2\r\nINDEX 0\r\n{\r\n   REFERENCE OBJNONE\r\n"
+        "   TEXT_LANGUAGE1 \"NONE\"\r\n   TEXT_LANGUAGE3 \"KEINE\"\r\n   TEXT_LANGUAGE8 \"NADA\"\r\n   FLAGS SP_FLAG9\r\n}\r\n"
+        "INDEX 1\r\n{\r\n   REFERENCE SAY\r\n   NOTES \"a note\"\r\n"
+        "   TEXT_LANGUAGE1 \"When you say \"troubling.\"\\nAgain\"\r\n}\r\n";
     StringPackage p;
     CHECK(!parseStringPackage(text, p) && p.reference == "INGAME" && p.id == 7 && p.description == "in game text");
-    CHECK(p.entries.size() == 2 && p.entries[0].reference == "OBJNONE" && p.entries[0].text[2] == "KEINE");
+    CHECK(p.entries.size() == 2 && p.entries[0].reference == "OBJNONE" && p.entries[0].text[2] == "KEINE" &&
+          p.entries[0].text[7] == "NADA");
     CHECK(p.entries.size() == 2 && p.entries[0].flags == "SP_FLAG9" && p.entries[1].notes == "a note");
     CHECK(p.entries.size() == 2 && p.entries[1].index == 1 &&
           p.entries[1].text[0] == "When you say \"troubling.\"\nAgain");

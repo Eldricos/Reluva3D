@@ -40,6 +40,7 @@ INDEX 0
 | `COUNT` | the package | how many entries (always the number of `INDEX` lines) |
 | `INDEX` | before an entry's `{` | its number |
 | `TEXT_LANGUAGE1` to `3` | an entry | English, French, German, quoted; some entries lack 2 or 3 |
+| `TEXT_LANGUAGE6`, `8` | an entry | the 1.03 and 1.04 patches' packages only: Chinese (Big5) and Spanish *(inferred)* |
 | `NOTES` | an entry | quoted, for the translators |
 | `FLAGS` | an entry | `SP_FLAG9` (51 entries), `SP_FLAG2` (1) |
 
@@ -49,7 +50,8 @@ line break, the only escape the packages use.
 
 ## In Reluva
 
-`parseStringPackage` reads one package, refusing a key it doesn't know or
+`parseStringPackage` reads one package, keeping `TEXT_LANGUAGE1` to `9`,
+refusing a key it doesn't know or
 an entry left open; `StringTable` reads every `strip/*.sp` and finds an
 entry by `PACKAGE_ENTRY`, whatever its case, in a language, an entry with
 no text in it giving its English *(guessed)*. The data viewer's Text page shows every package in the game's
@@ -58,7 +60,8 @@ fonts ([fonts.md](fonts.md)), in each language.
 ## Sources and checks
 
 - **Where the facts come from:** the packages themselves, every key and
-  value counted across all 30; the names from the menus' scripts
+  value counted across all 30, and the 1.04 patch's 32 (`assets2.pk3`,
+  `assets5.pk3`); the names from the menus' scripts
   (`ui/*.menu`, `ui/jk2mp/*.menu`).
 - **How it was checked:** every package reads, its `COUNT` equal to its
   entries; a unit test (`idtech3.unit.formats`, "raven text") reads a
