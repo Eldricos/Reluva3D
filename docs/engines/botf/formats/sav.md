@@ -29,7 +29,8 @@ directory of 40-byte entries. Two differences:
   fill is right; `result.lst` is stored in 61 pieces (its entry's sixth
   field), which Reluva doesn't read yet.
 
-`game0.sav` is 81,944 bytes: 249 files, the directory at 55,924, every
+`auto.sav`, an autosave at turn 1, holds 539 files; there too only
+`result.lst` decodes differently with the two fills. `game0.sav` is 81,944 bytes: 249 files, the directory at 55,924, every
 file decoding to its stated size. Some files are empty (`starBaseInfo`,
 `GTFStasis`: offset 0 or the next file's, both sizes 0).
 
@@ -48,11 +49,27 @@ The parts the screens use:
 | 0x00 | `char[13]` | the save's file name again (`game0.sav`) |
 | 0x0D | `char[51]` | the game's description, zero-terminated, Windows-1252: "Tutorial #1", what the Load Game screen shows |
 | 0x40 | `i32` | the turn, 0 the first (0 in Tutorial #1) *(published)* |
-| 0x4C | `i32` | 1 for a multiplayer game (0 in Tutorial #1) *(published)* |
+| 0x4C | `i32` | 1 for a multiplayer game (0 in both saves) *(published)* |
 
-Further on are the game's setup (the galaxy's shape and size, the minor
-races, the difficulty, random events, the timers, each empire's starting
-level) and each empire's statistics, which Reluva doesn't read yet.
+Further on is the game's setup, which Reluva doesn't read yet. As the
+Ultimate Editor gives it, with what the two saves seen hold (the first
+tutorial's `game0.sav`, and an `auto.sav` at turn 1):
+
+| Offset | Type | Field | Tutorial #1 | `auto.sav` |
+|---|---|---|---|---|
+| 0x252 | `u8` | the player's empire, 0 Cardassians to 4 Romulans | 4: the Romulans, as the manual says the tutorials are | 1 |
+| 0x254 | `u8[5]` | each major empire's starting level, 0 the first | 1 1 1 1 2 | 1 1 1 1 1 |
+| 0x260 | `i32` | galaxy shape, as the setup screen's order | 0 | 2 |
+| 0x264 | `i32` | galaxy size | 1 | 1 |
+| 0x268 | `i32` | minor races, 0 none to 3 many | 3 | 3 |
+| 0x26C | `i16` | difficulty, 1 to 5 | 1 | 3 |
+| 0x26E | `i16` | random events, 1 on | 0 | 1 |
+| 0x290 | `i32` | tactical combat, 0 manual | 0 | 0 |
+| 0x2A4, 0x2A8 | `i32` | the strategic and tactical timers | 0, 0 | 0, 0 |
+
+Only the tutorial's empire is checked against the game; the rest are
+*(published)*. `auto.sav`'s description is empty, and its header's name
+is `auto.sav`.
 
 ## In Reluva
 
@@ -73,7 +90,7 @@ on `game0.sav` it gives "game0.sav", "Tutorial #1", turn 0.
   for the layout only; see [tables.md](tables.md#other-sources)), November
   2026. The slots' file names are from a listing of the user's install.
 - **How it was checked:** on the user's `game0.sav` (Tutorial #1, from a
-  fresh install), November 2026: every file decoded with each window fill,
+  fresh install) and `auto.sav` (539 files, at turn 1), November 2026: every file decoded with each window fill,
   and `readSaveSummary` run on it, its description matching the Load Game
   screenshot's. The unit tests use files built to this layout, not the
   game's. The window's fill is from the editor alone.
@@ -85,7 +102,9 @@ on `game0.sav` it gives "game0.sav", "Tutorial #1", turn 0.
 - Which fill each file's window starts with: settled by a save with a
   reference into the unwritten window, or by `result.lst` once its pieces
   are read.
-- The turn and multiplayer fields, on a save from later in a game.
+- The setup fields, against a game whose setup is known: `auto.sav`'s
+  read as the Federation, every empire Early, a ring galaxy of medium
+  size, many minor races, normal difficulty, random events on.
 - What `Auto.sav` and `Last.sav` are: presumably autosave and the game the
   main menu's Continue loads.
 - The rest of `gameInfo`, and every other file in the archive.
