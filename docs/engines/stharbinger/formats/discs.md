@@ -22,6 +22,14 @@ Where the game's files are on its two CDs.
 | `DS9/MAPS/*.DAT` | deck maps for the map screen |
 | `DS9/TORPEDOS/CD` | disc number as text (`0`, `1`) |
 
+## In Reluva
+
+`findGameParts` (`src/engines/stharbinger/detection.h`) finds the discs and an
+install in a folder, and `Resources` (`formats/resources.h`) looks files up on
+all of them at once: there are no disc prompts, as
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md) says. `reluva-tool stharbinger
+files <game folder>` lists the parts found and every file read from them.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

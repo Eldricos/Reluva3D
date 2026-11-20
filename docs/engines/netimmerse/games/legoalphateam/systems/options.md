@@ -20,15 +20,23 @@ and the advanced options.
     `BPP  32` there, and the route's points scaled by 1.6.
   - Screen brightness and gamma: the game sets the display's gamma ramp
     through `IDirectDrawGammaControl`, asked of the primary surface.
-    That interface wasn't offered, so neither did anything. Now the ramp
-    is applied to each frame shown (brightness 50% to 60% lifted the
-    dark parts by about 25 levels), and `GetCaps` reports
-    `DDCAPS2_PRIMARYGAMMA`.
+    Reluva offers that interface and applies the ramp to each frame
+    shown (brightness 50% to 60% lifts the dark parts by about 25
+    levels), and `GetCaps` reports `DDCAPS2_PRIMARYGAMMA`.
   - Music, voice-over and sound effects volumes: the game sets its
     sources' gains (`IA3dSource::SetGain`), which ours applies.
   - Mouse sensitivity and the advanced options (textures, lightmaps,
     backdrop, environment animation, shadows) are the game's own
     business: nothing of ours is involved.
+
+## In Reluva
+
+Reluva runs the game's own code, unchanged, in the x86 interpreter ([running.md](running.md)); the options are the game's own. Reluva's stand-ins carry them
+out: the display mode and the gamma ramp in its DirectDraw
+(`src/emulation/x86/directx/`), the gains in its A3D
+(`src/emulation/x86/a3d.cpp`). Gamma and brightness applied to each
+frame, and the display modes, are in
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
 
 ## Sources and checks
 

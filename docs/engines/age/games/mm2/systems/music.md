@@ -6,7 +6,7 @@
 
 The game's DirectMusic tunes, following the race or the drive. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Music
+## How it works
 
 The game's DirectMusic music ([directmusic.md](../../../../../common/audio/directmusic.md)),
 played by `music.cpp` on Reluva's DirectMusic player and DLS synthesizer.
@@ -43,6 +43,12 @@ name the **big-air motif**: GrooverStyle's `BigAir` pattern (a motif,
 one measure of two parts) with the `BigAir` band. A second off the
 ground (Reluva's measure of big air), it plays once over the tune, from
 then, its band's instruments on its own channels.
+
+## In Reluva
+
+`GameMusic` and `MusicSet` (`src/engines/age/audio/music.{h,cpp}`) play
+the tunes on Reluva's DirectMusic player. Which tune a race gets, and
+the speeds and times for idling, are Reluva's (above).
 
 ## Sources and checks
 

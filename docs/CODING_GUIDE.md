@@ -629,6 +629,20 @@ HTML tag.
 
 ---
 
+## Not decided yet
+
+The guide has no rule yet on these; until it has, follow the file you're
+in.
+
+- **Include order.** Most files include their own header, then the
+  project's, then the system's; `stgenerations` puts the system's first.
+- **Casts.** The code has both C-style casts and `static_cast`.
+- **`enum` or `enum class`.** Both are used.
+- **Names that must match something outside Reluva,** such as the Win32
+  and MSVC exports in `src/emulation/x86/runtime/msvcp60.cpp` and the QVM
+  system calls in the idtech3 test programs, keep the outside names (see
+  Naming: Exceptions) with a `NOLINT` saying why.
+
 ## Special Keywords
 
 The following keywords mark certain sections of the code:

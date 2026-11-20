@@ -2,11 +2,7 @@
 
 > **Status:** partial · **Code:** `src/engines/nfs/host/thrash_native.cpp`, `thrash.cpp`, `src/engines/nfs/render/thrash_gpu.cpp` · **Confidence:** from the code unless marked
 
-Partly implemented. Native drawing is in
-`src/engines/nfs/host/thrash_native.cpp`; `reluva-tool nfs host -native`
-uses it. The renderer DLL still keeps its own books (textures, windows,
-page flips). Native drawing takes over only its triangles, quads, lines
-and points.
+## Overview
 
 THRASH is the interface between `nfs3.exe` and its renderer DLLs:
 
@@ -23,47 +19,9 @@ The game loads the one the registry names ("Thrash Driver") and finds
 its functions by name with GetProcAddress. Each export is
 `_THRASH_<name>@<argument bytes>`, stdcall.
 
-## Sources and checks
+## How it works
 
-October 2026, from the retail DLLs and the game running in Reluva's
-interpreter (Phase 4's host). This is reverse engineering for
-interoperability.
-
-- **Calls and arguments.** Every THRASH call was logged over a run of
-  frames, with its arguments and the memory its pointer arguments point
-  at (`reluva-tool nfs host -thrashlog from to`). The menus and a race were both
-  logged.
-- **Render states.** `d3da.dll` turns each `setstate` id into Direct3D
-  render states. Disassembling that mapping names most ids, because the
-  Direct3D states it sets are documented.
-- **Vertices.** The 32 bytes each vertex argument points at hold floats at screen
-  scale, then colours. d3da hands vertices straight to Direct3D's
-  DrawPrimitive as D3DTLVERTEX, the documented layout, with no
-  conversion.
-- **Texture formats.** From softtria's `tupdate`: a jump table by format
-  leads to a converter for each format. Each converter was disassembled:
-  - which bits it reads;
-  - how it scales them;
-  - which values it treats as transparent.
-- **Fog.** `voodoo2a.dll`'s `setstate` was disassembled, with the
-  game's code that sends the fog states and picks the fog mode. The
-  meaning of each step is Glide's, whose functions it finds by name.
-  Checked with a copy of the game whose `.hrz` files were edited to red
-  fog: the game sends the states as worked out, and the frames fog red
-  with distance (see Fog).
-- **Window buffers.** softtria draws into buffers of its own, not into
-  the DirectDraw surface; `pageflip` copies them across. `lockwindow`
-  returns where they are.
-- **Checks.** Natively drawn frames were compared with softtria's frames
-  of the same menu screen:
-  - mean difference 1.7 of 255 per channel;
-  - the rest is edge pixels of translucent artwork (rounding in the
-    blend).
-
-  A race (Hometown, 8 cars) draws the same scene as softtria: road,
-  scenery, cars, the dashboard and the HUD.
-
-## Vertices
+### Vertices
 
 32 bytes, Direct3D's D3DTLVERTEX:
 
@@ -78,7 +36,7 @@ interoperability.
 | 24 | float | u, 0..1 across the texture |
 | 28 | float | v, 0..1 down the texture |
 
-## Drawing
+### Drawing
 
 | Function | Arguments | Draws |
 |---|---|---|
@@ -95,7 +53,7 @@ interoperability.
 | `drawpointstrip` | n, vertices | n points |
 | `drawpointmesh` | n, vertices, indices | n points; 1 index each |
 
-## Textures
+### Textures
 
 - `talloc(width, height, format, 0, 0)` returns a handle.
 - `tupdate(handle, pixels, palette)` gives the texels, the palette, or
@@ -113,7 +71,7 @@ interoperability.
 In the menus and a race, the game uses all four: 175, 380, 616 and 140
 textures of each, in that order.
 
-## Render states
+### Render states
 
 `setstate(id, value)`. The meanings come from d3da's mapping to
 Direct3D:
@@ -141,7 +99,7 @@ Direct3D:
 | 0x190-0x195 | assorted; 0x193 returns capabilities, 0x194 and 0x195 set source and destination blend from tables |
 | 0x2bd, 0x2bf, 0x2c2 | softtria's own; d3da ignores them and returns 0 |
 
-## Blend modes
+### Blend modes
 
 State 0x68 picks the blend; the game sends only 0 and 1 (the polygon
 drawers `0x4332b0`, `0x433530`, `0x433660`, `0x4339d0`, by bit 0 of a
@@ -171,18 +129,18 @@ base 0x60000000; its `setstate` is `0x600030c0`):
   (the masks at `0x6003e33c`-`0x6003e344`), with no alpha and no vertex
   colour. So softtria adds an opaque pixel in full too.
 
-**Reluva** (November 2026): the GPU drawing (`thrash_gpu.cpp`) blends
-with (source alpha, one) for mode 1 while state 0xa is on, so it added
-opaque pixels; the software rasterizer (`NativeThrash::put`) applied a
-blend only to pixels under alpha 255, so it replaced an opaque added
-pixel instead of adding it, and mode 2 and 3 likewise. Now it applies
-0x68's mode whenever 0xa is on, opaque or not, and mixes by alpha
-otherwise, as the GPU does (test `testThrashBlend`). Neither follows
+**Reluva**: the GPU drawing (`thrash_gpu.cpp`) blends with (source
+alpha, one) for mode 1 while state 0xa is on, so it adds opaque pixels;
+the software rasterizer (`NativeThrash::put`) applies 0x68's mode
+whenever 0xa is on, opaque or not, and mixes by alpha otherwise, as the
+GPU does (test `testThrashBlend`). A blend applied only to pixels under
+alpha 255 would replace an opaque added pixel instead of adding it, and
+in modes 2 and 3 likewise. Neither follows
 softtria's per-triangle alpha levels, its untextured rows or its
 additive spans' ignoring the vertex colour: Reluva draws as the 3D
 cards do.
 
-## d3da's device defaults
+### d3da's device defaults
 
 `d3da.dll` sets up its Direct3D device once (`0x60004137`-`0x600042af`,
 IDirect3DDevice2::SetRenderState through vtable `+0x5c`, constant
@@ -224,7 +182,7 @@ and 7 in a race (1555, 565 and 4444, which Direct3D cards commonly
 offered; what d3da would list depends on the card), and its flag at +0x75 has the game load the in-car dashboard, as
 d3da's does with more than 4 MB of texture memory (`0x488a80`).
 
-## Texture filtering
+### Texture filtering
 
 What the game asks for (November 2026): state 0x7 is the texture
 filter, 0x8 the LOD bias and 0xb mipmapping. `voodoo2a.dll`'s `setstate`
@@ -253,10 +211,9 @@ GR_MIPMAP_NEAREST, FXFALSE)`), 3 0, 0xc 0, 5 1, 0xe 0, 0xf −1, 0x68 0, 0xd
 with a depth buffer, 4 2. So with `voodoo2a.dll` the game's textures are
 **bilinear-filtered**, for minification and magnification; its textures
 have one level each (`talloc` asks for none smaller), so the mipmap mode
-changes nothing. An earlier reading here had them point-sampled, from
-the default filter Glide's own sources set; that source is not used any
-more, and the DLL's own set-up overrides any default anyway. Since
-November 2026 the native THRASH (`thrash_native.cpp`, the GPU's drawing
+changes nothing. They aren't point-sampled, as the default filter
+Glide's own sources set would suggest: the DLL's own set-up overrides
+any default. The native THRASH (`thrash_native.cpp`, the GPU's drawing
 and the software rasterizer) and the Track and Cars pages filter
 bilinearly too by default; `texturefilter=point` in reluva.ini (or
 `reluva-tool nfs host -pointfilter`) holds them point-sampled. In the Direct3D look
@@ -264,7 +221,7 @@ d3da's state 7 still picks. Their bilinear filter is Direct3D's (texel
 centres at half-integers, float weights); the Voodoo's own, with its
 fixed-point weights, is the Glide stand-in's (`renderer=glide`). The
 pages filter the track's pictures, the sky's, the cars' skins and reflection maps and
-the officer's pages (`glideTextureParams`), and since November 2026 the
+the officer's pages (`glideTextureParams`), and the
 glows, beams, flares, particles and the headlights' picture too: in the
 lists they are textured batches like the others (`d7-night1`'s frame
 2700: the cars' glows on `glw3`'s 32 × 32, mode 1, `e5ffffff` and
@@ -272,7 +229,7 @@ lists they are textured batches like the others (`d7-night1`'s frame
 32, `72ffffff`; `d5-fog`: the rain's flares on `glw4`'s 64 × 64), with
 no texture state of their own.
 
-## Fog
+### Fog
 
 The game fogs only with a 3dfx renderer. Its set-up for each renderer
 (0x4b59c0, a jump table by renderer number) sets the fog mode it sends
@@ -315,7 +272,7 @@ loaded:
 Clears aren't fogged. Each batch on the GPU carries the fog it was
 drawn with.
 
-## Dithering
+### Dithering
 
 `voodoo2a.dll` draws into a 16-bit (5:6:5) buffer with Glide's 4x4
 ordered dither on (November 2026, read from the DLL with `pefile` and
@@ -331,26 +288,27 @@ the game's `setstate` wrapper (`0x431900`, the id in eax) none loads a
 5 (one takes its id from a record, `0x43485d`; that run didn't send 5
 either).
 
-`reluva-tool nfs host`'s native drawing (`thrash_native.cpp`) had truncated each
-pixel to 5:6:5. A blend reads the pixel back from 5:6:5, so where
-translucent quads overlap, each layer lost up to a step (8 of 255 in
-red and blue) and with a low alpha the loss holds the colour back: the
-tyre smoke ([col.md](../formats/col.md), eight quads at alpha 62-100 × the picture's
-up to 217) came out 9.5-10.7 darker than on the Track page where the
-scenery round it was 1.5-4 darker. It now dithers as Glide is asked to
-(state 5, on from the start): each channel scaled to its bits plus the
-4x4 Bayer matrix's threshold at the pixel, (2k + 1) / 32 of a step,
-then truncated, so a region keeps its colour on average. The matrix is
-Glide's documented 4x4 one; the Voodoo's own rounding of it isn't known
-from the code. Measured on Empire City's frame 2816 (`e5-t8f0` before,
-`e5-t8d0` after, the page from the dumped camera, cars and particles):
-the smoke 2.8-4.1 under the page, the scenery round it 0.8-2.4 under;
-over the whole frame the host's mean rose by 2.1, 1.1, 3.1 in red,
-green and blue. Since the hashed end state of `-deterministic` runs
-holds the frame buffer, a `-native` run's hash differs from an older
-build's from the first frame drawn; the game's own state doesn't.
+`reluva-tool nfs host`'s native drawing (`thrash_native.cpp`) dithers
+as Glide is asked to (state 5, on from the start): each channel scaled
+to its bits plus the 4x4 Bayer matrix's threshold at the pixel,
+(2k + 1) / 32 of a step, then truncated, so a region keeps its colour on
+average. Truncated without it, a blend reads the pixel back from 5:6:5,
+so where translucent quads overlap, each layer loses up to a step (8 of
+255 in red and blue) and with a low alpha the loss holds the colour
+back: the tyre smoke ([col.md](../formats/col.md), eight quads at alpha
+62-100 × the picture's
+up to 217) comes out 9.5-10.7 darker than on the Track page where the
+scenery round it is 1.5-4 darker. The matrix is Glide's documented 4x4
+one; the Voodoo's own rounding of it isn't known from the code.
+Measured on Empire City's frame 2816 (`e5-t8f0` truncated, `e5-t8d0`
+dithered, the page from the dumped camera, cars and particles): the
+smoke 2.8-4.1 under the page, the scenery round it 0.8-2.4 under; over
+the whole frame the dither raises the host's mean by 2.1, 1.1, 3.1 in
+red, green and blue. The hashed end state of `-deterministic` runs
+holds the frame buffer, so a `-native` run's hash depends on the dither
+from the first frame drawn; the game's own state doesn't.
 
-**What was left of the smoke's difference** (November 2026, `e6-runs`:
+**What is left of the smoke's difference** (November 2026, `e6-runs`:
 Empire City by day, Hot Pursuit poked at `0x474ca0` (`0x6fd3b8` 3, track
 8), racer 1 held 18 m ahead with `d8-runs/t8-car1.txt`'s pokes, the
 camera, cars and particles dumped at the 400th sky draw, frame 2816 and
@@ -358,14 +316,15 @@ list 2818; `t8d`). The smoke's batch is the frame's last but the
 cockpit's (8 quads, `SP06` at 32 × 32, alpha blend, fog 475 like the
 scenery, corners `48e3e3e3`-`6ef6f6f6`); the page draws the same quads
 after the cars, fogged as the scenery, `SrcAlpha`/`OneMinusSrcAlpha`,
-with the same colours. Over the smoke the page was 3.1-4.4 above the
-host's frame, the road beside it 0.2-1.3. Two causes:
+with the same colours. With its picture at full precision the page is
+3.1-4.4 above the host's frame over the smoke, the road beside it
+0.2-1.3. Two causes:
 - **The picture.** `SP06` is a 32-bit shape; the game hands it to the
   card at 4:4:4:4, each channel's top four bits (`0x4d37a0` →
   `0x4d27e0`, below, Textures as loaded), so its texels are multiples of
-  17 in the list. The page had taken it at full precision. Now that it
-  takes it as the game does (`decodeForGlide`) its texels equal the
-  list's (all 1,024), and the smoke is 2.3-3.6 over the host's.
+  17 in the list. The page takes it as the game does
+  (`decodeForGlide`): its texels equal the list's (all 1,024), and the
+  smoke is 2.3-3.6 over the host's.
 - **The blend into 5:6:5.** `reluva-tool nfs host`'s drawing truncates three times a
   layer: the shaded, fogged colour and its alpha to whole levels, the
   blend's `/ 255`, and the read back of the pixel (`c × 255 / 31`). A
@@ -391,14 +350,13 @@ and textures are widened to 8 bits by repeating their top bits
 ({r[4:0], r[4:2]} for 5:6:5). They don't give the colour dither's
 matrix values, how a matrix value is added to a channel and rounded,
 whether Glide's `grDitherMode` sets bit 19, or how a 5:6:5 destination
-pixel is widened for a blend. So the host's dither stays as it was
-(the matrix's thresholds, truncated) and the rounding stays open. The
-smoke and shadow-strip numbers above changed for another reason: on
-Empire City's officer frame (`t8o`) the strip under the held car is now
-+3.9, +4.3, +5.9 over the host's frame (was +6.4, +6.9, +8.5), because
-the page's smoke over it had its picture mirrored ([col.md](../formats/col.md),
-Its spread over the car); over the puffs themselves the page is +2.8,
-+3.4, +3.8.
+pixel is widened for a blend. So the host's dither is the matrix's
+thresholds, truncated, and the rounding stays open. On Empire City's
+officer frame (`t8o`) the strip under the held car is +3.9, +4.3, +5.9
+over the host's frame, with the smoke over it drawn with its picture
+the right way round ([col.md](../formats/col.md), Its spread over the
+car; mirrored, +6.4, +6.9, +8.5); over the puffs themselves the page is
++2.8, +3.4, +3.8.
 
 **Textures as loaded** (`0x4d4080` → `0x4d3f50` → `0x4d37a0`, `gdecomp`
 and `asm`, November 2026). A shape is converted by its type and the
@@ -409,10 +367,10 @@ goes through `0x4d27e0`: a = A >> 4, r = R >> 4, g = G >> 4, b = B >> 4
 (the key colours `0xff00f800` and `0xff00fb00` become 0; with `0x7a3a6c`
 set, only for renderer 5, a black texel with alpha gets blue 1). The
 card widens each nibble back by 17. In `e6-runs/t8d`'s list `shad`,
-`SP06` and `glw3` as the page now decodes them equal the list's textures
+`SP06` and `glw3` as the page decodes them equal the list's textures
 texel for texel.
 
-## Windows and frames
+### Windows and frames
 
 - `window(n)` picks where drawing goes: 1 the front buffer, 2 the back.
 - `lockwindow()` returns a structure:
@@ -431,168 +389,7 @@ texel for texel.
   its buffer to the DirectDraw surface.
 - `about()` returns a pointer to a structure describing the renderer.
 
-## Page flips and clears, natively
-
-With the retail `softtria.dll` (timestamp 0x35e4344f, image base
-0x60000000), `reluva-tool nfs host -native` does `pageflip` and `clearwindow` itself.
-Both work on softtria's current window over its clip rectangle, which it
-keeps in globals. Their addresses come from disassembling the two
-functions:
-
-| Global | Meaning |
-|---|---|
-| `0x6003e0fc` | the current window's buffer |
-| `0x6003e0ec` | its pitch, in bytes |
-| `0x6003e0b8`, `0x6003e0bc` | the clip rectangle's left (rounded down to 16 pixels) and top |
-| `0x6003e0c0`, `0x6003e0c4` | its width (in whole 16-pixel columns) and height |
-| `0x6003e11c` | the clear colour, as two 5:6:5 pixels |
-| `0x600400b4` | a function of the game's, called with 1 before a page flip's copy and 0 after |
-
-- `clearwindow` fills the rectangle with the clear colour.
-- `pageflip` locks the primary DirectDraw surface and copies the
-  rectangle into it, eight bytes at a time through FILD/FISTP. Then it
-  unlocks the surface. It doesn't swap windows. Done natively, the
-  rectangle goes straight to the frame shown, between the two calls to
-  the game's function.
-
-With any other renderer DLL, both are left to the DLL.
-
-## Texture uploads, natively
-
-With native drawing, `tupdate` doesn't call the DLL either (with any
-renderer DLL). Its drawing is the only thing that reads its copy of the
-textures, and it isn't called. The native copy, decoded to RGBA, is the
-only one kept. The result is what softtria's `tupdate` returns: the
-handle, or 0 for formats 3 and 4 given no pixels. `talloc` and `treset`
-still go to the DLL, so the handles stay its own; they cost about a
-million instructions in a run.
-
-In a run into a race this takes 168 million instructions out of the
-DLL, about 3% of the run. Loading hardly changes, though. The longest
-waits between frames, at start-up and while the track loads, were 5.3
-and 1.4 seconds, against 5.4 and 1.3 with the DLL's uploads. Those
-waits are spent elsewhere.
-
-## On the GPU
-
-With a GPU, the Play page draws THRASH's frames with it
-(`src/engines/nfs/render/thrash_gpu.cpp`). `GameHost` (with `gpuThrash`)
-records each frame's drawing as a list, and the page draws the lists.
-
-- **Triangles.** Each triangle gets its three vertices of its own, so
-  flat shading is the first vertex's colour on all three. Quads are two
-  triangles. Lines are quads a pixel wide, and points one-pixel squares.
-- **Batches.** A new batch starts when the texture, wrapping, blending,
-  culling, fog or clip rectangle changes. Clears are filled rectangles in the
-  list, in their place.
-- **Textures.** Those made or changed since the last frame go with the
-  list, decoded to RGBA as for the software rasterizer.
-- **Vertices** go to the GPU as (x / rhw, y / rhw, 1 / rhw). A matrix maps
-  that to clip space, with clip w equal to 1 / rhw, so texturing is
-  perspective-correct as in the software renderer. A triangle whose three
-  vertices share one rhw is flat on the screen, and goes with w = 1.
-  2D pictures come with rhw = 1/65536, which would make w huge for
-  nothing.
-- **Clipping.** The batch's clip rectangle becomes the viewport, with the
-  matrix fitted to it.
-- **No depth test.** The game sorts back to front for the software
-  renderer.
-- **Blending.** Translucent texels and vertices blend over what's drawn,
-  with source alpha. State 0x68's other modes apply while blending is on
-  (state 0xa). Texels of alpha 0 are left out.
-- **One pipeline for the blends.** Nothing reads the frame's alpha, so
-  the page says so (`Renderer3D::setFrameAlphaUnused`) and the renderer
-  draws blended and added batches with one pipeline state, the factors
-  applied in the fragment shader. A race alternates the two about 1,500
-  times a frame (of some 2,000 batches); each pipeline switch took SDL
-  four new descriptor sets.
-- **Culling.** Cull 1 (Direct3D's counter-clockwise culling, in d3da)
-  drops triangles turning counter-clockwise as shown on the screen. Cull
-  2 drops clockwise ones.
-- **Frames add to the last.** softtria's buffers keep their contents
-  from one frame to the next, and the game sometimes draws only what's
-  new: a loading screen draws its picture once, then a step of its
-  progress bar each frame. So the GPU's frame keeps its contents too
-  (`Renderer3D::setKeepFrame`), and lists are drawn in order, each with
-  the texture changes it brought. The page draws all the lists waiting
-  into one frame, shown once. A list of 1,000 vertices or more is taken
-  to draw the whole screen (menus have 2,000 to 3,000, races tens of
-  thousands), so those before the last such list are skipped, their
-  texture changes still applied. At most about 150,000 vertices wait.
-  With more, the oldest go, as when the page isn't shown.
-- **The flip's rectangle.** A page flip copies only softtria's clip
-  rectangle to the screen. DirectDraw's last picture stays outside it
-  until a flip covers the whole screen.
-
-Checked first that nothing is lost by not drawing into softtria's
-buffers. With drawing turned off and clears made magenta, every frame
-from the menus, through the track's loading screen and into a race was
-magenta throughout. So the game draws only through THRASH.
-
-**Compared with the software rasterizer.** With `RELUVA_NFS_COMPARE` set
-to a folder, the Play page has the game drawn both ways, at 640x480
-(point-sampled when the runs below were made; both now filter as
-`texturefilter` says). Every 60th frame it writes the GPU's frame and the
-software one of the same page flip. In a run through the menus, a
-loading screen and a race in three camera views, under software Vulkan:
-
-| | Mean difference (of 255) | Pixels off by more than 24 |
-|---|---|---|
-| Menus | 0.25-0.46 | 120-150 |
-| Loading screen | 0.01-0.03 | 0 |
-| Race | about 3 | about 200 |
-
-The race's difference is mostly the software path's 5:6:5 colour.
-Rounded to it, the GPU's frame is within 1.1 on average; the rest is
-pixels along edges. The comparison found two bugs, both fixed:
-- **Culling.** The mapping had cull 1 and 2 the wrong way round, which
-  left the loading screens and the countdown's digits out.
-- **Skipped lists.** The page drew only the latest list, which lost
-  frames that add to the last.
-
-`reluva-tool nfs host -gpulog` records as for the GPU, without one, and sums up
-each frame's list: batches, vertices, textures, the flip's rectangle. `reluva-tool nfs host -gpudump n dir` writes the nth list out in full: every
-vertex with its batch's texture, blending, culling, fog and texture
-filter (`list.csv`; the `filter` column is −1 where the batch leaves it
-to the drawing's default, 0 point-sampled, 1 bilinear: set only under
-d3da's device, from state 7), and the textures it uses as TGA files. That is how the
-game's sky was measured ([hrz.md](../formats/hrz.md)).
-
-**Memory mappings** (November 2026). A second race in one session
-crashed under Mesa's software Vulkan driver: the process had reached the
-kernel's limit of 65,530 memory mappings, one per Vulkan descriptor set
-there. SDL's Vulkan backend keeps a cache of descriptor sets for every
-command buffer in flight and never frees one (sdl_gpu.h, copyPass), and
-every texture the page made had brought a command buffer of its own, as
-did SDL's making of it. With the uploads already sharing one, the front
-end alone still made 117 caches, more of them growing to a race frame's
-draws with each race. Now uploads share a
-command buffer, at most two frames are in flight, the renderer waits for
-the GPU after every eighth texture (11 caches) and the blends share a
-pipeline. Mappings (`/proc/<pid>/maps`, the most in each stretch), Play
-page, Hometown, quitting to the menu between races:
-
-| | menus | 1st race | 2nd race | 3rd race | 4th race |
-|---|---|---|---|---|---|
-| Before (Direct3D look) | 10,400 | 44,300 | crashed loading | | |
-| After (Direct3D look) | 6,600 | 19,000 | 23,800 | 28,300 | |
-| After (default) | 5,600 | 17,700 | 24,800 | 28,700 | 32,400 |
-
-Each race adds less, as the caches reach the largest frame's size. The
-frame rate is unchanged: about 8 frames a second in a race under this
-software driver, as before. The Track page with computer cars and rain
-stays at 7,000-7,700 over seven minutes.
-
-DirectDraw's frames (the movies) are shown over an empty frame. Frames
-are drawn at `renderscale` times 640x480 (2 unless set): the same
-picture, with sharper edges. Textures are bilinear-filtered, as both of
-the game's renderer DLLs ask for, or point-sampled with
-`texturefilter=point`; in the Direct3D look
-(`renderer=direct3d`) as d3da's device filters them, whatever that says. Both settings are in the game's
-section of `reluva.ini`. Without a GPU, the software rasterizer draws
-as before.
-
-## The Voodoo3 patch's voodoo2a.dll
+### The Voodoo3 patch's voodoo2a.dll
 
 The Classic CD has a `Patch/Voodoo3` folder with a newer
 `voodoo2a.dll` (110,592 bytes, PE time stamp 1999-04-21), a
@@ -603,8 +400,8 @@ Device Setup. The install's `voodoo2a.dll` is the retail one (93,382
 bytes, 1998-07-31). This section was read from both files (November
 2026, `pefile` and `capstone`; scripts kept outside the repo). The
 CD's `nfs3.exe` is byte-identical to the install's (1998-09-03). The
-patch DLL loads Glide 3 (`glide3x.dll`) by name. Since November 2026 it
-runs under reluva-tool nfs host on Reluva's Glide 3 stand-in (`-glidedll`, below,
+patch DLL loads Glide 3 (`glide3x.dll`) by name. It runs under
+reluva-tool nfs host on Reluva's Glide 3 stand-in (`-glidedll`, below,
 Running the patch DLL); the rest of this section was read from the code
 and, where marked, checked by running it.
 
@@ -684,8 +481,8 @@ ids it doesn't handle itself to `0x60005280`, whose case 0x1f
 0x68 to 0x6a and takes 0x6a otherwise. So `about()` reports 0x68 to this
 game: watched at `0x4f8759` (reluva-tool nfs host `-watch`), its structure holds
 "2FD3" at +0 and 0x68 at +8, and `0x4f8769` (the message) is never
-reached. The DLL negotiates the version; the earlier reading missed the
-`setstate` before `about()`.
+reached. The DLL negotiates the version, by the `setstate` before
+`about()`.
 
 **Video modes.** Both take `setvideomode(mode, buffers, depth)` (the
 game sends 1, 2, 1: 640x480, double-buffered, with a depth buffer).
@@ -766,14 +563,15 @@ alone still goes straight to the board.
 - **Fog (0x15, 0xe).** The table is the retail one's
   ([Fog](#fog)). `0x60003280` works out (1 − e^(−w·d)) / (1 − e^(−w(63)·d))
   with d = 1/v, clamped and × 255, for Glide's 64 w values
-  (`0x60001500`). It is now resampled to the board's own table size
-  (`grGet(4)`, `0x60017de0`) when that is over 64, up to 1024
-  (`0x600028a0`). 0x15 also changed. It now runs a jump table by value
+  (`0x60001500`). Unlike the retail one's, it is resampled to the
+  board's own table size (`grGet(4)`, `0x60017de0`) when that is over
+  64, up to 1024 (`0x600028a0`). 0x15 differs too: it runs a jump table by value
   (`0x60003244`): 0 turns fog off (`grFogMode(0)`), 1 turns table fog
   on (`grFogMode(2)`), and 2, 4 and 8 only choose the table's shape
   (`0x60017dbc`). 2 is a curve made with 65536 (`0x60001470`), 8 is
-  `0x60003340` and the rest are the curve above. 0xe no longer turns fog
-  on; it only builds the table. The game sends 0x15 = 4 for this renderer
+  `0x60003340` and the rest are the curve above. 0xe doesn't turn fog
+  on, as the retail one's does; it only builds the table. The game sends
+  0x15 = 4 for this renderer
   (`0x4b59c0`, `0x7a3a64`). So, from the code, the patch DLL would
   draw this game with no fog unless `FOGMODE`/0x15 is 1. The retail
   DLL turns table fog on for 1, 2, 4 and 8. **Confirmed by running it**
@@ -815,7 +613,7 @@ instructions, 3,829 frames) and the code:
   `0x60014058`, read at each `grTexDownloadTable`) and changes a word of
   its texture format table (`0x600140ac`, 5 to 1); with TEXMIRROR its
   `setstate` for the clamp mode may ask `grTexClampMode` for
-  `GR_TEXTURECLAMP_MIRROR_EXT` (`0x60002dee`). Since November 2026 the
+  `GR_TEXTURECLAMP_MIRROR_EXT` (`0x60002dee`). The
   stand-in's Voodoo3 offers both, as its specification has them (Boards).
 - **Memory** (`0x6000198a`): `grGet(GR_NUM_FB)` (two or more: SLI),
   then `grGet(GR_MEMORY_UMA)`. If that succeeds and `0x60014030` is set
@@ -855,10 +653,10 @@ instructions, 3,829 frames) and the code:
   retail DLL, without fog (screenshots in the session's scratch folder,
   not in the repo). The run takes 256 s in software (Release build; the
   retail DLL's same run 215 s, both with other work on the machine).
-- **On the unified-memory Voodoo3** (November 2026, after the stand-in's
-  Voodoo3 became the specification's one 16 MB memory): the same run,
+- **On the unified-memory Voodoo3** (November 2026, the stand-in's
+  Voodoo3 with the specification's one 16 MB memory): the same run,
   3,829 frames, menus to the race with the cockpit, 248 s.
-  `grTexMinAddress` is now 1,843,200 (above the three 640x480 buffers),
+  `grTexMinAddress` is 1,843,200 (above the three 640x480 buffers),
   so the budget (`about()` +0x70) is 16 MB − 8 − 2 × 1,843,200, 13,090,816
   bytes after rounding.
 - **With the extensions and the 16-byte `grTexMaxAddress`** (November
@@ -867,12 +665,181 @@ instructions, 3,829 frames) and the code:
   3,829 frames, menus to the race with the cockpit, 297 s; the budget
   13,090,800. The DLL's one `grTexDownloadTable` goes as the 6666 kind;
   `grTexClampMode` was asked for wrap 4,942 times and clamp 1,655, never
-  mirror. The frames look as before (screenshots in the session's
-  scratch folder).
+  mirror. The frames look the same as without the extensions
+  (screenshots in the session's scratch folder).
 
-## The Glide stand-in
+## In Reluva
 
-Since November 2026 the retail `voodoo2a.dll` runs unchanged on Reluva's
+Partly implemented. Native drawing is in
+`src/engines/nfs/host/thrash_native.cpp`; `reluva-tool nfs host -native`
+uses it. The renderer DLL still keeps its own books (textures, windows,
+page flips). Native drawing takes over only its triangles, quads, lines
+and points.
+
+### Page flips and clears, natively
+
+With the retail `softtria.dll` (timestamp 0x35e4344f, image base
+0x60000000), `reluva-tool nfs host -native` does `pageflip` and `clearwindow` itself.
+Both work on softtria's current window over its clip rectangle, which it
+keeps in globals. Their addresses come from disassembling the two
+functions:
+
+| Global | Meaning |
+|---|---|
+| `0x6003e0fc` | the current window's buffer |
+| `0x6003e0ec` | its pitch, in bytes |
+| `0x6003e0b8`, `0x6003e0bc` | the clip rectangle's left (rounded down to 16 pixels) and top |
+| `0x6003e0c0`, `0x6003e0c4` | its width (in whole 16-pixel columns) and height |
+| `0x6003e11c` | the clear colour, as two 5:6:5 pixels |
+| `0x600400b4` | a function of the game's, called with 1 before a page flip's copy and 0 after |
+
+- `clearwindow` fills the rectangle with the clear colour.
+- `pageflip` locks the primary DirectDraw surface and copies the
+  rectangle into it, eight bytes at a time through FILD/FISTP. Then it
+  unlocks the surface. It doesn't swap windows. Done natively, the
+  rectangle goes straight to the frame shown, between the two calls to
+  the game's function.
+
+With any other renderer DLL, both are left to the DLL.
+
+### Texture uploads, natively
+
+With native drawing, `tupdate` doesn't call the DLL either (with any
+renderer DLL). Its drawing is the only thing that reads its copy of the
+textures, and it isn't called. The native copy, decoded to RGBA, is the
+only one kept. The result is what softtria's `tupdate` returns: the
+handle, or 0 for formats 3 and 4 given no pixels. `talloc` and `treset`
+still go to the DLL, so the handles stay its own; they cost about a
+million instructions in a run.
+
+In a run into a race this takes 168 million instructions out of the
+DLL, about 3% of the run. Loading hardly changes, though. The longest
+waits between frames, at start-up and while the track loads, were 5.3
+and 1.4 seconds, against 5.4 and 1.3 with the DLL's uploads. Those
+waits are spent elsewhere.
+
+### On the GPU
+
+With a GPU, the Play page draws THRASH's frames with it
+(`src/engines/nfs/render/thrash_gpu.cpp`). `GameHost` (with `gpuThrash`)
+records each frame's drawing as a list, and the page draws the lists.
+
+- **Triangles.** Each triangle gets its three vertices of its own, so
+  flat shading is the first vertex's colour on all three. Quads are two
+  triangles. Lines are quads a pixel wide, and points one-pixel squares.
+- **Batches.** A new batch starts when the texture, wrapping, blending,
+  culling, fog or clip rectangle changes. Clears are filled rectangles in the
+  list, in their place.
+- **Textures.** Those made or changed since the last frame go with the
+  list, decoded to RGBA as for the software rasterizer.
+- **Vertices** go to the GPU as (x / rhw, y / rhw, 1 / rhw). A matrix maps
+  that to clip space, with clip w equal to 1 / rhw, so texturing is
+  perspective-correct as in the software renderer. A triangle whose three
+  vertices share one rhw is flat on the screen, and goes with w = 1.
+  2D pictures come with rhw = 1/65536, which would make w huge for
+  nothing.
+- **Clipping.** The batch's clip rectangle becomes the viewport, with the
+  matrix fitted to it.
+- **No depth test.** The game sorts back to front for the software
+  renderer.
+- **Blending.** Translucent texels and vertices blend over what's drawn,
+  with source alpha. State 0x68's other modes apply while blending is on
+  (state 0xa). Texels of alpha 0 are left out.
+- **One pipeline for the blends.** Nothing reads the frame's alpha, so
+  the page says so (`Renderer3D::setFrameAlphaUnused`) and the renderer
+  draws blended and added batches with one pipeline state, the factors
+  applied in the fragment shader. A race alternates the two about 1,500
+  times a frame (of some 2,000 batches); each pipeline switch took SDL
+  four new descriptor sets.
+- **Culling.** Cull 1 (Direct3D's counter-clockwise culling, in d3da)
+  drops triangles turning counter-clockwise as shown on the screen. Cull
+  2 drops clockwise ones.
+- **Frames add to the last.** softtria's buffers keep their contents
+  from one frame to the next, and the game sometimes draws only what's
+  new: a loading screen draws its picture once, then a step of its
+  progress bar each frame. So the GPU's frame keeps its contents too
+  (`Renderer3D::setKeepFrame`), and lists are drawn in order, each with
+  the texture changes it brought. The page draws all the lists waiting
+  into one frame, shown once. A list of 1,000 vertices or more is taken
+  to draw the whole screen (menus have 2,000 to 3,000, races tens of
+  thousands), so those before the last such list are skipped, their
+  texture changes still applied. At most about 150,000 vertices wait.
+  With more, the oldest go, as when the page isn't shown.
+- **The flip's rectangle.** A page flip copies only softtria's clip
+  rectangle to the screen. DirectDraw's last picture stays outside it
+  until a flip covers the whole screen.
+
+Checked first that nothing is lost by not drawing into softtria's
+buffers. With drawing turned off and clears made magenta, every frame
+from the menus, through the track's loading screen and into a race was
+magenta throughout. So the game draws only through THRASH.
+
+**Compared with the software rasterizer.** With `RELUVA_NFS_COMPARE` set
+to a folder, the Play page has the game drawn both ways, at 640x480
+(point-sampled in the runs below; both filter as `texturefilter`
+says). Every 60th frame it writes the GPU's frame and the
+software one of the same page flip. In a run through the menus, a
+loading screen and a race in three camera views, under software Vulkan:
+
+| | Mean difference (of 255) | Pixels off by more than 24 |
+|---|---|---|
+| Menus | 0.25-0.46 | 120-150 |
+| Loading screen | 0.01-0.03 | 0 |
+| Race | about 3 | about 200 |
+
+The race's difference is mostly the software path's 5:6:5 colour.
+Rounded to it, the GPU's frame is within 1.1 on average; the rest is
+pixels along edges. The comparison shows two things the GPU drawing
+needs:
+- **Culling.** Cull 1 and 2 the wrong way round leave the loading
+  screens and the countdown's digits out.
+- **Every list.** The page draws every list, not only the latest, which
+  would lose frames that add to the last.
+
+`reluva-tool nfs host -gpulog` records as for the GPU, without one, and sums up
+each frame's list: batches, vertices, textures, the flip's rectangle. `reluva-tool nfs host -gpudump n dir` writes the nth list out in full: every
+vertex with its batch's texture, blending, culling, fog and texture
+filter (`list.csv`; the `filter` column is −1 where the batch leaves it
+to the drawing's default, 0 point-sampled, 1 bilinear: set only under
+d3da's device, from state 7), and the textures it uses as TGA files. That is how the
+game's sky was measured ([hrz.md](../formats/hrz.md)).
+
+**Memory mappings** (November 2026). Under Mesa's software Vulkan
+driver each Vulkan descriptor set is a memory mapping, and the kernel
+allows a process 65,530. SDL's Vulkan backend keeps a cache of
+descriptor sets for every command buffer in flight and never frees one
+(sdl_gpu.h, copyPass), so a command buffer for every texture made, and
+for SDL's making of it, takes a second race in one session past the
+limit; with only the uploads sharing one, the front end alone makes 117
+caches, more of them growing to a race frame's draws with each race.
+The renderer has uploads share a command buffer, at most two frames in
+flight, a wait for the GPU after every eighth texture (11 caches) and
+one pipeline for the blends. Mappings (`/proc/<pid>/maps`, the most in
+each stretch), Play page, Hometown, quitting to the menu between races:
+
+| | menus | 1st race | 2nd race | 3rd race | 4th race |
+|---|---|---|---|---|---|
+| Only uploads sharing (Direct3D look) | 10,400 | 44,300 | crashed loading | | |
+| Direct3D look | 6,600 | 19,000 | 23,800 | 28,300 | |
+| Default | 5,600 | 17,700 | 24,800 | 28,700 | 32,400 |
+
+Each race adds less, as the caches reach the largest frame's size. The
+frame rate is about 8 frames a second in a race under this software
+driver either way. The Track page with computer cars and rain
+stays at 7,000-7,700 over seven minutes.
+
+DirectDraw's frames (the movies) are shown over an empty frame. Frames
+are drawn at `renderscale` times 640x480 (2 unless set): the same
+picture, with sharper edges. Textures are bilinear-filtered, as both of
+the game's renderer DLLs ask for, or point-sampled with
+`texturefilter=point`; in the Direct3D look
+(`renderer=direct3d`) as d3da's device filters them, whatever that says. Both settings are in the game's
+section of `reluva.ini`. Without a GPU, the software rasterizer draws
+the frames.
+
+### The Glide stand-in
+
+The retail `voodoo2a.dll` runs unchanged on Reluva's
 stand-in for `glide2x.dll` (`src/graphics/glide/`, docs/common/graphics/glide.md):
 `reluva-tool nfs host -glide`, or the Play page with `renderer=glide`. The game is
 told of `voodoo2a.dll` as with the native drawing, so it sends the same
@@ -911,8 +878,8 @@ up to 1 a channel; its numbers are about 0.3-0.5 high for that.)
 
 The causes, from the code:
 - **Bilinear filtering.** `voodoo2a.dll` asks for it (Texture filtering);
-  the native drawing point-sampled when these runs were made (it filters
-  by default since, with Direct3D's filter rather than the Voodoo's). It is most of the race's difference:
+  the native drawing point-sampled in these runs (by default it filters,
+  with Direct3D's filter rather than the Voodoo's). It is most of the race's difference:
   the road, scenery and sky are magnified textures. Held point-sampled,
   the cockpit is within 0.01 and the road within 0.5 (race frame 2800,
   `j1-runs/fr6`).
@@ -937,7 +904,7 @@ The causes, from the code:
 
 **Compared with softtria.** softtria can't be run beside it (one
 renderer DLL at a time), and its frames come at other moments of the
-game's clock; earlier the native drawing was measured within 1.7 of 255
+game's clock; the native drawing was measured within 1.7 of 255
 of softtria's on a menu screen (How it was worked out), and it is within
 0.46-0.93 of the stand-in's.
 
@@ -1008,7 +975,7 @@ against 9.3 in software (the patch DLL 9.3 on the GPU): the interpreter,
 at about 135 million instructions a second, is the limit here, not the
 drawing.
 
-## Cost
+### Cost
 
 Instructions a frame in the interpreter:
 
@@ -1017,5 +984,45 @@ Instructions a frame in the interpreter:
 | Front end menu | 5.1 million | 0.5 million | |
 | Race, Hometown, 8 cars | 16 million | 2.5 million, 0.6 million of them still in the DLL | 1.1 million, 0.03 million in the DLL |
 
-A race now runs at 25 to 28 frames a second, and its clock keeps about
+A race runs at 25 to 28 frames a second, and its clock keeps about
 real time.
+
+## Sources and checks
+
+October 2026, from the retail DLLs and the game running in Reluva's
+interpreter (Phase 4's host). This is reverse engineering for
+interoperability.
+
+- **Calls and arguments.** Every THRASH call was logged over a run of
+  frames, with its arguments and the memory its pointer arguments point
+  at (`reluva-tool nfs host -thrashlog from to`). The menus and a race were both
+  logged.
+- **Render states.** `d3da.dll` turns each `setstate` id into Direct3D
+  render states. Disassembling that mapping names most ids, because the
+  Direct3D states it sets are documented.
+- **Vertices.** The 32 bytes each vertex argument points at hold floats at screen
+  scale, then colours. d3da hands vertices straight to Direct3D's
+  DrawPrimitive as D3DTLVERTEX, the documented layout, with no
+  conversion.
+- **Texture formats.** From softtria's `tupdate`: a jump table by format
+  leads to a converter for each format. Each converter was disassembled:
+  - which bits it reads;
+  - how it scales them;
+  - which values it treats as transparent.
+- **Fog.** `voodoo2a.dll`'s `setstate` was disassembled, with the
+  game's code that sends the fog states and picks the fog mode. The
+  meaning of each step is Glide's, whose functions it finds by name.
+  Checked with a copy of the game whose `.hrz` files were edited to red
+  fog: the game sends the states as worked out, and the frames fog red
+  with distance (see Fog).
+- **Window buffers.** softtria draws into buffers of its own, not into
+  the DirectDraw surface; `pageflip` copies them across. `lockwindow`
+  returns where they are.
+- **Checks.** Natively drawn frames were compared with softtria's frames
+  of the same menu screen:
+  - mean difference 1.7 of 255 per channel;
+  - the rest is edge pixels of translucent artwork (rounding in the
+    blend).
+
+  A race (Hometown, 8 cars) draws the same scene as softtria: road,
+  scenery, cars, the dashboard and the HUD.

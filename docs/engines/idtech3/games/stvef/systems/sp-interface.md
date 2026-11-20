@@ -729,6 +729,15 @@ so calls to it from the menus do nothing.
   `skippingCinematic` 1 and `timescale` 100, so the scene runs a hundred
   times faster; the game resets both when the camera ends.
 
+## In Reluva
+
+The engine's side is in `src/engines/idtech3/eliteforce/`: `SpGameHost`
+(`sp_game_host.cpp`) runs `efgamex86.dll` in the x86 interpreter, one
+player as in the original, and `SpUiHost` (`sp_ui_host.cpp`) runs
+`efuix86.dll`. `reluva-tool idtech3 sp-run` runs the game code on a map
+or a saved game and reports what it does; `idtech3 sp-menus` runs the
+menus and reports what they draw and run.
+
 ## Sources and checks
 
 The sources:

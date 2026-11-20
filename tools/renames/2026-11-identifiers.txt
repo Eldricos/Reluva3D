@@ -1,6 +1,7 @@
-# The identifier renames of November 2026 (docs/code-style-migration.md,
-# phase 4), in order: one line of tools/tidy.py arguments each. A branch
-# made before them runs every line, from the repository's top:
+# The identifier renames of November 2026, in order: one line of
+# tools/tidy.py arguments each (docs/DEVELOPMENT.md, "A branch made before
+# the reorganisation"). A branch made before them runs every line, from
+# the repository's top:
 #   grep -v '^#' tools/renames/2026-11-identifiers.txt | while read -r args; do
 #       python3 tools/tidy.py $args || break; done
 --rename-declared-in src/engines/testbed src/engines/testbed

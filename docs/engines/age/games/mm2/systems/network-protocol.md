@@ -6,7 +6,9 @@
 
 The session protocol between copies of Reluva, passwords, joining late, the host's checks, and reaching a host on the Internet. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The protocol
+## How it works
+
+### The protocol
 
 Every datagram is `RM`, a type byte and its fields, little-endian:
 strings are a length byte and their bytes, floats IEEE.
@@ -49,7 +51,7 @@ the Car fields after the finish time).
   - A collision with another player's car pushes and knocks only your
     own: their machine does the same for theirs, so the two agree.
 
-## Passwords
+### Passwords
 
 A password isn't sent. A player joining a session that has one is sent a
 challenge: 16 bytes the host hasn't used before (MD5 of a secret of its
@@ -60,7 +62,7 @@ wrong answer is refused as the game's "Incorrect password" (`badp_dlg`).
 That keeps the password off the network; it isn't encryption: the game
 itself goes in the clear.
 
-## Joining late, leaving, taking over
+### Joining late, leaving, taking over
 
 - **Joining late.** The host takes a player in whatever the phase. The
   joiner's first Lobby says the game's playing, so its machine loads it,
@@ -87,7 +89,7 @@ itself goes in the clear.
     that's always right; across the Internet, only if each player can be
     reached at the address its router showed the old host.
 
-## The host's checks
+### The host's checks
 
 The host doesn't take a player's word for everything:
 
@@ -109,7 +111,7 @@ The host doesn't take a player's word for everything:
   it was, and for 3 seconds can't take it or ram it loose, so being "put
   back" can't carry the gold home or onto it.
 
-## Others' cars: sound and damage
+### Others' cars: sound and damage
 
 Each car's state carries its engine's revs and throttle, its damage, and
 the dents its body has taken. On the others' machines:
@@ -121,7 +123,7 @@ the dents its body has taken. On the others' machines:
   damaged textures within its `TextelDamageRadius`, and its smoke once
   it's as damaged as smokes. Mended (a new game), it's clean again.
 
-## Reaching a host on the Internet
+### Reaching a host on the Internet
 
 A host behind a router can only be reached from the Internet if the
 router passes UDP port 28520 on to it. When a session is hosted on the
@@ -147,6 +149,18 @@ The lobby's lines say what came of it: the address players on the
 Internet join, or that the router didn't answer and the port has to be
 passed on by hand. The mapping is taken away when the host leaves
 (`DeletePortMapping`, or a NAT-PMP lifetime of 0).
+
+## In Reluva
+
+- `NetSession` and `NetBrowser`
+  (`src/engines/age/game/net_session.{h,cpp}`): the sessions and finding
+  them.
+- `PortMapper` (`src/common/portmap.{h,cpp}`): asking the router for the
+  port.
+
+The whole protocol is Reluva's: it can't join or host a game with the
+original, and passwords are proved, not sent
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
 ## Sources and checks
 

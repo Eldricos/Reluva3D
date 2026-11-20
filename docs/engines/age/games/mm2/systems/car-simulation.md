@@ -6,7 +6,9 @@
 
 How a car drives: its files, and Reluva's model of the simulation they tune (suspension, tyres, engine, gearbox, drag). The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The car's files
+## How it works
+
+### The car's files
 
 | File | What Reluva takes from it |
 |---|---|
@@ -22,7 +24,7 @@ How a car drives: its files, and Reluva's model of the simulation they tune (sus
 
 The wheels are 0 front left, 1 front right, 2 back left, 3 back right.
 
-## The simulation
+### The simulation
 
 A rigid body stepped 120 times a second.
 
@@ -92,19 +94,18 @@ A rigid body stepped 120 times a second.
   the ground.
 - Left alone and nearly stopped, a car holds still.
 
-### Against the game's figures
+#### Against the game's figures
 
-On a flat plane at full throttle, every one of the 20 cars now tops out
+On a flat plane at full throttle, every one of the 20 cars tops out
 at its High (within 1%), in 9-22 seconds, and does 0-60 mph in 6-12
 seconds (the Panoz GT 6.7, the Beetle 6.9, the double-decker bus 9.8).
 The `.info` files' Horsepower, Top Speed, Durability and Mass are the
 menus' bars, not the simulation's: the Panoz GT's "240" against High's
-180, its "850" mass against 1,200 kg. Before this, two things held cars
-well below High: a "rolling" drag that grew with speed (as much as the
-air's at 60 mph), and wheelspin that took a car to its sliding friction
-for good (the Bullet's back tyres' is 1.4 / 3, so it crawled). The low
-cars also sat on their hull's spheres. Reluva's AI drivers finish the
-races 15-25% sooner than before, with fewer resets.
+180, its "850" mass against 1,200 kg. Two easy readings hold cars well
+below High, so neither is the game's: a "rolling" drag that grows with
+speed (as much as the air's at 60 mph), and wheelspin that keeps a car
+at its sliding friction for good (the Bullet's back tyres' is 1.4 / 3,
+so it crawls).
 
 Aero's **AngCDamp**, **AngVelDamp** and **AngVel2Damp** are a damper's
 three terms per axis (x pitch, y yaw, z roll): a constant against the
@@ -172,8 +173,15 @@ down only so far without watching the game:
 - Seven files are an older layout (DrivetrainLeft, Spin*, Drift*
   fields), not read.
 
-`tests/test_age.cpp` checks a car with Reluva's default setup (250 hp,
-1,000 kg, a 90 mph top gear) settles on its springs, accelerates, tops
+## In Reluva
+
+`CarSim` (`src/engines/age/game/car.{h,cpp}`) steps the car, with
+`CarSetup` and `AxleSetup` read from its files. The Drive page drives
+any car round either city. The handling hasn't yet been compared with
+the game's ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
+`testCarSim` (`tests/engines/age/unit/driving.cpp`) checks a car with
+Reluva's default setup (250 hp, 1,000 kg, a 90 mph top gear) settles on its springs, accelerates, tops
 out within 5% of top gear's speed (it does 0-60 in 8 seconds and tops
 out at 89.8 mph), turns the way it's steered, backs up, changes gear by
 hand and is set upright on its roof.

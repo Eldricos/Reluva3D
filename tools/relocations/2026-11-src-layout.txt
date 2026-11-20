@@ -1,6 +1,7 @@
-# The source layout of November 2026 (docs/code-style-migration.md): the
-# shared code split by subject under src/, as ScummVM has it, and the
-# backends by kind. Apply with: python3 tools/relocate.py <this file>
+# The source layout of November 2026 (docs/DEVELOPMENT.md, "A branch made
+# before the reorganisation"): the shared code split by subject under src/,
+# as ScummVM has it, and the backends by kind. Apply with:
+# python3 tools/relocate.py <this file>
 
 # Folders: anything still under them moves, and mentions of them change
 src/common/audio/     src/audio/            bare

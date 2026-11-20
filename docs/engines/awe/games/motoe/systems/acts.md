@@ -213,27 +213,27 @@ load, fade in`).
 
 With no arguments it plays every act and every developers' save; on the
 English install that takes seconds, and finds nothing Reluva doesn't do.
-What each act needed, and where the explorer got to in 600 clicks:
+What each act needs, and where the explorer gets to in 600 clicks:
 
-| Act | What it does | Found and fixed |
+| Act | What it does | What it needs |
 |-----|--------------|-----------------|
 | 01A | Sirkeci market: the opening, then trading for the tile, the bowl and the parasol | The explorer stays in the market (the trades and quizzes need answers it doesn't find). From the save in Sirkeci's hall (slot 1) it plays on through 02A and 03A into 04A. |
 | 02A | Dinner, a conversation of six parts, then `act 03a` | Plays through. |
 | 03A | Belgrade station | Reaches 04A. |
 | 04A | The Calais coach at night: the water glass, listening at doors; ends when `tag act04a >1, tag eavesdrop04a >4` | Listening at doors needs `(use waterglass \| tag autoeavesdrop nouse)`: brackets and `use` in conditions. |
-| 04B, 04C | Peeping out of the door | Each goes on to 04D. The dialogue's `terminate` and the like had been logged as not done. |
+| 04B, 04C | Peeping out of the door | Each goes on to 04D: the dialogue's `terminate` and the like. |
 | 04D | The scarlet kimono | The woman is clickable only during `unlock, wait 6.25, lock`: the runner's lock. |
 | 05A | The challenge; ends on `tag act05a` | Reaches 05B. |
 | 05B, 05C | The murder scene; the ashes puzzle | The fingerprint cards and passports (`startprint`, `startpass`). |
-| 06A, 06B | Restoring the heat; evidence | Dragomiroff's room in 06A and 06B was a dead end: its variant has a camera, so its base's door was lost. `cantalk` decides between conversations. |
+| 06A, 06B | Restoring the heat; evidence | Dragomiroff's room in 06A and 06B: its variant has a camera of its own, and keeps its base's door. `cantalk` decides between conversations. |
 | 07A | Poirot thinks; Barnaby's radio (`timer`, `time 60`) | From the developers' last save (slot 14) it plays on through 08A's three solutions, the coda and the credits to the main menu. |
 | 08A | The three solutions, as quizzes | `(!tag failsuspects), tag winsuspects`: a condition in brackets in a script. |
 | 09A | A test act in the forest | Runs. |
 
 Throughout: `gen_characters.txt`, every character's generic lines and
-goodbyes, had been skipped (its first heading is a name, and Reluva read
-the tables by their headings); and missing tags compared as missing
-rather than as -99.
+goodbyes, whose first heading is a name, so it isn't found by reading
+the tables by their headings; and a missing tag compares as -99, not as
+missing.
 
 #### A playthrough from a new game: `-solve` and `-play`
 
@@ -271,11 +271,10 @@ the 2D); `-shots <dir>` saves one before every action.
 the save and load screens do, plays on from the loaded game, and lists
 anything in the story state (act, scene, tags, items, conversations,
 scenes seen) the loaded game lost or gained. On the English install the
-route plays to the credits so with no difference. It found two: the
-tool loaded from the game's own scene, so leaving it marked that scene's
-"met them here" tags as an earlier visit's (a real load leaves the load
-screen); and the solved torn letter wrote its pieces' places again when
-its scene was shown.
+route plays to the credits so with no difference. The tool loads as a
+real load does, from the load screen: loading from the game's own
+scene, leaving it would mark that scene's "met them here" tags as an
+earlier visit's.
 
 `-wander <n> <seed>` strays from the route every n actions: up to 30
 actions (`-wandersteps`) picked at random among what a player could do,
@@ -375,22 +374,22 @@ What each act needed (actions in the playthrough found):
 | 05C | 62 | The hat frames, the burnt paper held in the curling tongs, the spirit lamp from the restaurant lit with the matches, the ashes puzzle. |
 | 06A | 229 | The engineer's hammer (for his teeth, then the sap), the snowshoes from the baggage car's crate, put on Antoinette in the forest, the wolves, the hut's padlock and its stove pipe, the fireman's gloves; the torn letter on the way. |
 | 06B | 447 | Every passport and fingerprint card, the prints compared, the shoes compared in the closets (thirteen times; one pair counts each time it's compared, as its script tests `shoesa1415515b` and sets `shoesa141515b`), the safe, the suspects' timetables and alibis; then Poirot. |
-| 07A | 142 | Barnaby's radio: its battery built in the radio (the voltaic cell the inventory can make of the same things is no use there; an earlier search made it and took it apart again), the questions sent and, after `time 60`, the answers; the kidnapping; then Poirot. |
+| 07A | 142 | Barnaby's radio: its battery built in the radio (the voltaic cell the inventory can make of the same things is no use there), the questions sent and, after `time 60`, the answers; the kidnapping; then Poirot. |
 | 08A | 1 | The three solutions, with the choice taken least, to the credits. |
 
-Found in Reluva on the way, and fixed as the game does it:
+What the search depends on, as the game does it:
 
 - **Items used on Antoinette.** The game looks `uselist.txt` up for the
   player's character as for the others (`0x41c0bb` when an item is used,
-  `0x419ec7` for the cursor: `PCXX` or `NPCX`); Reluva only did it for the
-  others, so the snowshoes couldn't be put on.
+  `0x419ec7` for the cursor: `PCXX` or `NPCX`); looked up only for the
+  others, the snowshoes couldn't be put on.
 - **A conversation's extras and threads count only with a line to offer**
-  (`0x43a470`, `0x43a9d9`; see [dialogue.md](dialogue.md)). A character's
-  fingerprint offer whose first line's condition failed kept a heard part
-  going, so `talk dia_hubbard a+` never got to part b.
+  (`0x43a470`, `0x43a9d9`; see [dialogue.md](dialogue.md)). Otherwise a
+  character's fingerprint offer whose first line's condition fails keeps
+  a heard part going, and `talk dia_hubbard a+` never gets to part b.
 - A new game closes any puzzle or options screen still open.
-- A Scenes page that doesn't draw (a tool's) no longer copies the screen
-  each frame, decodes video loops or moves particles, and the dialogue
+- A Scenes page that doesn't draw (a tool's) doesn't copy the screen
+  each frame, decode video loops or move particles, and the dialogue
   tables are read once: the search is ten times faster for it.
 
 And in the tool: the dialogue's choices are asked for only when the game
@@ -420,49 +419,48 @@ characters. Three options bring the player closer to one at a mouse:
 A page that isn't drawing makes no 3D frame, so 30 actions with the
 characters take 8 seconds.
 
-Played back this way, the playthrough found without characters went
-wrong, each time where Reluva differed from the game:
+Played back this way, the playthrough found without characters needs
+these, each as the game does it:
 
-- **A turn's pace.** It was taken from the root's turn from start to
-  end, which is about 0 for a full turn (the vendors' `rotatel`). It is
-  now the turn summed along the animation.
-- **`setchar`.** It carried over from one script to the next. Each
+- **A turn's pace.** It's the turn summed along the animation, not the
+  root's turn from start to end, which is about 0 for a full turn (the
+  vendors' `rotatel`).
+- **`setchar`.** It doesn't carry over from one script to the next. Each
   script given to a runner starts with the runner's own character
   (`0x408c80`): the main runner's is the player's (`0x408cd8`), and a
   routine's or a line's runner keeps its character's (`0x40598f`).
-- **Kept places.** A scene's characters were put where they had been
-  kept in the scene before, as the scene was named only after they
-  loaded.
+- **Kept places.** A scene is named before its characters load, so
+  each is put where it was kept in this scene, not in the one before.
 - **Finite base animations.** One such as `standup` handing over to
-  `idle1` as it ended was never told as done, so `anim standup` waited
-  for ever.
+  `idle1` as it ends is told as done; otherwise `anim standup` waits for
+  ever.
 - **Routines.** Michel's routine in 04A's restaurant sets
-  `seenmichel04a` as Antoinette comes in, which takes away the shadow the
-  playthrough went through to the baggage car. Without characters the
-  routine never ran.
+  `seenmichel04a` as Antoinette comes in, which takes away the shadow
+  the playthrough found without characters goes through to the baggage
+  car: without characters the routine never runs.
 - **Doors the mouse can't reach.** In 04A the Calais hall's doors to
   rooms 12, 14 and 16 are the act's (to eavesdrop) over the base's (to go
   in). Both stay when the scenes are merged, as the game keeps both
   (`0x42b680` drops only the same object again), and the pick finds the
   act's. 06B's kitchen door is the same: the act's needs `klausbaggage`,
   the olive oil and vinegar brought to Klaus.
-- **The pick's characters.** Reluva tried a character's bones when it had
-  a rectangle; the game does when it has none (`0x435fd1`). Antoinette in
+- **The pick's characters.** The game tries a character's bones when it
+  has no rectangle (`0x435fd1`), not when it has one. Antoinette in
   the forest has none, and the snowshoes are put on her there, as a
   recording of the game shows.
 - **Two of an item.** The game's `take` adds an item every time
   (`0x41bc10`), so the Salon car's five water glasses are five, and both
-  spouts can be carried. Reluva kept one to a name, so the second glass
-  and spout were lost, and 06B's olive oil could never be poured (see
+  spouts can be carried. Kept one to a name, the second glass and spout
+  would be lost, and 06B's olive oil could never be poured (see
   [interface.md](interface.md#in-reluva)).
 
 The search, run again as a mouse player with the characters
 (`-solve <out> -mouse -characters`), finds a way of 1,105 actions from a
-new game to the credits. It was found in parts, each resumed from the
-last (`-from`), as the fixes above came; with the pick sped up (an
-object's point looked for only within its outline or rectangle, and a
-character's bones posed once per frame) the last part, from 06B to the
-end, took ten minutes. Played back the same way, all 966 of its clicks
+new game to the credits. It can be found in parts, each resumed from
+the last (`-from`); with the pick sped up (an object's point looked for
+only within its outline or rectangle, and a character's bones posed once
+per frame), the part from 06B to the end takes ten minutes. Played back
+the same way, all 966 of its clicks
 and uses are made through the game's pick.
 
 With `-sound` the player has a mixer that the game's clock drives (no
@@ -479,8 +477,8 @@ of the English install, about four and a half hours.
 
 A sample was also played in a real window (Xvfb, with clicks from
 xdotool), from the main menu through the opening, Klaus's cleavers and on
-to the market's third scene. It matched a recording of the game, once
-the characters stood where they had been kept.
+to the market's third scene. It matches a recording of the game, the
+characters standing where they were kept.
 
 ## Sources and checks
 

@@ -172,6 +172,15 @@ AI's clock (`0x47B83E`) counts 291.3 ticks a second.
   flag 0x40000) does it all the time while any other ship is left in the
   fight, including waves still to come.
 
+## In Reluva
+
+`src/engines/stgenerations/formats/combatdata.h` reads the files (`Model3D`,
+`CombatMaterial`, `CombatImage`, `SprAnimation`, `ShipClass`,
+`loadCombatMission`, `MetFont`); `SpaceCombat` (`game/combat.h`) plays the
+fight. The TACTICS scripts aren't read, as the game never loads them.
+`reluva-tool stgenerations archives <game folder>` reads every file of
+`COMBAT.DAT` with the other archives.
+
 ## Sources and checks
 
 From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [combat](../research/combat.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

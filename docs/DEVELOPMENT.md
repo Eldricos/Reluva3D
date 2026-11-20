@@ -89,9 +89,7 @@ Notes for developers. Building and running are covered in the
 
 ## Code style
 
-Code follows [CODING_GUIDE.md](CODING_GUIDE.md); how the existing code
-was brought in line is in [code-style-migration.md](code-style-migration.md).
-Six tools check it; the first three need version 18 of their LLVM
+Code follows [CODING_GUIDE.md](CODING_GUIDE.md). Six tools check it; the first three need version 18 of their LLVM
 program (another lays code out differently):
 
 - **`python3 tools/format.py`** formats with clang-format
@@ -144,6 +142,99 @@ are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and
 `git blame` passes over them.
+
+**The tools' settings.** `.clang-format` and `.clang-tidy` name, for each
+setting and check, the guide's section it carries out. Use version 18 of
+both, the same everywhere: clang-format's output changes between versions,
+and the one Visual Studio comes with may be older.
+
+- **Not formatted:** `third_party/` (it has its own `.clang-format`), the
+  build folder, where CMake downloads SDL3 and Dear ImGui (CMake writes a
+  `.clang-format` and a `.clang-format-ignore` there), and generated
+  files.
+- **clang-tidy** looks at Reluva's own files only, by a pattern at the top
+  of `.clang-tidy`: the compile database lists SDL's and ImGui's too.
+- **Checks set to the guide:** a `const` local isn't taken for a named
+  constant (`const int cx` needs no `kCx`); the `_` prefix is for private
+  and protected members only; one-statement bodies needn't have braces,
+  but `while (...);` is still caught; the fall-through and empty-body
+  warnings are on; checks for rules the guide doesn't have are off; and
+  namespaces are lower case.
+
+## A branch made before the reorganisation
+
+In November 2026 `main` moved its files into the layout the main README
+describes, then reformatted, renamed and split its code to the guide,
+each step in commits of its own. A branch made before then catches up in
+the same steps, merging `main` a step at a time, so that only real
+conflicts come up. The newworlds engine's branch is one.
+
+**Files moved.** `tools/relocate.py` makes each move from a list in
+`tools/relocations/`: it `git mv`s whatever is still at an old path, then
+rewrites every reference to it (`#include`s, CMake source lists, CI,
+scripts, comments, doc links). It can be run any number of times, on any
+branch. A file the branch added in a new folder of `src/common/` stays
+where it is; move it by hand to its subject's folder.
+
+**The steps,** from the repository's top. Build and run the tests after
+each, and fix what they find in the branch's own code:
+
+1. **The layout and the formatting.** `fe53fda185` is the last commit
+   before the formatting, `53d91d0401` the last formatting commit:
+
+   ```text
+   git merge fe53fda185
+   python3 tools/relocate.py tools/relocations/2026-11-src-layout.txt
+   python3 tools/relocate.py tools/relocations/2026-11-engine-layout.txt
+   git add -A && git commit -m "Layout as main"
+   python3 tools/format.py
+   git commit -am "Format: as main"
+   git merge -s ours 53d91d0401
+   ```
+
+2. **The renames.** `18f1ed0` comes before them, `afc8e38` after:
+
+   ```text
+   git merge 18f1ed0
+   grep -v '^#' tools/renames/2026-11-identifiers.txt | while read -r args; do
+       python3 tools/tidy.py $args || break; done
+   python3 tools/format.py --changed 18f1ed0
+   git commit -am "Rename: as main"
+   git diff --stat afc8e38
+   git merge -s ours afc8e38
+   ```
+
+   `git diff --stat` should list only files the branch changed. A branch
+   adding an engine renames that engine's own names too:
+   `python3 tools/tidy.py --rename-declared-in src/engines/<it>
+   --rename-declared-in tests/engines/<it> src/engines/<it>
+   tests/engines/<it>`. clang-tidy runs on Linux, so code only Windows or
+   macOS compiles (`#ifdef _WIN32`, `__APPLE__`), code without SSE2, and
+   `cmake/engine-template/` are renamed by hand; CI's Windows and macOS
+   builds find what's missed.
+
+3. **Members one to a declaration.** `ccd6d12` comes before the split,
+   `ef4b761` after:
+
+   ```text
+   git merge ccd6d12
+   python3 tools/tidy.py --changed ccd6d12
+   python3 tools/split_members.py --fix
+   git commit -am "Split: as main"
+   git merge -s ours ef4b761
+   ```
+
+4. **The rest:** `git merge main`, as usual.
+
+`-s ours` is right only for those three merges: each takes in commits
+that change nothing but what the step before did to the branch. Merging
+`main` in one go instead, or formatting before the first merge, gives
+far more conflicts (47 and 118 on the nfs branch); done this way, they
+come only in the first merge.
+
+An engine merged in after this keeps its files in the standard layout,
+with a list of its moves in `tools/relocations/` (the nfs, age, awe and
+unreal engines have theirs).
 
 ## Tests
 

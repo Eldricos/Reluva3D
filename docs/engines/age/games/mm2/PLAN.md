@@ -21,7 +21,7 @@ recording how each format was worked out (CONTRIBUTING.md).
   so the four `.ar` files join a `SearchSet` with loose files over them
   (the original reads loose files first, which mods rely on). Deflate
   from `common/zip.cpp`.
-- `reluva-tool ar-list` and `ar-extract`.
+- `reluva-tool age ar-list` and `ar-extract`.
 - Unit tests with a small archive built in the test, as
   `tests/support/zip_writer.h` does for zips.
 - Viewer: a Files page listing the archives, and text files shown.

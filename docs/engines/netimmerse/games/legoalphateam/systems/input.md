@@ -28,7 +28,7 @@ The mouse and the keyboard, as the game reads them.
 
 ## In Reluva
 
-- In exclusive fullscreen, changing the display mode now makes it the
+- In exclusive fullscreen, changing the display mode makes it the
   desktop's size and puts the program's window over the whole screen, as
   DirectDraw does. The pointer and the window then agree.
 - `at-run -click <frame>[@x,y]` clicks when a frame is shown (where the
@@ -37,7 +37,7 @@ The mouse and the keyboard, as the game reads them.
   demo for "Destination: Alpha Team Headquarters" and the main menu
   (Adventure, Single Missions, Options, Exit Game). Moving the game's
   pointer onto "Exit Game" and clicking brings up "Really Exit Game?".
-  Everything the game imports is now stood in for.
+  Everything the game imports is stood in for.
 
 ## Sources and checks
 

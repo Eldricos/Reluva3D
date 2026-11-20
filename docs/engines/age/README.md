@@ -21,6 +21,11 @@ keyed off a `GameInfo` entry (`src/engines/age/games.cpp`).
 Only Midtown Madness 2 is recognised so far: see
 [games/mm2/](games/mm2/README.md#where-it-stands).
 
+## Using it
+
+Each game's page says how to add it and play it:
+[Midtown Madness 2](games/mm2/README.md#using-it).
+
 ## This folder
 
 | Page | What's in it |

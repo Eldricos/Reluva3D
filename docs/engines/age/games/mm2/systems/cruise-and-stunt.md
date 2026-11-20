@@ -6,7 +6,7 @@
 
 The race menu's Cruise, and San Francisco's stunt mode from its unused files. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Cruise and the stunt
+## How it works
 
 The race menu's **Cruise** (`cruise`, the first of its events) is the
 city with no race: no checkpoints, no clock, no countdown. "Explore the
@@ -64,6 +64,13 @@ cruise from that start, with that traffic, without the opponent.
 
 The `jump0`-`jump2` points and `ramp.pathset` aren't used (see the
 Crash Course's columns below).
+
+## In Reluva
+
+`RaceScreen` runs Cruise and the stunts
+(`src/engines/age/game/race_cruise.cpp`). The stunt mode and the Stunt
+Prototype are Reluva's additions, put together from files no race names
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
 ## Sources and checks
 

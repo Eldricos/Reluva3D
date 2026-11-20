@@ -107,11 +107,11 @@ archive and extracts its files. The unit tests (`botf.unit.archives`:
     bytes from a position 17 further on: runs of one byte value (black),
     each copied from the byte just before the write position. That pins
     the write position to 1 more than each reference's position, so
-    writing starts at 1. (The first version of this page started it at
-    `0xFEE`, which makes these references read 18 bytes *ahead*, into the
-    zero-filled window, as Okumura's encoder can. That decodes the header
-    and the black runs the same way, but every other copy then reads from
-    the wrong place: the images came out garbled after their first rows.)
+    writing starts at 1. (Not at `0xFEE`, as Okumura's encoder has it,
+    which makes these references read 18 bytes *ahead*, into the
+    zero-filled window. That decodes the header and the black runs the
+    same way, but every other copy then reads from the wrong place: the
+    images come out garbled after their first rows.)
   - Checked on the first 37 rows of `rw.tga` (the first 8 KB): with
     writing from 1, the copies that aren't runs are at even distances
     (2-byte pixels) in 96% of cases, against 4% with `0xFEE`; the pixels

@@ -28,6 +28,20 @@ Each location archive (e.g. `VERID1.DAT`) holds a `verid1/` folder with
   other things: `sounds/worlds.txt` is a list of WAV names, and `BRIEFING.TXT`
   is a mission briefing.
 
+## In Reluva
+
+`ResourceManager` (`src/engines/stgenerations/formats/resources.h`) finds the
+archives on the install and the discs and opens them with `src/common/zip.h`;
+a stored file whose CRC doesn't match is used with a warning, as
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md) says. The movies are read by
+`src/video/avi.h` and `src/video/cinepak.h`.
+
+- `reluva-tool stgenerations files <game folder>` lists the game's files,
+  `probe <file or folder>` says what each holds, and `extract <archive>
+  <folder> [pattern]` takes files out of an archive.
+- `reluva-tool stgenerations archives <game folder>` reads every archive whole;
+  `sounds` and `movies` decode every sound and movie.
+
 ## Sources and checks
 
 From reading the game's files, the 2 CD Windows release, while the engine was STG-Engine ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how). All values are little-endian.

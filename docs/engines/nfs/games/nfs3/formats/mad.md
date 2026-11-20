@@ -2,60 +2,15 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/mad.cpp` · **Checked on:** every movie · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/mad.cpp`):
+## Overview
 
-- the four movies on the CD (`fedata/movies`: `titleav`, `demoav1`-`3`)
-  read;
-- all 2,882 of their frames decode, and their audio
-  (`reluva-tool nfs survey`, `mad-info`).
+The game's movies, on the CD in `fedata/movies`: EA's "Madcow" video
+frames between audio blocks, in the same chunks as the music streams
+([mus.md](mus.md)).
 
-`reluva-tool mad-frames` writes frames as TGA pictures. `mad-wav` writes
-the audio.
+## Layout
 
-## Sources and checks
-
-October 2026.
-
-- **The file.**
-  - The chunk layout was read off hex dumps: the same chunks as the music
-    streams ([mus.md](mus.md)), with video frames between the audio
-    blocks.
-  - The fields of the frame header were found by comparing the four
-    movies.
-- **The video codec.** EA's "Madcow" codec was learned from two
-  references, read as references only ([nfs.md](../PLAN.md),
-  Sources):
-  - the MultimediaWiki page on EA's MAD;
-  - FFmpeg's `eamad` decoder.
-
-  Reluva's decoder was written from that understanding. The MPEG-1 code
-  table and intra quantiser matrix were taken from ISO/IEC 11172-2. The
-  AAN scale factors are computed, not tabulated.
-- **Checks.**
-  - **Pictures.** The frames are the pictures one expects: the EA and
-    Dolby logos, the title sequence's driving shots, the demos' races
-    with their "DEMO" caption.
-  - **Against FFmpeg.** Every frame of all four movies was compared with
-    FFmpeg 6.1's raw YUV output. Most frames are identical byte for byte.
-    FFmpeg keeps Q in 16 bits, so above *q* ≈ 8 its highest-frequency
-    values wrap; Reluva keeps them whole, as the game does (The game's
-    decoder, below). That is the only difference: with Q cut the same
-    way, all four movies match FFmpeg. 21 frames differ, all at high *q*:
-    4-8 in each demo movie and 5 in the title movie.
-  - **Against the game.** The game's decoder was read from nfs3.exe's
-    disassembly, and its arithmetic was rebuilt in Reluva and run on all
-    four movies. Two kinds of ground truth came from the game in
-    reluva-tool nfs host (`-native -deterministic 50000`):
-    - its decoded pictures, from memory: the run stopped at a set
-      instruction count (`-limit`) and its memory written out (`-dump`),
-      the six pictures read at the addresses the allocation at 0x49581f
-      returns (seen with `-watch 0x49581f`);
-    - the screen, as the demo movie plays (`-frames dir -every 1
-      -framesfrom 2950`).
-  - **Audio.** The audio matches FFmpeg's decode sample for sample.
-    FFmpeg rejects `demoav1`'s short last block; Reluva decodes it.
-
-## The file
+### The file
 
 Chunks, each a 4-character tag and a u32 size (little-endian, the 8 bytes
 included):
@@ -70,7 +25,7 @@ included):
 Each audio block follows the frame it belongs with. The four movies are
 320×240 at 15 frames a second. A key frame comes every fifth frame.
 
-## Frames
+### Frames
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -98,7 +53,7 @@ centred on 128. It is coded in 16×16 macroblocks, left to right and top
 to bottom. Each macroblock has six 8×8 blocks: four luma (top left, top
 right, bottom left, bottom right), then U, then V.
 
-### Macroblocks
+#### Macroblocks
 
 In a key frame every block is intra coded (below). In an inter frame a
 macroblock starts with a prefix:
@@ -129,7 +84,7 @@ offset in the plane, which must be at least 0 and below
 A `MADe` frame isn't kept as the reference for the next frame. An inter
 frame with nothing before it works from black (Y 0, U and V 128).
 
-### Intra blocks
+#### Intra blocks
 
 1. **DC.** An 8-bit signed value *s*. The coefficient is (128 + *s*) × Q[0].
 2. **AC.** Coefficients in zigzag order, until the end-of-block code
@@ -160,7 +115,7 @@ frame with nothing before it works from black (Y 0, U and V 128).
    It leaves out the scale factors a(k) = √2·cos(kπ/16), with a(0) = 1,
    so the quantiser divides by them instead (below).
 
-### The quantiser
+#### The quantiser
 
 Q[*i*] is computed for each frame from the scale byte *q*, the MPEG-1
 default intra matrix W, and S[*i*] = round(4096 / (a(*u*)·a(*v*))) for
@@ -169,7 +124,9 @@ row *u* and column *v*:
 - Q[0] = (S[0] × W[0]) >> 11, which is 16 (DC is not scaled by *q*);
 - Q[*i*] = (S[*i*] × W[*i*] × *q* + 32) >> 10.
 
-## The game's decoder
+## Behaviour
+
+### The game's decoder
 
 nfs3.exe's decoder was read from the disassembly:
 
@@ -231,7 +188,7 @@ Reluva has this as `MadDecoder::Arithmetic::Game` (`mad-frames ...
 default. On `demoav1` the two differ by 1 in 8 bits on average (the
 game's samples have 7), and 2% of samples by 4 or more.
 
-## The game's display step
+### The game's display step
 
 Read from the disassembly (October 2026). After 0x510ff8 the frame is a
 4:2:2 buffer of 2 bytes a pixel (allocated at 0x4957f6): per pixel pair
@@ -320,10 +277,10 @@ full-range BT.601 matrix in floating point, each pixel shown twice).
   frames between 32 and 61, key and inter, and at most points one more
   being decoded. With the game arithmetic every sample of each whole
   frame is identical to Reluva's, Y, U and V, and each frame being
-  decoded is too as far as it had got. Before the three fixes above (the
-  transposed matrix, the copies' clamp, the chroma vector's rounding)
-  94-98% of the samples of the key frames were, most of the rest ±1 and
-  none more than ±7.
+  decoded is too as far as it had got. Without three of the points above
+  (the transposed matrix, the copies' clamp, the chroma vector's
+  rounding) only 94-98% of the samples of the key frames are, most of
+  the rest ±1 and none more than ±7.
 - **The screen.** Every frame the game showed of `demoav1` was captured
   (`-frames dir -every 1 -framesfrom 2950`: captures 2968-3084, movie
   frames 3 to 445, 114 of them) and compared in 5:6:5 with Reluva's mode
@@ -335,25 +292,83 @@ full-range BT.601 matrix in floating point, each pixel shown twice).
   routine `0x4fd7b6` at 160 only, and at the mode-3 one `0x4fd892` at
   neither). The intro (`titleav`) was captured with `-deterministic
   200000` (so few frames are skipped) and `-frames dir -every 1`,
-  and each capture compared in 5:6:5 with `reluva-tool mad-frames
+  and each capture compared in 5:6:5 with `reluva-tool nfs mad-frames
   titleav.mad dir 0 300 -game -display 1` or `2`: in mode 1, 185
   captures (movie frames 32-298, 177 of them) and in mode 2, 187
   (179 frames) are identical in every pixel, black odd lines and all.
   Against the other mode the same captures match only about half
   of their non-black pixels.
 
-Before the fixes, the best mode 3 matches had been 67.8%, 36% and 82.7%
-of pixels exact (frames 3, 6 and 10), against 66%, 35% and 69% for the
+Without those three points, the best mode 3 matches are 67.8%, 36% and
+82.7% of pixels exact (frames 3, 6 and 10), against 66%, 35% and 69% for the
 reference arithmetic and 51%, 10% and 65% for mode 2. So mode 3 is
 right, with its layout (each line's last 4 pixels and the last line
 black), and the chroma lines are used as they are for both luma lines
 they cover. The softer look of the fade-in frames is this
 interpolation.
 
-## What isn't known
+## In Reluva
+
+Read as `MadMovie`, decoded by `MadDecoder`
+(`src/engines/nfs/formats/mad.cpp`):
+
+- the four movies on the CD (`fedata/movies`: `titleav`, `demoav1`-`3`)
+  read;
+- all 2,882 of their frames decode, and their audio
+  (`reluva-tool nfs survey`, `mad-info`).
+
+`reluva-tool nfs mad-frames` writes frames as TGA pictures. `mad-wav` writes
+the audio.
+
+The data viewer's Movies page plays them.
+
+## Sources and checks
+
+October 2026.
+
+- **The file.**
+  - The chunk layout was read off hex dumps: the same chunks as the music
+    streams ([mus.md](mus.md)), with video frames between the audio
+    blocks.
+  - The fields of the frame header were found by comparing the four
+    movies.
+- **The video codec.** EA's "Madcow" codec was learned from two
+  references, read as references only ([nfs.md](../PLAN.md),
+  Sources):
+  - the MultimediaWiki page on EA's MAD;
+  - FFmpeg's `eamad` decoder.
+
+  Reluva's decoder was written from that understanding. The MPEG-1 code
+  table and intra quantiser matrix were taken from ISO/IEC 11172-2. The
+  AAN scale factors are computed, not tabulated.
+- **Checks.**
+  - **Pictures.** The frames are the pictures one expects: the EA and
+    Dolby logos, the title sequence's driving shots, the demos' races
+    with their "DEMO" caption.
+  - **Against FFmpeg.** Every frame of all four movies was compared with
+    FFmpeg 6.1's raw YUV output. Most frames are identical byte for byte.
+    FFmpeg keeps Q in 16 bits, so above *q* ≈ 8 its highest-frequency
+    values wrap; Reluva keeps them whole, as the game does (The game's
+    decoder, above). That is the only difference: with Q cut the same
+    way, all four movies match FFmpeg. 21 frames differ, all at high *q*:
+    4-8 in each demo movie and 5 in the title movie.
+  - **Against the game.** The game's decoder was read from nfs3.exe's
+    disassembly, and its arithmetic was rebuilt in Reluva and run on all
+    four movies. Two kinds of ground truth came from the game in
+    reluva-tool nfs host (`-native -deterministic 50000`):
+    - its decoded pictures, from memory: the run stopped at a set
+      instruction count (`-limit`) and its memory written out (`-dump`),
+      the six pictures read at the addresses the allocation at 0x49581f
+      returns (seen with `-watch 0x49581f`);
+    - the screen, as the demo movie plays (`-frames dir -every 1
+      -framesfrom 2950`).
+  - **Audio.** The audio matches FFmpeg's decode sample for sample.
+    FFmpeg rejects `demoav1`'s short last block; Reluva decodes it.
+
+## Open questions
 
 - **Copies from outside the picture.** The game doesn't test the source
   and would read whatever lies beside its picture; Reluva skips them. The
   four movies have none.
-- Modes 1 and 2 have now been compared with the game too (above),
-  on the intro only; the demo movies weren't captured in those modes.
+- Modes 1 and 2 are compared with the game on the intro only (above);
+  the demo movies weren't captured in those modes.

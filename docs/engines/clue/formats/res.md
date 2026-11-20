@@ -194,10 +194,9 @@ characters 16 × 16 × 100; the pool table 168 × 92 × 48; a 4 × 4 floor block
 64 × 64 × 1, flat. The image follows from it: a wall along x is 80 = 64 +
 16 pixels wide and its frame's top left is at (−16, −161) from the anchor.
 
-An earlier version of this page took bytes 20-21 for the frame's time: the
-characters' 100 fitted that, but walls' 161 and the armour's 140 show it's
-the height. Another took the header's 10 for the frames' rate; it is the
-parts' size (EagleM.dll reads each part with it, 0x1000F0B8), and the
+Bytes 20-21 aren't the frame's time: the characters' 100 fits that, but
+walls' 161 and the armour's 140 show it's the height. The header's 10
+isn't the frames' rate either; it is the parts' size (EagleM.dll reads each part with it, 0x1000F0B8), and the
 rate is the byte after the name.
 
 How the fields were named: EagleM.dll writes an animation as text too

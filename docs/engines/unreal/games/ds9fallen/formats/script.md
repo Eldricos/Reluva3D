@@ -47,9 +47,9 @@ ENetRole) and `Actor.Physics` (category, replication offset, enum
 EPhysics); `Actor.Destroy` (no script, native 279, flags final|native);
 `Actor.ZoneChange` (script `04 0b`, `return;`, flags event); the class
 `Light` (to its config name, then its defaults). The class defaults found
-this way differ from the earlier guess at their start
+this way differ from a guess at their start from where they end
 ([actors.md](../systems/actors.md#class-defaults)) in 810 of the 1,442 classes,
-all where the guess was wrong.
+all where the guess is wrong.
 
 ### Bytecode
 

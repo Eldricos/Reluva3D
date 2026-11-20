@@ -2,11 +2,15 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/frd.cpp` · **Checked on:** the 9 tracks · **Confidence:** from the code unless marked
 
+## Overview
+
 Which `trkNNN` folder is which track, and how the game picks a track's
 files. Worked out in October 2026 from the retail `nfs3.exe` (its
 disassembly) and `FeData/text/text.eng`.
 
-## The tracks
+## Layout
+
+### The tracks
 
 | Number | Folder | Track | Front-end image | Length (miles) |
 |---|---|---|---|---|
@@ -23,42 +27,7 @@ disassembly) and `FeData/text/text.eng`.
 The order is the one Electronic Arts' own lists use, and the alphabetical
 order of the `FeData/art/track/*.qfs` files is not it.
 
-## Sources and checks
-
-- **One variable holds the track number**: `0x6fd4ac`. The same value
-  makes every track path and indexes every per-track table:
-  - `0x41d8a0` formats `%sTRK%03x\Tr%02x%s` with it (the `trNN?.qfs`
-    texture sets); `0x41e307` formats `%sTRK%03x\simhts.dat`;
-    `0x4c83a4` formats `%sTrk%03x\tut%02x`. The folder number is
-    printed in **hex** (`%03x`), so a 10th track would be `trk00a`.
-  - `0x456919` and `0x4a4ae0` take `[0x6fd4ac*4 + 0x559620]`, a table
-    of 9 pointers to `home redr atla rock coun lost aqua summ empi`
-    (strings at `0x539938`, 8 bytes apart), and format `%s%s.qfs`: the
-    track's front-end picture (`FeData/art/track/home.qfs`...).
-  - `0x4565f0` takes `[0x6fd4ac*4 + 0x559644]`, 9 pointers to `3.6`,
-    `5.4`, `4.9`, `5.5`, `5.2`, `6.3`, `5.3`, `6.4`, `4.6`, and prints
-    it with text string 6 (`Miles`): the track info screen's length.
-  - `0x460228` takes `[0x6fd4ac*4 + 0x559fb0]`, shape names `homt redr
-    atln rokp cwod losc aqua sumt ecit eegg eegg` (11 entries, at
-    `0x53a50c`): the Location screen's track picture.
-- **The names are text strings 102 + number.** `text.eng` strings
-  102-110 are Hometown, Redrock Ridge, Atlantica, Rocky Pass, Country
-  Woods, Lost Canyons, Aquatica, Summit, Empire City. The exe's text
-  symbol list (`kText...` strings from `0x540bcc`, 1,142 of them, in
-  string order) names 102-117 `kTextTrack1` to `kTextTrack16`.
-  - `0x44649d` (`lea eax,[ebx+0x66]`, then the text lookup `0x4d1850`)
-    turns a saved record's track number (checked 0..8) into its name.
-  - The Location screen's track list is 10 text numbers at `0x55636e`,
-    retail initial values `102 103 104 105 106 107 108 109 484 0`, with
-    10 "selectable" words at `0x556382`: `1 1 1 1 1 1 1 1 0 0`. Slot 8
-    shows string 484, `(Bonus)`, and can't be picked.
-  - `0x442b60(n)` sets slot n to text `0x66 + n` and makes it
-    selectable. It is called with 8 when Empire City is won
-    (`0x44e235`, `0x4527af`) and when a saved game has it (`0x44c2c3`,
-    flag `0x6fd2ac`). Text 437/439 is "Empire City (and El Niño)
-    Awarded"; 383 says the Knockout unlocks it.
-
-## Bonus and hidden tracks
+### Bonus and hidden tracks
 
 - Only 9 track folders ship, and only 9 entries are in each per-track
   table. **There is no Caverns, Scorpio-7 or Autocross** in this
@@ -77,7 +46,7 @@ order of the `FeData/art/track/*.qfs` files is not it.
   - The track list's 10th slot is text 0 and not selectable. Nothing
     found sets it.
 
-## Reverse, mirror, night and weather
+### Reverse, mirror, night and weather
 
 These are flags, not separate track numbers:
 
@@ -92,7 +61,11 @@ The four horizon files, the `tr3dNN{,n,w,nw}.bnk` sound banks
 (`GameData/Audio/SFX`) and the 8-bit texture sets (`trNN0_8.qfs`,
 `trNN1_8.qfs`) follow the same flags.
 
-## Speed limits (`0x40ed40`)
+## Behaviour
+
+### Speed limits
+
+In `nfs3.exe`: `0x40ed40`.
 
 `0x40ed40(slice)` gives the speed limit, in m/s, at a slice of the
 current track (the car's slice is its +0x1C). It jumps by the track
@@ -127,7 +100,9 @@ and so on. Who uses it (its 8 callers):
 - a cop goes after a car going faster than the limit + 15 mph (6.705
   m/s, `0x403ffd`, against the car's speed +0x7C4).
 
-## Traffic and AI settings (rows from `0x56ef80`)
+### Traffic and AI settings
+
+In `nfs3.exe`: rows from `0x56ef80`.
 
 Rows of 32 bytes, one per track, at `0x56ef80` + track × 0x20, in
 `.bss`. So "rows at `0x56ef8c`" is the field +0xC of these. They are
@@ -164,7 +139,9 @@ letter + 9; the others that set `0x6fd4fc` bits are `GOFAST` 1,
 `TDRIVE` 2 (with a number, the traffic car to drive, `0x6fd500`),
 `MONKEY` 4, `BULLHORN` 0x10 and `MADLAND` 0x20.
 
-## Music laps (rows at `0x552864`)
+### Music laps
+
+In `nfs3.exe`: rows at `0x552864`.
 
 Two tables of 10 pairs of ints, for forward (`0x552864`) and backward
 (`0x5528b4`, when `0x6fd4c0`), read at a race's sound set-up
@@ -457,7 +434,50 @@ call had +0x74 = 1. So the 0 before 54.76 s was the last value written
 on the grid, not a newly worked-out one. 699 (or 1138) would be
 written only if the car had moved onto slice 260 by itself.
 
-## What isn't known
+## In Reluva
+
+`trackFolders` (`src/engines/nfs/folders.cpp`) finds the `trkNNN`
+folders, and the Tracks page names each by its number, read as hex
+(`kTrackNames`, `src/engines/nfs/pages/track_viewer.cpp`). The Tracks
+page's computer cars take the speed limits from `trackSectionSpeed`
+(`src/engines/nfs/formats/frd.cpp`).
+
+## Sources and checks
+
+- **One variable holds the track number**: `0x6fd4ac`. The same value
+  makes every track path and indexes every per-track table:
+  - `0x41d8a0` formats `%sTRK%03x\Tr%02x%s` with it (the `trNN?.qfs`
+    texture sets); `0x41e307` formats `%sTRK%03x\simhts.dat`;
+    `0x4c83a4` formats `%sTrk%03x\tut%02x`. The folder number is
+    printed in **hex** (`%03x`), so a 10th track would be `trk00a`.
+  - `0x456919` and `0x4a4ae0` take `[0x6fd4ac*4 + 0x559620]`, a table
+    of 9 pointers to `home redr atla rock coun lost aqua summ empi`
+    (strings at `0x539938`, 8 bytes apart), and format `%s%s.qfs`: the
+    track's front-end picture (`FeData/art/track/home.qfs`...).
+  - `0x4565f0` takes `[0x6fd4ac*4 + 0x559644]`, 9 pointers to `3.6`,
+    `5.4`, `4.9`, `5.5`, `5.2`, `6.3`, `5.3`, `6.4`, `4.6`, and prints
+    it with text string 6 (`Miles`): the track info screen's length.
+  - `0x460228` takes `[0x6fd4ac*4 + 0x559fb0]`, shape names `homt redr
+    atln rokp cwod losc aqua sumt ecit eegg eegg` (11 entries, at
+    `0x53a50c`): the Location screen's track picture.
+- **The names are text strings 102 + number.** `text.eng` strings
+  102-110 are Hometown, Redrock Ridge, Atlantica, Rocky Pass, Country
+  Woods, Lost Canyons, Aquatica, Summit, Empire City. The exe's text
+  symbol list (`kText...` strings from `0x540bcc`, 1,142 of them, in
+  string order) names 102-117 `kTextTrack1` to `kTextTrack16`.
+  - `0x44649d` (`lea eax,[ebx+0x66]`, then the text lookup `0x4d1850`)
+    turns a saved record's track number (checked 0..8) into its name.
+  - The Location screen's track list is 10 text numbers at `0x55636e`,
+    retail initial values `102 103 104 105 106 107 108 109 484 0`, with
+    10 "selectable" words at `0x556382`: `1 1 1 1 1 1 1 1 0 0`. Slot 8
+    shows string 484, `(Bonus)`, and can't be picked.
+  - `0x442b60(n)` sets slot n to text `0x66 + n` and makes it
+    selectable. It is called with 8 when Empire City is won
+    (`0x44e235`, `0x4527af`) and when a saved game has it (`0x44c2c3`,
+    flag `0x6fd2ac`). Text 437/439 is "Empire City (and El Niño)
+    Awarded"; 383 says the Knockout unlocks it.
+
+## Open questions
 
 - Answered in [physics.md](../systems/physics.md): the race types `0x6fd3b8` are
   0 Single Race, 1 Tournament, 2 Knockout, 3 Hot Pursuit (so the
@@ -473,17 +493,16 @@ written only if the car had moved onto slice 260 by itself.
   7), each with zone 5 second from the line, so driven backward its
   last change is 5 to 4, as run (November 2026, Music laps). That
   those backward changes were driven and not caused by the test's
-  progress-check moves (`0x429100` from `0x409bbf`) is now seen in the
+  progress-check moves (`0x429100` from `0x409bbf`) is seen in the
   same runs on Redrock Ridge, Rocky Pass, Lost Canyons and Summit
   (`e12-zs`, Music laps): the second move came after the change each
   time (by 52 ms on Redrock Ridge) and neither move crossed a zone.
   Hometown's and Country Woods' 186 were the move's (`e8-zq0`,
-  `e8-zr4`). Run since with +0x208 poked to 0 (`g3-zp0r`, `g3-zp4r`,
+  `e8-zr4`). Run with +0x208 poked to 0 (`g3-zp0r`, `g3-zp4r`,
   Music laps): the race distance moved, no move happened at all, and
-  both changed 5 to 4 at slice 190. Why +0x8 stayed 0 on the poked
-  slice until the car drove off it is settled too (`h3-zf0r`, Music
-  laps). `0x42ce70` works the race distance out only on a step whose
-  slice changed (car +0x74), and the placing's pokes are not such a
-  step.
+  both changed 5 to 4 at slice 190. +0x8 stays 0 on the poked slice
+  until the car drives off it (`h3-zf0r`, Music laps): `0x42ce70` works
+  the race distance out only on a step whose slice changed (car +0x74),
+  and the placing's pokes are not such a step.
   Atlantica would count too, but its row is −1, and Empire City's
   second zone is its one-slice 7.

@@ -6,7 +6,7 @@
 
 Each city's 13 driving lessons, and how each is judged. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Crash Course
+## How it works
 
 Each city's 13 lessons (`race/<city>/crash<n>data.csv`,
 [race.md](../formats/race.md)), named in `mmlang.dll`
@@ -37,9 +37,9 @@ Being busted or wrecked fails any lesson. The checkpoints' fifth column,
 called "poly count" as in the circuits, varies from gate to gate here
 (4-16) and is read as the gate's radius.
 
-Event 8 had been read from the messages 210-216, which `mmlang.dll`
-names "Bonnie & Collide" too ("Drive as cleanly as you can!", "Wait...5
-second penalty"); but the lesson's picture says "Buckle up! It's time to
+Event 8 isn't the messages 210-216, though `mmlang.dll` names them
+"Bonnie & Collide" too ("Drive as cleanly as you can!", "Wait...5
+second penalty"): the lesson's picture says "Buckle up! It's time to
 ram another car into submission!", the walkthrough footage shows the
 pickup rammed until "You did it!" and Midterm 2 as "Destroy that car!"
 then "Get going! Lose the tail", and 616-623 are that lesson's words. No
@@ -63,6 +63,12 @@ traffic 0.1, no police or opponents) and `ramp.pathset` one path,
 "PATH01", of 13 points near `jump2`'s start, naming no model: nothing
 names them as races or says what they're for, so they aren't used. A passed lesson offers the next
 (Enter), any lesson its restart (R).
+
+## In Reluva
+
+`LessonJudge` (`src/engines/age/game/lesson.{h,cpp}`) judges a lesson
+by its event number, with the rules in the table above, which are
+Reluva's reading of the messages.
 
 ## Sources and checks
 

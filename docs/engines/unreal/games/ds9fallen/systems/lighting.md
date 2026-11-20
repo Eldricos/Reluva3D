@@ -76,10 +76,10 @@ those units, 1 the texture as it is.
   M05_KiraL1 has 0.75, most 1). Each light's palette is 256 levels times
   that, each channel at most 127: so in Reluva's units twice it, and one
   light gives a sample at most 1. Defaults as `Engine.Light`'s:
-  brightness 64, hue 0, saturation 255. (Reluva used to scale saturated
-  lights up so their channels summed as white's, fitted to a recording;
-  the original doesn't, and the brightness differences that fit chased
-  came from the display, below.)
+  brightness 64, hue 0, saturation 255. (Saturated lights aren't scaled
+  up so their channels sum as white's, as a fit to the recording
+  suggests: the original doesn't, and the brightness differences such a
+  fit chases come from the display, below.)
 - **Radius**: `25 * (LightRadius + 1)` world units; default radius 64.
 - **Falloff and facing**, by f = distance / radius: 1 - 3 f^2 + 2 f^3
   (`lightFalloff()`), times the cosine between the surface's normal and
@@ -124,8 +124,8 @@ those units, 1 the texture as it is.
   (actors' lights) light without shadows, as the original's.
 - A light's properties are its own over its class's defaults
   ([actors.md](actors.md#class-defaults)). On The Fallen that changes
-  only the 90 `Spotlight` actors (now cones, `LightEffect` 12 from their
-  class) and the 30 `DS9_LavaZone` zones (now an orange glow of
+  only the 90 `Spotlight` actors (cones, `LightEffect` 12 from their
+  class) and the 30 `DS9_LavaZone` zones (an orange glow of
   brightness 255).
 
 ### How the frame is shown
@@ -142,9 +142,9 @@ about 0.85 x Reluva^1.31 (the screenshot's curve on lights a little
 brighter than the original's), and the recording, a capture of the
 display, was about 1.07 x Reluva^0.83. Against the recording's cut scenes
 (22 frames matched by shape from CM05_Kira, CM01a_SW, Cm11B_SWK and
-others), Reluva is now within 10-20% of it at every brightness (its 25th,
+others), Reluva is within 10-20% of it at every brightness (its 25th,
 50th, 75th and 95th percentiles 1.21, 1.11, 1.10 and 1.17 times the
-recording's), where before its dark tones were 3 to 9 times darker.
+recording's).
 
 What's left is about the same at every brightness, so a gain rather than
 a curve. Not it: the video's levels (its black is 0, its range decoded as
@@ -290,12 +290,12 @@ Lights the scripts may change (any class but plain `Light`, like
 `TriggerLight`, or one with a Tag a trigger can name) are kept apart
 the same way, starting as they are (one that starts off, at nothing:
 kept at the brightness it was placed with, so it lights once its scripts
-turn it on; one put out at the start, a `CTV_TriggerLight` not initially
-on, was dropped and never lit),
+turn it on, as one put out at the start, a `CTV_TriggerLight` not
+initially on, would otherwise never be),
 and while the game runs follow their live actor: its `LightType` and
 `LightBrightness` against the brightness it was placed with (a
 TriggerLight fading, a light switched off or destroyed). With them and
-the effects, 3,436 of the lights change (1,377 before), over 34,029
+the effects, 3,436 of the lights change, over 34,029
 lightmaps; the most texels kept apart in one map is about 291,000.
 
 The light a sample gets is linear in each light's brightness, so a
@@ -353,8 +353,8 @@ lists a level's lights with an effect.
 
 ### Compared with the original (TrainingRoom, October 2026)
 
-(History: the curve fitted here was the screenshot's, not the display's;
-see "How the frame is shown". Reluva no longer uses it.)
+The curve fitted here is the screenshot's, not the display's: see "How
+the frame is shown".
 
 A screenshot of the original and one of the Maps page from about the same
 place, sampled over matching areas (0-255, averaged):
@@ -372,23 +372,20 @@ Even the unlit surfaces, which lighting doesn't touch, were brighter, and
 the darker the area the larger the gap. One curve fits every row:
 original = 0.85 x Reluva^1.31 (colours 0-1). So most of the difference
 was in how the finished frame is shown (the original's gamma or
-brightness setting), not in the lighting. The Maps page now multiplies
-colours by 0.88 and raises the frame to the power 1.3 (`-`/`=` change the
-power), which gives that curve. With it matched, the lighting itself
-(falloff, brightness unit) is compared again. Rough: the two cameras
-weren't in exactly the same place. The original's brightness setting for
-that shot was `Brightness=0.500000` (`[WinDrv.WindowsClient]` in its
-`DS9.ini`), the middle of its slider, so the 0.88 / 1.3 curve is what
-that setting gives. How other settings change it isn't known yet: a
+brightness setting), not in the lighting: colours times 0.88, raised to
+the power 1.3, give that curve. Rough: the two cameras weren't in
+exactly the same place. The original's brightness setting for that shot
+was `Brightness=0.500000` (`[WinDrv.WindowsClient]` in its `DS9.ini`),
+the middle of its slider, so the 0.88 / 1.3 curve is what that setting
+gives. How other settings change it isn't known yet: a
 screenshot of the same place at another Brightness (say 1.0) would show
 it, and then the curve can follow the player's setting.
 
 ### Compared with a recording of the original (October 2026)
 
-(History, in part: the fits below for light colours, characters' light,
-the falloff and the display curve have been replaced by what the
-original's code does, in the sections above. They're kept for what the
-recording showed.)
+(What Reluva does for light colours, characters' light, the falloff and
+the display curve follows the original's code, in the sections above;
+the fits below are what the recording shows of them.)
 
 A full play-through recorded from the original (5 h 40 m, 960x720)
 against the same views here, matched shot for shot in cut scenes:
@@ -405,11 +402,11 @@ against the same views here, matched shot for shot in cut scenes:
   directed, 0.027. Characters lit from all round (Kira in M05_KiraL1,
   Worf on the Defiant) barely change.
 - The lights actors carry (not the level's: a pickup, a flare) take their
-  colour without the scaling for saturated colours above. CM10_SWK_L3's
-  red orb (pure red, brightness 255, radius 275) with it lit the floor
-  round its pedestal at 0.127 red against the recording's 0.025 (through
-  its display curve) and the pedestal a saturated red; without, 0.045
-  and pink, as the recording. Facing (incidence) isn't it: the
+  colour unscaled, as the level's do (above). CM10_SWK_L3's red orb
+  (pure red, brightness 255, radius 275) scaled up lights the floor round
+  its pedestal at 0.127 red against the recording's 0.025 (through its
+  display curve) and the pedestal a saturated red; unscaled, 0.045 and
+  pink, as the recording. Facing (incidence) isn't it: the
   recording lights the pedestal's and the cap's sides, which face away.
 - Lights with `bSpecialLit` don't light characters: CM11_LabRitual's
   eight blue halos (radius 3225, high over the room) lit Obanak blue and
@@ -447,7 +444,7 @@ against the same views here, matched shot for shot in cut scenes:
   shadow of a cliff anywhere in its six minutes. So large cylinder lights
   (radius 1000 and more: the outdoor maps' sky lights; indoor cylinder
   lights are 50 to 625) light without their shadow bits
-  (`unshadowed()`). The ground now comes within 15% of the recording
+  (`unshadowed()`). The ground comes within 15% of the recording
   (through its display curve). Fitted, and not what the original's code
   does: its renderer gives every light in a surface's lightmap list its
   shadow bits (blurred by a weighted 8x8 kernel to 0-255), and only
@@ -456,7 +453,7 @@ against the same views here, matched shot for shot in cut scenes:
   the field mostly in shadow. The recording is of a later build (its
   credits differ too), whose map was likely lit again; the fitted rule
   stays until this build's own footage or the later build's map says
-  which. Read again (November 2026): `AddLight` makes a
+  which. In the code (read November 2026): `AddLight` makes a
   `bStatic` steady light with a still effect (the effect table's flags
   both clear, as Cylinder's are) a lightmap light, and the cylinder
   lightmap function multiplies (1 - (dx^2 + dy^2) / r^2) by the light's

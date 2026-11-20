@@ -2,37 +2,15 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/mus.cpp` · **Checked on:** every stream and map · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/mus.cpp`; the stereo EA-XA
-block decoder in `src/audio/ea_audio.cpp`):
+## Overview
 
-- all 19 music streams on the CD (`gamedata/audio/pc`) read, and their
-  1,729 segments decode;
-- all 29 Pathfinder maps read, and their offsets match their stream's
-  segments (`reluva-tool nfs survey`).
+The game's music: streams of segments on the CD (`gamedata/audio/pc`),
+and the Pathfinder maps (`.map`, `.lin`) that say which segment follows
+which.
 
-## Sources and checks
+## Layout
 
-October 2026, from hex dumps and survey scripts:
-
-- **The streams.** Chunks read off the data:
-  - every segment's block count equals its `SCCl`;
-  - its blocks' samples add up to its header's count;
-  - every EA-XA block's size is 20 + 30 × groups bytes, with 0 or 2
-    bytes of padding.
-- **Stereo EA-XA.** Its details were settled by decoding:
-  - with the history read as (previous, before previous) and the shift
-    meaning what it does in banks, blocks join seamlessly (the jump at a
-    join is the size of an ordinary step) and nothing clips;
-  - every other reading jumps by a hundred times that at each join;
-  - the first seconds' spectrogram is music: held notes, drum hits, a
-    new section with guitar bends.
-- **The maps.**
-  - The table at the end equals the segments' offsets in the `.mus`.
-  - The record sizes divide the rest exactly.
-  - Every section's routes cover 0 to 100 without gaps and lead to
-    sections that exist (1,698 sections with routes in the retail maps).
-
-## Streams (`.mus`)
+### Streams (`.mus`)
 
 A stream is segments one after another. Each segment is four kinds of
 chunk, each a 4-character tag and a u32 size (little-endian, the 8 bytes
@@ -62,7 +40,7 @@ Data blocks:
 
 The PCM streams are six of the eight showcase tracks (`show1`, `3`, `4`, `5`, `7`, `8`) and `srv2.mus`; `show2` and `show6` are EA-XA.
 
-## Pathfinder maps (`.map`, `.lin`)
+### Pathfinder maps (`.map`, `.lin`)
 
 A map says which segment follows which. The executable's strings call it
 the "Pathfinder map".
@@ -94,6 +72,8 @@ when the music doesn't follow the race.
 Events: a row of 16 section numbers for each part. Event e from a
 section of part p leads to section `events[p][e]`.
 
+## Behaviour
+
 ### How the game plays a map
 
 From `nfs3.exe`'s Pathfinder code (iSND's `SNDpathcontrol` at
@@ -120,8 +100,8 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
     look-ahead from the car's velocity ((|x| + |z|) × 65536, +0xA4 and +0xAC) and then
     replaces it with 0 (`0x421227`); the ±16 slices left after it
     (`0x42122b`, `0x421232`, the sign by the wrong-way flag +0x998)
-    are reached by no jump (November 2026, read again; before then
-    this page said 16 ahead). In the runs of
+    are reached by no jump (November 2026, read again), so it isn't 16
+    ahead. In the runs of
     [tracks.md](tracks.md) (Music laps) each zone change came with
     +0x1C on the zone's first slice (driven backward, on the slice
     just below it: the lookup and the slice numbers are the same both
@@ -323,7 +303,7 @@ tune after the race start's flip, and the stream follows it, not the
 alternation; Random is always rock. Hometown's own stream is not
 used: the prefix is the tune's.
 
-## Seen in footage (November 2026)
+### Seen in footage (November 2026)
 
 From 18 YouTube recordings of the original game, one race per track by
 day and by night (`Hometown_Day` and so on; times are clip times,
@@ -410,9 +390,17 @@ at `Atlantica_Night` 0:56.9 the player, a cop, is closing on Ram Rod,
 which slows by the wall (0:56.5-1:00): the start of a stop, by the look
 of it. Neither car is reset there. The races of other lengths aren't in the footage (runs above).
 
-## On the Music page
+## In Reluva
 
-The segments play as one stream (`audio::SoundQueue`, `common/audio`):
+Read as `MusicStream` and `MusicMap` (`src/engines/nfs/formats/mus.cpp`; the stereo EA-XA
+block decoder in `src/audio/ea_audio.cpp`):
+
+- all 19 music streams on the CD (`gamedata/audio/pc`) read, and their
+  1,729 segments decode;
+- all 29 Pathfinder maps read, and their offsets match their stream's
+  segments (`reluva-tool nfs survey`).
+
+On the data viewer's Music page, the segments play as one stream (`audio::SoundQueue`, `common/audio`):
 the page keeps the next section decoded and queued behind the one
 playing, chosen when it's queued, and each segment's last sample leads
 straight into the next one's first, with no gap. The choice is the
@@ -421,10 +409,30 @@ pursuit, 4-9 the zones; it applies to the next section decided), else
 the route for the intensity (Left/Right), else the same section. The
 page shows the part, where its events lead, and the event pending.
 
-## Tools
-
-- `reluva-tool mus-info <file.mus> [file.map | file.lin]` lists the
+- `reluva-tool nfs mus-info <file.mus> [file.map | file.lin]` lists the
   segments, with their routes when given a map, and checks the map's
   offsets.
-- `reluva-tool mus-wav <file.mus> <segment | all> <dir>` writes segments
+- `reluva-tool nfs mus-wav <file.mus> <segment | all> <dir>` writes segments
   as WAV files.
+
+## Sources and checks
+
+October 2026, from hex dumps and survey scripts:
+
+- **The streams.** Chunks read off the data:
+  - every segment's block count equals its `SCCl`;
+  - its blocks' samples add up to its header's count;
+  - every EA-XA block's size is 20 + 30 × groups bytes, with 0 or 2
+    bytes of padding.
+- **Stereo EA-XA.** Its details were settled by decoding:
+  - with the history read as (previous, before previous) and the shift
+    meaning what it does in banks, blocks join seamlessly (the jump at a
+    join is the size of an ordinary step) and nothing clips;
+  - every other reading jumps by a hundred times that at each join;
+  - the first seconds' spectrogram is music: held notes, drum hits, a
+    new section with guitar bends.
+- **The maps.**
+  - The table at the end equals the segments' offsets in the `.mus`.
+  - The record sizes divide the rest exactly.
+  - Every section's routes cover 0 to 100 without gaps and lead to
+    sections that exist (1,698 sections with routes in the retail maps).
