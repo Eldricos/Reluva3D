@@ -24,16 +24,19 @@ constexpr int32_t kDescription = 9112;
 // each empire (multiplayer, presumably), and a 250x350 picture under the
 // description.
 constexpr std::array<int32_t, 11> kHidden = {9124, 9125, 9126, 9127, 9128, 9119, 9120, 9121, 9122, 9123, 9113};
-const char *const kEmblemPictures[] = {"es_cicn0.tga", "es_hicn0.tga", "es_ficn0.tga", "es_kicn0.tga", "es_ricn0.tga"};
+// The emblems in colour (es_?icn1, not the blue es_?icn0), as a screenshot
+// and the recording show them.
+const char *const kEmblemPictures[] = {"es_cicn1.tga", "es_hicn1.tga", "es_ficn1.tga", "es_kicn1.tga", "es_ricn1.tga"};
 
 // The descriptions: lexicon.dic's entries 270-274, found by their text
 // (the recording shows the Federation's), in the lexicon's order:
 // Cardassians, Ferengi, Federation, Klingons, Romulans.
 constexpr std::array<int, 5> kDescriptions = {270, 272, 271, 273, 274};
 
-// Colours measured from the recording, as on the setup screen.
-constexpr Color kLevelColor{120, 180, 150};
-constexpr Color kDescriptionColor{133, 115, 75};
+// Colours measured from a screenshot of the game: the levels in the
+// options and Hall of Fame's blue.
+constexpr Color kLevelColor{24, 101, 189};
+constexpr Color kDescriptionColor{206, 117, 66};
 constexpr int kDescriptionLineGap = 2; // 23 pixels a line, human20's height 21
 
 } // namespace
@@ -81,6 +84,9 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
 }
 
 void EmpireScreen::draw(Surface &screen) {
+    // The chosen empire's name shows its second picture. The game also
+    // tints the one under the pointer (red up, blue down, in a screenshot),
+    // in a way not worked out yet: Reluva leaves it as it is.
     std::set<int32_t> selected;
     if (_chosen >= 0)
         selected.insert(kNames[size_t(_chosen)]);

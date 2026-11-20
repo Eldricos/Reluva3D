@@ -59,7 +59,11 @@ void testWrap() {
     CHECK(!font.load(makeFont(8)));
     // Every glyph advances 3 to 6 pixels, a space 4: '1' 3, '2' 4, '3' 5.
     CHECK(font.measure("12") == 7);
-    CHECK(font.wrap("12 12 12", 18) == std::vector<std::string>({"12 12", "12"}));
+    // "12 12" is 18 pixels; a word fits only with the space after it (4),
+    // but the last word has none.
+    CHECK(font.wrap("12 12 12", 22) == std::vector<std::string>({"12 12", "12"}));
+    CHECK(font.wrap("12 12 12", 21) == std::vector<std::string>({"12", "12 12"}));
+    CHECK(font.wrap("12 12", 18) == std::vector<std::string>({"12 12"}));
     CHECK(font.wrap("12 12 12", 100) == std::vector<std::string>({"12 12 12"}));
     CHECK(font.wrap("123123 1", 6) == std::vector<std::string>({"123123", "1"})); // too wide: on its own
     CHECK(font.wrap("1\n\n2", 100) == std::vector<std::string>({"1", "", "2"}));

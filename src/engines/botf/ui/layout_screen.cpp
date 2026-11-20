@@ -119,12 +119,15 @@ void LayoutScreen::drawTextAt(Surface &screen, const Widget &w, int boxX, int bo
             x += w.textW - f->measure(s);
         f->drawInColor(screen, x, y, s, color);
     };
+    // The game draws a line of text as its glyphs' whole cells, the frame's
+    // row above them included: the glyphs start a pixel below the line's
+    // top (measured on screenshots, single lines and the empire screen's
+    // wrapped ones alike).
     if (lineGap < 0) {
-        // An odd pixel left over goes above: the options screen's title.
-        line(text, boxY + w.textY + (w.textH - f->glyphHeight() + 1) / 2);
+        line(text, boxY + w.textY + (w.textH - f->lineHeight()) / 2 + 1);
         return;
     }
-    int y = boxY + w.textY;
+    int y = boxY + w.textY + 1;
     for (const std::string &s : f->wrap(text, w.textW)) {
         if (y + f->glyphHeight() > boxY + w.textY + w.textH)
             break;

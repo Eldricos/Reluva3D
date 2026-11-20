@@ -226,7 +226,10 @@ recording:
 
 - **Each empire**, in `race.rst`'s order: a name button (kind 2; its
   pictures, `es_?btn1` and `es_?btn2`, carry the name), an emblem
-  (`es_?icn0`, in picture widgets the size of the `es_?icn` pictures), and
+  (`es_?icn1`, in colour, in picture widgets the size of the `es_?icn`
+  pictures: a screenshot matches each pixel for pixel, and the recording
+  shows them too, before and after a choice; `es_?icn0` are the same in
+  blue), and
   its civilization level from the setup screen in the text box under its
   name, numbered as there:
 
@@ -240,27 +243,32 @@ recording:
 
 - **Choosing:** in the recording no empire is chosen at first; the one
   clicked shows its name button's second (yellow) picture and keeps it.
-  The emblems don't change. Accept (9110) and Cancel (9111) as on the setup
+  The emblems don't change. The name under the pointer is tinted, red a
+  little up and blue down from its first picture (a screenshot, and the
+  recording's frame before the click); how isn't worked out, and Reluva
+  doesn't tint it. Accept (9110) and Cancel (9111) as on the setup
   screen.
 - **The description** of the empire pointed at, as the manual says ("when
   the cursor passes over the empire's icon or name"), or else of the one
   chosen, in text box 9112 (`human20.fnt`, left-aligned). It isn't the
   race's description in `racedesc.rst` but `lexicon.dic`'s entries 270-274
   (found by the recording's text: "The Federation is a free society...").
-  Its lines are 23 pixels apart (the font's 21 and 2 more), and break where
-  a word no longer fits the box's 240 pixels: with the font's advances as
-  the game uses them ([formats/fnt.md](../formats/fnt.md)), that breaks the
-  Federation's 13 lines exactly where the recording does (line 8: "...have
-  a" / "more favorable..."). With the header's advances it didn't, and a
-  rule that a space after the word must fit too had been taken instead;
-  both rules give the Federation's lines now, but not the Cardassians',
-  Klingons' or Romulans', which the recording doesn't show *(inferred)*.
+  Its lines are 23 pixels apart (the font's 21 and 2 more), the first
+  glyphs a pixel below the box's top, as all text is drawn (In Reluva,
+  below). A word goes on a line when it and the space after it fit the
+  box's 240 pixels; a paragraph's last word, with no space after it, needs
+  only its own width. With the font's advances as the game uses them
+  ([formats/fnt.md](../formats/fnt.md)), that breaks the Federation's 13
+  lines where the recording does (line 8: "...have a" / "more
+  favorable..."), and the Klingons' 12 where a screenshot does: line 7
+  "...diplomacy, but" (with "they" 237 pixels, and its space past 240),
+  and the last "suited to predatory group attacks." (239).
 - **Not shown in single player:** five small buttons with number boxes
   (9124-9128, 9119-9123; for multiplayer *(guessed)*) and a 250x350
   picture under the description (9113; the `es_?0` and `es_?1` pictures are
   that size). The recording shows none of them.
-- **Colours,** measured from the recording: the levels as on the setup
-  screen, the description (133, 115, 75).
+- **Colours,** measured from a screenshot: the levels (24, 101, 189), as
+  the options' values, and the description (206, 117, 66).
 
 ## In Reluva
 
@@ -268,7 +276,10 @@ recording:
   main menu (dimmed) or as it, buttons found under the mouse, buttons that
   can't be used drawn dimmed and the one under the pointer lit, text drawn
   in a text box's font and alignment, and wrapped as the empire screen's
-  description is. The dimmed pictures are made by `ui/assets.cpp`.
+  description is. A line of text is placed as the game places it: its
+  glyphs a pixel below the line's top (the cells' frame row above them),
+  a single line's top centred in the box, `(height - line height) / 2`,
+  measured on every screenshot's text. The dimmed pictures are made by `ui/assets.cpp`.
 - `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/load_screen.cpp`,
   `ui/fame_screen.cpp`, `ui/setup_screen.cpp` and `ui/empire_screen.cpp`:
   each screen's controls.
@@ -336,6 +347,6 @@ recording:
   executable, is the one place left, and it shows no readable text.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
-- What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an
-  emblem changes it.
+- What `es_?icn0`, `es_?0` and `es_?1` are for, and how the game tints a
+  name under the pointer.
 - How the game picks its text colours.

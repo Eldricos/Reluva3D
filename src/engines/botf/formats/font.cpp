@@ -184,7 +184,10 @@ std::vector<std::string> Font::wrap(std::string_view utf8, int width) const {
                 space = paragraph.size();
             const std::string_view word = paragraph.substr(w, space - w);
             const std::string candidate = line.empty() ? std::string(word) : line + " " + std::string(word);
-            if (!line.empty() && measure(candidate) > width) {
+            // A word fits when the space after it does too; the last word
+            // of a paragraph has none (the empire screen's descriptions).
+            const int after = space < paragraph.size() ? _spaceAdvance : 0;
+            if (!line.empty() && measure(candidate) + after > width) {
                 lines.push_back(line);
                 line = std::string(word);
             } else {

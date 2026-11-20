@@ -31,11 +31,6 @@ None: nothing of the game's code has been read.
   from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
   Settled by: `result.lst` decoded both ways once its pieces are read.
 
-- **The empire screen's descriptions wrap where a word no longer fits the
-  box,** not where a word and a space after it don't: both give the
-  Federation's lines, the only ones the recording shows
-  ([systems/screens.md](systems/screens.md)). Settled by: a screenshot of
-  the Klingons', Romulans' or Cardassians' description.
 
 ## Guessed
 
@@ -47,8 +42,8 @@ None: nothing of the game's code has been read.
 
 - **On the screens:** a button shows its "selected" picture while it's
   held; the empire screen's Accept does nothing until an empire is
-  chosen; clicking an emblem chooses its empire; the emblems drawn are
-  `es_?icn0`, not `es_?icn1` ([systems/screens.md](systems/screens.md)).
+  chosen; clicking an emblem chooses its empire
+  ([systems/screens.md](systems/screens.md)).
   Settled by: watching them in the running game.
 - **The colour key is magenta** (31, 0, 31 in 15-bit colour): the
   executable sets it, and magenta is what the pictures leave undrawn
@@ -57,9 +52,13 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
+- **November 2026:** the empire screen from a screenshot of the Klingons'
+  description: the wrapping (a word and the space after it, but for the
+  last word), the emblems `es_?icn1`, the text's colours, and all text a
+  pixel below its line's top ([systems/screens.md](systems/screens.md)).
+
 - **November 2026:** the race letters `h` Federation and `f` Ferengi, the
-  fonts' advances (the cell's width + 1), and the description wrapping at
-  its box's width, from screenshots of the Hall of Fame and Load Game drawn
+  fonts' advances (the cell's width + 1), from screenshots of the Hall of Fame and Load Game drawn
   by Reluva from the game's files ([formats/fnt.md](formats/fnt.md),
   [formats/stbof-res.md](formats/stbof-res.md)).
 

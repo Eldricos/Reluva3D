@@ -70,7 +70,9 @@ public:
     int drawInColor(Surface &surface, int x, int y, std::string_view utf8, Color color) const;
     /**
      * Splits UTF-8 text into lines at most `width` pixels wide, breaking at
-     * spaces and newlines; a word wider than a line gets a line of its own.
+     * spaces and newlines, as the game does: a word goes on the line only if
+     * the space after it fits too (but for a paragraph's last word, which
+     * has none); a word wider than a line gets a line of its own.
      */
     std::vector<std::string> wrap(std::string_view utf8, int width) const;
 

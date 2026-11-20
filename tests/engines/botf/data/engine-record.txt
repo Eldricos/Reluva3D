@@ -10,11 +10,11 @@ setup.difficulty pressed: 5d62ea56f1cd4d8d
 setup.difficulty changed: 52b3b25e54d65a1a
 setup.level changed: 5b40c02199f91da8
 setup.levels all set: 52b3b25e54d65a1a
-empires.shown: 0e067487f002a638
-empires.third chosen: 562b762594aaca18
+empires.shown: eb1ff8926f02be85
+empires.third chosen: 4c9a9ccf5e4fc9e5
 setup.again: 52b3b25e54d65a1a
 menu.again: aab57f3978016255
-empires.second chosen: 3afe928a0ad209e8
+empires.second chosen: 9505a4d630016595
 menu.after a new game: aab57f3978016255
 options.shown: 5c0a245a998bba9b
 options.combat changed: 70595d01487a229a
