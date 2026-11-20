@@ -51,6 +51,10 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
+- **November 2026:** the game setup screen's colours, from a screenshot:
+  the values and timers as the options screen's, the levels (90, 207, 140)
+  ([systems/screens.md](systems/screens.md)).
+
 - **November 2026:** the empire screen from a screenshot of the Klingons'
   description: the wrapping (a word and the space after it, but for the
   last word), the emblems `es_?icn1`, the text's colours, and all text a

@@ -40,12 +40,13 @@ constexpr int32_t kSize = 9233;
 constexpr int32_t kSizeText = 9205;
 constexpr int32_t kSizePicture = 9203;
 
-// The texts' colours, measured from the brightest pixels of the text in a
-// recording of the game; the files don't hold them (most of these fonts say
-// "the game's default"), and the timers' own colour doesn't explain theirs.
-constexpr Color kValueColor{51, 90, 140};   // the preferences and the galaxy
-constexpr Color kLevelColor{120, 180, 150}; // the civilization levels
-constexpr Color kTimerColor{176, 202, 153}; // the two timers
+// The texts' colours, measured from a screenshot of the game; the files
+// don't hold them (most of these fonts say "the game's default", and the
+// timers' own colour isn't theirs). The values and timers are in the
+// options screen's colours.
+constexpr Color kValueColor{24, 101, 189};  // the preferences and the galaxy
+constexpr Color kLevelColor{90, 207, 140};  // the civilization levels
+constexpr Color kTimerColor{173, 227, 115}; // the two timers
 
 constexpr int kTimerChoices = 1; // "None"; the others aren't known yet
 

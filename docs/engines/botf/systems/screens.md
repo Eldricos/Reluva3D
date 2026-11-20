@@ -214,11 +214,18 @@ recording:
   civilization levels ("2 EARLY", where the entry is "EARLY") and shows the
   timers' "None" in capitals.
 - **Colours:** the glyphs are shades of grey, and the game colours them.
-  Measured from the recording (the brightest pixels of the text): blue (51,
-  90, 140) for the preferences and the galaxy, green (120, 180, 150) for
-  the civilization levels, pale green (176, 202, 153) for the timers. Most
-  of these fonts say "the game's default", so the file doesn't hold them,
-  and the timers' own colour (`00 ff 00`) doesn't explain theirs.
+  Measured from a screenshot: blue (24, 101, 189) for the preferences and
+  the galaxy, green (90, 207, 140) for the civilization levels, and yellow
+  green (173, 227, 115) for the timers, the blue and the yellow green as
+  on the options screen. Most of these fonts say "the game's default", so
+  the file doesn't hold them, and the timers' own colour (`00 ff 00`)
+  doesn't explain theirs. (The recording's colours had been taken first:
+  a video's run lighter and greyer.)
+- **Checked against a screenshot,** drawn by Reluva from the game's files
+  with the same setup (Ring, Medium, Automatic): every picture and text
+  lands on the game's pixels but the two timers' "NONE", a pixel left of
+  the game's. The options screen's timers, centred in the same way, match;
+  why these don't isn't known.
 
 ### Empire selection
 
@@ -332,9 +339,8 @@ recording:
   its rectangle, may count.
 - On the options screen: whether a volume's click works as Reluva's does,
   and what the pictures 8110-8113 are for.
-- Whether the game setup screen's values and timers are in the colours the
-  options screen's are, (24, 101, 189) and (173, 227, 115): its own were
-  measured from a video, whose colours run lighter and greyer.
+- Why the game setup screen's timers are a pixel right of where their
+  text boxes centre them.
 - Where the game keeps the options between runs.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
