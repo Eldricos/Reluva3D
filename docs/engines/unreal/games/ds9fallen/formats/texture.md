@@ -71,18 +71,44 @@ packages, only Fire.u and Engine.u name them, defining the classes.
 
 The class names and their settings' names come from Fire.u (the enums
 `ESpark` and `WDrop`, the structs `Spark` and `ADrop`). What each
-setting does is Reluva's own reading of those names and of the values
-in The Fallen's textures, checked where noted against Fire.dll and
-Engine.dll.
+setting does was first Reluva's own reading of those names and of the
+values in The Fallen's textures; each is now checked against Fire.dll,
+Engine.dll or Render.dll, as noted.
 
 The fire, water and ice textures step as the engine's `UTexture::Tick`
 paces them: with `MaxFrameRate` 0, once every frame they're drawn (so
 faster on a faster display); otherwise each frame's time adds up, and
 once it's past 1 / `MaxFrameRate` the texture steps, the sum starting
 again from 0, unless it's past 1 / `MinFrameRate`, when only that much
-is taken off so a slow display catches up. Both rates are kept to
-0.01-100, and a texture steps at most once a frame. An ice texture's
-sliding goes by the clock; only its drawing is paced.
+is taken off so a slow display catches up, and what's left is kept to
+no more than that again (0x1045a0ae), so one not drawn for a while isn't
+stepped every frame after. Both rates are kept to 0.01-100, and a
+texture steps at most once a frame (`UTexture::Tick`, 0x10459f00). Before
+its first step it's stepped `PrimeCount` times at once, warmed up as it
+loads (0x10459f2d): The Fallen's explosion and phaser fires (15 to 255)
+and the disruptor's hit (101). An ice texture's sliding goes by the
+clock; only its drawing is paced, and it's not primed (its own `Tick`).
+
+#### Flipbooks (AnimNext)
+
+A plain texture whose `AnimNext` names another plays as a flipbook
+(`UTexture::ConstantTimeTick`, 0x1045a160): each step shows the next
+texture of the chain, the first again after the last, paced as above by
+the first texture's frame rates (every frame drawn if it has none). The
+Fallen has 12 such chains, 86 links: consoles (`Consolesanim.bjCON30_a00`
+on, 3 a second), doors (`Doors.dfdr01_a01` on, 5), grey smoke
+(`SmokeGray.sp*`, 20).
+
+#### Panning surfaces
+
+Render.dll moves a surface's texture as it draws it (0x10b228f5): with
+the surface flagged to auto-pan across (0x200) or down (0x400), by 35
+texels a second times its zone's `TexUPanSpeed` or `TexVPanSpeed` (1 by
+default; 0.15 in the M10 maps), counted in 1/256 texels and coming round
+every 1024; flagged wavy (0x2000), swaying 4 cos 2.3t + 8 sin t across
+and 4 sin 2.3t + 8 cos t down, t the level's time. 203 surfaces pan
+across in 36 maps and 474 down in 33: warp effects, starfields, clouds,
+pools and pipes.
 
 #### FLC (FliTexture)
 
@@ -131,7 +157,7 @@ model on the game's own textures (fx.fire01's 803 sparks and the
 A heat value (0-255) per pixel, shown through the palette. After the
 mipmaps: a compact count, then 8 bytes a spark: type (`ESpark`), Heat,
 X, Y (pixels) and four bytes A-D whose use depends on the type. A
-texture starts cold. Each step (none if it's under 8 pixels either way):
+texture starts cold (but for its `PrimeCount`, above). Each step (none if it's under 8 pixels either way):
 
 1. Each spark in the list in turn draws itself. A spark's pixel is set
    to its value outright (not added to, nor the larger kept).

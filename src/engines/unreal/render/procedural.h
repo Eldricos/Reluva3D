@@ -50,6 +50,11 @@ protected:
 
 /** Whether a texture class is one AnimatedTexture plays. */
 bool isAnimatedTextureClass(std::string_view className);
+/**
+ * Whether a texture plays: one of those classes, or a plain texture whose
+ * AnimNext chains it to others (a flipbook).
+ */
+bool isAnimatedTexture(const PackageSet &packages, const Package &package, int exportIndex);
 
 /**
  * A texture's animation, showing its first picture; nullptr (with

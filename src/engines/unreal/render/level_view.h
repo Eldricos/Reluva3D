@@ -166,15 +166,17 @@ private:
         gfx::TextureId texture = 0;
         gfx::TextureId lightmap = 0; // 0: none (unlit, blended, or the level has no lighting)
         uint32_t polyFlags = 0;
-        ObjectRef textureRef{};        // the level's: the texture it's drawn with, for the scripts' swaps
-        uint64_t zones = ~uint64_t(0); // the zones it's seen from (zones.h): drawn when one of them is seen
-        int tint = -1;                 // a translucent lit batch's: its entry in tints_
-        gfx::Vec3 mirrorNormal{};      // a mirror's plane: normal . x = mirrorD (the renderer's axes)
+        ObjectRef textureRef{};               // the level's: the texture it's drawn with, for the scripts' swaps
+        uint64_t zones = ~uint64_t(0);        // the zones it's seen from (zones.h): drawn when one of them is seen
+        std::array<int, 2> textureSize{1, 1}; // texels, for panning its texture
+        int tint = -1;                        // a translucent lit batch's: its entry in tints_
+        gfx::Vec3 mirrorNormal{};             // a mirror's plane: normal . x = mirrorD (the renderer's axes)
         float mirrorD = 0;
     };
     void drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
                      const gfx::Vec3 &forward, const gfx::Vec3 &right, int level, const Batch *through);
     void drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye);
+    std::array<float, 2> surfacePan(const Batch &b) const;
     int _mirrorLevel = 0;                  // how many reflections deep the view drawn is
     const Batch *_mirrorThrough = nullptr; // the mirror it's seen through
     // A translucent surface the level's lights light (The Fallen's logos,

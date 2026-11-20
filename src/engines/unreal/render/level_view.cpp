@@ -79,7 +79,9 @@ std::array<float, 3> spriteTint(const std::array<float, 3> &filter, float glow) 
 
 // The surface flags that change how a polygon is drawn, for grouping.
 constexpr uint32_t kDrawFlags = polyflag::kMasked | polyflag::kTranslucent | polyflag::kModulated |
-                                polyflag::kFakeBackdrop | polyflag::kUnlit | polyflag::kTwoSided | polyflag::kMirrored;
+                                polyflag::kFakeBackdrop | polyflag::kUnlit | polyflag::kTwoSided | polyflag::kMirrored |
+                                polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy;
+constexpr uint32_t kPanFlags = polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy;
 
 // UE1's flag for a surface in a fog zone (PF_RenderFog), kept on the
 // level's batches for the volume lights' pass.
@@ -331,7 +333,10 @@ void LevelView::load(int index) {
         int page = blended(flags) || (flags & polyflag::kFakeBackdrop) ? -1 : atlas.surfs[size_t(p.surf)].page;
         if (flags & polyflag::kMirrored) // a mirror: a batch of its own, for its plane
             page = -2 - p.surf;
-        groups[{blended(flags), s.texture, flags, page, _zones.portalCount() ? p.zones : ~uint64_t(0)}].push_back(&p);
+        // (A panning surface pans by its own zone's speeds: grouped by it.)
+        groups[{blended(flags), s.texture, flags, page,
+                _zones.portalCount() || (flags & kPanFlags) ? p.zones : ~uint64_t(0)}]
+            .push_back(&p);
     }
 
     std::vector<gfx::Vertex> vertices;
@@ -378,6 +383,7 @@ void LevelView::load(int index) {
         batch.firstIndex = uint32_t(indices.size());
         const auto [textureId, size] = textureFor(*pkg, textureRef, flags);
         batch.texture = textureId;
+        batch.textureSize = {std::max(1, size[0]), std::max(1, size[1])};
         batch.textureRef = _ctx.packages.resolve(*pkg, textureRef);
         for (const Polygon *p : group) {
             const auto base = uint32_t(vertices.size());
@@ -1922,6 +1928,11 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
                           : moverLight                        ? gfx::Cull::kBack
                                                               : gfx::Cull::kFront;
         call.texture = _textured ? b.texture : 0;
+        if (b.polyFlags & kPanFlags) {
+            const auto [du, dv] = surfacePan(b);
+            call.preRow0[2] = du / float(b.textureSize[0]);
+            call.preRow1[2] = dv / float(b.textureSize[1]);
+        }
         // With a lightmap the second pass lights it; else the vertex colours
         // (shading by facing, or a mover's light).
         call.rgbSource = lit(b) ? gfx::ColorSource::kConstant : gfx::ColorSource::kVertex;
@@ -2205,10 +2216,11 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
             if (unreadable)
                 *unreadable = true;
         } else {
-            // Fire, water, wet, ice and FLC textures play, redrawn as they
-            // change (so without mipmaps, which updates don't redo).
+            // Fire, water, wet, ice and FLC textures and flipbooks play,
+            // redrawn as they change (so without mipmaps, which updates
+            // don't redo).
             std::unique_ptr<AnimatedTexture> anim;
-            if (isAnimatedTextureClass(tex.package->className(tex.exportIndex + 1)))
+            if (isAnimatedTexture(_ctx.packages, *tex.package, tex.exportIndex))
                 anim = openAnimatedTexture(_ctx.packages, *tex.package, tex.exportIndex);
             if (anim && masked && anim->frames() > 0)
                 anim->showFrame(1, true);
@@ -2302,6 +2314,32 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
 // The world as seen: the level's surfaces, the volume lights over them,
 // the movers and the actors (or, not playing, the placed meshes and
 // sprites), from `eye` looking along `forward`.
+// How far a panning surface's texture has moved, in texels, as Render.dll
+// moves it (0x10b228f5): auto-panned 35 texels a second at its zone's
+// TexUPanSpeed and TexVPanSpeed (counted in 1/256 texels, coming round
+// every 1024), and a wavy one swaying 4 cos 2.3t + 8 sin t across and
+// 4 sin 2.3t + 8 cos t down; t the level's time.
+std::array<float, 2> LevelView::surfacePan(const Batch &b) const {
+    const float t = _play ? _play->level().time() : _lightTime;
+    int zone = 0;
+    if (b.zones != ~uint64_t(0) && b.zones != 0)
+        while (!(b.zones >> zone & 1))
+            ++zone;
+    const std::array<float, 2> speed =
+        size_t(zone) < _lights.zonePan.size() ? _lights.zonePan[size_t(zone)] : std::array<float, 2>{1, 1};
+    auto pan = [&](float rate) { return float(int32_t(t * rate * 35 * 256) & 0x3ffff) / 256; };
+    std::array<float, 2> out{};
+    if (b.polyFlags & polyflag::kAutoUPan)
+        out[0] = pan(speed[0]);
+    if (b.polyFlags & polyflag::kAutoVPan)
+        out[1] = pan(speed[1]);
+    if (b.polyFlags & polyflag::kWavy) {
+        out[0] += 4 * std::cos(2.3f * t) + 8 * std::sin(t);
+        out[1] += 4 * std::sin(2.3f * t) + 8 * std::cos(t);
+    }
+    return out;
+}
+
 void LevelView::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye) {
     drawBatches(levelBatches(), _mesh, gfx::identity(), true);
     drawSurfaceSwaps();

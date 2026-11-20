@@ -1440,9 +1440,9 @@ int cmdUeExtract(int argc, char **argv) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        // One that plays (fire, water...): as it is a second in, or after
-        // the frames asked for.
-        if (isAnimatedTextureClass(cls))
+        // One that plays (fire, water, a flipbook...): as it is a second
+        // in, or after the frames asked for.
+        if (isAnimatedTexture(set, *pkg, index))
             if (auto anim = openAnimatedTexture(set, *pkg, index)) {
                 if (argc == 6)
                     for (int i = std::atoi(argv[5]); i > 0; --i)

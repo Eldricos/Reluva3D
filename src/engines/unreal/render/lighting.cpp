@@ -422,18 +422,21 @@ LevelLights gatherLights(const PackageSet &packages, const Package &package, con
         Vec3f actorAmbient{};
         uint8_t ambientBrightness = 0;
         bool fog = false;
+        std::array<float, 2> pan{1, 1};
         const ObjectRef zone = z.actor ? packages.resolve(package, z.actor) : ObjectRef{};
         if (zone && !defaults.actorProperties(*zone.package, zone.exportIndex, props)) {
             ambientBrightness = props.byte("AmbientBrightness");
             ambient =
                 zoneAmbientColor(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
             fog = props.boolean("bFogZone");
+            pan = {props.number("TexUPanSpeed", 1), props.number("TexVPanSpeed", 1)};
             actorAmbient = engineHsv(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
         }
         out.zoneAmbient.push_back(ambient);
         out.zoneAmbientBrightness.push_back(ambientBrightness);
         out.zoneActorAmbient.push_back(actorAmbient);
         out.zoneFog.push_back(fog);
+        out.zonePan.push_back(pan);
     }
     // The lights list repeats each light for every lightmap it reaches
     // (hundreds of thousands of entries in a large level), so each actor

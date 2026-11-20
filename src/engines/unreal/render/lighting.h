@@ -188,6 +188,7 @@ struct LevelLights {
     std::vector<uint8_t> zoneAmbientBrightness; // its AmbientBrightness, one per zone
     std::vector<Vec3f> zoneActorAmbient;        // engineHsv of its ambient: what actors in it get
     std::vector<bool> zoneFog;                  // one per zone: bFogZone, where volume lights glow
+    std::vector<std::array<float, 2>> zonePan;  // one per zone: TexUPanSpeed, TexVPanSpeed (1, 1 for none)
     std::vector<LightSource> unique;            // each light once (sources repeats them)
     std::vector<LightSource> animated;          // those of them whose brightness changes
     int unreadable = 0;                         // light actors whose properties didn't read

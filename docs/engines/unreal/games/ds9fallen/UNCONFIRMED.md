@@ -44,14 +44,11 @@ full playthrough's recording has been
   recording shows its rings' outward faces lit. Its lights look moved
   since its last lighting build ([lighting.md](systems/lighting.md)).
 
-## Inferred
-
-- **The animated textures' settings:** Reluva's own reading of their
-  names and of the values in The Fallen's textures, checked where noted
-  against Fire.dll and Engine.dll ([texture.md](formats/texture.md)).
-
 ## Settled
 
+- **The animated textures' settings** (November 2026): their pacing,
+  priming, flipbooks and surfaces' panning, from Engine.dll and
+  Render.dll ([texture.md](formats/texture.md)).
 - **The effects' physics modes** (November 2026): each read from its
   function in Engine.dll ([effects.md](systems/effects.md)).
 - **Meshes drawn from packed vertices** (November 2026): Engine.dll's one
