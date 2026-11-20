@@ -64,6 +64,8 @@
 #   jk2-sp-yavin-assault  yavin_swamp, yavin_canyon and yavin_courtyard by
 #                 the tour; yavin_final by the tour, then its route
 #                 (Desann's fight), to the game's end.
+#   jk2-sp-music  the dynamic music sets (ext_data/dms.dat) of every map,
+#                 their files checked (music-sets)
 #   jk2-sp-menus  the single-player menus, run as jk2sp.exe runs them:
 #                 the main menu, the mouse onto Load, New Game by Enter,
 #                 Jedi Knight and Begin Game clicked, to "map kejim_post";
@@ -151,6 +153,8 @@ elseif(STEP STREQUAL "jk2-sp-menus")
                -key 2 MOUSE1 -key 3 g -key 4 DOWNARROW)
 elseif(STEP STREQUAL "jk2-single-player")
     record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame -saveload)
+elseif(STEP STREQUAL "jk2-sp-music")
+    record_run(music-sets "with dynamic music" idtech3 music-sets "${base}")
 elseif(STEP STREQUAL "jk2-sp-tour")
     record_run(kejim_post "ran 100 frames" idtech3 sp-run "${base}" kejim_post -tour 100000 -spare jan
                -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1 -next)

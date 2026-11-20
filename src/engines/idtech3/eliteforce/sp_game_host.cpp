@@ -957,8 +957,13 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c, int as) {
         return 0;
     case 32:
         return uint32_t(_sounds.add(str(0, 256))); // S_RegisterSound(name)
-    case 33:                                       // S_StartBackgroundTrack(intro, loop)
-        if (soundSystem)
+    case 33:                                       // S_StartBackgroundTrack(intro, loop); Jedi Outcast's dynamic
+        // music too, its third argument (the client game starting) left
+        // unused: the original only loads then, and plays from the first
+        // snapshot, as it is here.
+        if (soundSystem && _jedi)
+            soundSystem->startMusic(str(0, 256), str(1, 256));
+        else if (soundSystem)
             soundSystem->startBackgroundTrack(str(0, 256), str(1, 256));
         return 0;
     case 34:

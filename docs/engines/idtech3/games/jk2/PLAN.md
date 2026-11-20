@@ -265,7 +265,10 @@ behind the DLL's own tables.
 9. **Single player complete**: saved games (Raven's chunks, shared with
    Elite Force in `raven/savegame`), dynamic music (`ext_data/dms.dat`),
    speech with lip sync, all 26 levels played through; a game-files step
-   per level, saving and loading.
+   per level, saving and loading. Dynamic music is there
+   ([systems/sp-music.md](systems/sp-music.md)); the voices' levels are
+   jk2sp.exe's, the client game's mouths moving with them
+   ([systems/sp-interface.md](systems/sp-interface.md)).
 10. **Other releases**: the 1.03 and 1.04 patches, other languages
     (string packages already hold French and German), the Mac release.
 11. **Extras, once everything above is done and tested**: EAX

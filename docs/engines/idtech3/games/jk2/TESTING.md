@@ -31,6 +31,8 @@
   single-player game DLL on kejim_post, its `Init`, the player joining
   and 100 server frames, the client game drawing each, on a fixed
   clock; then the level saved and loaded into a new game, which runs on),
+  `jk2-sp-music` (`music-sets`: every map's dynamic music set read from
+  `ext_data/dms.dat`, its files checked),
   `jk2-sp-menus` (`sp-menus`: the single-player menus as `jk2sp.exe`
   runs them, from the main menu by mouse and keys through New Game,
   Jedi Knight and Begin Game to `map kejim_post`; the in-game menu and

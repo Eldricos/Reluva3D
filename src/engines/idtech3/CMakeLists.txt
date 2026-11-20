@@ -14,6 +14,7 @@ reluva_add_engine(idtech3
         idtech3.cpp
         info_string.cpp
         pure.cpp
+        audio/dynamic_music.cpp
         audio/sound_system.cpp
         audio/sounds.cpp
         botlib/aas.cpp
@@ -159,7 +160,7 @@ reluva_add_gamedata_test(idtech3
     GAME jk2
     ENV RELUVA_JK2
     SCRIPT ${tests}/gamedata-jk2.cmake
-    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-effects jk2-roffs jk2-videos jk2-menus jk2-game jk2-single-player jk2-sp-menus jk2-sp-tour
+    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-effects jk2-roffs jk2-videos jk2-menus jk2-game jk2-single-player jk2-sp-menus jk2-sp-music jk2-sp-tour
           jk2-sp-artus jk2-sp-yavin jk2-sp-nar-shaddaa jk2-sp-bespin
           jk2-sp-cairn jk2-sp-doom
           jk2-sp-yavin-assault)

@@ -128,6 +128,12 @@ void Mixer::setVolume(SoundHandle handle, int volume) {
         c->volume = std::clamp(volume, 0, kMaxVolume);
 }
 
+void Mixer::seek(SoundHandle handle, double frame) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    if (Channel *c = find(handle); c && c->sound)
+        c->position = std::clamp(frame, 0.0, double(c->sound->frames()));
+}
+
 void Mixer::setPaused(SoundHandle handle, bool paused) {
     std::lock_guard<std::mutex> lock(_mutex);
     if (Channel *c = find(handle))

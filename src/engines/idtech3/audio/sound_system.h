@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/collision.h"
+#include "engines/idtech3/audio/dynamic_music.h"
 #include "engines/idtech3/audio/sounds.h"
 
 #include "audio/mixer.h"
@@ -68,6 +69,20 @@ public:
     // empty); names without an extension are tried as .mp3 and .wav.
     void startBackgroundTrack(const std::string &intro, const std::string &loop);
     void stopBackgroundTrack();
+    // Jedi Outcast's dynamic music: dms.dat's text (empty: none), the
+    // level's name (the set played when the music asked for is ""), and
+    // s_allowDynamicMusic.
+    void setMusicData(std::string dms) { _dms = std::move(dms); }
+    void setMapName(const std::string &map) { _mapName = map; }
+    void setAllowDynamicMusic(bool allow) { _allowDynamic = allow; }
+    // Its S_StartBackgroundTrack (0x427350): a file, if `intro` names one
+    // with a path, as above; else the dynamic set it names (or the map's).
+    void startMusic(const std::string &intro, const std::string &loop);
+    // The same again, as after a cinematic (0x427310).
+    void restartMusic();
+    // The state the game asks for, configstring 907; nullptr while unset.
+    void setMusicState(const std::string *state);
+    const DynamicMusic &dynamicMusic() const { return _dynamic; }
     // Each frame, after the client game's: positions and volumes brought
     // up to date, looping sounds not re-added stopped, music moved on.
     void endFrame();
@@ -136,6 +151,14 @@ private:
     audio::SoundHandle _music = audio::kNoSound;
     std::shared_ptr<const audio::Sound> _musicLoop;
     bool _musicIntro = false;
+    // Jedi Outcast's: the names last asked for, and what plays for them.
+    std::string _dms;
+    std::string _mapName;
+    bool _allowDynamic = true;
+    std::string _musicName;
+    std::string _musicLoopName;
+    bool _silenced = false; // configstring 907 "silence": a plain track muted
+    DynamicMusic _dynamic{_mixer};
 };
 
 } // namespace reluva::idtech3

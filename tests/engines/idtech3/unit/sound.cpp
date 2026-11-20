@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: Sounds: the library, the sound system, ambient sound sets.
+// id Tech 3 unit tests: Sounds: the library, the sound system, ambient sound sets,
+// dynamic music.
 
 #include "common/fs.h"
+#include "engines/idtech3/audio/dynamic_music.h"
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
@@ -59,6 +61,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -272,10 +275,147 @@ static void testSoundSystem(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+static void testDynamicMusic() {
+    // A set as dms.dat describes one: explore and action pieces, each with
+    // an exit into a transition piece, and a boss piece; a level that uses
+    // it.
+    const char *dms = R"(musicfiles
+{
+	ex_explore
+	{
+		entry
+		{
+			marker0	0
+			marker1	1.0
+		}
+		exit
+		{
+			nextfile	ex_etr00
+			time00	1.0
+		}
+	}
+	ex_action
+	{
+		entry
+		{
+			marker0	0
+			marker1	2.0
+		}
+		exit
+		{
+			nextfile	ex_atr00
+			nextmark	marker1
+			time00	0.5
+		}
+	}
+	ex_boss
+	{
+	}
+}
+levelmusic
+{
+	lvl
+	{
+		explore	ex_explore
+		action	ex_action
+		boss	ex_boss
+	}
+	other
+	{
+		uses	lvl
+	}
+}
+)";
+    std::set<std::string> files = {"music/lvl/ex_explore.mp3", "music/lvl/ex_action.mp3", "music/lvl/ex_boss.mp3",
+                                   "music/lvl/ex_etr00.mp3",   "music/lvl/ex_atr00.mp3",  "music/death_music.mp3"};
+    auto exists = [&](const std::string &p) { return files.count(p) != 0; };
+    MusicSet set;
+    CHECK(!findMusicSet(dms, "music/Other", exists, set));
+    CHECK(set.name == "other" && set.folder == "lvl" && set.bossFolder == "lvl");
+    CHECK(set.path(DynamicMusic::kAction) == "music/lvl/ex_action.mp3");
+    CHECK(set.path(DynamicMusic::kExploreTransition) == "music/lvl/ex_etr00.mp3");
+    CHECK(set.path(DynamicMusic::kActionTransition) == "music/lvl/ex_atr00.mp3");
+    CHECK(set.path(DynamicMusic::kActionTransition + 1).empty());
+    CHECK(set.path(DynamicMusic::kDeath) == "music/death_music.mp3");
+    CHECK(set.action && set.action->times.size() == 1 && set.explore->marker("MARKER1") == 1.0f);
+    MusicSet none;
+    CHECK(findMusicSet(dms, "nowhere", exists, none));
+    files.erase("music/lvl/ex_atr00.mp3");
+    CHECK(findMusicSet(dms, "lvl", exists, none)); // a transition's file missing
+    files.insert("music/lvl/ex_atr00.mp3");
+
+    // Playing it, a tenth of a second a frame: explore 5 s, action 5 s,
+    // the transitions 3 s.
+    audio::Mixer mixer(1000);
+    auto tone = [](int ms) {
+        auto s = std::make_shared<audio::Sound>();
+        s->rate = 1000;
+        s->channels = 1;
+        s->format = 1;
+        s->samples.assign(size_t(ms), 1000);
+        return std::shared_ptr<const audio::Sound>(s);
+    };
+    std::array<std::shared_ptr<const audio::Sound>, DynamicMusic::kTracks> sounds{};
+    sounds[DynamicMusic::kExplore] = tone(5000);
+    sounds[DynamicMusic::kAction] = tone(5000);
+    sounds[DynamicMusic::kBoss] = tone(5000);
+    sounds[DynamicMusic::kDeath] = tone(3000);
+    sounds[DynamicMusic::kActionTransition] = tone(3000);
+    sounds[DynamicMusic::kExploreTransition] = tone(3000);
+    DynamicMusic music(mixer);
+    uint64_t now = 0;
+    std::vector<int16_t> out(2 * 100);
+    auto frame = [&] {
+        mixer.mix(out.data(), 100);
+        now += 100;
+        music.update(now);
+    };
+    CHECK(music.start(set, sounds, now));
+    CHECK(music.current() == DynamicMusic::kExplore);
+    // Action cuts in at once.
+    music.request("action");
+    frame();
+    CHECK(music.current() == DynamicMusic::kAction);
+    // Back to explore only at action's exit time, through its transition,
+    // which hands over two seconds before its end.
+    music.request("explore");
+    std::vector<int> seen;
+    for (int i = 0; i < 120 && music.current() != DynamicMusic::kExplore; ++i) {
+        frame();
+        if (seen.empty() || seen.back() != music.current())
+            seen.push_back(music.current());
+    }
+    CHECK((seen == std::vector<int>{DynamicMusic::kAction, DynamicMusic::kActionTransition, DynamicMusic::kExplore}) ||
+          (seen == std::vector<int>{DynamicMusic::kActionTransition, DynamicMusic::kExplore}));
+    // Silence waits for explore's exit, through explore_tr0.
+    music.request("Silence");
+    seen.clear();
+    for (int i = 0; i < 120 && music.current() != DynamicMusic::kSilence; ++i) {
+        frame();
+        if (seen.empty() || seen.back() != music.current())
+            seen.push_back(music.current());
+    }
+    CHECK(!seen.empty() && seen.back() == DynamicMusic::kSilence);
+    CHECK(std::find(seen.begin(), seen.end(), DynamicMusic::kExploreTransition) != seen.end());
+    // Boss and death cut in; nothing cuts death.
+    music.request("boss");
+    frame();
+    CHECK(music.current() == DynamicMusic::kBoss);
+    music.request("death");
+    frame();
+    CHECK(music.current() == DynamicMusic::kDeath);
+    music.request("action");
+    frame();
+    CHECK(music.current() == DynamicMusic::kDeath);
+    music.stop();
+    CHECK(!music.on() && !mixer.isTypePlaying(audio::SoundType::kMusic));
+}
+
 static const reluva::test::Suite
     kSuite("idtech3.unit.sound",
            {
                {"sound library", [](const std::filesystem::path &tmp) { testSoundLibrary(tmp / "sounds"); }},
                {"sound system", [](const std::filesystem::path &tmp) { testSoundSystem(tmp / "soundsystem"); }},
                {"ambient sets", [](const std::filesystem::path &) { testAmbientSets(); }},
+               {"dynamic music", [](const std::filesystem::path &) { testDynamicMusic(); }},
            });

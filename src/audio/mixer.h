@@ -140,6 +140,9 @@ public:
     bool allPaused() const;
 
     void setVolume(SoundHandle handle, int volume);
+    // Moves a decoded sound (not a stream) to `frame` of its own, cut to
+    // its length.
+    void seek(SoundHandle handle, double frame);
     void setPan(SoundHandle handle, int pan);
     // Plays a sound faster or slower (and higher or lower) by `factor`.
     void setRate(SoundHandle handle, double factor);

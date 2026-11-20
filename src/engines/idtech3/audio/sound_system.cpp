@@ -8,6 +8,8 @@
 
 #include "engines/idtech3/audio/sound_system.h"
 
+#include "common/fs.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -247,7 +249,52 @@ void SoundSystem::startBackgroundTrack(const std::string &intro, const std::stri
         _music = _mixer.play(first, audio::SoundType::kMusic, audio::kMaxVolume, 0, !_musicIntro);
 }
 
+void SoundSystem::startMusic(const std::string &intro, const std::string &loopName) {
+    // As jk2sp.exe's (0x427350): a name with a path that's a file plays as
+    // it is; otherwise it's a set in dms.dat, its twelve files loaded and
+    // explore fading in; else nothing.
+    stopBackgroundTrack();
+    _musicName = intro;
+    _musicLoopName = loopName.empty() ? intro : loopName;
+    std::string file = intro;
+    if (!file.empty() && file.find('.', file.find_last_of('/') + 1) == std::string::npos)
+        file += ".mp3";
+    MusicSet set;
+    const bool isSet = !_dms.empty() && !findMusicSet(
+                                            _dms, intro.empty() ? _mapName : intro,
+                                            [&](const std::string &p) { return _sounds.get(p) != nullptr; }, set);
+    // Without dynamic music a set plays its explore piece as a plain track.
+    if (!_allowDynamic && isSet)
+        file = set.path(DynamicMusic::kExplore);
+    if (file.find('/') != std::string::npos && _sounds.find(file)) {
+        startBackgroundTrack(file, _musicLoopName);
+        return;
+    }
+    if (isSet) {
+        std::array<std::shared_ptr<const audio::Sound>, DynamicMusic::kTracks> sounds{};
+        for (int id = 0; id < DynamicMusic::kTracks; ++id)
+            if (const std::string p = set.path(id); !p.empty())
+                sounds[size_t(id)] = _sounds.get(p);
+        _dynamic.start(set, sounds, _nowMs);
+    }
+}
+
+void SoundSystem::restartMusic() {
+    const std::string intro = _musicName;
+    const std::string loop = _musicLoopName;
+    if (!intro.empty() || !loop.empty() || !_mapName.empty())
+        startMusic(intro, loop);
+}
+
+void SoundSystem::setMusicState(const std::string *state) {
+    // A plain track is silent while the game asks for silence (0x427de3).
+    _silenced = state && fs::toLower(state->substr(0, 7)) == "silence";
+    if (state && _dynamic.on())
+        _dynamic.request(*state);
+}
+
 void SoundSystem::stopBackgroundTrack() {
+    _dynamic.stop();
     if (_music != audio::kNoSound)
         _mixer.stop(_music);
     _music = audio::kNoSound;
@@ -310,12 +357,18 @@ void SoundSystem::endFrame() {
     }
     _ambientAdded.clear();
 
-    // The music: the loop once the intro is over.
+    // The music: the loop once the intro is over; Jedi Outcast's, a loop
+    // that's no file but a set plays that set (0x427e29).
     if (_musicIntro && _music != audio::kNoSound && !_mixer.isPlaying(_music)) {
         _musicIntro = false;
         _music = _musicLoop ? _mixer.play(_musicLoop, audio::SoundType::kMusic, audio::kMaxVolume, 0, true)
                             : audio::kNoSound;
+        if (!_musicLoop && !_dms.empty() && !_musicLoopName.empty())
+            startMusic(_musicLoopName, _musicLoopName);
     }
+    if (_music != audio::kNoSound && !_dms.empty())
+        _mixer.setVolume(_music, _silenced ? 0 : audio::kMaxVolume);
+    _dynamic.update(_nowMs);
 }
 
 void SoundSystem::setVolumes(float effects, float music) {

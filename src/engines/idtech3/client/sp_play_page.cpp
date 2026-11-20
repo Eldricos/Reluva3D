@@ -29,6 +29,9 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
+// Jedi Outcast's configstring of the music's state, which the game sets
+// and the engine reads each frame (0x428290).
+constexpr int32_t kMusicStateConfigString = 907;
 
 bool badSaveName(const std::string &name); // below
 
@@ -122,6 +125,12 @@ void SpPlayPage::activate() {
     _ctx.sys.setRelativeMouse(true);
     if (_ctx.mixer)
         _soundSystem = std::make_unique<SoundSystem>(*_ctx.mixer, _soundLibrary);
+    // Jedi Outcast's dynamic music sets.
+    if (_soundSystem && jedi()) {
+        std::vector<uint8_t> dms;
+        if (!_ctx.files.read("ext_data/dms.dat", dms))
+            _soundSystem->setMusicData(std::string(dms.begin(), dms.end()));
+    }
     _startMs = 0;
     // Each version's saved games in a folder of its own (sortSaves).
     _saveDir = _ctx.savePath.empty() ? std::filesystem::path()
@@ -229,6 +238,9 @@ void SpPlayPage::endCinematic() {
     const bool inGame = _cinematic->inGame;
     _cinematic.reset();
     _lastMs = 0;
+    // Jedi Outcast's music starts again in a level (0x405122).
+    if (_soundSystem && _game && jedi())
+        _soundSystem->restartMusic();
     // As the original's: then the nextmap cvar's command, once.
     if (!inGame) {
         const std::string next = _cvars.string("nextmap");
@@ -492,7 +504,9 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
         if (w.size() >= 2)
             startCinematic(w[1], cmd == "ingamecinematic", w.size() >= 3 ? w[2] : std::string());
     } else if (cmd == "music") {
-        if (_soundSystem && w.size() >= 2)
+        if (_soundSystem && w.size() >= 2 && jedi())
+            _soundSystem->startMusic(w[1], w.size() >= 3 ? w[2] : w[1]);
+        else if (_soundSystem && w.size() >= 2)
             _soundSystem->startBackgroundTrack(w[1], w.size() >= 3 ? w[2] : w[1]);
     } else if (cmd == "bind" || cmd == "unbind" || cmd == "unbindall" || cmd == "set" || cmd == "seta" ||
                cmd == "sets" || cmd == "setu" || cmd == "exec") {
@@ -614,6 +628,9 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _lastMs = 0;
     const std::string &path = _names[size_t(index)];
     std::string map = path.substr(5, path.size() - 9);
+    // Its dynamic music set unless the level names another (0x4371dc).
+    if (_soundSystem)
+        _soundSystem->setMapName(map);
     showLoadingScreen(map);
     _map = map;
     _gameCommandsRun = 0;
@@ -1409,6 +1426,13 @@ void SpPlayPage::runGame(uint64_t nowMs) {
     if (Error err = _game->drawClientFrame(_clientTime))
         return stop("The client game stopped: " + err.message);
     _timing.client = ms(clientStart);
+    if (_soundSystem && jedi()) {
+        // The music's state as the game asks for it (configstring 907).
+        const auto &strings = _game->configstrings();
+        const auto it = strings.find(kMusicStateConfigString);
+        _soundSystem->setMusicState(it != strings.end() ? &it->second : nullptr);
+        _soundSystem->setAllowDynamicMusic(setting("s_allowDynamicMusic", 1) != 0);
+    }
     if (_soundSystem)
         _soundSystem->endFrame();
 }

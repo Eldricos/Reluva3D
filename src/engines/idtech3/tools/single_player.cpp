@@ -5,6 +5,7 @@
 // code and menus (native DLLs, in the x86 interpreter) and its scripts.
 
 #include "devtools/tool.h"
+#include "engines/idtech3/audio/dynamic_music.h"
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "common/fs.h"
@@ -1626,6 +1627,51 @@ int cmdIbiDump(int argc, char **argv) {
     return 0;
 }
 
+int cmdMusicSets(int argc, char **argv) {
+    // Jedi Outcast's dynamic music: each set named (else each map's own, as
+    // a level with no music of its own plays) read from ext_data/dms.dat,
+    // its files checked, as jk2sp.exe reads them.
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 music-sets <game folder> [set]...\n");
+        return 2;
+    }
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    Bytes dms;
+    if (reluva::Error err = set.read("ext_data/dms.dat", dms)) {
+        std::fprintf(stderr, "ext_data/dms.dat: %s\n", err.message.c_str());
+        return 1;
+    }
+    std::vector<std::string> names(argv + 3, argv + argc);
+    if (names.empty())
+        for (const std::string &name : set.list()) {
+            const std::string lower = reluva::fs::toLower(name);
+            if (lower.compare(0, 5, "maps/") == 0 && lower.size() > 9 && lower.substr(lower.size() - 4) == ".bsp" &&
+                lower.find('/', 5) == std::string::npos)
+                names.push_back(lower.substr(5, lower.size() - 9));
+        }
+    namespace q3 = reluva::idtech3;
+    const std::string text(dms.begin(), dms.end());
+    int sets = 0;
+    for (const std::string &name : names) {
+        q3::MusicSet music;
+        if (reluva::Error err = q3::findMusicSet(text, name, [&](const std::string &p) { return set.has(p); }, music)) {
+            std::printf("%s: none (%s)\n", name.c_str(), err.message.c_str());
+            continue;
+        }
+        ++sets;
+        std::printf("%s: music/%s:", name.c_str(), music.folder.c_str());
+        for (int id = 0; id < q3::DynamicMusic::kTracks; ++id)
+            if (const std::string p = music.path(id); !p.empty())
+                std::printf(" %s=%s", q3::DynamicMusic::trackName(id).c_str(),
+                            p.substr(p.find_last_of('/') + 1).c_str());
+        std::printf("; %zu and %zu exit times\n", music.explore->times.size(), music.action->times.size());
+    }
+    std::printf("%d of %zu with dynamic music\n", sets, names.size());
+    return 0;
+}
+
 const Commands kCommands(
     "idtech3",
     {
@@ -1639,6 +1685,10 @@ const Commands kCommands(
          "run Elite Force's or Jedi Outcast's single-player game code (efgamex86.dll, jk2gamex86.dll, in the "
          "x86 interpreter) on a map, with a player; report what it does",
          cmdSpRun},
+        {"music-sets", "<game folder> [set]...",
+         "read Jedi Outcast's dynamic music sets (ext_data/dms.dat), each named or each map's own, "
+         "their files checked",
+         cmdMusicSets},
         {"ibi-dump", "<game folder> <script>",
          "print a compiled ICARUS script (.IBI): its blocks (commands) and their members", cmdIbiDump},
     });
