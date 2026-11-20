@@ -1143,6 +1143,44 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
     for (size_t i = 0; i < _dialogRecs.size(); ++i)
         if (auto it = said.find(_dialogRecs[i].key); it != said.end())
             _dialogPlays[i] = it->second;
+    // The lines under way go on where they were, on their clocks (the
+    // engine's InitDialog keeps them, 0x10337890; their voices aren't
+    // started again). A saved line's place is found by its key. The
+    // engine numbers new threads from 1 again (InitDialog), as here.
+    std::map<std::string, int> byKey;
+    for (size_t i = 0; i < _dialogRecs.size(); ++i)
+        byKey.emplace(_dialogRecs[i].key, int(i));
+    auto lineAt = [&](int place) {
+        if (place < 0 || size_t(place) >= _saved.lines.size())
+            return -1;
+        auto it = byKey.find(_saved.lines[size_t(place)].key);
+        return it == byKey.end() ? -1 : it->second;
+    };
+    const float now = _levelInfo && prop(_levelInfo, "TimeSeconds") ? prop(_levelInfo, "TimeSeconds")->asFloat() : 0;
+    const Value *noPause = prop(_levelInfo, "NoPauseTimeSeconds");
+    _dialogThreads.clear();
+    for (const LevelExtras::Talk &k : _saved.talks) {
+        DialogThread t;
+        t.id = k.thread;
+        t.line = lineAt(k.line);
+        t.speaker = k.speaker > 0 ? _vm.objectAt(_map, k.speaker) : nullptr;
+        t.self = t.speaker;
+        t.queued = k.queued;
+        if (t.line < 0 || !t.speaker || t.speaker->deleted)
+            continue;
+        if (!t.queued) {
+            t.hudClock = fs::toLower(_dialogLines[size_t(t.line)].type) == "hud";
+            t.timeLeft = k.end - (t.hudClock && noPause ? noPause->asFloat() : now);
+            t.seconds = t.timeLeft;
+            if (const int from = lineAt(k.back); from >= 0) {
+                t.backFrom = from;
+                t.back = _dialogRecs[size_t(from)].back;
+                t.backPattern = _dialogRecs[size_t(from)].backPattern;
+            }
+        }
+        _dialogThreads.push_back(t);
+    }
+    _nextDialogThread = 1;
     // The sounds playing (the music's the player's CurrentMusic, which the
     // page starts again from the HUD's StartTimeOffset).
     for (const LevelExtras::Sound &snd : _saved.sounds) {

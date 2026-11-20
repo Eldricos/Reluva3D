@@ -31,9 +31,8 @@ there, dividing by 0) are reported and carried on from, not fixed
 
 ## Not yet as the original
 
-- **Saved games:** the dialogue's lines under way are neither restored
-  nor written, and the Level's model and reach list aren't renumbered
-  ([saves.md](systems/saves.md), [save.md](formats/save.md)).
+- **Saved games:** the Level's model and reach list aren't renumbered
+  ([save.md](formats/save.md)).
 - **The AI's paths:** jumping and dropping reaches aren't done
   ([ai.md](systems/ai.md)).
 - **Mission 12** has no dialogue table in any copy of the game: its

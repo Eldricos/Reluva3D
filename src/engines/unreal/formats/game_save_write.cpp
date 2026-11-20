@@ -475,7 +475,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // The URL.
     L.string("DS9");
     L.string("");
-    L.string(_map.name());
+    // (A level that's itself a saved game keeps the map it was saved on.)
+    L.string(savedByGame() && !_saved.urlMap.empty() ? _saved.urlMap : _map.name());
     L.string("");
     std::vector<std::string> options{"Name=Player"};
     if (_player && _player->cls && _player->cls->package)
@@ -501,7 +502,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     L.index(int32_t(ghosts.size()));
     for (int32_t g : ghosts)
         L.index(g);
-    writeDialogEngine(L, w);
+    writeDialogEngine(L, w, refOf);
     // The sounds playing (the music the HUD's, playing since it began).
     struct Entry {
         int32_t actor;
@@ -675,13 +676,6 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
     }
 }
 
-// The dialogue engine as the engine keeps it: set up; its missions, types
-// and speakers; its lines in key order (flags: 2 the general table's, 1
-// running on from the line before; type's priority; times said; place;
-// row in the tables; next and return line's places or 0xFFFF; voice, key,
-// text, pause, next and return keys, tag, event, condition; a name; a
-// camera; the animations and faces); nothing under way; its faces; its
-// cameras; and a count.
 // What an actor holds, as its mesh state keeps it: each held actor's name
 // (as the save names it), its point and the holder's, and an identity
 // matrix with the flags the original's saves have (7).
@@ -711,7 +705,15 @@ void ScriptLevel::writeMeshAttachments(ByteWriter &b, const VmObject *parent,
     }
 }
 
-void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
+// The dialogue engine as the engine keeps it: set up; its missions, types
+// and speakers; its lines in key order (flags: 2 the general table's, 1
+// running on from the line before; type's priority; times said; place;
+// row in the tables; next and return line's places or 0xFFFF; voice, key,
+// text, pause, next and return keys, tag, event, condition; a name; a
+// camera; the animations and faces); the lines being said and those
+// waiting (Engine.dll 0x1040af60, 0x1040b050); its faces; its cameras;
+// and its next thread's number.
+void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w, const std::function<int32_t(VmObject *)> &refOf) {
     loadDialog();
     b.i32(1);
     for (size_t t = 0; t < 3; ++t) {
@@ -822,8 +824,33 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
         b.index(nameOr(l.speakerFace));
         b.index(nameOr(l.listenerFace));
     }
-    b.index(0); // lines being said
-    b.index(0); // lines waiting
+    // Each line being said: its place, the place of the line whose
+    // RETURNLINE its thread goes back to (0xFFFF none), when it's done (in
+    // level seconds, a HUD line's on the clock that runs while paused),
+    // its speaker and thread. Each waiting: its place, speaker and thread.
+    const Value *now = prop(_levelInfo, "TimeSeconds");
+    const Value *noPause = prop(_levelInfo, "NoPauseTimeSeconds");
+    auto placeOf = [&](int line) { return line >= 0 && size_t(line) < n ? place[size_t(line)] : 0xFFFF; };
+    std::vector<const DialogThread *> saying;
+    std::vector<const DialogThread *> waiting;
+    for (const DialogThread &t : _dialogThreads)
+        if (t.line >= 0)
+            (t.queued ? waiting : saying).push_back(&t);
+    b.index(int32_t(saying.size()));
+    for (const DialogThread *t : saying) {
+        b.u16(uint16_t(placeOf(t->line)));
+        b.u16(uint16_t(placeOf(t->backFrom)));
+        const Value *clock = t->hudClock ? noPause : now;
+        b.f32((clock ? clock->asFloat() : 0) + t->timeLeft);
+        b.index(refOf(t->speaker));
+        b.i32(t->id);
+    }
+    b.index(int32_t(waiting.size()));
+    for (const DialogThread *t : waiting) {
+        b.u16(uint16_t(placeOf(t->line)));
+        b.index(refOf(t->speaker));
+        b.i32(t->id);
+    }
     b.index(int32_t(_dialogHeaders[3].size()));
     for (const auto &[id, word] : _dialogHeaders[3]) {
         b.u16(uint16_t(id));
@@ -837,7 +864,7 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
         for (float f : c.v)
             b.f32(f);
     }
-    b.i32(cameras.empty() ? 0 : int32_t(cameras.size()) - 1);
+    b.i32(_nextDialogThread);
 }
 
 } // namespace reluva::unreal

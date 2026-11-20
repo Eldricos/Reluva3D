@@ -1091,6 +1091,7 @@ private:
         bool hudClock = false; // a HUD line: timed while paused too
         int back = -1;         // the RETURNLINE pending in its thread
         std::string backPattern;
+        int backFrom = -1;  // the line whose RETURNLINE that is (as the engine keeps it)
         size_t phoneme = 0; // lip-sync: the next mouth shape
     };
     // Each line's engine side: its key (TYPE SPK LST ID MISSION, no
@@ -1207,7 +1208,7 @@ private:
     bool usesC3DMesh(VmObject *actor);
     int _meshStates = 1000;    // new C3D mesh states' numbers (their names)
     VmObject _meshStateMarker; // stands for an actor's new mesh state while it's written
-    void writeDialogEngine(ByteWriter &b, PackageWriter &w);
+    void writeDialogEngine(ByteWriter &b, PackageWriter &w, const std::function<int32_t(VmObject *)> &refOf);
     VmObject *_musicActor = nullptr;
     float _musicStart = 0;
     void loadDialog();

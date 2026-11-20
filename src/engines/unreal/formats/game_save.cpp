@@ -117,25 +117,33 @@ Error readLevelExtras(const Package &package, LevelExtras &out) {
         }
         out.lines.push_back(std::move(line));
     }
+    // The lines being said (Engine.dll 0x1040af60): the line, the RETURNLINE
+    // pending, when it's done, who says it, its thread; then those waiting
+    // for their speaker (0x1040b050): the line, who, the thread.
     for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
-        r.u16();
-        r.u16();
-        r.i32();
-        r.index();
+        LevelExtras::Talk t;
+        t.line = r.u16();
+        t.back = r.u16();
+        t.end = r.f32();
+        t.speaker = r.index();
         if (v > 71)
-            r.i32();
+            t.thread = r.i32();
+        out.talks.push_back(t);
     }
     for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
-        r.u16();
-        r.index();
+        LevelExtras::Talk t;
+        t.queued = true;
+        t.line = r.u16();
+        t.speaker = r.index();
         if (v > 71)
-            r.i32();
+            t.thread = r.i32();
+        out.talks.push_back(t);
     }
     if (v > 70) {
         nameTable(); // faces
-        for (int32_t n = r.index(); n > 0 && r.ok(); --n)
-            r.skip(13 * 4); // cameras
-        r.i32();
+        for (int32_t n = r.index(); n > 0 && r.ok(); --n, ++out.cameras)
+            r.skip(13 * 4);
+        out.nextThread = r.i32();
     }
     if (!r.ok())
         return fail("dialogue");

@@ -28,7 +28,11 @@ packages). With `bBegunPlay` set, nothing begins again; instead
   touching from its `Touching`, so it isn't touched again;
 - the events each actor had disabled (`Disable('Tick')`) are those its
   state and class listen for that its saved probe mask leaves out;
-- the dialogue's counts come from the saved table, by key;
+- the dialogue's counts come from the saved table, by key, and its lines
+  under way go on where they were, each on its clock, those waiting for
+  their speaker still waiting, as the engine's `InitDialog` keeps them
+  (0x10337890; their voices aren't started again by it). It numbers new
+  threads from 1 again, as Reluva does;
 - the sounds that were playing start again where they'd got to; the
   music becomes the player's `CurrentMusic` again, from where it was;
 - the game's unpaused, and the player logs in with `?load`: the game
@@ -43,8 +47,9 @@ scene goes on (Worf: "Sir, Chief O'Brien was injured during the initial
 assault..."), and then he walks on. No script accesses None in 20 seconds.
 Its security officer's phaser goes back to her belt clip. Not restored:
 the IK requests and targets in the mesh states (`CTV_Player` sets them
-again every tick), and the dialogue's lines under way (none in the
-example, and what the engine's lists hold isn't worked out).
+again every tick). Saved 1.5 s into Worf's line after loading it, a game
+of Reluva's keeps the line under way (WRF148, done at 105.02 s), and
+loaded, it goes on to its end there.
 
 **Saving** writes the original's format ([save.md](../formats/save.md),
 `game_save_write.cpp`): QuickSave.dsa, else the level's title and the

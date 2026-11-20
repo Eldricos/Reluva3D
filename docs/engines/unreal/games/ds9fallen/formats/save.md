@@ -35,9 +35,14 @@ buffers) aren't in it. `reluva-tool unreal save <file>` reads one.
     number, one unknown, its next and return line or 0xFFFF; its voice,
     key, text; an f32 pause; its NEXTLINE and RETURNLINE patterns; its tag
     (a name); its event and condition; a name, a u16 camera and four
-    names); two lists of what's under way (records of u16, u16, i32,
-    reference, i32; and u16, reference, i32); its faces (as the name
-    tables); its cameras (13 i32 each); an i32;
+    names); the lines being said (Engine.dll 0x1040af60), each its
+    line's place, the place of the line whose RETURNLINE its thread goes
+    back to (0xFFFF none), when it's done (f32, level seconds: the clock
+    that runs while paused for a HUD line, the level's for the rest), its
+    speaker (a reference) and its thread (i32); the lines waiting for a
+    speaker who's busy (0x1040b050), each its line's place, the speaker
+    and the thread; its faces (as the name tables); its cameras (13 i32
+    each); the number its next thread will get (i32);
   - **the sounds playing**: for each, the actor, the audio driver's id
     (actor x 16 + slot x 2 + no-override; below 0 slot none), the sound's
     path, its volume, radius and pitch (f32), and when it began (level
@@ -167,11 +172,11 @@ is the map's data as it is; the rest comes from the running level.
     nothing fits is dropped (an explicit one is kept);
   - the cameras: each line's CAMERA in the tables' order, one with no
     place keeping the one before's, the same ones once.
-- **Not written:** the dialogue's lines under way (the engine's two lists
-  are left empty: what their fields mean isn't worked out, and no save of
-  the original's to hand has one), and the Level's model and reach list
-  renumbered (the map's own numbering is kept, so references are a byte
-  longer here and there).
+- **The URL's map** is the map's own name, or for a level loaded from
+  the original's save, the map that save was made on.
+- **Not written:** the Level's model and reach list renumbered (the map's
+  own numbering is kept, so references are a byte longer here and
+  there).
 
 ## Sources and checks
 

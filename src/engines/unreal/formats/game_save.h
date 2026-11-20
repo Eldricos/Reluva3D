@@ -44,6 +44,24 @@ struct LevelExtras {
         float start = 0;
     };
     std::vector<Sound> sounds;
+    /**
+     * The dialogue's lines under way: being said, or waiting for their
+     * speaker to be free (`queued`). `line` and `back` are places in the
+     * saved lines (`back`, the RETURNLINE its thread goes back to, 0xFFFF
+     * none); `end` when it's done, in level seconds (a HUD line's on the
+     * clock that runs while paused); `speaker` an object reference.
+     */
+    struct Talk {
+        int32_t thread = 0;
+        int line = 0;
+        int back = 0xFFFF;
+        float end = 0;
+        int32_t speaker = 0;
+        bool queued = false;
+    };
+    std::vector<Talk> talks;
+    int32_t nextThread = 0; // the dialogue engine's next thread number
+    int cameras = 0;
 };
 Error readLevelExtras(const Package &package, LevelExtras &out);
 

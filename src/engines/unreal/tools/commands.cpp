@@ -116,6 +116,11 @@ int cmdUeSave(int argc, char **argv) {
     for (const auto &l : x.lines)
         if (l.said > 0)
             std::printf("  said %dx: %s\n", l.said, l.key.c_str());
+    std::printf("dialogue under way: %zu lines; next thread %d, %d cameras\n", x.talks.size(), int(x.nextThread),
+                x.cameras);
+    for (const auto &t : x.talks)
+        std::printf("  thread %d: line %d%s, back %d, done at %.2f, speaker %d\n", int(t.thread), t.line,
+                    t.queued ? " (waiting)" : "", t.back, double(t.end), int(t.speaker));
     for (const auto &s : x.sounds)
         std::printf("  sound %s on %s, id %d, volume %.2f, radius %.0f, pitch %.2f, from %.2f s\n", s.path.c_str(),
                     pkg.path(s.actor).c_str(), s.id, s.volume, s.radius, s.pitch, s.start);
