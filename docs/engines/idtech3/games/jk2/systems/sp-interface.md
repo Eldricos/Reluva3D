@@ -60,6 +60,18 @@ the player's arrival starts look for them as they load.
   entity's contents to what its model's brushes and curves hold, ORed
   (0x40d290), where Quake III's and Elite Force's set every bit (-1),
   then links it.
+- **`VoiceVolume` 39** (the array at 0xd14408, one int per entity)
+  holds how loud each entity is speaking, as Elite Force's does, but
+  with Jedi Outcast's values: each sound pass (0x4255b0) zeroes it, then
+  each voice channel playing (types 3, 4 and 12) sets its entity's from
+  its sound's loudness where it has got to (0x425650: the mean square of
+  up to ten samples a hundred apart, their high bytes, recomputed every
+  800 samples painted) against `s_threshold1` to `s_threshold4` (0.5,
+  4, 7, 8) times the sound's peak (the largest |sample| >> 8 as it's
+  loaded, 0x429e03): -1 under the first, then 1, 2, 3, or 4 over the
+  last. The client game plays face animation 0x4b1 plus a value above
+  0 on the speaker's head (0x2003d13d), its talking mouths, and counts
+  -1 as still speaking.
 - **42–102:** Ghoul2's, in the GPL source's order: from
   `G2API_PrecacheGhoul2Model` 42 and `G2API_InitGhoul2Model` 43 to
   `RE_RegisterSkin` 101 and `RE_GetAnimationCFG` 102 (the names in

@@ -350,10 +350,11 @@ void SpGameHost::startVoice(int32_t entity, const std::string &name) {
     log("+" + std::to_string(entity) + " " + name + " " +
         std::to_string(int64_t(sound->frames()) * 1000 / sound->rate) + " ms");
     // Its peak, as the original's sound loading measures it: the largest
-    // sample's high byte, the scale its thresholds are taken against.
+    // sample's high byte, the scale its thresholds are taken against
+    // (jk2sp.exe's of the sample's size, 0x429e03).
     int peak = 0;
     for (int16_t v : sound->samples)
-        peak = std::max(peak, std::abs(v >> 8));
+        peak = std::max(peak, jedi() ? std::abs(int(v)) >> 8 : std::abs(v >> 8));
     _voices[entity] = {sound, _levelTime, float(peak)};
     // Speaking from now, as the original marks it on starting (-1: started,
     // silent so far), so the game sees it in the same frame.
@@ -367,7 +368,8 @@ void SpGameHost::updateVoiceVolumes() {
     // square of ten samples a hundred apart, their high bytes) against
     // s_threshold1-4 times the sound's peak: -1 quiet, then 5 to 8 (the
     // client game shows the head skin that many after its first, the
-    // mouth's shapes). A line that has ended
+    // mouth's shapes); Jedi Outcast's 1 to 4 (jk2sp.exe, 0x42570c on).
+    // A line that has ended
     // leaves 0, which ends the scripts' wait for it.
     if (!_voiceVolume)
         return;
@@ -396,15 +398,16 @@ void SpGameHost::updateVoiceVolumes() {
             sum += s * s;
         }
         const float level = float(sum / std::max(n, 1));
-        int32_t value = 8;
+        const int32_t loudest = jedi() ? 4 : 8;
+        int32_t value = loudest;
         if (t1 * v.average > level)
             value = -1;
         else if (t2 * v.average > level)
-            value = 5;
+            value = loudest - 3;
         else if (t3 * v.average > level)
-            value = 6;
+            value = loudest - 2;
         else if (t4 * v.average > level)
-            value = 7;
+            value = loudest - 1;
         _cpu->write32(_voiceVolume + 4 * uint32_t(it->first), uint32_t(value));
         ++it;
     }
