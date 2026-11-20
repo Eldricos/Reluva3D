@@ -132,10 +132,9 @@ of twelve slots, the manual's "12 slots available for saved games".
   is `game`*n*`.sav`, top down.
 - **After a fresh install** the first four slots hold the tutorials,
   `game0.sav` to `game3.sav`, described "Tutorial #1" to "Tutorial #4";
-  the other eight show their empty fields. Whether the description is
-  `gameInfo`'s or the archive header's name isn't known: they may be the
-  same ([formats/sav.md](../formats/sav.md)). Reluva shows `gameInfo`'s
-  *(guessed)*.
+  the other eight show their empty fields. The description is
+  `gameInfo`'s; the archive header's name is the file's
+  ([formats/sav.md](../formats/sav.md)).
 - **Choosing:** the manual: "click on its slot and the selected game will
   light up. Then click the Accept button to start that saved game." Reluva
   lights the chosen slot with its second picture. Accept is dimmed until a
@@ -284,10 +283,8 @@ the screen, and checked against the recording:
   options screen's are, (24, 101, 189) and (173, 227, 115): its own were
   measured from a video, whose colours run lighter and greyer.
 - Where the game keeps the options between runs.
-- Load Game: whether its description is `gameInfo`'s or the archive
-  header's name, and whether a slot whose file is `Game4.sav` on disk
-  shows that or `game4.sav`. Settled by a saved game's bytes, and a save
-  in such a slot.
+- Load Game: whether a slot whose file is `Game4.sav` on disk shows that
+  or `game4.sav`. Settled by a save in such a slot.
 - When Continue can be used: with a saved game, or only with a game in
   progress.
 - What `es_?icn1`, `es_?0` and `es_?1` are for, and whether pointing at an

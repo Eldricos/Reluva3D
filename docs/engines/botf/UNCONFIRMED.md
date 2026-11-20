@@ -27,14 +27,14 @@ None: nothing of the game's code has been read.
 - **The options screen:** the settings the game setup screen shares with
   it kept as one set ([systems/screens.md](systems/screens.md)). Settled
   by: a setting changed on one screen seen on the other.
+- **A saved game's LZSS window** starts full of spaces for its text files,
+  from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
+  Settled by: `result.lst` decoded both ways once its pieces are read.
 
 ## Guessed
 
-- **On Load Game:** empty slots can't be chosen, and the description is
-  `gameInfo`'s, not the archive header's name
-  ([systems/screens.md](systems/screens.md), [formats/sav.md](formats/sav.md)).
-  Settled by: the running game, and a saved game's bytes.
-
+- **On Load Game:** empty slots can't be chosen
+  ([systems/screens.md](systems/screens.md)). Settled by: the running game.
 - **On the options screen:** a click on a volume lighting the cells up to
   the mouse, and dragging along it ([systems/screens.md](systems/screens.md)).
   Settled by: the running game.
@@ -50,6 +50,9 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** a saved game's archive and `gameInfo`'s description,
+  checked on the tutorial's `game0.sav` ([formats/sav.md](formats/sav.md)).
 
 - **November 2026:** Load Game from a fresh install's screenshot: slot *n*
   is `game`*n*`.sav`, its file name in the name field, the tutorials in the
