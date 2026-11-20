@@ -48,6 +48,7 @@ GameSetup setupFromIni(const std::map<std::string, std::string> &ini);
 /** The single-player game setup screen. */
 class SetupScreen : LayoutScreen {
 public:
+    using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kAccepted, kCancelled };
 
     /** `lexicon` may be empty: the words are then the English ones. */

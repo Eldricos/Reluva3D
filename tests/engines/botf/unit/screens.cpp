@@ -2,13 +2,15 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Birth of the Federation's unit tests: the main menu, the options, Load
-// Game, Save Game, Hall of Fame and Multiplayer Setup screens, and the game setup and empire selection
+// Game, Save Game, Hall of Fame and Multiplayer Setup screens, the menu's
+// music, and the game setup and empire selection
 // screens.
 
 #include "common/events.h"
 #include "engines/botf/formats/font.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
+#include "engines/botf/menu_audio.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
@@ -26,6 +28,7 @@
 #include <array>
 #include <cstring>
 #include <filesystem>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -630,6 +633,22 @@ void testMultiplayerScreen() {
           screen.text(MultiplayerScreen::Field::kGameName) == "Game");
     CHECK(mouse(50, 300) == MultiplayerScreen::Result::kCancelled &&
           key(key::kEscape) == MultiplayerScreen::Result::kCancelled);
+}
+
+void testMenuMusic() {
+    // The menu music's segments: any but the one just played, every one in
+    // time; one segment only repeats.
+    std::mt19937 random(7);
+    std::array<int, 5> seen{};
+    int last = -1;
+    for (int i = 0; i < 200; ++i) {
+        const int next = nextSegment(5, last, random);
+        CHECK(next >= 0 && next < 5 && next != last);
+        ++seen[size_t(next)];
+        last = next;
+    }
+    CHECK(std::all_of(seen.begin(), seen.end(), [](int n) { return n > 0; }));
+    CHECK(nextSegment(1, 0, random) == 0 && nextSegment(1, -1, random) == 0);
 }
 
 void testEmpireScreen() {

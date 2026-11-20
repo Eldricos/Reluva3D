@@ -122,6 +122,10 @@ and checked against a screenshot of the game's screen.
 - **Not shown:** four pictures without a picture (8110-8113, 144 wide, 96
   or 128 high) beside the settings' values; nothing is drawn there in the
   screenshot.
+- **Settings as lists:** in a recording, clicking Tactical Combat Options
+  opens a list of its choices beside it, in the empty pictures' place
+  (8110-8113); Reluva changes the setting at a click instead, as the
+  screenshots didn't show the lists.
 - **Behind it:** drawn over the main menu, dimmed, as the other panels
   are. The bar along the top reads "OPTIONS" where the menu's has none;
   that isn't in the layout's text boxes, so presumably it's in
@@ -432,7 +436,7 @@ recording:
   hot spot may not be where it's drawn, or only the button's picture, not
   its rectangle, may count.
 - On the options screen: whether a volume's click works as Reluva's does,
-  and what the pictures 8110-8113 are for.
+  and the settings' lists of choices, seen open in a recording.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.

@@ -177,8 +177,10 @@ SetupScreen::Result SetupScreen::handle(const Event &e) {
             return Result::kAccepted;
         if (id == kCancel)
             return Result::kCancelled;
-        if (id)
+        if (id) {
+            sound(UiSound::kSetupClick);
             click(id, (e.mods & keymod::kShift) != 0);
+        }
     }
     return Result::kOpen;
 }

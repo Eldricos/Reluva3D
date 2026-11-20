@@ -31,7 +31,15 @@ None: nothing of the game's code has been read.
   from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
   Settled by: `result.lst` decoded both ways once its pieces are read.
 
+- **The menu music's order:** a segment at random, never the one just
+  played, from one order heard ([systems/sound.md](systems/sound.md)).
+  Settled by: a longer recording, or `music.tbl` worked out.
+
 ## Guessed
+
+- **The menu's sounds not heard:** which of the same sound's entries, the
+  voice volume's lines, the empire screen's and Save Game's sounds
+  ([systems/sound.md](systems/sound.md)). Settled by: a recording of them.
 
 - **On Save Game:** an empty slot's description when chosen (the galaxy's
   shape),
@@ -56,6 +64,9 @@ None: nothing of the game's code has been read.
   where the game shows none.
 
 ## Settled
+
+- **November 2026:** the main menu's music and its screens' sounds, from
+  a recording with sound ([systems/sound.md](systems/sound.md)).
 
 - **November 2026:** the main menu's version, its font, place and colour,
   and the whole menu, from a screenshot ([systems/screens.md](systems/screens.md)).

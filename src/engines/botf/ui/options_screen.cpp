@@ -132,6 +132,14 @@ OptionsScreen::Result OptionsScreen::handle(const Event &e) {
                 setVolume(id, e.mouseX);
             }
     } else if (e.type == EventType::kMouseUp) {
+        // Letting go of a volume plays its sample (the manual; a recording
+        // of the game): voice, video and effects, not music, which plays.
+        if (_dragging == kVolumes[0])
+            sound(UiSound::kVoiceVolume);
+        else if (_dragging == kVolumes[1])
+            sound(UiSound::kVideoVolume);
+        else if (_dragging == kVolumes[3])
+            sound(UiSound::kEffectsVolume);
         _dragging = 0;
         // A button acts when the mouse comes up on it, as Windows buttons do.
         const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
@@ -140,8 +148,10 @@ OptionsScreen::Result OptionsScreen::handle(const Event &e) {
             return Result::kAccepted;
         if (id == kCancel)
             return Result::kCancelled;
-        if (id)
+        if (id) {
+            sound(UiSound::kClick);
             click(id);
+        }
     }
     return Result::kOpen;
 }

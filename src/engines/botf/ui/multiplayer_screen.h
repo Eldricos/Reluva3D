@@ -23,6 +23,7 @@ namespace reluva::botf {
 /** The Multiplayer Setup screen. */
 class MultiplayerScreen : LayoutScreen {
 public:
+    using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kCancelled };
     enum class Role { kNone, kHost, kJoin };
     enum class Connection { kNone, kNetwork, kModem, kSerial };

@@ -36,11 +36,18 @@ None yet.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
 - **The timers offer only None,** as their other choices aren't known.
+- **The options' settings change at a click:** the game opens a list of
+  each one's choices beside it (seen in a recording), Reluva goes to the
+  next choice ([systems/screens.md](systems/screens.md)).
+- **The menu's sounds** are the ones a recording shows, but where the
+  game has the same sound in several entries Reluva plays the first, the
+  voice volume picks among only the three lines heard, and the video
+  volume's sample is scaled by the effects volume too
+  ([systems/sound.md](systems/sound.md)).
 - **The options and the last setup aren't written back** to `Stbof.ini`:
   Reluva starts from the file's, but leaves it as it is, so changes last
-  only while it runs. The options change nothing yet: there's no sound or
-  movie to set the volume of, no sample plays when a volume changes, and
-  there are no tool tips to turn off.
+  only while it runs. The volumes set the music, speech and effects; there
+  are no movies or tool tips yet to set.
 
 ## Additions outside the game
 

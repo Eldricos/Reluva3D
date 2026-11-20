@@ -20,6 +20,7 @@ namespace reluva::botf {
 /** The empire selection screen: choosing the empire to play. */
 class EmpireScreen : LayoutScreen {
 public:
+    using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kAccepted, kCancelled };
 
     EmpireScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}

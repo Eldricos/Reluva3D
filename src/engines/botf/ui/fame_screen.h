@@ -29,6 +29,7 @@ struct FameEntry {
 /** The Hall of Fame. */
 class FameScreen : LayoutScreen {
 public:
+    using LayoutScreen::setSoundHandler;
     static constexpr int kRows = 10;
 
     FameScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}

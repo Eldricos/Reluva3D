@@ -25,6 +25,7 @@ namespace reluva::botf {
 /** The Load Game and Save Game screens. */
 class LoadSaveScreen : LayoutScreen {
 public:
+    using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kAccepted, kCancelled };
     enum class Mode { kLoad, kSave };
     static constexpr int kSlots = 12;

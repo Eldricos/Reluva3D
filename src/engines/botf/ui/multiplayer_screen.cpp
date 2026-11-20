@@ -192,8 +192,10 @@ MultiplayerScreen::Result MultiplayerScreen::handle(const Event &e) {
         _pressed = 0;
         if (id == kCancel)
             return Result::kCancelled;
-        if (id)
+        if (id) {
+            sound(UiSound::kClick);
             click(id);
+        }
     }
     return Result::kOpen;
 }

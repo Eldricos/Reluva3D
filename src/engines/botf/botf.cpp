@@ -10,6 +10,7 @@
 #include "common/zip.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
+#include "engines/botf/menu_audio.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
@@ -155,6 +156,17 @@ public:
 
         if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
+        MenuAudio audio(_sys);
+        audio.open(files);
+        audio.setVolumes(_options);
+        audio.startMusic();
+        const auto sounds = [&audio](UiSound s) { audio.play(s); };
+        options.setSoundHandler(sounds);
+        loading.setSoundHandler(sounds);
+        fame.setSoundHandler(sounds);
+        multiplayer.setSoundHandler(sounds);
+        setup.setSoundHandler(sounds);
+        empires.setSoundHandler(sounds);
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
@@ -180,10 +192,12 @@ public:
                         setup.setup() = lastSetup;
                         preferencesToSetup(_options, setup.setup());
                         showing = Showing::kSetup;
+                        audio.play(MenuAudio::Move::kToSetup);
                     }
                     if (c == MainMenu::Choice::kLoadGame) {
                         loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kLoad);
                         showing = Showing::kLoad;
+                        audio.play(MenuAudio::Move::kToLoad);
                     }
                     // Only with a game in progress, which there can't be yet:
                     // the game's galaxy shape is the description at first,
@@ -193,11 +207,13 @@ public:
                                      galaxyShapeName(_lexicon, lastSetup.galaxyShape));
                         _sys.setTextInput(true);
                         showing = Showing::kLoad;
+                        audio.play(MenuAudio::Move::kToSave);
                     }
                     if (c == MainMenu::Choice::kNewMultiplayer) {
                         multiplayer.open();
                         _sys.setTextInput(true);
                         showing = Showing::kMultiplayer;
+                        audio.play(MenuAudio::Move::kToMultiplayer);
                     }
                     if (c == MainMenu::Choice::kHallOfFame) {
                         // Reluva's own list, empty until it can finish a
@@ -205,10 +221,12 @@ public:
                         // files (docs/engines/botf/KNOWN_DIFFERENCES.md).
                         fame.open({});
                         showing = Showing::kFame;
+                        audio.play(MenuAudio::Move::kToHallOfFame);
                     }
                     if (c == MainMenu::Choice::kOptions) {
                         options.open(_options);
                         showing = Showing::kOptions;
+                        audio.play(MenuAudio::Move::kToOptions);
                     }
                 } else if (showing == Showing::kOptions) {
                     const OptionsScreen::Result r = options.handle(ev);
@@ -249,11 +267,17 @@ public:
                     if (r == EmpireScreen::Result::kCancelled)
                         showing = Showing::kSetup;
                 }
-                if (showing != shown && showing == Showing::kMenu)
+                if (showing != shown && showing == Showing::kMenu) {
                     menu.forgetPointer();
+                    audio.play(MenuAudio::Move::kToMenu);
+                }
                 shown = showing;
                 redraw = redraw || ev.type != EventType::kKeyUp;
             }
+            // The options' volumes as they're set, so a volume's sample, and
+            // the music, are heard at the new one; Cancel puts them back.
+            audio.setVolumes(showing == Showing::kOptions ? options.options() : _options);
+            audio.update();
             if (showing == Showing::kLoad || showing == Showing::kMultiplayer) {
                 const bool cursor = _sys.getMillis() / kCursorFlashMillis % 2 == 0;
                 if (cursor != cursorShown) {

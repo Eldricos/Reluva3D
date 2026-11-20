@@ -70,8 +70,10 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
         _pressed = buttonAt(e.mouseX, e.mouseY);
         // Choosing an empire happens on the press, like a radio button; its
         // emblem chooses it too.
-        if (const int empire = empireAt(e.mouseX, e.mouseY); empire >= 0)
+        if (const int empire = empireAt(e.mouseX, e.mouseY); empire >= 0) {
             _chosen = empire;
+            sound(UiSound::kSetupClick); // as the setup screen's (guessed)
+        }
     } else if (e.type == EventType::kMouseUp) {
         const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
         _pressed = 0;

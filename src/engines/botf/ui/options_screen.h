@@ -45,6 +45,7 @@ GameOptions optionsFromIni(const std::map<std::string, std::string> &ini);
 /** The options screen. */
 class OptionsScreen : LayoutScreen {
 public:
+    using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kAccepted, kCancelled };
 
     /** `lexicon` may be empty: the words are then the English ones. */

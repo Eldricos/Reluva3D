@@ -10,6 +10,7 @@
 #include "engines/botf/formats/window_layout.h"
 
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -26,9 +27,22 @@
 
 namespace reluva::botf {
 
+/** What a screen's controls sound like when used, for the engine to play. */
+enum class UiSound {
+    kClick,       // a button on most screens
+    kSetupClick,  // a control on the game setup and empire selection screens
+    kGameChosen,  // a saved game's slot chosen
+    kVoiceVolume, // the options' volumes set: each plays a sample
+    kVideoVolume,
+    kEffectsVolume,
+};
+
 /** A screen drawn from a .wdf layout, over the main menu or as it: what every such screen shares. */
 class LayoutScreen {
 public:
+    /** Where the screen's sounds go (the engine's); none by default. */
+    void setSoundHandler(std::function<void(UiSound)> handler) { _sound = std::move(handler); }
+
     /** A widget of the screen's layout, and where it is on the screen. */
     struct Placed {
         const Widget *widget = nullptr;
@@ -83,6 +97,10 @@ protected:
     Color fontColor(int32_t textBox) const;
     // The lexicon's entry, or `english` when there's no lexicon.
     std::string word(int entry, const char *english) const;
+    void sound(UiSound s) const {
+        if (_sound)
+            _sound(s);
+    }
 
     Assets &_assets;
     const Lexicon &_lexicon;
@@ -104,6 +122,7 @@ protected:
     int32_t _pressed = 0;                        // the button the mouse went down on, or 0
     int32_t _pointed = 0;                        // the button under the pointer, or 0
     bool _highlightPointed = false;              // the button under the pointer shows its "selected" picture
+    std::function<void(UiSound)> _sound;
 };
 
 /** ASCII letters in capitals; the rest as it is. */

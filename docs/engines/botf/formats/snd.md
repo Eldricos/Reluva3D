@@ -53,7 +53,9 @@ Counts 5, 15, 15, 15, 16, 15, 10, 10, 9, 12, 11, 4, 4, 3, 3, 4: 151
 segments in 16 pieces. The lists follow each other directly (each offset is
 the previous one plus 16 x count), from 75,447,424 to the end of the file.
 `music.tbl` in `stbof.res` probably says which piece plays when (see
-[stbof-res.md](stbof-res.md)) *(guessed)*.
+[stbof-res.md](stbof-res.md)) *(guessed)*. The main menu plays the first
+piece, its segments in a shuffled order
+([systems/sound.md](../systems/sound.md)).
 
 ### The ADPCM data
 
