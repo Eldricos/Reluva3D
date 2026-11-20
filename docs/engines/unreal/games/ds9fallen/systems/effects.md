@@ -152,11 +152,27 @@ known.
     out again. Its physics (Spark) then places the segments.
   - Before, Reluva laid the segments itself each tick, jolting them only
     on updates, so an arc held still between them.
-- **Beams** (`UpdateBeamSections`): the sections start at `BeamOrigin`,
-  each `BeamSectionAxesX` further on, turned as the beam, with a wave if
-  it has one. Their thickness jitters by `SectionAxisYZRandomFactor`. The
-  last section is as long as the head has flown into it (`HeadTime` x
-  `HeadVelocity`).
+- **Beams** (`UpdateBeamSections`, 0x103790f0): only while sustained
+  (Physics 39) with its copies. Nothing is made or removed: the sections
+  the scripts made, from `BeamSectionIndexFirst` up to
+  `BeamSectionIndexLast`, are laid end to end.
+  - Each starts at `BeamOrigin` + k × `BeamSectionAxesX` (k its place in
+    the list), turned as `BeamRotation`, and takes
+    `BeamSectionColorFilter`.
+  - The beam spins about its length at 25600 a second, on from the first
+    section's roll.
+  - Each is `SectionAxisScale` long, the last too: the scripts cut it
+    after, where the beam meets something.
+  - Its thickness is `SectionAxisScale` plus a random share of
+    `SectionAxisYZRandomFactor` (the same both ways, so only ever
+    thicker), times a pulse 1 + `WaveAmplitude` × (1 + sin(k ×
+    `WaveLength` × 803.84 + `WaveStartOffset`)) / 2. The pulse travels:
+    `WaveStartOffset` goes down by `WaveTravelVelocity` a second. The
+    phaser rifle's swells to twice as thick and back about every six
+    sections, moving out along the beam.
+  - Before, Reluva bent the beam sideways for its wave, a unit at most
+    and slowly, sized the last section by how far the head had flown,
+    jittered the thickness both ways and didn't spin the beam.
 - **Sparks** (`CTVE_Sparks.SparkTick`): when its scripts' `BurstDelay`
   runs out, a burst of `MinSparksPerBurst` to `MaxSparksPerBurst` flies
   out along its X axis at `Speed`. They spread `RangeWidth` and

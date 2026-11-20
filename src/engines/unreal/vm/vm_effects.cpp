@@ -227,18 +227,18 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
 }
 
 // A beam's sections (CTVE_BeamFX: copies of its mesh, made and cut by its
-// scripts) laid along it from BeamOrigin, where the weapon's tip is now,
-// each SectionLength on along BeamAxesX and turned as the beam. Each is
-// SectionAxisScale thick, its thickness varying at random by up to
-// SectionAxisYZRandomFactor each tick; the last as long as the head has
-// flown into it (the scripts cut it after, where the beam meets
-// something). With a WaveAmplitude the beam
-// ripples: WaveLength waves a unit along it, travelling WaveTravelVelocity
-// a second.
+// scripts) laid end to end from BeamOrigin, where the weapon's tip is now,
+// by BeamSectionAxesX (SectionLength along the beam), turned as the beam
+// and spun about it at 25600 a second, in its BeamSectionColorFilter
+// (0x103790f0). Each is SectionAxisScale, thickened at random by up to
+// SectionAxisYZRandomFactor (the same both ways) and by a pulse of up to
+// WaveAmplitude times that, WaveLength of a turn's 804 a section apart,
+// travelling WaveTravelVelocity a second (WaveStartOffset kept on the
+// beam). The scripts cut the last after, where the beam meets something.
 void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
-    // Only a sustained beam's (Physics BeamSustain, 39) with its copies, as
-    // Engine.dll's native (0x10379196): once its firing stops and its
-    // scripts set it to none, its sections stay as they were.
+    // Only a sustained beam's (Physics BeamSustain, 39) with its copies
+    // (0x10379196): once its firing stops and its scripts set it to none,
+    // its sections stay as they were.
     const Value *physics = prop(beam, "Physics");
     const Value *copies = prop(beam, "MultiMesh");
     if (!physics || physics->asInt() != 39 || !copies || !copies->asObject())
@@ -260,48 +260,47 @@ void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
     };
     const int first = std::max(0, i("BeamSectionIndexFirst"));
     const int last = std::min(i("BeamSectionIndexLast"), list->arrayDim);
+    if (first >= last)
+        return;
+    float offset = f("WaveStartOffset") - f("WaveTravelVelocity") * seconds;
+    if (Value *w = prop(beam, "WaveStartOffset"))
+        *w = Value::floatValue(offset);
+    auto sectionAt = [&](int k) {
+        VmObject *section = beam->values[size_t(list->slot + k)].asObject();
+        return section && !section->deleted ? section : nullptr;
+    };
+    // The spin goes on from the first section's roll.
+    int32_t roll = 0;
+    if (VmObject *head = sectionAt(first))
+        if (const Value *r = prop(head, "Rotation"))
+            roll = Vm::rotatorOf(*r)[2];
+    roll += int32_t(seconds * 25600);
     const Vec origin = vec("BeamOrigin");
     const Vec step = vec("BeamSectionAxesX");
-    const Vec axis = normal(vec("BeamAxesX"));
-    const Value *rotation = prop(beam, "BeamRotation");
+    const auto turn =
+        prop(beam, "BeamRotation") ? Vm::rotatorOf(*prop(beam, "BeamRotation")) : std::array<int32_t, 3>{};
+    const Value *color = prop(beam, "BeamSectionColorFilter");
     const Vec scale = vec("SectionAxisScale");
     const float jitter = f("SectionAxisYZRandomFactor");
     const float amplitude = f("WaveAmplitude");
     const float waveLength = f("WaveLength");
-    const float travel = f("WaveTravelVelocity") * f("AliveTime");
-    const float sectionLength = f("SectionLength");
-    Vec side = cross(axis, Vec{0, 0, 1});
-    side = length(side) < 1e-3f ? Vec{0, 1, 0} : normal(side);
     for (int k = first; k < last; ++k) {
-        VmObject *section = beam->values[size_t(list->slot + k)].asObject();
-        if (!section || section->deleted)
+        VmObject *section = sectionAt(k);
+        if (!section)
             continue;
-        Vec at = add(origin, mul(step, float(k)));
-        if (amplitude != 0 && waveLength != 0) {
-            const float phase = (float(k) * sectionLength - travel) * waveLength * 6.2831853f;
-            at = add(at, mul(side, amplitude * std::sin(phase)));
-        }
+        const Vec at = add(origin, mul(step, float(k)));
         if (Value *l = prop(section, "Location"))
             _vm.setVector(*l, at[0], at[1], at[2]);
-        if (Value *r = prop(section, "Rotation"); r && rotation)
-            *r = *rotation;
+        if (Value *r = prop(section, "Rotation"))
+            *r = _vm.rotatorValue(turn[0], turn[1], roll);
+        if (Value *c = prop(section, "ColorFilter"); c && color)
+            *c = *color;
         if (Value *s = prop(section, "AxisScale")) {
-            const Vec now = Vm::vectorOf(*s);
-            auto thick = [&](float base) { return std::max(0.1f, base * (1 + jitter * (frand() - 0.5f))); };
-            // The last grows as the head flies out (HeadTime x HeadVelocity
-            // along); the scripts cut it after, where the beam hits.
-            float x = scale[0];
-            if (k == last - 1 && sectionLength > 0) {
-                const float reach = f("HeadTime") * f("HeadVelocity") / sectionLength - float(k);
-                x = std::clamp(reach, 0.0f, 1.0f) * scale[0];
-            }
-            (void)now;
-            _vm.setVector(*s, x, thick(scale[1]), thick(scale[2]));
+            const float r = frand();
+            const float pulse = 1 + 0.5f * amplitude * (1 + std::sin(float(k) * waveLength * 803.84f + offset));
+            _vm.setVector(*s, scale[0], (scale[1] + r * jitter) * pulse, (scale[2] + r * jitter) * pulse);
         }
     }
-    if (Value *count = prop(beam, "FrameCount"))
-        ++count->i;
-    (void)seconds;
 }
 
 namespace {
