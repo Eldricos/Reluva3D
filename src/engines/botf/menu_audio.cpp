@@ -73,6 +73,10 @@ void MenuAudio::setVolumes(const GameOptions &options) {
     _videoVolume = mixerVolume(options.volume[1]);
 }
 
+void MenuAudio::setMovieVolume(const GameOptions &options) {
+    _mixer->setTypeVolume(audio::SoundType::kMusic, mixerVolume(options.volume[1]));
+}
+
 void MenuAudio::startMusic() {
     if (!_output || !_haveMusic || _queue)
         return;

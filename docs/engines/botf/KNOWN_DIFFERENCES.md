@@ -18,7 +18,6 @@ None yet.
 
 ## Not yet as the original
 
-- **The game starts at the main menu,** without the opening movie.
 - **On the main menu,** Continue, Save Game and Retire can't be used (as
   in the game with nothing in progress).
 - **No multiplayer:** Multiplayer Setup is there, but its Connect does

@@ -51,7 +51,8 @@ colours, what pressed buttons and the main menu behind look like.
 
 1. Add the game's folder in the launcher; it's recognised as Star Trek:
    Birth of the Federation.
-2. Run it: the main menu, Continue, Save Game and Retire dimmed; the
+2. Run it: the opening movie with its sound (a key or a click skips it),
+   then the main menu, Continue, Save Game and Retire dimmed; the
    button under the pointer lit.
 3. New Single Player Game: the game setup screen over the dimmed menu,
    with every value as the manual's defaults (Early, Many, Normal, None,

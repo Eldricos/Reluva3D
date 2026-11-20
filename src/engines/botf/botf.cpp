@@ -20,6 +20,8 @@
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "engines/engine.h"
+#include "audio/wav.h"
+#include "video/movie.h"
 
 #include <algorithm>
 #include <cctype>
@@ -88,6 +90,32 @@ LoadSaveScreen::Slots findSaves(const std::filesystem::path &dir) {
             }
     }
     return slots;
+}
+
+// The opening movie, as the game plays it before the main menu: the
+// CD's open.avi (Cinepak, 800x300, no sound), in the middle of the 800x600
+// screen, with the install's intro.wav as its sound (the same 75 seconds);
+// a key or a click skips it. Stbof.ini's MOVIEON=OFF leaves it out
+// (docs/engines/botf/systems/movies.md). False if the window was closed.
+bool playOpening(System &sys, const GameFiles &files, audio::Mixer *mixer) {
+    if (auto it = files.ini().find("MOVIEON"); it != files.ini().end() && it->second == "OFF")
+        return true;
+    const auto movie = files.find("open.avi");
+    if (!movie)
+        return true;
+    video::MovieOptions options;
+    options.screenWidth = kScreenW;
+    options.screenHeight = kScreenH;
+    if (const auto wav = files.find("intro.wav")) {
+        std::ifstream in(*wav, std::ios::binary);
+        const std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        auto sound = std::make_shared<audio::Sound>();
+        if (!audio::decodeWav(data, *sound))
+            options.soundtrack = std::move(sound);
+    }
+    bool quit = false;
+    video::playMovie(sys, mixer, *movie, quit, options);
+    return !quit;
 }
 
 // Sets `values` in the install's Stbof.ini, as the game does when the
@@ -176,6 +204,9 @@ public:
             return err;
         MenuAudio audio(_sys);
         audio.open(files);
+        audio.setMovieVolume(_options);
+        if (!playOpening(_sys, files, audio.mixer()))
+            return Error::success();
         audio.setVolumes(_options);
         audio.startMusic();
         const auto sounds = [&audio](UiSound s) { audio.play(s); };

@@ -37,6 +37,10 @@ None: nothing of the game's code has been read.
 
 ## Guessed
 
+- **The opening movie:** in the screen's middle, black above and below,
+  and skipped by a key or a click ([systems/movies.md](systems/movies.md)).
+  Settled by: a screenshot during it.
+
 - **The menu's sounds not heard:** which of the same sound's entries, the
   voice volume's lines, the empire screen's and Save Game's sounds
   ([systems/sound.md](systems/sound.md)). Settled by: a recording of them.

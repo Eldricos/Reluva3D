@@ -16,7 +16,8 @@ Engine id `botf`, in `src/engines/botf/`.
   isn't a model or texture, for `alt.res`, and for the `.snd` sound
   archives: the pictures, fonts, text tables, all 35 data tables, the
   window layouts and menus, and `lexicon.dic`. See [formats/](#this-folder).
-- **The game:** it starts at the main menu, from which New Single Player
+- **The game:** it plays the opening movie, then the main menu, from
+  which New Single Player
   Game opens the game setup screen over it, then the empire selection
   screen, all working from the game's own layouts, pictures, fonts and
   words, and matched against a recording of the game. There's no game to
@@ -26,7 +27,7 @@ Engine id `botf`, in `src/engines/botf/`.
   multiplayer setup, without connecting to anyone.
 - **The data viewer** (`reluva-viewer`) shows the pictures, fonts, sounds,
   text and data tables, and the window layouts.
-- **Not yet:** the opening movie, saving and loading a game, playing
+- **Not yet:** the empires' movies, saving and loading a game, playing
   multiplayer, the galaxy map and every screen after it;
   the game's rules; the `.hob` models and their `.gif` textures; the AVI
   movies; saves; multiplayer.
@@ -72,7 +73,7 @@ The plan is in [PLAN.md](PLAN.md).
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [stbof-res.md](formats/stbof-res.md), [alt-res.md](formats/alt-res.md), [snd.md](formats/snd.md), [fnt.md](formats/fnt.md), [tdb.md](formats/tdb.md), [tables.md](formats/tables.md), [wdf.md](formats/wdf.md), [mnu.md](formats/mnu.md), [lexicon.md](formats/lexicon.md), [sav.md](formats/sav.md), [executable.md](formats/executable.md) |
-| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (where it finds its files), [screens.md](systems/screens.md) (the screens rebuilt so far), [sound.md](systems/sound.md) (the main menu's music and sounds) |
+| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (where it finds its files), [screens.md](systems/screens.md) (the screens rebuilt so far), [sound.md](systems/sound.md) (the main menu's music and sounds), [movies.md](systems/movies.md) (the opening movie) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |

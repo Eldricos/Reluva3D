@@ -42,6 +42,13 @@ public:
     void open(const GameFiles &files);
     /** The music, speech and effects volumes, as the options set them. */
     void setVolumes(const GameOptions &options);
+    /**
+     * While a movie plays: its sound, which the player plays as music, at
+     * the video volume. setVolumes() puts the music's back.
+     */
+    void setMovieVolume(const GameOptions &options);
+    /** The mixer, for a movie's sound; nullptr without an audio device. */
+    audio::Mixer *mixer() { return _output ? _mixer.get() : nullptr; }
     /** Starts the menu's music, if it isn't playing. */
     void startMusic();
     /** Keeps the music's segments queued; call every frame. */
