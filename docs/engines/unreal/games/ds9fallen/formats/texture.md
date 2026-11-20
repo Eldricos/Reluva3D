@@ -140,9 +140,12 @@ a second a frame. Pixels go through the FLC's own palette chunks, starting from
 the texture's palette; masked textures, and any on a masked surface, see
 through colour 0.
 
-Playing is script's to ask for: `Mode` (0 stopped, 1 once, 2 looping),
-with `FrameNum` and `FrameTime` where it is. Reluva plays a FliTexture
-by those once the HUD draws it (see [hud.md](../systems/hud.md));
+Playing is script's to ask for: `Mode` (0 stopped, 1 once, 2 looping;
+the class's default 2, looping), with `FrameNum` and `FrameTime` where
+it is. Reluva plays a FliTexture by those once the HUD draws it (see
+[hud.md](../systems/hud.md)), and while a level plays, one on a surface
+or a sprite too: an explosion's sprite, set to play once
+(`EXP_Explosion`, `ARD_ExplosionSmallBlue`), stops at its end;
 going back to an earlier frame decodes again from the first. A HUD tile
 that sees through colour 0 does so in every frame.
 

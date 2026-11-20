@@ -184,6 +184,7 @@ void LevelView::unload() {
     _animatedLightmaps.clear();
     _animatedTextures.clear();
     _animatedSince.clear();
+    _animatedRefs.clear();
     _uniqueByRef.clear();
     _actorFades.clear();
     _changingLights.clear();
@@ -1670,7 +1671,23 @@ void LevelView::updateAnimatedTextures(float dt) {
             continue;
         const float since = _animatedSince[i];
         _animatedSince[i] = 0;
-        if (anim->advance(since))
+        // While playing, an FLC shows the frame its texture's script side
+        // has (its Mode, FrameTime and FrameNum, as the level ticks them:
+        // UFliTexture::Tick): one an explosion plays once stops.
+        bool changed = false;
+        VmObject *fli = nullptr;
+        if (_play && anim->frames() > 0 && i < _animatedRefs.size() && _animatedRefs[i].first.package) {
+            const ObjectRef &ref = _animatedRefs[i].first;
+            fli = _play->vm().objectAt(*ref.package, ref.exportIndex + 1);
+        }
+        if (fli) {
+            _play->level().trackFli(fli);
+            const Value *frame = fli->find(_play->vm(), "FrameNum");
+            changed = anim->showFrame(frame ? std::max(1, frame->asInt()) : 1, _animatedRefs[i].second);
+        } else {
+            changed = anim->advance(since);
+        }
+        if (changed)
             regions.push_back({id, 0, 0, anim->image().w, anim->image().h, anim->image().rgba.data()});
     }
     if (_recorder)
@@ -2233,8 +2250,10 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
             params.mipmaps = !anim;
             if (!_renderer->createTexture(img.w, img.h, img.rgba.data(), params, id)) {
                 _textures.push_back(id);
-                if (anim)
+                if (anim) {
                     _animatedTextures.push_back({id, std::move(anim)});
+                    _animatedRefs.push_back({tex, masked});
+                }
             } else {
                 id = 0;
             }

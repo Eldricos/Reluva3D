@@ -468,8 +468,9 @@ private:
     // Fire, water, wet, ice and FLC textures, playing.
     void updateAnimatedTextures(float dt);
     std::vector<std::pair<gfx::TextureId, std::unique_ptr<AnimatedTexture>>> _animatedTextures;
-    std::vector<float> _animatedSince;             // each one's time since it was last ticked
-    std::unique_ptr<TextureUseRecorder> _recorder; // renderer_ while shown: what's drawn
+    std::vector<float> _animatedSince;                     // each one's time since it was last ticked
+    std::vector<std::pair<ObjectRef, bool>> _animatedRefs; // each one's texture, and whether colour 0 is see-through
+    std::unique_ptr<TextureUseRecorder> _recorder;         // renderer_ while shown: what's drawn
     // The overlay's rows drawn last frame, cleared before the next: [0,
     // top) and [bottom, the frame's height).
     // the first frame clears it all
