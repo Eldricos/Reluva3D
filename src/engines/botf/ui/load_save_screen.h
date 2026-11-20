@@ -58,10 +58,6 @@ public:
     void setCursorShown(bool shown) { _cursorShown = shown; }
 
 private:
-    void type(const char *utf8);
-    void erase();
-    void drawCursor(Surface &screen, int32_t box) const;
-
     Slots _slots;
     Mode _mode = Mode::kLoad;
     std::string _description;

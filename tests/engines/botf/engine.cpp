@@ -24,6 +24,7 @@
 #include "tests/support/zip_writer.h"
 
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <tuple>
@@ -115,7 +116,8 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
 
 // The install: the main menu's buttons down the right; the options
 // screen's volumes, settings and timers' arrows down the middle; Load
-// Game's slots, and two saved games; the Hall of Fame; the setup
+// Game's slots, and two saved games; the Hall of Fame; Multiplayer Setup
+// and its panels; the setup
 // screen's buttons in a row along the top, the empire screen's names down
 // the left; Accept and Cancel at the bottom.
 void makeInstall(const std::filesystem::path &dir) {
@@ -179,6 +181,32 @@ void makeInstall(const std::filesystem::path &dir) {
                                 {14, 9963, 296, 10, 300, 17, "human15.fnt"},
                                 {14, 9964, 598, 10, 145, 17, "human15.fnt"}}));
     add("fame.tga", picture(800, 600, 40, 40, 10));
+    // Multiplayer Setup: Host, Join, Cancel, the three fields and the
+    // panels' places; the connection types and the network's settings.
+    add("mpsetup.wdf", layout(0, "mp.tga",
+                              {{2, 108, 16, 195, 162, 38, "bt"},
+                               {2, 109, 16, 242, 162, 38, "bt"},
+                               {2, 114, 16, 289, 162, 38, "no"},
+                               {13, 702, 16, 337, 294, 36, ""},
+                               {13, 703, 16, 384, 294, 36, ""},
+                               {13, 701, 16, 430, 294, 36, ""},
+                               {13, 399, 186, 195, 160, 131, ""},
+                               {13, 200, 317, 192, 303, 408, ""},
+                               {14, 112, 21, 353, 284, 17, "human15.fnt"},
+                               {14, 113, 21, 400, 284, 17, "human15.fnt"},
+                               {14, 700, 21, 446, 284, 17, "human15.fnt"}}));
+    add("mpconn.wdf",
+        layout(0, "none",
+               {{2, 193, 0, 0, 160, 38, "bt"}, {2, 194, 0, 47, 160, 38, "bt"}, {2, 196, 0, 94, 160, 38, "bt"}}));
+    add("mpcnet.wdf", layout(0, "none",
+                             {{2, 202, 35, 69, 129, 19, "bt"},
+                              {2, 203, 168, 69, 127, 19, "bt"},
+                              {2, 207, 35, 94, 261, 36, "bt"},
+                              {2, 210, 135, 288, 158, 36, "ok"},
+                              {14, 714, 40, 113, 252, 17, "human15.fnt"}}));
+    add("mpcmod.wdf", layout(0, "none", {{2, 491, 135, 288, 158, 36, "ok"}}));
+    add("mpcser.wdf", layout(0, "none", {{2, 451, 135, 288, 158, 36, "ok"}}));
+    add("mp.tga", picture(800, 600, 10, 40, 40));
     add("load.tga", picture(800, 600, 20, 20, 60));
     std::vector<LayoutWidget> setup = {{2, 9201, 453, 502, 159, 36, "ok"}, {2, 9202, 16, 502, 159, 36, "no"}};
     std::vector<LayoutWidget> empires = {{2, 9110, 452, 502, 160, 36, "ok"}, {2, 9111, 16, 502, 160, 36, "no"}};
@@ -235,6 +263,13 @@ Event pointAt(int x, int y) {
     e.type = EventType::kMouseMove;
     e.mouseX = x;
     e.mouseY = y;
+    return e;
+}
+
+Event typeText(const char *text) {
+    Event e;
+    e.type = EventType::kTextInput;
+    std::strncpy(e.text, text, sizeof e.text - 1);
     return e;
 }
 
@@ -359,7 +394,18 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", menuButton(6, false)},
             {"fame.shown", click(600, 560, true)}, // Return
             {"", click(600, 560, false)},
-            {"menu.after the hall of fame", menuButton(8, true)}, // Quit Game: the end
+            {"menu.after the hall of fame", menuButton(2, true)}, // New Multiplayer Game
+            {"", menuButton(2, false)},
+            {"multiplayer.shown", click(60, 210, true)}, // Host
+            {"", click(60, 210, false)},
+            {"multiplayer.host", click(230, 210, true)}, // Network
+            {"", click(230, 210, false)},
+            {"multiplayer.network", click(100, 350, true)}, // the game's name
+            {"", click(100, 350, false)},
+            {"", typeText("Reluva")},
+            {"multiplayer.name typed", click(60, 300, true)}, // Cancel
+            {"", click(60, 300, false)},
+            {"menu.after multiplayer", menuButton(8, true)}, // Quit Game: the end
             {"", menuButton(8, false)},
         };
         ScriptedSystem sys(rec, script);

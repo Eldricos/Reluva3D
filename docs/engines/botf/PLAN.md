@@ -30,10 +30,10 @@ with recordings of the original filling what the data can't show.
 8. **Saves:** the `.sav` format, worked out by comparing saves taken a
    turn apart in the running game: the map of the game state the rules
    act on.
-9. **Screens:** the main menu's own screens are done but multiplayer's
-   (the options, Load and Save Game's lists, the Hall of Fame). Next the
-   multiplayer setup, the galaxy map, and the system, empire and diplomacy
-   screens, from their layouts and recordings of the original.
+9. **Screens:** the main menu's own screens are done (the options, Load
+   and Save Game's lists, the Hall of Fame, Multiplayer Setup). Next the
+   galaxy map, and the system, empire and diplomacy screens, from their
+   layouts and recordings of the original.
 10. **Rules:** turn processing (production, research, growth, morale, the
     AI) and ship combat, from the data tables, documentation and
     measurements in the running game, checked against saves. By far the

@@ -15,7 +15,7 @@ files):
 | `botf.unit.fonts` | The `.fnt` fonts' glyphs found by their frames, drawing and wrapping text |
 | `botf.unit.tables` | The `.tdb` text tables, the data tables' layouts (and that every built-in layout fits its records), `lexicon.dic` |
 | `botf.unit.layouts` | The `.wdf` layouts (nested windows, each widget type, cut-short files), the `.mnu` menus, the colour key, dimmed pictures |
-| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options and setup read from `Stbof.ini`; the options screen's settings and volumes (clicked and dragged); the Hall of Fame's rows and Return; Load Game's slots (an empty one, choosing, Accept), and Save Game's (an empty one chosen, its description typed and erased, up to its field's width, the cursor's place and flashing); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
+| `botf.unit.screens` | The main menu's buttons, with and without a game in progress; the options and setup read from `Stbof.ini`; the options screen's settings and volumes (clicked and dragged); the Hall of Fame's rows and Return; Multiplayer Setup's panels, fields, Tab and the password's limit; Load Game's slots (an empty one, choosing, Accept), and Save Game's (an empty one chosen, its description typed and erased, up to its field's width, the cursor's place and flashing); the game setup screen's controls and their choices; the empire selection screen's choosing and buttons |
 
 IMA ADPCM without a WAV header, which the `.snd` archives need, is
 checked with the shared audio code, in `common.unit.audio`.
@@ -34,7 +34,8 @@ the setup and the menu, a new game again accepted back to the menu; the
 options, a setting changed and a volume dragged, then cancelled; the
 options again, tactical combat changed and accepted, and a new game's
 setup showing it; Load Game, an empty slot clicked, a save chosen and
-accepted; the Hall of Fame and its Return; and Quit Game. Each screen's checksum is in its record
+accepted; the Hall of Fame and its Return; Multiplayer Setup, Host,
+Network and a game's name typed, then Cancel; and Quit Game. Each screen's checksum is in its record
 (`data/engine-record.txt`).
 
 ### The game-files test
@@ -68,8 +69,11 @@ colours, what pressed buttons and the main menu behind look like.
 8. Load Game: the install's saved games in their slots, the tutorials
    among them. Click one: it lights. Accept comes back to the main menu.
 9. Hall of Fame: its own screen, the list empty. Return comes back to the
-   main menu. Quit Game leaves.
-10. In `reluva-viewer`, every page: every picture, font, sound, table and
+   main menu.
+10. New Multiplayer Game: Host, then Network, Modem and Serial, each
+    showing its panel; type in the three fields, Tab between them. Cancel
+    comes back. Quit Game leaves.
+11. In `reluva-viewer`, every page: every picture, font, sound, table and
     layout opens.
 
 ## Last checked

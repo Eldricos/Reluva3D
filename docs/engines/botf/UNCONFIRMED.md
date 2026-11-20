@@ -33,6 +33,12 @@ None: nothing of the game's code has been read.
 
 ## Guessed
 
+- **On Multiplayer Setup:** the panels appearing once Host or Join and a
+  connection are chosen, no field typed in until clicked, the text's
+  colour, and the password shown as typed
+  ([systems/screens.md](systems/screens.md)). Settled by: screenshots of
+  the screen in use.
+
 - **On Save Game:** an empty slot's description when chosen (the galaxy's
   shape),
   typing whichever field was clicked, and the cursor's flashing every half

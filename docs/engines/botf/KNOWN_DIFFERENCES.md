@@ -19,9 +19,11 @@ None yet.
 ## Not yet as the original
 
 - **The game starts at the main menu,** without the opening movie.
-- **On the main menu,** New Multiplayer Game does nothing yet; Continue,
-  Save Game and Retire can't be used (as in the game with nothing in
-  progress).
+- **On the main menu,** Continue, Save Game and Retire can't be used (as
+  in the game with nothing in progress).
+- **No multiplayer:** Multiplayer Setup is there, but its Connect does
+  nothing: Reluva can't play over a network, modem or serial cable yet,
+  nor with the original game.
 - **The Hall of Fame starts empty.** The game's list after a fresh install
   holds ten games ("Yobo the Tyrant" ...), which aren't in any of its files
   but its encrypted executable, so Reluva doesn't have them. Its own list

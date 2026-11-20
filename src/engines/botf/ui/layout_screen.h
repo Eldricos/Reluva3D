@@ -12,8 +12,10 @@
 #include <cstdint>
 #include <initializer_list>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 // What the game's screens built from a .wdf layout share: the layout, drawn
 // over the main menu (opening.wdf) as the game draws its panels; finding
@@ -32,6 +34,7 @@ public:
         const Widget *widget = nullptr;
         int x = 0;
         int y = 0;
+        int panel = -1; // the panel it's in (addPanel), or -1 for the screen's layout
         bool contains(int px, int py) const { return px >= x && py >= y && px < x + widget->w && py < y + widget->h; }
     };
 
@@ -42,6 +45,12 @@ protected:
     // `overMenu` is false (the main menu itself), and checks the layout has
     // the widgets the screen needs.
     Error loadLayouts(const char *file, std::initializer_list<int32_t> needed, bool overMenu = true);
+    // Another layout, a panel, drawn in the place of the layout's widget
+    // `place` (an empty picture the panel's size), shown or not: its
+    // number for showPanel(). Its widgets are found by id as the layout's.
+    Error addPanel(const char *file, int32_t place, std::initializer_list<int32_t> needed, int &panel);
+    void showPanel(int panel, bool shown);
+    bool panelShown(int panel) const;
     const Placed *find(int32_t id) const;
     // The button under the mouse, among those not hidden or disabled; or 0.
     int32_t buttonAt(int x, int y) const;
@@ -51,7 +60,7 @@ protected:
     // pressed one with its "selected" picture, as are those `selected`
     // names, and the one under the pointer with `_highlightPointed`; the
     // `_disabled` ones dimmed), parents before children, leaving out the
-    // `_hidden` widgets.
+    // `_hidden` widgets; then the panels shown, the same way.
     void drawLayouts(Surface &screen, const std::set<int32_t> &selected = {}) const;
     // Text in a text box, in its font and alignment, in the middle of its
     // height; or, with `lineGap`, wrapped to its width from its top, the
@@ -61,6 +70,15 @@ protected:
     void drawTextAt(Surface &screen, const Widget &textBox, int boxX, int boxY, const std::string &text, Color color,
                     int lineGap = -1) const;
     void drawPicture(Surface &screen, int32_t widget, const std::string &file) const;
+    // Adds typed UTF-8 to `text`, a text box's: only characters its font has
+    // (and so Windows-1252 can hold), as long as it stays within
+    // `maxCharacters` and the box's width.
+    void typeInto(std::string &text, int32_t textBox, const char *utf8, size_t maxCharacters) const;
+    // Takes the last character (UTF-8) off `text`: Backspace.
+    static void eraseLast(std::string &text);
+    // A typing cursor after `text` in a text box: a white block 8 pixels
+    // wide, as high as the font's glyphs (the game's, on Save Game).
+    void drawCursor(Surface &screen, int32_t textBox, const std::string &text) const;
     // The colour a text box's font names, or black.
     Color fontColor(int32_t textBox) const;
     // The lexicon's entry, or `english` when there's no lexicon.
@@ -71,11 +89,19 @@ protected:
     WindowLayout _menu;
     WindowLayout _layout;
     std::map<int32_t, Placed> _widgets;
-    std::set<int32_t> _hidden;      // widgets the game doesn't show on this screen
-    std::set<int32_t> _disabled;    // buttons that can't be used just now
-    int32_t _pressed = 0;           // the button the mouse went down on, or 0
-    int32_t _pointed = 0;           // the button under the pointer, or 0
-    bool _highlightPointed = false; // the button under the pointer shows its "selected" picture
+    /** A panel: its layout, where it's drawn, and whether it's shown. */
+    struct Panel {
+        WindowLayout layout;
+        int x = 0;
+        int y = 0;
+        bool shown = false;
+    };
+    std::vector<std::unique_ptr<Panel>> _panels; // owned apart, as _widgets points into them
+    std::set<int32_t> _hidden;                   // widgets the game doesn't show on this screen
+    std::set<int32_t> _disabled;                 // buttons that can't be used just now
+    int32_t _pressed = 0;                        // the button the mouse went down on, or 0
+    int32_t _pointed = 0;                        // the button under the pointer, or 0
+    bool _highlightPointed = false;              // the button under the pointer shows its "selected" picture
 };
 
 /** ASCII letters in capitals; the rest as it is. */

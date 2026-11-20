@@ -31,5 +31,10 @@ load.save chosen: 42e489e67660e3c8
 menu.after loading: aab57f3978016255
 fame.shown: b9c59ecb83c3a745
 menu.after the hall of fame: aab57f3978016255
+multiplayer.shown: afb042ae390cf735
+multiplayer.host: 3dafe68d22b773ed
+multiplayer.network: 752efa6c77ca49ed
+multiplayer.name typed: c27872388361c03d
+menu.after multiplayer: aab57f3978016255
 run: ok
 run.screen: 800x600

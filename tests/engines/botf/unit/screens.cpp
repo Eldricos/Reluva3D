@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Birth of the Federation's unit tests: the main menu, the options, Load
-// Game, Save Game and Hall of Fame screens, and the game setup and empire selection
+// Game, Save Game, Hall of Fame and Multiplayer Setup screens, and the game setup and empire selection
 // screens.
 
 #include "common/events.h"
@@ -14,6 +14,7 @@
 #include "engines/botf/ui/fame_screen.h"
 #include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
+#include "engines/botf/ui/multiplayer_screen.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "image/image.h"
@@ -493,6 +494,138 @@ void testFameScreen() {
     CHECK(screen.handle(esc));
 }
 
+// A layout of buttons, empty pictures and text boxes (each `{type, id, x,
+// y, w, h}`), in a window `w` by `h`.
+Bytes smallLayout(uint32_t w, uint32_t h, const std::vector<std::array<uint32_t, 6>> &widgets) {
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 0, 0, 0, w, h, "none");
+    std::vector<std::pair<uint32_t, uint32_t>> counts;
+    for (const uint32_t type : {2U, 13U, 14U}) {
+        uint32_t n = 0;
+        for (const auto &wd : widgets)
+            n += wd[0] == type ? 1 : 0;
+        if (n)
+            counts.emplace_back(type, n);
+    }
+    putWindowCounts(f, counts);
+    for (const uint32_t type : {2U, 13U, 14U})
+        for (const auto &[t, id, x, y, ww, hh] : widgets) {
+            if (t != type)
+                continue;
+            putWidget(f, t, id, x, y, ww, hh, "none");
+            if (t == 14) {
+                for (const uint32_t v : {0U, 0U, ww, hh})
+                    put32(f, v);
+                putFont(f, 0, 0, 0, "human15.fnt");
+                continue;
+            }
+            put32(f, 0xffffffff);
+            if (t == 2) {
+                f.push_back(0);
+                put32(f, 0);
+                put32(f, 0);
+                putName(f, "none");
+                putName(f, "none");
+            }
+        }
+    return f;
+}
+
+void testMultiplayerScreen() {
+    // Host, Join and Cancel down the left, the three fields under them, and
+    // the panels' places; each panel's buttons in a row.
+    MemoryArchive archive;
+    archive.files["opening.wdf"] = emptyLayout(138);
+    archive.files["human15.fnt"] = makeFont(16);
+    archive.files["mpsetup.wdf"] = smallLayout(800, 600,
+                                               {{2, 108, 16, 195, 160, 38},
+                                                {2, 109, 16, 242, 160, 38},
+                                                {2, 114, 16, 289, 160, 38},
+                                                {13, 702, 16, 337, 294, 36},
+                                                {13, 703, 16, 384, 294, 36},
+                                                {13, 701, 16, 430, 294, 36},
+                                                {13, 399, 186, 195, 160, 131},
+                                                {13, 200, 317, 192, 303, 408},
+                                                {14, 112, 21, 353, 284, 17},
+                                                {14, 113, 21, 400, 284, 17},
+                                                {14, 700, 21, 446, 284, 17}});
+    archive.files["mpconn.wdf"] =
+        smallLayout(160, 134, {{2, 193, 0, 0, 160, 38}, {2, 194, 0, 47, 160, 38}, {2, 196, 0, 94, 160, 38}});
+    archive.files["mpcnet.wdf"] = smallLayout(303, 408,
+                                              {{2, 202, 35, 69, 129, 19},
+                                               {2, 203, 168, 69, 127, 19},
+                                               {2, 207, 35, 94, 261, 36},
+                                               {2, 210, 135, 288, 158, 36},
+                                               {14, 714, 40, 113, 252, 17}});
+    archive.files["mpcmod.wdf"] = smallLayout(303, 408, {{2, 491, 135, 288, 158, 36}});
+    archive.files["mpcser.wdf"] = smallLayout(303, 408, {{2, 451, 135, 288, 158, 36}, {2, 442, 36, 147, 80, 19}});
+    Assets assets(archive);
+    Lexicon lexicon;
+    MultiplayerScreen screen(assets, lexicon);
+    CHECK(!screen.load());
+    screen.open();
+    auto mouse = [&](int x, int y) {
+        MultiplayerScreen::Result r = MultiplayerScreen::Result::kOpen;
+        for (EventType t : {EventType::kMouseDown, EventType::kMouseUp}) {
+            Event e;
+            e.type = t;
+            e.button = MouseButton::kLeft;
+            e.mouseX = x;
+            e.mouseY = y;
+            r = screen.handle(e);
+        }
+        return r;
+    };
+    auto typed = [&](const char *t) {
+        Event e;
+        e.type = EventType::kTextInput;
+        std::strncpy(e.text, t, sizeof e.text - 1);
+        screen.handle(e);
+    };
+    auto key = [&](uint32_t k) {
+        Event e;
+        e.type = EventType::kKeyDown;
+        e.key = k;
+        return screen.handle(e);
+    };
+    // At first the panels are hidden: Network's place doesn't answer.
+    mouse(200, 200);
+    CHECK(screen.connection() == MultiplayerScreen::Connection::kNone);
+    // Host shows the connections; Network its panel.
+    mouse(50, 210);
+    CHECK(screen.role() == MultiplayerScreen::Role::kHost);
+    mouse(200, 200);
+    CHECK(screen.connection() == MultiplayerScreen::Connection::kNetwork);
+    mouse(200, 250);
+    CHECK(screen.connection() == MultiplayerScreen::Connection::kModem);
+    // Typing goes nowhere until a field is clicked; Tab goes round them.
+    typed("x");
+    CHECK(screen.text(MultiplayerScreen::Field::kGameName).empty());
+    mouse(100, 350);
+    typed("Game");
+    CHECK(screen.field() == MultiplayerScreen::Field::kGameName &&
+          screen.text(MultiplayerScreen::Field::kGameName) == "Game");
+    key(key::kTab);
+    key(key::kTab);
+    CHECK(screen.field() == MultiplayerScreen::Field::kPassword);
+    typed("12345678901234567");
+    CHECK(screen.text(MultiplayerScreen::Field::kPassword).size() == 13); // the manual's limit
+    key(key::kBackspace);
+    CHECK(screen.text(MultiplayerScreen::Field::kPassword).size() == 12);
+    key(key::kTab);
+    CHECK(screen.field() == MultiplayerScreen::Field::kGameName);
+    Surface surface;
+    surface.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(surface);
+    // Opening it again keeps the fields but nothing chosen.
+    screen.open();
+    CHECK(screen.role() == MultiplayerScreen::Role::kNone &&
+          screen.text(MultiplayerScreen::Field::kGameName) == "Game");
+    CHECK(mouse(50, 300) == MultiplayerScreen::Result::kCancelled &&
+          key(key::kEscape) == MultiplayerScreen::Result::kCancelled);
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -568,12 +701,14 @@ void testEmpireScreen() {
 } // namespace
 
 static const reluva::test::Suite
-    kSuite("botf.unit.screens", {
-                                    {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
-                                    {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
-                                    {"load game", [](const std::filesystem::path &) { testLoadSaveScreen(); }},
-                                    {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
-                                    {"hall of fame", [](const std::filesystem::path &) { testFameScreen(); }},
-                                    {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
-                                    {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
-                                });
+    kSuite("botf.unit.screens",
+           {
+               {"main menu", [](const std::filesystem::path &) { testMainMenu(); }},
+               {"options", [](const std::filesystem::path &) { testOptionsScreen(); }},
+               {"load game", [](const std::filesystem::path &) { testLoadSaveScreen(); }},
+               {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
+               {"hall of fame", [](const std::filesystem::path &) { testFameScreen(); }},
+               {"multiplayer setup", [](const std::filesystem::path &) { testMultiplayerScreen(); }},
+               {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
+               {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
+           });

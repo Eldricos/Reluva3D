@@ -4,8 +4,9 @@
 
 ## Overview
 
-The screens rebuilt so far: the main menu, the options, Load Game and
-Hall of Fame screens, and those that start a new game, the game setup
+The screens rebuilt so far: the main menu and every screen it opens (the
+options, Load Game and Save Game, the Hall of Fame, Multiplayer Setup),
+and those that start a new game, the game setup
 ("Configuration") screen and the empire selection screen. Each is put
 back together from its window layout ([formats/wdf.md](../formats/wdf.md)),
 the manual (what each control does, its choices and defaults),
@@ -218,6 +219,41 @@ game."
 - **Accept** saves into the slot, its old game, if any, replaced; Cancel
   goes back.
 
+### Multiplayer Setup
+
+`mpsetup.wdf`, opened by the main menu's New Multiplayer Game, over the
+dimmed main menu: Host (108) and Join (109), kind 2 buttons, and Cancel
+(114) down the left; under them three fields, pictures with their names
+in them (`m_gmnm0.tga` "GAME NAME:", `m_plynm0.tga` "PLAYER NAME:",
+`m_pswrd0.tga` "PASSWORD:"; 702, 703, 701) and a text box in each (112,
+113, 700). The manual: Host "determines the connection, sets various game
+parameters and names your multiplayer game"; Join joins one as a guest;
+"a password, no longer than 13 characters ... This field is optional";
+"You can move from field to field by clicking on a new field or pressing
+your Tab key." A screenshot of the screen as it opens matches Reluva's
+pixel for pixel but the pointer.
+
+- **The panels:** two empty pictures hold the rest. The connection's type
+  (`mpconn.wdf`: Network 193, Modem 194, Serial 196) goes beside Host and
+  Join (399, 160x131, its size), and the connection's settings to the
+  right (200, 303x408): `mpcnet.wdf` (TCP/IP 202 or IPX 203, the host's
+  address 207 with its text box 714, Connect 210, and a text box under it
+  for the manual's "status connection messages", 211), `mpcmod.wdf` (an
+  address book of seven numbers, Connect 491) or `mpcser.wdf` (the baud
+  rate, 14,400 to 115,200, 442-446; the port, COM1-COM4, 447-450; Connect
+  451). Both places are empty in the screenshot. Reluva shows the types
+  once Host or Join is chosen, and a type's settings once it's chosen, the
+  choices lit as kind 2 buttons are *(guessed)*; drawn so, each panel
+  fits the screen's frame around its place.
+- **Typing:** a field takes typing once clicked, or with Tab, which goes
+  round the three; the host's address once its button is clicked. Reluva
+  types nowhere until then, shows the text in Load Game's teal with Save
+  Game's cursor, and the password as typed *(guessed)*; names only as
+  long as their field's width.
+- **Connect** does nothing: Reluva can't play over a network, modem or
+  serial cable ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+  Cancel goes back to the main menu.
+
 ### Game setup
 
 `gmesetup.wdf`. It opens with the last game's setup, from `Stbof.ini`
@@ -325,8 +361,11 @@ recording:
   a single line's top centred in the box, `(height - line height) / 2`,
   measured on every screenshot's text. The dimmed pictures are made by `ui/assets.cpp`.
 - `ui/main_menu.cpp`, `ui/options_screen.cpp`, `ui/load_save_screen.cpp`,
-  `ui/fame_screen.cpp`, `ui/setup_screen.cpp` and `ui/empire_screen.cpp`:
-  each screen's controls.
+  `ui/fame_screen.cpp`, `ui/multiplayer_screen.cpp`, `ui/setup_screen.cpp`
+  and `ui/empire_screen.cpp`: each screen's controls. A screen can add
+  other layouts as panels in its empty pictures (Multiplayer Setup's), and
+  typing goes through `ui/layout_screen.cpp` for both screens that take
+  it.
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
   the options and the last setup, starting from `Stbof.ini`'s (changes
   aren't written back yet). Load Game lists the
@@ -379,6 +418,9 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
+- Multiplayer Setup's panels and fields as the game shows them: when each
+  panel appears, the choices made at first, the text's colour, and the
+  password's. Settled by screenshots after Host, Network and some typing.
 - Save Game: an empty slot's description when chosen, and how fast the
   cursor flashes. Settled by choosing an empty slot, and a recording.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that

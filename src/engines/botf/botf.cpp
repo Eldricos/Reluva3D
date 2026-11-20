@@ -3,8 +3,8 @@
 
 // Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
 // releases it recognises, making an Engine to run one) and its Engine,
-// which so far runs the main menu, the options, Load Game and Hall of Fame
-// screens and the start of a new game: the game setup screen, then the empire selection screen
+// which so far runs the main menu and its screens (the options, loading and
+// saving, the Hall of Fame, multiplayer setup) and the start of a new game: the game setup screen, then the empire selection screen
 // (docs/engines/botf/systems/screens.md).
 
 #include "common/zip.h"
@@ -15,6 +15,7 @@
 #include "engines/botf/ui/fame_screen.h"
 #include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
+#include "engines/botf/ui/multiplayer_screen.h"
 #include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "engines/engine.h"
@@ -57,7 +58,7 @@ const std::vector<GameVariant> kFallback = {
      {{"stbof.res", "", -1}, {"sfx.snd", "", -1}}},
 };
 
-// How often Save Game's cursor flashes, on and off: the game's isn't
+// How often the typing cursors flash (Save Game, Multiplayer Setup), on and off: the game's isn't
 // measured; about Windows' own caret's.
 constexpr uint64_t kCursorFlashMillis = 500;
 
@@ -132,6 +133,7 @@ public:
         OptionsScreen options(assets, _lexicon);
         LoadSaveScreen loading(assets, _lexicon);
         FameScreen fame(assets, _lexicon);
+        MultiplayerScreen multiplayer(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
         if (Error err = menu.load())
@@ -141,6 +143,8 @@ public:
         if (Error err = loading.load())
             return err;
         if (Error err = fame.load())
+            return err;
+        if (Error err = multiplayer.load())
             return err;
         if (Error err = setup.load())
             return err;
@@ -152,7 +156,7 @@ public:
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        enum class Showing { kMenu, kOptions, kLoad, kFame, kSetup, kEmpires };
+        enum class Showing { kMenu, kOptions, kLoad, kFame, kMultiplayer, kSetup, kEmpires };
         Showing showing = Showing::kMenu;
         Showing shown = showing; // before the event
         bool redraw = true;
@@ -167,7 +171,6 @@ public:
                     // convenience the game hasn't got.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         return Error::success();
-                    // Multiplayer isn't there yet, and does nothing.
                     const MainMenu::Choice c = menu.handle(ev);
                     if (c == MainMenu::Choice::kQuit)
                         return Error::success();
@@ -189,6 +192,11 @@ public:
                         _sys.setTextInput(true);
                         showing = Showing::kLoad;
                     }
+                    if (c == MainMenu::Choice::kNewMultiplayer) {
+                        multiplayer.open();
+                        _sys.setTextInput(true);
+                        showing = Showing::kMultiplayer;
+                    }
                     if (c == MainMenu::Choice::kHallOfFame) {
                         // Reluva's own list, empty until it can finish a
                         // game: the game's first ten entries aren't in its
@@ -206,6 +214,12 @@ public:
                         _options = options.options();
                     if (r != OptionsScreen::Result::kOpen)
                         showing = Showing::kMenu;
+                } else if (showing == Showing::kMultiplayer) {
+                    // There's no one to connect to yet: only Cancel leaves.
+                    if (multiplayer.handle(ev) != MultiplayerScreen::Result::kOpen) {
+                        _sys.setTextInput(false);
+                        showing = Showing::kMenu;
+                    }
                 } else if (showing == Showing::kFame) {
                     if (fame.handle(ev))
                         showing = Showing::kMenu;
@@ -238,11 +252,12 @@ public:
                 shown = showing;
                 redraw = redraw || ev.type != EventType::kKeyUp;
             }
-            if (showing == Showing::kLoad) {
+            if (showing == Showing::kLoad || showing == Showing::kMultiplayer) {
                 const bool cursor = _sys.getMillis() / kCursorFlashMillis % 2 == 0;
                 if (cursor != cursorShown) {
                     cursorShown = cursor;
                     loading.setCursorShown(cursor);
+                    multiplayer.setCursorShown(cursor);
                     redraw = true;
                 }
             }
@@ -256,6 +271,8 @@ public:
                     loading.draw(screen);
                 else if (showing == Showing::kFame)
                     fame.draw(screen);
+                else if (showing == Showing::kMultiplayer)
+                    multiplayer.draw(screen);
                 else if (showing == Showing::kSetup)
                     setup.draw(screen);
                 else

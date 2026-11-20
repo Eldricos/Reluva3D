@@ -23,6 +23,7 @@ reluva_add_engine(botf
         ui/layout_screen.cpp
         ui/load_save_screen.cpp
         ui/main_menu.cpp
+        ui/multiplayer_screen.cpp
         ui/options_screen.cpp
         ui/setup_screen.cpp)
 
