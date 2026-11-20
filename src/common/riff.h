@@ -24,26 +24,34 @@ struct RiffChunk {
     size_t size = 0;
     std::vector<RiffChunk> children;
 
+    /** Whether it's a RIFF or LIST chunk: one with a form type and children. */
     bool isList() const { return id == "RIFF" || id == "LIST"; }
-    /** The first child with this id (and for RIFF/LIST, form type), or null. */
+    /** The first child with this id, or null. */
     const RiffChunk *find(const std::string &id) const;
+    /** The first child list (RIFF or LIST) of this form type, or null. */
     const RiffChunk *findList(const std::string &type) const;
-    /** Every child list of this form type. */
+    /** Every child list (RIFF or LIST) of this form type, in the file's order. */
     std::vector<const RiffChunk *> lists(const std::string &type) const;
 
-    /** Little-endian reads within the chunk (0 past its end). */
+    /** The byte at offset `at` in the chunk; 0 past its end. */
     uint8_t u8(size_t at) const { return at < size ? data[at] : 0; }
+    /** A little-endian 16-bit value at offset `at`; bytes past the chunk's end read as 0. */
     uint16_t u16(size_t at) const { return uint16_t(u8(at) | u8(at + 1) << 8); }
+    /** A little-endian 32-bit value at offset `at`; bytes past the chunk's end read as 0. */
     uint32_t u32(size_t at) const { return uint32_t(u16(at) | uint32_t(u16(at + 2)) << 16); }
+    /** A little-endian signed 16-bit value at offset `at`; bytes past the chunk's end read as 0. */
     int16_t s16(size_t at) const { return int16_t(u16(at)); }
+    /** A little-endian signed 32-bit value at offset `at`; bytes past the chunk's end read as 0. */
     int32_t s32(size_t at) const { return int32_t(u32(at)); }
-    /** A UTF-16 string chunk (UNAM...), as ASCII (other characters as '?'). */
+    /** A UTF-16 string chunk (UNAM...) up to its first NUL, as ASCII (other characters as '?'). */
     std::string text16() const;
 };
 
 /**
  * Reads `data` (which must outlive the tree) as one chunk: a whole RIFF
- * file's top chunk. A chunk running past its parent is an error.
+ * file's top chunk. A chunk running past its parent is an error; bytes
+ * after the RIFF chunk are left alone.
+ * @return An error if it isn't a RIFF file or a chunk doesn't fit; `out` is then empty.
  */
 Error readRiff(const std::vector<uint8_t> &data, RiffChunk &out);
 

@@ -16,11 +16,17 @@
 
 namespace reluva::winhelp {
 
-/** In a topic's text, where a picture stands and where a link's words are. */
-constexpr char kPictureMark = '\x01'; // kPictureMark, the picture's number (|bm<n>), kPictureMark
-constexpr char kLinkMark = '\x02';    // kLinkMark, the topic's index, kLinkMark, its words, kLinkEnd
+/** Where a picture stands in a topic's text: this mark, the picture's number (|bm<n>), this mark again. */
+constexpr char kPictureMark = '\x01';
+/**
+ * Where a link starts in a topic's text: this mark, the index of the topic it goes to in readHelp()'s list,
+ * this mark again; then its words and kLinkEnd.
+ */
+constexpr char kLinkMark = '\x02';
+/** Where a link's words end in a topic's text. */
 constexpr char kLinkEnd = '\x03';
 
+/** One of a help file's topics: its title and its text. */
 struct Topic {
     std::string title;
     // Paragraphs separated by blank lines; a table's cells by tabs, its
@@ -28,8 +34,15 @@ struct Topic {
     // the marks above for pictures and links (plainText() leaves them out).
     std::string text;
 };
+/** A topic's text without the marks: pictures left out, links' words kept as plain words. */
 std::string plainText(const std::string &text);
 
+/**
+ * Reads a help file's topics, in the file's order.
+ *
+ * Help files of Windows 3.0 aren't read; a topic's non-scrolling region is left out.
+ * @return An error if it isn't a help file this reads, or has no topics.
+ */
 Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out);
 
 /** A picture (|bm<n>: the help compiler's own form of a bitmap), as RGBA. */
@@ -38,16 +51,26 @@ struct Picture {
     int height = 0;
     std::vector<uint8_t> rgba;
 };
+/**
+ * Reads picture `number` (|bm<number>) of a help file, opaque, its rows from the top.
+ *
+ * Only the first picture stored under that number, and only bitmaps: metafiles aren't read.
+ * @return An error naming what didn't read; `out` is then empty.
+ */
 Error readPicture(const std::vector<uint8_t> &file, int number, Picture &out);
 
+// The pieces, for tests.
+
 /**
- * The pieces, for tests: the help compiler's LZ77, and its numbers that
- * take one or two bytes (two or four for the longs) as their lowest bit says.
+ * Unpacks the help compiler's LZ77: a flag byte, then eight items, each a byte as it is or a
+ * 16-bit word of a length and a distance back.
+ *
+ * Data that ends early or reaches back past the start gives what was unpacked up to there.
  */
 std::vector<uint8_t> decompressLz77(const uint8_t *data, size_t size);
 /**
- * Its run-length packing: a byte with the top bit set, that many (less the
- * bit) bytes as they are; else the next byte that many times.
+ * Unpacks the help compiler's run-length packing: a byte with the top bit set, that many (less the
+ * bit) bytes as they are; else the next byte that many times. A run cut short by the end gives what's there.
  */
 std::vector<uint8_t> unpackRuns(const uint8_t *data, size_t size);
 

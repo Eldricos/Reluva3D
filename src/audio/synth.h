@@ -12,37 +12,63 @@
 namespace reluva::audio {
 
 /**
- * A software synthesizer playing DLS instruments: notes on channels (as
- * MIDI's, but any number), each channel an instrument, volume, expression
- * and pan; voices follow the instruments' articulations (volume envelope,
- * pitch envelope, LFO). Renders 16-bit stereo. See docs/common/audio/dls.md.
+ * A software synthesizer playing DLS instruments: notes on 64 channels (as
+ * MIDI's), each channel an instrument, volume, expression and pan; voices
+ * follow the instruments' articulations (volume envelope, pitch envelope,
+ * LFO). Mixes into float stereo. See docs/common/audio/dls.md.
+ *
+ * Calls naming a channel outside 0-63 are ignored.
  */
 class DlsSynth {
 public:
+    /** A synthesizer rendering `rate` frames a second, every channel silent. */
     explicit DlsSynth(int rate) : _rate(rate) {}
 
+    /** Frames a second it renders. */
     int rate() const { return _rate; }
-    /** A channel's instrument (null: silent), and its controls (0-127). */
+    /**
+     * Sets a channel's instrument, for the notes that start after.
+     *
+     * The synthesizer keeps the pointers: `collection` (which holds `instrument`) has to outlive the setting
+     * and the notes it plays.
+     * @param instrument Null: notes on the channel are silent.
+     */
     void setInstrument(int channel, const DlsCollection *collection, const DlsInstrument *instrument);
-    void setVolume(int channel, int volume);         // CC 7
-    void setExpression(int channel, int expression); // CC 11
-    void setPan(int channel, int pan);               // CC 10, 64 the middle
-    void setModWheel(int channel, int value);        // CC 1
+    /** Sets a channel's volume (CC 7), 0-127; 100 to begin with. */
+    void setVolume(int channel, int volume);
+    /** Sets a channel's expression (CC 11), 0-127; 127 to begin with. */
+    void setExpression(int channel, int expression);
+    /** Sets a channel's pan (CC 10), 0-127, 64 the middle. */
+    void setPan(int channel, int pan);
+    /** Sets a channel's modulation wheel (CC 1), 0-127: deepens the LFO's vibrato as far as the instrument says. */
+    void setModWheel(int channel, int value);
+    /** Bends a channel's pitch by `semitones`, up or down. */
     void setPitchBend(int channel, float semitones);
+    /** Moves a channel's keys by `semitones`, for the notes it plays after. */
     void setTranspose(int channel, int semitones);
-    /** CC 64: while down, notes let go of keep sounding until it's let up. */
+    /** Sets a channel's sustain pedal (CC 64): while down, notes let go of keep sounding until it's let up. */
     void setSustain(int channel, bool down);
 
+    /**
+     * Starts a note: the first of the instrument's regions holding the key
+     * (and velocity, where it gives a range) plays.
+     * @param key 0-127, before the channel's transpose.
+     * @param velocity 1-127; 0 or less plays nothing.
+     */
     void noteOn(int channel, int key, int velocity);
+    /** Lets go of a channel's notes on `key`: each fades by its release, unless the sustain pedal is down. */
     void noteOff(int channel, int key);
-    void allNotesOff(); // cut
-    void releaseAll();  // let go, each fading by its release
+    /** Cuts every note at once. */
+    void allNotesOff();
+    /** Lets go of every note, sustain pedals let up too, each fading by its release. */
+    void releaseAll();
 
     /**
      * Adds `frames` stereo frames to `out` (interleaved, so 2 x frames
-     * values), mixed at `gain`.
+     * values, full scale at 1), mixed at `gain`; notes that have ended are dropped.
      */
     void render(float *out, size_t frames, float gain = 1);
+    /** The number of notes sounding, fading ones included. */
     size_t voices() const { return _voices.size(); }
 
 private:
@@ -77,9 +103,8 @@ private:
         float lfoModPitchCents = 0;
         float keyTrack = 100; // cents per key
         float tuneCents = 0;
-        // pan -0.5..0.5
         float gainDb = 0;
-        float pan = 0;
+        float pan = 0; // -0.5..0.5
     };
     struct Voice {
         int channel = 0;

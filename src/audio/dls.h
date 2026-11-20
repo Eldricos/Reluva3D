@@ -27,6 +27,7 @@ struct DlsSampleInfo {
     uint32_t loopLength = 0;
 };
 
+/** One of a collection's waves: its samples at `rate` Hz, and how it's played unless a region says otherwise. */
 struct DlsWave {
     int rate = 0;
     std::vector<int16_t> samples; // mono, 16-bit (8-bit and stereo are converted)
@@ -43,6 +44,11 @@ struct DlsConnection {
     int32_t scale = 0;
 };
 
+/**
+ * A range of an instrument's keys and velocities (inclusive, 0-127), playing one of the collection's waves.
+ *
+ * Level 1 has no velocity ranges: its files leave them 0-0, which DlsSynth takes as any.
+ */
 struct DlsRegion {
     int keyLow = 0;
     int keyHigh = 127;
@@ -56,6 +62,7 @@ struct DlsRegion {
     std::vector<DlsConnection> articulation; // a region's own, over the instrument's
 };
 
+/** An instrument: its bank and program, its regions, and the articulation they share. */
 struct DlsInstrument {
     uint32_t bank = 0;    // MIDI bank select (CC0 << 8 | CC32), and kDrums
     uint32_t program = 0; // 0-127
@@ -66,6 +73,7 @@ struct DlsInstrument {
     static constexpr uint32_t kDrums = 0x80000000; // in `bank`: a drum kit
 };
 
+/** A DLS collection's instruments and the waves they play, which it holds. */
 struct DlsCollection {
     std::vector<DlsInstrument> instruments;
     std::vector<DlsWave> waves;
@@ -78,6 +86,13 @@ struct DlsCollection {
     const DlsInstrument *find(uint32_t bank, uint32_t program) const;
 };
 
+/**
+ * Reads a DLS collection (a RIFF file of form "DLS ").
+ *
+ * Waves have to be PCM; of a stereo wave only the first channel is kept. A region whose wave isn't in the
+ * pool is left out.
+ * @return An error if it isn't DLS, has no wave pool or no instruments, or a wave isn't PCM.
+ */
 Error readDls(const std::vector<uint8_t> &data, DlsCollection &out);
 
 } // namespace reluva::audio
