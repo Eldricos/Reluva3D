@@ -85,19 +85,19 @@ private:
     size_t _from = 0;
 };
 
-// A Model's references (model.cpp reads the rest): its state frame if it
-// has one, no properties, its
+// A Model's references (model.cpp reads the rest), objects' and names': its
+// state frame if it has one, no properties (None), its
 // bounds, vectors, points and nodes; each surface's texture and actor (a
 // brush the editor built it from); its vertices; each zone's actor; its
 // Polys; its light maps, light bits, bounds, leaf hulls and leaves; its
 // lights (actors, each light map's list ended by none).
 bool modelRefs(const std::vector<uint8_t> &data, int version, bool stack, int32_t none, const Renumber &f,
-               std::vector<uint8_t> &out) {
+               const Renumber &names, std::vector<uint8_t> &out) {
     RefCopy c(data);
     Reader &r = c.r;
     if (stack)
         c.frame(f);
-    if (r.index() != none)
+    if (c.ref(names) != none)
         return false;
     r.skip(version > 61 ? 41 : 37);
     r.skip(c.count(12) * 12);
@@ -152,16 +152,16 @@ bool modelRefs(const std::vector<uint8_t> &data, int version, bool stack, int32_
     return true;
 }
 
-// A Polys object's references: its state frame if it has one, no
-// properties, the count twice, then each
-// polygon's actor (a brush) and texture.
-bool polysRefs(const std::vector<uint8_t> &data, bool stack, int32_t none, const Renumber &f,
+// A Polys object's references, objects' and names': its state frame if it
+// has one, no properties (None), the count twice, then each
+// polygon's actor (a brush), texture and item name.
+bool polysRefs(const std::vector<uint8_t> &data, bool stack, int32_t none, const Renumber &f, const Renumber &names,
                std::vector<uint8_t> &out) {
     RefCopy c(data);
     Reader &r = c.r;
     if (stack)
         c.frame(f);
-    if (r.index() != none)
+    if (c.ref(names) != none)
         return false;
     const int32_t count = r.i32();
     r.i32();
@@ -174,12 +174,132 @@ bool polysRefs(const std::vector<uint8_t> &data, bool stack, int32_t none, const
         r.skip(48 + size_t(n) * 12 + 4);
         c.ref(f);
         c.ref(f);
-        r.index();
+        c.ref(names); // its item name
         r.index();
         r.index();
         r.skip(4);
     }
     if (!r.ok())
+        return false;
+    out = c.finish();
+    return true;
+}
+
+// An object's tagged properties written again, its object and name
+// references renumbered (each property's size worked out afresh, as a
+// reference's length may change): after its state frame if it has one,
+// up to None, then the rest as it is. Structs: PointRegion (its zone, a
+// leaf, a zone number) and those of plain numbers. False for anything else
+// (arrays, other structs), or if they don't read.
+bool rewriteProperties(const Package &map, const std::vector<uint8_t> &data, bool stack, const Renumber &refs,
+                       const Renumber &names, std::vector<uint8_t> &out) {
+    Reader r(data);
+    ByteWriter w;
+    if (stack) {
+        const int32_t node = r.index();
+        w.index(refs(node));
+        w.index(refs(r.index()));
+        for (int k = 0; k < 12; ++k)
+            w.u8(r.u8());
+        if (node != 0)
+            w.index(r.index());
+    }
+    auto nameOf = [&](int32_t n) {
+        return n >= 0 && size_t(n) < map.names().size() ? fs::toLower(map.names()[size_t(n)].name) : std::string();
+    };
+    static const std::set<std::string> kPlain = {"vector", "rotator", "color",  "plane",      "scale",
+                                                 "coords", "range",   "sphere", "boundingbox"};
+    for (int count = 0; r.ok() && count < 100000; ++count) {
+        const int32_t name = r.index();
+        w.index(names(name));
+        if (nameOf(name) == "none")
+            break;
+        const uint8_t info = r.u8();
+        const auto type = static_cast<PropertyType>(info & 15);
+        int32_t structName = -1;
+        if (type == PropertyType::kStruct)
+            structName = r.index();
+        static constexpr size_t kSizes[5] = {1, 2, 4, 12, 16};
+        const int code = (info >> 4) & 7;
+        const size_t size = code < 5 ? kSizes[code] : code == 5 ? r.u8() : code == 6 ? r.u16() : size_t(r.u32());
+        std::vector<uint8_t> index;
+        if ((info & 0x80) && type != PropertyType::kBool) {
+            const uint8_t b0 = r.u8();
+            index.push_back(b0);
+            for (int k = (b0 & 0xc0) == 0x80 ? 1 : (b0 & 0xc0) == 0xc0 ? 3 : 0; k > 0; --k)
+                index.push_back(r.u8());
+        }
+        if (!r.ok() || r.remaining() < (type == PropertyType::kBool ? 0 : size))
+            return false;
+        ByteWriter value;
+        const size_t at = data.size() - r.remaining();
+        switch (type) {
+        case PropertyType::kBool:
+            break;
+        case PropertyType::kObject:
+        case PropertyType::kClass:
+            value.index(refs(r.index()));
+            break;
+        case PropertyType::kName:
+            value.index(names(r.index()));
+            break;
+        case PropertyType::kStruct:
+            if (nameOf(structName) == "pointregion") {
+                value.index(refs(r.index()));
+                value.i32(r.i32());
+                value.u8(r.u8());
+                break;
+            }
+            if (!kPlain.count(nameOf(structName)))
+                return false;
+            [[fallthrough]];
+        case PropertyType::kByte:
+        case PropertyType::kInt:
+        case PropertyType::kFloat:
+        case PropertyType::kString:
+        case PropertyType::kVector:
+        case PropertyType::kRotator:
+        case PropertyType::kStr:
+            value.bytes(data.data() + at, size);
+            r.skip(size);
+            break;
+        default:
+            return false;
+        }
+        if (type != PropertyType::kBool && data.size() - r.remaining() != at + size)
+            return false;
+        // The tag again: its type, its size's code, then its value.
+        const size_t n = type == PropertyType::kBool ? size : value.data.size();
+        int newCode = 7;
+        for (int k = 0; k < 5; ++k)
+            if (n == kSizes[k])
+                newCode = k;
+        if (newCode == 7)
+            newCode = n <= 0xff ? 5 : n <= 0xffff ? 6 : 7;
+        w.u8(uint8_t((info & 0x8f) | (newCode << 4)));
+        if (type == PropertyType::kStruct)
+            w.index(names(structName));
+        if (newCode == 5)
+            w.u8(uint8_t(n));
+        else if (newCode == 6)
+            w.u16(uint16_t(n));
+        else if (newCode == 7)
+            w.u32(uint32_t(n));
+        w.bytes(index.data(), index.size());
+        w.append(value.data);
+    }
+    if (!r.ok())
+        return false;
+    w.bytes(data.data() + (data.size() - r.remaining()), r.remaining());
+    out = std::move(w.data);
+    return true;
+}
+
+// Data that starts with no properties (None) and holds no other names or
+// objects (a C3D mesh state: its strings are its own).
+bool leadingName(const std::vector<uint8_t> &data, int32_t none, const Renumber &names, std::vector<uint8_t> &out) {
+    RefCopy c(data);
+    if (c.ref(names) != none)
         return false;
     out = c.finish();
     return true;
@@ -234,8 +354,26 @@ bool sameValue(const Value &a, const Value &b) {
 
 } // namespace
 
+// Saved in two goes: the first finds every name and import the save uses
+// (none of its file written), the second writes it with only those, the
+// tables numbered again (as the original's saves have only what they use).
 Error ScriptLevel::writeGameSave(const std::string &path) {
+    SaveTables tables;
+    if (Error err = writeSave(path, tables, true))
+        return err;
+    return writeSave(path, tables, false);
+}
+
+Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool collect) {
     PackageWriter w(_map);
+    if (!collect && tables.trim)
+        w.keepTables(tables.names, tables.imports);
+    int32_t mapNone = 0;
+    for (size_t k = 0; k < _map.names().size(); ++k)
+        if (fs::toLower(_map.names()[k].name) == "none")
+            mapNone = int32_t(k);
+    const Renumber same = [](int32_t n) { return n; };
+    const Renumber baseNames = [&](int32_t n) { return w.baseName(n); };
     const int version = _map.version();
     if (!_levelInfo || _levelInfo->package != &_map)
         return Error::fail("the level has no LevelInfo of its map's");
@@ -311,7 +449,6 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     auto editorOnly = [&](size_t i) {
         return !(exports[i].flags & (objflag::kLoadForClient | objflag::kLoadForServer));
     };
-    const int32_t noneName = w.name("None");
     std::vector<bool> keep(exports.size(), false);
     std::deque<size_t> leadsTo;
     auto keepRef = [&](int32_t ref) {
@@ -342,14 +479,14 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         std::vector<uint8_t> data;
         const bool stack = exports[i].flags & objflag::kHasStack;
         renumber = !_map.readExport(int(i), data) &&
-                   (cls == "model" ? modelRefs(data, version, stack, noneName, keepRef, scratch)
-                                   : polysRefs(data, stack, noneName, keepRef, scratch));
+                   (cls == "model" ? modelRefs(data, version, stack, mapNone, keepRef, same, scratch)
+                                   : polysRefs(data, stack, mapNone, keepRef, same, scratch));
     }
     if (!renumber)
         keep.assign(exports.size(), true);
     const std::vector<int32_t> renumbered = w.keepOnly(keep);
     auto fromMap = [&](int32_t ref) {
-        return ref > 0 && size_t(ref) < renumbered.size() ? renumbered[size_t(ref)] : ref;
+        return ref > 0 && size_t(ref) < renumbered.size() ? renumbered[size_t(ref)] : w.baseRef(ref);
     };
 
     // The new exports, named as the level names them (made unique), in their
@@ -659,6 +796,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                         out.insert(out.end(), at(end), at(heldBegin));
                         out.insert(out.end(), held.data.begin(), held.data.end());
                         out.insert(out.end(), at(heldEnd), data.end());
+                        if (tables.trim && !collect && leadingName(out, mapNone, baseNames, scratch))
+                            out = std::move(scratch);
                         w.setData(ref, std::move(out));
                     }
                 }
@@ -690,7 +829,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
 
     // What the save keeps of the map as it is: its models and their
     // polygons (renumbered), and the actors their lights still lead to
-    // that the level destroyed (as they are now).
+    // that the level destroyed (as they are now) or never had (the map's
+    // own deleted ones, as the map has them).
     if (renumber)
         for (size_t i = 0; i < exports.size(); ++i) {
             const int32_t ref = fromMap(int32_t(i) + 1);
@@ -701,13 +841,21 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             const bool stack = exports[i].flags & objflag::kHasStack;
             if (cls == "model" || cls == "polys") {
                 if (!_map.readExport(int(i), data) &&
-                    (cls == "model" ? modelRefs(data, version, stack, noneName, fromMap, scratch)
-                                    : polysRefs(data, stack, noneName, fromMap, scratch)))
+                    (cls == "model" ? modelRefs(data, version, stack, mapNone, fromMap, baseNames, scratch)
+                                    : polysRefs(data, stack, mapNone, fromMap, baseNames, scratch)))
                     w.setData(ref, std::move(scratch));
-            } else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && o->isActor && !refs.count(o)) {
+            } else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1);
+                       o && o->isActor && o->deleted && !refs.count(o)) {
                 ByteWriter b;
                 properties(b, o);
                 w.setData(ref, std::move(b.data));
+            } else if (w.baseData(ref) >= 0 && exports[i].serialSize > 0 && !_map.readExport(int(i), data)) {
+                // The rest kept as they are, their references renumbered: a
+                // mesh state's only name, others' properties (the level's
+                // summary, an actor the map itself had deleted).
+                if (cls == "c3dmeshstate" ? leadingName(data, mapNone, baseNames, scratch)
+                                          : rewriteProperties(_map, data, stack, fromMap, baseNames, scratch))
+                    w.setData(ref, std::move(scratch));
             }
         }
 
@@ -818,7 +966,77 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
                 w.setData(ref, {});
         }
     }
-    return w.write(path);
+    if (!collect)
+        return w.write(path);
+
+    // What the save uses: the names and imports asked for while writing
+    // it, those of the export table, those the map's data kept as it is
+    // holds, and what those imports are in and named.
+    std::vector<bool> names = w.namesUsed();
+    std::vector<bool> imports = w.importsUsed();
+    const Renumber markName = [&](int32_t n) {
+        if (n >= 0) {
+            if (names.size() <= size_t(n))
+                names.resize(size_t(n) + 1, false);
+            names[size_t(n)] = true;
+        }
+        return n;
+    };
+    const Renumber markRef = [&](int32_t ref) {
+        if (ref < 0) {
+            if (imports.size() <= size_t(-ref - 1))
+                imports.resize(size_t(-ref), false);
+            imports[size_t(-ref - 1)] = true;
+        }
+        return ref;
+    };
+    bool whole = renumber;
+    for (int32_t ref = 1; size_t(ref) <= w.exportCount(); ++ref) {
+        const Export &e = w.exportAt(ref);
+        markName(e.objectName);
+        markRef(e.classRef);
+        markRef(e.superRef);
+        markRef(e.package);
+    }
+    markName(mapNone);
+    for (size_t i = 0; whole && i < exports.size(); ++i) {
+        const int32_t ref = fromMap(int32_t(i) + 1);
+        if (ref <= 0 || exports[i].serialSize <= 0)
+            continue;
+        const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
+        const bool stack = exports[i].flags & objflag::kHasStack;
+        std::vector<uint8_t> data;
+        if (cls == "model" || cls == "polys")
+            whole = !_map.readExport(int(i), data) &&
+                    (cls == "model" ? modelRefs(data, version, stack, mapNone, markRef, markName, scratch)
+                                    : polysRefs(data, stack, mapNone, markRef, markName, scratch));
+        else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && (refs.count(o) || (o->isActor && o->deleted)))
+            continue; // written from the level as it is now
+        else
+            whole = !_map.readExport(int(i), data) &&
+                    (cls == "c3dmeshstate" ? leadingName(data, mapNone, markName, scratch)
+                                           : rewriteProperties(_map, data, stack, markRef, markName, scratch));
+    }
+    const std::vector<Import> &table = w.imports();
+    for (bool more = true; more;) {
+        more = false;
+        for (size_t k = 0; k < imports.size() && k < table.size(); ++k) {
+            if (!imports[k])
+                continue;
+            const Import &im = table[k];
+            markName(im.classPackage);
+            markName(im.className);
+            markName(im.objectName);
+            if (im.package < 0 && !(size_t(-im.package - 1) < imports.size() && imports[size_t(-im.package - 1)])) {
+                markRef(im.package);
+                more = true;
+            }
+        }
+    }
+    tables.trim = whole;
+    tables.names = std::move(names);
+    tables.imports = std::move(imports);
+    return Error::success();
 }
 
 // An actor's C3D animation groups: FullBody (its animation), LowerTorso and

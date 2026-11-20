@@ -31,9 +31,6 @@ there, dividing by 0) are reported and carried on from, not fixed
 
 ## Not yet as the original
 
-- **Saved games:** the names and imports aren't trimmed to what's used,
-  so a save's tables are larger than the original's
-  ([save.md](formats/save.md)).
 - **The AI's paths:** jumping and dropping reaches aren't done
   ([ai.md](systems/ai.md)).
 - **Mission 12** has no dialogue table in any copy of the game: its

@@ -177,22 +177,29 @@ is the map's data as it is; the rest comes from the running level.
 - **The map's exports kept**, numbered again in their order before the
   new ones: those saved, the Level object, what its model and reach list
   and the models and their polygons lead to (the actors in a model's
-  lights included, as they are now, should the level have destroyed
-  one), and the packages they're in. The editor's own (UnrealEd's
-  building brushes, their models and the polygon lists only those models
-  lead to, its cameras, its text) are left out, as the game never loads
-  them (Core.dll 0x1012d02b) and the original's saves have none; what
-  pointed at them (a surface's or polygon's brush) is none. The map's
-  data kept as it is has its references renumbered: each surface's
-  texture and brush, each zone's actor, the Polys, the lights, each
-  polygon's brush and texture, and the reach list's model and ends (a
-  state frame before any of them too). Should one not read so, all are
-  kept, the editor's empty.
-  - A save of M01_SiskoL1A comes to 6.21 MB, 3689 exports (the map has
-    7682); the original's 6.19 MB, 4436. Both keep its 71 models and 71
-    polygon lists.
-  - Not trimmed: the names and imports (the map's, and those added), so
-    the tables are larger than the original's (11364 names to its 6425).
+  lights included: as they are now, should the level have destroyed one;
+  as the map has them, should the map itself hold one deleted, as
+  M01_SiskoL1A's Light82 is), and the packages they're in. The editor's
+  own (UnrealEd's building brushes, their models and the polygon lists
+  only those models lead to, its cameras, its text) are left out, as the
+  game never loads them (Core.dll 0x1012d02b) and the original's saves
+  have none; what pointed at them (a surface's or polygon's brush) is
+  none. The map's data kept as it is has its references renumbered: each
+  surface's texture and brush, each zone's actor, the Polys, the lights,
+  each polygon's brush, texture and name, the reach list's model and
+  ends, a mesh state's name, and the tagged properties of the rest (each
+  property's size worked out again; a state frame before any of them
+  too). Should one not read so, all are kept, the editor's empty.
+- **The names and imports** are only those the save uses, numbered
+  again in their order: it's written twice, the first time to find
+  them (those its writing asks for, the export table's, those in the
+  map's data kept, and what each import is in and named).
+- A save of M01_SiskoL1A comes to 6.11 MB: 5703 names, 867 imports,
+  3689 exports (the map has 9011, 493 and 7682); the original's 6.19 MB,
+  6425, 592 and 4436. Both keep its 71 models and 71 polygon lists. The
+  original keeps more besides, what the map's leftovers lead to (Light82's
+  LevelInfo4, one of the editor's leftover LevelInfos, which is none
+  here).
 
 ## Sources and checks
 

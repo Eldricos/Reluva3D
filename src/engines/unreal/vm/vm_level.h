@@ -610,6 +610,13 @@ public:
     void trackMusic(VmObject *actor, float startSeconds);
     /** Writes the level as the original saves it (a package: game_save_write.cpp). */
     Error writeGameSave(const std::string &path);
+    /** The names and imports a save keeps, by the map's numbering. */
+    struct SaveTables {
+        bool trim = false;
+        std::vector<bool> names;
+        std::vector<bool> imports;
+    };
+    Error writeSave(const std::string &path, SaveTables &tables, bool collect);
     bool reluvaFormat = false; // save in Reluva's own format instead
     /** Sounds stopped (an actor's slot: a line cut off), for the page. */
     std::vector<std::pair<VmObject *, int>> &soundStops() { return _soundStops; }

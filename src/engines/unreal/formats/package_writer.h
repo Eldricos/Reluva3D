@@ -72,6 +72,26 @@ public:
      * @return each base reference's new one (by reference; 0 left out).
      */
     std::vector<int32_t> keepOnly(const std::vector<bool> &keep);
+    /**
+     * Only the base's names and imports `names` and `imports` mark, numbered
+     * again in their order, the tables' references to them changed to
+     * match. Done first, before anything else.
+     */
+    void keepTables(const std::vector<bool> &names, const std::vector<bool> &imports);
+    /** A base name's index now. */
+    int32_t baseName(int32_t index) const;
+    /** A base object reference now (its imports numbered again). */
+    int32_t baseRef(int32_t ref) const;
+    /** The names and imports asked for so far (by index), the base's among them. */
+    const std::vector<bool> &namesUsed() const { return _nameUsed; }
+    const std::vector<bool> &importsUsed() const { return _importUsed; }
+    /** Whether an export's data is the base's own export `source`, as it is. */
+    int baseData(int32_t ref) const {
+        const Out &o = _exports[size_t(ref - 1)];
+        return o.replaced ? -1 : o.source;
+    }
+    const Export &exportAt(int32_t ref) const { return _exports[size_t(ref - 1)].e; }
+    const std::vector<Import> &imports() const { return _imports; }
     size_t exportCount() const { return _exports.size(); }
 
     Error write(const std::string &path) const;
@@ -90,6 +110,12 @@ private:
         std::vector<uint8_t> data;
     };
     std::vector<Out> _exports;
+    std::vector<bool> _nameUsed;
+    std::vector<bool> _importUsed;
+    std::vector<int32_t> _nameFrom;   // a base name's index now, or -1
+    std::vector<int32_t> _importFrom; // a base import's reference now, or 0
+    void used(int32_t ref);
+    std::string importPathOf(int32_t ref) const;
 };
 
 } // namespace reluva::unreal
