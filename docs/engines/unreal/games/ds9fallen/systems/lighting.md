@@ -157,9 +157,16 @@ Render.dll (November 2026): lightmaps are blended by plain MODULATE
 (shifted once in 32-bit mode, 0x10002ca0; a table to 5 bits in 16-bit,
 0x10003574); no constant scales a light's colour; the 16-bit cut comes
 to 2-3% brighter at most. So the Direct3D path is 1.00 to 1.03x
-Reluva's, and the gain isn't in it. The recording may come from another
-renderer (OpenGLDrv sets no gamma ramp at all; SoftDrv and GlideDrv
-not read).
+Reluva's, and the gain isn't in it. Nor is it in the other renderers
+(read November 2026): the software one (the shipped `.ini`s' default,
+`GameRenderDevice=SoftDrv`) and Glide's take lightmap texel 64 as full
+light, twice Direct3D's, the software one with no gamma but a linear
+gain of 2 x (`Brightness` + 0.5), Glide's through a 2x blend and the
+same gamma as Direct3D's at the default `Brightness` (`grGammaCorrection`
+of 0.5 + 1.5 x `Brightness`), both much brighter than 10-20% and
+clipping; OpenGL's ignores `Brightness` and comes out darker; MeTaL's
+gamma (2 x `Brightness` + 0.2) is about Direct3D's. None is a flat
+1.1-1.2.
 
 ### Actors' lighting
 
