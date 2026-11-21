@@ -47,6 +47,7 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : _di
     _process->setRegistryString(kRegistryKey, "cdpath", "D:");
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directSound = std::make_unique<x86::DirectSound>(*_process);
+    _retainedMode = std::make_unique<x86::Direct3DRM>(*_process, *_directX);
     _directInput = std::make_unique<x86::DirectInput>(*_process);
 }
 

@@ -31,6 +31,11 @@ extended. The facts themselves are on their pages, each with its source.
 - **The executables' tables** read with a PE reader (Python's `pefile`):
   which DLLs and functions the game calls, which tells the stand-ins it
   needs.
+- **The game's own code, run:** `reluva-tool legoisland run` shows how far
+  it gets, the calls it makes and where it stops; where it stops on its
+  own fault, `reluva-tool pe-disasm` shows `LEGO1.DLL`'s code there and
+  `run -at` the registers and text when it gets there, to find what it
+  was looking for.
 - **File layouts** worked out by reading every record of a kind side by
   side with short scripts, tabulating the values each field takes, and
   comparing a file with its source where one is known (`JUKEBOXW.SS`, on

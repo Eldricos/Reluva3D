@@ -77,8 +77,29 @@ that far.
   for its window, makes a Z buffer and attaches it, and makes its
   Direct3D device (`IDirect3D2::CreateDevice`). It clears its surfaces,
   which shows the first frame: black.
-- Then it calls `Direct3DRMCreate`, Direct3D Retained Mode, which nothing
-  stands in for yet: 464,946 instructions in.
+- Then it makes Retained Mode ([d3drm.md](../../../common/x86/d3drm.md)),
+  as `IDirect3DRM2`, and its scene: frames, a device on its Direct3D
+  device, a viewport, three lights (`CreateLightRGB`), each added to a
+  frame of its own, the frames placed (`AddTransform`) and joined
+  (`AddChild`), the viewport's planes and field, the device's dither,
+  texture quality and render mode.
+- It goes on to its main loop: each pass reads the messages
+  (`PeekMessageA`), the time, and DirectInput's keyboard, and shows its
+  frame by blitting its back buffer to its window (`Blt`), black so far.
+  Meanwhile its streaming threads open and read `ISLE.SI`, `JUKEBOX.SI`,
+  `SNDANIM.SI` and `WORLD.WDB` through the 16-bit file functions
+  (`OpenFile`, `_hread`, `_llseek`), waiting on each other with
+  semaphores. It looks for its saved games, `History.gsi` and
+  `Players.gsi`, in `C:\` (a fresh game has none). It doesn't open
+  `INTRO.SI`.
+- After `WORLD.WDB` it makes frames and lets each go at once, with no
+  meshes or textures, then stops 105,847,482 instructions in, after 384
+  frames: in `LEGO1.DLL` at 0x100264d9 it writes through a null pointer.
+  A function there (0x10084cf0) looks a name up in a map of names
+  (0x100a7040, a search of a tree by string), gets nothing for "plant0",
+  and returns null, which its caller doesn't check. Why "plant0" isn't
+  in the map, what fills it and from which file, is the next thing to
+  find.
 
 ## In Reluva
 
@@ -89,8 +110,12 @@ a failure, the last stand-ins called and the last instructions (as
 module+offset); the frames shown, and how fast it ran. `-log` prints
 every stand-in called (and, for `QueryInterface`, the interface asked
 for), `-files` each file the program asks for, and
-`-save <folder>` lets it write. The engine doesn't run it yet: playing it
-waits for the stand-ins above.
+`-save <folder>` lets it write, `-shots <folder>` saves every
+`-every`th frame shown as a TGA file, and `-at <address>` prints the
+registers, the stack's first words and any text they point to each time
+the program gets to an address. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
+instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
+The engine doesn't run it yet: playing it waits for the stand-ins above.
 
 ## Sources and checks
 
@@ -105,6 +130,12 @@ waits for the stand-ins above.
 
 ## Open questions
 
+- Why "plant0" isn't in the map the program looks it up in, and what
+  should have put it there.
+- Why it doesn't open `INTRO.SI`: whether the intro waits for something
+  not done yet, or a setting skips it.
+- Where it keeps its saved games: it looks in `C:\`, perhaps for want of
+  a setting `CONFIG.EXE` writes.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of

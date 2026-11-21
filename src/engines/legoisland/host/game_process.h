@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
+#include "emulation/x86/directx/d3drm.h"
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/directx/dsound.h"
@@ -77,6 +78,7 @@ private:
     std::unique_ptr<x86::Win32Process> _process;
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectSound> _directSound;
+    std::unique_ptr<x86::Direct3DRM> _retainedMode;
     std::unique_ptr<x86::DirectInput> _directInput;
     const x86::Win32Process::Module *_dll = nullptr;
     const x86::Win32Process::Module *_exe = nullptr;
