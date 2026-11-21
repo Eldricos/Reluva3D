@@ -43,7 +43,8 @@ None yet.
   the last setup's keys in it as the game does, but leaves the rest of the
   file as it is, where the game writes all of it out in its own order
   ([systems/game-files.md](systems/game-files.md)). The volumes set the
-  music, speech and effects; there are no movies or tool tips yet to set.
+  music, speech, effects and the opening movie; there are no tool tips
+  yet to set.
 
 ## Additions outside the game
 
