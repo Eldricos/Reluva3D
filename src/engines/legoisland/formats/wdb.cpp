@@ -69,16 +69,17 @@ public:
         for (float &v : out)
             v = f32();
     }
-    // A string after its length. The worlds' names end with a NUL and the
-    // rest don't; either way the NUL isn't kept.
+    // A string after its length. The worlds' names end with a NUL, the
+    // SI files' textures' names are in fields with a NUL and old bytes
+    // after it, and the rest have none: it ends at its first NUL.
     std::string str() {
         const uint32_t n = u32();
         if (!fits(n))
             return fail(), std::string();
         std::string s(reinterpret_cast<const char *>(&_data[_pos]), n);
         _pos += n;
-        while (!s.empty() && s.back() == '\0')
-            s.pop_back();
+        if (const size_t nul = s.find('\0'); nul != std::string::npos)
+            s.resize(nul);
         return s;
     }
     void bytes(size_t n, std::vector<uint8_t> &out) {
@@ -307,6 +308,28 @@ Error readPartAt(const std::vector<uint8_t> &data, size_t base, size_t end, WdbP
     return Error::success();
 }
 
+// A model, from `base` to `end`: its offsets count from `base`.
+Error readModelAt(const std::vector<uint8_t> &data, size_t base, size_t end, WdbModel &out) {
+    Reader r(data, base, end);
+    out.version = r.u32();
+    const uint32_t texOffset = r.u32();
+    for (uint32_t &v : out.animHeader)
+        v = r.u32();
+    if (Error e = readAnimNode(r, out.animation, 0))
+        return e;
+    if (Error e = readModelRoi(r, base, out.roi, 0))
+        return e;
+    if (r.pos() != base + texOffset)
+        return r.error("a model's ROIs not ending at its textures");
+    const uint32_t count = r.u32();
+    r.u32(); // 0 in every model
+    if (Error e = readTextures(r, count, out.textures))
+        return e;
+    if (r.pos() != end)
+        return r.error("a model not ending where it should");
+    return Error::success();
+}
+
 Error checkRange(const std::vector<uint8_t> &data, uint32_t offset, uint32_t size, const std::string &name) {
     if (offset > data.size() || size > data.size() - offset)
         return Error::fail("'" + name + "' past the file's end");
@@ -435,27 +458,52 @@ Error WdbFile::readModel(const WdbModelRef &ref, WdbModel &out) const {
     out = WdbModel();
     if (Error e = checkRange(_data, ref.offset, ref.size, ref.name))
         return e;
-    const size_t base = ref.offset;
-    const size_t end = base + ref.size;
-    Reader r(_data, base, end);
-    out.version = r.u32();
-    const uint32_t texOffset = r.u32();
-    for (uint32_t &v : out.animHeader)
-        v = r.u32();
-    Error e = readAnimNode(r, out.animation, 0);
-    if (!e)
-        e = readModelRoi(r, base, out.roi, 0);
-    if (!e && r.pos() != base + texOffset)
-        e = r.error("a model's ROIs not ending at its textures");
-    if (!e) {
-        const uint32_t count = r.u32();
-        r.u32(); // 0 in every model
-        e = readTextures(r, count, out.textures);
-    }
-    if (!e && r.pos() != end)
-        e = r.error("a model not ending where its world says");
-    if (e)
+    if (Error e = readModelAt(_data, ref.offset, size_t(ref.offset) + ref.size, out))
         return Error::fail(ref.name + ": " + e.message);
+    return Error::success();
+}
+
+Error parseModel(const std::vector<uint8_t> &data, WdbModel &out) {
+    out = WdbModel();
+    return readModelAt(data, 0, data.size(), out);
+}
+
+Error parseTextures(const std::vector<uint8_t> &data, std::vector<WdbTexture> &out) {
+    Reader r(data, 0, data.size());
+    if (Error e = readTextures(r, r.u32(), out))
+        return e;
+    if (r.pos() != data.size())
+        return r.error("textures not ending where the data does");
+    return Error::success();
+}
+
+Error parseAnimation(const std::vector<uint8_t> &data, WdbAnimation &out) {
+    out = WdbAnimation();
+    Reader r(data, 0, data.size());
+    out.version = r.u32();
+    out.radius = r.f32();
+    r.floats(out.center);
+    const bool camera = r.u32() != 0;
+    out.unknown = r.u32();
+    const uint32_t actors = r.u32();
+    for (uint32_t i = 0; i < actors && !r.failed(); i++) {
+        WdbActor a;
+        a.name = r.str();
+        a.kind = r.u32();
+        out.actors.push_back(std::move(a));
+    }
+    out.duration = r.u32();
+    if (camera) {
+        out.hasCamera = true;
+        readKeys(r, 3, out.cameraEye);
+        readKeys(r, 3, out.cameraTarget);
+        // Never any on the CD: a key of one float is a guess.
+        readKeys(r, 1, out.cameraRoll);
+    }
+    if (Error e = readAnimNode(r, out.root, 0))
+        return e;
+    if (r.pos() != data.size())
+        return r.error("an animation not ending where the data does");
     return Error::success();
 }
 

@@ -147,7 +147,8 @@ end chunk timed when it ends; a container has only the end chunk.
 | `WAV` | `WAVEFORMAT`'s 16 bytes (PCM, mono; 11,025 Hz 8- or 16-bit, or 22,050 Hz 8-bit), the source file's data size, and 44 (the size of the source's header, presumably *(guessed)*) | a piece a second of sound. Together they hold up to 22 bytes less than the source's data size, and a few sounds much less, cut to their duration |
 | `FLC` | the FLIC file's 128-byte header (frames, size, 100 ms a frame) | a piece a frame: a count of rectangles, each 4 `u32`s (left, top, right, bottom: what the frame changes), then the FLIC frame (`0xF1FA`). No loop frame |
 | `SMK` | the Smacker file's header and tables, up to its first frame | a piece a frame, as in the file |
-| `EVT`, `OBJ` | the game's own data: not yet read | |
+| `OBJ` | one piece in most: the animation, model, texture or path it was made from, and a 0 byte ([obj.md](obj.md)) | |
+| `EVT` | the game's own data: not yet read | |
 
 ## In Reluva
 
@@ -163,7 +164,8 @@ from.
 - `reluva-tool legoisland si-chunks <file.si> <object id>`: an object's
   chunks.
 - `reluva-tool legoisland si-extract <file.si> <out folder> [object id]`:
-  the media as files; `EVT` and `OBJ` objects as their pieces joined, in
+  the media as files; 3D objects as `.ani`, `.mod`, `.tex` and `.gph`
+  files ([obj.md](obj.md)); `EVT` objects as their pieces joined, in
   `.bin` files. The FLC animations decode with the shared FLIC decoder
   ([flic.md](../../../common/video/flic.md)): `reluva-tool flic-frames`.
 
@@ -194,4 +196,4 @@ from.
 - The flags `0x01`, `0x02` and `0x04`; whether `0x08` is transparency
   and the medium's 1 or 0 palette management, or the other way round
   (the jukebox's script sets both together).
-- The `EVT` and `OBJ` objects' data.
+- The `EVT` objects' data.

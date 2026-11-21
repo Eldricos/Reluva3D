@@ -145,8 +145,12 @@ int cmdSiExtract(int argc, char **argv) {
         Error e = si.readPieces(o->id, pieces);
         if (!e && !ext.empty())
             e = rebuildMediaFile(*o, pieces, file);
-        if (!e && ext.empty()) {
-            // Not a standard file: its pieces as they are, one after another.
+        if (!e && ext.empty() && !objectKind(*o).empty()) {
+            ext = objectKind(*o);
+            file = objectData(pieces);
+        } else if (!e && ext.empty()) {
+            // Not a file of its own (an event, an inline 3D object): its
+            // pieces as they are, one after another.
             ext = "bin";
             for (const SiPiece &p : pieces)
                 file.insert(file.end(), p.data.begin(), p.data.end());
@@ -166,14 +170,15 @@ int cmdSiExtract(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
-const Commands
-    kCommands("legoisland",
-              {
-                  {"si-info", "<file.si>", "an SI file's header, and how many objects and chunks it has", cmdSiInfo},
-                  {"si-list", "<file.si>", "an SI file's objects, as a tree", cmdSiList},
-                  {"si-chunks", "<file.si> <object id>", "one object's chunks", cmdSiChunks},
-                  {"si-extract", "<file.si> <out folder> [object id]",
-                   "an SI file's media as the files they were made from (.bmp, .wav, .flc, .smk)", cmdSiExtract},
-              });
+const Commands kCommands(
+    "legoisland",
+    {
+        {"si-info", "<file.si>", "an SI file's header, and how many objects and chunks it has", cmdSiInfo},
+        {"si-list", "<file.si>", "an SI file's objects, as a tree", cmdSiList},
+        {"si-chunks", "<file.si> <object id>", "one object's chunks", cmdSiChunks},
+        {"si-extract", "<file.si> <out folder> [object id]",
+         "an SI file's media as the files they were made from (.bmp, .wav, .flc, .smk, .ani, .mod, .tex, .gph)",
+         cmdSiExtract},
+    });
 
 } // namespace

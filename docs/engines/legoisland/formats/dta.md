@@ -66,7 +66,9 @@ The point and distance are 0 in 49 animations, nearly all of them in
 the rooms (all the hospital's and the police station's). Elsewhere they
 say where the animation plays *(inferred)*: in the island's files most
 of an animation's models start within the distance of the point, across
-the ground (1,051 of `ACT1INF.DTA`'s 1,183, 156 of `OBSTINF.DTA`'s 161).
+the ground (1,051 of `ACT1INF.DTA`'s 1,183, 156 of `OBSTINF.DTA`'s 161),
+and for 364 animations they are exactly the ones its `.ani` starts with
+([obj.md](obj.md#an-animation-ani)).
 
 Five bits would be one for each of the five characters the player can
 be (Pepper, Mama, Papa, Nick and Laura) *(guessed)*; which characters

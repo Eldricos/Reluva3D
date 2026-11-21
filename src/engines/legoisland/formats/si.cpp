@@ -8,6 +8,7 @@
 #include "common/bytes.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <fstream>
 
@@ -391,6 +392,27 @@ std::string mediaExtension(const SiObject &object) {
     if (object.format == "SMK")
         return "smk";
     return "";
+}
+
+std::vector<uint8_t> objectData(const std::vector<SiPiece> &pieces) {
+    std::vector<uint8_t> out;
+    for (const SiPiece &p : pieces)
+        out.insert(out.end(), p.data.begin(), p.data.end());
+    if (!out.empty() && out.back() == 0)
+        out.pop_back();
+    return out;
+}
+
+std::string objectKind(const SiObject &object) {
+    if (object.format != "OBJ")
+        return "";
+    const size_t dot = object.fileName.rfind('.');
+    if (dot == std::string::npos)
+        return "";
+    std::string ext = object.fileName.substr(dot + 1);
+    for (char &c : ext)
+        c = char(std::tolower(uint8_t(c)));
+    return ext == "ani" || ext == "mod" || ext == "tex" || ext == "gph" ? ext : "";
 }
 
 Error rebuildMediaFile(const SiObject &object, const std::vector<SiPiece> &pieces, std::vector<uint8_t> &out) {

@@ -175,7 +175,7 @@ Offsets in a model are from its start.
 |---|---|
 | 4 | 19 in every model: a version, presumably *(guessed)* |
 | 4 | the offset of its texture list |
-| 12 | 1, 0 and 0 in every model |
+| 12 | 1, 0 and 0 in every model: as an animation's header, with no actors and a length of 0 ([obj.md](obj.md#an-animation-ani)) |
 | ... | its animation: a tree of nodes, below |
 | ... | its ROI, and its children's, below |
 | 4 | at the texture list's offset: textures |
@@ -275,8 +275,8 @@ with any LOD.
 ## Open questions
 
 - What the LOD's 8, the mesh's three bytes after the shading, the
-  model's 1, 0, 0 and 0, and the world entry's last byte mean to the
-  game.
+  model's 1 and the 0 before its textures, and the world entry's last
+  byte mean to the game.
 - What the `indir-f-` names are for.
 - What a `^` texture's second picture is for: the textures for close
   up, perhaps *(guessed)*.

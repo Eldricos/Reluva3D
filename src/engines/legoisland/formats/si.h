@@ -149,4 +149,13 @@ Error rebuildMediaFile(const SiObject &object, const std::vector<SiPiece> &piece
 /** The extension rebuildMediaFile() gives `object`'s file ("bmp"), or empty if none. */
 std::string mediaExtension(const SiObject &object);
 
+/**
+ * A 3D object's (OBJ's) data: its pieces joined, without the 0 byte every
+ * one has at its end (docs/engines/legoisland/formats/obj.md).
+ */
+std::vector<uint8_t> objectData(const std::vector<SiPiece> &pieces);
+
+/** What a 3D object's data is, by its source file's extension: "ani", "mod", "tex", "gph", or empty (inline). */
+std::string objectKind(const SiObject &object);
+
 } // namespace reluva::legoisland

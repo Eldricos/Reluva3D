@@ -55,7 +55,8 @@ public:
 
 /**
  * The SI files' objects, as a tree, and the selected one's details and
- * medium: a still drawn, an animation played, a sound played.
+ * medium: a still drawn, an animation played, a sound played; a 3D
+ * object's contents in a line, a texture drawn.
  *   Up/Down: previous/next object   PageUp/PageDown: jump 20
  *   Home/End: first/last   Left/Right: previous/next SI file
  *   M: media only, or every object   Space: play or stop
@@ -86,6 +87,7 @@ private:
     void buildRows();
     void select(size_t row);
     void loadMedium();
+    void loadObject(const SiObject &object, const std::vector<uint8_t> &data);
     void play();
     void stop();
     void redraw();

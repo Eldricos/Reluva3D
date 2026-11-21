@@ -3,6 +3,7 @@
 
 #include "audio/wav.h"
 #include "common/stream.h"
+#include "engines/legoisland/formats/gph.h"
 #include "engines/legoisland/pages/viewers.h"
 #include "graphics/font.h"
 
@@ -217,6 +218,10 @@ void SiViewer::loadMedium() {
         return;
     }
     _pieces = pieces.size();
+    if (!objectKind(o).empty()) {
+        loadObject(o, objectData(pieces));
+        return;
+    }
     if (mediaExtension(o).empty())
         return;
     std::vector<uint8_t> file;
@@ -263,6 +268,49 @@ void SiViewer::loadMedium() {
         _mediumInfo = buf;
         _sound = std::move(sound);
     }
+}
+
+// A 3D object: what it holds, in a line; a texture drawn as a still.
+void SiViewer::loadObject(const SiObject &o, const std::vector<uint8_t> &data) {
+    const std::string kind = objectKind(o);
+    Error e;
+    if (kind == "tex") {
+        std::vector<WdbTexture> textures;
+        e = parseTextures(data, textures);
+        if (!e && !textures.empty() && !textures[0].images.empty()) {
+            const WdbImage &img = textures[0].images[0];
+            _still.w = int(img.width);
+            _still.h = int(img.height);
+            img.toRGBA(_still.rgba);
+            _mediumInfo = "texture " + textures[0].name + ", " + std::to_string(img.width) + "x" +
+                          std::to_string(img.height) + ", " + std::to_string(img.palette.size() / 3) + " colours";
+        }
+    } else if (kind == "ani") {
+        WdbAnimation a;
+        e = parseAnimation(data, a);
+        if (!e) {
+            _mediumInfo = "animation, " + number(a.duration / 1000.0) + " s" +
+                          (a.hasCamera ? ", moving the camera" : "") + "; moves:";
+            for (const WdbActor &actor : a.actors)
+                _mediumInfo += " " + actor.name;
+            if (a.actors.empty())
+                _mediumInfo += " " + a.root.name;
+        }
+    } else if (kind == "mod") {
+        WdbModel m;
+        e = parseModel(data, m);
+        if (!e)
+            _mediumInfo = "model " + m.roi.name + ", " + std::to_string(m.roi.children.size()) + " parts, " +
+                          std::to_string(m.textures.size()) + " textures";
+    } else if (kind == "gph") {
+        GphFile g;
+        e = g.parse(data);
+        if (!e)
+            _mediumInfo = "path: " + std::to_string(g.points.size()) + " points, " + std::to_string(g.edges.size()) +
+                          " edges, " + std::to_string(g.faces.size()) + " faces";
+    }
+    if (e)
+        _mediumError = e.message;
 }
 
 void SiViewer::play() {

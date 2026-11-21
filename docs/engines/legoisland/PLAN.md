@@ -22,9 +22,11 @@ Each phase ends with something that runs, is tested and is committed.
    movies, WAV sounds and BMP pictures, with a viewer page playing them;
    `WORLD.WDB`'s worlds, models, parts and textures
    ([formats/wdb.md](formats/wdb.md)), drawn in 3D by the viewer; the
-   worlds' `*INF.DTA` animation lists ([formats/dta.md](formats/dta.md)).
-   Next: the SI files' 3D objects (`OBJ`), worked out from the files
-   ([Decisions](#decisions)).
+   worlds' `*INF.DTA` animation lists ([formats/dta.md](formats/dta.md));
+   the SI files' 3D objects: animations, models, textures and paths
+   ([formats/obj.md](formats/obj.md)), each worked out from the files
+   ([Decisions](#decisions)). Next: the SI files' `EVT` objects, and
+   the viewer playing the animations.
 4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
    interpreter with stand-ins that log what they're asked. The gate: does
    it reach the intro's first frame, and how fast does it run?

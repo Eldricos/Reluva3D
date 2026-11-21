@@ -100,6 +100,31 @@ struct WdbAnimNode {
     std::vector<WdbAnimNode> children;
 };
 
+/** One of the things an animation moves: a model, a character... */
+struct WdbActor {
+    std::string name;  // in capitals: "INFOMAN", "2X4RED"
+    uint32_t kind = 0; // 1 to 5, as in the worlds' *INF.DTA (DtaModelKind)
+};
+
+/**
+ * An animation as an SI file holds it (an `.ani`): where it plays, what it
+ * moves, perhaps the camera, and a tree of nodes as a model's animation
+ * (docs/engines/legoisland/formats/obj.md).
+ */
+struct WdbAnimation {
+    uint32_t version = 0; // 17 in every one
+    float radius = 0;     // where it plays: a circle round `center`
+    std::array<float, 3> center{};
+    uint32_t unknown = 0; // 1 in every one
+    std::vector<WdbActor> actors;
+    uint32_t duration = 0; // in milliseconds
+    bool hasCamera = false;
+    std::vector<WdbKey> cameraEye;    // where the camera is
+    std::vector<WdbKey> cameraTarget; // and what it looks at (inferred)
+    std::vector<WdbKey> cameraRoll;   // none on the CD
+    WdbAnimNode root;
+};
+
 /** A world's model: its data's place in the file, and where the world puts it. */
 struct WdbModelRef {
     std::string name;
@@ -140,6 +165,13 @@ struct WdbModel {
     WdbRoi roi;
     std::vector<WdbTexture> textures;
 };
+
+/** A model on its own, as an SI file's `.mod` holds it: as one in WORLD.WDB, its offsets from its start. */
+Error parseModel(const std::vector<uint8_t> &data, WdbModel &out);
+/** Textures on their own, as an SI file's `.tex` holds them: a count, then each as in WORLD.WDB. */
+Error parseTextures(const std::vector<uint8_t> &data, std::vector<WdbTexture> &out);
+/** An SI file's `.ani`. */
+Error parseAnimation(const std::vector<uint8_t> &data, WdbAnimation &out);
 
 /**
  * `WORLD.WDB`, the world database: the worlds, the textures and part

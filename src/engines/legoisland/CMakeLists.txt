@@ -8,6 +8,7 @@ reluva_add_engine(legoisland
     SOURCES
         detection.cpp
         formats/dta.cpp
+        formats/gph.cpp
         formats/si.cpp
         formats/wdb.cpp
         legoisland.cpp)
@@ -26,6 +27,7 @@ reluva_add_engine_tools(legoisland
     SOURCES
         tools/dta.cpp
         tools/files.cpp
+        tools/obj.cpp
         tools/si.cpp
         tools/wdb.cpp)
 
@@ -38,11 +40,12 @@ reluva_add_engine_tests(legoisland
         ${tests}/unit/detection.cpp
         ${tests}/unit/dta.cpp
         ${tests}/unit/import.cpp
+        ${tests}/unit/obj.cpp
         ${tests}/unit/si.cpp
         ${tests}/unit/wdb.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.dta unit.import unit.si unit.wdb engine)
+        unit.detection unit.dta unit.import unit.obj unit.si unit.wdb engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):
