@@ -20,6 +20,34 @@ constexpr int32_t kMilitary = 1004; // the map's mode, lit at the start
 constexpr int32_t kScrollUp = 1038;
 constexpr int32_t kScrollDown = 1039;
 constexpr int32_t kScrollBar = 1040;
+constexpr int32_t kPanel = 1020; // the empire's panel's place
+
+// The panel's parts, one under another (measured on the screenshot): the
+// empire's information, the other empires' emblems, the task forces' bar,
+// and a row for each task force.
+constexpr int kEmblemsY = 90;
+constexpr int kTaskForcesY = 130;
+constexpr int kFirstRowY = 147;
+constexpr int kRowHeight = 40;
+constexpr int32_t kInfoText = 1018;
+constexpr int32_t kFirstEmblem = 1050; // 1050 + the empire's number; the player's has none
+constexpr int32_t kRowIcon = 1036;
+constexpr int32_t kRowText = 1037;
+constexpr Color kLabelColor{247, 121, 33};
+constexpr Color kFigureColor{173, 227, 115};
+constexpr Color kTaskForceColor{99, 77, 181};
+// The information's lines are 17 pixels apart, the font's 16 and one, and
+// the figures end 6 pixels short of the text box's right edge.
+constexpr int kLinePitch = 17;
+constexpr int kFigureMargin = 6;
+constexpr int kDilithiumGap = 6;
+// The task forces' bar: drawn here, as the game shows the background
+// through its backing picture's black (hm_bktfi.tga, which has no magenta),
+// and with hm_tab22.tga for its tab, not the layout's hm_tab20.tga (the
+// screenshot's; hm_tab32 is the same picture).
+constexpr int32_t kTaskForcesButton = 1028;
+constexpr int32_t kTaskForcesTab = 1029;
+constexpr const char *kTaskForcesTabPicture = "hm_tab22.tga";
 
 // The map, measured on a screenshot of a small galaxy (13 by 10 sectors):
 // sectors 39 pixels square, the grid in the middle of the map's place, the
@@ -53,16 +81,33 @@ void put(Surface &s, int x, int y, Color c) {
 Error GalaxyScreen::load(int empire) {
     _empire = std::clamp(empire, 0, 4);
     _letter = kLetters[_empire];
-    const std::string layout = std::string(1, _letter) + "maingal.wdf";
-    _hidden = {kScrollUp, kScrollDown, kScrollBar};
-    return loadLayouts(layout.c_str(), {kMap, kTurnText, kMilitary}, false);
+    const std::string l(1, _letter);
+    _hidden = {kScrollUp, kScrollDown, kScrollBar, kTaskForcesTab};
+    if (Error err = loadLayouts((l + "maingal.wdf").c_str(), {kMap, kTurnText, kMilitary, kPanel}, false))
+        return err;
+    if (Error err = addPanel((l + "infobox.wdf").c_str(), kPanel, {kInfoText}, _infoPanel))
+        return err;
+    if (Error err = addPanel((l + "_eicon.wdf").c_str(), kPanel, {}, _emblemsPanel, 0, kEmblemsY))
+        return err;
+    if (Error err = addPanel((l + "inf_tf.wdf").c_str(), kPanel, {}, _taskForcesPanel, 0, kTaskForcesY))
+        return err;
+    if (Error err = addPanel((l + "_tfinfo.wdf").c_str(), kPanel, {kRowIcon, kRowText}, _taskForceRow, 0, kFirstRowY))
+        return err;
+    // The task forces' bar's backing picture is its window's.
+    _taskForcesBack = _panels[size_t(_taskForcesPanel)]->layout.root().background;
+    showPanel(_infoPanel, true);
+    showPanel(_emblemsPanel, true);
+    // The ships' class names; without the table, the rows have none.
+    std::vector<uint8_t> data;
+    for (const TableLayout &t : tableLayouts())
+        if (std::string(t.file) == "shiplist.sst" && !_assets.archive().read("shiplist.sst", data))
+            (void)_shipClasses.load(t, data);
+    return Error::success();
 }
 
-void GalaxyScreen::open(SavedGalaxy galaxy, std::vector<SavedTaskForce> taskForces, int empire, int turn) {
-    _galaxy = std::move(galaxy);
-    _taskForces = std::move(taskForces);
-    _empire = std::clamp(empire, 0, 4);
-    _turn = turn;
+void GalaxyScreen::open(SavedGame game) {
+    _game = std::move(game);
+    _empire = std::clamp(_game.summary.empire, 0, 4);
     // What the player's scanners reach: a sector around each of its
     // systems and task forces (inferred from the first turn's screenshot,
     // which shows the 3 by 3 sectors around Sol).
@@ -70,14 +115,15 @@ void GalaxyScreen::open(SavedGalaxy galaxy, std::vector<SavedTaskForce> taskForc
     auto around = [&](int cx, int cy) {
         for (int y = cy - 1; y <= cy + 1; ++y)
             for (int x = cx - 1; x <= cx + 1; ++x)
-                if (x >= 0 && y >= 0 && x < _galaxy.width && y < _galaxy.height)
+                if (x >= 0 && y >= 0 && x < _game.galaxy.width && y < _game.galaxy.height)
                     _scanned.insert({x, y});
     };
-    for (int y = 0; y < _galaxy.height; ++y)
-        for (int x = 0; x < _galaxy.width; ++x)
-            if (const int s = _galaxy.at(x, y).system; s >= 0 && _galaxy.systems[size_t(s)].controllingRace == _empire)
+    for (int y = 0; y < _game.galaxy.height; ++y)
+        for (int x = 0; x < _game.galaxy.width; ++x)
+            if (const int s = _game.galaxy.at(x, y).system;
+                s >= 0 && _game.galaxy.systems[size_t(s)].controllingRace == _empire)
                 around(x, y);
-    for (const SavedTaskForce &t : _taskForces)
+    for (const SavedTaskForce &t : _game.taskForces)
         if (t.owner == _empire)
             around(t.x, t.y);
 }
@@ -85,15 +131,113 @@ void GalaxyScreen::open(SavedGalaxy galaxy, std::vector<SavedTaskForce> taskForc
 void GalaxyScreen::draw(Surface &screen) const {
     drawLayouts(screen, {kMilitary});
     drawMap(screen);
-    drawText(screen, kTurnText, upperAscii(word(lex::kTurn, "Turn")) + " " + std::to_string(_turn + 1), kTurnColor);
+    drawPanel(screen);
+    drawText(screen, kTurnText, upperAscii(word(lex::kTurn, "Turn")) + " " + std::to_string(_game.summary.turn + 1),
+             kTurnColor);
+}
+
+void GalaxyScreen::drawIcon(Surface &screen, int x, int y, const Widget &w, const std::string &file) const {
+    if (const image::Image *img = _assets.picture(file))
+        image::blit(screen, *img, x + (w.w - img->w) / 2, y);
+}
+
+void GalaxyScreen::drawTaskForcesBar(Surface &screen) const {
+    const Placed *button = find(kTaskForcesButton);
+    const Placed *panel = find(kPanel);
+    if (!button || !panel)
+        return;
+    const int x = panel->x;
+    const int y = panel->y + kTaskForcesY;
+    const std::string &back = _taskForcesBack;
+    if (const image::Image *img = back.empty() ? nullptr : _assets.picture(back))
+        for (int py = 0; py < img->h; ++py)
+            for (int px = 0; px < img->w; ++px) {
+                const uint8_t *p = img->pixel(px, py);
+                if ((p[0] | p[1] | p[2]) && p[3])
+                    put(screen, x + px, y + py, Color{p[0], p[1], p[2]});
+            }
+    for (const auto &[what, file] : button->widget->pictures)
+        if (what == "normal")
+            drawPicture(screen, kTaskForcesButton, file);
+    drawPicture(screen, kTaskForcesTab, kTaskForcesTabPicture);
+}
+
+void GalaxyScreen::drawPanel(Surface &screen) const {
+    const SavedEmpire &e = _game.empires[size_t(_empire)];
+    // The empire's information: a label at the left of each line, its
+    // figure at the right; dilithium and events share the last line.
+    if (const Placed *box = find(kInfoText))
+        if (const Font *font = _assets.font(box->widget->fonts.empty() ? "" : box->widget->fonts[0].file)) {
+            const int right = box->x + box->widget->w - kFigureMargin;
+            auto line = [&](int i, const std::string &left, Color leftColor, const std::string &figure,
+                            Color figureColor) {
+                const int y = box->y + 1 + i * kLinePitch;
+                font->drawInColor(screen, box->x, y, left, leftColor);
+                font->drawInColor(screen, right - font->measure(figure), y, figure, figureColor);
+            };
+            auto withSign = [](int v) { return (v >= 0 ? "+" : "") + std::to_string(v); };
+            line(0, word(lex::kTotalCredits, "TOTAL CREDITS"), kLabelColor, std::to_string(e.credits), kFigureColor);
+            line(1, word(lex::kCreditsPerTurn, "CREDITS PER TURN"), kLabelColor, withSign(e.creditsPerTurn),
+                 kFigureColor);
+            // The dilithium's figure first, in the figures' colour, and its
+            // word 6 pixels after it (so after "+1" and "0" on screenshots);
+            // the last turn's events aren't read from the save yet.
+            const std::string dilithium = withSign(e.dilithiumPerTurn);
+            line(2, "", kLabelColor, word(lex::kNoEvents, "No Events"), kLabelColor);
+            font->drawInColor(screen, box->x, box->y + 1 + 2 * kLinePitch, dilithium, kFigureColor);
+            font->drawInColor(screen, box->x + font->measure(dilithium) + kDilithiumGap, box->y + 1 + 2 * kLinePitch,
+                              upperAscii(word(lex::kDilithium, "Dilithium")), kLabelColor);
+        }
+    drawTaskForcesBar(screen);
+    // The other empires' emblems, each in its place.
+    for (int other = 0; other < 5; ++other)
+        if (const Placed *p = other == _empire ? nullptr : find(kFirstEmblem + other))
+            drawIcon(screen, p->x, p->y, *p->widget, std::string("i_") + kLetters[other] + "26.tga");
+    // A row for each of the empire's task forces: its emblem, its mission
+    // and its first ship's class.
+    const Placed *icon = find(kRowIcon);
+    const Placed *text = find(kRowText);
+    const Placed *panel = find(kPanel);
+    if (!icon || !text || !panel)
+        return;
+    const Font *font = _assets.font(text->widget->fonts.empty() ? "" : text->widget->fonts[0].file);
+    int row = 0;
+    for (const SavedTaskForce &t : _game.taskForces) {
+        if (t.owner != _empire)
+            continue;
+        const int dy = row++ * kRowHeight;
+        if (icon->y + dy >= panel->y + panel->widget->h)
+            break;
+        drawIcon(screen, icon->x, icon->y + dy, *icon->widget, std::string("i_") + _letter + "26.tga");
+        if (!font)
+            continue;
+        std::string ship;
+        for (const SavedShip &s : _game.ships)
+            if (!t.shipIds.empty() && s.id == t.shipIds.front() && size_t(s.shipClass) < _shipClasses.count())
+                ship = _shipClasses.name(size_t(s.shipClass));
+        font->drawInColor(screen, text->x, text->y + dy + 1, missionWord(t.mission), kTaskForceColor);
+        font->drawInColor(screen, text->x, text->y + dy + 1 + kLinePitch, ship, kTaskForceColor);
+    }
+}
+
+std::string GalaxyScreen::missionWord(int mission) const {
+    // The two the first turn's task forces have (lexicon.dic's).
+    switch (mission) {
+    case 5:
+        return word(lex::kAvoid, "AVOID");
+    case 6:
+        return word(lex::kEngage, "ENGAGE");
+    default:
+        return {};
+    }
 }
 
 void GalaxyScreen::drawMap(Surface &screen) const {
     const Placed *map = find(kMap);
-    if (!map || _galaxy.width <= 0)
+    if (!map || _game.galaxy.width <= 0)
         return;
-    const int gx = map->x + (map->widget->w - _galaxy.width * kSector) / 2;
-    const int gy = map->y + (map->widget->h - _galaxy.height * kSector) / 2;
+    const int gx = map->x + (map->widget->w - _game.galaxy.width * kSector) / 2;
+    const int gy = map->y + (map->widget->h - _game.galaxy.height * kSector) / 2;
     const int right = map->x + map->widget->w;
     const int bottom = map->y + map->widget->h;
     if (const image::Image *backdrop = _assets.picture(std::string(1, _letter) + "m_glmap.tga"))
@@ -107,8 +251,8 @@ void GalaxyScreen::drawMap(Surface &screen) const {
                     p[c] = uint8_t(p[c] / 5);
             }
     // The grid: solid lines, dotted where the scanners reach.
-    for (int row = 0; row <= _galaxy.height; ++row)
-        for (int x = gx; x < gx + _galaxy.width * kSector && x < right; ++x) {
+    for (int row = 0; row <= _game.galaxy.height; ++row)
+        for (int x = gx; x < gx + _game.galaxy.width * kSector && x < right; ++x) {
             const int col = (x - gx) / kSector;
             const bool lit = scanned(col, row) || scanned(col, row - 1);
             if (!lit)
@@ -116,8 +260,8 @@ void GalaxyScreen::drawMap(Surface &screen) const {
             else if ((x - gx) % 2 == 0)
                 put(screen, x, gy + row * kSector, kScannedGridColor);
         }
-    for (int col = 0; col <= _galaxy.width; ++col)
-        for (int y = gy; y < gy + _galaxy.height * kSector && y < bottom; ++y) {
+    for (int col = 0; col <= _game.galaxy.width; ++col)
+        for (int y = gy; y < gy + _game.galaxy.height * kSector && y < bottom; ++y) {
             const int row = (y - gy) / kSector;
             const bool lit = scanned(col, row) || scanned(col - 1, row);
             if (!lit)
@@ -129,10 +273,10 @@ void GalaxyScreen::drawMap(Surface &screen) const {
     // explored under them (the first turn shows Sol's, not its neighbours').
     const Font *font = _assets.font("human9.fnt");
     for (const auto &[sx, sy] : _scanned) {
-        const int s = _galaxy.at(sx, sy).system;
+        const int s = _game.galaxy.at(sx, sy).system;
         if (s < 0)
             continue;
-        const SavedSystem &sys = _galaxy.systems[size_t(s)];
+        const SavedSystem &sys = _game.galaxy.systems[size_t(s)];
         const image::Image *star = _assets.picture(sys.starAnimation + "maps.tga");
         if (!star)
             continue;
@@ -145,7 +289,7 @@ void GalaxyScreen::drawMap(Surface &screen) const {
                 if (p[0] | p[1] | p[2])
                     put(screen, x + px, y + py, Color{p[0], p[1], p[2]});
             }
-        if (font && (_galaxy.at(sx, sy).explored >> _empire & 1))
+        if (font && (_game.galaxy.at(sx, sy).explored >> _empire & 1))
             font->drawInColor(screen, x + star->w / 2 - font->measure(sys.name) / 2, y + star->h, sys.name, kNameColor);
     }
 }

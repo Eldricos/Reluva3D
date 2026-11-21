@@ -790,7 +790,7 @@ void testGalaxyScreen() {
     Bytes f;
     put32(f, 2);
     putWidget(f, 1, 1000, 0, 0, 800, 600, "none");
-    putWindowCounts(f, {{2, 1}, {13, 1}, {14, 1}});
+    putWindowCounts(f, {{2, 1}, {13, 2}, {14, 1}});
     putWidget(f, 2, 1004, 558, 432, 87, 24, "none");
     put32(f, 0xffffffff);
     f.push_back(0);
@@ -800,6 +800,8 @@ void testGalaxyScreen() {
     putName(f, "none");
     putWidget(f, 13, 1017, 249, 36, 526, 391, "none");
     put32(f, 0xffffffff);
+    putWidget(f, 13, 1020, 28, 110, 196, 380, "none");
+    put32(f, 0xffffffff);
     putWidget(f, 14, 1021, 63, 76, 100, 30, "none");
     for (const uint32_t v : {0U, 0U, 100U, 30U})
         put32(f, v);
@@ -808,8 +810,50 @@ void testGalaxyScreen() {
     image::Image star;
     star.w = star.h = 10;
     star.rgba.assign(400, 255);
+    // The empire's panel's parts: its information's text box, the
+    // emblems' places (the Klingons' at 109, 2), the task forces' bar and a
+    // task force's row.
+    auto layout = [](uint32_t w, uint32_t h, const std::vector<std::pair<uint32_t, uint32_t>> &counts) {
+        Bytes l;
+        put32(l, 2);
+        putWidget(l, 1, 0, 0, 0, w, h, "none");
+        putWindowCounts(l, counts);
+        return l;
+    };
+    auto textBox = [](Bytes &l, uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+        putWidget(l, 14, id, x, y, w, h, "none");
+        for (const uint32_t v : {0U, 0U, w, h})
+            put32(l, v);
+        putFont(l, 1, 0, 0, "human15.fnt");
+    };
+    Bytes info = layout(200, 90, {{14, 1}});
+    textBox(info, 1018, 17, 30, 159, 51);
+    Bytes emblems = layout(200, 40, {{13, 1}});
+    putWidget(emblems, 13, 1053, 109, 2, 27, 25, "none");
+    put32(emblems, 0xffffffff);
+    Bytes bar = layout(194, 17, {{2, 1}, {13, 1}});
+    putWidget(bar, 2, 1028, 16, 0, 157, 17, "none");
+    put32(bar, 0xffffffff);
+    bar.push_back(0);
+    put32(bar, 0);
+    put32(bar, 0);
+    putName(bar, "none");
+    putName(bar, "none");
+    putWidget(bar, 13, 1029, 179, 0, 15, 17, "none");
+    put32(bar, 0xffffffff);
+    Bytes row = layout(195, 40, {{13, 1}, {14, 1}});
+    putWidget(row, 13, 1036, 15, 5, 30, 30, "none");
+    put32(row, 0xffffffff);
+    textBox(row, 1037, 66, 3, 125, 34);
     MemoryArchive archive;
     archive.files["hmaingal.wdf"] = f;
+    archive.files["hinfobox.wdf"] = info;
+    archive.files["h_eicon.wdf"] = emblems;
+    archive.files["hinf_tf.wdf"] = bar;
+    archive.files["h_tfinfo.wdf"] = row;
+    archive.files["human15.fnt"] = makeFont(16);
+    archive.files["i_k26.tga"] = image::encodeTga(star);
+    archive.files["i_h26.tga"] = image::encodeTga(star);
     archive.files["s-y-maps.tga"] = image::encodeTga(star);
     archive.files["human9.fnt"] = makeFont(10);
     archive.files["human28.fnt"] = makeFont(29);
@@ -843,7 +887,13 @@ void testGalaxyScreen() {
     t.owner = 1;
     t.x = 5;
     t.y = 5;
-    screen.open(g, {t}, 1, 0);
+    SavedGame game;
+    game.summary.empire = 1;
+    game.galaxy = g;
+    t.mission = 6;
+    game.taskForces = {t};
+    game.empires[1].credits = 2000;
+    screen.open(game);
     // The scanners reach the sectors next to Sol's and the task force's.
     CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(12, 7));
     CHECK(screen.scanned(4, 4) && screen.scanned(6, 6) && !screen.scanned(2, 2));
@@ -869,6 +919,23 @@ void testGalaxyScreen() {
     CHECK(any(645, 376, 680, 386) && !any(605, 298, 640, 308));
     // The turn, in its box.
     CHECK(any(63, 76, 163, 106));
+    // The panel: the information's lines, the Klingons' emblem in its place
+    // (the panel from 28, 110; the emblems 90 down), the task force's row
+    // 147 down with its emblem centred across its place and its mission.
+    auto lit = [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x) {
+                const uint8_t *p = s.row(y) + size_t(x) * 4;
+                if (std::max({p[0], p[1], p[2]}) > 40)
+                    return true;
+            }
+        return false;
+    };
+    CHECK(lit(45, 140, 120, 157) && lit(150, 140, 200, 157) && lit(45, 174, 120, 191));
+    CHECK(!lit(45, 192, 200, 199));
+    CHECK(white(28 + 109 + 8, 110 + 90 + 2) && white(28 + 109 + 17, 110 + 90 + 11) && !white(28 + 109 + 7, 202));
+    CHECK(white(28 + 15 + 10, 110 + 147 + 5) && !white(28 + 15 + 9, 110 + 147 + 5));
+    CHECK(lit(94, 260, 190, 276));
 }
 
 void testEmpireScreen() {

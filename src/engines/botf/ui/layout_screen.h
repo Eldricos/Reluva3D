@@ -81,8 +81,10 @@ protected:
      * `place` (an empty picture the panel's size), shown or not. Its
      * widgets are found by id as the layout's.
      * @param panel set to its number, for showPanel()
+     * @param dx, dy where in the place it goes, when several share it
      */
-    Error addPanel(const char *file, int32_t place, std::initializer_list<int32_t> needed, int &panel);
+    Error addPanel(const char *file, int32_t place, std::initializer_list<int32_t> needed, int &panel, int dx = 0,
+                   int dy = 0);
     /** Whether a panel is shown. */
     ///@{
     void showPanel(int panel, bool shown);

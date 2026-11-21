@@ -84,7 +84,13 @@ constexpr int kFerengi = 324;
 constexpr int kGalaxy = 406;
 constexpr int kKlingons = 563;
 constexpr int kRomulans = 1061;
-// The galaxy screen's turn ("TURN 1"), found by its text.
+// The galaxy screen's words, found by their text.
+constexpr int kAvoid = 652;
+constexpr int kCreditsPerTurn = 194;
+constexpr int kDilithium = 239;
+constexpr int kEngage = 658;
+constexpr int kNoEvents = 833;
+constexpr int kTotalCredits = 1361;
 constexpr int kTurn = 1370;
 } // namespace lex
 

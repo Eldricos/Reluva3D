@@ -414,4 +414,17 @@ Error readSavedOrders(const std::filesystem::path &path, std::vector<SavedOrder>
     return Error::success();
 }
 
+Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
+    game = SavedGame{};
+    if (Error err = readSaveSummary(path, game.summary))
+        return err;
+    if (Error err = readSavedGalaxy(path, game.galaxy))
+        return err;
+    if (Error err = readSavedEmpires(path, game.empires))
+        return err;
+    if (Error err = readSavedShips(path, game.ships))
+        return err;
+    return readSavedTaskForces(path, game.galaxy.width, game.taskForces);
+}
+
 } // namespace reluva::botf

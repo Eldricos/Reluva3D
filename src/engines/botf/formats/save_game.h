@@ -203,4 +203,16 @@ using SavedResearch = std::array<std::array<int, 6>, 5>;
 /** Reads each major empire's research shares from the saved game at `path` (its techinfo file). */
 Error readSavedResearch(const std::filesystem::path &path, SavedResearch &research);
 
+/** What the galaxy screen shows of a saved game. */
+struct SavedGame {
+    SaveSummary summary;
+    SavedGalaxy galaxy;
+    std::array<SavedEmpire, 5> empires;
+    std::vector<SavedShip> ships;
+    std::vector<SavedTaskForce> taskForces;
+};
+
+/** Reads `game` from the saved game at `path`: each of its parts, as the functions above. */
+Error readSavedGame(const std::filesystem::path &path, SavedGame &game);
+
 } // namespace reluva::botf

@@ -126,17 +126,18 @@ Error LayoutScreen::loadLayouts(const char *file, std::initializer_list<int32_t>
     return Error::success();
 }
 
-Error LayoutScreen::addPanel(const char *file, int32_t place, std::initializer_list<int32_t> needed, int &panel) {
+Error LayoutScreen::addPanel(const char *file, int32_t place, std::initializer_list<int32_t> needed, int &panel, int dx,
+                             int dy) {
     const Placed *at = find(place);
     if (!at)
         return Error::fail("no widget " + std::to_string(place) + " to put " + file + " in");
     auto p = std::make_unique<Panel>();
     if (Error err = loadLayout(_assets, file, p->layout))
         return err;
-    p->x = at->x;
-    p->y = at->y;
-    p->w = at->widget->w;
-    p->h = at->widget->h;
+    p->x = at->x + dx;
+    p->y = at->y + dy;
+    p->w = at->widget->w - dx;
+    p->h = at->widget->h - dy;
     panel = int(_panels.size());
     // Not its window, whose id (0) others share: drawn as the panel's.
     for (const WindowLayout::Placed &w : p->layout.placed())

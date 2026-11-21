@@ -65,21 +65,62 @@ Measured on the screenshot, a small galaxy of 13 by 10 sectors:
   star, centred, in `human9.fnt`, in (0, 251, 255): Sol's, but not
   Thelka's or Ramatis', which are only in range.
 
+### The empire's panel
+
+Down the left, in the panel's place (28, 110), four layouts one under
+another, measured on the screenshot: `hinfobox.wdf` at its top,
+`h_eicon.wdf` 90 down, `hinf_tf.wdf` 130 down and a `h_tfinfo.wdf` row
+for each task force from 147 down, 40 apart.
+
+- **The empire's information** (`hinfobox.wdf`): the "FEDERATION INFO"
+  bar is its button's picture (`h_info.tga`). Its text box (1018, at 45,
+  140, `human15.fnt`) has three lines 17 pixels apart (the font's 16 and
+  one): "TOTAL CREDITS" and the credits, "CREDITS PER TURN" and the
+  credits a turn with its sign, and the dilithium a turn with its sign,
+  "DILITHIUM" 6 pixels after it (so after "+1", and after "0" in another
+  screenshot), and the last turn's events, "No Events". The words are in
+  orange (247, 121, 33), the figures in green (173, 227, 115), the
+  figures ending 6 pixels short of the box's right edge; the words are
+  `lexicon.dic`'s (entries 1361, 194, 239, 833). The figures are the
+  empire's (`empsInfo`, [formats/sav.md](../formats/sav.md)).
+- **The other empires' emblems** (`h_eicon.wdf`): `i_c26.tga`,
+  `i_f26.tga`, `i_k26.tga`, `i_r26.tga` (26x30), each at the top of its
+  place (1050 for the Cardassians to 1054 for the Romulans; the player's
+  has none), across its middle.
+- **The task forces' bar** (`hinf_tf.wdf`): its backing picture,
+  `hm_bktfi.tga`, is black but for a tab at its left, and the game shows
+  the background through the black; its tab is `hm_tab22.tga` where the
+  layout names `hm_tab20.tga` (in the screenshot; `hm_tab32.tga` is the
+  same picture).
+- **A task force's row** (`h_tfinfo.wdf`): the empire's emblem
+  (`i_h26.tga`) across the middle of its place, and two lines in purple
+  (99, 77, 181), 17 apart: its mission ("ENGAGE" for 6 and "AVOID" for 5,
+  `lexicon.dic`'s 658 and 652) and its first ship's class
+  (`shiplist.sst`'s name: "Science Vessel", "Colony Ship"), in the order
+  `GWTForce` lists them.
+
+Drawn so from the save, the panel matches the screenshot pixel for pixel,
+and the screenshot five turns on (2,449 credits, +92). Two screenshots
+of a game loaded from the first save show "2 Events", and one "0
+DILITHIUM" with a destroyer queued, where Reluva shows what the save holds
+and "No Events" *(not known yet: the events, and the dilithium the queue
+uses)*.
+
 ## In Reluva
 
 `GalaxyScreen` (`src/engines/botf/ui/galaxy_screen.cpp`) loads the
 player's empire's layout, and draws its frame, the map's backdrop, grid,
-the scanners' sectors, stars and names, and the turn. The engine opens it
+the scanners' sectors, stars and names, the turn, and the empire's
+panel. The engine opens it
 with the chosen slot's save from Load Game, or with `Auto.sav` from
 Continue; Escape goes back to the main menu. The unit tests
-(`botf.unit.screens`: "galaxy") cover the scanners' range and where stars
-and names are drawn.
+(`botf.unit.screens`: "galaxy") cover the scanners' range, where stars and
+names are drawn, and the panel's parts.
 
 Not drawn yet, all in the screenshot: the task forces on the map (the
 Federation's emblem in the corner of Sol's sector), the orange box round
 the selected sector, the coloured borders of the ships' ranges (green,
-yellow and red), the empire's panel and task forces, and the selected
-system along the bottom.
+yellow and red), and the selected system along the bottom.
 
 ## Sources and checks
 
@@ -101,3 +142,6 @@ system along the bottom.
   in the screenshot.
 - Larger galaxies: whether the map scrolls, and how zooming changes the
   sectors' size.
+- The panel's events, and its dilithium with a ship queued; the words for
+  the other missions; a task force's second line when it has several
+  ships.
