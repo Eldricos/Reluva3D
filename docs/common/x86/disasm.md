@@ -4,7 +4,9 @@
 
 `src/emulation/x86/disasm.h` (`reluva::x86::disassemble`) turns 32-bit x86
 code back into text, in Intel syntax as capstone writes it, for studying a
-game's executable.
+game's executable. `reluva-tool pe-disasm <file> <address> [count]` shows
+any executable's or DLL's instructions from an address, as loaded at its
+own base.
 
 ## What Reluva supports
 
@@ -28,5 +30,8 @@ both operands.
 
 ## Used by
 
+- **`legoisland`**: `reluva-tool pe-disasm`, for `LEGO1.DLL`, to see why
+  the program stops where it does
+  ([running.md](../../engines/legoisland/systems/running.md)).
 - **`stharbinger`**: `reluva-tool stharbinger exe-disasm`, for Harbinger's
   `DEEP.EXE` ([REVERSE_ENGINEERING.md](../../engines/stharbinger/REVERSE_ENGINEERING.md#the-tools)).

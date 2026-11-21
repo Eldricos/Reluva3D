@@ -8,6 +8,7 @@
 
 #include "common/pe.h"
 #include "emulation/x86/cpu.h"
+#include "emulation/x86/disasm.h"
 #include "emulation/x86/win32.h"
 
 #include <algorithm>
@@ -82,6 +83,42 @@ int cmdPeInfo(int argc, char **argv) {
             std::printf("    %s\n", line.c_str());
     }
     (void)all;
+    return 0;
+}
+
+// Instructions of a Windows executable or DLL from an address (as loaded
+// at its own base), for studying a game's code.
+int cmdPeDisasm(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool pe-disasm <file.dll|file.exe> <address> [count]\n");
+        return 2;
+    }
+    Bytes d;
+    if (!readFile(argv[2], d))
+        return 1;
+    reluva::PeImage pe;
+    if (reluva::Error err = reluva::parsePe(d, pe)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    uint32_t address = uint32_t(std::strtoul(argv[3], nullptr, 0));
+    const int count = argc > 4 ? std::atoi(argv[4]) : 32;
+    for (int n = 0; n < count; ++n) {
+        const uint32_t rva = address - uint32_t(pe.imageBase);
+        const auto sec = std::find_if(pe.sections.begin(), pe.sections.end(), [&](const auto &s) {
+            return rva >= s.virtualAddress && rva < s.virtualAddress + std::max(s.virtualSize, s.rawSize);
+        });
+        if (sec == pe.sections.end() || rva - sec->virtualAddress >= sec->rawSize) {
+            std::fprintf(stderr, "0x%08x isn't in the file's sections\n", address);
+            return 1;
+        }
+        const size_t at = size_t(sec->rawOffset + (rva - sec->virtualAddress));
+        const size_t left =
+            std::min<size_t>(d.size() - std::min(at, d.size()), sec->rawSize - (rva - sec->virtualAddress));
+        const reluva::x86::Instruction i = reluva::x86::disassemble(d.data() + at, left, address);
+        std::printf("%08x  %-6s %s\n", address, i.valid ? i.mnemonic.c_str() : "db", i.operands.c_str());
+        address += uint32_t(std::max(i.size, 1));
+    }
     return 0;
 }
 
@@ -219,6 +256,8 @@ const Commands kCommands(
     {
         {"pe-info", "<file.dll|file.exe>",
          "what a Windows executable or DLL holds and needs: its sections, exports, imports and relocations", cmdPeInfo},
+        {"pe-disasm", "<file.dll|file.exe> <address> [count]",
+         "a Windows executable's or DLL's instructions from an address (as loaded at its own base)", cmdPeDisasm},
         {"x86-run", "<file.dll> [-call Export [arg|table]...]",
          "load a 32-bit Windows DLL into the x86 interpreter, run its start-up and, if asked, one of its "
          "exports (\"table\" passes a table of functions that report their calls)",
