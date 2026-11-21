@@ -15,6 +15,8 @@ namespace reluva {
 
 /**
  * A .zip archive (also .pk3 and the like), read from its central directory.
+ * The end of central directory record may be signed "RE\5\6" as well as
+ * "PK\5\6", as Star Trek: Away Team's DATA.dat is.
  * Files stored uncompressed or with deflate are supported, checked against
  * their CRC-32 when read; encrypted entries, multi-disk and Zip64 archives
  * are not. Folder entries are left out of list().

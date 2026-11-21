@@ -531,6 +531,12 @@ static void testZip(const std::filesystem::path &tmp) {
           data == toBytes("abc"));
     test::writeFile(path, toBytes("definitely not a zip archive"));
     CHECK(zip.open(path));
+    // Reflexive's signature on the end record ("RE" for "PK"), the last 22 bytes.
+    auto reflexive = test::buildZip({{"a.txt", toBytes("abc"), {}}});
+    reflexive[reflexive.size() - 22] = 'R';
+    reflexive[reflexive.size() - 21] = 'E';
+    test::writeFile(path, reflexive);
+    CHECK(!zip.open(path) && !zip.read("a.txt", data) && data == toBytes("abc"));
     std::filesystem::remove_all(tmp);
 }
 

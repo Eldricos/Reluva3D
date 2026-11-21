@@ -21,6 +21,9 @@ namespace {
 constexpr uint32_t kLocalSig = 0x04034b50;
 constexpr uint32_t kCentralSig = 0x02014b50;
 constexpr uint32_t kEndSig = 0x06054b50;
+// "RE\5\6": the end record as Star Trek: Away Team's DATA.dat signs it
+// (Reflexive Entertainment's), the rest of the archive standard.
+constexpr uint32_t kReflexiveEndSig = 0x06054552;
 constexpr size_t kLocalSize = 30;
 constexpr size_t kCentralSize = 46;
 constexpr size_t kEndSize = 22;
@@ -114,7 +117,8 @@ Error ZipArchive::open(const std::filesystem::path &path) {
         return Error::fail("Cannot read " + where);
     const uint8_t *end = nullptr;
     for (size_t i = tail - kEndSize + 1; i-- > 0;) {
-        if (le32(&buf[i]) == kEndSig && i + kEndSize + le16(&buf[i + 20]) <= tail) {
+        const uint32_t sig = le32(&buf[i]);
+        if ((sig == kEndSig || sig == kReflexiveEndSig) && i + kEndSize + le16(&buf[i + 20]) <= tail) {
             end = &buf[i];
             break;
         }
