@@ -5,7 +5,6 @@
 
 #include "common/text.h"
 
-#include <algorithm>
 #include <set>
 
 namespace reluva::botf {
@@ -60,6 +59,14 @@ constexpr size_t kMaxName = 64;
 // screenshot; the password shows an X for each character typed.
 constexpr Color kTextColor{24, 101, 189};
 constexpr Color kTypingColor{255, 150, 16};
+
+// The address book's row whose button `id` is, or -1.
+int addressRowOf(int32_t id) {
+    for (size_t i = 0; i < kAddressRowButtons.size(); ++i)
+        if (kAddressRowButtons[i] == id)
+            return int(i);
+    return -1;
+}
 
 } // namespace
 
@@ -138,10 +145,9 @@ void MultiplayerScreen::click(int32_t id) {
         _ipx = id == kIpx;
     } else if (id == kHostAddressField) {
         _field = Field::kHostAddress;
-    } else if (const auto *row = std::find(kAddressRowButtons.begin(), kAddressRowButtons.end(), id);
-               row != kAddressRowButtons.end()) {
+    } else if (const int row = addressRowOf(id); row >= 0) {
         _field = Field::kAddress;
-        _addressRow = int(row - kAddressRowButtons.begin());
+        _addressRow = row;
     } else if (kBauds.count(id)) {
         _baud = id;
     } else if (kPorts.count(id)) {
