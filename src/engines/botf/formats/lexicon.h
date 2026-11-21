@@ -89,12 +89,19 @@ constexpr int kAvoid = 652;
 constexpr int kCreditsPerTurn = 194;
 constexpr int kDilithium = 239;
 constexpr int kEngage = 658;
+constexpr int kEvent = 297;
+constexpr int kEvents = 310;
 constexpr int kNoEvents = 833;
 constexpr int kTotalCredits = 1361;
 constexpr int kTurn = 1370;
 // The selected sector's strip under the map; a stellar object's description
 // is the entry after its name's.
 constexpr int kBlackHole = 94;
+constexpr int kContestedSector = 187; // "Contested Sector %s"
+constexpr int kScanStrength = 1096;   // "Scan Strength %d"
+constexpr int kSector = 1107;         // "Sector %s"
+constexpr int kUnclaimedSector = 1382;
+constexpr int kUnexploredSector = 1385;
 constexpr int kDescription = 228;
 constexpr int kGrowthRate = 425;
 constexpr int kHumans = 445;

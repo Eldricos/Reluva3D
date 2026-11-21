@@ -790,7 +790,7 @@ void testGalaxyScreen() {
     Bytes f;
     put32(f, 2);
     putWidget(f, 1, 1000, 0, 0, 800, 600, "none");
-    putWindowCounts(f, {{2, 2}, {13, 4}, {14, 1}});
+    putWindowCounts(f, {{2, 2}, {13, 4}, {14, 2}});
     auto button = [](Bytes &l, uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
         putWidget(l, 2, id, x, y, w, h, "none");
         put32(l, 0xffffffff);
@@ -814,6 +814,11 @@ void testGalaxyScreen() {
     for (const uint32_t v : {0U, 0U, 100U, 30U})
         put32(f, v);
     putFont(f, 1, 0, 0, "human28.fnt");
+    // The line naming the sector under the pointer.
+    putWidget(f, 14, 1081, 262, 8, 500, 22, "none");
+    for (const uint32_t v : {0U, 0U, 500U, 22U})
+        put32(f, v);
+    putFont(f, 1, 0, 0, "human20.fnt");
     // A white star, 10 pixels square.
     image::Image star;
     star.w = star.h = 10;
@@ -897,6 +902,15 @@ void testGalaxyScreen() {
     archive.files["nsmaps.tga"] = image::encodeTga(keyed);
     archive.files["i_k13.tga"] = image::encodeTga(star);
     archive.files["movs.tga"] = image::encodeTga(star);
+    // The strip's icons (a food bonus, dilithium: red) and the
+    // Federation's emblem; and the sector line's font.
+    image::Image red = keyed;
+    for (size_t i = 4; i < red.rgba.size(); i += 4)
+        red.rgba[i + 1] = red.rgba[i + 2] = 0;
+    archive.files["bif1.tga"] = image::encodeTga(keyed);
+    archive.files["bid.tga"] = image::encodeTga(red);
+    archive.files["i_h46.tga"] = image::encodeTga(star);
+    archive.files["human20.fnt"] = makeFont(21);
     archive.files["hinfobox.wdf"] = info;
     archive.files["h_eicon.wdf"] = emblems;
     archive.files["hinf_tf.wdf"] = bar;
@@ -935,8 +949,10 @@ void testGalaxyScreen() {
     SavedPlanet earth;
     earth.animation = "eart.ani";
     earth.type = 6;
+    earth.foodBonus = 620;
     g.systems[0].planets = {earth};
     g.systems[0].population = 310;
+    g.systems[0].dilithium = 5;
     // A neutron star next to Sol.
     SavedStellarObject neutron;
     neutron.type = 3;
@@ -978,6 +994,9 @@ void testGalaxyScreen() {
     hidden.y = 0;
     game.taskForces = {t, klingon, hidden};
     game.empires[1].credits = 2000;
+    // The last turn's results: the Federation's two events (one economic,
+    // one military), its new game's fleet (not an event), and a Klingon one.
+    game.results = {{1, 0x100, 17, 3}, {1, 0x300, 4, -1}, {1, 0x300, 5, 0}, {3, 0x100, 17, 3}};
     screen.open(game);
     // The scanners reach where the save says, not where something hides.
     CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(11, 7));
@@ -1018,6 +1037,16 @@ void testGalaxyScreen() {
         return false;
     };
     CHECK(lit(45, 140, 120, 157) && lit(150, 140, 200, 157) && lit(45, 174, 120, 191));
+    // "2 Events" in the figures' green; no dilithium, "0" in the words' orange.
+    CHECK(screen.eventCount() == 2);
+    auto greenish = [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x)
+                if (const uint8_t *p = s.row(y) + size_t(x) * 4; p[1] > 150 && p[0] < 200)
+                    return true;
+        return false;
+    };
+    CHECK(greenish(150, 174, 200, 191) && !greenish(45, 174, 60, 191));
     CHECK(!lit(45, 192, 200, 199));
     CHECK(white(28 + 109 + 8, 110 + 90 + 2) && white(28 + 109 + 17, 110 + 90 + 11) && !white(28 + 109 + 7, 202));
     CHECK(white(28 + 15 + 10, 110 + 147 + 5) && !white(28 + 15 + 9, 110 + 147 + 5));
@@ -1079,6 +1108,12 @@ void testGalaxyScreen() {
     CHECK(lit(620, 537, 638, 549) && !colour(629, 545, 255, 0, 0));
     CHECK(lit(246, 459, 290, 476) && lit(299, 459, 330, 476) && lit(611, 459, 670, 476));
     CHECK(lit(63, 511, 140, 528) && lit(160, 511, 193, 528) && !lit(150, 545, 193, 579));
+    // Earth's food bonus on its frame's top from its left edge (619, 517);
+    // Sol's dilithium at its star's corner; the Federation's emblem at the
+    // planets' place's corner at 64% (255 to 163).
+    CHECK(white(620, 507) && white(628, 516) && !white(620, 506));
+    CHECK(colour(656, 477, 255, 0, 0) && colour(664, 486, 255, 0, 0));
+    CHECK(colour(208, 478, 163, 163, 163) && colour(216, 486, 163, 163, 163));
     // The planet turns: its second frame, black, at its frame's time.
     screen.setTime(198);
     s.create(800, 600, PixelFormat::kRGBA32);
@@ -1097,6 +1132,24 @@ void testGalaxyScreen() {
     s.create(800, 600, PixelFormat::kRGBA32);
     screen.draw(s);
     CHECK(!lit(7, 459, 793, 476) && !shown(376, 527));
+
+    // The pointer over Thelka's sector (9, 7), seen but not explored: its
+    // name and the scan strength over the map; off the map, nothing.
+    auto move = [&](int x, int y) {
+        Event e;
+        e.type = EventType::kMouseMove;
+        e.mouseX = x;
+        e.mouseY = y;
+        return screen.handle(e);
+    };
+    CHECK(move(gx + 9 * 39 + 5, gy + 7 * 39 + 5) && (screen.pointed() == std::pair{9, 7}));
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(lit(262, 8, 400, 30) && lit(650, 8, 756, 30) && !lit(757, 8, 762, 30));
+    CHECK(move(10, 10) && (screen.pointed() == std::pair{-1, -1}) && !move(12, 10));
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(!lit(262, 8, 762, 30));
 
     // Zoomed in on Sol: sectors 61 pixels square, Sol's corner at the
     // middle of the zoomed-out grid's square (258 to 765, 36 to 426), but

@@ -20,6 +20,14 @@ constexpr int32_t kMilitary = 1004; // the map's mode, lit at the start
 // The Map button opens the zoom's two buttons (?_zoom.wdf in place 1025,
 // over the map's corner): Small Map zooms in, Large Map out.
 constexpr int32_t kMapButton = 1002;
+// Over the map, the sector under the pointer: its name in the turn's blue
+// at the box's left, and the empire's scan strength there ending 6 pixels
+// short of its right, yellow where it's above 0 and red where it isn't
+// (two screenshots: "Unexplored Sector I6", -3; "Unclaimed Sector I1", 5).
+constexpr int32_t kSectorText = 1081;
+constexpr int kScanRightMargin = 6;
+constexpr Color kScanColor{255, 255, 0};
+constexpr Color kHiddenScanColor{255, 0, 0};
 constexpr int32_t kZoomPlace = 1025;
 constexpr int32_t kSmallMap = 1022;
 constexpr int32_t kLargeMap = 1023;
@@ -49,6 +57,7 @@ constexpr Color kTaskForceColor{99, 77, 181};
 constexpr int kLinePitch = 17;
 constexpr int kFigureMargin = 6;
 constexpr int kDilithiumGap = 6;
+constexpr int kMilitaryResult = 0x300;
 // The task forces' bar: drawn here, as the game shows the background
 // through its backing picture's black (hm_bktfi.tga, which has no magenta),
 // and with hm_tab22.tga for its tab, not the layout's hm_tab20.tga (the
@@ -174,6 +183,27 @@ constexpr int kStripLinePitch = 17;
 // green for a planet that's terraformed, red for one that isn't.
 constexpr char kPlanetClasses[] = {'P', 'J', 'G', 'B', 'L', 'O', 'M', 'Y'};
 constexpr int kGasGiant = 3;
+// A planet's bonus, on its frame's top from its left edge: an energy bonus on a desert or volcanic
+// planet (bie.tga), a food bonus on an oceanic or terran one (bif1.tga),
+// as on every planet of Sol, Babel and Manark; and the system's dilithium
+// at its star's top-left corner (bid.tga, Sol's). Jungle planets' food is
+// taken to show too (guessed: none is seen).
+constexpr const char *kEnergyIcon = "bie.tga";
+constexpr const char *kFoodIcon = "bif1.tga";
+constexpr const char *kDilithiumIcon = "bid.tga";
+// A system an empire holds has its emblem (i_h46.tga for the Federation's)
+// at the planets' place's top-left corner, at 64% of its brightness: each
+// channel of Sol's, at the 16-bit screen's 5 or 6 bits, is its picture's
+// times 0.64 rounded down. The other empires' are taken by their letters
+// (guessed).
+constexpr int kEmblemBrightness = 64;
+const char *bonusIcon(const SavedPlanet &p) {
+    if ((p.type == 2 || p.type == 7) && p.energyBonus > 0)
+        return kEnergyIcon;
+    if ((p.type == 4 || p.type == 5 || p.type == 6) && p.foodBonus > 0)
+        return kFoodIcon;
+    return nullptr;
+}
 constexpr Color kClassColors[] = {{0, 0, 255}, {0, 255, 0}, {255, 0, 0}};
 // Stellar objects with a strip: their type, animation and the lexicon's
 // entry with their description. The neutron star's is seen; the others go
@@ -201,6 +231,19 @@ void put(Surface &s, int x, int y, Color c) {
     p[1] = c.g;
     p[2] = c.b;
     p[3] = 255;
+}
+
+// The map's and the strip's small pictures leave out their top-left
+// pixel's colour: black, but in s-o-maps.tga, whose black the game draws
+// (two stars on the screenshots).
+void drawKeyed(Surface &s, const image::Image &img, int x, int y) {
+    const uint8_t *key = img.pixel(0, 0);
+    for (int py = 0; py < img.h; ++py)
+        for (int px = 0; px < img.w; ++px) {
+            const uint8_t *p = img.pixel(px, py);
+            if (p[3] != 0 && (p[0] != key[0] || p[1] != key[1] || p[2] != key[2]))
+                put(s, x + px, y + py, Color{p[0], p[1], p[2]});
+        }
 }
 
 Error loadStrip(Assets &assets, const char *file, WindowLayout &layout) {
@@ -379,7 +422,7 @@ void GalaxyScreen::setZoomedIn(bool in) {
     _zoom = in ? 1 : 0;
 }
 
-bool GalaxyScreen::click(int x, int y) {
+std::pair<int, int> GalaxyScreen::sectorAt(int x, int y) const {
     int gx = 0;
     int gy = 0;
     int x0 = 0;
@@ -387,19 +430,33 @@ bool GalaxyScreen::click(int x, int y) {
     int x1 = 0;
     int y1 = 0;
     if (!view(x0, y0, x1, y1) || !gridCorner(gx, gy) || x < x0 || y < y0 || x > x1 || y > y1 || x < gx || y < gy)
-        return false;
+        return {-1, -1};
     const int sector = kZooms[_zoom].sector;
     const int sx = (x - gx) / sector;
     const int sy = (y - gy) / sector;
     if (sx >= _game.galaxy.width || sy >= _game.galaxy.height)
+        return {-1, -1};
+    return {sx, sy};
+}
+
+bool GalaxyScreen::click(int x, int y) {
+    const auto [sx, sy] = sectorAt(x, y);
+    if (sx < 0)
         return false;
     select(sx, sy);
     return true;
 }
 
 bool GalaxyScreen::handle(const Event &e) {
+    // The sector under the pointer, named over the map.
+    bool changed = false;
+    if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown) {
+        const std::pair<int, int> under = sectorAt(e.mouseX, e.mouseY);
+        changed = under != _pointed;
+        _pointed = under;
+    }
     if (e.type != EventType::kMouseDown || e.button != MouseButton::kLeft)
-        return false;
+        return changed;
     const bool zoomOpen = panelShown(_zoomPanel);
     switch (buttonAt(e.mouseX, e.mouseY)) {
     case kMapButton:
@@ -415,7 +472,53 @@ bool GalaxyScreen::handle(const Event &e) {
     }
     // A click elsewhere closes the zoom's buttons (guessed).
     showPanel(_zoomPanel, false);
-    return click(e.mouseX, e.mouseY) || zoomOpen;
+    return click(e.mouseX, e.mouseY) || zoomOpen || changed;
+}
+
+int GalaxyScreen::eventCount() const {
+    // The empire's results, but for a new game's own fleets (military, with
+    // an event value of 0): 2 on the first turn's loaded saves, 5 on the
+    // eleventh's, none where there are none, as their screenshots show.
+    // The other kinds than economic and military aren't seen (guessed).
+    int count = 0;
+    for (const SavedResult &r : _game.results)
+        if (r.race == _empire && !(r.kind == kMilitaryResult && r.eventValue == 0))
+            ++count;
+    return count;
+}
+
+void GalaxyScreen::drawSectorLine(Surface &screen) const {
+    const auto [sx, sy] = _pointed;
+    const Placed *box = find(kSectorText);
+    if (sx < 0 || !box)
+        return;
+    const SavedSector &here = _game.galaxy.at(sx, sy);
+    // Its name: its column's letter, small, and its row from 1 ("i6").
+    const std::string name = char('a' + sx) + std::to_string(sy + 1);
+    int claims = 0;
+    for (uint16_t c = here.claims; c != 0; c &= uint16_t(c - 1))
+        ++claims;
+    std::string text;
+    if (!(here.explored >> _empire & 1))
+        text = word(lex::kUnexploredSector, "Unexplored Sector %s");
+    else if (claims == 0)
+        text = word(lex::kUnclaimedSector, "Unclaimed Sector %s");
+    else if (claims > 1)
+        text = word(lex::kContestedSector, "Contested Sector %s");
+    else
+        text = word(lex::kSector, "Sector %s");
+    if (const size_t at = text.find("%s"); at != std::string::npos)
+        text.replace(at, 2, name);
+    drawText(screen, kSectorText, text, kTurnColor);
+    // The empire's scan strength there, ending 6 pixels short of the box's right.
+    const int strength = here.scanStrength[size_t(_empire)];
+    std::string scan = word(lex::kScanStrength, "Scan Strength %d");
+    if (const size_t at = scan.find("%d"); at != std::string::npos)
+        scan.replace(at, 2, std::to_string(strength));
+    const Widget &w = *box->widget;
+    if (const Font *font = _assets.font(w.fonts.empty() ? "" : w.fonts[0].file))
+        drawTextAt(screen, w, box->x + w.w - kScanRightMargin - font->measure(scan) - w.textX, box->y, scan,
+                   strength > 0 ? kScanColor : kHiddenScanColor);
 }
 
 void GalaxyScreen::draw(Surface &screen) const {
@@ -427,6 +530,7 @@ void GalaxyScreen::draw(Surface &screen) const {
     drawLayouts(screen, lit);
     drawMap(screen);
     drawPanelsOver(screen, lit);
+    drawSectorLine(screen);
     drawPanel(screen);
     drawStrip(screen);
     drawText(screen, kTurnText, upperAscii(word(lex::kTurn, "Turn")) + " " + std::to_string(_game.summary.turn + 1),
@@ -476,12 +580,22 @@ void GalaxyScreen::drawPanel(Surface &screen) const {
             line(0, word(lex::kTotalCredits, "TOTAL CREDITS"), kLabelColor, std::to_string(e.credits), kFigureColor);
             line(1, word(lex::kCreditsPerTurn, "CREDITS PER TURN"), kLabelColor, withSign(e.creditsPerTurn),
                  kFigureColor);
-            // The dilithium's figure first, in the figures' colour, and its
-            // word 6 pixels after it (so after "+1" and "0" on screenshots);
-            // the last turn's events aren't read from the save yet.
-            const std::string dilithium = withSign(e.dilithiumPerTurn);
-            line(2, "", kLabelColor, word(lex::kNoEvents, "No Events"), kLabelColor);
-            font->drawInColor(screen, box->x, box->y + 1 + 2 * kLinePitch, dilithium, kFigureColor);
+            // The dilithium's figure first, in the figures' colour (but 0 in
+            // the words', unsigned), and its word 6 pixels after it (so
+            // after "+1" and "0" on screenshots); then how many of the last
+            // turn's results the empire has, in the figures' colour, or "No
+            // Events" in the words'.
+            const int events = eventCount();
+            if (events == 0)
+                line(2, "", kLabelColor, word(lex::kNoEvents, "No Events"), kLabelColor);
+            else
+                line(2, "", kLabelColor,
+                     std::to_string(events) + " " +
+                         (events == 1 ? word(lex::kEvent, "Event") : word(lex::kEvents, "Events")),
+                     kFigureColor);
+            const std::string dilithium = e.dilithiumPerTurn == 0 ? "0" : withSign(e.dilithiumPerTurn);
+            font->drawInColor(screen, box->x, box->y + 1 + 2 * kLinePitch, dilithium,
+                              e.dilithiumPerTurn == 0 ? kLabelColor : kFigureColor);
             font->drawInColor(screen, box->x + font->measure(dilithium) + kDilithiumGap, box->y + 1 + 2 * kLinePitch,
                               upperAscii(word(lex::kDilithium, "Dilithium")), kLabelColor);
         }
@@ -660,16 +774,7 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
             const int slot = starSized ? starSized->w : picture->w;
             int x = gx + sx * sector + z.starStep * (mapX - 5 * sx) + z.starOffset + (slot - picture->w) / 2;
             int y = gy + sy * sector + z.starStep * (mapY - 5 * sy) + z.starOffset + (slot - picture->h) / 2;
-            // What isn't drawn is the top-left pixel's colour: black but in
-            // s-o-maps.tga, whose black the game draws (two stars on the
-            // screenshots).
-            const uint8_t *key = picture->pixel(0, 0);
-            for (int py = 0; py < picture->h; ++py)
-                for (int px = 0; px < picture->w; ++px) {
-                    const uint8_t *p = picture->pixel(px, py);
-                    if (p[3] != 0 && (p[0] != key[0] || p[1] != key[1] || p[2] != key[2]))
-                        put(screen, x + px, y + py, Color{p[0], p[1], p[2]});
-                }
+            drawKeyed(screen, *picture, x, y);
             if (!font || !(here.explored >> _empire & 1))
                 continue;
             // Centred on the picture less a pixel, rounding down: every name
@@ -748,7 +853,13 @@ void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) c
     // The star, then the planets leftward from it.
     const int sunW = _sun.frameWidth;
     int sunCx = area.x + area.widget->w - sunW + sunW / 2;
+    if (system.controllingRace >= 0 && system.controllingRace < int(std::size(kLetters)))
+        if (const image::Image *emblem =
+                _assets.dimmed(std::string("i_") + kLetters[system.controllingRace] + "46.tga", kEmblemBrightness))
+            image::blit(screen, *emblem, area.x, area.y);
     drawFrame(screen, _sun, kStarFrameMillis, sunCx, cy);
+    if (const image::Image *icon = system.dilithium > 0 ? _assets.picture(kDilithiumIcon) : nullptr)
+        drawKeyed(screen, *icon, sunCx - sunW / 2, area.y);
     auto centres = [&](int gap) {
         std::vector<int> out;
         int cx = sunCx;
@@ -769,6 +880,9 @@ void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) c
         const Animation &a = _planets[i];
         drawFrame(screen, a, kPlanetFrameMillis, xs[i], cy);
         const SavedPlanet &p = system.planets[i];
+        if (const char *file = bonusIcon(p))
+            if (const image::Image *icon = _assets.picture(file))
+                drawKeyed(screen, *icon, xs[i] - a.frameWidth / 2, cy - a.frameHeight / 2 - icon->h);
         if (!small || p.type < 0 || p.type >= int(std::size(kPlanetClasses)))
             continue;
         const std::string letter(1, kPlanetClasses[p.type]);

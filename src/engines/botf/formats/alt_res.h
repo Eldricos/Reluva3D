@@ -61,6 +61,8 @@ public:
     const std::string &name() const { return _name; }
     /** One file's data; `windowFill` as decompressLzss() takes it. */
     Error read(const Entry &entry, std::vector<uint8_t> &out, uint8_t windowFill = 0) const;
+    /** One file's data as stored, not decompressed (a saved game's result.lst is in chunks). */
+    Error readStored(const Entry &entry, std::vector<uint8_t> &out) const;
 
 private:
     std::filesystem::path _path;

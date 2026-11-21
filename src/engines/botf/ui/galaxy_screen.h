@@ -62,6 +62,10 @@ public:
     void setZoomedIn(bool in);
     /** Whether the map is zoomed in. */
     bool zoomedIn() const { return _zoom == 1; }
+    /** How many of the last turn's results the empire's panel counts as events. */
+    int eventCount() const;
+    /** The sector under the pointer, named over the map, or -1, -1. */
+    std::pair<int, int> pointed() const { return _pointed; }
     /** The selected sector's column and row, or -1, -1. */
     std::pair<int, int> selected() const { return _selected; }
 
@@ -81,6 +85,9 @@ private:
     // without a map.
     bool view(int &x0, int &y0, int &x1, int &y1) const;
     bool gridCorner(int &gx, int &gy) const;
+    // The sector at a point on the screen, or -1, -1 off the map.
+    std::pair<int, int> sectorAt(int x, int y) const;
+    void drawSectorLine(Surface &screen) const;
     // The map on a surface the view's size, the grid's corner at (gx, gy).
     void drawGrid(Surface &view, int gx, int gy) const;
     void drawStrip(Surface &screen) const;
@@ -106,6 +113,7 @@ private:
     std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems
     std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
     int _zoom = 0;                                  // 0 out, 1 in
+    std::pair<int, int> _pointed{-1, -1};           // the sector under the pointer
     std::pair<int, int> _zoomCentre{-1, -1};        // the sector selected when zooming in
     // The strip's layouts, their widgets placed on the screen: a system's
     // (h_sysmap.wdf) and a stellar object's (h_starmp.wdf).

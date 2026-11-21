@@ -155,4 +155,8 @@ Error AltResArchive::read(const Entry &entry, std::vector<uint8_t> &out, uint8_t
     return Error::success();
 }
 
+Error AltResArchive::readStored(const Entry &entry, std::vector<uint8_t> &out) const {
+    return readAt(_path, entry.offset, entry.compressedSize, out);
+}
+
 } // namespace reluva::botf

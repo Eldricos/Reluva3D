@@ -24,7 +24,8 @@ None: nothing of the game's code has been read.
   by: a setting changed on one screen seen on the other.
 - **A saved game's LZSS window** starts full of spaces for its text files,
   from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
-  Settled by: `result.lst` decoded both ways once its pieces are read.
+  Settled by: a file with a reference into the unwritten window
+  (`result.lst`, read in its chunks, has none).
 - **The menu music's order:** segment 0 or 1, then 2 to 4 at random,
   never one twice in a row, from the orders heard
   ([systems/sound.md](systems/sound.md)). Settled by: `music.tbl` worked
@@ -45,15 +46,17 @@ None: nothing of the game's code has been read.
   place ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
   Settled by: screenshots of those objects selected, and of a system with
   more planets than Sol.
-- **The galaxy screen's zoom buttons:** closed on a choice or a click
-  elsewhere, the Map button and the current zoom's lit; the zoomed map
+- **The galaxy screen's cases not seen:** the zoom buttons closed on a
+  choice or a click elsewhere, the Map button and the current zoom's lit; the zoomed map
   staying where it was zoomed in as other sectors are selected; other
   owners' systems' names in the colour of those nobody holds; the other
   stellar objects' map pictures, and other empires' and minor races' task
-  forces' emblems
-  ([systems/galaxy-screen.md](systems/galaxy-screen.md#zooming)). Settled
-  by: a recording of the buttons used, and a screenshot with another
-  empire's system named.
+  forces' emblems; the strip's jungle planets' food icon and the other
+  empires' emblems; the sector line's wording for one empire's claim and
+  its scan strength's colours; and the events counted of the results'
+  other kinds, and "1 Event"
+  ([systems/galaxy-screen.md](systems/galaxy-screen.md)). Settled by: a
+  recording of the zoom's buttons used, and screenshots of each case.
 
 ## Settled
 

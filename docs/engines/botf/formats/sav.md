@@ -31,8 +31,9 @@ directory of 40-byte entries. Two differences:
   *(published)*. Decoded with the wrong fill, any reference into the window
   before it's been written gives the wrong bytes. In `game0.sav` no file
   but `result.lst` has such a reference, so the save doesn't show which
-  fill is right; `result.lst` is stored in 61 pieces (its entry's sixth
-  field), which Reluva doesn't read yet.
+  fill is right. `result.lst` isn't one LZSS stream but chunks, each
+  compressed on its own ([below](#results)); read so, neither fill changes
+  a byte of it.
 
 `auto.sav`, an autosave at turn 1, holds 539 files; there too only
 `result.lst` decodes differently with the two fills. `game0.sav` is 81,944 bytes: 249 files, the directory at 55,924, every
@@ -179,8 +180,10 @@ A planet, 76 bytes: its name (`char[40]`, ending in a line break:
 "Acamar I\n"), its picture (`char[14]` at 0x28: "vsal.ani"), its number
 in the system (`i16` at 0x36), its size (`i16` at 0x38, 0 to 2), and its
 type and atmosphere (`u8` at 0x48 and 0x49) *(published)*; the
-terraforming it needs and the terraforming done (`u16` at 0x3A and 0x3C)
-*(published)*: Babel's planets need 165 and 220 but for its class M,
+food, energy and growth bonuses (`i16` at 0x3E, 0x40, 0x42: 0, 310 or
+620) *(published)*, which the galaxy screen shows as an icon over a
+planet; the terraforming it needs and the terraforming done (`u16` at
+0x3A and 0x3C) *(published)*: Babel's planets need 165 and 220 but for its class M,
 which needs none, as the galaxy screen colours their letters
 ([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-strip)). The fixed
 part's other fields (production, morale, buildings, trade) are the
@@ -284,6 +287,37 @@ The Edo Guardian's shields are 0 at the very start and its class's 6,350
 a turn later. The rest of the entry (accuracy and defense bonuses,
 cloaking, agility, what it can do) is the editor's and not read yet, as
 is `shipname.dat`.
+
+### Results
+
+`result.lst`, the last turn's results, is stored as chunks, not one LZSS
+stream (its directory entry's flag is the number of chunks: 57 at the
+first turn and the eleventh). Each chunk is a 12-byte header, then its
+own LZSS data:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `u32` | the address its data loads at: the previous chunk's plus its stored size and 12 |
+| 0x04 | `u32` | its size decoded |
+| 0x08 | `u32` | its size stored |
+
+The first chunk holds the number of results (28 at the first turn, 21 at
+the eleventh). Then each result is a 40-byte header chunk, then its
+content's chunk *(published)*. The header, as far as Reluva reads it:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `u32` | the result's number, from a start each empire has *(published)* |
+| 0x04 | `i16` | the empire it's for, by `race.rst`'s number |
+| 0x08 | `i16` | its kind: 0x100 economic, 0x300 military, also 0x200, 0x400 intelligence and 0x500 diplomatic *(published)* |
+| 0x10 | `i32` | a value: a system's or ship's number, -1, or 0 for a new game's starting fleets |
+| 0x16 | `i16` | what its content says (4 a task force, 5 a ship, 17 and 31 economic ones) *(published)* |
+
+The galaxy screen's panel counts an empire's results as its events,
+but for military ones whose value is 0: 2 of the Federation's 6 at the
+first turn, all 5 at the eleventh, as the screenshots of the games
+loaded from those saves show
+([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-empires-panel)).
 
 ### What a turn and an order change
 
@@ -405,8 +439,7 @@ layout.
 - Whether the Load Game screen's name field shows the file's name or the
   header's: they're the same in `game0.sav`.
 - Which fill each file's window starts with: settled by a save with a
-  reference into the unwritten window, or by `result.lst` once its pieces
-  are read.
+  reference into the unwritten window (`result.lst`'s chunks have none).
 - The timers' other values, from a game set up with them.
 - What `Last.sav` is for. `Auto.sav` is the autosave the main menu's
   Continue goes on from; `Last.sav` is a copy of it (its header names it

@@ -122,6 +122,27 @@ each, Sol's name zoomed in, and the pointer.
   Papa 607") is `i_t13.tga`. Reluva takes an empire's to be `i_?13.tga` by
   its letter and a minor race's `i_m13.tga` *(guessed)*.
 
+### The sector line
+
+Over the map, in text box 1081 (262, 8, 500x22, `human20.fnt`), the
+sector under the pointer, nothing while it's off the map. Measured on
+two screenshots ("Unexplored Sector i6" with "Scan Strength -3", and
+"Unclaimed Sector i1" with "Scan Strength 5"):
+
+- **Its name:** the column's letter, small, and the row from 1, in
+  `lexicon.dic`'s "Unexplored Sector %s" (1385) where the empire hasn't
+  explored it, "Unclaimed Sector %s" (1382) where no empire claims it,
+  "Contested Sector %s" (187) where two or more do; one empire's claim is
+  taken to be "Sector %s" (1107) *(guessed)*. In the turn's blue
+  (24, 101, 189), in the box as its other text.
+- **The empire's scan strength there** ("Scan Strength %d", 1096), ending
+  6 pixels short of the box's right edge: yellow (255, 255, 0) for 5, red
+  (255, 0, 0) for -3. Reluva takes it to be yellow above 0 and red
+  otherwise *(guessed)*.
+
+Drawn so with the pointer where the zoomed-in screenshot has it, the line
+matches it pixel for pixel.
+
 ### Zooming
 
 The Map button (1002) opens the zoom's two buttons, `h_zoom.wdf` in its
@@ -165,9 +186,17 @@ for each task force from 147 down, 40 apart.
   bar is its button's picture (`h_info.tga`). Its text box (1018, at 45,
   140, `human15.fnt`) has three lines 17 pixels apart (the font's 16 and
   one): "TOTAL CREDITS" and the credits, "CREDITS PER TURN" and the
-  credits a turn with its sign, and the dilithium a turn with its sign,
+  credits a turn with its sign, and the dilithium a turn with its sign
+  (but "0", unsigned and in the words' orange, when there's none),
   "DILITHIUM" 6 pixels after it (so after "+1", and after "0" in another
-  screenshot), and the last turn's events, "No Events". The words are in
+  screenshot), and the last turn's events: "2 Events" (entry 310) in the
+  figures' green, ending where "No Events" (833) does, or "No Events" in
+  orange. The count is the empire's results in `result.lst`, but for a
+  new game's own fleets ([formats/sav.md](../formats/sav.md#results)):
+  "2 Events" in the three screenshots of games loaded from the first
+  turn's saves, "5 Events" at the eleventh turn, "No Events" from the
+  saves without the Federation's. A single event is taken to be "1 Event"
+  (297) *(guessed)*. The words are in
   orange (247, 121, 33), the figures in green (173, 227, 115), the
   figures ending 6 pixels short of the box's right edge; the words are
   `lexicon.dic`'s (entries 1361, 194, 239, 833). The figures are the
@@ -188,12 +217,13 @@ for each task force from 147 down, 40 apart.
   (`shiplist.sst`'s name: "Science Vessel", "Colony Ship"), in the order
   `GWTForce` lists them.
 
-Drawn so from the save, the panel matches the screenshot pixel for pixel,
-and the screenshot five turns on (2,449 credits, +92). Two screenshots
-of a game loaded from the first save show "2 Events", and one "0
-DILITHIUM" with a destroyer queued, where Reluva shows what the save holds
-and "No Events" *(not known yet: the events, and the dilithium the queue
-uses)*.
+Drawn so from the saves, the panel's information matches the screenshots
+of the eleventh turn and of the first turn's saves pixel for pixel. The
+first turn's own screenshot, of the game as it started rather than
+loaded, shows "No Events" where its save gives 2: Reluva always opens a
+save, and shows 2. A screenshot five turns on shows "0 DILITHIUM" with a
+destroyer queued, where Reluva shows the save's figure *(not known yet:
+the dilithium the queue uses)*.
 
 ### The strip
 
@@ -245,13 +275,29 @@ Measured on screenshots of Sol, Babel, Manark and a neutron star:
   their entries, by the files' and entries' names *(guessed)*.
   A nebula has no animation, and no strip is drawn for it yet.
 
+- **Bonuses:** an icon on a planet's frame's top, from its left edge: a
+  red flare (`bie.tga`) on a desert or volcanic planet (types 2 and 7)
+  with an energy bonus, a plant (`bif1.tga`) on an oceanic or terran one
+  (5 and 6) with a food bonus (`systInfo`, [formats/sav.md](../formats/sav.md)):
+  all 19 planets of Sol, Babel and Manark, Babel's terran planet, with no
+  food bonus, having none. Jungle planets (4) are taken to show the plant
+  *(guessed)*. A system with dilithium has a blue crystal (`bid.tga`) at
+  its star's top-left corner (Sol's). These pictures leave out their
+  top-left pixel's colour, black, as the map's do.
+- **The empire's emblem:** a system an empire holds has its emblem
+  (`i_h46.tga` for the Federation's) at the planets' place's top-left
+  corner (207, 477) under the planets, at 64% of its brightness: every
+  channel of Sol's emblem, at the 16-bit screen's 5 bits of red and blue
+  and 6 of green, is the picture's times 0.64, rounded down. The other
+  empires' are taken by their letters *(guessed)*.
+
 Not drawn yet: the growth rate and the orbitals' figures ("3.1%" and
 "0/0" for Sol at the first turn, "0.7%" for Babel), which no field of the
-save seen holds; the icons over some planets (a red flare, a green plant)
-and over Sol's star (a blue crystal, presumably its dilithium); the
-empire's emblem at the strip's left for its own systems; and the people's
-word for a race other than the Federation's (only "HUMANS" is in capitals
-in `lexicon.dic`).
+save seen holds; and the people's word for a race other than the
+Federation's (only "HUMANS" is in capitals in `lexicon.dic`). With
+those, the three systems' strips match their screenshots, each planet at
+one of its frames, but for the larger planets' and the stars' outermost
+pixels.
 
 ## In Reluva
 
@@ -260,8 +306,8 @@ player's empire's layout, and draws its frame, the map's backdrop, grid,
 the scanners' sectors, stars and names, the turn, and the empire's
 panel, and the selected sector's strip, turning. The engine opens it
 with the chosen slot's save from Load Game, or with `Auto.sav` from
-Continue; a click on the map selects a sector, and the Map button's two
-buttons zoom; Escape goes back to the main menu. The map is drawn on a
+Continue; a click on the map selects a sector, the sector under the
+pointer is named over it, and the Map button's two buttons zoom; Escape goes back to the main menu. The map is drawn on a
 surface the view's size, which cuts it there. The unit tests
 (`botf.unit.screens`: "galaxy") cover the sectors scanned and seen, where
 the backdrop, claims, stars, stellar objects, names, task forces and their
@@ -300,14 +346,14 @@ blend with what's under them.
 - What the ranges are and what sets them.
 - The Ferengi's and Cardassians' claims' dots, and whether a sector
   claimed by two empires shows both.
-- The line over the map naming the sector under the pointer ("Unclaimed
-  Sector I1", "Scan Strength 5").
+- The sector line's wording for a sector one empire claims, and the scan
+  strength's colour when it's high.
 - Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
 - When the zoom's buttons close, and which of them is lit.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the
   zoomed-in map scrolls (none is seen).
-- The strip's growth rate, orbitals and icons, the empire's emblem on it,
-  a nebula's strip, and the people's word for the other races.
+- The strip's growth rate and orbitals, a nebula's strip, and the
+  people's word for the other races.
 - The panel's events, and its dilithium with a ship queued; the words for
   the other missions; a task force's second line when it has several
   ships.

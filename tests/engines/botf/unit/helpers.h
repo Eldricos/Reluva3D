@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -66,9 +67,14 @@ Bytes makeLexicon(const std::vector<std::string> &words);
 /**
  * An archive as alt.res and the saved games are: the header named `name`,
  * each file's data as LZSS literals only (so read the same whatever the
- * window holds), and the directory.
+ * window holds), and the directory; the files named in `stored` are kept
+ * as they are, not LZSS (as a saved game's result.lst, in chunks).
  */
-Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::string, Bytes>> &files);
+Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::string, Bytes>> &files,
+                      const std::set<std::string> &stored = {});
+
+/** `raw` as LZSS that holds only literals, so it reads the same whatever the window holds. */
+Bytes lzssLiterals(const Bytes &raw);
 
 /** A saved game holding only a gameInfo with `description`, `turn` and the player's `empire`. */
 Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn, uint8_t empire = 1);

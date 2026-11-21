@@ -36,6 +36,15 @@ struct SavedPlanet {
     int size = 0;          // 0 small, 1 medium, 2 large
     int type = 0;          // the planet's type, a number (docs/engines/botf/formats/sav.md)
     int atmosphere = 0;    // its atmosphere, a number
+    /**
+     * Its food, energy and growth bonuses: 0 none, 310 some, 620 much
+     * (docs/engines/botf/formats/sav.md).
+     */
+    ///@{
+    int foodBonus = 0;
+    int energyBonus = 0;
+    int growthBonus = 0;
+    ///@}
     /** Terraforming: the points it needs and those done; it's terraformed once done reaches needed. */
     ///@{
     int terraformNeeded = 0;
@@ -215,12 +224,29 @@ using SavedResearch = std::array<std::array<int, 6>, 5>;
 Error readSavedResearch(const std::filesystem::path &path, SavedResearch &research);
 
 /** What the galaxy screen shows of a saved game. */
+/** One of the last turn's results (result.lst): an event an empire hears of. */
+struct SavedResult {
+    int race = 0; // race.rst's number of the empire it's for
+    /** Its kind: 0x100 economic, 0x200 ?, 0x300 military, 0x400 intelligence, 0x500 diplomatic. */
+    int kind = 0;
+    int content = 0;    // what its content says (docs/engines/botf/formats/sav.md)
+    int eventValue = 0; // a system's or ship's number, or -1; 0 for a new game's own fleets
+};
+
+/**
+ * Reads the last turn's results from the saved game at `path`: result.lst,
+ * in chunks, each LZSS-compressed on its own; none if it has no result.lst.
+ */
+Error readSavedResults(const std::filesystem::path &path, std::vector<SavedResult> &results);
+
+/** Everything read from a saved game. */
 struct SavedGame {
     SaveSummary summary;
     SavedGalaxy galaxy;
     std::array<SavedEmpire, 5> empires;
     std::vector<SavedShip> ships;
     std::vector<SavedTaskForce> taskForces;
+    std::vector<SavedResult> results;
 };
 
 /** Reads `game` from the saved game at `path`: each of its parts, as the functions above. */

@@ -280,6 +280,48 @@ void testSavedTaskForces(const std::filesystem::path &tmp) {
     CHECK(bool(readSavedResearch(tmp / "tech.sav", r)));
 }
 
+void testSavedResults(const std::filesystem::path &tmp) {
+    // result.lst: chunks of a 12-byte header (address, size, size stored)
+    // and LZSS; the count first, then each result's 40-byte header and its
+    // content.
+    Bytes lst;
+    auto chunk = [&](const Bytes &raw) {
+        const Bytes packed = lzssLiterals(raw);
+        put32(lst, uint32_t(lst.size() + 12));
+        put32(lst, uint32_t(raw.size()));
+        put32(lst, uint32_t(packed.size()));
+        lst.insert(lst.end(), packed.begin(), packed.end());
+    };
+    Bytes count;
+    put32(count, 2);
+    chunk(count);
+    auto result = [&](int16_t race, int16_t kind, int32_t value, int16_t content) {
+        Bytes h(40, 0);
+        h[4] = uint8_t(race);
+        h[8] = uint8_t(kind);
+        h[9] = uint8_t(kind >> 8);
+        set32(h, 16, uint32_t(value));
+        h[22] = uint8_t(content);
+        chunk(h);
+        chunk(Bytes(16, 0));
+    };
+    result(1, 0x300, -1, 4);
+    result(3, 0x100, 7, 31);
+    const auto path = tmp / "results.sav";
+    writeFile(path, makeLzssArchive("results", {{"result.lst", lst}}, {"result.lst"}));
+    std::vector<SavedResult> r;
+    CHECK(!readSavedResults(path, r) && r.size() == 2);
+    CHECK(r[0].race == 1 && r[0].kind == 0x300 && r[0].eventValue == -1 && r[0].content == 4);
+    CHECK(r[1].race == 3 && r[1].kind == 0x100 && r[1].eventValue == 7 && r[1].content == 31);
+    // A save without result.lst has no results; one whose chunk runs past
+    // its end is an error.
+    writeFile(path, makeSave("none", "x", 1));
+    CHECK(!readSavedResults(path, r) && r.empty());
+    lst.resize(lst.size() - 3);
+    writeFile(path, makeLzssArchive("results", {{"result.lst", lst}}, {"result.lst"}));
+    CHECK(readSavedResults(path, r));
+}
+
 void testSavedOrders(const std::filesystem::path &tmp) {
     // An order: a 32-byte head (id, turn, race, type at 0x10, the rest's
     // size at 0x1C), then the rest.
@@ -613,6 +655,7 @@ static const reluva::test::Suite kSuite(
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
         {"saved ships", [](const std::filesystem::path &tmp) { testSavedShips(tmp); }},
         {"animations", [](const std::filesystem::path &) { testAnimations(); }},
+        {"saved results", [](const std::filesystem::path &tmp) { testSavedResults(tmp); }},
         {"saved orders", [](const std::filesystem::path &tmp) { testSavedOrders(tmp); }},
         {"saved empires, fleets and research", [](const std::filesystem::path &tmp) { testSavedTaskForces(tmp); }},
         {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},

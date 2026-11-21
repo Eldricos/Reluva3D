@@ -17,6 +17,10 @@ namespace reluva::botf {
 
 namespace {
 
+// result.lst's chunks' headers, and its results' headers.
+constexpr size_t kChunkHeaderSize = 12;
+constexpr size_t kResultHeaderSize = 40;
+
 // gameInfo's fields used here, as the Ultimate Editor's GameInfo.java
 // gives them.
 constexpr size_t kDescriptionAt = 0x0D;
@@ -178,6 +182,9 @@ Error readSystems(const std::vector<uint8_t> &d, SavedGalaxy &g) {
             planet.size = s16(d, p + 0x38);
             planet.terraformNeeded = uint16_t(s16(d, p + 0x3A));
             planet.terraformDone = uint16_t(s16(d, p + 0x3C));
+            planet.foodBonus = s16(d, p + 0x3E);
+            planet.energyBonus = s16(d, p + 0x40);
+            planet.growthBonus = s16(d, p + 0x42);
             planet.type = d[p + 0x48];
             planet.atmosphere = d[p + 0x49];
             s.planets.push_back(std::move(planet));
@@ -419,6 +426,53 @@ Error readSavedOrders(const std::filesystem::path &path, std::vector<SavedOrder>
     return Error::success();
 }
 
+Error readSavedResults(const std::filesystem::path &path, std::vector<SavedResult> &results) {
+    results.clear();
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    const AltResArchive::Entry *entry = nullptr;
+    for (const AltResArchive::Entry &e : save.entries())
+        if (normalizeArchiveName(e.name) == normalizeArchiveName("result.lst"))
+            entry = &e;
+    // Without the file, there were no results.
+    if (!entry)
+        return Error::success();
+    std::vector<uint8_t> d;
+    if (Error err = save.readStored(*entry, d))
+        return err;
+    // Chunks: each the address it loads at, its size decoded and stored,
+    // then its LZSS data. The first holds the number of results; each
+    // result is a 40-byte header chunk and its content's chunks.
+    std::vector<std::vector<uint8_t>> chunks;
+    for (size_t at = 0; at + kChunkHeaderSize <= d.size();) {
+        const uint32_t size = uint32_t(s32(d, at + 4));
+        const uint32_t stored = uint32_t(s32(d, at + 8));
+        at += kChunkHeaderSize;
+        if (stored > d.size() - at)
+            return Error::fail(path.string() + ": result.lst's chunk runs past its end");
+        std::vector<uint8_t> &chunk = chunks.emplace_back();
+        if (Error err = decompressLzss(&d[at], stored, size, chunk))
+            return Error::fail(path.string() + ": result.lst: " + err.message);
+        at += stored;
+    }
+    if (chunks.empty() || chunks.front().size() < 4)
+        return Error::fail(path.string() + ": result.lst has no count");
+    const int count = s32(chunks.front(), 0);
+    for (size_t i = 1; i < chunks.size() && int(results.size()) < count; ++i) {
+        const std::vector<uint8_t> &c = chunks[i];
+        if (c.size() != kResultHeaderSize)
+            continue;
+        SavedResult r;
+        r.race = s16(c, 4);
+        r.kind = s16(c, 8);
+        r.eventValue = s32(c, 16);
+        r.content = s16(c, 22);
+        results.push_back(r);
+    }
+    return Error::success();
+}
+
 Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     game = SavedGame{};
     if (Error err = readSaveSummary(path, game.summary))
@@ -429,7 +483,9 @@ Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
         return err;
     if (Error err = readSavedShips(path, game.ships))
         return err;
-    return readSavedTaskForces(path, game.galaxy.width, game.taskForces);
+    if (Error err = readSavedTaskForces(path, game.galaxy.width, game.taskForces))
+        return err;
+    return readSavedResults(path, game.results);
 }
 
 } // namespace reluva::botf

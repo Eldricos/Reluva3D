@@ -23,11 +23,12 @@ None yet.
 - **A loaded game is only shown:** Load Game's Accept and Continue open
   the galaxy screen with the save's map, zoomed out or in, the empire's
   panel and the selected sector's strip (a click on the map selects
-  another), but its other buttons and playing the turn are still to come;
-  the Ferengi's and Cardassians' claims aren't drawn on the map, nor the
-  line naming the sector under the pointer. Escape goes back to the main menu. The strip leaves out a system's growth rate and orbitals,
-  the icons over its planets and star, and the people's word for races
-  other than the Federation's
+  another), but its other buttons and playing the turn are still to
+  come; the Ferengi's and Cardassians' claims aren't drawn on the map. A
+  new game's first turn shows "2 Events" where the game, before it's
+  saved, shows "No Events". Escape goes back to the main menu. The strip
+  leaves out a system's growth rate and orbitals, and the people's word
+  for races other than the Federation's
   ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
 - **No multiplayer:** Multiplayer Setup is there, but its Connect does
   nothing: Reluva can't play over a network, modem or serial cable yet,
