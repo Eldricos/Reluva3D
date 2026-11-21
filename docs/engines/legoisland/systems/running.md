@@ -114,8 +114,35 @@ that far.
   timing its movies by the clock). Each frame it also clears, renders and
   updates its 3D viewport, which draws nothing yet.
 - Run to 4,000 million instructions, it doesn't stop: 16,560 frames.
+- Played in the engine, a click skips the intro and it opens the
+  Information Center, its 2D room, which animates; run to 6,000 million
+  instructions, 69,716 frames, it doesn't stop. A click on the room's
+  right-hand door is taken (the window's messages, then
+  `IDirect3DRMViewport::Pick`, which finds nothing, as nothing's drawn)
+  and goes nowhere.
+- The settings it reads from `HKEY_LOCAL_MACHINE\SOFTWARE\Mindscape\LEGO Island`,
+  which `CONFIG.EXE` writes: `3D Device ID`, `3DSound`, `Back Buffers in
+  Video RAM`, `Display Bit Depth`, `Draw Cursor`, `Flip Surfaces`, `Full
+  Screen`, `Island Quality`, `Island Texture`, `JoystickIndex`, `Music`,
+  `UseJoystick`, `Wide View Angle`, `cdpath`, `diskpath`, `savepath`. The
+  yes-or-no ones are text, "YES" for yes *(inferred: the one literal
+  beside their names in both programs)*. Without them it uses its own
+  defaults.
 
 ## In Reluva
+
+**Playing it:** the engine (`src/engines/legoisland/legoisland.cpp`)
+starts a `Player` (`src/engines/legoisland/host/player.cpp`), which runs
+the program on a thread of its own, as its main loop never hands back
+control. The engine's thread shows each frame the program shows (its
+primary surface), and passes the player's input on: the pointer where it
+is in the game's picture, which fills the window's client area, its
+buttons and wheel, and keys, as window messages and DirectInput's state.
+The program's sound goes to the engine's mixer through the DirectSound
+stand-in. Closing the window asks first. The registry's `savepath` is
+the install folder, whose writes go to the game's save folder, so its
+saved games are kept with it *(inferred: what `CONFIG.EXE` writes there
+isn't known)*.
 
 `GameProcess` (`src/engines/legoisland/host/game_process.cpp`) loads and
 starts the program. `reluva-tool legoisland run <game folder>` runs it and
@@ -128,8 +155,9 @@ for), `-files` each file the program asks for, and
 `-every`th frame shown as a TGA file, `-at <address>` prints the
 registers, the stack's first words and any text they point to (or that a
 pointer they point to points to) each time the program gets to an
-address, and `-watch <address>,<bytes>` each store into memory there and
-where it was made. With `-log`, the file calls' handles, positions and
+address, `-watch <address>,<bytes>` each store into memory there and
+where it was made, and `-click <frame>@<x>,<y>` a left click at a point
+of the game's picture at a frame. With `-log`, the file calls' handles, positions and
 sizes are printed too. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
 instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 The engine doesn't run it yet: playing it waits for the stand-ins above.
@@ -147,8 +175,10 @@ The engine doesn't run it yet: playing it waits for the stand-ins above.
 
 ## Open questions
 
-- Where it keeps its saved games: it looks in `C:\`, perhaps for want of
-  a setting `CONFIG.EXE` writes.
+- What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
+  sets only `savepath` (and the installer's `cdpath`, `diskpath`).
+- Whether the Information Center's door answers a 2D control or a 3D
+  pick: clicked, it goes nowhere while `Pick` finds nothing.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of

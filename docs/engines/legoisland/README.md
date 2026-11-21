@@ -25,19 +25,29 @@ worlds' lists of animations ([formats/dta.md](formats/dta.md)), and the
 SI files' animations, models, textures and paths
 ([formats/obj.md](formats/obj.md)), whose models it draws and
 animations it plays in 3D, and their events
-([formats/si.md](formats/si.md#evt-an-event)). The game's own code
-loads in the x86 interpreter and starts, as far as asking for
-DirectSound, which it can't start without
-([systems/running.md](systems/running.md)). Run, it shows an empty
-screen. The plan is in [PLAN.md](PLAN.md).
+([formats/si.md](formats/si.md#evt-an-event)).
+
+**The game plays**, its own code run in the x86 interpreter
+([systems/running.md](systems/running.md)): it loads its world, plays its
+intro (a click skips it) with its sound, and opens the Information
+Center, which animates. Its 3D isn't drawn yet, so the Infomaniac and
+the island itself aren't seen, and what needs picking a 3D object
+doesn't answer: the Information Center's door, clicked, takes the player
+nowhere. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
-Nothing to play yet. *Import Game...* in the launcher, with the CD (or a
-copy of it), copies everything the game needs, 520 MB, into a folder of
-its own; started from an install folder, *Add CD or installed game...*
-adds the CD. *Add Game...* recognises an install folder as it is, but
-without the CD's scripts the game won't be able to run from it.
+*Import Game...* in the launcher, with the CD (or a copy of it), copies
+everything the game needs, 520 MB, into a folder of its own; started from
+an install folder, *Add CD or installed game...* adds the CD. *Add
+Game...* recognises an install folder as it is, but without the CD's
+scripts the game won't be able to run from it.
+
+**Playing:** start it from the launcher. The mouse and keyboard are the
+game's; a click skips the intro. Closing the window asks first, as what
+the game hasn't saved would be lost. Its saved games (`History.gsi`,
+`Players.gsi`) go to the game's own folder in Reluva's
+(`games/<name>/`).
 
 **The data viewer:** `reluva-viewer` with the game; Tab goes from page to
 page.

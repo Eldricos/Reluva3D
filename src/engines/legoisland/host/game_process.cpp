@@ -45,6 +45,10 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : _di
     // and the CD's drive.
     _process->setRegistryString(kRegistryKey, "diskpath", "C:\\PROGRA~1\\LEGOIS~1");
     _process->setRegistryString(kRegistryKey, "cdpath", "D:");
+    // Where it keeps its saved games (History.gsi, Players.gsi): without
+    // it, C:\, which isn't mapped. The install folder's writes go to the
+    // save folder.
+    _process->setRegistryString(kRegistryKey, "savepath", "C:\\PROGRA~1\\LEGOIS~1");
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directSound = std::make_unique<x86::DirectSound>(*_process);
     _retainedMode = std::make_unique<x86::Direct3DRM>(*_process, *_directX);

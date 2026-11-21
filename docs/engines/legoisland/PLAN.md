@@ -38,10 +38,13 @@ Each phase ends with something that runs, is tested and is committed.
    ([directsound.md](../../common/x86/directsound.md)), DirectX 5's
    Direct3D and Retained Mode ([d3drm.md](../../common/x86/d3drm.md))
    stood in for as far as it needs them so far.
-5. **DirectDraw and DirectSound** (next): the intro movie (it plays,
-   silently in the tool) and the Information Center, its pictures,
-   animations and speech; the engine playing the game, its sound on the
-   mixer through the DirectSound stand-in.
+5. **DirectDraw and DirectSound** (in progress): the engine plays the
+   game, its program on a thread of its own, its frames shown, input
+   passed on, its sound on the mixer through DirectSound: the intro (a
+   click skips it) and the Information Center, animating
+   ([systems/running.md](systems/running.md#in-reluva)). Next: the
+   Information Center answering clicks (its door goes nowhere yet, its
+   pick finding nothing), which may need phase 6's drawing.
 6. **Direct3D Retained Mode:** a stand-in for the part of it `LEGO1.DLL`
    uses (found by logging its calls), drawn by the existing software
    rasterizer: the island in 3D, driving, building a vehicle.

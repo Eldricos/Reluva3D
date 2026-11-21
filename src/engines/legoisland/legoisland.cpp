@@ -2,46 +2,121 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // LEGO Island: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine, which so far shows an empty
-// screen (docs/engines/legoisland/PLAN.md).
+// making an Engine to run one) and its Engine, which plays the game's own
+// program in the x86 interpreter (docs/engines/legoisland/systems/running.md).
 
+#include "audio/mixer.h"
+#include "common/fs.h"
+#include "common/settings.h"
 #include "engines/engine.h"
 #include "engines/legoisland/detection.h"
+#include "engines/legoisland/host/player.h"
+
+#include <cstdio>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace reluva::legoisland {
 
 namespace {
 
 /**
- * The game running: for now an empty screen until the player quits.
+ * The game running: its program played (Player), its frames shown, the
+ * player's input passed on, until it ends or the player leaves.
  */
 class LegoislandEngine : public Engine {
 public:
     LegoislandEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
-            return err;
-        _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
-        Surface screen;
-        screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
-        for (bool running = true; running;) {
-            Event ev;
-            while (_sys.pollEvent(ev))
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
-                    running = false;
-            _sys.updateScreen(screen);
-            _sys.delayMillis(1);
-        }
-        return Error::success();
+        if (!fs::findFile(_target.path, "ISLE.EXE") || !fs::findFile(_target.path, "LEGO1.DLL"))
+            return Error::fail("LEGO Island's program, ISLE.EXE and LEGO1.DLL, isn't in " + _target.path.string());
+        // Without an audio device nothing is heard; the game still plays.
+        _mixer = std::make_unique<audio::Mixer>(_sys.audioRate());
+        _mixer->setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        _audioOut = !audio::startMixerOutput(_sys, *_mixer);
+        struct AudioStop {
+            System &sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{_sys, _audioOut};
+        return play();
     }
 
 private:
-    static constexpr int kWidth = 640;
-    static constexpr int kHeight = 480;
+    Error play() {
+        Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
+        player.start();
+        int width = 640;
+        int height = 480;
+        auto screen = [&] {
+            _sys.initGraphics(width, height, PixelFormat::kRGBA32);
+            _screen.create(width, height, PixelFormat::kRGBA32);
+        };
+        screen();
+        _sys.setWindowTitle("Reluva - " + _target.description);
+        _sys.updateScreen(_screen); // black while it loads
+        std::vector<uint32_t> pixels;
+        while (true) {
+            Event ev;
+            while (_sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
+                    if (confirmQuit(ev.type == EventType::kReturnToLauncher))
+                        return Error::success();
+                    continue;
+                }
+                player.input(ev);
+            }
+            int w = 0;
+            int h = 0;
+            if (player.frame(pixels, w, h)) {
+                if (w != width || h != height) {
+                    width = w;
+                    height = h;
+                    screen();
+                }
+                // 0xAARRGGBB to R, G, B, A in memory.
+                for (int y = 0; y < height; ++y) {
+                    uint8_t *row = _screen.row(y);
+                    for (int x = 0; x < width; ++x, row += 4) {
+                        const uint32_t v = pixels[size_t(y) * size_t(width) + size_t(x)];
+                        row[0] = uint8_t(v >> 16);
+                        row[1] = uint8_t(v >> 8);
+                        row[2] = uint8_t(v);
+                        row[3] = 255;
+                    }
+                }
+                _sys.updateScreen(_screen);
+            }
+            if (const std::string out = player.takeOutput(); !out.empty())
+                std::fputs(out.c_str(), stderr);
+            bool ended = false;
+            std::string error;
+            if (player.finished(ended, error))
+                return error.empty() ? Error::success() : Error::fail(_target.description + " stopped: " + error);
+            _sys.delayMillis(5);
+        }
+    }
+
+    // Whether to leave after the window was closed (or, `toLauncher`, the
+    // launcher was asked for): the player is asked, as what the game hasn't
+    // saved would be lost.
+    bool confirmQuit(bool toLauncher) {
+        return _sys.confirmQuit(_target.description +
+                                    " is still running. What the game hasn't saved will be lost.\n\n" +
+                                    (toLauncher ? "Return to the launcher anyway?" : "Quit anyway?"),
+                                toLauncher);
+    }
+
     System &_sys;
     GameTarget _target;
+    Surface _screen;
+    std::unique_ptr<audio::Mixer> _mixer;
+    bool _audioOut = false;
 };
 
 /**

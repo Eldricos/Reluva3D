@@ -48,7 +48,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes]\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]...\n");
         return 2;
     }
     bool log = false;
@@ -61,6 +61,13 @@ int cmdRun(int argc, char **argv) {
     std::string shotsDir;
     std::vector<uint32_t> at;
     uint32_t watchFrom = 0;
+    // -click: at a frame, a left click at a point of the game's picture.
+    struct Click {
+        uint64_t frame;
+        int x;
+        int y;
+    };
+    std::vector<Click> clicks;
     uint32_t watchBytes = 0;
     uint64_t every = 25;
     for (int a = 3; a < argc; ++a) {
@@ -80,7 +87,11 @@ int cmdRun(int argc, char **argv) {
             memoryMb = uint32_t(std::atoi(argv[++a]));
         else if (arg == "-save" && a + 1 < argc)
             saveDir = argv[++a];
-        else if (arg == "-watch" && a + 1 < argc) {
+        else if (arg == "-click" && a + 1 < argc) {
+            Click k{};
+            if (std::sscanf(argv[++a], "%llu@%d,%d", reinterpret_cast<unsigned long long *>(&k.frame), &k.x, &k.y) == 3)
+                clicks.push_back(k);
+        } else if (arg == "-watch" && a + 1 < argc) {
             char *rest = nullptr;
             watchFrom = uint32_t(std::strtoul(argv[++a], &rest, 0));
             watchBytes = rest && *rest == ',' ? uint32_t(std::strtoul(rest + 1, nullptr, 0)) : 4;
@@ -114,6 +125,22 @@ int cmdRun(int argc, char **argv) {
     }
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
         frames++;
+        // A click: pressed at its frame, let go at the next, where the
+        // picture is in its window's client area.
+        for (const Click &k : clicks) {
+            if (frames != k.frame && frames != k.frame + 1)
+                continue;
+            int left = 0;
+            int top = 0;
+            if (const auto area = process.clientArea(process.mainWindow())) {
+                left = (*area)[0];
+                top = (*area)[1];
+            }
+            process.mouseMoveTo(left + k.x, top + k.y);
+            process.mouseButton(0, frames == k.frame);
+            std::printf("[click] %s at %d,%d, frame %llu\n", frames == k.frame ? "down" : "up", k.x, k.y,
+                        static_cast<unsigned long long>(frames));
+        }
         if (shotsDir.empty() || (frames - 1) % every != 0 || f.width <= 0 || f.height <= 0)
             return;
         image::Image picture;
@@ -197,6 +224,9 @@ int cmdRun(int argc, char **argv) {
         for (const char *f : {"!_llseek", "!_hread", "!_lread", "!ReadFile", "!SetFilePointer"})
             if (name.size() > std::strlen(f) && name.compare(name.size() - std::strlen(f), std::strlen(f), f) == 0)
                 std::printf(" (%x, %x, %x)", c.arg(0), c.arg(1), c.arg(2));
+        // A registry value's name: which settings the program reads.
+        if (name == "ADVAPI32.dll!RegQueryValueExA" && c.valid(c.arg(1), 1))
+            std::printf(" \"%s\"", c.string(c.arg(1), 64).c_str());
         // Which interface is asked for: the next one to stand in for, when refused.
         if (name.size() > 16 && name.compare(name.size() - 16, 16, "::QueryInterface") == 0)
             std::printf(" %s", x86::ComHost::guid(c, c.arg(1)).c_str());

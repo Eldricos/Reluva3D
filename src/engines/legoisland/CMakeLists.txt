@@ -12,6 +12,7 @@ reluva_add_engine(legoisland
         formats/si.cpp
         formats/wdb.cpp
         host/game_process.cpp
+        host/player.cpp
         legoisland.cpp)
 
 # Its data viewer, in reluva-viewer only (docs/DEVELOPMENT.md, The data

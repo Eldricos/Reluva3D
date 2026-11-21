@@ -21,7 +21,11 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-None yet.
+- **The 3D isn't drawn,** and nothing is picked in it: the island, the
+  characters and the Infomaniac aren't seen, and what a click on a 3D
+  object does doesn't happen ([systems/running.md](systems/running.md)).
+- **The setup dialog's settings** (`CONFIG.EXE`) aren't offered: the game
+  uses its own defaults, but for where it saves.
 
 ## Additions outside the game
 
