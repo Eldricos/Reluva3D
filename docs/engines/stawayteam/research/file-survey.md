@@ -188,6 +188,17 @@ only when `Name` applies *(guessed)*.
   `Sounds/`, voices in `Character/Sounds/` and `Levels/Voice Overs/`.
 - **`.wav`:** one.
 
+27 of the `.ogg` files, one in every 60 in the archive's order and two
+songs, checked with `ffprobe` and stb_vorbis (v1.22):
+
+- 22,050 Hz, stereo for the music, mono for voices and effects.
+- Made with the pre-1.0 Vorbis encoder: each file's comment header names
+  `Xiphophorus libVorbis I 20001031` (most) or `... 20010119`.
+- Every one uses floor 0, the Vorbis floor encoders used before 1.0:
+  stb_vorbis refuses all 27 (`VORBIS_feature_not_supported`, its error
+  for floor 0), while FFmpeg's decoder plays them. A decoder for this
+  game needs floor 0.
+
 ### Movies
 
 Bink, revision `i` (`BIKi`) in the two checked (`Paramount.bik`,
