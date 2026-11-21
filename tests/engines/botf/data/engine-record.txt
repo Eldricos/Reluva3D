@@ -29,7 +29,7 @@ setup.with the options: dc7d236f73952b21
 menu.last: 3650ee45940809d6
 load.shown: ccb64e6af37a6459
 load.empty slot clicked: ccb64e6af37a6459
-load.save chosen: a63512431a6b674e
+load.save chosen: 104714f0fb46fcd5
 menu.after loading: 3650ee45940809d6
 fame.shown: b9c59ecb83c3a745
 menu.after the hall of fame: 3650ee45940809d6

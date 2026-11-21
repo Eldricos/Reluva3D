@@ -240,8 +240,26 @@ game."
   before a slot is chosen matches Reluva's pixel for pixel but the
   pointer: Accept dimmed, the tutorials in the first four slots.
 - **The chosen slot** lights (its second picture, framed in yellow), and
-  its file's name and description turn pink, (239, 182, 198), measured
-  from a screenshot. A slot with a saved game keeps its description when
+  its file's name and description take a lighter colour of their empire's,
+  each empire its own (a recording by the user choosing a save of each):
+
+  | Empire | Chosen |
+  |---|---|
+  | Cardassians | (255, 219, 156), pale yellow |
+  | Federation | (255, 154, 41), orange |
+  | Ferengi | (189, 199, 90), yellow green |
+  | Klingons | (214, 178, 255), lavender |
+  | Romulans | (239, 182, 198), pink |
+
+  The Romulans' is measured from screenshots (a tutorial chosen; and an
+  empty slot chosen on Save Game, so presumably a Romulan game's). The others are from the recording,
+  whose colours run lighter and greyer: mapped back by a line fitted, for
+  each channel, through the slots' own colours as the recording and a
+  screenshot show them, which puts the Romulans' within 9 of the
+  screenshot's. They're within about ten *(inferred)*. An empty slot takes
+  the game to save's empire's colours; a saved game's slot keeps its
+  game's until Accept saves over it (the user, in the game). Loading, the
+  chosen slot takes its save's empire's. A slot with a saved game keeps its description when
   chosen ("Tutorial #1" stays, seen in the game), to be typed over. An
   empty slot is filled with the game's: its empire, the turns passed, the
   galaxy's size and shape, and "Galaxy", as "Ferengi 0 Medium Ring
@@ -251,15 +269,17 @@ game."
   as `gameInfo` counts it, 0 the first. Typing changes it, and Backspace
   takes the last character away; only characters the
   field's font has (all in Windows-1252, as `gameInfo` keeps them), up to
-  50 and the field's 370 pixels. Reluva takes what's typed whichever field
-  was clicked *(guessed)*.
+  50 and the field's 370 pixels. Only the description can be typed in:
+  the name can't be edited (the user, in the game), though the manual
+  says a click on either chooses the slot.
 - **The cursor** is a white block, 8 pixels wide and as high as the
   font's glyphs (15), just after the description's last glyph, and
   flashes. In the screenshot, with "You can type here" typed, Reluva's
   matches it pixel for pixel, as does the whole screen but the pointer.
   It's shown 0.3 seconds and hidden 0.3 seconds: a recording of the
   Multiplayer Setup screen's, frame by frame, 9 frames of 30 each time.
-- **Loading,** the chosen slot's text is pink too, and Accept lit: a
+- **Loading,** the chosen slot's text is its empire's chosen colour too,
+  and Accept lit: a
   screenshot with the first tutorial chosen matches Reluva's pixel for
   pixel but the pointer.
 - **Accept** saves into the slot, its old game, if any, replaced; Cancel

@@ -457,19 +457,27 @@ void testLoadSaveScreen() {
     screen.draw(surface);
     CHECK(!white(cursorX, 126));
     // A saved game's slot is its empire's colour, the Klingons' red (255,
-    // 24, 33) in slot 3, the Romulans' teal in slot 0; the chosen one pink
-    // (239, 182, 198); the font's shading aside.
+    // 24, 33) in slot 3, the Romulans' teal in slot 0; the chosen one the
+    // lighter colour, here the Romulans' pink (239, 182, 198), the game to
+    // save's empire not being given; the font's shading aside.
     auto any = [&](int top, auto test) {
         for (int y = top; y < top + 25; ++y)
             for (int x = 0; x < 800; ++x)
-                if (const uint8_t *p = surface.row(y) + size_t(x) * 4; test(p[0], p[1]))
+                if (const uint8_t *p = surface.row(y) + size_t(x) * 4; test(p[0], p[1], p[2]))
                     return true;
         return false;
     };
-    auto red = [](int r, int g) { return r > 0 && g * 4 < r; };
-    auto pink = [](int r, int g) { return r > 0 && g * 2 > r; };
+    auto red = [](int r, int g, int) { return r > 0 && g * 4 < r; };
+    auto pink = [](int r, int g, int b) { return r > 0 && g * 2 > r && b > g; };
+    auto lavender = [](int r, int, int b) { return r > 0 && b > r; };
     CHECK(any(100 + 25 * 3, red) && !any(100 + 25 * 3, pink));
     CHECK(any(100 + 25, pink) && !any(100 + 25, red) && !any(100, red));
+    // The Klingons' chosen colour is lavender (214, 178, 255).
+    slot(3);
+    std::fill(surface.pixels.begin(), surface.pixels.end(), uint8_t(0));
+    screen.draw(surface);
+    CHECK(any(100 + 25 * 3, lavender) && !any(100 + 25 * 3, red));
+    slot(1);
     CHECK(click(20, 555) == LoadSaveScreen::Result::kAccepted && screen.chosen() == 1);
 }
 

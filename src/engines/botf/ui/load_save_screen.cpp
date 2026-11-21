@@ -23,17 +23,17 @@ constexpr int32_t kFirstDescription = 9530; // 9530, 9532 ... 9552
 constexpr int32_t kTitle = 9505;
 constexpr const char *kLoadTitle = "ls_ldlb.tga";
 
-// The slots' text, and the chosen slot's, measured from screenshots of the
-// game: not their fonts' colours.
-constexpr Color kTextColor{0, 166, 156};
-constexpr Color kChosenColor{239, 182, 198};
-
-// Each empire's, Cardassians to Romulans, measured from a screenshot of Load
-// Game with a save of each; teal for a save whose empire isn't known.
+// The slots' text in each empire's colour, Cardassians to Romulans, not
+// their fonts': measured from a screenshot of Load Game with a save of each.
 constexpr Color kEmpireColors[] = {{0, 134, 165}, {99, 77, 181}, {214, 32, 66}, {255, 24, 33}, {0, 166, 156}};
+// The chosen slot's, the empire's lighter colour: the Romulans' from
+// screenshots, the others' from a recording, to within about ten.
+constexpr Color kChosenColors[] = {{255, 219, 156}, {255, 154, 41}, {189, 199, 90}, {214, 178, 255}, {239, 182, 198}};
+constexpr int kRomulans = 4; // the colours for a save whose empire isn't known
 
-Color empireColor(int empire) {
-    return empire >= 0 && empire < 5 ? kEmpireColors[empire] : kTextColor;
+Color empireColor(int empire, bool chosen) {
+    const int e = empire >= 0 && empire < 5 ? empire : kRomulans;
+    return chosen ? kChosenColors[e] : kEmpireColors[e];
 }
 
 int32_t slotButton(int slot) {
@@ -69,10 +69,11 @@ Error LoadSaveScreen::load() {
                         kFirstName + 2 * (kSlots - 1), kFirstDescription, kFirstDescription + 2 * (kSlots - 1)});
 }
 
-void LoadSaveScreen::open(const Slots &slots, Mode mode, const std::string &description) {
+void LoadSaveScreen::open(const Slots &slots, Mode mode, const std::string &description, int empire) {
     _slots = slots;
     _mode = mode;
     _newDescription = description;
+    _newEmpire = empire;
     _description.clear();
     _chosen = -1;
     _pressed = 0;
@@ -143,9 +144,9 @@ void LoadSaveScreen::draw(Surface &screen) const {
         const int32_t name = kFirstName + 2 * i;
         const int32_t description = kFirstDescription + 2 * i;
         // The name field shows the slot's file, as the game names it. The
-        // chosen slot's text is pink, the others' their player's empire's
-        // colour.
-        const Color color = i == _chosen ? kChosenColor : save ? empireColor(save->empire) : kTextColor;
+        // text is in the colours of the saved game's empire, an empty slot's
+        // the game to save's, even when saving over another empire's game.
+        const Color color = empireColor(save ? save->empire : _newEmpire, i == _chosen);
         drawText(screen, name, "game" + std::to_string(i) + ".sav", color);
         drawText(screen, description, saving ? _description : save->description, color);
         if (saving && _cursorShown)

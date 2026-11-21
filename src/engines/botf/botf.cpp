@@ -254,7 +254,8 @@ public:
                     if (c == MainMenu::Choice::kSaveGame) {
                         loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kSave,
                                      saveDescription(_lexicon, std::max(empires.chosen(), 0), 0, lastSetup.galaxySize,
-                                                     lastSetup.galaxyShape));
+                                                     lastSetup.galaxyShape),
+                                     std::max(empires.chosen(), 0));
                         _sys.setTextInput(true);
                         showing = Showing::kLoad;
                         audio.play(MenuAudio::Move::kToSave);

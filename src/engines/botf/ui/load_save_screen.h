@@ -50,14 +50,16 @@ public:
      * chosen; saving, the slot chosen keeps its saved game's description,
      * or an empty one shows `description` (UTF-8), the game's to save
      * (saveDescription()), either to be typed over.
+     * @param empire saving, the game to save's empire, whose colour an empty
+     *        slot's text takes when chosen; -1 if not known
      */
-    void open(const Slots &slots, Mode mode, const std::string &description = {});
+    void open(const Slots &slots, Mode mode, const std::string &description = {}, int empire = -1);
     void draw(Surface &screen) const;
     /**
      * Mouse clicks: a slot chooses it, Accept takes the chosen one (and is
      * dimmed until one is), Cancel goes back; Return/Escape for
      * Accept/Cancel. Saving, typed text (kTextInput) and Backspace edit the
-     * description, as far as it fits its field.
+     * description, as far as it fits its field; the name can't be edited.
      */
     Result handle(const Event &event);
 
@@ -73,6 +75,7 @@ private:
     Mode _mode = Mode::kLoad;
     std::string _description;
     std::string _newDescription; // saving: an empty slot's description at first
+    int _newEmpire = -1;         // saving: the game to save's empire
     int _chosen = -1;
     bool _cursorShown = true;
 };
