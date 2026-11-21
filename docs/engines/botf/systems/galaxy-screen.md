@@ -43,14 +43,21 @@ pixel, but for the pointer.
 Measured on the screenshot, a small galaxy of 13 by 10 sectors:
 
 - **The grid:** sectors 39 pixels square, in the middle of the map's
-  place (from 258, 36), with lines of (0, 0, 8) between them.
+  place (from 258, 36), with dark lines between them. Their pixels, nearly
+  black and blue, don't follow the backdrop's under them, nor any picture
+  found; Reluva draws them in (0, 0, 8), most of them within the 16-bit
+  screen's rounding.
 - **The backdrop**, `hm_glmap.tga` (526x391, the map's size), is drawn
-  from the grid's corner, 9 pixels into the map's place, and cut to it:
-  so its right edge is hidden and the place's left 9 pixels are blank
-  there.
+  from the grid's corner, 9 pixels into the map's place, and cut to the
+  grid: beyond its right and bottom edges the place stays as the screen's
+  background has it. Between the lines it matches the screenshot pixel
+  for pixel where the scanners don't reach.
 - **What the empire's scanners reach:** at the first turn the 3 by 3
-  sectors round Sol, darker, the backdrop at about a fifth of its
-  brightness, with the grid dotted in (24, 73, 173). The save doesn't hold
+  sectors round Sol, darker, with the grid dotted in (24, 73, 173). Their
+  pixels don't follow the backdrop's either: about a third as bright on
+  average, but not pixel by pixel. Reluva darkens the backdrop to a fifth,
+  which brings 72% of their pixels within 12 of the game's *(guessed: the
+  game's way isn't known)*. The save doesn't hold
   it: its explored flags have only Sol's sector. Reluva counts a sector
   round each of the empire's systems and task forces *(inferred: the
   ranges of scanners, and of ships, are the data tables')*.
@@ -64,6 +71,22 @@ Measured on the screenshot, a small galaxy of 13 by 10 sectors:
 - **Names:** a system the empire has explored has its name under its
   star, centred, in `human9.fnt`, in (0, 251, 255): Sol's, but not
   Thelka's or Ramatis', which are only in range.
+
+- **Ranges:** green, yellow and red lines, a pixel wide, along the sector
+  edges round what's within a short, medium and long range of the
+  empire's systems, the shorter drawn over the longer, closed by the
+  grid's edges. A sector counts as within a range when the larger of its
+  column and row distances from Sol, and half the smaller rounded down,
+  add up to no more than 1 (green), 2 (yellow) or 5 (red): that gives
+  every border edge on the screenshot, the red's staircase included
+  *(inferred: why those ranges, presumably the empire's ships' reach,
+  isn't known)*. In (0, 255, 0), (255, 255, 0), (255, 0, 0).
+- **The selected system:** a square in (247, 125, 0), a pixel inside its
+  sector's lines; Sol is selected at the start.
+- **Task forces:** the empire's small emblem, `i_hi18.tga` (17x21), a pixel
+  right of the sector's corner and a pixel above it, once for the sector,
+  drawn over the square. (Other screenshots of the map are zoomed in,
+  with larger sectors, stars and emblems: zooming is still to do.)
 
 ### The empire's panel
 
@@ -117,10 +140,9 @@ Continue; Escape goes back to the main menu. The unit tests
 (`botf.unit.screens`: "galaxy") cover the scanners' range, where stars and
 names are drawn, and the panel's parts.
 
-Not drawn yet, all in the screenshot: the task forces on the map (the
-Federation's emblem in the corner of Sol's sector), the orange box round
-the selected sector, the coloured borders of the ships' ranges (green,
-yellow and red), and the selected system along the bottom.
+Not drawn yet: the selected system along the bottom. Drawn so, the map
+matches the screenshot but for the grid lines' and the scanned sectors'
+shading.
 
 ## Sources and checks
 
@@ -138,6 +160,9 @@ yellow and red), and the selected system along the bottom.
 - How far an empire's scanners reach, and why only Sol's sector is
   explored: the systems' and ships' scan ranges (`shiplist.sst`), and
   when a sector counts as explored.
+- What the ranges are and what sets them, and the grid lines' and
+  scanned sectors' shading.
+- Zooming: the other screenshots' sectors, stars and emblems.
 - The grid lines' exact shade, which varies a little with the backdrop
   in the screenshot.
 - Larger galaxies: whether the map scrolls, and how zooming changes the

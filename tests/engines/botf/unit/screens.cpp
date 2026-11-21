@@ -854,6 +854,7 @@ void testGalaxyScreen() {
     archive.files["human15.fnt"] = makeFont(16);
     archive.files["i_k26.tga"] = image::encodeTga(star);
     archive.files["i_h26.tga"] = image::encodeTga(star);
+    archive.files["i_hi18.tga"] = image::encodeTga(star);
     archive.files["s-y-maps.tga"] = image::encodeTga(star);
     archive.files["human9.fnt"] = makeFont(10);
     archive.files["human28.fnt"] = makeFont(29);
@@ -936,6 +937,28 @@ void testGalaxyScreen() {
     CHECK(white(28 + 109 + 8, 110 + 90 + 2) && white(28 + 109 + 17, 110 + 90 + 11) && !white(28 + 109 + 7, 202));
     CHECK(white(28 + 15 + 10, 110 + 147 + 5) && !white(28 + 15 + 9, 110 + 147 + 5));
     CHECK(lit(94, 260, 190, 276));
+    // The ranges round Sol: green a sector round it, yellow two (but not
+    // two across and two down: the larger distance and half the smaller),
+    // red five; the shorter drawn over the longer.
+    auto colour = [&](int x, int y, uint8_t r, uint8_t gr, uint8_t b) {
+        const uint8_t *p = s.row(y) + size_t(x) * 4;
+        return p[0] == r && p[1] == gr && p[2] == b;
+    };
+    const int gx = 258;
+    const int gy = 36;
+    CHECK(colour(gx + 10 * 39 + 20, gy + 7 * 39, 0, 255, 0) && colour(gx + 9 * 39, gy + 8 * 39 + 20, 0, 255, 0));
+    CHECK(colour(gx + 10 * 39 + 20, gy + 6 * 39, 255, 255, 0) && colour(gx + 8 * 39, gy + 7 * 39 + 20, 255, 255, 0));
+    CHECK(colour(gx + 8 * 39 + 20, gy + 7 * 39, 255, 255, 0) && !colour(gx + 8 * 39 + 20, gy + 6 * 39, 255, 255, 0));
+    CHECK(colour(gx + 5 * 39, gy + 8 * 39 + 20, 255, 0, 0) && colour(gx + 10 * 39 + 20, gy + 3 * 39, 255, 0, 0));
+    // The grid's bottom edge closes them: green under Sol's column.
+    CHECK(colour(gx + 10 * 39 + 20, gy + 10 * 39, 0, 255, 0));
+    // Sol selected: an orange square just inside its sector's lines.
+    CHECK(colour(gx + 10 * 39 + 1, gy + 8 * 39 + 20, 247, 125, 0) &&
+          colour(gx + 10 * 39 + 20, gy + 9 * 39 - 1, 247, 125, 0));
+    CHECK(!colour(gx + 10 * 39 + 2, gy + 8 * 39 + 20, 247, 125, 0));
+    // The task force's emblem, a pixel right of its sector's corner and one
+    // above.
+    CHECK(white(gx + 5 * 39 + 1, gy + 5 * 39 - 1) && !white(gx + 5 * 39, gy + 5 * 39 - 1));
 }
 
 void testEmpireScreen() {

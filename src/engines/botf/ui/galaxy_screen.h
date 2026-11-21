@@ -40,6 +40,7 @@ public:
 
 private:
     void drawMap(Surface &screen) const;
+    void drawRanges(Surface &screen, int gx, int gy) const;
     void drawPanel(Surface &screen) const;
     void drawTaskForcesBar(Surface &screen) const;
     std::string missionWord(int mission) const;
@@ -52,10 +53,12 @@ private:
     int _infoPanel = -1;
     int _emblemsPanel = -1;
     int _taskForcesPanel = -1;
-    int _taskForceRow = -1;                 // drawn once for each task force
-    std::string _taskForcesBack;            // the task forces' bar's backing picture
-    char _letter = 'h';                     // the empire's letter in its files' names
-    std::set<std::pair<int, int>> _scanned; // column, row
+    int _taskForceRow = -1;                         // drawn once for each task force
+    std::string _taskForcesBack;                    // the task forces' bar's backing picture
+    char _letter = 'h';                             // the empire's letter in its files' names
+    std::set<std::pair<int, int>> _scanned;         // column, row
+    std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems
+    std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
 };
 
 } // namespace reluva::botf

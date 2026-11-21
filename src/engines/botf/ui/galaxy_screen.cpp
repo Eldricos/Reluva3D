@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <iterator>
+#include <set>
 #include <string>
 
 namespace reluva::botf {
@@ -61,6 +63,22 @@ constexpr int kStarOffset = -3;
 constexpr Color kGridColor{0, 0, 8};            // the lines outside the scanners' range
 constexpr Color kScannedGridColor{24, 73, 173}; // dotted, inside it
 constexpr Color kNameColor{0, 251, 255};
+constexpr Color kSelectedColor{247, 125, 0};
+// The zoomed-out fleet emblem's place: a pixel right of its sector's
+// corner and a pixel above it.
+constexpr int kFleetX = 1;
+constexpr int kFleetY = -1;
+
+// The ranges' borders, measured on the screenshot: round the empire's
+// systems, a sector counting as within a range when the larger of its
+// column and row distances, and half the smaller (rounded down), add up to
+// no more than the range (which fits every sector on the first turn's
+// screenshot, from Sol).
+struct Range {
+    int sectors;
+    Color color;
+};
+constexpr Range kRanges[] = {{1, {0, 255, 0}}, {2, {255, 255, 0}}, {5, {255, 0, 0}}};
 constexpr Color kTurnColor{24, 101, 189};
 
 // The empires' letters in their files' names, Cardassians to Romulans.
@@ -126,6 +144,18 @@ void GalaxyScreen::open(SavedGame game) {
     for (const SavedTaskForce &t : _game.taskForces)
         if (t.owner == _empire)
             around(t.x, t.y);
+    // The ranges are round the empire's systems; the first of them is
+    // selected at the start (Sol, the only one on the first turn).
+    _rangeCentres.clear();
+    _selected = {-1, -1};
+    for (int y = 0; y < _game.galaxy.height; ++y)
+        for (int x = 0; x < _game.galaxy.width; ++x)
+            if (const int sys = _game.galaxy.at(x, y).system;
+                sys >= 0 && _game.galaxy.systems[size_t(sys)].controllingRace == _empire) {
+                _rangeCentres.push_back({x, y});
+                if (_selected.first < 0)
+                    _selected = {x, y};
+            }
 }
 
 void GalaxyScreen::draw(Surface &screen) const {
@@ -220,6 +250,35 @@ void GalaxyScreen::drawPanel(Surface &screen) const {
     }
 }
 
+void GalaxyScreen::drawRanges(Surface &screen, int gx, int gy) const {
+    // Each range's border: a line along every sector edge between a sector
+    // in it and one out of it (or the grid's edge), the shorter ranges over
+    // the longer.
+    const SavedGalaxy &g = _game.galaxy;
+    for (size_t r = std::size(kRanges); r-- > 0;) {
+        auto in = [&](int x, int y) {
+            if (x < 0 || y < 0 || x >= g.width || y >= g.height)
+                return false;
+            for (const auto &[cx, cy] : _rangeCentres) {
+                const int dx = std::abs(x - cx);
+                const int dy = std::abs(y - cy);
+                if (std::max(dx, dy) + std::min(dx, dy) / 2 <= kRanges[r].sectors)
+                    return true;
+            }
+            return false;
+        };
+        for (int y = 0; y <= g.height; ++y)
+            for (int x = 0; x <= g.width; ++x) {
+                if (in(x, y) != in(x, y - 1) && x < g.width)
+                    for (int k = 0; k <= kSector; ++k)
+                        put(screen, gx + x * kSector + k, gy + y * kSector, kRanges[r].color);
+                if (in(x, y) != in(x - 1, y) && y < g.height)
+                    for (int k = 0; k <= kSector; ++k)
+                        put(screen, gx + x * kSector, gy + y * kSector + k, kRanges[r].color);
+            }
+    }
+}
+
 std::string GalaxyScreen::missionWord(int mission) const {
     // The two the first turn's task forces have (lexicon.dic's).
     switch (mission) {
@@ -241,8 +300,11 @@ void GalaxyScreen::drawMap(Surface &screen) const {
     const int right = map->x + map->widget->w;
     const int bottom = map->y + map->widget->h;
     if (const image::Image *backdrop = _assets.picture(std::string(1, _letter) + "m_glmap.tga"))
-        blitClipped(screen, *backdrop, gx, gy, map->x, map->y, map->widget->w, map->widget->h);
-    // The scanners' sectors are the backdrop darkened to a fifth.
+        blitClipped(screen, *backdrop, gx, gy, std::max(gx, map->x), std::max(gy, map->y),
+                    std::min(_game.galaxy.width * kSector + 1, right - gx),
+                    std::min(_game.galaxy.height * kSector + 1, bottom - gy));
+    // The scanners' sectors are darker. The game's pixels there don't follow
+    // the backdrop's; the backdrop at a fifth comes nearest (guessed).
     for (const auto &[sx, sy] : _scanned)
         for (int y = gy + sy * kSector; y < gy + (sy + 1) * kSector && y < bottom; ++y)
             for (int x = gx + sx * kSector; x < gx + (sx + 1) * kSector && x < right; ++x) {
@@ -291,6 +353,25 @@ void GalaxyScreen::drawMap(Surface &screen) const {
             }
         if (font && (_game.galaxy.at(sx, sy).explored >> _empire & 1))
             font->drawInColor(screen, x + star->w / 2 - font->measure(sys.name) / 2, y + star->h, sys.name, kNameColor);
+    }
+    drawRanges(screen, gx, gy);
+    // The selected system: an orange square just inside its sector's lines.
+    if (_selected.first >= 0)
+        for (int k = 1; k < kSector; ++k) {
+            const int x0 = gx + _selected.first * kSector;
+            const int y0 = gy + _selected.second * kSector;
+            put(screen, x0 + k, y0 + 1, kSelectedColor);
+            put(screen, x0 + k, y0 + kSector - 1, kSelectedColor);
+            put(screen, x0 + 1, y0 + k, kSelectedColor);
+            put(screen, x0 + kSector - 1, y0 + k, kSelectedColor);
+        }
+    // The empire's task forces: its small emblem at their sector's corner,
+    // one for the sector however many there are.
+    if (const image::Image *icon = _assets.picture(std::string("i_") + _letter + "i18.tga")) {
+        std::set<std::pair<int, int>> drawn;
+        for (const SavedTaskForce &t : _game.taskForces)
+            if (t.owner == _empire && drawn.insert({t.x, t.y}).second)
+                image::blit(screen, *icon, gx + t.x * kSector + kFleetX, gy + t.y * kSector + kFleetY);
     }
 }
 
