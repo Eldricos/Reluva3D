@@ -193,13 +193,14 @@ bool commonSystemCall(Qvm &vm, int number, const int32_t *a, int32_t &result) {
     }
 }
 
-int32_t HandleTable::add(std::string_view name) {
+int32_t HandleTable::add(std::string_view name, bool mipmaps) {
     if (name.empty())
         return 0;
     const std::string key = normalizeArchiveName(name);
     if (const auto it = _byName.find(key); it != _byName.end())
         return it->second;
     _names.emplace_back(name);
+    _mipmapped.push_back(mipmaps);
     const auto handle = int32_t(_names.size());
     _byName.emplace(key, handle);
     return handle;
@@ -208,6 +209,10 @@ int32_t HandleTable::add(std::string_view name) {
 const std::string &HandleTable::name(int32_t handle) const {
     static const std::string kNone;
     return handle >= 1 && size_t(handle) <= _names.size() ? _names[size_t(handle) - 1] : kNone;
+}
+
+bool HandleTable::mipmapped(int32_t handle) const {
+    return handle > 0 && size_t(handle) <= _mipmapped.size() && _mipmapped[size_t(handle) - 1];
 }
 
 } // namespace reluva::idtech3

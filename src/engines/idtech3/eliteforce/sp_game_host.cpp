@@ -984,9 +984,9 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c, int as) {
     case 40:
         return uint32_t(registerSkin(str(0, 256))); // R_RegisterSkin(name)
     case 41:
-    case 42: { // R_RegisterShader, R_RegisterShaderNoMip: 0 if it can't be found
+    case 42: { // R_RegisterShader (with mipmaps), R_RegisterShaderNoMip: 0 if it can't be found
         const std::string name = str(0, 256);
-        return shaderExists && !shaderExists(name) ? 0 : uint32_t(_shaders.add(name));
+        return shaderExists && !shaderExists(name) ? 0 : uint32_t(_shaders.add(name, number == 41));
     }
     case 43:
         _scene.clear();

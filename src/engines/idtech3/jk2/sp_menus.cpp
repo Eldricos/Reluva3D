@@ -1687,7 +1687,7 @@ void SpMenus::drawOwnerDraw(const Item &item) {
             std::vector<Picture> drawn;
             const HandleTable *table = drawDataPad(command, drawn);
             for (Picture p : drawn) {
-                p.shader = table ? _shaders.add(table->name(p.shader)) : 0;
+                p.shader = table ? _shaders.add(table->name(p.shader), table->mipmapped(p.shader)) : 0;
                 _pictures.push_back(p);
             }
         }

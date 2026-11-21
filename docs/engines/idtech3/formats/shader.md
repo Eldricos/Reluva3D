@@ -110,6 +110,12 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
   `fogParms` colour, more opaque with depth along the view, fully at its
   distance. As the original's, when the eye is outside the volume the fog
   thins towards the volume's surface (its plane).
+- **Pictures** (menus, the HUD): a shader registered with
+  `R_RegisterShader` keeps its mipmaps, so a picture drawn smaller than
+  its image shrinks through them; one registered with
+  `R_RegisterShaderNoMip` has none. A name's first registration decides,
+  as the renderer keeps the shader it made then *(inferred, from Quake
+  III's GPL source; the calls are separate in every program)*.
 - **Autosprites:** the level's `autosprite` surfaces are kept aside and
   rebuilt as they're drawn, each quad facing the camera round its middle;
   `autosprite2` quads turn about their long axis (the fire shaders). They

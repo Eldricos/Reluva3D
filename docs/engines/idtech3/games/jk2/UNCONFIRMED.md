@@ -57,6 +57,19 @@ What Reluva does that hasn't been checked against the running original.
   in texture detail and filter; with `r_picmip` (1) and the filter
   (bilinear) taken from their registration (0x47edcf, 0x47f18c), not a
   quality preset, it matches too (a third shot).
+- Single player side by side with the retail game's screenshots and a
+  recording (November 2026, 800 x 600, windowed): the main and new game
+  menus and the logo, the loading screen, the opening crawl and
+  kejim_post's opening scene (subtitles and widescreen bars), the
+  in-game save and load pages, the datapad's mission, weapons and Force
+  pages, and yavin_canyon's and yavin_swamp's fog from six places. What
+  differed and was fixed: the levels' empty sky black instead of the
+  fog's colour, models unfogged, Raven's `GE192` alpha test unknown (the
+  swamp's grass sprites hid what stood behind them), and list columns
+  and edit fields limited by letters instead of pixels. Still open: the
+  datapad's frame (`gfx/hud/datapad2`, 1024 x 1024, drawn at 640 x 480)
+  looks softer in the original, as if it shrank through mipmaps, though
+  the client game registers it without them; why isn't known.
 - The network protocol beyond its tables and Huffman code (which are
   jk2mp.exe's own): a match played against the retail game both ways,
   on Windows (November 2026), Reluva hosting and joining

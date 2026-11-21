@@ -156,8 +156,11 @@ int SceneDrawer::material(std::vector<int> &cache, int32_t handle, Lighting ligh
 
 void SceneDrawer::drawPictures(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW,
                                int screenH, float time) {
-    drawQuads(pictures, first, last, screenW, screenH, time,
-              [this](int32_t handle) { return material(_pictureMaterials, handle, Lighting::kTwoD); });
+    drawQuads(pictures, first, last, screenW, screenH, time, [this](int32_t handle) {
+        return material(_pictureMaterials, handle,
+                        _handles.shaders && _handles.shaders->mipmapped(handle) ? Lighting::kTwoDMipmapped
+                                                                                : Lighting::kTwoD);
+    });
 }
 
 void SceneDrawer::drawMaterialPictures(const std::vector<Picture> &pictures, int screenW, int screenH, float time) {

@@ -27,7 +27,10 @@ namespace reluva::idtech3 {
 // vertex colours, with no depth test or culling.
 // Effect: the game's sprites and beams, whose colour is in their
 // vertices; both sides drawn.
-enum class Lighting { kLightmap, kVertex, kDiffuse, kTwoD, kEffect };
+// kTwoDMipmapped: a picture whose program registered its shader with
+// mipmaps (R_RegisterShader rather than R_RegisterShaderNoMip), drawn as
+// kTwoD but shrinking through them.
+enum class Lighting { kLightmap, kVertex, kDiffuse, kTwoD, kEffect, kTwoDMipmapped };
 
 // Shaders turned into what the GPU draws, shared by everything a page
 // shows: each stage's textures loaded and states decided once, the parts

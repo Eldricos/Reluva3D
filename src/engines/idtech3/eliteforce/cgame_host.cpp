@@ -423,7 +423,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return _skins.add(str(0, 256));
     case kRRegisterShader:
     case kRRegisterShaderNoMip:
-        return _shaders.add(str(0, 256));
+        return _shaders.add(str(0, 256), number == kRRegisterShader);
     case kRRegisterShader3D: {
         // The CTF flags' team pictures (models/flags/<team>_red): 0 for a
         // team without one, and the client game takes the default.

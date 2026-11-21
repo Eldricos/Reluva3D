@@ -122,12 +122,17 @@ private:
 // handle. 0 is "none".
 class HandleTable {
 public:
-    int32_t add(std::string_view name);
+    // `mipmaps`: a shader registered with them (R_RegisterShader rather
+    // than R_RegisterShaderNoMip); the name's first registration decides,
+    // as the original's renderer keeps the shader it made then.
+    int32_t add(std::string_view name, bool mipmaps = false);
     const std::string &name(int32_t handle) const; // "" for none
+    bool mipmapped(int32_t handle) const;
     size_t size() const { return _names.size(); }
 
 private:
     std::vector<std::string> _names;
+    std::vector<bool> _mipmapped;
     std::unordered_map<std::string, int32_t> _byName;
 };
 

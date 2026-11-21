@@ -434,8 +434,8 @@ gfx::TextureId ShaderCache::videoTexture(int index, float time) const {
 
 int ShaderCache::material(const ShaderDef &def, Lighting lighting, bool sky) {
     if (lighting == Lighting::kTwoD && !(def.noMipmaps && def.noPicmip)) {
-        // Pictures (menus, the HUD) are registered without mipmaps, so the
-        // texture detail and filter settings leave them alone.
+        // Pictures registered without mipmaps, so the texture detail and
+        // filter settings leave them alone.
         // The copy is kept: the material's stages point into it.
         ShaderDef &flat = _implicit.emplace_back(def);
         flat.noMipmaps = flat.noPicmip = true;
@@ -466,15 +466,16 @@ int ShaderCache::material(const std::string &name, Lighting lighting) {
             tex.blendDst = "gl_zero";
             tex.rgbGen = ShaderStage::RgbGen::kIdentity;
             d.stages = {lm, tex};
-        } else if (lighting == Lighting::kTwoD) {
+        } else if (lighting == Lighting::kTwoD || lighting == Lighting::kTwoDMipmapped) {
             // Pictures: blended by their alpha, coloured by the vertices,
-            // the image clamped and without mipmaps.
+            // the image clamped; without mipmaps unless registered with
+            // them.
             tex.blendSrc = "gl_src_alpha";
             tex.blendDst = "gl_one_minus_src_alpha";
             tex.rgbGen = ShaderStage::RgbGen::kVertex;
             tex.alphaGen = ShaderStage::AlphaGen::kVertex;
             tex.clamp = true;
-            d.noMipmaps = true;
+            d.noMipmaps = lighting == Lighting::kTwoD;
             d.stages = {tex};
         } else if (lighting == Lighting::kEffect) {
             // An effect's image: coloured and blended by the entity's colour.
@@ -634,7 +635,7 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
             break; // identity, lightingSpecular: opaque
         }
 
-        if (m.lighting == Lighting::kTwoD) {
+        if (m.lighting == Lighting::kTwoD || m.lighting == Lighting::kTwoDMipmapped) {
             call.state.depthTest = call.state.depthWrite = false;
             call.state.cull = gfx::Cull::kNone;
         }

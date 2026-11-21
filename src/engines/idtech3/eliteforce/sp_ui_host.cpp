@@ -484,12 +484,12 @@ void SpUiHost::addImports() {
     import(kRegisterModel, [this](x86::Cpu &c) { return uint32_t(_models.add(str(c, 0, 256))); });
     import(kRegisterSkin, [this](x86::Cpu &c) { return uint32_t(_skins.add(str(c, 0, 256))); });
     // 0 for a shader that can't be found, as the original's renderer.
-    auto registerShader = [this](x86::Cpu &c) {
+    auto registerShader = [this](x86::Cpu &c, bool mipmaps) {
         const std::string name = str(c, 0, 256);
-        return shaderExists && !shaderExists(name) ? 0u : uint32_t(_shaders.add(name));
+        return shaderExists && !shaderExists(name) ? 0u : uint32_t(_shaders.add(name, mipmaps));
     };
-    import(kRegisterShader, registerShader);
-    import(kRegisterShaderNoMip, registerShader);
+    import(kRegisterShader, [registerShader](x86::Cpu &c) { return registerShader(c, true); });
+    import(kRegisterShaderNoMip, [registerShader](x86::Cpu &c) { return registerShader(c, false); });
     import(kClearScene, [this](x86::Cpu &) {
         _scene.clear();
         return 0u;

@@ -210,6 +210,9 @@ static void testVmFileList() {
     HandleTable table;
     CHECK(table.add("gfx/a") == 1 && table.add("GFX\\A") == 1 && table.add("gfx/b") == 2 && table.add("") == 0);
     CHECK(table.name(2) == "gfx/b" && table.name(0).empty() && table.name(3).empty());
+    // Registered with mipmaps or not: the name's first registration decides.
+    CHECK(table.add("gfx/c", true) == 3 && table.add("gfx/c", false) == 3 && table.mipmapped(3));
+    CHECK(table.add("gfx/b", true) == 2 && !table.mipmapped(2) && !table.mipmapped(0) && !table.mipmapped(9));
 }
 
 // The Expansion Pack engine's file listing (FS_GetFileList).
