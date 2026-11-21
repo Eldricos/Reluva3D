@@ -531,6 +531,7 @@ public:
         int height = 0;
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
+        uint32_t userData = 0;   // GWL_USERDATA
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -663,6 +664,17 @@ private:
         uint32_t lParam;
     };
     std::vector<Message> _messages;
+    // SetTimer's: each queues WM_TIMER when it's due and none is waiting.
+    struct WindowTimer {
+        uint32_t window;
+        uint32_t id;
+        uint32_t interval; // milliseconds
+        uint32_t proc;     // called by DispatchMessageA instead of the window's, if set
+        uint32_t due;      // in milliseconds()
+    };
+    std::vector<WindowTimer> _windowTimers;
+    uint32_t _nextTimerId = 1;
+    void queueTimers();
     int _cursorShown = 0;
     struct RegistryKey {
         std::string path; // as first given

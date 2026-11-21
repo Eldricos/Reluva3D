@@ -10,6 +10,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "common/fs.h"
+
 #include <algorithm>
 #include <chrono>
 
@@ -33,6 +35,11 @@ struct EventObject : KernelObject {
 struct MutexObject : KernelObject {
     uint32_t owner = 0; // thread id
     int count = 0;
+};
+
+struct SemaphoreObject : KernelObject {
+    int32_t count = 0;
+    int32_t maximum = 1;
 };
 
 } // namespace
@@ -510,14 +517,62 @@ void Win32Process::addThreadStandIns() {
         e->signaled = false;
         return 1u;
     });
-    stdcall(k, "CreateMutexA", 3, [this, selfId](Cpu &c) {
+    // Named mutexes, by lower-case name: CreateMutexA of a name made
+    // already, and OpenMutexA, give its handle. No other program runs, so
+    // a name the program hasn't made isn't there.
+    auto mutexNames = std::make_shared<std::map<std::string, uint32_t>>();
+    stdcall(k, "CreateMutexA", 3, [this, selfId, mutexNames](Cpu &c) {
+        const std::string name = c.arg(2) ? fs::toLower(c.string(c.arg(2))) : "";
+        if (!name.empty())
+            if (auto it = mutexNames->find(name); it != mutexNames->end() && object<MutexObject>(it->second)) {
+                _lastError = 183; // ERROR_ALREADY_EXISTS
+                return it->second;
+            }
         auto m = std::make_shared<MutexObject>();
         if (c.arg(1)) {
             m->owner = selfId();
             m->count = 1;
         }
-        _lastError = 0; // a new one (no other copy of the program runs)
-        return addHandle(m);
+        _lastError = 0;
+        const uint32_t h = addHandle(m);
+        if (!name.empty())
+            (*mutexNames)[name] = h;
+        return h;
+    });
+    stdcall(k, "OpenMutexA", 3, [this, mutexNames](Cpu &c) {
+        const std::string name = c.arg(2) ? fs::toLower(c.string(c.arg(2))) : "";
+        if (auto it = mutexNames->find(name); it != mutexNames->end() && object<MutexObject>(it->second))
+            return it->second;
+        _lastError = 2; // ERROR_FILE_NOT_FOUND
+        return 0u;
+    });
+    // A semaphore's count, from its initial one up to its maximum: a wait
+    // takes one, ReleaseSemaphore gives some back (no more than the most).
+    stdcall(k, "CreateSemaphoreA", 4, [this](Cpu &c) {
+        const int32_t initial = int32_t(c.arg(1));
+        const int32_t maximum = int32_t(c.arg(2));
+        if (maximum <= 0 || initial < 0 || initial > maximum) {
+            _lastError = 87; // ERROR_INVALID_PARAMETER
+            return 0u;
+        }
+        auto s = std::make_shared<SemaphoreObject>();
+        s->count = initial;
+        s->maximum = maximum;
+        _lastError = 0;
+        return addHandle(s);
+    });
+    stdcall(k, "ReleaseSemaphore", 3, [this](Cpu &c) {
+        auto s = object<SemaphoreObject>(c.arg(0));
+        const int32_t n = int32_t(c.arg(1));
+        if (!s || n <= 0 || s->count > s->maximum - n) {
+            _lastError = s ? 298u : 6u; // ERROR_TOO_MANY_POSTS, ERROR_INVALID_HANDLE
+            return 0u;
+        }
+        if (c.valid(c.arg(2), 4))
+            c.write32(c.arg(2), uint32_t(s->count));
+        s->count += n;
+        preempt();
+        return 1u;
     });
     stdcall(k, "ReleaseMutex", 1, [this, selfId](Cpu &c) {
         auto m = object<MutexObject>(c.arg(0));
@@ -542,6 +597,8 @@ void Win32Process::addThreadStandIns() {
         }
         if (auto m = object<MutexObject>(h))
             return m->owner == 0 || m->owner == selfId();
+        if (auto s = object<SemaphoreObject>(h))
+            return s->count > 0;
         return true; // a file or the like: signalled
     };
     auto take = [this, selfId](uint32_t h) {
@@ -551,6 +608,8 @@ void Win32Process::addThreadStandIns() {
         } else if (auto m = object<MutexObject>(h)) {
             m->owner = selfId();
             ++m->count;
+        } else if (auto s = object<SemaphoreObject>(h)) {
+            --s->count;
         }
     };
     stdcall(k, "WaitForSingleObject", 2, [this, isSignaled, take, endIfEnding](Cpu &c) {

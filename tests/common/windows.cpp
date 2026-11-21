@@ -483,6 +483,86 @@ static void testWindowsAndRegistry() {
 // DirectDraw and Direct3D 7 called through their vtables as a program
 // calls them: a 64x48 fullscreen mode with a back buffer and Z buffer, a
 // clear, a Gouraud triangle, a textured quad, the depth test, a flip.
+// More of USER32 and KERNEL32: window timers, a window's longs, the work
+// area, WIN.INI's defaults; with host threads, semaphores and named
+// mutexes.
+static void testUserAndKernelMore() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 1000;
+    process.milliseconds = [&] { return clock; };
+    process.useHostThreads();
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    const uint32_t proc = cpu.addNative("test!WndProc2", [&](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("More"));
+    CHECK(!cpu.call(fn("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"),
+                    {0, text("More"), text("T"), 0x00cf0000, 0, 0, 100, 100, 0, 0, 0, 0}, r) &&
+          r != 0);
+    const uint32_t hwnd = r;
+
+    // A timer: WM_TIMER once it's due, one waiting at a time.
+    const uint32_t msg = process.memory().alloc(28);
+    CHECK(!cpu.call(fn("USER32.dll", "SetTimer"), {hwnd, 7, 100, 0}, r) && r == 7);
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 0);
+    clock = 1350;
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x113 &&
+          cpu.read32(msg + 8) == 7);
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "KillTimer"), {hwnd, 7}, r) && r == 1);
+    clock = 2000;
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 0);
+
+    // Its style and user data; a rectangle; the work area.
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {hwnd, uint32_t(-16)}, r) && r == 0x00cf0000);
+    CHECK(!cpu.call(fn("USER32.dll", "SetWindowLongA"), {hwnd, uint32_t(-21), 42}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {hwnd, uint32_t(-21)}, r) && r == 42);
+    const uint32_t rc = process.memory().alloc(16);
+    CHECK(!cpu.call(fn("USER32.dll", "SetRect"), {rc, 1, 2, 3, 4}, r) && r == 1 && cpu.read32(rc + 12) == 4);
+    CHECK(!cpu.call(fn("USER32.dll", "SystemParametersInfoA"), {0x30, 0, rc, 0}, r) && r == 1 &&
+          cpu.read32(rc + 8) == uint32_t(process.screenWidth));
+    CHECK(!cpu.call(fn("USER32.dll", "MoveWindow"), {hwnd, 5, 6, 70, 80, 1}, r) && r == 1 &&
+          process.window(hwnd)->x == 5 && process.window(hwnd)->height == 80);
+
+    // WIN.INI holds nothing: a key reads as its default, trailing spaces off.
+    const uint32_t buf = process.memory().alloc(16);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetProfileStringA"), {text("windows"), text("device"), text("none  "), buf, 16},
+                    r) &&
+          r == 4 && cpu.string(buf) == "none");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetProfileStringA"), {text("a"), text("b"), text("abcdefgh"), buf, 4}, r) &&
+          r == 3 && cpu.string(buf) == "abc");
+
+    // A semaphore of 1 of 2: taken once, then not; released by 2, too many.
+    const uint32_t wait = fn("KERNEL32.dll", "WaitForSingleObject");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateSemaphoreA"), {0, 1, 2, 0}, r) && r != 0);
+    const uint32_t sem = r;
+    CHECK(!cpu.call(wait, {sem, 0}, r) && r == 0);
+    CHECK(!cpu.call(wait, {sem, 0}, r) && r == 0x102);
+    const uint32_t prev = process.memory().alloc(4);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "ReleaseSemaphore"), {sem, 2, prev}, r) && r == 1 && cpu.read32(prev) == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "ReleaseSemaphore"), {sem, 1, prev}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateSemaphoreA"), {0, 3, 2, 0}, r) && r == 0);
+
+    // A named mutex: made once, found again, opened; an unknown one isn't.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateMutexA"), {0, 0, text("Island")}, r) && r != 0);
+    const uint32_t mutex = r;
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateMutexA"), {0, 0, text("ISLAND")}, r) && r == mutex);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 183);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenMutexA"), {0x1f0001, 0, text("island")}, r) && r == mutex);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenMutexA"), {0x1f0001, 0, text("other")}, r) && r == 0);
+}
+
 static void testDirectX() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1120,5 +1200,6 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
+               {"user and kernel, more", [](const std::filesystem::path &) { testUserAndKernelMore(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

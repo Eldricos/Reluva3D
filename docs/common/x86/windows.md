@@ -56,8 +56,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   naming the type thrown, since dispatching isn't done yet.
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds),
-  `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
-  English (United States) pictures. There's one thread, so critical
+  `MulDiv`, the computer's name, `GetDateFormatA`/`GetTimeFormatA` with
+  English (United States) pictures, and `GetProfileStringA`: WIN.INI
+  holds nothing, so each key reads as its default. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
   it signalled.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
@@ -68,6 +69,16 @@ C++ library have pages of their own ([directx.md](directx.md),
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
   - `DispatchMessageA` and `TranslateMessage`;
+  - window timers (`SetTimer`, `KillTimer`): `WM_TIMER` is queued when
+    one is due, one waiting at a time, however late, and a timer with a
+    procedure of its own has it called by `DispatchMessageA`;
+  - a window's style, extended style, procedure and user data
+    (`GetWindowLongA`, `SetWindowLongA`), `MoveWindow`,
+    `AdjustWindowRectEx` (as `AdjustWindowRect`), `SetRect`;
+  - `SystemParametersInfoA`: the work area is the whole screen, the
+    screen saver is off, and other settings are taken as made;
+  - no menu bar; painting, the window's being at the front and
+    `MessageBeep` need nothing;
   - `DefWindowProcA` destroys a window it's asked to close;
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the
@@ -148,7 +159,9 @@ block; only the one holding the turn runs, and the processor's context
   instructions (`slice`), so that a thread polling a variable lets the
   others run.
 
-`useHostThreads` puts their stand-ins in place: threads, events, mutexes,
+`useHostThreads` puts their stand-ins in place: threads, events, mutexes
+(a named one is found again by `CreateMutexA` and `OpenMutexA`; no other
+program runs, so a name the program hasn't made isn't there), semaphores,
 critical sections, the waits, thread-local storage (the TLS array at the
 block's 0xE10, as Windows 95's), `Sleep`, `ExitProcess`, and the
 multimedia timer (`timeSetEvent`), whose callbacks run on one timer
@@ -190,6 +203,10 @@ executable's entry point on the main thread until it ends the process.
   messages it gets, the queue, frame sizes, and closing. It also checks
   the registry's keys, values, sizes and enumeration, and
   `CoCreateInstance`.
+- `testUserAndKernelMore` checks a window timer's `WM_TIMER` on a clock
+  the test sets, a window's style and user data, the work area,
+  `MoveWindow`, WIN.INI's defaults, and, with host threads, a semaphore
+  taken and released and a named mutex found again.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
@@ -207,5 +224,7 @@ executable's entry point on the main thread until it ends the process.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`legoisland`**: LEGO Island's whole program, with host threads
+  ([running.md](../../engines/legoisland/systems/running.md)).
 - **`nfs`**: Need for Speed III's whole program, on drives, with host
   threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).

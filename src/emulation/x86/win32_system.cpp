@@ -159,6 +159,29 @@ void Win32Process::addSystemStandIns() {
         c.write32(p + 28, free);
         return 0u;
     });
+    // GetProfileStringA(section, key, default, buffer, size): WIN.INI,
+    // which holds nothing here, so a key reads as its default, trailing
+    // spaces taken off, cut to fit; the keys of a section (no key asked)
+    // are none.
+    stdcall(k, "GetProfileStringA", 5, [](Cpu &c) {
+        const uint32_t buffer = c.arg(3);
+        const uint32_t size = c.arg(4);
+        if (!size || !c.valid(buffer, size))
+            return 0u;
+        if (!c.arg(1)) {
+            c.write8(buffer, 0);
+            if (size > 1)
+                c.write8(buffer + 1, 0);
+            return 0u;
+        }
+        std::string text = c.arg(2) ? c.string(c.arg(2)) : "";
+        while (!text.empty() && text.back() == ' ')
+            text.pop_back();
+        if (text.size() >= size)
+            text.resize(size - 1);
+        c.writeString(buffer, text, uint32_t(text.size() + 1));
+        return uint32_t(text.size());
+    });
     stdcall(k, "GetComputerNameA", 2, [this](Cpu &c) {
         static const std::string kName = "RELUVA";
         const uint32_t buffer = c.arg(0);

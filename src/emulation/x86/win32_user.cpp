@@ -34,7 +34,8 @@ enum : uint32_t {
     kWmNcDestroy = 0x82,
     kWmKeyDown = 0x100,
     kWmChar = 0x102,
-    kWmSysCommand = 0x112
+    kWmSysCommand = 0x112,
+    kWmTimer = 0x113
 };
 constexpr uint32_t kScClose = 0xf060;
 constexpr uint32_t kWsBorder = 0x00800000;
@@ -293,6 +294,21 @@ uint32_t Win32Process::sendMessage(uint32_t window, uint32_t message, uint32_t w
     return result;
 }
 
+void Win32Process::queueTimers() {
+    const uint32_t now = milliseconds();
+    for (WindowTimer &t : _windowTimers) {
+        if (int32_t(now - t.due) < 0)
+            continue;
+        // Like Windows, one WM_TIMER waiting at a time, however late.
+        const bool waiting = std::any_of(_messages.begin(), _messages.end(), [&](const Message &m) {
+            return m.message == kWmTimer && m.window == t.window && m.wParam == t.id;
+        });
+        if (!waiting)
+            _messages.push_back({t.window, kWmTimer, t.id, t.proc});
+        t.due = now + std::max<uint32_t>(t.interval, 1);
+    }
+}
+
 void Win32Process::addUserStandIns() {
     const char *u = "USER32.dll";
     const char *g = "GDI32.dll";
@@ -462,6 +478,116 @@ void Win32Process::addUserStandIns() {
         c.write32(p + 12, c.read32(p + 12) + uint32_t(f.bottom));
         return 1u;
     });
+    // AdjustWindowRectEx(rect, style, menu, exStyle): as AdjustWindowRect;
+    // the extended styles' edges aren't drawn here.
+    stdcall(u, "AdjustWindowRectEx", 4, [](Cpu &c) {
+        const uint32_t p = c.arg(0);
+        if (!c.valid(p, 16))
+            return 0u;
+        const Insets f = frameOf(c.arg(1), c.arg(2) != 0);
+        c.write32(p, c.read32(p) - uint32_t(f.left));
+        c.write32(p + 4, c.read32(p + 4) - uint32_t(f.top));
+        c.write32(p + 8, c.read32(p + 8) + uint32_t(f.right));
+        c.write32(p + 12, c.read32(p + 12) + uint32_t(f.bottom));
+        return 1u;
+    });
+    stdcall(u, "SetRect", 5, [rect](Cpu &c) {
+        if (!c.valid(c.arg(0), 16))
+            return 0u;
+        rect(c, c.arg(0), int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)));
+        return 1u;
+    });
+    // MoveWindow(window, x, y, width, height, repaint).
+    stdcall(u, "MoveWindow", 6, [this](Cpu &c) {
+        if (!_windows.count(c.arg(0)))
+            return 0u;
+        moveWindow(c.arg(0), int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)));
+        return 1u;
+    });
+    // GetWindowLongA and SetWindowLongA(window, index, value): the style
+    // (-16), extended style (-20), procedure (-4) and user data (-21);
+    // anything else reads 0 and isn't kept.
+    auto windowLong = [this](uint32_t handle, int32_t index) -> uint32_t * {
+        auto it = _windows.find(handle);
+        if (it == _windows.end())
+            return nullptr;
+        Window &w = it->second;
+        switch (index) {
+        case -16:
+            return &w.style;
+        case -20:
+            return &w.exStyle;
+        case -4:
+            return &w.proc;
+        case -21:
+            return &w.userData;
+        default:
+            return nullptr;
+        }
+    };
+    stdcall(u, "GetWindowLongA", 2, [windowLong](Cpu &c) {
+        const uint32_t *v = windowLong(c.arg(0), int32_t(c.arg(1)));
+        return v ? *v : 0u;
+    });
+    stdcall(u, "SetWindowLongA", 3, [windowLong](Cpu &c) {
+        uint32_t *v = windowLong(c.arg(0), int32_t(c.arg(1)));
+        if (!v)
+            return 0u;
+        const uint32_t was = *v;
+        *v = c.arg(2);
+        return was;
+    });
+    // SystemParametersInfoA(action, value, data, flags): the work area
+    // (SPI_GETWORKAREA, the whole screen) and the screen saver
+    // (SPI_GETSCREENSAVEACTIVE: off); anything else is taken as done.
+    stdcall(u, "SystemParametersInfoA", 4, [this, rect](Cpu &c) {
+        const uint32_t data = c.arg(2);
+        switch (c.arg(0)) {
+        case 0x30: // SPI_GETWORKAREA
+            if (!c.valid(data, 16))
+                return 0u;
+            rect(c, data, 0, 0, screenWidth, screenHeight);
+            return 1u;
+        case 0x10: // SPI_GETSCREENSAVEACTIVE
+            if (c.valid(data, 4))
+                c.write32(data, 0);
+            return 1u;
+        default:
+            return 1u;
+        }
+    });
+    // The menu bar (there's none), the window's painting and its being at
+    // the front: nothing to do. MessageBeep is silent.
+    stdcall(u, "GetMenu", 1, [](Cpu &) { return 0u; });
+    stdcall(u, "DrawMenuBar", 1, [](Cpu &) { return 1u; });
+    stdcall(u, "RedrawWindow", 4, [](Cpu &) { return 1u; });
+    stdcall(u, "SetForegroundWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
+    // LoadAcceleratorsA(instance, name): a handle; TranslateAcceleratorA
+    // translates nothing with it.
+    stdcall(u, "LoadAcceleratorsA", 2, [](Cpu &) { return 0x5a0001u; });
+    // SetTimer(window, id, milliseconds, procedure): without a window, the
+    // id is made; KillTimer(window, id).
+    stdcall(u, "SetTimer", 4, [this](Cpu &c) {
+        const uint32_t window = c.arg(0);
+        uint32_t id = c.arg(1);
+        if (!window)
+            id = _nextTimerId++;
+        _windowTimers.erase(std::remove_if(_windowTimers.begin(), _windowTimers.end(),
+                                           [&](const WindowTimer &t) { return t.window == window && t.id == id; }),
+                            _windowTimers.end());
+        const uint32_t interval = std::max<uint32_t>(c.arg(2), 1);
+        _windowTimers.push_back({window, id, interval, c.arg(3), milliseconds() + interval});
+        return window ? std::max<uint32_t>(id, 1) : id;
+    });
+    stdcall(u, "KillTimer", 2, [this](Cpu &c) {
+        const size_t before = _windowTimers.size();
+        _windowTimers.erase(
+            std::remove_if(_windowTimers.begin(), _windowTimers.end(),
+                           [&](const WindowTimer &t) { return t.window == c.arg(0) && t.id == c.arg(1); }),
+            _windowTimers.end());
+        return _windowTimers.size() < before ? 1u : 0u;
+    });
     stdcall(u, "GetSystemMetrics", 1, [this](Cpu &c) {
         switch (c.arg(0)) {
         case 0:
@@ -515,6 +641,7 @@ void Win32Process::addUserStandIns() {
                    ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
         };
         runThreads();
+        queueTimers();
         auto it = std::find_if(_messages.begin(), _messages.end(), matches);
         if (it == _messages.end() && idle) {
             idle();
@@ -534,6 +661,14 @@ void Win32Process::addUserStandIns() {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16))
             return 0u;
+        // A timer's own procedure: TimerProc(window, WM_TIMER, id, time).
+        if (c.read32(m + 4) == kWmTimer && c.read32(m + 12)) {
+            uint32_t result = 0;
+            if (Error e = _cpu.call(c.read32(m + 12), {c.read32(m), kWmTimer, c.read32(m + 8), milliseconds()}, result))
+                if (output)
+                    output("A timer procedure failed: " + e.message + "\n");
+            return 0u;
+        }
         return sendMessage(c.read32(m), c.read32(m + 4), c.read32(m + 8), c.read32(m + 12));
     });
     // TranslateMessage: a key that types a character (letters, digits,
