@@ -113,7 +113,8 @@ private:
     int _zoomPanel = -1;                            // drawn once for each task force
     std::string _taskForcesBack;                    // the task forces' bar's backing picture
     char _letter = 'h';                             // the empire's letter in its files' names
-    std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems
+    std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems and outposts
+    uint16_t _closedClaims = 0;                     // the empires whose sectors the ranges keep out of, a bit each
     std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
     int _zoom = 0;                                  // 0 out, 1 in
     std::pair<int, int> _pointed{-1, -1};           // the sector under the pointer

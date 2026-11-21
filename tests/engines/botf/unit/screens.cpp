@@ -1000,6 +1000,10 @@ void testGalaxyScreen() {
     hidden.y = 0;
     game.taskForces = {t, klingon, hidden};
     game.empires[1].credits = 2000;
+    // A peace treaty with the Klingons, who claim the sector right of Sol's
+    // southern neighbour: the ranges keep out of it.
+    game.treaties = {{1, 3, 1, 0, 0}};
+    game.galaxy.sectors[9 * 13 + 11].claims = 1 << 3;
     // The last turn's results: the Federation's three events (economic, a
     // task force's, a race met), its new game's ship (not an event), and a
     // Klingon one.
@@ -1071,6 +1075,9 @@ void testGalaxyScreen() {
     CHECK(colour(gx + 10 * 39 + 20, gy + 6 * 39, 255, 255, 0) && colour(gx + 8 * 39, gy + 7 * 39 + 20, 255, 255, 0));
     CHECK(colour(gx + 8 * 39 + 20, gy + 7 * 39, 255, 255, 0) && !colour(gx + 8 * 39 + 20, gy + 6 * 39, 255, 255, 0));
     CHECK(colour(gx + 5 * 39, gy + 8 * 39 + 20, 255, 0, 0) && colour(gx + 10 * 39 + 20, gy + 3 * 39, 255, 0, 0));
+    // The Klingons' sector, under a treaty, is out of every range: green
+    // along its left edge.
+    CHECK(colour(gx + 11 * 39, gy + 9 * 39 + 20, 0, 255, 0));
     // The grid's bottom edge closes them: green under Sol's column.
     CHECK(colour(gx + 10 * 39 + 20, gy + 10 * 39, 0, 255, 0));
     // Sol selected: an orange square just inside its sector's lines.

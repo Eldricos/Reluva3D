@@ -303,6 +303,24 @@ The rest isn't read yet. The galaxy screen draws the player's outposts
 and counts them in its ranges
 ([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-map)).
 
+### Treaties
+
+`treaty`, the diplomatic agreements: a count and the next treaty's
+number (`i32` each), then 116 bytes each *(published)*:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `char[40]` | its name |
+| 0x30 | `i32` | its kind: 1 peace (non-aggression, friendship or affiliation between empires), 2 alliance, 3 war pact, 4 a demand accepted, 5 to 7 with a minor race, 8 a gift |
+| 0x34, 0x36 | `i16` | the race that offered it and the one that took it, by `race.rst`'s number |
+| 0x3C, 0x40 | `i32` | the turns it runs from and to, to 0 for one with no end |
+
+The other fields aren't read. At the thirty-fourth turn of the user's
+second game the Federation has non-aggression treaties with the Romulans
+(turns 14 to 39) and the Cardassians (28 to 78), and the galaxy screen's
+ranges keep out of their sectors
+([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-map)).
+
 ### Results
 
 `result.lst`, the last turn's results, is stored as chunks, not one LZSS

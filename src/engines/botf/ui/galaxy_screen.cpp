@@ -69,6 +69,7 @@ constexpr int kFigureMargin = 6;
 constexpr int kDilithiumGap = 6;
 // result.lst's contents for a task force and a ship.
 constexpr int kTaskForceResult = 4;
+constexpr int kPeaceTreaty = 1;
 constexpr int kShipResult = 5;
 // The task forces' bar: drawn here, as the game shows the background
 // through its backing picture's black (hm_bktfi.tga, which has no magenta),
@@ -353,6 +354,20 @@ void GalaxyScreen::open(SavedGame game) {
             if (const int sys = _game.galaxy.at(x, y).system;
                 sys >= 0 && _game.galaxy.systems[size_t(sys)].controllingRace == _empire)
                 _rangeCentres.push_back({x, y});
+    // Not into the sectors of an empire it has a peace treaty with (the
+    // thirty-fourth turn's ranges stop at the Cardassians' and Romulans',
+    // with whom the Federation has non-aggression treaties, and run into
+    // the Klingons' and Ferengi's; the eleventh turn's, with none, into the
+    // Romulans').
+    _closedClaims = 0;
+    const int turn = _game.summary.turn + 1;
+    for (const SavedTreaty &t : _game.treaties)
+        if (t.type == kPeaceTreaty && (t.from == _empire || t.to == _empire) && t.startTurn <= turn &&
+            (t.endTurn == 0 || turn <= t.endTurn)) {
+            const int other = t.from == _empire ? t.to : t.from;
+            if (other >= 0 && other < 5)
+                _closedClaims |= uint16_t(1u << other);
+        }
     // And round its outposts (the thirty-fourth turn's green ranges are round
     // Sol and two of the Federation's outposts).
     for (const SavedOutpost &o : _game.galaxy.outposts)
@@ -479,6 +494,14 @@ bool GalaxyScreen::click(int x, int y) {
 }
 
 bool GalaxyScreen::handle(const Event &e) {
+    // The button under the pointer pulses, as the main menu's (the Map
+    // button and the zoom's in a recording; the others taken alike), but
+    // for the lit ones.
+    trackPointer(e);
+    const int32_t pointedButton = buttonAt(e.mouseX, e.mouseY);
+    const bool lit = pointedButton == kMilitary || pointedButton == (_zoom == 1 ? kSmallMap : kLargeMap);
+    if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown)
+        setPulsing(lit ? 0 : pointedButton);
     // The sector under the pointer, named over the map.
     bool changed = false;
     if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown) {
@@ -557,11 +580,10 @@ void GalaxyScreen::drawSectorLine(Surface &screen) const {
 }
 
 void GalaxyScreen::draw(Surface &screen) const {
-    // The zoom's buttons: the current zoom's lit, as the Map button while
-    // they're open (guessed).
-    std::set<int32_t> lit{kMilitary, _zoom == 1 ? kSmallMap : kLargeMap};
-    if (panelShown(_zoomPanel))
-        lit.insert(kMapButton);
+    // The zoom's buttons: the current zoom's lit (a recording: Large Map
+    // zoomed out, Small Map zoomed in); the Map button isn't lit while
+    // they're open.
+    const std::set<int32_t> lit{kMilitary, _zoom == 1 ? kSmallMap : kLargeMap};
     drawLayouts(screen, lit);
     drawMap(screen);
     drawPanelsOver(screen, lit);
@@ -674,7 +696,7 @@ void GalaxyScreen::drawRanges(Surface &screen, int gx, int gy) const {
     const int sector = kZooms[_zoom].sector;
     for (size_t r = std::size(kRanges); r-- > 0;) {
         auto in = [&](int x, int y) {
-            if (x < 0 || y < 0 || x >= g.width || y >= g.height)
+            if (x < 0 || y < 0 || x >= g.width || y >= g.height || (g.at(x, y).claims & _closedClaims) != 0)
                 return false;
             for (const auto &[cx, cy] : _rangeCentres) {
                 const int dx = std::abs(x - cx);

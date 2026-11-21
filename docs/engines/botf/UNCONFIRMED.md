@@ -46,16 +46,16 @@ None: nothing of the game's code has been read.
   place ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
   Settled by: a screenshot of a black hole selected, and of a system with
   more planets than Sol.
-- **The galaxy screen's cases not seen:** the zoom buttons closed on a
-  choice or a click elsewhere, the Map button and the current zoom's
-  lit; the zoomed map staying where it was zoomed in as other sectors
-  are selected; other owners' systems' names in the colour of those
-  nobody holds; the other stellar objects' map pictures, and other
-  empires' and minor races' task forces' emblems; the strip's jungle
-  planets' food icon, the other empires' emblems and people's words; and
-  every contested sector striped as the Cardassians' and Romulans' is
-  ([systems/galaxy-screen.md](systems/galaxy-screen.md)). Settled by: a
-  recording of the zoom's buttons used, and screenshots of each case.
+- **The galaxy screen's cases not seen:** the zoom's buttons closed on a
+  click elsewhere, and the screen's buttons other than the Map button
+  and the zoom's pulsing under the pointer; other owners' systems' names
+  in the colour of those nobody holds; the other stellar objects' map
+  pictures, and other empires' and minor races' task forces' emblems;
+  the strip's jungle planets' food icon, the other empires' emblems and
+  people's words; and every contested sector striped as the Cardassians'
+  and Romulans' is
+  ([systems/galaxy-screen.md](systems/galaxy-screen.md)). Settled by:
+  screenshots of each case.
 
 ## Settled
 

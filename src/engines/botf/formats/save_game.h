@@ -247,6 +247,27 @@ struct SavedResult {
  */
 Error readSavedResults(const std::filesystem::path &path, std::vector<SavedResult> &results);
 
+/** A diplomatic agreement between two races (treaty). */
+struct SavedTreaty {
+    int type = 0; // 1 peace (non-aggression and the like), 2 alliance, 3 war pact, 5 to 7 with minor races, 8 a gift
+    /** The race that offered it and the one that took it, by race.rst's number. */
+    ///@{
+    int from = 0;
+    int to = 0;
+    ///@}
+    /** The turns it runs from and to; to is 0 for one with no end. */
+    ///@{
+    int startTurn = 0;
+    int endTurn = 0;
+    ///@}
+};
+
+/**
+ * Reads the treaties from the saved game at `path`: a count, the next
+ * number, then 116 bytes each; none if it has no treaty file.
+ */
+Error readSavedTreaties(const std::filesystem::path &path, std::vector<SavedTreaty> &treaties);
+
 /** Everything read from a saved game. */
 struct SavedGame {
     SaveSummary summary;
@@ -255,6 +276,7 @@ struct SavedGame {
     std::vector<SavedShip> ships;
     std::vector<SavedTaskForce> taskForces;
     std::vector<SavedResult> results;
+    std::vector<SavedTreaty> treaties;
 };
 
 /**

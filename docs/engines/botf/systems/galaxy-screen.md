@@ -115,6 +115,16 @@ first turn of one game and the eleventh of another, with their saves
   isn't known)*. In (0, 255, 0), (255, 255, 0), (255, 0, 0). Along the
   galaxy's top edge the border is a pixel lower, inside the grid's line,
   and over the selected system's square (Sol's, at the eleventh turn).
+  The ranges keep out of the sectors claimed by an empire the player has a
+  peace treaty with (`treaty`, [formats/sav.md](../formats/sav.md)): at
+  the thirty-first and thirty-fourth turns they stop at the Cardassians'
+  and Romulans' sectors, with whom the Federation has non-aggression
+  treaties, and run into the Klingons' and Ferengi's, with whom it has
+  none; at the eleventh, with no treaty, into the Romulans'. Drawn so,
+  every border edge of four screenshots of those turns but one matches:
+  a red edge at the galaxy's left that the game leaves out, as if a range
+  were measured along a path round the sectors left out *(not known
+  yet)*.
 - **The selected system:** a square in (247, 125, 0), a pixel inside its
   sector's lines; Sol is selected at the start. A click on a sector
   selects it.
@@ -171,10 +181,11 @@ above, the whole of a small galaxy. Measured on the zoomed-in screenshot:
   corner at the view's middle (511, 231), and moved no further than keeps
   it over the whole view: Sol's, in the galaxy's top row, puts the grid's
   corner at 84, 36. The borders and the selected square land on the
-  screenshot's pixels so. A third screenshot, with Babel selected, has the
-  grid in the same place: Reluva takes the sector selected when zooming
-  in, and keeps the map there as others are selected *(inferred: the
-  game's own rule may be its home system)*.
+  screenshot's pixels so. The sector is the one selected when zooming in,
+  the map staying there as others are selected: a third screenshot, with
+  Babel selected, has the grid at Sol's place, and in the recording a zoom
+  from sector (1, 8) puts it at (258, -184), held at the galaxy's left and
+  bottom edges.
 - **Stellar objects** are their larger pictures (`nsmap.tga`, 16x16),
   centred on a star's place as zoomed out.
 - **Stars** are their larger pictures (`s-y-map.tga`, 19x19), 12 pixels a
@@ -183,9 +194,12 @@ above, the whole of a small galaxy. Measured on the zoomed-in screenshot:
 - **Task forces:** the empire's larger emblem, `i_h26.tga` (26x30), a pixel
   right of and below the sector's corner (two task forces agree).
 
-When the buttons close, and which are lit, isn't seen: Reluva closes them
-on a choice or a click elsewhere, lights the Map button while they're
-open and the current zoom's button *(guessed)*.
+In a recording of the user's: a choice closes the buttons; the current
+zoom's button is lit (Large Map zoomed out, Small Map zoomed in), the Map
+button isn't while they're open, and the button under the pointer pulses
+as the main menu's do. Reluva also closes them on a click elsewhere,
+not seen *(guessed)*, and pulses the screen's other buttons alike
+*(guessed)*.
 
 ### The empire's panel
 
@@ -366,17 +380,15 @@ blend with what's under them.
 - What the ranges are and what sets them.
 - The Ferengi's and Cardassians' claims' dots, and whether a sector
   claimed by two empires shows both.
-- The ranges at later turns: round the empire's systems and outposts, as
-  at the first turn, but the thirty-fourth turn's borders cut round the
-  Romulans' and Cardassians' sectors in a way no rule found fits (the
-  eleventh turn's don't).
+- The one range edge that doesn't fit, and the treaties other than peace
+  (alliances, war pacts) and their effect on the ranges.
 - Which explored systems are named at later turns: at the thirty-third,
   nine explored sectors have no name (the Romulans' and Cardassians'
   systems among them, and both pulsars), and no field read tells them
   from the named ones.
 - How the growth rate is worked out.
 - Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
-- When the zoom's buttons close, and which of them is lit.
+- Whether a click elsewhere closes the zoom's buttons.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the
   zoomed-in map scrolls (none is seen).
 - The strip's growth rate and orbitals, a nebula's strip, and the

@@ -21,6 +21,9 @@ namespace {
 constexpr size_t kChunkHeaderSize = 12;
 constexpr size_t kResultHeaderSize = 40;
 constexpr size_t kOutpostSize = 92;
+// treaty's: a count and the next treaty's number, then each treaty.
+constexpr size_t kTreatyHeaderSize = 8;
+constexpr size_t kTreatySize = 0x74;
 
 // gameInfo's fields used here, as the Ultimate Editor's GameInfo.java
 // gives them.
@@ -495,6 +498,34 @@ Error readSavedOutposts(const std::filesystem::path &path, std::vector<SavedOutp
     return Error::success();
 }
 
+Error readSavedTreaties(const std::filesystem::path &path, std::vector<SavedTreaty> &treaties) {
+    treaties.clear();
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    if (!save.has("treaty"))
+        return Error::success();
+    std::vector<uint8_t> d;
+    if (Error err = readFile(save, "treaty", d))
+        return Error::fail(path.string() + ": " + err.message);
+    if (d.size() < kTreatyHeaderSize)
+        return Error::fail(path.string() + ": treaty is too small");
+    const int count = s32(d, 0);
+    for (int i = 0; i < count; ++i) {
+        const size_t at = kTreatyHeaderSize + size_t(i) * kTreatySize;
+        if (at + kTreatySize > d.size())
+            return Error::fail(path.string() + ": treaty ends in a treaty");
+        SavedTreaty t;
+        t.type = s32(d, at + 0x30);
+        t.from = s16(d, at + 0x34);
+        t.to = s16(d, at + 0x36);
+        t.startTurn = s32(d, at + 0x3C);
+        t.endTurn = s32(d, at + 0x40);
+        treaties.push_back(t);
+    }
+    return Error::success();
+}
+
 Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     game = SavedGame{};
     if (Error err = readSaveSummary(path, game.summary))
@@ -508,6 +539,8 @@ Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     if (Error err = readSavedShips(path, game.ships))
         return err;
     if (Error err = readSavedTaskForces(path, game.galaxy.width, game.taskForces))
+        return err;
+    if (Error err = readSavedTreaties(path, game.treaties))
         return err;
     return readSavedResults(path, game.results);
 }

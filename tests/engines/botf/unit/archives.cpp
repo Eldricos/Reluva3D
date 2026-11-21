@@ -341,6 +341,34 @@ void testSavedOutposts(const std::filesystem::path &tmp) {
     CHECK(!readSavedOutposts(path, o) && o.empty());
 }
 
+void testSavedTreaties(const std::filesystem::path &tmp) {
+    // treaty: a count, the next number, then 116 bytes each.
+    Bytes t(8 + 2 * 0x74, 0);
+    set32(t, 0, 2);
+    auto treaty = [&](size_t i, uint32_t type, uint8_t from, uint8_t to, uint32_t start, uint32_t end) {
+        const size_t at = 8 + i * 0x74;
+        set32(t, at + 0x30, type);
+        t[at + 0x34] = from;
+        t[at + 0x36] = to;
+        set32(t, at + 0x3C, start);
+        set32(t, at + 0x40, end);
+    };
+    treaty(0, 1, 4, 1, 14, 39);
+    treaty(1, 5, 14, 1, 24, 0);
+    const auto path = tmp / "treaties.sav";
+    writeFile(path, makeLzssArchive("treaties", {{"treaty", t}}));
+    std::vector<SavedTreaty> r;
+    CHECK(!readSavedTreaties(path, r) && r.size() == 2);
+    CHECK(r[0].type == 1 && r[0].from == 4 && r[0].to == 1 && r[0].startTurn == 14 && r[0].endTurn == 39);
+    CHECK(r[1].type == 5 && r[1].from == 14 && r[1].endTurn == 0);
+    // One cut short is an error; a save without the file has none.
+    t.resize(t.size() - 1);
+    writeFile(path, makeLzssArchive("treaties", {{"treaty", t}}));
+    CHECK(readSavedTreaties(path, r));
+    writeFile(path, makeSave("none", "x", 1));
+    CHECK(!readSavedTreaties(path, r) && r.empty());
+}
+
 void testSavedOrders(const std::filesystem::path &tmp) {
     // An order: a 32-byte head (id, turn, race, type at 0x10, the rest's
     // size at 0x1C), then the rest.
@@ -671,6 +699,7 @@ static const reluva::test::Suite kSuite(
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
         {"saved ships", [](const std::filesystem::path &tmp) { testSavedShips(tmp); }},
         {"animations", [](const std::filesystem::path &) { testAnimations(); }},
+        {"saved treaties", [](const std::filesystem::path &tmp) { testSavedTreaties(tmp); }},
         {"saved outposts", [](const std::filesystem::path &tmp) { testSavedOutposts(tmp); }},
         {"saved results", [](const std::filesystem::path &tmp) { testSavedResults(tmp); }},
         {"saved orders", [](const std::filesystem::path &tmp) { testSavedOrders(tmp); }},
