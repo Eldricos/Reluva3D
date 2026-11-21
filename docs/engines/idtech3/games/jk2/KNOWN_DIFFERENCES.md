@@ -17,11 +17,6 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   server about each player's key, but that server has long been gone,
   so there's nothing left to ask, and every server has let everyone in
   since ([systems/network.md](systems/network.md)).
-- **The console key**: `~` (or `` ` ``) opens the console on its own. The
-  original's multiplayer engine opens it only with Shift held (0x4099dc:
-  the key alone, with the console shut, goes on to the bindings and
-  menus). Its default config binds nothing to the key, so only a
-  player's own binding on it is lost.
 
 ## Bugs fixed
 

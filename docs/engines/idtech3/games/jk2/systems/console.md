@@ -90,6 +90,17 @@ Shut, during a match:
 Neither is drawn while a menu has the keys (the game's menus, or the
 client game's own).
 
+### The console key
+
+Multiplayer's engine opens the console only with Shift held: the
+console key alone, while the console is shut, does what it's bound to
+instead (1.02a, `~` or `` ` ``, 0x4099dc). While it's open the key alone
+shuts it. 1.03 and 1.04 have the key under Escape as `CONSOLE`, whatever
+character it gives (scan code 0x29), opening the console the same way,
+but alone it does nothing: it's never bound or sent to the menus
+(0x409cc2, 0x409cd2; [syscalls.md](syscalls.md), Patches). Typing,
+`` ` `` and `~` are never typed into the line (0x409a00).
+
 ### Single player
 
 `jk2sp.exe` draws its console the same way, with the same character
@@ -125,6 +136,10 @@ past a print's newline starts with its colour, and one continued from
 an earlier print goes back to white, so they're drawn in the original's
 colours. Scrolling counts the rows each line wraps to at the console's
 width.
+
+The multiplayer Play page opens the console with Shift and the console
+key, as above; Elite Force's opens it with the key alone, as its
+engine does.
 
 Differences: Ctrl+V and Shift+Insert don't paste (Reluva has no
 clipboard).

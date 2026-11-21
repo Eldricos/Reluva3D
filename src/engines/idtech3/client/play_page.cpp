@@ -1219,13 +1219,21 @@ void PlayPage::handleEvent(const Event &ev) {
     if (!_renderer || _names.empty())
         return;
     if (ev.type == EventType::kKeyDown && (ev.key == '`' || ev.consoleKey) && !(ev.mods & keymod::kCtrl)) {
-        // The console key, whatever it's bound to, as in the original;
-        // 1.03's and 1.04's open it only with Shift held, and are never
-        // bound (0x409cc2, 0x409cd2).
-        if (_ctx.game.jediRelease == JediRelease::k102a || (ev.mods & keymod::kShift))
+        // The console key, whatever it's bound to, as in the original.
+        // Jedi Outcast's opens it only with Shift held; alone, 1.02a's
+        // goes on to its binding (0x4099dc), 1.03's and 1.04's to nothing
+        // (0x409cc2, 0x409cd2).
+        const bool jedi = _ctx.game.code == GameCode::kJediOutcast;
+        if (!jedi || (ev.mods & keymod::kShift)) {
             openTyping(Typing::kConsole, -1, '`');
-        return;
+            return;
+        }
+        if (_ctx.game.jediRelease != JediRelease::k102a)
+            return;
     }
+    if (ev.type == EventType::kKeyUp && (ev.key == '`' || ev.consoleKey) && _ctx.game.code == GameCode::kJediOutcast &&
+        _ctx.game.jediRelease != JediRelease::k102a)
+        return; // (its release too)
     switch (ev.type) {
     case EventType::kKeyDown:
     case EventType::kKeyUp: {
