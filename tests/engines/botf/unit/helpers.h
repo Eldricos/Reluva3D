@@ -54,6 +54,12 @@ void putFont(Bytes &b, uint8_t r, uint8_t g, uint8_t bl, const std::string &file
  */
 Bytes makeFont(int lineHeight, int rowsToDraw = 5);
 
+/**
+ * An .ani animation of `w` by `h` frames, each filled with one 16-bit
+ * pixel, laid two across; with `alpha`, its TGA declares an alpha bit.
+ */
+Bytes makeAnimation(int w, int h, const std::vector<uint16_t> &frames, bool alpha = false);
+
 /** lexicon.dic holding the words, numbered from 0. */
 Bytes makeLexicon(const std::vector<std::string> &words);
 

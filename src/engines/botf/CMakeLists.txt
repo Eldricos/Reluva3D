@@ -10,6 +10,7 @@ reluva_add_engine(botf
         game_files.cpp
         menu_audio.cpp
         formats/alt_res.cpp
+        formats/animation.cpp
         formats/data_table.cpp
         formats/font.cpp
         formats/lexicon.cpp

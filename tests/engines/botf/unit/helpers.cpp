@@ -93,6 +93,30 @@ Bytes makeLexicon(const std::vector<std::string> &words) {
     return f;
 }
 
+Bytes makeAnimation(int w, int h, const std::vector<uint16_t> &frames, bool alpha) {
+    const int across = 2;
+    const int sheetW = w * across;
+    const int sheetH = h * int((frames.size() + 1) / 2);
+    Bytes a;
+    // Height first, then width.
+    for (const int v : {h, w, int(frames.size()), int(frames.size()), sheetW, sheetH})
+        put16(a, uint32_t(v));
+    put32(a, uint32_t(18 + sheetW * sheetH * 2));
+    for (const uint8_t b : {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+        a.push_back(b);
+    put16(a, uint32_t(sheetW));
+    put16(a, uint32_t(sheetH));
+    a.push_back(16);
+    a.push_back(alpha ? 1 : 0);
+    // Bottom-up, as the game's are.
+    for (int y = sheetH - 1; y >= 0; --y)
+        for (int x = 0; x < sheetW; ++x) {
+            const size_t f = size_t(y / h * across + x / w);
+            put16(a, f < frames.size() ? frames[f] : 0);
+        }
+    return a;
+}
+
 Bytes makeFont(int lineHeight, int rowsToDraw) {
     const int rows[5] = {10, 26, 26, 32, 26};
     std::vector<uint16_t> advances;

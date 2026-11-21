@@ -7,6 +7,7 @@
 #include "audio/sound.h"
 #include "audio/wav.h"
 #include "engines/botf/formats/alt_res.h"
+#include "engines/botf/formats/animation.h"
 #include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/snd_archive.h"
 #include "engines/botf/game_files.h"
@@ -417,6 +418,28 @@ void testAltRes(const std::filesystem::path &tmp) {
 }
 
 // One mono IMA ADPCM block of `size` bytes.
+void testAnimations() {
+    // Three frames 30 wide and 10 high, two across: white, black, red.
+    Animation a;
+    CHECK(!readAnimation(makeAnimation(30, 10, {0x7FFF, 0, 0x7C00}), a));
+    CHECK(a.frameWidth == 30 && a.frameHeight == 10 && a.frames.size() == 3);
+    CHECK(a.frames[0].w == 30 && a.frames[0].h == 10);
+    // Without an alpha bit, black isn't drawn.
+    CHECK(a.frames[0].pixel(29, 9)[0] == 248 && a.frames[0].pixel(29, 9)[3] == 255);
+    CHECK(a.frames[1].pixel(0, 0)[3] == 0);
+    CHECK(a.frames[2].pixel(5, 5)[0] == 248 && a.frames[2].pixel(5, 5)[1] == 0);
+    // With one, a pixel's top bit says it's drawn...
+    CHECK(!readAnimation(makeAnimation(4, 4, {0x8000, 0x7FFF}, true), a));
+    CHECK(a.frames[0].pixel(0, 0)[3] == 255 && a.frames[1].pixel(0, 0)[3] == 0);
+    // ...unless no pixel has it set: then black isn't drawn, as without.
+    CHECK(!readAnimation(makeAnimation(4, 4, {0, 0x7FFF}, true), a));
+    CHECK(a.frames[0].pixel(0, 0)[3] == 0 && a.frames[1].pixel(0, 0)[3] == 255);
+    // A header that doesn't fit its picture.
+    Bytes bad = makeAnimation(4, 4, {0, 0});
+    bad[4] = 9;
+    CHECK(readAnimation(bad, a));
+}
+
 Bytes imaBlock(size_t size, int16_t first, uint8_t seed) {
     Bytes b;
     put16(b, uint16_t(first));
@@ -589,6 +612,7 @@ static const reluva::test::Suite kSuite(
         {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
         {"saved ships", [](const std::filesystem::path &tmp) { testSavedShips(tmp); }},
+        {"animations", [](const std::filesystem::path &) { testAnimations(); }},
         {"saved orders", [](const std::filesystem::path &tmp) { testSavedOrders(tmp); }},
         {"saved empires, fleets and research", [](const std::filesystem::path &tmp) { testSavedTaskForces(tmp); }},
         {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},

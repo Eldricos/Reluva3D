@@ -25,7 +25,7 @@ rest deflated (method 8).
 | `.wdf` | 377 | 468 KB | `options.wdf`, `tactical.wdf`, `gmesetup.wdf` | window layouts, one per screen or dialog ([wdf.md](wdf.md)) | confirmed |
 | `.gif` | 299 | 20 MB | `t01_a.gif`, `bh01.gif` | textures of the `.hob` models (same base names) | inferred |
 | `.hob` | 265 | 5 MB | `t01_a.hob`, `ch1_a.hob`, `cphaser.hob` | 3D models for ship combat; `_a`/`_b`/`_c` look like levels of detail | guessed |
-| `.ani` | 65 | 13 MB | `gmel.ani`, `bnol.ani`/`bnom.ani`/`bnos.ani` | animations; `l`/`m`/`s` endings in three sizes (76,860 / 27,708 / 12,348 bytes) | guessed |
+| `.ani` | 65 | 13 MB | `gmel.ani`, `bnol.ani`/`bnom.ani`/`bnos.ani` | animations of planets, stars and stellar objects; `l`/`m`/`s` endings in three sizes ([ani.md](ani.md)) | confirmed |
 | `.cur` | 26 | 544 KB | `generic.cur`, `shipmove.cur`, `hwait.cur` | mouse cursors, some per race | guessed |
 | `.tdb` | 22 | 339 KB | `cdiplomt.tdb`, `minor1.tdb`, `teachtip.tdb`, `treaty.tdb` | text: diplomacy per race, minor races, tutorial tips, intelligence reports ([tdb.md](tdb.md)) | confirmed |
 | `.fnt` | 21 | 962 KB | `human15.fnt`, `klingn28.fnt`, `generic9.fnt` | fonts per race in 9, 15, 20 and 28 point ([fnt.md](fnt.md)) | confirmed |
@@ -81,5 +81,5 @@ data tables and window layouts on their own pages (see each format's page).
 
 ## Open questions
 
-- What the `.hob`, `.ani`, `.cur`, `.scr`, `.vtx`, `.lst`, `.smt`, `.tfd`,
+- What the `.hob`, `.cur`, `.scr`, `.vtx`, `.lst`, `.smt`, `.tfd`,
   `.tbl` and `credits.txt` files hold, past the guesses above.
