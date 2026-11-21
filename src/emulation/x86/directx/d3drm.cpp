@@ -318,6 +318,11 @@ std::vector<ComInterface::Method> meshMethods() {
                        {"GetGroupTexture", 2}});
 }
 
+// IDirect3DRMPickedArray: no IDirect3DRMObject methods.
+std::vector<ComInterface::Method> pickedArrayMethods() {
+    return with({{"GetSize", 0}, {"GetPick", 4}});
+}
+
 float asFloat(uint32_t v) {
     float f;
     std::memcpy(&f, &v, 4);
@@ -467,10 +472,12 @@ struct Direct3DRM::State {
     ComInterface texture{"IDirect3DRMTexture", kIidTexture, textureMethods(false), 0};
     ComInterface texture2{"IDirect3DRMTexture2", kIidTexture2, textureMethods(true), 0};
     ComInterface mesh{"IDirect3DRMMesh", kIidMesh, meshMethods(), 0};
+    // Handed out by Pick only, never asked for by its IID.
+    ComInterface pickedArray{"IDirect3DRMPickedArray", "", pickedArrayMethods(), 0};
     /** Every interface above, each given its vtable as the object's made. */
     std::vector<ComInterface *> interfaces() {
-        return {&rm,       &rm2,   &frame,    &frame2,  &device,   &device2,
-                &viewport, &light, &material, &texture, &texture2, &mesh};
+        return {&rm,    &rm2,      &frame,   &frame2,   &device, &device2,    &viewport,
+                &light, &material, &texture, &texture2, &mesh,   &pickedArray};
     }
     size_t made = 0;
     uint32_t defaultTextureColors = 32;
@@ -1226,6 +1233,21 @@ public:
     }
 };
 
+// What Pick found: nothing, until scenes are drawn (and so can be picked).
+class PickedArray : public ComObject {
+public:
+    Direct3DRM::State *s = nullptr;
+    const ComInterface *query(const std::string &) override { return nullptr; }
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &) override {
+        const std::string_view m = iface.methods[size_t(index)].name;
+        if (m == "GetSize")
+            return 0u;
+        if (m == "GetPick")
+            return kRmErrBadValue; // no pick of that index
+        return std::nullopt;
+    }
+};
+
 // A viewport: a rectangle of a device, seen through a camera frame.
 class Viewport : public RmObject {
 public:
@@ -1286,6 +1308,14 @@ public:
         }
         if (m == "Render") // nothing in its scenes is drawable yet
             return kRmOk;
+        if (m == "Pick") { // (x, y, out): what's under a point, nearest first; nothing is drawn, so nothing
+            if (!c.valid(c.arg(3), 4))
+                return kRmErrBadValue;
+            auto picked = std::make_shared<PickedArray>();
+            picked->s = s;
+            c.write32(c.arg(3), s->com.pointer(picked, s->pickedArray));
+            return kRmOk;
+        }
         if (m == "ForceUpdate")
             return kRmOk;
         if (m == "SetFront" || m == "SetBack" || m == "SetField") {

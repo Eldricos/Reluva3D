@@ -35,8 +35,10 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   size, quality, texture quality, shades, dither, buffer count, render
   mode, update callbacks (kept), and the Direct3D device back.
 - **`IDirect3DRMViewport`:** its rectangle, camera, front and back planes,
-  field, projection and scaling, its view's edges (`GetPlane`), and
-  `Clear`, to the camera's scene's background and the far depth.
+  field, projection and scaling, its view's edges (`GetPlane`),
+  `Clear`, to the camera's scene's background and the far depth, and
+  `Pick`, which finds nothing (an empty `IDirect3DRMPickedArray`) until
+  scenes are drawn.
 - **`IDirect3DRMLight`, `IDirect3DRMMaterial`:** their settings.
 - **`IDirect3DRMTexture`, `IDirect3DRMTexture2`:** a surface's texture,
   its colours, shades and decal settings, and `Changed` (its surface's
