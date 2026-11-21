@@ -178,7 +178,8 @@ medium's pieces the `.bmp`, `.wav`, `.flc` or `.smk` file it was made
 from.
 
 - `reluva-tool legoisland si-info <file.si>`: the header, and counts.
-- `reluva-tool legoisland si-list <file.si>`: the objects, as a tree.
+- `reluva-tool legoisland si-list <file.si>`: the objects, as a tree,
+  with where each is put (a still's place on the screen).
 - `reluva-tool legoisland si-chunks <file.si> <object id>`: an object's
   chunks.
 - `reluva-tool legoisland si-events <file.si>`: the events, each its

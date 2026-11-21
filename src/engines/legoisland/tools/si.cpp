@@ -8,6 +8,7 @@
 #include "devtools/tool.h"
 #include "engines/legoisland/formats/si.h"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -55,6 +56,8 @@ void printObject(const SiObject &o, int depth) {
         std::printf("  [%s]", o.presenter.c_str());
     if (o.isMedia())
         std::printf("  %s %s", o.format.c_str(), o.fileName.c_str());
+    if (o.location != std::array<double, 3>{})
+        std::printf("  at (%g, %g, %g)", o.location[0], o.location[1], o.location[2]);
     if (o.type == uint16_t(SiType::kSelect)) {
         std::printf("  by %s:", o.variable.c_str());
         for (const std::string &c : o.choices)

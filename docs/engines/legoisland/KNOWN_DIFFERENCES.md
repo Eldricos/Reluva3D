@@ -21,9 +21,11 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The 3D isn't drawn,** and nothing is picked in it: the island, the
-  characters and the Infomaniac aren't seen, and what a click on a 3D
-  object does doesn't happen ([systems/running.md](systems/running.md)).
+- **The 3D is drawn by Direct3D's rules,** not Retained Mode's own: its
+  lights and shading are Direct3D's, and it doesn't yet sort, fog, or
+  draw decals or frames' textures
+  ([d3drm.md](../../common/x86/d3drm.md#drawing)). How near it looks to
+  the original's hasn't been compared.
 - **The setup dialog's settings** (`CONFIG.EXE`) aren't offered: the game
   uses its own defaults, but for where it saves.
 

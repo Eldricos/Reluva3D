@@ -112,14 +112,24 @@ that far.
   seconds of this machine's time, 2,500 million instructions, it got
   through the logos and most of the 82-second intro movie, the game
   timing its movies by the clock). Each frame it also clears, renders and
-  updates its 3D viewport, which draws nothing yet.
+  updates its 3D viewport.
 - Run to 4,000 million instructions, it doesn't stop: 16,560 frames.
 - Played in the engine, a click skips the intro and it opens the
-  Information Center, its 2D room, which animates; run to 6,000 million
-  instructions, 69,716 frames, it doesn't stop. A click on the room's
-  right-hand door is taken (the window's messages, then
-  `IDirect3DRMViewport::Pick`, which finds nothing, as nothing's drawn)
-  and goes nowhere.
+  Information Center, its room drawn in 2D and the Infomaniac, its
+  host, in 3D; run to 6,000 million instructions, 69,716 frames, it
+  doesn't stop. Its clicks are 2D controls (`MxControlPresenter`s in
+  `INFOMAIN.SI`, each a bitmap whose drawn pixels are where it's
+  clicked, such as the door's `Door.bmp`, put at 553, 206) or, where no
+  control is, a pick in the 3D scene (`IDirect3DRMViewport::Pick`).
+- What the Information Center's clicks do: the portraits play each
+  character's film; the book opens the register, where a name is
+  spelled from letters; the left arrow leads to the elevator, whose
+  window shows the island in 3D, and its floor buttons; the right arrow
+  to the room of high scores, its 3D score cube turning. The right-hand
+  door is the way out of the game: the Infomaniac asks
+  (`iic043in_RunAnim`, the sound `IIC044IN.wav`) and puts a green brick
+  and a red one before him, in 3D; picking the green one ends the game,
+  with its credits.
 - The settings it reads from `HKEY_LOCAL_MACHINE\SOFTWARE\Mindscape\LEGO Island`,
   which `CONFIG.EXE` writes: `3D Device ID`, `3DSound`, `Back Buffers in
   Video RAM`, `Display Bit Depth`, `Draw Cursor`, `Flip Surfaces`, `Full
@@ -160,7 +170,6 @@ where it was made, and `-click <frame>@<x>,<y>` a left click at a point
 of the game's picture at a frame. With `-log`, the file calls' handles, positions and
 sizes are printed too. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
 instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
-The engine doesn't run it yet: playing it waits for the stand-ins above.
 
 ## Sources and checks
 
@@ -177,8 +186,7 @@ The engine doesn't run it yet: playing it waits for the stand-ins above.
 
 - What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
   sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- Whether the Information Center's door answers a 2D control or a 3D
-  pick: clicked, it goes nowhere while `Pick` finds nothing.
+- Which of the elevator's floors leads out to the island.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of

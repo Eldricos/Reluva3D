@@ -30,10 +30,10 @@ animations it plays in 3D, and their events
 **The game plays**, its own code run in the x86 interpreter
 ([systems/running.md](systems/running.md)): it loads its world, plays its
 intro (a click skips it) with its sound, and opens the Information
-Center, which animates. Its 3D isn't drawn yet, so the Infomaniac and
-the island itself aren't seen, and what needs picking a 3D object
-doesn't answer: the Information Center's door, clicked, takes the player
-nowhere. The plan is in [PLAN.md](PLAN.md).
+Center, its 3D drawn: the Infomaniac walks and talks, and its rooms
+answer clicks, on their 2D controls and on 3D objects. The way out to
+the island, by the elevator, hasn't been tried yet. The plan is in
+[PLAN.md](PLAN.md).
 
 ## Using it
 

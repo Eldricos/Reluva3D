@@ -56,7 +56,8 @@ Not yet.
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | November 2026 | English 1.0 | Linux | Importing the CD; the data viewer on every SI file: the jukebox's stills, the intro's Smacker movie, the history book's letters, by eye |
-| November 2026 | English 1.0 | Linux (virtual display) | Played in the engine: the intro (its logos and movie), skipped with a click; the Information Center, animating; a click on its door, taken and going nowhere |
+| November 2026 | English 1.0 | Linux (virtual display) | Played in the engine: the intro (its logos and movie), skipped with a click; the Information Center, animating |
+| November 2026 | English 1.0 | Linux | `reluva-tool legoisland run` with `-click` and `-shots`, by eye: the Infomaniac drawn and walking; a portrait's film; a name registered; the door's question, its bricks, the green one picked and the credits; the elevator and the island through its window; the score cube |
 | November 2026 | English 1.0 | Linux | The viewer's animation-list page by eye: `ACT1INF.DTA` and `OBSTINF.DTA`, their circles and models on the map |
 | November 2026 | English 1.0 | Linux (software Vulkan) | The viewer's SI 3D page by eye: `Chptr.mod`; the copter's build animation; Infomaniac's `iic001in`; the Brickster on his motorbike; `ACT2MAIN.SI`'s ambulance scene; Act 3's `tlp053in` from above and through its camera at 9, 25 and 55 s. The `WORLD.WDB` model page again (`carcomp`), its drawing now shared with this page |
 | November 2026 | English 1.0 | Linux | `reluva-tool legoisland si-events` on all 26 SI files: all 33 events read |
