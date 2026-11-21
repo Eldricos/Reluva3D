@@ -182,7 +182,7 @@ private:
         struct Column {
             float pos = 0;
             float width = 0;
-            int32_t maxChars = 0;
+            int32_t maxWidth = 0; // in pixels, as the text drawer takes it
         };
         std::vector<Column> columns;
         int32_t startPos = 0;
@@ -265,7 +265,9 @@ private:
     void move(Item &item) const;
     Color textColor(const Menu &menu, Item &item);
     void drawRect(const Rect &r, const Color &c, int32_t shader);
-    void drawText(float x, float y, float scale, const Color &c, const std::string &s, int32_t style, int32_t font);
+    // `maxWidth`: pixels the text may take, the rest left off (-1: no limit).
+    void drawText(float x, float y, float scale, const Color &c, const std::string &s, int32_t style, int32_t font,
+                  int32_t maxWidth = -1);
     int32_t fontHandle(int32_t font) const;
     float textWidth(const std::string &s, float scale, int32_t font) const;
     std::string itemValue(const Item &item) const;

@@ -43,7 +43,8 @@ const raven::Font *FontSet::font(int32_t handle) const {
 }
 
 void FontSet::drawString(int32_t x, int32_t y, const std::string &text, const std::array<float, 4> &color,
-                         int32_t handle, int32_t maxChars, float scale, int32_t timeMs, const Sink &draw) const {
+                         int32_t handle, int32_t limit, float scale, int32_t timeMs, const Sink &draw,
+                         bool pixels) const {
     const raven::Font *f = font(handle);
     if (!f)
         return;
@@ -52,7 +53,7 @@ void FontSet::drawString(int32_t x, int32_t y, const std::string &text, const st
         return;
     const int32_t shader = _fonts[size_t((handle & kFontMask) - 1)].shader;
     auto pieces = [&](int32_t px, int32_t py, const std::array<float, 4> &base, bool shadow) {
-        for (const raven::Font::Piece &p : f->layout(text, px, py, scale, -1, maxChars)) {
+        for (const raven::Font::Piece &p : f->layout(text, px, py, scale, pixels ? limit : -1, pixels ? -1 : limit)) {
             std::array<float, 4> c = base;
             // The shadow is grey throughout: the original takes colour codes out of its text.
             if (p.colour >= 0 && !shadow)

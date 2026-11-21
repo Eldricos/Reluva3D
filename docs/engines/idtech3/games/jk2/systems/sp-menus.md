@@ -145,7 +145,9 @@ of them); each file is `{ assetGlobalDef { ... } menuDef { ... } ... }`.
 - **List boxes** (0x4a09c0): a scroll bar down the right, 16 wide (its
   up arrow, bar, down arrow and thumb: `gfx/menus/scrollbar*.tga`); rows
   from the rectangle's corner, 1 in, each column's text 4 more in plus
-  the column's place, at most its letters; the chosen row's highlight 2
+  the column's place, at most its last number's width in pixels
+  (passed to the text drawer, 0x4a0f37, which stops at the first letter
+  that would go past it, 0x46353d) *(confirmed)*; the chosen row's highlight 2
   in, 6 below the row's top, `elementheight` high and the width less the
   bar and 4, in the item's outline colour.
 - **Key binding** (0x4a3960): a click or Enter on a bind item waits for
@@ -242,8 +244,9 @@ goes to the field first (0x4a539f):
 These compare the key's number, so a typed character with the same
 number does the same (`©`, 169, is the keypad's Enter).
 
-Drawn (0x4a08c3): the text from its first letter shown, as many as
-`maxPaintChars` allows; while typed in, `_` (typing over) or `|`
+Drawn (0x4a08c3): the text from its first letter shown, as much as fits
+the item's width in pixels (the text drawer's limit, 0x4a0960;
+`maxPaintChars` only moves the first letter shown) *(confirmed)*; while typed in, `_` (typing over) or `|`
 (inserting) after the letters up to the cursor (0x499a60), in the
 item's style with its lowest bit set, so it doesn't blink.
 

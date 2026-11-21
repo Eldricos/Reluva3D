@@ -70,7 +70,9 @@ the screen, as for Elite Force.
 ### Text
 
 `R_Font_DrawString`'s sixth argument is a number of letters, not a width
-in pixels as in the single-player engine: the GPL multiplayer renderer
+in pixels as in the single-player engine (jk2sp.exe's font drawer,
+0x463370, stops at the first letter that would take the text past it,
+0x46353d; its menus and client game both pass widths): the GPL multiplayer renderer
 names it `iCharLimit`, and 1.02a's menus pass a list column's or an edit
 field's `maxChars`/`maxPaintChars` (a map list column of 25 shows whole
 map names; read as pixels it cut them to three letters). Letters and

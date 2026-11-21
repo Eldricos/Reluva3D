@@ -68,8 +68,10 @@ public:
 
     int32_t registerFont(const std::string &name);
     const raven::Font *font(int32_t handle) const;
+    // `limit`: letters at most, as multiplayer's engine takes it, or with
+    // `pixels` the width in pixels at most, as single player's (-1: none).
     void drawString(int32_t x, int32_t y, const std::string &text, const std::array<float, 4> &color, int32_t handle,
-                    int32_t maxChars, float scale, int32_t timeMs, const Sink &draw) const;
+                    int32_t limit, float scale, int32_t timeMs, const Sink &draw, bool pixels = false) const;
 
 private:
     struct Loaded {

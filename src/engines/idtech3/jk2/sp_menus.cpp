@@ -322,7 +322,8 @@ SpMenus::Item SpMenus::readItem(const MenuItemDef &def) {
         } else if (key == "feeder" && !e.args.empty()) {
             item.feeder = same(e.args[0], "FEEDER_SAVEGAMES") ? kFeederSaves : number(e.args, 0);
         } else if (key == "columns") {
-            // How many, then each one's place, width and letters at most.
+            // How many, then each one's place, width and greatest width
+            // of its text.
             const auto n = size_t(std::max(0.0f, number(e.args, 0)));
             for (size_t c = 0; c < n; ++c)
                 item.columns.push_back(
@@ -1450,18 +1451,19 @@ float SpMenus::textWidth(const std::string &s, float scale, int32_t font) const 
     return f ? float(f->textWidth(s, scale)) : 0;
 }
 
-void SpMenus::drawText(float x, float y, float scale, const Color &c, const std::string &s, int32_t style,
-                       int32_t font) {
+void SpMenus::drawText(float x, float y, float scale, const Color &c, const std::string &s, int32_t style, int32_t font,
+                       int32_t maxWidth) {
     // Styles 3 to 6 shadowed, 2 blinking (0x4999e2).
     int32_t handle = fontHandle(font);
     if (style == 2)
         handle |= kBlinkFlag;
     else if (style >= 3 && style <= 6)
         handle |= kShadowFlag;
-    _fonts->drawString(int32_t(x), int32_t(y), s, c, handle, -1, scale, _time,
-                       [this](float px, float py, float w, float h, float s1, float t1, float s2, float t2,
-                              int32_t shader,
-                              const Color &col) { _pictures.push_back({px, py, w, h, s1, t1, s2, t2, shader, col}); });
+    _fonts->drawString(
+        int32_t(x), int32_t(y), s, c, handle, maxWidth, scale, _time,
+        [this](float px, float py, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
+               const Color &col) { _pictures.push_back({px, py, w, h, s1, t1, s2, t2, shader, col}); },
+        true);
 }
 
 std::string SpMenus::itemValue(const Item &item) const {
@@ -1615,13 +1617,12 @@ void SpMenus::drawItem(const Menu &menu, Item &item) {
     }
     std::string value = itemValue(item);
     if (item.type == kEditField || item.type == kNumericField) {
-        // As 0x4a08c3: from the first letter shown, as many as it shows;
-        // while typed in, the cursor (_ typing over, | inserting, not
-        // blinking) at its letter (0x499a60).
+        // As 0x4a08c3: from the first letter shown, as much as fits the
+        // item's width in pixels (0x4a0960); while typed in, the cursor
+        // (_ typing over, | inserting, not blinking) at its letter
+        // (0x499a60).
         value.erase(0, std::min(value.size(), size_t(std::max(item.paintOffset, 0))));
-        if (item.maxPaintChars > 0 && int32_t(value.size()) > item.maxPaintChars)
-            value.resize(size_t(item.maxPaintChars));
-        drawText(valueX, y, item.textScale, c, value, item.textStyle, item.font);
+        drawText(valueX, y, item.textScale, c, value, item.textStyle, item.font, int32_t(item.rect[2]));
         if (&item == _editItem) {
             const auto at = size_t(std::clamp(item.cursor - item.paintOffset, 0, int32_t(value.size())));
             const float cx = valueX + textWidth(value.substr(0, at), item.textScale, item.font);
@@ -1656,14 +1657,12 @@ void SpMenus::drawListBox(const Item &item) {
     for (int32_t i = 0; i < rows && item.startPos + i < count; ++i) {
         const int32_t row = item.startPos + i;
         const float y = r[1] + 1 + float(i) * item.elementHeight;
-        for (size_t c = 0; c < item.columns.size(); ++c) {
-            std::string t = listText(item, row, c);
-            if (item.columns[c].maxChars > 0 && int32_t(t.size()) > item.columns[c].maxChars)
-                t.resize(size_t(item.columns[c].maxChars));
-            if (!t.empty())
+        // A column's last number is passed to the text drawer as its
+        // width in pixels at most (0x4a0f37), not a count of letters.
+        for (size_t c = 0; c < item.columns.size(); ++c)
+            if (const std::string t = listText(item, row, c); !t.empty())
                 drawText(r[0] + 1 + 4 + item.columns[c].pos, y, item.textScale, item.foreColor, t, item.textStyle,
-                         item.font);
-        }
+                         item.font, item.columns[c].maxWidth > 0 ? item.columns[c].maxWidth : -1);
         if (item.columns.empty())
             if (const std::string t = listText(item, row, 0); !t.empty())
                 drawText(r[0] + 1 + 4, y, item.textScale, item.foreColor, t, item.textStyle, item.font);

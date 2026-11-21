@@ -212,17 +212,17 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         const raven::Font *ft = fonts().font(int32_t(a(0)));
         return ft ? uint32_t(int32_t(std::floor(float(ft->pointSize) * f(1) + 0.5f))) : 0;
     }
-    case 48: { // R_Font_DrawString(x, y, text, rgba, font, letters at most or -1, scale)
+    case 48: { // R_Font_DrawString(x, y, text, rgba, font, width at most in pixels or -1, scale)
         std::array<float, 4> colour{1, 1, 1, 1};
         if (a(3) && c.valid(a(3), 16))
             for (int i = 0; i < 4; ++i)
                 colour[size_t(i)] = readFloat(a(3) + 4 * uint32_t(i));
-        fonts().drawString(int32_t(a(0)), int32_t(a(1)), str(2, 4096), colour, int32_t(a(4)), int32_t(a(5)), f(6),
-                           int32_t(_process->milliseconds()),
-                           [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2,
-                                  int32_t shader, const std::array<float, 4> &col) {
-                               _pictures.push_back({x, y, w, h, s1, t1, s2, t2, shader, col});
-                           });
+        fonts().drawString(
+            int32_t(a(0)), int32_t(a(1)), str(2, 4096), colour, int32_t(a(4)), int32_t(a(5)), f(6),
+            int32_t(_process->milliseconds()),
+            [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
+                   const std::array<float, 4> &col) { _pictures.push_back({x, y, w, h, s1, t1, s2, t2, shader, col}); },
+            true); // a width, as jk2sp.exe's font drawer takes it (0x46353d)
         return 0;
     }
     case 49: // Language_IsAsian() (0x462900): Korean, Chinese and Japanese, which Reluva hasn't
