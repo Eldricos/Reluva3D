@@ -20,6 +20,7 @@ reluva_add_engine(botf
         formats/snd_archive.cpp
         formats/text_table.cpp
         formats/window_layout.cpp
+        game/game_state.cpp
         ui/assets.cpp
         ui/empire_screen.cpp
         ui/fame_screen.cpp

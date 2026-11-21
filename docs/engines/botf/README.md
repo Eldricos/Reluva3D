@@ -73,7 +73,7 @@ The plan is in [PLAN.md](PLAN.md).
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [stbof-res.md](formats/stbof-res.md), [alt-res.md](formats/alt-res.md), [snd.md](formats/snd.md), [fnt.md](formats/fnt.md), [tdb.md](formats/tdb.md), [tables.md](formats/tables.md), [wdf.md](formats/wdf.md), [mnu.md](formats/mnu.md), [lexicon.md](formats/lexicon.md), [sav.md](formats/sav.md), [executable.md](formats/executable.md) |
-| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (where it finds its files), [screens.md](systems/screens.md) (the screens rebuilt so far), [sound.md](systems/sound.md) (the main menu's music and sounds), [movies.md](systems/movies.md) (the opening movie), [galaxy-screen.md](systems/galaxy-screen.md) (the screen a game is played on) |
+| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (where it finds its files), [screens.md](systems/screens.md) (the screens rebuilt so far), [sound.md](systems/sound.md) (the main menu's music and sounds), [movies.md](systems/movies.md) (the opening movie), [galaxy-screen.md](systems/galaxy-screen.md) (the screen a game is played on), [game-state.md](systems/game-state.md) (a game in progress, as Reluva holds it) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |

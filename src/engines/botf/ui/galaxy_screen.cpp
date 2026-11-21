@@ -74,7 +74,6 @@ constexpr int kDilithiumGap = 6;
 // result.lst's contents for a task force and a ship.
 constexpr int kTaskForceResult = 4;
 constexpr size_t kShipSpeedOffset = 268; // shiplist.sst's speed, a double
-constexpr int kPeaceTreaty = 1;
 constexpr int kShipResult = 5;
 // The task forces' bar: drawn here, as the game shows the background
 // through its backing picture's black (hm_bktfi.tga, which has no magenta),
@@ -369,36 +368,22 @@ Error GalaxyScreen::load(int empire) {
     return Error::success();
 }
 
-void GalaxyScreen::open(SavedGame game) {
-    _game = std::move(game);
-    _empire = std::clamp(_game.summary.empire, 0, 4);
+void GalaxyScreen::open(GameState state) {
+    _state = std::move(state);
+    _empire = _state.player();
     // The ranges are round the empire's systems; the first of them is
     // selected at the start (Sol, the only one on the first turn).
     _rangeCentres.clear();
-    for (int y = 0; y < _game.galaxy.height; ++y)
-        for (int x = 0; x < _game.galaxy.width; ++x)
-            if (const int sys = _game.galaxy.at(x, y).system;
-                sys >= 0 && _game.galaxy.systems[size_t(sys)].controllingRace == _empire)
+    for (int y = 0; y < game().galaxy.height; ++y)
+        for (int x = 0; x < game().galaxy.width; ++x)
+            if (const int sys = game().galaxy.at(x, y).system;
+                sys >= 0 && game().galaxy.systems[size_t(sys)].controllingRace == _empire)
                 _rangeCentres.push_back({x, y});
-    // Not into the sectors of an empire it has a peace treaty with (the
-    // thirty-fourth turn's ranges stop at the Cardassians' and Romulans',
-    // with whom the Federation has non-aggression treaties, and run into
-    // the Klingons' and Ferengi's; the eleventh turn's, with none, into the
-    // Romulans').
-    _closedClaims = 0;
-    const int turn = _game.summary.turn + 1;
-    for (const SavedTreaty &t : _game.treaties)
-        if (t.type == kPeaceTreaty && (t.from == _empire || t.to == _empire) && t.startTurn <= turn &&
-            (t.endTurn == 0 || turn <= t.endTurn)) {
-            const int other = t.from == _empire ? t.to : t.from;
-            if (other >= 0 && other < 5)
-                _closedClaims |= uint16_t(1u << other);
-        }
     // And round its outposts (the thirty-fourth turn's green ranges are round
     // Sol and two of the Federation's outposts).
-    for (const SavedOutpost &o : _game.galaxy.outposts)
-        if (o.owner == _empire && _game.galaxy.width > 0)
-            _rangeCentres.push_back({o.sector % _game.galaxy.width, o.sector / _game.galaxy.width});
+    for (const SavedOutpost &o : game().galaxy.outposts)
+        if (o.owner == _empire && game().galaxy.width > 0)
+            _rangeCentres.push_back({o.sector % game().galaxy.width, o.sector / game().galaxy.width});
     if (_rangeCentres.empty())
         select(-1, -1);
     else
@@ -406,7 +391,7 @@ void GalaxyScreen::open(SavedGame game) {
 }
 
 void GalaxyScreen::select(int x, int y) {
-    const SavedGalaxy &g = _game.galaxy;
+    const SavedGalaxy &g = game().galaxy;
     const bool on = x >= 0 && y >= 0 && x < g.width && y < g.height;
     _selected = on ? std::pair{x, y} : std::pair{-1, -1};
     _pointedPlanet = -1;
@@ -432,12 +417,12 @@ void GalaxyScreen::select(int x, int y) {
 }
 
 bool GalaxyScreen::scanned(int x, int y) const {
-    const SavedGalaxy &g = _game.galaxy;
+    const SavedGalaxy &g = game().galaxy;
     return x >= 0 && y >= 0 && x < g.width && y < g.height && g.at(x, y).scanStrength[size_t(_empire)] > 0;
 }
 
 bool GalaxyScreen::revealed(int x, int y) const {
-    const SavedGalaxy &g = _game.galaxy;
+    const SavedGalaxy &g = game().galaxy;
     if (x < 0 || y < 0 || x >= g.width || y >= g.height)
         return false;
     const SavedSector &s = g.at(x, y);
@@ -446,15 +431,15 @@ bool GalaxyScreen::revealed(int x, int y) const {
 
 bool GalaxyScreen::view(int &x0, int &y0, int &x1, int &y1) const {
     const Placed *map = find(kMap);
-    if (!map || _game.galaxy.width <= 0)
+    if (!map || game().galaxy.width <= 0)
         return false;
     // The zoomed-out grid, lines included, within the map's place.
-    const int gx = map->x + (map->widget->w - _game.galaxy.width * kOutSector) / 2;
-    const int gy = map->y + (map->widget->h - _game.galaxy.height * kOutSector) / 2;
+    const int gx = map->x + (map->widget->w - game().galaxy.width * kOutSector) / 2;
+    const int gy = map->y + (map->widget->h - game().galaxy.height * kOutSector) / 2;
     x0 = std::max(gx, map->x);
     y0 = std::max(gy, map->y);
-    x1 = std::min(gx + _game.galaxy.width * kOutSector, map->x + map->widget->w - 1);
-    y1 = std::min(gy + _game.galaxy.height * kOutSector, map->y + map->widget->h - 1);
+    x1 = std::min(gx + game().galaxy.width * kOutSector, map->x + map->widget->w - 1);
+    y1 = std::min(gy + game().galaxy.height * kOutSector, map->y + map->widget->h - 1);
     return true;
 }
 
@@ -465,7 +450,7 @@ bool GalaxyScreen::gridCorner(int &gx, int &gy) const {
     int y1 = 0;
     if (!view(x0, y0, x1, y1))
         return false;
-    const SavedGalaxy &g = _game.galaxy;
+    const SavedGalaxy &g = game().galaxy;
     const int sector = kZooms[_zoom].sector;
     // Zoomed out, the grid is the view. Zoomed in, the corner of the sector
     // selected when zooming in is at the view's middle (Sol's on the
@@ -507,7 +492,7 @@ std::pair<int, int> GalaxyScreen::sectorAt(int x, int y) const {
     const int sector = kZooms[_zoom].sector;
     const int sx = (x - gx) / sector;
     const int sy = (y - gy) / sector;
-    if (sx >= _game.galaxy.width || sy >= _game.galaxy.height)
+    if (sx >= game().galaxy.width || sy >= game().galaxy.height)
         return {-1, -1};
     return {sx, sy};
 }
@@ -559,15 +544,7 @@ bool GalaxyScreen::handle(const Event &e) {
 }
 
 int GalaxyScreen::eventCount() const {
-    // The empire's results, but for a new game's own fleets (a task force's
-    // or a ship's, with an event value of 0): 2 on the first turn's loaded
-    // saves, 5 on the eleventh's, 1 on the thirty-first's (a race met, its
-    // value 0 too), none where there are none, as their screenshots show.
-    int count = 0;
-    for (const SavedResult &r : _game.results)
-        if (r.race == _empire && !(r.eventValue == 0 && (r.content == kTaskForceResult || r.content == kShipResult)))
-            ++count;
-    return count;
+    return _state.eventCount(_empire);
 }
 
 void GalaxyScreen::drawSectorLine(Surface &screen) const {
@@ -575,7 +552,7 @@ void GalaxyScreen::drawSectorLine(Surface &screen) const {
     const Placed *box = find(kSectorText);
     if (sx < 0 || !box)
         return;
-    const SavedSector &here = _game.galaxy.at(sx, sy);
+    const SavedSector &here = game().galaxy.at(sx, sy);
     // Its name: its column's letter, small, and its row from 1 ("i6").
     const std::string name = char('a' + sx) + std::to_string(sy + 1);
     int claims = 0;
@@ -619,7 +596,7 @@ void GalaxyScreen::draw(Surface &screen) const {
     drawSectorLine(screen);
     drawPanel(screen);
     drawStrip(screen);
-    drawText(screen, kTurnText, upperAscii(word(lex::kTurn, "Turn")) + " " + std::to_string(_game.summary.turn + 1),
+    drawText(screen, kTurnText, upperAscii(word(lex::kTurn, "Turn")) + " " + std::to_string(game().summary.turn + 1),
              kTurnColor);
 }
 
@@ -650,7 +627,7 @@ void GalaxyScreen::drawTaskForcesBar(Surface &screen) const {
 }
 
 void GalaxyScreen::drawPanel(Surface &screen) const {
-    const SavedEmpire &e = _game.empires[size_t(_empire)];
+    const SavedEmpire &e = game().empires[size_t(_empire)];
     // The empire's information: a label at the left of each line, its
     // figure at the right; dilithium and events share the last line.
     if (const Placed *box = find(kInfoText))
@@ -700,8 +677,6 @@ void GalaxyScreen::drawPanel(Surface &screen) const {
     if (!icon || !text || !panel || _selected.first < 0)
         return;
     const Font *font = _assets.font(text->widget->fonts.empty() ? "" : text->widget->fonts[0].file);
-    const SavedGalaxy &g = _game.galaxy;
-    const int sectorNumber = _selected.second * g.width + _selected.first;
     int row = 0;
     auto drawRow = [&](const std::string &emblem, const std::string &first, const std::string &second) {
         const int dy = row++ * kRowHeight;
@@ -715,21 +690,22 @@ void GalaxyScreen::drawPanel(Surface &screen) const {
     };
     // An outpost: its emblem (i_ho30.tga), "Outpost" and "OPERATIONAL" (one
     // seen; one being built shows how far it's got, not read yet).
-    for (const SavedOutpost &o : g.outposts)
-        if (o.owner == _empire && o.sector == sectorNumber)
+    for (const SavedOutpost *o : _state.outpostsAt(_selected.first, _selected.second))
+        if (o->owner == _empire)
             drawRow(std::string("i_") + _letter + "o30.tga", word(lex::kOutpost, "Outpost"),
                     word(lex::kOperational, "OPERATIONAL"));
     // A task force: the empire's own, its mission and, where it's headed
     // elsewhere, how long it'll take ("ENGAGE eta 2 TURNS"), then its first
     // ship's class; another empire's, its first ship's class alone, in the
     // same colour (guessed: the one seen is selected, its line orange).
-    for (const SavedTaskForce &t : _game.taskForces) {
-        if (t.x != _selected.first || t.y != _selected.second || t.owner < 0 || t.owner >= int(std::size(kLetters)))
+    for (const SavedTaskForce *tf : _state.taskForcesAt(_selected.first, _selected.second)) {
+        const SavedTaskForce &t = *tf;
+        if (t.owner < 0 || t.owner >= int(std::size(kLetters)))
             continue;
         std::string ship;
-        for (const SavedShip &s : _game.ships)
-            if (!t.shipIds.empty() && s.id == t.shipIds.front() && size_t(s.shipClass) < _shipClasses.count())
-                ship = _shipClasses.name(size_t(s.shipClass));
+        if (const SavedShip *first = t.shipIds.empty() ? nullptr : _state.ship(t.shipIds.front());
+            first && size_t(first->shipClass) < _shipClasses.count())
+            ship = _shipClasses.name(size_t(first->shipClass));
         const std::string emblem = std::string("i_") + kLetters[t.owner] + "26.tga";
         if (t.owner != _empire) {
             drawRow(emblem, ship, "");
@@ -752,12 +728,11 @@ int GalaxyScreen::etaTurns(const SavedTaskForce &t) const {
         return 0;
     double speed = 0;
     for (const int id : t.shipIds)
-        for (const SavedShip &s : _game.ships)
-            if (s.id == id && size_t(s.shipClass) < _shipClasses.count()) {
-                double v = 0;
-                std::memcpy(&v, _shipClasses.record(size_t(s.shipClass)) + kShipSpeedOffset, sizeof v);
-                speed = speed == 0 ? v : std::min(speed, v);
-            }
+        if (const SavedShip *s = _state.ship(id); s && size_t(s->shipClass) < _shipClasses.count()) {
+            double v = 0;
+            std::memcpy(&v, _shipClasses.record(size_t(s->shipClass)) + kShipSpeedOffset, sizeof v);
+            speed = speed == 0 ? v : std::min(speed, v);
+        }
     if (speed <= 0)
         return 0;
     const int sectors = std::max(std::abs(t.destinationX - t.x), std::abs(t.destinationY - t.y));
@@ -768,11 +743,15 @@ void GalaxyScreen::drawRanges(Surface &screen, int gx, int gy) const {
     // Each range's border: a line along every sector edge between a sector
     // in it and one out of it (or the grid's edge), the shorter ranges over
     // the longer.
-    const SavedGalaxy &g = _game.galaxy;
+    const SavedGalaxy &g = game().galaxy;
     const int sector = kZooms[_zoom].sector;
     for (size_t r = std::size(kRanges); r-- > 0;) {
         auto in = [&](int x, int y) {
-            if (x < 0 || y < 0 || x >= g.width || y >= g.height || (g.at(x, y).claims & _closedClaims) != 0)
+            // Not into the sectors of an empire whose territory it has no
+            // access to (the thirty-fourth turn's stop at the Cardassians'
+            // and Romulans', with whom the Federation has non-aggression
+            // treaties, and run into the Klingons' and Ferengi's).
+            if (!_state.mayEnter(_empire, x, y))
                 return false;
             for (const auto &[cx, cy] : _rangeCentres) {
                 const int dx = std::abs(x - cx);
@@ -858,9 +837,9 @@ void GalaxyScreen::drawClaims(Surface &screen, uint16_t claims, int left, int to
 void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
     const Zoom &z = kZooms[_zoom];
     const int sector = z.sector;
-    const int width = _game.galaxy.width * sector;
-    const int height = _game.galaxy.height * sector;
-    const SavedGalaxy &g = _game.galaxy;
+    const int width = game().galaxy.width * sector;
+    const int height = game().galaxy.height * sector;
+    const SavedGalaxy &g = game().galaxy;
     // The backdrop, from the view's corner whichever the zoom, only inside
     // the sectors the empire hasn't seen: the grid's lines and the sectors
     // seen show the screen's background (hm_scrn.tga), as on the
@@ -965,7 +944,7 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
     // Where the empire's task forces are ordered to: a marker in the middle
     // of the sector.
     if (const image::Image *mark = _assets.picture("movs.tga"))
-        for (const SavedTaskForce &t : _game.taskForces)
+        for (const SavedTaskForce &t : game().taskForces)
             if (t.owner == _empire && t.destinationX >= 0 && (t.destinationX != t.x || t.destinationY != t.y))
                 image::blit(screen, *mark, gx + t.destinationX * sector + (sector - mark->w) / 2,
                             gy + t.destinationY * sector + (sector - mark->h) / 2);
@@ -973,7 +952,7 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
     // sector however many there are; the others' where its scanners reach
     // them, their small emblem a pixel right of and below the corner.
     std::set<std::pair<int, int>> drawn;
-    for (const SavedTaskForce &t : _game.taskForces) {
+    for (const SavedTaskForce &t : game().taskForces) {
         if (!drawn.insert({t.x, t.y}).second)
             continue;
         if (t.owner == _empire) {
@@ -1004,11 +983,11 @@ void GalaxyScreen::drawFrame(Surface &screen, const Animation &a, uint64_t frame
 void GalaxyScreen::drawStrip(Surface &screen) const {
     if (_selected.first < 0)
         return;
-    const SavedSector &sector = _game.galaxy.at(_selected.first, _selected.second);
+    const SavedSector &sector = game().galaxy.at(_selected.first, _selected.second);
     if (sector.system >= 0)
-        drawSystemStrip(screen, _game.galaxy.systems[size_t(sector.system)]);
-    else if (sector.stellarObject >= 0 && stellarStrip(_game.galaxy.stellarObjects[size_t(sector.stellarObject)].type))
-        drawStellarStrip(screen, _game.galaxy.stellarObjects[size_t(sector.stellarObject)]);
+        drawSystemStrip(screen, game().galaxy.systems[size_t(sector.system)]);
+    else if (sector.stellarObject >= 0 && stellarStrip(game().galaxy.stellarObjects[size_t(sector.stellarObject)].type))
+        drawStellarStrip(screen, game().galaxy.stellarObjects[size_t(sector.stellarObject)]);
 }
 
 std::vector<int> GalaxyScreen::planetCentres(int &sunCx, int &cy) const {
@@ -1037,7 +1016,7 @@ std::vector<int> GalaxyScreen::planetCentres(int &sunCx, int &cy) const {
 }
 
 int GalaxyScreen::planetAt(int x, int y) const {
-    if (_selected.first < 0 || _game.galaxy.at(_selected.first, _selected.second).system < 0)
+    if (_selected.first < 0 || game().galaxy.at(_selected.first, _selected.second).system < 0)
         return -1;
     int sunCx = 0;
     int cy = 0;

@@ -223,6 +223,38 @@ the galaxy screen's empire panel in five of the saves:
 | 0x68 | `i32` | its research points a turn: 34, as Sol's research; 0 in the save at the very start, before a turn has worked them out |
 | 0x6C | `i32` | its population, all its systems': 310, 320, 335 |
 | 0x98 to 0xB0 | `i32[7]` | the same seven figures as they were when the turn began: buying lowers the credits at 0x54 and not those at 0x98 |
+| 0x5C | `i32` | its upkeep a turn *(published)*: 0 in every save seen |
+| 0x64 | `i32` | how many ships it's building *(published)* |
+| 0x74 | `i16` | its morale level *(published)* |
+| 0x78 | `i32` | its intelligence points a turn *(published)*: 32 at the thirty-fourth turn |
+| 0x110, 0x124, 0x138 | `i32[5]` | towards each empire, Cardassians first: its treaty's state, whether it may enter that empire's territory (1) and whether they trade *(published)*. At the thirty-fourth turn of the second game the Federation's access is 0 to the Cardassians and Romulans, its non-aggression partners, and 1 to the others; the galaxy screen's ranges keep out of their sectors so |
+| 0x14C | `i32` | its trade routes *(published)* |
+| 0x158 | `u64` | the races it has met, a bit each by `race.rst`'s number *(published)*: the Cardassians, Ferengi, Klingons, Romulans, Bandi and Bolians at the thirty-fourth turn |
+
+`provInfo0` to `provInfo4` list each empire's systems: a count (`i32`),
+then their numbers in `systInfo` (`i16` each) *(published)*: the
+Federation's Sol, and later Xerxes too, its colony.
+
+### Buildings
+
+`strcInfo` lists the systems' buildings *(published)*: for each system
+that has some, its number in `systInfo` and how many kinds (`i16` each),
+then for each kind its count, the building's `edifice.bst` number (that
+file's "number" field, not its place), how many are powered and 0 (`i16`
+each). At the first turn Sol has 15 Type 2 Mass Replicators, 10 Type 2
+Automated Farms, 2 Type 2 Databanks, 4 Type 2 Plasma Reactors, 10 Type 2
+Universities, a Dilithium Refinery (powered), a Subspace Scanner and a
+Starfleet Shipyard (powered); the file ends with the last system's list.
+
+### Races
+
+`alienInfo` holds every race, by `race.rst`'s number, 64 bytes each
+*(published)*: whether it's alive (`i16` at 0x00), its home system's
+number in `systInfo` (`i16` at 0x18), the races it has met (`u64` at
+0x20), its treaty with each empire (`i32[5]` at 0x28: the Bandi's 2 with
+the Ferengi, an affiliation, and the Bolians' 1 with the Federation, a
+friendship, as the `treaty` file has them) and a status (`i32` at 0x3C).
+The rest isn't read.
 
 At the start the empires' credits as the turn began were 800, 2,000,
 1,600, 1,000 and 1,200, Cardassians to Romulans, on Simple difficulty.

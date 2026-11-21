@@ -116,12 +116,12 @@ first turn of one game and the eleventh of another, with their saves
   isn't known)*. In (0, 255, 0), (255, 255, 0), (255, 0, 0). Along the
   galaxy's top edge the border is a pixel lower, inside the grid's line,
   and over the selected system's square (Sol's, at the eleventh turn).
-  The ranges keep out of the sectors claimed by an empire the player has a
-  peace treaty with (`treaty`, [formats/sav.md](../formats/sav.md)): at
-  the thirty-first and thirty-fourth turns they stop at the Cardassians'
-  and Romulans' sectors, with whom the Federation has non-aggression
-  treaties, and run into the Klingons' and Ferengi's, with whom it has
-  none; at the eleventh, with no treaty, into the Romulans'. Drawn so,
+  The ranges keep out of the sectors claimed by an empire whose territory
+  the player has no access to (`empsInfo`'s, [formats/sav.md](../formats/sav.md)):
+  at the thirty-first and thirty-fourth turns they stop at the Cardassians'
+  and Romulans' sectors, whose territory the Federation's non-aggression
+  treaties with them close to it, and run into the Klingons' and
+  Ferengi's; at the eleventh, with access everywhere, into the Romulans'. Drawn so,
   every border edge of four screenshots of those turns but one matches:
   a red edge at the galaxy's left that the game leaves out, as if a range
   were measured along a path round the sectors left out *(not known

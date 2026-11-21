@@ -100,12 +100,12 @@ bool hasAutosave(const std::filesystem::path &dir) {
 // Opens the saved game at `path` on the galaxy screen, as its player sees
 // it; fails if the save can't be read.
 Error openSavedGame(const std::filesystem::path &path, GalaxyScreen &galaxy) {
-    SavedGame game;
-    if (Error err = readSavedGame(path, game))
+    GameState game;
+    if (Error err = GameState::load(path, game))
         return err;
-    if (game.summary.empire < 0)
+    if (game.data().summary.empire < 0)
         return Error::fail(path.string() + ": the player's empire isn't one of the five");
-    if (Error err = galaxy.load(game.summary.empire))
+    if (Error err = galaxy.load(game.player()))
         return err;
     galaxy.open(std::move(game));
     return Error::success();

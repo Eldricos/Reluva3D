@@ -1018,15 +1018,15 @@ void testGalaxyScreen() {
     visitor.owner = 3;
     game.taskForces = {t, klingon, hidden, home, visitor};
     game.empires[1].credits = 2000;
-    // A peace treaty with the Klingons, who claim the sector right of Sol's
-    // southern neighbour: the ranges keep out of it.
-    game.treaties = {{1, 3, 1, 0, 0}};
+    // No access to the Klingons' territory, who claim the sector right of
+    // Sol's southern neighbour: the ranges keep out of it.
+    game.empires[1].territoryAccess = {true, true, true, false, true};
     game.galaxy.sectors[9 * 13 + 11].claims = 1 << 3;
     // The last turn's results: the Federation's three events (economic, a
     // task force's, a race met), its new game's ship (not an event), and a
     // Klingon one.
     game.results = {{1, 0x100, 17, 3}, {1, 0x300, 4, -1}, {1, 0x300, 10, 0}, {1, 0x300, 5, 0}, {3, 0x100, 17, 3}};
-    screen.open(game);
+    screen.open(GameState(game));
     // The scanners reach where the save says, not where something hides.
     CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(11, 7));
     CHECK(screen.scanned(4, 4) && screen.scanned(6, 6) && !screen.scanned(2, 2));
@@ -1097,7 +1097,7 @@ void testGalaxyScreen() {
     CHECK(colour(gx + 10 * 39 + 20, gy + 6 * 39, 255, 255, 0) && colour(gx + 8 * 39, gy + 7 * 39 + 20, 255, 255, 0));
     CHECK(colour(gx + 8 * 39 + 20, gy + 7 * 39, 255, 255, 0) && !colour(gx + 8 * 39 + 20, gy + 6 * 39, 255, 255, 0));
     CHECK(colour(gx + 5 * 39, gy + 8 * 39 + 20, 255, 0, 0) && colour(gx + 10 * 39 + 20, gy + 3 * 39, 255, 0, 0));
-    // The Klingons' sector, under a treaty, is out of every range: green
+    // The Klingons' sector, closed to the Federation, is out of every range: green
     // along its left edge.
     CHECK(colour(gx + 11 * 39, gy + 9 * 39 + 20, 0, 255, 0));
     // The grid's bottom edge closes them: green under Sol's column.

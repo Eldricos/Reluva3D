@@ -10,6 +10,7 @@
 #include "engines/botf/formats/animation.h"
 #include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/snd_archive.h"
+#include "engines/botf/game/game_state.h"
 #include "engines/botf/game_files.h"
 #include "image/image.h"
 
@@ -257,11 +258,26 @@ void testSavedTaskForces(const std::filesystem::path &tmp) {
     set32(emps, 444 + 0x60, 1);
     set32(emps, 444 + 0x68, 34);
     set32(emps, 444 + 0x6C, 310);
-    writeFile(tmp / "emps.sav", makeLzssArchive("game0.sav", {{"empsInfo", emps}}));
+    // The rest of the Federation's: 32 intelligence, no access to the
+    // Cardassians' and Romulans' territory, two trade routes, three races met.
+    set32(emps, 444 + 0x78, 32);
+    for (const uint32_t other : {1U, 2U, 3U})
+        set32(emps, 444 + 0x124 + other * 4, 1);
+    set32(emps, 444 + 0x14C, 2);
+    set32(emps, 444 + 0x158, 0x19);
+    // Its provinces: Sol (9) and Xerxes (12).
+    Bytes provinces;
+    put32(provinces, 2);
+    put16(provinces, 9);
+    put16(provinces, 12);
+    writeFile(tmp / "emps.sav", makeLzssArchive("game0.sav", {{"empsInfo", emps}, {"provInfo1", provinces}}));
     std::array<SavedEmpire, 5> e;
     CHECK(!readSavedEmpires(tmp / "emps.sav", e));
     CHECK(e[1].name == empire && e[1].leader == leader && e[1].credits == 1835 && e[1].creditsPerTurn == 70);
     CHECK(e[1].dilithiumPerTurn == 1 && e[1].researchPoints == 34 && e[1].population == 310 && e[0].name.empty());
+    CHECK(e[1].intelligence == 32 && e[1].tradeRoutes == 2 && e[1].knownRaces == 0x19);
+    CHECK(!e[1].territoryAccess[0] && e[1].territoryAccess[1] && e[1].territoryAccess[3] && !e[1].territoryAccess[4]);
+    CHECK((e[1].systems == std::vector<int>{9, 12}) && e[0].systems.empty());
     emps.resize(444);
     writeFile(tmp / "emps.sav", makeLzssArchive("game0.sav", {{"empsInfo", emps}}));
     CHECK(bool(readSavedEmpires(tmp / "emps.sav", e)));
@@ -367,6 +383,72 @@ void testSavedTreaties(const std::filesystem::path &tmp) {
     CHECK(readSavedTreaties(path, r));
     writeFile(path, makeSave("none", "x", 1));
     CHECK(!readSavedTreaties(path, r) && r.empty());
+}
+
+void testSavedRacesAndBuildings(const std::filesystem::path &tmp) {
+    // alienInfo: 64 bytes a race; the Bandi (11) alive, home system 27,
+    // affiliated with the Ferengi.
+    Bytes races(35 * 64, 0);
+    races[11 * 64] = 1;
+    races[11 * 64 + 0x18] = 27;
+    races[11 * 64 + 0x20] = 0x07;
+    set32(races, 11 * 64 + 0x28 + 2 * 4, 2);
+    // strcInfo: system 1's two kinds of building (15 of 135, 1 of 54
+    // powered); then system 0's one.
+    Bytes strc;
+    for (const uint32_t v : {1U, 2U, 15U, 135U, 0U, 0U, 1U, 54U, 1U, 0U, 0U, 1U, 3U, 6U, 1U, 0U})
+        put16(strc, v);
+    const auto path = tmp / "races.sav";
+    writeFile(path, makeLzssArchive("races", {{"alienInfo", races}, {"strcInfo", strc}}));
+    std::vector<SavedRace> r;
+    CHECK(!readSavedRaces(path, r) && r.size() == 35);
+    CHECK(r[11].alive && r[11].homeSystem == 27 && r[11].knownRaces == 7 && r[11].treaty[2] == 2 && !r[0].alive);
+    std::vector<SavedSystem> systems(2);
+    CHECK(!readSavedBuildings(path, systems));
+    CHECK(systems[1].buildings.size() == 2 && systems[1].buildings[0].building == 135 &&
+          systems[1].buildings[0].count == 15 && systems[1].buildings[1].powered == 1);
+    CHECK(systems[0].buildings.size() == 1 && systems[0].buildings[0].building == 6 &&
+          systems[0].buildings[0].count == 3);
+    // A system's list cut short is an error.
+    strc.resize(strc.size() - 2);
+    writeFile(path, makeLzssArchive("races", {{"strcInfo", strc}}));
+    CHECK(readSavedBuildings(path, systems));
+}
+
+void testGameState() {
+    // A 3 by 2 galaxy: a system at (1, 0), a Klingon claim at (2, 1); two
+    // task forces and an outpost at (1, 0); a ship numbered 40.
+    SavedGame g;
+    g.summary.empire = 1;
+    g.summary.turn = 33;
+    g.galaxy.width = 3;
+    g.galaxy.height = 2;
+    g.galaxy.sectors.resize(6);
+    g.galaxy.systems.resize(1);
+    g.galaxy.systems[0].name = "Sol";
+    g.galaxy.sectors[1].system = 0;
+    g.galaxy.sectors[5].claims = 1 << 3;
+    g.galaxy.outposts = {{"Outpost", 1, 1}};
+    SavedTaskForce a;
+    a.x = 1;
+    SavedTaskForce b = a;
+    b.owner = 3;
+    g.taskForces = {a, b};
+    SavedShip ship;
+    ship.id = 40;
+    ship.name = "USS Manitee A";
+    g.ships = {ship};
+    g.empires[1].territoryAccess = {true, true, true, false, true};
+    g.results = {{1, 0x300, 10, 0}, {1, 0x300, 5, 0}, {3, 0x100, 17, 3}};
+    const GameState s(g);
+    CHECK(s.player() == 1 && s.turn() == 34 && s.onGrid(2, 1) && !s.onGrid(3, 0));
+    CHECK(s.systemAt(1, 0) && s.systemAt(1, 0)->name == "Sol" && !s.systemAt(0, 0) && !s.systemAt(9, 9));
+    CHECK(s.taskForcesAt(1, 0).size() == 2 && s.taskForcesAt(0, 0).empty() && s.outpostsAt(1, 0).size() == 1);
+    CHECK(s.ship(40) && s.ship(40)->name == "USS Manitee A" && !s.ship(41));
+    // No access to the Klingons' territory: not into their sector; they may.
+    CHECK(s.mayEnter(1, 1, 1) && !s.mayEnter(1, 2, 1) && s.mayEnter(3, 2, 1) && !s.mayEnter(1, 5, 5));
+    // A race met counts as an event; a new game's own ship doesn't.
+    CHECK(s.eventCount(1) == 1 && s.eventCount(3) == 1);
 }
 
 void testSavedOrders(const std::filesystem::path &tmp) {
@@ -699,6 +781,8 @@ static const reluva::test::Suite kSuite(
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
         {"saved ships", [](const std::filesystem::path &tmp) { testSavedShips(tmp); }},
         {"animations", [](const std::filesystem::path &) { testAnimations(); }},
+        {"saved races and buildings", [](const std::filesystem::path &tmp) { testSavedRacesAndBuildings(tmp); }},
+        {"game state", [](const std::filesystem::path &) { testGameState(); }},
         {"saved treaties", [](const std::filesystem::path &tmp) { testSavedTreaties(tmp); }},
         {"saved outposts", [](const std::filesystem::path &tmp) { testSavedOutposts(tmp); }},
         {"saved results", [](const std::filesystem::path &tmp) { testSavedResults(tmp); }},

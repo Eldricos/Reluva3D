@@ -30,9 +30,12 @@ with recordings of the original filling what the data can't show.
    start.
 8. **Saves** (next): the `.sav` format, worked out by comparing saves
    taken a turn apart in the running game: the map of the game state the
-   rules act on. The archive's files are listed, and the galaxy's (its
-   sectors, star systems and planets, and other objects) are read
-   ([formats/sav.md](formats/sav.md)).
+   rules act on. The archive's files are listed; the galaxy (its sectors,
+   star systems, planets, buildings, other objects and outposts), the
+   empires, the races, the treaties, the ships and task forces and the
+   last turn's results are read ([formats/sav.md](formats/sav.md)), into
+   one game state ([systems/game-state.md](systems/game-state.md)). Next:
+   writing it back.
 9. **Screens:** the main menu's own screens are done (the options, Load
    and Save Game's lists, the Hall of Fame, Multiplayer Setup). The galaxy
    screen's frame, map, empire's panel and selected sector's strip are

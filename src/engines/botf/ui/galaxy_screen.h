@@ -10,6 +10,7 @@
 #include "engines/botf/formats/planet_populations.h"
 #include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/window_layout.h"
+#include "engines/botf/game/game_state.h"
 #include "engines/botf/ui/layout_screen.h"
 
 #include <functional>
@@ -38,8 +39,8 @@ public:
      * 4 Romulans); fails if the layout lacks a widget the screen needs.
      */
     Error load(int empire);
-    /** Shows a saved game as its player sees it (`game.summary.empire`, which load() was given). */
-    void open(SavedGame game);
+    /** Shows a game as its player sees it (the player's empire, which load() was given). */
+    void open(GameState state);
     /**
      * Acts on a mouse click: the Map button opens or closes the zoom's
      * buttons, Small Map zooms in and Large Map out, and a click on the map
@@ -118,7 +119,10 @@ private:
     // A picture at a widget's place: across, in its middle; down, at its top.
     void drawIcon(Surface &screen, int x, int y, const Widget &w, const std::string &file) const;
 
-    SavedGame _game;
+    // What the save holds, as read.
+    const SavedGame &game() const { return _state.data(); }
+
+    GameState _state;
     int _empire = 1;
     DataTable _shipClasses;               // shiplist.sst, for the task forces' ships' names
     DataTable _races;                     // race.rst, for the people living in a system
@@ -131,7 +135,6 @@ private:
     std::string _taskForcesBack;                    // the task forces' bar's backing picture
     char _letter = 'h';                             // the empire's letter in its files' names
     std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems and outposts
-    uint16_t _closedClaims = 0;                     // the empires whose sectors the ranges keep out of, a bit each
     std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
     int _zoom = 0;                                  // 0 out, 1 in
     std::pair<int, int> _pointed{-1, -1};           // the sector under the pointer

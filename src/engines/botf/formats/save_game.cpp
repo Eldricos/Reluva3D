@@ -21,6 +21,8 @@ namespace {
 constexpr size_t kChunkHeaderSize = 12;
 constexpr size_t kResultHeaderSize = 40;
 constexpr size_t kOutpostSize = 92;
+constexpr size_t kRaceSize = 64;
+constexpr size_t kBuildingSize = 8;
 // treaty's: a count and the next treaty's number, then each treaty.
 constexpr size_t kTreatyHeaderSize = 8;
 constexpr size_t kTreatySize = 0x74;
@@ -292,6 +294,83 @@ Error readSavedEmpires(const std::filesystem::path &path, std::array<SavedEmpire
         m.dilithiumPerTurn = s32(info, at + 0x60);
         m.researchPoints = s32(info, at + 0x68);
         m.population = s32(info, at + 0x6C);
+        // The rest as the Ultimate Editor lays it out (published).
+        m.supportCost = s32(info, at + 0x5C);
+        m.shipsBuilding = s32(info, at + 0x64);
+        m.morale = s16(info, at + 0x74);
+        m.intelligence = s32(info, at + 0x78);
+        for (size_t o = 0; o < 5; ++o) {
+            m.treatyStatus[o] = s32(info, at + 0x110 + o * 4);
+            m.territoryAccess[o] = s32(info, at + 0x124 + o * 4) != 0;
+            m.tradeAllowed[o] = s32(info, at + 0x138 + o * 4) != 0;
+        }
+        m.tradeRoutes = s32(info, at + 0x14C);
+        m.knownRaces = readLE64(&info[at + 0x158]);
+    }
+    // Each empire's provinces: a count, then the systems' numbers.
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    for (size_t e = 0; e < empires.size(); ++e) {
+        const std::string name = "provInfo" + std::to_string(e);
+        if (!save.has(name))
+            continue;
+        std::vector<uint8_t> d;
+        if (Error err = readFile(save, name.c_str(), d))
+            return Error::fail(path.string() + ": " + err.message);
+        const int count = d.size() >= 4 ? s32(d, 0) : 0;
+        for (int i = 0; i < count && 4 + size_t(i) * 2 + 2 <= d.size(); ++i)
+            empires[e].systems.push_back(s16(d, 4 + size_t(i) * 2));
+    }
+    return Error::success();
+}
+
+Error readSavedRaces(const std::filesystem::path &path, std::vector<SavedRace> &races) {
+    races.clear();
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    if (!save.has("alienInfo"))
+        return Error::success();
+    std::vector<uint8_t> d;
+    if (Error err = readFile(save, "alienInfo", d))
+        return Error::fail(path.string() + ": " + err.message);
+    // 64 bytes a race (published).
+    for (size_t at = 0; at + kRaceSize <= d.size(); at += kRaceSize) {
+        SavedRace r;
+        r.alive = s16(d, at) != 0;
+        r.homeSystem = s16(d, at + 0x18);
+        r.knownRaces = readLE64(&d[at + 0x20]);
+        for (size_t e = 0; e < r.treaty.size(); ++e)
+            r.treaty[e] = s32(d, at + 0x28 + e * 4);
+        r.status = s32(d, at + 0x3C);
+        races.push_back(r);
+    }
+    return Error::success();
+}
+
+Error readSavedBuildings(const std::filesystem::path &path, std::vector<SavedSystem> &systems) {
+    for (SavedSystem &s : systems)
+        s.buildings.clear();
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    if (!save.has("strcInfo"))
+        return Error::success();
+    std::vector<uint8_t> d;
+    if (Error err = readFile(save, "strcInfo", d))
+        return Error::fail(path.string() + ": " + err.message);
+    // For each system with buildings: its number and how many kinds, then
+    // each kind's count, its building, how many are powered and 0.
+    for (size_t at = 0; at + 4 <= d.size();) {
+        const int system = s16(d, at);
+        const int kinds = s16(d, at + 2);
+        at += 4;
+        if (kinds < 0 || size_t(kinds) * kBuildingSize > d.size() - at)
+            return Error::fail(path.string() + ": strcInfo ends in a system's buildings");
+        for (int k = 0; k < kinds; ++k, at += kBuildingSize)
+            if (system >= 0 && size_t(system) < systems.size())
+                systems[size_t(system)].buildings.push_back({s16(d, at + 2), s16(d, at), s16(d, at + 4)});
     }
     return Error::success();
 }
@@ -541,6 +620,10 @@ Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     if (Error err = readSavedTaskForces(path, game.galaxy.width, game.taskForces))
         return err;
     if (Error err = readSavedTreaties(path, game.treaties))
+        return err;
+    if (Error err = readSavedRaces(path, game.races))
+        return err;
+    if (Error err = readSavedBuildings(path, game.galaxy.systems))
         return err;
     return readSavedResults(path, game.results);
 }

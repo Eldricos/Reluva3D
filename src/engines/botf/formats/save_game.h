@@ -52,6 +52,13 @@ struct SavedPlanet {
     ///@}
 };
 
+/** A kind of building in a system (strcInfo). */
+struct SavedBuildings {
+    int building = 0; // edifice.bst's number (its "number" field, not its place)
+    int count = 0;
+    int powered = 0; // how many of them are switched on
+};
+
 /** A star system: a sector's star and its planets. */
 struct SavedSystem {
     std::string name;          // UTF-8: "Acamar"
@@ -72,6 +79,7 @@ struct SavedSystem {
     int building = 0;    // with build order 1, the building's edifice.bst number
     int ship = 0;        // with build order 3, the ship's shiplist.sst number
     bool buying = false; // the player's: the item being built is to be bought this turn
+    std::vector<SavedBuildings> buildings; // strcInfo's, by readSavedBuildings()
     /** Where it's drawn on the galaxy's small map, in its pixels: 5 a sector. */
     ///@{
     int mapX = 0;
@@ -146,9 +154,25 @@ struct SavedEmpire {
     int dilithiumPerTurn = 0;
     int researchPoints = 0; // a turn's research, all fields together
     int population = 0;     // all its systems'
+    int supportCost = 0;    // a turn's upkeep, in credits
+    int shipsBuilding = 0;
+    int morale = 0;       // its morale level
+    int intelligence = 0; // a turn's intelligence points
+    /** Towards each empire, Cardassians to Romulans: its treaty's state, whether it may enter that empire's territory, and whether they trade. */
+    ///@{
+    std::array<int, 5> treatyStatus{};
+    std::array<bool, 5> territoryAccess{};
+    std::array<bool, 5> tradeAllowed{};
+    ///@}
+    uint64_t knownRaces = 0; // the races it has met, a bit each by race.rst's number
+    int tradeRoutes = 0;
+    std::vector<int> systems; // its provinces (provInfo#), by their number in systInfo
 };
 
-/** Reads the five major empires, Cardassians to Romulans, from the saved game at `path` (its empsInfo file). */
+/**
+ * Reads the five major empires, Cardassians to Romulans, from the saved game
+ * at `path`: its empsInfo file, and provInfo0 to provInfo4 where it has them.
+ */
 Error readSavedEmpires(const std::filesystem::path &path, std::array<SavedEmpire, 5> &empires);
 
 /** A task force: ships moving together, a single ship being one. */
@@ -247,6 +271,21 @@ struct SavedResult {
  */
 Error readSavedResults(const std::filesystem::path &path, std::vector<SavedResult> &results);
 
+/** A race's diplomatic state (alienInfo), by race.rst's number; the minor races' matter. */
+struct SavedRace {
+    bool alive = false;
+    int homeSystem = -1;         // its home system's number in systInfo, or -1
+    uint64_t knownRaces = 0;     // the races it has met, a bit each
+    std::array<int, 5> treaty{}; // its treaty with each empire, Cardassians to Romulans: 0 none
+    int status = 0;
+};
+
+/** Reads every race's diplomatic state (alienInfo, 64 bytes each); none if it has no alienInfo. */
+Error readSavedRaces(const std::filesystem::path &path, std::vector<SavedRace> &races);
+
+/** Reads the systems' buildings (strcInfo) into `systems`, read before by readSavedGalaxy(). */
+Error readSavedBuildings(const std::filesystem::path &path, std::vector<SavedSystem> &systems);
+
 /** A diplomatic agreement between two races (treaty). */
 struct SavedTreaty {
     int type = 0; // 1 peace (non-aggression and the like), 2 alliance, 3 war pact, 5 to 7 with minor races, 8 a gift
@@ -277,6 +316,7 @@ struct SavedGame {
     std::vector<SavedTaskForce> taskForces;
     std::vector<SavedResult> results;
     std::vector<SavedTreaty> treaties;
+    std::vector<SavedRace> races;
 };
 
 /**
