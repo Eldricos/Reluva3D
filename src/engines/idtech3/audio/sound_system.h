@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -75,6 +76,10 @@ public:
     void setMusicData(std::string dms) { _dms = std::move(dms); }
     void setMapName(const std::string &map) { _mapName = map; }
     void setAllowDynamicMusic(bool allow) { _allowDynamic = allow; }
+    // s_debugdynamic: what the dynamic music prints (DynamicMusic::debug).
+    void setDebugDynamic(int level) { _dynamic.debug = level; }
+    // The s_dynamic command (0x426c80): its words after the command's.
+    void dynamicCommand(const std::vector<std::string> &args);
     // Its S_StartBackgroundTrack (0x427350): a file, if `intro` names one
     // with a path, as above; else the dynamic set it names (or the map's).
     void startMusic(const std::string &intro, const std::string &loop);
@@ -83,6 +88,8 @@ public:
     // The state the game asks for, configstring 907; nullptr while unset.
     void setMusicState(const std::string *state);
     const DynamicMusic &dynamicMusic() const { return _dynamic; }
+    // Where the music's messages go (the console).
+    std::function<void(const std::string &)> print;
     // Each frame, after the client game's: positions and volumes brought
     // up to date, looping sounds not re-added stopped, music moved on.
     void endFrame();
@@ -107,6 +114,7 @@ public:
     std::pair<float, float> spatialize(const Vec3f &origin) const;
 
 private:
+    void say(const std::string &text) const; // to print, if set
     struct Playing {
         audio::SoundHandle handle = audio::kNoSound;
         int entity = -1;

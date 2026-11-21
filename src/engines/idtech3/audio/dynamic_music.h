@@ -50,6 +50,9 @@ struct MusicSet {
     std::optional<MusicPiece> action;
     std::optional<MusicPiece> boss;
     MusicPiece death; // always music/death_music.mp3
+    // What the reader reports but allows (a boss piece's exits), as
+    // s_debugdynamic prints them.
+    std::vector<std::string> notes;
 
     /**
      * The file of track `id` (DynamicMusic's numbering): the explore,
@@ -66,6 +69,15 @@ struct MusicSet {
  */
 Error findMusicSet(std::string_view dms, std::string_view name, const std::function<bool(const std::string &)> &exists,
                    MusicSet &out);
+
+/**
+ * A findMusicSet error as s_debugdynamic prints it (0x42c650): under
+ * dms.dat's heading, but a name with no set, which is only a warning
+ * (0x42c860).
+ */
+std::string musicSetReport(const Error &error);
+/** Whether a findMusicSet error is a set without both explore and action. */
+bool musicSetIncomplete(const Error &error);
 
 /**
  * Jedi Outcast's dynamic music playing (jk2sp.exe's, 0x427c00 on): a set's
@@ -105,13 +117,24 @@ public:
      * death only if the set has them), anything else explore.
      */
     void request(std::string_view state);
+    /** A track asked for by number (S_SetDynamicMusicState, 0x4272c0). */
+    void requestTrack(int id);
+    /** Whether the set has a track's piece, loaded. */
+    bool has(int id) const { return loaded(id); }
+    /** The state asked for and the one playing, as s_info and s_dynamic print them (0x423120). */
+    std::string status() const;
     /** A frame: the change asked for made when it may be, fades moved on. */
     void update(uint64_t nowMs);
     int current() const { return _current; }
     int requested() const { return _requested; }
     const MusicSet &set() const { return _set; }
-    /** A track's name ("explore", "action_tr2", "silence"...). */
+    /** A track's name ("explore", "action_tr2", "silence"...; "<unknown>" for none). */
     static std::string trackName(int id);
+
+    /** s_debugdynamic: 1 prints each request and switch, 2 the state each frame too. */
+    int debug = 0;
+    /** Where those prints go. */
+    std::function<void(const std::string &)> print;
 
 private:
     struct Fade {

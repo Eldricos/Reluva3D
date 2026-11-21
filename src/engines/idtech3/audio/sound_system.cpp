@@ -9,6 +9,7 @@
 #include "engines/idtech3/audio/sound_system.h"
 
 #include "common/fs.h"
+#include "common/text.h"
 
 #include <algorithm>
 #include <cmath>
@@ -260,9 +261,16 @@ void SoundSystem::startMusic(const std::string &intro, const std::string &loopNa
     if (!file.empty() && file.find('.', file.find_last_of('/') + 1) == std::string::npos)
         file += ".mp3";
     MusicSet set;
-    const bool isSet = !_dms.empty() && !findMusicSet(
-                                            _dms, intro.empty() ? _mapName : intro,
-                                            [&](const std::string &p) { return _sounds.get(p) != nullptr; }, set);
+    const std::string name = intro.empty() ? _mapName : intro;
+    Error found = _dms.empty()
+                      ? Error::fail("")
+                      : findMusicSet(_dms, name, [&](const std::string &p) { return _sounds.get(p) != nullptr; }, set);
+    const bool isSet = !found;
+    if (_dynamic.debug && found && !_dms.empty() && !musicSetIncomplete(found))
+        say(musicSetReport(found));
+    if (_dynamic.debug)
+        for (const std::string &note : set.notes)
+            say("Error parsing music data ( in \"ext_data/dms.dat\" ):\n" + note + "\n\n");
     // Without dynamic music a set plays its explore piece as a plain track.
     if (!_allowDynamic && isSet)
         file = set.path(DynamicMusic::kExplore);
@@ -275,8 +283,48 @@ void SoundSystem::startMusic(const std::string &intro, const std::string &loopNa
         for (int id = 0; id < DynamicMusic::kTracks; ++id)
             if (const std::string p = set.path(id); !p.empty())
                 sounds[size_t(id)] = _sounds.get(p);
-        _dynamic.start(set, sounds, _nowMs);
+        if (_dynamic.start(set, sounds, _nowMs))
+            return;
     }
+    // Neither a file nor a set (0x42757a, 0x427595): a set without both
+    // pieces said so; anything else, but a name starting '.', not found.
+    if (isSet || musicSetIncomplete(found))
+        say("^1Dynamic music did not have both 'action' and 'explore' versions, inhibiting...\n");
+    else if (!_dms.empty() && (name.empty() || name[0] != '.'))
+        say("^1Unable to find music \"" + name + "\" as explicit track or dynamic music entry!\n");
+}
+
+void SoundSystem::say(const std::string &text) const {
+    if (print)
+        print(text);
+}
+
+void SoundSystem::dynamicCommand(const std::vector<std::string> &args) {
+    // As 0x426c80: a state asked for, as the game would; boss and death
+    // only where the set has them. Wrong words, or no dynamic music, show
+    // the state.
+    auto is = [&](const char *word) { return args.size() == 1 && text::equalsIgnoreCase(args[0], word); };
+    if (args.size() == 1 && _dynamic.on()) {
+        if (is("explore"))
+            return _dynamic.requestTrack(DynamicMusic::kExplore);
+        if (is("action"))
+            return _dynamic.requestTrack(DynamicMusic::kAction);
+        if (is("silence"))
+            return _dynamic.requestTrack(DynamicMusic::kSilence);
+        if (is("boss")) {
+            if (_dynamic.has(DynamicMusic::kBoss))
+                return _dynamic.requestTrack(DynamicMusic::kBoss);
+            return say("No 'boss' music defined in current dynamic set\n");
+        }
+        if (is("death")) {
+            if (_dynamic.has(DynamicMusic::kDeath))
+                return _dynamic.requestTrack(DynamicMusic::kDeath);
+            return say("No 'death' music defined in current dynamic set\n");
+        }
+    }
+    if (args.size() != 1 || _dynamic.on())
+        say("Usage: s_dynamic <explore/action/silence/boss/death>\n");
+    say(_dynamic.status());
 }
 
 void SoundSystem::restartMusic() {

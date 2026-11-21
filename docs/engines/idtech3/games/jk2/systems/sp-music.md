@@ -101,6 +101,36 @@ again from its start, crossfading; death plays once. A plain track is
 silent while the state is silence. `s_musicvolume` (0.25) sets the
 music's volume.
 
+### Messages and debugging
+
+- **Always printed** by the music's start (0x427350): a set whose
+  explore or action piece couldn't be loaded, `^1Dynamic music did not
+  have both 'action' and 'explore' versions, inhibiting...`; a name
+  that's neither a file nor a set (unless it starts with `.`), `^1Unable
+  to find music "<name>" as explicit track or dynamic music entry!`.
+- **`s_debugdynamic`** (default 0, a cheat): set, `dms.dat`'s reader
+  prints what it finds wrong, under `Error parsing music data ( in
+  "ext_data/dms.dat" ):` (0x42c650), but a name with no set, printed
+  alone in yellow (`^3`, 0x42c860); each change of the state asked for
+  prints `^6S_SetDynamicMusicState( Request: "<track>" )` (0x4272c0) and
+  each track switched to `^6S_SwitchDynamicTracks( "<track>" )`
+  (0x427e50). At 2, each frame also prints the state (0x427c13).
+- **The state**, as `s_info` and `s_dynamic` print it (0x423120): `(
+  Dynamic music OFF )`, or `( Dynamic music ON, request state:
+  '<name>'(<n>), actual: '<name>' (<n>) )`, the state asked for named
+  only if it's a state, not a transition (`<unknown>`).
+- **`s_dynamic <explore/action/silence/boss/death>`** (0x426c80, the
+  words in any case) asks for that state as the game would; boss and
+  death only if the set has them (else `No 'boss' music defined in
+  current dynamic set`). With no word, another word, or no dynamic music
+  playing, it prints the state (and, but for the last, its usage). The
+  game asks again each frame, so what it asks for wins at once while a
+  level runs.
+- The reader's reports for a boss piece with exits name the piece's
+  kind: `"<piece>" has boss transitions defined, this is not allowed!`,
+  as `"<piece>" has > 4 explore transitions defined!` *(inferred)*: the
+  argument is the kind the reader is called with (0x42c088).
+
 ## In Reluva
 
 `findMusicSet` reads `dms.dat` and a set from it as above, its files
@@ -110,7 +140,9 @@ engine's `S_StartBackgroundTrack`, a file or a set. The single-player
 Play page reads `ext_data/dms.dat` for Jedi Outcast, gives the level's
 name, passes the client game's import 34 to `startMusic` and
 configstring 907 to it each frame, `s_allowDynamicMusic` too, and
-starts the music again after a cinematic. Every single-player level
+starts the music again after a cinematic; `s_dynamic` and the
+messages above go to its console (`SoundSystem::dynamicCommand`,
+`DynamicMusic::status`, `musicSetReport`). Every single-player level
 but `yavin_temple` (its file) and `valley` (its cutscene's music) has a
 set, all their files there (`reluva-tool idtech3 music-sets`).
 
@@ -119,8 +151,9 @@ samples) and measures where a piece has got to from that *(inferred)*;
 Reluva measures it from what's heard, so its exits come a little later.
 The client game's "starting" call only loads in the original, the music
 starting from the first snapshot; here it starts at once. The random
-markers are Reluva's own draws. The `s_dynamic` console command and
-`s_debugdynamic`'s prints aren't there.
+markers are Reluva's own draws. The start's developer prints
+(`S_StartBackgroundTrack: Found dynamic music tracks`...) and `s_info`
+aren't there.
 
 ## Sources and checks
 
@@ -130,14 +163,17 @@ markers are Reluva's own draws. The `s_dynamic` console command and
   0x4283a9, 0x42d730, 0x42d930), the playing (0x427c00, 0x427e50,
   0x427f10), the restarts (0x405122, 0x427310); `jk2gamex86.dll`: the
   music configstring's setters (0x200b0a56, 0x200b3f30), the client
-  game's start (0x200333c0) and the state's update (0x20097c50). The
+  game's start (0x200333c0) and the state's update (0x20097c50); the
+  messages, `s_dynamic` and `s_debugdynamic` (0x426c80, 0x42c650,
+  0x42c860, 0x4272c0, 0x427e50, 0x423120). The
   GPL Jedi Outcast single-player source as a guide to the system's
   shape. `ext_data/dms.dat` and the pk3s' `music/` folders.
 - **How it was checked:** a unit test (`idtech3.unit.sound`, "dynamic
   music") reads a made-up set (a `uses` hop, a missing transition
   refused) and plays it through the mixer: action at once, back to
   explore through action's transition at its exit time, silence through
-  explore's, boss and death cutting in, nothing cutting death. A
+  explore's, boss and death cutting in, nothing cutting death; the
+  reports, the state's text and the debug prints. A
   game-data step (`jk2-sp-music`, `music-sets`) reads every map's set
   from 1.02a's `dms.dat`, its files checked: 23 sets. Not yet heard in
   Reluva's window against the original.

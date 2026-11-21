@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 
 namespace reluva::idtech3 {
@@ -20,6 +21,11 @@ constexpr size_t kNameMax = 63;
 constexpr int kUsesMax = 10;
 // Explore and action pieces have at most four exits (tracks 4-7, 8-11).
 constexpr size_t kExitsMax = 4;
+// The reader's two messages its callers tell apart: a name with no set,
+// and a set without both pieces, which the engine itself reports
+// (0x42757a).
+constexpr const char *kNoEntry = "Unable to find entry for ";
+constexpr const char *kIncomplete = "Dynamic music did not have both 'action' and 'explore' versions";
 // How near an exit time must be to where the piece has got to (0x4c8cf8).
 constexpr float kExitWindow = 0.3f;
 // A piece hands over, or starts again, this long before its end (0x4c8478).
@@ -89,8 +95,10 @@ std::string clip(std::string s) {
     return s;
 }
 
-// A musicfiles entry (0x42ca40): its entry markers, exits and times.
-Error readPiece(const Group &musicFiles, const std::string &name, bool transitions, MusicPiece &out) {
+// A musicfiles entry (0x42ca40) for a set's `kind` of piece ("explore"...):
+// its entry markers, exits and times; what's allowed but reported in `notes`.
+Error readPiece(const Group &musicFiles, const std::string &name, const char *kind, bool transitions, MusicPiece &out,
+                std::vector<std::string> &notes) {
     const Group *g = musicFiles.group(name);
     if (!g)
         return Error::fail("Unable to find musicfiles entry \"" + name + "\"");
@@ -120,13 +128,14 @@ Error readPiece(const Group &musicFiles, const std::string &name, bool transitio
     }
     if (transitions) {
         if (out.exits.size() > kExitsMax)
-            return Error::fail("\"" + name + "\" has > 4 transitions defined!");
+            return Error::fail("\"" + name + "\" has > 4 " + kind + " transitions defined!");
         if (!g->group("entry"))
             return Error::fail("Unable to find subgroup \"entry\" in group \"" + name + "\"");
         if (!anyNext)
             return Error::fail("Unable to find subgroup \"exit\" in group \"" + name + "\"");
     } else if (!out.exits.empty()) {
-        // Printed but allowed (0x4dcd24); its exits are never taken.
+        // Reported but allowed (0x42ce8d); its exits are never taken.
+        notes.push_back("\"" + name + "\" has " + kind + " transitions defined, this is not allowed!");
         out.exits.clear();
         out.times.clear();
     }
@@ -200,7 +209,7 @@ Error findMusicSet(std::string_view dms, std::string_view name, const std::funct
     for (int hop = 0;; ++hop) {
         entry = hop <= kUsesMax ? levelMusic->group(level) : nullptr;
         if (!entry)
-            return Error::fail("Unable to find entry for \"" + level + "\" in \"ext_data/dms.dat\"");
+            return Error::fail(kNoEntry + ("\"" + level + "\" in \"ext_data/dms.dat\""));
         std::string uses;
         for (const auto &[key, value] : entry->pairs)
             if (same(key, "uses"))
@@ -239,17 +248,18 @@ Error findMusicSet(std::string_view dms, std::string_view name, const std::funct
             out.bossFolder = clip(value);
         }
     }
-    auto read = [&](const std::string &n, bool transitions, std::optional<MusicPiece> &piece) -> Error {
+    auto read = [&](const std::string &n, const char *kind, bool transitions,
+                    std::optional<MusicPiece> &piece) -> Error {
         if (n.empty())
             return {};
         piece.emplace();
-        return readPiece(*musicFiles, n, transitions, *piece);
+        return readPiece(*musicFiles, n, kind, transitions, *piece, out.notes);
     };
-    if (Error e = read(exploreName, true, out.explore))
+    if (Error e = read(exploreName, "explore", true, out.explore))
         return e;
-    if (Error e = read(actionName, true, out.action))
+    if (Error e = read(actionName, "action", true, out.action))
         return e;
-    if (Error e = read(bossName, false, out.boss))
+    if (Error e = read(bossName, "boss", false, out.boss))
         return e;
     out.death.name = "death_music";
     // Every file there; each exit's mark one of the explore piece's.
@@ -275,8 +285,18 @@ Error findMusicSet(std::string_view dms, std::string_view name, const std::funct
         }
     }
     if (!out.explore || !out.action)
-        return Error::fail("Dynamic music did not have both 'action' and 'explore' versions");
+        return Error::fail(kIncomplete);
     return {};
+}
+
+bool musicSetIncomplete(const Error &error) {
+    return error.message == kIncomplete;
+}
+
+std::string musicSetReport(const Error &error) {
+    if (error.message.compare(0, std::strlen(kNoEntry), kNoEntry) == 0)
+        return "^3" + error.message + "\n";
+    return "Error parsing music data ( in \"ext_data/dms.dat\" ):\n" + error.message + "\n\n";
 }
 
 std::string DynamicMusic::trackName(int id) {
@@ -298,7 +318,25 @@ std::string DynamicMusic::trackName(int id) {
         return "action_tr" + std::to_string(id - kActionTransition);
     if (id >= kExploreTransition && id < kTracks)
         return "explore_tr" + std::to_string(id - kExploreTransition);
-    return "?";
+    return "<unknown>";
+}
+
+std::string DynamicMusic::status() const {
+    // The state asked for is named only if it's a state, not a transition.
+    if (!_on)
+        return "( Dynamic music OFF )\n";
+    const std::string asked =
+        _requested < kActionTransition || _requested == kSilence ? trackName(_requested) : trackName(-1);
+    return "( Dynamic music ON, request state: '" + asked + "'(" + std::to_string(_requested) + "), actual: '" +
+           trackName(_current) + "' (" + std::to_string(_current) + ") )\n";
+}
+
+void DynamicMusic::requestTrack(int id) {
+    if (id == _requested)
+        return;
+    _requested = id;
+    if (debug && print)
+        print("^6S_SetDynamicMusicState( Request: \"" + trackName(id) + "\" )\n");
 }
 
 bool DynamicMusic::start(const MusicSet &set, const std::array<std::shared_ptr<const audio::Sound>, kTracks> &sounds,
@@ -336,15 +374,15 @@ void DynamicMusic::request(std::string_view state) {
     const std::string s = fs::toLower(std::string(state));
     auto starts = [&](std::string_view word) { return s.compare(0, word.size(), word) == 0; };
     if (starts("silence"))
-        _requested = kSilence;
+        requestTrack(kSilence);
     else if (starts("action"))
-        _requested = kAction;
+        requestTrack(kAction);
     else if (starts("boss"))
-        _requested = loaded(kBoss) ? kBoss : _current;
+        requestTrack(loaded(kBoss) ? kBoss : _current);
     else if (starts("death"))
-        _requested = loaded(kDeath) ? kDeath : _current;
+        requestTrack(loaded(kDeath) ? kDeath : _current);
     else
-        _requested = kExplore;
+        requestTrack(kExplore);
 }
 
 double DynamicMusic::seconds(int id) const {
@@ -376,6 +414,8 @@ void DynamicMusic::switchTo(int id, bool instant, uint64_t nowMs) {
     _fading.target = 0;
     _playing = {};
     _current = id;
+    if (debug && print)
+        print("^6S_SwitchDynamicTracks( \"" + trackName(id) + "\" )\n");
     if (!loaded(id))
         return; // silence, or a piece the set hasn't
     const auto &sound = _sounds[size_t(id)];
@@ -465,6 +505,8 @@ void DynamicMusic::setVolume(Fade &f, uint64_t nowMs) {
 void DynamicMusic::update(uint64_t nowMs) {
     if (!_on)
         return;
+    if (debug == 2 && print)
+        print(status());
     // Whether the state asked for may cut in now (0x42d6e0): death always,
     // and nothing cuts death; boss always, and only silence cuts boss;
     // action always; explore and silence not during a transition.

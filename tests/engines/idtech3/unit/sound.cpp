@@ -339,10 +339,25 @@ levelmusic
     CHECK(set.path(DynamicMusic::kDeath) == "music/death_music.mp3");
     CHECK(set.action && set.action->times.size() == 1 && set.explore->marker("MARKER1") == 1.0f);
     MusicSet none;
-    CHECK(findMusicSet(dms, "nowhere", exists, none));
+    // A name with no set only a warning in s_debugdynamic's prints; other
+    // errors under dms.dat's heading.
+    Error err = findMusicSet(dms, "nowhere", exists, none);
+    CHECK(err && musicSetReport(err) == "^3Unable to find entry for \"nowhere\" in \"ext_data/dms.dat\"\n");
     files.erase("music/lvl/ex_atr00.mp3");
-    CHECK(findMusicSet(dms, "lvl", exists, none)); // a transition's file missing
+    err = findMusicSet(dms, "lvl", exists, none); // a transition's file missing
+    CHECK(err &&
+          musicSetReport(err).rfind("Error parsing music data ( in \"ext_data/dms.dat\" ):\nTransition", 0) == 0);
+    CHECK(!musicSetIncomplete(err));
     files.insert("music/lvl/ex_atr00.mp3");
+    CHECK(set.notes.empty());
+    // A boss piece with exits: allowed, but reported.
+    std::string bossExits = dms;
+    bossExits.replace(bossExits.find("ex_boss\n\t{\n"), 11,
+                      "ex_boss\n\t{\n\t\texit\n\t\t{\n\t\t\tnextfile\tex_etr00\n\t\t}\n");
+    MusicSet bossy;
+    CHECK(!findMusicSet(bossExits, "lvl", exists, bossy));
+    CHECK(bossy.notes.size() == 1 &&
+          bossy.notes[0] == "\"ex_boss\" has boss transitions defined, this is not allowed!");
 
     // Playing it, a tenth of a second a frame: explore 5 s, action 5 s,
     // the transitions 3 s.
@@ -370,12 +385,21 @@ levelmusic
         now += 100;
         music.update(now);
     };
+    CHECK(music.status() == "( Dynamic music OFF )\n");
     CHECK(music.start(set, sounds, now));
     CHECK(music.current() == DynamicMusic::kExplore);
-    // Action cuts in at once.
+    // Action cuts in at once; s_debugdynamic prints the request (once)
+    // and the switch.
+    std::string printed;
+    music.debug = 1;
+    music.print = [&](const std::string &text) { printed += text; };
     music.request("action");
+    music.request("action");
+    CHECK(music.status() == "( Dynamic music ON, request state: 'action'(1), actual: 'explore' (0) )\n");
     frame();
     CHECK(music.current() == DynamicMusic::kAction);
+    CHECK(printed == "^6S_SetDynamicMusicState( Request: \"action\" )\n^6S_SwitchDynamicTracks( \"action\" )\n");
+    music.debug = 0;
     // Back to explore only at action's exit time, through its transition,
     // which hands over two seconds before its end.
     music.request("explore");

@@ -126,8 +126,10 @@ void SpPlayPage::activate() {
     applyVideoSettings(video, *_shaders, _world.get(), _models.get());
     _scene = std::make_unique<SceneDrawer>(*_renderer, *_shaders, *_models, _ctx.game.spRefEntity);
     _ctx.sys.setRelativeMouse(true);
-    if (_ctx.mixer)
+    if (_ctx.mixer) {
         _soundSystem = std::make_unique<SoundSystem>(*_ctx.mixer, _soundLibrary);
+        _soundSystem->print = [this](const std::string &text) { consolePrint(text); };
+    }
     // Jedi Outcast's dynamic music sets.
     if (_soundSystem && jedi()) {
         std::vector<uint8_t> dms;
@@ -511,6 +513,9 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
             _soundSystem->startMusic(w[1], w.size() >= 3 ? w[2] : w[1]);
         else if (_soundSystem && w.size() >= 2)
             _soundSystem->startBackgroundTrack(w[1], w.size() >= 3 ? w[2] : w[1]);
+    } else if (cmd == "s_dynamic" && jedi()) {
+        if (_soundSystem)
+            _soundSystem->dynamicCommand({w.begin() + 1, w.end()});
     } else if (cmd == "bind" || cmd == "unbind" || cmd == "unbindall" || cmd == "set" || cmd == "seta" ||
                cmd == "sets" || cmd == "setu" || cmd == "exec") {
         _ctx.bindings.execute(line, _cvars, nullptr, [this](const std::string &name, std::string &text) {
@@ -639,8 +644,10 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     const std::string &path = _names[size_t(index)];
     std::string map = path.substr(5, path.size() - 9);
     // Its dynamic music set unless the level names another (0x4371dc).
-    if (_soundSystem)
+    if (_soundSystem) {
         _soundSystem->setMapName(map);
+        _soundSystem->setDebugDynamic(_cvars.find("s_debugdynamic") ? int(_cvars.value("s_debugdynamic")) : 0);
+    }
     showLoadingScreen(map);
     _map = map;
     _gameCommandsRun = 0;
@@ -1438,8 +1445,11 @@ void SpPlayPage::runGame(uint64_t nowMs) {
     }
     _timing.server = ms(serverStart);
     const auto clientStart = Clock::now();
-    if (_soundSystem)
+    if (_soundSystem) {
         _soundSystem->setTime(nowMs);
+        // (Before the client game, which starts the music as it begins.)
+        _soundSystem->setDebugDynamic(int(setting("s_debugdynamic", 0)));
+    }
     if (Error err = _game->drawClientFrame(_clientTime))
         return stop("The client game stopped: " + err.message);
     _timing.client = ms(clientStart);
