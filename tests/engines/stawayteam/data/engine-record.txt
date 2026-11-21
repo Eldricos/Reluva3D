@@ -1,0 +1,3 @@
+# The record of stawayteam.engine (tests/engines/stawayteam/engine.cpp).
+# Written by `reluva-tests stawayteam.engine --update`; review its diff before committing.
+detect.games: 0
