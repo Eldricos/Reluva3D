@@ -77,16 +77,18 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Inferred
 
-- A save is refused while a cinematic outside the game plays, as the
-  client isn't in the level then; the original's check reads only the
-  in-game cinematic's flag and the client's state
-  ([systems/sp-saves.md](systems/sp-saves.md)).
+Nothing at present.
 
 ## Guessed
 
 Nothing at present.
 
 ## Settled
+
+- Saving is refused only under an in-game cinematic: the check reads the
+  flag `CL_PlayCinematic_f` (0x404920) keeps from its caller and the
+  server's state, which a plain `cinematic` leaves running
+  ([systems/sp-saves.md](systems/sp-saves.md)).
 
 - A saber's trail's second triangle takes its alphas from the first's
   corners as jk2mp.exe (0x413d50) and single player's game DLL
@@ -104,8 +106,9 @@ Nothing at present.
   against the level's tracks: `impbaseb_explore` plays in step with it
   from within a few seconds of the level's opening scene starting, under its
   dialogue, and loops when it ends, as Reluva's first
-  `S_StartBackgroundTrack` starts it. How the original keeps playing
-  once its files are let go (0x4275a7) is still unread. In a fight later
+  `S_StartBackgroundTrack` starts it. The original lets the files go
+  after that call and starts the track again from its start at the
+  first snapshot (0x402380, 0x475450, 0x427310). In a fight later
   (the recording's 280 to 300 seconds) the explore music stops; none of
   the level's tracks is heard clearly through the gunfire, and about
   20 seconds after the last shot the explore track comes back part way

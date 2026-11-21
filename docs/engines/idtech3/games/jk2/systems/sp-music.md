@@ -170,10 +170,20 @@ The random markers draw from the page's `rand()`, seeded from the clock
 as the original's (0x42d992).
 
 The client game's "starting" call (its third argument set, as it
-begins, 0x2003398e) starts the music here, as a recording of the
-original shows it playing from a level's start; how the original's
-code does so after letting the files go isn't read (UNCONFIRMED.md,
-Settled).
+begins, 0x2003398e) keeps the names and loads the tracks, then lets
+every track's file go (0x4275b5 to 0x427bd0), which stops the playing:
+the decoder gives up on a track without a file (0x427fc2), and dynamic
+music plays only a track read into memory (0x427c4d). The music comes
+back at the level's first snapshot. `CL_FirstSnapshot` (0x402380) first
+calls the renderer's end of registration (0x475450), which ends by
+calling 0x427310. Unless sound is muted (0xe4a33c), that starts the
+kept intro and loop again from their start with the third argument
+clear, then asks again for the dynamic state there was (0x4272c0)
+*(confirmed)*. Reluva plays them from the starting call on. Its level
+loads before the call returns, and the first snapshot comes in the
+frame right after, so the music starts at the same moment, as a
+recording of the original shows it from a level's start
+(UNCONFIRMED.md, Settled).
 
 ## Sources and checks
 
@@ -181,8 +191,9 @@ Settled).
   (0x427350), the reader (0x42bcb0, 0x42bd40, 0x42ca40) and its checks
   (0x42c35b on), the state read (0x428290), the change rules (0x42d6e0,
   0x4283a9, 0x42d730, 0x42d930), the playing (0x427c00, 0x427e50,
-  0x427f10), the restarts (0x405122, 0x427310); `jk2gamex86.dll`: the
-  music configstring's setters (0x200b0a56, 0x200b3f30), the client
+  0x427f10), the restarts (0x405122, 0x427310, 0x402380, 0x475450),
+  the letting go (0x427bd0, 0x427b90); `jk2gamex86.dll`: the music
+  configstring's setters (0x200b0a56, 0x200b3f30), the client
   game's start (0x200333c0) and the state's update (0x20097c50); the
   messages, `s_dynamic` and `s_debugdynamic` (0x426c80, 0x42c650,
   0x42c860, 0x4272c0, 0x427e50, 0x423120). The
