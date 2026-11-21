@@ -394,6 +394,23 @@ std::string mediaExtension(const SiObject &object) {
     return "";
 }
 
+Error parseEvent(const std::vector<SiPiece> &pieces, SiEvent &out) {
+    out = SiEvent();
+    // Its header: 01 00 00 00 02 and 3 bytes of fill, twice, in every one.
+    if (pieces.size() != 2 || pieces[0].data.size() != 16)
+        return Error::fail("not an event's header and data");
+    const std::vector<uint8_t> &d = pieces[1].data;
+    const auto nameEnd = std::find(d.begin(), d.end(), uint8_t(0));
+    if (nameEnd == d.end())
+        return Error::fail("an event's name without its end");
+    const auto valueEnd = std::find(nameEnd + 1, d.end(), uint8_t(0));
+    if (valueEnd == d.end() || valueEnd + 1 != d.end())
+        return Error::fail("an event's value not ending its data");
+    out.name.assign(d.begin(), nameEnd);
+    out.value.assign(nameEnd + 1, valueEnd);
+    return Error::success();
+}
+
 std::vector<uint8_t> objectData(const std::vector<SiPiece> &pieces) {
     std::vector<uint8_t> out;
     for (const SiPiece &p : pieces)

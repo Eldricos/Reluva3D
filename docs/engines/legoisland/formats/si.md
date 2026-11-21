@@ -148,7 +148,25 @@ end chunk timed when it ends; a container has only the end chunk.
 | `FLC` | the FLIC file's 128-byte header (frames, size, 100 ms a frame) | a piece a frame: a count of rectangles, each 4 `u32`s (left, top, right, bottom: what the frame changes), then the FLIC frame (`0xF1FA`). No loop frame |
 | `SMK` | the Smacker file's header and tables, up to its first frame | a piece a frame, as in the file |
 | `OBJ` | one piece in most: the animation, model, texture or path it was made from, and a 0 byte ([obj.md](obj.md)) | |
-| `EVT` | the game's own data: not yet read | |
+| `EVT` | 16 bytes, the same in all 33: `01 00 00 00 02` and 3 bytes of `cd`, twice | one piece: a setting's name and its value, [below](#evt-an-event) |
+
+### `EVT`: an event
+
+An event sets something for the scenes around it, by name. Its data
+piece is two strings, each ending with a NUL, and nothing after them:
+the setting's name and its value. The CD's 33, in five SI files:
+
+| Name | Value | Events | Where |
+|---|---|---|---|
+| `patch` | `patch` | 23 | `RACE\CARRACER.SI` (`NRT100DR_Anim`...) |
+| `HIT_WALL_SOUND`, `HIT_ACTOR_SOUND` | `HitWall`, `HitActor` | 2 each | the car and jet ski races; the values are their sound objects' names without `Sound` (`HitWallSound`, beside them) |
+| `tempBackgroundColor` | `set 0 0 0`, `set 67 10 100` | 3 | `RACE\CARRACER.SI`, its skies (`TRS100_BlackSky`, `TRS200_DkBlueSky`) |
+| `backgroundColor` | `reset` | 1 | `RACE\CARRACER.SI` (`TRS400_BlueSky`) |
+| `ACT2_ANIMS_FILE` | `l:\lego\scripts\Act2\Act2Main` | 1 | `ACT2\ACT2MAIN.SI` |
+| `CUSTOMIZE_ANIM_FILE` | `\lego\scripts\sndanim` | 1 | `SNDANIM.SI` |
+
+The header's `cd` bytes are the fill a Microsoft compiler's debug build
+leaves in memory never written, presumably *(guessed)*.
 
 ## In Reluva
 
@@ -163,6 +181,8 @@ from.
 - `reluva-tool legoisland si-list <file.si>`: the objects, as a tree.
 - `reluva-tool legoisland si-chunks <file.si> <object id>`: an object's
   chunks.
+- `reluva-tool legoisland si-events <file.si>`: the events, each its
+  setting's name and value (`parseEvent`).
 - `reluva-tool legoisland si-extract <file.si> <out folder> [object id]`:
   the media as files; 3D objects as `.ani`, `.mod`, `.tex` and `.gph`
   files ([obj.md](obj.md)); `EVT` objects as their pieces joined, in
@@ -186,9 +206,10 @@ from.
   a separate script, both finding the same 7,365 objects and 6,259 media;
   every medium rebuilt and checked: each `.wav`'s length, each `.bmp`'s
   pixels against its size, each `.flc`'s frames walked to its end, each
-  `.smk`'s frame sizes adding up to its length. `legoisland.unit.si`
+  `.smk`'s frame sizes adding up to its length; every event read by
+  `reluva-tool legoisland si-events`, all 33 alike. `legoisland.unit.si`
   reads a file built in the test, with split pieces, a pad chunk and
-  filler.
+  filler, and an event.
 
 ## Open questions
 
@@ -196,4 +217,6 @@ from.
 - The flags `0x01`, `0x02` and `0x04`; whether `0x08` is transparency
   and the medium's 1 or 0 palette management, or the other way round
   (the jukebox's script sets both together).
-- The `EVT` objects' data.
+- What an event's header and the race's `patch` events mean to the
+  game, and what `tempBackgroundColor`'s three numbers are (`67 10 100`
+  for the dark blue sky).

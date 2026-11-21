@@ -345,6 +345,24 @@ void testFlc(const std::filesystem::path &) {
     CHECK(readLE32(&out[80]) == 128 && readLE32(&out[84]) == 144 && readLE16(&out[132]) == 0xF1FA);
 }
 
+// An event: the header every one has, then its name and value.
+void testEvent(const std::filesystem::path &) {
+    std::vector<SiPiece> pieces(2);
+    pieces[0].data = {1, 0, 0, 0, 2, 0xCD, 0xCD, 0xCD, 1, 0, 0, 0, 2, 0xCD, 0xCD, 0xCD};
+    const std::string text = std::string("HIT_WALL_SOUND") + '\0' + "HitWall" + '\0';
+    pieces[1].data.assign(text.begin(), text.end());
+    SiEvent ev;
+    CHECK(!parseEvent(pieces, ev));
+    CHECK(ev.name == "HIT_WALL_SOUND" && ev.value == "HitWall");
+    // Bytes after the value, a value without its NUL, and no data.
+    pieces[1].data.push_back('x');
+    CHECK(bool(parseEvent(pieces, ev)));
+    pieces[1].data.resize(pieces[1].data.size() - 2);
+    CHECK(bool(parseEvent(pieces, ev)));
+    pieces.resize(1);
+    CHECK(bool(parseEvent(pieces, ev)));
+}
+
 void testNotSi(const std::filesystem::path &tmp) {
     CHECK(writeFile(tmp / "x.si", Bytes{'R', 'I', 'F', 'F', 4, 0, 0, 0, 'W', 'A', 'V', 'E'}));
     SiFile si;
@@ -359,5 +377,6 @@ static const reluva::test::Suite kSuite("legoisland.unit.si",
                                             {"objects", [](const std::filesystem::path &t) { testObjects(t); }},
                                             {"pieces", [](const std::filesystem::path &t) { testPieces(t); }},
                                             {"flc", [](const std::filesystem::path &t) { testFlc(t); }},
+                                            {"event", [](const std::filesystem::path &t) { testEvent(t); }},
                                             {"not an SI file", [](const std::filesystem::path &t) { testNotSi(t); }},
                                         });

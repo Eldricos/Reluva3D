@@ -58,6 +58,7 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool legoisland si-list <file.si>` | Its objects, as a tree |
 | `reluva-tool legoisland si-chunks <file.si> <object id>` | One object's chunks |
 | `reluva-tool legoisland si-extract <file.si> <out folder> [object id]` | Its media and 3D objects as the files they were made from |
+| `reluva-tool legoisland si-events <file.si>` | Its events: each one's setting and value |
 | `reluva-tool legoisland si-objects <file.si> [object id]` | Its 3D objects read, and what each holds |
 | `reluva-tool legoisland dta-list <file.dta>` | A world's animation list: its animations and their models |
 | `reluva-tool legoisland dta-check <game folder>` | Every `*INF.DTA` read, and each one's animations found in the SI files |

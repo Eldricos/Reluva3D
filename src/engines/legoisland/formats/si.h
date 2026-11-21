@@ -149,6 +149,19 @@ Error rebuildMediaFile(const SiObject &object, const std::vector<SiPiece> &piece
 /** The extension rebuildMediaFile() gives `object`'s file ("bmp"), or empty if none. */
 std::string mediaExtension(const SiObject &object);
 
+/** An event's (EVT's) data: a setting's name and its value. */
+struct SiEvent {
+    std::string name;  // "HIT_WALL_SOUND", "tempBackgroundColor", "patch"
+    std::string value; // "HitWall", "set 0 0 0", "patch"
+};
+
+/**
+ * Reads an event's pieces: a header of 16 bytes, the same in every one on
+ * the CD, then the name and the value, each ending with a NUL
+ * (docs/engines/legoisland/formats/si.md).
+ */
+Error parseEvent(const std::vector<SiPiece> &pieces, SiEvent &out);
+
 /**
  * A 3D object's (OBJ's) data: its pieces joined, without the 0 byte every
  * one has at its end (docs/engines/legoisland/formats/obj.md).

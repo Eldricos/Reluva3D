@@ -23,8 +23,9 @@ data viewer shows and plays, and the world database's models, parts and
 textures ([formats/wdb.md](formats/wdb.md)), which it draws in 3D, the
 worlds' lists of animations ([formats/dta.md](formats/dta.md)), and the
 SI files' animations, models, textures and paths
-([formats/obj.md](formats/obj.md)). Run,
-it shows an empty screen. The plan is in [PLAN.md](PLAN.md).
+([formats/obj.md](formats/obj.md)) and their events
+([formats/si.md](formats/si.md#evt-an-event)). Run, it shows an empty
+screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 

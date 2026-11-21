@@ -170,12 +170,41 @@ int cmdSiExtract(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
+// Each event: its setting's name and value.
+int cmdSiEvents(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool legoisland si-events <file.si>\n");
+        return 2;
+    }
+    SiFile si;
+    if (!openSi(argv[2], si))
+        return 1;
+    int failed = 0;
+    for (const SiObject *o : si.all()) {
+        if (o->format != "EVT")
+            continue;
+        std::vector<SiPiece> pieces;
+        SiEvent ev;
+        Error e = si.readPieces(o->id, pieces);
+        if (!e)
+            e = parseEvent(pieces, ev);
+        if (e) {
+            std::printf("%5u %-20s FAILED: %s\n", o->id, o->name.c_str(), e.message.c_str());
+            failed++;
+            continue;
+        }
+        std::printf("%5u %-20s %s = \"%s\"\n", o->id, o->name.c_str(), ev.name.c_str(), ev.value.c_str());
+    }
+    return failed ? 1 : 0;
+}
+
 const Commands kCommands(
     "legoisland",
     {
         {"si-info", "<file.si>", "an SI file's header, and how many objects and chunks it has", cmdSiInfo},
         {"si-list", "<file.si>", "an SI file's objects, as a tree", cmdSiList},
         {"si-chunks", "<file.si> <object id>", "one object's chunks", cmdSiChunks},
+        {"si-events", "<file.si>", "an SI file's events: each one's setting and value", cmdSiEvents},
         {"si-extract", "<file.si> <out folder> [object id]",
          "an SI file's media as the files they were made from (.bmp, .wav, .flc, .smk, .ani, .mod, .tex, .gph)",
          cmdSiExtract},
