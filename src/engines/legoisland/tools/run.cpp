@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <filesystem>
 #include <map>
@@ -47,7 +48,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]...\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes]\n");
         return 2;
     }
     bool log = false;
@@ -59,6 +60,8 @@ int cmdRun(int argc, char **argv) {
     std::string saveDir;
     std::string shotsDir;
     std::vector<uint32_t> at;
+    uint32_t watchFrom = 0;
+    uint32_t watchBytes = 0;
     uint64_t every = 25;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -77,7 +80,11 @@ int cmdRun(int argc, char **argv) {
             memoryMb = uint32_t(std::atoi(argv[++a]));
         else if (arg == "-save" && a + 1 < argc)
             saveDir = argv[++a];
-        else if (arg == "-at" && a + 1 < argc)
+        else if (arg == "-watch" && a + 1 < argc) {
+            char *rest = nullptr;
+            watchFrom = uint32_t(std::strtoul(argv[++a], &rest, 0));
+            watchBytes = rest && *rest == ',' ? uint32_t(std::strtoul(rest + 1, nullptr, 0)) : 4;
+        } else if (arg == "-at" && a + 1 < argc)
             at.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         else if (arg == "-shots" && a + 1 < argc)
             shotsDir = argv[++a];
@@ -131,12 +138,29 @@ int cmdRun(int argc, char **argv) {
     size_t recentAt = 0;
     // -at: the registers, and the stack's first words, each time the program
     // gets to an address; text where one points at some.
+    auto textAt = [](x86::Cpu &c, uint32_t v) {
+        const std::string text = c.valid(v, 1) ? c.string(v, 48) : "";
+        const bool printable =
+            text.size() >= 3 && std::all_of(text.begin(), text.end(), [](char ch) { return ch >= 32 && ch < 127; });
+        return printable ? text : std::string();
+    };
+    // A value, the text it points to, or the text a pointer it points to does.
     auto show = [&](x86::Cpu &c, uint32_t v) {
         std::printf(" %08x", v);
-        const std::string text = c.valid(v, 1) ? c.string(v, 48) : "";
-        if (text.size() >= 3 && std::all_of(text.begin(), text.end(), [](char ch) { return ch >= 32 && ch < 127; }))
-            std::printf(" \"%s\"", text.c_str());
+        if (const std::string t = textAt(c, v); !t.empty())
+            std::printf(" \"%s\"", t.c_str());
+        else if (c.valid(v, 4))
+            if (const std::string t2 = textAt(c, c.read32(v)); !t2.empty())
+                std::printf(" -> \"%s\"", t2.c_str());
     };
+    // -watch: each store into a range, the value, and where it was made.
+    if (watchBytes) {
+        cpu.watchStart = watchFrom;
+        cpu.watchEnd = watchFrom + watchBytes;
+        cpu.onWatchedStore = [&](x86::Cpu &c, uint32_t address, uint32_t value, int size) {
+            std::printf("[store] %08x <- %08x (%d bytes) at %s\n", address, value, size, where(game, c.eip).c_str());
+        };
+    }
     cpu.trace = [&](x86::Cpu &c) {
         recent[recentAt++ % recent.size()] = c.eip;
         if (at.empty() || std::find(at.begin(), at.end(), c.eip) == at.end())
@@ -169,6 +193,10 @@ int cmdRun(int argc, char **argv) {
         if (repeats > 1)
             std::printf("  (x%u)\n", repeats);
         std::printf("[call] %s", name.c_str());
+        // A file call's handle and numbers: where it reads, how much.
+        for (const char *f : {"!_llseek", "!_hread", "!_lread", "!ReadFile", "!SetFilePointer"})
+            if (name.size() > std::strlen(f) && name.compare(name.size() - std::strlen(f), std::strlen(f), f) == 0)
+                std::printf(" (%x, %x, %x)", c.arg(0), c.arg(1), c.arg(2));
         // Which interface is asked for: the next one to stand in for, when refused.
         if (name.size() > 16 && name.compare(name.size() - 16, 16, "::QueryInterface") == 0)
             std::printf(" %s", x86::ComHost::guid(c, c.arg(1)).c_str());

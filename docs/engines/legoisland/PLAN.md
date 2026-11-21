@@ -39,9 +39,9 @@ Each phase ends with something that runs, is tested and is committed.
    its window, DirectSound, DirectDraw and, through DirectX 5's
    Direct3D, its 3D device, and Retained Mode's scene, and runs its main
    loop with its streaming threads reading the SI files and `WORLD.WDB`,
-   showing black frames. It stops on a name it can't find ("plant0") in
-   one of its own maps; finding why is next, then the rest of Retained
-   Mode (meshes, textures, drawing) as the game reaches them.
+   showing black frames, and reads `WORLD.WDB`'s models. Next: the rest
+   of Retained Mode as the game reaches it, textures first, then meshes
+   and drawing.
 5. **DirectDraw and DirectSound:** the intro movie and the Information
    Center, its pictures, animations and speech. DirectSound is a new
    stand-in in `src/emulation/x86/directx/`, on the shared mixer.

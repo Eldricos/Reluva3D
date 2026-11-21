@@ -92,14 +92,18 @@ that far.
   semaphores. It looks for its saved games, `History.gsi` and
   `Players.gsi`, in `C:\` (a fresh game has none). It doesn't open
   `INTRO.SI`.
-- After `WORLD.WDB` it makes frames and lets each go at once, with no
-  meshes or textures, then stops 105,847,482 instructions in, after 384
-  frames: in `LEGO1.DLL` at 0x100264d9 it writes through a null pointer.
-  A function there (0x10084cf0) looks a name up in a map of names
-  (0x100a7040, a search of a tree by string), gets nothing for "plant0",
-  and returns null, which its caller doesn't check. Why "plant0" isn't
-  in the map, what fills it and from which file, is the next thing to
-  find.
+- Its C runtime opens `WORLD.WDB` (`CreateFileA`), asks what kind of
+  handle it has (`GetFileType`), and, told "unknown", closes it at once,
+  as Visual C++'s runtime does with a handle that isn't a disk file, a
+  device or a pipe: Reluva's stand-in said so for every file. Unread,
+  the world database left the game's map of models empty, and the first
+  plant it made, "plant0" from the model "flwrred", wasn't found: a null
+  pointer written through in `LEGO1.DLL` at 0x100264d9, after 105,847,482
+  instructions. Told a file is on a disk, as Windows does, the program
+  reads it.
+- It goes on to load its models' textures: a palette made and set on a
+  surface, then `CreateTextureFromSurface`, which nothing stands in for
+  yet, after 70,608,695 instructions and 203 frames (black still).
 
 ## In Reluva
 
@@ -111,9 +115,12 @@ module+offset); the frames shown, and how fast it ran. `-log` prints
 every stand-in called (and, for `QueryInterface`, the interface asked
 for), `-files` each file the program asks for, and
 `-save <folder>` lets it write, `-shots <folder>` saves every
-`-every`th frame shown as a TGA file, and `-at <address>` prints the
-registers, the stack's first words and any text they point to each time
-the program gets to an address. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
+`-every`th frame shown as a TGA file, `-at <address>` prints the
+registers, the stack's first words and any text they point to (or that a
+pointer they point to points to) each time the program gets to an
+address, and `-watch <address>,<bytes>` each store into memory there and
+where it was made. With `-log`, the file calls' handles, positions and
+sizes are printed too. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
 instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 The engine doesn't run it yet: playing it waits for the stand-ins above.
 
@@ -130,8 +137,6 @@ The engine doesn't run it yet: playing it waits for the stand-ins above.
 
 ## Open questions
 
-- Why "plant0" isn't in the map the program looks it up in, and what
-  should have put it there.
 - Why it doesn't open `INTRO.SI`: whether the intro waits for something
   not done yet, or a setting skips it.
 - Where it keeps its saved games: it looks in `C:\`, perhaps for want of
