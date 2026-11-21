@@ -149,7 +149,7 @@ Game::DialogueState::DialogueState() {
     std::memset(emptyReply, 0xFF, sizeof(emptyReply));
 }
 
-// ---- State --------------------------------------------------------------------
+// State
 
 Game::DialogueState *Game::getDialogueState(int index) {
     auto it = _dialogues.find(index);
@@ -278,7 +278,7 @@ std::vector<Game::ItemRef> Game::availableChoices(DialogueState &st, int group, 
     return out;
 }
 
-// ---- Running a conversation ---------------------------------------------------------
+// Running a conversation
 
 void Game::loadFont() {
     // art\short.fnt: the reply menu and the game menu's text.
@@ -585,7 +585,7 @@ void Game::finishConversation() {
         jumpToLabel(_hotspots[result].label);
 }
 
-// ---- Dialogue commands ----------------------------------------------------------------
+// Dialogue commands
 
 void Game::registerTalker(int slot, const std::string &code, int mouth, int head) {
     if (slot >= kMaxTalkers)
@@ -799,7 +799,7 @@ bool Game::executeDialogueDirective(const Directive &d) {
     return _conv.waitAnim < 0 && !_conv.waitFade;
 }
 
-// ---- Speech and lip-sync --------------------------------------------------------------
+// Speech and lip-sync
 
 int Game::phonemeFrame(int anim, int code) const {
     if (anim < 0 || anim >= int(_anims.size()) || code < 0 || code > 12)
@@ -877,7 +877,7 @@ void Game::updateSpeech() {
         _conv.speaking = false;
 }
 
-// ---- The menu ---------------------------------------------------------------------------
+// The menu
 
 void Game::layoutMenu(DialogueState &st) {
     auto label = [&](const ItemRef &ref) {
@@ -1013,7 +1013,7 @@ bool Game::debugTalk(const std::string &dialogue) {
     return false;
 }
 
-// ---- Timers during a conversation ------------------------------------------------------
+// Timers during a conversation
 
 void Game::tickConversationTimers() {
     // Only global timers run while the menu waits. A handler ends with RETURNVAL:

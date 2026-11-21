@@ -209,7 +209,7 @@ TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen, const Di
     return t;
 }
 
-// --- The manager -----------------------------------------------------------------
+// The manager.
 
 DialogueManager::DialogueManager(GameState &state, ScriptHost &scripts, DialogueHost &host)
     : _state(state), _host(host), _prevent(state, scripts), _events(state, scripts), _povent(state, scripts) {

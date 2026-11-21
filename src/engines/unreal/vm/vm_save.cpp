@@ -9,7 +9,7 @@
 // and the engine's own records of them (touching, moves under way,
 // animation layers and waits, skin channels, attachments, bends, the
 // dialogue). The HUD's load list (DrawLoadGameList, LoadByFileID,
-// DeleteByFileID) is here too. See docs/engines/unreal_vm.md.
+// DeleteByFileID) is here too. See docs/engines/unreal/games/ds9fallen/systems/saves.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -30,11 +30,12 @@ namespace reluva::unreal {
 namespace {
 
 // 2: with the ghosts; 3: a layer's whole state (its clears, least rate and
-// what it's fading in over). 2 still reads.
-constexpr char kMagic[8] = {'R', 'L', 'V', 'S', 'A', 'V', 'E', '3'};
+// what it's fading in over); 4: the line whose RETURNLINE a line under way
+// keeps. 2 and 3 still read.
+constexpr char kMagic[8] = {'R', 'L', 'V', 'S', 'A', 'V', 'E', '4'};
 // The version a file is (its magic's last byte), 0 if it isn't one.
 int saveVersion(const char *magic) {
-    if (std::memcmp(magic, kMagic, 7) != 0 || (magic[7] != '2' && magic[7] != '3'))
+    if (std::memcmp(magic, kMagic, 7) != 0 || (magic[7] < '2' || magic[7] > '4'))
         return 0;
     return magic[7] - '0';
 }
@@ -502,6 +503,7 @@ Error ScriptLevel::saveGame(const std::string &slot) {
         out.u8(t.hudClock);
         out.i32(t.back);
         out.str(t.backPattern);
+        out.i32(t.backFrom);
     }
     out.i32(_nextDialogThread);
     out.i32(int32_t(_dialogRandom));
@@ -871,6 +873,9 @@ Error ScriptLevel::restore(const std::filesystem::path &file) {
         t.hudClock = in.u8() != 0;
         t.back = in.i32();
         t.backPattern = in.str();
+        t.backFrom = version >= 4 ? in.i32() : -1;
+        if (t.backFrom >= int(_dialogLines.size()))
+            t.backFrom = -1;
         t.phoneme = 0;
         if (t.line >= 0 && size_t(t.line) < _dialogLines.size())
             _dialogThreads.push_back(t);
@@ -974,7 +979,7 @@ void registerSaveNatives(Vm &vm) {
     });
 }
 
-// --- The original's saved games ---------------------------------------------------------
+// The original's saved games.
 
 bool ScriptLevel::savedByGame() const {
     const Value *begun = _levelInfo ? _levelInfo->find(_vm, "bBegunPlay") : nullptr;
@@ -1005,6 +1010,15 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
             continue;
         const std::string stateName = st.package->objectName(st.exportIndex + 1);
         VmState *state = a->cls ? _vm.findState(a->cls, _vm.name(stateName)) : nullptr;
+        // The events it had disabled (Disable('Tick')): those its state and
+        // class would listen for that the saved mask leaves out.
+        if (const VmState *in = state ? state : a->cls) {
+            a->disabled.clear();
+            const uint64_t listens = (in->probeMask | a->cls->probeMask) & in->ignoreMask;
+            for (int k = 0; k < 64; ++k)
+                if ((listens >> k & 1) && !(f.probeMask >> k & 1))
+                    a->disabled.insert(_vm.name(probeEvent(k)));
+        }
         if (!state || state == a->cls)
             continue;
         a->state = state;
@@ -1059,7 +1073,14 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
             for (size_t k = 0; k < 4; ++k)
                 if (VmObject *o = t[k].asObject(); o && !o->deleted)
                     _touching[a].push_back(o);
-    // The C3D mesh states: the layers on the body and the face channels.
+    // The C3D mesh states: the layers on the body and the face channels,
+    // and what each holds (held things are attached once, when picked up or
+    // put away, so a save's are all there is of them).
+    std::map<std::string, VmObject *> byName;
+    for (VmObject *a : _actors)
+        if (!a->deleted)
+            byName[fs::toLower(_vm.nameText(a->name))] = a;
+    auto pointName = [&](const std::string &point) { return point.empty() ? 0 : _vm.name(point); };
     for (VmObject *a : _actors) {
         const Value *ms = prop(a, "C3DOurMeshState");
         VmObject *o = ms ? ms->asObject() : nullptr;
@@ -1068,6 +1089,9 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
         MeshState m;
         if (readMeshState(*o->package, o->exportIndex, m))
             continue;
+        for (const MeshStateAttachment &at : m.attachments)
+            if (auto it = byName.find(fs::toLower(at.child)); it != byName.end())
+                attach(it->second, a, pointName(at.parentPoint), pointName(at.childPoint));
         for (const MeshStateGroup &g : m.groups) {
             const bool active = !g.sequence.empty() && fs::toLower(g.sequence) != "nonactive";
             if (g.group.rfind("sk", 0) == 0) {
@@ -1124,6 +1148,44 @@ VmObject *ScriptLevel::resumeSavedGame(const std::string &playerName, std::strin
     for (size_t i = 0; i < _dialogRecs.size(); ++i)
         if (auto it = said.find(_dialogRecs[i].key); it != said.end())
             _dialogPlays[i] = it->second;
+    // The lines under way go on where they were, on their clocks (the
+    // engine's InitDialog keeps them, 0x10337890; their voices aren't
+    // started again). A saved line's place is found by its key. The
+    // engine numbers new threads from 1 again (InitDialog), as here.
+    std::map<std::string, int> byKey;
+    for (size_t i = 0; i < _dialogRecs.size(); ++i)
+        byKey.emplace(_dialogRecs[i].key, int(i));
+    auto lineAt = [&](int place) {
+        if (place < 0 || size_t(place) >= _saved.lines.size())
+            return -1;
+        auto it = byKey.find(_saved.lines[size_t(place)].key);
+        return it == byKey.end() ? -1 : it->second;
+    };
+    const float now = _levelInfo && prop(_levelInfo, "TimeSeconds") ? prop(_levelInfo, "TimeSeconds")->asFloat() : 0;
+    const Value *noPause = prop(_levelInfo, "NoPauseTimeSeconds");
+    _dialogThreads.clear();
+    for (const LevelExtras::Talk &k : _saved.talks) {
+        DialogThread t;
+        t.id = k.thread;
+        t.line = lineAt(k.line);
+        t.speaker = k.speaker > 0 ? _vm.objectAt(_map, k.speaker) : nullptr;
+        t.self = t.speaker;
+        t.queued = k.queued;
+        if (t.line < 0 || !t.speaker || t.speaker->deleted)
+            continue;
+        if (!t.queued) {
+            t.hudClock = fs::toLower(_dialogLines[size_t(t.line)].type) == "hud";
+            t.timeLeft = k.end - (t.hudClock && noPause ? noPause->asFloat() : now);
+            t.seconds = t.timeLeft;
+            if (const int from = lineAt(k.back); from >= 0) {
+                t.backFrom = from;
+                t.back = _dialogRecs[size_t(from)].back;
+                t.backPattern = _dialogRecs[size_t(from)].backPattern;
+            }
+        }
+        _dialogThreads.push_back(t);
+    }
+    _nextDialogThread = 1;
     // The sounds playing (the music's the player's CurrentMusic, which the
     // page starts again from the HUD's StartTimeOffset).
     for (const LevelExtras::Sound &snd : _saved.sounds) {

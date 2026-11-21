@@ -36,15 +36,19 @@ std::string saveDescription(const Lexicon &lexicon, int empire, int turn, int ga
 class LoadSaveScreen : LayoutScreen {
 public:
     using LayoutScreen::setSoundHandler;
+    /** Whether the screen is still open, or how it was left. */
     enum class Result { kOpen, kAccepted, kCancelled };
+    /** Load Game or Save Game. */
     enum class Mode { kLoad, kSave };
     static constexpr int kSlots = 12;
     static constexpr size_t kMaxDescription = 50; // characters: gameInfo's 51 bytes with the zero
     /** Each slot's saved game, or nothing for an empty slot. */
     using Slots = std::array<std::optional<SaveSummary>, kSlots>;
 
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     LoadSaveScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
-    Error load(); // the two layouts
+    /** Reads opening.wdf and loadsave.wdf; fails if the layout lacks a widget the screen needs. */
+    Error load();
     /**
      * Shows `slots`, none of them chosen. Loading, empty slots can't be
      * chosen; saving, the slot chosen keeps its saved game's description,
@@ -54,6 +58,7 @@ public:
      *        slot's text takes when chosen; -1 if not known
      */
     void open(const Slots &slots, Mode mode, const std::string &description = {}, int empire = -1);
+    /** Draws the screen with its slots, the chosen one lit. */
     void draw(Surface &screen) const;
     /**
      * Mouse clicks: a slot chooses it, Accept takes the chosen one (and is

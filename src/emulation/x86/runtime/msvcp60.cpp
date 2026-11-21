@@ -26,7 +26,7 @@ typedef unsigned int size_t;
 #define THISCALL __attribute__((thiscall))
 #define EXPORT extern "C"
 
-// --- MSVCRT -------------------------------------------------------------------------
+// What it imports from MSVCRT.dll.
 
 struct FILE;
 extern "C" {
@@ -104,7 +104,7 @@ inline bool isOurs(const void *code, const void *ours) {
 
 } // namespace
 
-// --- Locales ------------------------------------------------------------------------
+// Locales.
 // Only the "C" locale, with one facet: ctype<char>. A facet is its vftable
 // and a reference count (+4), which the games' inline code increments
 // itself; a locale is a pointer to its implementation, also a facet.
@@ -318,7 +318,7 @@ EXPORT THISCALL Lockit *lockitConstruct(Lockit *self) {
 EXPORT THISCALL void lockitDestroy(Lockit *) {
 }
 
-// --- string ---------------------------------------------------------------------------
+// string.
 // 16 bytes: the allocator (+0), the characters (+4), the length (+8) and
 // the capacity (+12). The byte before the characters counts the other
 // strings sharing them; 0 means none, 255 frozen (handed out by a non-const
@@ -670,7 +670,7 @@ EXPORT String *charsPlusString(String *out, const char *a, const String *b) {
     return stringAppendPart(out, b, 0, kNpos);
 }
 
-// --- Exceptions ----------------------------------------------------------------------
+// Exceptions.
 // MSVCRT's exception class: its vftable (the deleting destructor, what()),
 // the message and whether it's to be freed. logic_error adds the message
 // as a string; out_of_range is a logic_error; bad_cast adds nothing.
@@ -764,7 +764,7 @@ THISCALL void *outOfRangeDeleting(LogicError *self, unsigned flags) {
 
 EXPORT const long long zeroPosition = 0; // _Fpz: fpos's "no position in the file"
 
-// --- ios_base and basic_ios ------------------------------------------------------------
+// ios_base and basic_ios.
 // ios_base (0x28): vftable, state +4, exceptions +8, flags +0xc, precision
 // +0x10, width +0x14, the iword/pword array +0x18, the callbacks +0x1c, the
 // locale (a pointer to one on the heap) +0x20, which standard stream it is
@@ -941,7 +941,7 @@ EXPORT THISCALL void winitDestroy(void *) {
     --gWinitCount;
 }
 
-// --- basic_streambuf ------------------------------------------------------------------
+// basic_streambuf.
 // 0x38 bytes: vftable; the get and put areas' starts (+4, +8); pointers to
 // where the starts, the next characters (+0x14, +0x18) and the counts left
 // (+0x24, +0x28) are kept (+0xc, +0x10, +0x1c, +0x20, +0x2c, +0x30), so a
@@ -1199,7 +1199,7 @@ THISCALL void *streambufDeleting(Streambuf *self, unsigned flags) {
 }
 } // namespace
 
-// --- basic_filebuf ----------------------------------------------------------------------
+// basic_filebuf.
 // 0x54 bytes: a streambuf, then ours up to +0x44; a string of its own
 // (+0x44) and whether the FILE is closed when it's destroyed (+0x48), which
 // the games' inline destructors delete and read; a locale of its own
@@ -1360,7 +1360,7 @@ THISCALL void *filebufDeleting(Filebuf *self, unsigned flags) {
 }
 } // namespace
 
-// --- strstreambuf -----------------------------------------------------------------------
+// strstreambuf.
 // 0x50 bytes: a streambuf, then ours. The games build them inline, with
 // vftables of their own, and call _Init; so the functions here can't count
 // on our vftable.
@@ -1533,7 +1533,7 @@ EXPORT THISCALL void strstreambufDestroy(Strstreambuf *self) {
     streambufDestroy(&self->base);
 }
 
-// --- Streams ------------------------------------------------------------------------------
+// Streams.
 // Each stream is a virtual base basic_ios after what's its own, reached by
 // the offset in the table its first word points to (its vbtable's second
 // entry). istream's own part is that pointer and the count of characters
@@ -1597,7 +1597,7 @@ namespace {
 const void *const fstreamVftable[] = {(const void *)streamDeleting<kFstreamIos, fstreamDestroyIos>};
 } // namespace
 
-// --- ostream
+// ostream.
 
 namespace {
 void flush(Ostream *os) {
@@ -1730,7 +1730,7 @@ EXPORT Ostream *ostreamEndl(Ostream *os) {
     return os;
 }
 
-// --- istream
+// istream.
 
 namespace {
 // ipfx: flushes the tied stream and, unless told not to, skips white space.
@@ -1864,7 +1864,7 @@ EXPORT THISCALL Istream *istreamSeekg(Istream *self, Fpos at) {
     return self;
 }
 
-// --- File streams
+// File streams.
 
 namespace {
 void ifstreamDestroyIos(Ios *ios) {
@@ -1961,8 +1961,8 @@ EXPORT THISCALL void fstreamDestroy(Ios *ios) {
     fstreamDestroyIos(ios);
 }
 
-// --- String streams (the games construct them inline; these are their
-// destructors)
+// String streams: the games construct them inline; these are their
+// destructors.
 
 EXPORT THISCALL void istrstreamDestroy(Ios *ios) {
     strstreambufDestroy((Strstreambuf *)((char *)ios - sizeof(Strstreambuf)));
@@ -1973,7 +1973,7 @@ EXPORT THISCALL void ostrstreamDestroy(Ios *ios) {
     destroyOstream(ios);
 }
 
-// --- cerr -----------------------------------------------------------------------------------
+// cerr.
 // An ostream over stderr, unbuffered (unitbuf), made at start-up.
 
 struct StandardOstream {

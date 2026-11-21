@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Need for Speed III's unit tests: its files: RefPack and EA Huffman, .viv
+// archives, shapes, the cockpit's gauges, text tables, fonts, car models,
+// the horizon and sky, track collision, sound banks, music maps and
+// movies.
+//
 //   reluva-tests nfs.unit.formats
 
 #include "tests/engines/nfs/fixtures.h"

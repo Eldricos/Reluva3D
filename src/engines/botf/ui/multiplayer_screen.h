@@ -24,8 +24,11 @@ namespace reluva::botf {
 class MultiplayerScreen : LayoutScreen {
 public:
     using LayoutScreen::setSoundHandler;
+    /** Whether the screen is still open, or how it was left. */
     enum class Result { kOpen, kCancelled };
+    /** Hosting a game or joining one, as chosen; none at first. */
     enum class Role { kNone, kHost, kJoin };
+    /** How the game would connect, as chosen; none at first. */
     enum class Connection { kNone, kNetwork, kModem, kSerial };
     /**
      * The fields that take typing: the three under Cancel, in the order
@@ -35,10 +38,13 @@ public:
     enum class Field { kNone, kGameName, kPlayerName, kPassword, kHostAddress, kAddress };
     static constexpr int kAddressRows = 7;
 
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     MultiplayerScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
-    Error load(); // the layout, its panels and the main menu
+    /** Reads opening.wdf, the screen's layout and its panels; fails if one lacks a widget the screen needs. */
+    Error load();
     /** Back as at first: nothing chosen, the fields kept. */
     void open();
+    /** Draws the screen, its panels as chosen and its fields' text. */
     void draw(Surface &screen) const;
     /**
      * Clicks on the buttons and fields, typed text (kTextInput), Backspace
@@ -46,9 +52,12 @@ public:
      */
     Result handle(const Event &event);
 
+    /** What's chosen just now, and the field being typed in. */
+    ///@{
     Role role() const { return _role; }
     Connection connection() const { return _connection; }
     Field field() const { return _field; }
+    ///@}
     /** The address book's row typed in (with Field::kAddress). */
     int addressRow() const { return _addressRow; }
     /** A field's text, UTF-8; for kAddress, `row`'s. */

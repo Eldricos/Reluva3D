@@ -81,6 +81,11 @@ single pixels along seams and that floor, with fewer draws: about a
 quarter of them on M06_WorfL1B, half on M03_KiraL2 and the Promenade,
 most on CM06_SW_Capture (Z in the viewer draws them all).
 
+A surface flagged 0x1000 is drawn whatever zones are seen: Engine.dll
+lists them once (`UModel::BuildForceRenderSurfaces`, 0x10417830), and
+Render.dll draws that list after the zones' own surfaces (0x10b2029d,
+0x10b1ff1b). Reluva draws them in their batches, seen or not.
+
 ### Light map index
 
 | Type | Meaning |

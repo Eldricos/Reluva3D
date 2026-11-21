@@ -20,6 +20,8 @@ namespace reluva::clue::testing {
 
 using Bytes = std::vector<uint8_t>;
 
+/** Appends a value, little-endian. */
+///@{
 inline void put16(Bytes &b, uint32_t v) {
     b.push_back(uint8_t(v));
     b.push_back(uint8_t(v >> 8));
@@ -30,12 +32,15 @@ inline void put32(Bytes &b, uint32_t v) {
     put16(b, v >> 16);
 }
 
+///@}
+
+/** Appends a string after its length byte, without a terminating 0. */
 inline void putText(Bytes &b, const char *s) {
     b.push_back(uint8_t(std::strlen(s)));
     b.insert(b.end(), s, s + std::strlen(s));
 }
 
-// A zlib stream holding the data in one stored (uncompressed) block.
+/** A zlib stream holding the data in one stored (uncompressed) block, so up to 65535 bytes. */
 inline Bytes zlibStored(const Bytes &data) {
     Bytes z = {0x78, 0x01, 0x01};
     put16(z, uint32_t(data.size()));
@@ -53,6 +58,7 @@ inline Bytes zlibStored(const Bytes &data) {
     return z;
 }
 
+/** A PACK record: the sizes packed and unpacked, then zlibStored(data). */
 inline Bytes pack(const Bytes &data) {
     const Bytes z = zlibStored(data);
     Bytes p = {'P', 'A', 'C', 'K'};
@@ -62,8 +68,10 @@ inline Bytes pack(const Bytes &data) {
     return p;
 }
 
-// A DDRV archive of named records, its directory in reverse name order as
-// the game's aren't in file order either.
+/**
+ * A DDRV archive of named records, its directory in the reverse of the
+ * order given, as the game's directories aren't in file order either.
+ */
 inline Bytes drive(const std::vector<std::pair<std::string, Bytes>> &files) {
     Bytes d = {'D', 'D', 'R', 'V', 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> offsets;
@@ -89,8 +97,7 @@ inline Bytes drive(const std::vector<std::pair<std::string, Bytes>> &files) {
     return d;
 }
 
-// A version 0x200 EIMG: 3x2, row 0 a skip of 1 then red and green, row 1
-// blue then nothing.
+/** A version 0x200 EIMG: 3x2, row 0 a skip of 1 then red and green, row 1 blue then nothing. */
 inline Bytes image200() {
     const Bytes pixels = {0x81, 0x02, 0x00, 0xf8, 0xe0, 0x07, 0x80, 0x01, 0x1f, 0x00, 0x80};
     Bytes r = {'E', 'I', 'M', 'G'};
@@ -110,8 +117,7 @@ inline Bytes image200() {
     return r;
 }
 
-// A version 0x100 EIMG: a 2x1 white glyph at (1, 3) in a 5x8 cell; its
-// rows end with 0.
+/** A version 0x100 EIMG: a 2x1 white glyph at (1, 3) in a 5x8 cell; its rows end with 0. */
 inline Bytes image100() {
     const Bytes pixels = {0x02, 0xff, 0xff, 0xff, 0xff, 0x00};
     Bytes r = {'E', 'I', 'M', 'G'};
@@ -132,8 +138,11 @@ inline Bytes image100() {
     return r;
 }
 
-// An ANIM record of 2 frames, 2 layers and 2 images, with an ISOA block in
-// the long form (one extra on frame 1) or the short one.
+/**
+ * An ANIM record of 2 frames, 2 layers and 2 images, with an ISOA block in
+ * the long form (one extra on frame 1) or the short one.
+ * @param solid, sizeX, sizeY The long form's solid word and its box on the floor.
+ */
 inline Bytes animation(bool shortForm, int solid = 1, int sizeX = 16, int sizeY = 16) {
     Bytes r = {'A', 'N', 'I', 'M'};
     put16(r, 0x200);
@@ -183,7 +192,7 @@ inline Bytes animation(bool shortForm, int solid = 1, int sizeX = 16, int sizeY 
     return r;
 }
 
-// An object record: its states and timings.
+/** An object record: its states (id and animation) and timings (time and state). */
 inline Bytes objectRecord(const char *name, uint8_t type, const std::vector<std::pair<int, const char *>> &states,
                           const std::vector<std::pair<int, int>> &timings = {}) {
     Bytes r;
@@ -215,6 +224,7 @@ inline Bytes objectRecord(const char *name, uint8_t type, const std::vector<std:
     return r;
 }
 
+/** An object placed in levelFile(): `tag` is written if `flags` has 0x02, `timings` if it has 0x20. */
 struct TestPlacement {
     uint8_t flags;
     int tag;
@@ -226,7 +236,7 @@ struct TestPlacement {
     std::vector<std::pair<int, int>> timings;
 };
 
-// clue.lvl: World.dat's names and Objects.dat's placements.
+/** clue.lvl: World.dat's names and Objects.dat's placements, in a DDRV archive. */
 inline Bytes levelFile(const std::vector<const char *> &names, const std::vector<TestPlacement> &placements) {
     Bytes world(40, 0);
     std::memcpy(world.data(), "Unnamed", 7);
@@ -261,7 +271,7 @@ inline Bytes levelFile(const std::vector<const char *> &names, const std::vector
         {{"/World.dat", world}, {"/Info.dat", {0, 0}}, {"/Objects.dat", objects}, {"/Workspace.dat", Bytes(32, 0)}});
 }
 
-// A RESI string: its length, the characters and a NUL (nothing for "").
+/** Appends a RESI string: its length, the characters and a NUL (only the length for ""). */
 inline void putResiText(Bytes &b, const std::string &s) {
     b.push_back(uint8_t(s.size()));
     if (s.empty())
@@ -270,7 +280,7 @@ inline void putResiText(Bytes &b, const std::string &s) {
     b.push_back(0);
 }
 
-// A control: its 112-byte block, its two strings and its list's items.
+/** Appends a dialog's control: its 112-byte block, its two strings and its list's items. */
 inline void putControl(Bytes &b, int type, int id, int l, int t, int r, int bot, int centreX, int font, int group,
                        const std::string &text, const std::string &anim, const std::vector<std::string> &items = {}) {
     std::array<int32_t, 28> v{};
@@ -297,6 +307,7 @@ inline void putControl(Bytes &b, int type, int id, int l, int t, int r, int bot,
         putResiText(b, item);
 }
 
+/** A RESI file of one font and one dialog: the exit question, its Yes and No buttons, and a list. */
 inline Bytes resiFile() {
     Bytes b = {'R', 'E', 'S', 'I', 1, 1}; // a dialog, a font
     put32(b, 6);
@@ -314,10 +325,12 @@ inline Bytes resiFile() {
     return b;
 }
 
-// A small mansion: two rows of corridor (y 2 and 3, x 0-26) and, above
-// them, the nine rooms, 2 x 2 each, three columns apart, each with a door
-// down to the corridor at its left column. The suspects start on row 3,
-// five apart; the kitchen and the study have the secret passages.
+/**
+ * A small mansion: two rows of corridor (y 2 and 3, x 0-26) and, above
+ * them, the nine rooms, 2 x 2 each, three columns apart, each with a door
+ * down to the corridor at its left column. The suspects start on row 3,
+ * five apart; the kitchen and the study have the secret passages.
+ */
 inline Level boardLevel() {
     Level level;
     const auto object = [&](const std::string &name) {

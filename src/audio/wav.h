@@ -11,8 +11,12 @@
 
 namespace reluva::audio {
 
-// A RIFF WAVE file: 8- and 16-bit PCM and IMA ADPCM (format 0x11, as in
-// Star Trek: New Worlds; see docs/engines/newworlds/wav.md).
+/**
+ * A RIFF WAVE file: 8- and 16-bit PCM and IMA ADPCM (format 0x11, as in
+ * Star Trek: New Worlds; see docs/engines/newworlds/wav.md), mono or
+ * stereo. A "smpl" chunk's first loop becomes the Sound's loop; one that
+ * doesn't fit the sound is dropped.
+ */
 Error decodeWav(const std::vector<uint8_t> &data, Sound &out);
 
 /**
@@ -24,7 +28,7 @@ Error decodeWav(const std::vector<uint8_t> &data, Sound &out);
 Error decodeImaAdpcm(const uint8_t *data, size_t size, int channels, int rate, size_t blockAlign, size_t frameLimit,
                      Sound &out);
 
-// A 16-bit PCM WAV file of the sound, for checking it elsewhere.
+/** A 16-bit PCM WAV file of the sound, for checking it elsewhere. */
 std::vector<uint8_t> encodePcmWav(const Sound &sound);
 
 } // namespace reluva::audio

@@ -5,7 +5,7 @@
 // animated movers): where along its chain a spline is at a time, which
 // its scripts ask of `GetSplineData` each tick to move the camera or an
 // actor. As Engine.dll's ACTVE_Spline::GetData and ComputeRotation do it
-// (read for what they do, written here anew): see docs/engines/unreal_vm.md.
+// (read for what they do, written here anew): see docs/engines/unreal/games/ds9fallen/systems/splines.md.
 
 #include "engines/unreal/formats/actors.h"
 #include "engines/unreal/vm/vm_level.h"

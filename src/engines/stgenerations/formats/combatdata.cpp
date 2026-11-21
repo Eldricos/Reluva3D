@@ -37,8 +37,6 @@ uint32_t argb(uint8_t r, uint8_t g, uint8_t b) {
 
 } // namespace
 
-// Models
-
 bool Model3D::load(SeekableReadStream &stream) {
     std::vector<uint8_t> file = stream.readAll();
     parts.clear();
@@ -124,8 +122,6 @@ uint32_t CombatMaterial::rgb() const {
     return argb((uint8_t)((colour >> 10 & 31) * 255 / 31), (uint8_t)((colour >> 5 & 31) * 255 / 31),
                 (uint8_t)((colour & 31) * 255 / 31));
 }
-
-// Pictures
 
 bool CombatImage::loadGif(SeekableReadStream &stream) {
     std::vector<uint8_t> d = stream.readAll();
@@ -351,8 +347,6 @@ bool loadStandardPalette(SeekableReadStream &stream, uint32_t palette[256]) {
     return true;
 }
 
-// Animations
-
 namespace {
 
 // The SPR frames' bit reader: MSB first, 32 bits peeked at a time.
@@ -519,8 +513,8 @@ bool SprAnimation::load(SeekableReadStream &stream) {
         decodeSprFrame(d, q, w, h, mode, frame);
         frames.push_back(frame);
     }
-    // The 'TIME' chunk is ms a frame... but 666 is far too slow for a
-    // beam; the code steps frames on its own clock. Keep a lively rate.
+    // 'TIME' gives ms a frame, but its 666 is far too slow for a beam: the
+    // original steps frames on its own clock. 90 ms at most keeps it lively.
     frameMillis = std::min<uint32_t>(frameMillis, 90);
     return true;
 }
@@ -534,11 +528,10 @@ bool MetFont::load(SeekableReadStream &stream) {
     return true;
 }
 
-// SYSTEMS.DAT and the missions
-
 namespace {
 
-// Lines without comments (#, $ and C-style), split into words.
+// Lines split into words, without comment lines (# and $) and what follows
+// a /* on a line.
 std::vector<std::vector<std::string>> words(const std::string &text) {
     std::vector<std::vector<std::string>> lines;
     for (std::string line : text::split(text, '\n')) {

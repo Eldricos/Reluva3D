@@ -18,13 +18,17 @@
 
 namespace reluva::clue {
 
-// A PACK file's contents, or the data itself if it isn't packed.
+/** A PACK file's contents, or the data itself if it isn't packed. */
 Error unpack(const std::vector<uint8_t> &data, std::vector<uint8_t> &out);
 
-// A DDRV archive ("data drive"): files found by name through the
-// directory at its end. .res, .a (once unpacked), .o and .lvl are these.
+/**
+ * A DDRV archive ("data drive"): files found by name through the
+ * directory at its end. .res, .a (once unpacked), .o and .lvl are these.
+ * The whole archive is kept in memory.
+ */
 class DataDrive {
 public:
+    /** A file in the directory. */
     struct Entry {
         std::string name;  // as stored: Imsidlee_01, /World.dat
         uint64_t time = 0; // a Windows FILETIME
@@ -32,14 +36,18 @@ public:
         uint32_t size = 0; // ANIM records' are 4 bytes more than they hold
     };
 
-    // Reads a file from disk, unpacking it if it's packed.
+    /** Reads a file from disk, unpacking it if it's packed. */
     Error open(const std::filesystem::path &path);
-    Error load(std::vector<uint8_t> data); // already read and unpacked
+    /** Reads an archive already read and unpacked; fails on a RESI file or a short directory. */
+    Error load(std::vector<uint8_t> data);
 
+    /** Every file, in the directory's order. */
     const std::vector<Entry> &entries() const { return _entries; }
-    const Entry *find(std::string_view name) const; // ignoring case
-    // An entry's bytes, cut to the end of the data where its size runs over.
+    /** The file of that name, ignoring case, or nullptr. */
+    const Entry *find(std::string_view name) const;
+    /** An entry's bytes, cut to the end of the data where its size runs over. */
     std::vector<uint8_t> read(const Entry &entry) const;
+    /** The file open() read; empty after load(). */
     const std::filesystem::path &path() const { return _path; }
 
 private:
@@ -48,8 +56,10 @@ private:
     std::vector<Entry> _entries;
 };
 
-// An EIMG record: a 16-bit run-length image. Both versions (0x100 in the
-// fonts and some of the interface, 0x200 elsewhere) decode to this.
+/**
+ * An EIMG record: a 16-bit run-length image. Both versions (0x100 in the
+ * fonts and some of the interface, 0x200 elsewhere) decode to this.
+ */
 struct Image {
     int version = 0;
     image::Image pixels; // RGBA, transparent where nothing is drawn
@@ -60,14 +70,19 @@ struct Image {
     int offsetX = 0;
     int offsetY = 0;
 };
+/** Decodes an EIMG record, replacing what `out` held. */
 Error decodeImage(const std::vector<uint8_t> &record, Image &out);
 
-// An ANIM record: frames made of layers of images, with each frame's
-// anchor and time (its ISOA block) when it has them.
+/**
+ * An ANIM record: frames made of layers of images, with each frame's
+ * anchor and time (its ISOA block) when it has them.
+ */
 struct Animation {
-    static constexpr uint16_t kNoImage = 0xffff; // a part showing nothing in that frame
+    /** A Part's image when it shows nothing in that frame. */
+    static constexpr uint16_t kNoImage = 0xffff;
 
-    struct Part {           // a layer's image in one frame
+    /** A layer's image in one frame. */
+    struct Part {
         uint16_t image = 0; // into images, or kNoImage
         int16_t x = 0;
         int16_t y = 0;
@@ -78,11 +93,13 @@ struct Animation {
         // quarters (the fountain's water). EagleM's windows draw without.
         uint32_t flags = 0;
     };
-    // A frame's place. In the long ISOA form, also the box the object fills
-    // in the world, which its anchor is the back corner of (least x and y,
-    // the floor): sizeX by sizeY on the floor and height high. Screen x is
-    // world x - y, screen y (x + y) / 2 - z, so the box's image spans
-    // -sizeY .. sizeX across and rises height above the anchor.
+    /**
+     * A frame's place. In the long ISOA form, also the box the object fills
+     * in the world, which its anchor is the back corner of (least x and y,
+     * the floor): sizeX by sizeY on the floor and height high. Screen x is
+     * world x - y, screen y (x + y) / 2 - z, so the box's image spans
+     * -sizeY .. sizeX across and rises height above the anchor.
+     */
     struct Frame {
         // where the frame's top left is, from the anchor point
         int16_t anchorX = 0;
@@ -99,9 +116,11 @@ struct Animation {
     };
 
     std::string name; // the record's own; often uninitialised memory, so empty then
-    // Its speed and how it plays, as EagleM.dll's text form of it names
-    // them ("FPS", "Flags"): frames a second (0 in most of the interface),
-    // and 0 once, 1 round and round, 2 to the end and back.
+    /**
+     * How it plays, with framesPerSecond its speed, as EagleM.dll's text
+     * form of it names them ("FPS", "Flags"): frames a second (0 in most of
+     * the interface), and 0 once, 1 round and round, 2 to the end and back.
+     */
     enum Flags : uint8_t { kOnce = 0, kLoop = 1, kBackAndForth = 2 };
     int framesPerSecond = 0;
     uint8_t flags = kOnce;
@@ -113,23 +132,28 @@ struct Animation {
     bool isometric = false; // has an ISOA block
     bool shortForm = false; // its ISOA block has 10-byte frames
 
+    /** How many frames it has. */
     size_t frameCount() const { return frames.size(); }
-    // The frame shown `ms` after it started. `world`: as Clue.exe plays the
-    // house's objects (0x427E60, 0x446E30): a frame each 1000 / FPS ms (10
-    // FPS if it has none), by its flags, the last frame held when once is
-    // done. Else as EagleM.dll plays the windows' (0x1000BFF0): round and
-    // round whatever its flags, still if it has no FPS.
+    /**
+     * The frame shown `ms` after it started. `world`: as Clue.exe plays the
+     * house's objects (0x427E60, 0x446E30): a frame each 1000 / FPS ms (10
+     * FPS if it has none), by its flags, the last frame held when once is
+     * done. Else as EagleM.dll plays the windows' (0x1000BFF0): round and
+     * round whatever its flags, still if it has no FPS.
+     */
     size_t frameAt(uint64_t ms, bool world) const;
-    // How long once takes, by the same rule (its frames' time in all).
+    /** How long once takes, in ms, by the world's rule (its frames' time in all). */
     uint64_t onceMs() const;
 };
+/** Reads an ANIM record, replacing what `out` held; only version 0x200 is known. */
 Error parseAnimation(const std::vector<uint8_t> &record, Animation &out);
 
-// "c_scarlet:Imsidlee_01" split into its drive and its name in it.
+/** "c_scarlet:Imsidlee_01" split into its drive and its name in it. */
 struct ResourceName {
     std::string drive; // c_scarlet
     std::string name;  // Imsidlee_01: its first letter is the kind, I image, A animation, O object
 };
+/** Splits a full name; false if it has no colon, or nothing before or after it. */
 bool splitResourceName(std::string_view full, ResourceName &out);
 
 } // namespace reluva::clue

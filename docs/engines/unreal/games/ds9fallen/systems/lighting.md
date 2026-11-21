@@ -151,7 +151,22 @@ a curve. Not it: the video's levels (its black is 0, its range decoded as
 it's flagged); Direct3D's blending (texture x lightmap, the lightmaps
 scaled by their brightest colour when uploaded, `CacheMaxColor`, which
 cancels out); its 16-bit textures (palette colours scaled by 1.05 before
-being cut to 5 bits, if anything brighter). Not found yet.
+being cut to 5 bits, if anything brighter). Read again in D3DDrv.dll and
+Render.dll (November 2026): lightmaps are blended by plain MODULATE
+(0x10009aab), not MODULATE2X; their 7-bit texels are 1x either way
+(shifted once in 32-bit mode, 0x10002ca0; a table to 5 bits in 16-bit,
+0x10003574); no constant scales a light's colour; the 16-bit cut comes
+to 2-3% brighter at most. So the Direct3D path is 1.00 to 1.03x
+Reluva's, and the gain isn't in it. Nor is it in the other renderers
+(read November 2026): the software one (the shipped `.ini`s' default,
+`GameRenderDevice=SoftDrv`) and Glide's take lightmap texel 64 as full
+light, twice Direct3D's, the software one with no gamma but a linear
+gain of 2 x (`Brightness` + 0.5), Glide's through a 2x blend and the
+same gamma as Direct3D's at the default `Brightness` (`grGammaCorrection`
+of 0.5 + 1.5 x `Brightness`), both much brighter than 10-20% and
+clipping; OpenGL's ignores `Brightness` and comes out darker; MeTaL's
+gamma (2 x `Brightness` + 0.2) is about Direct3D's. None is a flat
+1.1-1.2.
 
 ### Actors' lighting
 
@@ -255,15 +270,24 @@ On The Fallen 1377 of the 29202 lights change: 567 pulse, 598 flicker,
 second (default 32), starting `LightPhase` 256ths of the way in.
 `lightLevel()` gives the share of the brightness at a time, as the
 original's renderer works it out (Render.dll's `GlobalLighting` and its
-table of type functions, read for what they do). Its random ones draw a
-new number every frame; Reluva steps them 35 times a second.
+table of type functions, read for what they do).
+
+The clocks: the timed ones (pulse, subtle pulse, blink, strobe, and the
+moving effects below) go by the level's `TimeSeconds`, which stops while
+the game is paused (Render.dll reads it from the level, 0x10b04aee to
+0x10b061fa). The random ones (flicker, torch and fire waver) take a
+table of 256 random numbers drawn afresh every frame drawn (0x10b19cb0,
+0x10baba3c), paused or not. Reluva does the same while playing; its
+viewer, with no level running, steps them 35 times a second. An actor's
+`AmbientGlow` pulse and the fading of the lights on an actor go by the
+real clock (0x10b0a242, 0x10b0a347).
 
 | Type | Brightness |
 |---|---|
 | Pulse | 0.6 + 0.39 sin, a cycle each `LightPeriod` 35ths of a second (at least 1) |
 | Subtle pulse | 0.9 + 0.09 sin, the same |
-| Blink | on or out at random each frame (the parity of its phase counted in 65536ths of a cycle) |
-| Strobe | every strobe on one frame and out the next, all together |
+| Blink | out when `TimeSeconds` x 35 x 65536 / (`LightPeriod` + 1) + `LightPhase` x 256, truncated, is odd (0x10b06e60): a new state almost every frame, held while paused |
+| Strobe | every strobe together, on and out by turns: Render.dll keeps one state and the level's time it was last flipped at (0x10b06ef0, both zero at the start: lit). Each time a strobe light is worked out and the time has moved since, it flips, so it flips only on frames one is seen, once however many are. Reluva flips it on frames a strobe reaches a lightmap in a zone seen; a strobe that lights only actors doesn't flip it there |
 | Flicker | a random number each frame: out under 0.5, else that bright |
 | Backdrop | steady |
 | Texture palette once / loop | the colour and brightness of the light's `Skin` palette, by its life or its cycle (not done: none in The Fallen's maps light with it) |
@@ -276,7 +300,7 @@ type's alone, no effect.
 | Effect | On the surfaces |
 |---|---|
 | Torch waver, fire waver | each texel times a new random number each frame: 0.95-1, 0.8-1 |
-| Watery shimmer | each texel 0.6-1, its number easing towards a new random one (a sixteenth of the way a tick) |
+| Watery shimmer | each texel 0.6-1, its number easing towards a new random one (a sixteenth of the way each 35th of a second of the level's time: still while paused) |
 | Slow wave, fast wave | 0.7 + 0.3 sin of rings 64 (32) units apart rolling out 35 units a second |
 | Searchlight | one beam a turn, a quarter of it wide, turning 35 / `LightPeriod` radians a second from `LightPhase` (64ths of a turn); dark within about 130 units of its axis |
 | Rotor | six beams round it, ½(1 + sin(6 yaw + 3.5 t)), even near its axis (within 100 units) |
@@ -291,7 +315,11 @@ Lights the scripts may change (any class but plain `Light`, like
 the same way, starting as they are (one that starts off, at nothing:
 kept at the brightness it was placed with, so it lights once its scripts
 turn it on, as one put out at the start, a `CTV_TriggerLight` not
-initially on, would otherwise never be),
+initially on, would otherwise never be). In a saved game a light its
+scripts had out at the time has 0 for its brightness: its
+`InitialBrightness` (both trigger lights keep it, set as they begin)
+stands for the brightness it was placed with (without it, M04_KiraL1
+would lose 36 lights and 163 lit surfaces after loading a save),
 and while the game runs follow their live actor: its `LightType` and
 `LightBrightness` against the brightness it was placed with (a
 TriggerLight fading, a light switched off or destroyed). With them and
@@ -472,6 +500,13 @@ against the same views here, matched shot for shot in cut scenes:
   display curve (above) both show as in the recording, the stars with
   about half its bright pixels (theirs larger, brighter blobs: a lower
   resolution scaled up, where ours filters one-texel stars down).
+- How Render.dll lights a surface (its surface drawing, from
+  0x10b226a0): with no lightmap, it isn't lit at all: drawn full bright
+  as an unlit one (0x10b22d82; Reluva too). With a lightmap whose list of
+  lights is empty, its texels are the zone's ambient and any dynamic
+  lights (0x10b08070): the light manager starts every texel at the
+  surface's own zone's ambient, adds the lights in the list, then those
+  in the surface's dynamic list.
 - Not found: what lights the credits station (CM_SpaceStation). Half
   its hull surfaces have lightmaps whose list of lights is empty (or
   none at all): the level's last lighting build reached none of their
@@ -480,7 +515,12 @@ against the same views here, matched shot for shot in cut scenes:
   outward faces of its rings, behind the windows, are evenly bright
   while the undersides and the hub, with empty lists alike, are dark;
   neither "no lights means unlit" nor "an empty list means unlit"
-  matches (each lights faces the recording leaves dark). The same
+  matches (each lights faces the recording leaves dark), and by the code
+  above only a dynamic light could light the empty ones: the level has
+  no zone but the LevelInfo (ambient 1, effectively black), and no
+  dynamic light near the station. Its lights seem to have been moved
+  after its last lighting build (Light85 is 17,000 units from where it
+  was when built, yet still in 35 lists). The same
   station in CM_Worf_Endgame is lit by its lights and comes within
   about 20% of the recording (bluer there).
 

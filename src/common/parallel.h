@@ -11,9 +11,11 @@
 
 namespace reluva {
 
-// f(0) .. f(n - 1), spread over the machine's cores (the calling thread
-// one of them); back once all are done. The calls must touch nothing in
-// common but what they only read.
+/**
+ * Calls f(0) .. f(n - 1), spread over the machine's cores (the calling
+ * thread one of them), and returns once all are done. The calls run in no
+ * set order and must share nothing but what they only read.
+ */
 template<class F>
 void parallelFor(size_t n, F &&f) {
     const size_t workers = std::min<size_t>(n, std::max(1u, std::thread::hardware_concurrency()));

@@ -13,16 +13,13 @@ the keyboard and mouse, seen from the game's own camera, the AI finding
 its way along the level's paths and the characters' lines shown as
 they're said, and its own HUD and menus drawn over it, the menus
 travelling from map to map, games saved and loaded, and its sounds and
-music heard. It isn't the
-game yet: some of The Fallen's own engine functions are still missing
-([level.md](level.md)). Every class of the game loads (`vm.cpp`), every default
+music heard. Every class of the game loads (`vm.cpp`), every default
 property converts to its type, and all 74 maps start: their actors made,
 the game type spawned, the start-up events sent, the player logged in as
-the level's character, then twenty seconds of ticks, with no crash. The
-script errors left are mistakes in the game's own scripts ([level.md](level.md)) and
-None accessed where natives not written yet would have filled
-something in. The Maps page draws each level as its scripts leave it
-when play begins.
+the level's character, then twenty seconds of ticks, with no crash and
+no native missing. The script errors and None accesses left are the
+game's own scripts' ([level.md](level.md)). The Maps page draws each
+level as its scripts leave it when play begins.
 
 What the VM does in a level is on the pages for each part:
 [the level's actors and ticks](level.md), [movement](movement.md) and
@@ -67,14 +64,33 @@ Classes' `config` properties take the player's and the game's settings
 from the `.ini` files as the class loads (`Vm::applyConfig`):
 - a `config` property from the class's own section (`[Engine.HUD]`);
 - a `globalconfig` one from the section of the class that declares it;
-- User.ini first, then DefUser.ini, then the game's own `.ini`;
+- the settings Reluva has written first (below), then User.ini, then
+  DefUser.ini, then the game's own `.ini`;
 - an array's elements as `Key[n]`; structs aren't read.
 
 So the HUD shows dialogue (`bDisplayDialog=True`) but not cut scenes'
 subtitles (`bDisplaySubtitles=False`), as DefUser.ini has it, and the
-player's mouse sensitivity is 3. A console command's `set` (the options
-windows, below) changes a setting for as long as the VM runs, before the
-files' (`Vm::setConfig`); the files aren't written.
+player's mouse sensitivity is 3.
+
+Settings are written as Core.dll writes them. `SaveConfig()` (the options
+windows call it on the player, the HUD and the game type) writes every
+`config` and `globalconfig` property of the object's class, in the
+sections they're read from, to the class's config file: `config(User)`
+classes' to User.ini, `config(System)` classes' to the game's `.ini`
+(SaveConfig at 0x10150f90). Floats are written with six places, an
+enum's byte by its name. `StaticSaveConfig()` writes the class's
+defaults. A console command's `set` (the options windows, below) sets the
+property in the class's defaults and every object of it, then writes the
+class's settings as `SaveConfig` does (`GlobalSetProperty` ends so, at
+0x10151f45); `set Input Key Command` writes the binding to User.ini's
+`[Engine.Input]`. A setting goes in place of its key's line in its
+section, else at the section's end, else in a new section, the rest of
+the file left as it is (`Vm::saveConfig`).
+
+They're written to Reluva's folder for the game (`Config`, beside its
+`Saves`), not the game's `System` folder, so the install is left as it
+is; a level reads them from there first. With no such folder (the tools'
+runs, unless given `config <dir>`) a `set` lasts as long as the VM.
 
 Classes' `localized` properties, the text players read (menu items,
 messages), come from the game's `.int` files (`Vm::applyLocalized`): the
@@ -146,13 +162,15 @@ up by `DynamicLoadObject` is taken only as an object of the class asked:
 Natives are C++ functions registered by the qualified name of the
 function declaring them (`Object.Add_IntInt`): all of Core's Object
 (`vm_natives_core.cpp`: the operators for every type, maths, vectors and
-rotators, strings, states, `IsA`, `DynamicLoadObject`...), and the
-Engine ones a level needs so far (`vm_level.cpp`): `Spawn`, `Destroy`,
+rotators, strings, states, `IsA`, `DynamicLoadObject`...), and every
+Engine and The Fallen's own native the game's scripts call
+(`vm_level.cpp` and the files beside it): `Spawn`, `Destroy`,
 `SetTimer`, `Sleep`, location, rotation and collision setters, the actor
 iterators (`AllActors`, `ChildActors`, `BasedActors`, `RadiusActors` and
-the visible ones by radius, `RadiusPawns`, `AllPawns`), the pawn list, animation
-groups from the actor's mesh. A native not written yet returns an empty
-value and is counted.
+the visible ones by radius, `RadiusPawns`, `AllPawns`), the pawn list,
+animation groups from the actor's mesh, and the rest on the pages
+above. A native with no function (none, over all 74 maps' runs) returns
+an empty value and is counted, as `unreal run`'s "natives missing".
 
 A `switch` finds its case itself: the labels in turn, each one's value
 against the switch's, jumping on to the next label until one matches or

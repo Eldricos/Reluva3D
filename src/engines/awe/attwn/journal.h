@@ -21,26 +21,30 @@ namespace reluva::awe::attwn {
 /** The journal: Text/Journal's four tables, and the panel that shows them. */
 class Journal : public GameOverlay {
 public:
+    /** Reads the four tables from `host`'s files; a table it can't read is left empty. */
     explicit Journal(OverlayHost &host);
 
     void update(float seconds) override;
     void draw(Surface &dst, const GameFonts &fonts) override;
     bool click(int x, int y) override;
     bool covers(int x, int y) const override;
-    /** "journal <tab>" (0x41c290): that tab's contents, the book blinking if it's closed. */
+    /** "journal `<tab>`" (0x41c290): that tab's contents, the book blinking if it's closed. */
     bool verb(const std::vector<std::string> &words) override;
 
+    /** A row of a tab's table: an entry under a sub-heading, shown once its condition holds. */
     struct Entry {
         std::string heading;
         std::string condition;
         std::string text;
         bool shown = false; // its condition held when the journal last looked
     };
+    /** A tab's entries (tab 0 to 3), in the table's order. */
     const std::vector<Entry> &entries(int tab) const { return _tabs[size_t(tab)].entries; }
     /** The tab shown, 0 to 3. */
     int tab() const { return _tab; }
     /** The sub-heading whose entries are shown; empty: the tab's contents. */
     const std::string &heading() const { return _tabs[size_t(_tab)].heading; }
+    /** Whether the panel is out. */
     bool open() const { return _open; }
     /** The panel's left edge: 754 closed, 420 open. */
     float x() const { return _x; }

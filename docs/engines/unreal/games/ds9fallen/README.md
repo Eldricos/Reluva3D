@@ -47,9 +47,13 @@ nothing here can fill: no dialogue table for mission 12.
 
 ### Speed
 
-M10_WorfL1A, the slowest map, runs 20 seconds of play in about 12.5 to
-15 of CPU in `unreal play`, which prepares every frame for drawing.
-M03_KiraL2 takes about 5 (November 2026). The scripts alone
+M10_WorfL1A, the slowest map, runs 20 seconds of play in about 5.8 s of
+CPU in `unreal play`, which prepares every frame for drawing, after 0.8 s
+starting; M03_KiraL2 and M04_KiraL1 take about 2.5 (November 2026, on
+this container's CPU). Of a short run of M10, a quarter is the level's
+ticks (mostly scripts), a sixth preparing the draws, a tenth the
+procedural textures and 7% the sound (the music's MP3 decoding most);
+allocating and freeing the VM's values is about a tenth throughout. The scripts alone
 (`unreal run -all`) take at most 2.9 s for a map's 20 s, and 128 s for
 all 74 maps. What's left most is posing and lighting the characters for
 drawing, the HUD's scripts and the viewer's own text. What Reluva does
@@ -83,6 +87,26 @@ for speed is in [systems/playing.md](systems/playing.md#in-reluva).
   same to the pixel.
 - The HUD is the game's own `PostRender` script once a frame (4%);
   only a faster VM makes it cheaper.
+- The VM (November 2026, measured in instructions under callgrind,
+  M10_WorfL1A's 20 s in `unreal run`: 14.66 billion before, 12.20
+  after, 17% fewer; `run -all` 82 s from 96, every map's record the
+  same to the call): a property the engine's code reads by name finds
+  its slot through a small cache in front of the class's table (it was
+  15% of the run, the effects' copies reading theirs for every copy on
+  every tick); a value's struct fields are nothing until it has some,
+  so the many values that are numbers or objects are made, copied and
+  dropped without a vector; a call's arguments and a function's locals
+  reuse the room of the call before at the same depth; a float is set
+  in place. Pooling vector values themselves, tried before, was slower.
+  Then each call by name keeps the name it interned and the function it
+  found for the class and state it was last made on, a native call the
+  function its number names, and an `IsA` by a class's name the name it
+  interned: 11.76 billion, 20% fewer than at first. What's left is
+  mostly the values themselves. So a value's string, like its struct
+  fields, is nothing until it has one (a value is 48 bytes, from 72),
+  and a struct value's field list, let go, is kept for the next one,
+  room and all, so vectors and rotators are made without allocating:
+  11.05 billion, 25% fewer than at first.
 
 ## Using it
 

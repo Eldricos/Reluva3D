@@ -14,22 +14,29 @@
 
 namespace reluva::idtech3 {
 
-// A game's sounds by name ("sound/interface/button1.wav"), read from its
-// search path and decoded on first use (WAV or MP3, audio), then
-// kept. A sound that can't be read or decoded is remembered as missing
-// rather than tried again.
+/**
+ * A game's sounds by name ("sound/interface/button1.wav"), read from its
+ * search path and decoded on first use (WAV or MP3, audio), then
+ * kept. A sound that can't be read or decoded is remembered as missing
+ * rather than tried again.
+ */
 class SoundLibrary {
 public:
+    /** Over the game's files, which must outlive it. */
     explicit SoundLibrary(const SearchSet &files) : _files(files) {}
 
-    // The sound, or nullptr (missing or undecodable).
+    /** The sound, or nullptr (missing or undecodable). */
     std::shared_ptr<const audio::Sound> get(std::string_view name);
-    // As get, but also tried without its extension or with the other one
-    // (.wav, .mp3): the games ask for "x.wav" where only "x.mp3" is shipped.
+    /**
+     * As get, but failing that also tried with .wav and .mp3 in place of
+     * its extension (or after the name, if it has none): the games ask for
+     * "x.wav" where only "x.mp3" is shipped.
+     */
     std::shared_ptr<const audio::Sound> find(std::string_view name);
 
+    /** How many names have been looked up, the missing ones included. */
     size_t loaded() const { return _sounds.size(); }
-    // Names that failed, with why.
+    /** Names that failed, with why. */
     const std::vector<std::string> &problems() const { return _problems; }
 
 private:

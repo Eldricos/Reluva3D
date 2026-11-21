@@ -19,11 +19,13 @@ S = D['strings']
 out = dict(functions={}, globals={}, code_notes={}, structs={}, arrays={}, ptr_tables={})
 
 def F(a):
+    """The function at `a`'s entry in symbols.json, made if it's new."""
     return out['functions'].setdefault('0x%x' % a, {})
 def G(a):
+    """The global at `a`'s entry in symbols.json, made if it's new."""
     return out['globals'].setdefault('0x%x' % a, {})
 
-# --- 1. docs ---------------------------------------------------------------------
+# 1. The addresses in the docs.
 tok = re.compile(r'`(0x[0-9a-fA-F]{6,8})(?:[-–]`?(0x[0-9a-fA-F]{6,8}))?`')
 ndoc = 0
 for path in DOCS:
@@ -65,7 +67,7 @@ for path in DOCS:
                     G(a)['range_end'] = m.group(2)
 print('doc references:', ndoc)
 
-# --- 2. EA strings ---------------------------------------------------------------
+# 2. EA's source-file and function-name strings.
 ident = re.compile(r'^[A-Za-z_][A-Za-z0-9_]{3,}$')
 srcfile = re.compile(r'^[\w:\\./]*\.(c|cpp|C)$')
 str_users = defaultdict(set)
@@ -108,7 +110,7 @@ for v in out['functions'].values():
         nname += 1
 print('functions with source file strings:', nsrc, 'named from strings:', nname)
 
-# --- 3. curated -----------------------------------------------------------------
+# 3. The curated names, over the others.
 for a, (name, args, desc) in C.FUNCS.items():
     e = F(a)
     e['name'] = name
@@ -142,6 +144,7 @@ for a, e in out['globals'].items():
                 break
 # struct layouts
 def hx(v):
+    """`v` in hex, as symbols.json writes addresses."""
     return '0x%x' % v
 for sn, s in C.STRUCTS.items():
     out['structs'][sn] = dict(size=hx(s['size']), desc=s['desc'], fields={

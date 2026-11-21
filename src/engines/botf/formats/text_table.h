@@ -20,11 +20,13 @@ namespace reluva::botf {
  */
 class TextTable {
 public:
+    /** A string and the key the game looks it up by. */
     struct Entry {
         uint32_t key = 0;
         std::string text; // UTF-8, from Windows-1252; as stored, without the zero byte
     };
 
+    /** Reads the table, replacing the entries; fails at a string outside the text or without its zero byte. */
     Error load(const std::vector<uint8_t> &data);
 
     /** In the file's record order (by key in most tables, not all). */
@@ -34,7 +36,8 @@ public:
      * every table.
      */
     const Entry *find(uint32_t key) const;
-    uint32_t longest() const { return _longest; } // the header's value, in bytes
+    /** The longest string's length, in bytes, as the header gives it. */
+    uint32_t longest() const { return _longest; }
 
 private:
     std::vector<Entry> _entries;

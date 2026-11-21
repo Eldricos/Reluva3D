@@ -48,8 +48,8 @@ void ComHost::release(ComObject *object) {
     auto found = _byObject.find(object);
     if (found == _byObject.end())
         return;
-    // Freed lowest first, as walking pointers_ in order did (the heap's
-    // later blocks depend on it).
+    // Freed lowest address first: where the heap puts later blocks depends
+    // on the order.
     std::vector<uint32_t> gone;
     for (const auto &[i, p] : found->second)
         gone.push_back(p);
@@ -57,7 +57,7 @@ void ComHost::release(ComObject *object) {
     std::sort(gone.begin(), gone.end());
     for (uint32_t p : gone) {
         _process.memory().free(p);
-        _pointers.erase(p); // the object may go with its last pointer: last
+        _pointers.erase(p); // last, as it may drop the object's last reference
     }
 }
 

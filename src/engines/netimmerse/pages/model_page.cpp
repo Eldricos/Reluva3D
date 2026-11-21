@@ -329,7 +329,8 @@ struct ModelPage::Item {
     // Depth test and write: on, unless an NiZBufferProperty turns them off.
     bool depthTest = true;
     bool depthWrite = true;
-    // of its vertices; in the world, for sorting what blends
+    // The centre of its vertices, as modelled and in the world (for sorting
+    // what blends).
     gfx::Vec3 localCentre{};
     gfx::Vec3 centre{};
 };
@@ -1370,7 +1371,7 @@ void ModelPage::update(uint64_t nowMs) {
         call.indexCount = _footprintCount;
         call.color = {0.3f, 1, 0.4f, 0.4f};
         call.state.cull = gfx::Cull::kNone;
-        call.state.depthTest = false; // over the model, as it's under it
+        call.state.depthTest = false; // seen through the model standing on it
         call.state.depthWrite = false;
         call.state.src = gfx::Blend::kSrcAlpha;
         call.state.dst = gfx::Blend::kOneMinusSrcAlpha;

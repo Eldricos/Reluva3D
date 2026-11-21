@@ -170,7 +170,7 @@ Rgb falseColourPalette() {
     return pal;
 }
 
-// --- Archives -------------------------------------------------------------------
+// Archives
 
 std::optional<stdfs::path> sibling(const stdfs::path &path, const std::string &ext) {
     const std::string want = upper(path.stem().string() + ext);
@@ -311,7 +311,7 @@ std::string identifyExe(const std::vector<uint8_t> &d) {
     return kind;
 }
 
-// --- Sound statistics -----------------------------------------------------------
+// Sound statistics
 
 double entropy(const std::vector<uint8_t> &d, size_t start = 0, size_t step = 1) {
     size_t counts[256] = {};
@@ -371,7 +371,7 @@ RawStats rawStats(const std::vector<uint8_t> &d) {
     return st;
 }
 
-// --- Backgrounds: which palette ----------------------------------------------------
+// Backgrounds: which palette
 
 // The palette a background or animation most likely uses, by name: its
 // own, the nearest lower number of the same prefix, or the longest common
@@ -420,7 +420,7 @@ std::string choosePalette(const std::string &stemIn, const std::map<std::string,
     return bestLen >= 3 ? bestName : std::string();
 }
 
-// --- Deck maps: their width ----------------------------------------------------------
+// Deck maps: their width
 
 // The width that lines rows up best: for a sample of the places where a
 // byte differs from the next, how often the pair below is the same.
@@ -471,7 +471,7 @@ int guessWidth(const std::vector<uint8_t> &d, std::vector<std::pair<double, int>
 const std::map<std::string, std::string> kMapPalettes = {
     {"OPS", "OPS01"}, {"HABITAT", "CCRUN05"}, {"LOWER", "CCRUN05"}, {"UPPER", "CCRUN05"}};
 
-// --- The extractor ------------------------------------------------------------------
+// The extractor
 
 struct Options {
     std::set<std::string> only;

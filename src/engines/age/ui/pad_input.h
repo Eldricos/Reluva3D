@@ -24,12 +24,17 @@ struct PadDrive {
     float steer = 0;
     float throttle = 0;
     float brake = 0;
-    uint32_t buttons = 0; // GamepadButton bits held at the last poll
+    uint32_t buttons = 0;   // GamepadButton bits held at the last poll
+    float deadZone = 0.15f; // of the stick's travel, round the middle (Joystick Dead Zone)
 
     /** An axis (GamepadState::axes' order) moved, with a dead zone round the middle. */
     void axis(int axis, float value);
-    /** Added to the keys' controls: a stick pushed further than the keys steer wins, the pedals the more pressed. */
+    /**
+     * Added to the keys' controls: a stick pushed further than the keys
+     * steer wins, the pedals the more pressed.
+     */
     void apply(CarControls &c) const;
+    /** Whether the sticks and triggers are all at rest. */
     bool idle() const { return steer == 0 && throttle == 0 && brake == 0; }
 };
 
@@ -47,13 +52,18 @@ void pollPad(System &sys, PadDrive &pad, bool driving, bool axes, const GameOpti
  */
 uint32_t padKey(int button, bool driving, const GameOptions &options);
 
-/** How hard to shake the controller for a bump of `impact` (m/s of speed lost): 0 for nothing felt. */
+/**
+ * How hard to shake the controller (0..1) for a bump of `impact` (m/s of
+ * speed lost): nothing under 2 m/s, full from 15.
+ */
 float padRumble(float impact);
 
 /** A knock's shake of the controller (System::setGamepadForce), stopped once it's had its time. */
 class PadShaker {
 public:
+    /** Shakes it at `strength` (0..1) for a fifth of a second. */
     void knock(System &sys, float strength, uint64_t nowMs);
+    /** Stops the shake once its time is up; call every frame. */
     void update(System &sys, uint64_t nowMs);
 
 private:

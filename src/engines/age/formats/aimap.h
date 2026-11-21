@@ -14,32 +14,37 @@ namespace reluva::age {
 
 /**
  * The settings for a city's computer-driven cars, people and police
- * (.aimap text: city/<map>.aimap for the city, race/<city>/<race>.aimap
+ * (.aimap text: `city/<map>.aimap` for the city, `race/<city>/<race>.aimap`
  * and .aimap_p for each race's amateur and professional runs,
- * race/<city>/roam.aimap for cruising). Sections a file leaves out keep
+ * `race/<city>/roam.aimap` for cruising). Sections a file leaves out keep
  * the values given. See docs/engines/age/games/mm2/formats/aimap.md.
  */
 struct AiMapSettings {
+    /** A kind of traffic car, and how often it's picked. */
     struct Ambient {
         std::string model; // geometry/<model>.pkg, tune/vehicle/<model>.aiVehicleData
         float upTo = 1;    // cumulative share: picked when a random 0-1 is below this
     };
+    /** A pedestrian's models. */
     struct PedPair {
         // models in fine and in rainy weather
         std::string good;
         std::string bad;
     };
+    /** A road of the .bai road map with its own traffic density and speed limit. */
     struct RoadException {
         int road = 0;
         float density = 0;
         float speedLimit = 0;
     };
+    /** A police car and where it starts. */
     struct Police {
         std::string model;
         Vec3 position{};
         float heading = 0;       // degrees, as waypoints'
         std::vector<float> rest; // four more values, not known yet
     };
+    /** A race's computer-driven opponent. */
     struct Opponent {
         // the car and its .opp file
         std::string model;
@@ -64,7 +69,10 @@ struct AiMapSettings {
     bool opponentsGiven = false;
 };
 
-/** Reads `text` over `out` (so a race's file can follow the city's). */
+/**
+ * Reads `text` over `out` (so a race's file can follow the city's). Fails
+ * only on text without a section.
+ */
 Error parseAiMap(const std::string &text, AiMapSettings &out);
 
 } // namespace reluva::age

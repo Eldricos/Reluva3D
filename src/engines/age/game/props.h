@@ -30,7 +30,7 @@ struct PropPlacement {
     Vec3 along{1, 0, 0};
 };
 /**
- * city/<city>/props.pathset as Reluva reads it: a path whose end word's
+ * `city/<city>/props.pathset` as Reluva reads it: a path whose end word's
  * low byte is 0 is a prop at each point; 1, a prop at every other point
  * facing the next (a point a metre or two away); 2, props along the line
  * every (end word's second byte / 10) metres, along it. See
@@ -39,10 +39,11 @@ struct PropPlacement {
 std::vector<PropPlacement> placeProps(const std::vector<PathsetPath> &paths);
 
 /**
- * The street furniture along the roads' sidewalks: city/<city>/propdefs.csv
- * names the kinds (a street light, a meter...), proprules.csv which kinds
- * line each side of a road under rules n01left... and each road block's
- * second byte (PsdlBlock::extra) is its rule's number. See
+ * A kind of street furniture: a row of propdefs.csv. The street furniture
+ * along the roads' sidewalks: `city/<city>/propdefs.csv` names the kinds (a
+ * street light, a meter...), proprules.csv which kinds line each side of a
+ * road under rules n01left... and each road block's second byte
+ * (PsdlBlock::extra) is its rule's number. See
  * docs/engines/age/games/mm2/formats/pathset.md.
  */
 struct StreetPropKind {
@@ -53,19 +54,21 @@ struct StreetPropKind {
     float maxLerp = 0;
     std::vector<std::string> models; // one picked for each
 };
+/** propdefs.csv's kinds, by name; rows of fewer than seven fields are left out. */
 std::map<std::string, StreetPropKind> parsePropDefs(const std::string &text);
+/** proprules.csv's rules ("n01left"...), each the kinds it lines a side with. */
 std::map<std::string, std::vector<std::string>> parsePropRules(const std::string &text);
 /**
  * Each road's sides by its blocks' rule (`blockRules[block]`, 0 none):
- * side 0 (on the left from its first point) by rule n<NN>left, side 1 by
- * n<NN>right.
+ * side 0 (on the left from its first point) by rule `n<NN>left`, side 1 by
+ * `n<NN>right`.
  */
 std::vector<PropPlacement> placeStreetProps(const AiRoadMap &roads, const std::vector<uint8_t> &blockRules,
                                             const std::map<std::string, StreetPropKind> &kinds,
                                             const std::map<std::string, std::vector<std::string>> &rules,
                                             uint32_t seed = 1);
 
-/** tune/banger/<model>.dgBangerData: what Reluva takes from it. */
+/** `tune/banger/<model>.dgBangerData`: what Reluva takes from it. */
 struct BangerData {
     float mass = 100;
     float impulseLimit2 = 0; // ImpulseLimit2: the square of the impulse that breaks it loose
@@ -80,39 +83,47 @@ struct BangerData {
     int texNumber = 0;
     std::vector<Vec3> glows; // GlowOffset: its lamps, from its middle
     float elasticity = 0.5f; // Elasticity: 0.5 for nearly all (a car bounces off more above that)
+    /** Whether anything flies out when it breaks. */
     bool bursts() const { return texNumber > 0 && (particles.initialBlast > 0 || particles.spewRate > 0); }
 };
+/** Reads a .dgBangerData's text. Fails on bad text, or text without a dgBangerData block. */
 Error parseBangerData(const std::string &text, BangerData &out);
 
 /**
  * The city's props and its traffic lights, as things a car can knock
  * down: standing, collided with (their bounds, else their models' boxes);
  * knocked hard enough (CarSim::broke), they fall over where they were
- * pushed and are no longer in the way. See docs/engines/age/games/mm2/systems/props.md.
+ * pushed and are no longer in the way. See
+ * docs/engines/age/games/mm2/systems/props.md.
  */
 class Props {
 public:
+    /** Takes every prop away. */
     void clear() { _props.clear(); }
     /**
-     * city/<map>/props.pathset's props, and a race's own
-     * (race/<map>/<variant>.pathset: "circuit0"...).
+     * `city/<map>/props.pathset`'s props, and a race's own
+     * (`race/<map>/<variant>.pathset`: "circuit0"...).
      */
     void load(const SearchSet &files, const std::string &map, const std::string &variant = "");
     /**
-     * The street furniture (placeStreetProps from city/<map>/propdefs.csv
+     * The street furniture (placeStreetProps from `city/<map>/propdefs.csv`
      * and proprules.csv).
      */
     void addStreetProps(const SearchSet &files, const std::string &map, const AiRoadMap &roads,
                         const std::vector<uint8_t> &blockRules);
     /** The traffic lights, as poles. */
     void addLights(const TrafficLights &lights);
-    /**
-     * Their shapes and banger data, once the models are at hand
-     * (`box`: a model's bounds, false if there's no such model).
-     */
+    /** A model's bounds; false if there's no such model. */
     using ModelBox = std::function<bool(const std::string &model, Vec3 &low, Vec3 &high)>;
+    /**
+     * Their shapes and banger data, once the models are at hand (the cache's,
+     * or as `box` gives them). A prop whose model isn't there has no shape.
+     */
+    ///@{
     void prepare(const SearchSet &files, ModelCache &models);
     void prepare(const SearchSet &files, const ModelBox &box);
+    ///@}
+    /** Whether prepare() has been called since the last props were added. */
     bool prepared() const { return _prepared; }
     /** Their triangles into `world` (any put there before taken out first). */
     void collide(CollisionWorld &world) const;
@@ -121,6 +132,7 @@ public:
      * light out of `lights`), then the loose ones fall.
      */
     void update(float dt, const std::vector<CarSim *> &cars, CollisionWorld &world, TrafficLights &lights);
+    /** Draws those within 300 m of the eye (TrafficLights draws its standing ones). */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye) const;
 
@@ -136,10 +148,14 @@ public:
         Vec3 at;
         Vec3 velocity;
     };
+    /** The bursts since last asked; the caller makes their particles. */
     std::vector<Burst> takeBursts() { return std::move(_bursts); }
 
+    /** How many props there are, and how many have been knocked loose. */
+    ///@{
     size_t count() const { return _props.size(); }
     size_t loose() const;
+    ///@}
     /**
      * Pieces of props come apart, and those come to rest; the lowest
      * height any of them is at (for tests).
@@ -178,11 +194,11 @@ private:
             Vec3 spin{};
             Mat3 orientation;
             bool resting = false;
-            int effect = -1; // its particles (effects_)
+            int effect = -1; // its particles (in _effects)
         };
         std::vector<Piece> pieces;
         bool apart = false;
-        int effect = -1;         // its particles (effects_)
+        int effect = -1;         // its particles (in _effects)
         std::vector<Vec3> glows; // its lamps, in its own axes from its foot
     };
     struct Effect {

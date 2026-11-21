@@ -8,7 +8,7 @@
 // reach (times 1.1) to the solid leaves it touches, and each of those
 // tested against the convex hull stored for its node, its planes, its
 // bounding box and bevels along its edges, at the box's true size. Lines
-// and points: the BSP alone. See docs/formats/unreal/collision.md.
+// and points: the BSP alone. See docs/engines/unreal/games/ds9fallen/systems/collision.md.
 
 #include "engines/unreal/formats/model.h"
 
@@ -16,8 +16,10 @@
 
 namespace reluva::unreal {
 
+/** Collision tests against one level's BSP. */
 class LevelCollision {
 public:
+    /** `model` must outlive it. */
     explicit LevelCollision(const Model &model) : _model(model) {}
 
     /** Whether a point is in solid space. */
@@ -25,12 +27,14 @@ public:
     /** Whether a box (centre, half sizes) overlaps solid space. */
     bool solid(const Vec3f &centre, const Vec3f &extent) const;
 
+    /** Where a trace() stopped, and on what. */
     struct Hit {
         float time = 1;          // 0-1 along the move where it stopped; 1: nothing hit
         Vec3f normal{};          // of the surface hit, facing back along the move
         Vec3f location{};        // where the box's centre stopped
         bool startSolid = false; // it started overlapping solid space
         int32_t node = -1;       // the node whose plane it stopped at (its coplanar ones share it)
+        /** Whether it hit anything, or started in solid. */
         bool hit() const { return time < 1 || startSolid; }
     };
     /** Sweeps a box (half sizes `extent`; zero for a line) from start to end. */

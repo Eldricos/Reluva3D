@@ -16,21 +16,26 @@
 
 namespace reluva::stgenerations {
 
-// A System without a window for running the game in reluva-tool and the
-// tests: its clock moves only as the game waits, the mixer is pulled as
-// time passes (so sounds end when they would), events arrive when their
-// time comes, and the last frame shown is kept, as RGBA, with every
-// frame's checksum.
+/**
+ * A System without a window for running the game in reluva-tool and the
+ * tests: its clock moves only as the game waits, the mixer is pulled as
+ * time passes (so sounds end when they would), events arrive when their
+ * time comes, and the last frame shown is kept, as RGBA, and handed to
+ * onFrame.
+ */
 class ScriptedSystem : public HeadlessSystem {
 public:
+    /** An event and the time, in ms, it arrives at. */
     struct Scheduled {
         uint64_t at;
         reluva::Event event;
     };
 
+    /** The mixer to pull as time passes when no audio callback is started; not owned. */
     void attachMixer(audio::Mixer *mixer) { _mixer = mixer; }
-    // At `at` ms: an event (a Quit ends the game).
+    /** At `at` ms: an event (a Quit ends the game). */
     void schedule(uint64_t at, const reluva::Event &e) { _events.push_back({at, e}); }
+    /** At `at` ms: a key pressed, let go 50 ms later. */
     void key(uint64_t at, uint32_t code) {
         reluva::Event e;
         e.type = reluva::EventType::kKeyDown;
@@ -39,6 +44,7 @@ public:
         e.type = reluva::EventType::kKeyUp;
         schedule(at + 50, e);
     }
+    /** At `at` ms: the mouse moved to (x, y), then a button pressed and let go. */
     void click(uint64_t at, int x, int y, MouseButton button = MouseButton::kLeft) {
         reluva::Event e;
         e.type = reluva::EventType::kMouseMove;
@@ -51,7 +57,7 @@ public:
         e.type = reluva::EventType::kMouseUp;
         schedule(at + 70, e);
     }
-    // Typed text, a character at a time, while the game takes text.
+    /** From `at` ms: typed text, a character every 30 ms, for when the game takes text. */
     void type(uint64_t at, const std::string &text) {
         for (char c : text) {
             reluva::Event e;
@@ -61,12 +67,13 @@ public:
             at += 30;
         }
     }
+    /** At `at` ms: the window closed. */
     void quit(uint64_t at) {
         reluva::Event e;
         e.type = reluva::EventType::kQuit;
         schedule(at, e);
     }
-    // Called with each frame shown, and its time.
+    /** Called with each frame shown, as RGBA, and its time. */
     std::function<void(const Surface &rgba, uint64_t ms)> onFrame;
 
     Error initGraphics(int width, int height, PixelFormat format) override {
@@ -129,8 +136,9 @@ public:
             }
         }
     }
-    // The last frame shown, as RGBA.
+    /** The last frame shown, as RGBA. */
     const Surface &lastFrame() const { return _rgba; }
+    /** Whether any scheduled event hasn't arrived yet. */
     bool pending() const { return !_events.empty(); }
 
 private:

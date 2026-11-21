@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: the HUD: the inventory, its panels and
+// effects, dragged and held items, unprojecting a click into the level,
+// and the dissolve between screens.
+
 #include "tests/engines/stgenerations/support.h"
 
 #include "common/bytes.h"

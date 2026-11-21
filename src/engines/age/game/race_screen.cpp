@@ -125,6 +125,7 @@ void RaceScreen::activate() {
         _front->leaveSplash();
     if (_front) {
         _net = std::make_unique<NetMenus>(_ctx.sys, _ctx.files, _cities, _cars, _strings);
+        _net->setSavePath(_ctx.savePath);
         if (!_net->loaded())
             _net.reset();
         _front->multiplayer = _net != nullptr;

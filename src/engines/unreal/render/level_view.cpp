@@ -79,7 +79,9 @@ std::array<float, 3> spriteTint(const std::array<float, 3> &filter, float glow) 
 
 // The surface flags that change how a polygon is drawn, for grouping.
 constexpr uint32_t kDrawFlags = polyflag::kMasked | polyflag::kTranslucent | polyflag::kModulated |
-                                polyflag::kFakeBackdrop | polyflag::kUnlit | polyflag::kTwoSided | polyflag::kMirrored;
+                                polyflag::kFakeBackdrop | polyflag::kUnlit | polyflag::kTwoSided | polyflag::kMirrored |
+                                polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy | polyflag::kForceRender;
+constexpr uint32_t kPanFlags = polyflag::kAutoUPan | polyflag::kAutoVPan | polyflag::kWavy;
 
 // UE1's flag for a surface in a fog zone (PF_RenderFog), kept on the
 // level's batches for the volume lights' pass.
@@ -167,7 +169,7 @@ void LevelView::unload() {
     _gpuMeshes.clear();
     _meshes.clear();
     _posedTopology.clear();
-    _liveMeshes.clear(); // indexes into meshes_
+    _liveMeshes.clear(); // indexes into _meshes
     _meshActors.clear();
     _jump = -1;
     _sky.reset();
@@ -182,6 +184,7 @@ void LevelView::unload() {
     _animatedLightmaps.clear();
     _animatedTextures.clear();
     _animatedSince.clear();
+    _animatedRefs.clear();
     _uniqueByRef.clear();
     _actorFades.clear();
     _changingLights.clear();
@@ -253,7 +256,16 @@ void LevelView::load(int index) {
     LevelStart start;
     std::string startError;
     bool started = false;
-    if (_runScripts) {
+    // Travelling to it to play, the play's own start serves (its scripts
+    // as they start, before any tick; those that change a light later are
+    // followed live).
+    _started.reset();
+    _startedError.clear();
+    if (_startOnLoad.wanted) {
+        _started = startForPlay(*pkg, start, _startedError);
+        started = _started != nullptr;
+        startError = _startedError;
+    } else if (_runScripts) {
         if (Error err = runLevelStart(_ctx.packages, *pkg, defaultGameType(_ctx.packages), 1.0f, start))
             startError = err.message;
         else
@@ -291,11 +303,12 @@ void LevelView::load(int index) {
     _mapLevels.clear();
     for (const LightSource &l : _changingLights) {
         _lightLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, 0));
-        _mapLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
+        _mapLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, lightClock(0), false));
     }
     _animatedLightmaps = std::move(atlas.animated);
     _staleLightmaps.assign(_animatedLightmaps.size(), false);
     _lightTime = 0;
+    _lightClock = {};
 
     // Group the polygons by texture, drawing flags and lightmap page.
     const std::vector<Polygon> polys = levelPolygons(model);
@@ -322,7 +335,10 @@ void LevelView::load(int index) {
         int page = blended(flags) || (flags & polyflag::kFakeBackdrop) ? -1 : atlas.surfs[size_t(p.surf)].page;
         if (flags & polyflag::kMirrored) // a mirror: a batch of its own, for its plane
             page = -2 - p.surf;
-        groups[{blended(flags), s.texture, flags, page, _zones.portalCount() ? p.zones : ~uint64_t(0)}].push_back(&p);
+        // (A panning surface pans by its own zone's speeds: grouped by it.)
+        groups[{blended(flags), s.texture, flags, page,
+                _zones.portalCount() || (flags & kPanFlags) ? p.zones : ~uint64_t(0)}]
+            .push_back(&p);
     }
 
     std::vector<gfx::Vertex> vertices;
@@ -369,6 +385,7 @@ void LevelView::load(int index) {
         batch.firstIndex = uint32_t(indices.size());
         const auto [textureId, size] = textureFor(*pkg, textureRef, flags);
         batch.texture = textureId;
+        batch.textureSize = {std::max(1, size[0]), std::max(1, size[1])};
         batch.textureRef = _ctx.packages.resolve(*pkg, textureRef);
         for (const Polygon *p : group) {
             const auto base = uint32_t(vertices.size());
@@ -377,7 +394,10 @@ void LevelView::load(int index) {
                     {_batches.size(), uint32_t(indices.size()), uint32_t(p->points.size() - 2) * 3});
             const gfx::Vec3 n = toWorld(p->normal);
             const float facing = n[0] * light[0] + n[1] * light[1] + n[2] * light[2];
-            const auto shade = uint8_t((flags & polyflag::kUnlit) ? 255 : 150 + int(90 * facing));
+            // Lit by lightmaps, a surface with none is full bright, as the
+            // original draws it; without them, shaded by facing to show its shape.
+            const bool fullBright = (flags & polyflag::kUnlit) || (_hasLightmaps && page < 0);
+            const auto shade = uint8_t(fullBright ? 255 : 150 + int(90 * facing));
             for (size_t k = 0; k < p->points.size(); ++k) {
                 gfx::Vertex v{};
                 const gfx::Vec3 w = toWorld(p->points[k]);
@@ -1310,7 +1330,12 @@ void LevelView::handleEvent(const Event &ev) {
 void LevelView::update(uint64_t nowMs) {
     if (!_renderer)
         return;
-    const float dt = _lastMs ? std::min(0.1f, float(nowMs - _lastMs) / 1000.0f) : 0.0f;
+    // The real time since the last frame, and as the game takes it (at
+    // most a tenth of a second at once). Textures go by the real time, as
+    // the engine's UTexture::Update does: a long wait is theirs to take
+    // (UTexture::Tick keeps a slow texture to MinFrameRate).
+    const float real = _lastMs ? float(nowMs - _lastMs) / 1000.0f : 0.0f;
+    const float dt = std::min(0.1f, real);
     _lastMs = nowMs;
 
     if (_play) {
@@ -1357,8 +1382,8 @@ void LevelView::update(uint64_t nowMs) {
             }
         }
 
-    updateLightmaps(dt);
-    updateAnimatedTextures(dt);
+    updateLightmaps(real);
+    updateAnimatedTextures(real);
     gatherDynamicLights(_pos);
     // The Fallen's distance fog: the camera's zone's (DistanceFogging, the
     // depth at which all is its DistanceFogColor), growing evenly from the
@@ -1409,7 +1434,7 @@ void LevelView::update(uint64_t nowMs) {
     // Backdrop surfaces: with the sky, only their depth, hiding what's
     // behind them; without it, a plain colour.
     for (const Batch &b : _batches) {
-        if (!(b.polyFlags & polyflag::kFakeBackdrop) || !(b.zones & _zonesSeen))
+        if (!(b.polyFlags & polyflag::kFakeBackdrop) || !seen(b))
             continue;
         gfx::DrawCall call;
         call.mesh = _mesh;
@@ -1439,8 +1464,8 @@ void LevelView::update(uint64_t nowMs) {
 
 // The game's own HUD, over the world: the player's PreRender and
 // PostRender with the canvas (ScriptLevel::renderHud), then the actors and
-// tiles they drew, in screen pixels: cut out where see-through, translucent ones added,
-// modulated ones multiplied in.
+// tiles they drew, in screen pixels: cut out where see-through,
+// translucent ones added, modulated ones multiplied in.
 void LevelView::drawGameHud() {
     const int w = _renderer->width();
     const int h = _renderer->height();
@@ -1652,7 +1677,23 @@ void LevelView::updateAnimatedTextures(float dt) {
             continue;
         const float since = _animatedSince[i];
         _animatedSince[i] = 0;
-        if (anim->advance(since))
+        // While playing, an FLC shows the frame its texture's script side
+        // has (its Mode, FrameTime and FrameNum, played on as it's drawn:
+        // UFliTexture::Tick): one an explosion plays once stops.
+        bool changed = false;
+        VmObject *fli = nullptr;
+        if (_play && anim->frames() > 0 && i < _animatedRefs.size() && _animatedRefs[i].first.package) {
+            const ObjectRef &ref = _animatedRefs[i].first;
+            fli = _play->vm().objectAt(*ref.package, ref.exportIndex + 1);
+        }
+        if (fli) {
+            _play->level().fliDrawn(fli);
+            const Value *frame = fli->find(_play->vm(), "FrameNum");
+            changed = anim->showFrame(frame ? std::max(1, frame->asInt()) : 1, _animatedRefs[i].second);
+        } else {
+            changed = anim->advance(since);
+        }
+        if (changed)
             regions.push_back({id, 0, 0, anim->image().w, anim->image().h, anim->image().rgba.data()});
     }
     if (_recorder)
@@ -1669,7 +1710,7 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
     if (!_play && l.startsOff)
         return 0; // as the level starts: its scripts haven't turned it on
     if (!_play || !l.scripted || !l.ref)
-        return lightLevel(l, l.type, _lightTime, whole);
+        return lightLevel(l, l.type, _lightClock, whole);
     VmObject *a = _play->actorAt(l.ref);
     if (!a)
         return 0;
@@ -1677,17 +1718,49 @@ float LevelView::liveLightLevel(const LightSource &l, bool whole) {
     const Value *type = a->find(vm, "LightType");
     const Value *brightness = a->find(vm, "LightBrightness");
     const float share = brightness && l.brightness ? float(brightness->asInt()) / float(l.brightness) : 1;
-    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, _lightTime, whole) * share, 0.0f, 2.0f);
+    return std::clamp(lightLevel(l, type ? uint8_t(type->asInt()) : l.type, _lightClock, whole) * share, 0.0f, 2.0f);
+}
+
+// Whether a strobe light reaches a lightmap in a zone seen.
+bool LevelView::strobeSeen() const {
+    if (std::none_of(_changingLights.begin(), _changingLights.end(),
+                     [](const LightSource &l) { return l.type == kLightStrobe; }))
+        return false;
+    for (const AnimatedLightmap &m : _animatedLightmaps) {
+        if (m.zone >= 0 && m.zone < 64 && !((_zonesSeen >> m.zone) & 1))
+            continue;
+        for (const AnimatedLightmap::Light &l : m.lights)
+            if (size_t(l.index) < _changingLights.size() && _changingLights[size_t(l.index)].type == kLightStrobe)
+                return true;
+    }
+    return false;
 }
 
 // Redraws the lightmaps that pulsing, flickering... lights reach, where
 // those lights' brightness changed, and those with a light effect's
 // pattern on them every frame (it moves across them). Meshes take each
-// light's level as a whole (lightLevels_); the lightmaps theirs less a
-// pattern, which lightPattern gives texel by texel (mapLevels_). Only
+// light's level as a whole (_lightLevels); the lightmaps theirs less a
+// pattern, which lightPattern gives texel by texel (_mapLevels). Only
 // lightmaps in a zone seen are drawn; the others are drawn when it is.
 void LevelView::updateLightmaps(float dt) {
     _lightTime += dt;
+    // Playing, the lights go by the level's time, the random ones by the
+    // frames drawn; textures play on by the real clock, paused or not.
+    if (_play) {
+        const float now = _play->level().time();
+        ++_lightClock.frame;
+        // Render.dll flips every strobe together when one is worked out
+        // and the level's time has moved since one last was (0x10b06ef0):
+        // so only on frames one lights a surface seen.
+        if (now != _strobeTime && strobeSeen()) {
+            _lightClock.strobeOn = !_lightClock.strobeOn;
+            _strobeTime = now;
+        }
+        _lightClock.time = now;
+        _play->level().setRealTime(_lightTime);
+    } else {
+        _lightClock = lightClock(_lightTime);
+    }
     std::vector<bool> changed(_changingLights.size(), false);
     _patternNow.resize(_changingLights.size());
     for (size_t i = 0; i < _changingLights.size(); ++i) {
@@ -1695,7 +1768,7 @@ void LevelView::updateLightmaps(float dt) {
         const float level = liveLightLevel(_changingLights[i], false);
         const bool pattern = hasLightPattern(_changingLights[i]) && level > 0;
         if (pattern)
-            _patternNow[i] = patternNow(_changingLights[i], _lightTime);
+            _patternNow[i] = patternNow(_changingLights[i], _lightClock);
         if (pattern || std::fabs(level - _mapLevels[i]) * 255 >= 1) {
             _mapLevels[i] = level;
             changed[i] = true;
@@ -1878,7 +1951,7 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
                !(b.polyFlags & (polyflag::kFakeBackdrop | polyflag::kUnlit));
     };
     for (const Batch &b : batches) {
-        if ((b.polyFlags & polyflag::kFakeBackdrop) || !(b.zones & _zonesSeen))
+        if ((b.polyFlags & polyflag::kFakeBackdrop) || !seen(b))
             continue;
         if (&b == _mirrorThrough) // the mirror the view is through
             continue;
@@ -1910,6 +1983,11 @@ void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
                           : moverLight                        ? gfx::Cull::kBack
                                                               : gfx::Cull::kFront;
         call.texture = _textured ? b.texture : 0;
+        if (b.polyFlags & kPanFlags) {
+            const auto [du, dv] = surfacePan(b);
+            call.preRow0[2] = du / float(b.textureSize[0]);
+            call.preRow1[2] = dv / float(b.textureSize[1]);
+        }
         // With a lightmap the second pass lights it; else the vertex colours
         // (shading by facing, or a mover's light).
         call.rgbSource = lit(b) ? gfx::ColorSource::kConstant : gfx::ColorSource::kVertex;
@@ -2016,7 +2094,7 @@ void LevelView::volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh,
                             bool flagged) {
     for (const Batch &b : batches) {
         if ((flagged && !(b.polyFlags & kRenderFog)) || (b.polyFlags & polyflag::kFakeBackdrop) ||
-            blended(b.polyFlags) || !(b.zones & _zonesSeen) || &b == _mirrorThrough)
+            blended(b.polyFlags) || !seen(b) || &b == _mirrorThrough)
             continue;
         gfx::DrawCall call;
         call.mesh = mesh;
@@ -2055,7 +2133,7 @@ void LevelView::gatherDynamicLights(const gfx::Vec3 &eye) {
         l.effect = a.effect;
         l.period = float(std::max<uint8_t>(a.period, 1)) / 35;
         l.phase = float(a.phase) / 256;
-        const float level = lightLevel(l, _lightTime);
+        const float level = lightLevel(l, l.type, _lightClock);
         if (level <= 0)
             continue;
         // As the level's lights: the original lights with them the same way.
@@ -2193,10 +2271,11 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
             if (unreadable)
                 *unreadable = true;
         } else {
-            // Fire, water, wet, ice and FLC textures play, redrawn as they
-            // change (so without mipmaps, which updates don't redo).
+            // Fire, water, wet, ice and FLC textures and flipbooks play,
+            // redrawn as they change (so without mipmaps, which updates
+            // don't redo).
             std::unique_ptr<AnimatedTexture> anim;
-            if (isAnimatedTextureClass(tex.package->className(tex.exportIndex + 1)))
+            if (isAnimatedTexture(_ctx.packages, *tex.package, tex.exportIndex))
                 anim = openAnimatedTexture(_ctx.packages, *tex.package, tex.exportIndex);
             if (anim && masked && anim->frames() > 0)
                 anim->showFrame(1, true);
@@ -2209,8 +2288,10 @@ std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectR
             params.mipmaps = !anim;
             if (!_renderer->createTexture(img.w, img.h, img.rgba.data(), params, id)) {
                 _textures.push_back(id);
-                if (anim)
+                if (anim) {
                     _animatedTextures.push_back({id, std::move(anim)});
+                    _animatedRefs.push_back({tex, masked});
+                }
             } else {
                 id = 0;
             }
@@ -2290,6 +2371,36 @@ MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
 // The world as seen: the level's surfaces, the volume lights over them,
 // the movers and the actors (or, not playing, the placed meshes and
 // sprites), from `eye` looking along `forward`.
+// How far a panning surface's texture has moved, in texels, as Render.dll
+// moves it (0x10b228f5): auto-panned 35 texels a second at its zone's
+bool LevelView::seen(const Batch &b) const {
+    return (b.polyFlags & polyflag::kForceRender) || (b.zones & _zonesSeen);
+}
+
+// TexUPanSpeed and TexVPanSpeed (counted in 1/256 texels, coming round
+// every 1024), and a wavy one swaying 4 cos 2.3t + 8 sin t across and
+// 4 sin 2.3t + 8 cos t down; t the level's time.
+std::array<float, 2> LevelView::surfacePan(const Batch &b) const {
+    const float t = _play ? _play->level().time() : _lightTime;
+    int zone = 0;
+    if (b.zones != ~uint64_t(0) && b.zones != 0)
+        while (!(b.zones >> zone & 1))
+            ++zone;
+    const std::array<float, 2> speed =
+        size_t(zone) < _lights.zonePan.size() ? _lights.zonePan[size_t(zone)] : std::array<float, 2>{1, 1};
+    auto pan = [&](float rate) { return float(int32_t(t * rate * 35 * 256) & 0x3ffff) / 256; };
+    std::array<float, 2> out{};
+    if (b.polyFlags & polyflag::kAutoUPan)
+        out[0] = pan(speed[0]);
+    if (b.polyFlags & polyflag::kAutoVPan)
+        out[1] = pan(speed[1]);
+    if (b.polyFlags & polyflag::kWavy) {
+        out[0] += 4 * std::cos(2.3f * t) + 8 * std::sin(t);
+        out[1] += 4 * std::sin(2.3f * t) + 8 * std::cos(t);
+    }
+    return out;
+}
+
 void LevelView::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye) {
     drawBatches(levelBatches(), _mesh, gfx::identity(), true);
     drawSurfaceSwaps();
@@ -2351,7 +2462,7 @@ void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
         return;
     int drawn = 0;
     for (const Batch &m : levelBatches()) {
-        if (!(m.polyFlags & polyflag::kMirrored) || &m == through || !(m.zones & _zonesSeen) || drawn >= 4)
+        if (!(m.polyFlags & polyflag::kMirrored) || &m == through || !seen(m) || drawn >= 4)
             continue;
         const gfx::Vec3 n = m.mirrorNormal;
         const float side = n[0] * eye[0] + n[1] * eye[1] + n[2] * eye[2] - m.mirrorD;
@@ -2717,7 +2828,7 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
     light.specular = look.specular;
 }
 
-// --- Playing --------------------------------------------------------------------------------
+// Playing.
 
 Error LevelView::saveGame(const std::string &name) {
     if (!_play)
@@ -2768,7 +2879,9 @@ void LevelView::travel(const std::string &url, bool items) {
             const std::string level = _ctx.packages.addLater(file);
             if (std::find(_names.begin(), _names.end(), level) == _names.end())
                 _names.push_back(level);
+            _startOnLoad = {true, {}, {}};
             if (!selectMap(level)) {
+                _startOnLoad = {};
                 stopPlay();
                 _playError = "load " + name + ": doesn't open";
                 return;
@@ -2776,7 +2889,9 @@ void LevelView::travel(const std::string &url, bool items) {
             startPlay({});
             return;
         }
+        _startOnLoad = {true, {}, file};
         if (!selectMap(info.map)) {
+            _startOnLoad = {};
             stopPlay();
             _playError = "load " + name + ": no map " + info.map;
             return;
@@ -2790,7 +2905,9 @@ void LevelView::travel(const std::string &url, bool items) {
     std::string map = where.substr(0, cut);
     if (const size_t dot = map.rfind('.'); dot != std::string::npos)
         map = map.substr(0, dot);
+    _startOnLoad = {true, portal, {}};
     if (!selectMap(map)) {
+        _startOnLoad = {};
         stopPlay();
         _playError = "travel to " + url + ": no map " + map;
         return;
@@ -2798,17 +2915,42 @@ void LevelView::travel(const std::string &url, bool items) {
     startPlay(portal);
 }
 
+// A level started to be played, what its start changed in `changes`;
+// none, and why in `error`, if it couldn't start.
+std::unique_ptr<LevelPlay> LevelView::startForPlay(const Package &map, LevelStart &changes, std::string &error) {
+    auto play = std::make_unique<LevelPlay>(_ctx.packages, map);
+    play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
+    play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
+    const auto t0 = std::chrono::steady_clock::now();
+    if (Error err =
+            play->start(_startOnLoad.portal, _startOnLoad.saved, _ctx.saveFolder, _ctx.configFolder, &changes)) {
+        error = err.message;
+        return nullptr;
+    }
+    changes.milliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    return play;
+}
+
 void LevelView::startPlay(const std::string &portal, const std::filesystem::path &saved) {
     stopPlay();
     const Package *pkg = _names.empty() ? nullptr : _ctx.packages.get(_names[size_t(_index)]);
+    std::unique_ptr<LevelPlay> play = std::move(_started);
+    const std::string startedError = std::exchange(_startedError, std::string());
+    const bool startedOnLoad = std::exchange(_startOnLoad, {}).wanted;
     if (!pkg || !_error.empty())
         return;
-    auto play = std::make_unique<LevelPlay>(_ctx.packages, *pkg);
-    play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
-    play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
-    if (Error err = play->start(portal, saved, _ctx.saveFolder)) {
-        _playError = err.message;
+    if (startedOnLoad && !play && !startedError.empty()) {
+        _playError = startedError;
         return;
+    }
+    if (!play) {
+        play = std::make_unique<LevelPlay>(_ctx.packages, *pkg);
+        play->level().incomingTravel() = std::exchange(_pendingTravel, std::string());
+        play->level().carriedPlayedTime() = std::exchange(_pendingPlayedTime, -1.0f);
+        if (Error err = play->start(portal, saved, _ctx.saveFolder, _ctx.configFolder)) {
+            _playError = err.message;
+            return;
+        }
     }
     if (!play->player()) {
         _playError = "no player logged in: " + play->loginError();
@@ -2843,7 +2985,7 @@ void LevelView::stopPlay() {
         _audio->reset();
     _play.reset();
     _moverActors.clear();
-    // The live actors' meshes stay uploaded (in meshes_), for playing again.
+    // The live actors' meshes stay uploaded (in _meshes), for playing again.
 }
 
 void LevelView::updatePlay(float dt) {
@@ -3063,7 +3205,7 @@ void LevelView::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &fo
 // default): its renderer says so (GetRendererFlags bit 2), and its blob
 // shadows (CTV_Shadow) step aside. As the original's renderer does it
 // (Render.dll's PrepareProjectedShadow and DrawProjectedShadow, read for
-// what they do; docs/engines/unreal/lighting.md): the mesh flattened from
+// what they do; docs/engines/unreal/games/ds9fallen/systems/lighting.md): the mesh flattened from
 // one light onto the floor under it, darkest close to its feet, its
 // strength easing in and out as it moves between lights.
 void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
@@ -3219,7 +3361,7 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
 }
 
 // One of the level's actors, as it looks now: a mesh drawn, a sprite kept
-// for drawSprites. Hidden ones only if `evenHidden` (the HUD draws some).
+// for drawSprites. Hidden ones only for the HUD (`hud`: it draws some).
 void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, const ScriptLevel::HudActor *hud) {
     constexpr int kDrawSprite = 1;
     constexpr int kDrawMesh = 2;
@@ -3274,6 +3416,10 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
             const MeshPose old = poseAtFraction(mesh, from, look.tweenFromFrame, look.tweenFromLoop);
             pose = {old.lerp < 0.5f ? old.frame : old.next, pose.frame, tweenProgress(look, *anim)};
         }
+        if (look.particles) {
+            drawParticles(a, look, mesh, pose, sprites);
+            return;
+        }
         std::vector<gfx::TextureId> skins;
         for (size_t k = 0; k < std::max<size_t>(mesh.textures.size(), 8); ++k) {
             ObjectRef tex = k < look.multiSkins.size() ? look.multiSkins[k] : ObjectRef{};
@@ -3281,12 +3427,16 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
                 tex = look.skin;
             if (!tex && k < mesh.textures.size())
                 tex = _ctx.packages.resolve(*look.mesh.package, mesh.textures[k]);
-            if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
+            if (!tex) // no skin of its own: the actor's Texture
                 tex = look.texture;
             skins.push_back(_textured ? textureOf(tex).first : 0);
         }
         _play->drawn(a);
-        const gfx::Mat4 placement = meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot);
+        // DrawScale and AxisScale both, as Engine.dll's frame builders
+        // (0x1032b630, 0x103c8d37).
+        const gfx::Mat4 placement =
+            gfx::multiply(meshPlacement(look.location, look.rotation, look.drawScale, look.prePivot, look.preRotate),
+                          meshAxisScaling(mesh, look.axisScale));
         const MeshLight light = meshLightAt(look.location, &look, a);
         _lastMesh = {};
         if ((look.layers.empty() && look.adjust.empty() && look.faces.empty()) || !mesh.bones ||
@@ -3317,11 +3467,62 @@ void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
     }
 }
 
+// A bParticles mesh, as Render.dll's DrawMesh (0x10b0ef40): no
+// triangles, its Texture facing the camera at each vertex as posed,
+// DrawScale times the texture's size across; the mesh itself placed as if
+// DrawScale were 1 (0x1032b619). With bRandomFrame each vertex has one of
+// MultiSkins, by its index (0 to 7: index / 3, rounded), and none if that
+// one's empty. Tinted by ScaleGlow as a sprite.
+void LevelView::drawParticles(VmObject *a, const LevelPlay::Look &look, const Mesh &mesh, const MeshPose &pose,
+                              std::vector<SpriteDraw> &sprites) {
+    if (!look.texture)
+        return;
+    const auto n = size_t(mesh.frameVerts);
+    // Frames without their own vertices (keyFrames) use the first.
+    const size_t frames = n ? mesh.verts.size() / n : 0;
+    if (frames == 0)
+        return;
+    const size_t f0 = size_t(pose.frame) < frames ? size_t(pose.frame) : 0;
+    const size_t f1 = size_t(pose.next) < frames ? size_t(pose.next) : 0;
+    _play->drawn(a);
+    const gfx::Mat4 placement =
+        gfx::multiply(meshPlacement(look.location, look.rotation, 1, look.prePivot, look.preRotate),
+                      meshAxisScaling(mesh, look.axisScale));
+    const std::array<float, 3> tint = spriteTint(look.colorFilter, look.scaleGlow);
+    const auto [own, ownSize] = textureOf(look.texture);
+    for (size_t v = 0; v < n; ++v) {
+        gfx::TextureId texture = own;
+        std::array<int, 2> size = ownSize;
+        if (look.randomFrame) {
+            const ObjectRef skin = look.multiSkins[size_t(std::lround(float(v) / 3)) & 7];
+            if (!skin)
+                continue;
+            std::tie(texture, size) = textureOf(skin);
+        }
+        if (!texture)
+            continue;
+        Vec3f at{};
+        for (size_t c = 0; c < 3; ++c) {
+            const float x0 = mesh.verts[f0 * n + v][c];
+            at[c] = x0 + (mesh.verts[f1 * n + v][c] - x0) * pose.lerp;
+        }
+        SpriteDraw d;
+        d.texture = texture;
+        d.at = gfx::transformPoint(placement, placeMeshVertex(mesh, at, _ctx.meshTurn, _ctx.meshYawQuarters));
+        d.width = float(size[0]) * look.drawScale;
+        d.height = float(size[1]) * look.drawScale;
+        d.style = look.style;
+        d.color = tint;
+        sprites.push_back(d);
+    }
+}
+
 // An actor's copies: its mesh posed as it is (its animation now) in each
 // one's place, turned, scaled by DrawScale and along its own axes by
-// AxisScale (along its axes before RotOrigin), in its style, as bright as its ScaleGlow (where it's lit, or
-// wholly if the actor's unlit); or, for a sprite, its texture (the copy's
-// own, else the actor's) facing the camera.
+// AxisScale (along its axes before RotOrigin), in its style, as bright as
+// its ScaleGlow (where it's lit, or wholly if the actor's unlit); or, for
+// a sprite, its texture (the copy's own, else the actor's) facing the
+// camera.
 void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                            std::vector<SpriteDraw> &sprites) {
     constexpr int kDrawSprite = 1;
@@ -3341,14 +3542,15 @@ void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
                 tex = look.skin;
             if (!tex && k < mesh.textures.size())
                 tex = _ctx.packages.resolve(*look.mesh.package, mesh.textures[k]);
-            if (!tex) // no skin of its own: the actor's Texture (the transporter's strips)
+            if (!tex) // no skin of its own: the actor's Texture
                 tex = look.texture;
             skins.push_back(_textured ? textureOf(tex).first : 0);
         }
         const MeshPose pose = poseAtFraction(mesh, mesh.findAnim(look.animSequence), look.animFrame, look.animLoop);
         for (const LevelPlay::Copy &c : copies) {
-            const gfx::Mat4 placement = gfx::multiply(meshPlacement(c.location, c.rotation, c.drawScale, look.prePivot),
-                                                      meshAxisScaling(mesh, c.axisScale));
+            const gfx::Mat4 placement =
+                gfx::multiply(meshPlacement(c.location, c.rotation, c.drawScale, look.prePivot, look.preRotate),
+                              meshAxisScaling(mesh, c.axisScale));
             MeshLight light = look.unlit ? MeshLight{} : meshLightAt(c.location);
             for (size_t k = 0; k < 3; ++k) {
                 light.ambient[k] *= c.scaleGlow;
@@ -3406,9 +3608,10 @@ float LevelView::tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &a
 }
 
 // A mesh with layered animations playing on parts of it, its bones bent
-// by its scripts, or its face moved: posed now from its own animation and theirs, uploaded as one frame (kept until the next
-// frame is drawn) and drawn. False if it can't be (no skeleton, an
-// animation it hasn't): drawn as its own animation alone then.
+// by its scripts, or its face moved: posed now from its own animation and
+// theirs, uploaded as one frame (kept until the next frame is drawn) and
+// drawn. False if it can't be (no skeleton, an animation it hasn't):
+// drawn as its own animation alone then.
 bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at, const gfx::Mat4 &placement,
                             const std::vector<gfx::TextureId> &skins, const MeshLight &light) {
     auto it = _posers.find({look.mesh.package, look.mesh.exportIndex});

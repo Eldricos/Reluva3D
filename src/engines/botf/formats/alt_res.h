@@ -30,11 +30,13 @@ Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vec
 /**
  * alt.res: a header (name, directory offset, file count), each file's LZSS
  * data, and a directory of 40-byte entries (docs/engines/botf/formats/alt-res.md).
- * Saved games are the same archive (docs/engines/botf/formats/sav.md). The
- * file stays open by path; each read() loads one file's data.
+ * Saved games are the same archive (docs/engines/botf/formats/sav.md).
+ * The archive is kept by its path, and opened for each read(), which reads
+ * and decompresses one file.
  */
 class AltResArchive : public Archive {
 public:
+    /** A file in the directory. */
     struct Entry {
         std::string name;
         uint32_t offset = 0; // of the compressed data, in the file
@@ -45,6 +47,7 @@ public:
         uint32_t check = 0; // a 16-bit value, how it's made is unknown
     };
 
+    /** Reads the directory, checking each file's data lies within the archive. */
     Error open(const std::filesystem::path &path);
 
     std::vector<std::string> list() const override;
@@ -52,6 +55,7 @@ public:
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return _path.string(); }
 
+    /** Every file, in the directory's order. */
     const std::vector<Entry> &entries() const { return _entries; }
     /** The header's name: "alt.res", or a saved game's name. */
     const std::string &name() const { return _name; }
@@ -63,7 +67,7 @@ private:
     std::string _name;
     uint64_t _fileSize = 0;
     std::vector<Entry> _entries;
-    std::unordered_map<std::string, size_t> _byName; // normalized name -> entries_ index
+    std::unordered_map<std::string, size_t> _byName; // normalized name -> index into _entries
 };
 
 } // namespace reluva::botf

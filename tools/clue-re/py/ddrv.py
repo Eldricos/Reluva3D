@@ -1,13 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Reads the DDRV archives, packed (PACK, zlib) or not: load() and entries().
+Run alone, it checks every archive under clue_dl/ and counts what their
+directories hold.
+
+    python3 -I py/ddrv.py
+"""
+
 import struct, sys, glob, collections, zlib, os
 def load(p):
+    """A file's bytes, unpacked if it's a PACK."""
     d=open(p,'rb').read()
     if d[:4]==b'PACK':
         c,u=struct.unpack('<II',d[4:12]); d=zlib.decompress(d[12:12+c]); assert len(d)==u
     return d
 def entries(d):
+    """(flags, time, offset, size, name, name field) of each file in a DDRV archive."""
     assert d[:4]==b'DDRV'
     dirofs,cnt=struct.unpack('<II',d[4:12])
     tail=struct.unpack('<I',d[-4:])[0]

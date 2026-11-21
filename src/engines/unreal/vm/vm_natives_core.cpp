@@ -90,7 +90,7 @@ void registerCoreNatives(Vm &vm) {
     auto F = [](float v) { return Value::floatValue(v); };
     auto B = [](bool v) { return Value::boolValue(v); };
 
-    // --- int
+    // int
     reg("Subtract_PreInt", [=](NativeCall &c) { c.result = I(-c.i(0)); });
     reg("Complement_PreInt", [=](NativeCall &c) { c.result = I(~c.i(0)); });
     reg("Multiply_IntInt", [=](NativeCall &c) { c.result = I(c.i(0) * c.i(1)); });
@@ -137,7 +137,7 @@ void registerCoreNatives(Vm &vm) {
     reg("Max", [=](NativeCall &c) { c.result = I(std::max(c.i(0), c.i(1))); });
     reg("Clamp", [=](NativeCall &c) { c.result = I(std::max(c.i(1), std::min(c.i(0), c.i(2)))); });
 
-    // --- byte
+    // byte
     auto setByte = [](NativeCall &c, int32_t v) { c.result = c.args[0] = Value::byteValue(v); };
     reg("MultiplyEqual_ByteByte", [=](NativeCall &c) { setByte(c, c.i(0) * c.i(1)); });
     reg("DivideEqual_ByteByte", [=](NativeCall &c) { setByte(c, c.i(1) ? c.i(0) / c.i(1) : 0); });
@@ -156,7 +156,7 @@ void registerCoreNatives(Vm &vm) {
         c.result = Value::byteValue(old);
     });
 
-    // --- bool
+    // bool
     reg("Not_PreBool", [=](NativeCall &c) { c.result = B(!c.b(0)); });
     reg("EqualEqual_BoolBool", [=](NativeCall &c) { c.result = B(c.b(0) == c.b(1)); });
     reg("NotEqual_BoolBool", [=](NativeCall &c) { c.result = B(c.b(0) != c.b(1)); });
@@ -164,7 +164,7 @@ void registerCoreNatives(Vm &vm) {
     reg("XorXor_BoolBool", [=](NativeCall &c) { c.result = B(c.b(0) != c.b(1)); });
     reg("OrOr_BoolBool", [=](NativeCall &c) { c.result = B(c.b(0) || c.b(1)); });
 
-    // --- float
+    // float
     reg("Subtract_PreFloat", [=](NativeCall &c) { c.result = F(-c.f(0)); });
     reg("MultiplyMultiply_FloatFloat", [=](NativeCall &c) { c.result = F(std::pow(c.f(0), c.f(1))); });
     reg("Multiply_FloatFloat", [=](NativeCall &c) { c.result = F(c.f(0) * c.f(1)); });
@@ -208,7 +208,7 @@ void registerCoreNatives(Vm &vm) {
         c.result = F(c.f(1) + (c.f(2) - c.f(1)) * (3 * a * a - 2 * a * a * a));
     });
 
-    // --- vector
+    // vector
     auto V = [&vm](const Vec &v) { return vm.vectorValue(v[0], v[1], v[2]); };
     auto R = [&vm](int32_t p, int32_t y, int32_t r) { return vm.rotatorValue(p, y, r); };
     reg("Subtract_PreVector", [=](NativeCall &c) { c.result = V(mul(vec(c.args[0]), -1)); });
@@ -278,7 +278,7 @@ void registerCoreNatives(Vm &vm) {
         c.result = V(sub(v, mul(n, 2 * dot(v, n))));
     });
 
-    // --- rotator
+    // rotator
     reg("EqualEqual_RotatorRotator", [=](NativeCall &c) { c.result = B(rot(c.args[0]) == rot(c.args[1])); });
     reg("NotEqual_RotatorRotator", [=](NativeCall &c) { c.result = B(rot(c.args[0]) != rot(c.args[1])); });
     auto scaled = [](const Rot &r, float s) {
@@ -365,7 +365,7 @@ void registerCoreNatives(Vm &vm) {
         c.result = R(unwind(r[0]), unwind(r[1]), unwind(r[2]));
     });
 
-    // --- strings
+    // strings
     auto S = [](std::string v) { return Value::stringValue(std::move(v)); };
     reg("Concat_StrStr", [=](NativeCall &c) { c.result = S(c.s(0) + c.s(1)); });
     reg("At_StrStr", [=](NativeCall &c) { c.result = S(c.s(0) + " " + c.s(1)); });
@@ -406,7 +406,7 @@ void registerCoreNatives(Vm &vm) {
     reg("Chr", [=](NativeCall &c) { c.result = S(std::string(1, char(c.i(0)))); });
     reg("Asc", [=](NativeCall &c) { c.result = I(c.s(0).empty() ? 0 : static_cast<unsigned char>(c.s(0)[0])); });
 
-    // --- objects and names
+    // objects and names
     reg("EqualEqual_ObjectObject", [=](NativeCall &c) { c.result = B(c.o(0) == c.o(1)); });
     reg("NotEqual_ObjectObject", [=](NativeCall &c) { c.result = B(c.o(0) != c.o(1)); });
     reg("EqualEqual_NameName", [=](NativeCall &c) { c.result = B(c.i(0) == c.i(1)); });
@@ -488,7 +488,18 @@ void registerCoreNatives(Vm &vm) {
                 c.vm.assign(*v, Value::stringValue(c.s(1)));
         }
     });
-    for (const char *none : {"SaveConfig", "StaticSaveConfig", "ResetConfig", "SetFlags", "ClearFlags"})
+    // SaveConfig(): the object's config properties written; StaticSaveConfig():
+    // its class's defaults' (Core.dll's execSaveConfig, execStaticSaveConfig).
+    reg("SaveConfig", [](NativeCall &c) {
+        if (c.self && c.self->cls)
+            c.vm.saveConfig(*c.self->cls, c.self->values);
+    });
+    reg("StaticSaveConfig", [](NativeCall &c) {
+        VmClass *cls = c.self ? (c.self->asClass ? c.self->asClass : c.self->cls) : nullptr;
+        if (cls)
+            c.vm.saveConfig(*cls, cls->defaults);
+    });
+    for (const char *none : {"ResetConfig", "SetFlags", "ClearFlags"})
         reg(none, [](NativeCall &) {});
 }
 

@@ -8,7 +8,7 @@
 // spawned, the start-up events sent in order, and the world ticked. The
 // engine side scripts call into (spawning, destroying, iterating over the
 // actors, timers) is in vm_level.cpp, movement in vm_physics.cpp, The
-// Fallen's splines in vm_splines.cpp. See docs/engines/unreal_vm.md.
+// Fallen's splines in vm_splines.cpp. See docs/engines/unreal/games/ds9fallen/systems/level.md.
 
 #include "engines/unreal/formats/actors.h"
 #include "engines/unreal/game/collision.h"
@@ -40,8 +40,13 @@ Error readLevelActors(const Package &map, std::vector<int32_t> &out);
 class ByteWriter;
 class PackageWriter;
 
+/** A level running its scripts in a VM (see the top of this file). */
 class ScriptLevel {
 public:
+    /**
+     * The level of `map`, run by `vm` (which it registers the engine's
+     * natives with, and becomes the level of); both must outlive it.
+     */
     ScriptLevel(Vm &vm, const Package &map);
     ~ScriptLevel();
 
@@ -67,6 +72,7 @@ public:
      */
     VmObject *login(const std::string &playerClass, const std::string &playerName, std::string &error,
                     const std::string &portal = {});
+    /** The player's pawn; null before login(). */
     VmObject *player() const { return _player; }
 
     /**
@@ -80,7 +86,8 @@ public:
      * actors are spawned or move).
      */
     void updateRegion(VmObject *actor);
-    int editorCameras() const { return _editorCameras; } // UnrealEd's cameras, left out
+    /** How many of the editor's actors (cameras, brushes) load() left out. */
+    int editorOnly() const { return _editorOnly; }
     /**
      * The renderer drew these zones (bit n, zone n) this frame, the view
      * in `cameraZone` (-1 not known): the zones' render times, which The
@@ -132,6 +139,8 @@ public:
         float time = 1; // 0-1 of the move made
         std::array<float, 3> normal{};
         VmObject *actor = nullptr; // what stopped it: an actor, or the LevelInfo for the world
+        int32_t node = -1;         // the level's BSP node it stopped at, -1 for anything else
+        /** Whether it was stopped short. */
         bool hit() const { return time < 1; }
     };
     /**
@@ -145,8 +154,6 @@ public:
     /** Runs an actor's physics (its Physics) for a time. */
     void physics(VmObject *actor, float seconds);
     /**
-     * A line or box traced through the level (and, if asked, its actors):
-     * what it hit (the LevelInfo for the world), where and facing which way.
      * Whether the level's BSP is in the way from `start` to `end`, short
      * of the last `slack` units (movers aren't counted); not if `end` is
      * in solid space.
@@ -154,9 +161,14 @@ public:
     bool worldBetween(const std::array<float, 3> &start, const std::array<float, 3> &end, float slack = 0);
     /** Whether a point is in the level's solid space. */
     bool inSolid(const std::array<float, 3> &point);
+    /**
+     * A line or box (`extent` its half sizes) traced through the level
+     * (and, if `actors`, its actors): what it hit (the LevelInfo for the
+     * world; null if nothing), where and facing which way.
+     */
     VmObject *trace(VmObject *self, const std::array<float, 3> &start, const std::array<float, 3> &end,
                     const std::array<float, 3> &extent, bool actors, std::array<float, 3> &hitLocation,
-                    std::array<float, 3> &hitNormal);
+                    std::array<float, 3> &hitNormal, int32_t *node = nullptr);
     /**
      * Whether a box at a point is clear of the world and the movers that
      * block (but `self`).
@@ -193,6 +205,7 @@ public:
      * FinishRotation): what it's after.
      */
     struct Goal {
+        /** Moving there, turning to it, waiting to land, or finishing a rotation. */
         enum class Kind { kMove, kTurn, kLand, kRotation } kind = Kind::kMove;
         std::array<float, 3> point{};
         VmObject *target = nullptr;
@@ -207,6 +220,7 @@ public:
         float timeLeft = 10;
         int stateSerial = 0;
     };
+    /** Gives a pawn a goal, in place of any it had; a change of its state ends it. */
     void setGoal(VmObject *pawn, const Goal &goal);
 
     /**
@@ -224,8 +238,11 @@ public:
         int flags = 0;
         bool pruned = false;
     };
+    /** The level's navigation points, and the reaches between them. */
+    ///@{
     const std::vector<VmObject *> &navigationPoints();
     const std::vector<ReachSpec> &reachSpecs() const { return _reachSpecs; }
+    ///@}
     /**
      * The next point on a pawn's way to an actor (or a place), its route in
      * its RouteCache: the goal itself if it can go straight there, none if
@@ -239,16 +256,40 @@ public:
      */
     VmObject *findPathNative(VmObject *pawn, VmObject *goal, const std::array<float, 3> *point, bool singlePath,
                              bool clear);
+    /**
+     * HandleSpecial: what a pawn goes for instead of a node with its own
+     * way there (a lift, a door: its SpecialHandling), set as its
+     * SpecialGoal.
+     */
     VmObject *handleSpecial(VmObject *pawn, VmObject *result);
+    /** The route search's state cleared on every navigation point, for a new search by `pawn`. */
     void clearPaths(VmObject *pawn);
+    /**
+     * Whether a pawn can get to a place, or an actor: the engine's tests
+     * (within 800 across, seen from its eyes unless `knowVisible`), and The
+     * Fallen's actorReachable, which goes by the paths when the pawn's on
+     * them (vm_paths.cpp).
+     */
+    ///@{
     bool pointReachable(VmObject *pawn, std::array<float, 3> p, bool knowVisible);
     bool actorReachable(VmObject *pawn, VmObject *a);
     bool actorReachableRaw(VmObject *pawn, VmObject *a, bool knowVisible);
+    ///@}
+    /** GetClosestPathNodeList: the nearest navigation points within `radius`, and how far each is. */
     const std::vector<std::pair<float, VmObject *>> &closestNodes(std::array<float, 3> at, float radius);
+    /** Where a pawn's eyes are: BaseEyeHeight over its Location. */
     std::array<float, 3> eyeOf(VmObject *pawn);
+    /**
+     * A property of an actor read as a float, bool or vector; `otherwise`,
+     * false or zero if it has none (or there's no actor). `name` must be a
+     * string literal.
+     */
+    ///@{
     float pf(VmObject *a, const char *name, float otherwise = 0);
     bool pb(VmObject *a, const char *name);
     std::array<float, 3> pv(VmObject *a, const char *name);
+    ///@}
+    /** Heads or tails, from the barks' own random numbers. */
     bool coinFlip() { return std::uniform_int_distribution<int>(0, 1)(_barkRandom) == 0; }
     /** Nothing in the world between the two places. */
     bool lineOfSight(VmObject *self, const std::array<float, 3> &from, const std::array<float, 3> &to);
@@ -259,6 +300,11 @@ public:
      * as its voice lasts, then the line it leads to.
      */
     const std::vector<DialogLine> &dialogLines();
+    /**
+     * FindBestDialogLine: the best line for the key the type, tag, speaker
+     * (else `caller`'s Speaker_Tag), listener and line number make; its
+     * index in `index` (-1 none). Returns how many lines fit the key.
+     */
     int findDialogLine(const std::string &type, NameId filterTag, NameId listener, NameId speaker,
                        const std::string &lineId, int &index, VmObject *caller = nullptr);
     /**
@@ -266,13 +312,26 @@ public:
      * the dialogue input, whose PawnSurrenderOrPray it asks).
      */
     void dialogTick(VmObject *input, float seconds);
+    /**
+     * StartDialog: a line of `type` (three letters) found as
+     * findDialogLine finds it, and said. Returns its thread's number, 0 if
+     * no line would do.
+     */
     int startDialog(VmObject *self, const std::string &type, NameId filterTag, NameId listener, NameId speaker,
-                    const std::string &lineId); // the thread's number, 0 if no line would do
+                    const std::string &lineId);
+    /** IsDialogThreadPlaying: whether a line of the thread is being said or waiting. */
     bool dialogPlaying(int thread) const;
+    /**
+     * Whether a line not yet said is a special one: tagged other than with
+     * a type, or with a condition (lines numbered 800 and up never are).
+     */
     bool dialogLineSpecial(int index);
-    /** The lines begun so far, in order (their indexes; the last 256). */
+    /** The lines begun so far, in order (their indexes; the last 256), and when (the level's seconds). */
+    ///@{
     const std::vector<int> &linesSaid() const { return _dialogSaid; }
-    const std::vector<float> &linesSaidAt() const { return _dialogSaidAt; } // the level's seconds
+    const std::vector<float> &linesSaidAt() const { return _dialogSaidAt; }
+    ///@}
+    /** Whether a line's condition is met; one the engine can't test is. */
     bool testCondition(const std::string &condition);
     /** A condition about `actor`: 1 met, 0 not, -1 not one the engine knows. */
     int evalCondition(const std::string &condition, VmObject *actor);
@@ -282,6 +341,7 @@ public:
         std::string text;
         std::string type;
     };
+    /** The Subtitles now. */
     std::vector<Subtitle> subtitles() const;
     /**
      * The HUD (vm_canvas.cpp): each frame, the canvas handed to the
@@ -289,8 +349,10 @@ public:
      * (a texture's rectangle, in texels, drawn at a rectangle of the
      * screen, in pixels; letters are tiles from their font's pages) and
      * actors drawn over the world (a held weapon, a talker's picture).
-     * A view: a camera and the rectangle of the screen it's drawn in (the
-     * whole screen, or one SetRenderFrame sets: a talker's portrait).
+     *
+     * This is a view: a camera and the rectangle of the screen it's drawn
+     * in (the whole screen, or one SetRenderFrame sets: a talker's
+     * portrait).
      */
     struct HudView {
         std::array<float, 3> location{};
@@ -298,10 +360,11 @@ public:
         float fov = 90;
         int width = 640;
         int height = 480;
-        /** the rectangle's top left */
+        // the rectangle's top left
         int x = 0;
         int y = 0;
     };
+    /** A texture's rectangle drawn at a rectangle of the screen. */
     struct HudTile {
         ObjectRef texture;
         float x = 0;
@@ -317,39 +380,53 @@ public:
         bool seeThrough = false; // its texture's colour 0 see-through (letters, masked tiles)
         int frame = 0;           // an FliTexture's frame showing (from 1); 0 for any other texture
     };
+    /** An actor drawn over the world, in a view. */
     struct HudActor {
         VmObject *actor = nullptr;
         bool clearZ = false;   // the depth cleared before it
         HudView view;          // the camera and rectangle it's drawn in
         size_t afterTiles = 0; // drawn after this many tiles, over them
-        /**
-         * How it looked as it was asked for (the HUD sets these just for
-         * the call: a portrait's fade): draw type, style, glow.
-         */
+        // How it looked as it was asked for (the HUD sets these just for
+        // the call: a portrait's fade): draw type, style, glow.
         int drawType = 0;
         int style = 1;
         float scaleGlow = 1;
     };
+    /** What the HUD drew in a frame. */
     struct Hud {
         std::vector<HudTile> tiles;
         std::vector<HudActor> actors;
     };
+    /**
+     * A frame's HUD: the canvas made ready, then the player's PreRender and
+     * PostRender and the console's PostRender run with it; what they drew
+     * is in hud().
+     */
     void renderHud(const HudView &view);
     /**
      * The view DrawActor draws in now, set by SetRenderFrame; whether its
      * depth is still to be cleared (ClearZ) before the next actor.
      */
+    ///@{
     HudView &hudFrame() { return _hudFrame; }
     bool &hudFrameClear() { return _hudFrameClear; }
+    ///@}
     /**
-     * The FliTextures the HUD draws, played on each tick as their own
-     * properties say (Mode, Rate, FrameNum, FrameTime).
+     * An FliTexture drawn now (on the HUD or in the level): played on by
+     * the real time since it was last drawn, as its own properties say
+     * (Mode, Rate, FrameNum, FrameTime).
      */
-    void trackFli(VmObject *texture);
-    void tickFlis(float seconds);
+    void fliDrawn(VmObject *texture);
+    /** The real clock (seconds; it runs while paused) textures play by. */
+    void setRealTime(double now) { _realTime = now; }
+    /** What the last renderHud drew, and the view it was given. */
+    ///@{
     Hud &hud() { return _hud; }
     const HudView &hudView() const { return _hudView; }
+    ///@}
+    /** A Font object's pages and characters, read once; nullptr if it isn't a package's or doesn't read. */
     const Font *fontOf(VmObject *font);
+    /** The HUD's Canvas, made when first asked for (null if there's no Canvas class). */
     VmObject *canvas();
 
     /**
@@ -357,9 +434,12 @@ public:
      * section of one of its .int files, its keys and values in order
      * (none if there's no such file or section).
      */
+    ///@{
     std::filesystem::path intFolder() const;
     const std::vector<std::pair<std::string, std::string>> *intSection(const std::string &file,
                                                                        const std::string &section);
+    ///@}
+    /** How the dialogue has gone, for diagnostics. */
     struct DialogStats {
         int started = 0;
         int lines = 0;
@@ -367,11 +447,12 @@ public:
         int unknownConditions = 0;
         int barks = 0;
     } dialog;
+    /** How the path searches have gone, for diagnostics. */
     struct PathStats {
         int straight = 0;
         int found = 0;
         int failed = 0;
-        /** why it failed: no point near the pawn, near the goal, no way between */
+        // why it failed: no point near the pawn, near the goal, no way between
         int noStart = 0;
         int noEnd = 0;
         int noRoute = 0;
@@ -385,10 +466,12 @@ public:
      * A negative rate is scaled by the actor's speed, never below
      * `minRate` (LoopAnim's MinRate, as `rate` is: times its own speed).
      */
+    ///@{
     void startAnim(VmObject *actor, NameId sequence, float rate, float tween, bool loop, float minRate = 0);
     void tweenAnim(VmObject *actor, NameId sequence, float seconds);
     bool animating(VmObject *actor);
     void waitForAnim(VmObject *actor);
+    ///@}
     /**
      * While an actor tweens into an animation (AnimFrame below 0): the
      * animation it was showing when the tween began, and where in it.
@@ -398,6 +481,7 @@ public:
         float frame = 0;
         bool loop = false;
     };
+    /** An actor's TweenFrom, or nullptr if it has none. */
     const TweenFrom *tweenFromOf(VmObject *actor) const;
 
     /**
@@ -411,20 +495,18 @@ public:
         NameId sequence = 0;
         NameId bone = 0;   // where the part starts
         bool rest = false; // the part is the skeleton but that (LowerTorso)
-        /** as AnimFrame (below 0: tweening into it) and AnimRate */
+        // as AnimFrame (below 0: tweening into it) and AnimRate
         float frame = 0;
         float rate = 0;
         bool loop = false;
         bool finished = false;
-        /** how much it shows (0-1), and its change a second */
+        // how much it shows (0-1), and its change a second
         float weight = 0;
         float weightRate = 0;
         float minRate = 0;           // with a negative rate (scaled by speed), the least it goes at
         std::array<bool, 3> clear{}; // its first bone keeps the actor's own turn in yaw, pitch, roll
-        /**
-         * The layer it replaced, held where it was under this one while
-         * this one fades in over it.
-         */
+        // The layer it replaced, held where it was under this one while
+        // this one fades in over it.
         NameId fromSequence = 0;
         float fromFrame = 0;
         float fromWeight = 0;
@@ -460,52 +542,89 @@ public:
         float pendingWeight = 0;
         float pendingTween = 0;
     };
-    using SkinChannels = std::vector<std::pair<NameId, SkinChannel>>; // in the order made
+    /** An actor's face channels by their tags (sk3...), in the order made. */
+    using SkinChannels = std::vector<std::pair<NameId, SkinChannel>>;
+    /** An actor's layers by group, and its face channels; nullptr if it has none. */
+    ///@{
     const std::map<NameId, AnimLayer> *layersOf(VmObject *actor) const;
     const SkinChannels *skinsOf(VmObject *actor) const;
+    ///@}
+    /**
+     * C3DPlayAnim and C3DLoopAnim: as PlayAnim and LoopAnim on a part of
+     * the skeleton (the group's, from `bone` if one's given), fading in
+     * over `tween`; C3DTweenAnim: the part to the sequence's first frame
+     * over `seconds`, then held.
+     */
+    ///@{
     void playLayer(VmObject *actor, NameId group, NameId sequence, float rate, float tween, bool loop, NameId bone,
                    float minRate = 0, std::array<bool, 3> clear = {});
     void tweenLayer(VmObject *actor, NameId group, NameId sequence, float seconds, NameId bone,
                     std::array<bool, 3> clear = {});
+    ///@}
     /**
      * An animation's rate now: a negative one is scaled by the actor's
      * speed, at least `minRate`.
      */
     float rateNow(VmObject *actor, float rate, float minRate);
+    /** C3DTweenOutAnim: the group's part fades back to the actor's own animation, and the layer goes. */
     void tweenOutLayer(VmObject *actor, NameId group, float seconds);
+    /** Whether the group's layer is playing or fading in. */
     bool layerAnimating(VmObject *actor, NameId group);
+    /** The group's layer stops looping: it plays to its end. */
     void stopLayerLooping(VmObject *actor, NameId group);
+    /** C3DFinishAnim: a latent wait for the group's layer to end. */
     void waitForLayer(VmObject *actor, NameId group);
+    /**
+     * C3DPlaySkinAnim: a new face channel, its tag "sk" and its place among
+     * the actor's animation groups (from sk3, as the mesh's own groups come
+     * first).
+     */
     NameId newSkinChannel(VmObject *actor);
     /** How: 0 at once (C3DSetSkinAnim), 1 tweened (C3DTweenSkinAnim), 2 tweened from its next tick (...Delay). */
     void setSkin(VmObject *actor, NameId tag, NameId sequence, float frame, float weight, float tween, int how);
+    /** The face channel of that tag removed. */
     void clearSkin(VmObject *actor, NameId tag);
+    /**
+     * C3DCopySkinAnimState: each of `to`'s channels takes the state of
+     * `from`'s of the same tag, if it has one; none made or removed.
+     */
     void copySkins(VmObject *to, VmObject *from);
 
-    // Parts of an actor's mesh where they are now (vm_attach.cpp), in its
-    // animation at this tick: one of its bones (C3DGetJointWorldPos), one
-    // of its attachment points (C3DGetAttachPtCoords) or places worked out
-    // in advance (C3DGetAttachPtCoordsPrecomputed); in the world, or (not
-    // `world`) from the actor's own location, unturned. Its layered
-    // animations count. False if its mesh has no such part.
+    /** A place, or a direction, in Unreal's space. */
     using Vec = std::array<float, 3>;
+    /** A rotator's pitch, yaw and roll. */
     using Rot = std::array<int32_t, 3>;
     /**
      * A bone: in the world, from the actor (unturned), from its parent
      * bone in the world's axes, or its place in its parent bone.
      */
     enum class BonePlace { kWorld, kLocal, kWorldRel, kInParent };
+    /**
+     * Parts of an actor's mesh where they are now (vm_attach.cpp), in its
+     * animation at this tick: one of its bones (C3DGetJointWorldPos), one
+     * of its attachment points (C3DGetAttachPtCoords) or places worked out
+     * in advance (C3DGetAttachPtCoordsPrecomputed); in the world, or (not
+     * `world`) from the actor's own location, unturned. Its layered
+     * animations count. False if its mesh has no such part.
+     */
+    ///@{
     bool boneAt(VmObject *actor, NameId bone, BonePlace place, Vec &location, Rot &rotation);
     bool attachPointAt(VmObject *actor, NameId point, bool precomputed, bool world, Vec &location, Rot &rotation);
+    ///@}
+    /** Whether an actor's mesh has a bone of that name, and how many attachment points it has. */
+    ///@{
     bool hasBone(VmObject *actor, NameId bone);
     int attachPointCount(VmObject *actor);
+    ///@}
     /**
      * C3DAttach: `child` kept, from each tick on, with its point `childPoint`
      * on `parent`'s `parentPoint` (a weapon's RightHand in the player's
      * hand); C3DDetach lets it go.
      */
+    ///@{
     void attach(VmObject *child, VmObject *parent, NameId parentPoint, NameId childPoint);
     void detach(VmObject *child, VmObject *parent);
+    ///@}
     /**
      * What the scripts do to an actor's bones on top of its animations,
      * kept until changed: C3DApplyRotation turns a bone about one of its
@@ -515,10 +634,12 @@ public:
      * there, blended in by a weight, until C3DClearIkTarget. False if
      * there's no such chain.
      */
+    ///@{
     void turnBone(VmObject *actor, NameId bone, int axis, float degrees);
     void turnBoneInActor(VmObject *actor, NameId bone, const Rot &rotation);
     bool setIk(VmObject *actor, NameId chain, const Vec *at, const std::array<Vec, 3> *axes, float weight);
     void clearIk(VmObject *actor, NameId chain);
+    ///@}
     /**
      * C3DRemoveRotation: the bone's turns (C3DApplyRotation's and
      * C3DApplyWorldRotation's) taken off about those axes.
@@ -553,22 +674,19 @@ public:
         int gaveUp = 0;        // latent moves (MoveTo...) that timed out short of their goal
     } movement;
 
+    /** The VM, the map's package, and the level's LevelInfo (null before load()). */
+    ///@{
     Vm &vm() { return _vm; }
     const Package &map() const { return _map; }
     VmObject *levelInfo() const { return _levelInfo; }
+    ///@}
     /**
      * Paused: Level.Pauser set (SetPause: the menus). Time stands still;
      * only the player's PlayerTick and actors with bAlwaysTick (the HUD)
      * run.
      */
     bool paused() const;
-    /**
-     * The console's side (vm_console.cpp): the keys held down (EInputKey
-     * codes, for IsKeyDown), where the game asked to travel (ClientTravel:
-     * "CM01a_SW/CM01_A_Sisko01", a map and the start to log in at), and
-     * whether it asked to quit (ConsoleCommand "Exit").
-     * The player's console (its viewport's), if it has one.
-     */
+    /** The player's console (its viewport's), if it has one. */
     VmObject *console();
 
     /**
@@ -596,6 +714,7 @@ public:
         float obstruction = 0;
         float startSeconds = 0; // where in it to start (a saved game's sounds)
     };
+    /** The sounds asked for since the page last took them (it clears the list). */
     std::vector<SoundRequest> &soundRequests() { return _soundRequests; }
     /** A sound played by an actor: its lip-sync (vm_sound.cpp), if it has any. */
     void lipSyncPlay(VmObject *actor, int slot, bool noOverride, const Package *package, int exportIndex);
@@ -603,10 +722,24 @@ public:
      * What's playing as the audio driver's tracker keeps it (a saved game
      * holds it): each sound an actor played, until it's done or replaced.
      */
+    ///@{
     void trackSound(const SoundRequest &r, float seconds);
     void trackMusic(VmObject *actor, float startSeconds);
+    ///@}
     /** Writes the level as the original saves it (a package: game_save_write.cpp). */
     Error writeGameSave(const std::string &path);
+    /** The names and imports a save keeps, by the map's numbering. */
+    struct SaveTables {
+        bool trim = false;
+        std::vector<bool> names;
+        std::vector<bool> imports;
+    };
+    /**
+     * One go of writeGameSave: with `collect`, the names and imports the
+     * save uses found into `tables` (no file written); without, the save
+     * written with only those (if `tables.trim`).
+     */
+    Error writeSave(const std::string &path, SaveTables &tables, bool collect);
     bool reluvaFormat = false; // save in Reluva's own format instead
     /** Sounds stopped (an actor's slot: a line cut off), for the page. */
     std::vector<std::pair<VmObject *, int>> &soundStops() { return _soundStops; }
@@ -621,33 +754,48 @@ public:
         float startSeconds = 0;
         int serial = 0;
     };
+    /** How the music was last started. */
     Music &music() { return _music; }
+    /** The Sound the player's CurrentMusic names, or null. */
     VmObject *currentMusic();
-    void musicEnded(VmObject *sound); // CurrentMusic back to None, if it's still that
+    /** The music has played to its end: CurrentMusic back to None, if it's still that. */
+    void musicEnded(VmObject *sound);
     /** Whether a Sound is one of The Fallen's streamed (MP3) ones: music. */
     bool streamedSound(VmObject *sound);
     /**
      * The console's sound commands: every sound stopped (KillSound), and
      * the master volume for now (SetMasterVolume; below 0: the setting's).
      */
+    ///@{
     bool &killSounds() { return _killSounds; }
     float &masterVolume() { return _masterVolume; }
+    ///@}
 
     /**
-     * Saved games (vm_save.cpp), in the folder the page gives: Reluva's
-     * own files, under the game's names (QuickSave.dsa, Save<n>.dss).
+     * A saved game (vm_save.cpp), in the folder the page gives: written as
+     * the original saves them (or in Reluva's own format, with
+     * reluvaFormat), under the game's names: QuickSave.dsa, or the level's
+     * title and the seconds played ("Bajoran_Ship_-_Ke'el_Tul-97.dsa").
+     * .dss files are listed too.
      */
     struct SaveInfo {
         std::filesystem::path file;
-        /** the map's name; "QuickSave" or the level's title */
+        // the map's name; "QuickSave" or the level's title
         std::string map;
         std::string description;
         int64_t time = 0;    // when, in seconds since 1970
         bool byGame = false; // the original's (a package: the level itself)
     };
+    /** Where games are saved and listed (empty: none can be). */
     void setSaveFolder(std::filesystem::path folder) { _saveFolder = std::move(folder); }
+    /** A saved game's SaveInfo, Reluva's or the original's. */
     static Error readSaveInfo(const std::filesystem::path &file, SaveInfo &out);
+    /** The saved games in the save folder, newest first. */
     std::vector<SaveInfo> savedGames() const;
+    /**
+     * Saves the level in Reluva's own format: "QuickSave" to QuickSave.dsa,
+     * any other name as the game names its saves.
+     */
     Error saveGame(const std::string &name);
     /**
      * The level as a saved game of this map has it, in place of
@@ -659,9 +807,23 @@ public:
      * package (bBegunPlay set), so instead of beginPlay and login, this.
      */
     bool savedByGame() const;
+    /**
+     * Takes up the original's saved game, as its LoadMap does: each actor
+     * back in its state, its animation, the dialogue's counts and the
+     * sounds playing, then the player logged in again to its saved pawn.
+     * nullptr, with `error`, if that fails.
+     */
     VmObject *resumeSavedGame(const std::string &playerName, std::string &error);
+    /**
+     * The console's side (vm_console.cpp): the keys held down (EInputKey
+     * codes, for IsKeyDown), and where the game asked to travel
+     * (ClientTravel: "CM01a_SW/CM01_A_Sisko01", a map and the start to log
+     * in at).
+     */
+    ///@{
     std::set<int> &keysDown() { return _keysDown; }
     std::string &travel() { return _travel; }
+    ///@}
     /**
      * Travelling with the player's things (vm_travel.cpp): ClientTravel's
      * bItems; the player's pawn and inventory written out as the engine's
@@ -669,18 +831,24 @@ public:
      * the player at login. The Fallen's engine carries the player's
      * GamePlayedTime over any travel too (below 0: none to carry).
      */
+    ///@{
     bool &travelItems() { return _travelItems; }
     std::string exportTravel();
     std::string &incomingTravel() { return _incomingTravel; }
     float &carriedPlayedTime() { return _carriedPlayedTime; }
+    ///@}
+    /** Whether the game asked to quit (ConsoleCommand "Exit"). */
     bool &quitAsked() { return _quitAsked; }
     /**
      * Skipping a cut scene (FastForward): the level run at speed until the
      * game turns it off, when the letterbox goes.
      */
     bool &fastForward() { return _fastForward; }
+    /** The game type's actor (null before beginPlay()). */
     VmObject *game() const { return _game; }
+    /** The level's actors (not the ghosts); those destroyed this tick stay, marked deleted, until its end. */
     const std::vector<VmObject *> &actors() const { return _actors; }
+    /** The level's time: seconds played. */
     float time() const { return _time; }
 
     /**
@@ -694,7 +862,19 @@ public:
      * first; null if it meets none (GetSurfaceTexture: what's underfoot).
      */
     VmObject *surfaceTexture(const std::array<float, 3> &start, const std::array<float, 3> &end);
+    /** A surface's texture now (scripts may have swapped it); null if it has none. */
+    VmObject *surfaceTextureOf(int surf);
+    /**
+     * The BSP node whose polygon a line from start to end hits (of the
+     * coplanar nodes where it stopped, the one holding the hit point), and
+     * where; -1 if none.
+     */
     int nodeAt(const std::array<float, 3> &start, const std::array<float, 3> &end, std::array<float, 3> &where);
+    /**
+     * GetNodeXOffsets: how far the polygon a line hits runs to either side
+     * of the hit point along `side` (`lo` as a negative distance). False if
+     * nothing was hit.
+     */
     bool nodeSideExtent(const std::array<float, 3> &start, const std::array<float, 3> &end,
                         const std::array<float, 3> &side, float &lo, float &hi);
     /** That surface's index in the level's model; -1 if none. */
@@ -709,8 +889,11 @@ public:
         std::map<std::pair<const Package *, int>, ObjectRef> world;
         int serial = 0;
     };
+    /** The swaps made so far. */
     const SurfaceSwaps &surfaceSwaps() const { return _surfaceSwaps; }
+    /** SetSurfaceTexture: a surface drawn with another texture, or (`wholeWorld`) every surface with its texture. */
     void swapSurfaceTexture(int surf, VmObject *texture, bool wholeWorld);
+    /** Destroys an actor as Actor.Destroy does: its Destroyed event, its owner's LostChild, then it's gone. */
     void destroy(VmObject *actor);
     /**
      * Ghosts (MakeGhost): actors taken out of the level for now, not
@@ -718,9 +901,12 @@ public:
      * actors again (GhostActors brings them back as it finds them).
      */
     void makeGhost(VmObject *actor, bool ghost);
+    /** The actors that are ghosts now. */
     const std::vector<VmObject *> &ghosts() const { return _ghosts; }
-    int placedGhosts() const { return _placedGhosts; } // set aside at the start, placed as ghosts
-    int localizedSet() const { return _localizedSet; } // actors' strings from the map's .int
+    /** How many actors were set aside at the start, placed as ghosts. */
+    int placedGhosts() const { return _placedGhosts; }
+    /** How many of the actors' strings were set from the map's .int. */
+    int localizedSet() const { return _localizedSet; }
     /**
      * The camera the line being said asks for (its table's CAMERA column:
      * "CAM(A:x,y,z,pitch,yaw,roll F:fov D:dist)" in the world, R: the same
@@ -732,18 +918,28 @@ public:
      * MultiMesh list), in use, in order; each tick they move and age.
      */
     std::vector<VmObject *> multiMeshes(VmObject *actor);
-    void moveMultiMeshes(VmObject *actor, float seconds); // as its physics mode has them (vm_effect_physics.cpp)
+    /** Moves an actor's copies on and ages them, as its physics mode has them (vm_effect_physics.cpp). */
+    void moveMultiMeshes(VmObject *actor, float seconds);
     /**
      * The Fallen's physics modes that move the actor itself (trailing its
      * owner, drifting, free flight, fish, interpolation...).
      */
     void fallenPhysics(VmObject *a, int physics, float dt);
+    /** Along a path of interpolation points (physPathing), as vm_effect_physics.cpp says. */
     void interpolate(VmObject *a, float dt);
+    /**
+     * The effects' ticks, each as Engine.dll's for its class (vm_effects.cpp
+     * says how): an arc of sparks (CTVE_ChainSpark) and laying it out, a
+     * beam's sections (CTVE_BeamFX), sparks (CTVE_Sparks), rain and snow
+     * (CTVE_Weather; `fill`: started over, drops at every height).
+     */
+    ///@{
     void chainSparkTick(VmObject *spark, float seconds);
     void chainSparkUpdate(VmObject *spark);
     void updateBeamSections(VmObject *beam, float seconds);
     void sparkTick(VmObject *sparks, float seconds);
     void weatherTick(VmObject *weather, float seconds, bool fill);
+    ///@}
     /**
      * Where the water's surface is on the way from `start` to `end` (the
      * first point where it goes in or out of a water zone); `start` if it
@@ -761,45 +957,83 @@ public:
         ObjectRef texture;
         float scale = 1;
     };
+    /**
+     * Decal.AttachDecal: the decal stuck to the surface within `distance`
+     * behind it, its top along `direction` if that's not zero. The
+     * surface's texture, or null if there's none there.
+     */
     VmObject *attachDecal(VmObject *decal, float distance, const std::array<float, 3> &direction);
+    /** The decal taken off the world. */
     void detachDecal(VmObject *decal) { _decals.erase(decal); }
+    /** The decals stuck to the world, by their actor. */
     const std::map<VmObject *, Decal> &decals() const { return _decals; }
     /**
      * The Fallen's player climbing (vm_climbing.cpp): what's ahead (a
      * wall, a ladder on it, a ledge on top), checked as it walks or falls,
      * and the hanging, climbing and clambering physics.
+     *
+     * This is where a line or box swept against the world and its movers
+     * stopped, and on what.
      */
     struct Sweep {
         float time = 1;
         std::array<float, 3> at{};
         std::array<float, 3> normal{};
         VmObject *actor = nullptr;
+        int32_t node = -1; // the level's BSP node hit, -1 for anything else
+        /** Whether it hit anything. */
         bool hit() const { return actor != nullptr; }
     };
+    /** A move's hit as a sweep's. */
+    static Sweep sweepOf(const MoveHit &h) {
+        Sweep s;
+        s.time = h.time;
+        s.normal = h.normal;
+        s.actor = h.hit() ? h.actor : nullptr;
+        s.node = h.node;
+        return s;
+    }
+    /** A line or box (`extent` its half sizes) swept from `from` to `to`. */
     Sweep sweep(VmObject *a, const std::array<float, 3> &from, const std::array<float, 3> &to,
                 const std::array<float, 3> &extent);
+    /** A property of the player read as a float; `otherwise` if it has none. */
     float climbFloat(VmObject *a, const char *name, float otherwise);
+    /** The player's view axis X (its Rotation, with its pitch). */
     std::array<float, 3> viewX(VmObject *a);
+    /** CTVE_PlayerPawn's own default CollisionRadius (as Engine.dll reads it, not the subclass's). */
     float defaultRadius(VmObject *a);
-    float testStepUp(VmObject *a, float stepHeight, float height, const std::array<float, 3> &start,
-                     const std::array<float, 3> &forward, const std::array<float, 3> &extent);
+    /**
+     * The engine's tests for what's ahead of the player, each as its
+     * function in vm_climbing.cpp says: TestStepUp, TestForStrongLedgeFooting,
+     * TestForHandHold, TestForHangLedge, TestForLedge, CheckClimbing; the
+     * player asked to change to climbing physics; ForceDuck. And the BSP
+     * node touching one, and a node's top.
+     */
+    ///@{
+    float testStepUp(VmObject *a, Sweep &hit, float stepHeight, float height, const std::array<float, 3> &start,
+                     std::array<float, 3> delta, const std::array<float, 3> &extent);
+    int32_t touchingNode(int32_t node, const std::array<float, 3> &normal, const std::array<float, 3> &at, float radius,
+                         float height);
+    float nodeTop(int32_t node);
     bool strongFooting(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool handHold(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool hangLedge(VmObject *a, const std::array<float, 3> &normal, std::array<float, 3> &at);
-    bool testForLedge(VmObject *a, const std::array<float, 3> &hitNormal, const std::array<float, 3> &dir);
+    bool testForLedge(VmObject *a, Sweep &hit, const std::array<float, 3> &delta, float *out = nullptr);
+    float stepUpOnto(VmObject *a, float rise, const std::array<float, 3> &delta);
     bool checkClimbing(VmObject *a, const std::array<float, 3> &wallNormal, const std::array<float, 3> &dir, bool snap,
                        bool feet, bool chest, bool head);
     bool askClimb(VmObject *a, const std::array<float, 3> &wallNormal, int physics);
     void forceDuck(VmObject *a);
-    bool duckUnder(VmObject *a, const std::array<float, 3> &dir);
-    /** A player's walk blocked by a wall: a ledge or ladder there taken. */
-    bool climbBlocked(VmObject *a, VmObject *by, const std::array<float, 3> &hitNormal,
-                      const std::array<float, 3> &left);
+    ///@}
+    /** physFalling's catch: a ladder, or a ledge to hang from, met by the player's reaching jump. */
     void climbCheck(VmObject *a, bool falling, float dt);
+    /** The hanging, climbing and clambering physics. */
     void climbPhysics(VmObject *a, int physics, float dt);
+    /** A pull up ended: the player on the ledge, wherever its animation had got to. */
     void endClamber(VmObject *a);
     /** Moved there at once, the camera's smoothing told (LocationOffset). */
     void setLocation(VmObject *a, const std::array<float, 3> &to);
+    /** A pull up onto a ledge under way. */
     struct Clamber {
         std::array<float, 3> from{};
         std::array<float, 3> forward{};
@@ -809,6 +1043,7 @@ public:
         float startFrame = -1;
         float lastFrame = 0;
         float done = 0;
+        /** Where it ends: standing on the ledge (`height` the player's half height), past the wall. */
         std::array<float, 3> to(float height) const;
     };
     /**
@@ -829,11 +1064,11 @@ public:
         uint8_t effect = 0;
         bool isStatic = false; // bStatic
     };
+    /** The LitActors now. */
     void litActors(std::vector<LitActor> &out);
     /** A noise the AI may hear (MakeNoise; weapons' and projectiles' sounds). */
-    void makeNoise(VmObject *maker, float loudness);
     /** A sound played as a noise the AI hears (PlaySound, PlayDummySound). */
-    void soundNoise(VmObject *maker, float radius);
+    void soundNoise(VmObject *maker, float radius, bool dummy = false);
     /**
      * Whether the player hears a sound played by `source` as far as
      * `radius` (CheckHearSound), its volume lowered through walls.
@@ -841,7 +1076,9 @@ public:
     bool hearsSound(VmObject *source, float radius, float &volume);
     /** Where the player hears from: its view target, else its camera. */
     bool listenerAt(Vec &at);
+    /** A Sound's full name, its package's too, upper case ("MUSIC.TRKS_MOODY_FEAR"); empty if it isn't a package's. */
     static std::string soundName(VmObject *sound);
+    /** The noises made and heard, for diagnostics. */
     struct NoiseStats {
         int made = 0;
         int heard = 0;
@@ -860,7 +1097,14 @@ public:
 private:
     void init(VmObject *actor); // the engine's own properties of a new actor
     void attachViewport();      // the player's viewport and console
-    Value *prop(VmObject *a, const char *name);
+    Value *prop(VmObject *a, const char *name) {
+        if (!a || !a->cls)
+            return nullptr;
+        const SlotCached &c = _slotCache[slotHash(a->cls, name)];
+        const int slot = c.cls == a->cls && c.name == name ? c.slot : propSlot(a->cls, name);
+        return slot >= 0 && size_t(slot) < a->values.size() ? &a->values[size_t(slot)] : nullptr;
+    }
+    int propSlot(const VmClass *cls, const char *name);
     void updateTouching(VmObject *a);
     void steer(VmObject *pawn, float seconds);
     void rotate(VmObject *a, float seconds);
@@ -914,16 +1158,25 @@ private:
     void startBase(VmObject *a);
     void startAsSpawned(VmObject *a);
     std::string _options; // the URL's options, for InitGame and Login
-    void walkPlayer(VmObject *a, float dt);
-    void walkPawn(VmObject *a, float dt, int maxIterations);
+    void walkPlayer(VmObject *a, float dt, int iterations = 0);
+    void walkPawn(VmObject *a, float dt, int maxIterations, int iterations = 0);
+    void startSwimming(VmObject *a, const Vec &from, const Vec &oldVelocity, float tick, float remaining);
+    void playerStartSwimming(VmObject *a, const Vec &from);
     void simpleWalk(VmObject *a, float dt);
     void move(VmObject *a, int physics, float dt);
     void pawnRotation(VmObject *a, float dt, const std::array<float, 3> &velocityBefore);
     std::array<float, 3> findWaterLine(const std::array<float, 3> &in, const std::array<float, 3> &out);
     void swimPawn(VmObject *a, float dt, bool fish);
-    void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining);
+    void swimPlayer(VmObject *a, float dt);
+    bool adjustToWaterSurface(VmObject *a, const std::array<float, 3> &from, const std::array<float, 3> &to);
+    void measureWaterSurface(VmObject *a);
+    float chestOffset(VmObject *a);
+    // The water's surface over each swimming player, as last measured
+    // (kNoSurface: none above it).
+    std::map<VmObject *, float> _waterSurface;
+    void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining, int iterations = 0);
     void fallPlayer(VmObject *a, float dt);
-    void fall(VmObject *a, float dt);
+    void fall(VmObject *a, float dt, int iterations = 0);
     void swimOrFly(VmObject *a, float dt, bool swim);
     void updateBodyRegions(VmObject *a, bool events);
     bool moverNear(VmObject *mover, const std::array<float, 3> &start, const std::array<float, 3> &delta,
@@ -955,8 +1208,20 @@ private:
         }
     };
     std::unordered_map<SlotKey, int, SlotHash> _slots;
+    // In front of it, the most recent by a cheap hash of the two addresses
+    // (prop is read millions of times a second).
+    struct SlotCached {
+        const VmClass *cls = nullptr;
+        const char *name = nullptr;
+        int slot = -1;
+    };
+    std::array<SlotCached, 4096> _slotCache{};
+    static size_t slotHash(const VmClass *cls, const char *name) {
+        return ((reinterpret_cast<uintptr_t>(cls) >> 4) * 0x9e3779b1u ^ reinterpret_cast<uintptr_t>(name)) & 4095;
+    }
 
 public:
+    /** The slots of the properties collision reads, found once per class (`mover`: a Mover's). */
     struct CollideSlots {
         int location = -1;
         int radius = -1;
@@ -1005,6 +1270,7 @@ private:
     bool attachFrame(VmObject *actor, ActorMesh &mesh, const MeshAttachPoint &point, Vec &at, std::array<Vec, 3> &axes,
                      std::array<Vec, 3> *raw = nullptr);
     void toWorld(VmObject *actor, Vec &at, std::array<Vec, 3> *axes);
+    Vec c3dScale(VmObject *actor);
     void placeAttached();
     std::map<const VmObject *, std::shared_ptr<ActorMesh>> _actorMeshes; // by mesh object
     std::shared_ptr<const std::vector<AnimationSet>> _animationSets;
@@ -1018,8 +1284,11 @@ private:
     };
     std::map<VmObject *, Attachment> _attachments;
     struct Bends {
-        // The scripts' turns this tick, in order (the engine's last until
-        // the pose is worked out again: each tick the scripts make them anew).
+        /**
+         * One of the scripts' turns this tick, in order (the engine's last
+         * until the pose is worked out again: each tick the scripts make
+         * them anew).
+         */
         struct Op {
             int kind = 0; // 0 own axis, 1 in the actor's axes, 2 removed
             NameId bone = 0;
@@ -1030,7 +1299,7 @@ private:
         };
         std::vector<Op> ops;
         int64_t opsTick = -2;
-        // Each limb's IK (0 left arm, 1 right arm, 2 left leg, 3 right leg).
+        /** A limb's IK (`limbs`: 0 left arm, 1 right arm, 2 left leg, 3 right leg). */
         struct Ik {
             bool place = false;
             bool turn = false;
@@ -1041,9 +1310,11 @@ private:
             bool onBase = false; // reaching from the actor's own animation, under the layers
         };
         std::array<Ik, 4> limbs;
-        // Each limb's point in its end bone's axes, and the point's axes in
-        // them (none if the mesh hasn't it: the bone itself), as this tick's
-        // animation has the hand.
+        /**
+         * A limb's point in its end bone's axes, and the point's axes in
+         * them (none if the mesh hasn't it: the bone itself), as this tick's
+         * animation has the hand.
+         */
         struct Effector {
             int tick = 0;
             Vec offset{};
@@ -1062,7 +1333,13 @@ private:
     struct Fli {
         int frames = 0;
         float frameSeconds = 1.0f / 30;
+        double drawn = 0; // the real time it was last drawn
     };
+    void tickFli(VmObject *texture, const Fli &fli, float seconds);
+    double _realTime = 0;
+    // The node a walk last stepped up against, as Engine.dll keeps it for
+    // every walker (0x1054aa40): -2 after any other wall, -1 none.
+    int32_t _lastLedgeNode = -2;
     std::map<VmObject *, Fli> _flis;
     VmObject *_canvas = nullptr;
     std::map<std::pair<const Package *, int>, std::shared_ptr<Font>> _fonts;
@@ -1085,6 +1362,7 @@ private:
         bool hudClock = false; // a HUD line: timed while paused too
         int back = -1;         // the RETURNLINE pending in its thread
         std::string backPattern;
+        int backFrom = -1;  // the line whose RETURNLINE that is (as the engine keeps it)
         size_t phoneme = 0; // lip-sync: the next mouth shape
     };
     // Each line's engine side: its key (TYPE SPK LST ID MISSION, no
@@ -1187,7 +1465,6 @@ private:
     const ReachSpec *specAt(VmObject *node, const char *list, int k);
     bool moverAllows(VmObject *pawn, const ReachSpec &s);
     bool canMoveTo(VmObject *pawn, VmObject *from, VmObject *to);
-    std::map<VmObject *, float> _noiseQuiet; // pawns: no noise heard before this time
     std::mt19937 _barkRandom{13579};
     std::vector<std::pair<VmObject *, int>> _soundStops;
     struct TrackedSound {
@@ -1197,10 +1474,12 @@ private:
     };
     std::vector<TrackedSound> _trackedSounds;
     void writeMeshGroups(ByteWriter &b, VmObject *actor);
+    void writeMeshAttachments(ByteWriter &b, const VmObject *parent,
+                              const std::map<const VmObject *, std::string> &names);
     bool usesC3DMesh(VmObject *actor);
     int _meshStates = 1000;    // new C3D mesh states' numbers (their names)
     VmObject _meshStateMarker; // stands for an actor's new mesh state while it's written
-    void writeDialogEngine(ByteWriter &b, PackageWriter &w);
+    void writeDialogEngine(ByteWriter &b, PackageWriter &w, const std::function<int32_t(VmObject *)> &refOf);
     VmObject *_musicActor = nullptr;
     float _musicStart = 0;
     void loadDialog();
@@ -1241,7 +1520,7 @@ private:
     int _placedGhosts = 0;
     int _localizedSet = 0;
     std::vector<VmObject *> _movers; // the level's, which traces of the world meet
-    int _editorCameras = 0;
+    int _editorOnly = 0;
     std::vector<VmObject *> _actors;
     std::vector<VmObject *> _ghosts;
     LevelExtras _saved;                            // a saved game's Level extras (a map's are empty)
@@ -1317,6 +1596,31 @@ struct LevelStart {
 };
 Error runLevelStart(const PackageSet &packages, const Package &map, const std::string &defaultGame, float seconds,
                     LevelStart &out);
+
+/**
+ * A level's placed actors as they were saved, taken before its start, to
+ * tell afterwards what the start changed (as runLevelStart does): for
+ * a level started to be played, which needn't be started again to draw.
+ */
+class LevelStartWatch {
+public:
+    /** Takes `map`'s placed actors as saved, before `level` starts. */
+    LevelStartWatch(ScriptLevel &level, const Package &map);
+    /** What changed since, into `out` (its changes and their counts). */
+    void finish(LevelStart &out) const;
+
+private:
+    struct Was {
+        int exportIndex;
+        VmObject *actor;
+        int drawType;
+        int hidden;
+        int lightType;
+        int lightBrightness;
+    };
+    Vm &_vm;
+    std::vector<Was> _before;
+};
 
 /**
  * The natives of Engine's Actor and its subclasses that a level needs

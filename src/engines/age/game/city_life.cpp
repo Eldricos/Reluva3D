@@ -114,8 +114,7 @@ void CityLife::update(float dt, CarSim &player, const std::vector<CarSim *> &oth
     // the opponents; the trains shove the traffic aside.
     std::vector<CarSim *> cops = _police.cars();
     // The player's knocks against the traffic and the trains, as an
-    // impulse for its sounds.
-    // The knock is on the side it was pushed away from.
+    // impulse for its sounds, on the side it was pushed away from.
     auto knocked = [&](float change, const Vec3 &before) {
         Vec3 push = player.velocity - before;
         push[1] = 0;

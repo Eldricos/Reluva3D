@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: Collision, the server's world, area portals and marks.
+// id Tech 3 unit tests: collision, the server's world, area portals and
+// marks.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

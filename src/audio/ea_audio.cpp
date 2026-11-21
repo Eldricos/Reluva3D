@@ -16,7 +16,7 @@
 
 namespace reluva::audio {
 
-// --- EA-XA ----------------------------------------------------------------------
+// EA-XA.
 
 namespace {
 
@@ -96,7 +96,7 @@ Error decodeEaXaStereoBlock(const uint8_t *data, size_t size, std::vector<int16_
     return Error::success();
 }
 
-// --- MicroTalk ------------------------------------------------------------------
+// MicroTalk.
 
 namespace {
 
@@ -362,7 +362,7 @@ const float *MicroTalkDecoder::decodeFrame() {
         for (int j = 0; j < 108; ++j) {
             // From the adaptive codebook, read on into this frame's earlier
             // subframes; a lag over 216 in the first subframe reads before
-            // it, into the state before it (state_), as in the original.
+            // it, into the state before it (_state), as in the original.
             const int from = 108 * s + 216 - lag + j;
             _frame[108 * s + j] = fixedGain * excitation[5 + j] + pitchGain * _adaptive[from];
         }
@@ -386,8 +386,9 @@ Error decodeMicroTalk(const uint8_t *data, size_t size, size_t samples, std::vec
         for (size_t i = 0; i < n; ++i)
             out[done + i] = static_cast<int16_t>(std::clamp(static_cast<int>(std::lround(frame[i])), -32768, 32767));
     }
-    // The reader keeps a byte ahead, so the last frame may read a byte past
-    // the data; a stream that ran out sooner is short.
+    // The reader keeps a byte ahead, so the last frame of a whole stream may
+    // read a byte past the data: overrun() can't tell a short stream, and
+    // only empty data fails.
     if (samples && size == 0)
         return Error::fail("MicroTalk data is empty");
     return Error::success();

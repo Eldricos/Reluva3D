@@ -87,24 +87,129 @@ PackageWriter::PackageWriter(const Package &base) : _base(base) {
     for (const Export &e : base.exports()) {
         Out o;
         o.e = e;
+        o.source = int(_exports.size());
         _exports.push_back(std::move(o));
     }
 }
 
+void PackageWriter::used(int32_t ref) {
+    if (ref < 0) {
+        if (_importUsed.size() < _imports.size())
+            _importUsed.resize(_imports.size(), false);
+        _importUsed[size_t(-ref - 1)] = true;
+    }
+}
+
+void PackageWriter::keepTables(const std::vector<bool> &names, const std::vector<bool> &imports) {
+    _nameFrom.assign(_names.size(), -1);
+    std::vector<NameEntry> keptNames;
+    for (size_t i = 0; i < _names.size(); ++i)
+        if (i < names.size() && names[i]) {
+            _nameFrom[i] = int32_t(keptNames.size());
+            keptNames.push_back(_names[i]);
+        }
+    _importFrom.assign(_imports.size(), 0);
+    std::vector<Import> keptImports;
+    for (size_t i = 0; i < _imports.size(); ++i)
+        if (i < imports.size() && imports[i]) {
+            keptImports.push_back(_imports[i]);
+            _importFrom[i] = -int32_t(keptImports.size());
+        }
+    for (Import &im : keptImports) {
+        im.classPackage = baseName(im.classPackage);
+        im.className = baseName(im.className);
+        im.objectName = baseName(im.objectName);
+        im.package = baseRef(im.package);
+    }
+    for (Out &o : _exports) {
+        o.e.objectName = baseName(o.e.objectName);
+        o.e.classRef = baseRef(o.e.classRef);
+        o.e.superRef = baseRef(o.e.superRef);
+        o.e.package = baseRef(o.e.package);
+    }
+    _names = std::move(keptNames);
+    _imports = std::move(keptImports);
+    _nameIndex.clear();
+    for (size_t i = 0; i < _names.size(); ++i)
+        _nameIndex.emplace(fs::toLower(_names[i].name), int32_t(i));
+    _importIndex.clear();
+    for (size_t i = 0; i < _imports.size(); ++i) {
+        const Import &im = _imports[i];
+        _importIndex.emplace(fs::toLower(_names[size_t(im.classPackage)].name + "." +
+                                         _names[size_t(im.className)].name + " " + importPathOf(-int32_t(i) - 1)),
+                             -int32_t(i) - 1);
+    }
+    _nameUsed.assign(_names.size(), false);
+    _importUsed.assign(_imports.size(), false);
+}
+
+// An import's path as these tables have it: its outers' names and its own.
+std::string PackageWriter::importPathOf(int32_t ref) const {
+    std::string path;
+    while (ref < 0 && size_t(-ref - 1) < _imports.size()) {
+        const Import &i = _imports[size_t(-ref - 1)];
+        const std::string &n = _names[size_t(i.objectName)].name;
+        path = path.empty() ? n : n + "." + path;
+        ref = i.package;
+    }
+    return path;
+}
+
+int32_t PackageWriter::baseName(int32_t index) const {
+    if (_nameFrom.empty())
+        return index;
+    return index >= 0 && size_t(index) < _nameFrom.size() && _nameFrom[size_t(index)] >= 0 ? _nameFrom[size_t(index)]
+                                                                                           : 0;
+}
+
+int32_t PackageWriter::baseRef(int32_t ref) const {
+    if (_importFrom.empty() || ref >= 0)
+        return ref;
+    return size_t(-ref - 1) < _importFrom.size() ? _importFrom[size_t(-ref - 1)] : 0;
+}
+
+std::vector<int32_t> PackageWriter::keepOnly(const std::vector<bool> &keep) {
+    std::vector<int32_t> renumbered(_exports.size() + 1, 0);
+    std::vector<Out> kept;
+    for (size_t i = 0; i < _exports.size(); ++i)
+        if (i < keep.size() && keep[i]) {
+            kept.push_back(std::move(_exports[i]));
+            renumbered[i + 1] = int32_t(kept.size());
+        }
+    auto again = [&](int32_t ref) {
+        return ref > 0 && size_t(ref) < renumbered.size() ? renumbered[size_t(ref)] : ref;
+    };
+    for (Out &o : kept) {
+        o.e.classRef = again(o.e.classRef);
+        o.e.superRef = again(o.e.superRef);
+        o.e.package = again(o.e.package);
+    }
+    _exports = std::move(kept);
+    return renumbered;
+}
+
 int32_t PackageWriter::name(const std::string &text) {
     const std::string key = fs::toLower(text);
-    if (auto it = _nameIndex.find(key); it != _nameIndex.end())
-        return it->second;
-    _names.push_back({text, 0x00070010});
-    const int32_t n = int32_t(_names.size() - 1);
-    _nameIndex.emplace(key, n);
+    int32_t n = 0;
+    if (auto it = _nameIndex.find(key); it != _nameIndex.end()) {
+        n = it->second;
+    } else {
+        _names.push_back({text, 0x00070010});
+        n = int32_t(_names.size() - 1);
+        _nameIndex.emplace(key, n);
+    }
+    if (_nameUsed.size() < _names.size())
+        _nameUsed.resize(_names.size(), false);
+    _nameUsed[size_t(n)] = true;
     return n;
 }
 
 int32_t PackageWriter::import(const std::string &path, const std::string &classPackage, const std::string &className) {
     const std::string key = fs::toLower(classPackage + "." + className + " " + path);
-    if (auto it = _importIndex.find(key); it != _importIndex.end())
+    if (auto it = _importIndex.find(key); it != _importIndex.end()) {
+        used(it->second);
         return it->second;
+    }
     // Its outer: the package (or a group) it's in, made too.
     int32_t outer = 0;
     std::string own = path;
@@ -121,6 +226,7 @@ int32_t PackageWriter::import(const std::string &path, const std::string &classP
     _imports.push_back(im);
     const int32_t ref = -int32_t(_imports.size());
     _importIndex.emplace(key, ref);
+    used(ref);
     return ref;
 }
 
@@ -129,8 +235,10 @@ int32_t PackageWriter::importIn(int32_t outer, const std::string &own, const std
     for (size_t i = 0; i < _imports.size(); ++i) {
         const Import &im = _imports[i];
         if (im.package == outer && fs::toLower(_names[size_t(im.objectName)].name) == fs::toLower(own) &&
-            fs::toLower(_names[size_t(im.className)].name) == fs::toLower(className))
+            fs::toLower(_names[size_t(im.className)].name) == fs::toLower(className)) {
+            used(-int32_t(i) - 1);
             return -int32_t(i) - 1;
+        }
     }
     Import im;
     im.classPackage = name(classPackage);
@@ -138,6 +246,7 @@ int32_t PackageWriter::importIn(int32_t outer, const std::string &own, const std
     im.package = outer;
     im.objectName = name(own);
     _imports.push_back(im);
+    used(-int32_t(_imports.size()));
     return -int32_t(_imports.size());
 }
 
@@ -182,8 +291,8 @@ Error PackageWriter::write(const std::string &path) const {
         const Out &o = _exports[i];
         std::vector<uint8_t> copy;
         const std::vector<uint8_t> *data = &o.data;
-        if (!o.replaced && o.e.serialSize > 0) {
-            if (Error err = _base.readExport(int(i), copy))
+        if (!o.replaced && o.e.serialSize > 0 && o.source >= 0) {
+            if (Error err = _base.readExport(o.source, copy))
                 return err;
             data = &copy;
         }

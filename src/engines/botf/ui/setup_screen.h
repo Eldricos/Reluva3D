@@ -57,11 +57,17 @@ class SetupScreen : LayoutScreen {
 public:
     using LayoutScreen::repeating;
     using LayoutScreen::setSoundHandler;
+    /** Whether the screen is still open, or how it was left. */
     enum class Result { kOpen, kAccepted, kCancelled };
 
-    /** `lexicon` may be empty: the words are then the English ones. */
+    /**
+     * Draws with `assets` and `lexicon`, which must outlive it. `lexicon`
+     * may be empty: the words are then the English ones.
+     */
     SetupScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
-    Error load(); // the two layouts
+    /** Reads opening.wdf and gmesetup.wdf; fails if the layout lacks a widget the screen needs. */
+    Error load();
+    /** Draws the screen with the settings chosen. */
     void draw(Surface &screen);
     /**
      * The time, in milliseconds: a timer's arrow held steps again.
@@ -75,8 +81,11 @@ public:
      */
     Result handle(const Event &event);
 
+    /** The settings chosen, or to start the screen with. */
+    ///@{
     const GameSetup &setup() const { return _setup; }
     GameSetup &setup() { return _setup; }
+    ///@}
 
 private:
     void click(int32_t id, bool shift);

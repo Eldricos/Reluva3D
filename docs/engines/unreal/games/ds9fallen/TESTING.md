@@ -14,12 +14,12 @@ files). `reluva-tests unreal` runs them, and `ctest` with the rest.
 
 | Suite | What it checks |
 |---|---|
-| `unreal.unit.packages` | Compact indices, the package tables, properties, search paths and detection, the map extension, a dialogue table |
+| `unreal.unit.packages` | Compact indices, the package tables, properties, search paths and detection, the map extension, a dialogue table, a saved game's mesh state |
 | `unreal.unit.textures` | Textures (stored and compressed), procedural and animated textures |
 | `unreal.unit.sounds` | Sounds, their errors, and the streamed MP3s that stand in for the placeholders |
 | `unreal.unit.levels` | The BSP model, actors, zone visibility, collision |
 | `unreal.unit.meshes` | Meshes, the imported-model block, animation sets and poses, class defaults and mesh actors |
-| `unreal.unit.script` | Compiled script read and written as text, and the VM |
+| `unreal.unit.script` | Compiled script read and written as text, the VM, and settings written to the `.ini` files |
 
 ### The basic engine test
 
@@ -32,8 +32,37 @@ start in read and a texture decoded, against its record
 
 ### The game-files test
 
-Not yet. Until there is one, the game's files are checked by hand with
-`reluva-tool`, from your own copy of the game:
+`unreal.gamedata.<step>` (`tests/engines/unreal/gamedata.cmake`), on your
+own copy of the game: point `RELUVA_DS9FALLEN` at its folder (the one
+holding System, Maps and Textures), or add the game in the launcher, and
+run `ctest --test-dir build -L gamedata -R unreal` (see
+[DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests)). Without
+either the steps are skipped.
+
+| Step | What it runs |
+|---|---|
+| `release` | What the game is (`reluva-tool detect`) |
+| `packages` | Every package read: textures, sounds, meshes, levels, scripts (`unreal check`) |
+| `points` | Every mesh's attachment points against its bones (`unreal points`) |
+| `scripts` | Every class's compiled UnrealScript written as text (`unreal script -all`), with a checksum of all of it |
+| `levels` | Every map's scripts run for 20 seconds, the player logged in (`unreal run -all`) |
+| `play` | M04_KiraL1 played: the rifle drawn, the game saved and loaded back; a console `set` written and read again on M01_SiskoL1A (`unreal play`) |
+
+Each command's output, with the game's folder and the timings taken out,
+is checksummed, with a summary line, into a record in
+`tests/engines/unreal/data/gamedata/<release>/`; there's one for the
+English Windows release (`en`), made on Linux. The records hold only
+checksums, counts and summary lines, none of the game's own content.
+When a step differs, each command's full output is in the build under
+`gamedata/unreal/<step>/`, with the previous run's beside it; if the
+change is meant, run again with `RELUVA_GAMEDATA_UPDATE=1` and review the
+records' diff. The runs are repeatable: the level's clock moves only with
+its ticks.
+
+### By hand
+
+The game's files are also checked by hand with `reluva-tool`, from your
+own copy of the game:
 
 ```sh
 ./build/reluva-tool unreal check "/path/to/DS9TheFallen"      # every package, texture, sound, level

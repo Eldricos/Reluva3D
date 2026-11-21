@@ -110,6 +110,8 @@ std::string GameMenus::menuName() const {
     case Screen::kDefaults:
     case Screen::kDuplicateKey:
         return "odef_dlg";
+    case Screen::kControlWarning:
+        return "Control Warning";
     case Screen::kQuit:
     case Screen::kReplayAsk:
         return "quit_dlg";
@@ -135,6 +137,7 @@ int GameMenus::originX() const {
     switch (_screen) {
     case Screen::kDefaults:
     case Screen::kDuplicateKey:
+    case Screen::kControlWarning:
         return kSmallX;
     case Screen::kQuit:
     case Screen::kReplayAsk:
@@ -156,6 +159,7 @@ int GameMenus::originY() const {
     switch (_screen) {
     case Screen::kDefaults:
     case Screen::kDuplicateKey:
+    case Screen::kControlWarning:
         return kSmallY;
     case Screen::kQuit:
     case Screen::kReplayAsk:
@@ -238,9 +242,9 @@ std::vector<GameMenus::Item> GameMenus::items() const {
         list = {check("ctrl_aut"),
                 check("ctrl_pov"),
                 check("ctrl_fbk"),
-                choice("CONTROLLERS", false),
+                choice("CONTROLLERS"),
                 bar("Steering Sensitivity"),
-                bar("Joystick Dead Zone", false),
+                bar("Joystick Dead Zone", _edit.controller != GameOptions::kKeyboardOnly),
                 button("ctrl_cal", "ctrl_cal", false),
                 bar("Force-Feedback Collision Intensity", false),
                 bar("Force-Feedback Road Force Intensity", false),
@@ -255,6 +259,8 @@ std::vector<GameMenus::Item> GameMenus::items() const {
         return {button("dlg_ok", "dlg_ok"), button("dlg_can", "dlg_can")};
     case Screen::kDuplicateKey:
         return {button("dlg_ok", "dlg_ok")};
+    case Screen::kControlWarning:
+        return {button("dlg_ok", "dlg_ok"), button("dlg_cancel", "dlg_can")};
     case Screen::kQuit:
         return {button("popup_ok", "dlg_ok"), button("popup_cancel", "dlg_can")};
     case Screen::kReplayAsk:
@@ -306,10 +312,10 @@ void GameMenus::go(Screen s) {
         _replays = listReplays(_savePath);
         _replayRow = std::min(_replayRow, _replays.empty() ? 0 : _replays.size() - 1);
     }
-    if (s == Screen::kDefaults || s == Screen::kDuplicateKey || s == Screen::kQuit || s == Screen::kReplayName ||
-        s == Screen::kDuplicateDriver) {
-        if (_screen != Screen::kDefaults && _screen != Screen::kDuplicateKey && _screen != Screen::kQuit &&
-            _screen != Screen::kReplayName && _screen != Screen::kDuplicateDriver)
+    if (s == Screen::kDefaults || s == Screen::kDuplicateKey || s == Screen::kControlWarning || s == Screen::kQuit ||
+        s == Screen::kReplayName || s == Screen::kDuplicateDriver) {
+        if (_screen != Screen::kDefaults && _screen != Screen::kDuplicateKey && _screen != Screen::kControlWarning &&
+            _screen != Screen::kQuit && _screen != Screen::kReplayName && _screen != Screen::kDuplicateDriver)
             _under = _screen;
     } else if (s != Screen::kNone && s != Screen::kOptions && _screen == Screen::kOptions)
         _entered = _edit; // what Cancel on the screen goes back to
@@ -405,6 +411,8 @@ float GameMenus::share(const std::string &w) const {
         return o.lightingQuality;
     if (w == "Steering Sensitivity")
         return o.steering;
+    if (w == "Joystick Dead Zone")
+        return o.deadZone;
     return 0;
 }
 
@@ -427,6 +435,8 @@ void GameMenus::setShare(const std::string &w, float v) {
         o.lightingQuality = v;
     else if (w == "Steering Sensitivity")
         o.steering = v;
+    else if (w == "Joystick Dead Zone")
+        o.deadZone = v;
     applySoundOptions(_edit, _mixer);
 }
 
@@ -457,15 +467,18 @@ std::string GameMenus::choiceText(const std::string &w) const {
         const int level = std::clamp(_edit.cloudShadows, 0, 2);
         return _strings.get(uint32_t(660 + level), kShadows[level]);
     }
-    if (w == "CONTROLLERS")
-        return _strings.get(581, "Keyboard");
+    if (w == "CONTROLLERS") {
+        static const char *const kNames[4] = {"Keyboard", "Joystick", "Game Pad", "Steering Wheel"};
+        const int c = std::clamp(_edit.controller, 0, 3);
+        return _strings.get(uint32_t(581 + c), kNames[c]);
+    }
     return {};
 }
 
 void GameMenus::step(const Item &item, int dir) {
     const std::string &w = item.widget;
     if (item.kind == Kind::kBar && _screen == Screen::kRaceOptions)
-        setShare(w, share(w) + (w == "COP DENSITY" ? 0.25f : 0.1f) * float(dir)); // a tenth; a police car
+        setShare(w, share(w) + (w == "COP DENSITY" ? 0.25f : 0.1f) * float(dir)); // a tenth; the police, a car of four
     else if (item.kind == Kind::kBar)
         setShare(w, share(w) + 0.05f * float(dir));
     else if (_screen == Screen::kRaceOptions && (w == "TIME" || w == "WEATHER"))
@@ -480,7 +493,17 @@ void GameMenus::step(const Item &item, int dir) {
         _edit.textureQuality = std::clamp(_edit.textureQuality + dir, 0, 3);
     else if (w == "CLOUD SHADOWS")
         _edit.cloudShadows = std::clamp(_edit.cloudShadows + dir, 0, 2);
-    else if (item.kind == Kind::kList)
+    else if (w == "CONTROLLERS") {
+        // Keyboard, Joystick, Game Pad, Steering Wheel. Leaving the
+        // keyboard for a controller that isn't there asks first.
+        const int was = _edit.controller;
+        _edit.controller = (was + dir + 4) % 4;
+        GamepadState pad;
+        if (was == GameOptions::kKeyboardOnly && _edit.controller != was && !_sys.readGamepad(pad)) {
+            _controllerBefore = was;
+            go(Screen::kControlWarning);
+        }
+    } else if (item.kind == Kind::kList)
         _column = dir > 0 ? 1 : 0;
 }
 
@@ -596,6 +619,10 @@ GameMenus::Action GameMenus::activate(const Item &item) {
         else
             _edit.resetControls();
         applySoundOptions(_edit, _mixer);
+        go(_under);
+    } else if (_screen == Screen::kControlWarning) {
+        if (w == "dlg_cancel") // back to the keyboard
+            _edit.controller = _controllerBefore;
         go(_under);
     } else if (w == "dlg_can" || (w == "dlg_ok" && _screen == Screen::kDuplicateKey))
         go(_under);
@@ -836,6 +863,8 @@ GameMenus::Action GameMenus::handle(const Event &ev) {
         case Screen::kDuplicateKey:
             go(_under);
             break;
+        case Screen::kControlWarning:
+            return activate(Item{Kind::kButton, "dlg_cancel", {}, 4, true});
         case Screen::kCustomize:
             go(Screen::kControl);
             break;
@@ -1037,7 +1066,8 @@ void GameMenus::draw(Surface &o, uint64_t nowMs) {
         drawItems(o, items(), _focus);
         return;
     }
-    const bool dialog = _screen == Screen::kDefaults || _screen == Screen::kDuplicateKey || _screen == Screen::kQuit;
+    const bool dialog = _screen == Screen::kDefaults || _screen == Screen::kDuplicateKey ||
+                        _screen == Screen::kControlWarning || _screen == Screen::kQuit;
     const Screen was = _screen;
     const int keepFocus = _focus;
     auto background = [](Screen s) -> const char * {
@@ -1080,7 +1110,9 @@ void GameMenus::draw(Surface &o, uint64_t nowMs) {
         _screen = was;
         _focus = keepFocus;
     }
-    if (dialog) {
+    if (_screen == Screen::kControlWarning) {
+        drawControlWarning(o);
+    } else if (dialog) {
         const char *picture = _screen == Screen::kDefaults       ? "odef_dlg"
                               : _screen == Screen::kDuplicateKey ? "ctrl_dlg"
                                                                  : "quit_dlg";
@@ -1089,6 +1121,32 @@ void GameMenus::draw(Surface &o, uint64_t nowMs) {
         drawItems(o, items(), _focus);
     }
     font::drawText(o, 4, o.h - 12, "Up/Down, Left/Right, Enter, Esc", {200, 200, 200});
+}
+
+void GameMenus::drawControlWarning(Surface &o) const {
+    // The game ships no picture for it (nor words): a box the size and
+    // colours of its other dialogs (odef_dlg's frame, msg_dlg's purple)
+    // with Reluva's words, under the game's OK and Cancel where
+    // widget.csv puts them.
+    constexpr int kW = 300;
+    constexpr int kH = 225;
+    const int x0 = originX();
+    const int y0 = originY();
+    for (int y = std::max(0, y0); y < std::min(o.h, y0 + kH); ++y)
+        for (int x = std::max(0, x0); x < std::min(o.w, x0 + kW); ++x) {
+            const bool edge = x < x0 + 2 || y < y0 + 2 || x >= x0 + kW - 2 || y >= y0 + kH - 2;
+            uint8_t *p = &o.pixels[size_t(y) * size_t(o.pitch) + size_t(x) * 4];
+            p[0] = edge ? 103 : 20;
+            p[1] = edge ? 69 : 0;
+            p[2] = edge ? 207 : 64;
+            p[3] = 255;
+        }
+    const char *const lines[3] = {"NO GAME CONTROLLER", "IS CONNECTED.", "USE IT ANYWAY?"};
+    for (int i = 0; i < 3; ++i) {
+        const int width = int(font::length(lines[i])) * font::kAdvance * 2;
+        font::drawText(o, x0 + (kW - width) / 2, y0 + 60 + i * 28, lines[i], {255, 255, 255}, 2);
+    }
+    drawItems(o, items(), _focus);
 }
 
 } // namespace reluva::age

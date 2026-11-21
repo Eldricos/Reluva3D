@@ -40,7 +40,10 @@ known.
   whole life. Some count a copy's life down only while it has one;
   the explosions', the fire's and the plasma jet's count it down
   always, so a copy given none is gone on its first tick.
-  - Left alone: beams (`BeamSustain`).
+  - Left alone: beams (`BeamSustain`), whose sections their scripts lay
+    out with `UpdateBeamSections`, which works only while the beam is in
+    that mode (0x10379196): once firing stops and the scripts set it to
+    none, the sections stay as they were.
   - Spark (an arc's segments): laid on the arc's curve again when it's
     updated (the base copy holds it, below), then every tick each jolted
     a random way by its `Use1` (the two ends `Use2`), as bright as the
@@ -112,7 +115,8 @@ known.
   - PlasmaThrower: drawn onto the thrower's axis until 50 short of what
     it hits (`MMEventLocation`), then bounced off it (`WindDir`, the
     normal) and spread over it; green, growing.
-  - Lava: falling until under the generator, then still, shrinking away.
+  - Lava: falling until under the generator, then still, shrinking
+    away 0.2 a second from the tick it lands.
   - DisintigrationPhaser: sinking at 30 a second, fading 0.5 a second.
   - ExhaustJet: orange to red to pale, pulled back by the jet's own
     `Velocity.Z`, growing and fading a unit a second.
@@ -121,8 +125,12 @@ known.
     `Acceleration.Z`, at most 1) plus a half.
   - WaterRing: drifting, spreading by its `Angle` and fading by its
     `Phase` a second; gone when dark.
-  - SwarmObject, Lava, Weather and the rest: by their velocity and
-    acceleration (the swarm's scripts steer each by its acceleration).
+  - Weather (rain, snow): by their velocity and acceleration and the
+    wind (a third of the weather's `DropVelocity` across; none with
+    `bCheckBlocks`), brightening a unit a second up to its
+    `MaxScaleGlow`, fading in their last half second.
+  - SwarmObject and the rest: by their velocity and acceleration (the
+    swarm's scripts steer each by its acceleration).
 - **Arcs** (`CTVE_ChainSpark`), as Engine.dll's natives (read November
   2026):
   - `SpawnChain` makes `NumSegments` copies, each with `SpikeMag`
@@ -142,11 +150,24 @@ known.
     below 0) or glows up and down (`bCycleFade`, turning at `MaxGlow` and
     `MinGlow`). Growing or travelling sets `bUpdate`; with it, it's laid
     out again. Its physics (Spark) then places the segments.
-- **Beams** (`UpdateBeamSections`): the sections start at `BeamOrigin`,
-  each `BeamSectionAxesX` further on, turned as the beam, with a wave if
-  it has one. Their thickness jitters by `SectionAxisYZRandomFactor`. The
-  last section is as long as the head has flown into it (`HeadTime` x
-  `HeadVelocity`).
+- **Beams** (`UpdateBeamSections`, 0x103790f0): only while sustained
+  (Physics 39) with its copies. Nothing is made or removed: the sections
+  the scripts made, from `BeamSectionIndexFirst` up to
+  `BeamSectionIndexLast`, are laid end to end.
+  - Each starts at `BeamOrigin` + k × `BeamSectionAxesX` (k its place in
+    the list), turned as `BeamRotation`, and takes
+    `BeamSectionColorFilter`.
+  - The beam spins about its length at 25600 a second, on from the first
+    section's roll.
+  - Each is `SectionAxisScale` long, the last too: the scripts cut it
+    after, where the beam meets something.
+  - Its thickness is `SectionAxisScale` plus a random share of
+    `SectionAxisYZRandomFactor` (the same both ways, so only ever
+    thicker), times a pulse 1 + `WaveAmplitude` × (1 + sin(k ×
+    `WaveLength` × 803.84 + `WaveStartOffset`)) / 2. The pulse travels:
+    `WaveStartOffset` goes down by `WaveTravelVelocity` a second. The
+    phaser rifle's swells to twice as thick and back about every six
+    sections, moving out along the beam.
 - **Sparks** (`CTVE_Sparks.SparkTick`): when its scripts' `BurstDelay`
   runs out, a burst of `MinSparksPerBurst` to `MaxSparksPerBurst` flies
   out along its X axis at `Speed`. They spread `RangeWidth` and
@@ -155,19 +176,38 @@ known.
   next burst is due in about `AverageBurstTime`, else at random up to
   `MaxWaitTime`. Its light (`saveLightType`) flashes for a tenth of a
   second.
-- **Rain and snow** (`CTVE_Weather.WeatherTick`, `InitialSetUp`): drops
-  fall up to `SpawnRange` around `SeedLocation`, which its scripts keep
-  ahead of the player. There are 4000 x `Intensity` of them (the scripts
-  hold it at 0.1); it comes up or down at `DeltaIntensityRate` as it's
-  turned on and off. New drops start `DropHeight` above (at every height
-  for `InitialSetUp`) and fall at `FallRate` (give or take
-  `FallRateVariance`), blown by `DropVelocity`'s wind. The wind drifts at
-  random toward up to `MaxLateralMove`. Each drop lasts until it meets
-  the world below, traced as it starts, so roofs shelter what's under
-  them. None start inside the weather blockers its scripts gathered
-  (`Block`: a cylinder or a box), or only inside them with
-  `bInvertWeatherBlockers`. Drops left far behind as the player moves
-  go.
+- **Rain and snow** (`CTVE_Weather.WeatherTick`, 0x10349230;
+  `InitialSetUp`, 0x103496e0). Its scripts keep `SeedLocation` upwind of
+  the player and the weather itself at the player's feet.
+  - **How hard:** `Intensity` comes up toward `MaxIntensity` at
+    `DeltaIntensityRate` a second while `bActive` (the scripts hold it
+    at 0.1), and down when not; at 0 it stops (`bShutDown`).
+  - **The wind:** each tick, with a chance of `WindActivity`, a new one
+    to turn to (`DestWind`: any way, `MaxLateralMove` across, falling at
+    `FallRate`); `DropVelocity` goes straight toward it at
+    `WindActivity` x 2500 a second.
+  - **The blockers** (`Block`: a box or an upright cylinder) near the
+    seed are found every 0.4 s (`CheckBlocks`, 0x10349e50: within half
+    the larger spawn range, 1300 then, and `CheckBlockRange` of its
+    footprint), and `bPlayerSheltered` set if one is over the player.
+  - **New drops:** dt x `Intensity` x 2000 a tick, whole ones (about 200
+    a second), none at 0.01 or under (`Generate`, 0x10349910). Each
+    starts over a square `SpawnRange` across about the seed,
+    `DropHeight` up and up to `DropHeightRange` more, at `DropVelocity`
+    (slower by up to `FallRateVariance`), `Size` and up to
+    `SizeVariance` more, rolled at random, and at `StartScaleGlow`,
+    which nothing sets, so it fades in (its physics brings it up to
+    `MaxScaleGlow` at 1 a second). It lasts until it's down to the
+    weather's height (the player's feet): the world doesn't stop it.
+    With blockers near, one born inside or under one is gone at once and
+    one falling onto one stops there; with none, it sways sideways,
+    `FallRate` x `Chaos` any way. With `bInvertWeatherBlockers` drops
+    fall only inside the blockers near, straight down, and none with
+    none near.
+  - **The fill** (`InitialSetUp`, when the level starts and when the
+    player jumps far) makes `Intensity` x 2000 at once from the
+    weather's own place in still air, each moved on along its fall by a
+    random share of its life. The drops already there stay.
 - **Decals** (`Decal.AttachDecal`, `DetachDecal`): stuck to the world
   surface within the trace distance behind them. They lie flat on it,
   their top along the direction given or their rotation's Z, and are
@@ -202,8 +242,10 @@ known.
 
 ## Sources and checks
 
-- **Where the facts come from:** Reluva's reading of what the scripts
-  set and expect; the original code isn't known.
+- **Where the facts come from:** each effect mode's function in
+  Engine.dll (`AActor::performPhysics`, 0x10358a90, picks it by the
+  mode; all of them read November 2026), and the scripts for what sets
+  them up.
 - **How it was checked:** in play, and some against the recordings
   ([research/playthrough.md](../research/playthrough.md)).
 

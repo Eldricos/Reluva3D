@@ -47,9 +47,11 @@
 
 namespace reluva::awe {
 
-// Where a conversation's thread got to (the story state's list at
-// +0x2b8, saved with the game): heard to its end, and the line it
-// stopped before (-1 none).
+/**
+ * Where a conversation's thread got to (the story state's list at
+ * +0x2b8, saved with the game): heard to its end, and the line it
+ * stopped before (-1 none).
+ */
 struct TalkProgress {
     int status = 0;
     int nest = -1;
@@ -57,18 +59,21 @@ struct TalkProgress {
 
 struct GameInfo;
 
+/** The story as it stands: what the conditions test and the scripts change. */
 struct GameState {
     const GameInfo *game = nullptr;    // its game's own condition words and verbs (games.h)
     std::string act;                   // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
     std::map<std::string, int> tags;   // story tags: numbers set by scripts ("tag name 1")
-    // The inventory (0x49881c, its list at +0x38): every item Poirot has,
-    // whatever its state, in the order taken; "take" adds one each time,
-    // so there can be two of a name (the five water glasses). Its state
-    // (+0x1620): 1 just taken, 2 in the bag, 3 in hand, 4 used up (kept
-    // for "restore"), 5 a passport, 6 a fingerprint card, 7 taken away by
-    // "remove all"; its slot in the inventory window (+0x1622, 16 to a
-    // page).
+    /**
+     * An item of the inventory (0x49881c, its list at +0x38), which holds
+     * every item Poirot has, whatever its state, in the order taken; "take"
+     * adds one each time, so there can be two of a name (the five water
+     * glasses). Its state (+0x1620): 1 just taken, 2 in the bag, 3 in hand,
+     * 4 used up (kept for "restore"), 5 a passport, 6 a fingerprint card, 7
+     * taken away by "remove all"; its slot in the inventory window
+     * (+0x1622, 16 to a page).
+     */
     struct Item {
         std::string name;
         int state = 2;
@@ -108,24 +113,30 @@ struct GameState {
     // the game looks at (reluva-tool awe game-run -solve).
     std::function<void(std::string_view clause, bool holds)> onTest;
 
-    // The first item of that name in one of `states` (any if empty), as
-    // the game looks them up (0x41b9b0, 0x41ba20, 0x41c160); null if none.
+    /**
+     * The first item of that name in one of `states` (any if empty), as
+     * the game looks them up (0x41b9b0, 0x41ba20, 0x41c160); null if none.
+     */
+    ///@{
     Item *findItem(const std::string &name, std::initializer_list<int> states = {});
     const Item *findItem(const std::string &name, std::initializer_list<int> states = {}) const;
-    // The first one's state: 0 if there's none ("has <x>").
+    ///@}
+    /** The first one's state: 0 if there's none ("has `<x>`"). */
     int itemState(const std::string &item) const;
-    // Whether one is in the bag or just taken (1, 2): "has <x> available".
+    /** Whether one is in the bag or just taken (1, 2): "has `<x>` available". */
     bool itemAvailable(const std::string &item) const;
-    // The lowest slot no item in the bag, just taken or in hand has
-    // (0x41bfb0).
+    /** The lowest slot no item in the bag, just taken or in hand has (0x41bfb0). */
     int freeSlot() const;
 };
 
+/** The key of a thread's progress in GameState::talks, the name and act lower-cased. */
 std::string talkKey(std::string_view name, std::string_view act, int part, int thread);
 
-// Whether `condition` holds. An empty one does, and "1"; "0" never does.
-// "tag name" holds if the tag exists (whatever its value); with a number,
-// by its value (0x408557).
+/**
+ * Whether `condition` holds. An empty one does, and "1"; "0" never does.
+ * "tag name" holds if the tag exists (whatever its value); with a number,
+ * by its value (0x408557).
+ */
 bool testCondition(std::string_view condition, const GameState &state);
 
 } // namespace reluva::awe

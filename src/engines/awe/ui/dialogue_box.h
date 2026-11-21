@@ -18,12 +18,14 @@
 
 namespace reluva::awe {
 
+/** The box's pictures. */
 struct DialogueBoxPictures {
     const image::Image *window = nullptr;
     const image::Image *bullet = nullptr;
     const image::Image *bulletOn = nullptr;
 };
 
+/** Where a choice (or its picture) is on the screen, for clicks. */
 struct DialogueChoiceArea {
     int x = 0;
     int y = 0;
@@ -33,23 +35,25 @@ struct DialogueChoiceArea {
     bool picture = false; // its picture, not its text
 };
 
-// Draws a line said (`choices` empty) or the choices (`text` ignored),
-// the box's top at `top` (it slides in and out), over `dst` keeping its
-// alpha (an overlay). Returns where each choice is, for clicks. As the
-// game lays it out (0x43cf90): the line wrapped at 944 pixels and centred;
-// the choices from 25 pixels down the box, at x = 40, a bullet before
-// each, 4 pixels apart. A choice with a picture (`choicePictures`, null
-// for none: act 8's evidence) has it too, the pictures in a row centred
-// on x = 652, 112 apart, 42 pixels down the box; each is hit 8 pixels
-// either side (0x43cd9e). Another game's box: `wrap` and `layout`
-// (games.h).
+/**
+ * Draws a line said (`choices` empty) or the choices (`text` ignored),
+ * the box's top at `top` (it slides in and out), over `dst` keeping its
+ * alpha (an overlay). Returns where each choice is, for clicks. As the
+ * game lays it out (0x43cf90): the line wrapped at 944 pixels and centred;
+ * the choices from 25 pixels down the box, at x = 40, a bullet before
+ * each, 4 pixels apart. A choice with a picture (`choicePictures`, null
+ * for none: act 8's evidence) has it too, the pictures in a row centred
+ * on x = 652, 112 apart, 42 pixels down the box; each is hit 8 pixels
+ * either side (0x43cd9e). Another game's box: `wrap` and `layout`
+ * (games.h).
+ */
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &fonts,
                                                 const DialogueBoxPictures &pictures, int top, const std::string &text,
                                                 Color colour, const std::vector<std::string> &choices, int highlighted,
                                                 const std::vector<const image::Image *> &choicePictures = {},
                                                 int wrap = 944, const DialogueBoxLayout &layout = {});
 
-// A layout's colour (0xAARRGGBB) as drawn.
+/** A layout's colour (0xAARRGGBB) as drawn. */
 Color dialogueColour(uint32_t argb);
 
 } // namespace reluva::awe

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Small self-contained tests for common/. No framework, to keep deps at zero.
+// Small self-contained tests for common/.
 
 #include "audio/decode.h"
 #include "audio/mixer.h"
@@ -469,7 +469,7 @@ static void testZip(const std::filesystem::path &tmp) {
     using test::toBytes;
     CHECK(crc32(reinterpret_cast<const uint8_t *>("123456789"), 9) == 0xcbf43926);
 
-    // "textures/borg/borgfloor1\n" 12 times, raw-deflated by zlib.
+    // "textures/borg/borgfloor1\n" 12 times, and the same raw-deflated by zlib.
     std::string text;
     for (int i = 0; i < 12; ++i)
         text += "textures/borg/borgfloor1\n";

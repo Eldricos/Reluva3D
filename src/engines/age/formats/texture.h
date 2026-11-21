@@ -22,7 +22,6 @@ constexpr uint16_t kRgb = 17;          // 24-bit: R, G, B
 constexpr uint16_t kRgba = 18;         // 32-bit: R, G, B, A
 } // namespace texformat
 
-// A .tex file's header and its first (largest) level, decoded to RGBA.
 // A texture's flags, as far as they're known (tex.md).
 namespace texflag {
 constexpr uint32_t kClamp = 0x1; // its coordinates kept within it, not repeated
@@ -33,6 +32,7 @@ constexpr uint32_t kClamp = 0x1; // its coordinates kept within it, not repeated
 constexpr uint32_t kFullDetail = 0x8000;
 } // namespace texflag
 
+/** A .tex file's header and its first (largest) level, decoded to RGBA. */
 struct Tex {
     uint16_t format = 0;
     uint16_t levels = 0; // mipmap levels stored, each half the last
@@ -40,13 +40,17 @@ struct Tex {
     image::Image image;
 };
 
+/**
+ * Decodes a .tex file. Fails on an unknown format, or levels past the
+ * file's end (all are checked, though only the first is decoded).
+ */
 Error decodeTex(const std::vector<uint8_t> &data, Tex &out);
 
 /**
  * A shader's texture by name, as models name them ("vpbugyellow_sd"):
- * texture/<name>.tex, else the first frame of an animated texture
- * (texture/<name>-0001.tex, played as tune/<name>.movie says), else
- * texture/<name>.tga. `format` is 0 for a .tga.
+ * `texture/<name>.tex`, else the first frame of an animated texture
+ * (`texture/<name>-0001.tex`, played as `tune/<name>.movie` says), else
+ * `texture/<name>.tga`. `format` is 0 for a .tga. Fails if there's none.
  */
 Error loadTexture(const SearchSet &files, std::string_view name, Tex &out);
 

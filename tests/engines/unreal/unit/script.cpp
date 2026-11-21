@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// UnrealScript: compiled code read and shown as text, and run in the VM.
+// UnrealScript: compiled code read and shown as text, and run in the VM; settings written.
 //
 //   reluva-tests unreal.unit.script
 
@@ -226,10 +226,39 @@ void testVm() {
     (void)setCount;
 }
 
+// Settings written as SaveConfig writes them: in place of a key's line in
+// its section, at the section's end, or in a section of their own, the
+// rest of the file kept; and read back before the game's own.
+void testSettings(const std::filesystem::path &tmp) {
+    const std::filesystem::path folder = tmp / "Config";
+    std::filesystem::create_directories(folder);
+    std::ofstream(folder / "User.ini", std::ios::binary) << "[Engine.HUD]\r\nHudMode=1\r\nCrosshair=0\r\n\r\n"
+                                                            "[Engine.Input]\r\nF5=QuickLoad\r\n";
+    PackageSet set;
+    Vm vm(set);
+    vm.setConfigFolder(folder);
+    vm.saveSetting("User", "Engine.HUD", "Crosshair", "2");
+    vm.saveSetting("User", "engine.hud", "bDisplaySubtitles", "True");
+    vm.saveSetting("User", "Engine.Input", "F6", "QuickSave");
+    vm.saveSetting("User", "Engine.PlayerPawn", "MouseSensitivity", "5.000000");
+    std::ifstream in(folder / "User.ini", std::ios::binary);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(text == "[Engine.HUD]\r\nHudMode=1\r\nCrosshair=2\r\nbDisplaySubtitles=True\r\n\r\n"
+                  "[Engine.Input]\r\nF5=QuickLoad\r\nF6=QuickSave\r\n\r\n"
+                  "[Engine.PlayerPawn]\r\nMouseSensitivity=5.000000\r\n");
+    Vm next(set);
+    next.setConfigFolder(folder);
+    const std::string *crosshair = next.configSetting("Engine.HUD", "Crosshair");
+    CHECK(crosshair && *crosshair == "2");
+    Vm nowhere(set);
+    nowhere.saveSetting("User", "Engine.HUD", "Crosshair", "3"); // no folder: nothing written
+    CHECK(!nowhere.configSetting("Engine.HUD", "Crosshair"));
+}
 } // namespace
 
 static const reluva::test::Suite kSuite("unreal.unit.script",
                                         {
                                             {"script", [](const std::filesystem::path &) { testScript(); }},
                                             {"vm", [](const std::filesystem::path &) { testVm(); }},
+                                            {"settings", [](const std::filesystem::path &tmp) { testSettings(tmp); }},
                                         });

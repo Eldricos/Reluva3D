@@ -23,12 +23,14 @@ namespace reluva::botf {
  */
 class Font {
 public:
+    /** How many glyphs the sheet holds. */
     static constexpr int kGlyphs = 120;
     /** The character of each glyph, in sheet order. */
     static const std::array<char32_t, kGlyphs> kCharacters;
 
+    /** A glyph's place in the sheet and its width on the line. */
     struct Glyph {
-        /** the cell's inside, in the sheet */
+        // the cell's inside, in the sheet
         int x = 0;
         int y = 0;
         int w = 0;
@@ -36,12 +38,18 @@ public:
         int advance = 0; // from the header
     };
 
+    /** Reads the header and finds each glyph's framed cell in the sheet; fails if a row hasn't its count of cells. */
     Error load(const std::vector<uint8_t> &data);
 
-    int lineHeight() const { return _lineHeight; } // the sheet's row pitch
+    /** The sheet's row pitch, in pixels. */
+    int lineHeight() const { return _lineHeight; }
+    /** A cell's height inside its frame. */
     int glyphHeight() const { return _lineHeight - 1; }
+    /** How far a space moves the pen. */
     int spaceAdvance() const { return _spaceAdvance; }
+    /** The glyph sheet, as RGBA32. */
     const image::Image &sheet() const { return _sheet; }
+    /** Every glyph, in kCharacters' order. */
     const std::array<Glyph, kGlyphs> &glyphs() const { return _glyphs; }
     /**
      * The glyph for a character, or nullptr (space has none: it advances

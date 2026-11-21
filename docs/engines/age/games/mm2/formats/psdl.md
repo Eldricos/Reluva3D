@@ -181,7 +181,13 @@ walled edge of no length has the same road, or none, on one side. Not
 exact (four such corners aren't marked), so perhaps a wall's end post;
 not drawn. Word 3 is less than the outline's edge count every time and 0 in
 7 of London's 10 Underground junctions; it isn't a walled edge nor the
-longest, and isn't known.
+longest, and isn't known. It isn't tied to the outline's shape either:
+it isn't the vertex furthest along x or z, the highest or lowest, the
+furthest from the middle, nor the longest or shortest edge (each tried
+one either side too: at best 10 of the 37), nor the tunnel's place among
+the block's attributes (always second); and the railed junctions with
+the same outline and wall mask (`0011000000000`) carry 4, 9, 11, 12 and
+13.
 
 | Flag | Meaning | How it was settled |
 |---|---|---|
@@ -190,9 +196,15 @@ longest, and isn't known.
 | 0x10, 0x20 | the left half of a curved ceiling closed at the start, at the end | see below |
 | 0x40, 0x80 | the same for the right half | |
 | 0x100 | a curved ceiling | only on tunnel textures (95) |
-| 0x200-0x1000 | four more flags with the closing ones, "offset" in what's remembered of the names | not used |
+| 0x200, 0x400, 0x800, 0x1000 | each with one closing flag: 0x200 with 0x10, 0x400 with 0x20, 0x800 with 0x40, 0x1000 with 0x80; "offset" in what's remembered of the names | each is set only where its closing flag is (all 286 tunnels in the two cities: 35, 33, 30 and 30 times, never alone). Every closed end of a tunnel with a curved ceiling has them (59 of 59: London's Underground and San Francisco's road tunnels), and 10 of the 61 closed ends of walls without a ceiling (`s_wall_veg` on the freeway, two `s_conc_rail`). What they change isn't known; Reluva draws a closed end the same either way *(inferred)* |
 | 0x4 | goes with a second height of exactly 2 m (all 135 with it, none without); 116 of San Francisco's 120 and London's one are in elevated (0x40) blocks, and two have no walls at all: a 2 m fascia under a raised deck, which the footage shows as a plain light band along the deck's edge seen from below (Gimme SOMA under the Transbay ramp) | Reluva hangs a band the second height deep under both edges (a junction's under its walled edges), in the plain concrete middle of the current texture (`s_wall_veg`'s): what texture the game's band takes isn't known |
 | 0x4000 | on all London's railings (`s_conc_rail`, `tl_bridgerail_l`), San Francisco's 15 `s_conc_rail`, and every `s_wall_veg` wall of its road 4 (blocks 423-441); second height 1 or 3; always in 0x80 blocks | not known: not the texture's alpha (`pl_ggbridge_rail_f` is cut out too, without it), the strip, the block's height, nor what lies beyond the wall |
+
+**Closed ends meet junctions.** A tunnel's end is closed (0x10 to 0x80)
+exactly where the strip it walls ends at a junction block: all 120 closed
+ends of the 249 three-word tunnels have a junction past their end
+section's vertices, and none of the 378 open ends has one (they run on
+into the next road block, or into nothing, or ground).
 
 The names of these flags (sides, flat and curved ceilings, closed and
 offset ends) are what's remembered of the modding community's public
@@ -420,9 +432,19 @@ the two cities as above, and no code from anywhere was used.
 
 ## Open questions
 
-Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
-kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
-the tunnels' flag 0x4000. The program's
-own handling of these is encrypted
-([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md)), so they're
-for observation of the game running.
+Worked at from the two cities' files alone; what's left needs the game
+running, as the program that reads them is encrypted
+([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)):
+
+- **Block flags 0x20 and 0x80**: what decides them exactly
+  ([Block flags](#block-flags)). Both were recomputed by a later tool
+  than the one that made `sfai.psdl`, so they may rest on something that
+  isn't in the file.
+- **A junction tunnel's word 3**, and what its masks in words 6-9 mark
+  ([Tunnels, walls and railings](#tunnels-walls-and-railings)).
+- **Tunnel flag 0x4000**, and what the "offset" flags 0x200-0x1000 do to
+  a closed end (same section).
+
+Settled from the files: the divider's ends (bits 0x40 and 0x80 of its
+kind, exactly), and when a tunnel's end is closed (where it meets a
+junction, exactly).

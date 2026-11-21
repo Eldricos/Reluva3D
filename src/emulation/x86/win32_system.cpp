@@ -2,9 +2,11 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // KERNEL32's system information, timing, synchronisation and date and time
-// text, as Microsoft documents them. The process runs one thread, so
-// critical sections have nothing to guard, Sleep has nothing to wait for,
-// and a wait on an event finds it signalled (nothing else could set it).
+// text, as Microsoft documents them. The program's threads take turns,
+// giving way only at Sleep, so critical sections have nothing to guard,
+// and a wait on an event finds it signalled unless it's tracked
+// (Win32Process::trackEvent). Host threads (win32_threads.cpp) put
+// stand-ins of their own in place of these.
 
 #include "emulation/x86/win32.h"
 
@@ -215,7 +217,7 @@ void Win32Process::addSystemStandIns() {
         return 0u;
     });
 
-    // Synchronisation, for one thread.
+    // Synchronisation, for threads that take turns.
     stdcall(k, "InitializeCriticalSection", 1, [](Cpu &c) {
         if (c.valid(c.arg(0), 24))
             std::memset(c.memory().data() + c.arg(0), 0, 24);

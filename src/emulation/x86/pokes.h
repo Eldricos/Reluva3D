@@ -12,9 +12,11 @@
 
 namespace reluva::x86 {
 
-// Memory written, or saved, at a chosen moment of a run: once the clock
-// reaches a millisecond, or as an instruction is reached (before it runs).
-// For starting a program in a state its menus would take long to reach.
+/**
+ * Memory written, or saved, at a chosen moment of a run: once the clock
+ * reaches a millisecond, or as an instruction is reached (before it runs).
+ * For starting a program in a state its menus would take long to reach.
+ */
 struct Poke {
     // When: at `ms` (atAddress 0), or as the instruction at `atAddress` is
     // reached the `nth` time (1: the first).
@@ -32,30 +34,37 @@ struct Poke {
 
     // State.
     uint32_t reached = 0; // times the instruction was reached
-    uint32_t applied = 0;
+    uint32_t applied = 0; // times written or saved
 };
 
-// "WHEN:ADDR:VALUE[:SIZE]": WHEN is ms=N or at=ADDR[#N]; VALUE a number of
-// SIZE bytes (1, 2 or 4; 4 if not given) or bytes=hex ("bytes=0a0b0c").
-// False, with `error` set, if it isn't one.
+/**
+ * Reads a poke written "WHEN:ADDR:VALUE[:SIZE]": WHEN is ms=N or
+ * at=ADDR[#N]; VALUE a number (negative too) of SIZE bytes (1, 2 or 4; 4
+ * if not given) or bytes=hex ("bytes=0a0b0c").
+ * @param every Sets Poke::every.
+ * @return False, with `error` set, if it isn't one.
+ */
 bool parsePoke(const std::string &text, bool every, Poke &poke, std::string &error);
-// "WHEN:ADDR:SIZE:file", for a dump.
+/** Reads a dump written "WHEN:ADDR:SIZE:file", as parsePoke() does. */
 bool parseDump(const std::string &text, Poke &poke, std::string &error);
 
+/** The pokes of a run, applied as the run tells it where it is. */
 class Pokes {
 public:
     std::vector<Poke> list;
-    // A line for each poke applied (the first few times of an `every`).
+    // A line for each poke applied (only the first three times of an
+    // `every`, but each time it misses memory).
     std::function<void(const std::string &line)> log;
     // Writes `bytes` to the file (for dumps).
     std::function<void(const std::string &file, const std::vector<uint8_t> &bytes)> save;
 
+    /** Whether there are none. */
     bool empty() const { return list.empty(); }
-    // Whether any waits on an instruction (and so needs a trace).
+    /** Whether any waits on an instruction (and so needs a trace). */
     bool needsTrace() const;
-    // Before the instruction at cpu.eip runs.
+    /** Applies the pokes due before the instruction at cpu.eip runs. */
     void instruction(Cpu &cpu, uint64_t nowMs);
-    // Now and then (each thread slice), with the clock.
+    /** Applies the timed pokes due by `nowMs`; called now and then (each thread slice). */
     void time(Cpu &cpu, uint64_t nowMs);
 
 private:

@@ -13,24 +13,33 @@
 
 namespace reluva::awe {
 
-// The game's own binkw32.dll, run in the x86 interpreter, to check Reluva's
-// Bink decoder against: a movie opened from memory and its frames copied
-// out as the game copies them (BinkCopyToBufferRect, 32-bit, 0x406058).
-// Only the exports the game itself calls are used, with no sound and no
-// background reading.
+/**
+ * The game's own binkw32.dll, run in the x86 interpreter, to check Reluva's
+ * Bink decoder against: a movie opened from memory and its frames copied
+ * out as the game copies them (BinkCopyToBufferRect, 32-bit, 0x406058).
+ * Only the exports the game itself calls are used, with no sound and no
+ * background reading.
+ */
 class BinkDll {
 public:
+    /** Loads and starts the DLL (its bytes), with no sound device and the movie as its one file. */
     Error load(const std::vector<uint8_t> &dll);
+    /** Whether load() succeeded. */
     bool loaded() const { return _module != nullptr; }
 
-    // Opens a movie (the file's bytes); its size and frame count.
+    /** Opens a movie (the file's bytes), closing the last; gives its size and frame count. */
     Error open(const std::vector<uint8_t> &bik, int &width, int &height, uint32_t &frames);
-    // Decodes the next frame and copies it out as BGRX pixels (the game's
-    // surface type 3, or 5 with alpha), rows top to bottom; then moves on.
+    /**
+     * Decodes the next frame and copies it out as BGRX pixels (the game's
+     * surface type 3, or 5 with alpha), rows top to bottom; then moves on.
+     */
     Error frame(std::vector<uint8_t> &bgra, bool alpha = false);
-    // The same as YUY2 (surface type 13): Y U Y V for each pair of pixels,
-    // to tell the decoding from the colour conversion.
+    /**
+     * The same as YUY2 (surface type 13): Y U Y V for each pair of pixels,
+     * to tell the decoding from the colour conversion.
+     */
     Error frameYuy2(std::vector<uint8_t> &yuy2);
+    /** Closes the movie, if one is open. */
     void close();
 
 private:

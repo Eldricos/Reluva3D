@@ -22,27 +22,33 @@
 
 namespace reluva::glide {
 
+/**
+ * The part of a Glide library's stand-in that Glide 2's and Glide 3's
+ * share: its exports, their call counts, and linear frame buffer locks.
+ */
 class GlideDll {
 public:
     virtual ~GlideDll() = default;
     GlideDll(const GlideDll &) = delete;
     GlideDll &operator=(const GlideDll &) = delete;
 
-    // The library's file name ("glide2x.dll").
+    /** The library's file name ("glide2x.dll"). */
     const std::string &dllName() const { return _dllName; }
-    // Each export's decorated name -> its native function's address.
+    /** Each export's decorated name -> its native function's address. */
     const std::map<std::string, uint32_t> &exports() const { return _exports; }
-    // The same, as imports of dllName().
+    /** Provides the exports to `process`, as imports of dllName(). */
     void provideTo(x86::Win32Process &process) const;
-    // How many times each export was called.
+    /** How many times each export was called. */
     const std::map<std::string, uint64_t> &calls() const { return _calls; }
-    // For the mode-setting functions (grFogMode, grTexFilterMode,
-    // grDitherMode, grDepthBufferMode, grCullMode, grEnable...): how many
-    // times each mode was asked for (the TMU functions' second argument).
+    /**
+     * For the mode-setting functions (grFogMode, grTexFilterMode,
+     * grDitherMode, grDepthBufferMode, grCullMode, grEnable...): how many
+     * times each mode was asked for (the TMU functions' second argument).
+     */
     const std::map<std::string, std::map<uint32_t, uint64_t>> &modes() const { return _modes; }
-    // The names this stands in for only as stubs.
+    /** The names this stands in for only as stubs. */
     std::vector<std::string> stubs() const { return _stubs; }
-    // The Glide 2 front end the calls end in (Glide 3's core()).
+    /** The Glide 2 front end the calls end in (Glide 3's core()). */
     Glide2 &core() { return *_core; }
     // How gu3dfGetInfo and gu3dfLoad read a file the program names (its
     // own path): the whole file into `bytes`, false if there's none. Unset,
@@ -50,32 +56,56 @@ public:
     std::function<bool(const std::string &path, std::vector<uint8_t> &bytes)> readFile;
 
 protected:
-    // `memory` is where guest-visible buffers (linear frame buffer locks)
-    // are allocated. The derived class gives its Glide 2 front end with
-    // setCore() before any call.
+    /**
+     * `memory` is where guest-visible buffers (linear frame buffer locks)
+     * are allocated. The derived class gives its Glide 2 front end with
+     * setCore() before any call.
+     */
     GlideDll(x86::Cpu &cpu, x86::Arena &memory, std::string dllName);
+    /** Sets the front end the exports call; it has to outlive this. */
     void setCore(Glide2 &core) { _core = &core; }
 
+    /** An export's native function: its result goes in EAX. */
     using Fn = std::function<uint32_t(x86::Cpu &)>;
-    // An export: `name` undecorated ("grDrawTriangle"), `argBytes` its
-    // arguments' size.
+    /**
+     * An export, counted in calls() (and in modes() for the mode-setting
+     * functions), which pops its arguments as stdcall does.
+     * @param name Undecorated ("grDrawTriangle").
+     * @param argBytes The arguments' size, which the decorated name ends in.
+     */
     void add(const std::string &name, int argBytes, Fn fn);
+    /**
+     * An export not carried out: it logs once through the front end's
+     * notImplemented() and returns `result`, and is listed in stubs().
+     */
     void stub(const std::string &name, int argBytes, uint32_t result = 0);
-    // A procedure that isn't exported, only handed out (grGetProcAddress's
-    // extension procedures): its native function's address.
+    /**
+     * A procedure that isn't exported, only handed out (grGetProcAddress's
+     * extension procedures): its native function's address.
+     */
     uint32_t addProc(const std::string &name, int argBytes, Fn fn);
-    const uint8_t *guest(uint32_t address, uint32_t size) const; // null if not all there
+    /** The guest's bytes at `address`, or null if it is 0 or not all `size` bytes are there. */
+    const uint8_t *guest(uint32_t address, uint32_t size) const;
+    /** Argument `i` (from 0) of the call, read as a float. */
     static float argFloat(const x86::Cpu &c, int i);
-    // guFogTableIndexToW and the guFogGenerate functions.
+    /** Adds guFogTableIndexToW and the guFogGenerate functions. */
     void addFogUtilities();
-    // gu3dfGetInfo and gu3dfLoad; Gu3dfHeader's LODs and aspect in Glide
-    // 3's log2 form if `glide3`, else Glide 2's constants.
+    /**
+     * Adds gu3dfGetInfo and gu3dfLoad, which read files through readFile;
+     * Gu3dfHeader's LODs and aspect in Glide
+     * 3's log2 form if `glide3`, else Glide 2's constants.
+     */
     void add3dfLoaders(bool glide3);
 
-    // grLfbLock and grLfbUnlock, with the guest copies below. `info` is
-    // the guest's GrLfbInfo_t (the same in Glide 2 and 3).
+    /**
+     * grLfbLock and grLfbUnlock, with the guest copies below. `info` is
+     * the guest's GrLfbInfo_t (the same in Glide 2 and 3).
+     * @return 1 if done, 0 if the lock failed.
+     */
+    ///@{
     uint32_t lfbLock(uint32_t type, uint32_t buffer, uint32_t writeMode, uint32_t origin, bool pipeline, uint32_t info);
     uint32_t lfbUnlock(uint32_t type, uint32_t buffer);
+    ///@}
 
     x86::Cpu &_cpu;
     x86::Arena &_memory;

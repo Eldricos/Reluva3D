@@ -54,16 +54,19 @@ class OptionsScreen : LayoutScreen {
 public:
     using LayoutScreen::repeating;
     using LayoutScreen::setSoundHandler;
+    /** Whether the screen is still open, or how it was left. */
     enum class Result { kOpen, kAccepted, kCancelled };
 
     /** `lexicon` may be empty: the words are then the English ones. */
     OptionsScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
-    Error load(); // the two layouts
+    /** Reads opening.wdf and options.wdf; fails if the layout lacks a widget the screen needs. */
+    Error load();
     /** Shows `options`, to be changed until Accept or Cancel. */
     void open(const GameOptions &options) {
         _options = options;
         _list = 0;
     }
+    /** Draws the screen with the options, and a setting's list if one is open. */
     void draw(Surface &screen) const;
     /**
      * The time, in milliseconds: a timer's arrow held steps again.

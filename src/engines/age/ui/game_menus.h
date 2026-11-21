@@ -23,8 +23,10 @@
 
 namespace reluva::age {
 
+/** The Options and the main menu's dialogs (see the top of this file). */
 class GameMenus {
 public:
+    /** A screen or dialog of them; kNone while none is open. */
     enum class Screen {
         kNone,
         kOptions,
@@ -35,6 +37,7 @@ public:
         kAbout,
         kDefaults,        // odef_dlg: restore the defaults?
         kDuplicateKey,    // ctrl_dlg
+        kControlWarning,  // Control Warning: no game controller connected (Reluva's words)
         kQuit,            // quit_dlg
         kReplayList,      // rpl_bk: choose a replay file
         kReplayName,      // REDIT_BK: save as, or rename
@@ -49,6 +52,7 @@ public:
         kCitySelection,   // cenv_dlg: Race Locales
         kLocked,          // lock_dlg: you cannot pick a locked vehicle
     };
+    /** What handle() asks of the caller. */
     enum class Action {
         kNone,
         kClosed,        // back to whatever opened it
@@ -58,21 +62,33 @@ public:
         kDriverChanged, // a driver added or deleted: the current one's record to read
     };
 
+    /**
+     * Reads the menus' layout and pictures; loaded() says whether they came.
+     * @param mixer The sound output the Audio Options set; nullptr with none.
+     * @param savePath Where the options are saved and the replays found.
+     */
     GameMenus(System &sys, const SearchSet &files, const GameStrings &strings, audio::Mixer *mixer,
               std::filesystem::path savePath);
+    /** Whether the menus' layout (tune/widget.csv) and the Options' background were found. */
     bool loaded() const { return _ok; }
 
+    /** Opens a screen, starting from the options in force. */
     void open(Screen s);
+    /** The screen or dialog shown. */
     Screen screen() const { return _screen; }
+    /** Whether a screen or dialog is shown. */
     bool isOpen() const { return _screen != Screen::kNone; }
     /** A dialog over the menu that opened it (drawn first). */
     bool isDialog() const { return isOpen() && overlay(_screen); }
+    /** Takes a key or click; what the caller is to do about it. */
     Action handle(const Event &ev);
+    /** Draws the screen open over the 640 x 480 overlay. */
     void draw(Surface &overlay, uint64_t nowMs);
+    /** Whether keys are being typed into it (a name, or a key to bind). */
     bool typing() const;
-    /** After a replay: ask whether to save it, under this name. */
+    /** After a replay: ask whether to save it, under this name (cut at 40 characters). */
     void askToSaveReplay(const std::string &name);
-    /** Save the replay played as (the replay's own Save). */
+    /** Save the replay played as (the replay's own Save): opens the name to change, cut at 40 characters. */
     void nameReplay(const std::string &name);
     /**
      * The drivers and their records, for the driver dialogs (and the
@@ -85,9 +101,11 @@ public:
     }
     /** The race menu's choice, for Change Race Options and Race Locales. */
     void setFrontEnd(FrontEnd *front) { _front = front; }
+    /** The replay chosen to play (Action::kLoadReplay). */
     const std::filesystem::path &replayFile() const { return _replayFile; }
     /** A recording to say now (the time or weather chosen, an alert), once. */
     std::string takeVoice() { return std::exchange(_voice, std::string()); }
+    /** The name typed for the replay to save (Action::kSaveReplay). */
     const std::string &replayName() const { return _name; }
 
 private:
@@ -116,6 +134,7 @@ private:
     bool hit(const Item &item, int x, int y, int &w, int &h) const;
     void drawItems(Surface &o, const std::vector<Item> &list, int focus) const;
     void drawScreenWords(Surface &o, uint64_t nowMs) const;
+    void drawControlWarning(Surface &o) const;
     void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
     Action done(); // the options kept, saved and put in force
     Action cancel();
@@ -131,6 +150,7 @@ private:
 
     Screen _screen = Screen::kNone;
     Screen _under = Screen::kNone; // the screen a dialog is over
+    int _controllerBefore = 0;     // CONTROLLERS before Control Warning asked
     int _focus = 0;
     GameOptions _edit;    // as changed on the screens
     GameOptions _entered; // as they were when the Options opened

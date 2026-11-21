@@ -15,6 +15,8 @@
 #   archives every archive's files listed (ar-list)
 #   files    every texture, model, city, road map, placement list, path
 #            set and visibility file read; those it can't, named (check)
+#   cars     every car driven on a flat plane by Reluva's simulation, and
+#            ranked against the game's figures for it (cars)
 #   play     the game itself, headless: the opening skipped, the race
 #            screen (which says it needs 3D) left; a checksum of every
 #            screen shown, and its titles (game-run)
@@ -71,6 +73,8 @@ elseif(STEP STREQUAL "archives")
     endforeach()
 elseif(STEP STREQUAL "files")
     record_run(files "files read:" age check "${game_dir}")
+elseif(STEP STREQUAL "cars")
+    record_run(cars "rank agreement" age cars "${game_dir}")
 elseif(STEP STREQUAL "play")
     record_run(play "screens:" age game-run "${game_dir}")
 elseif(STEP STREQUAL "viewer")

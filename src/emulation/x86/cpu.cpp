@@ -1272,8 +1272,10 @@ void Cpu::callNative(uint32_t address) {
     reg[ESP] += popBytes;
 }
 
-// Runs instructions through the decoded-instruction cache (cpu_cache.cpp),
-// and native functions, until eip reaches `returnAddress`.
+// Runs instructions, and native functions, until eip reaches
+// `returnAddress` or the thread yields: through the decoded-instruction
+// cache (cpu_cache.cpp), but one at a time while it's off, or something
+// traces or watches them.
 void Cpu::runUntil(uint32_t returnAddress) {
     const uint32_t nativeStart = _nativeBase - kNativeStride * kReturnSlots;
     ++_codeEpoch; // the host may have written memory since the last run

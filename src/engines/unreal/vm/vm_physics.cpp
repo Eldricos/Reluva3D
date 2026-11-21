@@ -7,7 +7,7 @@
 // the physics modes scripts set (walking, falling, swimming, flying,
 // projectiles, rotating, movers gliding between keyframes); and pawns'
 // latent movement. Reluva's own model of UE1's movement, from what the
-// scripts set and expect: see docs/engines/unreal_vm.md.
+// scripts set and expect: see docs/engines/unreal/games/ds9fallen/systems/movement.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -189,21 +189,22 @@ std::string lower(const std::string &s) {
 
 } // namespace
 
-// --- Properties ----------------------------------------------------------------------------
+// Properties.
 
 // By the class and the name's text where it is: the engine side asks for
 // properties by string literals, many times an actor a tick, and interning
 // the name each time took a third of a level's run.
-Value *ScriptLevel::prop(VmObject *a, const char *name) {
-    if (!a || !a->cls)
-        return nullptr;
-    const SlotKey key{a->cls, name};
+// A class's slot for a property (by its name's text's address), found by
+// name the first time; prop() keeps the latest in its cache.
+int ScriptLevel::propSlot(const VmClass *cls, const char *name) {
+    const SlotKey key{cls, name};
     auto it = _slots.find(key);
     if (it == _slots.end()) {
-        VmProperty *p = a->cls->findProperty(_vm.name(name));
+        const VmProperty *p = cls->findProperty(_vm.name(name));
         it = _slots.emplace(key, p ? p->slot : -1).first;
     }
-    return it->second >= 0 && size_t(it->second) < a->values.size() ? &a->values[size_t(it->second)] : nullptr;
+    _slotCache[slotHash(cls, name)] = {cls, name, it->second};
+    return it->second;
 }
 
 // Where a class's collision properties are in its values, found once: the
@@ -283,7 +284,7 @@ Vec ScriptLevel::extentOf(VmObject *a) {
     return {r, r, h};
 }
 
-// --- The world -----------------------------------------------------------------------------
+// The world.
 
 bool ScriptLevel::clear(const Vec &point, const Vec &extent, VmObject *self) {
     if (_collision && (extent[0] > 0 || extent[2] > 0 ? _collision->solid(Vec3f{point[0], point[1], point[2]},
@@ -573,7 +574,7 @@ bool ScriptLevel::moverOverlaps(VmObject *m, const Vec &centre, const Vec &e) {
     return sp.b->collision->solid(Vec3f{c[0], c[1], c[2]}, Vec3f{le[0], le[1], le[2]});
 }
 
-// --- Moving ---------------------------------------------------------------------------------
+// Moving.
 
 ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     MoveHit out;
@@ -588,6 +589,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     float time = 1;
     Vec n{};
     VmObject *by = nullptr;
+    int32_t node = -1;
     // As ULevel::MoveActor: swept 2 units further than asked, and stopped
     // 2 units back along its way from what it hits.
     const float asked = length(delta);
@@ -618,6 +620,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
             time = h.time;
             n = {h.normal[0], h.normal[1], h.normal[2]};
             by = _levelInfo;
+            node = h.node;
         }
     }
     // Actors and movers that block it.
@@ -650,6 +653,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
                 time = t;
                 n = on;
                 by = o;
+                node = -1;
             }
         }
     }
@@ -672,6 +676,7 @@ ScriptLevel::MoveHit ScriptLevel::moveActor(VmObject *a, const Vec &delta) {
     out.time = time;
     out.normal = n;
     out.actor = by;
+    out.node = node;
     // Then, as the engine: what it bumped told (Bump2 then Bump, the other
     // first), what it touches, and last its zone.
     if (by && by != _levelInfo) {
@@ -927,8 +932,11 @@ bool ScriptLevel::nodeSideExtent(const Vec &start, const Vec &end, const Vec &si
 
 // A surface's texture as it is now: swapped by the scripts, or its own.
 VmObject *ScriptLevel::surfaceTexture(const Vec &start, const Vec &end) {
-    const int surf = surfaceAt(start, end);
-    if (surf < 0)
+    return surfaceTextureOf(surfaceAt(start, end));
+}
+
+VmObject *ScriptLevel::surfaceTextureOf(int surf) {
+    if (surf < 0 || size_t(surf) >= _model.surfs.size())
         return nullptr;
     ObjectRef tex = _vm.packages().resolve(_map, _model.surfs[size_t(surf)].texture);
     if (auto it = _surfaceSwaps.surfaces.find(surf); it != _surfaceSwaps.surfaces.end())
@@ -972,10 +980,11 @@ bool ScriptLevel::worldBetween(const Vec &start, const Vec &end, float slack) {
 }
 
 VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, const Vec &extent, bool actors,
-                             Vec &hitLocation, Vec &hitNormal) {
+                             Vec &hitLocation, Vec &hitNormal, int32_t *node) {
     float time = 1;
     VmObject *by = nullptr;
     Vec n{};
+    int32_t bsp = -1;
     if (_collision) {
         const LevelCollision::Hit h = _collision->trace(
             Vec3f{start[0], start[1], start[2]}, Vec3f{end[0], end[1], end[2]}, Vec3f{extent[0], extent[1], extent[2]});
@@ -983,6 +992,7 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
             time = h.time;
             n = {h.normal[0], h.normal[1], h.normal[2]};
             by = _levelInfo;
+            bsp = h.node;
         }
     }
     // Movers count as the world; other actors only if asked.
@@ -1006,6 +1016,7 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
                 time = t;
                 n = on;
                 by = o;
+                bsp = -1;
             }
         };
         if (actors)
@@ -1017,10 +1028,12 @@ VmObject *ScriptLevel::trace(VmObject *self, const Vec &start, const Vec &end, c
     }
     hitLocation = add(start, mul(sub(end, start), time));
     hitNormal = n;
+    if (node)
+        *node = bsp;
     return by;
 }
 
-// --- Physics ---------------------------------------------------------------------------------
+// Physics.
 
 void ScriptLevel::rotate(VmObject *a, float dt) {
     Value *rot = prop(a, "Rotation");
@@ -1254,9 +1267,43 @@ bool ScriptLevel::outOfWorld(VmObject *a, int physics) {
     return true;
 }
 
+namespace {
+
+// The modes each kind of pawn moves in, by its class's own physics switch
+// in Engine.dll: The Fallen's player (0x10368c80) walks, falls, swims,
+// flies, follows a path and climbs; its other pawns (0x10363310) also
+// trail and fly by momentum; a plain pawn (0x10361a70) also walks simply
+// and swims as a fish. In any other mode a pawn doesn't move.
+bool pawnMoves(int physics, bool player, bool fallen) {
+    switch (physics) {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 8:
+    case 9:
+        return true;
+    case 13:
+    case 14:
+    case 15:
+        return player;
+    case 11:
+    case 17:
+        return !player;
+    case 32:
+    case 35:
+        return !player && !fallen;
+    default:
+        return false;
+    }
+}
+
+} // namespace
+
 void ScriptLevel::move(VmObject *a, int physics, float dt) {
-    Value *physicsValue = prop(a, "Physics");
     if (physics == kPhysNone)
+        return;
+    if (_vm.isA(a, "Pawn") && !pawnMoves(physics, _vm.isA(a, "CTVE_PlayerPawn"), _vm.isA(a, "CTVE_Pawn")))
         return;
     if (outOfWorld(a, physics))
         return;
@@ -1321,19 +1368,15 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
         if (!_vm.isA(a, "Pawn"))
             break; // a pawn's physics only
         const bool swim = physics == kPhysSwimming;
+        if (swim && _vm.isA(a, "CTVE_PlayerPawn")) {
+            swimPlayer(a, dt);
+            break;
+        }
         if (swim && !_vm.isA(a, "PlayerPawn")) {
             swimPawn(a, dt, false);
             break;
         }
         swimOrFly(a, dt, swim);
-        if (swim && !a->deleted) {
-            Value *r = prop(a, "Region");
-            VmObject *z = r && !r->fields.empty() ? r->fields[0].asObject() : nullptr;
-            if (!z || !boolOf(prop(z, "bWaterZone"))) {
-                physicsValue->i = kPhysFalling;
-                _vm.callEvent(a, "Falling");
-            }
-        }
         break;
     }
     case kPhysProjectile: {
@@ -1356,8 +1399,8 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
     }
 }
 
-// --- Walking, falling, swimming, flying: as Engine.dll's ------------------------------------
-// (read for what they do; see docs/engines/unreal_vm.md, Movement.)
+// Walking, falling, swimming, flying: as Engine.dll's.
+// (read for what they do; see docs/engines/unreal/games/ds9fallen/systems/movement.md, Movement.)
 
 ScriptLevel::ZoneFeel ScriptLevel::zoneFeel(VmObject *a) {
     ZoneFeel z;
@@ -1376,11 +1419,6 @@ ScriptLevel::ZoneFeel ScriptLevel::zoneFeel(VmObject *a) {
     return z;
 }
 
-// Velocity towards the acceleration (calcVelocity): the acceleration only
-// capped at AccelRate (30% of it walking or crouching); turned towards
-// it by friction; with none, braking (the player's in one go and stopped
-// under 2.2 a second, the AI's in steps of 0.03 s and stopped under 10);
-// then up to the speed, walking easing down to 30% of it.
 // A crawler's walk (APawn::physSimpleWalking, SR3_Leech): forward the
 // way it faces at GroundSpeed (its acceleration aside, its AccelRate held
 // at 300), along the floor found 10 over and under where that takes it,
@@ -1508,11 +1546,14 @@ void ScriptLevel::pawnRotation(VmObject *a, float dt, const Vec &velocityBefore)
 }
 
 // The water line between a point in the water and one out of it, found by
-// halving (APawn::findWaterLine): the last point found in the water.
+// halving to within 0.1 squared (APawn::findWaterLine, 0x10367ee0): the
+// last point found in the water. Given them the other way round, as
+// startSwimming does, it's `in` itself unless the first halfway point is
+// wet, then near `out`.
 Vec ScriptLevel::findWaterLine(const Vec &in, const Vec &out) {
     Vec a = in;
     Vec b = out;
-    for (int k = 0; k < 40 && dot(sub(b, a), sub(b, a)) > 0.01f; ++k) {
+    for (int k = 0; k < 64 && dot(sub(b, a), sub(b, a)) >= 0.1f; ++k) {
         const Vec m = mul(add(a, b), 0.5f);
         if (waterAt({m[0], m[1], m[2]}))
             a = m;
@@ -1604,6 +1645,168 @@ void ScriptLevel::swimPawn(VmObject *a, float dt, bool fish) {
                               int32_t(std::lround(std::atan2(v[1], v[0]) * 32768 / 3.14159265f)) & 0xffff, 0);
 }
 
+namespace {
+
+constexpr float kNoSurface = -9999999;
+
+} // namespace
+
+// The player's chest above its Location: ChestHeight of its height (its
+// whole height when swimming, as updateBodyRegions measures it).
+float ScriptLevel::chestOffset(VmObject *a) {
+    return floatOf(prop(a, "ChestHeight"), 0.65f) * floatOf(prop(a, "CollisionHeight"), 49.5f);
+}
+
+// The surface over the player: the water line between it and 100 over its
+// height, if the one is in the water and the other isn't (Engine.dll's
+// findWaterLine for The Fallen's player keeps it, 0x10370f70).
+void ScriptLevel::measureWaterSurface(VmObject *a) {
+    const Vec at = vecOf(prop(a, "Location"));
+    const Vec top = add(at, {0, 0, floatOf(prop(a, "CollisionHeight"), 49.5f) + 100});
+    _waterSurface[a] = waterAt(at) && !waterAt(top) ? findWaterLine(at, top)[2] : kNoSurface;
+}
+
+// The player's chest kept in the water (AdjustToWaterSurface, 0x10371240),
+// after a move from `from` to `to`. Chest in the water: the surface
+// measured again. Out of it: the player moved back down to the water line
+// (and 0.1 under it), along the move if it started under the line, else
+// straight down, sliding along a wall in up to three goes. If the chest is
+// still dry (on the bottom of a shore, say), Landed((0,0,1)) and true: the
+// scripts decide what it does next.
+bool ScriptLevel::adjustToWaterSurface(VmObject *a, const Vec &from, const Vec &to) {
+    const Vec up{0, 0, chestOffset(a)};
+    const Vec chestTo = add(to, up);
+    if (waterAt(chestTo)) {
+        measureWaterSurface(a);
+        return false;
+    }
+    const Vec chestFrom = add(from, up);
+    const Vec line = waterAt(chestFrom) ? findWaterLine(chestFrom, chestTo) : chestFrom;
+    const float drop = chestTo[2] - line[2] + 0.1f;
+    const Vec move = sub(to, from);
+    Vec back{0, 0, -drop};
+    if (waterAt(chestFrom) && move[2] > 0.01f)
+        back = mul(move, -drop / move[2]);
+    for (int k = 0; k < 3 && dot(back, back) > 1e-6f; ++k) {
+        const MoveHit h = moveActor(a, back);
+        if (a->deleted)
+            return true;
+        if (!h.hit() || h.normal[2] >= 0.65f)
+            break;
+        // Along the wall, made long enough to come down as far still.
+        const float wantZ = back[2] * (1 - h.time);
+        back = mul(sub(back, mul(h.normal, dot(back, h.normal))), 1 - h.time);
+        if (back[2] < -1e-4f)
+            back = mul(back, wantZ / back[2]);
+    }
+    if (!waterAt(add(vecOf(prop(a, "Location")), up))) {
+        _vm.callEvent(a, "Landed", {_vm.vectorValue(0, 0, 1)});
+        return true;
+    }
+    measureWaterSurface(a);
+    return false;
+}
+
+// The Fallen's player swimming (ACTVE_PlayerPawn::physSwimming,
+// 0x10371a60), not the engine's pawns' swim: the chest kept in the water;
+// near the surface (the chest within 1 of it) the player floats there,
+// not rising out; no buoyancy; three moves at most, sliding along walls,
+// the surface a ceiling against slopes; at the surface a wall can be a
+// ledge to clamber onto or a ladder to climb. No HitWall; its Velocity is
+// what it swims at, not what it moved, flat at the surface.
+void ScriptLevel::swimPlayer(VmObject *a, float dt) {
+    Value *vel = prop(a, "Velocity");
+    if (!vel || dt <= 0)
+        return;
+    const Vec start = vecOf(prop(a, "Location"));
+    if (adjustToWaterSurface(a, start, start) || a->deleted)
+        return;
+    Vec accel = vecOf(prop(a, "Acceleration"));
+    bool atSurface = false;
+    if (auto it = _waterSurface.find(a); it != _waterSurface.end() && it->second > -100000) {
+        const float depth = std::clamp(it->second - (start[2] + chestOffset(a)), 0.0f, 100.0f);
+        if (depth < 100 && accel[2] > -240)
+            accel[2] = std::min(accel[2], depth);
+        atSurface = depth < 1;
+    }
+    // In the water the chest is in: its friction, not the Region's.
+    float friction = 1.2f;
+    if (const Value *r = prop(a, "ChestRegion"); r && !r->fields.empty())
+        if (VmObject *zone = r->fields[0].asObject())
+            friction = floatOf(prop(zone, "ZoneFluidFriction"), friction);
+    const ZoneFeel z = zoneFeel(a);
+    Vec v = vecOf(vel);
+    calcVelocity(a, v, accel, dt, floatOf(prop(a, "WaterSpeed"), 200), friction, true, false, false, z.gravity);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
+
+    Vec delta = mul(add(v, z.velocity), dt);
+    const Vec desired = normalOf(delta);
+    Vec lastNormal{};
+    float timeLeft = 1;
+    for (int k = 0; k < 3 && timeLeft > 0.01f; ++k) {
+        if (atSurface && delta[2] > 0 && lastNormal[2] < 0.65f)
+            delta[2] = 0;
+        const Vec from = vecOf(prop(a, "Location"));
+        const MoveHit h = moveActor(a, delta);
+        if (a->deleted)
+            return;
+        if (!atSurface) {
+            if (adjustToWaterSurface(a, from, add(from, delta)) || a->deleted)
+                return;
+        } else if (h.hit() && h.actor == _levelInfo) {
+            // A ledge to clamber onto; else a step, up which the player is
+            // moved, then down MaxStepHeight + 2: with its chest out of the
+            // water there, it lands and walks (0x10371fa7); else a ladder.
+            const Vec flat{delta[0], delta[1], 0};
+            float step = 0;
+            Sweep hitNow = sweepOf(h);
+            if (testForLedge(a, hitNow, flat, &step)) {
+                if (askClimb(a, h.normal, kPhysClambering))
+                    return;
+                step = floatOf(prop(a, "LedgeDepth")) / (2 * defaultRadius(a));
+            }
+            if (step > 0) {
+                moveActor(a, {0, 0, -(floatOf(prop(a, "MaxStepHeight"), 25) + 2)});
+                if (a->deleted)
+                    return;
+                const Vec now = vecOf(prop(a, "Location"));
+                if (!waterAt(add(now, {0, 0, chestOffset(a)}))) {
+                    if (Value *old = prop(a, "OldLocation"))
+                        _vm.setVector(*old, now[0], now[1], now[2]);
+                    _vm.callEvent(a, "Landed", {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2])});
+                    if (!a->deleted)
+                        if (Value *p = prop(a, "Physics"))
+                            p->i = kPhysWalking;
+                    return;
+                }
+            } else if (checkClimbing(a, h.normal, flat, true, false, true, true) &&
+                       askClimb(a, h.normal, kPhysClimbing)) {
+                return;
+            }
+        }
+        if (!h.hit())
+            break;
+        timeLeft *= 1 - h.time;
+        const Vec left = mul(delta, 1 - h.time);
+        if (atSurface && h.normal[2] > 0 && h.normal[2] < 0.65f)
+            delta = twoWallAdjust(desired, left, h.normal, {0, 0, -1}, h.time);
+        else if (k == 0)
+            delta = sub(left, mul(h.normal, dot(left, h.normal)));
+        else
+            delta = twoWallAdjust(desired, left, h.normal, lastNormal, h.time);
+        lastNormal = h.normal;
+    }
+    if (atSurface && !a->deleted) {
+        v = vecOf(vel);
+        _vm.setVector(*vel, v[0], v[1], 0);
+    }
+}
+
+// Velocity towards the acceleration (calcVelocity): the acceleration only
+// capped at AccelRate (30% of it walking or crouching); turned towards
+// it by friction; with none, braking (the player's in one go and stopped
+// under 2.2 a second, the AI's in steps of 0.03 s and stopped under 10);
+// then up to the speed, walking easing down to 30% of it.
 void ScriptLevel::calcVelocity(VmObject *a, Vec &v, Vec &accel, float dt, float maxSpeed, float friction, bool fluid,
                                bool brake, bool buoyant, const Vec &gravity) {
     const bool player = _vm.isA(a, "CTVE_PlayerPawn");
@@ -1725,18 +1928,57 @@ void ScriptLevel::setBase(VmObject *a, VmObject *base) {
 // floor's slope with up to three slides, told HitWall at each wall; then
 // down onto the floor (sliding down one too steep), else falling; its
 // velocity what it really moved.
-void ScriptLevel::walkPlayer(VmObject *a, float dt) {
+void ScriptLevel::walkPlayer(VmObject *a, float dt, int iterations) {
     Value *vel = prop(a, "Velocity");
     Value *accelValue = prop(a, "Acceleration");
     const Vec start = vecOf(prop(a, "Location"));
     const ZoneFeel z = zoneFeel(a);
+    auto setFlag = [&](const char *name, bool on) {
+        if (Value *f = prop(a, name))
+            *f = Value::boolValue(on);
+    };
+    setFlag("bStepped", false);
     Vec accel = vecOf(accelValue);
+    // A narrow opening's assist it's touching (CTVE_NavigationAssist with
+    // bNarrowOpening) keeps it to the assist's line when heading its way:
+    // only the push along the assist's X is kept, and the push toward its
+    // line, all of it this frame (0x1036c157).
+    bool onAssist = false;
+    if (const VmProperty *touching = a->cls->findProperty(_vm.name("Touching")))
+        for (int k = 0; k < std::min(4, touching->arrayDim); ++k) {
+            VmObject *t = a->values[size_t(touching->slot + k)].asObject();
+            if (!t || t->deleted || !_vm.isA(t, "CTVE_NavigationAssist") || !boolOf(prop(t, "bNarrowOpening")))
+                continue;
+            onAssist = true;
+            const Vec at = vecOf(prop(t, "Location"));
+            const float dx = at[0] - start[0];
+            const float dy = at[1] - start[1];
+            const Vec push = mul(accel, dt);
+            if (length(push) <= 0 || std::hypot(dx, dy) <= 0.1f || dx * push[0] + dy * push[1] <= 0)
+                continue;
+            const Value *r = prop(t, "Rotation");
+            const auto rot = r ? Vm::rotatorOf(*r) : std::array<int32_t, 3>{};
+            const auto f = rotationAxes({rot[0], rot[1], rot[2]});
+            const Vec x{f[0][0], f[0][1], f[0][2]};
+            accel = mul(x, dot(x, accel));
+            const float along = x[0] * dx + x[1] * dy;
+            const Vec onLine = add(start, mul(x, along));
+            accel[0] += (at[0] - onLine[0]) / dt;
+            accel[1] += (at[1] - onLine[1]) / dt;
+        }
+    // On a pawn: pushed off it.
     if (Value *b = prop(a, "Base"); b && b->asObject() && _vm.isA(b->o, "Pawn")) {
         Vec away = sub(start, vecOf(prop(b->o, "Location")));
         away[2] = 0;
         accel = add(accel, mul(normalOf(away), 100));
     }
+    // Pushing on: the auto-duck's timer, set back by a fall or a real move.
+    if (Value *t = prop(a, "PushToAutoDuckTimer"))
+        *t = Value::floatValue(t->asFloat() + dt);
     accel[2] = 0;
+    if (accelValue)
+        _vm.setVector(*accelValue, accel[0], accel[1], accel[2]);
+    setFlag("bJustTeleported", false);
     Vec v = vecOf(vel);
     calcVelocity(a, v, accel, dt, floatOf(prop(a, "GroundSpeed"), 320), z.groundFriction, false, true, false,
                  z.gravity);
@@ -1749,77 +1991,88 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
     const Vec floorN = floorValue ? vecOf(floorValue) : Vec{0, 0, 1};
     delta = sub(delta, mul(floorN, dot(delta, floorN)));
     const float stepHeight = floatOf(prop(a, "MaxStepHeight"), 25);
+    auto none = [](const Vec &d) {
+        return std::fabs(d[0]) < 1e-4f && std::fabs(d[1]) < 1e-4f && std::fabs(d[2]) < 1e-4f;
+    };
     bool stepped = false;
     float remaining = 1;
-    for (int it = 0; it < 3 && remaining > 0.01f && !a->deleted; ++it) {
-        if (std::fabs(delta[0]) < 1e-4f && std::fabs(delta[1]) < 1e-4f && std::fabs(delta[2]) < 1e-4f)
-            break;
-        const Vec dir = normalOf(delta);
-        const Vec was = vecOf(prop(a, "Location"));
+    for (int it = iterations; it < 3 && remaining > 0.01f && !none(delta); ++it) {
         const MoveHit h = moveActor(a, delta);
-        if (a->deleted || !h.hit())
+        if (!a->deleted && physicsOf(a) == kPhysSwimming) {
+            playerStartSwimming(a, start);
+            return;
+        }
+        if (a->deleted)
+            return;
+        if (!h.hit())
             break;
         remaining -= h.time * remaining;
         delta = mul(delta, 1 - h.time);
-        // A ledge or a ladder there (Engine.dll's TestForLedge, then
-        // CheckClimbing, on the move left): the walk ends.
-        if (h.normal[2] < 0.65f && climbBlocked(a, h.actor, h.normal, delta))
+        // TestForLedge on whatever stopped it: a ledge to clamber onto (the
+        // walk ends if the scripts take it); else the share of the move a
+        // step up or a duck took, and on with the rest (0x1036c0e0).
+        _lastLedgeNode = -2;
+        Sweep hit = sweepOf(h);
+        float out = 0;
+        if (testForLedge(a, hit, delta, &out) && askClimb(a, hit.normal, kPhysClambering))
             return;
-        // A step up (the engine's ledge test does it for small steps): up, across, down.
-        if (h.normal[2] < 0.65f && remaining > 0.01f) {
-            Value *loc = prop(a, "Location");
-            const Value here = *loc;
-            const MoveHit up = moveActor(a, {0, 0, stepHeight});
-            const MoveHit across = moveActor(a, delta);
-            const MoveHit down = moveActor(a, {0, 0, -(stepHeight * up.time + 2)});
-            if (across.time > 0 && down.hit() && down.normal[2] >= 0.65f && !a->deleted) {
-                ++movement.steps;
-                stepped = true;
-                remaining -= across.time * remaining;
-                delta = mul(delta, 1 - across.time);
-                continue;
-            }
-            *loc = here;
-            updateRegion(a);
+        if (a->deleted)
+            return;
+        if (out > 0) {
+            ++movement.steps;
+            stepped = true;
+            setFlag("bStepped", true);
+            _lastLedgeNode = hit.node;
+            remaining -= out * remaining;
+            delta = mul(delta, 1 - out);
+            continue;
         }
-        // Along the wall, the player told how head-on and how fast.
-        const float into = dot(dir, h.normal);
-        delta = sub(delta, mul(h.normal, into * length(delta)));
-        const Vec vNow = vecOf(vel);
-        const float flatSpeed = std::sqrt(vNow[0] * vNow[0] + vNow[1] * vNow[1]);
-        const float slid = std::sqrt(delta[0] * delta[0] + delta[1] * delta[1]) * remaining / dt;
-        if (h.normal[2] < 0.65f)
-            _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(h.actor)});
-        (void)was;
-        if (a->deleted || physicsOf(a) != kPhysWalking || into < -0.8f)
+        if (hit.node >= 0 && checkClimbing(a, hit.normal, delta, true, false, true, true) &&
+            askClimb(a, hit.normal, kPhysClimbing))
+            return;
+        if (a->deleted || none(delta))
+            break;
+        // Along it, the player told how head-on and how fast (not by a
+        // narrow opening's assist, which keeps it going).
+        const float len = length(delta);
+        const float into = dot(hit.normal, delta) / len;
+        delta = sub(delta, mul(hit.normal, into * len));
+        if (onAssist)
+            continue;
+        const float flatSpeed = std::hypot(v[0], v[1]);
+        const float slid = std::hypot(delta[0], delta[1]) * remaining / dt;
+        _vm.callEvent(a, "HitWall", {_vm.vectorValue(into, flatSpeed, slid), Value::objectValue(hit.actor)});
+        if (a->deleted)
+            return;
+        if (into < -0.8f)
             break;
     }
-    if (a->deleted || physicsOf(a) != kPhysWalking)
-        return;
-    // Pushing on: the auto-duck's timer (Engine.dll's physWalking adds
-    // each frame's time; a fall or a real move sets it back to 0).
-    if (Value *t = prop(a, "PushToAutoDuckTimer"))
-        *t = Value::floatValue(t->asFloat() + dt);
-    // Down onto the floor, for real.
+    // Down onto the floor, for real (whatever its scripts made of its
+    // physics meanwhile); down a slope too steep to stand on, but not the
+    // one it just stepped onto.
     const Vec down{0, 0, -(stepHeight + 2)};
     MoveHit floor = moveActor(a, down);
     if (a->deleted)
         return;
-    if (floor.hit() && floor.normal[2] < 0.65f && !stepped) {
-        const MoveHit slope = moveActor(a, sub(down, mul(floor.normal, dot(down, floor.normal))));
-        if (slope.hit() && slope.normal[2] < 0.65f)
+    if (floor.node > 0 && size_t(floor.node) < _model.nodes.size())
+        if (Value *t = prop(a, "FloorTexture"))
+            *t = Value::objectValue(surfaceTextureOf(_model.nodes[size_t(floor.node)].surf));
+    if (floor.hit() && floor.normal[2] < 0.65f && !stepped && _lastLedgeNode != floor.node) {
+        floor = moveActor(a, sub(down, mul(floor.normal, dot(down, floor.normal))));
+        if (a->deleted)
+            return;
+        if (floor.hit() && floor.normal[2] < 0.65f) {
             stepped = true;
+            setFlag("bStepped", true);
+        }
     }
     if (floor.hit()) {
         setBase(a, floor.actor == _levelInfo ? _levelInfo : floor.actor);
         if (floorValue)
             _vm.setVector(*floorValue, floor.normal[0], floor.normal[1], floor.normal[2]);
-        const Vec here = vecOf(prop(a, "Location"));
-        if (Value *t = prop(a, "FloorTexture"))
-            *t =
-                Value::objectValue(surfaceTexture(here, add(here, {0, 0, -(floatOf(prop(a, "CollisionHeight")) + 4)})));
     }
-    if ((!floor.hit() || floor.normal[2] < 0.65f) && !stepped) {
+    const bool steppedOnto = _lastLedgeNode != -1 && _lastLedgeNode == floor.node;
+    if ((!floor.hit() || floor.normal[2] < 0.65f) && !stepped && !steppedOnto) {
         if (floorValue)
             _vm.setVector(*floorValue, 0, 0, 0);
         moveActor(a, mul(down, -floor.time));
@@ -1832,20 +2085,31 @@ void ScriptLevel::walkPlayer(VmObject *a, float dt) {
             *t = Value::floatValue(0);
         return;
     }
+    if (boolOf(prop(a, "bJustTeleported")))
+        return;
+    const Vec here = vecOf(prop(a, "Location"));
+    Vec now = vecOf(vel);
     if (!stepped) {
-        const Vec moved = mul(sub(vecOf(prop(a, "Location")), start), 1 / dt);
-        _vm.setVector(*vel, moved[0], moved[1], moved[2]);
-        if (length(moved) > 10)
-            if (Value *t = prop(a, "PushToAutoDuckTimer"))
-                *t = Value::floatValue(0);
+        now = mul(sub(here, start), 1 / dt);
+        _vm.setVector(*vel, now[0], now[1], now[2]);
     }
+    if (length(now) > 10)
+        if (Value *t = prop(a, "PushToAutoDuckTimer"))
+            *t = Value::floatValue(0);
+    // The view's offsets take up the rise or drop, and its scripts ease
+    // them away (UpdateEyeHeight): a step isn't a jolt.
+    for (const char *name : {"PivotOffset", "LocationOffset"})
+        if (Value *o = prop(a, name)) {
+            const Vec off = vecOf(o);
+            _vm.setVector(*o, off[0], off[1], off[2] + start[2] - here[2]);
+        }
 }
 
 // Other pawns' walking (APawn / ACTVE_Pawn::physWalking): in steps of at
 // most 0.05 s when going far, up to 4 (8 for non-CTVE pawns); stepping up
 // what stops them; kept 1.9-2.4 above the floor; off a ledge only if they
 // can jump, else back and their move given up; velocity what they moved.
-void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
+void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations, int iterations) {
     Value *vel = prop(a, "Velocity");
     Value *accelValue = prop(a, "Acceleration");
     const ZoneFeel z = zoneFeel(a);
@@ -1871,7 +2135,9 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     const Vec down = mul(gravDir, stepHeight + 2);
     const Vec e = extentOf(a);
     float remaining = dt;
-    for (int it = 0; it < maxIterations && remaining > 0 && !a->deleted; ++it) {
+    // The count goes on from the one it's given (a landing's falling
+    // steps), as Engine.dll's (0x104295fa).
+    for (int it = iterations; it < maxIterations && remaining > 0 && !a->deleted; ++it) {
         const Vec old = vecOf(prop(a, "Location"));
         float tick = remaining;
         if (remaining > 0.05f && (_vm.isA(a, "PlayerPawn") || dot(desired, desired) * remaining * remaining > 400))
@@ -1892,12 +2158,16 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
                     remaining += tick * (1 - std::min(1.0f, length(moved) / length(delta)));
                     _vm.callEvent(a, "Falling");
                     if (remaining > 0.01f && !a->deleted)
-                        fall(a, remaining);
+                        fall(a, remaining, it + 1);
                     return;
                 }
             }
         } else {
             remaining = 0;
+        }
+        if (physicsOf(a) == kPhysSwimming) { // into the water (its ZoneChange)
+            startSwimming(a, old, vecOf(vel), tick, remaining);
+            return;
         }
         // The floor: kept between 1.9 and 2.4 above it.
         const Vec here = vecOf(prop(a, "Location"));
@@ -1917,6 +2187,10 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
                 moveActor(a, mul(gravDir, -(2.1f - floorDist)));
             }
             onFloor = n[2] >= kWalkable;
+        }
+        if (physicsOf(a) == kPhysSwimming) {
+            startSwimming(a, old, vecOf(vel), tick, remaining);
+            return;
         }
         if (onFloor)
             continue;
@@ -1945,7 +2219,7 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
         soFar[2] = 0;
         _vm.setVector(*vel, soFar[0], soFar[1], 0);
         if (remaining > 0.01f)
-            fall(a, remaining);
+            fall(a, remaining, it + 1);
         return;
     }
     if (a->deleted)
@@ -1954,9 +2228,65 @@ void ScriptLevel::walkPawn(VmObject *a, float dt, int maxIterations) {
     _vm.setVector(*vel, moved[0], moved[1], 0);
 }
 
+// A pawn come into the water mid-move (APawn::startSwimming, 0x10432c90):
+// back to the water line from where the step began (only where that's
+// in its first half: else all the way back, out of it), the time that
+// took given back; its velocity what it moved, doubled less what it had
+// (at most 4000), unless just teleported; falling slowly, sped down; then
+// it swims the rest of the tick. The engine divides by nothing when it's
+// put all the way back; Reluva leaves the velocity then.
+void ScriptLevel::startSwimming(VmObject *a, const Vec &from, const Vec &oldVelocity, float tick, float remaining) {
+    const Vec here = vecOf(prop(a, "Location"));
+    const Vec end = findWaterLine(from, here);
+    const float moved = length(sub(here, from));
+    float waterTime = 0;
+    if (end != here && moved > 0) {
+        waterTime = tick * length(sub(end, here)) / moved;
+        remaining += waterTime;
+        moveActor(a, sub(end, here));
+        if (a->deleted)
+            return;
+    }
+    Value *vel = prop(a, "Velocity");
+    if (!vel)
+        return;
+    Vec v = vecOf(vel);
+    if (!boolOf(prop(a, "bJustTeleported")) && tick - waterTime > 1e-4f) {
+        v = mul(sub(vecOf(prop(a, "Location")), from), 1 / (tick - waterTime));
+        v = sub(mul(v, 2), oldVelocity);
+        if (dot(v, v) > 16000000)
+            v = mul(normalOf(v), 4000);
+    }
+    if (v[2] > -160 && v[2] < 0)
+        v[2] = -80 - 0.7f * length(v);
+    _vm.setVector(*vel, v[0], v[1], v[2]);
+    if (remaining > 0.01f && !a->deleted)
+        swimPawn(a, remaining, false);
+}
+
+// The player come into the water (ACTVE_PlayerPawn::startSwimming,
+// 0x10370e60): the tick's move ends there, its velocity as it is. The
+// surface is measured by halving between its chest where the move began
+// and where it is (0x10370f70), and known only if that ends with the one
+// wet and the other dry (as the chest comes up out of it); else none, and
+// physSwimming finds it again.
+void ScriptLevel::playerStartSwimming(VmObject *a, const Vec &from) {
+    const Vec up{0, 0, chestOffset(a)};
+    Vec wet = add(from, up);
+    Vec dry = add(vecOf(prop(a, "Location")), up);
+    for (int k = 0; k < 64 && dot(sub(dry, wet), sub(dry, wet)) >= 0.1f; ++k) {
+        const Vec m = mul(add(wet, dry), 0.5f);
+        if (waterAt({m[0], m[1], m[2]}))
+            wet = m;
+        else
+            dry = m;
+    }
+    _waterSurface[a] = waterAt(wet) && !waterAt(dry) ? wet[2] : kNoSurface;
+}
+
 // Landing (processLanded): Landed, then walking (a pawn) or still, and
-// the rest of the tick walked.
-void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remaining) {
+// the rest of the tick walked, its count of steps going on from the fall's.
+void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remaining, int iterations) {
     ++movement.landings;
     const bool player = _vm.isA(a, "CTVE_PlayerPawn");
     if (player)
@@ -1976,11 +2306,14 @@ void ScriptLevel::landed(VmObject *a, const Vec &n, VmObject *on, float remainin
         Value *accel = prop(a, "Acceleration");
         const Vec dir = normalOf(vecOf(accel));
         _vm.setVector(*accel, dir[0], dir[1], dir[2]);
+        // On from the falling steps it took (0x104301d2, 0x1036f904): a
+        // CTVE pawn walks as any pawn here, 8 steps less those; the
+        // player's three goes less those (none after the third).
         if (remaining > 0.01f) {
             if (player)
-                walkPlayer(a, remaining);
+                walkPlayer(a, remaining, iterations);
             else
-                walkPawn(a, remaining, 8);
+                walkPawn(a, remaining, 8, iterations);
         }
     }
 }
@@ -2017,11 +2350,15 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
     for (int it = 1; it <= 4 && remaining > 0.01f && !a->deleted; ++it) {
         const Vec dir = normalOf(delta);
         const MoveHit h = moveActor(a, delta);
+        if (!a->deleted && physicsOf(a) == kPhysSwimming) {
+            playerStartSwimming(a, start);
+            return;
+        }
         if (a->deleted || !h.hit())
             break;
         remaining -= remaining * h.time;
         if (h.normal[2] > 0.65f || (it == 4 && v[2] <= 1 && h.actor == lastActor && remaining <= 0.99f)) {
-            landed(a, h.normal, h.actor, remaining * dt);
+            landed(a, h.normal, h.actor, remaining * dt, it);
             return;
         }
         if (it == 1) {
@@ -2046,7 +2383,7 @@ void ScriptLevel::fallPlayer(VmObject *a, float dt) {
 // each moving at the average of its start and end velocity; split at the
 // top of an arc; a little air control (less with something just ahead);
 // landing on more than 0.7, sliding along anything steeper.
-void ScriptLevel::fall(VmObject *a, float dt) {
+void ScriptLevel::fall(VmObject *a, float dt, int iterations) {
     Value *vel = prop(a, "Velocity");
     Value *accelValue = prop(a, "Acceleration");
     const Vec savedAccel = vecOf(accelValue);
@@ -2085,7 +2422,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
     const bool zoneMoves = !pawn || _vm.isA(a, "PlayerPawn") || dot(z.velocity, z.velocity) > 40000;
     float remaining = dt;
     int bounces = 0;
-    for (int it = 0; it < 8 && remaining > 0 && !a->deleted; ++it) {
+    for (int it = iterations; it < 8 && remaining > 0 && !a->deleted; ++it) {
         float tick = remaining > 0.1f ? std::min(0.1f, remaining * 0.5f) : remaining;
         const Vec old = vecOf(prop(a, "Location"));
         const Vec oldV = vecOf(vel);
@@ -2113,6 +2450,10 @@ void ScriptLevel::fall(VmObject *a, float dt) {
         _vm.setVector(*vel, v[0], v[1], v[2]);
         const Vec adjusted = mul(zoneMoves ? add(v, z.velocity) : v, tick);
         MoveHit h = moveActor(a, adjusted);
+        if (!a->deleted && pawn && physicsOf(a) == kPhysSwimming) {
+            startSwimming(a, old, oldV, tick, remaining + (1 - h.time) * tick);
+            return;
+        }
         if (a->deleted || physicsOf(a) != kPhysFalling)
             return;
         if (h.hit()) {
@@ -2130,7 +2471,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                     const Vec landedV = mul(sub(vecOf(prop(a, "Location")), old), 1 / (tick * h.time));
                     _vm.setVector(*vel, landedV[0], landedV[1], landedV[2]);
                 }
-                landed(a, h.normal, h.actor, remaining);
+                landed(a, h.normal, h.actor, remaining, it + 1);
                 break;
             }
             hitWall(a, h);
@@ -2143,7 +2484,7 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                     return;
                 if (h2.hit()) {
                     if (h2.normal[2] > kWalkable) {
-                        landed(a, h2.normal, h2.actor, remaining);
+                        landed(a, h2.normal, h2.actor, remaining, it + 1);
                         break;
                     }
                     hitWall(a, h2);
@@ -2157,7 +2498,8 @@ void ScriptLevel::fall(VmObject *a, float dt) {
                     if (a->deleted)
                         return;
                     if (ditch || (h3.hit() && h3.normal[2] > kWalkable)) {
-                        landed(a, h3.hit() ? h3.normal : Vec{0, 0, 1}, h3.actor ? h3.actor : h2.actor, remaining);
+                        landed(a, h3.hit() ? h3.normal : Vec{0, 0, 1}, h3.actor ? h3.actor : h2.actor, remaining,
+                               it + 1);
                         break;
                     }
                 }
@@ -2192,10 +2534,6 @@ void ScriptLevel::swimOrFly(VmObject *a, float dt, bool swim) {
     MoveHit h = moveActor(a, delta);
     if (a->deleted)
         return;
-    // The player swimming into a wall: a ledge or ladder there, as
-    // walking (Engine.dll's physSwimming asks the same tests).
-    if (swim && h.hit() && climbBlocked(a, h.actor, h.normal, mul(delta, 1 - h.time)))
-        return;
     if (h.hit()) {
         const Vec gravDir{0, 0, z.gravity[2] > 0 ? 1.0f : -1.0f};
         const float up = dot(gravDir, normalOf(delta));
@@ -2217,7 +2555,7 @@ void ScriptLevel::swimOrFly(VmObject *a, float dt, bool swim) {
     _vm.setVector(*vel, moved[0], moved[1], moved[2]);
 }
 
-// --- Natives ---------------------------------------------------------------------------------
+// Natives.
 
 void registerMovementNatives(Vm &vm) {
     auto reg = [&](const char *name, NativeFn fn) { vm.registerNative(name, std::move(fn)); };
@@ -2255,9 +2593,6 @@ void registerMovementNatives(Vm &vm) {
         c.args[1] = c.vm.vectorValue(n[0], n[1], n[2]);
         c.result = Value::objectValue(hit);
     });
-    // GetSurfaceTexture(Vector Start, Vector End): the texture of the
-    // level's surface between them (the footsteps' sound goes by its
-    // TexMaterial).
     // ResizeActor(float NewRadius, float NewHeight, optional bool
     // bAlignToFloor, optional bool bAdjustToFit, optional bool bAdjustToTop):
     // ScriptLevel::resize; the player crouches and crawls by it.
@@ -2278,6 +2613,9 @@ void registerMovementNatives(Vm &vm) {
     // PickWallAdjust(): ScriptLevel::pickWallAdjust.
     reg("Pawn.PickWallAdjust",
         [](NativeCall &c) { c.result = Value::boolValue(c.vm.level && c.self && c.vm.level->pickWallAdjust(c.self)); });
+    // GetSurfaceTexture(Vector Start, Vector End): the texture of the
+    // level's surface between them (the footsteps' sound goes by its
+    // TexMaterial).
     reg("Actor.GetSurfaceTexture", [](NativeCall &c) {
         c.result = Value::objectValue(
             c.vm.level ? c.vm.level->surfaceTexture(Vm::vectorOf(c.args[0]), Vm::vectorOf(c.args[1])) : nullptr);

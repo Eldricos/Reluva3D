@@ -36,15 +36,11 @@ std::string formatSize(uint64_t size) {
 
 } // namespace
 
-// --- Page ------------------------------------------------------------------------------
-
 std::string kindOf(const std::string &name) {
     std::string file = name.substr(name.rfind('/') + 1);
     file = file.substr(0, file.find('.'));
     return normalizeArchiveName(file.substr(0, file.find('_')));
 }
-
-// --- fileLines --------------------------------------------------------------------------
 
 std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText) {
     // Text: no zero bytes, and control characters only as line ends and
@@ -92,8 +88,6 @@ std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isTex
         lines.push_back("... (the first " + formatSize(end) + " of " + formatSize(data.size()) + ")");
     return lines;
 }
-
-// --- FileViewer -------------------------------------------------------------------------
 
 FileViewer::FileViewer(ScreenContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list()) {

@@ -11,19 +11,26 @@
 
 namespace reluva::stgenerations {
 
-// One of the game's BMPs, as the game draws it: an 8-bit one's palette
-// indices and palette, or a true colour one as 0xAARRGGBB (image/bmp.h
-// reads them).
+/**
+ * One of the game's BMPs, as the game draws it: an 8-bit one's palette
+ * indices and palette, or a true colour one as 0xAARRGGBB (image/bmp.h
+ * reads them).
+ */
 class BitmapDecoder {
 public:
-    // A .bmp file; false (with a warning) if it isn't one.
+    /** Reads a .bmp file; false (with a warning) if it isn't one. */
     bool loadStream(SeekableReadStream &stream);
-    // From its BITMAPINFOHEADER on.
+    /** Reads a bitmap without its file header, from its BITMAPINFOHEADER on. */
     bool loadDIB(SeekableReadStream &stream);
 
+    /** The picture, and an 8-bit one's palette. */
+    ///@{
     const Canvas &getSurface() const { return _surface; }
     const Palette &getPalette() const { return _palette; }
+    ///@}
+    /** Whether it's an 8-bit picture, with a palette. */
     bool hasPalette() const { return !_surface.empty() && _surface.isClut8(); }
+    /** How many colours the file's palette holds (0 for true colour). */
     uint16_t getPaletteColorCount() const { return _paletteColors; }
 
 private:

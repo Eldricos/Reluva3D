@@ -151,8 +151,7 @@ void MenuLayer::syncCursor() {
     // 1.5 pixels here, so rounding would overshoot and come back every
     // frame, jiggling it (and the highlight of whatever it's on). The
     // steps are scaled by how far one moved the picture before (_gainX,
-    // _gainY),
-    // in case the menus scale movement themselves.
+    // _gainY), in case the menus scale movement themselves.
     const float unitX = _gainX * float(_frameW) / 640.0f;
     const float unitY = _gainY * float(_frameH) / 480.0f;
     const auto dx = int32_t((float(_mouseX) - _cursorX) / unitX);

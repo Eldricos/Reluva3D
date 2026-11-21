@@ -21,6 +21,7 @@ from common import *
 
 SY = None
 def syms():
+    """symbols.json, loaded once."""
     global SY
     if SY is None:
         SY = Syms()
@@ -28,22 +29,25 @@ def syms():
 
 _F = None
 def fields():
+    """fields.pkl (typeflow.py's), loaded once."""
     global _F
     if _F is None:
         _F = pickle.load(open(os.path.join(STORE, 'fields.pkl'), 'rb'))
     return _F
 
 def addr_arg(s):
+    """An address from hex or a name in symbols.json; exits if it's neither."""
     s = s.strip()
     if re.fullmatch(r'(0x)?[0-9a-fA-F]+', s):
         return int(s, 16)
     a = syms().lookup_name(s)
     if a is None:
-        # struct-array style name  g_cars[0].gear  not supported; try globals
+        # Names of array elements' fields (g_cars[0].gear) aren't looked up.
         raise SystemExit('unknown name: %s' % s)
     return a
 
 def func_arg(s):
+    """The start of the function an address or name is in; exits if none."""
     a = addr_arg(s)
     D = db()
     if a in D['funcs']:
@@ -57,14 +61,16 @@ ACC = {1: 'R', 2: 'W', 3: 'RW', 0: '-'}
 CONFN = {4: 'direct', 3: 'high', 2: 'medium', 1: 'low'}
 
 def ins_text(a):
+    """An instruction's mnemonic and operands, or '?'."""
     i = db()['insns'].get(a)
     return '%s %s' % (i[1], i[2]) if i else '?'
 
 def fl(a):
+    """flabel() with symbols.json's names."""
     return flabel(a, syms())
 
 def annotate_ins(a, acc_by_ins=None):
-    """comment for one instruction: names of globals, fields, call targets, strings"""
+    """A comment for one instruction: the names of its globals, fields, call targets and strings."""
     D = db(); S = syms()
     sz, mn, ostr, ops, rw = D['insns'][a]
     notes = []
@@ -101,6 +107,7 @@ def annotate_ins(a, acc_by_ins=None):
     return '; '.join(notes)
 
 def xref_rows(a, ln):
+    """(instruction, kind, size, target, how found, value) for each reference to the `ln` bytes at `a`."""
     D = db()
     rows = []
     for t in range(a, a + ln):
@@ -121,6 +128,7 @@ def xref_rows(a, ln):
     return rows
 
 def cmd_xref(args):
+    """xref: who calls, jumps to, writes, reads or takes an address, and pointers to it in data."""
     a = addr_arg(args[0])
     ln = 1
     if '--len' in args:
@@ -178,6 +186,7 @@ def cmd_xref(args):
             print('note: inside %s; for all cars/elements use: field %s 0x%x' % (n, st, (a - base) % sz))
 
 def cmd_field(args):
+    """field: every typed read and write of a struct's field, and untyped ones at its offset."""
     st = args[0]
     S = syms(); D = db()
     if st not in S.structs:
@@ -242,6 +251,7 @@ def cmd_field(args):
         ', '.join(label(f, S) for f in w) or 'none'))
 
 def acc_index(fa):
+    """{instruction: its typed accesses} in one function, from fields.pkl."""
     D = db()
     out = {}
     for ins, r, acc, osz, val in fields()['accesses']:
@@ -250,6 +260,7 @@ def acc_index(fa):
     return out
 
 def cmd_asm(args):
+    """asm: a function's disassembly, annotated with names, the docs and the type flow."""
     fa = func_arg(args[0])
     D = db(); S = syms()
     f = D['funcs'][fa]
@@ -274,6 +285,7 @@ def cmd_asm(args):
             print('  %06x  %-46s %s' % (a, ins_text(a), ('; ' + c) if c else ''))
 
 def cmd_decomp(args):
+    """decomp: angr's pseudocode with names, cached; the disassembly with --asm or if angr fails."""
     fa = func_arg(args[0])
     if '--asm' in args:
         return cmd_asm(args)
@@ -296,6 +308,7 @@ def cmd_decomp(args):
     print(text)
 
 def cmd_callers(args):
+    """callers: the calls, jumps and address takes of a function."""
     fa = func_arg(args[0])
     D = db(); S = syms()
     print('callers of %s:' % label(fa, S))
@@ -306,6 +319,7 @@ def cmd_callers(args):
         pass
 
 def cmd_callees(args):
+    """callees: the calls a function makes, direct and indirect."""
     fa = func_arg(args[0])
     D = db(); S = syms()
     print('callees of %s:' % label(fa, S))
@@ -320,6 +334,7 @@ def cmd_callees(args):
                     print('  0x%06x call %s   ; indirect %s' % (a, ostr, annotate_ins(a)))
 
 def cmd_strings(args):
+    """strings: the strings a function refers to."""
     fa = func_arg(args[0])
     D = db(); S = syms()
     print('strings used by %s:' % label(fa, S))
@@ -332,6 +347,7 @@ def cmd_strings(args):
         print('  0x%06x -> 0x%06x %r' % (ins, t, s[:120]))
 
 def cmd_sym(args):
+    """sym: what symbols.json and the type flow know of an address."""
     S = syms()
     a = addr_arg(args[0])
     for sect in ('functions', 'globals', 'code_notes'):
@@ -350,6 +366,7 @@ def cmd_sym(args):
         print('data name:', dn)
 
 def cmd_structs(args):
+    """structs: the struct layouts, or one's fields."""
     S = syms()
     for n, s in S.j['structs'].items():
         if args and n != args[0]:
@@ -360,7 +377,7 @@ def cmd_structs(args):
                 print('  +%-6s %-20s %-10s %s' % (o[2:], f['name'], f['type'], f.get('desc', '')))
 
 
-# --- Ghidra (ghidra_build.sh exports; see README.md) ---------------------------------
+# Ghidra's exports (ghidra_build.sh; see README.md).
 GH = os.path.join(STORE, 'ghidra')
 _GF = None
 def gfuncs():
@@ -377,6 +394,7 @@ def gfuncs():
     return _GF
 
 def gfunc_of(a):
+    """The entry of the Ghidra function whose body holds `a`, or None."""
     rs, fs = gfuncs()
     if a in fs:
         return a
@@ -388,16 +406,19 @@ def gfunc_of(a):
     return None
 
 def glabel(e):
+    """A Ghidra function's entry in hex, with its name unless Ghidra made it up."""
     if e is None:
         return '(no Ghidra function)'
     n = gfuncs()[1].get(e, {}).get('name', '')
     return '0x%x<%s>' % (e, n) if n and not n.startswith('FUN_') else '0x%x' % e
 
 def symbols_stamp():
+    """A short hash of symbols.json, which each Ghidra export is stamped with."""
     import hashlib
     return hashlib.sha256(open(os.path.join(STORE, 'symbols.json'), 'rb').read()).hexdigest()[:16]
 
 def ghidra_build(*args):
+    """Runs ghidra_build.sh with the arguments; exits if it fails."""
     import subprocess
     sh = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ghidra_build.sh')
     r = subprocess.run([sh] + list(args), stdout=sys.stderr)
@@ -405,12 +426,14 @@ def ghidra_build(*args):
         raise SystemExit('ghidra_build.sh failed')
 
 def positional(args):
+    """The first argument that isn't an option or --len's value; exits if none."""
     p = [x for i, x in enumerate(args) if not x.startswith('--') and not (i and args[i - 1] == '--len')]
     if not p:
         raise SystemExit('give a function or address')
     return p[0]
 
 def cmd_gdecomp(args):
+    """gdecomp: Ghidra's C for a function, exported again if symbols.json has changed since."""
     s = positional(args)
     try:
         a = addr_arg(s)
@@ -436,6 +459,7 @@ def cmd_gdecomp(args):
 GROUPS = (('CALLERS', ('CALL',)), ('JUMPS', ('JUMP',)), ('WRITERS', ('WRITE',)), ('READERS', ('READ',)),
           ('DATA / ADDRESS TAKEN', ('DATA', 'PARAM', 'INDIRECTION')))
 def cmd_gxref(args):
+    """gxref: Ghidra's references to an address; with --diff, against xref's."""
     a = addr_arg(positional(args))
     ln = int(args[args.index('--len') + 1], 0) if '--len' in args else 1
     p = os.path.join(GH, 'xrefs.json')
@@ -449,6 +473,7 @@ def cmd_gxref(args):
         for frm, ty, src, op, fe, text in X.get(str(t), []):
             rows.append((frm, ty, src, t, fe, text))
     def grp(ty):
+        """The heading a Ghidra reference type goes under."""
         for g, keys in GROUPS:
             if any(k in ty for k in keys) and not (g == 'READERS' and 'WRITE' in ty):
                 return g

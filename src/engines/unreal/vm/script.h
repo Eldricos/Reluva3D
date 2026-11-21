@@ -7,7 +7,7 @@
 // made of (properties, functions, states, structs, enums, constants: the
 // UField subclasses, chained through their Next references), and the
 // functions' and states' bytecode, decoded into expression trees. See
-// docs/formats/unreal/script.md.
+// docs/engines/unreal/games/ds9fallen/formats/script.md.
 
 #include "engines/unreal/formats/package.h"
 #include "engines/unreal/formats/properties.h"
@@ -19,7 +19,7 @@
 
 namespace reluva::unreal {
 
-// Property flags (a property's PropertyFlags).
+/** Property flags (a property's PropertyFlags). */
 namespace propflag {
 constexpr uint32_t kEdit = 0x1;
 constexpr uint32_t kConst = 0x2;
@@ -42,7 +42,7 @@ constexpr uint32_t kEditConst = 0x20000;
 constexpr uint32_t kGlobalConfig = 0x40000;
 } // namespace propflag
 
-// Function flags (a function's FunctionFlags).
+/** Function flags (a function's FunctionFlags). */
 namespace funcflag {
 constexpr uint32_t kFinal = 0x1;
 constexpr uint32_t kDefined = 0x2;
@@ -60,7 +60,7 @@ constexpr uint32_t kOperator = 0x1000;
 constexpr uint32_t kStatic = 0x2000;
 } // namespace funcflag
 
-// The bytecode's tokens (the first byte of each expression).
+/** The bytecode's tokens (the first byte of each expression). */
 namespace token {
 enum : uint8_t {
     kLocalVariable = 0x00,
@@ -140,6 +140,7 @@ struct Expr {
     std::vector<std::pair<int32_t, uint32_t>> labels; // LabelTable: name index, code offset
 };
 
+/** A function's or state's bytecode, decoded. */
 struct Code {
     std::vector<Expr> exprs;
     std::vector<int> statements; // the top-level expressions, in order
@@ -154,6 +155,7 @@ Error decodeCode(const Package &package, Reader &r, uint32_t scriptSize, Code &o
 
 /** A UField subclass's export, read: which kind it is and what it stores. */
 struct ScriptObject {
+    /** Which UField subclass it is (the property classes all kProperty). */
     enum class Kind { kConst, kEnum, kProperty, kStruct, kFunction, kState, kClass } kind = Kind::kConst;
     std::string className; // the export's class ("IntProperty", "Function"...)
     int32_t super = 0;
@@ -164,7 +166,7 @@ struct ScriptObject {
     /** Enum: its names (name indices). */
     std::vector<int32_t> enumNames;
 
-    /** Property. */
+    // Property.
     int32_t arrayDim = 1;
     uint32_t propertyFlags = 0;
     int32_t category = 0; // name index
@@ -177,7 +179,7 @@ struct ScriptObject {
     int32_t metaClass = 0; // Class: the classes it holds are this or below
     int32_t fixedCount = 0;
 
-    /** Struct and up. */
+    // Struct and up.
     int32_t scriptText = 0;
     int32_t children = 0;
     int32_t friendlyName = 0;
@@ -185,20 +187,21 @@ struct ScriptObject {
     int32_t textPos = 0;
     Code code;
 
-    /** Function. */
+    // Function.
     uint16_t native = 0;
     uint8_t operatorPrecedence = 0;
     uint32_t functionFlags = 0;
 
-    /** State and Class. */
+    // State and Class.
     uint64_t probeMask = 0;
     uint64_t ignoreMask = 0;
     uint16_t labelTableOffset = 0;
     uint32_t stateFlags = 0;
 
-    /** Class. */
+    // Class.
     uint32_t classFlags = 0;
     std::array<uint8_t, 16> guid{};
+    /** A class this one depends on, as the compiler recorded it. */
     struct Dependency {
         int32_t cls = 0;
         uint32_t deep = 0;
@@ -216,6 +219,7 @@ struct ScriptObject {
 /** Whether an export's class is one of the UField subclasses above. */
 bool isScriptClass(std::string_view className);
 
+/** Reads a UField subclass's export; fails on any other, or data that doesn't read. */
 Error readScriptObject(const Package &package, int exportIndex, ScriptObject &out);
 
 } // namespace reluva::unreal

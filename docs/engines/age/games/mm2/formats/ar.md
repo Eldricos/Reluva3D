@@ -95,7 +95,15 @@ with `reluva-tool age ar-extract`, which gave the same bytes.
   between installed archives and "the real order of the .ar files
   reading of the game", and MM2 Revisited names its archive `! !RV6_Dev`,
   which sorts first by name, so archives are likely taken in name order
-  with one end winning; which end isn't stated anywhere found.
+  with one end winning; which end isn't stated anywhere found. Looked
+  for again in 2026-11 in public pages (the Racing Madness wiki, MM2
+  eXtreme's FAQ and its Game Loader page, mmarchive.com, forums): mod
+  guides say to copy a mod's `.ar` beside the game's and to take it out to
+  undo it, and that too many add-on archives crash the game, but none says
+  which archive wins. The wiki's and MM2 eXtreme's pages couldn't be read
+  in full from here (they refuse automated reading); someone reading them
+  in a browser might find it. Otherwise it needs the game itself: two
+  archives holding the same texture, and which one shows.
 - **Later games.** The Midnight Club II notes at knowledge.stien.org
   describe a lowercase `Dave` header with names scrambled in a 6-bit
   code in Angel Studios' later games; Reluva doesn't read it.

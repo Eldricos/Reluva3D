@@ -49,6 +49,7 @@ public:
     bool start(std::vector<CtestRun> runs, int jobs);
     /** Stops the run: ctest is asked to stop, then made to if it hasn't within a few seconds. */
     void cancel() { _cancel = true; }
+    /** Whether a run is going (until its last ctest has ended). */
     bool running() const { return _running; }
     /** Whether the last run was stopped before it ended. */
     bool stopped() const { return !_running && _cancel; }

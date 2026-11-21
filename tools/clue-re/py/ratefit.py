@@ -1,9 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""A sound's playback rate at a time in a recording: the WAV resampled at
+rates from 0.96 to 1.06 and correlated with a_gp.raw (8 kHz mono 16-bit)
+around that time.
+
+    python3 -I py/ratefit.py NAME@SECONDS...
+"""
+
 import numpy as np,sys
 rec=np.fromfile('a_gp.raw',dtype=np.int16).astype(np.float64); sr=8000
 def best(name,t0,dur=3.0,win=1.0):
+    """Prints the playback rate at which a sound best matches the recording near `t0`."""
     x=np.fromfile('wav8/%s.raw'%name,dtype=np.int16).astype(np.float64)
     out=[]
     for r in np.arange(0.96,1.061,0.004):

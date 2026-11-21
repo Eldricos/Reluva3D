@@ -22,9 +22,10 @@ Sounds are (`Looping_Fear.moan_fear_lp` - `mp3/moan_fear_lp.mp3`,
 Miles' MP3 decoder (`redist/win32/Mp3dec.asi`) to stream them. So a
 placeholder's audio is `mp3/<the Sound's name>.mp3`, found ignoring case
 (`loadSound()`); the Sounds page plays it as music. (Worked out from the
-install's file listing, October 2026.) How the game picks which to play
-(the music cues in `Sounds/Music.uax` and the maps' script, presumably) is
-for when the script runs. Sources as in [package.md](package.md).
+install's file listing, October 2026.) Which plays when is the scripts'
+doing: the player's `CurrentMusic`, the music triggers and the filler
+music ([systems/sound.md](../systems/sound.md)). Sources as in
+[package.md](package.md).
 
 ## Layout
 
@@ -75,7 +76,5 @@ data viewer plays them, the placeholders' MP3s as music, and
 
 ## Open questions
 
-- How the game picks which MP3 to play: see "Music" in
-  [systems/sound.md](../systems/sound.md).
 - Whether Music has exactly this layout in every version
   (`reluva-tool unreal check` counts music objects read and played).

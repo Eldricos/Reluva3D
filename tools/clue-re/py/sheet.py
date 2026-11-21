@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Contact sheets of a recording's frames (f_*.png in FOLDER), 4 x 4 to a
+sheet, each frame stamped with its time.
+
+    python3 -I py/sheet.py FOLDER SECONDS_PER_FRAME OUT_PREFIX
+"""
+
 import sys,glob,os
 from PIL import Image, ImageDraw
 d,step,cols,rows,prefix=sys.argv[1],float(sys.argv[2]),4,4,sys.argv[3]

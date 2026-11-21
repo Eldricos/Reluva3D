@@ -22,30 +22,44 @@ namespace reluva::netimmerse::alphateam {
 
 class GameProcess;
 
-// LEGO Alpha Team played: its program (GameProcess) run on a thread of its
-// own, since its main loop never hands back control. The engine's thread
-// passes it events and takes its frames; every call here is for the
-// engine's thread.
+/**
+ * LEGO Alpha Team played: its program (GameProcess) run on a thread of its
+ * own, since its main loop never hands back control. The engine's thread
+ * passes it events and takes its frames; every call here is for the
+ * engine's thread.
+ */
 class Player {
 public:
-    // What it writes (its settings and progress) goes to `saveDir`; its
-    // sound goes to `mixer`, if there's one.
+    /**
+     * What it writes (its settings and progress) goes to `saveDir`; its
+     * sound goes to `mixer`, if there's one, which must outlive the player.
+     */
     Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer = nullptr);
-    ~Player(); // stops the game and waits for it
+    /** Stops the game and waits for its thread. */
+    ~Player();
 
+    /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
-    // An input event for the game (mouse movement as relative movement,
-    // buttons, the wheel, keys).
+    /**
+     * Queues an input event for the game (mouse movement as relative
+     * movement, buttons, the wheel, keys); the game takes it at its next
+     * frame or when it looks for a message and finds none.
+     */
     void input(const Event &event);
-    // The newest frame shown, as 0xAARRGGBB, if there's one since the last
-    // asked for.
+    /**
+     * The newest frame shown, as 0xAARRGGBB.
+     * @return False, leaving the arguments alone, if none was shown since the last asked for.
+     */
     bool frame(std::vector<uint32_t> &pixels, int &width, int &height);
-    // How many frames the game has shown (flipped) so far.
+    /** How many frames the game has shown (flipped) so far. */
     uint64_t framesShown();
-    // Whether the program has stopped: by itself (`ended`) or with an error
-    // (`error`).
+    /**
+     * Whether the program has stopped.
+     * @param ended Set to whether it stopped by itself, exiting.
+     * @param error Set to why it stopped otherwise; empty if it was stopped by the player.
+     */
     bool finished(bool &ended, std::string &error);
-    // What the program has written (its debug messages), since last asked.
+    /** What the program has written (its debug messages) since last asked, up to 1 MB. */
     std::string takeOutput();
 
 private:

@@ -20,7 +20,7 @@
 
 namespace reluva::glide::raster {
 
-// Values iterated across a primitive: linear in screen space.
+/** The values iterated across a primitive, linear in screen space: their indices in Values. */
 enum Param {
     kR,
     kG,
@@ -32,14 +32,18 @@ enum Param {
     kParams = kS0 + 3 * kMaxTmus,
 };
 
+/** A primitive's values at a point, indexed by Param. */
 struct Values {
     float v[kParams];
 };
 
-// A vertex's values, s, t and 1/w per TMU read as the stw hints say
-// (Glide 2.4 Reference Manual, grHints).
+/**
+ * A vertex's values, s, t and 1/w per TMU read as the stw hints say
+ * (Glide 2.4 Reference Manual, grHints).
+ */
 void load(const State &s, const Vertex &v, Values &out);
 
+/** A triangle set up for drawing (setupTriangle). */
 struct Triangle {
     // The pixel rectangle the triangle may cover, within the clip window
     // and the screen: x0 <= x < x1, y0 <= y < y1 (drawing coordinates).
@@ -54,9 +58,10 @@ struct Triangle {
     double fy0 = 0;
     float dx[kParams] = {};
     float dy[kParams] = {};
-    // Row y's pixels xs..xe (inclusive): false if none.
+    /** Row y's pixels xs..xe (inclusive): false if none. */
     bool span(int y, int &xs, int &xe) const;
 
+    /** An edge function: inside where it's positive, or 0 on an inclusive edge. */
     struct Edge {
         // E(X, Y) = a * X + b * Y + c, X and Y in 1/16 pixel
         int64_t a;
@@ -66,16 +71,21 @@ struct Triangle {
     } e[3]{};
 };
 
-// Sets up a triangle for drawing: false if it draws nothing (no area,
-// culled, outside the clip window). Counts it in `stats` as the hardware
-// does (in, and out if not culled).
+/**
+ * Sets up a triangle for drawing: false if it draws nothing (no area,
+ * culled, outside the clip window). Counts it in `stats` as the hardware
+ * does: in, and out unless it has no area or is culled.
+ */
 bool setupTriangle(const State &s, int width, int height, const Vertex &a, const Vertex &b, const Vertex &c,
                    Triangle &out, PixelStats &stats);
 
-// A line's pixels: one a step along the longer axis, at each pixel centre
-// the line crosses, the values linear between the ends; `pixel` gets the
-// pixel (drawing coordinates, inside the clip window and screen) and its
-// values.
+/**
+ * A line's pixels: one a step along the longer axis, at each pixel centre
+ * the line crosses, the values linear between the ends. Nothing for a line
+ * over 4096 pixels long, or with an end not a number.
+ * @param pixel Called as pixel(x, y, values) for each pixel (drawing
+ *        coordinates, inside the clip window and screen).
+ */
 template<class F>
 void forLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, F &&pixel) {
     Values va;
@@ -110,7 +120,7 @@ void forLinePixels(const State &s, int width, int height, const Vertex &a, const
     }
 }
 
-// A point's pixel: false if outside the clip window or screen.
+/** A point's pixel: false if outside the clip window or screen. */
 inline bool pointPixel(const State &s, int width, int height, const Vertex &a, int &x, int &y) {
     if (!std::isfinite(a.x) || !std::isfinite(a.y))
         return false;
@@ -120,14 +130,17 @@ inline bool pointPixel(const State &s, int width, int height, const Vertex &a, i
            y < std::min(s.clip[3], height);
 }
 
-// Pixels drawn each with its own values (Renderer::fragments): the
-// coverage pixels of anti-aliased primitives. x and y are drawing
-// coordinates, inside the clip window and the screen.
+/**
+ * A pixel drawn with its own values (Renderer::fragments): a coverage
+ * pixel of an anti-aliased primitive. x and y are drawing coordinates,
+ * inside the clip window and the screen.
+ */
 struct Fragment {
     int x = 0;
     int y = 0;
     Values v{};
 };
+/** A primitive's fragments, drawn together. */
 struct Fragments {
     std::vector<Fragment> list;
     bool derivatives = false; // dx and dy hold the primitive's gradients (for the texture LOD)
@@ -135,15 +148,19 @@ struct Fragments {
     float dy[kParams] = {};
 };
 
-// The anti-aliased primitives' coverage pixels (docs/common/graphics/glide.md,
-// Anti-aliasing): for a triangle the fringe outside the edges asked for
-// (edge 0 a-b, 1 b-c, 2 c-a), nothing if it's culled; for a line every
-// pixel within a pixel of it; for a point the four round it. Each value
-// from the primitive's plane at the pixel's centre, alpha times the
-// coverage.
+/**
+ * The anti-aliased primitives' coverage pixels (docs/common/graphics/glide.md,
+ * Anti-aliasing): for a triangle the fringe outside the edges asked for
+ * (edge 0 a-b, 1 b-c, 2 c-a), nothing if it's culled; for a line every
+ * pixel within a pixel of it; for a point the four round it. Each value
+ * from the primitive's plane at the pixel's centre, alpha times the
+ * coverage.
+ */
+///@{
 void aaTriangleFringe(const State &s, int width, int height, const Vertex &a, const Vertex &b, const Vertex &c,
                       const bool aa[3], Fragments &out);
 void aaLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, Fragments &out);
 void aaPointPixels(const State &s, int width, int height, const Vertex &a, Fragments &out);
+///@}
 
 } // namespace reluva::glide::raster

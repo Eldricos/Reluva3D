@@ -5,7 +5,7 @@
 // (PlaySound, PlayOwnedSound), kept for the page to play (level_audio.cpp),
 // and the music, which is The Fallen's streamed sounds: one played sets
 // the player's CurrentMusic, and the page plays whatever that names. See
-// docs/engines/unreal_vm.md.
+// docs/engines/unreal/games/ds9fallen/systems/sound.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -124,13 +124,16 @@ bool ScriptLevel::hearsSound(VmObject *source, float radius, float &volume) {
     return true;
 }
 
-// A sound as a noise (PlaySound unless bNoHearNoise, PlayDummySound): to
-// each pawn that isn't a player, the sound's actor or its owner, when the
-// actor has an owner and it or its owner is a player, a weapon or a
-// projectile. Heard at 1 - (distance / Radius)^2, less 0.65 through walls,
-// if that's above 0 and above 1 - HearingThreshold. A CTVE_Pawn whose
-// enemy isn't the actor first has its DLG_Command set to FHE.
-void ScriptLevel::soundNoise(VmObject *maker, float radius) {
+// A sound as a noise (PlaySound unless bNoHearNoise, Engine.dll 0x1044cb42;
+// The Fallen's PlayDummySound, 0x10373380): to each pawn listening for
+// HearNoise that isn't the sound's actor or its owner, when the actor has
+// an owner. PlaySound's: not to players, and only when the actor or its
+// owner is a player, a weapon or a projectile; a dummy sound's goes to
+// any. Heard at 1 - (distance / Radius)^2, less 0.65 through walls, if
+// that's above 0 and above 1 - HearingThreshold; the volume plays no
+// part. A CTVE_Pawn whose enemy isn't the actor first has its DLG_Command
+// set to FHE. (MakeNoise makes none.)
+void ScriptLevel::soundNoise(VmObject *maker, float radius, bool dummy) {
     if (!maker || maker->deleted || radius <= 0)
         return;
     const Value *ownerValue = prop(maker, "Owner");
@@ -140,7 +143,7 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
     auto loud = [&](VmObject *a) {
         return a && (_vm.isA(a, "PlayerPawn") || _vm.isA(a, "Weapon") || _vm.isA(a, "Projectile"));
     };
-    if (!loud(maker) && !loud(owner))
+    if (!dummy && !loud(maker) && !loud(owner))
         return;
     const Value *at = prop(maker, "Location");
     if (!at)
@@ -152,7 +155,7 @@ void ScriptLevel::soundNoise(VmObject *maker, float radius) {
     for (VmObject *p : now) {
         if (p == maker || p == owner || p->deleted || !_vm.isA(p, "Pawn"))
             continue;
-        if (const Value *b = prop(p, "bIsPlayer"); b && b->asBool())
+        if (const Value *b = prop(p, "bIsPlayer"); !dummy && b && b->asBool())
             continue;
         if (p->disabled.count(hear) || !_vm.findFunction(p, hear))
             continue;
@@ -493,12 +496,17 @@ void registerSoundNatives(Vm &vm) {
     };
     reg("Actor.PlaySound", [play](NativeCall &c) { play(c, false); });
     reg("Actor.PlayOwnedSound", [play](NativeCall &c) { play(c, true); });
-    // PlayDummySound(Volume, Radius): only the noise.
+    // PlayDummySound(Volume, Radius): only the noise, its Radius the
+    // actor's TransientSoundRadius if left out, 1600 if 0.
     reg("Actor.PlayDummySound", [](NativeCall &c) {
-        if (c.vm.level && c.self) {
-            const float radius = c.f(1);
-            c.vm.level->soundNoise(c.self, radius == 0 ? 1600 : radius);
-        }
+        if (!c.vm.level || !c.self)
+            return;
+        float radius = 0;
+        if (c.given.size() > 1 && c.given[1])
+            radius = c.f(1);
+        else if (const Value *v = c.self->find(c.vm, "TransientSoundRadius"))
+            radius = v->asFloat();
+        c.vm.level->soundNoise(c.self, radius == 0 ? 1600 : radius, true);
     });
     // GetSoundDuration(Sound): its length in seconds.
     reg("Actor.GetSoundDuration", [](NativeCall &c) {

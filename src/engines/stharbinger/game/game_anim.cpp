@@ -5,9 +5,10 @@
 //
 // The scene is drawn into a work buffer that persists from step to step. Each
 // step (20 ms) erases what has to go, draws every animation that is not off
-// and advances it (renderAnims): a frame stays up for rate + 1 steps. At the end of a pass the animation
-// releases a waiting script, jumps the script to its ANIMEND label if it has one,
-// and then stops (TOEND), turns round (CYCLE) or wraps (LOOP).
+// and advances it (renderAnims): a frame stays up for rate + 1 steps. At the
+// end of a pass the animation releases a waiting script, jumps the script to
+// its ANIMEND label if it has one, and then stops (TOEND), turns round (CYCLE)
+// or wraps (LOOP).
 
 #include "engines/stharbinger/game/game.h"
 

@@ -18,7 +18,7 @@
 
 namespace reluva::awe {
 
-// The Format byte: the index into granny2.dll's table of curve formats.
+/** The Format byte: the index into granny2.dll's table of curve formats. */
 enum class CurveFormat : uint8_t {
     kDaKeyframes32f = 0,
     kDaK32fC32f = 1,
@@ -37,11 +37,13 @@ enum class CurveFormat : uint8_t {
     kD9I1K8uC8u = 14,
     kD9I3K8uC8u = 15,
 };
-// "D4nK8uC7u"..., or "" past the table.
+/** The format's name ("D4nK8uC7u"), or "" past the table. */
 const char *curveFormatName(uint8_t format);
 
-// A compressed curve's data as the file stores it. Each format uses some
-// of these members.
+/**
+ * A compressed curve's data as the file stores it. Each format uses some
+ * of these members.
+ */
 struct CurveData {
     uint8_t format = 0;
     uint8_t degree = 0;
@@ -58,13 +60,17 @@ struct CurveData {
     std::vector<uint16_t> knotsControls;
 };
 
-// Reads a curve (a Curve2 object: PositionCurve...) whose CurveData is
-// one of the formats expandCurve() knows.
+/**
+ * Reads a curve (a Curve2 object: PositionCurve...) whose CurveData is
+ * one of the formats expandCurve() knows; fails on any other.
+ */
 Error readCurveData(const Gr2File &file, const Gr2Object &curve, CurveData &out);
 
-// Its knots and controls, as GrannyCurveExtractKnotValues gives them: an
-// identity curve is `identity` at one knot (time 0), a constant one its
-// value at one knot.
+/**
+ * A curve's knots and controls, as GrannyCurveExtractKnotValues gives
+ * them: an identity curve is `identity` at one knot (time 0), a constant
+ * one its value at one knot.
+ */
 Error expandCurve(const CurveData &data, const std::vector<float> &identity, Curve &out);
 
 } // namespace reluva::awe

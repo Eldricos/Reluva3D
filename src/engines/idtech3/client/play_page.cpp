@@ -3,12 +3,15 @@
 
 // The Play page: a Holomatch level run by Elite Force's own game code, as
 // a listen server would. The server game (vm/qagame.qvm) runs the level
-// with one player, whose commands come from the keyboard and mouse; the
-// client game (vm/cgame.qvm) gets a snapshot after each server frame and
-// says what to draw: the level from the player's eye, then the HUD.
+// with the player, whose commands come from the keyboard and mouse (and
+// with any who join from other machines); the client game (vm/cgame.qvm)
+// gets a snapshot after each server frame and says what to draw: the
+// level from the player's eye, then the HUD. The page can also join a
+// server elsewhere, or play a recorded match.
 // Entities the client game adds as models are drawn with their skins,
-// lit by the light grid; sprites, quads and lines (beams) with their
-// shaders and colours. Other kinds aren't drawn yet.
+// lit by the light grid; sprites, quads, lines, curves, rings,
+// electricity and beams with their shaders and colours; mirrors and
+// portals through their cameras. Other kinds aren't drawn yet.
 
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
@@ -43,10 +46,6 @@ namespace {
 
 constexpr uint64_t kHintMs = 8000;
 constexpr float kPi = 3.14159265358979f;
-// The command's button bits: attack 1 (Quake III's) and alt attack 32
-// (Elite Force's own), found with reluva-tool idtech3 game-run -buttons: holding
-// either changes the same player state words (weapon time, ammunition,
-// events). See docs/engines/idtech3/games/stvef/systems/syscalls.md.
 
 } // namespace
 
@@ -1362,9 +1361,9 @@ bool PlayPage::runLocal(uint64_t nowMs, int32_t dt) {
     // client game always has the snapshot after it to move things towards;
     // then the player's command, stamped with a time the server has
     // reached, as the original's client stamps commands with the
-    // snapshots' time. Given first, a command was up to a frame ahead of
-    // the server, and with long frames (50 ms and more) the player's
-    // weapon stopped firing and their sounds stopped (game-run -events).
+    // snapshots' time. Given first, a command would be up to a frame ahead
+    // of the server, and with long frames (50 ms and more) the player's
+    // weapon stops firing and their sounds stop (game-run -events).
     using Clock = std::chrono::steady_clock;
     auto ms = [](Clock::time_point from) {
         return std::chrono::duration<float, std::milli>(Clock::now() - from).count();

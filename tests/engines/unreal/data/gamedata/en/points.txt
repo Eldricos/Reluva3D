@@ -1,0 +1,1 @@
+points: f82181877ca9e916 | attachment points against 65 precomputed places: 1.9 units off on average, 65 within 5, the X axis along the place's (within 0.95) taken in the triangle's axes 65, in its bone's 29

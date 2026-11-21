@@ -2,9 +2,9 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's models; see
-// docs/engines/age/games/mm2/formats/pkg.md. The vertex layouts are Direct3D's flexible
-// vertex format codes (D3DFVF_*), from Microsoft's published DirectX
-// documentation.
+// docs/engines/age/games/mm2/formats/pkg.md. The vertex layouts are
+// Direct3D's flexible vertex format codes (D3DFVF_*), from Microsoft's
+// published DirectX documentation.
 
 #include "engines/age/formats/pkg.h"
 

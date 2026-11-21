@@ -14,44 +14,62 @@
 
 namespace reluva::audio {
 
-// EA-XA ADPCM: CD-XA's prediction filters, 28 samples in a 15-byte frame
-// per channel. The frame's first byte holds the filter (high nibble) and the
-// shift (low nibble); then 14 bytes of 4-bit residuals, high nibble first.
+/**
+ * One channel's history for EA-XA ADPCM: CD-XA's prediction filters, 28
+ * samples in a 15-byte frame per channel. The frame's first byte holds the
+ * filter (high nibble) and the shift (low nibble); then 14 bytes of 4-bit
+ * residuals, high nibble first.
+ */
 struct EaXaChannel {
     int previous = 0;
     int beforePrevious = 0;
 };
+/** An EA-XA frame's bytes, and the samples it holds. */
+///@{
 constexpr size_t kEaXaFrameBytes = 15;
 constexpr int kEaXaFrameSamples = 28;
+///@}
 
-// Decodes one frame into `count` (at most 28) samples, `stride` apart.
+/**
+ * Decodes one frame into `count` (at most 28) samples, `stride` apart.
+ * A filter number above 3 counts as no prediction.
+ */
 void decodeEaXaFrame(const uint8_t *frame, EaXaChannel &channel, int16_t *out, int count, int stride = 1);
 
-// A mono stream of frames, `samples` long; fails if the data is short.
+/** A mono stream of frames, `samples` long; fails if the data is short. */
 Error decodeEaXa(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out);
 
-// A stereo data block of EA's SCxl streams (SCDl): u32 samples, each
-// channel's starting history (s16 previous, s16 the one before), then per
-// 28 samples a filter byte and a shift byte (left in the high nibbles) and
-// 28 bytes of residuals (left high nibble, right low). Appends the
-// interleaved samples to `out`.
+/**
+ * A stereo data block of EA's SCxl streams (SCDl): u32 samples, each
+ * channel's starting history (s16 previous, s16 the one before), then per
+ * 28 samples a filter byte and a shift byte (left in the high nibbles) and
+ * 28 bytes of residuals (left high nibble, right low). Appends the
+ * interleaved samples to `out`; fails if the block is short.
+ */
 Error decodeEaXaStereoBlock(const uint8_t *data, size_t size, std::vector<int16_t> &out);
 
-// EA MicroTalk ("UTalk", "UTK"), a linear-predictive speech codec: mono,
-// 22,050 Hz, 432 samples a frame. The stream starts with a few header bits
-// and then holds frames back to back, bits read from each byte's lowest
-// first.
+/**
+ * EA MicroTalk ("UTalk", "UTK"), a linear-predictive speech codec: mono,
+ * 22,050 Hz, 432 samples a frame. The stream starts with a few header bits
+ * and then holds frames back to back, bits read from each byte's lowest
+ * first.
+ */
 class MicroTalkDecoder {
 public:
+    /** The samples in a frame. */
     static constexpr int kFrameSamples = 432;
 
+    /** A decoder reading `data`, which must outlive it. */
     MicroTalkDecoder(const uint8_t *data, size_t size);
     MicroTalkDecoder(const MicroTalkDecoder &) = delete; // points into its own state
     MicroTalkDecoder &operator=(const MicroTalkDecoder &) = delete;
-    // The next frame's samples (unrounded). Past the end of the data the
-    // decoder reads zeros, as the original does.
+    /**
+     * The next frame's kFrameSamples samples (unrounded), good until the
+     * next call. Past the end of the data the decoder reads zeros, as the
+     * original does.
+     */
     const float *decodeFrame();
-    // Whether the decoder has read past the end of its data.
+    /** Whether the decoder has read past the end of its data. */
     bool overrun() const { return _overrun; }
 
 private:
@@ -82,7 +100,10 @@ private:
     float *const _frame = _state + 88 + 324;
 };
 
-// A mono MicroTalk stream, `samples` long, rounded to 16 bits.
+/**
+ * A mono MicroTalk stream, `samples` long, rounded to 16 bits. Only empty
+ * data fails: a stream cut short decodes as if zeros followed.
+ */
 Error decodeMicroTalk(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out);
 
 } // namespace reluva::audio

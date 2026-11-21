@@ -24,80 +24,117 @@
 
 namespace reluva::idtech3 {
 
-// refdef_t's flag for views without the level (the HUD's heads, the
-// menus' models).
+/**
+ * refdef_t's flag for views without the level (the HUD's heads, the
+ * menus' models).
+ */
 constexpr int32_t kNoWorldModel = 1;
 
-// Reading the structures the programs hand over, kept as bytes.
+/**
+ * A value at byte `at` of a structure a program handed over, kept as
+ * bytes; 0 where the bytes end.
+ */
+///@{
 int32_t readInt(const std::vector<uint8_t> &bytes, size_t at);
 float readFloat(const std::vector<uint8_t> &bytes, size_t at);
 gfx::Vec3 readVec(const std::vector<uint8_t> &bytes, size_t at);
+///@}
 
-// Draws what a game program (the client game, the menus) hands over:
-// its 2D pictures, and each RenderScene's view of its entities, polygons
-// and lights, the level with it when the view has it.
+/**
+ * Draws what a game program (the client game, the menus) hands over:
+ * its 2D pictures, and each RenderScene's view of its entities, polygons
+ * and lights, the level with it when the view has it.
+ */
 class SceneDrawer {
 public:
-    // `layout`: how the game lays out the entities it adds (kept).
+    /**
+     * Drawing with `renderer` and the caches, which must outlive it.
+     * @param layout How the game lays out the entities it adds (kept by
+     *        reference).
+     */
     SceneDrawer(gfx::Renderer3D &renderer, ShaderCache &shaders, ModelCache &models, const RefEntityLayout &layout)
         : _r(renderer), _shaders(shaders), _models(models), _layout(layout) {}
     ~SceneDrawer();
     SceneDrawer(const SceneDrawer &) = delete;
     SceneDrawer &operator=(const SceneDrawer &) = delete;
 
-    // The program's handles, by which it names models, skins and shaders.
+    /** The program's handles, by which it names models, skins and shaders. */
     struct Handles {
         const HandleTable *models = nullptr;
         const HandleTable *skins = nullptr;
         const HandleTable *shaders = nullptr;
     };
-    // Each program's handles have their own caches (the game's shader 5
-    // isn't the menus' shader 5): switching keeps the other's.
+    /**
+     * Draws with a program's handles. Each program's handles have their own
+     * caches (the game's shader 5 isn't the menus' shader 5): switching
+     * keeps the other's.
+     */
     void setHandles(const Handles &handles);
-    // Forgets what the handles were loaded as (a new program, or the
-    // caches cleared).
+    /**
+     * Forgets what the handles were loaded as (a new program, or the
+     * caches cleared).
+     */
     void reset();
 
-    // Pictures [first, last) over the frame, in the program's screen
-    // (screenW x screenH, scaled to the frame); `time` in seconds.
+    /**
+     * Pictures [first, last) over the frame, in the program's screen
+     * (screenW x screenH, scaled to the frame); `time` in seconds.
+     */
     void drawPictures(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW, int screenH,
                       float time);
 
-    // An RGBA image (cols x rows, rows top first) over (x, y, w, h) of the
-    // program's screen: a movie's frame, a saved game's picture.
+    /**
+     * An RGBA image (cols x rows, rows top first) over (x, y, w, h) of the
+     * program's screen: a movie's frame, a saved game's picture.
+     */
     void drawImage(const uint8_t *rgba, int cols, int rows, float x, float y, float w, float h, int screenW,
                    int screenH);
-    // Loads the models and skins the program has registered so far, ahead
-    // of drawing them (as its loading screen updates, so the loading takes
-    // place there, stage by stage, as the original's).
+    /**
+     * Loads the models and skins the program has registered so far, ahead
+     * of drawing them (as its loading screen updates, so the loading takes
+     * place there, stage by stage, as the original's).
+     */
     void preload();
-    // Each frame, before drawing: images' textures from a few frames ago
-    // (the GPU done with them) are let go.
+    /**
+     * Each frame, before drawing: images' textures from a few frames ago
+     * (the GPU done with them) are let go.
+     */
     void newFrame();
 
-    // `view` of `scene`, its rectangle (refdef_t's x, y, width, height in
-    // the program's screen) scaled to the frame. With the level (`world`,
-    // `grid`) unless the view says it has none; then lit as the original
-    // lights models without one. After beginFrame(); `firstView` says
-    // whether depths are already clear. `time` in seconds is the shaders'
-    // clock; dynamic lights only if `dynamicLights`.
+    /**
+     * `view` of `scene`, its rectangle (refdef_t's x, y, width, height in
+     * the program's screen) scaled to the frame. With the level (`world`,
+     * `grid`) unless the view says it has none; then lit as the original
+     * lights models without one. After beginFrame(); `firstView` says
+     * whether depths are already clear. `time` in seconds is the shaders'
+     * clock; dynamic lights only if `dynamicLights`.
+     */
     void drawView(const Scene &scene, const View &view, int screenW, int screenH, float time, bool firstView,
                   WorldRenderer *world, const LightGrid *grid, bool dynamicLights);
 
-    // What the last view drew, for the info line.
+    /**
+     * What the last view drew, for the info line: where from, its models,
+     * effects and dynamic lights, and the entities of kinds not drawn.
+     */
+    ///@{
     const gfx::Vec3 &eye() const { return _eye; }
     size_t placedCount() const { return _placed.size(); }
     size_t effectCount() const { return _effects.size(); }
     size_t lightCount() const { return _lights.size(); }
     int otherEntities() const { return _otherEntities; }
-    // The last view's effects (sprites, beams, marks) by shader, the most
-    // first: "name x count, ...", the first few.
+    ///@}
+    /**
+     * The last view's effects (sprites, beams, marks) by shader, the most
+     * first: "name x count, ...", the first four.
+     */
     std::string effectSummary() const;
     // What's drawn of the program's entities (the original's
     // r_drawentities, and Reluva's own switch for effects alone).
     bool showModels = true;
     bool showEffects = true;
+    /** How many mirror and portal views it has drawn, for the info line. */
     int portalViews() const { return _portalViews; }
+    /** The models the last view couldn't draw, by name. */
     const std::set<std::string> &unloadable() const { return _unloadable; }
 
 private:

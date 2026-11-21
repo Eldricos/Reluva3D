@@ -145,8 +145,6 @@ std::string shorten(const std::string &s, size_t max) {
     return s.size() <= max ? s : s.substr(0, max - 3) + "...";
 }
 
-// --- Page ---------------------------------------------------------------------
-
 void Page::begin2D() {
     _ctx.sys.initGraphics(frameW(), frameH(), PixelFormat::kRGBA32);
     _ctx.sys.setMouseCursorVisible(true);

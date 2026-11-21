@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""proto.py's rendering of the house at a scale, without objects of kind 11
+or layer 4, each in its first state.
+
+    python3 -I py/proto3.py SCALE OUT.png
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs

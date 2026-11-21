@@ -19,7 +19,9 @@ namespace reluva::botf {
 /** lexicon.dic's entries, by number. */
 class Lexicon {
 public:
+    /** Reads lexicon.dic, replacing the entries; fails if the table or an entry is past the end. */
     Error load(const std::vector<uint8_t> &data);
+    /** How many entries there are. */
     size_t size() const { return _entries.size(); }
     /** The entry as UTF-8, or empty past the end. */
     const std::string &operator[](size_t i) const;
@@ -28,9 +30,11 @@ private:
     std::vector<std::string> _entries;
 };
 
-// Entries the screens use, numbered as in the English lexicon.dic. Found by
-// the modding community by changing an entry and seeing which screen
-// changed (Ultimate Editor, ue/edit/res/stbof/files/dic/idx/LexDataIdx.java).
+/**
+ * Entries the screens use, numbered as in the English lexicon.dic. Found by
+ * the modding community by changing an entry and seeing which screen
+ * changed (Ultimate Editor, ue/edit/res/stbof/files/dic/idx/LexDataIdx.java).
+ */
 namespace lex {
 constexpr int kAdvanced = 4;
 constexpr int kAutomatic = 52;

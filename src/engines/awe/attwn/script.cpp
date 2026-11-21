@@ -120,7 +120,7 @@ bool machineReady(const GameState &state, const std::string &machine) {
 
 bool condition(const GameState &state, const std::vector<std::string> &words, bool &holds) {
     if (!words.empty() && words[0] == "test") {
-        // 0x40a8b2
+        // "test <machine>" (0x40a8b2)
         holds = machineReady(state, fs::toLower(words.size() > 1 ? words[1] : std::string()));
         return true;
     }

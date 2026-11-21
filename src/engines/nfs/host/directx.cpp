@@ -83,8 +83,9 @@ void writeDesc(Cpu &c, uint32_t p, int w, int h, int bits, int pitch, uint32_t m
 // The joystick offered (GameHost::Options::joystick), as DirectInput
 // describes a pad's objects in DIJOYSTATE (c_dfDIJoystick, the data format
 // the game sets): five axes (X and Y the left stick, Z the triggers, Rx
-// and Ry the right stick), a hat (the d-pad) and twelve buttons.
-// Reluva's own
+// and Ry the right stick), a hat (the d-pad) and twelve buttons. Its
+// instance, product and force feedback driver GUIDs are Reluva's own
+// (these their first parts).
 constexpr uint32_t kJoystickInstance = 0x52e1a000;
 constexpr uint32_t kJoystickProduct = 0x52e1a001;
 constexpr uint32_t kJoystickFFDriver = 0x52e1a002;

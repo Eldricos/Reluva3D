@@ -7,7 +7,12 @@
 
 namespace reluva {
 
-// Values stored in a file's bytes, at `p`.
+/**
+ * A little-endian value from the bytes at `p`, which needn't be aligned:
+ * the same on a big-endian machine, and without the undefined behaviour of
+ * casting `p` to a wider pointer.
+ */
+///@{
 inline uint16_t readLE16(const void *p) {
     const uint8_t *b = static_cast<const uint8_t *>(p);
     return uint16_t(b[0] | (b[1] << 8));
@@ -21,12 +26,16 @@ inline uint32_t readLE32(const void *p) {
 inline uint64_t readLE64(const void *p) {
     return uint64_t(readLE32(p)) | uint64_t(readLE32(static_cast<const uint8_t *>(p) + 4)) << 32;
 }
+///@}
 
+/** A big-endian 32-bit value from the bytes at `p`, which needn't be aligned. */
 inline uint32_t readBE32(const void *p) {
     const uint8_t *b = static_cast<const uint8_t *>(p);
     return (uint32_t(b[0]) << 24) | (uint32_t(b[1]) << 16) | (uint32_t(b[2]) << 8) | uint32_t(b[3]);
 }
 
+/** `v` written to the bytes at `p`, little-endian. */
+///@{
 inline void writeLE16(void *p, uint16_t v) {
     uint8_t *b = static_cast<uint8_t *>(p);
     b[0] = uint8_t(v), b[1] = uint8_t(v >> 8);
@@ -36,22 +45,27 @@ inline void writeLE32(void *p, uint32_t v) {
     uint8_t *b = static_cast<uint8_t *>(p);
     b[0] = uint8_t(v), b[1] = uint8_t(v >> 8), b[2] = uint8_t(v >> 16), b[3] = uint8_t(v >> 24);
 }
+///@}
 
+/** `v` written to the bytes at `p`, big-endian. */
 inline void writeBE32(void *p, uint32_t v) {
     uint8_t *b = static_cast<uint8_t *>(p);
     b[0] = uint8_t(v >> 24), b[1] = uint8_t(v >> 16), b[2] = uint8_t(v >> 8), b[3] = uint8_t(v);
 }
 
-// A four-character code as little-endian files store it: 'R','I','F','F'
-// read with readLE32.
+/**
+ * A four-character code as little-endian files store it: tagLE('R', 'I',
+ * 'F', 'F') is what readLE32 gives for "RIFF".
+ */
 constexpr uint32_t tagLE(char a, char b, char c, char d) {
     return uint32_t(uint8_t(a)) | uint32_t(uint8_t(b)) << 8 | uint32_t(uint8_t(c)) << 16 | uint32_t(uint8_t(d)) << 24;
 }
-// The same code read big-endian (readBE32): 'S','G','E','N' as 0x5347454E.
+/** The same code read big-endian (readBE32): 'S', 'G', 'E', 'N' as 0x5347454E. */
 constexpr uint32_t tagBE(char a, char b, char c, char d) {
     return uint32_t(uint8_t(a)) << 24 | uint32_t(uint8_t(b)) << 16 | uint32_t(uint8_t(c)) << 8 | uint32_t(uint8_t(d));
 }
 
+/** A big-endian 16-bit value from the bytes at `p`, which needn't be aligned. */
 inline uint16_t readBE16(const void *p) {
     const uint8_t *b = static_cast<const uint8_t *>(p);
     return uint16_t((b[0] << 8) | b[1]);

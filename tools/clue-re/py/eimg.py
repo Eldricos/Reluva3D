@@ -1,14 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""An early reader of the EIMG pictures (version 0x200 only; Reluva's own
+reader replaced it): writes the first pictures of a file as PNGs.
+
+    python3 -I py/eimg.py FILE.res OUT_PREFIX COUNT
+"""
+
 import sys,struct,re
 from PIL import Image
 def recs(d):
+    """(tag, bytes) of each record in a file of them."""
     tot,cnt=struct.unpack('<II',d[4:12]); p=12
     for i in range(cnt):
         tag=d[p:p+4]; ver,size=struct.unpack('<II',d[p+4:p+12])
         yield tag,d[p:p+12+size]; p+=12+size
 def decode(r):
+    """(picture, bytes used, bytes of pixel data) of a version 0x200 EIMG."""
     w,h=struct.unpack('<II',r[16:24]); ds=struct.unpack('<I',r[53:57])[0]
     data=r[57:57+ds]; img=Image.new('RGBA',(w,h)); px=img.load(); i=0
     for y in range(h):

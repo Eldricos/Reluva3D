@@ -36,7 +36,7 @@ Glide2 openGlide2(int colorFormat = kColorArgb) {
     return g;
 }
 
-// --- 21c: linear frame buffer write formats ------------------------------------
+// Linear frame buffer write formats.
 
 void testLfbFormats() {
     Glide2 g = openGlide2();
@@ -151,7 +151,7 @@ void testLfbSwizzle() {
     CHECK(dll.glide().lfbRead(kBufferBack, 1, 2, false) == 0x001f);
 }
 
-// --- 21b: anti-aliasing --------------------------------------------------------------
+// Anti-aliasing.
 
 Glide2Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, float a = 255) {
     Glide2Vertex v;
@@ -259,7 +259,7 @@ void testAntialiasing() {
     CHECK(std::abs((g3x.core().lfbRead(kBufferBack, 35, 9, false) >> 5 & 63) - 31) <= 1);
 }
 
-// --- 21a: the utility library -------------------------------------------------------
+// The utility library.
 
 void testTextureManager() {
     Glide2 g = openGlide2();
@@ -415,7 +415,7 @@ void testUtilities() {
     CHECK(call("_guEncodeRLE16@16", {dst, src, 5, 2}) == 16 && cpu.read16(dst + 4) == 1 && cpu.read16(dst + 6) == 2);
 }
 
-// --- 21d: the board generations ------------------------------------------------------
+// The board generations.
 
 void testBoards() {
     Board b;
@@ -509,7 +509,7 @@ void testBoards() {
     CHECK(Glide3(voodoo2Board()).get(g3::kMemoryUma, 4, v) == 4 && v[0] == 0);
 }
 
-// --- 22a: clip coordinates clipped against the view volume ---------------------------
+// Clip coordinates clipped against the view volume.
 
 void testClipCoordinates() {
     Glide3 g(voodoo2Board());
@@ -541,7 +541,7 @@ void testClipCoordinates() {
                 count += lit(x, y);
         return count;
     };
-    // Inside the volume: drawn as before (the viewport: x = (x/w + 1) 320).
+    // Inside the volume: drawn as if unclipped (the viewport: x = (x/w + 1) 320).
     const V a{-0.5f, -0.5f, 0, 1, 1, 1, 1};
     const V b{0.5f, -0.5f, 0, 1, 1, 1, 1};
     const V c{0, 0.5f, 0, 1, 1, 1, 1};

@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Disassembles !EagleM.dll from an address, from the eagle.pkl edisasm.py
+makes.
+
+    python3 -I py/edis.py ADDRESS COUNT      (hex address)
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs

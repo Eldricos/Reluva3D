@@ -24,18 +24,28 @@
 
 namespace reluva::x86 {
 
-// Memory handed out from a range of the processor's: first fit, blocks
-// aligned, freed blocks joined with their neighbours. New blocks are zeroed.
+/**
+ * Memory handed out from a range of the processor's: first fit, blocks
+ * aligned, freed blocks joined with their neighbours. New blocks are zeroed.
+ * Sizes are rounded up to 16 bytes.
+ */
 class Arena {
 public:
+    /** Hands out [start, end) of `cpu`'s memory. */
     Arena(Cpu &cpu, uint32_t start, uint32_t end);
-    // 0 if there's no room.
+    /**
+     * A block of `size` bytes, its start a multiple of `align` (a power of
+     * two; 16 at least).
+     * @return Its address; 0 if there's no room.
+     */
     uint32_t alloc(uint32_t size, uint32_t align = 16);
-    // Allocates exactly [address, address + size) if it's all free.
+    /** Allocates exactly [address, address + size) if it's all free; false otherwise. */
     bool claim(uint32_t address, uint32_t size);
+    /** Frees the block starting at `address`; nothing if there's none. */
     void free(uint32_t address);
-    // The size a block was allocated with; 0 if `address` isn't one's start.
+    /** The size a block was allocated with (rounded up); 0 if `address` isn't one's start. */
     uint32_t size(uint32_t address) const;
+    /** The bytes free, in all. */
     uint32_t freeBytes() const;
 
 private:
@@ -56,107 +66,144 @@ private:
     void release(uint32_t start, uint32_t size);
 };
 
-// A key (events.h's codes) as Windows knows it: its virtual-key code and
-// its scan code (set 1, with 0x100 for the extended keys). False for keys
-// Windows has none of.
+/**
+ * A key (events.h's codes) as Windows knows it: its virtual-key code and
+ * its scan code (set 1, with 0x100 for the extended keys).
+ * @return False for keys Windows has none of.
+ */
 bool windowsKey(uint32_t key, uint32_t &virtualKey, uint32_t &scanCode);
 
-// Something a handle refers to (Win32Process::addHandle): a file, an
-// event, a thread...
+/**
+ * Something a handle refers to (Win32Process::addHandle): a file, an
+ * event, a thread...
+ */
 struct KernelObject {
     virtual ~KernelObject() = default;
 };
 
-// A character device the host provides (a serial port): ReadFile and
-// WriteFile on its handle come here. They run on the program's thread and
-// may wait (Win32Process::wait); each returns false (and sets `error`, a
-// Windows error code) on failure. A read given an OVERLAPPED (`overlapped`)
-// mustn't wait: it takes what there is; with nothing there, the read is left
-// pending (ERROR_IO_PENDING), its event signalled once readable() and the
-// bytes taken by GetOverlappedResult.
+/**
+ * A character device the host provides (a serial port): ReadFile and
+ * WriteFile on its handle come here. They run on the program's thread and
+ * may wait (Win32Process::wait); each returns false (and sets `error`, a
+ * Windows error code) on failure. A read given an OVERLAPPED (`overlapped`)
+ * mustn't wait: it takes what there is; with nothing there, the read is left
+ * pending (ERROR_IO_PENDING), its event signalled once readable() and the
+ * bytes taken by GetOverlappedResult.
+ */
 struct DeviceObject : KernelObject {
+    /** Reads up to `size` bytes to `buffer` in the process's memory, `done` the count read. */
     virtual bool read(Cpu &cpu, uint32_t buffer, uint32_t size, bool overlapped, uint32_t &done, uint32_t &error) = 0;
+    /** Whether a read would find bytes now. */
     virtual bool readable() = 0;
+    /** Writes `size` bytes from `buffer` in the process's memory, `done` the count written. */
     virtual bool write(Cpu &cpu, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &error) = 0;
 };
 
-// A Windows process for 32-bit DLLs built for Windows 95 to XP (the C
-// runtime of Visual C++ 6 and its kind) to run in: their images loaded
-// and relocated, their imports bound, the system's functions they call
-// (KERNEL32's: memory, strings, the C runtime's start-up) stood in for, from
-// the behaviour Microsoft documents for them. Files, threads and windows
-// aren't there: such DLLs get those from the engine that loads them.
+/**
+ * A Windows process for 32-bit programs and DLLs built for Windows 95 to
+ * XP (the C runtime of Visual C++ 6 and its kind) to run in: their images
+ * loaded and relocated, their imports bound, the system's functions they
+ * call stood in for, from the behaviour Microsoft documents for them:
+ * KERNEL32's memory, strings, files, threads and the C runtime's
+ * start-up, USER32's windows and messages, the registry and COM. What
+ * comes from outside the process (files, input, the clock, DirectX and
+ * the like) the engine that runs it supplies, through the members below.
+ */
 class Win32Process {
 public:
     static constexpr uint32_t kStackSize = 4u << 20;
 
-    // `cpu`'s memory, all of it the process's; `exeName` is the program
-    // the DLLs are told loaded them (its command line and module name).
-    // `loadsExe`: an EXE will be loaded (which can't be relocated), so the
-    // stack is kept out of where EXEs ask to go, 0x400000 and the few
-    // megabytes after it; otherwise the memory is laid out as before that
-    // was asked for, which the engine tests' records depend on (the
-    // addresses things are loaded at show in their output).
-    // `stackAtTop`: the stack and the thread's block at the top of memory,
-    // below the native functions, so the whole bottom is free for images
-    // (LEGO Alpha Team's layout, which its references were recorded with).
+    /**
+     * A process in `cpu`'s memory, all of it the process's.
+     * @param exeName The program the DLLs are told loaded them (its command
+     *        line and module name).
+     * @param loadsExe An EXE will be loaded (which can't be relocated), so
+     *        the stack is kept out of where EXEs ask to go, 0x400000 and the
+     *        few megabytes after it; otherwise it takes the first room there
+     *        is, the layout the engine tests' records depend on (the
+     *        addresses things are loaded at show in their output).
+     * @param stackAtTop The stack and the thread's block at the top of
+     *        memory, below the native functions, so the whole bottom is free
+     *        for images (LEGO Alpha Team's layout, which its references were
+     *        recorded with).
+     */
     explicit Win32Process(Cpu &cpu, std::string exeName = "host.exe", bool loadsExe = false, bool stackAtTop = false);
+    /** The processor, and the memory the process hands out. */
+    ///@{
     Cpu &cpu() { return _cpu; }
     Arena &memory() { return *_arena; }
+    ///@}
 
+    /** A program or DLL loaded into the process. */
     struct Module {
         std::string name;
         uint32_t base = 0;
         uint32_t size = 0;
         uint32_t entry = 0; // the address of DllMain (its C runtime's start-up); 0 if none
         PeImage image;
+        /** The address of the function exported by that name; 0 if none (or it's forwarded). */
         uint32_t exportAddress(const std::string &name) const;
     };
-    // Maps a DLL into memory (where it asks if that's free, else wherever
-    // there's room, relocated) and binds its imports: functions provide()d
-    // and the stand-ins first, the exports of modules already loaded next;
-    // others are bound to a function that fails the run, naming them.
+    /**
+     * Maps a DLL into memory (where it asks if that's free, else wherever
+     * there's room, relocated) and binds its imports: functions provide()d
+     * and the stand-ins first, the exports of modules already loaded next;
+     * others are bound to a function that fails the run, naming them.
+     * @param out The module loaded, or null if it failed.
+     */
     Error load(const std::string &name, const std::vector<uint8_t> &file, const Module *&out);
-    // The modules loaded, in order.
+    /** The modules loaded, in order. */
     std::vector<const Module *> modules() const {
         std::vector<const Module *> all;
         for (const auto &m : _modules)
             all.push_back(m.get());
         return all;
     }
-    // Calls its DllMain for DLL_PROCESS_ATTACH: false (with why) if it
-    // faulted or said no.
+    /**
+     * Calls its DllMain for DLL_PROCESS_ATTACH: fails (saying why) if it
+     * faulted or said no. A module without an entry point needs none.
+     */
     Error attach(const Module &module);
-    // Runs an EXE's entry point (its C runtime's start-up, which calls
-    // WinMain), returning what it returns; fails if it faults, or ends the
-    // process (exitCode then holds the code it gave).
+    /**
+     * Runs an EXE's entry point (its C runtime's start-up, which calls
+     * WinMain), returning what it returns; fails if it faults, or ends the
+     * process (exitCode then holds the code it gave).
+     */
     Error start(const Module &exe, uint32_t &exitCode);
+    /** The module of that name (ignoring case, and ".dll" if it has no extension), or null. */
     const Module *module(const std::string &name) const;
-    // The module loaded at `base`, if any.
+    /** The module loaded at `base`, or null. */
     const Module *moduleAt(uint32_t base) const;
-    // The module an address is in, if any.
+    /** The module an address is in, or null. */
     const Module *moduleContaining(uint32_t address) const;
 
-    // Supplies an import (WINMM.dll's timeGetTime, say), or replaces a
-    // stand-in. `dll` is matched ignoring case. Returns its address.
+    /**
+     * Supplies an import (WINMM.dll's timeGetTime, say), or replaces a
+     * stand-in. `dll` is matched ignoring case. Modules loaded already
+     * keep what they were bound to.
+     * @return Its address.
+     */
     uint32_t provide(const std::string &dll, const std::string &function, Cpu::Native fn);
-    // A stdcall function of `args` 32-bit arguments returning `fn`'s result.
+    /** A stdcall function of `args` 32-bit arguments returning `fn`'s result. */
     void provideStdcall(const std::string &dll, const std::string &function, int args,
                         std::function<uint32_t(Cpu &)> fn);
-    // A cdecl function returning `fn`'s result in EAX.
+    /** A cdecl function returning `fn`'s result in EAX. */
     void provideCdecl(const std::string &dll, const std::string &function, std::function<uint32_t(Cpu &)> fn);
-    // Supplies a data import: the importer's table gets `address` (a
-    // variable's, in the process's memory) instead of a function's.
+    /**
+     * Supplies a data import: the importer's table gets `address` (a
+     * variable's, in the process's memory) instead of a function's.
+     */
     void provideData(const std::string &dll, const std::string &name, uint32_t address);
-    // Whether something is supplied for dll!name already.
+    /** Whether something is supplied for dll!name already. */
     bool provides(const std::string &dll, const std::string &name) const;
-    // The address supplied for dll!name (a function's or a variable's); 0
-    // if none.
+    /** The address supplied for dll!name (a function's or a variable's); 0 if none. */
     uint32_t provided(const std::string &dll, const std::string &name) const;
-    // The same, for a stand-in's address (for calling it from tests).
+    /** The same, for a stand-in's address (for calling it from tests). */
     uint32_t standIn(const std::string &dll, const std::string &name) const { return provided(dll, name); }
-    // The imports the loaded modules have that nothing stands in for
-    // ("DLL!function"); calling one fails the run.
+    /**
+     * The imports the loaded modules have that nothing stands in for
+     * ("DLL!function"); calling one fails the run.
+     */
     const std::vector<std::string> &missingImports() const { return _missing; }
 
     // What the program writes for a debugger, or to its standard output
@@ -164,48 +211,69 @@ public:
     std::function<void(const std::string &text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
-    // The milliseconds the main thread has asked to Sleep, in all. It
-    // doesn't wait (the other threads run meanwhile, and it goes on), so a
-    // clock that follows the instructions run can add them, as the time
-    // that would have passed.
+    /**
+     * The milliseconds the main thread has asked to Sleep, in all. It
+     * doesn't wait (the other threads run meanwhile, and it goes on), so a
+     * clock that follows the instructions run can add them, as the time
+     * that would have passed.
+     */
     uint64_t slept() const { return _slept; }
 
-    // Events (CreateEventA). No thread can wait on one that another sets
-    // (they take turns), so an event reads as set to a wait, unless it's
-    // tracked: then its state is kept, set by SetEvent or setEvent and
-    // cleared by ResetEvent or, for an auto-reset event, by a wait that
-    // finds it set. A tracked event that isn't set times out at once.
-    // Tracked are those something here sets (A3D's wave events). With host
-    // threads, events are kernel objects and keep their state; setEvent
-    // then sets one (false if the handle isn't one).
+    /**
+     * Events (CreateEventA). No thread can wait on one that another sets
+     * (they take turns), so an event reads as set to a wait, unless it's
+     * tracked: then its state is kept, set by SetEvent or setEvent and
+     * cleared by ResetEvent or, for an auto-reset event, by a wait that
+     * finds it set. A tracked event that isn't set times out at once.
+     * Tracked are those something here sets (A3D's wave events). With host
+     * threads, events are kernel objects and keep their state; setEvent
+     * then sets one (false if the handle isn't one).
+     */
+    ///@{
     void trackEvent(uint32_t handle);
     bool setEvent(uint32_t handle);
+    ///@}
 
-    // The thread's stack and information block (FS).
+    /** The top of the main thread's stack, which grows down from it. */
     uint32_t stackTop() const { return _stackTop; }
 
-    // The program: its file name and folder as the program sees them
-    // ("LEGOATeam.exe", "C:\\LEGO Alpha Team\\"), for its command line and
-    // GetModuleFileNameA. Default: Elite Force's.
-    // Also makes the folder current.
+    /**
+     * Sets the program: its file name and folder as the program sees them
+     * ("LEGOATeam.exe", "C:\\LEGO Alpha Team\\"), for its command line
+     * (the path, quoted) and GetModuleFileNameA. Also makes the folder
+     * current. Without it, the folder is Elite Force's ("C:\\STVEF\\").
+     */
     void setProgram(const std::string &exeName, const std::string &folder);
-    // RDTSC reads a 1 GHz processor's count by the process's clock
-    // (milliseconds), not the instructions run (Cpu::timeStamp's default).
+    /**
+     * Has RDTSC read a 1 GHz processor's count by the process's clock
+     * (milliseconds), not the instructions run (Cpu::timeStamp's default).
+     */
     void timeStampFromClock();
+    /** The program's folder and file name, as setProgram() gave them. */
+    ///@{
     const std::string &programFolder() const { return _programFolder; }
     const std::string &programName() const { return _exeName; }
-    // Where the command line is, as GetCommandLineA returns it.
+    ///@}
+    /** Where the command line is, as GetCommandLineA returns it. */
     uint32_t commandLineAddress() const { return _commandLine; }
-    // Replaces the command line setProgram made ("nfs3.exe -d3d").
+    /** Replaces the command line setProgram made ("nfs3.exe -d3d"). */
     void setCommandLine(const std::string &line);
 
-    // The last error, for stand-ins added from outside (SetLastError).
+    /** The last error, for stand-ins added from outside (SetLastError). */
+    ///@{
     void setLastError(uint32_t e) { _lastError = e; }
     uint32_t lastError() const { return _lastError; }
+    ///@}
 
-    // --- Handles ------------------------------------------------------------------
-    // Kernel objects by handle, for the stand-ins of drives and host threads
-    // (below) and the engine's own (a serial port, say).
+    // Handles.
+
+    /**
+     * Kernel objects by handle, for the stand-ins of drives and host threads
+     * (below) and the engine's own (a serial port, say): a handle added,
+     * its object as a T (null if it isn't one, or there's none), and the
+     * handle closed (false if there was none).
+     */
+    ///@{
     uint32_t addHandle(std::shared_ptr<KernelObject> object);
     template<typename T>
     std::shared_ptr<T> object(uint32_t handle) const {
@@ -213,48 +281,64 @@ public:
         return it == _handles.end() ? nullptr : std::dynamic_pointer_cast<T>(it->second);
     }
     bool closeHandle(uint32_t handle);
+    ///@}
 
-    // --- Files ------------------------------------------------------------------
+    // Files.
+
     // Where the program's files are: a full Windows path ("C:\\GAME\\A.PAC")
     // as a path on this machine, or nothing if the program may not reach
     // it. `forWriting` asks for a file to be created or changed. Without
-    // it, the program finds no files (as before files were stood in for).
+    // it (and without drives), the program finds no files.
     std::function<std::optional<std::filesystem::path>(const std::string &windowsPath, bool forWriting)> mapPath;
-    // A path as the program gave it, made full: relative ones are taken from
-    // the current folder (the program's own folder, until SetCurrentDirectory
-    // or _chdir changes it).
+    /**
+     * A path as the program gave it, made full: relative ones are taken from
+     * the current folder (the program's own folder, until SetCurrentDirectory
+     * or _chdir changes it).
+     */
     std::string fullPath(const std::string &path) const;
+    /** The current folder, ending in a backslash; set, it is made full first. */
+    ///@{
     std::string currentFolder() const { return _currentFolder; }
     void setCurrentFolder(const std::string &folder);
+    ///@}
     // The drives the program sees: their letters, and the volume label of
     // the CD-ROM drive, if any ("LEGOATEN").
     std::string cdDrive = "D";
     std::string cdLabel;
 
-    // An open file, for the stand-ins that work with files (KERNEL32's
-    // handles and the C library's FILE).
+    /**
+     * An open file, for the stand-ins that work with files (KERNEL32's
+     * handles and the C library's FILE).
+     */
     struct OpenFile {
         std::FILE *file = nullptr;
         std::string windowsPath;
     };
-    // Opens a file for a handle; 0 if it can't be (lastError set). `mode`
-    // as fopen's ("rb", "wb", "r+b", "ab").
+    /**
+     * Opens a file, through mapPath, for a handle; 0 if it can't be
+     * (lastError set). `mode` as fopen's ("rb", "wb", "r+b", "ab").
+     */
     uint32_t openFile(const std::string &windowsPath, const char *mode);
+    /** The file open with that handle, or null. */
     OpenFile *file(uint32_t handle);
+    /** Closes the file open with that handle; false if there's none. */
     bool closeFile(uint32_t handle);
 
     // The exit code the program ended itself with (exit, ExitProcess), if it
     // did; its run then ends with an error saying so.
     std::optional<uint32_t> exited;
 
-    // --- Drives (win32_files.cpp) -------------------------------------------------
-    // Instead of mapPath, the program may see drives: each letter a folder
-    // of this machine, names matched ignoring case. Files written go under
-    // `writable` when it's set (the folder itself stays as it was), and are
-    // read from there first. Types: 3 a fixed disk, 5 a CD-ROM. The first
-    // drive added puts the stand-ins for files, folders and drives of their
-    // own in place of those above, with handles (addHandle); and devices
-    // (openSerialPort) and overlapped reads, which need host threads.
+    // Drives (win32_files.cpp).
+
+    /**
+     * Instead of mapPath, the program may see drives: each letter a folder
+     * of this machine, names matched ignoring case. Files written go under
+     * `writable` when it's set (the folder itself stays as it was), and are
+     * read from there first. Types: 3 a fixed disk, 5 a CD-ROM. The first
+     * drive added puts the stand-ins for files, folders and drives of their
+     * own in place of those above, with handles (addHandle); and devices
+     * (openSerialPort) and overlapped reads, which need host threads.
+     */
     struct Drive {
         char letter = 'C';
         std::filesystem::path root;
@@ -263,10 +347,16 @@ public:
         std::string label;
         uint32_t serial = 0x12345678;
     };
+    /**
+     * Adds a drive, in place of any of its letter. With the first, mapPath
+     * (if unset) finds files on the drives too.
+     */
     void addDrive(Drive drive);
-    // The host file a Windows path names on the drives: for reading, the
-    // writable copy if there is one, else the drive's (empty if the drive
-    // isn't there).
+    /**
+     * The host file a Windows path names on the drives: for reading, the
+     * writable copy if there is one, else the drive's (empty if the drive
+     * isn't there).
+     */
     std::filesystem::path hostPath(const std::string &windowsPath, bool forWriting) const;
     // Each file the program opens, and whether it was there.
     std::function<void(const std::string &windowsPath, bool found)> fileOpened;
@@ -275,20 +365,28 @@ public:
     // with ERROR_FILE_NOT_FOUND).
     std::function<std::shared_ptr<DeviceObject>(int port)> openSerialPort;
 
-    // --- Host threads (win32_threads.cpp) -------------------------------------------
-    // For a whole program whose threads wait on each other (events,
-    // mutexes, the multimedia timer), instead of the turns above: each of
-    // its threads runs on a host thread of its own, one at a time, and
-    // they change over when one waits and every `slice` instructions
-    // (Cpu::setSlice). useHostThreads() puts their stand-ins (threads,
-    // waits, events, mutexes, critical sections, TLS, Sleep, timeSetEvent,
-    // ExitProcess) in place of the others; run() then runs the program.
+    // Host threads (win32_threads.cpp).
+
+    /**
+     * For a whole program whose threads wait on each other (events,
+     * mutexes, the multimedia timer), instead of the turns below: each of
+     * its threads runs on a host thread of its own, one at a time, and
+     * they change over when one waits and every `slice` instructions
+     * (Cpu::setSlice). useHostThreads() puts their stand-ins (threads,
+     * waits, events, mutexes, critical sections, TLS, Sleep, timeSetEvent,
+     * ExitProcess) in place of the others; run() then runs the program.
+     */
+    ///@{
     void useHostThreads();
     bool hostThreads() const { return _hostThreads; }
-    // Runs an executable's start-up (its entry point, which never returns)
-    // on the main thread until the program ends the process, with the
-    // threads it starts: its exit code if it did, else why it stopped.
+    ///@}
+    /**
+     * Runs an executable's start-up (its entry point, which never returns)
+     * on the main thread until the program ends the process, with the
+     * threads it starts: its exit code if it did, else why it stopped.
+     */
     Error run(const Module &exe, uint32_t &exitCode);
+    /** A thread of the program, on a host thread of its own. */
     struct Thread : KernelObject {
         uint32_t id = 0;
         uint32_t stackTop = 0;
@@ -314,30 +412,47 @@ public:
         // wakes only the host thread whose turn it is).
         std::condition_variable turn;
     };
-    // A thread running `body` (which calls into the emulated code), with a
-    // stack and information block of its own; suspended if asked.
+    /**
+     * A thread running `body` (which calls into the emulated code), with a
+     * stack and information block of its own; suspended if asked. Threads
+     * that have finished give back their memory here.
+     * @param name For logs.
+     */
     std::shared_ptr<Thread> createThread(std::function<uint32_t()> body, bool suspended, std::string name);
+    /** Takes one from the thread's suspend count. */
     void resumeThread(Thread &t);
+    /** The thread running, or null if none runs on a host thread. */
     Thread *currentThread() const { return _running; }
-    // From the running thread: waits until `ready` is true or `timeoutMs`
-    // passes (0xffffffff: never), letting the others run. False if it timed
-    // out; ends the run (with abort()) if the process is ending.
+    /**
+     * From the running thread: waits until `ready` is true or `timeoutMs`
+     * passes (0xffffffff: never), letting the others run.
+     * @return False if it timed out, or if the process is ending (ending():
+     *         the native function should then abort()).
+     */
     bool wait(const std::function<bool()> &ready, uint32_t timeoutMs);
-    // From the running thread: lets the others run, if any can.
+    /** From the running thread: lets the others run, if any can. */
     void yield();
-    // From the running thread, after it may have woken another: switches
-    // at once if one of higher priority can run, as Windows does.
+    /**
+     * From the running thread, after it may have woken another: switches
+     * at once if one of higher priority can run, as Windows does.
+     */
     void preempt();
-    // Milliseconds, as wait() counts them.
+    /** Milliseconds, as wait() counts them. */
     uint64_t now() const;
-    // Whether the process is ending (or the running thread is being
-    // terminated): native functions that waited should then abort().
+    /**
+     * Whether the process is ending (or the running thread is being
+     * terminated): native functions that waited should then abort().
+     */
     bool ending() const;
-    // From any thread: ends the process, as ExitProcess would; run() then
-    // returns once every thread has unwound.
+    /**
+     * From any thread: ends the process, as ExitProcess would; run() then
+     * returns once every thread has unwound.
+     */
     void requestExit() { _exiting = true; }
-    // Resets an event, then signals it as soon as `condition` holds (checked
-    // whenever a thread waits on it), for overlapped I/O finishing.
+    /**
+     * Resets an event, then signals it as soon as `condition` holds (checked
+     * whenever a thread waits on it), for overlapped I/O finishing.
+     */
     void signalEventWhen(uint32_t handle, std::function<bool()> condition);
     // Instructions between thread changes.
     uint32_t slice = 20000;
@@ -355,39 +470,54 @@ public:
     // (microseconds): time the processor stood idle.
     std::atomic<uint64_t> idleWaits{0};
     std::atomic<uint64_t> idleMicros{0};
-    // From the running thread: the instructions run on `t` so far (its
-    // turn now included), and on the multimedia timer's thread (0 if
-    // there's none).
+    /**
+     * From the running thread: the instructions run on `t` so far (its
+     * turn now included; 0 for null), and on the multimedia timer's thread
+     * (0 if there's none).
+     */
+    ///@{
     uint64_t instructionsOn(const Thread *t) const {
         return t ? t->instructions + (t == _running ? _cpu.executed() - _turnStart : 0) : 0;
     }
     uint64_t timerInstructions() const { return instructionsOn(_timerThread.get()); }
+    ///@}
 
-    // --- Threads ---------------------------------------------------------------
+    // Threads that take turns.
+    //
     // The program's other threads take turns with its main one: when the
     // main thread sleeps or looks for messages, each thread that's due runs
     // (Cpu::resume) until it sleeps itself or ends. A thread's Sleep is where
     // it gives way, so code shared between threads is never run by two at
     // once.
-    // Starts a thread at `start` with `arg` (its first turn comes at the
-    // main thread's next Sleep or look for messages); its handle.
+
+    /**
+     * Starts a thread at `start` with `arg` (its first turn comes at the
+     * main thread's next Sleep or look for messages).
+     * @return Its handle.
+     */
     uint32_t startThread(uint32_t start, uint32_t arg);
-    // The threads that are due, each for a turn. Nothing while one runs.
+    /** Gives the threads that are due a turn each. Nothing while one runs. */
     void runThreads();
+    /** Whether one of the threads startThread() started is running. */
     bool inThread() const { return _current >= 0; }
-    // For the running thread's natives: it sleeps for `ms` (giving way), or
-    // ends.
+    /** For the running thread's natives: it sleeps for `ms` (giving way), or ends. */
+    ///@{
     void threadSleep(uint32_t ms);
     void threadEnd();
-    // Threads started, and those still going.
+    ///@}
+    /** Threads started, and those still going. */
+    ///@{
     size_t threadsStarted() const { return _turnThreads.size(); }
     size_t threadsRunning() const;
+    ///@}
 
-    // --- Windows and messages (USER32, GDI32) -----------------------------------
+    // Windows and messages (USER32, GDI32).
+
     // The desktop the program sees.
     int screenWidth = 800;
     int screenHeight = 600;
     int screenBits = 16;
+    /** A window the program made. */
     struct Window {
         std::string className;
         std::string title;
@@ -402,37 +532,44 @@ public:
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
     };
+    /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
-    // A window's client area on the screen: left, top, width, height.
+    /** A window's client area on the screen: left, top, width, height; nothing if there's no such window. */
     std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
-    // Moves and sizes a window (as SetWindowPos does).
+    /** Moves and sizes a window (as SetWindowPos does). */
     void moveWindow(uint32_t handle, int x, int y, int width, int height);
-    // The first window the program made that's still there; 0 if none.
+    /** The first window the program made that's still there; 0 if none. */
     uint32_t mainWindow() const;
-    // Queues a message as PostMessageA does: how the engine passes input on.
+    /** Queues a message as PostMessageA does: how the engine passes input on. */
     void postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
-    // Calls a window's procedure as SendMessageA does; 0 if there's no such window.
+    /** Calls a window's procedure as SendMessageA does; 0 if there's no such window. */
     uint32_t sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
     // The mouse pointer, on the screen.
     int cursorX = 0;
     int cursorY = 0;
     // Called when the program looks for a message and none is queued.
     std::function<void()> idle;
-    // --- Input, as the engine passes it on ---------------------------------------
-    // The pointer moved to (x, y) on the screen (kept within ClipCursor's
-    // rectangle): WM_MOUSEMOVE to the main window, in its client
-    // coordinates, with the buttons held.
+    // Input, as the engine passes it on.
+
+    /**
+     * The pointer moved to (x, y) on the screen (kept within ClipCursor's
+     * rectangle): WM_MOUSEMOVE to the main window, in its client
+     * coordinates, with the buttons held.
+     */
     void mouseMoveTo(int x, int y);
-    // A mouse button (0 left, 1 right, 2 middle) pressed or released where
-    // the pointer is; a second press soon after, near the first, is a
-    // double click for a window whose class asks for them.
+    /**
+     * A mouse button (0 left, 1 right, 2 middle) pressed or released where
+     * the pointer is; a second press soon after, near the first, is a
+     * double click for a window whose class asks for them.
+     */
     void mouseButton(int button, bool down);
-    // The wheel turned, in WHEEL_DELTA units (120 a notch; forward positive).
+    /** The wheel turned, in WHEEL_DELTA units (120 a notch; forward positive). */
     void mouseWheel(int delta);
-    // A key pressed or released: its virtual-key code and its scan code.
+    /** A key pressed or released: its virtual-key code and its scan code. */
     void key(uint32_t virtualKey, uint32_t scanCode, bool down);
-    // The same input as raw devices see it (DirectInput listens).
+    /** The same input as raw devices see it (DirectInput listens). */
     struct RawInput {
+        /** What happened: the pointer moved, a button, the wheel, or a key. */
         enum class Kind { kMotion, kButton, kWheel, kKey } kind;
         // Motion: dx, dy; Button: button, down; Wheel: delta; Key: scan code, down
         int a = 0;
@@ -443,17 +580,26 @@ public:
     // What MessageBoxA shows: by default, passed to `output`.
     std::function<void(const std::string &caption, const std::string &text)> messageBox;
 
-    // --- The registry (ADVAPI32) ------------------------------------------------
-    // Keys are full paths from a root ("HKEY_LOCAL_MACHINE\\Software\\..."),
-    // matched ignoring case. Values set by the program stay in memory;
-    // `registryWritten` tells the engine, to keep them if it wants.
+    // The registry (ADVAPI32).
+
+    /**
+     * Keys are full paths from a root ("HKEY_LOCAL_MACHINE\\Software\\..."),
+     * matched ignoring case, as are values' names. Values set by the program
+     * stay in memory; `registryWritten` tells the engine, to keep them if it
+     * wants. Setting a value makes its key, and those above it; a string is
+     * a REG_SZ with its NUL. A value read gives its type in `type`, if
+     * asked, and is nothing if it isn't there.
+     */
+    ///@{
     void setRegistryValue(const std::string &key, const std::string &name, uint32_t type, std::vector<uint8_t> data);
     void setRegistryString(const std::string &key, const std::string &name, const std::string &text);
     std::optional<std::vector<uint8_t>> registryValue(const std::string &key, const std::string &name,
                                                       uint32_t *type = nullptr) const;
+    ///@}
     std::function<void(const std::string &key, const std::string &name)> registryWritten;
 
-    // --- COM (ole32) --------------------------------------------------------------
+    // COM (ole32).
+
     // Makes the object CoCreateInstance asks for (its class and interface as
     // "{xxxxxxxx-...}"), writing its address to `out`; returns the HRESULT.
     // Without it, no class is registered.

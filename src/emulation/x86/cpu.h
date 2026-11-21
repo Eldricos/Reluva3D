@@ -21,15 +21,23 @@
 
 namespace reluva::x86 {
 
-// Memory straight from the system (mmap, VirtualAlloc), which gives it
-// zeroed, a page at a time as it's first touched.
+/**
+ * Memory straight from the system (mmap, VirtualAlloc), which gives it
+ * zeroed, a page at a time as it's first touched.
+ */
+///@{
 void *allocatePages(size_t bytes);
 void freePages(void *p, size_t bytes);
+///@}
 
-// An allocator of such memory: elements made without a value are left as
-// the zeros they already are, so a large memory costs only what's used.
+/**
+ * An allocator of such memory: elements made without a value are left as
+ * the zeros they already are, so a large memory costs only what's used.
+ */
 template<typename T>
 struct PageAllocator {
+    /** What a standard container needs of an allocator; allocate() throws std::bad_alloc on failure. */
+    ///@{
     using value_type = T;
     PageAllocator() = default;
     template<typename U>
@@ -50,23 +58,28 @@ struct PageAllocator {
     bool operator==(const PageAllocator<U> &) const {
         return true;
     }
+    ///@}
 };
+/** The emulated memory: zero where nothing was written, costing only the pages used. */
 using Memory = std::vector<uint8_t, PageAllocator<uint8_t>>;
 
 class Jit;
 
-// A 32-bit x86 processor, interpreted (written from Intel's published
-// instruction set reference), for running native game code (Windows DLLs
-// built for the Pentium of their day) on any machine: the integer
-// instructions, the x87 floating point unit, and the few system ones such
-// code uses. Its memory is one flat arena from address 0; the first page
-// is left unmapped so that null pointers fault.
-//
-// Native code (the engine's functions, stand-ins for the system's) runs at
-// reserved addresses: a call there runs a C++ function instead, which
-// reads its arguments from the stack and sets the return value.
+/**
+ * A 32-bit x86 processor, interpreted (written from Intel's published
+ * instruction set reference), for running native game code (Windows DLLs
+ * built for the Pentium of their day) on any machine: the integer
+ * instructions, the x87 floating point unit, and the few system ones such
+ * code uses. Its memory is one flat arena from address 0; the first page
+ * is left unmapped so that null pointers fault.
+ *
+ * Native code (the engine's functions, stand-ins for the system's) runs at
+ * reserved addresses: a call there runs a C++ function instead, which
+ * reads its arguments from the stack and sets the return value.
+ */
 class Cpu {
 public:
+    /** The general registers, in the instruction set's numbering: reg's indexes. */
     enum Reg { EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI };
     // EFLAGS bits.
     static constexpr uint32_t CF = 1u << 0;
@@ -80,22 +93,35 @@ public:
     static constexpr uint32_t OF = 1u << 11;
     static constexpr uint32_t kPageSize = 4096;
 
-    // `memorySize` bytes of memory (a multiple of 4096).
+    /**
+     * `memorySize` bytes of memory (a multiple of 4096), the top of it the
+     * natives' reserved range (nativeBase()). The environment variable
+     * RELUVA_NO_JIT, set, turns jitOn off.
+     */
     explicit Cpu(uint32_t memorySize);
     ~Cpu();
 
-    // --- Memory --------------------------------------------------------------
+    // Memory.
+
+    /** The whole memory, and its size in bytes. */
+    ///@{
     Memory &memory() { return _memory; }
     uint32_t memorySize() const { return uint32_t(_memory.size()); }
-    // In memory, past the first page: [4096, size). One compare, as each
-    // instruction's load and store asks (an address below 4096 wraps to
-    // past every span).
+    ///@}
+    /**
+     * Whether `size` bytes from `address` are in memory, past the first
+     * page: [4096, size). One compare, as each instruction's load and store
+     * asks (an address below 4096 wraps to past every span).
+     */
     RELUVA_FORCE_INLINE bool valid(uint32_t address, uint32_t size) const {
         return uint64_t(uint32_t(address - kPageSize)) + size <= _span;
     }
-    // Reads and writes for native code (no fault: out of range reads 0,
-    // writes are dropped; check valid() first where it matters). The
-    // writes are noted as instructions' are (noteWrite).
+    /**
+     * Reads and writes for native code (no fault: out of range reads 0,
+     * writes are dropped; check valid() first where it matters). The
+     * writes are noted as instructions' are (noteWrite).
+     */
+    ///@{
     uint8_t read8(uint32_t a) const { return valid(a, 1) ? _memory[a] : 0; }
     uint16_t read16(uint32_t a) const;
     uint32_t read32(uint32_t a) const;
@@ -107,25 +133,35 @@ public:
     }
     void write16(uint32_t a, uint16_t v);
     void write32(uint32_t a, uint32_t v);
+    ///@}
+    /** The NUL-terminated string at `address`, cut at `max` characters or where memory ends. */
     std::string string(uint32_t address, size_t max = 4096) const;
-    // Copies `text` and a NUL into memory at `address` (at most `size`
-    // bytes in all); false if it isn't all in memory.
+    /**
+     * Copies `text` and a NUL into memory at `address` (at most `size`
+     * bytes in all, the text cut short to fit).
+     * @return False, writing nothing, if the `size` bytes aren't all in memory.
+     */
     bool writeString(uint32_t address, std::string_view text, uint32_t size);
 
-    // --- State ---------------------------------------------------------------
+    // State.
+
     std::array<uint32_t, 8> reg{};
     uint32_t eip = 0;
     uint32_t eflags = 0x202;
-    // EFLAGS, as a whole (the interface main's engines use; eflags is it).
+    /** EFLAGS, as a whole (the interface main's engines use; eflags is it). */
+    ///@{
     uint32_t flags() const { return eflags; }
     void setFlags(uint32_t v) { eflags = v; }
+    ///@}
     uint32_t fsBase = 0; // the FS segment's base (Windows' thread information block)
     // The segment registers' selectors, as Windows sets them, in the
     // instruction set's order: ES, CS, SS, DS, FS, GS. The model is flat, so
     // loading one changes nothing but the selector held (FS keeps its base).
     std::array<uint16_t, 6> sreg{0x23, 0x1b, 0x23, 0x23, 0x3b, 0};
-    // The x87 unit: its eight registers as a stack (st(i) is regs[(top + i) & 7]),
-    // kept as doubles: Windows programs run it at 53-bit precision.
+    /**
+     * The x87 unit: its eight registers as a stack (st(i) is regs[(top + i) & 7]),
+     * kept as doubles: Windows programs run it at 53-bit precision.
+     */
     struct Fpu {
         std::array<double, 8> regs{};
         uint8_t top = 0;
@@ -148,15 +184,21 @@ public:
         std::array<uint64_t, 8> mmDouble{};
         uint8_t mmValid = 0;
     } fpu;
-    // The MMX register `i` (0-7) as an MMX instruction would read it, and
-    // written as one would: the exponent and sign set (a NaN to the x87),
-    // the stack top 0 and every register tagged valid.
+    /**
+     * The MMX register `i` (0-7) as an MMX instruction would read it, and
+     * written as one would: the exponent and sign set (a NaN to the x87),
+     * the stack top 0 and every register tagged valid.
+     */
+    ///@{
     uint64_t mmRead(int i) const;
     void mmWrite(int i, uint64_t v);
-    // A thread's registers, flags, x87 unit and FS base (context(), for
-    // threads that take turns at their Sleep); and, for threads switched at
-    // any instruction (saveContext()), its segment selectors and where its
-    // runs are: their depth, limit, and the run loop's own state.
+    ///@}
+    /**
+     * A thread's registers, flags, x87 unit and FS base (context(), for
+     * threads that take turns at their Sleep); and, for threads switched at
+     * any instruction (saveContext()), its segment selectors and where its
+     * runs are: their depth, limit, and the run loop's own state.
+     */
     struct Context {
         std::array<uint32_t, 8> reg{};
         uint32_t eip = 0;
@@ -182,43 +224,60 @@ public:
         } counting;
     };
 
-    // --- Native code ---------------------------------------------------------
-    // A C++ function run when the emulated code calls `address()` of it:
-    // it reads arguments with arg(), sets reg[EAX] (and EDX, or pushes onto
-    // the FPU stack) for its result, and returns how many bytes of
-    // arguments to pop on return (stdcall), 0 for cdecl.
+    // Native code.
+
+    /**
+     * A C++ function run when the emulated code calls the address
+     * addNative() gave it: it reads arguments with arg(), sets reg[EAX]
+     * (and EDX, or pushes onto the FPU stack) for its result, and returns
+     * how many bytes of arguments to pop on return (stdcall), 0 for cdecl.
+     */
     using Native = std::function<uint32_t(Cpu &cpu)>;
-    // The address a native function is called at (in a reserved range at
-    // the top of memory, which holds HLT instructions).
+    /**
+     * The address a native function is called at (in a reserved range at
+     * the top of memory, which holds HLT instructions).
+     * @param name For logs, nativeName() and setWritesTracked().
+     * @return 0 if the range is full (4096 natives).
+     */
     uint32_t addNative(std::string name, Native fn);
-    // Natives may write memory directly, so after one runs the cached
-    // blocks check their code again; unless it's marked as one that writes
-    // nothing but through write8/16/32 and writeString or what it tells
-    // noteWrite (or nothing at all): the commonest, memcpy, operator new
-    // and the like, which would otherwise make every block check itself
-    // again.
+    /**
+     * Natives may write memory directly, so after one runs the cached
+     * blocks check their code again; unless it's marked as one that writes
+     * nothing but through write8/16/32 and writeString or what it tells
+     * noteWrite (or nothing at all): the commonest, memcpy, operator new
+     * and the like, which would otherwise make every block check itself
+     * again. Marks every native of that name.
+     */
     void setWritesTracked(const std::string &nativeName);
+    /** Tells the cache that native code wrote these bytes: blocks of code on their pages are checked again. */
     void noteWrite(uint32_t address, uint32_t size);
-    // How many times each native function has been called, by name.
+    /** How many times each native function has been called, by name (those called at least once). */
     std::vector<std::pair<std::string, uint64_t>> nativeCallCounts() const;
-    // The name of the native function at `address`, if it is one.
+    /** The name of the native function at `address`, or null if it isn't one. */
     const std::string *nativeName(uint32_t address) const;
-    // Where the reserved range begins: memory below it is the program's.
+    /** Where the reserved range begins: memory below it is the program's. */
     uint32_t nativeBase() const { return _nativeBase - kNativeStride; }
-    // From a native function: its n'th argument (from 0) on the stack.
+    /** From a native function: its n'th argument (from 0) on the stack. */
     uint32_t arg(int n) const { return read32(reg[ESP] + 4 + 4 * uint32_t(n)); }
-    // Pushes onto and pops from the FPU stack (float results).
+    /** Pushes onto and pops from the FPU stack (float results). */
+    ///@{
     void fpuPush(double v);
     double fpuPop();
+    ///@}
 
-    // --- Running -------------------------------------------------------------
-    // Calls the emulated function at `address` with `args` pushed (cdecl
-    // or stdcall), returning EAX in `result`; fails on a fault (bad memory,
-    // division by zero, an instruction not implemented...), naming where.
-    // Native functions may call() back in.
+    // Running.
+
+    /**
+     * Calls the emulated function at `address` with `args` pushed (cdecl
+     * or stdcall), returning EAX in `result`; fails on a fault (bad memory,
+     * division by zero, an instruction not implemented...), naming where.
+     * Native functions may call() back in.
+     */
     Error call(uint32_t address, const std::vector<uint32_t> &args, uint32_t &result);
-    // Asks a run on another thread to stop: it ends with an error ("stopped")
-    // at the next instruction. Safe to call from any thread.
+    /**
+     * Asks a run on another thread to stop: it ends with an error ("stopped")
+     * at the next instruction. Safe to call from any thread.
+     */
     void requestStop() { _stop.store(true, std::memory_order_relaxed); }
     // Whether instructions run through the decoded-instruction cache (on by
     // default; off runs each from its bytes, as a check).
@@ -227,7 +286,7 @@ public:
     // be made; off, its loop calls each instruction's handler. Both run the
     // same handlers, so they agree to the instruction.
     bool jitOn = true;
-    // Stops a run with an error after this many more instructions (0: never).
+    /** Stops a run with an error after this many more instructions (0: never). */
     void setInstructionLimit(uint64_t limit) { _limit = limit; }
     // Reads in the first page give 0 rather than faulting, as Windows 95
     // and 98 let programs read low memory (writes still fault).
@@ -249,18 +308,31 @@ public:
     std::function<void(Cpu &cpu, uint32_t address, uint32_t value, int size)> onWatchedStore;
     // Called before each native function runs, with its name; for logs.
     std::function<void(Cpu &cpu, const std::string &name)> nativeTrace;
+    /** The instructions run so far. */
     uint64_t executed() const { return _executed; }
-    // The thread running, for switching between the program's threads.
+    /**
+     * The thread running, for switching between the program's threads: its
+     * registers, flags, x87 unit and FS base only.
+     */
+    ///@{
     Context context() const;
     void setContext(const Context &c);
-    // Runs from the current state (a thread switched in) until a native
-    // function yields (yield()), or the run fails.
+    ///@}
+    /**
+     * Runs from the current state (a thread switched in) until a native
+     * function yields (yield()), or the run fails.
+     */
     Error resume();
-    // Ends the run resume() began once the native function running returns,
-    // with eip and esp as if it had returned.
+    /**
+     * Ends the run resume() began once the native function running returns,
+     * with eip and esp as if it had returned.
+     */
     void yield() { _yield = true; }
-    // Ends the current run with an error once the native function running
-    // returns (a fatal error of the program's, say).
+    /**
+     * Ends the current run with an error once the native function running
+     * returns (a fatal error of the program's, say). Only the first message
+     * is kept.
+     */
     void abort(std::string message) {
         if (_abort.empty())
             _abort = std::move(message);
@@ -271,14 +343,18 @@ public:
     // What RDTSC reads; without it, the instructions run so far.
     std::function<uint64_t()> timeStamp;
 
-    // --- Threads switched at any instruction ---------------------------------
-    // Everything a thread of the program has of its own, for running
-    // several on the one processor, each on a host thread of its own, one
-    // at a time, the context swapped when they change over (Win32Process's
-    // host threads). Natives that wait swap it themselves; the others
-    // change over between two instructions, every `length` instructions:
-    // `fn` is called there, and returning false ends the run with
-    // stopMessage.
+    // Threads switched at any instruction.
+
+    /**
+     * Everything a thread of the program has of its own, for running
+     * several on the one processor, each on a host thread of its own, one
+     * at a time, the context swapped when they change over (Win32Process's
+     * host threads). Natives that wait swap it themselves; the others
+     * change over between two instructions, every `length` instructions:
+     * `fn` is called there, and returning false ends the run with
+     * stopMessage.
+     */
+    ///@{
     Context saveContext() const;
     void loadContext(const Context &c);
     void setSlice(uint32_t length, std::function<bool(Cpu &cpu)> fn) {
@@ -286,6 +362,7 @@ public:
         _nextSlice = _executed + length;
         _slice = std::move(fn);
     }
+    ///@}
     std::string stopMessage = "the run was stopped";
 
     // The registers as they were when the last call() failed (before they
@@ -293,8 +370,10 @@ public:
     std::array<uint32_t, 8> faultReg{};
     uint32_t faultEip = 0;
 
-    // The stack: the emulated code's, which call() uses; set before the
-    // first call (it grows down from `top`).
+    /**
+     * Sets the stack: the emulated code's, which call() uses; set before
+     * the first call (it grows down from `top`).
+     */
     void setStack(uint32_t top) { reg[ESP] = top; }
 
 private:
@@ -394,7 +473,7 @@ private:
         uint64_t calls = 0;
     };
     std::vector<NativeEntry> _natives;
-    uint32_t _nativeBase = 0; // natives are at nativeBase_ + 16 * index
+    uint32_t _nativeBase = 0; // natives are at _nativeBase + 16 * index
     static constexpr uint32_t kNativeStride = 16;
     static constexpr uint32_t kMaxNatives = 4096;
     uint32_t _instructionStart = 0;
@@ -436,7 +515,7 @@ private:
     // instructions; the bytes to check them against, seldom read, last.
     struct alignas(64) Block {
         uint32_t start = 0xffffffffu;
-        uint32_t epoch = 0; // codeEpoch_ when its bytes were last checked
+        uint32_t epoch = 0; // _codeEpoch when its bytes were last checked
         uint8_t count = 0;
         uint8_t bytes = 0;
         uint8_t words = 0;
@@ -477,11 +556,11 @@ private:
     // Blocks with native code that others took the place of in the table,
     // by their start, to put back as they were (decoded and made) when
     // their address comes round again with the same bytes: the table is
-    // direct-mapped, and making blocks again had been a fifteenth of a
-    // game's time. Forgotten all at once when there are too many.
+    // direct-mapped, and making blocks again took a fifteenth of a game's
+    // time. Forgotten all at once when there are too many.
     std::unordered_map<uint32_t, std::unique_ptr<Block>> _spare;
     static constexpr size_t kSpareBlocks = 1u << 15;
-    // The block for `at`, from spare_ if it's there and its bytes are the
+    // The block for `at`, from _spare if it's there and its bytes are the
     // same, else made (build).
     void rebuild(Block &b, uint32_t at);
     static void jitMemoryFault(void *cpu, uint32_t address, uint32_t size); // for the Jit's code
@@ -489,8 +568,8 @@ private:
     void decode(Cached &e, uint32_t at);
     void build(Block &b, uint32_t at);
     // A block's bytes are checked again only when code may have changed
-    // since: codeEpoch_ moves on whenever an instruction writes to a page
-    // holding a cached block (codePages_, marked as blocks are made) or a
+    // since: _codeEpoch moves on whenever an instruction writes to a page
+    // holding a cached block (_codePages, marked as blocks are made) or a
     // native notes one (noteWrite), after any other native, and each time
     // runUntil starts, as the host may have written memory since.
     std::vector<uint8_t> _codePages;

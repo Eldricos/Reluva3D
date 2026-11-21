@@ -63,7 +63,7 @@ BARE = re.compile(r"\b(TODO|FIXME)\b[\s:.\-]*(.*)$")
 
 
 def words(name):
-    """A name's words: cameCase and snake_case split, lowercase."""
+    """A name's words, lower case: camelCase and snake_case split, a leading k or _ dropped."""
     parts = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name.lstrip("_k")).replace("_", " ")
     return {w.lower() for w in parts.split()}
 

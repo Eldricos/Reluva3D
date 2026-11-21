@@ -19,36 +19,51 @@
 
 namespace reluva::awe {
 
+/** A Bink movie played in time, its sound through a mixer. */
 class MoviePlayer {
 public:
+    /** A player with no movie; `mixer` (null: no sound) must outlive it. */
     explicit MoviePlayer(audio::Mixer *mixer) : _mixer(mixer) {}
     ~MoviePlayer() { stop(); }
     MoviePlayer(const MoviePlayer &) = delete;
     MoviePlayer &operator=(const MoviePlayer &) = delete;
 
-    // Starts a movie at `nowMs`, with its sound unless `sound` is false.
+    /**
+     * Starts a movie at `nowMs`, with its sound unless `sound` is false.
+     * Fails if the movie won't open; a soundtrack that won't decode is
+     * left out, the reason in error().
+     */
     Error open(std::vector<uint8_t> data, uint64_t nowMs, bool sound = true);
-    // Decodes up to the frame due at `nowMs` (each builds on the last, so
-    // none is skipped); true if the frame shown changed.
+    /**
+     * Decodes up to the frame due at `nowMs` (each builds on the last, so
+     * none is skipped); true if the frame shown changed.
+     */
     bool update(uint64_t nowMs);
-    // Stops its sound; the frame stays.
+    /** Stops its sound; the frame stays. */
     void stop();
-    // Pauses (the sound stopped) or goes on from the frame shown.
+    /** Pauses (the sound stopped) or goes on from the frame shown. */
     void pause(bool paused, uint64_t nowMs);
+    /** Whether it's paused. */
     bool paused() const { return _paused; }
 
+    /** Whether a movie opened. */
     bool loaded() const { return _movie != nullptr; }
-    // Every frame shown and the time of the last gone by.
+    /** Whether every frame has been shown and the last one's time has gone by (true with no movie). */
     bool done(uint64_t nowMs) const;
+    /** The frame shown: empty before the first. */
     const image::Image &frame() const { return _frame; }
+    /** The movie, or null. */
     const bink::Movie *movie() const { return _movie.get(); }
-    double fps() const; // the movie's frames a second (0 with none)
+    /** The movie's frames a second (0 with none). */
+    double fps() const;
+    /** Whether its soundtrack was decoded, to be played. */
     bool hasSound() const { return _soundtrack != nullptr; }
-    // The frame to decode next, and the movie's time in seconds (by the
-    // frames shown).
+    /** The frame to decode next, and the movie's time in seconds (by the frames shown). */
+    ///@{
     size_t next() const { return _next; }
     double seconds() const;
-    // A decoding error, if any frame had one.
+    ///@}
+    /** A decoding error, if any frame had one. */
     const std::string &error() const { return _error; }
 
 private:

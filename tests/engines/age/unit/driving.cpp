@@ -277,6 +277,23 @@ void testPadInput() {
     sys.pad.buttons = 0;
     pollPad(sys, polled, false, false, o, keys); // the axes left as they were (a replay's)
     CHECK(keys.size() == 1 && keys[0].type == EventType::kKeyUp && polled.brake == 1);
+    // The dead zone is Control Options' bar: a quarter of the way out
+    // steers at the default (15%), not at the widest (half).
+    sys.pad.axes[0] = 0.25f;
+    pollPad(sys, polled, true, true, o, keys);
+    CHECK(polled.steer > 0.1f);
+    o.deadZone = 1;
+    pollPad(sys, polled, true, true, o, keys);
+    CHECK(polled.steer == 0);
+    // CONTROLLERS set to the keyboard: the pad does nothing.
+    o.deadZone = 0.3f;
+    o.controller = GameOptions::kKeyboardOnly;
+    keys.clear();
+    sys.pad.axes[0] = 1;
+    sys.pad.buttons = 1u << kPadSouth;
+    pollPad(sys, polled, true, true, o, keys);
+    CHECK(polled.steer == 0 && keys.empty());
+    o.controller = GameOptions::kGamePad;
     // A knock shakes it for a fifth of a second.
     CHECK(padRumble(1) == 0 && padRumble(15) == 1 && padRumble(8) > 0);
     PadShaker shaker;

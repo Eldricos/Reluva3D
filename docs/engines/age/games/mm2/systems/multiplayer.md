@@ -14,6 +14,14 @@ On the Race page, the main menu's **Multiplayer** button opens the
 sessions screen.
 
 - **NET NAME**: type the name the others see.
+- **MEETING SERVER** (Reluva's, in the panel under the connections): for
+  players who can't reach each other, the address of a meeting server
+  (`reluva-tool meet-server`, run by someone the players can all reach),
+  as `host` or `host:port`. Hosting then lists the session there too, the
+  list below shows its sessions beside the network's ("via server" where
+  the ping would be), and joining one goes through it
+  ([network-protocol.md](network-protocol.md#through-a-meeting-server)).
+  It's kept in the options file for next time.
 - **HOST**: the host's options (an optional password, at most 2 to 8
   players, and how many computer players: below), then the host's
   settings, then **DONE** opens the session and goes to the lobby. The
@@ -25,7 +33,8 @@ sessions screen.
   every second. With none in the list, JOIN asks for an address: a host
   name or `a.b.c.d`, with `:port` if it isn't 28520. Over the Internet,
   the host's router has to pass UDP port 28520 on to the host, which
-  Reluva asks it to do (below).
+  Reluva asks it to do (below); where it won't, a meeting server
+  (above) can stand in.
 - **A game already playing** can be joined: the joiner loads straight
   into it, and the others see their car arrive. A player who leaves (or
   is ejected) takes their car with them.
@@ -99,7 +108,9 @@ PLAYERS the way that one is.
   They're sided like anyone, always ready, and in the lobby's list like
   anyone; the host can eject one.
 - **Where they're driven.** The host's machine drives them and sends
-  their cars on as its own, so everyone sees them alike.
+  their cars on as its own, so everyone sees them alike. If the host leaves,
+  the player who takes over drives them on
+  ([network-protocol.md](network-protocol.md#joining-late-leaving-taking-over)).
 - **In a race** they drive through the race's checkpoints, laps
   unrolled, along the roads as the single player's opponents do, at 0.9
   of their cars' top speed.
@@ -142,7 +153,7 @@ The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
 
 | Screen | Background | Controls |
 |---|---|---|
-| Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
+| Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, MEETING SERVER (Reluva's), `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Enter an Address | `jpg/tcp_dlg` (400 x 330 at 120, 75: `menu.csv` gives it 300 x 225 at 170, 127) | TCP/IP Address, `dlg_can`, `dlg_done`. Left blank, back to the sessions (its words: "or leave blank to search for available session") |
 | Enter a valid password | `jpg/pass_dlg` | Password, `dlg_can`, `dlg_done` |
 | Host Options | `jpg/host_dlg` | Password, Max Players, Computer Players (Reluva's), `dlg_can`, `dlg_done` |
@@ -191,13 +202,13 @@ players and late joining added
 
 ### Not done
 
-- **Hole punching**: two players both behind routers that won't pass a
-  port on can't reach each other; that needs a server of Reluva's own on
-  the Internet to meet through, which it hasn't.
-- **Encryption**: the game's messages, chat included, go in the clear.
-- **What the host can't see**: the checks catch impossible movement and
-  progress, not a car tuned faster than it should be, within the limits.
-- **Computer players over a change of host**: they go with the old host.
+- **A meeting server of Reluva's own on the Internet**: players behind
+  routers that won't pass a port on need someone to run one
+  (`reluva-tool meet-server`) where they can all reach it; there's none
+  run for everyone.
+- **What the host can't see**: a car is held to its own top speed, but
+  not to its acceleration, grip or weight: one tuned to corner or pull
+  away better than it should, within its top speed, isn't caught.
 
 ### How it's tested
 

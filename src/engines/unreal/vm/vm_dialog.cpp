@@ -8,7 +8,7 @@
 // said for as long as its voice lasts, the speaker and listener set for
 // the scripts to see (Level.Talker...), the line shown on the HUD
 // (HudText), the speaker's mouth moved (C3DSpeechEvent), its events set
-// off, then the line it leads to. See docs/engines/unreal_vm.md.
+// off, then the line it leads to. See docs/engines/unreal/games/ds9fallen/systems/dialogue.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -797,7 +797,7 @@ void ScriptLevel::beginLine(DialogThread &t, int index) {
     const Value *dt = prop(_levelInfo, "DeltaTime");
     t.timeLeft = (dt ? dt->asFloat() : 0) + t.seconds + std::max(0.0f, l.pause) + 0.25f;
     if (r.back >= 0 || !r.backPattern.empty())
-        t.back = r.back, t.backPattern = r.backPattern;
+        t.back = r.back, t.backPattern = r.backPattern, t.backFrom = index;
     VmObject *speaker = t.speaker;
     if (const Package *p = _vm.packages().get(l.table))
         if (const int e = p->findExport(l.record, "Sound"); e >= 0) {
@@ -932,6 +932,7 @@ void ScriptLevel::endLine(DialogThread &t, bool cut) {
         const int back = t.back >= 0 ? t.back : bestLine(t.backPattern, 0, nullptr, nullptr);
         t.back = -1;
         t.backPattern.clear();
+        t.backFrom = -1;
         if (back >= 0 &&
             !(same(_dialogLines[size_t(back)].type, "HCL") && same(_dialogLines[size_t(line)].type, "HCL")))
             next = back;

@@ -9,7 +9,7 @@
 // brightness, radius, cone) comes from the light actors, and the engine
 // works out the brightness at each point. This does that once, when a
 // level loads, into lightmap textures packed into pages. See
-// docs/formats/unreal/lighting.md.
+// docs/engines/unreal/games/ds9fallen/systems/lighting.md.
 
 #include "image/image.h"
 #include "engines/unreal/formats/actors.h"
@@ -44,13 +44,17 @@ Vec3f lightColor(uint8_t hue, uint8_t saturation, uint8_t brightness, float leve
  * range.
  */
 Vec3f zoneAmbientColor(uint8_t hue, uint8_t saturation, uint8_t brightness);
-/** The colour without the doubling: what the lights actors carry give. */
+/**
+ * lightColor without the doubling and the level's Brightness: what a light
+ * gives as mixed (a volume light's glow is this colour).
+ */
 Vec3f mixedLightColor(uint8_t hue, uint8_t saturation, uint8_t brightness);
 
 /**
  * Engine.Actor's ELightType: how a light's brightness changes over time.
  * The rest (the two texture palette ones) are drawn steady.
  */
+///@{
 constexpr uint8_t kLightNone = 0;
 constexpr uint8_t kLightSteady = 1;
 constexpr uint8_t kLightPulse = 2;
@@ -59,7 +63,9 @@ constexpr uint8_t kLightFlicker = 4;
 constexpr uint8_t kLightStrobe = 5;
 constexpr uint8_t kLightBackdrop = 6;
 constexpr uint8_t kLightSubtlePulse = 7;
+///@}
 
+/** A light actor, as the lighting needs it. */
 struct LightSource {
     Vec3f position{};
     Vec3f color{};     // 1 = the texture as drawn
@@ -68,19 +74,15 @@ struct LightSource {
     Vec3f direction{1, 0, 0};
     float cosCone = 0;
     bool incidence = true; // fades as the surface turns away from the light
-    /**
-     * How its brightness changes (its LightType: kLightPulse...), with a
-     * cycle of `period` seconds started `phase` (0-1) of the way through.
-     */
+    // How its brightness changes (its LightType: kLightPulse...), with a
+    // cycle of `period` seconds started `phase` (0-1) of the way through.
     uint8_t type = kLightSteady;
     float period = 1;
     float phase = 0;
-    /**
-     * Its LightEffect (Engine.Actor's ELightEffect). Cylinder (17) lights
-     * to its radius across, at any height; the wavers, shimmer, waves,
-     * disco and rotor make patterns that move across the surfaces it
-     * lights (lightPattern), shock flashes it as a whole.
-     */
+    // Its LightEffect (Engine.Actor's ELightEffect). Cylinder (17) lights
+    // to its radius across, at any height; the wavers, shimmer, waves,
+    // disco and rotor make patterns that move across the surfaces it
+    // lights (lightPattern), shock flashes it as a whole.
     uint8_t effect = 0;
     bool cylinder = false;
     /**
@@ -88,25 +90,19 @@ struct LightSource {
      * the editor's lists; actors with bSpecialLit), not other actors.
      */
     bool specialLit = false;
-    /**
-     * bActorShadows (every Light by default): characters' projected
-     * shadows may fall from it. bStatic: it stays where it is.
-     */
+    // bActorShadows (every Light by default): characters' projected
+    // shadows may fall from it. bStatic: it stays where it is.
     bool actorShadows = false;
     bool isStatic = false;
-    /**
-     * Its volume (VolumeRadius, VolumeBrightness): in a fog zone, a sphere
-     * of that radius glowing in its colour; radius 0 for none.
-     */
+    // Its volume (VolumeRadius, VolumeBrightness): in a fog zone, a sphere
+    // of that radius glowing in its colour; radius 0 for none.
     float volumeRadius = 0;
     float volumeFog = 0;
     Vec3f volumeColor{};
-    /**
-     * Its actor (an object reference in the level's package), its own
-     * LightBrightness, and whether scripts may change it while the game
-     * runs (a TriggerLight and the like, or one a trigger can name by its
-     * Tag): such a light's lightmaps follow the live actor.
-     */
+    // Its actor (an object reference in the level's package), its own
+    // LightBrightness, and whether scripts may change it while the game
+    // runs (a TriggerLight and the like, or one a trigger can name by its
+    // Tag): such a light's lightmaps follow the live actor.
     int32_t ref = 0;
     const void *key = nullptr; // a moving light's own actor (the viewer's fades)
     uint8_t brightness = 64;
@@ -115,6 +111,18 @@ struct LightSource {
     int animated = -1;      // its index in LevelLights::animated, if its brightness changes
 };
 
+/**
+ * What changing lights go by: Render.dll's timed ones by the level's
+ * TimeSeconds (which stops while the game is paused), its random ones
+ * afresh every frame drawn, paused or not.
+ */
+struct LightClock {
+    float time = 0;       // the level's time, seconds
+    uint32_t frame = 0;   // frames drawn
+    bool strobeOn = true; // every strobe light's, flipped when one is worked out and the time moved
+};
+/** A clock `time` seconds in, its frames 35 a second (the viewer's). */
+LightClock lightClock(float time);
 /**
  * The share of its brightness (0-1) a light gives `time` seconds in: its
  * LightType's curve times its LightEffect's.
@@ -125,7 +133,7 @@ float lightLevel(const LightSource &light, float time);
  * effect's share where that's a pattern across the surfaces (lightPattern
  * gives it texel by texel).
  */
-float lightLevel(const LightSource &light, uint8_t type, float time, bool whole = true);
+float lightLevel(const LightSource &light, uint8_t type, const LightClock &clock, bool whole = true);
 /** Whether a light's effect is a pattern across what it lights. */
 bool hasLightPattern(const LightSource &light);
 /**
@@ -138,14 +146,16 @@ struct PatternPoint {
     float pitch = 0;
     float distance = 0;
 };
+/** The PatternPoint of a point `offset` from the light. */
 PatternPoint patternPoint(const Vec3f &offset);
 /** What a pattern needs of the time, worked out once a frame for each light. */
 struct PatternNow {
     float turn = 0; // the searchlight's, radians
     float time = 0;
-    uint32_t frame = 0; // the random ones' step
+    uint32_t frame = 0; // the random ones' step: frames drawn
 };
-PatternNow patternNow(const LightSource &light, float time);
+/** A light's PatternNow at the clock's time and frame. */
+PatternNow patternNow(const LightSource &light, const LightClock &clock);
 /** That pattern's share (0-1) at a point. */
 float lightPattern(const LightSource &light, const PatternNow &now, const PatternPoint &at);
 /**
@@ -155,15 +165,19 @@ float lightPattern(const LightSource &light, const PatternNow &now, const Patter
 float lightDistance(const LightSource &light, const Vec3f &point);
 
 /**
- * How much of a light reaches `fraction` of the way to its radius (0 at
- * the light, 1 at the edge): 1 down to 0.
  * How a light falls off on a surface by f = distance / radius, as
- * Render.dll's lighting functions do: a cylinder light by its distance
- * across, 1 - f^2, whatever the surface faces; a non-incidence light
- * 1.02 - f (at most 1), whatever it faces; any other lightFalloff(f),
- * times the cosine of the light's angle to the surface (the caller's).
+ * Render.dll's lighting functions do: a shell light (LightEffect Shell)
+ * only from 0.8 to 1 of its radius, whatever the surface faces; a
+ * cylinder light by its distance across, 1 - f^2, whatever it faces; a
+ * non-incidence light 1.02 - f (at most 1), whatever it faces; any other
+ * lightFalloff(f), times the cosine of the light's angle to the surface
+ * (the caller's).
  */
 float surfaceFalloff(const LightSource &l, float f);
+/**
+ * How much of a light reaches `fraction` of the way to its radius (0 at
+ * the light, 1 at the edge): 1 down to 0, smoothly at both ends.
+ */
 float lightFalloff(float fraction);
 
 /** Whether a light lights without its shadow bits (a large cylinder light). */
@@ -181,6 +195,7 @@ constexpr float kRadiusUnit = 25;
  */
 constexpr float kMaxLight = 1;
 
+/** A level's lights and its zones' ambient light. */
 struct LevelLights {
     std::vector<LightSource> sources;           // one per entry of Model::lights
     std::vector<Vec3f> zoneAmbient;             // one per zone
@@ -188,13 +203,16 @@ struct LevelLights {
     std::vector<uint8_t> zoneAmbientBrightness; // its AmbientBrightness, one per zone
     std::vector<Vec3f> zoneActorAmbient;        // engineHsv of its ambient: what actors in it get
     std::vector<bool> zoneFog;                  // one per zone: bFogZone, where volume lights glow
+    std::vector<std::array<float, 2>> zonePan;  // one per zone: TexUPanSpeed, TexVPanSpeed (1, 1 for none)
     std::vector<LightSource> unique;            // each light once (sources repeats them)
     std::vector<LightSource> animated;          // those of them whose brightness changes
     int unreadable = 0;                         // light actors whose properties didn't read
 };
 /**
- * `scripted`: what the level's scripts changed when it started (lights
- * they turned off or destroyed light nothing; actors.h).
+ * Reads a level's light actors (those Model::lights names) and its zones'
+ * ambient light.
+ * @param scripted What the level's scripts changed when it started, if
+ *        given (lights they turned off or destroyed light nothing; actors.h).
  */
 LevelLights gatherLights(const PackageSet &packages, const Package &package, const Model &model,
                          const ScriptedActors *scripted = nullptr);
@@ -205,12 +223,10 @@ LevelLights gatherLights(const PackageSet &packages, const Package &package, con
  */
 struct LightmapPlacement {
     int page = -1; // -1: none (an unlit surface)
-    /**
-     * The sample grid's coordinates of a point P: (dot(P, uAxis) + uOffset,
-     * dot(P, vAxis) + vOffset); sample (i, j) is at (i, j). In the page,
-     * sample (0, 0) is the texel at (x, y). For a surface without a
-     * lightmap the axes are zero: every point is that one texel.
-     */
+    // The sample grid's coordinates of a point P: (dot(P, uAxis) + uOffset,
+    // dot(P, vAxis) + vOffset); sample (i, j) is at (i, j). In the page,
+    // sample (0, 0) is the texel at (x, y). For a surface without a
+    // lightmap the axes are zero: every point is that one texel.
     int x = 0;
     int y = 0;
     Vec3f uAxis{};
@@ -231,6 +247,7 @@ struct AnimatedLightmap {
     int w = 0;
     int h = 0;
     std::vector<Vec3f> base; // w * h, rows top to bottom
+    /** One of the changing lights that reach it. */
     struct Light {
         int index = 0;                    // in LevelLights::animated
         std::vector<Vec3f> share;         // its light at full brightness, per texel
@@ -247,6 +264,7 @@ struct AnimatedLightmap {
               const std::vector<LightSource> *sources = nullptr, const std::vector<PatternNow> *now = nullptr) const;
 };
 
+/** A level's lightmaps, packed into square pages. */
 struct LightmapAtlas {
     int pageSize = 0;
     std::vector<image::Image> pages;        // RGBA, light / 2 (drawn doubled), at most kMaxLight
@@ -255,7 +273,7 @@ struct LightmapAtlas {
 
     /** How the surfaces' sample grids lined up with them (see lighting.md). */
     struct Stats {
-        /** surfaces with a lightmap; their samples some light reached */
+        // surfaces with a lightmap; their samples some light reached
         int lightmaps = 0;
         int lit = 0;
         int fromBounds = 0; // grids the pan didn't place, started at the polygon's corner instead
@@ -267,6 +285,10 @@ struct LightmapAtlas {
     std::array<float, 2> uv(int surf, const Vec3f &point) const;
 };
 
+/**
+ * Works out every surface's lightmap and packs them into pages of
+ * `pageSize` texels square; none for a model without lighting.
+ */
 LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int pageSize = 1024);
 
 } // namespace reluva::unreal

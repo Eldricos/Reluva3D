@@ -21,16 +21,19 @@ namespace reluva::awe {
 
 class GrannyDll;
 
-using Mat4 = std::array<float, 16>; // column-major, as gfx::Mat4
+/** A 4x4 matrix, column-major, as gfx::Mat4. */
+using Mat4 = std::array<float, 16>;
 
-// A bone's transform relative to its parent.
+/** A bone's transform relative to its parent. */
 struct BoneTransform {
     float position[3] = {0, 0, 0};
     float orientation[4] = {0, 0, 0, 1};               // quaternion x, y, z, w
     float scaleShear[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // rows
 };
+/** The transform as a matrix: the rotation times the scale/shear, then the position. */
 Mat4 toMatrix(const BoneTransform &t);
 
+/** A bone of a skeleton. */
 struct Bone {
     std::string name;
     int parent = -1;
@@ -38,6 +41,7 @@ struct Bone {
     Mat4 inverseWorld{}; // from the model to the bone, at rest
 };
 
+/** A model's texture, decoded. */
 struct ModelTexture {
     std::string name; // the artist's file name, for display
     int width = 0;
@@ -49,6 +53,7 @@ struct ModelTexture {
     std::vector<uint8_t> rgba; // empty if it couldn't be decoded
 };
 
+/** A mesh's vertex, with up to four bones that move it. */
 struct ModelVertex {
     float position[3];
     float normal[3];
@@ -57,10 +62,12 @@ struct ModelVertex {
     float weights[4];
 };
 
+/** A skinned mesh: its vertices, its triangles' indices and their textures. */
 struct ModelMesh {
     std::string name;
     std::vector<ModelVertex> vertices;
     std::vector<uint32_t> indices;
+    /** A run of the indices drawn with one texture. */
     struct Group {
         int texture = -1; // index into Model::textures, -1 none
         uint32_t firstIndex = 0;
@@ -71,8 +78,10 @@ struct ModelMesh {
     // first binding (Granny's rigid mesh; the game asks GrannyMeshIsRigid,
     // 0x427ff5).
     bool rigid = false;
-    // Its bindings' boxes (OBBMin, OBBMax), each in its bone's own axes:
-    // the game picks a character by them (0x428c80).
+    /**
+     * A binding's box (OBBMin, OBBMax), in its bone's own axes: the game
+     * picks a character by them (0x428c80).
+     */
     struct BoneBox {
         int bone = 0;
         float min[3] = {0, 0, 0};
@@ -81,6 +90,7 @@ struct ModelMesh {
     std::vector<BoneBox> boxes;
 };
 
+/** A model: its skeleton, meshes and textures. */
 struct Model {
     std::string name;
     std::vector<Bone> bones;
@@ -93,38 +103,43 @@ struct Model {
     // Model space: Z up (3D Studio MAX's), as the files say.
 };
 
-// Reads the first model in a file, with its textures decoded.
+/** Reads the first model in a file, with its textures decoded. */
 Error loadModel(const Gr2File &file, Model &out);
 
-// A texture's pixels as stored: its first image's first MIP level.
+/** A texture's pixels as stored: its first image's first MIP level. */
 std::vector<uint8_t> textureBytes(const Gr2File &file, const Gr2Object &texture);
-// The flags a Bink texture (Encoding 3) is decoded with: its SubFormat,
-// plus 1 if its layout has alpha.
+/** The flags a Bink texture (Encoding 3) is decoded with: its SubFormat, plus 1 if its layout has alpha. */
 uint32_t binkTextureFlags(const Gr2Object &texture);
 
-// How a curve continues past its ends, as Granny samples a control
-// (GrannyGetControlLoopState, 0x5001bbe0 in granny2.dll): an animation
-// looping for ever wraps round at both ends; the n-th of several loops
-// wraps at the start if it isn't the first and at the end if it isn't the
-// last; played once, it doesn't (it repeats its end values).
+/**
+ * How a curve continues past its ends, as Granny samples a control
+ * (GrannyGetControlLoopState, 0x5001bbe0 in granny2.dll): an animation
+ * looping for ever wraps round at both ends; the n-th of several loops
+ * wraps at the start if it isn't the first and at the end if it isn't the
+ * last; played once, it doesn't (it repeats its end values).
+ */
 struct CurveLoop {
     bool back = false;
     bool forward = false;
     float duration = 0; // of the animation: a loop's length
 };
 
-// A curve: a B-spline of `degree`, one knot (time) per control point.
+/** A curve: a B-spline of `degree`, one knot (time) per control point. */
 struct Curve {
     int degree = 0;
     std::vector<float> knots;
     std::vector<float> controls; // knots.size() * dimension values
+    /** Whether it has no knots: the track has no such curve. */
     bool empty() const { return knots.empty(); }
-    // The value at time `t` (within the animation) into `out` (`dimension`
-    // floats). Quaternions (4 values) are kept on one side where the curve
-    // wraps or repeats its ends, as Granny's sampling does.
+    /**
+     * The value at time `t` (within the animation) into `out` (`dimension`
+     * floats). Quaternions (4 values) are kept on one side where the curve
+     * wraps or repeats its ends, as Granny's sampling does.
+     */
     void evaluate(float t, int dimension, float *out, const CurveLoop &loop = {}) const;
 };
 
+/** An animation's curves for one bone, by its name. */
 struct AnimationTrack {
     std::string bone;
     Curve position;
@@ -132,6 +147,7 @@ struct AnimationTrack {
     Curve scaleShear;
 };
 
+/** An animation: a track for each bone it moves. */
 struct Animation {
     std::string name;
     float duration = 0;
@@ -143,47 +159,56 @@ struct Animation {
     std::map<std::string, float> mask;
 };
 
-// Reads the file's first animation (its first track group). Curves in
-// Granny's compressed formats (CurveData: D4nK8uC7u and the like) are
-// expanded to plain ones (curves.h).
+/**
+ * Reads the file's first animation (its first track group). Curves in
+ * Granny's compressed formats (CurveData: D4nK8uC7u and the like) are
+ * expanded to plain ones (curves.h).
+ */
 Error loadAnimation(const Gr2File &file, Animation &out);
-// Replaces the animation's compressed curves, as loadAnimation() expanded
-// them from `file`, with granny2.dll's expansion of them
-// (GrannyCurveExtractKnotValues): the reference the native one is checked
-// against (reluva-tool awe files-check).
+/**
+ * Replaces the animation's compressed curves, as loadAnimation() expanded
+ * them from `file`, with granny2.dll's expansion of them
+ * (GrannyCurveExtractKnotValues): the reference the native one is checked
+ * against (reluva-tool awe files-check).
+ */
 Error expandCurvesWithDll(const Gr2File &file, GrannyDll &dll, Animation &out);
-// Where the first animation's tracks' curves (position, orientation,
-// scale/shear; 0 where a track has none) are in the DLL's copy of `file`,
-// whose file info is at `fileInfo` (GrannyDll::loadFile).
+/**
+ * Where the first animation's tracks' curves (position, orientation,
+ * scale/shear; 0 where a track has none) are in the DLL's copy of `file`,
+ * whose file info is at `fileInfo` (GrannyDll::loadFile).
+ */
 Error dllCurveAddresses(const Gr2File &file, GrannyDll &dll, uint32_t fileInfo,
                         std::vector<std::array<uint32_t, 3>> &out);
 
-// A skeleton's pose: each bone's world matrix and its skinning matrix
-// (world times inverse rest world).
+/** A skeleton's pose: each bone's world matrix and its skinning matrix (world times inverse rest world). */
 struct Pose {
     std::vector<Mat4> world;
     std::vector<Mat4> skinning;
 };
-// A turn added to a bone on top of its animation (a head turned to look
-// at someone): a quaternion (x, y, z, w) in the bone's own axes.
+/**
+ * A turn added to a bone on top of its animation (a head turned to look
+ * at someone): a quaternion (x, y, z, w) in the bone's own axes.
+ */
 struct BoneTurn {
     int bone = -1;
     float rotation[4] = {0, 0, 0, 1};
 };
-// The rest pose, or the animation at `time` (bones it has no track for
-// stay at rest), with any `turns` added.
+/** The rest pose, or the animation at `time` (bones it has no track for stay at rest), with any `turns` added. */
 void computePose(const Model &model, const Animation *animation, float time, Pose &out,
                  const std::vector<BoneTurn> *turns = nullptr);
-// The same in two steps: each bone's transform relative to its parent
-// (rest where the animation has no track; its curves going on past their
-// ends as `loop` says, but the root bones' only if `loopRoot`), and the
-// pose those make. `bound`, if given, says which bones the animation has a
-// track for.
+/**
+ * computePose's first step: each bone's transform relative to its parent
+ * (rest where the animation has no track; its curves going on past their
+ * ends as `loop` says, but the root bones' only if `loopRoot`).
+ * poseFromLocal() is the second, the pose those make.
+ * @param bound If given, gets which bones the animation has a track for.
+ */
 void sampleLocal(const Model &model, const Animation *animation, float time, std::vector<BoneTransform> &local,
                  const CurveLoop &loop = {}, bool loopRoot = true, std::vector<bool> *bound = nullptr);
+/** The pose a bone's transforms (sampleLocal's) make, with any `turns` added. */
 void poseFromLocal(const Model &model, std::vector<BoneTransform> local, Pose &out,
                    const std::vector<BoneTurn> *turns = nullptr);
-// Skins a mesh's vertices for the pose: positions and normals.
+/** Skins a mesh's vertices for the pose: positions and normals. */
 void skin(const ModelMesh &mesh, const Pose &pose, std::vector<std::array<float, 3>> &positions,
           std::vector<std::array<float, 3>> &normals);
 

@@ -12,7 +12,7 @@
 
 namespace reluva::soft3d {
 
-// A vertex after projection to the screen.
+/** A vertex after projection to the screen. */
 struct ScreenVertex {
     // pixels; pixel centres are at +0.5
     float x;
@@ -24,21 +24,27 @@ struct ScreenVertex {
     float s = 1; // light level, interpolated for smooth shading
 };
 
-// Software triangle rasteriser with a depth buffer, drawing into an RGBA32
-// surface. A top-left fill rule draws each pixel of a shared edge once, and
-// texture coordinates (and light levels) are interpolated with perspective
-// correction.
+/**
+ * Software triangle rasteriser with a depth buffer, drawing into an RGBA32
+ * surface. A top-left fill rule draws each pixel of a shared edge once, and
+ * texture coordinates (and light levels) are interpolated with perspective
+ * correction.
+ */
 class Rasterizer {
 public:
+    /** Starts drawing into `target`, which must outlive the drawing, with the depth buffer cleared. */
     void begin(Surface &target) {
         _target = &target;
         _depth.assign(size_t(target.w) * size_t(target.h), 0.0f);
     }
 
-    // shade(u, v, rgba), or shade(u, v, light, rgba), sets the pixel's colour
-    // (4 bytes, R G B A; it may blend with what's there) and returns whether to
-    // record its depth: false for a transparent or translucent texel, so it
-    // doesn't hide faces drawn later.
+    /**
+     * Draws a triangle of either winding, nearer than what's drawn.
+     * shade(u, v, rgba), or shade(u, v, light, rgba), sets the pixel's colour
+     * (4 bytes, R G B A; it may blend with what's there) and returns whether to
+     * record its depth: false for a transparent or translucent texel, so it
+     * doesn't hide faces drawn later.
+     */
     template<typename Shade>
     void drawTriangle(const ScreenVertex &a, const ScreenVertex &b, const ScreenVertex &c, Shade &&shade) {
         const ScreenVertex *v0 = &a;

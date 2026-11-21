@@ -32,10 +32,13 @@ public:
     using LayoutScreen::setSoundHandler;
     static constexpr int kRows = 10;
 
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     FameScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
-    Error load(); // fame.wdf and fameitem.wdf
+    /** Reads fame.wdf and fameitem.wdf; fails if a layout lacks a widget the screen needs. */
+    Error load();
     /** The games to show, best first; past kRows aren't shown. */
     void open(std::vector<FameEntry> entries) { _entries = std::move(entries); }
+    /** Draws the screen with its games. */
     void draw(Surface &screen) const;
     /** Return, or Return/Escape on the keyboard: true when the screen is left. */
     bool handle(const Event &event);

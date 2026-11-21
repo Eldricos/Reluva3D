@@ -17,17 +17,20 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// What the scripts put on the away-team console around the 3D view, and
-// how it reacts: the inventory, close-up panels and their buttons, the
-// body picture, automap markers and screen effects. Drawing is the
-// viewer's (see HudScreen); this keeps the state and sends the events.
-//
-// Images are script resources: indices into GAME.BIN's resource names.
+/**
+ * What the scripts put on the away-team console around the 3D view, and
+ * how it reacts: the inventory, close-up panels and their buttons, the
+ * body picture, automap markers and screen effects. Drawing is the
+ * viewer's (see HudScreen); this keeps the state and sends the events.
+ *
+ * Images are script resources: indices into GAME.BIN's resource names.
+ */
 class Hud {
 public:
-    // Sends an event to a script object.
+    /** Sends an event to a script object. */
     typedef std::function<void(uint16_t object, uint16_t event, const std::vector<int16_t> &args)> EventSink;
 
+    /** The events the console sends the scripts. */
     enum Event {
         kEventAdded = 43,      // an item went into the inventory
         kEventActivate = 45,   // an item or panel was used (clicked)
@@ -39,40 +42,48 @@ public:
         kEventWalkedAway = 35  // the player left a panel's object behind
     };
 
-    // --- Inventory (0x446DD0): 12 slots, 3 across and 4 down; slot 0 is
+    // The inventory (0x446DD0): 12 slots, 3 across and 4 down; slot 0 is
     // only filled on purpose.
     static const int kSlots = 12;
 
+    /** A console whose events go to `send`. */
     explicit Hud(const EventSink &send);
 
-    // Put an item in a slot, or the first free one of 1-11 for -1. Returns the slot, or -1 if full.
+    /** Puts an item in a slot, or the first free one of 1-11 for -1. Returns the slot, or -1 if full. */
     int addItem(uint16_t id, int slot);
+    /** Takes an item out of the inventory, if it's there. */
     void removeItem(uint16_t id);
+    /** The item in a slot (0 to kSlots - 1), or 0 for none. */
     uint16_t getSlot(int slot) const { return _slots[slot]; }
-    // The slot an item is in, or -1.
+    /** The slot an item is in, or -1. */
     int findItem(uint16_t id) const;
-    // SET_INVENTORY_ENABLED (0xD6): off greys out every slot and ignores clicks.
+    /** SET_INVENTORY_ENABLED (0xD6): off greys out every slot and ignores clicks. */
+    ///@{
     void setInventoryEnabled(bool on) { _inventoryEnabled = on; }
     bool isInventoryEnabled() const { return _inventoryEnabled; }
-    // SET_ITEM_ENABLED (0xD7): an item greyed out where it sits.
+    ///@}
+    /** SET_ITEM_ENABLED (0xD7): an item greyed out where it sits. */
     void setItemEnabled(uint16_t id, bool on) {
         if (on)
             _disabledItems.erase(id);
         else
             _disabledItems.insert(id);
     }
-    // Whether the item in a slot can be used.
+    /** Whether the item in a slot can be used. */
     bool isSlotEnabled(int slot) const { return _inventoryEnabled && !_disabledItems.count(_slots[slot]); }
 
-    // Move an item from a slot of 1-11 to another (dragging); what was there moves
-    // to the first free slot. Any other slot means the first free one.
+    /**
+     * Moves an item from a slot of 1-11 to another (dragging); what was there
+     * moves to the first free slot. Any other slot means the first free one.
+     */
     void moveItem(int from, int to);
 
-    // --- Close-up panels (0x6C..0x6F, 0x9D..0xA1, 0x8F, 0x90): one per
+    // Close-up panels (0x6C..0x6F, 0x9D..0xA1, 0x8F, 0x90): one per
     // object, shown one at a time in the console's 211 x 148 viewer.
     static const int kPanelWidth = 211;
     static const int kPanelHeight = 148;
 
+    /** A panel's or a button's frames running. */
     struct Animation {
         bool running = false;
         int first = 0;
@@ -83,6 +94,7 @@ public:
         uint32_t elapsed = 0;
     };
 
+    /** A button on a panel. */
     struct Button {
         int number = 0;
         int16_t image = -1;
@@ -96,6 +108,7 @@ public:
         Animation animation;
     };
 
+    /** An object's close-up panel. */
     struct Panel {
         uint16_t owner = 0;
         int16_t image = -1;
@@ -108,59 +121,81 @@ public:
         bool notifyWhenDone = false;
     };
 
-    // PANEL_SHOW_IMAGE: open (or reuse) the object's panel and show it.
+    /** PANEL_SHOW_IMAGE: opens (or reuses) the object's panel and shows it. */
     void showPanel(uint16_t owner, int16_t image, int frame, double playerX, double playerY);
-    // NATIVE_6D: animate the panel's image; event 60 at the end unless ms is 0.
+    /** NATIVE_6D: animates the panel's image; event 60 at the end unless ms is 0. */
     void animatePanel(uint16_t owner, int first, int last, int loops, uint32_t ms);
+    /** Closes the object's panel; the next one left shows instead. */
     void removePanel(uint16_t owner);
-    // The visible panel, or null.
+    /** The visible panel, or null. */
     const Panel *getVisiblePanel() const;
-    // The first panel's owner (NATIVE_6F), or 0.
+    /** The first panel's owner (NATIVE_6F), or 0. */
     uint16_t getFirstPanelOwner() const { return _panels.empty() ? 0 : _panels.front().owner; }
+    /** How many panels are open. */
     int getPanelCount() const { return (int)_panels.size(); }
-    // The cycle button: show the next panel.
+    /** The cycle button: shows the next panel. */
     void nextPanel();
 
+    /**
+     * The buttons on an object's panel, by their number: adding one replaces
+     * the button of that number; a panel or button that isn't there is
+     * left alone.
+     */
+    ///@{
     void addButton(uint16_t owner, int number, int16_t image, const Rect &rect, bool hotspot);
     void setButton(uint16_t owner, int number, int16_t image, int frame);
     void animateButton(uint16_t owner, int number, int first, int last, int loops, uint32_t ms);
     void setButtonKeyed(uint16_t owner, int number, bool keyed);
     void removeButton(uint16_t owner, int number);
+    ///@}
 
-    // A click at (x, y) in the visible panel: event 45, or 47 with the button hit.
+    /** A click at (x, y) in the visible panel: event 45, or 47 with the button hit. */
     void clickPanel(int x, int y);
-    // A right click on the visible panel: event 62.
+    /** A right click on the visible panel: event 62. */
     void describePanel();
-    // Space: event 45 to the visible panel's object.
+    /** Space: event 45 to the visible panel's object. */
     void usePanel();
 
-    // --- Body picture (SET_BODY_IMAGE): -1 is the mission's BODY.BMP.
+    /** The body picture (SET_BODY_IMAGE): -1 is the mission's BODY.BMP. */
+    ///@{
     void setBodyImage(int16_t image, int frame) {
         _bodyImage = image;
         _bodyFrame = frame;
     }
     int16_t getBodyImage() const { return _bodyImage; }
     int getBodyFrame() const { return _bodyFrame; }
+    ///@}
 
-    // --- Automap.
+    // The automap.
+
+    /** What a marker on the automap shows, each with its scan filter. */
     enum MarkerKind { kMarkerLife, kMarkerEnergy, kMarkerTrilithium };
+    /** A marker on the automap, for an object. */
     struct Marker {
         MarkerKind kind;
         int style;
     };
+    /** An object's marker; it has at most one, and removing one of another kind leaves it. */
+    ///@{
     void setMarker(uint16_t id, MarkerKind kind, int style) { _markers[id] = {kind, style}; }
     void removeMarker(uint16_t id, MarkerKind kind);
     const std::map<uint16_t, Marker> &getMarkers() const { return _markers; }
-    // Height bands relative to the player (MAP_SET_LEVELS): low/high pairs.
+    ///@}
+    /** Height bands relative to the player (MAP_SET_LEVELS): low/high pairs. */
+    ///@{
     void setMapLevels(const double levels[6]);
     const double *getMapLevels() const { return _levels; }
-    // MAP_ZOOM_LEVELS (0xC8): the map's three scales, pixels per unit.
+    ///@}
+    /** MAP_ZOOM_LEVELS (0xC8): the map's three scales, pixels per unit. */
+    ///@{
     void setMapZoom(int level, double scale) { _zoom[level] = scale; }
     double getMapZoom(int level) const { return _zoom[level]; }
+    ///@}
 
-    // --- Screen effects (0x43199A): four colour slots blended over the
+    // Screen effects (0x43199A): four colour slots blended over the
     // palette, slot 0 on top. Times of 0 make a slot stay; 0 percent clears it.
     static const int kEffectSlots = 4;
+    /** A screen effect slot. */
     struct Effect {
         bool active = false;
         uint8_t r = 0;
@@ -173,25 +208,36 @@ public:
         uint32_t elapsed = 0;
         uint16_t notify = 0;
     };
+    /**
+     * Sets a screen effect slot: its colour, its strength in percent, and
+     * how long it fades in, holds and fades out, in ms; notify is the
+     * object told when it ends (event 55). A slot out of range is ignored.
+     */
     void setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint32_t fadeIn, uint32_t hold,
                    uint32_t fadeOut, uint16_t notify);
-    // A slot's colour and weight now, 0-128 (0 = no effect).
+    /** A slot's colour and weight now, 0-128 (0 = no effect). */
     int getEffectWeight(int slot, uint8_t &r, uint8_t &g, uint8_t &b) const;
 
-    // VIEW_SHAKE: 0 off, 1 and 2 jitter by 4 and 8 pixels, 4 a single jolt.
+    /** VIEW_SHAKE: 0 off, 1 and 2 jitter by 4 and 8 pixels, 4 a single jolt; 3 is ignored. */
+    ///@{
     void setShake(int mode);
     int getShakeMode() const { return _shake; }
-    // The view's offset this frame, in pixels.
+    ///@}
+    /** The view's offset this frame, in pixels. */
     void getShakeOffset(int &dx, int &dy);
-    // VIEW_OVERLAY: the underwater ripple.
+    /** VIEW_OVERLAY: the underwater ripple. */
+    ///@{
     void setRipple(bool on) { _ripple = on; }
     bool hasRipple() const { return _ripple; }
+    ///@}
 
-    // Save or load everything above.
+    /** Saves or loads everything above. */
     void sync(Serializer &s);
 
-    // Advance by ms: animations, effects (event 55), and panels whose
-    // object the player has walked away from (event 35, 2 units).
+    /**
+     * Advances by ms: animations, effects (event 55), and panels whose
+     * object the player has walked away from (event 35, 2 units).
+     */
     void update(uint32_t ms, double playerX, double playerY);
 
 private:

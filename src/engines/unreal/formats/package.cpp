@@ -10,8 +10,6 @@
 
 namespace reluva::unreal {
 
-// --- Reader -----------------------------------------------------------------------------
-
 void Reader::seek(size_t absolute) {
     if (absolute < _base || absolute > _base + _size) {
         _ok = false;
@@ -114,8 +112,6 @@ std::string Reader::string(int version) {
     }
     return s;
 }
-
-// --- Package ----------------------------------------------------------------------------
 
 Error Package::open(const std::filesystem::path &file) {
     std::ifstream in(file, std::ios::binary);

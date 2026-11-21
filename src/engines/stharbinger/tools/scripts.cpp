@@ -47,7 +47,7 @@ namespace {
 using namespace reluva;
 using namespace reluva::stharbinger;
 
-// ---- Tables (as in harbinger_script.py) --------------------------------------
+// Tables (as in harbinger_script.py)
 
 // The listing's names. They differ from the engine's getCommandName where
 // later work named a command (DEATH, CDCHANGE, SAY, the fades the right way
@@ -273,7 +273,7 @@ struct Counter {
     }
 };
 
-// ---- Text --------------------------------------------------------------------
+// Text
 
 // The game's text is Latin-1; the listings are UTF-8.
 std::string latin1(std::string_view s) {
@@ -337,7 +337,7 @@ std::string withoutNotes(const std::string &t) {
     return out;
 }
 
-// ---- Arguments -------------------------------------------------------------
+// Arguments
 
 std::string formatArg(const Argument &a) {
     const uint32_t v = a.value;
@@ -414,7 +414,8 @@ std::vector<const DirectiveList *> dialogueLists(const Dialogue &dlg) {
     return lists;
 }
 
-// ---- Symbols: per-scene name lists (CA..CV) and the linker cross-reference -
+// Symbols: per-scene name lists (CA..CV) and the linker cross-reference
+
 // A type-02 argument is an index into the list that its (command, slot)
 // uses, a label number (labels are numbered in definition order), or a
 // keyword.
@@ -576,7 +577,7 @@ std::string resourcePath(int kind, const std::string &name) {
     return std::string();
 }
 
-// ---- Output ----------------------------------------------------------------
+// Output
 
 using Block = std::vector<std::pair<std::string, std::string>>; // (clip, text), Latin-1
 

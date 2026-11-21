@@ -15,23 +15,26 @@ class Serializer;
 
 namespace reluva::stgenerations {
 
-// Moves the player through a level the way the original does (0x4B46A0):
-//
-// - The player is a cylinder of radius 1.2 whose feet are 6 units below
-//   the eye, reaching 0.51 above it. Walls lower than 2 units above the
-//   feet are stepped over.
-// - A move is swept against wall lines and wall ends (0x4B9940). On a hit
-//   the player stops at the wall and slides along it with what is left of
-//   the move, once; a second hit ends the move there (0x4B9870).
-// - A wall blocks only from its front, the side its normal points to,
-//   unless it is flagged solid on both sides.
-// - The player stands on the highest floor no more than the step height
-//   above the feet, and falls when there is none below.
-// - The floor stood on decides which zones are active. Only walls and
-//   floors in those zones count, and the renderer only draws them. With
-//   no floor underfoot, every zone is active.
-//
-// Distances are in world units (not fixed point).
+/**
+ * Moves the player through a level the way the original does (0x4B46A0):
+ *
+ * - The player is a cylinder of radius 1.2 whose feet are 6 units below
+ *   the eye, reaching 0.51 above it. Walls lower than 2 units above the
+ *   feet are stepped over.
+ * - A move is swept against wall lines and wall ends (0x4B9940). On a hit
+ *   the player stops at the wall and slides along it with what is left of
+ *   the move, once; a second hit ends the move there (0x4B9870).
+ * - A wall blocks only from its front, the side its normal points to,
+ *   unless it is flagged solid on both sides.
+ * - The player stands on the highest floor no more than the step height
+ *   above the feet, and falls when there is none below.
+ * - The floor stood on decides which zones are active. Only walls and
+ *   floors in those zones count, and the renderer only draws them. With
+ *   no floor underfoot, every zone is active.
+ *
+ * Distances are in world units (not fixed point). Actors walk with copies
+ * of the player's walker.
+ */
 class Walker {
 public:
     // The original's defaults (0x4BE150); scripts can change them.
@@ -55,21 +58,22 @@ public:
 
     static const uint64_t kAllZones = ~(uint64_t)0;
 
+    /** A walker in `level`, which must outlive it and its copies. */
     explicit Walker(const LevelFile &level);
-    // Copies share the level's wall lines, so walkers for actors are cheap.
+    /** Copies share the level's wall lines, so walkers for actors are cheap. */
     Walker(const Walker &other) = default;
 
-    // Put the player's feet at (x, y, feet) and settle onto the floor there.
+    /** Puts the player's feet at (x, y, feet) and settles onto the floor there. */
     void place(double x, double y, double feet);
-    // Walls a door moved: take their new places, for this walker and every copy of it.
+    /** Walls a door moved: takes their new places, for this walker and every copy of it. */
     void refreshWalls(const std::vector<int> &walls);
-    // Save or load the position and the settings scripts change.
+    /** Saves or loads the position and the settings scripts change. */
     void sync(Serializer &s);
 
-    // Walk by (dx, dy) over the given time, colliding and following floors.
+    /** Walks by (dx, dy) over the given time, colliding and following floors. */
     void move(double dx, double dy, double seconds);
 
-    // A round obstacle, such as an actor.
+    /** A round obstacle, such as an actor. */
     struct Obstacle {
         double x;
         double y;
@@ -78,37 +82,44 @@ public:
         double top;
     };
 
-    // Obstacles to collide with besides walls; the vector must outlive the
-    // walker's moves. ignore is an index to skip (the mover itself), or -1.
+    /**
+     * Obstacles to collide with besides walls; the vector must outlive the
+     * walker's moves. ignore is an index to skip (the mover itself), or -1.
+     */
     void setObstacles(const std::vector<Obstacle> *obstacles, int ignore = -1) {
         _obstacles = obstacles;
         _ignoredObstacle = ignore;
     }
 
-    // Without falling, the walker drops straight onto lower floors, as actors do.
+    /** Without falling, the walker drops straight onto lower floors, as actors do. */
     void setFalls(bool falls) { _falls = falls; }
-    // Gravity in units/s/s and the fastest fall in units/s (SET_GRAVITY, LOW_GRAVITY).
+    /** Gravity in units/s/s and the fastest fall in units/s (SET_GRAVITY, LOW_GRAVITY). */
     void setGravity(double gravity, double maxFallSpeed) {
         _gravity = gravity;
         _maxFallSpeed = maxFallSpeed;
     }
+    /** Gravity, in units/s/s. */
     double getGravity() const { return _gravity; }
-    // Falling speed in units/s, negative while rising.
+    /** Falling speed in units/s, negative while rising. */
     double getFallSpeed() const { return _fallSpeed; }
+    /** The highest step taken without a jump, in units. */
     double getStepHeight() const { return _stepHeight; }
+    /** The fastest fall, in units/s. */
     double getMaxFallSpeed() const { return _maxFallSpeed; }
-    // The drop onto a lower floor taken in one step, without falling (SET_GRAVITY's third value).
+    /** The drop onto a lower floor taken in one step, without falling (SET_GRAVITY's third value). */
+    ///@{
     void setStepDown(double height) { _stepDown = height; }
     double getStepDown() const { return _stepDown; }
-    // How fast a fall hit the floor since the last call, or 0 (for fall damage).
+    ///@}
+    /** How fast a fall hit the floor since the last call, or 0 (for fall damage). */
     double takeLanding() {
         double speed = _landingSpeed;
         _landingSpeed = 0;
         return speed;
     }
-    // The floor the last landing was on (index into the flats), or -1.
+    /** The floor the last landing was on (index into the flats), or -1. */
     int getLandingFloor() const { return _landingFloor; }
-    // How fast a jump hit a ceiling since the last call, or 0; and which ceiling.
+    /** How fast a jump hit a ceiling since the last call, or 0; and which ceiling. */
     double takeCeilingHit(int &ceiling) {
         double speed = _ceilingSpeed;
         ceiling = _ceilingFlat;
@@ -116,66 +127,84 @@ public:
         return speed;
     }
 
-    // Floors with any of these flags are ignored; LevelFile::kFlagPassThrough always is.
+    /** Floors with any of these flags are ignored; LevelFile::kFlagPassThrough always is. */
     void setIgnoredFloors(uint32_t flags) { _ignoredFloors = flags | LevelFile::kFlagPassThrough; }
 
-    // With collision off the player walks through walls but keeps to floors.
+    /** With collision off the player walks through walls but keeps to floors. */
+    ///@{
     void setCollisionEnabled(bool enabled) { _collision = enabled; }
     bool isCollisionEnabled() const { return _collision; }
+    ///@}
 
+    /** Where the walker stands: x, y and the height of its feet. */
+    ///@{
     double getX() const { return _x; }
     double getY() const { return _y; }
     double getFeet() const { return _feet; }
-    // The eye, lowered under a low ceiling (see _ducked) or crouching.
+    ///@}
+    /** The eye, lowered under a low ceiling or crouching. */
     double getEye() const { return _feet + _eyeHeight - std::max(_ducked, _crouch); }
 
-    // Start a jump at this speed upwards (units per second).
+    /** Starts a jump at this speed upwards (units per second). */
     void jump(double speed);
-    // Rising or falling, not standing on a floor.
+    /** Rising or falling, not standing on a floor. */
     bool isAirborne() const;
-    // Crouch (or stand up again) over this time: the eye eases down to kCrouchEye.
+    /** Crouches (or stands up again) over this time: the eye eases down to kCrouchEye. */
     void crouch(bool down, double seconds);
-    // Whether (x, y) is inside the outline of a flat (index into the level's flats).
+    /** Whether (x, y) is inside the outline of a flat (index into the level's flats). */
     bool flatContains(int flat, double x, double y) const;
-    // Move straight up or down, between the floor and the ceiling (no falling).
+    /** Moves straight up or down, between the floor and the ceiling (no falling). */
     void moveVertically(double dz);
 
+    /** The settings scripts change: the eye above the feet, the step, the headroom and the radius. */
+    ///@{
     void setEyeHeight(double height) { _eyeHeight = height; }
     void setStepHeight(double height) { _stepHeight = height; }
     void setHeadroom(double height) { _headroom = height; }
     void setRadius(double radius) { _radius = radius; }
+    ///@}
+    /** The walker's radius. */
     double getRadius() const { return _radius; }
 
-    // The wall (index into the level's walls) the last move ran into, or
-    // -1. Like the original, standing still touches nothing.
+    /**
+     * The wall (index into the level's walls) the last move ran into, or
+     * -1. Like the original, standing still touches nothing.
+     */
     int getContactWall() const { return _contactWall; }
-    // The obstacle the last move ran into, or -1.
+    /** The obstacle the last move ran into, or -1. */
     int getContactObstacle() const { return _contactObstacle; }
-    // Whether the last move was stopped short by anything.
+    /** Whether the last move was stopped short by anything. */
     bool wasBlocked() const { return _contactWall >= 0 || _contactObstacle >= 0; }
+    /** The zones in play where the walker stands; all of them with no floor underfoot. */
     uint64_t getActiveZones() const { return _zones; }
-    // Index of the flat underfoot, or -1.
+    /** Index of the flat underfoot, or -1. */
     int getFloor() const { return _floor; }
 
-    // The highest floor under (x, y) in the given zones that is no higher
-    // than maxHeight, or -1.
+    /**
+     * The highest floor under (x, y) in the given zones that is no higher
+     * than maxHeight, or -1.
+     */
     int findFloor(double x, double y, double maxHeight, uint64_t zones) const {
         return findFloor(x, y, maxHeight, zones, _ignoredFloors);
     }
-    // The same, skipping floors with any of ignoredFlags instead of setIgnoredFloors()'s.
+    /** The same, skipping floors with any of ignoredFlags instead of setIgnoredFloors()'s. */
     int findFloor(double x, double y, double maxHeight, uint64_t zones, uint32_t ignoredFlags) const;
-    // The lowest ceiling over (x, y) in the zones above minHeight, or a huge height; which in index.
+    /** The lowest ceiling over (x, y) in the zones above minHeight, or a huge height; which in index. */
     double findCeiling(double x, double y, double minHeight, uint64_t zones, int *index = nullptr) const;
-    // Set _ducked for where the player stands.
+    /** Lowers the eye to keep the head under the ceiling where the walker stands. */
     void duck();
+    /** Settles onto the floor underfoot, stepping, dropping or falling, without ducking. */
     void followFloorOnly(double seconds);
 
-    // Whether nothing blocks the view from a to b, as the original's test
-    // for actors seeing the player (0x4BB900): visible walls and floors in
-    // the given zones block, with a quarter unit of slack on walls; nothing
-    // steeper than twice as high as it is long is ever seen.
+    /**
+     * Whether nothing blocks the view from a to b, as the original's test
+     * for actors seeing the player (0x4BB900): visible walls and floors in
+     * the given zones block, with a quarter unit of slack on walls; nothing
+     * steeper than twice as high as it is long is ever seen.
+     */
     bool lineOfSight(double ax, double ay, double az, double bx, double by, double bz, uint64_t zones) const;
 
+    /** What a sweep ran into. */
     struct Hit {
         // Fraction of the move before touching.
         double t;
@@ -188,8 +217,10 @@ public:
         int obstacle;
     };
 
-    // Sweep the player from (x, y) by (dx, dy) and report the first wall
-    // touched. Returns false if the way is clear.
+    /**
+     * Sweeps the player from (x, y) by (dx, dy) and reports the first wall
+     * or obstacle touched. Returns false if the way is clear.
+     */
     bool sweep(double x, double y, double dx, double dy, Hit &hit) const;
 
 private:

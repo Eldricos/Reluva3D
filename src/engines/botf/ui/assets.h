@@ -22,9 +22,17 @@ namespace reluva::botf {
 /** The pictures, fonts and menus of an archive, each loaded once, when first asked for. */
 class Assets {
 public:
+    /** Reads from `archive`, which must outlive it. */
     explicit Assets(const Archive &archive) : _archive(archive) {}
+    /** The archive it reads from. */
     const Archive &archive() const { return _archive; }
 
+    /**
+     * A file loaded, or nullptr if it's missing or can't be read (why() says
+     * which). The pointer stays good while the Assets live. Pictures have
+     * the colour key applied.
+     */
+    ///@{
     const image::Image *picture(const std::string &name);
     /**
      * The picture with its colours at `percent` of their brightness, as the
@@ -33,6 +41,7 @@ public:
     const image::Image *dimmed(const std::string &name, int percent);
     const Font *font(const std::string &name);
     const MenuFile *menu(const std::string &name);
+    ///@}
     /** Why the file couldn't be had ("missing", "can't decode" ...), or empty. */
     std::string why(const std::string &name) const;
 

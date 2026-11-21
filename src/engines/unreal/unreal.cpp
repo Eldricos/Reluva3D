@@ -71,8 +71,10 @@ public:
         } audioOff{_sys};
 
         ViewContext ctx{_sys, _screen, _packages, _game, warnings, audioOut ? &mixer : nullptr};
-        if (!_target.savePath.empty())
+        if (!_target.savePath.empty()) {
             ctx.saveFolder = _target.savePath / "Saves";
+            ctx.configFolder = _target.savePath / "Config";
+        }
         ctx.gameFolder = _target.path;
 
         // The intro first, while there's one; Esc, Space or Enter skip it.

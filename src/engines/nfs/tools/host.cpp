@@ -803,10 +803,6 @@ int cmdNfsHost(int argc, char **argv) {
     return err ? 1 : 0;
 }
 
-// Runs each of nfs3.exe's routines done natively (GameHost::Options::
-// nativeRoutines) against its original in the interpreter, on the same
-// random inputs, in two copies of the game loaded side by side; every byte
-// they write, and the registers, must come out the same.
 // EA's Huffman schemes (30 FB, 32 FB, 34 FB; refpack.md): every file so
 // compressed in the game's folders, decompressed by the game's own routine
 // (0x50ed50, run in the interpreter) and by Reluva's, which must agree; the
@@ -877,6 +873,10 @@ int cmdNfsHuffCheck(int argc, char **argv) {
     return mismatches ? 1 : 0;
 }
 
+// Runs each of nfs3.exe's routines done natively (GameHost::Options::
+// nativeRoutines) against its original in the interpreter, on the same
+// random inputs, in two copies of the game loaded side by side; every byte
+// they write, and the registers, must come out the same.
 int cmdNfsNativeCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs native-check <game folder> [trials]\n");

@@ -8,7 +8,7 @@
 // its end (and each loop's), and ends a latent FinishAnim waiting for it.
 // Reluva's reading of the public UnrealScript documentation of these
 // natives and of what The Fallen's scripts expect: see
-// docs/engines/unreal_vm.md.
+// docs/engines/unreal/games/ds9fallen/systems/animation.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -381,7 +381,7 @@ void ScriptLevel::endAnimWait(VmObject *a, bool ended) {
     _animWaits.erase(it);
 }
 
-// --- The Fallen's layers and face channels ---------------------------------------------------
+// The Fallen's layers and face channels.
 
 const std::map<NameId, ScriptLevel::AnimLayer> *ScriptLevel::layersOf(VmObject *a) const {
     auto it = _layers.find(a);

@@ -3,12 +3,14 @@
 
 // A level saved as the original game saves it: a package (.dsa) that the
 // original loads, and so does Reluva. It's written over the map's own
-// tables, so the parts the level hasn't changed (its BSP, the movers'
-// brushes, the lights' surfaces) are the map's data as they are, their
-// references still right; what the level has (its actors, their state,
-// the objects they made) is written from the running level. See
-// docs/formats/unreal/save.md.
+// tables, those exports the game never loads left out and the rest numbered
+// again: the parts the level hasn't changed (its BSP, the movers' brushes,
+// the lights' surfaces) are the map's data, their references renumbered;
+// what the level has (its actors, their state, the objects they made) is
+// written from the running level. See
+// docs/engines/unreal/games/ds9fallen/formats/save.md.
 
+#include "engines/unreal/formats/model.h"
 #include "engines/unreal/vm/vm_level.h"
 
 #include "engines/unreal/formats/game_save.h"
@@ -29,28 +31,297 @@ namespace reluva::unreal {
 
 namespace {
 
-// The engine's probe events, by their bit in a state frame's mask (Core's
-// names from 300 on, The Fallen's in the place of some of the probes).
-const char *const kProbes[64] = {"Spawned",      "Destroyed",       "GainedChild",     "LostChild",
-                                 "Probe4",       "Probe5",          "Trigger",         "UnTrigger",
-                                 "Timer",        "HitWall",         "Falling",         "Landed",
-                                 "ZoneChange",   "Touch",           "UnTouch",         "Bump",
-                                 "BeginState",   "EndState",        "BaseChange",      "Attach",
-                                 "Detach",       "ActorEntered",    "ActorLeaving",    "KillCredit",
-                                 "AnimEnd",      "EndedRotation",   "InterpolateEnd",  "EncroachingOn",
-                                 "EncroachedBy", "FootZoneChange",  "HeadZoneChange",  "PainTimer",
-                                 "SpeechTimer",  "MayFall",         "Probe34",         "C3DAnimEnd",
-                                 "C3DPreRender", "ChangePhysics",   "ChestZoneChange", "C3DSpeechEvent",
-                                 "Tick",         "PlayerTick",      "Expired",         "Probe39",
-                                 "SeePlayer",    "EnemyNotVisible", "HearNoise",       "UpdateEyeHeight",
-                                 "SeeMonster",   "SeeFriend",       "SpecialHandling", "BotDesireability",
-                                 "Probe48",      "Probe49",         "Probe50",         "Probe51",
-                                 "Probe52",      "Probe53",         "Probe54",         "Probe55",
-                                 "Probe56",      "Probe57",         "Probe58",         "Probe59"};
-
 constexpr uint32_t kClassTransient = 0x8;
 constexpr uint32_t kActorFlags = 0x00070001 | objflag::kHasStack;
 constexpr uint32_t kObjectFlags = 0x00070000;
+
+// An object reference in the map's numbering to the save's (0: left out).
+using Renumber = std::function<int32_t(int32_t)>;
+
+// A copy of an export's data with its object references renumbered: the
+// bytes between them as they are, each reference written again.
+class RefCopy {
+public:
+    explicit RefCopy(const std::vector<uint8_t> &data) : r(data), _data(data) {}
+    Reader r;
+    int32_t ref(const Renumber &f) {
+        flush();
+        const int32_t v = r.index();
+        _out.index(f(v));
+        _from = r.pos();
+        return v;
+    }
+    // A state frame (an object flagged HasStack): its node and state, the
+    // events it ignores, its latent action, and in a node, where.
+    void frame(const Renumber &f) {
+        const int32_t node = ref(f);
+        ref(f);
+        r.skip(12);
+        if (node != 0)
+            r.index();
+    }
+    // An array's count, each element at least `least` bytes.
+    size_t count(size_t least) {
+        const int32_t n = r.index();
+        if (!r.ok() || n < 0 || size_t(n) * least > r.remaining()) {
+            r.fail();
+            return 0;
+        }
+        return size_t(n);
+    }
+    std::vector<uint8_t> finish() {
+        _out.data.insert(_out.data.end(), _data.begin() + std::ptrdiff_t(_from), _data.end());
+        return std::move(_out.data);
+    }
+
+private:
+    void flush() {
+        _out.data.insert(_out.data.end(), _data.begin() + std::ptrdiff_t(_from),
+                         _data.begin() + std::ptrdiff_t(r.pos()));
+        _from = r.pos();
+    }
+    const std::vector<uint8_t> &_data;
+    ByteWriter _out;
+    size_t _from = 0;
+};
+
+// A Model's references (model.cpp reads the rest), objects' and names': its
+// state frame if it has one, no properties (None), its
+// bounds, vectors, points and nodes; each surface's texture and actor (a
+// brush the editor built it from); its vertices; each zone's actor; its
+// Polys; its light maps, light bits, bounds, leaf hulls and leaves; its
+// lights (actors, each light map's list ended by none).
+bool modelRefs(const std::vector<uint8_t> &data, int version, bool stack, int32_t none, const Renumber &f,
+               const Renumber &names, std::vector<uint8_t> &out) {
+    RefCopy c(data);
+    Reader &r = c.r;
+    if (stack)
+        c.frame(f);
+    if (c.ref(names) != none)
+        return false;
+    r.skip(version > 61 ? 41 : 37);
+    r.skip(c.count(12) * 12);
+    r.skip(c.count(12) * 12);
+    for (size_t n = c.count(43); n > 0 && r.ok(); --n) {
+        r.skip(25);
+        for (int k = 0; k < 7; ++k)
+            r.index();
+        r.skip(11);
+    }
+    for (size_t n = c.count(14); n > 0 && r.ok(); --n) {
+        c.ref(f);
+        r.u32();
+        for (int k = 0; k < 6; ++k)
+            r.index();
+        r.skip(4);
+        c.ref(f);
+    }
+    for (size_t n = c.count(2); n > 0 && r.ok(); --n) {
+        r.index();
+        r.index();
+    }
+    r.i32();
+    const int32_t zones = r.i32();
+    if (!r.ok() || zones < 0 || zones > 64)
+        return false;
+    for (int32_t z = 0; z < zones && r.ok(); ++z) {
+        c.ref(f);
+        r.skip(16);
+    }
+    c.ref(f);
+    for (size_t n = c.count(30); n > 0 && r.ok(); --n) {
+        r.skip(16);
+        r.index();
+        r.index();
+        r.skip(12);
+    }
+    r.skip(c.count(1));
+    r.skip(c.count(25) * 25);
+    r.skip(c.count(4) * 4);
+    for (size_t n = c.count(11); n > 0 && r.ok(); --n) {
+        r.index();
+        r.index();
+        r.index();
+        r.skip(8);
+    }
+    for (size_t n = c.count(1); n > 0 && r.ok(); --n)
+        c.ref(f);
+    if (!r.ok())
+        return false;
+    out = c.finish();
+    return true;
+}
+
+// A Polys object's references, objects' and names': its state frame if it
+// has one, no properties (None), the count twice, then each
+// polygon's actor (a brush), texture and item name.
+bool polysRefs(const std::vector<uint8_t> &data, bool stack, int32_t none, const Renumber &f, const Renumber &names,
+               std::vector<uint8_t> &out) {
+    RefCopy c(data);
+    Reader &r = c.r;
+    if (stack)
+        c.frame(f);
+    if (c.ref(names) != none)
+        return false;
+    const int32_t count = r.i32();
+    r.i32();
+    if (!r.ok() || count < 0)
+        return false;
+    for (int32_t k = 0; k < count && r.ok(); ++k) {
+        const int32_t n = r.index();
+        if (n < 0 || n > 64)
+            return false;
+        r.skip(48 + size_t(n) * 12 + 4);
+        c.ref(f);
+        c.ref(f);
+        c.ref(names); // its item name
+        r.index();
+        r.index();
+        r.skip(4);
+    }
+    if (!r.ok())
+        return false;
+    out = c.finish();
+    return true;
+}
+
+// An object's tagged properties written again, its object and name
+// references renumbered (each property's size worked out afresh, as a
+// reference's length may change): after its state frame if it has one,
+// up to None, then the rest as it is. Structs: PointRegion (its zone, a
+// leaf, a zone number) and those of plain numbers. False for anything else
+// (arrays, other structs), or if they don't read.
+bool rewriteProperties(const Package &map, const std::vector<uint8_t> &data, bool stack, const Renumber &refs,
+                       const Renumber &names, std::vector<uint8_t> &out) {
+    Reader r(data);
+    ByteWriter w;
+    if (stack) {
+        const int32_t node = r.index();
+        w.index(refs(node));
+        w.index(refs(r.index()));
+        for (int k = 0; k < 12; ++k)
+            w.u8(r.u8());
+        if (node != 0)
+            w.index(r.index());
+    }
+    auto nameOf = [&](int32_t n) {
+        return n >= 0 && size_t(n) < map.names().size() ? fs::toLower(map.names()[size_t(n)].name) : std::string();
+    };
+    static const std::set<std::string> kPlain = {"vector", "rotator", "color",  "plane",      "scale",
+                                                 "coords", "range",   "sphere", "boundingbox"};
+    for (int count = 0; r.ok() && count < 100000; ++count) {
+        const int32_t name = r.index();
+        w.index(names(name));
+        if (nameOf(name) == "none")
+            break;
+        const uint8_t info = r.u8();
+        const auto type = static_cast<PropertyType>(info & 15);
+        int32_t structName = -1;
+        if (type == PropertyType::kStruct)
+            structName = r.index();
+        static constexpr size_t kSizes[5] = {1, 2, 4, 12, 16};
+        const int code = (info >> 4) & 7;
+        const size_t size = code < 5 ? kSizes[code] : code == 5 ? r.u8() : code == 6 ? r.u16() : size_t(r.u32());
+        std::vector<uint8_t> index;
+        if ((info & 0x80) && type != PropertyType::kBool) {
+            const uint8_t b0 = r.u8();
+            index.push_back(b0);
+            for (int k = (b0 & 0xc0) == 0x80 ? 1 : (b0 & 0xc0) == 0xc0 ? 3 : 0; k > 0; --k)
+                index.push_back(r.u8());
+        }
+        if (!r.ok() || r.remaining() < (type == PropertyType::kBool ? 0 : size))
+            return false;
+        ByteWriter value;
+        const size_t at = data.size() - r.remaining();
+        switch (type) {
+        case PropertyType::kBool:
+            break;
+        case PropertyType::kObject:
+        case PropertyType::kClass:
+            value.index(refs(r.index()));
+            break;
+        case PropertyType::kName:
+            value.index(names(r.index()));
+            break;
+        case PropertyType::kStruct:
+            if (nameOf(structName) == "pointregion") {
+                value.index(refs(r.index()));
+                value.i32(r.i32());
+                value.u8(r.u8());
+                break;
+            }
+            if (!kPlain.count(nameOf(structName)))
+                return false;
+            [[fallthrough]];
+        case PropertyType::kByte:
+        case PropertyType::kInt:
+        case PropertyType::kFloat:
+        case PropertyType::kString:
+        case PropertyType::kVector:
+        case PropertyType::kRotator:
+        case PropertyType::kStr:
+            value.bytes(data.data() + at, size);
+            r.skip(size);
+            break;
+        default:
+            return false;
+        }
+        if (type != PropertyType::kBool && data.size() - r.remaining() != at + size)
+            return false;
+        // The tag again: its type, its size's code, then its value.
+        const size_t n = type == PropertyType::kBool ? size : value.data.size();
+        int newCode = 7;
+        for (int k = 0; k < 5; ++k)
+            if (n == kSizes[k])
+                newCode = k;
+        if (newCode == 7)
+            newCode = n <= 0xff ? 5 : n <= 0xffff ? 6 : 7;
+        w.u8(uint8_t((info & 0x8f) | (newCode << 4)));
+        if (type == PropertyType::kStruct)
+            w.index(names(structName));
+        if (newCode == 5)
+            w.u8(uint8_t(n));
+        else if (newCode == 6)
+            w.u16(uint16_t(n));
+        else if (newCode == 7)
+            w.u32(uint32_t(n));
+        w.bytes(index.data(), index.size());
+        w.append(value.data);
+    }
+    if (!r.ok())
+        return false;
+    w.bytes(data.data() + (data.size() - r.remaining()), r.remaining());
+    out = std::move(w.data);
+    return true;
+}
+
+// Data that starts with no properties (None) and holds no other names or
+// objects (a C3D mesh state: its strings are its own).
+bool leadingName(const std::vector<uint8_t> &data, int32_t none, const Renumber &names, std::vector<uint8_t> &out) {
+    RefCopy c(data);
+    if (c.ref(names) != none)
+        return false;
+    out = c.finish();
+    return true;
+}
+
+// The Level object's model and reach list (levelModelSpan): the model,
+// then each reach's start and end (navigation points).
+bool reachRefs(const std::vector<uint8_t> &span, const Renumber &f, std::vector<uint8_t> &out) {
+    RefCopy c(span);
+    Reader &r = c.r;
+    c.ref(f);
+    for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
+        r.i32();
+        c.ref(f);
+        c.ref(f);
+        r.skip(13);
+    }
+    if (!r.ok() || r.remaining() != 0)
+        return false;
+    out = c.finish();
+    return true;
+}
 
 bool transientClass(const VmClass *c) {
     for (; c; c = c->parent())
@@ -83,12 +354,30 @@ bool sameValue(const Value &a, const Value &b) {
 
 } // namespace
 
+// Saved in two goes: the first finds every name and import the save uses
+// (none of its file written), the second writes it with only those, the
+// tables numbered again (as the original's saves have only what they use).
 Error ScriptLevel::writeGameSave(const std::string &path) {
+    SaveTables tables;
+    if (Error err = writeSave(path, tables, true))
+        return err;
+    return writeSave(path, tables, false);
+}
+
+Error ScriptLevel::writeSave(const std::string &path, SaveTables &tables, bool collect) {
     PackageWriter w(_map);
+    if (!collect && tables.trim)
+        w.keepTables(tables.names, tables.imports);
+    int32_t mapNone = 0;
+    for (size_t k = 0; k < _map.names().size(); ++k)
+        if (fs::toLower(_map.names()[k].name) == "none")
+            mapNone = int32_t(k);
+    const Renumber same = [](int32_t n) { return n; };
+    const Renumber baseNames = [&](int32_t n) { return w.baseName(n); };
     const int version = _map.version();
     if (!_levelInfo || _levelInfo->package != &_map)
         return Error::fail("the level has no LevelInfo of its map's");
-    const int32_t levelOuter = _map.exports()[size_t(_levelInfo->exportIndex)].package;
+    const int32_t mapLevelOuter = _map.exports()[size_t(_levelInfo->exportIndex)].package;
 
     // What's saved: the level's actors and ghosts, and every object they
     // lead to that the level made, or that's one of the map's own; not the
@@ -137,15 +426,105 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         for (const Value &v : o->values)
             scan(v);
     }
-    // Their exports: the map's by their own numbers, the rest added, named
-    // as the level names them (made unique), in their outer.
-    std::set<std::pair<int32_t, std::string>> taken; // outer, lower-case name
-    for (size_t i = 0; i < _map.exports().size(); ++i)
-        taken.insert({_map.exports()[i].package, fs::toLower(_map.name(_map.exports()[i].objectName))});
+    // The map's exports kept, numbered again in their order: those saved,
+    // the Level object, what its model and reach list, the models and their
+    // polygons lead to, and the packages they're in. Not those for the
+    // editor alone (UnrealEd's building brushes, their models and polygons,
+    // its cameras), which the game never loads (Core.dll 0x1012d02b): the
+    // original's saves leave them out, and references to them are none.
+    // Should the map's data not read so, all are kept, those empty.
+    const auto &exports = _map.exports();
+    const std::vector<int> levels = _map.exportsOfClass("Level");
+    if (levels.empty())
+        return Error::fail(_map.name() + ": no Level object");
+    std::vector<uint8_t> mapLevel;
+    if (Error err = _map.readExport(levels.front(), mapLevel))
+        return err;
+    size_t modelBegin = 0;
+    size_t reachEnd = 0;
+    if (!levelModelSpan(mapLevel, version, modelBegin, reachEnd))
+        return Error::fail(_map.name() + ": its Level object doesn't read");
+    const std::vector<uint8_t> reach(mapLevel.begin() + std::ptrdiff_t(modelBegin),
+                                     mapLevel.begin() + std::ptrdiff_t(reachEnd));
+    auto editorOnly = [&](size_t i) {
+        return !(exports[i].flags & (objflag::kLoadForClient | objflag::kLoadForServer));
+    };
+    std::vector<bool> keep(exports.size(), false);
+    std::deque<size_t> leadsTo;
+    // (An actor deleted, by the level or in the map itself, isn't kept, as
+    // the original's saves have none: what points at it, a model's list of
+    // lights too, is none.)
+    auto deletedActor = [&](size_t i) {
+        if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && o->isActor)
+            if (refs.count(o) || o->deleted)
+                return o->deleted && !refs.count(o);
+        // One the level never had: deleted in the map itself (bDeleteMe).
+        std::vector<uint8_t> data;
+        if (_map.readExport(int(i), data))
+            return false;
+        Reader r(data, size_t(exports[i].serialOffset));
+        PropertyList props;
+        return !beginObject(_map, int(i), r, props) && props.boolean("bDeleteMe");
+    };
+    auto keepRef = [&](int32_t ref) {
+        if (ref > 0 && size_t(ref) <= exports.size() && !keep[size_t(ref - 1)] && !editorOnly(size_t(ref - 1)) &&
+            !deletedActor(size_t(ref - 1))) {
+            keep[size_t(ref - 1)] = true;
+            leadsTo.push_back(size_t(ref - 1));
+        }
+        return ref;
+    };
+    for (VmObject *o : saved)
+        if (o->package == &_map)
+            keepRef(o->exportIndex + 1);
+    keepRef(levels.front() + 1);
+    std::vector<uint8_t> scratch;
+    bool renumber = reachRefs(reach, keepRef, scratch);
+    while (renumber && !leadsTo.empty()) {
+        const size_t i = leadsTo.front();
+        leadsTo.pop_front();
+        // Its package (or group), whatever its flags.
+        for (int32_t outer = exports[i].package; outer > 0 && !keep[size_t(outer - 1)];
+             outer = exports[size_t(outer - 1)].package) {
+            keep[size_t(outer - 1)] = true;
+            leadsTo.push_back(size_t(outer - 1));
+        }
+        const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
+        std::vector<uint8_t> data;
+        const bool stack = exports[i].flags & objflag::kHasStack;
+        if (cls == "model" || cls == "polys") {
+            renumber = !_map.readExport(int(i), data) &&
+                       (cls == "model" ? modelRefs(data, version, stack, mapNone, keepRef, same, scratch)
+                                       : polysRefs(data, stack, mapNone, keepRef, same, scratch));
+            continue;
+        }
+        // One kept as the map has it: what its properties lead to too.
+        // What the level has now leads where its values do.
+        if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && refs.count(o))
+            continue;
+        if (cls == "c3dmeshstate" || exports[i].serialSize <= 0)
+            continue;
+        renumber = !_map.readExport(int(i), data) && rewriteProperties(_map, data, stack, keepRef, same, scratch);
+    }
+    if (!renumber)
+        keep.assign(exports.size(), true);
+    const std::vector<int32_t> renumbered = w.keepOnly(keep);
+    auto fromMap = [&](int32_t ref) {
+        return ref > 0 && size_t(ref) < renumbered.size() ? renumbered[size_t(ref)] : w.baseRef(ref);
+    };
+
+    // The new exports, named as the level names them (made unique), in their
+    // outer.
+    std::set<std::pair<int32_t, std::string>> taken;    // outer, lower-case name
+    std::map<const VmObject *, std::string> savedNames; // those renamed or new
+    for (size_t i = 0; i < exports.size(); ++i)
+        if (fromMap(int32_t(i) + 1) > 0)
+            taken.insert({fromMap(exports[i].package), fs::toLower(_map.name(exports[i].objectName))});
     auto classImport = [&](const VmClass *c) { return w.import(c->package->name() + "." + c->name, "Core", "Class"); };
     for (VmObject *o : saved)
         if (o->package == &_map)
-            refs[o] = o->exportIndex + 1;
+            refs[o] = fromMap(o->exportIndex + 1);
+    const int32_t levelOuter = fromMap(mapLevelOuter);
     for (VmObject *o : saved) {
         if (o->package)
             continue;
@@ -159,6 +538,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         for (int n = 1; taken.count({outer, fs::toLower(name)}); ++n)
             name = _vm.nameText(o->name) + "_" + std::to_string(n);
         taken.insert({outer, fs::toLower(name)});
+        savedNames[o] = name;
         refs[o] = w.addExport(classImport(o->cls), outer, name, o->isActor ? kActorFlags : kObjectFlags);
     }
 
@@ -352,7 +732,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
             probe = ~0ull;
         for (NameId n : a->disabled)
             for (int k = 0; k < 64; ++k)
-                if (fs::toLower(_vm.nameText(n)) == fs::toLower(kProbes[k]))
+                if (fs::toLower(_vm.nameText(n)) == fs::toLower(probeEvent(k)))
                     probe &= ~(1ull << k);
         b.u32(uint32_t(probe));
         b.u32(uint32_t(probe >> 32));
@@ -376,8 +756,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     };
 
     // A C3D mesh state for each saved actor with a C3D mesh and none the
-    // map gave it (one spawned): new, its groups as below, no IK targets,
-    // bone adjustments or attachments (the scripts set them again).
+    // map gave it (one spawned): new, its groups and what it holds as below,
+    // no IK requests or targets (the scripts set them again each tick).
     std::map<const VmObject *, int32_t> newMeshStates;
     for (VmObject *a : saved) {
         if (!a->isActor || a->package == &_map || !usesC3DMesh(a))
@@ -403,11 +783,10 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         m.i32(5);
         m.i32(-1);
         writeMeshGroups(m, a);
-        for (int k = 0; k < 2; ++k) { // bone adjustments, attachments
-            m.i32(0);
-            m.i32(0);
-            m.i32(10);
-        }
+        m.i32(0); // the IK chains' targets
+        m.i32(0);
+        m.i32(10);
+        writeMeshAttachments(m, a, savedNames);
         const std::string owner = _vm.nameText(a->name);
         m.u16(uint16_t(owner.size()));
         m.bytes(owner.data(), owner.size());
@@ -417,19 +796,32 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // The objects' data.
     for (VmObject *o : saved) {
         const int32_t ref = refs[o];
+        if (ref <= 0)
+            continue;
         if (o->package == &_map && !o->isActor) {
-            // A mesh state: its groups as the actor's animation has them.
+            // A mesh state: its groups as the actor's animation has them,
+            // and what the actor holds.
             if (o->cls && fs::toLower(o->cls->name) == "c3dmeshstate")
                 if (const Value *outer = prop(o, "Outer"); outer && outer->asObject() && outer->o->isActor) {
                     std::vector<uint8_t> data;
                     size_t begin = 0;
                     size_t end = 0;
-                    if (!_map.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end)) {
+                    size_t heldBegin = 0;
+                    size_t heldEnd = 0;
+                    if (!_map.readExport(o->exportIndex, data) && meshStateGroupSpan(data, begin, end) &&
+                        meshStateAttachmentSpan(data, heldBegin, heldEnd)) {
                         ByteWriter g;
                         writeMeshGroups(g, outer->o);
-                        std::vector<uint8_t> out(data.begin(), data.begin() + std::ptrdiff_t(begin));
+                        ByteWriter held;
+                        writeMeshAttachments(held, outer->o, savedNames);
+                        const auto at = [&](size_t k) { return data.begin() + std::ptrdiff_t(k); };
+                        std::vector<uint8_t> out(data.begin(), at(begin));
                         out.insert(out.end(), g.data.begin(), g.data.end());
-                        out.insert(out.end(), data.begin() + std::ptrdiff_t(end), data.end());
+                        out.insert(out.end(), at(end), at(heldBegin));
+                        out.insert(out.end(), held.data.begin(), held.data.end());
+                        out.insert(out.end(), at(heldEnd), data.end());
+                        if (tables.trim && !collect && leadingName(out, mapNone, baseNames, scratch))
+                            out = std::move(scratch);
                         w.setData(ref, std::move(out));
                     }
                 }
@@ -459,17 +851,31 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         w.setData(ref, std::move(b.data));
     }
 
+    // What the save keeps of the map as it is: its models and their
+    // polygons, and the rest the level hasn't (its summary), renumbered.
+    if (renumber)
+        for (size_t i = 0; i < exports.size(); ++i) {
+            const int32_t ref = fromMap(int32_t(i) + 1);
+            if (ref <= 0)
+                continue;
+            const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
+            std::vector<uint8_t> data;
+            const bool stack = exports[i].flags & objflag::kHasStack;
+            if (cls == "model" || cls == "polys") {
+                if (!_map.readExport(int(i), data) &&
+                    (cls == "model" ? modelRefs(data, version, stack, mapNone, fromMap, baseNames, scratch)
+                                    : polysRefs(data, stack, mapNone, fromMap, baseNames, scratch)))
+                    w.setData(ref, std::move(scratch));
+            } else if (w.baseData(ref) >= 0 && exports[i].serialSize > 0 && !_map.readExport(int(i), data)) {
+                // The rest kept as they are, their references renumbered: a
+                // mesh state's only name, others' properties.
+                if (cls == "c3dmeshstate" ? leadingName(data, mapNone, baseNames, scratch)
+                                          : rewriteProperties(_map, data, stack, fromMap, baseNames, scratch))
+                    w.setData(ref, std::move(scratch));
+            }
+        }
+
     // The Level object.
-    const std::vector<int> levels = _map.exportsOfClass("Level");
-    if (levels.empty())
-        return Error::fail(_map.name() + ": no Level object");
-    std::vector<uint8_t> mapLevel;
-    if (Error err = _map.readExport(levels.front(), mapLevel))
-        return err;
-    size_t modelBegin = 0;
-    size_t reachEnd = 0;
-    if (!levelModelSpan(mapLevel, version, modelBegin, reachEnd))
-        return Error::fail(_map.name() + ": its Level object doesn't read");
     ByteWriter L;
     L.index(w.name("None"));
     // The actors: the LevelInfo, the builder brush's place (none), the rest.
@@ -484,7 +890,8 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     // The URL.
     L.string("DS9");
     L.string("");
-    L.string(_map.name());
+    // (A level that's itself a saved game keeps the map it was saved on.)
+    L.string(savedByGame() && !_saved.urlMap.empty() ? _saved.urlMap : _map.name());
     L.string("");
     std::vector<std::string> options{"Name=Player"};
     if (_player && _player->cls && _player->cls->package)
@@ -495,7 +902,10 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     L.i32(7777);
     L.i32(1);
     // The model and the reach list, as the map has them.
-    L.bytes(mapLevel.data() + modelBegin, reachEnd - modelBegin);
+    if (renumber && reachRefs(reach, fromMap, scratch))
+        L.append(scratch);
+    else
+        L.append(reach);
     const Value *now = prop(_levelInfo, "TimeSeconds");
     L.f32(now ? now->asFloat() : _time);
     L.index(0); // first deleted
@@ -510,7 +920,7 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
     L.index(int32_t(ghosts.size()));
     for (int32_t g : ghosts)
         L.index(g);
-    writeDialogEngine(L, w);
+    writeDialogEngine(L, w, refOf);
     // The sounds playing (the music the HUD's, playing since it began).
     struct Entry {
         int32_t actor;
@@ -551,11 +961,98 @@ Error ScriptLevel::writeGameSave(const std::string &path) {
         L.f32(e.start);
     }
     L.i32(0);
-    w.setData(levels.front() + 1, std::move(L.data));
+    w.setData(fromMap(levels.front() + 1), std::move(L.data));
 
-    // The map's actors the level no longer has (destroyed, editor-only)
-    // stay, unreferenced: the engine loads only what the level leads to.
-    return w.write(path);
+    // Kept as the map numbers them: the map's actors the level no longer
+    // has stay, unreferenced (the engine loads only what the level leads
+    // to), and the editor's own, and the polygons only its models lead to,
+    // are left empty. (A brush's polygons are loadable themselves, but only
+    // its model leads to them: those of models the game loads are kept.)
+    if (!renumber) {
+        std::set<int32_t> polysKept;
+        std::set<int32_t> polysDropped;
+        for (const int i : _map.exportsOfClass("Model")) {
+            Model m;
+            if (!readModel(_map, i, m, false) && m.polys > 0)
+                (editorOnly(size_t(i)) ? polysDropped : polysKept).insert(m.polys);
+        }
+        for (size_t i = 0; i < exports.size(); ++i) {
+            const auto ref = int32_t(i + 1);
+            if (exports[i].serialSize > 0 && (editorOnly(i) || (polysDropped.count(ref) && !polysKept.count(ref))))
+                w.setData(ref, {});
+        }
+    }
+    if (!collect)
+        return w.write(path);
+
+    // What the save uses: the names and imports asked for while writing
+    // it, those of the export table, those the map's data kept as it is
+    // holds, and what those imports are in and named.
+    std::vector<bool> names = w.namesUsed();
+    std::vector<bool> imports = w.importsUsed();
+    const Renumber markName = [&](int32_t n) {
+        if (n >= 0) {
+            if (names.size() <= size_t(n))
+                names.resize(size_t(n) + 1, false);
+            names[size_t(n)] = true;
+        }
+        return n;
+    };
+    const Renumber markRef = [&](int32_t ref) {
+        if (ref < 0) {
+            if (imports.size() <= size_t(-ref - 1))
+                imports.resize(size_t(-ref), false);
+            imports[size_t(-ref - 1)] = true;
+        }
+        return ref;
+    };
+    bool whole = renumber;
+    for (int32_t ref = 1; size_t(ref) <= w.exportCount(); ++ref) {
+        const Export &e = w.exportAt(ref);
+        markName(e.objectName);
+        markRef(e.classRef);
+        markRef(e.superRef);
+        markRef(e.package);
+    }
+    markName(mapNone);
+    for (size_t i = 0; whole && i < exports.size(); ++i) {
+        const int32_t ref = fromMap(int32_t(i) + 1);
+        if (ref <= 0 || exports[i].serialSize <= 0)
+            continue;
+        const std::string cls = fs::toLower(_map.className(int32_t(i) + 1));
+        const bool stack = exports[i].flags & objflag::kHasStack;
+        std::vector<uint8_t> data;
+        if (cls == "model" || cls == "polys")
+            whole = !_map.readExport(int(i), data) &&
+                    (cls == "model" ? modelRefs(data, version, stack, mapNone, markRef, markName, scratch)
+                                    : polysRefs(data, stack, mapNone, markRef, markName, scratch));
+        else if (VmObject *o = _vm.objectAt(_map, int32_t(i) + 1); o && refs.count(o))
+            continue; // written from the level as it is now
+        else
+            whole = !_map.readExport(int(i), data) &&
+                    (cls == "c3dmeshstate" ? leadingName(data, mapNone, markName, scratch)
+                                           : rewriteProperties(_map, data, stack, markRef, markName, scratch));
+    }
+    const std::vector<Import> &table = w.imports();
+    for (bool more = true; more;) {
+        more = false;
+        for (size_t k = 0; k < imports.size() && k < table.size(); ++k) {
+            if (!imports[k])
+                continue;
+            const Import &im = table[k];
+            markName(im.classPackage);
+            markName(im.className);
+            markName(im.objectName);
+            if (im.package < 0 && !(size_t(-im.package - 1) < imports.size() && imports[size_t(-im.package - 1)])) {
+                markRef(im.package);
+                more = true;
+            }
+        }
+    }
+    tables.trim = whole;
+    tables.names = std::move(names);
+    tables.imports = std::move(imports);
+    return Error::success();
 }
 
 // An actor's C3D animation groups: FullBody (its animation), LowerTorso and
@@ -684,14 +1181,44 @@ void ScriptLevel::writeMeshGroups(ByteWriter &b, VmObject *a) {
     }
 }
 
+// What an actor holds, as its mesh state keeps it: each held actor's name
+// (as the save names it), its point and the holder's, and an identity
+// matrix with the flags the original's saves have (7).
+void ScriptLevel::writeMeshAttachments(ByteWriter &b, const VmObject *parent,
+                                       const std::map<const VmObject *, std::string> &names) {
+    std::vector<std::pair<const VmObject *, const Attachment *>> held;
+    for (const auto &[child, at] : _attachments)
+        if (at.parent == parent && !child->deleted)
+            held.emplace_back(child, &at);
+    b.i32(int32_t(held.size()));
+    b.i32(int32_t(held.size()));
+    b.i32(10);
+    auto str16 = [&](const std::string &text) {
+        b.u16(uint16_t(text.size()));
+        b.bytes(text.data(), text.size());
+    };
+    auto pointText = [&](NameId point) { return point ? _vm.nameText(point) : std::string(); };
+    for (const auto &[child, at] : held) {
+        const auto name = names.find(child);
+        str16(name != names.end() ? name->second : _vm.nameText(child->name));
+        str16(pointText(at->childPoint));
+        str16(pointText(at->parentPoint));
+        for (int row = 0; row < 4; ++row)
+            for (int col = 0; col < 3; ++col)
+                b.f32(row == col ? 1.0f : 0.0f);
+        b.i32(7);
+    }
+}
+
 // The dialogue engine as the engine keeps it: set up; its missions, types
 // and speakers; its lines in key order (flags: 2 the general table's, 1
 // running on from the line before; type's priority; times said; place;
 // row in the tables; next and return line's places or 0xFFFF; voice, key,
 // text, pause, next and return keys, tag, event, condition; a name; a
-// camera; the animations and faces); nothing under way; its faces; its
-// cameras; and a count.
-void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
+// camera; the animations and faces); the lines being said and those
+// waiting (Engine.dll 0x1040af60, 0x1040b050); its faces; its cameras;
+// and its next thread's number.
+void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w, const std::function<int32_t(VmObject *)> &refOf) {
     loadDialog();
     b.i32(1);
     for (size_t t = 0; t < 3; ++t) {
@@ -802,8 +1329,33 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
         b.index(nameOr(l.speakerFace));
         b.index(nameOr(l.listenerFace));
     }
-    b.index(0); // lines being said
-    b.index(0); // lines waiting
+    // Each line being said: its place, the place of the line whose
+    // RETURNLINE its thread goes back to (0xFFFF none), when it's done (in
+    // level seconds, a HUD line's on the clock that runs while paused),
+    // its speaker and thread. Each waiting: its place, speaker and thread.
+    const Value *now = prop(_levelInfo, "TimeSeconds");
+    const Value *noPause = prop(_levelInfo, "NoPauseTimeSeconds");
+    auto placeOf = [&](int line) { return line >= 0 && size_t(line) < n ? place[size_t(line)] : 0xFFFF; };
+    std::vector<const DialogThread *> saying;
+    std::vector<const DialogThread *> waiting;
+    for (const DialogThread &t : _dialogThreads)
+        if (t.line >= 0)
+            (t.queued ? waiting : saying).push_back(&t);
+    b.index(int32_t(saying.size()));
+    for (const DialogThread *t : saying) {
+        b.u16(uint16_t(placeOf(t->line)));
+        b.u16(uint16_t(placeOf(t->backFrom)));
+        const Value *clock = t->hudClock ? noPause : now;
+        b.f32((clock ? clock->asFloat() : 0) + t->timeLeft);
+        b.index(refOf(t->speaker));
+        b.i32(t->id);
+    }
+    b.index(int32_t(waiting.size()));
+    for (const DialogThread *t : waiting) {
+        b.u16(uint16_t(placeOf(t->line)));
+        b.index(refOf(t->speaker));
+        b.i32(t->id);
+    }
     b.index(int32_t(_dialogHeaders[3].size()));
     for (const auto &[id, word] : _dialogHeaders[3]) {
         b.u16(uint16_t(id));
@@ -817,7 +1369,7 @@ void ScriptLevel::writeDialogEngine(ByteWriter &b, PackageWriter &w) {
         for (float f : c.v)
             b.f32(f);
     }
-    b.i32(cameras.empty() ? 0 : int32_t(cameras.size()) - 1);
+    b.i32(_nextDialogThread);
 }
 
 } // namespace reluva::unreal

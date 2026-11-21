@@ -6,7 +6,7 @@
 // and set, quitting, the screen's size), the keys held down (IsKeyDown)
 // and travel to another map (ClientTravel). The keys reach the console's
 // own KeyEvent first (LevelPlay::consoleKey). And the cut scenes'
-// fast-forward. See docs/engines/unreal_vm.md.
+// fast-forward. See docs/engines/unreal/games/ds9fallen/systems/menus.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -105,13 +105,17 @@ std::string command(NativeCall &c, const std::string &text) {
         const std::string *v = c.vm.configSetting("Engine.Input", w[1]);
         return v ? *v : std::string();
     }
+    // (The bindings are User.ini's, as DefUser.ini ships them.)
     if (verb == "set" && w.size() >= 3 && fs::toLower(w[1]) == "input") {
-        c.vm.setConfig("Engine.Input", w[2], w.size() > 3 ? w[3] : std::string());
+        const std::string binding = w.size() > 3 ? w[3] : std::string();
+        c.vm.setConfig("Engine.Input", w[2], binding);
+        c.vm.saveSetting("User", "Engine.Input", w[2], binding);
         return {};
     }
-    // "set Section Key Value": the setting from now on (not written to
-    // the .ini), and the class's config property, defaults and every
-    // object of it, if it is one.
+    // "set Section Key Value": the setting from now on, and the class's
+    // property, defaults and every object of it, if it is one; then the
+    // class's config written, as Core.dll's GlobalSetProperty ends
+    // (0x10151f45).
     if (verb == "set" && w.size() >= 3) {
         const std::string section = sectionOf(c.vm, w[1]);
         const std::string value = w.size() > 3 ? w[3] : std::string();
@@ -131,6 +135,7 @@ std::string command(NativeCall &c, const std::string &text) {
                     break;
                 }
         }
+        c.vm.saveConfig(*cls, cls->defaults);
         return {};
     }
     // "SaveGame [QuickSave]": the level saved (vm_save.cpp).

@@ -16,16 +16,19 @@
 
 namespace reluva::test {
 
+/** A file to put in the .zip. */
 struct ZipFile {
     std::string name;
     std::vector<uint8_t> data;     // uncompressed contents
     std::vector<uint8_t> deflated; // if not empty: stored with method 8 as these bytes
 };
 
+/** A string's bytes, without a terminating 0. */
 inline std::vector<uint8_t> toBytes(const std::string &s) {
     return {s.begin(), s.end()};
 }
 
+/** A whole .zip of the files, in order, with `comment` as the archive's comment. */
 inline std::vector<uint8_t> buildZip(const std::vector<ZipFile> &files, const std::string &comment = {}) {
     std::vector<uint8_t> out;
     std::vector<uint8_t> dir;
@@ -89,6 +92,7 @@ inline std::vector<uint8_t> buildZip(const std::vector<ZipFile> &files, const st
     return out;
 }
 
+/** Writes the bytes to a file, making its folders. */
 inline void writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &data) {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream(path, std::ios::binary)

@@ -84,7 +84,8 @@ void testWin32SerialPort() {
     };
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
-    // Devices are the drives' stand-ins', and their events the host threads'.
+    // A drive, as devices are opened by the drives' stand-ins (CreateFileA),
+    // and host threads, which signal the overlapped reads' events.
     x86::Win32Process::Drive c;
     c.root = std::filesystem::temp_directory_path();
     process.addDrive(c);

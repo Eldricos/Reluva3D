@@ -62,66 +62,92 @@ public:
         int x = 0;
         int y = 0;
         int panel = -1; // the panel it's in (addPanel), or -1 for the screen's layout
+        /** Whether the screen's point (px, py) is inside the widget. */
         bool contains(int px, int py) const { return px >= x && py >= y && px < x + widget->w && py < y + widget->h; }
     };
 
 protected:
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     LayoutScreen(Assets &assets, const Lexicon &lexicon) : _assets(assets), _lexicon(lexicon) {}
 
-    // Reads the screen's layout, and opening.wdf to draw under it unless
-    // `overMenu` is false (the main menu itself), and checks the layout has
-    // the widgets the screen needs.
+    /**
+     * Reads the screen's layout, and opening.wdf to draw under it unless
+     * `overMenu` is false (the main menu itself), and checks the layout has
+     * the widgets the screen needs.
+     */
     Error loadLayouts(const char *file, std::initializer_list<int32_t> needed, bool overMenu = true);
-    // Another layout, a panel, drawn in the place of the layout's widget
-    // `place` (an empty picture the panel's size), shown or not: its
-    // number for showPanel(). Its widgets are found by id as the layout's.
+    /**
+     * Another layout, a panel, drawn in the place of the layout's widget
+     * `place` (an empty picture the panel's size), shown or not. Its
+     * widgets are found by id as the layout's.
+     * @param panel set to its number, for showPanel()
+     */
     Error addPanel(const char *file, int32_t place, std::initializer_list<int32_t> needed, int &panel);
+    /** Whether a panel is shown. */
+    ///@{
     void showPanel(int panel, bool shown);
     bool panelShown(int panel) const;
+    ///@}
+    /** The widget with this id, the layout's or a panel's, or nullptr. */
     const Placed *find(int32_t id) const;
-    // The button under the mouse, among those not hidden or disabled; or 0.
+    /** The button under the mouse, among those not hidden or disabled; or 0. */
     int32_t buttonAt(int x, int y) const;
-    // Follows the pointer, for the button under it.
+    /** Follows the pointer, for the button under it. */
     void trackPointer(const Event &event);
-    // The button that pulses, or 0: from its "selected" picture to nearly its
-    // normal one and back, from now (the button under the pointer, on the
-    // main menu and the empire selection screen's names).
+    /**
+     * The button that pulses, or 0: from its "selected" picture to nearly
+     * its normal one and back, from now (the button under the pointer, on
+     * the main menu and the empire selection screen's names).
+     */
     void setPulsing(int32_t id);
-    // The main menu, dimmed, then the layout: backgrounds and buttons (the
-    // pressed one with its "selected" picture, as are those `selected`
-    // names, and the pulsing one between its two; the `_disabled` ones
-    // dimmed), parents before children, leaving out the
-    // `_hidden` widgets; then the panels shown, the same way.
+    /**
+     * The main menu, dimmed, then the layout: backgrounds and buttons (the
+     * pressed one with its "selected" picture, as are those `selected`
+     * names, and the pulsing one between its two; the `_disabled` ones
+     * dimmed), parents before children, leaving out the `_hidden` widgets;
+     * then the panels shown, the same way.
+     */
     void drawLayouts(Surface &screen, const std::set<int32_t> &selected = {}) const;
-    // Text in a text box, in its font and alignment, in the middle of its
-    // height; or, with `lineGap`, wrapped to its width from its top, the
-    // lines `lineGap` pixels further apart than the font's.
+    /**
+     * Text in a text box, in its font and alignment, in the middle of its
+     * height; or, with `lineGap`, wrapped to its width from its top, the
+     * lines `lineGap` pixels further apart than the font's. Nothing is drawn
+     * if the box or its font is missing.
+     */
     void drawText(Surface &screen, int32_t textBox, const std::string &text, Color color, int lineGap = -1) const;
-    // The same for a text box of another layout, its corner at (boxX, boxY).
+    /** The same for a text box of another layout, its corner at (boxX, boxY). */
     void drawTextAt(Surface &screen, const Widget &textBox, int boxX, int boxY, const std::string &text, Color color,
                     int lineGap = -1) const;
+    /** A picture file drawn at a widget's place, clipped to its size. */
     void drawPicture(Surface &screen, int32_t widget, const std::string &file) const;
-    // Adds typed UTF-8 to `text`, a text box's: only characters its font has
-    // (and so Windows-1252 can hold), as long as it stays within
-    // `maxCharacters` and the box's width.
+    /**
+     * Adds typed UTF-8 to `text`, a text box's: only characters its font
+     * has (and so Windows-1252 can hold), as long as it stays within
+     * `maxCharacters` and the box's width.
+     */
     void typeInto(std::string &text, int32_t textBox, const char *utf8, size_t maxCharacters) const;
-    // Takes the last character (UTF-8) off `text`: Backspace.
+    /** Takes the last character (UTF-8) off `text`: Backspace. */
     static void eraseLast(std::string &text);
-    // A typing cursor after `text` in a text box: a white block 8 pixels
-    // wide, as high as the font's glyphs (the game's, on Save Game).
+    /**
+     * A typing cursor after `text` in a text box: a white block 8 pixels
+     * wide, as high as the font's glyphs (the game's, on Save Game).
+     */
     void drawCursor(Surface &screen, int32_t textBox, const std::string &text) const;
-    // The colour a text box's font names, or black.
+    /** The colour a text box's font names, or black. */
     Color fontColor(int32_t textBox) const;
-    // The lexicon's entry, or `english` when there's no lexicon.
+    /** The lexicon's entry, or `english` when it has none (an empty lexicon). */
     std::string word(int entry, const char *english) const;
+    /** Plays a sound through the handler, if there's one. */
     void sound(UiSound s) const {
         if (_sound)
             _sound(s);
     }
-    // A held button that acts again while it's held: from now, after a
-    // pause, then at a steady rate (the timers' arrows).
+    /**
+     * A held button that acts again while it's held: from now, after a
+     * pause, then at a steady rate (the timers' arrows).
+     */
     void startRepeat(int32_t button);
-    // How many times the held button is due to act again by setTime's time.
+    /** How many times the held button is due to act again by setTime()'s time. */
     int repeatsDue();
 
     Assets &_assets;

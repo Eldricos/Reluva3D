@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Who calls a function in a Windows program: each call to one of the
+addresses, with the instructions before it; or `dis` disassembles from an
+address.
+
+    python3 -I py/callers.py PROGRAM.exe ADDRESS[,ADDRESS...] BEFORE
+    python3 -I py/callers.py PROGRAM.exe dis ADDRESS COUNT      (hex addresses)
+"""
+
 import sys, pefile, capstone
 pe=pefile.PE(sys.argv[1]); base=pe.OPTIONAL_HEADER.ImageBase
 text=[s for s in pe.sections if s.Name.startswith(b'.text')][0]

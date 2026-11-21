@@ -26,25 +26,33 @@ namespace reluva::audio {
 // as music values, become MIDI notes over the chord, played by bands of
 // DLS instruments. See docs/common/audio/directmusic.md.
 
-constexpr int kDmPulsesPerQuarter = 768; // music time ticks per quarter note
+/** Music time's ticks per quarter note. */
+constexpr int kDmPulsesPerQuarter = 768;
 
+/** A time signature, and the grid notes are placed on. */
 struct DmTimeSig {
     int beatsPerMeasure = 4;
-    int beat = 4;
+    int beat = 4; // the note a beat is (4: a quarter)
     int gridsPerBeat = 4;
+    /** A beat's and a measure's ticks; a beat of 0 counts as a 256th note. */
+    ///@{
     int beatTicks() const { return beat > 0 ? kDmPulsesPerQuarter * 4 / beat : kDmPulsesPerQuarter / 64; }
     int measureTicks() const { return beatsPerMeasure * beatTicks(); }
-    // A grid position to ticks (Microsoft's formula: whole beats, then
-    // the grids left over).
+    ///@}
+    /**
+     * A grid position to ticks (Microsoft's formula: whole beats, then
+     * the grids left over).
+     */
     int gridTicks(int grid) const;
 };
 
-// A reference to another file (DMRF): its name and file name.
+/** A reference to another file (DMRF): its name and file name. */
 struct DmReference {
     std::string name;
     std::string file;
 };
 
+/** One instrument of a band: the DLS patch a channel plays, and its controls. */
 struct DmInstrument {
     uint32_t patch = 0; // MSB << 16 | LSB << 8 | program, and bit 31 for drums
     int channel = 0;
@@ -55,12 +63,14 @@ struct DmInstrument {
     DmReference dls;
 };
 
+/** A band: the instruments to set, at a time in the segment (ticks). */
 struct DmBand {
     int time = 0;
     std::string name;
     std::vector<DmInstrument> instruments;
 };
 
+/** A note of a style's part, as a music value on the part's grid. */
 struct DmNote {
     int grid = 0;
     uint32_t variations = 0;
@@ -74,6 +84,7 @@ struct DmNote {
     int playMode = 16; // 16: the part's
 };
 
+/** A controller or pitch bend curve, of a style's part or a sequence track. */
 struct DmCurve {
     int grid = 0; // or, in a sequence track, ticks
     uint32_t variations = 0;
@@ -87,6 +98,7 @@ struct DmCurve {
     int channel = 0; // in a sequence track
 };
 
+/** A style's part: its notes and curves, in up to 32 variations. */
 struct DmPart {
     std::array<uint8_t, 16> guid{};
     DmTimeSig timeSig;
@@ -95,10 +107,11 @@ struct DmPart {
     int playMode = 0;
     std::vector<DmNote> notes;
     std::vector<DmCurve> curves;
-    // The variations in use (any chord bit set).
+    /** The variations in use (any chord bit set), in order. */
     std::vector<int> variations() const;
 };
 
+/** A pattern's use of a part: on which channel, and how its variation is chosen. */
 struct DmPartRef {
     size_t part = 0; // into DmStyle::parts
     int channel = 0;
@@ -107,9 +120,10 @@ struct DmPartRef {
     int randomVariation = 1;
 };
 
-// DMUS_EMBELLISHT bits.
+/** DMUS_EMBELLISHT bits. */
 enum : int { kDmFill = 1, kDmBreak = 2, kDmIntro = 4, kDmEnd = 8, kDmMotif = 16 };
 
+/** A style's pattern: the parts it plays, at which groove levels and for what. */
 struct DmPattern {
     std::string name;
     DmTimeSig timeSig;
@@ -120,6 +134,7 @@ struct DmPattern {
     std::vector<DmPartRef> parts;
 };
 
+/** A style (.sty) as readDmStyle reads it. */
 struct DmStyle {
     std::string name;
     DmTimeSig timeSig;
@@ -129,7 +144,7 @@ struct DmStyle {
     std::vector<DmBand> bands;
 };
 
-// DMUS_COMMANDT: groove, fill, intro, break, end, end and intro.
+/** A command track's entry (DMUS_COMMANDT): groove, fill, intro, break, end, end and intro. */
 struct DmCommand {
     int time = 0;
     int measure = 0;
@@ -139,9 +154,11 @@ struct DmCommand {
     int grooveRange = 0;
 };
 
-// A chord, as its first subchord: semitones above its root (bit 0 the
-// root), and the scale's, from its root. Without a chord track:
-// C major 7 over the C major scale (docs/common/audio/directmusic.md).
+/**
+ * A chord, as its first subchord: semitones above its root (bit 0 the
+ * root), and the scale's, from its root. Without a chord track:
+ * C major 7 over the C major scale (docs/common/audio/directmusic.md).
+ */
 struct DmChord {
     int time = 0;
     uint32_t chordPattern = 0x891;
@@ -150,6 +167,7 @@ struct DmChord {
     int scaleRoot = 0;
 };
 
+/** A sequence track's MIDI event; a note's duration in ticks. */
 struct DmSequenceEvent {
     int time = 0;
     int duration = 0;
@@ -159,6 +177,7 @@ struct DmSequenceEvent {
     int data2 = 0;
 };
 
+/** A segment (.sgt) as readDmSegment reads it: times in ticks. */
 struct DmSegment {
     std::string name;
     int repeats = 0;
@@ -175,38 +194,66 @@ struct DmSegment {
     std::vector<DmCurve> sequenceCurves;
 };
 
+/**
+ * A style, segment or band file (a RIFF form of DMST, DMSG or DMBD).
+ * @return An error if it isn't one, or (a segment) has no tracks.
+ */
+///@{
 Error readDmStyle(const std::vector<uint8_t> &data, DmStyle &out);
 Error readDmSegment(const std::vector<uint8_t> &data, DmSegment &out);
 Error readDmBand(const std::vector<uint8_t> &data, DmBand &out);
+///@}
 
-// A music value to a MIDI key against a chord in a play mode
-// (DMUS_PLAYMODE flags); -1 if it isn't to be played.
+/**
+ * A music value to a MIDI key against a chord in a play mode
+ * (DMUS_PLAYMODE flags), moved by octaves into 0-127; -1 if it isn't to
+ * be played.
+ */
 int dmMusicToMidi(uint16_t musicValue, int playMode, const DmChord &chord);
 
-// Plays segments: composes their styles' patterns as they go, into a DLS
-// synthesizer, as a mixer stream (Mixer::playOutput). play() switches
-// segment at the next measure. Thread-safe: read() runs on the audio
-// thread.
+/**
+ * Plays segments: composes their styles' patterns as they go, into a DLS
+ * synthesizer, as a mixer stream (Mixer::playOutput). play() switches
+ * segment at the next measure. Thread-safe: read() runs on the audio
+ * thread.
+ */
 class DmPerformance : public OutputStream {
 public:
-    // Reads a file the music names (a segment, style, band or DLS
-    // collection, by its file name); false if there's none.
+    /**
+     * Reads a file the music names (a segment, style, band or DLS
+     * collection, by its file name); false if there's none.
+     */
     using Loader = std::function<bool(const std::string &file, std::vector<uint8_t> &out)>;
 
+    /**
+     * A performance at `rate` frames a second (the mixer's output rate),
+     * its random choices seeded with `seed`.
+     */
     DmPerformance(int rate, Loader loader, uint32_t seed = 1);
 
-    // Starts a segment (by file name), at the next measure of the one
-    // playing (now if none). Reads its files first: call from one thread.
+    /**
+     * Starts a segment (by file name), at the next measure of the one
+     * playing (now if none). Reads its files first: call from one thread.
+     * @return An error if the segment or its style can't be read; a DLS
+     *         collection that can't is left silent.
+     */
     Error play(const std::string &segmentFile);
-    // Reads a segment's files ahead, so play() later has nothing to read.
+    /** Reads a segment's files ahead, so play() later has nothing to read. */
     Error prepare(const std::string &segmentFile);
-    // A style's motif (a pattern marked as one) over the segment playing,
-    // from now, with a band for its instruments (empty: none). Reads its
-    // files first: call from the same thread as play().
+    /**
+     * A style's motif (a pattern marked as one) over the segment playing,
+     * from now, with a band for its instruments (empty: none). Reads its
+     * files first: call from the same thread as play(). Fails if no
+     * segment is playing.
+     */
     Error playMotif(const std::string &styleFile, const std::string &motif, const std::string &bandFile);
+    /** Stops the music, and a segment waiting to start; notes fade by their release. */
     void stop();
+    /** Whether a segment is playing or waiting to start. */
     bool playing() const;
+    /** The name of the segment playing ("" if none). */
     std::string current() const;
+    /** The music's volume: 1 as composed, 0 silent (below 0 counts as 0). */
     void setVolume(float volume);
 
     /** Adds `frames` stereo frames at the performance's rate into `out` (interleaved, full scale +-1). */

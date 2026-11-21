@@ -4,6 +4,7 @@
 // The Angel Game Engine's unit tests: multiplayer: the session and Cops & Robbers.
 // Every file is built in the test.
 
+#include "common/meeting.h"
 #include "tests/engines/age/support.h"
 
 using namespace reluva;
@@ -256,6 +257,42 @@ void testNetSessionMore() {
           std::fabs(carl->clock(t) - host->clock(t)) < 0.1f);
     carl->setLoaded();
 
+    // A car is held to its own top speed (with room for a hill or a
+    // knock), not only to what no car does; falling isn't held to it.
+    host->setTopSpeeds({{"vpbug", 40}});
+    carl->setCar("vpbug", 0);
+    run(300);
+    ann->setCar("vpnotlisted", 0);
+    run(300);
+    CHECK(std::fabs(host->speedLimit(3) - 60) < 1e-3f && std::fabs(host->speedLimit(1) - 110) < 1e-3f);
+    NetCarState c;
+    c.position = {100, 0, 100};
+    for (const float speed : {45.0f, 55.0f}) { // within the room
+        c.clock = carl->clock(t);
+        c.velocity = {speed, 0, 0};
+        carl->sendCar(c);
+        run(100);
+        c.position[0] += speed / 10;
+    }
+    c.clock = carl->clock(t);
+    c.velocity = {0, -80, 0}; // falling
+    carl->sendCar(c);
+    run(100);
+    CHECK(host->rejected(3) == 0);
+    c.clock = carl->clock(t);
+    c.velocity = {75, 0, 0}; // a Beetle at 75 m/s: tuned, not driven
+    carl->sendCar(c);
+    run(100);
+    // (Sent again until the next, so turned down more than once.)
+    const int once = host->rejected(3);
+    CHECK(once >= 1 && host->cars().at(3).back().velocity[0] < 1);
+    c.clock = carl->clock(t);
+    c.velocity = {40, 0, 0};
+    c.position[0] += 20; // 0.2 s on from the last believed: within what no car does, past what a Beetle does
+    carl->sendCar(c);
+    run(100);
+    CHECK(host->rejected(3) > once && host->cars().at(3).back().velocity[0] < 1);
+
     // The host's checks: a car that jumps 500 m in a tenth of a second
     // isn't believed, unless it's been put back; five of those and the
     // player's called a cheater.
@@ -442,9 +479,243 @@ void testGoldGame() {
 
 } // namespace
 
+// The host's computer players outlive it: the new host drives them on,
+// and one player left with them plays on.
+void testNetBotsOutliveHost() {
+    auto network = net::LoopbackNetwork::create();
+    NetSettings settings;
+    settings.mode = NetMode::kCruise;
+    auto host = NetSession::host(network->open(kNetPort), "Hosting", settings);
+    const uint8_t bot = host->addBot("Opponent 1", "vpbug");
+    const net::Address at{0x7f000001, kNetPort};
+    std::vector<NetSession *> players;
+    uint64_t t = 1000;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            if (host)
+                host->update(t);
+            for (NetSession *p : players)
+                p->update(t);
+        }
+    };
+    auto ann = NetSession::join(network->open(0), at, "Ann");
+    auto bob = NetSession::join(network->open(0), at, "Bob");
+    players = {ann.get(), bob.get()};
+    run(600);
+    ann->setReady(true);
+    bob->setReady(true);
+    run(500);
+    CHECK(!host->start(t));
+    run(300);
+    host->setLoaded();
+    ann->setLoaded();
+    bob->setLoaded();
+    run(3500);
+    CHECK(host->phase() == NetSession::Phase::kPlaying && ann->player(bot) && ann->player(bot)->bot);
+
+    // The host goes: Ann takes over with the computer player, and its car
+    // reaches Bob from her now.
+    host->leave();
+    host.reset();
+    run(300);
+    CHECK(ann->isHost() && ann->player(bot) && bob->player(bot) && ann->players().size() == 3);
+    NetCarState s;
+    s.position = {10, 0, 20};
+    s.clock = ann->clock(t);
+    ann->sendBotCar(bot, s);
+    run(200);
+    CHECK(bob->cars().count(bot) && std::fabs(bob->cars().at(bot).back().position[2] - 20) < 1e-3f);
+
+    // Bob goes too: Ann plays on alone with it.
+    bob->leave();
+    players = {ann.get()};
+    run(300);
+    CHECK(!ann->closed() && ann->isHost() && ann->players().size() == 2 && ann->player(bot));
+
+    // Without computer players, one left alone ends the session, as before.
+    auto host2 = NetSession::host(network->open(kNetPort + 1), "Alone", settings);
+    auto cal = NetSession::join(network->open(0), {0x7f000001, uint16_t(kNetPort + 1)}, "Cal");
+    for (int i = 0; i < 60; ++i) {
+        t += 10;
+        host2->update(t);
+        cal->update(t);
+    }
+    host2->leave();
+    for (int i = 0; i < 30; ++i) {
+        t += 10;
+        cal->update(t);
+    }
+    CHECK(cal->closed());
+}
+
+// A socket that keeps a copy of everything sent through it: someone
+// listening in. It can also send as its owner.
+class TapSocket : public net::UdpSocket {
+public:
+    TapSocket(std::unique_ptr<net::UdpSocket> inner, std::vector<std::pair<net::Address, std::vector<uint8_t>>> &log)
+        : _inner(std::move(inner)), _log(log) {}
+    uint16_t port() const override { return _inner->port(); }
+    bool send(const net::Address &to, const std::vector<uint8_t> &data) override {
+        _log.push_back({to, data});
+        return _inner->send(to, data);
+    }
+    bool receive(net::Address &from, std::vector<uint8_t> &data) override { return _inner->receive(from, data); }
+    bool forge(const net::Address &to, const std::vector<uint8_t> &data) { return _inner->send(to, data); }
+
+private:
+    std::unique_ptr<net::UdpSocket> _inner;
+    std::vector<std::pair<net::Address, std::vector<uint8_t>>> &_log;
+};
+
+// Everything after joining goes sealed: the chat isn't to be read on the
+// wire, and a datagram sent again, changed, or made up in the clear does
+// nothing.
+void testNetSealed() {
+    auto network = net::LoopbackNetwork::create();
+    std::vector<std::pair<net::Address, std::vector<uint8_t>>> wire;
+    auto hostTap = std::make_unique<TapSocket>(network->open(kNetPort), wire);
+    TapSocket *hostSocket = hostTap.get();
+    NetSettings settings;
+    settings.mode = NetMode::kCircuit;
+    settings.laps = 3;
+    auto host = NetSession::host(std::move(hostTap), "Hosting", settings);
+    auto bob = NetSession::join(std::make_unique<TapSocket>(network->open(0), wire), {0x7f000001, kNetPort}, "Bob");
+    uint64_t t = 1000;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            host->update(t);
+            bob->update(t);
+        }
+    };
+    run(600);
+    CHECK(bob->myId() == 1);
+    const std::string secret = "meet at the pier";
+    bob->say(secret);
+    run(1000);
+    CHECK(!host->chat().empty() && host->chat().back().text == secret);
+    bool clear = false;
+    size_t sealed = 0;
+    for (const auto &[to, data] : wire) {
+        clear = clear || std::search(data.begin(), data.end(), secret.begin(), secret.end()) != data.end();
+        sealed += data.size() > 2 && data[2] == 15 ? 1 : 0;
+    }
+    CHECK(!clear && sealed > 10);
+
+    // An old lobby sent again doesn't put the old laps back.
+    std::vector<uint8_t> oldLobby;
+    net::Address bobAt;
+    for (const auto &[to, data] : wire)
+        if (to.port != kNetPort && data.size() > 2 && data[2] == 15) {
+            oldLobby = data;
+            bobAt = to;
+        }
+    settings.laps = 5;
+    host->setSettings(settings);
+    run(500);
+    CHECK(bob->settings().laps == 5);
+    hostSocket->forge(bobAt, oldLobby);
+    bob->update(t);
+    CHECK(bob->settings().laps == 5);
+    // Nor does one changed on the way, nor an ejection made up in the clear.
+    std::vector<uint8_t> changed = wire.back().second;
+    for (auto it = wire.rbegin(); it != wire.rend(); ++it)
+        if (it->first == bobAt) {
+            changed = it->second;
+            break;
+        }
+    changed[changed.size() / 2] ^= 0x20;
+    hostSocket->forge(bobAt, changed);
+    hostSocket->forge(bobAt, {'R', 'M', 12}); // kKick, unsealed
+    run(100);
+    CHECK(!bob->closed() && bob->settings().laps == 5);
+}
+
+// Players' routers that pass nothing between them: only the meeting
+// server reaches either.
+static bool walledOff(const net::Address &from, const net::Address &to, size_t) {
+    auto player = [](uint16_t port) { return port != net::kMeetingPort; };
+    return player(from.port) && player(to.port) && from.port != to.port;
+}
+
+// A session hosted and joined through a meeting server, the players
+// walled off from each other: listed there with the host's description,
+// joined through it, and played sealed through it; and a player only it
+// reaches can't take over as host.
+static void testNetThroughMeetingServer() {
+    auto network = net::LoopbackNetwork::create();
+    network->setDropFilter(walledOff);
+    uint64_t t = 1000;
+    const net::Address meetingAt{0x7f000001, net::kMeetingPort};
+    net::MeetingServer server(network->open(net::kMeetingPort));
+    auto listedSocket = std::make_unique<net::MeetingSocket>(network->open(kNetPort), meetingAt, "age");
+    net::MeetingSocket *listed = listedSocket.get();
+    listed->setClock([&] { return t; });
+    NetSettings settings;
+    settings.mode = NetMode::kCircuit;
+    auto host = NetSession::host(std::move(listedSocket), "Walled", settings, "swordfish");
+    std::vector<NetSession *> players;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            server.update(t);
+            if (host) {
+                host->update(t);
+                listed->publish(host->sessionName(), host->info());
+            }
+            for (NetSession *p : players)
+                p->update(t);
+        }
+    };
+    run(300);
+    CHECK(listed->published());
+
+    // Listed, with what a search on the network would have found.
+    net::MeetingSocket browser(network->open(0), meetingAt, "age");
+    browser.setClock([&] { return t; });
+    browser.requestList();
+    run(200);
+    net::Address from;
+    std::vector<uint8_t> data;
+    while (browser.receive(from, data)) {}
+    NetBrowser::Found found;
+    CHECK(browser.listed().size() == 1 && NetBrowser::parseInfo(browser.listed()[0].info, found) &&
+          found.name == "Walled" && found.mode == NetMode::kCircuit && found.password && found.players == 1);
+
+    // Joined through it, with the password.
+    auto joinThrough = [&](const std::string &name) {
+        auto socket = std::make_unique<net::MeetingSocket>(network->open(0), meetingAt, "age");
+        socket->setClock([&] { return t; });
+        const net::Address at = socket->connect(browser.listed()[0].id);
+        return NetSession::join(std::move(socket), at, name, "swordfish");
+    };
+    auto ann = joinThrough("Ann");
+    auto bob = joinThrough("Bob");
+    players = {ann.get(), bob.get()};
+    run(3000);
+    CHECK(ann->myId() == 1 && bob->myId() == 2 && host->players().size() == 3);
+    CHECK(host->player(1) && net::isMeetingAddress(host->player(1)->address));
+    ann->say("through the server");
+    run(1000);
+    CHECK(!bob->chat().empty() && bob->chat().back().text == "through the server");
+    CHECK(server.connections().size() == 2 && server.connections().begin()->second.relayed > 10);
+
+    // The host goes: Ann and Bob can only reach each other through the
+    // host's socket, so neither takes over.
+    host->leave();
+    host.reset();
+    run(300);
+    CHECK(ann->closed() && bob->closed());
+}
+
 static const reluva::test::Suite
-    kSuite("age.unit.network", {
-                                   {"net session", [](const std::filesystem::path &) { testNetSession(); }},
-                                   {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
-                                   {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
-                               });
+    kSuite("age.unit.network",
+           {
+               {"net session", [](const std::filesystem::path &) { testNetSession(); }},
+               {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
+               {"bots outlive the host", [](const std::filesystem::path &) { testNetBotsOutliveHost(); }},
+               {"sealed", [](const std::filesystem::path &) { testNetSealed(); }},
+               {"through a meeting server", [](const std::filesystem::path &) { testNetThroughMeetingServer(); }},
+               {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
+           });

@@ -9,10 +9,14 @@
 
 namespace reluva::idtech3 {
 
-// A player model's animations (its animation.cfg): each a run of frames
-// played at a speed, some looping. See docs/engines/idtech3/formats/md3.md.
+/**
+ * One of a player model's animations (from its animation.cfg): a run of
+ * frames played at a speed, some looping. See
+ * docs/engines/idtech3/formats/md3.md.
+ */
 struct PlayerAnimation {
     std::string name; // BOTH_DEATH1, TORSO_STAND, LEGS_RUN... (from the line's comment)
+    /** The model it moves: the torso and legs both, or one of them. */
     enum class Part { kBoth, kTorso, kLegs } part = Part::kBoth;
     // Frames in the part's own model: the legs model has no torso
     // frames, so its animations start that many earlier than the file says.
@@ -21,16 +25,21 @@ struct PlayerAnimation {
     int loop = 0; // the last this many frames repeat once played through; 0: it stops on its last
     float fps = 10;
 
-    // The frame `seconds` into the animation, as a whole frame and the
-    // fraction of the way to the next.
+    /**
+     * The frame `seconds` into the animation, as a whole frame and the
+     * fraction of the way to the next. Past the end the looping frames go
+     * round, or without any the last is held.
+     */
     void frameAt(float seconds, int &frame, int &next, float &fraction) const;
 };
 
-// The animations in an animation.cfg's text: lines of first frame, count,
-// looping frames and frames per second, named by their comments; other
-// lines (sex, soundpath, comments) left out. The part each belongs to
-// comes from its name; the legs' animations are moved back by the gap
-// between the first torso and the first legs animation.
+/**
+ * The animations in an animation.cfg's text: lines of first frame, count,
+ * looping frames and frames per second, named by their comments; other
+ * lines (sex, soundpath, comments) left out. The part each belongs to
+ * comes from its name; the legs' animations are moved back by the gap
+ * between the first torso and the first legs animation.
+ */
 std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text);
 
 } // namespace reluva::idtech3

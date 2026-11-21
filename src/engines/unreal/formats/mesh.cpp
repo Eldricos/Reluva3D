@@ -236,95 +236,6 @@ bool findVertexBlock(const std::vector<uint8_t> &data, size_t base, size_t from,
     return true;
 }
 
-// Which way the vertices go: the block keeps them a second time as
-// floats, placed (`(n, n, 128)` and n x 3 floats, n = FrameVerts). Of the
-// 24 axis-aligned turns, the one that takes the first frame's packed
-// vertices (by Scale and Origin) closest onto those, if close; both
-// about their middles, as the float copy can be moved too.
-std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t> &data, size_t base, size_t from, size_t to,
-                                               const Mesh &mesh, const MeshTail &t) {
-    const auto n = uint32_t(t.frameVerts);
-    auto u32At = [&](size_t at) {
-        const uint8_t *p = data.data() + (at - base);
-        return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
-    };
-    auto f32At = [&](size_t at) {
-        const uint32_t bits = u32At(at);
-        float f;
-        std::memcpy(&f, &bits, 4);
-        return f;
-    };
-    // The first frame, by Scale and Origin, and its extent.
-    std::vector<Vec3f> scaled(n);
-    float extent = 0;
-    for (uint32_t k = 0; k < n; ++k) {
-        for (size_t a = 0; a < 3; ++a) {
-            scaled[k][a] = (mesh.verts[k][a] - t.origin[a]) * t.scale[a];
-            extent = std::max(extent, std::fabs(scaled[k][a]));
-        }
-    }
-    if (extent <= 0)
-        return std::nullopt;
-    // Compared about their middles: the float copy can be moved as well.
-    Vec3f mid{};
-    for (const Vec3f &v : scaled)
-        for (size_t a = 0; a < 3; ++a)
-            mid[a] += v[a] / float(n);
-    extent = 0;
-    for (Vec3f &v : scaled)
-        for (size_t a = 0; a < 3; ++a) {
-            v[a] -= mid[a];
-            extent = std::max(extent, std::fabs(v[a]));
-        }
-    if (extent <= 0)
-        return std::nullopt;
-    // The 24 turns: each output axis takes an input axis, signed, with
-    // determinant +1.
-    std::vector<std::array<Vec3f, 3>> turns;
-    const int perms[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
-    for (const auto &p : perms)
-        for (int signs = 0; signs < 8; ++signs) {
-            std::array<Vec3f, 3> m{};
-            for (size_t row = 0; row < 3; ++row)
-                m[row][size_t(p[row])] = (signs >> row) & 1 ? -1.0f : 1.0f;
-            const float det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
-                              m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-                              m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-            if (det > 0)
-                turns.push_back(m);
-        }
-    std::optional<std::array<Vec3f, 3>> best;
-    float bestError = 0;
-    for (size_t at = from; at + 12 + size_t(n) * 12 <= to; ++at) {
-        if (u32At(at) != n || u32At(at + 4) != n || u32At(at + 8) != 128)
-            continue;
-        Vec3f floatMid{};
-        for (uint32_t k = 0; k < n; ++k)
-            for (size_t a = 0; a < 3; ++a)
-                floatMid[a] += f32At(at + 12 + 12 * size_t(k) + 4 * a) / float(n);
-        for (const auto &m : turns) {
-            float err = 0;
-            for (uint32_t k = 0; k < n && std::isfinite(err); ++k)
-                for (size_t row = 0; row < 3; ++row) {
-                    const float want = f32At(at + 12 + 12 * size_t(k) + 4 * row) - floatMid[row];
-                    const float got = m[row][0] * scaled[k][0] + m[row][1] * scaled[k][1] + m[row][2] * scaled[k][2];
-                    err += (want - got) * (want - got);
-                }
-            if (!std::isfinite(err))
-                break;
-            if (!best || err < bestError) {
-                best = m;
-                bestError = err;
-            }
-        }
-    }
-    // Close: within 5% of the mesh's size on average (the packed vertices
-    // are rounded to whole units).
-    if (!best || std::sqrt(bestError / float(3 * n)) > 0.05f * extent)
-        return std::nullopt;
-    return best;
-}
-
 // Meshes built on a skeleton (The Fallen's characters) keep no packed
 // vertices: the block has a record per bone instead, a tree written depth
 // first (see mesh.md):
@@ -554,7 +465,7 @@ struct BoneReader {
             }
             // After its children, the bone's last fields: a 4x3 matrix
             // (identity so far), an i32 7, 2 floats (+-1e38), 2 more, 6
-            // (joint limits? +-30 degrees), then two arrays of i32s
+            // (the joint limits, read below), then two arrays of i32s
             // (usually empty).
             if (p + 92 > to || u32(p + 48) != 7) {
                 if (!failedAt)
@@ -1014,9 +925,9 @@ int framesFromClips(const std::vector<uint8_t> &data, size_t base, size_t from, 
     return filled;
 }
 
-// The turn most of The Fallen's imported meshes' float copies show
-// (159 of 180 that have one); for those without one to fit.
-constexpr std::array<Vec3f, 3> kUsualImportAxes{Vec3f{1, 0, 0}, Vec3f{0, 0, 1}, Vec3f{0, -1, 0}};
+// C3D's axes to Unreal's, the same for every mesh (Engine.dll's frame
+// builder, 0x1032b980), drawn reversed with three quarter turns of yaw.
+constexpr std::array<Vec3f, 3> kImportAxes{Vec3f{1, 0, 0}, Vec3f{0, 0, 1}, Vec3f{0, -1, 0}};
 
 } // namespace
 
@@ -1039,10 +950,10 @@ const MeshAnimSeq *Mesh::findAnim(std::string_view name) const {
 // triangle, 2: on the mesh's origin), i32 triangle, 12 floats (its turn,
 // rows X Y Z, then its offset) and i32 kind (4 or 7); then the shared
 // animation sets it uses and places worked out in advance (below).
-// Checked: on The
-// Fallen's 419 meshes with the block, every one reads; ARD_PrisonRat's
-// BitePoint is a triangle at the end of its body on its middle line, the
-// phaser rifle's FirePoint a triangle at the end of its barrel.
+// Checked: on The Fallen's 419 meshes with the block, every one reads;
+// ARD_PrisonRat's BitePoint is a triangle at the end of its body on its
+// middle line, the phaser rifle's FirePoint a triangle at the end of its
+// barrel.
 namespace {
 
 void readAttachPoints(const std::vector<uint8_t> &data, Mesh &out) {
@@ -1300,12 +1211,7 @@ Error readMesh(const Package &package, int index, Mesh &out) {
             out.vertexBytes = 4;
             out.importBlock = at - afterTextures;
             blockEnd = at;
-            out.importAxes =
-                importAxes(data, size_t(package.exports()[size_t(index)].serialOffset), afterTextures, at, out, tail);
-            if (!out.importAxes) {
-                out.importAxes = kUsualImportAxes;
-                out.importAxesGuessed = !bones;
-            }
+            out.importAxes = kImportAxes;
             found = true;
         }
         if (!found)
@@ -1754,7 +1660,7 @@ std::vector<std::string> describeBones(const Package &package, int index) {
     return out;
 }
 
-// --- Posed at draw time ---------------------------------------------------------------------
+// Posed at draw time.
 
 namespace {
 

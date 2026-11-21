@@ -25,6 +25,7 @@
 
 namespace reluva::tool {
 
+/** One command: its name, how it's used, and the function that runs it. */
 struct Command {
     std::string name;
     std::string arguments;   // e.g. "<file> [offset] [length]"
@@ -32,37 +33,47 @@ struct Command {
     int (*run)(int argc, char **argv);
 };
 
+/** A command as registered, with the engine it's for. */
 struct Registered {
     std::string engine; // "" for the shared commands
     Command command;
 };
 
-// Every command registered, in no particular order.
+/** Every command registered, in no particular order. */
 std::vector<Registered> &registered();
 
-// reluva-tool's own path (its argv[0]), for commands that run it again
-// (several runs at once, say).
+/**
+ * reluva-tool's own path (its argv[0]), for commands that run it again
+ * (several runs at once, say); "reluva-tool" until main sets it.
+ */
+///@{
 const char *programPath();
 void setProgramPath(const char *path);
+///@}
 
-// Registers a file's commands, for an engine or ("") for every one.
+/** Registers a file's commands, for an engine or ("") for every one. */
 struct Commands {
+    /** Adds `list` to registered(), each command with `engine`. */
     Commands(const std::string &engine, std::vector<Command> list);
 };
 
 using Bytes = std::vector<uint8_t>;
 
-// A whole file, or false with a message.
+/** Reads a whole file; false, with a message on stderr, if it can't be opened. */
 bool readFile(const char *path, Bytes &out);
-// Little-endian values, 0 past the end.
+/** A little-endian value at offset `o`; 0 if it runs past the end. */
+///@{
 uint16_t rd16(const Bytes &d, size_t o);
 uint32_t rd32(const Bytes &d, size_t o);
-// Prints bytes as hex and text, 16 to a line.
+///@}
+/** Prints `len` bytes from `off` as hex and text, 16 to a line, stopping at the end. */
 void hexdump(const Bytes &d, size_t off, size_t len);
-// A number in decimal, hex (0x..) or octal (0..).
+/** A number in decimal, hex (0x..) or octal (0..); 0 if it isn't one. */
 long long parseNumber(const char *s);
-// A name's extension, with its dot ("" if it has none); names may use
-// backslashes.
+/**
+ * A name's extension, with its dot ("" if it has none); names may use
+ * backslashes.
+ */
 std::string extensionOf(const std::string &name);
 
 } // namespace reluva::tool

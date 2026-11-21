@@ -38,6 +38,7 @@ import sys
 
 
 def git(*args):
+    """What git prints; raises if it fails."""
     return subprocess.check_output(["git", *args], text=True)
 
 
@@ -89,6 +90,7 @@ def main():
     files_bare = {old[4:] for old, _ in list(files) + list(moves.items()) if old.startswith("src/")}
 
     def pattern(keys, before):
+        """A regex for any of the paths (the longest first), after `before`, not followed by more of a name."""
         keys = sorted(keys, key=len, reverse=True)
         return re.compile(before + "(" + "|".join(map(re.escape, keys)) + r")(?![\w.-])") if keys else None
 
@@ -109,6 +111,7 @@ def main():
             d = os.path.dirname(d)
 
     def rewrite(path, text):
+        """The file's text with every reference rewritten, and how many there were."""
         is_markdown = path.endswith(".md")
         is_cmake = path.endswith((".cmake", "CMakeLists.txt", ".cmake.in")) or os.path.basename(path) == "CMakeLists.txt.in"
         found = []

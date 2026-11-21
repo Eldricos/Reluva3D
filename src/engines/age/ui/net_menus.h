@@ -7,49 +7,71 @@
 // the sessions found and the net name, joining by address, the host's
 // options and race settings, and the lobby with its players, teams, chat
 // and readiness. They run a NetSession (net_session.h). See
-// docs/engines/age/games/mm2/systems/multiplayer.md and docs/engines/age/games/mm2/systems/multiplayer.md.
+// docs/engines/age/games/mm2/systems/menus.md and
+// docs/engines/age/games/mm2/systems/multiplayer.md.
 
 #include "common/system.h"
 #include "engines/age/ui/front_end.h"
+#include "common/meeting.h"
 #include "common/portmap.h"
 #include "engines/age/game/net_session.h"
 
 #include <deque>
+#include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace reluva::age {
 
+/** The multiplayer menus, and the session they run. */
 class NetMenus {
 public:
+    /** A screen of the menus. */
     enum class Screen { kSessions, kAddress, kPassword, kHostOptions, kHostRace, kLobby, kEject };
+    /** What handle() and update() ask of the caller. */
     enum class Action {
         kNone,
         kBack,   // out to the main menu
         kGarage, // the player wants to choose a car
         kLoad,   // the host started: load the game
-        kLobby,  // the game's over: back in the lobby
+        kLobby,  // the game's over (back in the lobby), or the session closed (back to the sessions)
     };
 
+    /** Reads widget.csv; what it's given must outlive it. */
     NetMenus(System &sys, const SearchSet &files, const std::vector<CityInfo> &cities, const std::vector<CarInfo> &cars,
              const GameStrings &strings);
+    /** Leaves the session, if there is one. */
     ~NetMenus();
+    /** Whether the menus' files are there. */
     bool loaded() const { return _ok; }
 
-    /** From the main menu: the sessions on the local network. */
+    /** From the main menu: the sessions on the local network, leaving any session we were in. */
     void enter();
+    /** Takes a key or click; what the caller is to do about it. */
     Action handle(const Event &ev);
     /** The session's news (call every frame, in the menus or the game). */
     Action update(uint64_t nowMs);
+    /** Draws the screen over the 640 x 480 overlay. */
     void draw(Surface &overlay, uint64_t nowMs);
 
+    /** The screen showing, and the session (nullptr while in none). */
+    ///@{
     Screen screen() const { return _screen; }
+    /** The session we're in, or nullptr; owned by the menus. */
     NetSession *session() { return _session.get(); }
+    ///@}
     /** Back from the garage, with the car chosen, or from the game. */
+    ///@{
     void carChosen(const std::string &car, int paintJob);
+    /** Where the options are saved: the meeting server typed is kept there. */
+    void setSavePath(std::filesystem::path path) { _savePath = std::move(path); }
+    /** Goes to the lobby, or to the sessions found if we're in no session. */
     void showLobby();
-    void leave(); // out of the session
+    ///@}
+    /** Leaves the session. */
+    void leave();
     /**
      * What's been said and what's happened (joined, left), newest last,
      * for the game's screen.
@@ -59,22 +81,32 @@ public:
         uint64_t atMs = 0;
         bool system = false; // the game's words, not a player's
     };
+    /** The lines, oldest first. */
     const std::deque<Line> &lines() const { return _lines; }
-    /** A notice to show, from the game's strings where it has one. */
+    /** A notice to show, from the game's strings where it has one; empty for a start. */
     std::string noticeText(const NetNotice &n) const;
     /**
-     * The race of the session's settings: its kind (Cruise and Cops &
-     * Robbers have none).
+     * Whether an event is a race, and its kind (Cruise and Cops & Robbers
+     * have none).
      */
+    ///@{
     static bool hasRace(NetMode mode) {
         return mode == NetMode::kBlitz || mode == NetMode::kCheckpoint || mode == NetMode::kCircuit;
     }
+    /** The kind of race the mode's races are; Blitz for a mode with none. */
     static RaceKind raceKind(NetMode mode);
+    ///@}
+    /** The menus' words for a setting, from the game's strings where it has them. */
+    ///@{
     std::string modeName(NetMode mode) const;
+    /** The gold's mass in the game's words: the heaviest of Weightless, Quarter and Half Ton not over `kg`. */
     std::string goldMassName(int kg) const;
+    /** A time limit in the game's words, or "N minutes" for one it has no words for. */
     std::string timeLimitName(int minutes) const;
+    /** The Cops & Robbers choice's name, in the game's words. */
     std::string goldModeName(GoldMode mode) const;
     std::string teamName(uint8_t team) const; // in the session's mode
+    ///@}
     /** The car a player drives: its own, but the police car for a cop. */
     std::string carFor(const NetPlayer &p) const;
 
@@ -104,7 +136,11 @@ private:
     void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
     void say(const std::string &s, bool system);
     void startHosting();
+    std::map<std::string, float> topSpeeds() const;
     void joinAddress(const net::Address &address);
+    void joinMeeting(uint32_t id);
+    bool meetingServer(net::Address &out); // looked up again only when the text has changed
+    std::vector<NetBrowser::Found> sessionList() const;
     void refreshRaces();
     void message(const std::string &text, const std::string &picture = "msg_dlg");
     void drawDialog(Surface &o, const std::string &picture, const std::string &title) const;
@@ -137,7 +173,19 @@ private:
     bool _editing = false; // the host's settings from the lobby (else hosting anew)
     std::vector<std::string> _raceNames;
     size_t _ejectChoice = 0;
-    net::Address _pendingJoin; // a session that wants a password first
+    net::Address _pendingJoin;    // a session that wants a password first
+    uint32_t _pendingMeeting = 0; // the same, listed by the meeting server
+    // The meeting server (Reluva's: players who can't reach each other
+    // meet through it), as typed and as last looked up.
+    std::string _meetingServer;
+    std::string _meetingLooked;
+    net::Address _meetingAt;
+    std::unique_ptr<net::MeetingSocket> _meetingBrowser; // asks it for its sessions
+    net::MeetingSocket *_meetingHost = nullptr;          // the hosted session's socket, if listed there (it owns it)
+    uint64_t _meetingAskedMs = 0;
+    uint64_t _meetingSinceMs = 0; // when hosting there began, for saying it doesn't answer
+    std::filesystem::path _savePath;
+    bool _meetingSaid = false;
     uint32_t _lastChatSeq = 0;
     // a dialog over the screen, until a key
     std::string _message;

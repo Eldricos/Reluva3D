@@ -58,6 +58,7 @@ public:
     void play(UiSound sound);
     /** Going to a screen from the main menu, or back to it. */
     enum class Move { kToSetup, kToEmpires, kToOptions, kToLoad, kToSave, kToHallOfFame, kToMultiplayer, kToMenu };
+    /** Plays a move's sounds, effect and speech, as the game does. */
     void play(Move move);
 
 private:

@@ -37,7 +37,9 @@ public:
 
     using LayoutScreen::pulsing;
     using LayoutScreen::setTime;
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
     MainMenu(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
+    /** Reads opening.wdf; fails if it lacks one of the menu's buttons. */
     Error load();
     /**
      * Whether a game is in progress: without one, Save Game and Retire
@@ -50,6 +52,7 @@ public:
      * (its "Version" key); none when empty.
      */
     void setVersion(std::string version) { _version = std::move(version); }
+    /** Draws the menu, the pointed button pulsing, and the version. */
     void draw(Surface &screen) const;
     /** The mouse: pointing at a button lights it, and a click on it chooses it. */
     Choice handle(const Event &event);

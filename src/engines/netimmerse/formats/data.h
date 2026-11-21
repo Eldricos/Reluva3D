@@ -14,13 +14,20 @@
 
 namespace reluva::netimmerse {
 
-// A .DDS sound (Audio.pac, Ambient.pac, Locale_*.pac): an 18-byte Windows
-// WAVEFORMATEX, then 16-bit PCM samples. See docs/engines/netimmerse/games/legoalphateam/formats/pac.md.
+/**
+ * Decodes a .DDS sound (Audio.pac, Ambient.pac, Locale_*.pac): an 18-byte
+ * Windows WAVEFORMATEX, then 16-bit PCM samples. See
+ * docs/engines/netimmerse/games/legoalphateam/formats/pac.md.
+ * @return An error if the header isn't 16-bit mono or stereo PCM.
+ */
 Error decodeDds(const std::vector<uint8_t> &data, audio::Sound &out);
 
-// A language text file (Locale_*.pac's .TXT): each "==key==" line is
-// followed by its text, up to the next key; '#' lines are comments. The
-// text's lines are joined with '\n', blank lines at its end left out.
+/**
+ * A language text file's (Locale_*.pac's .TXT) keys and texts, in the
+ * file's order. Each "==key==" line is followed by its text, up to the next
+ * key; '#' lines are comments, and lines before the first key are left out.
+ * The text's lines are joined with '\n', blank lines at its end left out.
+ */
 std::vector<std::pair<std::string, std::string>> parseLocaleText(std::string_view text);
 
 } // namespace reluva::netimmerse

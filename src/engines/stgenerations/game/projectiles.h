@@ -14,29 +14,32 @@
 
 namespace reluva::stgenerations {
 
-// Shots in flight: phaser beams, energy bolts and the sparks they throw
-// up, after the original's projectile types (built from GAME.BIN section
-// 4 at 0x43FE9C) and their update (0x4C4C70).
-//
-// Shots fly straight, without gravity. Each frame a shot sweeps from where
-// it was to where it is (0x4BA9E0) and stops at the nearest thing in the
-// way: a wall seen from its front (or a wall solid on both sides), a floor
-// or ceiling it crosses, a billboard, an actor other than the one that
-// fired it, or the player.
-//
-// - A **beam** is a head followed by a trail of sprites a fixed distance
-//   apart, strung out from the muzzle. When the head hits, the trail runs
-//   on into the hit point and vanishes there.
-// - A **bolt** is a single sprite.
-// - A **burst** throws sparks in a cone. They bounce, and do no harm.
-//
-// Beams and bolts report what they hit; a type can name another (sparks)
-// to throw where it hits or runs out.
+/**
+ * Shots in flight: phaser beams, energy bolts and the sparks they throw
+ * up, after the original's projectile types (built from GAME.BIN section
+ * 4 at 0x43FE9C) and their update (0x4C4C70).
+ *
+ * Shots fly straight, without gravity. Each frame a shot sweeps from where
+ * it was to where it is (0x4BA9E0) and stops at the nearest thing in the
+ * way: a wall seen from its front (or a wall solid on both sides), a floor
+ * or ceiling it crosses, a billboard, an actor other than the one that
+ * fired it, or the player.
+ *
+ * - A **beam** is a head followed by a trail of sprites a fixed distance
+ *   apart, strung out from the muzzle. When the head hits, the trail runs
+ *   on into the hit point and vanishes there.
+ * - A **bolt** is a single sprite.
+ * - A **burst** throws sparks in a cone. They bounce, and do no harm.
+ *
+ * Beams and bolts report what they hit; a type can name another (sparks)
+ * to throw where it hits or runs out.
+ */
 class Projectiles {
 public:
+    /** A projectile type's kind; the table of types ends at kKindNone. */
     enum Kind { kKindNone = 0, kKindBeam = 1, kKindBolt = 2, kKindBurst = 3 };
 
-    // A section 4 record (100 bytes).
+    /** A projectile type: a section 4 record (100 bytes). */
     struct Type {
         int kind = kKindNone;
         // Animation: frame = age * rate / 65536 ms, wrapped by frames.
@@ -66,8 +69,9 @@ public:
     static const int kShooterPlayer = -1;
     static const int kShooterNone = -2;
 
-    // What a shot ran into.
+    /** What a shot ran into. */
     struct Hit {
+        /** What kind of thing it was. */
         enum Target { kNothing, kWall, kFlat, kBillboard, kActor, kPlayer };
         Target target = kNothing;
         // Index into the level's walls, flats or billboards, or the actor's object id.
@@ -75,11 +79,12 @@ public:
         double x = 0;
         double y = 0;
         double z = 0;
-        int type = -1;
+        int type = -1; // the shot's type; for kFired, the type fired
     };
 
-    // Something the mission should know about.
+    /** Something the mission should know about. */
     struct Report {
+        /** What happened. */
         enum What {
             kFired, // type's fire sound at (x, y, z)
             kHit    // a beam or bolt hit something
@@ -88,7 +93,7 @@ public:
         Hit hit;
     };
 
-    // An actor as something shots can hit.
+    /** An actor as something shots can hit: an upright cylinder. */
     struct Target {
         uint16_t object;
         double x;
@@ -98,32 +103,43 @@ public:
         double radius;
     };
 
+    /** The level's shots, of the types in GAME.BIN's section 4. The level must outlive it. */
     Projectiles(const LevelFile &level, const std::vector<uint8_t> &section4);
     ~Projectiles();
 
+    /** The projectile types; `type` must be below getTypeCount(). */
+    ///@{
     int getTypeCount() const { return (int)_types.size(); }
     const Type &getType(int type) const { return _types[type]; }
-    // Weapon items set the damage of the type they fire (0x44A03A); everything firing it is affected.
+    ///@}
+    /** Weapon items set the damage of the type they fire (0x44A03A); everything firing it is affected. */
     void setDamage(int type, int16_t damage) { _types[type].damage = damage; }
 
-    // Fire a shot of the given type from (x, y, z) towards heading yaw
-    // (radians, 0 along +x, pi/2 along +y) and pitch (radians, up), with
-    // extraSpeed (units per ms) added, as impact sparks are.
+    /**
+     * Fires a shot of the given type from (x, y, z) towards heading yaw
+     * (radians, 0 along +x, pi/2 along +y) and pitch (radians, up), with
+     * extraSpeed (units per ms) added, as impact sparks are. A type out of
+     * range fires nothing.
+     * @param shooter An actor's object id, kShooterPlayer or kShooterNone.
+     */
     void fire(int type, double x, double y, double z, double yaw, double pitch, int shooter, double extraSpeed = 0);
 
-    // Advance by ms. zones are the zones in play, for walls, floors and
-    // billboards; targets are the actors; the player stands at (playerX,
-    // playerY) with eyes at playerEye and the given radius.
+    /**
+     * Advances by ms. zones are the zones in play, for walls, floors and
+     * billboards; targets are the actors; the player stands at (playerX,
+     * playerY) with eyes at playerEye and the given radius.
+     */
     void update(uint32_t ms, uint64_t zones, const std::vector<Target> &targets, double playerX, double playerY,
                 double playerEye, double playerRadius, std::vector<Report> &reports);
 
-    // Sprites for everything in flight.
+    /** Adds sprites for everything in flight. */
     void getSprites(std::vector<SpriteDraw> &sprites);
 
+    /** How many shots and sparks are in flight. */
     int getCount() const { return (int)_shots.size(); }
-    // Walls a door moved: take their new places.
+    /** Walls a door moved: takes their new places. */
     void refreshWalls(const std::vector<int> &walls);
-    // Drop every shot in flight (loading a saved game).
+    /** Drops every shot in flight (loading a saved game). */
     void clear() { _shots.clear(); }
 
     // Below and above the eye, the part of the player shots hit (0x57D98C, 0x57D990).

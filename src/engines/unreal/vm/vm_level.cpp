@@ -122,15 +122,12 @@ Error ScriptLevel::load() {
             _vm.reportError("the level's actor " + _map.path(ref) + " has no class that loads");
             continue;
         }
-        // UnrealEd keeps its viewports' cameras in the level as Camera
-        // actors, which are PlayerPawns: left out, or the player logging
-        // in would take one over (GameInfo.Login reuses a PlayerPawn
-        // without a player).
-        bool camera = false;
-        for (const VmClass *c = cls; c && !camera; c = c->parent())
-            camera = lowerText(c->name) == "camera";
-        if (camera) {
-            ++_editorCameras;
+        // Exports for the editor alone (neither loaded for a client nor a
+        // server: UnrealEd's cameras and building brushes) aren't made, as
+        // the game's linker makes nothing for them (Core.dll 0x1012d02b).
+        // The cameras are PlayerPawns: GameInfo.Login would take one over.
+        if (!(e.flags & (objflag::kLoadForClient | objflag::kLoadForServer))) {
+            ++_editorOnly;
             continue;
         }
         VmObject *a = _vm.create(cls, _vm.name(_map.objectName(ref)));
@@ -364,7 +361,7 @@ VmObject *ScriptLevel::login(const std::string &playerClass, const std::string &
                    {nullptr, nullptr, &message, nullptr});
     _player = pawn.asObject();
     if (!_player) {
-        error = "Login refused: " + (message.s.empty() ? std::string("no reason given") : message.s);
+        error = "Login refused: " + (message.s.empty() ? std::string("no reason given") : message.s.str());
         return nullptr;
     }
     // Then as SpawnPlayActor goes on: the viewport (Possess), an
@@ -485,74 +482,6 @@ void ScriptLevel::litActors(std::vector<LitActor> &out) {
     }
 }
 
-// A noise an actor makes (MakeNoise; a sound played without bNoHearNoise):
-// each pawn but the player and whoever made it hears it if it's loud
-// enough where the pawn is: Loudness x 800 over the distance, halved with
-// the world between, against its HearingThreshold (with the usual 1, a
-// shot of loudness 1 carries 800 units in the open). Its HearNoise
-// (Loudness, the maker): The Fallen's AI turns to search, or attacks if
-// it can see the maker. One noise a pawn every fifth of a second. Reluva's
-// reading: UE1's rule isn't in the scripts.
-void ScriptLevel::makeNoise(VmObject *maker, float loudness) {
-    if (!maker || maker->deleted || loudness <= 0)
-        return;
-    const Value *at = prop(maker, "Location");
-    if (!at)
-        return;
-    const auto from = Vm::vectorOf(*at);
-    const Value *ownerValue = prop(maker, "Owner");
-    VmObject *owner = ownerValue ? ownerValue->asObject() : nullptr;
-    const Value *instigatorValue = prop(maker, "Instigator");
-    VmObject *instigator = instigatorValue ? instigatorValue->asObject() : nullptr;
-    // Only a pawn's noise is heard (one's own, its weapon's or shot's, or
-    // what it set off: an Instigator), as UE1's MakeNoise asks; the
-    // level's ambient sounds aren't.
-    auto isPawn = [&](VmObject *a) {
-        if (!a || a->deleted)
-            return false;
-        auto it = _pawnClasses.find(a->cls);
-        if (it == _pawnClasses.end())
-            it = _pawnClasses.emplace(a->cls, _vm.isA(a, "Pawn")).first;
-        return it->second;
-    };
-    if (!isPawn(maker) && !isPawn(instigator) && !isPawn(owner))
-        return;
-    ++noise.made;
-    const std::vector<VmObject *> now = _actors;
-    for (VmObject *p : now) {
-        if (p == maker || p == owner || p == instigator || p == _player || p->deleted)
-            continue;
-        if (!isPawn(p))
-            continue;
-        const Value *health = prop(p, "Health");
-        if (health && health->asInt() <= 0)
-            continue;
-        float &quiet = _noiseQuiet[p];
-        if (quiet > _time)
-            continue;
-        const Value *loc = prop(p, "Location");
-        if (!loc)
-            continue;
-        const auto to = Vm::vectorOf(*loc);
-        const float dx = to[0] - from[0];
-        const float dy = to[1] - from[1];
-        const float dz = to[2] - from[2];
-        const float dist = std::max(1.0f, std::sqrt(dx * dx + dy * dy + dz * dz));
-        float heard = loudness * 800 / dist;
-        const Value *threshold = prop(p, "HearingThreshold");
-        const float need = threshold ? std::max(0.01f, threshold->asFloat()) : 1;
-        if (heard < need)
-            continue;
-        if (!lineOfSight(p, from, to))
-            heard *= 0.5f;
-        if (heard < need)
-            continue;
-        quiet = _time + 0.2f;
-        ++noise.heard;
-        _vm.callEvent(p, "HearNoise", {Value::floatValue(heard), Value::objectValue(maker)});
-    }
-}
-
 void ScriptLevel::updateRegion(VmObject *a) {
     if (!a || !_hasModel)
         return;
@@ -668,7 +597,6 @@ void ScriptLevel::tick(float seconds) {
     tickDialog(seconds);
     // The audio driver's update: the mouths that follow the sounds.
     lipSyncUpdate();
-    tickFlis(seconds);
     ++_ticks;
     for (VmObject *a : _actors)
         if (a->deleted)
@@ -952,7 +880,6 @@ void ScriptLevel::destroy(VmObject *a) {
     _decals.erase(a);
     _sparkFlash.erase(a);
     _clambers.erase(a);
-    _noiseQuiet.erase(a);
 }
 
 void ScriptLevel::makeGhost(VmObject *a, bool ghost) {
@@ -1064,6 +991,61 @@ std::string defaultGameType(const PackageSet &packages) {
     return game.empty() ? "Engine.GameInfo" : game;
 }
 
+namespace {
+
+int byteProp(Vm &vm, VmObject *a, const char *name) {
+    const Value *v = a->find(vm, name);
+    return v ? v->asInt() : -1;
+}
+
+} // namespace
+
+LevelStartWatch::LevelStartWatch(ScriptLevel &level, const Package &map) : _vm(level.vm()) {
+    for (VmObject *a : level.actors())
+        if (a->package == &map)
+            _before.push_back({a->exportIndex, a, byteProp(_vm, a, "DrawType"), byteProp(_vm, a, "bHidden"),
+                               byteProp(_vm, a, "LightType"), byteProp(_vm, a, "LightBrightness")});
+}
+
+void LevelStartWatch::finish(LevelStart &out) const {
+    for (const Was &was : _before) {
+        VmObject *a = was.actor;
+        ScriptedActor c;
+        bool any = false;
+        if (a->deleted) {
+            c.removed = any = true;
+            ++out.removed;
+        } else {
+            if (byteProp(_vm, a, "bHidden") != was.hidden) {
+                c.hidden = byteProp(_vm, a, "bHidden");
+                any = true;
+                if (c.hidden == 1)
+                    ++out.hidden;
+                else
+                    ++out.shown;
+            }
+            if (byteProp(_vm, a, "DrawType") != was.drawType) {
+                c.drawType = byteProp(_vm, a, "DrawType");
+                any = true;
+                ++out.drawTypes;
+            }
+            const int type = byteProp(_vm, a, "LightType");
+            const int brightness = byteProp(_vm, a, "LightBrightness");
+            if (type != was.lightType || brightness != was.lightBrightness) {
+                c.lightType = type;
+                c.lightBrightness = brightness;
+                any = true;
+                ++out.lights;
+            }
+        }
+        if (any)
+            out.changed[was.exportIndex] = c;
+    }
+    out.errors = _vm.stats.errors.size();
+    out.missingNatives = _vm.stats.missingNatives.size();
+    out.accessedNone = _vm.stats.accessedNone;
+}
+
 Error runLevelStart(const PackageSet &packages, const Package &map, const std::string &defaultGame, float seconds,
                     LevelStart &out) {
     out = {};
@@ -1072,23 +1054,7 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
     ScriptLevel level(vm, map);
     if (Error err = level.load())
         return err;
-    struct Saved {
-        VmObject *actor;
-        int drawType;
-        int hidden;
-        int lightType;
-        int lightBrightness;
-    };
-    auto byteOf = [&](VmObject *a, const char *name) {
-        const Value *v = a->find(vm, name);
-        return v ? v->asInt() : -1;
-    };
-    std::vector<std::pair<int, Saved>> before;
-    for (VmObject *a : level.actors())
-        if (a->package == &map)
-            before.push_back({a->exportIndex,
-                              {a, byteOf(a, "DrawType"), byteOf(a, "bHidden"), byteOf(a, "LightType"),
-                               byteOf(a, "LightBrightness")}});
+    const LevelStartWatch watch(level, map);
     std::string loginError;
     VmObject *p = nullptr;
     if (level.savedByGame()) { // a saved game of the original's
@@ -1102,47 +1068,12 @@ Error runLevelStart(const PackageSet &packages, const Package &map, const std::s
     out.loginError = loginError;
     for (int i = 0; i < int(seconds * 30); ++i)
         level.tick(1.0f / 30);
-    for (const auto &[index, was] : before) {
-        VmObject *a = was.actor;
-        ScriptedActor c;
-        bool any = false;
-        if (a->deleted) {
-            c.removed = any = true;
-            ++out.removed;
-        } else {
-            if (byteOf(a, "bHidden") != was.hidden) {
-                c.hidden = byteOf(a, "bHidden");
-                any = true;
-                if (c.hidden == 1)
-                    ++out.hidden;
-                else
-                    ++out.shown;
-            }
-            if (byteOf(a, "DrawType") != was.drawType) {
-                c.drawType = byteOf(a, "DrawType");
-                any = true;
-                ++out.drawTypes;
-            }
-            const int type = byteOf(a, "LightType");
-            const int brightness = byteOf(a, "LightBrightness");
-            if (type != was.lightType || brightness != was.lightBrightness) {
-                c.lightType = type;
-                c.lightBrightness = brightness;
-                any = true;
-                ++out.lights;
-            }
-        }
-        if (any)
-            out.changed[index] = c;
-    }
+    watch.finish(out);
     out.milliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    out.errors = vm.stats.errors.size();
-    out.missingNatives = vm.stats.missingNatives.size();
-    out.accessedNone = vm.stats.accessedNone;
     return Error::success();
 }
 
-// --- Engine natives -------------------------------------------------------------------------
+// Engine natives.
 
 namespace {
 
@@ -1228,7 +1159,8 @@ void registerEngineNatives(Vm &vm) {
         c.self->timerLoop = c.b(1);
     });
     reg("Actor.Sleep", [](NativeCall &c) { c.latentSeconds = std::max(0.0f, c.f(0)); });
-    // Latent functions that wait for what isn't simulated yet: done at once.
+    // Latent functions done at once, not waiting (FinishInterpolation: for
+    // the interpolation's end, though interpolate() moves the actor now).
     for (const char *done : {"Actor.FinishInterpolation"})
         reg(done, [](NativeCall &c) { c.latentSeconds = 0; });
     reg("Actor.SetRotation", [=](NativeCall &c) {
@@ -1270,11 +1202,10 @@ void registerEngineNatives(Vm &vm) {
         if (c.self && c.self->latent && c.self->sleeping > 0)
             c.self->sleeping = 0;
     });
-    // MakeNoise(float Loudness): the AI hears it (ScriptLevel::makeNoise).
-    reg("Actor.MakeNoise", [](NativeCall &c) {
-        if (c.vm.level && c.self)
-            c.vm.level->makeNoise(c.self, c.f(0));
-    });
+    // MakeNoise(float Loudness): nothing. Engine.dll's is empty (0x10420460),
+    // and its hearing check (CheckNoiseHearing) only returns; the AI hears
+    // sounds (ScriptLevel::soundNoise).
+    reg("Actor.MakeNoise", [](NativeCall &) {});
     // Not heard: a demo's sounds. Sounds themselves are vm_sound.cpp's.
     reg("Actor.DemoPlaySound", [](NativeCall &) {});
     reg("Actor.GetRegion", [](NativeCall &c) { // GetRegion(Vector Point, out PointRegion Region)
@@ -1396,7 +1327,7 @@ void registerEngineNatives(Vm &vm) {
             if (c.vm.isA(v.o, "Pawn") && distance(location(c.vm, v.o), at) <= c.f(2))
                 c.items.push_back(v);
     });
-    reg("Actor.TouchingActors", [](NativeCall &) {}); // no collision yet
+    reg("Actor.TouchingActors", [](NativeCall &) {}); // lists none: the level's touching lists aren't read here
     reg("Actor.AllPawns", [](NativeCall &c) {
         for (Value &v : actorsOf(c.vm, c.args[0]))
             if (c.vm.isA(v.o, "Pawn"))

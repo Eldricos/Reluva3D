@@ -13,12 +13,14 @@
 
 namespace reluva::idtech3 {
 
-// Finding servers, as the original's client does for its menus' server
-// list: the "localservers" command asks the local network (getinfo,
-// broadcast twice to each of the four server ports from 27960), and the
-// servers that answer (infoResponse) make the local list; "ping <address>"
-// asks one server, and the menus read the answer from the ping queue
-// (32 slots: its address, the time it took, its info string).
+/**
+ * Finding servers, as the original's client does for its menus' server
+ * list: the "localservers" command asks the local network (getinfo,
+ * broadcast twice to each of the four server ports from 27960), and the
+ * servers that answer (infoResponse) make the local list; "ping `address`"
+ * asks one server, and the menus read the answer from the ping queue
+ * (32 slots: its address, the time it took, its info string).
+ */
 class ServerBrowser {
 public:
     static constexpr uint16_t kServerPort = 27960;
@@ -27,46 +29,69 @@ public:
     static constexpr int kMaxLocalServers = 128;
     static constexpr size_t kMaxGlobalServers = 4096;
 
-    // `socket`: where the requests go from and answers come to.
+    /** Over `socket`, where the requests go from and answers come to. */
     explicit ServerBrowser(std::unique_ptr<net::UdpSocket> socket) : _socket(std::move(socket)) {}
 
-    // Besides 255.255.255.255, the broadcast address of each network the
-    // machine is on: the local search goes to each.
+    /**
+     * Besides 255.255.255.255, the broadcast address of each network the
+     * machine is on: the local search goes to each.
+     */
     void setBroadcasts(std::vector<uint32_t> addresses) { _broadcasts = std::move(addresses); }
-    // The two commands; `now` in ms.
+    /**
+     * The two commands; `now` in ms. localServers starts a new local list,
+     * taking answers for 5 seconds; ping takes a free slot of the queue,
+     * else one answered or given up on (500 ms), else the oldest.
+     */
+    ///@{
     void localServers(uint64_t now);
-    // `address`: a.b.c.d[:port] (host names already resolved by the caller).
     void ping(const net::Address &address, uint64_t now);
-    // The Internet list (globalservers): `masters` asked for the servers
-    // they know of that speak `protocol` (getservers, as Elite Force's
-    // client asks: no game name), the list they answer replacing the last.
+    ///@}
+    /** The port masters listen on. */
     static constexpr uint16_t kMasterPort = 27953;
+    /**
+     * The Internet list (globalservers): `masters` asked for the servers
+     * they know of that speak `protocol` (getservers, as Elite Force's
+     * client asks: no game name), the list they answer replacing the last.
+     * "full" and "empty" are added to the keywords, as the community's
+     * masters leave those servers out unless asked.
+     */
     void globalServers(const std::vector<net::Address> &masters, int protocol, const std::string &keywords);
-    // -1 until a master has answered, as the original reports it (the
-    // menus wait while it is).
+    /**
+     * How many servers the masters gave: -1 until one has answered, as the
+     * original reports it (the menus wait while it is).
+     */
     int globalServerCount() const { return _globalWaiting ? -1 : int(_global.size()); }
+    /** The Internet list's server `n` as "a.b.c.d:port", or empty. */
     std::string globalServerAddress(int n) const;
-    // The addresses in a master's getserversResponse (after its four 0xff
-    // bytes): each a backslash and 12 hexadecimal characters, the IPv4
-    // address's 4 bytes and the port's 2 in network order, as Elite Force's
-    // masters write them; empty if it isn't one.
+    /**
+     * The addresses in a master's getserversResponse (after its four 0xff
+     * bytes): each a backslash and 12 hexadecimal characters, the IPv4
+     * address's 4 bytes and the port's 2 in network order, as Elite Force's
+     * masters write them; empty if it isn't one.
+     */
     static std::vector<net::Address> serversFromResponse(const std::vector<uint8_t> &datagram);
-    // Reads the answers that have come; call each frame.
+    /** Reads the answers that have come; call each frame. */
     void update(uint64_t now);
 
-    // The menus' calls (46, 47, 50 to 53). Pings not answered within
-    // `maxPing` ms (cl_maxPing, at least 100) count as having taken that
-    // long, so the menus give up on them.
+    /**
+     * The menus' calls (46, 47, 50 to 53). Pings not answered within
+     * `maxPing` ms (cl_maxPing, at least 100) count as having taken that
+     * long, so the menus give up on them. getPing gives the address (empty
+     * for a free slot) and the time, 0 while waiting.
+     */
+    ///@{
     int localServerCount() const { return int(_local.size()); }
     std::string localServerAddress(int n) const;
     int pingQueueCount() const;
     void clearPing(int n);
-    // The address (empty for a free slot) and the time: 0 while waiting.
     void getPing(int n, uint64_t now, int maxPing, std::string &address, int &time) const;
     std::string pingInfo(int n) const;
+    ///@}
 
-    // An infoResponse's info string, from the datagram after its four
-    // 0xff bytes; empty if it isn't one.
+    /**
+     * An infoResponse's info string, from the datagram after its four
+     * 0xff bytes; empty if it isn't one.
+     */
     static std::string infoFromResponse(const std::vector<uint8_t> &datagram);
 
 private:
@@ -89,8 +114,11 @@ private:
     void send(const net::Address &to, const std::string &text);
 };
 
-// The master servers (sv_master1 to sv_master5), created with defaults
-// if not set: Raven's (long gone), then three of the community's.
+/**
+ * The master servers (sv_master1 to sv_master5) that are set, created from
+ * `defaults` if not (Elite Force's: Raven's, long gone, then three of the
+ * community's). The first isn't kept in the config; the others are.
+ */
 std::vector<std::string> masterServerNames(CvarStore &cvars, const std::vector<std::string> &defaults);
 
 } // namespace reluva::idtech3

@@ -1,0 +1,2 @@
+scripts: 31190d46d45c9f37 | 1442 classes written to <output>/scripts/classes (334 native functions known)
+classes' text: 177c38846b8d3225 | 1442 files

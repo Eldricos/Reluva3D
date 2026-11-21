@@ -18,6 +18,37 @@ namespace reluva::unreal {
 
 namespace {
 
+// Field lists let go of, kept for the next struct value (most are a
+// vector's or rotator's three); at most so many.
+constexpr size_t kKeptFieldLists = 4096;
+std::vector<std::vector<Value> *> &keptFieldLists() {
+    thread_local std::vector<std::vector<Value> *> lists;
+    return lists;
+}
+
+} // namespace
+
+std::vector<Value> *Fields::take() {
+    std::vector<std::vector<Value> *> &kept = keptFieldLists();
+    if (kept.empty())
+        return new std::vector<Value>();
+    std::vector<Value> *v = kept.back();
+    kept.pop_back();
+    return v;
+}
+
+void Fields::release() {
+    _v->clear();
+    std::vector<std::vector<Value> *> &kept = keptFieldLists();
+    if (kept.size() < kKeptFieldLists && _v->capacity() <= 16)
+        kept.push_back(_v);
+    else
+        delete _v;
+    _v = nullptr;
+}
+
+namespace {
+
 constexpr int kMaxDepth = 250;                  // nested calls before a script is stopped
 constexpr uint64_t kMaxStatements = 2000000;    // in one run of a function
 constexpr uint64_t kMaxStateStatements = 20000; // in one tick of state code
@@ -50,7 +81,7 @@ VType typeOfProperty(std::string_view cls) {
 
 } // namespace
 
-// --- Values --------------------------------------------------------------------------
+// Values.
 
 Value Value::byteValue(int v) {
     Value x;
@@ -191,10 +222,10 @@ Value *VmObject::findLiteral(Vm &vm, const char *property, size_t length) {
 
 const std::string &NativeCall::s(size_t k) const {
     static const std::string kEmpty;
-    return k < args.size() ? args[k].s : kEmpty;
+    return k < args.size() ? args[k].s.str() : kEmpty;
 }
 
-// --- The VM: names and loading ---------------------------------------------------------
+// The VM: names and loading.
 
 Vm::Vm(const PackageSet &packages) : _packages(packages) {
     name("None"); // id 0
@@ -380,12 +411,16 @@ VmStruct *Vm::structAt(const Package &package, int exportIndex) {
     c->exportIndex = exportIndex;
     c->owner = c;
     c->classFlags = so.classFlags;
+    if (so.configName)
+        c->configName = package.name(so.configName);
     _structs.emplace(key, std::move(owned));
     if (e.superRef) {
         const ObjectRef sup = _packages.resolve(package, e.superRef);
         VmClass *parent = sup ? classAt(*sup.package, sup.exportIndex) : nullptr;
         c->super = parent;
         if (parent) {
+            if (c->configName.empty())
+                c->configName = parent->configName;
             c->properties = parent->properties;
             c->slots = parent->slots;
             c->defaults = parent->defaults;
@@ -476,10 +511,137 @@ void Vm::setFromText(const VmProperty &prop, Value &v, const std::string &text) 
 }
 
 // A setting changed while running (a console command's "set"): it comes
-// before the .ini files' for as long as this VM lasts; the files aren't
-// written.
+// before the .ini files' for as long as this VM lasts.
 void Vm::setConfig(const std::string &section, const std::string &key, const std::string &value) {
     _configSet[lower(section)][lower(key)] = value;
+}
+
+// A class's config file, as the engine names them: "System" is the game's
+// own .ini (DS9.ini), anything else that name's (User.ini). Written in the
+// config folder, so the game's install is left as it is.
+std::filesystem::path Vm::configFile(const std::string &configName) const {
+    if (_configFolder.empty())
+        return {};
+    if ((configName.empty() || lower(configName) == "system") && !_packages.iniFile().empty())
+        return _configFolder / _packages.iniFile().filename();
+    if (configName.empty())
+        return _configFolder / "System.ini";
+    return _configFolder / (configName + ".ini");
+}
+
+// A value as SaveConfig writes it: a float with six places, a byte of an
+// enum by the enum's name, the rest as scripts see them.
+std::string Vm::configText(const VmProperty &prop, const Value &v) const {
+    if (v.type == VType::kFloat) {
+        char buf[64];
+        std::snprintf(buf, sizeof buf, "%f", double(v.f));
+        return buf;
+    }
+    if (v.type == VType::kByte && prop.enumNames && size_t(v.i) < prop.enumNames->size())
+        return nameText((*prop.enumNames)[size_t(v.i)]);
+    return toString(v);
+}
+
+void Vm::saveConfig(const VmClass &cls, const std::vector<Value> &values) {
+    const std::filesystem::path file = configFile(cls.configName);
+    if (file.empty() || !cls.package)
+        return;
+    std::vector<std::array<std::string, 3>> settings; // section, key, value
+    for (const VmProperty *prop : cls.properties) {
+        if (!(prop->flags & (propflag::kConfig | propflag::kGlobalConfig)) || prop->type == VType::kStruct)
+            continue;
+        // As applyConfig reads it: the class's own section, or a
+        // globalconfig property's declaring class's.
+        std::string section = cls.package->name() + "." + cls.name;
+        if (prop->flags & propflag::kGlobalConfig)
+            for (const VmClass *up = &cls; up; up = up->parent())
+                if (std::find(up->properties.begin(), up->properties.end(), prop) != up->properties.end() &&
+                    up->package)
+                    section = up->package->name() + "." + up->name;
+        for (int k = 0; k < prop->arrayDim; ++k) {
+            const size_t slot = size_t(prop->slot + k);
+            if (slot >= values.size())
+                continue;
+            const std::string key = prop->arrayDim > 1 ? prop->name + "[" + std::to_string(k) + "]" : prop->name;
+            settings.push_back({section, key, configText(*prop, values[slot])});
+        }
+    }
+    writeSettings(file, settings);
+}
+
+void Vm::saveSetting(const std::string &configName, const std::string &section, const std::string &key,
+                     const std::string &value) {
+    if (const std::filesystem::path file = configFile(configName); !file.empty())
+        writeSettings(file, {{section, key, value}});
+}
+
+// Settings (section, key, value) into an .ini: each put in place of its
+// key's line in its section, else at the section's end, else in a section
+// of its own; the rest of the file kept as it is.
+void Vm::writeSettings(const std::filesystem::path &file, const std::vector<std::array<std::string, 3>> &settings) {
+    if (settings.empty())
+        return;
+    std::vector<std::string> lines;
+    if (FILE *f = std::fopen(file.string().c_str(), "rb")) {
+        std::string text;
+        char buf[4096];
+        for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;)
+            text.append(buf, n);
+        std::fclose(f);
+        for (size_t at = 0; at < text.size();) {
+            size_t end = text.find('\n', at);
+            if (end == std::string::npos)
+                end = text.size();
+            std::string line = text.substr(at, end - at);
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            lines.push_back(line);
+            at = end + 1;
+        }
+    }
+    auto sectionAt = [&](size_t i) {
+        const std::string &l = lines[i];
+        return l.size() >= 2 && l.front() == '[' && l.back() == ']' ? lower(l.substr(1, l.size() - 2)) : std::string();
+    };
+    for (const auto &[section, key, value] : settings) {
+        _configSet[lower(section)][lower(key)] = value;
+        const std::string line = key + "=" + value;
+        size_t i = 0;
+        while (i < lines.size() && sectionAt(i) != lower(section))
+            ++i;
+        if (i == lines.size()) {
+            if (!lines.empty() && !lines.back().empty())
+                lines.emplace_back();
+            lines.push_back("[" + section + "]");
+            lines.push_back(line);
+            continue;
+        }
+        size_t last = i;
+        bool done = false;
+        for (size_t j = i + 1;
+             j < lines.size() && sectionAt(j).empty() && !(lines[j].size() >= 2 && lines[j][0] == '['); ++j) {
+            const size_t eq = lines[j].find('=');
+            if (eq != std::string::npos && lower(lines[j].substr(0, eq)) == lower(key)) {
+                lines[j] = line;
+                done = true;
+                break;
+            }
+            if (!lines[j].empty())
+                last = j;
+        }
+        if (!done)
+            lines.insert(lines.begin() + std::ptrdiff_t(last + 1), line);
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(file.parent_path(), ec);
+    if (FILE *f = std::fopen(file.string().c_str(), "wb")) {
+        for (const std::string &l : lines) {
+            std::fputs(l.c_str(), f);
+            std::fputs("\r\n", f);
+        }
+        std::fclose(f);
+    }
+    _iniFiles.erase(file.string());
 }
 
 // A text file of [Section] and Key=Value lines (an .ini, an .int), sections
@@ -524,8 +686,14 @@ const std::string *Vm::configSetting(const std::string &section, const std::stri
     if (auto sec = _configSet.find(lower(section)); sec != _configSet.end())
         if (auto value = sec->second.find(lower(key)); value != sec->second.end())
             return &value->second;
+    // Those written (SaveConfig) before the game's own.
     const std::filesystem::path system = _packages.iniFile().parent_path();
-    for (const std::filesystem::path &file : {system / "User.ini", system / "DefUser.ini", _packages.iniFile()}) {
+    std::vector<std::filesystem::path> files;
+    if (!_configFolder.empty())
+        files = {configFile("User"), configFile("System")};
+    for (const std::filesystem::path &f : {system / "User.ini", system / "DefUser.ini", _packages.iniFile()})
+        files.push_back(f);
+    for (const std::filesystem::path &file : files) {
         const IniFile &ini = iniFileAt(file);
         auto sec = ini.find(lower(section));
         if (sec == ini.end())
@@ -593,7 +761,7 @@ int Vm::applyLocalizedActor(VmObject *a, const std::string &map) {
         return 0;
     const std::string section = textInfo->s;
     const Value *fileName = a->find(*this, "FileName");
-    std::string file = fileName && !fileName->s.empty() ? fileName->s : map;
+    std::string file = fileName && !fileName->s.empty() ? fileName->s.str() : map;
     if (file.size() > 4 && lower(file.substr(file.size() - 4)) == ".int")
         file.resize(file.size() - 4);
     int set = 0;
@@ -666,6 +834,7 @@ void Vm::prepareCode(VmStruct &s) {
         if (s.code.statements[i] >= 0)
             s.statementAt[s.code.exprs[size_t(s.code.statements[i])].offset] = int(i);
     s.resolved.assign(s.code.exprs.size(), nullptr);
+    s.calls.assign(s.code.exprs.size(), {});
 }
 
 void Vm::addProperty(VmStruct &s, const Package &package, int index, const ScriptObject &so) {
@@ -967,7 +1136,7 @@ Value Vm::readStruct(const VmStruct &st, const Package &package, Reader &r) {
     return v;
 }
 
-// --- Values, converted -----------------------------------------------------------------
+// Values, converted.
 
 std::string Vm::toString(const Value &v) const {
     char buf[96];
@@ -1095,7 +1264,14 @@ bool Vm::equal(const Value &a, const Value &b) const {
 bool Vm::isA(const VmObject *o, std::string_view className) {
     if (!o || !o->cls)
         return false;
-    const NameId n = name(className);
+    // The class's name interned once for each text it's asked by (mostly
+    // the same literals, every tick), checked to be the same text.
+    IsACache &c = _isACache[(reinterpret_cast<uintptr_t>(className.data()) >> 3) % _isACache.size()];
+    if (c.text != className) {
+        c.text = className;
+        c.name = name(className);
+    }
+    const NameId n = c.name;
     for (const VmClass *c = o->cls; c; c = c->parent())
         if (c->nameId == n)
             return true;
@@ -1139,18 +1315,6 @@ Value Vm::rotatorValue(int32_t pitch, int32_t yaw, int32_t roll) {
     v.st = _rotatorStruct;
     v.fields = {Value::intValue(pitch), Value::intValue(yaw), Value::intValue(roll)};
     return v;
-}
-
-std::array<float, 3> Vm::vectorOf(const Value &v) {
-    if (v.fields.size() < 3)
-        return {0, 0, 0};
-    return {v.fields[0].asFloat(), v.fields[1].asFloat(), v.fields[2].asFloat()};
-}
-
-std::array<int32_t, 3> Vm::rotatorOf(const Value &v) {
-    if (v.fields.size() < 3)
-        return {0, 0, 0};
-    return {v.fields[0].asInt(), v.fields[1].asInt(), v.fields[2].asInt()};
 }
 
 bool Vm::callerSimulated() const {
@@ -1226,7 +1390,7 @@ void Vm::registerNative(std::string_view qualifiedName, NativeFn fn) {
     ++_nativeGeneration;
 }
 
-// --- The interpreter -----------------------------------------------------------------------
+// The interpreter.
 
 class Interpreter {
 public:
@@ -1401,8 +1565,13 @@ public:
         const Code &code = f.owner->code;
         const Expr &x = code.exprs[size_t(i)];
         using namespace token;
-        if (x.native >= 0)
-            return call(f, x, ctx, _vm.nativeFunction(x.native));
+        if (x.native >= 0) {
+            // (Its function, found by its number once.)
+            const void *&fn = f.owner->resolved[size_t(i)];
+            if (!fn)
+                fn = _vm.nativeFunction(x.native);
+            return call(f, x, ctx, static_cast<VmFunction *>(const_cast<void *>(fn)));
+        }
         if (x.token >= kFirstConversion && x.token <= kLastConversion)
             return conversion(x.token, eval(f, arg(x, 0), ctx));
         switch (x.token) {
@@ -1434,8 +1603,25 @@ public:
         case kVirtualFunction:
         case kGlobalFunction: {
             VmObject *target = ctx ? ctx : f.self;
-            const NameId n = _vm.name(f.owner->package->name(x.ref));
-            VmFunction *fn = target ? _vm.findFunction(target, n, x.token == kGlobalFunction) : nullptr;
+            VmStruct::CallCache &cache = f.owner->calls[size_t(i)];
+            if (cache.name < 0)
+                cache.name = _vm.name(f.owner->package->name(x.ref));
+            const NameId n = cache.name;
+            VmFunction *fn = nullptr;
+            if (target) {
+                // A class's own (a static call) or its state's: as found before
+                // for the same class and state.
+                const VmClass *cls = target->asClass ? target->asClass : target->cls;
+                const VmStruct *state = target->asClass || x.token == kGlobalFunction ? nullptr : target->state;
+                if (cache.fn && cache.cls == cls && cache.state == state) {
+                    fn = cache.fn;
+                } else {
+                    fn = _vm.findFunction(target, n, x.token == kGlobalFunction);
+                    cache.cls = cls;
+                    cache.state = state;
+                    cache.fn = fn;
+                }
+            }
             if (!fn) {
                 _vm.reportError("no function " + _vm.nameText(n) + " for " +
                                 (target && target->cls ? target->cls->name : std::string("None")) + " (in " + where(f) +
@@ -1606,12 +1792,21 @@ public:
             fn->hasOut = std::any_of(fn->params.begin(), fn->params.end(),
                                      [](const VmProperty *p) { return p->flags & propflag::kOutParm; });
         }
-        std::vector<Value> args(fn->params.size());
+        const size_t depth = _vm._callNest++;
+        struct Leave {
+            size_t &nest;
+            ~Leave() { --nest; }
+        } leave{_vm._callNest};
+        if (_vm._callSpace.size() <= depth)
+            _vm._callSpace.resize(depth + 1);
+        std::vector<Value> args = std::move(_vm._callSpace[depth].args);
+        args.resize(fn->params.size());
         static const std::vector<Value *> kNoOuts;
         std::vector<Value *> outs;
         if (fn->hasOut)
             outs.assign(fn->params.size(), nullptr);
-        std::vector<bool> given(fn->params.size(), false);
+        std::vector<bool> given = std::move(_vm._callSpace[depth].given);
+        given.assign(fn->params.size(), false);
         // && and || leave their right side unevaluated when the left decides.
         const bool andOp = fn->logicOp == 1;
         const bool orOp = fn->logicOp == 2;
@@ -1637,11 +1832,14 @@ public:
                 args[k] = _vm.convert(eval(f, a, f.self), p);
             }
         }
-        return invoke(fn, target, std::move(args), fn->hasOut ? outs : kNoOuts, std::move(given), nullptr);
+        Value r = invoke(fn, target, args, fn->hasOut ? outs : kNoOuts, given, nullptr);
+        _vm._callSpace[depth].args = std::move(args);
+        _vm._callSpace[depth].given = std::move(given);
+        return r;
     }
 
-    Value invoke(VmFunction *fn, VmObject *self, std::vector<Value> args, const std::vector<Value *> &outs,
-                 std::vector<bool> given, std::vector<Value> *items, std::vector<Value> *items2 = nullptr) {
+    Value invoke(VmFunction *fn, VmObject *self, std::vector<Value> &args, const std::vector<Value *> &outs,
+                 std::vector<bool> &given, std::vector<Value> *items, std::vector<Value> *items2 = nullptr) {
         if (_vm._depth >= kMaxDepth) {
             _vm.reportError("calls nested too deep, at " + fn->qualified);
             return fn->returnValue ? fn->returnValue->zero() : Value();
@@ -1678,6 +1876,9 @@ public:
                 *items2 = std::move(c.items2);
             if (c.latentSeconds >= 0)
                 _vm._pendingLatent = c.latentSeconds;
+            // (Their storage back to the caller, to be used again.)
+            args = std::move(c.args);
+            given = std::move(c.given);
             if (fn->returnValue)
                 return _vm.convert(c.result, *fn->returnValue);
             return c.result;
@@ -1685,7 +1886,15 @@ public:
         Frame frame;
         frame.owner = fn;
         frame.self = self;
-        std::vector<Value> locals = fn->defaults;
+        const size_t depth = _vm._localNest++;
+        struct Leave {
+            size_t &nest;
+            ~Leave() { --nest; }
+        } leave{_vm._localNest};
+        if (_vm._localSpace.size() <= depth)
+            _vm._localSpace.resize(depth + 1);
+        std::vector<Value> locals = std::move(_vm._localSpace[depth]);
+        locals.assign(fn->defaults.begin(), fn->defaults.end());
         for (size_t k = 0; k < fn->params.size() && k < args.size(); ++k)
             _vm.assign(locals[size_t(fn->params[k]->slot)], args[k]);
         frame.locals = &locals;
@@ -1697,6 +1906,7 @@ public:
         for (size_t k = 0; k < outs.size() && k < fn->params.size(); ++k)
             if (outs[k])
                 _vm.assign(*outs[k], locals[size_t(fn->params[k]->slot)]);
+        _vm._localSpace[depth] = std::move(locals);
         if (fn->returnValue && frame.result.type != VType::kNone)
             return _vm.convert(frame.result, *fn->returnValue);
         return result;
@@ -1754,7 +1964,7 @@ private:
             }
         }
         // The out parameters aren't written back: the loop sets the first.
-        invoke(fn, target, std::move(args), {}, std::move(given), &it.items, &it.items2);
+        invoke(fn, target, args, {}, given, &it.items, &it.items2);
     }
 
     Value conversion(uint8_t t, const Value &v) {
@@ -1919,7 +2129,7 @@ private:
     Vm &_vm;
 };
 
-// --- Calls, states, ticking -------------------------------------------------------------
+// Calls, states, ticking.
 
 VmFunction *Vm::findFunction(VmObject *self, NameId fname, bool global) {
     if (!self)
@@ -1951,7 +2161,7 @@ Value Vm::invoke(VmFunction *f, VmObject *self, std::vector<Value> args, std::ve
         converted[k] = k < args.size() ? convert(args[k], *f->params[k]) : f->params[k]->zero();
     }
     outs.resize(f->params.size(), nullptr);
-    return in.invoke(f, self, std::move(converted), outs, std::move(given), nullptr);
+    return in.invoke(f, self, converted, outs, given, nullptr);
 }
 
 Value Vm::callEvent(VmObject *self, std::string_view function, std::vector<Value> args) {
