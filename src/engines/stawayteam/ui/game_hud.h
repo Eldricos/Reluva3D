@@ -30,7 +30,8 @@ public:
         bool used = false; // it was over the interface, not the map
         int select = -1;   // an officer chosen on the team bar
         bool moveCamera = false;
-        float cameraX = 0.0f; // where, for moveCamera: the view's middle on the map
+        bool cycleMove = false; // the move button pressed: walk, run, crouch
+        float cameraX = 0.0f;   // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
 
@@ -47,6 +48,9 @@ public:
      * the camera (the view's middle) and the view's size.
      */
     void draw(Surface &screen, uint64_t now, int selected, float cameraX, float cameraY, int viewW, int viewH);
+
+    /** How the chosen officer moves, as the move button shows it: 0 walk, 1 run, 2 crouch. */
+    void setMove(int move) { _move = move; }
 
 private:
     // The info bar's top on the screen at `now`: rising as it opens.
@@ -70,6 +74,7 @@ private:
     float _open = 0.0f;
     bool _opening = false;
     uint64_t _last = 0;
+    int _move = 0;
     int _mouseX = -1;
     int _mouseY = -1;
 };

@@ -12,6 +12,7 @@
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
 #include "engines/stawayteam/ui/animation.h"
+#include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/ui/game_hud.h"
 
 #include <array>
@@ -41,7 +42,7 @@ public:
      * walking by `wayPoints`; `data`, `rules` and `options` must outlive it.
      */
     MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options, uint64_t now,
-              std::vector<TeamMember> team = {}, WayPoints wayPoints = {});
+              std::vector<TeamMember> team = {}, WayPoints wayPoints = {}, audio::Mixer *mixer = nullptr);
     ~MapScreen();
 
     /** What `ev` does to it at `now` (milliseconds). */
@@ -66,13 +67,23 @@ public:
         int direction = 0;                         // of their model's 12, 0 facing left
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
+        int move = 0;                              // walking, running (1) or crouching (2)
     };
     const std::vector<Officer> &officers() const { return _officers; }
     int selected() const { return _selected; }
     /** Sends the officer chosen walking to (x, y) on the map, by the waypoints. */
     void order(float x, float y);
+    /** How the officer chosen moves: 0 walking, 1 running, 2 crouching. */
+    void setMove(int move);
     /** Moves everyone on to `now` (the camera, the officers walking). */
     void update(uint64_t now);
+
+    /** Whether the map's camera scripts are still playing. */
+    bool scripted() const { return !_scripts.empty(); }
+    /** Whether the team has beamed in (or never had to). */
+    bool teamShown() const { return _teamShown; }
+    /** The words of the info dialog shown; empty if none is. */
+    const std::string &dialogText() const { return _dialogText; }
 
 private:
     // What a ground value draws: a texture, and how much of the next one
@@ -84,6 +95,11 @@ private:
     };
 
     void scroll(float seconds);
+    // The camera's scripts and their actions (0x4776a0).
+    void playScripts(float seconds);
+    void runAction(const TextObject *action);
+    void showDialog(const std::string &script, const std::string &line, const std::string &speaker);
+    void drawDialog(Surface &screen);
     void walk(Officer &o, float seconds);
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);
@@ -91,7 +107,6 @@ private:
     int officerAt(float x, float y);
     void drawPolygon(image::Image &cell, int cellX, int cellY, const MapPart &part);
     const image::Image &texture(const std::string &name);
-    const Animation &model(const MapPart &part);
 
     const Archive &_data;
     const TextObject &_rules;
@@ -123,6 +138,34 @@ private:
     std::vector<Officer> _officers;
     int _selected = -1;
     std::unique_ptr<GameHud> _hud;
+    audio::Mixer *_mixer;
+    // The camera's scripts: the one playing first, panning or waiting.
+    std::vector<CameraScript> _scripts;
+    bool _scriptBegun = false;
+    bool _scriptWaiting = false;
+    float _panStartX = 0.0f;
+    float _panStartY = 0.0f;
+    float _panDirX = 0.0f;
+    float _panDirY = 0.0f;
+    float _panDistance = 0.0f;
+    float _panTime = 0.0f;
+    float _waitLeft = 0.0f;
+    struct Delayed {
+        float left;
+        const TextObject *action;
+    };
+    std::vector<Delayed> _delayed;
+    // The team beaming in: shown, and how long of the effect is left.
+    bool _teamShown = true;
+    float _warpLeft = 0.0f;
+    float _warpTime = 0.0f;
+    // The info dialog.
+    std::string _dialogText;
+    image::Image _dialogIcon;
+    audio::SoundHandle _dialogVoice = audio::kNoSound;
+    float _dialogLeft = 0.0f;
+    image::Image _dialogBackground;
+    Font _dialogFont;
     std::unique_ptr<ConfirmDialog> _confirm;
 };
 

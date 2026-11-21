@@ -75,7 +75,11 @@ others. They share `Visible`, `Collideable` and the rest; then:
 
 - **A model:** `Model` (`Cache/Models/<name>.mdl16`), `Position X`,
   `Position Y`, `Rendering Height`, and `Cur Sequence` (`Idle`), drawn by
-  its frames' origin at its place, as a sequence's *(inferred)*.
+  its frames' origin at its place, as a sequence's *(inferred)*. A
+  character's `Facing Angle` is in radians, 0 to 2 pi, its rotation
+  sequence's `Rotational Range` turning through its directions (4.69 is
+  about direction 9 of 12) *(inferred)*; some have an `Overlay Model`, a
+  head drawn over them (`Characters/Head Fed Generic 01`, 157 in all).
 - **A polygon:** `Polygon` (its corners, the first again at the end),
   `On Ground`, `Render Type` (`Textured` 872 in all the maps, `Black`
   1,285, `Shadow` 172, `Trans Blue`, `Trans Green`, `Trans Red`,
@@ -126,9 +130,44 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
   ([formats/binary-object.md](../formats/binary-object.md)): the
   Generic Male Body's walk 26 pixels across, or 19 down, a 10-frame cycle
   at 14 frames a second.
+- **Walking, running, crouching:** the actions bound to Run, Crouch and
+  Walk set the officer's move state (0 crouching, 1 walking, 2 running;
+  the body's entity starts at 1), and Cycle Movement presses the button
+  box's move button, which goes round them (`0x476b90`). Crouching moves
+  by `Crouch` and stands by `IdleCrouch`; running by `Run`.
 - **The waypoints** (`<map>.way`, a `CWayPointMap`): points
   `MinDistBetweenWayPoints` (15) apart over where walkers can go, lines
   joining those within `MaxDistToConnect` (29).
+
+### The camera's scripts
+
+`Custom Map Properties`' `Camera Script Manager` (a
+`CCameraScriptManager`) holds steps (`CCameraScript`) played one after
+another as the map starts:
+
+- **Panning** (`0x477560`, `0x4776a0`): from the view's middle to the
+  part named `Where To Pan`, over `Time To Pan` seconds, eased in and
+  out, (1 - cos(pi t)) / 2 of the way at t of the time; without `Pan To
+  Position` there at once, though the step still takes its `Time To
+  Pan`.
+- **Then** its `Destination Action`, and `Time To Wait` seconds before
+  the next step.
+- **Mission 01's actions:** `CMultipleActionsAction` (its `Action`s at
+  once), `CDelayAction` (its `Next Action` after `Delay` seconds),
+  `CInfoDialogAction` (a line in the info dialog), `CAddEffectToTeam`
+  (the team beams in: `Warp Sound`, and a `CStarTrekTransporterEffectBehavior`
+  of `Warp Time` 1.75 s with the `Transporter Effect` and `Transporter
+  Overlay` sequences), `CAddCameraScriptAction` (more steps), and the
+  relays and activations of the map's triggers.
+- **The team is hidden** till then: each spawn point's `CSpawnPointAI`
+  makes who spawns there invisible (`CMakeVisibleAction`).
+
+The info dialog (`0x435db6`) is `Dialog Window/Background` at Rules.txt's
+`Dialog Pos`, the speaker's icon at `Dialog Icon Pos`, the line from its
+script in `Dialog Font` at `Dialog Text Pos`, wrapped to `Dialog Text
+Width`. Its voice-over plays with the options' voice-overs on; it's shown
+while that plays, or, with them off, for the voice-over's length
+(`0x4362f1`), and the time given it besides (`0x435f9c`).
 
 ## In Reluva
 
@@ -160,10 +199,20 @@ info bar rising while the mouse is over it *(inferred)*, its minimap with
 the view outlined, a click on it moving the view there *(inferred)*; the
 chosen officer's items in the inventory; and the pause button.
 
+The map's other characters face their `Facing Angle`, their shadow under
+them and their head over them, as the officers are *(inferred)*.
+
+The camera's scripts play as the map starts, the view panned by them and
+not by the player meanwhile *(inferred)*; their actions as above but the
+triggers', which aren't there yet. The team beams in fading in under the
+`Transporter Overlay`'s sparkle *(inferred)*. A line
+stays a second and a half after its voice-over *(inferred)*, four
+seconds without one *(inferred)*. Without scripts, the view starts on the
+team.
+
 The team, the team selection's or, without one, the officers the mission
-says start, at the spawn points, the first at point 1 *(inferred)*, the
-camera on the first (the camera's scripts that take it there aren't
-there yet). Each is drawn from their body, its shadow and their head,
+says start, at the spawn points, the first at point 1 *(inferred)*.
+Each is drawn from their body, its shadow and their head,
 standing (`Idle`, by the time) or walking, in front of and behind the
 map's models as they stand; the one chosen has the selection's marker
 (`Interface/Selection`) under them. A click on an officer, or their slot
@@ -172,12 +221,15 @@ click elsewhere on the map sends the one chosen walking there *(inferred:
 the game's mouse isn't traced)*, by the waypoints (`loadWayPoints`, the
 shortest way along their lines by A*, then straight to the place
 *(inferred)*), facing the way they go, at their walk's own pace, its
-frames by how far into its cycle they are *(inferred)*.
+frames by how far into its cycle they are *(inferred)*. The keys bound to
+Walk, Run, Crouch and Cycle Movement, and the move button, set how the
+one chosen moves, the button going walk, run, crouch *(inferred for its
+order)*, and the button shows it.
 
 A new game reaches it after the briefing (mission 1) or the team
-selection's START MISSION. Not there yet: the interface's buttons, the
-map's song, the camera's scripts, running and crouching, walkers going
-round each other, and everyone else on the map.
+selection's START MISSION. Not there yet: the interface's other buttons,
+the map's song, the triggers, walkers going round each other, and the
+map's characters moving.
 
 ## Sources and checks
 
@@ -190,12 +242,16 @@ round each other, and everyone else on the map.
   one another as they stand; the whole ground drawn small, beside the
   map's minimap; the interface around the view, the info bar rising under
   the mouse with the minimap; the team at their spawn points, Marcus
-  Refelian chosen and walking where clicked, round the walls. Not yet
+  Refelian chosen and walking where clicked, round the walls; Mission
+  01's opening, the view panning over the crates with Data's lines and
+  home, the team beaming in and Marcus Refelian's line; the Klingons and
+  Romulans facing their ways, the fallen lying as they fell. Not yet
   against the original running. Unit tests (`stawayteam.unit.maps`) read
   a map made in the test, and check a cell's textures blended by its
   values, a polygon on it, the camera kept on the map, a way found along
-  the waypoints' lines, and an officer at their spawn point walking where
-  sent.
+  the waypoints' lines, an officer at their spawn point walking where
+  sent, and a camera's script panning, eased, showing a line and beaming
+  the team in.
 
 ## Open questions
 
@@ -211,3 +267,5 @@ round each other, and everyone else on the map.
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info
   bar's rising, and the frames' movement as a walk's pace.
+- **The scripts:** whether the player can move the view while they play,
+  how long a line stays, and how the beaming in looks.

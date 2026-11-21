@@ -3,7 +3,9 @@
 
 #include "engines/stawayteam/ui/map_screen.h"
 
+#include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/game/controls.h"
+#include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/main_menu.h"
 #include "engines/stawayteam/ui/movies.h"
@@ -27,12 +29,33 @@ constexpr int kDirections = 12;
 // The selection's marker under the officer chosen, as the team selection
 // puts it under a figure (TeamSelectionMemberSelectOffset Pos).
 constexpr int kMarkerY = 19;
+// An officer's sequences moving and standing, by how they move: walking,
+// running, crouching (the body models' Walk, Run, Crouch, Idle,
+// IdleCrouch).
+const char *const kMoving[] = {"Walk", "Run", "Crouch"};
+const char *const kStanding[] = {"Idle", "Idle", "IdleCrouch"};
+// The info dialog stays this long after its voice-over (inferred), or this
+// long without one (inferred), in seconds.
+constexpr float kDialogAfter = 1.5f;
+constexpr float kDialogWithoutVoice = 4.0f;
 // A walk's speed for a model without one: the retail bodies' sideways,
 // 26 pixels in 10 frames at 14 a second.
 constexpr float kDefaultWalk = 36.4f;
 // Too near a waypoint to walk any further to it.
 constexpr float kArrived = 1.0f;
 const char *const kExitQuestion = "Are you sure you want to quit the game and exit to the main menu?"; // 0x63a9e0
+
+// Whether an action, or one in it, is of class `className`.
+bool contains(const TextObject *action, const char *className) {
+    if (!action)
+        return false;
+    if (action->className == className)
+        return true;
+    for (const TextField &f : action->fields)
+        if (contains(f.object.get(), className))
+            return true;
+    return false;
+}
 
 int actionIndex(const char *name) {
     const auto &actions = gameActions();
@@ -52,9 +75,9 @@ const uint8_t *texel(const image::Image &img, int x, int y) {
 } // namespace
 
 MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options,
-                     uint64_t now, std::vector<TeamMember> team, WayPoints wayPoints)
+                     uint64_t now, std::vector<TeamMember> team, WayPoints wayPoints, audio::Mixer *mixer)
     : _data(data), _rules(rules), _map(std::move(map)), _options(options), _last(now), _team(std::move(team)),
-      _wayPoints(std::move(wayPoints)) {
+      _wayPoints(std::move(wayPoints)), _mixer(mixer) {
     // The view: Rules.txt's Screen Pos and Screen Size.
     const TextObject *custom = rules.object("Custom Rules");
     readPoint(custom, "Screen Pos", _viewX, _viewY);
@@ -138,13 +161,23 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
             }
         _officers.push_back(o);
     }
-    // On the team: the camera's scripts that take it there as the mission
-    // starts aren't there yet.
-    if (!_officers.empty()) {
+    if (!_officers.empty())
         _selected = 0;
-        moveCamera(_officers[0].x, _officers[0].y);
-    }
     _hud = std::make_unique<GameHud>(data, rules, _team, _map.minimap, _map.width, _map.height);
+
+    // The map's camera scripts play as it starts. The team's spawn points
+    // hide them (their CSpawnPointAI's CMakeVisibleAction): one of the
+    // scripts beams them in. Without scripts, the view starts on the team
+    // (inferred).
+    _scripts = _map.cameraScripts;
+    bool beams = false;
+    for (const CameraScript &s : _scripts)
+        beams = beams || contains(s.action, "CAddEffectToTeam");
+    _teamShown = !beams;
+    if (_scripts.empty() && !_officers.empty())
+        moveCamera(_officers[0].x, _officers[0].y);
+    _dialogBackground = screenPicture(data, "Dialog Window/Background");
+    (void)_dialogFont.load(data, readText(custom, "Dialog Font"));
 }
 
 MapScreen::~MapScreen() = default;
@@ -161,18 +194,6 @@ const image::Image &MapScreen::texture(const std::string &name) {
     auto it = _textures.find(name);
     if (it == _textures.end())
         it = _textures.emplace(name, cachePicture(_data, "Textures/" + name)).first;
-    return it->second;
-}
-
-const Animation &MapScreen::model(const MapPart &part) {
-    const std::string sequence = part.sequence.empty() ? "Idle" : part.sequence;
-    const std::string key = part.model + "\n" + sequence;
-    auto it = _models.find(key);
-    if (it == _models.end()) {
-        Animation a;
-        (void)a.load(_data, part.model, sequence);
-        it = _models.emplace(key, std::move(a)).first;
-    }
     return it->second;
 }
 
@@ -311,10 +332,18 @@ void MapScreen::order(float x, float y) {
     o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}} : _wayPoints.path(o.x, o.y, x, y);
 }
 
+void MapScreen::setMove(int move) {
+    if (_selected < 0)
+        return;
+    Officer &o = _officers[size_t(_selected)];
+    o.move = std::clamp(move, 0, 2);
+    o.travelled = 0.0f;
+}
+
 void MapScreen::walk(Officer &o, float seconds) {
     if (o.path.empty())
         return;
-    const Animation &walking = animation(_team[o.member].bodyModel, "Walk");
+    const Animation &walking = animation(_team[o.member].bodyModel, kMoving[o.move]);
     float left = seconds;
     while (!o.path.empty() && left > 0.0f) {
         const float dx = o.path.front().first - o.x;
@@ -340,18 +369,149 @@ void MapScreen::walk(Officer &o, float seconds) {
     }
 }
 
+void MapScreen::runAction(const TextObject *action) {
+    if (!action)
+        return;
+    const std::string &kind = action->className;
+    if (kind == "CMultipleActionsAction") {
+        if (const TextObject *actions = action->object("Action"))
+            for (const TextField *item : actions->items())
+                runAction(item->object.get());
+    } else if (kind == "CDelayAction") {
+        _delayed.push_back({float(action->number("Delay").value_or(0.0)), action->object("Next Action")});
+    } else if (kind == "CInfoDialogAction") {
+        showDialog(readText(action, "Script"), readText(action, "Line"), readText(action, "Who is speaking"));
+    } else if (kind == "CAddEffectToTeam") {
+        // The team beams in: the warp's sound, and them fading in under the
+        // transporter's sparkle over its Warp Time (inferred for how it's
+        // drawn).
+        const TextObject *behavior = action->object("Warp Behavior");
+        _warpTime = behavior ? float(behavior->number("Warp Time").value_or(1.75)) : 1.75f;
+        _warpLeft = _warpTime;
+        _teamShown = true;
+        if (_mixer)
+            if (auto sound = gameSound(_data, readText(action, "Warp Sound")))
+                _mixer->play(sound, audio::SoundType::kEffects);
+    } else if (kind == "CAddCameraScriptAction") {
+        if (const TextObject *manager = action->object("Script")) {
+            const auto more = readCameraScripts(*manager);
+            _scripts.insert(_scripts.end(), more.begin(), more.end());
+        }
+    }
+    // The rest (relays, activations, objectives) aren't there yet.
+}
+
+void MapScreen::showDialog(const std::string &script, const std::string &line, const std::string &speaker) {
+    _dialogText.clear();
+    std::vector<uint8_t> bytes;
+    if (!_data.read("Levels/" + script + ".RDS", bytes)) {
+        const RdsScript rds = readRdsScript(std::string(bytes.begin(), bytes.end()));
+        if (const std::string *text = rds.find(line))
+            _dialogText = *text;
+    }
+    _dialogIcon = cachePicture(_data, "Character/Character Icons/" + speaker);
+    if (_mixer && _dialogVoice != audio::kNoSound)
+        _mixer->stop(_dialogVoice);
+    _dialogVoice = audio::kNoSound;
+    // Shown while its voice-over plays, or for as long as it would
+    // (0x4362f1), and a moment after (inferred).
+    const auto voice = voiceOver(_data, line);
+    _dialogLeft = kDialogAfter;
+    if (voice && voice->rate > 0 && voice->channels > 0) {
+        const float length = float(voice->samples.size()) / float(voice->rate * voice->channels);
+        if (_options.playVoiceovers && _mixer)
+            _dialogVoice = _mixer->play(voice, audio::SoundType::kSpeech);
+        else
+            _dialogLeft += length;
+    } else {
+        _dialogLeft = kDialogWithoutVoice;
+    }
+}
+
+void MapScreen::playScripts(float seconds) {
+    for (size_t i = 0; i < _delayed.size();) {
+        _delayed[i].left -= seconds;
+        if (_delayed[i].left <= 0.0f) {
+            const TextObject *next = _delayed[i].action;
+            _delayed.erase(_delayed.begin() + ptrdiff_t(i));
+            runAction(next);
+        } else {
+            ++i;
+        }
+    }
+    if (_scripts.empty())
+        return;
+    const CameraScript &s = _scripts.front();
+    if (!_scriptBegun) {
+        // From where the view is to the part named (0x477560).
+        _scriptBegun = true;
+        _scriptWaiting = false;
+        _panTime = 0.0f;
+        _panStartX = _cameraX;
+        _panStartY = _cameraY;
+        _panDirX = 0.0f;
+        _panDirY = 0.0f;
+        _panDistance = 0.0f;
+        for (const MapPart &p : _map.parts)
+            if (p.name == s.where) {
+                _panDirX = p.x - _cameraX;
+                _panDirY = p.y - _cameraY;
+                _panDistance = std::hypot(_panDirX, _panDirY);
+                if (_panDistance > 0.0f) {
+                    _panDirX /= _panDistance;
+                    _panDirY /= _panDistance;
+                }
+                break;
+            }
+    }
+    if (!_scriptWaiting) {
+        // Eased in and out over Time To Pan; there at once without Pan To
+        // Position (0x4776f7).
+        _panTime = std::min(_panTime + seconds, s.timeToPan);
+        const float t = s.timeToPan > 0.0f && s.panToPosition ? _panTime / s.timeToPan : 1.0f;
+        const float eased = (1.0f - std::cos(t * 3.14159265f)) / 2.0f;
+        moveCamera(_panStartX + _panDirX * _panDistance * eased, _panStartY + _panDirY * _panDistance * eased);
+        if (_panTime >= s.timeToPan) {
+            _scriptWaiting = true;
+            _waitLeft = s.timeToWait;
+            const TextObject *action = s.action;
+            runAction(action); // may add scripts: `s` isn't used after
+        }
+        return;
+    }
+    _waitLeft -= seconds;
+    if (_waitLeft <= 0.0f) {
+        _scripts.erase(_scripts.begin());
+        _scriptBegun = false;
+    }
+}
+
 void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
-    scroll(seconds);
+    playScripts(seconds);
+    _warpLeft = std::max(0.0f, _warpLeft - seconds);
+    if (!_dialogText.empty()) {
+        const bool speaking = _mixer && _dialogVoice != audio::kNoSound && _mixer->isPlaying(_dialogVoice);
+        if (!speaking) {
+            _dialogLeft -= seconds;
+            if (_dialogLeft <= 0.0f)
+                _dialogText.clear();
+        }
+    }
+    // The camera's scripts move the view meanwhile (inferred).
+    if (_scripts.empty())
+        scroll(seconds);
     for (Officer &o : _officers)
         walk(o, seconds);
 }
 
 void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now) {
+    if (!_teamShown)
+        return;
     const TeamMember &m = _team[o.member];
     const bool walking = !o.path.empty();
-    const char *sequence = walking ? "Walk" : "Idle";
+    const char *sequence = walking ? kMoving[o.move] : kStanding[o.move];
     const Animation &body = animation(m.bodyModel, sequence);
     const Animation &shadow = animation(m.bodyModel, std::string(sequence) + " Shadow");
     const Animation &head = animation(m.headModel, sequence);
@@ -365,9 +525,17 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
     }
     const int x = int(std::lround(o.x)) - left;
     const int y = int(std::lround(o.y)) - top;
-    blitBy(view, shadow.frame(frame, o.direction), x, y);
-    blitBy(view, body.frame(frame, o.direction), x, y);
-    blitBy(view, head.frame(frame, o.direction), x, y);
+    // Beaming in: fading in, the transporter's sparkle over them through
+    // the warp (inferred).
+    const float warped = _warpTime > 0.0f ? 1.0f - _warpLeft / _warpTime : 1.0f;
+    const int opacity = int(std::lround(255.0f * std::clamp(warped, 0.0f, 1.0f)));
+    blitBy(view, shadow.frame(frame, o.direction), x, y, 1.0f, opacity);
+    blitBy(view, body.frame(frame, o.direction), x, y, 1.0f, opacity);
+    blitBy(view, head.frame(frame, o.direction), x, y, 1.0f, opacity);
+    if (_warpLeft > 0.0f) {
+        const Animation &sparkle = animation("Transporter Overlay", "");
+        blitBy(view, sparkle.frame(int(warped * float(sparkle.perDirection())), 0), x, y);
+    }
 }
 
 MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t now) {
@@ -392,10 +560,14 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     }
     if (hud.moveCamera)
         moveCamera(hud.cameraX, hud.cameraY);
+    // The move button goes round walking, running and crouching (inferred).
+    if (hud.cycleMove && _selected >= 0)
+        setMove((_officers[size_t(_selected)].move + 1) % 3);
     // A click on the map: on an officer chooses them, elsewhere sends the
     // one chosen walking there (inferred: the mouse's scheme isn't traced).
-    if (!hud.used && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && ev.mouseX >= _viewX &&
-        ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW && ev.mouseY < _viewY + _viewH) {
+    if (!hud.used && _scripts.empty() && _teamShown && ev.type == EventType::kMouseDown &&
+        ev.button == MouseButton::kLeft && ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW &&
+        ev.mouseY < _viewY + _viewH) {
         const float x = _cameraX - float(_viewW) / 2.0f + float(ev.mouseX - _viewX);
         const float y = _cameraY - float(_viewH) / 2.0f + float(ev.mouseY - _viewY);
         if (const int officer = officerAt(x, y); officer >= 0)
@@ -423,8 +595,38 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             _up = down;
         if (bound("Scroll Map Down"))
             _down = down;
+        if (down && bound("Walk"))
+            setMove(0);
+        if (down && bound("Run"))
+            setMove(1);
+        if (down && bound("Crouch"))
+            setMove(2);
+        if (down && bound("Cycle Movement") && _selected >= 0)
+            setMove((_officers[size_t(_selected)].move + 1) % 3);
     }
     return Choice::kNone;
+}
+
+void MapScreen::drawDialog(Surface &screen) {
+    if (_dialogText.empty())
+        return;
+    // At Rules.txt's Dialog Pos: the speaker's icon, and the words wrapped
+    // to Dialog Text Width (0x435db6).
+    const TextObject *custom = _rules.object("Custom Rules");
+    int x = 0;
+    int y = 0;
+    int ix = 0;
+    int iy = 0;
+    int tx = 0;
+    int ty = 0;
+    readPoint(custom, "Dialog Pos", x, y);
+    readPoint(custom, "Dialog Icon Pos", ix, iy);
+    readPoint(custom, "Dialog Text Pos", tx, ty);
+    const int width = custom ? int(custom->integer("Dialog Text Width").value_or(0)) : 0;
+    image::blit(screen, _dialogBackground, x, y);
+    image::blit(screen, _dialogIcon, x + ix, y + iy);
+    if (_dialogFont.loaded())
+        _dialogFont.drawWrapped(screen, x + tx, y + ty, width, _dialogText, Font::Align::kLeft);
 }
 
 void MapScreen::draw(Surface &screen, uint64_t now) {
@@ -439,7 +641,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         for (int cx = std::max(0, left / kCell); cx <= (left + _viewW) / kCell; ++cx)
             image::blit(view, groundCell(cx, cy), cx * kCell - left, cy * kCell - top);
     // The selection's marker on the ground under the officer chosen.
-    if (_selected >= 0) {
+    if (_selected >= 0 && _teamShown) {
         const Officer &o = _officers[size_t(_selected)];
         blitBy(view, animation("Interface/Selection", "Idle").at(now), int(std::lround(o.x)) - left,
                int(std::lround(o.y)) + kMarkerY - top);
@@ -468,11 +670,25 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             continue;
         }
         const MapPart &p = _map.parts[size_t(s.part)];
-        blitBy(view, model(p).at(now), int(std::lround(p.x)) - left, int(std::lround(p.y)) - top);
+        // Facing its way, its shadow under it and its head over it, frame
+        // for frame (inferred: as the officers').
+        const std::string sequence = p.sequence.empty() ? "Idle" : p.sequence;
+        const Animation &body = animation(p.model, sequence);
+        const int direction = body.direction(p.angle);
+        const int frame = int(double(now) * double(body.fps) / 1000.0) % 100000;
+        const int x = int(std::lround(p.x)) - left;
+        const int y = int(std::lround(p.y)) - top;
+        if (body.rotations > 1)
+            blitBy(view, animation(p.model, sequence + " Shadow").frame(frame, direction), x, y);
+        blitBy(view, body.frame(frame, direction), x, y);
+        if (!p.overlay.empty())
+            blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y);
     }
     for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y)
         std::memcpy(screen.row(_viewY + y) + _viewX * 4, view.row(y), size_t(std::min(_viewW, screen.w - _viewX)) * 4);
+    _hud->setMove(_selected >= 0 ? _officers[size_t(_selected)].move : 0);
     _hud->draw(screen, now, _selected, _cameraX, _cameraY, _viewW, _viewH);
+    drawDialog(screen);
     if (_confirm)
         _confirm->draw(screen);
 }

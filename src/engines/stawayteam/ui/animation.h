@@ -52,7 +52,10 @@ struct Animation {
 /** `Cache/<name>.frm16` as a picture; empty if it won't read. */
 image::Image cachePicture(const Archive &data, const std::string &name);
 
-/** Draws `p` by its origin at (x, y), its colours scaled by `brightness` (0-1); nothing for nullptr. */
-void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness = 1.0f);
+/**
+ * Draws `p` by its origin at (x, y), its colours scaled by `brightness`
+ * (0-1), showing `opacity` (0-255) of it; nothing for nullptr.
+ */
+void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness = 1.0f, int opacity = 255);
 
 } // namespace reluva::stawayteam

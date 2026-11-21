@@ -38,7 +38,9 @@ None yet.
   halving what's under them, the textures repeating from the map's
   corner, the `Trans` polygons not shown; the team at the spawn points
   in order, their facing, the path finding by A*, the mouse's buttons,
-  the info bar rising under the mouse, and a walk's pace from its frames
+  the info bar rising under the mouse, a walk's pace from its frames,
+  characters' facing in radians, the move button's order, the view held
+  by the camera's scripts, a line's time and the beaming in's look
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song

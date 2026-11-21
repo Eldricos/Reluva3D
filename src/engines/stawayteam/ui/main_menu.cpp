@@ -334,7 +334,7 @@ void MainMenu::startMission(std::vector<TeamMember> team) {
     if (Error err = loadWayPoints(_data, base.substr(0, dot) + ".way", wayPoints))
         log::warning("Mission %d's waypoints: %s", _mission.number, err.message.c_str());
     _mapScreen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis(), std::move(team),
-                                             std::move(wayPoints));
+                                             std::move(wayPoints), _mixer);
 }
 
 void MainMenu::showTeamSelection() {

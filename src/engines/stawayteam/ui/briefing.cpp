@@ -54,24 +54,6 @@ std::string withoutExtension(std::string name) {
     return name;
 }
 
-// A voice-over by its name: the game looks its sounds up by name
-// (0x56dea0); the briefings' are in Levels/Voice Overs (inferred).
-std::shared_ptr<audio::Sound> voiceOver(const Archive &data, const std::string &name) {
-    const std::string want = normalizeArchiveName(name + ".ogg");
-    for (const std::string &file : data.list()) {
-        const std::string key = normalizeArchiveName(file);
-        if (!key.starts_with(normalizeArchiveName("Levels/Voice Overs/")) || key.size() < want.size() ||
-            key.compare(key.size() - want.size(), want.size(), want) != 0 ||
-            (key.size() > want.size() && key[key.size() - want.size() - 1] != '/'))
-            continue;
-        std::vector<uint8_t> bytes;
-        auto sound = std::make_shared<audio::Sound>();
-        if (!data.read(file, bytes) && !audio::decodeSound(bytes, *sound))
-            return sound;
-    }
-    return nullptr;
-}
-
 } // namespace
 
 BriefingScreen::BriefingScreen(const Archive &data, const std::filesystem::path &install, const TextObject &rules,

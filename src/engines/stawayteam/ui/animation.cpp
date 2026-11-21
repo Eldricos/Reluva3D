@@ -82,13 +82,13 @@ image::Image cachePicture(const Archive &data, const std::string &name) {
     return frameImage(frame);
 }
 
-void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness) {
+void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness, int opacity) {
     if (!p)
         return;
     if (brightness < 1.0f)
-        image::blit(screen, dimmed(p->image, brightness), x - p->originX, y - p->originY);
+        image::blit(screen, dimmed(p->image, brightness), x - p->originX, y - p->originY, opacity);
     else
-        image::blit(screen, p->image, x - p->originX, y - p->originY);
+        image::blit(screen, p->image, x - p->originX, y - p->originY, opacity);
 }
 
 } // namespace reluva::stawayteam

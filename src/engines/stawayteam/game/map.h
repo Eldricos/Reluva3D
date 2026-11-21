@@ -5,8 +5,10 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/stawayteam/formats/text_object.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,7 +44,24 @@ struct MapPart {
     std::string texture;                          // a textured polygon's, of Cache/Textures
     bool onGround = false;
     float facing = 0.0f; // a spawn point's facing, in degrees
+    float angle = 0.0f;  // which way it faces, in radians: its model's directions turning through 2 pi
+    std::string overlay; // a model drawn over it frame for frame: a character's head
 };
+
+/**
+ * A step of a camera's script (`CCameraScript`): the view panned to a part
+ * of the map, then an action, then a wait.
+ */
+struct CameraScript {
+    std::string where;                  // the part's name the view pans to
+    float timeToPan = 0.0f;             // seconds
+    float timeToWait = 0.0f;            // after it, seconds
+    bool panToPosition = false;         // false: there at once
+    const TextObject *action = nullptr; // its Destination Action, in the map's object; nullptr for none
+};
+
+/** Reads a camera script manager's (`CCameraScriptManager`) steps; their actions stay in `manager`. */
+std::vector<CameraScript> readCameraScripts(const TextObject &manager);
 
 /** A map (`Levels/Mission NN/<name>.zax`, a `CLayerSaveData`), as far as drawing it goes. */
 struct GameMap {
@@ -54,6 +73,8 @@ struct GameMap {
     std::string song;    // of Music
     GroundMap ground;
     std::vector<MapPart> parts;
+    std::shared_ptr<const TextObject> object; // the whole map as read: what its scripts point into
+    std::vector<CameraScript> cameraScripts;  // played as the map starts
 };
 
 /** Reads the map at `path` in `data` ("Levels/Mission 01/01 Klingon Outpost.zax"). */

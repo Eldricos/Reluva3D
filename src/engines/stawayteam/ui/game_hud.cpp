@@ -115,6 +115,14 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
     r.used = overInfo || overTeam || overBox || overInventory;
     if (ev.type != EventType::kMouseDown || ev.button != MouseButton::kLeft)
         return r;
+    if (overBox) {
+        int mx = 0;
+        int my = 0;
+        readPoint(_custom, "Move State Button", mx, my);
+        const image::Image &move = picture("Button Box/Walk Button");
+        r.cycleMove = ev.mouseX >= bx + mx && ev.mouseY >= by + my && ev.mouseX < bx + mx + move.w &&
+                      ev.mouseY < by + my + move.h;
+    }
     if (overTeam) {
         // An officer's slot chooses them (inferred).
         int ix = 0;
@@ -244,7 +252,11 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         int x = 0;
         int y = 0;
         readPoint(_custom, b.key, x, y);
-        image::blit(screen, picture(std::string("Button Box/") + b.picture), bx + x, by + y);
+        std::string name = b.picture;
+        // The move button shows how the chosen officer moves.
+        if (&b == &kBoxButtons[0])
+            name = _move == 1 ? "Run Button" : _move == 2 ? "Crouch Button" : "Walk Button";
+        image::blit(screen, picture("Button Box/" + name), bx + x, by + y);
     }
     int cancelX = 0;
     int cancelY = 0;

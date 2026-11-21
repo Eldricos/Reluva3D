@@ -76,14 +76,36 @@ std::vector<std::pair<float, float>> readPolygon(const std::string &points) {
 
 } // namespace
 
+std::vector<CameraScript> readCameraScripts(const TextObject &manager) {
+    std::vector<CameraScript> out;
+    const TextObject *array = manager.object("Camera Script Array");
+    if (!array)
+        return out;
+    for (const TextField *item : array->items()) {
+        if (!item->object)
+            continue;
+        const TextObject &o = *item->object;
+        CameraScript s;
+        s.where = text(o, "Where To Pan");
+        s.timeToPan = float(o.number("Time To Pan").value_or(0.0));
+        s.timeToWait = float(o.number("Time To Wait").value_or(0.0));
+        s.panToPosition = o.integer("Pan To Position").value_or(0) != 0;
+        s.action = o.object("Destination Action");
+        out.push_back(s);
+    }
+    return out;
+}
+
 Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
     std::vector<uint8_t> bytes;
     if (Error err = data.read(path, bytes))
         return err;
-    TextObject map;
-    if (Error err = readTextObject(std::string(bytes.begin(), bytes.end()), map))
+    auto object = std::make_shared<TextObject>();
+    if (Error err = readTextObject(std::string(bytes.begin(), bytes.end()), *object))
         return Error::fail(path + ": " + err.message);
+    const TextObject &map = *object;
     out = GameMap{};
+    out.object = object;
     out.width = int(map.integer("Width").value_or(0));
     out.height = int(map.integer("Height").value_or(0));
     const std::string view = text(map, "View Position");
@@ -93,6 +115,8 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
     if (const TextObject *custom = map.object("Custom Map Properties")) {
         out.minimap = text(*custom, "Minimap Image");
         out.song = text(*custom, "Map Song");
+        if (const TextObject *manager = custom->object("Camera Script Manager"))
+            out.cameraScripts = readCameraScripts(*manager);
     }
     if (const TextObject *plasma = map.object("Plasma Ground"))
         readGround(*plasma, out.ground);
@@ -107,7 +131,7 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             // A spawn point's facing, in its AI (CSpawnPointAI).
             if (const TextObject *activity = o.object("Activity"))
                 for (const TextField *ai : activity->items())
-                    if (ai->object && ai->object->number("Facing Angle"))
+                    if (ai->object && ai->value == "CSpawnPointAI" && ai->object->number("Facing Angle"))
                         part.facing = float(*ai->object->number("Facing Angle"));
             part.model = text(o, "Model");
             part.sequence = text(o, "Cur Sequence");
@@ -116,6 +140,10 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             part.renderingHeight = int(o.integer("Rendering Height").value_or(0));
             part.visible = o.integer("Visible").value_or(1) != 0;
             part.polygon = readPolygon(text(o, "Polygon"));
+            part.angle = float(o.number("Facing Angle").value_or(0.0));
+            part.overlay = text(o, "Overlay Model");
+            if (part.overlay == "!Unknown Model")
+                part.overlay.clear();
             part.renderType = text(o, "Render Type");
             part.texture = text(o, "Static Texture");
             part.onGround = o.integer("On Ground").value_or(0) != 0;

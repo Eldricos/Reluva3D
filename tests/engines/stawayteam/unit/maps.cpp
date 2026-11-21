@@ -135,6 +135,66 @@ void testTeam() {
     screen.draw(surface, 4000);
 }
 
+void testScripts() {
+    // Pan 2 seconds to Pan Here, a line and the team beamed in there, a
+    // second's wait; then at once to Home.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+        "\tCustom Map Properties=CStarTrekLayerSaveData\n\t{\n\t\tCamera Script Manager=CCameraScriptManager\n\t\t{\n"
+        "\t\t\tCamera Script Array=Array\n\t\t\t{\n\t\t\t\tArray Count=2\n"
+        "\t\t\t\tArray Item=CCameraScript\n\t\t\t\t{\n\t\t\t\t\tWhere To Pan=Pan Here\n\t\t\t\t\tTime To Pan=2\n"
+        "\t\t\t\t\tTime To Wait=1\n\t\t\t\t\tPan To Position=1\n"
+        "\t\t\t\t\tDestination Action=CMultipleActionsAction\n\t\t\t\t\t{\n\t\t\t\t\t\tAction=Array\n\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\tItem Count=2\n\t\t\t\t\t\t\tAction=CInfoDialogAction\n\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\tScript=Test\n\t\t\t\t\t\t\t\tLine=Hello\n\t\t\t\t\t\t\t\tWho is speaking=Data\n"
+        "\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tAction=CAddEffectToTeam\n\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\tWarp Behavior=CStarTrekTransporterEffectBehavior\n\t\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\t\tWarp Time=1.75\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+        "\t\t\t\t}\n"
+        "\t\t\t\tArray Item=CCameraScript\n\t\t\t\t{\n\t\t\t\t\tWhere To Pan=Home\n\t\t\t\t\tTime To Pan=3\n"
+        "\t\t\t\t\tTime To Wait=0\n\t\t\t\t\tPan To Position=0\n\t\t\t\t\tDestination Action=\n\t\t\t\t}\n"
+        "\t\t\t}\n\t\t}\n\t}\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Pan Here\n\t\t\tVisible=0\n\t\t\tPosition X=500\n"
+        "\t\t\tPosition Y=100\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Home\n\t\t\tVisible=0\n\t\t\tPosition X=500\n"
+        "\t\t\tPosition Y=600\n\t\t}\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Levels/Test.RDS"] = std::vector<uint8_t>({':', 'H', 'e', 'l', 'l', 'o', '\n', 'H', 'i', '\n'});
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    CHECK(map.cameraScripts.size() == 2 && map.cameraScripts[0].where == "Pan Here");
+    CHECK(map.cameraScripts[0].timeToPan == 2.0f && map.cameraScripts[0].panToPosition);
+    CHECK(map.cameraScripts[0].action && map.cameraScripts[0].action->className == "CMultipleActionsAction");
+    CHECK(!map.cameraScripts[1].action);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember officer;
+    officer.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {officer});
+    // The team is hidden until a script beams them in.
+    CHECK(screen.scripted() && !screen.teamShown());
+    // Half way through the pan: half way there, eased.
+    screen.update(1000);
+    CHECK(std::abs(screen.cameraX() - 300.0f) < 0.5f && screen.cameraY() == 100.0f);
+    screen.update(2000);
+    CHECK(screen.cameraX() == 500.0f && screen.dialogText() == "Hi" && screen.teamShown());
+    // The wait, then Home at once, though it takes its Time To Pan.
+    screen.update(3001);
+    screen.update(3002);
+    CHECK(screen.cameraY() == 600.0f && screen.scripted());
+    screen.update(6100);
+    screen.update(6101);
+    CHECK(!screen.scripted());
+    // The line goes after its time without a voice-over.
+    screen.update(7000);
+    CHECK(screen.dialogText().empty());
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.maps",
@@ -143,4 +203,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"ground", [](const std::filesystem::path &) { testGround(); }},
                                             {"paths", [](const std::filesystem::path &) { testPaths(); }},
                                             {"team", [](const std::filesystem::path &) { testTeam(); }},
+                                            {"scripts", [](const std::filesystem::path &) { testScripts(); }},
                                         });
