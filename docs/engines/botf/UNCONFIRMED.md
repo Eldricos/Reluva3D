@@ -35,9 +35,6 @@ None: nothing of the game's code has been read.
 - **The menu's sounds:** which of the same sound's entries the game
   plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
   Settled by: the game's code, or many more slider moves.
-- **The chosen slots' colours** but the Romulans', measured from a
-  recording ([systems/screens.md](systems/screens.md)). Settled by: a
-  screenshot of a save of each empire chosen.
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
 - **On the options screen:** a click on a volume lighting the cells up to

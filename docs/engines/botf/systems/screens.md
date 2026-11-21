@@ -241,22 +241,20 @@ game."
   pointer: Accept dimmed, the tutorials in the first four slots.
 - **The chosen slot** lights (its second picture, framed in yellow), and
   its file's name and description take a lighter colour of their empire's,
-  each empire its own (a recording by the user choosing a save of each):
+  each empire its own (a recording by the user choosing a save of each),
+  measured from screenshots of Load Game with each chosen:
 
   | Empire | Chosen |
   |---|---|
-  | Cardassians | (255, 219, 156), pale yellow |
-  | Federation | (255, 154, 41), orange |
-  | Ferengi | (189, 199, 90), yellow green |
-  | Klingons | (214, 178, 255), lavender |
+  | Cardassians | (255, 211, 140), pale yellow |
+  | Federation | (255, 150, 16), orange, as Multiplayer Setup's typing |
+  | Ferengi | (173, 199, 74), yellow green |
+  | Klingons | (198, 174, 255), lavender |
   | Romulans | (239, 182, 198), pink |
 
-  The Romulans' is measured from screenshots (a tutorial chosen; and an
-  empty slot chosen on Save Game, so presumably a Romulan game's). The others are from the recording,
-  whose colours run lighter and greyer: mapped back by a line fitted, for
-  each channel, through the slots' own colours as the recording and a
-  screenshot show them, which puts the Romulans' within 9 of the
-  screenshot's. They're within about ten *(inferred)*. An empty slot takes
+  Drawn by Reluva with the same saves, each of the four screenshots with
+  a Cardassian, Federation, Ferengi and Klingon save chosen matches pixel
+  for pixel but the pointer. An empty slot takes
   the game to save's empire's colours; a saved game's slot keeps its
   game's until Accept saves over it (the user, in the game). Loading, the
   chosen slot takes its save's empire's. A slot with a saved game keeps its description when

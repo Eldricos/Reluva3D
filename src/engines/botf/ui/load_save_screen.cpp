@@ -26,9 +26,8 @@ constexpr const char *kLoadTitle = "ls_ldlb.tga";
 // The slots' text in each empire's colour, Cardassians to Romulans, not
 // their fonts': measured from a screenshot of Load Game with a save of each.
 constexpr Color kEmpireColors[] = {{0, 134, 165}, {99, 77, 181}, {214, 32, 66}, {255, 24, 33}, {0, 166, 156}};
-// The chosen slot's, the empire's lighter colour: the Romulans' from
-// screenshots, the others' from a recording, to within about ten.
-constexpr Color kChosenColors[] = {{255, 219, 156}, {255, 154, 41}, {189, 199, 90}, {214, 178, 255}, {239, 182, 198}};
+// The chosen slot's, the empire's lighter colour, measured from screenshots.
+constexpr Color kChosenColors[] = {{255, 211, 140}, {255, 150, 16}, {173, 199, 74}, {198, 174, 255}, {239, 182, 198}};
 constexpr int kRomulans = 4; // the colours for a save whose empire isn't known
 
 Color empireColor(int empire, bool chosen) {
