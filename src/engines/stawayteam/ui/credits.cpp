@@ -24,12 +24,11 @@ constexpr float kLinesPerMs = 0.002f;
 constexpr uint8_t kHeadingLine[3] = {0x9c, 0, 0};
 constexpr uint8_t kRoleLine[3] = {0, 0x96, 0};
 
-// The RESUME button: its picture, its place on the window, from its
-// bottom, and its label's (0x5bb5b5, 0x5bb674).
+// The RESUME button: its picture, and its place on the window, from its
+// bottom (0x5bb5b5, 0x5bb674).
 const char *const kButtonPicture = "Escape Menu/Button Background";
 constexpr int kButtonX = 0x45;
 constexpr int kButtonBottomGap = 0x1b;
-constexpr int kButtonTextY = -2;
 
 // The part of `screen` at (x, y), w by h, clipped to it, as a surface of its own.
 Surface cut(const Surface &screen, int x, int y, int w, int h) {
@@ -145,32 +144,29 @@ void CreditsRoll::draw(Surface &screen, int x, int y, int w, int h, uint64_t now
 
 CreditsWindow::CreditsWindow(const Archive &data, const TextObject &rules, int screenW, int screenH, uint64_t now)
     : _background(screenPicture(data, "Escape Menu/Escape Menu Background")), _roll(readCredits(data), _font),
-      _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2) {
+      _resume(screenPicture(data, kButtonPicture), "&RESUME", &_buttonFont), _x((screenW - _background.w) / 2),
+      _y((screenH - _background.h) / 2) {
     // Both fonts named by the program (0x5bb4a2, 0x5bb547), not Rules.txt's Menu Font.
     (void)_font.load(data, "Placar Blue");
     (void)_buttonFont.load(data, "Placar Condensed");
     const TextObject *def = menuDefinition(rules, "Credits");
     readPoint(def, "Credit Pos", _rollX, _rollY);
     readPoint(def, "Credit Size", _rollW, _rollH);
-    image::Image picture = screenPicture(data, kButtonPicture);
-    const int buttonY = _background.h - picture.h - kButtonBottomGap;
-    Button resume(std::move(picture), kButtonX, buttonY);
-    resume.setLabel("&RESUME", &_buttonFont, 0, kButtonTextY);
-    _buttons.add(std::move(resume));
-    _buttons.setOrigin(_x, _y);
+    _resume.setPosition(kButtonX, _background.h - _resume.height() - kButtonBottomGap);
+    _resume.setSound(gameSound(data, "UI/Button Action.wav"));
     _roll.start(now);
 }
 
 bool CreditsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
         return true;
-    return _buttons.handleEvent(ev, mixer) == 0;
+    return _resume.handleEvent(ev, _x, _y, mixer);
 }
 
 void CreditsWindow::draw(Surface &screen, uint64_t now) {
     image::blit(screen, _background, _x, _y);
     _roll.draw(screen, _x + _rollX, _y + _rollY, _rollW, _rollH, now);
-    _buttons.draw(screen);
+    _resume.draw(screen, _x, _y, now);
 }
 
 } // namespace reluva::stawayteam

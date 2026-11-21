@@ -10,6 +10,7 @@
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/ui/widgets.h"
 
 #include <cstdint>
 #include <string>
@@ -69,7 +70,7 @@ private:
     Font _font;
     Font _buttonFont;
     CreditsRoll _roll;
-    ButtonGroup _buttons;
+    PictureButton _resume;
     int _x;
     int _y;
     int _rollX = 0;

@@ -204,6 +204,11 @@ void engineTest(const std::filesystem::path &tmp) {
         {"Cache/Interface/Screens/Confirm Dialog/No Default.frm16", solidFrame(20, 8, 0xf800), {}},
         {"Cache/Interface/Screens/Escape Menu/Escape Menu Background.frm16", solidFrame(100, 60, 0x4208), {}},
         {"Cache/Interface/Screens/Escape Menu/Button Background.frm16", solidFrame(50, 8, 0x001f), {}},
+        {"Cache/Interface/Screens/Difficulty Menu/Background.frm16", solidFrame(100, 60, 0x4208), {}},
+        {"Cache/Interface/Screens/Difficulty Menu/Button Background.frm16", solidFrame(50, 8, 0x001f), {}},
+        {"Cache/Interface/Screens/Difficulty Menu/Toggle Default.frm16", solidFrame(5, 5, 0x8410), {}},
+        {"Cache/Interface/Screens/Difficulty Menu/Toggle Press.frm16", solidFrame(5, 5, 0x07e0), {}},
+        {"Sounds/Button Action.ogg", tone, {}},
         {"Credits.txt", test::toBytes("// a comment\r\n_Heading\r\n+Role\r\nName\r\nRole: Name\r\n"), {}},
         {"Cache/Fonts/Placar Condensed.seq16", font, {}},
         {"Cache/Fonts/Placar Blue.seq16", font, {}},
@@ -224,13 +229,15 @@ void engineTest(const std::filesystem::path &tmp) {
     rec.add("detect.description", found.empty() ? "" : found[0].description);
 
     // Started, it reads the rules; its movies aren't there to play, so the
-    // main menu comes, its picture and buttons at their places. C (Credits'
-    // shortcut) shows the credits, Esc closes them; Esc asks whether to
+    // main menu comes, its picture and buttons at their places. S (Start
+    // New Game's shortcut) asks the difficulty, N (CANCEL) closes that; C
+    // (Credits') shows the credits, Esc closes them; Esc asks whether to
     // quit, N says no, Q (Quit's shortcut) asks again, and Y quits: the
     // window isn't closed.
     int frames = 0;
     std::vector<std::string> screens;
-    rec.add("play.result", play(*engine, dir, frames, &screens, {'c', key::kEscape, key::kEscape, 'n', 'q', 'y'}));
+    rec.add("play.result",
+            play(*engine, dir, frames, &screens, {'s', 'n', 'c', key::kEscape, key::kEscape, 'n', 'q', 'y'}));
     rec.add("play.frames", static_cast<int64_t>(frames));
     for (size_t i = 0; i < screens.size(); ++i)
         rec.add("play.screen " + std::to_string(i), screens[i]);
@@ -243,9 +250,9 @@ void engineTest(const std::filesystem::path &tmp) {
     // the sound played (no output here), and the objects, the next file's.
     // A checksum of each screen.
     if (const MetaViewer *viewer = findViewer("stawayteam")) {
-        ScriptedSystem sys({'f',       'f',       'b',       'b',         'f',         'z',        'f',
-                            'i',       key::kTab, '.',       key::kTab,   '.',         ']',        key::kTab,
-                            key::kTab, ' ',       key::kTab, key::kRight, key::kRight, key::kRight});
+        ScriptedSystem sys({'f',       'f',       'f',       'b',       'b',         'f',         'z',
+                            'f',       'i',       key::kTab, '.',       key::kTab,   '.',         ']',
+                            key::kTab, key::kTab, ' ',       key::kTab, key::kRight, key::kRight, key::kRight});
         const Error err = viewer->create(sys, targetFor(dir))->run();
         rec.add("viewer.result", err ? err.message : "ok");
         for (size_t i = 0; i < sys.screens.size(); ++i)

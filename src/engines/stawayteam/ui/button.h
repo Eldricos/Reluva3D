@@ -21,7 +21,8 @@ image::Image screenPicture(const Archive &data, const std::string &name);
 
 /**
  * A sound as Rules.txt and the program name it ("Interface/Main Screen
- * Button.wav"): the `.ogg` of that name in `Sounds/`; nullptr if there's none.
+ * Button.wav"): the `.ogg` of that name in `Sounds/`, or of its last part
+ * there ("UI/Button Action.wav"); nullptr if there's none.
  */
 std::shared_ptr<audio::Sound> gameSound(const Archive &data, const std::string &name);
 

@@ -7,6 +7,7 @@
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/ui/widgets.h"
 
 #include "tests/engines/stawayteam/support.h"
 #include "tests/support/test.h"
@@ -102,6 +103,49 @@ void testCredits() {
     CHECK(roll.lines()[3].size() == 255);
 }
 
+void testWidgets() {
+    MemoryArchive data;
+    data.files["Cache/Fonts/Test.seq16"] = fontFile({solidFrame(3, 5, 0xffff), solidFrame(4, 5, 0xffe0)}, 65);
+    Font font;
+    CHECK(!font.load(data, "Test"));
+    image::Image picture;
+    picture.w = 40;
+    picture.h = 10;
+    picture.rgba.assign(40 * 10 * 4, 200);
+    // Dimmed, its colours scaled and its alpha kept.
+    const image::Image dim = dimmed(picture, 0.5f);
+    CHECK(dim.rgba[0] == 100 && dim.rgba[3] == 200);
+
+    PictureButton button(picture, "CA&NCEL", &font);
+    button.setPosition(10, 20);
+    CHECK(button.label() == "CANCEL");
+    Event ev;
+    ev.type = EventType::kKeyDown;
+    ev.key = 'n';
+    CHECK(button.handleEvent(ev, 100, 100, nullptr));
+    Event mouse;
+    mouse.button = MouseButton::kLeft;
+    mouse.mouseX = 115;
+    mouse.mouseY = 125;
+    mouse.type = EventType::kMouseDown;
+    CHECK(!button.handleEvent(mouse, 100, 100, nullptr));
+    mouse.type = EventType::kMouseUp;
+    CHECK(button.handleEvent(mouse, 100, 100, nullptr));
+
+    // A toggle: its box, the label, and 1 between them.
+    image::Image box;
+    box.w = box.h = 5;
+    box.rgba.assign(5 * 5 * 4, 255);
+    Toggle toggle(box, box, "AB", &font);
+    CHECK(toggle.width() == 5 + 7 + 1 && toggle.height() == 5);
+    mouse.mouseX = 2;
+    mouse.mouseY = 2;
+    mouse.type = EventType::kMouseDown;
+    CHECK(!toggle.handleEvent(mouse, 0, 0));
+    mouse.type = EventType::kMouseUp;
+    CHECK(toggle.handleEvent(mouse, 0, 0));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.menus",
@@ -109,4 +153,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.menus",
                                             {"font", [](const std::filesystem::path &) { testFont(); }},
                                             {"buttons", [](const std::filesystem::path &) { testButtons(); }},
                                             {"credits", [](const std::filesystem::path &) { testCredits(); }},
+                                            {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
                                         });

@@ -29,6 +29,7 @@ namespace {
 // (0x503657): Rules.txt only places them.
 constexpr std::array<const char *, 6> kMainButtons = {"&START NEW GAME", "&LOAD SAVE GAME", "PLAY &NETWORK GAME",
                                                       "S&ETTINGS",       "&CREDITS",        "&QUIT"};
+constexpr size_t kStartButton = 0;
 constexpr size_t kCreditsButton = 4;
 constexpr size_t kQuitButton = 5;
 // The program's, not Rules.txt's Menu Font (0x50359a).
@@ -184,6 +185,15 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_difficultyWindow) {
+                if (const auto closed = _difficultyWindow->handleEvent(ev, _mixer)) {
+                    // START GAME: the level kept; the game itself isn't there yet.
+                    if (*closed)
+                        _difficulty = **closed;
+                    _difficultyWindow.reset();
+                }
+                continue;
+            }
             if (_credits) {
                 if (_credits->handleEvent(ev, _mixer))
                     _credits.reset();
@@ -194,6 +204,8 @@ bool MainMenu::run() {
             const int chosen = escape ? int(kQuitButton) : _buttons.handleEvent(ev, _mixer);
             if (chosen == int(kQuitButton))
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
+            else if (chosen == int(kStartButton))
+                _difficultyWindow = std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty);
             else if (chosen == int(kCreditsButton))
                 _credits = std::make_unique<CreditsWindow>(_data, _rules, _screen.w, _screen.h, _sys.getMillis());
         }
@@ -226,6 +238,8 @@ void MainMenu::draw() {
     _buttons.draw(_screen);
     if (_credits)
         _credits->draw(_screen, now);
+    if (_difficultyWindow)
+        _difficultyWindow->draw(_screen, now);
     if (_dialog)
         _dialog->draw(_screen);
 }

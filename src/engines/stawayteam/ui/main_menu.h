@@ -9,6 +9,7 @@
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
+#include "engines/stawayteam/ui/difficulty.h"
 #include "engines/stawayteam/ui/font.h"
 
 #include <array>
@@ -49,8 +50,9 @@ private:
 /**
  * The main menu: what Rules.txt's `Main Menu` puts on its screen (its
  * "nernies": movies, looping, and pictures, each at its position), the
- * startup song, and its six buttons. Credits shows the credits, Quit asks
- * to be sure; the others don't lead anywhere yet.
+ * startup song, and its six buttons. Start New Game asks the difficulty,
+ * Credits shows the credits, Quit asks to be sure; the others don't lead
+ * anywhere yet.
  */
 class MainMenu {
 public:
@@ -90,6 +92,8 @@ private:
     ButtonGroup _buttons;
     std::unique_ptr<ConfirmDialog> _dialog;
     std::unique_ptr<CreditsWindow> _credits;
+    std::unique_ptr<DifficultyWindow> _difficultyWindow;
+    Difficulty _difficulty = Difficulty::kNormal;
 };
 
 } // namespace reluva::stawayteam

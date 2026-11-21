@@ -1,6 +1,6 @@
 # Star Trek: Away Team: the menus
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/ui/main_menu.cpp`, `src/engines/stawayteam/ui/button.cpp`, `src/engines/stawayteam/ui/font.cpp`, `src/engines/stawayteam/ui/credits.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/ui/main_menu.cpp`, `src/engines/stawayteam/ui/button.cpp`, `src/engines/stawayteam/ui/font.cpp`, `src/engines/stawayteam/ui/credits.cpp`, `src/engines/stawayteam/ui/widgets.cpp`, `src/engines/stawayteam/ui/difficulty.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -8,8 +8,11 @@ The game's menus are screens laid out by `Rules.txt`: each a
 `CAnimatedMenuInfo` under `Custom Rules`, `Menu`, with its name and a
 definition, an object of the menu's own class that places its buttons
 and what's on its screen. The program makes the buttons, names them and
-says what each does. So far Reluva has the main menu, its buttons, the
-credits, and the dialog that asks before quitting.
+says what each does. Its other windows (the credits, the difficulty,
+the settings, the escape menu) are built by a toolkit of the program's
+own, which places its widgets itself. So far Reluva has the main menu,
+the credits, the difficulty window and the dialog that asks before
+quitting.
 
 ## How it works
 
@@ -107,12 +110,11 @@ through it:
 - **Its picture:** `Escape Menu/Escape Menu Background` (`0x5bb625`),
   414x232, the escape menu's: its middle is black and part see-through
   (alpha 211). It sizes the window.
-- **RESUME** (`&RESUME`, `0x642598`), which closes it: a button of one
-  picture, `Escape Menu/Button Background` (276x22, `0x5bb4f4`), at 69
-  across and 27 above the window's bottom (`0x5bb674`). Its label is in
-  the window's font, Placar Condensed, named by the program (`0x5bb4a2`),
-  centred, 2 above the button's top, taking the -2 the window sets at
-  the button's `+0x138` (`0x5bb5e4`) for that *(inferred)*.
+- **RESUME** (`&RESUME`, `0x642598`), which closes it: a picture button
+  ([below](#the-window-toolkit)) on `Escape Menu/Button Background`
+  (276x22, `0x5bb4f4`), at 69 across and 27 above the window's bottom
+  (`0x5bb674`), its label in Placar Condensed, named by the program
+  (`0x5bb4a2`).
 - **The credits** roll in the area `Rules.txt`'s `Credits` gives,
   `Credit Pos` (61,21) and `Credit Size` (292x155), in Placar Blue
   (`0x5bb547`), not the `Menu Font` (Bach White).
@@ -141,6 +143,85 @@ The roll (`0x4873f0` reads it, `0x487530` draws it):
   The line under a heading or role is one pixel high, a row below the
   text's height, as wide as the text and one more (`0x48774d`).
 
+### The window toolkit
+
+The program's windows other than the main menu are made of widgets of
+its own toolkit, each placed as it's added to its window (`0x4097f0`,
+the placing at `0x40a6d0`):
+
+- **Placing:** a widget is placed by a mode and a distance across and
+  down. Of the 23 modes, those the menus so far use: 1, from the window's
+  top left; 6, in the middle of the window; 7, under a given widget,
+  lined up on its left; 8, under the widget added before (1 if it's the
+  first); 13, right of a given widget, lined up on its top. A distance
+  given counts in fifths of the font's baseline (Placar Condensed's 25:
+  5 pixels each); one left out takes the window's margin (modes 1-4) or
+  spacing (most others), both four fifths of its font's baseline, which a
+  window can change. Windows then often move widgets to places of their
+  own.
+- **Picture buttons** (`0x5ba890`): a picture (`Button Background`), the
+  label on it in the button's font, from its left at 21 and 1 above its
+  top (`0x5eff58`, from the 20 and -2 the button sets at `+0x13c` and
+  `+0x138`), a pixel further right and down while it's held down. The
+  picture is drawn at a brightness (`0x5ba910`) that starts at 1, goes to
+  0.4, and to 1 again while the mouse is over it, 2 a second
+  (`0x5efe60`, `0x5f0056`).
+- **Toggles** (`0x4e8620`): a box, its widest picture, square, and the
+  label after it, at its right and 1 down (`0x4e89c3`); the toggle is as
+  wide as both and 1 more, and as high as its highest picture
+  (`0x4e8b72`). Drawn (`0x4e6310`): held down on, its `Press` picture;
+  checked, its `Press` picture with a cross corner to corner, a pixel in,
+  in the toolkit's grey (186,186,186, `0x4084e4`); otherwise its
+  `Default` picture. Toggles can be one of a group, one checked at a time
+  (`0x4e49b0`).
+- **Colours:** the toolkit's widgets have their own, set as each is made
+  (`0x408150`): light blue (63,154,255) and others for frames, which the
+  menus so far don't draw.
+- **Sounds:** the toolkit loads `UI/Button Action.wav`, `UI/Button
+  Switch.wav` and `Error.wav` (`0x4082c5`); `DATA.dat` has the first two
+  as `Sounds/Button Action.ogg` and `Sounds/Button Switch.ogg`. Which it
+  plays when isn't traced.
+
+### The difficulty window
+
+Start New Game opens it (`0x48be40`), over the main menu:
+
+- **Its picture:** `Difficulty Menu/Background`, 414x174; its font
+  Placar Blue, named by the program (`0x48be90`).
+- **"Select a difficulty level"** (`0x63be90`), centred across it, its
+  top at 24 (`0x48c240`).
+- **The levels:** a toggle each, Easy and Normal (the program's table at
+  `0x63be78`), with `Toggle Default` and `Toggle Press` (15x15): placed
+  in the middle (mode 6), then the first 16 above the middle's top less
+  the toggle and 4 more, the second 16 above it (`0x48c0c1`); both lined
+  up on the left with the widest in the middle across (`0x48c107`). The
+  game's level is checked to start with (`0x48c144`).
+- **START GAME** (`&START GAME`) in the middle across, 20 above the
+  window's bottom (`0x48bf76`), and **CANCEL** (`CA&NCEL`) 4 above it
+  (`0x48bfc6`): picture buttons on `Difficulty Menu/Button Background`,
+  their labels in Placar Condensed (`0x48bf88`). Opened from a game in
+  progress, START GAME is CONTINUE (`0x48bf0b`).
+- **START GAME** sets the game's level to the one checked, Easy 1 and
+  Normal 2, or leaves it if none is (`0x48c2b5`), and starts the game;
+  CANCEL closes the window (`0x48c31a`).
+
+### The settings window (not yet in Reluva)
+
+Settings opens `0x4863b0`, with `&CONTINUE`, worked out so far:
+`Configure Menu/Background` (428x277), the window's spacing set to 4
+(`0x486406`); CONFIGURE &KEYBOARD and CONFIGURE &SOUND, picture buttons
+in Placar Condensed, the first placed by layout 1 a fifth of the
+baseline (5 pixels) each way, then moved to 69 across and 36 further
+down, to 41 (`0x4864a4`), the second under it 5 apart (layout 8);
+Brightness:, Scroll Speed: and Scroll Accel:, labels in Trek Small,
+each under the one before, with a slider each (0 to 100, `0x4e4b10`) at
+its right, the sliders made as wide as the widest and lined up; &Pause
+Game When Hit Off-screen, a check box under them (`0x4e6020`); then
+CONTINUE 29 above the window's bottom, RESET &DEFAULTS 4 above it, and
+DI&FFICULTY SETTING above that while no game is in progress
+(`0x486a01`). How sliders and check boxes are drawn (`0x4e4bd0`, the
+toolkit's frames at `0x408000`) isn't worked out yet.
+
 ## In Reluva
 
 - **Fonts:** `Font` (`ui/font.cpp`) reads one from `DATA.dat` and draws
@@ -155,8 +236,16 @@ The roll (`0x4873f0` reads it, `0x487530` draws it):
   of the screen; Yes (or Y) ends the game and goes back to the launcher,
   No (N, Esc) closes it. Credits opens the credits window (`CreditsWindow`,
   `ui/credits.cpp`, the roll a `CreditsRoll`), in the middle of the
-  screen; RESUME, R or Esc closes it. The other buttons play their sound
-  and lead nowhere yet.
+  screen; RESUME, R or Esc closes it. Start New Game opens the difficulty
+  window (`DifficultyWindow`, `ui/difficulty.cpp`), in the middle of the
+  screen, Normal checked to start with: START GAME (S) keeps the level
+  checked and closes it, as the game isn't there to start yet; CANCEL
+  (N, Esc) closes it. The other buttons play their sound and lead
+  nowhere yet.
+- **The toolkit's widgets:** `PictureButton` and `Toggle`
+  (`ui/widgets.cpp`), as above, placed where the program's layout puts
+  them, worked out by hand for each window. A picture button's click plays
+  `Button Action`; a toggle's plays nothing yet.
 
 ## Sources and checks
 
@@ -168,15 +257,21 @@ The roll (`0x4873f0` reads it, `0x487530` draws it):
   middle, lit and pressed under the mouse, and the dialog's question on
   one line inside its frame, Yes lit under the mouse; the credits rolling
   and fading inside their window, the headings and roles underlined, the
-  main menu showing through. Not yet against the original running. Unit
-  tests (`stawayteam.unit.menus`) on a font, buttons and the credits'
-  lines made in the test; the engine test opens and closes the credits
-  and the dialog, and quits through it.
+  main menu showing through; the difficulty window's heading, toggles and
+  buttons, a level checked by a click, START GAME lit under the mouse.
+  Not yet against the original running. Unit tests
+  (`stawayteam.unit.menus`) on a font, buttons, the toolkit's widgets and
+  the credits' lines made in the test; the engine test opens and closes
+  the difficulty window, the credits and the dialog, and quits through
+  it.
 
 ## Open questions
 
-- **Where the dialog and the credits window go on the screen.** Reluva
+- **Where the dialog and the other windows go on the screen.** Reluva
   puts them in the middle.
+- **The game's level before one is chosen.** Reluva starts at Normal.
+- **Brightness:** whether the toolkit's dims a picture's colours toward
+  black. Reluva scales them.
 - **The credits' fading:** whether to black or to see-through, and
   whether the lines under headings fade too. Reluva fades the text to
   see-through and draws the lines whole.

@@ -27,11 +27,13 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The main menu:** only Credits and Quit lead anywhere; the other buttons play
-  their sound and nothing else
+- **The main menu:** Start New Game's difficulty window doesn't start a
+  game; Load Save Game, Play Network Game and Settings play their sound
+  and nothing else
   ([systems/menus.md](systems/menus.md)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
-  brighten their label under the mouse; RESUME's label doesn't glow
+  brighten their label under the mouse; the toolkit's toggles make no
+  sound
   ([systems/menus.md](systems/menus.md#buttons)).
 - **The pointer** is the system's, not the game's.
 

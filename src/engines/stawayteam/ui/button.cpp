@@ -20,14 +20,20 @@ image::Image screenPicture(const Archive &data, const std::string &name) {
 
 std::shared_ptr<audio::Sound> gameSound(const Archive &data, const std::string &name) {
     // The game's sounds are all Ogg Vorbis in DATA.dat, whatever their
-    // names' ending in the program.
+    // names' ending in the program; the toolkit's ("UI/Button Action.wav")
+    // are in Sounds/ itself.
     std::string file = name;
     const size_t dot = file.rfind('.');
     if (dot != std::string::npos)
         file.resize(dot);
     std::vector<uint8_t> bytes;
+    if (data.read("Sounds/" + file + ".ogg", bytes)) {
+        const size_t slash = file.rfind('/');
+        if (slash == std::string::npos || data.read("Sounds/" + file.substr(slash + 1) + ".ogg", bytes))
+            return nullptr;
+    }
     auto sound = std::make_shared<audio::Sound>();
-    if (data.read("Sounds/" + file + ".ogg", bytes) || audio::decodeSound(bytes, *sound))
+    if (audio::decodeSound(bytes, *sound))
         return nullptr;
     return sound;
 }

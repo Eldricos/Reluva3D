@@ -4,34 +4,37 @@ detect.empty: 0
 detect.games: 1
 detect.description: Star Trek: Away Team (unknown release)
 play.result: ok
-play.frames: 6
+play.frames: 8
 play.screen 0: 1922aa0063be7d66
-play.screen 1: e8e276d7a271b2b2
+play.screen 1: e82dc80f95192dbc
 play.screen 2: 1922aa0063be7d66
-play.screen 3: 5983226047af0496
+play.screen 3: fa7084d0a747fc76
 play.screen 4: 1922aa0063be7d66
 play.screen 5: 5983226047af0496
+play.screen 6: 1922aa0063be7d66
+play.screen 7: 5983226047af0496
 viewer.result: ok
-viewer.screen 0: 3ed4130b65a6f4cb
-viewer.screen 1: 9bf90cbab4bc14cd
-viewer.screen 2: e12822d141f25653
-viewer.screen 3: f701ab786cf904d3
-viewer.screen 4: 982cf62502ccf213
-viewer.screen 5: 26514ac3c0ced0e5
-viewer.screen 6: f919031044f25d85
-viewer.screen 7: 49b2e299c34e3bb9
-viewer.screen 8: afa73d4d66e74f0d
-viewer.screen 9: 11feffc93174639a
-viewer.screen 10: 79f6fb1ac8578846
-viewer.screen 11: d37222b72cfdc44e
-viewer.screen 12: 8e93d87c4c75cffa
-viewer.screen 13: 914865c26a65c20b
-viewer.screen 14: 1cad5271b9fef82d
-viewer.screen 15: b344544ba55427f5
-viewer.screen 16: b344544ba55427f5
-viewer.screen 17: 1fd6b24703a43c93
-viewer.screen 18: 6dcac63b248bfc85
-viewer.screen 19: c2c85cf24378ec53
-viewer.screen 20: 98b0332fb7531649
+viewer.screen 0: 2c43f9a5e6aa6df5
+viewer.screen 1: 6a2a90ab98590533
+viewer.screen 2: 6a38d879dc358a4d
+viewer.screen 3: d47d038a030f3265
+viewer.screen 4: 6fc180b44d87bbe5
+viewer.screen 5: f633b264344a7fa5
+viewer.screen 6: 13246807bf1e3a95
+viewer.screen 7: 5696332d8fd5e075
+viewer.screen 8: eccd680cf1f86419
+viewer.screen 9: afa73d4d66e74f0d
+viewer.screen 10: 11feffc93174639a
+viewer.screen 11: 79f6fb1ac8578846
+viewer.screen 12: d37222b72cfdc44e
+viewer.screen 13: 8e93d87c4c75cffa
+viewer.screen 14: 914865c26a65c20b
+viewer.screen 15: 1cad5271b9fef82d
+viewer.screen 16: 33e0a411f4c46559
+viewer.screen 17: 33e0a411f4c46559
+viewer.screen 18: 1fd6b24703a43c93
+viewer.screen 19: 6dcac63b248bfc85
+viewer.screen 20: c2c85cf24378ec53
+viewer.screen 21: 98b0332fb7531649
 play.bad rules: DATA.dat: Rules.txt: the text ends inside CStarTrekRules
 play.no rules: DATA.dat has no Rules.txt

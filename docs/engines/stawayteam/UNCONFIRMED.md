@@ -21,9 +21,10 @@ None yet.
 - **A key or a click skips a movie:** the game ends one on anything in
   its queue of input, and what goes into the queue isn't traced
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
-- **The menus:** the confirm dialog and the credits window in the
-  middle of the screen, the credits fading to see-through, RESUME's label
-  2 above its button, Esc on
+- **The menus:** the confirm dialog and the other windows in the
+  middle of the screen, the credits fading to see-through, the toolkit's
+  brightness scaling colours, Normal as the level to start with,
+  `Button Action` played on a picture button's click, Esc on
   the main menu asking to quit, a button's sound on the click, the shortcut's
   line shown once Alt is pressed, a fixed-width font's cell, and the
   sounds named `.wav` being the `.ogg` files of their names

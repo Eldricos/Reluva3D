@@ -56,7 +56,8 @@ Each phase ends with something that runs and is committed.
    `Intro.bik`), then the main menu's screen with its movies and the
    startup song, without the menu.
 6. **Front end** (under way, [systems/menus.md](systems/menus.md): the
-   main menu's buttons, the credits and the confirm dialog): `Interface/Screens` (310 files: buttons, layouts,
+   main menu's buttons, the credits, the difficulty window and the
+   confirm dialog; the settings worked out in part): `Interface/Screens` (310 files: buttons, layouts,
    hover and press sounds) and the menu definitions in `Rules.txt`
    (`CStarTrekMainMenu`, `CAnimatedMenuInfo`...). Main menu over
    `Main Screen Background.bik`, then each screen, matched against
