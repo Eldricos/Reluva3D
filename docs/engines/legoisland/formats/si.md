@@ -151,7 +151,8 @@ end chunk timed when it ends; a container has only the end chunk.
 
 ## In Reluva
 
-`SiFile` (`src/engines/legoisland/formats/si.cpp`) reads the header,
+The data viewer's page shows each SI file's objects and plays their
+media. `SiFile` (`src/engines/legoisland/formats/si.cpp`) reads the header,
 the tree of objects, and an index of every chunk, and reads an object's
 pieces, split chunks joined, when asked; `rebuildMediaFile` makes a
 medium's pieces the `.bmp`, `.wav`, `.flc` or `.smk` file it was made

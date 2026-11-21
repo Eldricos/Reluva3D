@@ -10,6 +10,14 @@ reluva_add_engine(legoisland
         formats/si.cpp
         legoisland.cpp)
 
+# Its data viewer, in reluva-viewer only (docs/DEVELOPMENT.md, The data
+# viewer).
+reluva_add_engine_viewers(legoisland
+    ACCESSOR legoislandMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/si_viewer.cpp)
+
 # Its reluva-tool commands (reluva-tool help legoisland lists them).
 reluva_add_engine_tools(legoisland
     SOURCES

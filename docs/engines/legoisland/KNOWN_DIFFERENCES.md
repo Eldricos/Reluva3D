@@ -26,4 +26,7 @@ None yet.
 ## Additions outside the game
 
 <!-- What Reluva adds around the game: viewers, tools, settings. -->
-None yet.
+- **Importing** from the CD into one folder, so the game runs without
+  it ([systems/game-files.md](systems/game-files.md#importing-it)).
+- **The data viewer** and `reluva-tool legoisland` commands, for the SI
+  files ([formats/si.md](formats/si.md#in-reluva)).

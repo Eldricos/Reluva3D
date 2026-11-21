@@ -18,7 +18,8 @@ It recognises the English 1.0 release, and other releases by their
 files' names, and imports the game from its CD into one folder
 ([systems/game-files.md](systems/game-files.md)). It reads the SI
 archives, and gives back their pictures, sounds and animations as the
-files they were made from ([formats/si.md](formats/si.md)). Run, it shows
+files they were made from ([formats/si.md](formats/si.md)), which the
+data viewer shows and plays. Run, it shows
 an empty screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
@@ -28,6 +29,13 @@ copy of it), copies everything the game needs, 520 MB, into a folder of
 its own; started from an install folder, *Add CD or installed game...*
 adds the CD. *Add Game...* recognises an install folder as it is, but
 without the CD's scripts the game won't be able to run from it.
+
+**The data viewer:** `reluva-viewer` with the game. Its page shows the SI
+files' objects, as a tree, and the selected one's details; a still is
+drawn, and a sound, FLC or Smacker animation played. Up/Down pick an
+object (PageUp/PageDown by 20, Home/End), Left/Right the SI file, M
+shows media only or every object, Space plays or stops, A plays each
+as it's picked.
 
 ## This folder
 
@@ -50,6 +58,7 @@ without the CD's scripts the game won't be able to run from it.
 | `legoisland.cpp` | The `MetaEngine` (name, making an `Engine`, importing) and the `Engine` |
 | `detection.cpp` | The releases it recognises, and finding and copying the game's parts for an import |
 | `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
+| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
 
 ## Tests

@@ -29,6 +29,9 @@ Not yet.
 ### What the automated checks don't cover
 
 <!-- What only a person playing can check. -->
+- The data viewer's page: that its stills look right and its sounds and
+  animations play at the right speed; checked by eye on the English 1.0
+  release.
 
 ## A playthrough by hand
 
@@ -38,4 +41,4 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| | | | |
+| November 2026 | English 1.0 | Linux | Importing the CD; the data viewer on every SI file: the jukebox's stills, the intro's Smacker movie, the history book's letters, by eye |

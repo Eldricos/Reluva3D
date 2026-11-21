@@ -39,3 +39,6 @@ Reluva decodes SMK2 and SMK4 in `src/video/smacker.cpp`
 
 - **`stharbinger`**: Harbinger's intro, cut scenes and action sequences
   ([videos.md](../../engines/stharbinger/formats/videos.md)).
+- **`legoisland`**: LEGO Island's 25 movies (the intro, the endings,
+  the credits), in its SI archives, in its data viewer so far
+  ([si.md](../../engines/legoisland/formats/si.md#each-formats-pieces)).
