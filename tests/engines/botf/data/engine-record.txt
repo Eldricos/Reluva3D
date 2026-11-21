@@ -6,7 +6,7 @@ menu.shown: 3650ee45940809d6
 menu.new game pointed at: e2406750c63cfac6
 menu.continue pressed: 3650ee45940809d6
 setup.shown: c2b55b030cfbbf1f
-setup.difficulty pressed: 40f0596795bbbb5f
+setup.difficulty pressed: c2b55b030cfbbf1f
 setup.difficulty changed: 0dce04719f99d8ce
 setup.level changed: 1ec4a944130ad233
 setup.levels all set: 0dce04719f99d8ce

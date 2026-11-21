@@ -63,13 +63,16 @@ void MainMenu::draw(Surface &screen) const {
         font->drawInColor(screen, kVersionX, kVersionY, _version, kVersionColor);
 }
 
-void MainMenu::setGameInProgress(bool inProgress) {
+void MainMenu::setGameInProgress(bool inProgress, bool autosaved) {
     // The recording, at the start with no game: these three are dimmed.
-    // Continue loads the last game played (the manual), which a first start
-    // hasn't got either.
+    // Continue goes on with the last game played (the manual), from its
+    // autosave when the game was left (the user, in the game): a fresh
+    // install's is empty.
     _disabled.clear();
     if (!inProgress)
-        _disabled = {kContinue, kSaveGame, kRetire};
+        _disabled = {kSaveGame, kRetire};
+    if (!inProgress && !autosaved)
+        _disabled.insert(kContinue);
 }
 
 MainMenu::Choice MainMenu::handle(const Event &e) {

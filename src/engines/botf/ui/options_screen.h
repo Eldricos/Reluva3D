@@ -52,6 +52,7 @@ std::map<std::string, std::string> optionsIniValues(const GameOptions &options);
 /** The options screen. */
 class OptionsScreen : LayoutScreen {
 public:
+    using LayoutScreen::repeating;
     using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kAccepted, kCancelled };
 
@@ -64,6 +65,11 @@ public:
         _list = 0;
     }
     void draw(Surface &screen) const;
+    /**
+     * The time, in milliseconds: a timer's arrow held steps again.
+     * @return whether the options changed
+     */
+    bool tick(uint64_t millis);
     /**
      * Mouse clicks on the controls (a click on a setting changes it; a click
      * or a drag on a volume sets it), and Return/Escape for Accept/Cancel.

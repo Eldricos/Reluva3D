@@ -53,9 +53,16 @@ constexpr Color kTimerColor{173, 227, 115}; // the two timers
 const char *const kShapePictures[] = {"cc_gsir.tga", "cc_gsel.tga", "cc_gsrg.tga", "cc_gssp.tga"};
 const char *const kSizePictures[] = {"cc_gzsm.tga", "cc_gzmd.tga", "cc_gzlg.tga"};
 
+bool isTimerArrow(int32_t id) {
+    return id == kStrategicLess || id == kStrategicMore || id == kTacticalLess || id == kTacticalMore;
+}
+
 } // namespace
 
 Error SetupScreen::load() {
+    // Only Accept and Cancel light while held; the settings just act (the
+    // user, in the game).
+    _litWhileHeld = {kAccept, kCancel};
     return loadLayouts("gmesetup.wdf",
                        {kAccept, kCancel, kMinorRaces, kDifficulty, kStrategicLess, kStrategicMore, kTacticalLess,
                         kTacticalMore, kRandomEvents, kCombat, kVictory, kShape, kSize, kCivButtons[0], kCivButtons[1],
@@ -182,10 +189,20 @@ SetupScreen::Result SetupScreen::handle(const Event &e) {
         return Result::kOpen;
     if (e.type == EventType::kMouseDown) {
         _pressed = buttonAt(e.mouseX, e.mouseY);
+        // The timers' arrows step as soon as they're pressed, and on while
+        // held (the user, in the game).
+        if (isTimerArrow(_pressed)) {
+            sound(UiSound::kSetupClick);
+            click(_pressed, false);
+            startRepeat(_pressed);
+        }
     } else if (e.type == EventType::kMouseUp) {
         // A button acts when the mouse comes up on it, as Windows buttons do.
-        const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
+        int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
+        if (isTimerArrow(_pressed))
+            id = 0;
         _pressed = 0;
+        _repeating = 0;
         if (id == kAccept)
             return Result::kAccepted;
         if (id == kCancel)
@@ -196,6 +213,14 @@ SetupScreen::Result SetupScreen::handle(const Event &e) {
         }
     }
     return Result::kOpen;
+}
+
+bool SetupScreen::tick(uint64_t millis) {
+    setTime(millis);
+    const int due = repeatsDue();
+    for (int i = 0; i < due; ++i)
+        click(_repeating, false);
+    return due > 0;
 }
 
 void SetupScreen::draw(Surface &screen) {

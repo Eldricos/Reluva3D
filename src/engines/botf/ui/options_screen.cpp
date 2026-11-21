@@ -86,6 +86,10 @@ constexpr const char *kUnlitBar = "volbarof.tga";
 constexpr Color kValueColor{24, 101, 189};
 constexpr Color kTimerColor{173, 227, 115};
 
+bool isTimerArrow(int32_t id) {
+    return id == kStrategicLess || id == kStrategicMore || id == kTacticalLess || id == kTacticalMore;
+}
+
 } // namespace
 
 GameOptions optionsFromIni(const std::map<std::string, std::string> &ini) {
@@ -137,6 +141,9 @@ std::map<std::string, std::string> optionsIniValues(const GameOptions &o) {
 }
 
 Error OptionsScreen::load() {
+    // Only Accept and Cancel light while held; the settings just act (the
+    // user, in the game).
+    _litWhileHeld = {kAccept, kCancel};
     return loadLayouts("options.wdf", {kAccept, kCancel, kTitle, kVolumes[0], kVolumes[1], kVolumes[2], kVolumes[3],
                                        kToolTips, kCombat, kRandomEvents, kAutosave, kStrategicLess, kStrategicMore,
                                        kTacticalLess, kTacticalMore});
@@ -175,6 +182,14 @@ bool OptionsScreen::listChoice(int x, int y) {
     return false;
 }
 
+bool OptionsScreen::tick(uint64_t millis) {
+    setTime(millis);
+    const int due = repeatsDue();
+    for (int i = 0; i < due; ++i)
+        click(_repeating);
+    return due > 0;
+}
+
 void OptionsScreen::setVolume(int32_t slider, int x) {
     const Placed *p = find(slider);
     const int cells = p ? p->widget->units : 0;
@@ -211,6 +226,13 @@ OptionsScreen::Result OptionsScreen::handle(const Event &e) {
             return Result::kOpen;
         }
         _pressed = buttonAt(e.mouseX, e.mouseY);
+        // The timers' arrows step as soon as they're pressed, and on while
+        // held (the user, in the game).
+        if (isTimerArrow(_pressed)) {
+            sound(UiSound::kClick);
+            click(_pressed);
+            startRepeat(_pressed);
+        }
         for (const int32_t id : kVolumes)
             if (const Placed *p = find(id); p && p->contains(e.mouseX, e.mouseY)) {
                 _dragging = id;
@@ -227,8 +249,11 @@ OptionsScreen::Result OptionsScreen::handle(const Event &e) {
             sound(UiSound::kEffectsVolume);
         _dragging = 0;
         // A button acts when the mouse comes up on it, as Windows buttons do.
-        const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
+        int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
+        if (isTimerArrow(_pressed))
+            id = 0;
         _pressed = 0;
+        _repeating = 0;
         if (id == kAccept)
             return Result::kAccepted;
         if (id == kCancel)

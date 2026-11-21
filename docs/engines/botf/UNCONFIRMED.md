@@ -35,17 +35,10 @@ None: nothing of the game's code has been read.
 - **The menu's sounds:** which of the same sound's entries the game
   plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
   Settled by: the game's code, or many more slider moves.
-- **On Load Game:** empty slots can't be chosen
-  ([systems/screens.md](systems/screens.md)). Settled by: the running game.
-- **On the options screen:** a click on a volume lighting the cells up to
-  the mouse, and dragging along it ([systems/screens.md](systems/screens.md)).
-  Settled by: the running game.
+- **A held timer arrow's pace:** half a second, then ten steps a second
+  ([systems/screens.md](systems/screens.md)). Settled by: a recording of
+  one held.
 
-- **On the screens:** a button shows its "selected" picture while it's
-  held; the empire screen's Accept does nothing until an empire is
-  chosen; clicking an emblem chooses its empire
-  ([systems/screens.md](systems/screens.md)).
-  Settled by: watching them in the running game.
 - **The colour key is magenta** (31, 0, 31 in 15-bit colour): the
   executable sets it, and magenta is what the pictures leave undrawn
   ([formats/wdf.md](formats/wdf.md)). Settled by: no picture showing pink

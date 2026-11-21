@@ -120,7 +120,8 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
   reference into the unwritten window, or by `result.lst` once its pieces
   are read.
 - The timers' other values, from a game set up with them.
-- What `Auto.sav` and `Last.sav` are: presumably the autosave and the
-  game the main menu's Continue loads, `Last.sav` a copy of an autosave
-  (its header names it `auto.sav`).
+- What `Auto.sav` and `Last.sav` are: presumably the autosave and a copy
+  of it (`Last.sav`'s header names it `auto.sav`). The main menu's
+  Continue goes on from an autosave (the user, in the game); which of the
+  two it reads isn't known.
 - The rest of `gameInfo`, and every other file in the archive.

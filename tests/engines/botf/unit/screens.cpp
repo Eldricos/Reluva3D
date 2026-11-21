@@ -128,6 +128,24 @@ void testSetupScreen() {
     for (int i = 0; i < 40; ++i)
         click(9215);
     CHECK(s.tacticalTimer == int(tacticalTimerChoices().size()) - 1);
+    // Held, an arrow steps at once, again after half a second, then every
+    // tenth of a second, until let go.
+    auto mouseAt = [&](EventType t, int32_t id) {
+        const size_t i = size_t(std::find(ids.begin(), ids.end(), id) - ids.begin());
+        Event e;
+        e.type = t;
+        e.button = MouseButton::kLeft;
+        e.mouseX = int(i) * 20 + 5;
+        e.mouseY = 105;
+        screen.handle(e);
+    };
+    CHECK(!screen.tick(1000));
+    mouseAt(EventType::kMouseDown, 9214);
+    CHECK(s.tacticalTimer == int(tacticalTimerChoices().size()) - 2 && screen.repeating());
+    CHECK(!screen.tick(1499) && screen.tick(1500) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 3);
+    CHECK(screen.tick(1800) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 6);
+    mouseAt(EventType::kMouseUp, 9214);
+    CHECK(!screen.repeating() && !screen.tick(3000) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 6);
     // Letting go off the button does nothing; Accept and Cancel end it.
     Event down;
     down.type = EventType::kMouseDown;
@@ -198,7 +216,10 @@ void testMainMenu() {
     CHECK(click(1) == MainMenu::Choice::kNewSinglePlayer && click(2) == MainMenu::Choice::kNewMultiplayer);
     CHECK(click(3) == MainMenu::Choice::kLoadGame && click(5) == MainMenu::Choice::kOptions);
     CHECK(click(6) == MainMenu::Choice::kHallOfFame && click(8) == MainMenu::Choice::kQuit);
-    // With one, they can be used.
+    // With an autosave, Continue can be used, to go on with it.
+    menu.setGameInProgress(false, true);
+    CHECK(click(0) == MainMenu::Choice::kContinue && click(4) == MainMenu::Choice::kNone);
+    // With a game, all of them.
     menu.setGameInProgress(true);
     CHECK(click(0) == MainMenu::Choice::kContinue && click(4) == MainMenu::Choice::kSaveGame &&
           click(7) == MainMenu::Choice::kRetire);

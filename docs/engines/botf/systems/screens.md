@@ -51,7 +51,13 @@ and their order on the screen, as the recording shows them.
   screenshot of it lit matches Reluva's, 0.3 seconds into the pulse, but
   the pointer.
 - **Buttons that can't be used:** at the start, with no game in progress,
-  Continue, Save Game and Retire are dimmed and don't light. Reluva draws
+  Continue, Save Game and Retire are dimmed and don't light. Continue can
+  be used without a game in progress when there's an autosave: the user
+  closed the game during one, without saving, and on starting it again
+  Continue went on where they had left off. A fresh install's `Auto.sav`
+  and `Last.sav` are empty, so it's dimmed then. Reluva lets it be used
+  when either holds a saved game; which one the game loads isn't known
+  ([formats/sav.md](../formats/sav.md)). Reluva draws
   them at 35% of their brightness *(seen, not traced)*: against their own
   `mc*1` pictures, the recording's buttons that can be used come out at
   82-89% (the recording's own levels), these three at 29-33%, 35-39% of
@@ -111,7 +117,7 @@ and checked against a screenshot of the game's screen.
   are lit from the left and unlit past the volume, from the slider's own x
   (the third pixel of each 7 lit), as Reluva draws them. A click lights the
   cell under the mouse and those left of it, and dragging follows the
-  mouse *(guessed)*. The manual: "After you adjust a volume slider, a sound
+  mouse (the user, in the game). The manual: "After you adjust a volume slider, a sound
   sample will play so you can hear the new volume level."
 - **The volumes and settings at first** are `Stbof.ini`'s
   ([game-files.md](game-files.md)): after a fresh install voice, music and
@@ -200,7 +206,7 @@ of twelve slots, the manual's "12 slots available for saved games".
   lights the chosen slot with its second picture. Accept is dimmed until a
   slot is chosen (about 38% as bright as Cancel in the screenshot, the main
   menu's dimming). Empty slots are drawn as the others, not dimmed; one
-  can't be chosen *(guessed)*.
+  can't be chosen (the user, in the game).
 - **The text** is in the colour of the saved game's empire, the player's
   (`gameInfo`, [formats/sav.md](../formats/sav.md)), in both fields: not
   the fonts' colours (the names' font names (1, 0, 0)). Measured from a
@@ -454,9 +460,15 @@ recording:
   so the empire screen's Accept and Load Game's come back to the main menu,
   and the menu's other buttons do nothing yet
   ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
-- A button shows its "selected" picture while it's held *(guessed)*; the
-  empire screen's Accept does nothing until an empire is chosen
-  *(guessed)*; clicking an emblem chooses its empire *(guessed)*.
+- **Held buttons** (the user, in the game): the main menu's buttons and
+  the screens' Accept and Cancel show their "selected" picture while
+  held; the setup and options screens' settings don't, and just act when
+  clicked. A timer's arrow held counts on: Reluva steps it when pressed,
+  again after half a second, then ten times a second *(guessed: how fast
+  the game's count isn't known)*.
+- **The empire screen:** Accept lights when clicked before an empire is
+  chosen, but does nothing; clicking an emblem chooses its empire, as its
+  name does (the user, in the game).
 
 ## Sources and checks
 
@@ -486,9 +498,7 @@ recording:
 
 ## Open questions
 
-- Whether the game shows a held button's "selected" picture on the setup
-  and empire screens, as the main menu does under the pointer.
-- On the options screen: whether a volume's click works as Reluva's does.
+- How fast a held timer arrow counts. Settled by a recording of one held.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
@@ -501,7 +511,7 @@ recording:
   not in `stbof.res` (each of its 6,013 files searched), the saves,
   `Stbof.ini` or the registry. `Trek.icd`, SafeDisc's encrypted
   executable, is the one place left, and it shows no readable text.
-- When Continue can be used: with a saved game, or only with a game in
-  progress.
+- Which file Continue loads, `Auto.sav` or `Last.sav`, and whether a
+  saved game in a slot is enough for it.
 - What `es_?icn0`, `es_?0` and `es_?1` are for.
 - How the game picks its text colours.

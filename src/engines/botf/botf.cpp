@@ -71,6 +71,22 @@ constexpr uint64_t kCursorFlashMillis = 300;
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
+// Whether the install has an autosave Continue can go on from: auto.sav
+// or last.sav (any case; which one the game reads isn't known) holding a
+// saved game, not a fresh install's empty file.
+bool hasAutosave(const std::filesystem::path &dir) {
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
+        std::string name = entry.path().filename().string();
+        for (char &c : name)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        SaveSummary save;
+        if ((name == "auto.sav" || name == "last.sav") && !readSaveSummary(entry.path(), save))
+            return true;
+    }
+    return false;
+}
+
 // The saved games in the install's slots, game0.sav to game11.sav (any
 // case). Only the install's own: the CD has the tutorials' saves too, but a
 // slot emptied in the install should stay empty. A save that can't be read
@@ -187,6 +203,7 @@ public:
             return err;
         if (auto it = files.ini().find("VERSION"); it != files.ini().end())
             menu.setVersion(it->second);
+        menu.setGameInProgress(false, hasAutosave(_target.path));
         if (Error err = options.load())
             return err;
         if (Error err = loading.load())
@@ -235,6 +252,8 @@ public:
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         return Error::success();
                     const MainMenu::Choice c = menu.handle(ev);
+                    // Continue would load the autosave, but saved games can't
+                    // be loaded yet: it stays on the main menu.
                     if (c == MainMenu::Choice::kQuit)
                         return Error::success();
                     if (c == MainMenu::Choice::kNewSinglePlayer) {
@@ -342,6 +361,11 @@ public:
             menu.setTime(_sys.getMillis());
             empires.setTime(_sys.getMillis());
             if ((showing == Showing::kMenu && menu.pulsing()) || (showing == Showing::kEmpires && empires.pulsing()))
+                redraw = true;
+            // A timer's arrow held steps on.
+            if (showing == Showing::kSetup && setup.tick(_sys.getMillis()))
+                redraw = true;
+            if (showing == Showing::kOptions && options.tick(_sys.getMillis()))
                 redraw = true;
             if (showing == Showing::kLoad || showing == Showing::kMultiplayer) {
                 const bool cursor = _sys.getMillis() / kCursorFlashMillis % 2 == 0;

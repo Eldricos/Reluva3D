@@ -51,6 +51,8 @@ public:
     void setTime(uint64_t millis) { _now = millis; }
     /** Whether a button is pulsing: the screen changes as time passes. */
     bool pulsing() const { return _pulsing != 0; }
+    /** Whether a held button is acting again and again (the timers' arrows). */
+    bool repeating() const { return _repeating != 0; }
     /** Where the screen's sounds go (the engine's); none by default. */
     void setSoundHandler(std::function<void(UiSound)> handler) { _sound = std::move(handler); }
 
@@ -116,6 +118,11 @@ protected:
         if (_sound)
             _sound(s);
     }
+    // A held button that acts again while it's held: from now, after a
+    // pause, then at a steady rate (the timers' arrows).
+    void startRepeat(int32_t button);
+    // How many times the held button is due to act again by setTime's time.
+    int repeatsDue();
 
     Assets &_assets;
     const Lexicon &_lexicon;
@@ -139,6 +146,9 @@ protected:
     int32_t _pulsing = 0;                        // the button pulsing (setPulsing), or 0
     uint64_t _pulseStart = 0;                    // when it began, in setTime's milliseconds
     uint64_t _now = 0;
+    std::set<int32_t> _litWhileHeld; // if any, the only buttons lit while held
+    int32_t _repeating = 0;          // the held button acting again while held, or 0
+    uint64_t _repeatNext = 0;        // when it acts next, in setTime's milliseconds
     std::function<void(UiSound)> _sound;
 };
 

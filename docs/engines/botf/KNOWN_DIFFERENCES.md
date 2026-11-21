@@ -18,8 +18,10 @@ None yet.
 
 ## Not yet as the original
 
-- **On the main menu,** Continue, Save Game and Retire can't be used (as
-  in the game with nothing in progress).
+- **On the main menu,** Save Game and Retire can't be used (as in the
+  game with nothing in progress), and Continue, usable with an autosave
+  as in the game, stays on the main menu: saved games can't be loaded
+  yet.
 - **No multiplayer:** Multiplayer Setup is there, but its Connect does
   nothing: Reluva can't play over a network, modem or serial cable yet,
   nor with the original game.

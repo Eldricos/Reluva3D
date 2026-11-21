@@ -40,10 +40,11 @@ public:
     MainMenu(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
     Error load();
     /**
-     * Whether a game is in progress: without one, Continue, Save Game and
-     * Retire can't be used.
+     * Whether a game is in progress: without one, Save Game and Retire
+     * can't be used, nor Continue, unless there's an autosave to go on
+     * from.
      */
-    void setGameInProgress(bool inProgress);
+    void setGameInProgress(bool inProgress, bool autosaved = false);
     /**
      * The version drawn at the bottom left, as the game draws Stbof.ini's
      * (its "Version" key); none when empty.

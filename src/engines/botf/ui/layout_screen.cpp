@@ -13,6 +13,11 @@ namespace reluva::botf {
 
 namespace {
 
+// A held timer arrow steps again after this pause, then at this rate
+// (guessed: the user saw them count while held, not how fast).
+constexpr uint64_t kRepeatDelayMillis = 500;
+constexpr uint64_t kRepeatMillis = 100;
+
 Error loadLayout(Assets &assets, const char *name, WindowLayout &layout) {
     std::vector<uint8_t> data;
     if (Error err = assets.archive().read(name, data))
@@ -196,7 +201,8 @@ void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selecte
                 continue;
             }
             const bool disabled = _disabled.count(w.id) > 0;
-            const bool lit = !disabled && (w.id == _pressed || selected.count(w.id));
+            const bool held = w.id == _pressed && (_litWhileHeld.empty() || _litWhileHeld.count(w.id));
+            const bool lit = !disabled && (held || selected.count(w.id));
             drawButton(_assets, screen, w, x, y, lit, disabled ? kDisabledBrightness : 100, clip);
             if (!lit && !disabled && w.id == _pulsing)
                 drawPulse(_assets, screen, w, x, y, pulseAmount(_now - _pulseStart), clip);
@@ -301,6 +307,18 @@ void LayoutScreen::drawPicture(Surface &screen, int32_t widget, const std::strin
     if (const Placed *p = find(widget))
         if (const image::Image *img = _assets.picture(file))
             blitClipped(screen, *img, p->x, p->y, p->x, p->y, p->widget->w, p->widget->h);
+}
+
+void LayoutScreen::startRepeat(int32_t button) {
+    _repeating = button;
+    _repeatNext = _now + kRepeatDelayMillis;
+}
+
+int LayoutScreen::repeatsDue() {
+    int due = 0;
+    for (; _repeating && _now >= _repeatNext; _repeatNext += kRepeatMillis)
+        ++due;
+    return due;
 }
 
 Color LayoutScreen::fontColor(int32_t textBox) const {

@@ -55,6 +55,7 @@ std::map<std::string, std::string> setupIniValues(const GameSetup &setup);
 /** The single-player game setup screen. */
 class SetupScreen : LayoutScreen {
 public:
+    using LayoutScreen::repeating;
     using LayoutScreen::setSoundHandler;
     enum class Result { kOpen, kAccepted, kCancelled };
 
@@ -62,6 +63,11 @@ public:
     SetupScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
     Error load(); // the two layouts
     void draw(Surface &screen);
+    /**
+     * The time, in milliseconds: a timer's arrow held steps again.
+     * @return whether the setup changed
+     */
+    bool tick(uint64_t millis);
     /**
      * Mouse clicks on the controls (a click changes a setting, as in the
      * game; with Shift, a civilization level changes for every empire), and
