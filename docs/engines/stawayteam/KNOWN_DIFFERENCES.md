@@ -15,6 +15,9 @@ systems (a CD check, a mode the hardware no longer has). -->
   insert the original Star Trek Away Team CD now."*,
   [research/file-survey.md](research/file-survey.md#the-install)); Reluva
   plays from the install alone.
+- **Opening movies as a setting.** The original always plays them;
+  Reluva's "Opening movies" setting can leave them out
+  ([systems/startup.md](systems/startup.md)).
 
 ## Bugs fixed
 
@@ -24,7 +27,9 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-None yet.
+- **The main menu** shows its screen (its movies, logo and song) but not
+  its buttons; Esc goes back to the launcher
+  ([systems/startup.md](systems/startup.md)).
 
 ## Additions outside the game
 

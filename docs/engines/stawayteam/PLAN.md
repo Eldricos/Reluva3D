@@ -48,12 +48,14 @@ Each phase ends with something that runs and is committed.
      reads every such file to its last byte.
    - **The viewer's other pages** (done): sequences, models by animation
      and direction, fonts, sounds and the objects.
-5. **Sound and movies**: Ogg Vorbis for 1,484 files (music, effects,
-   711 character barks, 403 voice-overs); see
-   [Decisions](#decisions) for the decoder. Bink movies (all revision
-   `i`) through the existing `src/video/bink.cpp`. Intro sequence:
-   Activision, Paramount, Reflexive logos, then `Intro.bik`.
-6. **Front end**: `Interface/Screens` (310 files: buttons, layouts,
+5. **Sound and movies** (done, [systems/startup.md](systems/startup.md)):
+   Ogg Vorbis for 1,484 files (music, effects, 711 character barks, 403
+   voice-overs) through libvorbis ([Decisions](#decisions)); Bink movies
+   (all revision `i`) through the shared `video::MoviePlayer`. The game
+   plays its opening movies (Activision, Paramount, Reflexive, then
+   `Intro.bik`), then the main menu's screen with its movies and the
+   startup song, without the menu.
+6. **Front end** (next): `Interface/Screens` (310 files: buttons, layouts,
    hover and press sounds) and the menu definitions in `Rules.txt`
    (`CStarTrekMainMenu`, `CAnimatedMenuInfo`...). Main menu over
    `Main Screen Background.bik`, then each screen, matched against

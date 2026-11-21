@@ -4,15 +4,16 @@ detect.empty: 0
 detect.games: 1
 detect.description: Star Trek: Away Team (unknown release)
 play.result: ok
-play.frames: 2
+play.frames: 1
+play.title screen: c1e25f68e24834e5
 viewer.result: ok
-viewer.screen 0: 7dbad617a059d595
-viewer.screen 1: f87c4ee036903915
-viewer.screen 2: 058041707c0103d5
-viewer.screen 3: 4ebc76a312e4e909
-viewer.screen 4: c4a242b4aa45a9b9
-viewer.screen 5: 44de01648155a335
-viewer.screen 6: 219047ef203000ed
+viewer.screen 0: 983c31926ea3a043
+viewer.screen 1: f88f7d482ab38ac3
+viewer.screen 2: aafb161d74f4f003
+viewer.screen 3: 671e5fbf4e00965d
+viewer.screen 4: d0085cf1e5bccdfd
+viewer.screen 5: 0359bbc20ca3d199
+viewer.screen 6: afa73d4d66e74f0d
 viewer.screen 7: 11feffc93174639a
 viewer.screen 8: 79f6fb1ac8578846
 viewer.screen 9: d37222b72cfdc44e

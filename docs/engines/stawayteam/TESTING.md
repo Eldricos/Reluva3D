@@ -23,7 +23,9 @@ Reading `DATA.dat` is the common ZIP reader's, tested in
 game's files: a small install of its own (the program, and a `DATA.dat`
 signed as the game's with a `Rules.txt`, two pictures, a sequence, a
 model, a font, a sound and a script, all made in the test), found as an
-unknown release, started and closed; the data viewer run on it: its
+unknown release, started (its movies not there, so the main menu's
+screen, its picture placed and its song, a checksum of the screen) and
+closed; the data viewer run on it: its
 pictures shown on each background, zoomed, by folder and without the
 status line, then each page in turn (the sequence stepped, the model
 turned, the font, the sound played, the objects), a checksum of each
@@ -55,8 +57,11 @@ stawayteam frame-png`.
 
 1. Add the install's folder in the launcher: it's found as "Star Trek:
    Away Team".
-2. Start it: an empty screen, until Esc. With `DATA.dat` missing or
-   damaged, it says so instead.
+2. Start it: the four opening movies, each skipped by a key or a click,
+   with their sound; then the main menu's screen: the starry background
+   moving, the title, the Reflexive logo bottom left, the startup song;
+   Esc leaves. With "Opening movies" off, the main menu's screen at once.
+   With `DATA.dat` missing or damaged, it says so instead.
 3. `reluva-viewer` with the game: the pictures, their colours and
    blended edges right on each background; sequences playing; a
    character's model (`Characters/Klingon.mdl16`) turning through its
@@ -67,4 +72,4 @@ stawayteam frame-png`.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files; all 6,949 files of `DATA.dat` read, their CRC-32s matching; `data-check`: all 753 objects and 48 scripts read; `frame-check`: all 671 frames read; `object-check`: all 3,969 objects in binary read; the viewer's pages on the real data, by their screens (the Klingon turning through `Idle`'s 12 directions) |
+| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files; all 6,949 files of `DATA.dat` read, their CRC-32s matching; `data-check`: all 753 objects and 48 scripts read; `frame-check`: all 671 frames read; `object-check`: all 3,969 objects in binary read; the viewer's pages on the real data, by their screens (the Klingon turning through `Idle`'s 12 directions); the opening movies and the main menu's screen, by their screens (sound not heard: no output here) |

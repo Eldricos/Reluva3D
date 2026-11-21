@@ -27,6 +27,10 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 - **The data viewer** (`reluva-viewer`) shows the pictures, sequences,
   models (each animation, turned every way), fonts, sounds, and every
   object and script as Reluva reads it.
+- **The game's start:** its four opening movies, each skipped by a key or
+  a click, then the main menu's screen, its movies and logo, with the
+  startup song; the menu's buttons aren't there yet
+  ([systems/startup.md](systems/startup.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
   [research/file-survey.md](research/file-survey.md).
@@ -40,8 +44,12 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   uses from the CD's `Setup` folder, where the install is loose: the
   program, `DATA.dat`, `texture.dat` and the movies. An installed copy
   can be imported the same way.
-- **The game** opens `DATA.dat` and reads its rules, then shows an empty
-  screen for now; Esc goes back to the launcher.
+- **The game** plays its opening movies (a key or a click skips each),
+  then shows the main menu's screen, without its menu yet; Esc goes back
+  to the launcher. The movies are the install's `DATA/Movies/` files.
+- **Settings** (with the game, or under Settings... for every game):
+  **Opening movies** leaves out the logos and the introduction, which
+  take over two minutes.
 - **The data viewer:** `reluva-viewer` with the game. Tab moves between
   its pages, Esc leaves. On every page, Left/Right step through its files,
   PageUp/PageDown by 10, Home/End to the first and last, F to the next
@@ -66,7 +74,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md), [text-object.md](formats/text-object.md), [binary-object.md](formats/binary-object.md), [rds.md](formats/rds.md), [frm16.md](formats/frm16.md), [pal.md](formats/pal.md) |
-| `systems/` | A page per part of how the game behaves, as it's worked out |
+| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen) |
 | [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds; [binary-objects.md](research/binary-objects.md), the objects saved in binary, and [classes.txt](research/classes.txt), the game's classes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
@@ -78,6 +86,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `ui/` | The game's screens: `movies.cpp` (playing a movie), `title.cpp` (the main menu's screen, for now without its menu) |
 | `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
 | `pages/` | The data viewer, in `reluva-viewer` only: `viewer.cpp` (its pages, Tab between them), a page each in `picture_viewer.cpp`, `sequence_viewer.cpp`, `model_viewer.cpp`, `font_viewer.cpp`, `sound_viewer.cpp`, `object_viewer.cpp`; what they share in `page.h`, `file_list.cpp`, `animation.cpp`, `draw.cpp` |
 | `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |

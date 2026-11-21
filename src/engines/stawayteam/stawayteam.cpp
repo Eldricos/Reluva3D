@@ -3,13 +3,18 @@
 
 // Star Trek: Away Team: the engine's MetaEngine (its name, the releases it
 // recognises, making an Engine to run one) and its Engine, which so far
-// reads the game's rules and shows an empty screen.
+// reads the game's rules, plays its opening movies and shows the main
+// menu's screen without its menu.
 
 #include "engines/engine.h"
 
+#include "audio/mixer.h"
 #include "common/fs.h"
+#include "common/settings.h"
 #include "common/zip.h"
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/ui/movies.h"
+#include "engines/stawayteam/ui/title.h"
 
 #include <system_error>
 
@@ -58,9 +63,13 @@ std::optional<std::filesystem::path> findGameFolder(const std::filesystem::path 
     return std::nullopt;
 }
 
+// The engine's settings (MetaEngine::engineOptions), as kept in reluva.ini.
+constexpr const char *kOpeningMovies = "opening_movies";
+
 /**
- * The game running: for now its archive opened and its rules read, then an
- * empty screen until the player quits.
+ * The game running: for now its archive opened and its rules read, its
+ * opening movies, then the main menu's screen without the menu until the
+ * player leaves.
  */
 class StawayteamEngine : public Engine {
 public:
@@ -79,20 +88,38 @@ public:
             return Error::fail("DATA.dat: Rules.txt: " + err.message);
         if (Error err = readTextObject(std::string(rules.begin(), rules.end()), _rules))
             return Error::fail("DATA.dat: Rules.txt: " + err.message);
-        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
+        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32))
             return err;
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
-        screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
-        for (bool running = true; running;) {
-            Event ev;
-            while (_sys.pollEvent(ev))
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
-                    running = false;
-            _sys.updateScreen(screen);
-            _sys.delayMillis(1);
+        screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
+
+        // One mixer for the whole game; without an audio device it plays
+        // silently.
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
+        struct AudioStop {
+            System &sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{_sys, audioOut};
+        audio::Mixer *sound = audioOut ? &mixer : nullptr;
+
+        const auto opening = _target.settings.find(kOpeningMovies);
+        if (opening == _target.settings.end() || opening->second != "0") {
+            for (const char *name : kOpeningMovieNames) {
+                // A movie that isn't there is passed over, as the game does.
+                const auto file = movieFile(_target.path, name);
+                if (file && !playMovie(_sys, screen, sound, *file))
+                    return Error::success();
+            }
         }
+        TitleScreen title(_sys, screen, _data, _target.path, _rules, sound);
+        title.run();
         return Error::success();
     }
 
@@ -158,6 +185,10 @@ public:
         plan.addPatchLabel.clear();
         plan.addFolderLabel.clear();
         return {plan};
+    }
+
+    std::vector<GameOption> engineOptions() const override {
+        return {{kOpeningMovies, "Opening movies", "The logos and the introduction, as the game starts", true, {}}};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

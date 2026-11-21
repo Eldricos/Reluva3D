@@ -82,12 +82,32 @@ GameTarget targetFor(const std::filesystem::path &dir) {
 }
 
 // A run of the game in `dir`: its error, or "ok", and the frames shown.
-std::string play(const MetaEngine &engine, const std::filesystem::path &dir, int &frames) {
+// A run of the game in `dir`: its error, or "ok", the frames shown, and a
+// checksum of the screen when the window was closed.
+std::string play(const MetaEngine &engine, const std::filesystem::path &dir, int &frames,
+                 std::string *screen = nullptr) {
     ScriptedSystem sys;
     const Error err = engine.create(sys, targetFor(dir))->run();
     frames = sys.frames();
+    if (screen)
+        *screen = sys.screens.empty() ? "" : sys.screens.back();
     return err ? err.message : "ok";
 }
+
+// Rules.txt with a main menu: a picture of DATA.dat's, a movie the install
+// hasn't got, and a song.
+const char *const kRules = "CStarTrekRules\r\n{\r\n\tFirst Map Name=Test Map\r\n\tStartup Song=Tone.ogg\r\n"
+                           "\tCustom Rules=CStarTrekCustomRules\r\n\t{\r\n\t\tMenu=Array\r\n\t\t{\r\n"
+                           "\t\t\tItem Count=1\r\n\t\t\tMenu=CAnimatedMenuInfo\r\n\t\t\t{\r\n"
+                           "\t\t\t\tMenu Name=Main Menu\r\n\t\t\t\tMenu Definition=CStarTrekMainMenu\r\n"
+                           "\t\t\t\t{\r\n\t\t\t\t\tNernie=Array\r\n\t\t\t\t\t{\r\n"
+                           "\t\t\t\t\t\tItem Count=2\r\n\t\t\t\t\t\tNernie=CMovieNernie\r\n"
+                           "\t\t\t\t\t\t{\r\n\t\t\t\t\t\t\tPosition=0,91\r\n"
+                           "\t\t\t\t\t\t\tMovie to Play=Missing.bik\r\n\t\t\t\t\t\t}\r\n"
+                           "\t\t\t\t\t\tNernie=CImageNernie\r\n\t\t\t\t\t\t{\r\n"
+                           "\t\t\t\t\t\t\tPosition=8,439\r\n\t\t\t\t\t\t\tImage=Main Menu/Logo\r\n"
+                           "\t\t\t\t\t\t}\r\n\t\t\t\t\t}\r\n\t\t\t\t}\r\n\t\t\t}\r\n\t\t}\r\n"
+                           "\t}\r\n}\r\n";
 
 void engineTest(const std::filesystem::path &tmp) {
     test::Record rec;
@@ -110,7 +130,8 @@ void engineTest(const std::filesystem::path &tmp) {
         stawayteam::frameFile(3, 1, 1, 1, 0x2024, {{{0x81, 0x02, 0xe0, 0x07}}, {{0x80}}, {{0x01, 0x1f, 0x00, 0x82}}});
     using stawayteam::solidFrame;
     const std::vector<test::ZipFile> files = {
-        {"Rules.txt", test::toBytes("CStarTrekRules\r\n{\r\n\tFirst Map Name=Test Map\r\n}\r\n"), {}},
+        {"Rules.txt", test::toBytes(kRules), {}},
+        {"Cache/Interface/Screens/Main Menu/Logo.frm16", sprite, {}},
         {"Cache/Textures/Test.frm16", texture, {}},
         {"Cache/Models/Icon.frm16", sprite, {}},
         {"Cache/Sequences/Blink.seq16",
@@ -125,14 +146,17 @@ void engineTest(const std::filesystem::path &tmp) {
     rec.add("detect.games", static_cast<int64_t>(found.size()));
     rec.add("detect.description", found.empty() ? "" : found[0].description);
 
-    // Started, it reads the rules, shows its screen and leaves when closed.
+    // Started, it reads the rules; its movies aren't there to play, so the
+    // main menu's screen comes, its picture at its place, until it's closed.
     int frames = 0;
-    rec.add("play.result", play(*engine, dir, frames));
+    std::string screen;
+    rec.add("play.result", play(*engine, dir, frames, &screen));
     rec.add("play.frames", static_cast<int64_t>(frames));
+    rec.add("play.title screen", screen);
 
-    // The data viewer: the sprite on each background (they show through
-    // its transparent and blended pixels), then the texture, zoomed, the
-    // next folder's, and without the status line; then each page in turn:
+    // The data viewer: the menu's sprite on each background (they show
+    // through its transparent and blended pixels), then the other sprite,
+    // zoomed, the next folder's (the texture), and without the status line; then each page in turn:
     // the sequence stepped, the model turned and its next frame, the font,
     // the sound played (no output here), and the objects, the next file's.
     // A checksum of each screen.

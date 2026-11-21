@@ -18,6 +18,9 @@ None yet.
 
 ## Inferred
 
+- **A key or a click skips a movie:** the game ends one on anything in
+  its queue of input, and what goes into the queue isn't traced
+  ([systems/startup.md](systems/startup.md#the-opening-movies)).
 - **A frame drawn by its origin:** its top left at the point less its
   origin, as the sequences' bounds have them
   ([formats/binary-object.md](formats/binary-object.md#behaviour)).
@@ -46,6 +49,8 @@ None yet.
 
 ## Guessed
 
+- **The main menu's movies and song loop,** the movies without sound
+  ([systems/startup.md](systems/startup.md#open-questions)).
 - **Points' 8 bytes as two whole numbers,** not two floats, in what
   Reluva shows of an object
   ([formats/binary-object.md](formats/binary-object.md#properties)).

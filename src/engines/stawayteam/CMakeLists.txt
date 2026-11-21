@@ -11,6 +11,8 @@ reluva_add_engine(stawayteam
         formats/class_table.cpp
         formats/frame.cpp
         formats/object_schema.cpp
+        ui/movies.cpp
+        ui/title.cpp
         formats/rds_script.cpp
         formats/text_object.cpp)
 
