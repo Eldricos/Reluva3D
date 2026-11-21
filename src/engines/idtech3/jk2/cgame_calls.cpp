@@ -187,9 +187,8 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
     if (_release != JediRelease::k102a) {
         // 1.03's numbering (jk2mp.exe 1.03's jump table): the language's
         // calls at 52 to 54 (ReadCharFromString with its new arguments);
-        // Ghoul2's GetBolt_NoRec_NoRot new at 285 (answered as NoRec, its
-        // engine's second flag not worked out: guessed), CollisionDetect at
-        // 287, and 1.02a's 285 to 300 at 286 and 288 to 302.
+        // Ghoul2's GetBolt_NoRec_NoRot new at 285, CollisionDetect at 287,
+        // and 1.02a's 285 to 300 at 286 and 288 to 302.
         const int32_t language = _cvars.integer("sp_language");
         if (number == kReadCharFromString)
             return language == 4 || language == 5 || language == 8 ? 1 : 0; // Language_IsAsian
@@ -198,8 +197,8 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         if (number == kReadCharFromString + 2)
             return _fonts.call(vm, jk2::FontSet::kReadCharAdvance, a, _time, draw);
         if (number == kG2ListSurfaces + 7)
-            number = kG2ListSurfaces + 6;
-        else if (number == kG2ListSurfaces + 8)
+            return _ghoul2.call(vm, jk2::Ghoul2Instances::kGetBoltUnturned, a);
+        if (number == kG2ListSurfaces + 8)
             number = kG2ListSurfaces + 7;
         else if (number == kG2ListSurfaces + 9)
             return _ghoul2.call(vm, jk2::Ghoul2Instances::kCollisionDetect, a);

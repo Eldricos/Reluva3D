@@ -128,12 +128,10 @@ int32_t GameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
     BotInputJk2 &in = _jk2BotInputs[size_t(std::clamp(a[0], 0, 63))];
     // 1.03's numbering (jk2mp.exe 1.03's jump table): GetBolt_NoRec_NoRot
     // new at 588, so 1.02a's 588 to 599 are 589 to 600, and
-    // G2API_CollisionDetect new at 601. NoRec_NoRot sets one more flag of
-    // the engine's than NoRec, its meaning not worked out: answered as
-    // NoRec (guessed).
+    // G2API_CollisionDetect new at 601.
     if (_release != JediRelease::k102a && number >= kG2ListBones + 6) {
         if (number == kG2ListBones + 6)
-            return _ghoul2.call(vm, jk2::Ghoul2Instances::kGetBoltNoRec, a);
+            return _ghoul2.call(vm, jk2::Ghoul2Instances::kGetBoltUnturned, a);
         if (number == kG2CleanModels + 2)
             return _ghoul2.call(vm, jk2::Ghoul2Instances::kCollisionDetect, a);
         if (number <= kG2CleanModels + 1)

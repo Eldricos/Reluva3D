@@ -663,7 +663,7 @@ Bone34 Ghoul2Instances::modelPlacement(Instance &inst, const Model &m, int32_t t
 }
 
 bool Ghoul2Instances::boltMatrix(int32_t handle, int32_t modelIndex, int32_t bolt, int32_t time, const Vec3 &angles,
-                                 const Vec3 &origin, const Vec3 &scale, Bone34 &out) {
+                                 const Vec3 &origin, const Vec3 &scale, Bone34 &out, bool unturned) {
     const auto it = _instances.find(handle);
     const Model *m = model(handle, modelIndex);
     if (!m || bolt < 0 || size_t(bolt) >= m->bolts.size())
@@ -672,6 +672,19 @@ bool Ghoul2Instances::boltMatrix(int32_t handle, int32_t modelIndex, int32_t bol
     for (int r = 0; r < 3; ++r)
         if (scale[size_t(r)] != 0)
             use[size_t(r * 4 + 3)] *= scale[size_t(r)];
+    if (unturned) {
+        // 1.03's other way (jk2mp.exe 1.03's 0x4abad0, 1.04's 0x4aba00):
+        // the bolt's rows made of length 1, placed, not turned further.
+        for (size_t r = 0; r < 3; ++r) {
+            const float length =
+                std::sqrt(use[r * 4] * use[r * 4] + use[r * 4 + 1] * use[r * 4 + 1] + use[r * 4 + 2] * use[r * 4 + 2]);
+            if (length > 0)
+                for (size_t i = 0; i < 3; ++i)
+                    use[r * 4 + i] /= length;
+        }
+        out = mul(worldMatrix(angles, origin), use);
+        return true;
+    }
     Bone34 placed = mul(worldMatrix(angles, origin), use);
     // The original turns the result's axes a further 270 degrees of yaw.
     const Vec3 at{placed[3], placed[7], placed[11]};
@@ -775,9 +788,11 @@ int32_t Ghoul2Instances::call(Qvm &vm, Call which, const int32_t *a) {
         return 0;
     }
     case kGetBolt:
-    case kGetBoltNoRec: {
+    case kGetBoltNoRec:
+    case kGetBoltUnturned: {
         Bone34 m{};
-        if (!vm.checkWrite(a[3], 48) || !boltMatrix(a[0], a[1], a[2], a[6], vec(4), vec(5), vec(8), m))
+        if (!vm.checkWrite(a[3], 48) ||
+            !boltMatrix(a[0], a[1], a[2], a[6], vec(4), vec(5), vec(8), m, which == kGetBoltUnturned))
             return 0;
         for (int i = 0; i < 12; ++i)
             vm.writeInt(a[3] + 4 * i, Qvm::fromFloat(m[size_t(i)]));

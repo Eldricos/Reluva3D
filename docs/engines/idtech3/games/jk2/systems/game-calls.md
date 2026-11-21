@@ -76,7 +76,7 @@ Jedi Outcast's bots find their way by the module's own waypoints
 - **The settings**: `version` says the release's, and 1.04's `protocol`
   is 16; 1.03 makes `g_needpass` a read-only server setting.
 
-Reluva answers 588 as 587 (as the client game's 285) and 601 with the
+Reluva answers 588 as the client game's 285 and 601 with the
 traces its saber hits use, and takes each release's player state size
 (`jk2Layout`).
 

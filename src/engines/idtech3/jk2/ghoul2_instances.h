@@ -75,6 +75,8 @@ public:
         // 1.03's: (records out, ghoul2, angles, origin, time, entity, start,
         // end, scale, trace type, lod, radius); 16 records of 64 bytes.
         kCollisionDetect,
+        // 1.03's GetBolt_NoRec_NoRot: as kGetBolt, its axes not turned.
+        kGetBoltUnturned,
     };
     int32_t call(Qvm &vm, Call which, const int32_t *args);
 
@@ -122,9 +124,10 @@ public:
     bool pose(int32_t handle, int32_t modelIndex, int32_t time, std::vector<Bone34> &bones);
     // A bolt's placement in the world, as GetBoltMatrix gives it: the
     // instance placed at `origin`, turned by `angles`, scaled by `scale`
-    // (0 for 1), at `time`. False if there's no such bolt.
+    // (0 for 1), at `time`; `unturned`, as 1.03's NoRec_NoRot gives it.
+    // False if there's no such bolt.
     bool boltMatrix(int32_t handle, int32_t modelIndex, int32_t bolt, int32_t time, const Vec3 &angles,
-                    const Vec3 &origin, const Vec3 &scale, Bone34 &out);
+                    const Vec3 &origin, const Vec3 &scale, Bone34 &out, bool unturned = false);
     // Where an instance turned by `angles` at `origin` places its models
     // (their own space, scaled, to the world's).
     static Bone34 worldMatrix(const Vec3 &angles, const Vec3 &origin);

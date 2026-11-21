@@ -765,6 +765,11 @@ static void testGhoul2Instances() {
     CHECK(g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {100, 0, 0}, {0, 0, 0}, m));
     CHECK(near(m[3], 100) && near(m[7], 10) && near(m[11], 0));
     CHECK(near(m[0], 1) && near(m[4], 0) && near(m[1], 0) && near(m[5], 1));
+    // 1.03's NoRec_NoRot: the same place, the axes left on the quarter
+    // turn; scaled, only the place is.
+    CHECK(g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {100, 0, 0}, {2, 2, 2}, m, true));
+    CHECK(near(m[3], 100) && near(m[7], 20) && near(m[11], 0));
+    CHECK(near(m[0], 0) && near(m[4], 1) && near(m[1], -1) && near(m[5], 0) && near(m[10], 1));
     // An animation on the root: the child follows it; looping, it comes
     // round again; held, it stays on its last frame.
     CHECK(g2.setAnimation(h, 0, "root", 0, 2, Ghoul2Instances::kAnimLoop, 1, 0, -1));

@@ -89,10 +89,14 @@ jump table, from 0x4017a0):
   to 54 with the menus' three arguments ([syscalls.md](syscalls.md),
   Patches).
 - **Ghoul2**: 285 is new, `GetBoltMatrix_NoRecNoRot` (the name *(inferred)*):
-  285's bolt with two of the engine's flags set (0x1b1d23c and
-  0x1b1d26c), the first of which 284 sets too; 1.02a's 285 and 286 to 300
-  move to 286 and 288 to 302; 287 is new, `G2API_CollisionDetect`
-  (below).
+  284's bolt with a second of the engine's flags set (0x1b1d26c, beside
+  284's 0x1b1d23c), which sends `GetBoltMatrix` (1.03's 0x4abc50) another
+  way (0x4abad0; 1.04's 0x4abb80 and 0x4aba00, the same code). The
+  usual way places the bolt by the instance's angles, origin and scale,
+  then turns its axes a further 270 degrees of yaw; this one makes each
+  of the bolt's three rows of length 1, scales only its place, and
+  places it, not turned further. 1.02a's 285 and 286 to 300 move to 286
+  and 288 to 302; 287 is new, `G2API_CollisionDetect` (below).
 - **`G2API_CollisionDetect`** (records, instance, angles, origin, time,
   entity, start, end, scale, trace flags, detail, radius) traces a line
   through an instance's posed triangles (the engine's 0x4abf60) and fills
@@ -101,9 +105,9 @@ jump table, from 0x4017a0):
 - **The snapshot** is 77,212 bytes, the player state 1,380
   ([network.md](network.md), Patches).
 
-Reluva answers 285 as 284, the bolt's turn kept
-([../KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)), 287 with the triangles Reluva traces saber hits with,
-and the rest by their 1.02a numbers.
+Reluva answers 285 as above (`Ghoul2Instances::kGetBoltUnturned`), 287
+with the triangles Reluva traces saber hits with, and the rest by their
+1.02a numbers.
 
 ## Sources and checks
 
@@ -119,7 +123,9 @@ and the rest by their 1.02a numbers.
   crosshair, text in its fonts) and a scene from the player's eye: the
   level's items, the player's weapon, and as it fires the blaster's
   effects (its bolt, muzzle flash, sparks, smoke and burn marks). A
-  game-files step (`jk2-game`) records it.
+  game-files step (`jk2-game`) records it. A unit test
+  (`idtech3.unit.formats`, "ghoul2 instances") places a bolt both ways,
+  the patches' 285 and the usual.
 
 ### Open questions
 

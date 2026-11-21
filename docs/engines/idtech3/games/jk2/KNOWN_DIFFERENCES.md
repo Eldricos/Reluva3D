@@ -56,10 +56,6 @@ In the multiplayer game:
 
 In the 1.03 and 1.04 patches' multiplayer:
 
-- **Ghoul2's new bolt call** (the client game's 285, the game module's
-  588) is answered as the one before it, so a bolt it asks for keeps
-  its turn where the original's may leave it out
-  ([systems/cgame-calls.md](systems/cgame-calls.md), Patches).
 - **The text calls' punctuation**: whether a character may end a line
   is answered from Reluva's own list (`.,!?;:`), not the original's
   ([systems/syscalls.md](systems/syscalls.md), Patches).
