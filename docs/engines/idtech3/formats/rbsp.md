@@ -101,19 +101,25 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
   jk2mp.exe 0x46e399) *(confirmed)*. Single player's light amplification
   goggles clear to their own fog's colour instead (0x45d076; see
   [sp-interface.md](../games/jk2/systems/sp-interface.md)).
-- **Models in fog** (jk2sp.exe 0x4749a0 for MD3 models, 0x467bc0 for
-  Ghoul2's, 0x472990 for sprites): a sphere about the model (an MD3's,
-  its frame's centre moved by the entity, not turned, and its radius; a
-  Ghoul2 entity's, its origin and radius) picks the fog. The fogs are
-  tried in order: one whose box holds the whole sphere is taken; one
-  whose box holds a corner of the sphere's box is taken if it's the fog
+- **Models and effects in fog** (jk2sp.exe 0x4749a0 for MD3 models,
+  0x467bc0 for Ghoul2's, 0x472990 for every other kind of entity:
+  sprites, quads, beams, lines, electricity, cylinders, the saber's
+  glow; 0x477a85 for the client game's polygons): a box picks the fog.
+  A model's is about a sphere (an MD3's, its frame's centre moved by the
+  entity, not turned, and its radius; a Ghoul2 entity's, its origin and
+  radius), another entity's the sphere at its origin with its radius
+  field whatever the kind, a polygon's its points' bounds. The fogs are
+  tried in order: one whose box holds all of the box is taken; one
+  whose box holds its lowest or highest corner is taken if it's the fog
   the eye is in or has the same red and green (0x4731e0), else kept if
   it's the first such; when none is taken, the one kept (or none). So with
   the eye out of the water, an object half in it gets the whole level's
   fog, which comes after the water in the list. A fog's box is its brush's first six sides
   (0x45f1b5); the whole level's is ±65536, so it takes whatever no
   volume does. The eye's fog (0x473230) is the first whose box holds the
-  eye, if the level's contents there are fog *(confirmed)*.
+  eye, if the level's contents there are fog *(confirmed)*. Reluva fogs
+  models and effects so on Raven's maps; on Quake III's (Elite Force)
+  they're drawn unfogged, its own rule not yet read.
 
 ## In Reluva
 

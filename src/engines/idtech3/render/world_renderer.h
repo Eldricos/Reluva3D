@@ -69,6 +69,9 @@ public:
     // The level's fog a model is drawn in, as the original picks it for a
     // sphere about it (see the .cpp); none without the level's fogs.
     const ShaderCache::Fog *fogFor(const std::array<float, 3> &center, float radius) const;
+    // The same for a box: a polygon's bounds, or an effect's.
+    const ShaderCache::Fog *fogForBox(const std::array<float, 3> &low, const std::array<float, 3> &high) const;
+    bool raven() const { return _raven; } // Raven's RBSP, Jedi Outcast's
     // What each frame starts from with the level loaded: the whole level's
     // fog colour (in bytes, cut down) where it has one (0x45d09e; RBSP's
     // fog of brush -1, the last if several, 0x45f160), else black.

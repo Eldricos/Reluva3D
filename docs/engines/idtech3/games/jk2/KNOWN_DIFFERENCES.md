@@ -41,12 +41,6 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Not yet as the original
 
-- **Fog on sprites and beams.** The original picks a fog for each sprite
-  entity the way it does for models (0x472990), and its polygons and
-  other effects take the fog they're in; Reluva fogs models but draws
-  effects unfogged, except under the light amplification goggles, whose
-  fog covers everything.
-
 Left for after the rest is done and tested (its phase 11):
 
 - **EAX environmental sound.** The original sets each level's EAX

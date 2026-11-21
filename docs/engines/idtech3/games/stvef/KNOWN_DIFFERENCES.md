@@ -210,6 +210,12 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - single player's type 3 beam entity;
   - `deformVertexes text*` and `GL_SRC_ALPHA_SATURATE` blending;
   - autosprites on models (no model uses them).
+- **Fog on models and effects:** Elite Force's renderer's choice of a
+  model's or effect's fog, and of which shaders get a fog pass, isn't
+  read, so models and effects are drawn unfogged and every fogged
+  surface of the level gets a pass. Jedi Outcast's are done
+  ([rbsp.md](../../formats/rbsp.md),
+  [shader.md](../../formats/shader.md)).
 - **Drawn approximately:** `rgbGen lightingDiffuse` uses vertex colours, and
   `alphaGen portal`, `lightingSpecular` and `entity` are opaque. See
   [shader.md](../../formats/shader.md).

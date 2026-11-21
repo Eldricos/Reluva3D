@@ -222,7 +222,11 @@ private:
         bool depthHack = false;
         int material = -1; // set when drawn (-1: not drawn)
         bool beam = false; // drawn with beamMaterial()
-        float sort = 0;    // its material's
+        // The box its fog is picked by (WorldRenderer::fogForBox), if any.
+        bool fogged = false;
+        gfx::Vec3 fogLow{};
+        gfx::Vec3 fogHigh{};
+        float sort = 0; // its material's
     };
     std::vector<Effect> _effects;
     std::vector<WorldEffectBatch> _worldEffects;
@@ -235,8 +239,8 @@ private:
     std::vector<gfx::DynamicLight> _lights; // this view's
     gfx::Vec3 _eye{};
     std::optional<ShaderCache::Fog> _gogglesFog;
-    bool _goggles = false;                        // this view's
-    const ShaderCache::Fog *_effectFog = nullptr; // over the effects: the goggles'
+    bool _goggles = false;                       // this view's
+    const WorldRenderer *_effectWorld = nullptr; // whose fogs models and effects are in (Raven's levels)
     gfx::Vec3 _forward{1, 0, 0};
     float _focal = 1;                  // the view's 1 / tan(half its height's angle)
     int _otherEntities = 0;            // entities not drawn (kinds not done yet)

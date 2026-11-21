@@ -741,26 +741,31 @@ int WorldRenderer::leafAt(const std::array<float, 3> &p) const {
 }
 
 const ShaderCache::Fog *WorldRenderer::fogFor(const std::array<float, 3> &center, float radius) const {
-    if (_goggles)
-        return &*_goggles; // every model in the goggles' fog (0x4749bf)
-    // As the original's renderer for models and sprites (jk2sp.exe
-    // 0x4749a0, 0x467bc0, 0x472990): the first fog holding the whole
-    // sphere; else the first holding a corner of its box that's the one
-    // the eye is in or shares its red and green with it (0x4731e0), else
-    // the first holding a corner at all. The whole level's fog holds
-    // everything.
-    auto inside = [](const Fog &f, const std::array<float, 3> &p) {
-        for (size_t k = 0; k < 3; ++k)
-            if (p[k] < f.mins[k] || p[k] > f.maxs[k])
-                return false;
-        return true;
-    };
     std::array<float, 3> low{};
     std::array<float, 3> high{};
     for (size_t k = 0; k < 3; ++k) {
         low[k] = center[k] - radius;
         high[k] = center[k] + radius;
     }
+    return fogForBox(low, high);
+}
+
+const ShaderCache::Fog *WorldRenderer::fogForBox(const std::array<float, 3> &low,
+                                                 const std::array<float, 3> &high) const {
+    if (_goggles)
+        return &*_goggles; // everything in the goggles' fog (0x4749bf)
+    // As the original's renderer for models, sprites and polygons
+    // (jk2sp.exe 0x4749a0, 0x467bc0, 0x472990, 0x477a85): the fogs in
+    // turn; one holding the whole box is taken; one holding a corner of
+    // it is taken if it's the one the eye is in or shares its red and
+    // green with it (0x4731e0), else kept if it's the first such; at the
+    // end, the one kept. The whole level's fog holds everything.
+    auto inside = [](const Fog &f, const std::array<float, 3> &p) {
+        for (size_t k = 0; k < 3; ++k)
+            if (p[k] < f.mins[k] || p[k] > f.maxs[k])
+                return false;
+        return true;
+    };
     const Fog *first = nullptr;
     for (size_t i = 0; i < _fogs.size(); ++i) {
         const Fog &f = _fogs[i];

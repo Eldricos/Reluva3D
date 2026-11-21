@@ -329,7 +329,7 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
 }
 
 void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPortal) {
-    _effectFog = world ? world->goggles() : nullptr;
+    _effectWorld = world && (world->raven() || world->goggles()) ? world : nullptr;
     // The level's solid surfaces and models, with the dynamic lights over
     // them, and the effects that sort with them (marks); then everything
     // else as the original sorts it: by the shaders' sorts, whether the
@@ -352,7 +352,7 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
             _r.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
             _models.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, sortMin, sortMax,
                          p.shader, &p.color, p.oldFrame, p.backLerp, p.pose.get(),
-                         world ? world->fogFor(p.fogCenter, p.fogRadius) : nullptr);
+                         _effectWorld ? _effectWorld->fogFor(p.fogCenter, p.fogRadius) : nullptr);
         }
         _r.setDepthRange(1);
     };
@@ -920,6 +920,13 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
         fx.beam = true;
         fx.color = {1, 0, 0, 1};
     }
+    // Its fog by the sphere at its origin, its radius whatever the kind
+    // (jk2sp.exe 0x472f5f: sprites, quads, beams, lines, electricity...).
+    const V o = readVec(e, _layout.origin);
+    const float r = readFloat(e, _layout.radius);
+    fx.fogged = true;
+    fx.fogLow = {o[0] - r, o[1] - r, o[2] - r};
+    fx.fogHigh = {o[0] + r, o[1] + r, o[2] + r};
     _effects.push_back(fx);
 }
 
@@ -955,8 +962,9 @@ void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
         call.indexCount = fx.indexCount;
         _r.setDepthRange(fx.depthHack ? refent::kDepthHackRange : 1);
         _shaders.draw(fx.material, call, 0, time - fx.shaderTime, false, &fx.color);
-        if (_effectFog)
-            _shaders.drawFog(fx.material, call, *_effectFog, time - fx.shaderTime);
+        if (const ShaderCache::Fog *fog =
+                _effectWorld && fx.fogged ? _effectWorld->fogForBox(fx.fogLow, fx.fogHigh) : nullptr)
+            _shaders.drawFog(fx.material, call, *fog, time - fx.shaderTime);
     }
     _r.setDepthRange(1);
 }
@@ -997,7 +1005,17 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         for (uint32_t k = 1; k + 1 < n; ++k)
             for (uint32_t idx : {0u, k, k + 1})
                 _effectIndices.push_back(base + idx);
-        _effects.push_back({poly.shader, first, uint32_t(_effectIndices.size()) - first, {1, 1, 1, 1}, 0});
+        Effect fx{poly.shader, first, uint32_t(_effectIndices.size()) - first, {1, 1, 1, 1}, 0};
+        // Its fog by its points' bounds (jk2sp.exe 0x477a85).
+        fx.fogged = true;
+        for (size_t j = 0; j < 3; ++j)
+            fx.fogLow[j] = fx.fogHigh[j] = _effectVertices[base].pos[j];
+        for (size_t k = 1; k < n; ++k)
+            for (size_t j = 0; j < 3; ++j) {
+                fx.fogLow[j] = std::min(fx.fogLow[j], _effectVertices[base + k].pos[j]);
+                fx.fogHigh[j] = std::max(fx.fogHigh[j], _effectVertices[base + k].pos[j]);
+            }
+        _effects.push_back(fx);
     }
     for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < scene.entities.size(); ++i) {
         const std::vector<uint8_t> &e = scene.entities[i].bytes;
