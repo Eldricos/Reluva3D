@@ -4,11 +4,11 @@
 #include "engines/stawayteam/ui/main_menu.h"
 
 #include "audio/decode.h"
+#include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/movies.h"
 #include "video/movie_player.h"
 
 #include <array>
-#include <cstdlib>
 #include <fstream>
 #include <iterator>
 
@@ -29,6 +29,7 @@ namespace {
 // (0x503657): Rules.txt only places them.
 constexpr std::array<const char *, 6> kMainButtons = {"&START NEW GAME", "&LOAD SAVE GAME", "PLAY &NETWORK GAME",
                                                       "S&ETTINGS",       "&CREDITS",        "&QUIT"};
+constexpr size_t kCreditsButton = 4;
 constexpr size_t kQuitButton = 5;
 // The program's, not Rules.txt's Menu Font (0x50359a).
 const char *const kMainFont = "Placar Condensed";
@@ -38,36 +39,7 @@ const char *const kQuitQuestion = "Are you sure you want to exit the game?"; // 
 // says (0x4872b5).
 const char *const kQuestionFont = "Placar Blue";
 
-// A point as Rules.txt writes it: "x,y"; (0, 0) if it isn't there.
-void point(const TextObject *object, const std::string &key, int &x, int &y) {
-    x = y = 0;
-    const std::string *p = object ? object->value(key) : nullptr;
-    if (!p)
-        return;
-    const size_t comma = p->find(',');
-    x = std::atoi(p->c_str());
-    y = comma == std::string::npos ? 0 : std::atoi(p->c_str() + comma + 1);
-}
-
-std::string text(const TextObject *object, const std::string &key) {
-    const std::string *value = object ? object->value(key) : nullptr;
-    return value ? *value : std::string();
-}
-
 } // namespace
-
-const TextObject *menuDefinition(const TextObject &rules, const std::string &name) {
-    const TextObject *custom = rules.object("Custom Rules");
-    const TextObject *menus = custom ? custom->object("Menu") : nullptr;
-    if (!menus)
-        return nullptr;
-    for (const TextField *item : menus->items()) {
-        const std::string *menuName = item->object ? item->object->value("Menu Name") : nullptr;
-        if (menuName && *menuName == name)
-            return item->object->object("Menu Definition");
-    }
-    return nullptr;
-}
 
 ConfirmDialog::ConfirmDialog(const Archive &data, const TextObject &rules, std::string question, int screenW,
                              int screenH)
@@ -75,7 +47,7 @@ ConfirmDialog::ConfirmDialog(const Archive &data, const TextObject &rules, std::
       _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2) {
     const TextObject *def = menuDefinition(rules, "Confirm Dialog");
     int unused = 0;
-    point(def, "TextCenter Pos", unused, _questionY);
+    readPoint(def, "TextCenter Pos", unused, _questionY);
     (void)_questionFont.load(data, kQuestionFont);
     const std::array<const char *, 2> names = {"Yes", "No"};
     for (size_t i = 0; i < names.size(); ++i) {
@@ -84,12 +56,12 @@ ConfirmDialog::ConfirmDialog(const Archive &data, const TextObject &rules, std::
         int y = 0;
         int textX = 0;
         int textY = 0;
-        point(def, key + " Pos", x, y);
-        point(def, key + " Text Pos", textX, textY);
-        (void)_buttonFonts[i].load(data, text(def, key + " Font"));
+        readPoint(def, key + " Pos", x, y);
+        readPoint(def, key + " Text Pos", textX, textY);
+        (void)_buttonFonts[i].load(data, readText(def, key + " Font"));
         Button button(data, "Confirm Dialog", names[i], x, y);
-        button.setLabel(text(def, key + " Text"), &_buttonFonts[i], textX, textY);
-        button.setSound(gameSound(data, text(def, key + " Press Sound")));
+        button.setLabel(readText(def, key + " Text"), &_buttonFonts[i], textX, textY);
+        button.setSound(gameSound(data, readText(def, key + " Press Sound")));
         _buttons.add(std::move(button));
     }
     _buttons.setOrigin(_x, _y);
@@ -122,11 +94,11 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
             continue;
         const TextObject &nernie = *item->object;
         auto part = std::make_unique<Part>();
-        point(&nernie, "Position", part->x, part->y);
+        readPoint(&nernie, "Position", part->x, part->y);
         const std::string at = " at " + std::to_string(part->x) + "," + std::to_string(part->y);
         if (nernie.className == "CMovieNernie") {
             // "Main Screen Background.bik": a movie of the install's
-            std::string name = text(&nernie, "Movie to Play");
+            std::string name = readText(&nernie, "Movie to Play");
             if (name.size() > 4 && name.ends_with(".bik"))
                 name.resize(name.size() - 4);
             const auto file = movieFile(install, name);
@@ -139,7 +111,7 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
             _contents.push_back("movie " + name + at);
         } else if (nernie.className == "CImageNernie") {
             // "Main Menu/Reflexive Logo": a picture of DATA.dat's screens
-            const std::string image = text(&nernie, "Image");
+            const std::string image = readText(&nernie, "Image");
             part->picture = screenPicture(data, image);
             if (!part->picture.w) {
                 _contents.push_back("picture " + image + " missing");
@@ -161,8 +133,8 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
     int y = 0;
     int textX = 0;
     int textY = 0;
-    point(menu, "Menu Pos", x, y);
-    point(menu, "ButtonText Pos", textX, textY);
+    readPoint(menu, "Menu Pos", x, y);
+    readPoint(menu, "ButtonText Pos", textX, textY);
     const int spacing = menu ? int(menu->integer("Button Spacing").value_or(0)) : 0;
     const auto sound = gameSound(data, kMainButtonSound);
     for (const char *label : kMainButtons) {
@@ -175,7 +147,7 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
     }
 
     // The startup song, from Music/.
-    const std::string song = text(&rules, "Startup Song");
+    const std::string song = readText(&rules, "Startup Song");
     std::vector<uint8_t> bytes;
     auto decoded = std::make_shared<audio::Sound>();
     if (!song.empty() && !data.read("Music/" + song, bytes) && !audio::decodeSound(bytes, *decoded)) {
@@ -212,10 +184,18 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_credits) {
+                if (_credits->handleEvent(ev, _mixer))
+                    _credits.reset();
+                continue;
+            }
             // Esc asks to quit, as the Quit button does.
             const bool escape = ev.type == EventType::kKeyDown && ev.key == key::kEscape;
-            if (escape || _buttons.handleEvent(ev, _mixer) == int(kQuitButton))
+            const int chosen = escape ? int(kQuitButton) : _buttons.handleEvent(ev, _mixer);
+            if (chosen == int(kQuitButton))
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
+            else if (chosen == int(kCreditsButton))
+                _credits = std::make_unique<CreditsWindow>(_data, _rules, _screen.w, _screen.h, _sys.getMillis());
         }
         draw();
         _sys.updateScreen(_screen);
@@ -244,6 +224,8 @@ void MainMenu::draw() {
         }
     }
     _buttons.draw(_screen);
+    if (_credits)
+        _credits->draw(_screen, now);
     if (_dialog)
         _dialog->draw(_screen);
 }

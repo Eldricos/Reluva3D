@@ -1,6 +1,6 @@
 # Star Trek: Away Team: the menus
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/ui/main_menu.cpp`, `src/engines/stawayteam/ui/button.cpp`, `src/engines/stawayteam/ui/font.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/ui/main_menu.cpp`, `src/engines/stawayteam/ui/button.cpp`, `src/engines/stawayteam/ui/font.cpp`, `src/engines/stawayteam/ui/credits.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -8,8 +8,8 @@ The game's menus are screens laid out by `Rules.txt`: each a
 `CAnimatedMenuInfo` under `Custom Rules`, `Menu`, with its name and a
 definition, an object of the menu's own class that places its buttons
 and what's on its screen. The program makes the buttons, names them and
-says what each does. So far Reluva has the main menu, its buttons, and
-the dialog that asks before quitting.
+says what each does. So far Reluva has the main menu, its buttons, the
+credits, and the dialog that asks before quitting.
 
 ## How it works
 
@@ -99,6 +99,48 @@ calls `Confirm Dialog` (`CStarTrekConfirmDialogMenu`):
   Blue; a click plays their `Press Sound`, `!None.ogg`, a silence. The
   dialog's `OkButton` is for dialogs that only tell.
 
+### The credits
+
+Credits opens a window over the main menu (`0x5bb410`), which shows
+through it:
+
+- **Its picture:** `Escape Menu/Escape Menu Background` (`0x5bb625`),
+  414x232, the escape menu's: its middle is black and part see-through
+  (alpha 211). It sizes the window.
+- **RESUME** (`&RESUME`, `0x642598`), which closes it: a button of one
+  picture, `Escape Menu/Button Background` (276x22, `0x5bb4f4`), at 69
+  across and 27 above the window's bottom (`0x5bb674`). Its label is in
+  the window's font, Placar Condensed, named by the program (`0x5bb4a2`),
+  centred, 2 above the button's top, taking the -2 the window sets at
+  the button's `+0x138` (`0x5bb5e4`) for that *(inferred)*.
+- **The credits** roll in the area `Rules.txt`'s `Credits` gives,
+  `Credit Pos` (61,21) and `Credit Size` (292x155), in Placar Blue
+  (`0x5bb547`), not the `Menu Font` (Bach White).
+
+The roll (`0x4873f0` reads it, `0x487530` draws it):
+
+- **Its lines:** `Credits.txt`'s, up to 999 of up to 255 characters;
+  those starting `/` are the file's comments and left out. Blank lines
+  are kept.
+- **Moving:** the lines are a font's height and 2 apart; the roll moves
+  up a line's height every 500 ms (0.002 lines a millisecond), the first
+  line coming up from the area's bottom. Once the last has gone up past
+  the top by the area's height, it starts again.
+- **Fading:** each line's brightness is `sin(pi * top / height)` for its
+  top in the area, 0 to 1: dark at the bottom and top, full across the
+  middle. The game sets it as a brightness for the drawing (`0x44c4f0`);
+  Reluva draws the text that much opaque over what's behind *(inferred)*.
+- **Each line**, centred across the area, as the file's comments say:
+  - `Role: Name`: with a `:` (the last, if more than one, and not the
+    first character), what's before it ends at the middle and what's
+    after it starts there.
+  - `_Heading`: a heading, with a line under it in dark red (156,0,0).
+  - `+Role`: a role, with a line under it in green (0,150,0).
+  - Anything else, as it is.
+
+  The line under a heading or role is one pixel high, a row below the
+  text's height, as wide as the text and one more (`0x48774d`).
+
 ## In Reluva
 
 - **Fonts:** `Font` (`ui/font.cpp`) reads one from `DATA.dat` and draws
@@ -111,8 +153,10 @@ calls `Confirm Dialog` (`CStarTrekConfirmDialogMenu`):
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
   buttons as above. Quit, or Esc, opens the confirm dialog, in the middle
   of the screen; Yes (or Y) ends the game and goes back to the launcher,
-  No (N, Esc) closes it. The other buttons play their sound and lead
-  nowhere yet.
+  No (N, Esc) closes it. Credits opens the credits window (`CreditsWindow`,
+  `ui/credits.cpp`, the roll a `CreditsRoll`), in the middle of the
+  screen; RESUME, R or Esc closes it. The other buttons play their sound
+  and lead nowhere yet.
 
 ## Sources and checks
 
@@ -122,14 +166,21 @@ calls `Confirm Dialog` (`CStarTrekConfirmDialogMenu`):
 - **How it was checked:** Reluva run on the retail files, the screen
   looked at: the buttons where `Rules.txt` puts them, their labels in the
   middle, lit and pressed under the mouse, and the dialog's question on
-  one line inside its frame, Yes lit under the mouse. Not yet against the
-  original running. Unit tests (`stawayteam.unit.menus`) on a font and
-  buttons made in the test; the engine test opens and closes the dialog
-  and quits through it.
+  one line inside its frame, Yes lit under the mouse; the credits rolling
+  and fading inside their window, the headings and roles underlined, the
+  main menu showing through. Not yet against the original running. Unit
+  tests (`stawayteam.unit.menus`) on a font, buttons and the credits'
+  lines made in the test; the engine test opens and closes the credits
+  and the dialog, and quits through it.
 
 ## Open questions
 
-- **Where the dialog goes on the screen.** Reluva puts it in the middle.
+- **Where the dialog and the credits window go on the screen.** Reluva
+  puts them in the middle.
+- **The credits' fading:** whether to black or to see-through, and
+  whether the lines under headings fade too. Reluva fades the text to
+  see-through and draws the lines whole.
+- **Esc in the credits.** Reluva closes them.
 - **Esc on the main menu.** Reluva opens the confirm dialog, as Quit.
 - **When a button's sound plays:** as it's pressed, or once it's let go
   on. Reluva plays it on the click.

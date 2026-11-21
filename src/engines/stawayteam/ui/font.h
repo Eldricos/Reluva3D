@@ -34,8 +34,11 @@ public:
     /** The row under its characters' baseline, from their top: where a shortcut's line goes. */
     int baseline() const { return _baseline; }
 
-    /** Draws `text`, its first character's top left at (x, y). */
-    void draw(Surface &screen, int x, int y, std::string_view text) const;
+    /**
+     * Draws `text`, its first character's top left at (x, y).
+     * @param opacity 0-255: how much it shows over what's there.
+     */
+    void draw(Surface &screen, int x, int y, std::string_view text, int opacity = 255) const;
     /**
      * Draws `text` broken into lines no wider than `maxWidth`, at word
      * boundaries, each centred on `centerX`; the first line's top at `y`.

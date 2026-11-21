@@ -4,31 +4,34 @@ detect.empty: 0
 detect.games: 1
 detect.description: Star Trek: Away Team (unknown release)
 play.result: ok
-play.frames: 4
+play.frames: 6
 play.screen 0: 1922aa0063be7d66
-play.screen 1: 5983226047af0496
+play.screen 1: e8e276d7a271b2b2
 play.screen 2: 1922aa0063be7d66
 play.screen 3: 5983226047af0496
+play.screen 4: 1922aa0063be7d66
+play.screen 5: 5983226047af0496
 viewer.result: ok
-viewer.screen 0: 7057092d9e70f403
-viewer.screen 1: 4773e25a3cc7f6c5
-viewer.screen 2: d817290e1dca4e45
-viewer.screen 3: d40eab476a568c05
-viewer.screen 4: 1c913ed4dafc125d
-viewer.screen 5: e8154202c504143d
-viewer.screen 6: 3e4850eaa62c8f19
-viewer.screen 7: afa73d4d66e74f0d
-viewer.screen 8: 11feffc93174639a
-viewer.screen 9: 79f6fb1ac8578846
-viewer.screen 10: d37222b72cfdc44e
-viewer.screen 11: 8e93d87c4c75cffa
-viewer.screen 12: 914865c26a65c20b
-viewer.screen 13: 1cad5271b9fef82d
-viewer.screen 14: b344544ba55427f5
+viewer.screen 0: 3ed4130b65a6f4cb
+viewer.screen 1: 9bf90cbab4bc14cd
+viewer.screen 2: e12822d141f25653
+viewer.screen 3: f701ab786cf904d3
+viewer.screen 4: 982cf62502ccf213
+viewer.screen 5: 26514ac3c0ced0e5
+viewer.screen 6: f919031044f25d85
+viewer.screen 7: 49b2e299c34e3bb9
+viewer.screen 8: afa73d4d66e74f0d
+viewer.screen 9: 11feffc93174639a
+viewer.screen 10: 79f6fb1ac8578846
+viewer.screen 11: d37222b72cfdc44e
+viewer.screen 12: 8e93d87c4c75cffa
+viewer.screen 13: 914865c26a65c20b
+viewer.screen 14: 1cad5271b9fef82d
 viewer.screen 15: b344544ba55427f5
-viewer.screen 16: 4366dbe840075ff3
-viewer.screen 17: 93d68a4ae30dc255
-viewer.screen 18: 8610f48e6a6ab383
-viewer.screen 19: 73fd1eeae9c6dd59
+viewer.screen 16: b344544ba55427f5
+viewer.screen 17: 1fd6b24703a43c93
+viewer.screen 18: 6dcac63b248bfc85
+viewer.screen 19: c2c85cf24378ec53
+viewer.screen 20: 98b0332fb7531649
 play.bad rules: DATA.dat: Rules.txt: the text ends inside CStarTrekRules
 play.no rules: DATA.dat has no Rules.txt

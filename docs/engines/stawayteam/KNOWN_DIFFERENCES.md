@@ -27,11 +27,11 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The main menu:** only Quit leads anywhere; the other buttons play
+- **The main menu:** only Credits and Quit lead anywhere; the other buttons play
   their sound and nothing else
   ([systems/menus.md](systems/menus.md)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
-  brighten their label under the mouse
+  brighten their label under the mouse; RESUME's label doesn't glow
   ([systems/menus.md](systems/menus.md#buttons)).
 - **The pointer** is the system's, not the game's.
 

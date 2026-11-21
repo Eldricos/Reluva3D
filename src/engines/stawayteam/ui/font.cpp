@@ -64,17 +64,17 @@ int Font::width(std::string_view text) const {
     return w;
 }
 
-void Font::draw(Surface &screen, int x, int y, std::string_view text) const {
+void Font::draw(Surface &screen, int x, int y, std::string_view text, int opacity) const {
     for (char c : text) {
         const image::Image *g = glyph(static_cast<unsigned char>(c));
         if (!g)
             continue;
         if (_fixedWidth) {
             // Each character in the middle of its cell (0x4b1600).
-            image::blit(screen, *g, x + (_cellWidth - g->w) / 2, y);
+            image::blit(screen, *g, x + (_cellWidth - g->w) / 2, y, opacity);
             x += _cellWidth;
         } else {
-            image::blit(screen, *g, x, y);
+            image::blit(screen, *g, x, y, opacity);
             x += g->w;
         }
     }

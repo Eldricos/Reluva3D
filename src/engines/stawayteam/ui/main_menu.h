@@ -8,6 +8,7 @@
 #include "common/system.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/ui/button.h"
+#include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
 
 #include <array>
@@ -18,9 +19,6 @@
 #include <vector>
 
 namespace reluva::stawayteam {
-
-/** A menu's definition in Rules.txt (`Custom Rules`, `Menu`, by its `Menu Name`); nullptr if there's none. */
-const TextObject *menuDefinition(const TextObject &rules, const std::string &name);
 
 /**
  * The confirm dialog ("Are you sure you want to exit the game?"): a
@@ -51,8 +49,8 @@ private:
 /**
  * The main menu: what Rules.txt's `Main Menu` puts on its screen (its
  * "nernies": movies, looping, and pictures, each at its position), the
- * startup song, and its six buttons. Quit asks to be sure; the others
- * don't lead anywhere yet.
+ * startup song, and its six buttons. Credits shows the credits, Quit asks
+ * to be sure; the others don't lead anywhere yet.
  */
 class MainMenu {
 public:
@@ -91,6 +89,7 @@ private:
     Font _font;
     ButtonGroup _buttons;
     std::unique_ptr<ConfirmDialog> _dialog;
+    std::unique_ptr<CreditsWindow> _credits;
 };
 
 } // namespace reluva::stawayteam

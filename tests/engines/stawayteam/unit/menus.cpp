@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The menus' parts: the game's fonts as its text is drawn with them, and
-// buttons, their labels, shortcuts and clicks.
+// The menus' parts: the game's fonts as its text is drawn with them,
+// buttons, their labels, shortcuts and clicks, and the credits' lines.
 
 #include "engines/stawayteam/ui/button.h"
+#include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
 
 #include "tests/engines/stawayteam/support.h"
@@ -91,10 +92,21 @@ void testButtons() {
     CHECK(group.handleEvent(mouse, nullptr) == -1);
 }
 
+void testCredits() {
+    // Comments left out, blank lines kept, the line ends' CR dropped, and
+    // a line cut at 255 characters.
+    const Font font;
+    const CreditsRoll roll("// comment\r\n_Heading\r\n\r\nRole: Name\n/also a comment\n" + std::string(300, 'x'), font);
+    CHECK(roll.lines().size() == 4);
+    CHECK(roll.lines()[0] == "_Heading" && roll.lines()[1].empty() && roll.lines()[2] == "Role: Name");
+    CHECK(roll.lines()[3].size() == 255);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.menus",
                                         {
                                             {"font", [](const std::filesystem::path &) { testFont(); }},
                                             {"buttons", [](const std::filesystem::path &) { testButtons(); }},
+                                            {"credits", [](const std::filesystem::path &) { testCredits(); }},
                                         });

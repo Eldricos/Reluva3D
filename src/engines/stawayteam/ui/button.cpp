@@ -38,6 +38,9 @@ Button::Button(const Archive &data, const std::string &folder, const std::string
       _press(screenPicture(data, folder + "/" + name + " Press")) {
 }
 
+Button::Button(image::Image picture, int x, int y) : _x(x), _y(y), _default(std::move(picture)) {
+}
+
 void Button::setLabel(const std::string &label, const Font *font, int textX, int textY) {
     _label.clear();
     _shortcut = std::string::npos;

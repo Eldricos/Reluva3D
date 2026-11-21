@@ -37,6 +37,8 @@ public:
      * the screens', its top left at (x, y) on its menu.
      */
     Button(const Archive &data, const std::string &folder, const std::string &name, int x, int y);
+    /** A button of one picture, the same in every state (the escape and credits windows'). */
+    Button(image::Image picture, int x, int y);
 
     /**
      * Its label (with its `&`), drawn in `font` (which must outlive it) at
