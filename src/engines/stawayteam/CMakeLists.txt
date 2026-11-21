@@ -7,14 +7,23 @@ reluva_add_engine(stawayteam
     ACCESSOR stawayteamMetaEngine
     SOURCES
         stawayteam.cpp
+        formats/frame.cpp
         formats/rds_script.cpp
         formats/text_object.cpp)
+
+# Its data viewer, in reluva-viewer (never in reluva): docs/DEVELOPMENT.md.
+reluva_add_engine_viewers(stawayteam
+    ACCESSOR stawayteamMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/picture_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help stawayteam lists them).
 reluva_add_engine_tools(stawayteam
     SOURCES
         tools/archive.cpp
         tools/files.cpp
+        tools/images.cpp
         tools/text.cpp)
 
 # Its tests (tests/engines/stawayteam/), in reluva-tests: the unit tests by

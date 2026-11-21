@@ -20,6 +20,10 @@ None yet.
   it. The same on all of the game's files, but a file edited by hand
   could tell them apart
   ([formats/text-object.md](formats/text-object.md#behaviour)).
+- **Blended pixels' alpha.** A frame's block 1 is taken as each blended
+  pixel's alpha, 255 opaque, and its pixels as RGB 5:6:5: the pictures
+  look right so, but the game drawing them hasn't been compared
+  ([formats/frm16.md](formats/frm16.md#blended-pixels)).
 - **The `.RDS` scripts' rules** where the files don't show them (text
   before a label, a label twice): the game's reader isn't traced
   ([formats/rds.md](formats/rds.md#open-questions)).

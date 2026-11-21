@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Star Trek: Away Team's unit tests: its text formats, objects and scripts.
+// Star Trek: Away Team's unit tests: its formats: frames, objects in text,
+// and scripts.
 
+#include "engines/stawayteam/formats/frame.h"
 #include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/formats/text_object.h"
 
+#include "tests/engines/stawayteam/support.h"
 #include "tests/support/test.h"
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 using namespace reluva;
 using namespace reluva::stawayteam;
@@ -111,10 +116,49 @@ void testScript() {
     CHECK(readRdsScript("//***Mission 01\r\n\r\n//***Mission 02\r\n").entries.empty());
 }
 
+void testFrame() {
+    // A raw 2x2, as the textures are.
+    const auto raw = frameFile(2, 2, 0, 0, 0x20, {{{0x00, 0xf8, 0xe0, 0x07}, {0x1f, 0x00, 0xff, 0xff}}}, true);
+    Frame f;
+    size_t used = 0;
+    CHECK(!readFrame(raw.data(), raw.size(), f, &used) && used == raw.size());
+    CHECK(f.width == 2 && f.height == 2 && f.flags == 0x20);
+    CHECK(f.pixels == std::vector<uint16_t>({0xf800, 0x07e0, 0x001f, 0xffff}));
+    CHECK(f.alpha == std::vector<uint8_t>(4, 255));
+    // RGB 5:6:5 widened to 8 bits each, white staying white.
+    const auto img = frameImage(f);
+    CHECK(img.pixel(0, 0)[0] == 255 && img.pixel(0, 0)[1] == 0 && img.pixel(1, 0)[1] == 255 &&
+          img.pixel(0, 1)[2] == 255 && img.pixel(1, 1)[0] == 255 && img.pixel(1, 1)[3] == 255);
+
+    // Run-length coded, 4x2: a skip, two colours of their own, one colour
+    // for one pixel; then one colour for four. The skipped pixel blended in,
+    // its alpha in block 1.
+    const auto coded = frameFile(4, 2, -3, 5, 0x2024,
+                                 {{{0x81, 0x42, 0x01, 0x00, 0x02, 0x00, 0x01, 0x03, 0x00}, {0x04, 0x04, 0x00}},
+                                  {{0x80}, {}},
+                                  {{0x01, 0x05, 0x00, 0x83}, {0x84}}});
+    CHECK(!readFrame(coded.data(), coded.size(), f, &used) && used == coded.size());
+    CHECK(f.originX == -3 && f.originY == 5);
+    CHECK(f.pixels == std::vector<uint16_t>({5, 1, 2, 3, 4, 4, 4, 4}));
+    CHECK(f.alpha == std::vector<uint8_t>({0x80, 255, 255, 255, 255, 255, 255, 255}));
+
+    // Damaged: cut short, a row longer than the frame, blended pixels
+    // without their alpha, and something else altogether.
+    std::vector<uint8_t> cut(coded.begin(), coded.end() - 10);
+    CHECK(bool(readFrame(cut.data(), cut.size(), f)));
+    const auto wide = frameFile(2, 1, 0, 0, 0x2024, {{{0x03, 0x00, 0x00}}});
+    CHECK(bool(readFrame(wide.data(), wide.size(), f)));
+    const auto noAlpha = frameFile(1, 1, 0, 0, 0x2024, {{{0x81}}, {}, {{0x01, 0x00, 0x00}}});
+    CHECK(bool(readFrame(noAlpha.data(), noAlpha.size(), f)));
+    const std::vector<uint8_t> other = {'F', 'R', 'A', 'M', 'E', 0};
+    CHECK(bool(readFrame(other.data(), other.size(), f)));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.formats",
                                         {
+                                            {"frame", [](const std::filesystem::path &) { testFrame(); }},
                                             {"object", [](const std::filesystem::path &) { testObject(); }},
                                             {"object lines", [](const std::filesystem::path &) { testObjectLines(); }},
                                             {"script", [](const std::filesystem::path &) { testScript(); }},

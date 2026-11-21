@@ -5,5 +5,13 @@ detect.games: 1
 detect.description: Star Trek: Away Team (unknown release)
 play.result: ok
 play.frames: 2
+viewer.result: ok
+viewer.screen 0: 7dbad617a059d595
+viewer.screen 1: f87c4ee036903915
+viewer.screen 2: 058041707c0103d5
+viewer.screen 3: 4ebc76a312e4e909
+viewer.screen 4: c4a242b4aa45a9b9
+viewer.screen 5: 44de01648155a335
+viewer.screen 6: 219047ef203000ed
 play.bad rules: DATA.dat: Rules.txt: the text ends inside CStarTrekRules
 play.no rules: DATA.dat has no Rules.txt

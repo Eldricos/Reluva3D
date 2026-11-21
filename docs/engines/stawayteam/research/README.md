@@ -15,3 +15,4 @@ where they aren't read straight off the files.
 | File | Contents |
 |---|---|
 | [file-survey.md](file-survey.md) | What the install and the CD hold: the program's imports, `DATA.dat`'s layout and contents, and a first look at each kind of file in it |
+| [binary-objects.md](binary-objects.md) | How the game saves objects in binary (`.seq16`, `.mdl16`, `.way`): its writer and reader, and what's still to find |

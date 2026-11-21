@@ -33,13 +33,19 @@ Each phase ends with something that runs and is committed.
    for all of them, a page `formats/object-text.md`, and a check that it
    reads every such file in the archive. `.RDS` (`:Label` then text, with
    `$trigger` and `{Inventory ...}` substitutions) gets its own reader.
-4. **Pictures and the data viewer** (next): `.pal` (768 bytes, 8-bit), and the
-   16-bit sprite formats `.frm16` (single frames, run-length coded),
-   `.seq16` (animated textures) and `.mdl16` (models: named animations,
-   directions, frames, sounds; 3,738 of them, 130 MB). Their layouts from
-   comparing files and reading the loaders in `Star Trek.exe`. A
-   `pages/` viewer for pictures, models by animation and direction,
-   fonts (`Cache/Fonts`), sounds and the object trees.
+4. **Pictures and the data viewer**, in two parts:
+   - **Frames and palettes** (done): `.frm16` pictures, every one of the
+     671 decoded ([formats/frm16.md](formats/frm16.md)); the palette and
+     colour tables described, not read, as nothing 8-bit is drawn
+     ([formats/pal.md](formats/pal.md)); the data viewer's Pictures page.
+   - **Objects saved in binary** (next): `.seq16` (animated textures),
+     `.mdl16` (models: named animations, directions, frames, sounds;
+     3,738 of them, 130 MB) and the maps' `.way` are the same objects as
+     the text files, saved by `0x40dbd0` with no names: each class's
+     properties have to be found in the executable first
+     ([research/binary-objects.md](research/binary-objects.md)). Then
+     viewer pages for sequences, models by animation and direction, fonts
+     (`Cache/Fonts`), sounds and the object trees.
 5. **Sound and movies**: Ogg Vorbis for 1,484 files (music, effects,
    711 character barks, 403 voice-overs); see
    [Decisions](#decisions) for the decoder. Bink movies (all revision

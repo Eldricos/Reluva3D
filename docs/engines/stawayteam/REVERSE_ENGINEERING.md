@@ -42,6 +42,14 @@ extended. The facts themselves are on their pages, each with its source.
   reader found through its `{`, `}` and `=` strings and disassembled;
   Reluva's readers checked by writing every object back and comparing it
   with its file.
+- **Pictures:** the frame loader found through its `.frm16` string, for
+  the header; the blocks' sizes added up to each file's; the run-length
+  codes worked out from rows by hand and tried on every row of every
+  frame with a first decoder written apart from Reluva (in Python, not
+  kept), then Reluva's checked against it pixel for pixel and by looking
+  at pictures it wrote out.
+- **Objects in binary:** found through the constant 26.0 every such file
+  starts with ([research/binary-objects.md](research/binary-objects.md)).
 
 ## The tools
 
@@ -55,8 +63,12 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool stawayteam data-extract` | Writes out `DATA.dat`'s files, checking their CRC-32s |
 | `reluva-tool stawayteam data-check` | Reads every object and script in `DATA.dat`, writing each object back to compare |
 | `reluva-tool stawayteam text-show` | Shows one object's fields or one script's entries as Reluva reads them |
+| `reluva-tool stawayteam frame-check` | Decodes every `.frm16` picture in `DATA.dat` |
+| `reluva-tool stawayteam frame-png` | Writes `.frm16` pictures out as PNG files |
 
 ## Working files not included
 
 - **`DATA.dat`'s files, written out:** `reluva-tool stawayteam
   data-extract <DATA.dat> <folder>` from your own copy.
+- **Its pictures as PNG files:** `reluva-tool stawayteam frame-png
+  <DATA.dat> <folder>`.

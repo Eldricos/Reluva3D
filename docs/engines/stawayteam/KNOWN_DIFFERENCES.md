@@ -29,4 +29,7 @@ None yet.
 ## Additions outside the game
 
 <!-- What Reluva adds around the game: viewers, tools, settings. -->
-None yet.
+- **The data viewer** (`reluva-viewer`): the game's pictures, one at a
+  time ([README.md](README.md#using-it)).
+- **`reluva-tool stawayteam` commands** for studying the game's files
+  ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools)).
