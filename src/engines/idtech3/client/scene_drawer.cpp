@@ -352,7 +352,8 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
             _r.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
             _models.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, sortMin, sortMax,
                          p.shader, &p.color, p.oldFrame, p.backLerp, p.pose.get(),
-                         _effectWorld ? _effectWorld->fogFor(p.fogCenter, p.fogRadius) : nullptr);
+                         _effectWorld ? _effectWorld->fogFor(p.fogCenter, p.fogRadius) : nullptr,
+                         p.castsShadow ? &p.shadowTransform : nullptr);
         }
         _r.setDepthRange(1);
     };
@@ -1063,8 +1064,9 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         Placed p;
         const gfx::Vec3 origin = readVec(e, _layout.origin);
         p.model = _models.lod(model, lodLevel(model, readInt(e, _layout.frame), origin));
-        p.transform =
-            placement(origin, {readVec(e, _layout.axes), readVec(e, _layout.axes + 12), readVec(e, _layout.axes + 24)});
+        const std::array<gfx::Vec3, 3> axes{readVec(e, _layout.axes), readVec(e, _layout.axes + 12),
+                                            readVec(e, _layout.axes + 24)};
+        p.transform = placement(origin, axes);
         // The frame's sphere moved by the entity but not turned, as the
         // original's (0x4749db).
         if (const Md3Model &md3 = _models.model(p.model); !md3.frames.empty()) {
@@ -1080,6 +1082,11 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         p.backLerp = readFloat(e, _layout.backLerp);
         const gfx::Vec3 lightAt = flags & refent::kUseLightingOrigin ? readVec(e, _layout.lightingOrigin) : origin;
         p.light = modelLight(grid, lightAt);
+        if (shadows == 3 && (flags & refent::kShadowPlane)) {
+            p.castsShadow = true;
+            p.shadowTransform = gfx::multiply(
+                p.transform, shadowProjection(axes, origin, readFloat(e, _layout.shadowPlane), p.light.direction));
+        }
         if (const int32_t skin = readInt(e, _layout.customSkin); skin > 0 && !name(_handles.skins, skin).empty())
             p.skin = &_models.skin(name(_handles.skins, skin));
         // A shader in place of the model's own (explosions, shells), its
@@ -1103,18 +1110,28 @@ bool SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, c
     if (!ghoul2Poses(readInt(e, _layout.ghoul2), viewTime, poses) || poses.empty())
         return false;
     const gfx::Vec3 origin = readVec(e, _layout.origin);
-    gfx::Mat4 entity =
-        placement(origin, {readVec(e, _layout.axes), readVec(e, _layout.axes + 12), readVec(e, _layout.axes + 24)});
+    const std::array<gfx::Vec3, 3> axes{readVec(e, _layout.axes), readVec(e, _layout.axes + 12),
+                                        readVec(e, _layout.axes + 24)};
+    const gfx::Mat4 placed = placement(origin, axes);
+    gfx::Mat4 scaled = gfx::identity();
     if (_layout.modelScale) {
         const gfx::Vec3 scale = readVec(e, _layout.modelScale);
-        gfx::Mat4 s = gfx::identity();
         for (size_t k = 0; k < 3; ++k)
-            s[k * 5] = scale[k] != 0 ? scale[k] : 1;
-        entity = gfx::multiply(entity, s);
+            scaled[k * 5] = scale[k] != 0 ? scale[k] : 1;
     }
+    const gfx::Mat4 entity = gfx::multiply(placed, scaled);
     const int32_t flags = readInt(e, _layout.flags);
     const gfx::Vec3 lightAt = flags & refent::kUseLightingOrigin ? readVec(e, _layout.lightingOrigin) : origin;
     const PointLight light = modelLight(grid, lightAt);
+    // Shadow mode 3: laid flat in the entity's space, its bones and scale
+    // already in the points as the original has them.
+    const bool castsShadow = shadows == 3 && (flags & refent::kShadowPlane);
+    const gfx::Mat4 flattened =
+        castsShadow
+            ? gfx::multiply(gfx::multiply(placed, shadowProjection(axes, origin, readFloat(e, _layout.shadowPlane),
+                                                                   light.direction)),
+                            scaled)
+            : gfx::Mat4{};
     const int32_t entitySkin = readInt(e, _layout.customSkin);
     for (Ghoul2Pose &pose : poses) {
         const int model = _models.load(pose.file);
@@ -1127,6 +1144,9 @@ bool SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, c
             for (size_t r = 0; r < 3; ++r)
                 at[c * 4 + r] = pose.placement[r * 4 + c];
         p.transform = gfx::multiply(entity, at);
+        p.castsShadow = castsShadow;
+        if (castsShadow)
+            p.shadowTransform = gfx::multiply(flattened, at);
         p.light = light;
         const int32_t skin = entitySkin > 0 ? entitySkin : pose.customSkin;
         if (skin > 0 && !name(_handles.skins, skin).empty())

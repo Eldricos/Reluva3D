@@ -133,8 +133,18 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 
 ## In Reluva
 
-Not drawn yet: `deformVertexes text*` and `projectionShadow` (the
-original's shader for its shadow mode 3); `GL_SRC_ALPHA_SATURATE`. `reluva-tool idtech3 shader-check <game folder>` lists
+Not drawn yet: `deformVertexes text*` and `GL_SRC_ALPHA_SATURATE`;
+autosprites on models (no Jedi Outcast or Elite Force model uses one:
+their four autosprite shaders are the level's flares and lights).
+`projectionShadow`, the shadow mode 3 shader, is drawn for Jedi Outcast's
+single player: each opaque surface of a model flagged with a shadow plane
+(render flag 0x100, its height at 24 in `refEntity_t`), unless it's the
+player's own first-person body, is drawn again in it, flattened along
+the model's light onto the plane, in the model's own space with the
+world's up as the ground's normal and the light bent up to at least 0.5
+along it (jk2sp.exe 0x4747b4, 0x46759a, 0x45b64e; the deform 0x480860)
+*(confirmed)*. Reluva does it with one matrix before the model's
+placement rather than moving each point. `reluva-tool idtech3 shader-check <game folder>` lists
 what a game's scripts use that isn't handled, including directives the
 parser doesn't know (game additions).
 

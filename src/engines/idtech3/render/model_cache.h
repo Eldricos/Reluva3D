@@ -28,6 +28,10 @@ using Skin = std::map<std::string, std::string>; // surface name (lower case) ->
 std::array<Vec3, 3> anglesToAxes(const Vec3 &angles);
 // A placement: the axes as columns, then the origin.
 gfx::Mat4 placement(const Vec3 &origin, const std::array<Vec3, 3> &axes);
+// Shadow mode 3's flattening of a model placed by `axes` at `origin` onto
+// its shadow plane (a height), lit from `light` (towards the light): to
+// apply in the model's own space, before its placement.
+gfx::Mat4 shadowProjection(const std::array<Vec3, 3> &axes, const Vec3 &origin, float plane, Vec3 light);
 // Where a tag puts what's attached to it, in the tagged model's space.
 gfx::Mat4 tagPlacement(const Md3Tag &tag);
 
@@ -80,7 +84,8 @@ public:
     void draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
               const Skin *skin = nullptr, float sortMin = 0, float sortMax = 1e9f, const std::string &shader = {},
               const std::array<float, 4> *entity = nullptr, int oldFrame = 0, float backLerp = 0,
-              const Ghoul2Pose *pose = nullptr, const ShaderCache::Fog *fog = nullptr);
+              const Ghoul2Pose *pose = nullptr, const ShaderCache::Fog *fog = nullptr,
+              const gfx::Mat4 *shadow = nullptr);
     // Adds to `out` the sorts of the shaders draw() would draw model `id`
     // with (the same `skin` and `shader`).
     void addSorts(int id, const Skin *skin, const std::string &shader, std::vector<float> &out);

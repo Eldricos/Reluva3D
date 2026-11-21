@@ -1676,6 +1676,8 @@ void SpPlayPage::update(uint64_t nowMs) {
     const float time = float(_clientTime) / 1000.0f;
     const auto drawStart = std::chrono::steady_clock::now();
     setGoggles();
+    if (_scene)
+        _scene->shadows = jedi() ? _cvars.integer("cg_shadows") : 0;
     _renderer->beginFrame(gfx::identity(), {0, 0, 0}, _world ? _world->clearColor() : Color{});
     if (_game && _game->clientGameRunning() && !fullscreen) {
         // Each scene over the pictures drawn before it, the rest (the HUD)

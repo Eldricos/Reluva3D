@@ -41,6 +41,13 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Not yet as the original
 
+- **Volumetric shadows** (`cg_shadows 2`, the menus' "Volumetric"): the
+  original casts stencil shadow volumes from models (jk2sp.exe 0x474770,
+  0x467533, and the stencil cleared each view, 0x45c5cc); Reluva draws
+  none. Simple (1, the client game's blob) and Projected (3, which the
+  menus leave out, console only) are drawn; Projected only in single
+  player, multiplayer's not yet read.
+
 Left for after the rest is done and tested (its phase 11):
 
 - **EAX environmental sound.** The original sets each level's EAX

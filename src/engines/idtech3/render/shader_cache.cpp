@@ -362,6 +362,9 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
             g.wave = d.wave; // amplitude and frequency
             if (d.wave.amplitude == 0)
                 continue;
+        } else if (d.type == T::kProjectionShadow) {
+            // Laid on the ground by its drawer (ModelCache::draw's shadow).
+            continue;
         } else if (d.type == T::kAutosprite || d.type == T::kAutosprite2) {
             // Quads turned to face the camera, each frame (WorldRenderer).
             m.autosprite = d.type == T::kAutosprite ? 1 : 2;

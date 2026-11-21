@@ -1836,6 +1836,23 @@ static void testPatchGrids() {
     CHECK(stitchPatches(apart) == 0 && apart[1].height == 2);
 }
 
+static void testShadowProjection() {
+    // Shadow mode 3: a model 100 above its shadow plane, lit from straight
+    // above, lands every point on the plane under it; lit from the side,
+    // the light bent up to half along the ground, it lands further along.
+    const std::array<Vec3, 3> level{Vec3{1, 0, 0}, Vec3{0, 1, 0}, Vec3{0, 0, 1}};
+    auto land = [&](const Vec3 &light, const Vec3 &p) {
+        const gfx::Mat4 m =
+            gfx::multiply(placement({0, 0, 100}, level), shadowProjection(level, {0, 0, 100}, 0, light));
+        return Vec3{m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13],
+                    m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]};
+    };
+    const Vec3 a = land({0, 0, 1}, {5, 6, 20});
+    CHECK(a[0] == 5 && a[1] == 6 && a[2] == 0);
+    const Vec3 b = land({1, 0, 0}, {0, 0, 0});
+    CHECK(b[2] == 0 && b[0] == -200);
+}
+
 static void testPlayerAnimation() {
     const auto anims = parseAnimationConfig("sex f\nsoundpath alexa\n\n"
                                             "0\t47\t0\t10\t\t// BOTH_DEATH1\n"
@@ -1921,6 +1938,7 @@ static const reluva::test::Suite
                {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
                {"light styles", [](const std::filesystem::path &) { testLightStyles(); }},
                {"level fog", [](const std::filesystem::path &) { testLevelFog(); }},
+               {"shadow projection", [](const std::filesystem::path &) { testShadowProjection(); }},
                {"shader remap", [](const std::filesystem::path &) { testShaderRemap(); }},
                {"missing video", [](const std::filesystem::path &) { testMissingVideo(); }},
                {"roff", [](const std::filesystem::path &) { testRoff(); }},

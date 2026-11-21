@@ -44,6 +44,32 @@ gfx::Mat4 placement(const Vec3 &origin, const std::array<Vec3, 3> &axes) {
     return m;
 }
 
+gfx::Mat4 shadowProjection(const std::array<Vec3, 3> &axes, const Vec3 &origin, float plane, Vec3 light) {
+    // As the projection shadow deform (jk2sp.exe 0x480860), in the model's
+    // own space: each point moved along the light by its height over the
+    // plane, the ground's normal the world's up seen from the model, the
+    // light (towards it, the world's, as the original uses it) bent up to
+    // at least 0.5 along it.
+    const Vec3 ground{axes[0][2], axes[1][2], axes[2][2]};
+    const float groundDist = origin[2] - plane;
+    auto dot = [](const Vec3 &a, const Vec3 &b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+    float d = dot(light, ground);
+    if (d < 0.5f) {
+        for (size_t k = 0; k < 3; ++k)
+            light[k] += ground[k] * (0.5f - d);
+        d = dot(light, ground);
+    }
+    for (float &c : light)
+        c /= d;
+    gfx::Mat4 m = gfx::identity();
+    for (size_t row = 0; row < 3; ++row) {
+        for (size_t col = 0; col < 3; ++col)
+            m[col * 4 + row] -= light[row] * ground[col];
+        m[12 + row] = -light[row] * groundDist;
+    }
+    return m;
+}
+
 gfx::Mat4 tagPlacement(const Md3Tag &tag) {
     return placement(tag.origin, tag.axis);
 }
@@ -330,7 +356,7 @@ void ModelCache::addSorts(int id, const Skin *skin, const std::string &shader, s
 void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
                       const Skin *skin, float sortMin, float sortMax, const std::string &shader,
                       const std::array<float, 4> *entity, int oldFrame, float backLerp, const Ghoul2Pose *pose,
-                      const ShaderCache::Fog *fog) {
+                      const ShaderCache::Fog *fog, const gfx::Mat4 *shadow) {
     if (id < 0)
         return;
     const Loaded &m = _models[size_t(id)];
@@ -374,6 +400,13 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const Point
         _shaders.draw(material, call, 0, time, false, entity);
         if (fog)
             _shaders.drawFog(material, call, *fog, time);
+        // Shadow mode 3: each opaque surface again, laid on the ground by
+        // `shadow`, in solid black (jk2sp.exe 0x4747b4, 0x46759a).
+        if (shadow && mat.sort == 3) {
+            gfx::DrawCall flat = call;
+            flat.model = *shadow;
+            _shaders.draw(_shaders.material("projectionShadow", Lighting::kDiffuse), flat, 0, time);
+        }
     }
     if (posed)
         _r.destroyMesh(posed);

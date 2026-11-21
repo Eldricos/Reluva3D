@@ -22,6 +22,7 @@ struct RefEntityLayout {
     size_t flags = 4;
     size_t model = 8;
     size_t lightingOrigin = 12;
+    size_t shadowPlane = 24; // the height its projected shadow lies at
     size_t axes = 28;
     size_t origin = 68;
     size_t frame = 80;
@@ -89,6 +90,9 @@ constexpr int32_t kThirdPerson = 2;
 constexpr int32_t kFirstPerson = 4;
 constexpr int32_t kDepthHack = 8;
 constexpr int32_t kUseLightingOrigin = 0x80;
+// Its shadow plane (refEntity_t's, at 24) is set: under shadow mode 3 it
+// casts a projected shadow there.
+constexpr int32_t kShadowPlane = 0x100;
 // Raven's: electricity narrowing to nothing at its end (RF_TAPERED).
 constexpr int32_t kTapered = 0x8000;
 constexpr float kDepthHackRange = 0.3f;

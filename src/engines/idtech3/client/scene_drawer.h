@@ -105,6 +105,9 @@ public:
         gfx::Mat4 viewProj{};
     };
     void setWorldEffects(std::vector<WorldEffectBatch> batches);
+    // cg_shadows: 3 lays each model flagged with a shadow plane's shadow
+    // on it (refent::kShadowPlane).
+    int shadows = 0;
     // This frame's light amplification goggles' fog (null: none), for the
     // views the program rendered with them on (View::laGoggles).
     void setGogglesFog(const ShaderCache::Fog *fog) {
@@ -189,6 +192,9 @@ private:
         bool thirdPerson = false;
         bool firstPerson = false;
         std::shared_ptr<const Ghoul2Pose> pose; // a Ghoul2 model's, as its game posed it
+        // Shadow mode 3's: where its surfaces are laid on the ground.
+        bool castsShadow = false;
+        gfx::Mat4 shadowTransform{};
         // The sphere its fog is picked by (WorldRenderer::fogFor).
         gfx::Vec3 fogCenter{};
         float fogRadius = 0;
