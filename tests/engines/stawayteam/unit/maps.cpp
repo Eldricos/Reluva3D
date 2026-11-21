@@ -404,6 +404,80 @@ void testCombat() {
     CHECK(screen.enemyAt(500.0f, 500.0f) == -1 && screen.officers()[1].attacking == -1);
 }
 
+void testNoise() {
+    // A guard at (500, 500) facing right, standing about on patrol, that
+    // listens; an officer far off, out of its sight.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=500.000000,500.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tPatrol=CBorgStatePatrol\n\t\t\t\t\t{\n\t\t\t\t\t\tPatrol AI=CIdleAI\n\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+        "\t\t\t\t\tInvestigate=CBorgStateInvestigate\n\t\t\t\t\t{\n"
+        "\t\t\t\t\t\tInvestigate AI=CChaseInvestigateAI\n\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\tTime To Investigate=2\n\t\t\t\t\t\t\tRun To Investigate=0\n"
+        "\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\tStart Action=CActivateAction\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tTarget Name=Lamp\n"
+        "\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+        "\t\t\t\t\tMax Distance=50\n\t\t\t\t\tVision Cone=90\n\t\t\t\t\tCurrent State=Patrol\n"
+        "\t\t\t\t\tInvestigate Sounds=1\n"
+        "\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n"
+        "\t\t\tFacing Angle=3.14159\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Lamp\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tVisible=1\n"
+        "\t\t\tPosition X=100\n\t\t\tPosition Y=900\n\t\t}\n"
+        "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t\tCrouch Noise Modifier=0.25\n\t\tWalk Noise Modifier=3\n"
+                          "\t\tRun Noise Modifier=6\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.attributes = {{"Stealth", 30}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    // A footstep's 100, by her Stealth 30 (0.85) and how she moves.
+    const Animation::Noise step{2, 100.0f, 1.0f, "Stealth"};
+    CHECK(std::abs(screen.footstepNoise(screen.officers()[0], step) - 255.0f) < 0.01f);
+    screen.setMove(1);
+    CHECK(std::abs(screen.footstepNoise(screen.officers()[0], step) - 510.0f) < 0.01f);
+    screen.setMove(2);
+    CHECK(std::abs(screen.footstepNoise(screen.officers()[0], step) - 21.25f) < 0.01f);
+    // 200 above it is heard as 281 away: not with a radius of 250.
+    const MapScreen::Enemy &guard = screen.enemies()[0];
+    screen.makeNoise(500.0f, 300.0f, 250.0f, 1.0f);
+    screen.update(100);
+    CHECK(guard.state == "Patrol" && screen.noises().size() == 1);
+    // A noise 100 to its left is heard: it goes to look, the Start Action
+    // run; the first noise is gone after its second.
+    screen.makeNoise(400.0f, 500.0f, 150.0f, 1.0f);
+    screen.update(200);
+    CHECK(guard.state == "Investigate" && screen.partState(1).active);
+    uint64_t now = 200;
+    while (now < 2500)
+        screen.update(now += 50);
+    CHECK(screen.noises().empty() && guard.x < 500.0f && guard.x > 400.0f && guard.walking);
+    // There after 100 pixels at the walk's pace, then two seconds looking
+    // about, then back on patrol.
+    while (now < 3500)
+        screen.update(now += 50);
+    CHECK(guard.x == 400.0f && guard.state == "Investigate");
+    while (now < 6000)
+        screen.update(now += 50);
+    CHECK(guard.state == "Patrol");
+    // The sound button shows the noises.
+    CHECK(!screen.listening());
+    screen.setListening(true);
+    CHECK(screen.listening());
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -453,4 +527,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
                                             {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
+                                            {"noise", [](const std::filesystem::path &) { testNoise(); }},
                                         });

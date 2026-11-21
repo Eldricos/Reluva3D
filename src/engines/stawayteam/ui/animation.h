@@ -28,6 +28,14 @@ struct Animation {
     // A rotation sequence's frames' movement: a direction's first frame its
     // whole cycle's, each other how far into it that frame is (inferred).
     std::vector<std::array<int32_t, 2>> moves;
+    /** A noise made as a frame shows: a footstep's (its sequence's Trigger). */
+    struct Noise {
+        int frame = 0; // of each direction's
+        float radius = 0.0f;
+        float age = 0.0f;      // seconds it's heard for
+        std::string attribute; // the maker's that quietens it ("Stealth"), if any
+    };
+    std::vector<Noise> noises;
 
     /**
      * Reads `Cache/Sequences/<name>.seq16`, or a model's sequence `sequence`

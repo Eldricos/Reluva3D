@@ -39,6 +39,28 @@ Error Animation::load(const Archive &data, const std::string &name, const std::s
     for (const auto &frame : seq->sequence->frames)
         frames.push_back(frame ? Picture{frameImage(*frame), frame->originX, frame->originY} : Picture{});
     moves = seq->sequence->frameExtra;
+    // Its Trigger, an action for each of a direction's frames: the walks'
+    // footsteps, a CAddFootstepNoiseAction in the footstep's action or
+    // a noise action of their own.
+    noises.clear();
+    if (const TextObject *triggers = seq->object.object("Trigger")) {
+        int frame = 0;
+        for (const TextField *t : triggers->items()) {
+            const TextObject *action = t->object ? t->object->object("Action") : nullptr;
+            if (action && action->object("Footstep Noise"))
+                action = action->object("Footstep Noise");
+            if (action && action->number("Radius")) {
+                Noise n;
+                n.frame = frame;
+                n.radius = float(action->number("Radius").value_or(0.0));
+                n.age = float(action->number("Age").value_or(1.0));
+                if (const TextField *a = action->field("Attribute"))
+                    n.attribute = a->value;
+                noises.push_back(n);
+            }
+            ++frame;
+        }
+    }
     const long count = seq->object.integer("Num Rotations").value_or(1);
     rotations = count > 0 && frames.size() % size_t(count) == 0 ? int(count) : 1;
     return Error::success();

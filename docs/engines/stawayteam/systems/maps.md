@@ -257,6 +257,45 @@ maps. In Mission 01's 32 enemies, `Attack` is a
 The program's weapon code isn't traced yet: how these act is read from
 the fields.
 
+### Noise
+
+The team's footsteps and shots make noises, which the game keeps in a
+list (`CNoiseManager`, at the game's `0x334`; added at `0x5194e0`, each a
+`CNoise`: where, its radius, and its time left of its age).
+
+- **Footsteps** are in the officers' body models' walking sequences
+  (`Walk`, `Run`, `Crouch`): their `Trigger`, an action for each of a
+  direction's frames, has a `CAddFootstepAndSoundBySurfaceTypeAction` on
+  two of them (frames 3 and 8 of the walk's 10) whose `Footstep Noise` is
+  a `CAddFootstepNoiseAction`: `Radius` 100, `Age` 1, `Attribute`
+  `Stealth`.
+- **How loud:** the Radius (`0x518100`) times the maker's attribute's
+  quietening, 0.5 + 0.5 x (1 - value / 100) (`0x5e54b0`, its half from
+  `0x5180be`, the 100 an attribute's whole at `0x5e5830`; 1 without the
+  attribute), times Rules.txt's modifier for how they move (`0x5c9530`):
+  `Crouch Noise Modifier` 0.25, `Walk Noise Modifier` 3, `Run Noise
+  Modifier` 6. An officer with Stealth 30 walking: 100 x 0.85 x 3, 255
+  pixels; running 510; crouching 21.
+- **Shots:** a weapon's `Discharge Action` has its own `Noise Radius`
+  and `Time` (the Phaser's 250 for 1 s; 14 weapons have 250), with the
+  shot's `Forward Position`, `Lateral Position` and `Height`, and its
+  beam's `Outside Color` and `Middle Color`.
+- **Hearing** (`0x519440`): a listener hears the newest noise it's inside,
+  its distance up and down counted 1.403 times (the view's
+  foreshortening), on the same map, if it's of a side that hears that
+  noise's maker. An enemy's AI asks it when its `Investigate Sounds` is 1
+  (23 of Mission 01's 32).
+- **Investigating:** the `Investigate` state's `Investigate AI`, a
+  `CChaseInvestigateAI` in 30 of Mission 01's enemies: `Run To
+  Investigate`, `Time To Investigate` (5), path finding on, and its own
+  `Investigate AI`, a `CScanInvestigateAI` whose `AI` is a `CScanAreaAI`
+  (-30 to 30 degrees).
+- **Shown:** each noise is drawn as a ring growing to its radius over its
+  age, by sin(time gone / age x pi/2) (`0x5197c0`). The button box's
+  sound button, and the key bound to Toggle Sound Cones (S), press it
+  (`0x476c3f`); Toggle Vision Cones (V) presses the vision button
+  (`0x476c01`).
+
 The info dialog (`0x435db6`) is `Dialog Window/Background` at Rules.txt's
 `Dialog Pos`, the speaker's icon at `Dialog Icon Pos`, the line from its
 script in `Dialog Font` at `Dialog Text Pos`, wrapped to `Dialog Text
@@ -373,10 +412,23 @@ a weapon set to stun puts it down for the Stun Duration, then back on
 patrol *(inferred)*. With no health left a character plays `Death` once
 and lies `Dead`; a fallen officer can't be chosen or sent.
 
+Noise (`ui/map_noise.cpp`): an officer's walk makes its footsteps'
+noise as its frames pass them, as loud as the program reckons; an
+officer's shot makes its weapon's. An enemy with Investigate Sounds, on
+patrol or investigating, that hears the newest noise it's inside goes
+there by the waypoints (running with Run To Investigate) and looks about
+by its own AI for Time To Investigate, then goes back on patrol where it
+left off; another noise heard meanwhile sends it there instead; seeing an
+officer meanwhile alerts it *(inferred)*.
+Walls don't stop noise *(inferred)*. The sound button, or S, shows the
+noises as yellow rings, squashed up and down as they're heard, the button
+held down meanwhile *(inferred)*.
+
 Not there yet: the interface's other buttons, the map's song, the
 triggers set off by enemies, passing through or colliding, the AIs'
 messages and tasks, objectives, walkers going round each other, the
-shots' beams and projectiles, missing, thrown and laid weapons, stun
+vision button, the enemies' own noises and footsteps' sounds by the
+ground, the shots' beams and projectiles, missing, thrown and laid weapons, stun
 for the officers and the phaser's setting, the enemies pursuing by the
 waypoints, investigating, retreating and the rest of their states, and
 a mission lost with the team.
@@ -405,13 +457,18 @@ a mission lost with the team.
   a guard walking its route, looking about, seeing an officer, alerted
   and attacking; a wall hiding an officer from a guard, the guard
   shooting her down once she's past it, and an officer sent to shoot it
-  walking into sight and killing it; and an officer walking into a trigger that relays to an
+  walking into sight and killing it; footsteps as loud as Stealth and
+  the move make them, a noise too far up not heard and one near heard,
+  the guard going to look, looking about and back on patrol; and an
+  officer walking into a trigger that relays to an
   arrow, on and a second later off, once only. Mission 01 run on: the
   opening's delayed relays bringing Data's lines that teach selecting and
   moving the team; the four officers sent at the nearest Romulan, round
   the walls till they see it, killing it with their phasers, one of them
   hit and his health bar down, the shots' flashes on them and on it, and
-  it falling.
+  it falling; the team running towards a Klingon that listens, the
+  rings of their footsteps shown, it coming to look, and back on patrol
+  seven seconds later.
 
 ## Open questions
 
@@ -426,6 +483,9 @@ a mission lost with the team.
 - **The triggers:** the program's own rules for all of the above, which
   are read from the maps' fields, not from its code.
 - **The enemies:** likewise, the AIs' rules.
+- **Noise:** which sides hear which noises, what `0x497d40` checks
+  before a noise is heard (perhaps a way there), how the rings are drawn,
+  and the investigating AI's rules.
 - **Fighting:** the program's rules for sight (whether the footprints
   are what blocks it, `Half Height`), for aiming and missing, which
   weapon a character uses, the shots' beams, where on a character the

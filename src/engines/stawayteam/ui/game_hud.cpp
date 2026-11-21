@@ -128,6 +128,12 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         const image::Image &all = picture("Button Box/Select All Default");
         r.selectAll =
             ev.mouseX >= bx + sx && ev.mouseY >= by + sy && ev.mouseX < bx + sx + all.w && ev.mouseY < by + sy + all.h;
+        int ox = 0;
+        int oy = 0;
+        readPoint(_custom, "Sound State Button", ox, oy);
+        const image::Image &sound = picture("Button Box/Sound Default");
+        r.toggleSound = ev.mouseX >= bx + ox && ev.mouseY >= by + oy && ev.mouseX < bx + ox + sound.w &&
+                        ev.mouseY < by + oy + sound.h;
     }
     if (overTeam) {
         // An officer's slot chooses them (inferred).
@@ -282,6 +288,9 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         // The move button shows how the chosen officer moves.
         if (&b == &kBoxButtons[0])
             name = _move == 1 ? "Run Button" : _move == 2 ? "Crouch Button" : "Walk Button";
+        // The sound button held down while the noises show (inferred).
+        if (&b == &kBoxButtons[2] && _listening)
+            name = "Sound Press";
         image::blit(screen, picture("Button Box/" + name), bx + x, by + y);
     }
     int cancelX = 0;

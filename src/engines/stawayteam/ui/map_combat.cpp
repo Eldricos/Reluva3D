@@ -264,6 +264,7 @@ void MapScreen::updateCombat(float seconds) {
             if (o.reload <= 0.0f) {
                 o.reload = o.weapon->reuseDelay;
                 shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y);
+                makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
                 o.shooting = 1e-6f;
                 hurtEnemy(i, *o.weapon, int(&o - _officers.data()));
             }

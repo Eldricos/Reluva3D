@@ -16,6 +16,7 @@ reluva_add_engine(stawayteam
         ui/main_menu.cpp
         ui/map_combat.cpp
         ui/map_enemies.cpp
+        ui/map_noise.cpp
         ui/map_screen.cpp
         ui/map_triggers.cpp
         ui/settings.cpp

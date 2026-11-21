@@ -429,6 +429,16 @@ void MapScreen::walk(Officer &o, float seconds) {
         const float step = std::min(distance, speed * left);
         o.x += dx / distance * step;
         o.y += dy / distance * step;
+        // The footsteps its frames passed make their noise (the
+        // sequence's Trigger, 0x518100).
+        if (cycle > 0.0f && per > 0) {
+            const int from = int(o.travelled / cycle * float(per));
+            const int to = int((o.travelled + step) / cycle * float(per));
+            for (int f = from + 1; f <= to; ++f)
+                for (const Animation::Noise &n : walking.noises)
+                    if (n.frame == f % per)
+                        makeNoise(o.x, o.y, footstepNoise(o, n), n.age);
+        }
         o.travelled = cycle > 0.0f ? std::fmod(o.travelled + step, cycle) : 0.0f;
         left -= step / speed;
     }
@@ -538,6 +548,7 @@ void MapScreen::update(uint64_t now) {
     for (Officer &o : _officers)
         walk(o, seconds);
     // The triggers see where everyone has got to.
+    updateNoises(seconds);
     updateEnemies(seconds);
     updateCombat(seconds);
     updateTriggers(seconds);
@@ -605,6 +616,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         setMove((_officers[size_t(_selected)].move + 1) % 3);
     if (hud.selectAll)
         chooseAll();
+    if (hud.toggleSound)
+        _listening = !_listening;
     // On the map, the left button: a click on an officer chooses them
     // (Shift: adds or takes them away), a box dragged chooses those in it,
     // a click on an enemy sends them to shoot it, a click elsewhere sends
@@ -665,6 +678,9 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             setMove(2);
         if (down && bound("Select Entire Team") && playing)
             chooseAll();
+        // Toggle Sound Cones presses the sound button (0x476c3f).
+        if (down && bound("Toggle Sound Cones"))
+            _listening = !_listening;
         if (down && bound("Cycle Movement") && _selected >= 0)
             setMove((_officers[size_t(_selected)].move + 1) % 3);
     }
@@ -774,7 +790,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const Enemy *e = enemy != _enemyOfPart.end() ? &_enemies[enemy->second] : nullptr;
         std::string sequence = p.sequence.empty() ? "Idle" : p.sequence;
         if (e && (sequence == "Idle" || sequence == "Walk"))
-            sequence = e->walking ? "Walk" : "Idle";
+            sequence = e->walking ? (e->running ? "Run" : "Walk") : "Idle";
         int fought = 0;
         const std::string fighting = e ? combatSequence(e->shooting, e->dead, e->stunned, fought, p.model) : "";
         if (!fighting.empty())
@@ -795,6 +811,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         if (!p.overlay.empty())
             blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y);
     }
+    drawNoises(view, left, top);
     // The shots' flashes, over everyone.
     for (const Flash &f : _flashes) {
         const Animation &a = animation(f.model, "Idle");
@@ -811,6 +828,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (const Officer &o : _officers)
         health.push_back(o.maxHealth > 0.0f ? o.health / o.maxHealth : 1.0f);
     _hud->setHealth(health);
+    _hud->setListening(_listening);
     _hud->draw(screen, now, _selected, _cameraX, _cameraY, _viewW, _viewH);
     // The box being dragged, outlined (inferred).
     if (_dragging) {

@@ -41,11 +41,11 @@ None yet.
   the program's fractal; water's warping and the map's song aren't
   there; triggers set off by enemies, passing through or colliding, and
   the AIs' messages and objectives, aren't there; enemies patrol, see
-  and shoot, but don't yet pursue round walls, investigate or retreat;
-  shots show their flashes but no beam, always hit, and grenades and
-  mines can't be used; the interface's
-  buttons but the move button do nothing yet, and the map's characters
-  don't move
+  and shoot, and go to look at the team's noise, but don't yet pursue
+  round walls or retreat; footsteps make no sound; shots show their
+  flashes but no beam, always hit, and grenades and mines can't be used;
+  the interface's buttons but the move, select-all and sound buttons do
+  nothing yet
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **The briefing:** the items found in earlier missions aren't
   described after the lines, the text has no scroll bar (the mouse wheel

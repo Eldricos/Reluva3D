@@ -111,9 +111,11 @@ struct ItemDefinition {
     std::string shotSound;
     std::string shotFlash; // models, of Cache/Models
     std::string hitFlash;
-    float shotDuration = 0.0f; // seconds the shot's shown
-    float stunDuration = 0.0f; // seconds one stunned by it stays down
-    bool stuns = false;        // set to stun (Weapon Setting), not kill
+    float shotDuration = 0.0f;  // seconds the shot's shown
+    float stunDuration = 0.0f;  // seconds one stunned by it stays down
+    bool stuns = false;         // set to stun (Weapon Setting), not kill
+    float shotNoise = 0.0f;     // its Discharge Action's Noise Radius, pixels
+    float shotNoiseTime = 0.0f; // seconds it's heard for
 };
 
 /**

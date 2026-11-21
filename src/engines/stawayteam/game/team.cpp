@@ -131,6 +131,10 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.range = float(def.number("Item Range").value_or(0.0));
         item.maxShootAngle = float(def.number("Max Shoot Angle").value_or(0.0));
         item.dischargeAction = text(def, "Discharge Action");
+        if (const TextObject *action = def.object("Discharge Action")) {
+            item.shotNoise = float(action->number("Noise Radius").value_or(0.0));
+            item.shotNoiseTime = float(action->number("Time").value_or(0.0));
+        }
         item.dischargeSequence = text(def, "Discharge Sequence");
         item.shotSound = text(def, "Shot Sound");
         item.shotFlash = text(def, "Shot Flash");

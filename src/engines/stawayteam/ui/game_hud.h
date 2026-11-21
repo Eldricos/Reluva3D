@@ -30,9 +30,10 @@ public:
         bool used = false; // it was over the interface, not the map
         int select = -1;   // an officer chosen on the team bar
         bool moveCamera = false;
-        bool cycleMove = false; // the move button pressed: walk, run, crouch
-        bool selectAll = false; // the select-all button pressed
-        float cameraX = 0.0f;   // where, for moveCamera: the view's middle on the map
+        bool cycleMove = false;   // the move button pressed: walk, run, crouch
+        bool selectAll = false;   // the select-all button pressed
+        bool toggleSound = false; // the sound button pressed: the team's noises shown or not
+        float cameraX = 0.0f;     // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
 
@@ -54,6 +55,8 @@ public:
     void setMove(int move) { _move = move; }
     /** Which officers are chosen, their slots lit. */
     void setChosen(std::vector<bool> chosen) { _chosen = std::move(chosen); }
+    /** Whether the sound button shows the team's noises. */
+    void setListening(bool on) { _listening = on; }
     /** Each officer's health, as a part of their whole (0-1). */
     void setHealth(std::vector<float> health) { _health = std::move(health); }
 
@@ -82,6 +85,7 @@ private:
     int _move = 0;
     std::vector<bool> _chosen;
     std::vector<float> _health;
+    bool _listening = false;
     int _mouseX = -1;
     int _mouseY = -1;
 };

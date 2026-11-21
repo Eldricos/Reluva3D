@@ -123,7 +123,14 @@ public:
         float stateTime = 0.0f; // seconds in its state
         float unseen = 0.0f;    // seconds its target's been out of its sight
         bool walking = false;
+        bool running = false;   // walking at its Run's pace and frames
         float travelled = 0.0f; // into its walk's cycle
+        // Investigating a noise: where it was heard, the way there, and how
+        // long it's looked about since getting there.
+        float heardX = 0.0f;
+        float heardY = 0.0f;
+        std::vector<std::pair<float, float>> route;
+        float looked = -1.0f; // below 0 not there yet
         float health = 0.0f;
         float maxHealth = 0.0f;
         const ItemDefinition *weapon = nullptr;
@@ -157,6 +164,23 @@ public:
     /** Whether nothing that stands full height is between two points on the map. */
     bool clearSight(float x0, float y0, float x1, float y1) const;
 
+    /** A noise the team has made, heard by the enemies about it (0x5194e0). */
+    struct Noise {
+        float x = 0.0f;
+        float y = 0.0f;
+        float radius = 0.0f;
+        float age = 0.0f;  // seconds it's heard for
+        float left = 0.0f; // seconds of it left
+    };
+    const std::vector<Noise> &noises() const { return _noises; }
+    /** Makes a noise at (x, y), heard `radius` away for `age` seconds. */
+    void makeNoise(float x, float y, float radius, float age);
+    /** The noise a footstep of officer `officer` makes, as Rules.txt and their Stealth make it. */
+    float footstepNoise(const Officer &o, const Animation::Noise &step) const;
+    /** Whether the team's noises are shown (the sound button). */
+    bool listening() const { return _listening; }
+    void setListening(bool on) { _listening = on; }
+
 private:
     // What a ground value draws: a texture, and how much of the next one
     // over it (0-255) (0x538d20, the 16-bit table).
@@ -175,8 +199,15 @@ private:
     // Runs `ai` a step for `e`; true once it's done.
     bool runAI(Enemy &e, const TextObject *ai, float seconds);
     void forget(Enemy &e, const TextObject *ai);
-    // Walks `e` towards (x, y) at its walk's pace times `ratio`; true there.
-    bool walkTo(Enemy &e, float x, float y, float ratio, float seconds);
+    // Walks `e` towards (x, y) at its walk's pace times `ratio`, or its
+    // run's with `running`; true there.
+    bool walkTo(Enemy &e, float x, float y, float ratio, float seconds, bool running = false);
+    // Whether `e` hears one of the team's noises, and where.
+    bool hears(const Enemy &e, float &x, float &y) const;
+    // Sends `e` to investigate a noise at (x, y).
+    void investigate(Enemy &e, float x, float y);
+    // Its Investigate state a step; true once it's done.
+    bool runInvestigate(Enemy &e, float seconds);
     // Turns `e` towards `angle` at `degreesPerSecond`; true there.
     bool turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds);
     bool sees(const Enemy &e, const Officer &o) const;
@@ -203,6 +234,9 @@ private:
     bool shown(size_t part) const;
     void showDialog(const std::string &script, const std::string &line, const std::string &speaker);
     void drawDialog(Surface &screen);
+    // The team's noises: ageing, and their rings shown (map_noise.cpp).
+    void updateNoises(float seconds);
+    void drawNoises(Surface &view, int left, int top) const;
     void walk(Officer &o, float seconds);
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);
@@ -316,6 +350,8 @@ private:
         float time = 0.0f; // seconds shown
     };
     std::vector<Flash> _flashes;
+    std::vector<Noise> _noises; // the newest first
+    bool _listening = false;
 };
 
 } // namespace reluva::stawayteam

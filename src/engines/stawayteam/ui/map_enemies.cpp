@@ -96,14 +96,14 @@ bool MapScreen::turnTo(Enemy &e, float angle, float degreesPerSecond, float seco
     return false;
 }
 
-bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds) {
+bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, bool running) {
     const float dx = x - e.x;
     const float dy = y - e.y;
     const float distance = std::hypot(dx, dy);
     if (distance < 1.0f)
         return true;
     e.angle = angleOf(dx, dy);
-    const Animation &walking = animation(_map.parts[e.part].model, "Walk");
+    const Animation &walking = animation(_map.parts[e.part].model, running ? "Run" : "Walk");
     const int direction = walking.direction(e.angle);
     const float cycle = walking.cycleDistance(direction);
     const int per = walking.perDirection();
@@ -113,6 +113,7 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds) {
     e.x += dx / distance * step;
     e.y += dy / distance * step;
     e.walking = true;
+    e.running = running;
     e.travelled = cycle > 0.0f ? std::fmod(e.travelled + step / (ratio > 0.0f ? ratio : 1.0f), cycle) : 0.0f;
     return step >= distance;
 }
@@ -223,6 +224,7 @@ bool MapScreen::runAI(Enemy &e, const TextObject *ai, float seconds) {
 void MapScreen::updateEnemies(float seconds) {
     for (Enemy &e : _enemies) {
         e.walking = false;
+        e.running = false;
         const PartState &state = _partStates[e.part];
         if (!state.active || state.deleted || e.down())
             continue;
@@ -232,7 +234,7 @@ void MapScreen::updateEnemies(float seconds) {
         // state's Start Action, turning to them for Alert Time; then it
         // attacks (inferred: CBorgStateGotATarget's transitions aren't
         // traced).
-        if (e.state == "Patrol" && _teamShown) {
+        if ((e.state == "Patrol" || e.state == "Investigate") && _teamShown) {
             for (size_t i = 0; i < _officers.size(); ++i)
                 if (sees(e, _officers[i])) {
                     e.target = int(i);
@@ -243,6 +245,23 @@ void MapScreen::updateEnemies(float seconds) {
                         runAction(alert->object("Start Action"), -1);
                     break;
                 }
+        }
+        // Hearing the team, one on patrol goes to look, or looks again
+        // where it hears them next; after looking about, it's back on
+        // patrol where it left off (inferred).
+        float heardX = 0.0f;
+        float heardY = 0.0f;
+        if ((e.state == "Patrol" || e.state == "Investigate") && hears(e, heardX, heardY) &&
+            (e.state == "Patrol" || heardX != e.heardX || heardY != e.heardY))
+            investigate(e, heardX, heardY);
+        if (e.state == "Investigate") {
+            if (runInvestigate(e, seconds)) {
+                if (const TextObject *state = states->object("Investigate"))
+                    runAction(state->object("End Action"), -1);
+                e.state = "Patrol";
+                e.stateTime = 0.0f;
+            }
+            continue;
         }
         if (e.state == "Patrol") {
             if (const TextObject *patrol = states->object("Patrol"))
