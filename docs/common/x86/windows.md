@@ -32,7 +32,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   this machine through `mapPath`, which the engine provides. These are
   stood in for:
   - handles: `CreateFileA`, `ReadFile`, `WriteFile`, `SetFilePointer`,
-    `GetFileSize`, `GetFileTime`, and the 16-bit era's `OpenFile`/`_lread`;
+    `GetFileSize`, `GetFileTime`, and the 16-bit era's `OpenFile`,
+    `_lread`, `_hread`, `_hwrite` and `_llseek`; every file opened is
+    reported (`fileOpened`), whichever way;
   - searches (`FindFirstFileA` with wildcards);
   - memory-mapped views: copies, as these programs only read them;
   - the current folder;
@@ -54,6 +56,11 @@ C++ library have pages of their own ([directx.md](directx.md),
 
   Throwing a C++ exception, or reaching an exception handler, ends the run
   naming the type thrown, since dispatching isn't done yet.
+- **Memory** (`win32.cpp`): `VirtualAlloc`'s blocks, which `VirtualQuery`
+  and `VirtualQueryEx` describe (a block's pages committed, a module's as
+  its image, other memory of the process committed, the rest free);
+  `VirtualLock` and `VirtualProtect` need nothing, as every page is
+  readable and writable and stays in memory.
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds),
   `MulDiv`, the computer's name, `GetDateFormatA`/`GetTimeFormatA` with
@@ -206,7 +213,9 @@ executable's entry point on the main thread until it ends the process.
 - `testUserAndKernelMore` checks a window timer's `WM_TIMER` on a clock
   the test sets, a window's style and user data, the work area,
   `MoveWindow`, WIN.INI's defaults, and, with host threads, a semaphore
-  taken and released and a named mutex found again.
+  taken and released and a named mutex found again; a file read, moved
+  through and written with the 16-bit functions; `VirtualQuery` in a
+  block and beyond memory.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.

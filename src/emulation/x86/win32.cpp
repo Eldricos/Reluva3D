@@ -657,6 +657,53 @@ void Win32Process::addStandIns() {
         }
         return 1u;
     });
+    // VirtualQuery(address, MEMORY_BASIC_INFORMATION*, size): the region
+    // round an address: a block VirtualAlloc gave, a module's image, a page
+    // of the process's other memory (committed), or free.
+    auto virtualQuery = [this](Cpu &c, uint32_t address, uint32_t info, uint32_t size) -> uint32_t {
+        constexpr uint32_t kInfoSize = 28;
+        if (size < kInfoSize || !c.valid(info, kInfoSize))
+            return 0u;
+        uint32_t base = address & ~0xfffu;
+        uint32_t allocation = base;
+        uint32_t regionSize = 0x1000;
+        uint32_t state = 0x1000; // MEM_COMMIT
+        uint32_t type = 0x20000; // MEM_PRIVATE
+        uint32_t protect = 4;    // PAGE_READWRITE
+        auto it = _virtualBlocks.upper_bound(address);
+        bool found = false;
+        if (it != _virtualBlocks.begin()) {
+            --it;
+            if (address < it->first + it->second) {
+                allocation = it->first;
+                regionSize = it->first + it->second - base;
+                found = true;
+            }
+        }
+        if (!found)
+            for (const Module *m : modules())
+                if (address >= m->base && address < m->base + m->size) {
+                    allocation = m->base;
+                    regionSize = m->base + m->size - base;
+                    type = 0x1000000; // MEM_IMAGE
+                    found = true;
+                    break;
+                }
+        if (!found && !c.valid(base, 1)) {
+            state = 0x10000; // MEM_FREE
+            type = 0;
+            protect = 1; // PAGE_NOACCESS
+            allocation = 0;
+        }
+        const uint32_t fields[7] = {base, allocation, state == 0x10000 ? 0 : protect, regionSize, state, protect, type};
+        for (uint32_t i = 0; i < 7; ++i)
+            c.write32(info + 4 * i, fields[i]);
+        return kInfoSize;
+    };
+    stdcall(k, "VirtualQuery", 3, [virtualQuery](Cpu &c) { return virtualQuery(c, c.arg(0), c.arg(1), c.arg(2)); });
+    stdcall(k, "VirtualQueryEx", 4, [virtualQuery](Cpu &c) { return virtualQuery(c, c.arg(1), c.arg(2), c.arg(3)); });
+    // Every page stays in memory anyway.
+    stdcall(k, "VirtualLock", 2, [](Cpu &) { return 1u; });
     // Page protection isn't kept (every page is readable and writable).
     stdcall(k, "VirtualProtect", 4, [](Cpu &c) {
         if (c.arg(3))

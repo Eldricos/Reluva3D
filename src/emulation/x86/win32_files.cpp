@@ -950,11 +950,13 @@ uint32_t Win32Process::openFile(const std::string &windowsPath, const char *mode
     const std::string full = fullPath(windowsPath);
     const bool writing = std::strpbrk(mode, "wa+") != nullptr;
     const auto host = mapPath ? mapPath(full, writing) : std::nullopt;
+    std::FILE *f = host ? std::fopen(host->string().c_str(), mode) : nullptr;
+    if (fileOpened)
+        fileOpened(full, f != nullptr);
     if (!host) {
         _lastError = writing ? kErrorAccessDenied : kErrorFileNotFound;
         return 0;
     }
-    std::FILE *f = std::fopen(host->string().c_str(), mode);
     if (!f) {
         _lastError = kErrorFileNotFound;
         return 0;
@@ -1134,6 +1136,30 @@ void Win32Process::addFileStandIns() {
         if (!f || !c.valid(c.arg(1), c.arg(2)))
             return 0xffffffffu;
         return uint32_t(std::fread(c.memory().data() + c.arg(1), 1, c.arg(2), f->file));
+    });
+    // _hread is _lread's 32-bit twin: the same, a long count.
+    stdcall(k, "_hread", 3, [this](Cpu &c) {
+        OpenFile *f = file(c.arg(0));
+        if (!f || !c.valid(c.arg(1), c.arg(2)))
+            return 0xffffffffu;
+        return uint32_t(std::fread(c.memory().data() + c.arg(1), 1, c.arg(2), f->file));
+    });
+    // _hwrite(file, data, count): a count of 0 cuts the file there, which
+    // isn't done here.
+    stdcall(k, "_hwrite", 3, [this](Cpu &c) {
+        OpenFile *f = file(c.arg(0));
+        if (!f || !c.valid(c.arg(1), c.arg(2)))
+            return 0xffffffffu;
+        return uint32_t(std::fwrite(c.memory().data() + c.arg(1), 1, c.arg(2), f->file));
+    });
+    // _llseek(file, offset, from: 0 the start, 1 here, 2 the end): where it
+    // is then.
+    stdcall(k, "_llseek", 3, [this](Cpu &c) {
+        OpenFile *f = file(c.arg(0));
+        const uint32_t from = c.arg(2);
+        if (!f || from > 2 || std::fseek(f->file, long(int32_t(c.arg(1))), int(from)) != 0)
+            return 0xffffffffu;
+        return uint32_t(std::ftell(f->file));
     });
     stdcall(k, "_lclose", 1, [this](Cpu &c) { return closeFile(c.arg(0)) ? 0u : 0xffffffffu; });
 

@@ -14,6 +14,7 @@
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
+#include "emulation/x86/directx/d3drm.h"
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/internal.h"
@@ -486,7 +487,7 @@ static void testWindowsAndRegistry() {
 // More of USER32 and KERNEL32: window timers, a window's longs, the work
 // area, WIN.INI's defaults; with host threads, semaphores and named
 // mutexes.
-static void testUserAndKernelMore() {
+static void testUserAndKernelMore(const std::filesystem::path &tmp) {
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
     uint32_t clock = 1000;
@@ -561,6 +562,35 @@ static void testUserAndKernelMore() {
     CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 183);
     CHECK(!cpu.call(fn("KERNEL32.dll", "OpenMutexA"), {0x1f0001, 0, text("island")}, r) && r == mutex);
     CHECK(!cpu.call(fn("KERNEL32.dll", "OpenMutexA"), {0x1f0001, 0, text("other")}, r) && r == 0);
+
+    // A file through OpenFile, read and moved through with the 16-bit
+    // functions; written with _hwrite.
+    { std::ofstream(tmp / "data.bin", std::ios::binary) << "0123456789"; }
+    process.mapPath = [&](const std::string &path, bool) -> std::optional<std::filesystem::path> {
+        return tmp / path.substr(path.find_last_of('\\') + 1);
+    };
+    const uint32_t ofs = process.memory().alloc(136);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenFile"), {text("C:\\data.bin"), ofs, 2}, r) && r != 0xffffffffu);
+    const uint32_t file = r;
+    CHECK(!cpu.call(fn("KERNEL32.dll", "_llseek"), {file, 4, 0}, r) && r == 4);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "_hread"), {file, buf, 3}, r) && r == 3 && cpu.read8(buf) == '4');
+    CHECK(!cpu.call(fn("KERNEL32.dll", "_llseek"), {file, uint32_t(-2), 2}, r) && r == 8);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "_hwrite"), {file, text("xy"), 2}, r) && r == 2);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "_llseek"), {file, 5, 3}, r) && r == 0xffffffffu); // no such origin
+    CHECK(!cpu.call(fn("KERNEL32.dll", "_lclose"), {file}, r) && r == 0);
+    std::string written;
+    std::getline(std::ifstream(tmp / "data.bin", std::ios::binary), written);
+    CHECK(written == "01234567xy");
+
+    // VirtualQuery: inside a block VirtualAlloc gave, and beyond memory.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "VirtualAlloc"), {0, 0x3000, 0x3000, 4}, r) && r != 0);
+    const uint32_t block = r;
+    const uint32_t mbi = process.memory().alloc(28);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "VirtualQuery"), {block + 0x1234, mbi, 28}, r) && r == 28);
+    CHECK(cpu.read32(mbi) == block + 0x1000 && cpu.read32(mbi + 4) == block && cpu.read32(mbi + 12) == 0x2000 &&
+          cpu.read32(mbi + 16) == 0x1000); // its page, the block, what's left of it, committed
+    CHECK(!cpu.call(fn("KERNEL32.dll", "VirtualQuery"), {0xfff00000u, mbi, 28}, r) && r == 28 &&
+          cpu.read32(mbi + 16) == 0x10000); // free
 }
 
 // DirectX 5's Direct3D, as LEGO Island reaches it: IDirect3D2 from the
@@ -643,6 +673,142 @@ static void testDirect3D5() {
     CHECK(call(device, 12, {out}) == 0 && cpu.read32(out) == d3d);                                   // GetDirect3D
     CHECK(call(device, 23, {7, 1}) == 0 && call(device, 22, {7, out}) == 0 && cpu.read32(out) == 1); // ZENABLE
     CHECK(call(device, 10, {}) == 0 && call(device, 11, {}) == 0); // BeginScene, EndScene
+}
+
+// Retained Mode on a DirectX 5 device, as LEGO Island builds its scene:
+// frames placed and turned relative to each other, a device and a viewport
+// that clears to the scene's background, a light, a material, names; the
+// floats its getters give are on the x87 stack.
+static void testRetainedMode() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    dx.modes.push_back({64, 48, 16});
+    x86::Direct3DRM rm(process, dx);
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    auto value = [&](uint32_t p) {
+        float f;
+        const uint32_t v = cpu.read32(p);
+        std::memcpy(&f, &v, 4);
+        return f;
+    };
+    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    const uint32_t out = mem(4);
+    const uint32_t vec = mem(12);
+    const uint32_t vec2 = mem(12);
+
+    // The Direct3D device it's made on.
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t dd = cpu.read32(out);
+    CHECK(call(dd, 20, {0, 0x11}) == 0 && call(dd, 21, {64, 48, 16}) == 0);
+    CHECK(call(dd, 0, {guid("{6aae1ec1-662a-11d0-889d-00aa00bbb76a}"), out}) == 0);
+    const uint32_t d3d = cpu.read32(out);
+    const uint32_t desc = mem(108);
+    std::memset(cpu.memory().data() + desc, 0, 108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4);
+    cpu.write32(desc + 8, 48);
+    cpu.write32(desc + 12, 64);
+    cpu.write32(desc + 104, 0x40 | 0x2000);
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t surface = cpu.read32(out);
+    CHECK(call(d3d, 8, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), surface, out}) == 0);
+    const uint32_t d3dDevice = cpu.read32(out);
+
+    // Direct3DRMCreate, as IDirect3DRM2.
+    CHECK(!cpu.call(process.provided("d3drm.dll", "Direct3DRMCreate"), {out}, r) && r == 0);
+    const uint32_t rm1 = cpu.read32(out);
+    CHECK(call(rm1, 0, {guid("{4516ecc8-8f20-11d0-9b6d-0000c0781bc3}"), out}) == 0);
+    const uint32_t rm2 = cpu.read32(out);
+
+    // A scene and a child: the child put at (1, 2, 3) in the scene's
+    // terms, then the scene moved by (10, 0, 0) and turned a quarter about
+    // y. Row vectors: (1, 0, 0) turned a quarter about y is (0, 0, -1).
+    CHECK(call(rm2, 4, {0, out}) == 0);
+    const uint32_t scene = cpu.read32(out);
+    CHECK(call(rm2, 4, {scene, out}) == 0);
+    const uint32_t child = cpu.read32(out);
+    CHECK(call(child, 61, {scene, bits(1), bits(2), bits(3)}) == 0); // SetPosition
+    CHECK(call(child, 24, {scene, vec}) == 0 && near(value(vec), 1) && near(value(vec + 8), 3));
+    CHECK(call(scene, 17, {0, 0, bits(1), 0, bits(1.5707964f)}) == 0); // AddRotation, replacing
+    CHECK(call(scene, 15, {2, bits(10), 0, 0}) == 0);                  // AddTranslation, after
+    // Its origin in the world (Transform), and its position from its parent
+    // when no reference is given.
+    std::memset(cpu.memory().data() + vec2, 0, 12);
+    CHECK(call(child, 68, {vec, vec2}) == 0);
+    CHECK(near(value(vec), 13) && near(value(vec + 4), 2) && near(value(vec + 8), -1));
+    CHECK(call(child, 24, {0, vec}) == 0 && near(value(vec), 1) && near(value(vec + 8), 3));
+    CHECK(call(child, 24, {scene, vec}) == 0 && near(value(vec), 1) && near(value(vec + 4), 2));
+    // The child faces +x in the scene's terms: its own z then.
+    CHECK(call(child, 60, {scene, bits(1), 0, 0, 0, bits(1), 0}) == 0); // SetOrientation
+    CHECK(call(child, 31, {scene, vec, vec2}) == 0 && near(value(vec), 1) && near(value(vec2 + 4), 1));
+    // A point to the world and back.
+    for (uint32_t i = 0; i < 3; ++i)
+        cpu.write32(vec2 + 4 * i, bits(float(i)));
+    CHECK(call(child, 68, {vec, vec2}) == 0 && call(child, 34, {vec2, vec}) == 0); // Transform, InverseTransform
+    CHECK(near(value(vec2), 0) && near(value(vec2 + 4), 1) && near(value(vec2 + 8), 2));
+    CHECK(call(child, 23, {out}) == 0 && cpu.read32(out) != 0); // GetParent
+    // Names and the class's.
+    const uint32_t name = mem(16);
+    cpu.writeString(name, "camera", 16);
+    CHECK(call(child, 8, {name}) == 0);
+    cpu.write32(out, 16);
+    CHECK(call(child, 9, {out, name + 8}) == 0 && cpu.read32(out) == 7 && cpu.string(name + 8) == "camera");
+    cpu.write32(out, 16);
+    CHECK(call(child, 10, {out, name}) == 0 && cpu.string(name) == "Frame");
+
+    // A device on the Direct3D one, a viewport of it seen from the child,
+    // cleared to the scene's background: red.
+    CHECK(call(rm2, 16, {d3d, d3dDevice, out}) == 0); // CreateDeviceFromD3D
+    const uint32_t device = cpu.read32(out);
+    CHECK(call(device, 27, {}) == 64 && call(device, 26, {}) == 48); // GetWidth, GetHeight
+    CHECK(call(rm2, 20, {device, child, 0, 0, 64, 48, out}) == 0);   // CreateViewport
+    const uint32_t viewport = cpu.read32(out);
+    CHECK(call(viewport, 16, {bits(0.25f)}) == 0); // SetField
+    cpu.fpu.top = 0;
+    call(viewport, 34, {}); // GetField, on the x87 stack
+    CHECK(near(float(cpu.fpuPop()), 0.25f));
+    const uint32_t planes = mem(16);
+    CHECK(call(viewport, 27, {planes, planes + 4, planes + 8, planes + 12}) == 0); // GetPlane: wider than high
+    CHECK(near(value(planes + 4), 0.25f * 64 / 48) && near(value(planes + 12), 0.25f));
+    CHECK(call(scene, 49, {bits(1), 0, 0}) == 0); // SetSceneBackgroundRGB
+    CHECK(call(viewport, 12, {}) == 0);           // Clear
+    const uint32_t lock = mem(108);
+    std::memset(cpu.memory().data() + lock, 0, 108);
+    cpu.write32(lock, 108);
+    CHECK(call(surface, 25, {0, lock, 1, 0}) == 0);     // Lock
+    CHECK(cpu.read16(cpu.read32(lock + 36)) == 0xf800); // red in 565
+    CHECK(call(surface, 32, {0}) == 0);                 // Unlock
+
+    // A light and a material.
+    CHECK(call(rm2, 12, {3, bits(1), bits(0.5f), 0, out}) == 0); // CreateLightRGB, directional
+    const uint32_t light = cpu.read32(out);
+    CHECK(call(light, 27, {}) == 3 && call(light, 26, {}) == 0xffff8000u); // GetType, GetColor
+    cpu.fpu.top = 0;
+    call(light, 20, {}); // GetRange: 256 unless set
+    CHECK(near(float(cpu.fpuPop()), 256));
+    CHECK(call(child, 12, {light}) == 0);      // AddLight
+    CHECK(call(rm2, 13, {bits(8), out}) == 0); // CreateMaterial
+    cpu.fpu.top = 0;
+    call(cpu.read32(out), 14, {}); // GetPower
+    CHECK(near(float(cpu.fpuPop()), 8));
+    CHECK(rm.objectsMade() == 6);
 }
 
 static void testDirectX() {
@@ -1283,6 +1449,7 @@ static const test::Suite
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
                {"direct3d 5", [](const std::filesystem::path &) { testDirect3D5(); }},
-               {"user and kernel, more", [](const std::filesystem::path &) { testUserAndKernelMore(); }},
+               {"retained mode", [](const std::filesystem::path &) { testRetainedMode(); }},
+               {"user and kernel, more", [](const std::filesystem::path &tmp) { testUserAndKernelMore(tmp); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

@@ -72,6 +72,8 @@ public:
     bool presentLate = false;
 
     struct State;
+    /** What its objects share, for the stand-ins built on it (Retained Mode's). */
+    State &state() { return *_s; }
 
 private:
     std::unique_ptr<State> _s;
