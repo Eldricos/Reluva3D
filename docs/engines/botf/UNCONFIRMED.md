@@ -38,9 +38,6 @@ None: nothing of the game's code has been read.
 - **On Save Game:** typing whichever field was clicked
   ([systems/screens.md](systems/screens.md)). Settled by: the running
   game.
-- **The timers' arrows** stopping at either end
-  ([systems/screens.md](systems/screens.md)). Settled by: the running
-  game.
 - **On Load Game:** empty slots can't be chosen
   ([systems/screens.md](systems/screens.md)). Settled by: the running game.
 - **On the options screen:** a click on a volume lighting the cells up to

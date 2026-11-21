@@ -140,8 +140,7 @@ void SetupScreen::click(int32_t id, bool shift) {
     case kDifficulty:
         s.difficulty = (s.difficulty + 1) % 5;
         break;
-    // The arrows step through the timer's choices, stopping at either end
-    // (guessed).
+    // The arrows step through the timer's choices, stopping at either end.
     case kStrategicLess:
         s.strategicTimer = std::max(s.strategicTimer - 1, 0);
         break;

@@ -144,8 +144,7 @@ Error OptionsScreen::load() {
 
 void OptionsScreen::click(int32_t id) {
     // A setting opens its list of choices, or closes it if it's open; the
-    // timers' arrows step through their choices, stopping at either end
-    // (guessed).
+    // timers' arrows step through their choices, stopping at either end.
     if (listOf(id))
         _list = _list == id ? 0 : id;
     auto step = [](int &choice, int by, size_t count) { choice = std::clamp(choice + by, 0, int(count) - 1); };

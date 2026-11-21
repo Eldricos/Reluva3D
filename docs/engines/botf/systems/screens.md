@@ -359,8 +359,8 @@ recording:
   to the left.
 - **The timers' choices,** minutes and seconds, as "MM:SS", are the
   user's, stepping through them in the game: 25 for the strategic timer,
-  30 for the tactical, None first in both. The arrows step one choice;
-  Reluva stops them at either end *(guessed)*.
+  30 for the tactical, None first in both. The arrows step one choice,
+  and stop at either end, not going round (the user, in the game).
 
 ### Empire selection
 
@@ -468,7 +468,6 @@ recording:
 
 ## Open questions
 
-- Whether the timers' arrows stop at the ends or go round.
 - Whether the game shows a held button's "selected" picture on the setup
   and empire screens, as the main menu does under the pointer.
 - On the options screen: whether a volume's click works as Reluva's does.
