@@ -404,8 +404,13 @@ blend with what's under them.
   is presumably its planets' too, through `habit.bin` (by planet type and
   atmosphere, six figures each, presumably one for each empire and one for
   the minor races) and `ppgrowth.bin` (ten population ranges, from 10-50
-  to 2000-10000, each with a figure falling from 1,000,000 to 1,250), but
-  no rule tried fits every system yet.
+  to 2000-10000, each with a figure falling from 1,000,000 to 1,250).
+  A system's rate is its terraformed planets' added up: Sol's Mercury
+  0.1%, Venus 0.2%, Earth 2.0% and Mars 0.8% make its 3.1%, and Xerxes'
+  0.2% is Xerxes IV's alone. For Humans a planet's rate rises with its
+  maximum population, faster than in proportion: 20 and 25 0.1%, 40 to 55
+  0.2%, 65 0.4%, 75 0.7%, 85 0.8%, 140 2.0% (eleven planets of every
+  type), but no rule tried fits them all yet, nor the other races'.
 - Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
 - Whether a click elsewhere closes the zoom's buttons.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the
