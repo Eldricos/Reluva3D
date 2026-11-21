@@ -6,6 +6,7 @@
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/client/cinematic_slots.h"
+#include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
@@ -779,6 +780,25 @@ static void testGhoul2Collision() {
     ghost[0].noCollide = true;
     jk2::traceGhoul2(ghost, world, {0, 0, 0}, {90, 2, 2}, {110, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
     CHECK(hits.empty());
+}
+
+static void testPatchedText() {
+    // 1.03's letters: a byte, punctuation ! ? , . ; : only; two bytes in
+    // Korean, Big5 and Shift-JIS within their ranges, each its own
+    // punctuation (none in Korean).
+    int32_t advance = 0;
+    bool punct = false;
+    CHECK(jk2::readPatchedChar('a', 'b', 0, advance, punct) == 'a' && advance == 1 && !punct);
+    CHECK(jk2::readPatchedChar(';', 0, 0, advance, punct) == ';' && punct);
+    CHECK(jk2::readPatchedChar('-', 0, 0, advance, punct) == '-' && !punct);
+    CHECK(jk2::readPatchedChar(0xb0, 0xa1, 4, advance, punct) == 0xb0a1 && advance == 2 && !punct);
+    CHECK(jk2::readPatchedChar(0xb0, 0xa1, 0, advance, punct) == 0xb0 && advance == 1);
+    CHECK(jk2::readPatchedChar(0xa1, 0x43, 5, advance, punct) == 0xa143 && advance == 2 && punct);
+    CHECK(jk2::readPatchedChar(0xa4, 0x40, 5, advance, punct) == 0xa440 && !punct);
+    CHECK(jk2::readPatchedChar(0xc7, 0x40, 5, advance, punct) == 0xc7 && advance == 1);
+    CHECK(jk2::readPatchedChar(0x81, 0x41, 8, advance, punct) == 0x8141 && advance == 2 && punct);
+    CHECK(jk2::readPatchedChar(0x82, 0xa0, 8, advance, punct) == 0x82a0 && !punct);
+    CHECK(jk2::readPatchedChar(0x81, 0x20, 8, advance, punct) == 0x81 && advance == 1);
 }
 
 static void testCinematicSlots() {
@@ -1745,6 +1765,7 @@ static const reluva::test::Suite
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
                {"cinematic slots", [](const std::filesystem::path &) { testCinematicSlots(); }},
+               {"patched text", [](const std::filesystem::path &) { testPatchedText(); }},
                {"ghoul2 collision", [](const std::filesystem::path &) { testGhoul2Collision(); }},
                {"menu definitions", [](const std::filesystem::path &) { testMenuDefs(); }},
                {"effects", [](const std::filesystem::path &) { testEffects(); }},

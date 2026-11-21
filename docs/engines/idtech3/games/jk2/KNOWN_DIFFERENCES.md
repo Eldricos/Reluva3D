@@ -53,15 +53,6 @@ In the multiplayer game:
   Reluva's own random draws, not the original's, as surface sprites'
   spots are.
 
-In the 1.03 and 1.04 patches' multiplayer:
-
-- **The text calls' punctuation**: whether a character may end a line
-  is answered from Reluva's own list (`.,!?;:`), not the original's
-  ([systems/syscalls.md](systems/syscalls.md), Patches).
-- **Keys the patches have and Quake III hasn't** (`CONSOLE`, `EURO`,
-  `SCROLLLOCK` and others) never reach the menus: Reluva's keys are Quake
-  III's.
-
 In the multiplayer menus:
 
 - **The favourite servers** are kept in `favorites.txt` (address and

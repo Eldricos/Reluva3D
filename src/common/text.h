@@ -18,6 +18,8 @@ std::string utf16leToUtf8(const uint16_t *units, size_t count);
 // Convert Windows-1252 text (the Western code page of Windows 95 games) to
 // UTF-8. Its five unassigned bytes become U+FFFD.
 std::string windows1252ToUtf8(std::string_view s);
+// And a code point as Windows-1252's byte (0 where it has none).
+uint8_t toWindows1252(uint32_t cp);
 
 // The code point at s[i] of UTF-8 text, advancing i past it (U+FFFD for a
 // bad sequence). i must be less than s.size().

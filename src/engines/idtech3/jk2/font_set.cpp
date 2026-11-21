@@ -67,6 +67,35 @@ void FontSet::drawString(int32_t x, int32_t y, const std::string &text, const st
     pieces(x, y, color, false);
 }
 
+int32_t readPatchedChar(uint8_t first, uint8_t second, int32_t language, int32_t &advance, bool &trailingPunctuation) {
+    const int32_t both = int32_t(first) << 8 | second;
+    advance = 2;
+    trailingPunctuation = false;
+    // Korean: a first byte 0xb0 to 0xc8, a second 0xa1 to 0xfe (0x477300);
+    // none of its letters is punctuation here.
+    if (language == 4 && first >= 0xb0 && first <= 0xc8 && second > 0xa0 && second < 0xff)
+        return both;
+    // Big5: a first byte 0xa1 to 0xc6 or 0xc9 to 0xf9, a second 0x40 to
+    // 0x7e or 0xa1 to 0xfe (0x477330); 0xa140 to 0xa153 punctuation (0x477370).
+    if (language == 5 && ((first >= 0xa1 && first <= 0xc6) || (first >= 0xc9 && first <= 0xf9)) &&
+        ((second >= 0x40 && second <= 0x7e) || (second >= 0xa1 && second <= 0xfe))) {
+        trailingPunctuation = both >= 0xa140 && both < 0xa154;
+        return both;
+    }
+    // Shift-JIS: a first byte 0x81 to 0x9f or 0xe0 to 0xef, a second 0x40
+    // to 0x7e or 0x80 to 0xfc (0x477390); 0x8140 to 0x8151 punctuation
+    // (0x4773c0).
+    if (language == 8 && ((first >= 0x81 && first <= 0x9f) || (first >= 0xe0 && first <= 0xef)) &&
+        ((second >= 0x40 && second <= 0x7e) || (second >= 0x80 && second <= 0xfc))) {
+        trailingPunctuation = both >= 0x8140 && both < 0x8152;
+        return both;
+    }
+    // Else a byte; ! ? , . ; : punctuation (0x4772c8 on).
+    advance = 1;
+    trailingPunctuation = first && std::strchr("!?,.;:", first);
+    return first;
+}
+
 int32_t FontSet::call(Qvm &vm, Call which, const int32_t *a, int32_t timeMs, const Sink &draw) {
     auto str = [&](int i, size_t max) { return vm.string(a[i], max); };
     auto f = [&](int i) { return Qvm::asFloat(a[i]); };
@@ -112,16 +141,17 @@ int32_t FontSet::call(Qvm &vm, Call which, const int32_t *a, int32_t timeMs, con
         return c;
     }
     case kReadCharAdvance: {
-        // As 1.03's (jk2mp.exe 0x4771b0): one byte a letter here too; and
-        // whether it's punctuation that may end a line (its list for
-        // these languages taken as . , ! ? ; : (guessed)).
         if (!vm.valid(a[0], 1))
             return 0;
-        const auto c = int32_t(uint8_t(vm.memory()[size_t(a[0])]));
+        const auto first = uint8_t(vm.memory()[size_t(a[0])]);
+        const auto second = first && vm.valid(a[0], 2) ? uint8_t(vm.memory()[size_t(a[0]) + 1]) : uint8_t(0);
+        int32_t advance = 1;
+        bool punctuation = false;
+        const int32_t c = readPatchedChar(first, second, language, advance, punctuation);
         if (a[1] && vm.valid(a[1], 4))
-            vm.writeInt(a[1], 1);
+            vm.writeInt(a[1], advance);
         if (a[2] && vm.valid(a[2], 4))
-            vm.writeInt(a[2], std::strchr(".,!?;:", c) && c ? 1 : 0);
+            vm.writeInt(a[2], punctuation ? 1 : 0);
         return c;
     }
     }

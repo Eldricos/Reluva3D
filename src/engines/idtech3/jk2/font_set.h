@@ -19,6 +19,19 @@
 namespace reluva::idtech3::jk2 {
 
 /**
+ * A letter of text as 1.03's and 1.04's renderer reads it (jk2mp.exe 1.03,
+ * 0x4771b0): two bytes in Korean (sp_language 4), traditional Chinese (5)
+ * and Japanese (8) where its first and second fall in the language's
+ * ranges, else one.
+ * @param text the letter's first byte and the next (0 at the text's end)
+ * @param[out] advance how many bytes it took
+ * @param[out] trailingPunctuation whether it's punctuation a line may end
+ *             on, but not start with
+ * @return the letter: its byte, or both (the first high)
+ */
+int32_t readPatchedChar(uint8_t first, uint8_t second, int32_t language, int32_t &advance, bool &trailingPunctuation);
+
+/**
  * Jedi Outcast's text calls, as its multiplayer renderer answers them for
  * the menus and the client game alike (each numbers them its own way):
  * fonts registered by name (fonts/<name>.fontdat, its picture
@@ -50,6 +63,8 @@ public:
 
     // One of the calls; `timeMs` is the clock blinking text goes by.
     int32_t call(Qvm &vm, Call which, const int32_t *args, int32_t timeMs, const Sink &draw);
+    // sp_language, which 1.03's kReadCharAdvance reads text by.
+    int32_t language = 0;
 
     int32_t registerFont(const std::string &name);
     const raven::Font *font(int32_t handle) const;

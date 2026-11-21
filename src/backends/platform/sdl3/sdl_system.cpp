@@ -81,6 +81,17 @@ uint32_t translateKey(SDL_Keycode k) {
         return key::kKpMultiply;
     if (k == SDLK_KP_DIVIDE)
         return key::kKpDivide;
+    if (k == SDLK_CAPSLOCK)
+        return key::kCapsLock;
+    if (k == SDLK_NUMLOCKCLEAR)
+        return key::kNumLock;
+    if (k == SDLK_SCROLLLOCK)
+        return key::kScrollLock;
+    if (k == SDLK_PAUSE)
+        return key::kPause;
+    // Other keys' codes are their characters, but for SDL's own.
+    if (!(k & SDLK_SCANCODE_MASK) && k < key::kCharacter)
+        return key::kCharacter + k;
     return key::kUnknown;
 }
 
@@ -353,6 +364,7 @@ bool SdlSystem::pollEvent(Event &out) {
             }
             out.type = ev.type == SDL_EVENT_KEY_DOWN ? EventType::kKeyDown : EventType::kKeyUp;
             out.key = translateKey(ev.key.key);
+            out.consoleKey = ev.key.scancode == SDL_SCANCODE_GRAVE;
             out.mods = translateMods(ev.key.mod);
             out.repeat = ev.key.repeat;
             return true;

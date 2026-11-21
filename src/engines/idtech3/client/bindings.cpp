@@ -4,6 +4,7 @@
 #include "engines/idtech3/client/bindings.h"
 
 #include "common/fs.h"
+#include "common/text.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,7 +25,7 @@ constexpr KeyName kKeyNames[] = {
     {q3key::kEscape, "ESCAPE"},
     {q3key::kSpace, "SPACE"},
     {q3key::kBackspace, "BACKSPACE"},
-    {129, "CAPSLOCK"},
+    {q3key::kCapsLock, "CAPSLOCK"},
     {q3key::kPause, "PAUSE"},
     {q3key::kUp, "UPARROW"},
     {q3key::kDown, "DOWNARROW"},
@@ -54,7 +55,7 @@ constexpr KeyName kKeyNames[] = {
     {172, "KP_SLASH"},
     {173, "KP_MINUS"},
     {174, "KP_PLUS"},
-    {175, "KP_NUMLOCK"},
+    {q3key::kNumLock, "KP_NUMLOCK"},
     {176, "KP_STAR"},
     {177, "KP_EQUALS"},
     {q3key::kMouse1, "MOUSE1"},
@@ -65,6 +66,9 @@ constexpr KeyName kKeyNames[] = {
     {q3key::kWheelDown, "MWHEELDOWN"},
     {q3key::kWheelUp, "MWHEELUP"},
     {';', "SEMICOLON"},
+    {q3key::kScrollLock, "SCROLLLOCK"},
+    {q3key::kCharacters + 0x80, "EURO"},
+    {q3key::kCharacters + 0x88, "CIRCUMFLEX"},
     // The joystick's buttons, and the original's names for 217 to 232
     // (nothing presses those).
     {185, "JOY1"},
@@ -162,14 +166,44 @@ int32_t toQ3Key(uint32_t k) {
     case key::kLAlt:
     case key::kRAlt:
         return q3key::kAlt;
+    case key::kCapsLock:
+        return q3key::kCapsLock;
+    case key::kNumLock:
+        return q3key::kNumLock;
+    case key::kScrollLock:
+        return q3key::kScrollLock;
+    case key::kPause:
+        return q3key::kPause;
+    case key::kKpPeriod:
+        return 171; // KP_DEL
+    case key::kKpDivide:
+        return 172;
+    case key::kKpMinus:
+        return 173;
+    case key::kKpPlus:
+        return 174;
+    case key::kKpMultiply:
+        return 176;
     default:
         break;
     }
     if (k >= key::kF1 && k < key::kF1 + 12)
         return q3key::kF1 + int32_t(k - key::kF1);
+    if (k >= key::kKp0 && k < key::kKp0 + 10) {
+        // By digit, whatever Num Lock says: 0 is KP_INS, 1 KP_END...
+        constexpr int32_t kByDigit[10] = {170, 166, 167, 168, 163, 164, 165, 160, 161, 162};
+        return kByDigit[k - key::kKp0];
+    }
     if (k > 32 && k < 127)
         return int32_t(k);
+    if (k > key::kCharacter)
+        if (const uint8_t c = text::toWindows1252(k - key::kCharacter); c >= 0x80)
+            return q3key::kCharacters + c;
     return 0;
+}
+
+int32_t toQ3Key(const Event &ev) {
+    return ev.consoleKey ? '`' : toQ3Key(ev.key);
 }
 
 int32_t toQ3Button(MouseButton b) {
@@ -193,6 +227,8 @@ std::string KeyBindings::keyName(int32_t key) {
         return "F" + std::to_string(key - q3key::kF1 + 1);
     if (key > 32 && key < 127)
         return std::string(1, char(key));
+    if (key >= q3key::kCharacters + 0x80 && key < q3key::kCharacters + 0x100)
+        return std::string(1, char(key - q3key::kCharacters));
     // Others by number, as the original writes them.
     char hex[8];
     std::snprintf(hex, sizeof hex, "0x%02x", unsigned(key & 0xff));
@@ -205,6 +241,8 @@ int32_t KeyBindings::keyNumber(std::string_view name) {
     if (name.size() == 1) {
         const auto c = static_cast<unsigned char>(name[0]);
         // Letters are bound in lower case.
+        if (c >= 0x80)
+            return q3key::kCharacters + c;
         return c >= 'A' && c <= 'Z' ? int32_t(c - 'A' + 'a') : int32_t(c);
     }
     const std::string lower = fs::toLower(name);

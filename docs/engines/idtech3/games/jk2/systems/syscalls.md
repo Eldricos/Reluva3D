@@ -172,14 +172,37 @@ function):
   `AnyLanguage_ReadCharFromString(text, &advance, &trailingPunctuation)`
   (0x4771b0): the character, its size in bytes written to the second
   argument, and, given a third, whether it's punctuation that may end a
-  line. Reluva's languages are one byte a letter: the size is always 1;
-  the punctuation is `.,!?;:` *(guessed)*: the original's list wasn't read.
+  line. It reads two bytes where `sp_language` takes them: Korean (4)
+  a first byte 0xb0 to 0xc8 and a second 0xa1 to 0xfe (0x477300), Big5
+  (5) 0xa1 to 0xc6 or 0xc9 to 0xf9, then 0x40 to 0x7e or 0xa1 to 0xfe
+  (0x477330), Shift-JIS (8) 0x81 to 0x9f or 0xe0 to 0xef, then 0x40 to
+  0x7e or 0x80 to 0xfc (0x477390); such a letter is the two bytes as a
+  number, first byte high. Punctuation is Big5's 0xa140 to 0xa153
+  (0x477370), Shift-JIS's 0x8140 to 0x8151 (0x4773c0), none of Korean's,
+  and otherwise one of `!?,.;:` (0x4772c8). 1.02a's own reader
+  (0x473e50) always reads one byte: its language test (0x4b0fa0)
+  answers 0. Reluva reads them alike (`readPatchedChar`,
+  `jk2/font_set.h`).
 - **Keys.** The engine numbers keys its own way from 1.03 on (its key
   names at 0x4f6bbc in 1.04, 16 bytes a key): Enter 10, Backspace 8, the
-  arrows 170 to 173, F1 28, `MOUSE1` 141, and more; characters and typed
-  text (`1024` and up) as before. Reluva changes a key's number where it
-  meets the menus: the key event's, and the key calls' (33 to 36), whose
-  bindings stay in Quake III's numbers (`jk2/patched_keys.h`).
+  arrows 170 to 173, F1 28, `MOUSE1` 141, and more; typed text (`1024`
+  and up) as before. A key's number comes from its Windows virtual key
+  (1.04's 0x4470d0, 1.03's 0x447240, the same table): the key under
+  Escape is always `CONSOLE` (26), by its scan code 0x29; the keys in its
+  table (0x502aa0, two numbers a virtual key, the second for the
+  extended keys: Enter 10 against the keypad's 13) are theirs, letters
+  as capitals (`A` 65); any other key is its unshifted character as
+  `MapVirtualKeyA` gives it, so a character past ASCII is its
+  Windows-1252 byte: `EURO` 128, `CIRCUMFLEX` 136 (and where that's
+  another key's number, it's that key: `„` is F5's 132). `SHIFT_ENTER`,
+  `SHIFT_SPACE` and `SHIFT_KP_ENTER` (155, 160, 164) are only other names
+  for Enter, Space and the keypad's Enter (10, 32, 13) in binds.
+  `CONSOLE` never reaches the menus or the bindings: it opens the
+  console while Shift is held, and closes it (1.03 0x409cc2, 1.04
+  0x409cd2). Reluva changes a key's number where it meets the menus: the
+  key event's, and the key calls' (33 to 36), whose bindings stay in
+  Quake III's numbers, with Reluva's own past them for the keys Quake
+  III hasn't (`q3key::kFirstOwn`; `jk2/patched_keys.h`).
 - **The server lists.** `LAN_GetServerInfo` gives `needpass`, `truejedi`,
   `wdisable` and `fdisable` in `sv_allowAnonymous`'s place, as servers of
   these releases send them (see [network.md](network.md), Patches).

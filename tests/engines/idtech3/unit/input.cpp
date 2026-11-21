@@ -144,6 +144,23 @@ void testKeyBindings() {
     CHECK(KeyBindings::keyNumber("nonsense") == -1 && KeyBindings::keyNumber("0x22") == '"');
     CHECK(KeyBindings::keyName(q3key::kWheelUp) == "MWHEELUP" && KeyBindings::keyName('w') == "w");
     CHECK(KeyBindings::keyName(';') == "SEMICOLON" && KeyBindings::keyName(q3key::kF1 + 2) == "F3");
+    // Keys Quake III hasn't, by Reluva's own numbers: named as Jedi
+    // Outcast's patches name them, a character by its byte.
+    CHECK(KeyBindings::keyName(q3key::kCharacters + 0x80) == "EURO" &&
+          KeyBindings::keyName(q3key::kScrollLock) == "SCROLLLOCK");
+    CHECK(KeyBindings::keyName(q3key::kCharacters + 0xfc) == "\xfc" &&
+          KeyBindings::keyNumber("\xfc") == q3key::kCharacters + 0xfc);
+    CHECK(KeyBindings::keyNumber("circumflex") == q3key::kCharacters + 0x88);
+    CHECK(toQ3Key(reluva::key::kScrollLock) == q3key::kScrollLock &&
+          toQ3Key(reluva::key::kCapsLock) == q3key::kCapsLock);
+    CHECK(toQ3Key(reluva::key::kCharacter + 0x20ac) == q3key::kCharacters + 0x80 &&
+          toQ3Key(reluva::key::kCharacter + 0x3b1) == 0);
+    CHECK(toQ3Key(reluva::key::kKp0 + 7) == 160 && toQ3Key(reluva::key::kKp0) == 170 &&
+          toQ3Key(reluva::key::kKpPeriod) == 171);
+    reluva::Event under;
+    under.key = '^';
+    under.consoleKey = true;
+    CHECK(toQ3Key(under) == '`');
 
     reluva::idtech3::CvarStore cvars;
     KeyBindings b;
@@ -175,12 +192,17 @@ void testKeyBindings() {
     using reluva::idtech3::jk2::fromPatchedKey;
     using reluva::idtech3::jk2::toPatchedKey;
     CHECK(toPatchedKey(q3key::kMouse1) == 141 && toPatchedKey(q3key::kEnter) == 10 && toPatchedKey(q3key::kUp) == 170);
-    CHECK(toPatchedKey('w') == 'w' && toPatchedKey(q3key::kCharFlag | 'W') == (q3key::kCharFlag | 'W'));
+    CHECK(toPatchedKey('5') == '5' && toPatchedKey(q3key::kCharFlag | 'W') == (q3key::kCharFlag | 'W'));
     CHECK(toPatchedKey(185) == 256 && toPatchedKey(217) == 288 && toPatchedKey(q3key::kF1 + 12) == 0);
+    // Letters as capitals; a character past ASCII as its byte, even where
+    // that's another key's number ("\x84" is F5's).
+    CHECK(toPatchedKey('a') == 'A' && fromPatchedKey('A') == 'a' && toPatchedKey(';') == 59);
+    CHECK(toPatchedKey(q3key::kCharacters + 0x80) == 128 && toPatchedKey(q3key::kCharacters + 0x88) == 136);
+    CHECK(toPatchedKey(q3key::kCharacters + 0x84) == 132 && fromPatchedKey(132) == q3key::kF1 + 4);
+    CHECK(toPatchedKey('`') == 26 && fromPatchedKey(26) == '`' && toPatchedKey(q3key::kScrollLock) == 6);
     for (int32_t k = 1; k < q3key::kCount; ++k)
-        if (toPatchedKey(k) != 0)
-            CHECK(fromPatchedKey(toPatchedKey(k)) == k);
-    CHECK(fromPatchedKey(26) == 0); // CONSOLE: Quake III has no such key
+        if (const int32_t p = toPatchedKey(k); p != 0)
+            CHECK(fromPatchedKey(p) == k || p == k - q3key::kCharacters || (k >= 'A' && k <= 'Z'));
 }
 
 void testVideoSettings() {

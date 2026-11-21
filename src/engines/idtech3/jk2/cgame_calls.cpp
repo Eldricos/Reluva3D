@@ -194,8 +194,10 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
             return language == 4 || language == 5 || language == 8 ? 1 : 0; // Language_IsAsian
         if (number == kReadCharFromString + 1)
             return language == 5 || language == 8 ? 0 : 1; // Language_UsesSpaces
-        if (number == kReadCharFromString + 2)
+        if (number == kReadCharFromString + 2) {
+            _fonts.language = language;
             return _fonts.call(vm, jk2::FontSet::kReadCharAdvance, a, _time, draw);
+        }
         if (number == kG2ListSurfaces + 7)
             return _ghoul2.call(vm, jk2::Ghoul2Instances::kGetBoltUnturned, a);
         if (number == kG2ListSurfaces + 8)

@@ -239,7 +239,7 @@ void MenuLayer::handleEvent(const Event &ev) {
     // (a click counted twice), so the original's engine can't have sent
     // them releases.
     case EventType::kKeyDown:
-        if (const int32_t k = toQ3Key(ev.key))
+        if (const int32_t k = toQ3Key(ev); k && (k < q3key::kFirstOwn || _ui->takesOwnKeys()))
             err = _ui->call(MenuHost::kKeyEvent, {k, 1});
         break;
     case EventType::kTextInput:

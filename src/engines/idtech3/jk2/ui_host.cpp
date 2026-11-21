@@ -146,6 +146,11 @@ Error UiHost::call(int32_t command, const std::vector<int32_t> &args, int32_t &r
     if (_release != JediRelease::k102a && command == kKeyEvent && !args.empty()) {
         std::vector<int32_t> keyed = args;
         keyed[0] = toPatchedKey(args[0]);
+        // CONSOLE never reaches them: their engine takes it (0x409cd2).
+        if (keyed[0] == kPatchedConsoleKey) {
+            result = 0;
+            return Error::success();
+        }
         return _vm.call(command, keyed, result);
     }
     return _vm.call(command, args, result);
@@ -393,11 +398,13 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             return language == 4 || language == 5 || language == 8 ? 1 : 0; // Language_IsAsian
         if (number == kAnyLanguageReadCharFromString + 1)
             return language == 5 || language == 8 ? 0 : 1; // Language_UsesSpaces
-        if (number == kAnyLanguageReadCharFromString + 2)
+        if (number == kAnyLanguageReadCharFromString + 2) {
+            _fonts.language = language;
             return _fonts.call(
                 vm, FontSet::kReadCharAdvance, a, _time,
                 [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
                        const std::array<float, 4> &color) { addPicture(x, y, w, h, s1, t1, s2, t2, shader, color); });
+        }
         if (number >= kAnyLanguageReadCharFromString + 3 && number <= kAnyLanguageReadCharFromString + 33)
             number -= 2;
     }

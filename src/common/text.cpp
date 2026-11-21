@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdarg>
 #include <cstdio>
+#include <iterator>
 
 namespace reluva::text {
 
@@ -44,19 +45,29 @@ std::string utf16leToUtf8(const uint16_t *units, size_t count) {
     return out;
 }
 
+// Windows-1252's 0x80-0x9f; 0xa0-0xff are Latin-1's.
+static constexpr uint16_t k1252At80[32] = {0x20ac, 0xfffd, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
+                                           0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0xfffd, 0x017d, 0xfffd,
+                                           0xfffd, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
+                                           0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0xfffd, 0x017e, 0x0178};
+
 std::string windows1252ToUtf8(std::string_view s) {
-    // 0x80-0x9f; 0xa0-0xff are Latin-1's.
-    static const uint16_t k80[32] = {0x20ac, 0xfffd, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
-                                     0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0xfffd, 0x017d, 0xfffd,
-                                     0xfffd, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
-                                     0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0xfffd, 0x017e, 0x0178};
     std::string out;
     out.reserve(s.size());
     for (char ch : s) {
         const uint8_t c = uint8_t(ch);
-        appendUtf8(out, c >= 0x80 && c < 0xa0 ? k80[c - 0x80] : c);
+        appendUtf8(out, c >= 0x80 && c < 0xa0 ? k1252At80[c - 0x80] : c);
     }
     return out;
+}
+
+uint8_t toWindows1252(uint32_t cp) {
+    if (cp < 0x80 || (cp >= 0xa0 && cp < 0x100))
+        return uint8_t(cp);
+    for (size_t i = 0; i < std::size(k1252At80); ++i)
+        if (k1252At80[i] == cp && cp != 0xfffd)
+            return uint8_t(0x80 + i);
+    return 0;
 }
 
 uint32_t nextUtf8(std::string_view s, size_t &i) {

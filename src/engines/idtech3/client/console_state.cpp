@@ -240,9 +240,11 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
     }
     if (!console)
         return Action::kNone;
+    if (ev.consoleKey)
+        return Action::kClose; // the console key closes it again
     switch (ev.key) {
     case '`':
-        return Action::kClose; // the console key closes it again
+        return Action::kClose;
     case key::kUp:
     case key::kDown: {
         // Earlier lines typed, back and forth, each as it was left: its

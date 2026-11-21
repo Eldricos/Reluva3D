@@ -1285,7 +1285,7 @@ void SpPlayPage::handleEvent(const Event &ev) {
                 return;
             }
         }
-        const int32_t k = toQ3Key(ev.key);
+        const int32_t k = toQ3Key(ev);
         if (_ui && k) {
             if (down)
                 _ui->keysDown.insert(k);
@@ -1316,8 +1316,12 @@ void SpPlayPage::handleEvent(const Event &ev) {
         if (down) {
             // Presses go to the menus while they have the keys (repeats
             // too, for scrolling); releases always end what a key held.
-            if (menusHaveKeys())
-                return menuKey(k);
+            if (menusHaveKeys()) {
+                // (Not Reluva's own numbers, which they don't know.)
+                if (k < q3key::kFirstOwn)
+                    menuKey(k);
+                return;
+            }
             if (!ev.repeat)
                 runBinding(_ctx.bindings.get(k), k, true);
         } else {

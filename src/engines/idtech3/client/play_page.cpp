@@ -1218,9 +1218,12 @@ void PlayPage::handleEvent(const Event &ev) {
     }
     if (!_renderer || _names.empty())
         return;
-    if (ev.type == EventType::kKeyDown && ev.key == '`' && !(ev.mods & keymod::kCtrl)) {
-        // The console key, whatever it's bound to, as in the original.
-        openTyping(Typing::kConsole, -1, '`');
+    if (ev.type == EventType::kKeyDown && (ev.key == '`' || ev.consoleKey) && !(ev.mods & keymod::kCtrl)) {
+        // The console key, whatever it's bound to, as in the original;
+        // 1.03's and 1.04's open it only with Shift held, and are never
+        // bound (0x409cc2, 0x409cd2).
+        if (_ctx.game.jediRelease == JediRelease::k102a || (ev.mods & keymod::kShift))
+            openTyping(Typing::kConsole, -1, '`');
         return;
     }
     switch (ev.type) {
@@ -1249,7 +1252,7 @@ void PlayPage::handleEvent(const Event &ev) {
         // The key's character, in case its command opens typing (so it
         // isn't typed as well).
         _bindingKeyChar = ev.key < 128 ? ev.key : 0;
-        if (const int32_t k = toQ3Key(ev.key))
+        if (const int32_t k = toQ3Key(ev))
             runBinding(_ctx.bindings.get(k), k, down);
         _bindingKeyChar = 0;
         break;

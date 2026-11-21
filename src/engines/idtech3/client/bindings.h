@@ -50,11 +50,23 @@ constexpr int32_t kMouse4 = 181;
 constexpr int32_t kMouse5 = 182;
 constexpr int32_t kWheelDown = 183;
 constexpr int32_t kWheelUp = 184;
-constexpr int32_t kCount = 256;
+constexpr int32_t kCapsLock = 129;
+constexpr int32_t kNumLock = 175;
+// Reluva's own numbers, past Quake III's last, for keys it has none for
+// but Jedi Outcast's patches have: Scroll Lock, and keys whose character
+// is past ASCII, by its Windows-1252 byte (128 to 255) added to
+// kCharacters.
+constexpr int32_t kFirstOwn = 256;
+constexpr int32_t kScrollLock = 256;
+constexpr int32_t kCharacters = 256;
+constexpr int32_t kCount = 512;
 } // namespace q3key
 
 // The game's number for a key or mouse button (0 for none).
 int32_t toQ3Key(uint32_t key);
+// A key event's: the key under Escape is always '`', as Quake III's
+// scan codes make it.
+int32_t toQ3Key(const Event &ev);
 int32_t toQ3Button(MouseButton button);
 
 // What each key does: the console command it runs ("+forward", "weapon

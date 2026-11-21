@@ -72,6 +72,7 @@ public:
     const std::vector<std::string> &commands() const override { return _commands; }
     std::vector<std::string> recentCalls() const override;
     int32_t catcher() const override { return _catcher; }
+    bool takesOwnKeys() const override { return _release != JediRelease::k102a; }
 
     Qvm &vm() override { return _vm; }
     const HandleTable &sounds() const override { return _sounds; }

@@ -106,6 +106,9 @@ public:
     virtual const std::vector<std::string> &commands() const = 0;
     // The last system calls made, for reports when the menus stop.
     virtual std::vector<std::string> recentCalls() const = 0;
+    // Whether they're given keys by Reluva's own numbers (q3key::kFirstOwn
+    // on), which only menus that change them to theirs know.
+    virtual bool takesOwnKeys() const { return false; }
     // Their key catcher (KEYCATCH_UI, 2, while they take the keys).
     virtual int32_t catcher() const = 0;
     // The program itself, for tools that look inside it.

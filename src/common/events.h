@@ -43,6 +43,12 @@ constexpr uint32_t kLCtrl = 0x132;
 constexpr uint32_t kRCtrl = 0x133;
 constexpr uint32_t kLAlt = 0x134;
 constexpr uint32_t kRAlt = 0x135;
+constexpr uint32_t kCapsLock = 0x136;
+constexpr uint32_t kNumLock = 0x137;
+constexpr uint32_t kScrollLock = 0x138;
+constexpr uint32_t kPause = 0x139;
+// A key whose character (unshifted) is past ASCII: this plus its code point.
+constexpr uint32_t kCharacter = 0x10000;
 } // namespace key
 
 namespace keymod {
@@ -91,6 +97,7 @@ struct Event {
     uint32_t key = key::kUnknown; // KeyDown/KeyUp
     uint16_t mods = 0;            // KeyDown/KeyUp, and the mouse events (keymod bits)
     bool repeat = false;          // KeyDown auto-repeat
+    bool consoleKey = false;      // KeyDown/KeyUp: the key under Escape, left of 1, whatever the layout makes it
     // mouse events, in game framebuffer pixels
     int mouseX = 0;
     int mouseY = 0;
