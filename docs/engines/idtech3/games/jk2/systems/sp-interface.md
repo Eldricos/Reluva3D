@@ -156,7 +156,10 @@ turns them off) *(confirmed)*:
   10000), *t* the last scene's time in seconds: as thick as a level fog
   of 625 × (1 + 0.1 cos *t*) units (a fog's density is 1 / (8 × its
   distance), 0x45f2cd), flickering slowly. It has no surface, so it
-  thickens from the eye.
+  thickens from the eye. The green is drawn once each call from the
+  engine's own C runtime generator, which its other `rand()` calls
+  share; *t* is the time in the scene's view (its millisecond word at
+  72) when the call comes.
 - Every surface added to the scene takes that fog (0x472d35), as does
   every model and sprite (0x4749bf, 0x467be0, 0x4729b0); the shader's
   own rule still decides whether it gets the pass.
