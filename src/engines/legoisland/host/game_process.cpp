@@ -46,6 +46,7 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : _di
     _process->setRegistryString(kRegistryKey, "diskpath", "C:\\PROGRA~1\\LEGOIS~1");
     _process->setRegistryString(kRegistryKey, "cdpath", "D:");
     _directX = std::make_unique<x86::DirectX>(*_process);
+    _directSound = std::make_unique<x86::DirectSound>(*_process);
     _directInput = std::make_unique<x86::DirectInput>(*_process);
 }
 

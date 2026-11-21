@@ -7,6 +7,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
+#include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/win32.h"
 
 #include <cstdint>
@@ -37,8 +38,9 @@ public:
     /**
      * Sets up the process: its files (the install folder and the CD's
      * drive both the game folder, which an import fills with both), the
-     * registry as the installer leaves it, and the DirectDraw and
-     * DirectInput stand-ins. Nothing is loaded until load().
+     * registry as the installer leaves it, and the DirectDraw,
+     * DirectSound and DirectInput stand-ins. Nothing is loaded until
+     * load().
      */
     GameProcess(std::filesystem::path gameDir, uint32_t memoryMb = 512);
 
@@ -58,11 +60,12 @@ public:
      */
     Error run(uint32_t &exitCode);
 
-    /** The interpreter, the Windows process and the DirectDraw stand-in. */
+    /** The interpreter, the Windows process, and the DirectDraw and DirectSound stand-ins. */
     ///@{
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
+    x86::DirectSound &directSound() { return *_directSound; }
     ///@}
 
 private:
@@ -73,6 +76,7 @@ private:
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     std::unique_ptr<x86::DirectX> _directX;
+    std::unique_ptr<x86::DirectSound> _directSound;
     std::unique_ptr<x86::DirectInput> _directInput;
     const x86::Win32Process::Module *_dll = nullptr;
     const x86::Win32Process::Module *_exe = nullptr;

@@ -34,9 +34,9 @@ Each phase ends with something that runs, is tested and is committed.
    the x86 interpreter, `reluva-tool legoisland run` saying how far they
    get ([systems/running.md](systems/running.md)). The gate: does it
    reach the intro's first frame, and how fast does it run? Both start;
-   the program won't go on without DirectSound, so a DirectSound
-   stand-in (from phase 5) comes next, then the other functions it calls
-   on the way to its first frame.
+   the program won't go on without DirectSound, which is now stood in
+   for ([directsound.md](../../common/x86/directsound.md)). Next, the
+   other functions it calls on the way to its first frame.
 5. **DirectDraw and DirectSound:** the intro movie and the Information
    Center, its pictures, animations and speech. DirectSound is a new
    stand-in in `src/emulation/x86/directx/`, on the shared mixer.

@@ -15,6 +15,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
+#include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/internal.h"
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
@@ -822,6 +823,129 @@ static void testInput() {
 
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
+// DirectSound: a buffer written through Lock, played by the process's
+// clock to its end, looped, duplicated; the primary buffer's listener and a
+// buffer's 3D position kept.
+static void testDirectSound() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 0;
+    process.milliseconds = [&] { return clock; };
+    x86::DirectSound dsound(process);
+    audio::Mixer mixer(22050);
+    dsound.mixer = &mixer;
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    const uint32_t out = mem(4);
+    const uint32_t out2 = mem(4);
+    const uint32_t out3 = mem(4);
+    const uint32_t out4 = mem(4);
+    CHECK(!cpu.call(process.provided("DSOUND.dll", "DirectSoundCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t ds = cpu.read32(out);
+    CHECK(ds != 0);
+    const uint32_t caps = mem(96);
+    CHECK(call(ds, 4, {caps}) == 0 && cpu.read32(caps) == 96); // GetCaps
+    CHECK(call(ds, 6, {0, 2}) == 0);                           // SetCooperativeLevel
+    CHECK(call(ds, 8, {out}) == 0 && cpu.read32(out) == 4);    // GetSpeakerConfig: stereo
+
+    // The primary buffer, 3D: its listener.
+    const uint32_t desc = mem(20);
+    std::memset(cpu.memory().data() + desc, 0, 20);
+    cpu.write32(desc, 20);
+    cpu.write32(desc + 4, 0x1 | 0x10);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0); // CreateSoundBuffer
+    const uint32_t primary = cpu.read32(out);
+    CHECK(call(primary, 0, {guid("{279afa84-4981-11ce-a521-0020af0be560}"), out}) == 0);
+    const uint32_t listener = cpu.read32(out);
+    CHECK(call(primary, 0, {guid("{279afa86-4981-11ce-a521-0020af0be560}"), out}) != 0); // no 3D buffer
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    CHECK(call(listener, 14, {bits(1), bits(2), bits(3), 0}) == 0); // SetPosition
+    CHECK(call(listener, 7, {out}) == 0 && cpu.read32(out) == bits(1));
+
+    // A second of 1000 Hz mono 8-bit, 3D, with volume: 1000 bytes.
+    const uint32_t format = mem(18);
+    std::memset(cpu.memory().data() + format, 0, 18);
+    cpu.write16(format, 1);
+    cpu.write16(format + 2, 1);
+    cpu.write32(format + 4, 1000);
+    cpu.write32(format + 8, 1000);
+    cpu.write16(format + 12, 1);
+    cpu.write16(format + 14, 8);
+    cpu.write32(desc + 4, 0x10 | 0x80);
+    cpu.write32(desc + 16, format);
+    CHECK(call(ds, 3, {desc, out, 0}) != 0); // no size
+    cpu.write32(desc + 8, 1000);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t buffer = cpu.read32(out);
+    CHECK(dsound.buffersMade() == 2);
+    CHECK(call(buffer, 11, {900, 200, out, out2, out3, out4, 0}) == 0); // Lock, wrapping round
+    CHECK(cpu.read32(out2) == 100 && cpu.read32(out4) == 100 && cpu.read32(out3) + 900 == cpu.read32(out));
+    for (uint32_t i = 0; i < 100; ++i)
+        cpu.write8(cpu.read32(out) + i, 0xc0), cpu.write8(cpu.read32(out3) + i, 0xc0);
+    CHECK(call(buffer, 19, {cpu.read32(out), 100, cpu.read32(out3), 100}) == 0); // Unlock
+    CHECK(call(buffer, 11, {0, 0, out, out2, out3, out4, 0x2}) == 0 && cpu.read32(out2) == 1000 &&
+          cpu.read32(out4) == 0); // Lock, all of it
+    const uint32_t sound = cpu.read32(out);
+
+    // Played once: it moves with the clock, the write position a little
+    // ahead, and it stops at its end.
+    CHECK(call(buffer, 12, {0, 0, 0}) == 0 && dsound.buffersPlaying() == 1);
+    clock = 250;
+    CHECK(call(buffer, 4, {out, out2}) == 0 && cpu.read32(out) == 250 && cpu.read32(out2) == 265);
+    CHECK(call(buffer, 9, {out}) == 0 && cpu.read32(out) == 0x1); // GetStatus: playing
+    std::vector<int16_t> mixed(2 * 6000);
+    mixer.mix(mixed.data(), 6000);
+    clock = 1500;
+    CHECK(call(buffer, 9, {out}) == 0 && cpu.read32(out) == 0 && dsound.buffersPlaying() == 0);
+    // The first 100 bytes, heard (0xc0 is +0x40 << 8), but further off:
+    // the listener is 3.7 from the buffer, three times its minimum
+    // distance, so a little over a quarter as loud.
+    mixed.assign(2 * 22050, 0);
+    mixer.mix(mixed.data(), 22050);
+    const int16_t loudest = *std::max_element(mixed.begin(), mixed.end());
+    CHECK(loudest > 0x400 && loudest < 0x2000);
+
+    // Looped from 100: it wraps round, and stays where it's stopped.
+    CHECK(call(buffer, 13, {100}) == 0);     // SetCurrentPosition
+    CHECK(call(buffer, 12, {0, 0, 1}) == 0); // Play, looping
+    clock = 2600;
+    CHECK(call(buffer, 4, {out, 0}) == 0 && cpu.read32(out) == 200);
+    CHECK(call(buffer, 9, {out}) == 0 && cpu.read32(out) == (0x1 | 0x4));
+    CHECK(call(buffer, 18, {}) == 0); // Stop
+    clock = 4000;
+    CHECK(call(buffer, 4, {out, 0}) == 0 && cpu.read32(out) == 200);
+
+    // Volume, frequency; a duplicate shares its sound.
+    CHECK(call(buffer, 15, {uint32_t(-600)}) == 0 && call(buffer, 6, {out}) == 0 && cpu.read32(out) == uint32_t(-600));
+    CHECK(call(buffer, 8, {out}) == 0 && cpu.read32(out) == 1000);
+    CHECK(call(ds, 5, {buffer, out}) == 0); // DuplicateSoundBuffer
+    const uint32_t copy = cpu.read32(out);
+    CHECK(call(copy, 11, {0, 0, out3, out4, 0, 0, 0x2}) == 0 && cpu.read32(out3) == sound);
+
+    // Its 3D position, kept.
+    CHECK(call(buffer, 0, {guid("{279afa86-4981-11ce-a521-0020af0be560}"), out}) == 0);
+    const uint32_t buffer3D = cpu.read32(out);
+    CHECK(call(buffer3D, 19, {bits(5), 0, 0, 0}) == 0); // SetPosition
+    CHECK(call(buffer3D, 10, {out}) == 0 && cpu.read32(out) == bits(5));
+    CHECK(call(buffer3D, 18, {1, 0}) == 0 && call(buffer3D, 9, {out}) == 0 && cpu.read32(out) == 1); // the mode
+    for (uint32_t p : {buffer3D, copy, buffer, listener, primary, ds})
+        call(p, 2, {}); // Release
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -995,5 +1119,6 @@ static const test::Suite
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

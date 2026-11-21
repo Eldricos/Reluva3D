@@ -27,6 +27,7 @@ add_library(reluva_emulation STATIC
     x86/directx/d3d7.cpp
     x86/directx/ddraw.cpp
     x86/directx/dinput.cpp
+    x86/directx/dsound.cpp
     x86/directx/interfaces.cpp
     x86/directx/raster.cpp
     x86/directx/surface.cpp

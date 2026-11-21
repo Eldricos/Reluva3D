@@ -21,12 +21,12 @@ from DirectDraw, Direct3D Retained Mode (`d3drm.dll`), DirectSound,
 DirectInput, WinMM (the timer, MIDI streams, the joystick), GDI32, USER32
 and KERNEL32.
 
-What Reluva's emulator doesn't stand in for yet, 62 functions:
+What Reluva's emulator doesn't stand in for yet, 61 functions
+(DirectSound is stood in for: [directsound.md](../../../common/x86/directsound.md)):
 
 | DLL | Functions | What they are |
 |---|---|---|
 | `d3drm.dll` | 2 | `Direct3DRMCreate` (Retained Mode, all of it reached through the object it makes) and `D3DRMCreateColorRGBA` |
-| `DSOUND.dll` | 1 | `DirectSoundCreate` (all of DirectSound reached through the object it makes) |
 | KERNEL32 | 18 | file mapping by name, mutexes by name, semaphores, `CreateProcessA`, locales, `MoveFileA`, `VirtualQuery`, `VirtualLock`, the 16-bit file functions (`_hread`, `_hwrite`, `_llseek`), `GetProfileStringA` |
 | USER32 | 14 | timers, window styles and placement, the menu bar, `MessageBeep`, `SystemParametersInfoA`, `LoadAcceleratorsA` |
 | GDI32 | 13 | text (fonts, `ExtTextOutA`, measuring), palettes, `StretchDIBits` |
@@ -62,8 +62,10 @@ that far.
   answering as on a machine with no sound card (`DSERR_NODRIVER`), the
   program shows "Lego Island Error: "Lego Island" is not detecting a
   DirectSound compatible sound card. Please quit all other applications
-  and try again." and exits. So a DirectSound stand-in comes before the
-  first frame, not after it.
+  and try again." and exits. With the stand-in, it makes the DirectSound
+  object, releases it, and goes on.
+- It then reads its settings from the registry (about 15 values), and
+  asks `SystemParametersInfoA`, which nothing stands in for yet.
 
 ## In Reluva
 
