@@ -1029,11 +1029,11 @@ void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector
         }
     }
     if (!autosave) {
-        // The saver's own checks (0x438a20), silent: no cinematic playing
-        // (one in game by its flag, 0x4051e0; any other takes the client
-        // out of the level), not on a "_" map, the player alive, and where
-        // the game allows it.
-        if (_cinematic || (!_map.empty() && _map[0] == '_') || _game->playerHealth() <= 0 ||
+        // The saver's own checks (0x438a20), silent: no in-game cinematic
+        // playing (its flag, 0x4051e0; a plain "cinematic" over a running
+        // level leaves saving open), not on a "_" map, the player alive,
+        // and where the game allows it.
+        if ((_cinematic && _cinematic->inGame) || (!_map.empty() && _map[0] == '_') || _game->playerHealth() <= 0 ||
             !_game->allowedToSaveHere(0))
             return;
     }

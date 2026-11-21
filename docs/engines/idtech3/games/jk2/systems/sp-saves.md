@@ -38,8 +38,8 @@ ending a literal before three equal bytes in a row.
 
 Any save but an autosave is checked first (0x438a20), silently:
 `cl_running` set, no in-game cinematic playing (the flag
-`CL_PlayCinematic` keeps, 0x4051e0), the client in the level (state 2,
-which a cinematic outside the game leaves), the map not one starting
+`CL_PlayCinematic` keeps, 0x4051e0), the server's level running (its
+state 2, set as the level spawns, 0x4373c3), the map not one starting
 with `_`, the player's health above 0, and the game's
 `GameAllowedToSaveHere` (export 5), which refuses while the game's own
 camera scenes play. The save command (0x438390) also
@@ -152,8 +152,12 @@ from a hub save is saved again as `hub/<map>` and `auto`. Seen on the
 Play page: `loadtransition` from `kejim_base` to `kejim_post` saved
 `hub/kejim_base` and started `kejim_post`; back again, it saved
 `hub/kejim_post`, and loading `hub/kejim_base` stopped with the game's
-error above, as the original's would. A save is refused while any cinematic plays, one outside the game too,
-as the client's state then isn't 2 *(inferred)*.
+error above, as the original's would. A save is refused while an in-game cinematic plays (`ingamecinematic`,
+the client game's call), but not under a plain `cinematic` typed over a
+running level. `CL_PlayCinematic_f` (0x404920) keeps its third argument
+as the flag the check reads, which `cinematic` (0x404c00) passes as 0
+and `ingamecinematic` (0x404c20) as 1, and it doesn't stop the server
+*(confirmed)*.
 The `single-player` tool's level changes don't take `loadtransition`.
 
 ## Sources and checks
