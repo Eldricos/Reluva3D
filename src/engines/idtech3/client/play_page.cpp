@@ -51,6 +51,7 @@ constexpr float kPi = 3.14159265358979f;
 } // namespace
 
 PlayPage::PlayPage(PageContext &ctx) : Page(ctx) {
+    _console.clipboard = [this] { return _ctx.sys.clipboardText(); };
     _weather.contents = [this](const std::array<float, 3> &p) { return _cgame ? _cgame->worldContents(p) : 0; };
     _weather.loadPicture = [this](const std::string &name, WeatherPicture &out) {
         return loadWeatherPicture(_ctx.files, name, out);

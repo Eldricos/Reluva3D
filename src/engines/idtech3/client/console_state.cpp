@@ -6,9 +6,11 @@
 #include "engines/idtech3/client/console_drawer.h"
 #include "engines/idtech3/client/page.h"
 
+#include "common/text.h"
 #include "graphics/font.h"
 
 #include <algorithm>
+#include <cstring>
 
 namespace reluva::idtech3 {
 
@@ -124,6 +126,72 @@ int ConsoleState::fieldScroll() {
     return _fieldScroll;
 }
 
+void ConsoleState::character(uint8_t c) {
+    const auto len = _field.size();
+    switch (c) {
+    case 'v' - 'a' + 1:
+        return paste();
+    case 'c' - 'a' + 1:
+        return clearField();
+    case 'h' - 'a' + 1:
+        if (_cursor > 0) {
+            _field.erase(--_cursor, 1);
+            if (int(_cursor) < _fieldScroll)
+                --_fieldScroll;
+        }
+        return;
+    case 'a' - 'a' + 1:
+        _cursor = 0;
+        _fieldScroll = 0;
+        return;
+    case 'e' - 'a' + 1:
+        _cursor = len;
+        _fieldScroll = int(len) - _fieldWidth;
+        return;
+    default:
+        break;
+    }
+    if (c < 32)
+        return;
+    if (_overstrike) {
+        if (_cursor >= kMaxField)
+            return;
+        if (_cursor < len)
+            _field[_cursor] = char(c);
+        else
+            _field += char(c);
+    } else {
+        if (len >= kMaxField)
+            return;
+        _field.insert(_cursor, 1, char(c));
+    }
+    if (int(++_cursor) >= _fieldWidth)
+        ++_fieldScroll;
+}
+
+void ConsoleState::paste() {
+    // As Field_Paste (0x4086c0): the clipboard's text in the Windows
+    // code page, to its first line break (strtok's first token at \n, \r
+    // or \b, 0x4425b0), each byte a character. A byte past ASCII is a
+    // negative char there, under 32, so it's dropped; a ^V in it pastes
+    // again in the original, without end, so here it's dropped too.
+    if (!clipboard)
+        return;
+    std::string bytes;
+    const std::string text = clipboard();
+    for (size_t i = 0; i < text.size();) {
+        const uint32_t cp = text::nextUtf8(text, i);
+        const uint8_t b = text::toWindows1252(cp);
+        bytes += char(cp != 0 && b == 0 ? '?' : b);
+    }
+    const size_t from = bytes.find_first_not_of("\n\r\b");
+    if (from == std::string::npos)
+        return;
+    for (size_t i = from; i < bytes.size() && !std::strchr("\n\r\b", bytes[i]); ++i)
+        if (const auto c = uint8_t(bytes[i]); c < 0x80 && c != 'v' - 'a' + 1)
+            character(c);
+}
+
 ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
     // The field as jk2mp.exe 1.02a's (Field_KeyDownEvent 0x408710,
     // Field_CharEvent 0x408840): its scroll moved a character at a time,
@@ -141,20 +209,7 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
                 continue;
             if (console && (cp == '`' || cp == '~'))
                 continue;
-            if (_overstrike) {
-                if (_cursor >= kMaxField)
-                    continue;
-                if (_cursor < _field.size())
-                    _field[_cursor] = char(cp);
-                else
-                    _field += char(cp);
-            } else {
-                if (_field.size() >= kMaxField)
-                    continue;
-                _field.insert(_cursor, 1, char(cp));
-            }
-            if (int(++_cursor) >= _fieldWidth)
-                ++_fieldScroll;
+            character(uint8_t(cp));
         }
         return Action::kNone;
     }
@@ -190,11 +245,8 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
     case key::kKpEnter:
         return Action::kSubmit;
     case key::kBackspace:
-        if (_cursor > 0) {
-            _field.erase(--_cursor, 1);
-            if (int(_cursor) < _fieldScroll)
-                --_fieldScroll;
-        }
+        // (Its ^H character, as Windows sends it.)
+        character('h' - 'a' + 1);
         return Action::kNone;
     case key::kDelete:
         if (_cursor < len)
@@ -219,23 +271,19 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
         _cursor = len;
         return Action::kNone;
     case key::kInsert:
-        if (!(ev.mods & keymod::kShift)) // (Shift+Insert pastes, which Reluva can't)
+        if (ev.mods & keymod::kShift)
+            paste();
+        else
             _overstrike = !_overstrike;
         return Action::kNone;
     default:
         break;
     }
     if (ctrl) {
-        // Control characters: ^A to the start, ^E to the end, ^C clears.
-        if (ev.key == 'a') {
-            _cursor = 0;
-            _fieldScroll = 0;
-        } else if (ev.key == 'e') {
-            _cursor = len;
-            _fieldScroll = int(len) - _fieldWidth;
-        } else if (ev.key == 'c') {
-            clearField();
-        }
+        // Control characters: ^A to the start, ^E to the end, ^C clears,
+        // ^V pastes.
+        if (ev.key == 'a' || ev.key == 'e' || ev.key == 'c' || ev.key == 'v')
+            character(uint8_t(ev.key - 'a' + 1));
         return Action::kNone;
     }
     if (!console)

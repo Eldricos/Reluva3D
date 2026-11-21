@@ -492,6 +492,13 @@ void SdlSystem::setTextInput(bool on) {
         SDL_StopTextInput(_window);
 }
 
+std::string SdlSystem::clipboardText() {
+    char *text = SDL_GetClipboardText();
+    std::string out = text ? text : "";
+    SDL_free(text);
+    return out;
+}
+
 void SdlSystem::setMouseCursorVisible(bool visible) {
     _cursorVisible = visible;
     // A cursor we draw keeps the system's pointer hidden.

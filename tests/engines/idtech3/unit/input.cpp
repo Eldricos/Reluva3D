@@ -405,6 +405,22 @@ static void testConsoleState() {
     f.handle(keyDown(key::kHome), false);
     f.handle(text("xy"), false);
     CHECK(f.overstrike() && f.field() == "xy");
+    // Pasting (Ctrl+V, Shift+Insert): the clipboard's text to its first
+    // \n, \r or \b, in the Windows code page; what's past ASCII dropped,
+    // control letters as their keys (^A to the start).
+    f.handle(keyDown(key::kInsert), false);
+    f.handle(keyDown(key::kEnd), false);
+    std::string clip = "\r\nk\xc3\xa9y \x01!\x08gone\nsecond line";
+    f.clipboard = [&] { return clip; };
+    Event ctrlV = keyDown('v');
+    ctrlV.mods = keymod::kCtrl;
+    f.handle(ctrlV, false);
+    CHECK(f.field() == "!xyky " && f.cursor() == 1);
+    Event shiftIns = keyDown(key::kInsert);
+    shiftIns.mods = keymod::kShift;
+    clip = "Z";
+    f.handle(shiftIns, false);
+    CHECK(f.field() == "!Zxyky " && !f.overstrike());
 
     // Dropping down at 3 screens a second: half open in a sixth of one.
     CHECK(c.slide(1000, true, 3) == 0);

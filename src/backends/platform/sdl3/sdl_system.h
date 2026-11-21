@@ -40,6 +40,7 @@ public:
     Error init3D(int width, int height, gfx::Renderer3D *&out) override;
     bool pollEvent(Event &event) override;
     void setTextInput(bool on) override;
+    std::string clipboardText() override;
     void setMouseCursorVisible(bool visible) override;
     void setMouseCursor(const Cursor *cursor) override;
     void setVideoMode(int width, int height, bool fullscreen) override;

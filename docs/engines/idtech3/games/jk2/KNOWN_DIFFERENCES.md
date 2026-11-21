@@ -20,6 +20,10 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Bugs fixed
 
+- **Pasting a ^V** (Ctrl+V's character) into the console is dropped;
+  the original's paste pastes again for it, within itself, without end
+  ([systems/console.md](systems/console.md)).
+
 - **A bolted effect** (the client game's call 261) starts at the origin
   it's given, where the original starts its parts at, and culls them by,
   a place it never sets ([efx.md](../../formats/efx.md), Bolted effects).
@@ -40,8 +44,6 @@ In the maps:
 
 In the multiplayer game:
 
-- **The console** can't paste (Ctrl+V, Shift+Insert): Reluva has no
-  clipboard to read ([systems/console.md](systems/console.md), In Reluva).
 - **Effects** ([efx.md](../../formats/efx.md)): the second
   triangle of a saber's trail is given its corners' own alpha, where
   Raven's code leaves two of them unset. Electricity's small kinks are

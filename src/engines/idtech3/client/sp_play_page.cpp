@@ -54,6 +54,7 @@ bool shaderFound(const ShaderLibrary &shaders, const SearchSet &files, const std
 } // namespace
 
 SpPlayPage::SpPlayPage(PageContext &ctx) : Page(ctx) {
+    _console.clipboard = [this] { return _ctx.sys.clipboardText(); };
     // A game with its single-player game code beside the game folder.
     if ((ctx.game.code != GameCode::kEliteForce && ctx.game.code != GameCode::kJediOutcast) ||
         ctx.game.spGameDll.empty() || ctx.singlePlayerPath.empty())

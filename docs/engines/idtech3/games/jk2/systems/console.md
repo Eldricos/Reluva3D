@@ -71,7 +71,14 @@ character typed or Right takes the cursor past the shown width, back
 one as Left or Backspace takes it before the scroll. Home and End move
 only the cursor; Ctrl+A goes to the start (scroll 0), Ctrl+E to the end
 (scroll the length less the width); Ctrl+C clears the line, Ctrl+V and
-Shift+Insert paste, Insert flips typing over. As it's drawn
+Shift+Insert paste, Insert flips typing over. These control letters
+come as characters (^A, ^E, ^C, ^V; Backspace as ^H), as Windows sends
+them. Pasting (`Field_Paste`, 0x4086c0) takes the clipboard's text in
+the Windows code page (`CF_TEXT`, 0x442550) to its first `\n`, `\r` or
+`\b` (0x08), leading ones skipped (`strtok`), and types each byte as a
+character: one past ASCII is a negative `char` there, under 32, so it's
+dropped, and a control letter does as its key. `jk2sp.exe` has the
+same. As it's drawn
 (`Field_Draw`, 0x4084c0), its end counted as a character, all of it is
 shown if it fits; else from the scroll, which is pulled back, and kept,
 where the line ends before the shown width does. At most 255 characters.
@@ -141,8 +148,11 @@ The multiplayer Play page opens the console with Shift and the console
 key, as above; Elite Force's opens it with the key alone, as its
 engine does.
 
-Differences: Ctrl+V and Shift+Insert don't paste (Reluva has no
-clipboard).
+Pasting reads the system's clipboard (`System::clipboardText`) as
+above.
+
+Differences: a ^V in the clipboard's text is dropped; the original's
+paste would paste again within itself, without end.
 
 ## Sources and checks
 

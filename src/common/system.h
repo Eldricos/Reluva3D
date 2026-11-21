@@ -66,6 +66,8 @@ public:
     virtual bool pollEvent(Event &event) = 0;
     // Whether typed text arrives as TextInput events (off by default).
     virtual void setTextInput(bool on) { (void)on; }
+    // The text on the system's clipboard, UTF-8 (empty if none).
+    virtual std::string clipboardText() { return {}; }
     // Whether the system's mouse pointer shows over the game (for games
     // that draw their own).
     virtual void setMouseCursorVisible(bool visible) { (void)visible; }

@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -71,6 +72,8 @@ public:
     bool overstrike() const { return _overstrike; }
     /** Typing over or inserting, as the menus set it too (one mode for both, the engine's). */
     void setOverstrike(bool on) { _overstrike = on; }
+    /** The system's clipboard text (UTF-8) for pasting; unset: nothing to paste. */
+    std::function<std::string()> clipboard;
     /** What a key or text event did to the line being typed. */
     enum class Action { kNone, kSubmit, kClose };
     /**
@@ -89,6 +92,10 @@ public:
     float slide(uint64_t nowMs, bool open, float speed);
 
 private:
+    // A character into the line (Field_CharEvent's, 0x408840): typed, or
+    // its control letter's key.
+    void character(uint8_t c);
+    void paste();
     void addLine(const std::string &line);
     int rows(const std::string &line) const;
     int totalRows() const;
