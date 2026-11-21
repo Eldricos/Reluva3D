@@ -18,7 +18,9 @@ reluva_add_engine(legoisland
 reluva_add_engine_viewers(legoisland
     ACCESSOR legoislandMetaViewer
     SOURCES
+        pages/scene.cpp
         pages/viewer.cpp
+        pages/si_scene_viewer.cpp
         pages/si_viewer.cpp
         pages/wdb_viewer.cpp)
 
@@ -41,11 +43,12 @@ reluva_add_engine_tests(legoisland
         ${tests}/unit/dta.cpp
         ${tests}/unit/import.cpp
         ${tests}/unit/obj.cpp
+        ${tests}/unit/scene.cpp
         ${tests}/unit/si.cpp
         ${tests}/unit/wdb.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.dta unit.import unit.obj unit.si unit.wdb engine)
+        unit.detection unit.dta unit.import unit.obj unit.scene unit.si unit.wdb engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

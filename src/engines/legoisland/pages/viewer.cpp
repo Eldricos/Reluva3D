@@ -22,6 +22,7 @@ namespace reluva {
 
 namespace {
 
+using legoisland::SiScenePage;
 using legoisland::SiViewer;
 using legoisland::ViewerPage;
 using legoisland::WdbFile;
@@ -77,10 +78,12 @@ public:
         } audioStop{_sys, audioOut};
 
         std::vector<std::unique_ptr<ViewerPage>> pages;
-        pages.push_back(std::make_unique<SiViewer>(_sys, _screen, std::move(files), audioOut ? &mixer : nullptr));
+        pages.push_back(std::make_unique<SiViewer>(_sys, _screen, files, audioOut ? &mixer : nullptr));
         if (!wdbError) {
             pages.push_back(std::make_unique<WdbTexturePage>(_screen, wdb));
             pages.push_back(std::make_unique<WdbModelPage>(_sys, _screen, wdb));
+            // Its models and animations take parts and models from WORLD.WDB.
+            pages.push_back(std::make_unique<SiScenePage>(_sys, _screen, wdb, std::move(files)));
         }
         size_t current = 0;
         while (pages[current]->count() == 0)

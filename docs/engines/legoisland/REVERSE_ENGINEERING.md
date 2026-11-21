@@ -39,6 +39,11 @@ extended. The facts themselves are on their pages, each with its source.
 - **Media checked** by rebuilding each as a standard file and checking it
   against its own format's rules (a WAV's length, a FLIC's frames, a
   Smacker file's frame sizes).
+- **Animations checked by playing them** in the data viewer: a wrong
+  order of move and turn, a wrong reading of a turn's quaternion, a
+  wrong actor for a node, each breaks a scene apart (a character's arms
+  off its body, a donut stack in the air), and a camera read wrongly
+  looks at nothing.
 - **A layout without a source script** (`WORLD.WDB`) taken as known once
   every offset the file gives is met exactly: each ROI's end, each
   part's and model's textures, each part's and model's size. Meanings

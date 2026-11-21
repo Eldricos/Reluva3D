@@ -9,6 +9,7 @@
 #include "common/types.h"
 #include "engines/legoisland/formats/si.h"
 #include "engines/legoisland/formats/wdb.h"
+#include "engines/legoisland/pages/scene.h"
 #include "graphics/gfx3d.h"
 #include "image/image.h"
 #include "video/flic.h"
@@ -179,53 +180,96 @@ private:
         int part = -1;      // into WdbFile::allParts(), or -1 with
         int sharedRoi = -1; // into the shared part's ROIs
     };
-    struct Draw {
-        gfx::MeshId mesh = 0;
-        uint32_t indices = 0;
-        gfx::TextureId texture = 0;
-        gfx::Mat4 transform = gfx::identity();
-        std::array<float, 4> color{};
-    };
     void show(size_t index);
     void build();
-    void clearScene();
-    void addRoi(const WdbRoi &roi, const std::map<std::string, gfx::Mat4> &placed, const WdbModel *model);
-    void addLods(const std::vector<WdbLod> &lods, const gfx::Mat4 &transform,
-                 const std::vector<const std::vector<WdbTexture> *> &textures);
-    gfx::TextureId texture(const std::string &name, const std::vector<const std::vector<WdbTexture> *> &lists);
-    void resetView();
     void drawInfo();
 
     System &_sys;
     Surface &_screen;
     const WdbFile &_wdb;
+    WdbLibrary _lib;
     std::vector<WdbModelRef> _modelRefs;
     std::vector<WdbPartRef> _partRefs;
-    std::map<std::string, WdbPart> _parts; // by name, in lower case
     std::vector<Item> _items;
     size_t _current = 0;
     gfx::Renderer3D *_renderer = nullptr;
+    std::unique_ptr<RoiScene> _scene;
     Surface _overlay;
 
     WdbModel _model;
     std::string _error;
-    std::vector<std::string> _missing;
-    int _lod = 0; // how many levels less detailed than the finest
-    int _lods = 1;
-    size_t _triangles = 0;
-    std::vector<Draw> _opaque;
-    std::vector<Draw> _translucent;
-    std::map<std::string, gfx::TextureId> _textures; // by name, in lower case
-
-    gfx::Vec3 _center{};
-    float _radius = 1;
-    float _yaw = 0;
-    float _pitch = 0;
-    float _distance = 1;
-    bool _dragging = false;
+    int _lod = 0;                                      // how many levels less detailed than the finest
+    std::vector<std::pair<size_t, gfx::Mat4>> _placed; // each piece, where it goes
+    Orbit _orbit;
     bool _showInfo = true;
-    int _lastX = 0;
-    int _lastY = 0;
+};
+
+/**
+ * The SI files' 3D models and animations, drawn: a model as WORLD.WDB's
+ * are, an animation's actors (models, parts, characters made of the
+ * shared part's pieces) placed by its nodes as it plays, round and round.
+ *   Left/Right: previous/next SI file   Up/Down: previous/next object
+ *   PageUp/PageDown: jump 20   Home/End: first/last   Space: pause or play
+ *   C: through the animation's camera, if it moves one   L: less detail
+ *   R: the view reset   I: the details shown or hidden   drag, wheel, +/-
+ */
+class SiScenePage : public ViewerPage {
+public:
+    /** `files` are the SI files; `screen` is drawn on only to say why, if 3D rendering isn't available. */
+    SiScenePage(System &sys, Surface &screen, const WdbFile &wdb, std::vector<std::filesystem::path> files);
+    ~SiScenePage() override;
+    size_t count() const override { return _files.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event &ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return _renderer != nullptr; }
+
+private:
+    // A piece drawn where a node is: the node's own place, or another's
+    // with an offset from it.
+    struct Binding {
+        size_t piece = 0;
+        std::string node;
+        std::string parent;
+        gfx::Mat4 offset = gfx::identity();
+    };
+    void openFile(size_t index);
+    void show(size_t index);
+    void build();
+    void bindModel(const WdbModel &model, const std::string &actorNode);
+    void bindCharacter(const WdbAnimNode &node);
+    bool findModel(const std::string &name, WdbModel &out) const;
+    gfx::Mat4 placeOf(const Binding &b, const NodePlaces &places) const;
+    void drawInfo();
+
+    System &_sys;
+    Surface &_screen;
+    WdbLibrary _lib;
+    std::vector<std::filesystem::path> _files;
+    size_t _file = 0;
+    SiFile _si;
+    std::string _fileError;
+    std::vector<const SiObject *> _objects; // the open file's animations and models
+    size_t _current = 0;
+    gfx::Renderer3D *_renderer = nullptr;
+    std::unique_ptr<RoiScene> _scene;
+    Surface _overlay;
+
+    std::string _error;
+    bool _isAnimation = false;
+    WdbAnimation _animation; // a model's own animation, for a model
+    WdbModel _model;
+    std::vector<std::unique_ptr<WdbModel>> _actorModels; // the bindings' ROIs point into them
+    std::vector<Binding> _bindings;
+    std::vector<std::string> _drawnAs; // what each actor was drawn as
+    int _lod = 0;
+    bool _paused = false;
+    bool _cameraView = false;
+    uint32_t _time = 0; // in milliseconds
+    uint64_t _lastMs = 0;
+    Orbit _orbit;
+    bool _showInfo = true;
 };
 
 } // namespace reluva::legoisland

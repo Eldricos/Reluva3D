@@ -26,8 +26,9 @@ Each phase ends with something that runs, is tested and is committed.
    the SI files' 3D objects: animations, models, textures and paths
    ([formats/obj.md](formats/obj.md)), each worked out from the files
    ([Decisions](#decisions)); the SI files' events
-   ([formats/si.md](formats/si.md#evt-an-event)). Next: the viewer
-   drawing the SI files' models and playing their animations.
+   ([formats/si.md](formats/si.md#evt-an-event)); the viewer drawing the
+   SI files' models and playing their animations. Next: a viewer page
+   for the `*INF.DTA` lists, or a decision against one.
 4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
    interpreter with stand-ins that log what they're asked. The gate: does
    it reach the intro's first frame, and how fast does it run?

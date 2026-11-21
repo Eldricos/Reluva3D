@@ -33,7 +33,7 @@ All values little-endian; floats are 32-bit; strings as in
 |---|---|
 | 4 | 17 in every one: a version, presumably *(guessed)* |
 | 4 | a distance, and |
-| 12 | a point, x, y, z: where it plays *(inferred)*; 0 for some |
+| 12 | a point, x, y, z: about where it starts *(inferred)*; 0 for some. Not all it covers: in `iic001in` Infomaniac walks 5.7 beyond it |
 | 4 | 1 if it moves the camera (49), else 0 |
 | 4 | 1 in every one |
 | 4 | actors |
@@ -118,6 +118,40 @@ A face:
 | 10 each | a trigger: the kind (2, an index into the kinds), a value (4: 1, 200...), and a float |
 | 12 | only if it has triggers: a direction, of length 1 |
 
+## Behaviour
+
+How an animation's actors are put together and placed, as the data
+viewer does it. Drawn so, the CD's scenes come out whole and moving as
+they should (Infomaniac gesturing at his desk, the copter's bricks
+flying into place, the Act 3 scene of the donuts through its own
+camera), but none of it has been compared with the game running
+*(inferred)*.
+
+- **Placing a node:** its move, then its turn, then its scaling, after
+  its parent node's. Between two keys, the way from one to the other:
+  in a straight line for moves and scalings, round the sphere for
+  turns; before the first key the first's value, after the last the
+  last's. A node is hidden from a showing key of 0 on, until one of 1.
+- **A model actor** (kinds 1, 3, 4, 5) is the model of its name in
+  `WORLD.WDB` (or an SI file's `.mod`), without a `*` in front or digits
+  after: `*PIZPIE01` is `pizpie`. Each of its ROIs goes where the node
+  of the ROI's name puts it, or, with no such node, where the model's
+  own animation puts it from the actor's node. An actor with no model
+  of its name is a part of that name, or one of the shared part's
+  pieces (`*DONUT01`, the part `donut`).
+- **A character** (kind 2) is made of the shared part's pieces
+  ([wdb.md](wdb.md#a-part)), its nodes named after them: `BODY`,
+  `HEAD`, `ARM-RT`, `INFOGRON`; `LEG-RT` and `LEG-LFT` are both `leg`,
+  and `CLAW-RT` is `claw-lft`. 9,964 of the 11,160 nodes under
+  characters name a piece so. Of the rest, 1,107 are `INFOHAT`, the
+  hat: which hat, and which colours and face a character has, aren't
+  in the files read so far; the other 89 are props held (`INHAND-R`,
+  `PIZPIE01`, `SPRAY`). Another actor's node under a character's
+  (the Brickster's `MOTOBK`) is that actor, and a node named with a `-`
+  in front only groups others.
+- **The camera**, in the 49 that move it, is at its first list's
+  point, looking at its second's.
+
 ## In Reluva
 
 `parseAnimation`, `parseModel` and `parseTextures`
@@ -125,8 +159,11 @@ A face:
 `GphFile` (`src/engines/legoisland/formats/gph.cpp`) a path;
 `objectData` and `objectKind` (`src/engines/legoisland/formats/si.cpp`)
 give an object's file and what it is. The data viewer's SI page says
-what each 3D object holds, and draws a texture; it doesn't draw the SI
-files' models or play their animations yet.
+what each 3D object holds, and draws a texture; its SI 3D page
+(`src/engines/legoisland/pages/si_scene_viewer.cpp`) draws the models
+and plays the animations, round and round, as [Behaviour](#behaviour)
+says, framing all the animation covers, and can look through its
+camera. Characters have no hats, and the shared part's own colours.
 
 - `reluva-tool legoisland si-objects <file.si> [object id]`: each 3D
   object read, and what it holds.
@@ -160,3 +197,6 @@ files' models or play their animations yet.
   value and float mean.
 - Why the worlds' lists give a different point and distance from 300 of
   their animations'.
+- The keys' flags (0, 1, 4 and 5 on turns): whether some mean "jump
+  here" rather than "go here".
+- Which hat, colours and face each character has.

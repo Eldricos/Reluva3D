@@ -50,6 +50,11 @@ page.
   or Metal): Up/Down pick one (PageUp/PageDown by 20, Home/End), L a
   less detailed LOD, drag to turn, the wheel or +/- to come nearer, R
   to reset the view, I to hide the details.
+- **The SI files' models and animations,** in 3D: Left/Right pick the
+  SI file, Up/Down the model or animation (PageUp/PageDown, Home/End);
+  an animation plays round and round, Space pauses it, and C looks
+  through its camera, if it moves one. L, R, I, the mouse and +/- as on
+  the page before.
 
 ## This folder
 
@@ -75,7 +80,7 @@ page.
 | `formats/gph.cpp` | The SI files' paths: the ground characters and vehicles move on |
 | `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
 | `formats/wdb.cpp` | The world database: its worlds, parts, models and textures; and the SI files' animations, models and textures, laid out as its |
-| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models |
+| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models; `si_scene_viewer.cpp`, the SI files' models and animations; `scene.cpp`, drawing and placing models for both |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
 
 ## Tests
