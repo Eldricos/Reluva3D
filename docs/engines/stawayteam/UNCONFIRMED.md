@@ -25,7 +25,8 @@ None yet.
   middle of the screen, the credits fading to see-through, the toolkit's
   brightness scaling colours, Normal as the level to start with, the
   gamma brightening dark colours, the slider's texture tiled from the
-  screen's corner, the sliders' keys and focus, voiceovers' and movies'
+  screen's corner, the sliders' keys and focus, the keyboard screen's
+  keys and tab sizes, voiceovers' and movies'
   volume following the effects',
   `Button Action` played on a picture button's click, Esc on
   the main menu asking to quit, a button's sound on the click, the shortcut's

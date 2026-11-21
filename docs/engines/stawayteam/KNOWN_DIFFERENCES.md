@@ -29,15 +29,17 @@ None yet.
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
 - **The main menu:** Start New Game's difficulty window doesn't start a
   game; Load Save Game and Play Network Game play their sound and
-  nothing else; in Settings, CONFIGURE KEYBOARD doesn't lead anywhere,
-  and the sound's voiceovers, stereo and mixing choices are kept but
-  don't change what's heard
+  nothing else; in Settings, the sound's voiceovers, stereo and mixing
+  choices, and the keyboard's bindings, are kept but don't change
+  anything yet
   ([systems/menus.md](systems/menus.md)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
   brighten their label under the mouse; the toolkit's toggles make no
   sound
   ([systems/menus.md](systems/menus.md#buttons)).
 - **The pointer** is the system's, not the game's.
+- **Keys' names** are Reluva's table of the US keyboard's, not what
+  Windows gives for the player's own keyboard; joysticks aren't there.
 
 ## Additions outside the game
 

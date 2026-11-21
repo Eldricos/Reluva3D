@@ -1,6 +1,6 @@
 # Star Trek: Away Team: the menus
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/ui/main_menu.cpp`, `src/engines/stawayteam/ui/button.cpp`, `src/engines/stawayteam/ui/font.cpp`, `src/engines/stawayteam/ui/credits.cpp`, `src/engines/stawayteam/ui/widgets.cpp`, `src/engines/stawayteam/ui/difficulty.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/ui/main_menu.cpp`, `src/engines/stawayteam/ui/button.cpp`, `src/engines/stawayteam/ui/font.cpp`, `src/engines/stawayteam/ui/credits.cpp`, `src/engines/stawayteam/ui/widgets.cpp`, `src/engines/stawayteam/ui/difficulty.cpp`, `src/engines/stawayteam/ui/settings.cpp`, `src/engines/stawayteam/ui/sound_options.cpp`, `src/engines/stawayteam/ui/key_config.cpp`, `src/engines/stawayteam/game/options.cpp`, `src/engines/stawayteam/game/controls.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -300,6 +300,68 @@ The game sets the master on its sound device, the music on its music
 player and the effects' scale on its sounds (`0x56f7a2`, `0x56f930`,
 `0x56f877`), and all of them as it starts (`0x56e7b5`).
 
+### The keyboard screen
+
+The settings window's CONFIGURE KEYBOARD opens it (`0x4ea060`), over the
+whole screen: `Key Config/Background` (640x480), laid out by
+`Rules.txt`'s `Config Control Screen` (`CStarTrekConfigControlMenu`).
+
+**The game's actions.** As it starts, the program registers 48 actions,
+each with an id, a category, a name and a default binding (`0x5bd649` to
+`0x5bdea9`): Movement (Walk W, Run R, Crouch C, the map scrolled by the
+arrows), General (Pause Enter, the vision and sound cones V, S and Tab,
+Cancel Orders Backspace, Skip In-game Movie Space, the zoom on the
+keypad's +, - and *...), Inventory (next and previous ] and [, and the
+wheel down and up; Hypospray H, Enhanced Mind Meld D, eleven others
+unbound) and Weapons (Phaser P, Sniper Rifle F, the grenades G and E,
+Neural Disruptor N, Vulcan Nerve Pinch K, six others unbound). A binding
+(`0x484f00`) is a key by its PC scan code (an extended key's with 0x100:
+Left is 0x14b), a key held with it, a joystick's button, and the mouse's
+(bits 1, 2 and 4 its buttons, 8 the wheel down, 16 up). Keys are named
+by Windows (`GetKeyNameTextA`). Shown, a binding is the held key's name,
+"+" and the key's, then the joystick's button, then the mouse's joined by
+"+" ("Wheel Down", "Mouse Button 1"), all apart by ", ". They're kept
+(`0x4845c0`) in a section "NO JOYSTICK Control Configuration" (the
+joystick's name, none here), a key "Category Name" each, the four numbers
+as "%d,%d,%d,%d".
+
+**The screen:**
+
+- **Rules.txt's texts** (`CStaticTextNernie`): "KEY CONFIGURATON" (sic)
+  at 47,6 in Placar Condensed, and "Click on an action to bind it to a new
+  key." at 220,107 in Trek Small Red, 181 wide.
+- **A tab for each category,** in the order the actions bring them, text
+  buttons in Placar Condensed (`0x4ea441`), the first at `ButtonStart Pos`
+  (62,75), each next the first's height and `Button Spacing` (6) under
+  the one before (`0x4eaaf0`); the one chosen is checked, so bright.
+- **Its panel** at `ConfigStart Pos` (208,72), `ConfigStart Size`
+  (198x317): the category's name in Placar Condensed, in the middle across
+  (`0x4ea623`); 24 under it, an action a row (`0x4e97c0`), text buttons in
+  Trek Small as wide as 33 X's (132) and the baseline and 6 high (14), 2
+  apart, the name 3 in from the right; what it's bound to just after the
+  row (`0x4e99e0`).
+- **Binding:** a click on an action makes it wait for a key, checked
+  (`0x4e9c30`); the next key binds it (`0x484060`); any other action bound
+  to that key loses it, and "Name action deleted." shows in the list of
+  changes at `KeyChangeList Pos` (62,208) for 10 seconds (`0x4ea960`). With
+  an action chosen, two of the program's keys take its key away
+  (`0x4e990f`).
+- **The mouse's panel** at `Mouse Pos` (412,94) (`0x4e90c0`): "MOUSE
+  CONFIG" in its font, Trek Small, at `MouseTitle Pos`; `Key Config/Mouse`
+  at `MouseImage Pos` (8,32); each button's use at `Button1-3 Pos`, wrapped
+  to its size (`0x4e9461`): normally the left one "Move Button", the right
+  "Action Button" (the texts are Rules.txt's), the middle "Cycle
+  Inventory" while both inventory actions are on the wheel and "Custom"
+  otherwise; the reversed scheme swaps the first two. The help of the
+  button under the mouse at `HelpText Pos`. "Reverse Mouse Buttons", a
+  check box at `ReverseMouse Pos`, sets the scheme, kept as `Control
+  Scheme` under "Options".
+- **EXIT and RESET** (`Key Config/Exit` and `Reset`, Default, Hover,
+  Press, Disable, 163x19) at `ExitButton Pos` and `ResetButton Pos`, their
+  labels from Rules.txt in Placar Blue, lined up on their right
+  (`0x4ea165`). RESET asks "Are you sure you want to reset your controls?"
+  (`0x63f160`) and puts every default back.
+
 ### The toolkit's sliders and check boxes
 
 - **Frames** (`0x408000`): as many pixels thick as a fifth of the font's
@@ -356,7 +418,13 @@ player and the effects' scale on its sounds (`0x56f7a2`, `0x56f930`,
   multiply, as gains (a hundredth of a decibel each), into its music and
   effects volumes; speech, the movies' and voiceovers', go with the
   effects. Voiceovers, stereo and mixing are kept, but don't change
-  what's heard yet. The keyboard's settings aren't there yet. A slider
+  what's heard yet. CONFIGURE KEYBOARD opens the keyboard screen
+  (`KeyConfigScreen`, `ui/key_config.cpp`; the actions and bindings in
+  `Controls`, `game/controls.cpp`, kept with the options): a click on an
+  action, then a key, binds it, a key held with Shift, Ctrl or Alt with
+  it; Esc while waiting gives up; Delete or Backspace takes the chosen
+  action's key away; EXIT or Esc closes it. The bindings aren't used yet,
+  as there's no game to play. A slider
   clicked takes the keys: Home, End, Left and Down, Right and Up. Load
   Save Game and Play Network Game play their sound and lead nowhere yet.
 - **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
@@ -390,6 +458,11 @@ player and the effects' scale on its sounds (`0x56f7a2`, `0x56f930`,
 - **Where the dialog and the other windows go on the screen.** Reluva
   puts them in the middle.
 - **The game's level before one is chosen.** Reluva starts at Normal.
+- **The keyboard screen:** how a tab is sized, which keys take an
+  action's key away (Reluva: Delete and Backspace), whether Esc gives up
+  waiting for a key, how a held key is recorded, the order of the list of
+  changes, and the borders' widths of its texts. Reluva's choices are
+  noted in the code.
 - **The sliders' keys:** which of the player's keys the program's key
   numbers 5, 11, 12 and 14 are, and how a slider gets the keyboard's
   focus. Reluva takes Home, Left or Down, Right or Up, and End, and the

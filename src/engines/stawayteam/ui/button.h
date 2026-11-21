@@ -47,6 +47,8 @@ public:
      * game's menus set theirs (0x5cd0d1).
      */
     void setLabel(const std::string &label, const Font *font, int textX, int textY);
+    /** Lines its label up on its right instead, `textX` in from it (the label's alignment 2, 0x5cd0b7). */
+    void alignLabelRight() { _rightAligned = true; }
     /** The sound played when it's clicked. */
     void setSound(std::shared_ptr<audio::Sound> sound) { _sound = std::move(sound); }
 
@@ -85,6 +87,7 @@ private:
     int _textY = 0;
     std::shared_ptr<audio::Sound> _sound;
     bool _checked = false;
+    bool _rightAligned = false;
 };
 
 /**

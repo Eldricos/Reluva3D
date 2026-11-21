@@ -176,6 +176,47 @@ void Toggle::draw(Surface &screen, int originX, int originY) const {
         _font->draw(screen, x + box, y + 1, _label);
 }
 
+TextButton::TextButton(std::string label, const Font *font, int w, int h)
+    : _label(std::move(label)), _font(font), _w(w), _h(h) {
+}
+
+bool TextButton::handleEvent(const Event &ev, int originX, int originY) {
+    const int mx = ev.mouseX - originX;
+    const int my = ev.mouseY - originY;
+    switch (ev.type) {
+    case EventType::kMouseMove:
+        _hover = contains(mx, my);
+        return false;
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft)
+            _pressed = _hover = contains(mx, my);
+        return false;
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft) {
+            _hover = contains(mx, my);
+            const bool chosen = _pressed && _hover;
+            _pressed = false;
+            return chosen;
+        }
+        return false;
+    default:
+        return false;
+    }
+}
+
+void TextButton::draw(Surface &screen, int originX, int originY, uint64_t now) {
+    // Bright under the mouse or checked (0x5effa0, 0x5f0047), 2 a second.
+    const float target = _hover || _checked ? 1.0f : kDim;
+    const float step = _lastDraw ? float(now - _lastDraw) * kBrightPerMs : 0.0f;
+    _lastDraw = now;
+    _brightness = _brightness < target ? std::min(target, _brightness + step) : std::max(target, _brightness - step);
+    if (!_font || !_font->loaded())
+        return;
+    const int in = _pressed && _hover ? 1 : 0;
+    const int x = originX + _x + (_rightAligned ? _w - _textX - _font->width(_label) : _textX) + in;
+    _font->draw(screen, x, originY + _y + _textY + in, _label, 255, _brightness);
+}
+
 void drawBevel(Surface &screen, int x, int y, int w, int h, int thickness, bool raised) {
     const uint8_t topLeft = raised ? kFrameLight : kFrameDark;
     const uint8_t bottomRight = raised ? kFrameDark : kFrameLight;

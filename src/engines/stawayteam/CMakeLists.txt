@@ -15,11 +15,13 @@ reluva_add_engine(stawayteam
         ui/main_menu.cpp
         ui/settings.cpp
         ui/sound_options.cpp
+        game/controls.cpp
         game/options.cpp
         ui/button.cpp
         ui/credits.cpp
         ui/difficulty.cpp
         ui/font.cpp
+        ui/key_config.cpp
         ui/layout.cpp
         ui/widgets.cpp
         formats/rds_script.cpp

@@ -83,7 +83,8 @@ void ConfirmDialog::draw(Surface &screen) const {
     // The question across the middle of the dialog, inside its frame (0x487304).
     image::blit(screen, _background, _x, _y);
     if (_questionFont.loaded())
-        _questionFont.drawWrapped(screen, _x + _background.w / 2, _y + _questionY, _background.w - 128, _question);
+        _questionFont.drawWrapped(screen, _x + _background.w / 2, _y + _questionY, _background.w - 128, _question,
+                                  Font::Align::kCenter, 2);
     _buttons.draw(screen);
 }
 
@@ -196,6 +197,11 @@ bool MainMenu::run() {
                 }
                 continue;
             }
+            if (_keyConfig) {
+                if (_keyConfig->handleEvent(ev, _mixer, _sys.getMillis()))
+                    _keyConfig.reset();
+                continue;
+            }
             if (_soundOptions) {
                 if (_soundOptions->handleEvent(ev, _mixer))
                     _soundOptions.reset();
@@ -205,6 +211,8 @@ bool MainMenu::run() {
                 const SettingsWindow::Choice choice = _settings->handleEvent(ev, _mixer);
                 if (choice == SettingsWindow::Choice::kContinue)
                     _settings.reset();
+                else if (choice == SettingsWindow::Choice::kKeyboard)
+                    _keyConfig = std::make_unique<KeyConfigScreen>(_data, _rules, _options);
                 else if (choice == SettingsWindow::Choice::kSound)
                     _soundOptions = std::make_unique<SoundOptionsWindow>(_data, _options, _screen.w, _screen.h);
                 else if (choice == SettingsWindow::Choice::kDifficulty)
@@ -263,6 +271,8 @@ void MainMenu::draw() {
         _settings->draw(_screen, now);
     if (_soundOptions)
         _soundOptions->draw(_screen, now);
+    if (_keyConfig)
+        _keyConfig->draw(_screen, now);
     if (_difficultyWindow)
         _difficultyWindow->draw(_screen, now);
     if (_dialog)

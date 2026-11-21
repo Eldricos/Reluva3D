@@ -74,6 +74,7 @@ void GameOptions::load(const std::filesystem::path &file) {
     playVoiceovers = flag(_file, kVoiceovers, true);
     stereo = flag(_file, kStereo, true);
     mixingChannels = whole(_file, kMixing, kMixingFaster);
+    controls.load(_file);
 }
 
 void GameOptions::save() const {
@@ -93,6 +94,7 @@ void GameOptions::save() const {
     file.set(kSection, kVoiceovers, playVoiceovers ? "1" : "0");
     file.set(kSection, kStereo, stereo ? "1" : "0");
     file.set(kSection, kMixing, std::to_string(mixingChannels));
+    controls.save(file);
     // The folder for the game's files may not be made yet.
     std::error_code ec;
     std::filesystem::create_directories(_path.parent_path(), ec);

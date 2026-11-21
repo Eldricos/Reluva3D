@@ -37,13 +37,20 @@ public:
     /**
      * Draws `text`, its first character's top left at (x, y).
      * @param opacity 0-255: how much it shows over what's there.
+     * @param brightness 0-1: its colours scaled, as the toolkit dims what it draws.
      */
-    void draw(Surface &screen, int x, int y, std::string_view text, int opacity = 255) const;
+    void draw(Surface &screen, int x, int y, std::string_view text, int opacity = 255, float brightness = 1.0f) const;
+
+    /** How text is lined up across: on its left, its middle or its right. */
+    enum class Align { kLeft, kCenter, kRight };
     /**
-     * Draws `text` broken into lines no wider than `maxWidth`, at word
-     * boundaries, each centred on `centerX`; the first line's top at `y`.
+     * Draws `text` broken into lines no wider than `maxWidth` (0: no
+     * limit), at word boundaries, each lined up on `x` as `align` says, the
+     * lines the font's height and `spacing` apart (0x4b16f0); the first
+     * line's top at `y`.
      */
-    void drawWrapped(Surface &screen, int centerX, int y, int maxWidth, std::string_view text) const;
+    void drawWrapped(Surface &screen, int x, int y, int maxWidth, std::string_view text, Align align = Align::kCenter,
+                     int spacing = 0) const;
 
 private:
     // The picture drawn for character `c`, or nullptr for none.

@@ -106,7 +106,7 @@ std::string rules() {
 	{
 		Menu=Array
 		{
-			Item Count=3
+			Item Count=4
 			Menu=CAnimatedMenuInfo
 			{
 				Menu Name=Main Menu
@@ -147,6 +147,58 @@ std::string rules() {
 					NoButton Text=&No
 					NoButton Font=Placar Blue
 					NoButton Press Sound=!None.ogg
+				}
+			}
+			Menu=CAnimatedMenuInfo
+			{
+				Menu Name=Config Control Screen
+				Menu Definition=CStarTrekConfigControlMenu
+				{
+					Nernie=Array
+					{
+						Item Count=1
+						Nernie=CStaticTextNernie
+						{
+							Position=4,2
+							Text=AB
+							Font=Placar Condensed
+							Justification=Left
+							Wrap Width=0
+						}
+					}
+					ExitButton Pos=130,110
+					ExitButton Text Pos=2,1
+					ExitButton Text=E&XIT
+					ExitButton Font=Placar Blue
+					ResetButton Pos=130,100
+					ResetButton Text Pos=2,1
+					ResetButton Text=&RESET TO DEFAULT
+					ResetButton Font=Placar Blue
+					ButtonStart Pos=4,10
+					ConfigStart Pos=40,10
+					ConfigStart Size=60,100
+					Button Spacing=2
+					Action Text=Action Button
+					Move Text=Move Button
+					Inventory Text=Cycle Inventory
+					Action Help Text=Acts.
+					Move Help Text=Moves.
+					Inventory Help Text=Cycles.
+					Button1 Pos=1,10
+					Button1 Size=10,6
+					Button2 Pos=30,10
+					Button2 Size=10,6
+					Button3 Pos=15,4
+					Button3 Size=10,6
+					HelpText Pos=1,40
+					HelpText Size=40,20
+					MouseTitle Pos=0,0
+					Mouse Pos=110,10
+					Mouse Size=45,70
+					KeyChangeList Pos=4,60
+					KeyChangeList Size=30,40
+					MouseImage Pos=5,12
+					ReverseMouse Pos=2,30
 				}
 			}
 			Menu=CAnimatedMenuInfo
@@ -214,6 +266,10 @@ void engineTest(const std::filesystem::path &tmp) {
         {"Cache/Interface/Window Texture.frm16", solidFrame(4, 4, 0x3186), {}},
         {"Cache/Fonts/Trek Small.seq16", font, {}},
         {"Cache/Fonts/Small Blue.seq16", font, {}},
+        {"Cache/Interface/Screens/Key Config/Background.frm16", solidFrame(160, 120, 0x0010), {}},
+        {"Cache/Interface/Screens/Key Config/Exit Default.frm16", solidFrame(20, 6, 0x4208), {}},
+        {"Cache/Interface/Screens/Key Config/Reset Default.frm16", solidFrame(20, 6, 0x4208), {}},
+        {"Cache/Interface/Screens/Key Config/Mouse.frm16", solidFrame(10, 8, 0xffff), {}},
         {"Cache/Interface/Screens/Sound Options Dialog/Background.frm16", solidFrame(150, 120, 0x4208), {}},
         {"Cache/Interface/Screens/Sound Options Dialog/Button Background.frm16", solidFrame(50, 8, 0x001f), {}},
         {"Cache/Interface/Screens/Sound Options Dialog/Mute Default.frm16", solidFrame(5, 5, 0x07e0), {}},
@@ -245,15 +301,15 @@ void engineTest(const std::filesystem::path &tmp) {
     // (Credits') shows the credits, Esc closes them; E (Settings') shows the
     // settings, P unchecks pausing when hit, F (DIFFICULTY SETTING) shows
     // the difficulty window over them, Esc closes it, S (CONFIGURE SOUND)
-    // shows the sound's settings, Esc closes them, C (CONTINUE) closes the
-    // settings; Esc asks whether to
+    // shows the sound's settings, Esc closes them, K (CONFIGURE KEYBOARD)
+    // the keyboard's, Esc closes them, C (CONTINUE) closes the settings; Esc asks whether to
     // quit, N says no, Q (Quit's shortcut) asks again, and Y quits: the
     // window isn't closed.
     int frames = 0;
     std::vector<std::string> screens;
     rec.add("play.result", play(*engine, dir, frames, &screens,
-                                {'s', 'n', 'e', 'p', 'f', key::kEscape, 's', key::kEscape, 'c', 'c', key::kEscape,
-                                 key::kEscape, 'n', 'q', 'y'}));
+                                {'s', 'n', 'e', 'p', 'f', key::kEscape, 's', key::kEscape, 'k', key::kEscape, 'c', 'c',
+                                 key::kEscape, key::kEscape, 'n', 'q', 'y'}));
     rec.add("play.frames", static_cast<int64_t>(frames));
     for (size_t i = 0; i < screens.size(); ++i)
         rec.add("play.screen " + std::to_string(i), screens[i]);
@@ -267,9 +323,9 @@ void engineTest(const std::filesystem::path &tmp) {
     // the sound played (no output here), and the objects, the next file's.
     // A checksum of each screen.
     if (const MetaViewer *viewer = findViewer("stawayteam")) {
-        ScriptedSystem sys({'f', 'f',       'f',       'f', 'f',       'b',         'b',         'f',
-                            'f', 'z',       'f',       'i', key::kTab, '.',         key::kTab,   '.',
-                            ']', key::kTab, key::kTab, ' ', key::kTab, key::kRight, key::kRight, key::kRight});
+        ScriptedSystem sys({'f',       'f',       'f', 'f',       'f',         'f',         'b',        'b', 'f',
+                            'f',       'z',       'f', 'i',       key::kTab,   '.',         key::kTab,  '.', ']',
+                            key::kTab, key::kTab, ' ', key::kTab, key::kRight, key::kRight, key::kRight});
         const Error err = viewer->create(sys, targetFor(dir))->run();
         rec.add("viewer.result", err ? err.message : "ok");
         for (size_t i = 0; i < sys.screens.size(); ++i)

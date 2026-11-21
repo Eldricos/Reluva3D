@@ -5,6 +5,7 @@
 
 #include "audio/mixer.h"
 #include "common/config.h"
+#include "engines/stawayteam/game/controls.h"
 
 #include <filesystem>
 
@@ -55,6 +56,9 @@ public:
     bool playVoiceovers = true;
     bool stereo = true;
     int mixingChannels = kMixingFaster;
+
+    /** The keys and mouse buttons the game's actions are bound to. */
+    Controls controls;
 
     /**
      * The sound's options on `mixer`: the master volume over music and

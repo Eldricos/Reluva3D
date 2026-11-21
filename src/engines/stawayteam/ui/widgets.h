@@ -107,6 +107,57 @@ private:
 };
 
 /**
+ * A text button of the toolkit (0x5efe20): its label alone, dim until the
+ * mouse is over it or it's checked, then brightening, as a picture
+ * button's picture (the category tabs, the keyboard screen's actions).
+ */
+class TextButton {
+public:
+    /** The button with `label` in `font`, which must outlive it, w by h. */
+    TextButton(std::string label, const Font *font, int w, int h);
+
+    void setPosition(int x, int y) {
+        _x = x;
+        _y = y;
+    }
+    /** Where its text goes: its left at `x` across, or with `rightAligned` its right; its top `y` down. */
+    void setText(int x, int y, bool rightAligned) {
+        _textX = x;
+        _textY = y;
+        _rightAligned = rightAligned;
+    }
+    int x() const { return _x; }
+    int y() const { return _y; }
+    int width() const { return _w; }
+    int height() const { return _h; }
+    const std::string &label() const { return _label; }
+    bool checked() const { return _checked; }
+    void setChecked(bool checked) { _checked = checked; }
+
+    /** What `ev` does to it, its window's top left at (originX, originY): true when it's clicked. */
+    bool handleEvent(const Event &ev, int originX, int originY);
+    void draw(Surface &screen, int originX, int originY, uint64_t now);
+
+private:
+    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + _w && y < _y + _h; }
+
+    std::string _label;
+    const Font *_font;
+    int _x = 0;
+    int _y = 0;
+    int _w;
+    int _h;
+    int _textX = 1;
+    int _textY = 1;
+    bool _rightAligned = false;
+    bool _hover = false;
+    bool _pressed = false;
+    bool _checked = false;
+    float _brightness = 1.0f;
+    uint64_t _lastDraw = 0;
+};
+
+/**
  * Draws the toolkit's frame round the rectangle (x, y, w, h): `thickness`
  * pixels in, light on the top and left and dark on the bottom and right
  * if `raised`, the other way round if not (0x408000).

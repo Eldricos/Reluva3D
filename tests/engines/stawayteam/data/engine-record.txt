@@ -4,7 +4,7 @@ detect.empty: 0
 detect.games: 1
 detect.description: Star Trek: Away Team (unknown release)
 play.result: ok
-play.frames: 15
+play.frames: 17
 play.screen 0: 1922aa0063be7d66
 play.screen 1: e82dc80f95192dbc
 play.screen 2: 1922aa0063be7d66
@@ -14,37 +14,40 @@ play.screen 5: 7c720f7ce91ed8b9
 play.screen 6: bdae998e7a0d22a5
 play.screen 7: 2044cbc95f278b23
 play.screen 8: e3a192827cec2dcb
-play.screen 9: 1922aa0063be7d66
-play.screen 10: fa7084d0a747fc76
+play.screen 9: dceaf17a32084c9b
+play.screen 10: f78d514fa3eaebe9
 play.screen 11: 1922aa0063be7d66
-play.screen 12: 5983226047af0496
+play.screen 12: fa7084d0a747fc76
 play.screen 13: 1922aa0063be7d66
-play.screen 14: 5983226047af0496
+play.screen 14: 7c7f346b4eaad296
+play.screen 15: 1922aa0063be7d66
+play.screen 16: 7c7f346b4eaad296
 viewer.result: ok
-viewer.screen 0: 5de6da6f75c23c73
-viewer.screen 1: e37b403a74af810d
-viewer.screen 2: 0695b01aca1f999d
-viewer.screen 3: c6c350483c2452f5
-viewer.screen 4: 8099e3b07e216b83
-viewer.screen 5: a7236c5381fea4c3
-viewer.screen 6: a7236c5381fea4c3
-viewer.screen 7: a7236c5381fea4c3
-viewer.screen 8: 163a5fa122ae7d49
-viewer.screen 9: f3e3ea73be32a05d
-viewer.screen 10: 85b017ba24c72abd
-viewer.screen 11: b7fbbff9165570b9
-viewer.screen 12: afa73d4d66e74f0d
-viewer.screen 13: 11feffc93174639a
-viewer.screen 14: 79f6fb1ac8578846
-viewer.screen 15: d37222b72cfdc44e
-viewer.screen 16: 8e93d87c4c75cffa
-viewer.screen 17: 914865c26a65c20b
-viewer.screen 18: fda766c7725128db
-viewer.screen 19: 33e0a411f4c46559
+viewer.screen 0: d8b7fb0c01c13755
+viewer.screen 1: 24895c0f651fd9fb
+viewer.screen 2: d1c8fa767201534b
+viewer.screen 3: b34e29d3f305bc53
+viewer.screen 4: ecf5dc05b518d5cd
+viewer.screen 5: 9e06e7e337efbe43
+viewer.screen 6: e6e20bf2cbb2a505
+viewer.screen 7: e6e20bf2cbb2a505
+viewer.screen 8: e6e20bf2cbb2a505
+viewer.screen 9: 08824b2a7b44dde1
+viewer.screen 10: 1eeecf7c1638f33d
+viewer.screen 11: 5f57cc11fbe3f2dd
+viewer.screen 12: b3d31ba3fbe42179
+viewer.screen 13: afa73d4d66e74f0d
+viewer.screen 14: 11feffc93174639a
+viewer.screen 15: 79f6fb1ac8578846
+viewer.screen 16: d37222b72cfdc44e
+viewer.screen 17: 8e93d87c4c75cffa
+viewer.screen 18: 914865c26a65c20b
+viewer.screen 19: fda766c7725128db
 viewer.screen 20: 33e0a411f4c46559
-viewer.screen 21: 602f8f4fb3dc90ab
-viewer.screen 22: f954c6ffd303338d
-viewer.screen 23: 6ca427c393bc430b
-viewer.screen 24: a0c69d62c3edfbb3
+viewer.screen 21: 33e0a411f4c46559
+viewer.screen 22: 602f8f4fb3dc90ab
+viewer.screen 23: f954c6ffd303338d
+viewer.screen 24: 6ca427c393bc430b
+viewer.screen 25: a0c69d62c3edfbb3
 play.bad rules: DATA.dat: Rules.txt: the text ends inside CStarTrekRules
 play.no rules: DATA.dat has no Rules.txt

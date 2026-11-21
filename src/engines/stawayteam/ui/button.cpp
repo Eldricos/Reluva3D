@@ -78,7 +78,10 @@ void Button::draw(Surface &screen, int originX, int originY, bool hover, bool pr
     const int y = originY + _y;
     image::blit(screen, picture, x, y);
     if (_font && _font->loaded())
-        _font->draw(screen, x + (width() - _font->width(_label)) / 2 - _textX, y + _textY, _label);
+        _font->draw(screen,
+                    _rightAligned ? x + width() - _textX - _font->width(_label)
+                                  : x + (width() - _font->width(_label)) / 2 - _textX,
+                    y + _textY, _label);
 }
 
 int ButtonGroup::buttonAt(int x, int y) const {

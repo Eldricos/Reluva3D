@@ -4,6 +4,7 @@
 #include "engines/stawayteam/ui/font.h"
 
 #include "engines/stawayteam/formats/binary_object.h"
+#include "engines/stawayteam/ui/widgets.h"
 
 #include <algorithm>
 #include <cctype>
@@ -64,27 +65,26 @@ int Font::width(std::string_view text) const {
     return w;
 }
 
-void Font::draw(Surface &screen, int x, int y, std::string_view text, int opacity) const {
+void Font::draw(Surface &screen, int x, int y, std::string_view text, int opacity, float brightness) const {
     for (char c : text) {
         const image::Image *g = glyph(static_cast<unsigned char>(c));
         if (!g)
             continue;
-        if (_fixedWidth) {
-            // Each character in the middle of its cell (0x4b1600).
-            image::blit(screen, *g, x + (_cellWidth - g->w) / 2, y, opacity);
-            x += _cellWidth;
-        } else {
-            image::blit(screen, *g, x, y, opacity);
-            x += g->w;
-        }
+        const int gx = _fixedWidth ? x + (_cellWidth - g->w) / 2 : x; // each in the middle of its cell (0x4b1600)
+        if (brightness < 1.0f)
+            image::blit(screen, dimmed(*g, brightness), gx, y, opacity);
+        else
+            image::blit(screen, *g, gx, y, opacity);
+        x += _fixedWidth ? _cellWidth : g->w;
     }
 }
 
-void Font::drawWrapped(Surface &screen, int centerX, int y, int maxWidth, std::string_view text) const {
+void Font::drawWrapped(Surface &screen, int x, int y, int maxWidth, std::string_view text, Align align,
+                       int spacing) const {
     while (!text.empty()) {
         // As many words as fit; a word wider than the line has it to itself.
         size_t end = text.size();
-        if (width(text) > maxWidth) {
+        if (maxWidth > 0 && width(text) > maxWidth) {
             end = 0;
             for (size_t space = text.find(' '); space != std::string_view::npos; space = text.find(' ', space + 1)) {
                 if (end && width(text.substr(0, space)) > maxWidth)
@@ -95,8 +95,9 @@ void Font::drawWrapped(Surface &screen, int centerX, int y, int maxWidth, std::s
                 end = text.size();
         }
         const std::string_view line = text.substr(0, end);
-        draw(screen, centerX - width(line) / 2, y, line);
-        y += _height;
+        const int w = width(line);
+        draw(screen, align == Align::kLeft ? x : align == Align::kCenter ? x - w / 2 : x - w, y, line);
+        y += _height + spacing;
         text.remove_prefix(std::min(text.size(), end + 1));
     }
 }

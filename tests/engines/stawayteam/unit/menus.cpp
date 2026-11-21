@@ -7,6 +7,7 @@
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/game/controls.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/widgets.h"
 
@@ -230,6 +231,38 @@ void testOptions(const std::filesystem::path &tmp) {
     CHECK(mixer.typeVolume(audio::SoundType::kEffects) == 26 && mixer.typeVolume(audio::SoundType::kMusic) == 1);
 }
 
+void testControls() {
+    // The program's 48 actions, their default bindings shown as the
+    // keyboard screen shows them.
+    const auto &actions = gameActions();
+    CHECK(actions.size() == 48 && std::string(actions[0].name) == "Walk");
+    Controls controls;
+    CHECK(controls.text(0) == "W");
+    CHECK(controls.text(3) == "Left");
+    CHECK(controls.text(21) == "], Wheel Down");
+    CHECK(controls.text(25).empty());
+    CHECK(keyName(0x4e) == "Num +" && scanCode('w') == 0x11 && scanCode(key::kKpPlus) == 0x4e &&
+          scanCode(key::kLeft) == 0x14b);
+
+    // Binding a key another action has takes it from that one.
+    const auto lost = controls.bindKey(25, 0x11, 0);
+    CHECK(lost.size() == 1 && lost[0] == "Walk" && controls.text(25) == "W" && controls.text(0).empty());
+    CHECK(controls.bindKey(1, 0x13, 0x2a).empty() && controls.text(1) == "Shift+R");
+    controls.clearKey(21);
+    CHECK(controls.text(21) == "Wheel Down");
+
+    // Kept as the program keeps them, and read back; reset, the defaults.
+    Config file;
+    controls.scheme = 1;
+    controls.save(file);
+    CHECK(file.get("NO JOYSTICK Control Configuration", "Movement Walk") == "0,0,0,0");
+    Controls again;
+    again.load(file);
+    CHECK(again.text(25) == "W" && again.text(1) == "Shift+R" && again.scheme == 1);
+    again.reset();
+    CHECK(again.text(0) == "W" && again.text(25).empty());
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.menus",
@@ -240,4 +273,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.menus",
                                             {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
                                             {"toolkit", [](const std::filesystem::path &) { testToolkit(); }},
                                             {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
+                                            {"controls", [](const std::filesystem::path &) { testControls(); }},
                                         });

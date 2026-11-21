@@ -33,8 +33,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 - **The menus:** the main menu's buttons, the difficulty window, the
   settings (brightness, scrolling, pausing when hit) and the sound's
   (volumes, voiceovers, stereo, mixing), the credits, and the dialog
-  asking before quitting; the game itself, saved games, network games
-  and the keyboard's settings aren't there yet
+  asking before quitting, and the keyboard's (the game's actions and
+  their keys, the mouse's buttons); the game itself, saved games and
+  network games aren't there yet
   ([systems/menus.md](systems/menus.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
@@ -97,8 +98,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `game/` | The game's state: `options.cpp` (its options, kept between runs) |
-| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `sound_options.cpp` (the sound window), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
+| `game/` | The game's state: `options.cpp` (its options, kept between runs), `controls.cpp` (its actions and their keys) |
+| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `sound_options.cpp` (the sound window), `key_config.cpp` (the keyboard screen), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
 | `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
 | `pages/` | The data viewer, in `reluva-viewer` only: `viewer.cpp` (its pages, Tab between them), a page each in `picture_viewer.cpp`, `sequence_viewer.cpp`, `model_viewer.cpp`, `font_viewer.cpp`, `sound_viewer.cpp`, `object_viewer.cpp`; what they share in `page.h`, `file_list.cpp`, `animation.cpp`, `draw.cpp` |
 | `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |
