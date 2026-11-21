@@ -13,7 +13,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 
 ## Where it stands
 
-- **Recognising the game:** done for the US English retail release.
+- **Recognising the game:** done for the US English retail release, and
+  *Import Game...* from its CD.
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
   [research/file-survey.md](research/file-survey.md).
@@ -23,6 +24,10 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 - **Add the game's folder** (the install) in the launcher. A full install
   has everything the game needs: the program, `DATA.dat`, and the movies
   in `DATA/Movies/`.
+- **Or import it from the CD** (*Import Game...*): Reluva copies what it
+  uses from the CD's `Setup` folder, where the install is loose: the
+  program, `DATA.dat`, `texture.dat` and the movies. An installed copy
+  can be imported the same way.
 - **The game** shows an empty screen for now; Esc goes back to the
   launcher.
 

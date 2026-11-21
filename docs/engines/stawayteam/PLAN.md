@@ -14,13 +14,13 @@ and from reading `Star Trek.exe`; the original program isn't run.
 
 Each phase ends with something that runs and is committed.
 
-1. **Engine start** (in progress): the engine from the template, its
-   pages, a row in the games table, and a first survey of the files
+1. **Engine start** (done): the engine from the template, its pages, a
+   row in the games table, and a first survey of the files
    ([research/file-survey.md](research/file-survey.md)). Detection on
    `Star Trek.exe` and `DATA.dat`, with an "(unknown release)" fallback
-   by the files' names, is done. Still to do: *Import Game...* from the
-   CD, copying its loose `Setup/` files (the CD holds the install
-   uncompressed as well as in `data1.cab`).
+   by the files' names; *Import Game...* from the CD's loose `Setup/`
+   files (the CD holds the install uncompressed as well as in
+   `data1.cab`).
 2. **The archive** (next): `DATA.dat` is a ZIP of 6,949 stored files whose
    end-of-central-directory record is signed `RE\5\6`, not `PK\5\6`.
    Teach `src/common/zip.cpp` to accept that signature (or to walk the

@@ -7,6 +7,10 @@
 
 #include "engines/engine.h"
 
+#include "common/fs.h"
+
+#include <system_error>
+
 namespace reluva::stawayteam {
 
 namespace {
@@ -32,6 +36,25 @@ const std::vector<GameVariant> kFallback = {
      "windows",
      {{"Star Trek.exe", "", -1}, {"DATA.dat", "", -1}}},
 };
+
+// The files of the game Reluva uses, in the folder it runs from. The CD
+// and the install have more (Bink's, Ogg's and the registration's DLLs,
+// installers, help pages) that it doesn't.
+const char *const kGameFiles[] = {"Star Trek.exe", "DATA.dat", "texture.dat"};
+// The movies' folder: loose files, beside DATA.dat.
+constexpr const char *kMoviesFolder = "DATA/Movies";
+
+// The folder in `source` holding the game: the source itself (an install,
+// or a copy of the CD's Setup folder), or its Setup folder (the CD, which
+// has the install there uncompressed as well as in data1.cab).
+std::optional<std::filesystem::path> findGameFolder(const std::filesystem::path &source) {
+    for (const char *sub : {"", "Setup"}) {
+        const auto dir = *sub ? fs::findDirectory(source, sub) : std::optional(source);
+        if (dir && fs::findFile(*dir, "Star Trek.exe") && fs::findFile(*dir, "DATA.dat"))
+            return dir;
+    }
+    return std::nullopt;
+}
 
 /**
  * The game running: for now an empty screen until the player quits.
@@ -79,6 +102,45 @@ public:
         if (found.empty())
             found = detectFromTable(id(), kFallback, dir);
         return found;
+    }
+
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
+        const auto dir = findGameFolder(source);
+        if (!dir)
+            return {};
+        const auto found = detect(*dir);
+        if (found.empty())
+            return {};
+        ImportPlan plan;
+        plan.game = found[0];
+        std::error_code ec;
+        auto add = [&](const std::filesystem::path &from, std::string to) {
+            ImportPlan::File file;
+            file.from = from;
+            file.to = std::move(to);
+            file.size = std::filesystem::file_size(from, ec);
+            plan.files.push_back(std::move(file));
+        };
+        for (const char *name : kGameFiles)
+            if (const auto file = fs::findFile(*dir, name))
+                add(*file, name);
+        // The movies keep their own names and folders ("Mission 01/...").
+        if (const auto movies = fs::findDirectory(*dir, kMoviesFolder)) {
+            for (const auto &entry : std::filesystem::recursive_directory_iterator(*movies, ec)) {
+                if (!entry.is_regular_file(ec))
+                    continue;
+                std::string to = std::string(kMoviesFolder);
+                for (const auto &part : entry.path().lexically_relative(*movies))
+                    to += "/" + std::string(fs::withoutIsoVersion(part.string()));
+                add(entry.path(), to);
+            }
+        } else {
+            plan.notes.push_back("No movies were found (DATA/Movies): the game plays without them.");
+        }
+        // No patch or expansion is known for the game.
+        plan.addPatchLabel.clear();
+        plan.addFolderLabel.clear();
+        return {plan};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

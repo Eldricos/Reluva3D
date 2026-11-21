@@ -10,7 +10,7 @@ files):
 
 | Suite | What it checks |
 |---|---|
-| `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release |
+| `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
 ### The basic engine test
 
@@ -39,4 +39,4 @@ files, which the tests never hold.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`) |
+| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files |
