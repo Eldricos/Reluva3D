@@ -30,9 +30,13 @@ Each phase ends with something that runs, is tested and is committed.
    SI files' models and playing their animations; and a page for the
    `*INF.DTA` lists. Every kind of file in the release's `lego` folder
    (`data\*.DTA`, `WORLD.WDB`, `Scripts\*.SI`) is read.
-4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
-   interpreter with stand-ins that log what they're asked. The gate: does
-   it reach the intro's first frame, and how fast does it run?
+4. **A hosted spike** (in progress): `ISLE.EXE` and `LEGO1.DLL` loaded in
+   the x86 interpreter, `reluva-tool legoisland run` saying how far they
+   get ([systems/running.md](systems/running.md)). The gate: does it
+   reach the intro's first frame, and how fast does it run? Both start;
+   the program won't go on without DirectSound, so a DirectSound
+   stand-in (from phase 5) comes next, then the other functions it calls
+   on the way to its first frame.
 5. **DirectDraw and DirectSound:** the intro movie and the Information
    Center, its pictures, animations and speech. DirectSound is a new
    stand-in in `src/emulation/x86/directx/`, on the shared mixer.

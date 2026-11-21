@@ -71,6 +71,7 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool legoisland wdb-list <WORLD.WDB>` | Each world's parts and models, and where it puts the models |
 | `reluva-tool legoisland wdb-show <WORLD.WDB> <part or model\|shared>` | A part's or model's ROIs, LODs, meshes, animation and textures |
 | `reluva-tool legoisland wdb-textures <WORLD.WDB> <out folder>` | Every texture, as PNG files |
+| `reluva-tool legoisland run <game folder>` | The game's own code run in the x86 interpreter, and how far it gets |
 
 <!-- A table: command, what it does. Research scripts that aren't part of
 Reluva go in tools/legoisland-re/, with a README. -->

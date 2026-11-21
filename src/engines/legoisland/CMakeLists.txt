@@ -11,6 +11,7 @@ reluva_add_engine(legoisland
         formats/gph.cpp
         formats/si.cpp
         formats/wdb.cpp
+        host/game_process.cpp
         legoisland.cpp)
 
 # Its data viewer, in reluva-viewer only (docs/DEVELOPMENT.md, The data
@@ -30,6 +31,7 @@ reluva_add_engine_tools(legoisland
     SOURCES
         tools/dta.cpp
         tools/files.cpp
+        tools/run.cpp
         tools/obj.cpp
         tools/si.cpp
         tools/wdb.cpp)

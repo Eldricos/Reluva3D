@@ -25,7 +25,10 @@ worlds' lists of animations ([formats/dta.md](formats/dta.md)), and the
 SI files' animations, models, textures and paths
 ([formats/obj.md](formats/obj.md)), whose models it draws and
 animations it plays in 3D, and their events
-([formats/si.md](formats/si.md#evt-an-event)). Run, it shows an empty
+([formats/si.md](formats/si.md#evt-an-event)). The game's own code
+loads in the x86 interpreter and starts, as far as asking for
+DirectSound, which it can't start without
+([systems/running.md](systems/running.md)). Run, it shows an empty
 screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
@@ -67,7 +70,7 @@ page.
 | This page | The games, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [si.md](formats/si.md) (the SI archives), [wdb.md](formats/wdb.md) (the world database), [dta.md](formats/dta.md) (the worlds' animation lists), [obj.md](formats/obj.md) (the SI files' 3D objects) |
-| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (its files, and telling releases apart) |
+| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (its files, and telling releases apart), [running.md](systems/running.md) (its own code in the x86 interpreter) |
 | `research/` | Working notes: address maps, raw findings, notes on recordings |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
@@ -83,6 +86,7 @@ page.
 | `formats/dta.cpp` | The worlds' `*INF.DTA` files: their animations and the models each uses |
 | `formats/gph.cpp` | The SI files' paths: the ground characters and vehicles move on |
 | `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
+| `host/game_process.cpp` | `ISLE.EXE` and `LEGO1.DLL` loaded and run in the x86 interpreter |
 | `formats/wdb.cpp` | The world database: its worlds, parts, models and textures; and the SI files' animations, models and textures, laid out as its |
 | `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models; `si_scene_viewer.cpp`, the SI files' models and animations; `scene.cpp`, drawing and placing models for both; `dta_viewer.cpp`, the worlds' animation lists |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
