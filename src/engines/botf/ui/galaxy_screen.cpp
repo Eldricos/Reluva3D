@@ -69,23 +69,72 @@ struct Zoom {
     // (every star on the screenshots agrees).
     int starStep;
     int starOffset;
-    const char *starSuffix; // its picture: s-y-maps.tga, s-y-map.tga
+    const char *starSuffix;    // its picture: s-y-maps.tga, s-y-map.tga
+    const char *stellarSuffix; // a stellar object's: nsmaps.tga, nsmap.tga
     // The empire's emblem for its task forces, after "i_" and the letter,
     // a pixel right of its sector's corner and one above or below it.
     const char *fleet;
     int fleetX;
     int fleetY;
 };
-constexpr Zoom kZooms[] = {{39, 7, -3, "maps.tga", "i18.tga", 1, -1}, {61, 12, -8, "map.tga", "26.tga", 1, 1}};
+constexpr Zoom kZooms[] = {{39, 7, -3, "maps.tga", "maps.tga", "i18.tga", 1, -1},
+                           {61, 12, -8, "map.tga", "map.tga", "26.tga", 1, 1}};
 constexpr int kOutSector = kZooms[0].sector;
 
-constexpr Color kGridColor{0, 0, 8};            // the lines outside the scanners' range
-constexpr Color kScannedGridColor{24, 73, 173}; // dotted, inside it
+constexpr Color kScannedGridColor{24, 73, 173}; // the dotted lines round what the scanners reach
 constexpr Color kNameColor{0, 251, 255};        // the empire's own systems'
 // Those of systems nobody holds; the others' are taken to be the same
 // (guessed: no screenshot shows one).
 constexpr Color kOtherNameColor{255, 186, 57};
 constexpr Color kSelectedColor{247, 125, 0};
+// The empires' claims on the sectors they've seen, measured on the
+// eleventh turn's screenshots: a dot on every other row from a sector's
+// second, where (x + (y - 1) / 2 * shift) % period is phase, from the
+// sector's corner. The Ferengi's and Cardassians' aren't seen, and aren't
+// drawn.
+struct Claim {
+    int empire;
+    int period;
+    int shift;
+    int phase;
+    Color color;
+};
+constexpr Claim kClaims[] = {
+    {1, 3, 1, 0, {16, 8, 115}}, // Federation
+    {3, 3, 1, 0, {107, 8, 8}},  // Klingons
+    {4, 4, 2, 3, {8, 89, 8}},   // Romulans
+};
+
+// The stellar objects' pictures on the map, by type, before the zoom's
+// ending (the neutron star's is seen; the others go by their files' names).
+const char *stellarMapPicture(int type) {
+    switch (type) {
+    case 0:
+        return "blkh";
+    case 1:
+        return "xp-";
+    case 2:
+        return "neb-";
+    case 3:
+        return "ns";
+    case 10:
+        return "worm";
+    case 11:
+        return "rpls";
+    default:
+        return nullptr;
+    }
+}
+
+// Another's task force's emblem: an empire's letter's, a minor race's
+// "m", a monster's "t" (seen; the others guessed).
+std::string otherFleetPicture(int owner) {
+    constexpr char kOwners[] = {'c', 'h', 'f', 'k', 'r'};
+    constexpr int kRaces = 35; // race.rst's: beyond them, monsters
+    const char letter = owner >= 0 && owner < 5 ? kOwners[owner] : owner < kRaces ? 'm' : 't';
+    return std::string("i_") + letter + "13.tga";
+}
+
 // The ranges' borders, measured on the screenshot: round the empire's
 // systems, a sector counting as within a range when the larger of its
 // column and row distances, and half the smaller (rounded down), add up to
@@ -227,24 +276,6 @@ Error GalaxyScreen::load(int empire) {
 void GalaxyScreen::open(SavedGame game) {
     _game = std::move(game);
     _empire = std::clamp(_game.summary.empire, 0, 4);
-    // What the player's scanners reach: a sector around each of its
-    // systems and task forces (inferred from the first turn's screenshot,
-    // which shows the 3 by 3 sectors around Sol).
-    _scanned.clear();
-    auto around = [&](int cx, int cy) {
-        for (int y = cy - 1; y <= cy + 1; ++y)
-            for (int x = cx - 1; x <= cx + 1; ++x)
-                if (x >= 0 && y >= 0 && x < _game.galaxy.width && y < _game.galaxy.height)
-                    _scanned.insert({x, y});
-    };
-    for (int y = 0; y < _game.galaxy.height; ++y)
-        for (int x = 0; x < _game.galaxy.width; ++x)
-            if (const int s = _game.galaxy.at(x, y).system;
-                s >= 0 && _game.galaxy.systems[size_t(s)].controllingRace == _empire)
-                around(x, y);
-    for (const SavedTaskForce &t : _game.taskForces)
-        if (t.owner == _empire)
-            around(t.x, t.y);
     // The ranges are round the empire's systems; the first of them is
     // selected at the start (Sol, the only one on the first turn).
     _rangeCentres.clear();
@@ -284,6 +315,19 @@ void GalaxyScreen::select(int x, int y) {
     }
 }
 
+bool GalaxyScreen::scanned(int x, int y) const {
+    const SavedGalaxy &g = _game.galaxy;
+    return x >= 0 && y >= 0 && x < g.width && y < g.height && g.at(x, y).scanStrength[size_t(_empire)] > 0;
+}
+
+bool GalaxyScreen::revealed(int x, int y) const {
+    const SavedGalaxy &g = _game.galaxy;
+    if (x < 0 || y < 0 || x >= g.width || y >= g.height)
+        return false;
+    const SavedSector &s = g.at(x, y);
+    return ((s.revealed | s.explored) >> _empire & 1) != 0;
+}
+
 bool GalaxyScreen::view(int &x0, int &y0, int &x1, int &y1) const {
     const Placed *map = find(kMap);
     if (!map || _game.galaxy.width <= 0)
@@ -307,17 +351,19 @@ bool GalaxyScreen::gridCorner(int &gx, int &gy) const {
         return false;
     const SavedGalaxy &g = _game.galaxy;
     const int sector = kZooms[_zoom].sector;
-    // Zoomed out, the grid is the view. Zoomed in, the selected sector's
-    // corner is at the view's middle (Sol's on the screenshot, at 511), the
-    // grid kept over the whole view (there, at the galaxy's top).
+    // Zoomed out, the grid is the view. Zoomed in, the corner of the sector
+    // selected when zooming in is at the view's middle (Sol's on the
+    // screenshot, at 511), the grid kept over the whole view (there, at the
+    // galaxy's top); selecting another doesn't move it (a screenshot with
+    // Babel selected has Sol's place).
     if (_zoom == 0) {
         const Placed *map = find(kMap);
         gx = map->x + (map->widget->w - g.width * sector) / 2;
         gy = map->y + (map->widget->h - g.height * sector) / 2;
         return true;
     }
-    const int sx = std::max(_selected.first, 0);
-    const int sy = std::max(_selected.second, 0);
+    const int sx = std::max(_zoomCentre.first, 0);
+    const int sy = std::max(_zoomCentre.second, 0);
     auto place = [&](int middle, int s, int first, int last, int sectors) {
         const int at = middle - s * sector;
         return std::clamp(at, std::min(first, last - sectors * sector), first);
@@ -328,6 +374,8 @@ bool GalaxyScreen::gridCorner(int &gx, int &gy) const {
 }
 
 void GalaxyScreen::setZoomedIn(bool in) {
+    if (in && _zoom == 0)
+        _zoomCentre = _selected;
     _zoom = in ? 1 : 0;
 }
 
@@ -538,64 +586,97 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
     const int sector = z.sector;
     const int width = _game.galaxy.width * sector;
     const int height = _game.galaxy.height * sector;
-    // The backdrop from the view's corner, whichever the zoom.
-    if (const image::Image *backdrop = _assets.picture(std::string(1, _letter) + "m_glmap.tga"))
-        image::blit(screen, *backdrop, 0, 0);
-    // The scanners' sectors are darker. The game's pixels there don't follow
-    // the backdrop's; the backdrop at a fifth comes nearest (guessed).
-    for (const auto &[sx, sy] : _scanned)
-        for (int y = std::max(gy + sy * sector, 0); y < std::min(gy + (sy + 1) * sector, screen.h); ++y)
-            for (int x = std::max(gx + sx * sector, 0); x < std::min(gx + (sx + 1) * sector, screen.w); ++x) {
-                uint8_t *p = screen.row(y) + size_t(x) * 4;
-                for (int c = 0; c < 3; ++c)
-                    p[c] = uint8_t(p[c] / 5);
-            }
-    // The grid: solid lines, dotted where the scanners reach.
-    for (int row = 0; row <= _game.galaxy.height; ++row)
-        for (int x = std::max(gx, 0); x < std::min(gx + width, screen.w); ++x) {
-            const int col = (x - gx) / sector;
-            const bool lit = scanned(col, row) || scanned(col, row - 1);
-            if (!lit)
-                put(screen, x, gy + row * sector, kGridColor);
-            else if ((x - gx) % 2 == 0)
-                put(screen, x, gy + row * sector, kScannedGridColor);
-        }
-    for (int col = 0; col <= _game.galaxy.width; ++col)
-        for (int y = std::max(gy, 0); y < std::min(gy + height, screen.h); ++y) {
-            const int row = (y - gy) / sector;
-            const bool lit = scanned(col, row) || scanned(col - 1, row);
-            if (!lit)
-                put(screen, gx + col * sector, y, kGridColor);
-            else if ((y - gy) % 2 == 0)
-                put(screen, gx + col * sector, y, kScannedGridColor);
-        }
-    // The stars the scanners see, and those of the sectors the empire has
-    // explored, with their names under them (the first turn shows Sol's,
-    // not its neighbours'; the eleventh, every explored system's).
-    const Font *font = _assets.font("human9.fnt");
     const SavedGalaxy &g = _game.galaxy;
+    // The backdrop, from the view's corner whichever the zoom, only inside
+    // the sectors the empire hasn't seen: the grid's lines and the sectors
+    // seen show the screen's background (hm_scrn.tga), as on the
+    // screenshots, every pixel of them.
+    const image::Image *backdrop = _assets.picture(std::string(1, _letter) + "m_glmap.tga");
     for (int sy = 0; sy < g.height; ++sy)
         for (int sx = 0; sx < g.width; ++sx) {
-            const int s = g.at(sx, sy).system;
-            const bool explored = (g.at(sx, sy).explored >> _empire & 1) != 0;
-            if (s < 0 || !(explored || scanned(sx, sy)))
+            const int left = gx + sx * sector;
+            const int top = gy + sy * sector;
+            if (!revealed(sx, sy)) {
+                if (!backdrop)
+                    continue;
+                for (int y = std::max(top + 1, 0); y < std::min({top + sector, screen.h, backdrop->h}); ++y)
+                    for (int x = std::max(left + 1, 0); x < std::min({left + sector, screen.w, backdrop->w}); ++x) {
+                        const uint8_t *p = backdrop->pixel(x, y);
+                        put(screen, x, y, Color{p[0], p[1], p[2]});
+                    }
                 continue;
-            const SavedSystem &sys = g.systems[size_t(s)];
-            const image::Image *star = _assets.picture(sys.starAnimation + z.starSuffix);
-            if (!star)
+            }
+            // The empires' claims there: dots in each one's colour and pattern.
+            for (const Claim &c : kClaims)
+                if (g.at(sx, sy).claims >> c.empire & 1)
+                    for (int y = 1; y < sector; y += 2)
+                        for (int x = 1; x < sector; ++x)
+                            if ((x + (y - 1) / 2 * c.shift) % c.period == c.phase)
+                                put(screen, left + x, top + y, c.color);
+        }
+    // The lines next to a sector the scanners reach now are dotted: every
+    // other pixel from each sector's corner.
+    for (int row = 0; row <= g.height; ++row)
+        for (int x = std::max(gx, 0); x < std::min(gx + width, screen.w); ++x)
+            if ((x - gx) % sector % 2 == 0 && (scanned((x - gx) / sector, row) || scanned((x - gx) / sector, row - 1)))
+                put(screen, x, gy + row * sector, kScannedGridColor);
+    for (int col = 0; col <= g.width; ++col)
+        for (int y = std::max(gy, 0); y < std::min(gy + height, screen.h); ++y)
+            if ((y - gy) % sector % 2 == 0 && (scanned(col, (y - gy) / sector) || scanned(col - 1, (y - gy) / sector)))
+                put(screen, gx + col * sector, y, kScannedGridColor);
+    // The stars and other objects the empire has seen, with the names of
+    // those it has explored under them (the first turn shows Sol's, not its
+    // neighbours'; the eleventh, every explored sector's). An object's
+    // picture is centred where a star's would be.
+    const Font *font = _assets.font("human9.fnt");
+    const image::Image *starSized = _assets.picture(std::string("s-y-") + z.starSuffix);
+    for (int sy = 0; sy < g.height; ++sy)
+        for (int sx = 0; sx < g.width; ++sx) {
+            if (!revealed(sx, sy))
                 continue;
-            const int x = gx + sx * sector + z.starStep * (sys.mapX - 5 * sx) + z.starOffset;
-            const int y = gy + sy * sector + z.starStep * (sys.mapY - 5 * sy) + z.starOffset;
-            // Black is the star's background.
-            for (int py = 0; py < star->h; ++py)
-                for (int px = 0; px < star->w; ++px) {
-                    const uint8_t *p = star->pixel(px, py);
-                    if (p[0] | p[1] | p[2])
+            const SavedSector &here = g.at(sx, sy);
+            const image::Image *picture = nullptr;
+            std::string name;
+            int mapX = 0;
+            int mapY = 0;
+            bool own = false;
+            if (here.system >= 0) {
+                const SavedSystem &sys = g.systems[size_t(here.system)];
+                picture = _assets.picture(sys.starAnimation + z.starSuffix);
+                name = sys.name;
+                mapX = sys.mapX;
+                mapY = sys.mapY;
+                own = sys.controllingRace == _empire;
+            } else if (here.stellarObject >= 0) {
+                const SavedStellarObject &o = g.stellarObjects[size_t(here.stellarObject)];
+                if (const char *file = stellarMapPicture(o.type))
+                    picture = _assets.picture(file + std::string(z.stellarSuffix));
+                name = o.name;
+                mapX = o.mapX;
+                mapY = o.mapY;
+            }
+            if (!picture)
+                continue;
+            const int slot = starSized ? starSized->w : picture->w;
+            int x = gx + sx * sector + z.starStep * (mapX - 5 * sx) + z.starOffset + (slot - picture->w) / 2;
+            int y = gy + sy * sector + z.starStep * (mapY - 5 * sy) + z.starOffset + (slot - picture->h) / 2;
+            // What isn't drawn is the top-left pixel's colour: black but in
+            // s-o-maps.tga, whose black the game draws (two stars on the
+            // screenshots).
+            const uint8_t *key = picture->pixel(0, 0);
+            for (int py = 0; py < picture->h; ++py)
+                for (int px = 0; px < picture->w; ++px) {
+                    const uint8_t *p = picture->pixel(px, py);
+                    if (p[3] != 0 && (p[0] != key[0] || p[1] != key[1] || p[2] != key[2]))
                         put(screen, x + px, y + py, Color{p[0], p[1], p[2]});
                 }
-            if (font && explored)
-                font->drawInColor(screen, x + star->w / 2 - font->measure(sys.name) / 2, y + star->h, sys.name,
-                                  sys.controllingRace == _empire ? kNameColor : kOtherNameColor);
+            if (!font || !(here.explored >> _empire & 1))
+                continue;
+            // Centred on the picture less a pixel, rounding down: every name
+            // on both zooms' screenshots, of odd widths and even.
+            const int spare = picture->w - 1 - font->measure(name);
+            const int nameX = x + (spare - (spare < 0 && spare % 2 != 0 ? 1 : 0)) / 2;
+            font->drawInColor(screen, nameX, y + picture->h, name, own ? kNameColor : kOtherNameColor);
         }
     // The selected system: an orange square just inside its sector's lines,
     // under the ranges (at the galaxy's top edge, the range covers its top).
@@ -609,13 +690,27 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
             put(screen, x0 + sector - 1, y0 + k, kSelectedColor);
         }
     drawRanges(screen, gx, gy);
-    // The empire's task forces: its emblem at their sector's corner, one
-    // for the sector however many there are.
-    if (const image::Image *icon = _assets.picture(std::string("i_") + _letter + z.fleet)) {
-        std::set<std::pair<int, int>> drawn;
+    // Where the empire's task forces are ordered to: a marker in the middle
+    // of the sector.
+    if (const image::Image *mark = _assets.picture("movs.tga"))
         for (const SavedTaskForce &t : _game.taskForces)
-            if (t.owner == _empire && drawn.insert({t.x, t.y}).second)
+            if (t.owner == _empire && t.destinationX >= 0 && (t.destinationX != t.x || t.destinationY != t.y))
+                image::blit(screen, *mark, gx + t.destinationX * sector + (sector - mark->w) / 2,
+                            gy + t.destinationY * sector + (sector - mark->h) / 2);
+    // Task forces: the empire's emblem at their sector's corner, one for the
+    // sector however many there are; the others' where its scanners reach
+    // them, their small emblem a pixel right of and below the corner.
+    std::set<std::pair<int, int>> drawn;
+    for (const SavedTaskForce &t : _game.taskForces) {
+        if (!drawn.insert({t.x, t.y}).second)
+            continue;
+        if (t.owner == _empire) {
+            if (const image::Image *icon = _assets.picture(std::string("i_") + _letter + z.fleet))
                 image::blit(screen, *icon, gx + t.x * sector + z.fleetX, gy + t.y * sector + z.fleetY);
+        } else if (scanned(t.x, t.y)) {
+            if (const image::Image *icon = _assets.picture(otherFleetPicture(t.owner)))
+                image::blit(screen, *icon, gx + t.x * sector + 1, gy + t.y * sector + 1);
+        }
     }
 }
 

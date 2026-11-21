@@ -40,44 +40,58 @@ pixel, but for the pointer.
 
 ### The map
 
-Measured on the screenshot, a small galaxy of 13 by 10 sectors:
+Measured on screenshots of small galaxies of 13 by 10 sectors, at the
+first turn of one game and the eleventh of another, with their saves
+(`sector.lst`'s fields: [formats/sav.md](../formats/sav.md)):
 
 - **The grid:** sectors 39 pixels square, in the middle of the map's
-  place (from 258, 36), with dark lines between them. Their pixels, nearly
-  black and blue, don't follow the backdrop's under them, nor any picture
-  found; Reluva draws them in (0, 0, 8), most of them within the 16-bit
-  screen's rounding.
+  place (from 258, 36). Its lines aren't drawn: they are the screen's
+  background (`hm_scrn.tga`) showing, every pixel of them at the eleventh
+  turn.
 - **The backdrop**, `hm_glmap.tga` (526x391, the map's size), is drawn
-  from the grid's corner, 9 pixels into the map's place, and cut to the
-  grid: beyond its right and bottom edges the place stays as the screen's
-  background has it. Between the lines it matches the screenshot pixel
-  for pixel where the scanners don't reach.
-- **What the empire's scanners reach:** at the first turn the 3 by 3
-  sectors round Sol, darker, with the grid dotted in (24, 73, 173). Their
-  pixels don't follow the backdrop's either: about a third as bright on
-  average, but not pixel by pixel. Reluva darkens the backdrop to a fifth,
-  which brings 72% of their pixels within 12 of the game's *(guessed: the
-  game's way isn't known)*. The save doesn't hold
-  it: its explored flags have only Sol's sector. Reluva counts a sector
-  round each of the empire's systems and task forces *(inferred: the
-  ranges of scanners, and of ships, are the data tables')*.
-- **Stars:** each system in the scanners' range is drawn with its star's
-  small picture (`s-y-maps.tga` for a yellow star, 10x10, black its
-  background), not the 19x19 `s-y-map.tga`. In its sector it's placed by
-  its place on the galaxy's small map (`systInfo`, 5 steps a sector), 7
-  pixels a step less 3: Sol (2, 3 into its sector) at 11, 18, its
-  neighbours Thelka (2, 2) at 11, 11 and Ramatis (3, 2) at 18, 11, each
-  matching the screenshot's stars pixel for pixel. The systems of the
-  sectors the empire has explored are drawn too, in range or not (the
-  eleventh turn's screenshots); the game also shows stars in sectors
-  neither in range nor explored, by what it remembers of them, which isn't
-  read from the save yet.
-- **Names:** a system the empire has explored has its name under its
-  star, centred, in `human9.fnt`: Sol's, but not Thelka's or Ramatis',
-  which are only in range; at the eleventh turn, the nine systems explored,
-  and only those. The empire's own systems' are in (0, 251, 255), those
-  nobody holds in (255, 186, 57); Reluva draws the other empires' and the
-  minor races' in the second, as none is seen *(guessed)*.
+  from the grid's corner, 9 pixels into the map's place, but only inside
+  the sectors the empire hasn't seen. A sector it has seen ("revealed",
+  `sector.lst`'s 0x30, or explored) shows the screen's background too,
+  which is darker: every pixel of the seen sectors at the eleventh turn is
+  `hm_scrn.tga`'s. At the first turn those are the 3 by 3 sectors round Sol.
+- **What the empire's scanners reach now** (its scan strength, at 0x40,
+  above 0) has the lines round it dotted in (24, 73, 173): every other
+  pixel from each sector's corner, so from the grid's corner in one sector
+  and a pixel on in the next (39 is odd). A sector whose strength is 0 or
+  less, the row above Sol's at the first turn, under a nebula, keeps its
+  lines plain.
+- **Claims:** a seen sector an empire claims (0x0E) is dotted in its
+  colour, on every other row from the sector's second: the Federation
+  (16, 8, 115) and the Klingons (107, 8, 8) a dot every 3 pixels, one
+  pixel further left each time; the Romulans (8, 89, 8) a dot every 4,
+  two pixels further each time. The Ferengi's and Cardassians' aren't
+  seen on the screenshots, and aren't drawn.
+- **Stars:** each system in a seen sector is drawn with its star's small
+  picture (`s-y-maps.tga` for a yellow star, 10x10), not the 19x19
+  `s-y-map.tga`. In its sector it's placed by its place on the galaxy's
+  small map (`systInfo`, 5 steps a sector), 7 pixels a step less 3: Sol
+  (2, 3 into its sector) at 11, 18, its neighbours Thelka (2, 2) at 11, 11
+  and Ramatis (3, 2) at 18, 11, as every star on the screenshots. What
+  isn't drawn is the picture's top-left pixel's colour: black, but for
+  `s-o-maps.tga`, whose top-left pixel is a dim orange and whose black the
+  game draws (Ramatis and Umoth).
+- **Stellar objects** in seen sectors: their small map pictures
+  (`nsmaps.tga` for a neutron star), centred where a star's would be
+  (Neutron Star D2's and I6's). The others' pictures go by their files'
+  names (`blkhmaps.tga`, `xp-maps.tga`, `neb-maps.tga`, `wormmaps.tga`,
+  `rplsmaps.tga`) *(guessed)*.
+- **Names:** what the empire has explored has its name under its picture,
+  in `human9.fnt`: Sol's, but not Thelka's or Ramatis', which are only
+  seen; at the eleventh turn, the nine systems explored and Neutron Star
+  D2. A name starts at the picture's left edge plus half of its width
+  less the name's and one, rounded down: every name on the screenshots,
+  of odd widths and even, zoomed in or out, but Sol's zoomed in, which the
+  game draws a pixel further left, for a reason not known. The 9-point
+  fonts set their glyphs a pixel closer than the others
+  ([formats/fnt.md](../formats/fnt.md)). The empire's own systems' names
+  are in (0, 251, 255), the others' in (255, 186, 57); Reluva draws the
+  other empires' and the minor races' in the second, as none is seen
+  *(guessed)*.
 
 - **Ranges:** green, yellow and red lines, a pixel wide, along the sector
   edges round what's within a short, medium and long range of the
@@ -93,9 +107,20 @@ Measured on the screenshot, a small galaxy of 13 by 10 sectors:
 - **The selected system:** a square in (247, 125, 0), a pixel inside its
   sector's lines; Sol is selected at the start. A click on a sector
   selects it.
+
+Drawn so from their saves, the first turn's map and the eleventh's, zoomed
+out and in, match the screenshots but for under a hundred scattered pixels
+each, Sol's name zoomed in, and the pointer.
 - **Task forces:** the empire's small emblem, `i_hi18.tga` (17x21), a pixel
   right of the sector's corner and a pixel above it, once for the sector,
-  drawn over the square.
+  drawn over the square. Where one is ordered to (`GWTForce`'s 0x30, a
+  sector's number: row by the width, and column), `movs.tga` in the
+  middle of the sector (the eleventh turn's task force at Gamma, headed for
+  I6). Others' task forces where the scanners reach: their small emblem,
+  13 pixels wide, a pixel right of and below the corner, the same zoomed
+  in: a monster's (owner 43, past `race.rst`'s 35 races; its ship "Echo
+  Papa 607") is `i_t13.tga`. Reluva takes an empire's to be `i_?13.tga` by
+  its letter and a minor race's `i_m13.tga` *(guessed)*.
 
 ### Zooming
 
@@ -109,11 +134,16 @@ above, the whole of a small galaxy. Measured on the zoomed-in screenshot:
   to 765 across, 36 to 426 down): what falls outside it isn't drawn
   (Neutron Star D2's name is cut at 258), and the backdrop stays where it
   was, unscaled (a patch of it matches at the same place).
-- **Sectors** are 61 pixels square. The grid is placed with the selected
-  sector's corner at the view's middle (511, 231), and moved no further
-  than keeps it over the whole view: Sol's, in the galaxy's top row, puts
-  the grid's corner at 84, 36. The borders and the selected square land
-  on the screenshot's pixels so.
+- **Sectors** are 61 pixels square. The grid is placed with a sector's
+  corner at the view's middle (511, 231), and moved no further than keeps
+  it over the whole view: Sol's, in the galaxy's top row, puts the grid's
+  corner at 84, 36. The borders and the selected square land on the
+  screenshot's pixels so. A third screenshot, with Babel selected, has the
+  grid in the same place: Reluva takes the sector selected when zooming
+  in, and keeps the map there as others are selected *(inferred: the
+  game's own rule may be its home system)*.
+- **Stellar objects** are their larger pictures (`nsmap.tga`, 16x16),
+  centred on a star's place as zoomed out.
 - **Stars** are their larger pictures (`s-y-map.tga`, 19x19), 12 pixels a
   step of their small-map place less 8: all 22 stars in view agree. Names
   are as zoomed out, under them.
@@ -233,20 +263,16 @@ with the chosen slot's save from Load Game, or with `Auto.sav` from
 Continue; a click on the map selects a sector, and the Map button's two
 buttons zoom; Escape goes back to the main menu. The map is drawn on a
 surface the view's size, which cuts it there. The unit tests
-(`botf.unit.screens`: "galaxy") cover the scanners' range, where stars and
-names are drawn, the panel's parts, the strip (the star's and planets'
+(`botf.unit.screens`: "galaxy") cover the sectors scanned and seen, where
+the backdrop, claims, stars, stellar objects, names, task forces and their
+destinations are drawn, the panel's parts, the strip (the star's and planets'
 places, their frames in time, the letters, a click's selection, the
 neutron star's strip and an empty sector's), and zooming: the grid's
 place round the selected sector, the stars and emblems, the cut, a
 click, and the buttons.
 
-Drawn so, the map matches the first turn's screenshot but for the grid
-lines' and the scanned sectors' shading. At the eleventh turn, zoomed in
-and out, every pixel of the game's borders and selected square is
-Reluva's too, and the stars and names drawn land on the game's; what the
-map shows of later turns isn't all drawn yet (see the open questions);
-the strip matches but for what isn't drawn yet, and the
-outermost pixels of the larger planets' rings, which the game seems to
+Drawn so, the map matches the screenshots as above; the strip matches
+but for what isn't drawn yet, and the outermost pixels of the larger planets' rings, which the game seems to
 blend with what's under them.
 
 ## Sources and checks
@@ -260,26 +286,24 @@ blend with what's under them.
   turn (Federation, small ring galaxy), with its save: Babel, Manark, an
   empty sector and a neutron star selected, Sol turning.
 - **How it was checked:** drawn by Reluva from that save, the frame and
-  turn match the screenshot pixel for pixel, and the map away from what
-  isn't drawn yet to within the 16-bit screen's rounding: the backdrop
-  where the scanners don't reach, the three stars and Sol's name. The
-  strip, drawn from the second game's save with each sector selected,
+  turn match the screenshot pixel for pixel. The map, drawn from both
+  games' saves, matches the first turn's screenshot and the eleventh's two,
+  zoomed out and in, but for under a hundred scattered pixels each, one
+  name zoomed in and the pointer. The strip, drawn from the second game's save with each sector selected,
   matches as above, each planet and star at the frame it shows.
 
 ## Open questions
 
-- How far an empire's scanners reach, and why only Sol's sector is
-  explored: the systems' and ships' scan ranges (`shiplist.sst`), and
-  when a sector counts as explored.
-- What the ranges are and what sets them, and the grid lines' and
-  scanned sectors' shading.
-- What the map shows at later turns: the stars of sectors seen before,
-  the darker sectors (not those Reluva counts as in range), the dotted
-  green, blue and red sectors, stellar objects' pictures and the other
-  empires' ships.
+- How the game works out the scan strengths and what's seen and
+  explored, which Reluva reads from the save: the systems' and ships'
+  scan ranges (`shiplist.sst`).
+- What the ranges are and what sets them.
+- The Ferengi's and Cardassians' claims' dots, and whether a sector
+  claimed by two empires shows both.
+- The line over the map naming the sector under the pointer ("Unclaimed
+  Sector I1", "Scan Strength 5").
+- Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
 - When the zoom's buttons close, and which of them is lit.
-- The grid lines' exact shade, which varies a little with the backdrop
-  in the screenshot.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the
   zoomed-in map scrolls (none is seen).
 - The strip's growth rate, orbitals and icons, the empire's emblem on it,

@@ -89,6 +89,12 @@ struct SavedSector {
     int starbase = -1;      // the outpost or starbase there, or -1
     uint16_t claims = 0;    // the empires claiming it: bit 0 Cardassians to bit 4 Romulans
     uint64_t explored = 0;  // the races that have explored it, a bit each by race.rst's number
+    uint64_t revealed = 0;  // the races that have seen it, explored or not, a bit each
+    /**
+     * Each empire's scanners' strength there, Cardassians to Romulans: more
+     * than 0 where they reach it now, less where something hides it.
+     */
+    std::array<int, 5> scanStrength{};
 };
 
 /** A saved game's galaxy: its grid of sectors, and what's in them. */

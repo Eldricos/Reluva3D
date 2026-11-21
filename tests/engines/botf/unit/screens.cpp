@@ -818,6 +818,9 @@ void testGalaxyScreen() {
     image::Image star;
     star.w = star.h = 10;
     star.rgba.assign(400, 255);
+    // The map's pictures leave out their top-left pixel's colour: black.
+    image::Image keyed = star;
+    keyed.rgba[0] = keyed.rgba[1] = keyed.rgba[2] = 0;
     // The empire's panel's parts: its information's text box, the
     // emblems' places (the Klingons' at 109, 2), the task forces' bar and a
     // task force's row.
@@ -875,7 +878,7 @@ void testGalaxyScreen() {
     MemoryArchive archive;
     archive.files["hmaingal.wdf"] = f;
     archive.files["h_zoom.wdf"] = zoom;
-    archive.files["s-y-map.tga"] = image::encodeTga(star);
+    archive.files["s-y-map.tga"] = image::encodeTga(keyed);
     archive.files["h_sysmap.wdf"] = systemStrip;
     archive.files["h_starmp.wdf"] = stellarStrip;
     // A white star 100 pixels square; a planet 20 square, white then
@@ -883,6 +886,17 @@ void testGalaxyScreen() {
     archive.files["s-y-.ani"] = makeAnimation(100, 100, {0x7FFF});
     archive.files["eart.ani"] = makeAnimation(20, 20, {0x7FFF, 0});
     archive.files["ns.ani"] = makeAnimation(300, 100, {0x7FFF});
+    // The map's backdrop, grey, shown only in sectors the empire hasn't
+    // seen; a neutron star's picture, another empire's task force's
+    // emblem, and the marker for where a task force is ordered to.
+    image::Image grey;
+    grey.w = 526;
+    grey.h = 391;
+    grey.rgba.assign(size_t(grey.w) * size_t(grey.h) * 4, 128);
+    archive.files["hm_glmap.tga"] = image::encodeTga(grey);
+    archive.files["nsmaps.tga"] = image::encodeTga(keyed);
+    archive.files["i_k13.tga"] = image::encodeTga(star);
+    archive.files["movs.tga"] = image::encodeTga(star);
     archive.files["hinfobox.wdf"] = info;
     archive.files["h_eicon.wdf"] = emblems;
     archive.files["hinf_tf.wdf"] = bar;
@@ -891,7 +905,7 @@ void testGalaxyScreen() {
     archive.files["i_k26.tga"] = image::encodeTga(star);
     archive.files["i_h26.tga"] = image::encodeTga(star);
     archive.files["i_hi18.tga"] = image::encodeTga(star);
-    archive.files["s-y-maps.tga"] = image::encodeTga(star);
+    archive.files["s-y-maps.tga"] = image::encodeTga(keyed);
     archive.files["human9.fnt"] = makeFont(10);
     archive.files["human28.fnt"] = makeFont(29);
     Assets assets(archive);
@@ -927,9 +941,22 @@ void testGalaxyScreen() {
     SavedStellarObject neutron;
     neutron.type = 3;
     neutron.name = "Neutron Star K9";
+    neutron.mapX = 52;
+    neutron.mapY = 47;
     g.stellarObjects = {neutron};
     g.sectors[9 * 13 + 10].stellarObject = 0;
     g.sectors[8 * 13 + 10].explored = 1 << 1;
+    // The Federation's scanners reach the sectors round Sol and round a
+    // task force (all but one, hidden by a nebula); it has seen those.
+    for (const auto &[cx, cy] : {std::pair{10, 8}, std::pair{5, 5}})
+        for (int y = cy - 1; y <= std::min(cy + 1, 9); ++y)
+            for (int x = cx - 1; x <= std::min(cx + 1, 12); ++x) {
+                g.sectors[size_t(y * 13 + x)].scanStrength[1] = 5;
+                g.sectors[size_t(y * 13 + x)].revealed = 1 << 1;
+            }
+    g.sectors[7 * 13 + 11].scanStrength[1] = -27;
+    // The Federation claims Sol's sector.
+    g.sectors[8 * 13 + 10].claims = 1 << 1;
     // A task force of the Federation's away from Sol scans round it too.
     SavedTaskForce t;
     t.owner = 1;
@@ -939,12 +966,23 @@ void testGalaxyScreen() {
     game.summary.empire = 1;
     game.galaxy = g;
     t.mission = 6;
-    game.taskForces = {t};
+    t.destinationX = 6;
+    t.destinationY = 4;
+    // A Klingon task force in the scanners' range, and one out of it.
+    SavedTaskForce klingon;
+    klingon.owner = 3;
+    klingon.x = 9;
+    klingon.y = 9;
+    SavedTaskForce hidden = klingon;
+    hidden.x = 0;
+    hidden.y = 0;
+    game.taskForces = {t, klingon, hidden};
     game.empires[1].credits = 2000;
     screen.open(game);
-    // The scanners reach the sectors next to Sol's and the task force's.
-    CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(12, 7));
+    // The scanners reach where the save says, not where something hides.
+    CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(11, 7));
     CHECK(screen.scanned(4, 4) && screen.scanned(6, 6) && !screen.scanned(2, 2));
+    CHECK(screen.revealed(11, 7) && !screen.revealed(2, 2));
     Surface s;
     s.create(800, 600, PixelFormat::kRGBA32);
     screen.draw(s);
@@ -955,15 +993,15 @@ void testGalaxyScreen() {
     auto any = [&](int x0, int y0, int x1, int y1) {
         for (int y = y0; y < y1; ++y)
             for (int x = x0; x < x1; ++x)
-                if (s.row(y)[size_t(x) * 4 + 2] > 100)
+                if (s.row(y)[size_t(x) * 4 + 2] > 100 && s.row(y)[size_t(x) * 4] < 100) // not the grey backdrop
                     return true;
         return false;
     };
     // Sol's star where the game's is: the grid from (258, 36), 39 pixels a
     // sector, 7 a step of its small-map place, less 3.
-    CHECK(white(659, 366) && white(668, 375) && !white(658, 366) && !white(669, 375));
+    CHECK(!white(659, 366) && white(660, 366) && white(668, 375) && !white(658, 367) && !white(669, 375));
     // Thelka's is drawn, the far system's isn't; only Sol's name is.
-    CHECK(white(258 + 9 * 39 + 11, 36 + 7 * 39 + 11) && !white(258 + 2 * 39 + 11, 36 + 2 * 39 + 11));
+    CHECK(white(258 + 9 * 39 + 12, 36 + 7 * 39 + 11) && !white(258 + 2 * 39 + 12, 36 + 2 * 39 + 11));
     CHECK(any(645, 376, 680, 386) && !any(605, 298, 640, 308));
     // The turn, in its box.
     CHECK(any(63, 76, 163, 106));
@@ -1006,6 +1044,26 @@ void testGalaxyScreen() {
     // The task force's emblem, a pixel right of its sector's corner and one
     // above.
     CHECK(white(gx + 5 * 39 + 1, gy + 5 * 39 - 1) && !white(gx + 5 * 39, gy + 5 * 39 - 1));
+    // The backdrop only inside the sectors not seen: not in the far one's
+    // lines, nor in those round Sol.
+    CHECK(colour(gx + 2 * 39 + 5, gy + 3 * 39 + 5, 128, 128, 128) &&
+          !colour(gx + 2 * 39, gy + 3 * 39 + 5, 128, 128, 128));
+    CHECK(!colour(gx + 11 * 39 + 30, gy + 9 * 39 + 30, 128, 128, 128));
+    // Sol's sector's claim: the Federation's dots, a pixel every 3 on every
+    // other row, shifting.
+    CHECK(colour(gx + 10 * 39 + 5, gy + 8 * 39 + 3, 16, 8, 115) &&
+          colour(gx + 10 * 39 + 4, gy + 8 * 39 + 5, 16, 8, 115) &&
+          !colour(gx + 10 * 39 + 5, gy + 8 * 39 + 5, 16, 8, 115) &&
+          !colour(gx + 10 * 39 + 5, gy + 8 * 39 + 4, 16, 8, 115));
+    // The lines round the scanners' sectors dotted from each sector's corner.
+    CHECK(colour(gx + 4 * 39, gy + 4 * 39 + 2, 24, 73, 173) && !colour(gx + 4 * 39, gy + 4 * 39 + 1, 24, 73, 173));
+    // The neutron star seen in the sector under Sol's, centred where a star
+    // goes; the Klingons' task force in range, not the one out of it; the
+    // marker where the Federation's is ordered to.
+    CHECK(white(gx + 10 * 39 + 12, gy + 9 * 39 + 11) && white(gx + 10 * 39 + 20, gy + 9 * 39 + 20));
+    CHECK(white(gx + 9 * 39 + 1, gy + 9 * 39 + 1) && !white(gx + 1, gy + 1));
+    CHECK(white(gx + 6 * 39 + 14, gy + 4 * 39 + 14) && white(gx + 6 * 39 + 23, gy + 4 * 39 + 23) &&
+          !white(gx + 6 * 39 + 13, gy + 4 * 39 + 14));
 
     // An animation's white, 5 bits a colour.
     auto shown = [&](int x, int y) {
@@ -1053,12 +1111,15 @@ void testGalaxyScreen() {
           !colour(zx + 2, zy + 30, 247, 125, 0));
     // Sol's star, 12 pixels a step of its small-map place, less 8; the task
     // force's larger emblem, a pixel right of and below its sector's corner.
-    CHECK(white(zx + 16, zy + 28) && white(zx + 25, zy + 37) && !white(zx + 15, zy + 28));
+    CHECK(white(zx + 17, zy + 28) && white(zx + 25, zy + 37) && !white(zx + 15, zy + 29));
     CHECK(white(-28 + 5 * 61 + 1, -184 + 5 * 61 + 1) && !white(-28 + 5 * 61, -184 + 5 * 61 + 1));
     // Nothing of the map left of the square.
     CHECK(!lit(249, 36, 258, 427));
-    // A click selects the zoomed sector under it.
+    // A click selects the zoomed sector under it, and the map stays put.
     CHECK(screen.click(-28 + 9 * 61 + 5, -184 + 7 * 61 + 5) && (screen.selected() == std::pair{9, 7}));
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(colour(-28 + 9 * 61 + 1, -184 + 7 * 61 + 30, 247, 125, 0));
     // The Map button opens the zoom's buttons (at 564, 353); Large Map
     // zooms out and closes them; closed, their place is the map's; Small
     // Map zooms in.

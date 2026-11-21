@@ -24,9 +24,8 @@ None yet.
   the galaxy screen with the save's map, zoomed out or in, the empire's
   panel and the selected sector's strip (a click on the map selects
   another), but its other buttons and playing the turn are still to come;
-  of later turns' maps, the stars the empire has seen but not explored,
-  other empires' scanned sectors and ships, and stellar objects' pictures
-  aren't drawn yet. Escape goes back to the main menu. The strip leaves out a system's growth rate and orbitals,
+  the Ferengi's and Cardassians' claims aren't drawn on the map, nor the
+  line naming the sector under the pointer. Escape goes back to the main menu. The strip leaves out a system's growth rate and orbitals,
   the icons over its planets and star, and the people's word for races
   other than the Federation's
   ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).

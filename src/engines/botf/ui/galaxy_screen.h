@@ -56,8 +56,8 @@ public:
     /** The time the strip's animations are drawn at, in milliseconds. */
     using LayoutScreen::setTime;
     /**
-     * Zooms the map in, to sectors 61 pixels square round the selected
-     * sector, or out, to the whole galaxy's 39.
+     * Zooms the map in, to sectors 61 pixels square round the sector
+     * selected now, or out, to the whole galaxy's 39.
      */
     void setZoomedIn(bool in);
     /** Whether the map is zoomed in. */
@@ -65,8 +65,10 @@ public:
     /** The selected sector's column and row, or -1, -1. */
     std::pair<int, int> selected() const { return _selected; }
 
-    /** Whether the sector at column `x` and row `y` is in the player's scanners' range. */
-    bool scanned(int x, int y) const { return _scanned.count({x, y}) > 0; }
+    /** Whether the player's scanners reach the sector at column `x` and row `y` now. */
+    bool scanned(int x, int y) const;
+    /** Whether the player has seen the sector at column `x` and row `y`, now or before. */
+    bool revealed(int x, int y) const;
 
 private:
     void drawMap(Surface &screen) const;
@@ -101,10 +103,10 @@ private:
     int _zoomPanel = -1;                            // drawn once for each task force
     std::string _taskForcesBack;                    // the task forces' bar's backing picture
     char _letter = 'h';                             // the empire's letter in its files' names
-    std::set<std::pair<int, int>> _scanned;         // column, row
     std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems
     std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
     int _zoom = 0;                                  // 0 out, 1 in
+    std::pair<int, int> _zoomCentre{-1, -1};        // the sector selected when zooming in
     // The strip's layouts, their widgets placed on the screen: a system's
     // (h_sysmap.wdf) and a stellar object's (h_starmp.wdf).
     WindowLayout _systemLayout;

@@ -17,7 +17,7 @@ All values little-endian.
 | Offset | Type | Field | Values |
 |---|---|---|---|
 | 0 | `u8` | line height | the sheet's row pitch: glyph height + 1 (10, 16, 21, 29) |
-| 1 | `u8` | ? | 0 in the 9-point fonts, 1 in the others |
+| 1 | `u8` | the gap after a glyph's cell | 0 in the 9-point fonts, 1 in the others, as the galaxy map's names show *(inferred)* |
 | 2 | `u8` | space advance | 4 (9 and 15 point) or 5 (20 and 28); no glyph is a space *(guessed)* |
 | 3 | `u8` | ? | 1 (9 and 15 point), 2 (20), 3 (28) |
 | 4 | `u16` | ? | 10 in every font |
@@ -57,7 +57,12 @@ The game advances by the cell's width + 1, so for those four glyphs a
 pixel further than the header says. Drawn with the header's advances,
 the text in screenshots of the Hall of Fame and Load Game screens drifts a
 pixel to the left after every `a` and `A`; with the cells', each of its
-glyphs lands on the game's own pixels.
+glyphs lands on the game's own pixels. In the 9-point fonts the game
+advances by the cell's width alone, as their byte 1 is 0 where the
+others' is 1: the galaxy map's names, in `human9.fnt`, land on the
+game's pixels so, ten of them, and a pixel apart further each glyph with
+the cells' width + 1
+([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-map)).
 
 The glyphs, in order (the header's advances are in the same order):
 
@@ -101,7 +106,7 @@ fonts and line wrapping.
   colour and the rest about in proportion, as Reluva draws them (within the
   16-bit screen's rounding). In `human15.fnt`'s `8` and `B` a few pixels
   differ from the sheet's; why isn't known.
-- Bytes 1, 3, 16 and 17 and the values 10 and 86. Byte 2 is taken as the
+- Bytes 3, 16 and 17 and the values 10 and 86. Byte 2 is taken as the
   space's advance (there is no space glyph); the running game will show
   whether that's right.
 - Which code page the game's text uses for row 5's characters

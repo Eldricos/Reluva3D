@@ -88,6 +88,7 @@ private:
     image::Image _sheet;
     std::array<Glyph, kGlyphs> _glyphs{};
     int _lineHeight = 0;
+    int _gap = 1; // pixels after a glyph's cell: the header's byte 1
     int _spaceAdvance = 0;
     uint32_t _background = 0; // the sheet's background colour, RGBA as stored
     int _brightest = 255;     // the brightest channel of any glyph pixel

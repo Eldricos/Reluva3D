@@ -41,6 +41,7 @@ Error Font::load(const std::vector<uint8_t> &data) {
     if (data.size() < kHeaderSize + 18)
         return Error::fail("too small for a font");
     _lineHeight = data[0];
+    _gap = data[1];
     _spaceAdvance = data[2];
     const std::vector<uint8_t> tga(data.begin() + kHeaderSize, data.end());
     if (Error err = image::decode(tga, _sheet))
@@ -74,12 +75,14 @@ Error Font::load(const std::vector<uint8_t> &data) {
                 if (found < kRowLengths[row]) {
                     Glyph &g = _glyphs[size_t(glyph)];
                     g = {start, top, x - start, height, 0};
-                    // The game advances by the cell's width and one pixel
-                    // more, as the header's advances say for every cell
-                    // but the first of rows 2-5 ('A', 'a', '`', 'ä'), a
-                    // pixel wider: there the header is a pixel short
+                    // The game advances by the cell's width and the
+                    // header's byte 1: one pixel more in the larger fonts,
+                    // as the header's advances say for every cell but the
+                    // first of rows 2-5 ('A', 'a', '`', 'ä'), a pixel
+                    // wider: there the header is a pixel short; none in the
+                    // 9-point fonts, as the galaxy map's names show
                     // (docs/engines/botf/formats/fnt.md).
-                    g.advance = x - start + 1;
+                    g.advance = x - start + _gap;
                     ++glyph;
                 }
                 ++found;

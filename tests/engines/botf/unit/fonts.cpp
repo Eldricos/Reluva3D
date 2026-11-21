@@ -38,6 +38,12 @@ void testFont() {
     CHECK(font.glyph(U'–') == &font.glyphs()[119]);
     CHECK(font.glyph(U' ') == nullptr && font.glyph(U'€') == nullptr);
     CHECK(font.measure("1 2") == 3 + 4 + 4);
+    // With the header's byte 1 at 0, as in the 9-point fonts, a glyph
+    // advances by its cell's width alone.
+    Bytes tight = makeFont(8);
+    tight[1] = 0;
+    Font nine;
+    CHECK(!nine.load(tight) && nine.glyph(U'1')->advance == 2 && nine.measure("1 2") == 2 + 4 + 3);
 
     // Drawing: the glyph's pixels, not its background pixel, nor its cell's
     // last row.

@@ -122,6 +122,9 @@ Error readSectors(const std::vector<uint8_t> &d, SavedGalaxy &g) {
         s.system = s16(d, at + 12);
         s.claims = readLE16(&d[at + 14]);
         s.explored = readLE64(&d[at + 40]);
+        s.revealed = readLE64(&d[at + 48]);
+        for (size_t e = 0; e < s.scanStrength.size(); ++e)
+            s.scanStrength[e] = s32(d, at + 0x40 + e * 4);
     }
     return Error::success();
 }

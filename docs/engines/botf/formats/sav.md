@@ -136,8 +136,11 @@ rest are zeros.
 | 0x08 | `i16` | its outpost or starbase, or -1 |
 | 0x0A | `i16` | its other object, an index into `stellInfo`, or -1 |
 | 0x0C | `i16` | its star system, an index into `systInfo`, or -1 |
-| 0x0E | `u16` | the empires claiming it, a bit each from the Cardassians: the Ferengi home system's sector has 4 |
+| 0x0E | `u16` | the empires claiming it, a bit each from the Cardassians: the Ferengi home system's sector has 4; drawn as dots on the galaxy map |
+| 0x10 | `i32[6]` | each empire's (and then the minor races') ownership: its number where it holds the sector, else -1; the same sectors as 0x0E's bits at the eleventh turn *(published)* |
 | 0x28 | `u64` | the races that have explored it, a bit each *(published)* |
+| 0x30 | `u64` | the races that have seen it ("revealed"), a bit each: the sectors the galaxy map shows the player, 3 by 3 round Sol at the first turn *(published)* |
+| 0x40 | `i32[5]` | each empire's scan strength there: 5 round Sol, 26 at Sol at the first turn; less than 0 where something hides the sector (a nebula -64, a neutron star -3 or -8), as the game's "Scan Strength -3" shows *(published)* |
 
 In each tutorial the sectors with a system are as many as `galInfo` says,
 and so are those with an object. The rest of the entry (the races'
