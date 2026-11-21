@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "common/types.h"
+#include "engines/botf/formats/lexicon.h"
 #include "engines/botf/formats/save_game.h"
 #include "engines/botf/ui/layout_screen.h"
 
@@ -22,6 +23,14 @@
 
 namespace reluva::botf {
 
+/**
+ * A game's description as Save Game puts it in an empty slot: the player's
+ * empire (0 Cardassians to 4 Romulans), the turn, the galaxy's size (0
+ * small to 2 large) and shape (0 irregular to 3 spiral), "Ferengi 0 Medium
+ * Ring Galaxy".
+ */
+std::string saveDescription(const Lexicon &lexicon, int empire, int turn, int galaxySize, int galaxyShape);
+
 /** The Load Game and Save Game screens. */
 class LoadSaveScreen : LayoutScreen {
 public:
@@ -38,11 +47,10 @@ public:
     /**
      * Shows `slots`, none of them chosen. Loading, empty slots can't be
      * chosen; saving, the slot chosen keeps its saved game's description,
-     * or an empty one's is empty, to be typed.
-     * @param current saving, the slot of the game last saved or loaded
-     *        (Stbof.ini's CURRENTGAME), shown in red; or -1
+     * or an empty one shows `description` (UTF-8), the game's to save
+     * (saveDescription()), either to be typed over.
      */
-    void open(const Slots &slots, Mode mode, int current = -1);
+    void open(const Slots &slots, Mode mode, const std::string &description = {});
     void draw(Surface &screen) const;
     /**
      * Mouse clicks: a slot chooses it, Accept takes the chosen one (and is
@@ -63,7 +71,7 @@ private:
     Slots _slots;
     Mode _mode = Mode::kLoad;
     std::string _description;
-    int _current = -1;
+    std::string _newDescription; // saving: an empty slot's description at first
     int _chosen = -1;
     bool _cursorShown = true;
 };

@@ -189,8 +189,9 @@ of twelve slots, the manual's "12 slots available for saved games".
   9532 ... 9552, 370 wide, under "DESCRIPTION:") its description. Slot *n*
   is `game`*n*`.sav`, top down.
 - **After a fresh install** the first four slots hold the tutorials,
-  `game0.sav` to `game3.sav`, described "Tutorial #1" to "Tutorial #4";
-  the other eight show their empty fields. The description is
+  `game0.sav` to `game3.sav`, described "Tutorial #1" to "Tutorial #4":
+  the games to load while following the tutorial guide in the install's
+  folder (the user). The other eight show their empty fields. The description is
   `gameInfo`'s; the archive header's name is the file's
   ([formats/sav.md](../formats/sav.md)).
 - **Choosing:** the manual: "click on its slot and the selected game will
@@ -199,8 +200,22 @@ of twelve slots, the manual's "12 slots available for saved games".
   slot is chosen (about 38% as bright as Cancel in the screenshot, the main
   menu's dimming). Empty slots are drawn as the others, not dimmed; one
   can't be chosen *(guessed)*.
-- **The text** is teal, (0, 166, 156), in both fields, measured from the
-  screenshot: not the fonts' colours (the names' font names (1, 0, 0)).
+- **The text** is in the colour of the saved game's empire, the player's
+  (`gameInfo`, [formats/sav.md](../formats/sav.md)), in both fields: not
+  the fonts' colours (the names' font names (1, 0, 0)). Measured from a
+  screenshot of ten saves, the screen being 16-bit:
+
+  | Empire | Colour |
+  |---|---|
+  | Cardassians | (0, 134, 165) |
+  | Federation | (99, 77, 181) |
+  | Ferengi | (214, 32, 66) |
+  | Klingons | (255, 24, 33) |
+  | Romulans | (0, 166, 156), the tutorials' teal: they're Romulan games |
+
+  Drawn by Reluva with the same ten descriptions and empires, the list
+  matches that screenshot pixel for pixel. The user's account: the colour
+  follows the empire chosen for the game.
 - **The title:** the right end of the bar along the top (9505, 194x36,
   at 386, 102). The layout names `ls_svlb.tga` there, "SAVE GAME"; on this
   screen the game shows `ls_ldlb.tga`, "LOAD GAME", beside it in
@@ -227,9 +242,12 @@ game."
   its file's name and description turn pink, (239, 182, 198), measured
   from a screenshot. A slot with a saved game keeps its description when
   chosen ("Tutorial #1" stays, seen in the game), to be typed over. An
-  empty slot's is empty: a recording shows one chosen before anything is
-  typed (the manual's "galaxy type" isn't put there). Typing changes it,
-  and Backspace takes the last character away; only characters the
+  empty slot is filled with the game's: its empire, the turn, the galaxy's
+  size and shape, and "Galaxy", as "Ferengi 0 Medium Ring Galaxy" (the
+  user, in the game; saves so named in the screenshot above), each word
+  `lexicon.dic`'s (the empires' plural names). That the number is the turn
+  is *(inferred)*: every one seen is 0. Typing changes it, and Backspace
+  takes the last character away; only characters the
   field's font has (all in Windows-1252, as `gameInfo` keeps them), up to
   50 and the field's 370 pixels. Reluva takes what's typed whichever field
   was clicked *(guessed)*.
@@ -239,11 +257,6 @@ game."
   matches it pixel for pixel, as does the whole screen but the pointer.
   It's shown 0.3 seconds and hidden 0.3 seconds: a recording of the
   Multiplayer Setup screen's, frame by frame, 9 frames of 30 each time.
-- **The current game's slot,** the one `Stbof.ini`'s `CURRENTGAME`
-  names ([game-files.md](game-files.md)), has its text in red, (225, 28,
-  41), measured from a recording, which shows it so chosen or not. That
-  it's `CURRENTGAME`'s slot is *(inferred)*; Load Game shows the same slot
-  in teal (a screenshot), so Reluva draws it red on Save Game only.
 - **Loading,** the chosen slot's text is pink too, and Accept lit: a
   screenshot with the first tutorial chosen matches Reluva's pixel for
   pixel but the pointer.
@@ -453,16 +466,15 @@ recording:
 
 ## Open questions
 
-- Whether the timers' arrows stop at the ends or go round, and how
-  `Stbof.ini` keeps a timer that's set.
+- Whether the timers' arrows stop at the ends or go round.
 - Whether the game shows a held button's "selected" picture on the setup
   and empire screens, as the main menu does under the pointer.
 - On the options screen: whether a volume's click works as Reluva's does.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Save Game: which slot is red, and when. Settled by saving a game in
-  another slot.
+- Save Game: whether the number in a new save's description is the turn.
+  Settled by saving a game after its first turn.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses

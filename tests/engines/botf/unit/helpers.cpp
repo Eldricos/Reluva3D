@@ -200,11 +200,13 @@ Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::
     return f;
 }
 
-Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn) {
-    // gameInfo: a file name, the description at 0x0D, the turn at 0x40.
-    Bytes info(0x100, 0);
+Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn, uint8_t empire) {
+    // gameInfo: a file name, the description at 0x0D, the turn at 0x40, the
+    // player's empire at 0x252.
+    Bytes info(0x2C0, 0);
     std::copy(description.begin(), description.end(), info.begin() + 0x0D);
     set32(info, 0x40, turn);
+    info[0x252] = empire;
     return makeLzssArchive(name, {{"gameInfo", info}});
 }
 

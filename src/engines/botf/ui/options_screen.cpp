@@ -109,6 +109,13 @@ GameOptions optionsFromIni(const std::map<std::string, std::string> &ini) {
     // as manual, the default.
     if (const std::string *v = value("TACTICAL"))
         o.manualCombat = *v != "ABSTRACT";
+    // A time that isn't one of the choices leaves the timer at none.
+    auto timer = [&](const char *key, int &out, const std::vector<int> &choices, int unit) {
+        if (const std::string *v = value(key))
+            out = std::max(timerChoiceFromIni(*v, choices, unit), 0);
+    };
+    timer("TIMELIMIT", o.strategicTimer, strategicTimerChoices(), kStrategicIniUnit);
+    timer("TACTIMELIMIT", o.tacticalTimer, tacticalTimerChoices(), kTacticalIniUnit);
     return o;
 }
 
@@ -122,13 +129,9 @@ std::map<std::string, std::string> optionsIniValues(const GameOptions &o) {
         {"TOOLTIPS", onOff(o.toolTips)},
         {"AUTOSAVE", onOff(o.autosave)},
         {"RANDOMEVENTS", onOff(o.randomEvents)},
+        {"TIMELIMIT", timerIniValue(strategicTimerChoices(), o.strategicTimer, kStrategicIniUnit)},
+        {"TACTIMELIMIT", timerIniValue(tacticalTimerChoices(), o.tacticalTimer, kTacticalIniUnit)},
     };
-    // How the game writes a timer that's set isn't known; none is 0, and
-    // the others leave the file's line as it is.
-    if (o.strategicTimer == 0)
-        v["TIMELIMIT"] = "0";
-    if (o.tacticalTimer == 0)
-        v["TACTIMELIMIT"] = "0";
     v["TACTICAL"] = o.manualCombat ? "DETAILED" : "ABSTRACT";
     return v;
 }

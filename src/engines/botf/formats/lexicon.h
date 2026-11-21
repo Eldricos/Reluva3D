@@ -72,6 +72,14 @@ constexpr int kVideo = 1411;
 constexpr int kVoice = 1413;
 constexpr int kVolumeControl = 1416;
 constexpr int kYes = 1453;
+// A new save's description: "Ferengi 0 Medium Ring Galaxy". Found by their
+// text; where two entries have it, which one the game uses isn't known.
+constexpr int kCardassians = 125;
+constexpr int kFederation = 320;
+constexpr int kFerengi = 324;
+constexpr int kGalaxy = 406;
+constexpr int kKlingons = 563;
+constexpr int kRomulans = 1061;
 } // namespace lex
 
 } // namespace reluva::botf

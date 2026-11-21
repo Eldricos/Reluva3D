@@ -19,4 +19,20 @@ const std::vector<int> &tacticalTimerChoices();
 /** A time as the screens show it: "01:00", "00:15". */
 std::string timerText(int seconds);
 
+/**
+ * Stbof.ini keeps the strategic timer in minutes (TIMELIMIT) and the
+ * tactical one in seconds (TACTIMELIMIT), 0 for none
+ * (docs/engines/botf/systems/game-files.md).
+ */
+constexpr int kStrategicIniUnit = 60;
+constexpr int kTacticalIniUnit = 1;
+
+/**
+ * The choice whose time Stbof.ini's `value` is, in `unit` seconds, or -1
+ * if it's none of them.
+ */
+int timerChoiceFromIni(const std::string &value, const std::vector<int> &choices, int unit);
+/** A choice as Stbof.ini keeps it. */
+std::string timerIniValue(const std::vector<int> &choices, int choice, int unit);
+
 } // namespace reluva::botf

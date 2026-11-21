@@ -310,12 +310,12 @@ void testOptionsScreen() {
     click(5);
     choose(3, 1);
     // The timers' arrows (more, less) step through their choices, stopping
-    // at the ends; Stbof.ini gets a timer only when it's none.
+    // at the ends.
     for (size_t i : {6, 6, 6, 7, 8, 9, 9})
         CHECK(click(i) == OptionsScreen::Result::kOpen);
     CHECK(!o.manualCombat && !o.toolTips && !o.randomEvents && !o.autosave);
     CHECK(o.strategicTimer == 2 && o.tacticalTimer == 0);
-    CHECK(!optionsIniValues(o).count("TIMELIMIT") && optionsIniValues(o).at("TACTIMELIMIT") == "0");
+    CHECK(optionsIniValues(o).at("TIMELIMIT") == "2" && optionsIniValues(o).at("TACTIMELIMIT") == "0");
     // A click on a volume's bar lights the cell under it and those left of
     // it; a drag follows the mouse, past either end.
     mouse(EventType::kMouseDown, 100, 205);
@@ -379,8 +379,8 @@ void testLoadSaveScreen() {
     LoadSaveScreen screen(assets, lexicon);
     CHECK(!screen.load());
     LoadSaveScreen::Slots slots;
-    slots[0] = SaveSummary{"Tutorial #1", "Irregular", 0, false};
-    slots[3] = SaveSummary{"Mine", "Spiral", 120, false};
+    slots[0] = SaveSummary{"Tutorial #1", "Irregular", 0, 4, false};
+    slots[3] = SaveSummary{"Mine", "Spiral", 120, 3, false};
     screen.open(slots, LoadSaveScreen::Mode::kLoad);
     auto click = [&](int x, int y) {
         LoadSaveScreen::Result r = LoadSaveScreen::Result::kOpen;
@@ -409,9 +409,9 @@ void testLoadSaveScreen() {
     screen.open(slots, LoadSaveScreen::Mode::kLoad);
     CHECK(screen.chosen() == -1);
 
-    // Saving: an empty slot can be chosen, and its description typed, as
-    // far as the field and the font allow; slot 3 is the current game.
-    screen.open(slots, LoadSaveScreen::Mode::kSave, 3);
+    // Saving: an empty slot can be chosen, and its description typed over,
+    // as far as the field and the font allow.
+    screen.open(slots, LoadSaveScreen::Mode::kSave, "Ring");
     auto key = [&](uint32_t k) {
         Event e;
         e.type = EventType::kKeyDown;
@@ -426,10 +426,10 @@ void testLoadSaveScreen() {
     };
     typed("x"); // nothing chosen: not typed
     CHECK(screen.description().empty() && key(key::kReturn) == LoadSaveScreen::Result::kOpen);
-    // A saved game's slot keeps its description; an empty one's is empty.
+    // A saved game's slot keeps its description; an empty one takes the
+    // new game's.
     CHECK(slot(3) == LoadSaveScreen::Result::kOpen && screen.description() == "Spiral");
-    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1 && screen.description().empty());
-    typed("Ring");
+    CHECK(slot(1) == LoadSaveScreen::Result::kOpen && screen.chosen() == 1 && screen.description() == "Ring");
     key(key::kBackspace);
     typed("s \xc3\xa9\xe2\x82\xac"); // 's', a space, 'é'; the font has no euro sign
     CHECK(screen.description() == "Rins \xc3\xa9");
@@ -456,8 +456,9 @@ void testLoadSaveScreen() {
     std::fill(surface.pixels.begin(), surface.pixels.end(), uint8_t(0));
     screen.draw(surface);
     CHECK(!white(cursorX, 126));
-    // The current game's slot is red (225, 28, 41), the chosen one pink
-    // (239, 182, 198), the font's shading aside; the others teal, no red.
+    // A saved game's slot is its empire's colour, the Klingons' red (255,
+    // 24, 33) in slot 3, the Romulans' teal in slot 0; the chosen one pink
+    // (239, 182, 198); the font's shading aside.
     auto any = [&](int top, auto test) {
         for (int y = top; y < top + 25; ++y)
             for (int x = 0; x < 800; ++x)
@@ -472,6 +473,14 @@ void testLoadSaveScreen() {
     CHECK(click(20, 555) == LoadSaveScreen::Result::kAccepted && screen.chosen() == 1);
 }
 
+void testSaveDescription() {
+    // As the game fills an empty slot: "Ferengi 0 Medium Ring Galaxy".
+    const Lexicon none;
+    CHECK(saveDescription(none, 2, 0, 1, 2) == "Ferengi 0 Medium Ring Galaxy");
+    CHECK(saveDescription(none, 0, 12, 0, 3) == "Cardassians 12 Small Spiral Galaxy");
+    CHECK(saveDescription(none, 1, 5, 2, 0) == "Federation 5 Large Irregular Galaxy");
+}
+
 void testTimers() {
     // The user's account of the game's choices.
     const std::vector<int> &strategic = strategicTimerChoices();
@@ -482,6 +491,13 @@ void testTimers() {
     CHECK(tactical[1] == 15 && tactical[20] == 5 * 60 && tactical[21] == 6 * 60 && tactical[25] == 10 * 60);
     CHECK(tactical[26] == 15 * 60 && tactical.back() == 30 * 60);
     CHECK(timerText(15) == "00:15" && timerText(90 * 60) == "90:00" && timerText(65) == "01:05");
+    // Stbof.ini: the strategic timer in minutes, the tactical in seconds, as
+    // the user's file with 03:00 and 01:30 has them.
+    const GameOptions o = optionsFromIni(parseStbofIni("TIMELIMIT=3\r\nTACTIMELIMIT=90\r\n"));
+    CHECK(strategic[size_t(o.strategicTimer)] == 3 * 60 && tactical[size_t(o.tacticalTimer)] == 90);
+    CHECK(optionsIniValues(o).at("TIMELIMIT") == "3" && optionsIniValues(o).at("TACTIMELIMIT") == "90");
+    // A time that isn't a choice is none.
+    CHECK(optionsFromIni(parseStbofIni("TIMELIMIT=7x\r\nTACTIMELIMIT=17\r\n")).tacticalTimer == 0);
 }
 
 void testFromIni() {
@@ -820,6 +836,7 @@ static const reluva::test::Suite
                {"load game", [](const std::filesystem::path &) { testLoadSaveScreen(); }},
                {"from Stbof.ini", [](const std::filesystem::path &) { testFromIni(); }},
                {"timers", [](const std::filesystem::path &) { testTimers(); }},
+               {"save description", [](const std::filesystem::path &) { testSaveDescription(); }},
                {"menu music", [](const std::filesystem::path &) { testMenuMusic(); }},
                {"hall of fame", [](const std::filesystem::path &) { testFameScreen(); }},
                {"multiplayer setup", [](const std::filesystem::path &) { testMultiplayerScreen(); }},

@@ -20,6 +20,7 @@ constexpr size_t kDescriptionSize = 51;
 constexpr size_t kTurnAt = 0x40;
 constexpr size_t kMultiplayerAt = 0x4C;
 constexpr size_t kUsed = kMultiplayerAt + 4;
+constexpr size_t kEmpireAt = 0x252;
 
 // The saved game's text files are compressed with the window full of
 // spaces; gameInfo is one of them.
@@ -52,6 +53,8 @@ Error readSaveSummary(const std::filesystem::path &path, SaveSummary &summary) {
         const uint8_t *t = &info[kTurnAt];
         summary.turn = int(uint32_t(t[0] | t[1] << 8 | t[2] << 16) | uint32_t(t[3]) << 24);
         summary.multiplayer = info[kMultiplayerAt] != 0;
+        if (info.size() > kEmpireAt && info[kEmpireAt] < 5)
+            summary.empire = info[kEmpireAt];
         return Error::success();
     }
     return Error::fail(path.string() + " has no gameInfo");

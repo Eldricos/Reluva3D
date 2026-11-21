@@ -14,7 +14,8 @@ the other ten files 0 bytes long (`Game4.sav` to `Game9.sav`, `Auto.sav`
 dated December 1998, `game10.sav` and `game11.sav` August 1998,
 `Last.sav` April 1999). An empty slot on the Load Game screen is one of
 those. Reluva reads only what the load and save screens show: each
-game's description.
+game's description, and its player's empire, whose colour the slot's text
+takes.
 
 ## Layout
 
@@ -90,8 +91,9 @@ from none in any of them, so their other values are the editor's. `auto.sav`'s d
 
 `readSaveSummary` (`src/engines/botf/formats/save_game.cpp`) opens a save
 with `AltResArchive`, takes its name from the header, and decodes
-`gameInfo` with the window full of spaces for the description and turn;
-on `game0.sav` it gives "game0.sav", "Tutorial #1", turn 0.
+`gameInfo` with the window full of spaces for the description, turn and
+player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
+0, the Romulans.
 `decompressLzss` takes the window's fill. The unit tests
 (`botf.unit.archives`: "lzss" and "saved games") cover both.
 

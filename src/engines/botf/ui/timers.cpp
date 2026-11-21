@@ -3,7 +3,9 @@
 
 #include "engines/botf/ui/timers.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 namespace reluva::botf {
 
@@ -37,6 +39,21 @@ const std::vector<int> &tacticalTimerChoices() {
         return v;
     }();
     return kChoices;
+}
+
+int timerChoiceFromIni(const std::string &value, const std::vector<int> &choices, int unit) {
+    char *end = nullptr;
+    const long v = std::strtol(value.c_str(), &end, 10);
+    if (value.empty() || *end != '\0')
+        return -1;
+    for (size_t i = 0; i < choices.size(); ++i)
+        if (choices[i] == v * unit)
+            return int(i);
+    return -1;
+}
+
+std::string timerIniValue(const std::vector<int> &choices, int choice, int unit) {
+    return std::to_string(choices[size_t(std::clamp(choice, 0, int(choices.size()) - 1))] / unit);
 }
 
 std::string timerText(int seconds) {

@@ -122,7 +122,10 @@ void testSaveSummary(const std::filesystem::path &tmp) {
     CHECK(!readSaveSummary(tmp / "game0.sav", save));
     CHECK(save.name == "Tutorial #1");
     CHECK(save.description == "Irregular galaxy \xc3\xa9"); // Windows-1252 to UTF-8
-    CHECK(save.turn == 41 && !save.multiplayer);
+    CHECK(save.turn == 41 && !save.multiplayer && save.empire == 1);
+    // An empire past the Romulans isn't one.
+    writeFile(tmp / "game3.sav", makeSave("x", "", 0, 7));
+    CHECK(!readSaveSummary(tmp / "game3.sav", save) && save.empire == -1);
     // Without gameInfo, or not an archive, it isn't read.
     writeFile(tmp / "game1.sav", makeLzssArchive("x", {{"version", Bytes(8, 1)}}));
     CHECK(bool(readSaveSummary(tmp / "game1.sav", save)));

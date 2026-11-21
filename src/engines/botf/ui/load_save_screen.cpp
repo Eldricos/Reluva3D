@@ -3,7 +3,9 @@
 
 #include "engines/botf/ui/load_save_screen.h"
 
+#include <algorithm>
 #include <string>
+#include <utility>
 
 namespace reluva::botf {
 
@@ -25,7 +27,14 @@ constexpr const char *kLoadTitle = "ls_ldlb.tga";
 // game: not their fonts' colours.
 constexpr Color kTextColor{0, 166, 156};
 constexpr Color kChosenColor{239, 182, 198};
-constexpr Color kCurrentColor{225, 28, 41}; // measured from a recording
+
+// Each empire's, Cardassians to Romulans, measured from a screenshot of Load
+// Game with a save of each; teal for a save whose empire isn't known.
+constexpr Color kEmpireColors[] = {{0, 134, 165}, {99, 77, 181}, {214, 32, 66}, {255, 24, 33}, {0, 166, 156}};
+
+Color empireColor(int empire) {
+    return empire >= 0 && empire < 5 ? kEmpireColors[empire] : kTextColor;
+}
 
 int32_t slotButton(int slot) {
     return kFirstSlot + 2 * slot;
@@ -33,16 +42,37 @@ int32_t slotButton(int slot) {
 
 } // namespace
 
+std::string saveDescription(const Lexicon &lexicon, int empire, int turn, int galaxySize, int galaxyShape) {
+    static const std::pair<int, const char *> kEmpires[] = {{lex::kCardassians, "Cardassians"},
+                                                            {lex::kFederation, "Federation"},
+                                                            {lex::kFerengi, "Ferengi"},
+                                                            {lex::kKlingons, "Klingons"},
+                                                            {lex::kRomulans, "Romulans"}};
+    static const std::pair<int, const char *> kSizes[] = {
+        {lex::kSmall, "Small"}, {lex::kMedium, "Medium"}, {lex::kLarge, "Large"}};
+    static const std::pair<int, const char *> kShapes[] = {{lex::kIrregular, "Irregular"},
+                                                           {lex::kElliptical, "Elliptical"},
+                                                           {lex::kRing, "Ring"},
+                                                           {lex::kSpiral, "Spiral"}};
+    auto word = [&](const std::pair<int, const char *> &e) {
+        const std::string &w = lexicon[size_t(e.first)];
+        return w.empty() ? std::string(e.second) : w;
+    };
+    return word(kEmpires[std::clamp(empire, 0, 4)]) + " " + std::to_string(turn) + " " +
+           word(kSizes[std::clamp(galaxySize, 0, 2)]) + " " + word(kShapes[std::clamp(galaxyShape, 0, 3)]) + " " +
+           word({lex::kGalaxy, "Galaxy"});
+}
+
 Error LoadSaveScreen::load() {
     return loadLayouts("loadsave.wdf",
                        {kAccept, kCancel, slotButton(0), slotButton(kSlots - 1), kFirstName,
                         kFirstName + 2 * (kSlots - 1), kFirstDescription, kFirstDescription + 2 * (kSlots - 1)});
 }
 
-void LoadSaveScreen::open(const Slots &slots, Mode mode, int current) {
+void LoadSaveScreen::open(const Slots &slots, Mode mode, const std::string &description) {
     _slots = slots;
     _mode = mode;
-    _current = mode == Mode::kSave ? current : -1;
+    _newDescription = description;
     _description.clear();
     _chosen = -1;
     _pressed = 0;
@@ -84,9 +114,10 @@ LoadSaveScreen::Result LoadSaveScreen::handle(const Event &e) {
                 _chosen = i;
                 _disabled.erase(kAccept);
                 // Saving over a game keeps its description, to be typed
-                // over; an empty slot's is empty (the game does both).
+                // over; an empty slot takes the new one's (the game does
+                // both).
                 const std::optional<SaveSummary> &save = _slots[size_t(i)];
-                _description = save ? save->description : std::string();
+                _description = save ? save->description : _newDescription;
                 // A click and a spoken line, each mode its own.
                 sound(UiSound::kClick);
                 sound(_mode == Mode::kLoad ? UiSound::kGameChosen : UiSound::kSlotChosen);
@@ -111,10 +142,10 @@ void LoadSaveScreen::draw(Surface &screen) const {
             continue;
         const int32_t name = kFirstName + 2 * i;
         const int32_t description = kFirstDescription + 2 * i;
-        // The name field shows the slot's file, as the game names it; the
-        // current game's text is red, chosen or not (inferred), the chosen
-        // slot's otherwise pink.
-        const Color color = i == _current ? kCurrentColor : i == _chosen ? kChosenColor : kTextColor;
+        // The name field shows the slot's file, as the game names it. The
+        // chosen slot's text is pink, the others' their player's empire's
+        // colour.
+        const Color color = i == _chosen ? kChosenColor : save ? empireColor(save->empire) : kTextColor;
         drawText(screen, name, "game" + std::to_string(i) + ".sav", color);
         drawText(screen, description, saving ? _description : save->description, color);
         if (saving && _cursorShown)

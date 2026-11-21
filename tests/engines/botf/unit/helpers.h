@@ -52,7 +52,7 @@ Bytes makeLexicon(const std::vector<std::string> &words);
 Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::string, Bytes>> &files);
 
 // A saved game holding only a gameInfo with `description` and `turn`.
-Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn);
+Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn, uint8_t empire = 1);
 
 // Files in memory, for the screens.
 struct MemoryArchive : Archive {

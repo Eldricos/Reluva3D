@@ -34,9 +34,6 @@ None yet.
   written.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
-- **A timer that's set isn't written to `Stbof.ini`:** how the game
-  keeps one isn't known, so Reluva writes only None (0) and leaves the
-  key's line as it is otherwise ([systems/game-files.md](systems/game-files.md)).
 - **The menu's sounds** are the ones a recording shows, but where the
   game has the same sound in several entries Reluva plays the first, the
   voice volume picks among only the three lines heard, and the video
