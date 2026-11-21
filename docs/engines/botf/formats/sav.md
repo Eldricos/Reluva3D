@@ -154,16 +154,20 @@ fixed part's fields read:
 | Offset | Type | Field |
 |---|---|---|
 | 0x00 | `i32` | its number, from 0 in order |
-| 0x04 | `i32` | 2 for the player's systems. The computer's are 0 or 1: each empire's home system has 0 and its colonies 1, so what the value means isn't known |
+| 0x04 | `i32` | 2 for the player's systems, 1 for the other inhabited ones in a new game; in the tutorials the computer's home systems have 0 and their colonies 1, so what sets 0 isn't known |
 | 0x08 | `char[40]` | its name: "Acamar" |
 | 0x31 | `u8` | the star's type *(published)* |
 | 0x32 | `char[5]` | the star's pictures' name: "s-o-" |
-| 0x40 | `i32` | its population: Romulus 355, the tutorials' biggest |
+| 0x40 | `i32` | its population, as the system screen shows it: Sol 310, then 320 a turn later |
 | 0x44 | `i16` | the race living there, by `race.rst`'s number (5 and on for the minor races), or -1 |
 | 0x4C | `i32` | the race holding it, the same; 0x23 for no one |
+| 0x54 | `i32[5]` | the population working in industry, energy, food, research and intelligence: 10 for each building manned (Sol's 15 replicators, 4 reactors, 10 farms, 2 universities and no databanks manned: 150, 40, 100, 20, 0, adding up to its 310) |
 | 0x6A | `i16` | its planets |
 | 0x6C | `i16` | its specials: 0 in every system seen |
 | 0x6E | `i16` | its natural dilithium *(published)* |
+| 0x80 | `i32` | what it's building: 5 trade goods, 1 a building (Sol's after a Type 2 Databank was queued) |
+| 0x88 | `i16` | with 1 there, the building's `edifice.bst` number: 154, "Type 2 Databank" |
+| 0xBC | `i32` | its maximum population, ten times what the screen shows: Sol's 3,350 for 335 |
 | 0x78, 0x7C | `i32` | where it's drawn on the galaxy's small map, 5 pixels a sector: Acamar, in column 6 and row 0, at 32, 3 |
 | 0x308, 0x309 | `u8` | its trade routes, coming in and its own |
 
@@ -172,7 +176,13 @@ A planet, 76 bytes: its name (`char[40]`, ending in a line break:
 in the system (`i16` at 0x36), its size (`i16` at 0x38, 0 to 2), and its
 type and atmosphere (`u8` at 0x48 and 0x49) *(published)*. The fixed
 part's other fields (production, morale, buildings, trade) are the
-editor's and not read yet.
+editor's and not read yet. Saved at a new game's first turn, before one
+has passed, the fields the turn works out (output, consumption, the
+workers' shares) are all 0: the system screen works them out itself
+then, and the save a turn later has the screen's numbers (Sol's food 357,
+energy 265 less 55, industry 234, research 34). The player's production
+queue, at the end, starts with the first item's build order (as at 0x80)
+and, 8 bytes in, its building: they changed with the databank queued.
 
 **`stellInfo`**, 88 bytes an object:
 
@@ -183,6 +193,55 @@ editor's and not read yet.
 | 0x2C | `char[20]` | its picture: empty in the tutorials |
 | 0x44, 0x48 | `i32` | where it's drawn on the small map, as a system: "Black Hole C4" at 12, 17 |
 
+### Research
+
+`techinfo` starts with a count of the races in the game, a 16-bit index
+of every race (35), and then a 20-byte entry for each major empire,
+Cardassians first. Its 6 bytes in are the empire's shares of research,
+`i16` percentages for biotech, computers, construction, energy,
+propulsion and weapons, as the research screen orders them: the
+Federation's 17, 17, 17, 17, 16, 16 at the start, and 20, 17, 15, 15, 16,
+17 once the user changed them, as the screenshots before and after show.
+The rest of the file, each race's research, is the editor's
+(`TechInfo.java`) and not read yet. Its window starts full of zeros
+([above](#layout)).
+
+### Task forces
+
+`GWTForce` holds the task forces, a ship alone being one, in 108-byte
+entries; `GWTForceHd`, 40 bytes, says each entry's size (`i32` at 0x10:
+108), how many the list has room for (0x14: 32) and how many are in use
+(0x18: 11 at the start, two for each empire and one more). An entry, as
+the editor gives it (`TaskForce.java`), checked as noted:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `i16` | its number, as `TForceCntr` counts them |
+| 0x04 | `i32` | its ships |
+| 0x08 | `i32[9]` | the ships' numbers |
+| 0x2C | `i32` | its mission: each empire's two start with 6 and 5, engage and evade by the editor's names *(published)* |
+| 0x30 | `i32` | the sector it's ordered to, row by row, or -1: 113 for column 9 of row 8 on a small galaxy's 13 columns, ordered a sector west of Sol |
+| 0x34 | `i32` | the race it belongs to |
+| 0x38, 0x3C | `i32` | its sector's row and column: Sol's 8, 10, then 8, 9 the turn after the order |
+
+Ordered to move, a task force's entry in `GWTForce` changes (the
+destination, and the order's number at 0x54); a turn later it's in the
+new sector and `GTForceList`, which is otherwise the same list, has it
+too.
+
+### What a turn and an order change
+
+Saves from one game (Federation, small galaxy, few minor races, Simple,
+random events off), each made from the first: as it started; a turn
+later; with a building queued at Sol; with a ship ordered to move, and a
+turn after that; and with the research shares changed. Saved again
+without a change, a game's `SeedInfo`, `gameInfo`, `empsInfo`,
+`ordInfo`, `result.lst`, `AIAgent0` to `AIAgent6` and the four list heads
+(`GShipHead`, `GTForceHd`, `GWTForceHd`, `GTFStasisHd`) change anyway.
+Beyond those, queuing a building changed only `systInfo`, an order only
+`GWTForce`, the research shares only `techinfo`; a turn changes most
+files, and adds the AI's tasks (`AITask#`, `TskSh#`, `TskSy#`).
+
 ## In Reluva
 
 `readSaveSummary` (`src/engines/botf/formats/save_game.cpp`) opens a save
@@ -192,6 +251,12 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
 0, the Romulans.
 `decompressLzss` takes the window's fill. The unit tests
 (`botf.unit.archives`: "lzss" and "saved games") cover both.
+
+`readSavedTaskForces` reads the task forces in use, and
+`readSavedResearch` each empire's research shares; on the user's saves
+they give the Federation's ship ordered west and the shares as the
+research screen shows them. The unit tests ("saved fleets and research")
+cover both.
 
 `readSavedGalaxy` reads the galaxy's four files, and refuses a save whose
 files don't agree: counts that differ from `galInfo`'s, a sector out of
@@ -218,7 +283,10 @@ layout.
   screenshot's. The galaxy's files on the four tutorials, `game0.sav` to
   `game3.sav`: each file read whole to its last byte, the counts agreeing,
   the systems' and objects' sectors agreeing with their map positions and
-  their names' column letters and rows. The unit tests use files built to
+  their names' column letters and rows. The fields since, on seven saves
+  of one new game the user made a change apart, with screenshots of the
+  system, research and galaxy screens for each, November 2026 (the
+  pairs are listed above). The unit tests use files built to
   this layout, not the game's. The window's fill is from the editor alone.
 
 ## Open questions
@@ -234,6 +302,10 @@ layout.
   `auto.sav`): the game writes both, with the same time, once a game
   started or loaded has passed a turn, but moving `Last.sav` away changes
   nothing that shows (the user, in the game).
+- Where a change to a system's workers is kept: the save made after
+  moving one changed only `systInfo`'s 0x314 (a flag the editor calls
+  "update worker assignments"), and its screenshot is the first's, so the
+  move may not have been made.
 - What `systInfo`'s value at 0x04 means for the computer's systems, and
   `galInfo`'s first 8 bytes.
 - The rest of `gameInfo`, of the galaxy's files, and every other file in

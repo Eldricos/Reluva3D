@@ -153,6 +153,11 @@ Bytes makeGalaxySave(int16_t systems, bool withQueue) {
     set32(system, 0x4C, 4);
     put16At(system, 0x6A, 1);
     put16At(system, 0x6E, 3);
+    for (uint32_t i = 0; i < 5; ++i)
+        set32(system, 0x54 + 4 * i, 10 * (i + 1));
+    set32(system, 0x80, 1);
+    put16At(system, 0x88, 154);
+    set32(system, 0xBC, 3350);
     set32(system, 0x78, 7);
     set32(system, 0x7C, 2);
     system[0x308] = 1; // one trade route coming in
@@ -189,7 +194,8 @@ void testSavedGalaxy(const std::filesystem::path &tmp) {
     const SavedSystem &s = g.systems[0];
     CHECK(s.name == "Romulus" && s.starAnimation == "s-r-" && s.starType == 4 && s.control == 2);
     CHECK(s.population == 355 && s.residentRace == 4 && s.controllingRace == 4 && s.dilithium == 3);
-    CHECK(s.mapX == 7 && s.mapY == 2 && s.planets.size() == 1);
+    CHECK(s.mapX == 7 && s.mapY == 2 && s.planets.size() == 1 && s.maxPopulation == 335);
+    CHECK(s.workers == (std::array<int, 5>{10, 20, 30, 40, 50}) && s.buildOrder == 1 && s.building == 154);
     // The planet's name without the line break the game ends it with.
     CHECK(s.planets[0].name == "Romulus II" && s.planets[0].animation == "atol.ani");
     CHECK(s.planets[0].size == 2 && s.planets[0].type == 4 && s.planets[0].atmosphere == 10);
@@ -203,6 +209,48 @@ void testSavedGalaxy(const std::filesystem::path &tmp) {
     // Nor a save without them.
     writeFile(tmp / "none.sav", makeSave("x", "", 0));
     CHECK(bool(readSavedGalaxy(tmp / "none.sav", g)));
+}
+
+void testSavedTaskForces(const std::filesystem::path &tmp) {
+    // Room for three, two in use: one at column 10, row 8, ordered to
+    // sector 113 (column 9 of 13, row 8); one with no orders.
+    Bytes head(40, 0);
+    set32(head, 0x10, 108);
+    set32(head, 0x14, 3);
+    set32(head, 0x18, 2);
+    Bytes list(3 * 108, 0);
+    for (uint32_t i = 0; i < 2; ++i) {
+        const size_t at = i * 108;
+        list[at] = uint8_t(7 + i);
+        set32(list, at + 0x04, 1);
+        set32(list, at + 0x2C, 6 - i);
+        set32(list, at + 0x30, i == 0 ? 113 : 0xFFFFFFFF);
+        set32(list, at + 0x34, 1);
+        set32(list, at + 0x38, 8);
+        set32(list, at + 0x3C, 10);
+    }
+    writeFile(tmp / "fleet.sav", makeLzssArchive("game0.sav", {{"GWTForceHd", head}, {"GWTForce", list}}));
+    std::vector<SavedTaskForce> t;
+    CHECK(!readSavedTaskForces(tmp / "fleet.sav", 13, t) && t.size() == 2);
+    CHECK(t[0].id == 7 && t[0].owner == 1 && t[0].ships == 1 && t[0].x == 10 && t[0].y == 8 && t[0].mission == 6);
+    CHECK(t[0].destinationX == 9 && t[0].destinationY == 8 && t[1].destinationX == -1 && t[1].mission == 5);
+    // More in use than the list holds isn't read.
+    set32(head, 0x18, 4);
+    writeFile(tmp / "fleet.sav", makeLzssArchive("game0.sav", {{"GWTForceHd", head}, {"GWTForce", list}}));
+    CHECK(bool(readSavedTaskForces(tmp / "fleet.sav", 13, t)));
+
+    // Research: the Federation's shares, after the count and 35 races' index.
+    Bytes tech(2 + 70 + 5 * 20, 0);
+    const uint16_t shares[6] = {20, 17, 15, 15, 16, 17};
+    for (size_t f = 0; f < 6; ++f)
+        tech[2 + 70 + 20 + 6 + 2 * f] = uint8_t(shares[f]);
+    writeFile(tmp / "tech.sav", makeLzssArchive("game0.sav", {{"techinfo", tech}}));
+    SavedResearch r;
+    CHECK(!readSavedResearch(tmp / "tech.sav", r));
+    CHECK(r[1] == (std::array<int, 6>{20, 17, 15, 15, 16, 17}) && r[0] == (std::array<int, 6>{}));
+    tech.resize(100);
+    writeFile(tmp / "tech.sav", makeLzssArchive("game0.sav", {{"techinfo", tech}}));
+    CHECK(bool(readSavedResearch(tmp / "tech.sav", r)));
 }
 
 void testSaveSummary(const std::filesystem::path &tmp) {
@@ -441,6 +489,7 @@ static const reluva::test::Suite
                {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
                {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
                {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
+               {"saved fleets and research", [](const std::filesystem::path &tmp) { testSavedTaskForces(tmp); }},
                {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},
                {"game files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
                {"Stbof.ini written", [](const std::filesystem::path &) { testStbofIniWritten(); }},

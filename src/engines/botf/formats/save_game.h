@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -42,11 +43,19 @@ struct SavedSystem {
     std::string name;          // UTF-8: "Acamar"
     std::string starAnimation; // the star's pictures' name: "s-o-"
     int starType = 0;          // the star's type, a number (docs/engines/botf/formats/sav.md)
-    int control = 0;           // 2 for the player's; 0 or 1 for the others, by rules not yet known
-    int population = 0;        // as the game counts it
+    int control = 0;           // 2 for the player's, 1 or 0 for the others (docs/engines/botf/formats/sav.md)
+    int population = 0;        // as the system screen shows it: Sol 310 at the start
+    int maxPopulation = 0;     // the same: Sol 335
     int residentRace = -1;     // race.rst's number of the people living there, or -1
     int controllingRace = -1;  // race.rst's number of who holds it, or -1 for none
     int dilithium = 0;         // natural dilithium, 0 to 5
+    /**
+     * The population working in industry, energy, food, research and
+     * intelligence, in that order: 10 for each building manned.
+     */
+    std::array<int, 5> workers{};
+    int buildOrder = 0; // what it's building: 1 a building, 5 trade goods (others not yet seen)
+    int building = 0;   // with build order 1, the building's edifice.bst number
     /** Where it's drawn on the galaxy's small map, in its pixels: 5 a sector. */
     ///@{
     int mapX = 0;
@@ -97,5 +106,39 @@ struct SavedGalaxy {
  * @return An error if one is missing, or they don't agree with each other.
  */
 Error readSavedGalaxy(const std::filesystem::path &path, SavedGalaxy &galaxy);
+
+/** A task force: ships moving together, a single ship being one. */
+struct SavedTaskForce {
+    int id = 0;
+    int owner = 0; // race.rst's number of the race it belongs to
+    int ships = 0;
+    /** The sector it's in, column and row. */
+    ///@{
+    int x = 0;
+    int y = 0;
+    ///@}
+    /** The sector it's ordered to, column and row; -1 for none. */
+    ///@{
+    int destinationX = -1;
+    int destinationY = -1;
+    ///@}
+    int mission = 0; // its orders' number (docs/engines/botf/formats/sav.md)
+};
+
+/**
+ * Reads the task forces of the saved game at `path` (its GWTForce file),
+ * placing their destinations on a grid `width` sectors wide (the galaxy's).
+ */
+Error readSavedTaskForces(const std::filesystem::path &path, int width, std::vector<SavedTaskForce> &taskForces);
+
+/**
+ * How each major empire, Cardassians to Romulans, shares its research out
+ * among biotech, computers, construction, energy, propulsion and weapons:
+ * a percentage each, as the research screen shows them.
+ */
+using SavedResearch = std::array<std::array<int, 6>, 5>;
+
+/** Reads each major empire's research shares from the saved game at `path` (its techinfo file). */
+Error readSavedResearch(const std::filesystem::path &path, SavedResearch &research);
 
 } // namespace reluva::botf

@@ -7,6 +7,7 @@
 #include "common/text.h"
 #include "engines/botf/formats/alt_res.h"
 
+#include <initializer_list>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -36,11 +37,27 @@ std::string field(const std::vector<uint8_t> &data, size_t at, size_t size) {
 }
 
 // One of the archive's files, decompressed; empty files are allowed.
+// techinfo's window starts full of zeros, the others' of spaces.
 Error readFile(const AltResArchive &save, const char *name, std::vector<uint8_t> &out) {
+    const std::string wanted = normalizeArchiveName(name);
     for (const AltResArchive::Entry &e : save.entries())
-        if (normalizeArchiveName(e.name) == normalizeArchiveName(name))
-            return save.read(e, out, kTextWindowFill);
+        if (normalizeArchiveName(e.name) == wanted)
+            return save.read(e, out, wanted == normalizeArchiveName("techinfo") ? 0 : kTextWindowFill);
     return Error::fail(std::string("no ") + name);
+}
+
+// Opens the save at `path` and reads its files `names` into `out`, in
+// order; an error names the save.
+Error readFiles(const std::filesystem::path &path, std::initializer_list<const char *> names,
+                std::initializer_list<std::vector<uint8_t> *> out) {
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    auto file = out.begin();
+    for (const char *name : names)
+        if (Error err = readFile(save, name, **file++))
+            return Error::fail(path.string() + ": " + err.message);
+    return Error::success();
 }
 
 int16_t s16(const std::vector<uint8_t> &d, size_t at) {
@@ -73,6 +90,12 @@ constexpr size_t kProductionQueueSize = 108;
 
 // stellInfo: an 88-byte entry an object.
 constexpr size_t kStellarSize = 88;
+
+// GWTForce: a 108-byte entry a task force.
+constexpr size_t kTaskForceSize = 108;
+
+// The races techinfo has room for: the five empires and 30 minor races.
+constexpr size_t kRaceCount = 35;
 
 Error readSectors(const std::vector<uint8_t> &d, SavedGalaxy &g) {
     if (d.size() % kSectorSize || d.empty())
@@ -117,6 +140,12 @@ Error readSystems(const std::vector<uint8_t> &d, SavedGalaxy &g) {
         const int planets = s16(d, at + 0x6A);
         const int specials = s16(d, at + 0x6C);
         s.dilithium = s16(d, at + 0x6E);
+        for (size_t i = 0; i < s.workers.size(); ++i)
+            s.workers[i] = s32(d, at + 0x54 + 4 * i);
+        s.buildOrder = s32(d, at + 0x80);
+        s.building = s16(d, at + 0x88);
+        // Kept as ten times what the screen shows.
+        s.maxPopulation = s32(d, at + 0xBC) / 10;
         s.mapX = s32(d, at + 0x78);
         s.mapY = s32(d, at + 0x7C);
         const int tradeRoutes = d[at + 0x308] + d[at + 0x309];
@@ -187,22 +216,16 @@ Error readSaveSummary(const std::filesystem::path &path, SaveSummary &summary) {
 }
 
 Error readSavedGalaxy(const std::filesystem::path &path, SavedGalaxy &galaxy) {
-    AltResArchive save;
-    if (Error err = save.open(path))
-        return err;
     galaxy = SavedGalaxy{};
     std::vector<uint8_t> info;
     std::vector<uint8_t> sectors;
     std::vector<uint8_t> systems;
     std::vector<uint8_t> stellar;
-    Error err = readFile(save, "galInfo", info);
-    if (!err)
-        err = readFile(save, "sector.lst", sectors);
-    if (!err)
-        err = readFile(save, "systInfo", systems);
-    if (!err)
-        err = readFile(save, "stellInfo", stellar);
-    if (!err && info.size() < kGalInfoSize)
+    if (Error err =
+            readFiles(path, {"galInfo", "sector.lst", "systInfo", "stellInfo"}, {&info, &sectors, &systems, &stellar}))
+        return err;
+    Error err = Error::success();
+    if (info.size() < kGalInfoSize)
         err = Error::fail("galInfo is too small");
     if (!err)
         err = readSectors(sectors, galaxy);
@@ -221,6 +244,53 @@ Error readSavedGalaxy(const std::filesystem::path &path, SavedGalaxy &galaxy) {
     for (const SavedSector &s : galaxy.sectors)
         if (s.system >= int(galaxy.systems.size()) || s.stellarObject >= int(galaxy.stellarObjects.size()))
             return Error::fail(path.string() + ": a sector has a system or object that isn't there");
+    return Error::success();
+}
+
+Error readSavedTaskForces(const std::filesystem::path &path, int width, std::vector<SavedTaskForce> &taskForces) {
+    taskForces.clear();
+    std::vector<uint8_t> head;
+    std::vector<uint8_t> list;
+    if (Error err = readFiles(path, {"GWTForceHd", "GWTForce"}, {&head, &list}))
+        return err;
+    // The head gives each entry's size (0x10) and how many are in use
+    // (0x18), at the start of the list's room for more.
+    if (head.size() < 0x1C || s32(head, 0x10) != int(kTaskForceSize) || s32(head, 0x18) < 0 ||
+        size_t(s32(head, 0x18)) * kTaskForceSize > list.size())
+        return Error::fail(path.string() + ": GWTForceHd doesn't fit GWTForce");
+    for (int i = 0; i < s32(head, 0x18); ++i) {
+        const size_t at = size_t(i) * kTaskForceSize;
+        SavedTaskForce t;
+        t.id = s16(list, at);
+        t.ships = s32(list, at + 0x04);
+        t.mission = s32(list, at + 0x2C);
+        // The destination is a sector's number, row by row.
+        if (const int target = s32(list, at + 0x30); target >= 0 && width > 0) {
+            t.destinationX = target % width;
+            t.destinationY = target / width;
+        }
+        t.owner = s32(list, at + 0x34);
+        t.y = s32(list, at + 0x38);
+        t.x = s32(list, at + 0x3C);
+        taskForces.push_back(t);
+    }
+    return Error::success();
+}
+
+Error readSavedResearch(const std::filesystem::path &path, SavedResearch &research) {
+    research = {};
+    std::vector<uint8_t> info;
+    if (Error err = readFiles(path, {"techinfo"}, {&info}))
+        return err;
+    // A count and an index of every race, then the five empires' 20-byte
+    // entries, their shares 6 bytes in.
+    constexpr size_t kFirst = 2 + 2 * kRaceCount;
+    constexpr size_t kEntrySize = 20;
+    if (info.size() < kFirst + research.size() * kEntrySize)
+        return Error::fail(path.string() + ": techinfo is too small");
+    for (size_t e = 0; e < research.size(); ++e)
+        for (size_t f = 0; f < research[e].size(); ++f)
+            research[e][f] = s16(info, kFirst + e * kEntrySize + 6 + 2 * f);
     return Error::success();
 }
 
