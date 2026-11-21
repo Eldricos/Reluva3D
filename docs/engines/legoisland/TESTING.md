@@ -10,7 +10,7 @@ files):
 
 | Suite | What it checks |
 |---|---|
-| `legoisland.unit.detection` | Recognising the game's releases |
+| `legoisland.unit.detection` | Recognising the game's releases: an unknown release by its files' names, in any case; `LEGO1.DLL` without the world database isn't the game |
 
 ### The basic engine test
 

@@ -8,6 +8,8 @@
 
 #include "tests/support/test.h"
 
+#include <fstream>
+
 using namespace reluva;
 
 namespace {
@@ -23,6 +25,32 @@ void testEmptyFolder(const std::filesystem::path &tmp) {
     CHECK(engine && engine->detect(tmp).empty());
 }
 
+void touch(const std::filesystem::path &file) {
+    std::filesystem::create_directories(file.parent_path());
+    std::ofstream(file) << "not the game's";
+}
+
+// A release not in the table is still found by its files' names, in any
+// case, as an unknown release.
+void testUnknownRelease(const std::filesystem::path &tmp) {
+    touch(tmp / "lego1.dll");
+    touch(tmp / "LEGO" / "Data" / "world.wdb");
+    const MetaEngine *engine = findEngine("legoisland");
+    CHECK(engine != nullptr);
+    const std::vector<DetectedGame> found = engine->detect(tmp);
+    CHECK(found.size() == 1);
+    CHECK(found[0].gameId == "legoisland");
+    CHECK(found[0].description == "LEGO Island (unknown release)");
+}
+
+// The game's code without its world database (a copy of the CD's root,
+// say) isn't the game.
+void testCodeAlone(const std::filesystem::path &tmp) {
+    touch(tmp / "LEGO1.DLL");
+    const MetaEngine *engine = findEngine("legoisland");
+    CHECK(engine && engine->detect(tmp).empty());
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -30,4 +58,6 @@ static const reluva::test::Suite
            {
                {"registered", [](const std::filesystem::path &) { testRegistered(); }},
                {"empty folder", [](const std::filesystem::path &tmp) { testEmptyFolder(tmp); }},
+               {"unknown release", [](const std::filesystem::path &tmp) { testUnknownRelease(tmp); }},
+               {"code alone", [](const std::filesystem::path &tmp) { testCodeAlone(tmp); }},
            });

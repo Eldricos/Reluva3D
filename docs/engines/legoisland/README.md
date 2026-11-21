@@ -10,16 +10,18 @@ Engine id `legoisland`, in `src/engines/legoisland/`.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| LEGO Island | `legoisland` | Mindscape / LEGO Media, 1997 | Windows | None yet; the English 1.0 release is next | Not yet recognised |
+| LEGO Island | `legoisland` | Mindscape / LEGO Media, 1997 | Windows | English 1.0 (`LEGO1.DLL`, `WORLD.WDB`); any other by its files' names, as an unknown release | Recognised; nothing runs yet |
 
 ## Where it stands
 
-Started from the template: it recognises nothing yet, and shows an empty
-screen. The plan is in [PLAN.md](PLAN.md).
+It recognises the English 1.0 release, and other releases by their
+files' names ([systems/game-files.md](systems/game-files.md)), and shows
+an empty screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
-Nothing to use yet: the game isn't recognised.
+Nothing to play yet. The launcher's *Add Game...* recognises the game's
+install folder, or the CD's `DATA\DISK` folder.
 
 ## This folder
 
@@ -28,7 +30,7 @@ Nothing to use yet: the game isn't recognised.
 | This page | The games, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | `formats/` | A page per file format, as it's worked out |
-| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
+| [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (its files, and telling releases apart) |
 | `research/` | Working notes: address maps, raw findings, notes on recordings |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

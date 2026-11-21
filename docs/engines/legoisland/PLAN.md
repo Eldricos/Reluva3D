@@ -12,10 +12,11 @@ building the four vehicles, the races, the Brickster's escape and chase
 Each phase ends with something that runs, is tested and is committed.
 
 1. **The engine's start** (done): the template, these pages, the plan.
-2. **Detection and import** (next): `kVariants` for the English 1.0
-   release, keyed on `LEGO1.DLL` and `WORLD.WDB`; *Import Game...* copies
-   the CD's `DATA\DISK\` folder, as the installer does, and finds the
-   CD's `LEGO\SCRIPTS\` for what the game streams from it.
+2. **Detection and import** (in progress): `kVariants` for the English
+   1.0 release, keyed on `LEGO1.DLL` and `WORLD.WDB`, is done
+   ([systems/game-files.md](systems/game-files.md)). Next, *Import
+   Game...* copies the CD's `DATA\DISK\` folder, as the installer does,
+   and finds the CD's `LEGO\SCRIPTS\` for what the game streams from it.
 3. **Readers and the data viewer:** the `.SI` archives (their objects,
    actions and interleaved media), FLC animations (a new shared FLIC
    decoder in `src/video/`), the Smacker 2 movies (the shared decoder),

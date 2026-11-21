@@ -2,9 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // LEGO Island: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine. Started from the template
-// (cmake/NewEngine.cmake): so far it recognises nothing and shows an empty
-// screen.
+// making an Engine to run one) and its Engine, which so far shows an empty
+// screen (docs/engines/legoisland/PLAN.md).
 
 #include "engines/engine.h"
 
@@ -12,12 +11,25 @@ namespace reluva::legoisland {
 
 namespace {
 
-// The releases it recognises: files that must be there, with the MD5 of
-// their start and their size, as `reluva --hash <files...>` prints them.
-// A folder matching every file of a variant is that release.
+// The releases it recognises, by the game's code and its world database
+// as the installer copies them (docs/engines/legoisland/systems/game-files.md).
 const std::vector<GameVariant> kVariants = {
-    // {"<game id>", "<Game name> (<release>)", "en", "windows",
-    //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
+    {"legoisland",
+     "LEGO Island (English 1.0)",
+     "en",
+     "windows",
+     {{"LEGO1.DLL", "b7ca2f80366a427797cc3f820c48a0f1", 1134080},
+      {"lego/data/WORLD.WDB", "a2de77ebfa5164ec949f19cd5c7bb58c", 9944860}}},
+};
+
+// The same game by its files' names alone, for releases not in kVariants
+// (1.1, other languages): used only when nothing there matches.
+const std::vector<GameVariant> kFallback = {
+    {"legoisland",
+     "LEGO Island (unknown release)",
+     "",
+     "windows",
+     {{"LEGO1.DLL", "", -1}, {"lego/data/WORLD.WDB", "", -1}}},
 };
 
 /**
@@ -62,7 +74,8 @@ public:
     const char *name() const override { return "LEGO Island"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
-        return detectFromTable(id(), kVariants, dir);
+        std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
+        return found.empty() ? detectFromTable(id(), kFallback, dir) : found;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
