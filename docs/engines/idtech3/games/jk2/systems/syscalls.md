@@ -62,8 +62,8 @@ the screen, as for Elite Force.
 | 63–69 | `PC_AddGlobalDefine`, `PC_LoadSource`, `PC_FreeSource`, `PC_ReadToken`, `PC_SourceFileAndLine`, `PC_LoadGlobalDefines`, `PC_RemoveAllGlobalDefines` | the menu scripts, through the engine's script reader; a token (`pc_token_t`) is its type, subtype, int, float, then 1,024 bytes of text |
 | 70, 71 | `S_StopBackgroundTrack`, `S_StartBackgroundTrack(intro, loop)` | the Menu page's music |
 | 72 | `RealTime(qtime)` | the local time |
-| 83–87 | the cinematic calls (`CIN_*`) | none plays: `CIN_PlayCinematic` returns -1, which the menus take as no video |
-| 88 | `R_RemapShader` | not yet: only a menu script's `remap` command calls it, and no 1.02a menu has one |
+| 83–87 | `CIN_PlayCinematic(name, x, y, w, h, bits)`, `CIN_StopCinematic`, `CIN_RunCinematic`, `CIN_DrawCinematic`, `CIN_SetExtents(handle, x, y, w, h)` | the engine's videos (below) |
+| 88 | `R_RemapShader(from, to, offset)` | what's drawn with one shader drawn with another, the time offset given as text (0x410601); only a menu script's `remap` command calls it, and no menu of any release has one |
 | 100–106 | `memset`, `memcpy`, `strncpy`, `sin`, `cos`, `atan2`, `sqrt` | the interpreter's own |
 | 200, 201 | `SP_Register(package)`, `SP_GetStringTextString(reference, buffer, size)` | the string packages, in `sp_language`'s language ([strings.md](../../../formats/strings.md)) |
 
@@ -189,6 +189,23 @@ function):
   (`JK2MP: v1.03 win-x86 Apr 30 2002`, `JK2MP: v1.04 win-x86 Jul  3
   2002`), and 1.04's `protocol` is 16.
 
+### Videos
+
+The menus play videos through the engine (`jk2mp.exe`'s cases 0x41057a
+to 0x4105e0, its client's 0x404940 on). Up to 16 play at once, each in
+a slot. A name without a folder is under `video/`, `.roq` unless it has
+a type; a name already playing shares its slot, unless the bits ask for
+the engine's own (1); one that can't be read gives -1. Running a video
+decodes the frames due by the clock and answers its state: playing (1),
+or idle (0) at its end, where it's held (bit 4), starts again (bit 2),
+or is let go; its last frame stays drawn. Drawing puts the frame where
+its extents say, in screen pixels as they are. Stopping lets it go.
+
+Every video the menus start is looping and silent (bits 10): Create
+Server's map preview (owner draw 255) plays `video/<map>.roq` if there's
+one, else shows the levelshot. No release has such a video, so in the
+shipped games only a mod's would play.
+
 ## Sources and checks
 
 - **Where the facts come from:** 1.02a's `ui.qvm`, through `qvm-info`
@@ -211,7 +228,11 @@ function):
   and 1.04's menus (records `jk2-1.03/`, `jk2-1.04/`), their text found
   and the clicks reaching Create Server and Join Server; a unit test
   (`idtech3.unit.input`, "key bindings") turns every key to 1.04's
-  number and back.
+  number and back. Another (`idtech3.unit.formats`, "cinematic slots")
+  plays a made-up RoQ in the slots: shared and the engine's own, run,
+  drawn where its extents say, looped, held, let go and stopped. In
+  Reluva's window, a video put in as `video/ffa_bespin.roq` played in
+  Create Server's map preview.
 
 ### Open questions
 
@@ -220,7 +241,6 @@ function):
   `menu/art/3_cursor2`, `gfx/2d/crosshairj`); they get 0 and the menus
   draw something else (the map preview is `levelshots/<map>`). Whether
   the original draws anything for them isn't confirmed.
-- The cinematic calls and `R_RemapShader` aren't answered yet.
 - The Internet list hasn't been tried against a master from here (the
   test machine's network doesn't reach them); the local list has, with a
   stand-in server.

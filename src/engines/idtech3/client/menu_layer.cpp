@@ -312,19 +312,33 @@ void MenuLayer::frame(uint64_t nowMs) {
     findCursor();
 
     // The pictures, in screen pixels as the menus count, with each 3D
-    // scene (the player model in Player settings...) over the pictures
-    // drawn before it.
+    // scene (the player model in Player settings...) and each video's
+    // frame over the pictures drawn before it.
     const float seconds = float(time) / 1000.0f;
+    for (const MenuHost::ShaderRemap &r : _ui->takeShaderRemaps())
+        _shaders->remap(r.from, r.to, r.timeOffset);
     const auto &scene = _ui->scene();
+    const auto &images = _ui->imageDraws();
     _scene->setHandles({&_ui->models(), &_ui->skins(), &_ui->shaders()});
     size_t drawn = 0;
+    size_t imagesDrawn = 0;
+    auto imagesUpTo = [&](size_t to) {
+        for (; imagesDrawn < images.size() && images[imagesDrawn].picturesBefore <= to; ++imagesDrawn) {
+            const CinematicSlots::Frame &f = images[imagesDrawn].frame;
+            _scene->drawPictures(pictures, drawn, images[imagesDrawn].picturesBefore, _frameW, _frameH, seconds);
+            drawn = std::max(drawn, images[imagesDrawn].picturesBefore);
+            _scene->drawImage(f.rgba->data(), f.cols, f.rows, f.x, f.y, f.w, f.h, _frameW, _frameH);
+        }
+    };
     bool first = true;
     for (const auto &v : scene.views) {
+        imagesUpTo(v.picturesBefore);
         _scene->drawPictures(pictures, drawn, v.picturesBefore, _frameW, _frameH, seconds);
         drawn = std::max(drawn, v.picturesBefore);
         _scene->drawView(scene, v, _frameW, _frameH, seconds, first, nullptr, nullptr, true);
         first = false;
     }
+    imagesUpTo(pictures.size());
     _scene->drawPictures(pictures, drawn, pictures.size(), _frameW, _frameH, seconds);
 }
 

@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"
+#include "engines/idtech3/client/cinematic_slots.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
@@ -737,6 +738,55 @@ static void testGhoul2Collision() {
     ghost[0].noCollide = true;
     jk2::traceGhoul2(ghost, world, {0, 0, 0}, {90, 2, 2}, {110, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
     CHECK(hits.empty());
+}
+
+static void testCinematicSlots() {
+    // A made-up 16x16 RoQ of three frames at 30 a second (as the common
+    // RoQ test's), played as the menus' videos are.
+    std::vector<uint8_t> roq;
+    auto chunk = [&](uint16_t id, uint32_t size, uint16_t arg, std::initializer_list<uint8_t> data) {
+        for (int i = 0; i < 2; ++i)
+            roq.push_back(uint8_t(id >> (8 * i)));
+        for (int i = 0; i < 4; ++i)
+            roq.push_back(uint8_t(size >> (8 * i)));
+        for (int i = 0; i < 2; ++i)
+            roq.push_back(uint8_t(arg >> (8 * i)));
+        roq.insert(roq.end(), data);
+    };
+    chunk(0x1084, 0xffffffff, 30, {});
+    chunk(0x1001, 8, 0, {16, 0, 16, 0, 8, 0, 4, 0});
+    chunk(0x1002, 16, 0x0201, {10, 20, 30, 40, 100, 150, 200, 200, 200, 200, 128, 128, 0, 1, 1, 0});
+    chunk(0x1011, 8, 0, {0x00, 0xbb, 0, 0, 1, 1, 1, 1});
+    chunk(0x1011, 3, 0, {0x00, 0x40, 0x08});
+    chunk(0x1011, 2, 0, {0x00, 0x00});
+    SearchSet set;
+    auto zip = std::make_unique<ZipArchive>();
+    const auto path = std::filesystem::temp_directory_path() / "reluva_idtech3_cinematics.pk3";
+    test::writeFile(path, test::buildZip({{"video/test.roq", roq, {}}}));
+    CHECK(!zip->open(path));
+    set.add(std::move(zip), 0);
+    CinematicSlots c(set);
+    // Under video/, .roq by default; the same video shares its slot
+    // unless the engine's own; one missing can't be played.
+    CHECK(c.play("test", 10, 20, 30, 40, CinematicSlots::kLoop, 0) == 0);
+    CHECK(c.play("test", 0, 0, 0, 0, 0, 0) == 0 && c.play("missing", 0, 0, 0, 0, 0, 0) == -1);
+    CHECK(c.play("video/test.roq", 0, 0, 0, 0, CinematicSlots::kSystem, 0) == 1);
+    // Run, its first frame drawn where the extents say.
+    CinematicSlots::Frame f;
+    CHECK(!c.frame(0, f) && c.run(0, 0) == CinematicSlots::kPlay && c.frame(0, f));
+    CHECK(f.cols == 16 && f.rows == 16 && f.x == 10 && f.w == 30 && f.rgba->size() == 16 * 16 * 4);
+    c.setExtents(0, 1, 2, 3, 4);
+    CHECK(c.frame(0, f) && f.x == 1 && f.h == 4);
+    // Past its end: looping, round again; not, let go, its last frame
+    // still drawn, its slot free for another.
+    CHECK(c.run(0, 500) == CinematicSlots::kPlay && c.run(0, 510) == CinematicSlots::kPlay);
+    CHECK(c.run(1, 0) == CinematicSlots::kPlay && c.run(1, 500) == CinematicSlots::kIdle && c.frame(1, f));
+    CHECK(c.play("other/test", 0, 0, 0, 0, 0, 0) == -1 && c.play("test", 0, 0, 0, 0, CinematicSlots::kSystem, 0) == 1);
+    // Held at the end, it stays; stopped, it's let go.
+    CHECK(c.play("test", 0, 0, 0, 0, CinematicSlots::kHold | CinematicSlots::kSystem, 0) == 2);
+    CHECK(c.run(2, 500) == CinematicSlots::kIdle && c.play("test", 0, 0, 0, 0, 0, 0) == 0);
+    CHECK(c.stop(0) == CinematicSlots::kEnded && c.run(0, 600) == CinematicSlots::kIdle);
+    CHECK(c.run(99, 0) == CinematicSlots::kEnded && c.stop(-1) == CinematicSlots::kEnded);
 }
 
 static void testGhoul2Instances() {
@@ -1615,6 +1665,7 @@ static const reluva::test::Suite
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
+               {"cinematic slots", [](const std::filesystem::path &) { testCinematicSlots(); }},
                {"ghoul2 collision", [](const std::filesystem::path &) { testGhoul2Collision(); }},
                {"menu definitions", [](const std::filesystem::path &) { testMenuDefs(); }},
                {"effects", [](const std::filesystem::path &) { testEffects(); }},

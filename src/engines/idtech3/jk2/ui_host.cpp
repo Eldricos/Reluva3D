@@ -9,6 +9,7 @@
 
 #include "common/fs.h"
 
+#include <cstdlib>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -660,15 +661,27 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case kLanServerIsVisible:
     case kLanCompareServers:
         return serverListCall(vm, number, a);
-    // Cinematics in the menus: none yet; -1 is "couldn't play it".
-    case kCinPlayCinematic:
-        return -1;
+    // The menus' videos (jk2mp.exe's cases 0x41057a to 0x4105e0): played
+    // by the engine on the menus' clock, each frame drawn among the
+    // pictures where the menus draw it.
+    case kCinPlayCinematic: // (name, x, y, w, h, bits)
+        return _cinematics.play(vm.string(a[0], 256), a[1], a[2], a[3], a[4], a[5], _time);
     case kCinStopCinematic:
+        return _cinematics.stop(a[0]);
     case kCinRunCinematic:
-    case kCinDrawCinematic:
-    case kCinSetExtents:
-    case kRRemapShader:
-        ++_unhandled[number];
+        return _cinematics.run(a[0], _time);
+    case kCinDrawCinematic: {
+        CinematicSlots::Frame frame;
+        if (_cinematics.frame(a[0], frame))
+            _imageDraws.push_back({_pictures.size(), frame});
+        return 0;
+    }
+    case kCinSetExtents: // (handle, x, y, w, h)
+        _cinematics.setExtents(a[0], a[1], a[2], a[3], a[4]);
+        return 0;
+    case kRRemapShader: // (from, to, time offset): all three text (0x410601)
+        _shaderRemaps.push_back(
+            {vm.string(a[0], 64), vm.string(a[1], 64), float(std::atof(vm.string(a[2], 64).c_str()))});
         return 0;
     case kSpRegister: {
         // Every package is read at once; whether this one was.

@@ -14,6 +14,7 @@
 
 #include "common/archive.h"
 
+#include <utility>
 #include <array>
 #include <cstdint>
 #include <map>
@@ -60,7 +61,10 @@ public:
     void clearPictures() override {
         _pictures.clear();
         _scene = Scene{};
+        _imageDraws.clear();
     }
+    const std::vector<ImageDraw> &imageDraws() const override { return _imageDraws; }
+    std::vector<ShaderRemap> takeShaderRemaps() override { return std::exchange(_shaderRemaps, {}); }
     const HandleTable &shaders() const override { return _shaders; }
     // Jedi Outcast's pointer: the assets' cursor, cursor*.
     bool isCursor(const std::string &shader) const override;
@@ -97,7 +101,10 @@ private:
     HandleTable _models;
     HandleTable _sounds;
     std::vector<Picture> _pictures;
-    Scene _scene;      // the main menu's turning logo
+    Scene _scene; // the main menu's turning logo
+    CinematicSlots _cinematics{_files};
+    std::vector<ImageDraw> _imageDraws;
+    std::vector<ShaderRemap> _shaderRemaps;
     HandleTable _none; // nor name models or skins
     raven::StringTable _strings;
     bool _stringsLoaded = false;

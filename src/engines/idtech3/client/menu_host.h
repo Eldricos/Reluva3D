@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/client/bindings.h"
+#include "engines/idtech3/client/cinematic_slots.h"
 #include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/client/server_browser.h"
 #include "engines/idtech3/vm/qvm.h"
@@ -70,6 +71,24 @@ public:
     virtual const std::vector<Picture> &pictures() const = 0;
     // The 3D scenes drawn among them, each over the pictures before it.
     virtual const Scene &scene() const = 0;
+    // The videos' frames drawn among them (CIN_DrawCinematic), each over
+    // the pictures before it, in the menus' screen.
+    struct ImageDraw {
+        size_t picturesBefore = 0;
+        CinematicSlots::Frame frame;
+    };
+    virtual const std::vector<ImageDraw> &imageDraws() const {
+        static const std::vector<ImageDraw> kNone;
+        return kNone;
+    }
+    // What the menus' R_RemapShader asked since the last time: what's
+    // drawn with `from` drawn with `to`, its time `timeOffset` seconds behind.
+    struct ShaderRemap {
+        std::string from;
+        std::string to;
+        float timeOffset = 0;
+    };
+    virtual std::vector<ShaderRemap> takeShaderRemaps() { return {}; }
     // Forgets the last frame's pictures and scenes, before the next.
     virtual void clearPictures() = 0;
     virtual const HandleTable &shaders() const = 0;

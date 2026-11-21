@@ -28,6 +28,7 @@ reluva_add_engine(idtech3
         botlib/bot_weapons.cpp
         botlib/character.cpp
         client/bindings.cpp
+        client/cinematic_slots.cpp
         client/joystick_input.cpp
         client/menu_layer.cpp
         client/menu_page.cpp
