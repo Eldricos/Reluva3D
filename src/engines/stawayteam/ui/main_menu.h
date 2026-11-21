@@ -13,6 +13,7 @@
 #include "engines/stawayteam/ui/difficulty.h"
 #include "engines/stawayteam/ui/settings.h"
 #include "engines/stawayteam/ui/key_config.h"
+#include "engines/stawayteam/ui/map_screen.h"
 #include "engines/stawayteam/ui/sound_options.h"
 #include "engines/stawayteam/ui/team_selection.h"
 #include "engines/stawayteam/game/options.h"
@@ -92,6 +93,9 @@ private:
     // it has.
     void startGame();
     void showTeamSelection();
+    // The mission's map (its first, for now: the rest of the mission isn't
+    // there yet).
+    void startMission();
 
     System &_sys;
     Surface &_screen;
@@ -113,6 +117,7 @@ private:
     std::unique_ptr<KeyConfigScreen> _keyConfig;
     std::unique_ptr<TeamSelectionScreen> _teamSelection;
     std::unique_ptr<BriefingScreen> _briefing; // over the team selection, when it's from there
+    std::unique_ptr<MapScreen> _mapScreen;
     Mission _mission;
     Difficulty _difficulty = Difficulty::kNormal;
     int _firstMission;

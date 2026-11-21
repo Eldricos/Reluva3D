@@ -13,13 +13,16 @@ reluva_add_engine(stawayteam
         formats/object_schema.cpp
         ui/movies.cpp
         ui/main_menu.cpp
+        ui/map_screen.cpp
         ui/settings.cpp
         ui/sound_options.cpp
         ui/static_text.cpp
+        ui/animation.cpp
         ui/briefing.cpp
         ui/team_selection.cpp
         game/controls.cpp
         game/options.cpp
+        game/map.cpp
         game/team.cpp
         ui/button.cpp
         ui/credits.cpp
@@ -63,10 +66,11 @@ reluva_add_engine_tests(stawayteam
     SOURCES
         ${tests}/unit/detection.cpp
         ${tests}/unit/formats.cpp
+        ${tests}/unit/maps.cpp
         ${tests}/unit/menus.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.formats unit.menus engine)
+        unit.detection unit.formats unit.maps unit.menus engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

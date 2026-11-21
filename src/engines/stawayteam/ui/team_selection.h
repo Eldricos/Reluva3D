@@ -10,6 +10,7 @@
 #include "engines/stawayteam/formats/frame.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/team.h"
+#include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/ui/static_text.h"
@@ -24,22 +25,6 @@
 namespace reluva::stawayteam {
 
 class ConfirmDialog;
-
-/** A sequence's frames, as pictures with their origins, and its speed. */
-struct Animation {
-    struct Picture {
-        image::Image image;
-        int originX = 0;
-        int originY = 0;
-    };
-    std::vector<Picture> frames;
-    float fps = 0.0f;
-
-    /** Reads `Cache/Sequences/<name>.seq16`, or a model's sequence `sequence` from `Cache/Models/<name>.mdl16`. */
-    Error load(const Archive &data, const std::string &name, const std::string &sequence = "");
-    /** The frame shown `ms` milliseconds in, the first `offset` frames passed over; nullptr if it has none. */
-    const Picture *at(uint64_t ms, int offset = 0) const;
-};
 
 /**
  * The team selection screen (`CStarTrekTeamSelectionMenu`, 0x5ea240),

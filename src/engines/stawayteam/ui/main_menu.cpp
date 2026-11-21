@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 
@@ -190,6 +191,11 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_mapScreen) {
+                if (_mapScreen->handleEvent(ev, _mixer, _sys.getMillis()) != MapScreen::Choice::kNone)
+                    _mapScreen.reset();
+                continue;
+            }
             if (_briefing) {
                 const BriefingScreen::Choice choice = _briefing->handleEvent(ev, _sys.getMillis());
                 if (choice == BriefingScreen::Choice::kExit) {
@@ -197,22 +203,25 @@ bool MainMenu::run() {
                     _teamSelection.reset();
                 } else if (choice == BriefingScreen::Choice::kEndBriefing) {
                     _briefing.reset();
-                    // On to the team selection; without one, the mission,
-                    // which isn't there yet.
+                    // On to the team selection; without one, the mission.
                     if (!_teamSelection && _mission.showTeamSelection)
                         showTeamSelection();
+                    else if (!_teamSelection)
+                        startMission();
                 }
                 continue;
             }
             if (_teamSelection) {
-                // Starting the mission comes back here: the mission isn't
-                // there yet.
                 const TeamSelectionScreen::Choice choice = _teamSelection->handleEvent(ev, _mixer, _sys.getMillis());
-                if (choice == TeamSelectionScreen::Choice::kBriefing)
+                if (choice == TeamSelectionScreen::Choice::kBriefing) {
                     _briefing = std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer,
                                                                  _sys.getMillis());
-                else if (choice != TeamSelectionScreen::Choice::kNone)
+                } else if (choice == TeamSelectionScreen::Choice::kStartMission) {
                     _teamSelection.reset();
+                    startMission();
+                } else if (choice != TeamSelectionScreen::Choice::kNone) {
+                    _teamSelection.reset();
+                }
                 continue;
             }
             if (_difficultyWindow) {
@@ -270,7 +279,7 @@ bool MainMenu::run() {
         }
         // The menu's song stops for the game's screens, which have their
         // own music, and comes back with the menu (inferred).
-        const bool inGame = _briefing || _teamSelection;
+        const bool inGame = _briefing || _teamSelection || _mapScreen;
         if (inGame && song != audio::kNoSound) {
             stopSong();
             song = audio::kNoSound;
@@ -296,6 +305,17 @@ void MainMenu::startGame() {
         showTeamSelection();
 }
 
+void MainMenu::startMission() {
+    char folder[32];
+    std::snprintf(folder, sizeof folder, "Mission %02d", _mission.number);
+    GameMap map;
+    if (Error err = loadMap(_data, std::string("Levels/") + folder + "/" + _mission.mapName, map)) {
+        log::warning("Mission %d's map: %s", _mission.number, err.message.c_str());
+        return;
+    }
+    _mapScreen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis());
+}
+
 void MainMenu::showTeamSelection() {
     std::vector<TeamMember> roster;
     if (Error err = loadRoster(_data, roster)) {
@@ -308,6 +328,10 @@ void MainMenu::showTeamSelection() {
 void MainMenu::draw() {
     const uint64_t now = _sys.getMillis();
     clearScreen(_screen);
+    if (_mapScreen) {
+        _mapScreen->draw(_screen, now);
+        return;
+    }
     if (_briefing) {
         _briefing->draw(_screen, now);
         return;

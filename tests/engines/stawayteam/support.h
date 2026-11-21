@@ -5,7 +5,10 @@
 
 #pragma once
 
+#include "common/archive.h"
+
 #include <cstdint>
+#include <map>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -168,5 +171,27 @@ inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, in
         w.i32(0).i32(0);
     return w.out;
 }
+
+// Files in memory, by name as given.
+class MemoryArchive : public Archive {
+public:
+    std::map<std::string, std::vector<uint8_t>, std::less<>> files;
+
+    std::vector<std::string> list() const override {
+        std::vector<std::string> names;
+        for (const auto &[name, data] : files)
+            names.push_back(name);
+        return names;
+    }
+    bool has(std::string_view name) const override { return files.find(name) != files.end(); }
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override {
+        const auto it = files.find(name);
+        if (it == files.end())
+            return Error::fail(std::string(name) + " isn't there");
+        out = it->second;
+        return Error::success();
+    }
+    std::string describe() const override { return "memory"; }
+};
 
 } // namespace reluva::stawayteam

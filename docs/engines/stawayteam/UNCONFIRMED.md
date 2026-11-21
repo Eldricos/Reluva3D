@@ -33,6 +33,11 @@ None yet.
   line shown once Alt is pressed, a fixed-width font's cell, and the
   sounds named `.wav` being the `.ogg` files of their names
   ([systems/menus.md](systems/menus.md#open-questions)).
+- **Maps:** the camera's start as the view's middle and its bounds,
+  the scrolling's speed, the models' drawing order and origin, shadows
+  halving what's under them, the textures repeating from the map's
+  corner, and the `Trans` polygons not shown
+  ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song
   stopped meanwhile, and text broken at its line breaks

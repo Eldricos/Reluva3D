@@ -65,7 +65,8 @@ Each phase ends with something that runs and is committed.
    `Main Screen Background.bik`, then each screen, matched against
    recordings. Game area 640x480 (`Screen Pos=75,0`,
    `Screen Size=565,423` in `Rules.txt`).
-7. **Maps**: a `.zax` level drawn (layers, placed models, textures,
+7. **Maps** (under way, [systems/maps.md](systems/maps.md): a map's
+   ground, polygons and models drawn and scrolled): a `.zax` level drawn (layers, placed models, textures,
    water warp effects, minimap), scrolled with the camera bounds, with
    its `.way` file (binary, 33 of them, likely the walk grid and
    waypoints) worked out for movement. First target: Mission 01, Klingon

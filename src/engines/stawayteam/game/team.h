@@ -75,6 +75,7 @@ struct Mission {
     bool showBriefing = false;
     bool showTeamSelection = false;
     std::string transporterBackground;
+    std::string mapName; // of the mission's folder in Levels/: "01 Klingon Outpost.zax"
     int maxMembers = 0;
     std::vector<std::string> whoShouldStart; // roster ids; these can't be left behind
     std::vector<std::string> items;          // each needed by one of the team

@@ -143,6 +143,7 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     out.showBriefing = mds.integer("Show Briefing").value_or(0) != 0;
     out.showTeamSelection = mds.integer("Show Team Selection").value_or(0) != 0;
     out.transporterBackground = text(mds, "Transporter Background");
+    out.mapName = text(mds, "Map Name");
     out.maxMembers = int(mds.integer("Max Members To Start").value_or(4));
     if (const TextObject *who = mds.object("Who Should Start"))
         for (const TextField *item : who->items())
