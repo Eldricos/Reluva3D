@@ -162,6 +162,8 @@ public:
     void shareRoffs(std::shared_ptr<raven::RoffSystem> roffs) { _roffs = std::move(roffs); }
     // Jedi Outcast's effects, as its effects calls run them.
     const raven::EffectSystem &effects() const { return _fx; }
+    // The C library's rand() its effects draw from (the engine's).
+    void setEffectRandom(std::function<int32_t()> rand) { _fx.rand = std::move(rand); }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
     const std::string &collisionMap() const { return _collisionMap; }

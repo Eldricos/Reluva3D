@@ -21,6 +21,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/raven/random.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
@@ -428,6 +429,20 @@ static void testConsoleState() {
     CHECK(c.slide(1400, false, 3) == 0);
 }
 
+static void testRandom() {
+    // The C library's rand() from its default seed, as both programs'
+    // (seeded 1 its first draws are 41, 18467, 6334, 26500); jk2mp.exe's
+    // Q_flrand and Q_irand from theirs, 0x89abcdef.
+    reluva::idtech3::raven::CrtRandom crt;
+    CHECK(crt.next() == 41 && crt.next() == 18467 && crt.next() == 6334 && crt.next() == 26500);
+    reluva::idtech3::raven::QRandom q;
+    CHECK(std::fabs(q.flrand(0, 1) - 0.436065674f) < 1e-6f && q.irand(200, 450) == 261);
+    for (int i = 0; i < 1000; ++i) {
+        const int32_t r = q.irand(3, 5);
+        CHECK(r >= 3 && r <= 5);
+    }
+}
+
 static void testWorldEffects() {
     using Batches = std::vector<WorldEffects::Batch>;
     auto vertices = [](const Batches &batches, WorldEffects::Look look) {
@@ -533,6 +548,7 @@ static const reluva::test::Suite
                                      {"console", [](const std::filesystem::path &) { testConsole(); }},
                                      {"console state", [](const std::filesystem::path &) { testConsoleState(); }},
                                      {"world effects", [](const std::filesystem::path &) { testWorldEffects(); }},
+                                     {"random", [](const std::filesystem::path &) { testRandom(); }},
                                      {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
                                      {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
                                      {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},

@@ -190,9 +190,17 @@ the original's renderer frees it then. The multiplayer Play page has `r_we` and 
 clock; it's kept from level to level, as the original's is. A missing fog
 picture ends the level, or the match, once the frame is over.
 
-Differences: the random draws are Reluva's own, so drops, flakes and
-gusts aren't where the original's would be. Snowflakes are drawn as
-squares facing the eye, as large as the original's points. A box from
+The random draws are the programs' own generators (`raven/random.h`):
+single player's the C library's `rand()` over 32767 (0x48b4b0),
+multiplayer's `Q_flrand` and `Q_irand` on their own seed (0x434140,
+0x434190), which its surface sprites share. Neither original repeats a
+run: single player seeds `rand()` from its clock (0x4772a5), and
+multiplayer's seed is shared with whatever else draws from it in the
+order frames come, so drops, flakes and gusts land where the draws
+fall. Snowflakes are squares facing the eye, their size rounded to
+whole pixels, as OpenGL draws points that aren't smoothed.
+
+Differences: a box from
 `snow wind` is given the list of counts the original never makes for it
 (the original would read one that isn't there *(inferred)*: a crash once
 the eye comes within 300 of it).

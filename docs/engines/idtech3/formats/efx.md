@@ -187,7 +187,10 @@ The client game's own primitives work the same way: lines and sprites
 (white, fading as asked), polygons of up to four corners (moving after a
 delay, turning as they go), curves (a cubic Bézier of 16 pieces facing
 the eye, fading to nothing along its length, its control points moving)
-and a saber's trail (two triangles, their texture sliding as it fades).
+and a saber's trail (two triangles, their texture sliding as it fades;
+the second's first two corners keep the first's alphas, as the GPL
+source's one array of corners does *(inferred)*: jk2mp.exe's own code
+wasn't traced).
 
 In Jedi Outcast multiplayer's renderer an effect's sizes sit in
 `refEntity_t`'s common part: a line's or electricity's width in its
@@ -213,7 +216,10 @@ each frame hands over what's seen as shapes, polygons and lights, which
 the client game's host puts in its scene as Jedi Outcast's `refEntity_t`
 (`jk2/cgame_effects.cpp`). Decals and the places of entities followed are
 asked of the client game through the shared buffer, as Raven's engine
-does. Its random numbers come from a fixed seed, so a run repeats.
+does. Its random numbers are the C library's `rand()`, as jk2mp.exe's
+effects' (0x4d554b), from the Play page's generator, seeded from the
+clock as the original's is (0x44d9a7), so neither repeats a run
+(`raven/random.h`).
 
 **Electricity** is drawn as Raven's renderer draws it (`raven::electricityStrips`;
 the GPL source's `RB_SurfaceElectricity`, checked against jk2mp.exe's,
@@ -225,7 +231,11 @@ word its own random number (the vector macros evaluate it three
 times), all from the seed the effect gave it, so the path holds still
 over its life. Each step is drawn as three flat strips through two
 kinks (a third and two thirds of the way, a little to either side,
-made anew every frame), across the plane through the eye and both
+made anew every frame from `rand()` as a -1 to 1 draw: jk2mp.exe's two
+thirds and a third along, give or take 0.1, and 0.07 to the side, give
+or take 0.025 (0x4956b0); jk2sp.exe's along fixed, and 0.08 to the
+side, give or take 0.02 (0x486750); then each a further 0.02 back),
+across the plane through the eye and both
 ends. With `taper` (the renderer's 0x8000) the width falls as 1 − how
 far squared, to nothing at the end. `branch` (0x4000) would fork it,
 but 1.02a's fork count is never set (only read and lowered, 0x494f4f),

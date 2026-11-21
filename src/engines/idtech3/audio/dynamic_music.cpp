@@ -477,7 +477,7 @@ float DynamicMusic::randomMarker(int state) {
         return 0;
     const auto n = int(piece->markers.size());
     ++_markerCount;
-    int index = int((_random() + uint32_t(_markerCount)) % uint32_t(n));
+    int index = int((uint32_t(rand ? rand() : _ownRandom.next()) + uint32_t(_markerCount)) % uint32_t(n));
     if (index == _lastMarker && n > 1)
         index = (index + 1) % n;
     _lastMarker = index;

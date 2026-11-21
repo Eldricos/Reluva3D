@@ -3,13 +3,13 @@
 
 #pragma once
 
+#include "engines/idtech3/raven/random.h"
 #include "graphics/gfx3d.h"
 
 #include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -100,6 +100,19 @@ public:
     /** How faded in the rain is (0 to 1; 0 without rain). */
     float rainFade() const;
 
+    /** The C library's rand() single player's weather draws from; unset, its own. */
+    std::function<int32_t()> rand;
+    /** Multiplayer's Q_flrand and Q_irand seed, which its surface sprites share; unset, its own. */
+    raven::QRandom *engineRandom = nullptr;
+
+    /** Its random draws, as its program makes them. */
+    struct Draws {
+        WorldEffects &owner;
+        int32_t rand();
+        float range(float from, float to);
+        int irand(int from, int to);
+    };
+
 private:
     struct Effect;
     struct Effects;
@@ -120,7 +133,8 @@ private:
     ViewParms _view;        // the last frame's, where a new fog is placed from
     std::shared_ptr<const WeatherPicture> _fogPicture;
     std::string _error; // a command's, while it runs
-    std::mt19937 _random{1};
+    raven::CrtRandom _ownRand;
+    raven::QRandom _ownEngineRandom;
 };
 
 } // namespace reluva::idtech3

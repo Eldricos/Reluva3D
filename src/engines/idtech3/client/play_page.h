@@ -89,6 +89,8 @@ private:
     // original keeps it, moved on by the view's clock and drawn with the
     // first view of the level.
     void prepareWeather(const std::vector<uint8_t> &refdef);
+    raven::CrtRandom _crtRandom;
+    raven::QRandom _engineRandom;
     WorldEffects _weather{WorldEffects::Engine::kMultiplayer};
     WeatherDrawing _weatherDrawing{WorldEffects::Engine::kMultiplayer};
     int32_t _weatherTime = -1; // the view's time it was last moved at

@@ -166,7 +166,10 @@ buffer's and the memory's left out); with `developer` set, the start's
 two prints (`S_StartBackgroundTrack: Found dynamic music tracks`, and
 `Found/using non-dynamic music track`).
 
-Differences: the random markers are Reluva's own draws. The client
+The random markers draw from the page's `rand()`, seeded from the clock
+as the original's (0x42d992).
+
+Differences: the client
 game's "starting" call (its third argument set, as it begins,
 0x2003398e) starts the music here; see UNCONFIRMED.md.
 

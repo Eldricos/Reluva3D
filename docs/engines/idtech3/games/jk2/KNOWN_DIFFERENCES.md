@@ -34,22 +34,6 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Not yet as the original
 
-In the maps:
-
-- **Surface sprites**' wind gusts come at Reluva's own random times
-  ([shader.md](../../formats/shader.md), In Reluva).
-- **The weather**'s drops, flakes and gusts are Reluva's own random
-  draws, and its snowflakes squares as large as the original's points
-  ([systems/weather.md](systems/weather.md)).
-
-In the multiplayer game:
-
-- **Effects** ([efx.md](../../formats/efx.md)): the second
-  triangle of a saber's trail is given its corners' own alpha, where
-  Raven's code leaves two of them unset. Electricity's small kinks are
-  Reluva's own random draws, not the original's, as surface sprites'
-  spots are.
-
 In the multiplayer menus:
 
 - **The favourite servers** are kept in `favorites.txt` (address and

@@ -689,6 +689,21 @@ static void testEffects() {
     fx.setTime(7100, {-100, 0, 0}, view);
     fx.run(frame);
     CHECK(boltAsks == asked && fx.live() == 0 && !sprite());
+    // A saber's trail: two triangles, the second's first two corners
+    // with the first's alphas.
+    std::array<EffectSystem::TrailVertex, 4> corners{};
+    for (size_t i = 0; i < 4; ++i)
+        corners[i].alpha = float(10 * (i + 1));
+    fx.addTrail(corners, 1, 1000);
+    frame = {};
+    fx.run(frame);
+    CHECK(frame.polys.size() == 2);
+    if (frame.polys.size() == 2) {
+        const auto &first = frame.polys[0].vertices;
+        const auto &second = frame.polys[1].vertices;
+        CHECK(first[0].rgba[3] == 10 && first[1].rgba[3] == 20 && first[2].rgba[3] == 40);
+        CHECK(second[0].rgba[3] == 10 && second[1].rgba[3] == 20 && second[2].rgba[3] == 20);
+    }
     fx.clear();
     CHECK(fx.live() == 0 && fx.registered() == 0);
     std::filesystem::remove(path);

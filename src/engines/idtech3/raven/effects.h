@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/raven/effect_file.h"
+#include "engines/idtech3/raven/random.h"
 
 #include "common/archive.h"
 
@@ -12,7 +13,6 @@
 #include <functional>
 #include <map>
 #include <optional>
-#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -45,17 +45,20 @@ struct BoltStrip {
 // 0x494c70): 20-unit steps, each step's point pushed off the straight
 // line by an offset that builds up (from 10, 10, 10), its random parts
 // from `seed`, so the path holds still; each step three strips through
-// two kinks made anew each time from `random` (-1 to 1). Tapered, the
-// width falls as 1 - how far squared. 1.02a never forks (its fork count is
-// never set, 0x494f4f), so branches add nothing. Shorter than a step:
-// none.
+// two kinks made anew each time from `random` (-1 to 1), single
+// player's renderer's its own way (`singlePlayer`). Tapered, the width
+// falls as 1 - how far squared. 1.02a never forks (its fork count is never
+// set, 0x494f4f), so branches add nothing. Shorter than a step: none.
 std::vector<BoltStrip> electricityStrips(const std::array<float, 3> &origin, const std::array<float, 3> &end,
                                          float radius, float chaos, int32_t seed, bool tapered,
-                                         const std::function<float()> &random);
+                                         const std::function<float()> &random, bool singlePlayer = false);
 
 class EffectSystem {
 public:
     using Vec3 = std::array<float, 3>;
+
+    /** The C library's rand() its draws come from (jk2mp.exe's effects'); unset, its own. */
+    std::function<int32_t()> rand;
     using Axis = std::array<Vec3, 3>; // forward, left, up
 
     struct Trace {
@@ -290,7 +293,7 @@ private:
         std::array<TrailVertex, 4> trail{};
     };
 
-    float random() { return std::uniform_real_distribution<float>(0, 1)(_random); }
+    float random() { return float((rand ? rand() : _ownRandom.next()) & 0x7fff) / 32767.0f; }
     float crandom() { return 2 * (random() - 0.5f); }
     float pick(const EffectRange &r) { return r.min == r.max ? r.min : r.min + (r.max - r.min) * random(); }
     template<typename T>
@@ -329,7 +332,7 @@ private:
     int32_t _frameTime = 0;
     Vec3 _viewOrigin{};
     Axis _viewAxis{};
-    std::minstd_rand _random{1};
+    CrtRandom _ownRandom;
 };
 
 } // namespace reluva::idtech3::raven

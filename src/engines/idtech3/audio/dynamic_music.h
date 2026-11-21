@@ -6,13 +6,13 @@
 #include "common/types.h"
 
 #include "audio/mixer.h"
+#include "engines/idtech3/raven/random.h"
 
 #include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
-#include <random>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -141,6 +141,8 @@ public:
     int debug = 0;
     /** Where those prints go. */
     std::function<void(const std::string &)> print;
+    /** The C library's rand() the markers are drawn with (0x42d992); unset, its own. */
+    std::function<int32_t()> rand;
 
 private:
     struct Fade {
@@ -173,7 +175,7 @@ private:
     float _entry = 0;
     int _lastMarker = -1; // the random marker chosen last
     int _markerCount = 0;
-    std::mt19937 _random{1};
+    raven::CrtRandom _ownRandom;
 };
 
 } // namespace reluva::idtech3

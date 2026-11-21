@@ -95,6 +95,8 @@ public:
     // The state the game asks for, configstring 907; nullptr while unset.
     void setMusicState(const std::string *state);
     const DynamicMusic &dynamicMusic() const { return _dynamic; }
+    // The C library's rand() the music's markers draw from (the engine's).
+    void setMusicRandom(std::function<int32_t()> rand) { _dynamic.rand = std::move(rand); }
     // Where the music's messages go (the console).
     std::function<void(const std::string &)> print;
     // Each frame, after the client game's: positions and volumes brought

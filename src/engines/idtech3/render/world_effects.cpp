@@ -38,13 +38,13 @@ V3 cross(const V3 &a, const V3 &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
 
-float random(std::mt19937 &rng, float from, float to) {
-    return from + (to - from) * std::uniform_real_distribution<float>(0, 1)(rng);
+float random(WorldEffects::Draws &rng, float from, float to) {
+    return rng.range(from, to);
 }
 
 // From `from` to `to`, both included (jk2mp.exe's irand, 0x434190).
-int irandom(std::mt19937 &rng, int from, int to) {
-    return std::uniform_int_distribution<int>(from, to)(rng);
+int irandom(WorldEffects::Draws &rng, int from, int to) {
+    return rng.irand(from, to);
 }
 
 // The command's words as COM_ParseExt reads them on one line: runs of
@@ -151,12 +151,12 @@ constexpr float kFogSize = 0.1f;
 
 // Frames until the wind turns again: jk2sp.exe's 200 and up to 249 more
 // (0x48e802), jk2mp.exe's 200 to 450 (0x49c0b2).
-int framesToTurn(std::mt19937 &rng, WorldEffects::Engine engine) {
-    return engine == WorldEffects::Engine::kSinglePlayer ? 200 + int(rng() % 250) : irandom(rng, 200, 450);
+int framesToTurn(WorldEffects::Draws &rng, WorldEffects::Engine engine) {
+    return engine == WorldEffects::Engine::kSinglePlayer ? 200 + rng.rand() % 250 : irandom(rng, 200, 450);
 }
 
 // A direction across, of length 1 (or none).
-V3 randomAcross(std::mt19937 &rng) {
+V3 randomAcross(WorldEffects::Draws &rng) {
     const float x = random(rng, -1, 1);
     const float y = random(rng, -1, 1);
     return normalized({x, y, 0});
@@ -167,7 +167,7 @@ struct Frame {
     const WorldEffects::ViewParms &view;
     float seconds = 0;
     int32_t eyeContents = 0;
-    std::mt19937 &rng;
+    WorldEffects::Draws &rng;
 };
 
 // A snowflake.
@@ -178,6 +178,22 @@ struct Flake {
 };
 
 } // namespace
+
+int32_t WorldEffects::Draws::rand() {
+    return owner.rand ? owner.rand() : owner._ownRand.next();
+}
+
+float WorldEffects::Draws::range(float from, float to) {
+    // Single player's a rand() over 32767 across it (0x48b4b0), multiplayer's
+    // its Q_flrand.
+    if (owner._engine == Engine::kSinglePlayer)
+        return from + (to - from) * (float(rand()) * (1.0f / 32767));
+    return (owner.engineRandom ? *owner.engineRandom : owner._ownEngineRandom).flrand(from, to);
+}
+
+int WorldEffects::Draws::irand(int from, int to) {
+    return (owner.engineRandom ? *owner.engineRandom : owner._ownEngineRandom).irand(from, to);
+}
 
 // One of a system's list of effects (CWorldEffect): its winds and misty
 // fogs, each handed the system's commands, its wind and its frames.
@@ -300,7 +316,7 @@ struct WorldEffects::Wind final : WorldEffects::Effect {
 struct WorldEffects::Fog {
     // As its CreateTextureCoords (0x4997f0): smaller if the wind blows
     // away from the eye, larger if towards it.
-    void place(const WorldEffects::ViewParms &view, std::mt19937 &rng) {
+    void place(const WorldEffects::ViewParms &view, WorldEffects::Draws &rng) {
         speed = random(rng, 200, 700);
         const float forward = dot(wind, view.forward);
         if (forward > 0.5f)
@@ -316,7 +332,7 @@ struct WorldEffects::Fog {
     }
 
     // Its partner fading out: in again from nothing (0x499790 on).
-    void restart(const WorldEffects::ViewParms &view, std::mt19937 &rng) {
+    void restart(const WorldEffects::ViewParms &view, WorldEffects::Draws &rng) {
         alpha = 0;
         direction = 0.025f;
         fading = true;
@@ -325,7 +341,7 @@ struct WorldEffects::Fog {
     }
 
     // As its Update (0x4995a0), each frame whatever its length.
-    void update(const WorldEffects::ViewParms &view, std::mt19937 &rng) {
+    void update(const WorldEffects::ViewParms &view, WorldEffects::Draws &rng) {
         if (!drawing)
             return;
         const float forward = dot(wind, view.forward);
@@ -372,7 +388,7 @@ struct WorldEffects::Fog {
 // are read from the picture through two pairs of drifting windows, added
 // over the scene while the eye is in the open.
 struct WorldEffects::FogLayer final : WorldEffects::Effect {
-    FogLayer(std::shared_ptr<const WeatherPicture> image, const WorldEffects::ViewParms &view, std::mt19937 &rng)
+    FogLayer(std::shared_ptr<const WeatherPicture> image, const WorldEffects::ViewParms &view, WorldEffects::Draws &rng)
         : picture(std::move(image)) {
         for (size_t i = 0; i < 4; i += 2) {
             fogs[i].partner = &fogs[i + 1];
@@ -500,14 +516,14 @@ struct WorldEffects::Effects {
 // Rain (CRainSystem): drops falling round the eye, leaning in a wind that
 // turns now and then, while the eye is in the open.
 struct WorldEffects::Rain {
-    Rain(int count, WorldEffects::Engine from, std::mt19937 &rng)
+    Rain(int count, WorldEffects::Engine from, WorldEffects::Draws &rng)
         : engine(from), alpha(from == Engine::kSinglePlayer ? kSpRainAlpha : kMpRainAlpha) {
         drops.resize(size_t(std::max(count, 0)));
         for (auto &drop : drops)
             respawn(drop, true, rng);
     }
 
-    void respawn(std::array<float, 6> &drop, bool start, std::mt19937 &rng) const {
+    void respawn(std::array<float, 6> &drop, bool start, WorldEffects::Draws &rng) const {
         // Anywhere round the eye; at the start anywhere in height, after
         // at the top (0x48e420, 0x48e958).
         drop[0] = random(rng, 0, spread[0]);
@@ -691,7 +707,7 @@ struct WorldEffects::Snow {
 
     // As its Update (0x49b2f0).
     void update(const Frame &frame, const std::function<int32_t(const V3 &)> &contentsAt) {
-        std::mt19937 &rng = frame.rng;
+        WorldEffects::Draws &rng = frame.rng;
         if (--windChange < 0) {
             windDirection = randomAcross(rng);
             windChange = framesToTurn(rng, engine);
@@ -810,9 +826,10 @@ struct WorldEffects::Snow {
     }
 
     // As its Render (0x49ba70): its effects, then each flake drawn a grey
-    // point, as large as the original's points at their distance (10
-    // pixels over the square root of 1 + 0.0004 x the distance squared,
-    // 1 to 4: 0x49babf on), here a square facing the eye.
+    // point at its distance (10 pixels over the square root of 1 + 0.0004
+    // x the distance squared, 1 to 4: 0x49babf on). Not smoothed, a point
+    // is a square facing the eye, its size rounded to whole pixels, as
+    // OpenGL draws it.
     void draw(const WorldEffects::ViewParms &view, bool showWind, std::vector<Batch> &out) const {
         if (!(overall & kContentsOutside))
             return;
@@ -824,7 +841,7 @@ struct WorldEffects::Snow {
                 continue;
             const V3 off = sub(f.pos, view.eye);
             const float d = std::sqrt(dot(off, off));
-            const float pixels = std::clamp(10 / std::sqrt(1 + 0.0004f * d * d), 1.0f, 4.0f);
+            const float pixels = std::round(std::clamp(10 / std::sqrt(1 + 0.0004f * d * d), 1.0f, 4.0f));
             const float half = pixels / 2 * d * view.pixel;
             auto at = [&](float l, float u) {
                 V3 p = f.pos;
@@ -887,7 +904,8 @@ bool WorldEffects::addFog(Effects &effects) {
         }
         _fogPicture = std::move(picture);
     }
-    effects.list.push_back(std::make_unique<FogLayer>(_fogPicture, _view, _random));
+    Draws draws{*this};
+    effects.list.push_back(std::make_unique<FogLayer>(_fogPicture, _view, draws));
     return true;
 }
 
@@ -930,10 +948,11 @@ WorldEffects::Outcome WorldEffects::systemCommand(const std::string &system, con
     const bool snow = system == "snow";
     if (is(verb, "init")) {
         const int count = std::atoi(words.next().c_str());
+        Draws draws{*this};
         if (snow)
             _snow = std::make_unique<Snow>(count, _engine);
         else
-            _rain = std::make_unique<Rain>(count, _engine, _random);
+            _rain = std::make_unique<Rain>(count, _engine, draws);
         out.understood = true;
         return out;
     }
@@ -959,7 +978,8 @@ void WorldEffects::update(float seconds, const ViewParms &view) {
     // eye, then the rain, then the snow.
     _view = view;
     const int32_t eyeContents = contents ? contents(view.eye) : 0;
-    const Frame frame{view, seconds, eyeContents, _random};
+    Draws draws{*this};
+    const Frame frame{view, seconds, eyeContents, draws};
     if (_rain)
         _rain->update(frame);
     if (_snow)

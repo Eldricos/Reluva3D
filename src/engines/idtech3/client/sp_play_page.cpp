@@ -126,10 +126,18 @@ void SpPlayPage::activate() {
     _models = std::make_unique<ModelCache>(*_renderer, *_shaders, _ctx.files);
     applyVideoSettings(video, *_shaders, _world.get(), _models.get());
     _scene = std::make_unique<SceneDrawer>(*_renderer, *_shaders, *_models, _ctx.game.spRefEntity);
+    // The engine's random draws, all the C library's rand(), seeded from
+    // the clock (0x4772a5): electricity, the gusts, the weather, the music.
+    _crtRandom.seed(uint32_t(_ctx.sys.getMillis()));
+    _scene->rand = [this] { return _crtRandom.next(); };
+    _scene->singlePlayerBolts = true;
+    _world->setSpriteRandom([this](float lo, float hi) { return _crtRandom.flrand(lo, hi); });
+    _weather.rand = [this] { return _crtRandom.next(); };
     _ctx.sys.setRelativeMouse(true);
     if (_ctx.mixer) {
         _soundSystem = std::make_unique<SoundSystem>(*_ctx.mixer, _soundLibrary);
         _soundSystem->print = [this](const std::string &text) { consolePrint(text); };
+        _soundSystem->setMusicRandom([this] { return _crtRandom.next(); });
     }
     // Jedi Outcast's dynamic music sets.
     if (_soundSystem && jedi()) {

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "engines/idtech3/raven/random.h"
+
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/formats/shader.h"
 
@@ -46,6 +48,12 @@ SurfaceSpriteWeather surfaceSpriteSettings(CvarStore &cvars);
 // with distance.
 class SurfaceSpriteSet {
 public:
+    /**
+     * The gusts' draws (the engine's flrand: jk2sp.exe's rand() based one,
+     * jk2mp.exe's Q_flrand); unset, single player's on a seed of its own.
+     */
+    std::function<float(float min, float max)> flrand;
+
     void clear();
     // Scatters `parms`' sprites over a surface's triangles: `vertices` as
     // drawn (colours brightened), `indices` into them, three a triangle.
@@ -140,7 +148,7 @@ private:
     bool _standardFovSet = false;
     float _standardScale = 1;
     float _rangeScale = 1;
-    uint32_t _gustRandom = 1;
+    raven::CrtRandom _ownRandom;
 };
 
 } // namespace reluva::idtech3

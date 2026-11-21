@@ -129,6 +129,7 @@ private:
     // The weather (Jedi Outcast's rain and snow), moved on by the game's
     // clock and handed to the scene drawer for the view with the level.
     void prepareWeather(const View &view);
+    raven::CrtRandom _crtRandom;
     WorldEffects _weather{WorldEffects::Engine::kSinglePlayer};
     WeatherDrawing _weatherDrawing{WorldEffects::Engine::kSinglePlayer};
     int32_t _weatherTime = -1; // the game's clock it was last moved at

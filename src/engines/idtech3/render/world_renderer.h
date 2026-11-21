@@ -53,6 +53,8 @@ public:
     // (SurfaceSpriteSet::frame).
     void setSurfaceSpriteWeather(const SurfaceSpriteWeather &weather) { _spriteWeather = weather; }
     void surfaceSpriteFrame(int32_t timeMs, float fovX) { _surfaceSprites.frame(timeMs, fovX, _spriteWeather); }
+    // The engine's flrand its surface sprites' gusts draw from.
+    void setSpriteRandom(std::function<float(float, float)> flrand) { _surfaceSprites.flrand = std::move(flrand); }
     // The sky, then the map's surfaces whose shaders sort in sortMin..sortMax,
     // `time` seconds into the map; call between beginFrame() and endFrame().
     // Drawing opaque surfaces, then models, then translucent surfaces keeps

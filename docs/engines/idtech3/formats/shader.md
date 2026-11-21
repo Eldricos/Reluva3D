@@ -174,7 +174,9 @@ original's:
   `R_SurfaceSpriteFrameUpdate` works it out once for each frame's time:
   `r_windSpeed` blowing towards `r_windAngle`, damped towards each change
   by `r_windDampFactor` per 50 ms, gusting every `r_windGust` seconds or
-  more (the gaps and strengths random, Reluva's own draws), and
+  more (the gaps and strengths random: the engine's `flrand`, jk2mp.exe's
+  `Q_flrand` on the seed its weather shares, 0x495dab, and jk2sp.exe's
+  over `rand()`, 0x488412; `raven/random.h`), and
   `r_windPointForce` pushing grass within 750 units of `r_windPointX`,
   `r_windPointY` away and down. Grass leans with it and bobs; effects
   drift along it over their lives. Weather sprites show as much as

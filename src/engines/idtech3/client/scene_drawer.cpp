@@ -650,10 +650,10 @@ void SceneDrawer::addRavenBolt(const std::vector<uint8_t> &e, const gfx::Vec3 &o
     // Raven's shape (raven::electricityStrips), each strip a quad lying
     // across the plane through the eye and both ends.
     const gfx::Vec3 end = readVec(e, _layout.oldOrigin);
-    const std::vector<raven::BoltStrip> strips =
-        raven::electricityStrips(origin, end, readFloat(e, _layout.width), readFloat(e, _layout.jitter),
-                                 readInt(e, _layout.frame), (readInt(e, _layout.flags) & refent::kTapered) != 0,
-                                 [this] { return float(_effectRandom() % 20001) / 10000.0f - 1; });
+    const std::vector<raven::BoltStrip> strips = raven::electricityStrips(
+        origin, end, readFloat(e, _layout.width), readFloat(e, _layout.jitter), readInt(e, _layout.frame),
+        (readInt(e, _layout.flags) & refent::kTapered) != 0,
+        [this] { return (float(nextRandom() & 0x7fff) / 32767.0f - 0.5f) * 2; }, singlePlayerBolts);
     gfx::Vec3 v1{};
     gfx::Vec3 v2{};
     for (size_t k = 0; k < 3; ++k) {
@@ -790,7 +790,7 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
                 sprite(add(origin, dir, i), r);
                 r += 0.017f;
             }
-        sprite(origin, 5.5f + float(_effectRandom() % 32768) / 32767.0f * 0.25f);
+        sprite(origin, 5.5f + float(nextRandom() & 0x7fff) / 32767.0f * 0.25f);
     } else if (type == _layout.typeLine || type == _layout.typeOrientedLine || type == _layout.typeTaperedLine) {
         const float w0 = readFloat(e, _layout.width);
         const float w1 = type == _layout.typeTaperedLine ? readFloat(e, _layout.endWidth) : w0;
@@ -858,8 +858,8 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
         for (int i = 0; i <= steps; ++i) {
             V p = add(origin, along, float(i) / float(steps));
             if (i > 0 && i < steps) {
-                const float r1 = float(_effectRandom() % 2001) / 1000.0f - 1;
-                const float r2 = float(_effectRandom() % 2001) / 1000.0f - 1;
+                const float r1 = float(nextRandom() % 2001) / 1000.0f - 1;
+                const float r2 = float(nextRandom() % 2001) / 1000.0f - 1;
                 p = add(add(p, side1, r1 * jitter), side2, r2 * jitter);
             }
             points.push_back(p);

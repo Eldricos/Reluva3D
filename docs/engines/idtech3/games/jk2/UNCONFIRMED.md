@@ -84,6 +84,10 @@ What Reluva does that hasn't been checked against the running original.
   original plays a level's music from its start. Reluva starts it at
   that first call ([systems/sp-music.md](systems/sp-music.md)).
 
+- A saber's trail's second triangle keeps the first's alphas for its
+  first two corners, as the GPL source's one array of corners would;
+  jk2mp.exe's own trail code wasn't traced
+  ([efx.md](../../formats/efx.md)).
 
 ## Guessed
 

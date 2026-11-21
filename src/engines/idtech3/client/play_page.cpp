@@ -51,6 +51,9 @@ constexpr float kPi = 3.14159265358979f;
 } // namespace
 
 PlayPage::PlayPage(PageContext &ctx) : Page(ctx) {
+    // Seeded from the clock, as jk2mp.exe's srand (0x44d9a7).
+    _crtRandom.seed(uint32_t(ctx.sys.getMillis()));
+    _weather.engineRandom = &_engineRandom;
     _console.clipboard = [this] { return _ctx.sys.clipboardText(); };
     _weather.contents = [this](const std::array<float, 3> &p) { return _cgame ? _cgame->worldContents(p) : 0; };
     _weather.loadPicture = [this](const std::string &name, WeatherPicture &out) {
@@ -103,6 +106,10 @@ bool PlayPage::setUpGraphics() {
     _models = std::make_unique<ModelCache>(*_renderer, *_shaders, _ctx.files);
     applyVideoSettings(video, *_shaders, _world.get(), _models.get());
     _scene = std::make_unique<SceneDrawer>(*_renderer, *_shaders, *_models, _ctx.game.refEntity);
+    // The engine's random draws: the C library's, and Q_flrand's seed,
+    // which the weather and surface sprites share.
+    _scene->rand = [this] { return _crtRandom.next(); };
+    _world->setSpriteRandom([this](float lo, float hi) { return _engineRandom.flrand(lo, hi); });
     _menus.attach(_renderer, _frameW, _frameH);
     return true;
 }
@@ -259,6 +266,7 @@ bool PlayPage::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
 Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                                 int32_t commandSequence) {
     _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars, _ctx.game.code, _ctx.game.jediRelease);
+    _cgame->setEffectRandom([this] { return _crtRandom.next(); });
     _cgame->print = [this](const std::string &text) { addPrint(text, true); };
     _cgame->setLightGrid(&_grid);
     _scene->setHandles({&_cgame->models(), &_cgame->skins(), &_cgame->shaders()});

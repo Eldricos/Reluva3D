@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/client/ref_entity.h"
 #include "engines/idtech3/client/scene.h"
+#include "engines/idtech3/raven/random.h"
 #include "engines/idtech3/render/light_grid.h"
 #include "engines/idtech3/render/model_cache.h"
 #include "engines/idtech3/render/shader_cache.h"
@@ -18,7 +19,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <random>
 #include <set>
 #include <string>
 #include <utility>
@@ -40,6 +40,11 @@ gfx::Vec3 readVec(const std::vector<uint8_t> &bytes, size_t at);
 // and lights, the level with it when the view has it.
 class SceneDrawer {
 public:
+    /** The C library's rand() its draws come from (electricity's kinks, the saber's hilt); unset, its own. */
+    std::function<int32_t()> rand;
+    /** Electricity kinked as single player's renderer does (raven::electricityStrips). */
+    bool singlePlayerBolts = false;
+
     // `layout`: how the game lays out the entities it adds (kept).
     SceneDrawer(gfx::Renderer3D &renderer, ShaderCache &shaders, ModelCache &models, const RefEntityLayout &layout)
         : _r(renderer), _shaders(shaders), _models(models), _layout(layout) {}
@@ -213,7 +218,8 @@ private:
     gfx::MeshId _effectMesh = 0; // _effects' vertices, while a view is drawn
     std::vector<gfx::Vertex> _effectVertices;
     std::vector<uint32_t> _effectIndices;
-    std::minstd_rand _effectRandom;         // electricity's jitter
+    raven::CrtRandom _ownRandom;
+    int32_t nextRandom() { return rand ? rand() : _ownRandom.next(); }
     std::vector<gfx::DynamicLight> _lights; // this view's
     gfx::Vec3 _eye{};
     gfx::Vec3 _forward{1, 0, 0};

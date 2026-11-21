@@ -859,8 +859,15 @@ void EffectSystem::draw(Live &l, Frame &out) {
             v[i].rgba = {uint8_t(std::clamp(t.rgb[0], 0.0f, 255.0f)), uint8_t(std::clamp(t.rgb[1], 0.0f, 255.0f)),
                          uint8_t(std::clamp(t.rgb[2], 0.0f, 255.0f)), uint8_t(std::clamp(t.alpha, 0.0f, 255.0f))};
         }
+        // The second's first two corners keep the first's alphas: the GPL
+        // source fills one array for both and sets only their colours again
+        // (the executable's own code not traced).
         out.polys.push_back({l.media, {v[0], v[1], v[3]}});
-        out.polys.push_back({l.media, {v[3], v[2], v[1]}});
+        PolyVertex oldMuzzle = v[3];
+        PolyVertex oldTip = v[2];
+        oldMuzzle.rgba[3] = v[0].rgba[3];
+        oldTip.rgba[3] = v[1].rgba[3];
+        out.polys.push_back({l.media, {oldMuzzle, oldTip, v[1]}});
         return;
     }
     }
@@ -931,7 +938,7 @@ void EffectSystem::run(Frame &out) {
 
 std::vector<BoltStrip> electricityStrips(const std::array<float, 3> &origin, const std::array<float, 3> &end,
                                          float radius, float chaos, int32_t seed, bool tapered,
-                                         const std::function<float()> &random) {
+                                         const std::function<float()> &random, bool singlePlayer) {
     using V = std::array<float, 3>;
     auto length = [](const V &v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); };
     auto normalized = [&](V v) {
@@ -962,10 +969,21 @@ std::vector<BoltStrip> electricityStrips(const std::array<float, 3> &origin, con
     // two thirds of the way back from `to`, a little off one side, the
     // second a third, off the other.
     auto shape = [&](const V &from, const V &to, float fromWidth, float toWidth) {
-        const float a0 = 0.66f + random() * 0.1f;
-        const float a1 = 0.07f + random() * 0.025f;
-        const float a2 = 0.07f + random() * 0.025f;
-        const float b0 = 0.33f + random() * 0.1f;
+        // jk2mp.exe's draws (0x4956b0); jk2sp.exe's two along fixed and
+        // the others 0.08 off, give or take 0.02 (0x486750).
+        float a0 = 0.66f;
+        float a1 = 0;
+        float a2 = 0;
+        float b0 = 0.33f;
+        if (singlePlayer) {
+            a1 = 0.08f + random() * 0.02f;
+            a2 = 0.08f + random() * 0.02f;
+        } else {
+            a0 += random() * 0.1f;
+            a1 = 0.07f + random() * 0.025f;
+            a2 = 0.07f + random() * 0.025f;
+            b0 += random() * 0.1f;
+        }
         const float b1 = -a1 + random() * 0.02f;
         const float b2 = -a2 + random() * 0.02f;
         const V fwd{to[0] - from[0], to[1] - from[1], to[2] - from[2]};

@@ -284,10 +284,7 @@ void SurfaceSpriteSet::frame(int32_t timeMs, float fovX, const SurfaceSpriteWeat
     _weatherAmount = w.surfaceWeather;
     float target = w.windSpeed;
     _windGust = w.windGust;
-    auto random = [&](float lo, float hi) {
-        _gustRandom = _gustRandom * 1103515245u + 12345u;
-        return lo + (hi - lo) * float((_gustRandom >> 8) & 0xffff) / 65535.0f;
-    };
+    auto random = [&](float lo, float hi) { return flrand ? flrand(lo, hi) : _ownRandom.flrand(lo, hi); };
     if (target > 0 && _windGust != 0) {
         if (_gustLeft > 0) {
             target *= 1 + _gustLeft;
