@@ -8,8 +8,8 @@ A saved game is an archive of the game's state, one file per part of it
 (`gameInfo`, `techInfo`, the empires, the map, the AI ...). The install
 keeps one per Load Game slot, `game0.sav` to `game11.sav`, top down (a
 fresh install has the four tutorials as `game0.sav` to `game3.sav`), with
-`Auto.sav` and `Last.sav` beside them *(inferred: what `Auto` and `Last`
-are for)*. A fresh install has every one of them: the four tutorials, and
+`Auto.sav`, the autosave the main menu's Continue loads, and `Last.sav`,
+a copy of it, beside them. A fresh install has every one of them: the four tutorials, and
 the other ten files 0 bytes long (`Game4.sav` to `Game9.sav`, `Auto.sav`
 dated December 1998, `game10.sav` and `game11.sav` August 1998,
 `Last.sav` April 1999). An empty slot on the Load Game screen is one of
@@ -120,8 +120,9 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
   reference into the unwritten window, or by `result.lst` once its pieces
   are read.
 - The timers' other values, from a game set up with them.
-- What `Auto.sav` and `Last.sav` are: presumably the autosave and a copy
-  of it (`Last.sav`'s header names it `auto.sav`). The main menu's
-  Continue goes on from an autosave (the user, in the game); which of the
-  two it reads isn't known.
+- What `Last.sav` is for. `Auto.sav` is the autosave the main menu's
+  Continue goes on from; `Last.sav` is a copy of it (its header names it
+  `auto.sav`): the game writes both, with the same time, once a game
+  started or loaded has passed a turn, but moving `Last.sav` away changes
+  nothing that shows (the user, in the game).
 - The rest of `gameInfo`, and every other file in the archive.

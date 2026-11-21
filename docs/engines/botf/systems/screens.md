@@ -54,10 +54,11 @@ and their order on the screen, as the recording shows them.
   Continue, Save Game and Retire are dimmed and don't light. Continue can
   be used without a game in progress when there's an autosave: the user
   closed the game during one, without saving, and on starting it again
-  Continue went on where they had left off. A fresh install's `Auto.sav`
-  and `Last.sav` are empty, so it's dimmed then. Reluva lets it be used
-  when either holds a saved game; which one the game loads isn't known
-  ([formats/sav.md](../formats/sav.md)). Reluva draws
+  Continue went on where they had left off. It goes by `Auto.sav`: with
+  that file moved away Continue is dimmed, with `Last.sav` moved away
+  nothing changes (the user, in the game). A fresh install's `Auto.sav` is
+  empty, so it's dimmed then; Reluva lets it be used when `Auto.sav` holds
+  a saved game ([formats/sav.md](../formats/sav.md)). Reluva draws
   them at 35% of their brightness *(seen, not traced)*: against their own
   `mc*1` pictures, the recording's buttons that can be used come out at
   82-89% (the recording's own levels), these three at 29-33%, 35-39% of
@@ -510,7 +511,6 @@ recording:
   not in `stbof.res` (each of its 6,013 files searched), the saves,
   `Stbof.ini` or the registry. `Trek.icd`, SafeDisc's encrypted
   executable, is the one place left, and it shows no readable text.
-- Which file Continue loads, `Auto.sav` or `Last.sav`, and whether a
-  saved game in a slot is enough for it.
+- What `Last.sav` is for.
 - What `es_?icn0`, `es_?0` and `es_?1` are for.
 - How the game picks its text colours.

@@ -72,8 +72,9 @@ constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
 // Whether the install has an autosave Continue can go on from: auto.sav
-// or last.sav (any case; which one the game reads isn't known) holding a
-// saved game, not a fresh install's empty file.
+// (any case) holding a saved game, not a fresh install's empty file.
+// Without it the game's Continue is dimmed; last.sav makes no difference
+// (the user, in the game).
 bool hasAutosave(const std::filesystem::path &dir) {
     std::error_code ec;
     for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
@@ -81,7 +82,7 @@ bool hasAutosave(const std::filesystem::path &dir) {
         for (char &c : name)
             c = char(std::tolower(static_cast<unsigned char>(c)));
         SaveSummary save;
-        if ((name == "auto.sav" || name == "last.sav") && !readSaveSummary(entry.path(), save))
+        if (name == "auto.sav" && !readSaveSummary(entry.path(), save))
             return true;
     }
     return false;
