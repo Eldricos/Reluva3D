@@ -7,6 +7,7 @@
 #include "audio/sound.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "engines/legoisland/formats/dta.h"
 #include "engines/legoisland/formats/si.h"
 #include "engines/legoisland/formats/wdb.h"
 #include "engines/legoisland/pages/scene.h"
@@ -202,6 +203,36 @@ private:
     std::vector<std::pair<size_t, gfx::Mat4>> _placed; // each piece, where it goes
     Orbit _orbit;
     bool _showInfo = true;
+};
+
+/**
+ * The worlds' *INF.DTA animation lists: each animation's fields and
+ * models, and a map, from above, of where every animation of the world
+ * plays and where the selected one's models start.
+ *   Left/Right: previous/next world   Up/Down: previous/next animation
+ *   PageUp/PageDown: jump 20   Home/End: first/last
+ */
+class DtaPage : public ViewerPage {
+public:
+    /** `files` are the *INF.DTA files. */
+    DtaPage(Surface &screen, std::vector<std::filesystem::path> files);
+    size_t count() const override { return _files.size(); }
+    void activate() override;
+    void deactivate() override {}
+    void handleEvent(const Event &ev) override;
+    void update(uint64_t) override {}
+
+private:
+    void openFile(size_t index);
+    void redraw();
+    void drawMap(int x, int y, int w, int h);
+
+    Surface &_screen;
+    std::vector<std::filesystem::path> _files;
+    size_t _file = 0;
+    DtaFile _dta;
+    std::string _error;
+    size_t _current = 0;
 };
 
 /**

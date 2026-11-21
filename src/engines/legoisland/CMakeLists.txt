@@ -18,6 +18,7 @@ reluva_add_engine(legoisland
 reluva_add_engine_viewers(legoisland
     ACCESSOR legoislandMetaViewer
     SOURCES
+        pages/dta_viewer.cpp
         pages/scene.cpp
         pages/viewer.cpp
         pages/si_scene_viewer.cpp

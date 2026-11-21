@@ -96,8 +96,12 @@ an animation's models include doesn't follow them.
 ## In Reluva
 
 `DtaFile` (`src/engines/legoisland/formats/dta.cpp`) reads a file; its
-models' kinds are `DtaModelKind`. The data viewer doesn't show them
-yet.
+models' kinds are `DtaModelKind`. The data viewer has a page for them
+(`src/engines/legoisland/pages/dta_viewer.cpp`): each world's
+animations, the selected one's fields and models, and a map, from
+above, of every animation's circle and the selected one's models'
+starting points, coloured by kind. The animations themselves play on
+the SI 3D page ([obj.md](obj.md#in-reluva)).
 
 - `reluva-tool legoisland dta-list <file.dta>`: its animations, and
   their models and where they start.

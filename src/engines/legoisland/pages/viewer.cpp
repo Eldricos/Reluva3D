@@ -22,6 +22,7 @@ namespace reluva {
 
 namespace {
 
+using legoisland::DtaPage;
 using legoisland::SiScenePage;
 using legoisland::SiViewer;
 using legoisland::ViewerPage;
@@ -42,6 +43,20 @@ std::vector<std::filesystem::path> findSiFiles(const std::filesystem::path &dir)
         return fs::windowsNameLess(a.lexically_relative(dir).generic_string(),
                                    b.lexically_relative(dir).generic_string());
     });
+    return out;
+}
+
+// The worlds' *INF.DTA files, in lego/data, by name.
+std::vector<std::filesystem::path> findDtaFiles(const std::filesystem::path &dir) {
+    std::vector<std::filesystem::path> out;
+    std::error_code ec;
+    if (const auto data = fs::findDirectory(dir, "lego/data"))
+        for (const auto &entry : std::filesystem::directory_iterator(*data, ec)) {
+            const std::string name = fs::toLower(entry.path().filename().string());
+            if (name.size() > 7 && name.ends_with("inf.dta"))
+                out.push_back(entry.path());
+        }
+    std::sort(out.begin(), out.end());
     return out;
 }
 
@@ -85,6 +100,7 @@ public:
             // Its models and animations take parts and models from WORLD.WDB.
             pages.push_back(std::make_unique<SiScenePage>(_sys, _screen, wdb, std::move(files)));
         }
+        pages.push_back(std::make_unique<DtaPage>(_screen, findDtaFiles(_target.path)));
         size_t current = 0;
         while (pages[current]->count() == 0)
             current++;

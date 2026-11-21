@@ -39,6 +39,9 @@ Not yet.
 - The data viewer's `WORLD.WDB` pages: that the textures look right, and
   the models come out whole, their pieces in place, their textures the
   right way round; checked by eye on the English 1.0 release.
+- The data viewer's animation-list page: that each world's circles and
+  models fall where its scenes play; checked by eye on the English 1.0
+  release.
 - The data viewer's SI 3D page: that the SI files' models come out
   whole, and their animations play smoothly with every piece in place,
   through their own cameras too; checked by eye on the English 1.0
@@ -53,6 +56,7 @@ Not yet.
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | November 2026 | English 1.0 | Linux | Importing the CD; the data viewer on every SI file: the jukebox's stills, the intro's Smacker movie, the history book's letters, by eye |
+| November 2026 | English 1.0 | Linux | The viewer's animation-list page by eye: `ACT1INF.DTA` and `OBSTINF.DTA`, their circles and models on the map |
 | November 2026 | English 1.0 | Linux (software Vulkan) | The viewer's SI 3D page by eye: `Chptr.mod`; the copter's build animation; Infomaniac's `iic001in`; the Brickster on his motorbike; `ACT2MAIN.SI`'s ambulance scene; Act 3's `tlp053in` from above and through its camera at 9, 25 and 55 s. The `WORLD.WDB` model page again (`carcomp`), its drawing now shared with this page |
 | November 2026 | English 1.0 | Linux | `reluva-tool legoisland si-events` on all 26 SI files: all 33 events read |
 | November 2026 | English 1.0 | Linux | `reluva-tool legoisland si-objects` on all 26 SI files: every 3D object read; the viewer's SI page drawing the build screens' textures, by eye |

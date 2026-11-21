@@ -23,7 +23,8 @@ data viewer shows and plays, and the world database's models, parts and
 textures ([formats/wdb.md](formats/wdb.md)), which it draws in 3D, the
 worlds' lists of animations ([formats/dta.md](formats/dta.md)), and the
 SI files' animations, models, textures and paths
-([formats/obj.md](formats/obj.md)) and their events
+([formats/obj.md](formats/obj.md)), whose models it draws and
+animations it plays in 3D, and their events
 ([formats/si.md](formats/si.md#evt-an-event)). Run, it shows an empty
 screen. The plan is in [PLAN.md](PLAN.md).
 
@@ -55,6 +56,9 @@ page.
   an animation plays round and round, Space pauses it, and C looks
   through its camera, if it moves one. L, R, I, the mouse and +/- as on
   the page before.
+- **The worlds' animation lists** (`*INF.DTA`): Left/Right pick the
+  world, Up/Down the animation (PageUp/PageDown, Home/End); its fields
+  and models, and a map from above of where each animation plays.
 
 ## This folder
 
@@ -80,7 +84,7 @@ page.
 | `formats/gph.cpp` | The SI files' paths: the ground characters and vehicles move on |
 | `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
 | `formats/wdb.cpp` | The world database: its worlds, parts, models and textures; and the SI files' animations, models and textures, laid out as its |
-| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models; `si_scene_viewer.cpp`, the SI files' models and animations; `scene.cpp`, drawing and placing models for both |
+| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models; `si_scene_viewer.cpp`, the SI files' models and animations; `scene.cpp`, drawing and placing models for both; `dta_viewer.cpp`, the worlds' animation lists |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
 
 ## Tests

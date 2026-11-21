@@ -16,7 +16,7 @@ Each phase ends with something that runs, is tested and is committed.
    release, keyed on `LEGO1.DLL` and `WORLD.WDB`, and *Import Game...*
    from the CD or an install into one folder
    ([systems/game-files.md](systems/game-files.md)).
-3. **Readers and the data viewer** (in progress): done: the `.SI`
+3. **Readers and the data viewer** (done): the `.SI`
    archives ([formats/si.md](formats/si.md)), their FLC animations (a
    shared FLIC decoder, [flic.md](../../common/video/flic.md)), Smacker
    movies, WAV sounds and BMP pictures, with a viewer page playing them;
@@ -27,8 +27,9 @@ Each phase ends with something that runs, is tested and is committed.
    ([formats/obj.md](formats/obj.md)), each worked out from the files
    ([Decisions](#decisions)); the SI files' events
    ([formats/si.md](formats/si.md#evt-an-event)); the viewer drawing the
-   SI files' models and playing their animations. Next: a viewer page
-   for the `*INF.DTA` lists, or a decision against one.
+   SI files' models and playing their animations; and a page for the
+   `*INF.DTA` lists. Every kind of file in the release's `lego` folder
+   (`data\*.DTA`, `WORLD.WDB`, `Scripts\*.SI`) is read.
 4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
    interpreter with stand-ins that log what they're asked. The gate: does
    it reach the intro's first frame, and how fast does it run?
