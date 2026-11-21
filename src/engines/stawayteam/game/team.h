@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/types.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -77,11 +78,33 @@ struct Mission {
     int maxMembers = 0;
     std::vector<std::string> whoShouldStart; // roster ids; these can't be left behind
     std::vector<std::string> items;          // each needed by one of the team
-    std::string briefingMovie;               // of DATA/Movies, "Generic/Starfield.bik"
+    std::vector<std::string> recommendedItems;
+    std::string briefingMovie; // of DATA/Movies, "Generic/Starfield.bik"
     bool loopMovie = false;
     std::string briefingMusic; // of Music/
     std::vector<BriefingLine> briefing;
 };
+
+/**
+ * An inventory item's definition, `Inventory/Item Definitions/<name>.txt`
+ * (a `CStarTrekInventoryItemDefinition`), as far as the screens before a
+ * mission use it.
+ */
+struct ItemDefinition {
+    std::string name;          // the file's name: how officers and missions name it
+    std::string printableName; // the name shown
+    std::string iconImage;     // Cache/Inventory/Icon Frames/<name>.frm16
+    std::string type;          // of Inventory/Item Types
+    bool displayInInventory = false;
+    std::string briefingScript; // a script of Levels/, and its entry describing the item
+    std::string briefingText;
+};
+
+/** The item definitions, by name; one that won't read is left out. */
+std::map<std::string, ItemDefinition> loadItems(const Archive &data);
+
+/** The inventory's item types (`Inventory/Item Types`), in their files' order, `!None` left out. */
+std::vector<std::string> loadItemTypes(const Archive &data);
 
 /** Reads mission `number` (1 to 18). */
 Error loadMission(const Archive &data, int number, Mission &out);

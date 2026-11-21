@@ -35,8 +35,17 @@ their own in `DATA.dat`.
   `CMissionDescription`: `Mission Name`, `Show Briefing`, `Show Team
   Selection` (0 for mission 1, the only one; it goes straight in),
   `Transporter Background`, `Max Members To Start`, `Who Should Start`
-  (ids: they start on the transporter and can't be taken off) and
-  `Items` (each needed by someone on the team).
+  (ids: they start on the transporter and can't be taken off), `Items`
+  (each needed by someone on the team) and `Recommended Items`.
+- **The items:** `Inventory/Item Definitions/<name>.txt`, a
+  `CStarTrekInventoryItemDefinition` each, named by the file as the
+  officers and missions name them: `Printable Item Name` (the name shown;
+  `Terminal Repair` is "Engineering Tech Kit"), `Icon Image`
+  (`Cache/Inventory/Icon Frames/<name>.frm16`), `Inventory Type`, `Display
+  In Inventory`, and `Briefing Script` and `Briefing Text` (where its
+  description is, `Inventory Item Descriptions`). The types are
+  `Inventory/Item Types/<type>.txt`: Gadget, Offensive Gadget, Primary,
+  Secondary, Skill and Special, and `!None`.
 - **The transporter:** `Transporter Backgrounds/<name>.txt`: its
   `Background Sequence` (`Cache/Sequences/<name>.seq16`), the places'
   `Position`s, and nernies: static texts ("Incursion Shuttle Ready") and
@@ -87,11 +96,35 @@ said:
   `TeamSelectionMemberOffset Pos`, the team drawn from the last; the
   name of the officer under the mouse, or chosen, centred at `Team
   Selection Title Pos`.
+- **The inventory** (`0x5ea5b7`, drawn at `0x5eb2c0`) in place of the
+  officer's panel, on `Inventory Background` at `Inventory Pos`: the
+  officer shown's items, a column for each item type, the types' last
+  first (`0x5e6b80`), `Inventory Icon Size` and `Inventory Icon Spacing`
+  apart from `Inventory Strip Pos`; in a column its items from the strip
+  upward, each in the middle of `Roster Window/Item Frame` (`Selected Icon
+  Background` under the mouse *(inferred)*), an empty column a dark square
+  (`0x423040`). Only items with `Display In Inventory` (`0x5ec1e0`). The
+  item under the mouse is named, and *" (Double-Click for description)"*,
+  centred under the strip (`0x5eaed0`, `0x5eb345`).
+- **An item's description** (`0x5e8d60`), on a double click: `Inventory
+  Description Background` in the middle of the screen, the item's name
+  centred at `Description Pos` (with `Description Margin`), two lines
+  under it the icon on `Inventory Description Icon Background`, and its
+  description typed out beside and under it at 90 characters a second
+  (`0x5e8ec0`); CONTINUE (`Inventory Done`, at
+  `InventoryDescriptionExitButton Pos`) closes it.
 - **The mission** (`0x5e9f60`) at `MissionName Pos`: "Mission NN" over
-  its name, each centred in `MissionName Size`. At `Skill Pos`
-  (`0x5e91e0`), "Required Items for Mission" and the items, those no one
-  on the team has in Trek Small Red with " - NEEDED" *(inferred: the
-  layout isn't traced)*.
+  its name, each centred in `MissionName Size`.
+- **The items it needs** (`0x5e91e0`) at `Skill Pos`: two lists, each
+  its title in Trek Small Gold centred across `Skill Size`, then its
+  items a line each, a pixel between lines (`0x5e9620`): *"Required Items
+  for Mission"*, its items, or *"NONE"*; under it *"Recommended Items"*,
+  left out when there are none. An item no one on the team has is in
+  Trek Small Red, a required one with *"NEEDED"* at the line's right. A
+  band, pulsing, is behind those the officer shown has. Clicking an
+  item's line goes on to the next available officer, after the one shown,
+  who has it, choosing them on the transporter or in the roster, with
+  `Interface/Generic Beep.wav` (`0x5e9ad9`, `0x5ebf10`).
 - **A message** at `Message Pos`, centred in `Message Size`, for 50
   (`0x5ebc1f`; seconds *(inferred)*).
 
@@ -123,10 +156,11 @@ the difficulty window starts a new game at mission 1: its briefing, and
 with no team selection for it, nothing more yet. In a build with developer
 keys, the engine's "Developer: first mission" setting starts it at
 another, so the screen can be reached. START MISSION and EXIT come back
-to the main menu; there are no missions to play yet. Not there yet: the
-inventory panel's contents, clicking a red item, the
-transporter's random numbers, and the second figure the program draws
-from each officer's body model.
+to the main menu; there are no missions to play yet. The items are read
+by `loadItems` and `loadItemTypes` (`game/team.cpp`). Not there yet: the
+transporter's random numbers, the second figure the program draws from
+each officer's body model, the items' panel scrolling (what doesn't fit
+is left out), and the band's pulsing.
 
 ## Sources and checks
 
@@ -138,10 +172,13 @@ from each officer's body model.
   Slovaak and Marcus Refelian on the shuttle's transporter, an officer
   clicked in the roster shown with portrait, details, attributes and
   description, ADD MEMBER putting her on the next place, REMOVE MEMBER
-  refusing Slovaak with its message, the inventory tab. Not yet against
+  refusing Slovaak with its message; the inventory tab with Slovaak's
+  items, one named under the mouse and described on a double click; the
+  required and recommended items, a click on one moving on to the next
+  officer who has it. Not yet against
   the original running. Unit tests (`stawayteam.unit.menus`) read a
-  roster, fields and a mission made in the test, and check the team to
-  start with and START MISSION's rules.
+  roster, fields, items and a mission made in the test, and check the
+  team to start with and START MISSION's rules.
 
 ## Open questions
 
@@ -149,7 +186,9 @@ from each officer's body model.
   "Incursion Shuttle Ready" text where `Rules.txt` places it.
 - **The attributes' greatest value**, the bar's whole length. Reluva
   takes 100.
-- **The required items' panel:** its layout and colours.
+- **The items' lists and inventory:** the band's colour, the empty
+  column's look, an item lit under the mouse, and Esc closing a
+  description. Reluva's choices are noted in the code.
 - **A message's time:** Reluva takes the 50 as seconds.
 - **The figures' frames:** Reluva starts each officer's two frames on
   from the one before.

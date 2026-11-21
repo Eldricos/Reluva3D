@@ -104,6 +104,33 @@ std::vector<std::string> loadFields(const Archive &data) {
     return out;
 }
 
+std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
+    std::map<std::string, ItemDefinition> out;
+    for (const std::string &path : filesIn(data, "Inventory/Item Definitions", ".txt")) {
+        TextObject def;
+        if (readObject(data, path, def))
+            continue;
+        ItemDefinition item;
+        item.name = stem(path);
+        item.printableName = text(def, "Printable Item Name");
+        item.iconImage = text(def, "Icon Image");
+        item.type = text(def, "Inventory Type");
+        item.displayInInventory = def.integer("Display In Inventory").value_or(0) != 0;
+        item.briefingScript = text(def, "Briefing Script");
+        item.briefingText = text(def, "Briefing Text");
+        out[item.name] = std::move(item);
+    }
+    return out;
+}
+
+std::vector<std::string> loadItemTypes(const Archive &data) {
+    std::vector<std::string> out;
+    for (const std::string &path : filesIn(data, "Inventory/Item Types", ".txt"))
+        if (stem(path) != "!None")
+            out.push_back(stem(path));
+    return out;
+}
+
 Error loadMission(const Archive &data, int number, Mission &out) {
     char folder[32];
     std::snprintf(folder, sizeof folder, "Mission %02d", number);
@@ -123,6 +150,9 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     if (const TextObject *items = mds.object("Items"))
         for (const TextField *item : items->items())
             out.items.push_back(item->value);
+    if (const TextObject *items = mds.object("Recommended Items"))
+        for (const TextField *item : items->items())
+            out.recommendedItems.push_back(item->value);
     out.briefingMovie = text(mds, "Briefing Movie");
     out.loopMovie = mds.integer("Loop movie").value_or(0) != 0;
     out.briefingMusic = text(mds, "Briefing Music");

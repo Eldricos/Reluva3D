@@ -42,9 +42,8 @@ None yet.
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).
 - **The team selection:** START MISSION and EXIT come back to the main
-  menu; the inventory panel's contents, a red item's click,
-  the transporter's random numbers and the officers' body figures aren't
-  there yet
+  menu; the transporter's random numbers, the officers' body figures,
+  the item lists' scrolling and their band's pulsing aren't there yet
   ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
   brighten their label under the mouse; the toolkit's toggles make no

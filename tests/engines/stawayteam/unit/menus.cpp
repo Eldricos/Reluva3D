@@ -305,7 +305,15 @@ void testTeamSelection() {
         bytesOf("CMissionDescription\n{\n\tMission Name=The Test\n\tShow Team Selection=1\n"
                 "\tTransporter Background=Shuttle\n\tMax Members To Start=2\n"
                 "\tWho Should Start=Array\n\t{\n\t\tItem Count=1\n\t\tWho Should Start=Slovaak\n\t}\n"
-                "\tItems=Array\n\t{\n\t\tItem Count=1\n\t\tItems=Tricorder\n\t}\n}\n");
+                "\tItems=Array\n\t{\n\t\tItem Count=1\n\t\tItems=Tricorder\n\t}\n"
+                "\tRecommended Items=Array\n\t{\n\t\tItem Count=1\n\t\tRecommend=Hypospray\n\t}\n}\n");
+    data.files["Inventory/Item Definitions/Tricorder.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tPrintable Item Name=A Tricorder\n\tIcon Image=Tricorder\n"
+                "\tInventory Type=Gadget\n\tDisplay In Inventory=1\n\tBriefing Script=Items\n"
+                "\tBriefing Text=Tricorder\n}\n");
+    data.files["Inventory/Item Types/!None.txt"] = bytesOf("CInventoryTypeDefinition\n{\n}\n");
+    data.files["Inventory/Item Types/Gadget.txt"] = bytesOf("CInventoryTypeDefinition\n{\n}\n");
+    data.files["Inventory/Item Types/Primary.txt"] = bytesOf("CInventoryTypeDefinition\n{\n}\n");
 
     std::vector<TeamMember> roster;
     CHECK(!loadRoster(data, roster) && roster.size() == 3);
@@ -319,6 +327,13 @@ void testTeamSelection() {
     CHECK(loadMission(data, 3, mission));
     CHECK(!loadMission(data, 2, mission) && mission.name == "The Test" && mission.showTeamSelection);
     CHECK(mission.maxMembers == 2 && mission.items == std::vector<std::string>{"Tricorder"});
+    CHECK(mission.recommendedItems == std::vector<std::string>{"Hypospray"});
+    // The items by their files' names; the types but !None.
+    const auto items = loadItems(data);
+    CHECK(items.size() == 1 && items.at("Tricorder").printableName == "A Tricorder");
+    CHECK(items.at("Tricorder").type == "Gadget" && items.at("Tricorder").displayInInventory);
+    CHECK(items.at("Tricorder").briefingScript == "Items" && items.at("Tricorder").iconImage == "Tricorder");
+    CHECK((loadItemTypes(data) == std::vector<std::string>{"Gadget", "Primary"}));
 
     // The buttons by their shortcuts: the screen's layout gives only them.
     TextObject rules;

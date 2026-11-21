@@ -37,8 +37,9 @@ None yet.
   Overs`, the briefing music played over and over and the menu's song
   stopped meanwhile, and text broken at its line breaks
   ([systems/briefing.md](systems/briefing.md#open-questions)).
-- **The team selection:** the attributes out of 100, the required
-  items' panel, a message's time in seconds, the officers' frames
+- **The team selection:** the attributes out of 100, the item lists'
+  band and the inventory's empty columns and lit items, Esc closing an
+  item's description, a message's time in seconds, the officers' frames
   staggered, where a place answers a click, and the officer's name over
   the transporter's own text
   ([systems/team-selection.md](systems/team-selection.md#open-questions)).

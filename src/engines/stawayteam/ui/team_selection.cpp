@@ -22,6 +22,15 @@ const char *const kEmptyTeam = "Select at least one team member before continuin
 const char *const kMissingItems = "The selected team is missing one or more required items.  Click on a RED "
                                   "required item to cycle through the team members with that item.";   // 0x64aea4
 const char *const kRequired = "%s is a required team member for this mission, and cannot be removed."; // 0x64ae28
+const char *const kDoubleClick = " (Double-Click for description)";                                    // 0x64af38
+const char *const kNone = "NONE";                                                                      // 0x64af30
+const char *const kNeeded = "NEEDED";                                                                  // 0x64b08c
+const char *const kRequiredTitle = "Required Items for Mission";                                       // 0x64b094
+const char *const kRecommendedTitle = "Recommended Items";                                             // 0x64b078
+const char *const kBeep = "Interface/Generic Beep.wav";                                                // 0x64b0b0
+// The description window's typing, the typewriter's own speed (0x568d68),
+// in characters a second.
+constexpr float kDescriptionSpeed = 90.0f;
 // A message's time on the screen: the 50 the program sets (0x5ebc1f),
 // taken as seconds (inferred).
 constexpr uint64_t kMessageMs = 50000;
@@ -108,6 +117,7 @@ TeamSelectionScreen::TeamSelectionScreen(const Archive &data, const TextObject &
     // The menu's font (Rules.txt's Menu Font), and the red for what's missing.
     (void)_font.load(data, "Trek Small");
     (void)_redFont.load(data, "Trek Small Red");
+    (void)_goldFont.load(data, "Trek Small Gold");
     _texts = readStaticTexts(data, _def);
 
     _buttonFonts.resize(kButtons.size());
@@ -171,6 +181,32 @@ TeamSelectionScreen::TeamSelectionScreen(const Archive &data, const TextObject &
         _transporterTexts = readStaticTexts(data, &background);
     }
     (void)_marker.load(data, "Interface/Selection", "Idle");
+
+    // The inventory's items and the frames of its icons (0x5ea65b), and
+    // the description window (0x5e8d60).
+    _items = loadItems(data);
+    _itemTypes = loadItemTypes(data);
+    _itemFrame = screenPicture(data, "Roster Window/Item Frame");
+    _itemSelected = screenPicture(data, "Roster Window/Selected Icon Background");
+    _descriptionBackground = screenPicture(data, "Team Selection/Inventory Description Background");
+    _descriptionIconBackground = screenPicture(data, "Team Selection/Inventory Description Icon Background");
+    {
+        const std::string key = "InventoryDescriptionExitButton";
+        int x = 0;
+        int y = 0;
+        int textX = 0;
+        int textY = 0;
+        readPoint(_def, key + " Pos", x, y);
+        readPoint(_def, key + " Text Pos", textX, textY);
+        Button done(data, "Team Selection", "Inventory Done", x, y);
+        (void)_descriptionButtonFont.load(data, readText(_def, key + " Font"));
+        done.setLabel(readText(_def, key + " Text"), &_descriptionButtonFont, textX, textY);
+        done.setSound(gameSound(data, readText(_def, key + " Press Sound")));
+        _descriptionButtons.add(std::move(done));
+        _descriptionButtons.setOrigin((_background.w - _descriptionBackground.w) / 2,
+                                      (_background.h - _descriptionBackground.h) / 2);
+    }
+    _beep = gameSound(data, kBeep);
 
     // The team to start with: who the mission says (0x5ea2f0).
     for (const std::string &id : _mission.whoShouldStart)
@@ -271,17 +307,46 @@ TeamSelectionScreen::Choice TeamSelectionScreen::handleEvent(const Event &ev, au
             _confirm.reset();
         return Choice::kNone;
     }
+    if (_describing) {
+        // CONTINUE, or Esc, closes it (inferred for Esc).
+        if (_descriptionButtons.handleEvent(ev, mixer) >= 0 ||
+            (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
+            _describing = false;
+        return Choice::kNone;
+    }
     if (ev.type == EventType::kMouseMove) {
         _rosterHover = rosterAt(ev.mouseX, ev.mouseY);
         _placeHover = placeAt(ev.mouseX, ev.mouseY);
+        const ItemDefinition *item = _inventoryShown ? inventoryItemAt(ev.mouseX, ev.mouseY) : nullptr;
+        _itemHover = item ? item->name : std::string();
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+        int sx = 0;
+        int sy = 0;
+        int sw = 0;
+        int sh = 0;
+        readPoint(_def, "Skill Pos", sx, sy);
+        readPoint(_def, "Skill Size", sw, sh);
         if (const int member = rosterAt(ev.mouseX, ev.mouseY); member >= 0) {
             _rosterChosen = member;
             _placeChosen = -1;
         } else if (const int place = placeAt(ev.mouseX, ev.mouseY); place >= 0) {
             _placeChosen = place;
             _rosterChosen = -1;
+        } else if (const ItemDefinition *item = _inventoryShown ? inventoryItemAt(ev.mouseX, ev.mouseY) : nullptr) {
+            // A double click on an item describes it (0x5eb090).
+            if (ev.clicks >= 2)
+                describe(*item, now);
+        } else if (ev.mouseX >= sx && ev.mouseX < sx + sw && ev.mouseY >= sy && ev.mouseY < sy + sh) {
+            // An item of the lists: on to the next officer who has it, with
+            // a beep (0x5e9ad9).
+            for (const ItemRow &row : itemRows())
+                if (row.kind == ItemRow::Kind::kItem && ev.mouseY >= sy + row.y &&
+                    ev.mouseY < sy + row.y + _font.height() + 1) {
+                    cycleTo(*row.item);
+                    if (mixer && _beep)
+                        mixer->play(_beep, audio::SoundType::kEffects);
+                }
         }
         updateButtons();
     }
@@ -345,6 +410,230 @@ TeamSelectionScreen::Choice TeamSelectionScreen::handleEvent(const Event &ev, au
     }
     updateButtons();
     return Choice::kNone;
+}
+
+int TeamSelectionScreen::shownMember() const {
+    if (_rosterChosen >= 0)
+        return _rosterChosen;
+    if (_placeChosen >= 0 && _placeChosen < int(_team.size()))
+        return int(_team[size_t(_placeChosen)]);
+    return -1;
+}
+
+void TeamSelectionScreen::choose(size_t member) {
+    const auto onTeam = std::find(_team.begin(), _team.end(), member);
+    if (onTeam != _team.end()) {
+        _placeChosen = int(onTeam - _team.begin());
+        _rosterChosen = -1;
+        return;
+    }
+    _rosterChosen = int(member);
+    _placeChosen = -1;
+    for (size_t i = 0; i < _fields.size(); ++i)
+        if (_fields[i] == _roster[member].field) {
+            _field = i;
+            _fieldButtons.button(i).setChecked(true);
+        } else {
+            _fieldButtons.button(i).setChecked(false);
+        }
+}
+
+void TeamSelectionScreen::cycleTo(const std::string &item) {
+    const size_t n = _roster.size();
+    if (!n)
+        return;
+    const int shown = shownMember();
+    for (size_t step = 1; step <= n; ++step) {
+        const size_t i = (size_t(shown < 0 ? -1 : shown) + step) % n;
+        if (_roster[i].available && _roster[i].hasItem(item)) {
+            choose(i);
+            return;
+        }
+    }
+}
+
+bool TeamSelectionScreen::teamHas(const std::string &item) const {
+    return std::any_of(_team.begin(), _team.end(), [&](size_t m) { return _roster[m].hasItem(item); });
+}
+
+std::vector<std::vector<const ItemDefinition *>> TeamSelectionScreen::inventoryColumns() const {
+    std::vector<std::vector<const ItemDefinition *>> columns(_itemTypes.size());
+    const int shown = shownMember();
+    if (shown < 0)
+        return columns;
+    // A column for each item type, the last type's first (0x5e6b80), the
+    // officer's items each in its type's, those shown in the inventory only
+    // (0x5ec2bd).
+    for (const TeamMember::Item &held : _roster[size_t(shown)].inventory) {
+        const auto def = _items.find(held.name);
+        if (def == _items.end() || !def->second.displayInInventory)
+            continue;
+        const auto type = std::find(_itemTypes.begin(), _itemTypes.end(), def->second.type);
+        if (type != _itemTypes.end())
+            columns[size_t(_itemTypes.end() - type) - 1].push_back(&def->second);
+    }
+    return columns;
+}
+
+const ItemDefinition *TeamSelectionScreen::inventoryItemAt(int x, int y) const {
+    int px = 0;
+    int py = 0;
+    int sx = 0;
+    int sy = 0;
+    int iw = 0;
+    int ih = 0;
+    readPoint(_def, "Inventory Pos", px, py);
+    readPoint(_def, "Inventory Strip Pos", sx, sy);
+    readPoint(_def, "Inventory Icon Size", iw, ih);
+    const int gap = _def ? int(_def->integer("Inventory Icon Spacing").value_or(0)) : 0;
+    const auto columns = inventoryColumns();
+    for (size_t c = 0; c < columns.size(); ++c)
+        for (size_t r = 0; r < columns[c].size(); ++r) {
+            const int cx = px + sx + int(c) * (iw + gap);
+            const int cy = py + sy - int(r) * (ih + gap);
+            if (x >= cx && y >= cy && x < cx + iw && y < cy + ih)
+                return columns[c][r];
+        }
+    return nullptr;
+}
+
+const image::Image &TeamSelectionScreen::itemIcon(const std::string &name) {
+    auto it = _icons.find(name);
+    if (it == _icons.end())
+        it = _icons.emplace(name, cachePicture(_data, "Inventory/Icon Frames/" + name)).first;
+    return it->second;
+}
+
+std::vector<TeamSelectionScreen::ItemRow> TeamSelectionScreen::itemRows() const {
+    std::vector<ItemRow> rows;
+    // Each list its title, then its items a line each; the required with
+    // NONE when there are none, the recommended left out (0x5e9620).
+    const int title = _goldFont.loaded() ? _goldFont.height() : _font.height();
+    const int line = _font.height() + 1;
+    int y = 0;
+    for (int list = 0; list < 2; ++list) {
+        const std::vector<std::string> &items = list == 0 ? _mission.items : _mission.recommendedItems;
+        if (items.empty() && list == 1)
+            continue;
+        rows.push_back({ItemRow::Kind::kTitle, list == 0, nullptr, y});
+        y += title + 4;
+        if (items.empty()) {
+            rows.push_back({ItemRow::Kind::kNone, list == 0, nullptr, y});
+            y += line;
+        }
+        for (const std::string &item : items) {
+            rows.push_back({ItemRow::Kind::kItem, list == 0, &item, y});
+            y += line;
+        }
+    }
+    return rows;
+}
+
+void TeamSelectionScreen::describe(const ItemDefinition &item, uint64_t now) {
+    _describing = true;
+    _descriptionTitle = item.printableName;
+    _descriptionIcon = item.iconImage;
+    _descriptionText.clear();
+    _descriptionTyped = 0.0f;
+    _descriptionLast = now;
+    // Its words, the item's script's entry (0x5dad60).
+    std::vector<uint8_t> bytes;
+    if (!_data.read("Levels/" + item.briefingScript + ".RDS", bytes)) {
+        const RdsScript script = readRdsScript(std::string(bytes.begin(), bytes.end()));
+        if (const std::string *text = script.find(item.briefingText))
+            _descriptionText = *text;
+    }
+}
+
+void TeamSelectionScreen::drawInventory(Surface &screen) {
+    int px = 0;
+    int py = 0;
+    int sx = 0;
+    int sy = 0;
+    int iw = 0;
+    int ih = 0;
+    readPoint(_def, "Inventory Pos", px, py);
+    readPoint(_def, "Inventory Strip Pos", sx, sy);
+    readPoint(_def, "Inventory Icon Size", iw, ih);
+    image::blit(screen, _inventoryBackground, px, py);
+    const int gap = _def ? int(_def->integer("Inventory Icon Spacing").value_or(0)) : 0;
+    const auto columns = inventoryColumns();
+    // A column a type, its items from the strip upward, each in its frame;
+    // an empty column a dark square (0x423040, inferred for the square's
+    // look).
+    for (size_t c = 0; c < columns.size(); ++c) {
+        const int cx = px + sx + int(c) * (iw + gap);
+        if (columns[c].empty()) {
+            for (int y = 0; y < ih; ++y) {
+                if (py + sy + y < 0 || py + sy + y >= screen.h)
+                    continue;
+                for (int x = 0; x < iw; ++x) {
+                    if (cx + x < 0 || cx + x >= screen.w)
+                        continue;
+                    uint8_t *p = screen.row(py + sy + y) + (cx + x) * 4;
+                    p[0] = uint8_t((p[0] + 10) / 2);
+                    p[1] = uint8_t((p[1] + 10) / 2);
+                    p[2] = uint8_t((p[2] + 40) / 2);
+                }
+            }
+            continue;
+        }
+        for (size_t r = 0; r < columns[c].size(); ++r) {
+            const ItemDefinition *item = columns[c][r];
+            const int cy = py + sy - int(r) * (ih + gap);
+            const image::Image &frame = item->name == _itemHover ? _itemSelected : _itemFrame;
+            image::blit(screen, frame, cx + (iw - frame.w) / 2, cy + (ih - frame.h) / 2);
+            const image::Image &icon = itemIcon(item->iconImage);
+            image::blit(screen, icon, cx + (iw - icon.w) / 2, cy + (ih - icon.h) / 2);
+        }
+    }
+    // The item under the mouse, centred under the strip (0x5eb345).
+    if (!_itemHover.empty() && _font.loaded()) {
+        const auto def = _items.find(_itemHover);
+        const std::string text = (def == _items.end() ? _itemHover : def->second.printableName) + kDoubleClick;
+        const int centre = px + sx + (iw + 2) * int(columns.size()) / 2;
+        _font.draw(screen, centre - _font.width(text) / 2, py + sy + ih + gap, text);
+    }
+}
+
+void TeamSelectionScreen::drawDescription(Surface &screen, uint64_t now) {
+    _descriptionTyped =
+        std::min(float(_descriptionText.size()),
+                 _descriptionTyped + float(now - std::min(now, _descriptionLast)) / 1000.0f * kDescriptionSpeed);
+    _descriptionLast = now;
+    // In the middle of the screen: the title centred, then the icon on its
+    // background, the words typed out beside and under it (0x5e8ec0).
+    const int wx = (_background.w - _descriptionBackground.w) / 2;
+    const int wy = (_background.h - _descriptionBackground.h) / 2;
+    image::blit(screen, _descriptionBackground, wx, wy);
+    int dx = 0;
+    int dy = 0;
+    int mx = 0;
+    int my = 0;
+    readPoint(_def, "Description Pos", dx, dy);
+    readPoint(_def, "Description Margin", mx, my);
+    const int left = wx + dx + mx;
+    const int width = _descriptionBackground.w - 2 * (dx + mx);
+    int y = wy + dy + my;
+    if (_font.loaded()) {
+        _font.draw(screen, left + (width - _font.width(_descriptionTitle)) / 2, y, _descriptionTitle);
+        y += 2 * _font.height();
+        int indent = 0;
+        int narrow = 0;
+        if (_descriptionIconBackground.w) {
+            image::blit(screen, _descriptionIconBackground, left, y);
+            const image::Image &icon = itemIcon(_descriptionIcon);
+            image::blit(screen, icon, left + (_descriptionIconBackground.w - icon.w) / 2,
+                        y + (_descriptionIconBackground.h - icon.h) / 2);
+            indent = _descriptionIconBackground.w + 4;
+            narrow = _descriptionIconBackground.h / std::max(1, _font.height()) + 1;
+        }
+        const auto lines =
+            _font.wrap(std::string_view(_descriptionText).substr(0, size_t(_descriptionTyped)), width, indent, narrow);
+        for (size_t i = 0; i < lines.size(); ++i)
+            _font.draw(screen, left + (int(i) < narrow ? indent : 0), y + int(i) * _font.height(), lines[i]);
+    }
+    _descriptionButtons.draw(screen);
 }
 
 void TeamSelectionScreen::drawCharacter(Surface &screen, size_t member) {
@@ -518,19 +807,46 @@ void TeamSelectionScreen::drawMission(Surface &screen) {
     std::snprintf(number, sizeof number, "%s %02d", "Mission", _mission.number);
     _font.draw(screen, x + (w - _font.width(number)) / 2, y, number);
     _font.draw(screen, x + (w - _font.width(_mission.name)) / 2, y + _font.height(), _mission.name);
-    // The items the mission needs, the missing ones in red (inferred).
+    // The required and recommended items: each list's title centred, its
+    // items on the left, those no one on the team has in red, the required
+    // ones NEEDED on the right; a band behind those the officer shown has
+    // (0x5e9620, inferred for the band's colour).
     int sx = 0;
     int sy = 0;
+    int sw = 0;
+    int sh = 0;
     readPoint(_def, "Skill Pos", sx, sy);
-    if (_mission.items.empty())
-        return;
-    _font.draw(screen, sx, sy, "Required Items for Mission");
-    int line = sy + _font.height() + 2;
-    for (const std::string &item : _mission.items) {
-        const bool had = std::any_of(_team.begin(), _team.end(), [&](size_t m) { return _roster[m].hasItem(item); });
-        const Font &f = had || !_redFont.loaded() ? _font : _redFont;
-        f.draw(screen, sx, line, had ? item : item + " - NEEDED");
-        line += _font.height();
+    readPoint(_def, "Skill Size", sw, sh);
+    const Font &titleFont = _goldFont.loaded() ? _goldFont : _font;
+    const Font &redFont = _redFont.loaded() ? _redFont : _font;
+    const int shown = shownMember();
+    for (const ItemRow &row : itemRows()) {
+        const int y = sy + row.y;
+        // Only what fits in the panel: its scrolling isn't there yet.
+        if (y + _font.height() > sy + sh)
+            break;
+        if (row.kind == ItemRow::Kind::kTitle) {
+            const char *title = row.required ? kRequiredTitle : kRecommendedTitle;
+            titleFont.draw(screen, sx + (sw - titleFont.width(title)) / 2, y, title);
+            continue;
+        }
+        if (row.kind == ItemRow::Kind::kNone) {
+            _font.draw(screen, sx, y, kNone);
+            continue;
+        }
+        const auto def = _items.find(*row.item);
+        const std::string name = def == _items.end() ? *row.item : def->second.printableName;
+        if (shown >= 0 && _roster[size_t(shown)].hasItem(*row.item))
+            for (int by = y; by < y + _font.height() + 1 && by < screen.h; ++by)
+                for (int bx = sx; bx < sx + sw && bx < screen.w; ++bx) {
+                    uint8_t *p = screen.row(by) + bx * 4;
+                    p[2] = uint8_t(std::min(255, p[2] + 64));
+                }
+        const bool had = teamHas(*row.item);
+        const Font &f = had ? _font : redFont;
+        f.draw(screen, sx, y, name);
+        if (!had && row.required)
+            f.draw(screen, sx + sw - f.width(kNeeded), y, kNeeded);
     }
 }
 
@@ -541,14 +857,11 @@ void TeamSelectionScreen::draw(Surface &screen, uint64_t now) {
     int cx = 0;
     int cy = 0;
     if (_inventoryShown) {
-        readPoint(_def, "Inventory Pos", cx, cy);
-        image::blit(screen, _inventoryBackground, cx, cy);
+        drawInventory(screen);
     } else {
         readPoint(_def, "CharacterDisplay Pos", cx, cy);
         image::blit(screen, _characterBackground, cx, cy);
-        const int shown = _rosterChosen >= 0                                      ? _rosterChosen
-                          : _placeChosen >= 0 && _placeChosen < int(_team.size()) ? int(_team[size_t(_placeChosen)])
-                                                                                  : -1;
+        const int shown = shownMember();
         if (shown >= 0)
             drawCharacter(screen, size_t(shown));
     }
@@ -565,6 +878,8 @@ void TeamSelectionScreen::draw(Surface &screen, uint64_t now) {
         _font.drawWrapped(screen, mx + mw / 2, my, mw, _message, Font::Align::kCenter, 2);
     }
     _buttons.draw(screen);
+    if (_describing)
+        drawDescription(screen, now);
     if (_confirm)
         _confirm->draw(screen);
 }

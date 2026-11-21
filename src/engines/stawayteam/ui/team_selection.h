@@ -15,6 +15,7 @@
 #include "engines/stawayteam/ui/static_text.h"
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -89,10 +90,39 @@ private:
     int rosterAt(int x, int y) const;
     int placeAt(int x, int y) const;
 
+    // The officer whose details and inventory show: the one chosen in the
+    // roster or on the transporter, or -1.
+    int shownMember() const;
+    // Chooses `member`, on the transporter if they're on the team, else in
+    // the roster at their field (0x5ec018).
+    void choose(size_t member);
+    // On to the next available officer, after the one shown, who has
+    // `item` (0x5ebf10).
+    void cycleTo(const std::string &item);
+
+    // The shown officer's items, a column for each item type (0x5ec1e0).
+    std::vector<std::vector<const ItemDefinition *>> inventoryColumns() const;
+    // The item at (x, y) in the inventory panel, or nullptr.
+    const ItemDefinition *inventoryItemAt(int x, int y) const;
+    const image::Image &itemIcon(const std::string &name);
+    // The mission's required items, then its recommended ones, as their
+    // lists show them (0x5e9620).
+    struct ItemRow {
+        enum class Kind { kTitle, kNone, kItem } kind;
+        bool required;           // of the required items' list
+        const std::string *item; // for kItem
+        int y;                   // from the panel's top
+    };
+    std::vector<ItemRow> itemRows() const;
+    bool teamHas(const std::string &item) const;
+    void describe(const ItemDefinition &item, uint64_t now);
+
     void drawCharacter(Surface &screen, size_t member);
+    void drawInventory(Surface &screen);
     void drawRoster(Surface &screen);
     void drawTransporter(Surface &screen, uint64_t now);
     void drawMission(Surface &screen);
+    void drawDescription(Surface &screen, uint64_t now);
 
     const Archive &_data;
     const TextObject &_rules;
@@ -103,8 +133,9 @@ private:
     std::vector<std::string> _fields;
     std::vector<size_t> _team;
     image::Image _background;
-    Font _font;    // Trek Small, the menu's
-    Font _redFont; // Trek Small Red: what's missing
+    Font _font;     // Trek Small, the menu's
+    Font _redFont;  // Trek Small Red: what's missing
+    Font _goldFont; // Trek Small Gold: the item lists' titles
     std::vector<StaticText> _texts;
     std::vector<Font> _buttonFonts;
     ButtonGroup _buttons;      // EXIT, BRIEFING, START MISSION, ADD, REMOVE, INVENTORY, OFFICERS
@@ -127,6 +158,24 @@ private:
     Animation _marker;
     std::vector<std::pair<int, int>> _places;
     std::vector<StaticText> _transporterTexts;
+    std::map<std::string, ItemDefinition> _items;
+    std::vector<std::string> _itemTypes;
+    std::map<std::string, image::Image> _icons;
+    image::Image _itemFrame;
+    image::Image _itemSelected;
+    std::string _itemHover; // the inventory's item under the mouse
+    // An item's description, over the screen (0x5e8d60).
+    bool _describing = false;
+    std::string _descriptionTitle;
+    std::string _descriptionText;
+    std::string _descriptionIcon;
+    float _descriptionTyped = 0.0f;
+    uint64_t _descriptionLast = 0;
+    image::Image _descriptionBackground;
+    image::Image _descriptionIconBackground;
+    Font _descriptionButtonFont;
+    ButtonGroup _descriptionButtons;
+    std::shared_ptr<audio::Sound> _beep;
     std::string _message;
     uint64_t _messageUntil = 0;
     std::unique_ptr<ConfirmDialog> _confirm;
