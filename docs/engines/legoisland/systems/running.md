@@ -70,12 +70,15 @@ that far.
   the 3D listener.
 - It makes DirectDraw and lists its display modes, then asks it for
   `IDirect3D2` (`{6aae1ec1-662a-11d0-889d-00aa00bbb76a}`), DirectX 5's
-  Direct3D. Reluva's Direct3D stand-in has DirectX 7's only, so it's
-  refused: the program writes "D3D creation failed: Unrecognized error
-  value." to the debugger and, without the object, faults (in
-  `LEGO1.DLL` at 0x7a917, reading address 0x14), after 432,308
-  instructions. DirectX 5's Direct3D comes next, then Retained Mode on
-  it.
+  Direct3D ([directx.md](../../../common/x86/directx.md)), and lists its
+  devices.
+- It then makes DirectDraw again, takes the display (exclusive and
+  fullscreen) and sets its mode, makes its primary surface and a clipper
+  for its window, makes a Z buffer and attaches it, and makes its
+  Direct3D device (`IDirect3D2::CreateDevice`). It clears its surfaces,
+  which shows the first frame: black.
+- Then it calls `Direct3DRMCreate`, Direct3D Retained Mode, which nothing
+  stands in for yet: 464,946 instructions in.
 
 ## In Reluva
 
