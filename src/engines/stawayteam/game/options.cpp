@@ -3,6 +3,7 @@
 
 #include "engines/stawayteam/game/options.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <system_error>
 #include <string>
@@ -17,6 +18,32 @@ const char *const kScrollSpeed = "Scroll Speed";
 const char *const kScrollAccel = "Scroll Acceleration";
 const char *const kPauseWhenHit = "Pause Game When Hit";
 const char *const kBrightness = "Screen Brightness";
+// The sound's keys, as the program spells them (0x6456c4...).
+const char *const kMasterVolume = "Master Voume";
+const char *const kMasterMute = "Master Mute";
+const char *const kEffectsVolume = "SFx Voume";
+const char *const kEffectsMute = "SFx Mute";
+const char *const kMusicVolume = "Music Volume";
+const char *const kMusicMute = "Music Mute";
+const char *const kVoiceovers = "Play Voiceovers";
+const char *const kStereo = "Stereo Sounds";
+const char *const kMixing = "Sounds Mixing Channels";
+
+int whole(const Config &file, const char *key, int fallback) {
+    const std::string value = file.get(kSection, key);
+    char *end = nullptr;
+    const long n = std::strtol(value.c_str(), &end, 10);
+    return !value.empty() && end && *end == '\0' ? int(n) : fallback;
+}
+
+bool flag(const Config &file, const char *key, bool fallback) {
+    return whole(file, key, fallback ? 1 : 0) != 0;
+}
+
+// Hundredths of a decibel as the mixer's 0 to kMaxVolume.
+double gain(int hundredths) {
+    return std::pow(10.0, double(hundredths) / 2000.0);
+}
 
 float number(const Config &file, const char *key, float fallback) {
     const std::string value = file.get(kSection, key);
@@ -38,6 +65,15 @@ void GameOptions::load(const std::filesystem::path &file) {
     scrollAccel = number(_file, kScrollAccel, kScrollAccelDefault);
     pauseWhenHit = _file.get(kSection, kPauseWhenHit, "1") != "0";
     brightness = number(_file, kBrightness, kBrightnessMin);
+    masterVolume = whole(_file, kMasterVolume, 0);
+    masterMute = flag(_file, kMasterMute, false);
+    effectsVolume = number(_file, kEffectsVolume, 1.0f);
+    effectsMute = flag(_file, kEffectsMute, false);
+    musicVolume = whole(_file, kMusicVolume, kMusicVolumeDefault);
+    musicMute = flag(_file, kMusicMute, false);
+    playVoiceovers = flag(_file, kVoiceovers, true);
+    stereo = flag(_file, kStereo, true);
+    mixingChannels = whole(_file, kMixing, kMixingFaster);
 }
 
 void GameOptions::save() const {
@@ -48,10 +84,32 @@ void GameOptions::save() const {
     file.set(kSection, kScrollAccel, std::to_string(scrollAccel));
     file.set(kSection, kPauseWhenHit, pauseWhenHit ? "1" : "0");
     file.set(kSection, kBrightness, std::to_string(brightness));
+    file.set(kSection, kMasterVolume, std::to_string(masterVolume));
+    file.set(kSection, kMasterMute, masterMute ? "1" : "0");
+    file.set(kSection, kEffectsVolume, std::to_string(effectsVolume));
+    file.set(kSection, kEffectsMute, effectsMute ? "1" : "0");
+    file.set(kSection, kMusicVolume, std::to_string(musicVolume));
+    file.set(kSection, kMusicMute, musicMute ? "1" : "0");
+    file.set(kSection, kVoiceovers, playVoiceovers ? "1" : "0");
+    file.set(kSection, kStereo, stereo ? "1" : "0");
+    file.set(kSection, kMixing, std::to_string(mixingChannels));
     // The folder for the game's files may not be made yet.
     std::error_code ec;
     std::filesystem::create_directories(_path.parent_path(), ec);
     (void)file.save();
+}
+
+void GameOptions::applySound(audio::Mixer &mixer) const {
+    // The game sets the master on its sound device, music on its music
+    // player and effects as a scale (0x56f7a2, 0x56f930, 0x56f877); Reluva
+    // has the master on both of the others, as its own master is the
+    // player's in the launcher.
+    const double master = gain(masterMute ? kVolumeMin : masterVolume);
+    const double music = gain(musicMute ? kVolumeMin : musicVolume);
+    const double effects = effectsMute ? kEffectsVolumeMuted : effectsVolume;
+    mixer.setTypeVolume(audio::SoundType::kMusic, int(std::lround(master * music * audio::kMaxVolume)));
+    mixer.setTypeVolume(audio::SoundType::kEffects, int(std::lround(master * effects * audio::kMaxVolume)));
+    mixer.setTypeVolume(audio::SoundType::kSpeech, int(std::lround(master * effects * audio::kMaxVolume)));
 }
 
 } // namespace reluva::stawayteam

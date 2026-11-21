@@ -66,6 +66,10 @@ public:
     /** Draws it, its menu's top left at (originX, originY). */
     void draw(Surface &screen, int originX, int originY, bool hover, bool pressed) const;
 
+    /** Whether it's checked: then it shows its Press picture, under the mouse or not (0x4e8140). */
+    bool checked() const { return _checked; }
+    void setChecked(bool checked) { _checked = checked; }
+
     const std::shared_ptr<audio::Sound> &sound() const { return _sound; }
 
 private:
@@ -80,6 +84,7 @@ private:
     int _textX = 0;
     int _textY = 0;
     std::shared_ptr<audio::Sound> _sound;
+    bool _checked = false;
 };
 
 /**
@@ -96,6 +101,7 @@ public:
     }
     void add(Button button) { _buttons.push_back(std::move(button)); }
     const std::vector<Button> &buttons() const { return _buttons; }
+    Button &button(size_t i) { return _buttons[i]; }
 
     /**
      * What `ev` does to them: the number of the button it chooses, its

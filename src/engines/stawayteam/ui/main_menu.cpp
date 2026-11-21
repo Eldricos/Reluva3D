@@ -196,10 +196,17 @@ bool MainMenu::run() {
                 }
                 continue;
             }
+            if (_soundOptions) {
+                if (_soundOptions->handleEvent(ev, _mixer))
+                    _soundOptions.reset();
+                continue;
+            }
             if (_settings) {
                 const SettingsWindow::Choice choice = _settings->handleEvent(ev, _mixer);
                 if (choice == SettingsWindow::Choice::kContinue)
                     _settings.reset();
+                else if (choice == SettingsWindow::Choice::kSound)
+                    _soundOptions = std::make_unique<SoundOptionsWindow>(_data, _options, _screen.w, _screen.h);
                 else if (choice == SettingsWindow::Choice::kDifficulty)
                     _difficultyWindow =
                         std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty, true);
@@ -254,6 +261,8 @@ void MainMenu::draw() {
         _credits->draw(_screen, now);
     if (_settings)
         _settings->draw(_screen, now);
+    if (_soundOptions)
+        _soundOptions->draw(_screen, now);
     if (_difficultyWindow)
         _difficultyWindow->draw(_screen, now);
     if (_dialog)

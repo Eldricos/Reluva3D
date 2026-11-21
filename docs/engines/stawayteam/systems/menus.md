@@ -254,6 +254,52 @@ pausing when hit (`0x486d32`). DIFFICULTY SETTING opens the difficulty
 window with CONTINUE in place of START GAME (`0x486dff`). CONTINUE
 closes the window.
 
+### The sound window
+
+The settings window's CONFIGURE SOUND opens it (`0x56e8f0`), over the
+settings:
+
+- **Its picture:** `Sound Options Dialog/Background` (428x247); its font
+  Trek Small, its spacing 5 (`0x56e985`) and its labels' border 2 fifths
+  of the font's baseline, 2 pixels (`0x56e989`).
+- **Six rows of labels,** "&Master Volume", "S&fx Volume", "M&usic
+  Volume", "Voiceovers", "Stereo" and "Sound Mixing" (`0x645728`...): the
+  first at 100 across, down by half the window less 6 times its height
+  and 8 (`0x56eaa3`); each next 5 under the one before, lined up on its
+  right (layout 9). A label is its text's width and its border twice,
+  the font's baseline, its border twice and 2 high; its text at its
+  border across and a pixel more down (`0x4e66f2`). Its `&` is drawn.
+- **The volumes,** in the first three rows: after the label (layout 14,
+  5 apart), a mute button (`Mute Default`, `Hover`, `Press`, 15x15: green,
+  and red when pressed or muted) and a slider, 125 wide (`0x56f121`),
+  from 0 to 3333 (`0x56eb12`).
+- **Two buttons a row** in the others (`Button Default`, `Press`,
+  70x13), the second at the sliders' right edge, the first 4 before it
+  (`0x56f2f2`), their labels in Small Blue (`0x56ea39`) in their middle:
+  ON and OFF, STEREO and MONO, FASTER and BETTER. The one set shows its
+  Press picture.
+- **CONTINUE,** a picture button on `Sound Options Dialog/Button
+  Background`, at 69 across, 29 above the bottom (`0x56f23a`).
+
+What they set (`0x56f540`), at once, kept in the game's options under
+"Options", with the program's spelling:
+
+| Control | Option | Default | Set to |
+|---|---|---|---|
+| Master slider | `Master Voume`, hundredths of a decibel | 0 | slider - 3333 |
+| Its mute | `Master Mute` | off | volume -3333 while muted, the slider disabled |
+| Sfx slider | `SFx Voume`, a scale | 1 | (slider / 3333 + 1) / 2, 0.5 to 1 |
+| Its mute | `SFx Mute` | off | scale 0.25 while muted |
+| Music slider | `Music Volume`, hundredths of a decibel | -800 | slider - 3333 |
+| Its mute | `Music Mute` | off | volume -3333 while muted |
+| ON / OFF | `Play Voiceovers` | on | |
+| STEREO / MONO | `Stereo Sounds` | stereo | |
+| FASTER / BETTER | `Sounds Mixing Channels` | 32 | FASTER 32, BETTER 5 |
+
+The game sets the master on its sound device, the music on its music
+player and the effects' scale on its sounds (`0x56f7a2`, `0x56f930`,
+`0x56f877`), and all of them as it starts (`0x56e7b5`).
+
 ### The toolkit's sliders and check boxes
 
 - **Frames** (`0x408000`): as many pixels thick as a fifth of the font's
@@ -267,8 +313,13 @@ closes the window.
   `Interface/Window Texture` (`0x40b670`, the picture the toolkit loads at
   `0x408330`) and framed raised. The thumb's left is the width less the
   thumb's, times the value / 99, rounded. Held down with the mouse, the
-  value follows it, the thumb's middle under it (`0x4e4ed0`); its keys
-  (with the keyboard's focus) step it by 5 (`0x4e4fa0`).
+  value follows it, the thumb's middle under it, kept to one less than
+  its maximum (`0x4e4ed0`); the program can set it to its maximum
+  (`0x4e50c0`). Its step is its maximum and 10, over 20, at least 1
+  (`0x4e4b59`): 5 for 0-99. The mouse's wheel up adds a step, down takes
+  one (`0x4e4f70`); with the keyboard's focus, four of the program's keys
+  set it to 0 and to its last value and step it down and up
+  (`0x4e4fa0`), which keys they are isn't traced.
 - **A check box** (`0x4e6310`): its label first, at the box's right and 1
   down; the box, the font's baseline and 2 square, framed raised, or
   sunken while held down on or checked; checked, the grey cross over it.
@@ -298,9 +349,16 @@ closes the window.
   keeps the game's files, with the program's names; RESET DEFAULTS puts
   the defaults back; DIFFICULTY SETTING opens the difficulty window over
   it; CONTINUE (or Esc) closes it. The brightness is the screen's gamma,
-  applied to all Reluva draws. The keyboard's and sound's settings aren't
-  there yet. Load Save Game and Play Network Game play their sound and
-  lead nowhere yet.
+  applied to all Reluva draws. CONFIGURE SOUND opens the sound window
+  (`SoundOptionsWindow`, `ui/sound_options.cpp`), its controls set as
+  above and kept with the others; CONTINUE (or Esc) closes it. On
+  Reluva's mixer the master volume and the music's or the effects'
+  multiply, as gains (a hundredth of a decibel each), into its music and
+  effects volumes; speech, the movies' and voiceovers', go with the
+  effects. Voiceovers, stereo and mixing are kept, but don't change
+  what's heard yet. The keyboard's settings aren't there yet. A slider
+  clicked takes the keys: Home, End, Left and Down, Right and Up. Load
+  Save Game and Play Network Game play their sound and lead nowhere yet.
 - **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
   `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
   them, worked out by hand for each window. A picture button's click plays
@@ -332,6 +390,12 @@ closes the window.
 - **Where the dialog and the other windows go on the screen.** Reluva
   puts them in the middle.
 - **The game's level before one is chosen.** Reluva starts at Normal.
+- **The sliders' keys:** which of the player's keys the program's key
+  numbers 5, 11, 12 and 14 are, and how a slider gets the keyboard's
+  focus. Reluva takes Home, Left or Down, Right or Up, and End, and the
+  last slider clicked.
+- **Speech's volume:** whether voiceovers and the movies follow the
+  effects' scale. Reluva has them do so.
 - **The gamma:** how the game's display applies it. Reluva raises each
   colour to 1 / gamma, brightening the dark ones.
 - **A slider's thumb texture:** where its tiling starts. Reluva tiles it

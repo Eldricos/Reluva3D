@@ -136,7 +136,13 @@ public:
     int width() const { return _w; }
     int height() const;
     int value() const { return _value; }
+    /** Sets the value, 0 to its maximum (the program can set the maximum; the mouse can't, 0x4e50c0). */
     void setValue(int value);
+    /** A disabled slider takes no input (its `+0x5d`, as a muted volume's). */
+    void setEnabled(bool enabled) { _enabled = enabled; }
+    /** Whether the keys go to it: the last slider clicked (inferred). */
+    void setFocused(bool focused) { _focused = focused; }
+    bool focused() const { return _focused; }
 
     /** What `ev` does to it, its window's top left at (originX, originY): true when its value changes. */
     bool handleEvent(const Event &ev, int originX, int originY);
@@ -154,6 +160,8 @@ private:
     int _w = 0;
     int _value = 0;
     bool _dragging = false;
+    bool _enabled = true;
+    bool _focused = false;
 };
 
 /**

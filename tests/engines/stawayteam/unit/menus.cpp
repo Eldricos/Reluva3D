@@ -209,6 +209,25 @@ void testOptions(const std::filesystem::path &tmp) {
     again.load(file);
     CHECK(again.scrollSpeed == 900.0f && !again.pauseWhenHit && again.brightness == 1.25f &&
           again.scrollAccel == 15.0f);
+
+    // The sound's: defaults, then set and read back; on the mixer, music
+    // -8 dB and effects whole, the master over both; muted, its least.
+    CHECK(again.masterVolume == 0 && again.musicVolume == -800 && again.effectsVolume == 1.0f && again.stereo &&
+          again.playVoiceovers && again.mixingChannels == 32);
+    audio::Mixer mixer(22050);
+    again.applySound(mixer);
+    CHECK(mixer.typeVolume(audio::SoundType::kMusic) == 102 &&
+          mixer.typeVolume(audio::SoundType::kEffects) == audio::kMaxVolume);
+    again.masterVolume = -2000;
+    again.musicMute = true;
+    again.stereo = false;
+    again.mixingChannels = 5;
+    again.save();
+    GameOptions third;
+    third.load(file);
+    CHECK(third.masterVolume == -2000 && third.musicMute && !third.stereo && third.mixingChannels == 5);
+    third.applySound(mixer);
+    CHECK(mixer.typeVolume(audio::SoundType::kEffects) == 26 && mixer.typeVolume(audio::SoundType::kMusic) == 1);
 }
 
 } // namespace

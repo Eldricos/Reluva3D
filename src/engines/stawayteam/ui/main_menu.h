@@ -11,6 +11,7 @@
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/difficulty.h"
 #include "engines/stawayteam/ui/settings.h"
+#include "engines/stawayteam/ui/sound_options.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/font.h"
 
@@ -100,6 +101,7 @@ private:
     std::unique_ptr<CreditsWindow> _credits;
     std::unique_ptr<DifficultyWindow> _difficultyWindow;
     std::unique_ptr<SettingsWindow> _settings;
+    std::unique_ptr<SoundOptionsWindow> _soundOptions;
     Difficulty _difficulty = Difficulty::kNormal;
 };
 

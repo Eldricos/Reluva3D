@@ -213,6 +213,13 @@ void engineTest(const std::filesystem::path &tmp) {
         {"Cache/Interface/Screens/Configure Menu/Button Background.frm16", solidFrame(50, 8, 0x001f), {}},
         {"Cache/Interface/Window Texture.frm16", solidFrame(4, 4, 0x3186), {}},
         {"Cache/Fonts/Trek Small.seq16", font, {}},
+        {"Cache/Fonts/Small Blue.seq16", font, {}},
+        {"Cache/Interface/Screens/Sound Options Dialog/Background.frm16", solidFrame(150, 120, 0x4208), {}},
+        {"Cache/Interface/Screens/Sound Options Dialog/Button Background.frm16", solidFrame(50, 8, 0x001f), {}},
+        {"Cache/Interface/Screens/Sound Options Dialog/Mute Default.frm16", solidFrame(5, 5, 0x07e0), {}},
+        {"Cache/Interface/Screens/Sound Options Dialog/Mute Press.frm16", solidFrame(5, 5, 0xf800), {}},
+        {"Cache/Interface/Screens/Sound Options Dialog/Button Default.frm16", solidFrame(12, 6, 0x4208), {}},
+        {"Cache/Interface/Screens/Sound Options Dialog/Button Press.frm16", solidFrame(12, 6, 0x8410), {}},
         {"Credits.txt", test::toBytes("// a comment\r\n_Heading\r\n+Role\r\nName\r\nRole: Name\r\n"), {}},
         {"Cache/Fonts/Placar Condensed.seq16", font, {}},
         {"Cache/Fonts/Placar Blue.seq16", font, {}},
@@ -237,15 +244,16 @@ void engineTest(const std::filesystem::path &tmp) {
     // New Game's shortcut) asks the difficulty, N (CANCEL) closes that; C
     // (Credits') shows the credits, Esc closes them; E (Settings') shows the
     // settings, P unchecks pausing when hit, F (DIFFICULTY SETTING) shows
-    // the difficulty window over them, Esc closes it, C (CONTINUE) closes
-    // the settings; Esc asks whether to
+    // the difficulty window over them, Esc closes it, S (CONFIGURE SOUND)
+    // shows the sound's settings, Esc closes them, C (CONTINUE) closes the
+    // settings; Esc asks whether to
     // quit, N says no, Q (Quit's shortcut) asks again, and Y quits: the
     // window isn't closed.
     int frames = 0;
     std::vector<std::string> screens;
-    rec.add("play.result",
-            play(*engine, dir, frames, &screens,
-                 {'s', 'n', 'e', 'p', 'f', key::kEscape, 'c', 'c', key::kEscape, key::kEscape, 'n', 'q', 'y'}));
+    rec.add("play.result", play(*engine, dir, frames, &screens,
+                                {'s', 'n', 'e', 'p', 'f', key::kEscape, 's', key::kEscape, 'c', 'c', key::kEscape,
+                                 key::kEscape, 'n', 'q', 'y'}));
     rec.add("play.frames", static_cast<int64_t>(frames));
     for (size_t i = 0; i < screens.size(); ++i)
         rec.add("play.screen " + std::to_string(i), screens[i]);
@@ -259,9 +267,9 @@ void engineTest(const std::filesystem::path &tmp) {
     // the sound played (no output here), and the objects, the next file's.
     // A checksum of each screen.
     if (const MetaViewer *viewer = findViewer("stawayteam")) {
-        ScriptedSystem sys({'f',       'f',       'f', 'f',       'b',         'b',         'f',        'f',
-                            'z',       'f',       'i', key::kTab, '.',         key::kTab,   '.',        ']',
-                            key::kTab, key::kTab, ' ', key::kTab, key::kRight, key::kRight, key::kRight});
+        ScriptedSystem sys({'f', 'f',       'f',       'f', 'f',       'b',         'b',         'f',
+                            'f', 'z',       'f',       'i', key::kTab, '.',         key::kTab,   '.',
+                            ']', key::kTab, key::kTab, ' ', key::kTab, key::kRight, key::kRight, key::kRight});
         const Error err = viewer->create(sys, targetFor(dir))->run();
         rec.add("viewer.result", err ? err.message : "ok");
         for (size_t i = 0; i < sys.screens.size(); ++i)

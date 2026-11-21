@@ -205,7 +205,7 @@ int Slider::height() const {
 }
 
 void Slider::setValue(int value) {
-    _value = std::clamp(value, 0, std::max(0, _maximum - 1));
+    _value = std::clamp(value, 0, std::max(0, _maximum));
 }
 
 int Slider::valueAt(int mx) const {
@@ -221,16 +221,43 @@ bool Slider::handleEvent(const Event &ev, int originX, int originY) {
     const int mx = ev.mouseX - originX - _x;
     const int my = ev.mouseY - originY - _y;
     const int before = _value;
+    if (!_enabled)
+        return false;
+    const int last = std::max(0, _maximum - 1);
+    // A twentieth of its range and a half, at least 1 (0x4e4b59).
+    const int step = std::max(1, (_maximum + 10) / 20);
+    const bool over = mx >= 0 && my >= 0 && mx < _w && my < height();
     switch (ev.type) {
     case EventType::kMouseDown:
-        if (ev.button == MouseButton::kLeft && mx >= 0 && my >= 0 && mx < _w && my < height()) {
+        if (ev.button == MouseButton::kLeft && over) {
             _dragging = true;
-            setValue(valueAt(mx));
+            _focused = true;
+            _value = std::clamp(valueAt(mx), 0, last);
         }
         break;
     case EventType::kMouseMove:
         if (_dragging)
-            setValue(valueAt(mx));
+            _value = std::clamp(valueAt(mx), 0, last);
+        break;
+    case EventType::kMouseWheel:
+        // Up a step, down a step (0x4e4f70).
+        if (over && ev.wheelY > 0)
+            _value = std::min(last, _value + step);
+        else if (over && ev.wheelY < 0)
+            _value = std::max(0, _value - step);
+        break;
+    case EventType::kKeyDown:
+        // The keys the program steps by (0x4e4fa0), taken as these (inferred).
+        if (!_focused)
+            break;
+        if (ev.key == key::kHome)
+            _value = 0;
+        else if (ev.key == key::kEnd)
+            _value = last;
+        else if (ev.key == key::kLeft || ev.key == key::kDown)
+            _value = std::max(0, _value - step);
+        else if (ev.key == key::kRight || ev.key == key::kUp)
+            _value = std::min(last, _value + step);
         break;
     case EventType::kMouseUp:
         if (ev.button == MouseButton::kLeft)

@@ -14,6 +14,7 @@ reluva_add_engine(stawayteam
         ui/movies.cpp
         ui/main_menu.cpp
         ui/settings.cpp
+        ui/sound_options.cpp
         game/options.cpp
         ui/button.cpp
         ui/credits.cpp

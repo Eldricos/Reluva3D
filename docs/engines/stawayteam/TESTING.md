@@ -12,7 +12,7 @@ files):
 |---|---|
 | `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
-| `stawayteam.unit.menus` | Fonts: a line's width with nothing between characters, lower case drawn as capitals in a font without it, control characters left out, others it hasn't got drawn as its first; the credits' lines (comments left out, blank lines kept, long ones cut); the toolkit's widgets (a picture dimmed, a picture button's label, shortcut and click, a toggle's size and click, a frame's sides, a slider's height and dragged value, a check box's size and key); the options' file (defaults, written and read back); buttons: the `&` left out of the label and its shortcut kept, chosen by the shortcut (not with Ctrl), by a click, and not when let go off it |
+| `stawayteam.unit.menus` | Fonts: a line's width with nothing between characters, lower case drawn as capitals in a font without it, control characters left out, others it hasn't got drawn as its first; the credits' lines (comments left out, blank lines kept, long ones cut); the toolkit's widgets (a picture dimmed, a picture button's label, shortcut and click, a toggle's size and click, a frame's sides, a slider's height and dragged value, a check box's size and key); the options' file (defaults, written and read back, the sound's on the mixer); buttons: the `&` left out of the label and its shortcut kept, chosen by the shortcut (not with Ctrl), by a click, and not when let go off it |
 | `stawayteam.unit.formats` | Frames (raw, each kind of run-length code, blended pixels with their alpha, damaged ones), objects in binary (a sequence and its frames, a waypoint map, objects in properties, another version, bytes left over, a class the game doesn't have), objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
 
 Reading `DATA.dat` is the common ZIP reader's, tested in
@@ -28,7 +28,8 @@ made in the test), found as an unknown release, started (its movies not
 there, so the main menu, its picture and buttons placed and its song),
 S showing the difficulty window and N (CANCEL) closing it, E showing the
 settings, P unchecking their check box, F showing the difficulty window
-over them and Esc closing it, C closing the settings, C showing the
+over them and Esc closing it, S showing the sound's settings and Esc
+closing them, C closing the settings, C showing the
 credits and Esc closing them, Esc asking to quit, N closing the dialog, Q (Quit's key) asking again
 and Y quitting, a checksum of the screen at each; the data viewer run
 on it: its pictures shown on each background, zoomed, by folder and without the
@@ -72,7 +73,9 @@ stawayteam frame-png`.
    Settings shows the settings window, the sliders following the mouse,
    Brightness lightening the screen, the check box crossed and cleared,
    RESET DEFAULTS putting them back, the values the same when the game is
-   run again;
+   run again; CONFIGURE SOUND shows the sound window, the music getting
+   quieter and louder with its slider and silent muted, the master the
+   same over both, the paired buttons taking turns;
    Credits rolls the credits in a window
    the menu shows through, fading in at the bottom and out at the top,
    headings underlined red, roles green, starting again after the last,

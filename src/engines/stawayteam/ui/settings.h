@@ -27,7 +27,7 @@ namespace reluva::stawayteam {
 class SettingsWindow {
 public:
     /** What the player chose that leaves the window. */
-    enum class Choice { kNone, kContinue, kDifficulty };
+    enum class Choice { kNone, kContinue, kDifficulty, kKeyboard, kSound };
 
     /**
      * The window on a screen of that size, showing `options`; `data` and
@@ -35,7 +35,7 @@ public:
      */
     SettingsWindow(const Archive &data, GameOptions &options, int screenW, int screenH);
 
-    /** What `ev` does to it: kContinue or kDifficulty once it's to close. */
+    /** What `ev` does to it: kContinue once it's to close; the others, a window to open over it. */
     Choice handleEvent(const Event &ev, audio::Mixer *mixer);
     void draw(Surface &screen, uint64_t now);
 

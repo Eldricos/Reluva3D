@@ -109,6 +109,12 @@ public:
         } audioStop{_sys, audioOut};
         audio::Mixer *sound = audioOut ? &mixer : nullptr;
 
+        // The game's options, kept where Reluva keeps its files.
+        GameOptions options;
+        if (!_target.savePath.empty())
+            options.load(_target.savePath / "options.ini");
+        // The sound's volumes as the game sets them as it starts (0x56e7b5).
+        options.applySound(mixer);
         const auto opening = _target.settings.find(kOpeningMovies);
         if (opening == _target.settings.end() || opening->second != "0") {
             for (const char *name : kOpeningMovieNames) {
@@ -118,10 +124,6 @@ public:
                     return Error::success();
             }
         }
-        // The game's options, kept where Reluva keeps its files.
-        GameOptions options;
-        if (!_target.savePath.empty())
-            options.load(_target.savePath / "options.ini");
         MainMenu menu(_sys, screen, _data, _target.path, _rules, options, sound);
         menu.run();
         return Error::success();

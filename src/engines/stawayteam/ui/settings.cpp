@@ -110,6 +110,9 @@ void SettingsWindow::showOptions() {
 SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
         return Choice::kContinue;
+    if (ev.type == EventType::kMouseDown)
+        for (Slider &slider : _sliders)
+            slider.setFocused(false);
     bool changed = false;
     if (_sliders[0].handleEvent(ev, _x, _y)) {
         // Gamma 1 to 1.5 (0x486e5f).
@@ -131,10 +134,11 @@ SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer
         _options.pauseWhenHit = _pause.checked();
         changed = true;
     }
-    // Neither the keyboard's nor the sound's settings are there yet.
-    (void)_keyboard.handleEvent(ev, _x, _y, mixer);
-    (void)_sound.handleEvent(ev, _x, _y, mixer);
     Choice choice = Choice::kNone;
+    if (_keyboard.handleEvent(ev, _x, _y, mixer))
+        choice = Choice::kKeyboard;
+    if (_sound.handleEvent(ev, _x, _y, mixer))
+        choice = Choice::kSound;
     if (_reset.handleEvent(ev, _x, _y, mixer)) {
         // The program's defaults, and pausing when hit (0x486d32).
         _options.scrollSpeed = GameOptions::kScrollSpeedDefault;

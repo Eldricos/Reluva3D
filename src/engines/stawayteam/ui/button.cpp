@@ -73,7 +73,7 @@ bool Button::contains(int x, int y) const {
 }
 
 void Button::draw(Surface &screen, int originX, int originY, bool hover, bool pressed) const {
-    const image::Image &picture = pressed && _press.w ? _press : hover && _hover.w ? _hover : _default;
+    const image::Image &picture = (pressed || _checked) && _press.w ? _press : hover && _hover.w ? _hover : _default;
     const int x = originX + _x;
     const int y = originY + _y;
     image::blit(screen, picture, x, y);
