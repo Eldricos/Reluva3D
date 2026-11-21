@@ -33,6 +33,11 @@ None yet.
   line shown once Alt is pressed, a fixed-width font's cell, and the
   sounds named `.wav` being the `.ogg` files of their names
   ([systems/menus.md](systems/menus.md#open-questions)).
+- **The team selection:** the attributes out of 100, the required
+  items' panel, a message's time in seconds, the officers' frames
+  staggered, where a place answers a click, and the officer's name over
+  the transporter's own text
+  ([systems/team-selection.md](systems/team-selection.md#open-questions)).
 - **A frame drawn by its origin:** its top left at the point less its
   origin, as the sequences' bounds have them
   ([formats/binary-object.md](formats/binary-object.md#behaviour)).

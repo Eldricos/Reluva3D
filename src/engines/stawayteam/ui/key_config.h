@@ -11,6 +11,7 @@
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/ui/static_text.h"
 #include "engines/stawayteam/ui/widgets.h"
 
 #include <array>
@@ -41,15 +42,6 @@ public:
     void draw(Surface &screen, uint64_t now);
 
 private:
-    /** A text of Rules.txt's (a `CStaticTextNernie`). */
-    struct StaticText {
-        int x = 0;
-        int y = 0;
-        std::string text;
-        Font font;
-        Font::Align align = Font::Align::kLeft;
-        int wrap = 0;
-    };
     /** An action's row: its name, which a click sets waiting for a key, and what it's bound to. */
     struct Row {
         size_t action;

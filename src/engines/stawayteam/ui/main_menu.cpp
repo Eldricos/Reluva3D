@@ -4,6 +4,7 @@
 #include "engines/stawayteam/ui/main_menu.h"
 
 #include "audio/decode.h"
+#include "common/log.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/movies.h"
 #include "video/movie_player.h"
@@ -89,8 +90,9 @@ void ConfirmDialog::draw(Surface &screen) const {
 }
 
 MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
-                   const TextObject &rules, GameOptions &options, audio::Mixer *mixer)
-    : _sys(sys), _screen(screen), _data(data), _rules(rules), _options(options), _mixer(mixer) {
+                   const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission)
+    : _sys(sys), _screen(screen), _data(data), _rules(rules), _options(options), _mixer(mixer),
+      _firstMission(firstMission) {
     const TextObject *menu = menuDefinition(rules, "Main Menu");
     const TextObject *nernies = menu ? menu->object("Nernie") : nullptr;
     for (const TextField *item : nernies ? nernies->items() : std::vector<const TextField *>{}) {
@@ -188,12 +190,23 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_teamSelection) {
+                // Starting the mission comes back here: the mission isn't
+                // there yet.
+                if (_teamSelection->handleEvent(ev, _mixer, _sys.getMillis()) != TeamSelectionScreen::Choice::kNone)
+                    _teamSelection.reset();
+                continue;
+            }
             if (_difficultyWindow) {
                 if (const auto closed = _difficultyWindow->handleEvent(ev, _mixer)) {
-                    // START GAME: the level kept; the game itself isn't there yet.
-                    if (*closed)
-                        _difficulty = **closed;
                     _difficultyWindow.reset();
+                    if (*closed) {
+                        _difficulty = **closed;
+                        // The settings' window keeps the level; the main
+                        // menu's starts the game with it.
+                        if (!_settings)
+                            startGame();
+                    }
                 }
                 continue;
             }
@@ -244,9 +257,31 @@ bool MainMenu::run() {
     }
 }
 
+void MainMenu::startGame() {
+    Mission mission;
+    if (Error err = loadMission(_data, _firstMission, mission)) {
+        log::warning("Mission %d: %s", _firstMission, err.message.c_str());
+        return;
+    }
+    // Mission 1 has no team selection: it would go straight in, and the
+    // missions aren't there yet.
+    if (!mission.showTeamSelection)
+        return;
+    std::vector<TeamMember> roster;
+    if (Error err = loadRoster(_data, roster)) {
+        log::warning("The roster: %s", err.message.c_str());
+        return;
+    }
+    _teamSelection = std::make_unique<TeamSelectionScreen>(_data, _rules, mission, std::move(roster));
+}
+
 void MainMenu::draw() {
     const uint64_t now = _sys.getMillis();
     clearScreen(_screen);
+    if (_teamSelection) {
+        _teamSelection->draw(_screen, now);
+        return;
+    }
     for (auto &part : _parts) {
         if (!part->movieData.empty()) {
             // Started again as it ends: the screen's movies loop.

@@ -37,6 +37,10 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   their keys, the mouse's buttons); the game itself, saved games and
   network games aren't there yet
   ([systems/menus.md](systems/menus.md)).
+- **Team selection:** the roster by field, the officer chosen, the team
+  on the transporter and the items the mission needs; reached from a new
+  game only at a later mission, by a developer setting, as mission 1 has
+  none ([systems/team-selection.md](systems/team-selection.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
   [research/file-survey.md](research/file-survey.md).
@@ -86,7 +90,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md), [text-object.md](formats/text-object.md), [binary-object.md](formats/binary-object.md), [rds.md](formats/rds.md), [frm16.md](formats/frm16.md), [pal.md](formats/pal.md) |
-| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen), [menus.md](systems/menus.md) (the menus, their buttons and fonts) |
+| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen), [menus.md](systems/menus.md) (the menus, their buttons and fonts), [team-selection.md](systems/team-selection.md) (choosing the away team) |
 | [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds; [binary-objects.md](research/binary-objects.md), the objects saved in binary, and [classes.txt](research/classes.txt), the game's classes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
@@ -98,8 +102,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `game/` | The game's state: `options.cpp` (its options, kept between runs), `controls.cpp` (its actions and their keys) |
-| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `sound_options.cpp` (the sound window), `key_config.cpp` (the keyboard screen), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
+| `game/` | The game's state: `options.cpp` (its options, kept between runs), `controls.cpp` (its actions and their keys), `team.cpp` (the roster and the missions' descriptions) |
+| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `sound_options.cpp` (the sound window), `key_config.cpp` (the keyboard screen), `team_selection.cpp` (the team selection), `static_text.cpp` (the menus' static texts), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
 | `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
 | `pages/` | The data viewer, in `reluva-viewer` only: `viewer.cpp` (its pages, Tab between them), a page each in `picture_viewer.cpp`, `sequence_viewer.cpp`, `model_viewer.cpp`, `font_viewer.cpp`, `sound_viewer.cpp`, `object_viewer.cpp`; what they share in `page.h`, `file_list.cpp`, `animation.cpp`, `draw.cpp` |
 | `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |

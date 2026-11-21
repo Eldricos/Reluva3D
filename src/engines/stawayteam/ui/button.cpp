@@ -41,7 +41,8 @@ std::shared_ptr<audio::Sound> gameSound(const Archive &data, const std::string &
 Button::Button(const Archive &data, const std::string &folder, const std::string &name, int x, int y)
     : _x(x), _y(y), _default(screenPicture(data, folder + "/" + name + " Default")),
       _hover(screenPicture(data, folder + "/" + name + " Hover")),
-      _press(screenPicture(data, folder + "/" + name + " Press")) {
+      _press(screenPicture(data, folder + "/" + name + " Press")),
+      _disable(screenPicture(data, folder + "/" + name + " Disable")) {
 }
 
 Button::Button(image::Image picture, int x, int y) : _x(x), _y(y), _default(std::move(picture)) {
@@ -73,7 +74,10 @@ bool Button::contains(int x, int y) const {
 }
 
 void Button::draw(Surface &screen, int originX, int originY, bool hover, bool pressed) const {
-    const image::Image &picture = (pressed || _checked) && _press.w ? _press : hover && _hover.w ? _hover : _default;
+    const image::Image &picture = !_enabled && _disable.w             ? _disable
+                                  : (pressed || _checked) && _press.w ? _press
+                                  : hover && _hover.w                 ? _hover
+                                                                      : _default;
     const int x = originX + _x;
     const int y = originY + _y;
     image::blit(screen, picture, x, y);
@@ -86,7 +90,7 @@ void Button::draw(Surface &screen, int originX, int originY, bool hover, bool pr
 
 int ButtonGroup::buttonAt(int x, int y) const {
     for (size_t i = 0; i < _buttons.size(); ++i)
-        if (_buttons[i].contains(x - _originX, y - _originY))
+        if (_buttons[i].enabled() && _buttons[i].contains(x - _originX, y - _originY))
             return int(i);
     return -1;
 }
@@ -113,7 +117,8 @@ int ButtonGroup::handleEvent(const Event &ev, audio::Mixer *mixer) {
         if (ev.mods & (keymod::kCtrl | keymod::kAlt))
             break;
         for (size_t i = 0; i < _buttons.size(); ++i)
-            if (_buttons[i].shortcut() && uint32_t(static_cast<unsigned char>(_buttons[i].shortcut())) == ev.key)
+            if (_buttons[i].enabled() && _buttons[i].shortcut() &&
+                uint32_t(static_cast<unsigned char>(_buttons[i].shortcut())) == ev.key)
                 chosen = int(i);
         break;
     default:

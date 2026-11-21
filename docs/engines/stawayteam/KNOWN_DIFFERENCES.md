@@ -15,6 +15,10 @@ systems (a CD check, a mode the hardware no longer has). -->
   insert the original Star Trek Away Team CD now."*,
   [research/file-survey.md](research/file-survey.md#the-install)); Reluva
   plays from the install alone.
+- **A developer setting for the first mission.** In a build with
+  developer keys, "Developer: first mission" starts a new game at a later
+  mission, to reach its team selection
+  ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
 - **Opening movies as a setting.** The original always plays them;
   Reluva's "Opening movies" setting can leave them out
   ([systems/startup.md](systems/startup.md)).
@@ -33,6 +37,11 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
+- **The team selection:** START MISSION and EXIT come back to the main
+  menu; BRIEFING, the inventory panel's contents, a red item's click,
+  the transporter's random numbers and the officers' body figures aren't
+  there yet
+  ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
   brighten their label under the mouse; the toolkit's toggles make no
   sound

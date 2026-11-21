@@ -2,13 +2,16 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The menus' parts: the game's fonts as its text is drawn with them,
-// buttons, their labels, shortcuts and clicks, and the credits' lines.
+// buttons, their labels, shortcuts and clicks, the credits' lines, and the
+// team selection's roster, mission and rules.
 
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/game/controls.h"
 #include "engines/stawayteam/game/options.h"
+#include "engines/stawayteam/game/team.h"
+#include "engines/stawayteam/ui/team_selection.h"
 #include "engines/stawayteam/ui/widgets.h"
 
 #include "tests/engines/stawayteam/support.h"
@@ -263,15 +266,95 @@ void testControls() {
     CHECK(again.text(0) == "W" && again.text(25).empty());
 }
 
+std::vector<uint8_t> bytesOf(const std::string &text) {
+    return {text.begin(), text.end()};
+}
+
+// An officer of the roster, with an item or none.
+std::string officer(const char *first, const char *last, const char *field, const char *item) {
+    std::string out = std::string("CTeamMemberInfo\n{\n\tFirst Name=") + first + "\n\tLast Name=" + last +
+                      "\n\tRank=Ensign\n\tField=" + field + "\n\tPortrait=" + first +
+                      "\n\tIs Available=1\n\tAttribute=Array\n\t{\n\t\tItem Count=1\n"
+                      "\t\tAttribute=CTeamMemberAttribute\n\t\t{\n\t\t\tName=Speed\n\t\t\tValue=40\n\t\t}\n\t}\n"
+                      "\tInventory=Array\n\t{\n";
+    if (*item)
+        out +=
+            std::string(
+                "\t\tItem Count=1\n\t\tInventory Item=CStarTrekInventoryItemHolder\n\t\t{\n\t\t\tInventory Definition=") +
+            item + "\n\t\t\tCount=1\n\t\t}\n";
+    else
+        out += "\t\tItem Count=0\n";
+    return out + "\t}\n}\n";
+}
+
+void testTeamSelection() {
+    MemoryArchive data;
+    data.files["Character/Starting Roster/Slovaak.txt"] = bytesOf(officer("Slovaak", "", "Engineering", ""));
+    data.files["Character/Starting Roster/Ann Bee.txt"] = bytesOf(officer("Ann", "Bee", "Command", "Tricorder"));
+    data.files["Character/Starting Roster/Cy Dee.txt"] = bytesOf(officer("Cy", "Dee", "Command", ""));
+    data.files["Character/Character Portraits/Ann.TXT"] =
+        bytesOf("CStarTrekFrame\n{\n\tRace=Human\n\tGender=Female\n\tHead Icon=Ann Head\n}\n");
+    data.files["Character/Field/Command.txt"] = bytesOf("CFieldDefinition\n{\n}\n");
+    data.files["Character/Field/Engineering.txt"] = bytesOf("CFieldDefinition\n{\n}\n");
+    data.files["Levels/Mission 02/Mission 02.MDS"] =
+        bytesOf("CMissionDescription\n{\n\tMission Name=The Test\n\tShow Team Selection=1\n"
+                "\tTransporter Background=Shuttle\n\tMax Members To Start=2\n"
+                "\tWho Should Start=Array\n\t{\n\t\tItem Count=1\n\t\tWho Should Start=Slovaak\n\t}\n"
+                "\tItems=Array\n\t{\n\t\tItem Count=1\n\t\tItems=Tricorder\n\t}\n}\n");
+
+    std::vector<TeamMember> roster;
+    CHECK(!loadRoster(data, roster) && roster.size() == 3);
+    // In their files' order; a portrait's definition gives race and icon.
+    CHECK(roster[0].id == "Ann Bee" && roster[0].name() == "Ann Bee" && roster[0].race == "Human");
+    CHECK(roster[0].headIcon == "Ann Head" && roster[0].hasItem("Tricorder") && !roster[2].hasItem("Tricorder"));
+    CHECK(roster[0].attributes.size() == 1 && roster[0].attributes[0].value == 40);
+    CHECK(roster[2].name() == "Slovaak");
+    CHECK((loadFields(data) == std::vector<std::string>{"Command", "Engineering"}));
+    Mission mission;
+    CHECK(loadMission(data, 3, mission));
+    CHECK(!loadMission(data, 2, mission) && mission.name == "The Test" && mission.showTeamSelection);
+    CHECK(mission.maxMembers == 2 && mission.items == std::vector<std::string>{"Tricorder"});
+
+    // The buttons by their shortcuts: the screen's layout gives only them.
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tMenu=Array\n\t\t{\n\t\t\tItem Count=1\n"
+                          "\t\t\tMenu=CAnimatedMenuInfo\n\t\t\t{\n\t\t\t\tMenu Name=Team Selection\n"
+                          "\t\t\t\tMenu Definition=CStarTrekTeamSelectionMenu\n\t\t\t\t{\n"
+                          "\t\t\t\t\tExitButton Text=E&XIT\n\t\t\t\t\tContinueButton Text=&START MISSION\n"
+                          "\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
+                          rules));
+    TeamSelectionScreen screen(data, rules, mission, roster);
+    // Who the mission says starts on the transporter.
+    CHECK(screen.team() == std::vector<size_t>{2});
+    Event start;
+    start.type = EventType::kKeyDown;
+    start.key = 's';
+    // Slovaak hasn't the tricorder the mission needs.
+    CHECK(screen.handleEvent(start, nullptr, 0) == TeamSelectionScreen::Choice::kNone);
+    roster[2].inventory.push_back({"Tricorder", 1});
+    TeamSelectionScreen ready(data, rules, mission, roster);
+    CHECK(ready.handleEvent(start, nullptr, 0) == TeamSelectionScreen::Choice::kStartMission);
+    // EXIT asks first.
+    Event exit = start;
+    exit.key = 'x';
+    CHECK(ready.handleEvent(exit, nullptr, 0) == TeamSelectionScreen::Choice::kNone);
+    Event yes = start;
+    yes.key = key::kEscape;
+    CHECK(ready.handleEvent(yes, nullptr, 0) == TeamSelectionScreen::Choice::kNone);
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    ready.draw(surface, 0);
+}
 } // namespace
 
-static const reluva::test::Suite kSuite("stawayteam.unit.menus",
-                                        {
-                                            {"font", [](const std::filesystem::path &) { testFont(); }},
-                                            {"buttons", [](const std::filesystem::path &) { testButtons(); }},
-                                            {"credits", [](const std::filesystem::path &) { testCredits(); }},
-                                            {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
-                                            {"toolkit", [](const std::filesystem::path &) { testToolkit(); }},
-                                            {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
-                                            {"controls", [](const std::filesystem::path &) { testControls(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("stawayteam.unit.menus", {
+                                        {"font", [](const std::filesystem::path &) { testFont(); }},
+                                        {"buttons", [](const std::filesystem::path &) { testButtons(); }},
+                                        {"credits", [](const std::filesystem::path &) { testCredits(); }},
+                                        {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
+                                        {"toolkit", [](const std::filesystem::path &) { testToolkit(); }},
+                                        {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
+                                        {"controls", [](const std::filesystem::path &) { testControls(); }},
+                                        {"team selection", [](const std::filesystem::path &) { testTeamSelection(); }},
+                                    });

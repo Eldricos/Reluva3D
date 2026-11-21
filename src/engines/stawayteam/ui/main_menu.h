@@ -13,6 +13,7 @@
 #include "engines/stawayteam/ui/settings.h"
 #include "engines/stawayteam/ui/key_config.h"
 #include "engines/stawayteam/ui/sound_options.h"
+#include "engines/stawayteam/ui/team_selection.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/font.h"
 
@@ -64,10 +65,10 @@ public:
      * The menu as `rules` describes it, its files from `data` and the
      * install's movies, the settings window changing `options`; `sys`,
      * `screen`, `data`, `options` and `mixer` (nullptr: no sound) must
-     * outlive it.
+     * outlive it. A new game starts at mission `firstMission` (1 to 18).
      */
     MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
-             const TextObject &rules, GameOptions &options, audio::Mixer *mixer);
+             const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission = 1);
     ~MainMenu();
 
     /** Shown until the player quits (then true), or the window is closed (then false). */
@@ -86,6 +87,8 @@ private:
     void draw();
     // The options' brightness over the screen as it's drawn.
     void brighten();
+    // A new game: the first mission's team selection, if it has one.
+    void startGame();
 
     System &_sys;
     Surface &_screen;
@@ -104,7 +107,9 @@ private:
     std::unique_ptr<SettingsWindow> _settings;
     std::unique_ptr<SoundOptionsWindow> _soundOptions;
     std::unique_ptr<KeyConfigScreen> _keyConfig;
+    std::unique_ptr<TeamSelectionScreen> _teamSelection;
     Difficulty _difficulty = Difficulty::kNormal;
+    int _firstMission;
 };
 
 } // namespace reluva::stawayteam

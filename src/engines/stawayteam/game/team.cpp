@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/stawayteam/game/team.h"
+
+#include "engines/stawayteam/formats/text_object.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+
+namespace reluva::stawayteam {
+
+namespace {
+
+Error readObject(const Archive &data, const std::string &path, TextObject &out) {
+    std::vector<uint8_t> bytes;
+    if (Error err = data.read(path, bytes))
+        return err;
+    if (Error err = readTextObject(std::string(bytes.begin(), bytes.end()), out))
+        return Error::fail(path + ": " + err.message);
+    return Error::success();
+}
+
+std::string text(const TextObject &object, const char *key) {
+    const std::string *value = object.value(key);
+    return value ? *value : std::string();
+}
+
+// The files of a folder of DATA.dat with an extension, by name.
+std::vector<std::string> filesIn(const Archive &data, const std::string &folder, const std::string &ext) {
+    std::vector<std::string> out;
+    const std::string prefix = normalizeArchiveName(folder) + "/";
+    for (const std::string &name : data.list()) {
+        const std::string key = normalizeArchiveName(name);
+        if (key.starts_with(prefix) && key.ends_with(ext) && key.find('/', prefix.size()) == std::string::npos)
+            out.push_back(name);
+    }
+    std::sort(out.begin(), out.end(), [](const std::string &a, const std::string &b) {
+        return normalizeArchiveName(a) < normalizeArchiveName(b);
+    });
+    return out;
+}
+
+std::string stem(const std::string &path) {
+    const size_t slash = path.find_last_of('/');
+    std::string name = path.substr(slash == std::string::npos ? 0 : slash + 1);
+    const size_t dot = name.rfind('.');
+    return dot == std::string::npos ? name : name.substr(0, dot);
+}
+
+} // namespace
+
+std::string TeamMember::name() const {
+    return lastName.empty() ? firstName : firstName + " " + lastName;
+}
+
+bool TeamMember::hasItem(const std::string &item) const {
+    return std::any_of(inventory.begin(), inventory.end(), [&](const Item &i) { return i.name == item; });
+}
+
+Error loadRoster(const Archive &data, std::vector<TeamMember> &out) {
+    out.clear();
+    for (const std::string &path : filesIn(data, "Character/Starting Roster", ".txt")) {
+        TextObject info;
+        if (Error err = readObject(data, path, info))
+            return err;
+        TeamMember m;
+        m.id = stem(path);
+        m.firstName = text(info, "First Name");
+        m.lastName = text(info, "Last Name");
+        m.rank = text(info, "Rank");
+        m.field = text(info, "Field");
+        m.portrait = text(info, "Portrait");
+        m.available = info.integer("Is Available").value_or(0) != 0;
+        m.characterScript = text(info, "Character Script");
+        m.characterText = text(info, "Character Text");
+        if (const TextObject *attributes = info.object("Attribute"))
+            for (const TextField *item : attributes->items())
+                if (item->object)
+                    m.attributes.push_back(
+                        {text(*item->object, "Name"), int(item->object->integer("Value").value_or(0))});
+        if (const TextObject *inventory = info.object("Inventory"))
+            for (const TextField *item : inventory->items())
+                if (item->object)
+                    m.inventory.push_back(
+                        {text(*item->object, "Inventory Definition"), int(item->object->integer("Count").value_or(0))});
+        // What the portrait's definition adds (0x5e4d70, 0x5e4e70).
+        TextObject frame;
+        if (!readObject(data, "Character/Character Portraits/" + m.portrait + ".TXT", frame)) {
+            m.race = text(frame, "Race");
+            m.gender = text(frame, "Gender");
+            m.headIcon = text(frame, "Head Icon");
+        }
+        out.push_back(std::move(m));
+    }
+    return out.empty() ? Error::fail("DATA.dat has no Character/Starting Roster") : Error::success();
+}
+
+std::vector<std::string> loadFields(const Archive &data) {
+    std::vector<std::string> out;
+    for (const std::string &path : filesIn(data, "Character/Field", ".txt"))
+        out.push_back(stem(path));
+    return out;
+}
+
+Error loadMission(const Archive &data, int number, Mission &out) {
+    char folder[32];
+    std::snprintf(folder, sizeof folder, "Mission %02d", number);
+    TextObject mds;
+    if (Error err = readObject(data, std::string("Levels/") + folder + "/" + folder + ".MDS", mds))
+        return err;
+    out = Mission{};
+    out.number = number;
+    out.name = text(mds, "Mission Name");
+    out.showBriefing = mds.integer("Show Briefing").value_or(0) != 0;
+    out.showTeamSelection = mds.integer("Show Team Selection").value_or(0) != 0;
+    out.transporterBackground = text(mds, "Transporter Background");
+    out.maxMembers = int(mds.integer("Max Members To Start").value_or(4));
+    if (const TextObject *who = mds.object("Who Should Start"))
+        for (const TextField *item : who->items())
+            out.whoShouldStart.push_back(item->value);
+    if (const TextObject *items = mds.object("Items"))
+        for (const TextField *item : items->items())
+            out.items.push_back(item->value);
+    return Error::success();
+}
+
+} // namespace reluva::stawayteam

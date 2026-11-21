@@ -41,21 +41,7 @@ KeyConfigScreen::KeyConfigScreen(const Archive &data, const TextObject &rules, G
     const TextObject *def = menuDefinition(rules, "Config Control Screen");
 
     // Rules.txt's texts on it.
-    const TextObject *nernies = def ? def->object("Nernie") : nullptr;
-    for (const TextField *item : nernies ? nernies->items() : std::vector<const TextField *>{}) {
-        if (!item->object || item->object->className != "CStaticTextNernie")
-            continue;
-        StaticText t;
-        readPoint(item->object.get(), "Position", t.x, t.y);
-        t.text = readText(item->object.get(), "Text");
-        (void)t.font.load(data, readText(item->object.get(), "Font"));
-        const std::string justify = readText(item->object.get(), "Justification");
-        t.align = justify == "Right"    ? Font::Align::kRight
-                  : justify == "Center" ? Font::Align::kCenter
-                                        : Font::Align::kLeft;
-        t.wrap = std::atoi(readText(item->object.get(), "Wrap Width").c_str());
-        _texts.push_back(std::move(t));
-    }
+    _texts = readStaticTexts(data, def);
 
     // EXIT and RESET, their labels on their right (0x4ea165).
     int x = 0;
@@ -240,8 +226,7 @@ bool KeyConfigScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t
 void KeyConfigScreen::draw(Surface &screen, uint64_t now) {
     image::blit(screen, _background, 0, 0);
     for (const StaticText &t : _texts)
-        if (t.font.loaded())
-            t.font.drawWrapped(screen, t.x, t.y, t.wrap, t.text, t.align, 2);
+        t.draw(screen, 0, 0);
     for (TextButton &tab : _tabs)
         tab.draw(screen, 0, 0, now);
 

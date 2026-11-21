@@ -12,7 +12,7 @@ files):
 |---|---|
 | `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
-| `stawayteam.unit.menus` | Fonts: a line's width with nothing between characters, lower case drawn as capitals in a font without it, control characters left out, others it hasn't got drawn as its first; the credits' lines (comments left out, blank lines kept, long ones cut); the toolkit's widgets (a picture dimmed, a picture button's label, shortcut and click, a toggle's size and click, a frame's sides, a slider's height and dragged value, a check box's size and key); the options' file (defaults, written and read back, the sound's on the mixer); the controls (the actions' defaults as shown, a key taken from another action, a held key, kept and read back, reset); buttons: the `&` left out of the label and its shortcut kept, chosen by the shortcut (not with Ctrl), by a click, and not when let go off it |
+| `stawayteam.unit.menus` | Fonts: a line's width with nothing between characters, lower case drawn as capitals in a font without it, control characters left out, others it hasn't got drawn as its first; the credits' lines (comments left out, blank lines kept, long ones cut); the toolkit's widgets (a picture dimmed, a picture button's label, shortcut and click, a toggle's size and click, a frame's sides, a slider's height and dragged value, a check box's size and key); the options' file (defaults, written and read back, the sound's on the mixer); the controls (the actions' defaults as shown, a key taken from another action, a held key, kept and read back, reset); buttons: the `&` left out of the label and its shortcut kept, chosen by the shortcut (not with Ctrl), by a click, and not when let go off it; the team selection: a roster, its fields and a mission read, the team to start with, START MISSION refused while an item is missing and EXIT asking |
 | `stawayteam.unit.formats` | Frames (raw, each kind of run-length code, blended pixels with their alpha, damaged ones), objects in binary (a sequence and its frames, a waypoint map, objects in properties, another version, bytes left over, a class the game doesn't have), objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
 
 Reading `DATA.dat` is the common ZIP reader's, tested in
@@ -85,7 +85,12 @@ stawayteam frame-png`.
    the menu shows through, fading in at the bottom and out at the top,
    headings underlined red, roles green, starting again after the last,
    RESUME closing it; Quit (or Esc, or Q) asks, No closes the dialog, Yes
-   goes back to the launcher. With "Opening movies" off, the main menu's screen at once.
+   goes back to the launcher. With "Developer: first mission" at 2 (a
+   build with developer keys), START GAME shows the team selection:
+   Slovaak and Marcus Refelian on the shuttle, an officer clicked in the
+   roster shown in full, ADD MEMBER and REMOVE MEMBER lit when they can
+   be used, the required officer kept with a message, the tabs swapping
+   the panels, EXIT asking. With "Opening movies" off, the main menu's screen at once.
    With `DATA.dat` missing or damaged, it says so instead.
 3. `reluva-viewer` with the game: the pictures, their colours and
    blended edges right on each background; sequences playing; a

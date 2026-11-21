@@ -9,6 +9,7 @@
 #include "engines/engine.h"
 
 #include "audio/mixer.h"
+#include "common/developer.h"
 #include "common/fs.h"
 #include "common/settings.h"
 #include "common/zip.h"
@@ -17,6 +18,8 @@
 #include "engines/stawayteam/ui/movies.h"
 #include "engines/stawayteam/ui/main_menu.h"
 
+#include <algorithm>
+#include <cstdlib>
 #include <system_error>
 
 namespace reluva::stawayteam {
@@ -66,6 +69,11 @@ std::optional<std::filesystem::path> findGameFolder(const std::filesystem::path 
 
 // The engine's settings (MetaEngine::engineOptions), as kept in reluva.ini.
 constexpr const char *kOpeningMovies = "opening_movies";
+// Developer setting: not part of the game. The mission a new game starts
+// at (2 to 18), to reach the screens before the later ones; not in release
+// builds.
+constexpr const char *kFirstMission = "first_mission";
+constexpr int kMissions = 18;
 
 /**
  * The game running: for now its archive opened and its rules read, its
@@ -124,7 +132,11 @@ public:
                     return Error::success();
             }
         }
-        MainMenu menu(_sys, screen, _data, _target.path, _rules, options, sound);
+        int firstMission = 1;
+        if (kDeveloperKeys)
+            if (const auto it = _target.settings.find(kFirstMission); it != _target.settings.end())
+                firstMission = std::clamp(std::atoi(it->second.c_str()), 1, kMissions);
+        MainMenu menu(_sys, screen, _data, _target.path, _rules, options, sound, firstMission);
         menu.run();
         return Error::success();
     }
@@ -194,7 +206,16 @@ public:
     }
 
     std::vector<GameOption> engineOptions() const override {
-        return {{kOpeningMovies, "Opening movies", "The logos and the introduction, as the game starts", true, {}}};
+        std::vector<GameOption> options = {
+            {kOpeningMovies, "Opening movies", "The logos and the introduction, as the game starts", true, {}}};
+        if (!kDeveloperKeys)
+            return options;
+        GameOption first{
+            kFirstMission, "Developer: first mission", "The mission a new game starts at", true, {{"1", "Mission 1"}}};
+        for (int m = 2; m <= kMissions; ++m)
+            first.choices.push_back({std::to_string(m), "Mission " + std::to_string(m)});
+        options.push_back(std::move(first));
+        return options;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

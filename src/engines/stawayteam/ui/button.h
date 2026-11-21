@@ -70,6 +70,9 @@ public:
 
     /** Whether it's checked: then it shows its Press picture, under the mouse or not (0x4e8140). */
     bool checked() const { return _checked; }
+    /** A disabled button shows its Disable picture, if it has one, and can't be chosen (0x4e8140). */
+    bool enabled() const { return _enabled; }
+    void setEnabled(bool enabled) { _enabled = enabled; }
     void setChecked(bool checked) { _checked = checked; }
 
     const std::shared_ptr<audio::Sound> &sound() const { return _sound; }
@@ -80,6 +83,7 @@ private:
     image::Image _default;
     image::Image _hover;
     image::Image _press;
+    image::Image _disable;
     std::string _label;
     size_t _shortcut = std::string::npos; // the index in _label
     const Font *_font = nullptr;
@@ -87,6 +91,7 @@ private:
     int _textY = 0;
     std::shared_ptr<audio::Sound> _sound;
     bool _checked = false;
+    bool _enabled = true;
     bool _rightAligned = false;
 };
 
