@@ -50,8 +50,8 @@ except:
   one at once when a level starts (0x44dcc4 runs the `heartbeat`
   command), and two as the server shuts down, so the masters ask, get no
   answer and drop it. A master's name is looked up again when its cvar
-  changes. Not, as Elite Force's, when the server empties, gets its first
-  player or fills.
+  changes (below). Not, as Elite Force's, when the server empties, gets
+  its first player or fills.
 
 ### The netchan
 
@@ -237,18 +237,26 @@ and port, and Join Server connects with them; `reluva-tool idtech3
 net-run` hosts or joins either game's servers, or (`-loopback`) runs a
 player joining a server in memory.
 
-The Play page's server sends the map change five times before it loads
-another level (`NetServer::levelChanging`), and its client hands each one
-to the client game.
+The Play page's server sends the map change at the five steps of its
+own level change that match the original's (`NetServer::levelChanging`):
+first, once the client game and sounds are shut, once the renderer is
+cleared, before the new map loads and once it has; its client hands
+each one to the client game.
 
 A public server (`dedicated 2`: `net-run -public`) sends Quake III's
 heartbeats to Jedi Outcast's masters; Reluva's defaults after Raven's are
-the community's `master.ouned.de` and `master.jkhub.org`. It looks the
-masters' names up once, at the first heartbeat, where the original looks
-again when one's cvar changes.
+the community's `master.ouned.de` and `master.jkhub.org`. As the
+original's (0x44e460), each master's name is looked up again at the
+heartbeat after its cvar changes ("Resolving", then "resolved to" or
+"Couldn't resolve address"), one that can't be is emptied so it isn't
+tried again, and each is sent "Sending heartbeat to". The original's
+check for a port in the name is `strstr(":", name)`, the wrong way
+round, so a master is always at port 28060, a port in the name or not;
+Reluva's is too.
 
-Not yet: the CD key's authorization (Reluva lets everyone in, as
-every server has since Raven's authorize server went).
+The CD key's authorization is left out: Raven's authorize server has
+long been gone, so there's nothing to ask, and every server has let
+everyone in since ([../KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
 ## Sources and checks
 
@@ -296,7 +304,8 @@ every server has since Raven's authorize server went).
     fields.
   - A unit test (`idtech3.unit.network`, "jedi outcast heartbeat"): the
     heartbeat's text and port, none again within 5 minutes, one at a new
-    level and two at shutdown. Not seen reaching a real master: in
+    level and two at shutdown; a master changed looked up again, its port
+    passed over, one that can't be found emptied. Not seen reaching a real master: in
     November 2026 none of the community masters' names
     (`master.ouned.de`, `master.jkhub.org`) could be looked up from where
     Reluva was tested.

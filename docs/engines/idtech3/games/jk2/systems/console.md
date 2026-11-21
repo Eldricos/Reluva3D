@@ -26,8 +26,10 @@ the 640 x 480 screen the 2D pictures are drawn in.
 - **Big characters** (the chat line) are 16 by 16 in the 640 x 480 screen,
   from the same half cells, each with a black shadow 2 down and right.
 - **Colours** follow `^0`–`^7` (black, red, green, yellow, blue, cyan,
-  magenta, white), from white at the start of each print; a line wrapped
-  keeps the colour in force.
+  magenta, white; any other character after `^` but `^` itself picks by
+  its low three bits), from white at the start of each print
+  (`CL_ConsolePrint`, 0x406040, 0x4060ac); the colour goes on past a
+  line's end to the print's next line, and a line wrapped keeps it too.
 - **The width** is the screen's width / 8 - 2 characters. A printed line
   wraps where a word (counted from each character to the next space, at
   most a line's width) would reach the edge, or at the edge itself.
@@ -51,8 +53,30 @@ Open to a fraction *f*:
   above it, 16 apart; scrolled back, a row of red `^` every four
   characters takes the newest line's place;
 - while it has the keys, `]` and the line being typed 32 pixels above
-  the foot, at most 78 characters of it shown, scrolled to keep the
-  cursor (character 10, blinking every 256 ms) in sight.
+  the foot, 78 characters of it shown from its scroll, and the cursor
+  (character 10, or 11 while typing over; blinking every 256 ms).
+
+**Scrolling back** (0x4067f0 on, from `Console_Key`, 0x408d6c on) is by
+the lines as wrapped: Page Up two back (no further than the oldest
+kept), Page Down two on, Ctrl+Home to the oldest, Ctrl+End to the
+newest. A line printed moves the view along only when it's at the
+newest (`Con_Linefeed`, 0x405fe4), so scrolled back it stays on the
+lines it shows; opening the console and Enter leave it where it is.
+`clear` empties it and goes to the newest (0x405bd0).
+
+**The line being typed** (1.02a's `Field_KeyDownEvent` 0x408710 and
+`Field_CharEvent` 0x408840, the older Quake III ones) keeps a scroll,
+the first character shown, moved a character at a time: on one as a
+character typed or Right takes the cursor past the shown width, back
+one as Left or Backspace takes it before the scroll. Home and End move
+only the cursor; Ctrl+A goes to the start (scroll 0), Ctrl+E to the end
+(scroll the length less the width); Ctrl+C clears the line, Ctrl+V and
+Shift+Insert paste, Insert flips typing over. As it's drawn
+(`Field_Draw`, 0x4084c0), its end counted as a character, all of it is
+shown if it fits; else from the scroll, which is pulled back, and kept,
+where the line ends before the shown width does. At most 255 characters.
+History brings back a line as it was left, its cursor and scroll too.
+The chat line is the same field, 30 characters wide (25 for team chat).
 
 Shut, during a match:
 
@@ -96,31 +120,33 @@ game's own). Drawn as jk2sp.exe's for Jedi Outcast
 running in Reluva's window: dropped down over the main menu and over
 `kejim_post`, where `god` gets the game's answer.
 
-Differences:
+Lines are kept as printed and wrapped as they're drawn; a line carried
+past a print's newline starts with its colour, and one continued from
+an earlier print goes back to white, so they're drawn in the original's
+colours. Scrolling counts the rows each line wraps to at the console's
+width.
 
-- The typing line's scroll is worked out from the cursor alone; the
-  original's moves only when the cursor leaves the part shown, so after
-  moving the cursor back the two can show a long line from different
-  places.
-- Lines are wrapped as they're drawn, from Reluva's lines as printed; a
-  colour set in one print and carried to its next line in the original
-  starts white again in Reluva.
-- Scrolling back moves by Reluva's lines (four a key), not the
-  original's two.
+Differences: Ctrl+V and Shift+Insert don't paste (Reluva has no
+clipboard).
 
 ## Sources and checks
 
 - **Where the facts come from:** `jk2mp.exe` 1.02a: the console routine at
   0x406400 (the background, the line's colour, the version and the rows'
   places), the small character routine at 0x40ef40 (its sizes and the
-  half cells), the version string at 0x4ef690; the shaders and the grid
-  from `assets0.pk3`. The GPL Jedi Outcast multiplayer source as a guide
-  to the routines, *(published)* for the big characters, the chat line's
-  widths and the typing line's scroll, which weren't traced in 1.02a's
-  code.
+  half cells), the version string at 0x4ef690, the printing
+  (0x406040), the line feed (0x405fe4), the scrolling (0x4067f0 to
+  0x40686a) and its keys (0x408d6c on), `clear` (0x405bd0), the typing
+  field's keys, characters and drawing (0x408710, 0x408840, 0x4084c0);
+  the shaders and the grid from `assets0.pk3`. The GPL Jedi Outcast
+  multiplayer source as a guide to the routines, *(published)* for the
+  big characters and the chat line's widths, which weren't traced in
+  1.02a's code.
 - **How it was checked:** a unit test (`idtech3.unit.input`, "console")
   lays out the console half open and shut and checks the places, sizes,
-  colours and the grid's cells, and the wrapping; in the Play page the
+  colours and the grid's cells, and the wrapping; another ("console
+  state") the scrolling by wrapped rows and its keys, the colours carried
+  and reset, the field's scroll, Ctrl+A and typing over; in the Play page the
   console, notify lines and chat line were seen drawn this way and kept
   in screenshots (November 2026). Not yet compared with the original's
   screens.

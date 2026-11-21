@@ -365,19 +365,31 @@ bool PlayPage::changeLevel(const std::string &map) {
         addPrint("Can't find map " + path + "\n", false);
         return true;
     }
-    if (_server)
-        _server->levelChanging();
+    // The players are told the level is changing at five steps of the
+    // loading, as jk2mp.exe's SV_SpawnServer tells them (0x44d83e, 0x44d897,
+    // 0x44d8d1, 0x44d907, 0x44d9ed): first; the client's game and sounds
+    // shut; the renderer cleared; the server's own state cleared; the
+    // new map's collision loaded.
+    auto tell = [this] {
+        if (_server)
+            _server->levelChanging();
+    };
+    tell();
     _cgame.reset();
     stopSounds();
+    tell();
     if (_scene)
         _scene->reset();
     _models->clear();
     _world->clear();
     _shaders->clear();
     _weatherDrawing.reset();
+    tell();
+    tell();
     std::shared_ptr<Bsp> bsp;
     if (!loadLevel(path, bsp))
         return false;
+    tell();
     for (size_t i = 0; i < _names.size(); ++i)
         if (_names[i] == path)
             _index = int(i);
@@ -1115,7 +1127,9 @@ void PlayPage::openTyping(Typing t, int32_t client, uint32_t key) {
     _input.releaseAll();
     _typing = t;
     _tellClient = client;
-    _console.beginTyping(key);
+    // The field as wide as the original's: the console's 78 characters,
+    // a chat line's 30, a team chat's 25.
+    _console.beginTyping(key, t == Typing::kConsole ? 78 : t == Typing::kSayTeam ? 25 : 30);
     _ctx.sys.setTextInput(true);
 }
 
@@ -1662,7 +1676,10 @@ void PlayPage::drawConsole(uint64_t nowMs, float time) {
     f.typing = _typing == Typing::kConsole;
     f.input = _console.field();
     f.cursor = _console.cursor();
+    f.fieldScroll = _console.fieldScroll();
+    f.overstrike = _console.overstrike();
     f.cursorOn = ((nowMs >> 8) & 1) == 0;
+    _console.setWrapWidth(_frameW / 8 - 2);
     // Over the game only while no menu (the game's or the client game's)
     // has the keys.
     constexpr int32_t kMenuCatchers = 2 | 8;

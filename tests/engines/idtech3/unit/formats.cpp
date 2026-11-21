@@ -616,6 +616,14 @@ static void testEffects() {
     set.add(std::move(zip), 0);
     std::vector<std::string> shaders;
     EffectSystem::Host host;
+    EffectSystem::Vec3 boltAt{500, 0, 0};
+    int boltAsks = 0;
+    host.boltPoint = [&](const EffectSystem::Bolt &b) -> std::optional<EffectSystem::Vec3> {
+        ++boltAsks;
+        if (b.ghoul2 != 7 || b.bolt != 2 || b.entity != 3)
+            return std::nullopt;
+        return boltAt;
+    };
     host.registerShader = [&](const std::string &n) {
         shaders.push_back(n);
         return int32_t(shaders.size());
@@ -648,6 +656,38 @@ static void testEffects() {
     fx.setTime(1200, {-100, 0, 0}, view);
     fx.run(frame);
     CHECK(frame.drawn.size() == 1 && frame.drawn[0].kind == EffectSystem::Drawn::kLine && fx.live() == 1);
+    // Bolted: its parts put at the bolt each frame before they move, so
+    // they go with it; done, the bolt isn't asked for again.
+    EffectSystem::Bolt bolt;
+    bolt.ghoul2 = 7;
+    bolt.bolt = 2;
+    bolt.entity = 3;
+    fx.setTime(3000, {-100, 0, 0}, view);
+    fx.playBolted(id, {0, 0, 0}, {1, 0, 0}, bolt);
+    frame = {};
+    fx.setTime(3100, {-100, 0, 0}, view);
+    fx.run(frame);
+    auto sprite = [&]() -> const EffectSystem::Drawn * {
+        for (const EffectSystem::Drawn &d : frame.drawn)
+            if (d.kind == EffectSystem::Drawn::kSprite)
+                return &d;
+        return nullptr;
+    };
+    CHECK(sprite() && sprite()->origin[0] > 500 && sprite()->origin[0] < 520);
+    boltAt = {0, 800, 0};
+    frame = {};
+    fx.setTime(3200, {-100, 0, 0}, view);
+    fx.run(frame);
+    CHECK(sprite() && std::fabs(sprite()->origin[1] - 800) < 1e-3f && sprite()->origin[0] < 20);
+    for (const int32_t time : {5000, 7000}) {
+        frame = {};
+        fx.setTime(time, {-100, 0, 0}, view);
+        fx.run(frame);
+    }
+    const int asked = boltAsks;
+    fx.setTime(7100, {-100, 0, 0}, view);
+    fx.run(frame);
+    CHECK(boltAsks == asked && fx.live() == 0 && !sprite());
     fx.clear();
     CHECK(fx.live() == 0 && fx.registered() == 0);
     std::filesystem::remove(path);

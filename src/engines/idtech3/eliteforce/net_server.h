@@ -62,8 +62,9 @@ public:
     // The level has (re)started: baselines and configstrings taken anew,
     // and every player waits for the new game state.
     void levelStarted();
-    // Another level is about to load: keyed protocols (Jedi Outcast's)
-    // tell every player first, so their client game says so.
+    // Another level is loading: keyed protocols (Jedi Outcast's) tell
+    // every player, so their client game says so. The original sends it
+    // at five steps of the loading, in case some are lost.
     void levelChanging();
     // Reads and answers everything that has come; `now` in ms.
     Error receive(uint64_t now);
@@ -181,6 +182,14 @@ private:
     void heartbeat(uint64_t now, bool force);
     std::vector<reluva::net::Address> _masters;
     bool _mastersResolved = false;
+    // Jedi Outcast's: each sv_masterN as last looked up, and where it is.
+    struct MasterSlot {
+        std::string name;
+        bool resolved = false;
+        reluva::net::Address address{};
+    };
+    std::array<MasterSlot, 5> _masterSlots;
+    void resolveMasters();
     uint64_t _nextHeartbeat = 0;
     int _lastPlayerCount = -1;
     void applyUserinfo(Client &c);

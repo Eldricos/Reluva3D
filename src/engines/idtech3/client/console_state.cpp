@@ -3,6 +3,7 @@
 
 #include "engines/idtech3/client/console_state.h"
 
+#include "engines/idtech3/client/console_drawer.h"
 #include "engines/idtech3/client/page.h"
 
 #include "graphics/font.h"
@@ -20,23 +21,66 @@ constexpr size_t kMaxField = 255;
 } // namespace
 
 void ConsoleState::print(const std::string &text, bool notify, uint64_t nowMs, int stream) {
+    // As jk2mp.exe's CL_ConsolePrint (0x406040): each print starts white
+    // (0x4060ac), so a line carried on from an earlier one goes back to
+    // white; a colour set goes on past a line's end to the next.
     std::string &partial = _partial[size_t(stream) & 1];
-    partial += text;
-    size_t end;
-    while ((end = partial.find('\n')) != std::string::npos) {
-        const std::string line = partial.substr(0, end);
-        partial.erase(0, end + 1);
-        _lines.push_back(line);
-        while (_lines.size() > kMaxLines)
-            _lines.pop_front();
-        if (_scroll > 0)
-            ++_scroll;
-        if (!notify)
+    char &colour = _partialColour[size_t(stream) & 1];
+    if (colour != '7' && !partial.empty())
+        partial += "^7";
+    colour = '7';
+    // A line after a newline starts in the colour in force, if this print
+    // puts anything on it.
+    char carried = '7';
+    auto put = [&](std::string_view s) {
+        if (partial.empty() && carried != '7')
+            partial = {'^', carried};
+        partial += s;
+    };
+    for (size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        if (c == '^' && i + 1 < text.size() && text[i + 1] != '^') {
+            colour = char('0' + (text[i + 1] & 7));
+            put(std::string_view(text).substr(i, 2));
+            ++i;
             continue;
-        _notify.emplace_back(nowMs, line);
-        while (_notify.size() > kMaxNotify)
-            _notify.pop_front();
+        }
+        if (c != '\n') {
+            put(std::string_view(&c, 1));
+            continue;
+        }
+        addLine(partial);
+        if (notify) {
+            _notify.emplace_back(nowMs, partial);
+            while (_notify.size() > kMaxNotify)
+                _notify.pop_front();
+        }
+        partial.clear();
+        carried = colour;
     }
+}
+
+void ConsoleState::addLine(const std::string &line) {
+    // Scrolled back, the view stays on the lines it shows (Con_Linefeed
+    // moves it along only from the newest, 0x405fe4).
+    _lines.push_back(line);
+    while (_lines.size() > kMaxLines)
+        _lines.pop_front();
+    if (_scroll > 0)
+        _scroll = std::min(_scroll + rows(line), std::max(0, totalRows() - 1));
+}
+
+int ConsoleState::rows(const std::string &line) const {
+    return _wrapWidth > 0 ? int(wrapConsoleLine(line, _wrapWidth).size()) : 1;
+}
+
+int ConsoleState::totalRows() const {
+    if (_wrapWidth <= 0)
+        return int(_lines.size());
+    int n = 0;
+    for (const std::string &line : _lines)
+        n += rows(line);
+    return n;
 }
 
 std::vector<std::string> ConsoleState::notify(uint64_t nowMs, float forMs) const {
@@ -53,10 +97,11 @@ void ConsoleState::expireNotify(uint64_t nowMs, uint64_t forMs) {
         _notify.pop_front();
 }
 
-void ConsoleState::beginTyping(uint32_t swallow) {
-    _field.clear();
-    _cursor = 0;
-    _scroll = 0;
+void ConsoleState::beginTyping(uint32_t swallow, int width) {
+    // The field cleared (Field_Clear); where the console is scrolled to
+    // stays, as the original's toggle leaves it.
+    clearField();
+    _fieldWidth = width;
     _historyPos = _history.size();
     _swallow = swallow;
 }
@@ -64,9 +109,25 @@ void ConsoleState::beginTyping(uint32_t swallow) {
 void ConsoleState::clearField() {
     _field.clear();
     _cursor = 0;
+    _fieldScroll = 0;
+}
+
+int ConsoleState::fieldScroll() {
+    // As Field_Draw (0x4084c0), its end counted as a character: all shown
+    // when it fits; else from the scroll, pulled back (and kept so) where
+    // the line ends before the field does.
+    const int len = int(_field.size()) + 1;
+    if (len <= _fieldWidth)
+        return 0;
+    if (_fieldScroll + _fieldWidth > len)
+        _fieldScroll = std::max(0, len - _fieldWidth);
+    return _fieldScroll;
 }
 
 ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
+    // The field as jk2mp.exe 1.02a's (Field_KeyDownEvent 0x408710,
+    // Field_CharEvent 0x408840): its scroll moved a character at a time,
+    // as the cursor passes either side of what's shown.
     if (ev.type == EventType::kTextInput) {
         // Characters typed (Latin-1, as the original's), but the one of the
         // key that opened the typing, and the console key in the console.
@@ -76,17 +137,52 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
                 continue;
             }
             _swallow = 0;
-            if (cp < 32 || cp == 127 || cp > 255 || _field.size() >= kMaxField)
+            if (cp < 32 || cp == 127 || cp > 255)
                 continue;
             if (console && (cp == '`' || cp == '~'))
                 continue;
-            _field.insert(_cursor++, 1, char(cp));
+            if (_overstrike) {
+                if (_cursor >= kMaxField)
+                    continue;
+                if (_cursor < _field.size())
+                    _field[_cursor] = char(cp);
+                else
+                    _field += char(cp);
+            } else {
+                if (_field.size() >= kMaxField)
+                    continue;
+                _field.insert(_cursor, 1, char(cp));
+            }
+            if (int(++_cursor) >= _fieldWidth)
+                ++_fieldScroll;
         }
         return Action::kNone;
     }
     if (ev.type != EventType::kKeyDown)
         return Action::kNone;
     _swallow = 0;
+    const bool ctrl = (ev.mods & keymod::kCtrl) != 0;
+    if (console) {
+        // The console's own first (Console_Key, 0x408d6c on): two rows a
+        // page, Ctrl+Home and Ctrl+End to the oldest and the newest.
+        if (ev.key == key::kPageUp) {
+            _scroll = std::min(_scroll + 2, std::max(0, totalRows() - 1));
+            return Action::kNone;
+        }
+        if (ev.key == key::kPageDown) {
+            _scroll = std::max(_scroll - 2, 0);
+            return Action::kNone;
+        }
+        if (ctrl && ev.key == key::kHome) {
+            _scroll = std::max(0, totalRows() - 1);
+            return Action::kNone;
+        }
+        if (ctrl && ev.key == key::kEnd) {
+            _scroll = 0;
+            return Action::kNone;
+        }
+    }
+    const auto len = _field.size();
     switch (ev.key) {
     case key::kEscape:
         return Action::kClose;
@@ -94,27 +190,53 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
     case key::kKpEnter:
         return Action::kSubmit;
     case key::kBackspace:
-        if (_cursor > 0)
+        if (_cursor > 0) {
             _field.erase(--_cursor, 1);
+            if (int(_cursor) < _fieldScroll)
+                --_fieldScroll;
+        }
         return Action::kNone;
     case key::kDelete:
-        if (_cursor < _field.size())
+        if (_cursor < len)
             _field.erase(_cursor, 1);
         return Action::kNone;
     case key::kLeft:
-        _cursor = _cursor > 0 ? _cursor - 1 : 0;
+        if (_cursor > 0)
+            --_cursor;
+        if (int(_cursor) < _fieldScroll)
+            --_fieldScroll;
         return Action::kNone;
     case key::kRight:
-        _cursor = std::min(_field.size(), _cursor + 1);
+        if (_cursor < len)
+            ++_cursor;
+        if (int(_cursor) >= _fieldScroll + _fieldWidth && _cursor <= len)
+            ++_fieldScroll;
         return Action::kNone;
     case key::kHome:
         _cursor = 0;
         return Action::kNone;
     case key::kEnd:
-        _cursor = _field.size();
+        _cursor = len;
+        return Action::kNone;
+    case key::kInsert:
+        if (!(ev.mods & keymod::kShift)) // (Shift+Insert pastes, which Reluva can't)
+            _overstrike = !_overstrike;
         return Action::kNone;
     default:
         break;
+    }
+    if (ctrl) {
+        // Control characters: ^A to the start, ^E to the end, ^C clears.
+        if (ev.key == 'a') {
+            _cursor = 0;
+            _fieldScroll = 0;
+        } else if (ev.key == 'e') {
+            _cursor = len;
+            _fieldScroll = int(len) - _fieldWidth;
+        } else if (ev.key == 'c') {
+            clearField();
+        }
+        return Action::kNone;
     }
     if (!console)
         return Action::kNone;
@@ -122,40 +244,43 @@ ConsoleState::Action ConsoleState::handle(const Event &ev, bool console) {
     case '`':
         return Action::kClose; // the console key closes it again
     case key::kUp:
-    case key::kDown:
-        // Earlier lines typed, back and forth.
+    case key::kDown: {
+        // Earlier lines typed, back and forth, each as it was left: its
+        // cursor and scroll too (the original copies the whole field).
         if (_history.empty())
             return Action::kNone;
         if (ev.key == key::kUp && _historyPos > 0)
             --_historyPos;
         else if (ev.key == key::kDown && _historyPos < _history.size())
             ++_historyPos;
-        _field = _historyPos < _history.size() ? _history[_historyPos] : std::string();
-        _cursor = _field.size();
+        if (_historyPos < _history.size()) {
+            _field = _history[_historyPos].text;
+            _cursor = std::min(_history[_historyPos].cursor, _field.size());
+            _fieldScroll = _history[_historyPos].scroll;
+        } else {
+            clearField();
+        }
         return Action::kNone;
-    case key::kPageUp:
-        _scroll = std::min(_scroll + 4, int(_lines.size()));
-        return Action::kNone;
-    case key::kPageDown:
-        _scroll = std::max(_scroll - 4, 0);
-        return Action::kNone;
+    }
     default:
         return Action::kNone;
     }
 }
 
 std::string ConsoleState::submit(bool console) {
+    Typed typed{_field, _cursor, _fieldScroll};
     std::string text = std::move(_field);
     clearField();
     if (!console || text.empty())
         return text;
     // Quotes would end the line early: they become apostrophes.
     std::replace(text.begin(), text.end(), '"', '\'');
-    if (_history.empty() || _history.back() != text)
-        _history.push_back(text);
+    typed.text = text;
+    if (_history.empty() || _history.back().text != typed.text)
+        _history.push_back(typed);
     _historyPos = _history.size();
-    _lines.push_back("]" + text);
-    _scroll = 0;
+    // Printed as any line is: the view moves along only from the newest.
+    addLine("]" + text);
     return text;
 }
 

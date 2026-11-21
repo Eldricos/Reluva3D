@@ -65,9 +65,11 @@ int loopbackPlayer(reluva::idtech3::eliteforce::GameHost &game, reluva::idtech3:
     int mapChanges = 0;
     for (int frame = 0; frame < frames; ++frame) {
         if (changeLevel && frame == frames / 2) {
-            // As the Play page's: the players told, then the level loaded
-            // and the game started on it, and the players sent it anew.
-            server.levelChanging();
+            // As the Play page's: the players told (five times, as the
+            // loading's steps tell them), then the level loaded and the
+            // game started on it, and the players sent it anew.
+            for (int i = 0; i < 5; ++i)
+                server.levelChanging();
             if (reluva::Error e = changeLevel()) {
                 std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
                 return 1;

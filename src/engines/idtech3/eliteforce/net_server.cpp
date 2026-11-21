@@ -93,6 +93,19 @@ void NetServer::heartbeat(uint64_t now, bool force) {
         !_protocol.masterServers)
         return;
     _nextHeartbeat = now + 300000;
+    if (_protocol.quakeHeartbeat) {
+        resolveMasters();
+        for (const MasterSlot &m : _masterSlots) {
+            if (!m.resolved)
+                continue;
+            if (print)
+                print("Sending heartbeat to " + m.name + "\n");
+            // Quake III's names its game only (jk2mp.exe's "heartbeat
+            // %s\n", 0x44e587).
+            sendText(m.address, "heartbeat QuakeArena-1\n");
+        }
+        return;
+    }
     if (!_mastersResolved) {
         _mastersResolved = true;
         for (const std::string &name : masterServerNames(_cvars, _protocol.masterServers())) {
@@ -111,6 +124,44 @@ void NetServer::heartbeat(uint64_t now, bool force) {
                                              : "\\heartbeat\\" + std::to_string(port()) + "\\gamename\\STEF1\\");
         if (print)
             print("Heartbeat to the master at " + m.toString() + "\n");
+    }
+}
+
+void NetServer::resolveMasters() {
+    // As jk2mp.exe's heartbeat (0x44e460): each sv_masterN looked up again
+    // when it has changed; one that can't be is emptied, so it isn't
+    // tried again. The original looks for a port with strstr(":", name),
+    // the wrong way round, so a master is always at port 28060.
+    masterServerNames(_cvars, _protocol.masterServers());
+    _masters.clear();
+    for (size_t i = 0; i < _masterSlots.size(); ++i) {
+        MasterSlot &m = _masterSlots[i];
+        const std::string cvar = "sv_master" + std::to_string(i + 1);
+        const std::string name = _cvars.string(cvar);
+        if (name.empty()) {
+            m = MasterSlot{};
+            continue;
+        }
+        if (name != m.name) {
+            m.name = name;
+            m.resolved = false;
+            if (print)
+                print("Resolving " + name + "\n");
+            uint32_t ip = 0;
+            if (!resolveHost(reluva::net::splitHostPort(name, _protocol.masterPort).first, ip)) {
+                if (print)
+                    print("Couldn't resolve address: " + name + "\n");
+                _cvars.set(cvar, "");
+                m = MasterSlot{};
+                continue;
+            }
+            m.address = {ip, _protocol.masterPort};
+            m.resolved = true;
+            if (print)
+                print(name + " resolved to " + m.address.toString() + "\n");
+        }
+        if (m.resolved)
+            _masters.push_back(m.address);
     }
 }
 
@@ -256,19 +307,16 @@ void NetServer::levelStarted() {
 }
 
 void NetServer::levelChanging() {
+    // As jk2mp.exe's SV_SendMapChange (0x44d7d0): to every player at
+    // least connected, a message of its own, sent at once.
     if (!_protocol.keyed)
         return;
-    // Five times, as jk2mp.exe sends it at the steps of loading a level
-    // (0x44d83e to 0x44d9ed), in case some are lost; the client game takes
-    // it as often as it comes.
-    constexpr int kSends = 5;
-    for (int i = 0; i < kSends; ++i)
-        for (Client &c : _clients)
-            if (c.state >= State::kConnected) {
-                wire::MessageWriter w = startMessage(c);
-                w.byte(kSvcMapChange);
-                transmit(c, w);
-            }
+    for (Client &c : _clients)
+        if (c.state >= State::kConnected) {
+            wire::MessageWriter w = startMessage(c);
+            w.byte(kSvcMapChange);
+            transmit(c, w);
+        }
 }
 
 std::vector<std::pair<int32_t, std::string>> NetServer::players() const {

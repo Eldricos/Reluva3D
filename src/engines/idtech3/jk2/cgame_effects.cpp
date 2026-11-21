@@ -115,6 +115,21 @@ raven::EffectSystem::Host CgameHost::effectHost() {
         int32_t result = 0;
         _vm.call(kCgImpactMark, {}, result);
     };
+    // A bolted effect's bolt, as the effect cloud places it (0x411c20):
+    // the entity's number put in the shared buffer (TCGBoltPos's, at 24)
+    // and its first vector read back as both the angles and the origin the
+    // instance stands at, though the original never asks the client game
+    // to fill it; the bolt at the effects' clock.
+    h.boltPoint = [this](const raven::EffectSystem::Bolt &b) -> std::optional<Vec3> {
+        if (!_sharedBuffer || !_vm.valid(_sharedBuffer, 28) || !_ghoul2.hasModel(b.ghoul2, b.model))
+            return std::nullopt;
+        _vm.writeInt(_sharedBuffer + 24, b.entity);
+        const Vec3 placed = vecAt(_vm, _sharedBuffer);
+        Bone34 m{};
+        if (!_ghoul2.boltMatrix(b.ghoul2, b.model, b.bolt, _fx.time(), placed, placed, b.scale, m))
+            return std::nullopt;
+        return Vec3{m[3], m[7], m[11]};
+    };
     h.entityOrigin = [this](int32_t entity) -> std::optional<Vec3> {
         if (!_sharedBuffer || !_vm.valid(_sharedBuffer, 16))
             return std::nullopt;
@@ -232,6 +247,19 @@ int32_t CgameHost::jk2EffectCall(Qvm &vm, int number, const int32_t *a) {
     case kFxPlayEntityEffectId: // (id, origin, axes, bolt, entity)
         _fx.play(a[0], vec(a[1]), axis(a[2]), a[4]);
         return 0;
+    case kFxPlayBoltedEffectId: { // (id, the bolt: as jk2mp.exe reads it, 0x411860)
+        const int32_t b = a[1];
+        if (!vm.valid(b, 56))
+            return 0;
+        raven::EffectSystem::Bolt bolt;
+        bolt.ghoul2 = vm.readInt(b + 4);
+        bolt.model = vm.readInt(b + 8);
+        bolt.bolt = vm.readInt(b + 12);
+        bolt.scale = vecAt(vm, b + 40);
+        bolt.entity = vm.readInt(b + 52);
+        _fx.playBolted(a[0], vecAt(vm, b + 28), vecAt(vm, b + 16), bolt);
+        return 0;
+    }
     case kFxAddScheduledEffects: {
         raven::EffectSystem::Frame frame;
         _fx.run(frame);
@@ -294,7 +322,6 @@ int32_t CgameHost::jk2EffectCall(Qvm &vm, int number, const int32_t *a) {
                       vm.readInt(p + 60), vm.readInt(p + 64), vm.readInt(p + 68));
         return 0;
     }
-    case kFxPlayBoltedEffectId:
     default:
         if (!_unhandled[number]++)
             _firstUnhandled[number] = {a[0], a[1], a[2], a[3], a[4], a[5]};

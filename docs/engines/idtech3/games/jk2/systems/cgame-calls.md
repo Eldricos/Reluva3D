@@ -69,7 +69,7 @@ system and Ghoul2 (4 to 24).
 | 253 | `R_InPVS` | from the level's visibility |
 | 254 | `FX_RegisterEffect` | an effect file read and numbered ([efx.md](../../../formats/efx.md)) |
 | 255–260 | `FX_PlaySimpleEffect`, `FX_PlayEffect`, `FX_PlayEntityEffect`, and the three by number | played at the place, facing up, a way, or with three axes; an entity's effect made later at where the client game says the entity is (its `CG_GET_LERP_ORIGIN`) |
-| 261 | `FX_PlayBoltedEffectID` | not yet (1.02a doesn't call it) |
+| 261 | `FX_PlayBoltedEffectID(id, bolt)` | the effect played as a group whose parts are put at a Ghoul2 bolt each frame before they move ([efx.md](../../../formats/efx.md), Bolted effects); no release's client game calls it |
 | 262 | `FX_AddScheduledEffects` | the effects run for the frame and added to the scene as Raven's renderer takes them; a decal's mark made by the client game (its `CG_IMPACT_MARK`, given through the shared buffer) |
 | 263, 264 | `FX_InitSystem`, `FX_FreeSystem` | everything dropped |
 | 265 | `FX_AdjustTime` | the effects' clock and the eye |

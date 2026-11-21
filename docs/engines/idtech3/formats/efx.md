@@ -117,6 +117,23 @@ played there with `traceImpactFx`). Colours are picked per channel, or
 with `rgbComponentInterpolation` one fraction along the line from the
 least to the most.
 
+### Bolted effects
+
+The client game's `FX_PlayBoltedEffectID` (its call 261; jk2mp.exe
+0x411860, 0x4167f0) plays an effect on a Ghoul2 model's bolt. It hands
+over a structure: the instance (at 4), its model (8) and bolt (12), a
+forward (16), an origin (28), the model's scale (40) and the entity (52).
+The effect faces the forward, and its parts are a group (an "effect
+cloud") whose update, each frame (0x411c20), puts every part at the
+bolt before it moves (0x411e80): the bolt placed by `GetBoltMatrix` at
+the effects' clock, with the model's scale, the instance's angles and
+origin both taken from the first vector of the shared buffer, after the
+entity's number is put in it at 24 (`TCGBoltPos`). The original never
+asks the client game to fill that buffer here, so the vector is whatever
+an earlier call left in it. It also starts the parts at, and culls them
+by, a place it never sets; Reluva starts them at the origin given. No
+release's client game calls it.
+
 A decal is made at once as a mark on the world, by the client game; a
 sound played; an `fxRunner` plays its effect there and then. A camera
 shake does nothing in Jedi Outcast's multiplayer engine: it works out how
@@ -214,8 +231,9 @@ far squared, to nothing at the end. `branch` (0x4000) would fork it,
 but 1.02a's fork count is never set (only read and lowered, 0x494f4f),
 so it never does, and Reluva doesn't either.
 
-Not done: effects bolted to a Ghoul2 model (1.02a's client game doesn't
-call it); wind.
+Bolted effects are a group in the effects system (`playBolted`), whose
+bolt the client game's host works out each frame as above (the shared
+buffer read as the original reads it). Not done: wind.
 
 ## Sources and checks
 

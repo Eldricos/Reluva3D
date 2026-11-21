@@ -74,6 +74,15 @@ public:
         float alpha = 0;
         float size = 0;
     };
+    // A Ghoul2 model's bolt an effect follows: the instance, its model and
+    // bolt, the entity it's on and the model's scale.
+    struct Bolt {
+        int32_t ghoul2 = 0;
+        int32_t model = 0;
+        int32_t bolt = -1;
+        int32_t entity = -1;
+        Vec3 scale{};
+    };
     struct Host {
         std::function<int32_t(const std::string &)> registerShader;
         std::function<int32_t(const std::string &)> registerModel;
@@ -85,6 +94,8 @@ public:
         std::function<void(const Decal &)> decal;
         // Where an entity is drawn this frame (for effects that follow one).
         std::function<std::optional<Vec3>(int32_t entity)> entityOrigin;
+        // Where a bolted effect's bolt is this frame (none: left where it is).
+        std::function<std::optional<Vec3>(const Bolt &bolt)> boltPoint;
     };
 
     // A shape drawn this frame, as the renderer takes the original's
@@ -137,6 +148,11 @@ public:
     // axes made up), following `entity` (-1: none) for parts made later.
     void play(int32_t id, const Vec3 &origin, const Axis &axis, int32_t entity = -1);
     void play(int32_t id, const Vec3 &origin, const Vec3 &forward);
+    // Plays effect `id` at `origin` facing `forward`, its parts put at
+    // `bolt` each frame before they move (FX_PlayBoltedEffectID).
+    void playBolted(int32_t id, const Vec3 &origin, const Vec3 &forward, const Bolt &bolt);
+    // The effects' clock (ms).
+    int32_t time() const { return _time; }
     // The clock (ms) and the eye, each frame before run().
     void setTime(int32_t time, const Vec3 &viewOrigin, const Axis &viewAxis);
     // Makes the parts whose delay is up, moves every live one, drops those
@@ -204,6 +220,7 @@ private:
         Vec3 origin{};
         Axis axis{};
         int32_t entity = -1;
+        int32_t group = -1; // a bolted effect's (_bolted), -1 none
     };
     // A value fading from start to end (start * perc + end * (1 - perc)),
     // as `flags` (one channel's) say; `parm` is a time, or a wave's speed.
@@ -216,6 +233,7 @@ private:
     struct Live {
         enum Kind { kParticle, kQuad, kLine, kTail, kElectricity, kCylinder, kEmitter, kLight, kPoly, kBezier, kTrail };
         Kind kind = kParticle;
+        int32_t group = -1; // a bolted effect's (_bolted), -1 none
         uint32_t flags = 0;
         int32_t timeStart = 0;
         int32_t timeEnd = 0;
@@ -299,6 +317,12 @@ private:
     std::vector<Effect> _effects;           // by number - 1
     std::map<std::string, int32_t> _byName; // lower case, without the folder and extension
     std::vector<Scheduled> _scheduled;
+    // The bolted effects playing, by group, and the next group's number.
+    std::map<int32_t, Bolt> _bolted;
+    int32_t _nextGroup = 0;
+    void playIn(int32_t id, const Vec3 &origin, const Axis &axis, int32_t entity, int32_t group);
+    // create(), its parts put in `group`.
+    void createIn(const Template &t, const Vec3 &origin, const Axis &axis, int32_t late, int32_t group);
     std::vector<Live> _live;
     std::vector<Live> _born; // made since the last run(), joining _live there
     int32_t _time = 0;

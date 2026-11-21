@@ -12,6 +12,11 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   style full, showing a level's light as compiled. In a match they change
   as the client game sets them, as the original's do
   ([rbsp.md](../../formats/rbsp.md), In Reluva).
+- **No CD key check**: a server lets every player in, and a client sends
+  no key to be checked. The original's server asks Raven's authorize
+  server about each player's key, but that server has long been gone,
+  so there's nothing left to ask, and every server has let everyone in
+  since ([systems/network.md](systems/network.md)).
 - **The console key**: `~` (or `` ` ``) opens the console on its own. The
   original's multiplayer engine opens it only with Shift held (0x4099dc:
   the key alone, with the console shut, goes on to the bindings and
@@ -20,6 +25,9 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Bugs fixed
 
+- **A bolted effect** (the client game's call 261) starts at the origin
+  it's given, where the original starts its parts at, and culls them by,
+  a place it never sets ([efx.md](../../formats/efx.md), Bolted effects).
 - **A wind from `r_we snow wind`** blows on the snow here. The original
   never makes its list of counts and would read one that isn't there
   once the eye came within 300 of it *(inferred)*
@@ -37,16 +45,9 @@ In the maps:
 
 In the multiplayer game:
 
-- **The console** is drawn as the original's, but for small details:
-  its typing line's scroll, a colour carried from one printed line to
-  the next, and how far a key scrolls back
-  ([systems/console.md](systems/console.md), In Reluva).
-- **Network play** ([systems/network.md](systems/network.md)): a server's
-  map change notices all go at once, where the original's go at steps of
-  its loading; it looks its masters' names up once, where the original
-  looks again when one's cvar changes.
-- **Effects** ([efx.md](../../formats/efx.md)): effects bolted to a
-  model aren't played (1.02a's client game doesn't ask). The second
+- **The console** can't paste (Ctrl+V, Shift+Insert): Reluva has no
+  clipboard to read ([systems/console.md](systems/console.md), In Reluva).
+- **Effects** ([efx.md](../../formats/efx.md)): the second
   triangle of a saber's trail is given its corners' own alpha, where
   Raven's code leaves two of them unset. Electricity's small kinks are
   Reluva's own random draws, not the original's, as surface sprites'

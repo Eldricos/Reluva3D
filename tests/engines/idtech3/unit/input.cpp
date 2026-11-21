@@ -323,13 +323,66 @@ static void testConsoleState() {
     c.handle(keyDown(key::kDown), true);
     c.handle(keyDown(key::kDown), true);
     CHECK(c.field().empty());
+    // Two rows a page key; scrolled back, the view stays on its lines as
+    // more come; Ctrl+End to the newest, Ctrl+Home to the oldest.
     c.handle(keyDown(key::kPageUp), true);
-    CHECK(c.scroll() == 4);
+    CHECK(c.scroll() == 2);
     c.print("more\n", false, 0);
-    CHECK(c.scroll() == 5);
+    CHECK(c.scroll() == 3);
+    Event ctrlEnd = keyDown(key::kEnd);
+    ctrlEnd.mods = keymod::kCtrl;
+    c.handle(ctrlEnd, true);
+    CHECK(c.scroll() == 0);
+    Event ctrlHome = keyDown(key::kHome);
+    ctrlHome.mods = keymod::kCtrl;
+    c.handle(ctrlHome, true);
+    CHECK(c.scroll() == int(c.lines().size()) - 1);
+    // At a width, a line counts as the rows it wraps to.
+    c.handle(ctrlEnd, true);
+    c.setWrapWidth(10);
+    c.handle(keyDown(key::kPageUp), true);
+    c.print("a line of twenty-one\n", false, 0);
+    CHECK(c.scroll() == 2 + int(wrapConsoleLine("a line of twenty-one", 10).size()));
     CHECK(c.handle(keyDown(key::kEscape), true) == ConsoleState::Action::kClose);
     CHECK(c.handle(keyDown('`'), true) == ConsoleState::Action::kClose);
     CHECK(c.handle(keyDown('`'), false) == ConsoleState::Action::kNone);
+
+    // Each print starts white, and its colour goes on to its next line; a
+    // line carried on from an earlier print goes back to white.
+    ConsoleState colours;
+    colours.print("^1red\nstill red\n", false, 0);
+    colours.print("^2green, then", false, 0);
+    colours.print(" white\n", false, 0);
+    CHECK((colours.lines() == std::deque<std::string>{"^1red", "^1still red", "^2green, then^7 white"}));
+
+    // The field's scroll, as the original keeps it (a field 5 wide): on
+    // a character as the cursor passes its width, back one as Left passes
+    // its start; Home moves the cursor only; Ctrl+A goes back to the start.
+    ConsoleState f;
+    f.beginTyping(0, 5);
+    f.handle(text("abcdefg"), false);
+    CHECK(f.cursor() == 7 && f.fieldScroll() == 3);
+    f.handle(keyDown(key::kHome), false);
+    CHECK(f.cursor() == 0 && f.fieldScroll() == 3);
+    for (int i = 0; i < 3; ++i)
+        f.handle(keyDown(key::kRight), false);
+    f.handle(keyDown(key::kLeft), false);
+    f.handle(keyDown(key::kLeft), false);
+    CHECK(f.cursor() == 1 && f.fieldScroll() == 1);
+    Event ctrlA = keyDown('a');
+    ctrlA.mods = keymod::kCtrl;
+    f.handle(ctrlA, false);
+    CHECK(f.cursor() == 0 && f.fieldScroll() == 0);
+    // Drawn, a scroll past where the line ends is pulled back and kept.
+    f.handle(keyDown(key::kEnd), false);
+    for (int i = 0; i < 6; ++i)
+        f.handle(keyDown(key::kBackspace), false);
+    CHECK(f.field() == "a" && f.fieldScroll() == 0);
+    // Insert: typing over.
+    f.handle(keyDown(key::kInsert), false);
+    f.handle(keyDown(key::kHome), false);
+    f.handle(text("xy"), false);
+    CHECK(f.overstrike() && f.field() == "xy");
 
     // Dropping down at 3 screens a second: half open in a sixth of one.
     CHECK(c.slide(1000, true, 3) == 0);

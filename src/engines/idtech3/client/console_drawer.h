@@ -32,7 +32,9 @@ struct ConsoleFrame {
     bool typing = false; // the console has the keys: its input line shown
     std::string input;
     size_t cursor = 0;
-    bool cursorOn = true; // the cursor's blink
+    int fieldScroll = 0;     // the first character shown of what's typed (or the chat's)
+    bool overstrike = false; // typing over: the cursor is character 11
+    bool cursorOn = true;    // the cursor's blink
     // Shut: the lines still shown over the game, oldest first.
     std::vector<std::string> notify;
     enum class Chat { kNone, kSay, kSayTeam } chat = Chat::kNone;

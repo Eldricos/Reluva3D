@@ -1799,7 +1799,10 @@ void SpPlayPage::drawConsole(uint64_t nowMs, float time) {
     f.typing = _consoleOpen;
     f.input = _console.field();
     f.cursor = _console.cursor();
+    f.fieldScroll = _console.fieldScroll();
+    f.overstrike = _console.overstrike();
     f.cursorOn = ((nowMs >> 8) & 1) == 0;
+    _console.setWrapWidth(_frameW / 8 - 2);
     if (!menusHaveKeys() && _game) {
         const float notifyMs = 1000.0f * (_cvars.find("con_notifytime") ? _cvars.value("con_notifytime") : 3.0f);
         f.notify = _console.notify(nowMs, notifyMs);

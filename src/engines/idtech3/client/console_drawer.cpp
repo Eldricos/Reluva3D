@@ -94,20 +94,18 @@ private:
     std::vector<Picture> &_out;
 };
 
-// A typing field as the original draws it: as much as fits, scrolled to
-// keep the cursor in sight, and the cursor (character 10) when it's on.
+// A typing field as the original draws it (Field_Draw, 0x4084c0): as
+// much as fits from its scroll (`prestep`, ConsoleState::fieldScroll),
+// and the cursor when it's on.
 struct FieldView {
     std::string shown;
     int cursorAt = 0; // in characters from the field's left
 };
 
-FieldView fieldView(std::string_view text, size_t cursor, int widthInChars) {
+FieldView fieldView(std::string_view text, size_t cursor, int widthInChars, int prestep) {
     const int len = int(text.size()) + 1;
-    int drawLen = widthInChars;
-    int prestep = 0;
-    if (len > drawLen)
-        prestep = std::clamp(int(cursor) - drawLen + 1, 0, len - drawLen);
-    drawLen = std::min(drawLen, len - prestep);
+    prestep = std::clamp(prestep, 0, std::max(0, len - 1));
+    const int drawLen = std::min(widthInChars, len - prestep);
     FieldView v;
     v.shown = std::string(text.substr(size_t(prestep), size_t(std::max(0, drawLen - 1))));
     int printable = 0;
@@ -192,10 +190,10 @@ std::vector<Picture> consolePictures(const ConsoleFrame &f, const ConsoleShaders
             const bool team = f.chat == ConsoleFrame::Chat::kSayTeam;
             paint.bigString(8, float(v), team ? "say_team:" : "say:");
             const int skip = team ? 11 : 5;
-            const FieldView field = fieldView(f.chatInput, f.chatCursor, team ? 25 : 30);
+            const FieldView field = fieldView(f.chatInput, f.chatCursor, team ? 25 : 30, f.fieldScroll);
             paint.bigString(float(skip) * kBig, float(v), field.shown);
             if (f.cursorOn)
-                paint.bigString(float(skip + field.cursorAt) * kBig, float(v), "\n");
+                paint.bigString(float(skip + field.cursorAt) * kBig, float(v), f.overstrike ? "\v" : "\n");
         }
         return out;
     }
@@ -232,11 +230,12 @@ std::vector<Picture> consolePictures(const ConsoleFrame &f, const ConsoleShaders
     if (f.typing) {
         const int inputY = lines - kSmallH * 2;
         paint.small(xBase + kSmallW, inputY, ']', kWhite);
-        const FieldView field = fieldView(f.input, f.cursor, kInputWidth);
+        const FieldView field = fieldView(f.input, f.cursor, kInputWidth, f.fieldScroll);
         const int fieldX = xBase + 2 * kSmallW;
         paint.smallString(fieldX, inputY, field.shown);
+        // The cursor: character 10, or 11 while typing over (0x4085d5).
         if (f.cursorOn)
-            paint.small(fieldX + field.cursorAt * kSmallW, inputY, 10, kWhite);
+            paint.small(fieldX + field.cursorAt * kSmallW, inputY, f.overstrike ? 11 : 10, kWhite);
     }
     return out;
 }

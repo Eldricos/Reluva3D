@@ -565,6 +565,18 @@ static void testJk2Heartbeat(const std::filesystem::path &tmp) {
     CHECK(!server->frame(now + 300000) && beats() == 1);
     server->levelStarted(); // a new level: at once
     CHECK(!server->frame(now + 301000) && beats() == 1);
+    // A master changed is looked up again: a port it gives is passed over,
+    // as the original's (always 28060); one that can't be found is
+    // emptied, and nothing goes to it.
+    cvars.set("sv_master1", "127.0.0.1:1234");
+    server->levelStarted();
+    CHECK(!server->frame(now + 302000) && beats() == 1);
+    cvars.set("sv_master1", "no such master");
+    server->levelStarted();
+    CHECK(!server->frame(now + 303000) && beats() == 0 && cvars.string("sv_master1").empty());
+    cvars.set("sv_master1", "127.0.0.1");
+    server->levelStarted();
+    CHECK(!server->frame(now + 304000) && beats() == 1);
     server.reset();
     CHECK(beats() == 2);
     std::filesystem::remove_all(tmp);

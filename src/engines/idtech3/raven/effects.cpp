@@ -9,6 +9,7 @@
 
 #include "common/fs.h"
 
+#include <set>
 #include <algorithm>
 #include <cmath>
 #include <iterator>
@@ -175,6 +176,31 @@ void EffectSystem::play(int32_t id, const Vec3 &origin, const Vec3 &forward) {
 }
 
 void EffectSystem::play(int32_t id, const Vec3 &origin, const Axis &axis, int32_t entity) {
+    playIn(id, origin, axis, entity, -1);
+}
+
+void EffectSystem::playBolted(int32_t id, const Vec3 &origin, const Vec3 &forward, const Bolt &bolt) {
+    // As jk2mp.exe's (0x411860, 0x4167f0): facing the bolt's forward, the
+    // parts a group (an effect cloud) whose bolt places them each frame.
+    // The original starts them at a place it never sets; here, at the
+    // origin given.
+    if (id < 1 || size_t(id) > _effects.size())
+        return;
+    Axis axis{forward, {}, {}};
+    normalVectors(forward, axis[1], axis[2]);
+    const int32_t group = _nextGroup++;
+    _bolted[group] = bolt;
+    playIn(id, origin, axis, -1, group);
+}
+
+void EffectSystem::createIn(const Template &t, const Vec3 &origin, const Axis &axis, int32_t late, int32_t group) {
+    const size_t before = _born.size();
+    create(t, origin, axis, late);
+    for (size_t i = before; i < _born.size(); ++i)
+        _born[i].group = group;
+}
+
+void EffectSystem::playIn(int32_t id, const Vec3 &origin, const Axis &axis, int32_t entity, int32_t group) {
     if (id < 1 || size_t(id) > _effects.size())
         return;
     const Vec3 fromEye = sub(origin, _viewOrigin);
@@ -193,9 +219,9 @@ void EffectSystem::play(int32_t id, const Vec3 &origin, const Axis &axis, int32_
                 Vec3 at = origin;
                 if (entity != -1 && _host.entityOrigin)
                     at = _host.entityOrigin(entity).value_or(origin);
-                create(templates[i], at, axis, -delay);
+                createIn(templates[i], at, axis, -delay, group);
             } else {
-                _scheduled.push_back({_time + delay, id, i, origin, axis, entity});
+                _scheduled.push_back({_time + delay, id, i, origin, axis, entity, group});
             }
         }
     }
@@ -213,6 +239,7 @@ void EffectSystem::clear() {
     _byName.clear();
     _scheduled.clear();
     _live.clear();
+    _bolted.clear();
     _born.clear();
 }
 
@@ -854,15 +881,25 @@ void EffectSystem::run(Frame &out) {
         Vec3 at = s.origin;
         if (s.entity != -1 && _host.entityOrigin)
             at = _host.entityOrigin(s.entity).value_or(s.origin);
-        create(_effects[size_t(s.effect - 1)].templates[s.index], at, s.axis, _time - s.start);
+        createIn(_effects[size_t(s.effect - 1)].templates[s.index], at, s.axis, _time - s.start, s.group);
     }
     // New ones join before the walk, not during it: updating can start
     // effects of its own, which are drawn from the next frame.
     std::move(_born.begin(), _born.end(), std::back_inserter(_live));
     _born.clear();
+    // Each bolted effect's bolt, once a frame; its parts put there before
+    // they move (the effect cloud's update, 0x411c20).
+    std::map<int32_t, Vec3> boltAt;
+    for (const auto &[group, bolt] : _bolted)
+        if (_host.boltPoint)
+            if (const std::optional<Vec3> p = _host.boltPoint(bolt))
+                boltAt[group] = *p;
     size_t kept = 0;
     for (size_t i = 0; i < _live.size(); ++i) {
         Live &l = _live[i];
+        if (l.group >= 0)
+            if (const auto at = boltAt.find(l.group); at != boltAt.end())
+                l.origin = at->second;
         bool dead = false;
         if (_time > l.timeEnd) {
             l.flags &= ~uint32_t(Primitive::kKillOnImpact);
@@ -882,6 +919,14 @@ void EffectSystem::run(Frame &out) {
     _live.resize(kept);
     std::move(_born.begin(), _born.end(), std::back_inserter(_live));
     _born.clear();
+    // A bolted effect with nothing left, playing or to come, is over.
+    std::set<int32_t> groups;
+    for (const Live &l : _live)
+        groups.insert(l.group);
+    for (const Scheduled &s : _scheduled)
+        groups.insert(s.group);
+    for (auto it = _bolted.begin(); it != _bolted.end();)
+        it = groups.count(it->first) ? std::next(it) : _bolted.erase(it);
 }
 
 std::vector<BoltStrip> electricityStrips(const std::array<float, 3> &origin, const std::array<float, 3> &end,
