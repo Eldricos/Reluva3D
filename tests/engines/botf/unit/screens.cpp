@@ -1007,7 +1007,16 @@ void testGalaxyScreen() {
     SavedTaskForce hidden = klingon;
     hidden.x = 0;
     hidden.y = 0;
-    game.taskForces = {t, klingon, hidden};
+    // At Sol, a Federation task force and a Klingon one: listed under the
+    // outpost there.
+    SavedTaskForce home;
+    home.owner = 1;
+    home.x = 10;
+    home.y = 8;
+    home.mission = 5;
+    SavedTaskForce visitor = home;
+    visitor.owner = 3;
+    game.taskForces = {t, klingon, hidden, home, visitor};
     game.empires[1].credits = 2000;
     // A peace treaty with the Klingons, who claim the sector right of Sol's
     // southern neighbour: the ranges keep out of it.
@@ -1069,8 +1078,12 @@ void testGalaxyScreen() {
     CHECK(greenish(150, 174, 200, 191) && !greenish(45, 174, 60, 191));
     CHECK(!lit(45, 192, 200, 199));
     CHECK(white(28 + 109 + 8, 110 + 90 + 2) && white(28 + 109 + 17, 110 + 90 + 11) && !white(28 + 109 + 7, 202));
-    CHECK(white(28 + 15 + 10, 110 + 147 + 5) && !white(28 + 15 + 9, 110 + 147 + 5));
-    CHECK(lit(94, 260, 190, 276));
+    // The rows for Sol's sector: its outpost ("Outpost", "OPERATIONAL"),
+    // then the Federation's task force (its emblem centred across its place,
+    // "AVOID"), then the Klingons'.
+    CHECK(lit(94, 260, 190, 276) && lit(94, 277, 190, 293));
+    CHECK(white(28 + 15 + 10, 110 + 187 + 5) && !white(28 + 15 + 9, 110 + 187 + 5) && lit(94, 300, 190, 316));
+    CHECK(white(28 + 15 + 10, 110 + 227 + 5) && !lit(94, 357, 190, 373));
     // The ranges round Sol: green a sector round it, yellow two (but not
     // two across and two down: the larger distance and half the smaller),
     // red five; the shorter drawn over the longer.
@@ -1103,10 +1116,10 @@ void testGalaxyScreen() {
     CHECK(!colour(gx + 11 * 39 + 30, gy + 9 * 39 + 30, 128, 128, 128));
     // Sol's sector's claim: the Federation's dots, a pixel every 3 on every
     // other row, shifting.
-    CHECK(colour(gx + 10 * 39 + 5, gy + 8 * 39 + 3, 16, 8, 115) &&
-          colour(gx + 10 * 39 + 4, gy + 8 * 39 + 5, 16, 8, 115) &&
-          !colour(gx + 10 * 39 + 5, gy + 8 * 39 + 5, 16, 8, 115) &&
-          !colour(gx + 10 * 39 + 5, gy + 8 * 39 + 4, 16, 8, 115));
+    CHECK(colour(gx + 10 * 39 + 25, gy + 8 * 39 + 23, 16, 8, 115) &&
+          colour(gx + 10 * 39 + 24, gy + 8 * 39 + 25, 16, 8, 115) &&
+          !colour(gx + 10 * 39 + 25, gy + 8 * 39 + 25, 16, 8, 115) &&
+          !colour(gx + 10 * 39 + 25, gy + 8 * 39 + 24, 16, 8, 115));
     // The contested sector: five stripes along x + y, every 10 pixels.
     CHECK(colour(gx + 12 * 39 + 1, gy + 2, 107, 8, 8) && colour(gx + 12 * 39 + 2, gy + 5, 115, 8, 90) &&
           colour(gx + 12 * 39 + 4, gy + 5, 8, 89, 8) && colour(gx + 12 * 39 + 5, gy + 6, 16, 8, 115) &&

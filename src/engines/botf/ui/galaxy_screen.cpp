@@ -6,6 +6,8 @@
 #include "engines/botf/formats/planet_populations.h"
 
 #include <algorithm>
+#include <cstring>
+#include <cmath>
 #include <cstdlib>
 #include <iterator>
 #include <set>
@@ -71,6 +73,7 @@ constexpr int kFigureMargin = 6;
 constexpr int kDilithiumGap = 6;
 // result.lst's contents for a task force and a ship.
 constexpr int kTaskForceResult = 4;
+constexpr size_t kShipSpeedOffset = 268; // shiplist.sst's speed, a double
 constexpr int kPeaceTreaty = 1;
 constexpr int kShipResult = 5;
 // The task forces' bar: drawn here, as the game shows the background
@@ -687,31 +690,78 @@ void GalaxyScreen::drawPanel(Surface &screen) const {
     for (int other = 0; other < 5; ++other)
         if (const Placed *p = other == _empire ? nullptr : find(kFirstEmblem + other))
             drawIcon(screen, p->x, p->y, *p->widget, std::string("i_") + kLetters[other] + "26.tga");
-    // A row for each of the empire's task forces: its emblem, its mission
-    // and its first ship's class.
+    // A row for each of the empire's outposts in the selected sector, then
+    // each task force there (the thirty-first turn's lists the one of four
+    // at Deneb, the seventeenth's a Klingon scout with the Federation's):
+    // its emblem across its place, and two lines.
     const Placed *icon = find(kRowIcon);
     const Placed *text = find(kRowText);
     const Placed *panel = find(kPanel);
-    if (!icon || !text || !panel)
+    if (!icon || !text || !panel || _selected.first < 0)
         return;
     const Font *font = _assets.font(text->widget->fonts.empty() ? "" : text->widget->fonts[0].file);
+    const SavedGalaxy &g = _game.galaxy;
+    const int sectorNumber = _selected.second * g.width + _selected.first;
     int row = 0;
-    for (const SavedTaskForce &t : _game.taskForces) {
-        if (t.owner != _empire)
-            continue;
+    auto drawRow = [&](const std::string &emblem, const std::string &first, const std::string &second) {
         const int dy = row++ * kRowHeight;
         if (icon->y + dy >= panel->y + panel->widget->h)
-            break;
-        drawIcon(screen, icon->x, icon->y + dy, *icon->widget, std::string("i_") + _letter + "26.tga");
+            return;
+        drawIcon(screen, icon->x, icon->y + dy, *icon->widget, emblem);
         if (!font)
+            return;
+        font->drawInColor(screen, text->x, text->y + dy + 1, first, kTaskForceColor);
+        font->drawInColor(screen, text->x, text->y + dy + 1 + kLinePitch, second, kTaskForceColor);
+    };
+    // An outpost: its emblem (i_ho30.tga), "Outpost" and "OPERATIONAL" (one
+    // seen; one being built shows how far it's got, not read yet).
+    for (const SavedOutpost &o : g.outposts)
+        if (o.owner == _empire && o.sector == sectorNumber)
+            drawRow(std::string("i_") + _letter + "o30.tga", word(lex::kOutpost, "Outpost"),
+                    word(lex::kOperational, "OPERATIONAL"));
+    // A task force: the empire's own, its mission and, where it's headed
+    // elsewhere, how long it'll take ("ENGAGE eta 2 TURNS"), then its first
+    // ship's class; another empire's, its first ship's class alone, in the
+    // same colour (guessed: the one seen is selected, its line orange).
+    for (const SavedTaskForce &t : _game.taskForces) {
+        if (t.x != _selected.first || t.y != _selected.second || t.owner < 0 || t.owner >= int(std::size(kLetters)))
             continue;
         std::string ship;
         for (const SavedShip &s : _game.ships)
             if (!t.shipIds.empty() && s.id == t.shipIds.front() && size_t(s.shipClass) < _shipClasses.count())
                 ship = _shipClasses.name(size_t(s.shipClass));
-        font->drawInColor(screen, text->x, text->y + dy + 1, missionWord(t.mission), kTaskForceColor);
-        font->drawInColor(screen, text->x, text->y + dy + 1 + kLinePitch, ship, kTaskForceColor);
+        const std::string emblem = std::string("i_") + kLetters[t.owner] + "26.tga";
+        if (t.owner != _empire) {
+            drawRow(emblem, ship, "");
+            continue;
+        }
+        std::string orders = missionWord(t.mission);
+        if (const int turns = etaTurns(t); turns > 0) {
+            orders += (orders.empty() ? "" : " ") + word(lex::kEta, "eta") + " " + std::to_string(turns) + " " +
+                      (turns == 1 ? std::string("TURN") : word(lex::kTurns, "TURNS"));
+        }
+        drawRow(emblem, orders, ship);
     }
+}
+
+int GalaxyScreen::etaTurns(const SavedTaskForce &t) const {
+    // The sectors to its destination, the larger of the two distances, over
+    // its slowest ship's speed (shiplist.sst's), rounded up: 2 for a science
+    // vessel (speed 1) two rows away, the one seen.
+    if (t.destinationX < 0 || (t.destinationX == t.x && t.destinationY == t.y))
+        return 0;
+    double speed = 0;
+    for (const int id : t.shipIds)
+        for (const SavedShip &s : _game.ships)
+            if (s.id == id && size_t(s.shipClass) < _shipClasses.count()) {
+                double v = 0;
+                std::memcpy(&v, _shipClasses.record(size_t(s.shipClass)) + kShipSpeedOffset, sizeof v);
+                speed = speed == 0 ? v : std::min(speed, v);
+            }
+    if (speed <= 0)
+        return 0;
+    const int sectors = std::max(std::abs(t.destinationX - t.x), std::abs(t.destinationY - t.y));
+    return int(std::ceil(sectors / speed));
 }
 
 void GalaxyScreen::drawRanges(Surface &screen, int gx, int gy) const {
@@ -747,15 +797,22 @@ void GalaxyScreen::drawRanges(Surface &screen, int gx, int gy) const {
 }
 
 std::string GalaxyScreen::missionWord(int mission) const {
-    // The two the first turn's task forces have (lexicon.dic's).
-    switch (mission) {
-    case 5:
-        return word(lex::kAvoid, "AVOID");
-    case 6:
-        return word(lex::kEngage, "ENGAGE");
-    default:
-        return {};
-    }
+    // GWTForce's missions (published) and lexicon.dic's words for them:
+    // AVOID and ENGAGE seen; none for a plain move.
+    struct Mission {
+        int mission;
+        int entry;
+        const char *english;
+    };
+    static constexpr Mission kMissions[] = {
+        {1, 663, "TERRAFORM PLANET"}, {2, 656, "COLONIZE SYSTEM"}, {3, 661, "RAID"},
+        {5, lex::kAvoid, "AVOID"},    {6, lex::kEngage, "ENGAGE"}, {7, 653, "BUILD OUTPOST"},
+        {8, 654, "BUILD STARBASE"},   {9, 664, "TRAIN CREW"},      {12, 662, "SCRAP"},
+        {13, 657, "ENTER WORMHOLE"},  {14, 651, "ATTACK SYSTEM"}};
+    for (const Mission &m : kMissions)
+        if (m.mission == mission)
+            return word(m.entry, m.english);
+    return {};
 }
 
 void GalaxyScreen::drawMap(Surface &screen) const {

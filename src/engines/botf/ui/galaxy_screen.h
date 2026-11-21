@@ -87,6 +87,8 @@ private:
     void drawPanel(Surface &screen) const;
     void drawTaskForcesBar(Surface &screen) const;
     std::string missionWord(int mission) const;
+    // How many turns a task force takes to where it's ordered to, or 0.
+    int etaTurns(const SavedTaskForce &t) const;
     // The map's view on the screen, its first and last pixels, and the
     // grid's corner (for the zoom, round the selected sector); false
     // without a map.

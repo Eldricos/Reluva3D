@@ -238,15 +238,34 @@ for each task force from 147 down, 40 apart.
   the background through the black; its tab is `hm_tab22.tga` where the
   layout names `hm_tab20.tga` (in the screenshot; `hm_tab32.tga` is the
   same picture).
-- **A task force's row** (`h_tfinfo.wdf`): the empire's emblem
-  (`i_h26.tga`) across the middle of its place, and two lines in purple
-  (99, 77, 181), 17 apart: its mission ("ENGAGE" for 6 and "AVOID" for 5,
-  `lexicon.dic`'s 658 and 652) and its first ship's class
-  (`shiplist.sst`'s name: "Science Vessel", "Colony Ship"), in the order
-  `GWTForce` lists them.
+- **The rows** (`h_tfinfo.wdf`): what's in the selected sector, not every
+  task force: at the thirty-first turn one of the Federation's four, the
+  one at Deneb, selected; at the seventeenth a Klingon scout with the
+  Federation's task force. Each row has an emblem across the middle of its
+  place and two lines in purple (99, 77, 181), 17 apart:
+  - The empire's outposts there first: its outpost emblem (`i_ho30.tga`),
+    "Outpost" (894) and "OPERATIONAL" (58). One being built shows how far
+    it's got instead ("27%" in the figures' green, "Complete" in the
+    turn's blue), which isn't read yet.
+  - Then the task forces, in the order `GWTForce` lists them. The
+    empire's own: its emblem (`i_h26.tga`), its mission's word
+    ("ENGAGE" 658 for 6, "AVOID" 652 for 5, and the others by `GWTForce`'s
+    published missions: "BUILD OUTPOST" 653 for 7 and so on), and where
+    it's headed elsewhere, "eta", the turns it takes and "TURNS" (293,
+    1372): "ENGAGE eta 2 TURNS" for a science vessel (speed 1 in
+    `shiplist.sst`) two rows away. The turns are taken to be the larger of
+    the column and row distances over its slowest ship's speed, rounded
+    up, from the one seen *(inferred)*. Its second line is its first ship's class
+    (`shiplist.sst`'s name: "Science Vessel", "Colony Ship").
+  - Another empire's task force: its emblem (`i_k26.tga` for the
+    Klingons') and its first ship's class alone. The one seen is the
+    selected task force, framed and its line in orange (255, 150, 16);
+    Reluva draws others' in the purple *(guessed)*, and doesn't frame a
+    selected one yet.
 
-Drawn so from the saves, the panel's information matches the screenshots
-of the eleventh turn and of the first turn's saves pixel for pixel. The
+Drawn so from the saves, the panel's information and rows match the
+screenshots of the first, eleventh, thirty-first and thirty-third turns
+pixel for pixel. The
 first turn's own screenshot, of the game as it started rather than
 loaded, shows "No Events" where its save gives 2: Reluva always opens a
 save, and shows 2. A screenshot five turns on shows "0 DILITHIUM" with a
@@ -430,6 +449,7 @@ blend with what's under them.
   zoomed-in map scrolls (none is seen).
 - The strip's growth rate and orbitals, a nebula's strip, and the
   people's word for the other races.
-- The panel's events, and its dilithium with a ship queued; the words for
-  the other missions; a task force's second line when it has several
-  ships.
+- The panel's dilithium with a ship queued; an outpost's progress while
+  it's built; the rows' look for a selected task force, another empire's
+  and a minor race's; a task force's second line when it has several
+  ships; "eta" for a single turn and for a plain move.
