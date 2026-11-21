@@ -12,6 +12,7 @@ files):
 |---|---|
 | `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
+| `stawayteam.unit.menus` | Fonts: a line's width with nothing between characters, lower case drawn as capitals in a font without it, control characters left out, others it hasn't got drawn as its first; buttons: the `&` left out of the label and its shortcut kept, chosen by the shortcut (not with Ctrl), by a click, and not when let go off it |
 | `stawayteam.unit.formats` | Frames (raw, each kind of run-length code, blended pixels with their alpha, damaged ones), objects in binary (a sequence and its frames, a waypoint map, objects in properties, another version, bytes left over, a class the game doesn't have), objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
 
 Reading `DATA.dat` is the common ZIP reader's, tested in
@@ -22,11 +23,12 @@ Reading `DATA.dat` is the common ZIP reader's, tested in
 `stawayteam.engine` (`tests/engines/stawayteam/engine.cpp`), without the
 game's files: a small install of its own (the program, and a `DATA.dat`
 signed as the game's with a `Rules.txt`, two pictures, a sequence, a
-model, a font, a sound and a script, all made in the test), found as an
-unknown release, started (its movies not there, so the main menu's
-screen, its picture placed and its song, a checksum of the screen) and
-closed; the data viewer run on it: its
-pictures shown on each background, zoomed, by folder and without the
+model, a font, a sound and a script, the menus' pictures and fonts, all
+made in the test), found as an unknown release, started (its movies not
+there, so the main menu, its picture and buttons placed and its song),
+Esc asking to quit, N closing the dialog, Q (Quit's key) asking again
+and Y quitting, a checksum of the screen at each; the data viewer run
+on it: its pictures shown on each background, zoomed, by folder and without the
 status line, then each page in turn (the sequence stepped, the model
 turned, the font, the sound played, the objects), a checksum of each
 screen; then the game with rules that
@@ -59,8 +61,10 @@ stawayteam frame-png`.
    Away Team".
 2. Start it: the four opening movies, each skipped by a key or a click,
    with their sound; then the main menu's screen: the starry background
-   moving, the title, the Reflexive logo bottom left, the startup song;
-   Esc leaves. With "Opening movies" off, the main menu's screen at once.
+   moving, the title, the Reflexive logo bottom left, the startup song,
+   and the six buttons, each lit under the mouse and pressed while held
+   down, a sound as one is clicked; Quit (or Esc, or Q) asks, No closes
+   the dialog, Yes goes back to the launcher. With "Opening movies" off, the main menu's screen at once.
    With `DATA.dat` missing or damaged, it says so instead.
 3. `reluva-viewer` with the game: the pictures, their colours and
    blended edges right on each background; sequences playing; a

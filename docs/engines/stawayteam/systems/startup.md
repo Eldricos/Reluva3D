@@ -1,13 +1,13 @@
 # Star Trek: Away Team: the game's start
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/ui/movies.cpp`, `src/engines/stawayteam/ui/title.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/ui/movies.cpp`, `src/engines/stawayteam/ui/main_menu.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
 As the game starts, it plays four movies, the publishers' and the
 developer's logos and then the introduction, each of which a key or a
 click skips; then it shows the main menu, its starry background moving
-behind the title, with the startup song.
+behind the title and its buttons, with the startup song.
 
 ## How it works
 
@@ -50,8 +50,8 @@ position:
 | `CMovieNernie` | 127,30 | `STAT Logo for Main.bik`: the title, 389x61, 5.3 s |
 | `CImageNernie` | 8,439 | `Main Menu/Reflexive Logo`: a picture (`Cache/Interface/Screens/Main Menu/Reflexive Logo.frm16`) |
 
-The menu's buttons are at its `Menu Pos` (155,109), in its `Menu Font`
-(`Placar Condensed`). The song is `Rules.txt`'s `Startup Song`,
+The menu's buttons, over it, are in [menus.md](menus.md#the-main-menu).
+The song is `Rules.txt`'s `Startup Song`,
 `Startup.ogg` in `DATA.dat`'s `Music/`.
 
 ## In Reluva
@@ -62,10 +62,11 @@ The menu's buttons are at its `Menu Pos` (155,109), in its `Menu Font`
   the screen on black, its sound through the mixer, until it ends or a key
   or click; a movie that isn't there is passed over. The engine's setting
   "Opening movies" leaves them out.
-- **The main menu's screen,** without its menu yet: `TitleScreen`
-  (`src/engines/stawayteam/ui/title.cpp`) reads the main menu's nernies
+- **The main menu's screen:** `MainMenu`
+  (`src/engines/stawayteam/ui/main_menu.cpp`) reads the main menu's nernies
   from `Rules.txt` and shows each at its place, the movies over and over,
-  with the startup song, until Esc.
+  with the startup song, and its buttons over them
+  ([menus.md](menus.md)).
 
 ## Sources and checks
 

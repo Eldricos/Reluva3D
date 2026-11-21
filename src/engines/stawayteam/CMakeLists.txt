@@ -12,7 +12,9 @@ reluva_add_engine(stawayteam
         formats/frame.cpp
         formats/object_schema.cpp
         ui/movies.cpp
-        ui/title.cpp
+        ui/main_menu.cpp
+        ui/button.cpp
+        ui/font.cpp
         formats/rds_script.cpp
         formats/text_object.cpp)
 
@@ -48,9 +50,10 @@ reluva_add_engine_tests(stawayteam
     SOURCES
         ${tests}/unit/detection.cpp
         ${tests}/unit/formats.cpp
+        ${tests}/unit/menus.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.formats engine)
+        unit.detection unit.formats unit.menus engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

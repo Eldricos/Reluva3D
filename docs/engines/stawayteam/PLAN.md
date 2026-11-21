@@ -55,7 +55,8 @@ Each phase ends with something that runs and is committed.
    plays its opening movies (Activision, Paramount, Reflexive, then
    `Intro.bik`), then the main menu's screen with its movies and the
    startup song, without the menu.
-6. **Front end** (next): `Interface/Screens` (310 files: buttons, layouts,
+6. **Front end** (under way, [systems/menus.md](systems/menus.md): the
+   main menu's buttons and the confirm dialog; Quit works): `Interface/Screens` (310 files: buttons, layouts,
    hover and press sounds) and the menu definitions in `Rules.txt`
    (`CStarTrekMainMenu`, `CAnimatedMenuInfo`...). Main menu over
    `Main Screen Background.bik`, then each screen, matched against

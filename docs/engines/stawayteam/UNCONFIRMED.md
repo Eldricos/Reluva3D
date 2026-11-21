@@ -21,6 +21,11 @@ None yet.
 - **A key or a click skips a movie:** the game ends one on anything in
   its queue of input, and what goes into the queue isn't traced
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
+- **The menus:** the confirm dialog in the middle of the screen, Esc on
+  the main menu asking to quit, a button's sound on the click, the shortcut's
+  line shown once Alt is pressed, a fixed-width font's cell, and the
+  sounds named `.wav` being the `.ogg` files of their names
+  ([systems/menus.md](systems/menus.md#open-questions)).
 - **A frame drawn by its origin:** its top left at the point less its
   origin, as the sequences' bounds have them
   ([formats/binary-object.md](formats/binary-object.md#behaviour)).

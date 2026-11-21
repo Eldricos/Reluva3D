@@ -13,9 +13,6 @@ namespace reluva::stawayteam {
 namespace {
 
 constexpr int kColumns = 16;
-// Between characters in the sample line: what the game puts there isn't
-// known yet.
-constexpr int kGap = 1;
 const char *const kSample = "The Away Team beams down: 0123456789 ?!.,";
 
 } // namespace
@@ -89,7 +86,7 @@ void FontViewer::draw() {
                 break;
             drawBackdrop(_screen, x, lineY, f.width, f.height, _backdrop);
             image::blit(_screen, frameImage(f), x, lineY);
-            x += f.width + kGap;
+            x += f.width; // nothing between them, as the game draws text (0x4b1622)
         }
         const int gridY = lineY + cellH + 10;
         const int rows = int((frames.size() + kColumns - 1) / kColumns);

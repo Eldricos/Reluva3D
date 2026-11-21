@@ -4,7 +4,7 @@
 // Star Trek: Away Team: the engine's MetaEngine (its name, the releases it
 // recognises, making an Engine to run one) and its Engine, which so far
 // reads the game's rules, plays its opening movies and shows the main
-// menu's screen without its menu.
+// menu, of which only Quit works.
 
 #include "engines/engine.h"
 
@@ -14,7 +14,7 @@
 #include "common/zip.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/ui/movies.h"
-#include "engines/stawayteam/ui/title.h"
+#include "engines/stawayteam/ui/main_menu.h"
 
 #include <system_error>
 
@@ -68,8 +68,7 @@ constexpr const char *kOpeningMovies = "opening_movies";
 
 /**
  * The game running: for now its archive opened and its rules read, its
- * opening movies, then the main menu's screen without the menu until the
- * player leaves.
+ * opening movies, then the main menu until the player quits.
  */
 class StawayteamEngine : public Engine {
 public:
@@ -118,8 +117,8 @@ public:
                     return Error::success();
             }
         }
-        TitleScreen title(_sys, screen, _data, _target.path, _rules, sound);
-        title.run();
+        MainMenu menu(_sys, screen, _data, _target.path, _rules, sound);
+        menu.run();
         return Error::success();
     }
 
