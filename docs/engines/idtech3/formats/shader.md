@@ -109,7 +109,12 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 - **Fog:** a surface in a fog volume gets a last pass of the volume's
   `fogParms` colour, more opaque with depth along the view, fully at its
   distance. As the original's, when the eye is outside the volume the fog
-  thins towards the volume's surface (its plane).
+  thins towards the volume's surface (its plane). Jedi Outcast's engines
+  choose which shaders get the pass by their sort (jk2sp.exe 0x47f9ea,
+  jk2mp.exe 0x48fe03): one sorting as opaque or before, drawn where the
+  surface is (depth equal); else one with `surfaceparm fog`, drawn over
+  it; any other (glass, glows, most effects) none *(confirmed)*. Elite
+  Force's choice isn't read; Reluva gives its shaders every pass.
 - **Pictures** (menus, the HUD): a shader registered with
   `R_RegisterShader` keeps its mipmaps, so a picture drawn smaller than
   its image shrinks through them; one registered with

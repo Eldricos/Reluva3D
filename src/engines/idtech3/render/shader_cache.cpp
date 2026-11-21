@@ -378,6 +378,7 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
             note("more than two deformVertexes");
     }
 
+    m.fogSurface = def.hasSurfaceParm("fog");
     // Sort order: as given, or as the original decides it.
     if (def.sort > 0) {
         m.sort = def.sort;
@@ -607,6 +608,13 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
         // setting): a lightmap stage is the vertex colours instead.
         if (st.lightmap && !lightmap && m.lighting == Lighting::kVertex)
             call.rgbSource = gfx::ColorSource::kVertex;
+        if (_whiteVertexLight && call.rgbSource == gfx::ColorSource::kVertex) {
+            call.rgbSource = gfx::ColorSource::kConstant;
+            call.color = {1, 1, 1, 1};
+        } else if (_whiteVertexLight && call.rgbSource == gfx::ColorSource::kOneMinusVertex) {
+            call.rgbSource = gfx::ColorSource::kConstant;
+            call.color = {0, 0, 0, 1};
+        }
         using A = ShaderStage::AlphaGen;
         switch (d.alphaGen) {
         case A::kVertex:
@@ -672,6 +680,8 @@ void ShaderCache::drawFog(int material, const gfx::DrawCall &base, const std::ar
     }
     const Material &m = _materials[size_t(material)];
     if (m.stages.empty() || distance <= 0)
+        return;
+    if (_ravenFogPasses && m.sort > kSortOpaque && !m.fogSurface)
         return;
     gfx::DrawCall call = base;
     call.texture = _whiteTexture;

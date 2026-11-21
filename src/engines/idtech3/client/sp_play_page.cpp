@@ -122,6 +122,7 @@ void SpPlayPage::activate() {
     }
     _overlay.create(_frameW, _frameH, PixelFormat::kRGBA32);
     _shaders = std::make_unique<ShaderCache>(*_renderer, _ctx.files, _ctx.shaders);
+    _shaders->setRavenFogPasses(jedi());
     _world = std::make_unique<WorldRenderer>(*_renderer, *_shaders);
     _models = std::make_unique<ModelCache>(*_renderer, *_shaders, _ctx.files);
     applyVideoSettings(video, *_shaders, _world.get(), _models.get());
@@ -1674,6 +1675,7 @@ void SpPlayPage::update(uint64_t nowMs) {
     _renderer->setGamma(brightness(_ctx));
     const float time = float(_clientTime) / 1000.0f;
     const auto drawStart = std::chrono::steady_clock::now();
+    setGoggles();
     _renderer->beginFrame(gfx::identity(), {0, 0, 0}, _world ? _world->clearColor() : Color{});
     if (_game && _game->clientGameRunning() && !fullscreen) {
         // Each scene over the pictures drawn before it, the rest (the HUD)
@@ -1811,6 +1813,32 @@ void SpPlayPage::consolePrint(const std::string &text) {
     // the original's prints (and on the terminal, for following a run).
     std::fputs(text.c_str(), stdout);
     _console.print(text, true, _nowMs);
+}
+
+void SpPlayPage::setGoggles() {
+    // The light amplification goggles' fog as R_LAGoggles makes it each
+    // frame (jk2sp.exe 0x45fa60): orange, its green a little random; as
+    // thick as a fog of 625 x (1 + 0.1 cos t) units, t the scene's time in
+    // seconds (its density 2 / ((1 + 0.1 cos t) x 10000), where a fog's is
+    // 1 / (8 x its distance)); no surface, so it thickens from the eye.
+    if (!_game || !_game->clientGameRunning() || !_world || !_scene)
+        return;
+    const Scene &scene = _game->scene();
+    const bool any = scene.laGoggles ||
+                     std::any_of(scene.views.begin(), scene.views.end(), [](const View &v) { return v.laGoggles; });
+    if (!any) {
+        _world->setGoggles(nullptr);
+        _scene->setGogglesFog(nullptr);
+        return;
+    }
+    ShaderCache::Fog fog;
+    fog.color = {0.75f, 0.42f + float(_crtRandom.next()) * (1.0f / 32767) * 0.025f, 0.07f};
+    const float t = float(_clientTime) / 1000.0f;
+    fog.distance = 625 * (1 + 0.1f * std::cos(t));
+    fog.plane = {0, 0, 0, 1};
+    _scene->setGogglesFog(&fog);
+    // The frame clears to it only if they're still on as it ends (0x45d06c).
+    _world->setGoggles(scene.laGoggles ? &fog : nullptr);
 }
 
 void SpPlayPage::report(const std::string &text) {

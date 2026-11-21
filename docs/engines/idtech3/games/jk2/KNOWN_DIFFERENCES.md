@@ -41,15 +41,11 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Not yet as the original
 
-- **The light amplification goggles' look.** Single player's client game
-  calls `R_LAGoggles` (its call 64) each frame they're worn; the original
-  then draws everything in a fog of its own with a flickering density,
-  clears the screen to its colour and changes some images and lighting
-  (jk2sp.exe 0x45fa60, and the paths reading 0x12e4020). Reluva ignores
-  the call, so the view looks as without them.
 - **Fog on sprites and beams.** The original picks a fog for each sprite
-  entity the way it does for models (0x472990); Reluva fogs models but
-  draws sprites, beams and other effects unfogged.
+  entity the way it does for models (0x472990), and its polygons and
+  other effects take the fog they're in; Reluva fogs models but draws
+  effects unfogged, except under the light amplification goggles, whose
+  fog covers everything.
 
 Left for after the rest is done and tested (its phase 11):
 

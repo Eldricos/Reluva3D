@@ -58,8 +58,9 @@ public:
         // deformVertexes autosprite (1: each quad facing the camera) or
         // autosprite2 (2: each turned about its long axis to face it).
         uint8_t autosprite = 0;
-        bool portal = false;   // a mirror or portal surface
-        float portalRange = 0; // beyond which a portal's view isn't drawn (mirrors: always is)
+        bool portal = false;     // a mirror or portal surface
+        float portalRange = 0;   // beyond which a portal's view isn't drawn (mirrors: always is)
+        bool fogSurface = false; // surfaceparm fog
     };
 
     ShaderCache(gfx::Renderer3D &renderer, const SearchSet &files, const ShaderLibrary &shaders);
@@ -122,6 +123,15 @@ public:
         float distance = 0;
         std::array<float, 4> plane{0, 0, 0, 1};
     };
+    // Raven's choice of which shaders a fog covers (Jedi Outcast's
+    // engines, jk2sp.exe 0x47f9ea, jk2mp.exe 0x48fe03): those sorting as
+    // opaque or before, depth equal; else those with surfaceparm fog;
+    // else none. Without it every shader gets the pass.
+    void setRavenFogPasses(bool on) { _ravenFogPasses = on; }
+    // While set, what takes the vertices' colour takes white instead (one
+    // minus it, black): the level's surfaces under the goggles, whose
+    // vertex colours the original makes white (0x48395d).
+    void setWhiteVertexLight(bool on) { _whiteVertexLight = on; }
     // A fog pass over geometry drawn with `material`.
     void drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
                  const std::array<float, 4> &plane, float time) const;
@@ -152,6 +162,8 @@ private:
     // Each remapped material's replacement and time offset.
     std::map<int, std::pair<int, float>> _remapped;
     bool _remapping = false;
+    bool _ravenFogPasses = false;
+    bool _whiteVertexLight = false;
     std::deque<ShaderDef>
         _implicit; // the original's shaders for names without a script, and pictures' copies (stable addresses)
     std::unordered_map<std::string, gfx::TextureId> _images; // by normalized name and flags

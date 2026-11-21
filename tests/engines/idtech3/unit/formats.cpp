@@ -1489,6 +1489,18 @@ static void testLevelFog() {
     CHECK(in && in->color[0] == 0.1f && edge && edge->color[0] == 0.6f && out == edge);
     world.setView(0, {50, 50, 50}, {}, gfx::identity());
     CHECK(world.fogFor({95, 50, 50}, 10) == in);
+    // The light amplification goggles: every model in their fog, frames
+    // cleared to its colour; off again, as before.
+    ShaderCache::Fog goggles;
+    goggles.color = {0.75f, 0.42f, 0.07f};
+    goggles.distance = 625;
+    world.setGoggles(&goggles);
+    const ShaderCache::Fog *g = world.fogFor({50, 50, 50}, 10);
+    CHECK(g && g->color[0] == 0.75f && g->distance == 625);
+    const Color gc = world.clearColor();
+    CHECK(gc.r == 191 && gc.g == 107 && gc.b == 17);
+    world.setGoggles(nullptr);
+    CHECK(world.fogFor({50, 50, 50}, 10) == in && world.clearColor().r == 153);
 }
 
 static void testLightStyles() {

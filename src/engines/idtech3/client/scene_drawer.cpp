@@ -247,6 +247,10 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
     const std::vector<uint8_t> &refdef = view.refdef;
     _mainRefdef = refdef;
     const bool withWorld = world && !(readInt(refdef, 76) & kNoWorldModel);
+    // The goggles as the program set them for this view.
+    _goggles = view.laGoggles && _gogglesFog;
+    if (world)
+        world->setGoggles(_goggles ? &*_gogglesFog : nullptr);
     // refdef_t: fov y at 20, the eye at 24, the axes from 36: forward,
     // left, up.
     _eye = readVec(refdef, 24);
@@ -325,6 +329,7 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
 }
 
 void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPortal) {
+    _effectFog = world ? world->goggles() : nullptr;
     // The level's solid surfaces and models, with the dynamic lights over
     // them, and the effects that sort with them (marks); then everything
     // else as the original sorts it: by the shaders' sorts, whether the
@@ -950,6 +955,8 @@ void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
         call.indexCount = fx.indexCount;
         _r.setDepthRange(fx.depthHack ? refent::kDepthHackRange : 1);
         _shaders.draw(fx.material, call, 0, time - fx.shaderTime, false, &fx.color);
+        if (_effectFog)
+            _shaders.drawFog(fx.material, call, *_effectFog, time - fx.shaderTime);
     }
     _r.setDepthRange(1);
 }
@@ -1054,8 +1061,7 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         p.oldFrame = readInt(e, _layout.oldFrame);
         p.backLerp = readFloat(e, _layout.backLerp);
         const gfx::Vec3 lightAt = flags & refent::kUseLightingOrigin ? readVec(e, _layout.lightingOrigin) : origin;
-        p.light = grid.sample(lightAt);
-        addDynamicLights(p.light, lightAt);
+        p.light = modelLight(grid, lightAt);
         if (const int32_t skin = readInt(e, _layout.customSkin); skin > 0 && !name(_handles.skins, skin).empty())
             p.skin = &_models.skin(name(_handles.skins, skin));
         // A shader in place of the model's own (explosions, shells), its
@@ -1090,8 +1096,7 @@ bool SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, c
     }
     const int32_t flags = readInt(e, _layout.flags);
     const gfx::Vec3 lightAt = flags & refent::kUseLightingOrigin ? readVec(e, _layout.lightingOrigin) : origin;
-    PointLight light = grid.sample(lightAt);
-    addDynamicLights(light, lightAt);
+    const PointLight light = modelLight(grid, lightAt);
     const int32_t entitySkin = readInt(e, _layout.customSkin);
     for (Ghoul2Pose &pose : poses) {
         const int model = _models.load(pose.file);
@@ -1122,6 +1127,21 @@ bool SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, c
         _placed.push_back(std::move(p));
     }
     return true;
+}
+
+PointLight SceneDrawer::modelLight(const LightGrid &grid, const gfx::Vec3 &at) const {
+    // Under the goggles, full light from all round and from the sun's
+    // direction, its default (jk2sp.exe 0x470e46, 0x45da09); nothing else.
+    if (_goggles) {
+        PointLight full;
+        full.ambient = full.directed = {255, 255, 255};
+        const float len = std::sqrt(0.45f * 0.45f + 0.3f * 0.3f + 0.9f * 0.9f);
+        full.direction = {0.45f / len, 0.3f / len, 0.9f / len};
+        return full;
+    }
+    PointLight light = grid.sample(at);
+    addDynamicLights(light, at);
+    return light;
 }
 
 void SceneDrawer::addDynamicLights(PointLight &light, const gfx::Vec3 &at) const {

@@ -259,7 +259,9 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
             {x - w / 2 + tx, y - h / 2 + ty, w, h, f(4), f(5), f(6), f(7), int32_t(a(9)), _color, angle});
         return 0;
     }
-    case 64: // R_LAGoggles(): the light amplification goggles' look
+    case 64: // R_LAGoggles(): the light amplification goggles' look, until ClearScene
+        _scene.laGoggles = true;
+        return 0;
     case 65: // R_Scissor(x, y, w, h)
         return 0;
     case 74: // SetUserCmdAngles(pitch, yaw, roll): added to the player's view, as a ride's

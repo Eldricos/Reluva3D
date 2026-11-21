@@ -990,6 +990,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c, int as) {
     }
     case 43:
         _scene.clear();
+        _scene.laGoggles = false;
         return 0; // R_ClearScene
     case 44:      // R_AddRefEntityToScene(refEntity)
         if (c.valid(a(0), uint32_t(_cg.refEntity)))

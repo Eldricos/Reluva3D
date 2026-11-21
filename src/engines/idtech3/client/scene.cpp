@@ -67,7 +67,7 @@ void Scene::render(const uint8_t *refdef, size_t picturesSoFar) {
         view.assign(refdef, refdef + kRefdefSize);
     ++renders;
     views.push_back({view, pending, entities.size() - pending, pendingPolys, polys.size() - pendingPolys, pendingLights,
-                     lights.size() - pendingLights, picturesSoFar});
+                     lights.size() - pendingLights, laGoggles, picturesSoFar});
     clear();
 }
 

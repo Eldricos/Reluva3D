@@ -14,6 +14,7 @@
 #include <array>
 #include <deque>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -71,7 +72,13 @@ public:
     // What each frame starts from with the level loaded: the whole level's
     // fog colour (in bytes, cut down) where it has one (0x45d09e; RBSP's
     // fog of brush -1, the last if several, 0x45f160), else black.
-    Color clearColor() const { return _clearColor; }
+    Color clearColor() const;
+    // Single player's light amplification goggles this frame (R_LAGoggles,
+    // jk2sp.exe 0x45fa60), with their fog; null: off. On, every surface
+    // and model is in that fog, frames clear to its colour and the level
+    // is drawn unlit (lightmaps white, vertex light white).
+    void setGoggles(const ShaderCache::Fog *fog);
+    const ShaderCache::Fog *goggles() const { return _goggles ? &*_goggles : nullptr; }
     // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
     // lifts), which the game places (drawModel).
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
@@ -158,7 +165,9 @@ private:
     // A vertex of a surface lit by styles other than 0 alone: kept with its
     // styles' colours, to light it again as they change.
     void noteStyledVertex(const BspVertex &v, const BspSurface &s, uint32_t index);
+    // Over a surface in `fog` (-1: none), or in the goggles' fog.
     void drawFog(int material, const gfx::DrawCall &base, int fog, float time) const;
+    gfx::TextureId lightmapTexture(int lightmap) const; // 0 for none
 
     gfx::Renderer3D &_r;
     ShaderCache &_shaders;
@@ -181,6 +190,7 @@ private:
     };
     std::vector<StyledVertex> _styledVertices;
     std::vector<Fog> _fogs;
+    std::optional<ShaderCache::Fog> _goggles;
     int _eyeFog = -1;            // the fog the current view's eye is in, or -1
     std::vector<Batch> _batches; // in drawing order
     std::vector<float> _sorts;   // its batches' and sprites' sorts, in order

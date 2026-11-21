@@ -99,8 +99,8 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
   nothing is drawn (both levels have no sky) the fog's colour shows, not
   black; the last such fog is the one (jk2sp.exe 0x45d09e, 0x45f160;
   jk2mp.exe 0x46e399) *(confirmed)*. Single player's light amplification
-  goggles clear to their own fog's colour instead (0x45d076), which
-  Reluva doesn't have yet.
+  goggles clear to their own fog's colour instead (0x45d076; see
+  [sp-interface.md](../games/jk2/systems/sp-interface.md)).
 - **Models in fog** (jk2sp.exe 0x4749a0 for MD3 models, 0x467bc0 for
   Ghoul2's, 0x472990 for sprites): a sphere about the model (an MD3's,
   its frame's centre moved by the entity, not turned, and its radius; a

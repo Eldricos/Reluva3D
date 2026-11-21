@@ -61,6 +61,7 @@ struct View {
     // in lights
     size_t firstLight = 0;
     size_t lightCount = 0;
+    bool laGoggles = false; // Scene::laGoggles as it was rendered
     // The pictures drawn before it: it goes over them and under the rest,
     // as the original draws in the order asked.
     size_t picturesBefore = 0;
@@ -90,6 +91,10 @@ struct Scene {
     size_t pending = 0;       // entities from here wait for the next RenderScene
     size_t pendingPolys = 0;  // the same for polygons
     size_t pendingLights = 0; // and lights
+    // R_LAGoggles called since the program's last ClearScene (single
+    // player's light amplification goggles, jk2sp.exe 0x45fa60; its
+    // ClearScene, 0x477910, turns them off: the host's to reset).
+    bool laGoggles = false;
 
     // The calls, with the program's memory and arguments.
     void clear();

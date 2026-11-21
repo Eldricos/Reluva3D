@@ -130,8 +130,33 @@ void WorldRenderer::clear() {
 }
 
 void WorldRenderer::drawFog(int material, const gfx::DrawCall &base, int fog, float time) const {
-    const Fog &f = _fogs[size_t(fog)];
-    _shaders.drawFog(material, base, f.color, f.distance, f.plane, time);
+    // With the goggles on, every surface is in their fog (jk2sp.exe
+    // 0x472d35).
+    if (_goggles)
+        _shaders.drawFog(material, base, *_goggles, time);
+    else if (fog >= 0)
+        _shaders.drawFog(material, base, _fogs[size_t(fog)], time);
+}
+
+Color WorldRenderer::clearColor() const {
+    // The goggles' fog's colour instead (0x45d076).
+    if (_goggles) {
+        auto byte = [](float c) { return uint8_t(std::clamp(c, 0.0f, 1.0f) * 255); };
+        return {byte(_goggles->color[0]), byte(_goggles->color[1]), byte(_goggles->color[2])};
+    }
+    return _clearColor;
+}
+
+gfx::TextureId WorldRenderer::lightmapTexture(int lightmap) const {
+    // The goggles show the level unlit: a lightmap stage binds *white
+    // (0x4781bd).
+    if (lightmap < 0)
+        return 0;
+    return _goggles ? _shaders.white() : _lightmaps[size_t(lightmap)];
+}
+
+void WorldRenderer::setGoggles(const ShaderCache::Fog *fog) {
+    _goggles = fog ? std::optional<ShaderCache::Fog>(*fog) : std::nullopt;
 }
 
 void WorldRenderer::buildSky(const ShaderDef &sky) {
@@ -547,9 +572,11 @@ std::vector<ShaderCache::StyledLightmap> WorldRenderer::stylePasses(const Batch 
     if (b.lightmap < 0 || size_t(b.lightmap) >= _styleLightmaps.size())
         return out;
     for (size_t k = 0; k < b.styles.size() && b.styles[k] != kNoStyle; ++k) {
-        const gfx::TextureId t = _styleLightmaps[size_t(b.lightmap)][k];
+        gfx::TextureId t = _styleLightmaps[size_t(b.lightmap)][k];
         if (!t)
             continue;
+        if (_goggles)
+            t = _shaders.white();
         const std::array<uint8_t, 4> &c = _styles[b.styles[k] % kStyleCount];
         out.push_back({t, {float(c[0]) / 255, float(c[1]) / 255, float(c[2]) / 255, float(c[3]) / 255}});
     }
@@ -675,6 +702,7 @@ void WorldRenderer::drawDynamicLights(const std::vector<gfx::DynamicLight> &ligh
 
 void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool worldOnly) const {
     const ViewSlot *view = culled();
+    _shaders.setWhiteVertexLight(_goggles.has_value());
     for (size_t i = 0; i < _batches.size(); ++i) {
         const Batch &b = _batches[i];
         if (b.sort < sortMin || b.sort > sortMax || (worldOnly && b.model != 0))
@@ -691,12 +719,12 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
             base.indexCount = view->batchRanges[i].second;
         }
         const std::vector<ShaderCache::StyledLightmap> styles = stylePasses(b);
-        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time, false, nullptr,
+        _shaders.draw(b.material, base, lightmapTexture(b.lightmap), time, false, nullptr,
                       styles.empty() ? nullptr : &styles);
-        if (b.fog >= 0)
-            drawFog(b.material, base, b.fog, time);
+        drawFog(b.material, base, b.fog, time);
     }
     drawSprites(time, sortMin, sortMax);
+    _shaders.setWhiteVertexLight(false);
     drawSurfaceSprites(time, sortMin, sortMax);
 }
 
@@ -713,6 +741,8 @@ int WorldRenderer::leafAt(const std::array<float, 3> &p) const {
 }
 
 const ShaderCache::Fog *WorldRenderer::fogFor(const std::array<float, 3> &center, float radius) const {
+    if (_goggles)
+        return &*_goggles; // every model in the goggles' fog (0x4749bf)
     // As the original's renderer for models and sprites (jk2sp.exe
     // 0x4749a0, 0x467bc0, 0x472990): the first fog holding the whole
     // sphere; else the first holding a corner of its box that's the one
@@ -1056,9 +1086,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         base.firstIndex = p.first;
         base.indexCount = p.count;
         const int lm = p.sprite->lightmap;
-        _shaders.draw(p.sprite->material, base, lm >= 0 ? _lightmaps[size_t(lm)] : 0, time);
-        if (p.sprite->fog >= 0)
-            drawFog(p.sprite->material, base, p.sprite->fog, time);
+        _shaders.draw(p.sprite->material, base, lightmapTexture(lm), time);
+        drawFog(p.sprite->material, base, p.sprite->fog, time);
     }
     _r.destroyMesh(mesh);
 }
@@ -1146,8 +1175,7 @@ void WorldRenderer::drawSurfaceSprites(float time, float sortMin, float sortMax)
         base.firstIndex = p.firstIndex;
         base.indexCount = p.indexCount;
         _shaders.draw(p.material, base, 0, time);
-        if (p.fog >= 0)
-            drawFog(p.material, base, p.fog, time);
+        drawFog(p.material, base, p.fog, time);
     }
     _r.destroyMesh(mesh);
 }
@@ -1169,6 +1197,7 @@ WorldRenderer::Visibility WorldRenderer::visibility() const {
 
 void WorldRenderer::drawModel(int model, const gfx::Mat4 &transform, float time, float sortMin, float sortMax) const {
     const ViewSlot *view = culled();
+    _shaders.setWhiteVertexLight(_goggles.has_value());
     for (size_t i = 0; i < _batches.size(); ++i) {
         const Batch &b = _batches[i];
         if (b.model != model || b.sort < sortMin || b.sort > sortMax)
@@ -1180,11 +1209,11 @@ void WorldRenderer::drawModel(int model, const gfx::Mat4 &transform, float time,
         base.firstIndex = view ? view->batchRanges[i].first : b.firstIndex;
         base.indexCount = b.indexCount;
         const std::vector<ShaderCache::StyledLightmap> styles = stylePasses(b);
-        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time, false, nullptr,
+        _shaders.draw(b.material, base, lightmapTexture(b.lightmap), time, false, nullptr,
                       styles.empty() ? nullptr : &styles);
-        if (b.fog >= 0)
-            drawFog(b.material, base, b.fog, time);
+        drawFog(b.material, base, b.fog, time);
     }
+    _shaders.setWhiteVertexLight(false);
 }
 
 } // namespace reluva::idtech3

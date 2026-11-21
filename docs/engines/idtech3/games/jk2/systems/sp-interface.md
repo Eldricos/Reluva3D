@@ -129,7 +129,8 @@ source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 | 50 | `AnyLanguage_ReadCharFromString(&text, &isTrailingPunctuation)` (0x462700): the next letter, the text moved past it (a byte, but two in those three languages); whether it's one of `!?,.;:`, which a line may not start with | — |
 | 51–62 | clear scene, add entity, lighting at a point, polygon, light, render, colour, picture, screenshot picture, model bounds, tag, turned picture | 43–54 |
 | 63 | `R_DrawRotatePic2`: a picture turned about its centre | — |
-| 64, 65 | `R_LAGoggles`, `R_Scissor` | — (55) |
+| 64 | `R_LAGoggles()`: the light amplification goggles, until the next `R_ClearScene` (see below) | — |
+| 65 | `R_Scissor` | — (55) |
 | 66 | `GetGlconfig`: 84 bytes (0x401020), four text pointers then the numbers, the screen size at 56 and 60 | 56, its own layout |
 | 67–73 | game state (20,100 bytes, 0x401000), snapshot number, snapshot, server command, command number, user command (28 bytes), `SetUserCmdValue` | 57–63 |
 | 74 | `SetUserCmdAngles(pitch, yaw, roll)` | — |
@@ -145,6 +146,26 @@ source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 | 108 | `SP_Register(package, flags)` (0x431e40; the second argument made 1 or 12) | — |
 | 109, 110 | the same case (0x401f63): text by reference, or (110) by number (0x432290: its high byte the package's number, its low byte the entry's), copied into a buffer; the length returned | — |
 | 111 | `UI_GetItemText(menu, item, buffer)` | — |
+
+**The light amplification goggles** (`R_LAGoggles`, 0x45fa60; the client
+game calls it each frame they're worn, and `R_ClearScene`, 0x477910,
+turns them off) *(confirmed)*:
+
+- A fog of their own, in the slot after the level's: colour (0.75, 0.42
+  + rand() / 32767 × 0.025, 0.07), and density 2 / ((1 + 0.1 cos *t*) ×
+  10000), *t* the last scene's time in seconds: as thick as a level fog
+  of 625 × (1 + 0.1 cos *t*) units (a fog's density is 1 / (8 × its
+  distance), 0x45f2cd), flickering slowly. It has no surface, so it
+  thickens from the eye.
+- Every surface added to the scene takes that fog (0x472d35), as does
+  every model and sprite (0x4749bf, 0x467be0, 0x4729b0); the shader's
+  own rule still decides whether it gets the pass.
+- The frame clears to the fog's colour (0x45d076).
+- The level is drawn unlit: a lightmap stage binds `*white` (0x4781bd,
+  as `r_fullbright` does), and vertex-lit surfaces' vertex colours are
+  white (0x48395d, 0x484305, 0x48473c).
+- Models are lit fully: ambient and directed light 255, from the sun's
+  direction, normalise(0.45, 0.3, 0.9) (0x470e46, 0x45da09).
 
 The structures handed over: a snapshot (0x401120) has its flags, ping,
 server time and area mask as Elite Force's, the command number at 44,

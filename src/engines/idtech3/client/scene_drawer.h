@@ -19,6 +19,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -104,6 +105,11 @@ public:
         gfx::Mat4 viewProj{};
     };
     void setWorldEffects(std::vector<WorldEffectBatch> batches);
+    // This frame's light amplification goggles' fog (null: none), for the
+    // views the program rendered with them on (View::laGoggles).
+    void setGogglesFog(const ShaderCache::Fog *fog) {
+        _gogglesFog = fog ? std::optional<ShaderCache::Fog>(*fog) : std::nullopt;
+    }
 
     // What the last view drew, for the info line.
     const gfx::Vec3 &eye() const { return _eye; }
@@ -139,6 +145,9 @@ private:
     void drawQuads(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW, int screenH,
                    float time, const std::function<int(int32_t)> &materialOf);
     void addDynamicLights(PointLight &light, const gfx::Vec3 &at) const;
+    // A model's light at `at`: the grid's and the dynamic lights', or
+    // under the goggles full.
+    PointLight modelLight(const LightGrid &grid, const gfx::Vec3 &at) const;
     // A Ghoul2 entity's models, posed at `viewTime` (ms).
     // False if the instance has no models to draw.
     bool placeGhoul2(const std::vector<uint8_t> &entity, int32_t viewTime, const LightGrid &grid, float time);
@@ -225,6 +234,9 @@ private:
     int32_t nextRandom() { return rand ? rand() : _ownRandom.next(); }
     std::vector<gfx::DynamicLight> _lights; // this view's
     gfx::Vec3 _eye{};
+    std::optional<ShaderCache::Fog> _gogglesFog;
+    bool _goggles = false;                        // this view's
+    const ShaderCache::Fog *_effectFog = nullptr; // over the effects: the goggles'
     gfx::Vec3 _forward{1, 0, 0};
     float _focal = 1;                  // the view's 1 / tan(half its height's angle)
     int _otherEntities = 0;            // entities not drawn (kinds not done yet)

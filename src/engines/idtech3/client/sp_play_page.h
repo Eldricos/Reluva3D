@@ -64,6 +64,9 @@ private:
     // The map a saved game is of; empty if it can't be read.
     std::string savedMap(const std::string &name) const;
     bool jedi() const { return _ctx.game.code == GameCode::kJediOutcast; }
+    // The light amplification goggles this frame, for the level and the
+    // scenes drawn (Scene::laGoggles).
+    void setGoggles();
     // The console's typing field: Jedi Outcast's as the screen's characters
     // less 2, as its renderer's start sets it (jk2sp.exe 0x4093f0: 98 at
     // 800 x 600); Elite Force's 78.

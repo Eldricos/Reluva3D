@@ -100,6 +100,7 @@ bool PlayPage::setUpGraphics() {
     }
     _overlay.create(_frameW, _frameH, PixelFormat::kRGBA32);
     _shaders = std::make_unique<ShaderCache>(*_renderer, _ctx.files, _ctx.shaders);
+    _shaders->setRavenFogPasses(_ctx.game.code == GameCode::kJediOutcast);
     _weatherDrawing.reset();
     _consoleShadersLoaded = false;
     _world = std::make_unique<WorldRenderer>(*_renderer, *_shaders);
