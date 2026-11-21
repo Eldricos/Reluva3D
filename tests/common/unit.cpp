@@ -36,6 +36,7 @@
 #include "video/avi.h"
 #include "video/bink.h"
 #include "video/cinepak.h"
+#include "video/flic.h"
 #include "video/movie.h"
 #include "video/smacker.h"
 #include "emulation/x86/cpu.h"
@@ -1493,6 +1494,121 @@ bool grey(const reluva::Surface &s, int x, int y, int v) {
 }
 } // namespace cinepak_test
 
+namespace flic_test {
+
+using Bytes = std::vector<uint8_t>;
+
+void put16(Bytes &b, uint16_t v) {
+    b.push_back(uint8_t(v));
+    b.push_back(uint8_t(v >> 8));
+}
+
+void put32(Bytes &b, uint32_t v) {
+    put16(b, uint16_t(v));
+    put16(b, uint16_t(v >> 16));
+}
+
+Bytes subchunk(uint16_t type, const Bytes &body) {
+    Bytes b;
+    put32(b, uint32_t(6 + body.size()));
+    put16(b, type);
+    b.insert(b.end(), body.begin(), body.end());
+    return b;
+}
+
+Bytes frame(const std::vector<Bytes> &chunks) {
+    Bytes body;
+    for (const Bytes &c : chunks)
+        body.insert(body.end(), c.begin(), c.end());
+    Bytes b;
+    put32(b, uint32_t(16 + body.size()));
+    put16(b, reluva::flic::Decoder::kFrameType);
+    put16(b, uint16_t(chunks.size()));
+    b.resize(16, 0);
+    b.insert(b.end(), body.begin(), body.end());
+    return b;
+}
+
+// A 6 x 4 FLC of four frames, each using other chunks: 256-level colours
+// and a run-length picture; word changes skipping a line and setting a
+// line's last byte; byte changes and 64-level colours; black, then a copy.
+Bytes buildFlc() {
+    const Bytes colors = {1, 0, 0, 3, 10, 20, 30, 40, 50, 60, 70, 80, 90};
+    const Bytes byteRun = {0, 6, 1, 0, 0xFD, 2, 3, 4, 3, 5, 0, 6, 0, 0, 6, 0};
+    Bytes deltaFlc;
+    put16(deltaFlc, 1);      // one line changed
+    put16(deltaFlc, 0xFFFF); // skip a line
+    put16(deltaFlc, 0x8077); // its last byte 0x77
+    put16(deltaFlc, 2);      // two packets
+    deltaFlc.insert(deltaFlc.end(), {0, 1, 0x11, 0x12, 0, 0xFF, 0x21, 0x22});
+    Bytes deltaFli;
+    put16(deltaFli, 2); // from line 2
+    put16(deltaFli, 1); // one line
+    deltaFli.insert(deltaFli.end(), {2, 1, 2, 5, 6, 1, 0xFE, 9});
+    const Bytes colors64 = {1, 0, 3, 1, 63, 0, 32};
+    Bytes raw(24);
+    for (size_t i = 0; i < raw.size(); i++)
+        raw[i] = uint8_t(100 + i);
+
+    Bytes file(128, 0);
+    const std::vector<Bytes> frames = {
+        frame({subchunk(4, colors), subchunk(15, byteRun)}),
+        frame({subchunk(7, deltaFlc)}),
+        frame({subchunk(12, deltaFli), subchunk(11, colors64)}),
+        frame({subchunk(13, {}), subchunk(16, raw)}),
+    };
+    for (const Bytes &f : frames)
+        file.insert(file.end(), f.begin(), f.end());
+    Bytes header;
+    put32(header, uint32_t(file.size()));
+    put16(header, reluva::flic::Decoder::kFlc);
+    put16(header, uint16_t(frames.size()));
+    put16(header, 6);
+    put16(header, 4);
+    put16(header, 8);
+    put16(header, 3);
+    put32(header, 70);
+    std::copy(header.begin(), header.end(), file.begin());
+    return file;
+}
+
+Bytes row(const reluva::Surface &s, int y) {
+    return Bytes(s.row(y), s.row(y) + s.w);
+}
+
+} // namespace flic_test
+
+static void testFlic() {
+    using namespace flic_test;
+    reluva::flic::Decoder flic;
+    CHECK(flic.load(std::make_unique<reluva::MemoryReadStream>(buildFlc())));
+    CHECK(flic.width() == 6 && flic.height() == 4 && flic.frameCount() == 4 && flic.frameMicros() == 70000);
+
+    CHECK(flic.decodeNextFrame() && flic.paletteChanged());
+    const reluva::Surface &s = flic.surface();
+    CHECK(row(s, 0) == Bytes({1, 1, 1, 1, 1, 1}) && row(s, 1) == Bytes({2, 3, 4, 5, 5, 5}));
+    CHECK(flic.palette()[0] == 10 && flic.palette()[5] == 60 && flic.palette()[8] == 90);
+
+    // Line 0 skipped; line 1: a copied word, a repeated one, its last byte.
+    CHECK(flic.decodeNextFrame() && !flic.paletteChanged());
+    CHECK(row(s, 0) == Bytes({1, 1, 1, 1, 1, 1}) && row(s, 1) == Bytes({0x11, 0x12, 0x21, 0x22, 5, 0x77}));
+
+    CHECK(flic.decodeNextFrame() && flic.paletteChanged());
+    CHECK(row(s, 2) == Bytes({0, 5, 6, 0, 9, 9}));
+    CHECK(flic.palette()[9] == 255 && flic.palette()[10] == 0 && flic.palette()[11] == 130);
+
+    CHECK(flic.decodeNextFrame() && row(s, 3) == Bytes({118, 119, 120, 121, 122, 123}));
+    CHECK(flic.endOfVideo() && !flic.decodeNextFrame());
+
+    // Frames handed over one by one, as a game streaming them does.
+    const Bytes file = buildFlc();
+    reluva::flic::Decoder streamed;
+    CHECK(streamed.loadHeader(file.data(), 128));
+    CHECK(streamed.decodeFrame(file.data() + 128, file.size() - 128) && streamed.surface().row(1)[0] == 2);
+    CHECK(!streamed.decodeFrame(file.data() + 130, 20)); // not a frame
+    CHECK(!streamed.loadHeader(file.data() + 1, 128));
+}
+
 static void testCinepak() {
     using namespace cinepak_test;
     reluva::cinepak::Decoder decoder(8, 4);
@@ -1722,6 +1838,7 @@ static const reluva::test::Suite
                 {
                     {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
                     {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
+                    {"flic", [](const std::filesystem::path &) { testFlic(); }},
                     {"cinepak movie", [](const std::filesystem::path &tmp) { testCinepakMovie(tmp); }},
                     {"avi", [](const std::filesystem::path &) { testAvi(); }},
                     {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},

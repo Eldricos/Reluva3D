@@ -2,7 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool's shared commands for games' media: a CD image's audio
-// tracks, and AVI movies (common/cue.h, video/avi.h).
+// tracks, AVI movies and FLIC animations (common/cue.h, video/avi.h,
+// video/flic.h).
 
 #include "audio/decode.h"
 #include "audio/prologic.h"
@@ -11,6 +12,7 @@
 #include "image/image.h"
 #include "common/stream.h"
 #include "video/avi.h"
+#include "video/flic.h"
 #include "devtools/tool.h"
 
 #include <algorithm>
@@ -97,6 +99,70 @@ int cmdAviFrames(int argc, char **argv) {
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     std::printf("all %d frames decoded in %.0f ms; %d written\n", movie.frameCount(), ms, written);
+    return 0;
+}
+
+// A FLIC's header, and its frames decoded from start to end; those asked
+// for written as frame_NNNN.tga, in the palette they're shown in.
+int cmdFlicFrames(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool flic-frames <file.flc> [output dir] [frame number... | all]\n");
+        return 2;
+    }
+    Bytes data;
+    if (!readFile(argv[2], data))
+        return 1;
+    reluva::flic::Decoder flic;
+    if (!flic.load(std::make_unique<reluva::MemoryReadStream>(std::move(data)))) {
+        std::fprintf(stderr, "%s: not a FLIC file\n", argv[2]);
+        return 1;
+    }
+    std::printf("%dx%d, %d frames, %.1f ms each\n", flic.width(), flic.height(), flic.frameCount(),
+                flic.frameMicros() / 1000.0);
+    std::set<int> wanted;
+    bool all = false;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "all") == 0)
+            all = true;
+        else
+            wanted.insert(std::atoi(argv[i]));
+    }
+    const std::filesystem::path dir = argc > 3 ? argv[3] : "";
+    if (!dir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+    }
+    int written = 0;
+    while (flic.decodeNextFrame()) {
+        const int f = flic.currentFrame();
+        if (dir.empty() || !(all || wanted.count(f)))
+            continue;
+        const reluva::Surface &s = flic.surface();
+        reluva::image::Image picture;
+        picture.w = s.w;
+        picture.h = s.h;
+        picture.rgba.resize(size_t(s.w) * size_t(s.h) * 4);
+        for (int y = 0; y < s.h; y++)
+            for (int x = 0; x < s.w; x++) {
+                const uint8_t *c = flic.palette() + 3 * s.row(y)[x];
+                uint8_t *p = &picture.rgba[(size_t(y) * size_t(s.w) + size_t(x)) * 4];
+                p[0] = c[0];
+                p[1] = c[1];
+                p[2] = c[2];
+                p[3] = 255;
+            }
+        char name[32];
+        std::snprintf(name, sizeof name, "frame_%04d.tga", f);
+        const std::vector<uint8_t> tga = reluva::image::encodeTga(picture);
+        std::ofstream(dir / name, std::ios::binary)
+            .write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
+        ++written;
+    }
+    if (flic.currentFrame() + 1 < flic.frameCount()) {
+        std::fprintf(stderr, "%s: frame %d doesn't decode\n", argv[2], flic.currentFrame() + 1);
+        return 1;
+    }
+    std::printf("all %d frames decoded; %d written\n", flic.frameCount(), written);
     return 0;
 }
 
@@ -304,6 +370,8 @@ const Commands kCommands(
     {
         {"avi-frames", "<file.avi> [output dir] [frame number... | all]",
          "an AVI's streams; decode every frame (Cinepak), timed, writing those asked for as TGA files", cmdAviFrames},
+        {"flic-frames", "<file.flc> [output dir] [frame number... | all]",
+         "a FLIC's header; decode every frame, writing those asked for as TGA files", cmdFlicFrames},
         {"cue-rip", "<file.cue> [output dir]",
          "list a CD image's tracks; write each audio track as trackNN.wav (games' CD music)", cmdCueRip},
         {"prologic", "<in.wav> <out prefix> [-passive] [-window ms] [-delay ms] [-csv file] [-quiet]",

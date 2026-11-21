@@ -163,7 +163,8 @@ from.
   chunks.
 - `reluva-tool legoisland si-extract <file.si> <out folder> [object id]`:
   the media as files; `EVT` and `OBJ` objects as their pieces joined, in
-  `.bin` files.
+  `.bin` files. The FLC animations decode with the shared FLIC decoder
+  ([flic.md](../../../common/video/flic.md)): `reluva-tool flic-frames`.
 
 ## Sources and checks
 
