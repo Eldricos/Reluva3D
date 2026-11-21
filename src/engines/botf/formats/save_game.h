@@ -147,6 +147,36 @@ struct SavedTaskForce {
  */
 Error readSavedTaskForces(const std::filesystem::path &path, int width, std::vector<SavedTaskForce> &taskForces);
 
+/** An order given this turn, by the player or the computer, carried out when the turn ends. */
+struct SavedOrder {
+    /** What it orders; the numbers are the game's. */
+    enum class Type { kEconomy = 0, kResearch = 1, kMilitary = 2, kDiplomacy = 5, kLabor = 7 };
+    int id = 0;
+    int turn = 0;       // the turn it was given, 0 the first
+    int race = 0;       // race.rst's number of the race that gave it
+    int type = 0;       // a Type, or another number
+    int system = -1;    // economy and labor: the system's index in SavedGalaxy::systems
+    int buy = 0;        // economy: 0 to build, 1 to buy what's being built
+    int buildOrder = 0; // economy, building: as SavedSystem's
+    int building = -1;  // and its building, or -1
+    int ship = -1;      // and its ship, or -1
+    int taskForce = -1; // military: the task force's id
+    int mission = 0;    // and its mission, as SavedTaskForce's (0 to move)
+    /** Military: the sector it's sent to, column and row. */
+    ///@{
+    int destinationX = -1;
+    int destinationY = -1;
+    ///@}
+    /**
+     * Labor: the system's workers, as SavedSystem::workers (the last 0);
+     * research: the empire's shares, as SavedResearch's.
+     */
+    std::array<int, 6> values{};
+};
+
+/** Reads the orders of the turn the saved game at `path` was saved in (its ordInfo file). */
+Error readSavedOrders(const std::filesystem::path &path, std::vector<SavedOrder> &orders);
+
 /**
  * How each major empire, Cardassians to Romulans, shares its research out
  * among biotech, computers, construction, energy, propulsion and weapons:

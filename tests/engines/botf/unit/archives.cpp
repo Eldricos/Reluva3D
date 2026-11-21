@@ -277,6 +277,52 @@ void testSavedTaskForces(const std::filesystem::path &tmp) {
     CHECK(bool(readSavedResearch(tmp / "tech.sav", r)));
 }
 
+void testSavedOrders(const std::filesystem::path &tmp) {
+    // An order: a 32-byte head (id, turn, race, type at 0x10, the rest's
+    // size at 0x1C), then the rest.
+    auto order = [](uint32_t type, const Bytes &rest) {
+        Bytes o(32, 0);
+        set32(o, 0, 0x2AAAAB00 + type);
+        o[8] = 1; // the Federation
+        set32(o, 0x10, type);
+        set32(o, 0x1C, uint32_t(rest.size()));
+        o.insert(o.end(), rest.begin(), rest.end());
+        return o;
+    };
+    Bytes build(52, 0);
+    set32(build, 4, 0x8000001B); // Sol, and the flag the game sets
+    build[8] = 154;
+    set32(build, 16, 1);
+    build[20] = 0xFF;
+    build[21] = 0xFF;
+    Bytes move(52, 0);
+    set32(move, 4, 8);
+    set32(move, 8, 9);
+    move[28] = 7;
+    Bytes labor;
+    for (uint32_t v : {27U, 140U, 40U, 100U, 20U, 0U})
+        put32(labor, v);
+    Bytes research;
+    for (uint32_t v : {20U, 17U, 15U, 15U, 16U, 17U})
+        put16(research, v);
+    Bytes all = order(0, build);
+    for (const Bytes &o : {order(2, move), order(7, labor), order(1, research), order(5, Bytes(10, 0))})
+        all.insert(all.end(), o.begin(), o.end());
+    writeFile(tmp / "orders.sav", makeLzssArchive("game0.sav", {{"ordInfo", all}}));
+    std::vector<SavedOrder> o;
+    CHECK(!readSavedOrders(tmp / "orders.sav", o) && o.size() == 5);
+    CHECK(o[0].type == 0 && o[0].race == 1 && o[0].system == 27 && o[0].buy == 0 && o[0].buildOrder == 1);
+    CHECK(o[0].building == 154 && o[0].ship == -1);
+    CHECK(o[1].type == 2 && o[1].taskForce == 7 && o[1].destinationX == 9 && o[1].destinationY == 8 &&
+          o[1].mission == 0);
+    CHECK(o[2].type == 7 && o[2].system == 27 && o[2].values == (std::array<int, 6>{140, 40, 100, 20, 0, 0}));
+    CHECK(o[3].type == 1 && o[3].values == (std::array<int, 6>{20, 17, 15, 15, 16, 17}) && o[4].type == 5);
+    // An order running past the file's end isn't read.
+    all.pop_back();
+    writeFile(tmp / "orders.sav", makeLzssArchive("game0.sav", {{"ordInfo", all}}));
+    CHECK(bool(readSavedOrders(tmp / "orders.sav", o)));
+}
+
 void testSaveSummary(const std::filesystem::path &tmp) {
     writeFile(tmp / "game0.sav", makeSave("Tutorial #1", "Irregular galaxy \xe9", 41));
     SaveSummary save;
@@ -513,6 +559,7 @@ static const reluva::test::Suite kSuite(
         {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
         {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
+        {"saved orders", [](const std::filesystem::path &tmp) { testSavedOrders(tmp); }},
         {"saved empires, fleets and research", [](const std::filesystem::path &tmp) { testSavedTaskForces(tmp); }},
         {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},
         {"game files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},

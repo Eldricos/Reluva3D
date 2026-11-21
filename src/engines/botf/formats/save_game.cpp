@@ -323,4 +323,62 @@ Error readSavedResearch(const std::filesystem::path &path, SavedResearch &resear
     return Error::success();
 }
 
+Error readSavedOrders(const std::filesystem::path &path, std::vector<SavedOrder> &orders) {
+    orders.clear();
+    std::vector<uint8_t> d;
+    if (Error err = readFiles(path, {"ordInfo"}, {&d}))
+        return err;
+    // Each order: a 32-byte head (its id, turn, race, type and how long
+    // the rest is), then the rest, as its type lays it out.
+    constexpr size_t kHeadSize = 32;
+    for (size_t at = 0; at < d.size();) {
+        const int32_t size = d.size() - at >= kHeadSize ? s32(d, at + 0x1C) : -1;
+        if (size < 0 || d.size() - at - kHeadSize < size_t(size))
+            return Error::fail(path.string() + ": ordInfo ends in an order");
+        SavedOrder o;
+        o.id = s32(d, at);
+        o.turn = s32(d, at + 4);
+        o.race = s16(d, at + 8);
+        o.type = s32(d, at + 0x10);
+        const size_t c = at + kHeadSize;
+        auto has = [&](size_t bytes) { return size_t(size) >= bytes; };
+        switch (SavedOrder::Type(o.type)) {
+        case SavedOrder::Type::kEconomy:
+            if (has(24)) {
+                o.buy = s32(d, c);
+                o.system = s16(d, c + 4);
+                // 0x7FFF for none.
+                o.building = s16(d, c + 8) == 0x7FFF ? -1 : s16(d, c + 8);
+                o.buildOrder = s32(d, c + 16);
+                o.ship = s16(d, c + 20);
+            }
+            break;
+        case SavedOrder::Type::kResearch:
+            for (size_t i = 0; i < o.values.size() && has(2 * i + 2); ++i)
+                o.values[i] = s16(d, c + 2 * i);
+            break;
+        case SavedOrder::Type::kMilitary:
+            if (has(30)) {
+                o.destinationY = s32(d, c + 4);
+                o.destinationX = s32(d, c + 8);
+                o.mission = s32(d, c + 20);
+                o.taskForce = s16(d, c + 28);
+            }
+            break;
+        case SavedOrder::Type::kLabor:
+            if (has(24)) {
+                o.system = s32(d, c);
+                for (size_t i = 0; i < 5; ++i)
+                    o.values[i] = s32(d, c + 4 + 4 * i);
+            }
+            break;
+        default:
+            break;
+        }
+        orders.push_back(o);
+        at = c + size_t(size);
+    }
+    return Error::success();
+}
+
 } // namespace reluva::botf

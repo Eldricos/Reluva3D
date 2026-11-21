@@ -260,14 +260,54 @@ random events off), each made from the first: as it started; a turn
 later; with a building queued at Sol; with a ship ordered to move, and a
 turn after that; with the research shares changed; with a worker moved;
 with the databank bought; with a destroyer queued; five turns later.
-Saved again
-without a change, a game's `SeedInfo`, `gameInfo`, `empsInfo`,
-`ordInfo`, `result.lst`, `AIAgent0` to `AIAgent6` and the four list heads
-(`GShipHead`, `GTForceHd`, `GWTForceHd`, `GTFStasisHd`) change anyway.
-Beyond those, queuing a building, buying it and queuing a ship each
-changed only `systInfo`, an order only `GWTForce`, the research shares
-only `techinfo`; a turn changes most
-files, and adds the AI's tasks (`AITask#`, `TskSh#`, `TskSy#`).
+Saved again without a change, a game's `SeedInfo`, `gameInfo`,
+`empsInfo`, `result.lst`, `AIAgent0` to `AIAgent6` and the four list
+heads (`GShipHead`, `GTForceHd`, `GWTForceHd`, `GTFStasisHd`) change
+anyway. Each change the player made is an order in `ordInfo`
+([below](#orders)); beyond that, queuing a building, buying it and
+queuing a ship each changed `systInfo`, a move `GWTForce`, the research
+shares `techinfo`, and moving workers only a flag in `systInfo` (0x314,
+the editor's "update worker assignments"). A turn changes most files,
+and adds the AI's tasks (`AITask#`, `TskSh#`, `TskSy#`).
+
+### Orders
+
+`ordInfo` holds the turn's orders, the player's and the computer's,
+carried out when the turn ends; read so, each save's file comes out to
+its last byte. Each order is a 32-byte head and then its own part, as
+long as the head says. The layouts are the editor's (`Order.java`,
+`EconomicOrder.java`, `MilitaryOrder.java`) *(published)*, checked on the
+orders the user gave:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `u32` | its number |
+| 0x04 | `i32` | the turn it was given: 0 to 4 in the save five turns on |
+| 0x08 | `i16` | the race giving it, by `race.rst`'s number |
+| 0x10 | `i32` | its type: 0 economy, 1 research, 2 military, 5 diplomacy, 7 labor (the editor names 1 "economic result"; here it holds the research shares) |
+| 0x1C | `i32` | how long its own part is: 52, 12, 52, 1,164 and 24 bytes |
+
+Each empire's home system has an economy order from the start, building
+trade goods. Its own part, from its start:
+
+- **Economy:** whether to build (0) or buy (1) (`i32`), the system's
+  index in `systInfo` (`i16` at 4: Sol's 27), the building (`i16` at 8,
+  0x7FFF for none: 154 with the databank queued), what's built (`i32` at
+  16, as `systInfo`'s 0x80: 5, 1, 3) and the ship (`i16` at 20, -1 for
+  none: 30 with the destroyer queued). Buying the databank added a second
+  economy order for Sol with 1 in its first word.
+- **Research:** the six shares, `i16` each: 20, 17, 15, 15, 16, 17, as
+  the research screen after the change.
+- **Military:** the destination's row and column (`i32` at 4 and 8: 8,
+  9, a sector west of Sol), where the task force started (12 and 16), its
+  mission (20: 0, a move) and the task force's number (`i16` at 28: 7).
+- **Labor:** the system's index (`i32`), then its workers in industry,
+  energy, food, research and intelligence (`i32` each): 140, 40, 100, 20,
+  0 with one replicator's workers taken away. Loaded, the save shows
+  industry 218 and one worker spare, as when it was saved (the user, in
+  the game): `systInfo`'s workers are the turn's start, the order the
+  change. The first try at it saved 150, 40, 90, 30, 0, food to research,
+  though its screenshot doesn't show that change.
 
 ## In Reluva
 
@@ -278,6 +318,11 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
 0, the Romulans.
 `decompressLzss` takes the window's fill. The unit tests
 (`botf.unit.archives`: "lzss" and "saved games") cover both.
+
+`readSavedOrders` reads the turn's orders, and decodes the economy,
+research, military and labor orders; on the user's saves it gives each
+order as the screens showed it given. The unit tests ("saved orders")
+cover it.
 
 `readSavedEmpires` reads the five empires' figures; on the user's saves
 they're the empire panel's. `readSavedTaskForces` reads the task forces
@@ -331,12 +376,8 @@ layout.
   `auto.sav`): the game writes both, with the same time, once a game
   started or loaded has passed a turn, but moving `Last.sav` away changes
   nothing that shows (the user, in the game).
-- Where a change to a system's workers is kept. Twice, saves made after
-  taking a replicator's workers away (the second's screenshot shows
-  industry down from 234 to 218) changed only `systInfo`'s 0x314, a flag
-  the editor calls "update worker assignments", and not the workers: so
-  the game may work the assignment out again on loading. Settled by
-  loading such a save and looking at the system's production.
+- The diplomacy orders' layout (the computer's gave one by the fifth
+  turn), and the other kinds of economy and military order.
 - What `systInfo`'s value at 0x04 means for the computer's systems, and
   `galInfo`'s first 8 bytes.
 - The rest of `gameInfo`, of the galaxy's files, and every other file in
