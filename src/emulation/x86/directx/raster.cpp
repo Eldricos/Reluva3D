@@ -262,13 +262,9 @@ float planeDistance(const ClipVertex &v, int plane) {
 
 // Vertices.
 
-void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, uint32_t stride, uint32_t count,
+void Device::transformAndLight(const VertexLayout &layout, const uint8_t *mem, uint32_t stride, uint32_t count,
                                std::vector<ClipVertex> &out) {
-    Cpu &c = s->cpu;
     out.resize(count);
-    if (!c.valid(vertices, stride * count))
-        return out.clear();
-    const uint8_t *mem = c.memory().data() + vertices;
     const Matrix world = transforms[1];
     const Matrix view = transforms[2];
     const Matrix proj = transforms[3];
@@ -461,6 +457,22 @@ ClipVertex Device::project(const ClipVertex &v) const {
 
 void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t stride, uint32_t vertexCount,
                   uint32_t indices, uint32_t indexCount) {
+    Cpu &c = s->cpu;
+    if (!vertexCount || !c.valid(vertices, stride * vertexCount))
+        return;
+    std::vector<uint32_t> order;
+    if (indices) {
+        if (!c.valid(indices, indexCount * 2))
+            return;
+        order.resize(indexCount);
+        for (uint32_t i = 0; i < indexCount; ++i)
+            order[i] = c.read16(indices + 2 * i);
+    }
+    drawVertices(primitive, fvf, c.memory().data() + vertices, stride, vertexCount, indices ? &order : nullptr);
+}
+
+void Device::drawVertices(uint32_t primitive, uint32_t fvf, const uint8_t *vertices, uint32_t stride,
+                          uint32_t vertexCount, const std::vector<uint32_t> *indices) {
     const VertexLayout layout(fvf);
     if (!layout.position || !target || !vertexCount)
         return;
@@ -475,17 +487,12 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
     transformAndLight(layout, vertices, stride, vertexCount, v);
     if (v.empty())
         return;
-    Cpu &c = s->cpu;
     std::vector<uint32_t> order;
     if (indices) {
-        if (!c.valid(indices, indexCount * 2))
-            return;
-        order.resize(indexCount);
-        for (uint32_t i = 0; i < indexCount; ++i) {
-            order[i] = c.read16(indices + 2 * i);
-            if (order[i] >= v.size())
+        order = *indices;
+        for (const uint32_t i : order)
+            if (i >= v.size())
                 return;
-        }
     } else {
         order.resize(vertexCount);
         for (uint32_t i = 0; i < vertexCount; ++i)

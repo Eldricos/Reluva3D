@@ -36,9 +36,11 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   mode, update callbacks (kept), and the Direct3D device back.
 - **`IDirect3DRMViewport`:** its rectangle, camera, front and back planes,
   field, projection and scaling, its view's edges (`GetPlane`),
-  `Clear`, to the camera's scene's background and the far depth, and
-  `Pick`, which finds nothing (an empty `IDirect3DRMPickedArray`) until
-  scenes are drawn.
+  `Clear`, to the camera's scene's background and the far depth,
+  `Render`, drawing a frame and what's in it ([Drawing](#drawing)), and
+  `Pick`, what's under a point ([Picking](#picking)), as an
+  `IDirect3DRMPickedArray` and, for each pick, its frames as an
+  `IDirect3DRMFrameArray`.
 - **`IDirect3DRMLight`, `IDirect3DRMMaterial`:** their settings.
 - **`IDirect3DRMTexture`, `IDirect3DRMTexture2`:** a surface's texture,
   its colours, shades and decal settings, and `Changed` (its surface's
@@ -48,9 +50,10 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   (`D3DRMVERTEX`: position, normal, texture coordinates, colour), each
   group's colour, mapping, quality, material and texture, read back
   (`GetGroup`, `GetVertices`), scaled, moved, and its box.
-- **Not yet:** drawing (`Render` draws nothing yet), mesh builders,
-  animations, move callbacks and
-  velocities, picking, loading files, and the other kinds of object.
+- **Not yet:** in drawing, sorting, fog, decals, frames' textures and
+  Retained Mode's own lighting (colour ramps, shades); mesh builders,
+  animations, move callbacks and velocities, loading files, and the
+  other kinds of object.
   Calling a method nothing stands in for ends the run naming it.
 
 ## How it works
@@ -73,6 +76,41 @@ reference, in the frame's parent's *(inferred)*. An orientation is a
 direction (the frame's z axis) and an up (its y axis, made at right
 angles to the direction); x is up cross direction.
 
+### Drawing
+
+`Render` draws the frame it's given, the frames in it and those made its
+visuals, each with its world transform, through the Direct3D stand-in's
+fixed-function pipeline ([directx.md](directx.md)), onto the viewport's
+device; the device's own states are put back after. The camera looks
+down its frame's z, y up. The projection maps the view's edges on the
+front plane (`GetPlane`'s) to the viewport's, and the front plane to the
+back to depths 0 to 1 *(inferred: the documentation gives the edges and
+planes, not the matrix)*. The lights in the frames drawn are Direct3D's,
+the ambient ones added together; a light shines down its frame's z, and
+a spotlight's umbra and penumbra are taken as half its cones' angles
+*(inferred)*.
+
+Each mesh group's faces are drawn as triangle fans, clockwise faces
+facing the camera, with the Z buffer if the device has one. A render
+quality (`D3DRMRENDERQUALITY`) is a shade in bits 0 to 2 (flat 0,
+Gouraud 1), lighting in 3 to 5 (on 8) and fill in 6 and 7 (solid
+0x80); the group's quality and the device's together say whether it's
+lit and how it's shaded. Lit, its colour is its material's diffuse and
+ambient colour, with the material's specular power and colour and
+emissive colour; unlit, its colour as it is. A colour less than opaque
+is blended. A group's texture is its surface's pixels times its colour,
+wrapping, filtered as the device's texture quality says.
+
+### Picking
+
+`Pick` takes a point of the device and finds, of each mesh in the
+camera's scene, its nearest face under it, as the screen shows it
+(either winding, in front of the front plane): the visual, its frames
+from the scene down to the one holding it, the face and group, and the
+point (x, y, and its depth, 0 to 1), nearest first. The documentation
+gives the path "from the root down to the frame that contained the
+object", and "depth-sorted"; the nearest first is *inferred*.
+
 ### Values returned
 
 Methods returning a `D3DVALUE` (`GetField`, `GetPower`, a light's
@@ -85,14 +123,20 @@ it in `EAX`.
 - **Where the facts come from:** Microsoft's DirectX 5 SDK documentation
   and headers: the interfaces, their methods and arguments, the IIDs, the
   defaults (a viewport's front 1, back 100 and field 0.5; a light's range
-  256, umbra 0.4, penumbra 0.5), and the combine types.
+  256, umbra 0.4, penumbra 0.5), the combine types and render qualities,
+  a viewport's plane ("the dimensions of the viewport on the front
+  clipping plane") and its camera's axes, and what a pick holds
+  (`D3DRMPICKDESC`).
 - **How it was checked:** `common.unit.windows`'s `retained mode` case,
   on a DirectX 5 Direct3D device: frames placed and turned relative to
   each other and the world, points taken to the world and back, names,
   a device, a viewport's field and view edges and its clear to the
   scene's background, a light and a material, their floats on the x87
   stack, a texture on a surface, a mesh's group, vertices, box and face
-  data read back, and a clone apart from its original. LEGO Island builds its scene with it and goes on to its main loop
+  data read back, and a clone apart from its original; and a green square
+  in front of a camera, drawn in the viewport's middle and not its
+  corner, and picked there (its mesh, group and frames) but not at the
+  corner. LEGO Island draws its scenes with it, and picks in them
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 

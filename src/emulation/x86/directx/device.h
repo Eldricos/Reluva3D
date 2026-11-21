@@ -329,6 +329,9 @@ public:
      */
     void draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t stride, uint32_t vertexCount,
               uint32_t indices, uint32_t indexCount);
+    /** As draw, but the vertices (and the indices, if any) are the host's. */
+    void drawVertices(uint32_t primitive, uint32_t fvf, const uint8_t *vertices, uint32_t stride, uint32_t vertexCount,
+                      const std::vector<uint32_t> *indices);
     /**
      * IDirect3DDevice7::Clear: the target to `color` (0xAARRGGBB, flag 1)
      * and the Z buffer to `z` (0 to 1, flag 2), within the viewport.
@@ -339,7 +342,7 @@ public:
 
 private:
     void setRenderState(uint32_t state, uint32_t value);
-    void transformAndLight(const VertexLayout &layout, uint32_t vertices, uint32_t stride, uint32_t count,
+    void transformAndLight(const VertexLayout &layout, const uint8_t *vertices, uint32_t stride, uint32_t count,
                            std::vector<ClipVertex> &out);
     void triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c);
     void line(const ClipVertex &a, const ClipVertex &b);

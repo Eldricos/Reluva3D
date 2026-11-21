@@ -27,7 +27,9 @@ headers' (`directx/interfaces.cpp`).
   before, once its draws are done, and the program goes on while this
   one's are drawn.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
-  blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
+  blocks. The drawing is a software rasterizer (`directx/raster.cpp`),
+  which Retained Mode's stand-in draws through too, its vertices the
+  host's ([d3drm.md](d3drm.md#drawing)):
   - the fixed-function pipeline: transforms, lighting, materials and their
     vertex-colour sources, and texture coordinate generation and
     transforms;

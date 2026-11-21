@@ -850,6 +850,63 @@ static void testRetainedMode() {
     CHECK(call(copy, 13, {box}) == 0 && near(value(box + 12), 3));
     CHECK(call(child, 18, {mesh}) == 0); // AddVisual
     CHECK(rm.objectsMade() == 9);
+
+    // A scene drawn and picked: a camera at its origin, looking down its z,
+    // and an unlit green square 5 in front of it, its faces clockwise as
+    // the camera sees them. The square fills the viewport's middle, not its
+    // corners.
+    CHECK(call(rm2, 4, {0, out}) == 0);
+    const uint32_t scene2 = cpu.read32(out);
+    CHECK(call(rm2, 4, {scene2, out}) == 0);
+    const uint32_t camera = cpu.read32(out);
+    CHECK(call(rm2, 4, {scene2, out}) == 0);
+    const uint32_t holder = cpu.read32(out);
+    CHECK(call(holder, 61, {scene2, 0, 0, bits(5)}) == 0); // SetPosition
+    CHECK(call(rm2, 5, {out}) == 0);                       // CreateMesh
+    const uint32_t square = cpu.read32(out);
+    const uint32_t quadFaces = mem(4 * 8);
+    const uint32_t quadData[8] = {3, 3, 2, 1, 3, 3, 1, 0};
+    for (uint32_t i = 0; i < 8; ++i)
+        cpu.write32(quadFaces + 4 * i, quadData[i]);
+    CHECK(call(square, 14, {4, 2, 0, quadFaces, out}) == 0); // AddGroup
+    const uint32_t corners = mem(36 * 4);
+    std::memset(cpu.memory().data() + corners, 0, 36 * 4);
+    const float xy[4][2] = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+    for (uint32_t i = 0; i < 4; ++i) {
+        cpu.write32(corners + 36 * i, bits(xy[i][0]));
+        cpu.write32(corners + 36 * i + 4, bits(xy[i][1]));
+    }
+    CHECK(call(square, 15, {0, 0, 4, corners}) == 0);               // SetVertices
+    CHECK(call(square, 16, {0, 0xff00ff00u}) == 0);                 // SetGroupColor
+    CHECK(call(square, 19, {0, 0x80}) == 0);                        // SetGroupQuality: flat, unlit, solid
+    CHECK(call(holder, 18, {square}) == 0);                         // AddVisual
+    CHECK(call(rm2, 20, {device, camera, 0, 0, 64, 48, out}) == 0); // CreateViewport
+    const uint32_t view = cpu.read32(out);
+    CHECK(call(scene2, 49, {0, 0, 0}) == 0); // SetSceneBackgroundRGB: black
+    CHECK(call(view, 12, {}) == 0);          // Clear
+    CHECK(call(view, 13, {scene2}) == 0);    // Render
+    std::memset(cpu.memory().data() + lock, 0, 108);
+    cpu.write32(lock, 108);
+    CHECK(call(surface, 25, {0, lock, 1, 0}) == 0); // Lock
+    const uint32_t pixels = cpu.read32(lock + 36);
+    const uint32_t pitch = cpu.read32(lock + 16);
+    CHECK(cpu.read16(pixels + 24 * pitch + 32 * 2) == 0x07e0); // the middle: green in 565
+    CHECK(cpu.read16(pixels) == 0);                            // a corner: the background
+    CHECK(call(surface, 32, {0}) == 0);                        // Unlock
+    // Picked in the middle: the square, its frames from the scene down, its
+    // group; nothing at a corner.
+    CHECK(call(view, 28, {32, 24, out}) == 0); // Pick
+    const uint32_t picked = cpu.read32(out);
+    CHECK(call(picked, 3, {}) == 1); // GetSize
+    const uint32_t pickDesc = mem(20);
+    const uint32_t frameArray = mem(4);
+    CHECK(call(picked, 4, {0, out, frameArray, pickDesc}) == 0); // GetPick
+    CHECK(cpu.read32(out) == square && cpu.read32(pickDesc + 4) == 0);
+    const uint32_t path = cpu.read32(frameArray);
+    CHECK(call(path, 3, {}) == 2);                                             // GetSize
+    CHECK(call(holder, 6, {55}) == 0);                                         // SetAppData
+    CHECK(call(path, 4, {1, out}) == 0 && call(cpu.read32(out), 7, {}) == 55); // GetElement, its app data
+    CHECK(call(view, 28, {0, 0, out}) == 0 && call(cpu.read32(out), 3, {}) == 0);
 }
 
 static void testDirectX() {

@@ -323,6 +323,11 @@ std::vector<ComInterface::Method> pickedArrayMethods() {
     return with({{"GetSize", 0}, {"GetPick", 4}});
 }
 
+// IDirect3DRMFrameArray: no IDirect3DRMObject methods either.
+std::vector<ComInterface::Method> frameArrayMethods() {
+    return with({{"GetSize", 0}, {"GetElement", 2}});
+}
+
 float asFloat(uint32_t v) {
     float f;
     std::memcpy(&f, &v, 4);
@@ -474,10 +479,11 @@ struct Direct3DRM::State {
     ComInterface mesh{"IDirect3DRMMesh", kIidMesh, meshMethods(), 0};
     // Handed out by Pick only, never asked for by its IID.
     ComInterface pickedArray{"IDirect3DRMPickedArray", "", pickedArrayMethods(), 0};
+    ComInterface frameArray{"IDirect3DRMFrameArray", "", frameArrayMethods(), 0};
     /** Every interface above, each given its vtable as the object's made. */
     std::vector<ComInterface *> interfaces() {
-        return {&rm,    &rm2,      &frame,   &frame2,   &device, &device2,    &viewport,
-                &light, &material, &texture, &texture2, &mesh,   &pickedArray};
+        return {&rm,    &rm2,      &frame,   &frame2,   &device, &device2,     &viewport,
+                &light, &material, &texture, &texture2, &mesh,   &pickedArray, &frameArray};
     }
     size_t made = 0;
     uint32_t defaultTextureColors = 32;
@@ -677,6 +683,7 @@ public:
     uint32_t decalTransparency = 0;
     uint32_t decalTransparentColor = 0;
     uint64_t changes = 0; // how often the program has called Changed: new pixels or palette
+    uint64_t seen = 0;    // `changes` when it was last drawn
 
     const char *className() const override { return "Texture"; }
     std::shared_ptr<RmObject> copy() const override { return std::make_shared<Texture>(*this); }
@@ -752,7 +759,7 @@ public:
         uint32_t vertsPerFace = 0;                // 0: each face's count is given before it
         uint32_t color = 0xffffffff;
         uint32_t mapping = 0;
-        uint32_t quality = 0x1 | 0x40 | 0x80; // D3DRMRENDER_GOURAUD
+        uint32_t quality = 0x1 | 0x8 | 0x80; // D3DRMRENDER_GOURAUD
         std::shared_ptr<Material> material;
         std::shared_ptr<Texture> texture;
     };
@@ -1153,8 +1160,8 @@ public:
     std::shared_ptr<dx::Device> d3d;
     uint32_t d3dPointer = 0; // the program's IDirect3DDevice2, as it gave it
     uint32_t direct3dPointer = 0;
-    uint32_t quality = 0x1 | 0x40 | 0x80; // D3DRMRENDER_GOURAUD: Gouraud, solid, lit
-    uint32_t textureQuality = 0;          // D3DRMTEXTURE_NEAREST
+    uint32_t quality = 0x1 | 0x8 | 0x80; // D3DRMRENDER_GOURAUD: Gouraud, solid, lit
+    uint32_t textureQuality = 0;         // D3DRMTEXTURE_NEAREST
     uint32_t shades = 32;
     uint32_t bufferCount = 1;
     uint32_t renderMode = 0;
@@ -1234,16 +1241,73 @@ public:
 };
 
 // What Pick found: nothing, until scenes are drawn (and so can be picked).
+// What's under a point: a visual, the frames from the root down to the one
+// it's in, the face and group, and the point on the screen (x, y and its
+// depth, 0 to 1).
+struct PickHit {
+    std::shared_ptr<ComObject> visual;
+    std::vector<std::shared_ptr<Frame>> path;
+    uint32_t face = 0;
+    int32_t group = 0;
+    float position[3]{};
+};
+
+// Frames: a pick's path.
+class FrameArray : public ComObject {
+public:
+    Direct3DRM::State *s = nullptr;
+    std::vector<std::shared_ptr<Frame>> frames;
+    const ComInterface *query(const std::string &) override { return nullptr; }
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
+        const std::string_view m = iface.methods[size_t(index)].name;
+        if (m == "GetSize")
+            return uint32_t(frames.size());
+        if (m == "GetElement") { // (index, out), AddRef'd
+            if (c.arg(1) >= frames.size() || !c.valid(c.arg(2), 4))
+                return kRmErrBadValue;
+            const std::shared_ptr<Frame> &f = frames[c.arg(1)];
+            c.write32(c.arg(2), s->com.pointer(f, s->frame));
+            f->refs++;
+            return kRmOk;
+        }
+        return std::nullopt;
+    }
+};
+
+// What a pick found, nearest first.
 class PickedArray : public ComObject {
 public:
     Direct3DRM::State *s = nullptr;
+    std::vector<PickHit> hits;
     const ComInterface *query(const std::string &) override { return nullptr; }
-    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &) override {
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         if (m == "GetSize")
-            return 0u;
-        if (m == "GetPick")
-            return kRmErrBadValue; // no pick of that index
+            return uint32_t(hits.size());
+        if (m == "GetPick") { // (index, visual out, frame array out, D3DRMPICKDESC*)
+            if (c.arg(1) >= hits.size())
+                return kRmErrBadValue;
+            const PickHit &h = hits[c.arg(1)];
+            if (c.valid(c.arg(2), 4)) {
+                const ComInterface *visual = h.visual->query(kIidVisual);
+                c.write32(c.arg(2), visual ? s->com.pointer(h.visual, *visual) : 0);
+                if (visual)
+                    h.visual->refs++;
+            }
+            if (c.valid(c.arg(3), 4)) {
+                auto frames = std::make_shared<FrameArray>();
+                frames->s = s;
+                frames->frames = h.path;
+                c.write32(c.arg(3), s->com.pointer(frames, s->frameArray));
+            }
+            if (c.valid(c.arg(4), 20)) {
+                c.write32(c.arg(4), h.face);
+                c.write32(c.arg(4) + 4, uint32_t(h.group));
+                for (uint32_t i = 0; i < 3; ++i)
+                    c.write32(c.arg(4) + 8 + 4 * i, bits(h.position[i]));
+            }
+            return kRmOk;
+        }
         return std::nullopt;
     }
 };
@@ -1270,6 +1334,52 @@ public:
     float top = 0;
 
     const char *className() const override { return "Viewport"; }
+
+    // The camera's projection onto the front plane (left-handed, looking
+    // down its z, y up), as Direct3D takes it: x and y to -1..1 across the
+    // view's edges, z to 0..1 from the front plane to the back (inferred).
+    Matrix projectionMatrix() const {
+        const auto [l, r, b, t] = plane();
+        const float n = front;
+        const float f = back > front ? back : front * 2;
+        if (projection == 1 || projection == 3) // D3DRMPROJECT_ORTHOGRAPHIC, RIGHTHANDORTHOGRAPHIC
+            return {2 / (r - l),       0,           0, 0, 0, 2 / (t - b), 0, 0, 0, 0, 1 / (f - n), 0, (l + r) / (l - r),
+                    (t + b) / (b - t), n / (n - f), 1};
+        return {2 * n / (r - l),   0,           0, 0, 0, 2 * n / (t - b), 0, 0, (l + r) / (l - r),
+                (t + b) / (b - t), f / (f - n), 1, 0, 0, n * f / (n - f), 0};
+    }
+
+    void render(Frame &root);
+
+    /** A frame where it's drawn: its world transform, and the frames from the root down to it. */
+    struct Placed {
+        Frame *frame;
+        Matrix world;
+        std::vector<Frame *> path;
+    };
+    // The frame, the frames in it, and those made its visuals, each where it's drawn.
+    static std::vector<Placed> place(Frame &root) {
+        std::vector<Placed> placed;
+        std::vector<Placed> todo{{&root, root.world(), {&root}}};
+        while (!todo.empty() && placed.size() < 65536) { // a frame its own visual stops at the limit
+            Placed p = std::move(todo.back());
+            todo.pop_back();
+            auto add = [&](Frame *f) {
+                std::vector<Frame *> path = p.path;
+                path.push_back(f);
+                todo.push_back({f, multiply(f->transform, p.world), std::move(path)});
+            };
+            for (const auto &child : p.frame->children)
+                add(child.get());
+            for (const auto &v : p.frame->visuals)
+                if (auto *vf = dynamic_cast<Frame *>(v.get()))
+                    add(vf);
+            placed.push_back(std::move(p));
+        }
+        return placed;
+    }
+
+    std::vector<PickHit> pick(int px, int py);
 
     const ComInterface *query(const std::string &iid) override {
         return iid == s->viewport.iid || iid == kIidObject ? &s->viewport : nullptr;
@@ -1306,13 +1416,19 @@ public:
             d.viewport = was;
             return kRmOk;
         }
-        if (m == "Render") // nothing in its scenes is drawable yet
+        if (m == "Render") { // (frame): it and what's in it, seen through the camera
+            auto frame = s->com.shared<Frame>(c.arg(1));
+            if (!frame)
+                return kRmErrBadValue;
+            render(*frame);
             return kRmOk;
-        if (m == "Pick") { // (x, y, out): what's under a point, nearest first; nothing is drawn, so nothing
+        }
+        if (m == "Pick") { // (x, y, out): what's under a point
             if (!c.valid(c.arg(3), 4))
                 return kRmErrBadValue;
             auto picked = std::make_shared<PickedArray>();
             picked->s = s;
+            picked->hits = pick(int32_t(c.arg(1)), int32_t(c.arg(2)));
             c.write32(c.arg(3), s->com.pointer(picked, s->pickedArray));
             return kRmOk;
         }
@@ -1381,6 +1497,273 @@ public:
         return std::nullopt;
     }
 };
+
+namespace {
+
+// D3DRMLIGHTTYPE.
+enum : uint32_t { kLightAmbient = 0, kLightPoint = 1, kLightSpot = 2, kLightDirectional = 3, kLightParallelPoint = 4 };
+// D3DRMRENDERQUALITY's parts.
+constexpr uint32_t kShadeMask = 0x7;
+constexpr uint32_t kLightOn = 0x8; // D3DRMLIGHT_ON
+// The device's render states and texture stage states used here
+// (DirectX 5's and 7's numbers).
+enum : uint32_t {
+    kRsZEnable = 7,
+    kRsShadeMode = 9,
+    kRsZWriteEnable = 14,
+    kRsSrcBlend = 19,
+    kRsDestBlend = 20,
+    kRsCullMode = 22,
+    kRsZFunc = 23,
+    kRsAlphaBlendEnable = 27,
+    kRsSpecularEnable = 29,
+    kRsColorKeyEnable = 41,
+    kRsLighting = 137,
+    kRsAmbient = 139,
+    kRsColorVertex = 141,
+};
+enum : uint32_t {
+    kTssColorOp = 1,
+    kTssColorArg1 = 2,
+    kTssColorArg2 = 3,
+    kTssAlphaOp = 4,
+    kTssAlphaArg1 = 5,
+    kTssAlphaArg2 = 6,
+    kTssAddressU = 13,
+    kTssAddressV = 14,
+    kTssMagFilter = 16,
+    kTssMinFilter = 17
+};
+// A mesh's vertex as Direct3D takes it (D3DFVF_XYZ | NORMAL | DIFFUSE |
+// TEX1): its position, normal, the group's colour (for when it's unlit) and
+// its texture coordinates.
+constexpr uint32_t kRmVertexFvf = 0x152;
+
+dx::Color colorOf(uint32_t argb) {
+    return {float((argb >> 16) & 0xff) / 255.0f, float((argb >> 8) & 0xff) / 255.0f, float(argb & 0xff) / 255.0f,
+            float(argb >> 24) / 255.0f};
+}
+
+} // namespace
+
+// Draws the frame, its visuals and its children's, lit by the lights in
+// them, onto the device through Direct3D's pipeline; the device's own
+// states are put back after.
+void Viewport::render(Frame &root) {
+    if (!device || !device->d3d || !camera || width <= 0 || height <= 0)
+        return;
+    dx::Device &d = *device->d3d;
+    const auto savedStates = d.renderStates;
+    const auto savedStages = d.stageStates;
+    const auto savedTexture = d.textures[0];
+    const auto savedTransforms = d.transforms;
+    const auto savedLights = d.lights;
+    const dx::Material savedMaterial = d.material;
+    const dx::Viewport savedViewport = d.viewport;
+
+    d.viewport = {x, y, width, height, 0, 1};
+    d.transforms[2] = inverse(camera->world());
+    d.transforms[3] = projectionMatrix();
+
+    const std::vector<Placed> placed = place(root);
+
+    // The lights: ambient ones added together, the others Direct3D's.
+    d.lights.clear();
+    dx::Color ambient;
+    uint32_t lightIndex = 0;
+    for (const Placed &p : placed)
+        for (const auto &o : p.frame->lights) {
+            const auto *l = dynamic_cast<Light *>(o.get());
+            if (!l)
+                continue;
+            const dx::Color color = colorOf(l->color);
+            if (l->type == kLightAmbient) {
+                ambient.r += color.r, ambient.g += color.g, ambient.b += color.b;
+                continue;
+            }
+            dx::Light dl;
+            dl.type = l->type == kLightDirectional ? 3 : l->type == kLightSpot ? 2 : 1;
+            dl.diffuse = color;
+            dl.specular = color;
+            const Vector at = transformPoint({0, 0, 0}, p.world);
+            const Vector dir = normalized(transformDirection({0, 0, 1}, p.world)); // a light shines down its z
+            std::copy(at.begin(), at.end(), dl.position);
+            std::copy(dir.begin(), dir.end(), dl.direction);
+            dl.range = l->type == kLightParallelPoint ? 1e30f : l->range;
+            dl.att0 = l->constant;
+            dl.att1 = l->linear;
+            dl.att2 = l->quadratic;
+            dl.theta = 2 * l->umbra; // umbra and penumbra as half angles (inferred)
+            dl.phi = 2 * l->penumbra;
+            dl.falloff = 1;
+            dl.enabled = true;
+            d.lights[lightIndex++] = dl;
+        }
+    auto clamp1 = [](float v) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
+    d.renderStates[kRsAmbient] = 0xff000000u | clamp1(ambient.r) << 16 | clamp1(ambient.g) << 8 | clamp1(ambient.b);
+    d.renderStates[kRsZEnable] = d.depth ? 1 : 0;
+    d.renderStates[kRsZWriteEnable] = d.depth ? 1 : 0;
+    d.renderStates[kRsZFunc] = 4;    // D3DCMP_LESSEQUAL
+    d.renderStates[kRsCullMode] = 3; // a face's front is clockwise, as Direct3D's
+    d.renderStates[kRsColorVertex] = 0;
+    d.renderStates[kRsColorKeyEnable] = 0;
+
+    std::vector<uint8_t> vertices;
+    std::vector<uint32_t> indices;
+    for (const Placed &p : placed)
+        for (const auto &v : p.frame->visuals) {
+            const auto *mesh = dynamic_cast<Mesh *>(v.get());
+            if (!mesh)
+                continue;
+            d.transforms[1] = p.world;
+            for (const Mesh::Group &g : mesh->groups) {
+                if (g.vertices.empty() || g.faces.empty())
+                    continue;
+                const uint32_t quality = g.quality & device->quality;
+                const uint32_t argb = p.frame->materialMode == 2 ? p.frame->color : g.color; // D3DRMMATERIAL_FROMFRAME
+                const dx::Color color = colorOf(argb);
+                dx::Material mat;
+                mat.diffuse = color;
+                mat.ambient = color;
+                if (g.material) {
+                    mat.power = g.material->power;
+                    mat.specular = {g.material->specular[0], g.material->specular[1], g.material->specular[2], 1};
+                    mat.emissive = {g.material->emissive[0], g.material->emissive[1], g.material->emissive[2], 1};
+                }
+                d.material = mat;
+                d.renderStates[kRsLighting] = (quality & kLightOn) ? 1 : 0;
+                d.renderStates[kRsSpecularEnable] = g.material && mat.power > 0 ? 1 : 0;
+                d.renderStates[kRsShadeMode] = (quality & kShadeMask) == 0 ? 1 : 2; // flat, else Gouraud
+                const bool translucent = color.a < 1;
+                d.renderStates[kRsAlphaBlendEnable] = translucent ? 1 : 0;
+                d.renderStates[kRsSrcBlend] = 5;  // D3DBLEND_SRCALPHA
+                d.renderStates[kRsDestBlend] = 6; // D3DBLEND_INVSRCALPHA
+
+                auto &stage = d.stageStates[0];
+                std::shared_ptr<dx::Surface> surface = g.texture ? g.texture->surface : nullptr;
+                if (surface && g.texture->changes != g.texture->seen) {
+                    g.texture->seen = g.texture->changes;
+                    surface->touched(); // its palette may be new: decoded again
+                }
+                d.textures[0] = surface;
+                stage[kTssColorOp] = surface ? 4 : 2;   // MODULATE the texture and the colour, or the colour
+                stage[kTssColorArg1] = surface ? 2 : 0; // D3DTA_TEXTURE, D3DTA_DIFFUSE
+                stage[kTssColorArg2] = 0;
+                stage[kTssAlphaOp] = surface ? 4 : 2;
+                stage[kTssAlphaArg1] = surface ? 2 : 0;
+                stage[kTssAlphaArg2] = 0;
+                stage[kTssAddressU] = 1; // D3DTADDRESS_WRAP
+                stage[kTssAddressV] = 1;
+                stage[kTssMagFilter] = device->textureQuality ? 2 : 1; // linear, else point
+                stage[kTssMinFilter] = device->textureQuality ? 2 : 1;
+                d.stageStates[1][kTssColorOp] = 1; // D3DTOP_DISABLE
+                d.stageStates[1][kTssAlphaOp] = 1;
+
+                vertices.resize(g.vertices.size() * 36);
+                for (size_t i = 0; i < g.vertices.size(); ++i) {
+                    const Mesh::Vertex &mv = g.vertices[i];
+                    uint8_t *o = vertices.data() + i * 36;
+                    std::memcpy(o, mv.position.data(), 12);
+                    std::memcpy(o + 12, mv.normal.data(), 12);
+                    std::memcpy(o + 24, &argb, 4);
+                    std::memcpy(o + 28, &mv.u, 4);
+                    std::memcpy(o + 32, &mv.v, 4);
+                }
+                indices.clear();
+                for (const auto &face : g.faces) // each face a fan
+                    for (size_t i = 1; i + 1 < face.size(); ++i)
+                        if (face[0] < g.vertices.size() && face[i] < g.vertices.size() &&
+                            face[i + 1] < g.vertices.size())
+                            indices.insert(indices.end(), {face[0], face[i], face[i + 1]});
+                if (!indices.empty())
+                    d.drawVertices(4, kRmVertexFvf, vertices.data(), 36, uint32_t(g.vertices.size()), &indices);
+            }
+        }
+
+    d.renderStates = savedStates;
+    d.stageStates = savedStages;
+    d.textures[0] = savedTexture;
+    d.transforms = savedTransforms;
+    d.lights = savedLights;
+    d.material = savedMaterial;
+    d.viewport = savedViewport;
+}
+
+// Each face of the meshes in the camera's scene under the point, on the
+// screen as render draws it: the nearest face of each visual, nearest first.
+std::vector<PickHit> Viewport::pick(int px, int py) {
+    std::vector<PickHit> hits;
+    if (!camera || width <= 0 || height <= 0 || px < x || py < y || px >= x + width || py >= y + height)
+        return hits;
+    const Matrix viewProjection = multiply(inverse(camera->world()), projectionMatrix());
+    // The point at a pixel's centre, as the rasterizer fills it.
+    const float fx = float(px) + 0.5f;
+    const float fy = float(py) + 0.5f;
+    for (const Placed &p : place(*camera->scene()))
+        for (const auto &v : p.frame->visuals) {
+            const auto *mesh = dynamic_cast<Mesh *>(v.get());
+            if (!mesh)
+                continue;
+            const Matrix all = multiply(p.world, viewProjection);
+            PickHit best;
+            bool found = false;
+            for (size_t gi = 0; gi < mesh->groups.size(); ++gi) {
+                const Mesh::Group &g = mesh->groups[gi];
+                // Each vertex on the screen, or none if it's behind the front plane.
+                std::vector<std::optional<std::array<float, 3>>> screen(g.vertices.size());
+                for (size_t i = 0; i < g.vertices.size(); ++i) {
+                    const Vector &q = g.vertices[i].position;
+                    const float cx = q[0] * all[0] + q[1] * all[4] + q[2] * all[8] + all[12];
+                    const float cy = q[0] * all[1] + q[1] * all[5] + q[2] * all[9] + all[13];
+                    const float cz = q[0] * all[2] + q[1] * all[6] + q[2] * all[10] + all[14];
+                    const float cw = q[0] * all[3] + q[1] * all[7] + q[2] * all[11] + all[15];
+                    if (cw <= 0 || cz < 0)
+                        continue;
+                    screen[i] = std::array<float, 3>{float(x) + (cx / cw + 1) * float(width) / 2,
+                                                     float(y) + (1 - cy / cw) * float(height) / 2, cz / cw};
+                }
+                for (size_t fi = 0; fi < g.faces.size(); ++fi) {
+                    const auto &face = g.faces[fi];
+                    for (size_t k = 1; k + 1 < face.size(); ++k) {
+                        const uint32_t ids[3] = {face[0], face[k], face[k + 1]};
+                        if (ids[0] >= screen.size() || ids[1] >= screen.size() || ids[2] >= screen.size() ||
+                            !screen[ids[0]] || !screen[ids[1]] || !screen[ids[2]])
+                            continue;
+                        const auto &a = *screen[ids[0]];
+                        const auto &b = *screen[ids[1]];
+                        const auto &cc = *screen[ids[2]];
+                        const float area = (b[0] - a[0]) * (cc[1] - a[1]) - (b[1] - a[1]) * (cc[0] - a[0]);
+                        if (area == 0)
+                            continue;
+                        // Barycentric weights; either winding is picked.
+                        const float wa = ((b[0] - fx) * (cc[1] - fy) - (b[1] - fy) * (cc[0] - fx)) / area;
+                        const float wb = ((cc[0] - fx) * (a[1] - fy) - (cc[1] - fy) * (a[0] - fx)) / area;
+                        const float wc = 1 - wa - wb;
+                        if (wa < 0 || wb < 0 || wc < 0)
+                            continue;
+                        const float z = wa * a[2] + wb * b[2] + wc * cc[2];
+                        if (z > 1 || (found && z >= best.position[2]))
+                            continue;
+                        found = true;
+                        best.face = uint32_t(fi);
+                        best.group = int32_t(gi);
+                        best.position[0] = fx;
+                        best.position[1] = fy;
+                        best.position[2] = z;
+                    }
+                }
+            }
+            if (!found)
+                continue;
+            best.visual = v;
+            for (Frame *f : p.path)
+                best.path.push_back(std::static_pointer_cast<Frame>(f->shared_from_this()));
+            hits.push_back(std::move(best));
+        }
+    std::stable_sort(hits.begin(), hits.end(),
+                     [](const PickHit &a, const PickHit &b) { return a.position[2] < b.position[2]; });
+    return hits;
+}
 
 // The Direct3DRM object: it makes the others.
 class Rm : public ComObject {
