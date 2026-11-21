@@ -318,6 +318,92 @@ void testEnemies() {
     CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
 }
 
+void testCombat() {
+    // A guard at (500, 500) facing left with a disruptor, a wall between
+    // it and the officers at (300, 500), 20 x 80 about (400, 500).
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=300.000000,500.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tAlert=CBorgStateAlert\n\t\t\t\t\t{\n\t\t\t\t\t\tAlert Time=0.5\n\t\t\t\t\t}\n"
+        "\t\t\t\t\tMax Distance=300\n\t\t\t\t\tVision Cone=180\n\t\t\t\t\tCurrent State=Patrol\n"
+        "\t\t\t\t\tTarget If Hit=1\n"
+        "\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tInventory=CInventory\n\t\t\t{\n\t\t\t\tInventory List=Array\n\t\t\t\t{\n"
+        "\t\t\t\t\tItem Count=1\n\t\t\t\t\tItem=CStarTrekEnergyWeaponInventoryItem\n\t\t\t\t\t{\n"
+        "\t\t\t\t\t\tDefinition Index=Enemy Weapons/Disruptor\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t\tFacing Angle=0\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Wall\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tModel=Walls/Wall\n\t\t\tPosition X=400\n\t\t\tPosition Y=500\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tVisible=1\n"
+        "\t\t\tPosition X=300\n\t\t\tPosition Y=500\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tVisible=1\n"
+        "\t\t\tPosition X=300\n\t\t\tPosition Y=480\n\t\t}\n"
+        "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1, 50.0f);
+    data.files["Cache/Models/Walls/Wall.mdl16"] =
+        modelFile("Wall", 1, 1, 0.0f, {{-10, -40}, {10, -40}, {10, 40}, {-10, 40}, {-10, -40}});
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    data.files["Inventory/Item Definitions/Enemy Weapons/Disruptor.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tWeapon Damage=30\n\tReuse Delay=1\n\tItem Range=375\n"
+                "\tMax Shoot Angle=10\n\tDischarge Action=CShootEnergyWeaponAction\n}\n");
+    data.files["Inventory/Item Definitions/Phaser.txt"] = bytesOf(
+        "CStarTrekInventoryItemDefinition\n{\n\tWeapon Damage=25\n\tReuse Delay=0.5\n\tItem Range=375\n"
+        "\tDischarge Action=CShootEnergyWeaponAction\n\tDefault Inventory Item=CStarTrekEnergyWeaponInventoryItem\n\t{\n\t\tWeapon Setting=Kill\n"
+        "\t}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    bo.inventory = {{"Phaser", 1}};
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    // The wall's footprint, about where it stands, hides one side from the
+    // other; past its end there's a clear line.
+    CHECK(!screen.clearSight(300.0f, 500.0f, 500.0f, 500.0f));
+    CHECK(screen.clearSight(300.0f, 600.0f, 500.0f, 500.0f));
+    const MapScreen::Enemy &guard = screen.enemies()[0];
+    CHECK(guard.health == 50.0f && guard.weapon && guard.weapon->weaponDamage == 30.0f);
+    CHECK(screen.officers()[0].health == 100.0f && !screen.officers()[0].weapon && screen.officers()[1].weapon);
+    // Behind the wall, unseen.
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    run(2000);
+    CHECK(guard.state == "Patrol");
+    // Ann walks out past the wall's end: seen, alerted, and shot each
+    // second, 30 a shot, till she falls and can't be chosen.
+    screen.choose(0);
+    screen.order(300.0f, 620.0f);
+    run(6000);
+    CHECK(guard.state == "Attack" && guard.target == 0);
+    CHECK(screen.officers()[0].health < 100.0f);
+    run(12000);
+    CHECK(!screen.officers()[0].alive() && screen.officers()[0].health == 0.0f && !screen.officers()[0].chosen);
+    screen.choose(0);
+    CHECK(screen.selected() == -1);
+    // With her down it goes back to its patrol; Bo, sent to shoot it,
+    // walks towards it till he sees it, and two of his phaser's shots kill
+    // it.
+    CHECK(screen.enemyAt(500.0f, 500.0f) == 0);
+    screen.choose(1);
+    screen.attack(0);
+    run(20000);
+    CHECK(!guard.alive() && guard.state == "Dead" && guard.health == 0.0f);
+    CHECK(screen.enemyAt(500.0f, 500.0f) == -1 && screen.officers()[1].attacking == -1);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -366,4 +452,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
                                             {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
                                             {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
+                                            {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                         });

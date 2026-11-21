@@ -144,6 +144,13 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             part.renderingHeight = int(o.integer("Rendering Height").value_or(0));
             part.visible = o.integer("Visible").value_or(1) != 0;
             part.active = o.integer("Active").value_or(1) != 0;
+            part.collideable = o.integer("Collideable").value_or(1) != 0;
+            part.fullHeight = o.integer("Full Height").value_or(1) != 0;
+            if (const TextObject *inventory = o.object("Inventory"))
+                if (const TextObject *list = inventory->object("Inventory List"))
+                    for (const TextField *item : list->items())
+                        if (item->object)
+                            part.inventory.push_back(text(*item->object, "Definition Index"));
             part.polygon = readPolygon(text(o, "Polygon"));
             part.angle = float(o.number("Facing Angle").value_or(0.0));
             part.overlay = text(o, "Overlay Model");
@@ -154,6 +161,26 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             part.onGround = o.integer("On Ground").value_or(0) != 0;
             out.parts.push_back(std::move(part));
         }
+    return Error::success();
+}
+
+Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &out) {
+    out = ModelInfo{};
+    std::vector<uint8_t> bytes;
+    const std::string path = "Cache/Models/" + model + ".mdl16";
+    if (Error err = data.read(path, bytes))
+        return err;
+    BinaryObject object;
+    if (Error err = readBinaryObject(bytes.data(), bytes.size(), "CModel", object))
+        return Error::fail(path + ": " + err.message);
+    out.footprint = readPolygon(text(object.object, "Bounds Poly"));
+    out.hitPoints = int(object.object.number("Hit Points").value_or(0.0));
+    if (const TextObject *entity = object.object.object("Default Entity"))
+        if (const TextObject *inventory = entity->object("Inventory"))
+            if (const TextObject *list = inventory->object("Inventory List"))
+                for (const TextField *item : list->items())
+                    if (item->object)
+                        out.inventory.push_back(text(*item->object, "Definition Index"));
     return Error::success();
 }
 

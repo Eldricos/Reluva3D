@@ -101,9 +101,26 @@ struct ItemDefinition {
     bool displayInInventory = false;
     std::string briefingScript; // a script of Levels/, and its entry describing the item
     std::string briefingText;
+    // A weapon's (Weapon Damage 0 for anything else).
+    float weaponDamage = 0.0f;
+    float reuseDelay = 0.0f;       // seconds between shots
+    float range = 0.0f;            // Item Range, pixels
+    float maxShootAngle = 0.0f;    // degrees off its aim it still shoots
+    std::string dischargeAction;   // what using it does: CShootEnergyWeaponAction...
+    std::string dischargeSequence; // the shooter's ("Shoot1")
+    std::string shotSound;
+    std::string shotFlash; // models, of Cache/Models
+    std::string hitFlash;
+    float shotDuration = 0.0f; // seconds the shot's shown
+    float stunDuration = 0.0f; // seconds one stunned by it stays down
+    bool stuns = false;        // set to stun (Weapon Setting), not kill
 };
 
-/** The item definitions, by name; one that won't read is left out. */
+/**
+ * The item definitions, by name, those in Item Definitions' folders by
+ * their path in it ("Enemy Weapons/Vulcan Phaser"); one that won't read is
+ * left out.
+ */
 std::map<std::string, ItemDefinition> loadItems(const Archive &data);
 
 /** The inventory's item types (`Inventory/Item Types`), in their files' order, `!None` left out. */

@@ -69,6 +69,15 @@ public:
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
         int move = 0;                              // walking, running (1) or crouching (2)
         bool chosen = false;                       // among those the player has chosen
+        float health = 0.0f;
+        float maxHealth = 0.0f;
+        const ItemDefinition *weapon = nullptr; // the one they shoot with, if any
+        int attacking = -1;                     // the enemy they've been sent to shoot
+        float reload = 0.0f;                    // seconds till their weapon shoots again
+        float shooting = 0.0f;                  // seconds into their shot's sequence; 0 not shooting
+        float dead = -1.0f;                     // seconds since they fell; below 0 alive
+
+        bool alive() const { return dead < 0.0f; }
     };
     const std::vector<Officer> &officers() const { return _officers; }
     /** The officer chosen first: whose items the inventory shows; -1 for none. */
@@ -98,6 +107,7 @@ public:
         bool active = true;
         bool visible = true;
         bool deleted = false;
+        bool collideable = true; // standing in the way, if it stands full height
     };
     const PartState &partState(size_t part) const { return _partStates[part]; }
 
@@ -114,6 +124,16 @@ public:
         float unseen = 0.0f;    // seconds its target's been out of its sight
         bool walking = false;
         float travelled = 0.0f; // into its walk's cycle
+        float health = 0.0f;
+        float maxHealth = 0.0f;
+        const ItemDefinition *weapon = nullptr;
+        float reload = 0.0f;
+        float shooting = 0.0f;
+        float dead = -1.0f;   // seconds since it fell; below 0 alive
+        float stunned = 0.0f; // seconds of its stun left
+
+        bool alive() const { return dead < 0.0f; }
+        bool down() const { return dead >= 0.0f || stunned > 0.0f; }
         // Each of its AIs' progress, by the AI.
         struct Progress {
             float time = 0.0f;
@@ -129,6 +149,13 @@ public:
     const std::vector<Enemy> &enemies() const { return _enemies; }
     /** Runs `action` (one of the map's), as a trigger would, `instigator` the officer who set it off (or -1). */
     void runAction(const TextObject *action, int instigator = -1);
+
+    /** Sends the officers chosen to shoot enemy `enemy`, walking into range first. */
+    void attack(int enemy);
+    /** The enemy standing at (x, y) on the map, alive, or -1. */
+    int enemyAt(float x, float y) const;
+    /** Whether nothing that stands full height is between two points on the map. */
+    bool clearSight(float x0, float y0, float x1, float y1) const;
 
 private:
     // What a ground value draws: a texture, and how much of the next one
@@ -153,6 +180,19 @@ private:
     // Turns `e` towards `angle` at `degreesPerSecond`; true there.
     bool turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds);
     bool sees(const Enemy &e, const Officer &o) const;
+    // Fighting (map_combat.cpp).
+    void setupCombat();
+    void updateCombat(float seconds);
+    const ModelInfo &modelInfo(const std::string &model);
+    const ItemDefinition *weaponOf(const std::vector<std::string> &items) const;
+    // A shot from (x, y) with `weapon` at (tx, ty): its sound, its flashes;
+    // how long the shooter's `model` takes over shooting it.
+    float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty);
+    void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker);
+    void hurtOfficer(size_t officer, const ItemDefinition &weapon);
+    // The sequence a character's drawn with, and how far into it, for one
+    // shooting or fallen; empty for neither.
+    std::string combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model);
     // The map's triggers (map_triggers.cpp).
     void setupTriggers();
     void updateTriggers(float seconds);
@@ -254,6 +294,28 @@ private:
     image::Image _dialogBackground;
     Font _dialogFont;
     std::unique_ptr<ConfirmDialog> _confirm;
+    // Fighting: the weapons, what the models say, what blocks sight (the
+    // footprints of the parts standing full height, on the map) and the
+    // shots' flashes showing.
+    std::map<std::string, ItemDefinition> _items;
+    std::map<std::string, ModelInfo> _modelInfos;
+    struct Wall {
+        size_t part;
+        std::vector<std::pair<float, float>> points;
+        // Its bounds.
+        float x0;
+        float y0;
+        float x1;
+        float y1;
+    };
+    std::vector<Wall> _walls;
+    struct Flash {
+        std::string model;
+        float x;
+        float y;
+        float time = 0.0f; // seconds shown
+    };
+    std::vector<Flash> _flashes;
 };
 
 } // namespace reluva::stawayteam

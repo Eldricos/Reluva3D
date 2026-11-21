@@ -56,7 +56,7 @@ void MapScreen::setupTriggers() {
     _partStates.resize(_map.parts.size());
     for (size_t i = 0; i < _map.parts.size(); ++i) {
         const MapPart &p = _map.parts[i];
-        _partStates[i] = {p.active, p.visible, false};
+        _partStates[i] = {p.active, p.visible, false, p.collideable};
         if (!p.name.empty())
             _byName[lower(p.name)].push_back(i);
         for (const TextObject *ai : p.activities) {
@@ -245,6 +245,9 @@ void MapScreen::runAction(const TextObject *action, int instigator) {
             for (size_t part : targets("Who to modify"))
                 _partStates[part].visible = visible;
         }
+    } else if (kind == "CSetCollidableAction") {
+        for (size_t part : targets("Target Name"))
+            _partStates[part].collideable = flag(action, "Collidable");
     } else if (kind == "CDeleteAction") {
         for (size_t part : targets("Target Name"))
             _partStates[part].deleted = true;

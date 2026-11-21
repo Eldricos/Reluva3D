@@ -260,11 +260,16 @@ bool Reader::value(const PropertySchema &p, Saved saved, TextField &field, int d
         std::memcpy(&n, head + 8, 4);
         if (n > uint32_t(kMaxCount))
             return fail("a polygon of " + std::to_string(n) + " points");
+        // Each point two floats, written as the text files write a
+        // polygon: "x, y, x, y" (a model's footprint has fractions: the
+        // Klingon wall's 47.3, 118.6).
         for (uint32_t i = 0; i < n; ++i) {
-            int32_t xy[2];
+            float xy[2];
             if (!bytes(xy, 8))
                 return false;
-            field.value += (i ? " " : "") + std::to_string(xy[0]) + "," + std::to_string(xy[1]);
+            char text[64];
+            std::snprintf(text, sizeof text, "%s%g, %g", i ? ", " : "", double(xy[0]), double(xy[1]));
+            field.value += text;
         }
         return true;
     }

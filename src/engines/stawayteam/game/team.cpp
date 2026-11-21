@@ -27,13 +27,16 @@ std::string text(const TextObject &object, const char *key) {
     return value ? *value : std::string();
 }
 
-// The files of a folder of DATA.dat with an extension, by name.
-std::vector<std::string> filesIn(const Archive &data, const std::string &folder, const std::string &ext) {
+// The files of a folder of DATA.dat with an extension, by name; with
+// `nested`, those of its folders too.
+std::vector<std::string> filesIn(const Archive &data, const std::string &folder, const std::string &ext,
+                                 bool nested = false) {
     std::vector<std::string> out;
     const std::string prefix = normalizeArchiveName(folder) + "/";
     for (const std::string &name : data.list()) {
         const std::string key = normalizeArchiveName(name);
-        if (key.starts_with(prefix) && key.ends_with(ext) && key.find('/', prefix.size()) == std::string::npos)
+        if (key.starts_with(prefix) && key.ends_with(ext) &&
+            (nested || key.find('/', prefix.size()) == std::string::npos))
             out.push_back(name);
     }
     std::sort(out.begin(), out.end(), [](const std::string &a, const std::string &b) {
@@ -108,7 +111,10 @@ std::vector<std::string> loadFields(const Archive &data) {
 
 std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
     std::map<std::string, ItemDefinition> out;
-    for (const std::string &path : filesIn(data, "Inventory/Item Definitions", ".txt")) {
+    // The enemies' are in folders of it, and named with them ("Enemy
+    // Weapons/Vulcan Phaser").
+    const std::string folder = "Inventory/Item Definitions";
+    for (const std::string &path : filesIn(data, folder, ".txt", true)) {
         TextObject def;
         if (readObject(data, path, def))
             continue;
@@ -120,7 +126,21 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.displayInInventory = def.integer("Display In Inventory").value_or(0) != 0;
         item.briefingScript = text(def, "Briefing Script");
         item.briefingText = text(def, "Briefing Text");
-        out[item.name] = std::move(item);
+        item.weaponDamage = float(def.number("Weapon Damage").value_or(0.0));
+        item.reuseDelay = float(def.number("Reuse Delay").value_or(0.0));
+        item.range = float(def.number("Item Range").value_or(0.0));
+        item.maxShootAngle = float(def.number("Max Shoot Angle").value_or(0.0));
+        item.dischargeAction = text(def, "Discharge Action");
+        item.dischargeSequence = text(def, "Discharge Sequence");
+        item.shotSound = text(def, "Shot Sound");
+        item.shotFlash = text(def, "Shot Flash");
+        item.hitFlash = text(def, "Hit Flash");
+        item.shotDuration = float(def.number("Shot Duration").value_or(0.0));
+        item.stunDuration = float(def.number("Stun Duration").value_or(0.0));
+        if (const TextObject *held = def.object("Default Inventory Item"))
+            item.stuns = text(*held, "Weapon Setting") == "Stun";
+        const std::string key = path.substr(folder.size() + 1, path.size() - folder.size() - 5);
+        out[key] = std::move(item);
     }
     return out;
 }

@@ -42,7 +42,10 @@ None yet.
   characters' facing in radians, the move button's order, the view held
   by the camera's scripts, a line's time and the beaming in's look; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
-  by box and Shift, and where officers sent together stand
+  by box and Shift, and where officers sent together stand; fighting:
+  sight blocked by the models' `Bounds Poly`, which weapon a character
+  uses, shots that always hit, stunning, the health bar's cut, and a
+  click on an enemy to attack it
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song

@@ -39,8 +39,11 @@ struct MapPart {
     float y = 0.0f;
     int renderingHeight = 0;
     bool visible = true;
-    bool active = true;                           // an inactive part isn't drawn, and its triggers wait (inferred)
-    std::vector<const TextObject *> activities;   // its AIs (Activity), in the map's object
+    bool active = true;                         // an inactive part isn't drawn, and its triggers wait (inferred)
+    std::vector<const TextObject *> activities; // its AIs (Activity), in the map's object
+    bool collideable = true;
+    bool fullHeight = true;                       // tall enough to hide what's behind it (inferred)
+    std::vector<std::string> inventory;           // its items' definitions (Inventory's Definition Index)
     std::vector<std::pair<float, float>> polygon; // its corners, the last the first again
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...
     std::string texture;                          // a textured polygon's, of Cache/Textures
@@ -103,6 +106,16 @@ struct WayPoints {
      */
     std::vector<std::pair<float, float>> path(float x0, float y0, float x1, float y1) const;
 };
+
+/** What a model's file says about the things made from it, as far as combat goes. */
+struct ModelInfo {
+    std::vector<std::pair<float, float>> footprint; // Bounds Poly: its outline on the ground, about where it stands
+    int hitPoints = 0;                              // 0: none given
+    std::vector<std::string> inventory;             // its Default Entity's items' definitions
+};
+
+/** Reads `Cache/Models/<model>.mdl16`'s ModelInfo. */
+Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &out);
 
 /** Reads a map's waypoints from `path` in `data` ("Levels/Mission 01/01 Klingon Outpost.way"). */
 Error loadWayPoints(const Archive &data, const std::string &path, WayPoints &out);

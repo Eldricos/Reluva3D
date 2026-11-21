@@ -54,6 +54,8 @@ public:
     void setMove(int move) { _move = move; }
     /** Which officers are chosen, their slots lit. */
     void setChosen(std::vector<bool> chosen) { _chosen = std::move(chosen); }
+    /** Each officer's health, as a part of their whole (0-1). */
+    void setHealth(std::vector<float> health) { _health = std::move(health); }
 
 private:
     // The info bar's top on the screen at `now`: rising as it opens.
@@ -79,6 +81,7 @@ private:
     uint64_t _last = 0;
     int _move = 0;
     std::vector<bool> _chosen;
+    std::vector<float> _health;
     int _mouseX = -1;
     int _mouseY = -1;
 };

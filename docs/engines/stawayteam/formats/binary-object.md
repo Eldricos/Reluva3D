@@ -59,7 +59,7 @@ key in text; neither is in binary, where there are no keys.
 | Object held in place | The object, without its class's name |
 | Objects held in place | A count, then the objects, of the property's class |
 | Array | A count, then the items, each saved by the array's element |
-| Polygon | `POLY2D`, 0, 7, a 4-byte count, then 8 bytes for each point |
+| Polygon | `POLY2D`, 0, 7, a 4-byte count, then two 4-byte floats for each point (a model's `Bounds Poly`: its footprint about where it stands) |
 
 An object held in place doesn't name its class, nor does the program's
 registration of it: its owner's constructor makes it. The game's text
@@ -155,7 +155,7 @@ disruptor where it fell.
 
 ## Open questions
 
-- **The 8 bytes of a point** or a polygon's point: integers or floats;
+- **The 8 bytes of a point** (not a polygon's, which are floats): integers or floats;
   and how the game uses a rotation sequence's frames' movement.
 - **Five properties** of the table aren't identified, nor two arrays'
   items (`unknown` in [research/classes.txt](../research/classes.txt));

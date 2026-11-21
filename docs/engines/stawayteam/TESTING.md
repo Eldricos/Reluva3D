@@ -111,7 +111,10 @@ stawayteam frame-png`.
    guide arrows blinking where the tutorial points, triggers' lines as
    the team walks into them; a box dragged round the team choosing them
    all, sent together to the goto spots; the Romulans walking their
-   rounds, and one turning on an officer who walks into its sight. With "Opening movies" off, the main menu's screen at once.
+   rounds, and one turning on an officer who walks into its sight, not
+   one behind a wall; the team chosen and an enemy clicked: them walking
+   till they see it and shooting, its flashes, it falling, and an
+   officer it shoots losing health on the team bar. With "Opening movies" off, the main menu's screen at once.
    With `DATA.dat` missing or damaged, it says so instead.
 3. `reluva-viewer` with the game: the pictures, their colours and
    blended edges right on each background; sequences playing; a

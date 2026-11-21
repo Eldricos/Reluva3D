@@ -70,15 +70,19 @@ void MapScreen::setupEnemies() {
 
 bool MapScreen::sees(const Enemy &e, const Officer &o) const {
     // Within its Max Distance and half its Vision Cone either side of its
-    // facing (CBorgSetClosestTarget, inferred: walls don't hide anyone
-    // yet).
+    // facing, nothing standing full height between (CBorgSetClosestTarget,
+    // inferred).
+    if (!o.alive())
+        return false;
     const float dx = o.x - e.x;
     const float dy = o.y - e.y;
     const float distance = std::hypot(dx, dy);
     if (distance > number(e.ai, "Max Distance", 375.0f))
         return false;
     const float off = std::abs(wrap(angleOf(dx, dy) - e.angle));
-    return off * 180.0f / kPi <= number(e.ai, "Vision Cone", 125.0f) / 2.0f;
+    if (off * 180.0f / kPi > number(e.ai, "Vision Cone", 125.0f) / 2.0f)
+        return false;
+    return clearSight(e.x, e.y, o.x, o.y);
 }
 
 bool MapScreen::turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds) {
@@ -220,7 +224,7 @@ void MapScreen::updateEnemies(float seconds) {
     for (Enemy &e : _enemies) {
         e.walking = false;
         const PartState &state = _partStates[e.part];
-        if (!state.active || state.deleted)
+        if (!state.active || state.deleted || e.down())
             continue;
         e.stateTime += seconds;
         const TextObject *states = e.ai;
@@ -248,9 +252,11 @@ void MapScreen::updateEnemies(float seconds) {
         if ((e.state != "Alert" && e.state != "Attack") || e.target < 0)
             continue;
         const Officer &o = _officers[size_t(e.target)];
-        turnTo(e, angleOf(o.x - e.x, o.y - e.y), kTurnSpeed, seconds);
-        e.unseen = sees(e, o) ? 0.0f : e.unseen + seconds;
-        if (e.unseen > kForgetAfter) {
+        const float toward = angleOf(o.x - e.x, o.y - e.y);
+        turnTo(e, toward, kTurnSpeed, seconds);
+        const bool seen = sees(e, o);
+        e.unseen = seen ? 0.0f : e.unseen + seconds;
+        if (e.unseen > kForgetAfter || !o.alive()) {
             // Back to its patrol, where it left off.
             e.state = "Patrol";
             e.target = -1;
@@ -263,6 +269,23 @@ void MapScreen::updateEnemies(float seconds) {
             e.stateTime = 0.0f;
             if (const TextObject *attack = states->object("Attack"))
                 runAction(attack->object("Start Action"), -1);
+        }
+        // Attacking, it shoots what it sees in its weapon's range, aimed
+        // within its Max Shoot Angle, each Reuse Delay; one it sees further
+        // off it goes after (its Pursue state's, inferred).
+        if (e.state != "Attack" || !e.weapon || !seen)
+            continue;
+        const float distance = std::hypot(o.x - e.x, o.y - e.y);
+        if (distance > e.weapon->range) {
+            walkTo(e, o.x, o.y, 1.0f, seconds);
+            continue;
+        }
+        const float off = std::abs(wrap(toward - e.angle)) * 180.0f / kPi;
+        if (off <= e.weapon->maxShootAngle && e.reload <= 0.0f) {
+            e.reload = e.weapon->reuseDelay;
+            shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, o.x, o.y);
+            e.shooting = 1e-6f;
+            hurtOfficer(size_t(e.target), *e.weapon);
         }
     }
 }

@@ -41,8 +41,9 @@ None yet.
   the program's fractal; water's warping and the map's song aren't
   there; triggers set off by enemies, passing through or colliding, and
   the AIs' messages and objectives, aren't there; enemies patrol, see
-  through walls, and are alerted and turn on an officer, but don't yet
-  shoot, pursue or investigate; the interface's
+  and shoot, but don't yet pursue round walls, investigate or retreat;
+  shots show their flashes but no beam, always hit, and grenades and
+  mines can't be used; the interface's
   buttons but the move button do nothing yet, and the map's characters
   don't move
   ([systems/maps.md](systems/maps.md#in-reluva)).

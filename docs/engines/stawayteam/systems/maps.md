@@ -219,7 +219,43 @@ and `End Action`, and `Current State` the one it starts in (`Patrol`).
   `CShootWeaponBehavior`, aiming at the target.
 
 The program's AI code isn't traced yet: how these act is read from the
-maps.
+maps. In Mission 01's 32 enemies, `Attack` is a
+`CStarTrekStandGroundAttackAI` in all, `Pursue` a `CChasePursueAI` in
+29; their `Target If Hit` is 1 in 30 of them; a `Damage Action` and a
+`Stun State` (`Stun`) are given too.
+
+### Fighting
+
+- **Weapons** are item definitions (`Inventory/Item Definitions`, the
+  enemies' in its folders, `Enemy Weapons/Vulcan Phaser`): `Weapon
+  Damage`, `Reuse Delay` (seconds), `Item Range` (pixels), `Max Shoot
+  Angle` (degrees), `Discharge Action` (`CShootEnergyWeaponAction` for
+  phasers and disruptors, `CShootProjectileWeaponAction` for the sniper
+  rifles, `CStrikeTargetAction` for a Targ's jaws and the neural
+  disrupter, `CThrowProjectileWeaponAction` for grenades, none for
+  mines), `Discharge Sequence` (`Shoot1`), `Shot Sound`, `Shot Flash`
+  and `Hit Flash` (models: `Enemy Shots/Enemy Shot Flashes/Phaser
+  Flash`, one direction, `Idle` at 15 a second), `Shot Duration`,
+  `Stun Duration`, and its `Default Inventory Item`'s `Weapon Setting`
+  (`Kill`, or `Stun`). The Phaser: 25 damage, every 0.35 s, 375 pixels;
+  the Romulan Disruptor: 30, every 0.75 s, 375.
+- **Who has what:** a map's part's `Inventory`, its `Inventory List`'s
+  items' `Definition Index` (30 of Mission 01's 32 enemies have a
+  weapon); a model's `Default Entity` has one too; the officers have the
+  roster's.
+- **Health:** a model's `Hit Points` (the Romulan's 100); the team
+  bar's `Health Bar Background` and `Foreground` at Rules.txt's `Team
+  Health Offset` (54, 7) in each officer's slot. The characters'
+  models have `Shoot1`, `Death`, `Dead` and `Throw` sequences.
+- **What hides what:** a model's `Bounds Poly` is its outline on the
+  ground about where it stands, in floats (the Klingon wall's from 47.3,
+  118.6 round to -87.1, 101.5); a part's `Collideable` and `Full Height`
+  (and `Half Height`) say whether it's in the way and whether it stands
+  tall enough to hide anyone *(inferred)*. Triggers turn
+  `Collideable` with a `CSetCollidableAction` (12 in Mission 01).
+
+The program's weapon code isn't traced yet: how these act is read from
+the fields.
 
 The info dialog (`0x435db6`) is `Dialog Window/Background` at Rules.txt's
 `Dialog Pos`, the speaker's icon at `Dialog Icon Pos`, the line from its
@@ -253,7 +289,8 @@ its ground, and its parts' models, places and polygons. `MapScreen`
 
 The interface (`GameHud`, `ui/game_hud.cpp`) around it, its parts at
 Rules.txt's places: the team bar with each officer's slot, name, head and
-health (whole, as nothing hurts them yet), the chosen one's slot lit
+health (the bar's foreground cut to what's left of it, from the
+bottom *(inferred)*), the chosen one's slot lit
 *(inferred)*; the button box's buttons as they start *(inferred)*; the
 info bar rising while the mouse is over it *(inferred)*, its minimap with
 the view outlined, a click on it moving the view there *(inferred)*; the
@@ -311,16 +348,38 @@ The enemies (`ui/map_enemies.cpp`), while their parts are active: on
 patrol, their patrol's AIs as above, a path straight from corner to
 corner, a scan's turning in degrees a second, the rest done at once
 *(inferred)*; seeing an officer (in Max Distance and half the Vision
-Cone either side of their facing, walls not yet hiding anyone), alerted:
-the Alert's Start Action, turning to them, and after Alert Time
-attacking: the Attack's Start Action, facing them; out of sight five
-seconds, back to the patrol *(inferred)*.
+Cone either side of their facing, nothing standing full height
+between), alerted: the Alert's Start Action, turning to them, and after
+Alert Time attacking: the Attack's Start Action, facing them; out of
+sight five seconds, or their target fallen, back to the patrol
+*(inferred)*.
+
+Fighting (`ui/map_combat.cpp`): sight is blocked by the outlines (`Bounds
+Poly`) of the parts shown that collide and stand full height, about
+where they stand, a line crossing one's edge *(inferred)*; the enemies
+themselves don't block it. Each character has their model's Hit Points,
+or 100 without *(inferred)*, and the first weapon of theirs that shoots,
+or else one that strikes *(inferred)*. An enemy attacking shoots its
+target while it sees them in its weapon's range, aimed within its Max
+Shoot Angle, each Reuse Delay; one it sees further off it walks straight
+at *(inferred)*. A click on an enemy sends the officers chosen to shoot
+it: by the waypoints till it's in range and sight, then each Reuse Delay
+*(inferred)*; walking elsewhere, or the
+enemy fallen, they stop. A shot always hits *(inferred)*: its Shot Sound,
+its Shot Flash on the shooter and its Hit Flash on the one hit, the
+shooter's `Shoot1` played through, the Weapon Damage taken off. An enemy
+hit runs its Damage Action, and with Target If Hit attacks whoever hit it;
+a weapon set to stun puts it down for the Stun Duration, then back on
+patrol *(inferred)*. With no health left a character plays `Death` once
+and lies `Dead`; a fallen officer can't be chosen or sent.
 
 Not there yet: the interface's other buttons, the map's song, the
 triggers set off by enemies, passing through or colliding, the AIs'
-messages and tasks, objectives, walkers going round each other, sight
-blocked by walls, and the enemies shooting, pursuing, investigating and
-the rest of their states.
+messages and tasks, objectives, walkers going round each other, the
+shots' beams and projectiles, missing, thrown and laid weapons, stun
+for the officers and the phaser's setting, the enemies pursuing by the
+waypoints, investigating, retreating and the rest of their states, and
+a mission lost with the team.
 
 ## Sources and checks
 
@@ -344,10 +403,15 @@ the rest of their states.
   sent, a camera's script panning, eased, showing a line and beaming
   the team in, the team chosen by key, Shift and box and sent together,
   a guard walking its route, looking about, seeing an officer, alerted
-  and attacking, and an officer walking into a trigger that relays to an
+  and attacking; a wall hiding an officer from a guard, the guard
+  shooting her down once she's past it, and an officer sent to shoot it
+  walking into sight and killing it; and an officer walking into a trigger that relays to an
   arrow, on and a second later off, once only. Mission 01 run on: the
   opening's delayed relays bringing Data's lines that teach selecting and
-  moving the team.
+  moving the team; the four officers sent at the nearest Romulan, round
+  the walls till they see it, killing it with their phasers, one of them
+  hit and his health bar down, the shots' flashes on them and on it, and
+  it falling.
 
 ## Open questions
 
@@ -361,7 +425,11 @@ the rest of their states.
 - **Shadows**, and how the `Trans` colours are drawn.
 - **The triggers:** the program's own rules for all of the above, which
   are read from the maps' fields, not from its code.
-- **The enemies:** likewise, the AIs' rules; and how walls block sight.
+- **The enemies:** likewise, the AIs' rules.
+- **Fighting:** the program's rules for sight (whether the footprints
+  are what blocks it, `Half Height`), for aiming and missing, which
+  weapon a character uses, the shots' beams, where on a character the
+  flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift, and where officers
   sent together stand.
 - **The team:** which spawn point each officer takes, `Facing Angle`'s

@@ -145,18 +145,22 @@ inline std::vector<uint8_t> fontFile(const std::vector<std::vector<uint8_t>> &gl
  * A .mdl16: a CModel (version 1603) of its thirty properties, with one
  * rotation sequence, "Idle", of `rotations` directions of `frames` frames
  * each (CRotationSequence, version 30575: CSequence's properties, then its
- * own fourteen).
+ * own fourteen); its Hit Points `hitPoints`, its Bounds Poly `footprint`.
  */
-inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, int frames) {
+inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, int frames, float hitPoints = 100.0f,
+                                      const std::vector<std::pair<float, float>> &footprint = {}) {
     BinaryWriter w;
     w.object(1603.0f);
     w.str(name).str("").str("Model Descriptions").str("A test model").str("").i32(0).str("");
-    w.f32(100.0f).f32(0.0f).str("").f32(0.0f).f32(0.0f).u8(0).i32(0).str("Idle");
+    w.f32(hitPoints).f32(0.0f).str("").f32(0.0f).f32(0.0f).u8(0).i32(0).str("Idle");
     for (int i = 0; i < 6; ++i)
         w.str("");
     for (int i = 0; i < 6; ++i)
         w.f32(0.0f);
-    w.bytes({'P', 'O', 'L', 'Y', '2', 'D', 0, 7, 0, 0, 0, 0}).str("").str("");
+    w.bytes({'P', 'O', 'L', 'Y', '2', 'D', 0, 7}).i32(int32_t(footprint.size()));
+    for (const auto &[x, y] : footprint)
+        w.f32(x).f32(y);
+    w.str("").str("");
     w.i32(1).str("").u8(1).str("Idle").u8(0);
     const int count = rotations * frames;
     w.object(30575.0f);
