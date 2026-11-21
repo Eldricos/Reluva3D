@@ -59,6 +59,8 @@ private:
  * full, no green), the colour key MPR's blits skip: makes those pixels
  * transparent, and returns how many there were. The key is set by the
  * executable, not stored in the files; magenta is what the pictures show.
+ * A picture with no magenta whose top left pixel is yellow uses yellow
+ * instead (seven of the Federation's galaxy screen pictures).
  */
 size_t applyColorKey(image::Image &img);
 

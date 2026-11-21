@@ -7,6 +7,7 @@
 // saving, the Hall of Fame, multiplayer setup) and the start of a new game: the game setup screen, then the empire selection screen
 // (docs/engines/botf/systems/screens.md).
 
+#include "common/log.h"
 #include "common/zip.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
@@ -14,6 +15,7 @@
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
+#include "engines/botf/ui/galaxy_screen.h"
 #include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/multiplayer_screen.h"
@@ -30,6 +32,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace reluva::botf {
@@ -71,21 +74,47 @@ constexpr uint64_t kCursorFlashMillis = 300;
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
+// The install's file `name` (lower case), in any case, if it's there.
+std::optional<std::filesystem::path> saveFile(const std::filesystem::path &dir, const std::string &name) {
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
+        std::string file = entry.path().filename().string();
+        for (char &c : file)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        if (file == name)
+            return entry.path();
+    }
+    return std::nullopt;
+}
+
 // Whether the install has an autosave Continue can go on from: auto.sav
 // (any case) holding a saved game, not a fresh install's empty file.
 // Without it the game's Continue is dimmed; last.sav makes no difference
 // (the user, in the game).
 bool hasAutosave(const std::filesystem::path &dir) {
-    std::error_code ec;
-    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
-        std::string name = entry.path().filename().string();
-        for (char &c : name)
-            c = char(std::tolower(static_cast<unsigned char>(c)));
-        SaveSummary save;
-        if (name == "auto.sav" && !readSaveSummary(entry.path(), save))
-            return true;
-    }
-    return false;
+    SaveSummary save;
+    const auto path = saveFile(dir, "auto.sav");
+    return path && !readSaveSummary(*path, save);
+}
+
+// Opens the saved game at `path` on the galaxy screen, as its player sees
+// it; fails if the save can't be read.
+Error openSavedGame(const std::filesystem::path &path, GalaxyScreen &galaxy) {
+    SaveSummary summary;
+    SavedGalaxy map;
+    std::vector<SavedTaskForce> taskForces;
+    if (Error err = readSaveSummary(path, summary))
+        return err;
+    if (Error err = readSavedGalaxy(path, map))
+        return err;
+    if (Error err = readSavedTaskForces(path, map.width, taskForces))
+        return err;
+    if (summary.empire < 0)
+        return Error::fail(path.string() + ": the player's empire isn't one of the five");
+    if (Error err = galaxy.load(summary.empire))
+        return err;
+    galaxy.open(std::move(map), std::move(taskForces), summary.empire, summary.turn);
+    return Error::success();
 }
 
 // The saved games in the install's slots, game0.sav to game11.sav (any
@@ -196,6 +225,7 @@ public:
         MainMenu menu(assets, _lexicon);
         OptionsScreen options(assets, _lexicon);
         LoadSaveScreen loading(assets, _lexicon);
+        GalaxyScreen galaxy(assets, _lexicon);
         FameScreen fame(assets, _lexicon);
         MultiplayerScreen multiplayer(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
@@ -237,7 +267,7 @@ public:
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        enum class Showing { kMenu, kOptions, kLoad, kFame, kMultiplayer, kSetup, kEmpires };
+        enum class Showing { kMenu, kOptions, kLoad, kFame, kMultiplayer, kSetup, kEmpires, kGalaxy };
         Showing showing = Showing::kMenu;
         Showing shown = showing; // before the event
         bool redraw = true;
@@ -253,8 +283,15 @@ public:
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         return Error::success();
                     const MainMenu::Choice c = menu.handle(ev);
-                    // Continue would load the autosave, but saved games can't
-                    // be loaded yet: it stays on the main menu.
+                    // Continue opens the autosave's galaxy.
+                    if (c == MainMenu::Choice::kContinue) {
+                        if (const auto path = saveFile(_target.path, "auto.sav")) {
+                            if (Error err = openSavedGame(*path, galaxy))
+                                log::warning("%s", err.message.c_str());
+                            else
+                                showing = Showing::kGalaxy;
+                        }
+                    }
                     if (c == MainMenu::Choice::kQuit)
                         return Error::success();
                     if (c == MainMenu::Choice::kNewSinglePlayer) {
@@ -317,11 +354,27 @@ public:
                     if (fame.handle(ev))
                         showing = Showing::kMenu;
                 } else if (showing == Showing::kLoad) {
-                    // Nothing is saved or loaded yet: there's no game.
-                    if (loading.handle(ev) != LoadSaveScreen::Result::kOpen) {
+                    // Loading opens the chosen game's galaxy; nothing is
+                    // saved yet, as there's no game to save.
+                    const LoadSaveScreen::Result r = loading.handle(ev);
+                    if (r != LoadSaveScreen::Result::kOpen) {
                         _sys.setTextInput(false);
                         showing = Showing::kMenu;
                     }
+                    if (r == LoadSaveScreen::Result::kAccepted && loading.mode() == LoadSaveScreen::Mode::kLoad) {
+                        const std::string name = "game" + std::to_string(loading.chosen()) + ".sav";
+                        if (const auto path = saveFile(_target.path, name)) {
+                            if (Error err = openSavedGame(*path, galaxy))
+                                log::warning("%s", err.message.c_str());
+                            else
+                                showing = Showing::kGalaxy;
+                        }
+                    }
+                } else if (showing == Showing::kGalaxy) {
+                    // Escape goes back to the main menu: Reluva's, as the
+                    // game's own menus aren't there yet.
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+                        showing = Showing::kMenu;
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)
@@ -391,6 +444,8 @@ public:
                     multiplayer.draw(screen);
                 else if (showing == Showing::kSetup)
                     setup.draw(screen);
+                else if (showing == Showing::kGalaxy)
+                    galaxy.draw(screen);
                 else
                     empires.draw(screen);
                 redraw = false;

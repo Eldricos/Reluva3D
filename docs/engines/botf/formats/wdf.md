@@ -96,6 +96,17 @@ game's renderer skips a colour key: `trek.exe` imports MPR's
 `MPRSetChromaKey` *(from the code)*, set by the executable rather than
 stored in the files *(inferred)*.
 
+Seven pictures, all the Federation's galaxy screen's, have no magenta
+and use yellow (red and green full, blue 0) the same way: the Overlay and
+Map buttons (`h_ovr.tga`, `h_lmap.tga`, `h_lmapon.tga`), whose lit or
+plain twins have magenta in the same places, and four 39x35 boxes
+(`hm_bblu.tga`, `hm_bgre.tga`, `hm_bred.tga`, `hm_bwhi.tga`), yellow
+inside. On a screenshot of the galaxy screen the buttons' yellow edges
+show what's behind them. They're the only pictures in `stbof.res` whose
+first pixel is yellow; Reluva takes yellow as the key in a picture with
+no magenta whose top left pixel is yellow *(inferred)*. How the game
+tells which key a picture uses isn't known.
+
 ## In Reluva
 
 `WindowLayout` (`src/engines/botf/formats/window_layout.cpp`) reads each

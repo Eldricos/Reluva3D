@@ -72,12 +72,21 @@ std::string Assets::why(const std::string &name) const {
 }
 
 size_t applyColorKey(image::Image &img) {
+    // 5-bit magenta (31, 0, 31) is 255, 0, 255 once widened; allow for a
+    // decoder that widens by shifting (248, 0, 248). Yellow the same.
+    auto magenta = [](const uint8_t *p) { return p[0] >= 248 && p[1] < 8 && p[2] >= 248; };
+    auto yellow = [](const uint8_t *p) { return p[0] >= 248 && p[1] >= 248 && p[2] < 8; };
+    bool anyMagenta = false;
+    for (size_t i = 0; i + 3 < img.rgba.size() && !anyMagenta; i += 4)
+        anyMagenta = magenta(img.rgba.data() + i);
+    // A few of the Federation's galaxy screen pictures mark what isn't
+    // drawn with yellow instead: those with no magenta whose corner is
+    // yellow (the game shows what's behind there).
+    const bool yellowKey = !anyMagenta && !img.rgba.empty() && yellow(img.rgba.data());
     size_t n = 0;
     for (size_t i = 0; i + 3 < img.rgba.size(); i += 4) {
         uint8_t *p = img.rgba.data() + i;
-        // 5-bit magenta (31, 0, 31) is 255, 0, 255 once widened; allow for
-        // a decoder that widens by shifting (248, 0, 248).
-        if (p[0] >= 248 && p[1] < 8 && p[2] >= 248) {
+        if (yellowKey ? yellow(p) : magenta(p)) {
             p[3] = 0;
             ++n;
         }

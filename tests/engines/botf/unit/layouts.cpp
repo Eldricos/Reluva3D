@@ -116,6 +116,15 @@ void testColorKey() {
     img.rgba = {255, 0, 255, 255, 248, 0, 248, 255, 255, 0, 254, 255, 255, 40, 255, 255};
     CHECK(applyColorKey(img) == 3);
     CHECK(img.rgba[3] == 0 && img.rgba[7] == 0 && img.rgba[11] == 0 && img.rgba[15] == 255);
+
+    // No magenta, and yellow in the top left corner: yellow is the key.
+    img.rgba = {255, 255, 0, 255, 10, 20, 30, 255, 255, 255, 0, 255, 255, 0, 0, 255};
+    CHECK(applyColorKey(img) == 2);
+    CHECK(img.rgba[3] == 0 && img.rgba[7] == 255 && img.rgba[11] == 0 && img.rgba[15] == 255);
+    // With magenta anywhere, yellow is a colour like any other.
+    img.rgba = {255, 255, 0, 255, 255, 0, 255, 255, 255, 255, 0, 255, 1, 2, 3, 255};
+    CHECK(applyColorKey(img) == 1);
+    CHECK(img.rgba[3] == 255 && img.rgba[7] == 0 && img.rgba[11] == 255);
 }
 
 // A picture dimmed for a button that can't be used: its colours scaled,

@@ -19,9 +19,11 @@ None yet.
 ## Not yet as the original
 
 - **On the main menu,** Save Game and Retire can't be used (as in the
-  game with nothing in progress), and Continue, usable with an autosave
-  as in the game, stays on the main menu: saved games can't be loaded
-  yet.
+  game with nothing in progress).
+- **A loaded game is only shown:** Load Game's Accept and Continue open
+  the galaxy screen with the save's map, but its panels, its buttons and
+  playing the turn are still to come, and Escape goes back to the main
+  menu ([systems/galaxy-screen.md](systems/galaxy-screen.md)).
 - **No multiplayer:** Multiplayer Setup is there, but its Connect does
   nothing: Reluva can't play over a network, modem or serial cable yet,
   nor with the original game.
@@ -30,10 +32,9 @@ None yet.
   but its encrypted executable, so Reluva doesn't have them. Its own list
   will fill as games are won, once it can play them
   ([systems/screens.md](systems/screens.md)).
-- **Load Game's Accept comes back to the main menu:** saved games can't
-  be loaded yet. Save Game's screen is there, but as in the game it needs
-  a game in progress, which there can't be yet, and nothing would be
-  written.
+- **Nothing is saved:** Save Game's screen is there, but as in the game
+  it needs a game in progress, which there can't be yet, and nothing
+  would be written.
 - **Accepting an empire comes back to the main menu:** there's no game to
   start yet ([systems/screens.md](systems/screens.md)).
 - **The menu's sounds** are the ones a recording shows, but where the

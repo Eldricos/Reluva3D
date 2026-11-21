@@ -84,6 +84,8 @@ constexpr int kFerengi = 324;
 constexpr int kGalaxy = 406;
 constexpr int kKlingons = 563;
 constexpr int kRomulans = 1061;
+// The galaxy screen's turn ("TURN 1"), found by its text.
+constexpr int kTurn = 1370;
 } // namespace lex
 
 } // namespace reluva::botf

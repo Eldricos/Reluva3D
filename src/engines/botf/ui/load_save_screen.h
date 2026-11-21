@@ -68,6 +68,8 @@ public:
      */
     Result handle(const Event &event);
 
+    /** Load Game or Save Game, as opened. */
+    Mode mode() const { return _mode; }
     /** The slot chosen (0-11), or -1. */
     int chosen() const { return _chosen; }
     /** Saving: the description as typed, UTF-8. */

@@ -14,6 +14,7 @@
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
+#include "engines/botf/ui/galaxy_screen.h"
 #include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/multiplayer_screen.h"
@@ -783,6 +784,93 @@ void testMenuMusic() {
     CHECK(std::all_of(seen.begin(), seen.end(), [](int n) { return n > 0; }));
 }
 
+void testGalaxyScreen() {
+    // The Federation's layout: the military mode's button, the map's place
+    // and the turn's text box, as hmaingal.wdf places them.
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 1000, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, 1}, {13, 1}, {14, 1}});
+    putWidget(f, 2, 1004, 558, 432, 87, 24, "none");
+    put32(f, 0xffffffff);
+    f.push_back(0);
+    put32(f, 0);
+    put32(f, 0);
+    putName(f, "none");
+    putName(f, "none");
+    putWidget(f, 13, 1017, 249, 36, 526, 391, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 14, 1021, 63, 76, 100, 30, "none");
+    for (const uint32_t v : {0U, 0U, 100U, 30U})
+        put32(f, v);
+    putFont(f, 1, 0, 0, "human28.fnt");
+    // A white star, 10 pixels square.
+    image::Image star;
+    star.w = star.h = 10;
+    star.rgba.assign(400, 255);
+    MemoryArchive archive;
+    archive.files["hmaingal.wdf"] = f;
+    archive.files["s-y-maps.tga"] = image::encodeTga(star);
+    archive.files["human9.fnt"] = makeFont(10);
+    archive.files["human28.fnt"] = makeFont(29);
+    Assets assets(archive);
+    Lexicon lexicon;
+    GalaxyScreen screen(assets, lexicon);
+    CHECK(!screen.load(1));
+
+    // A small galaxy's 13 by 10 sectors: Sol, the Federation's, explored;
+    // Thelka next to it, not; another far away.
+    SavedGalaxy g;
+    g.width = 13;
+    g.height = 10;
+    g.sectors.resize(130);
+    auto system = [&](const char *name, int x, int y, int mapX, int mapY, int race) {
+        SavedSystem s;
+        s.name = name;
+        s.starAnimation = "s-y-";
+        s.mapX = mapX;
+        s.mapY = mapY;
+        s.controllingRace = race;
+        g.sectors[size_t(y * 13 + x)].system = int(g.systems.size());
+        g.systems.push_back(s);
+    };
+    system("Sol", 10, 8, 52, 43, 1);
+    system("Thelka", 9, 7, 47, 37, -1);
+    system("Far", 2, 2, 12, 12, -1);
+    g.sectors[8 * 13 + 10].explored = 1 << 1;
+    // A task force of the Federation's away from Sol scans round it too.
+    SavedTaskForce t;
+    t.owner = 1;
+    t.x = 5;
+    t.y = 5;
+    screen.open(g, {t}, 1, 0);
+    // The scanners reach the sectors next to Sol's and the task force's.
+    CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(12, 7));
+    CHECK(screen.scanned(4, 4) && screen.scanned(6, 6) && !screen.scanned(2, 2));
+    Surface s;
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    auto white = [&](int x, int y) {
+        const uint8_t *p = s.row(y) + size_t(x) * 4;
+        return p[0] == 255 && p[1] == 255 && p[2] == 255;
+    };
+    auto any = [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x)
+                if (s.row(y)[size_t(x) * 4 + 2] > 100)
+                    return true;
+        return false;
+    };
+    // Sol's star where the game's is: the grid from (258, 36), 39 pixels a
+    // sector, 7 a step of its small-map place, less 3.
+    CHECK(white(659, 366) && white(668, 375) && !white(658, 366) && !white(669, 375));
+    // Thelka's is drawn, the far system's isn't; only Sol's name is.
+    CHECK(white(258 + 9 * 39 + 11, 36 + 7 * 39 + 11) && !white(258 + 2 * 39 + 11, 36 + 2 * 39 + 11));
+    CHECK(any(645, 376, 680, 386) && !any(605, 298, 640, 308));
+    // The turn, in its box.
+    CHECK(any(63, 76, 163, 106));
+}
+
 void testEmpireScreen() {
     // The empires' name buttons 9105-9109 in a column, 100x20 each, Accept
     // and Cancel, a hidden button, and the description's text box.
@@ -871,4 +959,5 @@ static const reluva::test::Suite
                {"multiplayer setup", [](const std::filesystem::path &) { testMultiplayerScreen(); }},
                {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
+               {"galaxy", [](const std::filesystem::path &) { testGalaxyScreen(); }},
            });
