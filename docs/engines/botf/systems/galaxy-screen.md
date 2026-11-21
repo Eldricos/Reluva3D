@@ -98,9 +98,10 @@ first turn of one game and the eleventh of another, with their saves
   game draws a pixel further left, for a reason not known. The 9-point
   fonts set their glyphs a pixel closer than the others
   ([formats/fnt.md](../formats/fnt.md)). The empire's own systems' names
-  are in (0, 251, 255), the others' in (255, 186, 57); Reluva draws the
-  other empires' and the minor races' in the second, as none is seen
-  *(guessed)*.
+  are in (0, 251, 255), those nobody holds in (255, 186, 57), a Romulan
+  system's in (0, 170, 16) (Romulus, in a zoomed-in screenshot of the
+  forty-fourth turn). Reluva draws the other empires' and the minor
+  races' in the orange, as none is seen *(guessed)*.
 
 - **Ranges:** green, yellow and red lines, a pixel wide, along the sector
   edges round what's within a short, medium and long range of the
@@ -385,8 +386,15 @@ blend with what's under them.
 - Which explored systems are named at later turns: at the thirty-third,
   nine explored sectors have no name (the Romulans' and Cardassians'
   systems among them, and both pulsars), and no field read tells them
-  from the named ones.
-- How the growth rate is worked out.
+  from the named ones; at the forty-fourth Romulus is named, but its
+  neighbours Tyrus and Norpin still aren't, zoomed in too.
+- How the growth rate is worked out. Seen: Sol 3.1% at populations 310
+  and 335 (of 335), Romulus 2.9% (355), Babel 0.7% (uninhabited, 75),
+  Manark 0.0% (uninhabited, 0), Bolarus 0.3% (42 of 50), and Deneb 0.3%
+  at 32 and 0.9% at 220 a turn later, its planets unchanged, as the
+  Bandi joined the Federation; there the screen shows 220 for the
+  maximum, the save keeping 105. A planet's own rate is shown with the
+  pointer over it: Deneb II 0.1% (60), Bolarus III 0.3% (50).
 - Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
 - Whether a click elsewhere closes the zoom's buttons.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the

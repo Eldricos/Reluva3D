@@ -105,9 +105,12 @@ constexpr int kOutSector = kZooms[0].sector;
 
 constexpr Color kScannedGridColor{24, 73, 173}; // the dotted lines round what the scanners reach
 constexpr Color kNameColor{0, 251, 255};        // the empire's own systems'
-// Those of systems nobody holds; the others' are taken to be the same
-// (guessed: no screenshot shows one).
+// Those of systems nobody holds; a Romulan system's in green (Romulus, in a
+// zoomed-in screenshot); the other empires' are taken to be the first
+// colour (guessed: none is seen).
 constexpr Color kOtherNameColor{255, 186, 57};
+constexpr Color kRomulanNameColor{0, 170, 16};
+constexpr int kRomulans = 4;
 constexpr Color kSelectedColor{247, 125, 0};
 // The empires' claims on the sectors the player has seen, measured on the
 // eleventh and thirty-third turns' screenshots: a dot on every other row
@@ -825,6 +828,7 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
             int mapX = 0;
             int mapY = 0;
             bool own = false;
+            int owner = -1;
             if (here.system >= 0) {
                 const SavedSystem &sys = g.systems[size_t(here.system)];
                 picture = _assets.picture(sys.starAnimation + z.starSuffix);
@@ -832,6 +836,7 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
                 mapX = sys.mapX;
                 mapY = sys.mapY;
                 own = sys.controllingRace == _empire;
+                owner = sys.controllingRace;
             } else if (here.stellarObject >= 0) {
                 const SavedStellarObject &o = g.stellarObjects[size_t(here.stellarObject)];
                 if (const char *file = stellarMapPicture(o.type))
@@ -852,7 +857,10 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
             // on both zooms' screenshots, of odd widths and even.
             const int spare = picture->w - 1 - font->measure(name);
             const int nameX = x + (spare - (spare < 0 && spare % 2 != 0 ? 1 : 0)) / 2;
-            font->drawInColor(screen, nameX, y + picture->h, name, own ? kNameColor : kOtherNameColor);
+            font->drawInColor(screen, nameX, y + picture->h, name,
+                              own                  ? kNameColor
+                              : owner == kRomulans ? kRomulanNameColor
+                                                   : kOtherNameColor);
         }
     // The selected system: an orange square just inside its sector's lines,
     // under the ranges (at the galaxy's top edge, the range covers its top).
