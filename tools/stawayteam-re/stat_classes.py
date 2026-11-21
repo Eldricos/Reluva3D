@@ -14,7 +14,11 @@ Reads (never writes) Star Trek.exe and a disassembly of it made by GNU
 objdump. Only standard-library Python 3.8+ is needed:
 
     objdump -d -M intel --no-show-raw-insn "Star Trek.exe" > star-trek.asm
-    python3 stat_classes.py "Star Trek.exe" star-trek.asm -o classes.txt
+    python3 stat_classes.py "Star Trek.exe" star-trek.asm --data DATA.dat -o classes.txt
+
+With --data, the class of each object held in place on its own (an
+"inline" property) is taken from the game's text files in DATA.dat, which
+name it: the program's registration doesn't.
 
 What's read from the program, and where: see the research note.
 """
@@ -121,7 +125,7 @@ class Extractor:
     def resolve(self, k, reg):
         # ebx, esi, edi and ebp outlive calls (the compiler's convention);
         # eax holds a call's result, ecx and edx are lost
-        for j in range(k - 1, max(k - (400 if reg in ('ebx', 'esi', 'edi', 'ebp') else 60), 0), -1):
+        for j in range(k - 1, max(k - (20000 if reg in ('ebx', 'esi', 'edi', 'ebp') else 60), 0), -1):
             a, mn, op = self.ins[j]
             if mn == 'ret':
                 return None
@@ -454,6 +458,39 @@ class Extractor:
         return v
 
 
+def inline_classes_from_text(ex, data_path):
+    """For each inline property, the one class the text files give it, under
+    its class or any subclass (stat_objects.inline_classes reads them)."""
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import stat_objects
+    texts = [d.decode('latin1') for n, d in stat_objects.entries(data_path)
+             if n.rpartition('.')[2].lower() in ('txt', 'zax', 'mds', 'sty')]
+    seen = stat_objects.inline_classes(texts)
+    by_name = {c['name']: g for g, c in ex.classes.items()}
+
+    def is_sub(name, ancestor):
+        g = by_name.get(name)
+        while g in ex.classes:
+            if g == ancestor:
+                return True
+            g = ex.classes[g]['parent']
+        return False
+
+    found = 0
+    for g, c in ex.classes.items():
+        for p in c['props']:
+            if p['kind'] != 'inline' or not p['name']:
+                continue
+            key = p['name'].split('/')[-1]
+            named = {x for (owner, k), xs in seen.items() if k == key and is_sub(owner, g)
+                     for x in xs if x in by_name}
+            if len(named) == 1:
+                p['class'] = by_name[named.pop()]
+                found += 1
+    return found
+
+
 def kind_text(ex, p):
     text = p['kind'] or 'unknown'
     if p.get('class') is not None:
@@ -472,19 +509,22 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('exe', help='Star Trek.exe')
     ap.add_argument('asm', help="objdump's disassembly of it")
+    ap.add_argument('--data', help="DATA.dat, for inline objects' classes from its text files")
     ap.add_argument('-o', '--output', default='-', help='where to write the schema (default: standard output)')
     a = ap.parse_args()
     ex = Extractor(Program(a.exe, a.asm))
     ex.find_classes()
     ex.find_properties()
     ex.find_own_writers()
+    from_text = inline_classes_from_text(ex, a.data) if a.data else 0
     out = sys.stdout if a.output == '-' else open(a.output, 'w', newline='\n')
     props = sum(len(c['props']) for c in ex.classes.values())
     out.write('# Star Trek: Away Team: classes and their properties, read from Star Trek.exe by\n'
               '# tools/stawayteam-re/stat_classes.py: %d classes, %d properties (%d copies of\n'
               '# registrations left out, %d not placed). Inherited properties come first and\n'
-              '# are not repeated. See docs/engines/stawayteam/research/binary-objects.md.\n'
-              % (len(ex.classes), props, ex.copies, ex.unplaced))
+              '# are not repeated. %d inline objects\' classes are from the text files in\n'
+              '# DATA.dat. See docs/engines/stawayteam/research/binary-objects.md.\n'
+              % (len(ex.classes), props, ex.copies, ex.unplaced, from_text))
     for g in sorted(ex.classes, key=lambda g: ex.classes[g]['name'].lower()):
         c = ex.classes[g]
         parent = ex.classes[c['parent']]['name'] if c['parent'] in ex.classes else '-'

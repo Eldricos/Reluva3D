@@ -95,7 +95,11 @@ A string is a 4-byte length, then its bytes, with nothing after them
   `0x548d50`) doesn't: its owner's constructor makes it. Its size is in
   the arguments, but several classes have the same version and size. The
   text files name it, though (`BehaviorStack=CEntityBehaviorStack`), the
-  same for each class and key, and that's what's used.
+  same for each class and key under a class and its subclasses: 55 of the
+  79, which `stat_classes.py --data` writes into the schema.
+- **Arrays' lists of names** are all null: the registrations pass `ebx`
+  or `edi`, zeroed at their functions' start (found once the register's
+  value was followed back that far).
 
 ### Data of their own
 

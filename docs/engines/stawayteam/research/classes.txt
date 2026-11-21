@@ -1,7 +1,8 @@
 # Star Trek: Away Team: classes and their properties, read from Star Trek.exe by
 # tools/stawayteam-re/stat_classes.py: 553 classes, 2084 properties (710 copies of
 # registrations left out, 2 not placed). Inherited properties come first and
-# are not repeated. See docs/engines/stawayteam/research/binary-objects.md.
+# are not repeated. 55 inline objects' classes are from the text files in
+# DATA.dat. See docs/engines/stawayteam/research/binary-objects.md.
 class CAction version=1.0 parent=- own-data=- size=8 global=0x65158c
 class CActionAI version=616635.0 parent=CLayerPartAI own-data=- size=32 global=0x7714f8
   "Action" object
@@ -35,7 +36,7 @@ class CAddAttributeNoiseAction version=7494.0 parent=CAddNoiseAction own-data=- 
 class CAddBanterAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0x652368
   "Screen Play" object
 class CAddCameraScriptAction version=2700.0 parent=CStarTrekAction own-data=- size=44 global=0xb8a42c
-  "Script" inline size=36
+  "Script" inline class=CCameraScriptManager size=36
 class CAddEffectAction version=194.0 parent=CAction own-data=- size=20 global=0x71ee84
   "Who To Warp" name
   "Warp Sound" choice
@@ -44,7 +45,7 @@ class CAddEffectToTeam version=2747.0 parent=CStarTrekAction own-data=- size=16 
   "Warp Sound" choice
   "Warp Behavior" object
 class CAddFootstepAndSoundBySurfaceTypeAction version=511935.0 parent=CPlaySoundBySurfaceTypeAction own-data=- size=64 global=0x72e864
-  "Footstep Noise" inline size=24
+  "Footstep Noise" inline class=CAddFootstepNoiseAction size=24
 class CAddFootstepNoiseAction version=382195.0 parent=CAddAttributeNoiseAction own-data=- size=24 global=0x72e860
 class CAddMissionObjectiveAction version=99.0 parent=CAction own-data=- size=12 global=0x72e3dc
   "Objective" object
@@ -127,7 +128,7 @@ class CBanterManager version=99.0 parent=CGameScriptManager own-data=- size=20 g
   "Screen Play" array element=object
 class CBatteryInventoryItem version=374444.0 parent=CEnergyItem own-data=- size=20 global=0xb8b920
 class CBehaviorActivity version=616587.0 parent=CLayerPartAI own-data=- size=56 global=0x6523b0
-  "Behavior Queue" inline size=32
+  "Behavior Queue" inline class=CEntityBehaviorQueue size=32
 class CBehaviorAI version=616587.0 parent=CLayerPartAI own-data=- size=28 global=0x76f3f0
   "Behavior" object
 class CBorgAI version=31445564.0 parent=CSkeletonBaseAI own-data=- size=248 global=0x6521d0
@@ -156,7 +157,7 @@ class CBorgAI version=31445564.0 parent=CSkeletonBaseAI own-data=- size=248 glob
   "Target/Damage Action" object
   "Target/Stun State" choice
   "Target/Run Away If Too Close" bool
-  "Target/Targeting" inline size=28
+  "Target/Targeting" inline class=CBorgSetClosestTarget size=28
   "State/Current State" choice
   "State/Retreat At Percent" int
   "State/Had Target" bool
@@ -207,7 +208,7 @@ class CBorgStateInactive version=7580.0 parent=CBorgState own-data=- size=84 glo
   "Inactive AI" object
   "Start Action" object
   "End Action" object
-  "PlaySequenceBehavior" inline size=36
+  "PlaySequenceBehavior" inline class=CEntityBehaviorPlaySequenceOnce size=36
   "Current State" choice
 class CBorgStateInvestigate version=7581.0 parent=CBorgState own-data=- size=52 global=0x6521b4
   "Investigate AI" object
@@ -229,10 +230,10 @@ class CBorgStatePatrol version=7722.0 parent=CBorgState own-data=- size=192 glob
   "Start Action" object
   "End Action" object
   "Current State" int
-  "Move Behavior" inline size=120
-  "Turn Behavior" inline size=16
+  "Move Behavior" inline class=CEntityBehaviorMoveToPos size=120
+  "Turn Behavior" inline class=CEntityBehaviorTurnToAngle size=16
 class CBorgStatePaused version=7439.0 parent=CBorgState own-data=- size=84 global=0x6521c8
-  "Idle Behavior" inline size=36
+  "Idle Behavior" inline class=CEntityBehaviorIdle size=36
   "Idle Started" bool
 class CBorgStatePursue version=7486.0 parent=CBorgState own-data=- size=44 global=0x65219c
   "Pursue AI" object
@@ -326,8 +327,8 @@ class CChargedItemInfoRenderer version=3111.0 parent=CStarTrekInventoryInfoRende
 class CChargerInventoryDetailRenderer version=52.0 parent=CInventoryDetailRenderer own-data=- size=4 global=0xb8b930
 class CChargerInventoryItem version=7294.0 parent=CInventoryItem own-data=- size=16 global=0xb8b914
 class CChaseInvestigateAI version=31444012.0 parent=CInvestigateAI own-data=- size=200 global=0x71db08
-  "AFloat" inline size=120
-  "Turn Behavior" inline size=16
+  "AFloat" inline class=CEntityBehaviorMoveToPos size=120
+  "Turn Behavior" inline class=CEntityBehaviorTurnToAngle size=16
   "Play Ratio" float
   "Next Try To Move" float
   "Time To Investigate" float
@@ -337,7 +338,7 @@ class CChaseInvestigateAI version=31444012.0 parent=CInvestigateAI own-data=- si
   "Debug/State" choice
   "Investigate AI" object
 class CChasePursueAI version=31443684.0 parent=CPursueAI own-data=- size=152 global=0x71db10
-  "AFloat" inline size=120
+  "AFloat" inline class=CEntityBehaviorMoveToPos size=120
   "Play Ratio" float
   "Next Try To Move" float
 class CCheckCategoryAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a418
@@ -425,7 +426,7 @@ class CCustomRules version=1.0 parent=- own-data=- size=4 global=0x771338
 class CCustomRulesList version=48.0 parent=- own-data=- size=20 global=0x771334
   "Custom Rules List" array element=unknown
 class CCylinderParticleStartPositionType version=12288.0 parent=CDiskParticleStartPositionType own-data=- size=108 global=0x72ec20
-  "Height of Cylinder" inline size=32
+  "Height of Cylinder" inline class=CLengthEnvelope size=32
 class CDamageTypeDefinition version=48.0 parent=- own-data=- size=8 global=0x71df0c
   "Unavoidable damage" bool
 class CDeactivateAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee40
@@ -467,8 +468,8 @@ class CDischargeWeaponThisFrameAction version=10039.0 parent=CPositionedAction o
 class CDiscoverInventoryNextBriefingAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a438
   "Item to Discover" choice
 class CDiskParticleStartPositionType version=240.0 parent=CParticleStartPositionType own-data=- size=76 global=0x72ec18
-  "Inside Radius" inline size=32
-  "Outside Radius" inline size=32
+  "Inside Radius" inline class=CLengthEnvelope size=32
+  "Outside Radius" inline class=CLengthEnvelope size=32
   "YX Ratio" float
   "Use Cone Angle For Start Pos" bool
 class CDisplayMissionCompletedScreenAction version=7447.0 parent=CMissionOverActionBase own-data=- size=16 global=0x72e3d8
@@ -533,7 +534,7 @@ class CEntityAnimated version=122392888.0 parent=CEntityDestructable own-data=- 
   "Debug/Current Frame" float
   "" int
   "Debug/Created By" ref
-  "Debug/BehaviorStack" inline size=28
+  "Debug/BehaviorStack" inline class=CEntityBehaviorStack size=28
   "Debug/Has Seperate Upper Body" bool
   "Render Effect List" array element=ref
 class CEntityAnimatedClient version=6242037248.0 parent=CEntityAnimated own-data=- size=248 global=0x71e190
@@ -594,7 +595,7 @@ class CEntityBehaviorMoveToPos version=528621.0 parent=CEntityBehaviorTurnToAngl
   "Move To Rate" int
   "CurTargetNormalX" float
   "CurTargetNormalY" float
-  "Path Finding Params" inline size=48
+  "Path Finding Params" inline class=CWayPointPath size=48
   "Pos Moving From" point
   "Final Dest" point
   "Cur Dest Move To" point
@@ -648,7 +649,7 @@ class CEntityBehaviorWait version=248.0 parent=CEntityBehavior own-data=- size=1
   "Num Seconds" float
   "Seconds Have Transitioned" float
 class CEntityCharacter version=318343938048.0 parent=CEntityMovable own-data=- size=392 global=0x71e2a0
-  "Inventory/Inventory" inline size=72
+  "Inventory/Inventory" inline class=CInventory size=72
   "Home Pos X" float
   "Home Pos Y" float
   "Inventory/Weapons Use Amo" flag
@@ -760,10 +761,10 @@ class CGenericInfoRenderer version=2782.0 parent=CStarTrekInventoryInfoRenderer 
   "Text Pos" point
   "Text Size" point
 class CGenericParticleSystemAI version=31444784.0 parent=CParticleSystemAI own-data=- size=304 global=0x72ec30
-  "Outer Cone Angle" inline size=32
-  "Inner Cone Angle" inline size=32
-  "Face Angle" inline size=32
-  "Cone Trajectory" inline size=32
+  "Outer Cone Angle" inline class=CConeAngleEnvelope size=32
+  "Inner Cone Angle" inline class=CConeAngleEnvelope size=32
+  "Face Angle" inline class=CFacingAngleEnvelope size=32
+  "Cone Trajectory" inline class=CTrajectoryEnvelope size=32
   "Burst Frequency" float
   "Burst Frequency Variance" float
   "Num Bursts To Stop After" int
@@ -772,22 +773,22 @@ class CGenericParticleSystemAI version=31444784.0 parent=CParticleSystemAI own-d
   "Position/X Offset" int
   "Position/Y Offset" int
   "Position/Height" int
-  "Particles Params/Speed" inline size=32
+  "Particles Params/Speed" inline class=CSpeedEnvelope size=32
   "Particles Params/Speed Variance" float
-  "Particles Params/Age" inline size=32
+  "Particles Params/Age" inline class=CTimeEnvelope size=32
   "Particles Params/Age Variance" float
   "Particles/Use Particle As Shot" bool
-  "Particles/Particles" array element=object named
+  "Particles/Particles" array element=object
   "NumBursts" float
   "CurFrequency" float
   "Enabled" bool
   "Sounds/Choose Sound Based On Burst" bool
-  "Sounds/Sounds" array element=choice named
+  "Sounds/Sounds" array element=choice
 class CGiveHealthAction version=146.0 parent=CAction own-data=- size=16 global=0x71f154
   "Target" name
   "Health" float
 class CGiveHealthWeaponAction version=509589.0 parent=CStarTrekPositionedAction own-data=- size=44 global=0xb8b718
-  "Health action" inline size=16
+  "Health action" inline class=CGiveHealthAction size=16
 class CGiveInventoryItemAction version=146.0 parent=CAction own-data=- size=16 global=0x651804
   "Inventory Item" object
   "Who to give it to" name
@@ -800,11 +801,11 @@ class CGiveOneInventoryItemAction version=2794.0 parent=CStarTrekAction own-data
   "Fail Action" object
 class CGoForwardAI version=616684.0 parent=CLayerPartAI own-data=- size=156 global=0x6521f4
   "Dist to Move" float
-  "Move/Move Behavior" inline size=120
+  "Move/Move Behavior" inline class=CEntityBehaviorMoveToPos size=120
   "Done action" object
 class CGoHomeAI version=31443682.0 parent=CPatrolBaseAI own-data=- size=164 global=0x71f178
-  "Turn/Turn Behavior" inline size=16
-  "Move/Move Behavior" inline size=120
+  "Turn/Turn Behavior" inline class=CEntityBehaviorTurnToAngle size=16
+  "Move/Move Behavior" inline class=CEntityBehaviorMoveToPos size=120
   "State" choice
 class CGoToAI version=617248.0 parent=CLayerPartAI own-data=- size=208 global=0x71f180
   "Destination" name
@@ -813,14 +814,14 @@ class CGoToAI version=617248.0 parent=CLayerPartAI own-data=- size=208 global=0x
   "Debug/Finished" bool
   "Debug/Move Finished" bool
   "Debug/Failed Path" bool
-  "Move/Move Behavior" inline size=120
+  "Move/Move Behavior" inline class=CEntityBehaviorMoveToPos size=120
   "Done action" object
   "Make New Home" bool
   "Play Ratio" float
   "Time To Try To Move" float
   "Facing Angle/Set Facing Angle" bool
   "Facing Angle/Turn Sequence Name" string
-  "Facing Angle/Facing Angle" inline size=16
+  "Facing Angle/Facing Angle" inline class=CEntityBehaviorTurnToAngle size=16
   "Need to Call Start" bool
 class CGotoPointAndDoActionAI version=1605469440.0 parent=CGotoRadiusAI own-data=- size=228 global=0x71f188
   "Destination Action" object
@@ -830,9 +831,9 @@ class CGotoRadiusAI version=31479790.0 parent=CGoToAI own-data=- size=220 global
   "Y to X Ratio" float
   "Check LOS" bool
 class CGotoRadiusAndGiveItemAI version=1605469568.0 parent=CGotoRadiusAI own-data=- size=268 global=0x71f1ec
-  "Item/Item to Give" inline size=16
+  "Item/Item to Give" inline class=CGiveInventoryItemDefinitionAction size=16
   "Item/Must Have Item" bool
-  "Item/Sound to Play" inline size=16
+  "Item/Sound to Play" inline class=CPlaySoundAction size=16
   "Test Pickup Action" object
   "Succeed Pickup Action" object
   "Fail Pickup Action" object
@@ -841,7 +842,7 @@ class CGotoTargetsAI version=616916.0 parent=CLayerPartAI own-data=- size=88 glo
   "Move/Done Action" object
   "Turn/Set Facing Angle Of Target" bool
   "Turn/Turn Sequence Name" string
-  "Turn/Turning" inline size=16
+  "Turn/Turning" inline class=CEntityBehaviorTurnToAngle size=16
   "Target/Target" name
   "Debug/State" int
   "Movment Group Name" name
@@ -884,7 +885,7 @@ class CHideAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee34
   "Target Name" name
 class CHueChangeEffect version=52.0 parent=CRenderEffect own-data=- size=4 global=0x71f638
 class CIdleAI version=616587.0 parent=CLayerPartAI own-data=- size=60 global=0x71eec8
-  "Debug/Idle Behavior" inline size=36
+  "Debug/Idle Behavior" inline class=CEntityBehaviorIdle size=36
 class CIfAction version=193.0 parent=CAction own-data=- size=20 global=0x65159c
   "If" object
   "Then" object
@@ -1037,8 +1038,8 @@ class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0
   "View Position" point
   "Int View Position" point
   "Partial File Name" name
-  "Team/Team Info" array element=object named
-  "Ambient Sounds" array element=object named
+  "Team/Team Info" array element=object
+  "Ambient Sounds" array element=object
   "Shake Time" float
   "Max Shake Time" float
   "Pixels To Shake" inline size=32
@@ -1060,7 +1061,7 @@ class CLimitedTimeAI version=616728.0 parent=CLayerPartAI own-data=- size=40 glo
   "Time Left" float
   "Done Action" object
 class CLineParticleStartPositionType version=99.0 parent=CParticleStartPositionType own-data=- size=36 global=0x72ec1c
-  "Center Length" inline size=32
+  "Center Length" inline class=CLengthEnvelope size=32
 class CListDefinitionItem version=1.0 parent=- own-data=- size=4 global=0x7211a0
 class CLockDoorAction version=99.0 parent=CAction own-data=- size=12 global=0x71ede8
   "Door Name" name
@@ -1089,10 +1090,10 @@ class CMissionDescription version=1270.0 parent=- own-data=- size=244 global=0x7
   "Debrief/Debrief Script" inline size=24
   "Start Team/Max Members To Start" int
   "Start Team/Override selected team" bool
-  "Start Team/Who Should Start" array element=choice named
-  "Need/Items" array element=choice named
-  "Temporary/Temp Items" array element=choice named
-  "Recommend/Recommended Items" array element=choice named
+  "Start Team/Who Should Start" array element=choice
+  "Need/Items" array element=choice
+  "Temporary/Temp Items" array element=choice
+  "Recommend/Recommended Items" array element=choice
   "Objectives/Objective" inline size=28
   "Available in Net Game" bool
   "Net Lobby Script" choice
@@ -1100,7 +1101,7 @@ class CMissionDescription version=1270.0 parent=- own-data=- size=244 global=0x7
   "Music/Briefing Music" choice
   "Music/Debriefing Music" choice
   "Music/Primary Song" choice
-  "Music/Random Song" array element=choice named
+  "Music/Random Song" array element=choice
 class CMissionObjective version=330.0 parent=- own-data=- size=36 global=0x72e444
   "Objective Name" string
   "Mission Status" choice
@@ -1179,8 +1180,8 @@ class CNoise version=330.0 parent=- own-data=- size=44 global=0x72e868
   "Last Height" float
 class CNoiseManager version=1.0 parent=- own-data=0x5195f0 size=8 global=0x72e86c
 class CNormalAttackAI version=31443730.0 parent=CAttackAI own-data=- size=52 global=0x652214
-  "Shoot/Shoot Behavior" inline size=12
-  "Turn/Turn Behavior" inline size=8
+  "Shoot/Shoot Behavior" inline class=CShootEntityBehavior size=12
+  "Turn/Turn Behavior" inline class=CPointWeaponAtTargetEntityBehavior size=8
   "Move/MoveBehavior" object
   "Move/Min Attack Distance" float
 class CNotAction version=99.0 parent=CAction own-data=- size=12 global=0x71edd4
@@ -1271,17 +1272,17 @@ class CPatrolAnAreaAI version=1603630336.0 parent=CPatrolAreaAI own-data=- size=
 class CPatrolAreaAI version=31443730.0 parent=CPatrolBaseAI own-data=- size=156 global=0x72f22c
   "Radius" float
   "TimeOfLastChangeDirectionDueToCollide" float
-  "Moving/Moving" inline size=120
+  "Moving/Moving" inline class=CEntityBehaviorMoveToPos size=120
   "Debug/Retry New Point" float
 class CPatrolBaseAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x72f234
 class CPatrolFormationAI version=31443776.0 parent=CPatrolBaseAI own-data=- size=168 global=0x652224
   "Formation/Who To Follow" name
   "Formation/Offset From Target" point
-  "Move/Move" inline size=120
+  "Move/Move" inline class=CEntityBehaviorMoveToPos size=120
   "Part to follow" ref
   "Formation/Need To Restart" bool
 class CPatrolInvestigateAI version=31443588.0 parent=CInvestigateAreaAI own-data=- size=188 global=0x72f258
-  "AI" inline size=164
+  "AI" inline class=CPatrolAnAreaAI size=164
 class CPatrolPathAI version=31444012.0 parent=CPatrolBaseAI own-data=- size=184 global=0x72f290
   "Path Poly" name
   "" ref
@@ -1292,7 +1293,7 @@ class CPatrolPathAI version=31444012.0 parent=CPatrolBaseAI own-data=- size=184 
   "Revise Point" point
   "Revising Data" bool
   "Target Point" int
-  "Moving/Moving" inline size=120
+  "Moving/Moving" inline class=CEntityBehaviorMoveToPos size=120
 class CPauseActorAction version=137701.0 parent=CStarTrekTargetedAction own-data=- size=12 global=0x72f29c
 class CPauseGameAction version=2653.0 parent=CStarTrekAction own-data=- size=8 global=0xb8a45c
 class CPhaserInfoRenderer version=3393.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=220 global=0x72f2bc
@@ -1368,7 +1369,7 @@ class CPlayItemInfoSoundAction version=2747.0 parent=CStarTrekAction own-data=- 
   "Who to Play" name
   "Item" choice
 class CPlaySequenceLoopedAI version=31443690.0 parent=CFlyweightLayerPartAI own-data=- size=44 global=0x71eeb8
-  "Behavior" inline size=16
+  "Behavior" inline class=CEntityBehaviorPlaySequenceLooped size=16
   "Stop Action" object
 class CPlaySoundAction version=147.0 parent=CAction own-data=- size=16 global=0x71ee18
   "Sound" choice
@@ -1553,7 +1554,7 @@ class CRules version=426.0 parent=- own-data=- size=60 global=0x77133c
   "Custom Rules" object
 class CRunAwayRetreatAI version=31443728.0 parent=CRetreatAI own-data=- size=156 global=0x771344
   "TimeOfLastChangeDirectionDueToCollide" float
-  "Moving/Moving" inline size=120
+  "Moving/Moving" inline class=CEntityBehaviorMoveToPos size=120
   "Debug/Retry New Point" float
   "Debug/Radius" float
 class CSameAsParentAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x77134c
@@ -1586,7 +1587,7 @@ class CScanAreaAI version=31444388.0 parent=CPatrolBaseAI own-data=- size=84 glo
   "Complete Turn Time" float
   "Current Turn Time" float
 class CScanInvestigateAI version=31443588.0 parent=CInvestigateAreaAI own-data=- size=108 global=0x771368
-  "AI" inline size=84
+  "AI" inline class=CScanAreaAI size=84
 class CSchematicRenderer version=48.0 parent=- own-data=- size=24 global=0x771370
   "Nernies/Nernie" array element=object
 class CScreenFrame version=2653.0 parent=CFrame own-data=- size=216 global=0x77143c
@@ -1616,7 +1617,7 @@ class CSecurityCameraAI version=31444388.0 parent=CSkeletonBaseAI own-data=- siz
   "All Clear Action" object
   "Cur Alert Time" float
   "Debug/Cur State" choice
-  "Scanning AI" inline size=84
+  "Scanning AI" inline class=CScanAreaAI size=84
 class CSelectInfo version=142.0 parent=- own-data=- size=16 global=0xb8a568
   "Who Is Selected" ref
   "Handle" int
@@ -1698,7 +1699,7 @@ class CSetTargetTypeAction version=146.0 parent=CAction own-data=- size=16 globa
   "Valid Targets" text
 class CShakeScreenAction version=147.0 parent=CAction own-data=- size=44 global=0x71ee88
   "Time to Shake" float
-  "Pixels To Shake" inline size=32
+  "Pixels To Shake" inline class=CLengthEnvelope size=32
 class CShieldAI version=616775.0 parent=CLayerPartAI own-data=- size=56 global=0x652288
   "Render Effect" object
   "Who To Adapt/Who To Adapt" text
@@ -1718,8 +1719,8 @@ class CShootWeaponAI version=617247.0 parent=CLayerPartAI own-data=- size=140 gl
   "Play Ratio" float
   "Fire Delay" float
   "Turning/Turn Sequence Name" string
-  "Facing Angle/Facing Angle" inline size=16
-  "Idle Behavior" inline size=36
+  "Facing Angle/Facing Angle" inline class=CEntityBehaviorTurnToAngle size=16
+  "Idle Behavior" inline class=CEntityBehaviorIdle size=36
   "Debug/Play Sequence" object
   "Debug/Wait Behavior" object
   "Weapon Index" int
@@ -1730,8 +1731,8 @@ class CShootWeaponAI version=617247.0 parent=CLayerPartAI own-data=- size=140 gl
   "Fire Until Dead" bool
 class CShootWeaponBehavior version=438.0 parent=CEntityBehavior own-data=- size=68 global=0x7715f0
   "Play Sequence" object
-  "Turn/Turn Behavior" inline size=8
-  "Idle/Idle Behavior" inline size=36
+  "Turn/Turn Behavior" inline class=CAimWeaponAtTargetBehavior size=8
+  "Idle/Idle Behavior" inline class=CEntityBehaviorIdle size=36
   "Debug/State" choice
   "Debug/Weapon Definition" choice
   "Debug/Wait Behavior" object
@@ -1979,7 +1980,7 @@ class CStarTrekCustomRules version=3202.0 parent=CCustomRules own-data=- size=50
   "Crouch Noise Modifier" float
   "Walk Noise Modifier" float
   "Run Noise Modifier" float
-  "Menu/Menu" array element=object named
+  "Menu/Menu" array element=object
   "Chat/Chat Input Pos" point
   "Chat/Chat Field Input Offset" point
   "Chat/Chat Output Pos" point
@@ -2163,7 +2164,7 @@ class CStarTrekInvisBandInventoryItem version=19101532.0 parent=CStarTrekChargeI
 class CStarTrekLayerSaveData version=193.0 parent=CLayerCustomSaveData own-data=- size=48 global=0xb8b03c
   "Minimap Image" choice
   "Map Song" choice
-  "Camera Script Manager" inline size=36
+  "Camera Script Manager" inline class=CCameraScriptManager size=36
 class CStarTrekLoadGameMenu version=3718.0 parent=CStarTrekMenuDefinition own-data=- size=184 global=0xb8a538
   "Buttons/LoadButton Pos" point
   "Buttons/LoadButton Text Pos" point
@@ -2285,15 +2286,15 @@ class CStarTrekSaveData version=1083.0 parent=- own-data=- size=292 global=0xb8a
   "Current Mission" choice
   "Next Mission" choice
   "Current Objectives" object
-  "Discovered Items/Discovered Items" array element=bool named
-  "Next Mission Items/Next Mission Items" array element=int named
-  "Initial Team/Initial Team" array element=int named
-  "Current Team/Current Team Member" array element=int named
+  "Discovered Items/Discovered Items" array element=bool
+  "Next Mission Items/Next Mission Items" array element=int
+  "Initial Team/Initial Team" array element=int
+  "Current Team/Current Team Member" array element=int
   "Net Player Info" objects class=CStarTrekNetSaveData
   "Move List" inline size=20
   "Temporary Entity Manager" inline size=20
   "Debug/Game Script" object
-  "Banter Used" array element=bool named
+  "Banter Used" array element=bool
   "Simulation Time" double
   "Score" int
 class CStarTrekSaveGameMenu version=3671.0 parent=CStarTrekMenuDefinition own-data=- size=176 global=0xb8a534
@@ -2327,7 +2328,7 @@ class CStarTrekSkeletonAI version=1603678336.0 parent=CSkeletonAI own-data=- siz
   "Patrol/Patrol Collide Action" object
   "Patrol/Listen for target" bool
 class CStarTrekStandGroundAttackAI version=1603620608.0 parent=CStarTrekAttackAI own-data=- size=92 global=0xb8b054
-  "Behavior" inline size=68
+  "Behavior" inline class=CShootWeaponBehavior size=68
 class CStarTrekSurfaceType version=99.0 parent=CSurfaceType own-data=- size=8 global=0xb8b05c
   "Max Distance" float
 class CStarTrekSwitchMapActionBase version=9895.0 parent=CSwitchMapActionBase own-data=- size=28 global=0xb8a394
@@ -2521,7 +2522,7 @@ class CThrowGravityAI version=1604368896.0 parent=CGravityParticleAI own-data=- 
   "Hit Water Action" object
   "Hit Pit Action" object
 class CThrowProjectileWeaponAction version=25986942.0 parent=CShootProjectileWeaponAction own-data=- size=100 global=0xb8b714
-  "Gravity AI" inline size=68
+  "Gravity AI" inline class=CThrowGravityAI size=68
   "Velocity Factor" float
 class CTimeEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e318
 class CToggleDoorAction version=7498.0 parent=CXDoorAction own-data=- size=16 global=0x71edfc
@@ -2546,7 +2547,7 @@ class CTransporterBackground version=287.0 parent=CListDefinitionItem own-data=-
   "Nernies/Nernie" array element=object
 class CTricorderDialogAction version=7600.0 parent=CDialogActionBase own-data=- size=120 global=0xb8b3d8
 class CTricorderInfoRenderer version=2547.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=36 global=0xb8b3e4
-  "Text Manager" inline size=24
+  "Text Manager" inline class=CSlowText size=24
 class CTricorderModelDescriptionAction version=52.0 parent=CAction own-data=- size=8 global=0xb8b3dc
 class CTriggerAI version=616969.0 parent=CLayerPartAI own-data=- size=40 global=0x6517b4
   "Trigger Only Once" bool
@@ -2562,8 +2563,8 @@ class CTriggerRelayAction version=99.0 parent=CAction own-data=- size=12 global=
   "Relay Name" name
 class CTurnToBounceDirAI version=1603623168.0 parent=CShotAI own-data=- size=24 global=0x771608
 class CTurnToTargetAlertAI version=31443636.0 parent=CStarTrekAlertAI own-data=- size=76 global=0x6522e8
-  "Turn/Turn behavior" inline size=16
-  "Idle/Idle behavior" inline size=36
+  "Turn/Turn behavior" inline class=CEntityBehaviorTurnToAngle size=16
+  "Idle/Idle behavior" inline class=CEntityBehaviorIdle size=36
 class CUndiscoverInventoryNextBriefingAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a43c
   "This is obsolete, do not use" choice
 class CUnlockDoorAction version=99.0 parent=CAction own-data=- size=12 global=0x71edec

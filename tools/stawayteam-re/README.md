@@ -20,10 +20,12 @@ objdump (binutils) for the disassembly `stat_classes.py` reads.
 |---|---|
 | `stat_classes.py` | Reads each class's registration out of `Star Trek.exe`'s disassembly and writes the schema: every class, its version, parent and properties in order, each with the kind of value it saves (`docs/engines/stawayteam/research/classes.txt` is its output for the US English release) |
 | `stat_objects.py` | Decodes every sequence, model and waypoint map in `DATA.dat` with that schema, and says whether each comes out to its last byte with every object's version its class's |
+| `stat_table.py` | Writes Reluva's table of the classes (`src/engines/stawayteam/formats/class_table.cpp`) from the schema |
 
 ```sh
 objdump -d -M intel --no-show-raw-insn "Star Trek.exe" > star-trek.asm
-python3 stat_classes.py "Star Trek.exe" star-trek.asm -o classes.txt
+python3 stat_classes.py "Star Trek.exe" star-trek.asm --data DATA.dat -o classes.txt
 python3 stat_objects.py classes.txt DATA.dat
 python3 stat_objects.py classes.txt DATA.dat "Characters/Klingon.mdl16" --show
+python3 stat_table.py classes.txt -o ../../src/engines/stawayteam/formats/class_table.cpp
 ```
