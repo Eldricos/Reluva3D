@@ -30,21 +30,18 @@ Each phase ends with something that runs, is tested and is committed.
    SI files' models and playing their animations; and a page for the
    `*INF.DTA` lists. Every kind of file in the release's `lego` folder
    (`data\*.DTA`, `WORLD.WDB`, `Scripts\*.SI`) is read.
-4. **A hosted spike** (in progress): `ISLE.EXE` and `LEGO1.DLL` loaded in
-   the x86 interpreter, `reluva-tool legoisland run` saying how far they
-   get ([systems/running.md](systems/running.md)). The gate: does it
-   reach the intro's first frame, and how fast does it run? Both start;
-   the program won't go on without DirectSound, which is now stood in
-   for ([directsound.md](../../common/x86/directsound.md)). It now makes
-   its window, DirectSound, DirectDraw and, through DirectX 5's
-   Direct3D, its 3D device, and Retained Mode's scene, and runs its main
-   loop with its streaming threads reading the SI files and `WORLD.WDB`,
-   showing black frames, and reads `WORLD.WDB`'s models. Next: the rest
-   of Retained Mode as the game reaches it, textures first, then meshes
-   and drawing.
-5. **DirectDraw and DirectSound:** the intro movie and the Information
-   Center, its pictures, animations and speech. DirectSound is a new
-   stand-in in `src/emulation/x86/directx/`, on the shared mixer.
+4. **A hosted spike** (done): `ISLE.EXE` and `LEGO1.DLL` run in the x86
+   interpreter, `reluva-tool legoisland run` saying how far they get
+   ([systems/running.md](systems/running.md)). The gate, the intro's first
+   frame at a usable speed, is passed: the game loads its world and plays
+   its intro movies about as fast as they should go, with DirectSound
+   ([directsound.md](../../common/x86/directsound.md)), DirectX 5's
+   Direct3D and Retained Mode ([d3drm.md](../../common/x86/d3drm.md))
+   stood in for as far as it needs them so far.
+5. **DirectDraw and DirectSound** (next): the intro movie (it plays,
+   silently in the tool) and the Information Center, its pictures,
+   animations and speech; the engine playing the game, its sound on the
+   mixer through the DirectSound stand-in.
 6. **Direct3D Retained Mode:** a stand-in for the part of it `LEGO1.DLL`
    uses (found by logging its calls), drawn by the existing software
    rasterizer: the island in 3D, driving, building a vehicle.
@@ -62,4 +59,5 @@ Each phase ends with something that runs, is tested and is committed.
 | November 2026 | The community's write-ups of the file formats (the legoisland.org wiki, SIEdit's notes) are read as published references, every fact checked against the game's files; the public decompilation of the game's code isn't read | CONTRIBUTING.md: every line is Reluva's own. Reading another project's reconstruction of the game's code and writing it again would be translating it |
 | November 2026 | An import copies the CD's scripts into the game's folder, beside the installer's files | The game then runs with no CD, and its two folders (`diskpath`, `cdpath`) can be the same one; 520 MB is small for a disk today |
 | November 2026 | The ImHex patterns for LEGO Island's files (in the `isle-documentation` repository) aren't used, for `WORLD.WDB` or any other file; those files' layouts are worked out from the files themselves, with the legoisland.org wiki's general descriptions | They sit in a fork of the decompilation project, with no license, and don't say where their layouts came from: they may have been read from the decompiled code (see the decision on the decompilation, above) |
+| November 2026 | Hosted, after the spike's gate passed | The retail game, run in the interpreter, loads its world and plays its intro at about its own speed (phase 4) |
 | November 2026 | The CD's Microsoft DLLs (`D3DRM.DLL`, `DDRAW.DLL`, `DSOUND.DLL`...), `MFC42.DLL` and `CONFIG.EXE` aren't run | Reluva stands in for DirectX itself; `CONFIG.EXE`, the only user of MFC, is a settings dialog the launcher's settings replace |

@@ -101,9 +101,19 @@ that far.
   pointer written through in `LEGO1.DLL` at 0x100264d9, after 105,847,482
   instructions. Told a file is on a disk, as Windows does, the program
   reads it.
-- It goes on to load its models' textures: a palette made and set on a
-  surface, then `CreateTextureFromSurface`, which nothing stands in for
-  yet, after 70,608,695 instructions and 203 frames (black still).
+- It goes on to load its models: 55 textures on surfaces
+  (`CreateTextureFromSurface`), 400 meshes of 1,280 groups, their
+  vertices, colours, materials and textures, and clones of some of them,
+  placed in frames.
+- Then it reads `ACT1INF.DTA`, `INFOMAIN.SI`, `IMAININF.DTA` and
+  `INTRO.SI`, and **plays its intro**: the LEGO Media logo, the LEGO
+  logo, Mindscape's, then the flight over the island, its Smacker movies
+  drawn through DirectDraw, about as fast as they should go (in 108
+  seconds of this machine's time, 2,500 million instructions, it got
+  through the logos and most of the 82-second intro movie, the game
+  timing its movies by the clock). Each frame it also clears, renders and
+  updates its 3D viewport, which draws nothing yet.
+- Run to 4,000 million instructions, it doesn't stop: 16,560 frames.
 
 ## In Reluva
 
@@ -137,8 +147,6 @@ The engine doesn't run it yet: playing it waits for the stand-ins above.
 
 ## Open questions
 
-- Why it doesn't open `INTRO.SI`: whether the intro waits for something
-  not done yet, or a setting skips it.
 - Where it keeps its saved games: it looks in `C:\`, perhaps for want of
   a setting `CONFIG.EXE` writes.
 - Which of the missing functions the program calls, once it gets past
