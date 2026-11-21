@@ -169,9 +169,11 @@ two prints (`S_StartBackgroundTrack: Found dynamic music tracks`, and
 The random markers draw from the page's `rand()`, seeded from the clock
 as the original's (0x42d992).
 
-Differences: the client
-game's "starting" call (its third argument set, as it begins,
-0x2003398e) starts the music here; see UNCONFIRMED.md.
+The client game's "starting" call (its third argument set, as it
+begins, 0x2003398e) starts the music here, as a recording of the
+original shows it playing from a level's start; how the original's
+code does so after letting the files go isn't read (UNCONFIRMED.md,
+Settled).
 
 ## Sources and checks
 

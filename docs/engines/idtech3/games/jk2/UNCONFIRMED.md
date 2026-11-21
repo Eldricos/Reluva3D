@@ -91,16 +91,6 @@ What Reluva does that hasn't been checked against the running original.
   in-game cinematic's flag and the client's state
   ([systems/sp-saves.md](systems/sp-saves.md)).
 
-- Single player's music at a level's start: the client game's first
-  `S_StartBackgroundTrack` has its third argument set (0x2003398e), and
-  with it the engine loads the music, then lets go of every track's file
-  (0x4275a7 → 0x427bd0), which its update needs to play (0x427c4d). No
-  other call to start it again was found at a level's start (the
-  client game's next is when configstring 2 changes; `snd_restart` and
-  `vid_restart` restart it), and Reluva's runs make none; yet the
-  original plays a level's music from its start. Reluva starts it at
-  that first call ([systems/sp-music.md](systems/sp-music.md)).
-
 - A saber's trail's second triangle keeps the first's alphas for its
   first two corners, as the GPL source's one array of corners would;
   jk2mp.exe's own trail code wasn't traced
@@ -112,6 +102,17 @@ Nothing at present.
 
 ## Settled
 
+- Single player plays a level's music from its start. A recording of
+  the retail game (November 2026: a new game, kejim_post) matched
+  against the level's tracks: `impbaseb_explore` plays in step with it
+  from within a few seconds of the level's opening scene starting, under its
+  dialogue, and loops when it ends, as Reluva's first
+  `S_StartBackgroundTrack` starts it. How the original keeps playing
+  once its files are let go (0x4275a7) is still unread. In a fight later
+  (the recording's 280 to 300 seconds) the explore music stops; none of
+  the level's tracks is heard clearly through the gunfire, and about
+  20 seconds after the last shot the explore track comes back part way
+  through ([systems/sp-music.md](systems/sp-music.md)).
 - The game reads shader scripts in `shaders/` only, not `scripts/`:
   `jk2mp.exe` lists `shaders` for `.shader` files (0x490391, the only
   folder it names for them), and neither executable holds the name
