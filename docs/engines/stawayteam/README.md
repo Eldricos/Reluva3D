@@ -15,6 +15,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 
 - **Recognising the game:** done for the US English retail release, and
   *Import Game...* from its CD.
+- **Reading the game's files:** `DATA.dat`, the archive holding nearly
+  all of them ([formats/data-dat.md](formats/data-dat.md)); what's in
+  them is still to be read.
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
   [research/file-survey.md](research/file-survey.md).
@@ -28,8 +31,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   uses from the CD's `Setup` folder, where the install is loose: the
   program, `DATA.dat`, `texture.dat` and the movies. An installed copy
   can be imported the same way.
-- **The game** shows an empty screen for now; Esc goes back to the
-  launcher.
+- **The game** opens `DATA.dat`, then shows an empty screen for now; Esc
+  goes back to the launcher.
 
 ## This folder
 
@@ -37,7 +40,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 |---|---|
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | A page per file format, as it's worked out |
+| [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md) |
 | `systems/` | A page per part of how the game behaves, as it's worked out |
 | [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
@@ -50,7 +53,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them) |
+| `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `files.cpp` for the game's folder |
 
 ## Tests
 

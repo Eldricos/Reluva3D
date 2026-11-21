@@ -11,6 +11,7 @@ reluva_add_engine(stawayteam
 # Its reluva-tool commands (reluva-tool help stawayteam lists them).
 reluva_add_engine_tools(stawayteam
     SOURCES
+        tools/archive.cpp
         tools/files.cpp)
 
 # Its tests (tests/engines/stawayteam/), in reluva-tests: the unit tests by

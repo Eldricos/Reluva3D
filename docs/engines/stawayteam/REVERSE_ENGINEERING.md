@@ -19,7 +19,9 @@ extended. The facts themselves are on their pages, each with its source.
   ([research/file-survey.md](research/file-survey.md)).
 - **The executable:** `Star Trek.exe` (2,437,120 bytes, MD5
   `cd908f2d79a8a331045fa1d80414ef0a`): its headers and imports read with
-  `objdump -p`, and its strings. Nothing of it has been run.
+  `objdump -p`, its strings, and its code disassembled with `objdump -d`
+  where a constant leads to it (the archive's signatures). Nothing of it
+  has been run.
 - **The readme** that comes with the game (`readme.rtf`): what the game
   offers, such as the network game being two players, cooperative, on a
   LAN only. The manual (`Extras/Help/Manuals/manual.pdf`) is to be read
@@ -30,8 +32,10 @@ extended. The facts themselves are on their pages, each with its source.
 - **Detection:** each file's signature (the MD5 of its first 5,000
   bytes, and its size) made with `reluva --hash`, and checked with
   `reluva-tool detect` on the install.
-- **`DATA.dat`:** read by walking its local file headers, since its end
-  of central directory record isn't signed as ZIP's is.
+- **`DATA.dat`:** first read by walking its local file headers, since its
+  end of central directory record isn't signed as ZIP's is; then the
+  executable searched for both signatures as 32-bit constants, which led
+  to its reader's check; then every file read with Reluva's reader.
 
 ## The tools
 
@@ -41,7 +45,10 @@ extended. The facts themselves are on their pages, each with its source.
 | Command | What it does |
 |---|---|
 | `reluva-tool stawayteam files` | Lists the game's folder |
+| `reluva-tool stawayteam data-list` | Lists `DATA.dat`'s files and their sizes |
+| `reluva-tool stawayteam data-extract` | Writes out `DATA.dat`'s files, checking their CRC-32s |
 
 ## Working files not included
 
-None yet.
+- **`DATA.dat`'s files, written out:** `reluva-tool stawayteam
+  data-extract <DATA.dat> <folder>` from your own copy.

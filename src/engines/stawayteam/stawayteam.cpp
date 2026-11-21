@@ -3,11 +3,12 @@
 
 // Star Trek: Away Team: the engine's MetaEngine (its name, the releases it
 // recognises, making an Engine to run one) and its Engine, which so far
-// shows an empty screen.
+// opens the game's archive and shows an empty screen.
 
 #include "engines/engine.h"
 
 #include "common/fs.h"
+#include "common/zip.h"
 
 #include <system_error>
 
@@ -57,13 +58,19 @@ std::optional<std::filesystem::path> findGameFolder(const std::filesystem::path 
 }
 
 /**
- * The game running: for now an empty screen until the player quits.
+ * The game running: for now its archive opened, then an empty screen until
+ * the player quits.
  */
 class StawayteamEngine : public Engine {
 public:
     StawayteamEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
+        const auto data = fs::findFile(_target.path, "DATA.dat");
+        if (!data)
+            return Error::fail("No DATA.dat in " + _target.path.string());
+        if (Error err = _data.open(*data))
+            return err;
         if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
             return err;
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
@@ -86,6 +93,7 @@ private:
     static constexpr int kHeight = 480;
     System &_sys;
     GameTarget _target;
+    ZipArchive _data; // DATA.dat: nearly all the game's files
 };
 
 /**

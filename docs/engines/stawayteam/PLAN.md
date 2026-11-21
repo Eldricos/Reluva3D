@@ -21,12 +21,11 @@ Each phase ends with something that runs and is committed.
    by the files' names; *Import Game...* from the CD's loose `Setup/`
    files (the CD holds the install uncompressed as well as in
    `data1.cab`).
-2. **The archive** (next): `DATA.dat` is a ZIP of 6,949 stored files whose
+2. **The archive** (done, [formats/data-dat.md](formats/data-dat.md)): `DATA.dat` is a ZIP of 6,949 stored files whose
    end-of-central-directory record is signed `RE\5\6`, not `PK\5\6`.
-   Teach `src/common/zip.cpp` to accept that signature (or to walk the
-   local headers when the record is missing), so every engine gains it.
-   `reluva-tool stawayteam files` lists it.
-3. **The object text format**: most data (`Rules.txt`, `.zax` maps,
+   `src/common/zip.cpp` takes that signature, as the game's own reader
+   does; `reluva-tool stawayteam data-list` and `data-extract` read it.
+3. **The object text format** (next): most data (`Rules.txt`, `.zax` maps,
    `.MDS` missions, `.STY`, roster, items, damage and death types) is a
    tree of `ClassName { Key=Value ... }` blocks with `Array`s. One reader
    for all of them, a page `formats/object-text.md`, and a check that it
@@ -64,7 +63,9 @@ Each phase ends with something that runs and is committed.
    names). Read from the executable, checked
    against recordings and against the original running.
 9. **Saves**: the original's save files read and written, so saves move
-   between Reluva and the original.
+   between Reluva and the original. The game writes ZIP archives of its
+   own, signed as `DATA.dat` is: likely its saves
+   ([formats/data-dat.md](formats/data-dat.md#behaviour)).
 10. **Multiplayer**: the two-player LAN co-op game. The original uses
     DirectPlay (TCP/IP or IPX, LAN only); Reluva's uses its own
     network code (`src/common/net.h`), between copies of Reluva.
