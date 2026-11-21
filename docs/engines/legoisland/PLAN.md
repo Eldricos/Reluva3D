@@ -21,7 +21,8 @@ Each phase ends with something that runs, is tested and is committed.
    shared FLIC decoder, [flic.md](../../common/video/flic.md)), Smacker
    movies, WAV sounds and BMP pictures, with a viewer page playing them.
    Next: `WORLD.WDB`'s models and textures, the `*INF.DTA` files, and the
-   SI files' 3D objects (`OBJ`).
+   SI files' 3D objects (`OBJ`), each worked out from the files
+   ([Decisions](#decisions)).
 4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
    interpreter with stand-ins that log what they're asked. The gate: does
    it reach the intro's first frame, and how fast does it run?
@@ -44,4 +45,5 @@ Each phase ends with something that runs, is tested and is committed.
 | November 2026 | Run the game's own code in the x86 interpreter, with Windows and DirectX stood in for, as LEGO Alpha Team and NFS III are; a gate after the spike (Phase 4) | Nearly all of the game is in `LEGO1.DLL` (1.1 MB of compiled C++). Rewriting it natively from our own reverse engineering would take years, and hosting it plays as the original by construction. The stand-ins it needs (Retained Mode, DirectSound) are shared code, written from Microsoft's published DirectX documentation |
 | November 2026 | The community's write-ups of the file formats (the legoisland.org wiki, SIEdit's notes) are read as published references, every fact checked against the game's files; the public decompilation of the game's code isn't read | CONTRIBUTING.md: every line is Reluva's own. Reading another project's reconstruction of the game's code and writing it again would be translating it |
 | November 2026 | An import copies the CD's scripts into the game's folder, beside the installer's files | The game then runs with no CD, and its two folders (`diskpath`, `cdpath`) can be the same one; 520 MB is small for a disk today |
+| November 2026 | The ImHex patterns for LEGO Island's files (in the `isle-documentation` repository) aren't used, for `WORLD.WDB` or any other file; those files' layouts are worked out from the files themselves, with the legoisland.org wiki's general descriptions | They sit in a fork of the decompilation project, with no license, and don't say where their layouts came from: they may have been read from the decompiled code (see the decision on the decompilation, above) |
 | November 2026 | The CD's Microsoft DLLs (`D3DRM.DLL`, `DDRAW.DLL`, `DSOUND.DLL`...), `MFC42.DLL` and `CONFIG.EXE` aren't run | Reluva stands in for DirectX itself; `CONFIG.EXE`, the only user of MFC, is a settings dialog the launcher's settings replace |
