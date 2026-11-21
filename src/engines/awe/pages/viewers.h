@@ -9,7 +9,7 @@
 #include "engines/awe/formats/gr2.h"
 #include "engines/awe/formats/model.h"
 #include "engines/awe/render/model_draw.h"
-#include "engines/awe/render/movie_player.h"
+#include "video/movie_player.h"
 #include "engines/awe/ui/game_text.h"
 #include "engines/awe/ui/page.h"
 
@@ -106,7 +106,7 @@ private:
     void open();
     std::vector<std::string> _names;
     int _index = 0;
-    MoviePlayer _player;
+    video::MoviePlayer _player;
     std::vector<Subtitle> _subtitles;
     std::string _info;
 };

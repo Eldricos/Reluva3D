@@ -11,5 +11,6 @@ add_library(reluva_video STATIC
     indeo5.cpp
     indeo5_tables.cpp
     movie.cpp
+    movie_player.cpp
     smacker.cpp)
 target_link_libraries(reluva_video PUBLIC reluva_common reluva_audio reluva_graphics PRIVATE reluva_warnings)

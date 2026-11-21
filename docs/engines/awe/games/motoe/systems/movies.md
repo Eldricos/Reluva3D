@@ -1,6 +1,6 @@
 # Murder on the Orient Express: movies and video loops
 
-> **Status:** done · **Code:** `src/engines/awe/render/movie_player.cpp` · **Checked against:** the game's `binkw32.dll` (English 1.0), run in Reluva's x86 interpreter, on all 87 movies and loops · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/video/movie_player.cpp` · **Checked against:** the game's `binkw32.dll` (English 1.0), run in Reluva's x86 interpreter, on all 87 movies and loops · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -21,7 +21,7 @@ with `binkw32.dll`'s own colour conversion.
 
 ## In Reluva
 
-`MoviePlayer` (`src/engines/awe/render/movie_player.cpp`) plays a movie
+`MoviePlayer` (`src/video/movie_player.cpp`) plays a movie
 in time, with its sound, for the `movie` verb and for the data viewer's
 Movies page. The Scenes page (`src/engines/awe/game/scene_page.cpp`)
 plays the video loops in its scenes.

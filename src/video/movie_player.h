@@ -14,10 +14,10 @@
 #include <vector>
 
 // A Bink movie played in time: its frames decoded as they fall due, its
-// soundtrack (decoded whole) played alongside through the mixer. The
-// Movies page's player, and the game's "movie" verb's.
+// soundtrack (decoded whole) played alongside through the mixer. For an
+// engine that shows a movie in its own loop, with its own drawing.
 
-namespace reluva::awe {
+namespace reluva::video {
 
 /** A Bink movie played in time, its sound through a mixer. */
 class MoviePlayer {
@@ -80,4 +80,4 @@ private:
     std::string _error;
 };
 
-} // namespace reluva::awe
+} // namespace reluva::video

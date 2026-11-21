@@ -49,7 +49,6 @@ reluva_add_engine(awe
         motoe/puzzles.cpp
         render/lighting.cpp
         render/model_draw.cpp
-        render/movie_player.cpp
         render/particles.cpp
         render/shadows.cpp
         render/sprite.cpp

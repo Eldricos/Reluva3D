@@ -467,7 +467,7 @@ bool ScenePage::startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait
                 _ctx.mixer->stop(handle);
         _music.clear();
     }
-    auto player = std::make_unique<MoviePlayer>(_ctx.mixer);
+    auto player = std::make_unique<video::MoviePlayer>(_ctx.mixer);
     if (Error err = player->open(std::move(data), _lastMs,
                                  !flag("silent") && _ctx.mixer)) { // no sound to decode without a mixer
         logScript("    (" + name + ": " + err.message + ")");

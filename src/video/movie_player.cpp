@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/awe/render/movie_player.h"
+#include "video/movie_player.h"
 
 #include <algorithm>
 
-namespace reluva::awe {
+namespace reluva::video {
 
 Error MoviePlayer::open(std::vector<uint8_t> data, uint64_t nowMs, bool sound) {
     stop();
@@ -105,4 +105,4 @@ bool MoviePlayer::done(uint64_t nowMs) const {
     return _next >= _movie->frameCount() && double(nowMs - std::min(nowMs, _startMs)) >= end;
 }
 
-} // namespace reluva::awe
+} // namespace reluva::video

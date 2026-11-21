@@ -13,6 +13,9 @@ RAD Game Tools' video format, from after Smacker. Reluva decodes it in
 - Two colour conversions: rounded, and `binkw32.dll`'s own (below).
 - Each frame's size and whether it's a key frame, and `rewind()` for
   movies that loop.
+- Playing one in time in an engine's own loop: `video::MoviePlayer`
+  (`src/video/movie_player.cpp`) decodes each frame as it falls due and
+  plays the soundtrack, decoded whole, through the mixer.
 
 ## The format
 

@@ -23,7 +23,7 @@
 #include "engines/awe/formats/gr2.h"
 #include "engines/awe/formats/model.h"
 #include "engines/awe/render/model_draw.h"
-#include "engines/awe/render/movie_player.h"
+#include "video/movie_player.h"
 #include "engines/awe/formats/savegame.h"
 #include "engines/awe/render/shadows.h"
 #include "engines/awe/render/sprite.h"
@@ -957,7 +957,7 @@ private:
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).
-    std::unique_ptr<MoviePlayer> _movie;
+    std::unique_ptr<video::MoviePlayer> _movie;
     std::string _movieName;
     std::vector<Subtitle> _movieSubtitles;
     ScriptRunner *_movieRunner = nullptr;
