@@ -178,6 +178,21 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
         return Error::fail(path + ": " + err.message);
     out.footprint = readPolygon(text(object.object, "Bounds Poly"));
     out.hitPoints = int(object.object.number("Hit Points").value_or(0.0));
+    out.explosion = text(object.object, "Explosion");
+    if (out.explosion == "!Unknown Model")
+        out.explosion.clear();
+    out.deathSound = text(object.object, "Death Sound");
+    out.explosionRadius = float(object.object.number("Explosion Radial Damage").value_or(0.0));
+    out.explosionNeedsSight = object.object.integer("Require LOS For Damage").value_or(0) != 0;
+    out.maxVelocity = float(object.object.number("Max Velocity").value_or(0.0));
+    if (const TextObject *entity = object.object.object("Default Entity")) {
+        out.fuse = float(entity->number("Shot Duration").value_or(0.0));
+        if (const TextObject *noise = entity->object("Destroyed Action"))
+            if (noise->className == "CAddNoiseAction") {
+                out.noiseRadius = float(noise->number("Radius").value_or(0.0));
+                out.noiseAge = float(noise->number("Age").value_or(0.0));
+            }
+    }
     if (const TextObject *entity = object.object.object("Default Entity"))
         if (const TextObject *inventory = entity->object("Inventory"))
             if (const TextObject *list = inventory->object("Inventory List"))

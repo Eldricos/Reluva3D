@@ -114,9 +114,15 @@ struct ItemDefinition {
     std::string shotSound;
     std::string shotFlash; // models, of Cache/Models
     std::string hitFlash;
-    float shotDuration = 0.0f;  // seconds the shot's shown
-    float stunDuration = 0.0f;  // seconds one stunned by it stays down
-    bool stuns = false;         // set to stun (Weapon Setting), not kill
+    float shotDuration = 0.0f; // seconds the shot's shown
+    float stunDuration = 0.0f; // seconds one stunned by it stays down
+    bool stuns = false;        // set to stun (Weapon Setting), not kill
+    int rounds = 0;            // its Default Inventory Item's Rounds: uses of one, 0 for unlimited
+    std::string processType;   // what using it does: "Shoot", "Hypospray Use", "Scan"...
+    std::string projectile;    // a thrown one's model, of Cache/Models
+    float health = 0.0f;       // a healer's (its Discharge Action's Health action's Health)
+    bool canUseOnSelf = false;
+    std::string useSound;
     float shotNoise = 0.0f;     // its Discharge Action's Noise Radius, pixels
     float shotNoiseTime = 0.0f; // seconds it's heard for
 };

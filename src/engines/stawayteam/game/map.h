@@ -114,6 +114,19 @@ struct ModelInfo {
     std::vector<std::pair<float, float>> footprint; // Bounds Poly: its outline on the ground, about where it stands
     int hitPoints = 0;                              // 0: none given
     std::vector<std::string> inventory;             // its Default Entity's items' definitions
+    // A thrown thing's: its explosion's model and sound, how far its
+    // explosion reaches (Explosion Radial Damage), whether it needs a clear
+    // line to reach anyone, how fast it flies, how long till it goes off
+    // (its Default Entity's Shot Duration), and the noise it makes then
+    // (its Default Entity's Destroyed Action).
+    std::string explosion;
+    std::string deathSound;
+    float explosionRadius = 0.0f;
+    bool explosionNeedsSight = false;
+    float maxVelocity = 0.0f;
+    float fuse = 0.0f;
+    float noiseRadius = 0.0f;
+    float noiseAge = 0.0f;
 };
 
 /** Reads `Cache/Models/<model>.mdl16`'s ModelInfo. */

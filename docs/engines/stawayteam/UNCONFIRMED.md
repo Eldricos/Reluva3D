@@ -54,6 +54,10 @@ None yet.
   failing as their officer falls, the windows' places and the game held
   still under them, and CONTINUE going to the next mission's briefing
   ([systems/objectives.md](systems/objectives.md#open-questions)).
+- **Items:** the counts for -1, the keys matched to items by name,
+  walking into range before using one, a grenade's straight flight and
+  whom its explosion reaches, healing up to the whole, and where the bar
+  shows counts ([systems/items.md](systems/items.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song
   stopped meanwhile, and text broken at its line breaks

@@ -82,6 +82,23 @@ public:
         float shooting = 0.0f;                  // seconds into their shot's sequence; 0 not shooting
         float dead = -1.0f;                     // seconds since they fell; below 0 alive
         float stunned = 0.0f;                   // seconds of their stun left
+        std::string discharge = "Shoot1";       // the sequence they're using an item with
+        // What they carry: each item's definition and how many uses are
+        // left (-1 as many as wanted), as the inventory shows them; the
+        // one they've chosen to use.
+        struct Held {
+            std::string name;
+            int count = -1;
+        };
+        std::vector<Held> items;
+        int item = -1;
+        // What they've been sent to do with it, walking there first: throw
+        // it at a place, or use it on an officer.
+        enum class Task { kNone, kThrow, kUseOn };
+        Task task = Task::kNone;
+        float taskX = 0.0f;
+        float taskY = 0.0f;
+        int taskOfficer = -1;
 
         bool alive() const { return dead < 0.0f; }
         /** Fallen or stunned: they can't move, shoot, or be seen as a target. */
@@ -176,6 +193,26 @@ public:
 
     /** Sends the officers chosen to shoot enemy `enemy`, walking into range first. */
     void attack(int enemy);
+    /** Makes item `item` (of their items) the one officer `officer` uses. */
+    void chooseItem(int officer, int item);
+    /**
+     * Uses the chosen officer's item at (x, y) on the map, as a click there
+     * does: a grenade's thrown there, a hypospray used on the officer there;
+     * false if their item isn't one used so.
+     */
+    bool useItem(float x, float y);
+    /** A grenade thrown, flying or lying till it goes off. */
+    struct Thrown {
+        const ItemDefinition *item = nullptr;
+        std::string model;
+        float x = 0.0f;
+        float y = 0.0f;
+        float toX = 0.0f;
+        float toY = 0.0f;
+        float left = 0.0f; // seconds till it goes off
+        int thrower = -1;
+    };
+    const std::vector<Thrown> &thrown() const { return _thrown; }
     /** The enemy standing at (x, y) on the map, alive, or -1. */
     int enemyAt(float x, float y) const;
     /** Whether nothing that stands full height is between two points on the map. */
@@ -268,13 +305,23 @@ private:
     // A shot from (x, y) with `weapon` at (tx, ty): its sound, its flashes;
     // how long the shooter's `model` takes over shooting it.
     float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty);
-    void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker);
+    // A hit on enemy `enemy` by `attacker` (an officer, or -1): stunning it
+    // with `stun`, else hurting it.
+    void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
+    // The items (map_items.cpp).
+    void setupItems();
+    void updateItems(float seconds);
+    // An officer's task done once they're near enough: true when it's done.
+    bool doTask(size_t officer);
+    void explode(const Thrown &t);
+    const ItemDefinition *itemOf(const Officer &o) const;
     // A shot at officer `officer`: hurting them, or, from a weapon set to
     // `stun`, stunning them.
     void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
     // The sequence a character's drawn with, and how far into it, for one
     // shooting or fallen; empty for neither.
-    std::string combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model);
+    std::string combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model,
+                               const std::string &discharge = "Shoot1");
     // The map's triggers (map_triggers.cpp).
     void setupTriggers();
     void updateTriggers(float seconds);
@@ -409,6 +456,7 @@ private:
         float time = 0.0f; // seconds shown
     };
     std::vector<Flash> _flashes;
+    std::vector<Thrown> _thrown;
     std::vector<Objective> _objectives;
     MissionObjectives _mission; // keeps its actions alive
     bool _won = false;

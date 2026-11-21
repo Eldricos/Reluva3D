@@ -145,17 +145,21 @@ inline std::vector<uint8_t> fontFile(const std::vector<std::vector<uint8_t>> &gl
  * A .mdl16: a CModel (version 1603) of its thirty properties, with one
  * rotation sequence, "Idle", of `rotations` directions of `frames` frames
  * each (CRotationSequence, version 30575: CSequence's properties, then its
- * own fourteen); its Hit Points `hitPoints`, its Bounds Poly `footprint`.
+ * own fourteen); its Hit Points `hitPoints`, its Bounds Poly `footprint`,
+ * a thrown thing's Explosion Radial Damage `explosionRadius` (needing a
+ * clear line, with `needsSight`) and Max Velocity `maxVelocity`.
  */
 inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, int frames, float hitPoints = 100.0f,
-                                      const std::vector<std::pair<float, float>> &footprint = {}) {
+                                      const std::vector<std::pair<float, float>> &footprint = {},
+                                      float explosionRadius = 0.0f, bool needsSight = false, float maxVelocity = 0.0f) {
     BinaryWriter w;
     w.object(1603.0f);
     w.str(name).str("").str("Model Descriptions").str("A test model").str("").i32(0).str("");
-    w.f32(hitPoints).f32(0.0f).str("").f32(0.0f).f32(0.0f).u8(0).i32(0).str("Idle");
+    w.f32(hitPoints).f32(0.0f).str("").f32(0.0f).f32(explosionRadius).u8(needsSight ? 1 : 0).i32(0).str("Idle");
     for (int i = 0; i < 6; ++i)
         w.str("");
-    for (int i = 0; i < 6; ++i)
+    w.f32(maxVelocity);
+    for (int i = 0; i < 5; ++i)
         w.f32(0.0f);
     w.bytes({'P', 'O', 'L', 'Y', '2', 'D', 0, 7}).i32(int32_t(footprint.size()));
     for (const auto &[x, y] : footprint)

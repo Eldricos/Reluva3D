@@ -678,6 +678,92 @@ void testEnemyAI() {
     CHECK(std::hypot(enemies[2].x - 300.0f, enemies[2].y - 150.0f) < before - 50.0f);
 }
 
+void testItems() {
+    // Ann carries two concussion grenades, a frag grenade and a hypospray;
+    // Bo stands beside her. A guard 300 off, looking away, and one far off.
+    const auto part = [](const std::string &name, int x, int y, const std::string &rest) {
+        return "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=" + name + "\n\t\t\tVisible=1\n\t\t\tActive=1\n" +
+               rest + "\t\t\tPosition X=" + std::to_string(x) + "\n\t\t\tPosition Y=" + std::to_string(y) + "\n\t\t}\n";
+    };
+    const std::string guardAI =
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tCurrent State=Patrol\n\t\t\t\t\tMax Distance=50\n\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tModel=Characters/Guard\n\t\t\tFacing Angle=3.14159\n";
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,500.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n" +
+                            part("Guard A", 600, 500, guardAI) + part("Guard B", 1200, 500, guardAI) +
+                            part("Away Team Spawn Point 1", 300, 500, "") +
+                            part("Away Team Spawn Point 2", 300, 420, "") + "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Shots/Concussion.mdl16"] = modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, true, 400.0f);
+    data.files["Cache/Models/Shots/Frag.mdl16"] = modelFile("Frag", 1, 1, 50.0f, {}, 60.0f, false, 400.0f);
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto grenade = [&](const std::string &damage, const std::string &projectile) {
+        return bytesOf(
+            "CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tWeapon Damage=" + damage +
+            "\n\tStun Duration=30\n\tItem Range=500\n\tDischarge Sequence=Throw\n\tProjectile=" + projectile +
+            "\n\tDischarge Action=CThrowProjectileWeaponAction\n\t{\n\t}\n"
+            "\tDefault Inventory Item=CStarTrekProjectileWeaponInventoryItem\n\t{\n"
+            "\t\tRounds=3\n\t}\n}\n");
+    };
+    data.files["Inventory/Item Definitions/Concussion Grenade.txt"] = grenade("0", "Shots/Concussion");
+    data.files["Inventory/Item Definitions/Frag Grenade.txt"] = grenade("30", "Shots/Frag");
+    data.files["Inventory/Item Definitions/Hypospray.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tCan Use On Self=1\n"
+                "\tDefault Inventory Item=CStarTrekCountInventoryItem\n\t{\n\t\tRounds=5\n\t}\n"
+                "\tProcess=CProcess\n\t{\n\t\tProcess Type=Hypospray Use\n\t}\n"
+                "\tDischarge Action=CGiveHealthWeaponAction\n\t{\n\t\tHealth action=CGiveHealthAction\n\t\t{\n"
+                "\t\t\tHealth=40\n\t\t}\n\t}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Concussion Grenade", 2}, {"Frag Grenade", 1}, {"Hypospray", -1}};
+    TeamMember bo;
+    bo.firstName = "Bo";
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    const MapScreen::Officer &a = screen.officers()[0];
+    const MapScreen::Officer &b = screen.officers()[1];
+    // Her counts as the roster gives them, or the item's Rounds for -1.
+    CHECK(a.items.size() == 3 && a.items[0].count == 2 && a.items[1].count == 1 && a.items[2].count == 5);
+    CHECK(a.item == -1 && !screen.useItem(600.0f, 500.0f));
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    // A concussion grenade thrown at the guard, in range: it flies there,
+    // and three seconds on stuns Guard A, in its 150, not Guard B.
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    CHECK(screen.useItem(600.0f, 500.0f));
+    run(100);
+    CHECK(a.items[0].count == 1 && screen.thrown().size() == 1 && a.discharge == "Throw");
+    run(1000);
+    CHECK(screen.thrown()[0].x == 600.0f);
+    run(3200);
+    CHECK(screen.thrown().empty() && screen.enemies()[0].state == "Stun" && screen.enemies()[0].health == 100.0f);
+    CHECK(screen.enemies()[1].state == "Patrol");
+    // The frag grenade at Bo's feet: he's hurt, Ann, 100 off, isn't; then
+    // there's none left.
+    screen.chooseItem(0, 1);
+    CHECK(screen.useItem(300.0f, 400.0f));
+    run(7000);
+    CHECK(b.health == 70.0f && a.health == 100.0f && a.items[1].count == 0);
+    CHECK(!screen.useItem(300.0f, 400.0f));
+    // The hypospray on Bo: she goes to him and heals him, up to his whole.
+    screen.chooseItem(0, 2);
+    CHECK(screen.useItem(300.0f, 420.0f));
+    run(12000);
+    CHECK(b.health == 100.0f && a.items[2].count == 4 && std::hypot(a.x - b.x, a.y - b.y) <= 30.0f);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -730,4 +816,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"noise", [](const std::filesystem::path &) { testNoise(); }},
                                             {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
                                             {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
+                                            {"items", [](const std::filesystem::path &) { testItems(); }},
                                         });

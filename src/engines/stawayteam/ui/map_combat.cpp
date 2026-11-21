@@ -174,7 +174,7 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
     return per > 0 && a.fps > 0.0f ? float(per) / a.fps : weapon.shotDuration;
 }
 
-void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker) {
+void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun) {
     Enemy &e = _enemies[enemy];
     if (!e.alive())
         return;
@@ -184,7 +184,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     // then back to its patrol, unless its Stun State is Attack (145 of the
     // maps' enemies: the Borg's), which it then does (inferred).
     const bool stunnable = readText(e.ai, "Stun State") != "Attack";
-    if (weapon.stuns && stunnable) {
+    if (stun && stunnable) {
         e.stunned = weapon.stunDuration;
         e.state = "Stun";
         e.target = -1;
@@ -192,7 +192,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         e.route.clear();
         return;
     }
-    if (!weapon.stuns)
+    if (!stun)
         e.health -= weapon.weaponDamage;
     if (e.health <= 0.0f) {
         e.health = 0.0f;
@@ -204,7 +204,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     }
     // One that's Target If Hit turns on whoever hit it, and attacks; one
     // hurt enough retreats.
-    if (attacker >= 0 && (readText(e.ai, "Target If Hit") == "1" || weapon.stuns) && e.state != "Attack" &&
+    if (attacker >= 0 && (readText(e.ai, "Target If Hit") == "1" || stun) && e.state != "Attack" &&
         e.state != "Retreat")
         attackOfficer(e, attacker);
     maybeRetreat(e);
@@ -259,7 +259,7 @@ void MapScreen::updateCombat(float seconds) {
         }
         if (o.shooting > 0.0f) {
             o.shooting += seconds;
-            const Animation &a = animation(_team[o.member].bodyModel, "Shoot1");
+            const Animation &a = animation(_team[o.member].bodyModel, o.discharge);
             if (a.fps <= 0.0f || o.shooting * a.fps >= float(a.perDirection()))
                 o.shooting = 0.0f;
         }
@@ -281,10 +281,11 @@ void MapScreen::updateCombat(float seconds) {
             o.direction = directionOf(e.x - o.x, e.y - o.y);
             if (o.reload <= 0.0f) {
                 o.reload = o.weapon->reuseDelay;
+                o.discharge = o.weapon->dischargeSequence.empty() ? "Shoot1" : o.weapon->dischargeSequence;
                 shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y);
                 makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
                 o.shooting = 1e-6f;
-                hurtEnemy(i, *o.weapon, int(&o - _officers.data()));
+                hurtEnemy(i, *o.weapon, int(&o - _officers.data()), o.weapon->stuns);
             }
         } else if (o.path.empty()) {
             o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{e.x, e.y}}
@@ -313,7 +314,8 @@ void MapScreen::updateCombat(float seconds) {
     }
 }
 
-std::string MapScreen::combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model) {
+std::string MapScreen::combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model,
+                                      const std::string &discharge) {
     // Fallen, its Death once and then Dead; stunned, as fallen till it's
     // up (inferred); shooting, its Shoot1 through.
     const auto into = [&](const char *sequence, float time) {
@@ -335,8 +337,8 @@ std::string MapScreen::combatSequence(float shooting, float dead, float stunned,
         return "Dead";
     }
     if (shooting > 0.0f) {
-        into("Shoot1", shooting);
-        return "Shoot1";
+        into(discharge.c_str(), shooting);
+        return discharge;
     }
     return {};
 }

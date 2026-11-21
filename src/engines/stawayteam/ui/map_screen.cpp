@@ -61,6 +61,38 @@ bool contains(const TextObject *action, const char *className) {
     return false;
 }
 
+// The items the inventory's keys choose, by the keys' names: an item whose
+// name starts with the item's (inferred).
+const std::vector<std::pair<const char *, const char *>> &itemKeys() {
+    static const std::vector<std::pair<const char *, const char *>> kKeys = {
+        {"Phaser", "Phaser"},
+        {"Sniper Rifle", "Sniper Rifle"},
+        {"Concussion Grenade", "Concussion"},
+        {"EMP Grenade", "EM Pulse Grenade"},
+        {"Neural Disruptor", "Phase Neural Disrupter"},
+        {"Phaser Rifle", "Phaser Rifle"},
+        {"Proximity Mines", "Proximity Mine"},
+        {"Remote Mines", "Remote Mine"},
+        {"Audio Decoy", "Audio Decoy"},
+        {"Holographic Projector", "Holographic Projection"},
+        {"Vulcan Nerve Pinch", "Vulcan Neck Pinch"},
+        {"Herbal Paralysis", "Botanical Paralysis"},
+        {"Hypospray", "Hypospray"},
+        {"Cloaking Band", "Personal Visual Dampening"},
+        {"Tricorder", "Tricorder"},
+        {"Medical Tricorder", "Medical Tricorder"},
+        {"Extractor", "Extractor"},
+        {"Herbal Healing", "Botanical Healing"},
+        {"Stasis Field Generator", "Portable Containmnet Field"},
+        {"Teleportation Brig", "Telportation Brig"},
+        {"Brig Controller", "Telportation Brig Controller"},
+        {"Computer Systems", "Computer Systems"},
+        {"Security Systems", "Security Doors & Systems"},
+        {"Engineering Tech Kit", "Terminal Repair"},
+    };
+    return kKeys;
+}
+
 int actionIndex(const char *name) {
     const auto &actions = gameActions();
     for (size_t i = 0; i < actions.size(); ++i)
@@ -175,6 +207,7 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     setupTriggers();
     setupEnemies();
     setupCombat();
+    setupItems();
     runSpawnActions();
 
     // The map's camera scripts play as it starts. The team's spawn points
@@ -555,6 +588,7 @@ void MapScreen::update(uint64_t now) {
     updateNoises(seconds);
     updateEnemies(seconds);
     updateCombat(seconds);
+    updateItems(seconds);
     updateTriggers(seconds);
 }
 
@@ -563,7 +597,7 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
         return;
     const TeamMember &m = _team[o.member];
     int fought = 0;
-    const std::string fighting = combatSequence(o.shooting, o.dead, o.stunned, fought, m.bodyModel);
+    const std::string fighting = combatSequence(o.shooting, o.dead, o.stunned, fought, m.bodyModel, o.discharge);
     const bool walking = !o.path.empty() && fighting.empty();
     const std::string sequence = !fighting.empty() ? fighting : walking ? kMoving[o.move] : kStanding[o.move];
     const Animation &body = animation(m.bodyModel, sequence);
@@ -637,6 +671,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         setMove((_officers[size_t(_selected)].move + 1) % 3);
     if (hud.selectAll)
         chooseAll();
+    if (hud.item >= 0)
+        chooseItem(_selected, hud.item);
     if (hud.toggleSound)
         _listening = !_listening;
     if (hud.objectives)
@@ -664,6 +700,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         const bool add = (ev.mods & keymod::kShift) != 0;
         if (_dragging) {
             chooseIn(toMapX(_pressX), toMapY(_pressY), toMapX(ev.mouseX), toMapY(ev.mouseY), add);
+        } else if (useItem(toMapX(_pressX), toMapY(_pressY))) {
+            // The chosen officer's item used there.
         } else if (const int officer = officerAt(toMapX(_pressX), toMapY(_pressY)); officer >= 0) {
             choose(officer, add);
         } else if (const int enemy = enemyAt(toMapX(_pressX), toMapY(_pressY)); enemy >= 0) {
@@ -709,6 +747,25 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         // Toggle Sound Cones presses the sound button (0x476c3f).
         if (down && bound("Toggle Sound Cones"))
             _listening = !_listening;
+        // Inventory Next and Prev go along the chosen officer's items; an
+        // item's own key chooses it for the officers chosen who have it
+        // (inferred: by the keys' names).
+        if (down && _selected >= 0 && (bound("Inventory Next") || bound("Inventory Prev"))) {
+            const Officer &o = _officers[size_t(_selected)];
+            const int n = int(o.items.size());
+            if (n > 0)
+                chooseItem(_selected, ((o.item < 0 ? 0 : o.item) + (bound("Inventory Next") ? 1 : n - 1)) % n);
+        }
+        if (down)
+            for (const auto &[action, item] : itemKeys())
+                if (bound(action))
+                    for (size_t i = 0; i < _officers.size(); ++i)
+                        if (_officers[i].chosen)
+                            for (size_t k = 0; k < _officers[i].items.size(); ++k)
+                                if (_officers[i].items[k].name.rfind(item, 0) == 0) {
+                                    chooseItem(int(i), int(k));
+                                    break;
+                                }
         if (down && bound("Cycle Movement") && _selected >= 0)
             setMove((_officers[size_t(_selected)].move + 1) % 3);
     }
@@ -840,6 +897,11 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y);
     }
     drawNoises(view, left, top);
+    // The grenades thrown, flying or lying.
+    for (const Thrown &t : _thrown) {
+        const Animation &a = animation(t.model, "Idle");
+        blitBy(view, a.at(now), int(std::lround(t.x)) - left, int(std::lround(t.y)) - top);
+    }
     // The shots' flashes, over everyone.
     for (const Flash &f : _flashes) {
         const Animation &a = animation(f.model, "Idle");
@@ -857,6 +919,14 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         health.push_back(o.maxHealth > 0.0f ? o.health / o.maxHealth : 1.0f);
     _hud->setHealth(health);
     _hud->setListening(_listening);
+    if (_selected >= 0) {
+        std::vector<GameHud::Held> held;
+        for (const Officer::Held &h : _officers[size_t(_selected)].items)
+            held.push_back({h.name, h.count});
+        _hud->setInventory(std::move(held), _officers[size_t(_selected)].item);
+    } else {
+        _hud->setInventory({}, -1);
+    }
     _hud->draw(screen, now, _selected, _cameraX, _cameraY, _viewW, _viewH);
     // The box being dragged, outlined (inferred).
     if (_dragging) {

@@ -34,6 +34,7 @@ public:
         bool selectAll = false;   // the select-all button pressed
         bool toggleSound = false; // the sound button pressed: the team's noises shown or not
         bool objectives = false;  // the objectives button pressed
+        int item = -1;            // an item chosen on the inventory: its place in what setInventory gave
         float cameraX = 0.0f;     // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
@@ -56,6 +57,16 @@ public:
     void setMove(int move) { _move = move; }
     /** Which officers are chosen, their slots lit. */
     void setChosen(std::vector<bool> chosen) { _chosen = std::move(chosen); }
+    /** An item the inventory shows: its definition, and its uses left (-1 as many as wanted). */
+    struct Held {
+        std::string name;
+        int count = -1;
+    };
+    /** The chosen officer's items, and the one of them they've chosen (-1 none). */
+    void setInventory(std::vector<Held> items, int chosen) {
+        _held = std::move(items);
+        _heldChosen = chosen;
+    }
     /** Whether the sound button shows the team's noises. */
     void setListening(bool on) { _listening = on; }
     /** Each officer's health, as a part of their whole (0-1). */
@@ -87,6 +98,15 @@ private:
     std::vector<bool> _chosen;
     std::vector<float> _health;
     bool _listening = false;
+    std::vector<Held> _held;
+    int _heldChosen = -1;
+    // Where each item shown is on the screen, and its place in _held.
+    struct Slot {
+        int x;
+        int y;
+        int item;
+    };
+    std::vector<Slot> _slots;
     int _mouseX = -1;
     int _mouseY = -1;
 };

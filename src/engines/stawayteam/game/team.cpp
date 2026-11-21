@@ -134,7 +134,18 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         if (const TextObject *action = def.object("Discharge Action")) {
             item.shotNoise = float(action->number("Noise Radius").value_or(0.0));
             item.shotNoiseTime = float(action->number("Time").value_or(0.0));
+            if (const TextObject *heal = action->object("Health action"))
+                item.health = float(heal->number("Health").value_or(0.0));
         }
+        if (const TextObject *held = def.object("Default Inventory Item"))
+            item.rounds = int(held->integer("Rounds").value_or(0));
+        if (const TextObject *process = def.object("Process"))
+            item.processType = text(*process, "Process Type");
+        item.projectile = text(def, "Projectile");
+        if (item.projectile == "!Unknown Model")
+            item.projectile.clear();
+        item.canUseOnSelf = def.integer("Can Use On Self").value_or(0) != 0;
+        item.useSound = text(def, "Use Sound");
         item.dischargeSequence = text(def, "Discharge Sequence");
         item.shotSound = text(def, "Shot Sound");
         item.shotFlash = text(def, "Shot Flash");

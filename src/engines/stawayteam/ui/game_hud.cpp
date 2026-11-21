@@ -141,6 +141,15 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         r.objectives = ev.mouseX >= bx + jx && ev.mouseY >= by + jy && ev.mouseX < bx + jx + objectives.w &&
                        ev.mouseY < by + jy + objectives.h;
     }
+    if (overInventory) {
+        // An item's icon chooses it (inferred).
+        int iw = 0;
+        int ih = 0;
+        readPoint(_custom, "Inventory Icon Size", iw, ih);
+        for (const Slot &s : _slots)
+            if (ev.mouseX >= s.x && ev.mouseY >= s.y && ev.mouseX < s.x + iw && ev.mouseY < s.y + ih)
+                r.item = s.item;
+    }
     if (overTeam) {
         // An officer's slot chooses them (inferred).
         int ix = 0;
@@ -333,15 +342,22 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     image::blit(screen, inv, vx, vy);
     image::blit(screen, picture("Inventory/Previous Inventory Item Default"), vx + px, vy + py);
     image::blit(screen, picture("Inventory/Next Inventory Item Default"), vx + nx, vy + ny);
+    _slots.clear();
     if (selected >= 0 && size_t(selected) < _team.size() && iw > 0) {
         int x = vx + barX;
-        for (const TeamMember::Item &held : _team[size_t(selected)].inventory) {
+        for (size_t k = 0; k < _held.size(); ++k) {
+            const Held &held = _held[k];
             const auto def = _items.find(held.name);
             if (def == _items.end() || !def->second.displayInInventory)
                 continue;
             if (x + iw > vx + nx)
                 break;
-            image::blit(screen, picture("Inventory/Item Frame"), x, vy + barY);
+            // The chosen one on its Selected Icon Background (0x41ae4b,
+            // inferred for its place: as the frame).
+            image::blit(screen,
+                        picture(int(k) == _heldChosen ? "Inventory/Selected Icon Background" : "Inventory/Item Frame"),
+                        x, vy + barY);
+            _slots.push_back({x, vy + barY, int(k)});
             auto found = _icons.find(def->second.iconImage);
             if (found == _icons.end())
                 found = _icons
@@ -350,6 +366,12 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
                             .first;
             const image::Image &icon = found->second;
             image::blit(screen, icon, x + (iw - icon.w) / 2, vy + barY + (ih - icon.h) / 2);
+            // Its uses left in its bottom right corner (its Count Format
+            // String, "%d"; inferred for where).
+            if (held.count >= 0 && _font.loaded()) {
+                const std::string count = std::to_string(held.count);
+                _font.draw(screen, x + iw - _font.width(count) - 1, vy + barY + ih - _font.height(), count);
+            }
             x += iw + gap;
         }
     }

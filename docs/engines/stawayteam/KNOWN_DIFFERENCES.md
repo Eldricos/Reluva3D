@@ -52,6 +52,10 @@ None yet.
   LOAD GAME is greyed out; rescue and need-item objectives are only done
   as the triggers say; only a mission's first map is played
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
+- **Items:** only weapons, grenades and the hypospray can be used;
+  grenades fly straight, without an arc or bounces; there are no item
+  cursors, no scrolling of the bar or full inventory, and the phaser
+  can't be set to stun ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the items found in earlier missions aren't
   described after the lines, the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
