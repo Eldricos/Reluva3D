@@ -65,6 +65,10 @@ public:
     // elsewhere show nothing behind them, not the sky).
     void drawSkyShape(const gfx::DrawState &state) const;
     bool hasSky() const { return _skyMesh != 0; }
+    // What each frame starts from with the level loaded: the whole level's
+    // fog colour (in bytes, cut down) where it has one (0x45d09e; RBSP's
+    // fog of brush -1, the last if several, 0x45f160), else black.
+    Color clearColor() const { return _clearColor; }
     // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
     // lifts), which the game places (drawModel).
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
@@ -292,6 +296,7 @@ private:
     std::array<uint32_t, 6> _skySideFirst{}; // index ranges in _skyMesh
     uint32_t _skySideCount = 0;
     int _skyMaterial = -1;
+    Color _clearColor;
     uint32_t _cloudCount = 0; // the box without its bottom, from index 0
 };
 

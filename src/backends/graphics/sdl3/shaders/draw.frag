@@ -64,7 +64,8 @@ void main() {
     }
     vec4 c = texture(tex, inUv) * inColor;
     int test = int(params.x + 0.5);
-    if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5))
+    if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5) ||
+        (test == 4 && c.a < 0.75))
         discard;
     if (fog.w > 0.0) {
         float d = 1.0 / fog.w;

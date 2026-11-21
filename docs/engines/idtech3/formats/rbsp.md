@@ -94,7 +94,13 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
   have black ambient light and, unlike Quake III's, are used.
 - **The level's fog** (a fog whose brush is -1, named again by the
   worldspawn's `fog` key) has no surface: everything is in it, fogged by
-  distance from the eye. `yavin_canyon` and `yavin_swamp` have one.
+  distance from the eye. `yavin_canyon` and `yavin_swamp` have one. With
+  it, each frame starts cleared to its colour (in bytes), so where
+  nothing is drawn (both levels have no sky) the fog's colour shows, not
+  black; the last such fog is the one (jk2sp.exe 0x45d09e, 0x45f160;
+  jk2mp.exe 0x46e399) *(confirmed)*. Single player's light amplification
+  goggles clear to their own fog's colour instead (0x45d076), which
+  Reluva doesn't have yet.
 
 ## In Reluva
 

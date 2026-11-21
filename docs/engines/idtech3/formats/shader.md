@@ -58,7 +58,7 @@ that name (`.tga`, else `.jpg`) multiplied by its lightmap.
 | stage | `alphaGen vertex\|oneMinusVertex\|wave ...\|const <a>` | the alpha (`portal`, `lightingSpecular`, `entity`: opaque for now) |
 | stage | `tcGen base\|lightmap\|environment\|vector ( ) ( )` | where texture coordinates come from |
 | stage | `tcMod scroll\|scale\|rotate\|stretch\|transform\|turb\|entityTranslate` | texture coordinate animation, in order |
-| stage | `alphaFunc GT0\|LT128\|GE128`, `depthFunc`, `depthWrite`, `detail` | see above |
+| stage | `alphaFunc GT0\|LT128\|GE128\|GE192`, `depthFunc`, `depthWrite`, `detail` | see above; `GE192` is Raven's (Jedi Outcast's grass sprites use it): alpha at least 0.75 (both programs parse it; jk2sp.exe 0x47da90 and 0x45c3ed) *(confirmed)* |
 
 Waves are `<func> <base> <amplitude> <phase> <frequency>`, func one of
 `sin`, `triangle`, `square`, `sawtooth`, `inversesawtooth`, `noise`.

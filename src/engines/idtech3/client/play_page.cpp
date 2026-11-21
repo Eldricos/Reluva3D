@@ -1566,7 +1566,7 @@ void PlayPage::update(uint64_t nowMs) {
     // drawn before it, the rest of its pictures (the HUD) over them all.
     // The player's view is the first with the level in it.
     const auto drawStart = std::chrono::steady_clock::now();
-    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, _world ? _world->clearColor() : Color{});
     bool haveView = false;
     if (_cgame) {
         const auto &scene = _cgame->scene();

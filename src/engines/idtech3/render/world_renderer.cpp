@@ -119,6 +119,7 @@ void WorldRenderer::clear() {
     _vertices.clear();
     _styledVertices.clear();
     _fogs.clear();
+    _clearColor = {};
     _batches.clear();
     _sorts.clear();
     _litSurfaces.clear();
@@ -253,6 +254,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                                                  _styleLightmaps[l][k]))
                     return err;
 
+    const auto byte = [](float c) { return uint8_t(std::clamp(c, 0.0f, 1.0f) * 255); };
     for (const BspFog &f : bsp.fogs) {
         Fog fog;
         if (const ShaderDef *def = library.find(f.shader); def && def->fog) {
@@ -267,6 +269,8 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 fog.plane = {p.normal[0], p.normal[1], p.normal[2], p.dist};
             }
         }
+        if (f.brush == -1)
+            _clearColor = {byte(fog.color[0]), byte(fog.color[1]), byte(fog.color[2])};
         _fogs.push_back(fog);
     }
 

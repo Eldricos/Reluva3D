@@ -154,6 +154,7 @@ textures/effects/panel
         alphaGen oneMinusVertex
         tcGen environment
         tcMod turb sin 0 0.2 0.5 1
+        alphaFunc GE192
         efStageThing
     }
 }
@@ -198,6 +199,7 @@ env/sky
     const ShaderStage &b = d.stages[1];
     CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::kConst && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
     CHECK(b.alphaGen == ShaderStage::AlphaGen::kOneMinusVertex && b.tcGen == ShaderStage::TcGen::kEnvironment);
+    CHECK(b.alphaFunc == gfx::AlphaTest::kGe192);
     // turb with the (ignored) function name written
     CHECK(b.tcMods.size() == 1 && b.tcMods[0].wave.amplitude == 0.2f && b.tcMods[0].wave.phase == 0.5f);
 

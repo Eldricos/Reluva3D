@@ -285,6 +285,7 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
         stage.alphaFunc = a0 == "gt0"     ? gfx::AlphaTest::kGt0
                           : a0 == "lt128" ? gfx::AlphaTest::kLt128
                           : a0 == "ge128" ? gfx::AlphaTest::kGe128
+                          : a0 == "ge192" ? gfx::AlphaTest::kGe192 // Raven's (0x47da90)
                                           : gfx::AlphaTest::kNone;
     } else if (d.keyword == "depthfunc") {
         stage.depthEqual = a0 == "equal";

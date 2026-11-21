@@ -1664,7 +1664,7 @@ void SpPlayPage::update(uint64_t nowMs) {
     _renderer->setGamma(brightness(_ctx));
     const float time = float(_clientTime) / 1000.0f;
     const auto drawStart = std::chrono::steady_clock::now();
-    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, _world ? _world->clearColor() : Color{});
     if (_game && _game->clientGameRunning() && !fullscreen) {
         // Each scene over the pictures drawn before it, the rest (the HUD)
         // over them all, as the Play page draws.

@@ -70,8 +70,9 @@ enum class Blend : uint8_t {
     kOneMinusDstAlpha,
 };
 enum class Cull : uint8_t { kNone, kBack, kFront };
-// Discard fragments by their alpha: none, alpha > 0, alpha < 0.5, alpha >= 0.5.
-enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128 };
+// Discard fragments by their alpha: none, alpha > 0, alpha < 0.5, alpha >= 0.5,
+// alpha >= 0.75.
+enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128, kGe192 };
 
 struct DrawState {
     // One/Zero: opaque
