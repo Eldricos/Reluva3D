@@ -41,8 +41,9 @@ None yet.
   the program's fractal; water's warping and the map's song aren't
   there; triggers set off by enemies, passing through or colliding, and
   the AIs' messages and objectives, aren't there; enemies patrol, see
-  and shoot, and go to look at the team's noise, but don't yet pursue
-  round walls or retreat; footsteps make no sound; shots show their
+  shoot, go to look at the team's noise and where they're called to,
+  pursue, retreat and stun, but don't run away, recharge or look at the
+  fallen yet; footsteps make no sound; shots show their
   flashes but no beam, always hit, and grenades and mines can't be used;
   the interface's buttons but the move, select-all, sound and objectives
   buttons do nothing yet

@@ -149,8 +149,10 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             if (const TextObject *inventory = o.object("Inventory"))
                 if (const TextObject *list = inventory->object("Inventory List"))
                     for (const TextField *item : list->items())
-                        if (item->object)
+                        if (item->object) {
                             part.inventory.push_back(text(*item->object, "Definition Index"));
+                            part.stuns = part.stuns || text(*item->object, "Weapon Setting") == "Stun";
+                        }
             part.polygon = readPolygon(text(o, "Polygon"));
             part.angle = float(o.number("Facing Angle").value_or(0.0));
             part.overlay = text(o, "Overlay Model");

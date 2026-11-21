@@ -81,7 +81,7 @@ bool MapScreen::shown(size_t part) const {
     return s.visible && s.active && !s.deleted;
 }
 
-std::vector<size_t> MapScreen::partsNamed(const std::string &names) const {
+std::vector<size_t> MapScreen::partsNamed(const std::string &names, int trigger) const {
     std::vector<size_t> out;
     size_t at = 0;
     while (at <= names.size()) {
@@ -90,6 +90,11 @@ std::vector<size_t> MapScreen::partsNamed(const std::string &names) const {
         at = comma + 1;
         if (name.empty())
             continue;
+        if (name == "$trigger") {
+            if (trigger >= 0)
+                out.push_back(size_t(trigger));
+            continue;
+        }
         const auto it = _byName.find(name);
         if (it != _byName.end())
             out.insert(out.end(), it->second.begin(), it->second.end());
@@ -107,7 +112,7 @@ void MapScreen::relay(const std::string &names, int instigator) {
             if (t.part == part && t.ai->className == "CRelayAI" && !t.done) {
                 if (flag(t.ai, "Trigger Only Once"))
                     t.done = true;
-                runAction(t.ai->object("Action"), instigator);
+                runAction(t.ai->object("Action"), instigator, int(part));
             }
     }
 }
@@ -128,7 +133,7 @@ void MapScreen::updateTriggers(float seconds) {
                 const float spread = number(ai, "Plus or Minus");
                 const float r = float((_random >> 16) & 0x7fff) / 32767.0f * 2.0f - 1.0f;
                 t.timer = std::max(0.05f, number(ai, "Delay Between Actions") + spread * r);
-                runAction(ai->object("Action"), -1);
+                runAction(ai->object("Action"), -1, int(t.part));
             }
             continue;
         }
@@ -159,7 +164,7 @@ void MapScreen::updateTriggers(float seconds) {
             if (in && !t.touching[o]) {
                 t.touching[o] = true;
                 t.nextRepeat[o] = 0.0f;
-                runAction(ai->object("Enter Action"), instigator);
+                runAction(ai->object("Enter Action"), instigator, int(t.part));
                 if (flag(ai, "Trigger Only Once") && ai->object("Enter Action"))
                     t.done = true;
             }
@@ -167,14 +172,14 @@ void MapScreen::updateTriggers(float seconds) {
                 t.nextRepeat[o] -= seconds;
                 if (t.nextRepeat[o] <= 0.0f) {
                     t.nextRepeat[o] = number(ai, "Repeat Every");
-                    runAction(ai->object("Repeat Action"), instigator);
+                    runAction(ai->object("Repeat Action"), instigator, int(t.part));
                     if (flag(ai, "Trigger Only Once"))
                         t.done = true;
                 }
             }
             if (!in && t.touching[o]) {
                 t.touching[o] = false;
-                runAction(ai->object("Exit Action"), instigator);
+                runAction(ai->object("Exit Action"), instigator, int(t.part));
                 if (flag(ai, "Trigger Only Once") && ai->object("Exit Action"))
                     t.done = true;
             }
@@ -186,26 +191,26 @@ void MapScreen::updateTriggers(float seconds) {
     }
 }
 
-void MapScreen::runAction(const TextObject *action, int instigator) {
-    if (!action || runMissionAction(action, instigator))
+void MapScreen::runAction(const TextObject *action, int instigator, int trigger) {
+    if (!action || runMissionAction(action, instigator) || runEnemyAction(action, instigator, trigger))
         return;
     const std::string &kind = action->className;
     const auto targets = [&](const char *key) {
         const std::string names = readText(action, key);
-        std::vector<size_t> parts = partsNamed(names);
+        std::vector<size_t> parts = partsNamed(names, trigger);
         return parts;
     };
     if (kind == "CMultipleActionsAction") {
         if (const TextObject *actions = action->object("Action"))
             for (const TextField *item : actions->items())
-                runAction(item->object.get(), instigator);
+                runAction(item->object.get(), instigator, trigger);
     } else if (kind == "CRandomAction") {
         // One of its actions, by chance.
         if (const TextObject *actions = action->object("Action")) {
             const auto items = actions->items();
             if (!items.empty()) {
                 _random = _random * 1103515245u + 12345u;
-                runAction(items[(_random >> 16) % items.size()]->object.get(), instigator);
+                runAction(items[(_random >> 16) % items.size()]->object.get(), instigator, trigger);
             }
         }
     } else if (kind == "CSeriesAction" || kind == "CShuffledSeriesAction") {
@@ -217,10 +222,11 @@ void MapScreen::runAction(const TextObject *action, int instigator) {
             if (next >= items.size() && lower(readText(action, "When Done")) == "loop")
                 next = 0;
             if (next < items.size())
-                runAction(items[next++]->object.get(), instigator);
+                runAction(items[next++]->object.get(), instigator, trigger);
         }
     } else if (kind == "CDelayAction") {
-        _delayed.push_back({float(action->number("Delay").value_or(0.0)), action->object("Next Action"), instigator});
+        _delayed.push_back(
+            {float(action->number("Delay").value_or(0.0)), action->object("Next Action"), instigator, trigger});
     } else if (kind == "CInfoDialogAction") {
         showDialog(readText(action, "Script"), readText(action, "Line"), readText(action, "Who is speaking"));
     } else if (kind == "CTricorderDialogAction") {
@@ -264,9 +270,9 @@ void MapScreen::runAction(const TextObject *action, int instigator) {
         const TextObject *attempt = action->object("Try Action");
         bool succeeded = false;
         if (attempt && attempt->className == "CCheckExistenceAction")
-            for (size_t part : partsNamed(readText(attempt, "Name To Check For")))
+            for (size_t part : partsNamed(readText(attempt, "Name To Check For"), trigger))
                 succeeded = succeeded || !_partStates[part].deleted;
-        runAction(action->object(succeeded ? "Succeed Action" : "Fail Action"), instigator);
+        runAction(action->object(succeeded ? "Succeed Action" : "Fail Action"), instigator, trigger);
     } else if (kind == "CAddEffectToTeam") {
         // The team beams in: the warp's sound, and them fading in under the
         // transporter's sparkle over its Warp Time (inferred for how it's

@@ -101,6 +101,8 @@ void MapScreen::setupCombat() {
         e.maxHealth = info.hitPoints > 0 ? float(info.hitPoints) : kDefaultHealth;
         e.health = e.maxHealth;
         e.weapon = weaponOf(p.inventory.empty() ? info.inventory : p.inventory);
+        // The map can set its weapon to stun (the Borg's guns).
+        e.stuns = p.stuns || (e.weapon && e.weapon->stuns);
     }
     for (Officer &o : _officers) {
         const ModelInfo &info = modelInfo(_team[o.member].bodyModel);
@@ -177,40 +179,49 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     if (!e.alive())
         return;
     if (const TextObject *action = e.ai->object("Damage Action"))
-        runAction(action, attacker);
-    if (weapon.stuns) {
-        // Down for the weapon's Stun Duration, then back to its patrol
-        // (inferred).
+        runAction(action, attacker, int(e.part));
+    // A weapon set to stun puts it down for the weapon's Stun Duration,
+    // then back to its patrol, unless its Stun State is Attack (145 of the
+    // maps' enemies: the Borg's), which it then does (inferred).
+    const bool stunnable = readText(e.ai, "Stun State") != "Attack";
+    if (weapon.stuns && stunnable) {
         e.stunned = weapon.stunDuration;
         e.state = "Stun";
         e.target = -1;
         e.stateTime = 0.0f;
+        e.route.clear();
         return;
     }
-    e.health -= weapon.weaponDamage;
+    if (!weapon.stuns)
+        e.health -= weapon.weaponDamage;
     if (e.health <= 0.0f) {
         e.health = 0.0f;
         e.dead = 0.0f;
         e.state = "Dead";
         e.target = -1;
-        runAction(_map.parts[e.part].destroyedAction, attacker);
+        runAction(_map.parts[e.part].destroyedAction, attacker, int(e.part));
         return;
     }
-    // One that's Target If Hit turns on whoever hit it, and attacks.
-    if (attacker >= 0 && readText(e.ai, "Target If Hit") == "1" && e.state != "Attack") {
-        e.target = attacker;
-        e.state = "Attack";
-        e.stateTime = 0.0f;
-        e.unseen = 0.0f;
-        if (const TextObject *a = e.ai->object("Attack"))
-            runAction(a->object("Start Action"), -1);
-    }
+    // One that's Target If Hit turns on whoever hit it, and attacks; one
+    // hurt enough retreats.
+    if (attacker >= 0 && (readText(e.ai, "Target If Hit") == "1" || weapon.stuns) && e.state != "Attack" &&
+        e.state != "Retreat")
+        attackOfficer(e, attacker);
+    maybeRetreat(e);
 }
 
-void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon) {
+void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun) {
     Officer &o = _officers[officer];
     if (!o.alive())
         return;
+    if (stun) {
+        // Down for the weapon's Stun Duration, their orders dropped
+        // (inferred).
+        o.stunned = std::max(o.stunned, weapon.stunDuration);
+        o.path.clear();
+        o.attacking = -1;
+        return;
+    }
     o.health = std::max(0.0f, o.health - weapon.weaponDamage);
     if (o.health > 0.0f)
         return;
@@ -240,6 +251,10 @@ void MapScreen::updateCombat(float seconds) {
         o.reload = std::max(0.0f, o.reload - seconds);
         if (!o.alive()) {
             o.dead += seconds;
+            continue;
+        }
+        if (o.stunned > 0.0f) {
+            o.stunned = std::max(0.0f, o.stunned - seconds);
             continue;
         }
         if (o.shooting > 0.0f) {

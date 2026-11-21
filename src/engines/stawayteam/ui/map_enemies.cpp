@@ -11,6 +11,7 @@
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 namespace reluva::stawayteam {
@@ -72,7 +73,7 @@ bool MapScreen::sees(const Enemy &e, const Officer &o) const {
     // Within its Max Distance and half its Vision Cone either side of its
     // facing, nothing standing full height between (CBorgSetClosestTarget,
     // inferred).
-    if (!o.alive())
+    if (o.down())
         return false;
     const float dx = o.x - e.x;
     const float dy = o.y - e.y;
@@ -221,6 +222,148 @@ bool MapScreen::runAI(Enemy &e, const TextObject *ai, float seconds) {
     return true;
 }
 
+bool MapScreen::runs(const Enemy &e, const char *state) const {
+    const TextObject *s = e.ai->object(state);
+    return s && readText(s, "Move Mode") == "Run";
+}
+
+bool MapScreen::followRoute(Enemy &e, float seconds, bool running) {
+    while (!e.route.empty()) {
+        const auto [x, y] = e.route.front();
+        if (!walkTo(e, x, y, 1.0f, seconds, running))
+            return false;
+        e.route.erase(e.route.begin());
+    }
+    return true;
+}
+
+void MapScreen::placeOf(size_t part, float &x, float &y) const {
+    const auto enemy = _enemyOfPart.find(part);
+    x = enemy != _enemyOfPart.end() ? _enemies[enemy->second].x : _map.parts[part].x;
+    y = enemy != _enemyOfPart.end() ? _enemies[enemy->second].y : _map.parts[part].y;
+}
+
+void MapScreen::attackOfficer(Enemy &e, int officer) {
+    const Officer &o = _officers[size_t(officer)];
+    e.target = officer;
+    e.unseen = 0.0f;
+    e.seenX = o.x;
+    e.seenY = o.y;
+    e.route.clear();
+    if (e.state == "Attack")
+        return;
+    e.state = "Attack";
+    e.stateTime = 0.0f;
+    if (const TextObject *attack = e.ai->object("Attack"))
+        runAction(attack->object("Start Action"), officer, int(e.part));
+}
+
+void MapScreen::maybeRetreat(Enemy &e) {
+    // Hurt to its Retreat At Percent of its health, one whose Retreat AI
+    // goes somewhere (a CGoToAI's Destination: 48 in all the maps, to an
+    // alarm or a security panel) runs there, once (inferred).
+    const int percent = int(e.ai->integer("Retreat At Percent").value_or(0));
+    const TextObject *retreat = e.ai->object("Retreat");
+    const TextObject *goTo = retreat ? retreat->object("Retreat AI") : nullptr;
+    if (percent <= 0 || e.retreated || e.state == "Retreat" || !goTo || goTo->className != "CGoToAI" ||
+        e.health > e.maxHealth * float(percent) / 100.0f)
+        return;
+    const std::vector<size_t> places = partsNamed(readText(goTo, "Destination"), int(e.part));
+    if (places.empty())
+        return;
+    float x = 0.0f;
+    float y = 0.0f;
+    placeOf(places.front(), x, y);
+    e.route =
+        _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}} : _wayPoints.path(e.x, e.y, x, y);
+    e.state = "Retreat";
+    e.stateTime = 0.0f;
+    runAction(retreat->object("Start Action"), e.target, int(e.part));
+}
+
+bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int trigger) {
+    const std::string &kind = action->className;
+    const auto enemiesNamed = [&](const char *key) {
+        std::vector<Enemy *> out;
+        for (size_t part : partsNamed(readText(action, key), trigger)) {
+            const auto it = _enemyOfPart.find(part);
+            if (it != _enemyOfPart.end() && _enemies[it->second].alive())
+                out.push_back(&_enemies[it->second]);
+        }
+        return out;
+    };
+    if (kind == "CSendInvestigateHereMessageAction") {
+        // Its Target goes to look where the instigator is (0x578060): the
+        // officer who set it off, or else the part whose action it is; one
+        // already after the team carries on (inferred).
+        float x = 0.0f;
+        float y = 0.0f;
+        if (instigator >= 0) {
+            x = _officers[size_t(instigator)].x;
+            y = _officers[size_t(instigator)].y;
+        } else if (trigger >= 0) {
+            placeOf(size_t(trigger), x, y);
+        } else {
+            return true;
+        }
+        for (Enemy *e : enemiesNamed("Target"))
+            if (!e->down() && (e->state == "Patrol" || e->state == "Investigate"))
+                investigate(*e, x, y);
+    } else if (kind == "CSendInvestigateTargetMessageAction") {
+        // Its Target is given the instigator as its target (0x578b70), and
+        // goes after them (inferred).
+        if (instigator >= 0 && _officers[size_t(instigator)].alive())
+            for (Enemy *e : enemiesNamed("Target"))
+                if (!e->down() && e->state != "Retreat")
+                    attackOfficer(*e, instigator);
+    } else if (kind == "CDoOnAllWithinRadiusAction") {
+        // Its Touching Action for each enemy in an oval Radius across and
+        // Radius times Y To X Ratio up and down about its Target Entity,
+        // whose name has its Name Filter in it, that isn't Who To Ignore;
+        // each the $Trigger of it (inferred: how it chooses isn't traced).
+        const std::string centre = readText(action, "Target Entity");
+        float cx = 0.0f;
+        float cy = 0.0f;
+        std::string lowered = centre;
+        for (char &c : lowered)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        if (lowered == "$instigator" && instigator >= 0) {
+            cx = _officers[size_t(instigator)].x;
+            cy = _officers[size_t(instigator)].y;
+        } else {
+            const std::vector<size_t> at = partsNamed(lowered == "$instigator" ? "$trigger" : centre, trigger);
+            if (at.empty())
+                return true;
+            placeOf(at.front(), cx, cy);
+        }
+        const float rx = number(action, "Radius");
+        const float ry = rx * number(action, "Y To X Ratio", 1.0f);
+        std::string filter = readText(action, "Name Filter");
+        for (char &c : filter)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        const std::vector<size_t> ignored = partsNamed(readText(action, "Who To Ignore"), trigger);
+        runAction(action->object("Start Action"), instigator, trigger);
+        for (const Enemy &e : _enemies) {
+            if (!e.alive() || !_partStates[e.part].active || _partStates[e.part].deleted || rx <= 0.0f || ry <= 0.0f)
+                continue;
+            std::string name = _map.parts[e.part].name;
+            for (char &c : name)
+                c = char(std::tolower(static_cast<unsigned char>(c)));
+            if ((!filter.empty() && name.find(filter) == std::string::npos) ||
+                std::find(ignored.begin(), ignored.end(), e.part) != ignored.end())
+                continue;
+            const float dx = (e.x - cx) / rx;
+            const float dy = (e.y - cy) / ry;
+            if (dx * dx + dy * dy <= 1.0f)
+                runAction(action->object("Touching Action"), instigator, int(e.part));
+        }
+        runAction(action->object("Done Action"), instigator, trigger);
+    } else {
+        return false;
+    }
+    return true;
+}
+
 void MapScreen::updateEnemies(float seconds) {
     for (Enemy &e : _enemies) {
         e.walking = false;
@@ -230,6 +373,7 @@ void MapScreen::updateEnemies(float seconds) {
             continue;
         e.stateTime += seconds;
         const TextObject *states = e.ai;
+        const int self = int(e.part);
         // Seeing an officer, a patrolling enemy is alerted: its Alert
         // state's Start Action, turning to them for Alert Time; then it
         // attacks (inferred: CBorgStateGotATarget's transitions aren't
@@ -241,8 +385,9 @@ void MapScreen::updateEnemies(float seconds) {
                     e.state = "Alert";
                     e.stateTime = 0.0f;
                     e.unseen = 0.0f;
+                    e.route.clear();
                     if (const TextObject *alert = states->object("Alert"))
-                        runAction(alert->object("Start Action"), -1);
+                        runAction(alert->object("Start Action"), int(i), self);
                     break;
                 }
         }
@@ -256,8 +401,8 @@ void MapScreen::updateEnemies(float seconds) {
             investigate(e, heardX, heardY);
         if (e.state == "Investigate") {
             if (runInvestigate(e, seconds)) {
-                if (const TextObject *state = states->object("Investigate"))
-                    runAction(state->object("End Action"), -1);
+                if (const TextObject *s = states->object("Investigate"))
+                    runAction(s->object("End Action"), -1, self);
                 e.state = "Patrol";
                 e.stateTime = 0.0f;
             }
@@ -268,35 +413,71 @@ void MapScreen::updateEnemies(float seconds) {
                 runAI(e, patrol->object("Patrol AI"), seconds);
             continue;
         }
+        if (e.state == "Retreat") {
+            // There, its GoTo's Done action, and it holds the place, still
+            // fighting (inferred).
+            if (followRoute(e, seconds, runs(e, "Retreat"))) {
+                const TextObject *retreat = states->object("Retreat");
+                const TextObject *goTo = retreat ? retreat->object("Retreat AI") : nullptr;
+                e.retreated = true;
+                e.state = "Attack";
+                e.stateTime = 0.0f;
+                runAction(goTo ? goTo->object("Done action") : nullptr, e.target, self);
+            }
+            continue;
+        }
         if ((e.state != "Alert" && e.state != "Attack") || e.target < 0)
             continue;
         const Officer &o = _officers[size_t(e.target)];
-        const float toward = angleOf(o.x - e.x, o.y - e.y);
-        turnTo(e, toward, kTurnSpeed, seconds);
         const bool seen = sees(e, o);
+        if (seen) {
+            e.seenX = o.x;
+            e.seenY = o.y;
+            e.route.clear();
+        }
         e.unseen = seen ? 0.0f : e.unseen + seconds;
-        if (e.unseen > kForgetAfter || !o.alive()) {
+        // Out of sight, an attacker whose Pursue AI chases goes after them
+        // by the waypoints to where it saw them last; it gives up there, or
+        // with nowhere to go, once it's not seen them for a while
+        // (inferred).
+        const TextObject *pursue = states->object("Pursue");
+        const TextObject *chase = pursue ? pursue->object("Pursue AI") : nullptr;
+        const bool chases = chase && chase->className == "CChasePursueAI" && !e.retreated;
+        bool arrived = true;
+        if (!seen && e.state == "Attack" && chases) {
+            if (e.route.empty() && std::hypot(e.seenX - e.x, e.seenY - e.y) > 1.0f)
+                e.route = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{e.seenX, e.seenY}}
+                                                    : _wayPoints.path(e.x, e.y, e.seenX, e.seenY);
+            arrived = followRoute(e, seconds, runs(e, "Pursue"));
+            if (arrived) {
+                e.seenX = e.x;
+                e.seenY = e.y;
+            }
+        } else {
+            turnTo(e, angleOf(o.x - e.x, o.y - e.y), kTurnSpeed, seconds);
+        }
+        if ((e.unseen > kForgetAfter && arrived) || o.down()) {
             // Back to its patrol, where it left off.
             e.state = "Patrol";
             e.target = -1;
             e.stateTime = 0.0f;
+            e.route.clear();
             continue;
         }
         const TextObject *alert = states->object("Alert");
         if (e.state == "Alert" && e.stateTime >= number(alert, "Alert Time", 2.0f)) {
-            e.state = "Attack";
-            e.stateTime = 0.0f;
-            if (const TextObject *attack = states->object("Attack"))
-                runAction(attack->object("Start Action"), -1);
+            attackOfficer(e, e.target);
         }
         // Attacking, it shoots what it sees in its weapon's range, aimed
         // within its Max Shoot Angle, each Reuse Delay; one it sees further
-        // off it goes after (its Pursue state's, inferred).
+        // off it goes after, at its Pursue state's pace (inferred).
         if (e.state != "Attack" || !e.weapon || !seen)
             continue;
+        const float toward = angleOf(o.x - e.x, o.y - e.y);
         const float distance = std::hypot(o.x - e.x, o.y - e.y);
         if (distance > e.weapon->range) {
-            walkTo(e, o.x, o.y, 1.0f, seconds);
+            if (!e.retreated)
+                walkTo(e, o.x, o.y, 1.0f, seconds, runs(e, "Pursue"));
             continue;
         }
         const float off = std::abs(wrap(toward - e.angle)) * 180.0f / kPi;
@@ -304,7 +485,7 @@ void MapScreen::updateEnemies(float seconds) {
             e.reload = e.weapon->reuseDelay;
             shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, o.x, o.y);
             e.shooting = 1e-6f;
-            hurtOfficer(size_t(e.target), *e.weapon);
+            hurtOfficer(size_t(e.target), *e.weapon, e.stuns);
         }
     }
 }

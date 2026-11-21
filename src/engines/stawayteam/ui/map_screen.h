@@ -81,8 +81,11 @@ public:
         float reload = 0.0f;                    // seconds till their weapon shoots again
         float shooting = 0.0f;                  // seconds into their shot's sequence; 0 not shooting
         float dead = -1.0f;                     // seconds since they fell; below 0 alive
+        float stunned = 0.0f;                   // seconds of their stun left
 
         bool alive() const { return dead < 0.0f; }
+        /** Fallen or stunned: they can't move, shoot, or be seen as a target. */
+        bool down() const { return dead >= 0.0f || stunned > 0.0f; }
     };
     const std::vector<Officer> &officers() const { return _officers; }
     /** The officer chosen first: whose items the inventory shows; -1 for none. */
@@ -134,11 +137,16 @@ public:
         // long it's looked about since getting there.
         float heardX = 0.0f;
         float heardY = 0.0f;
+        // Where it last saw its target, to go after them.
+        float seenX = 0.0f;
+        float seenY = 0.0f;
+        bool retreated = false; // it's run to its Retreat AI's place, and holds it
         std::vector<std::pair<float, float>> route;
         float looked = -1.0f; // below 0 not there yet
         float health = 0.0f;
         float maxHealth = 0.0f;
         const ItemDefinition *weapon = nullptr;
+        bool stuns = false; // its weapon's set to stun
         float reload = 0.0f;
         float shooting = 0.0f;
         float dead = -1.0f;   // seconds since it fell; below 0 alive
@@ -159,8 +167,12 @@ public:
         std::map<const TextObject *, Progress> progress;
     };
     const std::vector<Enemy> &enemies() const { return _enemies; }
-    /** Runs `action` (one of the map's), as a trigger would, `instigator` the officer who set it off (or -1). */
-    void runAction(const TextObject *action, int instigator = -1);
+    /**
+     * Runs `action` (one of the map's), as a trigger would: `instigator`
+     * the officer who set it off (or -1), `trigger` the part whose action
+     * it is, `$Trigger` to it (or -1).
+     */
+    void runAction(const TextObject *action, int instigator = -1, int trigger = -1);
 
     /** Sends the officers chosen to shoot enemy `enemy`, walking into range first. */
     void attack(int enemy);
@@ -229,6 +241,20 @@ private:
     bool hears(const Enemy &e, float &x, float &y) const;
     // Sends `e` to investigate a noise at (x, y).
     void investigate(Enemy &e, float x, float y);
+    // The enemies' messages and actions on them (map_enemies.cpp); true if
+    // `action` was one.
+    bool runEnemyAction(const TextObject *action, int instigator, int trigger);
+    // Where part `part` stands: an enemy where it's got to.
+    void placeOf(size_t part, float &x, float &y) const;
+    // `e` goes after officer `officer`: attacking, its Attack's Start Action run.
+    void attackOfficer(Enemy &e, int officer);
+    // Walks `e` along its route; true once it's at its end.
+    bool followRoute(Enemy &e, float seconds, bool running);
+    // Whether an enemy's state moves it at a run (its Move Mode).
+    bool runs(const Enemy &e, const char *state) const;
+    // Sends `e` back to where its Retreat AI says, if it's hurt enough (its
+    // Retreat At Percent).
+    void maybeRetreat(Enemy &e);
     // Its Investigate state a step; true once it's done.
     bool runInvestigate(Enemy &e, float seconds);
     // Turns `e` towards `angle` at `degreesPerSecond`; true there.
@@ -243,16 +269,17 @@ private:
     // how long the shooter's `model` takes over shooting it.
     float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty);
     void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker);
-    void hurtOfficer(size_t officer, const ItemDefinition &weapon);
+    // A shot at officer `officer`: hurting them, or, from a weapon set to
+    // `stun`, stunning them.
+    void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
     // The sequence a character's drawn with, and how far into it, for one
     // shooting or fallen; empty for neither.
     std::string combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model);
     // The map's triggers (map_triggers.cpp).
     void setupTriggers();
     void updateTriggers(float seconds);
-    // The parts named by `names`, a comma's list; "$Instigator" the officer
-    // who set it off.
-    std::vector<size_t> partsNamed(const std::string &names) const;
+    // The parts named by `names`, a comma's list; "$Trigger" is `trigger`.
+    std::vector<size_t> partsNamed(const std::string &names, int trigger = -1) const;
     void relay(const std::string &names, int instigator);
     bool shown(size_t part) const;
     void showDialog(const std::string &script, const std::string &line, const std::string &speaker);
@@ -329,6 +356,7 @@ private:
         float left;
         const TextObject *action;
         int instigator;
+        int trigger;
     };
     // A part's trigger: its AI, and how it stands.
     struct Trigger {

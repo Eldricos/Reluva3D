@@ -560,6 +560,124 @@ void testObjectives() {
     CHECK(screen.handleEvent(esc, nullptr, 200) == MapScreen::Choice::kNone && screen.missionOver());
 }
 
+void testEnemyAI() {
+    // A guard that sees Ann calls the guards about it to look where she is;
+    // its gun's set to stun. A guard to send after Bo, one that retreats to
+    // its alarm when it's hurt, and their places.
+    const auto guard = [](const std::string &name, int x, int y, float angle, const std::string &ai,
+                          const std::string &rest) {
+        return "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=" + name +
+               "\n\t\t\tVisible=1\n\t\t\tActive=1\n\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n"
+               "\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n\t\t\t\t\tCurrent State=Patrol\n" +
+               ai + "\t\t\t\t}\n\t\t\t}\n" + rest +
+               "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=" + std::to_string(x) +
+               "\n\t\t\tPosition Y=" + std::to_string(y) + "\n\t\t\tFacing Angle=" + std::to_string(angle) +
+               "\n\t\t}\n";
+    };
+    const auto place = [](const std::string &name, int x, int y, bool active) {
+        return "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=" + name +
+               "\n\t\t\tVisible=1\n\t\t\tActive=" + (active ? "1" : "0") + "\n\t\t\tPosition X=" + std::to_string(x) +
+               "\n\t\t\tPosition Y=" + std::to_string(y) + "\n\t\t}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,500.000000\n"
+        "\tTree List=CSortList2D\n\t{\n" +
+        guard("Guard", 500, 500, 0.0f,
+              "\t\t\t\t\tMax Distance=300\n\t\t\t\t\tVision Cone=180\n"
+              "\t\t\t\t\tAlert=CBorgStateAlert\n\t\t\t\t\t{\n\t\t\t\t\t\tAlert Time=0.5\n"
+              "\t\t\t\t\t\tStart Action=CDoOnAllWithinRadiusAction\n\t\t\t\t\t\t{\n"
+              "\t\t\t\t\t\t\tTarget Entity=$Trigger\n"
+              "\t\t\t\t\t\t\tTouching Action=CSendInvestigateHereMessageAction\n\t\t\t\t\t\t\t{\n"
+              "\t\t\t\t\t\t\t\tTarget=$Trigger\n\t\t\t\t\t\t\t}\n"
+              "\t\t\t\t\t\t\tWho To Ignore=Guard 4\n\t\t\t\t\t\t\tName Filter=guard\n"
+              "\t\t\t\t\t\t\tWho To Affect=Enemy\n\t\t\t\t\t\t\tRadius=400\n\t\t\t\t\t\t\tY To X Ratio=1\n"
+              "\t\t\t\t\t\t}\n\t\t\t\t\t}\n",
+              "\t\t\tInventory=CInventory\n\t\t\t{\n\t\t\t\tInventory List=Array\n\t\t\t\t{\n"
+              "\t\t\t\t\tItem Count=1\n\t\t\t\t\tItem=CStarTrekEnergyWeaponInventoryItem\n\t\t\t\t\t{\n"
+              "\t\t\t\t\t\tDefinition Index=Enemy Weapons/Borg Gun\n\t\t\t\t\t\tWeapon Setting=Stun\n"
+              "\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n") +
+        guard("Guard 2", 500, 800, 3.14159f,
+              "\t\t\t\t\tMax Distance=50\n\t\t\t\t\tInvestigate=CBorgStateInvestigate\n\t\t\t\t\t{\n"
+              "\t\t\t\t\t\tInvestigate AI=CChaseInvestigateAI\n\t\t\t\t\t\t{\n"
+              "\t\t\t\t\t\t\tTime To Investigate=1\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n",
+              "") +
+        guard("Guard 3", 900, 900, 0.0f,
+              "\t\t\t\t\tMax Distance=50\n\t\t\t\t\tPursue=CBorgStatePursue\n\t\t\t\t\t{\n"
+              "\t\t\t\t\t\tMove Mode=Run\n\t\t\t\t\t\tPursue AI=CChasePursueAI\n\t\t\t\t\t\t{\n"
+              "\t\t\t\t\t\t}\n\t\t\t\t\t}\n",
+              "") +
+        guard("Guard 4", 500, 200, 3.14159f,
+              "\t\t\t\t\tMax Distance=50\n\t\t\t\t\tRetreat At Percent=80\n"
+              "\t\t\t\t\tRetreat=CBorgStateRetreat\n\t\t\t\t\t{\n\t\t\t\t\t\tMove Mode=Run\n"
+              "\t\t\t\t\t\tRetreat AI=CGoToAI\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tDestination=Alarm Spot\n"
+              "\t\t\t\t\t\t\tDone action=CActivateAction\n\t\t\t\t\t\t\t{\n"
+              "\t\t\t\t\t\t\t\tTarget Name=Alarm\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n",
+              "") +
+        place("Alarm Spot", 900, 200, true) + place("Alarm", 0, 0, false) +
+        place("Away Team Spawn Point 1", 350, 500, true) + place("Away Team Spawn Point 2", 300, 200, true) +
+        "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    data.files["Inventory/Item Definitions/Enemy Weapons/Borg Gun.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tWeapon Damage=40\n\tReuse Delay=1\n\tItem Range=375\n"
+                "\tMax Shoot Angle=10\n\tStun Duration=5\n\tDischarge Action=CShootEnergyWeaponAction\n}\n");
+    data.files["Inventory/Item Definitions/Phaser.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tWeapon Damage=25\n\tReuse Delay=0.5\n\tItem Range=375\n"
+                "\tDischarge Action=CShootEnergyWeaponAction\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    CHECK(map.parts[0].stuns && !map.parts[1].stuns);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    bo.inventory = {{"Phaser", 1}};
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    const auto &enemies = screen.enemies();
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    // The guard sees Ann: its alert calls Guard 2, in its radius, to look
+    // where she is, but not Guard 3, out of it, nor Guard 4, ignored. Then
+    // it shoots her with its stun gun: down, unhurt, and she can't walk.
+    run(1000);
+    CHECK(enemies[1].state == "Investigate" && enemies[1].heardX == 350.0f && enemies[1].heardY == 500.0f);
+    CHECK(enemies[2].state == "Patrol" && enemies[3].state == "Patrol");
+    const MapScreen::Officer &a = screen.officers()[0];
+    CHECK(a.stunned > 0.0f && a.health == 100.0f && a.alive());
+    screen.choose(0);
+    screen.order(350.0f, 700.0f);
+    run(2000);
+    CHECK(a.x == 350.0f && a.y == 500.0f);
+    // Bo shoots Guard 4 once: at 75 of its 100 it retreats, running to its
+    // Alarm Spot, sets off the alarm there and holds the place.
+    screen.choose(1);
+    screen.attack(3);
+    run(2050);
+    CHECK(enemies[3].health == 75.0f && enemies[3].state == "Retreat");
+    screen.order(300.0f, 150.0f);
+    run(16000);
+    CHECK(enemies[3].retreated && enemies[3].state == "Attack" && enemies[3].x == 900.0f);
+    CHECK(screen.partState(5).active);
+    // Guard 3, sent after Bo, goes after him though it doesn't see him.
+    TextObject message;
+    CHECK(!readTextObject("CSendInvestigateTargetMessageAction\n{\n\tTarget=Guard 3\n}\n", message));
+    screen.runAction(&message, 1);
+    CHECK(enemies[2].state == "Attack" && enemies[2].target == 1);
+    const float before = std::hypot(enemies[2].x - 300.0f, enemies[2].y - 150.0f);
+    run(19000);
+    CHECK(enemies[2].state == "Attack" && enemies[2].walking && enemies[2].running);
+    CHECK(std::hypot(enemies[2].x - 300.0f, enemies[2].y - 150.0f) < before - 50.0f);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -611,4 +729,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                             {"noise", [](const std::filesystem::path &) { testNoise(); }},
                                             {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
+                                            {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
                                         });

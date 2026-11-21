@@ -224,6 +224,35 @@ maps. In Mission 01's 32 enemies, `Attack` is a
 29; their `Target If Hit` is 1 in 30 of them; a `Damage Action` and a
 `Stun State` (`Stun`) are given too.
 
+In all the maps' 776 enemies:
+
+- **Pursue:** a `CChasePursueAI` in 761, a `CGoToAI` in 6; the state's
+  `Move Mode` `Run`.
+- **Retreat:** `Retreat At Percent` of their health, 0 for 639; 134
+  retreat, 48 of them by a `CGoToAI` whose `Destination` is an alarm or
+  a security panel ("alarm center 5"), with a `Done action`. In Mission
+  08, a Klingon reaching one sets off the alarm, and the mission's lost.
+- **Stun State:** `Stun` for 628, `Attack` for 145 (the Borg's). A map
+  can set an enemy's weapon to stun, its inventory item's `Weapon
+  Setting` (`Stun` for 34 Borg guns).
+
+They tell one another, by actions:
+
+- **`CSendInvestigateHereMessageAction`** (1,029 in the maps): its
+  `Target` is sent to look where the action's instigator is: the message
+  is made from it (`0x578060`) and sent to the target.
+- **`CSendInvestigateTargetMessageAction`** (213): its `Target` is given
+  the instigator as a target (`0x578b70`).
+- **`CDoOnAllWithinRadiusAction`** (719; a `CDoOnAllInsideAction`): its
+  `Touching Action` for each part of `Who To Affect` (`Enemy`) about its
+  `Target Entity` (`$Trigger` or `$Instigator` mostly) within `Radius`
+  and `Y To X Ratio` of it, whose name has its `Name Filter`, but `Who To
+  Ignore`, with its `Start Action` and `Done Action`. In the alert and
+  attack states' Start Actions and the Damage Actions, it calls the
+  others near to look (`Touching Action` a
+  `CSendInvestigateHereMessageAction` to `$Trigger`) or adds an effect
+  to them (`CAddEffectAction`, 330).
+
 ### Fighting
 
 - **Weapons** are item definitions (`Inventory/Item Definitions`, the
@@ -389,9 +418,19 @@ corner, a scan's turning in degrees a second, the rest done at once
 *(inferred)*; seeing an officer (in Max Distance and half the Vision
 Cone either side of their facing, nothing standing full height
 between), alerted: the Alert's Start Action, turning to them, and after
-Alert Time attacking: the Attack's Start Action, facing them; out of
-sight five seconds, or their target fallen, back to the patrol
-*(inferred)*.
+Alert Time attacking: the Attack's Start Action, facing them; their
+target fallen or stunned, or out of sight five seconds with nowhere left
+to go after them, back to the patrol *(inferred)*. Attacking, one whose
+Pursue AI chases goes after a target out of sight by the waypoints to
+where it saw them last, at a run with its Pursue's Move Mode Run, and
+straight at one it sees out of its weapon's range *(inferred)*. Hurt to
+its Retreat At Percent, one whose Retreat AI goes somewhere runs there by
+the waypoints, runs its Done action, and holds the place, fighting
+*(inferred)*. A state's actions have the enemy as their `$Trigger`, and
+the officer it's after as their instigator *(inferred)*. The messages
+above are acted on: told to look, one on patrol or looking goes there;
+given a target, it attacks them; a radius's action reaches the enemies in
+its oval, whose name has the filter in it *(inferred)*.
 
 Fighting (`ui/map_combat.cpp`): sight is blocked by the outlines (`Bounds
 Poly`) of the parts shown that collide and stand full height, about
@@ -409,7 +448,10 @@ its Shot Flash on the shooter and its Hit Flash on the one hit, the
 shooter's `Shoot1` played through, the Weapon Damage taken off. An enemy
 hit runs its Damage Action, and with Target If Hit attacks whoever hit it;
 a weapon set to stun puts it down for the Stun Duration, then back on
-patrol *(inferred)*. With no health left a character plays `Death` once
+patrol, unless its Stun State is Attack, when it attacks *(inferred)*.
+An enemy's weapon set to stun puts an officer down for its Stun
+Duration unhurt, unable to move or shoot, and unseen as a target
+meanwhile *(inferred)*. With no health left a character plays `Death` once
 and lies `Dead`; a fallen officer can't be chosen or sent.
 
 Noise (`ui/map_noise.cpp`): an officer's walk makes its footsteps'
@@ -426,12 +468,11 @@ held down meanwhile *(inferred)*.
 
 Not there yet: the interface's other buttons, the map's song, the
 triggers set off by enemies, passing through or colliding, the AIs'
-messages and tasks, objectives, walkers going round each other, the
-vision button, the enemies' own noises and footsteps' sounds by the
-ground, the shots' beams and projectiles, missing, thrown and laid weapons, stun
-for the officers and the phaser's setting, the enemies pursuing by the
-waypoints, investigating, retreating and the rest of their states, and
-a mission lost with the team.
+other messages and tasks (going to a place, effects added), walkers
+going round each other, the vision button, the enemies' own noises and
+footsteps' sounds by the ground, the shots' beams and projectiles,
+missing, thrown and laid weapons, the phaser's setting, and the enemies'
+other states (running away, recharging, investigating a body).
 
 ## Sources and checks
 
@@ -459,8 +500,11 @@ a mission lost with the team.
   shooting her down once she's past it, and an officer sent to shoot it
   walking into sight and killing it; footsteps as loud as Stealth and
   the move make them, a noise too far up not heard and one near heard,
-  the guard going to look, looking about and back on patrol; and an
-  officer walking into a trigger that relays to an
+  the guard going to look, looking about and back on patrol; a guard's
+  alert calling another in its radius to look, but not one out of it or
+  ignored, its stun gun downing an officer unhurt, a hurt guard retreating
+  to its alarm and setting it off, and one sent after an officer going
+  after him unseen; and an officer walking into a trigger that relays to an
   arrow, on and a second later off, once only. Mission 01 run on: the
   opening's delayed relays bringing Data's lines that teach selecting and
   moving the team; the four officers sent at the nearest Romulan, round
@@ -468,7 +512,8 @@ a mission lost with the team.
   hit and his health bar down, the shots' flashes on them and on it, and
   it falling; the team running towards a Klingon that listens, the
   rings of their footsteps shown, it coming to look, and back on patrol
-  seven seconds later.
+  seven seconds later. Mission 08 run on: the team charging the Klingons,
+  one hurt retreating to its alarm, and the mission lost to it.
 
 ## Open questions
 
@@ -482,7 +527,10 @@ a mission lost with the team.
 - **Shadows**, and how the `Trans` colours are drawn.
 - **The triggers:** the program's own rules for all of the above, which
   are read from the maps' fields, not from its code.
-- **The enemies:** likewise, the AIs' rules.
+- **The enemies:** likewise, the AIs' rules: when they pursue and give
+  up, what holding a retreat's place is, what `$Trigger` and the
+  instigator are in their states' actions, and how a radius's action
+  chooses whom it reaches.
 - **Noise:** which sides hear which noises, what `0x497d40` checks
   before a noise is heard (perhaps a way there), how the rings are drawn,
   and the investigating AI's rules.

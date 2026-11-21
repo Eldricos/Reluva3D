@@ -46,7 +46,8 @@ None yet.
   sight blocked by the models' `Bounds Poly`, which weapon a character
   uses, shots that always hit, stunning, the health bar's cut, and a
   click on an enemy to attack it; noise: going to look, walls not
-  stopping it, and the rings' look
+  stopping it, and the rings' look; the enemies pursuing, retreating,
+  holding the place and acting on their messages, and officers stunned
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** when the Win Action runs, counts adding up to complete,
   the spawn points' actions run as the map starts, protect objectives

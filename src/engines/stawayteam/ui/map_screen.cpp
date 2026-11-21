@@ -407,7 +407,7 @@ void MapScreen::setMove(int move) {
 }
 
 void MapScreen::walk(Officer &o, float seconds) {
-    if (o.path.empty())
+    if (o.path.empty() || o.down())
         return;
     const Animation &walking = animation(_team[o.member].bodyModel, kMoving[o.move]);
     float left = seconds;
@@ -478,7 +478,7 @@ void MapScreen::playScripts(float seconds) {
         if (_delayed[i].left <= 0.0f) {
             const Delayed d = _delayed[i];
             _delayed.erase(_delayed.begin() + ptrdiff_t(i));
-            runAction(d.action, d.instigator);
+            runAction(d.action, d.instigator, d.trigger);
         } else {
             ++i;
         }
@@ -563,7 +563,7 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
         return;
     const TeamMember &m = _team[o.member];
     int fought = 0;
-    const std::string fighting = combatSequence(o.shooting, o.dead, 0.0f, fought, m.bodyModel);
+    const std::string fighting = combatSequence(o.shooting, o.dead, o.stunned, fought, m.bodyModel);
     const bool walking = !o.path.empty() && fighting.empty();
     const std::string sequence = !fighting.empty() ? fighting : walking ? kMoving[o.move] : kStanding[o.move];
     const Animation &body = animation(m.bodyModel, sequence);
