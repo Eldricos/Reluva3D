@@ -64,6 +64,26 @@ constexpr int kSome = 1161;
 constexpr int kSpiral = 1172;
 constexpr int kTeamPlay = 1253;
 constexpr int kVendetta = 1407;
+// The options screen's words, found by their text in the English
+// lexicon.dic; which text box shows each is inferred
+// (docs/engines/botf/systems/screens.md, Options).
+constexpr int kMusic = 797;
+constexpr int kNo = 828;
+constexpr int kSoundEffects = 1113; // "SFX"
+constexpr int kStrategicTimer = 1182;
+constexpr int kTacticalTimer = 1247;
+constexpr int kVideo = 1411;
+constexpr int kVoice = 1413;
+constexpr int kVolumeControl = 1416;
+constexpr int kYes = 1453;
+// A new save's description: "Ferengi 0 Medium Ring Galaxy". Found by their
+// text; where two entries have it, which one the game uses isn't known.
+constexpr int kCardassians = 125;
+constexpr int kFederation = 320;
+constexpr int kFerengi = 324;
+constexpr int kGalaxy = 406;
+constexpr int kKlingons = 563;
+constexpr int kRomulans = 1061;
 } // namespace lex
 
 } // namespace reluva::botf

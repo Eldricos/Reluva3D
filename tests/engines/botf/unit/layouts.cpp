@@ -118,6 +118,23 @@ void testColorKey() {
     CHECK(img.rgba[3] == 0 && img.rgba[7] == 0 && img.rgba[11] == 0 && img.rgba[15] == 255);
 }
 
+// A picture dimmed for a button that can't be used: its colours scaled,
+// its colour key kept, and the picture itself left as it was.
+void testDimmed() {
+    image::Image img;
+    img.w = 2;
+    img.h = 1;
+    img.rgba = {200, 100, 50, 255, 255, 0, 255, 255};
+    MemoryArchive archive;
+    archive.files["b.tga"] = image::encodeTga(img, true);
+    Assets assets(archive);
+    const image::Image *dim = assets.dimmed("b.tga", 35);
+    CHECK(dim && dim->rgba[0] == 70 && dim->rgba[1] == 35 && dim->rgba[2] == 17 && dim->rgba[3] == 255);
+    CHECK(dim && dim->rgba[7] == 0); // magenta stays see-through
+    CHECK(assets.dimmed("b.tga", 35) == dim && assets.picture("b.tga")->rgba[0] == 200);
+    CHECK(assets.dimmed("missing.tga", 35) == nullptr);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -125,4 +142,5 @@ static const reluva::test::Suite
                                     {"window layouts", [](const std::filesystem::path &) { testWindowLayout(); }},
                                     {"menus", [](const std::filesystem::path &) { testMenuFile(); }},
                                     {"colour key", [](const std::filesystem::path &) { testColorKey(); }},
+                                    {"dimmed pictures", [](const std::filesystem::path &) { testDimmed(); }},
                                 });

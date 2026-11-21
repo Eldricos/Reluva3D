@@ -2,13 +2,42 @@
 # Written by `reluva-tests botf.engine --update`; review its diff before committing.
 detect.games: 1
 detect.description: Star Trek: Birth of the Federation (unknown release)
-setup.shown: 15c598cf926c446d
-setup.difficulty pressed: ea0143b10a698bad
-setup.difficulty changed: 6a876819c35a62ea
-setup.level changed: cde616867fde2eec
-setup.levels all set: 6a876819c35a62ea
-empires.shown: 6700811f7ee4812c
-empires.third chosen: 4a6737e19641e48c
-setup.again: 6a876819c35a62ea
+menu.shown: 3650ee45940809d6
+menu.new game pointed at: e2406750c63cfac6
+menu.continue pressed: 3650ee45940809d6
+setup.shown: c2b55b030cfbbf1f
+setup.difficulty pressed: c2b55b030cfbbf1f
+setup.difficulty changed: 0dce04719f99d8ce
+setup.level changed: 1ec4a944130ad233
+setup.levels all set: 0dce04719f99d8ce
+empires.shown: 66f734a1e12dcbbc
+empires.third chosen: c653e697a0263a5c
+setup.again: 0dce04719f99d8ce
+menu.again: 3650ee45940809d6
+empires.second chosen: 2677c6bfad31d36c
+menu.after a new game: 3650ee45940809d6
+options.shown: c140c9b54566e967
+options.combat changed: cc1d8719ac32d2b7
+options.list closed: c140c9b54566e967
+options.volume pressed: 2c90efe67ff7280f
+options.volume dragged: cf88677c88a8c763
+menu.options cancelled: 3650ee45940809d6
+options.again: c140c9b54566e967
+options.list open: cc1d8719ac32d2b7
+menu.options accepted: 3650ee45940809d6
+setup.with the options: dc7d236f73952b21
+menu.last: 3650ee45940809d6
+load.shown: ccb64e6af37a6459
+load.empty slot clicked: ccb64e6af37a6459
+load.save chosen: c374b3b46075ce51
+menu.after loading: 3650ee45940809d6
+fame.shown: b9c59ecb83c3a745
+menu.after the hall of fame: 3650ee45940809d6
+multiplayer.shown: afb042ae390cf735
+multiplayer.host: db701d89c3e17a3d
+multiplayer.network: 81b383611c6ef7bd
+multiplayer.name typed: e8bd9f706260aad6
+menu.after multiplayer: 3650ee45940809d6
 run: ok
 run.screen: 800x600
+stbof.ini: TACTICAL=ABSTRACT|AUTOSAVE=ON|TOOLTIPS=ON|RANDOMEVENTS=ON|TIMELIMIT=0|TACTIMELIMIT=0|SHAPE=0|SIZE=1|RACENUM=3|DIFFICULTY=4|CIVLEVEL1=1|CIVLEVEL2=1|CIVLEVEL3=1|CIVLEVEL4=1|CIVLEVEL5=1|MUSICVOLUME=100|FXVOLUME=100|VIDEOVOLUME=127|VOICEVOLUME=100|Version=1.0.2|

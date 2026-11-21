@@ -11,8 +11,8 @@
 //
 // The install is a stbof.res holding a main menu, the game setup and
 // empire selection layouts (each widget a picture of its own colour) and
-// a lexicon.dic; the run clicks through setup and empire selection and
-// back, as starting a new game does.
+// a lexicon.dic; the run goes from the main menu through setup and empire
+// selection and back, as starting a new game does, then quits.
 
 #include "common/headless_system.h"
 #include "engines/registry.h"
@@ -24,7 +24,10 @@
 #include "tests/support/zip_writer.h"
 
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -54,14 +57,14 @@ Bytes picture(int w, int h, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 struct LayoutWidget {
-    uint32_t type; // 2 a button, 13 a picture, 14 a text box
+    uint32_t type; // 2 a button, 7 a slider, 13 a picture, 14 a text box
     uint32_t id;
     uint32_t x;
     uint32_t y;
     uint32_t w;
     uint32_t h;
     // A button's pictures, "<name>1.tga" normal and "<name>2.tga" selected; a
-    // text box's font.
+    // slider's lit cells; a text box's font.
     std::string picture;
 };
 
@@ -71,7 +74,7 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
     put32(f, 2);
     putWidget(f, 1, id, 0, 0, 800, 600, background);
     std::vector<std::pair<uint32_t, uint32_t>> byType;
-    for (const uint32_t type : {2U, 13U, 14U}) {
+    for (const uint32_t type : {2U, 7U, 13U, 14U}) {
         uint32_t n = 0;
         for (const LayoutWidget &w : widgets)
             n += w.type == type ? 1 : 0;
@@ -79,11 +82,22 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
             byType.emplace_back(type, n);
     }
     putWindowCounts(f, byType);
-    for (const uint32_t type : {2U, 13U, 14U})
+    for (const uint32_t type : {2U, 7U, 13U, 14U})
         for (const LayoutWidget &w : widgets) {
             if (w.type != type)
                 continue;
-            putWidget(f, w.type, w.id, w.x, w.y, w.w, w.h, "none");
+            putWidget(f, w.type, w.id, w.x, w.y, w.w, w.h, w.type == 7 ? w.picture : "none");
+            if (w.type == 7) {
+                // 41 cells to 127, as the game's volumes are.
+                put16(f, 0);
+                for (const uint32_t v : {127U, 41U, w.w, 0U})
+                    put32(f, v);
+                for (const char *name : {"none", w.picture.c_str(), "none", "none"})
+                    putName(f, name);
+                for (int i = 0; i < 3; ++i)
+                    put32(f, 0);
+                continue;
+            }
             if (w.type == 14) {
                 for (const uint32_t v : {0U, 0U, w.w, w.h})
                     put32(f, v);
@@ -102,12 +116,104 @@ Bytes layout(uint32_t id, const std::string &background, const std::vector<Layou
     return f;
 }
 
-// The install: the setup screen's buttons in a row along the top, the
-// empire screen's names down the left, Accept and Cancel at the bottom.
+// The install: the main menu's buttons down the right; the options
+// screen's volumes, settings and timers' arrows down the middle; Load
+// Game's slots, and two saved games; the Hall of Fame; Multiplayer Setup
+// and its panels; Stbof.ini with the version; the setup
+// screen's buttons in a row along the top, the empire screen's names down
+// the left; Accept and Cancel at the bottom.
 void makeInstall(const std::filesystem::path &dir) {
     std::vector<test::ZipFile> files;
     auto add = [&](const std::string &name, Bytes data) { files.push_back({name, std::move(data), {}}); };
-    add("opening.wdf", layout(138, "menu.tga", {{2, 139, 621, 100, 164, 40, "mc"}}));
+    // The main menu's nine buttons, where the game has them: Continue, New
+    // Single Player Game ... Quit Game, 47 pixels apart.
+    std::vector<LayoutWidget> menu;
+    uint32_t y = 100;
+    for (const uint32_t id : {139U, 140U, 141U, 142U, 355U, 356U, 144U, 9600U, 143U}) {
+        menu.push_back({2, id, 621, y, 164, 40, "mc"});
+        y += 47;
+    }
+    add("opening.wdf", layout(138, "menu.tga", menu));
+    std::vector<LayoutWidget> options = {{2, 8100, 488, 504, 124, 36, "ok"}, {2, 8101, 16, 504, 124, 36, "no"}};
+    y = 195;
+    for (const uint32_t id : {8102U, 8103U, 8104U, 8105U}) {
+        options.push_back({7, id, 310, y, 287, 19, "vol-bar.tga"});
+        y += 27;
+    }
+    y = 308;
+    for (const uint32_t id : {8107U, 8106U, 8108U, 8109U}) {
+        options.push_back({2, id, 227, y, 234, 24, "bt"});
+        y += 31;
+    }
+    // The settings' lists' places, beside their rows.
+    for (const auto &[id, ty, h] : std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>{
+             {8111, 307, 128}, {8110, 338, 96}, {8112, 369, 96}, {8113, 400, 96}})
+        options.push_back({13, id, 468, ty, 144, h, ""});
+    for (const uint32_t id : {8160U, 8161U, 8162U, 8163U})
+        options.push_back({14, id, 463, 309 + 31 * (id - 8160), 131, 22, "human20.fnt"});
+    // The title, the volumes' names, and the timers' names and values.
+    for (const auto &[id, x, ty] : std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>{{8122, 226, 153},
+                                                                                         {8123, 226, 193},
+                                                                                         {8124, 226, 220},
+                                                                                         {8125, 226, 247},
+                                                                                         {8126, 226, 275},
+                                                                                         {8116, 227, 442},
+                                                                                         {8117, 406, 442},
+                                                                                         {8120, 227, 472},
+                                                                                         {8121, 406, 472}})
+        options.push_back({14, id, x, ty, 70, 22, "human20.fnt"});
+    // The timers' arrows: less, then more.
+    for (const auto &[id, x, ty] : std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>{
+             {8115, 379, 443}, {8114, 466, 443}, {8119, 379, 473}, {8118, 466, 473}})
+        options.push_back({2, id, x, ty, 16, 19, "bt"});
+    add("options.wdf", layout(43, "opt.tga", options));
+    // Load Game's twelve slots, 26 pixels apart, each with its name and
+    // description.
+    std::vector<LayoutWidget> loading = {{2, 9503, 452, 504, 160, 36, "ok"}, {2, 9504, 16, 504, 160, 36, "no"}};
+    for (uint32_t i = 0; i < 12; ++i) {
+        loading.push_back({2, 9507 + 2 * i, 16, 175 + 26 * i, 596, 23, "sl"});
+        loading.push_back({14, 9506 + 2 * i, 55, 178 + 26 * i, 158, 17, "human15.fnt"});
+        loading.push_back({14, 9530 + 2 * i, 236, 178 + 26 * i, 370, 17, "human15.fnt"});
+    }
+    add("loadsave.wdf", layout(0, "load.tga", loading));
+    // The Hall of Fame: Return and the ten rows' places, and a row's text
+    // boxes.
+    std::vector<LayoutWidget> fame = {{2, 9950, 595, 553, 160, 38, "ok"}};
+    for (uint32_t i = 0; i < 10; ++i)
+        fame.push_back({13, 9951 + i, 17, 171 + 38 * i, 768, 36, ""});
+    add("fame.wdf", layout(0, "fame.tga", fame));
+    add("fameitem.wdf", layout(0, "none",
+                               {{14, 9962, 52, 10, 205, 17, "human15.fnt"},
+                                {14, 9963, 296, 10, 300, 17, "human15.fnt"},
+                                {14, 9964, 598, 10, 145, 17, "human15.fnt"}}));
+    add("fame.tga", picture(800, 600, 40, 40, 10));
+    // Multiplayer Setup: Host, Join, Cancel, the three fields and the
+    // panels' places; the connection types and the network's settings.
+    add("mpsetup.wdf", layout(0, "mp.tga",
+                              {{2, 108, 16, 195, 162, 38, "bt"},
+                               {2, 109, 16, 242, 162, 38, "bt"},
+                               {2, 114, 16, 289, 162, 38, "no"},
+                               {13, 702, 16, 337, 294, 36, ""},
+                               {13, 703, 16, 384, 294, 36, ""},
+                               {13, 701, 16, 430, 294, 36, ""},
+                               {13, 399, 186, 195, 160, 131, ""},
+                               {13, 200, 317, 192, 303, 408, ""},
+                               {14, 112, 21, 353, 284, 17, "human15.fnt"},
+                               {14, 113, 21, 400, 284, 17, "human15.fnt"},
+                               {14, 700, 21, 446, 284, 17, "human15.fnt"}}));
+    add("mpconn.wdf",
+        layout(0, "none",
+               {{2, 193, 0, 0, 160, 38, "bt"}, {2, 194, 0, 47, 160, 38, "bt"}, {2, 196, 0, 94, 160, 38, "bt"}}));
+    add("mpcnet.wdf", layout(0, "none",
+                             {{2, 202, 35, 69, 129, 19, "bt"},
+                              {2, 203, 168, 69, 127, 19, "bt"},
+                              {2, 207, 35, 94, 261, 36, "bt"},
+                              {2, 210, 135, 288, 158, 36, "ok"},
+                              {14, 714, 40, 113, 252, 17, "human15.fnt"}}));
+    add("mpcmod.wdf", layout(0, "none", {{2, 491, 135, 288, 158, 36, "ok"}}));
+    add("mpcser.wdf", layout(0, "none", {{2, 451, 135, 288, 158, 36, "ok"}}));
+    add("mp.tga", picture(800, 600, 10, 40, 40));
+    add("load.tga", picture(800, 600, 20, 20, 60));
     std::vector<LayoutWidget> setup = {{2, 9201, 453, 502, 159, 36, "ok"}, {2, 9202, 16, 502, 159, 36, "no"}};
     std::vector<LayoutWidget> empires = {{2, 9110, 452, 502, 160, 36, "ok"}, {2, 9111, 16, 502, 160, 36, "no"}};
     uint32_t x = 0;
@@ -135,8 +241,12 @@ void makeInstall(const std::filesystem::path &dir) {
     add("menu.tga", picture(800, 600, 10, 10, 60));
     add("set.tga", picture(800, 600, 20, 60, 20));
     add("emp.tga", picture(800, 600, 60, 20, 20));
+    add("opt.tga", picture(800, 600, 30, 30, 30));
+    add("vol-bar.tga", picture(287, 19, 240, 210, 90));
+    add("volbarof.tga", picture(287, 19, 80, 30, 60));
     const std::vector<std::tuple<std::string, uint8_t, uint8_t, uint8_t>> buttons = {
-        {"mc", 200, 100, 0}, {"ok", 0, 200, 0}, {"no", 200, 0, 0}, {"bt", 0, 100, 200}, {"em", 200, 200, 0}};
+        {"mc", 200, 100, 0}, {"ok", 0, 200, 0},   {"no", 200, 0, 0},
+        {"bt", 0, 100, 200}, {"em", 200, 200, 0}, {"sl", 90, 90, 160}};
     for (const auto &[name, r, g, b] : buttons) {
         add(name + "1.tga", picture(40, 40, r, g, b));
         add(name + "2.tga", picture(40, 40, 255, 255, 255));
@@ -148,6 +258,28 @@ void makeInstall(const std::filesystem::path &dir) {
     add("lexicon.dic", makeLexicon({"word"}));
     writeFile(dir / "stbof.res", test::buildZip(files));
     writeFile(dir / "sfx.snd", Bytes(4, 0));
+    // Stbof.ini with only the version, which the main menu shows.
+    const std::string ini = "Version=1.0.2\r\n";
+    writeFile(dir / "Stbof.ini", Bytes(ini.begin(), ini.end()));
+    // Two saved games, in the first and fourth slots, one named in capitals
+    // as some installs have them.
+    writeFile(dir / "game0.sav", makeSave("Tutorial #1", "Irregular", 0));
+    writeFile(dir / "Game3.sav", makeSave("Mine", "Spiral", 120));
+}
+
+Event pointAt(int x, int y) {
+    Event e;
+    e.type = EventType::kMouseMove;
+    e.mouseX = x;
+    e.mouseY = y;
+    return e;
+}
+
+Event typeText(const char *text) {
+    Event e;
+    e.type = EventType::kTextInput;
+    std::strncpy(e.text, text, sizeof e.text - 1);
+    return e;
 }
 
 Event click(int x, int y, bool down, uint16_t mods = 0) {
@@ -210,7 +342,14 @@ void engineTest(const std::filesystem::path &tmp) {
         const auto setupButton = [](int n, bool down, uint16_t mods = 0) {
             return click(n * 40 + 15, 115, down, mods);
         };
+        // The main menu's buttons are 47 pixels apart from y 100.
+        const auto menuButton = [](int n, bool down) { return click(700, 100 + 47 * n + 20, down); };
         const std::vector<std::pair<std::string, Event>> script = {
+            {"menu.shown", pointAt(700, 100 + 47 + 20)},
+            {"menu.new game pointed at", menuButton(0, true)}, // Continue, which can't be used yet
+            {"menu.continue pressed", menuButton(0, false)},
+            {"", menuButton(1, true)}, // New Single Player Game
+            {"", menuButton(1, false)},
             {"setup.shown", setupButton(1, true)}, // difficulty
             {"setup.difficulty pressed", setupButton(1, false)},
             {"setup.difficulty changed", setupButton(10, true)}, // the second empire's level
@@ -223,8 +362,64 @@ void engineTest(const std::filesystem::path &tmp) {
             {"empires.third chosen", click(100, 300, false)},
             {"", click(30, 510, true)}, // Cancel: back to the setup
             {"", click(30, 510, false)},
-            {"setup.again", click(30, 510, true)}, // its Cancel: the end
+            {"setup.again", click(30, 510, true)}, // its Cancel: back to the menu
             {"", click(30, 510, false)},
+            {"menu.again", menuButton(1, true)}, // a new game again, this time accepted
+            {"", menuButton(1, false)},
+            {"", click(460, 510, true)},
+            {"", click(460, 510, false)},
+            {"", click(100, 230, true)}, // the second empire
+            {"", click(100, 230, false)},
+            {"empires.second chosen", click(460, 510, true)}, // Accept: no game yet, the menu
+            {"", click(460, 510, false)},
+            {"menu.after a new game", menuButton(5, true)}, // Options
+            {"", menuButton(5, false)},
+            {"options.shown", click(300, 345, true)}, // tactical combat's list
+            {"", click(300, 345, false)},
+            {"options.combat changed", click(700, 590, true)}, // elsewhere: the list closes
+            {"", click(700, 590, false)},
+            {"options.list closed", click(400, 200, true)}, // a volume, dragged down
+            {"options.volume pressed", pointAt(330, 200)},
+            {"options.volume dragged", click(330, 200, false)},
+            {"", click(30, 510, true)}, // Cancel: nothing kept
+            {"", click(30, 510, false)},
+            {"menu.options cancelled", menuButton(5, true)},
+            {"", menuButton(5, false)},
+            {"options.again", click(300, 345, true)}, // tactical combat's list
+            {"", click(300, 345, false)},
+            {"options.list open", click(520, 385, true)}, // Automatic, kept this time
+            {"", click(520, 385, false)},
+            {"", click(500, 510, true)}, // Accept
+            {"", click(500, 510, false)},
+            {"menu.options accepted", menuButton(1, true)}, // a new game, combat automatic
+            {"", menuButton(1, false)},
+            {"setup.with the options", click(30, 510, true)},
+            {"", click(30, 510, false)},
+            {"menu.last", menuButton(3, true)}, // Load Game
+            {"", menuButton(3, false)},
+            {"load.shown", click(300, 175 + 26 + 10, true)}, // an empty slot: nothing
+            {"", click(300, 175 + 26 + 10, false)},
+            {"load.empty slot clicked", click(300, 175 + 78 + 10, true)}, // the fourth, a save
+            {"", click(300, 175 + 78 + 10, false)},
+            {"load.save chosen", click(460, 510, true)}, // Accept: no game yet, the menu
+            {"", click(460, 510, false)},
+            {"menu.after loading", menuButton(6, true)}, // Hall of Fame
+            {"", menuButton(6, false)},
+            {"fame.shown", click(600, 560, true)}, // Return
+            {"", click(600, 560, false)},
+            {"menu.after the hall of fame", menuButton(2, true)}, // New Multiplayer Game
+            {"", menuButton(2, false)},
+            {"multiplayer.shown", click(60, 210, true)}, // Host
+            {"", click(60, 210, false)},
+            {"multiplayer.host", click(230, 210, true)}, // Network
+            {"", click(230, 210, false)},
+            {"multiplayer.network", click(100, 350, true)}, // the game's name
+            {"", click(100, 350, false)},
+            {"", typeText("Reluva")},
+            {"multiplayer.name typed", click(60, 300, true)}, // Cancel
+            {"", click(60, 300, false)},
+            {"menu.after multiplayer", menuButton(8, true)}, // Quit Game: the end
+            {"", menuButton(8, false)},
         };
         ScriptedSystem sys(rec, script);
         GameTarget target;
@@ -235,6 +430,13 @@ void engineTest(const std::filesystem::path &tmp) {
         const Error err = engine->create(sys, target)->run();
         rec.add("run", err ? "FAILED " + err.message : std::string("ok"));
         rec.add("run.screen", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
+        // Stbof.ini as the run left it: the options and the last setup
+        // accepted written into it, each line ending \r\n shown as |.
+        std::ifstream ini(dir / "Stbof.ini", std::ios::binary);
+        std::string text((std::istreambuf_iterator<char>(ini)), std::istreambuf_iterator<char>());
+        for (size_t at; (at = text.find("\r\n")) != std::string::npos;)
+            text.replace(at, 2, "|");
+        rec.add("stbof.ini", text);
     }
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/botf/data/engine-record.txt", "botf.engine",
               "tests/engines/botf/engine.cpp");

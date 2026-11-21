@@ -36,6 +36,7 @@
 #include "video/avi.h"
 #include "video/bink.h"
 #include "video/cinepak.h"
+#include "video/movie.h"
 #include "video/smacker.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/disasm.h"
@@ -1514,7 +1515,8 @@ static void testCinepak() {
     CHECK(!decoder.decode(stub, 4));
 }
 
-static void testAvi() {
+// The two frames in an AVI, with a PCM stereo soundtrack of two chunks.
+static cinepak_test::Bytes cinepakAvi() {
     using namespace cinepak_test;
     const Bytes video1 = firstFrame();
     const Bytes video2 = secondFrame();
@@ -1574,7 +1576,13 @@ static void testAvi() {
     riff(avi, "LIST", list("movi", movi));
     Bytes file;
     riff(file, "RIFF", list("AVI ", avi));
+    return file;
+}
 
+static void testAvi() {
+    using namespace cinepak_test;
+    const Bytes video2 = secondFrame();
+    const Bytes file = cinepakAvi();
     reluva::avi::Decoder movie;
     CHECK(movie.load(std::make_unique<reluva::MemoryReadStream>(file)));
     CHECK(movie.width() == 8 && movie.height() == 4 && movie.frameCount() == 2 && movie.frameMicros() == 50000);
@@ -1594,6 +1602,36 @@ static void testAvi() {
     std::copy_n("MSVC", 4, at);
     CHECK(other.load(std::make_unique<reluva::MemoryReadStream>(msvc)) && !other.canDecode() &&
           other.videoCodec() == reluva::avi::fourcc("MSVC") && !other.decodeNextFrame() && other.surface().w == 0);
+}
+
+// A Cinepak movie played: on a screen larger than it, in its middle on
+// black; without sound, by the clock, to its end.
+static void testCinepakMovie(const std::filesystem::path &tmp) {
+    using namespace cinepak_test;
+    const Bytes file = cinepakAvi();
+    std::ofstream(tmp / "movie.avi", std::ios::binary)
+        .write(reinterpret_cast<const char *>(file.data()), std::streamsize(file.size()));
+    struct Screen : reluva::HeadlessSystem {
+        reluva::Surface last;
+        void updateScreen(const reluva::Surface &s) override {
+            HeadlessSystem::updateScreen(s);
+            last = s;
+        }
+    } sys;
+    reluva::video::MovieOptions options;
+    options.screenWidth = 16;
+    options.screenHeight = 12;
+    bool quit = true;
+    CHECK(!reluva::video::playMovie(sys, nullptr, tmp / "movie.avi", quit, options) && !quit);
+    CHECK(sys.width() == 16 && sys.height() == 12 && sys.last.w == 16);
+    // The picture's corner at (4, 4): the second frame's first pixel there.
+    auto black = [&](int x, int y) {
+        const uint8_t *p = sys.last.row(y) + x * 4;
+        return p[0] == 0 && p[1] == 0 && p[2] == 0;
+    };
+    CHECK(is(sys.last, 4, 4, 90, 100, 120) && grey(sys.last, 9, 4, 201) && black(3, 4) && black(4, 3) && black(12, 4) &&
+          black(4, 8));
+    CHECK(sys.getMillis() >= 50); // the second frame is due at 50 milliseconds
 }
 
 // A Bink file built here: two frames, one audio track of `packets` (each
@@ -1679,14 +1717,16 @@ static void testBinkAudio() {
     }
 }
 
-static const reluva::test::Suite kVideoSuite("common.unit.video",
-                                             {
-                                                 {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
-                                                 {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
-                                                 {"avi", [](const std::filesystem::path &) { testAvi(); }},
-                                                 {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
-                                                 {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},
-                                             });
+static const reluva::test::Suite
+    kVideoSuite("common.unit.video",
+                {
+                    {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
+                    {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
+                    {"cinepak movie", [](const std::filesystem::path &tmp) { testCinepakMovie(tmp); }},
+                    {"avi", [](const std::filesystem::path &) { testAvi(); }},
+                    {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
+                    {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},
+                });
 
 static const reluva::test::Suite kNetSuite("common.unit.net",
                                            {

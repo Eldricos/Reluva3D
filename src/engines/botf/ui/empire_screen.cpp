@@ -24,16 +24,19 @@ constexpr int32_t kDescription = 9112;
 // each empire (multiplayer, presumably), and a 250x350 picture under the
 // description.
 constexpr std::array<int32_t, 11> kHidden = {9124, 9125, 9126, 9127, 9128, 9119, 9120, 9121, 9122, 9123, 9113};
-const char *const kEmblemPictures[] = {"es_cicn0.tga", "es_hicn0.tga", "es_ficn0.tga", "es_kicn0.tga", "es_ricn0.tga"};
+// The emblems in colour (es_?icn1, not the blue es_?icn0), as a screenshot
+// and the recording show them.
+const char *const kEmblemPictures[] = {"es_cicn1.tga", "es_hicn1.tga", "es_ficn1.tga", "es_kicn1.tga", "es_ricn1.tga"};
 
 // The descriptions: lexicon.dic's entries 270-274, found by their text
 // (the recording shows the Federation's), in the lexicon's order:
 // Cardassians, Ferengi, Federation, Klingons, Romulans.
 constexpr std::array<int, 5> kDescriptions = {270, 272, 271, 273, 274};
 
-// Colours measured from the recording, as on the setup screen.
-constexpr Color kLevelColor{120, 180, 150};
-constexpr Color kDescriptionColor{133, 115, 75};
+// Colours measured from a screenshot of the game: the levels in the
+// options and Hall of Fame's blue.
+constexpr Color kLevelColor{24, 101, 189};
+constexpr Color kDescriptionColor{206, 117, 66};
 constexpr int kDescriptionLineGap = 2; // 23 pixels a line, human20's height 21
 
 } // namespace
@@ -61,14 +64,20 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
         return Result::kCancelled;
     if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown || e.type == EventType::kMouseUp)
         _pointed = empireAt(e.mouseX, e.mouseY);
+    // The name under the pointer pulses, unless it's the empire chosen,
+    // which shows its second picture.
+    setPulsing(_pointed >= 0 && _pointed != _chosen ? kNames[size_t(_pointed)] : 0);
     if (e.button != MouseButton::kLeft)
         return Result::kOpen;
     if (e.type == EventType::kMouseDown) {
         _pressed = buttonAt(e.mouseX, e.mouseY);
         // Choosing an empire happens on the press, like a radio button; its
         // emblem chooses it too.
-        if (const int empire = empireAt(e.mouseX, e.mouseY); empire >= 0)
+        if (const int empire = empireAt(e.mouseX, e.mouseY); empire >= 0) {
             _chosen = empire;
+            // Each empire its own effect and speech (a recording).
+            sound(UiSound(int(UiSound::kCardassiansChosen) + empire));
+        }
     } else if (e.type == EventType::kMouseUp) {
         const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
         _pressed = 0;
@@ -81,6 +90,9 @@ EmpireScreen::Result EmpireScreen::handle(const Event &e) {
 }
 
 void EmpireScreen::draw(Surface &screen) {
+    // The chosen empire's name shows its second picture; the one pointed
+    // at, if it isn't, pulses.
+    setPulsing(_pointed >= 0 && _pointed != _chosen ? kNames[size_t(_pointed)] : 0);
     std::set<int32_t> selected;
     if (_chosen >= 0)
         selected.insert(kNames[size_t(_chosen)]);

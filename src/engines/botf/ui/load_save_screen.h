@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/events.h"
+#include "common/types.h"
+#include "engines/botf/formats/lexicon.h"
+#include "engines/botf/formats/save_game.h"
+#include "engines/botf/ui/layout_screen.h"
+
+#include <array>
+#include <optional>
+#include <string>
+
+// The Load Game and Save Game screens (loadsave.wdf, both), opened from the
+// main menu: the twelve saved-game slots, each with its file's name and its
+// description. Loading, a click lights a saved game and Accept loads it;
+// saving, a click chooses any slot, its description can be typed, and
+// Accept saves there. What they do is the manual's (chapter 4); how Load
+// Game looks, a screenshot of the game's
+// (docs/engines/botf/systems/screens.md).
+
+namespace reluva::botf {
+
+/**
+ * A game's description as Save Game puts it in an empty slot: the player's
+ * empire (0 Cardassians to 4 Romulans), the turns passed (0 on the first,
+ * as gameInfo counts the turn), the galaxy's size (0
+ * small to 2 large) and shape (0 irregular to 3 spiral), "Ferengi 0 Medium
+ * Ring Galaxy".
+ */
+std::string saveDescription(const Lexicon &lexicon, int empire, int turn, int galaxySize, int galaxyShape);
+
+/** The Load Game and Save Game screens. */
+class LoadSaveScreen : LayoutScreen {
+public:
+    using LayoutScreen::setSoundHandler;
+    /** Whether the screen is still open, or how it was left. */
+    enum class Result { kOpen, kAccepted, kCancelled };
+    /** Load Game or Save Game. */
+    enum class Mode { kLoad, kSave };
+    static constexpr int kSlots = 12;
+    static constexpr size_t kMaxDescription = 50; // characters: gameInfo's 51 bytes with the zero
+    /** Each slot's saved game, or nothing for an empty slot. */
+    using Slots = std::array<std::optional<SaveSummary>, kSlots>;
+
+    /** Draws with `assets` and `lexicon`, which must outlive it. */
+    LoadSaveScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
+    /** Reads opening.wdf and loadsave.wdf; fails if the layout lacks a widget the screen needs. */
+    Error load();
+    /**
+     * Shows `slots`, none of them chosen. Loading, empty slots can't be
+     * chosen; saving, the slot chosen keeps its saved game's description,
+     * or an empty one shows `description` (UTF-8), the game's to save
+     * (saveDescription()), either to be typed over.
+     * @param empire saving, the game to save's empire, whose colour an empty
+     *        slot's text takes when chosen; -1 if not known
+     */
+    void open(const Slots &slots, Mode mode, const std::string &description = {}, int empire = -1);
+    /** Draws the screen with its slots, the chosen one lit. */
+    void draw(Surface &screen) const;
+    /**
+     * Mouse clicks: a slot chooses it, Accept takes the chosen one (and is
+     * dimmed until one is), Cancel goes back; Return/Escape for
+     * Accept/Cancel. Saving, typed text (kTextInput) and Backspace edit the
+     * description, as far as it fits its field; the name can't be edited.
+     */
+    Result handle(const Event &event);
+
+    /** The slot chosen (0-11), or -1. */
+    int chosen() const { return _chosen; }
+    /** Saving: the description as typed, UTF-8. */
+    const std::string &description() const { return _description; }
+    /** Saving: whether the flashing cursor is shown just now. */
+    void setCursorShown(bool shown) { _cursorShown = shown; }
+
+private:
+    Slots _slots;
+    Mode _mode = Mode::kLoad;
+    std::string _description;
+    std::string _newDescription; // saving: an empty slot's description at first
+    int _newEmpire = -1;         // saving: the game to save's empire
+    int _chosen = -1;
+    bool _cursorShown = true;
+};
+
+} // namespace reluva::botf

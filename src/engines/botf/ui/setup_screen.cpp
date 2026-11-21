@@ -3,7 +3,10 @@
 
 #include "engines/botf/ui/setup_screen.h"
 
+#include "engines/botf/ui/timers.h"
+
 #include <algorithm>
+#include <cstdlib>
 #include <vector>
 
 namespace reluva::botf {
@@ -39,25 +42,76 @@ constexpr int32_t kSize = 9233;
 constexpr int32_t kSizeText = 9205;
 constexpr int32_t kSizePicture = 9203;
 
-// The texts' colours, measured from the brightest pixels of the text in a
-// recording of the game; the files don't hold them (most of these fonts say
-// "the game's default"), and the timers' own colour doesn't explain theirs.
-constexpr Color kValueColor{51, 90, 140};   // the preferences and the galaxy
-constexpr Color kLevelColor{120, 180, 150}; // the civilization levels
-constexpr Color kTimerColor{176, 202, 153}; // the two timers
-
-constexpr int kTimerChoices = 1; // "None"; the others aren't known yet
+// The texts' colours, measured from a screenshot of the game; the files
+// don't hold them (most of these fonts say "the game's default", and the
+// timers' own colour isn't theirs). The values and timers are in the
+// options screen's colours.
+constexpr Color kValueColor{24, 101, 189};  // the preferences and the galaxy
+constexpr Color kLevelColor{90, 207, 140};  // the civilization levels
+constexpr Color kTimerColor{173, 227, 115}; // the two timers
 
 const char *const kShapePictures[] = {"cc_gsir.tga", "cc_gsel.tga", "cc_gsrg.tga", "cc_gssp.tga"};
 const char *const kSizePictures[] = {"cc_gzsm.tga", "cc_gzmd.tga", "cc_gzlg.tga"};
 
+bool isTimerArrow(int32_t id) {
+    return id == kStrategicLess || id == kStrategicMore || id == kTacticalLess || id == kTacticalMore;
+}
+
 } // namespace
 
 Error SetupScreen::load() {
+    // Only Accept, Cancel and the timers' arrows light while held; the
+    // settings just act (the user, in the game; the arrows as on the
+    // options screen, guessed).
+    _litWhileHeld = {kAccept, kCancel, kStrategicLess, kStrategicMore, kTacticalLess, kTacticalMore};
     return loadLayouts("gmesetup.wdf",
                        {kAccept, kCancel, kMinorRaces, kDifficulty, kStrategicLess, kStrategicMore, kTacticalLess,
                         kTacticalMore, kRandomEvents, kCombat, kVictory, kShape, kSize, kCivButtons[0], kCivButtons[1],
                         kCivButtons[2], kCivButtons[3], kCivButtons[4]});
+}
+
+GameSetup setupFromIni(const std::map<std::string, std::string> &ini) {
+    GameSetup s;
+    // Each value as a saved game's gameInfo holds it
+    // (docs/engines/botf/formats/sav.md), so the difficulty is one more than
+    // the screen's order.
+    auto number = [&](const char *key, int &out, int offset, int count) {
+        auto it = ini.find(key);
+        if (it == ini.end() || it->second.empty())
+            return;
+        const int v = std::atoi(it->second.c_str()) - offset;
+        if (v >= 0 && v < count)
+            out = v;
+    };
+    number("SHAPE", s.galaxyShape, 0, 4);
+    number("SIZE", s.galaxySize, 0, 3);
+    number("RACENUM", s.minorRaces, 0, 4);
+    number("DIFFICULTY", s.difficulty, 1, 5);
+    for (size_t i = 0; i < s.civilization.size(); ++i)
+        number(("CIVLEVEL" + std::to_string(i + 1)).c_str(), s.civilization[i], 0, 5);
+    return s;
+}
+
+std::map<std::string, std::string> setupIniValues(const GameSetup &s) {
+    std::map<std::string, std::string> v = {
+        {"SHAPE", std::to_string(s.galaxyShape)},
+        {"SIZE", std::to_string(s.galaxySize)},
+        {"RACENUM", std::to_string(s.minorRaces)},
+        {"DIFFICULTY", std::to_string(s.difficulty + 1)}, // as setupFromIni reads it
+    };
+    for (size_t i = 0; i < s.civilization.size(); ++i)
+        v["CIVLEVEL" + std::to_string(i + 1)] = std::to_string(s.civilization[i]);
+    return v;
+}
+
+std::string galaxyShapeName(const Lexicon &lexicon, int shape) {
+    static const std::pair<int, const char *> kShapes[] = {{lex::kIrregular, "Irregular"},
+                                                           {lex::kElliptical, "Elliptical"},
+                                                           {lex::kRing, "Ring"},
+                                                           {lex::kSpiral, "Spiral"}};
+    const auto &[entry, english] = kShapes[std::clamp(shape, 0, 3)];
+    const std::string &w = lexicon[size_t(entry)];
+    return w.empty() ? english : w;
 }
 
 std::string civilizationLevel(const Lexicon &lexicon, int level) {
@@ -94,17 +148,18 @@ void SetupScreen::click(int32_t id, bool shift) {
     case kDifficulty:
         s.difficulty = (s.difficulty + 1) % 5;
         break;
+    // The arrows step through the timer's choices, stopping at either end.
     case kStrategicLess:
         s.strategicTimer = std::max(s.strategicTimer - 1, 0);
         break;
     case kStrategicMore:
-        s.strategicTimer = std::min(s.strategicTimer + 1, kTimerChoices - 1);
+        s.strategicTimer = std::min(s.strategicTimer + 1, int(strategicTimerChoices().size()) - 1);
         break;
     case kTacticalLess:
         s.tacticalTimer = std::max(s.tacticalTimer - 1, 0);
         break;
     case kTacticalMore:
-        s.tacticalTimer = std::min(s.tacticalTimer + 1, kTimerChoices - 1);
+        s.tacticalTimer = std::min(s.tacticalTimer + 1, int(tacticalTimerChoices().size()) - 1);
         break;
     case kRandomEvents:
         s.randomEvents = !s.randomEvents;
@@ -135,18 +190,38 @@ SetupScreen::Result SetupScreen::handle(const Event &e) {
         return Result::kOpen;
     if (e.type == EventType::kMouseDown) {
         _pressed = buttonAt(e.mouseX, e.mouseY);
+        // The timers' arrows step as soon as they're pressed, and on while
+        // held (the user, in the game).
+        if (isTimerArrow(_pressed)) {
+            sound(UiSound::kSetupClick);
+            click(_pressed, false);
+            startRepeat(_pressed);
+        }
     } else if (e.type == EventType::kMouseUp) {
         // A button acts when the mouse comes up on it, as Windows buttons do.
-        const int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
+        int32_t id = _pressed && buttonAt(e.mouseX, e.mouseY) == _pressed ? _pressed : 0;
+        if (isTimerArrow(_pressed))
+            id = 0;
         _pressed = 0;
+        _repeating = 0;
         if (id == kAccept)
             return Result::kAccepted;
         if (id == kCancel)
             return Result::kCancelled;
-        if (id)
+        if (id) {
+            sound(UiSound::kSetupClick);
             click(id, (e.mods & keymod::kShift) != 0);
+        }
     }
     return Result::kOpen;
+}
+
+bool SetupScreen::tick(uint64_t millis) {
+    setTime(millis);
+    const int due = repeatsDue();
+    for (int i = 0; i < due; ++i)
+        click(_repeating, false);
+    return due > 0;
 }
 
 void SetupScreen::draw(Surface &screen) {
@@ -165,10 +240,6 @@ void SetupScreen::draw(Surface &screen) {
                                                          {lex::kHard, "HARD"},
                                                          {lex::kImpossible, "IMPOSSIBLE"}};
     const std::pair<int, const char *> victories[] = {{lex::kDomination, "DOMINATION"}, {lex::kVendetta, "VENDETTA"}};
-    const std::pair<int, const char *> shapes[] = {{lex::kIrregular, "Irregular"},
-                                                   {lex::kElliptical, "Elliptical"},
-                                                   {lex::kRing, "Ring"},
-                                                   {lex::kSpiral, "Spiral"}};
     const std::pair<int, const char *> sizes[] = {
         {lex::kSmall, "Small"}, {lex::kMedium, "Medium"}, {lex::kLarge, "Large"}};
     auto value = [&](int32_t box, const std::pair<int, const char *> &w) {
@@ -179,11 +250,16 @@ void SetupScreen::draw(Surface &screen) {
     value(kRandomEventsText, s.randomEvents ? std::pair{lex::kOn, "ON"} : std::pair{lex::kOff, "OFF"});
     value(kCombatText, s.manualCombat ? std::pair{lex::kManual, "MANUAL"} : std::pair{lex::kAutomatic, "AUTOMATIC"});
     value(kVictoryText, victories[s.victory]);
-    value(kShapeText, shapes[s.galaxyShape]);
+    drawText(screen, kShapeText, galaxyShapeName(_lexicon, s.galaxyShape), kValueColor);
     value(kSizeText, sizes[s.galaxySize]);
     // The timers show "NONE" though the entry is "None".
-    drawText(screen, kStrategicText, upperAscii(word(lex::kNone, "None")), kTimerColor);
-    drawText(screen, kTacticalText, upperAscii(word(lex::kNone, "None")), kTimerColor);
+    // None, or the time ("01:00"); here "NONE", where the entry is "None".
+    auto timer = [&](int32_t box, const std::vector<int> &choices, int choice) {
+        const int seconds = choices[size_t(std::clamp(choice, 0, int(choices.size()) - 1))];
+        drawText(screen, box, seconds ? timerText(seconds) : upperAscii(word(lex::kNone, "None")), kTimerColor);
+    };
+    timer(kStrategicText, strategicTimerChoices(), s.strategicTimer);
+    timer(kTacticalText, tacticalTimerChoices(), s.tacticalTimer);
 }
 
 } // namespace reluva::botf

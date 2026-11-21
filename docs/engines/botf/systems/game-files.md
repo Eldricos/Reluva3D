@@ -23,7 +23,7 @@ for a "minimum" install.
 | `ENGLISH/*EOG*.wav` | CD | end-of-game narration per race and ending (`Alli`, `Anni`, `Domi`, `Loss`), with `*eog*.scr` in `stbof.res` |
 | `ENGLISH/*.avi` | CD only | `open.avi` and one per race (`C`, `F`, `H`, `K`, `R`): Cinepak (`cvid`) video, 800x300; the race movies also have sound |
 | `Stbof.ini` | install | settings, below |
-| `*.sav` | install | saved games |
+| `*.sav` | install | saved games ([formats/sav.md](../formats/sav.md)) |
 | `trek.exe`, `Trek.icd` | install | SafeDisc's loader and the encrypted game ([formats/executable.md](../formats/executable.md)) |
 
 The install's copies are byte for byte the CD's (the same size and hash).
@@ -61,6 +61,72 @@ DIRECT X NOT 6.0 INSTALLED BY BOTF
 `INSTALL=MINIMUM` and `CDPATH` are why `music.snd` and the movies are
 read from the CD. `LANGUAGE` names the CD's folder (`ENGLISH`, `GERMAN`),
 and the speech archive (`english.snd`, `german.snd`).
+
+Once the game has run, it keeps the options and the last game's setup
+there too. The user's, after a game, adds:
+
+```text
+VICTORY=KILLALL
+3D=SOFTWARE
+TACTICAL=ABSTRACT
+BORG=ON
+AUTOSAVE=ON
+TOOLTIPS=ON
+RANDOMEVENTS=OFF
+TURNSTATUS=OFF
+TIMELIMIT=0
+TACTIMELIMIT=0
+SHAPE=1
+SIZE=0
+RACENUM=0
+DIFFICULTY=1
+CIVLEVEL1=0
+...
+CIVLEVEL5=0
+ECONFILTER=55
+EVENTFILTER=177
+MILITARYFILTER=19
+SCREENVOLATILE=NO
+STARTINGSEED=1795138721
+Version=1.0.2
+```
+
+| Keys | What they are |
+|---|---|
+| `VOICEVOLUME`, `VIDEOVOLUME`, `MUSICVOLUME`, `FXVOLUME` | the options screen's volumes, 0 to 127: 100, 127, 100, 100 in both files seen, as a fresh install's options screen shows them |
+| `TOOLTIPS`, `AUTOSAVE`, `RANDOMEVENTS` | the options' settings, `ON` or `OFF` |
+| `TACTICAL` | tactical combat: `ABSTRACT` automatic, `DETAILED` manual |
+| `TIMELIMIT`, `TACTIMELIMIT` | the strategic timer in minutes, the tactical in seconds, 0 none: copies the user's game wrote have `TIMELIMIT=3` and then `TIMELIMIT=30` (the strategic list has 25 entries, so the value isn't a place in it), and `TACTIMELIMIT=90` (01:30's seconds; the tactical list has 30 entries) |
+| `SHAPE`, `SIZE`, `RACENUM`, `DIFFICULTY`, `CIVLEVEL1`-`CIVLEVEL5` | the last game's setup, each as a saved game's `gameInfo` holds it ([formats/sav.md](../formats/sav.md)): difficulty 1 is simple |
+| `VICTORY` | the victory condition: `KILLALL` presumably domination *(guessed)* |
+| `3D`, `BORG`, `TURNSTATUS`, `SCREENVOLATILE`, the three `FILTER`s | not known yet: 3D drawing in software, the Borg, the turn status, and the galaxy map's filters (the manual's Military, Events and Economic buttons) *(guessed)* |
+| `STARTINGSEED` | the random seed of the last game (the Ultimate Editor: read by `trek.exe -n`) *(published)* |
+| `Version` | "1.0.2", the version the main menu draws |
+
+The setup keys match, value for value, the `last.sav` the user's install
+had beside them: an elliptical galaxy (1), small (0), no minor races,
+simple difficulty, every empire at Beginning, random events off, tactical
+combat automatic. Reluva starts the options screen and a new game's setup
+from them.
+
+The game writes the file itself: the copy after a game has its keys in
+another order than the installer's, `MONO` and the installer's ^Z gone,
+the options' and the setup's keys added. Reluva writes it back as the game
+would, when the options are accepted (the volumes, `TOOLTIPS`, `AUTOSAVE`,
+`RANDOMEVENTS`, the timers, `TACTICAL`) and when a new game's setup is
+(those, and `SHAPE`, `SIZE`, `RACENUM`, `DIFFICULTY`, the `CIVLEVEL`s):
+the game writes the file only when Accept is clicked (the user, in the
+game). Another copy, after a game set up as the Federation's on a ring
+galaxy of medium size, many minor races, Normal difficulty, Early and
+manual combat, has `SHAPE=2`, `SIZE=1`, `RACENUM=3`, `DIFFICULTY=3`,
+`CIVLEVEL1`-`5=1`, `TACTICAL=DETAILED`, and a new `STARTINGSEED`: the
+values as `gameInfo` holds them.
+It changes only those keys: one already there keeps its line, spelling
+and place; one that isn't goes where the game's own order (the played
+copy's, above) puts it. Every other line, the line endings and anything
+after the last stay as they are; the game's whole rewrite, with defaults
+for the keys Reluva doesn't know, isn't copied. Without the file, none is
+made.
 
 ### Not needed by Reluva
 

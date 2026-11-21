@@ -19,14 +19,22 @@ None: nothing of the game's code has been read.
 - **The speech and music's sample rate,** 22,050 Hz, isn't stored: it's
   the rate the sound effects use, and the one they sound right at
   ([formats/snd.md](formats/snd.md)).
+- **The options screen:** the settings the game setup screen shares with
+  it kept as one set ([systems/screens.md](systems/screens.md)). Settled
+  by: a setting changed on one screen seen on the other.
+- **A saved game's LZSS window** starts full of spaces for its text files,
+  from the Ultimate Editor alone ([formats/sav.md](formats/sav.md)).
+  Settled by: `result.lst` decoded both ways once its pieces are read.
+- **The menu music's order:** segment 0 or 1, then 2 to 4 at random,
+  never one twice in a row, from the orders heard
+  ([systems/sound.md](systems/sound.md)). Settled by: `music.tbl` worked
+  out.
 
 ## Guessed
 
-- **On the screens:** a button shows its "selected" picture while it's
-  held; the empire screen's Accept does nothing until an empire is
-  chosen; clicking an emblem chooses its empire; the emblems drawn are
-  `es_?icn0`, not `es_?icn1` ([systems/screens.md](systems/screens.md)).
-  Settled by: watching them in the running game.
+- **The menu's sounds:** which of the same sound's entries the game
+  plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
+  Settled by: the game's code, or many more slider moves.
 - **The colour key is magenta** (31, 0, 31 in 15-bit colour): the
   executable sets it, and magenta is what the pictures leave undrawn
   ([formats/wdf.md](formats/wdf.md)). Settled by: no picture showing pink
@@ -34,6 +42,84 @@ None: nothing of the game's code has been read.
 
 ## Settled
 
+- **November 2026:** the opening movie's place and skipping; buttons
+  pulsing under the pointer, and the pointer's hot spot; the cursor's
+  flashing; the menu music's order; the empire selection screen's and
+  Save Game's sounds: from screenshots and recordings by the user
+  ([systems/screens.md](systems/screens.md), [systems/sound.md](systems/sound.md),
+  [systems/movies.md](systems/movies.md)).
+
+- **November 2026:** `Stbof.ini` written only on Accept, and manual
+  combat's `TACTICAL=DETAILED`, from the user's game and a copy of the file
+  ([systems/game-files.md](systems/game-files.md)).
+
+- **November 2026:** the options' settings' lists of choices, their order
+  and how they close, from a recording, screenshots of two open and the
+  user's play ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** the main menu's music and its screens' sounds, from
+  a recording with sound ([systems/sound.md](systems/sound.md)).
+
+- **November 2026:** the main menu's version, its font, place and colour,
+  and the whole menu, from a screenshot ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** Multiplayer Setup's panels, when they appear and cut
+  to their places, and its fields' look while typed in and not, the
+  password as X's, from screenshots; no field typed in until clicked, and
+  nothing chosen on the serial panel at first, from the user's play
+  ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** Load Game's chosen slot, pink as on Save Game, from a
+  screenshot ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** Save Game's chosen slot (pink text, the slot lit)
+  and its cursor, from a screenshot ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** Save Game's title and its look before a slot is
+  chosen, and the glyphs' last row left undrawn, from a screenshot
+  ([systems/screens.md](systems/screens.md), [formats/fnt.md](formats/fnt.md)).
+
+- **November 2026:** the game setup screen's colours, from a screenshot:
+  the values and timers as the options screen's, the levels (90, 207, 140)
+  ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** the empire screen from a screenshot of the Klingons'
+  description: the wrapping (a word and the space after it, but for the
+  last word), the emblems `es_?icn1`, the text's colours, and all text a
+  pixel below its line's top ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** the race letters `h` Federation and `f` Ferengi, the
+  fonts' advances (the cell's width + 1), from screenshots of the Hall of Fame and Load Game drawn
+  by Reluva from the game's files ([formats/fnt.md](formats/fnt.md),
+  [formats/stbof-res.md](formats/stbof-res.md)).
+
+- **November 2026:** the options' default volumes (100, and 127 for
+  video), and `Stbof.ini` keeping the options and the last game's setup,
+  from the user's `Stbof.ini` and `last.sav`
+  ([systems/game-files.md](systems/game-files.md)).
+
+- **November 2026:** a saved game's archive and `gameInfo`'s description,
+  checked on the tutorial's `game0.sav` ([formats/sav.md](formats/sav.md)).
+
+- **November 2026:** Load Game from a fresh install's screenshot: slot *n*
+  is `game`*n*`.sav`, its file name in the name field, the tutorials in the
+  first four, the text's colour, `ls_svlb.tga` as its title, and Accept
+  dimmed until a slot is chosen. The options' volumes as a fresh install
+  has them ([systems/screens.md](systems/screens.md)).
+
+- **November 2026:** the options screen from a screenshot: Tool Tips
+  where the bar's pictures are named `3dacc`, its words and their colours,
+  Random Events as YES, the timers' "None", the volume bars, and the
+  screen over the dimmed main menu ([systems/screens.md](systems/screens.md)).
+  With it, the layouts' font colours as stored red, blue, green
+  ([formats/wdf.md](formats/wdf.md)).
+
+- **November 2026:** how dim the main menu draws buttons that can't be
+  used (35%) and every button behind a panel (28%), measured on the
+  recording against the `mc*.tga` pictures
+  ([systems/screens.md](systems/screens.md)).
+- **November 2026:** the main menu dimmed behind the game setup and empire
+  selection screens, from the recording.
 - **November 2026:** the text boxes' alignment (their fonts' first two
   flags) and the game setup screen's galaxy pictures, from a recording
   ([systems/screens.md](systems/screens.md)).

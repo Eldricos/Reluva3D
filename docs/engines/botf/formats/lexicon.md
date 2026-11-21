@@ -38,6 +38,7 @@ the screen change. In `src/engines/botf/formats/lexicon.h` (`lex::`):
 | Timers | 872 None |
 | Random events | 880 Off, 882 On |
 | Tactical combat | 621 Manual, 52 Automatic |
+| The options screen *(inferred)* | 1416 VOLUME CONTROL, 1413 VOICE, 1411 VIDEO, 797 MUSIC, 1113 SFX, 1182 STRATEGIC TIMER, 1247 TACTICAL TIMER, 1453 YES, 828 NO |
 | Victory conditions | 248 Domination, 1407 Vendetta, 1253 Team Play |
 | Galaxy shape | 555 Irregular, 264 Elliptical, 1056 Ring, 1172 Spiral |
 | Galaxy size | 1158 Small, 627 Medium, 596 Large |

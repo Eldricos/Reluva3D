@@ -8,6 +8,7 @@
 #include "engines/botf/ui/layout_screen.h"
 
 #include <array>
+#include <map>
 #include <string>
 
 // The single-player game setup screen ("Configuration", gmesetup.wdf),
@@ -28,8 +29,8 @@ struct GameSetup {
     std::array<int, 5> civilization{1, 1, 1, 1, 1};
     int minorRaces = 3;     // 0 none, 1 few, 2 some, 3 many
     int difficulty = 2;     // 0 simple, 1 easy, 2 normal, 3 hard, 4 impossible
-    int strategicTimer = 0; // 0 none; the other choices aren't known yet
-    int tacticalTimer = 0;  // the same
+    int strategicTimer = 0; // an index into strategicTimerChoices(): 0 none
+    int tacticalTimer = 0;  // into tacticalTimerChoices()
     bool randomEvents = true;
     bool manualCombat = true;
     int victory = 0;     // 0 domination, 1 vendetta (team play is for multiplayer games)
@@ -37,9 +38,25 @@ struct GameSetup {
     int galaxySize = 1;  // 0 small, 1 medium, 2 large
 };
 
+/**
+ * The game setup Stbof.ini keeps, the last game's
+ * (docs/engines/botf/systems/game-files.md); the defaults for what it
+ * doesn't have.
+ */
+GameSetup setupFromIni(const std::map<std::string, std::string> &ini);
+
+/**
+ * The setup as the game writes it into Stbof.ini, the last game's: the
+ * galaxy, the minor races, the difficulty and each empire's level (the
+ * preferences it shares with the options are optionsIniValues').
+ */
+std::map<std::string, std::string> setupIniValues(const GameSetup &setup);
+
 /** The single-player game setup screen. */
 class SetupScreen : LayoutScreen {
 public:
+    using LayoutScreen::repeating;
+    using LayoutScreen::setSoundHandler;
     /** Whether the screen is still open, or how it was left. */
     enum class Result { kOpen, kAccepted, kCancelled };
 
@@ -52,6 +69,11 @@ public:
     Error load();
     /** Draws the screen with the settings chosen. */
     void draw(Surface &screen);
+    /**
+     * The time, in milliseconds: a timer's arrow held steps again.
+     * @return whether the setup changed
+     */
+    bool tick(uint64_t millis);
     /**
      * Mouse clicks on the controls (a click changes a setting, as in the
      * game; with Shift, a civilization level changes for every empire), and
@@ -76,5 +98,8 @@ private:
  * ("2 EARLY").
  */
 std::string civilizationLevel(const Lexicon &lexicon, int level);
+
+/** The galaxy's shape as the screens name it: "Irregular" ... "Spiral". */
+std::string galaxyShapeName(const Lexicon &lexicon, int shape);
 
 } // namespace reluva::botf

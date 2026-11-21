@@ -44,6 +44,9 @@ around it are read by [avi.md](avi.md)'s reader.
 ## Used by
 
 - **`stgenerations`**: Star Trek: Generations' movies.
+- **`botf`**: Birth of the Federation's opening movie, through the shared
+  player (`video::playMovie`, which plays Cinepak as well as Indeo 5)
+  ([movies.md](../../engines/botf/systems/movies.md)).
 - **`clue`**: Clue's intro, deal, suggestion and prison clips
   ([videos.md](../../engines/clue/formats/videos.md)).
 - **`unreal`**: The Fallen's intro movie

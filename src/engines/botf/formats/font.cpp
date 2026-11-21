@@ -14,7 +14,6 @@ namespace reluva::botf {
 namespace {
 
 constexpr size_t kHeaderSize = 260;
-constexpr size_t kWidths = 20; // offset of the 120 u16 widths
 constexpr int kRowLengths[] = {10, 26, 26, 32, 26};
 
 uint32_t rgbaAt(const image::Image &img, int x, int y) {
@@ -75,7 +74,12 @@ Error Font::load(const std::vector<uint8_t> &data) {
                 if (found < kRowLengths[row]) {
                     Glyph &g = _glyphs[size_t(glyph)];
                     g = {start, top, x - start, height, 0};
-                    g.advance = data[kWidths + 2 * size_t(glyph)] | data[kWidths + 2 * size_t(glyph) + 1] << 8;
+                    // The game advances by the cell's width and one pixel
+                    // more, as the header's advances say for every cell
+                    // but the first of rows 2-5 ('A', 'a', '`', 'ä'), a
+                    // pixel wider: there the header is a pixel short
+                    // (docs/engines/botf/formats/fnt.md).
+                    g.advance = x - start + 1;
                     ++glyph;
                 }
                 ++found;
@@ -129,7 +133,9 @@ int Font::drawImpl(Surface &s, int x, int y, std::string_view utf8, std::optiona
             x += _spaceAdvance * scale;
             continue;
         }
-        for (int gy = 0; gy < g->h; ++gy)
+        // The cell's last row isn't drawn: the game leaves it out, as
+        // screenshots show under 'g' and 'y' (docs/engines/botf/formats/fnt.md).
+        for (int gy = 0; gy < g->h - 1; ++gy)
             for (int gx = 0; gx < g->w; ++gx) {
                 if (rgbaAt(_sheet, g->x + gx, g->y + gy) == _background)
                     continue;
@@ -180,7 +186,10 @@ std::vector<std::string> Font::wrap(std::string_view utf8, int width) const {
                 space = paragraph.size();
             const std::string_view word = paragraph.substr(w, space - w);
             const std::string candidate = line.empty() ? std::string(word) : line + " " + std::string(word);
-            if (!line.empty() && measure(candidate) > width) {
+            // A word fits when the space after it does too; the last word
+            // of a paragraph has none (the empire screen's descriptions).
+            const int after = space < paragraph.size() ? _spaceAdvance : 0;
+            if (!line.empty() && measure(candidate) + after > width) {
                 lines.push_back(line);
                 line = std::string(word);
             } else {

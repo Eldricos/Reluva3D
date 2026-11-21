@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Birth of the Federation's unit tests: alt.res and its LZSS, the .snd archives, and
-// finding the game's files.
+// Birth of the Federation's unit tests: alt.res and its LZSS, the saved
+// games, the .snd archives, and finding the game's files.
 
 #include "audio/sound.h"
 #include "audio/wav.h"
 #include "engines/botf/formats/alt_res.h"
+#include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/snd_archive.h"
 #include "engines/botf/game_files.h"
 #include "image/image.h"
@@ -107,6 +108,29 @@ void testLzss() {
 
     // Too little input fails.
     CHECK(decompressLzss(packed.data(), packed.size() / 2, raw.size(), out));
+
+    // A reference to the window before anything is written there copies
+    // what it was filled with: zeros, or a saved game's spaces.
+    const Bytes early = {0xfe, 0x10, 0x80};
+    CHECK(!decompressLzss(early.data(), early.size(), 3, out) && out == Bytes(3, 0));
+    CHECK(!decompressLzss(early.data(), early.size(), 3, out, nullptr, 0x20) && out == Bytes(3, 0x20));
+}
+
+void testSaveSummary(const std::filesystem::path &tmp) {
+    writeFile(tmp / "game0.sav", makeSave("Tutorial #1", "Irregular galaxy \xe9", 41));
+    SaveSummary save;
+    CHECK(!readSaveSummary(tmp / "game0.sav", save));
+    CHECK(save.name == "Tutorial #1");
+    CHECK(save.description == "Irregular galaxy \xc3\xa9"); // Windows-1252 to UTF-8
+    CHECK(save.turn == 41 && !save.multiplayer && save.empire == 1);
+    // An empire past the Romulans isn't one.
+    writeFile(tmp / "game3.sav", makeSave("x", "", 0, 7));
+    CHECK(!readSaveSummary(tmp / "game3.sav", save) && save.empire == -1);
+    // Without gameInfo, or not an archive, it isn't read.
+    writeFile(tmp / "game1.sav", makeLzssArchive("x", {{"version", Bytes(8, 1)}}));
+    CHECK(bool(readSaveSummary(tmp / "game1.sav", save)));
+    writeFile(tmp / "game2.sav", Bytes(10, 0));
+    CHECK(bool(readSaveSummary(tmp / "game2.sav", save)));
 }
 
 void testAltRes(const std::filesystem::path &tmp) {
@@ -290,12 +314,44 @@ void testGameFiles(const std::filesystem::path &tmp) {
     CHECK(plain.find("music.snd").has_value());
 }
 
+void testStbofIniWritten() {
+    // As the game left it after a game: setting the values it holds changes
+    // nothing, byte for byte.
+    const std::string played =
+        "CDPATH=D:\\\r\nHDPATH=c:\\games\\botf\\\r\nCURRENTGAME=0\r\nLANGUAGE=ENGLISH\r\n"
+        "VICTORY=KILLALL\r\nINSTALL=MAXIMUM\r\n3D=SOFTWARE\r\nTACTICAL=ABSTRACT\r\nSOUNDON=ON\r\n"
+        "BORG=ON\r\nMOVIEON=ON\r\nAUTOSAVE=ON\r\nTOOLTIPS=ON\r\nRANDOMEVENTS=OFF\r\n"
+        "TURNSTATUS=OFF\r\nTIMELIMIT=0\r\nTACTIMELIMIT=0\r\nSHAPE=1\r\nSIZE=0\r\nRACENUM=0\r\n"
+        "DIFFICULTY=1\r\nCIVLEVEL1=0\r\nMUSICVOLUME=100\r\nFXVOLUME=100\r\nVIDEOVOLUME=127\r\n"
+        "VOICEVOLUME=100\r\nDIRECT X NOT INSTALLED BY BOF\r\nVersion=1.0.2\r\n";
+    CHECK(updateStbofIni(played, parseStbofIni(played)) == played);
+    // A value changed keeps its line and place.
+    const std::string changed = updateStbofIni(played, {{"MUSICVOLUME", "64"}, {"TOOLTIPS", "OFF"}});
+    CHECK(changed.find("TOOLTIPS=OFF\r\nRANDOMEVENTS") != std::string::npos &&
+          changed.find("\r\nMUSICVOLUME=64\r\nFXVOLUME") != std::string::npos && changed.size() == played.size());
+
+    // As the installer writes it: the keys it hasn't got go where the game
+    // puts them, after the last one before them in its order; the rest,
+    // lines without '=' and the ^Z at the end, stay.
+    const std::string fresh = "CDPATH=D:\\\r\nLANGUAGE=ENGLISH\r\nMOVIEON=ON\r\nMUSICVOLUME=100\r\nMONO=YES\r\n"
+                              "INSTALL=MINIMUM\r\nDIRECT X NOT 6.0 INSTALLED BY BOTF\r\n\x1a";
+    const std::string updated = updateStbofIni(fresh, {{"MUSICVOLUME", "90"}, {"AUTOSAVE", "OFF"}, {"CIVLEVEL2", "3"}});
+    // (INSTALL comes before both new keys in the game's order.)
+    CHECK(updated == "CDPATH=D:\\\r\nLANGUAGE=ENGLISH\r\nMOVIEON=ON\r\nMUSICVOLUME=90\r\nMONO=YES\r\n"
+                     "INSTALL=MINIMUM\r\nAUTOSAVE=OFF\r\nCIVLEVEL2=3\r\nDIRECT X NOT 6.0 INSTALLED BY BOTF\r\n\x1a");
+    // An empty file gets the keys, in the game's order, with \r\n.
+    CHECK(updateStbofIni("", {{"SIZE", "1"}, {"SHAPE", "2"}}) == "SHAPE=2\r\nSIZE=1\r\n");
+}
+
 } // namespace
 
 static const reluva::test::Suite
-    kSuite("botf.unit.archives", {
-                                     {"lzss", [](const std::filesystem::path &) { testLzss(); }},
-                                     {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
-                                     {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},
-                                     {"game files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
-                                 });
+    kSuite("botf.unit.archives",
+           {
+               {"lzss", [](const std::filesystem::path &) { testLzss(); }},
+               {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
+               {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
+               {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},
+               {"game files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
+               {"Stbof.ini written", [](const std::filesystem::path &) { testStbofIniWritten(); }},
+           });

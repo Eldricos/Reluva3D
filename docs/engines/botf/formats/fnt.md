@@ -44,12 +44,20 @@ y = r x line height + 1 and are line height - 1 tall. Inside a cell the
 background is black; the glyph is drawn in its own colours: two colours in
 the 9-point fonts, grey levels (anti-aliasing) in the larger ones.
 
-Each cell is as wide as its advance - 1, except the first cell of rows 2 to
-5, which is a pixel wider (in both whole fonts read). Reluva therefore
-finds the cells by their frame lines (a column of frame colour all the way
-down a row ends a cell) and takes the advances from the header. In both
-whole fonts this finds 120 cells, in rows of 10, 26, 26, 32 and 26, and
-all the other widths agree with the header.
+Each cell is as wide as the header's advance - 1, except the first cell of
+rows 2 to 5 (`A`, `a`, `` ` ``, `ä`), which is a pixel wider (in both
+whole fonts read). Reluva finds the cells by their frame lines (a column
+of frame colour all the way down a row ends a cell): in both whole fonts
+120 cells, in rows of 10, 26, 26, 32 and 26.
+
+The game doesn't draw a cell's last row, which only descenders reach: in
+screenshots the bottom row of `g` and `y` is blank where the sheet has it.
+
+The game advances by the cell's width + 1, so for those four glyphs a
+pixel further than the header says. Drawn with the header's advances,
+the text in screenshots of the Hall of Fame and Load Game screens drifts a
+pixel to the left after every `a` and `A`; with the cells', each of its
+glyphs lands on the game's own pixels.
 
 The glyphs, in order (the header's advances are in the same order):
 
@@ -80,12 +88,19 @@ fonts and line wrapping.
   were found by their frame lines in both whole fonts and compared with the
   header; the characters were read from the glyphs drawn large.
 - **How it was checked:** all 21 fonts loaded in Reluva's viewer, every row
-  with its expected number of cells.
+  with its expected number of cells. The advances and the shading, against
+  screenshots of the game's Hall of Fame, Load Game and options screens
+  (November 2026), drawn by Reluva from the English `stbof.res`: the text
+  lands on the game's pixels, each grey of the glyph sheet always giving
+  the same colour on the game's 16-bit screen.
 
 ## Open questions
 
-- How the game colours text. The race fonts' glyphs are grey, so the game
-  probably tints them *(guessed)*; Reluva's viewer draws them as stored.
+- How the game colours text exactly. It tints the grey glyphs: in the
+  screenshots each grey gives one colour, the brightest grey the text's
+  colour and the rest about in proportion, as Reluva draws them (within the
+  16-bit screen's rounding). In `human15.fnt`'s `8` and `B` a few pixels
+  differ from the sheet's; why isn't known.
 - Bytes 1, 3, 16 and 17 and the values 10 and 86. Byte 2 is taken as the
   space's advance (there is no space glyph); the running game will show
   whether that's right.

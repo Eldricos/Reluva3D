@@ -3,18 +3,32 @@
 
 // Star Trek: Birth of the Federation: the engine's MetaEngine (its name, the
 // releases it recognises, making an Engine to run one) and its Engine,
-// which so far runs the start of a new game: the game setup screen, then
-// the empire selection screen (docs/engines/botf/systems/screens.md).
+// which so far runs the main menu and its screens (the options, loading and
+// saving, the Hall of Fame, multiplayer setup) and the start of a new game: the game setup screen, then the empire selection screen
+// (docs/engines/botf/systems/screens.md).
 
 #include "common/zip.h"
 #include "engines/botf/formats/lexicon.h"
 #include "engines/botf/game_files.h"
+#include "engines/botf/menu_audio.h"
 #include "engines/botf/ui/assets.h"
 #include "engines/botf/ui/empire_screen.h"
+#include "engines/botf/ui/fame_screen.h"
+#include "engines/botf/ui/load_save_screen.h"
+#include "engines/botf/ui/main_menu.h"
+#include "engines/botf/ui/multiplayer_screen.h"
+#include "engines/botf/ui/options_screen.h"
 #include "engines/botf/ui/setup_screen.h"
 #include "engines/engine.h"
+#include "audio/wav.h"
+#include "video/movie.h"
 
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -50,14 +64,114 @@ const std::vector<GameVariant> kFallback = {
      {{"stbof.res", "", -1}, {"sfx.snd", "", -1}}},
 };
 
+// How long the typing cursors (Save Game, Multiplayer Setup) are shown,
+// then hidden: measured on a recording of the game, frame by frame.
+constexpr uint64_t kCursorFlashMillis = 300;
+
 constexpr int kScreenW = 800; // the game's own resolution
 constexpr int kScreenH = 600;
 
+// Whether the install has an autosave Continue can go on from: auto.sav
+// (any case) holding a saved game, not a fresh install's empty file.
+// Without it the game's Continue is dimmed; last.sav makes no difference
+// (the user, in the game).
+bool hasAutosave(const std::filesystem::path &dir) {
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
+        std::string name = entry.path().filename().string();
+        for (char &c : name)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        SaveSummary save;
+        if (name == "auto.sav" && !readSaveSummary(entry.path(), save))
+            return true;
+    }
+    return false;
+}
+
+// The saved games in the install's slots, game0.sav to game11.sav (any
+// case). Only the install's own: the CD has the tutorials' saves too, but a
+// slot emptied in the install should stay empty. A save that can't be read
+// shows as an empty slot.
+LoadSaveScreen::Slots findSaves(const std::filesystem::path &dir) {
+    LoadSaveScreen::Slots slots;
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
+        std::string name = entry.path().filename().string();
+        for (char &c : name)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        for (int i = 0; i < LoadSaveScreen::kSlots; ++i)
+            if (name == "game" + std::to_string(i) + ".sav") {
+                SaveSummary save;
+                if (!readSaveSummary(entry.path(), save))
+                    slots[size_t(i)] = save;
+            }
+    }
+    return slots;
+}
+
+// The opening movie, as the game plays it before the main menu: the
+// CD's open.avi (Cinepak, 800x300, no sound), in the middle of the 800x600
+// screen, with the install's intro.wav as its sound (the same 75 seconds);
+// a key or a click skips it. Stbof.ini's MOVIEON=OFF leaves it out
+// (docs/engines/botf/systems/movies.md). False if the window was closed.
+bool playOpening(System &sys, const GameFiles &files, audio::Mixer *mixer) {
+    if (auto it = files.ini().find("MOVIEON"); it != files.ini().end() && it->second == "OFF")
+        return true;
+    const auto movie = files.find("open.avi");
+    if (!movie)
+        return true;
+    video::MovieOptions options;
+    options.screenWidth = kScreenW;
+    options.screenHeight = kScreenH;
+    if (const auto wav = files.find("intro.wav")) {
+        std::ifstream in(*wav, std::ios::binary);
+        const std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        auto sound = std::make_shared<audio::Sound>();
+        if (!audio::decodeWav(data, *sound))
+            options.soundtrack = std::move(sound);
+    }
+    bool quit = false;
+    video::playMovie(sys, mixer, *movie, quit, options);
+    return !quit;
+}
+
+// Sets `values` in the install's Stbof.ini, as the game does when the
+// options or a new game's setup are accepted; without the file, nothing.
+void writeStbofIni(const GameFiles &files, const std::map<std::string, std::string> &values) {
+    if (!files.iniPath())
+        return;
+    std::string text;
+    {
+        std::ifstream in(*files.iniPath(), std::ios::binary);
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    const std::string updated = updateStbofIni(text, values);
+    if (updated != text)
+        std::ofstream(*files.iniPath(), std::ios::binary).write(updated.data(), std::streamsize(updated.size()));
+}
+
+// The settings the game setup screen and the options screen share: the
+// manual says each can change them.
+void preferencesToSetup(const GameOptions &o, GameSetup &s) {
+    s.strategicTimer = o.strategicTimer;
+    s.tacticalTimer = o.tacticalTimer;
+    s.randomEvents = o.randomEvents;
+    s.manualCombat = o.manualCombat;
+}
+
+void preferencesToOptions(const GameSetup &s, GameOptions &o) {
+    o.strategicTimer = s.strategicTimer;
+    o.tacticalTimer = s.tacticalTimer;
+    o.randomEvents = s.randomEvents;
+    o.manualCombat = s.manualCombat;
+}
+
 /**
- * The game running: the game setup screen, and from its Accept the empire
- * selection screen. There's no game to start yet, so the empire screen's
- * Accept comes back to the setup; the setup's Cancel, which goes to the
- * main menu in the game, goes back to the launcher.
+ * The game running: the main menu, its options, Load Game and Hall of Fame
+ * screens, and
+ * from its New Single Player Game the game setup screen, then the empire
+ * selection screen. There's no game to start or load yet, so the empire
+ * screen's Accept and Load Game's come back to the main menu.
  */
 class BotfEngine : public Engine {
 public:
@@ -74,9 +188,31 @@ public:
         std::vector<uint8_t> data;
         if (!_stbof.read("lexicon.dic", data))
             _lexicon.load(data);
+        _options = optionsFromIni(files.ini());
+        // A new game's setup starts from the last one: Stbof.ini's, then the
+        // last accepted.
+        GameSetup lastSetup = setupFromIni(files.ini());
         Assets assets(_stbof);
+        MainMenu menu(assets, _lexicon);
+        OptionsScreen options(assets, _lexicon);
+        LoadSaveScreen loading(assets, _lexicon);
+        FameScreen fame(assets, _lexicon);
+        MultiplayerScreen multiplayer(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
         EmpireScreen empires(assets, _lexicon);
+        if (Error err = menu.load())
+            return err;
+        if (auto it = files.ini().find("VERSION"); it != files.ini().end())
+            menu.setVersion(it->second);
+        menu.setGameInProgress(false, hasAutosave(_target.path));
+        if (Error err = options.load())
+            return err;
+        if (Error err = loading.load())
+            return err;
+        if (Error err = fame.load())
+            return err;
+        if (Error err = multiplayer.load())
+            return err;
         if (Error err = setup.load())
             return err;
         if (Error err = empires.load())
@@ -84,38 +220,179 @@ public:
 
         if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
+        MenuAudio audio(_sys);
+        audio.open(files);
+        audio.setMovieVolume(_options);
+        if (!playOpening(_sys, files, audio.mixer()))
+            return Error::success();
+        audio.setVolumes(_options);
+        audio.startMusic();
+        const auto sounds = [&audio](UiSound s) { audio.play(s); };
+        options.setSoundHandler(sounds);
+        loading.setSoundHandler(sounds);
+        fame.setSoundHandler(sounds);
+        multiplayer.setSoundHandler(sounds);
+        setup.setSoundHandler(sounds);
+        empires.setSoundHandler(sounds);
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
         Surface screen;
         screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        bool choosingEmpire = false;
+        enum class Showing { kMenu, kOptions, kLoad, kFame, kMultiplayer, kSetup, kEmpires };
+        Showing showing = Showing::kMenu;
+        Showing shown = showing; // before the event
         bool redraw = true;
+        bool cursorShown = true;
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (!choosingEmpire) {
+                if (showing == Showing::kMenu) {
+                    // Esc on the main menu leaves, as its Quit Game does: a
+                    // convenience the game hasn't got.
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+                        return Error::success();
+                    const MainMenu::Choice c = menu.handle(ev);
+                    // Continue would load the autosave, but saved games can't
+                    // be loaded yet: it stays on the main menu.
+                    if (c == MainMenu::Choice::kQuit)
+                        return Error::success();
+                    if (c == MainMenu::Choice::kNewSinglePlayer) {
+                        setup.setup() = lastSetup;
+                        preferencesToSetup(_options, setup.setup());
+                        showing = Showing::kSetup;
+                        audio.play(MenuAudio::Move::kToSetup);
+                    }
+                    if (c == MainMenu::Choice::kLoadGame) {
+                        loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kLoad);
+                        showing = Showing::kLoad;
+                        audio.play(MenuAudio::Move::kToLoad);
+                    }
+                    // Only with a game in progress, which there can't be yet:
+                    // its description would be the last empire chosen's, at
+                    // its first turn, in the last setup's galaxy.
+                    if (c == MainMenu::Choice::kSaveGame) {
+                        loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kSave,
+                                     saveDescription(_lexicon, std::max(empires.chosen(), 0), 0, lastSetup.galaxySize,
+                                                     lastSetup.galaxyShape),
+                                     std::max(empires.chosen(), 0));
+                        _sys.setTextInput(true);
+                        showing = Showing::kLoad;
+                        audio.play(MenuAudio::Move::kToSave);
+                    }
+                    if (c == MainMenu::Choice::kNewMultiplayer) {
+                        multiplayer.open();
+                        _sys.setTextInput(true);
+                        showing = Showing::kMultiplayer;
+                        audio.play(MenuAudio::Move::kToMultiplayer);
+                    }
+                    if (c == MainMenu::Choice::kHallOfFame) {
+                        // Reluva's own list, empty until it can finish a
+                        // game: the game's first ten entries aren't in its
+                        // files (docs/engines/botf/KNOWN_DIFFERENCES.md).
+                        fame.open({});
+                        showing = Showing::kFame;
+                        audio.play(MenuAudio::Move::kToHallOfFame);
+                    }
+                    if (c == MainMenu::Choice::kOptions) {
+                        options.open(_options);
+                        showing = Showing::kOptions;
+                        audio.play(MenuAudio::Move::kToOptions);
+                    }
+                } else if (showing == Showing::kOptions) {
+                    const OptionsScreen::Result r = options.handle(ev);
+                    if (r == OptionsScreen::Result::kAccepted) {
+                        _options = options.options();
+                        writeStbofIni(files, optionsIniValues(_options));
+                    }
+                    if (r != OptionsScreen::Result::kOpen)
+                        showing = Showing::kMenu;
+                } else if (showing == Showing::kMultiplayer) {
+                    // There's no one to connect to yet: only Cancel leaves.
+                    if (multiplayer.handle(ev) != MultiplayerScreen::Result::kOpen) {
+                        _sys.setTextInput(false);
+                        showing = Showing::kMenu;
+                    }
+                } else if (showing == Showing::kFame) {
+                    if (fame.handle(ev))
+                        showing = Showing::kMenu;
+                } else if (showing == Showing::kLoad) {
+                    // Nothing is saved or loaded yet: there's no game.
+                    if (loading.handle(ev) != LoadSaveScreen::Result::kOpen) {
+                        _sys.setTextInput(false);
+                        showing = Showing::kMenu;
+                    }
+                } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)
-                        return Error::success();
+                        showing = Showing::kMenu;
                     if (r == SetupScreen::Result::kAccepted) {
-                        choosingEmpire = true;
+                        preferencesToOptions(setup.setup(), _options);
+                        lastSetup = setup.setup();
+                        // The game keeps a new game's setup, and the
+                        // preferences it shares with the options.
+                        auto values = setupIniValues(lastSetup);
+                        values.merge(optionsIniValues(_options));
+                        writeStbofIni(files, values);
+                        showing = Showing::kEmpires;
+                        audio.play(MenuAudio::Move::kToEmpires);
                         empires.reset();
                         empires.setLevels(setup.setup().civilization);
                     }
                 } else {
                     const EmpireScreen::Result r = empires.handle(ev);
-                    if (r == EmpireScreen::Result::kAccepted || r == EmpireScreen::Result::kCancelled)
-                        choosingEmpire = false;
+                    if (r == EmpireScreen::Result::kAccepted)
+                        showing = Showing::kMenu;
+                    if (r == EmpireScreen::Result::kCancelled)
+                        showing = Showing::kSetup;
                 }
+                if (showing != shown && showing == Showing::kMenu) {
+                    menu.forgetPointer();
+                    audio.play(MenuAudio::Move::kToMenu);
+                }
+                shown = showing;
                 redraw = redraw || ev.type != EventType::kKeyUp;
+            }
+            // The options' volumes as they're set, so a volume's sample, and
+            // the music, are heard at the new one; Cancel puts them back.
+            audio.setVolumes(showing == Showing::kOptions ? options.options() : _options);
+            audio.update();
+            // A pulsing button changes with time: the main menu's, and the
+            // empire selection screen's names.
+            menu.setTime(_sys.getMillis());
+            empires.setTime(_sys.getMillis());
+            if ((showing == Showing::kMenu && menu.pulsing()) || (showing == Showing::kEmpires && empires.pulsing()))
+                redraw = true;
+            // A timer's arrow held steps on.
+            if (showing == Showing::kSetup && setup.tick(_sys.getMillis()))
+                redraw = true;
+            if (showing == Showing::kOptions && options.tick(_sys.getMillis()))
+                redraw = true;
+            if (showing == Showing::kLoad || showing == Showing::kMultiplayer) {
+                const bool cursor = _sys.getMillis() / kCursorFlashMillis % 2 == 0;
+                if (cursor != cursorShown) {
+                    cursorShown = cursor;
+                    loading.setCursorShown(cursor);
+                    multiplayer.setCursorShown(cursor);
+                    redraw = true;
+                }
             }
             if (redraw) {
                 std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
-                if (choosingEmpire)
-                    empires.draw(screen);
-                else
+                if (showing == Showing::kMenu)
+                    menu.draw(screen);
+                else if (showing == Showing::kOptions)
+                    options.draw(screen);
+                else if (showing == Showing::kLoad)
+                    loading.draw(screen);
+                else if (showing == Showing::kFame)
+                    fame.draw(screen);
+                else if (showing == Showing::kMultiplayer)
+                    multiplayer.draw(screen);
+                else if (showing == Showing::kSetup)
                     setup.draw(screen);
+                else
+                    empires.draw(screen);
                 redraw = false;
             }
             _sys.updateScreen(screen);
@@ -128,6 +405,7 @@ private:
     GameTarget _target;
     ZipArchive _stbof;
     Lexicon _lexicon;
+    GameOptions _options; // from Stbof.ini; changes aren't written back yet
 };
 
 /**

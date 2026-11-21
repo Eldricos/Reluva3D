@@ -8,18 +8,26 @@ reluva_add_engine(botf
     SOURCES
         botf.cpp
         game_files.cpp
+        menu_audio.cpp
         formats/alt_res.cpp
         formats/data_table.cpp
         formats/font.cpp
         formats/lexicon.cpp
         formats/menu_file.cpp
+        formats/save_game.cpp
         formats/snd_archive.cpp
         formats/text_table.cpp
         formats/window_layout.cpp
         ui/assets.cpp
         ui/empire_screen.cpp
+        ui/fame_screen.cpp
         ui/layout_screen.cpp
-        ui/setup_screen.cpp)
+        ui/load_save_screen.cpp
+        ui/main_menu.cpp
+        ui/multiplayer_screen.cpp
+        ui/options_screen.cpp
+        ui/setup_screen.cpp
+        ui/timers.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,
 # doesn't link it. See docs/DEVELOPMENT.md (The data viewer).

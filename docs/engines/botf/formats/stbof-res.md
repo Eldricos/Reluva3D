@@ -49,8 +49,9 @@ rest deflated (method 8).
 ### Races
 
 Per-race files use one letter: `c`, `f`, `h`, `k`, `r`. The fonts are named
-`cardsn`, `ferngi`, `human`, `klingn` and `romuln`, so `h` is probably the
-Federation (human) and `f` the Ferengi *(inferred)*. The CD's movies
+`cardsn`, `ferngi`, `human`, `klingn` and `romuln`, so `h` is the
+Federation (human) and `f` the Ferengi: the Hall of Fame's rows, framed
+with `hh_fm1.tga` and `hf_fm1.tga`, bear it out against a screenshot. The CD's movies
 (`C.avi`, `F.avi`, `H.avi`, `K.avi`, `R.avi`) and end-of-game files use the
 same letters.
 

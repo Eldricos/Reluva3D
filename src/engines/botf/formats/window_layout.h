@@ -38,7 +38,7 @@ struct WidgetFont {
     /** Where the text goes across its box. */
     enum class Align { kLeft, kRight, kCenter };
 
-    Color color;                  // stored red, blue, green (not confirmed)
+    Color color;                  // stored red, blue, green
     std::array<int32_t, 7> other; // flags: [0] right-aligned, [1] centred; [2], [3] not known
     /** The alignment the flags give. */
     Align align() const { return other[0] ? Align::kRight : other[1] ? Align::kCenter : Align::kLeft; }
