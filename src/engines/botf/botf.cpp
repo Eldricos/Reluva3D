@@ -266,6 +266,7 @@ public:
         Showing shown = showing; // before the event
         bool redraw = true;
         bool cursorShown = true;
+        uint64_t galaxyFrame = 0; // the galaxy's strip's frame last drawn
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
@@ -369,6 +370,9 @@ public:
                     // game's own menus aren't there yet.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         showing = Showing::kMenu;
+                    // A click on the map selects its sector.
+                    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)
+                        (void)galaxy.click(ev.mouseX, ev.mouseY);
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)
@@ -408,8 +412,15 @@ public:
             // empire selection screen's names.
             menu.setTime(_sys.getMillis());
             empires.setTime(_sys.getMillis());
+            galaxy.setTime(_sys.getMillis());
             if ((showing == Showing::kMenu && menu.pulsing()) || (showing == Showing::kEmpires && empires.pulsing()))
                 redraw = true;
+            // The galaxy's selected system turns: drawn again at its star's
+            // rate, the fastest of its animations.
+            if (showing == Showing::kGalaxy && _sys.getMillis() / GalaxyScreen::kFastestFrameMillis != galaxyFrame) {
+                galaxyFrame = _sys.getMillis() / GalaxyScreen::kFastestFrameMillis;
+                redraw = true;
+            }
             // A timer's arrow held steps on.
             if (showing == Showing::kSetup && setup.tick(_sys.getMillis()))
                 redraw = true;

@@ -175,7 +175,11 @@ fixed part's fields read:
 A planet, 76 bytes: its name (`char[40]`, ending in a line break:
 "Acamar I\n"), its picture (`char[14]` at 0x28: "vsal.ani"), its number
 in the system (`i16` at 0x36), its size (`i16` at 0x38, 0 to 2), and its
-type and atmosphere (`u8` at 0x48 and 0x49) *(published)*. The fixed
+type and atmosphere (`u8` at 0x48 and 0x49) *(published)*; the
+terraforming it needs and the terraforming done (`u16` at 0x3A and 0x3C)
+*(published)*: Babel's planets need 165 and 220 but for its class M,
+which needs none, as the galaxy screen colours their letters
+([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-strip)). The fixed
 part's other fields (production, morale, buildings, trade) are the
 editor's and not read yet. Saved at a new game's first turn, before one
 has passed, the fields the turn works out (output, consumption, the
@@ -192,7 +196,7 @@ bought the databank.
 
 | Offset | Type | Field |
 |---|---|---|
-| 0x00 | `i32` | its type: 0 black hole, 1 X-ray pulsar, 2 nebula, 10 wormhole, 11 radio pulsar, by the names the tutorials give them |
+| 0x00 | `i32` | its type: 0 black hole, 1 X-ray pulsar, 2 nebula, 3 neutron star, 10 wormhole, 11 radio pulsar, by the names the saves give them |
 | 0x04 | `char[40]` | its name, by its sector's column letter and row from 1: "Black Hole C4" |
 | 0x2C | `char[20]` | its picture: empty in the tutorials |
 | 0x44, 0x48 | `i32` | where it's drawn on the small map, as a system: "Black Hole C4" at 12, 17 |

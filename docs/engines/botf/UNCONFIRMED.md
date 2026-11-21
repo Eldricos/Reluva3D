@@ -39,6 +39,12 @@ None: nothing of the game's code has been read.
   executable sets it, and magenta is what the pictures leave undrawn
   ([formats/wdf.md](formats/wdf.md)). Settled by: no picture showing pink
   where the game shows none.
+- **The galaxy screen's strip for the black hole, the pulsars and the
+  wormhole:** their animations and descriptions taken by their names, and
+  the planets' gap closing until the outermost is 21 pixels inside its
+  place ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
+  Settled by: screenshots of those objects selected, and of a system with
+  more planets than Sol.
 
 ## Settled
 

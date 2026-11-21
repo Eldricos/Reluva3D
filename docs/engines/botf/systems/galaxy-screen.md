@@ -1,6 +1,6 @@
 # Star Trek: Birth of the Federation: the galaxy screen
 
-> **Status:** partial · **Code:** `src/engines/botf/ui/galaxy_screen.cpp` · **Checked against:** a screenshot of the English retail game at a new game's first turn, as the Federation on a small galaxy · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/botf/ui/galaxy_screen.cpp` · **Checked against:** screenshots of the English retail game at a new game's first turn, and at a second game's eleventh, as the Federation on small galaxies · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -9,10 +9,10 @@ turn and summary buttons, the empire's figures and its task forces down
 the left, the map's modes along its bottom, and the selected system along
 the screen's bottom. Each empire has its own layout, `?maingal.wdf` by
 its letter (`hmaingal.wdf` for the Federation), and its own pictures.
-Reluva draws the frame and the map from a saved game
-([formats/sav.md](../formats/sav.md)), opened by Load Game's Accept or
-the main menu's Continue; the panels and what the screen does are to
-come.
+Reluva draws the frame, the map, the empire's panel and the strip from a
+saved game ([formats/sav.md](../formats/sav.md)), opened by Load Game's
+Accept or the main menu's Continue; what the rest of the screen does is
+to come.
 
 ## How it works
 
@@ -129,31 +129,99 @@ DILITHIUM" with a destroyer queued, where Reluva shows what the save holds
 and "No Events" *(not known yet: the events, and the dilithium the queue
 uses)*.
 
+### The strip
+
+Along the screen's bottom, in place 1014 (7, 459), the selected sector:
+a system's strip (`h_sysmap.wdf`), a stellar object's (`h_starmp.wdf`),
+or, for an empty sector, nothing at all (not even the strip's frame,
+`h_sysbkg.tga`, which both layouts have for their window's picture).
+Measured on screenshots of Sol, Babel, Manark and a neutron star:
+
+- **A system's star and planets** turn in the planets' place (1020, at
+  207, 477, 548x100), from their `.ani` files
+  ([formats/ani.md](../formats/ani.md)): the star's (`s-y-.ani` for
+  `s-y-`) at the place's right end, then the planets leftward from the
+  innermost, as `systInfo` lists them, each 16 pixels from the last; all
+  with their middles on the place's (527). Sol's nine planets would run
+  past the place's left end so: its are 11 pixels apart, the outermost's
+  left edge at 228. Reluva closes the gaps a pixel at a time until the
+  outermost is at least 21 pixels inside the place *(guessed: only Sol's
+  needs it)*. Babel's three, Manark's seven and Sol's nine land on the
+  screenshots' pixels, each at one of its frames.
+- **How fast they turn**, counted in recordings: a planet's 24 frames in
+  4.75 seconds (about 198 milliseconds a frame), a star's 36 in about 1.2
+  (33), the neutron star's 8 in about 1.2 (150).
+- **Each planet's class letter**, under it, centred across its frame, in
+  `human9.fnt`: by the planet's type (`systInfo`), 0 P, 1 J, 2 G, 3 B, 5
+  O, 6 M, 7 Y (seen on the three systems' 19 planets; 4 L *(guessed)*).
+  It's blue for a gas giant (type 3), green for a planet that's
+  terraformed (its terraforming done reaches what it needs, both 0 for
+  most of Sol's) and red for one that isn't, in (0, 0, 255), (0, 255, 0)
+  and (255, 0, 0): which fits all 19.
+- **A system's texts**, in `human15.fnt`: "SYSTEM" in the title box (1100,
+  246, 459) in orange (247, 121, 33), the system's name 53 pixels after
+  it in green (173, 227, 115); who lives there in box 1101 (611, 459), in
+  orange: "HUMANS" for Sol, "UNINHABITED" for Babel and Manark (entries
+  1214 "system" and 1388 "uninhabited" in capitals, and 445). Then four
+  lines 17 apart: "POPULATION", "MAX POP", "GROWTH RATE" and "ORBITALS"
+  (919, 626, 425, 891) in orange in box 1102, and the population and the
+  maximum population in green, right-aligned in box 1103. The texts match
+  the screenshots pixel for pixel.
+- **A stellar object's strip:** its animation 300x100 in the middle of
+  its place (1020, at 226, 477); its name ("Neutron Star I6", the save's)
+  in orange in the title box and "Description" (228) in box 1101; and its
+  description, `lexicon.dic`'s entry after its name's (811 for "Neutron
+  Star", 810), wrapped to box 1103 (532, 477, 220 wide), a line every 17
+  pixels, in (165, 121, 33). The sixth line runs past the box's foot.
+  The neutron star's strip matches its screenshot pixel for pixel. The
+  black hole's, the X-ray and radio pulsars' and the wormhole's are drawn
+  the same way with `blkh.ani`, `xp-.ani`, `rpls.ani` and `worm.ani` and
+  their entries, by the files' and entries' names *(guessed)*.
+  A nebula has no animation, and no strip is drawn for it yet.
+
+Not drawn yet: the growth rate and the orbitals' figures ("3.1%" and
+"0/0" for Sol at the first turn, "0.7%" for Babel), which no field of the
+save seen holds; the icons over some planets (a red flare, a green plant)
+and over Sol's star (a blue crystal, presumably its dilithium); the
+empire's emblem at the strip's left for its own systems; and the people's
+word for a race other than the Federation's (only "HUMANS" is in capitals
+in `lexicon.dic`).
+
 ## In Reluva
 
 `GalaxyScreen` (`src/engines/botf/ui/galaxy_screen.cpp`) loads the
 player's empire's layout, and draws its frame, the map's backdrop, grid,
 the scanners' sectors, stars and names, the turn, and the empire's
-panel. The engine opens it
+panel, and the selected sector's strip, turning. The engine opens it
 with the chosen slot's save from Load Game, or with `Auto.sav` from
-Continue; Escape goes back to the main menu. The unit tests
-(`botf.unit.screens`: "galaxy") cover the scanners' range, where stars and
-names are drawn, and the panel's parts.
+Continue; a click on the map selects a sector; Escape goes back to the
+main menu. The unit tests (`botf.unit.screens`: "galaxy") cover the
+scanners' range, where stars and names are drawn, the panel's parts, and
+the strip: the star's and planets' places, their frames in time, the
+letters, a click's selection, the neutron star's strip and an empty
+sector's.
 
-Not drawn yet: the selected system along the bottom. Drawn so, the map
-matches the screenshot but for the grid lines' and the scanned sectors'
-shading.
+Drawn so, the map matches the screenshot but for the grid lines' and the
+scanned sectors' shading; the strip but for what isn't drawn yet, and the
+outermost pixels of the larger planets' rings, which the game seems to
+blend with what's under them.
 
 ## Sources and checks
 
 - **Where the facts come from:** `hmaingal.wdf` and its pictures in the
   English `stbof.res`; a screenshot of the game by the user, November
   2026, at the first turn of a new game (Federation, small galaxy, few
-  minor races, Simple, random events off), with its save.
+  minor races, Simple, random events off), with its save. For the strip,
+  the `h_sysmap.wdf` and `h_starmp.wdf` layouts and the `.ani` files, and
+  the user's screenshots and recordings of a second game at its eleventh
+  turn (Federation, small ring galaxy), with its save: Babel, Manark, an
+  empty sector and a neutron star selected, Sol turning.
 - **How it was checked:** drawn by Reluva from that save, the frame and
   turn match the screenshot pixel for pixel, and the map away from what
   isn't drawn yet to within the 16-bit screen's rounding: the backdrop
-  where the scanners don't reach, the three stars and Sol's name.
+  where the scanners don't reach, the three stars and Sol's name. The
+  strip, drawn from the second game's save with each sector selected,
+  matches as above, each planet and star at the frame it shows.
 
 ## Open questions
 
@@ -167,6 +235,8 @@ shading.
   in the screenshot.
 - Larger galaxies: whether the map scrolls, and how zooming changes the
   sectors' size.
+- The strip's growth rate, orbitals and icons, the empire's emblem on it,
+  a nebula's strip, and the people's word for the other races.
 - The panel's events, and its dilithium with a ship queued; the words for
   the other missions; a task force's second line when it has several
   ships.

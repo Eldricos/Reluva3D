@@ -4,8 +4,10 @@
 #pragma once
 
 #include "common/types.h"
+#include "engines/botf/formats/animation.h"
 #include "engines/botf/formats/data_table.h"
 #include "engines/botf/formats/save_game.h"
+#include "engines/botf/formats/window_layout.h"
 #include "engines/botf/ui/layout_screen.h"
 
 #include <set>
@@ -23,6 +25,8 @@ namespace reluva::botf {
 /** The galaxy screen: its frame, its map and the empire's panel. */
 class GalaxyScreen : LayoutScreen {
 public:
+    /** How often the strip's quickest animation, a star's, changes frame, in milliseconds. */
+    static constexpr uint64_t kFastestFrameMillis = 33;
     /** Draws with `assets` and `lexicon`, which must outlive it. */
     GalaxyScreen(Assets &assets, const Lexicon &lexicon) : LayoutScreen(assets, lexicon) {}
     /**
@@ -32,8 +36,19 @@ public:
     Error load(int empire);
     /** Shows a saved game as its player sees it (`game.summary.empire`, which load() was given). */
     void open(SavedGame game);
-    /** Draws the frame, the map and the empire's panel. */
+    /** Draws the frame, the map, the empire's panel and the selected sector's strip. */
     void draw(Surface &screen) const;
+    /**
+     * Selects the sector at column `x` and row `y`: its system or stellar
+     * object is shown in the strip under the map, turning.
+     */
+    void select(int x, int y);
+    /** The sector under a point on the screen, selected; false if the point is off the grid. */
+    bool click(int x, int y);
+    /** The time the strip's animations are drawn at, in milliseconds. */
+    using LayoutScreen::setTime;
+    /** The selected sector's column and row, or -1, -1. */
+    std::pair<int, int> selected() const { return _selected; }
 
     /** Whether the sector at column `x` and row `y` is in the player's scanners' range. */
     bool scanned(int x, int y) const { return _scanned.count({x, y}) > 0; }
@@ -44,6 +59,15 @@ private:
     void drawPanel(Surface &screen) const;
     void drawTaskForcesBar(Surface &screen) const;
     std::string missionWord(int mission) const;
+    // The map's grid's corner on the screen; false without a map.
+    bool gridCorner(int &gx, int &gy) const;
+    void drawStrip(Surface &screen) const;
+    void drawSystemStrip(Surface &screen, const SavedSystem &system) const;
+    void drawStellarStrip(Surface &screen, const SavedStellarObject &object) const;
+    // A frame of an animation at the strip's time, its middle at (cx, cy).
+    void drawFrame(Surface &screen, const Animation &a, uint64_t frameMillis, int cx, int cy) const;
+    // A widget of a strip's layout, with its corner on the screen.
+    const WindowLayout::Placed *stripWidget(const std::vector<WindowLayout::Placed> &strip, int32_t id) const;
     // A picture at a widget's place: across, in its middle; down, at its top.
     void drawIcon(Surface &screen, int x, int y, const Widget &w, const std::string &file) const;
 
@@ -59,6 +83,14 @@ private:
     std::set<std::pair<int, int>> _scanned;         // column, row
     std::vector<std::pair<int, int>> _rangeCentres; // the empire's systems
     std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
+    // The strip's layouts, their widgets placed on the screen: a system's
+    // (h_sysmap.wdf) and a stellar object's (h_starmp.wdf).
+    WindowLayout _systemLayout;
+    WindowLayout _stellarLayout;
+    std::vector<WindowLayout::Placed> _systemStrip;
+    std::vector<WindowLayout::Placed> _stellarStrip;
+    std::vector<Animation> _planets; // the selected system's, innermost first
+    Animation _sun;                  // its star, or the stellar object
 };
 
 } // namespace reluva::botf

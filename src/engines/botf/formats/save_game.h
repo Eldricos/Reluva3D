@@ -36,6 +36,11 @@ struct SavedPlanet {
     int size = 0;          // 0 small, 1 medium, 2 large
     int type = 0;          // the planet's type, a number (docs/engines/botf/formats/sav.md)
     int atmosphere = 0;    // its atmosphere, a number
+    /** Terraforming: the points it needs and those done; it's terraformed once done reaches needed. */
+    ///@{
+    int terraformNeeded = 0;
+    int terraformDone = 0;
+    ///@}
 };
 
 /** A star system: a sector's star and its planets. */
@@ -68,7 +73,7 @@ struct SavedSystem {
 
 /** A stellar object: a nebula, a black hole, a pulsar or a wormhole. */
 struct SavedStellarObject {
-    int type = 0;     // 0 black hole, 1 X-ray pulsar, 2 nebula, 10 wormhole, 11 radio pulsar
+    int type = 0;     // 0 black hole, 1 X-ray pulsar, 2 nebula, 3 neutron star, 10 wormhole, 11 radio pulsar
     std::string name; // UTF-8: "Black Hole C4", by its sector's column and row
     /** Where it's drawn on the galaxy's small map, as SavedSystem's. */
     ///@{

@@ -173,6 +173,8 @@ Error readSystems(const std::vector<uint8_t> &d, SavedGalaxy &g) {
                 planet.name.pop_back();
             planet.animation = field(d, p + 0x28, 14);
             planet.size = s16(d, p + 0x38);
+            planet.terraformNeeded = uint16_t(s16(d, p + 0x3A));
+            planet.terraformDone = uint16_t(s16(d, p + 0x3C));
             planet.type = d[p + 0x48];
             planet.atmosphere = d[p + 0x49];
             s.planets.push_back(std::move(planet));

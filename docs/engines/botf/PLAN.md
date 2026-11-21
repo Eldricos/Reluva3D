@@ -35,10 +35,10 @@ with recordings of the original filling what the data can't show.
    ([formats/sav.md](formats/sav.md)).
 9. **Screens:** the main menu's own screens are done (the options, Load
    and Save Game's lists, the Hall of Fame, Multiplayer Setup). The galaxy
-   screen's frame and map are drawn from a save
-   ([systems/galaxy-screen.md](systems/galaxy-screen.md)); next its
-   panels, then the system, empire and diplomacy screens, from their
-   layouts and recordings of the original.
+   screen's frame, map, empire's panel and selected sector's strip are
+   drawn from a save ([systems/galaxy-screen.md](systems/galaxy-screen.md));
+   next its zooming and buttons, then the system, empire and diplomacy
+   screens, from their layouts and recordings of the original.
 10. **Rules:** turn processing (production, research, growth, morale, the
     AI) and ship combat, from the data tables, documentation and
     measurements in the running game, checked against saves. By far the

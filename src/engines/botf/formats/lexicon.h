@@ -92,6 +92,21 @@ constexpr int kEngage = 658;
 constexpr int kNoEvents = 833;
 constexpr int kTotalCredits = 1361;
 constexpr int kTurn = 1370;
+// The selected sector's strip under the map; a stellar object's description
+// is the entry after its name's.
+constexpr int kBlackHole = 94;
+constexpr int kDescription = 228;
+constexpr int kGrowthRate = 425;
+constexpr int kHumans = 445;
+constexpr int kMaxPop = 626;
+constexpr int kNeutronStar = 810;
+constexpr int kOrbitals = 891;
+constexpr int kPopulation = 919;
+constexpr int kRadioPulsar = 968;
+constexpr int kSystem = 1214;
+constexpr int kUninhabited = 1388;
+constexpr int kWormHole = 1447;
+constexpr int kXRayPulsar = 1450;
 } // namespace lex
 
 } // namespace reluva::botf

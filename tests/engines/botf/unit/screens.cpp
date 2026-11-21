@@ -790,7 +790,7 @@ void testGalaxyScreen() {
     Bytes f;
     put32(f, 2);
     putWidget(f, 1, 1000, 0, 0, 800, 600, "none");
-    putWindowCounts(f, {{2, 1}, {13, 2}, {14, 1}});
+    putWindowCounts(f, {{2, 1}, {13, 3}, {14, 1}});
     putWidget(f, 2, 1004, 558, 432, 87, 24, "none");
     put32(f, 0xffffffff);
     f.push_back(0);
@@ -801,6 +801,8 @@ void testGalaxyScreen() {
     putWidget(f, 13, 1017, 249, 36, 526, 391, "none");
     put32(f, 0xffffffff);
     putWidget(f, 13, 1020, 28, 110, 196, 380, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 13, 1014, 7, 459, 786, 134, "none");
     put32(f, 0xffffffff);
     putWidget(f, 14, 1021, 63, 76, 100, 30, "none");
     for (const uint32_t v : {0U, 0U, 100U, 30U})
@@ -845,8 +847,30 @@ void testGalaxyScreen() {
     putWidget(row, 13, 1036, 15, 5, 30, 30, "none");
     put32(row, 0xffffffff);
     textBox(row, 1037, 66, 3, 125, 34);
+    // The strips under the map: a system's, its planets' place 548 wide
+    // and its text boxes, and a stellar object's, 300 wide.
+    Bytes systemStrip = layout(786, 134, {{13, 1}, {14, 4}});
+    putWidget(systemStrip, 13, 1020, 200, 18, 548, 100, "none");
+    put32(systemStrip, 0xffffffff);
+    textBox(systemStrip, 1100, 239, 0, 126, 17);
+    textBox(systemStrip, 1101, 604, 0, 126, 17);
+    textBox(systemStrip, 1102, 56, 52, 100, 68);
+    textBox(systemStrip, 1103, 111, 52, 75, 68);
+    Bytes stellarStrip = layout(786, 134, {{13, 1}, {14, 3}});
+    putWidget(stellarStrip, 13, 1020, 219, 18, 300, 100, "none");
+    put32(stellarStrip, 0xffffffff);
+    textBox(stellarStrip, 1100, 239, 0, 126, 17);
+    textBox(stellarStrip, 1101, 604, 0, 126, 17);
+    textBox(stellarStrip, 1103, 525, 18, 220, 100);
     MemoryArchive archive;
     archive.files["hmaingal.wdf"] = f;
+    archive.files["h_sysmap.wdf"] = systemStrip;
+    archive.files["h_starmp.wdf"] = stellarStrip;
+    // A white star 100 pixels square; a planet 20 square, white then
+    // black; a neutron star 300 wide and 100 high, white.
+    archive.files["s-y-.ani"] = makeAnimation(100, 100, {0x7FFF});
+    archive.files["eart.ani"] = makeAnimation(20, 20, {0x7FFF, 0});
+    archive.files["ns.ani"] = makeAnimation(300, 100, {0x7FFF});
     archive.files["hinfobox.wdf"] = info;
     archive.files["h_eicon.wdf"] = emblems;
     archive.files["hinf_tf.wdf"] = bar;
@@ -882,6 +906,17 @@ void testGalaxyScreen() {
     system("Sol", 10, 8, 52, 43, 1);
     system("Thelka", 9, 7, 47, 37, -1);
     system("Far", 2, 2, 12, 12, -1);
+    SavedPlanet earth;
+    earth.animation = "eart.ani";
+    earth.type = 6;
+    g.systems[0].planets = {earth};
+    g.systems[0].population = 310;
+    // A neutron star next to Sol.
+    SavedStellarObject neutron;
+    neutron.type = 3;
+    neutron.name = "Neutron Star K9";
+    g.stellarObjects = {neutron};
+    g.sectors[9 * 13 + 10].stellarObject = 0;
     g.sectors[8 * 13 + 10].explored = 1 << 1;
     // A task force of the Federation's away from Sol scans round it too.
     SavedTaskForce t;
@@ -959,6 +994,39 @@ void testGalaxyScreen() {
     // The task force's emblem, a pixel right of its sector's corner and one
     // above.
     CHECK(white(gx + 5 * 39 + 1, gy + 5 * 39 - 1) && !white(gx + 5 * 39, gy + 5 * 39 - 1));
+
+    // An animation's white, 5 bits a colour.
+    auto shown = [&](int x, int y) {
+        const uint8_t *p = s.row(y) + size_t(x) * 4;
+        return p[0] == 248 && p[1] == 248 && p[2] == 248;
+    };
+    // Sol's strip, from (7, 459): its star at the right end of the planets'
+    // place (207 to 755), the planet 16 pixels left of it, both in the
+    // middle of the place's height; the planet's class letter under it, M
+    // in green (Earth's needs no terraforming); the texts.
+    CHECK(shown(655, 477) && shown(754, 576) && !shown(654, 527) && !shown(755, 527));
+    CHECK(shown(619, 517) && shown(638, 536) && !shown(618, 527) && !shown(639, 527));
+    CHECK(lit(620, 537, 638, 549) && !colour(629, 545, 255, 0, 0));
+    CHECK(lit(246, 459, 290, 476) && lit(299, 459, 330, 476) && lit(611, 459, 670, 476));
+    CHECK(lit(63, 511, 140, 528) && lit(160, 511, 193, 528) && !lit(150, 545, 193, 579));
+    // The planet turns: its second frame, black, at its frame's time.
+    screen.setTime(198);
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(!shown(629, 527) && shown(700, 527));
+    // A click on the map's neutron star selects it: its strip, 300 wide in
+    // the middle of its place, with its name and description.
+    CHECK(screen.click(gx + 10 * 39 + 5, gy + 9 * 39 + 5) && (screen.selected() == std::pair{10, 9}));
+    CHECK(!screen.click(10, 10) && (screen.selected() == std::pair{10, 9}));
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(shown(226, 477) && shown(525, 576) && !shown(225, 527) && !shown(526, 527));
+    CHECK(lit(246, 459, 330, 476) && lit(611, 459, 700, 476));
+    // An empty sector has none.
+    screen.select(0, 0);
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(!lit(7, 459, 793, 476) && !shown(376, 527));
 }
 
 void testEmpireScreen() {
