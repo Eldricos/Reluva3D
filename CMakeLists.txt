@@ -51,6 +51,14 @@ option(RELUVA_BUILD_TESTS "Build unit tests" ON)
 # working on the engines: release builds for players turn them off
 # (src/common/developer.h).
 option(RELUVA_DEVELOPER_KEYS "Build in the games' debug keys and developer settings" ON)
+# Memory and undefined behaviour checks (AddressSanitizer, UBSan), for
+# hunting crashes that depend on how memory is laid out; GCC and Clang
+# only, and much slower.
+option(RELUVA_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(RELUVA_SANITIZE AND NOT MSVC)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
 if(RELUVA_BUILD_TESTS)
     enable_testing()
 endif()

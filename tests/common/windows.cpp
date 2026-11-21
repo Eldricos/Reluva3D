@@ -61,6 +61,8 @@ static void testThreads() {
     process.milliseconds = [&] { return now; };
     const uint32_t slot = process.memory().alloc(4);
     const uint32_t counter = process.memory().alloc(4);
+    // A size its rounding would wrap past 4 GB gets nothing, not a small block.
+    CHECK(process.memory().alloc(0xffffffffu) == 0 && process.memory().alloc(0xfffffff8u) == 0);
     cpu.write32(slot, process.provided("KERNEL32.dll", "Sleep"));
     auto code = [&](std::vector<uint8_t> bytes) {
         const uint32_t at = process.memory().alloc(uint32_t(bytes.size()));

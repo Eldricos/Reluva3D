@@ -13,6 +13,7 @@
 
 #include "backends/graphics/sdl3/sdl_compute.h"
 #include "backends/platform/sdl3/sdl_system.h"
+#include "common/crash_report.h"
 #include "common/config.h"
 #include "common/log.h"
 #include "common/settings.h"
@@ -85,6 +86,8 @@ int main(int argc, char **argv) {
         return listViewers();
 
     StderrLog log(dataDir() / "reluva-viewer.log");
+    // Where it was, if it crashes.
+    installCrashReport(dataDir() / "reluva-viewer-crash.txt");
     SDL_SetLogOutputFunction(
         [](void *, int, SDL_LogPriority, const char *message) { std::fprintf(stderr, "%s\n", message); }, nullptr);
 

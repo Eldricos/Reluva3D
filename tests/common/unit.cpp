@@ -15,6 +15,7 @@
 #include "image/bmp.h"
 #include "common/bytes.h"
 #include "common/config.h"
+#include "common/crash_report.h"
 #include "common/cue.h"
 #include "graphics/cursor.h"
 #include "common/dcl.h"
@@ -49,11 +50,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <csignal>
 #include <cstring>
 #include <cstdio>
 #include <memory>
 #include <fstream>
+#include <iterator>
 #include <string>
+
+#ifndef _WIN32
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 using namespace reluva;
 
@@ -145,6 +153,30 @@ static void testUtf16() {
     const uint16_t lone[] = {0xd800, 'x'};
     CHECK(text::utf16leToUtf8(lone, 2) == "\xef\xbf\xbdx");
     CHECK(text::utf16leToUtf8(nullptr, 0).empty());
+}
+
+static void testCrashReport(const std::filesystem::path &tmp) {
+#if !defined(_WIN32) && !defined(__SANITIZE_ADDRESS__)
+    // A child that crashes on purpose leaves its report: the signal, and
+    // where it was.
+    std::filesystem::create_directories(tmp);
+    const std::filesystem::path report = tmp / "crash.txt";
+    std::filesystem::remove(report);
+    const pid_t child = fork();
+    if (child == 0) {
+        reluva::installCrashReport(report);
+        std::raise(SIGSEGV);
+        _exit(0);
+    }
+    int status = 0;
+    waitpid(child, &status, 0);
+    CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV);
+    std::ifstream in(report);
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(text.rfind("Reluva crashed: signal 0xb", 0) == 0 && text.find("Called from") != std::string::npos);
+#else
+    (void)tmp;
+#endif
 }
 
 static void testWindows1252() {
@@ -1256,6 +1288,7 @@ static const reluva::test::Suite
     kTextSuite("common.unit.text", {
                                        {"utf16", [](const std::filesystem::path &) { testUtf16(); }},
                                        {"windows-1252", [](const std::filesystem::path &) { testWindows1252(); }},
+                                       {"crash report", [](const std::filesystem::path &tmp) { testCrashReport(tmp); }},
                                        {"font", [](const std::filesystem::path &) { testFont(); }},
                                        {"strings", [](const std::filesystem::path &) { testTextHelpers(); }},
                                    });

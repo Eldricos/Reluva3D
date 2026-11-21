@@ -125,6 +125,9 @@ uint32_t SpGameHost::vectorGrow(uint32_t vector, uint32_t elementSize, uint32_t 
     const uint32_t capacity = first ? (_cpu->read32(vector + kEnd) - first) / elementSize : 0;
     if (count > capacity) {
         const uint32_t room = std::max(count, capacity * 2);
+        // (A size past 4 GB, from records gone bad, gets none.)
+        if (uint64_t(room) * elementSize > 0xffffffffu)
+            return 0;
         const uint32_t buffer = _process->memory().alloc(room * elementSize);
         if (!buffer)
             return 0;

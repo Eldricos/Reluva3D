@@ -17,6 +17,15 @@ Notes for developers. Building and running are covered in the
   launcher's *Developer:* settings (`src/common/developer.h`). They're on
   by default, for working on the engines and for the tests. The data
   viewer is never in `reluva` either way ([below](#the-data-viewer)).
+- **Hunting a crash:** `-DRELUVA_SANITIZE=ON` (GCC and Clang) builds with
+  AddressSanitizer and UndefinedBehaviorSanitizer, which stop at a bad
+  memory access or undefined behaviour and say where, even one that
+  wouldn't have crashed; use its own folder (`build-asan`), as it runs
+  several times slower. Without it, `reluva` and `reluva-viewer` write
+  where they were when they crash to `reluva-crash.txt` or
+  `reluva-viewer-crash.txt` in Reluva's data folder (beside its log), and
+  on Windows a minidump beside it (`.dmp`) that Visual Studio opens with
+  the program's `.pdb` (`src/common/crash_report.h`).
 - **SDL and Dear ImGui** are fetched and built by CMake. The first configure
   needs internet access and takes a few minutes; later ones reuse them.
   `-DRELUVA_USE_SYSTEM_SDL=ON` uses an installed SDL3 instead, found through

@@ -3,6 +3,7 @@
 
 #include "backends/graphics/sdl3/sdl_compute.h"
 #include "backends/platform/sdl3/sdl_system.h"
+#include "common/crash_report.h"
 #include "common/config.h"
 #include "common/detection.h"
 #include "common/fs.h"
@@ -83,6 +84,8 @@ int main(int argc, char **argv) {
     // A copy of every message in a file, for when there's no console to see
     // them in (or it closed with the program); SDL's log goes there too.
     StderrLog log(dataDir() / "reluva.log");
+    // Where it was, if it crashes.
+    installCrashReport(dataDir() / "reluva-crash.txt");
     SDL_SetLogOutputFunction(
         [](void *, int, SDL_LogPriority, const char *message) { std::fprintf(stderr, "%s\n", message); }, nullptr);
 

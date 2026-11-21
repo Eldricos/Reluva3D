@@ -8,6 +8,7 @@
 add_library(reluva_common STATIC
     archive.cpp
     config.cpp
+    crash_report.cpp
     cue.cpp
     dcl.cpp
     detection.cpp
@@ -26,6 +27,10 @@ add_library(reluva_common STATIC
     zip.cpp)
 target_include_directories(reluva_common PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(reluva_common PRIVATE reluva_warnings)
+# The crash report's minidump (crash_report.cpp).
+if(WIN32)
+    target_link_libraries(reluva_common PRIVATE dbghelp)
+endif()
 # stb_image (third_party/, see its README) as a system include, so our
 # warnings don't apply to it: stb_image.cpp builds it, zip.cpp uses its
 # inflate.

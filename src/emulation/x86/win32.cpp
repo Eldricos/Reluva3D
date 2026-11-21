@@ -86,6 +86,10 @@ void Arena::release(uint32_t start, uint32_t size) {
 uint32_t Arena::alloc(uint32_t size, uint32_t align) {
     if (!size)
         size = 1;
+    // A size the rounding would wrap past 4 GB can't be had: none, rather
+    // than a small block the caller then writes the whole size into.
+    if (size > 0xfffffff0u)
+        return 0;
     size = (size + 15) & ~15u;
     if (align < 16)
         align = 16;
